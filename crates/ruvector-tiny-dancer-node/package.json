@@ -1,6 +1,6 @@
 {
   "name": "ruvector-tiny-dancer-node",
-  "version": "0.1.15",
+  "version": "0.1.16",
   "description": "Node.js bindings for Tiny Dancer neural routing via NAPI-RS",
   "main": "index.js",
   "types": "index.d.ts",

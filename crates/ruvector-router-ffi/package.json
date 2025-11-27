@@ -1,6 +1,6 @@
 {
   "name": "ruvector-router-ffi",
-  "version": "0.1.15",
+  "version": "0.1.16",
   "description": "Node.js NAPI-RS bindings for RuVector semantic router",
   "main": "index.js",
   "types": "index.d.ts",

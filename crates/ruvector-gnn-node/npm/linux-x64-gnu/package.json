@@ -1,12 +1,23 @@
 {
   "name": "@ruvector/gnn-linux-x64-gnu",
-  "version": "0.1.15",
-  "os": ["linux"],
-  "cpu": ["x64"],
+  "version": "0.1.16",
+  "os": [
+    "linux"
+  ],
+  "cpu": [
+    "x64"
+  ],
   "main": "ruvector-gnn.linux-x64-gnu.node",
-  "files": ["ruvector-gnn.linux-x64-gnu.node"],
+  "files": [
+    "ruvector-gnn.linux-x64-gnu.node"
+  ],
   "description": "Graph Neural Network capabilities for Ruvector - linux-x64-gnu platform",
-  "keywords": ["ruvector", "gnn", "graph-neural-network", "napi-rs"],
+  "keywords": [
+    "ruvector",
+    "gnn",
+    "graph-neural-network",
+    "napi-rs"
+  ],
   "author": "Ruvector Team",
   "license": "MIT",
   "repository": {
@@ -20,5 +31,7 @@
     "registry": "https://registry.npmjs.org/",
     "access": "public"
   },
-  "libc": ["glibc"]
+  "libc": [
+    "glibc"
+  ]
 }
