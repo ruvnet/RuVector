@@ -1,0 +1,24 @@
+[package]
+name = "exo-hypergraph"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Hypergraph substrate for higher-order relational reasoning"
+
+[dependencies]
+exo-core = { path = "../exo-core" }
+
+# Core dependencies
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+uuid = { workspace = true }
+dashmap = { workspace = true }
+
+# Graph and topology
+petgraph = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["test-util"] }

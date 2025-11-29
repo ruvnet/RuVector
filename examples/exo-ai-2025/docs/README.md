@@ -252,6 +252,57 @@ Local-to-global consistency framework. Neural sheaf diffusion learns sheaf struc
 
 ---
 
+## Documentation
+
+### API Reference
+- **[API.md](./API.md)** - Comprehensive API documentation for all crates
+- **[EXAMPLES.md](./EXAMPLES.md)** - Practical usage examples and code samples
+- **[TEST_STRATEGY.md](./TEST_STRATEGY.md)** - Testing approach and methodology
+- **[INTEGRATION_TEST_GUIDE.md](./INTEGRATION_TEST_GUIDE.md)** - Integration testing guide
+- **[PERFORMANCE_BASELINE.md](./PERFORMANCE_BASELINE.md)** - Performance benchmarks
+
+### Quick Start
+
+```rust
+use exo_manifold::{ManifoldEngine, ManifoldConfig};
+use exo_core::Pattern;
+use burn::backend::NdArray;
+
+// Create manifold engine
+let config = ManifoldConfig::default();
+let mut engine = ManifoldEngine::<NdArray>::new(config, Default::default());
+
+// Store pattern via continuous deformation
+let pattern = Pattern::new(vec![1.0, 2.0, 3.0], metadata);
+engine.deform(pattern, 0.95)?;
+
+// Retrieve via gradient descent
+let results = engine.retrieve(&query_embedding, 10)?;
+```
+
+### WASM (Browser)
+
+```javascript
+import init, { ExoSubstrate } from 'exo-wasm';
+
+await init();
+const substrate = new ExoSubstrate({ dimensions: 384 });
+const id = substrate.store(pattern);
+const results = await substrate.query(embedding, 10);
+```
+
+### Node.js
+
+```typescript
+import { ExoSubstrateNode } from 'exo-node';
+
+const substrate = new ExoSubstrateNode({ dimensions: 384 });
+const id = await substrate.store({ embedding, metadata });
+const results = await substrate.search(embedding, 10);
+```
+
+---
+
 ## Next Steps
 
 1. **Prototype Classical Backend**: Implement backend traits consuming ruvector SDK
@@ -266,6 +317,37 @@ Local-to-global consistency framework. Neural sheaf diffusion learns sheaf struc
 
 Full paper catalog: `research/PAPERS.md` (75+ papers across 12 categories)
 Rust library assessment: `research/RUST_LIBRARIES.md` (50+ crates evaluated)
+
+**API Documentation**: See [API.md](./API.md) for complete API reference
+**Usage Examples**: See [EXAMPLES.md](./EXAMPLES.md) for code samples
+
+---
+
+## Production Validation (2025-11-29)
+
+**Current Build Status**: ⚠️ PARTIAL - 4/8 crates compile successfully
+
+### Validation Documents
+
+- **[VALIDATION_SUMMARY.md](./VALIDATION_SUMMARY.md)** - Quick status overview and immediate action items
+- **[VALIDATION_REPORT.md](./VALIDATION_REPORT.md)** - Comprehensive error analysis and detailed findings
+- **[BUILD.md](./BUILD.md)** - Build instructions, known issues, and troubleshooting
+
+### Status Overview
+
+| Crate | Status | Notes |
+|-------|--------|-------|
+| exo-core | ✅ PASS | Core substrate implementation |
+| exo-hypergraph | ✅ PASS | Hypergraph data structures |
+| exo-federation | ✅ PASS | P2P federation protocol |
+| exo-wasm | ✅ PASS | WebAssembly bindings |
+| exo-backend-classical | ❌ FAIL | 39 API compatibility errors |
+| exo-temporal | ❌ FAIL | 7 API compatibility errors |
+| exo-node | ❌ FAIL | 6 API compatibility errors |
+| exo-manifold | ❌ FAIL | burn-core bincode dependency issue |
+
+**Total Compilation Errors**: 53
+**Required Action**: See [VALIDATION_SUMMARY.md](./VALIDATION_SUMMARY.md) for critical path to green build
 
 ---
 
