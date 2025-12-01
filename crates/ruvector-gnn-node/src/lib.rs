@@ -64,39 +64,37 @@ impl RuvectorLayer {
     /// Forward pass through the GNN layer
     ///
     /// # Arguments
-    /// * `node_embedding` - Current node's embedding
-    /// * `neighbor_embeddings` - Embeddings of neighbor nodes
-    /// * `edge_weights` - Weights of edges to neighbors
+    /// * `node_embedding` - Current node's embedding (Float32Array)
+    /// * `neighbor_embeddings` - Embeddings of neighbor nodes (Array of Float32Array)
+    /// * `edge_weights` - Weights of edges to neighbors (Float32Array)
     ///
     /// # Returns
-    /// Updated node embedding
+    /// Updated node embedding as Float32Array
     ///
     /// # Example
     /// ```javascript
-    /// const node = [1.0, 2.0, 3.0, 4.0];
-    /// const neighbors = [[0.5, 1.0, 1.5, 2.0], [2.0, 3.0, 4.0, 5.0]];
-    /// const weights = [0.3, 0.7];
+    /// const node = new Float32Array([1.0, 2.0, 3.0, 4.0]);
+    /// const neighbors = [new Float32Array([0.5, 1.0, 1.5, 2.0]), new Float32Array([2.0, 3.0, 4.0, 5.0])];
+    /// const weights = new Float32Array([0.3, 0.7]);
     /// const output = layer.forward(node, neighbors, weights);
     /// ```
     #[napi]
     pub fn forward(
         &self,
-        node_embedding: Vec<f64>,
-        neighbor_embeddings: Vec<Vec<f64>>,
-        edge_weights: Vec<f64>,
-    ) -> Result<Vec<f64>> {
-        // Convert f64 to f32
-        let node_f32: Vec<f32> = node_embedding.iter().map(|&x| x as f32).collect();
-        let neighbors_f32: Vec<Vec<f32>> = neighbor_embeddings
-            .iter()
-            .map(|v| v.iter().map(|&x| x as f32).collect())
+        node_embedding: Float32Array,
+        neighbor_embeddings: Vec<Float32Array>,
+        edge_weights: Float32Array,
+    ) -> Result<Float32Array> {
+        let node_slice = node_embedding.as_ref();
+        let neighbors_vec: Vec<Vec<f32>> = neighbor_embeddings
+            .into_iter()
+            .map(|arr| arr.to_vec())
             .collect();
-        let weights_f32: Vec<f32> = edge_weights.iter().map(|&x| x as f32).collect();
+        let weights_slice = edge_weights.as_ref();
 
-        let result = self.inner.forward(&node_f32, &neighbors_f32, &weights_f32);
+        let result = self.inner.forward(node_slice, &neighbors_vec, weights_slice);
 
-        // Convert back to f64
-        Ok(result.iter().map(|&x| x as f64).collect())
+        Ok(Float32Array::new(result))
     }
 
     /// Serialize the layer to JSON
@@ -192,7 +190,7 @@ impl TensorCompress {
     /// Compress an embedding based on access frequency
     ///
     /// # Arguments
-    /// * `embedding` - The input embedding vector
+    /// * `embedding` - The input embedding vector (Float32Array)
     /// * `access_freq` - Access frequency in range [0.0, 1.0]
     ///
     /// # Returns
@@ -200,16 +198,16 @@ impl TensorCompress {
     ///
     /// # Example
     /// ```javascript
-    /// const embedding = [1.0, 2.0, 3.0, 4.0];
+    /// const embedding = new Float32Array([1.0, 2.0, 3.0, 4.0]);
     /// const compressed = compressor.compress(embedding, 0.5);
     /// ```
     #[napi]
-    pub fn compress(&self, embedding: Vec<f64>, access_freq: f64) -> Result<String> {
-        let embedding_f32: Vec<f32> = embedding.iter().map(|&x| x as f32).collect();
+    pub fn compress(&self, embedding: Float32Array, access_freq: f64) -> Result<String> {
+        let embedding_slice = embedding.as_ref();
 
         let compressed = self
             .inner
-            .compress(&embedding_f32, access_freq as f32)
+            .compress(embedding_slice, access_freq as f32)
             .map_err(|e| Error::new(Status::GenericFailure, format!("Compression error: {}", e)))?;
 
         serde_json::to_string(&compressed).map_err(|e| {
@@ -223,7 +221,7 @@ impl TensorCompress {
     /// Compress with explicit compression level
     ///
     /// # Arguments
-    /// * `embedding` - The input embedding vector
+    /// * `embedding` - The input embedding vector (Float32Array)
     /// * `level` - Compression level configuration
     ///
     /// # Returns
@@ -231,22 +229,22 @@ impl TensorCompress {
     ///
     /// # Example
     /// ```javascript
-    /// const embedding = [1.0, 2.0, 3.0, 4.0];
+    /// const embedding = new Float32Array([1.0, 2.0, 3.0, 4.0]);
     /// const level = { level_type: "half", scale: 1.0 };
     /// const compressed = compressor.compressWithLevel(embedding, level);
     /// ```
     #[napi]
     pub fn compress_with_level(
         &self,
-        embedding: Vec<f64>,
+        embedding: Float32Array,
         level: CompressionLevelConfig,
     ) -> Result<String> {
-        let embedding_f32: Vec<f32> = embedding.iter().map(|&x| x as f32).collect();
+        let embedding_slice = embedding.as_ref();
         let rust_level = level.to_rust()?;
 
         let compressed = self
             .inner
-            .compress_with_level(&embedding_f32, &rust_level)
+            .compress_with_level(embedding_slice, &rust_level)
             .map_err(|e| Error::new(Status::GenericFailure, format!("Compression error: {}", e)))?;
 
         serde_json::to_string(&compressed).map_err(|e| {
@@ -263,14 +261,14 @@ impl TensorCompress {
     /// * `compressed_json` - Compressed tensor as JSON string
     ///
     /// # Returns
-    /// Decompressed embedding vector
+    /// Decompressed embedding vector as Float32Array
     ///
     /// # Example
     /// ```javascript
     /// const decompressed = compressor.decompress(compressed);
     /// ```
     #[napi]
-    pub fn decompress(&self, compressed_json: String) -> Result<Vec<f64>> {
+    pub fn decompress(&self, compressed_json: String) -> Result<Float32Array> {
         let compressed: RustCompressedTensor =
             serde_json::from_str(&compressed_json).map_err(|e| {
                 Error::new(
@@ -286,7 +284,7 @@ impl TensorCompress {
             )
         })?;
 
-        Ok(result.iter().map(|&x| x as f64).collect())
+        Ok(Float32Array::new(result))
     }
 }
 
@@ -304,8 +302,8 @@ pub struct SearchResult {
 /// Differentiable search using soft attention mechanism
 ///
 /// # Arguments
-/// * `query` - The query vector
-/// * `candidate_embeddings` - List of candidate embedding vectors
+/// * `query` - The query vector (Float32Array)
+/// * `candidate_embeddings` - List of candidate embedding vectors (Array of Float32Array)
 /// * `k` - Number of top results to return
 /// * `temperature` - Temperature for softmax (lower = sharper, higher = smoother)
 ///
@@ -314,27 +312,27 @@ pub struct SearchResult {
 ///
 /// # Example
 /// ```javascript
-/// const query = [1.0, 0.0, 0.0];
-/// const candidates = [[1.0, 0.0, 0.0], [0.9, 0.1, 0.0], [0.0, 1.0, 0.0]];
+/// const query = new Float32Array([1.0, 0.0, 0.0]);
+/// const candidates = [new Float32Array([1.0, 0.0, 0.0]), new Float32Array([0.9, 0.1, 0.0]), new Float32Array([0.0, 1.0, 0.0])];
 /// const result = differentiableSearch(query, candidates, 2, 1.0);
 /// console.log(result.indices); // [0, 1]
 /// console.log(result.weights); // [0.x, 0.y]
 /// ```
 #[napi]
 pub fn differentiable_search(
-    query: Vec<f64>,
-    candidate_embeddings: Vec<Vec<f64>>,
+    query: Float32Array,
+    candidate_embeddings: Vec<Float32Array>,
     k: u32,
     temperature: f64,
 ) -> Result<SearchResult> {
-    let query_f32: Vec<f32> = query.iter().map(|&x| x as f32).collect();
-    let candidates_f32: Vec<Vec<f32>> = candidate_embeddings
-        .iter()
-        .map(|v| v.iter().map(|&x| x as f32).collect())
+    let query_slice = query.as_ref();
+    let candidates_vec: Vec<Vec<f32>> = candidate_embeddings
+        .into_iter()
+        .map(|arr| arr.to_vec())
         .collect();
 
     let (indices, weights) =
-        rust_differentiable_search(&query_f32, &candidates_f32, k as usize, temperature as f32);
+        rust_differentiable_search(query_slice, &candidates_vec, k as usize, temperature as f32);
 
     Ok(SearchResult {
         indices: indices.iter().map(|&i| i as u32).collect(),
@@ -345,35 +343,35 @@ pub fn differentiable_search(
 /// Hierarchical forward pass through GNN layers
 ///
 /// # Arguments
-/// * `query` - The query vector
-/// * `layer_embeddings` - Embeddings organized by layer
+/// * `query` - The query vector (Float32Array)
+/// * `layer_embeddings` - Embeddings organized by layer (Array of Array of Float32Array)
 /// * `gnn_layers_json` - JSON array of serialized GNN layers
 ///
 /// # Returns
-/// Final embedding after hierarchical processing
+/// Final embedding after hierarchical processing as Float32Array
 ///
 /// # Example
 /// ```javascript
-/// const query = [1.0, 0.0];
-/// const layerEmbeddings = [[[1.0, 0.0], [0.0, 1.0]]];
+/// const query = new Float32Array([1.0, 0.0]);
+/// const layerEmbeddings = [[new Float32Array([1.0, 0.0]), new Float32Array([0.0, 1.0])]];
 /// const layer1 = new RuvectorLayer(2, 2, 1, 0.0);
 /// const layers = [layer1.toJson()];
 /// const result = hierarchicalForward(query, layerEmbeddings, layers);
 /// ```
 #[napi]
 pub fn hierarchical_forward(
-    query: Vec<f64>,
-    layer_embeddings: Vec<Vec<Vec<f64>>>,
+    query: Float32Array,
+    layer_embeddings: Vec<Vec<Float32Array>>,
     gnn_layers_json: Vec<String>,
-) -> Result<Vec<f64>> {
-    let query_f32: Vec<f32> = query.iter().map(|&x| x as f32).collect();
+) -> Result<Float32Array> {
+    let query_slice = query.as_ref();
 
     let embeddings_f32: Vec<Vec<Vec<f32>>> = layer_embeddings
-        .iter()
+        .into_iter()
         .map(|layer| {
             layer
-                .iter()
-                .map(|v| v.iter().map(|&x| x as f32).collect())
+                .into_iter()
+                .map(|arr| arr.to_vec())
                 .collect()
         })
         .collect();
@@ -390,9 +388,9 @@ pub fn hierarchical_forward(
         })
         .collect::<Result<Vec<_>>>()?;
 
-    let result = rust_hierarchical_forward(&query_f32, &embeddings_f32, &gnn_layers);
+    let result = rust_hierarchical_forward(query_slice, &embeddings_f32, &gnn_layers);
 
-    Ok(result.iter().map(|&x| x as f64).collect())
+    Ok(Float32Array::new(result))
 }
 
 // ==================== Helper Functions ====================

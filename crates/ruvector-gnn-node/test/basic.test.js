@@ -25,20 +25,20 @@ test('RuvectorLayer creation', () => {
 
 test('RuvectorLayer forward pass', () => {
   const layer = new RuvectorLayer(4, 8, 2, 0.1);
-  const node = [1.0, 2.0, 3.0, 4.0];
-  const neighbors = [[0.5, 1.0, 1.5, 2.0], [2.0, 3.0, 4.0, 5.0]];
-  const weights = [0.3, 0.7];
+  const node = new Float32Array([1.0, 2.0, 3.0, 4.0]);
+  const neighbors = [new Float32Array([0.5, 1.0, 1.5, 2.0]), new Float32Array([2.0, 3.0, 4.0, 5.0])];
+  const weights = new Float32Array([0.3, 0.7]);
 
   const output = layer.forward(node, neighbors, weights);
   assert.strictEqual(output.length, 8);
-  assert.ok(output.every(x => typeof x === 'number'));
+  assert.ok(output instanceof Float32Array);
 });
 
 test('RuvectorLayer forward with no neighbors', () => {
   const layer = new RuvectorLayer(4, 8, 2, 0.1);
-  const node = [1.0, 2.0, 3.0, 4.0];
+  const node = new Float32Array([1.0, 2.0, 3.0, 4.0]);
   const neighbors = [];
-  const weights = [];
+  const weights = new Float32Array([]);
 
   const output = layer.forward(node, neighbors, weights);
   assert.strictEqual(output.length, 8);
@@ -59,17 +59,17 @@ test('RuvectorLayer deserialization', () => {
   assert.ok(layer2 instanceof RuvectorLayer);
 
   // Test that they produce same output
-  const node = [1.0, 2.0, 3.0, 4.0];
-  const neighbors = [[0.5, 1.0, 1.5, 2.0]];
-  const weights = [1.0];
+  const node = new Float32Array([1.0, 2.0, 3.0, 4.0]);
+  const neighbors = [new Float32Array([0.5, 1.0, 1.5, 2.0])];
+  const weights = new Float32Array([1.0]);
 
   const output1 = layer1.forward(node, neighbors, weights);
   const output2 = layer2.forward(node, neighbors, weights);
 
   assert.strictEqual(output1.length, output2.length);
-  output1.forEach((val, i) => {
-    assert.ok(Math.abs(val - output2[i]) < 1e-6);
-  });
+  for (let i = 0; i < output1.length; i++) {
+    assert.ok(Math.abs(output1[i] - output2[i]) < 1e-6);
+  }
 });
 
 test('TensorCompress creation', () => {
@@ -79,7 +79,7 @@ test('TensorCompress creation', () => {
 
 test('TensorCompress adaptive compression', () => {
   const compressor = new TensorCompress();
-  const embedding = [1.0, 2.0, 3.0, 4.0];
+  const embedding = new Float32Array([1.0, 2.0, 3.0, 4.0]);
 
   const compressed = compressor.compress(embedding, 0.5);
   assert.strictEqual(typeof compressed, 'string');
@@ -88,20 +88,21 @@ test('TensorCompress adaptive compression', () => {
 
 test('TensorCompress round-trip', () => {
   const compressor = new TensorCompress();
-  const embedding = [1.0, 2.0, 3.0, 4.0];
+  const embedding = new Float32Array([1.0, 2.0, 3.0, 4.0]);
 
   const compressed = compressor.compress(embedding, 1.0); // No compression
   const decompressed = compressor.decompress(compressed);
 
   assert.strictEqual(decompressed.length, embedding.length);
-  decompressed.forEach((val, i) => {
-    assert.ok(Math.abs(val - embedding[i]) < 1e-6);
-  });
+  assert.ok(decompressed instanceof Float32Array);
+  for (let i = 0; i < decompressed.length; i++) {
+    assert.ok(Math.abs(decompressed[i] - embedding[i]) < 1e-6);
+  }
 });
 
 test('TensorCompress with explicit level', () => {
   const compressor = new TensorCompress();
-  const embedding = Array.from({ length: 64 }, (_, i) => i * 0.1);
+  const embedding = new Float32Array(Array.from({ length: 64 }, (_, i) => i * 0.1));
 
   const level = {
     level_type: 'half',
@@ -123,11 +124,11 @@ test('getCompressionLevel', () => {
 });
 
 test('differentiableSearch', () => {
-  const query = [1.0, 0.0, 0.0];
+  const query = new Float32Array([1.0, 0.0, 0.0]);
   const candidates = [
-    [1.0, 0.0, 0.0],
-    [0.9, 0.1, 0.0],
-    [0.0, 1.0, 0.0],
+    new Float32Array([1.0, 0.0, 0.0]),
+    new Float32Array([0.9, 0.1, 0.0]),
+    new Float32Array([0.0, 1.0, 0.0]),
   ];
 
   const result = differentiableSearch(query, candidates, 2, 1.0);
@@ -147,7 +148,7 @@ test('differentiableSearch', () => {
 });
 
 test('differentiableSearch with empty candidates', () => {
-  const query = [1.0, 0.0, 0.0];
+  const query = new Float32Array([1.0, 0.0, 0.0]);
   const candidates = [];
 
   const result = differentiableSearch(query, candidates, 2, 1.0);
@@ -157,9 +158,9 @@ test('differentiableSearch with empty candidates', () => {
 });
 
 test('hierarchicalForward', () => {
-  const query = [1.0, 0.0];
+  const query = new Float32Array([1.0, 0.0]);
   const layerEmbeddings = [
-    [[1.0, 0.0], [0.0, 1.0]],
+    [new Float32Array([1.0, 0.0]), new Float32Array([0.0, 1.0])],
   ];
 
   const layer = new RuvectorLayer(2, 2, 1, 0.0);
@@ -167,9 +168,8 @@ test('hierarchicalForward', () => {
 
   const result = hierarchicalForward(query, layerEmbeddings, layers);
 
-  assert.ok(Array.isArray(result));
+  assert.ok(result instanceof Float32Array);
   assert.strictEqual(result.length, 2);
-  assert.ok(result.every(x => typeof x === 'number'));
 });
 
 test('invalid dropout rate throws error', () => {
@@ -185,13 +185,13 @@ test('invalid dropout rate throws error', () => {
 test('compression with empty embedding throws error', () => {
   const compressor = new TensorCompress();
   assert.throws(() => {
-    compressor.compress([], 0.5);
+    compressor.compress(new Float32Array([]), 0.5);
   });
 });
 
 test('compression levels produce different sizes', () => {
   const compressor = new TensorCompress();
-  const embedding = Array.from({ length: 64 }, (_, i) => Math.sin(i * 0.1));
+  const embedding = new Float32Array(Array.from({ length: 64 }, (_, i) => Math.sin(i * 0.1)));
 
   const none = compressor.compress(embedding, 1.0);    // No compression
   const half = compressor.compress(embedding, 0.5);    // Half precision
