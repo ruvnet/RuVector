@@ -24,17 +24,6 @@ EXO-AI 2025 is a comprehensive cognitive substrate implementing cutting-edge the
 
 Traditional AI systems process information. EXO-AI aims to understand it — implementing theories of consciousness (IIT), memory consolidation, free energy minimization, and emergence detection. This isn't just another neural network framework; it's a platform for exploring the computational basis of mind.
 
-### Key Achievements
-
-| Metric | Value |
-|--------|-------|
-| Total Crates | 9 |
-| Lines of Code | 15,800+ |
-| Unit Tests | 209+ |
-| Test Pass Rate | 100% |
-| Theoretical Frameworks | 25+ |
-| Exotic Experiments | 10 |
-
 ## Crates
 
 | Crate | Description | Docs |

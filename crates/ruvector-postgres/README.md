@@ -14,60 +14,6 @@ A drop-in replacement for pgvector, built in Rust with SIMD-optimized distance c
 - **Zero-Copy Operations** - Direct memory access for minimal overhead
 - **Neon Compatible** - Designed for serverless PostgreSQL environments
 
-## Quick Start
-
-### Installation
-
-**Option 1: Quick Install Script**
-
-```bash
-# Auto-detects platform and installs dependencies
-curl -sSL https://raw.githubusercontent.com/ruvnet/ruvector/main/crates/ruvector-postgres/install/quick-start.sh | bash
-```
-
-**Option 2: Full Installation**
-
-```bash
-# Clone repository
-git clone https://github.com/ruvnet/ruvector.git
-cd ruvector/crates/ruvector-postgres
-
-# Install with auto-detection
-./install/install.sh --build-from-source
-
-# Or specify PostgreSQL version
-./install/install.sh --build-from-source --pg-version 16
-```
-
-See [install/install.sh](install/install.sh) for all options including `--dry-run`, `--verbose`, and platform-specific configurations.
-
-### Basic Usage
-
-```sql
--- Create the extension
-CREATE EXTENSION ruvector;
-
--- Create a table with vector column
-CREATE TABLE documents (
-    id SERIAL PRIMARY KEY,
-    content TEXT,
-    embedding ruvector(1536)  -- OpenAI ada-002 dimensions
-);
-
--- Insert vectors
-INSERT INTO documents (content, embedding) VALUES
-    ('First document', '[0.1, 0.2, 0.3, ...]'),
-    ('Second document', '[0.4, 0.5, 0.6, ...]');
-
--- Create an HNSW index for fast similarity search
-CREATE INDEX ON documents USING ruhnsw (embedding ruvector_l2_ops);
-
--- Find similar documents
-SELECT content, embedding <-> '[0.15, 0.25, 0.35, ...]'::ruvector AS distance
-FROM documents
-ORDER BY distance
-LIMIT 10;
-```
 
 ## Comparison with pgvector
 
@@ -103,6 +49,64 @@ LIMIT 10;
 |-----------|------|------------|
 | Sequential | 3.8 ms | 2.6M distances/sec |
 | Parallel (16 cores) | 0.28 ms | 35.7M distances/sec |
+
+
+## Quick Start
+
+### Installation
+
+**Option 1: Quick Install Script**
+
+```bash
+# Auto-detects platform and installs dependencies
+curl -sSL https://raw.githubusercontent.com/ruvnet/ruvector/main/crates/ruvector-postgres/install/quick-start.sh | bash
+```
+
+**Option 2: Full Installation**
+
+```bash
+# Clone repository
+git clone https://github.com/ruvnet/ruvector.git
+cd ruvector/crates/ruvector-postgres
+
+# Install with auto-detection
+./install/install.sh --build-from-source
+
+# Or specify PostgreSQL version
+./install/install.sh --build-from-source --pg-version 16
+```
+
+See [install/install.sh](install/install.sh) for all options including `--dry-run`, `--verbose`, and platform-specific configurations.
+
+
+
+### Basic Usage
+
+```sql
+-- Create the extension
+CREATE EXTENSION ruvector;
+
+-- Create a table with vector column
+CREATE TABLE documents (
+    id SERIAL PRIMARY KEY,
+    content TEXT,
+    embedding ruvector(1536)  -- OpenAI ada-002 dimensions
+);
+
+-- Insert vectors
+INSERT INTO documents (content, embedding) VALUES
+    ('First document', '[0.1, 0.2, 0.3, ...]'),
+    ('Second document', '[0.4, 0.5, 0.6, ...]');
+
+-- Create an HNSW index for fast similarity search
+CREATE INDEX ON documents USING ruhnsw (embedding ruvector_l2_ops);
+
+-- Find similar documents
+SELECT content, embedding <-> '[0.15, 0.25, 0.35, ...]'::ruvector AS distance
+FROM documents
+ORDER BY distance
+LIMIT 10;
+```
 
 ## Vector Types
 
