@@ -296,9 +296,9 @@ RETURN related
 
 | Topic | Link |
 |-------|------|
-| Getting Started | [docs/guide/GETTING_STARTED.md](./docs/guide/GETTING_STARTED.md) |
+| Getting Started | [docs/guides/GETTING_STARTED.md](./docs/guides/GETTING_STARTED.md) |
 | Cypher Reference | [docs/api/CYPHER_REFERENCE.md](./docs/api/CYPHER_REFERENCE.md) |
-| GNN Architecture | [docs/gnn-layer-implementation.md](./docs/gnn-layer-implementation.md) |
+| GNN Architecture | [docs/gnn/gnn-layer-implementation.md](./docs/gnn/gnn-layer-implementation.md) |
 | Node.js API | [crates/ruvector-gnn-node/README.md](./crates/ruvector-gnn-node/README.md) |
 | WASM API | [crates/ruvector-gnn-wasm/README.md](./crates/ruvector-gnn-wasm/README.md) |
 | Performance Tuning | [docs/optimization/PERFORMANCE_TUNING_GUIDE.md](./docs/optimization/PERFORMANCE_TUNING_GUIDE.md) |
