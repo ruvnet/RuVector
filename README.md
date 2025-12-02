@@ -350,7 +350,9 @@ All crates are published to [crates.io](https://crates.io) under the `ruvector-*
 | Crate | Description | crates.io |
 |-------|-------------|-----------|
 | [ruvector-attention](./crates/ruvector-attention) | 39 attention mechanisms (Flash, Hyperbolic, MoE, Graph) | [![crates.io](https://img.shields.io/crates/v/ruvector-attention.svg)](https://crates.io/crates/ruvector-attention) |
+| [ruvector-attention-node](./crates/ruvector-attention-node) | Node.js bindings for attention mechanisms | [![crates.io](https://img.shields.io/crates/v/ruvector-attention-node.svg)](https://crates.io/crates/ruvector-attention-node) |
 | [ruvector-attention-wasm](./crates/ruvector-attention-wasm) | WASM bindings for browser attention | [![crates.io](https://img.shields.io/crates/v/ruvector-attention-wasm.svg)](https://crates.io/crates/ruvector-attention-wasm) |
+| [ruvector-attention-cli](./crates/ruvector-attention-cli) | CLI for attention testing and benchmarking | [![crates.io](https://img.shields.io/crates/v/ruvector-attention-cli.svg)](https://crates.io/crates/ruvector-attention-cli) |
 
 ### Distributed Systems
 
@@ -376,6 +378,22 @@ All crates are published to [crates.io](https://crates.io) under the `ruvector-*
 | [ruvector-router-cli](./crates/ruvector-router-cli) | CLI for router testing and benchmarking | [![crates.io](https://img.shields.io/crates/v/ruvector-router-cli.svg)](https://crates.io/crates/ruvector-router-cli) |
 | [ruvector-router-ffi](./crates/ruvector-router-ffi) | FFI bindings for other languages | [![crates.io](https://img.shields.io/crates/v/ruvector-router-ffi.svg)](https://crates.io/crates/ruvector-router-ffi) |
 | [ruvector-router-wasm](./crates/ruvector-router-wasm) | WASM bindings for browser routing | [![crates.io](https://img.shields.io/crates/v/ruvector-router-wasm.svg)](https://crates.io/crates/ruvector-router-wasm) |
+
+### PostgreSQL Extension
+
+| Crate | Description | crates.io |
+|-------|-------------|-----------|
+| [ruvector-postgres](./crates/ruvector-postgres) | pgvector-compatible PostgreSQL extension with SIMD optimization | [![crates.io](https://img.shields.io/crates/v/ruvector-postgres.svg)](https://crates.io/crates/ruvector-postgres) |
+
+Drop-in replacement for pgvector with AVX-512/AVX2/NEON acceleration, HNSW and IVFFlat indexes, quantization support, and zero-copy operations. See [ruvector-postgres README](./crates/ruvector-postgres/README.md) for installation and usage.
+
+### Tools & Utilities
+
+| Crate | Description | crates.io |
+|-------|-------------|-----------|
+| [ruvector-bench](./crates/ruvector-bench) | Benchmarking suite for vector operations | [![crates.io](https://img.shields.io/crates/v/ruvector-bench.svg)](https://crates.io/crates/ruvector-bench) |
+| [profiling](./crates/profiling) | Performance profiling and analysis tools | [![crates.io](https://img.shields.io/crates/v/ruvector-profiling.svg)](https://crates.io/crates/ruvector-profiling) |
+| [micro-hnsw-wasm](./crates/micro-hnsw-wasm) | Lightweight HNSW implementation for WASM | [![crates.io](https://img.shields.io/crates/v/micro-hnsw-wasm.svg)](https://crates.io/crates/micro-hnsw-wasm) |
 
 ### Scientific OCR (SciPix)
 
@@ -443,6 +461,26 @@ async fn main() -> anyhow::Result<()> {
 | [ruvector-wasm](./crates/ruvector-wasm) | Main WASM bindings for browsers | [![crates.io](https://img.shields.io/crates/v/ruvector-wasm.svg)](https://crates.io/crates/ruvector-wasm) |
 | [ruvector-cli](./crates/ruvector-cli) | Command-line interface | [![crates.io](https://img.shields.io/crates/v/ruvector-cli.svg)](https://crates.io/crates/ruvector-cli) |
 | [ruvector-server](./crates/ruvector-server) | HTTP/gRPC server | [![crates.io](https://img.shields.io/crates/v/ruvector-server.svg)](https://crates.io/crates/ruvector-server) |
+
+### Examples
+
+Production-ready examples demonstrating RuVector integration patterns, from cognitive AI substrates to WASM browser deployments.
+
+| Example | Description | Type |
+|---------|-------------|------|
+| [exo-ai-2025](./examples/exo-ai-2025) | Cognitive substrate with 9 neural-symbolic crates for AI reasoning | Rust |
+| [google-cloud](./examples/google-cloud) | GCP deployment templates for Cloud Run, GKE, and Vertex AI | Rust |
+| [meta-cognition-spiking-neural-network](./examples/meta-cognition-spiking-neural-network) | Spiking neural network with meta-cognitive learning | npm |
+| [onnx-embeddings](./examples/onnx-embeddings) | Production ONNX embedding generation without Python | Rust |
+| [refrag-pipeline](./examples/refrag-pipeline) | RAG pipeline with vector search and document processing | Rust |
+| [scipix](./examples/scipix) | Scientific OCR: equations → LaTeX/MathML with ONNX inference | Rust |
+| [spiking-network](./examples/spiking-network) | Biologically-inspired spiking neural networks | Rust |
+| [wasm-react](./examples/wasm-react) | React integration with WASM vector operations | WASM |
+| [wasm-vanilla](./examples/wasm-vanilla) | Vanilla JS WASM example for browser vector search | WASM |
+| [agentic-jujutsu](./examples/agentic-jujutsu) | Quantum-resistant version control for AI agents | Rust |
+| [graph](./examples/graph) | Graph database examples with Cypher queries | Rust |
+| [nodejs](./examples/nodejs) | Node.js integration examples | Node.js |
+| [rust](./examples/rust) | Core Rust usage examples | Rust |
 
 ### npm Packages
 
