@@ -33,6 +33,31 @@ Traditional vector databases just store and search. When you ask "find similar i
 
 Think of it as: **Pinecone + Neo4j + PyTorch + pgvector + etcd** in one Rust package.
 
+
+
+## How the GNN Works
+
+Traditional vector search:
+```
+Query → HNSW Index → Top K Results
+```
+
+RuVector with GNN:
+```
+Query → HNSW Index → GNN Layer → Enhanced Results
+                ↑                      │
+                └──── learns from ─────┘
+```
+
+The GNN layer:
+1. Takes your query and its nearest neighborsa
+2. Applies multi-head attention to weigh which neighbors matter
+3. Updates representations based on graph structure
+4. Returns better-ranked results
+
+Over time, frequently-accessed paths get reinforced, making common queries faster and more accurate.
+
+
 ## Quick Start
 
 ### One-Line Install
@@ -48,11 +73,31 @@ npm install ruvector
 npx ruvector
 ```
 
+
+## Comparison
+
+| Feature | RuVector | Pinecone | Qdrant | Milvus | ChromaDB |
+|---------|----------|----------|--------|--------|----------|
+| **Latency (p50)** | **61µs** | ~2ms | ~1ms | ~5ms | ~50ms |
+| **Memory (1M vec)** | 200MB* | 2GB | 1.5GB | 1GB | 3GB |
+| **Graph Queries** | ✅ Cypher | ❌ | ❌ | ❌ | ❌ |
+| **Hyperedges** | ✅ | ❌ | ❌ | ❌ | ❌ |
+| **Self-Learning (GNN)** | ✅ | ❌ | ❌ | ❌ | ❌ |
+| **AI Agent Routing** | ✅ Tiny Dancer | ❌ | ❌ | ❌ | ❌ |
+| **Raft Consensus** | ✅ | ❌ | ✅ | ❌ | ❌ |
+| **Multi-Master Replication** | ✅ | ❌ | ❌ | ✅ | ❌ |
+| **Auto-Compression** | ✅ 2-32x | ❌ | ❌ | ✅ | ❌ |
+| **Browser/WASM** | ✅ | ❌ | ❌ | ❌ | ❌ |
+| **Differentiable** | ✅ | ❌ | ❌ | ❌ | ❌ |
+| **Open Source** | ✅ MIT | ❌ | ✅ | ✅ | ✅ |
+
+*With PQ8 compression. Benchmarks on Apple M2 / Intel i7.
+
+
+
 ## Features
 
 ### Core Capabilities
-
-Essential vector database features for storing, searching, and querying embeddings.
 
 | Feature | What It Does | Why It Matters |
 |---------|--------------|----------------|
@@ -64,8 +109,6 @@ Essential vector database features for storing, searching, and querying embeddin
 | **Collections** | Namespace isolation, multi-tenancy | Organize vectors by project/user |
 
 ### Distributed Systems
-
-Scale horizontally with production-grade clustering and replication.
 
 | Feature | What It Does | Why It Matters |
 |---------|--------------|----------------|
@@ -80,8 +123,6 @@ cargo add ruvector-raft ruvector-cluster ruvector-replication
 ```
 
 ### AI & ML
-
-Built-in machine learning capabilities for compression, routing, and trainable search.
 
 | Feature | What It Does | Why It Matters |
 |---------|--------------|----------------|
@@ -173,25 +214,7 @@ npx ruvector attention compute -t dot -d 128   # Run attention computation
 npx ruvector attention hyperbolic -a distance -v "[0.1,0.2]" -b "[0.3,0.4]"
 ```
 
-```javascript
-// JavaScript API
-const { FlashAttention, HyperbolicAttention, poincareDistance } = require('@ruvector/attention');
-
-// Flash attention for long sequences
-const flash = new FlashAttention(512, 64);  // dim=512, block_size=64
-const output = flash.compute(query, keys, values);
-
-// Hyperbolic attention for hierarchical data
-const hyper = new HyperbolicAttention(256, 1.0);  // dim=256, curvature=1.0
-const result = hyper.compute(query, keys, values);
-
-// Hyperbolic distance
-const dist = poincareDistance(new Float32Array([0.1, 0.2]), new Float32Array([0.3, 0.4]), 1.0);
-```
-
 ### Deployment
-
-Run anywhere—server, browser, or embedded in your application.
 
 | Feature | What It Does | Why It Matters |
 |---------|--------------|----------------|
@@ -230,52 +253,6 @@ Production-validated metrics at hyperscale:
 | **Index Build Time** | 1M vectors/min | Parallel HNSW construction |
 | **Replication Lag** | <100ms | Multi-master async replication |
 
-## Comparison
-
-| Feature | RuVector | Pinecone | Qdrant | Milvus | ChromaDB |
-|---------|----------|----------|--------|--------|----------|
-| **Latency (p50)** | **61µs** | ~2ms | ~1ms | ~5ms | ~50ms |
-| **Memory (1M vec)** | 200MB* | 2GB | 1.5GB | 1GB | 3GB |
-| **Graph Queries** | ✅ Cypher | ❌ | ❌ | ❌ | ❌ |
-| **Hyperedges** | ✅ | ❌ | ❌ | ❌ | ❌ |
-| **Self-Learning (GNN)** | ✅ | ❌ | ❌ | ❌ | ❌ |
-| **AI Agent Routing** | ✅ Tiny Dancer | ❌ | ❌ | ❌ | ❌ |
-| **Attention Mechanisms** | ✅ 39 types | ❌ | ❌ | ❌ | ❌ |
-| **Hyperbolic Embeddings** | ✅ Poincaré | ❌ | ❌ | ❌ | ❌ |
-| **PostgreSQL Extension** | ✅ pgvector-compatible | ❌ | ❌ | ❌ | ❌ |
-| **SIMD Optimization** | ✅ AVX-512/NEON | Partial | ✅ | ✅ | ❌ |
-| **Metadata Filtering** | ✅ | ✅ | ✅ | ✅ | ✅ |
-| **Sparse Vectors** | ✅ BM25/TF-IDF | ✅ | ✅ | ✅ | ❌ |
-| **Raft Consensus** | ✅ | ❌ | ✅ | ❌ | ❌ |
-| **Multi-Master Replication** | ✅ | ❌ | ❌ | ✅ | ❌ |
-| **Auto-Compression** | ✅ 2-32x | ❌ | ❌ | ✅ | ❌ |
-| **Browser/WASM** | ✅ | ❌ | ❌ | ❌ | ❌ |
-| **Differentiable** | ✅ | ❌ | ❌ | ❌ | ❌ |
-| **Open Source** | ✅ MIT | ❌ | ✅ | ✅ | ✅ |
-
-*With PQ8 compression. Benchmarks on Apple M2 / Intel i7.
-
-## How the GNN Works
-
-Traditional vector search:
-```
-Query → HNSW Index → Top K Results
-```
-
-RuVector with GNN:
-```
-Query → HNSW Index → GNN Layer → Enhanced Results
-                ↑                      │
-                └──── learns from ─────┘
-```
-
-The GNN layer:
-1. Takes your query and its nearest neighbors
-2. Applies multi-head attention to weigh which neighbors matter
-3. Updates representations based on graph structure
-4. Returns better-ranked results
-
-Over time, frequently-accessed paths get reinforced, making common queries faster and more accurate.
 
 ## Compression Tiers
 

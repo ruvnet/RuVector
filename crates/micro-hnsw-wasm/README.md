@@ -1,40 +1,8 @@
-# Micro HNSW v2.3 - Neuromorphic Vector Search Engine
+# Micro HNSW v2.2 - Neuromorphic Vector Search Engine
 
-[![Crates.io](https://img.shields.io/crates/v/micro-hnsw-wasm.svg)](https://crates.io/crates/micro-hnsw-wasm)
-[![Documentation](https://docs.rs/micro-hnsw-wasm/badge.svg)](https://docs.rs/micro-hnsw-wasm)
-[![License](https://img.shields.io/crates/l/micro-hnsw-wasm.svg)](https://github.com/ruvnet/ruvector/blob/main/LICENSE)
-[![WASM Size](https://img.shields.io/badge/wasm-11.8KB-brightgreen.svg)](https://github.com/ruvnet/ruvector)
-[![GitHub Stars](https://img.shields.io/github/stars/ruvnet/ruvector?style=social)](https://github.com/ruvnet/ruvector)
-
-**[GitHub](https://github.com/ruvnet/ruvector)** | **[Documentation](https://docs.rs/micro-hnsw-wasm)** | **[ruv.io](https://ruv.io)** | **[Crates.io](https://crates.io/crates/micro-hnsw-wasm)**
-
----
-
-A **11.8KB** neuromorphic computing core that fuses graph-based vector search (HNSW) with biologically-inspired spiking neural networks. Designed for 256-core ASIC deployment, edge AI, and real-time similarity-driven neural processing.
+A **7.2KB** neuromorphic computing core that fuses graph-based vector search (HNSW) with biologically-inspired spiking neural networks. Designed for 256-core ASIC deployment, edge AI, and real-time similarity-driven neural processing.
 
 > **Vector search meets brain-inspired computing** — query vectors trigger neural spikes, enabling attention mechanisms, winner-take-all selection, and online learning through spike-timing dependent plasticity (STDP).
-
-## Key Features
-
-- 🧠 **Neuromorphic Computing** - Spiking neural networks with LIF neurons, STDP learning
-- 🔍 **HNSW Vector Search** - Fast approximate nearest neighbor search
-- ⚡ **11.8KB WASM** - Ultra-minimal footprint for edge deployment
-- 🎯 **58 Exported Functions** - Complete neuromorphic API
-- 🔧 **No Dependencies** - Pure `no_std` Rust, zero allocations
-- 🚀 **ASIC Ready** - Designed for 256-core custom silicon
-
-## Novel Neuromorphic Discoveries (v2.3)
-
-This release introduces groundbreaking neuromorphic computing features:
-
-| Discovery | Description | Application |
-|-----------|-------------|-------------|
-| **Spike-Timing Vector Encoding** | Convert vectors to temporal spike patterns using first-spike coding | Energy-efficient similarity matching |
-| **Homeostatic Plasticity** | Self-stabilizing network that maintains target activity levels | Robust long-running systems |
-| **Oscillatory Resonance** | Gamma-rhythm (40Hz) synchronization for phase-based search | Attention and binding |
-| **Winner-Take-All Circuits** | Competitive selection via lateral inhibition | Hard decision making |
-| **Dendritic Computation** | Nonlinear local processing in dendritic compartments | Coincidence detection |
-| **Temporal Pattern Recognition** | Spike history matching using Hamming similarity | Sequence learning |
 
 ## Why Micro HNSW + SNN?
 
@@ -73,6 +41,18 @@ Traditional vector databases return ranked results. Micro HNSW v2.2 goes further
 - **ASIC-ready**: Synthesizable for custom silicon
 - **Edge-native**: Microcontrollers to data centers
 
+ "Real-World Applications" Section
+
+  | Application                       | Description                                                                    |
+  |-----------------------------------|--------------------------------------------------------------------------------|
+  | 1. Embedded Vector Database       | Semantic search on microcontrollers/IoT with 256-core sharding                 |
+  | 2. Knowledge Graphs               | Cypher-style typed entities (GENE, PROTEIN, DISEASE) with spreading activation |
+  | 3. Self-Learning Systems          | Anomaly detection that learns via STDP without retraining                      |
+  | 4. DNA/Protein Analysis           | k-mer embeddings for genomic similarity with winner-take-all alignment         |
+  | 5. Algorithmic Trading            | Microsecond pattern matching with neural winner-take-all signals               |
+  | 6. Industrial Control (PLC/SCADA) | Predictive maintenance via vibration analysis at the edge                      |
+  | 7. Robotics & Sensor Fusion       | Multi-modal LIDAR/camera/IMU fusion with spike-based binding                   |
+
 ## Specifications
 
 | Parameter | Value | Notes |
@@ -84,7 +64,7 @@ Traditional vector databases return ranked results. Micro HNSW v2.2 goes further
 | Beam Width | 3 | Search beam size |
 | Node Types | 16 | 4-bit packed |
 | SNN Neurons | 32 | One per vector |
-| **WASM Size** | **~11.8KB** | After wasm-opt -Oz |
+| **WASM Size** | **~7.2KB** | After wasm-opt -Oz |
 | Gate Count | ~45K | Estimated for ASIC |
 
 ## Building
@@ -207,99 +187,6 @@ const spikes = wasm.snn_get_spikes();
 console.log(`Similar vectors that spiked: 0b${spikes.toString(2)}`);
 ```
 
-### Novel Neuromorphic Features (v2.3)
-
-```javascript
-// ========== SPIKE-TIMING VECTOR ENCODING ==========
-// Convert vectors to temporal spike patterns (first-spike coding)
-const pattern0 = wasm.encode_vector_to_spikes(0);
-const pattern1 = wasm.encode_vector_to_spikes(1);
-
-// Compare patterns using Jaccard-like spike timing similarity
-const similarity = wasm.spike_timing_similarity(pattern0, pattern1);
-console.log(`Temporal similarity: ${similarity.toFixed(3)}`);
-
-// Search using spike patterns instead of distance
-const queryPattern = 0b10101010101010101010101010101010;
-const found = wasm.spike_search(queryPattern, 5);
-
-// ========== HOMEOSTATIC PLASTICITY ==========
-// Self-stabilizing network maintains target activity (0.1 spikes/ms)
-for (let i = 0; i < 1000; i++) {
-    wasm.snn_step(1.0);          // 1ms timestep
-    wasm.homeostatic_update(1.0); // Adjust thresholds
-}
-console.log(`Spike rate neuron 0: ${wasm.get_spike_rate(0).toFixed(4)} spikes/ms`);
-
-// ========== OSCILLATORY RESONANCE (40Hz GAMMA) ==========
-// Phase-synchronized search for attention mechanisms
-wasm.oscillator_step(1.0);  // Advance oscillator phase
-const phase = wasm.oscillator_get_phase();
-console.log(`Oscillator phase: ${phase.toFixed(2)} radians`);
-
-// Compute resonance (phase alignment) for each neuron
-const resonance = wasm.compute_resonance(0);
-console.log(`Neuron 0 resonance: ${resonance.toFixed(3)}`);
-
-// Search with phase modulation (results boosted by resonance)
-const phaseResults = wasm.resonance_search(5, 0.5);  // k=5, weight=0.5
-
-// ========== WINNER-TAKE-ALL CIRCUITS ==========
-// Hard decision: only strongest neuron survives
-const winner = wasm.wta_compete();
-if (winner !== 255) {
-    console.log(`Winner: neuron ${winner}`);
-}
-
-// Soft competition (softmax-like proportional inhibition)
-wasm.wta_soft();
-
-// ========== DENDRITIC COMPUTATION ==========
-// Nonlinear local processing in dendritic branches
-wasm.dendrite_reset();
-
-// Inject current to specific dendritic branch
-wasm.dendrite_inject(0, 0, 1.5);  // Neuron 0, branch 0, current 1.5
-wasm.dendrite_inject(0, 1, 1.2);  // Neuron 0, branch 1, current 1.2
-
-// Nonlinear integration (coincident inputs get amplified)
-const totalCurrent = wasm.dendrite_integrate(0);
-console.log(`Dendritic current to soma: ${totalCurrent.toFixed(3)}`);
-
-// Propagate spikes through dendritic tree (not just soma)
-wasm.snn_step(1.0);
-wasm.dendrite_propagate(0.5);  // gain=0.5
-
-// ========== TEMPORAL PATTERN RECOGNITION ==========
-// Record spike history as shift register
-for (let t = 0; t < 32; t++) {
-    wasm.snn_step(1.0);
-    wasm.pattern_record();  // Shift spikes into buffer
-}
-
-// Get spike pattern (32 timesteps encoded as bits)
-const pattern = wasm.get_pattern(0);
-console.log(`Neuron 0 spike history: 0b${pattern.toString(2).padStart(32, '0')}`);
-
-// Find neuron with most similar spike history
-const matchedNeuron = wasm.pattern_match(pattern);
-console.log(`Best pattern match: neuron ${matchedNeuron}`);
-
-// Find all neurons with correlated activity (Hamming distance ≤ 8)
-const correlated = wasm.pattern_correlate(0, 8);
-console.log(`Correlated neurons: 0b${correlated.toString(2)}`);
-
-// ========== FULL NEUROMORPHIC SEARCH ==========
-// Combined pipeline: HNSW + SNN + oscillation + WTA + patterns
-queryBuf.set([0.9, 0.1, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]);
-const neuroResults = wasm.neuromorphic_search(5, 1.0, 20);  // k=5, dt=1ms, 20 iterations
-console.log(`Found ${neuroResults} matches via neuromorphic search`);
-
-// Monitor network activity
-const activity = wasm.get_network_activity();
-console.log(`Network activity: ${activity.toFixed(3)} total spike rate`);
-```
-
 ### GNN Message Passing
 
 ```javascript
@@ -395,44 +282,6 @@ void snn_stdp(void);                            // STDP weight update
 uint8_t snn_tick(float dt, float gain, uint8_t learn);  // Combined step
 float snn_get_time(void);                       // Get simulation time
 uint8_t hnsw_to_snn(uint8_t k, float gain);     // Search → neural activation
-
-// ========== NOVEL NEUROMORPHIC API (NEW in v2.3) ==========
-
-// Spike-Timing Vector Encoding
-uint32_t encode_vector_to_spikes(uint8_t idx);  // Vector → temporal spike pattern
-float spike_timing_similarity(uint32_t a, uint32_t b);  // Jaccard spike similarity
-uint8_t spike_search(uint32_t query_pattern, uint8_t k);  // Temporal code search
-
-// Homeostatic Plasticity
-void homeostatic_update(float dt);              // Adjust thresholds for target rate
-float get_spike_rate(uint8_t idx);              // Running average spike rate
-
-// Oscillatory Resonance
-void oscillator_step(float dt);                 // Update gamma oscillator phase
-float oscillator_get_phase(void);               // Current phase (0 to 2π)
-float compute_resonance(uint8_t idx);           // Phase alignment score
-uint8_t resonance_search(uint8_t k, float weight);  // Phase-modulated search
-
-// Winner-Take-All Circuits
-void wta_reset(void);                           // Reset WTA state
-uint8_t wta_compete(void);                      // Hard WTA, returns winner
-void wta_soft(void);                            // Soft competition (softmax-like)
-
-// Dendritic Computation
-void dendrite_reset(void);                      // Clear dendritic compartments
-void dendrite_inject(uint8_t n, uint8_t b, float i);  // Inject to branch
-float dendrite_integrate(uint8_t neuron);       // Nonlinear integration
-void dendrite_propagate(float gain);            // Spike to dendrite routing
-
-// Temporal Pattern Recognition
-void pattern_record(void);                      // Shift current spikes into buffer
-uint32_t get_pattern(uint8_t idx);              // Get spike history (32 timesteps)
-uint8_t pattern_match(uint32_t target);         // Find best matching neuron
-uint32_t pattern_correlate(uint8_t idx, uint8_t thresh);  // Find correlated neurons
-
-// Combined Neuromorphic Search
-uint8_t neuromorphic_search(uint8_t k, float dt, uint8_t iters);  // Full pipeline
-float get_network_activity(void);               // Total spike rate across network
 
 // SearchResult structure (8 bytes)
 typedef struct {
@@ -902,111 +751,6 @@ The `verilog/` directory contains synthesizable RTL for direct ASIC implementati
 └─────────────────────────────────────────────────────────────┘
 ```
 
-## ASIC Synthesis Guidelines (v2.3)
-
-### Novel Hardware Blocks
-
-The v2.3 neuromorphic features map to dedicated hardware units:
-
-```
-┌──────────────────────────────────────────────────────────────────────────┐
-│                   NEUROMORPHIC ASIC ARCHITECTURE                          │
-├──────────────────────────────────────────────────────────────────────────┤
-│                                                                          │
-│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐          │
-│  │  SPIKE ENCODER  │  │  GAMMA OSCILLATOR│  │  WTA CIRCUIT   │          │
-│  │  Vector→Spikes  │  │  40Hz Phase Gen  │  │  Lateral Inhib │          │
-│  │  8-bit temporal │  │  sin/cos LUT     │  │  Max detector  │          │
-│  └────────┬────────┘  └────────┬────────┘  └────────┬────────┘          │
-│           │                    │                    │                    │
-│           └────────────────────┼────────────────────┘                    │
-│                                ▼                                         │
-│  ┌─────────────────────────────────────────────────────────────────┐    │
-│  │                    DENDRITIC TREE PROCESSOR                      │    │
-│  │  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐            │    │
-│  │  │ Branch 0 │ │ Branch 1 │ │ Branch 2 │ │ Branch 3 │ ... ×6     │    │
-│  │  │ σ nonlin │ │ σ nonlin │ │ σ nonlin │ │ σ nonlin │            │    │
-│  │  └────┬─────┘ └────┬─────┘ └────┬─────┘ └────┬─────┘            │    │
-│  │       └────────────┼────────────┼────────────┘                   │    │
-│  │                    ▼            ▼                                │    │
-│  │              ┌─────────────────────┐                             │    │
-│  │              │   SOMA INTEGRATOR   │                             │    │
-│  │              └─────────────────────┘                             │    │
-│  └─────────────────────────────────────────────────────────────────┘    │
-│                                ▼                                         │
-│  ┌─────────────────────────────────────────────────────────────────┐    │
-│  │                   HOMEOSTATIC CONTROLLER                         │    │
-│  │  Target rate: 0.1 spikes/ms | Threshold adaptation: τ=1000ms    │    │
-│  │  Sliding average spike counter → PID threshold adjustment        │    │
-│  └─────────────────────────────────────────────────────────────────┘    │
-│                                ▼                                         │
-│  ┌─────────────────────────────────────────────────────────────────┐    │
-│  │                   PATTERN RECOGNITION UNIT                       │    │
-│  │  32-bit shift registers × 32 neurons = 128 bytes                 │    │
-│  │  Hamming distance comparator (parallel XOR + popcount)           │    │
-│  └─────────────────────────────────────────────────────────────────┘    │
-└──────────────────────────────────────────────────────────────────────────┘
-```
-
-### Synthesis Estimates (v2.3)
-
-| Block | Gate Count | Area (μm²) | Power (mW) | Notes |
-|-------|------------|------------|------------|-------|
-| Spike Encoder | ~2K | 800 | 0.02 | Vector→temporal conversion |
-| Gamma Oscillator | ~500 | 200 | 0.01 | Phase accumulator + LUT |
-| WTA Circuit | ~1K | 400 | 0.05 | Parallel max + inhibit |
-| Dendritic Tree (×32) | ~8K | 3200 | 0.4 | Nonlinear branches |
-| Homeostatic Ctrl | ~1.5K | 600 | 0.03 | PID + moving average |
-| Pattern Unit | ~3K | 1200 | 0.1 | 32×32 shift + Hamming |
-| **v2.3 Total** | **~60K** | 24,000 | 1.0 | Full neuromorphic |
-| **v2.2 Baseline** | ~45K | 18,000 | 0.7 | SNN + HNSW only |
-
-### Clock Domains
-
-1. **Core Clock (500 MHz)**: HNSW search, distance calculations
-2. **SNN Clock (1 kHz)**: Biological timescale for membrane dynamics
-3. **Oscillator Clock (40 Hz)**: Gamma rhythm for synchronization
-4. **Homeostatic Clock (1 Hz)**: Slow adaptation for stability
-
-### Verilog Module Hierarchy
-
-```verilog
-module neuromorphic_hnsw (
-    input  clk_core,      // 500 MHz
-    input  clk_snn,       // 1 kHz
-    input  clk_gamma,     // 40 Hz
-    input  rst_n,
-    // AXI-Lite interface
-    input  [31:0] axi_addr,
-    input  [31:0] axi_wdata,
-    output [31:0] axi_rdata,
-    // Spike I/O
-    output [31:0] spike_out,
-    input  [31:0] spike_in
-);
-    // Core instances
-    hnsw_core #(.CORE_ID(i)) cores[255:0] (...);
-
-    // Neuromorphic additions (v2.3)
-    spike_encoder      enc     (.clk(clk_core), ...);
-    gamma_oscillator   osc     (.clk(clk_gamma), ...);
-    wta_circuit        wta     (.clk(clk_core), ...);
-    dendritic_tree     dend[31:0] (.clk(clk_snn), ...);
-    homeostatic_ctrl   homeo   (.clk(clk_snn), ...);
-    pattern_recognizer pat     (.clk(clk_core), ...);
-
-    result_merger      merge   (...);
-endmodule
-```
-
-### FPGA Implementation Notes
-
-For Xilinx Zynq-7000 / Artix-7:
-- **Resource usage**: ~60% LUTs, ~40% FFs, ~30% BRAMs
-- **Fmax**: 450 MHz (core clock meets timing easily)
-- **Power**: ~800mW dynamic
-- **Latency**: 2.5μs for 8K-vector neuromorphic search
-
 ## Version History
 
 | Version | Size | Features |
@@ -1014,8 +758,7 @@ For Xilinx Zynq-7000 / Artix-7:
 | v1 | 4.6KB | L2 only, single core, greedy search |
 | v2 | 7.3KB | +3 metrics, +multi-core, +beam search |
 | v2.1 | 5.5KB | +node types, +edge weights, +GNN updates, wasm-opt |
-| v2.2 | 7.2KB | +LIF neurons, +STDP learning, +spike propagation, +HNSW-SNN bridge |
-| **v2.3** | **15KB** | +Spike-timing encoding, +Homeostatic plasticity, +Oscillatory resonance, +WTA circuits, +Dendritic computation, +Temporal pattern recognition, +Neuromorphic search pipeline |
+| **v2.2** | **7.2KB** | +LIF neurons, +STDP learning, +spike propagation, +HNSW-SNN bridge |
 
 ## Performance
 
@@ -1032,7 +775,6 @@ For Xilinx Zynq-7000 / Artix-7:
 
 ## SNN Parameters (Compile-time)
 
-### Core SNN Parameters
 | Parameter | Value | Description |
 |-----------|-------|-------------|
 | TAU_MEMBRANE | 20.0 | Membrane time constant (ms) |
@@ -1043,50 +785,6 @@ For Xilinx Zynq-7000 / Artix-7:
 | STDP_A_MINUS | 0.012 | LTD magnitude |
 | TAU_STDP | 20.0 | STDP time constant (ms) |
 
-### Novel Neuromorphic Parameters (v2.3)
-| Parameter | Value | Description |
-|-----------|-------|-------------|
-| HOMEOSTATIC_TARGET | 0.1 | Target spike rate (spikes/ms) |
-| HOMEOSTATIC_TAU | 1000.0 | Homeostasis time constant (slow) |
-| OSCILLATOR_FREQ | 40.0 | Gamma oscillation frequency (Hz) |
-| WTA_INHIBITION | 0.8 | Winner-take-all lateral inhibition |
-| DENDRITIC_NONLIN | 2.0 | Dendritic nonlinearity exponent |
-| SPIKE_ENCODING_RES | 8 | Temporal encoding resolution (bits) |
-
-## Contributing
-
-Contributions are welcome! Please see our [Contributing Guide](https://github.com/ruvnet/ruvector/blob/main/CONTRIBUTING.md) for details.
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-## Community & Support
-
-- **GitHub Issues**: [Report bugs or request features](https://github.com/ruvnet/ruvector/issues)
-- **Discussions**: [Join the conversation](https://github.com/ruvnet/ruvector/discussions)
-- **Website**: [ruv.io](https://ruv.io)
-
-## Citation
-
-If you use Micro HNSW in your research, please cite:
-
-```bibtex
-@software{micro_hnsw_wasm,
-  title = {Micro HNSW: Neuromorphic Vector Search Engine},
-  author = {rUv},
-  year = {2024},
-  url = {https://github.com/ruvnet/ruvector},
-  version = {2.3.0}
-}
-```
-
 ## License
 
 MIT OR Apache-2.0
-
----
-
-**Built with ❤️ by [rUv](https://ruv.io)** | **[GitHub](https://github.com/ruvnet/ruvector)** | **[Crates.io](https://crates.io/crates/micro-hnsw-wasm)**
