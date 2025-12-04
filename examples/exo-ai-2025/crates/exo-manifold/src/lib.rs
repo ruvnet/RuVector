@@ -28,8 +28,10 @@ mod network;
 mod retrieval;
 mod deformation;
 mod forgetting;
+pub mod simd_ops;
 
 pub use network::LearnedManifold;
+pub use simd_ops::{cosine_similarity_simd, euclidean_distance_simd, batch_distances};
 pub use retrieval::GradientDescentRetriever;
 pub use deformation::ManifoldDeformer;
 pub use forgetting::StrategicForgetting;
