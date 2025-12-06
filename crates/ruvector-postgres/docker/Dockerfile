@@ -1,8 +1,9 @@
 # RuVector-Postgres Development & Testing Dockerfile
-# Multi-stage build with PostgreSQL version support (14-18)
-# Default: PostgreSQL 18 (latest stable)
+# Multi-stage build with PostgreSQL version support (14-17)
+# Default: PostgreSQL 17 (latest with pgrx 0.12 support)
+# Note: PostgreSQL 18 requires pgrx 0.15.0+ (planned for future release)
 
-ARG PG_VERSION=18
+ARG PG_VERSION=17
 
 # ============================================================================
 # Builder Stage
