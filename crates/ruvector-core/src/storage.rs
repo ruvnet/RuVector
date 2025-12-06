@@ -6,7 +6,7 @@
 #[cfg(feature = "storage")]
 use crate::error::{Result, RuvectorError};
 #[cfg(feature = "storage")]
-use crate::types::{VectorEntry, VectorId};
+use crate::types::{DbOptions, VectorEntry, VectorId};
 #[cfg(feature = "storage")]
 use bincode::config;
 #[cfg(feature = "storage")]
@@ -28,6 +28,10 @@ use std::sync::Arc;
 
 const VECTORS_TABLE: TableDefinition<&str, &[u8]> = TableDefinition::new("vectors");
 const METADATA_TABLE: TableDefinition<&str, &str> = TableDefinition::new("metadata");
+const CONFIG_TABLE: TableDefinition<&str, &str> = TableDefinition::new("config");
+
+/// Key used to store database configuration in CONFIG_TABLE
+const DB_CONFIG_KEY: &str = "__ruvector_db_config__";
 
 // Global database connection pool to allow multiple VectorDB instances
 // to share the same underlying database file
@@ -112,6 +116,7 @@ impl VectorStorage {
                 {
                     let _ = write_txn.open_table(VECTORS_TABLE)?;
                     let _ = write_txn.open_table(METADATA_TABLE)?;
+                    let _ = write_txn.open_table(CONFIG_TABLE)?;
                 }
                 write_txn.commit()?;
 
@@ -276,6 +281,46 @@ impl VectorStorage {
         }
 
         Ok(ids)
+    }
+
+    /// Save database configuration to persistent storage
+    pub fn save_config(&self, options: &DbOptions) -> Result<()> {
+        let config_json = serde_json::to_string(options)
+            .map_err(|e| RuvectorError::SerializationError(e.to_string()))?;
+
+        let write_txn = self.db.begin_write()?;
+        {
+            let mut table = write_txn.open_table(CONFIG_TABLE)?;
+            table.insert(DB_CONFIG_KEY, config_json.as_str())?;
+        }
+        write_txn.commit()?;
+
+        Ok(())
+    }
+
+    /// Load database configuration from persistent storage
+    pub fn load_config(&self) -> Result<Option<DbOptions>> {
+        let read_txn = self.db.begin_read()?;
+
+        // Try to open config table - may not exist in older databases
+        let table = match read_txn.open_table(CONFIG_TABLE) {
+            Ok(t) => t,
+            Err(_) => return Ok(None),
+        };
+
+        let Some(config_data) = table.get(DB_CONFIG_KEY)? else {
+            return Ok(None);
+        };
+
+        let config: DbOptions = serde_json::from_str(config_data.value())
+            .map_err(|e| RuvectorError::SerializationError(e.to_string()))?;
+
+        Ok(Some(config))
+    }
+
+    /// Get the stored dimensions
+    pub fn dimensions(&self) -> usize {
+        self.dimensions
     }
 }
 

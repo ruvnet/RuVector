@@ -30,11 +30,17 @@ impl QuantizedVector for ScalarQuantized {
     fn quantize(vector: &[f32]) -> Self {
         let min = vector.iter().copied().fold(f32::INFINITY, f32::min);
         let max = vector.iter().copied().fold(f32::NEG_INFINITY, f32::max);
-        let scale = (max - min) / 255.0;
+
+        // Handle edge case where all values are the same (scale = 0)
+        let scale = if (max - min).abs() < f32::EPSILON {
+            1.0 // Arbitrary non-zero scale when all values are identical
+        } else {
+            (max - min) / 255.0
+        };
 
         let data = vector
             .iter()
-            .map(|&v| ((v - min) / scale).round() as u8)
+            .map(|&v| ((v - min) / scale).round().clamp(0.0, 255.0) as u8)
             .collect();
 
         Self { data, min, scale }
@@ -42,11 +48,12 @@ impl QuantizedVector for ScalarQuantized {
 
     fn distance(&self, other: &Self) -> f32 {
         // Fast int8 distance calculation
+        // Use i32 to avoid overflow: max diff is 255, and 255*255=65025 fits in i32
         self.data
             .iter()
             .zip(&other.data)
             .map(|(&a, &b)| {
-                let diff = a as i16 - b as i16;
+                let diff = a as i32 - b as i32;
                 (diff * diff) as f32
             })
             .sum::<f32>()

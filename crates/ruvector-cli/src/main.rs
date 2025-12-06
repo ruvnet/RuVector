@@ -41,14 +41,14 @@ enum Commands {
         path: String,
 
         /// Vector dimensions
-        #[arg(short, long)]
+        #[arg(short = 'D', long)]
         dimensions: usize,
     },
 
     /// Insert vectors from a file
     Insert {
         /// Database file path
-        #[arg(short, long, default_value = "./ruvector.db")]
+        #[arg(short = 'b', long, default_value = "./ruvector.db")]
         db: String,
 
         /// Input file path
@@ -67,7 +67,7 @@ enum Commands {
     /// Search for similar vectors
     Search {
         /// Database file path
-        #[arg(short, long, default_value = "./ruvector.db")]
+        #[arg(short = 'b', long, default_value = "./ruvector.db")]
         db: String,
 
         /// Query vector (comma-separated floats or JSON array)
@@ -86,14 +86,14 @@ enum Commands {
     /// Show database information
     Info {
         /// Database file path
-        #[arg(short, long, default_value = "./ruvector.db")]
+        #[arg(short = 'b', long, default_value = "./ruvector.db")]
         db: String,
     },
 
     /// Run a quick performance benchmark
     Benchmark {
         /// Database file path
-        #[arg(short, long, default_value = "./ruvector.db")]
+        #[arg(short = 'b', long, default_value = "./ruvector.db")]
         db: String,
 
         /// Number of queries to run
@@ -104,7 +104,7 @@ enum Commands {
     /// Export database to file
     Export {
         /// Database file path
-        #[arg(short, long, default_value = "./ruvector.db")]
+        #[arg(short = 'b', long, default_value = "./ruvector.db")]
         db: String,
 
         /// Output file path
@@ -119,7 +119,7 @@ enum Commands {
     /// Import from other vector databases
     Import {
         /// Database file path
-        #[arg(short, long, default_value = "./ruvector.db")]
+        #[arg(short = 'b', long, default_value = "./ruvector.db")]
         db: String,
 
         /// Source database type (faiss, pinecone, weaviate)

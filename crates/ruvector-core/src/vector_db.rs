@@ -30,12 +30,50 @@ impl VectorDB {
     ///
     /// If a storage path is provided and contains persisted vectors,
     /// the HNSW index will be automatically rebuilt from storage.
-    pub fn new(options: DbOptions) -> Result<Self> {
+    /// If opening an existing database, the stored configuration (dimensions,
+    /// distance metric, etc.) will be used instead of the provided options.
+    pub fn new(mut options: DbOptions) -> Result<Self> {
         #[cfg(feature = "storage")]
-        let storage = Arc::new(VectorStorage::new(
-            &options.storage_path,
-            options.dimensions,
-        )?);
+        let storage = {
+            // First, try to load existing configuration from the database
+            // We create a temporary storage to check for config
+            let temp_storage = VectorStorage::new(
+                &options.storage_path,
+                options.dimensions,
+            )?;
+
+            let stored_config = temp_storage.load_config()?;
+
+            if let Some(config) = stored_config {
+                // Existing database - use stored configuration
+                tracing::info!(
+                    "Loading existing database with {} dimensions",
+                    config.dimensions
+                );
+                options = DbOptions {
+                    // Keep the provided storage path (may have changed)
+                    storage_path: options.storage_path.clone(),
+                    // Use stored configuration for everything else
+                    dimensions: config.dimensions,
+                    distance_metric: config.distance_metric,
+                    hnsw_config: config.hnsw_config,
+                    quantization: config.quantization,
+                };
+                // Recreate storage with correct dimensions
+                Arc::new(VectorStorage::new(
+                    &options.storage_path,
+                    options.dimensions,
+                )?)
+            } else {
+                // New database - save the configuration
+                tracing::info!(
+                    "Creating new database with {} dimensions",
+                    options.dimensions
+                );
+                temp_storage.save_config(&options)?;
+                Arc::new(temp_storage)
+            }
+        };
 
         #[cfg(not(feature = "storage"))]
         let storage = Arc::new(VectorStorage::new(options.dimensions)?);

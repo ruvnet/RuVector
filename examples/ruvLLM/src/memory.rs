@@ -176,7 +176,8 @@ struct MemoryStats {
 impl MemoryService {
     /// Create a new memory service
     pub async fn new(config: &MemoryConfig) -> Result<Self> {
-        let ml = 1.0 / (config.hnsw_m as f32).ln();
+        // Note: ml (level multiplier) is computed per-insert in hnsw_insert()
+        // to avoid storing it and to handle edge cases properly
 
         Ok(Self {
             vectors: RwLock::new(Vec::new()),
@@ -408,7 +409,10 @@ impl MemoryService {
     fn hnsw_insert(&self, node_idx: usize, vector: &[f32]) {
         let m = self.config.hnsw_m;
         let m_max = m * 2;
-        let ml = 1.0 / (m as f32).ln();
+        // Guard against m=1 which would cause ln(1)=0 and division by zero
+        // Use m=2 as minimum for level calculation
+        let m_for_level = m.max(2) as f32;
+        let ml = 1.0 / m_for_level.ln();
 
         // Determine level for this node
         let level = self.random_level(ml);
@@ -549,7 +553,14 @@ impl MemoryService {
     fn random_level(&self, ml: f32) -> usize {
         let mut rng = rand::thread_rng();
         let r: f32 = rng.gen();
-        (-r.ln() * ml).floor() as usize
+        // Guard against r=0 which would cause ln(0) = -inf
+        // Also clamp result to prevent overflow when casting to usize
+        if r <= f32::EPSILON {
+            return 0;
+        }
+        let level = (-r.ln() * ml).floor();
+        // Clamp to reasonable max level to prevent overflow
+        level.min(32.0) as usize
     }
 
     /// Insert an edge

@@ -192,9 +192,11 @@ fn test_benchmark_command() {
 
 #[test]
 fn test_error_handling() {
-    // Test with non-existent database
+    // Test with invalid database path - /dev/null is a device file, not a directory,
+    // so we cannot create a database file inside it. This guarantees failure
+    // regardless of user permissions.
     let mut cmd = Command::cargo_bin("ruvector").unwrap();
-    cmd.arg("info").arg("--db").arg("/nonexistent/path/db.db");
+    cmd.arg("info").arg("--db").arg("/dev/null/db.db");
 
     cmd.assert()
         .failure()

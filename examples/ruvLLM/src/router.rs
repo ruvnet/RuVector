@@ -666,7 +666,8 @@ fn softmax_array(x: &Array1<f32>) -> Array1<f32> {
         let max = x.fold(f32::NEG_INFINITY, |a, &b| a.max(b));
         let exp = x.mapv(|v| (v - max).exp());
         let sum = exp.sum();
-        exp / sum
+        // Guard against division by zero (all -inf inputs)
+        if sum > 0.0 { exp / sum } else { Array1::from_elem(len, 1.0 / len as f32) }
     }
 }
 

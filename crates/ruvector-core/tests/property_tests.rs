@@ -12,12 +12,11 @@ use ruvector_core::types::DistanceMetric;
 // Distance Metric Properties
 // ============================================================================
 
-// Strategy to generate valid vectors
+// Strategy to generate valid vectors with bounded values to prevent overflow
+// Using range that won't overflow when squared: sqrt(f32::MAX) ≈ 1.84e19
+// We use a more conservative range for numerical stability in distance calculations
 fn vector_strategy(dim: usize) -> impl Strategy<Value = Vec<f32>> {
-    prop::collection::vec(
-        any::<f32>().prop_filter("Must be finite", |x| x.is_finite()),
-        dim,
-    )
+    prop::collection::vec(-1000.0f32..1000.0f32, dim)
 }
 
 // Strategy for normalized vectors (for cosine similarity)
