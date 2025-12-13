@@ -139,14 +139,21 @@ pub struct JsVectorEntry {
     pub id: Option<String>,
     /// Vector data as Float32Array or array of numbers
     pub vector: Float32Array,
+    /// Optional metadata as JSON string (use JSON.stringify on objects)
+    pub metadata: Option<String>,
 }
 
 impl JsVectorEntry {
     fn to_core(&self) -> Result<VectorEntry> {
+        // Parse JSON string to HashMap<String, serde_json::Value>
+        let metadata = self.metadata.as_ref().and_then(|s| {
+            serde_json::from_str::<std::collections::HashMap<String, serde_json::Value>>(s).ok()
+        });
+
         Ok(VectorEntry {
             id: self.id.clone(),
             vector: self.vector.to_vec(),
-            metadata: None,
+            metadata,
         })
     }
 }
@@ -160,14 +167,21 @@ pub struct JsSearchQuery {
     pub k: u32,
     /// Optional ef_search parameter for HNSW
     pub ef_search: Option<u32>,
+    /// Optional metadata filter as JSON string (use JSON.stringify on objects)
+    pub filter: Option<String>,
 }
 
 impl JsSearchQuery {
     fn to_core(&self) -> Result<SearchQuery> {
+        // Parse JSON string to HashMap<String, serde_json::Value>
+        let filter = self.filter.as_ref().and_then(|s| {
+            serde_json::from_str::<std::collections::HashMap<String, serde_json::Value>>(s).ok()
+        });
+
         Ok(SearchQuery {
             vector: self.vector.to_vec(),
             k: self.k as usize,
-            filter: None,
+            filter,
             ef_search: self.ef_search.map(|v| v as usize),
         })
     }
@@ -175,19 +189,33 @@ impl JsSearchQuery {
 
 /// Search result with similarity score
 #[napi(object)]
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct JsSearchResult {
     /// Vector ID
     pub id: String,
     /// Distance/similarity score (lower is better for distance metrics)
     pub score: f64,
+    /// Vector data (if requested)
+    pub vector: Option<Float32Array>,
+    /// Metadata as JSON string (use JSON.parse to convert to object)
+    pub metadata: Option<String>,
 }
 
 impl From<SearchResult> for JsSearchResult {
     fn from(result: SearchResult) -> Self {
+        // Convert Vec<f32> to Float32Array
+        let vector = result.vector.map(|v| Float32Array::new(v));
+
+        // Convert HashMap to JSON string
+        let metadata = result.metadata.and_then(|m| {
+            serde_json::to_string(&m).ok()
+        });
+
         JsSearchResult {
             id: result.id,
             score: f64::from(result.score),
+            vector,
+            metadata,
         }
     }
 }
@@ -364,9 +392,17 @@ impl VectorDB {
         .map_err(|e| Error::from_reason(format!("Task failed: {}", e)))?
         .map_err(|e| Error::from_reason(format!("Get failed: {}", e)))?;
 
-        Ok(result.map(|entry| JsVectorEntry {
-            id: entry.id,
-            vector: Float32Array::new(entry.vector),
+        Ok(result.map(|entry| {
+            // Convert HashMap to JSON string
+            let metadata = entry.metadata.and_then(|m| {
+                serde_json::to_string(&m).ok()
+            });
+
+            JsVectorEntry {
+                id: entry.id,
+                vector: Float32Array::new(entry.vector),
+                metadata,
+            }
         }))
     }
 

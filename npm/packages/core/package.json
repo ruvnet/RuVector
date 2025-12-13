@@ -1,6 +1,6 @@
 {
-  "name": "ruvector-core",
-  "version": "0.1.26",
+  "name": "@ruvector/core",
+  "version": "0.1.28",
   "description": "High-performance vector database with HNSW indexing - 50k+ inserts/sec, built in Rust for AI/ML similarity search and semantic search applications",
   "main": "index.js",
   "types": "index.d.ts",
@@ -32,7 +32,7 @@
     "@napi-rs/cli": "^2.18.0"
   },
   "optionalDependencies": {
-    "ruvector-core-linux-x64-gnu": "0.1.25",
+    "ruvector-core-linux-x64-gnu": "0.1.26",
     "ruvector-core-linux-arm64-gnu": "0.1.25",
     "ruvector-core-darwin-x64": "0.1.25",
     "ruvector-core-darwin-arm64": "0.1.25",

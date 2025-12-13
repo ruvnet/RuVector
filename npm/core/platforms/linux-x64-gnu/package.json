@@ -1,6 +1,6 @@
 {
   "name": "ruvector-core-linux-x64-gnu",
-  "version": "0.1.25",
+  "version": "0.1.26",
   "description": "Linux x64 GNU native binding for ruvector-core - High-performance vector database with HNSW indexing built in Rust",
   "main": "index.js",
   "type": "commonjs",

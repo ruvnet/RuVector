@@ -73,8 +73,114 @@ export function getVersion(): { version: string; implementation: string } {
   };
 }
 
-// Export the VectorDB class
-export const VectorDB = implementation.VectorDB;
+/**
+ * Wrapper class that automatically handles metadata JSON conversion
+ */
+class VectorDBWrapper {
+  private db: any;
+
+  constructor(options: { dimensions: number; storagePath?: string; distanceMetric?: string; hnswConfig?: any }) {
+    this.db = new implementation.VectorDb(options);
+  }
+
+  /**
+   * Insert a vector with optional metadata (objects are auto-converted to JSON)
+   */
+  async insert(entry: { id?: string; vector: Float32Array | number[]; metadata?: Record<string, any> }): Promise<string> {
+    const nativeEntry: any = {
+      id: entry.id,
+      vector: entry.vector instanceof Float32Array ? entry.vector : new Float32Array(entry.vector),
+    };
+
+    // Auto-convert metadata object to JSON string
+    if (entry.metadata) {
+      nativeEntry.metadata = JSON.stringify(entry.metadata);
+    }
+
+    return this.db.insert(nativeEntry);
+  }
+
+  /**
+   * Insert multiple vectors in batch
+   */
+  async insertBatch(entries: Array<{ id?: string; vector: Float32Array | number[]; metadata?: Record<string, any> }>): Promise<string[]> {
+    const nativeEntries = entries.map(entry => ({
+      id: entry.id,
+      vector: entry.vector instanceof Float32Array ? entry.vector : new Float32Array(entry.vector),
+      metadata: entry.metadata ? JSON.stringify(entry.metadata) : undefined,
+    }));
+
+    return this.db.insertBatch(nativeEntries);
+  }
+
+  /**
+   * Search for similar vectors (metadata is auto-parsed from JSON)
+   */
+  async search(query: { vector: Float32Array | number[]; k: number; filter?: Record<string, any>; efSearch?: number }): Promise<Array<{ id: string; score: number; vector?: Float32Array; metadata?: Record<string, any> }>> {
+    const nativeQuery: any = {
+      vector: query.vector instanceof Float32Array ? query.vector : new Float32Array(query.vector),
+      k: query.k,
+      efSearch: query.efSearch,
+    };
+
+    // Auto-convert filter object to JSON string
+    if (query.filter) {
+      nativeQuery.filter = JSON.stringify(query.filter);
+    }
+
+    const results = await this.db.search(nativeQuery);
+
+    // Auto-parse metadata JSON strings back to objects
+    return results.map((r: any) => ({
+      id: r.id,
+      score: r.score,
+      vector: r.vector,
+      metadata: r.metadata ? JSON.parse(r.metadata) : undefined,
+    }));
+  }
+
+  /**
+   * Get a vector by ID (metadata is auto-parsed from JSON)
+   */
+  async get(id: string): Promise<{ id?: string; vector: Float32Array; metadata?: Record<string, any> } | null> {
+    const entry = await this.db.get(id);
+    if (!entry) return null;
+
+    return {
+      id: entry.id,
+      vector: entry.vector,
+      metadata: entry.metadata ? JSON.parse(entry.metadata) : undefined,
+    };
+  }
+
+  /**
+   * Delete a vector by ID
+   */
+  async delete(id: string): Promise<boolean> {
+    return this.db.delete(id);
+  }
+
+  /**
+   * Get the number of vectors in the database
+   */
+  async len(): Promise<number> {
+    return this.db.len();
+  }
+
+  /**
+   * Check if the database is empty
+   */
+  async isEmpty(): Promise<boolean> {
+    return this.db.isEmpty();
+  }
+}
+
+// Export the wrapper class (aliased as VectorDB for backwards compatibility)
+export const VectorDb = VectorDBWrapper;
+export const VectorDB = VectorDBWrapper;
+
+// Also export the raw native implementation for advanced users
+export const NativeVectorDb = implementation.VectorDb;
 
 // Export everything from the implementation
 export default implementation;
