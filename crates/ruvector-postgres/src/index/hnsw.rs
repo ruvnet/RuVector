@@ -523,6 +523,7 @@ mod tests {
             max_elements: 1000,
             metric: DistanceMetric::Euclidean,
             seed: 42,
+            max_layers: 16,
         };
 
         let index = HnswIndex::new(3, config);
@@ -583,6 +584,7 @@ mod tests {
             max_elements: 10000,
             metric: DistanceMetric::Euclidean,
             seed: 42,
+            max_layers: 16,
         };
 
         let index = HnswIndex::new(dims, config);

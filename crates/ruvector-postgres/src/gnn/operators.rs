@@ -285,15 +285,16 @@ mod tests {
 
     #[pg_test]
     fn test_ruvector_gcn_forward() {
-        let embeddings = vec![vec![1.0, 2.0], vec![3.0, 4.0], vec![5.0, 6.0]];
+        let embeddings = JsonB(serde_json::json!([[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]]));
 
         let src = vec![0, 1, 2];
         let dst = vec![1, 2, 0];
 
         let result = ruvector_gcn_forward(embeddings, src, dst, None, 2);
+        let result_arr = result.0.as_array().unwrap();
 
-        assert_eq!(result.len(), 3);
-        assert_eq!(result[0].len(), 2);
+        assert_eq!(result_arr.len(), 3);
+        assert_eq!(result_arr[0].as_array().unwrap().len(), 2);
     }
 
     #[pg_test]
@@ -325,15 +326,16 @@ mod tests {
 
     #[pg_test]
     fn test_ruvector_graphsage_forward() {
-        let embeddings = vec![vec![1.0, 2.0], vec![3.0, 4.0], vec![5.0, 6.0]];
+        let embeddings = JsonB(serde_json::json!([[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]]));
 
         let src = vec![0, 1, 2];
         let dst = vec![1, 2, 0];
 
         let result = ruvector_graphsage_forward(embeddings, src, dst, 2, 2);
+        let result_arr = result.0.as_array().unwrap();
 
-        assert_eq!(result.len(), 3);
-        assert_eq!(result[0].len(), 2);
+        assert_eq!(result_arr.len(), 3);
+        assert_eq!(result_arr[0].as_array().unwrap().len(), 2);
     }
 
     #[pg_test]
@@ -352,24 +354,26 @@ mod tests {
 
     #[pg_test]
     fn test_empty_inputs() {
-        let empty_embeddings: Vec<Vec<f32>> = vec![];
+        let empty_embeddings = JsonB(serde_json::json!([]));
         let empty_src: Vec<i32> = vec![];
         let empty_dst: Vec<i32> = vec![];
 
         let result = ruvector_gcn_forward(empty_embeddings, empty_src, empty_dst, None, 4);
+        let result_arr = result.0.as_array().unwrap();
 
-        assert_eq!(result.len(), 0);
+        assert_eq!(result_arr.len(), 0);
     }
 
     #[pg_test]
     fn test_weighted_gcn() {
-        let embeddings = vec![vec![1.0, 2.0], vec![3.0, 4.0]];
+        let embeddings = JsonB(serde_json::json!([[1.0, 2.0], [3.0, 4.0]]));
         let src = vec![0];
         let dst = vec![1];
         let weights = Some(vec![2.0]);
 
         let result = ruvector_gcn_forward(embeddings, src, dst, weights, 2);
+        let result_arr = result.0.as_array().unwrap();
 
-        assert_eq!(result.len(), 2);
+        assert_eq!(result_arr.len(), 2);
     }
 }
