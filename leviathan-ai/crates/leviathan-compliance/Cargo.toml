@@ -1,0 +1,36 @@
+[package]
+name = "leviathan-compliance"
+version = "0.1.0"
+edition = "2021"
+authors = ["Leviathan AI Team"]
+description = "Bank-grade regulatory compliance framework for Northern Trust - FFIEC, BCBS 239, SR 11-7, GDPR"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/leviathan-ai/leviathan-compliance"
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+chrono = { version = "0.4", features = ["serde"] }
+uuid = { version = "1.6", features = ["serde", "v4"] }
+blake3 = "1.5"
+thiserror = "1.0"
+ed25519-dalek = { version = "2.1", features = ["serde"] }
+sha2 = "0.10"
+regex = "1.10"
+
+[dev-dependencies]
+tokio = { version = "1.35", features = ["full"] }
+criterion = "0.5"
+rand = "0.8"
+
+[lib]
+name = "leviathan_compliance"
+path = "src/lib.rs"
+
+[[example]]
+name = "full_compliance_check"
+path = "examples/full_compliance_check.rs"
+
+[[bench]]
+name = "compliance_benchmark"
+harness = false

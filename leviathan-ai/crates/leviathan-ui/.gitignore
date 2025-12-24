@@ -1,0 +1,20 @@
+# Rust
+target/
+Cargo.lock
+
+# WASM artifacts
+web/pkg/
+web/*.wasm
+web/*.js
+web/*.ts
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db

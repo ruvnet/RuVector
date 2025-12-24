@@ -1,0 +1,43 @@
+[package]
+name = "leviathan-lattice"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "φ-Lattice Processor with zero-trust certificate-based verification"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+default = ["std"]
+std = []
+wasm = ["wasm-bindgen", "console_error_panic_hook"]
+air-gapped = []  # Full offline mode with no network calls
+
+[dependencies]
+# Core
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde_bytes = "0.11"
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+
+# Cryptography - Zero Trust (Ed25519 signing for ALL operations)
+ed25519-dalek = { workspace = true }
+blake3 = { workspace = true }
+sha2 = { workspace = true }
+rand = { workspace = true }
+
+# Unique identifiers
+uuid = { workspace = true }
+chrono = { workspace = true }
+
+# Serialization
+bincode = { workspace = true }
+
+# WASM optional
+wasm-bindgen = { workspace = true, optional = true }
+console_error_panic_hook = { workspace = true, optional = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }

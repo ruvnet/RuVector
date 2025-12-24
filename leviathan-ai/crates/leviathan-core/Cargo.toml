@@ -1,0 +1,43 @@
+[package]
+name = "leviathan-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Leviathan AI - Enterprise AI orchestration with full DAG auditability"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+default = ["std", "full"]
+std = []
+full = ["lattice", "dag", "swarm", "agent", "compliance"]
+lattice = ["leviathan-lattice"]
+dag = ["leviathan-dag"]
+swarm = ["leviathan-swarm"]
+agent = ["leviathan-agent"]
+compliance = ["leviathan-compliance"]
+wasm = ["wasm-bindgen"]
+
+[dependencies]
+# Internal crates
+leviathan-lattice = { path = "../leviathan-lattice", optional = true }
+leviathan-dag = { path = "../leviathan-dag", optional = true }
+leviathan-swarm = { path = "../leviathan-swarm", optional = true }
+leviathan-agent = { path = "../leviathan-agent", optional = true }
+leviathan-compliance = { path = "../leviathan-compliance", optional = true }
+
+# Core dependencies
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }
+tracing = { workspace = true }
+
+# WASM optional
+wasm-bindgen = { workspace = true, optional = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }

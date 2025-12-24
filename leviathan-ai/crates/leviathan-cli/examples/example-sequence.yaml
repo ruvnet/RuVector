@@ -1,0 +1,59 @@
+# Example action sequence for Leviathan CLI
+# Execute with: leviathan sequence examples/example-sequence.yaml
+
+name: "Sample Training Pipeline"
+description: "A sample sequence demonstrating training, generation, and audit"
+
+variables:
+  model_path: "models/phi-lattice.bin"
+  corpus_path: "data/corpus.txt"
+
+actions:
+  - type: log
+    message: "Starting training pipeline"
+    level: "info"
+    depends_on: []
+    continue_on_error: false
+
+  - type: init
+    path: "output"
+    template: "default"
+    depends_on: [0]
+    continue_on_error: false
+
+  - type: train
+    corpus: "data/sample-corpus.txt"
+    output: "output/model.bin"
+    epochs: 10
+    depends_on: [1]
+    continue_on_error: false
+
+  - type: generate
+    prompt: "Once upon a time"
+    max_tokens: 100
+    temperature: 0.7
+    depends_on: [2]
+    continue_on_error: true
+
+  - type: swarm_task
+    task: "Analyze generated output"
+    topology: "mesh"
+    agents: 3
+    depends_on: [3]
+    continue_on_error: true
+
+  - type: verify_audit
+    depends_on: [4]
+    continue_on_error: false
+
+  - type: export_audit
+    output: "output/audit-log.json"
+    format: "json"
+    depends_on: [5]
+    continue_on_error: false
+
+  - type: log
+    message: "Pipeline complete!"
+    level: "info"
+    depends_on: [6]
+    continue_on_error: false
