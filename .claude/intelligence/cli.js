@@ -142,8 +142,8 @@ Swarm (Hive-Mind):
         const crateMatch = file.match(/crates\/([^/]+)/);
         const crate = crateMatch ? crateMatch[1] : null;
 
-        // Build context for routing
-        const state = `editing ${fileType} file ${fileName} in ${crate || 'project'}`;
+        // Build context for routing - use underscore format to match pretrained Q-table
+        const state = `edit_${fileType}_in_${crate || 'project'}`;
 
         // Get routing suggestion
         const routing = await intel.route(
@@ -202,7 +202,7 @@ Swarm (Hive-Mind):
         const crateMatch = (file || '').match(/crates\/([^/]+)/);
         const crate = crateMatch ? crateMatch[1] : null;
 
-        const state = `editing ${fileType} in ${crate || 'project'}`;
+        const state = `edit_${fileType}_in_${crate || 'project'}`;
         const action = success ? 'successful-edit' : 'failed-edit';
 
         // Record trajectory for learning
@@ -246,8 +246,8 @@ Swarm (Hive-Mind):
         else if (cmd.startsWith('git')) cmdType = 'git';
         else if (cmd.startsWith('wasm-pack')) cmdType = 'wasm';
 
-        const state = `running ${cmdType} command`;
-        const actions = ['proceed', 'check-deps-first', 'run-tests-first'];
+        const state = `${cmdType}_in_general`;
+        const actions = ['command-succeeded', 'command-failed'];
         const suggestion = intel.suggest(state, actions);
 
         // Recall similar commands
@@ -280,7 +280,7 @@ Swarm (Hive-Mind):
         else if (cmd.startsWith('git')) cmdType = 'git';
         else if (cmd.startsWith('wasm-pack')) cmdType = 'wasm';
 
-        const state = `running ${cmdType} command`;
+        const state = `${cmdType}_in_general`;
         const reward = success ? 1.0 : -0.5;
 
         intel.learn(state, success ? 'command-succeeded' : 'command-failed', cmd.slice(0, 100), reward);

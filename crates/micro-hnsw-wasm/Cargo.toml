@@ -1,6 +1,6 @@
 [package]
 name = "micro-hnsw-wasm"
-version = "2.3.0"
+version = "2.3.2"
 edition = "2021"
 description = "Neuromorphic HNSW vector search with spiking neural networks - 11.8KB WASM for edge AI, ASIC, and embedded systems. Features LIF neurons, STDP learning, winner-take-all, dendritic computation."
 license = "MIT OR Apache-2.0"

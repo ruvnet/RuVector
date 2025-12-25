@@ -1,11 +1,10 @@
 {
   "other_in_general": {
     "command-succeeded": 0.8,
-    "command-failed": 0,
+    "command-failed": -0.04779976930355851,
     "_meta": {
-      "lastUpdate": "2025-11-20T20:03:21.000Z",
-      "updateCount": 5154,
-      "firstSeen": "2025-12-25T21:07:06.000Z"
+      "lastUpdate": "2025-12-25T21:43:41.102Z",
+      "updateCount": 5164
     }
   },
   "test_in_general": {
@@ -370,19 +369,19 @@
   },
   "edit_json_in_project": {
     "_meta": {
-      "lastUpdate": "2025-11-20T22:49:23.000Z",
-      "updateCount": 78,
-      "firstSeen": "2025-12-25T21:06:11.000Z"
+      "lastUpdate": "2025-12-25T21:42:29.120Z",
+      "updateCount": 79
     },
-    "config-specialist": 0.75
+    "config-specialist": 0.75,
+    "successful-edit": 0.01125087900926024
   },
   "edit_js_in_project": {
     "_meta": {
-      "lastUpdate": "2025-11-20T22:50:48.000Z",
-      "updateCount": 91,
-      "firstSeen": "2025-12-25T21:03:53.000Z"
+      "lastUpdate": "2025-12-25T21:41:44.338Z",
+      "updateCount": 97
     },
-    "javascript-developer": 0.75
+    "javascript-developer": 0.75,
+    "successful-edit": 0.0601478273971287
   },
   "edit_md_in_project": {
     "_meta": {
@@ -1007,10 +1006,11 @@
   },
   "running_cargo_command": {
     "_meta": {
-      "lastUpdate": "2025-12-25T21:11:22.820Z",
-      "updateCount": 1
+      "lastUpdate": "2025-12-25T21:26:12.076Z",
+      "updateCount": 2
     },
-    "command-succeeded": 0.1
+    "command-succeeded": 0.1,
+    "command-failed": -0.035355339059327376
   },
   "editing_rs_in_core": {
     "_meta": {
@@ -1032,5 +1032,47 @@
       "updateCount": 2
     },
     "test-action": 0.05757359302230347
+  },
+  "running_other_command": {
+    "_meta": {
+      "lastUpdate": "2025-12-25T21:35:14.869Z",
+      "updateCount": 13
+    },
+    "command-failed": -0.22702011487617407
+  },
+  "editing_rs_in_micro_hnsw_wasm": {
+    "_meta": {
+      "lastUpdate": "2025-12-25T21:27:18.981Z",
+      "updateCount": 1
+    },
+    "successful-edit": 0.1
+  },
+  "editing_toml_in_micro_hnsw_wasm": {
+    "_meta": {
+      "lastUpdate": "2025-12-25T21:30:15.678Z",
+      "updateCount": 2
+    },
+    "successful-edit": 0.16362668868739272
+  },
+  "editing_json_in_project": {
+    "_meta": {
+      "lastUpdate": "2025-12-25T21:29:44.225Z",
+      "updateCount": 4
+    },
+    "successful-edit": 0.2513207815751637
+  },
+  "editing_md_in_project": {
+    "_meta": {
+      "lastUpdate": "2025-12-25T21:32:23.154Z",
+      "updateCount": 1
+    },
+    "successful-edit": 0.1
+  },
+  "editing_js_in_project": {
+    "_meta": {
+      "lastUpdate": "2025-12-25T21:35:52.689Z",
+      "updateCount": 1
+    },
+    "successful-edit": 0.1
   }
 }

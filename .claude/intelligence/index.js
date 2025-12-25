@@ -397,7 +397,11 @@ class ReasoningBank {
     this.alpha = 0.1;
     this.gamma = 0.9;
     this.epsilon = 0.1;
-    this.abTestGroup = Math.random() < 0.1 ? 'control' : 'treatment'; // 10% holdout
+    // A/B testing: Use environment override, or persistent session-based assignment
+    // INTELLIGENCE_MODE=treatment forces learning mode (for development/testing)
+    // INTELLIGENCE_MODE=control forces control mode (for baseline comparison)
+    this.abTestGroup = process.env.INTELLIGENCE_MODE ||
+      (this.getSessionId() % 100 < 5 ? 'control' : 'treatment'); // 5% holdout
     this.decayHalfLife = 7 * 24 * 60 * 60 * 1000; // 7 days in ms
   }
 
@@ -417,13 +421,24 @@ class ReasoningBank {
     return {};
   }
 
+  /**
+   * Get persistent session ID for consistent A/B assignment
+   * Uses process PID + startup time hash for session-stable assignment
+   */
+  getSessionId() {
+    // Combine PID with a time bucket (hourly) for session-stable but varied assignment
+    const hourBucket = Math.floor(Date.now() / (60 * 60 * 1000));
+    return (process.pid || 0) + hourBucket;
+  }
+
   save() {
     writeFileSync(TRAJECTORIES_FILE, JSON.stringify(this.trajectories.slice(-1000), null, 2));
     writeFileSync(PATTERNS_FILE, JSON.stringify(this.qTable, null, 2));
   }
 
   stateKey(state) {
-    return state.toLowerCase().replace(/[^a-z0-9]+/g, '_').slice(0, 80);
+    // Preserve hyphens in crate names (e.g., ruvector-core, micro-hnsw-wasm)
+    return state.toLowerCase().replace(/[^a-z0-9-]+/g, '_').slice(0, 80);
   }
 
   /**
@@ -952,7 +967,8 @@ class NeuralRouter {
 
   async route(task, context = {}) {
     const { fileType, crate, operation = 'edit' } = context;
-    const state = `${operation} ${fileType || 'file'} in ${crate || 'project'}`;
+    // Use underscore format to match pretrained Q-table
+    const state = `${operation}_${fileType || 'file'}_in_${crate || 'project'}`;
     const agents = this.getAgentsForContext(fileType, crate);
 
     const suggestion = this.reasoning.getBestAction(state, agents);

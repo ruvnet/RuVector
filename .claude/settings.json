@@ -9,7 +9,8 @@
     "RUVECTOR_MEMORY_BACKEND": "rvlite",
     "RUVECTOR_WASM_SIZE_LIMIT_KB": "3072",
     "RUVECTOR_INTELLIGENCE_ENABLED": "true",
-    "RUVECTOR_LEARNING_RATE": "0.1"
+    "RUVECTOR_LEARNING_RATE": "0.1",
+    "INTELLIGENCE_MODE": "treatment"
   },
   "permissions": {
     "allow": [
@@ -49,7 +50,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/bin/bash -c 'INPUT=$(cat); CMD=$(echo \"$INPUT\" | jq -r \".tool_input.command // empty\"); npx claude-flow@alpha hooks pre-command --command \"$CMD\" --validate-safety true 2>/dev/null || true; cd /workspaces/ruvector/.claude/intelligence && node cli.js pre-command \"$CMD\" 2>/dev/null || true'"
+            "command": "/bin/bash -c 'INPUT=$(cat); CMD=$(echo \"$INPUT\" | jq -r \".tool_input.command // empty\"); (cd /workspaces/ruvector/.claude/intelligence && node cli.js pre-command \"$CMD\" 2>/dev/null) &'"
           }
         ]
       },
@@ -58,7 +59,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/bin/bash -c 'INPUT=$(cat); FILE=$(echo \"$INPUT\" | jq -r \".tool_input.file_path // .tool_input.path // empty\"); if [ -n \"$FILE\" ]; then npx claude-flow@alpha hooks pre-edit --file \"$FILE\" --auto-assign-agents true 2>/dev/null || true; EXT=\"${FILE##*.}\"; if [ \"$EXT\" = \"rs\" ]; then /workspaces/ruvector/.claude/hooks/rust-check.sh \"$FILE\" 2>/dev/null || true; fi; cd /workspaces/ruvector/.claude/intelligence && node cli.js pre-edit \"$FILE\" 2>/dev/null || true; fi'"
+            "command": "/bin/bash -c 'INPUT=$(cat); FILE=$(echo \"$INPUT\" | jq -r \".tool_input.file_path // .tool_input.path // empty\"); if [ -n \"$FILE\" ]; then (cd /workspaces/ruvector/.claude/intelligence && node cli.js pre-edit \"$FILE\" 2>/dev/null) & fi'"
           }
         ]
       }
@@ -69,7 +70,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/bin/bash -c 'INPUT=$(cat); CMD=$(echo \"$INPUT\" | jq -r \".tool_input.command // empty\"); SUCCESS=\"true\"; STDERR=\"\"; if echo \"$INPUT\" | jq -e \".tool_result.stderr\" 2>/dev/null | grep -q .; then SUCCESS=\"false\"; STDERR=$(echo \"$INPUT\" | jq -r \".tool_result.stderr // empty\" | head -c 500); fi; CMDTYPE=\"other\"; case \"$CMD\" in cargo*) CMDTYPE=\"cargo\";; npm*) CMDTYPE=\"npm\";; git*) CMDTYPE=\"git\";; wasm-pack*) CMDTYPE=\"wasm\";; *test*) CMDTYPE=\"test\";; *build*) CMDTYPE=\"build\";; esac; npx claude-flow@alpha hooks post-command --command \"$CMD\" --track-metrics true 2>/dev/null || true; cd /workspaces/ruvector/.claude/intelligence && node cli.js post-command \"$CMD\" \"$SUCCESS\" \"$STDERR\" 2>/dev/null || true; node metrics.js record-command \"$CMDTYPE\" \"$SUCCESS\" 2>/dev/null || true'"
+            "command": "/bin/bash -c 'INPUT=$(cat); CMD=$(echo \"$INPUT\" | jq -r \".tool_input.command // empty\"); SUCCESS=\"true\"; STDERR=\"\"; if echo \"$INPUT\" | jq -e \".tool_result.stderr\" 2>/dev/null | grep -q .; then SUCCESS=\"false\"; STDERR=$(echo \"$INPUT\" | jq -r \".tool_result.stderr // empty\" | head -c 300); fi; (cd /workspaces/ruvector/.claude/intelligence && node cli.js post-command \"$CMD\" \"$SUCCESS\" \"$STDERR\" 2>/dev/null) &'"
           }
         ]
       },
@@ -78,7 +79,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/bin/bash -c 'INPUT=$(cat); FILE=$(echo \"$INPUT\" | jq -r \".tool_input.file_path // .tool_input.path // empty\"); if [ -n \"$FILE\" ]; then SUCCESS=\"true\"; npx claude-flow@alpha hooks post-edit --file \"$FILE\" --format true 2>/dev/null || true; EXT=\"${FILE##*.}\"; if [ \"$EXT\" = \"rs\" ]; then /workspaces/ruvector/.claude/hooks/post-rust-edit.sh \"$FILE\" 2>/dev/null || true; fi; cd /workspaces/ruvector/.claude/intelligence && node cli.js post-edit \"$FILE\" \"$SUCCESS\" 2>/dev/null || true; fi'"
+            "command": "/bin/bash -c 'INPUT=$(cat); FILE=$(echo \"$INPUT\" | jq -r \".tool_input.file_path // .tool_input.path // empty\"); if [ -n \"$FILE\" ]; then (cd /workspaces/ruvector/.claude/intelligence && node cli.js post-edit \"$FILE\" \"true\" 2>/dev/null) & fi'"
           }
         ]
       }

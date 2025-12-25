@@ -1,4 +1,5 @@
 # RuVector Postgres v2 - Architecture Overview
+<!-- Last reviewed: 2025-12-25 -->
 
 ## What We're Building
 

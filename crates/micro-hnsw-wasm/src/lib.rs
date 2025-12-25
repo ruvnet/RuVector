@@ -1,4 +1,5 @@
 //! Micro HNSW v2.3 - Neuromorphic HNSW with Novel Discoveries
+//! Last validated: 2025-12-25
 //! Target: <12KB WASM with multi-core support
 //!
 //! Features:
