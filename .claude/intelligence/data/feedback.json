@@ -311,6 +311,30 @@
       "followed": null,
       "outcome": null,
       "timestamp": "2025-12-25T21:43:30.522Z"
+    },
+    {
+      "id": "sug-1766699232113",
+      "suggested": "config-specialist",
+      "confidence": 0.8175744761936437,
+      "followed": null,
+      "outcome": null,
+      "timestamp": "2025-12-25T21:47:12.113Z"
+    },
+    {
+      "id": "sug-1766699268392",
+      "suggested": "config-specialist",
+      "confidence": 0.8175744761936437,
+      "followed": null,
+      "outcome": null,
+      "timestamp": "2025-12-25T21:47:48.392Z"
+    },
+    {
+      "id": "sug-1766699294975",
+      "suggested": "rust-developer",
+      "confidence": 0.8008878553727657,
+      "followed": null,
+      "outcome": null,
+      "timestamp": "2025-12-25T21:48:14.975Z"
     }
   ],
   "followRates": {

@@ -50,7 +50,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/bin/bash -c 'INPUT=$(cat); CMD=$(echo \"$INPUT\" | jq -r \".tool_input.command // empty\"); (cd /workspaces/ruvector/.claude/intelligence && node cli.js pre-command \"$CMD\" 2>/dev/null) &'"
+            "timeout": 3000,
+            "command": "/bin/bash -c 'INPUT=$(cat); CMD=$(echo \"$INPUT\" | jq -r \".tool_input.command // empty\"); cd /workspaces/ruvector/.claude/intelligence && INTELLIGENCE_MODE=treatment node cli.js pre-command \"$CMD\" 2>/dev/null'"
           }
         ]
       },
@@ -59,7 +60,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/bin/bash -c 'INPUT=$(cat); FILE=$(echo \"$INPUT\" | jq -r \".tool_input.file_path // .tool_input.path // empty\"); if [ -n \"$FILE\" ]; then (cd /workspaces/ruvector/.claude/intelligence && node cli.js pre-edit \"$FILE\" 2>/dev/null) & fi'"
+            "timeout": 3000,
+            "command": "/bin/bash -c 'INPUT=$(cat); FILE=$(echo \"$INPUT\" | jq -r \".tool_input.file_path // .tool_input.path // empty\"); if [ -n \"$FILE\" ]; then cd /workspaces/ruvector/.claude/intelligence && INTELLIGENCE_MODE=treatment node cli.js pre-edit \"$FILE\" 2>/dev/null; fi'"
           }
         ]
       }
@@ -110,6 +112,17 @@
           {
             "type": "command",
             "command": "/bin/bash -c 'echo \"🛑 Session ending - persisting learned state...\"; npx claude-flow@alpha hooks session-end --generate-summary true --persist-state true 2>/dev/null || true; cd /workspaces/ruvector/.claude/intelligence && STATS=$(node cli.js stats 2>/dev/null | tail -n +2); MEM=$(echo \"$STATS\" | jq -r \".memory.total // 0\" 2>/dev/null); TRAJ=$(echo \"$STATS\" | jq -r \".trajectories // 0\" 2>/dev/null); echo \"📊 Session learned: $MEM memories, $TRAJ trajectories\"; echo \"✅ Intelligence state persisted\"'"
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "timeout": 5000,
+            "command": "/bin/bash -c 'echo \"🧠 RuVector Intelligence Layer Active\"; echo \"\"; cd /workspaces/ruvector/.claude/intelligence && INTELLIGENCE_MODE=treatment node -e \"const I = (await import(\\\"./index.js\\\")).default; const i = new I(); const s = i.stats(); console.log(\\\"📊 Learned: \\\" + s.patterns + \\\" patterns | \\\" + s.memory.total + \\\" memories\\\"); if (s.topPatterns && s.topPatterns.length > 0) { console.log(\\\"\\\"); console.log(\\\"🎯 Top Learned Actions:\\\"); s.topPatterns.slice(0,3).forEach(p => console.log(\\\"   \\\" + p.state + \\\": \\\" + p.bestAction + \\\" (Q=\\\" + p.qValue + \\\")\\\")); }\" 2>/dev/null; echo \"\"; echo \"⚡ Intelligence guides: agent routing, error fixes, file sequences\"'"
           }
         ]
       }

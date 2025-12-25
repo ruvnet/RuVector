@@ -1,69 +1,5 @@
 [
   {
-    "id": "pretrain-cmd-7423",
-    "state": "other_in_general",
-    "action": "command-succeeded",
-    "outcome": "╚════════════════════════════════════════════════════════════════════════════╝",
-    "reward": 1,
-    "timestamp": "2025-11-21T03:08:47.000Z"
-  },
-  {
-    "id": "pretrain-cmd-7424",
-    "state": "other_in_general",
-    "action": "command-succeeded",
-    "outcome": "║                     RUVECTOR PACKAGE CREATION COMPLETE                     ║",
-    "reward": 1,
-    "timestamp": "2025-11-21T03:08:45.000Z"
-  },
-  {
-    "id": "pretrain-cmd-7425",
-    "state": "other_in_general",
-    "action": "command-succeeded",
-    "outcome": "╔════════════════════════════════════════════════════════════════════════════╗",
-    "reward": 1,
-    "timestamp": "2025-11-21T03:08:41.000Z"
-  },
-  {
-    "id": "pretrain-cmd-7426",
-    "state": "other_in_general",
-    "action": "command-succeeded",
-    "outcome": "cat > /tmp/ruvector-package-summary.txt << 'EOF'",
-    "reward": 1,
-    "timestamp": "2025-11-21T03:08:38.000Z"
-  },
-  {
-    "id": "pretrain-cmd-7427",
-    "state": "other_in_general",
-    "action": "command-succeeded",
-    "outcome": "cp /workspaces/ruvector/crates/ruvector-node/ruvector.linux-x64-gnu.node /workspaces/ruvector/npm/co",
-    "reward": 1,
-    "timestamp": "2025-11-21T03:08:22.000Z"
-  },
-  {
-    "id": "pretrain-cmd-7428",
-    "state": "other_in_general",
-    "action": "command-succeeded",
-    "outcome": "mkdir -p /workspaces/ruvector/npm/core/native/linux-x64 && echo \"Created native directory\"",
-    "reward": 1,
-    "timestamp": "2025-11-21T03:08:09.000Z"
-  },
-  {
-    "id": "pretrain-cmd-7429",
-    "state": "other_in_general",
-    "action": "command-succeeded",
-    "outcome": "node -e \"console.log(process.platform + '-' + process.arch)\"",
-    "reward": 1,
-    "timestamp": "2025-11-21T03:08:00.000Z"
-  },
-  {
-    "id": "pretrain-cmd-7430",
-    "state": "other_in_general",
-    "action": "command-succeeded",
-    "outcome": "ls -lh /workspaces/ruvector/crates/ruvector-node/*.node",
-    "reward": 1,
-    "timestamp": "2025-11-21T03:07:45.000Z"
-  },
-  {
     "id": "pretrain-cmd-7431",
     "state": "test_in_general",
     "action": "command-succeeded",
@@ -8061,6 +7997,78 @@
     "outcome": "INTELLIGENCE_MODE=treatment node cli.js stats",
     "reward": -0.5,
     "timestamp": "2025-12-25T21:43:41.102Z",
+    "abGroup": "treatment"
+  },
+  {
+    "id": "traj-1766699059857",
+    "state": "git_in_general",
+    "action": "command-failed",
+    "outcome": "git add -A && git status",
+    "reward": -0.5,
+    "timestamp": "2025-12-25T21:44:19.857Z",
+    "abGroup": "treatment"
+  },
+  {
+    "id": "traj-1766699081398",
+    "state": "git_in_general",
+    "action": "command-failed",
+    "outcome": "git commit -m \"$(cat <<'EOF'\nfix(intelligence): Fix Q-table lookups - learning now has real effect\n\n",
+    "reward": -0.5,
+    "timestamp": "2025-12-25T21:44:41.398Z",
+    "abGroup": "treatment"
+  },
+  {
+    "id": "traj-1766699095401",
+    "state": "git_in_general",
+    "action": "command-failed",
+    "outcome": "git push",
+    "reward": -0.5,
+    "timestamp": "2025-12-25T21:44:55.401Z",
+    "abGroup": "treatment"
+  },
+  {
+    "id": "traj-1766699232315",
+    "state": "edit_json_in_project",
+    "action": "successful-edit",
+    "outcome": "completed",
+    "reward": 1,
+    "timestamp": "2025-12-25T21:47:12.315Z",
+    "abGroup": "treatment"
+  },
+  {
+    "id": "traj-1766699268595",
+    "state": "edit_json_in_project",
+    "action": "successful-edit",
+    "outcome": "completed",
+    "reward": 1,
+    "timestamp": "2025-12-25T21:47:48.595Z",
+    "abGroup": "treatment"
+  },
+  {
+    "id": "traj-1766699295171",
+    "state": "other_in_general",
+    "action": "command-failed",
+    "outcome": "INTELLIGENCE_MODE=treatment node cli.js pre-edit \"crates/ruvector-core/src/lib.rs\" 2>/dev/null",
+    "reward": -0.5,
+    "timestamp": "2025-12-25T21:48:15.171Z",
+    "abGroup": "treatment"
+  },
+  {
+    "id": "traj-1766699309708",
+    "state": "other_in_general",
+    "action": "command-failed",
+    "outcome": "INTELLIGENCE_MODE=treatment node cli.js pre-command \"cargo build\" 2>/dev/null",
+    "reward": -0.5,
+    "timestamp": "2025-12-25T21:48:29.708Z",
+    "abGroup": "treatment"
+  },
+  {
+    "id": "traj-1766699327263",
+    "state": "other_in_general",
+    "action": "command-failed",
+    "outcome": "INTELLIGENCE_MODE=treatment node -e \"const I = (await import('./index.js')).default; const i = new I",
+    "reward": -0.5,
+    "timestamp": "2025-12-25T21:48:47.263Z",
     "abGroup": "treatment"
   }
 ]
