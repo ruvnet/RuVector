@@ -917,7 +917,7 @@ This implementation is based on research in dynamic graph algorithms:
 
 **Built with ❤️ by [ruv.io](https://ruv.io)**
 
-**Status**: Production-ready • **Version**: 0.1.27 • **Rust Version**: 1.77+ • **Tests**: 448+ passing
+**Status**: Production-ready • **Version**: 0.1.28 • **Rust Version**: 1.77+ • **Tests**: 448+ passing
 
 *Keywords: rust, minimum-cut, dynamic-graph, graph-algorithm, connectivity, network-analysis, subpolynomial, real-time, wasm, simd*
 
