@@ -375,6 +375,38 @@
       "followed": null,
       "outcome": null,
       "timestamp": "2025-12-25T21:57:01.655Z"
+    },
+    {
+      "id": "sug-1766699977942",
+      "suggested": "javascript-developer",
+      "confidence": 0.8175744761936437,
+      "followed": null,
+      "outcome": null,
+      "timestamp": "2025-12-25T21:59:37.942Z"
+    },
+    {
+      "id": "sug-1766700024508",
+      "suggested": "reviewer",
+      "confidence": 0,
+      "followed": null,
+      "outcome": null,
+      "timestamp": "2025-12-25T22:00:24.508Z"
+    },
+    {
+      "id": "sug-1766700044649",
+      "suggested": "rust-developer",
+      "confidence": 0.8008878553727657,
+      "followed": null,
+      "outcome": null,
+      "timestamp": "2025-12-25T22:00:44.649Z"
+    },
+    {
+      "id": "sug-1766700058682",
+      "suggested": "rust-developer",
+      "confidence": 0.8175744761936437,
+      "followed": null,
+      "outcome": null,
+      "timestamp": "2025-12-25T22:00:58.682Z"
     }
   ],
   "followRates": {

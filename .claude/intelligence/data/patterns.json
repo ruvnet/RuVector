@@ -1,10 +1,10 @@
 {
   "other_in_general": {
     "command-succeeded": 0.8,
-    "command-failed": -0.09098399358015544,
+    "command-failed": -0.10311166960764455,
     "_meta": {
-      "lastUpdate": "2025-12-25T21:57:43.812Z",
-      "updateCount": 5174
+      "lastUpdate": "2025-12-25T22:00:58.882Z",
+      "updateCount": 5177
     }
   },
   "test_in_general": {
@@ -54,10 +54,10 @@
   },
   "git_in_general": {
     "command-succeeded": 0.8,
-    "command-failed": -0.02925466844156633,
+    "command-failed": -0.038604990326646015,
     "_meta": {
-      "lastUpdate": "2025-12-25T21:49:40.462Z",
-      "updateCount": 304
+      "lastUpdate": "2025-12-25T21:58:29.694Z",
+      "updateCount": 306
     }
   },
   "other_in_rvlite": {
@@ -376,19 +376,19 @@
   },
   "edit_js_in_project": {
     "_meta": {
-      "lastUpdate": "2025-12-25T21:57:01.863Z",
-      "updateCount": 102
+      "lastUpdate": "2025-12-25T21:59:38.144Z",
+      "updateCount": 103
     },
     "javascript-developer": 0.75,
-    "successful-edit": 0.10628257996959747
+    "successful-edit": 0.11520090994624185
   },
   "edit_md_in_project": {
     "_meta": {
-      "lastUpdate": "2025-11-20T20:13:09.000Z",
-      "updateCount": 121,
-      "firstSeen": "2025-12-25T20:20:35.000Z"
+      "lastUpdate": "2025-12-25T22:00:24.727Z",
+      "updateCount": 122
     },
-    "technical-writer": 0.75
+    "technical-writer": 0.75,
+    "successful-edit": 0.01
   },
   "edit_sh_in_project": {
     "_meta": {

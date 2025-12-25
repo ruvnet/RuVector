@@ -313,15 +313,77 @@ Message 4: Write "file.js"
 - Restore context
 - Export workflows
 
+## 🧠 Self-Learning Intelligence System
+
+This project includes a **self-learning intelligence layer** that improves Claude's decisions over time.
+
+### How It Works
+
+The intelligence system runs as hooks that:
+1. **PreToolUse**: Analyzes context and provides learned guidance BEFORE actions
+2. **PostToolUse**: Records outcomes and updates Q-learning values AFTER actions
+3. **SessionStart**: Displays learned patterns when a session begins
+
+### What You'll See
+
+When editing files, you'll receive guidance like:
+```
+🧠 Intelligence Guidance:
+   📁 ruvector-core/lib.rs
+   🤖 Agent: rust-developer (80% learned)
+      → learned from past success
+   📚 Similar: 3 past edits
+   📎 Related: mod.rs, tests.rs
+   💬 ⚡ Core lib: run cargo test --lib after changes
+```
+
+### Learning Data (Native Storage)
+
+| Storage | Format | Contents |
+|---------|--------|----------|
+| `intelligence.db` | redb | Vector embeddings (4000+ memories) |
+| `patterns.json` | JSON | Q-table with 131 state-action patterns |
+| `trajectories.json` | JSON | Last 1000 learning trajectories |
+| `feedback.json` | JSON | Suggestion follow/ignore tracking |
+
+### CLI Commands
+
+```bash
+# Check storage status
+node .claude/intelligence/cli.js storage-info
+
+# View statistics
+node .claude/intelligence/cli.js stats
+
+# Get routing suggestion
+node .claude/intelligence/cli.js route "edit lib.rs" --crate ruvector-core
+
+# Migrate data to native storage
+node .claude/intelligence/cli.js migrate --dry-run
+```
+
+### Key Learned Patterns
+
+The system has learned from **4000+ file edits** in this monorepo:
+- Rust files in `ruvector-*` crates → `rust-developer` agent (80% confidence)
+- TypeScript/JavaScript files → `coder` or `typescript-developer`
+- Cargo commands → High success rate patterns
+- Error patterns (E0308, E0433) → Suggested fixes
+
+### INTELLIGENCE_MODE
+
+Set `INTELLIGENCE_MODE=treatment` in environment to enable learned routing.
+Set `INTELLIGENCE_MODE=control` for random baseline (A/B testing).
+
 ## Advanced Features (v2.0.0)
 
 - 🚀 Automatic Topology Selection
 - ⚡ Parallel Execution (2.8-4.4x speed)
-- 🧠 Neural Training
+- 🧠 Neural Training + Self-Learning
 - 📊 Bottleneck Analysis
 - 🤖 Smart Auto-Spawning
 - 🛡️ Self-Healing Workflows
-- 💾 Cross-Session Memory
+- 💾 Cross-Session Memory (Native RuVector Storage)
 - 🔗 GitHub Integration
 
 ## Integration Tips

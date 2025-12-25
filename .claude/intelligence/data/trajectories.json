@@ -1,61 +1,5 @@
 [
   {
-    "id": "pretrain-cmd-7446",
-    "state": "test_in_general",
-    "action": "command-succeeded",
-    "outcome": "cd /workspaces/ruvector/npm && node tests/run-all-tests.js --only=unit 2>&1 | head -200",
-    "reward": 1,
-    "timestamp": "2025-11-21T03:03:13.000Z"
-  },
-  {
-    "id": "pretrain-cmd-7447",
-    "state": "cargo_in_general",
-    "action": "command-succeeded",
-    "outcome": "cargo build -p ruvector-node --lib 2>&1 | tail -100",
-    "reward": 1,
-    "timestamp": "2025-11-21T03:02:51.000Z"
-  },
-  {
-    "id": "pretrain-cmd-7448",
-    "state": "build_in_general",
-    "action": "command-succeeded",
-    "outcome": "cd /workspaces/ruvector/crates/ruvector-node && cargo build --lib 2>&1 | grep -A 5 \"error\\[E\"",
-    "reward": 1,
-    "timestamp": "2025-11-21T03:02:34.000Z"
-  },
-  {
-    "id": "pretrain-cmd-7449",
-    "state": "test_in_general",
-    "action": "command-succeeded",
-    "outcome": "chmod +x /workspaces/ruvector/npm/tests/run-all-tests.js",
-    "reward": 1,
-    "timestamp": "2025-11-21T03:02:31.000Z"
-  },
-  {
-    "id": "pretrain-cmd-7450",
-    "state": "test_in_general",
-    "action": "command-succeeded",
-    "outcome": "cd /workspaces/ruvector/npm/packages/ruvector && node test/standalone-test.js",
-    "reward": 1,
-    "timestamp": "2025-11-21T03:02:31.000Z"
-  },
-  {
-    "id": "pretrain-cmd-7451",
-    "state": "cargo_in_general",
-    "action": "command-succeeded",
-    "outcome": "cargo tree -i getrandom@0.3.4 2>&1 | grep -v \"warning:\" | head -30",
-    "reward": 1,
-    "timestamp": "2025-11-21T03:01:11.000Z"
-  },
-  {
-    "id": "pretrain-cmd-7452",
-    "state": "cargo_in_ruvector-core",
-    "action": "command-succeeded",
-    "outcome": "cargo build -p ruvector-core --release 2>&1 | tail -50",
-    "reward": 1,
-    "timestamp": "2025-11-21T03:00:54.000Z"
-  },
-  {
     "id": "pretrain-cmd-7453",
     "state": "other_in_wasm",
     "action": "command-succeeded",
@@ -8084,6 +8028,69 @@
     "outcome": "ls -la data/*.db data/*.json 2>/dev/null | head -15",
     "reward": -0.5,
     "timestamp": "2025-12-25T21:57:43.811Z",
+    "abGroup": "treatment"
+  },
+  {
+    "id": "traj-1766699887756",
+    "state": "git_in_general",
+    "action": "command-failed",
+    "outcome": "git add -A && git status",
+    "reward": -0.5,
+    "timestamp": "2025-12-25T21:58:07.756Z",
+    "abGroup": "treatment"
+  },
+  {
+    "id": "traj-1766699909694",
+    "state": "git_in_general",
+    "action": "command-failed",
+    "outcome": "git commit -m \"$(cat <<'EOF'\nfeat(intelligence): Add native RuVector storage with migration\n\nReplace",
+    "reward": -0.5,
+    "timestamp": "2025-12-25T21:58:29.694Z",
+    "abGroup": "treatment"
+  },
+  {
+    "id": "traj-1766699935258",
+    "state": "other_in_general",
+    "action": "command-failed",
+    "outcome": "cat /workspaces/ruvector/.gitignore | tail -10",
+    "reward": -0.5,
+    "timestamp": "2025-12-25T21:58:55.258Z",
+    "abGroup": "treatment"
+  },
+  {
+    "id": "traj-1766699978144",
+    "state": "edit_js_in_project",
+    "action": "successful-edit",
+    "outcome": "completed",
+    "reward": 1,
+    "timestamp": "2025-12-25T21:59:38.144Z",
+    "abGroup": "treatment"
+  },
+  {
+    "id": "traj-1766700024727",
+    "state": "edit_md_in_project",
+    "action": "successful-edit",
+    "outcome": "completed",
+    "reward": 1,
+    "timestamp": "2025-12-25T22:00:24.727Z",
+    "abGroup": "treatment"
+  },
+  {
+    "id": "traj-1766700044848",
+    "state": "other_in_general",
+    "action": "command-failed",
+    "outcome": "INTELLIGENCE_MODE=treatment node cli.js pre-edit \"crates/ruvector-core/src/lib.rs\" 2>/dev/null",
+    "reward": -0.5,
+    "timestamp": "2025-12-25T22:00:44.848Z",
+    "abGroup": "treatment"
+  },
+  {
+    "id": "traj-1766700058881",
+    "state": "other_in_general",
+    "action": "command-failed",
+    "outcome": "INTELLIGENCE_MODE=treatment node cli.js pre-edit \"crates/rvlite/src/lib.rs\" 2>/dev/null",
+    "reward": -0.5,
+    "timestamp": "2025-12-25T22:00:58.881Z",
     "abGroup": "treatment"
   }
 ]
