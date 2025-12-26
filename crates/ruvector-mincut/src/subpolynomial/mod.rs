@@ -42,13 +42,15 @@
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::time::Instant;
 
-use crate::graph::{DynamicGraph, VertexId, EdgeId, Weight};
-use crate::localkcut::deterministic::{DeterministicLocalKCut, LocalCut as DetLocalCut};
-use crate::cluster::hierarchy::{ThreeLevelHierarchy, HierarchyConfig, Expander, Precluster, HierarchyCluster};
-use crate::fragmentation::{Fragmentation, FragmentationConfig, TrimResult};
-use crate::witness::{WitnessTree, LazyWitnessTree};
-use crate::expander::{ExpanderDecomposition, ExpanderComponent};
+use crate::cluster::hierarchy::{
+    Expander, HierarchyCluster, HierarchyConfig, Precluster, ThreeLevelHierarchy,
+};
 use crate::error::{MinCutError, Result};
+use crate::expander::{ExpanderComponent, ExpanderDecomposition};
+use crate::fragmentation::{Fragmentation, FragmentationConfig, TrimResult};
+use crate::graph::{DynamicGraph, EdgeId, VertexId, Weight};
+use crate::localkcut::deterministic::{DeterministicLocalKCut, LocalCut as DetLocalCut};
+use crate::witness::{LazyWitnessTree, WitnessTree};
 
 /// Configuration for the subpolynomial algorithm
 #[derive(Debug, Clone)]
@@ -365,7 +367,9 @@ impl SubpolynomialMinCut {
         ));
 
         // Collect edge data first
-        let edge_data: Vec<(VertexId, VertexId, Weight)> = self.edges.iter()
+        let edge_data: Vec<(VertexId, VertexId, Weight)> = self
+            .edges
+            .iter()
             .map(|&(u, v)| (u, v, self.get_weight(u, v).unwrap_or(1.0)))
             .collect();
 
@@ -382,8 +386,7 @@ impl SubpolynomialMinCut {
         self.hierarchy_built = true;
 
         // Update theoretical bound
-        self.recourse_stats.theoretical_bound =
-            2.0_f64.powf(log_n.powf(0.9));
+        self.recourse_stats.theoretical_bound = 2.0_f64.powf(log_n.powf(0.9));
     }
 
     /// Build the base level (level 0) expanders
@@ -425,9 +428,7 @@ impl SubpolynomialMinCut {
             let id = next_id;
             next_id += 1;
 
-            let volume = expander_vertices.iter()
-                .map(|&v| self.degree(v))
-                .sum();
+            let volume = expander_vertices.iter().map(|&v| self.degree(v)).sum();
 
             let boundary_size = self.count_boundary(expander_vertices);
 
@@ -529,9 +530,7 @@ impl SubpolynomialMinCut {
             let id = next_id;
             next_id += 1;
 
-            let volume = vertices.iter()
-                .map(|&v| self.degree(v))
-                .sum();
+            let volume = vertices.iter().map(|&v| self.degree(v)).sum();
 
             let boundary_size = self.count_boundary(vertices);
 
@@ -568,7 +567,8 @@ impl SubpolynomialMinCut {
         // Update parent pointers in children (separate borrow)
         for (group, _) in &group_vertices {
             // Find the parent ID for this group
-            let parent_id = self.levels[level_idx].expanders
+            let parent_id = self.levels[level_idx]
+                .expanders
                 .values()
                 .find(|e| &e.children_ids == group)
                 .map(|e| e.id);
@@ -673,7 +673,13 @@ impl SubpolynomialMinCut {
     }
 
     /// Update a level for edge insertion
-    fn update_level_for_insert(&mut self, level_idx: usize, u: VertexId, v: VertexId, _weight: Weight) -> u64 {
+    fn update_level_for_insert(
+        &mut self,
+        level_idx: usize,
+        u: VertexId,
+        v: VertexId,
+        _weight: Weight,
+    ) -> u64 {
         if level_idx >= self.levels.len() {
             return 0;
         }
@@ -957,14 +963,17 @@ impl SubpolynomialMinCut {
             (self.recourse_stats.avg_update_time_us * (n - 1.0) + time_us) / n;
 
         // Update per-level recourse
-        self.recourse_stats.recourse_per_level =
-            self.levels.iter().map(|l| l.recourse).collect();
+        self.recourse_stats.recourse_per_level = self.levels.iter().map(|l| l.recourse).collect();
     }
 
     // === Helper methods ===
 
     fn edge_key(u: VertexId, v: VertexId) -> (VertexId, VertexId) {
-        if u < v { (u, v) } else { (v, u) }
+        if u < v {
+            (u, v)
+        } else {
+            (v, u)
+        }
     }
 
     fn get_weight(&self, u: VertexId, v: VertexId) -> Option<Weight> {
@@ -976,7 +985,8 @@ impl SubpolynomialMinCut {
     }
 
     fn neighbors(&self, v: VertexId) -> Vec<(VertexId, Weight)> {
-        self.adjacency.get(&v)
+        self.adjacency
+            .get(&v)
             .map(|n| n.iter().map(|(&v, &w)| (v, w)).collect())
             .unwrap_or_default()
     }
@@ -1067,18 +1077,17 @@ impl SubpolynomialMinCut {
     pub fn hierarchy_stats(&self) -> HierarchyStatistics {
         HierarchyStatistics {
             num_levels: self.levels.len(),
-            expanders_per_level: self.levels.iter()
-                .map(|l| l.expanders.len())
-                .collect(),
-            total_expanders: self.levels.iter()
-                .map(|l| l.expanders.len())
-                .sum(),
+            expanders_per_level: self.levels.iter().map(|l| l.expanders.len()).collect(),
+            total_expanders: self.levels.iter().map(|l| l.expanders.len()).sum(),
             avg_expander_size: if self.levels[0].expanders.is_empty() {
                 0.0
             } else {
-                self.levels[0].expanders.values()
+                self.levels[0]
+                    .expanders
+                    .values()
                     .map(|e| e.vertices.len())
-                    .sum::<usize>() as f64 / self.levels[0].expanders.len() as f64
+                    .sum::<usize>() as f64
+                    / self.levels[0].expanders.len() as f64
             },
         }
     }
@@ -1104,11 +1113,9 @@ impl SubpolynomialMinCut {
         if let Some(ref lkc) = self.local_kcut {
             for (level_idx, exp_id, vertices) in &expander_data {
                 // Sample boundary vertices
-                let boundary_verts: Vec<_> = vertices.iter()
-                    .filter(|&&v| {
-                        self.neighbors(v).iter()
-                            .any(|(n, _)| !vertices.contains(n))
-                    })
+                let boundary_verts: Vec<_> = vertices
+                    .iter()
+                    .filter(|&&v| self.neighbors(v).iter().any(|(n, _)| !vertices.contains(n)))
                     .take(5)
                     .copied()
                     .collect();
@@ -1119,8 +1126,7 @@ impl SubpolynomialMinCut {
                     let cuts = lkc.query(v);
                     for cut in cuts {
                         // Check if cut is internal to expander
-                        let is_internal = cut.vertices.iter()
-                            .all(|u| vertices.contains(u));
+                        let is_internal = cut.vertices.iter().all(|u| vertices.contains(u));
 
                         if is_internal {
                             min_internal_cut = min_internal_cut.min(cut.cut_value);

@@ -1,8 +1,6 @@
 //! MCP request handlers
 
-use super::gnn_cache::{
-    BatchGnnRequest, GnnCache, GnnCacheConfig, GnnOperation, LayerConfig,
-};
+use super::gnn_cache::{BatchGnnRequest, GnnCache, GnnCacheConfig, GnnOperation, LayerConfig};
 use super::protocol::*;
 use crate::config::Config;
 use anyhow::{Context, Result};
@@ -10,10 +8,7 @@ use ruvector_core::{
     types::{DbOptions, DistanceMetric, SearchQuery, VectorEntry},
     VectorDB,
 };
-use ruvector_gnn::{
-    compress::TensorCompress,
-    search::differentiable_search,
-};
+use ruvector_gnn::{compress::TensorCompress, search::differentiable_search};
 use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -161,7 +156,8 @@ impl McpHandler {
             // GNN Tools with persistent caching (~250-500x faster)
             McpTool {
                 name: "gnn_layer_create".to_string(),
-                description: "Create/cache a GNN layer (eliminates ~2.5s init overhead)".to_string(),
+                description: "Create/cache a GNN layer (eliminates ~2.5s init overhead)"
+                    .to_string(),
                 input_schema: json!({
                     "type": "object",
                     "properties": {
@@ -189,7 +185,8 @@ impl McpHandler {
             },
             McpTool {
                 name: "gnn_batch_forward".to_string(),
-                description: "Batch GNN forward passes with result caching (amortized cost)".to_string(),
+                description: "Batch GNN forward passes with result caching (amortized cost)"
+                    .to_string(),
                 input_schema: json!({
                     "type": "object",
                     "properties": {
@@ -629,9 +626,10 @@ impl McpHandler {
 
     /// Get GNN cache statistics
     async fn tool_gnn_cache_stats(&self, args: &Value) -> Result<String> {
-        let params: GnnCacheStatsParams = serde_json::from_value(args.clone()).unwrap_or(GnnCacheStatsParams {
-            include_details: false,
-        });
+        let params: GnnCacheStatsParams =
+            serde_json::from_value(args.clone()).unwrap_or(GnnCacheStatsParams {
+                include_details: false,
+            });
 
         let stats = self.gnn_cache.stats().await;
         let layer_count = self.gnn_cache.layer_count().await;
@@ -651,8 +649,8 @@ impl McpHandler {
         });
 
         if params.include_details {
-            result["estimated_memory_saved_ms"] =
-                json!((stats.layer_hits as f64) * 2500.0); // ~2.5s per hit
+            result["estimated_memory_saved_ms"] = json!((stats.layer_hits as f64) * 2500.0);
+            // ~2.5s per hit
         }
 
         Ok(result.to_string())

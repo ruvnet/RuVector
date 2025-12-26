@@ -21,8 +21,8 @@
 //! - Maturity detected via mincut stability
 
 use super::{
+    network::{LayerConfig, NetworkConfig, SpikingNetwork},
     neuron::{LIFNeuron, NeuronConfig, NeuronPopulation},
-    network::{SpikingNetwork, NetworkConfig, LayerConfig},
     SimTime, Spike,
 };
 use crate::graph::{DynamicGraph, VertexId};
@@ -422,7 +422,8 @@ impl MorphogeneticSNN {
         }
 
         // Approximate: minimum degree
-        self.graph.vertices()
+        self.graph
+            .vertices()
             .iter()
             .map(|&v| self.graph.degree(v) as f64)
             .fold(f64::INFINITY, f64::min)
@@ -431,8 +432,8 @@ impl MorphogeneticSNN {
     /// Check if development is mature
     fn check_maturity(&self, current_mincut: f64) -> bool {
         // Mature when connectivity target reached AND mincut is stable
-        let connectivity = self.graph.num_edges() as f64 /
-            (self.graph.num_vertices() * (self.graph.num_vertices() - 1) / 2).max(1) as f64;
+        let connectivity = self.graph.num_edges() as f64
+            / (self.graph.num_vertices() * (self.graph.num_vertices() - 1) / 2).max(1) as f64;
 
         if connectivity < self.growth_rules.target_connectivity {
             return false;
@@ -445,7 +446,8 @@ impl MorphogeneticSNN {
 
         let recent: Vec<_> = self.mincut_history.iter().rev().take(20).cloned().collect();
         let mean = recent.iter().sum::<f64>() / recent.len() as f64;
-        let variance = recent.iter().map(|&x| (x - mean).powi(2)).sum::<f64>() / recent.len() as f64;
+        let variance =
+            recent.iter().map(|&x| (x - mean).powi(2)).sum::<f64>() / recent.len() as f64;
 
         variance.sqrt() < self.config.stability_epsilon
     }
@@ -620,9 +622,11 @@ mod tests {
         let pattern = snn.detect_pattern();
 
         // Initial state should be some pattern
-        assert!(pattern == TuringPattern::Uniform ||
-                pattern == TuringPattern::Spots ||
-                pattern == TuringPattern::Stripes ||
-                pattern == TuringPattern::Labyrinth);
+        assert!(
+            pattern == TuringPattern::Uniform
+                || pattern == TuringPattern::Spots
+                || pattern == TuringPattern::Stripes
+                || pattern == TuringPattern::Labyrinth
+        );
     }
 }

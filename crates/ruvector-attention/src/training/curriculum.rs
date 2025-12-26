@@ -16,9 +16,9 @@ pub enum DecayType {
 #[derive(Clone, Debug)]
 pub struct CurriculumStage {
     pub name: String,
-    pub difficulty: f32,      // 0.0 = easy, 1.0 = hard
-    pub duration: usize,      // Steps in this stage
-    pub temperature: f32,     // Softmax temperature
+    pub difficulty: f32,       // 0.0 = easy, 1.0 = hard
+    pub duration: usize,       // Steps in this stage
+    pub temperature: f32,      // Softmax temperature
     pub negative_count: usize, // Number of negatives
 }
 
@@ -236,7 +236,8 @@ impl TemperatureAnnealing {
         match self.decay_type {
             DecayType::Linear => self.initial_temp - range * progress,
             DecayType::Exponential => {
-                let decay_rate = (self.final_temp / self.initial_temp).ln() / self.total_steps as f32;
+                let decay_rate =
+                    (self.final_temp / self.initial_temp).ln() / self.total_steps as f32;
                 self.initial_temp * (decay_rate * self.current_step as f32).exp()
             }
             DecayType::Cosine => {
@@ -244,8 +245,8 @@ impl TemperatureAnnealing {
             }
             DecayType::Step => {
                 let num_steps = self.current_step / self.step_size.max(1);
-                let step_decay = range * num_steps as f32
-                    / (self.total_steps / self.step_size.max(1)) as f32;
+                let step_decay =
+                    range * num_steps as f32 / (self.total_steps / self.step_size.max(1)) as f32;
                 (self.initial_temp - step_decay).max(self.final_temp)
             }
         }
@@ -324,8 +325,9 @@ mod tests {
 
     #[test]
     fn test_temperature_step() {
-        let mut annealing =
-            TemperatureAnnealing::new(1.0, 0.0, 100).with_decay(DecayType::Step).with_step_size(25);
+        let mut annealing = TemperatureAnnealing::new(1.0, 0.0, 100)
+            .with_decay(DecayType::Step)
+            .with_step_size(25);
 
         let temp_0 = annealing.get_temp();
         for _ in 0..25 {

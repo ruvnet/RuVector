@@ -8,15 +8,15 @@
 //! cargo run --example streaming -- document.pdf output/
 //! ```
 
-use ruvector_scipix::OcrConfig;
+use anyhow::{Context, Result};
+use futures::stream::{self, StreamExt};
+use indicatif::{ProgressBar, ProgressStyle};
 use ruvector_scipix::ocr::OcrEngine;
 use ruvector_scipix::output::{OcrResult, OutputFormat};
-use anyhow::{Context, Result};
+use ruvector_scipix::OcrConfig;
+use serde::{Deserialize, Serialize};
 use std::path::Path;
-use futures::stream::{self, StreamExt};
 use tokio::fs;
-use serde::{Serialize, Deserialize};
-use indicatif::{ProgressBar, ProgressStyle};
 
 #[derive(Debug, Serialize, Deserialize)]
 struct PageResult {
@@ -69,7 +69,7 @@ async fn main() -> Result<()> {
         ProgressStyle::default_bar()
             .template("[{elapsed_precise}] {bar:40.cyan/blue} {pos}/{len} {msg}")
             .unwrap()
-            .progress_chars("=>-")
+            .progress_chars("=>-"),
     );
 
     let start_time = std::time::Instant::now();
@@ -79,9 +79,7 @@ async fn main() -> Result<()> {
     let mut stream = stream::iter(pages.into_iter().enumerate())
         .map(|(idx, page_data)| {
             let engine = &engine;
-            async move {
-                process_page(engine, idx + 1, page_data).await
-            }
+            async move { process_page(engine, idx + 1, page_data).await }
         })
         .buffer_unordered(4); // Process 4 pages concurrently
 
@@ -90,11 +88,13 @@ async fn main() -> Result<()> {
         match result {
             Ok(page_result) => {
                 // Save individual page result
-                let page_file = output_dir.join(format!("page_{:04}.json", page_result.page_number));
+                let page_file =
+                    output_dir.join(format!("page_{:04}.json", page_result.page_number));
                 let json = serde_json::to_string_pretty(&page_result)?;
                 fs::write(&page_file, json).await?;
 
-                progress.set_message(format!("Page {} - {:.1}%",
+                progress.set_message(format!(
+                    "Page {} - {:.1}%",
                     page_result.page_number,
                     page_result.confidence * 100.0
                 ));
@@ -114,9 +114,8 @@ async fn main() -> Result<()> {
     let total_time = start_time.elapsed().as_millis() as u64;
 
     // Calculate statistics
-    let avg_confidence = page_results.iter()
-        .map(|p| p.confidence)
-        .sum::<f32>() / page_results.len() as f32;
+    let avg_confidence =
+        page_results.iter().map(|p| p.confidence).sum::<f32>() / page_results.len() as f32;
 
     // Create document result
     let doc_result = DocumentResult {
@@ -136,8 +135,10 @@ async fn main() -> Result<()> {
     println!("{}", "=".repeat(80));
     println!("Total pages: {}", doc_result.total_pages);
     println!("Total time: {:.2}s", total_time as f32 / 1000.0);
-    println!("Average time per page: {:.2}s",
-        (total_time as f32 / doc_result.total_pages as f32) / 1000.0);
+    println!(
+        "Average time per page: {:.2}s",
+        (total_time as f32 / doc_result.total_pages as f32) / 1000.0
+    );
     println!("Average confidence: {:.2}%", avg_confidence * 100.0);
     println!("Results saved to: {}", output_dir.display());
     println!("{}", "=".repeat(80));
@@ -166,7 +167,8 @@ async fn process_page(
     // For now, using a placeholder
     let image = image::DynamicImage::new_rgb8(100, 100);
 
-    let result = engine.recognize(&image)
+    let result = engine
+        .recognize(&image)
         .await
         .context(format!("Failed to process page {}", page_number))?;
 

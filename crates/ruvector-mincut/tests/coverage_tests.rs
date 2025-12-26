@@ -2,11 +2,11 @@
 //!
 //! Ensures 100% test coverage across all modules.
 
+use ruvector_mincut::certificate::{AuditData, AuditEntryType, AuditLogger, CutCertificate};
+use ruvector_mincut::connectivity::DynamicConnectivity;
+use ruvector_mincut::instance::{InstanceResult, StubInstance, WitnessHandle};
 use ruvector_mincut::prelude::*;
 use ruvector_mincut::wrapper::MinCutWrapper;
-use ruvector_mincut::instance::{InstanceResult, StubInstance, WitnessHandle};
-use ruvector_mincut::connectivity::DynamicConnectivity;
-use ruvector_mincut::certificate::{CutCertificate, AuditLogger, AuditEntryType, AuditData};
 use std::sync::Arc;
 
 // ============================================================================
@@ -203,7 +203,11 @@ fn test_audit_logger_capacity() {
     for i in 0..10 {
         logger.log(
             AuditEntryType::WitnessCreated,
-            AuditData::Witness { hash: i, boundary: i, seed: i },
+            AuditData::Witness {
+                hash: i,
+                boundary: i,
+                seed: i,
+            },
         );
     }
 
@@ -216,9 +220,30 @@ fn test_audit_logger_capacity() {
 fn test_audit_logger_filtering() {
     let logger = AuditLogger::new(100);
 
-    logger.log(AuditEntryType::WitnessCreated, AuditData::Witness { hash: 1, boundary: 1, seed: 1 });
-    logger.log(AuditEntryType::LocalKCutQuery, AuditData::Query { budget: 5, radius: 10, seeds: vec![1] });
-    logger.log(AuditEntryType::WitnessCreated, AuditData::Witness { hash: 2, boundary: 2, seed: 2 });
+    logger.log(
+        AuditEntryType::WitnessCreated,
+        AuditData::Witness {
+            hash: 1,
+            boundary: 1,
+            seed: 1,
+        },
+    );
+    logger.log(
+        AuditEntryType::LocalKCutQuery,
+        AuditData::Query {
+            budget: 5,
+            radius: 10,
+            seeds: vec![1],
+        },
+    );
+    logger.log(
+        AuditEntryType::WitnessCreated,
+        AuditData::Witness {
+            hash: 2,
+            boundary: 2,
+            seed: 2,
+        },
+    );
 
     let recent = logger.recent(2);
     assert_eq!(recent.len(), 2);

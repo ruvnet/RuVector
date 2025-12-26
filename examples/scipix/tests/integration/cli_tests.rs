@@ -114,11 +114,9 @@ fn test_cli_serve_command_startup() {
 fn test_cli_config_command() {
     // Test config show
     let mut cmd = Command::cargo_bin("scipix-ocr").unwrap();
-    cmd.arg("config")
-        .arg("show")
-        .assert()
-        .success()
-        .stdout(predicate::str::contains("model_path").or(predicate::str::contains("Configuration")));
+    cmd.arg("config").arg("show").assert().success().stdout(
+        predicate::str::contains("model_path").or(predicate::str::contains("Configuration")),
+    );
 
     // Test config set
     let mut cmd = Command::cargo_bin("scipix-ocr").unwrap();
@@ -191,11 +189,14 @@ fn test_cli_json_output() {
     let stdout = String::from_utf8_lossy(&output.stdout);
 
     // Verify JSON structure
-    let json: serde_json::Value = serde_json::from_str(&stdout)
-        .expect("Output should be valid JSON");
+    let json: serde_json::Value =
+        serde_json::from_str(&stdout).expect("Output should be valid JSON");
 
     assert!(json.get("latex").is_some(), "Should have latex field");
-    assert!(json.get("confidence").is_some(), "Should have confidence field");
+    assert!(
+        json.get("confidence").is_some(),
+        "Should have confidence field"
+    );
 }
 
 #[test]

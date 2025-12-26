@@ -95,7 +95,9 @@ impl std::str::FromStr for ProblemType {
             "query_timeout" | "querytimeout" => Ok(ProblemType::QueryTimeout),
             "integrity_violation" | "integrityviolation" => Ok(ProblemType::IntegrityViolation),
             "memory_pressure" | "memorypressure" => Ok(ProblemType::MemoryPressure),
-            "connection_exhaustion" | "connectionexhaustion" => Ok(ProblemType::ConnectionExhaustion),
+            "connection_exhaustion" | "connectionexhaustion" => {
+                Ok(ProblemType::ConnectionExhaustion)
+            }
             "hot_partition" | "hotpartition" => Ok(ProblemType::HotPartition),
             _ => Err(format!("Unknown problem type: {}", s)),
         }
@@ -180,7 +182,8 @@ impl Problem {
 
     /// Convert to JSON
     pub fn to_json(&self) -> serde_json::Value {
-        let detected_ts = self.detected_at
+        let detected_ts = self
+            .detected_at
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
             .as_secs();
@@ -432,12 +435,13 @@ impl ProblemDetector {
                 };
 
                 problems.push(
-                    Problem::new(ProblemType::IndexDegradation, severity)
-                        .with_details(serde_json::json!({
+                    Problem::new(ProblemType::IndexDegradation, severity).with_details(
+                        serde_json::json!({
                             "index_name": index_name,
                             "fragmentation_pct": frag_pct,
                             "threshold": thresholds.index_fragmentation_pct,
-                        }))
+                        }),
+                    ),
                 );
             }
         }
@@ -456,12 +460,13 @@ impl ProblemDetector {
                 };
 
                 problems.push(
-                    Problem::new(ProblemType::ReplicaLag, severity)
-                        .with_details(serde_json::json!({
+                    Problem::new(ProblemType::ReplicaLag, severity).with_details(
+                        serde_json::json!({
                             "replica_id": replica_id,
                             "lag_seconds": lag_seconds,
                             "threshold": thresholds.replica_lag_seconds,
-                        }))
+                        }),
+                    ),
                 );
             }
         }
@@ -477,11 +482,12 @@ impl ProblemDetector {
             };
 
             problems.push(
-                Problem::new(ProblemType::StorageExhaustion, severity)
-                    .with_details(serde_json::json!({
+                Problem::new(ProblemType::StorageExhaustion, severity).with_details(
+                    serde_json::json!({
                         "usage_pct": metrics.storage_usage_pct,
                         "threshold": thresholds.storage_usage_pct,
-                    }))
+                    }),
+                ),
             );
         }
 
@@ -496,16 +502,17 @@ impl ProblemDetector {
             };
 
             problems.push(
-                Problem::new(ProblemType::QueryTimeout, severity)
-                    .with_details(serde_json::json!({
-                        "timeout_rate": metrics.query_timeout_rate,
-                        "threshold": thresholds.query_timeout_rate,
-                    }))
+                Problem::new(ProblemType::QueryTimeout, severity).with_details(serde_json::json!({
+                    "timeout_rate": metrics.query_timeout_rate,
+                    "threshold": thresholds.query_timeout_rate,
+                })),
             );
         }
 
         // Check integrity lambda
-        if metrics.integrity_lambda < thresholds.min_integrity_lambda && metrics.integrity_lambda > 0.0 {
+        if metrics.integrity_lambda < thresholds.min_integrity_lambda
+            && metrics.integrity_lambda > 0.0
+        {
             let severity = if metrics.integrity_lambda < 0.2 {
                 Severity::Critical
             } else if metrics.integrity_lambda < 0.35 {
@@ -515,12 +522,13 @@ impl ProblemDetector {
             };
 
             problems.push(
-                Problem::new(ProblemType::IntegrityViolation, severity)
-                    .with_details(serde_json::json!({
+                Problem::new(ProblemType::IntegrityViolation, severity).with_details(
+                    serde_json::json!({
                         "lambda": metrics.integrity_lambda,
                         "threshold": thresholds.min_integrity_lambda,
                         "witness_edges": metrics.witness_edges.len(),
-                    }))
+                    }),
+                ),
             );
         }
 
@@ -535,11 +543,12 @@ impl ProblemDetector {
             };
 
             problems.push(
-                Problem::new(ProblemType::MemoryPressure, severity)
-                    .with_details(serde_json::json!({
+                Problem::new(ProblemType::MemoryPressure, severity).with_details(
+                    serde_json::json!({
                         "usage_pct": metrics.memory_usage_pct,
                         "threshold": thresholds.memory_usage_pct,
-                    }))
+                    }),
+                ),
             );
         }
 
@@ -554,11 +563,12 @@ impl ProblemDetector {
             };
 
             problems.push(
-                Problem::new(ProblemType::ConnectionExhaustion, severity)
-                    .with_details(serde_json::json!({
+                Problem::new(ProblemType::ConnectionExhaustion, severity).with_details(
+                    serde_json::json!({
                         "usage_pct": metrics.connection_usage_pct,
                         "threshold": thresholds.connection_usage_pct,
-                    }))
+                    }),
+                ),
             );
         }
 
@@ -567,13 +577,16 @@ impl ProblemDetector {
             let avg_load: f64 = metrics.partition_loads.values().sum::<f64>()
                 / metrics.partition_loads.len() as f64;
 
-            let hot_partitions: Vec<i64> = metrics.partition_loads.iter()
+            let hot_partitions: Vec<i64> = metrics
+                .partition_loads
+                .iter()
                 .filter(|(_, load)| **load > avg_load * thresholds.partition_load_ratio as f64)
                 .map(|(id, _)| *id)
                 .collect();
 
             if !hot_partitions.is_empty() {
-                let max_ratio = hot_partitions.iter()
+                let max_ratio = hot_partitions
+                    .iter()
                     .filter_map(|id| metrics.partition_loads.get(id))
                     .map(|load| *load / avg_load)
                     .fold(0.0_f64, f64::max);
@@ -593,13 +606,14 @@ impl ProblemDetector {
                             "max_ratio": max_ratio,
                             "threshold_ratio": thresholds.partition_load_ratio,
                         }))
-                        .with_partitions(hot_partitions)
+                        .with_partitions(hot_partitions),
                 );
             }
         }
 
         // Update statistics
-        self.problems_detected.fetch_add(problems.len() as u64, Ordering::SeqCst);
+        self.problems_detected
+            .fetch_add(problems.len() as u64, Ordering::SeqCst);
         self.last_detection.store(
             SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
@@ -689,9 +703,15 @@ mod tests {
 
     #[test]
     fn test_problem_type_display() {
-        assert_eq!(ProblemType::IndexDegradation.to_string(), "index_degradation");
+        assert_eq!(
+            ProblemType::IndexDegradation.to_string(),
+            "index_degradation"
+        );
         assert_eq!(ProblemType::ReplicaLag.to_string(), "replica_lag");
-        assert_eq!(ProblemType::IntegrityViolation.to_string(), "integrity_violation");
+        assert_eq!(
+            ProblemType::IntegrityViolation.to_string(),
+            "integrity_violation"
+        );
     }
 
     #[test]
@@ -711,7 +731,9 @@ mod tests {
         let detector = ProblemDetector::new();
 
         let mut metrics = SystemMetrics::new();
-        metrics.index_fragmentation.insert("test_idx".to_string(), 50.0);
+        metrics
+            .index_fragmentation
+            .insert("test_idx".to_string(), 50.0);
 
         let problems = detector.detect_problems(&metrics);
 
@@ -791,7 +813,9 @@ mod tests {
         let detector = ProblemDetector::with_thresholds(thresholds);
 
         let mut metrics = SystemMetrics::new();
-        metrics.index_fragmentation.insert("test_idx".to_string(), 15.0);
+        metrics
+            .index_fragmentation
+            .insert("test_idx".to_string(), 15.0);
 
         let problems = detector.detect_problems(&metrics);
 

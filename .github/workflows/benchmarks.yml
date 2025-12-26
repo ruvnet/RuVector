@@ -20,6 +20,11 @@ env:
   CARGO_TERM_COLOR: always
   RUST_BACKTRACE: 1
 
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
 jobs:
   rust-benchmarks:
     name: Rust Benchmarks
@@ -137,6 +142,7 @@ jobs:
 
       - name: Comment PR with results
         if: github.event_name == 'pull_request'
+        continue-on-error: true
         uses: actions/github-script@v7
         with:
           script: |
@@ -294,6 +300,7 @@ jobs:
           echo "\`\`\`" >> comparison.md
 
       - name: Comment comparison
+        continue-on-error: true
         uses: actions/github-script@v7
         with:
           script: |

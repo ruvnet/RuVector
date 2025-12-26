@@ -3,8 +3,8 @@
 //! Implements parallel attention heads for diverse representation learning.
 
 use crate::{
-    traits::Attention,
     error::{AttentionError, AttentionResult},
+    traits::Attention,
 };
 
 use super::scaled_dot_product::ScaledDotProductAttention;
@@ -81,30 +81,18 @@ impl Attention for MultiHeadAttention {
         let query_heads = self.split_heads(query);
 
         // Split keys and values
-        let key_heads: Vec<Vec<Vec<f32>>> = keys
-            .iter()
-            .map(|k| self.split_heads(k))
-            .collect();
+        let key_heads: Vec<Vec<Vec<f32>>> = keys.iter().map(|k| self.split_heads(k)).collect();
 
-        let value_heads: Vec<Vec<Vec<f32>>> = values
-            .iter()
-            .map(|v| self.split_heads(v))
-            .collect();
+        let value_heads: Vec<Vec<Vec<f32>>> = values.iter().map(|v| self.split_heads(v)).collect();
 
         // Compute attention for each head
         let mut head_outputs = Vec::new();
         for h in 0..self.num_heads {
             let head_attn = ScaledDotProductAttention::new(self.head_dim);
 
-            let head_keys: Vec<&[f32]> = key_heads
-                .iter()
-                .map(|kh| kh[h].as_slice())
-                .collect();
+            let head_keys: Vec<&[f32]> = key_heads.iter().map(|kh| kh[h].as_slice()).collect();
 
-            let head_values: Vec<&[f32]> = value_heads
-                .iter()
-                .map(|vh| vh[h].as_slice())
-                .collect();
+            let head_values: Vec<&[f32]> = value_heads.iter().map(|vh| vh[h].as_slice()).collect();
 
             let head_out = head_attn.compute(&query_heads[h], &head_keys, &head_values)?;
             head_outputs.push(head_out);

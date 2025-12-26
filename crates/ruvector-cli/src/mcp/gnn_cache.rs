@@ -151,7 +151,8 @@ impl CacheStats {
 impl GnnCache {
     /// Create a new GNN cache with the given configuration
     pub fn new(config: GnnCacheConfig) -> Self {
-        let query_cache_size = NonZeroUsize::new(config.max_query_results).unwrap_or(NonZeroUsize::new(1000).unwrap());
+        let query_cache_size =
+            NonZeroUsize::new(config.max_query_results).unwrap_or(NonZeroUsize::new(1000).unwrap());
 
         Self {
             layers: Arc::new(RwLock::new(HashMap::new())),
@@ -169,8 +170,11 @@ impl GnnCache {
         heads: usize,
         dropout: f32,
     ) -> RuvectorLayer {
-        let key = format!("{}_{}_{}_{}",
-            input_dim, hidden_dim, heads,
+        let key = format!(
+            "{}_{}_{}_{}",
+            input_dim,
+            hidden_dim,
+            heads,
             (dropout * 1000.0) as u32
         );
 
@@ -268,7 +272,9 @@ impl GnnCache {
         ];
 
         for (input, hidden, heads, dropout) in common_configs {
-            let _ = self.get_or_create_layer(input, hidden, heads, dropout).await;
+            let _ = self
+                .get_or_create_layer(input, hidden, heads, dropout)
+                .await;
         }
     }
 

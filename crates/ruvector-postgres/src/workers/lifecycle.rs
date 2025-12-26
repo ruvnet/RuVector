@@ -16,14 +16,14 @@
 //!                   +--------+      +--------+      +--------+
 //! ```
 
+use parking_lot::RwLock;
 use pgrx::prelude::*;
+use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::OnceLock;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
-use parking_lot::RwLock;
-use serde::{Deserialize, Serialize};
 
-use super::{WorkerType, get_worker_registry};
+use super::{get_worker_registry, WorkerType};
 
 // ============================================================================
 // Worker Status

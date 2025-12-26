@@ -90,9 +90,7 @@ impl SonaEngine {
         if let Some(result) = self.coordinator.maybe_run_background() {
             Some(format!(
                 "Background cycle: {} trajectories -> {} patterns in {:?}",
-                result.trajectories_processed,
-                result.patterns_extracted,
-                result.elapsed
+                result.trajectories_processed, result.patterns_extracted, result.elapsed
             ))
         } else {
             None
@@ -104,9 +102,7 @@ impl SonaEngine {
         let result = self.coordinator.force_background();
         format!(
             "Forced learning: {} trajectories -> {} patterns, status: {}",
-            result.trajectories_processed,
-            result.patterns_extracted,
-            result.status
+            result.trajectories_processed, result.patterns_extracted, result.status
         )
     }
 
@@ -116,7 +112,11 @@ impl SonaEngine {
     }
 
     /// Find similar patterns to query
-    pub fn find_patterns(&self, query_embedding: &[f32], k: usize) -> Vec<crate::sona::LearnedPattern> {
+    pub fn find_patterns(
+        &self,
+        query_embedding: &[f32],
+        k: usize,
+    ) -> Vec<crate::sona::LearnedPattern> {
         self.coordinator
             .reasoning_bank()
             .read()

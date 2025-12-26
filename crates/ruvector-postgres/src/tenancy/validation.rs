@@ -50,16 +50,87 @@ impl std::error::Error for ValidationError {}
 
 /// Reserved PostgreSQL words that cannot be used as identifiers
 const RESERVED_WORDS: &[&str] = &[
-    "select", "insert", "update", "delete", "drop", "create", "alter", "grant",
-    "revoke", "table", "schema", "index", "cascade", "restrict", "null", "true",
-    "false", "and", "or", "not", "in", "exists", "between", "like", "is", "as",
-    "from", "where", "order", "by", "group", "having", "limit", "offset", "join",
-    "inner", "outer", "left", "right", "cross", "on", "using", "union", "except",
-    "intersect", "all", "distinct", "case", "when", "then", "else", "end", "cast",
-    "coalesce", "nullif", "primary", "key", "foreign", "references", "unique",
-    "check", "default", "constraint", "trigger", "function", "procedure", "view",
-    "sequence", "type", "domain", "role", "user", "database", "tablespace",
-    "extension", "operator", "policy", "rule", "security", "definer", "invoker",
+    "select",
+    "insert",
+    "update",
+    "delete",
+    "drop",
+    "create",
+    "alter",
+    "grant",
+    "revoke",
+    "table",
+    "schema",
+    "index",
+    "cascade",
+    "restrict",
+    "null",
+    "true",
+    "false",
+    "and",
+    "or",
+    "not",
+    "in",
+    "exists",
+    "between",
+    "like",
+    "is",
+    "as",
+    "from",
+    "where",
+    "order",
+    "by",
+    "group",
+    "having",
+    "limit",
+    "offset",
+    "join",
+    "inner",
+    "outer",
+    "left",
+    "right",
+    "cross",
+    "on",
+    "using",
+    "union",
+    "except",
+    "intersect",
+    "all",
+    "distinct",
+    "case",
+    "when",
+    "then",
+    "else",
+    "end",
+    "cast",
+    "coalesce",
+    "nullif",
+    "primary",
+    "key",
+    "foreign",
+    "references",
+    "unique",
+    "check",
+    "default",
+    "constraint",
+    "trigger",
+    "function",
+    "procedure",
+    "view",
+    "sequence",
+    "type",
+    "domain",
+    "role",
+    "user",
+    "database",
+    "tablespace",
+    "extension",
+    "operator",
+    "policy",
+    "rule",
+    "security",
+    "definer",
+    "invoker",
 ];
 
 /// Validate a tenant ID
@@ -102,7 +173,10 @@ pub fn validate_tenant_id(tenant_id: &str) -> Result<(), ValidationError> {
     // Check all characters
     for (i, c) in tenant_id.chars().enumerate() {
         if !is_valid_identifier_char(c) && c != '-' {
-            return Err(ValidationError::InvalidCharacters { position: i, char: c });
+            return Err(ValidationError::InvalidCharacters {
+                position: i,
+                char: c,
+            });
         }
     }
 
@@ -145,7 +219,10 @@ pub fn validate_identifier(identifier: &str) -> Result<(), ValidationError> {
     // Check all characters (stricter than tenant_id - no hyphens)
     for (i, c) in identifier.chars().enumerate() {
         if !is_valid_identifier_char(c) {
-            return Err(ValidationError::InvalidCharacters { position: i, char: c });
+            return Err(ValidationError::InvalidCharacters {
+                position: i,
+                char: c,
+            });
         }
     }
 
@@ -172,9 +249,7 @@ pub fn sanitize_for_identifier(input: &str) -> Result<String, ValidationError> {
     validate_tenant_id(input)?;
 
     // Convert to valid identifier format
-    let sanitized = input
-        .replace('-', "_")
-        .replace('.', "_");
+    let sanitized = input.replace('-', "_").replace('.', "_");
 
     // Validate the result as an identifier
     validate_identifier(&sanitized)?;
@@ -268,24 +343,51 @@ mod tests {
     #[test]
     fn test_invalid_tenant_ids() {
         // Empty
-        assert!(matches!(validate_tenant_id(""), Err(ValidationError::Empty)));
+        assert!(matches!(
+            validate_tenant_id(""),
+            Err(ValidationError::Empty)
+        ));
 
         // Too long
         let long = "a".repeat(100);
-        assert!(matches!(validate_tenant_id(&long), Err(ValidationError::TooLong { .. })));
+        assert!(matches!(
+            validate_tenant_id(&long),
+            Err(ValidationError::TooLong { .. })
+        ));
 
         // Invalid start
-        assert!(matches!(validate_tenant_id("123tenant"), Err(ValidationError::InvalidStart { .. })));
-        assert!(matches!(validate_tenant_id("-tenant"), Err(ValidationError::InvalidStart { .. })));
+        assert!(matches!(
+            validate_tenant_id("123tenant"),
+            Err(ValidationError::InvalidStart { .. })
+        ));
+        assert!(matches!(
+            validate_tenant_id("-tenant"),
+            Err(ValidationError::InvalidStart { .. })
+        ));
 
         // Invalid characters
-        assert!(matches!(validate_tenant_id("tenant'id"), Err(ValidationError::InvalidCharacters { .. })));
-        assert!(matches!(validate_tenant_id("tenant;drop"), Err(ValidationError::InvalidCharacters { .. })));
-        assert!(matches!(validate_tenant_id("tenant id"), Err(ValidationError::InvalidCharacters { .. })));
+        assert!(matches!(
+            validate_tenant_id("tenant'id"),
+            Err(ValidationError::InvalidCharacters { .. })
+        ));
+        assert!(matches!(
+            validate_tenant_id("tenant;drop"),
+            Err(ValidationError::InvalidCharacters { .. })
+        ));
+        assert!(matches!(
+            validate_tenant_id("tenant id"),
+            Err(ValidationError::InvalidCharacters { .. })
+        ));
 
         // Reserved words
-        assert!(matches!(validate_tenant_id("select"), Err(ValidationError::ReservedWord(_))));
-        assert!(matches!(validate_tenant_id("DROP"), Err(ValidationError::ReservedWord(_))));
+        assert!(matches!(
+            validate_tenant_id("select"),
+            Err(ValidationError::ReservedWord(_))
+        ));
+        assert!(matches!(
+            validate_tenant_id("DROP"),
+            Err(ValidationError::ReservedWord(_))
+        ));
     }
 
     #[test]
@@ -319,7 +421,10 @@ mod tests {
     #[test]
     fn test_sanitize_for_identifier() {
         assert_eq!(sanitize_for_identifier("acme-corp").unwrap(), "acme_corp");
-        assert_eq!(sanitize_for_identifier("my.tenant.id").unwrap(), "my_tenant_id");
+        assert_eq!(
+            sanitize_for_identifier("my.tenant.id").unwrap(),
+            "my_tenant_id"
+        );
         assert_eq!(sanitize_for_identifier("simple").unwrap(), "simple");
     }
 
@@ -339,7 +444,10 @@ mod tests {
 
     #[test]
     fn test_safe_partition_name() {
-        assert_eq!(safe_partition_name("acme-corp", "embeddings").unwrap(), "embeddings_acme_corp");
+        assert_eq!(
+            safe_partition_name("acme-corp", "embeddings").unwrap(),
+            "embeddings_acme_corp"
+        );
         assert!(safe_partition_name("'; DROP TABLE", "embeddings").is_err());
     }
 

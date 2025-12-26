@@ -6,10 +6,10 @@
 #![allow(missing_docs)]
 
 use crate::compact::{
-    CompactCoreState, CompactVertexId, CompactEdge,
-    CompactWitness, BitSet256, CoreResult, MAX_EDGES_PER_CORE,
+    BitSet256, CompactCoreState, CompactEdge, CompactVertexId, CompactWitness, CoreResult,
+    MAX_EDGES_PER_CORE,
 };
-use core::sync::atomic::{AtomicU8, AtomicU16, Ordering};
+use core::sync::atomic::{AtomicU16, AtomicU8, Ordering};
 
 // SIMD functions (inlined for non-wasm, uses wasm::simd when available)
 #[cfg(feature = "wasm")]
@@ -185,7 +185,11 @@ pub struct CoreDistributor {
 
 impl CoreDistributor {
     pub fn new(strategy: CoreStrategy, num_vertices: u16, num_edges: u16) -> Self {
-        Self { strategy, num_vertices, num_edges }
+        Self {
+            strategy,
+            num_vertices,
+            num_edges,
+        }
     }
 
     /// Determine which core should handle a vertex
@@ -210,18 +214,14 @@ impl CoreDistributor {
     /// Get the range of vertices for a core
     pub fn core_vertex_range(&self, core_id: u8) -> (CompactVertexId, CompactVertexId) {
         match self.strategy {
-            CoreStrategy::GeometricRanges => {
-                (0, self.num_vertices)
-            }
+            CoreStrategy::GeometricRanges => (0, self.num_vertices),
             CoreStrategy::GraphPartition => {
                 let n = self.num_vertices as u32;
                 let start = (core_id as u32 * n) / NUM_CORES as u32;
                 let end = ((core_id as u32 + 1) * n) / NUM_CORES as u32;
                 (start as u16, end as u16)
             }
-            CoreStrategy::WorkStealing => {
-                (0, self.num_vertices)
-            }
+            CoreStrategy::WorkStealing => (0, self.num_vertices),
         }
     }
 }
@@ -277,9 +277,7 @@ impl<'a> CoreExecutor<'a> {
         self.state.num_edges += 1;
 
         // Track vertices
-        self.state.num_vertices = self.state.num_vertices
-            .max(src + 1)
-            .max(tgt + 1);
+        self.state.num_vertices = self.state.num_vertices.max(src + 1).max(tgt + 1);
     }
 
     /// Process this core's assigned range

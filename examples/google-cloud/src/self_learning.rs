@@ -11,18 +11,16 @@ use std::path::PathBuf;
 use std::time::Instant;
 
 // Import RuVector crates
-use ruvector_gnn::{
-    training::{Optimizer, OptimizerType},
-    replay::ReplayBuffer,
-    ewc::ElasticWeightConsolidation,
-    scheduler::{LearningRateScheduler, SchedulerType},
-    layer::RuvectorLayer,
-};
 use ruvector_attention::{
+    traits::Attention, HyperbolicAttention, HyperbolicAttentionConfig, MoEAttention, MoEConfig,
     MultiHeadAttention, ScaledDotProductAttention,
-    HyperbolicAttention, HyperbolicAttentionConfig,
-    MoEAttention, MoEConfig,
-    traits::Attention,
+};
+use ruvector_gnn::{
+    ewc::ElasticWeightConsolidation,
+    layer::RuvectorLayer,
+    replay::ReplayBuffer,
+    scheduler::{LearningRateScheduler, SchedulerType},
+    training::{Optimizer, OptimizerType},
 };
 
 /// Self-learning model configuration
@@ -52,14 +50,14 @@ pub enum Industry {
 
 #[derive(Debug, Clone, Copy, serde::Serialize)]
 pub enum Architecture {
-    TransformerRL,        // Transformer with reinforcement learning
-    GNNAdaptive,          // Graph Neural Network with adaptation
-    HyperbolicAttention,  // Hyperbolic space attention
-    MixtureOfExperts,     // Sparse MoE architecture
-    SpikingNN,            // Spiking neural network
-    HopfieldModern,       // Modern Hopfield network
+    TransformerRL,         // Transformer with reinforcement learning
+    GNNAdaptive,           // Graph Neural Network with adaptation
+    HyperbolicAttention,   // Hyperbolic space attention
+    MixtureOfExperts,      // Sparse MoE architecture
+    SpikingNN,             // Spiking neural network
+    HopfieldModern,        // Modern Hopfield network
     DifferentialEvolution, // Evolutionary self-improvement
-    QuantumVariational,   // Quantum-inspired variational
+    QuantumVariational,    // Quantum-inspired variational
 }
 
 /// Training metrics
@@ -105,8 +103,11 @@ impl HealthcareModel {
 
         // Create learning rate scheduler
         let scheduler = LearningRateScheduler::new(
-            SchedulerType::CosineAnnealing { t_max: 100, eta_min: 1e-6 },
-            0.001
+            SchedulerType::CosineAnnealing {
+                t_max: 100,
+                eta_min: 1e-6,
+            },
+            0.001,
         );
 
         // Replay buffer for experience
@@ -145,7 +146,8 @@ impl HealthcareModel {
         let keys_refs: Vec<&[f32]> = keys.iter().map(|k| k.as_slice()).collect();
         let values_refs: Vec<&[f32]> = values.iter().map(|v| v.as_slice()).collect();
 
-        self.attention.compute(symptoms, &keys_refs, &values_refs)
+        self.attention
+            .compute(symptoms, &keys_refs, &values_refs)
             .unwrap_or_else(|_| symptoms.to_vec())
     }
 
@@ -153,7 +155,8 @@ impl HealthcareModel {
         let embedding = self.encode_symptoms(&symptoms);
         let confidence = if correct { 1.0 } else { 0.0 };
 
-        self.diagnosis_patterns.push((embedding, diagnosis.to_string(), confidence));
+        self.diagnosis_patterns
+            .push((embedding, diagnosis.to_string(), confidence));
         self.total_episodes += 1;
 
         // Update accuracy history
@@ -226,7 +229,8 @@ impl FinancialModel {
         let keys_refs: Vec<&[f32]> = keys.iter().map(|k| k.as_slice()).collect();
         let values_refs: Vec<&[f32]> = values.iter().map(|v| v.as_slice()).collect();
 
-        self.attention.compute(market_data, &keys_refs, &values_refs)
+        self.attention
+            .compute(market_data, &keys_refs, &values_refs)
             .unwrap_or_else(|_| market_data.to_vec())
     }
 
@@ -237,10 +241,14 @@ impl FinancialModel {
 
         // Calculate Sharpe ratio approximation
         if self.portfolio_history.len() >= 2 {
-            let mean: f32 = self.portfolio_history.iter().sum::<f32>() / self.portfolio_history.len() as f32;
-            let variance: f32 = self.portfolio_history.iter()
+            let mean: f32 =
+                self.portfolio_history.iter().sum::<f32>() / self.portfolio_history.len() as f32;
+            let variance: f32 = self
+                .portfolio_history
+                .iter()
                 .map(|r| (r - mean).powi(2))
-                .sum::<f32>() / self.portfolio_history.len() as f32;
+                .sum::<f32>()
+                / self.portfolio_history.len() as f32;
             mean / (variance.sqrt() + 1e-6)
         } else {
             0.0
@@ -359,7 +367,8 @@ impl MoEModel {
         let keys: Vec<&[f32]> = context.iter().map(|c| c.as_slice()).collect();
         let values: Vec<&[f32]> = context.iter().map(|c| c.as_slice()).collect();
 
-        self.moe.compute(query, &keys, &values)
+        self.moe
+            .compute(query, &keys, &values)
             .unwrap_or_else(|_| query.to_vec())
     }
 }
@@ -369,7 +378,7 @@ impl MoEModel {
 /// Quantum-Inspired Variational Model
 pub struct QuantumInspiredModel {
     pub config: SelfLearningConfig,
-    parameters: Vec<f32>,  // Variational parameters
+    parameters: Vec<f32>, // Variational parameters
     num_qubits: usize,
     num_layers: usize,
     optimizer: Optimizer,
@@ -379,7 +388,7 @@ pub struct QuantumInspiredModel {
 impl QuantumInspiredModel {
     pub fn new(num_qubits: usize, num_layers: usize) -> Self {
         let mut rng = rand::thread_rng();
-        let num_params = num_qubits * num_layers * 3;  // Rx, Ry, Rz per qubit per layer
+        let num_params = num_qubits * num_layers * 3; // Rx, Ry, Rz per qubit per layer
         let parameters: Vec<f32> = (0..num_params)
             .map(|_| rng.gen::<f32>() * 2.0 * std::f32::consts::PI)
             .collect();
@@ -433,7 +442,11 @@ impl QuantumInspiredModel {
             }
         }
 
-        state.iter().zip(hamiltonian.iter()).map(|(s, h)| s * s * h).sum()
+        state
+            .iter()
+            .zip(hamiltonian.iter())
+            .map(|(s, h)| s * s * h)
+            .sum()
     }
 
     pub fn optimize_step(&mut self, hamiltonian: &[f32]) -> f32 {
@@ -515,7 +528,7 @@ impl SpikingNeuralNetwork {
             if self.membrane_potentials[i] >= self.thresholds[i] {
                 spikes[i] = true;
                 self.spike_times[i] = self.time;
-                self.membrane_potentials[i] = 0.0;  // Reset
+                self.membrane_potentials[i] = 0.0; // Reset
             }
         }
 
@@ -536,9 +549,9 @@ impl SpikingNeuralNetwork {
     pub fn stdp_update(&mut self, pre: usize, post: usize) {
         let dt = self.spike_times[post] - self.spike_times[pre];
         let dw = if dt > 0.0 {
-            0.01 * (-dt / self.tau_stdp).exp()  // LTP
+            0.01 * (-dt / self.tau_stdp).exp() // LTP
         } else {
-            -0.012 * (dt / self.tau_stdp).exp()  // LTD
+            -0.012 * (dt / self.tau_stdp).exp() // LTD
         };
 
         self.weights[pre][post] = (self.weights[pre][post] + dw).max(0.0).min(1.0);
@@ -577,7 +590,9 @@ impl HyperdimensionalModel {
 
     pub fn random_hypervector(&self) -> Vec<f32> {
         let mut rng = rand::thread_rng();
-        (0..self.dim).map(|_| if rng.gen::<bool>() { 1.0 } else { -1.0 }).collect()
+        (0..self.dim)
+            .map(|_| if rng.gen::<bool>() { 1.0 } else { -1.0 })
+            .collect()
     }
 
     pub fn bind(&self, a: &[f32], b: &[f32]) -> Vec<f32> {
@@ -592,7 +607,10 @@ impl HyperdimensionalModel {
             }
         }
         // Threshold
-        result.iter().map(|&x| if x > 0.0 { 1.0 } else { -1.0 }).collect()
+        result
+            .iter()
+            .map(|&x| if x > 0.0 { 1.0 } else { -1.0 })
+            .collect()
     }
 
     pub fn similarity(&self, a: &[f32], b: &[f32]) -> f32 {
@@ -605,7 +623,8 @@ impl HyperdimensionalModel {
     }
 
     pub fn query(&self, query: &[f32]) -> Option<(&String, f32)> {
-        self.memory.iter()
+        self.memory
+            .iter()
             .map(|(k, v)| (k, self.similarity(query, v)))
             .max_by(|a, b| a.1.partial_cmp(&b.1).unwrap())
     }
@@ -737,11 +756,19 @@ impl ReservoirComputer {
         let mut rng = rand::thread_rng();
 
         let input_weights: Vec<Vec<f32>> = (0..reservoir_size)
-            .map(|_| (0..input_dim).map(|_| rng.gen::<f32>() * 2.0 - 1.0).collect())
+            .map(|_| {
+                (0..input_dim)
+                    .map(|_| rng.gen::<f32>() * 2.0 - 1.0)
+                    .collect()
+            })
             .collect();
 
         let reservoir_weights: Vec<Vec<f32>> = (0..reservoir_size)
-            .map(|_| (0..reservoir_size).map(|_| rng.gen::<f32>() * 2.0 - 1.0).collect())
+            .map(|_| {
+                (0..reservoir_size)
+                    .map(|_| rng.gen::<f32>() * 2.0 - 1.0)
+                    .collect()
+            })
             .collect();
 
         Self {
@@ -785,7 +812,10 @@ pub async fn run_industry_training(epochs: usize, output_dir: Option<PathBuf>) -
     let output_dir = output_dir.unwrap_or_else(|| PathBuf::from("./training_results"));
     std::fs::create_dir_all(&output_dir)?;
 
-    tracing::info!("Starting self-learning model training for {} epochs", epochs);
+    tracing::info!(
+        "Starting self-learning model training for {} epochs",
+        epochs
+    );
 
     // Train Healthcare Model
     tracing::info!("Training Healthcare Diagnostics Model...");
@@ -858,7 +888,9 @@ pub async fn run_industry_training(epochs: usize, output_dir: Option<PathBuf>) -
     let mut snn = SpikingNeuralNetwork::new(100);
 
     for epoch in 0..epochs {
-        let inputs: Vec<f32> = (0..100).map(|_| if rng.gen::<f32>() > 0.8 { 1.0 } else { 0.0 }).collect();
+        let inputs: Vec<f32> = (0..100)
+            .map(|_| if rng.gen::<f32>() > 0.8 { 1.0 } else { 0.0 })
+            .collect();
         let spikes = snn.step(&inputs, 1.0);
         let spike_count = spikes.iter().filter(|&&s| s).count();
 
@@ -873,11 +905,15 @@ pub async fn run_industry_training(epochs: usize, output_dir: Option<PathBuf>) -
     let start = Instant::now();
     let mut hdm = HyperdimensionalModel::new(10000);
 
-    for epoch in 0..epochs.min(100) {  // Fewer epochs for HD
+    for epoch in 0..epochs.min(100) {
+        // Fewer epochs for HD
         let hv = hdm.random_hypervector();
         hdm.store(&format!("pattern_{}", epoch), hv);
     }
-    tracing::info!("Hyperdimensional training complete in {:?}", start.elapsed());
+    tracing::info!(
+        "Hyperdimensional training complete in {:?}",
+        start.elapsed()
+    );
 
     tracing::info!("All industry models trained successfully!");
     Ok(())
@@ -902,7 +938,11 @@ pub async fn run_exotic_experiments(iterations: usize, output_dir: Option<PathBu
             trajectory.push(chaos.state);
         }
     }
-    tracing::info!("Chaos experiment complete in {:?}. Final state: {:?}", start.elapsed(), chaos.state);
+    tracing::info!(
+        "Chaos experiment complete in {:?}. Final state: {:?}",
+        start.elapsed(),
+        chaos.state
+    );
 
     // Swarm optimization
     tracing::info!("Running Particle Swarm Optimization...");
@@ -910,17 +950,25 @@ pub async fn run_exotic_experiments(iterations: usize, output_dir: Option<PathBu
     let mut swarm = SwarmOptimizer::new(50, 10);
 
     let fitness_fn = |x: &[f32]| -> f32 {
-        x.iter().map(|&xi| xi * xi).sum::<f32>()  // Sphere function
+        x.iter().map(|&xi| xi * xi).sum::<f32>() // Sphere function
     };
 
     for i in 0..iterations.min(100) {
         swarm.step(fitness_fn, 0.7, 1.5, 1.5);
 
         if i % 10 == 0 {
-            tracing::info!("Swarm iteration {}: best fitness = {:.6}", i, swarm.global_best_fitness);
+            tracing::info!(
+                "Swarm iteration {}: best fitness = {:.6}",
+                i,
+                swarm.global_best_fitness
+            );
         }
     }
-    tracing::info!("Swarm optimization complete in {:?}. Best: {:.6}", start.elapsed(), swarm.global_best_fitness);
+    tracing::info!(
+        "Swarm optimization complete in {:?}. Best: {:.6}",
+        start.elapsed(),
+        swarm.global_best_fitness
+    );
 
     // Reservoir computing
     tracing::info!("Running Reservoir Computing experiment...");

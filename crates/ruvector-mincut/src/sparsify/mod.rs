@@ -30,12 +30,12 @@
 //! assert!(sparse.num_edges() <= graph.num_edges());
 //! ```
 
-use std::collections::{HashMap, HashSet};
-use std::sync::Arc;
+use crate::error::{MinCutError, Result};
+use crate::graph::{DynamicGraph, EdgeId, VertexId, Weight};
 use rand::prelude::*;
 use rand::rngs::StdRng;
-use crate::graph::{DynamicGraph, VertexId, EdgeId, Weight};
-use crate::error::{MinCutError, Result};
+use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
 
 /// Configuration for sparsification
 #[derive(Debug, Clone)]
@@ -185,11 +185,8 @@ impl SparseGraph {
                 let scaled_weight = edge.weight / prob;
 
                 // Add to sparse graph
-                if let Ok(new_edge_id) = sparse.insert_edge(
-                    edge.source,
-                    edge.target,
-                    scaled_weight
-                ) {
+                if let Ok(new_edge_id) = sparse.insert_edge(edge.source, edge.target, scaled_weight)
+                {
                     edge_weights.insert(new_edge_id, edge.weight);
                     edges_added += 1;
                 }
@@ -315,12 +312,16 @@ impl EdgeStrength {
 
         // Approximate strength using local connectivity
         // Better approximation: sum of edge weights incident to u and v
-        let weight_u: f64 = self.graph.neighbors(u)
+        let weight_u: f64 = self
+            .graph
+            .neighbors(u)
             .iter()
             .filter_map(|(neighbor, _)| self.graph.edge_weight(u, *neighbor))
             .sum();
 
-        let weight_v: f64 = self.graph.neighbors(v)
+        let weight_v: f64 = self
+            .graph
+            .neighbors(v)
             .iter()
             .filter_map(|(neighbor, _)| self.graph.edge_weight(v, *neighbor))
             .sum();
@@ -409,14 +410,17 @@ impl NagamochiIbaraki {
         let mut order = Vec::with_capacity(remaining.len());
 
         // Track degrees
-        let mut degrees: HashMap<VertexId, usize> = self.graph.vertices()
+        let mut degrees: HashMap<VertexId, usize> = self
+            .graph
+            .vertices()
             .iter()
             .map(|&v| (v, self.graph.degree(v)))
             .collect();
 
         while !remaining.is_empty() {
             // Find vertex with minimum degree among remaining
-            let (&min_v, _) = degrees.iter()
+            let (&min_v, _) = degrees
+                .iter()
                 .filter(|(v, _)| remaining.contains(v))
                 .min_by_key(|(_, &deg)| deg)
                 .unwrap();
@@ -465,8 +469,7 @@ pub fn karger_sparsify(
     epsilon: f64,
     seed: Option<u64>,
 ) -> Result<SparseGraph> {
-    let config = SparsifyConfig::new(epsilon)?
-        .with_seed(seed.unwrap_or(42));
+    let config = SparsifyConfig::new(epsilon)?.with_seed(seed.unwrap_or(42));
 
     SparseGraph::from_graph(graph, config)
 }
@@ -537,7 +540,8 @@ mod tests {
 
     #[test]
     fn test_sparsify_config_builder() {
-        let config = SparsifyConfig::new(0.1).unwrap()
+        let config = SparsifyConfig::new(0.1)
+            .unwrap()
             .with_seed(42)
             .with_max_edges(10);
 
@@ -573,7 +577,8 @@ mod tests {
     #[test]
     fn test_sparse_graph_max_edges() {
         let g = create_complete_graph(10);
-        let config = SparsifyConfig::new(0.1).unwrap()
+        let config = SparsifyConfig::new(0.1)
+            .unwrap()
             .with_seed(42)
             .with_max_edges(20);
 

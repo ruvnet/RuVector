@@ -80,9 +80,13 @@ impl<'a> SparqlParser<'a> {
             Ok(QueryBody::Ask(self.parse_ask_query()?))
         } else if self.match_keyword("DESCRIBE") {
             Ok(QueryBody::Describe(self.parse_describe_query()?))
-        } else if self.match_keyword("INSERT") || self.match_keyword("DELETE")
-                 || self.match_keyword("LOAD") || self.match_keyword("CLEAR")
-                 || self.match_keyword("CREATE") || self.match_keyword("DROP") {
+        } else if self.match_keyword("INSERT")
+            || self.match_keyword("DELETE")
+            || self.match_keyword("LOAD")
+            || self.match_keyword("CLEAR")
+            || self.match_keyword("CREATE")
+            || self.match_keyword("DROP")
+        {
             self.pos = self.pos.saturating_sub(6); // Backtrack
             Ok(QueryBody::Update(self.parse_update()?))
         } else {
@@ -160,7 +164,9 @@ impl<'a> SparqlParser<'a> {
                 self.skip_whitespace();
 
                 if !self.match_keyword("AS") {
-                    return Err(SparqlError::ParseError("Expected AS in projection".to_string()));
+                    return Err(SparqlError::ParseError(
+                        "Expected AS in projection".to_string(),
+                    ));
                 }
 
                 self.skip_whitespace();
@@ -168,7 +174,9 @@ impl<'a> SparqlParser<'a> {
                 self.skip_whitespace();
 
                 if !self.match_char(')') {
-                    return Err(SparqlError::ParseError("Expected ) in projection".to_string()));
+                    return Err(SparqlError::ParseError(
+                        "Expected ) in projection".to_string(),
+                    ));
                 }
 
                 vars.push(ProjectionVar::expr_as(expr, var_name));
@@ -181,7 +189,9 @@ impl<'a> SparqlParser<'a> {
         }
 
         if vars.is_empty() {
-            return Err(SparqlError::ParseError("Expected variables in SELECT".to_string()));
+            return Err(SparqlError::ParseError(
+                "Expected variables in SELECT".to_string(),
+            ));
         }
 
         if distinct {
@@ -217,14 +227,18 @@ impl<'a> SparqlParser<'a> {
         self.skip_whitespace();
 
         if !self.match_char('{') {
-            return Err(SparqlError::ParseError("Expected { for graph pattern".to_string()));
+            return Err(SparqlError::ParseError(
+                "Expected { for graph pattern".to_string(),
+            ));
         }
 
         let pattern = self.parse_graph_pattern_inner()?;
 
         self.skip_whitespace();
         if !self.match_char('}') {
-            return Err(SparqlError::ParseError("Expected } for graph pattern".to_string()));
+            return Err(SparqlError::ParseError(
+                "Expected } for graph pattern".to_string(),
+            ));
         }
 
         Ok(pattern)
@@ -247,9 +261,17 @@ impl<'a> SparqlParser<'a> {
                 self.skip_whitespace();
                 let optional = self.parse_group_graph_pattern()?;
                 if let Some(last) = patterns.pop() {
-                    patterns.push(GraphPattern::LeftJoin(Box::new(last), Box::new(optional), None));
+                    patterns.push(GraphPattern::LeftJoin(
+                        Box::new(last),
+                        Box::new(optional),
+                        None,
+                    ));
                 } else {
-                    patterns.push(GraphPattern::LeftJoin(Box::new(GraphPattern::Empty), Box::new(optional), None));
+                    patterns.push(GraphPattern::LeftJoin(
+                        Box::new(GraphPattern::Empty),
+                        Box::new(optional),
+                        None,
+                    ));
                 }
             } else if self.match_keyword("UNION") {
                 self.skip_whitespace();
@@ -327,7 +349,10 @@ impl<'a> SparqlParser<'a> {
         let mut result = if patterns.is_empty() {
             GraphPattern::Empty
         } else {
-            patterns.into_iter().reduce(|a, b| GraphPattern::Join(Box::new(a), Box::new(b))).unwrap()
+            patterns
+                .into_iter()
+                .reduce(|a, b| GraphPattern::Join(Box::new(a), Box::new(b)))
+                .unwrap()
         };
 
         // Apply filters
@@ -425,7 +450,9 @@ impl<'a> SparqlParser<'a> {
             if self.match_char(']') {
                 Ok(TermOrVariable::BlankNode(format!("b{}", self.pos)))
             } else {
-                Err(SparqlError::ParseError("Expected ] for blank node".to_string()))
+                Err(SparqlError::ParseError(
+                    "Expected ] for blank node".to_string(),
+                ))
             }
         } else {
             Ok(TermOrVariable::Term(self.parse_rdf_term()?))
@@ -448,7 +475,11 @@ impl<'a> SparqlParser<'a> {
             Ok(RdfTerm::Literal(Literal::boolean(true)))
         } else if self.match_keyword("false") {
             Ok(RdfTerm::Literal(Literal::boolean(false)))
-        } else if self.peek_char().map(|c| c.is_ascii_digit() || c == '+' || c == '-').unwrap_or(false) {
+        } else if self
+            .peek_char()
+            .map(|c| c.is_ascii_digit() || c == '+' || c == '-')
+            .unwrap_or(false)
+        {
             // Numeric literal
             Ok(RdfTerm::Literal(self.parse_numeric_literal()?))
         } else {
@@ -462,7 +493,12 @@ impl<'a> SparqlParser<'a> {
         self.skip_whitespace();
 
         // Handle 'a' shorthand for rdf:type
-        if self.match_keyword("a") && !self.peek_char().map(|c| c.is_alphanumeric() || c == '_').unwrap_or(false) {
+        if self.match_keyword("a")
+            && !self
+                .peek_char()
+                .map(|c| c.is_alphanumeric() || c == '_')
+                .unwrap_or(false)
+        {
             return Ok(PropertyPath::Iri(Iri::rdf_type()));
         }
 
@@ -524,7 +560,10 @@ impl<'a> SparqlParser<'a> {
             path = PropertyPath::ZeroOrMore(Box::new(path));
         } else if self.match_char('+') {
             path = PropertyPath::OneOrMore(Box::new(path));
-        } else if self.match_char('?') && self.peek_char() != Some('?') && self.peek_char() != Some('$') {
+        } else if self.match_char('?')
+            && self.peek_char() != Some('?')
+            && self.peek_char() != Some('$')
+        {
             path = PropertyPath::ZeroOrOne(Box::new(path));
         }
 
@@ -538,7 +577,9 @@ impl<'a> SparqlParser<'a> {
             let path = self.parse_path_alternative()?;
             self.skip_whitespace();
             if !self.match_char(')') {
-                return Err(SparqlError::ParseError("Expected ) in property path".to_string()));
+                return Err(SparqlError::ParseError(
+                    "Expected ) in property path".to_string(),
+                ));
             }
             Ok(path)
         } else if self.match_char('!') {
@@ -577,7 +618,9 @@ impl<'a> SparqlParser<'a> {
                 if !self.match_char('|') {
                     self.skip_whitespace();
                     if !self.match_char(')') {
-                        return Err(SparqlError::ParseError("Expected ) in negated property set".to_string()));
+                        return Err(SparqlError::ParseError(
+                            "Expected ) in negated property set".to_string(),
+                        ));
                     }
                     break;
                 }
@@ -660,7 +703,9 @@ impl<'a> SparqlParser<'a> {
             }
             let list = self.parse_expression_list()?;
             if !self.match_char(')') {
-                return Err(SparqlError::ParseError("Expected ) after IN list".to_string()));
+                return Err(SparqlError::ParseError(
+                    "Expected ) after IN list".to_string(),
+                ));
             }
             Ok(Expression::In(Box::new(left), list))
         } else if self.match_keyword("NOT") {
@@ -668,11 +713,15 @@ impl<'a> SparqlParser<'a> {
             if self.match_keyword("IN") {
                 self.skip_whitespace();
                 if !self.match_char('(') {
-                    return Err(SparqlError::ParseError("Expected ( after NOT IN".to_string()));
+                    return Err(SparqlError::ParseError(
+                        "Expected ( after NOT IN".to_string(),
+                    ));
                 }
                 let list = self.parse_expression_list()?;
                 if !self.match_char(')') {
-                    return Err(SparqlError::ParseError("Expected ) after NOT IN list".to_string()));
+                    return Err(SparqlError::ParseError(
+                        "Expected ) after NOT IN list".to_string(),
+                    ));
                 }
                 Ok(Expression::NotIn(Box::new(left), list))
             } else {
@@ -746,7 +795,9 @@ impl<'a> SparqlParser<'a> {
             let expr = self.parse_expression()?;
             self.skip_whitespace();
             if !self.match_char(')') {
-                return Err(SparqlError::ParseError("Expected ) in expression".to_string()));
+                return Err(SparqlError::ParseError(
+                    "Expected ) in expression".to_string(),
+                ));
             }
             return Ok(expr);
         }
@@ -755,12 +806,16 @@ impl<'a> SparqlParser<'a> {
         if self.match_keyword("BOUND") {
             self.skip_whitespace();
             if !self.match_char('(') {
-                return Err(SparqlError::ParseError("Expected ( after BOUND".to_string()));
+                return Err(SparqlError::ParseError(
+                    "Expected ( after BOUND".to_string(),
+                ));
             }
             let var = self.parse_variable_name()?;
             self.skip_whitespace();
             if !self.match_char(')') {
-                return Err(SparqlError::ParseError("Expected ) after BOUND".to_string()));
+                return Err(SparqlError::ParseError(
+                    "Expected ) after BOUND".to_string(),
+                ));
             }
             return Ok(Expression::Bound(var));
         }
@@ -795,21 +850,42 @@ impl<'a> SparqlParser<'a> {
 
         // Built-in test functions
         for (keyword, constructor) in &[
-            ("isIRI", Expression::IsIri as fn(Box<Expression>) -> Expression),
-            ("isURI", Expression::IsIri as fn(Box<Expression>) -> Expression),
-            ("isBLANK", Expression::IsBlank as fn(Box<Expression>) -> Expression),
-            ("isLITERAL", Expression::IsLiteral as fn(Box<Expression>) -> Expression),
-            ("isNUMERIC", Expression::IsNumeric as fn(Box<Expression>) -> Expression),
+            (
+                "isIRI",
+                Expression::IsIri as fn(Box<Expression>) -> Expression,
+            ),
+            (
+                "isURI",
+                Expression::IsIri as fn(Box<Expression>) -> Expression,
+            ),
+            (
+                "isBLANK",
+                Expression::IsBlank as fn(Box<Expression>) -> Expression,
+            ),
+            (
+                "isLITERAL",
+                Expression::IsLiteral as fn(Box<Expression>) -> Expression,
+            ),
+            (
+                "isNUMERIC",
+                Expression::IsNumeric as fn(Box<Expression>) -> Expression,
+            ),
         ] {
             if self.match_keyword(keyword) {
                 self.skip_whitespace();
                 if !self.match_char('(') {
-                    return Err(SparqlError::ParseError(format!("Expected ( after {}", keyword)));
+                    return Err(SparqlError::ParseError(format!(
+                        "Expected ( after {}",
+                        keyword
+                    )));
                 }
                 let arg = self.parse_expression()?;
                 self.skip_whitespace();
                 if !self.match_char(')') {
-                    return Err(SparqlError::ParseError(format!("Expected ) after {}", keyword)));
+                    return Err(SparqlError::ParseError(format!(
+                        "Expected ) after {}",
+                        keyword
+                    )));
                 }
                 return Ok(constructor(Box::new(arg)));
             }
@@ -855,12 +931,16 @@ impl<'a> SparqlParser<'a> {
     {
         self.skip_whitespace();
         if !self.match_char('(') {
-            return Err(SparqlError::ParseError("Expected ( for function".to_string()));
+            return Err(SparqlError::ParseError(
+                "Expected ( for function".to_string(),
+            ));
         }
         let arg = self.parse_expression()?;
         self.skip_whitespace();
         if !self.match_char(')') {
-            return Err(SparqlError::ParseError("Expected ) for function".to_string()));
+            return Err(SparqlError::ParseError(
+                "Expected ) for function".to_string(),
+            ));
         }
         Ok(constructor(arg))
     }
@@ -899,14 +979,18 @@ impl<'a> SparqlParser<'a> {
     fn parse_coalesce_expression(&mut self) -> Result<Expression, SparqlError> {
         self.skip_whitespace();
         if !self.match_char('(') {
-            return Err(SparqlError::ParseError("Expected ( after COALESCE".to_string()));
+            return Err(SparqlError::ParseError(
+                "Expected ( after COALESCE".to_string(),
+            ));
         }
 
         let exprs = self.parse_expression_list()?;
 
         self.skip_whitespace();
         if !self.match_char(')') {
-            return Err(SparqlError::ParseError("Expected ) after COALESCE".to_string()));
+            return Err(SparqlError::ParseError(
+                "Expected ) after COALESCE".to_string(),
+            ));
         }
 
         Ok(Expression::Coalesce(exprs))
@@ -915,7 +999,9 @@ impl<'a> SparqlParser<'a> {
     fn parse_regex_expression(&mut self) -> Result<Expression, SparqlError> {
         self.skip_whitespace();
         if !self.match_char('(') {
-            return Err(SparqlError::ParseError("Expected ( after REGEX".to_string()));
+            return Err(SparqlError::ParseError(
+                "Expected ( after REGEX".to_string(),
+            ));
         }
 
         let text = self.parse_expression()?;
@@ -935,7 +1021,9 @@ impl<'a> SparqlParser<'a> {
 
         self.skip_whitespace();
         if !self.match_char(')') {
-            return Err(SparqlError::ParseError("Expected ) after REGEX".to_string()));
+            return Err(SparqlError::ParseError(
+                "Expected ) after REGEX".to_string(),
+            ));
         }
 
         Ok(Expression::Regex(Box::new(text), Box::new(pattern), flags))
@@ -944,7 +1032,15 @@ impl<'a> SparqlParser<'a> {
     fn try_parse_aggregate(&mut self) -> Result<Option<Aggregate>, SparqlError> {
         let saved_pos = self.pos;
 
-        for keyword in &["COUNT", "SUM", "AVG", "MIN", "MAX", "GROUP_CONCAT", "SAMPLE"] {
+        for keyword in &[
+            "COUNT",
+            "SUM",
+            "AVG",
+            "MIN",
+            "MAX",
+            "GROUP_CONCAT",
+            "SAMPLE",
+        ] {
             if self.match_keyword(keyword) {
                 self.skip_whitespace();
                 if !self.match_char('(') {
@@ -988,7 +1084,9 @@ impl<'a> SparqlParser<'a> {
                             if self.match_keyword("SEPARATOR") {
                                 self.skip_whitespace();
                                 if !self.match_char('=') {
-                                    return Err(SparqlError::ParseError("Expected = after SEPARATOR".to_string()));
+                                    return Err(SparqlError::ParseError(
+                                        "Expected = after SEPARATOR".to_string(),
+                                    ));
                                 }
                                 let sep = self.parse_literal()?;
                                 Some(sep.value)
@@ -998,7 +1096,11 @@ impl<'a> SparqlParser<'a> {
                         } else {
                             None
                         };
-                        Aggregate::GroupConcat { expr, separator, distinct }
+                        Aggregate::GroupConcat {
+                            expr,
+                            separator,
+                            distinct,
+                        }
                     }
                     "SAMPLE" => Aggregate::Sample {
                         expr: Box::new(self.parse_expression()?),
@@ -1008,7 +1110,9 @@ impl<'a> SparqlParser<'a> {
 
                 self.skip_whitespace();
                 if !self.match_char(')') {
-                    return Err(SparqlError::ParseError("Expected ) after aggregate".to_string()));
+                    return Err(SparqlError::ParseError(
+                        "Expected ) after aggregate".to_string(),
+                    ));
                 }
 
                 return Ok(Some(agg));
@@ -1030,7 +1134,9 @@ impl<'a> SparqlParser<'a> {
                 let args = self.parse_expression_list()?;
                 self.skip_whitespace();
                 if !self.match_char(')') {
-                    return Err(SparqlError::ParseError("Expected ) after function".to_string()));
+                    return Err(SparqlError::ParseError(
+                        "Expected ) after function".to_string(),
+                    ));
                 }
                 return Ok(Some(FunctionCall::new(iri.as_str(), args)));
             } else {
@@ -1046,7 +1152,9 @@ impl<'a> SparqlParser<'a> {
                 let args = self.parse_expression_list()?;
                 self.skip_whitespace();
                 if !self.match_char(')') {
-                    return Err(SparqlError::ParseError("Expected ) after function".to_string()));
+                    return Err(SparqlError::ParseError(
+                        "Expected ) after function".to_string(),
+                    ));
                 }
                 return Ok(Some(FunctionCall::new(name, args)));
             } else {
@@ -1060,12 +1168,41 @@ impl<'a> SparqlParser<'a> {
     fn try_parse_function_name(&mut self) -> Result<String, SparqlError> {
         // Parse built-in function names
         let builtin_functions = [
-            "STRLEN", "SUBSTR", "UCASE", "LCASE", "STRSTARTS", "STRENDS",
-            "CONTAINS", "STRBEFORE", "STRAFTER", "ENCODE_FOR_URI", "CONCAT",
-            "LANGMATCHES", "REPLACE", "ABS", "ROUND", "CEIL", "FLOOR",
-            "RAND", "NOW", "YEAR", "MONTH", "DAY", "HOURS", "MINUTES",
-            "SECONDS", "TIMEZONE", "TZ", "MD5", "SHA1", "SHA256", "SHA384",
-            "SHA512", "STRUUID", "UUID", "BNODE",
+            "STRLEN",
+            "SUBSTR",
+            "UCASE",
+            "LCASE",
+            "STRSTARTS",
+            "STRENDS",
+            "CONTAINS",
+            "STRBEFORE",
+            "STRAFTER",
+            "ENCODE_FOR_URI",
+            "CONCAT",
+            "LANGMATCHES",
+            "REPLACE",
+            "ABS",
+            "ROUND",
+            "CEIL",
+            "FLOOR",
+            "RAND",
+            "NOW",
+            "YEAR",
+            "MONTH",
+            "DAY",
+            "HOURS",
+            "MINUTES",
+            "SECONDS",
+            "TIMEZONE",
+            "TZ",
+            "MD5",
+            "SHA1",
+            "SHA256",
+            "SHA384",
+            "SHA512",
+            "STRUUID",
+            "UUID",
+            "BNODE",
         ];
 
         for func in &builtin_functions {
@@ -1105,7 +1242,9 @@ impl<'a> SparqlParser<'a> {
             let expr = self.parse_expression()?;
             self.skip_whitespace();
             if !self.match_char(')') {
-                return Err(SparqlError::ParseError("Expected ) after FILTER".to_string()));
+                return Err(SparqlError::ParseError(
+                    "Expected ) after FILTER".to_string(),
+                ));
             }
             Ok(expr)
         } else {
@@ -1122,7 +1261,9 @@ impl<'a> SparqlParser<'a> {
         if self.match_keyword("GROUP") {
             self.skip_whitespace();
             if !self.match_keyword("BY") {
-                return Err(SparqlError::ParseError("Expected BY after GROUP".to_string()));
+                return Err(SparqlError::ParseError(
+                    "Expected BY after GROUP".to_string(),
+                ));
             }
             // Skip GROUP BY for now - would need to handle in modifier
         }
@@ -1140,7 +1281,9 @@ impl<'a> SparqlParser<'a> {
         if self.match_keyword("ORDER") {
             self.skip_whitespace();
             if !self.match_keyword("BY") {
-                return Err(SparqlError::ParseError("Expected BY after ORDER".to_string()));
+                return Err(SparqlError::ParseError(
+                    "Expected BY after ORDER".to_string(),
+                ));
             }
 
             loop {
@@ -1161,7 +1304,9 @@ impl<'a> SparqlParser<'a> {
                     let e = self.parse_expression()?;
                     self.skip_whitespace();
                     if !self.match_char(')') {
-                        return Err(SparqlError::ParseError("Expected ) in ORDER BY".to_string()));
+                        return Err(SparqlError::ParseError(
+                            "Expected ) in ORDER BY".to_string(),
+                        ));
                     }
                     e
                 } else if self.peek_char() == Some('?') || self.peek_char() == Some('$') {
@@ -1176,8 +1321,10 @@ impl<'a> SparqlParser<'a> {
                 });
 
                 self.skip_whitespace();
-                if self.peek_char() == Some('?') || self.peek_char() == Some('$')
-                    || self.peek_keyword("ASC") || self.peek_keyword("DESC")
+                if self.peek_char() == Some('?')
+                    || self.peek_char() == Some('$')
+                    || self.peek_keyword("ASC")
+                    || self.peek_keyword("DESC")
                 {
                     continue;
                 }
@@ -1269,7 +1416,10 @@ impl<'a> SparqlParser<'a> {
             }
         }
 
-        Ok(ValuesClause { variables, bindings })
+        Ok(ValuesClause {
+            variables,
+            bindings,
+        })
     }
 
     fn parse_construct_query(&mut self) -> Result<ConstructQuery, SparqlError> {
@@ -1277,14 +1427,18 @@ impl<'a> SparqlParser<'a> {
 
         // Parse template
         if !self.match_char('{') {
-            return Err(SparqlError::ParseError("Expected { for CONSTRUCT template".to_string()));
+            return Err(SparqlError::ParseError(
+                "Expected { for CONSTRUCT template".to_string(),
+            ));
         }
 
         let template = self.parse_triples_block()?;
 
         self.skip_whitespace();
         if !self.match_char('}') {
-            return Err(SparqlError::ParseError("Expected } for CONSTRUCT template".to_string()));
+            return Err(SparqlError::ParseError(
+                "Expected } for CONSTRUCT template".to_string(),
+            ));
         }
 
         // Dataset clauses
@@ -1323,7 +1477,10 @@ impl<'a> SparqlParser<'a> {
             self.parse_group_graph_pattern()?
         };
 
-        Ok(AskQuery { dataset, where_clause })
+        Ok(AskQuery {
+            dataset,
+            where_clause,
+        })
     }
 
     fn parse_describe_query(&mut self) -> Result<DescribeQuery, SparqlError> {
@@ -1338,7 +1495,10 @@ impl<'a> SparqlParser<'a> {
             loop {
                 self.skip_whitespace();
 
-                if self.peek_keyword("FROM") || self.peek_keyword("WHERE") || self.peek_char() == Some('{') {
+                if self.peek_keyword("FROM")
+                    || self.peek_keyword("WHERE")
+                    || self.peek_char() == Some('{')
+                {
                     break;
                 }
 
@@ -1425,14 +1585,18 @@ impl<'a> SparqlParser<'a> {
     fn parse_insert_data(&mut self) -> Result<UpdateOperation, SparqlError> {
         self.skip_whitespace();
         if !self.match_char('{') {
-            return Err(SparqlError::ParseError("Expected { for INSERT DATA".to_string()));
+            return Err(SparqlError::ParseError(
+                "Expected { for INSERT DATA".to_string(),
+            ));
         }
 
         let quads = self.parse_quads()?;
 
         self.skip_whitespace();
         if !self.match_char('}') {
-            return Err(SparqlError::ParseError("Expected } for INSERT DATA".to_string()));
+            return Err(SparqlError::ParseError(
+                "Expected } for INSERT DATA".to_string(),
+            ));
         }
 
         Ok(UpdateOperation::InsertData(InsertData { quads }))
@@ -1441,14 +1605,18 @@ impl<'a> SparqlParser<'a> {
     fn parse_delete_data(&mut self) -> Result<UpdateOperation, SparqlError> {
         self.skip_whitespace();
         if !self.match_char('{') {
-            return Err(SparqlError::ParseError("Expected { for DELETE DATA".to_string()));
+            return Err(SparqlError::ParseError(
+                "Expected { for DELETE DATA".to_string(),
+            ));
         }
 
         let quads = self.parse_quads()?;
 
         self.skip_whitespace();
         if !self.match_char('}') {
-            return Err(SparqlError::ParseError("Expected } for DELETE DATA".to_string()));
+            return Err(SparqlError::ParseError(
+                "Expected } for DELETE DATA".to_string(),
+            ));
         }
 
         Ok(UpdateOperation::DeleteData(DeleteData { quads }))
@@ -1470,7 +1638,9 @@ impl<'a> SparqlParser<'a> {
                 let graph_iri = self.parse_iri_ref()?;
                 self.skip_whitespace();
                 if !self.match_char('{') {
-                    return Err(SparqlError::ParseError("Expected { after GRAPH".to_string()));
+                    return Err(SparqlError::ParseError(
+                        "Expected { after GRAPH".to_string(),
+                    ));
                 }
                 Some(graph_iri)
             } else {
@@ -1496,7 +1666,9 @@ impl<'a> SparqlParser<'a> {
             if graph.is_some() {
                 self.skip_whitespace();
                 if !self.match_char('}') {
-                    return Err(SparqlError::ParseError("Expected } after GRAPH triples".to_string()));
+                    return Err(SparqlError::ParseError(
+                        "Expected } after GRAPH triples".to_string(),
+                    ));
                 }
             }
         }
@@ -1520,7 +1692,9 @@ impl<'a> SparqlParser<'a> {
 
         self.skip_whitespace();
         if !self.match_keyword("WHERE") {
-            return Err(SparqlError::ParseError("Expected WHERE after INSERT".to_string()));
+            return Err(SparqlError::ParseError(
+                "Expected WHERE after INSERT".to_string(),
+            ));
         }
 
         self.skip_whitespace();
@@ -1571,7 +1745,9 @@ impl<'a> SparqlParser<'a> {
 
         self.skip_whitespace();
         if !self.match_keyword("WHERE") {
-            return Err(SparqlError::ParseError("Expected WHERE after DELETE".to_string()));
+            return Err(SparqlError::ParseError(
+                "Expected WHERE after DELETE".to_string(),
+            ));
         }
 
         self.skip_whitespace();
@@ -1654,7 +1830,9 @@ impl<'a> SparqlParser<'a> {
         let destination = if self.match_keyword("INTO") {
             self.skip_whitespace();
             if !self.match_keyword("GRAPH") {
-                return Err(SparqlError::ParseError("Expected GRAPH after INTO".to_string()));
+                return Err(SparqlError::ParseError(
+                    "Expected GRAPH after INTO".to_string(),
+                ));
             }
             self.skip_whitespace();
             Some(self.parse_iri_ref()?)
@@ -1662,7 +1840,11 @@ impl<'a> SparqlParser<'a> {
             None
         };
 
-        Ok(UpdateOperation::Load { source, destination, silent })
+        Ok(UpdateOperation::Load {
+            source,
+            destination,
+            silent,
+        })
     }
 
     fn parse_clear(&mut self) -> Result<UpdateOperation, SparqlError> {
@@ -1679,7 +1861,9 @@ impl<'a> SparqlParser<'a> {
         self.skip_whitespace();
 
         if !self.match_keyword("GRAPH") {
-            return Err(SparqlError::ParseError("Expected GRAPH after CREATE".to_string()));
+            return Err(SparqlError::ParseError(
+                "Expected GRAPH after CREATE".to_string(),
+            ));
         }
         self.skip_whitespace();
 
@@ -1751,7 +1935,10 @@ impl<'a> SparqlParser<'a> {
         let prefix = &self.input[start..self.pos];
 
         if !self.match_char(':') {
-            return Err(SparqlError::ParseError(format!("Expected : in prefixed name at {}", self.pos)));
+            return Err(SparqlError::ParseError(format!(
+                "Expected : in prefixed name at {}",
+                self.pos
+            )));
         }
 
         // Parse local part
@@ -1805,7 +1992,9 @@ impl<'a> SparqlParser<'a> {
 
     fn parse_variable_name(&mut self) -> Result<String, SparqlError> {
         if !self.match_char('?') && !self.match_char('$') {
-            return Err(SparqlError::ParseError("Expected ? or $ for variable".to_string()));
+            return Err(SparqlError::ParseError(
+                "Expected ? or $ for variable".to_string(),
+            ));
         }
 
         let start = self.pos;
@@ -1826,7 +2015,9 @@ impl<'a> SparqlParser<'a> {
 
     fn parse_blank_node(&mut self) -> Result<String, SparqlError> {
         if !self.match_char('_') || !self.match_char(':') {
-            return Err(SparqlError::ParseError("Expected _: for blank node".to_string()));
+            return Err(SparqlError::ParseError(
+                "Expected _: for blank node".to_string(),
+            ));
         }
 
         let start = self.pos;
@@ -1841,10 +2032,14 @@ impl<'a> SparqlParser<'a> {
     }
 
     fn parse_literal(&mut self) -> Result<Literal, SparqlError> {
-        let quote = self.next_char().ok_or_else(|| SparqlError::ParseError("Expected quote".to_string()))?;
+        let quote = self
+            .next_char()
+            .ok_or_else(|| SparqlError::ParseError("Expected quote".to_string()))?;
 
         if quote != '"' && quote != '\'' {
-            return Err(SparqlError::ParseError("Expected \" or ' for literal".to_string()));
+            return Err(SparqlError::ParseError(
+                "Expected \" or ' for literal".to_string(),
+            ));
         }
 
         // Check for long literal (""" or ''')
@@ -1857,7 +2052,11 @@ impl<'a> SparqlParser<'a> {
         };
 
         let mut value = String::new();
-        let end_pattern = if long { format!("{}{}{}", quote, quote, quote) } else { quote.to_string() };
+        let end_pattern = if long {
+            format!("{}{}{}", quote, quote, quote)
+        } else {
+            quote.to_string()
+        };
 
         loop {
             if self.is_at_end() {
@@ -1894,7 +2093,11 @@ impl<'a> SparqlParser<'a> {
                         value.push('\\');
                         value.push(c);
                     }
-                    None => return Err(SparqlError::ParseError("Unexpected end in escape".to_string())),
+                    None => {
+                        return Err(SparqlError::ParseError(
+                            "Unexpected end in escape".to_string(),
+                        ))
+                    }
                 }
             } else {
                 value.push(self.next_char().unwrap());
@@ -1938,7 +2141,12 @@ impl<'a> SparqlParser<'a> {
         }
 
         // Check for decimal/double
-        if self.peek_char() == Some('.') && self.peek_char_at(1).map(|c| c.is_ascii_digit()).unwrap_or(false) {
+        if self.peek_char() == Some('.')
+            && self
+                .peek_char_at(1)
+                .map(|c| c.is_ascii_digit())
+                .unwrap_or(false)
+        {
             self.next_char();
             while let Some(c) = self.peek_char() {
                 if c.is_ascii_digit() {
@@ -1961,9 +2169,15 @@ impl<'a> SparqlParser<'a> {
                         break;
                     }
                 }
-                Ok(Literal::typed(&self.input[start..self.pos], Iri::xsd_double()))
+                Ok(Literal::typed(
+                    &self.input[start..self.pos],
+                    Iri::xsd_double(),
+                ))
             } else {
-                Ok(Literal::typed(&self.input[start..self.pos], Iri::xsd_decimal()))
+                Ok(Literal::typed(
+                    &self.input[start..self.pos],
+                    Iri::xsd_decimal(),
+                ))
             }
         } else if self.peek_char() == Some('e') || self.peek_char() == Some('E') {
             self.next_char();
@@ -1977,9 +2191,15 @@ impl<'a> SparqlParser<'a> {
                     break;
                 }
             }
-            Ok(Literal::typed(&self.input[start..self.pos], Iri::xsd_double()))
+            Ok(Literal::typed(
+                &self.input[start..self.pos],
+                Iri::xsd_double(),
+            ))
         } else {
-            Ok(Literal::typed(&self.input[start..self.pos], Iri::xsd_integer()))
+            Ok(Literal::typed(
+                &self.input[start..self.pos],
+                Iri::xsd_integer(),
+            ))
         }
     }
 
@@ -2066,7 +2286,10 @@ impl<'a> SparqlParser<'a> {
         if potential.eq_ignore_ascii_case(keyword) {
             // Make sure it's not part of a longer identifier
             let after = remaining.chars().nth(keyword.len());
-            if after.map(|c| c.is_alphanumeric() || c == '_').unwrap_or(false) {
+            if after
+                .map(|c| c.is_alphanumeric() || c == '_')
+                .unwrap_or(false)
+            {
                 return false;
             }
             self.pos += keyword.len();
@@ -2085,7 +2308,9 @@ impl<'a> SparqlParser<'a> {
         let potential = &remaining[..keyword.len()];
         if potential.eq_ignore_ascii_case(keyword) {
             let after = remaining.chars().nth(keyword.len());
-            !after.map(|c| c.is_alphanumeric() || c == '_').unwrap_or(false)
+            !after
+                .map(|c| c.is_alphanumeric() || c == '_')
+                .unwrap_or(false)
         } else {
             false
         }

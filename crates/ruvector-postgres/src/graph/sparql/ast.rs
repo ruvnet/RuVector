@@ -228,7 +228,11 @@ pub enum GraphPattern {
     /// BIND assignment
     Bind(Expression, String, Box<GraphPattern>),
     /// GROUP BY aggregation
-    Group(Box<GraphPattern>, Vec<GroupCondition>, Vec<(Aggregate, String)>),
+    Group(
+        Box<GraphPattern>,
+        Vec<GroupCondition>,
+        Vec<(Aggregate, String)>,
+    ),
     /// Subquery
     SubSelect(Box<SelectQuery>),
     /// VALUES inline data
@@ -245,7 +249,11 @@ pub struct TriplePattern {
 
 impl TriplePattern {
     pub fn new(subject: TermOrVariable, predicate: PropertyPath, object: TermOrVariable) -> Self {
-        Self { subject, predicate, object }
+        Self {
+            subject,
+            predicate,
+            object,
+        }
     }
 
     /// Simple triple pattern with IRI predicate
@@ -649,13 +657,32 @@ impl FunctionCall {
 /// Aggregate function
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Aggregate {
-    Count { expr: Option<Box<Expression>>, distinct: bool },
-    Sum { expr: Box<Expression>, distinct: bool },
-    Avg { expr: Box<Expression>, distinct: bool },
-    Min { expr: Box<Expression> },
-    Max { expr: Box<Expression> },
-    GroupConcat { expr: Box<Expression>, separator: Option<String>, distinct: bool },
-    Sample { expr: Box<Expression> },
+    Count {
+        expr: Option<Box<Expression>>,
+        distinct: bool,
+    },
+    Sum {
+        expr: Box<Expression>,
+        distinct: bool,
+    },
+    Avg {
+        expr: Box<Expression>,
+        distinct: bool,
+    },
+    Min {
+        expr: Box<Expression>,
+    },
+    Max {
+        expr: Box<Expression>,
+    },
+    GroupConcat {
+        expr: Box<Expression>,
+        separator: Option<String>,
+        distinct: bool,
+    },
+    Sample {
+        expr: Box<Expression>,
+    },
 }
 
 /// Filter expression
@@ -710,11 +737,17 @@ pub struct OrderCondition {
 
 impl OrderCondition {
     pub fn asc(expr: Expression) -> Self {
-        Self { expression: expr, ascending: true }
+        Self {
+            expression: expr,
+            ascending: true,
+        }
     }
 
     pub fn desc(expr: Expression) -> Self {
-        Self { expression: expr, ascending: false }
+        Self {
+            expression: expr,
+            ascending: false,
+        }
     }
 }
 
@@ -739,7 +772,11 @@ pub enum UpdateOperation {
     /// DELETE { pattern } INSERT { pattern } WHERE { pattern }
     Modify(Modify),
     /// LOAD <iri> INTO GRAPH <iri>
-    Load { source: Iri, destination: Option<Iri>, silent: bool },
+    Load {
+        source: Iri,
+        destination: Option<Iri>,
+        silent: bool,
+    },
     /// CLEAR GRAPH <iri>
     Clear { target: GraphTarget, silent: bool },
     /// CREATE GRAPH <iri>
@@ -747,11 +784,23 @@ pub enum UpdateOperation {
     /// DROP GRAPH <iri>
     Drop { target: GraphTarget, silent: bool },
     /// COPY source TO destination
-    Copy { source: GraphTarget, destination: GraphTarget, silent: bool },
+    Copy {
+        source: GraphTarget,
+        destination: GraphTarget,
+        silent: bool,
+    },
     /// MOVE source TO destination
-    Move { source: GraphTarget, destination: GraphTarget, silent: bool },
+    Move {
+        source: GraphTarget,
+        destination: GraphTarget,
+        silent: bool,
+    },
     /// ADD source TO destination
-    Add { source: GraphTarget, destination: GraphTarget, silent: bool },
+    Add {
+        source: GraphTarget,
+        destination: GraphTarget,
+        silent: bool,
+    },
 }
 
 /// INSERT DATA operation

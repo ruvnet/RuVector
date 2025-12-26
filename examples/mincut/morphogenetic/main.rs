@@ -97,8 +97,10 @@ impl MorphogeneticNetwork {
             if signal > 0.5 && degree < 3 {
                 if let Some(new_node) = self.spawn_node(node) {
                     report.nodes_spawned += 1;
-                    println!("  🌿 Node {} spawned child {} (low connectivity: degree={})",
-                             node, new_node, degree);
+                    println!(
+                        "  🌿 Node {} spawned child {} (low connectivity: degree={})",
+                        node, new_node, degree
+                    );
                 }
             }
 
@@ -106,8 +108,10 @@ impl MorphogeneticNetwork {
             if signal > 0.6 && degree > 5 {
                 if let Some(new_node) = self.branch_node(node) {
                     report.branches_created += 1;
-                    println!("  🌳 Node {} branched to {} (high degree: {})",
-                             node, new_node, degree);
+                    println!(
+                        "  🌳 Node {} branched to {} (high degree: {})",
+                        node, new_node, degree
+                    );
                 }
             }
 
@@ -118,8 +122,10 @@ impl MorphogeneticNetwork {
                 if mincut < 2.0 {
                     if let Some(new_node) = self.reinforce_connectivity(node) {
                         report.reinforcements += 1;
-                        println!("  💪 Node {} reinforced (mincut={:.1}), added node {}",
-                                 node, mincut, new_node);
+                        println!(
+                            "  💪 Node {} reinforced (mincut={:.1}), added node {}",
+                            node, mincut, new_node
+                        );
                     }
                 }
             }
@@ -154,7 +160,8 @@ impl MorphogeneticNetwork {
             let retention = current_signal * 0.6;
 
             // Receive signal from neighbors
-            let received: f64 = neighbors.iter()
+            let received: f64 = neighbors
+                .iter()
                 .map(|&n| {
                     let n_signal = self.growth_signals.get(&n).unwrap_or(&0.0);
                     let n_degree = self.graph.degree(n).max(1);
@@ -277,7 +284,10 @@ impl MorphogeneticNetwork {
     /// Print detailed network statistics
     fn print_statistics(&self, report: &GrowthReport) {
         println!("\n  📊 Network Statistics:");
-        println!("     Nodes: {} (+{} spawned)", report.total_nodes, report.nodes_spawned);
+        println!(
+            "     Nodes: {} (+{} spawned)",
+            report.total_nodes, report.nodes_spawned
+        );
         println!("     Edges: {}", report.total_edges);
         println!("     Branches: {} new", report.branches_created);
         println!("     Reinforcements: {}", report.reinforcements);
@@ -389,9 +399,15 @@ fn main() {
 
     println!("\n🌳 Network Development Complete!");
     println!("   Growth Cycles: {}", final_report.cycle);
-    println!("   Final Nodes: {} (started with {})", final_report.total_nodes, seed_size);
+    println!(
+        "   Final Nodes: {} (started with {})",
+        final_report.total_nodes, seed_size
+    );
     println!("   Final Edges: {}", final_report.total_edges);
-    println!("   Growth Factor: {:.2}x", final_report.total_nodes as f64 / seed_size as f64);
+    println!(
+        "   Growth Factor: {:.2}x",
+        final_report.total_nodes as f64 / seed_size as f64
+    );
 
     let total_spawned: usize = reports.iter().map(|r| r.nodes_spawned).sum();
     let total_branches: usize = reports.iter().map(|r| r.branches_created).sum();
@@ -401,7 +417,10 @@ fn main() {
     println!("   Total Nodes Spawned: {}", total_spawned);
     println!("   Total Branches: {}", total_branches);
     println!("   Total Reinforcements: {}", total_reinforcements);
-    println!("   Total Growth Events: {}", total_spawned + total_branches + total_reinforcements);
+    println!(
+        "   Total Growth Events: {}",
+        total_spawned + total_branches + total_reinforcements
+    );
 
     println!("\n🧬 Biological Analogy:");
     println!("   - Seed → Embryo (initial structure)");

@@ -26,14 +26,22 @@ mod simd_consistency {
         {
             if is_x86_feature_detected!("avx2") {
                 let simd_result = simd::euclidean_distance_avx2_wrapper(&a, &b);
-                assert!((scalar_result - simd_result).abs() < EPSILON,
-                       "AVX2: scalar={}, simd={}", scalar_result, simd_result);
+                assert!(
+                    (scalar_result - simd_result).abs() < EPSILON,
+                    "AVX2: scalar={}, simd={}",
+                    scalar_result,
+                    simd_result
+                );
             }
 
             if is_x86_feature_detected!("avx512f") {
                 let simd_result = simd::euclidean_distance_avx512_wrapper(&a, &b);
-                assert!((scalar_result - simd_result).abs() < EPSILON,
-                       "AVX512: scalar={}, simd={}", scalar_result, simd_result);
+                assert!(
+                    (scalar_result - simd_result).abs() < EPSILON,
+                    "AVX512: scalar={}, simd={}",
+                    scalar_result,
+                    simd_result
+                );
             }
         }
 
@@ -57,16 +65,22 @@ mod simd_consistency {
             {
                 if is_x86_feature_detected!("avx2") {
                     let simd_result = simd::euclidean_distance_avx2_wrapper(&a, &b);
-                    assert!((scalar_result - simd_result).abs() < EPSILON,
-                           "Size {}: AVX2 mismatch", size);
+                    assert!(
+                        (scalar_result - simd_result).abs() < EPSILON,
+                        "Size {}: AVX2 mismatch",
+                        size
+                    );
                 }
             }
 
             #[cfg(target_arch = "aarch64")]
             {
                 let simd_result = simd::euclidean_distance_neon_wrapper(&a, &b);
-                assert!((scalar_result - simd_result).abs() < EPSILON,
-                       "Size {}: NEON mismatch", size);
+                assert!(
+                    (scalar_result - simd_result).abs() < EPSILON,
+                    "Size {}: NEON mismatch",
+                    size
+                );
             }
         }
     }
@@ -130,8 +144,13 @@ mod simd_consistency {
             {
                 if is_x86_feature_detected!("avx2") {
                     let simd_result = simd::cosine_distance_avx2_wrapper(&a, &b);
-                    assert!((scalar_result - simd_result).abs() < 1e-4,
-                           "Size {}: scalar={}, simd={}", size, scalar_result, simd_result);
+                    assert!(
+                        (scalar_result - simd_result).abs() < 1e-4,
+                        "Size {}: scalar={}, simd={}",
+                        size,
+                        scalar_result,
+                        simd_result
+                    );
                 }
             }
         }
@@ -192,8 +211,11 @@ mod simd_consistency {
             {
                 if is_x86_feature_detected!("avx2") {
                     let simd_result = simd::inner_product_avx2_wrapper(&a, &b);
-                    assert!((scalar_result - simd_result).abs() < 1e-4,
-                           "Size {}: mismatch", size);
+                    assert!(
+                        (scalar_result - simd_result).abs() < 1e-4,
+                        "Size {}: mismatch",
+                        size
+                    );
                 }
             }
         }
@@ -295,10 +317,16 @@ mod simd_consistency {
                     let simd_euclidean = simd::euclidean_distance_avx2_wrapper(&a, &b);
                     let simd_manhattan = simd::manhattan_distance_avx2_wrapper(&a, &b);
 
-                    assert!((scalar_euclidean - simd_euclidean).abs() < 1e-3,
-                           "Euclidean mismatch at size {}", size);
-                    assert!((scalar_manhattan - simd_manhattan).abs() < 1e-3,
-                           "Manhattan mismatch at size {}", size);
+                    assert!(
+                        (scalar_euclidean - simd_euclidean).abs() < 1e-3,
+                        "Euclidean mismatch at size {}",
+                        size
+                    );
+                    assert!(
+                        (scalar_manhattan - simd_manhattan).abs() < 1e-3,
+                        "Manhattan mismatch at size {}",
+                        size
+                    );
                 }
             }
         }

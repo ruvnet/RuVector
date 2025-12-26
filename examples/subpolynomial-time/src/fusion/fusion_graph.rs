@@ -330,7 +330,13 @@ impl FusionGraph {
     }
 
     /// Add a graph relation edge
-    pub fn add_relation(&mut self, src: NodeId, dst: NodeId, rel_type: RelationType, strength: f64) {
+    pub fn add_relation(
+        &mut self,
+        src: NodeId,
+        dst: NodeId,
+        rel_type: RelationType,
+        strength: f64,
+    ) {
         if !self.nodes.contains_key(&src) || !self.nodes.contains_key(&dst) {
             return;
         }
@@ -513,10 +519,7 @@ impl FusionGraph {
             }
             EdgeOrigin::Graph => {
                 // f_g(strength, type) = strength * type_factor
-                let type_factor = edge
-                    .relation_type
-                    .map(|r| r.weight_factor())
-                    .unwrap_or(1.0);
+                let type_factor = edge.relation_type.map(|r| r.weight_factor()).unwrap_or(1.0);
                 let f_g = edge.raw_strength * type_factor;
                 self.config.graph_weight * f_g
             }
@@ -543,7 +546,11 @@ impl FusionGraph {
             let degree: f64 = neighbors
                 .iter()
                 .filter_map(|&n| {
-                    let key = if node_id < n { (node_id, n) } else { (n, node_id) };
+                    let key = if node_id < n {
+                        (node_id, n)
+                    } else {
+                        (n, node_id)
+                    };
                     self.edge_index.get(&key).map(|&i| self.edges[i].capacity)
                 })
                 .sum();

@@ -6,7 +6,7 @@
 use std::collections::VecDeque;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use tokio::sync::{Mutex, oneshot};
+use tokio::sync::{oneshot, Mutex};
 use tokio::time::sleep;
 
 /// Item in the batching queue
@@ -226,11 +226,7 @@ where
     R: Send + 'static,
 {
     /// Create adaptive batcher with target latency
-    pub fn new<F>(
-        initial_config: BatchConfig,
-        target_latency: Duration,
-        processor: F,
-    ) -> Self
+    pub fn new<F>(initial_config: BatchConfig, target_latency: Duration, processor: F) -> Self
     where
         F: Fn(Vec<T>) -> Vec<Result<R, String>> + Send + Sync + 'static,
     {
@@ -318,9 +314,7 @@ mod tests {
         let mut handles = vec![];
         for i in 0..8 {
             let batcher = batcher.clone();
-            handles.push(tokio::spawn(async move {
-                batcher.add(i).await
-            }));
+            handles.push(tokio::spawn(async move { batcher.add(i).await }));
         }
 
         // Wait for results

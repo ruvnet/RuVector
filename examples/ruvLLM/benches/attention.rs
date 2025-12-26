@@ -2,13 +2,13 @@
 //!
 //! Benchmarks multi-head graph attention.
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId};
-use ruvllm::attention::GraphAttentionEngine;
-use ruvllm::memory::SubGraph;
-use ruvllm::config::EmbeddingConfig;
-use ruvllm::types::{MemoryNode, MemoryEdge, NodeType, EdgeType};
-use std::collections::HashMap;
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use rand::{Rng, SeedableRng};
+use ruvllm::attention::GraphAttentionEngine;
+use ruvllm::config::EmbeddingConfig;
+use ruvllm::memory::SubGraph;
+use ruvllm::types::{EdgeType, MemoryEdge, MemoryNode, NodeType};
+use std::collections::HashMap;
 
 fn create_random_node(id: &str, dim: usize, seed: u64) -> MemoryNode {
     let mut rng = rand::rngs::StdRng::seed_from_u64(seed);
@@ -57,9 +57,7 @@ fn benchmark_attention_forward(c: &mut Criterion) {
     let subgraph = create_subgraph(10, 9, config.dimension);
 
     c.bench_function("attention_forward_10_nodes", |b| {
-        b.iter(|| {
-            black_box(engine.attend(&query, &subgraph).unwrap())
-        })
+        b.iter(|| black_box(engine.attend(&query, &subgraph).unwrap()))
     });
 }
 
@@ -76,11 +74,7 @@ fn benchmark_attention_varying_nodes(c: &mut Criterion) {
         group.bench_with_input(
             BenchmarkId::from_parameter(num_nodes),
             &subgraph,
-            |b, subgraph| {
-                b.iter(|| {
-                    black_box(engine.attend(&query, subgraph).unwrap())
-                })
-            },
+            |b, subgraph| b.iter(|| black_box(engine.attend(&query, subgraph).unwrap())),
         );
     }
     group.finish();
@@ -99,11 +93,7 @@ fn benchmark_attention_varying_edges(c: &mut Criterion) {
         group.bench_with_input(
             BenchmarkId::from_parameter(num_edges),
             &subgraph,
-            |b, subgraph| {
-                b.iter(|| {
-                    black_box(engine.attend(&query, subgraph).unwrap())
-                })
-            },
+            |b, subgraph| b.iter(|| black_box(engine.attend(&query, subgraph).unwrap())),
         );
     }
     group.finish();
@@ -124,11 +114,7 @@ fn benchmark_attention_varying_dims(c: &mut Criterion) {
         group.bench_with_input(
             BenchmarkId::from_parameter(dim),
             &subgraph,
-            |b, subgraph| {
-                b.iter(|| {
-                    black_box(engine.attend(&query, subgraph).unwrap())
-                })
-            },
+            |b, subgraph| b.iter(|| black_box(engine.attend(&query, subgraph).unwrap())),
         );
     }
     group.finish();
@@ -142,9 +128,7 @@ fn benchmark_cross_attention(c: &mut Criterion) {
     let subgraph = create_subgraph(20, 19, config.dimension);
 
     c.bench_function("cross_attention_20_nodes", |b| {
-        b.iter(|| {
-            black_box(engine.cross_attend(&query, &subgraph).unwrap())
-        })
+        b.iter(|| black_box(engine.cross_attend(&query, &subgraph).unwrap()))
     });
 }
 
@@ -160,9 +144,7 @@ fn benchmark_attention_empty_graph(c: &mut Criterion) {
     };
 
     c.bench_function("attention_empty_graph", |b| {
-        b.iter(|| {
-            black_box(engine.attend(&query, &subgraph).unwrap())
-        })
+        b.iter(|| black_box(engine.attend(&query, &subgraph).unwrap()))
     });
 }
 

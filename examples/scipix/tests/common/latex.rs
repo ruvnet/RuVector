@@ -6,7 +6,8 @@ use std::collections::HashSet;
 
 /// Normalize LaTeX string for comparison
 pub fn normalize(latex: &str) -> String {
-    latex.chars()
+    latex
+        .chars()
         .filter(|c| !c.is_whitespace())
         .collect::<String>()
         .to_lowercase()
@@ -71,13 +72,20 @@ fn levenshtein_distance(a: &str, b: &str) -> usize {
 
     for i in 1..=a_len {
         for j in 1..=b_len {
-            let cost = if a_chars[i - 1] == b_chars[j - 1] { 0 } else { 1 };
+            let cost = if a_chars[i - 1] == b_chars[j - 1] {
+                0
+            } else {
+                1
+            };
 
             matrix[i][j] = *[
-                matrix[i - 1][j] + 1,      // deletion
-                matrix[i][j - 1] + 1,      // insertion
+                matrix[i - 1][j] + 1,        // deletion
+                matrix[i][j - 1] + 1,        // insertion
                 matrix[i - 1][j - 1] + cost, // substitution
-            ].iter().min().unwrap();
+            ]
+            .iter()
+            .min()
+            .unwrap();
         }
     }
 

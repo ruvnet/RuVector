@@ -238,7 +238,10 @@ fn create_relationship(
         properties.insert(key.clone(), value);
     }
 
-    let edge_type = pattern.rel_type.clone().unwrap_or_else(|| "RELATED".to_string());
+    let edge_type = pattern
+        .rel_type
+        .clone()
+        .unwrap_or_else(|| "RELATED".to_string());
 
     // For now, create a self-loop. Production code would get target from pattern
     let target_id = source_id;
@@ -285,9 +288,7 @@ fn execute_return(
 
     // Apply DISTINCT
     if return_clause.distinct {
-        results.sort_by(|a, b| {
-            a.to_string().cmp(&b.to_string())
-        });
+        results.sort_by(|a, b| a.to_string().cmp(&b.to_string()));
         results.dedup();
     }
 
@@ -395,10 +396,7 @@ fn execute_with(
     Ok(())
 }
 
-fn evaluate_expression(
-    expr: &Expression,
-    context: &ExecutionContext,
-) -> Result<JsonValue, String> {
+fn evaluate_expression(expr: &Expression, context: &ExecutionContext) -> Result<JsonValue, String> {
     match expr {
         Expression::Literal(value) => Ok(value.clone()),
         Expression::Variable(var) => {
@@ -451,20 +449,19 @@ mod tests {
     fn test_execute_create() {
         let graph = GraphStore::new();
 
-        let pattern = Pattern::new()
-            .with_element(PatternElement::Node(
-                NodePattern::new()
-                    .with_variable("n")
-                    .with_label("Person")
-                    .with_property("name", Expression::literal("Alice"))
-            ));
+        let pattern = Pattern::new().with_element(PatternElement::Node(
+            NodePattern::new()
+                .with_variable("n")
+                .with_label("Person")
+                .with_property("name", Expression::literal("Alice")),
+        ));
 
         let create = CreateClause::new(vec![pattern]);
         let query = CypherQuery::new()
             .with_clause(Clause::Create(create))
-            .with_clause(Clause::Return(ReturnClause::new(vec![
-                ReturnItem::new(Expression::variable("n"))
-            ])));
+            .with_clause(Clause::Return(ReturnClause::new(vec![ReturnItem::new(
+                Expression::variable("n"),
+            )])));
 
         let result = execute_cypher(&graph, &query, None);
         assert!(result.is_ok());
@@ -483,19 +480,16 @@ mod tests {
             HashMap::from([("name".to_string(), "Alice".into())]),
         );
 
-        let pattern = Pattern::new()
-            .with_element(PatternElement::Node(
-                NodePattern::new()
-                    .with_variable("n")
-                    .with_label("Person")
-            ));
+        let pattern = Pattern::new().with_element(PatternElement::Node(
+            NodePattern::new().with_variable("n").with_label("Person"),
+        ));
 
         let match_clause = MatchClause::new(vec![pattern]);
         let query = CypherQuery::new()
             .with_clause(Clause::Match(match_clause))
-            .with_clause(Clause::Return(ReturnClause::new(vec![
-                ReturnItem::new(Expression::property("n", "name"))
-            ])));
+            .with_clause(Clause::Return(ReturnClause::new(vec![ReturnItem::new(
+                Expression::property("n", "name"),
+            )])));
 
         let result = execute_cypher(&graph, &query, None);
         assert!(result.is_ok());

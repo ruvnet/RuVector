@@ -38,9 +38,9 @@ impl Default for EwcConfig {
         Self {
             param_count: 1000,
             max_tasks: 10,
-            initial_lambda: 2000.0,   // OPTIMIZED: Better forgetting prevention
+            initial_lambda: 2000.0, // OPTIMIZED: Better forgetting prevention
             min_lambda: 100.0,
-            max_lambda: 15000.0,      // OPTIMIZED: Higher ceiling for multi-task
+            max_lambda: 15000.0, // OPTIMIZED: Higher ceiling for multi-task
             fisher_ema_decay: 0.999,
             boundary_threshold: 2.0,
             gradient_history_size: 100,

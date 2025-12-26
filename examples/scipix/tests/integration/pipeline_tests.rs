@@ -10,7 +10,9 @@ use crate::common::{OutputFormat, ProcessingOptions};
 
 #[tokio::test]
 async fn test_png_to_latex_pipeline() {
-    let test_server = TestServer::start().await.expect("Failed to start test server");
+    let test_server = TestServer::start()
+        .await
+        .expect("Failed to start test server");
 
     // Create test image
     let image = images::generate_simple_equation("x^2 + 2x + 1");
@@ -18,13 +20,18 @@ async fn test_png_to_latex_pipeline() {
     image.save(image_path).unwrap();
 
     // Process through pipeline
-    let result = test_server.process_image(image_path, OutputFormat::LaTeX)
+    let result = test_server
+        .process_image(image_path, OutputFormat::LaTeX)
         .await
         .expect("Pipeline processing failed");
 
     // Verify output
     assert!(!result.latex.is_empty(), "LaTeX output should not be empty");
-    assert!(result.confidence > 0.7, "Confidence too low: {}", result.confidence);
+    assert!(
+        result.confidence > 0.7,
+        "Confidence too low: {}",
+        result.confidence
+    );
     assert!(result.latex.contains("x"), "Should contain variable x");
 
     test_server.shutdown().await;
@@ -32,7 +39,9 @@ async fn test_png_to_latex_pipeline() {
 
 #[tokio::test]
 async fn test_jpeg_to_mathml_pipeline() {
-    let test_server = TestServer::start().await.expect("Failed to start test server");
+    let test_server = TestServer::start()
+        .await
+        .expect("Failed to start test server");
 
     // Create JPEG test image
     let image = images::generate_fraction(1, 2);
@@ -40,7 +49,8 @@ async fn test_jpeg_to_mathml_pipeline() {
     image.save(image_path).unwrap();
 
     // Process to MathML
-    let result = test_server.process_image(image_path, OutputFormat::MathML)
+    let result = test_server
+        .process_image(image_path, OutputFormat::MathML)
         .await
         .expect("Pipeline processing failed");
 
@@ -52,7 +62,9 @@ async fn test_jpeg_to_mathml_pipeline() {
 
 #[tokio::test]
 async fn test_webp_to_html_pipeline() {
-    let test_server = TestServer::start().await.expect("Failed to start test server");
+    let test_server = TestServer::start()
+        .await
+        .expect("Failed to start test server");
 
     // Create WebP test image
     let image = images::generate_integral("x dx");
@@ -70,7 +82,8 @@ async fn test_webp_to_html_pipeline() {
     };
 
     // Process to HTML
-    let _result = test_server.process_image(actual_path, OutputFormat::HTML)
+    let _result = test_server
+        .process_image(actual_path, OutputFormat::HTML)
         .await
         .expect("Pipeline processing failed");
 
@@ -79,7 +92,8 @@ async fn test_webp_to_html_pipeline() {
 
 #[tokio::test]
 async fn test_pipeline_timeout_handling() {
-    let test_server = TestServer::with_timeout(100).await
+    let test_server = TestServer::with_timeout(100)
+        .await
         .expect("Failed to start test server");
 
     // Create complex image that might take time
@@ -87,18 +101,25 @@ async fn test_pipeline_timeout_handling() {
     complex_image.save("/tmp/complex.png").unwrap();
 
     let start = std::time::Instant::now();
-    let _result = test_server.process_image("/tmp/complex.png", OutputFormat::LaTeX).await;
+    let _result = test_server
+        .process_image("/tmp/complex.png", OutputFormat::LaTeX)
+        .await;
     let duration = start.elapsed();
 
     // Should either complete or timeout within reasonable time
-    assert!(duration.as_millis() < 500, "Should timeout or complete quickly");
+    assert!(
+        duration.as_millis() < 500,
+        "Should timeout or complete quickly"
+    );
 
     test_server.shutdown().await;
 }
 
 #[tokio::test]
 async fn test_batch_pipeline_processing() {
-    let test_server = TestServer::start().await.expect("Failed to start test server");
+    let test_server = TestServer::start()
+        .await
+        .expect("Failed to start test server");
 
     // Create multiple test images
     let test_images = vec![
@@ -115,7 +136,8 @@ async fn test_batch_pipeline_processing() {
 
     // Process batch
     let paths: Vec<&str> = test_images.iter().map(|(_, p)| *p).collect();
-    let results = test_server.process_batch(&paths, OutputFormat::LaTeX)
+    let results = test_server
+        .process_batch(&paths, OutputFormat::LaTeX)
         .await
         .expect("Batch processing failed");
 
@@ -131,7 +153,9 @@ async fn test_batch_pipeline_processing() {
 
 #[tokio::test]
 async fn test_pipeline_with_preprocessing() {
-    let test_server = TestServer::start().await.expect("Failed to start test server");
+    let test_server = TestServer::start()
+        .await
+        .expect("Failed to start test server");
 
     // Create noisy image
     let mut image = images::generate_simple_equation("f(x) = x^2");
@@ -139,43 +163,54 @@ async fn test_pipeline_with_preprocessing() {
     image.save("/tmp/noisy.png").unwrap();
 
     // Process with preprocessing enabled
-    let result = test_server.process_image_with_options(
-        "/tmp/noisy.png",
-        OutputFormat::LaTeX,
-        ProcessingOptions {
-            enable_preprocessing: true,
-            enable_denoising: true,
-            enable_deskew: true,
-            ..Default::default()
-        }
-    ).await.expect("Processing failed");
+    let result = test_server
+        .process_image_with_options(
+            "/tmp/noisy.png",
+            OutputFormat::LaTeX,
+            ProcessingOptions {
+                enable_preprocessing: true,
+                enable_denoising: true,
+                enable_deskew: true,
+                ..Default::default()
+            },
+        )
+        .await
+        .expect("Processing failed");
 
     // Should still recognize despite noise
-    assert!(!result.latex.is_empty(), "Should extract LaTeX from noisy image");
+    assert!(
+        !result.latex.is_empty(),
+        "Should extract LaTeX from noisy image"
+    );
 
     test_server.shutdown().await;
 }
 
 #[tokio::test]
 async fn test_multi_format_output() {
-    let test_server = TestServer::start().await.expect("Failed to start test server");
+    let test_server = TestServer::start()
+        .await
+        .expect("Failed to start test server");
 
     // Create test image
     let image = images::generate_fraction(3, 4);
     image.save("/tmp/fraction.png").unwrap();
 
     // Request multiple output formats
-    let result = test_server.process_image_with_options(
-        "/tmp/fraction.png",
-        OutputFormat::All,
-        ProcessingOptions {
-            include_latex: true,
-            include_mathml: true,
-            include_ascii: true,
-            include_text: true,
-            ..Default::default()
-        }
-    ).await.expect("Processing failed");
+    let result = test_server
+        .process_image_with_options(
+            "/tmp/fraction.png",
+            OutputFormat::All,
+            ProcessingOptions {
+                include_latex: true,
+                include_mathml: true,
+                include_ascii: true,
+                include_text: true,
+                ..Default::default()
+            },
+        )
+        .await
+        .expect("Processing failed");
 
     // Verify output present
     assert!(!result.latex.is_empty(), "Should have LaTeX");
@@ -186,7 +221,8 @@ async fn test_multi_format_output() {
 
 #[tokio::test]
 async fn test_pipeline_caching() {
-    let test_server = TestServer::with_cache().await
+    let test_server = TestServer::with_cache()
+        .await
         .expect("Failed to start test server");
 
     // Create test image
@@ -194,12 +230,16 @@ async fn test_pipeline_caching() {
     image.save("/tmp/cached.png").unwrap();
 
     // First processing
-    let result1 = test_server.process_image("/tmp/cached.png", OutputFormat::LaTeX)
-        .await.expect("First processing failed");
+    let result1 = test_server
+        .process_image("/tmp/cached.png", OutputFormat::LaTeX)
+        .await
+        .expect("First processing failed");
 
     // Second processing (should hit cache)
-    let result2 = test_server.process_image("/tmp/cached.png", OutputFormat::LaTeX)
-        .await.expect("Second processing failed");
+    let result2 = test_server
+        .process_image("/tmp/cached.png", OutputFormat::LaTeX)
+        .await
+        .expect("Second processing failed");
 
     // Verify cache hit
     assert_eq!(result1.latex, result2.latex, "Results should match");

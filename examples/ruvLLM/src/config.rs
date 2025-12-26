@@ -32,8 +32,7 @@ impl Config {
     /// Load config from file
     pub fn from_file(path: impl AsRef<std::path::Path>) -> Result<Self> {
         let content = std::fs::read_to_string(path)?;
-        let config: Config = toml::from_str(&content)
-            .map_err(|e| Error::Config(e.to_string()))?;
+        let config: Config = toml::from_str(&content).map_err(|e| Error::Config(e.to_string()))?;
         config.validate()?;
         Ok(config)
     }

@@ -9,8 +9,8 @@
 //! - Forest packing with greedy edge assignment
 //! - Color-coded DFS for cut enumeration
 
-use std::collections::{HashMap, HashSet, VecDeque};
 use crate::graph::{VertexId, Weight};
+use std::collections::{HashMap, HashSet, VecDeque};
 
 /// Color for edge partitioning in deterministic LocalKCut.
 /// Uses 4-color scheme for forest/non-forest edge classification.
@@ -68,11 +68,7 @@ impl EdgeColoring {
 
 /// Generate color coding family per Lemma 3.3
 /// Family size: 2^{O(min(a,b) · log(a+b))} · log n
-pub fn generate_coloring_family(
-    a: usize,
-    b: usize,
-    num_edges: usize,
-) -> Vec<EdgeColoring> {
+pub fn generate_coloring_family(a: usize, b: usize, num_edges: usize) -> Vec<EdgeColoring> {
     // Simplified implementation using hashing-based derandomization
     // Full implementation would use perfect hash families
 
@@ -336,17 +332,15 @@ impl DeterministicLocalKCut {
             for rb_coloring in &self.red_blue_colorings {
                 for gy_coloring in &self.green_yellow_colorings {
                     // Execute color-coded DFS
-                    if let Some(cut) = self.color_coded_dfs(
-                        v,
-                        forest_id,
-                        rb_coloring,
-                        gy_coloring,
-                    ) {
+                    if let Some(cut) = self.color_coded_dfs(v, forest_id, rb_coloring, gy_coloring)
+                    {
                         // Deduplicate cuts
                         let mut sorted_vertices: Vec<_> = cut.vertices.iter().copied().collect();
                         sorted_vertices.sort();
 
-                        if !seen_cuts.contains(&sorted_vertices) && cut.cut_value <= self.lambda_max as f64 {
+                        if !seen_cuts.contains(&sorted_vertices)
+                            && cut.cut_value <= self.lambda_max as f64
+                        {
                             seen_cuts.insert(sorted_vertices);
                             results.push(cut);
                         }
@@ -419,9 +413,11 @@ impl DeterministicLocalKCut {
         }
 
         // Calculate cut value
-        let cut_value: f64 = boundary.iter()
+        let cut_value: f64 = boundary
+            .iter()
             .map(|&(u, v)| {
-                self.adjacency.get(&u)
+                self.adjacency
+                    .get(&u)
                     .and_then(|n| n.get(&v))
                     .copied()
                     .unwrap_or(1.0)
@@ -443,7 +439,8 @@ impl DeterministicLocalKCut {
 
     /// Get neighbors of a vertex
     pub fn neighbors(&self, v: VertexId) -> Vec<(VertexId, Weight)> {
-        self.adjacency.get(&v)
+        self.adjacency
+            .get(&v)
             .map(|n| n.iter().map(|(&v, &w)| (v, w)).collect())
             .unwrap_or_default()
     }

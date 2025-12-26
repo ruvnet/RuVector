@@ -220,7 +220,8 @@ pub trait RemediationStrategy: Send + Sync {
     fn execute(&self, context: &StrategyContext) -> RemediationResult;
 
     /// Rollback if needed
-    fn rollback(&self, context: &StrategyContext, result: &RemediationResult) -> Result<(), String>;
+    fn rollback(&self, context: &StrategyContext, result: &RemediationResult)
+        -> Result<(), String>;
 }
 
 // ============================================================================
@@ -309,17 +310,21 @@ impl RemediationStrategy for ReindexPartition {
         let start = std::time::Instant::now();
 
         if context.dry_run {
-            return RemediationResult::noop()
-                .with_metadata(serde_json::json!({
-                    "dry_run": true,
-                    "would_reindex": context.problem.affected_partitions.len(),
-                }));
+            return RemediationResult::noop().with_metadata(serde_json::json!({
+                "dry_run": true,
+                "would_reindex": context.problem.affected_partitions.len(),
+            }));
         }
 
         let mut reindexed = 0;
         let mut errors = Vec::new();
 
-        for partition_id in context.problem.affected_partitions.iter().take(self.max_partitions) {
+        for partition_id in context
+            .problem
+            .affected_partitions
+            .iter()
+            .take(self.max_partitions)
+        {
             if context.is_timed_out() {
                 break;
             }
@@ -333,8 +338,7 @@ impl RemediationStrategy for ReindexPartition {
         let duration_ms = start.elapsed().as_millis() as u64;
 
         if reindexed == 0 && !errors.is_empty() {
-            RemediationResult::failure(&errors.join("; "))
-                .with_duration(duration_ms)
+            RemediationResult::failure(&errors.join("; ")).with_duration(duration_ms)
         } else if !errors.is_empty() {
             RemediationResult::partial(reindexed, 0.0, &errors.join("; "))
                 .with_duration(duration_ms)
@@ -348,7 +352,11 @@ impl RemediationStrategy for ReindexPartition {
         }
     }
 
-    fn rollback(&self, _context: &StrategyContext, _result: &RemediationResult) -> Result<(), String> {
+    fn rollback(
+        &self,
+        _context: &StrategyContext,
+        _result: &RemediationResult,
+    ) -> Result<(), String> {
         // Reindexing doesn't need rollback
         Ok(())
     }
@@ -433,11 +441,10 @@ impl RemediationStrategy for PromoteReplica {
         let start = std::time::Instant::now();
 
         if context.dry_run {
-            return RemediationResult::noop()
-                .with_metadata(serde_json::json!({
-                    "dry_run": true,
-                    "candidate_replica": self.find_best_replica(),
-                }));
+            return RemediationResult::noop().with_metadata(serde_json::json!({
+                "dry_run": true,
+                "candidate_replica": self.find_best_replica(),
+            }));
         }
 
         // Find best replica
@@ -453,29 +460,31 @@ impl RemediationStrategy for PromoteReplica {
 
         // Promote replica
         match self.promote_replica(&replica_id) {
-            Ok(()) => {
-                RemediationResult::success(1, 0.0)
-                    .with_duration(start.elapsed().as_millis() as u64)
-                    .with_metadata(serde_json::json!({
-                        "promoted_replica": replica_id,
-                    }))
-                    .with_rollback(vec![serde_json::json!({
-                        "action": "demote",
-                        "replica_id": replica_id,
-                    })])
-            }
+            Ok(()) => RemediationResult::success(1, 0.0)
+                .with_duration(start.elapsed().as_millis() as u64)
+                .with_metadata(serde_json::json!({
+                    "promoted_replica": replica_id,
+                }))
+                .with_rollback(vec![serde_json::json!({
+                    "action": "demote",
+                    "replica_id": replica_id,
+                })]),
             Err(e) => {
-                RemediationResult::failure(&e)
-                    .with_duration(start.elapsed().as_millis() as u64)
+                RemediationResult::failure(&e).with_duration(start.elapsed().as_millis() as u64)
             }
         }
     }
 
-    fn rollback(&self, _context: &StrategyContext, result: &RemediationResult) -> Result<(), String> {
+    fn rollback(
+        &self,
+        _context: &StrategyContext,
+        result: &RemediationResult,
+    ) -> Result<(), String> {
         // Demote previously promoted replica (complex operation)
         for action in &result.rollback_actions {
             if action.get("action") == Some(&serde_json::json!("demote")) {
-                let replica_id = action.get("replica_id")
+                let replica_id = action
+                    .get("replica_id")
                     .and_then(|v| v.as_str())
                     .ok_or("Missing replica_id in rollback action")?;
 
@@ -573,11 +582,10 @@ impl RemediationStrategy for TierEviction {
 
         if context.dry_run {
             let candidates = self.find_cold_candidates(self.batch_size);
-            return RemediationResult::noop()
-                .with_metadata(serde_json::json!({
-                    "dry_run": true,
-                    "candidates_found": candidates.len(),
-                }));
+            return RemediationResult::noop().with_metadata(serde_json::json!({
+                "dry_run": true,
+                "candidates_found": candidates.len(),
+            }));
         }
 
         let mut total_evicted = 0;
@@ -612,14 +620,17 @@ impl RemediationStrategy for TierEviction {
                     "vector_ids": evicted_ids,
                 })])
         } else {
-            RemediationResult::noop()
-                .with_metadata(serde_json::json!({
-                    "message": "No cold data candidates found",
-                }))
+            RemediationResult::noop().with_metadata(serde_json::json!({
+                "message": "No cold data candidates found",
+            }))
         }
     }
 
-    fn rollback(&self, _context: &StrategyContext, result: &RemediationResult) -> Result<(), String> {
+    fn rollback(
+        &self,
+        _context: &StrategyContext,
+        result: &RemediationResult,
+    ) -> Result<(), String> {
         for action in &result.rollback_actions {
             if action.get("action") == Some(&serde_json::json!("restore_from_cold")) {
                 // In production: Move data back from cold tier
@@ -720,11 +731,10 @@ impl RemediationStrategy for QueryCircuitBreaker {
 
         if context.dry_run {
             let problematic = self.find_problematic_queries();
-            return RemediationResult::noop()
-                .with_metadata(serde_json::json!({
-                    "dry_run": true,
-                    "would_block": problematic,
-                }));
+            return RemediationResult::noop().with_metadata(serde_json::json!({
+                "dry_run": true,
+                "would_block": problematic,
+            }));
         }
 
         let problematic = self.find_problematic_queries();
@@ -737,10 +747,9 @@ impl RemediationStrategy for QueryCircuitBreaker {
         }
 
         if blocked.is_empty() {
-            RemediationResult::noop()
-                .with_metadata(serde_json::json!({
-                    "message": "No problematic query patterns identified",
-                }))
+            RemediationResult::noop().with_metadata(serde_json::json!({
+                "message": "No problematic query patterns identified",
+            }))
         } else {
             RemediationResult::success(blocked.len(), 0.0)
                 .with_duration(start.elapsed().as_millis() as u64)
@@ -755,7 +764,11 @@ impl RemediationStrategy for QueryCircuitBreaker {
         }
     }
 
-    fn rollback(&self, _context: &StrategyContext, result: &RemediationResult) -> Result<(), String> {
+    fn rollback(
+        &self,
+        _context: &StrategyContext,
+        result: &RemediationResult,
+    ) -> Result<(), String> {
         for action in &result.rollback_actions {
             if action.get("action") == Some(&serde_json::json!("unblock")) {
                 if let Some(patterns) = action.get("patterns").and_then(|v| v.as_array()) {
@@ -840,7 +853,10 @@ impl RemediationStrategy for IntegrityRecovery {
     }
 
     fn handles(&self) -> Vec<ProblemType> {
-        vec![ProblemType::IntegrityViolation, ProblemType::IndexDegradation]
+        vec![
+            ProblemType::IntegrityViolation,
+            ProblemType::IndexDegradation,
+        ]
     }
 
     fn impact(&self) -> f32 {
@@ -860,11 +876,10 @@ impl RemediationStrategy for IntegrityRecovery {
 
         if context.dry_run {
             let witness_edges = self.get_witness_edges();
-            return RemediationResult::noop()
-                .with_metadata(serde_json::json!({
-                    "dry_run": true,
-                    "witness_edges_found": witness_edges.len(),
-                }));
+            return RemediationResult::noop().with_metadata(serde_json::json!({
+                "dry_run": true,
+                "witness_edges_found": witness_edges.len(),
+            }));
         }
 
         let witness_edges = self.get_witness_edges();
@@ -884,10 +899,9 @@ impl RemediationStrategy for IntegrityRecovery {
 
         let improvement = if self.verify_after && repaired > 0 {
             match self.verify_integrity() {
-                Ok(new_lambda) => {
-                    ((new_lambda - context.initial_lambda) / context.initial_lambda * 100.0)
-                        .max(0.0)
-                }
+                Ok(new_lambda) => ((new_lambda - context.initial_lambda) / context.initial_lambda
+                    * 100.0)
+                    .max(0.0),
                 Err(_) => 0.0,
             }
         } else {
@@ -897,8 +911,7 @@ impl RemediationStrategy for IntegrityRecovery {
         let duration_ms = start.elapsed().as_millis() as u64;
 
         if repaired == 0 && !errors.is_empty() {
-            RemediationResult::failure(&errors.join("; "))
-                .with_duration(duration_ms)
+            RemediationResult::failure(&errors.join("; ")).with_duration(duration_ms)
         } else if repaired > 0 {
             RemediationResult::success(repaired, improvement)
                 .with_duration(duration_ms)
@@ -907,14 +920,17 @@ impl RemediationStrategy for IntegrityRecovery {
                     "new_lambda": context.initial_lambda + (improvement / 100.0),
                 }))
         } else {
-            RemediationResult::noop()
-                .with_metadata(serde_json::json!({
-                    "message": "No witness edges to repair",
-                }))
+            RemediationResult::noop().with_metadata(serde_json::json!({
+                "message": "No witness edges to repair",
+            }))
         }
     }
 
-    fn rollback(&self, _context: &StrategyContext, _result: &RemediationResult) -> Result<(), String> {
+    fn rollback(
+        &self,
+        _context: &StrategyContext,
+        _result: &RemediationResult,
+    ) -> Result<(), String> {
         // Graph repairs are not reversible
         Err("Integrity recovery cannot be rolled back".to_string())
     }
@@ -969,9 +985,7 @@ impl StrategyRegistry {
 
     /// Get strategy by name
     pub fn get_by_name(&self, name: &str) -> Option<Arc<dyn RemediationStrategy>> {
-        self.strategies.iter()
-            .find(|s| s.name() == name)
-            .cloned()
+        self.strategies.iter().find(|s| s.name() == name).cloned()
     }
 
     /// Select best strategy for a problem
@@ -982,7 +996,8 @@ impl StrategyRegistry {
     ) -> Option<Arc<dyn RemediationStrategy>> {
         let weights = self.weights.read();
 
-        self.strategies.iter()
+        self.strategies
+            .iter()
             .filter(|s| s.handles().contains(&problem.problem_type))
             .filter(|s| s.impact() <= max_impact)
             .max_by(|a, b| {
@@ -1057,7 +1072,10 @@ mod tests {
 
         let strategy = registry.select(&problem, 1.0);
         assert!(strategy.is_some());
-        assert!(strategy.unwrap().handles().contains(&ProblemType::IndexDegradation));
+        assert!(strategy
+            .unwrap()
+            .handles()
+            .contains(&ProblemType::IndexDegradation));
     }
 
     #[test]
@@ -1100,7 +1118,9 @@ mod tests {
     fn test_promote_replica_handles() {
         let strategy = PromoteReplica::new();
         assert!(strategy.handles().contains(&ProblemType::ReplicaLag));
-        assert!(strategy.handles().contains(&ProblemType::IntegrityViolation));
+        assert!(strategy
+            .handles()
+            .contains(&ProblemType::IntegrityViolation));
     }
 
     #[test]
@@ -1114,22 +1134,27 @@ mod tests {
     fn test_circuit_breaker_handles() {
         let strategy = QueryCircuitBreaker::new();
         assert!(strategy.handles().contains(&ProblemType::QueryTimeout));
-        assert!(strategy.handles().contains(&ProblemType::ConnectionExhaustion));
+        assert!(strategy
+            .handles()
+            .contains(&ProblemType::ConnectionExhaustion));
     }
 
     #[test]
     fn test_integrity_recovery_handles() {
         let strategy = IntegrityRecovery::new();
-        assert!(strategy.handles().contains(&ProblemType::IntegrityViolation));
+        assert!(strategy
+            .handles()
+            .contains(&ProblemType::IntegrityViolation));
         assert!(strategy.handles().contains(&ProblemType::IndexDegradation));
     }
 
     #[test]
     fn test_dry_run() {
         let strategy = ReindexPartition::new();
-        let mut context = StrategyContext::new(
-            Problem::new(ProblemType::IndexDegradation, Severity::Medium)
-        );
+        let mut context = StrategyContext::new(Problem::new(
+            ProblemType::IndexDegradation,
+            Severity::Medium,
+        ));
         context.dry_run = true;
 
         let result = strategy.execute(&context);

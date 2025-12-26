@@ -31,13 +31,13 @@ impl Default for PatternConfig {
         // - 100 clusters = 1.3ms search vs 50 clusters = 3.0ms (2.3x faster)
         // - Quality threshold 0.3 balances learning vs noise filtering
         Self {
-            k_clusters: 100,           // OPTIMIZED: 2.3x faster search (1.3ms vs 3.0ms)
+            k_clusters: 100, // OPTIMIZED: 2.3x faster search (1.3ms vs 3.0ms)
             embedding_dim: 256,
             max_iterations: 100,
             convergence_threshold: 0.001,
             min_cluster_size: 5,
             max_trajectories: 10000,
-            quality_threshold: 0.3,    // OPTIMIZED: Lower threshold for more learning
+            quality_threshold: 0.3, // OPTIMIZED: Lower threshold for more learning
         }
     }
 }
@@ -168,7 +168,9 @@ impl ReasoningBank {
 
         for (cluster_idx, centroid) in final_centroids.into_iter().enumerate() {
             // Collect cluster members
-            let members: Vec<_> = self.trajectories.iter()
+            let members: Vec<_> = self
+                .trajectories
+                .iter()
                 .enumerate()
                 .filter(|(i, _)| assignments.get(*i) == Some(&cluster_idx))
                 .map(|(_, t)| t)
@@ -209,7 +211,8 @@ impl ReasoningBank {
             };
 
             self.patterns.insert(pattern_id, pattern.clone());
-            self.pattern_index.push((pattern.centroid.clone(), pattern_id));
+            self.pattern_index
+                .push((pattern.centroid.clone(), pattern_id));
             patterns.push(pattern);
         }
 
@@ -239,9 +242,12 @@ impl ReasoningBank {
         // Remaining centroids: D^2 weighting
         for _ in 1..k {
             // Compute distances to nearest centroid
-            let mut distances: Vec<f32> = self.trajectories.iter()
+            let mut distances: Vec<f32> = self
+                .trajectories
+                .iter()
                 .map(|t| {
-                    centroids.iter()
+                    centroids
+                        .iter()
                         .map(|c| self.squared_distance(&t.embedding, c))
                         .fold(f32::MAX, f32::min)
                 })
@@ -256,7 +262,8 @@ impl ReasoningBank {
             }
 
             // Select next centroid (deterministic: highest distance)
-            let (next_idx, _) = distances.iter()
+            let (next_idx, _) = distances
+                .iter()
                 .enumerate()
                 .max_by(|a, b| a.1.partial_cmp(b.1).unwrap())
                 .unwrap_or((0, &0.0));
@@ -279,7 +286,8 @@ impl ReasoningBank {
             // Assign points to nearest centroid
             let mut changed = false;
             for (i, t) in self.trajectories.iter().enumerate() {
-                let (nearest, _) = centroids.iter()
+                let (nearest, _) = centroids
+                    .iter()
                     .enumerate()
                     .map(|(j, c)| (j, self.squared_distance(&t.embedding, c)))
                     .min_by(|a, b| a.1.partial_cmp(&b.1).unwrap())
@@ -339,16 +347,15 @@ impl ReasoningBank {
 
     /// Find similar patterns
     pub fn find_similar(&self, query: &[f32], k: usize) -> Vec<&LearnedPattern> {
-        let mut scored: Vec<_> = self.patterns.values()
+        let mut scored: Vec<_> = self
+            .patterns
+            .values()
             .map(|p| (p, p.similarity(query)))
             .collect();
 
         scored.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
 
-        scored.into_iter()
-            .take(k)
-            .map(|(p, _)| p)
-            .collect()
+        scored.into_iter().take(k).map(|(p, _)| p).collect()
     }
 
     /// Get pattern by ID
@@ -378,7 +385,9 @@ impl ReasoningBank {
 
     /// Prune low-quality patterns
     pub fn prune_patterns(&mut self, min_quality: f32, min_accesses: u32, max_age_secs: u64) {
-        let to_remove: Vec<u64> = self.patterns.iter()
+        let to_remove: Vec<u64> = self
+            .patterns
+            .iter()
             .filter(|(_, p)| p.should_prune(min_quality, min_accesses, max_age_secs))
             .map(|(id, _)| *id)
             .collect();
@@ -388,7 +397,8 @@ impl ReasoningBank {
         }
 
         // Update index
-        self.pattern_index.retain(|(_, id)| self.patterns.contains_key(id));
+        self.pattern_index
+            .retain(|(_, id)| self.patterns.contains_key(id));
     }
 
     /// Consolidate similar patterns
@@ -397,7 +407,7 @@ impl ReasoningBank {
         let mut merged = Vec::new();
 
         for i in 0..pattern_ids.len() {
-            for j in i+1..pattern_ids.len() {
+            for j in i + 1..pattern_ids.len() {
                 let id1 = pattern_ids[i];
                 let id2 = pattern_ids[j];
 
@@ -423,7 +433,8 @@ impl ReasoningBank {
         }
 
         // Update index
-        self.pattern_index.retain(|(_, id)| self.patterns.contains_key(id));
+        self.pattern_index
+            .retain(|(_, id)| self.patterns.contains_key(id));
     }
 }
 

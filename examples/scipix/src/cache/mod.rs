@@ -2,12 +2,12 @@
 //!
 //! Uses ruvector-core for efficient similarity search and LRU eviction.
 
-use std::sync::{Arc, RwLock};
-use std::collections::HashMap;
-use std::time::{SystemTime, UNIX_EPOCH};
-use serde::{Deserialize, Serialize};
-use crate::error::Result;
 use crate::config::CacheConfig;
+use crate::error::Result;
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::sync::{Arc, RwLock};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 /// Cached OCR result with metadata
 #[derive(Debug, Clone, Serialize, Deserialize)]

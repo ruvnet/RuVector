@@ -127,9 +127,10 @@ impl<'a> Executor<'a> {
             Statement::Return(clause) => self.execute_return(clause, context),
             Statement::Set(clause) => self.execute_set(clause, context),
             Statement::Delete(clause) => self.execute_delete(clause, context),
-            _ => Err(ExecutionError::UnsupportedOperation(
-                format!("Statement {:?} not yet implemented", statement),
-            )),
+            _ => Err(ExecutionError::UnsupportedOperation(format!(
+                "Statement {:?} not yet implemented",
+                statement
+            ))),
         }
     }
 
@@ -308,7 +309,8 @@ impl<'a> Executor<'a> {
             if let Some(props) = &pattern.properties {
                 let mut matches = true;
                 for (key, expr) in props {
-                    let expected_value = self.evaluate_expression(expr, &ExecutionContext::new())?;
+                    let expected_value =
+                        self.evaluate_expression(expr, &ExecutionContext::new())?;
                     if node.get_property(key) != Some(&expected_value) {
                         matches = false;
                         break;
@@ -421,12 +423,13 @@ impl<'a> Executor<'a> {
         let mut row = HashMap::new();
 
         for item in &clause.items {
-            let col_name = item.alias.clone().unwrap_or_else(|| {
-                match &item.expression {
+            let col_name = item
+                .alias
+                .clone()
+                .unwrap_or_else(|| match &item.expression {
                     Expression::Variable(var) => var.clone(),
                     _ => "?column?".to_string(),
-                }
-            });
+                });
 
             columns.push(col_name.clone());
 
@@ -484,7 +487,8 @@ impl<'a> Executor<'a> {
                                 self.graph.delete_node(&node.id)?;
                             } else {
                                 return Err(ExecutionError::ExecutionError(
-                                    "Cannot delete node with relationships without DETACH".to_string(),
+                                    "Cannot delete node with relationships without DETACH"
+                                        .to_string(),
                                 ));
                             }
                         }
@@ -521,10 +525,7 @@ impl<'a> Executor<'a> {
             Expression::Property { object, property } => {
                 if let Expression::Variable(var) = &**object {
                     if let Some(ContextValue::Node(node)) = context.get(var) {
-                        Ok(node
-                            .get_property(property)
-                            .cloned()
-                            .unwrap_or(Value::Null))
+                        Ok(node.get_property(property).cloned().unwrap_or(Value::Null))
                     } else {
                         Err(ExecutionError::VariableNotFound(var.clone()))
                     }
@@ -555,9 +556,7 @@ impl<'a> Executor<'a> {
                 if let Expression::Variable(var) = &**object {
                     if let Some(ContextValue::Node(node)) = context.get(var) {
                         Ok(ContextValue::Value(
-                            node.get_property(property)
-                                .cloned()
-                                .unwrap_or(Value::Null),
+                            node.get_property(property).cloned().unwrap_or(Value::Null),
                         ))
                     } else {
                         Err(ExecutionError::VariableNotFound(var.clone()))

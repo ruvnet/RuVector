@@ -99,9 +99,9 @@ pub struct Adam {
     beta2: f32,
     epsilon: f32,
     weight_decay: f32,
-    m: Vec<f32>,    // First moment
-    v: Vec<f32>,    // Second moment
-    t: usize,       // Timestep
+    m: Vec<f32>, // First moment
+    v: Vec<f32>, // Second moment
+    t: usize,    // Timestep
 }
 
 impl Adam {
@@ -219,8 +219,7 @@ impl Optimizer for AdamW {
 
             // Update moments
             self.inner.m[i] = self.inner.beta1 * self.inner.m[i] + (1.0 - self.inner.beta1) * g;
-            self.inner.v[i] =
-                self.inner.beta2 * self.inner.v[i] + (1.0 - self.inner.beta2) * g * g;
+            self.inner.v[i] = self.inner.beta2 * self.inner.v[i] + (1.0 - self.inner.beta2) * g * g;
 
             // Bias-corrected estimates
             let m_hat = self.inner.m[i] / bias_correction1;
@@ -296,8 +295,7 @@ impl LearningRateScheduler {
             self.initial_lr * (self.current_step + 1) as f32 / self.warmup_steps as f32
         } else {
             // Cosine decay
-            let progress =
-                (self.current_step - self.warmup_steps) as f32 / self.decay_steps as f32;
+            let progress = (self.current_step - self.warmup_steps) as f32 / self.decay_steps as f32;
             let decay = 0.5 * (1.0 + (std::f32::consts::PI * progress.min(1.0)).cos());
             self.min_lr + (self.initial_lr - self.min_lr) * decay
         }

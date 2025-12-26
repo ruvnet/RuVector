@@ -52,11 +52,7 @@ impl SearchOptimizer {
     }
 
     /// Create with custom parameters
-    pub fn with_params(
-        bank: Arc<ReasoningBank>,
-        k_patterns: usize,
-        min_confidence: f64,
-    ) -> Self {
+    pub fn with_params(bank: Arc<ReasoningBank>, k_patterns: usize, min_confidence: f64) -> Self {
         Self {
             bank,
             k_patterns,
@@ -74,7 +70,8 @@ impl SearchOptimizer {
         }
 
         // Filter by confidence
-        let valid_patterns: Vec<_> = patterns.iter()
+        let valid_patterns: Vec<_> = patterns
+            .iter()
             .filter(|(_, pattern, _)| pattern.confidence >= self.min_confidence)
             .collect();
 
@@ -110,11 +107,7 @@ impl SearchOptimizer {
     }
 
     /// Optimize with quality target (speed vs accuracy)
-    pub fn optimize_with_target(
-        &self,
-        query: &[f32],
-        target: OptimizationTarget,
-    ) -> SearchParams {
+    pub fn optimize_with_target(&self, query: &[f32], target: OptimizationTarget) -> SearchParams {
         let mut params = self.optimize(query);
 
         // Adjust based on target
@@ -145,7 +138,8 @@ impl SearchOptimizer {
     pub fn recommendations(&self, query: &[f32]) -> Vec<SearchRecommendation> {
         let patterns = self.bank.lookup(query, self.k_patterns);
 
-        patterns.iter()
+        patterns
+            .iter()
             .filter(|(_, pattern, _)| pattern.confidence >= self.min_confidence)
             .map(|(id, pattern, similarity)| {
                 let estimated_latency = pattern.avg_latency_us;
@@ -165,7 +159,11 @@ impl SearchOptimizer {
     }
 
     /// Estimate query performance
-    pub fn estimate_performance(&self, query: &[f32], params: &SearchParams) -> PerformanceEstimate {
+    pub fn estimate_performance(
+        &self,
+        query: &[f32],
+        params: &SearchParams,
+    ) -> PerformanceEstimate {
         let patterns = self.bank.lookup(query, self.k_patterns);
 
         if patterns.is_empty() {
@@ -173,7 +171,8 @@ impl SearchOptimizer {
         }
 
         // Find patterns with similar parameters
-        let similar_param_patterns: Vec<_> = patterns.iter()
+        let similar_param_patterns: Vec<_> = patterns
+            .iter()
             .filter(|(_, pattern, _)| {
                 let ef_diff = (pattern.optimal_ef as i32 - params.ef_search as i32).abs();
                 let probe_diff = (pattern.optimal_probes as i32 - params.probes as i32).abs();
@@ -266,25 +265,11 @@ mod tests {
         let bank = Arc::new(ReasoningBank::new());
 
         // Add test patterns
-        let pattern1 = LearnedPattern::new(
-            vec![1.0, 0.0, 0.0],
-            50,
-            10,
-            0.9,
-            100,
-            1000.0,
-            Some(0.95),
-        );
+        let pattern1 =
+            LearnedPattern::new(vec![1.0, 0.0, 0.0], 50, 10, 0.9, 100, 1000.0, Some(0.95));
 
-        let pattern2 = LearnedPattern::new(
-            vec![0.0, 1.0, 0.0],
-            60,
-            15,
-            0.85,
-            80,
-            1500.0,
-            Some(0.92),
-        );
+        let pattern2 =
+            LearnedPattern::new(vec![0.0, 1.0, 0.0], 60, 15, 0.85, 80, 1500.0, Some(0.92));
 
         bank.store(pattern1);
         bank.store(pattern2);

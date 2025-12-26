@@ -5,7 +5,7 @@
 use crate::sona::ewc::EwcPlusPlus;
 use crate::sona::lora::BaseLoRA;
 use crate::sona::reasoning_bank::ReasoningBank;
-use crate::sona::types::{QueryTrajectory, SonaConfig, LearnedPattern};
+use crate::sona::types::{LearnedPattern, QueryTrajectory, SonaConfig};
 use parking_lot::RwLock;
 use std::sync::Arc;
 use std::time::{Duration, Instant};

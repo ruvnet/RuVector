@@ -127,13 +127,17 @@ pub struct TripleState {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum RdfTermState {
-    Iri { value: String },
+    Iri {
+        value: String,
+    },
     Literal {
         value: String,
         datatype: String,
         language: Option<String>,
     },
-    BlankNode { id: String },
+    BlankNode {
+        id: String,
+    },
 }
 
 /// Serializable SQL table schema state

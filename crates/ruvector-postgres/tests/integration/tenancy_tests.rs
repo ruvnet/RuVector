@@ -76,7 +76,11 @@ mod tenant_isolation_tests {
     #[test]
     fn test_database_isolation() {
         // For strongest isolation, separate databases
-        let tenant_dbs = ["ruvector_tenant_a", "ruvector_tenant_b", "ruvector_tenant_c"];
+        let tenant_dbs = [
+            "ruvector_tenant_a",
+            "ruvector_tenant_b",
+            "ruvector_tenant_c",
+        ];
 
         // Each should be independent
         for (i, db) in tenant_dbs.iter().enumerate() {
@@ -91,10 +95,7 @@ mod tenant_isolation_tests {
     /// Test that connection strings are tenant-specific
     #[test]
     fn test_tenant_connection_strings() {
-        let tenants = [
-            Tenant::new("a", 100000, 1000),
-            Tenant::new("b", 50000, 500),
-        ];
+        let tenants = [Tenant::new("a", 100000, 1000), Tenant::new("b", 50000, 500)];
 
         for tenant in &tenants {
             let conn_str = format!(
@@ -153,10 +154,7 @@ mod rls_policy_tests {
 
         // Even if explicit tenant_id is specified in query,
         // RLS policy will override based on session setting
-        let malicious_query = format!(
-            "SELECT * FROM vectors WHERE tenant_id = '{}';",
-            tenant_b_id
-        );
+        let malicious_query = format!("SELECT * FROM vectors WHERE tenant_id = '{}';", tenant_b_id);
 
         // With RLS, this returns no rows when connected as tenant_a
         // The policy: USING (tenant_id = current_setting('app.tenant_id')::uuid)
@@ -568,9 +566,21 @@ mod tenant_index_tests {
         }
 
         let configs = [
-            TenantIndexConfig { tenant_id: "small".to_string(), m: 8, ef_construction: 32 },
-            TenantIndexConfig { tenant_id: "medium".to_string(), m: 16, ef_construction: 64 },
-            TenantIndexConfig { tenant_id: "large".to_string(), m: 32, ef_construction: 128 },
+            TenantIndexConfig {
+                tenant_id: "small".to_string(),
+                m: 8,
+                ef_construction: 32,
+            },
+            TenantIndexConfig {
+                tenant_id: "medium".to_string(),
+                m: 16,
+                ef_construction: 64,
+            },
+            TenantIndexConfig {
+                tenant_id: "large".to_string(),
+                m: 32,
+                ef_construction: 128,
+            },
         ];
 
         for config in &configs {

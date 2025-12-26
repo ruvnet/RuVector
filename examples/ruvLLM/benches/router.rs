@@ -2,9 +2,9 @@
 //!
 //! Benchmarks FastGRNN router forward pass and training.
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId};
-use ruvllm::router::FastGRNNRouter;
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use ruvllm::config::RouterConfig;
+use ruvllm::router::FastGRNNRouter;
 use ruvllm::types::RouterSample;
 
 fn benchmark_router_forward(c: &mut Criterion) {
@@ -15,9 +15,7 @@ fn benchmark_router_forward(c: &mut Criterion) {
     let hidden = vec![0.0f32; config.hidden_dim];
 
     c.bench_function("router_forward", |b| {
-        b.iter(|| {
-            black_box(router.forward(&features, &hidden).unwrap())
-        })
+        b.iter(|| black_box(router.forward(&features, &hidden).unwrap()))
     });
 }
 
@@ -38,11 +36,7 @@ fn benchmark_router_forward_batch_sizes(c: &mut Criterion) {
         group.bench_with_input(
             BenchmarkId::from_parameter(feature_dim),
             &features,
-            |b, features| {
-                b.iter(|| {
-                    black_box(router.forward(features, &hidden).unwrap())
-                })
-            },
+            |b, features| b.iter(|| black_box(router.forward(features, &hidden).unwrap())),
         );
     }
     group.finish();
@@ -65,9 +59,7 @@ fn benchmark_router_training(c: &mut Criterion) {
         .collect();
 
     c.bench_function("router_train_batch_32", |b| {
-        b.iter(|| {
-            black_box(router.train_batch(&samples, 0.001, 0.0, None, None))
-        })
+        b.iter(|| black_box(router.train_batch(&samples, 0.001, 0.0, None, None)))
     });
 }
 
@@ -92,11 +84,7 @@ fn benchmark_router_training_batch_sizes(c: &mut Criterion) {
         group.bench_with_input(
             BenchmarkId::from_parameter(batch_size),
             &samples,
-            |b, samples| {
-                b.iter(|| {
-                    black_box(router.train_batch(samples, 0.001, 0.0, None, None))
-                })
-            },
+            |b, samples| b.iter(|| black_box(router.train_batch(samples, 0.001, 0.0, None, None))),
         );
     }
     group.finish();
@@ -124,13 +112,7 @@ fn benchmark_router_ewc(c: &mut Criterion) {
 
     c.bench_function("router_train_with_ewc", |b| {
         b.iter(|| {
-            black_box(router.train_batch(
-                &samples,
-                0.001,
-                0.4,
-                Some(&fisher),
-                Some(&optimal),
-            ))
+            black_box(router.train_batch(&samples, 0.001, 0.4, Some(&fisher), Some(&optimal)))
         })
     });
 }
@@ -152,9 +134,7 @@ fn benchmark_fisher_computation(c: &mut Criterion) {
         .collect();
 
     c.bench_function("router_compute_fisher_100", |b| {
-        b.iter(|| {
-            black_box(router.compute_fisher(&samples))
-        })
+        b.iter(|| black_box(router.compute_fisher(&samples)))
     });
 }
 

@@ -24,14 +24,18 @@
 //! - Subpolynomial update time per instance
 
 use crate::connectivity::DynamicConnectivity;
-use crate::instance::{ProperCutInstance, InstanceResult, WitnessHandle, StubInstance, BoundedInstance};
-use crate::graph::{VertexId, EdgeId, DynamicGraph};
+use crate::graph::{DynamicGraph, EdgeId, VertexId};
+use crate::instance::{
+    BoundedInstance, InstanceResult, ProperCutInstance, StubInstance, WitnessHandle,
+};
 use std::sync::Arc;
 
 #[cfg(feature = "agentic")]
-use crate::parallel::{CoreExecutor, SharedCoordinator, CoreDistributor, ResultAggregator, NUM_CORES, CoreStrategy};
-#[cfg(feature = "agentic")]
 use crate::compact::{CompactCoreState, CompactEdge};
+#[cfg(feature = "agentic")]
+use crate::parallel::{
+    CoreDistributor, CoreExecutor, CoreStrategy, ResultAggregator, SharedCoordinator, NUM_CORES,
+};
 
 /// Range factor from paper (1.2)
 const RANGE_FACTOR: f64 = 1.2;
@@ -115,7 +119,8 @@ pub struct MinCutWrapper {
     graph: Arc<DynamicGraph>,
 
     /// Instance factory (dependency injection for testing)
-    instance_factory: Box<dyn Fn(&DynamicGraph, u64, u64) -> Box<dyn ProperCutInstance> + Send + Sync>,
+    instance_factory:
+        Box<dyn Fn(&DynamicGraph, u64, u64) -> Box<dyn ProperCutInstance> + Send + Sync>,
 
     /// Last known min-cut value (for binary search optimization)
     last_min_cut: Option<u64>,
@@ -161,7 +166,7 @@ impl MinCutWrapper {
     /// ```
     pub fn with_factory<F>(graph: Arc<DynamicGraph>, factory: F) -> Self
     where
-        F: Fn(&DynamicGraph, u64, u64) -> Box<dyn ProperCutInstance> + Send + Sync + 'static
+        F: Fn(&DynamicGraph, u64, u64) -> Box<dyn ProperCutInstance> + Send + Sync + 'static,
     {
         // Pre-compute bounds for all instances
         let mut lambda_min = Vec::with_capacity(MAX_INSTANCES);
@@ -405,7 +410,9 @@ impl MinCutWrapper {
 
             if is_new_instance {
                 // New instance: apply ALL edges from the graph
-                let all_edges: Vec<_> = self.graph.edges()
+                let all_edges: Vec<_> = self
+                    .graph
+                    .edges()
                     .iter()
                     .map(|e| (e.id, e.source, e.target))
                     .collect();
@@ -416,14 +423,16 @@ impl MinCutWrapper {
             } else {
                 // Existing instance: apply only new updates
                 // Collect inserts newer than last update
-                let inserts: Vec<_> = self.pending_inserts
+                let inserts: Vec<_> = self
+                    .pending_inserts
                     .iter()
                     .filter(|u| u.time > last_time)
                     .map(|u| (u.edge_id, u.u, u.v))
                     .collect();
 
                 // Collect deletes newer than last update
-                let deletes: Vec<_> = self.pending_deletes
+                let deletes: Vec<_> = self
+                    .pending_deletes
                     .iter()
                     .filter(|u| u.time > last_time)
                     .map(|u| (u.edge_id, u.u, u.v))
@@ -698,13 +707,15 @@ impl MinCutWrapper {
                 let last_time = self.last_update_time[i];
 
                 // Collect and apply updates
-                let inserts: Vec<_> = self.pending_inserts
+                let inserts: Vec<_> = self
+                    .pending_inserts
                     .iter()
                     .filter(|u| u.time > last_time)
                     .map(|u| (u.edge_id, u.u, u.v))
                     .collect();
 
-                let deletes: Vec<_> = self.pending_deletes
+                let deletes: Vec<_> = self
+                    .pending_deletes
                     .iter()
                     .filter(|u| u.time > last_time)
                     .map(|u| (u.edge_id, u.u, u.v))
@@ -823,7 +834,7 @@ impl MinCutWrapper {
     /// the current graph state. This is useful for understanding the
     /// graph structure and for certified mirror cut queries.
     pub fn build_hierarchy(&self) -> crate::cluster::hierarchy::ThreeLevelHierarchy {
-        use crate::cluster::hierarchy::{ThreeLevelHierarchy, HierarchyConfig};
+        use crate::cluster::hierarchy::{HierarchyConfig, ThreeLevelHierarchy};
 
         let mut h = ThreeLevelHierarchy::new(HierarchyConfig {
             track_mirror_cuts: true,
@@ -1145,8 +1156,7 @@ mod tests {
         graph.insert_edge(2, 0, 1.0).unwrap();
 
         // Create wrapper with agentic backend enabled
-        let mut wrapper = MinCutWrapper::new(Arc::clone(&graph))
-            .with_agentic(true);
+        let mut wrapper = MinCutWrapper::new(Arc::clone(&graph)).with_agentic(true);
 
         // Notify wrapper of edges (matching graph edges)
         wrapper.insert_edge(0, 0, 1);
@@ -1182,11 +1192,7 @@ mod tests {
         let mut wrapper = MinCutWrapper::new(Arc::clone(&graph));
 
         // Batch insert all edges at once
-        wrapper.batch_insert_edges(&[
-            (0, 1, 2),
-            (1, 2, 3),
-            (2, 3, 4),
-        ]);
+        wrapper.batch_insert_edges(&[(0, 1, 2), (1, 2, 3), (2, 3, 4)]);
 
         assert_eq!(wrapper.pending_updates(), 3);
         assert_eq!(wrapper.current_time(), 3);
@@ -1206,11 +1212,7 @@ mod tests {
         let mut wrapper = MinCutWrapper::new(Arc::clone(&graph));
 
         // First batch insert
-        wrapper.batch_insert_edges(&[
-            (0, 1, 2),
-            (1, 2, 3),
-            (2, 3, 4),
-        ]);
+        wrapper.batch_insert_edges(&[(0, 1, 2), (1, 2, 3), (2, 3, 4)]);
 
         // Query to process inserts
         let _ = wrapper.query();
@@ -1240,8 +1242,8 @@ mod tests {
 
         // Combined batch update: insert new edge, delete old edge
         wrapper.batch_update(
-            &[(2, 3, 4)],  // insert 3-4
-            &[(1, 2, 3)],  // delete 2-3
+            &[(2, 3, 4)], // insert 3-4
+            &[(1, 2, 3)], // delete 2-3
         );
 
         assert_eq!(wrapper.pending_updates(), 2);
@@ -1344,7 +1346,10 @@ mod tests {
         // Triangle has min cut of 2
         assert!(cut_value >= 0, "Cut value should be non-negative");
         // Certification is best-effort
-        assert!(certified || !certified, "Certification should complete without panic");
+        assert!(
+            certified || !certified,
+            "Certification should complete without panic"
+        );
     }
 
     #[test]
@@ -1392,10 +1397,7 @@ mod tests {
         wrapper.query();
 
         // Rank edges
-        let ranked_edges = vec![
-            (1, 2, 1.0),
-            (2, 3, 0.8),
-        ];
+        let ranked_edges = vec![(1, 2, 1.0), (2, 3, 0.8)];
 
         let curve = wrapper.connectivity_curve(&ranked_edges, 2);
 
@@ -1410,30 +1412,25 @@ mod tests {
     fn test_find_elbow_with_clear_drop() {
         // Curve with clear elbow at k=2
         let curve = vec![
-            (0, 10),  // Initial: min-cut = 10
-            (1, 9),   // Small drop
-            (2, 3),   // BIG drop (elbow)
-            (3, 2),   // Small drop
-            (4, 2),   // No drop
+            (0, 10), // Initial: min-cut = 10
+            (1, 9),  // Small drop
+            (2, 3),  // BIG drop (elbow)
+            (3, 2),  // Small drop
+            (4, 2),  // No drop
         ];
 
         let elbow = MinCutWrapper::find_elbow(&curve);
         assert!(elbow.is_some());
 
         let (k, drop) = elbow.unwrap();
-        assert_eq!(k, 2);  // Elbow at k=2
+        assert_eq!(k, 2); // Elbow at k=2
         assert_eq!(drop, 6); // Drop of 6 (from 9 to 3)
     }
 
     #[test]
     fn test_find_elbow_flat_curve() {
         // Flat curve with no significant drops
-        let curve = vec![
-            (0, 5),
-            (1, 5),
-            (2, 5),
-            (3, 5),
-        ];
+        let curve = vec![(0, 5), (1, 5), (2, 5), (3, 5)];
 
         let elbow = MinCutWrapper::find_elbow(&curve);
         assert!(elbow.is_none()); // No elbow when curve is flat
@@ -1468,7 +1465,7 @@ mod tests {
 
         // Detector ranks an actual min-cut edge first
         let ranked_edges = vec![
-            (2, 3, 1.0),  // This is a cut edge
+            (2, 3, 1.0), // This is a cut edge
             (1, 2, 0.5),
             (3, 4, 0.3),
         ];

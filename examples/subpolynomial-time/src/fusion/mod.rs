@@ -4,18 +4,16 @@
 //! with minimum-cut brittleness detection for robust knowledge retrieval.
 
 mod fusion_graph;
-mod structural_monitor;
 mod optimizer;
+mod structural_monitor;
 
 pub use fusion_graph::{
-    FusionGraph, FusionNode, FusionEdge, FusionConfig,
-    EdgeOrigin, RelationType, FusionResult,
-};
-pub use structural_monitor::{
-    StructuralMonitor, MonitorState, BrittlenessSignal,
-    Trigger, TriggerType, MonitorConfig as StructuralMonitorConfig,
+    EdgeOrigin, FusionConfig, FusionEdge, FusionGraph, FusionNode, FusionResult, RelationType,
 };
 pub use optimizer::{
-    Optimizer, OptimizerAction, MaintenancePlan, MaintenanceTask,
-    OptimizationResult, LearningGate,
+    LearningGate, MaintenancePlan, MaintenanceTask, OptimizationResult, Optimizer, OptimizerAction,
+};
+pub use structural_monitor::{
+    BrittlenessSignal, MonitorConfig as StructuralMonitorConfig, MonitorState, StructuralMonitor,
+    Trigger, TriggerType,
 };

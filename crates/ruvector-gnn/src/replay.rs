@@ -6,9 +6,9 @@
 //! - Batch sampling for training
 //! - Distribution shift detection
 
+use rand::Rng;
 use std::collections::VecDeque;
 use std::time::{SystemTime, UNIX_EPOCH};
-use rand::Rng;
 
 /// A single entry in the replay buffer
 #[derive(Debug, Clone)]
@@ -202,9 +202,7 @@ impl ReplayBuffer {
         }
 
         // Compute statistics for recent window
-        let mut recent_stats = DistributionStats::new(
-            self.distribution_stats.mean.len()
-        );
+        let mut recent_stats = DistributionStats::new(self.distribution_stats.mean.len());
 
         let start_idx = self.queries.len().saturating_sub(recent_window);
         for entry in self.queries.iter().skip(start_idx) {

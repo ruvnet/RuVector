@@ -5,10 +5,10 @@
 //! - Per-collection fusion settings
 //! - Column mappings for vector and FTS
 
-use std::collections::HashMap;
-use std::sync::Arc;
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::sync::Arc;
 
 use super::bm25::{BM25Config, CorpusStats};
 use super::fusion::FusionConfig;
@@ -169,7 +169,9 @@ impl HybridRegistry {
         let entry = RegistryEntry::new(config);
 
         self.collections_by_id.write().insert(collection_id, entry);
-        self.collections_by_name.write().insert(qualified_name, collection_id);
+        self.collections_by_name
+            .write()
+            .insert(qualified_name, collection_id);
 
         Ok(())
     }
@@ -333,7 +335,11 @@ impl std::fmt::Display for RegistryError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             RegistryError::AlreadyRegistered(name) => {
-                write!(f, "Collection '{}' is already registered for hybrid search", name)
+                write!(
+                    f,
+                    "Collection '{}' is already registered for hybrid search",
+                    name
+                )
             }
             RegistryError::NotFound(name) => {
                 write!(f, "Hybrid collection '{}' not found", name)
@@ -464,7 +470,10 @@ fn parse_interval(s: &str) -> Result<i64, RegistryError> {
             .map_err(|_| RegistryError::InvalidConfig(format!("Invalid interval: {}", s)));
     }
 
-    if let Some(mins) = s.strip_suffix(" minute").or_else(|| s.strip_suffix(" minutes")) {
+    if let Some(mins) = s
+        .strip_suffix(" minute")
+        .or_else(|| s.strip_suffix(" minutes"))
+    {
         return mins
             .trim()
             .parse::<i64>()
@@ -472,7 +481,10 @@ fn parse_interval(s: &str) -> Result<i64, RegistryError> {
             .map_err(|_| RegistryError::InvalidConfig(format!("Invalid interval: {}", s)));
     }
 
-    if let Some(secs) = s.strip_suffix(" second").or_else(|| s.strip_suffix(" seconds")) {
+    if let Some(secs) = s
+        .strip_suffix(" second")
+        .or_else(|| s.strip_suffix(" seconds"))
+    {
         return secs
             .trim()
             .parse::<i64>()

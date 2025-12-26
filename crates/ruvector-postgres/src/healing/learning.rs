@@ -152,7 +152,8 @@ impl StrategyWeight {
         // Update running averages
         let n = self.observations as f32;
         self.avg_improvement = ((n - 1.0) * self.avg_improvement + improvement_pct) / n;
-        self.avg_duration_ms = ((self.observations as u64 - 1) * self.avg_duration_ms + duration_ms)
+        self.avg_duration_ms = ((self.observations as u64 - 1) * self.avg_duration_ms
+            + duration_ms)
             / self.observations as u64;
 
         // Calculate success rate
@@ -269,7 +270,11 @@ impl OutcomeTracker {
     /// Get outcomes since timestamp
     pub fn get_since(&self, since: u64) -> Vec<OutcomeRecord> {
         let history = self.history.read();
-        history.iter().filter(|r| r.timestamp >= since).cloned().collect()
+        history
+            .iter()
+            .filter(|r| r.timestamp >= since)
+            .cloned()
+            .collect()
     }
 
     /// Get outcomes for a specific strategy
@@ -285,7 +290,11 @@ impl OutcomeTracker {
     }
 
     /// Get outcomes for a specific problem type
-    pub fn get_for_problem_type(&self, problem_type: ProblemType, limit: usize) -> Vec<OutcomeRecord> {
+    pub fn get_for_problem_type(
+        &self,
+        problem_type: ProblemType,
+        limit: usize,
+    ) -> Vec<OutcomeRecord> {
         let history = self.history.read();
         history
             .iter()
@@ -407,10 +416,10 @@ impl OutcomeTracker {
             // Reset counters
             weight.observations = outcomes.len();
             weight.successes = outcomes.iter().filter(|o| o.success && o.verified).count();
-            weight.avg_improvement = outcomes.iter().map(|o| o.improvement_pct).sum::<f32>()
-                / outcomes.len() as f32;
-            weight.avg_duration_ms = outcomes.iter().map(|o| o.duration_ms).sum::<u64>()
-                / outcomes.len() as u64;
+            weight.avg_improvement =
+                outcomes.iter().map(|o| o.improvement_pct).sum::<f32>() / outcomes.len() as f32;
+            weight.avg_duration_ms =
+                outcomes.iter().map(|o| o.duration_ms).sum::<u64>() / outcomes.len() as u64;
 
             // Recalculate weight
             let success_rate = weight.success_rate();

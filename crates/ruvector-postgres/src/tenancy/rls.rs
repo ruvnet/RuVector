@@ -138,7 +138,10 @@ impl PolicyTemplate {
                     path_column
                 )
             }
-            Self::TimeBased { time_column, retention_days } => {
+            Self::TimeBased {
+                time_column,
+                retention_days,
+            } => {
                 format!(
                     "{} = current_setting('ruvector.tenant_id', true) AND {} > NOW() - INTERVAL '{} days'",
                     tenant_column, time_column, retention_days
@@ -163,7 +166,10 @@ impl PolicyTemplate {
                     tenant_column
                 )
             }
-            Self::TimeBased { time_column: _, retention_days: _ } => {
+            Self::TimeBased {
+                time_column: _,
+                retention_days: _,
+            } => {
                 format!(
                     "{} = current_setting('ruvector.tenant_id', true)",
                     tenant_column
@@ -306,10 +312,7 @@ DROP POLICY IF EXISTS ruvector_tenant_isolation_wildcard ON {table};
     /// Generate SQL to set tenant context for a session
     pub fn generate_set_tenant_sql(tenant_id: &str, local: bool) -> String {
         let set_cmd = if local { "SET LOCAL" } else { "SET" };
-        format!(
-            "{} ruvector.tenant_id = '{}';",
-            set_cmd, tenant_id
-        )
+        format!("{} ruvector.tenant_id = '{}';", set_cmd, tenant_id)
     }
 
     /// Generate SQL to clear tenant context
@@ -383,8 +386,13 @@ DROP POLICY IF EXISTS ruvector_tenant_isolation_wildcard ON {table};
 -- Create index on tenant column for efficient filtering
 CREATE INDEX IF NOT EXISTS idx_{}_{} ON {} ({});
 "#,
-            table_name, table_name.replace('.', "_"), column_name,
-            table_name.replace('.', "_"), column_name, table_name, column_name
+            table_name,
+            table_name.replace('.', "_"),
+            column_name,
+            table_name.replace('.', "_"),
+            column_name,
+            table_name,
+            column_name
         ));
 
         sql
@@ -417,7 +425,8 @@ $$;
 GRANT USAGE ON SCHEMA public TO ruvector_users, ruvector_readonly;
 GRANT SELECT ON ALL TABLES IN SCHEMA public TO ruvector_readonly;
 GRANT ALL ON ALL TABLES IN SCHEMA public TO ruvector_users;
-"#.to_string()
+"#
+        .to_string()
     }
 
     /// Generate SQL for tenant context validation trigger
@@ -511,8 +520,7 @@ impl Default for RlsManager {
 }
 
 /// Global RLS manager instance
-static RLS_MANAGER: once_cell::sync::Lazy<RlsManager> =
-    once_cell::sync::Lazy::new(RlsManager::new);
+static RLS_MANAGER: once_cell::sync::Lazy<RlsManager> = once_cell::sync::Lazy::new(RlsManager::new);
 
 /// Get the global RLS manager
 pub fn get_rls_manager() -> &'static RlsManager {
@@ -604,12 +612,7 @@ mod tests {
 
     #[test]
     fn test_add_tenant_column_sql() {
-        let sql = RlsManager::generate_add_tenant_column_sql(
-            "embeddings",
-            "tenant_id",
-            true,
-            true,
-        );
+        let sql = RlsManager::generate_add_tenant_column_sql("embeddings", "tenant_id", true, true);
 
         assert!(sql.contains("ADD COLUMN"));
         assert!(sql.contains("NOT NULL"));

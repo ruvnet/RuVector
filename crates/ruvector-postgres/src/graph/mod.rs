@@ -2,18 +2,18 @@
 //
 // Provides graph storage, traversal, Cypher query support, and SPARQL (W3C standard)
 
+pub mod cypher;
+pub mod operators;
+pub mod sparql;
 pub mod storage;
 pub mod traversal;
-pub mod cypher;
-pub mod sparql;
-pub mod operators;
 
-pub use storage::{Node, Edge, NodeStore, EdgeStore, GraphStore};
+pub use cypher::{execute_cypher, CypherQuery};
+pub use storage::{Edge, EdgeStore, GraphStore, Node, NodeStore};
 pub use traversal::{bfs, dfs, shortest_path_dijkstra, PathResult};
-pub use cypher::{CypherQuery, execute_cypher};
 
-use std::sync::Arc;
 use dashmap::DashMap;
+use std::sync::Arc;
 
 /// Global graph storage registry
 static GRAPH_REGISTRY: once_cell::sync::Lazy<DashMap<String, Arc<GraphStore>>> =

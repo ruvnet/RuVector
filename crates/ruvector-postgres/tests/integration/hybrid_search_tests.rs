@@ -106,8 +106,8 @@ mod bm25_scoring_tests {
         let doc_len = 200;
 
         // Query: "machine learning"
-        let term1_score = bm25_term_score(3, doc_len, avg_doc_len, num_docs, 100);  // "machine"
-        let term2_score = bm25_term_score(2, doc_len, avg_doc_len, num_docs, 80);   // "learning"
+        let term1_score = bm25_term_score(3, doc_len, avg_doc_len, num_docs, 100); // "machine"
+        let term2_score = bm25_term_score(2, doc_len, avg_doc_len, num_docs, 80); // "learning"
 
         let combined_score = term1_score + term2_score;
 
@@ -143,9 +143,7 @@ mod rrf_fusion_tests {
 
     /// Calculate RRF score for a document
     fn rrf_score(ranks: &[usize]) -> f64 {
-        ranks.iter()
-            .map(|&rank| 1.0 / (RRF_K + rank as f64))
-            .sum()
+        ranks.iter().map(|&rank| 1.0 / (RRF_K + rank as f64)).sum()
     }
 
     /// Test basic RRF calculation
@@ -199,7 +197,10 @@ mod rrf_fusion_tests {
         let score_both = rrf_score(&[1, 1]);
         let score_one = rrf_score(&[1]);
 
-        assert!(score_both > score_one, "Appearing in both lists should score higher");
+        assert!(
+            score_both > score_one,
+            "Appearing in both lists should score higher"
+        );
     }
 
     /// Test RRF ordering stability
@@ -304,7 +305,8 @@ mod linear_fusion_tests {
         }
 
         let vector_scores = vec![0.1, 0.4, 0.8, 0.95];
-        let normalized: Vec<f64> = vector_scores.iter()
+        let normalized: Vec<f64> = vector_scores
+            .iter()
             .map(|&s| normalize(s, 0.1, 0.95))
             .collect();
 
@@ -323,7 +325,8 @@ mod linear_fusion_tests {
         let vector_score = 0.7;
         let text_score = 0.6;
 
-        let fused_scores: Vec<f64> = alphas.iter()
+        let fused_scores: Vec<f64> = alphas
+            .iter()
             .map(|&a| linear_fusion(vector_score, text_score, a))
             .collect();
 
@@ -359,9 +362,9 @@ mod hybrid_performance_tests {
     #[test]
     fn test_hybrid_overhead() {
         // Hybrid should be less than 2x single branch
-        let vector_latency: f64 = 10.0;  // ms
-        let text_latency: f64 = 8.0;     // ms
-        let hybrid_latency: f64 = 15.0;  // ms
+        let vector_latency: f64 = 10.0; // ms
+        let text_latency: f64 = 8.0; // ms
+        let hybrid_latency: f64 = 15.0; // ms
 
         let single_branch_max = vector_latency.max(text_latency);
         let overhead_ratio = hybrid_latency / single_branch_max;
@@ -388,10 +391,7 @@ mod hybrid_performance_tests {
         let fusion_overhead: f64 = 2.0;
         let parallel = vector_latency.max(text_latency) + fusion_overhead;
 
-        assert!(
-            parallel < sequential,
-            "Parallel execution should be faster"
-        );
+        assert!(parallel < sequential, "Parallel execution should be faster");
 
         // Speedup should be meaningful
         let speedup = sequential / parallel;
@@ -403,7 +403,7 @@ mod hybrid_performance_tests {
     fn test_fusion_overhead() {
         // Fusion step should be minimal
         let num_results = 1000;
-        let fusion_time_us = 100.0;  // microseconds
+        let fusion_time_us = 100.0; // microseconds
 
         // Per-result fusion time
         let per_result_us = fusion_time_us / num_results as f64;
@@ -427,8 +427,8 @@ mod hybrid_performance_tests {
 
         // Check scaling
         for i in 1..limits.len() {
-            let limit_ratio = limits[i] as f64 / limits[i-1] as f64;
-            let latency_ratio = latencies[i] / latencies[i-1];
+            let limit_ratio = limits[i] as f64 / limits[i - 1] as f64;
+            let latency_ratio = latencies[i] / latencies[i - 1];
 
             // Latency should grow slower than limit
             assert!(
@@ -444,10 +444,10 @@ mod hybrid_performance_tests {
         // Hybrid search should not require excessive memory
         let vector_results = 1000;
         let text_results = 1000;
-        let result_size_bytes = 100;  // Per result
+        let result_size_bytes = 100; // Per result
 
         let total_memory = (vector_results + text_results) * result_size_bytes;
-        let max_memory_kb = 1024;  // 1MB limit
+        let max_memory_kb = 1024; // 1MB limit
 
         assert!(
             total_memory / 1024 < max_memory_kb,
@@ -463,10 +463,7 @@ mod hybrid_performance_tests {
         let target_qps = 1000.0;
         let max_latency_ms = 1000.0 / target_qps;
 
-        assert!(
-            max_latency_ms == 1.0,
-            "Need < 1ms latency for 1000 QPS"
-        );
+        assert!(max_latency_ms == 1.0, "Need < 1ms latency for 1000 QPS");
 
         // With parallelism
         let concurrent_queries = 10;
@@ -503,9 +500,9 @@ mod hybrid_quality_tests {
     fn test_query_type_handling() {
         // Query types and expected best modality
         let query_types = [
-            ("semantic concept", "vector"),      // Abstract concept
-            ("exact phrase", "text"),            // Literal match
-            ("keyword + meaning", "hybrid"),     // Mixed
+            ("semantic concept", "vector"),  // Abstract concept
+            ("exact phrase", "text"),        // Literal match
+            ("keyword + meaning", "hybrid"), // Mixed
         ];
 
         // Hybrid should handle all reasonably
@@ -534,9 +531,21 @@ mod hybrid_quality_tests {
         }
 
         let results = [
-            Results { alpha: 0.3, precision: 0.65, recall: 0.85 },  // Text-heavy: better recall
-            Results { alpha: 0.5, precision: 0.72, recall: 0.78 },  // Balanced
-            Results { alpha: 0.7, precision: 0.80, recall: 0.70 },  // Vector-heavy: better precision
+            Results {
+                alpha: 0.3,
+                precision: 0.65,
+                recall: 0.85,
+            }, // Text-heavy: better recall
+            Results {
+                alpha: 0.5,
+                precision: 0.72,
+                recall: 0.78,
+            }, // Balanced
+            Results {
+                alpha: 0.7,
+                precision: 0.80,
+                recall: 0.70,
+            }, // Vector-heavy: better precision
         ];
 
         // All should have reasonable F1

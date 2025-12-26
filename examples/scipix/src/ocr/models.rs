@@ -53,18 +53,16 @@ impl ModelHandle {
         #[cfg(feature = "ocr")]
         let session = if path.exists() {
             match Session::builder() {
-                Ok(builder) => {
-                    match builder.commit_from_file(&path) {
-                        Ok(session) => {
-                            info!("Successfully loaded ONNX model: {:?}", path);
-                            Some(Arc::new(Mutex::new(session)))
-                        }
-                        Err(e) => {
-                            warn!("Failed to load ONNX model {:?}: {}", path, e);
-                            None
-                        }
+                Ok(builder) => match builder.commit_from_file(&path) {
+                    Ok(session) => {
+                        info!("Successfully loaded ONNX model: {:?}", path);
+                        Some(Arc::new(Mutex::new(session)))
                     }
-                }
+                    Err(e) => {
+                        warn!("Failed to load ONNX model {:?}: {}", path, e);
+                        None
+                    }
+                },
                 Err(e) => {
                     warn!("Failed to create ONNX session builder: {}", e);
                     None
@@ -230,9 +228,15 @@ impl ModelRegistry {
         self.cache.insert(model_type, Arc::clone(&handle));
 
         if handle.is_loaded() {
-            info!("Model {:?} loaded successfully with ONNX session", model_type);
+            info!(
+                "Model {:?} loaded successfully with ONNX session",
+                model_type
+            );
         } else {
-            warn!("Model {:?} handle created but ONNX session not loaded", model_type);
+            warn!(
+                "Model {:?} handle created but ONNX session not loaded",
+                model_type
+            );
         }
 
         Ok(handle)
@@ -255,7 +259,7 @@ impl ModelRegistry {
                 name: "Text Detection".to_string(),
                 version: "1.0.0".to_string(),
                 input_shape: vec![1, 3, 640, 640], // NCHW format
-                output_shape: vec![1, 25200, 85],   // Detections
+                output_shape: vec![1, 25200, 85],  // Detections
                 input_dtype: "float32".to_string(),
                 file_size: 50_000_000, // ~50MB
                 checksum: None,

@@ -12,8 +12,8 @@
 //! which changes Level 1 observations, which triggers Level 2 re-evaluation.
 
 use super::{
+    network::{LayerConfig, NetworkConfig, SpikingNetwork},
     neuron::{LIFNeuron, NeuronConfig, NeuronPopulation},
-    network::{SpikingNetwork, NetworkConfig, LayerConfig},
     SimTime, Spike,
 };
 use crate::graph::{DynamicGraph, VertexId};
@@ -127,8 +127,8 @@ impl MetaNeuron {
 
         // Compute trend
         let mean: f64 = self.history.iter().sum::<f64>() / self.history.len() as f64;
-        let recent_mean: f64 = self.history.iter().rev().take(10)
-            .sum::<f64>() / 10.0f64.min(self.history.len() as f64);
+        let recent_mean: f64 = self.history.iter().rev().take(10).sum::<f64>()
+            / 10.0f64.min(self.history.len() as f64);
 
         self.state = recent_mean - mean;
 
@@ -216,7 +216,9 @@ impl MetaCognitiveMinCut {
 
         for (i, v) in vertices.iter().enumerate() {
             let degree = self.object_graph.degree(*v) as f64;
-            let weight_sum: f64 = self.object_graph.neighbors(*v)
+            let weight_sum: f64 = self
+                .object_graph
+                .neighbors(*v)
                 .iter()
                 .filter_map(|(_, _)| Some(1.0))
                 .sum();
@@ -268,7 +270,9 @@ impl MetaCognitiveMinCut {
         // Keep only edges within the partition
         let vertex_set: std::collections::HashSet<_> = vertices.iter().collect();
 
-        let edges_to_remove: Vec<_> = self.object_graph.edges()
+        let edges_to_remove: Vec<_> = self
+            .object_graph
+            .edges()
             .iter()
             .filter(|e| !vertex_set.contains(&e.source) || !vertex_set.contains(&e.target))
             .map(|e| (e.source, e.target))
@@ -298,7 +302,8 @@ impl MetaCognitiveMinCut {
         }
 
         // Select dominant action (simplified: first non-NoOp)
-        let action = actions.into_iter()
+        let action = actions
+            .into_iter()
             .find(|a| !matches!(a, MetaAction::NoOp))
             .unwrap_or(MetaAction::NoOp);
 
@@ -313,14 +318,18 @@ impl MetaCognitiveMinCut {
                     } else {
                         // Strengthen existing edge
                         if let Some(edge) = self.object_graph.get_edge(u, v) {
-                            let _ = self.object_graph.update_edge_weight(u, v, edge.weight * 1.1);
+                            let _ = self
+                                .object_graph
+                                .update_edge_weight(u, v, edge.weight * 1.1);
                         }
                     }
                 }
             }
             MetaAction::Prune(threshold) => {
                 // Remove edges below mincut contribution threshold
-                let weak_edges: Vec<_> = self.object_graph.edges()
+                let weak_edges: Vec<_> = self
+                    .object_graph
+                    .edges()
                     .iter()
                     .filter(|e| self.mincut_contribution(e) < *threshold)
                     .map(|e| (e.source, e.target))
@@ -372,9 +381,8 @@ impl MetaCognitiveMinCut {
     pub fn level_summary(&self) -> (f64, f64, f64) {
         let l0 = self.object_graph.num_edges() as f64;
         let l1 = self.observer_summary();
-        let l2 = self.meta_neurons.iter()
-            .map(|m| m.state)
-            .sum::<f64>() / self.meta_neurons.len() as f64;
+        let l2 =
+            self.meta_neurons.iter().map(|m| m.state).sum::<f64>() / self.meta_neurons.len() as f64;
 
         (l0, l1, l2)
     }

@@ -8,12 +8,12 @@
 //! - Text region segmentation
 //! - Complete preprocessing pipeline with parallel processing
 
-pub mod pipeline;
-pub mod transforms;
-pub mod rotation;
 pub mod deskew;
 pub mod enhancement;
+pub mod pipeline;
+pub mod rotation;
 pub mod segmentation;
+pub mod transforms;
 
 use image::{DynamicImage, GrayImage};
 use serde::{Deserialize, Serialize};
@@ -188,10 +188,7 @@ pub fn preprocess(image: &DynamicImage, options: &PreprocessOptions) -> Result<G
 /// let regions = detect_text_regions(&img, 100).unwrap();
 /// println!("Found {} text regions", regions.len());
 /// ```
-pub fn detect_text_regions(
-    image: &GrayImage,
-    min_region_size: u32,
-) -> Result<Vec<TextRegion>> {
+pub fn detect_text_regions(image: &GrayImage, min_region_size: u32) -> Result<Vec<TextRegion>> {
     segmentation::find_text_regions(image, min_region_size)
 }
 

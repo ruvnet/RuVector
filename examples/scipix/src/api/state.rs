@@ -1,10 +1,13 @@
 use moka::future::Cache;
-use sha2::{Sha256, Digest};
+use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 
-use super::{jobs::JobQueue, middleware::{create_rate_limiter, AppRateLimiter}};
+use super::{
+    jobs::JobQueue,
+    middleware::{create_rate_limiter, AppRateLimiter},
+};
 
 /// Shared application state
 #[derive(Clone)]
@@ -129,7 +132,10 @@ mod tests {
         let state = AppState::new();
 
         // Insert value
-        state.cache.insert("key1".to_string(), "value1".to_string()).await;
+        state
+            .cache
+            .insert("key1".to_string(), "value1".to_string())
+            .await;
 
         // Retrieve value
         let value = state.cache.get(&"key1".to_string()).await;

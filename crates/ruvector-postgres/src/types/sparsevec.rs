@@ -385,10 +385,7 @@ impl FromStr for SparseVec {
             return Err("Invalid sparsevec format: expected {pairs}/dim".to_string());
         }
 
-        let dimensions: usize = parts[1]
-            .trim()
-            .parse()
-            .map_err(|_| "Invalid dimensions")?;
+        let dimensions: usize = parts[1].trim().parse().map_err(|_| "Invalid dimensions")?;
 
         if parts[0].is_empty() {
             return Ok(Self::zeros(dimensions));
@@ -534,7 +531,8 @@ mod tests {
         // Compute L2 distance using dense conversion
         let a_dense = a.to_dense();
         let b_dense = b.to_dense();
-        let dist = a_dense.iter()
+        let dist = a_dense
+            .iter()
             .zip(b_dense.iter())
             .map(|(x, y)| (x - y).powi(2))
             .sum::<f32>()
@@ -544,10 +542,8 @@ mod tests {
 
     #[test]
     fn test_memory_efficiency() {
-        let sparse = SparseVec::from_pairs(
-            10000,
-            &(0..10).map(|i| (i * 1000, 1.0)).collect::<Vec<_>>(),
-        );
+        let sparse =
+            SparseVec::from_pairs(10000, &(0..10).map(|i| (i * 1000, 1.0)).collect::<Vec<_>>());
 
         let dense_size = 10000 * 4; // 40KB
         let sparse_size = sparse.memory_size();
@@ -613,7 +609,8 @@ mod pg_tests {
         // Compute L2 distance using dense conversion
         let a_dense = a.to_dense();
         let b_dense = b.to_dense();
-        let l2: f32 = a_dense.iter()
+        let l2: f32 = a_dense
+            .iter()
             .zip(b_dense.iter())
             .map(|(x, y)| (x - y).powi(2))
             .sum::<f32>()

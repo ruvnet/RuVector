@@ -3,8 +3,8 @@
 
 #![cfg(target_arch = "wasm32")]
 
-use wasm_bindgen_test::*;
 use ruvector_attention_wasm::*;
+use wasm_bindgen_test::*;
 
 wasm_bindgen_test_configure!(run_in_browser);
 
@@ -86,14 +86,7 @@ fn test_adam_optimizer() {
 
 #[wasm_bindgen_test]
 fn test_adamw_optimizer() {
-    let mut adamw = training::WasmAdamW::new(
-        100,
-        0.001,
-        0.01,
-        Some(0.9),
-        Some(0.999),
-        Some(1e-8)
-    );
+    let mut adamw = training::WasmAdamW::new(100, 0.001, 0.01, Some(0.9), Some(0.999), Some(1e-8));
 
     assert_eq!(adamw.learning_rate(), 0.001);
     assert_eq!(adamw.weight_decay(), 0.01);

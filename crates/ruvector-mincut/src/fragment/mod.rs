@@ -111,11 +111,7 @@ impl FragmentingAlgorithm {
     }
 
     /// BFS to find a single connected component
-    fn bfs_component(
-        &self,
-        start: VertexId,
-        visited: &mut HashSet<VertexId>,
-    ) -> HashSet<VertexId> {
+    fn bfs_component(&self, start: VertexId, visited: &mut HashSet<VertexId>) -> HashSet<VertexId> {
         let mut component = HashSet::new();
         let mut queue = VecDeque::new();
 

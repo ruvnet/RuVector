@@ -63,8 +63,8 @@ impl Loss for InfoNCELoss {
             .chain(std::iter::once(pos_sim))
             .fold(f32::NEG_INFINITY, f32::max);
 
-        let sum_exp: f32 = neg_sims.iter().map(|s| (s - max_sim).exp()).sum::<f32>()
-            + (pos_sim - max_sim).exp();
+        let sum_exp: f32 =
+            neg_sims.iter().map(|s| (s - max_sim).exp()).sum::<f32>() + (pos_sim - max_sim).exp();
 
         let log_sum_exp = max_sim + sum_exp.ln();
 
@@ -250,7 +250,11 @@ impl SpectralRegularization {
 
         for d in 0..dim {
             let mean: f32 = embeddings.iter().map(|e| e[d]).sum::<f32>() / n as f32;
-            let var: f32 = embeddings.iter().map(|e| (e[d] - mean).powi(2)).sum::<f32>() / n as f32;
+            let var: f32 = embeddings
+                .iter()
+                .map(|e| (e[d] - mean).powi(2))
+                .sum::<f32>()
+                / n as f32;
             var_sum += var;
         }
 
@@ -260,8 +264,11 @@ impl SpectralRegularization {
             let mut sum = 0.0;
             for d in 0..dim {
                 let mean: f32 = embeddings.iter().map(|e| e[d]).sum::<f32>() / n as f32;
-                let var: f32 =
-                    embeddings.iter().map(|e| (e[d] - mean).powi(2)).sum::<f32>() / n as f32;
+                let var: f32 = embeddings
+                    .iter()
+                    .map(|e| (e[d] - mean).powi(2))
+                    .sum::<f32>()
+                    / n as f32;
                 sum += (var - avg_var).powi(2);
             }
             sum / dim as f32

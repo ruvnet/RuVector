@@ -87,8 +87,8 @@ unsafe fn hamming_distance_avx2(a: &[u8], b: &[u8]) -> u32 {
 
     // Lookup table for popcount of 4-bit values
     let lookup = _mm256_setr_epi8(
-        0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4,
-        0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4,
+        0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4, 0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3,
+        3, 4,
     );
     let low_mask = _mm256_set1_epi8(0x0F);
 

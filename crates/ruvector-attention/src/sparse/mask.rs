@@ -17,7 +17,11 @@ impl AttentionMask {
     /// Create a new sparse mask from indices
     pub fn new(indices: Vec<(usize, usize)>, shape: (usize, usize)) -> Self {
         let lookup: HashSet<_> = indices.iter().copied().collect();
-        Self { indices, shape, lookup }
+        Self {
+            indices,
+            shape,
+            lookup,
+        }
     }
 
     /// Check if position is masked (should attend)
@@ -74,7 +78,11 @@ impl AttentionMask {
             // Always attend to self
             indices.push((i, i));
         }
-        let mut indices: Vec<_> = indices.into_iter().collect::<HashSet<_>>().into_iter().collect();
+        let mut indices: Vec<_> = indices
+            .into_iter()
+            .collect::<HashSet<_>>()
+            .into_iter()
+            .collect();
         indices.sort();
         Self::new(indices, (n, n))
     }
@@ -98,7 +106,10 @@ pub struct SparseMaskBuilder {
 
 impl SparseMaskBuilder {
     pub fn new(n: usize) -> Self {
-        Self { n, indices: Vec::new() }
+        Self {
+            n,
+            indices: Vec::new(),
+        }
     }
 
     /// Add local window pattern
@@ -139,7 +150,12 @@ impl SparseMaskBuilder {
 
     /// Build the mask
     pub fn build(self) -> AttentionMask {
-        let mut indices: Vec<_> = self.indices.into_iter().collect::<HashSet<_>>().into_iter().collect();
+        let mut indices: Vec<_> = self
+            .indices
+            .into_iter()
+            .collect::<HashSet<_>>()
+            .into_iter()
+            .collect();
         indices.sort();
         AttentionMask::new(indices, (self.n, self.n))
     }

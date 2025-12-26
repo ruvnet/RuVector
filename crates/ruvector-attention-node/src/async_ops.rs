@@ -9,8 +9,8 @@ use napi::bindgen_prelude::*;
 use napi_derive::napi;
 use ruvector_attention::{
     attention::ScaledDotProductAttention,
-    sparse::{FlashAttention, LinearAttention, LocalGlobalAttention},
     hyperbolic::{HyperbolicAttention, HyperbolicAttentionConfig},
+    sparse::{FlashAttention, LinearAttention, LocalGlobalAttention},
     traits::Attention,
 };
 use std::sync::Arc;
@@ -399,7 +399,8 @@ impl StreamProcessor {
         let keys_refs: Vec<&[f32]> = self.buffer.iter().map(|k| k.as_slice()).collect();
         let values_refs: Vec<&[f32]> = self.buffer.iter().map(|v| v.as_slice()).collect();
 
-        let result = attention.compute(query_slice, &keys_refs, &values_refs)
+        let result = attention
+            .compute(query_slice, &keys_refs, &values_refs)
             .map_err(|e| Error::from_reason(e.to_string()))?;
 
         Ok(Float32Array::new(result))
@@ -456,7 +457,11 @@ pub async fn benchmark_attention(
         // Generate test data
         let query: Vec<f32> = (0..dim_usize).map(|i| (i as f32 * 0.01).sin()).collect();
         let keys: Vec<Vec<f32>> = (0..seq_usize)
-            .map(|j| (0..dim_usize).map(|i| ((i + j) as f32 * 0.01).cos()).collect())
+            .map(|j| {
+                (0..dim_usize)
+                    .map(|i| ((i + j) as f32 * 0.01).cos())
+                    .collect()
+            })
             .collect();
         let values: Vec<Vec<f32>> = keys.clone();
 
@@ -469,7 +474,8 @@ pub async fn benchmark_attention(
             AttentionType::Linear => "Linear",
             AttentionType::LocalGlobal => "LocalGlobal",
             AttentionType::Hyperbolic => "Hyperbolic",
-        }.to_string();
+        }
+        .to_string();
 
         let mut times: Vec<f64> = Vec::with_capacity(iter_usize);
 

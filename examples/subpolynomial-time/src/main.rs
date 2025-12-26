@@ -9,18 +9,17 @@
 //! 6. Performance scaling
 //! 7. Vector-Graph Fusion with brittleness detection
 
-use ruvector_mincut::prelude::*;
-use ruvector_mincut::{MonitorBuilder, EventType};
 use rand::prelude::*;
-use std::time::Instant;
-use std::sync::Arc;
+use ruvector_mincut::prelude::*;
+use ruvector_mincut::{EventType, MonitorBuilder};
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Arc;
+use std::time::Instant;
 
 mod fusion;
 use fusion::{
-    FusionGraph, FusionConfig, RelationType,
-    StructuralMonitor, StructuralMonitorConfig, BrittlenessSignal,
-    Optimizer, OptimizerAction,
+    BrittlenessSignal, FusionConfig, FusionGraph, Optimizer, OptimizerAction, RelationType,
+    StructuralMonitor, StructuralMonitorConfig,
 };
 
 fn main() {
@@ -77,11 +76,7 @@ fn demo_basic_usage() {
     // Create a triangle graph: 1-2, 2-3, 3-1
     let mincut = MinCutBuilder::new()
         .exact()
-        .with_edges(vec![
-            (1, 2, 1.0),
-            (2, 3, 1.0),
-            (3, 1, 1.0),
-        ])
+        .with_edges(vec![(1, 2, 1.0), (2, 3, 1.0), (3, 1, 1.0)])
         .build()
         .expect("Failed to build mincut");
 
@@ -105,8 +100,10 @@ fn demo_basic_usage() {
     if let Some(cut_edges) = result.cut_edges {
         println!("  • Number of cut edges: {}", cut_edges.len());
         for edge in &cut_edges {
-            println!("    - Edge ({}, {}) with weight {}",
-                edge.source, edge.target, edge.weight);
+            println!(
+                "    - Edge ({}, {}) with weight {}",
+                edge.source, edge.target, edge.weight
+            );
         }
     }
 
@@ -165,7 +162,10 @@ fn demo_dynamic_updates() {
     // Check algorithm statistics
     let stats = mincut.stats();
     println!("\nAlgorithm statistics:");
-    println!("  • Total insertions: {} (including re-insertion)", stats.insertions);
+    println!(
+        "  • Total insertions: {} (including re-insertion)",
+        stats.insertions
+    );
     println!("  • Total deletions: {}", stats.deletions);
     println!("  • Total queries: {}", stats.queries);
     println!("  • Avg update time: {:.2} μs", stats.avg_update_time_us);
@@ -206,7 +206,10 @@ fn demo_exact_vs_approximate() {
     println!("  • Build time: {:?}", exact_time);
     println!("  • Min cut value: {}", exact_result.value);
     println!("  • Is exact: {}", exact_result.is_exact);
-    println!("  • Approximation ratio: {}", exact_result.approximation_ratio);
+    println!(
+        "  • Approximation ratio: {}",
+        exact_result.approximation_ratio
+    );
 
     // Approximate mode with ε = 0.1 (10% approximation)
     println!("\nBuilding with approximate algorithm (ε = 0.1)...");
@@ -223,7 +226,10 @@ fn demo_exact_vs_approximate() {
     println!("  • Build time: {:?}", approx_time);
     println!("  • Min cut value: {}", approx_result.value);
     println!("  • Is exact: {}", approx_result.is_exact);
-    println!("  • Approximation ratio: {}", approx_result.approximation_ratio);
+    println!(
+        "  • Approximation ratio: {}",
+        approx_result.approximation_ratio
+    );
 
     // Compare results
     println!("\nComparison:");
@@ -231,7 +237,10 @@ fn demo_exact_vs_approximate() {
     println!("  • Approximate value: {}", approx_result.value);
     let error = ((approx_result.value - exact_result.value) / exact_result.value * 100.0).abs();
     println!("  • Error: {:.2}%", error);
-    println!("  • Speedup: {:.2}x", exact_time.as_secs_f64() / approx_time.as_secs_f64());
+    println!(
+        "  • Speedup: {:.2}x",
+        exact_time.as_secs_f64() / approx_time.as_secs_f64()
+    );
 }
 
 /// Demo 4: Real-time monitoring with thresholds
@@ -256,16 +265,24 @@ fn demo_monitoring() {
         .threshold_above(5.0, "warning")
         .on_event_type(EventType::CutIncreased, "inc_cb", move |event| {
             inc_clone.fetch_add(1, Ordering::SeqCst);
-            println!("  [EVENT] Cut increased: {} → {}", event.old_value, event.new_value);
+            println!(
+                "  [EVENT] Cut increased: {} → {}",
+                event.old_value, event.new_value
+            );
         })
         .on_event_type(EventType::CutDecreased, "dec_cb", move |event| {
             dec_clone.fetch_add(1, Ordering::SeqCst);
-            println!("  [EVENT] Cut decreased: {} → {}", event.old_value, event.new_value);
+            println!(
+                "  [EVENT] Cut decreased: {} → {}",
+                event.old_value, event.new_value
+            );
         })
         .on_event_type(EventType::ThresholdCrossedBelow, "thr_cb", move |event| {
             thr_clone.fetch_add(1, Ordering::SeqCst);
-            println!("  [ALERT] Threshold crossed below: {} (threshold: {:?})",
-                event.new_value, event.threshold);
+            println!(
+                "  [ALERT] Threshold crossed below: {} (threshold: {:?})",
+                event.new_value, event.threshold
+            );
         })
         .on_event_type(EventType::Disconnected, "dis_cb", move |_event| {
             dis_clone.fetch_add(1, Ordering::SeqCst);
@@ -300,10 +317,22 @@ fn demo_monitoring() {
     let metrics = monitor.metrics();
     println!("\nMonitoring metrics:");
     println!("  • Total events: {}", metrics.total_events);
-    println!("  • Cut increased events: {}", cut_increased_count.load(Ordering::SeqCst));
-    println!("  • Cut decreased events: {}", cut_decreased_count.load(Ordering::SeqCst));
-    println!("  • Threshold violations: {}", threshold_count.load(Ordering::SeqCst));
-    println!("  • Disconnection events: {}", disconnected_count.load(Ordering::SeqCst));
+    println!(
+        "  • Cut increased events: {}",
+        cut_increased_count.load(Ordering::SeqCst)
+    );
+    println!(
+        "  • Cut decreased events: {}",
+        cut_decreased_count.load(Ordering::SeqCst)
+    );
+    println!(
+        "  • Threshold violations: {}",
+        threshold_count.load(Ordering::SeqCst)
+    );
+    println!(
+        "  • Disconnection events: {}",
+        disconnected_count.load(Ordering::SeqCst)
+    );
     println!("  • Min observed cut: {}", metrics.min_observed);
     println!("  • Max observed cut: {}", metrics.max_observed);
     println!("  • Average cut: {:.2}", metrics.avg_cut);
@@ -358,7 +387,10 @@ fn demo_network_resilience() {
     } else if min_cut == 2.0 {
         println!("  ⚡ Moderate resilience - can survive 1 failure");
     } else {
-        println!("  ✅ High resilience - can survive {} failures", min_cut as u32 - 1);
+        println!(
+            "  ✅ High resilience - can survive {} failures",
+            min_cut as u32 - 1
+        );
     }
 
     // Simulate edge failures
@@ -367,10 +399,18 @@ fn demo_network_resilience() {
     if let Some(cut_edges) = result.cut_edges {
         println!("\nCritical edges (minimum cut set):");
         for (i, edge) in cut_edges.iter().enumerate() {
-            println!("  {}. ({}, {}) - weight {}",
-                i + 1, edge.source, edge.target, edge.weight);
+            println!(
+                "  {}. ({}, {}) - weight {}",
+                i + 1,
+                edge.source,
+                edge.target,
+                edge.weight
+            );
         }
-        println!("\nRemoving these {} edge(s) would disconnect the network!", cut_edges.len());
+        println!(
+            "\nRemoving these {} edge(s) would disconnect the network!",
+            cut_edges.len()
+        );
     }
 
     // Identify the partition
@@ -387,7 +427,10 @@ fn demo_performance_scaling() {
     println!("Measuring performance at different graph sizes...\n");
 
     let sizes = vec![10, 50, 100, 200];
-    println!("{:<10} {:<15} {:<15} {:<15}", "Vertices", "Edges", "Build Time", "Query Time");
+    println!(
+        "{:<10} {:<15} {:<15} {:<15}",
+        "Vertices", "Edges", "Build Time", "Query Time"
+    );
     println!("{}", "─".repeat(60));
 
     for n in sizes {
@@ -396,7 +439,7 @@ fn demo_performance_scaling() {
         let mut edges = Vec::new();
 
         // Create a path to ensure connectivity
-        for i in 0..n-1 {
+        for i in 0..n - 1 {
             edges.push((i, i + 1, rng.gen_range(1.0..10.0)));
         }
 
@@ -412,10 +455,7 @@ fn demo_performance_scaling() {
 
         // Build and measure
         let start = Instant::now();
-        let mincut = MinCutBuilder::new()
-            .exact()
-            .with_edges(edges)
-            .build();
+        let mincut = MinCutBuilder::new().exact().with_edges(edges).build();
         let build_time = start.elapsed();
 
         if let Ok(mincut) = mincut {
@@ -423,7 +463,8 @@ fn demo_performance_scaling() {
             let _cut = mincut.min_cut_value();
             let query_time = start.elapsed();
 
-            println!("{:<10} {:<15} {:<15?} {:<15?}",
+            println!(
+                "{:<10} {:<15} {:<15?} {:<15?}",
                 n,
                 mincut.num_edges(),
                 build_time,
@@ -495,12 +536,12 @@ fn demo_vector_graph_fusion() {
     // Ingest document vectors (simulating embeddings)
     println!("Ingesting document vectors...");
     let docs = vec![
-        (1, vec![1.0, 0.0, 0.0, 0.0]),    // Topic A
-        (2, vec![0.9, 0.1, 0.0, 0.0]),    // Similar to Topic A
-        (3, vec![0.8, 0.2, 0.0, 0.0]),    // Similar to Topic A
-        (4, vec![0.0, 1.0, 0.0, 0.0]),    // Topic B
-        (5, vec![0.0, 0.9, 0.1, 0.0]),    // Similar to Topic B
-        (6, vec![0.0, 0.0, 1.0, 0.0]),    // Topic C (isolated)
+        (1, vec![1.0, 0.0, 0.0, 0.0]), // Topic A
+        (2, vec![0.9, 0.1, 0.0, 0.0]), // Similar to Topic A
+        (3, vec![0.8, 0.2, 0.0, 0.0]), // Similar to Topic A
+        (4, vec![0.0, 1.0, 0.0, 0.0]), // Topic B
+        (5, vec![0.0, 0.9, 0.1, 0.0]), // Similar to Topic B
+        (6, vec![0.0, 0.0, 1.0, 0.0]), // Topic C (isolated)
     ];
 
     for (id, vec) in &docs {
@@ -529,8 +570,10 @@ fn demo_vector_graph_fusion() {
             fusion::EdgeOrigin::Graph => "Graph",
             fusion::EdgeOrigin::SelfLearn => "Learned",
         };
-        println!("  • ({}, {}) [{:>7}]: raw={:.2}, capacity={:.4}",
-            edge.src, edge.dst, origin, edge.raw_strength, edge.capacity);
+        println!(
+            "  • ({}, {}) [{:>7}]: raw={:.2}, capacity={:.4}",
+            edge.src, edge.dst, origin, edge.raw_strength, edge.capacity
+        );
     }
 
     // Query with brittleness awareness
@@ -582,11 +625,20 @@ fn demo_brittleness_detection() {
             BrittlenessSignal::Disconnected => "⚫",
         };
 
-        println!("{} λ={:.1}: {} [{}]", signal_icon, lambda, description, signal.as_str());
+        println!(
+            "{} λ={:.1}: {} [{}]",
+            signal_icon,
+            lambda,
+            description,
+            signal.as_str()
+        );
 
         for trigger in triggers {
-            println!("   ⚡ TRIGGER: {:?} (severity: {:.0}%)",
-                trigger.trigger_type, trigger.severity * 100.0);
+            println!(
+                "   ⚡ TRIGGER: {:?} (severity: {:.0}%)",
+                trigger.trigger_type,
+                trigger.severity * 100.0
+            );
             println!("      → {}", trigger.recommendation);
         }
     }
@@ -594,8 +646,16 @@ fn demo_brittleness_detection() {
     // Show trend analysis
     println!("\nTrend Analysis:");
     let state = monitor.state();
-    let trend_dir = if state.lambda_trend > 0.0 { "↑" } else { "↓" };
-    println!("  • Trend slope: {}{:.3} per observation", trend_dir, state.lambda_trend.abs());
+    let trend_dir = if state.lambda_trend > 0.0 {
+        "↑"
+    } else {
+        "↓"
+    };
+    println!(
+        "  • Trend slope: {}{:.3} per observation",
+        trend_dir,
+        state.lambda_trend.abs()
+    );
     println!("  • Volatility: {:.3}", state.cut_volatility);
     println!("  • Boundary edges: {}", state.boundary_edges.len());
 
@@ -631,9 +691,11 @@ fn demo_self_learning_optimization() {
         // Get optimization result
         let result = optimizer.analyze(&monitor);
 
-        println!("Signal: {} | Learning rate: {:.4}",
+        println!(
+            "Signal: {} | Learning rate: {:.4}",
             result.signal.as_str(),
-            optimizer.learning_gate().learning_rate);
+            optimizer.learning_gate().learning_rate
+        );
 
         // Show immediate action if any
         match &result.immediate_action {
@@ -641,14 +703,23 @@ fn demo_self_learning_optimization() {
                 println!("Immediate action: None needed");
             }
             OptimizerAction::Rewire { strengthen, .. } => {
-                println!("Immediate action: Rewire ({} edges to strengthen)", strengthen.len());
+                println!(
+                    "Immediate action: Rewire ({} edges to strengthen)",
+                    strengthen.len()
+                );
             }
             OptimizerAction::Reindex { new_threshold, .. } => {
                 println!("Immediate action: Reindex (threshold: {:?})", new_threshold);
             }
-            OptimizerAction::LearningGate { enable, rate_multiplier } => {
-                println!("Immediate action: {} learning (rate x{})",
-                    if *enable { "Enable" } else { "Disable" }, rate_multiplier);
+            OptimizerAction::LearningGate {
+                enable,
+                rate_multiplier,
+            } => {
+                println!(
+                    "Immediate action: {} learning (rate x{})",
+                    if *enable { "Enable" } else { "Disable" },
+                    rate_multiplier
+                );
             }
             _ => {
                 println!("Immediate action: {:?}", result.immediate_action);

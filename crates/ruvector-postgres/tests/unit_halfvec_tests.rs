@@ -2,8 +2,8 @@
 //!
 //! Tests half-precision vector storage and conversions
 
-use ruvector_postgres::types::HalfVec;
 use half::f16;
+use ruvector_postgres::types::HalfVec;
 
 #[cfg(test)]
 mod halfvec_tests {
@@ -167,8 +167,12 @@ mod halfvec_tests {
         let recovered = hv.to_f32();
 
         for (orig, rec) in values.iter().zip(recovered.iter()) {
-            assert_eq!(orig.signum(), rec.signum(),
-                      "Sign should be preserved for {}", orig);
+            assert_eq!(
+                orig.signum(),
+                rec.signum(),
+                "Sign should be preserved for {}",
+                orig
+            );
         }
     }
 
@@ -236,7 +240,13 @@ mod halfvec_tests {
 
         for (orig, rec) in large.iter().zip(recovered.iter()) {
             let rel_error = ((orig - rec) / orig).abs();
-            assert!(rel_error < 0.01, "Large value {} -> {}, error {}", orig, rec, rel_error);
+            assert!(
+                rel_error < 0.01,
+                "Large value {} -> {}, error {}",
+                orig,
+                rec,
+                rel_error
+            );
         }
     }
 
@@ -266,7 +276,7 @@ mod halfvec_tests {
     fn test_clone() {
         let data = [1.0, 2.0, 3.0];
         let hv1 = HalfVec::from_f32(&data);
-        let hv2 = hv1;  // Copy (since HalfVec is Copy)
+        let hv2 = hv1; // Copy (since HalfVec is Copy)
 
         assert_eq!(hv1.dimensions(), hv2.dimensions());
         assert_eq!(hv1.to_f32(), hv2.to_f32());
@@ -282,9 +292,7 @@ mod halfvec_tests {
         let dim = 128;
 
         for i in 0..num_vectors {
-            let data: Vec<f32> = (0..dim)
-                .map(|j| ((i * dim + j) as f32) * 0.001)
-                .collect();
+            let data: Vec<f32> = (0..dim).map(|j| ((i * dim + j) as f32) * 0.001).collect();
 
             let hv = HalfVec::from_f32(&data);
             assert_eq!(hv.dimensions(), dim);

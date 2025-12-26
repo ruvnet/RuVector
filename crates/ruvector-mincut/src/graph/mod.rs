@@ -6,11 +6,11 @@
 //! - Efficient edge insertion/deletion
 //! - Support for weighted edges
 
-use std::collections::{HashSet, VecDeque};
-use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
+use crate::error::{MinCutError, Result};
 use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
-use crate::error::{MinCutError, Result};
+use std::collections::{HashSet, VecDeque};
+use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 
 /// Unique vertex identifier
 pub type VertexId = u64;
@@ -187,13 +187,15 @@ impl DynamicGraph {
         let key = Self::canonical_key(u, v);
 
         // Get edge ID
-        let edge_id = self.edge_index
+        let edge_id = self
+            .edge_index
             .remove(&key)
             .ok_or_else(|| MinCutError::EdgeNotFound(u, v))?
             .1;
 
         // Remove from edge storage
-        let (_, edge) = self.edges
+        let (_, edge) = self
+            .edges
             .remove(&edge_id)
             .ok_or_else(|| MinCutError::EdgeNotFound(u, v))?;
 
@@ -217,9 +219,9 @@ impl DynamicGraph {
     /// Get edge by endpoints
     pub fn get_edge(&self, u: VertexId, v: VertexId) -> Option<Edge> {
         let key = Self::canonical_key(u, v);
-        self.edge_index.get(&key).and_then(|edge_id| {
-            self.edges.get(edge_id.value()).map(|e| *e.value())
-        })
+        self.edge_index
+            .get(&key)
+            .and_then(|edge_id| self.edges.get(edge_id.value()).map(|e| *e.value()))
     }
 
     /// Get all neighbors of a vertex
@@ -267,7 +269,8 @@ impl DynamicGraph {
             return GraphStats::default();
         }
 
-        let mut degrees: Vec<usize> = self.adjacency
+        let mut degrees: Vec<usize> = self
+            .adjacency
             .iter()
             .map(|entry| entry.value().len())
             .collect();
@@ -279,10 +282,7 @@ impl DynamicGraph {
         let total_degree: usize = degrees.iter().sum();
         let avg_degree = total_degree as f64 / num_vertices as f64;
 
-        let total_weight: f64 = self.edges
-            .iter()
-            .map(|entry| entry.value().weight)
-            .sum();
+        let total_weight: f64 = self.edges.iter().map(|entry| entry.value().weight).sum();
 
         GraphStats {
             num_vertices,
@@ -407,7 +407,8 @@ impl DynamicGraph {
     pub fn update_edge_weight(&self, u: VertexId, v: VertexId, new_weight: Weight) -> Result<()> {
         let key = Self::canonical_key(u, v);
 
-        let edge_id = self.edge_index
+        let edge_id = self
+            .edge_index
             .get(&key)
             .ok_or_else(|| MinCutError::EdgeNotFound(u, v))?;
 

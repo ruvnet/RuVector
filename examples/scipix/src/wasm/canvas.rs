@@ -1,9 +1,9 @@
 //! Canvas and ImageData handling for WASM
 
-use wasm_bindgen::prelude::*;
-use web_sys::{HtmlCanvasElement, CanvasRenderingContext2d, ImageData};
+use anyhow::{anyhow, Result};
 use image::{DynamicImage, ImageBuffer, Rgba};
-use anyhow::{Result, anyhow};
+use wasm_bindgen::prelude::*;
+use web_sys::{CanvasRenderingContext2d, HtmlCanvasElement, ImageData};
 
 use crate::wasm::types::{OcrResult, RecognitionFormat};
 
@@ -41,12 +41,8 @@ impl CanvasProcessor {
         let height = image_data.height();
         let data = image_data.data();
 
-        let img_buffer = ImageBuffer::<Rgba<u8>, Vec<u8>>::from_raw(
-            width,
-            height,
-            data.to_vec(),
-        )
-        .ok_or_else(|| anyhow!("Failed to create image buffer"))?;
+        let img_buffer = ImageBuffer::<Rgba<u8>, Vec<u8>>::from_raw(width, height, data.to_vec())
+            .ok_or_else(|| anyhow!("Failed to create image buffer"))?;
 
         Ok(DynamicImage::ImageRgba8(img_buffer))
     }
@@ -141,7 +137,8 @@ impl CanvasProcessor {
     fn calculate_confidence(&self, text: &str, latex: &Option<String>) -> f32 {
         // Simple heuristic: longer text = higher confidence
         let text_score = (text.len() as f32 / 100.0).min(1.0);
-        let latex_score = latex.as_ref()
+        let latex_score = latex
+            .as_ref()
             .map(|l| (l.len() as f32 / 50.0).min(1.0))
             .unwrap_or(0.0);
 
@@ -161,11 +158,13 @@ pub async fn blob_url_to_image_data(blob_url: &str) -> Result<ImageData, JsValue
     use web_sys::{window, HtmlImageElement};
 
     let window = window().ok_or_else(|| JsValue::from_str("No window"))?;
-    let document = window.document().ok_or_else(|| JsValue::from_str("No document"))?;
+    let document = window
+        .document()
+        .ok_or_else(|| JsValue::from_str("No document"))?;
 
     // Create image element
-    let img = HtmlImageElement::new()
-        .map_err(|_| JsValue::from_str("Failed to create image element"))?;
+    let img =
+        HtmlImageElement::new().map_err(|_| JsValue::from_str("Failed to create image element"))?;
 
     img.set_src(blob_url);
 
@@ -180,7 +179,9 @@ pub async fn blob_url_to_image_data(blob_url: &str) -> Result<ImageData, JsValue
         onload.forget();
 
         let onerror = Closure::wrap(Box::new(move || {
-            reject.call1(&JsValue::NULL, &JsValue::from_str("Image load failed")).unwrap();
+            reject
+                .call1(&JsValue::NULL, &JsValue::from_str("Image load failed"))
+                .unwrap();
         }) as Box<dyn FnMut()>);
 
         img.set_onerror(Some(onerror.as_ref().unchecked_ref()));

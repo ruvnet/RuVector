@@ -2,8 +2,8 @@
 //!
 //! Provides parallel image preprocessing, batch OCR, and pipelined execution.
 
-use rayon::prelude::*;
 use image::DynamicImage;
+use rayon::prelude::*;
 use std::sync::Arc;
 use tokio::sync::Semaphore;
 
@@ -24,7 +24,7 @@ where
 /// Parallel processing with error handling
 pub fn parallel_preprocess_result<F, E>(
     images: Vec<DynamicImage>,
-    preprocess_fn: F
+    preprocess_fn: F,
 ) -> Vec<std::result::Result<DynamicImage, E>>
 where
     F: Fn(DynamicImage) -> std::result::Result<DynamicImage, E> + Sync + Send,
@@ -67,7 +67,8 @@ where
     /// Execute pipeline on multiple inputs
     pub fn execute_batch(&self, inputs: Vec<T>) -> Vec<V> {
         if !parallel_enabled() {
-            return inputs.into_iter()
+            return inputs
+                .into_iter()
                 .map(|input| {
                     let stage1_out = (self.stage1)(input);
                     (self.stage2)(stage1_out)
@@ -75,7 +76,8 @@ where
                 .collect();
         }
 
-        inputs.into_par_iter()
+        inputs
+            .into_par_iter()
             .map(|input| {
                 let stage1_out = (self.stage1)(input);
                 (self.stage2)(stage1_out)
@@ -113,7 +115,8 @@ where
 
     pub fn execute_batch(&self, inputs: Vec<T>) -> Vec<W> {
         if !parallel_enabled() {
-            return inputs.into_iter()
+            return inputs
+                .into_iter()
                 .map(|input| {
                     let out1 = (self.stage1)(input);
                     let out2 = (self.stage2)(out1);
@@ -122,7 +125,8 @@ where
                 .collect();
         }
 
-        inputs.into_par_iter()
+        inputs
+            .into_par_iter()
             .map(|input| {
                 let out1 = (self.stage1)(input);
                 let out2 = (self.stage2)(out1);
@@ -133,11 +137,7 @@ where
 }
 
 /// Parallel map with configurable chunk size
-pub fn parallel_map_chunked<T, U, F>(
-    items: Vec<T>,
-    chunk_size: usize,
-    map_fn: F,
-) -> Vec<U>
+pub fn parallel_map_chunked<T, U, F>(items: Vec<T>, chunk_size: usize, map_fn: F) -> Vec<U>
 where
     T: Send,
     U: Send,
@@ -290,10 +290,7 @@ mod tests {
 
     #[test]
     fn test_pipeline_executor() {
-        let pipeline = PipelineExecutor::new(
-            |x: i32| x + 1,
-            |x: i32| x * 2,
-        );
+        let pipeline = PipelineExecutor::new(|x: i32| x + 1, |x: i32| x * 2);
 
         let inputs = vec![1, 2, 3, 4, 5];
         let results = pipeline.execute_batch(inputs);
@@ -303,11 +300,7 @@ mod tests {
 
     #[test]
     fn test_pipeline3() {
-        let pipeline = Pipeline3::new(
-            |x: i32| x + 1,
-            |x: i32| x * 2,
-            |x: i32| x - 1,
-        );
+        let pipeline = Pipeline3::new(|x: i32| x + 1, |x: i32| x * 2, |x: i32| x - 1);
 
         let inputs = vec![1, 2, 3];
         let results = pipeline.execute_batch(inputs);
@@ -321,10 +314,12 @@ mod tests {
         let executor = AsyncParallelExecutor::new(2);
 
         let tasks = vec![1, 2, 3, 4, 5];
-        let results = executor.execute(tasks, |x| async move {
-            tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
-            x * 2
-        }).await;
+        let results = executor
+            .execute(tasks, |x| async move {
+                tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
+                x * 2
+            })
+            .await;
 
         assert_eq!(results.len(), 5);
         assert!(results.contains(&2));

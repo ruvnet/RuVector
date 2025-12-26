@@ -5,7 +5,7 @@
 //!
 //! Uses SIMD-accelerated operations via simsimd for efficient computation.
 
-use super::{Attention, softmax_inplace};
+use super::{softmax_inplace, Attention};
 use simsimd::SpatialSimilarity;
 
 /// Scaled dot-product attention mechanism
@@ -120,7 +120,11 @@ impl Attention for ScaledDotAttention {
     /// # Returns
     /// Attention-weighted combination of values [d_v]
     fn forward(&self, query: &[f32], keys: &[&[f32]], values: &[&[f32]]) -> Vec<f32> {
-        assert_eq!(keys.len(), values.len(), "Keys and values must have same length");
+        assert_eq!(
+            keys.len(),
+            values.len(),
+            "Keys and values must have same length"
+        );
 
         if keys.is_empty() {
             return Vec::new();

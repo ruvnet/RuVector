@@ -52,9 +52,9 @@ async fn main() -> Result<()> {
             use clap::CommandFactory;
             use clap_complete::{generate, Shell};
 
-            let shell = shell.clone().unwrap_or_else(|| {
-                Shell::from_env().unwrap_or(Shell::Bash)
-            });
+            let shell = shell
+                .clone()
+                .unwrap_or_else(|| Shell::from_env().unwrap_or(Shell::Bash));
 
             let mut cmd = Cli::command();
             let bin_name = cmd.get_name().to_string();

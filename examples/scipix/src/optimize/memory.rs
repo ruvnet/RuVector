@@ -2,14 +2,14 @@
 //!
 //! Provides object pooling, memory-mapped file loading, and zero-copy operations.
 
-use std::path::Path;
-use std::sync::{Arc, Mutex};
+use memmap2::{Mmap, MmapOptions};
 use std::collections::VecDeque;
 use std::fs::File;
-use memmap2::{Mmap, MmapOptions};
+use std::path::Path;
+use std::sync::{Arc, Mutex};
 
-use crate::error::{Result, ScipixError};
 use super::memory_opt_enabled;
+use crate::error::{Result, ScipixError};
 
 /// Object pool for reusable buffers
 pub struct BufferPool<T> {
@@ -46,7 +46,10 @@ impl<T: Send + 'static> BufferPool<T> {
     /// Acquire a buffer from the pool
     pub fn acquire(&self) -> PooledBuffer<T> {
         let buffer = if memory_opt_enabled() {
-            self.pool.lock().unwrap().pop_front()
+            self.pool
+                .lock()
+                .unwrap()
+                .pop_front()
                 .unwrap_or_else(|| (self.factory)())
         } else {
             (self.factory)()
@@ -125,8 +128,7 @@ unsafe impl Sync for MmapModel {}
 impl MmapModel {
     /// Load model from file using memory mapping
     pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self> {
-        let file = File::open(path.as_ref())
-            .map_err(|e| ScipixError::Io(e))?;
+        let file = File::open(path.as_ref()).map_err(|e| ScipixError::Io(e))?;
 
         let mmap = unsafe {
             MmapOptions::new()
@@ -213,7 +215,7 @@ impl<'a> ImageView<'a> {
     pub fn subview(&self, x: u32, y: u32, width: u32, height: u32) -> Result<Self> {
         if x + width > self.width || y + height > self.height {
             return Err(ScipixError::InvalidInput(
-                "Subview out of bounds".to_string()
+                "Subview out of bounds".to_string(),
             ));
         }
 
@@ -293,9 +295,9 @@ impl Arena {
 
 /// Global buffer pools for common sizes
 pub struct GlobalPools {
-    small: BufferPool<Vec<u8>>,   // 1KB buffers
-    medium: BufferPool<Vec<u8>>,  // 64KB buffers
-    large: BufferPool<Vec<u8>>,   // 1MB buffers
+    small: BufferPool<Vec<u8>>,  // 1KB buffers
+    medium: BufferPool<Vec<u8>>, // 64KB buffers
+    large: BufferPool<Vec<u8>>,  // 1MB buffers
 }
 
 impl GlobalPools {
@@ -363,9 +365,9 @@ mod tests {
     #[test]
     fn test_image_view() {
         let data = vec![
-            255, 0, 0, 255,  // Red pixel
-            0, 255, 0, 255,  // Green pixel
-            0, 0, 255, 255,  // Blue pixel
+            255, 0, 0, 255, // Red pixel
+            0, 255, 0, 255, // Green pixel
+            0, 0, 255, 255, // Blue pixel
             255, 255, 255, 255, // White pixel
         ];
 

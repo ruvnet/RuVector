@@ -6,9 +6,9 @@
 //! - Scaling behavior (subpolynomial verification)
 //! - Comparison with static algorithms
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId, Throughput};
-use ruvector_mincut::graph::DynamicGraph;
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 use rand::prelude::*;
+use ruvector_mincut::graph::DynamicGraph;
 use std::collections::HashSet;
 
 /// Generate a random graph with n vertices and m edges
@@ -149,9 +149,7 @@ fn bench_query(c: &mut Criterion) {
                 let _ = graph.insert_edge(*u, *v, *w);
             }
 
-            b.iter(|| {
-                black_box(graph.is_connected())
-            });
+            b.iter(|| black_box(graph.is_connected()));
         });
     }
     group.finish();
@@ -234,7 +232,7 @@ fn bench_mixed_workload(c: &mut Criterion) {
                             if u != v && !graph.has_edge(u, v) {
                                 let _ = graph.insert_edge(u, v, 1.0);
                             }
-                        },
+                        }
                         // 30% deletes (5-7)
                         5..=7 => {
                             let edges_list = graph.edges();
@@ -243,7 +241,7 @@ fn bench_mixed_workload(c: &mut Criterion) {
                                 let edge = edges_list[idx];
                                 let _ = graph.delete_edge(edge.source, edge.target);
                             }
-                        },
+                        }
                         // 20% queries (8-9)
                         _ => {
                             let u = rng.gen_range(0..size as u64);
@@ -294,30 +292,26 @@ fn bench_scaling(c: &mut Criterion) {
             },
         );
 
-        group.bench_with_input(
-            BenchmarkId::new("delete_scaling", size),
-            &size,
-            |b, _| {
-                b.iter_batched(
-                    || {
-                        let graph = DynamicGraph::with_capacity(size, size * 3);
-                        for (u, v, w) in &edges {
-                            let _ = graph.insert_edge(*u, *v, *w);
-                        }
-                        graph
-                    },
-                    |graph| {
-                        let edges_list = graph.edges();
-                        if !edges_list.is_empty() {
-                            let idx = rand::thread_rng().gen_range(0..edges_list.len());
-                            let edge = edges_list[idx];
-                            let _ = black_box(graph.delete_edge(edge.source, edge.target));
-                        }
-                    },
-                    criterion::BatchSize::SmallInput,
-                );
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("delete_scaling", size), &size, |b, _| {
+            b.iter_batched(
+                || {
+                    let graph = DynamicGraph::with_capacity(size, size * 3);
+                    for (u, v, w) in &edges {
+                        let _ = graph.insert_edge(*u, *v, *w);
+                    }
+                    graph
+                },
+                |graph| {
+                    let edges_list = graph.edges();
+                    if !edges_list.is_empty() {
+                        let idx = rand::thread_rng().gen_range(0..edges_list.len());
+                        let edge = edges_list[idx];
+                        let _ = black_box(graph.delete_edge(edge.source, edge.target));
+                    }
+                },
+                criterion::BatchSize::SmallInput,
+            );
+        });
     }
 
     group.finish();
@@ -332,9 +326,7 @@ fn bench_graph_types(c: &mut Criterion) {
     let random_edges = generate_random_graph(size, size * 2, 42);
     group.bench_function("random_insert", |b| {
         b.iter_batched(
-            || {
-                DynamicGraph::with_capacity(size, size * 3)
-            },
+            || DynamicGraph::with_capacity(size, size * 3),
             |graph| {
                 for (u, v, w) in &random_edges {
                     let _ = black_box(graph.insert_edge(*u, *v, *w));
@@ -348,9 +340,7 @@ fn bench_graph_types(c: &mut Criterion) {
     let grid_edges = generate_grid_graph(31, 32);
     group.bench_function("grid_insert", |b| {
         b.iter_batched(
-            || {
-                DynamicGraph::with_capacity(size, size * 2)
-            },
+            || DynamicGraph::with_capacity(size, size * 2),
             |graph| {
                 for (u, v, w) in &grid_edges {
                     let _ = black_box(graph.insert_edge(*u, *v, *w));
@@ -364,9 +354,7 @@ fn bench_graph_types(c: &mut Criterion) {
     let complete_edges = generate_complete_graph(45);
     group.bench_function("complete_insert", |b| {
         b.iter_batched(
-            || {
-                DynamicGraph::with_capacity(45, 1000)
-            },
+            || DynamicGraph::with_capacity(45, 1000),
             |graph| {
                 for (u, v, w) in &complete_edges {
                     let _ = black_box(graph.insert_edge(*u, *v, *w));
@@ -380,9 +368,7 @@ fn bench_graph_types(c: &mut Criterion) {
     let sparse_edges = generate_sparse_graph(size, 42);
     group.bench_function("sparse_insert", |b| {
         b.iter_batched(
-            || {
-                DynamicGraph::with_capacity(size, size * 3)
-            },
+            || DynamicGraph::with_capacity(size, size * 3),
             |graph| {
                 for (u, v, w) in &sparse_edges {
                     let _ = black_box(graph.insert_edge(*u, *v, *w));
@@ -396,9 +382,7 @@ fn bench_graph_types(c: &mut Criterion) {
     let dense_edges = generate_dense_graph(size, 42);
     group.bench_function("dense_insert", |b| {
         b.iter_batched(
-            || {
-                DynamicGraph::with_capacity(size, dense_edges.len() + 100)
-            },
+            || DynamicGraph::with_capacity(size, dense_edges.len() + 100),
             |graph| {
                 for (u, v, w) in &dense_edges {
                     let _ = black_box(graph.insert_edge(*u, *v, *w));
@@ -424,9 +408,7 @@ fn bench_stats(c: &mut Criterion) {
                 let _ = graph.insert_edge(*u, *v, *w);
             }
 
-            b.iter(|| {
-                black_box(graph.stats())
-            });
+            b.iter(|| black_box(graph.stats()));
         });
     }
 
@@ -457,9 +439,7 @@ fn bench_connected_components(c: &mut Criterion) {
                 let _ = graph.insert_edge(*u, *v, *w);
             }
 
-            b.iter(|| {
-                black_box(graph.connected_components())
-            });
+            b.iter(|| black_box(graph.connected_components()));
         });
     }
 
@@ -483,9 +463,7 @@ fn bench_neighbors(c: &mut Criterion) {
                 let _ = graph.insert_edge(*u, *v, *w);
             }
 
-            b.iter(|| {
-                black_box(graph.neighbors(0))
-            });
+            b.iter(|| black_box(graph.neighbors(0)));
         });
     }
 
@@ -505,9 +483,7 @@ fn bench_batch_operations(c: &mut Criterion) {
             batch_size,
             |b, _| {
                 b.iter_batched(
-                    || {
-                        DynamicGraph::with_capacity(5000, *batch_size + 100)
-                    },
+                    || DynamicGraph::with_capacity(5000, *batch_size + 100),
                     |graph| {
                         for (u, v, w) in &edges {
                             let _ = black_box(graph.insert_edge(*u, *v, *w));
@@ -529,19 +505,15 @@ fn bench_memory_efficiency(c: &mut Criterion) {
     for size in [1000, 5000, 10000].iter() {
         let edges = generate_random_graph(*size, size * 2, 42);
 
-        group.bench_with_input(
-            BenchmarkId::new("graph_creation", size),
-            size,
-            |b, _| {
-                b.iter(|| {
-                    let graph = DynamicGraph::with_capacity(*size, size * 3);
-                    for (u, v, w) in &edges {
-                        let _ = graph.insert_edge(*u, *v, *w);
-                    }
-                    black_box(graph)
-                });
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("graph_creation", size), size, |b, _| {
+            b.iter(|| {
+                let graph = DynamicGraph::with_capacity(*size, size * 3);
+                for (u, v, w) in &edges {
+                    let _ = graph.insert_edge(*u, *v, *w);
+                }
+                black_box(graph)
+            });
+        });
     }
 
     group.finish();
@@ -563,11 +535,7 @@ criterion_group!(
     bench_neighbors,
 );
 
-criterion_group!(
-    workloads,
-    bench_mixed_workload,
-    bench_batch_operations,
-);
+criterion_group!(workloads, bench_mixed_workload, bench_batch_operations,);
 
 criterion_group!(
     scaling,

@@ -34,15 +34,12 @@
 //! const cuts = lkcut.query(0);
 //! ```
 
-use wasm_bindgen::prelude::*;
-use ruvector_mincut::{
-    DynamicMinCut, MinCutBuilder, MinCutConfig,
-    DynamicGraph, MinCutWrapper,
-};
-use ruvector_mincut::cluster::hierarchy::{ThreeLevelHierarchy, HierarchyConfig};
+use ruvector_mincut::cluster::hierarchy::{HierarchyConfig, ThreeLevelHierarchy};
 use ruvector_mincut::localkcut::deterministic::DeterministicLocalKCut;
-use serde::{Serialize, Deserialize};
+use ruvector_mincut::{DynamicGraph, DynamicMinCut, MinCutBuilder, MinCutConfig, MinCutWrapper};
+use serde::{Deserialize, Serialize};
 use std::sync::Arc;
+use wasm_bindgen::prelude::*;
 
 /// WASM wrapper for DynamicMinCut
 #[wasm_bindgen]
@@ -143,7 +140,8 @@ impl WasmMinCut {
     /// The new minimum cut value after insertion
     #[wasm_bindgen(js_name = "insertEdge")]
     pub fn insert_edge(&mut self, u: u64, v: u64, weight: f64) -> Result<f64, JsError> {
-        self.inner.insert_edge(u, v, weight)
+        self.inner
+            .insert_edge(u, v, weight)
             .map_err(|e| JsError::new(&format!("Failed to insert edge: {}", e)))
     }
 
@@ -157,7 +155,8 @@ impl WasmMinCut {
     /// The new minimum cut value after deletion
     #[wasm_bindgen(js_name = "deleteEdge")]
     pub fn delete_edge(&mut self, u: u64, v: u64) -> Result<f64, JsError> {
-        self.inner.delete_edge(u, v)
+        self.inner
+            .delete_edge(u, v)
             .map_err(|e| JsError::new(&format!("Failed to delete edge: {}", e)))
     }
 
@@ -209,7 +208,11 @@ impl WasmMinCut {
 
         let edge_list: Vec<Edge> = edges
             .into_iter()
-            .map(|e| Edge { u: e.source, v: e.target, weight: e.weight })
+            .map(|e| Edge {
+                u: e.source,
+                v: e.target,
+                weight: e.weight,
+            })
             .collect();
 
         serde_wasm_bindgen::to_value(&edge_list).unwrap_or(JsValue::NULL)
@@ -260,7 +263,8 @@ impl WasmMinCut {
             num_edges: self.inner.num_edges(),
             min_cut_value: self.inner.min_cut_value(),
             is_connected: self.inner.is_connected(),
-            num_operations: (algo_stats.insertions + algo_stats.deletions + algo_stats.queries) as usize,
+            num_operations: (algo_stats.insertions + algo_stats.deletions + algo_stats.queries)
+                as usize,
         };
 
         serde_wasm_bindgen::to_value(&stats).unwrap_or(JsValue::NULL)
@@ -281,7 +285,8 @@ impl WasmMinCut {
         let _ = self.inner.delete_edge(u, v);
 
         // Insert with new weight
-        self.inner.insert_edge(u, v, new_weight)
+        self.inner
+            .insert_edge(u, v, new_weight)
             .map_err(|e| JsError::new(&format!("Failed to update edge: {}", e)))
     }
 
@@ -312,8 +317,9 @@ impl WasmMinCut {
             let v = edge[1] as u64;
             let weight = edge[2];
 
-            self.inner.insert_edge(u, v, weight)
-                .map_err(|e| JsError::new(&format!("Failed to insert edge [{}, {}]: {}", u, v, e)))?;
+            self.inner.insert_edge(u, v, weight).map_err(|e| {
+                JsError::new(&format!("Failed to insert edge [{}, {}]: {}", u, v, e))
+            })?;
         }
 
         Ok(self.inner.min_cut_value())
@@ -345,8 +351,9 @@ impl WasmMinCut {
             let u = edge[0] as u64;
             let v = edge[1] as u64;
 
-            self.inner.delete_edge(u, v)
-                .map_err(|e| JsError::new(&format!("Failed to delete edge [{}, {}]: {}", u, v, e)))?;
+            self.inner.delete_edge(u, v).map_err(|e| {
+                JsError::new(&format!("Failed to delete edge [{}, {}]: {}", u, v, e))
+            })?;
         }
 
         Ok(self.inner.min_cut_value())
@@ -671,8 +678,7 @@ impl WasmMinCutWrapper {
     /// Array of { k, min_cut } showing degradation
     #[wasm_bindgen(js_name = "connectivityCurve")]
     pub fn connectivity_curve(&self, ranked_edges: JsValue, k_max: usize) -> JsValue {
-        let edges: Vec<Vec<f64>> = serde_wasm_bindgen::from_value(ranked_edges)
-            .unwrap_or_default();
+        let edges: Vec<Vec<f64>> = serde_wasm_bindgen::from_value(ranked_edges).unwrap_or_default();
 
         let ranked: Vec<(u64, u64, f64)> = edges
             .into_iter()
@@ -699,13 +705,9 @@ impl WasmMinCutWrapper {
     /// Returns { k, drop } or null if no elbow found
     #[wasm_bindgen(js_name = "findElbow")]
     pub fn find_elbow(curve: JsValue) -> JsValue {
-        let points: Vec<CurvePoint> = serde_wasm_bindgen::from_value(curve)
-            .unwrap_or_default();
+        let points: Vec<CurvePoint> = serde_wasm_bindgen::from_value(curve).unwrap_or_default();
 
-        let curve_data: Vec<(usize, u64)> = points
-            .into_iter()
-            .map(|p| (p.k, p.min_cut))
-            .collect();
+        let curve_data: Vec<(usize, u64)> = points.into_iter().map(|p| (p.k, p.min_cut)).collect();
 
         match MinCutWrapper::find_elbow(&curve_data) {
             Some((k, drop)) => {
@@ -726,8 +728,7 @@ impl WasmMinCutWrapper {
     /// Quality score from 0.0 (poor) to 1.0 (perfect)
     #[wasm_bindgen(js_name = "detectorQuality")]
     pub fn detector_quality(&self, ranked_edges: JsValue, true_cut_size: usize) -> f64 {
-        let edges: Vec<Vec<f64>> = serde_wasm_bindgen::from_value(ranked_edges)
-            .unwrap_or_default();
+        let edges: Vec<Vec<f64>> = serde_wasm_bindgen::from_value(ranked_edges).unwrap_or_default();
 
         let ranked: Vec<(u64, u64, f64)> = edges
             .into_iter()

@@ -220,7 +220,8 @@ impl Router {
         }
 
         // Sort by score (descending)
-        scored_candidates.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+        scored_candidates
+            .sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
 
         // Select best agent
         let (best_agent, best_score, similarity) = &scored_candidates[0];
@@ -359,18 +360,29 @@ impl Router {
                 let diff = best.performance.quality_score - agent.performance.quality_score;
                 format!("{:.2} lower quality", diff)
             }
-            OptimizationTarget::Balanced => {
-                "Lower overall score".to_string()
-            }
+            OptimizationTarget::Balanced => "Lower overall score".to_string(),
         }
     }
 
     /// Generate reasoning for decision
-    fn generate_reasoning(&self, agent: &Agent, target: OptimizationTarget, similarity: f32) -> String {
+    fn generate_reasoning(
+        &self,
+        agent: &Agent,
+        target: OptimizationTarget,
+        similarity: f32,
+    ) -> String {
         let target_reason = match target {
-            OptimizationTarget::Cost => format!("lowest cost (${:.4}/request)", agent.cost_model.per_request),
-            OptimizationTarget::Latency => format!("fastest response ({:.1}ms avg)", agent.performance.avg_latency_ms),
-            OptimizationTarget::Quality => format!("highest quality (score: {:.2})", agent.performance.quality_score),
+            OptimizationTarget::Cost => {
+                format!("lowest cost (${:.4}/request)", agent.cost_model.per_request)
+            }
+            OptimizationTarget::Latency => format!(
+                "fastest response ({:.1}ms avg)",
+                agent.performance.avg_latency_ms
+            ),
+            OptimizationTarget::Quality => format!(
+                "highest quality (score: {:.2})",
+                agent.performance.quality_score
+            ),
             OptimizationTarget::Balanced => "best overall balance".to_string(),
         };
 
@@ -416,17 +428,8 @@ mod tests {
     use super::*;
     use crate::routing::agents::{AgentType, CostModel, PerformanceMetrics};
 
-    fn create_test_agent(
-        name: &str,
-        cost: f32,
-        latency: f32,
-        quality: f32,
-    ) -> Agent {
-        let mut agent = Agent::new(
-            name.to_string(),
-            AgentType::LLM,
-            vec!["test".to_string()],
-        );
+    fn create_test_agent(name: &str, cost: f32, latency: f32, quality: f32) -> Agent {
+        let mut agent = Agent::new(name.to_string(), AgentType::LLM, vec!["test".to_string()]);
         agent.cost_model.per_request = cost;
         agent.performance.avg_latency_ms = latency;
         agent.performance.quality_score = quality;
@@ -436,11 +439,26 @@ mod tests {
 
     #[test]
     fn test_optimization_target_parsing() {
-        assert_eq!(OptimizationTarget::from_str("cost"), OptimizationTarget::Cost);
-        assert_eq!(OptimizationTarget::from_str("LATENCY"), OptimizationTarget::Latency);
-        assert_eq!(OptimizationTarget::from_str("quality"), OptimizationTarget::Quality);
-        assert_eq!(OptimizationTarget::from_str("balanced"), OptimizationTarget::Balanced);
-        assert_eq!(OptimizationTarget::from_str("unknown"), OptimizationTarget::Balanced);
+        assert_eq!(
+            OptimizationTarget::from_str("cost"),
+            OptimizationTarget::Cost
+        );
+        assert_eq!(
+            OptimizationTarget::from_str("LATENCY"),
+            OptimizationTarget::Latency
+        );
+        assert_eq!(
+            OptimizationTarget::from_str("quality"),
+            OptimizationTarget::Quality
+        );
+        assert_eq!(
+            OptimizationTarget::from_str("balanced"),
+            OptimizationTarget::Balanced
+        );
+        assert_eq!(
+            OptimizationTarget::from_str("unknown"),
+            OptimizationTarget::Balanced
+        );
     }
 
     #[test]
@@ -491,13 +509,21 @@ mod tests {
         let router = Router::new();
 
         // Register agents with different costs
-        router.registry().register(create_test_agent("cheap", 0.01, 100.0, 0.7)).unwrap();
-        router.registry().register(create_test_agent("expensive", 0.10, 100.0, 0.9)).unwrap();
+        router
+            .registry()
+            .register(create_test_agent("cheap", 0.01, 100.0, 0.7))
+            .unwrap();
+        router
+            .registry()
+            .register(create_test_agent("expensive", 0.10, 100.0, 0.9))
+            .unwrap();
 
         let request_emb = vec![0.1; 384];
         let constraints = RoutingConstraints::new();
 
-        let decision = router.route(&request_emb, &constraints, OptimizationTarget::Cost).unwrap();
+        let decision = router
+            .route(&request_emb, &constraints, OptimizationTarget::Cost)
+            .unwrap();
         assert_eq!(decision.agent_name, "cheap");
     }
 
@@ -505,13 +531,21 @@ mod tests {
     fn test_route_latency_optimization() {
         let router = Router::new();
 
-        router.registry().register(create_test_agent("fast", 0.05, 50.0, 0.7)).unwrap();
-        router.registry().register(create_test_agent("slow", 0.05, 500.0, 0.9)).unwrap();
+        router
+            .registry()
+            .register(create_test_agent("fast", 0.05, 50.0, 0.7))
+            .unwrap();
+        router
+            .registry()
+            .register(create_test_agent("slow", 0.05, 500.0, 0.9))
+            .unwrap();
 
         let request_emb = vec![0.1; 384];
         let constraints = RoutingConstraints::new();
 
-        let decision = router.route(&request_emb, &constraints, OptimizationTarget::Latency).unwrap();
+        let decision = router
+            .route(&request_emb, &constraints, OptimizationTarget::Latency)
+            .unwrap();
         assert_eq!(decision.agent_name, "fast");
     }
 
@@ -519,13 +553,21 @@ mod tests {
     fn test_route_quality_optimization() {
         let router = Router::new();
 
-        router.registry().register(create_test_agent("low_quality", 0.05, 100.0, 0.5)).unwrap();
-        router.registry().register(create_test_agent("high_quality", 0.05, 100.0, 0.95)).unwrap();
+        router
+            .registry()
+            .register(create_test_agent("low_quality", 0.05, 100.0, 0.5))
+            .unwrap();
+        router
+            .registry()
+            .register(create_test_agent("high_quality", 0.05, 100.0, 0.95))
+            .unwrap();
 
         let request_emb = vec![0.1; 384];
         let constraints = RoutingConstraints::new();
 
-        let decision = router.route(&request_emb, &constraints, OptimizationTarget::Quality).unwrap();
+        let decision = router
+            .route(&request_emb, &constraints, OptimizationTarget::Quality)
+            .unwrap();
         assert_eq!(decision.agent_name, "high_quality");
     }
 
@@ -533,13 +575,21 @@ mod tests {
     fn test_route_with_constraints() {
         let router = Router::new();
 
-        router.registry().register(create_test_agent("expensive", 1.0, 100.0, 0.9)).unwrap();
-        router.registry().register(create_test_agent("cheap", 0.01, 100.0, 0.7)).unwrap();
+        router
+            .registry()
+            .register(create_test_agent("expensive", 1.0, 100.0, 0.9))
+            .unwrap();
+        router
+            .registry()
+            .register(create_test_agent("cheap", 0.01, 100.0, 0.7))
+            .unwrap();
 
         let request_emb = vec![0.1; 384];
         let constraints = RoutingConstraints::new().with_max_cost(0.5);
 
-        let decision = router.route(&request_emb, &constraints, OptimizationTarget::Quality).unwrap();
+        let decision = router
+            .route(&request_emb, &constraints, OptimizationTarget::Quality)
+            .unwrap();
         // Should select cheap even though expensive has higher quality
         assert_eq!(decision.agent_name, "cheap");
     }
@@ -570,7 +620,9 @@ mod tests {
         let request_emb = vec![0.1; 384];
         let constraints = RoutingConstraints::new().with_capability("coding".to_string());
 
-        let decision = router.route(&request_emb, &constraints, OptimizationTarget::Balanced).unwrap();
+        let decision = router
+            .route(&request_emb, &constraints, OptimizationTarget::Balanced)
+            .unwrap();
         assert_eq!(decision.agent_name, "coder");
     }
 }

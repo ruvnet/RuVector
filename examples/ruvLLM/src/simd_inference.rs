@@ -6,11 +6,11 @@
 use crate::error::{Error, InferenceError, Result};
 use crate::types::ModelSize;
 
-use ndarray::{Array1, Array2, ArrayView1, ArrayView2, Axis, s};
+use ndarray::{s, Array1, Array2, ArrayView1, ArrayView2, Axis};
+use parking_lot::RwLock;
 use rayon::prelude::*;
 use std::collections::HashMap;
 use std::sync::Arc;
-use parking_lot::RwLock;
 
 #[cfg(target_arch = "x86_64")]
 use std::arch::x86_64::*;
@@ -102,7 +102,9 @@ impl SimdOps {
         let rows = matrix.nrows();
         let mut result = Array1::zeros(rows);
 
-        result.as_slice_mut().unwrap()
+        result
+            .as_slice_mut()
+            .unwrap()
             .par_iter_mut()
             .enumerate()
             .for_each(|(i, out)| {
@@ -251,7 +253,8 @@ impl SimdOps {
         let rms = (sum_sq / input.len() as f32 + eps).sqrt();
         let inv_rms = 1.0 / rms;
 
-        input.iter()
+        input
+            .iter()
             .zip(weight.iter())
             .map(|(x, w)| x * inv_rms * w)
             .collect()
@@ -489,9 +492,8 @@ impl TransformerLayer {
 
         let mut init_weight = |rows: usize, cols: usize| -> Q4Weights {
             let scale = (2.0 / (rows + cols) as f32).sqrt();
-            let weights: Array2<f32> = Array2::from_shape_fn((rows, cols), |_| {
-                rng.gen::<f32>() * scale * 2.0 - scale
-            });
+            let weights: Array2<f32> =
+                Array2::from_shape_fn((rows, cols), |_| rng.gen::<f32>() * scale * 2.0 - scale);
             Q4Weights::from_f32(&weights, 32)
         };
 
@@ -575,7 +577,9 @@ impl TransformerLayer {
         let up = self.w3.matmul_vec(&normed);
 
         // SiLU(gate) * up
-        let ffn_hidden: Vec<f32> = gate.iter().zip(up.iter())
+        let ffn_hidden: Vec<f32> = gate
+            .iter()
+            .zip(up.iter())
             .map(|(g, u)| SimdOps::silu(*g) * u)
             .collect();
 
@@ -736,12 +740,12 @@ impl SimpleTokenizer {
 
         // Common word pieces
         let common_tokens = [
-            "the", "and", "is", "of", "to", "in", "that", "it", "for", "was",
-            "on", "are", "as", "with", "be", "at", "by", "this", "have", "from",
-            "or", "had", "not", "but", "what", "all", "were", "we", "when", "your",
-            "can", "said", "there", "use", "an", "each", "which", "she", "do", "how",
-            "their", "if", "will", "up", "other", "about", "out", "many", "then", "them",
-            "##ing", "##ed", "##s", "##er", "##ly", "##tion", "##al", "##ness",
+            "the", "and", "is", "of", "to", "in", "that", "it", "for", "was", "on", "are", "as",
+            "with", "be", "at", "by", "this", "have", "from", "or", "had", "not", "but", "what",
+            "all", "were", "we", "when", "your", "can", "said", "there", "use", "an", "each",
+            "which", "she", "do", "how", "their", "if", "will", "up", "other", "about", "out",
+            "many", "then", "them", "##ing", "##ed", "##s", "##er", "##ly", "##tion", "##al",
+            "##ness",
         ];
 
         for token in common_tokens.iter() {
@@ -778,7 +782,8 @@ impl SimpleTokenizer {
     }
 
     pub fn decode(&self, tokens: &[u32]) -> String {
-        tokens.iter()
+        tokens
+            .iter()
             .filter_map(|&id| self.id_to_token.get(&id))
             .filter(|s| !s.starts_with('<') || !s.ends_with('>'))
             .cloned()
@@ -832,7 +837,8 @@ impl SimdInferenceEngine {
         let num_heads = 4;
         let ffn_dim = 512;
 
-        let model = SmallTransformer::new_random(vocab_size, hidden_dim, num_layers, num_heads, ffn_dim);
+        let model =
+            SmallTransformer::new_random(vocab_size, hidden_dim, num_layers, num_heads, ffn_dim);
         let tokenizer = SimpleTokenizer::new_basic(vocab_size);
 
         Self {
@@ -900,21 +906,28 @@ impl SimdInferenceEngine {
     }
 
     /// Generate text
-    pub fn generate(&self, prompt: &str, config: &SimdGenerationConfig, session_id: Option<&str>) -> (String, usize, f64) {
+    pub fn generate(
+        &self,
+        prompt: &str,
+        config: &SimdGenerationConfig,
+        session_id: Option<&str>,
+    ) -> (String, usize, f64) {
         let start = std::time::Instant::now();
 
         // Tokenize
         let input_tokens = self.tokenizer.encode(prompt);
 
         // Get or create KV cache
-        let session = session_id.map(|s| s.to_string())
+        let session = session_id
+            .map(|s| s.to_string())
             .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
 
         let mut caches_guard = self.kv_caches.write();
-        let kv_caches = caches_guard.entry(session)
-            .or_insert_with(|| {
-                (0..self.model.num_layers()).map(|_| KvCache::new()).collect()
-            });
+        let kv_caches = caches_guard.entry(session).or_insert_with(|| {
+            (0..self.model.num_layers())
+                .map(|_| KvCache::new())
+                .collect()
+        });
 
         // Process input tokens
         let mut all_tokens = input_tokens.clone();

@@ -8,8 +8,8 @@
 //! - Perplexity tracking
 
 use crate::simd_inference::{
-    SimdOps, Q4Weights, TransformerLayer, SmallTransformer,
-    SimpleTokenizer, KvCache, SimdGenerationConfig,
+    KvCache, Q4Weights, SimdGenerationConfig, SimdOps, SimpleTokenizer, SmallTransformer,
+    TransformerLayer,
 };
 use ndarray::{Array1, Array2};
 use parking_lot::RwLock;
@@ -140,14 +140,16 @@ impl TrainingDataset {
 
     /// Get a batch of (input, target) pairs
     pub fn get_batch(&self, indices: &[usize]) -> (Vec<Vec<u32>>, Vec<Vec<u32>>) {
-        let inputs: Vec<Vec<u32>> = indices.iter()
+        let inputs: Vec<Vec<u32>> = indices
+            .iter()
             .map(|&i| {
                 let seq = &self.sequences[i % self.sequences.len()];
                 seq[..seq.len().saturating_sub(1)].to_vec()
             })
             .collect();
 
-        let targets: Vec<Vec<u32>> = indices.iter()
+        let targets: Vec<Vec<u32>> = indices
+            .iter()
             .map(|&i| {
                 let seq = &self.sequences[i % self.sequences.len()];
                 seq[1..].to_vec()
@@ -195,9 +197,7 @@ impl TrainableLayer {
 
         let mut init = |rows: usize, cols: usize| -> Array2<f32> {
             let scale = (2.0 / (rows + cols) as f32).sqrt();
-            Array2::from_shape_fn((rows, cols), |_| {
-                rng.gen::<f32>() * scale * 2.0 - scale
-            })
+            Array2::from_shape_fn((rows, cols), |_| rng.gen::<f32>() * scale * 2.0 - scale)
         };
 
         Self {
@@ -257,7 +257,9 @@ impl TrainableLayer {
         let up = matmul_vec(&self.w3, &normed);
 
         // SiLU(gate) * up
-        let ffn_hidden: Vec<f32> = gate.iter().zip(up.iter())
+        let ffn_hidden: Vec<f32> = gate
+            .iter()
+            .zip(up.iter())
             .map(|(g, u)| SimdOps::silu(*g) * u)
             .collect();
 
@@ -378,11 +380,21 @@ impl TrainableModel {
         let lm_head_params = self.lm_head.len();
         let norm_params = self.output_norm.len();
 
-        let layer_params: usize = self.layers.iter().map(|l| {
-            l.wq.len() + l.wk.len() + l.wv.len() + l.wo.len() +
-            l.w1.len() + l.w2.len() + l.w3.len() +
-            l.attn_norm.len() + l.ffn_norm.len()
-        }).sum();
+        let layer_params: usize = self
+            .layers
+            .iter()
+            .map(|l| {
+                l.wq.len()
+                    + l.wk.len()
+                    + l.wv.len()
+                    + l.wo.len()
+                    + l.w1.len()
+                    + l.w2.len()
+                    + l.w3.len()
+                    + l.attn_norm.len()
+                    + l.ffn_norm.len()
+            })
+            .sum();
 
         embed_params + lm_head_params + norm_params + layer_params
     }
@@ -394,7 +406,10 @@ impl TrainableModel {
             self.hidden_dim,
             self.layers.len(),
             self.layers.first().map(|l| l.num_heads).unwrap_or(4),
-            self.layers.first().map(|l| l.w1.nrows()).unwrap_or(self.hidden_dim * 4),
+            self.layers
+                .first()
+                .map(|l| l.w1.nrows())
+                .unwrap_or(self.hidden_dim * 4),
         )
     }
 }
@@ -423,10 +438,16 @@ impl SGDOptimizer {
 
     /// Update weights with gradients
     pub fn step(&mut self, name: &str, weights: &mut [f32], gradients: &[f32]) {
-        let velocity = self.velocities.entry(name.to_string())
+        let velocity = self
+            .velocities
+            .entry(name.to_string())
             .or_insert_with(|| vec![0.0; weights.len()]);
 
-        for ((w, g), v) in weights.iter_mut().zip(gradients.iter()).zip(velocity.iter_mut()) {
+        for ((w, g), v) in weights
+            .iter_mut()
+            .zip(gradients.iter())
+            .zip(velocity.iter_mut())
+        {
             // Apply weight decay
             let grad_with_decay = *g + self.weight_decay * *w;
 
@@ -498,7 +519,9 @@ impl Trainer {
             let (inputs, targets) = dataset.get_batch(&indices);
 
             // Compute loss for each sequence in batch
-            let batch_loss: f64 = inputs.iter().zip(targets.iter())
+            let batch_loss: f64 = inputs
+                .iter()
+                .zip(targets.iter())
                 .map(|(inp, tgt)| self.model.compute_loss(inp, tgt))
                 .sum();
 
@@ -516,8 +539,10 @@ impl Trainer {
             if self.step % self.config.log_interval == 0 {
                 let avg_loss = epoch_loss / num_tokens as f64;
                 let perplexity = avg_loss.exp();
-                println!("  Step {}: loss={:.4}, ppl={:.2}, lr={:.6}",
-                         self.step, avg_loss, perplexity, lr);
+                println!(
+                    "  Step {}: loss={:.4}, ppl={:.2}, lr={:.6}",
+                    self.step, avg_loss, perplexity, lr
+                );
             }
         }
 
@@ -543,14 +568,21 @@ impl Trainer {
         println!("\n╔═══════════════════════════════════════════════════════════════════════════╗");
         println!("║                         PRETRAINING STARTED                               ║");
         println!("╠═══════════════════════════════════════════════════════════════════════════╣");
-        println!("║ Model: {} params ({} layers, {} hidden)                         ║",
-                 format_params(self.model.num_parameters()),
-                 self.model.layers.len(),
-                 self.model.hidden_dim);
-        println!("║ Dataset: {} sequences, {} seq_length                                 ║",
-                 dataset.len(), dataset.seq_length);
-        println!("║ Config: lr={}, batch={}, epochs={}                              ║",
-                 self.config.learning_rate, self.config.batch_size, self.config.epochs);
+        println!(
+            "║ Model: {} params ({} layers, {} hidden)                         ║",
+            format_params(self.model.num_parameters()),
+            self.model.layers.len(),
+            self.model.hidden_dim
+        );
+        println!(
+            "║ Dataset: {} sequences, {} seq_length                                 ║",
+            dataset.len(),
+            dataset.seq_length
+        );
+        println!(
+            "║ Config: lr={}, batch={}, epochs={}                              ║",
+            self.config.learning_rate, self.config.batch_size, self.config.epochs
+        );
         println!("╚═══════════════════════════════════════════════════════════════════════════╝\n");
 
         let mut all_metrics = Vec::new();
@@ -560,8 +592,13 @@ impl Trainer {
             let metrics = self.train_epoch(dataset, epoch);
             all_metrics.push(metrics.clone());
 
-            println!("  → Epoch {} complete: loss={:.4}, ppl={:.2}, {:.0} tok/s\n",
-                     epoch + 1, metrics.loss, metrics.perplexity, metrics.tokens_per_second);
+            println!(
+                "  → Epoch {} complete: loss={:.4}, ppl={:.2}, {:.0} tok/s\n",
+                epoch + 1,
+                metrics.loss,
+                metrics.perplexity,
+                metrics.tokens_per_second
+            );
         }
 
         all_metrics
@@ -672,18 +709,25 @@ pub fn print_benchmark_comparison(results: &[BenchmarkResults]) {
     println!("\n╔════════════════════════════════════════════════════════════════════════════════════════╗");
     println!("║                              MODEL BENCHMARK COMPARISON                                 ║");
     println!("╠════════════════════════════════════════════════════════════════════════════════════════╣");
-    println!("║ Model                │ Params   │ Tok/s    │ Latency  │ Memory  │ Perplexity          ║");
+    println!(
+        "║ Model                │ Params   │ Tok/s    │ Latency  │ Memory  │ Perplexity          ║"
+    );
     println!("╠════════════════════════════════════════════════════════════════════════════════════════╣");
 
     for r in results {
-        let ppl_str = r.perplexity.map(|p| format!("{:.2}", p)).unwrap_or_else(|| "N/A".to_string());
-        println!("║ {:20} │ {:>8} │ {:>8.1} │ {:>6.2}ms │ {:>6.1}MB │ {:>19} ║",
-                 r.model_name,
-                 format_params(r.num_params),
-                 r.tokens_per_second,
-                 r.latency_per_token_ms,
-                 r.memory_mb,
-                 ppl_str);
+        let ppl_str = r
+            .perplexity
+            .map(|p| format!("{:.2}", p))
+            .unwrap_or_else(|| "N/A".to_string());
+        println!(
+            "║ {:20} │ {:>8} │ {:>8.1} │ {:>6.2}ms │ {:>6.1}MB │ {:>19} ║",
+            r.model_name,
+            format_params(r.num_params),
+            r.tokens_per_second,
+            r.latency_per_token_ms,
+            r.memory_mb,
+            ppl_str
+        );
     }
 
     println!("╚════════════════════════════════════════════════════════════════════════════════════════╝");

@@ -20,9 +20,7 @@ mod test_config {
     pub fn init() {
         INIT.call_once(|| {
             // Setup test logging
-            let _ = env_logger::builder()
-                .is_test(true)
-                .try_init();
+            let _ = env_logger::builder().is_test(true).try_init();
 
             // Create test directories
             let test_dirs = vec![

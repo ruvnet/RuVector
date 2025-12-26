@@ -12,11 +12,7 @@ use std::time::Instant;
 
 fn generate_random_vectors(count: usize, dim: usize) -> Vec<Vec<f32>> {
     (0..count)
-        .map(|i| {
-            (0..dim)
-                .map(|j| ((i + j) as f32 * 0.01).sin())
-                .collect()
-        })
+        .map(|i| (0..dim).map(|j| ((i + j) as f32 * 0.01).sin()).collect())
         .collect()
 }
 
@@ -69,10 +65,10 @@ fn main() {
 
     // Test configurations
     let configs = vec![
-        (128, 1000),   // 128-dim vectors, 1000 vectors
-        (384, 1000),   // 384-dim (OpenAI ada-002)
-        (768, 1000),   // 768-dim (sentence transformers)
-        (1536, 1000),  // 1536-dim (OpenAI text-embedding-3-small)
+        (128, 1000),  // 128-dim vectors, 1000 vectors
+        (384, 1000),  // 384-dim (OpenAI ada-002)
+        (768, 1000),  // 768-dim (sentence transformers)
+        (1536, 1000), // 1536-dim (OpenAI text-embedding-3-small)
     ];
 
     for (dim, count) in configs {
@@ -131,7 +127,11 @@ fn main() {
     }
 
     let elapsed = start.elapsed().as_micros();
-    println!("  Batch time: {} μs ({:.2} μs per vector)", elapsed, elapsed as f64 / count as f64);
+    println!(
+        "  Batch time: {} μs ({:.2} μs per vector)",
+        elapsed,
+        elapsed as f64 / count as f64
+    );
 
     println!("\n=== Expected Performance Characteristics ===\n");
     println!("Architecture-specific optimizations:");

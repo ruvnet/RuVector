@@ -7,28 +7,28 @@
 //! - Memory usage under load
 //! - pgvector comparison baselines
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId, Throughput};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 use rand::prelude::*;
 use rand_chacha::ChaCha8Rng;
 use rayon::prelude::*;
+use std::collections::HashMap;
 use std::sync::atomic::{AtomicUsize, Ordering as AtomicOrdering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use std::collections::HashMap;
 
 // ============================================================================
 // Simulated Vector Index (Full Pipeline)
 // ============================================================================
 
 mod index {
-    use std::collections::{BinaryHeap, HashMap, HashSet};
-    use std::cmp::Ordering;
-    use std::sync::atomic::{AtomicUsize, Ordering as AtomicOrdering};
-    use parking_lot::RwLock;
     use dashmap::DashMap;
+    use parking_lot::RwLock;
     use rand::prelude::*;
     use rand_chacha::ChaCha8Rng;
     use rayon::prelude::*;
+    use std::cmp::Ordering;
+    use std::collections::{BinaryHeap, HashMap, HashSet};
+    use std::sync::atomic::{AtomicUsize, Ordering as AtomicOrdering};
 
     /// Full-featured HNSW index for benchmarking
     pub struct HnswIndex {
@@ -46,7 +46,13 @@ mod index {
     }
 
     impl HnswIndex {
-        pub fn new(dimensions: usize, m: usize, ef_construction: usize, ef_search: usize, seed: u64) -> Self {
+        pub fn new(
+            dimensions: usize,
+            m: usize,
+            ef_construction: usize,
+            ef_search: usize,
+            seed: u64,
+        ) -> Self {
             Self {
                 nodes: DashMap::new(),
                 neighbors: DashMap::new(),
@@ -134,14 +140,13 @@ mod index {
 
         pub fn insert_batch_parallel(&self, vectors: &[Vec<f32>]) -> Vec<u64> {
             // Parallel insertion with batching
-            vectors.par_iter()
-                .map(|v| self.insert(v.clone()))
-                .collect()
+            vectors.par_iter().map(|v| self.insert(v.clone())).collect()
         }
 
         pub fn search(&self, query: &[f32], k: usize) -> Vec<(u64, f32)> {
             // Brute force for simplicity in benchmarks
-            let mut results: Vec<(u64, f32)> = self.nodes
+            let mut results: Vec<(u64, f32)> = self
+                .nodes
                 .iter()
                 .map(|entry| {
                     let dist = self.distance(query, entry.value());
@@ -155,7 +160,8 @@ mod index {
         }
 
         pub fn search_parallel(&self, query: &[f32], k: usize) -> Vec<(u64, f32)> {
-            let mut results: Vec<(u64, f32)> = self.nodes
+            let mut results: Vec<(u64, f32)> = self
+                .nodes
                 .iter()
                 .collect::<Vec<_>>()
                 .par_iter()
@@ -172,7 +178,9 @@ mod index {
 
         pub fn memory_usage(&self) -> usize {
             let vector_bytes = self.nodes.len() * self.dimensions * 4;
-            let neighbor_bytes: usize = self.neighbors.iter()
+            let neighbor_bytes: usize = self
+                .neighbors
+                .iter()
                 .map(|entry| entry.value().iter().map(|l| l.len() * 8).sum::<usize>())
                 .sum();
             vector_bytes + neighbor_bytes
@@ -189,17 +197,14 @@ use index::HnswIndex;
 fn generate_random_vectors(n: usize, dims: usize, seed: u64) -> Vec<Vec<f32>> {
     let mut rng = ChaCha8Rng::seed_from_u64(seed);
     (0..n)
-        .map(|_| {
-            (0..dims)
-                .map(|_| rng.gen_range(-1.0..1.0))
-                .collect()
-        })
+        .map(|_| (0..dims).map(|_| rng.gen_range(-1.0..1.0)).collect())
         .collect()
 }
 
 fn generate_normalized_vectors(n: usize, dims: usize, seed: u64) -> Vec<Vec<f32>> {
     let vectors = generate_random_vectors(n, dims, seed);
-    vectors.into_iter()
+    vectors
+        .into_iter()
         .map(|v| {
             let norm: f32 = v.iter().map(|x| x * x).sum::<f32>().sqrt();
             v.into_iter().map(|x| x / norm).collect()
@@ -225,27 +230,24 @@ fn bench_query_pipeline(c: &mut Criterion) {
             group.throughput(Throughput::Elements(1));
 
             // Full pipeline: search + post-process
-            group.bench_with_input(
-                BenchmarkId::new(format!("{}d", dims), n),
-                &n,
-                |bench, _| {
-                    bench.iter(|| {
-                        // Search
-                        let results = index.search(&query, 10);
+            group.bench_with_input(BenchmarkId::new(format!("{}d", dims), n), &n, |bench, _| {
+                bench.iter(|| {
+                    // Search
+                    let results = index.search(&query, 10);
 
-                        // Post-process (e.g., fetch metadata, rerank)
-                        let processed: Vec<_> = results.iter()
-                            .map(|(id, dist)| {
-                                // Simulate metadata lookup
-                                let metadata = id.to_string();
-                                (*id, *dist, metadata)
-                            })
-                            .collect();
+                    // Post-process (e.g., fetch metadata, rerank)
+                    let processed: Vec<_> = results
+                        .iter()
+                        .map(|(id, dist)| {
+                            // Simulate metadata lookup
+                            let metadata = id.to_string();
+                            (*id, *dist, metadata)
+                        })
+                        .collect();
 
-                        black_box(processed)
-                    })
-                },
-            );
+                    black_box(processed)
+                })
+            });
         }
     }
 
@@ -267,25 +269,37 @@ fn bench_query_pipeline_parallel(c: &mut Criterion) {
 
     group.bench_function("sequential", |bench| {
         bench.iter(|| {
-            queries.iter().map(|q| index.search(q, 10)).collect::<Vec<_>>()
+            queries
+                .iter()
+                .map(|q| index.search(q, 10))
+                .collect::<Vec<_>>()
         })
     });
 
     group.bench_function("parallel_queries", |bench| {
         bench.iter(|| {
-            queries.par_iter().map(|q| index.search(q, 10)).collect::<Vec<_>>()
+            queries
+                .par_iter()
+                .map(|q| index.search(q, 10))
+                .collect::<Vec<_>>()
         })
     });
 
     group.bench_function("parallel_search_internal", |bench| {
         bench.iter(|| {
-            queries.iter().map(|q| index.search_parallel(q, 10)).collect::<Vec<_>>()
+            queries
+                .iter()
+                .map(|q| index.search_parallel(q, 10))
+                .collect::<Vec<_>>()
         })
     });
 
     group.bench_function("full_parallel", |bench| {
         bench.iter(|| {
-            queries.par_iter().map(|q| index.search_parallel(q, 10)).collect::<Vec<_>>()
+            queries
+                .par_iter()
+                .map(|q| index.search_parallel(q, 10))
+                .collect::<Vec<_>>()
         })
     });
 
@@ -346,17 +360,13 @@ fn bench_insert_throughput_parallel(c: &mut Criterion) {
             },
         );
 
-        group.bench_with_input(
-            BenchmarkId::new("parallel", n),
-            &vectors,
-            |bench, vecs| {
-                bench.iter(|| {
-                    let index = HnswIndex::new(dims, 16, 64, 40, 42);
-                    index.insert_batch_parallel(vecs);
-                    black_box(index.len())
-                })
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("parallel", n), &vectors, |bench, vecs| {
+            bench.iter(|| {
+                let index = HnswIndex::new(dims, 16, 64, 40, 42);
+                index.insert_batch_parallel(vecs);
+                black_box(index.len())
+            })
+        });
     }
 
     group.finish();
@@ -505,21 +515,17 @@ fn bench_memory_growth(c: &mut Criterion) {
     for &n in [1_000, 10_000, 50_000, 100_000].iter() {
         let vectors = generate_random_vectors(n, dims, 42);
 
-        group.bench_with_input(
-            BenchmarkId::from_parameter(n),
-            &vectors,
-            |bench, vecs| {
-                bench.iter(|| {
-                    let index = HnswIndex::new(dims, 16, 64, 40, 42);
-                    index.insert_batch(vecs);
+        group.bench_with_input(BenchmarkId::from_parameter(n), &vectors, |bench, vecs| {
+            bench.iter(|| {
+                let index = HnswIndex::new(dims, 16, 64, 40, 42);
+                index.insert_batch(vecs);
 
-                    let memory = index.memory_usage();
-                    let per_vector = memory as f64 / n as f64;
+                let memory = index.memory_usage();
+                let per_vector = memory as f64 / n as f64;
 
-                    black_box((memory, per_vector))
-                })
-            },
-        );
+                black_box((memory, per_vector))
+            })
+        });
     }
 
     group.finish();
@@ -534,21 +540,17 @@ fn bench_memory_efficiency(c: &mut Criterion) {
     let vectors = generate_random_vectors(n, dims, 42);
 
     for &m in [8, 12, 16, 24, 32, 48].iter() {
-        group.bench_with_input(
-            BenchmarkId::from_parameter(m),
-            &m,
-            |bench, &m_val| {
-                bench.iter(|| {
-                    let index = HnswIndex::new(dims, m_val, 64, 40, 42);
-                    index.insert_batch(&vectors);
+        group.bench_with_input(BenchmarkId::from_parameter(m), &m, |bench, &m_val| {
+            bench.iter(|| {
+                let index = HnswIndex::new(dims, m_val, 64, 40, 42);
+                index.insert_batch(&vectors);
 
-                    let memory = index.memory_usage();
-                    let per_vector = memory as f64 / n as f64;
+                let memory = index.memory_usage();
+                let per_vector = memory as f64 / n as f64;
 
-                    black_box(per_vector)
-                })
-            },
-        );
+                black_box(per_vector)
+            })
+        });
     }
 
     group.finish();
@@ -611,15 +613,9 @@ fn bench_dimension_scaling(c: &mut Criterion) {
         let index = HnswIndex::new(dims, 16, 64, 40, 42);
         index.insert_batch(&vectors);
 
-        group.bench_with_input(
-            BenchmarkId::new("search", dims),
-            &dims,
-            |bench, _| {
-                bench.iter(|| {
-                    black_box(index.search(&query, 10))
-                })
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("search", dims), &dims, |bench, _| {
+            bench.iter(|| black_box(index.search(&query, 10)))
+        });
     }
 
     group.finish();
@@ -646,10 +642,12 @@ fn bench_baseline_brute_force(c: &mut Criterion) {
                 &vectors,
                 |bench, vecs| {
                     bench.iter(|| {
-                        let mut distances: Vec<(usize, f32)> = vecs.iter()
+                        let mut distances: Vec<(usize, f32)> = vecs
+                            .iter()
                             .enumerate()
                             .map(|(i, v)| {
-                                let dist: f32 = query.iter()
+                                let dist: f32 = query
+                                    .iter()
                                     .zip(v.iter())
                                     .map(|(a, b)| (a - b).powi(2))
                                     .sum::<f32>()
@@ -671,10 +669,12 @@ fn bench_baseline_brute_force(c: &mut Criterion) {
                 &vectors,
                 |bench, vecs| {
                     bench.iter(|| {
-                        let mut distances: Vec<(usize, f32)> = vecs.par_iter()
+                        let mut distances: Vec<(usize, f32)> = vecs
+                            .par_iter()
                             .enumerate()
                             .map(|(i, v)| {
-                                let dist: f32 = query.iter()
+                                let dist: f32 = query
+                                    .iter()
                                     .zip(v.iter())
                                     .map(|(a, b)| (a - b).powi(2))
                                     .sum::<f32>()
@@ -710,10 +710,12 @@ fn bench_recall_throughput_tradeoff(c: &mut Criterion) {
 
     // Compute ground truth
     let ground_truth: Vec<usize> = {
-        let mut distances: Vec<(usize, f32)> = vectors.iter()
+        let mut distances: Vec<(usize, f32)> = vectors
+            .iter()
             .enumerate()
             .map(|(i, v)| {
-                let dist: f32 = query.iter()
+                let dist: f32 = query
+                    .iter()
                     .zip(v.iter())
                     .map(|(a, b)| (a - b).powi(2))
                     .sum::<f32>()
@@ -737,9 +739,11 @@ fn bench_recall_throughput_tradeoff(c: &mut Criterion) {
                     let results = index.search(&query, 10);
 
                     // Calculate recall
-                    let recall = results.iter()
+                    let recall = results
+                        .iter()
                         .filter(|(id, _)| ground_truth.contains(&(*id as usize)))
-                        .count() as f64 / 10.0;
+                        .count() as f64
+                        / 10.0;
 
                     black_box(recall)
                 })

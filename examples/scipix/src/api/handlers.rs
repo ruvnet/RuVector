@@ -68,7 +68,7 @@ pub async fn process_text(
     Err(ErrorResponse::service_unavailable(
         "OCR service not fully configured. ONNX models are required for OCR processing. \
          Please download compatible models (PaddleOCR, TrOCR) and configure the model directory. \
-         See documentation at /docs/MODEL_SETUP.md for setup instructions."
+         See documentation at /docs/MODEL_SETUP.md for setup instructions.",
     ))
 }
 
@@ -80,11 +80,14 @@ pub async fn process_strokes(
     State(_state): State<AppState>,
     Json(request): Json<StrokesRequest>,
 ) -> Result<Json<TextResponse>, ErrorResponse> {
-    info!("Processing strokes request with {} strokes", request.strokes.len());
+    info!(
+        "Processing strokes request with {} strokes",
+        request.strokes.len()
+    );
 
-    request.validate().map_err(|e| {
-        ErrorResponse::validation_error(format!("Validation failed: {}", e))
-    })?;
+    request
+        .validate()
+        .map_err(|e| ErrorResponse::validation_error(format!("Validation failed: {}", e)))?;
 
     // Validate we have stroke data
     if request.strokes.is_empty() {
@@ -93,7 +96,7 @@ pub async fn process_strokes(
 
     // Stroke recognition requires models to be configured
     Err(ErrorResponse::service_unavailable(
-        "Stroke recognition service not configured. ONNX models required for ink recognition."
+        "Stroke recognition service not configured. ONNX models required for ink recognition.",
     ))
 }
 
@@ -107,13 +110,13 @@ pub async fn process_latex(
 ) -> Result<Json<TextResponse>, ErrorResponse> {
     info!("Processing legacy LaTeX request");
 
-    request.validate().map_err(|e| {
-        ErrorResponse::validation_error(format!("Validation failed: {}", e))
-    })?;
+    request
+        .validate()
+        .map_err(|e| ErrorResponse::validation_error(format!("Validation failed: {}", e)))?;
 
     // LaTeX recognition requires models to be configured
     Err(ErrorResponse::service_unavailable(
-        "LaTeX recognition service not configured. ONNX models required."
+        "LaTeX recognition service not configured. ONNX models required.",
     ))
 }
 
@@ -124,23 +127,19 @@ pub async fn process_pdf(
 ) -> Result<Json<PdfResponse>, ErrorResponse> {
     info!("Creating PDF processing job");
 
-    request.validate().map_err(|e| {
-        ErrorResponse::validation_error(format!("Validation failed: {}", e))
-    })?;
+    request
+        .validate()
+        .map_err(|e| ErrorResponse::validation_error(format!("Validation failed: {}", e)))?;
 
     // Create job
     let job = PdfJob::new(request);
     let job_id = job.id.clone();
 
     // Queue job
-    state
-        .job_queue
-        .enqueue(job)
-        .await
-        .map_err(|e| {
-            error!("Failed to enqueue job: {:?}", e);
-            ErrorResponse::internal_error("Failed to create PDF job")
-        })?;
+    state.job_queue.enqueue(job).await.map_err(|e| {
+        error!("Failed to enqueue job: {:?}", e);
+        ErrorResponse::internal_error("Failed to create PDF job")
+    })?;
 
     let response = PdfResponse {
         pdf_id: job_id,
@@ -201,7 +200,6 @@ pub async fn stream_pdf_results(
     info!("Streaming PDF results for job: {}", _id);
 
     let stream = stream::unfold(0, move |page| {
-
         async move {
             if page > 10 {
                 // Example: stop after 10 pages
@@ -263,7 +261,10 @@ pub async fn get_ocr_results(
     State(_state): State<AppState>,
     Query(params): Query<HistoryQuery>,
 ) -> Result<Json<serde_json::Value>, ErrorResponse> {
-    info!("Getting OCR results history: page={}, limit={}", params.page, params.limit);
+    info!(
+        "Getting OCR results history: page={}, limit={}",
+        params.page, params.limit
+    );
 
     // History storage not configured - return empty results with notice
     Ok(Json(serde_json::json!({

@@ -87,8 +87,13 @@ impl RuvLLM {
     }
 
     /// Process a query with session
-    pub async fn query_session(&self, session: &Session, query: impl Into<String>) -> Result<Response> {
-        self.process(Request::new(query).with_session(&session.id)).await
+    pub async fn query_session(
+        &self,
+        session: &Session,
+        query: impl Into<String>,
+    ) -> Result<Response> {
+        self.process(Request::new(query).with_session(&session.id))
+            .await
     }
 
     /// Process a full request
@@ -110,21 +115,16 @@ impl RuvLLM {
         // Step 3: Memory retrieval with graph expansion
         let retrieval_start = Instant::now();
         let ef_search = self.adaptive_ef_search(&request.constraints);
-        let search_result = self.memory.search_with_graph(
-            &query_embedding.vector,
-            64,
-            ef_search,
-            2,
-        ).await?;
+        let search_result = self
+            .memory
+            .search_with_graph(&query_embedding.vector, 64, ef_search, 2)
+            .await?;
         latency.retrieval_ms = retrieval_start.elapsed().as_secs_f32() * 1000.0;
 
         // Step 4: Router decision
         let routing_start = Instant::now();
-        let router_features = self.build_router_features(
-            &query_embedding,
-            &search_result,
-            &request.constraints,
-        );
+        let router_features =
+            self.build_router_features(&query_embedding, &search_result, &request.constraints);
 
         let routing_decision = {
             let router = self.router.read();
@@ -134,34 +134,34 @@ impl RuvLLM {
 
         // Step 5: Graph attention for context ranking
         let attention_start = Instant::now();
-        let graph_context = self.attention.attend(
-            &query_embedding.vector,
-            &search_result.subgraph,
-        )?;
+        let graph_context = self
+            .attention
+            .attend(&query_embedding.vector, &search_result.subgraph)?;
         latency.attention_ms = attention_start.elapsed().as_secs_f32() * 1000.0;
 
         // Step 6: Build context
-        let context = self.build_context(
-            &graph_context.ranked_nodes,
-            routing_decision.context_size,
-        );
+        let context =
+            self.build_context(&graph_context.ranked_nodes, routing_decision.context_size);
 
         // Step 7: Generate response
         let generation_start = Instant::now();
         let prompt = self.format_prompt(&request.query, &context);
 
-        let generation_result = self.inference.generate(
-            routing_decision.model,
-            &prompt,
-            crate::inference::GenerationConfig {
-                max_tokens: request.constraints.max_tokens.unwrap_or(512) as usize,
-                temperature: routing_decision.temperature,
-                top_p: routing_decision.top_p,
-                top_k: 40,
-                repeat_penalty: 1.1,
-            },
-            session.kv_cache_key.as_deref(),
-        ).await?;
+        let generation_result = self
+            .inference
+            .generate(
+                routing_decision.model,
+                &prompt,
+                crate::inference::GenerationConfig {
+                    max_tokens: request.constraints.max_tokens.unwrap_or(512) as usize,
+                    temperature: routing_decision.temperature,
+                    top_p: routing_decision.top_p,
+                    top_k: 40,
+                    repeat_penalty: 1.1,
+                },
+                session.kv_cache_key.as_deref(),
+            )
+            .await?;
         latency.generation_ms = generation_start.elapsed().as_secs_f32() * 1000.0;
 
         latency.total_ms = start.elapsed().as_secs_f32() * 1000.0;
@@ -173,11 +173,10 @@ impl RuvLLM {
         let learning = self.learning.clone();
 
         tokio::spawn(async move {
-            if let Err(e) = learning.on_interaction(
-                &query_for_learning,
-                &response_text,
-                &context_for_learning,
-            ).await {
+            if let Err(e) = learning
+                .on_interaction(&query_for_learning, &response_text, &context_for_learning)
+                .await
+            {
                 tracing::warn!("Learning service error: {}", e);
             }
         });
@@ -189,7 +188,9 @@ impl RuvLLM {
         }
 
         // Build response
-        let sources: Vec<Source> = graph_context.ranked_nodes.iter()
+        let sources: Vec<Source> = graph_context
+            .ranked_nodes
+            .iter()
             .take(5)
             .zip(graph_context.attention_weights.iter())
             .map(|(node, &weight)| Source {
@@ -230,16 +231,11 @@ impl RuvLLM {
     /// Get or create session
     fn get_or_create_session(&self, session_id: &Option<String>) -> Session {
         match session_id {
-            Some(id) => {
-                self.sessions
-                    .get(id)
-                    .map(|s| s.clone())
-                    .unwrap_or_else(|| {
-                        let session = Session::new(self.config.router.hidden_dim);
-                        self.sessions.insert(id.clone(), session.clone());
-                        session
-                    })
-            }
+            Some(id) => self.sessions.get(id).map(|s| s.clone()).unwrap_or_else(|| {
+                let session = Session::new(self.config.router.hidden_dim);
+                self.sessions.insert(id.clone(), session.clone());
+                session
+            }),
             None => Session::new(self.config.router.hidden_dim),
         }
     }
@@ -271,12 +267,15 @@ impl RuvLLM {
 
         // Search stats (dims 32-80)
         if !search_result.candidates.is_empty() {
-            let distances: Vec<f32> = search_result.candidates.iter()
+            let distances: Vec<f32> = search_result
+                .candidates
+                .iter()
                 .map(|c| c.distance)
                 .collect();
             let mean = distances.iter().sum::<f32>() / distances.len() as f32;
             let std = (distances.iter().map(|d| (d - mean).powi(2)).sum::<f32>()
-                / distances.len() as f32).sqrt();
+                / distances.len() as f32)
+                .sqrt();
 
             features[32] = (search_result.candidates.len() as f32 / 64.0).min(1.0);
             features[33] = mean / 2.0;
@@ -286,7 +285,10 @@ impl RuvLLM {
         }
 
         // Constraints (dims 96-128)
-        features[96] = constraints.max_latency_ms.map(|l| l as f32 / 5000.0).unwrap_or(0.5);
+        features[96] = constraints
+            .max_latency_ms
+            .map(|l| l as f32 / 5000.0)
+            .unwrap_or(0.5);
         features[97] = match self.config.system.device_class.as_str() {
             "edge" => 0.25,
             "mobile" => 0.5,
@@ -317,7 +319,8 @@ impl RuvLLM {
 
     /// Format prompt with context
     fn format_prompt(&self, query: &str, context: &[String]) -> String {
-        let context_text = context.iter()
+        let context_text = context
+            .iter()
             .enumerate()
             .map(|(i, text)| format!("[{}] {}", i + 1, text))
             .collect::<Vec<_>>()
@@ -367,24 +370,20 @@ impl Metrics {
 
         // Use lazy statics to ensure metrics are only registered once
         static REQUEST_COUNTER: Lazy<prometheus::IntCounter> = Lazy::new(|| {
-            prometheus::register_int_counter!(
-                "ruvllm_requests_total",
-                "Total number of requests"
-            ).unwrap()
+            prometheus::register_int_counter!("ruvllm_requests_total", "Total number of requests")
+                .unwrap()
         });
 
         static LATENCY_HISTOGRAM: Lazy<prometheus::Histogram> = Lazy::new(|| {
             prometheus::register_histogram!(
                 "ruvllm_request_latency_seconds",
                 "Request latency in seconds"
-            ).unwrap()
+            )
+            .unwrap()
         });
 
         static QUALITY_GAUGE: Lazy<prometheus::Gauge> = Lazy::new(|| {
-            prometheus::register_gauge!(
-                "ruvllm_quality_score",
-                "Average quality score"
-            ).unwrap()
+            prometheus::register_gauge!("ruvllm_quality_score", "Average quality score").unwrap()
         });
 
         Self {

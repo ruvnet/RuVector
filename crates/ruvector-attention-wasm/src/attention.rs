@@ -1,11 +1,11 @@
-use wasm_bindgen::prelude::*;
 use ruvector_attention::{
-    attention::{ScaledDotProductAttention, MultiHeadAttention},
-    sparse::{LocalGlobalAttention, LinearAttention, FlashAttention},
+    attention::{MultiHeadAttention, ScaledDotProductAttention},
     hyperbolic::{HyperbolicAttention, HyperbolicAttentionConfig},
     moe::{MoEAttention, MoEConfig},
+    sparse::{FlashAttention, LinearAttention, LocalGlobalAttention},
     traits::Attention,
 };
+use wasm_bindgen::prelude::*;
 
 /// Compute scaled dot-product attention
 ///
@@ -30,7 +30,8 @@ pub fn scaled_dot_attention(
     let values_refs: Vec<&[f32]> = values_vec.iter().map(|v| v.as_slice()).collect();
 
     let attention = ScaledDotProductAttention::new(query.len());
-    attention.compute(query, &keys_refs, &values_refs)
+    attention
+        .compute(query, &keys_refs, &values_refs)
         .map_err(|e| JsError::new(&e.to_string()))
 }
 
@@ -61,14 +62,20 @@ impl WasmMultiHeadAttention {
     }
 
     /// Compute multi-head attention
-    pub fn compute(&self, query: &[f32], keys: JsValue, values: JsValue) -> Result<Vec<f32>, JsError> {
+    pub fn compute(
+        &self,
+        query: &[f32],
+        keys: JsValue,
+        values: JsValue,
+    ) -> Result<Vec<f32>, JsError> {
         let keys_vec: Vec<Vec<f32>> = serde_wasm_bindgen::from_value(keys)?;
         let values_vec: Vec<Vec<f32>> = serde_wasm_bindgen::from_value(values)?;
 
         let keys_refs: Vec<&[f32]> = keys_vec.iter().map(|k| k.as_slice()).collect();
         let values_refs: Vec<&[f32]> = values_vec.iter().map(|v| v.as_slice()).collect();
 
-        self.inner.compute(query, &keys_refs, &values_refs)
+        self.inner
+            .compute(query, &keys_refs, &values_refs)
             .map_err(|e| JsError::new(&e.to_string()))
     }
 
@@ -113,14 +120,20 @@ impl WasmHyperbolicAttention {
     }
 
     /// Compute hyperbolic attention
-    pub fn compute(&self, query: &[f32], keys: JsValue, values: JsValue) -> Result<Vec<f32>, JsError> {
+    pub fn compute(
+        &self,
+        query: &[f32],
+        keys: JsValue,
+        values: JsValue,
+    ) -> Result<Vec<f32>, JsError> {
         let keys_vec: Vec<Vec<f32>> = serde_wasm_bindgen::from_value(keys)?;
         let values_vec: Vec<Vec<f32>> = serde_wasm_bindgen::from_value(values)?;
 
         let keys_refs: Vec<&[f32]> = keys_vec.iter().map(|k| k.as_slice()).collect();
         let values_refs: Vec<&[f32]> = values_vec.iter().map(|v| v.as_slice()).collect();
 
-        self.inner.compute(query, &keys_refs, &values_refs)
+        self.inner
+            .compute(query, &keys_refs, &values_refs)
             .map_err(|e| JsError::new(&e.to_string()))
     }
 
@@ -152,14 +165,20 @@ impl WasmLinearAttention {
     }
 
     /// Compute linear attention
-    pub fn compute(&self, query: &[f32], keys: JsValue, values: JsValue) -> Result<Vec<f32>, JsError> {
+    pub fn compute(
+        &self,
+        query: &[f32],
+        keys: JsValue,
+        values: JsValue,
+    ) -> Result<Vec<f32>, JsError> {
         let keys_vec: Vec<Vec<f32>> = serde_wasm_bindgen::from_value(keys)?;
         let values_vec: Vec<Vec<f32>> = serde_wasm_bindgen::from_value(values)?;
 
         let keys_refs: Vec<&[f32]> = keys_vec.iter().map(|k| k.as_slice()).collect();
         let values_refs: Vec<&[f32]> = values_vec.iter().map(|v| v.as_slice()).collect();
 
-        self.inner.compute(query, &keys_refs, &values_refs)
+        self.inner
+            .compute(query, &keys_refs, &values_refs)
             .map_err(|e| JsError::new(&e.to_string()))
     }
 }
@@ -185,14 +204,20 @@ impl WasmFlashAttention {
     }
 
     /// Compute flash attention
-    pub fn compute(&self, query: &[f32], keys: JsValue, values: JsValue) -> Result<Vec<f32>, JsError> {
+    pub fn compute(
+        &self,
+        query: &[f32],
+        keys: JsValue,
+        values: JsValue,
+    ) -> Result<Vec<f32>, JsError> {
         let keys_vec: Vec<Vec<f32>> = serde_wasm_bindgen::from_value(keys)?;
         let values_vec: Vec<Vec<f32>> = serde_wasm_bindgen::from_value(values)?;
 
         let keys_refs: Vec<&[f32]> = keys_vec.iter().map(|k| k.as_slice()).collect();
         let values_refs: Vec<&[f32]> = values_vec.iter().map(|v| v.as_slice()).collect();
 
-        self.inner.compute(query, &keys_refs, &values_refs)
+        self.inner
+            .compute(query, &keys_refs, &values_refs)
             .map_err(|e| JsError::new(&e.to_string()))
     }
 }
@@ -219,14 +244,20 @@ impl WasmLocalGlobalAttention {
     }
 
     /// Compute local-global attention
-    pub fn compute(&self, query: &[f32], keys: JsValue, values: JsValue) -> Result<Vec<f32>, JsError> {
+    pub fn compute(
+        &self,
+        query: &[f32],
+        keys: JsValue,
+        values: JsValue,
+    ) -> Result<Vec<f32>, JsError> {
         let keys_vec: Vec<Vec<f32>> = serde_wasm_bindgen::from_value(keys)?;
         let values_vec: Vec<Vec<f32>> = serde_wasm_bindgen::from_value(values)?;
 
         let keys_refs: Vec<&[f32]> = keys_vec.iter().map(|k| k.as_slice()).collect();
         let values_refs: Vec<&[f32]> = values_vec.iter().map(|v| v.as_slice()).collect();
 
-        self.inner.compute(query, &keys_refs, &values_refs)
+        self.inner
+            .compute(query, &keys_refs, &values_refs)
             .map_err(|e| JsError::new(&e.to_string()))
     }
 }
@@ -258,14 +289,20 @@ impl WasmMoEAttention {
     }
 
     /// Compute MoE attention
-    pub fn compute(&self, query: &[f32], keys: JsValue, values: JsValue) -> Result<Vec<f32>, JsError> {
+    pub fn compute(
+        &self,
+        query: &[f32],
+        keys: JsValue,
+        values: JsValue,
+    ) -> Result<Vec<f32>, JsError> {
         let keys_vec: Vec<Vec<f32>> = serde_wasm_bindgen::from_value(keys)?;
         let values_vec: Vec<Vec<f32>> = serde_wasm_bindgen::from_value(values)?;
 
         let keys_refs: Vec<&[f32]> = keys_vec.iter().map(|k| k.as_slice()).collect();
         let values_refs: Vec<&[f32]> = values_vec.iter().map(|v| v.as_slice()).collect();
 
-        self.inner.compute(query, &keys_refs, &values_refs)
+        self.inner
+            .compute(query, &keys_refs, &values_refs)
             .map_err(|e| JsError::new(&e.to_string()))
     }
 }

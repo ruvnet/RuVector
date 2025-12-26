@@ -1,10 +1,10 @@
 //! JavaScript API for Scipix OCR
 
-use wasm_bindgen::prelude::*;
-use web_sys::{HtmlCanvasElement, ImageData};
+use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use once_cell::sync::OnceCell;
+use wasm_bindgen::prelude::*;
+use web_sys::{HtmlCanvasElement, ImageData};
 
 use crate::wasm::canvas::CanvasProcessor;
 use crate::wasm::memory::WasmBuffer;
@@ -41,7 +41,8 @@ impl ScipixWasm {
     pub async fn recognize(&self, image_data: &[u8]) -> Result<JsValue, JsValue> {
         let buffer = WasmBuffer::from_slice(image_data);
 
-        let result = self.processor
+        let result = self
+            .processor
             .process_image_bytes(buffer.as_slice(), self.format)
             .await
             .map_err(|e| JsValue::from_str(&format!("Recognition failed: {}", e)))?;
@@ -55,12 +56,17 @@ impl ScipixWasm {
 
     /// Recognize text from HTML Canvas element
     #[wasm_bindgen(js_name = recognizeFromCanvas)]
-    pub async fn recognize_from_canvas(&self, canvas: &HtmlCanvasElement) -> Result<JsValue, JsValue> {
-        let image_data = self.processor
+    pub async fn recognize_from_canvas(
+        &self,
+        canvas: &HtmlCanvasElement,
+    ) -> Result<JsValue, JsValue> {
+        let image_data = self
+            .processor
             .extract_canvas_image(canvas)
             .map_err(|e| JsValue::from_str(&format!("Canvas extraction failed: {}", e)))?;
 
-        let result = self.processor
+        let result = self
+            .processor
             .process_image_data(&image_data, self.format)
             .await
             .map_err(|e| JsValue::from_str(&format!("Recognition failed: {}", e)))?;
@@ -90,7 +96,8 @@ impl ScipixWasm {
     /// Recognize text from ImageData object
     #[wasm_bindgen(js_name = recognizeImageData)]
     pub async fn recognize_image_data(&self, image_data: &ImageData) -> Result<JsValue, JsValue> {
-        let result = self.processor
+        let result = self
+            .processor
             .process_image_data(image_data, self.format)
             .await
             .map_err(|e| JsValue::from_str(&format!("Recognition failed: {}", e)))?;

@@ -80,7 +80,7 @@ impl BitSet256 {
                 self.bits[1] | other.bits[1],
                 self.bits[2] | other.bits[2],
                 self.bits[3] | other.bits[3],
-            ]
+            ],
         }
     }
 
@@ -92,7 +92,7 @@ impl BitSet256 {
                 self.bits[1] & other.bits[1],
                 self.bits[2] & other.bits[2],
                 self.bits[3] & other.bits[3],
-            ]
+            ],
         }
     }
 
@@ -104,13 +104,17 @@ impl BitSet256 {
                 self.bits[1] ^ other.bits[1],
                 self.bits[2] ^ other.bits[2],
                 self.bits[3] ^ other.bits[3],
-            ]
+            ],
         }
     }
 
     pub fn iter(&self) -> BitSet256Iter {
         // Initialize with the first word's value
-        BitSet256Iter { set: self, current: self.bits[0], word_idx: 0 }
+        BitSet256Iter {
+            set: self,
+            current: self.bits[0],
+            word_idx: 0,
+        }
     }
 }
 
@@ -143,10 +147,10 @@ impl<'a> Iterator for BitSet256Iter<'a> {
 #[derive(Clone, Copy, Default)]
 #[repr(C, packed)]
 pub struct CompactEdge {
-    pub source: CompactVertexId,  // 2 bytes
-    pub target: CompactVertexId,  // 2 bytes
-    pub weight: u16,              // 2 bytes (fixed-point 0.01 precision)
-    pub flags: u16,               // 2 bytes (active, in_cut, etc.)
+    pub source: CompactVertexId, // 2 bytes
+    pub target: CompactVertexId, // 2 bytes
+    pub weight: u16,             // 2 bytes (fixed-point 0.01 precision)
+    pub flags: u16,              // 2 bytes (active, in_cut, etc.)
 }
 
 impl CompactEdge {
@@ -169,11 +173,11 @@ impl CompactEdge {
 #[derive(Clone, Copy, Default)]
 #[repr(C)]
 pub struct CompactWitness {
-    pub membership: BitSet256,    // 32 bytes
-    pub seed: CompactVertexId,    // 2 bytes
-    pub boundary_size: u16,       // 2 bytes
-    pub cardinality: u16,         // 2 bytes
-    pub hash: u16,                // 2 bytes
+    pub membership: BitSet256, // 32 bytes
+    pub seed: CompactVertexId, // 2 bytes
+    pub boundary_size: u16,    // 2 bytes
+    pub cardinality: u16,      // 2 bytes
+    pub hash: u16,             // 2 bytes
 }
 
 impl CompactWitness {
@@ -208,7 +212,7 @@ impl CompactWitness {
 #[repr(C)]
 pub struct CompactAdjacency {
     /// Offset into neighbors array for each vertex
-    pub offsets: [u16; MAX_VERTICES_PER_CORE + 1],  // 514 bytes
+    pub offsets: [u16; MAX_VERTICES_PER_CORE + 1], // 514 bytes
     /// Packed neighbor list (vertex, edge_id)
     pub neighbors: [(CompactVertexId, CompactEdgeId); MAX_EDGES_PER_CORE * 2], // 2048 bytes
 }
@@ -278,7 +282,10 @@ impl CompactCoreState {
 }
 
 // Verify size fits in 8KB
-const _: () = assert!(CompactCoreState::size() <= 8192, "CompactCoreState exceeds 8KB");
+const _: () = assert!(
+    CompactCoreState::size() <= 8192,
+    "CompactCoreState exceeds 8KB"
+);
 
 /// Result communicated back from core (16 bytes)
 #[derive(Clone, Copy, Default)]

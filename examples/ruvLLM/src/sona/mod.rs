@@ -2,22 +2,22 @@
 //!
 //! Adaptive learning system with ReasoningBank integration.
 
-pub mod types;
-pub mod lora;
-pub mod trajectory;
-pub mod ewc;
-pub mod reasoning_bank;
-pub mod loops;
 pub mod engine;
+pub mod ewc;
+pub mod loops;
+pub mod lora;
+pub mod reasoning_bank;
+pub mod trajectory;
+pub mod types;
 
 // Re-export main types
-pub use types::{
-    LearningSignal, QueryTrajectory, TrajectoryStep,
-    LearnedPattern, PatternType, SignalMetadata, SonaConfig,
-};
-pub use lora::{MicroLoRA, BaseLoRA, LoRAEngine, LoRALayer};
-pub use trajectory::{TrajectoryBuffer, TrajectoryBuilder, TrajectoryIdGen};
-pub use ewc::{EwcConfig, EwcPlusPlus, TaskFisher};
-pub use reasoning_bank::{ReasoningBank, PatternConfig};
-pub use loops::{InstantLoop, BackgroundLoop, LoopCoordinator};
 pub use engine::SonaEngine;
+pub use ewc::{EwcConfig, EwcPlusPlus, TaskFisher};
+pub use loops::{BackgroundLoop, InstantLoop, LoopCoordinator};
+pub use lora::{BaseLoRA, LoRAEngine, LoRALayer, MicroLoRA};
+pub use reasoning_bank::{PatternConfig, ReasoningBank};
+pub use trajectory::{TrajectoryBuffer, TrajectoryBuilder, TrajectoryIdGen};
+pub use types::{
+    LearnedPattern, LearningSignal, PatternType, QueryTrajectory, SignalMetadata, SonaConfig,
+    TrajectoryStep,
+};

@@ -102,10 +102,7 @@ pub fn batch_distances(
     #[cfg(any(not(feature = "parallel"), target_arch = "wasm32"))]
     {
         // Sequential fallback for WASM
-        vectors
-            .iter()
-            .map(|v| distance(query, v, metric))
-            .collect()
+        vectors.iter().map(|v| distance(query, v, metric)).collect()
     }
 }
 

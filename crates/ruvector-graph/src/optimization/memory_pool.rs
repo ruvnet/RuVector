@@ -62,7 +62,10 @@ impl ArenaAllocator {
 
         // SECURITY: Validate layout parameters
         assert!(size > 0, "Cannot allocate zero bytes");
-        assert!(align > 0 && align.is_power_of_two(), "Alignment must be a power of 2");
+        assert!(
+            align > 0 && align.is_power_of_two(),
+            "Alignment must be a power of 2"
+        );
         assert!(size <= isize::MAX as usize, "Allocation size too large");
 
         // Get current chunk or allocate new one
@@ -87,7 +90,8 @@ impl ArenaAllocator {
                 panic!("Alignment calculation overflow");
             }
 
-            let new_offset = aligned_offset.checked_add(size)
+            let new_offset = aligned_offset
+                .checked_add(size)
                 .expect("Arena allocation overflow");
 
             if new_offset > chunk_ref.capacity {

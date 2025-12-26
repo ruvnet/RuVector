@@ -10,12 +10,12 @@
 //! - Model versioning and persistence
 //! - Training job management
 
+use parking_lot::RwLock;
 use pgrx::prelude::*;
+use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::OnceLock;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
-use parking_lot::RwLock;
-use serde::{Deserialize, Serialize};
 
 // ============================================================================
 // GNN Training Configuration
@@ -169,7 +169,10 @@ impl GnnTrainingWorker {
 
     /// Train model for a collection
     fn train_model(&self, request: &GnnTrainingRequest) -> Result<GnnModel, String> {
-        let config = request.config.clone().unwrap_or_else(|| self.config.clone());
+        let config = request
+            .config
+            .clone()
+            .unwrap_or_else(|| self.config.clone());
         let start = Instant::now();
 
         pgrx::log!(
@@ -189,7 +192,7 @@ impl GnnTrainingWorker {
             version: 1,
             hidden_dim: config.hidden_dim,
             num_layers: config.num_layers,
-            training_loss: 0.05, // Simulated
+            training_loss: 0.05,       // Simulated
             validation_accuracy: 0.92, // Simulated
             created_at: SystemTime::now()
                 .duration_since(UNIX_EPOCH)
@@ -199,7 +202,9 @@ impl GnnTrainingWorker {
         };
 
         // Store model
-        self.models.write().insert(request.collection_id, model.clone());
+        self.models
+            .write()
+            .insert(request.collection_id, model.clone());
 
         pgrx::log!(
             "GNN training completed for collection {} in {}s (loss={:.4}, accuracy={:.2}%)",
@@ -230,7 +235,8 @@ impl GnnTrainingWorker {
                     Err(e) => {
                         pgrx::warning!(
                             "GNN training failed for collection {}: {}",
-                            request.collection_id, e
+                            request.collection_id,
+                            e
                         );
                     }
                 }
@@ -311,10 +317,7 @@ pub fn ruvector_gnn_worker_status() -> pgrx::JsonB {
 
 /// Submit a GNN training job
 #[pg_extern]
-pub fn ruvector_gnn_train(
-    collection_id: i32,
-    force_retrain: default!(bool, false),
-) -> pgrx::JsonB {
+pub fn ruvector_gnn_train(collection_id: i32, force_retrain: default!(bool, false)) -> pgrx::JsonB {
     let worker = get_gnn_worker();
 
     let request = GnnTrainingRequest {
@@ -325,19 +328,15 @@ pub fn ruvector_gnn_train(
     };
 
     match worker.submit_job(request) {
-        Ok(job_id) => {
-            pgrx::JsonB(serde_json::json!({
-                "success": true,
-                "job_id": job_id,
-                "collection_id": collection_id,
-            }))
-        }
-        Err(e) => {
-            pgrx::JsonB(serde_json::json!({
-                "success": false,
-                "error": e,
-            }))
-        }
+        Ok(job_id) => pgrx::JsonB(serde_json::json!({
+            "success": true,
+            "job_id": job_id,
+            "collection_id": collection_id,
+        })),
+        Err(e) => pgrx::JsonB(serde_json::json!({
+            "success": false,
+            "error": e,
+        })),
     }
 }
 
@@ -347,26 +346,22 @@ pub fn ruvector_gnn_model(collection_id: i32) -> pgrx::JsonB {
     let worker = get_gnn_worker();
 
     match worker.get_model(collection_id) {
-        Some(model) => {
-            pgrx::JsonB(serde_json::json!({
-                "found": true,
-                "model": {
-                    "id": model.id,
-                    "version": model.version,
-                    "hidden_dim": model.hidden_dim,
-                    "num_layers": model.num_layers,
-                    "training_loss": model.training_loss,
-                    "validation_accuracy": model.validation_accuracy,
-                    "training_duration_secs": model.training_duration_secs,
-                }
-            }))
-        }
-        None => {
-            pgrx::JsonB(serde_json::json!({
-                "found": false,
-                "collection_id": collection_id,
-            }))
-        }
+        Some(model) => pgrx::JsonB(serde_json::json!({
+            "found": true,
+            "model": {
+                "id": model.id,
+                "version": model.version,
+                "hidden_dim": model.hidden_dim,
+                "num_layers": model.num_layers,
+                "training_loss": model.training_loss,
+                "validation_accuracy": model.validation_accuracy,
+                "training_duration_secs": model.training_duration_secs,
+            }
+        })),
+        None => pgrx::JsonB(serde_json::json!({
+            "found": false,
+            "collection_id": collection_id,
+        })),
     }
 }
 

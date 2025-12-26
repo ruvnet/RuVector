@@ -148,22 +148,20 @@ pub mod candle {
         /// # }
         /// ```
         pub fn from_pretrained(model_id: &str, _use_gpu: bool) -> Result<Self> {
-            Err(RuvectorError::ModelLoadError(
-                format!(
-                    "Candle embedding support is a stub. Please:\n\
+            Err(RuvectorError::ModelLoadError(format!(
+                "Candle embedding support is a stub. Please:\n\
                      1. Use ApiEmbedding for production (recommended)\n\
                      2. Or implement CandleEmbedding for model: {}\n\
                      3. See docs for ONNX Runtime integration examples",
-                    model_id
-                )
-            ))
+                model_id
+            )))
         }
     }
 
     impl EmbeddingProvider for CandleEmbedding {
         fn embed(&self, _text: &str) -> Result<Vec<f32>> {
             Err(RuvectorError::ModelInferenceError(
-                "Candle embedding not implemented - use ApiEmbedding instead".to_string()
+                "Candle embedding not implemented - use ApiEmbedding instead".to_string(),
             ))
         }
 
@@ -280,24 +278,31 @@ impl EmbeddingProvider for ApiEmbedding {
             "model": self.model,
         });
 
-        let response = self.client
+        let response = self
+            .client
             .post(&self.endpoint)
             .header("Authorization", format!("Bearer {}", self.api_key))
             .header("Content-Type", "application/json")
             .json(&request_body)
             .send()
-            .map_err(|e| RuvectorError::ModelInferenceError(format!("API request failed: {}", e)))?;
+            .map_err(|e| {
+                RuvectorError::ModelInferenceError(format!("API request failed: {}", e))
+            })?;
 
         if !response.status().is_success() {
             let status = response.status();
-            let error_text = response.text().unwrap_or_else(|_| "Unknown error".to_string());
-            return Err(RuvectorError::ModelInferenceError(
-                format!("API returned error {}: {}", status, error_text)
-            ));
+            let error_text = response
+                .text()
+                .unwrap_or_else(|_| "Unknown error".to_string());
+            return Err(RuvectorError::ModelInferenceError(format!(
+                "API returned error {}: {}",
+                status, error_text
+            )));
         }
 
-        let response_json: serde_json::Value = response.json()
-            .map_err(|e| RuvectorError::ModelInferenceError(format!("Failed to parse response: {}", e)))?;
+        let response_json: serde_json::Value = response.json().map_err(|e| {
+            RuvectorError::ModelInferenceError(format!("Failed to parse response: {}", e))
+        })?;
 
         // Handle different API response formats
         let embedding = if let Some(data) = response_json.get("data") {
@@ -306,31 +311,31 @@ impl EmbeddingProvider for ApiEmbedding {
                 .and_then(|arr| arr.first())
                 .and_then(|obj| obj.get("embedding"))
                 .and_then(|emb| emb.as_array())
-                .ok_or_else(|| RuvectorError::ModelInferenceError(
-                    "Invalid OpenAI response format".to_string()
-                ))?
+                .ok_or_else(|| {
+                    RuvectorError::ModelInferenceError("Invalid OpenAI response format".to_string())
+                })?
         } else if let Some(embeddings) = response_json.get("embeddings") {
             // Cohere format: {"embeddings": [[...]]}
-            embeddings.as_array()
+            embeddings
+                .as_array()
                 .and_then(|arr| arr.first())
                 .and_then(|emb| emb.as_array())
-                .ok_or_else(|| RuvectorError::ModelInferenceError(
-                    "Invalid Cohere response format".to_string()
-                ))?
+                .ok_or_else(|| {
+                    RuvectorError::ModelInferenceError("Invalid Cohere response format".to_string())
+                })?
         } else {
             return Err(RuvectorError::ModelInferenceError(
-                "Unknown API response format".to_string()
+                "Unknown API response format".to_string(),
             ));
         };
 
         let embedding_vec: Result<Vec<f32>> = embedding
             .iter()
-            .map(|v| v.as_f64()
-                .map(|f| f as f32)
-                .ok_or_else(|| RuvectorError::ModelInferenceError(
-                    "Invalid embedding value".to_string()
-                ))
-            )
+            .map(|v| {
+                v.as_f64().map(|f| f as f32).ok_or_else(|| {
+                    RuvectorError::ModelInferenceError("Invalid embedding value".to_string())
+                })
+            })
             .collect();
 
         embedding_vec
@@ -374,17 +379,19 @@ mod tests {
         let emb1 = provider.embed("hello").unwrap();
         let emb2 = provider.embed("world").unwrap();
 
-        assert_ne!(emb1, emb2, "Different text should produce different embeddings");
+        assert_ne!(
+            emb1, emb2,
+            "Different text should produce different embeddings"
+        );
     }
 
     #[cfg(feature = "real-embeddings")]
     #[test]
     #[ignore] // Requires model download
     fn test_candle_embedding() {
-        let provider = CandleEmbedding::from_pretrained(
-            "sentence-transformers/all-MiniLM-L6-v2",
-            false
-        ).unwrap();
+        let provider =
+            CandleEmbedding::from_pretrained("sentence-transformers/all-MiniLM-L6-v2", false)
+                .unwrap();
 
         let embedding = provider.embed("hello world").unwrap();
         assert_eq!(embedding.len(), 384);

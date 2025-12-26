@@ -2,8 +2,8 @@
 //!
 //! Benchmarks the complete request-to-response pipeline.
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId};
-use ruvllm::{Config, RuvLLM, Request};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
+use ruvllm::{Config, Request, RuvLLM};
 use tokio::runtime::Runtime;
 
 fn benchmark_query(c: &mut Criterion) {
@@ -19,9 +19,8 @@ fn benchmark_query(c: &mut Criterion) {
     let llm = rt.block_on(RuvLLM::new(config)).unwrap();
 
     c.bench_function("query_simple", |b| {
-        b.to_async(&rt).iter(|| async {
-            black_box(llm.query("What is Rust?").await.unwrap())
-        })
+        b.to_async(&rt)
+            .iter(|| async { black_box(llm.query("What is Rust?").await.unwrap()) })
     });
 }
 
@@ -45,15 +44,10 @@ fn benchmark_query_lengths(c: &mut Criterion) {
 
     let mut group = c.benchmark_group("query_by_length");
     for (name, query) in queries {
-        group.bench_with_input(
-            BenchmarkId::from_parameter(name),
-            &query,
-            |b, query| {
-                b.to_async(&rt).iter(|| async {
-                    black_box(llm.query(*query).await.unwrap())
-                })
-            },
-        );
+        group.bench_with_input(BenchmarkId::from_parameter(name), &query, |b, query| {
+            b.to_async(&rt)
+                .iter(|| async { black_box(llm.query(*query).await.unwrap()) })
+        });
     }
     group.finish();
 }
@@ -111,7 +105,11 @@ fn benchmark_session(c: &mut Criterion) {
             let session = llm.new_session();
             black_box(llm.query_session(&session, "First question").await.unwrap());
             black_box(llm.query_session(&session, "Follow up").await.unwrap());
-            black_box(llm.query_session(&session, "Another follow up").await.unwrap());
+            black_box(
+                llm.query_session(&session, "Another follow up")
+                    .await
+                    .unwrap(),
+            );
         })
     });
 }

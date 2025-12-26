@@ -27,19 +27,19 @@
 //! exporter.export_preference_pairs("./preferences.jsonl")?;
 //! ```
 
-pub mod safetensors;
 pub mod dataset;
 pub mod huggingface_hub;
 pub mod pretrain;
+pub mod safetensors;
 
-pub use safetensors::SafeTensorsExporter;
 pub use dataset::DatasetExporter;
 pub use huggingface_hub::HuggingFaceHub;
 pub use pretrain::{PretrainConfig, PretrainPipeline};
+pub use safetensors::SafeTensorsExporter;
 
 use crate::engine::SonaEngine;
+use crate::lora::{BaseLoRA, MicroLoRA};
 use crate::types::{LearnedPattern, SonaConfig};
-use crate::lora::{MicroLoRA, BaseLoRA};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 
@@ -102,31 +102,47 @@ impl<'a> HuggingFaceExporter<'a> {
     }
 
     /// Export LoRA weights in SafeTensors format (PEFT-compatible)
-    pub fn export_lora_safetensors<P: AsRef<Path>>(&self, output_dir: P) -> Result<ExportResult, ExportError> {
+    pub fn export_lora_safetensors<P: AsRef<Path>>(
+        &self,
+        output_dir: P,
+    ) -> Result<ExportResult, ExportError> {
         let exporter = SafeTensorsExporter::new(&self.config);
         exporter.export_engine(self.engine, output_dir)
     }
 
     /// Export patterns as JSONL dataset
-    pub fn export_patterns_jsonl<P: AsRef<Path>>(&self, output_path: P) -> Result<ExportResult, ExportError> {
+    pub fn export_patterns_jsonl<P: AsRef<Path>>(
+        &self,
+        output_path: P,
+    ) -> Result<ExportResult, ExportError> {
         let exporter = DatasetExporter::new(&self.config);
         exporter.export_patterns(self.engine, output_path)
     }
 
     /// Export preference pairs for DPO/RLHF training
-    pub fn export_preference_pairs<P: AsRef<Path>>(&self, output_path: P) -> Result<ExportResult, ExportError> {
+    pub fn export_preference_pairs<P: AsRef<Path>>(
+        &self,
+        output_path: P,
+    ) -> Result<ExportResult, ExportError> {
         let exporter = DatasetExporter::new(&self.config);
         exporter.export_preferences(self.engine, output_path)
     }
 
     /// Export all to HuggingFace Hub
-    pub fn push_to_hub(&self, repo_id: &str, token: Option<&str>) -> Result<ExportResult, ExportError> {
+    pub fn push_to_hub(
+        &self,
+        repo_id: &str,
+        token: Option<&str>,
+    ) -> Result<ExportResult, ExportError> {
         let hub = HuggingFaceHub::new(token);
         hub.push_all(self.engine, &self.config, repo_id)
     }
 
     /// Export complete package (LoRA + patterns + config)
-    pub fn export_all<P: AsRef<Path>>(&self, output_dir: P) -> Result<Vec<ExportResult>, ExportError> {
+    pub fn export_all<P: AsRef<Path>>(
+        &self,
+        output_dir: P,
+    ) -> Result<Vec<ExportResult>, ExportError> {
         let output_dir = output_dir.as_ref();
         std::fs::create_dir_all(output_dir).map_err(ExportError::Io)?;
 
@@ -187,7 +203,8 @@ impl<'a> HuggingFaceExporter<'a> {
     /// Generate README for HuggingFace model card
     fn generate_readme(&self) -> String {
         let stats = self.engine.stats();
-        format!(r#"---
+        format!(
+            r#"---
 license: mit
 library_name: peft
 base_model: {}

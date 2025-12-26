@@ -3,11 +3,11 @@
 //! This module provides runtime feature detection and optimized code paths
 //! for different CPU architectures and capabilities.
 
-pub mod simd;
-pub mod parallel;
-pub mod memory;
-pub mod quantize;
 pub mod batch;
+pub mod memory;
+pub mod parallel;
+pub mod quantize;
+pub mod simd;
 
 use std::sync::OnceLock;
 
@@ -116,7 +116,10 @@ pub fn get_opt_level() -> OptLevel {
 
 /// Check if SIMD optimizations are enabled
 pub fn simd_enabled() -> bool {
-    matches!(get_opt_level(), OptLevel::Simd | OptLevel::Parallel | OptLevel::Full)
+    matches!(
+        get_opt_level(),
+        OptLevel::Simd | OptLevel::Parallel | OptLevel::Full
+    )
 }
 
 /// Check if parallel optimizations are enabled
@@ -140,8 +143,11 @@ mod tests {
 
         // Should always succeed on any platform
         assert!(
-            features.avx2 || features.avx512f || features.neon || features.sse4_2
-            || (!features.avx2 && !features.avx512f && !features.neon && !features.sse4_2)
+            features.avx2
+                || features.avx512f
+                || features.neon
+                || features.sse4_2
+                || (!features.avx2 && !features.avx512f && !features.neon && !features.sse4_2)
         );
     }
 

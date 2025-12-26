@@ -1,8 +1,8 @@
 //! Mixed-Curvature Attention combining Euclidean and Hyperbolic spaces
 
+use super::poincare::{frechet_mean, poincare_distance, project_to_ball};
+use crate::error::{AttentionError, AttentionResult};
 use crate::traits::Attention;
-use crate::error::{AttentionResult, AttentionError};
-use super::poincare::{poincare_distance, frechet_mean, project_to_ball};
 
 #[derive(Debug, Clone)]
 pub struct MixedCurvatureConfig {
@@ -78,10 +78,7 @@ impl MixedCurvatureAttention {
     fn compute_hyperbolic_weights(&self, query: &[f32], keys: &[&[f32]]) -> Vec<f32> {
         let c = self.config.curvature.abs();
         let query_proj = project_to_ball(query, c, 1e-7);
-        let keys_proj: Vec<Vec<f32>> = keys
-            .iter()
-            .map(|k| project_to_ball(k, c, 1e-7))
-            .collect();
+        let keys_proj: Vec<Vec<f32>> = keys.iter().map(|k| project_to_ball(k, c, 1e-7)).collect();
 
         let scores: Vec<f32> = keys_proj
             .iter()
@@ -109,10 +106,8 @@ impl MixedCurvatureAttention {
         }
 
         let c = self.config.curvature.abs();
-        let values_proj: Vec<Vec<f32>> = values
-            .iter()
-            .map(|v| project_to_ball(v, c, 1e-7))
-            .collect();
+        let values_proj: Vec<Vec<f32>> =
+            values.iter().map(|v| project_to_ball(v, c, 1e-7)).collect();
         let values_refs: Vec<&[f32]> = values_proj.iter().map(|v| v.as_slice()).collect();
 
         frechet_mean(
@@ -191,10 +186,22 @@ impl Attention for MixedCurvatureAttention {
     ) -> AttentionResult<Vec<f32>> {
         let (query_euc, query_hyp) = self.split_embedding(query);
 
-        let keys_euc: Vec<&[f32]> = keys.iter().map(|k| &k[..self.config.euclidean_dim]).collect();
-        let keys_hyp: Vec<&[f32]> = keys.iter().map(|k| &k[self.config.euclidean_dim..]).collect();
-        let values_euc: Vec<&[f32]> = values.iter().map(|v| &v[..self.config.euclidean_dim]).collect();
-        let values_hyp: Vec<&[f32]> = values.iter().map(|v| &v[self.config.euclidean_dim..]).collect();
+        let keys_euc: Vec<&[f32]> = keys
+            .iter()
+            .map(|k| &k[..self.config.euclidean_dim])
+            .collect();
+        let keys_hyp: Vec<&[f32]> = keys
+            .iter()
+            .map(|k| &k[self.config.euclidean_dim..])
+            .collect();
+        let values_euc: Vec<&[f32]> = values
+            .iter()
+            .map(|v| &v[..self.config.euclidean_dim])
+            .collect();
+        let values_hyp: Vec<&[f32]> = values
+            .iter()
+            .map(|v| &v[self.config.euclidean_dim..])
+            .collect();
 
         let weights_euc = self.compute_euclidean_weights(query_euc, &keys_euc);
         let weights_hyp = self.compute_hyperbolic_weights(query_hyp, &keys_hyp);

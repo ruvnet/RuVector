@@ -10,15 +10,15 @@
 //! cargo run --example batch_processing --features ocr -- /path/to/images output.json
 //! ```
 
-use ruvector_scipix::OcrConfig;
+use anyhow::Result;
+use indicatif::{ProgressBar, ProgressStyle};
 use ruvector_scipix::ocr::OcrEngine;
 use ruvector_scipix::output::{OcrResult, OutputFormat};
-use anyhow::Result;
+use ruvector_scipix::OcrConfig;
+use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tokio::sync::Semaphore;
-use serde::{Serialize, Deserialize};
-use indicatif::{ProgressBar, ProgressStyle};
 
 #[derive(Debug, Serialize, Deserialize)]
 struct BatchResult {
@@ -65,7 +65,7 @@ async fn main() -> Result<()> {
         ProgressStyle::default_bar()
             .template("[{elapsed_precise}] {bar:40.cyan/blue} {pos}/{len} {msg}")
             .unwrap()
-            .progress_chars("=>-")
+            .progress_chars("=>-"),
     );
 
     // Limit concurrent processing to avoid overwhelming the system
@@ -103,15 +103,18 @@ async fn main() -> Result<()> {
     // Calculate statistics
     let successful = results.iter().filter(|r| r.success).count();
     let failed = results.len() - successful;
-    let avg_confidence = results.iter()
-        .filter_map(|r| r.confidence)
-        .sum::<f32>() / successful as f32;
+    let avg_confidence =
+        results.iter().filter_map(|r| r.confidence).sum::<f32>() / successful as f32;
 
     println!("\n{}", "=".repeat(80));
     println!("Batch Processing Complete");
     println!("{}", "=".repeat(80));
     println!("Total: {}", results.len());
-    println!("Successful: {} ({:.1}%)", successful, (successful as f32 / results.len() as f32) * 100.0);
+    println!(
+        "Successful: {} ({:.1}%)",
+        successful,
+        (successful as f32 / results.len() as f32) * 100.0
+    );
     println!("Failed: {}", failed);
     println!("Average Confidence: {:.2}%", avg_confidence * 100.0);
     println!("{}", "=".repeat(80));
@@ -148,39 +151,31 @@ async fn process_image(engine: &OcrEngine, path: &Path) -> BatchResult {
     let file_path = path.to_string_lossy().to_string();
 
     match image::open(path) {
-        Ok(img) => {
-            match engine.recognize(&img).await {
-                Ok(result) => {
-                    BatchResult {
-                        file_path,
-                        success: true,
-                        text: Some(result.text.clone()),
-                        latex: result.to_format(ruvector_scipix::OutputFormat::LaTeX).ok(),
-                        confidence: Some(result.confidence),
-                        error: None,
-                    }
-                }
-                Err(e) => {
-                    BatchResult {
-                        file_path,
-                        success: false,
-                        text: None,
-                        latex: None,
-                        confidence: None,
-                        error: Some(e.to_string()),
-                    }
-                }
-            }
-        }
-        Err(e) => {
-            BatchResult {
+        Ok(img) => match engine.recognize(&img).await {
+            Ok(result) => BatchResult {
+                file_path,
+                success: true,
+                text: Some(result.text.clone()),
+                latex: result.to_format(ruvector_scipix::OutputFormat::LaTeX).ok(),
+                confidence: Some(result.confidence),
+                error: None,
+            },
+            Err(e) => BatchResult {
                 file_path,
                 success: false,
                 text: None,
                 latex: None,
                 confidence: None,
                 error: Some(e.to_string()),
-            }
-        }
+            },
+        },
+        Err(e) => BatchResult {
+            file_path,
+            success: false,
+            text: None,
+            latex: None,
+            confidence: None,
+            error: Some(e.to_string()),
+        },
     }
 }

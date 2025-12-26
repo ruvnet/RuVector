@@ -2,12 +2,12 @@
 // Provides SQL interface for vector database operations with WASM compatibility
 
 mod ast;
-mod parser;
 mod executor;
+mod parser;
 
 pub use ast::*;
-pub use parser::{SqlParser, ParseError};
-pub use executor::{SqlEngine, ExecutionResult};
+pub use executor::{ExecutionResult, SqlEngine};
+pub use parser::{ParseError, SqlParser};
 
 #[cfg(test)]
 mod tests;

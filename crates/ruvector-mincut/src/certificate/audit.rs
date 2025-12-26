@@ -2,12 +2,12 @@
 //!
 //! Logs every witness change with full provenance.
 
-use super::{LocalKCutResponse, UpdateTrigger, CertLocalKCutQuery, LocalKCutResultSummary};
+use super::{CertLocalKCutQuery, LocalKCutResponse, LocalKCutResultSummary, UpdateTrigger};
 use crate::instance::WitnessHandle;
+use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
 use std::sync::{Arc, RwLock};
 use std::time::{SystemTime, UNIX_EPOCH};
-use serde::{Deserialize, Serialize};
 
 /// Audit log entry
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -376,7 +376,12 @@ mod tests {
         let entries = logger.by_type(AuditEntryType::LocalKCutQuery);
         assert_eq!(entries.len(), 1);
 
-        if let AuditData::Query { budget, radius, seeds } = &entries[0].data {
+        if let AuditData::Query {
+            budget,
+            radius,
+            seeds,
+        } = &entries[0].data
+        {
             assert_eq!(*budget, 10);
             assert_eq!(*radius, 5);
             assert_eq!(seeds.len(), 3);
@@ -418,7 +423,12 @@ mod tests {
         let entries = logger.by_type(AuditEntryType::MinCutChanged);
         assert_eq!(entries.len(), 1);
 
-        if let AuditData::MinCut { old_value, new_value, .. } = &entries[0].data {
+        if let AuditData::MinCut {
+            old_value,
+            new_value,
+            ..
+        } = &entries[0].data
+        {
             assert_eq!(*old_value, 10);
             assert_eq!(*new_value, 8);
         } else {
@@ -501,15 +511,27 @@ mod tests {
 
         logger.log(
             AuditEntryType::WitnessCreated,
-            AuditData::Witness { hash: 1, boundary: 1, seed: 1 },
+            AuditData::Witness {
+                hash: 1,
+                boundary: 1,
+                seed: 1,
+            },
         );
         logger.log(
             AuditEntryType::WitnessUpdated,
-            AuditData::Witness { hash: 2, boundary: 2, seed: 2 },
+            AuditData::Witness {
+                hash: 2,
+                boundary: 2,
+                seed: 2,
+            },
         );
         logger.log(
             AuditEntryType::WitnessCreated,
-            AuditData::Witness { hash: 3, boundary: 3, seed: 3 },
+            AuditData::Witness {
+                hash: 3,
+                boundary: 3,
+                seed: 3,
+            },
         );
 
         let created = logger.by_type(AuditEntryType::WitnessCreated);
@@ -525,7 +547,11 @@ mod tests {
 
         logger.log(
             AuditEntryType::WitnessCreated,
-            AuditData::Witness { hash: 1, boundary: 1, seed: 1 },
+            AuditData::Witness {
+                hash: 1,
+                boundary: 1,
+                seed: 1,
+            },
         );
 
         assert_eq!(logger.len(), 1);
@@ -542,7 +568,11 @@ mod tests {
 
         logger.log(
             AuditEntryType::WitnessCreated,
-            AuditData::Witness { hash: 1, boundary: 5, seed: 2 },
+            AuditData::Witness {
+                hash: 1,
+                boundary: 5,
+                seed: 2,
+            },
         );
 
         let json = logger.to_json().unwrap();
@@ -557,7 +587,11 @@ mod tests {
         let logger = AuditLogger::new(10);
         logger.log(
             AuditEntryType::WitnessCreated,
-            AuditData::Witness { hash: 1, boundary: 1, seed: 1 },
+            AuditData::Witness {
+                hash: 1,
+                boundary: 1,
+                seed: 1,
+            },
         );
 
         let cloned = logger.clone();
@@ -567,7 +601,11 @@ mod tests {
         // Both should share the same data
         logger.log(
             AuditEntryType::WitnessUpdated,
-            AuditData::Witness { hash: 2, boundary: 2, seed: 2 },
+            AuditData::Witness {
+                hash: 2,
+                boundary: 2,
+                seed: 2,
+            },
         );
 
         assert_eq!(cloned.len(), 2);
@@ -579,7 +617,11 @@ mod tests {
 
         logger.log(
             AuditEntryType::WitnessCreated,
-            AuditData::Witness { hash: 1, boundary: 1, seed: 1 },
+            AuditData::Witness {
+                hash: 1,
+                boundary: 1,
+                seed: 1,
+            },
         );
 
         let entries = logger.export();

@@ -38,9 +38,10 @@ impl PQConfig {
     /// Validate the configuration
     pub fn validate(&self) -> Result<()> {
         if self.codebook_size > 256 {
-            return Err(RuvectorError::InvalidParameter(
-                format!("Codebook size {} exceeds u8 maximum of 256", self.codebook_size),
-            ));
+            return Err(RuvectorError::InvalidParameter(format!(
+                "Codebook size {} exceeds u8 maximum of 256",
+                self.codebook_size
+            )));
         }
         if self.num_subspaces == 0 {
             return Err(RuvectorError::InvalidParameter(
@@ -368,9 +369,10 @@ fn kmeans_clustering(
     }
 
     if k > 256 {
-        return Err(RuvectorError::InvalidParameter(
-            format!("k ({}) exceeds u8 maximum of 256 for codebook size", k),
-        ));
+        return Err(RuvectorError::InvalidParameter(format!(
+            "k ({}) exceeds u8 maximum of 256 for codebook size",
+            k
+        )));
     }
 
     let mut rng = thread_rng();

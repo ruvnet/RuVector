@@ -276,10 +276,7 @@ impl HealingWorker {
 
         if config.log_status {
             if problems_found > 0 {
-                pgrx::log!(
-                    "Healing worker: {} problems detected",
-                    problems_found
-                );
+                pgrx::log!("Healing worker: {} problems detected", problems_found);
             } else {
                 pgrx::debug1!("Healing worker: no problems detected");
             }

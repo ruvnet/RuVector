@@ -1,8 +1,8 @@
 //! Hyperbolic Attention Mechanism using Poincaré ball model
 
+use super::poincare::{frechet_mean, poincare_distance, project_to_ball};
+use crate::error::{AttentionError, AttentionResult};
 use crate::traits::Attention;
-use crate::error::{AttentionResult, AttentionError};
-use super::poincare::{poincare_distance, frechet_mean, project_to_ball};
 
 /// Configuration for hyperbolic attention
 #[derive(Debug, Clone)]
@@ -37,7 +37,10 @@ pub struct HyperbolicAttention {
 impl HyperbolicAttention {
     pub fn new(config: HyperbolicAttentionConfig) -> Self {
         let current_curvature = config.curvature.abs();
-        Self { config, current_curvature }
+        Self {
+            config,
+            current_curvature,
+        }
     }
 
     pub fn compute_weights(&self, query: &[f32], keys: &[&[f32]]) -> Vec<f32> {
@@ -99,7 +102,9 @@ impl Attention for HyperbolicAttention {
         values: &[&[f32]],
     ) -> AttentionResult<Vec<f32>> {
         if keys.is_empty() || values.is_empty() {
-            return Err(AttentionError::EmptyInput("Keys and values cannot be empty".to_string()));
+            return Err(AttentionError::EmptyInput(
+                "Keys and values cannot be empty".to_string(),
+            ));
         }
 
         let query_proj = project_to_ball(query, self.current_curvature, 1e-7);

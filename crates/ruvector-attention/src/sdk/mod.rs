@@ -6,6 +6,6 @@ pub mod builder;
 pub mod pipeline;
 pub mod presets;
 
-pub use builder::{AttentionBuilder, AttentionType, scaled_dot, multi_head, flash};
-pub use pipeline::{AttentionPipeline, PipelineStage, NormType};
-pub use presets::{AttentionPreset, for_sequences, for_graphs, for_large_scale};
+pub use builder::{flash, multi_head, scaled_dot, AttentionBuilder, AttentionType};
+pub use pipeline::{AttentionPipeline, NormType, PipelineStage};
+pub use presets::{for_graphs, for_large_scale, for_sequences, AttentionPreset};

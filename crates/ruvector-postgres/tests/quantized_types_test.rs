@@ -2,7 +2,7 @@
 //!
 //! Tests BinaryVec, ScalarVec, and ProductVec with SIMD optimizations
 
-use ruvector_postgres::types::{BinaryVec, ScalarVec, ProductVec};
+use ruvector_postgres::types::{BinaryVec, ProductVec, ScalarVec};
 
 // ============================================================================
 // BinaryVec Tests
@@ -203,10 +203,10 @@ fn test_productvec_adc_distance_scalar() {
 
     // Create flat distance table: 4 subspaces * 4 centroids = 16 values
     let table = vec![
-        0.0, 1.0, 4.0, 9.0,  // subspace 0
-        0.0, 1.0, 4.0, 9.0,  // subspace 1
-        0.0, 1.0, 4.0, 9.0,  // subspace 2
-        0.0, 1.0, 4.0, 9.0,  // subspace 3
+        0.0, 1.0, 4.0, 9.0, // subspace 0
+        0.0, 1.0, 4.0, 9.0, // subspace 1
+        0.0, 1.0, 4.0, 9.0, // subspace 2
+        0.0, 1.0, 4.0, 9.0, // subspace 3
     ];
 
     let dist = pq.adc_distance_flat(&table);
@@ -221,10 +221,10 @@ fn test_productvec_adc_distance_nested() {
 
     // Create nested distance table
     let table: Vec<Vec<f32>> = vec![
-        vec![0.0, 1.0, 4.0, 9.0],   // subspace 0
-        vec![0.0, 1.0, 4.0, 9.0],   // subspace 1
-        vec![0.0, 1.0, 4.0, 9.0],   // subspace 2
-        vec![0.0, 1.0, 4.0, 9.0],   // subspace 3
+        vec![0.0, 1.0, 4.0, 9.0], // subspace 0
+        vec![0.0, 1.0, 4.0, 9.0], // subspace 1
+        vec![0.0, 1.0, 4.0, 9.0], // subspace 2
+        vec![0.0, 1.0, 4.0, 9.0], // subspace 3
     ];
 
     let dist = pq.adc_distance(&table);
@@ -249,8 +249,12 @@ fn test_productvec_memory_size() {
 fn test_binaryvec_simd_consistency() {
     // Large enough to trigger SIMD paths
     let dims = 1024;
-    let a_data: Vec<f32> = (0..dims).map(|i| if i % 2 == 0 { 1.0 } else { -1.0 }).collect();
-    let b_data: Vec<f32> = (0..dims).map(|i| if i % 3 == 0 { 1.0 } else { -1.0 }).collect();
+    let a_data: Vec<f32> = (0..dims)
+        .map(|i| if i % 2 == 0 { 1.0 } else { -1.0 })
+        .collect();
+    let b_data: Vec<f32> = (0..dims)
+        .map(|i| if i % 3 == 0 { 1.0 } else { -1.0 })
+        .collect();
 
     let a = BinaryVec::from_f32(&a_data);
     let b = BinaryVec::from_f32(&b_data);

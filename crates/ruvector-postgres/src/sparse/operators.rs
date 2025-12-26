@@ -1,8 +1,8 @@
 //! PostgreSQL operators and functions for sparse vectors.
 
-use pgrx::prelude::*;
-use super::distance::{sparse_dot, sparse_cosine, sparse_euclidean, sparse_manhattan, sparse_bm25};
+use super::distance::{sparse_bm25, sparse_cosine, sparse_dot, sparse_euclidean, sparse_manhattan};
 use super::types::SparseVec;
+use pgrx::prelude::*;
 
 // ============================================================================
 // Distance Functions

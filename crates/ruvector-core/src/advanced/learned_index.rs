@@ -429,10 +429,7 @@ mod tests {
     fn test_hybrid_index() {
         let mut hybrid = HybridIndex::new(1, 2, 10);
 
-        let static_data = vec![
-            (vec![0.0], "0".to_string()),
-            (vec![1.0], "1".to_string()),
-        ];
+        let static_data = vec![(vec![0.0], "0".to_string()), (vec![1.0], "1".to_string())];
         hybrid.build_static(static_data).unwrap();
 
         // Add dynamic updates

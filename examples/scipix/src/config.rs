@@ -2,9 +2,9 @@
 //!
 //! Comprehensive configuration with TOML support, environment overrides, and validation.
 
+use crate::error::{Result, ScipixError};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
-use crate::error::{ScipixError, Result};
 
 /// Main configuration structure
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -256,15 +256,18 @@ impl Config {
     fn apply_env_overrides(&mut self) -> Result<()> {
         // OCR overrides
         if let Ok(val) = std::env::var("MATHPIX_OCR__CONFIDENCE_THRESHOLD") {
-            self.ocr.confidence_threshold = val.parse()
+            self.ocr.confidence_threshold = val
+                .parse()
                 .map_err(|_| ScipixError::Config("Invalid confidence_threshold".to_string()))?;
         }
         if let Ok(val) = std::env::var("MATHPIX_OCR__TIMEOUT") {
-            self.ocr.timeout = val.parse()
+            self.ocr.timeout = val
+                .parse()
                 .map_err(|_| ScipixError::Config("Invalid timeout".to_string()))?;
         }
         if let Ok(val) = std::env::var("MATHPIX_OCR__USE_GPU") {
-            self.ocr.use_gpu = val.parse()
+            self.ocr.use_gpu = val
+                .parse()
                 .map_err(|_| ScipixError::Config("Invalid use_gpu".to_string()))?;
         }
 
@@ -273,17 +276,20 @@ impl Config {
             self.model.model_path = val;
         }
         if let Ok(val) = std::env::var("MATHPIX_MODEL__BATCH_SIZE") {
-            self.model.batch_size = val.parse()
+            self.model.batch_size = val
+                .parse()
                 .map_err(|_| ScipixError::Config("Invalid batch_size".to_string()))?;
         }
 
         // Cache overrides
         if let Ok(val) = std::env::var("MATHPIX_CACHE__ENABLED") {
-            self.cache.enabled = val.parse()
+            self.cache.enabled = val
+                .parse()
                 .map_err(|_| ScipixError::Config("Invalid cache enabled".to_string()))?;
         }
         if let Ok(val) = std::env::var("MATHPIX_CACHE__CAPACITY") {
-            self.cache.capacity = val.parse()
+            self.cache.capacity = val
+                .parse()
                 .map_err(|_| ScipixError::Config("Invalid cache capacity".to_string()))?;
         }
 
@@ -295,39 +301,41 @@ impl Config {
         // Validate confidence threshold
         if self.ocr.confidence_threshold < 0.0 || self.ocr.confidence_threshold > 1.0 {
             return Err(ScipixError::Config(
-                "confidence_threshold must be between 0.0 and 1.0".to_string()
+                "confidence_threshold must be between 0.0 and 1.0".to_string(),
             ));
         }
 
         // Validate similarity threshold
         if self.cache.similarity_threshold < 0.0 || self.cache.similarity_threshold > 1.0 {
             return Err(ScipixError::Config(
-                "similarity_threshold must be between 0.0 and 1.0".to_string()
+                "similarity_threshold must be between 0.0 and 1.0".to_string(),
             ));
         }
 
         // Validate batch size
         if self.model.batch_size == 0 {
             return Err(ScipixError::Config(
-                "batch_size must be greater than 0".to_string()
+                "batch_size must be greater than 0".to_string(),
             ));
         }
 
         // Validate precision
         let valid_precisions = ["fp16", "fp32", "int8"];
         if !valid_precisions.contains(&self.model.precision.as_str()) {
-            return Err(ScipixError::Config(
-                format!("precision must be one of: {:?}", valid_precisions)
-            ));
+            return Err(ScipixError::Config(format!(
+                "precision must be one of: {:?}",
+                valid_precisions
+            )));
         }
 
         // Validate output formats
         let valid_formats = ["latex", "mathml", "asciimath"];
         for format in &self.output.formats {
             if !valid_formats.contains(&format.as_str()) {
-                return Err(ScipixError::Config(
-                    format!("Invalid output format: {}. Must be one of: {:?}", format, valid_formats)
-                ));
+                return Err(ScipixError::Config(format!(
+                    "Invalid output format: {}. Must be one of: {:?}",
+                    format, valid_formats
+                )));
             }
         }
 
@@ -439,6 +447,9 @@ mod tests {
         let config = Config::default();
         let toml_str = toml::to_string(&config).unwrap();
         let deserialized: Config = toml::from_str(&toml_str).unwrap();
-        assert_eq!(config.ocr.confidence_threshold, deserialized.ocr.confidence_threshold);
+        assert_eq!(
+            config.ocr.confidence_threshold,
+            deserialized.ocr.confidence_threshold
+        );
     }
 }

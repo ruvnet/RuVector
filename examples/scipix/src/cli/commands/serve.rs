@@ -11,14 +11,11 @@ use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::signal;
-use tower_http::{
-    cors::CorsLayer,
-    trace::TraceLayer,
-};
+use tower_http::{cors::CorsLayer, trace::TraceLayer};
 use tracing::{info, warn};
 
-use crate::cli::Cli;
 use super::{OcrConfig, OcrResult};
+use crate::cli::Cli;
 
 /// Start the API server
 #[derive(Args, Debug, Clone)]
@@ -52,18 +49,11 @@ pub struct ServeArgs {
     pub model_dir: Option<PathBuf>,
 
     /// Enable CORS
-    #[arg(
-        long,
-        help = "Enable CORS for cross-origin requests"
-    )]
+    #[arg(long, help = "Enable CORS for cross-origin requests")]
     pub cors: bool,
 
     /// Maximum request size in MB
-    #[arg(
-        long,
-        default_value = "10",
-        help = "Maximum request size in megabytes"
-    )]
+    #[arg(long, default_value = "10", help = "Maximum request size in megabytes")]
     pub max_size: usize,
 
     /// Number of worker threads
@@ -172,7 +162,11 @@ async fn ocr_handler(
             if data.len() > state.max_size {
                 return Err((
                     StatusCode::PAYLOAD_TOO_LARGE,
-                    format!("File too large: {} bytes (max: {} bytes)", data.len(), state.max_size),
+                    format!(
+                        "File too large: {} bytes (max: {} bytes)",
+                        data.len(),
+                        state.max_size
+                    ),
                 ));
             }
 
@@ -221,7 +215,10 @@ async fn batch_handler(
     }
 
     if results.is_empty() {
-        return Err((StatusCode::BAD_REQUEST, "No valid files processed".to_string()));
+        return Err((
+            StatusCode::BAD_REQUEST,
+            "No valid files processed".to_string(),
+        ));
     }
 
     Ok(Json(results))
@@ -260,10 +257,8 @@ fn preload_models(model_dir: &PathBuf) -> Result<()> {
 
 fn load_config(config_path: Option<&PathBuf>) -> Result<OcrConfig> {
     if let Some(path) = config_path {
-        let content = std::fs::read_to_string(path)
-            .context("Failed to read config file")?;
-        toml::from_str(&content)
-            .context("Failed to parse config file")
+        let content = std::fs::read_to_string(path).context("Failed to read config file")?;
+        toml::from_str(&content).context("Failed to parse config file")
     } else {
         Ok(OcrConfig::default())
     }

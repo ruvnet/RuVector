@@ -3,15 +3,15 @@
 //! This module provides the core abstractions for maintaining minimum proper cuts
 //! over dynamic graphs with bounded cut values.
 
+pub mod bounded;
+pub mod stub;
 pub mod traits;
 pub mod witness;
-pub mod stub;
-pub mod bounded;
 
-pub use traits::{ProperCutInstance, InstanceResult};
-pub use witness::{WitnessHandle, ImplicitWitness, Witness};
-pub use stub::StubInstance;
 pub use bounded::BoundedInstance;
+pub use stub::StubInstance;
+pub use traits::{InstanceResult, ProperCutInstance};
+pub use witness::{ImplicitWitness, Witness, WitnessHandle};
 
 #[cfg(test)]
 mod tests {

@@ -9,7 +9,6 @@
 /// - F_i is the Fisher information for weight i
 /// - θ_i is the current weight
 /// - θ*_i is the anchor weight from the previous task
-
 use std::f32;
 
 /// Elastic Weight Consolidation implementation

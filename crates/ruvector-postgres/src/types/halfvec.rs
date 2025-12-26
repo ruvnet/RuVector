@@ -38,7 +38,9 @@ unsafe impl pgrx::datum::UnboxDatum for HalfVec {
     where
         Self: 'src,
     {
-        let ptr = datum.sans_lifetime().cast_mut_ptr::<pgrx::pg_sys::varlena>();
+        let ptr = datum
+            .sans_lifetime()
+            .cast_mut_ptr::<pgrx::pg_sys::varlena>();
         HalfVec { ptr }
     }
 }
@@ -577,7 +579,9 @@ unsafe fn halfvec_inner_product_scalar(a: &HalfVec, b: &HalfVec) -> f32 {
 fn parse_halfvec_string(s: &str) -> Result<Vec<f32>, String> {
     let s = s.trim();
     if !s.starts_with('[') || !s.ends_with(']') {
-        return Err(format!("Invalid halfvec format: must start with '[' and end with ']'"));
+        return Err(format!(
+            "Invalid halfvec format: must start with '[' and end with ']'"
+        ));
     }
 
     let inner = &s[1..s.len() - 1];
@@ -585,10 +589,7 @@ fn parse_halfvec_string(s: &str) -> Result<Vec<f32>, String> {
         return Ok(Vec::new());
     }
 
-    let values: Result<Vec<f32>, _> = inner
-        .split(',')
-        .map(|v| v.trim().parse::<f32>())
-        .collect();
+    let values: Result<Vec<f32>, _> = inner.split(',').map(|v| v.trim().parse::<f32>()).collect();
 
     match values {
         Ok(data) => {
@@ -691,7 +692,12 @@ mod tests {
 
         for (orig, rest) in original.iter().zip(restored.iter()) {
             // f16 has ~3 decimal digits of precision
-            assert!((orig - rest).abs() < 0.001, "orig={}, restored={}", orig, rest);
+            assert!(
+                (orig - rest).abs() < 0.001,
+                "orig={}, restored={}",
+                orig,
+                rest
+            );
         }
     }
 }

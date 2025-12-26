@@ -6,11 +6,14 @@ use std::time::Instant;
 
 use ruvector_attention::{
     attention::ScaledDotProductAttention,
-    sparse::{FlashAttention, LinearAttention, LocalGlobalAttention},
-    moe::{MoEAttention, MoEConfig},
-    graph::{EdgeFeaturedAttention, EdgeFeaturedConfig, GraphRoPE, RoPEConfig, DualSpaceAttention, DualSpaceConfig},
+    graph::{
+        DualSpaceAttention, DualSpaceConfig, EdgeFeaturedAttention, EdgeFeaturedConfig, GraphRoPE,
+        RoPEConfig,
+    },
     hyperbolic::{HyperbolicAttention, HyperbolicAttentionConfig},
-    training::{InfoNCELoss, Loss, Adam, Optimizer},
+    moe::{MoEAttention, MoEConfig},
+    sparse::{FlashAttention, LinearAttention, LocalGlobalAttention},
+    training::{Adam, InfoNCELoss, Loss, Optimizer},
     traits::Attention,
 };
 
@@ -24,8 +27,12 @@ fn main() {
 
     // Generate test data
     let query = vec![0.5f32; dim];
-    let keys: Vec<Vec<f32>> = (0..seq_len).map(|i| vec![(i as f32 * 0.01) % 1.0; dim]).collect();
-    let values: Vec<Vec<f32>> = (0..seq_len).map(|i| vec![(i as f32 * 0.02) % 1.0; dim]).collect();
+    let keys: Vec<Vec<f32>> = (0..seq_len)
+        .map(|i| vec![(i as f32 * 0.01) % 1.0; dim])
+        .collect();
+    let values: Vec<Vec<f32>> = (0..seq_len)
+        .map(|i| vec![(i as f32 * 0.02) % 1.0; dim])
+        .collect();
     let keys_refs: Vec<&[f32]> = keys.iter().map(|k| k.as_slice()).collect();
     let values_refs: Vec<&[f32]> = values.iter().map(|v| v.as_slice()).collect();
 
@@ -130,14 +137,20 @@ fn main() {
         let attention = HyperbolicAttention::new(config);
         // Use smaller values for Poincaré ball
         let hyp_query = vec![0.1f32; dim];
-        let hyp_keys: Vec<Vec<f32>> = (0..seq_len).map(|i| vec![(i as f32 * 0.001) % 0.5; dim]).collect();
-        let hyp_values: Vec<Vec<f32>> = (0..seq_len).map(|i| vec![(i as f32 * 0.002) % 0.5; dim]).collect();
+        let hyp_keys: Vec<Vec<f32>> = (0..seq_len)
+            .map(|i| vec![(i as f32 * 0.001) % 0.5; dim])
+            .collect();
+        let hyp_values: Vec<Vec<f32>> = (0..seq_len)
+            .map(|i| vec![(i as f32 * 0.002) % 0.5; dim])
+            .collect();
         let hyp_keys_refs: Vec<&[f32]> = hyp_keys.iter().map(|k| k.as_slice()).collect();
         let hyp_values_refs: Vec<&[f32]> = hyp_values.iter().map(|v| v.as_slice()).collect();
 
         let start = Instant::now();
         for _ in 0..iterations {
-            let _ = attention.compute(&hyp_query, &hyp_keys_refs, &hyp_values_refs).unwrap();
+            let _ = attention
+                .compute(&hyp_query, &hyp_keys_refs, &hyp_values_refs)
+                .unwrap();
         }
         let elapsed = start.elapsed();
         let avg_us = elapsed.as_micros() as f64 / iterations as f64;
@@ -157,14 +170,20 @@ fn main() {
             .build();
         let attention = EdgeFeaturedAttention::new(config);
 
-        let graph_keys: Vec<Vec<f32>> = (0..64).map(|i| vec![(i as f32 * 0.01) % 1.0; dim]).collect();
-        let graph_values: Vec<Vec<f32>> = (0..64).map(|i| vec![(i as f32 * 0.02) % 1.0; dim]).collect();
+        let graph_keys: Vec<Vec<f32>> = (0..64)
+            .map(|i| vec![(i as f32 * 0.01) % 1.0; dim])
+            .collect();
+        let graph_values: Vec<Vec<f32>> = (0..64)
+            .map(|i| vec![(i as f32 * 0.02) % 1.0; dim])
+            .collect();
         let graph_keys_refs: Vec<&[f32]> = graph_keys.iter().map(|k| k.as_slice()).collect();
         let graph_values_refs: Vec<&[f32]> = graph_values.iter().map(|v| v.as_slice()).collect();
 
         let start = Instant::now();
         for _ in 0..iterations {
-            let _ = attention.compute(&query, &graph_keys_refs, &graph_values_refs).unwrap();
+            let _ = attention
+                .compute(&query, &graph_keys_refs, &graph_values_refs)
+                .unwrap();
         }
         let elapsed = start.elapsed();
         let avg_us = elapsed.as_micros() as f64 / iterations as f64;
@@ -177,10 +196,7 @@ fn main() {
 
     // 8. Graph RoPE
     {
-        let config = RoPEConfig::builder()
-            .dim(dim)
-            .max_position(1024)
-            .build();
+        let config = RoPEConfig::builder().dim(dim).max_position(1024).build();
         let attention = GraphRoPE::new(config);
         let start = Instant::now();
         for _ in 0..iterations {
@@ -206,14 +222,20 @@ fn main() {
 
         // Use smaller values for hyperbolic component
         let dual_query = vec![0.1f32; dim];
-        let dual_keys: Vec<Vec<f32>> = (0..seq_len).map(|i| vec![(i as f32 * 0.001) % 0.3; dim]).collect();
-        let dual_values: Vec<Vec<f32>> = (0..seq_len).map(|i| vec![(i as f32 * 0.002) % 0.3; dim]).collect();
+        let dual_keys: Vec<Vec<f32>> = (0..seq_len)
+            .map(|i| vec![(i as f32 * 0.001) % 0.3; dim])
+            .collect();
+        let dual_values: Vec<Vec<f32>> = (0..seq_len)
+            .map(|i| vec![(i as f32 * 0.002) % 0.3; dim])
+            .collect();
         let dual_keys_refs: Vec<&[f32]> = dual_keys.iter().map(|k| k.as_slice()).collect();
         let dual_values_refs: Vec<&[f32]> = dual_values.iter().map(|v| v.as_slice()).collect();
 
         let start = Instant::now();
         for _ in 0..iterations {
-            let _ = attention.compute(&dual_query, &dual_keys_refs, &dual_values_refs).unwrap();
+            let _ = attention
+                .compute(&dual_query, &dual_keys_refs, &dual_values_refs)
+                .unwrap();
         }
         let elapsed = start.elapsed();
         let avg_us = elapsed.as_micros() as f64 / iterations as f64;
@@ -229,7 +251,9 @@ fn main() {
         let loss = InfoNCELoss::new(0.07);
         let anchor = vec![0.5f32; 128];
         let positive = vec![0.6f32; 128];
-        let negatives: Vec<Vec<f32>> = (0..50).map(|i| vec![(i as f32 * 0.01) % 1.0; 128]).collect();
+        let negatives: Vec<Vec<f32>> = (0..50)
+            .map(|i| vec![(i as f32 * 0.01) % 1.0; 128])
+            .collect();
         let neg_refs: Vec<&[f32]> = negatives.iter().map(|n| n.as_slice()).collect();
 
         let start = Instant::now();

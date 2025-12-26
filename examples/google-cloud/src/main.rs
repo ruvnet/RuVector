@@ -257,10 +257,7 @@ async fn main() -> Result<()> {
             gpu,
         } => {
             let sizes: Vec<&str> = sizes.split(',').collect();
-            let dims: Vec<usize> = dims
-                .split(',')
-                .map(|s| s.trim().parse().unwrap())
-                .collect();
+            let dims: Vec<usize> = dims.split(',').map(|s| s.trim().parse().unwrap()).collect();
             benchmark::run_full(&output_dir, &sizes, &dims, gpu).await?;
         }
 
@@ -316,7 +313,10 @@ async fn main() -> Result<()> {
             self_learning::run_industry_training(epochs, output_dir).await?;
         }
 
-        Commands::Exotic { iterations, output_dir } => {
+        Commands::Exotic {
+            iterations,
+            output_dir,
+        } => {
             self_learning::run_exotic_experiments(iterations, output_dir).await?;
         }
 

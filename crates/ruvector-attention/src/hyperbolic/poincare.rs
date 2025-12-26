@@ -49,7 +49,8 @@ pub fn mobius_add(u: &[f32], v: &[f32], c: f32) -> Vec<f32> {
     let coef_v = 1.0 - c * norm_u_sq;
     let denom = 1.0 + 2.0 * c * dot_uv + c * c * norm_u_sq * norm_v_sq;
 
-    let result: Vec<f32> = u.iter()
+    let result: Vec<f32> = u
+        .iter()
         .zip(v)
         .map(|(ui, vi)| (coef_u * ui + coef_v * vi) / denom.max(EPS))
         .collect();

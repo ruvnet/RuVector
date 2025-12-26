@@ -9,8 +9,8 @@
 //! OPENAI_API_KEY=sk-... cargo run --example embeddings_example --features real-embeddings
 //! ```
 
-use ruvector_core::{AgenticDB, ApiEmbedding, HashEmbedding};
 use ruvector_core::types::DbOptions;
+use ruvector_core::{AgenticDB, ApiEmbedding, HashEmbedding};
 use std::sync::Arc;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -57,7 +57,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         vec!["Code compiles now".to_string()],
         "Should explain borrow checker rules better".to_string(),
     )?;
-    println!("✓ Stored episode: Fix Rust borrow checker error (ID: {})", ep1);
+    println!(
+        "✓ Stored episode: Fix Rust borrow checker error (ID: {})",
+        ep1
+    );
 
     let ep2 = db.store_episode(
         "Optimize Python data processing".to_string(),
@@ -69,7 +72,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         vec!["10x performance improvement".to_string()],
         "Could have used Pandas for better readability".to_string(),
     )?;
-    println!("✓ Stored episode: Optimize Python data processing (ID: {})", ep2);
+    println!(
+        "✓ Stored episode: Optimize Python data processing (ID: {})",
+        ep2
+    );
 
     let ep3 = db.store_episode(
         "Debug JavaScript async issue".to_string(),
@@ -81,7 +87,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         vec!["Race condition resolved".to_string()],
         "Should use async/await instead of callbacks".to_string(),
     )?;
-    println!("✓ Stored episode: Debug JavaScript async issue (ID: {})\n", ep3);
+    println!(
+        "✓ Stored episode: Debug JavaScript async issue (ID: {})\n",
+        ep3
+    );
 
     // Create some skills
     println!("--- Creating Skills ---");
@@ -90,7 +99,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         "Memory Profiling".to_string(),
         "Profile application memory usage to detect leaks and optimize allocation".to_string(),
         Default::default(),
-        vec!["valgrind".to_string(), "massif".to_string(), "heaptrack".to_string()],
+        vec![
+            "valgrind".to_string(),
+            "massif".to_string(),
+            "heaptrack".to_string(),
+        ],
     )?;
     println!("✓ Created skill: Memory Profiling (ID: {})", skill1);
 
@@ -98,7 +111,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         "Async Programming".to_string(),
         "Write asynchronous code using promises, async/await, or futures".to_string(),
         Default::default(),
-        vec!["Promise.all()".to_string(), "async/await".to_string(), "tokio".to_string()],
+        vec![
+            "Promise.all()".to_string(),
+            "async/await".to_string(),
+            "tokio".to_string(),
+        ],
     )?;
     println!("✓ Created skill: Async Programming (ID: {})", skill2);
 
@@ -106,9 +123,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         "Performance Optimization".to_string(),
         "Profile and optimize code performance using profilers and benchmarks".to_string(),
         Default::default(),
-        vec!["perf".to_string(), "criterion".to_string(), "flamegraph".to_string()],
+        vec![
+            "perf".to_string(),
+            "criterion".to_string(),
+            "flamegraph".to_string(),
+        ],
     )?;
-    println!("✓ Created skill: Performance Optimization (ID: {})\n", skill3);
+    println!(
+        "✓ Created skill: Performance Optimization (ID: {})\n",
+        skill3
+    );
 
     // Search episodes
     println!("--- Searching Episodes ---");

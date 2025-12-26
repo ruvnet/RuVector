@@ -180,7 +180,12 @@ impl Attention for LinearAttention {
         mask: Option<&[bool]>,
     ) -> AttentionResult<Vec<f32>> {
         if let Some(m) = mask {
-            let filtered: Vec<(usize, bool)> = m.iter().copied().enumerate().filter(|(_, keep)| *keep).collect();
+            let filtered: Vec<(usize, bool)> = m
+                .iter()
+                .copied()
+                .enumerate()
+                .filter(|(_, keep)| *keep)
+                .collect();
             let filtered_keys: Vec<&[f32]> = filtered.iter().map(|(i, _)| keys[*i]).collect();
             let filtered_values: Vec<&[f32]> = filtered.iter().map(|(i, _)| values[*i]).collect();
             self.compute(query, &filtered_keys, &filtered_values)

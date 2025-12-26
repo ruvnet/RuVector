@@ -10,7 +10,7 @@
 //! - Temporal correlation vs causation
 //! - Predictive modeling based on learned patterns
 
-use ruvector_mincut::{MinCutBuilder, DynamicMinCut};
+use ruvector_mincut::{DynamicMinCut, MinCutBuilder};
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
 
@@ -113,7 +113,10 @@ impl CausalRelation {
         let occurrence_ratio = self.occurrences as f64 / total_effect_events.max(1) as f64;
 
         // Timing consistency (inverse of variance)
-        let delay_range = self.max_delay.as_millis().saturating_sub(self.min_delay.as_millis()) as f64;
+        let delay_range = self
+            .max_delay
+            .as_millis()
+            .saturating_sub(self.min_delay.as_millis()) as f64;
         let avg_delay = self.average_delay.as_millis().max(1) as f64;
         let timing_consistency = 1.0 / (1.0 + delay_range / avg_delay);
 
@@ -151,7 +154,10 @@ impl CausalNetworkAnalyzer {
 
     /// Analyze all events to discover causal relationships
     fn discover_causality(&mut self) {
-        println!("\n🔍 Analyzing {} events for causal patterns...", self.events.len());
+        println!(
+            "\n🔍 Analyzing {} events for causal patterns...",
+            self.events.len()
+        );
 
         // For each event, look for preceding events that might be causes
         for i in 0..self.events.len() {
@@ -187,12 +193,17 @@ impl CausalNetworkAnalyzer {
         let event_counts = self.count_events_by_type();
 
         // Collect counts first to avoid borrow issues
-        let counts_vec: Vec<_> = self.causal_relations
+        let counts_vec: Vec<_> = self
+            .causal_relations
             .keys()
             .map(|(cause_type, effect_type)| {
                 let cause_count = *event_counts.get(cause_type.as_str()).unwrap_or(&0);
                 let effect_count = *event_counts.get(effect_type.as_str()).unwrap_or(&0);
-                ((cause_type.clone(), effect_type.clone()), cause_count, effect_count)
+                (
+                    (cause_type.clone(), effect_type.clone()),
+                    cause_count,
+                    effect_count,
+                )
             })
             .collect();
 
@@ -245,7 +256,10 @@ impl CausalNetworkAnalyzer {
             return Vec::new();
         }
 
-        println!("\n🔮 Analyzing {} recent events for predictions...", recent_events.len());
+        println!(
+            "\n🔮 Analyzing {} recent events for predictions...",
+            recent_events.len()
+        );
 
         // For each recent event, find what it typically causes
         let mut predictions: HashMap<String, (f64, Duration, usize)> = HashMap::new();
@@ -256,7 +270,11 @@ impl CausalNetworkAnalyzer {
             // Find all effects this cause type produces
             for ((cause, effect), relation) in &self.causal_relations {
                 if cause == cause_type && relation.confidence >= self.confidence_threshold {
-                    let entry = predictions.entry(effect.clone()).or_insert((0.0, Duration::from_millis(0), 0));
+                    let entry = predictions.entry(effect.clone()).or_insert((
+                        0.0,
+                        Duration::from_millis(0),
+                        0,
+                    ));
                     entry.0 += relation.confidence;
                     entry.1 += relation.average_delay;
                     entry.2 += 1;
@@ -312,7 +330,11 @@ impl CausalNetworkAnalyzer {
         println!("\n📅 EVENT TIMELINE (last {} events)", max_events);
         println!("═══════════════════════════════════════════════════════════");
 
-        let start_time = self.events.first().map(|e| e.timestamp()).unwrap_or_else(Instant::now);
+        let start_time = self
+            .events
+            .first()
+            .map(|e| e.timestamp())
+            .unwrap_or_else(Instant::now);
 
         for event in self.events.iter().rev().take(max_events).rev() {
             let elapsed = event.timestamp().duration_since(start_time);
@@ -334,9 +356,17 @@ fn simulate_dynamic_network(analyzer: &mut CausalNetworkAnalyzer) {
 
     // Build initial network
     let edges = vec![
-        (0, 1, 5.0), (0, 2, 3.0), (1, 2, 2.0), (1, 3, 6.0),
-        (2, 3, 4.0), (2, 4, 3.0), (3, 5, 4.0), (4, 5, 2.0),
-        (4, 6, 5.0), (5, 7, 3.0), (6, 7, 4.0),
+        (0, 1, 5.0),
+        (0, 2, 3.0),
+        (1, 2, 2.0),
+        (1, 3, 6.0),
+        (2, 3, 4.0),
+        (2, 4, 3.0),
+        (3, 5, 4.0),
+        (4, 5, 2.0),
+        (4, 6, 5.0),
+        (5, 7, 3.0),
+        (6, 7, 4.0),
     ];
 
     let mut mincut = MinCutBuilder::new()
@@ -349,10 +379,7 @@ fn simulate_dynamic_network(analyzer: &mut CausalNetworkAnalyzer) {
     let initial_cut = mincut.min_cut_value();
     println!("Initial MinCut: {:.2}", initial_cut);
 
-    analyzer.record_event(NetworkEvent::MinCutChange(
-        initial_cut,
-        Instant::now(),
-    ));
+    analyzer.record_event(NetworkEvent::MinCutChange(initial_cut, Instant::now()));
 
     std::thread::sleep(Duration::from_millis(20));
 
@@ -474,7 +501,10 @@ fn main() {
     println!("   - Root cause analysis in distributed systems");
 
     println!("\n4. TEMPORAL WINDOW:");
-    println!("   - {}ms window used for causality", analyzer.causality_window.as_millis());
+    println!(
+        "   - {}ms window used for causality",
+        analyzer.causality_window.as_millis()
+    );
     println!("   - Events within window may be causally related");
     println!("   - Longer window = more potential causes found");
 

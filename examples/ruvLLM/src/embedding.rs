@@ -65,7 +65,10 @@ impl Tokenizer {
         }
 
         // Build basic character/word vocabulary
-        let chars: Vec<char> = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 .,!?;:'\"-_()[]{}".chars().collect();
+        let chars: Vec<char> =
+            "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 .,!?;:'\"-_()[]{}"
+                .chars()
+                .collect();
         for ch in chars {
             let s = ch.to_string();
             if !vocab.contains_key(&s) && vocab.len() < vocab_size {
@@ -95,7 +98,11 @@ impl Tokenizer {
         for word in text.split_whitespace() {
             for ch in word.chars() {
                 let s = ch.to_string();
-                let id = self.vocab.get(&s).copied().unwrap_or(self.special_tokens.unk);
+                let id = self
+                    .vocab
+                    .get(&s)
+                    .copied()
+                    .unwrap_or(self.special_tokens.unk);
                 tokens.push(id);
             }
             // Add space token
@@ -178,7 +185,8 @@ impl EmbeddingService {
             .map(|pos| {
                 (0..config.dimension)
                     .map(|i| {
-                        let angle = pos as f32 / (10000.0_f32).powf(2.0 * (i / 2) as f32 / config.dimension as f32);
+                        let angle = pos as f32
+                            / (10000.0_f32).powf(2.0 * (i / 2) as f32 / config.dimension as f32);
                         if i % 2 == 0 {
                             angle.sin()
                         } else {
@@ -213,13 +221,17 @@ impl EmbeddingService {
         {
             let mut cache = self.cache.lock();
             if let Some(cached) = cache.get(&hash) {
-                self.stats.cache_hits.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                self.stats
+                    .cache_hits
+                    .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                 let mut result = cached.clone();
                 result.from_cache = true;
                 return Ok(result);
             }
         }
-        self.stats.cache_misses.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        self.stats
+            .cache_misses
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
 
         // Tokenize
         let tokens = self.tokenizer.tokenize(text);
@@ -227,7 +239,9 @@ impl EmbeddingService {
         let truncated = token_count > self.max_tokens;
         let tokens: Vec<u32> = tokens.into_iter().take(self.max_tokens).collect();
 
-        self.stats.total_tokens.fetch_add(tokens.len() as u64, std::sync::atomic::Ordering::Relaxed);
+        self.stats
+            .total_tokens
+            .fetch_add(tokens.len() as u64, std::sync::atomic::Ordering::Relaxed);
 
         // Compute embedding
         let vector = self.compute_embedding(&tokens);
@@ -276,9 +290,18 @@ impl EmbeddingService {
     /// Get embedding statistics
     pub fn get_stats(&self) -> EmbeddingServiceStats {
         EmbeddingServiceStats {
-            cache_hits: self.stats.cache_hits.load(std::sync::atomic::Ordering::Relaxed),
-            cache_misses: self.stats.cache_misses.load(std::sync::atomic::Ordering::Relaxed),
-            total_tokens: self.stats.total_tokens.load(std::sync::atomic::Ordering::Relaxed),
+            cache_hits: self
+                .stats
+                .cache_hits
+                .load(std::sync::atomic::Ordering::Relaxed),
+            cache_misses: self
+                .stats
+                .cache_misses
+                .load(std::sync::atomic::Ordering::Relaxed),
+            total_tokens: self
+                .stats
+                .total_tokens
+                .load(std::sync::atomic::Ordering::Relaxed),
             cache_size: self.cache.lock().len(),
         }
     }
@@ -357,7 +380,8 @@ impl EmbeddingService {
             let token_emb = self.get_token_embedding(first_token);
             let pos_emb = self.get_position_embedding(0);
 
-            let mut result: Vec<f32> = token_emb.iter()
+            let mut result: Vec<f32> = token_emb
+                .iter()
                 .zip(pos_emb.iter())
                 .map(|(t, p)| t + p)
                 .collect();
@@ -380,7 +404,8 @@ impl EmbeddingService {
             let token_emb = self.get_token_embedding(last_token);
             let pos_emb = self.get_position_embedding(pos);
 
-            let mut result: Vec<f32> = token_emb.iter()
+            let mut result: Vec<f32> = token_emb
+                .iter()
                 .zip(pos_emb.iter())
                 .map(|(t, p)| t + p)
                 .collect();
@@ -478,11 +503,16 @@ mod tests {
 
         // Character-level tokenizer produces similar embeddings for similar text
         // Just verify they're not identical
-        let diff: f32 = e1.vector.iter()
+        let diff: f32 = e1
+            .vector
+            .iter()
             .zip(e2.vector.iter())
             .map(|(a, b)| (a - b).abs())
             .sum();
-        assert!(diff > 0.0, "Different texts should produce different embeddings");
+        assert!(
+            diff > 0.0,
+            "Different texts should produce different embeddings"
+        );
     }
 
     #[test]
@@ -515,17 +545,30 @@ mod tests {
         let service = EmbeddingService::new(&config).unwrap();
         let text = "Test pooling strategies";
 
-        let mean = service.embed_with_pooling(text, PoolingStrategy::Mean).unwrap();
-        let max = service.embed_with_pooling(text, PoolingStrategy::Max).unwrap();
-        let cls = service.embed_with_pooling(text, PoolingStrategy::CLS).unwrap();
-        let last = service.embed_with_pooling(text, PoolingStrategy::LastToken).unwrap();
+        let mean = service
+            .embed_with_pooling(text, PoolingStrategy::Mean)
+            .unwrap();
+        let max = service
+            .embed_with_pooling(text, PoolingStrategy::Max)
+            .unwrap();
+        let cls = service
+            .embed_with_pooling(text, PoolingStrategy::CLS)
+            .unwrap();
+        let last = service
+            .embed_with_pooling(text, PoolingStrategy::LastToken)
+            .unwrap();
 
         assert_eq!(mean.vector.len(), config.dimension);
         assert_eq!(max.vector.len(), config.dimension);
         assert_eq!(cls.vector.len(), config.dimension);
         assert_eq!(last.vector.len(), config.dimension);
 
-        let mean_dot_max: f32 = mean.vector.iter().zip(max.vector.iter()).map(|(a, b)| a * b).sum();
+        let mean_dot_max: f32 = mean
+            .vector
+            .iter()
+            .zip(max.vector.iter())
+            .map(|(a, b)| a * b)
+            .sum();
         assert!(mean_dot_max < 0.999);
     }
 

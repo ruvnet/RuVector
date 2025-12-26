@@ -27,16 +27,16 @@
 //! - Total for all vertices: O(k^{O(1)} · m)
 //! - Deterministic (no randomization)
 
-pub mod paper_impl;
 pub mod deterministic;
+pub mod paper_impl;
 
 // Re-export paper implementation types
 pub use paper_impl::{
-    LocalKCutQuery, LocalKCutResult, LocalKCutOracle,
-    DeterministicLocalKCut, DeterministicFamilyGenerator,
+    DeterministicFamilyGenerator, DeterministicLocalKCut, LocalKCutOracle, LocalKCutQuery,
+    LocalKCutResult,
 };
 
-use crate::graph::{DynamicGraph, VertexId, EdgeId, Weight};
+use crate::graph::{DynamicGraph, EdgeId, VertexId, Weight};
 use crate::{MinCutError, Result};
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::Arc;
@@ -111,7 +111,12 @@ impl EdgeColor {
 
     /// All possible colors
     pub fn all() -> [EdgeColor; 4] {
-        [EdgeColor::Red, EdgeColor::Blue, EdgeColor::Green, EdgeColor::Yellow]
+        [
+            EdgeColor::Red,
+            EdgeColor::Blue,
+            EdgeColor::Green,
+            EdgeColor::Yellow,
+        ]
     }
 }
 
@@ -461,11 +466,7 @@ impl ForestPacking {
     /// # Returns
     ///
     /// A forest packing with witness guarantees
-    pub fn greedy_packing(
-        graph: &DynamicGraph,
-        lambda_max: usize,
-        epsilon: f64,
-    ) -> Self {
+    pub fn greedy_packing(graph: &DynamicGraph, lambda_max: usize, epsilon: f64) -> Self {
         let m = graph.num_edges();
         let n = graph.num_vertices();
 
@@ -867,13 +868,7 @@ mod tests {
 
         let cut_edges = vec![(1, 3), (2, 4)];
 
-        let result = LocalCutResult::new(
-            2.5,
-            cut_set.clone(),
-            cut_edges.clone(),
-            true,
-            10,
-        );
+        let result = LocalCutResult::new(2.5, cut_set.clone(), cut_edges.clone(), true, 10);
 
         assert_eq!(result.cut_value, 2.5);
         assert_eq!(result.cut_set.len(), 2);

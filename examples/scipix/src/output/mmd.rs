@@ -368,7 +368,7 @@ mod tests {
         let doc = formatter.format_document(
             "My Document",
             "Content here",
-            Some("author: Test\ndate: 2025-01-01")
+            Some("author: Test\ndate: 2025-01-01"),
         );
 
         assert!(doc.contains("---"));

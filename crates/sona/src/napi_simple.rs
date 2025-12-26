@@ -10,10 +10,8 @@ use std::collections::HashMap;
 use std::sync::{Mutex, OnceLock};
 
 use crate::{
-    SonaEngine as RustSonaEngine,
-    SonaConfig,
+    LearnedPattern, SonaConfig, SonaEngine as RustSonaEngine,
     TrajectoryBuilder as RustTrajectoryBuilder,
-    LearnedPattern,
 };
 
 // Global storage for trajectory builders
@@ -157,7 +155,8 @@ impl SonaEngine {
     pub fn apply_base_lora(&self, layer_idx: u32, input: Vec<f64>) -> Vec<f64> {
         let input_f32: Vec<f32> = input.iter().map(|&x| x as f32).collect();
         let mut output = vec![0.0f32; input_f32.len()];
-        self.inner.apply_base_lora(layer_idx as usize, &input_f32, &mut output);
+        self.inner
+            .apply_base_lora(layer_idx as usize, &input_f32, &mut output);
         output.iter().map(|&x| x as f64).collect()
     }
 
@@ -188,7 +187,8 @@ impl SonaEngine {
     #[napi]
     pub fn find_patterns(&self, query_embedding: Vec<f64>, k: u32) -> Vec<JsLearnedPattern> {
         let query: Vec<f32> = query_embedding.iter().map(|&x| x as f32).collect();
-        self.inner.find_patterns(&query, k as usize)
+        self.inner
+            .find_patterns(&query, k as usize)
             .into_iter()
             .map(JsLearnedPattern::from)
             .collect()

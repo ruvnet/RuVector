@@ -104,7 +104,7 @@ pub fn busemann_score(x: &[f32], xi: &[f32]) -> f32 {
 pub fn horosphere_attention_weights(
     query: &[f32],
     keys: &[&[f32]],
-    focal_direction: &[f32],  // Light-like vector defining hierarchy direction
+    focal_direction: &[f32], // Light-like vector defining hierarchy direction
     temperature: f32,
 ) -> Vec<f32> {
     if keys.is_empty() {
@@ -143,11 +143,7 @@ pub fn horosphere_attention_weights(
 /// where γᵢ = 1/sqrt(1 + c||xᵢ_space||²) is the Lorentz factor
 ///
 /// This is exact for 2 points, excellent approximation for n points
-pub fn einstein_midpoint(
-    points: &[&[f32]],
-    weights: &[f32],
-    c: f32,
-) -> Vec<f32> {
+pub fn einstein_midpoint(points: &[&[f32]], weights: &[f32], c: f32) -> Vec<f32> {
     if points.is_empty() {
         return vec![];
     }
@@ -181,9 +177,9 @@ pub fn einstein_midpoint(
 #[derive(Debug, Clone)]
 pub struct CascadeHead {
     pub curvature: f32,
-    pub focal_direction: Vec<f32>,  // Learned ideal point direction
+    pub focal_direction: Vec<f32>, // Learned ideal point direction
     pub temperature: f32,
-    pub weight: f32,  // Blend weight for this scale
+    pub weight: f32, // Blend weight for this scale
 }
 
 impl CascadeHead {
@@ -191,7 +187,7 @@ impl CascadeHead {
         // Initialize focal direction as "upward" in hierarchy
         // (1, 0, 0, ..., 0) points toward the "root" of the tree
         let mut focal = vec![0.0; dim];
-        focal[0] = 1.0;  // Light-like: ⟨ξ,ξ⟩_L = 0
+        focal[0] = 1.0; // Light-like: ⟨ξ,ξ⟩_L = 0
         focal[1] = 1.0;
 
         Self {
@@ -222,7 +218,7 @@ pub struct LorentzCascadeAttention {
 pub struct LCAConfig {
     pub dim: usize,
     pub num_heads: usize,
-    pub curvature_range: (f32, f32),  // (min, max) curvature magnitudes
+    pub curvature_range: (f32, f32), // (min, max) curvature magnitudes
     pub temperature: f32,
 }
 
@@ -231,7 +227,7 @@ impl Default for LCAConfig {
         Self {
             dim: 128,
             num_heads: 4,
-            curvature_range: (0.1, 2.0),  // Multi-scale
+            curvature_range: (0.1, 2.0), // Multi-scale
             temperature: 1.0,
         }
     }
@@ -303,18 +299,14 @@ impl LorentzCascadeAttention {
     ///
     /// Combines results from all heads (different curvatures)
     /// Coarse heads capture global hierarchy, fine heads capture local
-    pub fn attend(
-        &self,
-        query: &[f32],
-        keys: &[&[f32]],
-        values: &[&[f32]],
-    ) -> Vec<f32> {
+    pub fn attend(&self, query: &[f32], keys: &[&[f32]], values: &[&[f32]]) -> Vec<f32> {
         if keys.is_empty() || values.is_empty() {
             return vec![0.0; self.dim];
         }
 
         // Compute attention at each scale
-        let head_outputs: Vec<Vec<f32>> = self.heads
+        let head_outputs: Vec<Vec<f32>> = self
+            .heads
             .iter()
             .map(|head| self.attend_single_head(head, query, keys, values))
             .collect();
@@ -377,7 +369,8 @@ impl LorentzCascadeAttention {
         });
 
         // Take top-k
-        let selected_indices: Vec<usize> = scored_indices.iter().take(top_k).map(|(i, _)| *i).collect();
+        let selected_indices: Vec<usize> =
+            scored_indices.iter().take(top_k).map(|(i, _)| *i).collect();
         let selected_keys: Vec<&[f32]> = selected_indices.iter().map(|&i| keys[i]).collect();
         let selected_values: Vec<&[f32]> = selected_indices.iter().map(|&i| values[i]).collect();
 
@@ -411,7 +404,7 @@ pub mod tangent {
 
         if v_norm < EPS {
             let mut result = vec![0.0; v.len() + 1];
-            result[0] = 1.0 / c.sqrt();  // Point at origin of hyperboloid
+            result[0] = 1.0 / c.sqrt(); // Point at origin of hyperboloid
             return result;
         }
 
@@ -460,7 +453,7 @@ mod tests {
     fn test_busemann_hierarchy() {
         // Focal direction pointing "up" in hierarchy (light-like: ⟨ξ,ξ⟩_L = 0)
         // For hierarchy, we want focal pointing toward the "root" of the tree
-        let focal = vec![1.0, -1.0, 0.0, 0.0];  // Light-like, pointing toward negative space
+        let focal = vec![1.0, -1.0, 0.0, 0.0]; // Light-like, pointing toward negative space
 
         // Points on hyperboloid with 4 dimensions (1 time + 3 space)
         // Root is closer to origin in space, leaf is further out
@@ -473,9 +466,14 @@ mod tests {
         // With focal pointing toward negative space direction,
         // root (smaller positive space) is "higher" in hierarchy (lower Busemann)
         // This is because B_ξ(x) = log(-⟨x,ξ⟩_L) and we want root closer to ξ
-        assert!(root_score < leaf_score,
+        assert!(
+            root_score < leaf_score,
             "root_score={:.4} should be < leaf_score={:.4}\nroot={:?}, leaf={:?}",
-            root_score, leaf_score, root, leaf);
+            root_score,
+            leaf_score,
+            root,
+            leaf
+        );
     }
 
     #[test]
@@ -505,7 +503,7 @@ mod tests {
     fn test_horosphere_weights_sum_to_one() {
         // Create points on hyperboloid with 4 dimensions (1 time + 3 space)
         // Input format: [time, space1, space2, space3]
-        let focal = vec![1.0, 1.0, 0.0, 0.0];  // Light-like direction
+        let focal = vec![1.0, 1.0, 0.0, 0.0]; // Light-like direction
 
         // project_hyperboloid takes [time_placeholder, space...] and computes correct time
         let query = project_hyperboloid(&[0.0, 0.5, 0.0, 0.0], 1.0);
@@ -529,12 +527,16 @@ pub mod bench {
 
     /// Benchmark LCA vs Poincaré attention
     pub fn compare_performance(n_keys: usize, dim: usize, iterations: usize) {
-        use crate::hyperbolic::poincare::{poincare_distance, frechet_mean};
+        use crate::hyperbolic::poincare::{frechet_mean, poincare_distance};
 
         // Generate random data
         let query: Vec<f32> = (0..dim).map(|i| (i as f32 * 0.1).sin() * 0.5).collect();
         let keys: Vec<Vec<f32>> = (0..n_keys)
-            .map(|j| (0..dim).map(|i| ((i + j) as f32 * 0.1).cos() * 0.5).collect())
+            .map(|j| {
+                (0..dim)
+                    .map(|i| ((i + j) as f32 * 0.1).cos() * 0.5)
+                    .collect()
+            })
             .collect();
         let keys_refs: Vec<&[f32]> = keys.iter().map(|k| k.as_slice()).collect();
 
@@ -563,9 +565,15 @@ pub mod bench {
         }
         let lca_time = start.elapsed();
 
-        println!("=== Performance Comparison (n={}, d={}, iter={}) ===", n_keys, dim, iterations);
+        println!(
+            "=== Performance Comparison (n={}, d={}, iter={}) ===",
+            n_keys, dim, iterations
+        );
         println!("Poincaré Attention: {:?}", poincare_time);
         println!("Lorentz Cascade:    {:?}", lca_time);
-        println!("Speedup:            {:.2}x", poincare_time.as_nanos() as f64 / lca_time.as_nanos() as f64);
+        println!(
+            "Speedup:            {:.2}x",
+            poincare_time.as_nanos() as f64 / lca_time.as_nanos() as f64
+        );
     }
 }

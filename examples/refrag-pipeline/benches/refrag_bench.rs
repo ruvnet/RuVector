@@ -27,13 +27,9 @@ fn bench_compression(c: &mut Criterion) {
             let compressor = TensorCompressor::new(dim).with_strategy(strategy);
 
             group.throughput(Throughput::Elements(1));
-            group.bench_with_input(
-                BenchmarkId::new(name, dim),
-                &vector,
-                |b, v| {
-                    b.iter(|| compressor.compress(black_box(v)))
-                },
-            );
+            group.bench_with_input(BenchmarkId::new(name, dim), &vector, |b, v| {
+                b.iter(|| compressor.compress(black_box(v)))
+            });
         }
     }
 
@@ -53,9 +49,7 @@ fn bench_policy(c: &mut Criterion) {
         group.bench_with_input(
             BenchmarkId::new("threshold", dim),
             &(&chunk, &query),
-            |b, (c, q)| {
-                b.iter(|| threshold.decide(black_box(c), black_box(q)))
-            },
+            |b, (c, q)| b.iter(|| threshold.decide(black_box(c), black_box(q))),
         );
 
         // Linear policy
@@ -63,9 +57,7 @@ fn bench_policy(c: &mut Criterion) {
         group.bench_with_input(
             BenchmarkId::new("linear", dim),
             &(&chunk, &query),
-            |b, (c, q)| {
-                b.iter(|| linear.decide(black_box(c), black_box(q)))
-            },
+            |b, (c, q)| b.iter(|| linear.decide(black_box(c), black_box(q))),
         );
 
         // MLP policy
@@ -73,9 +65,7 @@ fn bench_policy(c: &mut Criterion) {
         group.bench_with_input(
             BenchmarkId::new("mlp_32", dim),
             &(&chunk, &query),
-            |b, (c, q)| {
-                b.iter(|| mlp.decide(black_box(c), black_box(q)))
-            },
+            |b, (c, q)| b.iter(|| mlp.decide(black_box(c), black_box(q))),
         );
     }
 
@@ -94,9 +84,7 @@ fn bench_projection(c: &mut Criterion) {
         group.bench_with_input(
             BenchmarkId::new(format!("{}->{}", source, target), source),
             &input,
-            |b, v| {
-                b.iter(|| projector.project(black_box(v)))
-            },
+            |b, v| b.iter(|| projector.project(black_box(v))),
         );
     }
 
@@ -134,13 +122,9 @@ fn bench_search(c: &mut Criterion) {
         let query: Vec<f32> = (0..search_dim).map(|_| rng.gen_range(-1.0..1.0)).collect();
 
         group.throughput(Throughput::Elements(1));
-        group.bench_with_input(
-            BenchmarkId::new("hybrid_k10", num_docs),
-            &query,
-            |b, q| {
-                b.iter(|| store.search_hybrid(black_box(q), 10, None))
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("hybrid_k10", num_docs), &query, |b, q| {
+            b.iter(|| store.search_hybrid(black_box(q), 10, None))
+        });
     }
 
     group.finish();

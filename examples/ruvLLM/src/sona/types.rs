@@ -3,8 +3,8 @@
 //! Defines the fundamental data structures for the Self-Optimizing Neural Architecture.
 
 use serde::{Deserialize, Serialize};
-use std::time::Instant;
 use std::collections::HashMap;
+use std::time::Instant;
 
 /// Learning signal generated from inference trajectory
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -75,9 +75,8 @@ impl LearningSignal {
         let mut gradient = vec![0.0f32; dim];
 
         // Compute baseline (average reward)
-        let baseline = trajectory.steps.iter()
-            .map(|s| s.reward)
-            .sum::<f32>() / trajectory.steps.len() as f32;
+        let baseline =
+            trajectory.steps.iter().map(|s| s.reward).sum::<f32>() / trajectory.steps.len() as f32;
 
         // REINFORCE: gradient = sum((reward - baseline) * activation)
         for step in &trajectory.steps {
@@ -99,7 +98,8 @@ impl LearningSignal {
 
     /// Scale gradient by quality
     pub fn scaled_gradient(&self) -> Vec<f32> {
-        self.gradient_estimate.iter()
+        self.gradient_estimate
+            .iter()
             .map(|&g| g * self.quality_score)
             .collect()
     }
@@ -181,7 +181,12 @@ pub struct TrajectoryStep {
 
 impl TrajectoryStep {
     /// Create new step
-    pub fn new(activations: Vec<f32>, attention_weights: Vec<f32>, reward: f32, step_idx: usize) -> Self {
+    pub fn new(
+        activations: Vec<f32>,
+        attention_weights: Vec<f32>,
+        reward: f32,
+        step_idx: usize,
+    ) -> Self {
         Self {
             activations,
             attention_weights,
@@ -260,7 +265,9 @@ impl LearnedPattern {
         let w1 = self.cluster_size as f32 / total_size as f32;
         let w2 = other.cluster_size as f32 / total_size as f32;
 
-        let centroid: Vec<f32> = self.centroid.iter()
+        let centroid: Vec<f32> = self
+            .centroid
+            .iter()
             .zip(&other.centroid)
             .map(|(&a, &b)| a * w1 + b * w2)
             .collect();
@@ -300,9 +307,7 @@ impl LearnedPattern {
             .as_secs();
         let age = now.saturating_sub(self.last_accessed);
 
-        self.avg_quality < min_quality
-            && self.access_count < min_accesses
-            && age > max_age_secs
+        self.avg_quality < min_quality && self.access_count < min_accesses && age > max_age_secs
     }
 
     /// Compute cosine similarity with query
@@ -363,15 +368,15 @@ impl Default for SonaConfig {
         Self {
             hidden_dim: 256,
             embedding_dim: 256,
-            micro_lora_rank: 2,      // OPTIMIZED: Rank-2 faster than Rank-1 (2,211 vs 2,100 ops/sec)
-            base_lora_rank: 8,       // Balanced for production
-            micro_lora_lr: 0.002,    // OPTIMIZED: +55.3% quality improvement
+            micro_lora_rank: 2, // OPTIMIZED: Rank-2 faster than Rank-1 (2,211 vs 2,100 ops/sec)
+            base_lora_rank: 8,  // Balanced for production
+            micro_lora_lr: 0.002, // OPTIMIZED: +55.3% quality improvement
             base_lora_lr: 0.0001,
-            ewc_lambda: 2000.0,      // OPTIMIZED: Better forgetting prevention
-            pattern_clusters: 100,   // OPTIMIZED: 2.3x faster search (1.3ms vs 3.0ms)
+            ewc_lambda: 2000.0,    // OPTIMIZED: Better forgetting prevention
+            pattern_clusters: 100, // OPTIMIZED: 2.3x faster search (1.3ms vs 3.0ms)
             trajectory_capacity: 10000,
             background_interval_ms: 3600000, // 1 hour
-            quality_threshold: 0.3,  // OPTIMIZED: Lower threshold for more learning
+            quality_threshold: 0.3,          // OPTIMIZED: Lower threshold for more learning
             enable_simd: true,
         }
     }
@@ -383,9 +388,9 @@ impl SonaConfig {
         Self {
             hidden_dim: 256,
             embedding_dim: 256,
-            micro_lora_rank: 2,       // Rank-2 + SIMD = 2,211 ops/sec
-            base_lora_rank: 4,        // Minimal base for speed
-            micro_lora_lr: 0.0005,    // Conservative for stability
+            micro_lora_rank: 2,    // Rank-2 + SIMD = 2,211 ops/sec
+            base_lora_rank: 4,     // Minimal base for speed
+            micro_lora_lr: 0.0005, // Conservative for stability
             base_lora_lr: 0.0001,
             ewc_lambda: 2000.0,
             pattern_clusters: 100,
@@ -402,14 +407,14 @@ impl SonaConfig {
             hidden_dim: 256,
             embedding_dim: 256,
             micro_lora_rank: 2,
-            base_lora_rank: 16,       // Higher rank for expressiveness
-            micro_lora_lr: 0.002,     // Optimal learning rate
-            base_lora_lr: 0.001,      // Aggressive base learning
+            base_lora_rank: 16,   // Higher rank for expressiveness
+            micro_lora_lr: 0.002, // Optimal learning rate
+            base_lora_lr: 0.001,  // Aggressive base learning
             ewc_lambda: 2000.0,
             pattern_clusters: 100,
             trajectory_capacity: 20000,
             background_interval_ms: 1800000, // 30 minutes
-            quality_threshold: 0.2,   // Learn from more trajectories
+            quality_threshold: 0.2,          // Learn from more trajectories
             enable_simd: true,
         }
     }
@@ -419,7 +424,7 @@ impl SonaConfig {
         Self {
             hidden_dim: 256,
             embedding_dim: 256,
-            micro_lora_rank: 1,       // Minimal rank for memory
+            micro_lora_rank: 1, // Minimal rank for memory
             base_lora_rank: 4,
             micro_lora_lr: 0.001,
             base_lora_lr: 0.0001,

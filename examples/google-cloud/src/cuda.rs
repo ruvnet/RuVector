@@ -60,12 +60,16 @@ impl GpuInfo {
         }
 
         // Try to get CUDA version
-        if let Ok(output) = std::process::Command::new("nvcc").args(["--version"]).output() {
+        if let Ok(output) = std::process::Command::new("nvcc")
+            .args(["--version"])
+            .output()
+        {
             if output.status.success() {
                 let stdout = String::from_utf8_lossy(&output.stdout);
                 if let Some(line) = stdout.lines().find(|l| l.contains("release")) {
                     if let Some(version) = line.split("release").nth(1) {
-                        info.cuda_version = version.trim().split(',').next().unwrap_or("").to_string();
+                        info.cuda_version =
+                            version.trim().split(',').next().unwrap_or("").to_string();
                     }
                 }
             }
@@ -143,7 +147,11 @@ impl GpuDistance {
     }
 
     /// Benchmark memory bandwidth (host to device, device to host)
-    pub fn benchmark_memory_bandwidth(&self, sizes_mb: &[usize], iterations: usize) -> Vec<CudaBenchmarkResult> {
+    pub fn benchmark_memory_bandwidth(
+        &self,
+        sizes_mb: &[usize],
+        iterations: usize,
+    ) -> Vec<CudaBenchmarkResult> {
         let mut results = Vec::new();
 
         for &size_mb in sizes_mb {
@@ -165,7 +173,10 @@ impl GpuDistance {
 
             let mut metadata = std::collections::HashMap::new();
             metadata.insert("size_mb".to_string(), size_mb.to_string());
-            metadata.insert("bandwidth_gb_s".to_string(), format!("{:.2}", bandwidth_gb_s));
+            metadata.insert(
+                "bandwidth_gb_s".to_string(),
+                format!("{:.2}", bandwidth_gb_s),
+            );
 
             results.push(CudaBenchmarkResult {
                 name: format!("memory_bandwidth_{}MB", size_mb),
@@ -643,9 +654,15 @@ impl TpuOps {
         let head_dim = hidden_dim / num_heads;
 
         // Create Q, K, V matrices
-        let q: Vec<f32> = (0..seq_len * hidden_dim).map(|i| (i % 100) as f32 / 100.0).collect();
-        let k: Vec<f32> = (0..seq_len * hidden_dim).map(|i| (i % 100) as f32 / 100.0).collect();
-        let v: Vec<f32> = (0..seq_len * hidden_dim).map(|i| (i % 100) as f32 / 100.0).collect();
+        let q: Vec<f32> = (0..seq_len * hidden_dim)
+            .map(|i| (i % 100) as f32 / 100.0)
+            .collect();
+        let k: Vec<f32> = (0..seq_len * hidden_dim)
+            .map(|i| (i % 100) as f32 / 100.0)
+            .collect();
+        let v: Vec<f32> = (0..seq_len * hidden_dim)
+            .map(|i| (i % 100) as f32 / 100.0)
+            .collect();
 
         let mut times = Vec::with_capacity(iterations);
         for _ in 0..iterations {
@@ -764,7 +781,9 @@ pub async fn run_tpu_benchmarks(iterations: usize, output: Option<PathBuf>) -> R
         println!("   Peak BF16: {:.1} TFLOPS", tpu_info.peak_tflops_bf16);
     }
 
-    let tpu_ops = TpuOps { tpu_info: tpu_info.clone() };
+    let tpu_ops = TpuOps {
+        tpu_info: tpu_info.clone(),
+    };
 
     let mut all_results = Vec::new();
 

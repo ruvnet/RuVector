@@ -14,8 +14,8 @@
 //! - **Recursive fragmentation**: Decomposes graph into hierarchy
 //! - **Expander detection**: Identifies well-connected subgraphs
 
-use std::collections::{HashMap, HashSet, VecDeque};
 use crate::graph::{VertexId, Weight};
+use std::collections::{HashMap, HashSet, VecDeque};
 
 /// Configuration for the fragmentation algorithm
 #[derive(Debug, Clone)]
@@ -167,7 +167,8 @@ impl Fragmentation {
 
     /// Get neighbors of a vertex
     pub fn neighbors(&self, v: VertexId) -> Vec<(VertexId, Weight)> {
-        self.adjacency.get(&v)
+        self.adjacency
+            .get(&v)
             .map(|n| n.iter().map(|(&v, &w)| (v, w)).collect())
             .unwrap_or_default()
     }
@@ -230,7 +231,8 @@ impl Fragmentation {
         }
 
         // Split into two fragments
-        let remaining: HashSet<_> = fragment.vertices
+        let remaining: HashSet<_> = fragment
+            .vertices
             .difference(&trim_result.trimmed_vertices)
             .copied()
             .collect();
@@ -426,7 +428,9 @@ impl Fragmentation {
         }
 
         // Check the expansion ratio
-        let cut_volume = trim.trimmed_vertices.iter()
+        let cut_volume = trim
+            .trimmed_vertices
+            .iter()
             .map(|&v| self.degree(v))
             .sum::<usize>();
 
@@ -448,13 +452,15 @@ impl Fragmentation {
 
     /// Get fragment containing a vertex
     pub fn get_vertex_fragment(&self, v: VertexId) -> Option<&Fragment> {
-        self.vertex_fragment.get(&v)
+        self.vertex_fragment
+            .get(&v)
             .and_then(|&id| self.fragments.get(&id))
     }
 
     /// Get all leaf fragments (no children)
     pub fn leaf_fragments(&self) -> Vec<&Fragment> {
-        self.fragments.values()
+        self.fragments
+            .values()
             .filter(|f| f.children.is_empty())
             .collect()
     }
@@ -469,15 +475,20 @@ impl Fragmentation {
         fn depth_of(fragments: &HashMap<u64, Fragment>, id: u64) -> usize {
             match fragments.get(&id) {
                 Some(f) if f.children.is_empty() => 0,
-                Some(f) => 1 + f.children.iter()
-                    .map(|&c| depth_of(fragments, c))
-                    .max()
-                    .unwrap_or(0),
+                Some(f) => {
+                    1 + f
+                        .children
+                        .iter()
+                        .map(|&c| depth_of(fragments, c))
+                        .max()
+                        .unwrap_or(0)
+                }
                 None => 0,
             }
         }
 
-        self.roots.iter()
+        self.roots
+            .iter()
             .map(|&r| depth_of(&self.fragments, r))
             .max()
             .unwrap_or(0)
@@ -495,14 +506,14 @@ mod tests {
     use super::*;
 
     fn build_path_graph(frag: &mut Fragmentation, n: usize) {
-        for i in 0..n-1 {
+        for i in 0..n - 1 {
             frag.insert_edge(i as u64, (i + 1) as u64, 1.0);
         }
     }
 
     fn build_clique(frag: &mut Fragmentation, vertices: &[u64]) {
         for i in 0..vertices.len() {
-            for j in i+1..vertices.len() {
+            for j in i + 1..vertices.len() {
                 frag.insert_edge(vertices[i], vertices[j], 1.0);
             }
         }

@@ -1,4 +1,4 @@
-use criterion::{criterion_group, criterion_main, Criterion, BenchmarkId, black_box};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use std::time::Duration;
 
 /// Benchmark API request parsing
@@ -8,15 +8,20 @@ fn bench_request_parsing(c: &mut Criterion) {
 
     let json_payloads = vec![
         ("small", r#"{"image_url": "http://example.com/img.jpg"}"#),
-        ("medium", r#"{
+        (
+            "medium",
+            r#"{
             "image_url": "http://example.com/img.jpg",
             "options": {
                 "languages": ["en", "es"],
                 "format": "latex",
                 "inline_mode": true
             }
-        }"#),
-        ("large", r#"{
+        }"#,
+        ),
+        (
+            "large",
+            r#"{
             "image_url": "http://example.com/img.jpg",
             "options": {
                 "languages": ["en", "es", "fr", "de"],
@@ -32,19 +37,14 @@ fn bench_request_parsing(c: &mut Criterion) {
                 "session_id": "abcde",
                 "timestamp": 1234567890
             }
-        }"#),
+        }"#,
+        ),
     ];
 
     for (name, payload) in json_payloads {
-        group.bench_with_input(
-            BenchmarkId::new("parse_json", name),
-            &payload,
-            |b, json| {
-                b.iter(|| {
-                    black_box(parse_ocr_request(black_box(json)))
-                });
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("parse_json", name), &payload, |b, json| {
+            b.iter(|| black_box(parse_ocr_request(black_box(json))));
+        });
     }
 
     group.finish();
@@ -66,9 +66,7 @@ fn bench_response_serialization(c: &mut Criterion) {
             BenchmarkId::new("serialize_json", name),
             &response,
             |b, resp| {
-                b.iter(|| {
-                    black_box(serialize_response(black_box(resp)))
-                });
+                b.iter(|| black_box(serialize_response(black_box(resp))));
             },
         );
     }
@@ -89,9 +87,7 @@ fn bench_concurrent_requests(c: &mut Criterion) {
             &concurrency,
             |b, &level| {
                 b.iter(|| {
-                    let handles: Vec<_> = (0..level)
-                        .map(|_| handle_single_request())
-                        .collect();
+                    let handles: Vec<_> = (0..level).map(|_| handle_single_request()).collect();
                     black_box(handles)
                 });
             },
@@ -109,9 +105,7 @@ fn bench_middleware_overhead(c: &mut Criterion) {
     let request = create_mock_request();
 
     group.bench_function("no_middleware", |b| {
-        b.iter(|| {
-            black_box(handle_request_direct(black_box(&request)))
-        });
+        b.iter(|| black_box(handle_request_direct(black_box(&request))));
     });
 
     group.bench_function("with_auth", |b| {
@@ -151,15 +145,11 @@ fn bench_request_validation(c: &mut Criterion) {
     let invalid_request = create_invalid_request();
 
     group.bench_function("validate_valid", |b| {
-        b.iter(|| {
-            black_box(validate_request(black_box(&valid_request)))
-        });
+        b.iter(|| black_box(validate_request(black_box(&valid_request))));
     });
 
     group.bench_function("validate_invalid", |b| {
-        b.iter(|| {
-            black_box(validate_request(black_box(&invalid_request)))
-        });
+        b.iter(|| black_box(validate_request(black_box(&invalid_request))));
     });
 
     group.finish();
@@ -173,9 +163,7 @@ fn bench_rate_limiting(c: &mut Criterion) {
     let mut limiter = RateLimiter::new(100, Duration::from_secs(60));
 
     group.bench_function("check_limit", |b| {
-        b.iter(|| {
-            black_box(limiter.check_limit("user_123"))
-        });
+        b.iter(|| black_box(limiter.check_limit("user_123")));
     });
 
     group.bench_function("update_limit", |b| {
@@ -194,9 +182,7 @@ fn bench_error_handling(c: &mut Criterion) {
     group.measurement_time(Duration::from_secs(5));
 
     group.bench_function("create_error_response", |b| {
-        b.iter(|| {
-            black_box(create_error_response("Invalid request", 400))
-        });
+        b.iter(|| black_box(create_error_response("Invalid request", 400)));
     });
 
     group.bench_function("log_and_respond", |b| {
@@ -293,7 +279,10 @@ impl RateLimiter {
 
     fn check_limit(&mut self, user_id: &str) -> bool {
         let now = std::time::Instant::now();
-        let requests = self.requests.entry(user_id.to_string()).or_insert_with(Vec::new);
+        let requests = self
+            .requests
+            .entry(user_id.to_string())
+            .or_insert_with(Vec::new);
 
         requests.retain(|&req_time| now.duration_since(req_time) < self.window);
 

@@ -33,28 +33,34 @@
 //! +------------------------------------------------------------------+
 //! ```
 
-pub mod ipc;
-pub mod lifecycle;
-pub mod queue;
 pub mod engine;
-pub mod maintenance;
 pub mod gnn;
 pub mod integrity;
+pub mod ipc;
+pub mod lifecycle;
+pub mod maintenance;
+pub mod queue;
 
 // Re-exports
-pub use ipc::{SharedMemory, SharedMemoryLayout, WorkItem, WorkResult, PayloadRef};
-pub use lifecycle::{WorkerLifecycle, WorkerHandle, WorkerStatus, spawn_worker, shutdown_worker};
-pub use queue::{TaskQueue, TaskPriority, TaskType, QueueStats, QueueStatsSnapshot};
 pub use engine::{EngineWorker, EngineWorkerConfig, SearchResult};
+pub use gnn::{
+    get_gnn_worker, set_gnn_config, GnnModel, GnnTrainingConfig, GnnTrainingRequest,
+    GnnTrainingWorker,
+};
+pub use integrity::{
+    get_integrity_worker, set_integrity_config, IntegrityConfig, IntegrityState,
+    IntegrityStateType, IntegrityWorker,
+};
 pub use ipc::{Operation, SearchRequest};
-pub use maintenance::{MaintenanceWorker, MaintenanceConfig, TierCandidate};
-pub use gnn::{GnnTrainingWorker, GnnTrainingConfig, GnnTrainingRequest, GnnModel, get_gnn_worker, set_gnn_config};
-pub use integrity::{IntegrityWorker, IntegrityConfig, IntegrityState, IntegrityStateType, get_integrity_worker, set_integrity_config};
+pub use ipc::{PayloadRef, SharedMemory, SharedMemoryLayout, WorkItem, WorkResult};
+pub use lifecycle::{shutdown_worker, spawn_worker, WorkerHandle, WorkerLifecycle, WorkerStatus};
+pub use maintenance::{MaintenanceConfig, MaintenanceWorker, TierCandidate};
+pub use queue::{QueueStats, QueueStatsSnapshot, TaskPriority, TaskQueue, TaskType};
 
+use parking_lot::RwLock;
 use pgrx::prelude::*;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::OnceLock;
-use parking_lot::RwLock;
 
 // ============================================================================
 // Worker Type Enumeration
@@ -221,7 +227,12 @@ pub fn shutdown_all_workers() {
     // Shutdown each worker type
     for (worker_type, handle) in registry.get_all_workers() {
         if let Err(e) = lifecycle::shutdown_worker(handle.id) {
-            pgrx::warning!("Failed to shutdown {} worker {}: {}", worker_type, handle.id, e);
+            pgrx::warning!(
+                "Failed to shutdown {} worker {}: {}",
+                worker_type,
+                handle.id,
+                e
+            );
         }
     }
 
@@ -281,20 +292,16 @@ pub fn ruvector_worker_spawn(worker_type: &str) -> pgrx::JsonB {
     };
 
     match lifecycle::spawn_worker(wt) {
-        Ok(handle) => {
-            pgrx::JsonB(serde_json::json!({
-                "success": true,
-                "worker_id": handle.id,
-                "worker_type": wt.to_string(),
-                "pid": handle.pid,
-            }))
-        }
-        Err(e) => {
-            pgrx::JsonB(serde_json::json!({
-                "success": false,
-                "error": e,
-            }))
-        }
+        Ok(handle) => pgrx::JsonB(serde_json::json!({
+            "success": true,
+            "worker_id": handle.id,
+            "worker_type": wt.to_string(),
+            "pid": handle.pid,
+        })),
+        Err(e) => pgrx::JsonB(serde_json::json!({
+            "success": false,
+            "error": e,
+        })),
     }
 }
 
@@ -321,7 +328,10 @@ pub fn ruvector_worker_configure(config: pgrx::JsonB) -> pgrx::JsonB {
     if let Some(maintenance_config) = config_value.get("maintenance") {
         if let Ok(cfg) = serde_json::from_value::<MaintenanceConfig>(maintenance_config.clone()) {
             maintenance::set_maintenance_config(cfg.clone());
-            applied.insert("maintenance".to_string(), serde_json::to_value(&cfg).unwrap());
+            applied.insert(
+                "maintenance".to_string(),
+                serde_json::to_value(&cfg).unwrap(),
+            );
         }
     }
 
@@ -356,9 +366,18 @@ mod tests {
     #[test]
     fn test_worker_type_parsing() {
         assert_eq!("engine".parse::<WorkerType>().unwrap(), WorkerType::Engine);
-        assert_eq!("maintenance".parse::<WorkerType>().unwrap(), WorkerType::Maintenance);
-        assert_eq!("gnn".parse::<WorkerType>().unwrap(), WorkerType::GnnTraining);
-        assert_eq!("integrity".parse::<WorkerType>().unwrap(), WorkerType::Integrity);
+        assert_eq!(
+            "maintenance".parse::<WorkerType>().unwrap(),
+            WorkerType::Maintenance
+        );
+        assert_eq!(
+            "gnn".parse::<WorkerType>().unwrap(),
+            WorkerType::GnnTraining
+        );
+        assert_eq!(
+            "integrity".parse::<WorkerType>().unwrap(),
+            WorkerType::Integrity
+        );
         assert!("unknown".parse::<WorkerType>().is_err());
     }
 

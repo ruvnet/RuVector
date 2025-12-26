@@ -78,7 +78,11 @@ impl ScalarQuantizedVector {
     /// Create from f32 vector
     pub fn from_f32(vector: &[f32]) -> Self {
         let (data, scale, offset) = quantize(vector);
-        Self { data, scale, offset }
+        Self {
+            data,
+            scale,
+            offset,
+        }
     }
 
     /// Convert back to f32

@@ -29,7 +29,8 @@ fn test_create_single_node() {
 #[test]
 fn test_create_relationship() {
     let mut graph = PropertyGraph::new();
-    let query = "CREATE (a:Person {name: 'Alice'})-[r:KNOWS {since: 2020}]->(b:Person {name: 'Bob'})";
+    let query =
+        "CREATE (a:Person {name: 'Alice'})-[r:KNOWS {since: 2020}]->(b:Person {name: 'Bob'})";
 
     let ast = parse_cypher(query).expect("Failed to parse query");
     let mut executor = Executor::new(&mut graph);
@@ -62,9 +63,7 @@ fn test_match_nodes() {
     let create = "CREATE (a:Person {name: 'Alice', age: 30}), (b:Person {name: 'Bob', age: 25})";
     let ast = parse_cypher(create).expect("Failed to parse CREATE");
     let mut executor = Executor::new(&mut graph);
-    executor
-        .execute(&ast)
-        .expect("Failed to execute CREATE");
+    executor.execute(&ast).expect("Failed to execute CREATE");
 
     // Match all persons
     let match_query = "MATCH (n:Person) RETURN n";
@@ -83,9 +82,7 @@ fn test_match_relationship() {
     let create = "CREATE (a:Person {name: 'Alice'})-[r:KNOWS]->(b:Person {name: 'Bob'})";
     let ast = parse_cypher(create).expect("Failed to parse CREATE");
     let mut executor = Executor::new(&mut graph);
-    executor
-        .execute(&ast)
-        .expect("Failed to execute CREATE");
+    executor.execute(&ast).expect("Failed to execute CREATE");
 
     // Match the relationship
     let match_query = "MATCH (a:Person)-[r:KNOWS]->(b:Person) RETURN a, r, b";

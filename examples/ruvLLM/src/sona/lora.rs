@@ -68,7 +68,11 @@ impl MicroLoRA {
     /// # Panics
     /// Panics if rank > 2
     pub fn new(hidden_dim: usize, rank: usize) -> Self {
-        assert!(rank >= 1 && rank <= 2, "MicroLoRA rank must be 1-2, got {}", rank);
+        assert!(
+            rank >= 1 && rank <= 2,
+            "MicroLoRA rank must be 1-2, got {}",
+            rank
+        );
 
         // Initialize down with small random-like values (deterministic for reproducibility)
         let down_proj: Vec<f32> = (0..hidden_dim * rank)
@@ -106,7 +110,8 @@ impl MicroLoRA {
 
     /// Batch forward with optimal chunking
     pub fn forward_batch_optimal(&self, inputs: &[Vec<f32>]) -> Vec<Vec<f32>> {
-        let mut outputs: Vec<Vec<f32>> = inputs.iter()
+        let mut outputs: Vec<Vec<f32>> = inputs
+            .iter()
             .map(|_| vec![0.0f32; self.hidden_dim])
             .collect();
 
@@ -366,7 +371,8 @@ impl BaseLoRA {
         let mut intermediate = vec![0.0f32; self.rank];
         for r in 0..self.rank {
             let offset = r * self.hidden_dim;
-            intermediate[r] = input.iter()
+            intermediate[r] = input
+                .iter()
                 .zip(&layer.down_proj[offset..offset + self.hidden_dim])
                 .map(|(a, b)| a * b)
                 .sum();
@@ -397,8 +403,8 @@ impl BaseLoRA {
             for j in 0..self.hidden_dim {
                 let mut delta = 0.0f32;
                 for r in 0..self.rank {
-                    delta += layer.down_proj[i * self.rank + r]
-                           * layer.up_proj[r * self.hidden_dim + j];
+                    delta +=
+                        layer.down_proj[i * self.rank + r] * layer.up_proj[r * self.hidden_dim + j];
                 }
                 model_weights[i * self.hidden_dim + j] += delta * scale;
             }
@@ -488,18 +494,18 @@ mod tests {
         // Output should be modified (even if small due to init)
         // With zero-init up_proj, output should still be zero
         let sum: f32 = output.iter().sum();
-        assert!(sum.abs() < 1e-6, "Expected ~0 with zero up_proj, got {}", sum);
+        assert!(
+            sum.abs() < 1e-6,
+            "Expected ~0 with zero up_proj, got {}",
+            sum
+        );
     }
 
     #[test]
     fn test_micro_lora_learning() {
         let mut lora = MicroLoRA::new(64, 1);
 
-        let signal = LearningSignal::with_gradient(
-            vec![0.1; 64],
-            vec![0.5; 64],
-            0.8,
-        );
+        let signal = LearningSignal::with_gradient(vec![0.1; 64], vec![0.5; 64], 0.8);
 
         lora.accumulate_gradient(&signal);
         assert_eq!(lora.pending_updates(), 1);
@@ -527,11 +533,7 @@ mod tests {
     fn test_lora_engine() {
         let mut engine = LoRAEngine::new(64, 1, 4, 12);
 
-        let signal = LearningSignal::with_gradient(
-            vec![0.1; 64],
-            vec![0.5; 64],
-            0.9,
-        );
+        let signal = LearningSignal::with_gradient(vec![0.1; 64], vec![0.5; 64], 0.9);
 
         engine.accumulate_micro(&signal);
         engine.apply_micro(0.01);

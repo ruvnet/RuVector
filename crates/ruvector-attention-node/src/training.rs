@@ -10,21 +10,12 @@
 use napi::bindgen_prelude::*;
 use napi_derive::napi;
 use ruvector_attention::training::{
-    InfoNCELoss as RustInfoNCE,
-    LocalContrastiveLoss as RustLocalContrastive,
-    SpectralRegularization as RustSpectralReg,
-    Loss,
+    Adam as RustAdam, AdamW as RustAdamW, CurriculumScheduler as RustCurriculum,
+    CurriculumStage as RustStage, DecayType as RustDecayType, HardNegativeMiner as RustHardMiner,
+    InfoNCELoss as RustInfoNCE, LocalContrastiveLoss as RustLocalContrastive, Loss,
+    MiningStrategy as RustMiningStrategy, NegativeMiner, Optimizer,
+    SpectralRegularization as RustSpectralReg, TemperatureAnnealing as RustTempAnnealing,
     SGD as RustSGD,
-    Adam as RustAdam,
-    AdamW as RustAdamW,
-    Optimizer,
-    CurriculumScheduler as RustCurriculum,
-    CurriculumStage as RustStage,
-    TemperatureAnnealing as RustTempAnnealing,
-    DecayType as RustDecayType,
-    HardNegativeMiner as RustHardMiner,
-    MiningStrategy as RustMiningStrategy,
-    NegativeMiner,
 };
 
 // ============================================================================
@@ -59,26 +50,39 @@ impl InfoNCELoss {
     /// * `positive` - Positive example embedding
     /// * `negatives` - Array of negative example embeddings
     #[napi]
-    pub fn compute(&self, anchor: Float32Array, positive: Float32Array, negatives: Vec<Float32Array>) -> f64 {
+    pub fn compute(
+        &self,
+        anchor: Float32Array,
+        positive: Float32Array,
+        negatives: Vec<Float32Array>,
+    ) -> f64 {
         let anchor_slice = anchor.as_ref();
         let positive_slice = positive.as_ref();
         let negatives_vec: Vec<Vec<f32>> = negatives.into_iter().map(|n| n.to_vec()).collect();
         let negatives_refs: Vec<&[f32]> = negatives_vec.iter().map(|n| n.as_slice()).collect();
 
-        self.inner.compute(anchor_slice, positive_slice, &negatives_refs) as f64
+        self.inner
+            .compute(anchor_slice, positive_slice, &negatives_refs) as f64
     }
 
     /// Compute InfoNCE loss with gradients
     ///
     /// Returns an object with `loss` and `gradients` fields
     #[napi]
-    pub fn compute_with_gradients(&self, anchor: Float32Array, positive: Float32Array, negatives: Vec<Float32Array>) -> LossWithGradients {
+    pub fn compute_with_gradients(
+        &self,
+        anchor: Float32Array,
+        positive: Float32Array,
+        negatives: Vec<Float32Array>,
+    ) -> LossWithGradients {
         let anchor_slice = anchor.as_ref();
         let positive_slice = positive.as_ref();
         let negatives_vec: Vec<Vec<f32>> = negatives.into_iter().map(|n| n.to_vec()).collect();
         let negatives_refs: Vec<&[f32]> = negatives_vec.iter().map(|n| n.as_slice()).collect();
 
-        let (loss, gradients) = self.inner.compute_with_gradients(anchor_slice, positive_slice, &negatives_refs);
+        let (loss, gradients) =
+            self.inner
+                .compute_with_gradients(anchor_slice, positive_slice, &negatives_refs);
 
         LossWithGradients {
             loss: loss as f64,
@@ -123,24 +127,37 @@ impl LocalContrastiveLoss {
 
     /// Compute local contrastive loss
     #[napi]
-    pub fn compute(&self, anchor: Float32Array, positive: Float32Array, negatives: Vec<Float32Array>) -> f64 {
+    pub fn compute(
+        &self,
+        anchor: Float32Array,
+        positive: Float32Array,
+        negatives: Vec<Float32Array>,
+    ) -> f64 {
         let anchor_slice = anchor.as_ref();
         let positive_slice = positive.as_ref();
         let negatives_vec: Vec<Vec<f32>> = negatives.into_iter().map(|n| n.to_vec()).collect();
         let negatives_refs: Vec<&[f32]> = negatives_vec.iter().map(|n| n.as_slice()).collect();
 
-        self.inner.compute(anchor_slice, positive_slice, &negatives_refs) as f64
+        self.inner
+            .compute(anchor_slice, positive_slice, &negatives_refs) as f64
     }
 
     /// Compute with gradients
     #[napi]
-    pub fn compute_with_gradients(&self, anchor: Float32Array, positive: Float32Array, negatives: Vec<Float32Array>) -> LossWithGradients {
+    pub fn compute_with_gradients(
+        &self,
+        anchor: Float32Array,
+        positive: Float32Array,
+        negatives: Vec<Float32Array>,
+    ) -> LossWithGradients {
         let anchor_slice = anchor.as_ref();
         let positive_slice = positive.as_ref();
         let negatives_vec: Vec<Vec<f32>> = negatives.into_iter().map(|n| n.to_vec()).collect();
         let negatives_refs: Vec<&[f32]> = negatives_vec.iter().map(|n| n.as_slice()).collect();
 
-        let (loss, gradients) = self.inner.compute_with_gradients(anchor_slice, positive_slice, &negatives_refs);
+        let (loss, gradients) =
+            self.inner
+                .compute_with_gradients(anchor_slice, positive_slice, &negatives_refs);
 
         LossWithGradients {
             loss: loss as f64,
@@ -227,7 +244,12 @@ impl SGDOptimizer {
 
     /// Create with momentum and weight decay
     #[napi(factory)]
-    pub fn with_weight_decay(param_count: u32, learning_rate: f64, momentum: f64, weight_decay: f64) -> Self {
+    pub fn with_weight_decay(
+        param_count: u32,
+        learning_rate: f64,
+        momentum: f64,
+        weight_decay: f64,
+    ) -> Self {
         Self {
             inner: RustSGD::new(param_count as usize, learning_rate as f32)
                 .with_momentum(momentum as f32)
@@ -301,7 +323,14 @@ impl AdamOptimizer {
 
     /// Create with full configuration
     #[napi(factory)]
-    pub fn with_config(param_count: u32, learning_rate: f64, beta1: f64, beta2: f64, epsilon: f64, weight_decay: f64) -> Self {
+    pub fn with_config(
+        param_count: u32,
+        learning_rate: f64,
+        beta1: f64,
+        beta2: f64,
+        epsilon: f64,
+        weight_decay: f64,
+    ) -> Self {
         Self {
             inner: RustAdam::new(param_count as usize, learning_rate as f32)
                 .with_betas(beta1 as f32, beta2 as f32)
@@ -367,7 +396,13 @@ impl AdamWOptimizer {
 
     /// Create with custom betas
     #[napi(factory)]
-    pub fn with_betas(param_count: u32, learning_rate: f64, weight_decay: f64, beta1: f64, beta2: f64) -> Self {
+    pub fn with_betas(
+        param_count: u32,
+        learning_rate: f64,
+        weight_decay: f64,
+        beta1: f64,
+        beta2: f64,
+    ) -> Self {
         Self {
             inner: RustAdamW::new(param_count as usize, learning_rate as f32)
                 .with_weight_decay(weight_decay as f32)
@@ -541,23 +576,21 @@ impl TemperatureAnnealing {
     #[napi(constructor)]
     pub fn new(initial_temp: f64, final_temp: f64, steps: u32) -> Self {
         Self {
-            inner: RustTempAnnealing::new(
-                initial_temp as f32,
-                final_temp as f32,
-                steps as usize,
-            ),
+            inner: RustTempAnnealing::new(initial_temp as f32, final_temp as f32, steps as usize),
         }
     }
 
     /// Create with specific decay type
     #[napi(factory)]
-    pub fn with_decay(initial_temp: f64, final_temp: f64, steps: u32, decay_type: DecayType) -> Self {
+    pub fn with_decay(
+        initial_temp: f64,
+        final_temp: f64,
+        steps: u32,
+        decay_type: DecayType,
+    ) -> Self {
         Self {
-            inner: RustTempAnnealing::new(
-                initial_temp as f32,
-                final_temp as f32,
-                steps as usize,
-            ).with_decay(decay_type.into()),
+            inner: RustTempAnnealing::new(initial_temp as f32, final_temp as f32, steps as usize)
+                .with_decay(decay_type.into()),
         }
     }
 
@@ -728,8 +761,7 @@ impl HardNegativeMiner {
     #[napi(factory)]
     pub fn with_margin(strategy: MiningStrategy, margin: f64) -> Self {
         Self {
-            inner: RustHardMiner::new(strategy.into())
-                .with_margin(margin as f32),
+            inner: RustHardMiner::new(strategy.into()).with_margin(margin as f32),
         }
     }
 
@@ -737,8 +769,7 @@ impl HardNegativeMiner {
     #[napi(factory)]
     pub fn with_temperature(strategy: MiningStrategy, temperature: f64) -> Self {
         Self {
-            inner: RustHardMiner::new(strategy.into())
-                .with_temperature(temperature as f32),
+            inner: RustHardMiner::new(strategy.into()).with_temperature(temperature as f32),
         }
     }
 
@@ -766,7 +797,12 @@ impl HardNegativeMiner {
         let candidates_refs: Vec<&[f32]> = candidates_vec.iter().map(|c| c.as_slice()).collect();
 
         self.inner
-            .mine(anchor_slice, positive_slice, &candidates_refs, num_negatives as usize)
+            .mine(
+                anchor_slice,
+                positive_slice,
+                &candidates_refs,
+                num_negatives as usize,
+            )
             .into_iter()
             .map(|i| i as u32)
             .collect()
@@ -809,9 +845,7 @@ impl InBatchMiner {
     #[napi]
     pub fn get_negatives(&self, anchor_idx: u32, positive_idx: u32, batch_size: u32) -> Vec<u32> {
         (0..batch_size)
-            .filter(|&i| {
-                i != anchor_idx && (!self.exclude_positive || i != positive_idx)
-            })
+            .filter(|&i| i != anchor_idx && (!self.exclude_positive || i != positive_idx))
             .collect()
     }
 }

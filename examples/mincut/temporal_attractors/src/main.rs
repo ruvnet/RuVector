@@ -217,10 +217,7 @@ impl AttractorNetwork {
         }
 
         // Build a MinCut structure and compute
-        match MinCutBuilder::new()
-            .with_edges(self.edges.clone())
-            .build()
-        {
+        match MinCutBuilder::new().with_edges(self.edges.clone()).build() {
             Ok(mincut) => mincut.min_cut_value() as u64,
             Err(_) => 0,
         }
@@ -228,9 +225,9 @@ impl AttractorNetwork {
 
     /// Checks if an edge exists between two nodes
     fn has_edge(&self, u: VertexId, v: VertexId) -> bool {
-        self.edges.iter().any(|e| {
-            (e.0 == u && e.1 == v) || (e.0 == v && e.1 == u)
-        })
+        self.edges
+            .iter()
+            .any(|e| (e.0 == u && e.1 == v) || (e.0 == v && e.1 == u))
     }
 
     /// Strengthens a random edge
@@ -267,7 +264,9 @@ impl AttractorNetwork {
             AttractorType::Optimal => {
                 // Converged if mincut is high and not changing
                 let avg = mincuts.iter().sum::<u64>() / mincuts.len() as u64;
-                mincuts.iter().all(|&mc| (mc as i64 - avg as i64).abs() <= 1)
+                mincuts
+                    .iter()
+                    .all(|&mc| (mc as i64 - avg as i64).abs() <= 1)
             }
             AttractorType::Fragmented => {
                 // Converged if mincut is 0 or very low
@@ -319,7 +318,10 @@ impl AttractorNetwork {
                 let total_time: u64 = self.history.iter().map(|s| s.step_duration_us).sum();
                 println!("\nPerformance:");
                 println!("  Total Time: {:.2}ms", total_time as f64 / 1000.0);
-                println!("  Avg Step:   {:.2}μs", total_time as f64 / self.history.len() as f64);
+                println!(
+                    "  Avg Step:   {:.2}μs",
+                    total_time as f64 / self.history.len() as f64
+                );
             }
         }
         println!("{}", "=".repeat(70));
@@ -340,9 +342,18 @@ fn main() {
 
     // Run three different attractor scenarios
     let scenarios = vec![
-        (AttractorType::Optimal, "Networks that want to maximize connectivity"),
-        (AttractorType::Fragmented, "Networks that fragment into clusters"),
-        (AttractorType::Oscillating, "Networks that oscillate between states"),
+        (
+            AttractorType::Optimal,
+            "Networks that want to maximize connectivity",
+        ),
+        (
+            AttractorType::Fragmented,
+            "Networks that fragment into clusters",
+        ),
+        (
+            AttractorType::Oscillating,
+            "Networks that oscillate between states",
+        ),
     ];
 
     for (idx, (attractor_type, description)) in scenarios.into_iter().enumerate() {
@@ -367,7 +378,8 @@ fn main() {
 
             // Print every 5th step for readability
             if step % 5 == 0 || network.has_converged(convergence_window) {
-                println!("{:5} | {:6} | {:5} | {:8.2} | {:8} | {}",
+                println!(
+                    "{:5} | {:6} | {:5} | {:8.2} | {:8} | {}",
                     snapshot.step,
                     snapshot.mincut,
                     snapshot.edge_count,
@@ -402,10 +414,14 @@ fn main() {
             // Detect pattern
             let variance: f64 = {
                 let mean = last_10.iter().sum::<u64>() as f64 / last_10.len() as f64;
-                last_10.iter().map(|&x| {
-                    let diff = x as f64 - mean;
-                    diff * diff
-                }).sum::<f64>() / last_10.len() as f64
+                last_10
+                    .iter()
+                    .map(|&x| {
+                        let diff = x as f64 - mean;
+                        diff * diff
+                    })
+                    .sum::<f64>()
+                    / last_10.len() as f64
             };
 
             println!("Variance: {:.2}", variance);

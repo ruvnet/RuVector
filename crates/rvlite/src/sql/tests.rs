@@ -1,7 +1,7 @@
 // Integration tests for SQL engine
 #[cfg(test)]
 mod tests {
-    use crate::sql::{SqlParser, SqlEngine};
+    use crate::sql::{SqlEngine, SqlParser};
 
     #[test]
     fn test_full_workflow() {
@@ -37,7 +37,10 @@ mod tests {
         for i in 0..10 {
             let insert_sql = format!(
                 "INSERT INTO docs (id, embedding) VALUES ('doc{}', [{}, {}, {}])",
-                i, i, i * 2, i * 3
+                i,
+                i,
+                i * 2,
+                i * 3
             );
             let mut parser = SqlParser::new(&insert_sql).unwrap();
             let stmt = parser.parse().unwrap();
@@ -68,7 +71,8 @@ mod tests {
         // Insert data with categories
         let categories = vec!["tech", "sports", "tech", "news", "sports"];
         for (i, cat) in categories.iter().enumerate() {
-            let insert_sql = format!(
+            let insert_sql =
+                format!(
                 "INSERT INTO docs (id, category, embedding) VALUES ('doc{}', '{}', [{}, {}, {}])",
                 i, cat, i, i * 2, i * 3
             );

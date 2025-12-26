@@ -8,16 +8,16 @@
 //! - Lazy witness benefits
 //! - Replacement edge lookup
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId, Throughput};
-use ruvector_mincut::prelude::*;
-use ruvector_mincut::wrapper::MinCutWrapper;
-use ruvector_mincut::pool::BfsPool;
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
+use rand::rngs::StdRng;
+use rand::{Rng, SeedableRng};
 use ruvector_mincut::algorithm::ReplacementEdgeIndex;
 use ruvector_mincut::instance::witness::LazyWitness;
+use ruvector_mincut::pool::BfsPool;
+use ruvector_mincut::prelude::*;
+use ruvector_mincut::wrapper::MinCutWrapper;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
-use std::collections::{HashSet, HashMap};
-use rand::{Rng, SeedableRng};
-use rand::rngs::StdRng;
 
 // ============================================================================
 // Graph Generators
@@ -288,35 +288,31 @@ fn bench_memory_pool(c: &mut Criterion) {
 
     for size in [100, 500, 1000, 5000] {
         // Without pool - allocate fresh each time
-        group.bench_with_input(
-            BenchmarkId::new("bfs_no_pool", size),
-            &size,
-            |b, &size| {
-                b.iter(|| {
-                    let mut queue = std::collections::VecDeque::with_capacity(size);
-                    let mut visited = HashSet::with_capacity(size);
-                    let mut results = Vec::with_capacity(size);
+        group.bench_with_input(BenchmarkId::new("bfs_no_pool", size), &size, |b, &size| {
+            b.iter(|| {
+                let mut queue = std::collections::VecDeque::with_capacity(size);
+                let mut visited = HashSet::with_capacity(size);
+                let mut results = Vec::with_capacity(size);
 
-                    // Simulate BFS work
-                    queue.push_back(0u64);
-                    visited.insert(0);
-                    while let Some(v) = queue.pop_front() {
-                        results.push(v);
-                        if results.len() >= size {
-                            break;
-                        }
-                        // Simulate adding neighbors
-                        for next in v + 1..v + 4 {
-                            if visited.insert(next) {
-                                queue.push_back(next);
-                            }
+                // Simulate BFS work
+                queue.push_back(0u64);
+                visited.insert(0);
+                while let Some(v) = queue.pop_front() {
+                    results.push(v);
+                    if results.len() >= size {
+                        break;
+                    }
+                    // Simulate adding neighbors
+                    for next in v + 1..v + 4 {
+                        if visited.insert(next) {
+                            queue.push_back(next);
                         }
                     }
+                }
 
-                    black_box(results)
-                });
-            },
-        );
+                black_box(results)
+            });
+        });
 
         // With pool - reuse allocations
         group.bench_with_input(
@@ -409,7 +405,8 @@ fn bench_lazy_witness(c: &mut Criterion) {
                     .collect::<Vec<_>>()
             },
             |witnesses| {
-                let handles: Vec<_> = witnesses.iter()
+                let handles: Vec<_> = witnesses
+                    .iter()
                     .map(|w| w.materialize(&adjacency))
                     .collect();
                 black_box(handles)
@@ -455,23 +452,19 @@ fn bench_replacement_edge(c: &mut Criterion) {
             }
         }
 
-        group.bench_with_input(
-            BenchmarkId::new("find_replacement", n),
-            &n,
-            |b, _| {
-                b.iter_batched(
-                    || idx.clone(),
-                    |mut idx| {
-                        // Find replacement for middle edge
-                        let u = (n / 2) as u64;
-                        let v = u + 1;
-                        let result = idx.find_replacement(u, v, &tree_adj);
-                        black_box(result)
-                    },
-                    criterion::BatchSize::SmallInput,
-                );
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("find_replacement", n), &n, |b, _| {
+            b.iter_batched(
+                || idx.clone(),
+                |mut idx| {
+                    // Find replacement for middle edge
+                    let u = (n / 2) as u64;
+                    let v = u + 1;
+                    let result = idx.find_replacement(u, v, &tree_adj);
+                    black_box(result)
+                },
+                criterion::BatchSize::SmallInput,
+            );
+        });
     }
 
     group.finish();
@@ -502,9 +495,9 @@ fn bench_instance_lookup(c: &mut Criterion) {
             |b, _| {
                 b.iter(|| {
                     let target = 50u64;
-                    let found = instances.iter().position(|(min, max)| {
-                        target >= *min && target <= *max
-                    });
+                    let found = instances
+                        .iter()
+                        .position(|(min, max)| target >= *min && target <= *max);
                     black_box(found)
                 });
             },
@@ -539,31 +532,14 @@ fn bench_instance_lookup(c: &mut Criterion) {
 // Criterion Groups
 // ============================================================================
 
-criterion_group!(
-    cut_scaling,
-    bench_cut_size_scaling,
-);
+criterion_group!(cut_scaling, bench_cut_size_scaling,);
 
-criterion_group!(
-    density,
-    bench_density_impact,
-);
+criterion_group!(density, bench_density_impact,);
 
-criterion_group!(
-    batch_ops,
-    bench_batch_vs_sequential,
-);
+criterion_group!(batch_ops, bench_batch_vs_sequential,);
 
-criterion_group!(
-    memory,
-    bench_memory_pool,
-    bench_lazy_witness,
-);
+criterion_group!(memory, bench_memory_pool, bench_lazy_witness,);
 
-criterion_group!(
-    lookup,
-    bench_replacement_edge,
-    bench_instance_lookup,
-);
+criterion_group!(lookup, bench_replacement_edge, bench_instance_lookup,);
 
 criterion_main!(cut_scaling, density, batch_ops, memory, lookup);

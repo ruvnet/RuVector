@@ -5,8 +5,8 @@
 //! - Linear blend - simple weighted combination
 //! - Learned fusion - query-adaptive weights
 
-use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 /// Document ID type (matches with database row IDs)
 pub type DocId = i64;
@@ -130,14 +130,14 @@ pub fn rrf_fusion(
     // Sort by fused score (descending)
     let mut results: Vec<FusedResult> = scores
         .into_iter()
-        .map(|(doc_id, (hybrid_score, vector_score, keyword_score))| {
-            FusedResult {
+        .map(
+            |(doc_id, (hybrid_score, vector_score, keyword_score))| FusedResult {
                 doc_id,
                 hybrid_score,
                 vector_score,
                 keyword_score,
-            }
-        })
+            },
+        )
         .collect();
 
     results.sort_by(|a, b| {
@@ -158,10 +158,11 @@ fn normalize_to_similarity(results: &[(DocId, f32)]) -> Vec<(DocId, f32)> {
     }
 
     // Find min/max distances
-    let (min_dist, max_dist) = results.iter().fold(
-        (f32::MAX, f32::MIN),
-        |(min, max), (_, d)| (min.min(*d), max.max(*d)),
-    );
+    let (min_dist, max_dist) = results
+        .iter()
+        .fold((f32::MAX, f32::MIN), |(min, max), (_, d)| {
+            (min.min(*d), max.max(*d))
+        });
 
     let range = (max_dist - min_dist).max(1e-6);
 
@@ -181,10 +182,11 @@ fn min_max_normalize(results: &[(DocId, f32)]) -> Vec<(DocId, f32)> {
         return Vec::new();
     }
 
-    let (min_score, max_score) = results.iter().fold(
-        (f32::MAX, f32::MIN),
-        |(min, max), (_, s)| (min.min(*s), max.max(*s)),
-    );
+    let (min_score, max_score) = results
+        .iter()
+        .fold((f32::MAX, f32::MIN), |(min, max), (_, s)| {
+            (min.min(*s), max.max(*s))
+        });
 
     let range = (max_score - min_score).max(1e-6);
 
@@ -214,9 +216,7 @@ pub fn linear_fusion(
         .collect();
 
     // Normalize keyword scores to [0, 1]
-    let kw_scores: HashMap<DocId, f32> = min_max_normalize(keyword_results)
-        .into_iter()
-        .collect();
+    let kw_scores: HashMap<DocId, f32> = min_max_normalize(keyword_results).into_iter().collect();
 
     // Combine scores
     let mut combined: HashMap<DocId, (f32, Option<f32>, Option<f32>)> = HashMap::new();
@@ -244,14 +244,14 @@ pub fn linear_fusion(
     // Sort by fused score
     let mut results: Vec<FusedResult> = combined
         .into_iter()
-        .map(|(doc_id, (hybrid_score, vector_score, keyword_score))| {
-            FusedResult {
+        .map(
+            |(doc_id, (hybrid_score, vector_score, keyword_score))| FusedResult {
                 doc_id,
                 hybrid_score,
                 vector_score,
                 keyword_score,
-            }
-        })
+            },
+        )
         .collect();
 
     results.sort_by(|a, b| {
@@ -312,8 +312,8 @@ impl Default for FusionModel {
         Self {
             default_alpha: 0.5,
             norm_weight: 0.1,
-            term_weight: -0.05,  // More terms -> slight keyword preference
-            idf_weight: 0.15,    // Rare terms -> vector preference
+            term_weight: -0.05,     // More terms -> slight keyword preference
+            idf_weight: 0.15,       // Rare terms -> vector preference
             exact_match_bias: -0.2, // Exact match -> keyword preference
         }
     }
@@ -409,19 +409,30 @@ fn classify_query_type(terms: &[String]) -> QueryType {
 
     // Navigational indicators
     let nav_indicators = ["website", "login", "home", "official", "download"];
-    if terms_lower.iter().any(|t| nav_indicators.contains(&t.as_str())) {
+    if terms_lower
+        .iter()
+        .any(|t| nav_indicators.contains(&t.as_str()))
+    {
         return QueryType::Navigational;
     }
 
     // Transactional indicators
     let trans_indicators = ["buy", "purchase", "order", "price", "cheap", "best", "deal"];
-    if terms_lower.iter().any(|t| trans_indicators.contains(&t.as_str())) {
+    if terms_lower
+        .iter()
+        .any(|t| trans_indicators.contains(&t.as_str()))
+    {
         return QueryType::Transactional;
     }
 
     // Informational indicators
-    let info_indicators = ["how", "what", "why", "when", "where", "guide", "tutorial", "explain"];
-    if terms_lower.iter().any(|t| info_indicators.contains(&t.as_str())) {
+    let info_indicators = [
+        "how", "what", "why", "when", "where", "guide", "tutorial", "explain",
+    ];
+    if terms_lower
+        .iter()
+        .any(|t| info_indicators.contains(&t.as_str()))
+    {
         return QueryType::Informational;
     }
 
@@ -452,7 +463,7 @@ mod tests {
 
     fn sample_vector_results() -> Vec<(DocId, f32)> {
         vec![
-            (1, 0.1),  // Best (lowest distance)
+            (1, 0.1), // Best (lowest distance)
             (2, 0.2),
             (3, 0.3),
             (4, 0.5),
@@ -462,7 +473,7 @@ mod tests {
 
     fn sample_keyword_results() -> Vec<(DocId, f32)> {
         vec![
-            (3, 8.5),  // Best (highest BM25)
+            (3, 8.5), // Best (highest BM25)
             (1, 7.2),
             (6, 5.0),
             (2, 3.5),
@@ -537,7 +548,10 @@ mod tests {
         };
 
         let alpha = model.predict_alpha(&features);
-        assert!(alpha < 0.5, "Navigational query should favor keyword (alpha < 0.5)");
+        assert!(
+            alpha < 0.5,
+            "Navigational query should favor keyword (alpha < 0.5)"
+        );
 
         // Long informational query
         let features2 = QueryFeatures {
@@ -549,7 +563,10 @@ mod tests {
         };
 
         let alpha2 = model.predict_alpha(&features2);
-        assert!(alpha2 > 0.4, "Informational query with rare terms should favor vector");
+        assert!(
+            alpha2 > 0.4,
+            "Informational query with rare terms should favor vector"
+        );
     }
 
     #[test]
@@ -568,7 +585,12 @@ mod tests {
     fn test_exact_match_detection() {
         assert!(detect_exact_match_intent(&["ERR001".into()]));
         assert!(detect_exact_match_intent(&["SKU12345".into()]));
-        assert!(!detect_exact_match_intent(&["database".into(), "connection".into(), "error".into(), "handling".into()]));
+        assert!(!detect_exact_match_intent(&[
+            "database".into(),
+            "connection".into(),
+            "error".into(),
+            "handling".into()
+        ]));
     }
 
     #[test]

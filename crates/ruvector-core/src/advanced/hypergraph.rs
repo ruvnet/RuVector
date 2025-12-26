@@ -497,9 +497,24 @@ mod tests {
         index.add_entity("3".to_string(), vec![1.0]);
         index.add_entity("4".to_string(), vec![1.0]);
 
-        let edge1 = Hyperedge::new(vec!["1".to_string(), "2".to_string()], "e1".to_string(), vec![1.0], 1.0);
-        let edge2 = Hyperedge::new(vec!["2".to_string(), "3".to_string()], "e2".to_string(), vec![1.0], 1.0);
-        let edge3 = Hyperedge::new(vec!["3".to_string(), "4".to_string()], "e3".to_string(), vec![1.0], 1.0);
+        let edge1 = Hyperedge::new(
+            vec!["1".to_string(), "2".to_string()],
+            "e1".to_string(),
+            vec![1.0],
+            1.0,
+        );
+        let edge2 = Hyperedge::new(
+            vec!["2".to_string(), "3".to_string()],
+            "e2".to_string(),
+            vec![1.0],
+            1.0,
+        );
+        let edge3 = Hyperedge::new(
+            vec!["3".to_string(), "4".to_string()],
+            "e3".to_string(),
+            vec![1.0],
+            1.0,
+        );
 
         index.add_hyperedge(edge1).unwrap();
         index.add_hyperedge(edge2).unwrap();

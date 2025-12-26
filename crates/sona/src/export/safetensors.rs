@@ -3,11 +3,11 @@
 //! Exports SONA's learned LoRA weights in SafeTensors format for use with
 //! HuggingFace's PEFT library and transformers ecosystem.
 
+use super::{ExportConfig, ExportError, ExportResult, ExportType};
 use crate::engine::SonaEngine;
-use crate::lora::{MicroLoRA, BaseLoRA};
-use super::{ExportConfig, ExportResult, ExportType, ExportError};
-use std::path::Path;
+use crate::lora::{BaseLoRA, MicroLoRA};
 use std::collections::HashMap;
+use std::path::Path;
 
 #[cfg(feature = "serde-support")]
 use serde::{Deserialize, Serialize};
@@ -40,87 +40,147 @@ impl<'a> SafeTensorsExporter<'a> {
 
         // Export MicroLoRA weights (rank 1-2)
         for (i, layer) in lora_state.micro_lora_layers.iter().enumerate() {
-            let a_key = format!("base_model.model.layers.{}.self_attn.micro_lora_A.weight", i);
-            let b_key = format!("base_model.model.layers.{}.self_attn.micro_lora_B.weight", i);
+            let a_key = format!(
+                "base_model.model.layers.{}.self_attn.micro_lora_A.weight",
+                i
+            );
+            let b_key = format!(
+                "base_model.model.layers.{}.self_attn.micro_lora_B.weight",
+                i
+            );
 
-            tensors.insert(a_key, TensorData {
-                data: layer.lora_a.clone(),
-                shape: vec![layer.rank, layer.input_dim],
-                dtype: "F32".to_string(),
-            });
+            tensors.insert(
+                a_key,
+                TensorData {
+                    data: layer.lora_a.clone(),
+                    shape: vec![layer.rank, layer.input_dim],
+                    dtype: "F32".to_string(),
+                },
+            );
 
-            tensors.insert(b_key, TensorData {
-                data: layer.lora_b.clone(),
-                shape: vec![layer.output_dim, layer.rank],
-                dtype: "F32".to_string(),
-            });
+            tensors.insert(
+                b_key,
+                TensorData {
+                    data: layer.lora_b.clone(),
+                    shape: vec![layer.output_dim, layer.rank],
+                    dtype: "F32".to_string(),
+                },
+            );
         }
 
         // Export BaseLoRA weights (rank 4-16)
         for (i, layer) in lora_state.base_lora_layers.iter().enumerate() {
             // Q projection
-            let q_a_key = format!("base_model.model.layers.{}.self_attn.q_proj.lora_A.weight", i);
-            let q_b_key = format!("base_model.model.layers.{}.self_attn.q_proj.lora_B.weight", i);
+            let q_a_key = format!(
+                "base_model.model.layers.{}.self_attn.q_proj.lora_A.weight",
+                i
+            );
+            let q_b_key = format!(
+                "base_model.model.layers.{}.self_attn.q_proj.lora_B.weight",
+                i
+            );
 
-            tensors.insert(q_a_key, TensorData {
-                data: layer.lora_a.clone(),
-                shape: vec![layer.rank, layer.input_dim],
-                dtype: "F32".to_string(),
-            });
+            tensors.insert(
+                q_a_key,
+                TensorData {
+                    data: layer.lora_a.clone(),
+                    shape: vec![layer.rank, layer.input_dim],
+                    dtype: "F32".to_string(),
+                },
+            );
 
-            tensors.insert(q_b_key, TensorData {
-                data: layer.lora_b.clone(),
-                shape: vec![layer.output_dim, layer.rank],
-                dtype: "F32".to_string(),
-            });
+            tensors.insert(
+                q_b_key,
+                TensorData {
+                    data: layer.lora_b.clone(),
+                    shape: vec![layer.output_dim, layer.rank],
+                    dtype: "F32".to_string(),
+                },
+            );
 
             // K projection
-            let k_a_key = format!("base_model.model.layers.{}.self_attn.k_proj.lora_A.weight", i);
-            let k_b_key = format!("base_model.model.layers.{}.self_attn.k_proj.lora_B.weight", i);
+            let k_a_key = format!(
+                "base_model.model.layers.{}.self_attn.k_proj.lora_A.weight",
+                i
+            );
+            let k_b_key = format!(
+                "base_model.model.layers.{}.self_attn.k_proj.lora_B.weight",
+                i
+            );
 
-            tensors.insert(k_a_key, TensorData {
-                data: layer.lora_a.clone(),
-                shape: vec![layer.rank, layer.input_dim],
-                dtype: "F32".to_string(),
-            });
+            tensors.insert(
+                k_a_key,
+                TensorData {
+                    data: layer.lora_a.clone(),
+                    shape: vec![layer.rank, layer.input_dim],
+                    dtype: "F32".to_string(),
+                },
+            );
 
-            tensors.insert(k_b_key, TensorData {
-                data: layer.lora_b.clone(),
-                shape: vec![layer.output_dim, layer.rank],
-                dtype: "F32".to_string(),
-            });
+            tensors.insert(
+                k_b_key,
+                TensorData {
+                    data: layer.lora_b.clone(),
+                    shape: vec![layer.output_dim, layer.rank],
+                    dtype: "F32".to_string(),
+                },
+            );
 
             // V projection
-            let v_a_key = format!("base_model.model.layers.{}.self_attn.v_proj.lora_A.weight", i);
-            let v_b_key = format!("base_model.model.layers.{}.self_attn.v_proj.lora_B.weight", i);
+            let v_a_key = format!(
+                "base_model.model.layers.{}.self_attn.v_proj.lora_A.weight",
+                i
+            );
+            let v_b_key = format!(
+                "base_model.model.layers.{}.self_attn.v_proj.lora_B.weight",
+                i
+            );
 
-            tensors.insert(v_a_key, TensorData {
-                data: layer.lora_a.clone(),
-                shape: vec![layer.rank, layer.input_dim],
-                dtype: "F32".to_string(),
-            });
+            tensors.insert(
+                v_a_key,
+                TensorData {
+                    data: layer.lora_a.clone(),
+                    shape: vec![layer.rank, layer.input_dim],
+                    dtype: "F32".to_string(),
+                },
+            );
 
-            tensors.insert(v_b_key, TensorData {
-                data: layer.lora_b.clone(),
-                shape: vec![layer.output_dim, layer.rank],
-                dtype: "F32".to_string(),
-            });
+            tensors.insert(
+                v_b_key,
+                TensorData {
+                    data: layer.lora_b.clone(),
+                    shape: vec![layer.output_dim, layer.rank],
+                    dtype: "F32".to_string(),
+                },
+            );
 
             // O projection
-            let o_a_key = format!("base_model.model.layers.{}.self_attn.o_proj.lora_A.weight", i);
-            let o_b_key = format!("base_model.model.layers.{}.self_attn.o_proj.lora_B.weight", i);
+            let o_a_key = format!(
+                "base_model.model.layers.{}.self_attn.o_proj.lora_A.weight",
+                i
+            );
+            let o_b_key = format!(
+                "base_model.model.layers.{}.self_attn.o_proj.lora_B.weight",
+                i
+            );
 
-            tensors.insert(o_a_key, TensorData {
-                data: layer.lora_a.clone(),
-                shape: vec![layer.rank, layer.input_dim],
-                dtype: "F32".to_string(),
-            });
+            tensors.insert(
+                o_a_key,
+                TensorData {
+                    data: layer.lora_a.clone(),
+                    shape: vec![layer.rank, layer.input_dim],
+                    dtype: "F32".to_string(),
+                },
+            );
 
-            tensors.insert(o_b_key, TensorData {
-                data: layer.lora_b.clone(),
-                shape: vec![layer.output_dim, layer.rank],
-                dtype: "F32".to_string(),
-            });
+            tensors.insert(
+                o_b_key,
+                TensorData {
+                    data: layer.lora_b.clone(),
+                    shape: vec![layer.output_dim, layer.rank],
+                    dtype: "F32".to_string(),
+                },
+            );
         }
 
         // Serialize to SafeTensors format
@@ -139,7 +199,10 @@ impl<'a> SafeTensorsExporter<'a> {
     }
 
     /// Serialize tensors to SafeTensors binary format
-    fn serialize_safetensors(&self, tensors: &HashMap<String, TensorData>) -> Result<Vec<u8>, ExportError> {
+    fn serialize_safetensors(
+        &self,
+        tensors: &HashMap<String, TensorData>,
+    ) -> Result<Vec<u8>, ExportError> {
         // SafeTensors format:
         // 8 bytes: header size (little endian u64)
         // N bytes: JSON header with tensor metadata
@@ -170,16 +233,19 @@ impl<'a> SafeTensorsExporter<'a> {
 
             let end_offset = tensor_bytes.len();
 
-            header_data.insert(key.clone(), TensorMetadata {
-                dtype: tensor.dtype.clone(),
-                shape: tensor.shape.clone(),
-                data_offsets: [start_offset, end_offset],
-            });
+            header_data.insert(
+                key.clone(),
+                TensorMetadata {
+                    dtype: tensor.dtype.clone(),
+                    shape: tensor.shape.clone(),
+                    data_offsets: [start_offset, end_offset],
+                },
+            );
         }
 
         // Serialize header to JSON
-        let header_json = serde_json::to_string(&header_data)
-            .map_err(ExportError::Serialization)?;
+        let header_json =
+            serde_json::to_string(&header_data).map_err(ExportError::Serialization)?;
         let header_bytes = header_json.as_bytes();
 
         // Build final buffer

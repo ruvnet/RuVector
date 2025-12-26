@@ -21,7 +21,7 @@ pub struct DocxFormatter {
 
 #[derive(Debug, Clone, Copy)]
 pub struct PageSize {
-    pub width: u32,  // in twips (1/1440 inch)
+    pub width: u32, // in twips (1/1440 inch)
     pub height: u32,
 }
 
@@ -52,7 +52,7 @@ pub struct Margins {
 impl Margins {
     pub fn normal() -> Self {
         Self {
-            top: 1440,    // 1 inch
+            top: 1440, // 1 inch
             right: 1440,
             bottom: 1440,
             left: 1440,
@@ -98,11 +98,13 @@ impl DocxFormatter {
 
     /// Generate document.xml content
     pub fn generate_document_xml(&self, lines: &[LineData]) -> String {
-        let mut xml = String::from(r#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+        let mut xml = String::from(
+            r#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"
             xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math">
   <w:body>
-"#);
+"#,
+        );
 
         for line in lines {
             xml.push_str(&self.format_line(line));
@@ -203,7 +205,8 @@ impl DocxFormatter {
       <w:sz w:val="32"/>
     </w:rPr>
   </w:style>
-</w:styles>"#.to_string()
+</w:styles>"#
+            .to_string()
     }
 }
 
@@ -268,16 +271,14 @@ mod tests {
     #[test]
     fn test_generate_document_xml() {
         let formatter = DocxFormatter::new();
-        let lines = vec![
-            LineData {
-                line_type: "text".to_string(),
-                text: "Hello".to_string(),
-                latex: None,
-                bbox: BoundingBox::new(0.0, 0.0, 100.0, 20.0),
-                confidence: 0.95,
-                words: None,
-            },
-        ];
+        let lines = vec![LineData {
+            line_type: "text".to_string(),
+            text: "Hello".to_string(),
+            latex: None,
+            bbox: BoundingBox::new(0.0, 0.0, 100.0, 20.0),
+            confidence: 0.95,
+            words: None,
+        }];
 
         let xml = formatter.generate_document_xml(&lines);
         assert!(xml.contains("<?xml"));

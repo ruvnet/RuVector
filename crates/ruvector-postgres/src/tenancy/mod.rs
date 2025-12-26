@@ -25,61 +25,31 @@
 //! SELECT * FROM embeddings ORDER BY vec <-> query LIMIT 10;
 //! ```
 
-pub mod registry;
 pub mod isolation;
-pub mod quotas;
-pub mod rls;
 pub mod operations;
+pub mod quotas;
+pub mod registry;
+pub mod rls;
 pub mod validation;
 
 // Re-export main types
-pub use registry::{
-    IsolationLevel,
-    TenantConfig,
-    TenantError,
-    TenantQuota,
-    TenantRegistry,
-    PromotionPolicy,
-    get_registry,
-};
 pub use isolation::{
-    IsolationManager,
-    IsolationError,
-    MigrationState,
-    MigrationStatus,
+    get_isolation_manager, IsolationError, IsolationManager, MigrationState, MigrationStatus,
     QueryRoute,
-    get_isolation_manager,
-};
-pub use quotas::{
-    QuotaManager,
-    QuotaResult,
-    QuotaStatus,
-    TenantUsage,
-    get_quota_manager,
-};
-pub use rls::{
-    RlsManager,
-    RlsPolicyConfig,
-    PolicyTemplate,
-    get_rls_manager,
 };
 pub use operations::{
-    TenantContext,
-    TenantVectorInsert,
+    get_tenant_stats, TenantContext, TenantStats, TenantVectorDelete, TenantVectorInsert,
     TenantVectorSearch,
-    TenantVectorDelete,
-    TenantStats,
-    get_tenant_stats,
 };
+pub use quotas::{get_quota_manager, QuotaManager, QuotaResult, QuotaStatus, TenantUsage};
+pub use registry::{
+    get_registry, IsolationLevel, PromotionPolicy, TenantConfig, TenantError, TenantQuota,
+    TenantRegistry,
+};
+pub use rls::{get_rls_manager, PolicyTemplate, RlsManager, RlsPolicyConfig};
 pub use validation::{
-    validate_tenant_id,
-    validate_identifier,
-    sanitize_for_identifier,
-    quote_identifier,
-    escape_string_literal,
-    safe_partition_name,
-    safe_schema_name,
-    ValidationError,
+    escape_string_literal, quote_identifier, safe_partition_name, safe_schema_name,
+    sanitize_for_identifier, validate_identifier, validate_tenant_id, ValidationError,
 };
 
 use pgrx::prelude::*;
@@ -285,7 +255,11 @@ pub fn ruvector_tenant_delete(
 ) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
     get_registry().delete(tenant_id, hard)?;
 
-    let delete_type = if hard { "permanently deleted" } else { "marked for deletion" };
+    let delete_type = if hard {
+        "permanently deleted"
+    } else {
+        "marked for deletion"
+    };
     Ok(format!("Tenant '{}' has been {}", tenant_id, delete_type))
 }
 
@@ -336,7 +310,10 @@ pub fn ruvector_enable_tenant_rls(
     tenant_column: default!(&str, "'tenant_id'"),
 ) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
     let sql = get_isolation_manager().enable_shared_isolation(table_name, tenant_column)?;
-    Ok(format!("RLS enabled for table '{}'. Execute the following SQL:\n{}", table_name, sql))
+    Ok(format!(
+        "RLS enabled for table '{}'. Execute the following SQL:\n{}",
+        table_name, sql
+    ))
 }
 
 /// Migrate tenant to a new isolation level
@@ -520,8 +497,7 @@ pub fn ruvector_generate_rls_sql(
     table_name: &str,
     tenant_column: default!(&str, "'tenant_id'"),
 ) -> String {
-    let config = RlsPolicyConfig::new(table_name)
-        .with_tenant_column(tenant_column);
+    let config = RlsPolicyConfig::new(table_name).with_tenant_column(tenant_column);
 
     get_rls_manager().generate_enable_rls_sql(&config)
 }
@@ -540,12 +516,7 @@ pub fn ruvector_generate_tenant_column_sql(
     not_null: default!(bool, true),
     auto_default: default!(bool, true),
 ) -> String {
-    rls::RlsManager::generate_add_tenant_column_sql(
-        table_name,
-        column_name,
-        not_null,
-        auto_default,
-    )
+    rls::RlsManager::generate_add_tenant_column_sql(table_name, column_name, not_null, auto_default)
 }
 
 /// Generate SQL to create RuVector roles

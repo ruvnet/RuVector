@@ -1,4 +1,4 @@
-use criterion::{criterion_group, criterion_main, Criterion, BenchmarkId, black_box};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use std::time::Duration;
 
 /// Benchmark peak memory during inference
@@ -374,9 +374,7 @@ fn calculate_memory_growth(samples: &[usize]) -> f64 {
 }
 
 fn create_embedding_cache(size: usize) -> Vec<Vec<f32>> {
-    (0..size)
-        .map(|_| vec![0.5f32; 512])
-        .collect()
+    (0..size).map(|_| vec![0.5f32; 512]).collect()
 }
 
 struct MemoryPool {
@@ -387,9 +385,7 @@ struct MemoryPool {
 
 impl MemoryPool {
     fn new(block_size: usize, count: usize) -> Self {
-        let blocks = (0..count)
-            .map(|_| vec![0u8; block_size])
-            .collect();
+        let blocks = (0..count).map(|_| vec![0u8; block_size]).collect();
         let available = (0..count).collect();
 
         Self {

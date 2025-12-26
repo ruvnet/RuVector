@@ -25,12 +25,12 @@
 //! The polylog backend uses a hierarchy of O(log n) levels with edge sparsification
 //! via low-congestion shortcuts for guaranteed worst-case bounds.
 
-pub mod polylog;
 pub mod cache_opt;
+pub mod polylog;
 
-use std::collections::{HashMap, HashSet};
-use crate::graph::VertexId;
 use crate::euler::EulerTourTree;
+use crate::graph::VertexId;
+use std::collections::{HashMap, HashSet};
 
 /// Dynamic connectivity data structure with Euler Tour Tree backend
 ///
@@ -617,8 +617,8 @@ mod tests {
         let mut dc = DynamicConnectivity::new();
 
         dc.insert_edge(0, 1);
-        dc.insert_edge(0, 1);  // Duplicate
-        dc.insert_edge(1, 0);  // Duplicate (reversed)
+        dc.insert_edge(0, 1); // Duplicate
+        dc.insert_edge(1, 0); // Duplicate (reversed)
 
         assert_eq!(dc.vertex_count(), 2);
         assert_eq!(dc.component_count(), 1);

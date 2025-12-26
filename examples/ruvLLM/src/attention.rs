@@ -195,7 +195,8 @@ impl GraphAttentionEngine {
                 // Weighted sum of values
                 let mut output = Array1::zeros(self.head_dim);
                 for (i, &w) in weights.iter().enumerate() {
-                    if w > 1e-6 {  // Skip near-zero weights
+                    if w > 1e-6 {
+                        // Skip near-zero weights
                         output = output + &values.row(i).to_owned() * w;
                     }
                 }
@@ -226,10 +227,17 @@ impl GraphAttentionEngine {
         let avg_weights = average_weights(&all_head_weights);
 
         // Rank nodes by attention
-        let mut indexed: Vec<(usize, f32)> = avg_weights.iter().enumerate().map(|(i, &w)| (i, w)).collect();
+        let mut indexed: Vec<(usize, f32)> = avg_weights
+            .iter()
+            .enumerate()
+            .map(|(i, &w)| (i, w))
+            .collect();
         indexed.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
 
-        let ranked_nodes: Vec<MemoryNode> = indexed.iter().map(|(i, _)| subgraph.nodes[*i].clone()).collect();
+        let ranked_nodes: Vec<MemoryNode> = indexed
+            .iter()
+            .map(|(i, _)| subgraph.nodes[*i].clone())
+            .collect();
         let ranked_weights: Vec<f32> = indexed.iter().map(|(_, w)| *w).collect();
 
         // Compute summary statistics
@@ -252,7 +260,11 @@ impl GraphAttentionEngine {
     }
 
     /// Attend with cross-attention (query attends to memory, memory attends to query)
-    pub fn cross_attend(&self, query: &[f32], subgraph: &SubGraph) -> Result<(GraphContext, Vec<f32>)> {
+    pub fn cross_attend(
+        &self,
+        query: &[f32],
+        subgraph: &SubGraph,
+    ) -> Result<(GraphContext, Vec<f32>)> {
         // Forward attention: query -> memory
         let forward_ctx = self.attend(query, subgraph)?;
 
@@ -277,18 +289,24 @@ impl GraphAttentionEngine {
 
         for edge in &subgraph.edges {
             // Get edge type embedding
-            let edge_emb = self.edge_embeddings.get(&edge.edge_type)
+            let edge_emb = self
+                .edge_embeddings
+                .get(&edge.edge_type)
                 .map(|e| e.to_vec())
                 .unwrap_or_else(|| vec![0.0; self.edge_dim]);
 
             // Add to source node's features
-            let src_features = features.entry(edge.src.clone()).or_insert_with(|| vec![0.0; self.edge_dim]);
+            let src_features = features
+                .entry(edge.src.clone())
+                .or_insert_with(|| vec![0.0; self.edge_dim]);
             for (i, v) in edge_emb.iter().enumerate() {
                 src_features[i] += v * edge.weight;
             }
 
             // Add to destination node's features (incoming edge)
-            let dst_features = features.entry(edge.dst.clone()).or_insert_with(|| vec![0.0; self.edge_dim]);
+            let dst_features = features
+                .entry(edge.dst.clone())
+                .or_insert_with(|| vec![0.0; self.edge_dim]);
             for (i, v) in edge_emb.iter().enumerate() {
                 dst_features[i] += v * edge.weight * 0.5; // Incoming edges have less influence
             }
@@ -606,7 +624,8 @@ mod tests {
         assert!(mean.abs() < 0.01);
 
         // Variance should be close to 1
-        let var: f32 = normalized.iter().map(|v| (v - mean).powi(2)).sum::<f32>() / normalized.len() as f32;
+        let var: f32 =
+            normalized.iter().map(|v| (v - mean).powi(2)).sum::<f32>() / normalized.len() as f32;
         assert!((var - 1.0).abs() < 0.1);
     }
 

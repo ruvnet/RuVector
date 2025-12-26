@@ -66,13 +66,7 @@ fn connected_components(image: &GrayImage) -> Vec<Vec<u32>> {
 }
 
 /// Flood fill algorithm for connected component labeling
-fn flood_fill(
-    image: &GrayImage,
-    labels: &mut [Vec<u32>],
-    start_x: u32,
-    start_y: u32,
-    label: u32,
-) {
+fn flood_fill(image: &GrayImage, labels: &mut [Vec<u32>], start_x: u32, start_y: u32, label: u32) {
     let (width, height) = image.dimensions();
     let mut stack = vec![(start_x, start_y)];
 
@@ -113,12 +107,9 @@ fn extract_bounding_boxes(labels: &[Vec<u32>]) -> HashMap<u32, (u32, u32, u32, u
                 continue;
             }
 
-            let bbox = bboxes.entry(label).or_insert((
-                x as u32,
-                y as u32,
-                x as u32,
-                y as u32,
-            ));
+            let bbox = bboxes
+                .entry(label)
+                .or_insert((x as u32, y as u32, x as u32, y as u32));
 
             // Update bounding box
             bbox.0 = bbox.0.min(x as u32); // min_x
@@ -219,10 +210,7 @@ fn boxes_overlap_or_close(
 }
 
 /// Merge two bounding boxes
-fn merge_boxes(
-    box1: &(u32, u32, u32, u32),
-    box2: &(u32, u32, u32, u32),
-) -> (u32, u32, u32, u32) {
+fn merge_boxes(box1: &(u32, u32, u32, u32), box2: &(u32, u32, u32, u32)) -> (u32, u32, u32, u32) {
     let (x1, y1, w1, h1) = *box1;
     let (x2, y2, w2, h2) = *box2;
 
@@ -258,11 +246,7 @@ pub fn find_text_lines(
 
         // Check if region is on the same line (vertical overlap)
         let line_height = (*prev_h).max(*h);
-        let distance = if y > prev_y {
-            y - prev_y
-        } else {
-            prev_y - y
-        };
+        let distance = if y > prev_y { y - prev_y } else { prev_y - y };
 
         if distance < line_height / 2 {
             current_line.push(*region);
@@ -412,11 +396,7 @@ mod tests {
 
     #[test]
     fn test_merge_overlapping_regions() {
-        let regions = vec![
-            (10, 10, 50, 20),
-            (40, 10, 50, 20),
-            (100, 100, 30, 30),
-        ];
+        let regions = vec![(10, 10, 50, 20), (40, 10, 50, 20), (100, 100, 30, 30)];
 
         let merged = merge_overlapping_regions(regions, 10);
 

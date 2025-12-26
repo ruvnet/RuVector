@@ -1,7 +1,7 @@
 //! Complete preprocessing pipeline with builder pattern and parallel processing
 
 use super::Result;
-use crate::preprocess::{transforms, rotation, deskew, enhancement};
+use crate::preprocess::{deskew, enhancement, rotation, transforms};
 use image::{DynamicImage, GrayImage};
 use rayon::prelude::*;
 use std::sync::Arc;
@@ -206,11 +206,7 @@ impl PreprocessPipeline {
         // Step 4: Enhance contrast
         if self.enhance_contrast {
             self.report_progress("Enhancing contrast", 0.5);
-            gray = enhancement::clahe(
-                &gray,
-                self.clahe_clip_limit,
-                self.clahe_tile_size,
-            )?;
+            gray = enhancement::clahe(&gray, self.clahe_clip_limit, self.clahe_tile_size)?;
         }
 
         // Step 5: Denoise
@@ -316,7 +312,12 @@ impl PreprocessPipeline {
 
         // Step 7: Resize
         if let (Some(width), Some(height)) = (self.target_width, self.target_height) {
-            gray = image::imageops::resize(&gray, width, height, image::imageops::FilterType::Lanczos3);
+            gray = image::imageops::resize(
+                &gray,
+                width,
+                height,
+                image::imageops::FilterType::Lanczos3,
+            );
             results.push(("07_resized".to_string(), gray.clone()));
         }
 
@@ -421,8 +422,12 @@ mod tests {
 
         let intermediates = result.unwrap();
         assert!(!intermediates.is_empty());
-        assert!(intermediates.iter().any(|(name, _)| name.contains("grayscale")));
-        assert!(intermediates.iter().any(|(name, _)| name.contains("thresholded")));
+        assert!(intermediates
+            .iter()
+            .any(|(name, _)| name.contains("grayscale")));
+        assert!(intermediates
+            .iter()
+            .any(|(name, _)| name.contains("thresholded")));
     }
 
     #[test]

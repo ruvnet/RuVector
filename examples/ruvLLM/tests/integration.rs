@@ -2,8 +2,8 @@
 //!
 //! Tests the complete pipeline from request to response.
 
-use ruvllm::{Config, RuvLLM, Request};
-use ruvllm::types::{MemoryNode, MemoryEdge, NodeType, EdgeType, Feedback};
+use ruvllm::types::{EdgeType, Feedback, MemoryEdge, MemoryNode, NodeType};
+use ruvllm::{Config, Request, RuvLLM};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
 
@@ -63,7 +63,10 @@ async fn test_session_management() {
     assert!(!response.text.is_empty());
 
     // Query again in same session
-    let response2 = llm.query_session(&session, "Follow up question").await.unwrap();
+    let response2 = llm
+        .query_session(&session, "Follow up question")
+        .await
+        .unwrap();
     assert!(!response2.text.is_empty());
 }
 
@@ -164,8 +167,8 @@ async fn test_shutdown() {
 
 mod memory_integration {
     use super::*;
-    use ruvllm::memory::MemoryService;
     use ruvllm::config::MemoryConfig;
+    use ruvllm::memory::MemoryService;
 
     #[tokio::test]
     async fn test_memory_pipeline() {
@@ -224,8 +227,8 @@ mod memory_integration {
 
 mod router_integration {
     use super::*;
-    use ruvllm::router::FastGRNNRouter;
     use ruvllm::config::RouterConfig;
+    use ruvllm::router::FastGRNNRouter;
     use ruvllm::types::RouterSample;
 
     #[test]
@@ -314,8 +317,8 @@ mod router_integration {
 mod attention_integration {
     use super::*;
     use ruvllm::attention::GraphAttentionEngine;
-    use ruvllm::memory::SubGraph;
     use ruvllm::config::EmbeddingConfig;
+    use ruvllm::memory::SubGraph;
 
     #[test]
     fn test_attention_with_complex_graph() {
@@ -395,8 +398,8 @@ mod attention_integration {
 
 mod embedding_integration {
     use super::*;
-    use ruvllm::embedding::{EmbeddingService, PoolingStrategy};
     use ruvllm::config::EmbeddingConfig;
+    use ruvllm::embedding::{EmbeddingService, PoolingStrategy};
 
     #[test]
     fn test_embedding_batch_processing() {
@@ -419,7 +422,9 @@ mod embedding_integration {
         let mut similarities = Vec::new();
         for i in 0..embeddings.len() {
             for j in (i + 1)..embeddings.len() {
-                let dot: f32 = embeddings[i].vector.iter()
+                let dot: f32 = embeddings[i]
+                    .vector
+                    .iter()
                     .zip(embeddings[j].vector.iter())
                     .map(|(a, b)| a * b)
                     .sum();
@@ -439,10 +444,18 @@ mod embedding_integration {
 
         let text = "This is a test sentence for comparing pooling strategies";
 
-        let mean = service.embed_with_pooling(text, PoolingStrategy::Mean).unwrap();
-        let max = service.embed_with_pooling(text, PoolingStrategy::Max).unwrap();
-        let cls = service.embed_with_pooling(text, PoolingStrategy::CLS).unwrap();
-        let last = service.embed_with_pooling(text, PoolingStrategy::LastToken).unwrap();
+        let mean = service
+            .embed_with_pooling(text, PoolingStrategy::Mean)
+            .unwrap();
+        let max = service
+            .embed_with_pooling(text, PoolingStrategy::Max)
+            .unwrap();
+        let cls = service
+            .embed_with_pooling(text, PoolingStrategy::CLS)
+            .unwrap();
+        let last = service
+            .embed_with_pooling(text, PoolingStrategy::LastToken)
+            .unwrap();
 
         // All should produce valid embeddings
         for emb in [&mean, &max, &cls, &last] {
@@ -451,7 +464,9 @@ mod embedding_integration {
         }
 
         // CLS and Mean should differ
-        let cls_mean_dot: f32 = cls.vector.iter()
+        let cls_mean_dot: f32 = cls
+            .vector
+            .iter()
             .zip(mean.vector.iter())
             .map(|(a, b)| a * b)
             .sum();
@@ -462,8 +477,8 @@ mod embedding_integration {
 mod compression_integration {
     use super::*;
     use ruvllm::compression::CompressionService;
-    use ruvllm::memory::MemoryService;
     use ruvllm::config::MemoryConfig;
+    use ruvllm::memory::MemoryService;
 
     #[tokio::test]
     async fn test_compression_pipeline() {

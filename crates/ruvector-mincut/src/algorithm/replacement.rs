@@ -12,7 +12,11 @@ pub type EdgeKey = (VertexId, VertexId);
 /// Normalize an edge to (min, max) ordering
 #[inline]
 fn normalize_edge(u: VertexId, v: VertexId) -> EdgeKey {
-    if u < v { (u, v) } else { (v, u) }
+    if u < v {
+        (u, v)
+    } else {
+        (v, u)
+    }
 }
 
 /// Level-based replacement edge index for O(log n) lookup
@@ -84,14 +88,8 @@ impl ReplacementEdgeIndex {
             self.edge_level.insert(key, 0);
 
             // Update adjacency
-            self.level_adjacency[0]
-                .entry(u)
-                .or_default()
-                .insert(v);
-            self.level_adjacency[0]
-                .entry(v)
-                .or_default()
-                .insert(u);
+            self.level_adjacency[0].entry(u).or_default().insert(v);
+            self.level_adjacency[0].entry(v).or_default().insert(u);
         }
     }
 
@@ -118,10 +116,12 @@ impl ReplacementEdgeIndex {
     ///
     /// # Complexity
     /// O(log n) amortized through level-based search
-    pub fn find_replacement(&mut self, u: VertexId, v: VertexId,
-                            tree_adjacency: &HashMap<VertexId, HashSet<VertexId>>)
-        -> Option<EdgeKey>
-    {
+    pub fn find_replacement(
+        &mut self,
+        u: VertexId,
+        v: VertexId,
+        tree_adjacency: &HashMap<VertexId, HashSet<VertexId>>,
+    ) -> Option<EdgeKey> {
         let key = normalize_edge(u, v);
 
         // The edge should be a tree edge
@@ -161,7 +161,11 @@ impl ReplacementEdgeIndex {
     }
 
     /// Find replacement at a specific level
-    fn find_replacement_at_level(&self, level: usize, component: &HashSet<VertexId>) -> Option<EdgeKey> {
+    fn find_replacement_at_level(
+        &self,
+        level: usize,
+        component: &HashSet<VertexId>,
+    ) -> Option<EdgeKey> {
         // Look through adjacency at this level for edges crossing component boundary
         for &vertex in component {
             if let Some(neighbors) = self.level_adjacency[level].get(&vertex) {
@@ -177,10 +181,12 @@ impl ReplacementEdgeIndex {
     }
 
     /// Find the two components after cutting tree edge (u, v)
-    fn find_components_after_cut(&self, u: VertexId, v: VertexId,
-                                  tree_adj: &HashMap<VertexId, HashSet<VertexId>>)
-        -> (HashSet<VertexId>, HashSet<VertexId>)
-    {
+    fn find_components_after_cut(
+        &self,
+        u: VertexId,
+        v: VertexId,
+        tree_adj: &HashMap<VertexId, HashSet<VertexId>>,
+    ) -> (HashSet<VertexId>, HashSet<VertexId>) {
         let mut comp_u = HashSet::new();
         let mut stack = vec![u];
         comp_u.insert(u);
@@ -274,9 +280,7 @@ impl ReplacementEdgeIndex {
 
     /// Get statistics about the index
     pub fn stats(&self) -> ReplacementIndexStats {
-        let edges_per_level: Vec<usize> = self.level_edges.iter()
-            .map(|s| s.len())
-            .collect();
+        let edges_per_level: Vec<usize> = self.level_edges.iter().map(|s| s.len()).collect();
 
         ReplacementIndexStats {
             max_level: self.max_level,

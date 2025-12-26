@@ -36,8 +36,8 @@
 //! ```
 
 use crate::graph::VertexId;
-use std::collections::{HashSet, VecDeque};
 use std::cell::RefCell;
+use std::collections::{HashSet, VecDeque};
 
 /// Thread-local pool for BFS resources
 thread_local! {

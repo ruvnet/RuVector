@@ -49,13 +49,13 @@
 mod integration;
 
 // Re-export test modules for cargo test filtering
-pub use integration::pgvector_compat;
-pub use integration::integrity_tests;
-pub use integration::hybrid_search_tests;
-pub use integration::tenancy_tests;
-pub use integration::healing_tests;
-pub use integration::perf_tests;
 pub use integration::harness;
+pub use integration::healing_tests;
+pub use integration::hybrid_search_tests;
+pub use integration::integrity_tests;
+pub use integration::perf_tests;
+pub use integration::pgvector_compat;
+pub use integration::tenancy_tests;
 
 #[cfg(test)]
 mod integration_entry {

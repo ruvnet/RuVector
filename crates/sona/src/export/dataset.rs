@@ -3,11 +3,11 @@
 //! Exports SONA's learned patterns and preference pairs as JSONL datasets
 //! compatible with HuggingFace's datasets library.
 
+use super::{ExportConfig, ExportError, ExportResult, ExportType};
 use crate::engine::SonaEngine;
 use crate::types::LearnedPattern;
-use super::{ExportConfig, ExportResult, ExportType, ExportError};
-use std::path::Path;
 use std::io::{BufWriter, Write};
+use std::path::Path;
 
 #[cfg(feature = "serde-support")]
 use serde::{Deserialize, Serialize};
@@ -69,9 +69,7 @@ impl<'a> DatasetExporter<'a> {
 
         writer.flush().map_err(ExportError::Io)?;
 
-        let size_bytes = std::fs::metadata(output_path)
-            .map(|m| m.len())
-            .unwrap_or(0);
+        let size_bytes = std::fs::metadata(output_path).map(|m| m.len()).unwrap_or(0);
 
         Ok(ExportResult {
             export_type: ExportType::PatternsDataset,
@@ -104,7 +102,9 @@ impl<'a> DatasetExporter<'a> {
         // Sort by quality and pair high-quality with low-quality
         let mut sorted_trajectories = trajectories.clone();
         sorted_trajectories.sort_by(|a, b| {
-            b.quality.partial_cmp(&a.quality).unwrap_or(std::cmp::Ordering::Equal)
+            b.quality
+                .partial_cmp(&a.quality)
+                .unwrap_or(std::cmp::Ordering::Equal)
         });
 
         let mid = sorted_trajectories.len() / 2;
@@ -145,9 +145,7 @@ impl<'a> DatasetExporter<'a> {
 
         writer.flush().map_err(ExportError::Io)?;
 
-        let size_bytes = std::fs::metadata(output_path)
-            .map(|m| m.len())
-            .unwrap_or(0);
+        let size_bytes = std::fs::metadata(output_path).map(|m| m.len()).unwrap_or(0);
 
         Ok(ExportResult {
             export_type: ExportType::PreferencePairs,
@@ -202,9 +200,7 @@ impl<'a> DatasetExporter<'a> {
 
         writer.flush().map_err(ExportError::Io)?;
 
-        let size_bytes = std::fs::metadata(output_path)
-            .map(|m| m.len())
-            .unwrap_or(0);
+        let size_bytes = std::fs::metadata(output_path).map(|m| m.len()).unwrap_or(0);
 
         Ok(ExportResult {
             export_type: ExportType::DistillationTargets,

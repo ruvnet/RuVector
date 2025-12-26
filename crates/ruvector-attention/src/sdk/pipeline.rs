@@ -1,6 +1,6 @@
 //! Pipeline API for chaining attention operations.
 
-use crate::{traits::Attention, error::AttentionResult};
+use crate::{error::AttentionResult, traits::Attention};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum NormType {
@@ -22,21 +22,30 @@ impl AttentionPipeline {
     pub fn new() -> Self {
         Self { stages: Vec::new() }
     }
-    
+
     pub fn add_attention(mut self, attn: Box<dyn Attention + Send + Sync>) -> Self {
         self.stages.push(PipelineStage::Attention(attn));
         self
     }
-    
+
     pub fn add_norm(mut self, norm: NormType) -> Self {
         self.stages.push(PipelineStage::Normalize(norm));
         self
     }
-    
-    pub fn add_dropout(self, _p: f32) -> Self { self }
-    pub fn add_residual(self) -> Self { self }
-    
-    pub fn run(&self, query: &[f32], keys: &[&[f32]], values: &[&[f32]]) -> AttentionResult<Vec<f32>> {
+
+    pub fn add_dropout(self, _p: f32) -> Self {
+        self
+    }
+    pub fn add_residual(self) -> Self {
+        self
+    }
+
+    pub fn run(
+        &self,
+        query: &[f32],
+        keys: &[&[f32]],
+        values: &[&[f32]],
+    ) -> AttentionResult<Vec<f32>> {
         Ok(query.to_vec())
     }
 }

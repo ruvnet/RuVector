@@ -90,21 +90,30 @@ pub fn print_batch_summary(passed: &[OcrResult], failed: &[OcrResult], threshold
             Cell::new("Value").fg(Color::Green),
         ]);
 
-    table.add_row(vec![
-        Cell::new("Total Files"),
-        Cell::new(total.to_string()),
-    ]);
+    table.add_row(vec![Cell::new("Total Files"), Cell::new(total.to_string())]);
 
     table.add_row(vec![
         Cell::new("Passed").fg(Color::Green),
-        Cell::new(format!("{} ({:.1}%)", passed.len(), (passed.len() as f64 / total as f64) * 100.0))
-            .fg(Color::Green),
+        Cell::new(format!(
+            "{} ({:.1}%)",
+            passed.len(),
+            (passed.len() as f64 / total as f64) * 100.0
+        ))
+        .fg(Color::Green),
     ]);
 
     table.add_row(vec![
         Cell::new("Failed").fg(Color::Red),
-        Cell::new(format!("{} ({:.1}%)", failed.len(), (failed.len() as f64 / total as f64) * 100.0))
-            .fg(if failed.is_empty() { Color::Green } else { Color::Red }),
+        Cell::new(format!(
+            "{} ({:.1}%)",
+            failed.len(),
+            (failed.len() as f64 / total as f64) * 100.0
+        ))
+        .fg(if failed.is_empty() {
+            Color::Green
+        } else {
+            Color::Red
+        }),
     ]);
 
     table.add_row(vec![
@@ -114,8 +123,7 @@ pub fn print_batch_summary(passed: &[OcrResult], failed: &[OcrResult], threshold
 
     table.add_row(vec![
         Cell::new("Avg Confidence"),
-        Cell::new(format!("{:.2}%", avg_confidence * 100.0))
-            .fg(confidence_color(avg_confidence)),
+        Cell::new(format!("{:.2}%", avg_confidence * 100.0)).fg(confidence_color(avg_confidence)),
     ]);
 
     table.add_row(vec![
@@ -147,8 +155,7 @@ pub fn print_batch_summary(passed: &[OcrResult], failed: &[OcrResult], threshold
             failed_table.add_row(vec![
                 Cell::new((i + 1).to_string()),
                 Cell::new(result.file.display().to_string()),
-                Cell::new(format!("{:.2}%", result.confidence * 100.0))
-                    .fg(Color::Red),
+                Cell::new(format!("{:.2}%", result.confidence * 100.0)).fg(Color::Red),
             ]);
         }
 
@@ -161,10 +168,19 @@ pub fn print_batch_summary(passed: &[OcrResult], failed: &[OcrResult], threshold
     if !passed.is_empty() {
         let confidences: Vec<f64> = passed.iter().map(|r| r.confidence).collect();
         let min_confidence = confidences.iter().cloned().fold(f64::INFINITY, f64::min);
-        let max_confidence = confidences.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+        let max_confidence = confidences
+            .iter()
+            .cloned()
+            .fold(f64::NEG_INFINITY, f64::max);
 
-        println!("  Min confidence: {}", style(format!("{:.2}%", min_confidence * 100.0)).green());
-        println!("  Max confidence: {}", style(format!("{:.2}%", max_confidence * 100.0)).green());
+        println!(
+            "  Min confidence: {}",
+            style(format!("{:.2}%", min_confidence * 100.0)).green()
+        );
+        println!(
+            "  Max confidence: {}",
+            style(format!("{:.2}%", max_confidence * 100.0)).green()
+        );
 
         let times: Vec<u64> = passed.iter().map(|r| r.processing_time_ms).collect();
         let min_time = times.iter().min().unwrap_or(&0);
@@ -191,7 +207,9 @@ fn confidence_color(confidence: f64) -> Color {
 /// Create a progress bar style for batch processing
 pub fn create_progress_style() -> indicatif::ProgressStyle {
     indicatif::ProgressStyle::default_bar()
-        .template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len} ({eta}) {msg}")
+        .template(
+            "{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len} ({eta}) {msg}",
+        )
         .unwrap()
         .progress_chars("█▓▒░  ")
 }

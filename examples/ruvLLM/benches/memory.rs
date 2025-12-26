@@ -2,13 +2,13 @@
 //!
 //! Benchmarks HNSW insertion, search, and graph operations.
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId, Throughput};
-use ruvllm::memory::MemoryService;
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
+use rand::{Rng, SeedableRng};
 use ruvllm::config::MemoryConfig;
-use ruvllm::types::{MemoryNode, MemoryEdge, NodeType, EdgeType};
+use ruvllm::memory::MemoryService;
+use ruvllm::types::{EdgeType, MemoryEdge, MemoryNode, NodeType};
 use std::collections::HashMap;
 use tokio::runtime::Runtime;
-use rand::{Rng, SeedableRng};
 
 fn create_random_node(id: &str, dim: usize, seed: u64) -> MemoryNode {
     let mut rng = rand::rngs::StdRng::seed_from_u64(seed);
@@ -106,15 +106,11 @@ fn benchmark_memory_search_varying_k(c: &mut Criterion) {
 
     let mut group = c.benchmark_group("memory_search_k");
     for k in [1, 5, 10, 20, 50, 100] {
-        group.bench_with_input(
-            BenchmarkId::from_parameter(k),
-            &k,
-            |b, &k| {
-                b.to_async(&rt).iter(|| async {
-                    black_box(memory.search_with_graph(&query, k, 64, 0).await.unwrap())
-                })
-            },
-        );
+        group.bench_with_input(BenchmarkId::from_parameter(k), &k, |b, &k| {
+            b.to_async(&rt).iter(|| async {
+                black_box(memory.search_with_graph(&query, k, 64, 0).await.unwrap())
+            })
+        });
     }
     group.finish();
 }
@@ -134,15 +130,11 @@ fn benchmark_memory_search_varying_ef(c: &mut Criterion) {
 
     let mut group = c.benchmark_group("memory_search_ef");
     for ef in [16, 32, 64, 128, 256] {
-        group.bench_with_input(
-            BenchmarkId::from_parameter(ef),
-            &ef,
-            |b, &ef| {
-                b.to_async(&rt).iter(|| async {
-                    black_box(memory.search_with_graph(&query, 10, ef, 0).await.unwrap())
-                })
-            },
-        );
+        group.bench_with_input(BenchmarkId::from_parameter(ef), &ef, |b, &ef| {
+            b.to_async(&rt).iter(|| async {
+                black_box(memory.search_with_graph(&query, 10, ef, 0).await.unwrap())
+            })
+        });
     }
     group.finish();
 }
@@ -174,15 +166,16 @@ fn benchmark_memory_search_with_graph(c: &mut Criterion) {
 
     let mut group = c.benchmark_group("memory_search_hops");
     for hops in [0, 1, 2, 3] {
-        group.bench_with_input(
-            BenchmarkId::from_parameter(hops),
-            &hops,
-            |b, &hops| {
-                b.to_async(&rt).iter(|| async {
-                    black_box(memory.search_with_graph(&query, 10, 64, hops).await.unwrap())
-                })
-            },
-        );
+        group.bench_with_input(BenchmarkId::from_parameter(hops), &hops, |b, &hops| {
+            b.to_async(&rt).iter(|| async {
+                black_box(
+                    memory
+                        .search_with_graph(&query, 10, 64, hops)
+                        .await
+                        .unwrap(),
+                )
+            })
+        });
     }
     group.finish();
 }

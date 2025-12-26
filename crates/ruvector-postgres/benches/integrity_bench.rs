@@ -7,20 +7,20 @@
 //! - Gating check latency
 //! - Graph connectivity verification
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId, Throughput};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 use rand::prelude::*;
 use rand_chacha::ChaCha8Rng;
 use rayon::prelude::*;
-use std::collections::{HashMap, HashSet, VecDeque, BinaryHeap};
 use std::cmp::Ordering;
+use std::collections::{BinaryHeap, HashMap, HashSet, VecDeque};
 
 // ============================================================================
 // Graph Structures for Index Integrity
 // ============================================================================
 
 mod graph {
-    use std::collections::{HashMap, HashSet, VecDeque, BinaryHeap};
     use std::cmp::Ordering;
+    use std::collections::{BinaryHeap, HashMap, HashSet, VecDeque};
 
     /// Node in the HNSW graph (simplified)
     #[derive(Clone)]
@@ -45,11 +45,14 @@ mod graph {
         }
 
         pub fn add_node(&mut self, id: u64, layer: usize) {
-            self.nodes.insert(id, GraphNode {
+            self.nodes.insert(
                 id,
-                neighbors: Vec::new(),
-                layer,
-            });
+                GraphNode {
+                    id,
+                    neighbors: Vec::new(),
+                    layer,
+                },
+            );
             self.max_layer = self.max_layer.max(layer);
         }
 
@@ -104,7 +107,8 @@ mod graph {
                 let super_node = SuperNode {
                     id: i,
                     original_nodes: chunk.to_vec(),
-                    internal_edges: chunk.iter()
+                    internal_edges: chunk
+                        .iter()
                         .filter_map(|&id| graph.nodes.get(&id))
                         .flat_map(|n| n.neighbors.iter())
                         .filter(|&&neighbor| chunk.contains(&neighbor))
@@ -370,7 +374,9 @@ mod graph {
         }
 
         fn check_dead_nodes(&self, graph: &Graph) -> f32 {
-            let dead_count = graph.nodes.values()
+            let dead_count = graph
+                .nodes
+                .values()
                 .filter(|n| n.neighbors.is_empty())
                 .count();
 
@@ -388,7 +394,12 @@ mod graph {
             }
 
             let max_count = layer_counts.iter().max().copied().unwrap_or(1) as f32;
-            let min_count = layer_counts.iter().filter(|&&c| c > 0).min().copied().unwrap_or(1) as f32;
+            let min_count = layer_counts
+                .iter()
+                .filter(|&&c| c > 0)
+                .min()
+                .copied()
+                .unwrap_or(1) as f32;
 
             max_count / min_count
         }
@@ -403,7 +414,7 @@ mod graph {
     }
 }
 
-use graph::{Graph, ContractedGraph, MincutComputer, IndexStateMachine, IndexState, GatingCheck};
+use graph::{ContractedGraph, GatingCheck, Graph, IndexState, IndexStateMachine, MincutComputer};
 
 // ============================================================================
 // Test Data Generation
@@ -488,11 +499,7 @@ fn bench_contracted_graph_build(c: &mut Criterion) {
             group.bench_with_input(
                 BenchmarkId::new(format!("n{}_factor{}", n, factor), n),
                 &(&graph, factor),
-                |bench, (g, f)| {
-                    bench.iter(|| {
-                        black_box(ContractedGraph::build_from_graph(g, *f))
-                    })
-                },
+                |bench, (g, f)| bench.iter(|| black_box(ContractedGraph::build_from_graph(g, *f))),
             );
         }
     }
@@ -516,7 +523,9 @@ fn bench_contracted_graph_memory(c: &mut Criterion) {
                         let contracted = ContractedGraph::build_from_graph(g, *f);
 
                         // Calculate memory usage
-                        let super_node_mem = contracted.super_nodes.iter()
+                        let super_node_mem = contracted
+                            .super_nodes
+                            .iter()
                             .map(|sn| sn.original_nodes.len() * 8)
                             .sum::<usize>();
                         let edge_mem = contracted.super_edges.len() * 20; // (usize, usize, f32)
@@ -548,21 +557,13 @@ fn bench_mincut_compute(c: &mut Criterion) {
         group.bench_with_input(
             BenchmarkId::new("single_pair", n),
             &mincut_computer,
-            |bench, mc| {
-                bench.iter(|| {
-                    black_box(mc.compute_mincut(0, mc.n - 1))
-                })
-            },
+            |bench, mc| bench.iter(|| black_box(mc.compute_mincut(0, mc.n - 1))),
         );
 
         group.bench_with_input(
             BenchmarkId::new("global", n),
             &mincut_computer,
-            |bench, mc| {
-                bench.iter(|| {
-                    black_box(mc.compute_global_mincut())
-                })
-            },
+            |bench, mc| bench.iter(|| black_box(mc.compute_global_mincut())),
         );
     }
 
@@ -583,11 +584,7 @@ fn bench_mincut_contraction_factors(c: &mut Criterion) {
         group.bench_with_input(
             BenchmarkId::from_parameter(factor),
             &mincut_computer,
-            |bench, mc| {
-                bench.iter(|| {
-                    black_box(mc.compute_global_mincut())
-                })
-            },
+            |bench, mc| bench.iter(|| black_box(mc.compute_global_mincut())),
         );
     }
 
@@ -624,9 +621,7 @@ fn bench_state_transitions(c: &mut Criterion) {
     // Transition check only (no mutation)
     group.bench_function("transition_check", |bench| {
         let sm = IndexStateMachine::new();
-        bench.iter(|| {
-            black_box(sm.can_transition(IndexState::Building))
-        })
+        bench.iter(|| black_box(sm.can_transition(IndexState::Building)))
     });
 
     // Many transitions
@@ -696,11 +691,7 @@ fn bench_gating_check(c: &mut Criterion) {
         group.bench_with_input(
             BenchmarkId::new("full_check", n),
             &(&graph, &gating),
-            |bench, (g, gate)| {
-                bench.iter(|| {
-                    black_box(gate.check(g))
-                })
-            },
+            |bench, (g, gate)| bench.iter(|| black_box(gate.check(g))),
         );
     }
 
@@ -722,21 +713,13 @@ fn bench_connectivity_check(c: &mut Criterion) {
         group.bench_with_input(
             BenchmarkId::new("connected", n),
             &(&connected_graph, &gating),
-            |bench, (g, gate)| {
-                bench.iter(|| {
-                    black_box(gate.check(g).connectivity)
-                })
-            },
+            |bench, (g, gate)| bench.iter(|| black_box(gate.check(g).connectivity)),
         );
 
         group.bench_with_input(
             BenchmarkId::new("sparse", n),
             &(&sparse_graph, &gating),
-            |bench, (g, gate)| {
-                bench.iter(|| {
-                    black_box(gate.check(g).connectivity)
-                })
-            },
+            |bench, (g, gate)| bench.iter(|| black_box(gate.check(g).connectivity)),
         );
     }
 
@@ -753,11 +736,7 @@ fn bench_dead_node_detection(c: &mut Criterion) {
         group.bench_with_input(
             BenchmarkId::from_parameter(n),
             &(&graph, &gating),
-            |bench, (g, gate)| {
-                bench.iter(|| {
-                    black_box(gate.check(g).dead_nodes_ratio)
-                })
-            },
+            |bench, (g, gate)| bench.iter(|| black_box(gate.check(g).dead_nodes_ratio)),
         );
     }
 
@@ -774,11 +753,7 @@ fn bench_layer_balance_check(c: &mut Criterion) {
         group.bench_with_input(
             BenchmarkId::from_parameter(n),
             &(&graph, &gating),
-            |bench, (g, gate)| {
-                bench.iter(|| {
-                    black_box(gate.check(g).layer_imbalance)
-                })
-            },
+            |bench, (g, gate)| bench.iter(|| black_box(gate.check(g).layer_imbalance)),
         );
     }
 
@@ -822,7 +797,9 @@ fn bench_parallel_integrity(c: &mut Criterion) {
                     while let Some(node) = queue.pop_front() {
                         if let Some(n) = graph.nodes.get(&node) {
                             for &neighbor in &n.neighbors {
-                                if !visited.contains(&neighbor) && graph.nodes.contains_key(&neighbor) {
+                                if !visited.contains(&neighbor)
+                                    && graph.nodes.contains_key(&neighbor)
+                                {
                                     visited.insert(neighbor);
                                     queue.push_back(neighbor);
                                 }
@@ -831,23 +808,34 @@ fn bench_parallel_integrity(c: &mut Criterion) {
                     }
                     visited.len() as f32 / graph.len() as f32
                 },
-                || rayon::join(
-                    || {
-                        // Dead nodes
-                        let dead = graph.nodes.values().filter(|n| n.neighbors.is_empty()).count();
-                        dead as f32 / graph.len() as f32
-                    },
-                    || {
-                        // Layer balance
-                        let mut layer_counts = vec![0usize; graph.max_layer + 1];
-                        for node in graph.nodes.values() {
-                            layer_counts[node.layer] += 1;
-                        }
-                        let max_count = layer_counts.iter().max().copied().unwrap_or(1) as f32;
-                        let min_count = layer_counts.iter().filter(|&&c| c > 0).min().copied().unwrap_or(1) as f32;
-                        max_count / min_count
-                    },
-                ),
+                || {
+                    rayon::join(
+                        || {
+                            // Dead nodes
+                            let dead = graph
+                                .nodes
+                                .values()
+                                .filter(|n| n.neighbors.is_empty())
+                                .count();
+                            dead as f32 / graph.len() as f32
+                        },
+                        || {
+                            // Layer balance
+                            let mut layer_counts = vec![0usize; graph.max_layer + 1];
+                            for node in graph.nodes.values() {
+                                layer_counts[node.layer] += 1;
+                            }
+                            let max_count = layer_counts.iter().max().copied().unwrap_or(1) as f32;
+                            let min_count = layer_counts
+                                .iter()
+                                .filter(|&&c| c > 0)
+                                .min()
+                                .copied()
+                                .unwrap_or(1) as f32;
+                            max_count / min_count
+                        },
+                    )
+                },
             );
 
             let passed = connectivity >= gating.min_connectivity
@@ -873,34 +861,30 @@ fn bench_full_integrity_pipeline(c: &mut Criterion) {
         let graph = generate_connected_graph(n, 16, 42);
         let gating = GatingCheck::default();
 
-        group.bench_with_input(
-            BenchmarkId::from_parameter(n),
-            &n,
-            |bench, _| {
-                bench.iter(|| {
-                    // 1. State check
-                    let mut sm = IndexStateMachine::new();
-                    sm.transition(IndexState::Building).ok();
-                    sm.transition(IndexState::Ready).ok();
+        group.bench_with_input(BenchmarkId::from_parameter(n), &n, |bench, _| {
+            bench.iter(|| {
+                // 1. State check
+                let mut sm = IndexStateMachine::new();
+                sm.transition(IndexState::Building).ok();
+                sm.transition(IndexState::Ready).ok();
 
-                    // 2. Gating check
-                    let gate_result = gating.check(&graph);
+                // 2. Gating check
+                let gate_result = gating.check(&graph);
 
-                    // 3. If passed, build contracted graph
-                    if gate_result.passed {
-                        let contracted = ContractedGraph::build_from_graph(&graph, 100);
+                // 3. If passed, build contracted graph
+                if gate_result.passed {
+                    let contracted = ContractedGraph::build_from_graph(&graph, 100);
 
-                        // 4. Compute mincut
-                        let mincut_computer = MincutComputer::from_contracted_graph(&contracted);
-                        let mincut = mincut_computer.compute_global_mincut();
+                    // 4. Compute mincut
+                    let mincut_computer = MincutComputer::from_contracted_graph(&contracted);
+                    let mincut = mincut_computer.compute_global_mincut();
 
-                        black_box((gate_result, mincut))
-                    } else {
-                        black_box((gate_result, 0.0))
-                    }
-                })
-            },
-        );
+                    black_box((gate_result, mincut))
+                } else {
+                    black_box((gate_result, 0.0))
+                }
+            })
+        });
     }
 
     group.finish();

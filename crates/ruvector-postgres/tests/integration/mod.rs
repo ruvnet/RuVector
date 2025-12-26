@@ -25,10 +25,10 @@
 //! cargo test --test integration pgvector_compat --features pg_test
 //! ```
 
-pub mod pgvector_compat;
-pub mod integrity_tests;
-pub mod hybrid_search_tests;
-pub mod tenancy_tests;
-pub mod healing_tests;
-pub mod perf_tests;
 pub mod harness;
+pub mod healing_tests;
+pub mod hybrid_search_tests;
+pub mod integrity_tests;
+pub mod perf_tests;
+pub mod pgvector_compat;
+pub mod tenancy_tests;

@@ -45,14 +45,14 @@
 
 #![warn(missing_docs)]
 
-pub mod types;
-pub mod lora;
-pub mod trajectory;
-pub mod ewc;
-pub mod reasoning_bank;
-pub mod loops;
 pub mod engine;
+pub mod ewc;
+pub mod loops;
+pub mod lora;
+pub mod reasoning_bank;
 pub mod time_compat;
+pub mod trajectory;
+pub mod types;
 
 #[cfg(feature = "serde-support")]
 pub mod export;
@@ -67,33 +67,29 @@ pub mod wasm;
 pub mod napi_simple;
 
 // Re-export main types
-pub use types::{
-    LearningSignal, QueryTrajectory, TrajectoryStep,
-    LearnedPattern, PatternType, SignalMetadata, SonaConfig,
-};
-pub use lora::{MicroLoRA, BaseLoRA, LoRAEngine, LoRALayer};
-pub use trajectory::{TrajectoryBuffer, TrajectoryBuilder, TrajectoryIdGen};
-pub use ewc::{EwcConfig, EwcPlusPlus, TaskFisher};
-pub use reasoning_bank::{ReasoningBank, PatternConfig};
-pub use loops::{InstantLoop, BackgroundLoop, LoopCoordinator};
 pub use engine::SonaEngine;
+pub use ewc::{EwcConfig, EwcPlusPlus, TaskFisher};
+pub use loops::{BackgroundLoop, InstantLoop, LoopCoordinator};
+pub use lora::{BaseLoRA, LoRAEngine, LoRALayer, MicroLoRA};
+pub use reasoning_bank::{PatternConfig, ReasoningBank};
+pub use trajectory::{TrajectoryBuffer, TrajectoryBuilder, TrajectoryIdGen};
+pub use types::{
+    LearnedPattern, LearningSignal, PatternType, QueryTrajectory, SignalMetadata, SonaConfig,
+    TrajectoryStep,
+};
 
 #[cfg(feature = "serde-support")]
 pub use export::{
-    HuggingFaceExporter, ExportConfig, ExportResult, ExportError, ExportType,
-    SafeTensorsExporter, DatasetExporter, HuggingFaceHub,
-    PretrainConfig, PretrainPipeline,
+    DatasetExporter, ExportConfig, ExportError, ExportResult, ExportType, HuggingFaceExporter,
+    HuggingFaceHub, PretrainConfig, PretrainPipeline, SafeTensorsExporter,
 };
 
 #[cfg(feature = "serde-support")]
 pub use training::{
-    TrainingTemplate, TemplatePreset, VerticalConfig,
-    AgentType, TaskDomain, TrainingMethod, DataSizeHint,
-    AgentFactory, ManagedAgent, AgentHandle, AgentStats,
-    TrainingPipeline, PipelineStage, BatchConfig,
-    TrainingMetrics, TrainingResult, EpochStats,
-    EphemeralAgent, FederatedCoordinator, AgentExport,
-    AggregationResult, CoordinatorStats, FederatedTopology,
+    AgentExport, AgentFactory, AgentHandle, AgentStats, AgentType, AggregationResult, BatchConfig,
+    CoordinatorStats, DataSizeHint, EphemeralAgent, EpochStats, FederatedCoordinator,
+    FederatedTopology, ManagedAgent, PipelineStage, TaskDomain, TemplatePreset, TrainingMethod,
+    TrainingMetrics, TrainingPipeline, TrainingResult, TrainingTemplate, VerticalConfig,
 };
 
 #[cfg(feature = "wasm")]

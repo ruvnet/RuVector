@@ -5,10 +5,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum SqlStatement {
     /// CREATE TABLE name (columns)
-    CreateTable {
-        name: String,
-        columns: Vec<Column>,
-    },
+    CreateTable { name: String, columns: Vec<Column> },
     /// INSERT INTO table (columns) VALUES (values)
     Insert {
         table: String,
@@ -24,9 +21,7 @@ pub enum SqlStatement {
         limit: Option<usize>,
     },
     /// DROP TABLE name
-    Drop {
-        table: String,
-    },
+    Drop { table: String },
 }
 
 /// Column definition for CREATE TABLE
@@ -83,10 +78,7 @@ pub enum Expression {
     /// NOT expression
     Not(Box<Expression>),
     /// Function call
-    Function {
-        name: String,
-        args: Vec<Expression>,
-    },
+    Function { name: String, args: Vec<Expression> },
     /// Vector literal [1.0, 2.0, 3.0]
     VectorLiteral(Vec<f32>),
     /// Distance operation: column <-> vector
@@ -160,13 +152,17 @@ impl Value {
             Value::Null => serde_json::Value::Null,
             Value::Text(s) => serde_json::Value::String(s.clone()),
             Value::Integer(i) => serde_json::Value::Number((*i).into()),
-            Value::Real(f) => serde_json::Value::Number(
-                serde_json::Number::from_f64(*f).unwrap_or(0.into())
-            ),
+            Value::Real(f) => {
+                serde_json::Value::Number(serde_json::Number::from_f64(*f).unwrap_or(0.into()))
+            }
             Value::Vector(v) => serde_json::Value::Array(
-                v.iter().map(|f| serde_json::Value::Number(
-                    serde_json::Number::from_f64(*f as f64).unwrap_or(0.into())
-                )).collect()
+                v.iter()
+                    .map(|f| {
+                        serde_json::Value::Number(
+                            serde_json::Number::from_f64(*f as f64).unwrap_or(0.into()),
+                        )
+                    })
+                    .collect(),
             ),
             Value::Boolean(b) => serde_json::Value::Bool(*b),
         }
@@ -189,9 +185,8 @@ impl Value {
             serde_json::Value::String(s) => Value::Text(s.clone()),
             serde_json::Value::Array(arr) => {
                 // Try to parse as vector
-                let floats: Option<Vec<f32>> = arr.iter().map(|v| {
-                    v.as_f64().map(|f| f as f32)
-                }).collect();
+                let floats: Option<Vec<f32>> =
+                    arr.iter().map(|v| v.as_f64().map(|f| f as f32)).collect();
 
                 if let Some(vec) = floats {
                     Value::Vector(vec)
@@ -211,8 +206,13 @@ impl std::fmt::Display for Value {
             Value::Text(s) => write!(f, "'{}'", s),
             Value::Integer(i) => write!(f, "{}", i),
             Value::Real(r) => write!(f, "{}", r),
-            Value::Vector(v) => write!(f, "[{}]",
-                v.iter().map(|x| x.to_string()).collect::<Vec<_>>().join(", ")
+            Value::Vector(v) => write!(
+                f,
+                "[{}]",
+                v.iter()
+                    .map(|x| x.to_string())
+                    .collect::<Vec<_>>()
+                    .join(", ")
             ),
             Value::Boolean(b) => write!(f, "{}", b),
         }

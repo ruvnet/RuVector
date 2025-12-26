@@ -13,7 +13,11 @@ pub struct ParseError {
 
 impl fmt::Display for ParseError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Parse error at position {}: {}", self.position, self.message)
+        write!(
+            f,
+            "Parse error at position {}: {}",
+            self.position, self.message
+        )
     }
 }
 
@@ -55,9 +59,9 @@ enum Token {
     Like,
 
     // Distance operators
-    L2Distance,      // <->
-    CosineDistance,  // <=>
-    DotProduct,      // <#>
+    L2Distance,     // <->
+    CosineDistance, // <=>
+    DotProduct,     // <#>
 
     // Delimiters
     LeftParen,
@@ -781,12 +785,17 @@ mod tests {
 
     #[test]
     fn test_parse_insert() {
-        let sql = "INSERT INTO documents (id, content, embedding) VALUES ('1', 'hello', [1.0, 2.0, 3.0])";
+        let sql =
+            "INSERT INTO documents (id, content, embedding) VALUES ('1', 'hello', [1.0, 2.0, 3.0])";
         let mut parser = SqlParser::new(sql).unwrap();
         let stmt = parser.parse().unwrap();
 
         match stmt {
-            SqlStatement::Insert { table, columns, values } => {
+            SqlStatement::Insert {
+                table,
+                columns,
+                values,
+            } => {
                 assert_eq!(table, "documents");
                 assert_eq!(columns.len(), 3);
                 assert_eq!(values.len(), 3);
@@ -802,7 +811,9 @@ mod tests {
         let stmt = parser.parse().unwrap();
 
         match stmt {
-            SqlStatement::Select { order_by, limit, .. } => {
+            SqlStatement::Select {
+                order_by, limit, ..
+            } => {
                 assert!(order_by.is_some());
                 assert_eq!(limit, Some(5));
             }

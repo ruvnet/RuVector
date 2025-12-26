@@ -275,7 +275,11 @@ pub fn temporal_delta(current: Vec<f32>, previous: Vec<f32>) -> Vec<f32> {
     if current.len() != previous.len() {
         pgrx::error!("Vectors must have same dimensions");
     }
-    current.iter().zip(previous.iter()).map(|(c, p)| c - p).collect()
+    current
+        .iter()
+        .zip(previous.iter())
+        .map(|(c, p)| c - p)
+        .collect()
 }
 
 /// Reconstruct vector from delta and previous vector
@@ -284,7 +288,11 @@ pub fn temporal_undelta(delta: Vec<f32>, previous: Vec<f32>) -> Vec<f32> {
     if delta.len() != previous.len() {
         pgrx::error!("Vectors must have same dimensions");
     }
-    delta.iter().zip(previous.iter()).map(|(d, p)| d + p).collect()
+    delta
+        .iter()
+        .zip(previous.iter())
+        .map(|(d, p)| d + p)
+        .collect()
 }
 
 /// Compute exponential moving average update
@@ -298,7 +306,8 @@ pub fn temporal_ema_update(current: Vec<f32>, ema_prev: Vec<f32>, alpha: f32) ->
         pgrx::error!("Alpha must be in (0, 1]");
     }
 
-    current.iter()
+    current
+        .iter()
         .zip(ema_prev.iter())
         .map(|(c, e)| alpha * c + (1.0 - alpha) * e)
         .collect()
@@ -327,7 +336,10 @@ pub fn temporal_velocity(v_t0: Vec<f32>, v_t1: Vec<f32>, dt: f32) -> Vec<f32> {
         pgrx::error!("Time delta must be positive");
     }
 
-    v_t1.iter().zip(v_t0.iter()).map(|(t1, t0)| (t1 - t0) / dt).collect()
+    v_t1.iter()
+        .zip(v_t0.iter())
+        .map(|(t1, t0)| (t1 - t0) / dt)
+        .collect()
 }
 
 // ============================================================================
@@ -368,7 +380,8 @@ pub fn attention_weighted_add(accumulator: Vec<f32>, value: Vec<f32>, weight: f3
     if accumulator.len() != value.len() {
         pgrx::error!("Accumulator and value must have same dimensions");
     }
-    accumulator.iter()
+    accumulator
+        .iter()
         .zip(value.iter())
         .map(|(a, v)| a + weight * v)
         .collect()
@@ -383,13 +396,23 @@ pub fn attention_init(dim: i32) -> Vec<f32> {
 /// Compute attention between query and single key-value pair
 /// Returns weighted value: softmax_weight * value (for use with sum aggregate)
 #[pg_extern(immutable, parallel_safe)]
-pub fn attention_single(query: Vec<f32>, key: Vec<f32>, value: Vec<f32>, score_offset: f32) -> pgrx::JsonB {
+pub fn attention_single(
+    query: Vec<f32>,
+    key: Vec<f32>,
+    value: Vec<f32>,
+    score_offset: f32,
+) -> pgrx::JsonB {
     if query.len() != key.len() {
         pgrx::error!("Query and key must have same dimensions");
     }
     let dim = query.len();
     let scale = (dim as f32).sqrt();
-    let raw_score: f32 = query.iter().zip(key.iter()).map(|(q, k)| q * k).sum::<f32>() / scale;
+    let raw_score: f32 = query
+        .iter()
+        .zip(key.iter())
+        .map(|(q, k)| q * k)
+        .sum::<f32>()
+        / scale;
 
     pgrx::JsonB(serde_json::json!({
         "score": raw_score,
@@ -452,7 +475,8 @@ pub fn graph_centroid_update(centroid: Vec<f32>, neighbor: Vec<f32>, weight: f32
     if centroid.len() != neighbor.len() {
         pgrx::error!("Vectors must have same dimensions");
     }
-    centroid.iter()
+    centroid
+        .iter()
         .zip(neighbor.iter())
         .map(|(c, n)| c + weight * (n - c))
         .collect()
@@ -526,8 +550,11 @@ mod tests {
             let b_data: Vec<f32> = (0..size).map(|i| (i + 1) as f32).collect();
 
             let dist = l2_distance_arr(a_data, b_data);
-            assert!(dist.is_finite() && dist > 0.0,
-                "L2 distance failed for size {}", size);
+            assert!(
+                dist.is_finite() && dist > 0.0,
+                "L2 distance failed for size {}",
+                size
+            );
         }
     }
 }

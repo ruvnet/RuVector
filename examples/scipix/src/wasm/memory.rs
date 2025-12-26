@@ -192,14 +192,14 @@ pub fn get_memory_stats() -> JsValue {
         use wasm_bindgen::JsValue;
 
         // Try to get memory info from performance.memory (non-standard)
-        let performance = web_sys::window()
-            .and_then(|w| w.performance());
+        let performance = web_sys::window().and_then(|w| w.performance());
 
         if let Some(perf) = performance {
             serde_wasm_bindgen::to_value(&serde_json::json!({
                 "available": true,
                 "timestamp": perf.now(),
-            })).unwrap_or(JsValue::NULL)
+            }))
+            .unwrap_or(JsValue::NULL)
         } else {
             JsValue::NULL
         }

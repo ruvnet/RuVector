@@ -12,19 +12,19 @@
 //! - TOAST handling for large vectors
 //! - Optimized memory layouts
 
-pub mod vector;
-mod halfvec;
-mod sparsevec;
 mod binaryvec;
-mod scalarvec;
+mod halfvec;
 mod productvec;
+mod scalarvec;
+mod sparsevec;
+pub mod vector;
 
-pub use vector::RuVector;
-pub use halfvec::HalfVec;
-pub use sparsevec::SparseVec;
 pub use binaryvec::BinaryVec;
-pub use scalarvec::ScalarVec;
+pub use halfvec::HalfVec;
 pub use productvec::ProductVec;
+pub use scalarvec::ScalarVec;
+pub use sparsevec::SparseVec;
+pub use vector::RuVector;
 
 use pgrx::prelude::*;
 use std::sync::atomic::{AtomicU32, AtomicUsize, Ordering};
@@ -698,10 +698,9 @@ fn ruvector_memory_detailed() -> pgrx::JsonB {
 /// Reset peak memory tracking
 #[pg_extern]
 fn ruvector_reset_peak_memory() {
-    GLOBAL_VECTOR_CONTEXT.peak_bytes.store(
-        GLOBAL_VECTOR_CONTEXT.current_bytes(),
-        Ordering::Relaxed,
-    );
+    GLOBAL_VECTOR_CONTEXT
+        .peak_bytes
+        .store(GLOBAL_VECTOR_CONTEXT.current_bytes(), Ordering::Relaxed);
 }
 
 // ============================================================================

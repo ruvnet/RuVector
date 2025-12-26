@@ -15,21 +15,21 @@
 //! - DELETE/DETACH DELETE: Remove nodes and edges
 
 pub mod ast;
+pub mod executor;
+pub mod graph_store;
 pub mod lexer;
 pub mod parser;
-pub mod graph_store;
-pub mod executor;
 
-pub use ast::{Query, Statement, Pattern, Expression};
-pub use lexer::{Token, TokenKind, tokenize};
+pub use ast::{Expression, Pattern, Query, Statement};
+pub use executor::{ContextValue, ExecutionError, ExecutionResult, Executor};
+pub use graph_store::{Edge, EdgeId, Node, NodeId, PropertyGraph, Value};
+pub use lexer::{tokenize, Token, TokenKind};
 pub use parser::{parse_cypher, ParseError};
-pub use graph_store::{PropertyGraph, Node, Edge, Value, NodeId, EdgeId};
-pub use executor::{Executor, ExecutionResult, ExecutionError, ContextValue};
 
-use wasm_bindgen::prelude::*;
+use crate::storage::state::{EdgeState, GraphState, NodeState, PropertyValue};
 use serde::{Deserialize, Serialize};
-use crate::storage::state::{GraphState, NodeState, EdgeState, PropertyValue};
 use std::collections::HashMap;
+use wasm_bindgen::prelude::*;
 
 /// WASM-compatible Cypher engine
 #[wasm_bindgen]
@@ -50,28 +50,25 @@ impl CypherEngine {
     /// Execute a Cypher query and return JSON results
     pub fn execute(&mut self, query: &str) -> Result<JsValue, JsValue> {
         // Parse the query
-        let ast = parse_cypher(query).map_err(|e| {
-            JsValue::from_str(&format!("Parse error: {}", e))
-        })?;
+        let ast =
+            parse_cypher(query).map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
 
         // Execute the query
         let mut executor = Executor::new(&mut self.graph);
-        let result = executor.execute(&ast).map_err(|e| {
-            JsValue::from_str(&format!("Execution error: {}", e))
-        })?;
+        let result = executor
+            .execute(&ast)
+            .map_err(|e| JsValue::from_str(&format!("Execution error: {}", e)))?;
 
         // Convert to JS value
-        serde_wasm_bindgen::to_value(&result).map_err(|e| {
-            JsValue::from_str(&format!("Serialization error: {}", e))
-        })
+        serde_wasm_bindgen::to_value(&result)
+            .map_err(|e| JsValue::from_str(&format!("Serialization error: {}", e)))
     }
 
     /// Get graph statistics
     pub fn stats(&self) -> Result<JsValue, JsValue> {
         let stats = self.graph.stats();
-        serde_wasm_bindgen::to_value(&stats).map_err(|e| {
-            JsValue::from_str(&format!("Serialization error: {}", e))
-        })
+        serde_wasm_bindgen::to_value(&stats)
+            .map_err(|e| JsValue::from_str(&format!("Serialization error: {}", e)))
     }
 
     /// Clear the graph
@@ -83,25 +80,33 @@ impl CypherEngine {
 impl CypherEngine {
     /// Export graph state for persistence
     pub fn export_state(&self) -> GraphState {
-        let nodes: Vec<NodeState> = self.graph.all_nodes()
+        let nodes: Vec<NodeState> = self
+            .graph
+            .all_nodes()
             .into_iter()
             .map(|n| NodeState {
                 id: n.id.clone(),
                 labels: n.labels.clone(),
-                properties: n.properties.iter()
+                properties: n
+                    .properties
+                    .iter()
                     .map(|(k, v)| (k.clone(), value_to_property(v)))
                     .collect(),
             })
             .collect();
 
-        let edges: Vec<EdgeState> = self.graph.all_edges()
+        let edges: Vec<EdgeState> = self
+            .graph
+            .all_edges()
             .into_iter()
             .map(|e| EdgeState {
                 id: e.id.clone(),
                 from: e.from.clone(),
                 to: e.to.clone(),
                 edge_type: e.edge_type.clone(),
-                properties: e.properties.iter()
+                properties: e
+                    .properties
+                    .iter()
                     .map(|(k, v)| (k.clone(), value_to_property(v)))
                     .collect(),
             })
@@ -167,11 +172,11 @@ fn value_to_property(v: &Value) -> PropertyValue {
         Value::Integer(i) => PropertyValue::Integer(*i),
         Value::Float(f) => PropertyValue::Float(*f),
         Value::String(s) => PropertyValue::String(s.clone()),
-        Value::List(list) => PropertyValue::List(
-            list.iter().map(value_to_property).collect()
-        ),
+        Value::List(list) => PropertyValue::List(list.iter().map(value_to_property).collect()),
         Value::Map(map) => PropertyValue::Map(
-            map.iter().map(|(k, v)| (k.clone(), value_to_property(v))).collect()
+            map.iter()
+                .map(|(k, v)| (k.clone(), value_to_property(v)))
+                .collect(),
         ),
     }
 }
@@ -184,11 +189,11 @@ fn property_to_value(p: &PropertyValue) -> Value {
         PropertyValue::Integer(i) => Value::Integer(*i),
         PropertyValue::Float(f) => Value::Float(*f),
         PropertyValue::String(s) => Value::String(s.clone()),
-        PropertyValue::List(list) => Value::List(
-            list.iter().map(property_to_value).collect()
-        ),
+        PropertyValue::List(list) => Value::List(list.iter().map(property_to_value).collect()),
         PropertyValue::Map(map) => Value::Map(
-            map.iter().map(|(k, v)| (k.clone(), property_to_value(v))).collect()
+            map.iter()
+                .map(|(k, v)| (k.clone(), property_to_value(v)))
+                .collect(),
         ),
     }
 }

@@ -19,10 +19,10 @@
 //!   └────────────────────────────────────────────────┘
 //! ```
 
-use crate::engine::SonaEngine;
-use crate::types::{SonaConfig, LearnedPattern};
-use crate::time_compat::SystemTime;
 use super::metrics::TrainingMetrics;
+use crate::engine::SonaEngine;
+use crate::time_compat::SystemTime;
+use crate::types::{LearnedPattern, SonaConfig};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -86,9 +86,7 @@ pub struct EphemeralAgent {
 impl EphemeralAgent {
     /// Create a new ephemeral agent
     pub fn new(agent_id: impl Into<String>, config: SonaConfig) -> Self {
-        let now = SystemTime::now()
-            .duration_since_epoch()
-            .as_millis() as u64;
+        let now = SystemTime::now().duration_since_epoch().as_millis() as u64;
 
         Self {
             agent_id: agent_id.into(),
@@ -101,16 +99,19 @@ impl EphemeralAgent {
 
     /// Create with default config for federated learning
     pub fn default_federated(agent_id: impl Into<String>, hidden_dim: usize) -> Self {
-        Self::new(agent_id, SonaConfig {
-            hidden_dim,
-            embedding_dim: hidden_dim,
-            micro_lora_rank: 2,
-            base_lora_rank: 8,
-            micro_lora_lr: 0.002,
-            trajectory_capacity: 500,  // Small buffer per agent
-            pattern_clusters: 25,
-            ..Default::default()
-        })
+        Self::new(
+            agent_id,
+            SonaConfig {
+                hidden_dim,
+                embedding_dim: hidden_dim,
+                micro_lora_rank: 2,
+                base_lora_rank: 8,
+                micro_lora_lr: 0.002,
+                trajectory_capacity: 500, // Small buffer per agent
+                pattern_clusters: 25,
+                ..Default::default()
+            },
+        )
     }
 
     /// Get agent ID
@@ -137,9 +138,7 @@ impl EphemeralAgent {
         route: Option<String>,
         context: Vec<String>,
     ) {
-        let now = SystemTime::now()
-            .duration_since_epoch()
-            .as_millis() as u64;
+        let now = SystemTime::now().duration_since_epoch().as_millis() as u64;
 
         // Record in SONA engine
         let mut builder = self.engine.begin_trajectory(embedding.clone());
@@ -195,7 +194,13 @@ impl EphemeralAgent {
 
     /// Process task with route information
     pub fn process_task_with_route(&mut self, embedding: Vec<f32>, quality: f32, route: &str) {
-        self.process_trajectory(embedding.clone(), embedding, quality, Some(route.to_string()), vec![]);
+        self.process_trajectory(
+            embedding.clone(),
+            embedding,
+            quality,
+            Some(route.to_string()),
+            vec![],
+        );
     }
 
     /// Get average quality (alias for avg_quality)
@@ -205,9 +210,7 @@ impl EphemeralAgent {
 
     /// Get uptime in seconds
     pub fn uptime_seconds(&self) -> u64 {
-        let now = SystemTime::now()
-            .duration_since_epoch()
-            .as_millis() as u64;
+        let now = SystemTime::now().duration_since_epoch().as_millis() as u64;
         (now - self.start_time) / 1000
     }
 
@@ -236,9 +239,7 @@ impl EphemeralAgent {
     ///
     /// Call this before terminating the agent.
     pub fn export_state(&self) -> AgentExport {
-        let now = SystemTime::now()
-            .duration_since_epoch()
-            .as_millis() as u64;
+        let now = SystemTime::now().duration_since_epoch().as_millis() as u64;
 
         // Force learning before export
         self.engine.force_learn();
@@ -309,16 +310,19 @@ impl FederatedCoordinator {
 
     /// Create with default config for coordination
     pub fn default_coordinator(coordinator_id: impl Into<String>, hidden_dim: usize) -> Self {
-        Self::new(coordinator_id, SonaConfig {
-            hidden_dim,
-            embedding_dim: hidden_dim,
-            micro_lora_rank: 2,
-            base_lora_rank: 16,          // Deeper for aggregation
-            trajectory_capacity: 50000,   // Large central buffer
-            pattern_clusters: 200,
-            ewc_lambda: 2000.0,          // Strong regularization
-            ..Default::default()
-        })
+        Self::new(
+            coordinator_id,
+            SonaConfig {
+                hidden_dim,
+                embedding_dim: hidden_dim,
+                micro_lora_rank: 2,
+                base_lora_rank: 16,         // Deeper for aggregation
+                trajectory_capacity: 50000, // Large central buffer
+                pattern_clusters: 200,
+                ewc_lambda: 2000.0, // Strong regularization
+                ..Default::default()
+            },
+        )
     }
 
     /// Get coordinator ID
@@ -368,16 +372,17 @@ impl FederatedCoordinator {
         self.total_trajectories += accepted;
 
         // Record contribution
-        let now = SystemTime::now()
-            .duration_since_epoch()
-            .as_millis() as u64;
+        let now = SystemTime::now().duration_since_epoch().as_millis() as u64;
 
-        self.contributions.insert(export.agent_id.clone(), AgentContribution {
-            trajectory_count: export.trajectories.len(),
-            avg_quality: export.stats.avg_quality,
-            timestamp: now,
-            session_duration_ms: export.session_duration_ms,
-        });
+        self.contributions.insert(
+            export.agent_id.clone(),
+            AgentContribution {
+                trajectory_count: export.trajectories.len(),
+                avg_quality: export.stats.avg_quality,
+                timestamp: now,
+                session_duration_ms: export.session_duration_ms,
+            },
+        );
 
         // Auto-consolidate if needed
         let consolidated = if self.should_consolidate() {
@@ -413,7 +418,8 @@ impl FederatedCoordinator {
     pub fn get_initial_patterns(&self, k: usize) -> Vec<LearnedPattern> {
         // Find patterns similar to a general query (empty or average)
         // Since we don't have a specific query, get all patterns
-        self.master_engine.find_patterns(&[], 0)
+        self.master_engine
+            .find_patterns(&[], 0)
             .into_iter()
             .take(k)
             .collect()
@@ -625,7 +631,7 @@ mod tests {
                 },
                 TrajectoryExport {
                     embedding: vec![0.2; 256],
-                    quality: 0.3,  // Below threshold
+                    quality: 0.3, // Below threshold
                     route: None,
                     context: vec![],
                     timestamp: 0,
@@ -649,20 +655,18 @@ mod tests {
     #[test]
     fn test_multi_agent_aggregation() {
         let mut coord = FederatedCoordinator::default_coordinator("coord-1", 256);
-        coord.set_consolidation_interval(2);  // Consolidate every 2 agents
+        coord.set_consolidation_interval(2); // Consolidate every 2 agents
 
         for i in 0..3 {
             let export = AgentExport {
                 agent_id: format!("agent-{}", i),
-                trajectories: vec![
-                    TrajectoryExport {
-                        embedding: vec![i as f32 * 0.1; 256],
-                        quality: 0.8,
-                        route: None,
-                        context: vec![],
-                        timestamp: 0,
-                    },
-                ],
+                trajectories: vec![TrajectoryExport {
+                    embedding: vec![i as f32 * 0.1; 256],
+                    quality: 0.8,
+                    route: None,
+                    context: vec![],
+                    timestamp: 0,
+                }],
                 stats: AgentExportStats::default(),
                 session_duration_ms: 1000,
                 timestamp: 0,

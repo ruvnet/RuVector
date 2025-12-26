@@ -221,13 +221,17 @@ fn benchmark_end_to_end() -> anyhow::Result<()> {
 
         // Calculate statistics
         latencies.sort();
-        let avg_us = latencies.iter().map(|d| d.as_micros()).sum::<u128>() as f64 / num_queries as f64;
+        let avg_us =
+            latencies.iter().map(|d| d.as_micros()).sum::<u128>() as f64 / num_queries as f64;
         let p99_idx = (num_queries as f64 * 0.99) as usize;
         let p99_us = latencies[p99_idx.min(num_queries - 1)].as_micros();
         let total_time: Duration = latencies.iter().sum();
         let qps = num_queries as f64 / total_time.as_secs_f64();
 
-        println!("{:>30} | {:>12.1} | {:>12} | {:>10.0}", name, avg_us, p99_us, qps);
+        println!(
+            "{:>30} | {:>12.1} | {:>12} | {:>10.0}",
+            name, avg_us, p99_us, qps
+        );
     }
 
     println!();

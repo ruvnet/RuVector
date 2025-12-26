@@ -146,8 +146,7 @@ pub trait GeometricAttention: Attention {
     fn project_to_geometric(&self, vector: &[f32], curvature: f32) -> AttentionResult<Vec<f32>>;
 
     /// Projects vector back from geometric space.
-    fn project_from_geometric(&self, vector: &[f32], curvature: f32)
-        -> AttentionResult<Vec<f32>>;
+    fn project_from_geometric(&self, vector: &[f32], curvature: f32) -> AttentionResult<Vec<f32>>;
 }
 
 /// Sparse attention mechanism trait.
@@ -247,8 +246,11 @@ pub trait TrainableAttention: Attention {
     ///
     /// * `gradients` - Computed gradients
     /// * `learning_rate` - Learning rate for update
-    fn update_parameters(&mut self, gradients: &Gradients, learning_rate: f32)
-        -> AttentionResult<()>;
+    fn update_parameters(
+        &mut self,
+        gradients: &Gradients,
+        learning_rate: f32,
+    ) -> AttentionResult<()>;
 }
 
 #[cfg(test)]

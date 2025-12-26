@@ -2,18 +2,17 @@
 //
 // Provides functions to generate test images with equations
 
-use image::{DynamicImage, Rgba, RgbaImage};
-use imageproc::drawing::{draw_text_mut, draw_filled_rect_mut};
-use imageproc::rect::Rect;
 use ab_glyph::{FontRef, PxScale};
+use image::{DynamicImage, Rgba, RgbaImage};
+use imageproc::drawing::{draw_filled_rect_mut, draw_text_mut};
+use imageproc::rect::Rect;
 use rand::Rng;
 
 // Embedded font data
 const FONT_DATA: &[u8] = include_bytes!("../../assets/fonts/DejaVuSans.ttf");
 
 fn get_font() -> FontRef<'static> {
-    FontRef::try_from_slice(FONT_DATA)
-        .expect("Error loading embedded font")
+    FontRef::try_from_slice(FONT_DATA).expect("Error loading embedded font")
 }
 
 /// Generate a simple equation image
@@ -46,17 +45,29 @@ pub fn generate_fraction(numerator: i32, denominator: i32) -> DynamicImage {
     let color = Rgba([0, 0, 0, 255]);
 
     // Draw numerator
-    draw_text_mut(&mut image, color, 85, 30, scale, &font, &numerator.to_string());
-
-    // Draw fraction line
-    draw_filled_rect_mut(
+    draw_text_mut(
         &mut image,
-        Rect::at(70, 65).of_size(60, 2),
-        color
+        color,
+        85,
+        30,
+        scale,
+        &font,
+        &numerator.to_string(),
     );
 
+    // Draw fraction line
+    draw_filled_rect_mut(&mut image, Rect::at(70, 65).of_size(60, 2), color);
+
     // Draw denominator
-    draw_text_mut(&mut image, color, 80, 75, scale, &font, &denominator.to_string());
+    draw_text_mut(
+        &mut image,
+        color,
+        80,
+        75,
+        scale,
+        &font,
+        &denominator.to_string(),
+    );
 
     DynamicImage::ImageRgba8(image)
 }

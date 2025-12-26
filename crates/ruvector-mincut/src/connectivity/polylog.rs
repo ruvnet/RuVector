@@ -21,8 +21,8 @@
 //! 3. Use edge sparsification via low-congestion shortcuts
 //! 4. Rebuild levels incrementally to avoid worst-case spikes
 
-use std::collections::{HashMap, HashSet, VecDeque};
 use crate::graph::VertexId;
+use std::collections::{HashMap, HashSet, VecDeque};
 
 /// Maximum number of levels in the hierarchy
 const MAX_LEVELS: usize = 64;
@@ -341,8 +341,7 @@ impl PolylogConnectivity {
                         *rep_level = level;
 
                         // Move edge up in hierarchy
-                        self.level_sizes[old_level] =
-                            self.level_sizes[old_level].saturating_sub(1);
+                        self.level_sizes[old_level] = self.level_sizes[old_level].saturating_sub(1);
                         self.level_sizes[level] += 1;
 
                         // Update forests
@@ -399,7 +398,12 @@ impl PolylogConnectivity {
 
     /// Find a replacement edge for deleted tree edge
     /// Optimized: Uses adjacency list and smaller component first
-    fn find_replacement(&mut self, u: VertexId, v: VertexId, level: usize) -> Option<(VertexId, VertexId)> {
+    fn find_replacement(
+        &mut self,
+        u: VertexId,
+        v: VertexId,
+        level: usize,
+    ) -> Option<(VertexId, VertexId)> {
         // Choose smaller component for BFS (optimization)
         let size_u = self.levels[level].get_component_size(u);
         let size_v = self.levels[level].get_component_size(v);

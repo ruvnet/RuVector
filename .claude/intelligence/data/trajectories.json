@@ -1,13 +1,5 @@
 [
   {
-    "id": "pretrain-cmd-7431",
-    "state": "test_in_general",
-    "action": "command-succeeded",
-    "outcome": "tree /workspaces/ruvector/npm/tests -L 2 -I node_modules 2>/dev/null || find /workspaces/ruvector/np",
-    "reward": 1,
-    "timestamp": "2025-11-21T03:07:36.000Z"
-  },
-  {
     "id": "pretrain-cmd-7432",
     "state": "other_in_general",
     "action": "command-succeeded",
@@ -8069,6 +8061,15 @@
     "outcome": "INTELLIGENCE_MODE=treatment node -e \"const I = (await import('./index.js')).default; const i = new I",
     "reward": -0.5,
     "timestamp": "2025-12-25T21:48:47.263Z",
+    "abGroup": "treatment"
+  },
+  {
+    "id": "traj-1766767215774",
+    "state": "git_in_general",
+    "action": "command-failed",
+    "outcome": "git checkout -- .claude/intelligence/data/*.json",
+    "reward": -0.5,
+    "timestamp": "2025-12-26T16:40:15.774Z",
     "abGroup": "treatment"
   }
 ]

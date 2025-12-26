@@ -20,10 +20,10 @@
 
 use crate::graph::VertexId;
 use roaring::RoaringBitmap;
-use std::collections::HashSet;
-use std::sync::Arc;
-use std::hash::{Hash, Hasher};
 use std::collections::hash_map::DefaultHasher;
+use std::collections::HashSet;
+use std::hash::{Hash, Hasher};
+use std::sync::Arc;
 
 /// Handle to a witness (cheap to clone)
 ///
@@ -440,31 +440,33 @@ impl LazyWitness {
     where
         F: Fn(VertexId) -> Vec<VertexId>,
     {
-        self.cached.get_or_init(|| {
-            // BFS from seed up to radius
-            let mut membership = RoaringBitmap::new();
-            let mut visited = HashSet::new();
-            let mut queue = std::collections::VecDeque::new();
+        self.cached
+            .get_or_init(|| {
+                // BFS from seed up to radius
+                let mut membership = RoaringBitmap::new();
+                let mut visited = HashSet::new();
+                let mut queue = std::collections::VecDeque::new();
 
-            queue.push_back((self.seed, 0usize));
-            visited.insert(self.seed);
-            membership.insert(self.seed as u32);
+                queue.push_back((self.seed, 0usize));
+                visited.insert(self.seed);
+                membership.insert(self.seed as u32);
 
-            while let Some((vertex, dist)) = queue.pop_front() {
-                if dist >= self.radius {
-                    continue;
-                }
+                while let Some((vertex, dist)) = queue.pop_front() {
+                    if dist >= self.radius {
+                        continue;
+                    }
 
-                for neighbor in adjacency(vertex) {
-                    if visited.insert(neighbor) {
-                        membership.insert(neighbor as u32);
-                        queue.push_back((neighbor, dist + 1));
+                    for neighbor in adjacency(vertex) {
+                        if visited.insert(neighbor) {
+                            membership.insert(neighbor as u32);
+                            queue.push_back((neighbor, dist + 1));
+                        }
                     }
                 }
-            }
 
-            WitnessHandle::new(self.seed, membership, self.boundary_size)
-        }).clone()
+                WitnessHandle::new(self.seed, membership, self.boundary_size)
+            })
+            .clone()
     }
 
     /// Set a pre-computed witness (for cases where we already have it)
@@ -529,7 +531,8 @@ impl LazyWitnessBatch {
 
     /// Count of materialized witnesses
     pub fn materialized_count(&self) -> usize {
-        self.materialized_count.load(std::sync::atomic::Ordering::Relaxed)
+        self.materialized_count
+            .load(std::sync::atomic::Ordering::Relaxed)
     }
 
     /// Materialize a specific witness
@@ -541,7 +544,8 @@ impl LazyWitnessBatch {
             let was_materialized = lazy.is_materialized();
             let handle = lazy.materialize(adjacency);
             if !was_materialized {
-                self.materialized_count.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                self.materialized_count
+                    .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
             }
             handle
         })
@@ -604,7 +608,11 @@ mod lazy_tests {
         let call_count = std::sync::atomic::AtomicUsize::new(0);
         let adjacency = |v: VertexId| -> Vec<VertexId> {
             call_count.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-            if v == 0 { vec![1, 2] } else { vec![] }
+            if v == 0 {
+                vec![1, 2]
+            } else {
+                vec![]
+            }
         };
 
         // First materialization

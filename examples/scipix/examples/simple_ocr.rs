@@ -8,8 +8,8 @@
 //! cargo run --example simple_ocr -- image.png
 //! ```
 
-use ruvector_scipix::{OcrEngine, OcrConfig, OutputFormat};
 use anyhow::{Context, Result};
+use ruvector_scipix::{OcrConfig, OcrEngine, OutputFormat};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -39,11 +39,11 @@ async fn main() -> Result<()> {
         .context("Failed to initialize OCR engine")?;
 
     // Load and process the image
-    let image = image::open(image_path)
-        .context(format!("Failed to open image: {}", image_path))?;
+    let image = image::open(image_path).context(format!("Failed to open image: {}", image_path))?;
 
     println!("Processing image...");
-    let result = engine.recognize(&image)
+    let result = engine
+        .recognize(&image)
         .await
         .context("OCR recognition failed")?;
 
@@ -63,7 +63,10 @@ async fn main() -> Result<()> {
     if let Some(metadata) = &result.metadata {
         println!("\n📋 Metadata:");
         println!("  Language: {:?}", metadata.get("language"));
-        println!("  Processing time: {:?}", metadata.get("processing_time_ms"));
+        println!(
+            "  Processing time: {:?}",
+            metadata.get("processing_time_ms")
+        );
     }
 
     println!("\n{}", "=".repeat(80));

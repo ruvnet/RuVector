@@ -18,6 +18,6 @@ pub use conformal_prediction::{
     ConformalConfig, ConformalPredictor, NonconformityMeasure, PredictionSet,
 };
 pub use filtered_search::{FilterExpression, FilterStrategy, FilteredSearch};
-pub use hybrid_search::{BM25, HybridConfig, HybridSearch, NormalizationStrategy};
+pub use hybrid_search::{HybridConfig, HybridSearch, NormalizationStrategy, BM25};
 pub use mmr::{MMRConfig, MMRSearch};
 pub use product_quantization::{EnhancedPQ, LookupTable, PQConfig};

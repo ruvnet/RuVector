@@ -3,8 +3,8 @@
 //! Implements the fundamental attention mechanism: softmax(QK^T / √d)V
 
 use crate::{
-    traits::Attention,
     error::{AttentionError, AttentionResult},
+    traits::Attention,
 };
 
 /// Scaled dot-product attention: softmax(QK^T / √d)V
@@ -32,10 +32,12 @@ impl ScaledDotProductAttention {
         let scale = (self.dim as f32).sqrt();
         keys.iter()
             .map(|key| {
-                query.iter()
+                query
+                    .iter()
                     .zip(key.iter())
                     .map(|(q, k)| q * k)
-                    .sum::<f32>() / scale
+                    .sum::<f32>()
+                    / scale
             })
             .collect()
     }
@@ -170,7 +172,9 @@ mod tests {
         let values = vec![val1.as_slice(), val2.as_slice()];
         let mask = vec![true, false];
 
-        let result = attn.compute_with_mask(&query, &keys, &values, Some(&mask)).unwrap();
+        let result = attn
+            .compute_with_mask(&query, &keys, &values, Some(&mask))
+            .unwrap();
         assert_eq!(result.len(), 4);
     }
 }

@@ -2,7 +2,7 @@
 //!
 //! Quick benchmarks without criterion for smoke testing.
 
-use ruvllm::{Config, RuvLLM, Result};
+use ruvllm::{Config, Result, RuvLLM};
 use std::time::{Duration, Instant};
 
 #[tokio::main]
@@ -23,7 +23,10 @@ async fn main() -> Result<()> {
     let start = Instant::now();
     let llm = RuvLLM::new(config).await?;
     let init_time = start.elapsed();
-    println!("✅ Initialized in {:.2}ms", init_time.as_secs_f64() * 1000.0);
+    println!(
+        "✅ Initialized in {:.2}ms",
+        init_time.as_secs_f64() * 1000.0
+    );
     println!();
 
     // Benchmark simple queries
@@ -46,7 +49,11 @@ async fn main() -> Result<()> {
         let elapsed = start.elapsed();
         total_time += elapsed;
         count += 1;
-        println!("   Query: {:40} -> {:.2}ms", query, elapsed.as_secs_f64() * 1000.0);
+        println!(
+            "   Query: {:40} -> {:.2}ms",
+            query,
+            elapsed.as_secs_f64() * 1000.0
+        );
     }
 
     let avg_query = total_time.as_secs_f64() * 1000.0 / count as f64;
@@ -75,7 +82,11 @@ async fn main() -> Result<()> {
         let elapsed = start.elapsed();
         total_time += elapsed;
         count += 1;
-        println!("   Query: {:40} -> {:.2}ms", query, elapsed.as_secs_f64() * 1000.0);
+        println!(
+            "   Query: {:40} -> {:.2}ms",
+            query,
+            elapsed.as_secs_f64() * 1000.0
+        );
     }
 
     let avg_session = total_time.as_secs_f64() * 1000.0 / count as f64;
@@ -119,7 +130,10 @@ async fn main() -> Result<()> {
     println!("║                     Benchmark Summary                          ║");
     println!("╚═══════════════════════════════════════════════════════════════╝");
     println!();
-    println!("   Initialization time:        {:.2}ms", init_time.as_secs_f64() * 1000.0);
+    println!(
+        "   Initialization time:        {:.2}ms",
+        init_time.as_secs_f64() * 1000.0
+    );
     println!("   Average query time:         {:.2}ms", avg_query);
     println!("   Average session query:      {:.2}ms", avg_session);
     println!();

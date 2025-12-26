@@ -1,11 +1,14 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use ruvector_attention::{
     attention::ScaledDotProductAttention,
-    sparse::{FlashAttention, LinearAttention, LocalGlobalAttention},
-    moe::{MoEAttention, MoEConfig},
-    graph::{EdgeFeaturedAttention, EdgeFeaturedConfig, GraphRoPE, RoPEConfig, DualSpaceAttention, DualSpaceConfig},
+    graph::{
+        DualSpaceAttention, DualSpaceConfig, EdgeFeaturedAttention, EdgeFeaturedConfig, GraphRoPE,
+        RoPEConfig,
+    },
     hyperbolic::{HyperbolicAttention, HyperbolicAttentionConfig},
-    training::{InfoNCELoss, Loss, Adam, Optimizer},
+    moe::{MoEAttention, MoEConfig},
+    sparse::{FlashAttention, LinearAttention, LocalGlobalAttention},
+    training::{Adam, InfoNCELoss, Loss, Optimizer},
     traits::Attention,
 };
 
@@ -17,14 +20,16 @@ fn bench_scaled_dot_product(c: &mut Criterion) {
 
         group.bench_with_input(BenchmarkId::new("dim", dim), &dim, |b, &dim| {
             let query = vec![0.5; dim];
-            let keys: Vec<Vec<f32>> = (0..100).map(|i| vec![(i as f32 * 0.01) % 1.0; dim]).collect();
-            let values: Vec<Vec<f32>> = (0..100).map(|i| vec![(i as f32 * 0.02) % 1.0; dim]).collect();
+            let keys: Vec<Vec<f32>> = (0..100)
+                .map(|i| vec![(i as f32 * 0.01) % 1.0; dim])
+                .collect();
+            let values: Vec<Vec<f32>> = (0..100)
+                .map(|i| vec![(i as f32 * 0.02) % 1.0; dim])
+                .collect();
             let keys_refs: Vec<&[f32]> = keys.iter().map(|k| k.as_slice()).collect();
             let values_refs: Vec<&[f32]> = values.iter().map(|v| v.as_slice()).collect();
 
-            b.iter(|| {
-                black_box(attention.compute(&query, &keys_refs, &values_refs).unwrap())
-            });
+            b.iter(|| black_box(attention.compute(&query, &keys_refs, &values_refs).unwrap()));
         });
     }
 
@@ -38,17 +43,23 @@ fn bench_flash_attention(c: &mut Criterion) {
         let dim = 256;
         let attention = FlashAttention::new(dim, 64);
 
-        group.bench_with_input(BenchmarkId::new("seq_len", seq_len), &seq_len, |b, &seq_len| {
-            let query = vec![0.5; dim];
-            let keys: Vec<Vec<f32>> = (0..seq_len).map(|i| vec![(i as f32 * 0.01) % 1.0; dim]).collect();
-            let values: Vec<Vec<f32>> = (0..seq_len).map(|i| vec![(i as f32 * 0.02) % 1.0; dim]).collect();
-            let keys_refs: Vec<&[f32]> = keys.iter().map(|k| k.as_slice()).collect();
-            let values_refs: Vec<&[f32]> = values.iter().map(|v| v.as_slice()).collect();
+        group.bench_with_input(
+            BenchmarkId::new("seq_len", seq_len),
+            &seq_len,
+            |b, &seq_len| {
+                let query = vec![0.5; dim];
+                let keys: Vec<Vec<f32>> = (0..seq_len)
+                    .map(|i| vec![(i as f32 * 0.01) % 1.0; dim])
+                    .collect();
+                let values: Vec<Vec<f32>> = (0..seq_len)
+                    .map(|i| vec![(i as f32 * 0.02) % 1.0; dim])
+                    .collect();
+                let keys_refs: Vec<&[f32]> = keys.iter().map(|k| k.as_slice()).collect();
+                let values_refs: Vec<&[f32]> = values.iter().map(|v| v.as_slice()).collect();
 
-            b.iter(|| {
-                black_box(attention.compute(&query, &keys_refs, &values_refs).unwrap())
-            });
-        });
+                b.iter(|| black_box(attention.compute(&query, &keys_refs, &values_refs).unwrap()));
+            },
+        );
     }
 
     group.finish();
@@ -61,17 +72,23 @@ fn bench_linear_attention(c: &mut Criterion) {
         let dim = 256;
         let attention = LinearAttention::new(dim, 64);
 
-        group.bench_with_input(BenchmarkId::new("seq_len", seq_len), &seq_len, |b, &seq_len| {
-            let query = vec![0.5; dim];
-            let keys: Vec<Vec<f32>> = (0..seq_len).map(|i| vec![(i as f32 * 0.01) % 1.0; dim]).collect();
-            let values: Vec<Vec<f32>> = (0..seq_len).map(|i| vec![(i as f32 * 0.02) % 1.0; dim]).collect();
-            let keys_refs: Vec<&[f32]> = keys.iter().map(|k| k.as_slice()).collect();
-            let values_refs: Vec<&[f32]> = values.iter().map(|v| v.as_slice()).collect();
+        group.bench_with_input(
+            BenchmarkId::new("seq_len", seq_len),
+            &seq_len,
+            |b, &seq_len| {
+                let query = vec![0.5; dim];
+                let keys: Vec<Vec<f32>> = (0..seq_len)
+                    .map(|i| vec![(i as f32 * 0.01) % 1.0; dim])
+                    .collect();
+                let values: Vec<Vec<f32>> = (0..seq_len)
+                    .map(|i| vec![(i as f32 * 0.02) % 1.0; dim])
+                    .collect();
+                let keys_refs: Vec<&[f32]> = keys.iter().map(|k| k.as_slice()).collect();
+                let values_refs: Vec<&[f32]> = values.iter().map(|v| v.as_slice()).collect();
 
-            b.iter(|| {
-                black_box(attention.compute(&query, &keys_refs, &values_refs).unwrap())
-            });
-        });
+                b.iter(|| black_box(attention.compute(&query, &keys_refs, &values_refs).unwrap()));
+            },
+        );
     }
 
     group.finish();
@@ -84,17 +101,23 @@ fn bench_local_global_attention(c: &mut Criterion) {
         let dim = 256;
         let attention = LocalGlobalAttention::new(dim, window_size, 4);
 
-        group.bench_with_input(BenchmarkId::new("window", window_size), &window_size, |b, _| {
-            let query = vec![0.5; dim];
-            let keys: Vec<Vec<f32>> = (0..512).map(|i| vec![(i as f32 * 0.01) % 1.0; dim]).collect();
-            let values: Vec<Vec<f32>> = (0..512).map(|i| vec![(i as f32 * 0.02) % 1.0; dim]).collect();
-            let keys_refs: Vec<&[f32]> = keys.iter().map(|k| k.as_slice()).collect();
-            let values_refs: Vec<&[f32]> = values.iter().map(|v| v.as_slice()).collect();
+        group.bench_with_input(
+            BenchmarkId::new("window", window_size),
+            &window_size,
+            |b, _| {
+                let query = vec![0.5; dim];
+                let keys: Vec<Vec<f32>> = (0..512)
+                    .map(|i| vec![(i as f32 * 0.01) % 1.0; dim])
+                    .collect();
+                let values: Vec<Vec<f32>> = (0..512)
+                    .map(|i| vec![(i as f32 * 0.02) % 1.0; dim])
+                    .collect();
+                let keys_refs: Vec<&[f32]> = keys.iter().map(|k| k.as_slice()).collect();
+                let values_refs: Vec<&[f32]> = values.iter().map(|v| v.as_slice()).collect();
 
-            b.iter(|| {
-                black_box(attention.compute(&query, &keys_refs, &values_refs).unwrap())
-            });
-        });
+                b.iter(|| black_box(attention.compute(&query, &keys_refs, &values_refs).unwrap()));
+            },
+        );
     }
 
     group.finish();
@@ -111,17 +134,23 @@ fn bench_moe_attention(c: &mut Criterion) {
             .build();
         let attention = MoEAttention::new(config);
 
-        group.bench_with_input(BenchmarkId::new("experts", num_experts), &num_experts, |b, _| {
-            let query = vec![0.5; 256];
-            let keys: Vec<Vec<f32>> = (0..100).map(|i| vec![(i as f32 * 0.01) % 1.0; 256]).collect();
-            let values: Vec<Vec<f32>> = (0..100).map(|i| vec![(i as f32 * 0.02) % 1.0; 256]).collect();
-            let keys_refs: Vec<&[f32]> = keys.iter().map(|k| k.as_slice()).collect();
-            let values_refs: Vec<&[f32]> = values.iter().map(|v| v.as_slice()).collect();
+        group.bench_with_input(
+            BenchmarkId::new("experts", num_experts),
+            &num_experts,
+            |b, _| {
+                let query = vec![0.5; 256];
+                let keys: Vec<Vec<f32>> = (0..100)
+                    .map(|i| vec![(i as f32 * 0.01) % 1.0; 256])
+                    .collect();
+                let values: Vec<Vec<f32>> = (0..100)
+                    .map(|i| vec![(i as f32 * 0.02) % 1.0; 256])
+                    .collect();
+                let keys_refs: Vec<&[f32]> = keys.iter().map(|k| k.as_slice()).collect();
+                let values_refs: Vec<&[f32]> = values.iter().map(|v| v.as_slice()).collect();
 
-            b.iter(|| {
-                black_box(attention.compute(&query, &keys_refs, &values_refs).unwrap())
-            });
-        });
+                b.iter(|| black_box(attention.compute(&query, &keys_refs, &values_refs).unwrap()));
+            },
+        );
     }
 
     group.finish();
@@ -140,14 +169,16 @@ fn bench_hyperbolic_attention(c: &mut Criterion) {
 
         group.bench_with_input(BenchmarkId::new("dim", dim), &dim, |b, &dim| {
             let query = vec![0.1; dim];
-            let keys: Vec<Vec<f32>> = (0..100).map(|i| vec![(i as f32 * 0.001) % 0.5; dim]).collect();
-            let values: Vec<Vec<f32>> = (0..100).map(|i| vec![(i as f32 * 0.002) % 0.5; dim]).collect();
+            let keys: Vec<Vec<f32>> = (0..100)
+                .map(|i| vec![(i as f32 * 0.001) % 0.5; dim])
+                .collect();
+            let values: Vec<Vec<f32>> = (0..100)
+                .map(|i| vec![(i as f32 * 0.002) % 0.5; dim])
+                .collect();
             let keys_refs: Vec<&[f32]> = keys.iter().map(|k| k.as_slice()).collect();
             let values_refs: Vec<&[f32]> = values.iter().map(|v| v.as_slice()).collect();
 
-            b.iter(|| {
-                black_box(attention.compute(&query, &keys_refs, &values_refs).unwrap())
-            });
+            b.iter(|| black_box(attention.compute(&query, &keys_refs, &values_refs).unwrap()));
         });
     }
 
@@ -167,14 +198,16 @@ fn bench_edge_featured_attention(c: &mut Criterion) {
 
         group.bench_with_input(BenchmarkId::new("heads", num_heads), &num_heads, |b, _| {
             let query = vec![0.5; 256];
-            let keys: Vec<Vec<f32>> = (0..64).map(|i| vec![(i as f32 * 0.01) % 1.0; 256]).collect();
-            let values: Vec<Vec<f32>> = (0..64).map(|i| vec![(i as f32 * 0.02) % 1.0; 256]).collect();
+            let keys: Vec<Vec<f32>> = (0..64)
+                .map(|i| vec![(i as f32 * 0.01) % 1.0; 256])
+                .collect();
+            let values: Vec<Vec<f32>> = (0..64)
+                .map(|i| vec![(i as f32 * 0.02) % 1.0; 256])
+                .collect();
             let keys_refs: Vec<&[f32]> = keys.iter().map(|k| k.as_slice()).collect();
             let values_refs: Vec<&[f32]> = values.iter().map(|v| v.as_slice()).collect();
 
-            b.iter(|| {
-                black_box(attention.compute(&query, &keys_refs, &values_refs).unwrap())
-            });
+            b.iter(|| black_box(attention.compute(&query, &keys_refs, &values_refs).unwrap()));
         });
     }
 
@@ -185,22 +218,21 @@ fn bench_graph_rope(c: &mut Criterion) {
     let mut group = c.benchmark_group("graph_rope");
 
     for dim in [64, 128, 256] {
-        let config = RoPEConfig::builder()
-            .dim(dim)
-            .max_position(1024)
-            .build();
+        let config = RoPEConfig::builder().dim(dim).max_position(1024).build();
         let attention = GraphRoPE::new(config);
 
         group.bench_with_input(BenchmarkId::new("dim", dim), &dim, |b, &dim| {
             let query = vec![0.5; dim];
-            let keys: Vec<Vec<f32>> = (0..256).map(|i| vec![(i as f32 * 0.01) % 1.0; dim]).collect();
-            let values: Vec<Vec<f32>> = (0..256).map(|i| vec![(i as f32 * 0.02) % 1.0; dim]).collect();
+            let keys: Vec<Vec<f32>> = (0..256)
+                .map(|i| vec![(i as f32 * 0.01) % 1.0; dim])
+                .collect();
+            let values: Vec<Vec<f32>> = (0..256)
+                .map(|i| vec![(i as f32 * 0.02) % 1.0; dim])
+                .collect();
             let keys_refs: Vec<&[f32]> = keys.iter().map(|k| k.as_slice()).collect();
             let values_refs: Vec<&[f32]> = values.iter().map(|v| v.as_slice()).collect();
 
-            b.iter(|| {
-                black_box(attention.compute(&query, &keys_refs, &values_refs).unwrap())
-            });
+            b.iter(|| black_box(attention.compute(&query, &keys_refs, &values_refs).unwrap()));
         });
     }
 
@@ -220,14 +252,16 @@ fn bench_dual_space_attention(c: &mut Criterion) {
 
         group.bench_with_input(BenchmarkId::new("dim", dim), &dim, |b, &dim| {
             let query = vec![0.1; dim];
-            let keys: Vec<Vec<f32>> = (0..100).map(|i| vec![(i as f32 * 0.001) % 0.3; dim]).collect();
-            let values: Vec<Vec<f32>> = (0..100).map(|i| vec![(i as f32 * 0.002) % 0.3; dim]).collect();
+            let keys: Vec<Vec<f32>> = (0..100)
+                .map(|i| vec![(i as f32 * 0.001) % 0.3; dim])
+                .collect();
+            let values: Vec<Vec<f32>> = (0..100)
+                .map(|i| vec![(i as f32 * 0.002) % 0.3; dim])
+                .collect();
             let keys_refs: Vec<&[f32]> = keys.iter().map(|k| k.as_slice()).collect();
             let values_refs: Vec<&[f32]> = values.iter().map(|v| v.as_slice()).collect();
 
-            b.iter(|| {
-                black_box(attention.compute(&query, &keys_refs, &values_refs).unwrap())
-            });
+            b.iter(|| black_box(attention.compute(&query, &keys_refs, &values_refs).unwrap()));
         });
     }
 
@@ -240,16 +274,20 @@ fn bench_infonce_loss(c: &mut Criterion) {
     for num_negatives in [10, 50, 100, 200] {
         let loss = InfoNCELoss::new(0.07);
 
-        group.bench_with_input(BenchmarkId::new("negatives", num_negatives), &num_negatives, |b, &num_neg| {
-            let anchor = vec![0.5; 128];
-            let positive = vec![0.6; 128];
-            let negatives: Vec<Vec<f32>> = (0..num_neg).map(|i| vec![(i as f32 * 0.01) % 1.0; 128]).collect();
-            let neg_refs: Vec<&[f32]> = negatives.iter().map(|n| n.as_slice()).collect();
+        group.bench_with_input(
+            BenchmarkId::new("negatives", num_negatives),
+            &num_negatives,
+            |b, &num_neg| {
+                let anchor = vec![0.5; 128];
+                let positive = vec![0.6; 128];
+                let negatives: Vec<Vec<f32>> = (0..num_neg)
+                    .map(|i| vec![(i as f32 * 0.01) % 1.0; 128])
+                    .collect();
+                let neg_refs: Vec<&[f32]> = negatives.iter().map(|n| n.as_slice()).collect();
 
-            b.iter(|| {
-                black_box(loss.compute(&anchor, &positive, &neg_refs))
-            });
-        });
+                b.iter(|| black_box(loss.compute(&anchor, &positive, &neg_refs)));
+            },
+        );
     }
 
     group.finish();

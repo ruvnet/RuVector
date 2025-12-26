@@ -43,59 +43,54 @@
 pub mod attention;
 pub mod config;
 pub mod error;
+pub mod graph;
+pub mod hyperbolic;
+pub mod moe;
+pub mod sdk;
+pub mod sparse;
+pub mod training;
 pub mod traits;
 pub mod utils;
-pub mod hyperbolic;
-pub mod sparse;
-pub mod moe;
-pub mod graph;
-pub mod training;
-pub mod sdk;
 
 // Re-export main types
 pub use attention::{MultiHeadAttention, ScaledDotProductAttention};
 pub use config::{AttentionConfig, GraphAttentionConfig, SparseAttentionConfig};
 pub use error::{AttentionError, AttentionResult};
+pub use hyperbolic::{
+    exp_map, log_map, mobius_add, poincare_distance, project_to_ball, HyperbolicAttention,
+    HyperbolicAttentionConfig, MixedCurvatureAttention, MixedCurvatureConfig,
+};
 pub use traits::{
     Attention, EdgeInfo, GeometricAttention, Gradients, GraphAttention, SparseAttention,
     SparseMask, TrainableAttention,
 };
-pub use hyperbolic::{
-    poincare_distance, mobius_add, exp_map, log_map, project_to_ball,
-    HyperbolicAttention, HyperbolicAttentionConfig,
-    MixedCurvatureAttention, MixedCurvatureConfig,
-};
 
 // Sparse attention exports
 pub use sparse::{
-    SparseMaskBuilder, AttentionMask,
-    LocalGlobalAttention, LinearAttention, FlashAttention,
+    AttentionMask, FlashAttention, LinearAttention, LocalGlobalAttention, SparseMaskBuilder,
 };
 
 // MoE exports
 pub use moe::{
-    MoEAttention, MoEConfig,
-    Expert, ExpertType, StandardExpert, HyperbolicExpert, LinearExpert,
-    Router, LearnedRouter, TopKRouting,
+    Expert, ExpertType, HyperbolicExpert, LearnedRouter, LinearExpert, MoEAttention, MoEConfig,
+    Router, StandardExpert, TopKRouting,
 };
 
 // Graph attention exports
 pub use graph::{
-    EdgeFeaturedAttention, EdgeFeaturedConfig,
-    GraphRoPE, RoPEConfig,
-    DualSpaceAttention, DualSpaceConfig,
+    DualSpaceAttention, DualSpaceConfig, EdgeFeaturedAttention, EdgeFeaturedConfig, GraphRoPE,
+    RoPEConfig,
 };
 
 // Training exports
 pub use training::{
-    Loss, InfoNCELoss, LocalContrastiveLoss, SpectralRegularization, Reduction,
-    Optimizer, SGD, Adam, AdamW,
-    CurriculumScheduler, CurriculumStage, TemperatureAnnealing, DecayType,
-    NegativeMiner, HardNegativeMiner, MiningStrategy,
+    Adam, AdamW, CurriculumScheduler, CurriculumStage, DecayType, HardNegativeMiner, InfoNCELoss,
+    LocalContrastiveLoss, Loss, MiningStrategy, NegativeMiner, Optimizer, Reduction,
+    SpectralRegularization, TemperatureAnnealing, SGD,
 };
 
 // SDK exports
-pub use sdk::{AttentionBuilder, AttentionPipeline, presets};
+pub use sdk::{presets, AttentionBuilder, AttentionPipeline};
 
 /// Library version
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

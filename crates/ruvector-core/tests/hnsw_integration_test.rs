@@ -418,10 +418,7 @@ fn test_hnsw_different_metrics() -> Result<()> {
     // Note: DotProduct can produce negative distances on normalized vectors,
     // which causes issues with the underlying hnsw_rs library.
     // We test Cosine and Euclidean which are the most commonly used metrics.
-    let metrics = vec![
-        DistanceMetric::Cosine,
-        DistanceMetric::Euclidean,
-    ];
+    let metrics = vec![DistanceMetric::Cosine, DistanceMetric::Euclidean];
 
     for metric in metrics {
         println!("Testing metric: {:?}", metric);

@@ -5,13 +5,11 @@
 //! - ApproxMinCut (SODA 2025, arXiv:2412.15069)
 //! - CacheOptBFS
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
+use ruvector_mincut::connectivity::cache_opt::{BatchProcessor, CacheOptAdjacency, CacheOptBFS};
 use ruvector_mincut::{
-    PolylogConnectivity, PolylogStats,
-    ApproxMinCut, ApproxMinCutConfig,
-    DynamicConnectivity,
+    ApproxMinCut, ApproxMinCutConfig, DynamicConnectivity, PolylogConnectivity, PolylogStats,
 };
-use ruvector_mincut::connectivity::cache_opt::{CacheOptAdjacency, CacheOptBFS, BatchProcessor};
 
 /// Generate a random graph with n vertices and m edges
 fn generate_graph(n: usize, m: usize, seed: u64) -> Vec<(u64, u64)> {
@@ -115,7 +113,12 @@ fn bench_polylog_query(c: &mut Criterion) {
 
         group.bench_with_input(BenchmarkId::from_parameter(size), size, |b, &size| {
             let queries: Vec<(u64, u64)> = (0..100)
-                .map(|i| ((i * 7) as u64 % size as u64, (i * 13 + 1) as u64 % size as u64))
+                .map(|i| {
+                    (
+                        (i * 7) as u64 % size as u64,
+                        (i * 13 + 1) as u64 % size as u64,
+                    )
+                })
                 .collect();
 
             b.iter(|| {
@@ -170,9 +173,7 @@ fn bench_approx_query(c: &mut Criterion) {
                     }
                     approx
                 },
-                |mut approx| {
-                    black_box(approx.min_cut_value())
-                },
+                |mut approx| black_box(approx.min_cut_value()),
                 criterion::BatchSize::SmallInput,
             );
         });
@@ -195,9 +196,7 @@ fn bench_approx_epsilon_comparison(c: &mut Criterion) {
                     }
                     approx
                 },
-                |mut approx| {
-                    black_box(approx.min_cut_value())
-                },
+                |mut approx| black_box(approx.min_cut_value()),
                 criterion::BatchSize::SmallInput,
             );
         });
@@ -214,7 +213,11 @@ fn bench_cache_opt_bfs(c: &mut Criterion) {
 
     for size in [100, 500, 1000, 5000].iter() {
         let edges: Vec<(u64, u64, f64)> = generate_weighted_graph(*size, size * 3, 42);
-        let max_v = edges.iter().map(|(u, v, _)| (*u).max(*v)).max().unwrap_or(0);
+        let max_v = edges
+            .iter()
+            .map(|(u, v, _)| (*u).max(*v))
+            .max()
+            .unwrap_or(0);
         let adj = CacheOptAdjacency::from_edges(&edges, max_v);
 
         group.bench_with_input(BenchmarkId::from_parameter(size), size, |b, _| {
@@ -232,7 +235,11 @@ fn bench_batch_processor(c: &mut Criterion) {
 
     for size in [100, 500, 1000, 5000].iter() {
         let edges: Vec<(u64, u64, f64)> = generate_weighted_graph(*size, size * 3, 42);
-        let max_v = edges.iter().map(|(u, v, _)| (*u).max(*v)).max().unwrap_or(0);
+        let max_v = edges
+            .iter()
+            .map(|(u, v, _)| (*u).max(*v))
+            .max()
+            .unwrap_or(0);
         let adj = CacheOptAdjacency::from_edges(&edges, max_v);
         let vertices: Vec<u64> = (0..=max_v).collect();
 

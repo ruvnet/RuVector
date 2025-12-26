@@ -46,8 +46,14 @@ fn main() {
     let ce_loss = Loss::compute(LossType::CrossEntropy, &pred_ce, &target_ce).unwrap();
     let ce_grad = Loss::gradient(LossType::CrossEntropy, &pred_ce, &target_ce).unwrap();
 
-    println!("   Predictions (row 1): {:?}", &pred_ce.as_slice().unwrap()[0..3]);
-    println!("   Predictions (row 2): {:?}", &pred_ce.as_slice().unwrap()[3..6]);
+    println!(
+        "   Predictions (row 1): {:?}",
+        &pred_ce.as_slice().unwrap()[0..3]
+    );
+    println!(
+        "   Predictions (row 2): {:?}",
+        &pred_ce.as_slice().unwrap()[3..6]
+    );
     println!("   Targets (one-hot):   [1,0,0] and [0,0,1]");
     println!("   CE Loss:    {:.6}", ce_loss);
     println!("   Gradient:   {:?}\n", ce_grad.as_slice().unwrap());
@@ -109,7 +115,11 @@ fn main() {
     let bce_extreme = Loss::compute(LossType::BinaryCrossEntropy, &extreme_pred, &extreme_target);
     let ce_extreme = Loss::compute(LossType::CrossEntropy, &extreme_pred, &extreme_target);
 
-    println!("   Extreme predictions: [{:.2e}, {:.2e}]", 1e-10, 1.0 - 1e-10);
+    println!(
+        "   Extreme predictions: [{:.2e}, {:.2e}]",
+        1e-10,
+        1.0 - 1e-10
+    );
     println!("   BCE result: {:?}", bce_extreme);
     println!("   CE result:  {:?}", ce_extreme);
 

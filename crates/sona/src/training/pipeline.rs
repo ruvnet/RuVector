@@ -2,11 +2,11 @@
 //!
 //! Structured training workflows with batching and callbacks.
 
+use super::metrics::{EpochStats, TrainingMetrics, TrainingResult};
+use super::templates::{DataSizeHint, TrainingMethod, TrainingTemplate};
 use crate::engine::SonaEngine;
-use crate::types::SonaConfig;
 use crate::time_compat::Instant;
-use super::templates::{TrainingTemplate, TrainingMethod, DataSizeHint};
-use super::metrics::{TrainingMetrics, TrainingResult, EpochStats};
+use crate::types::SonaConfig;
 use serde::{Deserialize, Serialize};
 
 /// Training example with all data needed for learning
@@ -92,12 +92,16 @@ impl TrainingExample {
 
     /// Get activations or default to embedding
     pub fn get_activations(&self) -> Vec<f32> {
-        self.activations.clone().unwrap_or_else(|| self.embedding.clone())
+        self.activations
+            .clone()
+            .unwrap_or_else(|| self.embedding.clone())
     }
 
     /// Get attention or default
     pub fn get_attention(&self) -> Vec<f32> {
-        self.attention.clone().unwrap_or_else(|| vec![1.0 / 64.0; 64])
+        self.attention
+            .clone()
+            .unwrap_or_else(|| vec![1.0 / 64.0; 64])
     }
 
     /// Get reward or default to quality
@@ -250,7 +254,9 @@ pub struct LoggingCallback {
 impl LoggingCallback {
     /// Create with prefix
     pub fn new(prefix: impl Into<String>) -> Self {
-        Self { prefix: prefix.into() }
+        Self {
+            prefix: prefix.into(),
+        }
     }
 }
 
@@ -263,7 +269,10 @@ impl TrainingCallback for LoggingCallback {
         if batch_idx % 10 == 0 || batch_idx == total_batches - 1 {
             println!(
                 "[{}] Batch {}/{}: avg_quality={:.4}",
-                self.prefix, batch_idx + 1, total_batches, avg_quality
+                self.prefix,
+                batch_idx + 1,
+                total_batches,
+                avg_quality
             );
         }
     }
@@ -271,7 +280,11 @@ impl TrainingCallback for LoggingCallback {
     fn on_epoch_complete(&self, epoch: usize, stats: &EpochStats) {
         println!(
             "[{}] Epoch {}: examples={}, avg_quality={:.4}, duration={:.2}s",
-            self.prefix, epoch + 1, stats.examples_processed, stats.avg_quality, stats.duration_secs
+            self.prefix,
+            epoch + 1,
+            stats.examples_processed,
+            stats.avg_quality,
+            stats.duration_secs
         );
     }
 
@@ -593,16 +606,15 @@ impl TrainingPipeline {
         for example in &self.validation_examples {
             // Apply learned transformations
             let mut output = vec![0.0f32; example.embedding.len()];
-            self.engine.apply_micro_lora(&example.embedding, &mut output);
+            self.engine
+                .apply_micro_lora(&example.embedding, &mut output);
 
             // In a real scenario, you'd evaluate the model output
             // For now, we track the expected quality
             quality_sum += example.quality;
         }
 
-        self.metrics.validation_quality = Some(
-            quality_sum / self.validation_examples.len() as f32
-        );
+        self.metrics.validation_quality = Some(quality_sum / self.validation_examples.len() as f32);
 
         Ok(())
     }
@@ -654,16 +666,15 @@ mod tests {
 
     #[test]
     fn test_pipeline_from_template() {
-        let template = TrainingTemplate::code_agent()
-            .with_hidden_dim(256);
+        let template = TrainingTemplate::code_agent().with_hidden_dim(256);
         let pipeline = TrainingPipeline::from_template(template);
         assert_eq!(pipeline.name, "code-agent");
     }
 
     #[test]
     fn test_pipeline_training() {
-        let mut pipeline = TrainingPipeline::new("test", SonaConfig::default())
-            .with_batch_config(BatchConfig {
+        let mut pipeline =
+            TrainingPipeline::new("test", SonaConfig::default()).with_batch_config(BatchConfig {
                 batch_size: 2,
                 epochs: 2,
                 ..Default::default()

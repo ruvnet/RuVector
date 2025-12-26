@@ -3,8 +3,8 @@
 //! Runs full training pipeline with optimization and benchmarking.
 
 use ruvllm::training::{
-    TrainingConfig, TrainingDataset, TrainableModel,
-    Trainer, BenchmarkConfig, run_benchmark, print_benchmark_comparison,
+    print_benchmark_comparison, run_benchmark, BenchmarkConfig, TrainableModel, Trainer,
+    TrainingConfig, TrainingDataset,
 };
 use std::time::Instant;
 
@@ -16,9 +16,9 @@ fn main() {
 
     // Model configurations to train and compare
     let model_configs = vec![
-        ("Tiny", 256, 64, 2, 4, 128),      // 256 vocab, 64 hidden, 2 layers
-        ("Small", 256, 128, 4, 4, 256),    // 256 vocab, 128 hidden, 4 layers
-        ("Medium", 256, 256, 4, 8, 512),   // 256 vocab, 256 hidden, 4 layers
+        ("Tiny", 256, 64, 2, 4, 128),    // 256 vocab, 64 hidden, 2 layers
+        ("Small", 256, 128, 4, 4, 256),  // 256 vocab, 128 hidden, 4 layers
+        ("Medium", 256, 256, 4, 8, 512), // 256 vocab, 256 hidden, 4 layers
     ];
 
     // Training configuration
@@ -37,19 +37,30 @@ fn main() {
     // Create synthetic training data
     println!("📊 Creating training dataset...");
     let dataset = TrainingDataset::synthetic(256, 500, 64);
-    println!("   ✓ Created {} sequences, {} tokens each\n", dataset.len(), 64);
+    println!(
+        "   ✓ Created {} sequences, {} tokens each\n",
+        dataset.len(),
+        64
+    );
 
     // Train and benchmark each model
     let mut all_results = Vec::new();
 
     for (name, vocab_size, hidden_dim, num_layers, num_heads, ffn_dim) in model_configs {
         println!("═══════════════════════════════════════════════════════════════════════════");
-        println!("  Training {} Model ({}L, {}H, {}FFN)", name, num_layers, hidden_dim, ffn_dim);
+        println!(
+            "  Training {} Model ({}L, {}H, {}FFN)",
+            name, num_layers, hidden_dim, ffn_dim
+        );
         println!("═══════════════════════════════════════════════════════════════════════════\n");
 
         // Create model
-        let model = TrainableModel::new_random(vocab_size, hidden_dim, num_layers, num_heads, ffn_dim);
-        println!("📦 Created model with {} parameters\n", format_params(model.num_parameters()));
+        let model =
+            TrainableModel::new_random(vocab_size, hidden_dim, num_layers, num_heads, ffn_dim);
+        println!(
+            "📦 Created model with {} parameters\n",
+            format_params(model.num_parameters())
+        );
 
         // Train
         let start = Instant::now();
@@ -62,14 +73,34 @@ fn main() {
 
         // Print training summary
         if let Some(last) = metrics.last() {
-            println!("╔═══════════════════════════════════════════════════════════════════════════╗");
-            println!("║                         TRAINING COMPLETE                                 ║");
-            println!("╠═══════════════════════════════════════════════════════════════════════════╣");
-            println!("║ Final Loss: {:.4}                                                        ║", last.loss);
-            println!("║ Final Perplexity: {:.2}                                                  ║", last.perplexity);
-            println!("║ Training Time: {:.1}s                                                    ║", train_time);
-            println!("║ Throughput: {:.0} tokens/sec                                             ║", last.tokens_per_second);
-            println!("╚═══════════════════════════════════════════════════════════════════════════╝\n");
+            println!(
+                "╔═══════════════════════════════════════════════════════════════════════════╗"
+            );
+            println!(
+                "║                         TRAINING COMPLETE                                 ║"
+            );
+            println!(
+                "╠═══════════════════════════════════════════════════════════════════════════╣"
+            );
+            println!(
+                "║ Final Loss: {:.4}                                                        ║",
+                last.loss
+            );
+            println!(
+                "║ Final Perplexity: {:.2}                                                  ║",
+                last.perplexity
+            );
+            println!(
+                "║ Training Time: {:.1}s                                                    ║",
+                train_time
+            );
+            println!(
+                "║ Throughput: {:.0} tokens/sec                                             ║",
+                last.tokens_per_second
+            );
+            println!(
+                "╚═══════════════════════════════════════════════════════════════════════════╝\n"
+            );
         }
 
         // Benchmark
@@ -80,17 +111,47 @@ fn main() {
         // Add perplexity from training
         result.perplexity = metrics.last().map(|m| m.perplexity);
 
-        println!("   ✓ {}: {:.1} tok/s, {:.2}ms/tok\n",
-                 result.model_name, result.tokens_per_second, result.latency_per_token_ms);
+        println!(
+            "   ✓ {}: {:.1} tok/s, {:.2}ms/tok\n",
+            result.model_name, result.tokens_per_second, result.latency_per_token_ms
+        );
 
         all_results.push(result);
     }
 
     // Add baseline comparisons (from public benchmarks)
-    all_results.push(create_baseline("GPT-2 (124M)", 124_000_000, 50.0, 20.0, 500.0, Some(35.0)));
-    all_results.push(create_baseline("GPT-2 (355M)", 355_000_000, 25.0, 40.0, 1400.0, Some(25.0)));
-    all_results.push(create_baseline("TinyLlama (1.1B)", 1_100_000_000, 15.0, 66.0, 4400.0, Some(12.0)));
-    all_results.push(create_baseline("Phi-2 (2.7B)", 2_700_000_000, 8.0, 125.0, 10800.0, Some(8.5)));
+    all_results.push(create_baseline(
+        "GPT-2 (124M)",
+        124_000_000,
+        50.0,
+        20.0,
+        500.0,
+        Some(35.0),
+    ));
+    all_results.push(create_baseline(
+        "GPT-2 (355M)",
+        355_000_000,
+        25.0,
+        40.0,
+        1400.0,
+        Some(25.0),
+    ));
+    all_results.push(create_baseline(
+        "TinyLlama (1.1B)",
+        1_100_000_000,
+        15.0,
+        66.0,
+        4400.0,
+        Some(12.0),
+    ));
+    all_results.push(create_baseline(
+        "Phi-2 (2.7B)",
+        2_700_000_000,
+        8.0,
+        125.0,
+        10800.0,
+        Some(8.5),
+    ));
 
     // Print comparison table
     print_benchmark_comparison(&all_results);
@@ -100,7 +161,8 @@ fn main() {
     println!("║                              OPTIMIZATION ANALYSIS                                      ║");
     println!("╠════════════════════════════════════════════════════════════════════════════════════════╣");
 
-    let ruvllm_results: Vec<_> = all_results.iter()
+    let ruvllm_results: Vec<_> = all_results
+        .iter()
         .filter(|r| r.model_name.starts_with("RuvLLM"))
         .collect();
 
@@ -127,8 +189,10 @@ fn main() {
 
     for r in &ruvllm_results {
         let bytes_per_param = r.memory_mb * 1024.0 * 1024.0 / r.num_params as f64;
-        println!("║   • {}: {:.2} bytes/param (vs 4.0 for FP32)                              ║",
-                 r.model_name, bytes_per_param);
+        println!(
+            "║   • {}: {:.2} bytes/param (vs 4.0 for FP32)                              ║",
+            r.model_name, bytes_per_param
+        );
     }
 
     println!("╚════════════════════════════════════════════════════════════════════════════════════════╝");
@@ -137,7 +201,9 @@ fn main() {
     println!("\n╔════════════════════════════════════════════════════════════════════════════════════════╗");
     println!("║                         SELF-LEARNING SIMULATION                                        ║");
     println!("╠════════════════════════════════════════════════════════════════════════════════════════╣");
-    println!("║ Epoch │ Queries │ Router Acc │ Memory Nodes │ Avg Quality │ Improvement              ║");
+    println!(
+        "║ Epoch │ Queries │ Router Acc │ Memory Nodes │ Avg Quality │ Improvement              ║"
+    );
     println!("╠════════════════════════════════════════════════════════════════════════════════════════╣");
 
     // Simulate self-learning improvement over time
@@ -151,16 +217,23 @@ fn main() {
         let bar_len = (improvement / 2.0).min(10.0) as usize;
         let bar = "█".repeat(bar_len) + &"░".repeat(10 - bar_len);
 
-        println!("║   {:>3} │   {:>5} │     {:>5.1}% │        {:>5} │      {:>5.1}% │ {:>5.1}% {} ║",
-                 epoch, queries, router_acc, memory_nodes, quality, improvement, bar);
+        println!(
+            "║   {:>3} │   {:>5} │     {:>5.1}% │        {:>5} │      {:>5.1}% │ {:>5.1}% {} ║",
+            epoch, queries, router_acc, memory_nodes, quality, improvement, bar
+        );
     }
 
     println!("╚════════════════════════════════════════════════════════════════════════════════════════╝");
 
     println!("\n✅ Pretraining and benchmarking complete!");
     println!("\n📌 Key Findings:");
-    println!("   • SIMD acceleration provides {:.0}x speedup over scalar operations",
-             ruvllm_results.first().map(|r| r.tokens_per_second / 10.0).unwrap_or(10.0));
+    println!(
+        "   • SIMD acceleration provides {:.0}x speedup over scalar operations",
+        ruvllm_results
+            .first()
+            .map(|r| r.tokens_per_second / 10.0)
+            .unwrap_or(10.0)
+    );
     println!("   • Q4 quantization reduces memory 4x with minimal quality loss");
     println!("   • Self-learning improves routing accuracy by ~80% over time");
     println!("   • Continuous memory growth enables knowledge accumulation");
@@ -178,7 +251,14 @@ fn format_params(n: usize) -> String {
     }
 }
 
-fn create_baseline(name: &str, params: usize, tok_per_sec: f64, latency_ms: f64, memory_mb: f64, ppl: Option<f64>) -> ruvllm::training::BenchmarkResults {
+fn create_baseline(
+    name: &str,
+    params: usize,
+    tok_per_sec: f64,
+    latency_ms: f64,
+    memory_mb: f64,
+    ppl: Option<f64>,
+) -> ruvllm::training::BenchmarkResults {
     ruvllm::training::BenchmarkResults {
         model_name: name.to_string(),
         num_params: params,

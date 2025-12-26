@@ -186,7 +186,9 @@ impl Projector {
         let bias_size = target_dim * 4;
 
         if data.len() < weights_start + weights_size + bias_size {
-            return Err(ProjectionError::InvalidWeights("Data too short for weights".into()));
+            return Err(ProjectionError::InvalidWeights(
+                "Data too short for weights".into(),
+            ));
         }
 
         let mut weights_data = Vec::with_capacity(target_dim * source_dim);
@@ -225,7 +227,8 @@ impl ProjectorRegistry {
 
     /// Register a projector for a model
     pub fn register(&mut self, projector: Projector) {
-        self.projectors.insert(projector.model_id.clone(), projector);
+        self.projectors
+            .insert(projector.model_id.clone(), projector);
     }
 
     /// Get projector for a model
@@ -393,7 +396,10 @@ mod tests {
         let input = vec![1.0, 2.0, 3.0]; // Wrong size
 
         let result = projector.project(&input);
-        assert!(matches!(result, Err(ProjectionError::DimensionMismatch { .. })));
+        assert!(matches!(
+            result,
+            Err(ProjectionError::DimensionMismatch { .. })
+        ));
     }
 
     #[test]

@@ -147,7 +147,9 @@ fn test_cycle_graph() {
     // Cycle graph: 1-2-3-4-5-1
     let n = 8;
     for i in 1..=n {
-        graph.insert_edge(i, if i == n { 1 } else { i + 1 }, 1.0).unwrap();
+        graph
+            .insert_edge(i, if i == n { 1 } else { i + 1 }, 1.0)
+            .unwrap();
     }
 
     let local_kcut = LocalKCut::new(graph, 3);
@@ -177,10 +179,7 @@ fn test_weighted_edges() {
     // Should prefer to cut the edge with weight 1
     let result = local_kcut.find_cut(2).expect("Should find a cut");
 
-    assert!(
-        result.cut_value <= 3.0,
-        "Should find cut with value <= k=3"
-    );
+    assert!(result.cut_value <= 3.0, "Should find cut with value <= k=3");
 }
 
 #[test]
@@ -258,13 +257,13 @@ fn test_forest_packing_witness() {
     let packing = ForestPacking::greedy_packing(&*graph, 3, 0.1);
 
     // Verify forest packing was created
-    assert!(packing.num_forests() >= 1, "Should have at least one forest");
+    assert!(
+        packing.num_forests() >= 1,
+        "Should have at least one forest"
+    );
 
     // Test witness property on single-edge cuts
-    let cuts = vec![
-        vec![(1, 2)],
-        vec![(2, 3)],
-    ];
+    let cuts = vec![vec![(1, 2)], vec![(2, 3)]];
 
     // Just verify the method works without panic
     for cut in cuts {

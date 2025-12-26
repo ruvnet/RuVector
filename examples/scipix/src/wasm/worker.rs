@@ -1,10 +1,10 @@
 //! Web Worker support for off-main-thread OCR processing
 
-use wasm_bindgen::prelude::*;
-use web_sys::{DedicatedWorkerGlobalScope, MessageEvent};
+use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use once_cell::sync::OnceCell;
+use wasm_bindgen::prelude::*;
+use web_sys::{DedicatedWorkerGlobalScope, MessageEvent};
 
 use crate::wasm::api::ScipixWasm;
 use crate::wasm::types::RecognitionFormat;
@@ -51,9 +51,7 @@ pub enum WorkerResponse {
     Ready,
 
     /// Processing started
-    Started {
-        id: String,
-    },
+    Started { id: String },
 
     /// Processing progress
     Progress {
@@ -69,10 +67,7 @@ pub enum WorkerResponse {
     },
 
     /// Processing failed
-    Error {
-        id: String,
-        error: String,
-    },
+    Error { id: String, error: String },
 
     /// Worker terminated
     Terminated,
@@ -82,7 +77,8 @@ pub enum WorkerResponse {
 #[wasm_bindgen(js_name = initWorker)]
 pub async fn init_worker() -> Result<(), JsValue> {
     let instance = ScipixWasm::new().await?;
-    WORKER_INSTANCE.set(Arc::new(instance))
+    WORKER_INSTANCE
+        .set(Arc::new(instance))
         .map_err(|_| JsValue::from_str("Worker already initialized"))?;
 
     post_response(WorkerResponse::Ready)?;
@@ -102,7 +98,11 @@ pub async fn handle_worker_message(event: MessageEvent) -> Result<(), JsValue> {
             init_worker().await?;
         }
 
-        WorkerRequest::Process { id, image_data, format } => {
+        WorkerRequest::Process {
+            id,
+            image_data,
+            format,
+        } => {
             process_image(id, image_data, format).await?;
         }
 
@@ -125,7 +125,8 @@ pub async fn handle_worker_message(event: MessageEvent) -> Result<(), JsValue> {
 async fn process_image(id: String, image_data: Vec<u8>, format: String) -> Result<(), JsValue> {
     post_response(WorkerResponse::Started { id: id.clone() })?;
 
-    let instance = WORKER_INSTANCE.get()
+    let instance = WORKER_INSTANCE
+        .get()
         .ok_or_else(|| JsValue::from_str("Worker not initialized"))?;
 
     let mut worker_instance = ScipixWasm::new().await?;

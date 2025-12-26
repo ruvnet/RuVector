@@ -54,7 +54,10 @@ impl Arena {
     /// Allocate raw bytes with specified alignment
     fn alloc_raw(&self, size: usize, align: usize) -> *mut u8 {
         // SECURITY: Validate alignment is a power of 2 and size is reasonable
-        assert!(align > 0 && align.is_power_of_two(), "Alignment must be a power of 2");
+        assert!(
+            align > 0 && align.is_power_of_two(),
+            "Alignment must be a power of 2"
+        );
         assert!(size > 0, "Cannot allocate zero bytes");
         assert!(size <= isize::MAX as usize, "Allocation size too large");
 
@@ -71,7 +74,8 @@ impl Arena {
                 panic!("Alignment calculation overflow");
             }
 
-            let needed = aligned.checked_add(size)
+            let needed = aligned
+                .checked_add(size)
                 .expect("Arena allocation size overflow");
 
             if needed <= chunk.capacity {

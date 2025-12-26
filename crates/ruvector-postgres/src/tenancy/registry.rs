@@ -4,7 +4,7 @@
 //! Integrates with PostgreSQL's system tables for persistent storage.
 
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicU64, AtomicU32, Ordering};
+use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
 
 use dashmap::DashMap;
 use parking_lot::RwLock;
@@ -49,7 +49,7 @@ impl IsolationLevel {
     /// Get recommended vector count threshold for this level
     pub fn recommended_vector_count(&self) -> u64 {
         match self {
-            Self::Shared => 100_000,      // < 100K vectors
+            Self::Shared => 100_000,       // < 100K vectors
             Self::Partition => 10_000_000, // 100K - 10M vectors
             Self::Dedicated => u64::MAX,   // > 10M vectors
         }
@@ -137,8 +137,7 @@ impl TenantConfig {
         }
 
         if let Some(level) = config.get("isolation_level").and_then(|v| v.as_str()) {
-            tenant.isolation_level = IsolationLevel::from_str(level)
-                .unwrap_or_default();
+            tenant.isolation_level = IsolationLevel::from_str(level).unwrap_or_default();
         }
 
         if let Some(max_vec) = config.get("max_vectors").and_then(|v| v.as_u64()) {
@@ -250,7 +249,8 @@ impl TenantSharedState {
 
     /// Set lambda cut from f32
     pub fn set_lambda_cut(&self, value: f32) {
-        self.lambda_cut_fp.store((value * 1000.0) as u32, Ordering::Relaxed);
+        self.lambda_cut_fp
+            .store((value * 1000.0) as u32, Ordering::Relaxed);
     }
 
     /// Increment request count and check rate limit
@@ -375,7 +375,8 @@ impl TenantRegistry {
 
     /// Suspend a tenant
     pub fn suspend(&self, tenant_id: &str) -> Result<(), TenantError> {
-        let mut config = self.get(tenant_id)
+        let mut config = self
+            .get(tenant_id)
             .ok_or_else(|| TenantError::NotFound(tenant_id.to_string()))?;
 
         config.suspended_at = Some(chrono_now_millis());
@@ -391,7 +392,8 @@ impl TenantRegistry {
 
     /// Resume a suspended tenant
     pub fn resume(&self, tenant_id: &str) -> Result<(), TenantError> {
-        let mut config = self.get(tenant_id)
+        let mut config = self
+            .get(tenant_id)
             .ok_or_else(|| TenantError::NotFound(tenant_id.to_string()))?;
 
         config.suspended_at = None;
@@ -429,14 +431,13 @@ impl TenantRegistry {
 
     /// List all tenants
     pub fn list(&self) -> Vec<TenantConfig> {
-        self.configs.iter()
-            .map(|r| r.value().clone())
-            .collect()
+        self.configs.iter().map(|r| r.value().clone()).collect()
     }
 
     /// List active tenants only
     pub fn list_active(&self) -> Vec<TenantConfig> {
-        self.configs.iter()
+        self.configs
+            .iter()
             .filter(|r| r.value().is_active())
             .map(|r| r.value().clone())
             .collect()
@@ -459,7 +460,8 @@ impl TenantRegistry {
             return Err(TenantError::AdminContextRequired);
         }
 
-        let config = self.get(tenant_id)
+        let config = self
+            .get(tenant_id)
             .ok_or_else(|| TenantError::NotFound(tenant_id.to_string()))?;
 
         if config.is_suspended() {
@@ -471,10 +473,12 @@ impl TenantRegistry {
 
     /// Check rate limit for tenant
     pub fn check_rate_limit(&self, tenant_id: &str) -> Result<bool, TenantError> {
-        let config = self.get(tenant_id)
+        let config = self
+            .get(tenant_id)
             .ok_or_else(|| TenantError::NotFound(tenant_id.to_string()))?;
 
-        let state = self.get_shared_state(tenant_id)
+        let state = self
+            .get_shared_state(tenant_id)
             .ok_or_else(|| TenantError::NotFound(tenant_id.to_string()))?;
 
         Ok(state.check_rate_limit(config.quota.max_qps))
@@ -559,7 +563,11 @@ impl std::fmt::Display for TenantError {
                 write!(f, "Quota exceeded for tenant '{}': {}", id, resource)
             }
             Self::TenantMismatch { context, request } => {
-                write!(f, "Tenant mismatch: context='{}', request='{}'", context, request)
+                write!(
+                    f,
+                    "Tenant mismatch: context='{}', request='{}'",
+                    context, request
+                )
             }
             Self::InvalidId(msg) => write!(f, "Invalid tenant ID: {}", msg),
         }
@@ -609,9 +617,18 @@ mod tests {
 
     #[test]
     fn test_isolation_level_parse() {
-        assert_eq!(IsolationLevel::from_str("shared"), Some(IsolationLevel::Shared));
-        assert_eq!(IsolationLevel::from_str("partition"), Some(IsolationLevel::Partition));
-        assert_eq!(IsolationLevel::from_str("dedicated"), Some(IsolationLevel::Dedicated));
+        assert_eq!(
+            IsolationLevel::from_str("shared"),
+            Some(IsolationLevel::Shared)
+        );
+        assert_eq!(
+            IsolationLevel::from_str("partition"),
+            Some(IsolationLevel::Partition)
+        );
+        assert_eq!(
+            IsolationLevel::from_str("dedicated"),
+            Some(IsolationLevel::Dedicated)
+        );
         assert_eq!(IsolationLevel::from_str("invalid"), None);
     }
 

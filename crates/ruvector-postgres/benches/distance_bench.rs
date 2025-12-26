@@ -11,7 +11,7 @@
 //! - 1536: OpenAI text-embedding-ada-002
 //! - 3072: OpenAI text-embedding-3-large
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId, Throughput};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 use rand::prelude::*;
 use rand_chacha::ChaCha8Rng;
 use rayon::prelude::*;
@@ -250,25 +250,16 @@ fn bench_euclidean(c: &mut Criterion) {
 
         group.throughput(Throughput::Elements(*dims as u64));
 
-        group.bench_with_input(
-            BenchmarkId::new("scalar", dims),
-            dims,
-            |bench, _| {
-                bench.iter(|| distance_impl::euclidean_scalar(black_box(&a), black_box(&b)))
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("scalar", dims), dims, |bench, _| {
+            bench.iter(|| distance_impl::euclidean_scalar(black_box(&a), black_box(&b)))
+        });
 
         #[cfg(target_arch = "x86_64")]
         if is_x86_feature_detected!("avx2") && is_x86_feature_detected!("fma") {
-            group.bench_with_input(
-                BenchmarkId::new("avx2", dims),
-                dims,
-                |bench, _| {
-                    bench.iter(|| unsafe {
-                        distance_impl::euclidean_avx2(black_box(&a), black_box(&b))
-                    })
-                },
-            );
+            group.bench_with_input(BenchmarkId::new("avx2", dims), dims, |bench, _| {
+                bench
+                    .iter(|| unsafe { distance_impl::euclidean_avx2(black_box(&a), black_box(&b)) })
+            });
         }
     }
 
@@ -287,25 +278,15 @@ fn bench_cosine(c: &mut Criterion) {
 
         group.throughput(Throughput::Elements(*dims as u64));
 
-        group.bench_with_input(
-            BenchmarkId::new("scalar", dims),
-            dims,
-            |bench, _| {
-                bench.iter(|| distance_impl::cosine_scalar(black_box(&a), black_box(&b)))
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("scalar", dims), dims, |bench, _| {
+            bench.iter(|| distance_impl::cosine_scalar(black_box(&a), black_box(&b)))
+        });
 
         #[cfg(target_arch = "x86_64")]
         if is_x86_feature_detected!("avx2") && is_x86_feature_detected!("fma") {
-            group.bench_with_input(
-                BenchmarkId::new("avx2", dims),
-                dims,
-                |bench, _| {
-                    bench.iter(|| unsafe {
-                        distance_impl::cosine_avx2(black_box(&a), black_box(&b))
-                    })
-                },
-            );
+            group.bench_with_input(BenchmarkId::new("avx2", dims), dims, |bench, _| {
+                bench.iter(|| unsafe { distance_impl::cosine_avx2(black_box(&a), black_box(&b)) })
+            });
         }
     }
 
@@ -325,28 +306,20 @@ fn bench_cosine_normalized(c: &mut Criterion) {
         group.throughput(Throughput::Elements(*dims as u64));
 
         // For normalized vectors, cosine = 1 - dot product
-        group.bench_with_input(
-            BenchmarkId::new("scalar_dot", dims),
-            dims,
-            |bench, _| {
-                bench.iter(|| {
-                    let dot: f32 = a.iter().zip(&b).map(|(x, y)| x * y).sum();
-                    1.0 - black_box(dot)
-                })
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("scalar_dot", dims), dims, |bench, _| {
+            bench.iter(|| {
+                let dot: f32 = a.iter().zip(&b).map(|(x, y)| x * y).sum();
+                1.0 - black_box(dot)
+            })
+        });
 
         #[cfg(target_arch = "x86_64")]
         if is_x86_feature_detected!("avx2") && is_x86_feature_detected!("fma") {
-            group.bench_with_input(
-                BenchmarkId::new("avx2_dot", dims),
-                dims,
-                |bench, _| {
-                    bench.iter(|| unsafe {
-                        1.0 + distance_impl::inner_product_avx2(black_box(&a), black_box(&b))
-                    })
-                },
-            );
+            group.bench_with_input(BenchmarkId::new("avx2_dot", dims), dims, |bench, _| {
+                bench.iter(|| unsafe {
+                    1.0 + distance_impl::inner_product_avx2(black_box(&a), black_box(&b))
+                })
+            });
         }
     }
 
@@ -365,25 +338,17 @@ fn bench_inner_product(c: &mut Criterion) {
 
         group.throughput(Throughput::Elements(*dims as u64));
 
-        group.bench_with_input(
-            BenchmarkId::new("scalar", dims),
-            dims,
-            |bench, _| {
-                bench.iter(|| distance_impl::inner_product_scalar(black_box(&a), black_box(&b)))
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("scalar", dims), dims, |bench, _| {
+            bench.iter(|| distance_impl::inner_product_scalar(black_box(&a), black_box(&b)))
+        });
 
         #[cfg(target_arch = "x86_64")]
         if is_x86_feature_detected!("avx2") && is_x86_feature_detected!("fma") {
-            group.bench_with_input(
-                BenchmarkId::new("avx2", dims),
-                dims,
-                |bench, _| {
-                    bench.iter(|| unsafe {
-                        distance_impl::inner_product_avx2(black_box(&a), black_box(&b))
-                    })
-                },
-            );
+            group.bench_with_input(BenchmarkId::new("avx2", dims), dims, |bench, _| {
+                bench.iter(|| unsafe {
+                    distance_impl::inner_product_avx2(black_box(&a), black_box(&b))
+                })
+            });
         }
     }
 
@@ -402,13 +367,9 @@ fn bench_manhattan(c: &mut Criterion) {
 
         group.throughput(Throughput::Elements(*dims as u64));
 
-        group.bench_with_input(
-            BenchmarkId::new("scalar", dims),
-            dims,
-            |bench, _| {
-                bench.iter(|| distance_impl::manhattan_scalar(black_box(&a), black_box(&b)))
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("scalar", dims), dims, |bench, _| {
+            bench.iter(|| distance_impl::manhattan_scalar(black_box(&a), black_box(&b)))
+        });
     }
 
     group.finish();
@@ -427,44 +388,32 @@ fn bench_batch_sequential(c: &mut Criterion) {
 
         group.throughput(Throughput::Elements(1000));
 
-        group.bench_with_input(
-            BenchmarkId::new("euclidean", dims),
-            dims,
-            |bench, _| {
-                bench.iter(|| {
-                    vectors
-                        .iter()
-                        .map(|v| distance_impl::euclidean_scalar(black_box(&query), black_box(v)))
-                        .collect::<Vec<_>>()
-                })
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("euclidean", dims), dims, |bench, _| {
+            bench.iter(|| {
+                vectors
+                    .iter()
+                    .map(|v| distance_impl::euclidean_scalar(black_box(&query), black_box(v)))
+                    .collect::<Vec<_>>()
+            })
+        });
 
-        group.bench_with_input(
-            BenchmarkId::new("cosine", dims),
-            dims,
-            |bench, _| {
-                bench.iter(|| {
-                    vectors
-                        .iter()
-                        .map(|v| distance_impl::cosine_scalar(black_box(&query), black_box(v)))
-                        .collect::<Vec<_>>()
-                })
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("cosine", dims), dims, |bench, _| {
+            bench.iter(|| {
+                vectors
+                    .iter()
+                    .map(|v| distance_impl::cosine_scalar(black_box(&query), black_box(v)))
+                    .collect::<Vec<_>>()
+            })
+        });
 
-        group.bench_with_input(
-            BenchmarkId::new("inner_product", dims),
-            dims,
-            |bench, _| {
-                bench.iter(|| {
-                    vectors
-                        .iter()
-                        .map(|v| distance_impl::inner_product_scalar(black_box(&query), black_box(v)))
-                        .collect::<Vec<_>>()
-                })
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("inner_product", dims), dims, |bench, _| {
+            bench.iter(|| {
+                vectors
+                    .iter()
+                    .map(|v| distance_impl::inner_product_scalar(black_box(&query), black_box(v)))
+                    .collect::<Vec<_>>()
+            })
+        });
     }
 
     group.finish();
@@ -492,18 +441,14 @@ fn bench_batch_parallel(c: &mut Criterion) {
             },
         );
 
-        group.bench_with_input(
-            BenchmarkId::new("cosine_rayon", dims),
-            dims,
-            |bench, _| {
-                bench.iter(|| {
-                    vectors
-                        .par_iter()
-                        .map(|v| distance_impl::cosine_scalar(black_box(&query), black_box(v)))
-                        .collect::<Vec<_>>()
-                })
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("cosine_rayon", dims), dims, |bench, _| {
+            bench.iter(|| {
+                vectors
+                    .par_iter()
+                    .map(|v| distance_impl::cosine_scalar(black_box(&query), black_box(v)))
+                    .collect::<Vec<_>>()
+            })
+        });
     }
 
     group.finish();
@@ -523,48 +468,36 @@ fn bench_large_batch(c: &mut Criterion) {
 
         group.throughput(Throughput::Elements(10_000));
 
-        group.bench_with_input(
-            BenchmarkId::new("sequential", dims),
-            dims,
-            |bench, _| {
-                bench.iter(|| {
-                    vectors
-                        .iter()
-                        .map(|v| distance_impl::euclidean_scalar(black_box(&query), black_box(v)))
-                        .collect::<Vec<_>>()
-                })
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("sequential", dims), dims, |bench, _| {
+            bench.iter(|| {
+                vectors
+                    .iter()
+                    .map(|v| distance_impl::euclidean_scalar(black_box(&query), black_box(v)))
+                    .collect::<Vec<_>>()
+            })
+        });
 
-        group.bench_with_input(
-            BenchmarkId::new("parallel", dims),
-            dims,
-            |bench, _| {
-                bench.iter(|| {
-                    vectors
-                        .par_iter()
-                        .map(|v| distance_impl::euclidean_scalar(black_box(&query), black_box(v)))
-                        .collect::<Vec<_>>()
-                })
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("parallel", dims), dims, |bench, _| {
+            bench.iter(|| {
+                vectors
+                    .par_iter()
+                    .map(|v| distance_impl::euclidean_scalar(black_box(&query), black_box(v)))
+                    .collect::<Vec<_>>()
+            })
+        });
 
         #[cfg(target_arch = "x86_64")]
         if is_x86_feature_detected!("avx2") && is_x86_feature_detected!("fma") {
-            group.bench_with_input(
-                BenchmarkId::new("parallel_avx2", dims),
-                dims,
-                |bench, _| {
-                    bench.iter(|| {
-                        vectors
-                            .par_iter()
-                            .map(|v| unsafe {
-                                distance_impl::euclidean_avx2(black_box(&query), black_box(v))
-                            })
-                            .collect::<Vec<_>>()
-                    })
-                },
-            );
+            group.bench_with_input(BenchmarkId::new("parallel_avx2", dims), dims, |bench, _| {
+                bench.iter(|| {
+                    vectors
+                        .par_iter()
+                        .map(|v| unsafe {
+                            distance_impl::euclidean_avx2(black_box(&query), black_box(v))
+                        })
+                        .collect::<Vec<_>>()
+                })
+            });
         }
     }
 
@@ -603,23 +536,13 @@ fn bench_simd_speedup(c: &mut Criterion) {
             );
 
             // Cosine
-            group.bench_with_input(
-                BenchmarkId::new("cosine_scalar", dims),
-                dims,
-                |bench, _| {
-                    bench.iter(|| distance_impl::cosine_scalar(black_box(&a), black_box(&b)))
-                },
-            );
+            group.bench_with_input(BenchmarkId::new("cosine_scalar", dims), dims, |bench, _| {
+                bench.iter(|| distance_impl::cosine_scalar(black_box(&a), black_box(&b)))
+            });
 
-            group.bench_with_input(
-                BenchmarkId::new("cosine_avx2", dims),
-                dims,
-                |bench, _| {
-                    bench.iter(|| unsafe {
-                        distance_impl::cosine_avx2(black_box(&a), black_box(&b))
-                    })
-                },
-            );
+            group.bench_with_input(BenchmarkId::new("cosine_avx2", dims), dims, |bench, _| {
+                bench.iter(|| unsafe { distance_impl::cosine_avx2(black_box(&a), black_box(&b)) })
+            });
         }
     }
 

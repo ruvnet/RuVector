@@ -7,7 +7,7 @@
 //! - InstantLoop full cycle (target: <1ms)
 //! - EWC++ loss computation
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId, Throughput};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 use ruvllm::sona::*;
 
 // ============================================================================
@@ -22,49 +22,37 @@ fn micro_lora_benchmarks(c: &mut Criterion) {
         group.throughput(Throughput::Elements(dim as u64));
 
         // Rank 1 benchmarks
-        group.bench_with_input(
-            BenchmarkId::new("forward_rank1", dim),
-            &dim,
-            |b, &dim| {
-                let lora = MicroLoRA::new(dim, 1);
-                let input = vec![1.0f32; dim];
-                let mut output = vec![0.0f32; dim];
+        group.bench_with_input(BenchmarkId::new("forward_rank1", dim), &dim, |b, &dim| {
+            let lora = MicroLoRA::new(dim, 1);
+            let input = vec![1.0f32; dim];
+            let mut output = vec![0.0f32; dim];
 
-                b.iter(|| {
-                    lora.forward(black_box(&input), black_box(&mut output));
-                });
-            },
-        );
+            b.iter(|| {
+                lora.forward(black_box(&input), black_box(&mut output));
+            });
+        });
 
         // Rank 2 benchmarks
-        group.bench_with_input(
-            BenchmarkId::new("forward_rank2", dim),
-            &dim,
-            |b, &dim| {
-                let lora = MicroLoRA::new(dim, 2);
-                let input = vec![1.0f32; dim];
-                let mut output = vec![0.0f32; dim];
+        group.bench_with_input(BenchmarkId::new("forward_rank2", dim), &dim, |b, &dim| {
+            let lora = MicroLoRA::new(dim, 2);
+            let input = vec![1.0f32; dim];
+            let mut output = vec![0.0f32; dim];
 
-                b.iter(|| {
-                    lora.forward(black_box(&input), black_box(&mut output));
-                });
-            },
-        );
+            b.iter(|| {
+                lora.forward(black_box(&input), black_box(&mut output));
+            });
+        });
 
         // Scalar (non-SIMD) forward pass for comparison
-        group.bench_with_input(
-            BenchmarkId::new("forward_scalar", dim),
-            &dim,
-            |b, &dim| {
-                let lora = MicroLoRA::new(dim, 1);
-                let input = vec![1.0f32; dim];
-                let mut output = vec![0.0f32; dim];
+        group.bench_with_input(BenchmarkId::new("forward_scalar", dim), &dim, |b, &dim| {
+            let lora = MicroLoRA::new(dim, 1);
+            let input = vec![1.0f32; dim];
+            let mut output = vec![0.0f32; dim];
 
-                b.iter(|| {
-                    lora.forward_scalar(black_box(&input), black_box(&mut output));
-                });
-            },
-        );
+            b.iter(|| {
+                lora.forward_scalar(black_box(&input), black_box(&mut output));
+            });
+        });
 
         // Gradient accumulation
         group.bench_with_input(
@@ -72,11 +60,7 @@ fn micro_lora_benchmarks(c: &mut Criterion) {
             &dim,
             |b, &dim| {
                 let mut lora = MicroLoRA::new(dim, 1);
-                let signal = LearningSignal::with_gradient(
-                    vec![0.5; dim],
-                    vec![0.1; dim],
-                    0.8,
-                );
+                let signal = LearningSignal::with_gradient(vec![0.5; dim], vec![0.1; dim], 0.8);
 
                 b.iter(|| {
                     lora.accumulate_gradient(black_box(&signal));
@@ -92,11 +76,7 @@ fn micro_lora_benchmarks(c: &mut Criterion) {
                 let mut lora = MicroLoRA::new(dim, 1);
 
                 // Pre-accumulate some gradients
-                let signal = LearningSignal::with_gradient(
-                    vec![0.5; dim],
-                    vec![0.1; dim],
-                    0.8,
-                );
+                let signal = LearningSignal::with_gradient(vec![0.5; dim], vec![0.1; dim], 0.8);
                 for _ in 0..10 {
                     lora.accumulate_gradient(&signal);
                 }
@@ -124,10 +104,7 @@ fn trajectory_benchmarks(c: &mut Criterion) {
         let id_gen = TrajectoryIdGen::new();
 
         b.iter(|| {
-            let trajectory = QueryTrajectory::new(
-                id_gen.next(),
-                vec![0.1, 0.2, 0.3, 0.4],
-            );
+            let trajectory = QueryTrajectory::new(id_gen.next(), vec![0.1, 0.2, 0.3, 0.4]);
             buffer.record(black_box(trajectory));
         });
     });
@@ -139,17 +116,10 @@ fn trajectory_benchmarks(c: &mut Criterion) {
             &steps,
             |b, &steps| {
                 b.iter(|| {
-                    let mut builder = TrajectoryBuilder::new(
-                        1,
-                        vec![0.1, 0.2, 0.3, 0.4],
-                    );
+                    let mut builder = TrajectoryBuilder::new(1, vec![0.1, 0.2, 0.3, 0.4]);
 
                     for i in 0..steps {
-                        builder.add_step(
-                            vec![0.5; 128],
-                            vec![0.3; 64],
-                            0.7,
-                        );
+                        builder.add_step(vec![0.5; 128], vec![0.3; 64], 0.7);
                     }
 
                     black_box(builder.build(0.85));
@@ -260,10 +230,7 @@ fn reasoning_bank_benchmarks(c: &mut Criterion) {
 
         // Build up pattern database
         for i in 0..1000 {
-            let mut trajectory = QueryTrajectory::new(
-                i,
-                vec![(i as f32 * 0.1) % 1.0; 128],
-            );
+            let mut trajectory = QueryTrajectory::new(i, vec![(i as f32 * 0.1) % 1.0; 128]);
             trajectory.finalize(0.8, 1000);
             bank.add_trajectory(&trajectory);
         }
@@ -291,10 +258,7 @@ fn reasoning_bank_benchmarks(c: &mut Criterion) {
 
         // Create many similar patterns
         for i in 0..500 {
-            let mut trajectory = QueryTrajectory::new(
-                i,
-                vec![1.0 + (i as f32 * 0.001); 128],
-            );
+            let mut trajectory = QueryTrajectory::new(i, vec![1.0 + (i as f32 * 0.001); 128]);
             trajectory.finalize(0.8, 1000);
             bank.add_trajectory(&trajectory);
         }
@@ -459,17 +423,10 @@ fn integrated_benchmarks(c: &mut Criterion) {
 
         b.iter(|| {
             // 1. Record trajectory (simulate 10 steps)
-            let mut builder = TrajectoryBuilder::new(
-                id_gen.next(),
-                vec![0.5; dim],
-            );
+            let mut builder = TrajectoryBuilder::new(id_gen.next(), vec![0.5; dim]);
 
             for i in 0..10 {
-                builder.add_step(
-                    vec![0.3; dim],
-                    vec![0.2; 128],
-                    0.7 + (i as f32 * 0.02),
-                );
+                builder.add_step(vec![0.3; dim], vec![0.2; 128], 0.7 + (i as f32 * 0.02));
             }
 
             let trajectory = builder.build(0.85);
@@ -510,10 +467,7 @@ fn integrated_benchmarks(c: &mut Criterion) {
 
         b.iter(|| {
             // 1. Add new trajectory
-            let mut trajectory = QueryTrajectory::new(
-                1000,
-                vec![0.6; 128],
-            );
+            let mut trajectory = QueryTrajectory::new(1000, vec![0.6; 128]);
             trajectory.finalize(0.85, 1000);
             bank.add_trajectory(&trajectory);
 
@@ -552,11 +506,8 @@ fn integrated_benchmarks(c: &mut Criterion) {
 
         b.iter(|| {
             // 1. Get raw gradients from learning signal
-            let signal = LearningSignal::with_gradient(
-                vec![0.5; param_count],
-                vec![0.1; param_count],
-                0.8,
-            );
+            let signal =
+                LearningSignal::with_gradient(vec![0.5; param_count], vec![0.1; param_count], 0.8);
 
             // 2. Apply EWC constraints
             let constrained = ewc.apply_constraints(&signal.gradient_estimate);

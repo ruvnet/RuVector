@@ -31,24 +31,23 @@
 //! ```
 
 pub mod bm25;
-pub mod fusion;
 pub mod executor;
+pub mod fusion;
 pub mod registry;
 
 // Re-exports
-pub use bm25::{BM25Scorer, BM25Config, CorpusStats, TermFrequencies, Document, tokenize_query};
-pub use fusion::{
-    DocId, FusionMethod, FusionConfig, FusedResult, FusionModel,
-    rrf_fusion, linear_fusion, learned_fusion, fuse_results,
-    DEFAULT_RRF_K, DEFAULT_ALPHA,
-};
+pub use bm25::{tokenize_query, BM25Config, BM25Scorer, CorpusStats, Document, TermFrequencies};
 pub use executor::{
-    HybridQuery, HybridExecutor, HybridResult, HybridStrategy,
-    BranchResults, ExecutionStats, choose_strategy,
+    choose_strategy, BranchResults, ExecutionStats, HybridExecutor, HybridQuery, HybridResult,
+    HybridStrategy,
+};
+pub use fusion::{
+    fuse_results, learned_fusion, linear_fusion, rrf_fusion, DocId, FusedResult, FusionConfig,
+    FusionMethod, FusionModel, DEFAULT_ALPHA, DEFAULT_RRF_K,
 };
 pub use registry::{
-    HybridRegistry, HybridCollectionConfig, HybridConfigUpdate,
-    RegistryError, get_registry, HYBRID_REGISTRY,
+    get_registry, HybridCollectionConfig, HybridConfigUpdate, HybridRegistry, RegistryError,
+    HYBRID_REGISTRY,
 };
 
 use pgrx::prelude::*;
@@ -81,7 +80,9 @@ fn ruvector_register_hybrid(
 
     // For now, use a simple hash as collection ID
     // In production, this would query ruvector.collections table
-    let collection_id = collection.bytes().fold(0i32, |acc, b| acc.wrapping_add(b as i32));
+    let collection_id = collection
+        .bytes()
+        .fold(0i32, |acc, b| acc.wrapping_add(b as i32));
 
     // Check if already registered
     let registry = get_registry();
@@ -105,23 +106,19 @@ fn ruvector_register_hybrid(
 
     // Register
     match registry.register(config) {
-        Ok(_) => {
-            pgrx::JsonB(serde_json::json!({
-                "success": true,
-                "collection_id": collection_id,
-                "collection": collection,
-                "vector_column": vector_column,
-                "fts_column": fts_column,
-                "text_column": text_column,
-                "message": "Collection registered for hybrid search. Run ruvector_hybrid_update_stats() to compute corpus statistics."
-            }))
-        }
-        Err(e) => {
-            pgrx::JsonB(serde_json::json!({
-                "success": false,
-                "error": e.to_string()
-            }))
-        }
+        Ok(_) => pgrx::JsonB(serde_json::json!({
+            "success": true,
+            "collection_id": collection_id,
+            "collection": collection,
+            "vector_column": vector_column,
+            "fts_column": fts_column,
+            "text_column": text_column,
+            "message": "Collection registered for hybrid search. Run ruvector_hybrid_update_stats() to compute corpus statistics."
+        })),
+        Err(e) => pgrx::JsonB(serde_json::json!({
+            "success": false,
+            "error": e.to_string()
+        })),
     }
 }
 
@@ -162,20 +159,16 @@ fn ruvector_hybrid_update_stats(collection: &str) -> pgrx::JsonB {
     };
 
     match registry.update_stats(config.collection_id, stats) {
-        Ok(_) => {
-            pgrx::JsonB(serde_json::json!({
-                "success": true,
-                "collection": collection,
-                "message": "Stats update initiated. In production, this would compute actual corpus statistics.",
-                "note": "Use Spi::run to execute SQL for actual stats computation"
-            }))
-        }
-        Err(e) => {
-            pgrx::JsonB(serde_json::json!({
-                "success": false,
-                "error": e.to_string()
-            }))
-        }
+        Ok(_) => pgrx::JsonB(serde_json::json!({
+            "success": true,
+            "collection": collection,
+            "message": "Stats update initiated. In production, this would compute actual corpus statistics.",
+            "note": "Use Spi::run to execute SQL for actual stats computation"
+        })),
+        Err(e) => pgrx::JsonB(serde_json::json!({
+            "success": false,
+            "error": e.to_string()
+        })),
     }
 }
 
@@ -233,28 +226,24 @@ fn ruvector_hybrid_configure(collection: &str, config: pgrx::JsonB) -> pgrx::Jso
     }
 
     match registry.update(existing_config.clone()) {
-        Ok(_) => {
-            pgrx::JsonB(serde_json::json!({
-                "success": true,
-                "collection": collection,
-                "config": {
-                    "fusion_method": format!("{:?}", existing_config.fusion_config.method),
-                    "alpha": existing_config.fusion_config.alpha,
-                    "rrf_k": existing_config.fusion_config.rrf_k,
-                    "prefetch_k": existing_config.prefetch_k,
-                    "bm25_k1": existing_config.bm25_config.k1,
-                    "bm25_b": existing_config.bm25_config.b,
-                    "stats_refresh_interval": existing_config.stats_refresh_interval,
-                    "parallel_enabled": existing_config.parallel_enabled
-                }
-            }))
-        }
-        Err(e) => {
-            pgrx::JsonB(serde_json::json!({
-                "success": false,
-                "error": e.to_string()
-            }))
-        }
+        Ok(_) => pgrx::JsonB(serde_json::json!({
+            "success": true,
+            "collection": collection,
+            "config": {
+                "fusion_method": format!("{:?}", existing_config.fusion_config.method),
+                "alpha": existing_config.fusion_config.alpha,
+                "rrf_k": existing_config.fusion_config.rrf_k,
+                "prefetch_k": existing_config.prefetch_k,
+                "bm25_k1": existing_config.bm25_config.k1,
+                "bm25_b": existing_config.bm25_config.b,
+                "stats_refresh_interval": existing_config.stats_refresh_interval,
+                "parallel_enabled": existing_config.parallel_enabled
+            }
+        })),
+        Err(e) => pgrx::JsonB(serde_json::json!({
+            "success": false,
+            "error": e.to_string()
+        })),
     }
 }
 
@@ -390,43 +379,39 @@ fn ruvector_hybrid_stats(collection: &str) -> pgrx::JsonB {
 
     let registry = get_registry();
     match registry.get_by_name(&qualified_name) {
-        Some(config) => {
-            pgrx::JsonB(serde_json::json!({
-                "collection": collection,
-                "corpus_stats": {
-                    "avg_doc_length": config.corpus_stats.avg_doc_length,
-                    "doc_count": config.corpus_stats.doc_count,
-                    "total_terms": config.corpus_stats.total_terms,
-                    "last_update": config.corpus_stats.last_update
-                },
-                "bm25_config": {
-                    "k1": config.bm25_config.k1,
-                    "b": config.bm25_config.b
-                },
-                "fusion_config": {
-                    "method": format!("{:?}", config.fusion_config.method),
-                    "alpha": config.fusion_config.alpha,
-                    "rrf_k": config.fusion_config.rrf_k
-                },
-                "settings": {
-                    "prefetch_k": config.prefetch_k,
-                    "parallel_enabled": config.parallel_enabled,
-                    "stats_refresh_interval": config.stats_refresh_interval
-                },
-                "metadata": {
-                    "vector_column": config.vector_column,
-                    "fts_column": config.fts_column,
-                    "text_column": config.text_column,
-                    "created_at": config.created_at,
-                    "updated_at": config.updated_at
-                }
-            }))
-        }
-        None => {
-            pgrx::JsonB(serde_json::json!({
-                "error": format!("Collection '{}' is not registered for hybrid search", collection)
-            }))
-        }
+        Some(config) => pgrx::JsonB(serde_json::json!({
+            "collection": collection,
+            "corpus_stats": {
+                "avg_doc_length": config.corpus_stats.avg_doc_length,
+                "doc_count": config.corpus_stats.doc_count,
+                "total_terms": config.corpus_stats.total_terms,
+                "last_update": config.corpus_stats.last_update
+            },
+            "bm25_config": {
+                "k1": config.bm25_config.k1,
+                "b": config.bm25_config.b
+            },
+            "fusion_config": {
+                "method": format!("{:?}", config.fusion_config.method),
+                "alpha": config.fusion_config.alpha,
+                "rrf_k": config.fusion_config.rrf_k
+            },
+            "settings": {
+                "prefetch_k": config.prefetch_k,
+                "parallel_enabled": config.parallel_enabled,
+                "stats_refresh_interval": config.stats_refresh_interval
+            },
+            "metadata": {
+                "vector_column": config.vector_column,
+                "fts_column": config.fts_column,
+                "text_column": config.text_column,
+                "created_at": config.created_at,
+                "updated_at": config.updated_at
+            }
+        })),
+        None => pgrx::JsonB(serde_json::json!({
+            "error": format!("Collection '{}' is not registered for hybrid search", collection)
+        })),
     }
 }
 

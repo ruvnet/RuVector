@@ -62,11 +62,7 @@ pub trait PolicyModel: Send + Sync {
     fn decide(&self, chunk_tensor: &[f32], query_tensor: &[f32]) -> Result<PolicyDecision>;
 
     /// Batch decision for multiple chunks
-    fn decide_batch(
-        &self,
-        chunks: &[&[f32]],
-        query_tensor: &[f32],
-    ) -> Result<Vec<PolicyDecision>> {
+    fn decide_batch(&self, chunks: &[&[f32]], query_tensor: &[f32]) -> Result<Vec<PolicyDecision>> {
         chunks
             .iter()
             .map(|chunk| self.decide(chunk, query_tensor))
@@ -330,12 +326,24 @@ impl PolicyModel for MLPPolicy {
         // First layer: h = ReLU(W1 @ x + b1)
         let mut hidden = Array1::zeros(self.hidden_dim);
         for i in 0..self.hidden_dim {
-            let dot: f32 = self.w1.row(i).iter().zip(input.iter()).map(|(w, x)| w * x).sum();
+            let dot: f32 = self
+                .w1
+                .row(i)
+                .iter()
+                .zip(input.iter())
+                .map(|(w, x)| w * x)
+                .sum();
             hidden[i] = Self::relu(dot + self.b1[i]);
         }
 
         // Second layer: logit = W2 @ h + b2
-        let logit: f32 = self.w2.iter().zip(hidden.iter()).map(|(w, h)| w * h).sum::<f32>() + self.b2;
+        let logit: f32 = self
+            .w2
+            .iter()
+            .zip(hidden.iter())
+            .map(|(w, h)| w * h)
+            .sum::<f32>()
+            + self.b2;
 
         let score = Self::sigmoid(logit);
         let action = if score > self.threshold {

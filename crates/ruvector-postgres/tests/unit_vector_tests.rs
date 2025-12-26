@@ -400,7 +400,9 @@ mod ruvector_unit_tests {
     #[test]
     fn test_various_dimension_sizes() {
         // Test power-of-2 and non-power-of-2 sizes for SIMD edge cases
-        for size in [1, 3, 4, 7, 8, 15, 16, 31, 32, 63, 64, 127, 128, 255, 256, 1023, 1024] {
+        for size in [
+            1, 3, 4, 7, 8, 15, 16, 31, 32, 63, 64, 127, 128, 255, 256, 1023, 1024,
+        ] {
             let v = RuVector::zeros(size);
             assert_eq!(v.dimensions(), size);
             assert_eq!(v.as_slice().len(), size);
@@ -415,7 +417,9 @@ mod ruvector_unit_tests {
 
     #[test]
     fn test_alternating_signs() {
-        let data: Vec<f32> = (0..100).map(|i| if i % 2 == 0 { 1.0 } else { -1.0 }).collect();
+        let data: Vec<f32> = (0..100)
+            .map(|i| if i % 2 == 0 { 1.0 } else { -1.0 })
+            .collect();
         let v = RuVector::from_slice(&data);
         for (i, &val) in v.as_slice().iter().enumerate() {
             let expected = if i % 2 == 0 { 1.0 } else { -1.0 };

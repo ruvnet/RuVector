@@ -67,11 +67,9 @@ impl OcrEngine {
 
         // Load default models (in production, these would be downloaded/cached)
         debug!("Loading detection model...");
-        let detection_model = registry
-            .write()
-            .load_detection_model()
-            .await
-            .map_err(|e| OcrError::ModelLoading(format!("Failed to load detection model: {}", e)))?;
+        let detection_model = registry.write().load_detection_model().await.map_err(|e| {
+            OcrError::ModelLoading(format!("Failed to load detection model: {}", e))
+        })?;
 
         debug!("Loading recognition model...");
         let recognition_model = registry
@@ -82,20 +80,15 @@ impl OcrEngine {
                 OcrError::ModelLoading(format!("Failed to load recognition model: {}", e))
             })?;
 
-        let math_model = if options.enable_math {
-            debug!("Loading math recognition model...");
-            Some(
-                registry
-                    .write()
-                    .load_math_model()
-                    .await
-                    .map_err(|e| {
-                        OcrError::ModelLoading(format!("Failed to load math model: {}", e))
-                    })?,
-            )
-        } else {
-            None
-        };
+        let math_model =
+            if options.enable_math {
+                debug!("Loading math recognition model...");
+                Some(registry.write().load_math_model().await.map_err(|e| {
+                    OcrError::ModelLoading(format!("Failed to load math model: {}", e))
+                })?)
+            } else {
+                None
+            };
 
         // Create inference engine
         let inference = Arc::new(InferenceEngine::new(
@@ -288,16 +281,17 @@ impl OcrEngine {
             })
             .collect();
 
-        info!(
-            "Batch processing completed in {:?}",
-            start.elapsed()
-        );
+        info!("Batch processing completed in {:?}", start.elapsed());
 
         results
     }
 
     /// Decode recognition output using the selected decoder
-    fn decode_output(&self, recognition: &RecognitionResult, options: &OcrOptions) -> Result<String> {
+    fn decode_output(
+        &self,
+        recognition: &RecognitionResult,
+        options: &OcrOptions,
+    ) -> Result<String> {
         debug!("Decoding output with {:?} decoder", options.decoder_type);
 
         let decoded = match options.decoder_type {

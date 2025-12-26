@@ -41,7 +41,11 @@ pub fn simd_grayscale(rgba: &[u8], gray: &mut [u8]) {
 
 /// Scalar fallback for grayscale conversion
 fn scalar_grayscale(rgba: &[u8], gray: &mut [u8]) {
-    assert_eq!(rgba.len() / 4, gray.len(), "RGBA length must be 4x grayscale length");
+    assert_eq!(
+        rgba.len() / 4,
+        gray.len(),
+        "RGBA length must be 4x grayscale length"
+    );
 
     for (i, chunk) in rgba.chunks_exact(4).enumerate() {
         let r = chunk[0] as u32;
@@ -259,8 +263,7 @@ unsafe fn avx2_normalize(data: &mut [f32]) {
 
     let var_scalar = {
         let var_arr: [f32; 8] = std::mem::transmute(var_sum);
-        var_arr.iter().sum::<f32>() +
-        data[i..].iter().map(|x| (x - mean).powi(2)).sum::<f32>()
+        var_arr.iter().sum::<f32>() + data[i..].iter().map(|x| (x - mean).powi(2)).sum::<f32>()
     };
 
     let std_dev = (var_scalar / len as f32).sqrt() + 1e-8;
@@ -300,9 +303,7 @@ pub fn simd_resize_bilinear(
     #[cfg(target_arch = "x86_64")]
     {
         if features.avx2 {
-            unsafe {
-                avx2_resize_bilinear(src, src_width, src_height, dst_width, dst_height)
-            }
+            unsafe { avx2_resize_bilinear(src, src_width, src_height, dst_width, dst_height) }
         } else {
             scalar_resize_bilinear(src, src_width, src_height, dst_width, dst_height)
         }
@@ -408,7 +409,8 @@ unsafe fn avx2_resize_bilinear(
 
                 let top = p00 * (1.0 - x_frac) + p10 * x_frac;
                 let bottom = p01 * (1.0 - x_frac) + p11 * x_frac;
-                let value = top * (1.0 - (src_y - src_y.floor())) + bottom * (src_y - src_y.floor());
+                let value =
+                    top * (1.0 - (src_y - src_y.floor())) + bottom * (src_y - src_y.floor());
                 results[i] = value.round() as u8;
             }
 
@@ -544,9 +546,9 @@ mod tests {
     #[test]
     fn test_grayscale_conversion() {
         let rgba = vec![
-            255, 0, 0, 255,   // Red
-            0, 255, 0, 255,   // Green
-            0, 0, 255, 255,   // Blue
+            255, 0, 0, 255, // Red
+            0, 255, 0, 255, // Green
+            0, 0, 255, 255, // Blue
             255, 255, 255, 255, // White
         ];
         let mut gray = vec![0u8; 4];
@@ -554,10 +556,10 @@ mod tests {
         simd_grayscale(&rgba, &mut gray);
 
         // Check approximately correct values
-        assert!(gray[0] > 50 && gray[0] < 100);  // Red
+        assert!(gray[0] > 50 && gray[0] < 100); // Red
         assert!(gray[1] > 130 && gray[1] < 160); // Green
-        assert!(gray[2] > 20 && gray[2] < 50);   // Blue
-        assert_eq!(gray[3], 255);                // White
+        assert!(gray[2] > 20 && gray[2] < 50); // Blue
+        assert_eq!(gray[3], 255); // White
     }
 
     #[test]

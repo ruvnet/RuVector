@@ -3,15 +3,17 @@
 //! Production implementation of ProperCutInstance that uses the
 //! deterministic local k-cut oracle from the paper.
 
-use super::{ProperCutInstance, InstanceResult};
 use super::witness::WitnessHandle;
-use crate::graph::{DynamicGraph, VertexId, EdgeId};
+use super::{InstanceResult, ProperCutInstance};
+use crate::certificate::{
+    CertLocalKCutQuery, CutCertificate, LocalKCutResponse, LocalKCutResultSummary,
+};
+use crate::cluster::ClusterHierarchy;
+use crate::fragment::FragmentingAlgorithm;
+use crate::graph::{DynamicGraph, EdgeId, VertexId};
 use crate::localkcut::paper_impl::{
     DeterministicLocalKCut, LocalKCutOracle, LocalKCutQuery, LocalKCutResult,
 };
-use crate::certificate::{CutCertificate, LocalKCutResponse, CertLocalKCutQuery, LocalKCutResultSummary};
-use crate::cluster::ClusterHierarchy;
-use crate::fragment::FragmentingAlgorithm;
 use roaring::RoaringBitmap;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::{Arc, Mutex};
@@ -249,16 +251,19 @@ impl BoundedInstance {
                 };
 
                 // Log the query
-                self.certificate.lock().unwrap().add_response(LocalKCutResponse {
-                    query: CertLocalKCutQuery {
-                        seed_vertices: vec![seed],
-                        budget_k: budget,
-                        radius: self.max_radius,
-                    },
-                    result: LocalKCutResultSummary::NoneInLocality,
-                    timestamp: 0,
-                    trigger: None,
-                });
+                self.certificate
+                    .lock()
+                    .unwrap()
+                    .add_response(LocalKCutResponse {
+                        query: CertLocalKCutQuery {
+                            seed_vertices: vec![seed],
+                            budget_k: budget,
+                            radius: self.max_radius,
+                        },
+                        result: LocalKCutResultSummary::NoneInLocality,
+                        timestamp: 0,
+                        trigger: None,
+                    });
 
                 match self.oracle.search(&graph, query) {
                     LocalKCutResult::Found { witness, cut_value } => {
@@ -455,7 +460,7 @@ impl ProperCutInstance for BoundedInstance {
                 if value >= self.lambda_min && value <= self.lambda_max {
                     return InstanceResult::ValueInRange {
                         value,
-                        witness: witness.clone()
+                        witness: witness.clone(),
                     };
                 }
             }
@@ -506,10 +511,7 @@ mod tests {
     #[test]
     fn test_path_graph() {
         let mut instance = BoundedInstance::new(0, 10);
-        instance.apply_inserts(&[
-            (0, 0, 1),
-            (1, 1, 2),
-        ]);
+        instance.apply_inserts(&[(0, 0, 1), (1, 1, 2)]);
 
         match instance.query() {
             InstanceResult::ValueInRange { value, .. } => {
@@ -522,11 +524,7 @@ mod tests {
     #[test]
     fn test_cycle_graph() {
         let mut instance = BoundedInstance::new(0, 10);
-        instance.apply_inserts(&[
-            (0, 0, 1),
-            (1, 1, 2),
-            (2, 2, 0),
-        ]);
+        instance.apply_inserts(&[(0, 0, 1), (1, 1, 2), (2, 2, 0)]);
 
         match instance.query() {
             InstanceResult::ValueInRange { value, .. } => {
@@ -539,10 +537,7 @@ mod tests {
     #[test]
     fn test_above_range() {
         let mut instance = BoundedInstance::new(5, 10);
-        instance.apply_inserts(&[
-            (0, 0, 1),
-            (1, 1, 2),
-        ]);
+        instance.apply_inserts(&[(0, 0, 1), (1, 1, 2)]);
 
         // Min cut is 1, which is below range [5, 10]
         // Our implementation returns ValueInRange for small cuts anyway
@@ -577,10 +572,7 @@ mod tests {
     #[test]
     fn test_disconnected_graph() {
         let mut instance = BoundedInstance::new(0, 10);
-        instance.apply_inserts(&[
-            (0, 0, 1),
-            (1, 2, 3),
-        ]);
+        instance.apply_inserts(&[(0, 0, 1), (1, 2, 3)]);
 
         match instance.query() {
             InstanceResult::ValueInRange { value, .. } => {

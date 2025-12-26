@@ -6,8 +6,8 @@
 // Integration module - allow missing docs for internal helpers
 #![allow(missing_docs)]
 
-use crate::graph::{DynamicGraph, VertexId, EdgeId, Weight};
-use crate::wrapper::{MinCutWrapper, MinCutResult};
+use crate::graph::{DynamicGraph, EdgeId, VertexId, Weight};
+use crate::wrapper::{MinCutResult, MinCutWrapper};
 use std::sync::Arc;
 
 // Agentic chip support (feature-gated)
@@ -57,7 +57,7 @@ impl RuVectorGraphAnalyzer {
         let graph = Arc::new(DynamicGraph::new());
 
         for i in 0..num_vectors {
-            for j in (i+1)..num_vectors {
+            for j in (i + 1)..num_vectors {
                 let sim = similarities[i * num_vectors + j];
                 if sim >= threshold {
                     let _ = graph.insert_edge(i as u64, j as u64, sim);
@@ -69,9 +69,7 @@ impl RuVectorGraphAnalyzer {
     }
 
     /// Build k-NN graph from vectors
-    pub fn from_knn(
-        neighbors: &[(usize, Vec<(usize, f64)>)],
-    ) -> Self {
+    pub fn from_knn(neighbors: &[(usize, Vec<(usize, f64)>)]) -> Self {
         let graph = Arc::new(DynamicGraph::new());
 
         for &(vertex, ref nn_list) in neighbors {
@@ -111,10 +109,7 @@ impl RuVectorGraphAnalyzer {
             }
             MinCutResult::Value { witness, .. } => {
                 let (side_a, side_b) = witness.materialize_partition();
-                let partition = (
-                    side_a.into_iter().collect(),
-                    side_b.into_iter().collect(),
-                );
+                let partition = (side_a.into_iter().collect(), side_b.into_iter().collect());
                 self.cached_partition = Some(partition.clone());
                 Some(partition)
             }
@@ -256,7 +251,10 @@ pub struct GraphPartitioner {
 impl GraphPartitioner {
     /// Create a new graph partitioner
     pub fn new(graph: Arc<DynamicGraph>, num_partitions: usize) -> Self {
-        Self { graph, num_partitions }
+        Self {
+            graph,
+            num_partitions,
+        }
     }
 
     /// Partition graph to minimize edge cuts
@@ -369,7 +367,9 @@ impl AgenticAnalyzer {
         }
 
         // Return global minimum
-        self.coordinator.global_min_cut.load(std::sync::atomic::Ordering::Acquire)
+        self.coordinator
+            .global_min_cut
+            .load(std::sync::atomic::Ordering::Acquire)
     }
 }
 
@@ -411,7 +411,7 @@ mod tests {
     fn test_graph_partitioner() {
         let graph = Arc::new(DynamicGraph::new());
         for i in 0..9 {
-            graph.insert_edge(i, i+1, 1.0).unwrap();
+            graph.insert_edge(i, i + 1, 1.0).unwrap();
         }
 
         let partitioner = GraphPartitioner::new(Arc::clone(&graph), 2);
@@ -428,11 +428,7 @@ mod tests {
 
     #[test]
     fn test_from_similarity_matrix() {
-        let similarities = vec![
-            1.0, 0.9, 0.1,
-            0.9, 1.0, 0.8,
-            0.1, 0.8, 1.0,
-        ];
+        let similarities = vec![1.0, 0.9, 0.1, 0.9, 1.0, 0.8, 0.1, 0.8, 1.0];
 
         let analyzer = RuVectorGraphAnalyzer::from_similarity_matrix(&similarities, 3, 0.5);
 

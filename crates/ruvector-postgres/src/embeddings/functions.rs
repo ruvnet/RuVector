@@ -2,8 +2,8 @@
 
 use pgrx::prelude::*;
 
-use super::models::{EmbeddingModel, ModelInfo};
 use super::cache::global_cache;
+use super::models::{EmbeddingModel, ModelInfo};
 use super::{MAX_BATCH_SIZE, MAX_TEXT_LENGTH};
 
 // ============================================================================
@@ -25,10 +25,7 @@ use super::{MAX_BATCH_SIZE, MAX_TEXT_LENGTH};
 /// SELECT ruvector_embed('Hello world', 'bge-small');
 /// ```
 #[pg_extern(immutable, parallel_safe)]
-pub fn ruvector_embed(
-    text: &str,
-    model_name: default!(&str, "'all-MiniLM-L6-v2'"),
-) -> Vec<f32> {
+pub fn ruvector_embed(text: &str, model_name: default!(&str, "'all-MiniLM-L6-v2'")) -> Vec<f32> {
     // Validate text length
     if text.len() > MAX_TEXT_LENGTH {
         pgrx::error!(

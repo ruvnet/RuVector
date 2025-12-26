@@ -5,8 +5,8 @@
 
 use crate::config::InferenceConfig;
 use crate::error::{Error, InferenceError, Result};
+use crate::simd_inference::{SimdGenerationConfig, SimdInferenceEngine};
 use crate::types::ModelSize;
-use crate::simd_inference::{SimdInferenceEngine, SimdGenerationConfig};
 
 use dashmap::DashMap;
 use parking_lot::RwLock;
@@ -243,7 +243,12 @@ impl InferencePool {
         lru.first().cloned()
     }
 
-    fn mock_generate(&self, prompt: &str, config: &GenerationConfig, model_size: ModelSize) -> String {
+    fn mock_generate(
+        &self,
+        prompt: &str,
+        config: &GenerationConfig,
+        model_size: ModelSize,
+    ) -> String {
         // Simple mock response based on prompt
         let model_name = match model_size {
             ModelSize::M350 => "350M",
@@ -305,12 +310,15 @@ mod tests {
         let config = InferenceConfig::default();
         let pool = InferencePool::new(&config).await.unwrap();
 
-        let result = pool.generate(
-            ModelSize::M700,
-            "Question: What is Rust?\n\nAnswer:",
-            GenerationConfig::default(),
-            None,
-        ).await.unwrap();
+        let result = pool
+            .generate(
+                ModelSize::M700,
+                "Question: What is Rust?\n\nAnswer:",
+                GenerationConfig::default(),
+                None,
+            )
+            .await
+            .unwrap();
 
         assert!(!result.text.is_empty());
         assert_eq!(result.model_used, ModelSize::M700);
@@ -323,9 +331,15 @@ mod tests {
         let pool = InferencePool::new(&config).await.unwrap();
 
         // Load 3 models
-        pool.generate(ModelSize::M350, "test", GenerationConfig::default(), None).await.unwrap();
-        pool.generate(ModelSize::M700, "test", GenerationConfig::default(), None).await.unwrap();
-        pool.generate(ModelSize::B1_2, "test", GenerationConfig::default(), None).await.unwrap();
+        pool.generate(ModelSize::M350, "test", GenerationConfig::default(), None)
+            .await
+            .unwrap();
+        pool.generate(ModelSize::M700, "test", GenerationConfig::default(), None)
+            .await
+            .unwrap();
+        pool.generate(ModelSize::B1_2, "test", GenerationConfig::default(), None)
+            .await
+            .unwrap();
 
         // Should only have 2 models loaded
         assert!(pool.models.len() <= 2);

@@ -5,10 +5,10 @@
 //! - Rotary position embeddings for graphs (RoPE)
 //! - Dual-space attention (Euclidean + Hyperbolic)
 
+pub mod dual_space;
 pub mod edge_featured;
 pub mod rope;
-pub mod dual_space;
 
+pub use dual_space::{DualSpaceAttention, DualSpaceConfig};
 pub use edge_featured::{EdgeFeaturedAttention, EdgeFeaturedConfig};
 pub use rope::{GraphRoPE, RoPEConfig};
-pub use dual_space::{DualSpaceAttention, DualSpaceConfig};

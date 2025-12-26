@@ -67,7 +67,8 @@ impl NeuralNetwork {
         // Hidden layer: input × weights_hidden + bias
         let hidden: Vec<f64> = (0..self.bias_hidden.len())
             .map(|j| {
-                let sum: f64 = input.iter()
+                let sum: f64 = input
+                    .iter()
                     .enumerate()
                     .map(|(i, &x)| x * self.weights_hidden[i][j])
                     .sum();
@@ -78,7 +79,8 @@ impl NeuralNetwork {
         // Output layer: hidden × weights_output + bias
         (0..self.bias_output.len())
             .map(|j| {
-                let sum: f64 = hidden.iter()
+                let sum: f64 = hidden
+                    .iter()
                     .enumerate()
                     .map(|(i, &x)| x * self.weights_output[i][j])
                     .sum();
@@ -148,10 +150,10 @@ fn extract_features(graph: &DynamicGraph) -> Vec<f64> {
     let avg_degree = stats.avg_degree;
 
     vec![
-        node_count / 100.0,           // Normalized node count
-        edge_count / 500.0,           // Normalized edge count
-        density,                      // Graph density
-        avg_degree / 10.0,            // Normalized average degree
+        node_count / 100.0, // Normalized node count
+        edge_count / 500.0, // Normalized edge count
+        density,            // Graph density
+        avg_degree / 10.0,  // Normalized average degree
     ]
 }
 
@@ -167,10 +169,10 @@ struct NeuralGraphOptimizer {
 
 impl NeuralGraphOptimizer {
     fn new() -> Self {
-        let input_size = 4;  // Feature vector size
+        let input_size = 4; // Feature vector size
         let hidden_size = 8;
         let policy_output = 3; // Add edge, remove edge, do nothing
-        let value_output = 1;  // Predicted mincut value
+        let value_output = 1; // Predicted mincut value
 
         Self {
             policy_network: NeuralNetwork::new(input_size, hidden_size, policy_output),
@@ -185,7 +187,8 @@ impl NeuralGraphOptimizer {
         let policy_output = self.policy_network.forward(&features);
 
         // Find action with highest probability
-        policy_output.iter()
+        policy_output
+            .iter()
             .enumerate()
             .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
             .map(|(idx, _)| idx)
@@ -265,7 +268,8 @@ impl NeuralGraphOptimizer {
             }
 
             // Select best network
-            if let Some((best_idx, &best_fitness)) = fitness_scores.iter()
+            if let Some((best_idx, &best_fitness)) = fitness_scores
+                .iter()
                 .enumerate()
                 .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
             {
@@ -355,11 +359,7 @@ fn optimize_with_neural(
 }
 
 /// Run optimization with random actions (baseline)
-fn optimize_random(
-    initial_graph: &DynamicGraph,
-    steps: usize,
-    rng_state: &mut u64,
-) -> Vec<f64> {
+fn optimize_random(initial_graph: &DynamicGraph, steps: usize, rng_state: &mut u64) -> Vec<f64> {
     let mut graph = initial_graph.clone();
     let mut mincut_history = Vec::new();
 
@@ -442,7 +442,10 @@ fn main() {
     if !neural_history.is_empty() {
         let neural_avg: f64 = neural_history.iter().sum::<f64>() / neural_history.len() as f64;
         let neural_min = neural_history.iter().cloned().fold(f64::INFINITY, f64::min);
-        let neural_max = neural_history.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+        let neural_max = neural_history
+            .iter()
+            .cloned()
+            .fold(f64::NEG_INFINITY, f64::max);
 
         println!("\nNeural-Guided:");
         println!("  Average Mincut: {:.2}", neural_avg);
@@ -453,7 +456,10 @@ fn main() {
     if !random_history.is_empty() {
         let random_avg: f64 = random_history.iter().sum::<f64>() / random_history.len() as f64;
         let random_min = random_history.iter().cloned().fold(f64::INFINITY, f64::min);
-        let random_max = random_history.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+        let random_max = random_history
+            .iter()
+            .cloned()
+            .fold(f64::NEG_INFINITY, f64::max);
 
         println!("\nRandom Baseline:");
         println!("  Average Mincut: {:.2}", random_avg);
@@ -480,8 +486,13 @@ fn main() {
 
         if let Some(actual) = calculate_mincut(&test_graph) {
             let error = ((predicted - actual) / actual * 100.0).abs();
-            println!("Test {}: Predicted = {:.2}, Actual = {:.2}, Error = {:.1}%",
-                i + 1, predicted, actual, error);
+            println!(
+                "Test {}: Predicted = {:.2}, Actual = {:.2}, Error = {:.1}%",
+                i + 1,
+                predicted,
+                actual,
+                error
+            );
         }
     }
 

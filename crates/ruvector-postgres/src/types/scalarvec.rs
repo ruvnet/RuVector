@@ -358,10 +358,8 @@ impl FromStr for ScalarVec {
             });
         }
 
-        let values: Result<Vec<f32>, _> = inner
-            .split(',')
-            .map(|v| v.trim().parse::<f32>())
-            .collect();
+        let values: Result<Vec<f32>, _> =
+            inner.split(',').map(|v| v.trim().parse::<f32>()).collect();
 
         match values {
             Ok(data) => Ok(Self::from_f32(&data)),

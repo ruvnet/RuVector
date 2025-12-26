@@ -17,8 +17,8 @@
 //! - Clusters maintain mirror cuts for cross-boundary tracking
 //! - Incremental updates propagate through hierarchy
 
-use std::collections::{HashMap, HashSet, VecDeque};
 use crate::graph::{VertexId, Weight};
+use std::collections::{HashMap, HashSet, VecDeque};
 
 /// Expansion parameter type
 pub type Phi = f64;
@@ -288,7 +288,8 @@ impl ThreeLevelHierarchy {
 
     /// Get neighbors
     pub fn neighbors(&self, v: VertexId) -> Vec<(VertexId, Weight)> {
-        self.adjacency.get(&v)
+        self.adjacency
+            .get(&v)
             .map(|n| n.iter().map(|(&v, &w)| (v, w)).collect())
             .unwrap_or_default()
     }
@@ -390,7 +391,9 @@ impl ThreeLevelHierarchy {
                 };
 
                 // Only add if it doesn't violate expansion too much
-                if expansion >= self.config.phi * 0.5 || expander.len() < self.config.min_expander_size {
+                if expansion >= self.config.phi * 0.5
+                    || expander.len() < self.config.min_expander_size
+                {
                     expander.insert(neighbor);
                     volume = new_volume;
                     queue.push_back(neighbor);
@@ -647,7 +650,9 @@ impl ThreeLevelHierarchy {
 
                 // Add to the cluster containing both expanders
                 if let Some(pre_id) = self.expanders.get(&exp1).and_then(|e| e.precluster_id) {
-                    if let Some(cluster_id) = self.preclusters.get(&pre_id).and_then(|p| p.cluster_id) {
+                    if let Some(cluster_id) =
+                        self.preclusters.get(&pre_id).and_then(|p| p.cluster_id)
+                    {
                         if let Some(cluster) = self.clusters.get_mut(&cluster_id) {
                             cluster.mirror_cuts.push(mirror);
                         }
@@ -658,7 +663,9 @@ impl ThreeLevelHierarchy {
 
         // Update internal min cuts
         for cluster in self.clusters.values_mut() {
-            if let Some(min_mirror) = cluster.mirror_cuts.iter()
+            if let Some(min_mirror) = cluster
+                .mirror_cuts
+                .iter()
                 .map(|m| m.cut_value)
                 .min_by(|a, b| a.partial_cmp(b).unwrap())
             {
@@ -699,9 +706,12 @@ impl ThreeLevelHierarchy {
 
         // Check cluster boundaries
         for cluster in self.clusters.values() {
-            let boundary_cut: f64 = cluster.boundary_edges.iter()
+            let boundary_cut: f64 = cluster
+                .boundary_edges
+                .iter()
                 .map(|&(u, v)| {
-                    self.adjacency.get(&u)
+                    self.adjacency
+                        .get(&u)
                         .and_then(|n| n.get(&v))
                         .copied()
                         .unwrap_or(1.0)
@@ -990,7 +1000,9 @@ impl ThreeLevelHierarchy {
         let (cut_value, cut_edges) = self.compute_expander_cut(exp1, exp2);
 
         // Find cluster containing these expanders
-        let cluster_id = self.expanders.get(&exp1)
+        let cluster_id = self
+            .expanders
+            .get(&exp1)
             .and_then(|e| e.precluster_id)
             .and_then(|pid| self.preclusters.get(&pid))
             .and_then(|p| p.cluster_id);
@@ -998,11 +1010,10 @@ impl ThreeLevelHierarchy {
         if let Some(cid) = cluster_id {
             if let Some(cluster) = self.clusters.get_mut(&cid) {
                 // Update or add mirror cut
-                let found = cluster.mirror_cuts.iter_mut()
-                    .find(|m| {
-                        (m.source_expander == exp1 && m.target_expander == exp2) ||
-                        (m.source_expander == exp2 && m.target_expander == exp1)
-                    });
+                let found = cluster.mirror_cuts.iter_mut().find(|m| {
+                    (m.source_expander == exp1 && m.target_expander == exp2)
+                        || (m.source_expander == exp2 && m.target_expander == exp1)
+                });
 
                 if let Some(mirror) = found {
                     mirror.cut_value = cut_value;
@@ -1018,7 +1029,9 @@ impl ThreeLevelHierarchy {
                 }
 
                 // Update internal min cut
-                if let Some(min_mirror) = cluster.mirror_cuts.iter()
+                if let Some(min_mirror) = cluster
+                    .mirror_cuts
+                    .iter()
                     .map(|m| m.cut_value)
                     .min_by(|a, b| a.partial_cmp(b).unwrap())
                 {
@@ -1191,7 +1204,8 @@ impl ThreeLevelHierarchy {
 
     /// Get number of certified mirror cuts
     pub fn num_certified_mirror_cuts(&self) -> usize {
-        self.clusters.values()
+        self.clusters
+            .values()
             .flat_map(|c| &c.mirror_cuts)
             .filter(|m| m.certified)
             .count()
@@ -1199,16 +1213,15 @@ impl ThreeLevelHierarchy {
 
     /// Get number of total mirror cuts
     pub fn num_mirror_cuts(&self) -> usize {
-        self.clusters.values()
-            .map(|c| c.mirror_cuts.len())
-            .sum()
+        self.clusters.values().map(|c| c.mirror_cuts.len()).sum()
     }
 
     // === Getters ===
 
     /// Get expander containing vertex
     pub fn get_vertex_expander(&self, v: VertexId) -> Option<&Expander> {
-        self.vertex_expander.get(&v)
+        self.vertex_expander
+            .get(&v)
             .and_then(|&id| self.expanders.get(&id))
     }
 
@@ -1234,16 +1247,13 @@ impl ThreeLevelHierarchy {
             num_preclusters: self.preclusters.len(),
             num_clusters: self.clusters.len(),
             num_vertices: self.adjacency.len(),
-            num_edges: self.adjacency.values()
-                .map(|n| n.len())
-                .sum::<usize>() / 2,
+            num_edges: self.adjacency.values().map(|n| n.len()).sum::<usize>() / 2,
             global_min_cut: self.global_min_cut,
             avg_expander_size: if self.expanders.is_empty() {
                 0.0
             } else {
-                self.expanders.values()
-                    .map(|e| e.size())
-                    .sum::<usize>() as f64 / self.expanders.len() as f64
+                self.expanders.values().map(|e| e.size()).sum::<usize>() as f64
+                    / self.expanders.len() as f64
             },
         }
     }
@@ -1279,14 +1289,14 @@ mod tests {
     use super::*;
 
     fn build_path(h: &mut ThreeLevelHierarchy, n: usize) {
-        for i in 0..n-1 {
+        for i in 0..n - 1 {
             h.insert_edge(i as u64, (i + 1) as u64, 1.0);
         }
     }
 
     fn build_clique(h: &mut ThreeLevelHierarchy, vertices: &[u64]) {
         for i in 0..vertices.len() {
-            for j in i+1..vertices.len() {
+            for j in i + 1..vertices.len() {
                 h.insert_edge(vertices[i], vertices[j], 1.0);
             }
         }

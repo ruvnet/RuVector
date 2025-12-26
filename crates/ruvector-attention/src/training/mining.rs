@@ -75,7 +75,9 @@ impl HardNegativeMiner {
 
         // Fisher-Yates shuffle
         for i in (1..indices.len()).rev() {
-            current_seed = current_seed.wrapping_mul(6364136223846793005).wrapping_add(1);
+            current_seed = current_seed
+                .wrapping_mul(6364136223846793005)
+                .wrapping_add(1);
             let j = (current_seed as usize) % (i + 1);
             indices.swap(i, j);
         }
@@ -213,9 +215,7 @@ impl NegativeMiner for HardNegativeMiner {
         num_negatives: usize,
     ) -> Vec<usize> {
         match self.strategy {
-            MiningStrategy::Random => {
-                Self::random_selection(candidates.len(), num_negatives, 42)
-            }
+            MiningStrategy::Random => Self::random_selection(candidates.len(), num_negatives, 42),
             MiningStrategy::HardNegative => {
                 self.hard_negative_selection(anchor, candidates, num_negatives)
             }
@@ -251,11 +251,14 @@ impl InBatchMiner {
     }
 
     /// Get negative indices from a batch for a given anchor index
-    pub fn get_negatives(&self, anchor_idx: usize, positive_idx: usize, batch_size: usize) -> Vec<usize> {
+    pub fn get_negatives(
+        &self,
+        anchor_idx: usize,
+        positive_idx: usize,
+        batch_size: usize,
+    ) -> Vec<usize> {
         (0..batch_size)
-            .filter(|&i| {
-                i != anchor_idx && (!self.exclude_positive || i != positive_idx)
-            })
+            .filter(|&i| i != anchor_idx && (!self.exclude_positive || i != positive_idx))
             .collect()
     }
 }
@@ -291,10 +294,10 @@ mod tests {
         let positive = vec![0.9, 0.1, 0.0];
         // Create candidates with varying similarity to anchor
         let candidates: Vec<Vec<f32>> = vec![
-            vec![0.9, 0.1, 0.0],  // Similar to anchor
-            vec![0.5, 0.5, 0.0],  // Medium
-            vec![0.0, 1.0, 0.0],  // Different
-            vec![0.0, 0.0, 1.0],  // Different
+            vec![0.9, 0.1, 0.0], // Similar to anchor
+            vec![0.5, 0.5, 0.0], // Medium
+            vec![0.0, 1.0, 0.0], // Different
+            vec![0.0, 0.0, 1.0], // Different
         ];
         let cand_refs: Vec<&[f32]> = candidates.iter().map(|c| c.as_slice()).collect();
 
@@ -311,10 +314,10 @@ mod tests {
         let anchor = vec![0.0, 0.0];
         let positive = vec![0.5, 0.0]; // Distance 0.5
         let candidates: Vec<Vec<f32>> = vec![
-            vec![0.3, 0.0],  // Too easy (d = 0.3 < 0.5)
-            vec![0.7, 0.0],  // Semi-hard (0.5 < 0.7 < 1.5)
-            vec![1.0, 0.0],  // Semi-hard
-            vec![3.0, 0.0],  // Too hard (d = 3.0 > 1.5)
+            vec![0.3, 0.0], // Too easy (d = 0.3 < 0.5)
+            vec![0.7, 0.0], // Semi-hard (0.5 < 0.7 < 1.5)
+            vec![1.0, 0.0], // Semi-hard
+            vec![3.0, 0.0], // Too hard (d = 3.0 > 1.5)
         ];
         let cand_refs: Vec<&[f32]> = candidates.iter().map(|c| c.as_slice()).collect();
 

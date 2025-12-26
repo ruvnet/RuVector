@@ -6,15 +6,15 @@
 //! - Curriculum learning schedulers
 //! - Hard negative mining strategies
 
-pub mod loss;
-pub mod optimizer;
 pub mod curriculum;
+pub mod loss;
 pub mod mining;
+pub mod optimizer;
 
-pub use loss::{Loss, InfoNCELoss, LocalContrastiveLoss, SpectralRegularization, Reduction};
-pub use optimizer::{Optimizer, SGD, Adam, AdamW};
-pub use curriculum::{CurriculumScheduler, CurriculumStage, TemperatureAnnealing, DecayType};
-pub use mining::{NegativeMiner, HardNegativeMiner, MiningStrategy};
+pub use curriculum::{CurriculumScheduler, CurriculumStage, DecayType, TemperatureAnnealing};
+pub use loss::{InfoNCELoss, LocalContrastiveLoss, Loss, Reduction, SpectralRegularization};
+pub use mining::{HardNegativeMiner, MiningStrategy, NegativeMiner};
+pub use optimizer::{Adam, AdamW, Optimizer, SGD};
 
 #[cfg(test)]
 mod tests {

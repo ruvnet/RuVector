@@ -52,10 +52,18 @@ struct BenchmarkRequest {
     benchmark_type: String,
 }
 
-fn default_dims() -> usize { 128 }
-fn default_num_vectors() -> usize { 10000 }
-fn default_num_queries() -> usize { 1000 }
-fn default_k() -> usize { 10 }
+fn default_dims() -> usize {
+    128
+}
+fn default_num_vectors() -> usize {
+    10000
+}
+fn default_num_queries() -> usize {
+    1000
+}
+fn default_k() -> usize {
+    10
+}
 
 /// Benchmark response
 #[derive(Serialize)]
@@ -128,7 +136,11 @@ async fn health_handler() -> impl IntoResponse {
         status: "healthy",
         version: env!("CARGO_PKG_VERSION"),
         gpu_available: gpu_info.available,
-        gpu_name: if gpu_info.available { Some(gpu_info.name) } else { None },
+        gpu_name: if gpu_info.available {
+            Some(gpu_info.name)
+        } else {
+            None
+        },
         simd_capability: simd.name().to_string(),
         uptime_secs: start.elapsed().as_secs(),
     })
@@ -206,7 +218,10 @@ async fn benchmark_handler(
             )
             .await
         }
-        _ => Err(anyhow::anyhow!("Unknown benchmark type: {}", request.benchmark_type)),
+        _ => Err(anyhow::anyhow!(
+            "Unknown benchmark type: {}",
+            request.benchmark_type
+        )),
     };
 
     // Clear running flag
@@ -342,7 +357,7 @@ async fn run_distance_benchmark(
     batch_size: usize,
 ) -> Result<BenchmarkResult> {
     use crate::benchmark::{generate_vectors, LatencyStats};
-    use crate::simd::{SimdCapability, l2_distance_simd};
+    use crate::simd::{l2_distance_simd, SimdCapability};
     use std::time::Instant;
 
     let simd = SimdCapability::detect();
@@ -390,8 +405,12 @@ async fn run_distance_benchmark(
     result.memory_mb = (num_vectors * dims * 4) as f64 / (1024.0 * 1024.0);
 
     // Add SIMD info to metadata
-    result.metadata.insert("simd".to_string(), simd.name().to_string());
-    result.metadata.insert("vector_width".to_string(), simd.vector_width().to_string());
+    result
+        .metadata
+        .insert("simd".to_string(), simd.name().to_string());
+    result
+        .metadata
+        .insert("vector_width".to_string(), simd.vector_width().to_string());
 
     Ok(result)
 }
@@ -403,7 +422,7 @@ async fn run_hnsw_benchmark(
     k: usize,
 ) -> Result<BenchmarkResult> {
     use crate::benchmark::{generate_clustered_vectors, generate_vectors, LatencyStats};
-    use crate::simd::{SimdCapability, l2_distance_simd};
+    use crate::simd::{l2_distance_simd, SimdCapability};
     use rayon::prelude::*;
     use std::time::Instant;
 
@@ -423,7 +442,10 @@ async fn run_hnsw_benchmark(
 
     // Build time simulation (would be actual HNSW build in production)
     let build_start = Instant::now();
-    tokio::time::sleep(tokio::time::Duration::from_millis((num_vectors / 1000) as u64)).await;
+    tokio::time::sleep(tokio::time::Duration::from_millis(
+        (num_vectors / 1000) as u64,
+    ))
+    .await;
     result.build_time_secs = build_start.elapsed().as_secs_f64();
 
     // Search benchmark with SIMD + parallel
@@ -446,9 +468,7 @@ async fn run_hnsw_benchmark(
         let n = distances.len().saturating_sub(1);
         let k_idx = k.min(n);
         if k_idx > 0 {
-            distances.select_nth_unstable_by(k_idx, |a, b| {
-                a.1.partial_cmp(&b.1).unwrap()
-            });
+            distances.select_nth_unstable_by(k_idx, |a, b| a.1.partial_cmp(&b.1).unwrap());
         }
         let _top_k: Vec<_> = distances.into_iter().take(k).collect();
 
@@ -470,9 +490,16 @@ async fn run_hnsw_benchmark(
     result.memory_mb = (num_vectors * dims * 4 * 2) as f64 / (1024.0 * 1024.0);
 
     // Add optimization info to metadata
-    result.metadata.insert("simd".to_string(), simd.name().to_string());
-    result.metadata.insert("parallel".to_string(), "rayon".to_string());
-    result.metadata.insert("num_threads".to_string(), rayon::current_num_threads().to_string());
+    result
+        .metadata
+        .insert("simd".to_string(), simd.name().to_string());
+    result
+        .metadata
+        .insert("parallel".to_string(), "rayon".to_string());
+    result.metadata.insert(
+        "num_threads".to_string(),
+        rayon::current_num_threads().to_string(),
+    );
 
     Ok(result)
 }

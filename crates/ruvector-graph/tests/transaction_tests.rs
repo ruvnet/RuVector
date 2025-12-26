@@ -735,8 +735,7 @@ fn test_lost_update_prevention() {
 
         // Read current value
         let node = tx1.read_node(&"counter".to_string()).unwrap();
-        let current_value = if let Some(PropertyValue::Integer(val)) = node.get_property("value")
-        {
+        let current_value = if let Some(PropertyValue::Integer(val)) = node.get_property("value") {
             *val
         } else {
             0
@@ -760,8 +759,7 @@ fn test_lost_update_prevention() {
 
         // Read current value
         let node = tx2.read_node(&"counter".to_string()).unwrap();
-        let current_value = if let Some(PropertyValue::Integer(val)) = node.get_property("value")
-        {
+        let current_value = if let Some(PropertyValue::Integer(val)) = node.get_property("value") {
             *val
         } else {
             0
@@ -784,8 +782,7 @@ fn test_lost_update_prevention() {
     // both increments should be preserved (value should be 2)
     let tx_verify = manager.begin(IsolationLevel::ReadCommitted);
     let final_node = tx_verify.read_node(&"counter".to_string()).unwrap();
-    let final_value = if let Some(PropertyValue::Integer(val)) = final_node.get_property("value")
-    {
+    let final_value = if let Some(PropertyValue::Integer(val)) = final_node.get_property("value") {
         *val
     } else {
         0

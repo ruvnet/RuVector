@@ -81,8 +81,8 @@ pub use config::{Config, ConfigBuilder};
 pub use error::{Error, Result};
 pub use inference::{GenerationConfig, GenerationResult, InferenceMode, InferencePool};
 pub use orchestrator::RuvLLM;
-pub use simd_inference::{SimdInferenceEngine, SimdGenerationConfig, SimdOps};
-pub use sona::{SonaConfig, LoopCoordinator, InstantLoop, BackgroundLoop};
+pub use simd_inference::{SimdGenerationConfig, SimdInferenceEngine, SimdOps};
+pub use sona::{BackgroundLoop, InstantLoop, LoopCoordinator, SonaConfig};
 pub use types::{Feedback, Request, Response, RoutingInfo, Session};
 
 /// Library version

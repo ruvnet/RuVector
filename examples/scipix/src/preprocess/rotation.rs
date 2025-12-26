@@ -47,9 +47,7 @@ pub fn detect_rotation(image: &GrayImage) -> Result<f32> {
     }
 
     // Refine angle with finer search around best candidate
-    let fine_angles: Vec<f32> = (-5..=5)
-        .map(|i| best_angle + (i as f32) * 2.0)
-        .collect();
+    let fine_angles: Vec<f32> = (-5..=5).map(|i| best_angle + (i as f32) * 2.0).collect();
 
     max_score = 0.0;
     for angle in fine_angles {
@@ -195,10 +193,7 @@ pub fn detect_rotation_with_confidence(image: &GrayImage) -> Result<(f32, f32)> 
 ///
 /// # Returns
 /// Tuple of (rotated_image, angle_applied, confidence)
-pub fn auto_rotate(
-    image: &GrayImage,
-    confidence_threshold: f32,
-) -> Result<(GrayImage, f32, f32)> {
+pub fn auto_rotate(image: &GrayImage, confidence_threshold: f32) -> Result<(GrayImage, f32, f32)> {
     let (angle, confidence) = detect_rotation_with_confidence(image)?;
 
     if confidence >= confidence_threshold && angle.abs() > 0.5 {
@@ -275,7 +270,10 @@ mod tests {
         let (angle, confidence) = result.unwrap();
 
         assert!(confidence >= 0.0 && confidence <= 1.0);
-        println!("Detected angle: {:.2}°, confidence: {:.2}", angle, confidence);
+        println!(
+            "Detected angle: {:.2}°, confidence: {:.2}",
+            angle, confidence
+        );
     }
 
     #[test]
@@ -288,7 +286,10 @@ mod tests {
 
         let (rotated, angle, confidence) = result.unwrap();
         assert_eq!(rotated.dimensions(), img.dimensions());
-        println!("Auto-rotate: angle={:.2}°, confidence={:.2}", angle, confidence);
+        println!(
+            "Auto-rotate: angle={:.2}°, confidence={:.2}",
+            angle, confidence
+        );
     }
 
     #[test]

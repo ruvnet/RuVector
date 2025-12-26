@@ -1,8 +1,8 @@
 //! Thread-safe model caching with lazy loading
 
-use parking_lot::RwLock;
 use dashmap::DashMap;
-use fastembed::{TextEmbedding, InitOptions, EmbeddingModel as FastEmbedModel};
+use fastembed::{EmbeddingModel as FastEmbedModel, InitOptions, TextEmbedding};
+use parking_lot::RwLock;
 
 use super::models::EmbeddingModel;
 
@@ -28,7 +28,8 @@ impl ModelCache {
         // Check if already cached
         if let Some(cached) = self.models.get(&model) {
             let mut embedding = cached.write();
-            return embedding.embed(texts, None)
+            return embedding
+                .embed(texts, None)
                 .map_err(|e| format!("Embedding failed: {}", e));
         }
 
@@ -37,7 +38,8 @@ impl ModelCache {
 
         // Generate embeddings first
         let mut embedding_model = embedding;
-        let result = embedding_model.embed(texts, None)
+        let result = embedding_model
+            .embed(texts, None)
             .map_err(|e| format!("Embedding failed: {}", e));
 
         // Cache the model
@@ -57,8 +59,7 @@ impl ModelCache {
             EmbeddingModel::NomicEmbedTextV15 => FastEmbedModel::NomicEmbedTextV15,
         };
 
-        let options = InitOptions::new(fastembed_model)
-            .with_show_download_progress(false);
+        let options = InitOptions::new(fastembed_model).with_show_download_progress(false);
 
         TextEmbedding::try_new(options)
             .map_err(|e| format!("Failed to load model '{}': {}", model.name(), e))

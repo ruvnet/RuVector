@@ -20,7 +20,10 @@ impl AttentionPreset {
     pub fn builder(self, dim: usize) -> AttentionBuilder {
         match self {
             AttentionPreset::Bert => AttentionBuilder::new(dim).multi_head(12).dropout(0.1),
-            AttentionPreset::Gpt => AttentionBuilder::new(dim).multi_head(12).causal(true).dropout(0.1),
+            AttentionPreset::Gpt => AttentionBuilder::new(dim)
+                .multi_head(12)
+                .causal(true)
+                .dropout(0.1),
             _ => AttentionBuilder::new(dim),
         }
     }

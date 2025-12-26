@@ -3,8 +3,8 @@
 #[cfg(test)]
 mod learning_tests {
     use ruvector_postgres::learning::{
-        QueryTrajectory, TrajectoryTracker, PatternExtractor, ReasoningBank,
-        SearchOptimizer, OptimizationTarget, LEARNING_MANAGER,
+        OptimizationTarget, PatternExtractor, QueryTrajectory, ReasoningBank, SearchOptimizer,
+        TrajectoryTracker, LEARNING_MANAGER,
     };
 
     #[test]
@@ -46,13 +46,7 @@ mod learning_tests {
 
         // Fill the ring buffer
         for i in 0..15 {
-            tracker.record(QueryTrajectory::new(
-                vec![i as f32],
-                vec![i],
-                1000,
-                50,
-                10,
-            ));
+            tracker.record(QueryTrajectory::new(vec![i as f32], vec![i], 1000, 50, 10));
         }
 
         let all = tracker.get_all();
@@ -149,13 +143,7 @@ mod learning_tests {
 
     #[test]
     fn test_trajectory_feedback() {
-        let mut traj = QueryTrajectory::new(
-            vec![1.0, 2.0],
-            vec![1, 2, 3, 4, 5],
-            1000,
-            50,
-            10,
-        );
+        let mut traj = QueryTrajectory::new(vec![1.0, 2.0], vec![1, 2, 3, 4, 5], 1000, 50, 10);
 
         traj.add_feedback(vec![1, 2, 6], vec![3, 4]);
 
@@ -196,27 +184,27 @@ mod learning_tests {
         LEARNING_MANAGER.enable_for_table("test_lifecycle", 500);
 
         assert!(LEARNING_MANAGER.get_tracker("test_lifecycle").is_some());
-        assert!(LEARNING_MANAGER.get_reasoning_bank("test_lifecycle").is_some());
+        assert!(LEARNING_MANAGER
+            .get_reasoning_bank("test_lifecycle")
+            .is_some());
         assert!(LEARNING_MANAGER.get_optimizer("test_lifecycle").is_some());
 
         // Record some trajectories
         let tracker = LEARNING_MANAGER.get_tracker("test_lifecycle").unwrap();
         for i in 0..20 {
-            tracker.record(QueryTrajectory::new(
-                vec![i as f32],
-                vec![i],
-                1000,
-                50,
-                10,
-            ));
+            tracker.record(QueryTrajectory::new(vec![i as f32], vec![i], 1000, 50, 10));
         }
 
         // Extract patterns
-        let count = LEARNING_MANAGER.extract_patterns("test_lifecycle", 3).unwrap();
+        let count = LEARNING_MANAGER
+            .extract_patterns("test_lifecycle", 3)
+            .unwrap();
         assert!(count > 0);
 
         // Verify patterns are stored
-        let bank = LEARNING_MANAGER.get_reasoning_bank("test_lifecycle").unwrap();
+        let bank = LEARNING_MANAGER
+            .get_reasoning_bank("test_lifecycle")
+            .unwrap();
         assert!(bank.len() > 0);
     }
 
@@ -279,13 +267,8 @@ mod learning_tests {
         let tracker = TrajectoryTracker::new(100);
 
         for i in 0..10 {
-            let mut traj = QueryTrajectory::new(
-                vec![i as f32],
-                vec![i, i + 1],
-                1000 + i * 100,
-                50,
-                10,
-            );
+            let mut traj =
+                QueryTrajectory::new(vec![i as f32], vec![i, i + 1], 1000 + i * 100, 50, 10);
 
             if i % 2 == 0 {
                 traj.add_feedback(vec![i], vec![i + 1]);

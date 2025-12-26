@@ -292,8 +292,7 @@ impl BatchCompressor {
     ) -> Result<RefragEntry> {
         let tensor = self.compressor.compress(&representation_vector)?;
 
-        Ok(RefragEntry::new(id, search_vector, text)
-            .with_tensor(tensor, model_id))
+        Ok(RefragEntry::new(id, search_vector, text).with_tensor(tensor, model_id))
     }
 }
 
@@ -369,7 +368,10 @@ mod tests {
 
         let decompressed = compressor.decompress(&compressed).unwrap();
         // Binary only preserves sign
-        assert_eq!(decompressed, vec![1.0, -1.0, 1.0, -1.0, 1.0, 1.0, -1.0, -1.0]);
+        assert_eq!(
+            decompressed,
+            vec![1.0, -1.0, 1.0, -1.0, 1.0, 1.0, -1.0, -1.0]
+        );
     }
 
     #[test]
@@ -378,16 +380,16 @@ mod tests {
         let vector = vec![1.0, 2.0, 3.0]; // Wrong size
 
         let result = compressor.compress(&vector);
-        assert!(matches!(result, Err(CompressError::DimensionMismatch { .. })));
+        assert!(matches!(
+            result,
+            Err(CompressError::DimensionMismatch { .. })
+        ));
     }
 
     #[test]
     fn test_batch_compression() {
         let batch = BatchCompressor::new(4, CompressionStrategy::None);
-        let vectors = vec![
-            vec![1.0, 2.0, 3.0, 4.0],
-            vec![5.0, 6.0, 7.0, 8.0],
-        ];
+        let vectors = vec![vec![1.0, 2.0, 3.0, 4.0], vec![5.0, 6.0, 7.0, 8.0]];
 
         let compressed = batch.compress_batch(&vectors).unwrap();
         assert_eq!(compressed.len(), 2);

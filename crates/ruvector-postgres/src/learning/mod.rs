@@ -3,19 +3,19 @@
 //! This module implements adaptive query optimization using trajectory tracking,
 //! pattern extraction, and learned parameter optimization.
 
-pub mod trajectory;
+pub mod operators;
+pub mod optimizer;
 pub mod patterns;
 pub mod reasoning_bank;
-pub mod optimizer;
-pub mod operators;
+pub mod trajectory;
 
-pub use trajectory::{QueryTrajectory, TrajectoryTracker};
+pub use optimizer::{OptimizationTarget, SearchOptimizer, SearchParams};
 pub use patterns::{LearnedPattern, PatternExtractor};
 pub use reasoning_bank::ReasoningBank;
-pub use optimizer::{SearchOptimizer, SearchParams, OptimizationTarget};
+pub use trajectory::{QueryTrajectory, TrajectoryTracker};
 
-use std::sync::Arc;
 use dashmap::DashMap;
+use std::sync::Arc;
 
 /// Global learning state manager
 pub struct LearningManager {
@@ -55,7 +55,9 @@ impl LearningManager {
 
     /// Get reasoning bank for a table
     pub fn get_reasoning_bank(&self, table_name: &str) -> Option<Arc<ReasoningBank>> {
-        self.reasoning_banks.get(table_name).map(|r| r.value().clone())
+        self.reasoning_banks
+            .get(table_name)
+            .map(|r| r.value().clone())
     }
 
     /// Get optimizer for a table
@@ -65,9 +67,11 @@ impl LearningManager {
 
     /// Extract and store patterns for a table
     pub fn extract_patterns(&self, table_name: &str, num_clusters: usize) -> Result<usize, String> {
-        let tracker = self.get_tracker(table_name)
+        let tracker = self
+            .get_tracker(table_name)
             .ok_or_else(|| format!("Learning not enabled for table: {}", table_name))?;
-        let bank = self.get_reasoning_bank(table_name)
+        let bank = self
+            .get_reasoning_bank(table_name)
             .ok_or_else(|| format!("ReasoningBank not found for table: {}", table_name))?;
 
         let trajectories = tracker.get_all();

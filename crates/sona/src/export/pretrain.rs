@@ -11,8 +11,8 @@ use std::path::Path;
 #[cfg(feature = "serde-support")]
 use serde::{Deserialize, Serialize};
 
+use super::{ExportConfig, ExportError, ExportResult, HuggingFaceExporter};
 use crate::engine::SonaEngine;
-use super::{ExportConfig, ExportResult, ExportError, HuggingFaceExporter};
 
 /// Pretraining configuration based on SONA benchmarks
 #[cfg_attr(feature = "serde-support", derive(Serialize, Deserialize))]
@@ -266,7 +266,10 @@ impl<'a> PretrainPipeline<'a> {
     }
 
     /// Export complete pretraining package
-    pub fn export_package<P: AsRef<Path>>(&self, output_dir: P) -> Result<PretrainPackage, ExportError> {
+    pub fn export_package<P: AsRef<Path>>(
+        &self,
+        output_dir: P,
+    ) -> Result<PretrainPackage, ExportError> {
         let output_dir = output_dir.as_ref();
         std::fs::create_dir_all(output_dir).map_err(ExportError::Io)?;
 
@@ -314,7 +317,8 @@ impl<'a> PretrainPipeline<'a> {
 
     /// Generate Python training script
     fn generate_training_script(&self) -> String {
-        format!(r#"#!/usr/bin/env python3
+        format!(
+            r#"#!/usr/bin/env python3
 """
 SONA-Optimized Pretraining Script
 
@@ -478,12 +482,14 @@ tensorboard>=2.14.0
 scipy>=1.11.0
 scikit-learn>=1.3.0
 tqdm>=4.66.0
-"#.to_string()
+"#
+        .to_string()
     }
 
     /// Generate accelerate config
     fn generate_accelerate_config(&self) -> String {
-        format!(r#"compute_environment: LOCAL_MACHINE
+        format!(
+            r#"compute_environment: LOCAL_MACHINE
 debug: false
 distributed_type: {}
 downcast_bf16: 'no'
@@ -500,7 +506,11 @@ tpu_use_cluster: false
 tpu_use_sudo: false
 use_cpu: false
 "#,
-            if self.config.hardware.num_gpus > 1 { "MULTI_GPU" } else { "NO" },
+            if self.config.hardware.num_gpus > 1 {
+                "MULTI_GPU"
+            } else {
+                "NO"
+            },
             self.config.hardware.mixed_precision,
             self.config.hardware.num_gpus,
         )
@@ -508,7 +518,8 @@ use_cpu: false
 
     /// Generate DPO training script for preference learning
     pub fn generate_dpo_script(&self) -> String {
-        format!(r#"#!/usr/bin/env python3
+        format!(
+            r#"#!/usr/bin/env python3
 """
 SONA DPO (Direct Preference Optimization) Training Script
 
@@ -588,7 +599,8 @@ def main():
 
 if __name__ == "__main__":
     main()
-"#)
+"#
+        )
     }
 }
 

@@ -2,8 +2,8 @@
 //!
 //! Compares scalar vs SIMD implementations for all quantized types
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId};
-use ruvector_postgres::types::{BinaryVec, ScalarVec, ProductVec};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
+use ruvector_postgres::types::{BinaryVec, ProductVec, ScalarVec};
 
 // ============================================================================
 // BinaryVec Benchmarks
@@ -13,21 +13,19 @@ fn bench_binaryvec_hamming(c: &mut Criterion) {
     let mut group = c.benchmark_group("binaryvec_hamming");
 
     for dims in [128, 512, 1024, 2048, 4096].iter() {
-        let a_data: Vec<f32> = (0..*dims).map(|i| if i % 2 == 0 { 1.0 } else { -1.0 }).collect();
-        let b_data: Vec<f32> = (0..*dims).map(|i| if i % 3 == 0 { 1.0 } else { -1.0 }).collect();
+        let a_data: Vec<f32> = (0..*dims)
+            .map(|i| if i % 2 == 0 { 1.0 } else { -1.0 })
+            .collect();
+        let b_data: Vec<f32> = (0..*dims)
+            .map(|i| if i % 3 == 0 { 1.0 } else { -1.0 })
+            .collect();
 
         let a = BinaryVec::from_f32(&a_data);
         let b = BinaryVec::from_f32(&b_data);
 
-        group.bench_with_input(
-            BenchmarkId::new("simd", dims),
-            dims,
-            |bencher, _| {
-                bencher.iter(|| {
-                    black_box(a.hamming_distance(&b))
-                });
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("simd", dims), dims, |bencher, _| {
+            bencher.iter(|| black_box(a.hamming_distance(&b)));
+        });
     }
 
     group.finish();
@@ -39,15 +37,9 @@ fn bench_binaryvec_quantization(c: &mut Criterion) {
     for dims in [128, 512, 1024, 2048, 4096].iter() {
         let data: Vec<f32> = (0..*dims).map(|i| (i as f32) * 0.01).collect();
 
-        group.bench_with_input(
-            BenchmarkId::new("from_f32", dims),
-            dims,
-            |bencher, _| {
-                bencher.iter(|| {
-                    black_box(BinaryVec::from_f32(&data))
-                });
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("from_f32", dims), dims, |bencher, _| {
+            bencher.iter(|| black_box(BinaryVec::from_f32(&data)));
+        });
     }
 
     group.finish();
@@ -67,15 +59,9 @@ fn bench_scalarvec_distance(c: &mut Criterion) {
         let a = ScalarVec::from_f32(&a_data);
         let b = ScalarVec::from_f32(&b_data);
 
-        group.bench_with_input(
-            BenchmarkId::new("simd", dims),
-            dims,
-            |bencher, _| {
-                bencher.iter(|| {
-                    black_box(a.distance(&b))
-                });
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("simd", dims), dims, |bencher, _| {
+            bencher.iter(|| black_box(a.distance(&b)));
+        });
     }
 
     group.finish();
@@ -87,26 +73,14 @@ fn bench_scalarvec_quantization(c: &mut Criterion) {
     for dims in [128, 512, 1024, 2048, 4096].iter() {
         let data: Vec<f32> = (0..*dims).map(|i| (i as f32) * 0.01).collect();
 
-        group.bench_with_input(
-            BenchmarkId::new("from_f32", dims),
-            dims,
-            |bencher, _| {
-                bencher.iter(|| {
-                    black_box(ScalarVec::from_f32(&data))
-                });
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("from_f32", dims), dims, |bencher, _| {
+            bencher.iter(|| black_box(ScalarVec::from_f32(&data)));
+        });
 
         let scalar = ScalarVec::from_f32(&data);
-        group.bench_with_input(
-            BenchmarkId::new("to_f32", dims),
-            dims,
-            |bencher, _| {
-                bencher.iter(|| {
-                    black_box(scalar.to_f32())
-                });
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("to_f32", dims), dims, |bencher, _| {
+            bencher.iter(|| black_box(scalar.to_f32()));
+        });
     }
 
     group.finish();
@@ -130,25 +104,13 @@ fn bench_productvec_adc_distance(c: &mut Criterion) {
             table.push((i % 100) as f32 * 0.01);
         }
 
-        group.bench_with_input(
-            BenchmarkId::new("simd", m),
-            m,
-            |bencher, _| {
-                bencher.iter(|| {
-                    black_box(pq.adc_distance_simd(&table))
-                });
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("simd", m), m, |bencher, _| {
+            bencher.iter(|| black_box(pq.adc_distance_simd(&table)));
+        });
 
-        group.bench_with_input(
-            BenchmarkId::new("flat", m),
-            m,
-            |bencher, _| {
-                bencher.iter(|| {
-                    black_box(pq.adc_distance_flat(&table))
-                });
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("flat", m), m, |bencher, _| {
+            bencher.iter(|| black_box(pq.adc_distance_flat(&table)));
+        });
     }
 
     group.finish();

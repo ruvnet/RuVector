@@ -2,7 +2,7 @@
 //!
 //! Demonstrates real local LLM inference using SIMD-optimized operations.
 
-use ruvllm::{SimdInferenceEngine, SimdGenerationConfig};
+use ruvllm::{SimdGenerationConfig, SimdInferenceEngine};
 use std::time::Instant;
 
 fn main() {
@@ -31,8 +31,14 @@ fn main() {
     let start = Instant::now();
     let engine = SimdInferenceEngine::new_demo();
     let (vocab_size, num_layers) = engine.model_info();
-    println!("   ✓ Initialized in {:.2}ms", start.elapsed().as_secs_f64() * 1000.0);
-    println!("   ℹ Model: {} vocab, {} transformer layers", vocab_size, num_layers);
+    println!(
+        "   ✓ Initialized in {:.2}ms",
+        start.elapsed().as_secs_f64() * 1000.0
+    );
+    println!(
+        "   ℹ Model: {} vocab, {} transformer layers",
+        vocab_size, num_layers
+    );
     println!("   ℹ Quantization: Q4 (4-bit weights, 4x memory reduction)");
     println!("   ℹ Architecture: RMSNorm + SiLU + Multi-Head Attention");
 
@@ -67,10 +73,20 @@ fn main() {
 
         let (output, tokens, time_ms) = engine.generate(prompt, &config, None);
 
-        println!("   📤 Output: \"{}\"", output.chars().take(60).collect::<String>());
-        println!("   ⏱  Tokens: {}, Time: {:.2}ms, Speed: {:.1} tok/s",
-                 tokens, time_ms,
-                 if time_ms > 0.0 { (tokens as f64 / time_ms) * 1000.0 } else { 0.0 });
+        println!(
+            "   📤 Output: \"{}\"",
+            output.chars().take(60).collect::<String>()
+        );
+        println!(
+            "   ⏱  Tokens: {}, Time: {:.2}ms, Speed: {:.1} tok/s",
+            tokens,
+            time_ms,
+            if time_ms > 0.0 {
+                (tokens as f64 / time_ms) * 1000.0
+            } else {
+                0.0
+            }
+        );
         println!();
 
         total_tokens += tokens;
@@ -83,31 +99,41 @@ fn main() {
     println!("╚═══════════════════════════════════════════════════════════════════════════╝\n");
 
     let session_id = "test-session";
-    let conversation = vec![
-        "Hello!",
-        "Tell me more",
-        "That's interesting",
-    ];
+    let conversation = vec!["Hello!", "Tell me more", "That's interesting"];
 
     for (i, msg) in conversation.iter().enumerate() {
         let (output, tokens, time_ms) = engine.generate(msg, &config, Some(session_id));
-        println!("Turn {}: \"{}\" → \"{}\" ({} tokens, {:.2}ms)",
-                 i + 1, msg,
-                 output.chars().take(40).collect::<String>(),
-                 tokens, time_ms);
+        println!(
+            "Turn {}: \"{}\" → \"{}\" ({} tokens, {:.2}ms)",
+            i + 1,
+            msg,
+            output.chars().take(40).collect::<String>(),
+            tokens,
+            time_ms
+        );
     }
 
     // Summary
     println!("\n╔═══════════════════════════════════════════════════════════════════════════╗");
     println!("║                            Performance Summary                             ║");
     println!("╠═══════════════════════════════════════════════════════════════════════════╣");
-    println!("║ Total tokens generated: {:>6}                                            ║", total_tokens);
-    println!("║ Total inference time:   {:>6.2}ms                                          ║", total_time);
+    println!(
+        "║ Total tokens generated: {:>6}                                            ║",
+        total_tokens
+    );
+    println!(
+        "║ Total inference time:   {:>6.2}ms                                          ║",
+        total_time
+    );
     if total_time > 0.0 {
-        println!("║ Average throughput:     {:>6.1} tokens/sec                                ║",
-                 (total_tokens as f64 / total_time) * 1000.0);
-        println!("║ Average latency:        {:>6.2}ms/token                                   ║",
-                 total_time / total_tokens as f64);
+        println!(
+            "║ Average throughput:     {:>6.1} tokens/sec                                ║",
+            (total_tokens as f64 / total_time) * 1000.0
+        );
+        println!(
+            "║ Average latency:        {:>6.2}ms/token                                   ║",
+            total_time / total_tokens as f64
+        );
     }
     println!("╚═══════════════════════════════════════════════════════════════════════════╝");
 

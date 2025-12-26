@@ -8,15 +8,15 @@ use napi::bindgen_prelude::*;
 use napi_derive::napi;
 
 use crate::config::{EmbeddingConfig, MemoryConfig, RouterConfig};
-use crate::simd_inference::{SimdGenerationConfig, SimdInferenceEngine, SimdOps};
-use crate::router::FastGRNNRouter;
-use crate::memory::{cosine_distance, MemoryService};
 use crate::embedding::EmbeddingService;
+use crate::memory::{cosine_distance, MemoryService};
+use crate::router::FastGRNNRouter;
+use crate::simd_inference::{SimdGenerationConfig, SimdInferenceEngine, SimdOps};
 use crate::types::{MemoryNode, NodeType};
 
+use parking_lot::RwLock;
 use std::collections::HashMap;
 use std::sync::Arc;
-use parking_lot::RwLock;
 
 /// RuvLLM Configuration for Node.js
 #[napi(object)]
@@ -175,24 +175,28 @@ impl MemoryServiceSync {
     fn new(config: &MemoryConfig) -> Result<Self> {
         let runtime = tokio::runtime::Runtime::new()
             .map_err(|e| Error::from_reason(format!("Failed to create runtime: {}", e)))?;
-        let inner = runtime.block_on(MemoryService::new(config))
+        let inner = runtime
+            .block_on(MemoryService::new(config))
             .map_err(|e| Error::from_reason(format!("Failed to create memory service: {}", e)))?;
         Ok(Self { inner, runtime })
     }
 
     fn insert_node(&self, node: MemoryNode) -> Result<String> {
-        self.inner.insert_node(node)
+        self.inner
+            .insert_node(node)
             .map_err(|e| Error::from_reason(format!("Insert failed: {}", e)))
     }
 
     fn search(&self, query: &[f32], k: usize, ef_search: usize) -> Vec<(String, f32, String)> {
-        let result = self.runtime.block_on(
-            self.inner.search_with_graph(query, k, ef_search, 1)
-        );
+        let result = self
+            .runtime
+            .block_on(self.inner.search_with_graph(query, k, ef_search, 1));
         match result {
-            Ok(search_result) => search_result.candidates.into_iter().map(|c| {
-                (c.id, c.distance, c.node.text)
-            }).collect(),
+            Ok(search_result) => search_result
+                .candidates
+                .into_iter()
+                .map(|c| (c.id, c.distance, c.node.text))
+                .collect(),
             Err(_) => vec![],
         }
     }
@@ -256,8 +260,9 @@ impl RuvLLMEngine {
 
         let memory = MemoryServiceSync::new(&memory_config)?;
 
-        let embedding = EmbeddingService::new(&embedding_config)
-            .map_err(|e| Error::from_reason(format!("Failed to create embedding service: {}", e)))?;
+        let embedding = EmbeddingService::new(&embedding_config).map_err(|e| {
+            Error::from_reason(format!("Failed to create embedding service: {}", e))
+        })?;
 
         Ok(Self {
             embedding_dim,
@@ -276,17 +281,27 @@ impl RuvLLMEngine {
 
     /// Query the LLM with automatic routing
     #[napi]
-    pub fn query(&mut self, text: String, config: Option<JsGenerationConfig>) -> Result<JsQueryResponse> {
+    pub fn query(
+        &mut self,
+        text: String,
+        config: Option<JsGenerationConfig>,
+    ) -> Result<JsQueryResponse> {
         let start = std::time::Instant::now();
         let gen_config = config.unwrap_or_default();
 
         // Generate embedding
-        let embedding = self.embedding.read().embed(&text)
+        let embedding = self
+            .embedding
+            .read()
+            .embed(&text)
             .map_err(|e| Error::from_reason(format!("Embedding failed: {}", e)))?;
 
         // Get routing decision
         let hidden = vec![0.0f32; self.router_hidden];
-        let routing = self.router.read().forward(&embedding.vector, &hidden)
+        let routing = self
+            .router
+            .read()
+            .forward(&embedding.vector, &hidden)
             .map_err(|e| Error::from_reason(format!("Routing failed: {}", e)))?;
 
         // Generate response
@@ -299,8 +314,10 @@ impl RuvLLMEngine {
             ..Default::default()
         };
 
-        let (text, _tokens, _latency) = self.inference_engine.read()
-            .generate(&text, &simd_config, None);
+        let (text, _tokens, _latency) =
+            self.inference_engine
+                .read()
+                .generate(&text, &simd_config, None);
 
         let latency_ms = start.elapsed().as_secs_f64() * 1000.0;
         self.total_queries += 1;
@@ -332,8 +349,10 @@ impl RuvLLMEngine {
             ..Default::default()
         };
 
-        let (text, _tokens, _latency) = self.inference_engine.read()
-            .generate(&prompt, &simd_config, None);
+        let (text, _tokens, _latency) =
+            self.inference_engine
+                .read()
+                .generate(&prompt, &simd_config, None);
 
         Ok(text)
     }
@@ -341,10 +360,16 @@ impl RuvLLMEngine {
     /// Get routing decision for a query
     #[napi]
     pub fn route(&self, text: String) -> Result<JsRoutingDecision> {
-        let embedding = self.embedding.read().embed(&text)
+        let embedding = self
+            .embedding
+            .read()
+            .embed(&text)
             .map_err(|e| Error::from_reason(format!("Embedding failed: {}", e)))?;
         let hidden = vec![0.0f32; self.router_hidden];
-        let routing = self.router.read().forward(&embedding.vector, &hidden)
+        let routing = self
+            .router
+            .read()
+            .forward(&embedding.vector, &hidden)
             .map_err(|e| Error::from_reason(format!("Routing failed: {}", e)))?;
 
         Ok(JsRoutingDecision {
@@ -359,24 +384,36 @@ impl RuvLLMEngine {
     /// Search memory for similar content
     #[napi]
     pub fn search_memory(&self, text: String, k: Option<u32>) -> Result<Vec<JsMemoryResult>> {
-        let embedding = self.embedding.read().embed(&text)
+        let embedding = self
+            .embedding
+            .read()
+            .embed(&text)
             .map_err(|e| Error::from_reason(format!("Embedding failed: {}", e)))?;
         let k = k.unwrap_or(10) as usize;
 
-        let results = self.memory.read().search(&embedding.vector, k, self.hnsw_ef_search);
+        let results = self
+            .memory
+            .read()
+            .search(&embedding.vector, k, self.hnsw_ef_search);
 
-        Ok(results.into_iter().map(|(id, distance, content)| JsMemoryResult {
-            id,
-            distance: distance as f64,
-            content,
-            metadata: "{}".to_string(),
-        }).collect())
+        Ok(results
+            .into_iter()
+            .map(|(id, distance, content)| JsMemoryResult {
+                id,
+                distance: distance as f64,
+                content,
+                metadata: "{}".to_string(),
+            })
+            .collect())
     }
 
     /// Add content to memory
     #[napi]
     pub fn add_memory(&self, content: String, metadata: Option<String>) -> Result<String> {
-        let embedding = self.embedding.read().embed(&content)
+        let embedding = self
+            .embedding
+            .read()
+            .embed(&content)
             .map_err(|e| Error::from_reason(format!("Embedding failed: {}", e)))?;
 
         let meta: HashMap<String, serde_json::Value> = metadata
@@ -397,7 +434,12 @@ impl RuvLLMEngine {
 
     /// Provide feedback for learning
     #[napi]
-    pub fn feedback(&mut self, _request_id: String, rating: u32, _correction: Option<String>) -> Result<bool> {
+    pub fn feedback(
+        &mut self,
+        _request_id: String,
+        rating: u32,
+        _correction: Option<String>,
+    ) -> Result<bool> {
         if !self.learning_enabled {
             return Ok(false);
         }
@@ -417,7 +459,9 @@ impl RuvLLMEngine {
         JsRuvLLMStats {
             total_queries: self.total_queries as u32,
             memory_nodes: memory.node_count() as u32,
-            training_steps: router_stats.training_steps.load(std::sync::atomic::Ordering::Relaxed) as u32,
+            training_steps: router_stats
+                .training_steps
+                .load(std::sync::atomic::Ordering::Relaxed) as u32,
             avg_latency_ms: if self.total_queries > 0 {
                 self.total_latency_ms / self.total_queries as f64
             } else {
@@ -437,7 +481,10 @@ impl RuvLLMEngine {
     /// Get embedding for text
     #[napi]
     pub fn embed(&self, text: String) -> Result<Vec<f64>> {
-        let embedding = self.embedding.read().embed(&text)
+        let embedding = self
+            .embedding
+            .read()
+            .embed(&text)
             .map_err(|e| Error::from_reason(format!("Embedding failed: {}", e)))?;
         Ok(embedding.vector.into_iter().map(|x| x as f64).collect())
     }
@@ -445,9 +492,15 @@ impl RuvLLMEngine {
     /// Compute similarity between two texts
     #[napi]
     pub fn similarity(&self, text1: String, text2: String) -> Result<f64> {
-        let emb1 = self.embedding.read().embed(&text1)
+        let emb1 = self
+            .embedding
+            .read()
+            .embed(&text1)
             .map_err(|e| Error::from_reason(format!("Embedding failed: {}", e)))?;
-        let emb2 = self.embedding.read().embed(&text2)
+        let emb2 = self
+            .embedding
+            .read()
+            .embed(&text2)
             .map_err(|e| Error::from_reason(format!("Embedding failed: {}", e)))?;
 
         // Cosine similarity = 1 - cosine_distance

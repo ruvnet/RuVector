@@ -163,7 +163,9 @@ impl McpServer {
     /// Get server capabilities
     fn capabilities(&self) -> ServerCapabilities {
         ServerCapabilities {
-            tools: ToolsCapability { list_changed: false },
+            tools: ToolsCapability {
+                list_changed: false,
+            },
             resources: None,
         }
     }
@@ -388,7 +390,10 @@ RETURNS: Average processing times for grayscale, resize operations, and system i
         if self.debug {
             eprintln!("[MCP DEBUG] Method: {}", request.method);
             if let Some(ref params) = request.params {
-                eprintln!("[MCP DEBUG] Params: {}", serde_json::to_string_pretty(params).unwrap_or_default());
+                eprintln!(
+                    "[MCP DEBUG] Params: {}",
+                    serde_json::to_string_pretty(params).unwrap_or_default()
+                );
             }
         }
 
@@ -401,7 +406,9 @@ RETURNS: Average processing times for grayscale, resize operations, and system i
             "shutdown" => {
                 std::process::exit(0);
             }
-            _ => JsonRpcResponse::error(id, -32601, &format!("Method not found: {}", request.method)),
+            _ => {
+                JsonRpcResponse::error(id, -32601, &format!("Method not found: {}", request.method))
+            }
         }
     }
 
@@ -409,22 +416,31 @@ RETURNS: Average processing times for grayscale, resize operations, and system i
     fn handle_initialize(&self, id: Value, params: Option<Value>) -> JsonRpcResponse {
         if self.debug {
             if let Some(p) = &params {
-                eprintln!("[MCP DEBUG] Client info: {}", serde_json::to_string_pretty(p).unwrap_or_default());
+                eprintln!(
+                    "[MCP DEBUG] Client info: {}",
+                    serde_json::to_string_pretty(p).unwrap_or_default()
+                );
             }
         }
 
-        JsonRpcResponse::success(id, json!({
-            "protocolVersion": "2024-11-05",
-            "serverInfo": self.server_info(),
-            "capabilities": self.capabilities()
-        }))
+        JsonRpcResponse::success(
+            id,
+            json!({
+                "protocolVersion": "2024-11-05",
+                "serverInfo": self.server_info(),
+                "capabilities": self.capabilities()
+            }),
+        )
     }
 
     /// Handle tools/list request
     fn handle_tools_list(&self, id: Value) -> JsonRpcResponse {
-        JsonRpcResponse::success(id, json!({
-            "tools": self.get_tools()
-        }))
+        JsonRpcResponse::success(
+            id,
+            json!({
+                "tools": self.get_tools()
+            }),
+        )
     }
 
     /// Handle tools/call request
@@ -438,7 +454,10 @@ RETURNS: Average processing times for grayscale, resize operations, and system i
         let arguments = params.get("arguments").cloned().unwrap_or(json!({}));
 
         if self.debug {
-            eprintln!("[MCP DEBUG] Tool call: {} with args: {}", tool_name, arguments);
+            eprintln!(
+                "[MCP DEBUG] Tool call: {} with args: {}",
+                tool_name, arguments
+            );
         }
 
         let result = match tool_name {
@@ -452,29 +471,37 @@ RETURNS: Average processing times for grayscale, resize operations, and system i
         };
 
         match result {
-            Ok(content) => JsonRpcResponse::success(id, json!({
-                "content": [{
-                    "type": "text",
-                    "text": content
-                }]
-            })),
-            Err(e) => JsonRpcResponse::success(id, json!({
-                "content": [{
-                    "type": "text",
-                    "text": e
-                }],
-                "isError": true
-            })),
+            Ok(content) => JsonRpcResponse::success(
+                id,
+                json!({
+                    "content": [{
+                        "type": "text",
+                        "text": content
+                    }]
+                }),
+            ),
+            Err(e) => JsonRpcResponse::success(
+                id,
+                json!({
+                    "content": [{
+                        "type": "text",
+                        "text": e
+                    }],
+                    "isError": true
+                }),
+            ),
         }
     }
 
     /// OCR image file
     async fn call_ocr_image(&self, args: &Value) -> Result<String, String> {
-        let image_path = args.get("image_path")
+        let image_path = args
+            .get("image_path")
             .and_then(|p| p.as_str())
             .ok_or("Missing image_path parameter")?;
 
-        let format = args.get("format")
+        let format = args
+            .get("format")
             .and_then(|f| f.as_str())
             .unwrap_or("latex");
 
@@ -484,8 +511,7 @@ RETURNS: Average processing times for grayscale, resize operations, and system i
         }
 
         // Load and process image
-        let img = image::open(image_path)
-            .map_err(|e| format!("Failed to load image: {}", e))?;
+        let img = image::open(image_path).map_err(|e| format!("Failed to load image: {}", e))?;
 
         // Perform OCR (using mock for now, real inference when models are available)
         let result = self.perform_ocr(&img, format).await?;
@@ -495,24 +521,26 @@ RETURNS: Average processing times for grayscale, resize operations, and system i
             "format": format,
             "result": result,
             "confidence": 0.95
-        })).unwrap_or_default())
+        }))
+        .unwrap_or_default())
     }
 
     /// OCR base64 image
     async fn call_ocr_base64(&self, args: &Value) -> Result<String, String> {
-        let image_data = args.get("image_data")
+        let image_data = args
+            .get("image_data")
             .and_then(|d| d.as_str())
             .ok_or("Missing image_data parameter")?;
 
-        let format = args.get("format")
+        let format = args
+            .get("format")
             .and_then(|f| f.as_str())
             .unwrap_or("latex");
 
         // Decode base64
-        let decoded = base64::Engine::decode(
-            &base64::engine::general_purpose::STANDARD,
-            image_data
-        ).map_err(|e| format!("Invalid base64 data: {}", e))?;
+        let decoded =
+            base64::Engine::decode(&base64::engine::general_purpose::STANDARD, image_data)
+                .map_err(|e| format!("Invalid base64 data: {}", e))?;
 
         // Load image from bytes
         let img = image::load_from_memory(&decoded)
@@ -525,20 +553,24 @@ RETURNS: Average processing times for grayscale, resize operations, and system i
             "format": format,
             "result": result,
             "confidence": 0.95
-        })).unwrap_or_default())
+        }))
+        .unwrap_or_default())
     }
 
     /// Batch OCR processing
     async fn call_batch_ocr(&self, args: &Value) -> Result<String, String> {
-        let directory = args.get("directory")
+        let directory = args
+            .get("directory")
             .and_then(|d| d.as_str())
             .ok_or("Missing directory parameter")?;
 
-        let pattern = args.get("pattern")
+        let pattern = args
+            .get("pattern")
             .and_then(|p| p.as_str())
             .unwrap_or("*.png");
 
-        let format = args.get("format")
+        let format = args
+            .get("format")
             .and_then(|f| f.as_str())
             .unwrap_or("json");
 
@@ -574,27 +606,31 @@ RETURNS: Average processing times for grayscale, resize operations, and system i
             "total": paths.len(),
             "processed": results.len(),
             "results": results
-        })).unwrap_or_default())
+        }))
+        .unwrap_or_default())
     }
 
     /// Preprocess image
     async fn call_preprocess_image(&self, args: &Value) -> Result<String, String> {
-        let image_path = args.get("image_path")
+        let image_path = args
+            .get("image_path")
             .and_then(|p| p.as_str())
             .ok_or("Missing image_path parameter")?;
 
-        let output_path = args.get("output_path")
+        let output_path = args
+            .get("output_path")
             .and_then(|p| p.as_str())
             .ok_or("Missing output_path parameter")?;
 
-        let operations: Vec<&str> = args.get("operations")
+        let operations: Vec<&str> = args
+            .get("operations")
             .and_then(|o| o.as_array())
             .map(|arr| arr.iter().filter_map(|v| v.as_str()).collect())
             .unwrap_or_else(|| vec!["grayscale", "resize"]);
 
         // Load image
-        let mut img = image::open(image_path)
-            .map_err(|e| format!("Failed to load image: {}", e))?;
+        let mut img =
+            image::open(image_path).map_err(|e| format!("Failed to load image: {}", e))?;
 
         // Apply operations
         for op in &operations {
@@ -603,8 +639,14 @@ RETURNS: Average processing times for grayscale, resize operations, and system i
                     img = image::DynamicImage::ImageLuma8(img.to_luma8());
                 }
                 "resize" => {
-                    let width = args.get("target_width").and_then(|w| w.as_u64()).unwrap_or(640) as u32;
-                    let height = args.get("target_height").and_then(|h| h.as_u64()).unwrap_or(480) as u32;
+                    let width = args
+                        .get("target_width")
+                        .and_then(|w| w.as_u64())
+                        .unwrap_or(640) as u32;
+                    let height = args
+                        .get("target_height")
+                        .and_then(|h| h.as_u64())
+                        .unwrap_or(480) as u32;
                     img = img.resize(width, height, image::imageops::FilterType::Lanczos3);
                 }
                 _ => {}
@@ -623,12 +665,14 @@ RETURNS: Average processing times for grayscale, resize operations, and system i
                 "width": img.width(),
                 "height": img.height()
             }
-        })).unwrap_or_default())
+        }))
+        .unwrap_or_default())
     }
 
     /// Convert LaTeX to MathML
     async fn call_latex_to_mathml(&self, args: &Value) -> Result<String, String> {
-        let latex = args.get("latex")
+        let latex = args
+            .get("latex")
             .and_then(|l| l.as_str())
             .ok_or("Missing latex parameter")?;
 
@@ -641,21 +685,24 @@ RETURNS: Average processing times for grayscale, resize operations, and system i
         Ok(serde_json::to_string_pretty(&json!({
             "latex": latex,
             "mathml": mathml
-        })).unwrap_or_default())
+        }))
+        .unwrap_or_default())
     }
 
     /// Run performance benchmark
     async fn call_benchmark(&self, args: &Value) -> Result<String, String> {
-        let iterations = args.get("iterations")
+        let iterations = args
+            .get("iterations")
             .and_then(|i| i.as_u64())
             .unwrap_or(10) as usize;
 
         use std::time::Instant;
 
         // Generate test image
-        let test_img = image::DynamicImage::ImageRgb8(
-            image::ImageBuffer::from_fn(400, 100, |_, _| image::Rgb([255u8, 255u8, 255u8]))
-        );
+        let test_img =
+            image::DynamicImage::ImageRgb8(image::ImageBuffer::from_fn(400, 100, |_, _| {
+                image::Rgb([255u8, 255u8, 255u8])
+            }));
 
         // Benchmark preprocessing
         let start = Instant::now();
@@ -679,11 +726,16 @@ RETURNS: Average processing times for grayscale, resize operations, and system i
             "system": {
                 "cpu_cores": num_cpus::get()
             }
-        })).unwrap_or_default())
+        }))
+        .unwrap_or_default())
     }
 
     /// Perform OCR on image (placeholder implementation)
-    async fn perform_ocr(&self, _img: &image::DynamicImage, format: &str) -> Result<String, String> {
+    async fn perform_ocr(
+        &self,
+        _img: &image::DynamicImage,
+        format: &str,
+    ) -> Result<String, String> {
         // This is a placeholder - in production, this would call the actual OCR engine
         let result = match format {
             "latex" => r"\int_0^1 x^2 \, dx = \frac{1}{3}".to_string(),
@@ -730,11 +782,8 @@ pub async fn run(args: McpArgs) -> anyhow::Result<()> {
         let request: JsonRpcRequest = match serde_json::from_str(&line) {
             Ok(req) => req,
             Err(e) => {
-                let error_response = JsonRpcResponse::error(
-                    Value::Null,
-                    -32700,
-                    &format!("Parse error: {}", e),
-                );
+                let error_response =
+                    JsonRpcResponse::error(Value::Null, -32700, &format!("Parse error: {}", e));
                 let output = serde_json::to_string(&error_response).unwrap_or_default();
                 writeln!(stdout, "{}", output)?;
                 stdout.flush()?;

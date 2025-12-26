@@ -17,7 +17,12 @@ pub enum ExpertType {
 /// Expert trait for attention computation
 pub trait Expert: Send + Sync {
     /// Compute attention for this expert
-    fn compute(&self, query: &[f32], keys: &[&[f32]], values: &[&[f32]]) -> AttentionResult<Vec<f32>>;
+    fn compute(
+        &self,
+        query: &[f32],
+        keys: &[&[f32]],
+        values: &[&[f32]],
+    ) -> AttentionResult<Vec<f32>>;
 
     /// Get expert type
     fn expert_type(&self) -> ExpertType;
@@ -42,7 +47,12 @@ impl StandardExpert {
 }
 
 impl Expert for StandardExpert {
-    fn compute(&self, query: &[f32], keys: &[&[f32]], values: &[&[f32]]) -> AttentionResult<Vec<f32>> {
+    fn compute(
+        &self,
+        query: &[f32],
+        keys: &[&[f32]],
+        values: &[&[f32]],
+    ) -> AttentionResult<Vec<f32>> {
         // Compute attention scores
         let scores: Vec<f32> = keys
             .iter()
@@ -106,7 +116,12 @@ impl HyperbolicExpert {
 }
 
 impl Expert for HyperbolicExpert {
-    fn compute(&self, query: &[f32], keys: &[&[f32]], values: &[&[f32]]) -> AttentionResult<Vec<f32>> {
+    fn compute(
+        &self,
+        query: &[f32],
+        keys: &[&[f32]],
+        values: &[&[f32]],
+    ) -> AttentionResult<Vec<f32>> {
         // Use negative Poincaré distance as similarity
         let scores: Vec<f32> = keys
             .iter()
@@ -188,7 +203,12 @@ impl LinearExpert {
 }
 
 impl Expert for LinearExpert {
-    fn compute(&self, query: &[f32], keys: &[&[f32]], values: &[&[f32]]) -> AttentionResult<Vec<f32>> {
+    fn compute(
+        &self,
+        query: &[f32],
+        keys: &[&[f32]],
+        values: &[&[f32]],
+    ) -> AttentionResult<Vec<f32>> {
         let phi_q = self.feature_map(query);
         let value_dim = values.get(0).map(|v| v.len()).unwrap_or(self.dim);
 

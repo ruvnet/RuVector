@@ -7,8 +7,8 @@ use std::fmt;
 
 #[cfg(not(target_arch = "wasm32"))]
 mod native {
-    use std::time::{Duration, Instant as StdInstant, SystemTime as StdSystemTime, UNIX_EPOCH};
     use std::fmt;
+    use std::time::{Duration, Instant as StdInstant, SystemTime as StdSystemTime, UNIX_EPOCH};
 
     #[derive(Clone, Copy)]
     pub struct Instant(StdInstant);
@@ -57,8 +57,8 @@ mod native {
 
 #[cfg(target_arch = "wasm32")]
 mod wasm {
-    use std::time::Duration;
     use std::fmt;
+    use std::time::Duration;
 
     fn performance_now() -> f64 {
         #[cfg(feature = "wasm")]

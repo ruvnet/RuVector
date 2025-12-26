@@ -212,8 +212,14 @@ impl LatencyStats {
         }
 
         let count = measurements.len();
-        let min = *measurements.iter().min_by(|a, b| a.partial_cmp(b).unwrap()).unwrap();
-        let max = *measurements.iter().max_by(|a, b| a.partial_cmp(b).unwrap()).unwrap();
+        let min = *measurements
+            .iter()
+            .min_by(|a, b| a.partial_cmp(b).unwrap())
+            .unwrap();
+        let max = *measurements
+            .iter()
+            .max_by(|a, b| a.partial_cmp(b).unwrap())
+            .unwrap();
         let mean = measurements.iter().sum::<f64>() / count as f64;
 
         Self {
@@ -350,7 +356,12 @@ pub mod sql {
     }
 
     /// Create HNSW index on vector column
-    pub fn create_hnsw_index(schema: &str, table: &str, m: usize, ef_construction: usize) -> String {
+    pub fn create_hnsw_index(
+        schema: &str,
+        table: &str,
+        m: usize,
+        ef_construction: usize,
+    ) -> String {
         format!(
             r#"
             CREATE INDEX ON {}.{} USING hnsw (embedding vector_l2_ops)
@@ -384,11 +395,7 @@ pub mod sql {
     }
 
     /// Batch insert vectors
-    pub fn batch_insert_vectors(
-        schema: &str,
-        table: &str,
-        vectors: &[String],
-    ) -> String {
+    pub fn batch_insert_vectors(schema: &str, table: &str, vectors: &[String]) -> String {
         let values = vectors
             .iter()
             .enumerate()

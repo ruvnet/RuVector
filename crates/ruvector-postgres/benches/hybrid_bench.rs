@@ -6,20 +6,20 @@
 //! - Fusion algorithm comparison (RRF, weighted sum)
 //! - Parallel branch execution gain
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId, Throughput};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 use rand::prelude::*;
 use rand_chacha::ChaCha8Rng;
 use rayon::prelude::*;
-use std::collections::{HashMap, HashSet, BinaryHeap};
 use std::cmp::Ordering;
+use std::collections::{BinaryHeap, HashMap, HashSet};
 
 // ============================================================================
 // BM25 Implementation
 // ============================================================================
 
 mod bm25 {
-    use std::collections::HashMap;
     use std::cmp::Ordering;
+    use std::collections::HashMap;
 
     /// Simple tokenizer
     pub fn tokenize(text: &str) -> Vec<String> {
@@ -73,7 +73,8 @@ mod bm25 {
                 total_len += tokens.len();
 
                 let mut tf: HashMap<String, usize> = HashMap::new();
-                let mut seen_terms: std::collections::HashSet<String> = std::collections::HashSet::new();
+                let mut seen_terms: std::collections::HashSet<String> =
+                    std::collections::HashSet::new();
 
                 for token in tokens {
                     *tf.entry(token.clone()).or_insert(0) += 1;
@@ -118,7 +119,8 @@ mod bm25 {
 
                 let idf = self.idf(term);
                 let numerator = tf * (self.k1 + 1.0);
-                let denominator = tf + self.k1 * (1.0 - self.b + self.b * (doc_len / self.avg_doc_len));
+                let denominator =
+                    tf + self.k1 * (1.0 - self.b + self.b * (doc_len / self.avg_doc_len));
 
                 score += idf * (numerator / denominator);
             }
@@ -227,7 +229,10 @@ mod fusion {
         text_weight: f64,
     ) -> Vec<(usize, f64)> {
         // Normalize vector scores (lower distance = higher score)
-        let max_dist = vector_results.iter().map(|(_, d)| *d).fold(0.0f32, f32::max);
+        let max_dist = vector_results
+            .iter()
+            .map(|(_, d)| *d)
+            .fold(0.0f32, f32::max);
         let vector_scores: HashMap<usize, f64> = vector_results
             .iter()
             .map(|(id, dist)| (*id, (1.0 - dist / max_dist.max(1e-6)) as f64))
@@ -268,7 +273,10 @@ mod fusion {
         let mut scores: HashMap<usize, f64> = HashMap::new();
 
         // Vector results (convert distance to similarity)
-        let max_dist = vector_results.iter().map(|(_, d)| *d).fold(0.0f32, f32::max);
+        let max_dist = vector_results
+            .iter()
+            .map(|(_, d)| *d)
+            .fold(0.0f32, f32::max);
         for (doc_id, dist) in vector_results {
             let sim = 1.0 - (*dist / max_dist.max(1e-6)) as f64;
             scores.insert(*doc_id, sim);
@@ -289,9 +297,9 @@ mod fusion {
     }
 }
 
-use bm25::{BM25Index, tokenize};
+use bm25::{tokenize, BM25Index};
+use fusion::{disjunctive_normalization, rrf, weighted_sum};
 use vector_search::{search as vector_search_fn, search_parallel as vector_search_parallel};
-use fusion::{rrf, weighted_sum, disjunctive_normalization};
 
 // ============================================================================
 // Test Data Generation
@@ -300,23 +308,47 @@ use fusion::{rrf, weighted_sum, disjunctive_normalization};
 fn generate_random_vectors(n: usize, dims: usize, seed: u64) -> Vec<Vec<f32>> {
     let mut rng = ChaCha8Rng::seed_from_u64(seed);
     (0..n)
-        .map(|_| {
-            (0..dims)
-                .map(|_| rng.gen_range(-1.0..1.0))
-                .collect()
-        })
+        .map(|_| (0..dims).map(|_| rng.gen_range(-1.0..1.0)).collect())
         .collect()
 }
 
 fn generate_random_documents(n: usize, seed: u64) -> Vec<String> {
     let words = [
-        "machine", "learning", "artificial", "intelligence", "neural",
-        "network", "deep", "training", "model", "data", "algorithm",
-        "optimization", "gradient", "descent", "backpropagation",
-        "convolution", "recurrent", "transformer", "attention", "embedding",
-        "vector", "search", "similarity", "distance", "nearest",
-        "neighbor", "index", "query", "retrieval", "ranking",
-        "database", "storage", "distributed", "parallel", "processing",
+        "machine",
+        "learning",
+        "artificial",
+        "intelligence",
+        "neural",
+        "network",
+        "deep",
+        "training",
+        "model",
+        "data",
+        "algorithm",
+        "optimization",
+        "gradient",
+        "descent",
+        "backpropagation",
+        "convolution",
+        "recurrent",
+        "transformer",
+        "attention",
+        "embedding",
+        "vector",
+        "search",
+        "similarity",
+        "distance",
+        "nearest",
+        "neighbor",
+        "index",
+        "query",
+        "retrieval",
+        "ranking",
+        "database",
+        "storage",
+        "distributed",
+        "parallel",
+        "processing",
     ];
 
     let mut rng = ChaCha8Rng::seed_from_u64(seed);
@@ -346,25 +378,13 @@ fn bench_vector_only(c: &mut Criterion) {
 
         group.throughput(Throughput::Elements(n as u64));
 
-        group.bench_with_input(
-            BenchmarkId::new("sequential", n),
-            &n,
-            |bench, _| {
-                bench.iter(|| {
-                    black_box(vector_search_fn(&vectors, &query, 10))
-                })
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("sequential", n), &n, |bench, _| {
+            bench.iter(|| black_box(vector_search_fn(&vectors, &query, 10)))
+        });
 
-        group.bench_with_input(
-            BenchmarkId::new("parallel", n),
-            &n,
-            |bench, _| {
-                bench.iter(|| {
-                    black_box(vector_search_parallel(&vectors, &query, 10))
-                })
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("parallel", n), &n, |bench, _| {
+            bench.iter(|| black_box(vector_search_parallel(&vectors, &query, 10)))
+        });
     }
 
     group.finish();
@@ -383,15 +403,9 @@ fn bench_text_only(c: &mut Criterion) {
 
         group.throughput(Throughput::Elements(n as u64));
 
-        group.bench_with_input(
-            BenchmarkId::from_parameter(n),
-            &n,
-            |bench, _| {
-                bench.iter(|| {
-                    black_box(bm25.search(query, 10))
-                })
-            },
-        );
+        group.bench_with_input(BenchmarkId::from_parameter(n), &n, |bench, _| {
+            bench.iter(|| black_box(bm25.search(query, 10)))
+        });
     }
 
     group.finish();
@@ -413,32 +427,24 @@ fn bench_hybrid_search(c: &mut Criterion) {
         group.throughput(Throughput::Elements(n as u64));
 
         // Sequential hybrid
-        group.bench_with_input(
-            BenchmarkId::new("sequential", n),
-            &n,
-            |bench, _| {
-                bench.iter(|| {
-                    let vector_results = vector_search_fn(&vectors, &vector_query, 100);
-                    let text_results = bm25.search(text_query, 100);
-                    black_box(rrf(&vector_results, &text_results, 10, 60.0))
-                })
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("sequential", n), &n, |bench, _| {
+            bench.iter(|| {
+                let vector_results = vector_search_fn(&vectors, &vector_query, 100);
+                let text_results = bm25.search(text_query, 100);
+                black_box(rrf(&vector_results, &text_results, 10, 60.0))
+            })
+        });
 
         // Parallel hybrid (branches)
-        group.bench_with_input(
-            BenchmarkId::new("parallel_branches", n),
-            &n,
-            |bench, _| {
-                bench.iter(|| {
-                    let (vector_results, text_results) = rayon::join(
-                        || vector_search_parallel(&vectors, &vector_query, 100),
-                        || bm25.search(text_query, 100),
-                    );
-                    black_box(rrf(&vector_results, &text_results, 10, 60.0))
-                })
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("parallel_branches", n), &n, |bench, _| {
+            bench.iter(|| {
+                let (vector_results, text_results) = rayon::join(
+                    || vector_search_parallel(&vectors, &vector_query, 100),
+                    || bm25.search(text_query, 100),
+                );
+                black_box(rrf(&vector_results, &text_results, 10, 60.0))
+            })
+        });
     }
 
     group.finish();
@@ -456,17 +462,13 @@ fn bench_bm25_build(c: &mut Criterion) {
 
         group.throughput(Throughput::Elements(n as u64));
 
-        group.bench_with_input(
-            BenchmarkId::from_parameter(n),
-            &documents,
-            |bench, docs| {
-                bench.iter(|| {
-                    let mut bm25 = BM25Index::new(1.2, 0.75);
-                    bm25.build(docs);
-                    black_box(bm25)
-                })
-            },
-        );
+        group.bench_with_input(BenchmarkId::from_parameter(n), &documents, |bench, docs| {
+            bench.iter(|| {
+                let mut bm25 = BM25Index::new(1.2, 0.75);
+                bm25.build(docs);
+                black_box(bm25)
+            })
+        });
     }
 
     group.finish();
@@ -495,11 +497,7 @@ fn bench_bm25_query_lengths(c: &mut Criterion) {
         group.bench_with_input(
             BenchmarkId::new("tokens", token_count),
             query,
-            |bench, q| {
-                bench.iter(|| {
-                    black_box(bm25.search(q, 10))
-                })
-            },
+            |bench, q| bench.iter(|| black_box(bm25.search(q, 10))),
         );
     }
 
@@ -528,32 +526,32 @@ fn bench_fusion_algorithms(c: &mut Criterion) {
     let text_results = bm25.search(text_query, 1000);
 
     for &k in [10, 50, 100].iter() {
-        group.bench_with_input(
-            BenchmarkId::new("rrf", k),
-            &k,
-            |bench, &k_val| {
-                bench.iter(|| {
-                    black_box(rrf(&vector_results, &text_results, k_val, 60.0))
-                })
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("rrf", k), &k, |bench, &k_val| {
+            bench.iter(|| black_box(rrf(&vector_results, &text_results, k_val, 60.0)))
+        });
 
-        group.bench_with_input(
-            BenchmarkId::new("weighted_sum", k),
-            &k,
-            |bench, &k_val| {
-                bench.iter(|| {
-                    black_box(weighted_sum(&vector_results, &text_results, k_val, 0.6, 0.4))
-                })
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("weighted_sum", k), &k, |bench, &k_val| {
+            bench.iter(|| {
+                black_box(weighted_sum(
+                    &vector_results,
+                    &text_results,
+                    k_val,
+                    0.6,
+                    0.4,
+                ))
+            })
+        });
 
         group.bench_with_input(
             BenchmarkId::new("disjunctive_norm", k),
             &k,
             |bench, &k_val| {
                 bench.iter(|| {
-                    black_box(disjunctive_normalization(&vector_results, &text_results, k_val))
+                    black_box(disjunctive_normalization(
+                        &vector_results,
+                        &text_results,
+                        k_val,
+                    ))
                 })
             },
         );
@@ -582,11 +580,7 @@ fn bench_rrf_k_parameter(c: &mut Criterion) {
         group.bench_with_input(
             BenchmarkId::from_parameter(rrf_k as i32),
             &rrf_k,
-            |bench, &k| {
-                bench.iter(|| {
-                    black_box(rrf(&vector_results, &text_results, 10, k))
-                })
-            },
+            |bench, &k| bench.iter(|| black_box(rrf(&vector_results, &text_results, 10, k))),
         );
     }
 
@@ -622,9 +616,7 @@ fn bench_weight_ratios(c: &mut Criterion) {
             BenchmarkId::from_parameter(name),
             &(*vector_w, *text_w),
             |bench, &(v_w, t_w)| {
-                bench.iter(|| {
-                    black_box(weighted_sum(&vector_results, &text_results, 10, v_w, t_w))
-                })
+                bench.iter(|| black_box(weighted_sum(&vector_results, &text_results, 10, v_w, t_w)))
             },
         );
     }
@@ -650,60 +642,44 @@ fn bench_parallel_execution_gain(c: &mut Criterion) {
         bm25.build(&documents);
 
         // Sequential
-        group.bench_with_input(
-            BenchmarkId::new("sequential", n),
-            &n,
-            |bench, _| {
-                bench.iter(|| {
-                    let vector_results = vector_search_fn(&vectors, &vector_query, 100);
-                    let text_results = bm25.search(text_query, 100);
-                    black_box((vector_results, text_results))
-                })
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("sequential", n), &n, |bench, _| {
+            bench.iter(|| {
+                let vector_results = vector_search_fn(&vectors, &vector_query, 100);
+                let text_results = bm25.search(text_query, 100);
+                black_box((vector_results, text_results))
+            })
+        });
 
         // Parallel with rayon::join
-        group.bench_with_input(
-            BenchmarkId::new("parallel_join", n),
-            &n,
-            |bench, _| {
-                bench.iter(|| {
-                    let (vector_results, text_results) = rayon::join(
-                        || vector_search_fn(&vectors, &vector_query, 100),
-                        || bm25.search(text_query, 100),
-                    );
-                    black_box((vector_results, text_results))
-                })
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("parallel_join", n), &n, |bench, _| {
+            bench.iter(|| {
+                let (vector_results, text_results) = rayon::join(
+                    || vector_search_fn(&vectors, &vector_query, 100),
+                    || bm25.search(text_query, 100),
+                );
+                black_box((vector_results, text_results))
+            })
+        });
 
         // Parallel vector search only
-        group.bench_with_input(
-            BenchmarkId::new("parallel_vector", n),
-            &n,
-            |bench, _| {
-                bench.iter(|| {
-                    let vector_results = vector_search_parallel(&vectors, &vector_query, 100);
-                    let text_results = bm25.search(text_query, 100);
-                    black_box((vector_results, text_results))
-                })
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("parallel_vector", n), &n, |bench, _| {
+            bench.iter(|| {
+                let vector_results = vector_search_parallel(&vectors, &vector_query, 100);
+                let text_results = bm25.search(text_query, 100);
+                black_box((vector_results, text_results))
+            })
+        });
 
         // Full parallel
-        group.bench_with_input(
-            BenchmarkId::new("full_parallel", n),
-            &n,
-            |bench, _| {
-                bench.iter(|| {
-                    let (vector_results, text_results) = rayon::join(
-                        || vector_search_parallel(&vectors, &vector_query, 100),
-                        || bm25.search(text_query, 100),
-                    );
-                    black_box((vector_results, text_results))
-                })
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("full_parallel", n), &n, |bench, _| {
+            bench.iter(|| {
+                let (vector_results, text_results) = rayon::join(
+                    || vector_search_parallel(&vectors, &vector_query, 100),
+                    || bm25.search(text_query, 100),
+                );
+                black_box((vector_results, text_results))
+            })
+        });
     }
 
     group.finish();

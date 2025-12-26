@@ -1,6 +1,6 @@
-use criterion::{criterion_group, criterion_main, Criterion, BenchmarkId, black_box};
-use std::time::Duration;
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use std::collections::HashMap;
+use std::time::Duration;
 
 /// Benchmark embedding generation
 fn bench_embedding_generation(c: &mut Criterion) {
@@ -16,9 +16,7 @@ fn bench_embedding_generation(c: &mut Criterion) {
             BenchmarkId::new("generate", format!("{}x{}", w, h)),
             &image_data,
             |b, img| {
-                b.iter(|| {
-                    black_box(generate_embedding(black_box(img)))
-                });
+                b.iter(|| black_box(generate_embedding(black_box(img))));
             },
         );
     }
@@ -43,7 +41,11 @@ fn bench_similarity_search(c: &mut Criterion) {
             &(&cache, &query_embedding),
             |b, (cache, query)| {
                 b.iter(|| {
-                    black_box(linear_similarity_search(black_box(cache), black_box(query), 10))
+                    black_box(linear_similarity_search(
+                        black_box(cache),
+                        black_box(query),
+                        10,
+                    ))
                 });
             },
         );
@@ -54,7 +56,11 @@ fn bench_similarity_search(c: &mut Criterion) {
             &(&cache, &query_embedding),
             |b, (cache, query)| {
                 b.iter(|| {
-                    black_box(ann_similarity_search(black_box(cache), black_box(query), 10))
+                    black_box(ann_similarity_search(
+                        black_box(cache),
+                        black_box(query),
+                        10,
+                    ))
                 });
             },
         );
@@ -74,13 +80,20 @@ fn bench_cache_hit_latency(c: &mut Criterion) {
     group.bench_function("exact_match", |b| {
         let cached_embedding = cache.values().next().unwrap();
         b.iter(|| {
-            black_box(find_exact_match(black_box(&cache), black_box(cached_embedding)))
+            black_box(find_exact_match(
+                black_box(&cache),
+                black_box(cached_embedding),
+            ))
         });
     });
 
     group.bench_function("similarity_threshold", |b| {
         b.iter(|| {
-            black_box(find_by_similarity_threshold(black_box(&cache), black_box(&query), 0.95))
+            black_box(find_by_similarity_threshold(
+                black_box(&cache),
+                black_box(&query),
+                0.95,
+            ))
         });
     });
 
@@ -222,15 +235,11 @@ fn bench_cache_statistics(c: &mut Criterion) {
     let cache = create_embedding_cache(10000);
 
     group.bench_function("compute_stats", |b| {
-        b.iter(|| {
-            black_box(compute_cache_statistics(black_box(&cache)))
-        });
+        b.iter(|| black_box(compute_cache_statistics(black_box(&cache))));
     });
 
     group.bench_function("memory_usage", |b| {
-        b.iter(|| {
-            black_box(estimate_cache_memory(black_box(&cache)))
-        });
+        b.iter(|| black_box(estimate_cache_memory(black_box(&cache))));
     });
 
     group.finish();
@@ -355,13 +364,14 @@ fn ann_similarity_search(
     results
 }
 
-fn find_exact_match(
-    cache: &HashMap<String, Embedding>,
-    query: &Embedding,
-) -> Option<String> {
+fn find_exact_match(cache: &HashMap<String, Embedding>, query: &Embedding) -> Option<String> {
     cache.iter().find_map(|(key, embedding)| {
-        if embedding.len() == query.len() &&
-           embedding.iter().zip(query.iter()).all(|(a, b)| (a - b).abs() < 1e-6) {
+        if embedding.len() == query.len()
+            && embedding
+                .iter()
+                .zip(query.iter())
+                .all(|(a, b)| (a - b).abs() < 1e-6)
+        {
             Some(key.clone())
         } else {
             None

@@ -148,7 +148,8 @@ impl BenchGraph {
 
     /// Simple min-cut approximation using minimum degree
     fn approx_mincut(&self) -> f64 {
-        self.vertices.iter()
+        self.vertices
+            .iter()
             .map(|&v| self.degree(v) as f64)
             .min_by(|a, b| a.partial_cmp(b).unwrap())
             .unwrap_or(0.0)
@@ -178,9 +179,7 @@ fn bench_temporal_attractors() -> Vec<BenchResult> {
                 let cut = graph.approx_mincut();
                 if cut < 3.0 {
                     // Strengthen weak points
-                    let weak_v = (0..size as u64)
-                        .min_by_key(|&v| graph.degree(v))
-                        .unwrap();
+                    let weak_v = (0..size as u64).min_by_key(|&v| graph.degree(v)).unwrap();
                     let target = (weak_v + size as u64 / 2) % size as u64;
                     graph.add_edge(weak_v, target, 1.0);
                 }
@@ -219,16 +218,15 @@ fn bench_strange_loop() -> Vec<BenchResult> {
 
             // Create mesh
             for i in 0..size as u64 {
-                for j in (i+1)..std::cmp::min(i + 5, size as u64) {
+                for j in (i + 1)..std::cmp::min(i + 5, size as u64) {
                     graph.add_edge(i, j, 1.0);
                 }
             }
 
             // Self-observation cycle
             let _mincut = graph.approx_mincut();
-            let _weak_vertices: Vec<u64> = (0..size as u64)
-                .filter(|&v| graph.degree(v) < 3)
-                .collect();
+            let _weak_vertices: Vec<u64> =
+                (0..size as u64).filter(|&v| graph.degree(v) < 3).collect();
         });
         result.print();
         results.push(result);
@@ -276,7 +274,15 @@ fn bench_causal_discovery() -> Vec<BenchResult> {
         let base = Instant::now();
 
         for i in 0..1000 {
-            events.push((base, if i % 3 == 0 { "edge_cut" } else { "mincut_change" }, i as f64));
+            events.push((
+                base,
+                if i % 3 == 0 {
+                    "edge_cut"
+                } else {
+                    "mincut_change"
+                },
+                i as f64,
+            ));
         }
     });
     result.print();
@@ -284,29 +290,34 @@ fn bench_causal_discovery() -> Vec<BenchResult> {
 
     // Benchmark causality detection
     for event_count in [100, 500, 1000] {
-        let result = bench(&format!("causality_detection (n={})", event_count), 50, || {
-            // Simulate event pairs
-            let events: Vec<(u64, u64)> = (0..event_count)
-                .map(|i| (i as u64, i as u64 + 50))
-                .collect();
+        let result = bench(
+            &format!("causality_detection (n={})", event_count),
+            50,
+            || {
+                // Simulate event pairs
+                let events: Vec<(u64, u64)> = (0..event_count)
+                    .map(|i| (i as u64, i as u64 + 50))
+                    .collect();
 
-            // Find causal relationships
-            let mut causal_pairs: HashMap<(&str, &str), Vec<u64>> = HashMap::new();
+                // Find causal relationships
+                let mut causal_pairs: HashMap<(&str, &str), Vec<u64>> = HashMap::new();
 
-            for (t1, t2) in &events {
-                let delay = t2 - t1;
-                if delay < 200 {
-                    causal_pairs.entry(("A", "B"))
-                        .or_insert_with(Vec::new)
-                        .push(delay);
+                for (t1, t2) in &events {
+                    let delay = t2 - t1;
+                    if delay < 200 {
+                        causal_pairs
+                            .entry(("A", "B"))
+                            .or_insert_with(Vec::new)
+                            .push(delay);
+                    }
                 }
-            }
 
-            // Calculate statistics
-            for (_pair, delays) in &causal_pairs {
-                let _avg: f64 = delays.iter().sum::<u64>() as f64 / delays.len() as f64;
-            }
-        });
+                // Calculate statistics
+                for (_pair, delays) in &causal_pairs {
+                    let _avg: f64 = delays.iter().sum::<u64>() as f64 / delays.len() as f64;
+                }
+            },
+        );
         result.print();
         results.push(result);
     }
@@ -349,7 +360,7 @@ fn bench_time_crystal() -> Vec<BenchResult> {
                 adj.clear();
             }
             for i in 0..size as u64 {
-                for j in (i+1)..std::cmp::min(i + 4, size as u64) {
+                for j in (i + 1)..std::cmp::min(i + 4, size as u64) {
                     graph.add_edge(i, j, 1.0);
                 }
             }
@@ -364,7 +375,9 @@ fn bench_time_crystal() -> Vec<BenchResult> {
         let expected: Vec<f64> = vec![2.0, 1.0, 6.0, 2.0, 1.0, 6.0, 2.0, 1.0, 6.0];
         let actual: Vec<f64> = vec![2.0, 1.0, 6.0, 2.0, 1.0, 6.0, 2.0, 1.0, 6.0];
 
-        let _matches: usize = expected.iter().zip(&actual)
+        let _matches: usize = expected
+            .iter()
+            .zip(&actual)
             .filter(|(e, a)| (*e - *a).abs() < 0.5)
             .count();
     });
@@ -384,53 +397,59 @@ fn bench_morphogenetic() -> Vec<BenchResult> {
 
     // Benchmark growth cycle
     for initial_size in [10, 50, 100] {
-        let result = bench(&format!("growth_cycle (start={})", initial_size), 50, || {
-            let mut graph = BenchGraph::with_vertices(initial_size);
-            let mut signals: HashMap<u64, f64> = HashMap::new();
+        let result = bench(
+            &format!("growth_cycle (start={})", initial_size),
+            50,
+            || {
+                let mut graph = BenchGraph::with_vertices(initial_size);
+                let mut signals: HashMap<u64, f64> = HashMap::new();
 
-            // Initialize signals
-            for i in 0..initial_size as u64 {
-                signals.insert(i, 1.0);
-            }
+                // Initialize signals
+                for i in 0..initial_size as u64 {
+                    signals.insert(i, 1.0);
+                }
 
-            // Create initial connections
-            for i in 0..initial_size as u64 {
-                graph.add_edge(i, (i + 1) % initial_size as u64, 1.0);
-            }
+                // Create initial connections
+                for i in 0..initial_size as u64 {
+                    graph.add_edge(i, (i + 1) % initial_size as u64, 1.0);
+                }
 
-            // 15 growth cycles
-            let mut next_id = initial_size as u64;
-            for _ in 0..15 {
-                // Diffuse signals
-                let mut new_signals = signals.clone();
-                for (&v, &sig) in &signals {
-                    for &neighbor in graph.adjacency.get(&v).unwrap_or(&vec![]) {
-                        *new_signals.entry(neighbor).or_insert(0.0) += sig * 0.1;
+                // 15 growth cycles
+                let mut next_id = initial_size as u64;
+                for _ in 0..15 {
+                    // Diffuse signals
+                    let mut new_signals = signals.clone();
+                    for (&v, &sig) in &signals {
+                        for &neighbor in graph.adjacency.get(&v).unwrap_or(&vec![]) {
+                            *new_signals.entry(neighbor).or_insert(0.0) += sig * 0.1;
+                        }
+                    }
+
+                    // Decay
+                    for sig in new_signals.values_mut() {
+                        *sig *= 0.9;
+                    }
+                    signals = new_signals;
+
+                    // Growth rules
+                    for v in 0..next_id {
+                        if !graph.vertices.contains(&v) {
+                            continue;
+                        }
+
+                        let sig = signals.get(&v).copied().unwrap_or(0.0);
+                        let deg = graph.degree(v);
+
+                        if sig > 0.5 && deg < 2 {
+                            // Spawn
+                            graph.add_edge(v, next_id, 1.0);
+                            signals.insert(next_id, sig * 0.5);
+                            next_id += 1;
+                        }
                     }
                 }
-
-                // Decay
-                for sig in new_signals.values_mut() {
-                    *sig *= 0.9;
-                }
-                signals = new_signals;
-
-                // Growth rules
-                for v in 0..next_id {
-                    if !graph.vertices.contains(&v) { continue; }
-
-                    let sig = signals.get(&v).copied().unwrap_or(0.0);
-                    let deg = graph.degree(v);
-
-                    if sig > 0.5 && deg < 2 {
-                        // Spawn
-                        graph.add_edge(v, next_id, 1.0);
-                        signals.insert(next_id, sig * 0.5);
-                        next_id += 1;
-                    }
-                }
-            }
-        });
+            },
+        );
         result.print();
         results.push(result);
     }
@@ -580,7 +599,10 @@ fn main() {
     }
 
     println!("\nScaling Analysis:");
-    for result in all_results.iter().filter(|r| r.name.starts_with("full_pipeline")) {
+    for result in all_results
+        .iter()
+        .filter(|r| r.name.starts_with("full_pipeline"))
+    {
         println!("  {:50} {:>10?}", result.name, result.avg_time);
     }
 

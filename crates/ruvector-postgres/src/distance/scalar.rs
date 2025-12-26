@@ -7,7 +7,8 @@
 pub fn euclidean_distance(a: &[f32], b: &[f32]) -> f32 {
     debug_assert_eq!(a.len(), b.len());
 
-    let sum: f32 = a.iter()
+    let sum: f32 = a
+        .iter()
         .zip(b.iter())
         .map(|(x, y)| {
             let diff = x - y;
@@ -68,10 +69,7 @@ pub fn cosine_similarity(a: &[f32], b: &[f32]) -> f32 {
 pub fn inner_product_distance(a: &[f32], b: &[f32]) -> f32 {
     debug_assert_eq!(a.len(), b.len());
 
-    let dot: f32 = a.iter()
-        .zip(b.iter())
-        .map(|(x, y)| x * y)
-        .sum();
+    let dot: f32 = a.iter().zip(b.iter()).map(|(x, y)| x * y).sum();
 
     -dot
 }
@@ -81,10 +79,7 @@ pub fn inner_product_distance(a: &[f32], b: &[f32]) -> f32 {
 pub fn dot_product(a: &[f32], b: &[f32]) -> f32 {
     debug_assert_eq!(a.len(), b.len());
 
-    a.iter()
-        .zip(b.iter())
-        .map(|(x, y)| x * y)
-        .sum()
+    a.iter().zip(b.iter()).map(|(x, y)| x * y).sum()
 }
 
 /// Manhattan (L1) distance - scalar implementation
@@ -92,10 +87,7 @@ pub fn dot_product(a: &[f32], b: &[f32]) -> f32 {
 pub fn manhattan_distance(a: &[f32], b: &[f32]) -> f32 {
     debug_assert_eq!(a.len(), b.len());
 
-    a.iter()
-        .zip(b.iter())
-        .map(|(x, y)| (x - y).abs())
-        .sum()
+    a.iter().zip(b.iter()).map(|(x, y)| (x - y).abs()).sum()
 }
 
 /// Hamming distance for f32 vectors (based on sign bit)
@@ -103,7 +95,8 @@ pub fn manhattan_distance(a: &[f32], b: &[f32]) -> f32 {
 pub fn hamming_distance_f32(a: &[f32], b: &[f32]) -> f32 {
     debug_assert_eq!(a.len(), b.len());
 
-    let count: u32 = a.iter()
+    let count: u32 = a
+        .iter()
         .zip(b.iter())
         .map(|(x, y)| {
             let sign_a = x.to_bits() >> 31;
@@ -172,7 +165,8 @@ pub fn minkowski_distance(a: &[f32], b: &[f32], p: f32) -> f32 {
         return chebyshev_distance(a, b);
     }
 
-    let sum: f32 = a.iter()
+    let sum: f32 = a
+        .iter()
         .zip(b.iter())
         .map(|(x, y)| (x - y).abs().powf(p))
         .sum();

@@ -17,9 +17,10 @@
 //! for subpolynomial mincut computation.
 
 use super::{
-    network::{SpikingNetwork, NetworkConfig, LayerConfig},
+    compute_energy, compute_synchrony,
+    network::{LayerConfig, NetworkConfig, SpikingNetwork},
     synapse::SynapseMatrix,
-    SimTime, Spike, compute_synchrony, compute_energy,
+    SimTime, Spike,
 };
 use crate::graph::{DynamicGraph, VertexId, Weight};
 use std::time::Duration;
@@ -113,10 +114,7 @@ impl EnergyLandscape {
         }
 
         let mean = self.history.iter().sum::<f64>() / self.history.len() as f64;
-        let var: f64 = self.history
-            .iter()
-            .map(|&e| (e - mean).powi(2))
-            .sum();
+        let var: f64 = self.history.iter().map(|&e| (e - mean).powi(2)).sum();
 
         var / self.history.len() as f64
     }
@@ -250,7 +248,9 @@ impl AttractorDynamics {
 
             if delta_w > 0.0 {
                 let new_weight = edge.weight + delta_w;
-                let _ = self.graph.update_edge_weight(edge.source, edge.target, new_weight);
+                let _ = self
+                    .graph
+                    .update_edge_weight(edge.source, edge.target, new_weight);
             }
         }
     }
@@ -283,7 +283,10 @@ impl AttractorDynamics {
     /// Uses optimized Karger-Stein with early termination and reduced iterations.
     /// For SNN context, we need relative accuracy not exact values.
     /// Time complexity: O(n log n) amortized with early termination.
-    fn karger_stein_with_skip(&self, skip_edges: &std::collections::HashSet<(VertexId, VertexId)>) -> f64 {
+    fn karger_stein_with_skip(
+        &self,
+        skip_edges: &std::collections::HashSet<(VertexId, VertexId)>,
+    ) -> f64 {
         let vertices: Vec<_> = self.graph.vertices();
         let n = vertices.len();
 
@@ -308,7 +311,10 @@ impl AttractorDynamics {
             let key2 = (edge.target, edge.source);
 
             if !skip_edges.contains(&key1) && !skip_edges.contains(&key2) {
-                if let (Some(&i), Some(&j)) = (vertex_to_idx.get(&edge.source), vertex_to_idx.get(&edge.target)) {
+                if let (Some(&i), Some(&j)) = (
+                    vertex_to_idx.get(&edge.source),
+                    vertex_to_idx.get(&edge.target),
+                ) {
                     adj_weights[i].push((j, edge.weight));
                     adj_weights[j].push((i, edge.weight));
                     total_weight += edge.weight;
@@ -335,11 +341,19 @@ impl AttractorDynamics {
             }
         }
 
-        if best_cut == f64::INFINITY { 0.0 } else { best_cut }
+        if best_cut == f64::INFINITY {
+            0.0
+        } else {
+            best_cut
+        }
     }
 
     /// Exact mincut for small graphs (brute force is fine for n <= 10)
-    fn exact_mincut_small(&self, skip_edges: &std::collections::HashSet<(VertexId, VertexId)>, vertices: &[VertexId]) -> f64 {
+    fn exact_mincut_small(
+        &self,
+        skip_edges: &std::collections::HashSet<(VertexId, VertexId)>,
+        vertices: &[VertexId],
+    ) -> f64 {
         let n = vertices.len();
         if n <= 1 {
             return 0.0;
@@ -369,8 +383,16 @@ impl AttractorDynamics {
 
                 if let (Some(ui), Some(vi)) = (u_idx, v_idx) {
                     // First vertex always in set 0
-                    let u_in_set = if ui == 0 { false } else { (mask >> (ui - 1)) & 1 == 1 };
-                    let v_in_set = if vi == 0 { false } else { (mask >> (vi - 1)) & 1 == 1 };
+                    let u_in_set = if ui == 0 {
+                        false
+                    } else {
+                        (mask >> (ui - 1)) & 1 == 1
+                    };
+                    let v_in_set = if vi == 0 {
+                        false
+                    } else {
+                        (mask >> (vi - 1)) & 1 == 1
+                    };
 
                     if u_in_set != v_in_set {
                         cut_weight += w;
@@ -383,16 +405,15 @@ impl AttractorDynamics {
             }
         }
 
-        if best_cut == f64::INFINITY { 0.0 } else { best_cut }
+        if best_cut == f64::INFINITY {
+            0.0
+        } else {
+            best_cut
+        }
     }
 
     /// Fast Karger contraction using Vec-based adjacency
-    fn karger_contract_fast(
-        &self,
-        adj_weights: &[Vec<(usize, f64)>],
-        n: usize,
-        seed: u64,
-    ) -> f64 {
+    fn karger_contract_fast(&self, adj_weights: &[Vec<(usize, f64)>], n: usize, seed: u64) -> f64 {
         // Union-find with path compression and union by rank
         let mut parent: Vec<usize> = (0..n).collect();
         let mut rank: Vec<usize> = vec![0; n];

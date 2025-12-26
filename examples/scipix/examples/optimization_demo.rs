@@ -8,8 +8,8 @@
 //! - Dynamic batching
 
 use ruvector_scipix::optimize::*;
-use std::time::Instant;
 use std::sync::Arc;
+use std::time::Instant;
 
 fn main() {
     println!("=== Ruvector-Scipix Optimization Demo ===\n");
@@ -38,9 +38,15 @@ fn demo_feature_detection() {
 
     let features = detect_features();
     println!("AVX2 Support:    {}", if features.avx2 { "✓" } else { "✗" });
-    println!("AVX-512 Support: {}", if features.avx512f { "✓" } else { "✗" });
+    println!(
+        "AVX-512 Support: {}",
+        if features.avx512f { "✓" } else { "✗" }
+    );
     println!("NEON Support:    {}", if features.neon { "✓" } else { "✗" });
-    println!("SSE4.2 Support:  {}", if features.sse4_2 { "✓" } else { "✗" });
+    println!(
+        "SSE4.2 Support:  {}",
+        if features.sse4_2 { "✓" } else { "✗" }
+    );
 
     let opt_level = get_opt_level();
     println!("Optimization Level: {:?}", opt_level);
@@ -53,9 +59,7 @@ fn demo_simd_operations() {
 
     // Create test image (512x512 RGBA)
     let size = 512;
-    let rgba: Vec<u8> = (0..size * size * 4)
-        .map(|i| (i % 256) as u8)
-        .collect();
+    let rgba: Vec<u8> = (0..size * size * 4).map(|i| (i % 256) as u8).collect();
     let mut gray = vec![0u8; size * size];
 
     // Benchmark grayscale conversion
@@ -68,7 +72,8 @@ fn demo_simd_operations() {
     let simd_time = start.elapsed();
 
     println!("Grayscale conversion ({} iterations):", iterations);
-    println!("  SIMD: {:?} ({:.2} MP/s)",
+    println!(
+        "  SIMD: {:?} ({:.2} MP/s)",
         simd_time,
         (iterations as f64 * size as f64 * size as f64 / 1_000_000.0) / simd_time.as_secs_f64()
     );
@@ -83,9 +88,11 @@ fn demo_simd_operations() {
     let threshold_time = start.elapsed();
 
     println!("Threshold operation ({} iterations):", iterations);
-    println!("  SIMD: {:?} ({:.2} MP/s)",
+    println!(
+        "  SIMD: {:?} ({:.2} MP/s)",
         threshold_time,
-        (iterations as f64 * size as f64 * size as f64 / 1_000_000.0) / threshold_time.as_secs_f64()
+        (iterations as f64 * size as f64 * size as f64 / 1_000_000.0)
+            / threshold_time.as_secs_f64()
     );
 
     // Benchmark normalization
@@ -110,24 +117,22 @@ fn demo_parallel_processing() {
 
     // Sequential processing
     let start = Instant::now();
-    let _seq_result: Vec<i32> = data.iter()
-        .map(|&x| expensive_computation(x))
-        .collect();
+    let _seq_result: Vec<i32> = data.iter().map(|&x| expensive_computation(x)).collect();
     let seq_time = start.elapsed();
 
     // Parallel processing
     let start = Instant::now();
-    let _par_result = parallel::parallel_map_chunked(
-        data.clone(),
-        100,
-        |x| expensive_computation(x),
-    );
+    let _par_result =
+        parallel::parallel_map_chunked(data.clone(), 100, |x| expensive_computation(x));
     let par_time = start.elapsed();
 
     println!("Processing 10,000 items:");
     println!("  Sequential: {:?}", seq_time);
     println!("  Parallel:   {:?}", par_time);
-    println!("  Speedup:    {:.2}x", seq_time.as_secs_f64() / par_time.as_secs_f64());
+    println!(
+        "  Speedup:    {:.2}x",
+        seq_time.as_secs_f64() / par_time.as_secs_f64()
+    );
 
     let threads = parallel::optimal_thread_count();
     println!("  Using {} threads", threads);
@@ -167,7 +172,10 @@ fn demo_memory_optimizations() {
     println!("Buffer allocation ({} iterations):", iterations);
     println!("  Pooled:  {:?}", pooled_time);
     println!("  Direct:  {:?}", direct_time);
-    println!("  Speedup: {:.2}x", direct_time.as_secs_f64() / pooled_time.as_secs_f64());
+    println!(
+        "  Speedup: {:.2}x",
+        direct_time.as_secs_f64() / pooled_time.as_secs_f64()
+    );
 
     // Arena allocation
     let mut arena = memory::Arena::with_capacity(1024 * 1024);
@@ -181,7 +189,10 @@ fn demo_memory_optimizations() {
     }
     let arena_time = start.elapsed();
 
-    println!("\nArena allocation ({} iterations, 10 allocs each):", iterations);
+    println!(
+        "\nArena allocation ({} iterations, 10 allocs each):",
+        iterations
+    );
     println!("  Time: {:?}", arena_time);
     println!();
 }
@@ -196,7 +207,8 @@ fn demo_quantization() {
         .map(|i| ((i as f32 / size as f32) * 2.0 - 1.0))
         .collect();
 
-    println!("Original model: {} weights ({:.2} MB)",
+    println!(
+        "Original model: {} weights ({:.2} MB)",
         weights.len(),
         (weights.len() * std::mem::size_of::<f32>()) as f64 / 1_048_576.0
     );
@@ -206,13 +218,15 @@ fn demo_quantization() {
     let (quantized, params) = quantize::quantize_weights(&weights);
     let quant_time = start.elapsed();
 
-    println!("Quantized:      {} weights ({:.2} MB)",
+    println!(
+        "Quantized:      {} weights ({:.2} MB)",
         quantized.len(),
         (quantized.len() * std::mem::size_of::<i8>()) as f64 / 1_048_576.0
     );
-    println!("Compression:    {:.2}x",
-        (weights.len() * std::mem::size_of::<f32>()) as f64 /
-        (quantized.len() * std::mem::size_of::<i8>()) as f64
+    println!(
+        "Compression:    {:.2}x",
+        (weights.len() * std::mem::size_of::<f32>()) as f64
+            / (quantized.len() * std::mem::size_of::<i8>()) as f64
     );
     println!("Quantization time: {:?}", quant_time);
 
@@ -232,7 +246,10 @@ fn demo_quantization() {
     }
     let dequant_time = start.elapsed();
 
-    println!("Dequantization ({} iterations): {:?}", iterations, dequant_time);
+    println!(
+        "Dequantization ({} iterations): {:?}",
+        iterations, dequant_time
+    );
 
     // Per-channel quantization
     let weights_2d: Vec<f32> = (0..10_000).map(|i| i as f32).collect();
@@ -254,7 +271,7 @@ async fn demo_batching() {
     println!("6. Dynamic Batching");
     println!("-------------------");
 
-    use batch::{DynamicBatcher, BatchConfig};
+    use batch::{BatchConfig, DynamicBatcher};
 
     let config = BatchConfig {
         max_batch_size: 32,
@@ -263,15 +280,10 @@ async fn demo_batching() {
         preferred_batch_size: 16,
     };
 
-    let batcher = Arc::new(DynamicBatcher::new(
-        config,
-        |items: Vec<i32>| {
-            // Simulate batch processing
-            items.into_iter()
-                .map(|x| Ok(x * 2))
-                .collect()
-        },
-    ));
+    let batcher = Arc::new(DynamicBatcher::new(config, |items: Vec<i32>| {
+        // Simulate batch processing
+        items.into_iter().map(|x| Ok(x * 2)).collect()
+    }));
 
     // Start processing loop
     let batcher_clone = batcher.clone();
@@ -283,9 +295,7 @@ async fn demo_batching() {
     let mut handles = vec![];
     for i in 0..100 {
         let batcher = batcher.clone();
-        handles.push(tokio::spawn(async move {
-            batcher.add(i).await
-        }));
+        handles.push(tokio::spawn(async move { batcher.add(i).await }));
     }
 
     // Wait for results

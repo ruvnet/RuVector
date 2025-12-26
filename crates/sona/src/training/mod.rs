@@ -44,30 +44,27 @@
 //! coordinator.aggregate(export);
 //! ```
 
-mod templates;
 mod factory;
-mod pipeline;
-mod metrics;
 mod federated;
+mod metrics;
+mod pipeline;
+mod templates;
 
-pub use templates::{
-    TrainingTemplate, TemplatePreset, VerticalConfig,
-    AgentType, TaskDomain, TrainingMethod, DataSizeHint,
-};
 pub use factory::{
-    AgentFactory, ManagedAgent, AgentHandle, AgentStats,
-    TrainingExample as FactoryTrainingExample, SimpleExample, SharedAgentFactory,
-};
-pub use pipeline::{
-    TrainingPipeline, PipelineStage, TrainingExample,
-    BatchConfig, TrainingCallback,
-};
-pub use metrics::{
-    TrainingMetrics, TrainingResult, EpochStats,
-    QualityMetrics, PerformanceMetrics,
+    AgentFactory, AgentHandle, AgentStats, ManagedAgent, SharedAgentFactory, SimpleExample,
+    TrainingExample as FactoryTrainingExample,
 };
 pub use federated::{
-    EphemeralAgent, FederatedCoordinator, AgentExport,
-    TrajectoryExport, AgentExportStats, AgentContribution,
-    AggregationResult, CoordinatorStats, FederatedTopology,
+    AgentContribution, AgentExport, AgentExportStats, AggregationResult, CoordinatorStats,
+    EphemeralAgent, FederatedCoordinator, FederatedTopology, TrajectoryExport,
+};
+pub use metrics::{
+    EpochStats, PerformanceMetrics, QualityMetrics, TrainingMetrics, TrainingResult,
+};
+pub use pipeline::{
+    BatchConfig, PipelineStage, TrainingCallback, TrainingExample, TrainingPipeline,
+};
+pub use templates::{
+    AgentType, DataSizeHint, TaskDomain, TemplatePreset, TrainingMethod, TrainingTemplate,
+    VerticalConfig,
 };

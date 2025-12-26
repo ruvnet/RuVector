@@ -58,7 +58,11 @@ fn demo_bridge_detection() {
     graph.insert_edge(6, 4, 1.0).unwrap();
 
     println!("Graph: Two triangles connected by a bridge");
-    println!("Vertices: {}, Edges: {}", graph.num_vertices(), graph.num_edges());
+    println!(
+        "Vertices: {}, Edges: {}",
+        graph.num_vertices(),
+        graph.num_edges()
+    );
 
     // Find local cut from vertex 1
     let local_kcut = LocalKCut::new(graph.clone(), 5);
@@ -112,8 +116,12 @@ fn demo_deterministic_coloring() {
     println!("\nFinding cuts from different starting vertices:");
     for start_vertex in 1..=5 {
         if let Some(result) = lk1.find_cut(start_vertex) {
-            println!("  Vertex {}: cut value = {}, set size = {}",
-                start_vertex, result.cut_value, result.cut_set.len());
+            println!(
+                "  Vertex {}: cut value = {}, set size = {}",
+                start_vertex,
+                result.cut_value,
+                result.cut_set.len()
+            );
         }
     }
 }
@@ -139,13 +147,20 @@ fn demo_forest_packing() {
     graph.insert_edge(6, 7, 1.0).unwrap();
 
     println!("Graph: Complex grid-like structure");
-    println!("Vertices: {}, Edges: {}", graph.num_vertices(), graph.num_edges());
+    println!(
+        "Vertices: {}, Edges: {}",
+        graph.num_vertices(),
+        graph.num_edges()
+    );
 
     // Create forest packing
     let lambda_max = 3; // Upper bound on min cut
-    let epsilon = 0.1;  // Approximation parameter
+    let epsilon = 0.1; // Approximation parameter
 
-    println!("\nCreating forest packing with λ_max={}, ε={}...", lambda_max, epsilon);
+    println!(
+        "\nCreating forest packing with λ_max={}, ε={}...",
+        lambda_max, epsilon
+    );
     let packing = ForestPacking::greedy_packing(&*graph, lambda_max, epsilon);
 
     println!("✓ Created {} forests", packing.num_forests());
@@ -203,7 +218,11 @@ fn demo_local_vs_global() {
     graph.insert_edge(6, 9, 1.0).unwrap();
 
     println!("Graph: 3x3 grid with different edge weights");
-    println!("Vertices: {}, Edges: {}", graph.num_vertices(), graph.num_edges());
+    println!(
+        "Vertices: {}, Edges: {}",
+        graph.num_vertices(),
+        graph.num_edges()
+    );
 
     // Find local cuts from different vertices
     let local_kcut = LocalKCut::new(graph.clone(), 10);
@@ -211,16 +230,15 @@ fn demo_local_vs_global() {
     println!("\nLocal cuts from different vertices:");
     for vertex in &[1, 5, 9] {
         if let Some(result) = local_kcut.find_cut(*vertex) {
-            println!("  Vertex {}: cut value = {}, iterations = {}",
-                vertex, result.cut_value, result.iterations);
+            println!(
+                "  Vertex {}: cut value = {}, iterations = {}",
+                vertex, result.cut_value, result.iterations
+            );
         }
     }
 
     // Build global minimum cut (using the algorithm)
-    let mut mincut = MinCutBuilder::new()
-        .exact()
-        .build()
-        .unwrap();
+    let mut mincut = MinCutBuilder::new().exact().build().unwrap();
 
     // Add edges to global mincut
     for edge in graph.edges() {
@@ -240,14 +258,14 @@ fn demo_complex_graph() {
     // Create a graph with multiple communities
     // Community 1: clique {1,2,3,4}
     for i in 1..=4 {
-        for j in i+1..=4 {
+        for j in i + 1..=4 {
             graph.insert_edge(i, j, 2.0).unwrap();
         }
     }
 
     // Community 2: clique {5,6,7,8}
     for i in 5..=8 {
-        for j in i+1..=8 {
+        for j in i + 1..=8 {
             graph.insert_edge(i, j, 2.0).unwrap();
         }
     }
@@ -257,7 +275,11 @@ fn demo_complex_graph() {
     graph.insert_edge(3, 6, 0.5).unwrap();
 
     println!("Graph: Two dense communities with weak connections");
-    println!("Vertices: {}, Edges: {}", graph.num_vertices(), graph.num_edges());
+    println!(
+        "Vertices: {}, Edges: {}",
+        graph.num_vertices(),
+        graph.num_edges()
+    );
 
     let stats = graph.stats();
     println!("Average degree: {:.2}", stats.avg_degree);
@@ -272,18 +294,22 @@ fn demo_complex_graph() {
     if let Some(result) = local_kcut.find_cut(1) {
         println!("  From community 1:");
         println!("    Cut value: {}", result.cut_value);
-        println!("    Separates {} vertices from {}",
+        println!(
+            "    Separates {} vertices from {}",
             result.cut_set.len(),
-            graph.num_vertices() - result.cut_set.len());
+            graph.num_vertices() - result.cut_set.len()
+        );
     }
 
     // Try from community 2
     if let Some(result) = local_kcut.find_cut(5) {
         println!("  From community 2:");
         println!("    Cut value: {}", result.cut_value);
-        println!("    Separates {} vertices from {}",
+        println!(
+            "    Separates {} vertices from {}",
             result.cut_set.len(),
-            graph.num_vertices() - result.cut_set.len());
+            graph.num_vertices() - result.cut_set.len()
+        );
     }
 
     // Enumerate paths to understand graph structure

@@ -53,10 +53,10 @@ pub mod parser;
 pub mod symbols;
 
 // Re-export commonly used types
+pub use asciimath::AsciiMathGenerator;
 pub use ast::{BinaryOp, BracketType, LargeOpType, MathExpr, MathNode, MathVisitor, UnaryOp};
 pub use latex::{LaTeXConfig, LaTeXGenerator};
 pub use mathml::MathMLGenerator;
-pub use asciimath::AsciiMathGenerator;
 pub use parser::{parse_expression, Parser};
 pub use symbols::{get_symbol, unicode_to_latex, MathSymbol, SymbolCategory};
 

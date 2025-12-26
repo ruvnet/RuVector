@@ -10,19 +10,19 @@
 //! - [`replacement`]: Replacement edge index for tree edge deletions
 //! - [`approximate`]: (1+ε)-approximate min-cut for all cut sizes (SODA 2025)
 
-pub mod replacement;
 pub mod approximate;
+pub mod replacement;
 
 pub use replacement::{ReplacementEdgeIndex, ReplacementIndexStats};
 
+use crate::error::{MinCutError, Result};
+use crate::euler::EulerTourTree;
+use crate::graph::{DynamicGraph, Edge, EdgeId, VertexId, Weight};
+use crate::linkcut::LinkCutTree;
+use crate::tree::HierarchicalDecomposition;
+use parking_lot::RwLock;
 use std::sync::Arc;
 use std::time::Instant;
-use parking_lot::RwLock;
-use crate::graph::{DynamicGraph, VertexId, EdgeId, Weight, Edge};
-use crate::tree::HierarchicalDecomposition;
-use crate::linkcut::LinkCutTree;
-use crate::euler::EulerTourTree;
-use crate::error::{MinCutError, Result};
 
 /// Configuration for the minimum cut algorithm
 #[derive(Debug, Clone)]
@@ -200,10 +200,8 @@ impl DynamicMinCut {
 
         // Ensure vertices exist in data structures
         // Create vertices in link-cut tree and Euler tour tree if they don't exist
-        let u_exists = self.link_cut_tree.len() > 0 &&
-            self.link_cut_tree.find_root(u).is_ok();
-        let v_exists = self.link_cut_tree.len() > 0 &&
-            self.link_cut_tree.find_root(v).is_ok();
+        let u_exists = self.link_cut_tree.len() > 0 && self.link_cut_tree.find_root(u).is_ok();
+        let v_exists = self.link_cut_tree.len() > 0 && self.link_cut_tree.find_root(v).is_ok();
 
         if !u_exists {
             self.link_cut_tree.make_tree(u, 0.0);
@@ -504,8 +502,8 @@ impl DynamicMinCut {
         drop(graph);
 
         let graph_for_decomp = Arc::new(graph_clone);
-        self.decomposition = HierarchicalDecomposition::build(graph_for_decomp)
-            .unwrap_or_else(|_| {
+        self.decomposition =
+            HierarchicalDecomposition::build(graph_for_decomp).unwrap_or_else(|_| {
                 // If build fails, create an empty one
                 let empty = Arc::new(DynamicGraph::new());
                 HierarchicalDecomposition::build(empty).unwrap()
@@ -681,16 +679,9 @@ mod tests {
 
     #[test]
     fn test_triangle() {
-        let edges = vec![
-            (1, 2, 1.0),
-            (2, 3, 1.0),
-            (3, 1, 1.0),
-        ];
+        let edges = vec![(1, 2, 1.0), (2, 3, 1.0), (3, 1, 1.0)];
 
-        let mincut = MinCutBuilder::new()
-            .with_edges(edges)
-            .build()
-            .unwrap();
+        let mincut = MinCutBuilder::new().with_edges(edges).build().unwrap();
 
         assert_eq!(mincut.num_vertices(), 3);
         assert_eq!(mincut.num_edges(), 3);
@@ -713,10 +704,7 @@ mod tests {
     #[test]
     fn test_delete_edge() {
         let mut mincut = MinCutBuilder::new()
-            .with_edges(vec![
-                (1, 2, 1.0),
-                (2, 3, 1.0),
-            ])
+            .with_edges(vec![(1, 2, 1.0), (2, 3, 1.0)])
             .build()
             .unwrap();
 
@@ -731,10 +719,7 @@ mod tests {
     #[test]
     fn test_disconnected_graph() {
         let mincut = MinCutBuilder::new()
-            .with_edges(vec![
-                (1, 2, 1.0),
-                (3, 4, 1.0),
-            ])
+            .with_edges(vec![(1, 2, 1.0), (3, 4, 1.0)])
             .build()
             .unwrap();
 
@@ -744,16 +729,9 @@ mod tests {
 
     #[test]
     fn test_weighted_edges() {
-        let edges = vec![
-            (1, 2, 2.0),
-            (2, 3, 3.0),
-            (3, 1, 1.0),
-        ];
+        let edges = vec![(1, 2, 2.0), (2, 3, 3.0), (3, 1, 1.0)];
 
-        let mincut = MinCutBuilder::new()
-            .with_edges(edges)
-            .build()
-            .unwrap();
+        let mincut = MinCutBuilder::new().with_edges(edges).build().unwrap();
 
         // Minimum cut should be 2.0 (cutting {1} from {2,3} or similar)
         assert_eq!(mincut.min_cut_value(), 3.0);
@@ -761,16 +739,9 @@ mod tests {
 
     #[test]
     fn test_partition() {
-        let edges = vec![
-            (1, 2, 1.0),
-            (2, 3, 1.0),
-            (3, 4, 1.0),
-        ];
+        let edges = vec![(1, 2, 1.0), (2, 3, 1.0), (3, 4, 1.0)];
 
-        let mincut = MinCutBuilder::new()
-            .with_edges(edges)
-            .build()
-            .unwrap();
+        let mincut = MinCutBuilder::new().with_edges(edges).build().unwrap();
 
         let (s, t) = mincut.partition();
         assert!(!s.is_empty());
@@ -780,15 +751,9 @@ mod tests {
 
     #[test]
     fn test_cut_edges() {
-        let edges = vec![
-            (1, 2, 1.0),
-            (2, 3, 1.0),
-        ];
+        let edges = vec![(1, 2, 1.0), (2, 3, 1.0)];
 
-        let mincut = MinCutBuilder::new()
-            .with_edges(edges)
-            .build()
-            .unwrap();
+        let mincut = MinCutBuilder::new().with_edges(edges).build().unwrap();
 
         let cut = mincut.cut_edges();
         assert!(!cut.is_empty());
@@ -797,11 +762,7 @@ mod tests {
 
     #[test]
     fn test_min_cut_result() {
-        let edges = vec![
-            (1, 2, 1.0),
-            (2, 3, 1.0),
-            (3, 1, 1.0),
-        ];
+        let edges = vec![(1, 2, 1.0), (2, 3, 1.0), (3, 1, 1.0)];
 
         let mincut = MinCutBuilder::new()
             .exact()
@@ -818,10 +779,7 @@ mod tests {
 
     #[test]
     fn test_approximate_mode() {
-        let mincut = MinCutBuilder::new()
-            .approximate(0.1)
-            .build()
-            .unwrap();
+        let mincut = MinCutBuilder::new().approximate(0.1).build().unwrap();
 
         let result = mincut.min_cut();
         assert!(!result.is_exact);
@@ -884,10 +842,7 @@ mod tests {
             edges.push((i, i + 1, 1.0));
         }
 
-        let mincut = MinCutBuilder::new()
-            .with_edges(edges)
-            .build()
-            .unwrap();
+        let mincut = MinCutBuilder::new().with_edges(edges).build().unwrap();
 
         assert_eq!(mincut.num_vertices(), 100);
         assert_eq!(mincut.num_edges(), 99);
@@ -917,16 +872,9 @@ mod tests {
 
     #[test]
     fn test_multiple_components() {
-        let edges = vec![
-            (1, 2, 1.0),
-            (3, 4, 1.0),
-            (5, 6, 1.0),
-        ];
+        let edges = vec![(1, 2, 1.0), (3, 4, 1.0), (5, 6, 1.0)];
 
-        let mincut = MinCutBuilder::new()
-            .with_edges(edges)
-            .build()
-            .unwrap();
+        let mincut = MinCutBuilder::new().with_edges(edges).build().unwrap();
 
         assert!(!mincut.is_connected());
         assert_eq!(mincut.min_cut_value(), 0.0);
@@ -996,10 +944,7 @@ mod tests {
             (6, 4, 2.0),
         ];
 
-        let mincut = MinCutBuilder::new()
-            .with_edges(edges)
-            .build()
-            .unwrap();
+        let mincut = MinCutBuilder::new().with_edges(edges).build().unwrap();
 
         // Minimum cut should be the bridge with weight 1.0
         assert_eq!(mincut.min_cut_value(), 1.0);
@@ -1016,10 +961,7 @@ mod tests {
             }
         }
 
-        let mincut = MinCutBuilder::new()
-            .with_edges(edges)
-            .build()
-            .unwrap();
+        let mincut = MinCutBuilder::new().with_edges(edges).build().unwrap();
 
         assert_eq!(mincut.num_vertices(), 4);
         assert_eq!(mincut.num_edges(), 6);
@@ -1049,11 +991,7 @@ mod tests {
     #[test]
     fn test_sequential_deletions() {
         let mut mincut = MinCutBuilder::new()
-            .with_edges(vec![
-                (1, 2, 1.0),
-                (2, 3, 1.0),
-                (3, 1, 1.0),
-            ])
+            .with_edges(vec![(1, 2, 1.0), (2, 3, 1.0), (3, 1, 1.0)])
             .build()
             .unwrap();
 

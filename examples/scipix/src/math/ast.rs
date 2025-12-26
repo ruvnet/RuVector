@@ -51,10 +51,7 @@ pub enum MathNode {
     },
 
     /// Unary operation (op a)
-    Unary {
-        op: UnaryOp,
-        operand: Box<MathNode>,
-    },
+    Unary { op: UnaryOp, operand: Box<MathNode> },
 
     /// Fraction (numerator / denominator)
     Fraction {
@@ -103,14 +100,10 @@ pub enum MathNode {
     },
 
     /// Sequence of expressions (e.g., function arguments)
-    Sequence {
-        elements: Vec<MathNode>,
-    },
+    Sequence { elements: Vec<MathNode> },
 
     /// Text annotation in math mode
-    Text {
-        content: String,
-    },
+    Text { content: String },
 
     /// Empty/placeholder node
     Empty,
@@ -290,16 +283,16 @@ impl fmt::Display for UnaryOp {
 /// Large operator types (∑, ∫, etc.)
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum LargeOpType {
-    Sum,           // ∑
-    Product,       // ∏
-    Integral,      // ∫
-    DoubleIntegral, // ∬
-    TripleIntegral, // ∭
+    Sum,             // ∑
+    Product,         // ∏
+    Integral,        // ∫
+    DoubleIntegral,  // ∬
+    TripleIntegral,  // ∭
     ContourIntegral, // ∮
-    Union,         // ⋃
-    Intersection,  // ⋂
-    Coproduct,     // ∐
-    DirectSum,     // ⊕
+    Union,           // ⋃
+    Intersection,    // ⋂
+    Coproduct,       // ∐
+    DirectSum,       // ⊕
     Custom(String),
 }
 
@@ -324,15 +317,15 @@ impl fmt::Display for LargeOpType {
 /// Bracket types for grouping and matrices
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum BracketType {
-    Parentheses,  // ( )
-    Brackets,     // [ ]
-    Braces,       // { }
-    AngleBrackets, // ⟨ ⟩
-    Vertical,     // | |
+    Parentheses,    // ( )
+    Brackets,       // [ ]
+    Braces,         // { }
+    AngleBrackets,  // ⟨ ⟩
+    Vertical,       // | |
     DoubleVertical, // ‖ ‖
-    Floor,        // ⌊ ⌋
-    Ceiling,      // ⌈ ⌉
-    None,         // No brackets
+    Floor,          // ⌊ ⌋
+    Ceiling,        // ⌈ ⌉
+    None,           // No brackets
 }
 
 impl BracketType {

@@ -11,12 +11,12 @@
 //! - Operation gating based on integrity state
 //! - Event logging and audit trail
 
+use parking_lot::RwLock;
 use pgrx::prelude::*;
+use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::OnceLock;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
-use parking_lot::RwLock;
-use serde::{Deserialize, Serialize};
 
 // ============================================================================
 // Stoer-Wagner Mincut Algorithm (Self-contained implementation)
@@ -94,11 +94,7 @@ pub fn stoer_wagner_mincut(num_nodes: usize, edges: &[(usize, usize, f64)]) -> f
 
 /// Perform one phase of the Stoer-Wagner algorithm using maximum adjacency search.
 /// Returns (cut_weight, s, t) where s and t are the last two vertices added.
-fn minimum_cut_phase(
-    adj: &[Vec<f64>],
-    active: &[bool],
-    _remaining: usize,
-) -> (f64, usize, usize) {
+fn minimum_cut_phase(adj: &[Vec<f64>], active: &[bool], _remaining: usize) -> (f64, usize, usize) {
     let n = adj.len();
 
     // Find first active vertex to start
@@ -406,11 +402,7 @@ impl IntegrityWorker {
         let lambda_cut = stoer_wagner_mincut(num_nodes, &edges);
 
         if self.config.verbose {
-            pgrx::log!(
-                "Collection {}: lambda_cut={:.4}",
-                collection_id,
-                lambda_cut
-            );
+            pgrx::log!("Collection {}: lambda_cut={:.4}", collection_id, lambda_cut);
         }
 
         // Update state
@@ -452,10 +444,7 @@ impl IntegrityWorker {
                 }
 
                 if let Err(e) = self.sample_collection(collection_id) {
-                    pgrx::warning!(
-                        "Failed to sample collection {}: {}",
-                        collection_id, e
-                    );
+                    pgrx::warning!("Failed to sample collection {}: {}", collection_id, e);
                 }
             }
 
@@ -586,12 +575,10 @@ pub fn ruvector_integrity_sample(collection_id: i32) -> pgrx::JsonB {
                 })),
             }))
         }
-        Err(e) => {
-            pgrx::JsonB(serde_json::json!({
-                "success": false,
-                "error": e,
-            }))
-        }
+        Err(e) => pgrx::JsonB(serde_json::json!({
+            "success": false,
+            "error": e,
+        })),
     }
 }
 

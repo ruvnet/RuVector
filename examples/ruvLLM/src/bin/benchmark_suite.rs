@@ -3,9 +3,9 @@
 //! Compares RuvLLM against state-of-the-art systems and tracks
 //! self-learning improvement over time.
 
-use ruvllm::{Config, RuvLLM, Result, Feedback};
-use std::time::{Duration, Instant};
+use ruvllm::{Config, Feedback, Result, RuvLLM};
 use std::collections::HashMap;
+use std::time::{Duration, Instant};
 
 /// Benchmark configuration
 struct BenchmarkConfig {
@@ -88,10 +88,10 @@ impl Default for SOTABaselines {
             phi_4_latency_ms: 15.0,           // Phi-4 14B local
 
             // Throughput (tokens/sec normalized to queries/sec) - December 2025
-            vllm_throughput: 280.0,           // vLLM 0.6+ with PagedAttention
-            sglang_throughput: 350.0,         // SGLang optimized
-            tensorrt_llm_throughput: 420.0,   // TensorRT-LLM on A100
-            ollama_throughput: 80.0,          // Ollama local
+            vllm_throughput: 280.0,         // vLLM 0.6+ with PagedAttention
+            sglang_throughput: 350.0,       // SGLang optimized
+            tensorrt_llm_throughput: 420.0, // TensorRT-LLM on A100
+            ollama_throughput: 80.0,        // Ollama local
 
             // Quality scores (normalized)
             rag_quality: 0.78,
@@ -177,9 +177,13 @@ async fn benchmark_latency(llm: &RuvLLM, config: &BenchmarkConfig) -> Result<Ben
 }
 
 /// Run throughput benchmark
-async fn benchmark_throughput(llm: std::sync::Arc<RuvLLM>, concurrency: usize, duration_secs: u64) -> Result<f64> {
-    use std::sync::Arc;
+async fn benchmark_throughput(
+    llm: std::sync::Arc<RuvLLM>,
+    concurrency: usize,
+    duration_secs: u64,
+) -> Result<f64> {
     use std::sync::atomic::{AtomicU64, Ordering};
+    use std::sync::Arc;
 
     let counter = Arc::new(AtomicU64::new(0));
     let start = Instant::now();
@@ -343,52 +347,111 @@ async fn benchmark_self_learning(config: &BenchmarkConfig) -> Result<Vec<Learnin
 
 /// Print comparison table (December 2025 SOTA)
 fn print_comparison_table(metrics: &BenchmarkMetrics, baselines: &SOTABaselines) {
-    println!("\n╔════════════════════════════════════════════════════════════════════════════════╗");
+    println!(
+        "\n╔════════════════════════════════════════════════════════════════════════════════╗"
+    );
     println!("║              LATENCY COMPARISON - December 2025 (Lower is Better)              ║");
     println!("╠════════════════════════════════════════════════════════════════════════════════╣");
     println!("║ System                 │ P50 (ms) │ P95 (ms) │ P99 (ms) │ Speedup vs GPT-4o    ║");
     println!("╠════════════════════════════════════════════════════════════════════════════════╣");
-    println!("║ GPT-4o (API)           │ {:>8.2} │ {:>8.2} │ {:>8.2} │ {:>19}  ║",
-             baselines.gpt4o_latency_ms, baselines.gpt4o_latency_ms * 1.3, baselines.gpt4o_latency_ms * 1.6, "1.0x (baseline)");
-    println!("║ Claude 3.5 Sonnet      │ {:>8.2} │ {:>8.2} │ {:>8.2} │ {:>19.1}x ║",
-             baselines.claude_sonnet_latency_ms, baselines.claude_sonnet_latency_ms * 1.2, baselines.claude_sonnet_latency_ms * 1.4,
-             baselines.gpt4o_latency_ms / baselines.claude_sonnet_latency_ms);
-    println!("║ Gemini 2.0 Flash       │ {:>8.2} │ {:>8.2} │ {:>8.2} │ {:>19.1}x ║",
-             baselines.gemini_2_flash_latency_ms, baselines.gemini_2_flash_latency_ms * 1.3, baselines.gemini_2_flash_latency_ms * 1.5,
-             baselines.gpt4o_latency_ms / baselines.gemini_2_flash_latency_ms);
-    println!("║ Llama 3.3 70B (vLLM)   │ {:>8.2} │ {:>8.2} │ {:>8.2} │ {:>19.1}x ║",
-             baselines.llama_3_3_70b_latency_ms, baselines.llama_3_3_70b_latency_ms * 1.4, baselines.llama_3_3_70b_latency_ms * 1.8,
-             baselines.gpt4o_latency_ms / baselines.llama_3_3_70b_latency_ms);
-    println!("║ DeepSeek V3 671B       │ {:>8.2} │ {:>8.2} │ {:>8.2} │ {:>19.1}x ║",
-             baselines.deepseek_v3_latency_ms, baselines.deepseek_v3_latency_ms * 1.3, baselines.deepseek_v3_latency_ms * 1.6,
-             baselines.gpt4o_latency_ms / baselines.deepseek_v3_latency_ms);
-    println!("║ Qwen 2.5 72B           │ {:>8.2} │ {:>8.2} │ {:>8.2} │ {:>19.1}x ║",
-             baselines.qwen_2_5_72b_latency_ms, baselines.qwen_2_5_72b_latency_ms * 1.3, baselines.qwen_2_5_72b_latency_ms * 1.5,
-             baselines.gpt4o_latency_ms / baselines.qwen_2_5_72b_latency_ms);
-    println!("║ Mistral Large 2        │ {:>8.2} │ {:>8.2} │ {:>8.2} │ {:>19.1}x ║",
-             baselines.mistral_large_latency_ms, baselines.mistral_large_latency_ms * 1.4, baselines.mistral_large_latency_ms * 1.7,
-             baselines.gpt4o_latency_ms / baselines.mistral_large_latency_ms);
-    println!("║ Phi-4 14B (Local)      │ {:>8.2} │ {:>8.2} │ {:>8.2} │ {:>19.1}x ║",
-             baselines.phi_4_latency_ms, baselines.phi_4_latency_ms * 1.3, baselines.phi_4_latency_ms * 1.5,
-             baselines.gpt4o_latency_ms / baselines.phi_4_latency_ms);
+    println!(
+        "║ GPT-4o (API)           │ {:>8.2} │ {:>8.2} │ {:>8.2} │ {:>19}  ║",
+        baselines.gpt4o_latency_ms,
+        baselines.gpt4o_latency_ms * 1.3,
+        baselines.gpt4o_latency_ms * 1.6,
+        "1.0x (baseline)"
+    );
+    println!(
+        "║ Claude 3.5 Sonnet      │ {:>8.2} │ {:>8.2} │ {:>8.2} │ {:>19.1}x ║",
+        baselines.claude_sonnet_latency_ms,
+        baselines.claude_sonnet_latency_ms * 1.2,
+        baselines.claude_sonnet_latency_ms * 1.4,
+        baselines.gpt4o_latency_ms / baselines.claude_sonnet_latency_ms
+    );
+    println!(
+        "║ Gemini 2.0 Flash       │ {:>8.2} │ {:>8.2} │ {:>8.2} │ {:>19.1}x ║",
+        baselines.gemini_2_flash_latency_ms,
+        baselines.gemini_2_flash_latency_ms * 1.3,
+        baselines.gemini_2_flash_latency_ms * 1.5,
+        baselines.gpt4o_latency_ms / baselines.gemini_2_flash_latency_ms
+    );
+    println!(
+        "║ Llama 3.3 70B (vLLM)   │ {:>8.2} │ {:>8.2} │ {:>8.2} │ {:>19.1}x ║",
+        baselines.llama_3_3_70b_latency_ms,
+        baselines.llama_3_3_70b_latency_ms * 1.4,
+        baselines.llama_3_3_70b_latency_ms * 1.8,
+        baselines.gpt4o_latency_ms / baselines.llama_3_3_70b_latency_ms
+    );
+    println!(
+        "║ DeepSeek V3 671B       │ {:>8.2} │ {:>8.2} │ {:>8.2} │ {:>19.1}x ║",
+        baselines.deepseek_v3_latency_ms,
+        baselines.deepseek_v3_latency_ms * 1.3,
+        baselines.deepseek_v3_latency_ms * 1.6,
+        baselines.gpt4o_latency_ms / baselines.deepseek_v3_latency_ms
+    );
+    println!(
+        "║ Qwen 2.5 72B           │ {:>8.2} │ {:>8.2} │ {:>8.2} │ {:>19.1}x ║",
+        baselines.qwen_2_5_72b_latency_ms,
+        baselines.qwen_2_5_72b_latency_ms * 1.3,
+        baselines.qwen_2_5_72b_latency_ms * 1.5,
+        baselines.gpt4o_latency_ms / baselines.qwen_2_5_72b_latency_ms
+    );
+    println!(
+        "║ Mistral Large 2        │ {:>8.2} │ {:>8.2} │ {:>8.2} │ {:>19.1}x ║",
+        baselines.mistral_large_latency_ms,
+        baselines.mistral_large_latency_ms * 1.4,
+        baselines.mistral_large_latency_ms * 1.7,
+        baselines.gpt4o_latency_ms / baselines.mistral_large_latency_ms
+    );
+    println!(
+        "║ Phi-4 14B (Local)      │ {:>8.2} │ {:>8.2} │ {:>8.2} │ {:>19.1}x ║",
+        baselines.phi_4_latency_ms,
+        baselines.phi_4_latency_ms * 1.3,
+        baselines.phi_4_latency_ms * 1.5,
+        baselines.gpt4o_latency_ms / baselines.phi_4_latency_ms
+    );
     println!("╠════════════════════════════════════════════════════════════════════════════════╣");
-    println!("║ \x1b[32mRuvLLM (This)          │ {:>8.2} │ {:>8.2} │ {:>8.2} │ {:>19.0}x\x1b[0m ║",
-             metrics.latency_p50_ms, metrics.latency_p95_ms, metrics.latency_p99_ms,
-             baselines.gpt4o_latency_ms / metrics.latency_p50_ms);
+    println!(
+        "║ \x1b[32mRuvLLM (This)          │ {:>8.2} │ {:>8.2} │ {:>8.2} │ {:>19.0}x\x1b[0m ║",
+        metrics.latency_p50_ms,
+        metrics.latency_p95_ms,
+        metrics.latency_p99_ms,
+        baselines.gpt4o_latency_ms / metrics.latency_p50_ms
+    );
     println!("╚════════════════════════════════════════════════════════════════════════════════╝");
 
-    println!("\n╔════════════════════════════════════════════════════════════════════════════════╗");
+    println!(
+        "\n╔════════════════════════════════════════════════════════════════════════════════╗"
+    );
     println!("║            THROUGHPUT COMPARISON - December 2025 (Higher is Better)            ║");
     println!("╠════════════════════════════════════════════════════════════════════════════════╣");
     println!("║ System                 │ Queries/sec │ vs TensorRT-LLM                         ║");
     println!("╠════════════════════════════════════════════════════════════════════════════════╣");
-    println!("║ TensorRT-LLM (A100)    │ {:>11.1} │ {:>39} ║", baselines.tensorrt_llm_throughput, "1.0x (baseline)");
-    println!("║ SGLang (Optimized)     │ {:>11.1} │ {:>38.2}x ║", baselines.sglang_throughput, baselines.sglang_throughput / baselines.tensorrt_llm_throughput);
-    println!("║ vLLM 0.6+ (A100)       │ {:>11.1} │ {:>38.2}x ║", baselines.vllm_throughput, baselines.vllm_throughput / baselines.tensorrt_llm_throughput);
-    println!("║ Ollama (Local CPU)     │ {:>11.1} │ {:>38.2}x ║", baselines.ollama_throughput, baselines.ollama_throughput / baselines.tensorrt_llm_throughput);
+    println!(
+        "║ TensorRT-LLM (A100)    │ {:>11.1} │ {:>39} ║",
+        baselines.tensorrt_llm_throughput, "1.0x (baseline)"
+    );
+    println!(
+        "║ SGLang (Optimized)     │ {:>11.1} │ {:>38.2}x ║",
+        baselines.sglang_throughput,
+        baselines.sglang_throughput / baselines.tensorrt_llm_throughput
+    );
+    println!(
+        "║ vLLM 0.6+ (A100)       │ {:>11.1} │ {:>38.2}x ║",
+        baselines.vllm_throughput,
+        baselines.vllm_throughput / baselines.tensorrt_llm_throughput
+    );
+    println!(
+        "║ Ollama (Local CPU)     │ {:>11.1} │ {:>38.2}x ║",
+        baselines.ollama_throughput,
+        baselines.ollama_throughput / baselines.tensorrt_llm_throughput
+    );
     println!("╠════════════════════════════════════════════════════════════════════════════════╣");
-    println!("║ \x1b[32mRuvLLM (CPU Only)      │ {:>11.1} │ {:>38.0}x\x1b[0m ║",
-             metrics.throughput_qps, metrics.throughput_qps / baselines.tensorrt_llm_throughput);
+    println!(
+        "║ \x1b[32mRuvLLM (CPU Only)      │ {:>11.1} │ {:>38.0}x\x1b[0m ║",
+        metrics.throughput_qps,
+        metrics.throughput_qps / baselines.tensorrt_llm_throughput
+    );
     println!("╚════════════════════════════════════════════════════════════════════════════════╝");
 }
 
@@ -404,15 +467,17 @@ fn print_learning_progress(metrics: &[LearningMetrics]) {
         let bar_len = ((m.improvement_vs_baseline / 5.0) * 10.0).min(10.0) as usize;
         let bar = "█".repeat(bar_len) + &"░".repeat(10 - bar_len);
 
-        println!("║ {:>5} │ {:>7} │ {:>6.1}% │ {:>6.1}% │ {:>8.1}% │ {:>6} │ {:>5.1}% {} ║",
-                 m.epoch,
-                 m.cumulative_queries,
-                 m.avg_quality * 100.0,
-                 m.routing_accuracy * 100.0,
-                 m.cache_hit_rate * 100.0,
-                 m.memory_nodes,
-                 m.improvement_vs_baseline,
-                 bar);
+        println!(
+            "║ {:>5} │ {:>7} │ {:>6.1}% │ {:>6.1}% │ {:>8.1}% │ {:>6} │ {:>5.1}% {} ║",
+            m.epoch,
+            m.cumulative_queries,
+            m.avg_quality * 100.0,
+            m.routing_accuracy * 100.0,
+            m.cache_hit_rate * 100.0,
+            m.memory_nodes,
+            m.improvement_vs_baseline,
+            bar
+        );
     }
     println!("╚═══════════════════════════════════════════════════════════════════════════╝");
 }
@@ -472,7 +537,9 @@ fn print_ruvllm_advantages() {
     println!("║  └─────────────────────────────────────────────────────────────────────────────────┘   ║");
     println!("║                                                                                        ║");
     println!("║  DEPLOYMENT: RuvLLM wraps ANY LLM backend (llama.cpp, vLLM, OpenAI API, Ollama)        ║");
-    println!("║  The benchmark numbers above measure the ORCHESTRATION layer, not LLM generation.     ║");
+    println!(
+        "║  The benchmark numbers above measure the ORCHESTRATION layer, not LLM generation.     ║"
+    );
     println!("║                                                                                        ║");
     println!("╚════════════════════════════════════════════════════════════════════════════════════════╝");
 }
@@ -482,7 +549,9 @@ fn print_feature_comparison() {
     println!("\n╔════════════════════════════════════════════════════════════════════════════════════════╗");
     println!("║                         FEATURE COMPARISON MATRIX (December 2025)                      ║");
     println!("╠════════════════════════════════════════════════════════════════════════════════════════╣");
-    println!("║ Feature                    │ GPT-4o │ Claude │ Gemini │ RAG   │ vLLM │ RuvLLM         ║");
+    println!(
+        "║ Feature                    │ GPT-4o │ Claude │ Gemini │ RAG   │ vLLM │ RuvLLM         ║"
+    );
     println!("╠════════════════════════════════════════════════════════════════════════════════════════╣");
     println!("║ On-device Inference        │   ✗    │   ✗    │   ✗    │  ✗    │  ✓   │ \x1b[32m✓\x1b[0m              ║");
     println!("║ Continuous Learning        │   ✗    │   ✗    │   ✗    │  ✗    │  ✗   │ \x1b[32m✓\x1b[0m              ║");
@@ -507,15 +576,23 @@ fn print_quality_comparison(avg_quality: f64, baselines: &SOTABaselines) {
     println!("╠═══════════════════════════════════════════════════════════════════════════╣");
     println!("║ System                          │ Quality Score │ Notes                   ║");
     println!("╠═══════════════════════════════════════════════════════════════════════════╣");
-    println!("║ Vanilla LLM (no retrieval)      │ {:>12.1}% │ Static knowledge only   ║",
-             baselines.vanilla_llm_quality * 100.0);
-    println!("║ Traditional RAG                 │ {:>12.1}% │ Fixed retrieval         ║",
-             baselines.rag_quality * 100.0);
-    println!("║ \x1b[32mRuvLLM (after learning)         │ {:>12.1}% │ Adaptive + learning\x1b[0m    ║",
-             avg_quality * 100.0);
+    println!(
+        "║ Vanilla LLM (no retrieval)      │ {:>12.1}% │ Static knowledge only   ║",
+        baselines.vanilla_llm_quality * 100.0
+    );
+    println!(
+        "║ Traditional RAG                 │ {:>12.1}% │ Fixed retrieval         ║",
+        baselines.rag_quality * 100.0
+    );
+    println!(
+        "║ \x1b[32mRuvLLM (after learning)         │ {:>12.1}% │ Adaptive + learning\x1b[0m    ║",
+        avg_quality * 100.0
+    );
     println!("╠═══════════════════════════════════════════════════════════════════════════╣");
-    println!("║ Improvement over RAG: {:>+5.1}%                                            ║",
-             (avg_quality - baselines.rag_quality) / baselines.rag_quality * 100.0);
+    println!(
+        "║ Improvement over RAG: {:>+5.1}%                                            ║",
+        (avg_quality - baselines.rag_quality) / baselines.rag_quality * 100.0
+    );
     println!("╚═══════════════════════════════════════════════════════════════════════════╝");
 }
 
@@ -552,7 +629,10 @@ async fn main() -> Result<()> {
     println!("   ✓ Throughput: {:.0} queries/sec", throughput);
 
     // 3. Self-Learning Benchmark
-    println!("📊 Running self-learning benchmark ({} epochs)...", bench_config.learning_epochs);
+    println!(
+        "📊 Running self-learning benchmark ({} epochs)...",
+        bench_config.learning_epochs
+    );
     let learning_metrics = benchmark_self_learning(&bench_config).await?;
 
     println!("   ✓ Self-learning benchmark complete");
@@ -569,25 +649,48 @@ async fn main() -> Result<()> {
     }
 
     // Summary
-    println!("\n╔════════════════════════════════════════════════════════════════════════════════╗");
+    println!(
+        "\n╔════════════════════════════════════════════════════════════════════════════════╗"
+    );
     println!("║                          BENCHMARK SUMMARY (December 2025)                     ║");
     println!("╠════════════════════════════════════════════════════════════════════════════════╣");
     println!("║                                                                                ║");
     println!("║  ORCHESTRATION LAYER PERFORMANCE (not LLM generation):                         ║");
     println!("║  ─────────────────────────────────────────────────────────────────────────     ║");
-    println!("║  Latency:     P50={:.2}ms, P95={:.2}ms, P99={:.2}ms                          ║",
-             metrics.latency_p50_ms, metrics.latency_p95_ms, metrics.latency_p99_ms);
-    println!("║  Throughput:  {:.0} queries/sec ({:.0}x vs TensorRT-LLM on A100)               ║",
-             metrics.throughput_qps, metrics.throughput_qps / baselines.tensorrt_llm_throughput);
-    println!("║  Speedup:     {:.0}x faster orchestration than GPT-4o API overhead             ║",
-             baselines.gpt4o_latency_ms / metrics.latency_p50_ms);
+    println!(
+        "║  Latency:     P50={:.2}ms, P95={:.2}ms, P99={:.2}ms                          ║",
+        metrics.latency_p50_ms, metrics.latency_p95_ms, metrics.latency_p99_ms
+    );
+    println!(
+        "║  Throughput:  {:.0} queries/sec ({:.0}x vs TensorRT-LLM on A100)               ║",
+        metrics.throughput_qps,
+        metrics.throughput_qps / baselines.tensorrt_llm_throughput
+    );
+    println!(
+        "║  Speedup:     {:.0}x faster orchestration than GPT-4o API overhead             ║",
+        baselines.gpt4o_latency_ms / metrics.latency_p50_ms
+    );
 
     if let Some(last) = learning_metrics.last() {
-        println!("║                                                                                ║");
-        println!("║  SELF-LEARNING RESULTS (after {} epochs):                                     ║", last.epoch);
-        println!("║    • Quality improvement: +{:.1}% vs baseline                                 ║", last.improvement_vs_baseline);
-        println!("║    • Routing accuracy: {:.1}%                                                 ║", last.routing_accuracy * 100.0);
-        println!("║    • Memory nodes created: {}                                                ║", last.memory_nodes);
+        println!(
+            "║                                                                                ║"
+        );
+        println!(
+            "║  SELF-LEARNING RESULTS (after {} epochs):                                     ║",
+            last.epoch
+        );
+        println!(
+            "║    • Quality improvement: +{:.1}% vs baseline                                 ║",
+            last.improvement_vs_baseline
+        );
+        println!(
+            "║    • Routing accuracy: {:.1}%                                                 ║",
+            last.routing_accuracy * 100.0
+        );
+        println!(
+            "║    • Memory nodes created: {}                                                ║",
+            last.memory_nodes
+        );
     }
 
     println!("║                                                                                ║");
@@ -617,7 +720,7 @@ mod tests {
         let score = evaluate_quality(
             "What is 2+2?",
             "The answer is 4. This is basic arithmetic.",
-            "factual"
+            "factual",
         );
         assert!(score > 0.5);
     }

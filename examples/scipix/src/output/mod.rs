@@ -12,15 +12,15 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-pub mod formatter;
-pub mod mmd;
-pub mod latex;
-pub mod html;
 pub mod docx;
+pub mod formatter;
+pub mod html;
 pub mod json;
+pub mod latex;
+pub mod mmd;
 pub mod smiles;
 
-pub use formatter::{OutputFormatter, MathDelimiters, HtmlEngine};
+pub use formatter::{HtmlEngine, MathDelimiters, OutputFormatter};
 pub use json::ApiResponse;
 
 /// Output format types supported by Scipix OCR
@@ -77,7 +77,9 @@ impl OutputFormat {
             OutputFormat::Mmd => "text/markdown",
             OutputFormat::Html => "text/html",
             OutputFormat::Smiles => "chemical/x-daylight-smiles",
-            OutputFormat::Docx => "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            OutputFormat::Docx => {
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            }
         }
     }
 }
@@ -198,7 +200,12 @@ pub struct BoundingBox {
 
 impl BoundingBox {
     pub fn new(x: f32, y: f32, width: f32, height: f32) -> Self {
-        Self { x, y, width, height }
+        Self {
+            x,
+            y,
+            width,
+            height,
+        }
     }
 
     pub fn area(&self) -> f32 {
@@ -211,7 +218,11 @@ impl BoundingBox {
 }
 
 /// Convert between output formats
-pub fn convert_format(content: &str, from: OutputFormat, to: OutputFormat) -> Result<String, String> {
+pub fn convert_format(
+    content: &str,
+    from: OutputFormat,
+    to: OutputFormat,
+) -> Result<String, String> {
     // Simple pass-through for same format
     if from == to {
         return Ok(content.to_string());
@@ -243,7 +254,10 @@ pub fn convert_format(content: &str, from: OutputFormat, to: OutputFormat) -> Re
                 content
             ))
         }
-        _ => Err(format!("Conversion from {:?} to {:?} not supported", from, to)),
+        _ => Err(format!(
+            "Conversion from {:?} to {:?} not supported",
+            from, to
+        )),
     }
 }
 

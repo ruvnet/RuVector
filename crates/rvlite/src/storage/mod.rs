@@ -9,4 +9,4 @@ pub mod indexeddb;
 pub mod state;
 
 pub use indexeddb::IndexedDBStorage;
-pub use state::{RvLiteState, VectorState, GraphState, TripleStoreState};
+pub use state::{GraphState, RvLiteState, TripleStoreState, VectorState};

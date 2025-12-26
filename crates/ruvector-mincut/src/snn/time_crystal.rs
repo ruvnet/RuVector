@@ -13,8 +13,8 @@
 //! trigger topology changes, and MinCut verification ensures stability within each phase.
 
 use super::{
+    network::{LayerConfig, NetworkConfig, SpikingNetwork},
     neuron::{LIFNeuron, NeuronConfig},
-    network::{SpikingNetwork, NetworkConfig, LayerConfig},
     SimTime, Spike, Vector,
 };
 use crate::graph::{DynamicGraph, VertexId};
@@ -41,7 +41,7 @@ impl Default for CPGConfig {
     fn default() -> Self {
         Self {
             num_phases: 4,
-            frequency: 10.0,  // 10 Hz default
+            frequency: 10.0, // 10 Hz default
             coupling: 0.3,
             stability_threshold: 0.1,
             dt: 1.0,
@@ -68,7 +68,7 @@ pub struct OscillatorNeuron {
 impl OscillatorNeuron {
     /// Create a new oscillator
     pub fn new(id: usize, frequency_hz: f64, phase_offset: f64) -> Self {
-        let omega = 2.0 * PI * frequency_hz / 1000.0;  // Convert to rad/ms
+        let omega = 2.0 * PI * frequency_hz / 1000.0; // Convert to rad/ms
 
         Self {
             id,
@@ -146,10 +146,8 @@ impl PhaseTopology {
         }
 
         // Estimate expected mincut
-        let expected_mincut = graph.edges()
-            .iter()
-            .map(|e| e.weight)
-            .sum::<f64>() / graph.num_vertices().max(1) as f64;
+        let expected_mincut = graph.edges().iter().map(|e| e.weight).sum::<f64>()
+            / graph.num_vertices().max(1) as f64;
 
         Self {
             phase_id,
@@ -167,17 +165,16 @@ impl PhaseTopology {
     /// Update entry points based on mincut analysis
     pub fn update_entry_points(&mut self) {
         // Use vertices with highest degree as entry points
-        let mut degrees: Vec<_> = self.graph.vertices()
+        let mut degrees: Vec<_> = self
+            .graph
+            .vertices()
             .iter()
             .map(|&v| (v, self.graph.degree(v)))
             .collect();
 
         degrees.sort_by_key(|(_, d)| std::cmp::Reverse(*d));
 
-        self.entry_points = degrees.iter()
-            .take(5)
-            .map(|(v, _)| *v)
-            .collect();
+        self.entry_points = degrees.iter().take(5).map(|(v, _)| *v).collect();
     }
 
     /// Get expected mincut
@@ -273,11 +270,14 @@ impl TimeCrystalCPG {
         }
 
         // 3. Winner-take-all: highest activity determines phase
-        let winner = self.oscillators
+        let winner = self
+            .oscillators
             .iter()
             .enumerate()
             .max_by(|(_, a), (_, b)| {
-                a.activity().partial_cmp(&b.activity()).unwrap_or(std::cmp::Ordering::Equal)
+                a.activity()
+                    .partial_cmp(&b.activity())
+                    .unwrap_or(std::cmp::Ordering::Equal)
             })
             .map(|(i, _)| i)
             .unwrap_or(0);
@@ -303,7 +303,9 @@ impl TimeCrystalCPG {
         if let Some(topology) = self.phase_topologies.get(self.current_phase) {
             let actual_mincut = self.estimate_mincut();
 
-            if (topology.expected_mincut - actual_mincut).abs() > self.config.stability_threshold * topology.expected_mincut {
+            if (topology.expected_mincut - actual_mincut).abs()
+                > self.config.stability_threshold * topology.expected_mincut
+            {
                 self.repair_crystal();
             }
         }
@@ -327,7 +329,8 @@ impl TimeCrystalCPG {
         }
 
         // Approximate: minimum degree
-        self.active_graph.vertices()
+        self.active_graph
+            .vertices()
             .iter()
             .map(|&v| self.active_graph.degree(v) as f64)
             .fold(f64::INFINITY, f64::min)

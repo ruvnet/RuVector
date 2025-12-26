@@ -10,8 +10,8 @@
 #[pgrx::pg_schema]
 mod pgvector_compat_tests {
     use pgrx::prelude::*;
-    use ruvector_postgres::types::RuVector;
     use ruvector_postgres::operators::*;
+    use ruvector_postgres::types::RuVector;
 
     // ========================================================================
     // Distance Calculation Compatibility
@@ -28,8 +28,12 @@ mod pgvector_compat_tests {
 
         // Expected: sqrt((3-1)^2 + (2-2)^2 + (1-3)^2) = sqrt(8) ≈ 2.828
         let expected = 2.828427;
-        assert!((dist - expected).abs() < 0.001,
-               "L2 distance doesn't match pgvector: expected {}, got {}", expected, dist);
+        assert!(
+            (dist - expected).abs() < 0.001,
+            "L2 distance doesn't match pgvector: expected {}, got {}",
+            expected,
+            dist
+        );
     }
 
     #[pg_test]
@@ -117,7 +121,7 @@ mod pgvector_compat_tests {
 
     #[pg_test]
     fn test_vector_normalize_function() {
-        use ruvector_postgres::types::vector::{ruvector_normalize, ruvector_norm};
+        use ruvector_postgres::types::vector::{ruvector_norm, ruvector_normalize};
 
         let v = RuVector::from_slice(&[3.0, 4.0, 0.0]);
         let normalized = ruvector_normalize(v);
@@ -136,13 +140,14 @@ mod pgvector_compat_tests {
         let query = RuVector::from_slice(&[1.0, 1.0, 1.0]);
 
         let candidates = vec![
-            RuVector::from_slice(&[1.0, 1.0, 1.0]),  // dist = 0
-            RuVector::from_slice(&[2.0, 2.0, 2.0]),  // dist = sqrt(3) ≈ 1.73
-            RuVector::from_slice(&[0.0, 0.0, 0.0]),  // dist = sqrt(3) ≈ 1.73
-            RuVector::from_slice(&[5.0, 5.0, 5.0]),  // dist = sqrt(48) ≈ 6.93
+            RuVector::from_slice(&[1.0, 1.0, 1.0]), // dist = 0
+            RuVector::from_slice(&[2.0, 2.0, 2.0]), // dist = sqrt(3) ≈ 1.73
+            RuVector::from_slice(&[0.0, 0.0, 0.0]), // dist = sqrt(3) ≈ 1.73
+            RuVector::from_slice(&[5.0, 5.0, 5.0]), // dist = sqrt(48) ≈ 6.93
         ];
 
-        let mut distances: Vec<_> = candidates.iter()
+        let mut distances: Vec<_> = candidates
+            .iter()
             .map(|c| ruvector_l2_distance(query.clone(), c.clone()))
             .collect();
 
@@ -162,13 +167,14 @@ mod pgvector_compat_tests {
         let query = RuVector::from_slice(&[1.0, 0.0, 0.0]);
 
         let candidates = vec![
-            RuVector::from_slice(&[1.0, 0.0, 0.0]),   // same direction, dist = 0
-            RuVector::from_slice(&[0.5, 0.5, 0.0]),   // 45 degrees
-            RuVector::from_slice(&[0.0, 1.0, 0.0]),   // 90 degrees, dist = 1
-            RuVector::from_slice(&[-1.0, 0.0, 0.0]),  // opposite, dist = 2
+            RuVector::from_slice(&[1.0, 0.0, 0.0]), // same direction, dist = 0
+            RuVector::from_slice(&[0.5, 0.5, 0.0]), // 45 degrees
+            RuVector::from_slice(&[0.0, 1.0, 0.0]), // 90 degrees, dist = 1
+            RuVector::from_slice(&[-1.0, 0.0, 0.0]), // opposite, dist = 2
         ];
 
-        let distances: Vec<_> = candidates.iter()
+        let distances: Vec<_> = candidates
+            .iter()
             .map(|c| ruvector_cosine_distance(query.clone(), c.clone()))
             .collect();
 

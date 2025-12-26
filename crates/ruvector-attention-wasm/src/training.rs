@@ -1,5 +1,5 @@
+use ruvector_attention::training::{Adam, AdamW, InfoNCELoss, Loss, Optimizer, SGD};
 use wasm_bindgen::prelude::*;
-use ruvector_attention::training::{InfoNCELoss, Loss, Adam, AdamW, SGD, Optimizer};
 
 /// InfoNCE contrastive loss for training
 #[wasm_bindgen]
@@ -15,7 +15,9 @@ impl WasmInfoNCELoss {
     /// * `temperature` - Temperature parameter for softmax
     #[wasm_bindgen(constructor)]
     pub fn new(temperature: f32) -> WasmInfoNCELoss {
-        Self { inner: InfoNCELoss::new(temperature) }
+        Self {
+            inner: InfoNCELoss::new(temperature),
+        }
     }
 
     /// Compute InfoNCE loss
@@ -24,7 +26,12 @@ impl WasmInfoNCELoss {
     /// * `anchor` - Anchor embedding
     /// * `positive` - Positive example embedding
     /// * `negatives` - Array of negative example embeddings
-    pub fn compute(&self, anchor: &[f32], positive: &[f32], negatives: JsValue) -> Result<f32, JsError> {
+    pub fn compute(
+        &self,
+        anchor: &[f32],
+        positive: &[f32],
+        negatives: JsValue,
+    ) -> Result<f32, JsError> {
         let negatives_vec: Vec<Vec<f32>> = serde_wasm_bindgen::from_value(negatives)?;
         let negatives_refs: Vec<&[f32]> = negatives_vec.iter().map(|n| n.as_slice()).collect();
 
@@ -47,7 +54,9 @@ impl WasmAdam {
     /// * `learning_rate` - Learning rate
     #[wasm_bindgen(constructor)]
     pub fn new(param_count: usize, learning_rate: f32) -> WasmAdam {
-        Self { inner: Adam::new(param_count, learning_rate) }
+        Self {
+            inner: Adam::new(param_count, learning_rate),
+        }
     }
 
     /// Perform optimization step
@@ -94,9 +103,11 @@ impl WasmAdamW {
     /// * `weight_decay` - Weight decay coefficient
     #[wasm_bindgen(constructor)]
     pub fn new(param_count: usize, learning_rate: f32, weight_decay: f32) -> WasmAdamW {
-        let optimizer = AdamW::new(param_count, learning_rate)
-            .with_weight_decay(weight_decay);
-        Self { inner: optimizer, wd: weight_decay }
+        let optimizer = AdamW::new(param_count, learning_rate).with_weight_decay(weight_decay);
+        Self {
+            inner: optimizer,
+            wd: weight_decay,
+        }
     }
 
     /// Perform optimization step with weight decay

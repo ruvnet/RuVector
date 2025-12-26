@@ -2,12 +2,10 @@
 //!
 //! Export learned SONA patterns, LoRA weights, and preference pairs to HuggingFace.
 
-use ruvector_sona::{
-    HuggingFaceExporter, SonaEngine, SonaConfig, PretrainPipeline,
-};
-use std::path::PathBuf;
 use anyhow::Result;
-use tracing::{info, warn, error};
+use ruvector_sona::{HuggingFaceExporter, PretrainPipeline, SonaConfig, SonaEngine};
+use std::path::PathBuf;
+use tracing::{error, info, warn};
 
 fn main() -> Result<()> {
     // Initialize logging
@@ -43,7 +41,8 @@ fn main() -> Result<()> {
 }
 
 fn print_usage() {
-    println!(r#"
+    println!(
+        r#"
 RuvLLM HuggingFace Export Tool
 
 USAGE:
@@ -75,7 +74,8 @@ ENVIRONMENT:
     HF_TOKEN                    HuggingFace API token (required for push)
     RUVLLM_DIM                  Hidden dimension (default: 256)
     RUVLLM_PATTERNS             Pattern clusters (default: 100)
-"#);
+"#
+    );
 }
 
 fn create_demo_engine() -> SonaEngine {
@@ -89,7 +89,10 @@ fn create_demo_engine() -> SonaEngine {
         .and_then(|s| s.parse().ok())
         .unwrap_or(100);
 
-    info!("Creating SONA engine with dim={}, clusters={}", dim, clusters);
+    info!(
+        "Creating SONA engine with dim={}, clusters={}",
+        dim, clusters
+    );
 
     let config = SonaConfig {
         hidden_dim: dim,
@@ -119,7 +122,8 @@ fn create_demo_engine() -> SonaEngine {
 }
 
 fn export_safetensors(args: &[String]) -> Result<()> {
-    let output_dir = args.get(0)
+    let output_dir = args
+        .get(0)
         .map(|s| PathBuf::from(s))
         .unwrap_or_else(|| PathBuf::from("./exports/safetensors"));
 
@@ -131,8 +135,10 @@ fn export_safetensors(args: &[String]) -> Result<()> {
 
     match exporter.export_lora_safetensors(&output_dir) {
         Ok(result) => {
-            info!("Exported SafeTensors: {} items, {} bytes",
-                result.items_exported, result.size_bytes);
+            info!(
+                "Exported SafeTensors: {} items, {} bytes",
+                result.items_exported, result.size_bytes
+            );
             println!("  -> {}", result.output_path);
         }
         Err(e) => error!("Failed to export SafeTensors: {}", e),
@@ -142,7 +148,8 @@ fn export_safetensors(args: &[String]) -> Result<()> {
 }
 
 fn export_patterns(args: &[String]) -> Result<()> {
-    let output_dir = args.get(0)
+    let output_dir = args
+        .get(0)
         .map(|s| PathBuf::from(s))
         .unwrap_or_else(|| PathBuf::from("./exports/patterns"));
 
@@ -154,8 +161,10 @@ fn export_patterns(args: &[String]) -> Result<()> {
 
     match exporter.export_patterns_jsonl(output_dir.join("patterns.jsonl")) {
         Ok(result) => {
-            info!("Exported patterns: {} items, {} bytes",
-                result.items_exported, result.size_bytes);
+            info!(
+                "Exported patterns: {} items, {} bytes",
+                result.items_exported, result.size_bytes
+            );
             println!("  -> {}", result.output_path);
         }
         Err(e) => error!("Failed to export patterns: {}", e),
@@ -165,7 +174,8 @@ fn export_patterns(args: &[String]) -> Result<()> {
 }
 
 fn export_preferences(args: &[String]) -> Result<()> {
-    let output_dir = args.get(0)
+    let output_dir = args
+        .get(0)
         .map(|s| PathBuf::from(s))
         .unwrap_or_else(|| PathBuf::from("./exports/preferences"));
 
@@ -177,8 +187,10 @@ fn export_preferences(args: &[String]) -> Result<()> {
 
     match exporter.export_preference_pairs(output_dir.join("preferences.jsonl")) {
         Ok(result) => {
-            info!("Exported preferences: {} items, {} bytes",
-                result.items_exported, result.size_bytes);
+            info!(
+                "Exported preferences: {} items, {} bytes",
+                result.items_exported, result.size_bytes
+            );
             println!("  -> {}", result.output_path);
         }
         Err(e) => error!("Failed to export preferences: {}", e),
@@ -188,7 +200,8 @@ fn export_preferences(args: &[String]) -> Result<()> {
 }
 
 fn export_all(args: &[String]) -> Result<()> {
-    let output_dir = args.get(0)
+    let output_dir = args
+        .get(0)
         .map(|s| PathBuf::from(s))
         .unwrap_or_else(|| PathBuf::from("./exports"));
 
@@ -202,7 +215,10 @@ fn export_all(args: &[String]) -> Result<()> {
         Ok(results) => {
             let total_items: usize = results.iter().map(|r| r.items_exported).sum();
             let total_bytes: u64 = results.iter().map(|r| r.size_bytes).sum();
-            info!("Exported all: {} items, {} bytes total", total_items, total_bytes);
+            info!(
+                "Exported all: {} items, {} bytes total",
+                total_items, total_bytes
+            );
             for result in &results {
                 println!("  -> {}", result.output_path);
             }
@@ -240,7 +256,8 @@ fn push_to_hub(args: &[String]) -> Result<()> {
 }
 
 fn generate_pretrain_script(args: &[String]) -> Result<()> {
-    let output_dir = args.get(0)
+    let output_dir = args
+        .get(0)
         .map(|s| PathBuf::from(s))
         .unwrap_or_else(|| PathBuf::from("./exports"));
 

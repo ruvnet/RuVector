@@ -35,26 +35,23 @@
 //! const db2 = await RvLite.load(config);  // Load from IndexedDB
 //! ```
 
-use wasm_bindgen::prelude::*;
-use wasm_bindgen_futures::future_to_promise;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use wasm_bindgen::prelude::*;
+use wasm_bindgen_futures::future_to_promise;
 
 // Import ruvector-core
-use ruvector_core::{
-    VectorDB, VectorEntry, SearchQuery,
-    DistanceMetric,
-};
 use ruvector_core::types::DbOptions;
+use ruvector_core::{DistanceMetric, SearchQuery, VectorDB, VectorEntry};
 
 // Query language modules
 pub mod cypher;
-pub mod sql;
 pub mod sparql;
+pub mod sql;
 pub mod storage;
 
 // Re-export storage types
-pub use storage::{RvLiteState, VectorState, GraphState, TripleStoreState};
+pub use storage::{GraphState, RvLiteState, TripleStoreState, VectorState};
 
 #[wasm_bindgen(start)]
 pub fn init() {
@@ -194,8 +191,7 @@ impl RvLite {
     /// Create a new RvLite database
     #[wasm_bindgen(constructor)]
     pub fn new(config: RvLiteConfig) -> Result<RvLite, JsValue> {
-        let db = VectorDB::new(config.to_db_options())
-            .map_err(|e| RvLiteError::from(e))?;
+        let db = VectorDB::new(config.to_db_options()).map_err(|e| RvLiteError::from(e))?;
 
         Ok(RvLite {
             db,
@@ -330,11 +326,13 @@ impl RvLite {
         let metadata_map = if metadata.is_null() || metadata.is_undefined() {
             None
         } else {
-            Some(serde_wasm_bindgen::from_value::<HashMap<String, serde_json::Value>>(metadata)
-                .map_err(|e| RvLiteError {
-                    message: format!("Invalid metadata: {}", e),
-                    kind: ErrorKind::WasmError,
-                })?)
+            Some(
+                serde_wasm_bindgen::from_value::<HashMap<String, serde_json::Value>>(metadata)
+                    .map_err(|e| RvLiteError {
+                        message: format!("Invalid metadata: {}", e),
+                        kind: ErrorKind::WasmError,
+                    })?,
+            )
         };
 
         let entry = VectorEntry {
@@ -343,20 +341,28 @@ impl RvLite {
             metadata: metadata_map,
         };
 
-        self.db.insert(entry)
+        self.db
+            .insert(entry)
             .map_err(|e| RvLiteError::from(e).into())
     }
 
     /// Insert a vector with a specific ID
-    pub fn insert_with_id(&self, id: String, vector: Vec<f32>, metadata: JsValue) -> Result<(), JsValue> {
+    pub fn insert_with_id(
+        &self,
+        id: String,
+        vector: Vec<f32>,
+        metadata: JsValue,
+    ) -> Result<(), JsValue> {
         let metadata_map = if metadata.is_null() || metadata.is_undefined() {
             None
         } else {
-            Some(serde_wasm_bindgen::from_value::<HashMap<String, serde_json::Value>>(metadata)
-                .map_err(|e| RvLiteError {
-                    message: format!("Invalid metadata: {}", e),
-                    kind: ErrorKind::WasmError,
-                })?)
+            Some(
+                serde_wasm_bindgen::from_value::<HashMap<String, serde_json::Value>>(metadata)
+                    .map_err(|e| RvLiteError {
+                        message: format!("Invalid metadata: {}", e),
+                        kind: ErrorKind::WasmError,
+                    })?,
+            )
         };
 
         let entry = VectorEntry {
@@ -365,8 +371,7 @@ impl RvLite {
             metadata: metadata_map,
         };
 
-        self.db.insert(entry)
-            .map_err(|e| RvLiteError::from(e))?;
+        self.db.insert(entry).map_err(|e| RvLiteError::from(e))?;
 
         Ok(())
     }
@@ -380,14 +385,15 @@ impl RvLite {
             ef_search: None,
         };
 
-        let results = self.db.search(query)
-            .map_err(|e| RvLiteError::from(e))?;
+        let results = self.db.search(query).map_err(|e| RvLiteError::from(e))?;
 
-        serde_wasm_bindgen::to_value(&results)
-            .map_err(|e| RvLiteError {
+        serde_wasm_bindgen::to_value(&results).map_err(|e| {
+            RvLiteError {
                 message: format!("Failed to serialize results: {}", e),
                 kind: ErrorKind::WasmError,
-            }.into())
+            }
+            .into()
+        })
     }
 
     /// Search with metadata filter
@@ -397,11 +403,13 @@ impl RvLite {
         k: usize,
         filter: JsValue,
     ) -> Result<JsValue, JsValue> {
-        let filter_map = serde_wasm_bindgen::from_value::<HashMap<String, serde_json::Value>>(filter)
-            .map_err(|e| RvLiteError {
-                message: format!("Invalid filter: {}", e),
-                kind: ErrorKind::WasmError,
-            })?;
+        let filter_map = serde_wasm_bindgen::from_value::<HashMap<String, serde_json::Value>>(
+            filter,
+        )
+        .map_err(|e| RvLiteError {
+            message: format!("Invalid filter: {}", e),
+            kind: ErrorKind::WasmError,
+        })?;
 
         let query = SearchQuery {
             vector: query_vector,
@@ -410,53 +418,54 @@ impl RvLite {
             ef_search: None,
         };
 
-        let results = self.db.search(query)
-            .map_err(|e| RvLiteError::from(e))?;
+        let results = self.db.search(query).map_err(|e| RvLiteError::from(e))?;
 
-        serde_wasm_bindgen::to_value(&results)
-            .map_err(|e| RvLiteError {
+        serde_wasm_bindgen::to_value(&results).map_err(|e| {
+            RvLiteError {
                 message: format!("Failed to serialize results: {}", e),
                 kind: ErrorKind::WasmError,
-            }.into())
+            }
+            .into()
+        })
     }
 
     /// Get a vector by ID
     pub fn get(&self, id: String) -> Result<JsValue, JsValue> {
-        let entry = self.db.get(&id)
-            .map_err(|e| RvLiteError::from(e))?;
+        let entry = self.db.get(&id).map_err(|e| RvLiteError::from(e))?;
 
-        serde_wasm_bindgen::to_value(&entry)
-            .map_err(|e| RvLiteError {
+        serde_wasm_bindgen::to_value(&entry).map_err(|e| {
+            RvLiteError {
                 message: format!("Failed to serialize entry: {}", e),
                 kind: ErrorKind::WasmError,
-            }.into())
+            }
+            .into()
+        })
     }
 
     /// Delete a vector by ID
     pub fn delete(&self, id: String) -> Result<bool, JsValue> {
-        self.db.delete(&id)
-            .map_err(|e| RvLiteError::from(e).into())
+        self.db.delete(&id).map_err(|e| RvLiteError::from(e).into())
     }
 
     /// Get the number of vectors in the database
     pub fn len(&self) -> Result<usize, JsValue> {
-        self.db.len()
-            .map_err(|e| RvLiteError::from(e).into())
+        self.db.len().map_err(|e| RvLiteError::from(e).into())
     }
 
     /// Check if database is empty
     pub fn is_empty(&self) -> Result<bool, JsValue> {
-        self.db.is_empty()
-            .map_err(|e| RvLiteError::from(e).into())
+        self.db.is_empty().map_err(|e| RvLiteError::from(e).into())
     }
 
     /// Get configuration
     pub fn get_config(&self) -> Result<JsValue, JsValue> {
-        serde_wasm_bindgen::to_value(&self.config)
-            .map_err(|e| RvLiteError {
+        serde_wasm_bindgen::to_value(&self.config).map_err(|e| {
+            RvLiteError {
                 message: format!("Failed to serialize config: {}", e),
                 kind: ErrorKind::WasmError,
-            }.into())
+            }
+            .into()
+        })
     }
 
     // ===== SQL Query Methods =====
@@ -471,19 +480,19 @@ impl RvLite {
     /// - DELETE FROM vectors WHERE id = 'x'
     pub fn sql(&self, query: String) -> Result<JsValue, JsValue> {
         // Parse SQL
-        let mut parser = sql::SqlParser::new(&query)
-            .map_err(|e| RvLiteError {
-                message: e.to_string(),
-                kind: ErrorKind::SqlError,
-            })?;
-        let statement = parser.parse()
-            .map_err(|e| RvLiteError {
-                message: e.to_string(),
-                kind: ErrorKind::SqlError,
-            })?;
+        let mut parser = sql::SqlParser::new(&query).map_err(|e| RvLiteError {
+            message: e.to_string(),
+            kind: ErrorKind::SqlError,
+        })?;
+        let statement = parser.parse().map_err(|e| RvLiteError {
+            message: e.to_string(),
+            kind: ErrorKind::SqlError,
+        })?;
 
         // Execute
-        let result = self.sql_engine.execute(statement)
+        let result = self
+            .sql_engine
+            .execute(statement)
             .map_err(|e| RvLiteError {
                 message: e.to_string(),
                 kind: ErrorKind::SqlError,
@@ -491,17 +500,18 @@ impl RvLite {
 
         // Use serde_json + js_sys::JSON::parse for proper serialization
         // (serde_wasm_bindgen can fail silently on complex enum types)
-        let json_str = serde_json::to_string(&result)
-            .map_err(|e| RvLiteError {
-                message: format!("Failed to serialize result: {}", e),
-                kind: ErrorKind::WasmError,
-            })?;
+        let json_str = serde_json::to_string(&result).map_err(|e| RvLiteError {
+            message: format!("Failed to serialize result: {}", e),
+            kind: ErrorKind::WasmError,
+        })?;
 
-        js_sys::JSON::parse(&json_str)
-            .map_err(|e| RvLiteError {
+        js_sys::JSON::parse(&json_str).map_err(|e| {
+            RvLiteError {
                 message: format!("Failed to parse JSON: {:?}", e),
                 kind: ErrorKind::WasmError,
-            }.into())
+            }
+            .into()
+        })
     }
 
     // ===== Cypher Query Methods =====
@@ -536,11 +546,10 @@ impl RvLite {
     /// - SELECT ?s WHERE { ?s <predicate> ?o }
     /// - ASK { ?s ?p ?o }
     pub fn sparql(&self, query: String) -> Result<JsValue, JsValue> {
-        let parsed = sparql::parse_sparql(&query)
-            .map_err(|e| RvLiteError {
-                message: format!("SPARQL parse error: {}", e),
-                kind: ErrorKind::SparqlError,
-            })?;
+        let parsed = sparql::parse_sparql(&query).map_err(|e| RvLiteError {
+            message: format!("SPARQL parse error: {}", e),
+            kind: ErrorKind::SparqlError,
+        })?;
 
         let result = sparql::execute_sparql(&self.triple_store, &parsed)
             .map_err(|e| RvLiteError::from(e))?;
@@ -550,11 +559,10 @@ impl RvLite {
 
         // Convert JSON to string and then parse in JS for proper object conversion
         let json_string = serializable.to_string();
-        let js_obj = js_sys::JSON::parse(&json_string)
-            .map_err(|e| RvLiteError {
-                message: format!("Failed to parse JSON: {:?}", e),
-                kind: ErrorKind::WasmError,
-            })?;
+        let js_obj = js_sys::JSON::parse(&json_string).map_err(|e| RvLiteError {
+            message: format!("Failed to parse JSON: {:?}", e),
+            kind: ErrorKind::WasmError,
+        })?;
 
         Ok(js_obj)
     }
@@ -565,7 +573,12 @@ impl RvLite {
     /// * `subject` - Subject IRI or blank node (e.g., "<http://example.org/s>" or "_:b1")
     /// * `predicate` - Predicate IRI (e.g., "<http://example.org/p>")
     /// * `object` - Object IRI, blank node, or literal (e.g., "<http://example.org/o>" or '"value"')
-    pub fn add_triple(&self, subject: String, predicate: String, object: String) -> Result<(), JsValue> {
+    pub fn add_triple(
+        &self,
+        subject: String,
+        predicate: String,
+        object: String,
+    ) -> Result<(), JsValue> {
         let subj = parse_rdf_term(&subject)?;
         let pred = parse_iri(&predicate)?;
         let obj = parse_rdf_term(&object)?;
@@ -596,17 +609,21 @@ impl RvLite {
         let saved_at = js_sys::Date::now() as u64;
 
         // Export vector state
-        let vector_entries = self.db.keys()
+        let vector_entries = self
+            .db
+            .keys()
             .unwrap_or_default()
             .iter()
             .filter_map(|id| {
-                self.db.get(id).ok().flatten().map(|entry| {
-                    storage::state::VectorEntry {
+                self.db
+                    .get(id)
+                    .ok()
+                    .flatten()
+                    .map(|entry| storage::state::VectorEntry {
                         id: entry.id.unwrap_or_default(),
                         vector: entry.vector,
                         metadata: entry.metadata,
-                    }
-                })
+                    })
             })
             .collect();
 
@@ -645,7 +662,8 @@ impl RvLite {
                 vector: entry.vector.clone(),
                 metadata: entry.metadata.clone(),
             };
-            self.db.insert(vector_entry)
+            self.db
+                .insert(vector_entry)
                 .map_err(|e| RvLiteError::from(e))?;
         }
 
@@ -662,16 +680,16 @@ impl RvLite {
     fn export_triple_state(&self) -> storage::state::TripleStoreState {
         use storage::state::*;
 
-        let triples: Vec<TripleState> = self.triple_store.all_triples()
+        let triples: Vec<TripleState> = self
+            .triple_store
+            .all_triples()
             .into_iter()
             .enumerate()
-            .map(|(id, t)| {
-                TripleState {
-                    id: id as u64,
-                    subject: rdf_term_to_state(&t.subject),
-                    predicate: t.predicate.0.clone(),
-                    object: rdf_term_to_state(&t.object),
-                }
+            .map(|(id, t)| TripleState {
+                id: id as u64,
+                subject: rdf_term_to_state(&t.subject),
+                predicate: t.predicate.0.clone(),
+                object: rdf_term_to_state(&t.object),
             })
             .collect();
 
@@ -715,7 +733,10 @@ fn term_to_json(term: &sparql::ast::RdfTerm) -> serde_json::Value {
             if let Some(lang) = &lit.language {
                 obj.insert("language".to_string(), serde_json::json!(lang));
             }
-            obj.insert("datatype".to_string(), serde_json::json!(lit.datatype.as_str()));
+            obj.insert(
+                "datatype".to_string(),
+                serde_json::json!(lit.datatype.as_str()),
+            );
             serde_json::Value::Object(obj)
         }
         RdfTerm::BlankNode(id) => serde_json::json!({
@@ -731,13 +752,17 @@ fn convert_sparql_result(result: &sparql::executor::QueryResult) -> serde_json::
 
     match result {
         QueryResult::Select(select_result) => {
-            let bindings: Vec<serde_json::Value> = select_result.bindings.iter().map(|binding| {
-                let mut obj = serde_json::Map::new();
-                for (var, term) in binding {
-                    obj.insert(var.clone(), term_to_json(term));
-                }
-                serde_json::Value::Object(obj)
-            }).collect();
+            let bindings: Vec<serde_json::Value> = select_result
+                .bindings
+                .iter()
+                .map(|binding| {
+                    let mut obj = serde_json::Map::new();
+                    for (var, term) in binding {
+                        obj.insert(var.clone(), term_to_json(term));
+                    }
+                    serde_json::Value::Object(obj)
+                })
+                .collect();
 
             serde_json::json!({
                 "type": "select",
@@ -752,13 +777,16 @@ fn convert_sparql_result(result: &sparql::executor::QueryResult) -> serde_json::
             })
         }
         QueryResult::Construct(triples) => {
-            let triple_json: Vec<serde_json::Value> = triples.iter().map(|t| {
-                serde_json::json!({
-                    "subject": term_to_json(&t.subject),
-                    "predicate": t.predicate.0.clone(),
-                    "object": term_to_json(&t.object)
+            let triple_json: Vec<serde_json::Value> = triples
+                .iter()
+                .map(|t| {
+                    serde_json::json!({
+                        "subject": term_to_json(&t.subject),
+                        "predicate": t.predicate.0.clone(),
+                        "object": term_to_json(&t.object)
+                    })
                 })
-            }).collect();
+                .collect();
 
             serde_json::json!({
                 "type": "construct",
@@ -766,13 +794,16 @@ fn convert_sparql_result(result: &sparql::executor::QueryResult) -> serde_json::
             })
         }
         QueryResult::Describe(triples) => {
-            let triple_json: Vec<serde_json::Value> = triples.iter().map(|t| {
-                serde_json::json!({
-                    "subject": term_to_json(&t.subject),
-                    "predicate": t.predicate.0.clone(),
-                    "object": term_to_json(&t.object)
+            let triple_json: Vec<serde_json::Value> = triples
+                .iter()
+                .map(|t| {
+                    serde_json::json!({
+                        "subject": term_to_json(&t.subject),
+                        "predicate": t.predicate.0.clone(),
+                        "object": term_to_json(&t.object)
+                    })
                 })
-            }).collect();
+                .collect();
 
             serde_json::json!({
                 "type": "describe",
@@ -792,7 +823,7 @@ fn convert_sparql_result(result: &sparql::executor::QueryResult) -> serde_json::
 fn parse_rdf_term(s: &str) -> Result<sparql::RdfTerm, JsValue> {
     let s = s.trim();
     if s.starts_with('<') && s.ends_with('>') {
-        Ok(sparql::RdfTerm::iri(&s[1..s.len()-1]))
+        Ok(sparql::RdfTerm::iri(&s[1..s.len() - 1]))
     } else if s.starts_with("_:") {
         Ok(sparql::RdfTerm::blank(&s[2..]))
     } else if s.starts_with('"') {
@@ -807,7 +838,7 @@ fn parse_rdf_term(s: &str) -> Result<sparql::RdfTerm, JsValue> {
 fn parse_iri(s: &str) -> Result<sparql::Iri, JsValue> {
     let s = s.trim();
     if s.starts_with('<') && s.ends_with('>') {
-        Ok(sparql::Iri::new(&s[1..s.len()-1]))
+        Ok(sparql::Iri::new(&s[1..s.len() - 1]))
     } else {
         Ok(sparql::Iri::new(s))
     }
@@ -819,16 +850,14 @@ fn rdf_term_to_state(term: &sparql::RdfTerm) -> storage::state::RdfTermState {
 
     match term {
         sparql::RdfTerm::Iri(iri) => RdfTermState::Iri {
-            value: iri.0.clone()
+            value: iri.0.clone(),
         },
         sparql::RdfTerm::Literal(lit) => RdfTermState::Literal {
             value: lit.value.clone(),
             datatype: lit.datatype.0.clone(),
             language: lit.language.clone(),
         },
-        sparql::RdfTerm::BlankNode(id) => RdfTermState::BlankNode {
-            id: id.clone()
-        },
+        sparql::RdfTerm::BlankNode(id) => RdfTermState::BlankNode { id: id.clone() },
     }
 }
 
@@ -837,9 +866,11 @@ fn state_to_rdf_term(state: &storage::state::RdfTermState) -> Result<sparql::Rdf
 
     match state {
         RdfTermState::Iri { value } => Ok(sparql::RdfTerm::iri(value)),
-        RdfTermState::Literal { value, datatype: _, language: _ } => {
-            Ok(sparql::RdfTerm::literal(value))
-        }
+        RdfTermState::Literal {
+            value,
+            datatype: _,
+            language: _,
+        } => Ok(sparql::RdfTerm::literal(value)),
         RdfTermState::BlankNode { id } => Ok(sparql::RdfTerm::blank(id)),
     }
 }

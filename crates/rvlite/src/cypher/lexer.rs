@@ -124,7 +124,11 @@ pub struct LexerError {
 
 impl fmt::Display for LexerError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Lexer error at {}:{}: {}", self.position.line, self.position.column, self.message)
+        write!(
+            f,
+            "Lexer error at {}:{}: {}",
+            self.position.line, self.position.column, self.message
+        )
     }
 }
 
@@ -143,7 +147,11 @@ impl<'a> Lexer<'a> {
         Self {
             input,
             chars: input.chars().peekable(),
-            position: Position { line: 1, column: 1, offset: 0 },
+            position: Position {
+                line: 1,
+                column: 1,
+                offset: 0,
+            },
             current_offset: 0,
         }
     }
@@ -172,7 +180,9 @@ impl<'a> Lexer<'a> {
             } else if ch == '/' && self.lookahead(1) == Some('/') {
                 // Skip line comments
                 while let Some(c) = self.peek() {
-                    if c == '\n' { break; }
+                    if c == '\n' {
+                        break;
+                    }
                     self.advance();
                 }
             } else {
@@ -186,7 +196,11 @@ impl<'a> Lexer<'a> {
     }
 
     fn make_token(&self, kind: TokenKind, lexeme: &str, start_pos: Position) -> Token {
-        Token { kind, lexeme: lexeme.to_string(), position: start_pos }
+        Token {
+            kind,
+            lexeme: lexeme.to_string(),
+            position: start_pos,
+        }
     }
 
     fn scan_string(&mut self, quote: char) -> Result<Token, LexerError> {
@@ -201,11 +215,26 @@ impl<'a> Lexer<'a> {
             } else if ch == '\\' {
                 self.advance();
                 match self.peek() {
-                    Some('n') => { value.push('\n'); self.advance(); }
-                    Some('t') => { value.push('\t'); self.advance(); }
-                    Some('r') => { value.push('\r'); self.advance(); }
-                    Some('\\') => { value.push('\\'); self.advance(); }
-                    Some(c) if c == quote => { value.push(c); self.advance(); }
+                    Some('n') => {
+                        value.push('\n');
+                        self.advance();
+                    }
+                    Some('t') => {
+                        value.push('\t');
+                        self.advance();
+                    }
+                    Some('r') => {
+                        value.push('\r');
+                        self.advance();
+                    }
+                    Some('\\') => {
+                        value.push('\\');
+                        self.advance();
+                    }
+                    Some(c) if c == quote => {
+                        value.push(c);
+                        self.advance();
+                    }
                     _ => value.push('\\'),
                 }
             } else {
@@ -214,7 +243,10 @@ impl<'a> Lexer<'a> {
             }
         }
 
-        Err(LexerError { message: "Unterminated string".to_string(), position: start })
+        Err(LexerError {
+            message: "Unterminated string".to_string(),
+            position: start,
+        })
     }
 
     fn scan_number(&mut self) -> Token {
@@ -222,14 +254,27 @@ impl<'a> Lexer<'a> {
         let start_offset = self.current_offset;
 
         while let Some(ch) = self.peek() {
-            if ch.is_ascii_digit() { self.advance(); } else { break; }
+            if ch.is_ascii_digit() {
+                self.advance();
+            } else {
+                break;
+            }
         }
 
         // Check for decimal
-        if self.peek() == Some('.') && self.lookahead(1).map(|c| c.is_ascii_digit()).unwrap_or(false) {
+        if self.peek() == Some('.')
+            && self
+                .lookahead(1)
+                .map(|c| c.is_ascii_digit())
+                .unwrap_or(false)
+        {
             self.advance(); // consume '.'
             while let Some(ch) = self.peek() {
-                if ch.is_ascii_digit() { self.advance(); } else { break; }
+                if ch.is_ascii_digit() {
+                    self.advance();
+                } else {
+                    break;
+                }
             }
             let lexeme = &self.input[start_offset..self.current_offset];
             let value: f64 = lexeme.parse().unwrap_or(0.0);
@@ -239,9 +284,15 @@ impl<'a> Lexer<'a> {
         // Check for exponent
         if matches!(self.peek(), Some('e') | Some('E')) {
             self.advance();
-            if matches!(self.peek(), Some('+') | Some('-')) { self.advance(); }
+            if matches!(self.peek(), Some('+') | Some('-')) {
+                self.advance();
+            }
             while let Some(ch) = self.peek() {
-                if ch.is_ascii_digit() { self.advance(); } else { break; }
+                if ch.is_ascii_digit() {
+                    self.advance();
+                } else {
+                    break;
+                }
             }
             let lexeme = &self.input[start_offset..self.current_offset];
             let value: f64 = lexeme.parse().unwrap_or(0.0);
@@ -258,7 +309,11 @@ impl<'a> Lexer<'a> {
         let start_offset = self.current_offset;
 
         while let Some(ch) = self.peek() {
-            if ch.is_ascii_alphanumeric() || ch == '_' { self.advance(); } else { break; }
+            if ch.is_ascii_alphanumeric() || ch == '_' {
+                self.advance();
+            } else {
+                break;
+            }
         }
 
         let lexeme = &self.input[start_offset..self.current_offset];
@@ -328,7 +383,11 @@ impl<'a> Lexer<'a> {
         self.skip_whitespace();
         let remaining = &self.input[self.current_offset..];
         let matches = remaining.to_uppercase().starts_with(keyword)
-            && remaining.chars().nth(keyword.len()).map(|c| !c.is_ascii_alphanumeric() && c != '_').unwrap_or(true);
+            && remaining
+                .chars()
+                .nth(keyword.len())
+                .map(|c| !c.is_ascii_alphanumeric() && c != '_')
+                .unwrap_or(true);
         // Reset position if not consuming
         if !matches {
             self.current_offset = saved_offset;
@@ -338,7 +397,9 @@ impl<'a> Lexer<'a> {
     }
 
     fn scan_keyword(&mut self, keyword: &str) {
-        for _ in 0..keyword.len() { self.advance(); }
+        for _ in 0..keyword.len() {
+            self.advance();
+        }
     }
 
     pub fn next_token(&mut self) -> Result<Token, LexerError> {
@@ -364,7 +425,9 @@ impl<'a> Lexer<'a> {
                         self.advance();
                         let id_start = self.current_offset;
                         while let Some(c) = self.peek() {
-                            if c == '`' { break; }
+                            if c == '`' {
+                                break;
+                            }
                             self.advance();
                         }
                         let id = self.input[id_start..self.current_offset].to_string();
@@ -376,10 +439,19 @@ impl<'a> Lexer<'a> {
                     '<' => {
                         self.advance();
                         match self.peek() {
-                            Some('=') => { self.advance(); Ok(self.make_token(TokenKind::LessThanOrEqual, "<=", start)) }
-                            Some('>') => { self.advance(); Ok(self.make_token(TokenKind::NotEqual, "<>", start)) }
-                            Some('-') => { self.advance(); Ok(self.make_token(TokenKind::LeftArrow, "<-", start)) }
-                            _ => Ok(self.make_token(TokenKind::LessThan, "<", start))
+                            Some('=') => {
+                                self.advance();
+                                Ok(self.make_token(TokenKind::LessThanOrEqual, "<=", start))
+                            }
+                            Some('>') => {
+                                self.advance();
+                                Ok(self.make_token(TokenKind::NotEqual, "<>", start))
+                            }
+                            Some('-') => {
+                                self.advance();
+                                Ok(self.make_token(TokenKind::LeftArrow, "<-", start))
+                            }
+                            _ => Ok(self.make_token(TokenKind::LessThan, "<", start)),
                         }
                     }
                     '>' => {
@@ -409,29 +481,77 @@ impl<'a> Lexer<'a> {
                             Ok(self.make_token(TokenKind::Dot, ".", start))
                         }
                     }
-                    '=' => { self.advance(); Ok(self.make_token(TokenKind::Equal, "=", start)) }
+                    '=' => {
+                        self.advance();
+                        Ok(self.make_token(TokenKind::Equal, "=", start))
+                    }
 
                     // Single-character tokens
-                    '(' => { self.advance(); Ok(self.make_token(TokenKind::LeftParen, "(", start)) }
-                    ')' => { self.advance(); Ok(self.make_token(TokenKind::RightParen, ")", start)) }
-                    '[' => { self.advance(); Ok(self.make_token(TokenKind::LeftBracket, "[", start)) }
-                    ']' => { self.advance(); Ok(self.make_token(TokenKind::RightBracket, "]", start)) }
-                    '{' => { self.advance(); Ok(self.make_token(TokenKind::LeftBrace, "{", start)) }
-                    '}' => { self.advance(); Ok(self.make_token(TokenKind::RightBrace, "}", start)) }
-                    ',' => { self.advance(); Ok(self.make_token(TokenKind::Comma, ",", start)) }
-                    ':' => { self.advance(); Ok(self.make_token(TokenKind::Colon, ":", start)) }
-                    ';' => { self.advance(); Ok(self.make_token(TokenKind::Semicolon, ";", start)) }
-                    '|' => { self.advance(); Ok(self.make_token(TokenKind::Pipe, "|", start)) }
-                    '+' => { self.advance(); Ok(self.make_token(TokenKind::Plus, "+", start)) }
-                    '*' => { self.advance(); Ok(self.make_token(TokenKind::Star, "*", start)) }
-                    '/' => { self.advance(); Ok(self.make_token(TokenKind::Slash, "/", start)) }
-                    '%' => { self.advance(); Ok(self.make_token(TokenKind::Percent, "%", start)) }
-                    '^' => { self.advance(); Ok(self.make_token(TokenKind::Caret, "^", start)) }
+                    '(' => {
+                        self.advance();
+                        Ok(self.make_token(TokenKind::LeftParen, "(", start))
+                    }
+                    ')' => {
+                        self.advance();
+                        Ok(self.make_token(TokenKind::RightParen, ")", start))
+                    }
+                    '[' => {
+                        self.advance();
+                        Ok(self.make_token(TokenKind::LeftBracket, "[", start))
+                    }
+                    ']' => {
+                        self.advance();
+                        Ok(self.make_token(TokenKind::RightBracket, "]", start))
+                    }
+                    '{' => {
+                        self.advance();
+                        Ok(self.make_token(TokenKind::LeftBrace, "{", start))
+                    }
+                    '}' => {
+                        self.advance();
+                        Ok(self.make_token(TokenKind::RightBrace, "}", start))
+                    }
+                    ',' => {
+                        self.advance();
+                        Ok(self.make_token(TokenKind::Comma, ",", start))
+                    }
+                    ':' => {
+                        self.advance();
+                        Ok(self.make_token(TokenKind::Colon, ":", start))
+                    }
+                    ';' => {
+                        self.advance();
+                        Ok(self.make_token(TokenKind::Semicolon, ";", start))
+                    }
+                    '|' => {
+                        self.advance();
+                        Ok(self.make_token(TokenKind::Pipe, "|", start))
+                    }
+                    '+' => {
+                        self.advance();
+                        Ok(self.make_token(TokenKind::Plus, "+", start))
+                    }
+                    '*' => {
+                        self.advance();
+                        Ok(self.make_token(TokenKind::Star, "*", start))
+                    }
+                    '/' => {
+                        self.advance();
+                        Ok(self.make_token(TokenKind::Slash, "/", start))
+                    }
+                    '%' => {
+                        self.advance();
+                        Ok(self.make_token(TokenKind::Percent, "%", start))
+                    }
+                    '^' => {
+                        self.advance();
+                        Ok(self.make_token(TokenKind::Caret, "^", start))
+                    }
 
                     _ => Err(LexerError {
                         message: format!("Unexpected character: '{}'", ch),
                         position: start,
-                    })
+                    }),
                 }
             }
         }
@@ -447,7 +567,9 @@ pub fn tokenize(input: &str) -> Result<Vec<Token>, LexerError> {
         let token = lexer.next_token()?;
         let is_eof = token.kind == TokenKind::Eof;
         tokens.push(token);
-        if is_eof { break; }
+        if is_eof {
+            break;
+        }
     }
 
     Ok(tokens)

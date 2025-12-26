@@ -7,7 +7,9 @@ use tokio;
 
 #[tokio::test]
 async fn test_accuracy_simple_expressions() {
-    let test_server = TestServer::start().await.expect("Failed to start test server");
+    let test_server = TestServer::start()
+        .await
+        .expect("Failed to start test server");
 
     let test_cases = vec![
         ("x + 1", "x + 1"),
@@ -25,7 +27,8 @@ async fn test_accuracy_simple_expressions() {
         let path = format!("/tmp/accuracy_simple_{}.png", equation.replace(' ', "_"));
         image.save(&path).unwrap();
 
-        let result = test_server.process_image(&path, OutputFormat::LaTeX)
+        let result = test_server
+            .process_image(&path, OutputFormat::LaTeX)
             .await
             .expect("Processing failed");
 
@@ -36,23 +39,36 @@ async fn test_accuracy_simple_expressions() {
             correct += 1;
         }
 
-        println!("Equation: {} | CER: {:.4} | Got: {}", equation, cer, result.latex);
+        println!(
+            "Equation: {} | CER: {:.4} | Got: {}",
+            equation, cer, result.latex
+        );
     }
 
     let avg_cer = total_cer / test_cases.len() as f64;
     let accuracy = correct as f64 / test_cases.len() as f64;
 
-    println!("Simple expressions - Avg CER: {:.4}, Accuracy: {:.2}%", avg_cer, accuracy * 100.0);
+    println!(
+        "Simple expressions - Avg CER: {:.4}, Accuracy: {:.2}%",
+        avg_cer,
+        accuracy * 100.0
+    );
 
     assert!(avg_cer < 0.05, "Average CER too high: {:.4}", avg_cer);
-    assert!(accuracy > 0.90, "Accuracy too low: {:.2}%", accuracy * 100.0);
+    assert!(
+        accuracy > 0.90,
+        "Accuracy too low: {:.2}%",
+        accuracy * 100.0
+    );
 
     test_server.shutdown().await;
 }
 
 #[tokio::test]
 async fn test_accuracy_im2latex_subset() {
-    let test_server = TestServer::start().await.expect("Failed to start test server");
+    let test_server = TestServer::start()
+        .await
+        .expect("Failed to start test server");
 
     // Load Im2latex-100k test subset (sample)
     let test_cases = load_im2latex_test_subset(50); // Test 50 samples
@@ -66,7 +82,8 @@ async fn test_accuracy_im2latex_subset() {
         // Generate or load image
         let image_path = case.image_path.clone();
 
-        let result = test_server.process_image(&image_path, OutputFormat::LaTeX)
+        let result = test_server
+            .process_image(&image_path, OutputFormat::LaTeX)
             .await
             .expect("Processing failed");
 
@@ -109,7 +126,9 @@ async fn test_accuracy_im2latex_subset() {
 
 #[tokio::test]
 async fn test_accuracy_fractions() {
-    let test_server = TestServer::start().await.expect("Failed to start test server");
+    let test_server = TestServer::start()
+        .await
+        .expect("Failed to start test server");
 
     let test_cases = vec![
         ((1, 2), r"\frac{1}{2}"),
@@ -125,28 +144,38 @@ async fn test_accuracy_fractions() {
         let path = format!("/tmp/frac_{}_{}.png", num, den);
         image.save(&path).unwrap();
 
-        let result = test_server.process_image(&path, OutputFormat::LaTeX)
+        let result = test_server
+            .process_image(&path, OutputFormat::LaTeX)
             .await
             .expect("Processing failed");
 
         if latex::expressions_match(&result.latex, expected) {
             correct += 1;
         } else {
-            println!("Fraction {}/{} - Expected: {}, Got: {}", num, den, expected, result.latex);
+            println!(
+                "Fraction {}/{} - Expected: {}, Got: {}",
+                num, den, expected, result.latex
+            );
         }
     }
 
     let accuracy = correct as f64 / test_cases.len() as f64;
     println!("Fraction accuracy: {:.2}%", accuracy * 100.0);
 
-    assert!(accuracy >= 0.85, "Fraction accuracy too low: {:.2}%", accuracy * 100.0);
+    assert!(
+        accuracy >= 0.85,
+        "Fraction accuracy too low: {:.2}%",
+        accuracy * 100.0
+    );
 
     test_server.shutdown().await;
 }
 
 #[tokio::test]
 async fn test_accuracy_special_symbols() {
-    let test_server = TestServer::start().await.expect("Failed to start test server");
+    let test_server = TestServer::start()
+        .await
+        .expect("Failed to start test server");
 
     let test_cases = vec![
         (r"\alpha", r"\alpha"),
@@ -164,28 +193,38 @@ async fn test_accuracy_special_symbols() {
         let path = format!("/tmp/symbol_{}.png", symbol.replace('\\', ""));
         image.save(&path).unwrap();
 
-        let result = test_server.process_image(&path, OutputFormat::LaTeX)
+        let result = test_server
+            .process_image(&path, OutputFormat::LaTeX)
             .await
             .expect("Processing failed");
 
         if result.latex.contains(expected) {
             correct += 1;
         } else {
-            println!("Symbol {} - Expected to contain: {}, Got: {}", symbol, expected, result.latex);
+            println!(
+                "Symbol {} - Expected to contain: {}, Got: {}",
+                symbol, expected, result.latex
+            );
         }
     }
 
     let accuracy = correct as f64 / test_cases.len() as f64;
     println!("Special symbol accuracy: {:.2}%", accuracy * 100.0);
 
-    assert!(accuracy >= 0.80, "Symbol accuracy too low: {:.2}%", accuracy * 100.0);
+    assert!(
+        accuracy >= 0.80,
+        "Symbol accuracy too low: {:.2}%",
+        accuracy * 100.0
+    );
 
     test_server.shutdown().await;
 }
 
 #[tokio::test]
 async fn test_accuracy_regression_detection() {
-    let test_server = TestServer::start().await.expect("Failed to start test server");
+    let test_server = TestServer::start()
+        .await
+        .expect("Failed to start test server");
 
     // Load baseline results
     let baseline = load_baseline_results();
@@ -196,7 +235,8 @@ async fn test_accuracy_regression_detection() {
     let mut regressions = Vec::new();
 
     for case in test_cases.iter() {
-        let result = test_server.process_image(&case.image_path, OutputFormat::LaTeX)
+        let result = test_server
+            .process_image(&case.image_path, OutputFormat::LaTeX)
             .await
             .expect("Processing failed");
 
@@ -227,14 +267,20 @@ async fn test_accuracy_regression_detection() {
         }
     }
 
-    assert!(regressions.is_empty(), "Found {} regressions", regressions.len());
+    assert!(
+        regressions.is_empty(),
+        "Found {} regressions",
+        regressions.len()
+    );
 
     test_server.shutdown().await;
 }
 
 #[tokio::test]
 async fn test_accuracy_confidence_calibration() {
-    let test_server = TestServer::start().await.expect("Failed to start test server");
+    let test_server = TestServer::start()
+        .await
+        .expect("Failed to start test server");
 
     let test_cases = load_calibration_test_cases();
 
@@ -244,7 +290,8 @@ async fn test_accuracy_confidence_calibration() {
     let mut low_conf_total = 0;
 
     for case in test_cases.iter() {
-        let result = test_server.process_image(&case.image_path, OutputFormat::LaTeX)
+        let result = test_server
+            .process_image(&case.image_path, OutputFormat::LaTeX)
             .await
             .expect("Processing failed");
 
@@ -276,13 +323,24 @@ async fn test_accuracy_confidence_calibration() {
     };
 
     println!("Confidence calibration:");
-    println!("  High confidence (>0.9): {:.2}% accuracy ({}/{})",
-        high_conf_accuracy * 100.0, high_conf_correct, high_conf_total);
-    println!("  Low confidence (<0.7): {:.2}% accuracy ({}/{})",
-        low_conf_accuracy * 100.0, low_conf_correct, low_conf_total);
+    println!(
+        "  High confidence (>0.9): {:.2}% accuracy ({}/{})",
+        high_conf_accuracy * 100.0,
+        high_conf_correct,
+        high_conf_total
+    );
+    println!(
+        "  Low confidence (<0.7): {:.2}% accuracy ({}/{})",
+        low_conf_accuracy * 100.0,
+        low_conf_correct,
+        low_conf_total
+    );
 
     // High confidence should correlate with high accuracy
-    assert!(high_conf_accuracy > 0.95, "High confidence predictions should be very accurate");
+    assert!(
+        high_conf_accuracy > 0.95,
+        "High confidence predictions should be very accurate"
+    );
 
     test_server.shutdown().await;
 }
@@ -305,25 +363,27 @@ struct BaselineResult {
 fn load_im2latex_test_subset(count: usize) -> Vec<TestCase> {
     // Load or generate Im2latex test subset
     // For now, generate synthetic test cases
-    (0..count).map(|i| {
-        let eq = match i % 5 {
-            0 => format!("x^{}", i),
-            1 => format!("a + {}", i),
-            2 => format!(r"\frac{{{}}}{{{}}}", i, i + 1),
-            3 => format!("{}x + {}", i, i * 2),
-            _ => format!("y = {}x", i),
-        };
+    (0..count)
+        .map(|i| {
+            let eq = match i % 5 {
+                0 => format!("x^{}", i),
+                1 => format!("a + {}", i),
+                2 => format!(r"\frac{{{}}}{{{}}}", i, i + 1),
+                3 => format!("{}x + {}", i, i * 2),
+                _ => format!("y = {}x", i),
+            };
 
-        let image = images::generate_simple_equation(&eq);
-        let path = format!("/tmp/im2latex_{}.png", i);
-        image.save(&path).unwrap();
+            let image = images::generate_simple_equation(&eq);
+            let path = format!("/tmp/im2latex_{}.png", i);
+            image.save(&path).unwrap();
 
-        TestCase {
-            id: format!("im2latex_{}", i),
-            image_path: path,
-            ground_truth: eq,
-        }
-    }).collect()
+            TestCase {
+                id: format!("im2latex_{}", i),
+                image_path: path,
+                ground_truth: eq,
+            }
+        })
+        .collect()
 }
 
 fn load_regression_test_cases() -> Vec<TestCase> {
@@ -342,10 +402,13 @@ fn load_baseline_results() -> std::collections::HashMap<String, BaselineResult> 
     // Load baseline results from file
     let mut baseline = std::collections::HashMap::new();
 
-    baseline.insert("reg_001".to_string(), BaselineResult {
-        latex: "x + y".to_string(),
-        cer: 0.0,
-    });
+    baseline.insert(
+        "reg_001".to_string(),
+        BaselineResult {
+            latex: "x + y".to_string(),
+            cer: 0.0,
+        },
+    );
 
     baseline
 }

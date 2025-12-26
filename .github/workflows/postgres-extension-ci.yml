@@ -17,6 +17,10 @@ env:
   CARGO_TERM_COLOR: always
   RUST_BACKTRACE: 1
 
+permissions:
+  contents: read
+  pull-requests: write
+
 jobs:
   # Build and test matrix for multiple PostgreSQL versions
   test:
@@ -37,20 +41,6 @@ jobs:
           - os: macos-latest
             pg_version: 17
             rust: stable
-
-    services:
-      postgres:
-        image: postgres:${{ matrix.pg_version }}
-        env:
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: test
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 5432:5432
 
     steps:
       - name: Checkout code
@@ -121,27 +111,11 @@ jobs:
       - name: Run tests
         run: cargo pgrx test pg${{ matrix.pg_version }}
         working-directory: crates/ruvector-postgres
-        env:
-          DATABASE_URL: postgres://postgres:postgres@localhost:5432/test
 
   # Test with all features enabled
   test-all-features:
     name: Test All Features (PostgreSQL 16)
     runs-on: ubuntu-latest
-
-    services:
-      postgres:
-        image: postgres:16
-        env:
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: test
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 5432:5432
 
     steps:
       - name: Checkout code

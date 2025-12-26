@@ -204,13 +204,11 @@ impl LaTeXGenerator {
                 format!("{} {}", result, content_str)
             }
 
-            MathNode::Sequence { elements } => {
-                elements
-                    .iter()
-                    .map(|e| self.generate_node(e, None))
-                    .collect::<Vec<_>>()
-                    .join(", ")
-            }
+            MathNode::Sequence { elements } => elements
+                .iter()
+                .map(|e| self.generate_node(e, None))
+                .collect::<Vec<_>>()
+                .join(", "),
 
             MathNode::Text { content } => {
                 format!("\\text{{{}}}", content)

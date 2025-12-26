@@ -35,32 +35,32 @@
 //! ```
 
 pub mod detector;
-pub mod strategies;
 pub mod engine;
-pub mod learning;
-pub mod worker;
 pub mod functions;
+pub mod learning;
+pub mod strategies;
+pub mod worker;
 
-pub use detector::{ProblemType, Problem, ProblemDetector, SystemMetrics};
+pub use detector::{Problem, ProblemDetector, ProblemType, SystemMetrics};
+pub use engine::{HealingConfig, HealingOutcome, RemediationContext, RemediationEngine};
+pub use learning::{OutcomeRecord, OutcomeTracker, StrategyWeight};
 pub use strategies::{
-    RemediationStrategy, StrategyRegistry, RemediationResult, RemediationOutcome,
-    ReindexPartition, PromoteReplica, TierEviction, QueryCircuitBreaker, IntegrityRecovery,
+    IntegrityRecovery, PromoteReplica, QueryCircuitBreaker, ReindexPartition, RemediationOutcome,
+    RemediationResult, RemediationStrategy, StrategyRegistry, TierEviction,
 };
-pub use engine::{RemediationEngine, RemediationContext, HealingConfig, HealingOutcome};
-pub use learning::{OutcomeTracker, OutcomeRecord, StrategyWeight};
 pub use worker::{HealingWorker, HealingWorkerConfig, HealingWorkerState};
 
-use std::sync::Arc;
 use parking_lot::RwLock;
+use std::sync::Arc;
 
 /// Global healing engine instance
 static HEALING_ENGINE: std::sync::OnceLock<Arc<RwLock<HealingEngine>>> = std::sync::OnceLock::new();
 
 /// Get or initialize the global healing engine
 pub fn get_healing_engine() -> Arc<RwLock<HealingEngine>> {
-    HEALING_ENGINE.get_or_init(|| {
-        Arc::new(RwLock::new(HealingEngine::new()))
-    }).clone()
+    HEALING_ENGINE
+        .get_or_init(|| Arc::new(RwLock::new(HealingEngine::new())))
+        .clone()
 }
 
 /// Main healing engine combining all components

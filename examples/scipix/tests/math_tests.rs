@@ -16,8 +16,8 @@
 #![cfg(feature = "math")]
 
 use ruvector_scipix::math::{
-    parse_expression, to_asciimath, to_latex, to_mathml, AsciiMathGenerator, LaTeXConfig,
-    LaTeXGenerator, MathExpr, MathNode, BinaryOp, BracketType, LargeOpType,
+    parse_expression, to_asciimath, to_latex, to_mathml, AsciiMathGenerator, BinaryOp, BracketType,
+    LaTeXConfig, LaTeXGenerator, LargeOpType, MathExpr, MathNode,
 };
 
 #[test]
@@ -414,7 +414,13 @@ fn test_operator_precedence() {
             right,
             ..
         } => {
-            assert!(matches!(*right, MathNode::Binary { op: BinaryOp::Multiply, .. }));
+            assert!(matches!(
+                *right,
+                MathNode::Binary {
+                    op: BinaryOp::Multiply,
+                    ..
+                }
+            ));
         }
         _ => panic!("Expected addition with multiplication on right"),
     }

@@ -107,7 +107,11 @@ pub struct Triple {
 
 impl Triple {
     pub fn new(subject: RdfTerm, predicate: Iri, object: RdfTerm) -> Self {
-        Self { subject, predicate, object }
+        Self {
+            subject,
+            predicate,
+            object,
+        }
     }
 }
 
@@ -208,9 +212,15 @@ impl TripleStore {
                 self.triples
                     .iter()
                     .filter(|(_, t)| {
-                        let s_match = subject.map(|s| term_to_key(s) == term_to_key(&t.subject)).unwrap_or(true);
-                        let p_match = predicate.map(|p| p.as_str() == t.predicate.as_str()).unwrap_or(true);
-                        let o_match = object.map(|o| term_to_key(o) == term_to_key(&t.object)).unwrap_or(true);
+                        let s_match = subject
+                            .map(|s| term_to_key(s) == term_to_key(&t.subject))
+                            .unwrap_or(true);
+                        let p_match = predicate
+                            .map(|p| p.as_str() == t.predicate.as_str())
+                            .unwrap_or(true);
+                        let o_match = object
+                            .map(|o| term_to_key(o) == term_to_key(&t.object))
+                            .unwrap_or(true);
                         s_match && p_match && o_match
                     })
                     .map(|(id, _)| *id)
@@ -248,8 +258,13 @@ fn term_to_key(term: &RdfTerm) -> String {
 
 #[derive(Debug)]
 pub enum QueryType {
-    Select { variables: Vec<String>, where_patterns: Vec<TriplePattern> },
-    Ask { where_patterns: Vec<TriplePattern> },
+    Select {
+        variables: Vec<String>,
+        where_patterns: Vec<TriplePattern>,
+    },
+    Ask {
+        where_patterns: Vec<TriplePattern>,
+    },
 }
 
 #[derive(Debug, Clone)]
@@ -275,7 +290,10 @@ pub fn parse_simple_sparql(query: &str) -> Result<QueryType, String> {
     } else if upper.starts_with("ASK") {
         parse_ask(query)
     } else {
-        Err(format!("Unsupported query type: {}", query.chars().take(20).collect::<String>()))
+        Err(format!(
+            "Unsupported query type: {}",
+            query.chars().take(20).collect::<String>()
+        ))
     }
 }
 
@@ -298,7 +316,10 @@ fn parse_select(query: &str) -> Result<QueryType, String> {
     // Extract patterns from WHERE { ... }
     let where_patterns = parse_where_clause(query)?;
 
-    Ok(QueryType::Select { variables, where_patterns })
+    Ok(QueryType::Select {
+        variables,
+        where_patterns,
+    })
 }
 
 fn parse_ask(query: &str) -> Result<QueryType, String> {
@@ -393,7 +414,7 @@ fn parse_term(s: &str) -> PatternTerm {
     if s.starts_with('?') || s.starts_with('$') {
         PatternTerm::Variable(s[1..].to_string())
     } else if s.starts_with('<') && s.ends_with('>') {
-        PatternTerm::Iri(s[1..s.len()-1].to_string())
+        PatternTerm::Iri(s[1..s.len() - 1].to_string())
     } else if s.starts_with('"') {
         let end = s.rfind('"').unwrap_or(s.len());
         PatternTerm::Literal(s[1..end].to_string())
@@ -411,9 +432,10 @@ pub type Binding = HashMap<String, RdfTerm>;
 
 pub fn execute_query(store: &TripleStore, query: &QueryType) -> Vec<Binding> {
     match query {
-        QueryType::Select { variables, where_patterns } => {
-            execute_bgp(store, where_patterns, variables)
-        }
+        QueryType::Select {
+            variables,
+            where_patterns,
+        } => execute_bgp(store, where_patterns, variables),
         QueryType::Ask { where_patterns } => {
             let results = execute_bgp(store, where_patterns, &vec![]);
             if results.is_empty() {
@@ -440,7 +462,16 @@ fn execute_bgp(store: &TripleStore, patterns: &[TriplePattern], _vars: &[String]
             // Query the store
             let matches = store.query(
                 subject.as_ref(),
-                predicate.as_ref().map(|t| if let RdfTerm::Iri(i) = t { Some(i) } else { None }).flatten(),
+                predicate
+                    .as_ref()
+                    .map(|t| {
+                        if let RdfTerm::Iri(i) = t {
+                            Some(i)
+                        } else {
+                            None
+                        }
+                    })
+                    .flatten(),
                 object.as_ref(),
             );
 
@@ -657,13 +688,12 @@ fn main() {
     // Test 3: Query by predicate
     {
         let store = create_test_store();
-        let results = store.query(
-            None,
-            Some(&Iri::rdf_type()),
-            None,
-        );
+        let results = store.query(None, Some(&Iri::rdf_type()), None);
         assert_eq!(results.len(), 3); // alice, bob, charlie
-        println!("[PASS] Query by predicate returns {} triples", results.len());
+        println!(
+            "[PASS] Query by predicate returns {} triples",
+            results.len()
+        );
     }
 
     // Test 4: SPARQL SELECT parser
@@ -671,11 +701,20 @@ fn main() {
         let query = r#"SELECT ?person ?name WHERE { ?person <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/Person> . ?person <http://xmlns.com/foaf/0.1/name> ?name . }"#;
         let parsed = parse_simple_sparql(query).expect("Should parse");
         match parsed {
-            QueryType::Select { variables, where_patterns } => {
+            QueryType::Select {
+                variables,
+                where_patterns,
+            } => {
                 assert_eq!(variables.len(), 2);
                 assert!(variables.contains(&"person".to_string()));
                 assert!(variables.contains(&"name".to_string()));
-                assert_eq!(where_patterns.len(), 2, "Expected 2 patterns, got {}: {:?}", where_patterns.len(), where_patterns);
+                assert_eq!(
+                    where_patterns.len(),
+                    2,
+                    "Expected 2 patterns, got {}: {:?}",
+                    where_patterns.len(),
+                    where_patterns
+                );
                 println!("[PASS] SPARQL SELECT parser works");
             }
             _ => panic!("Expected SELECT query"),
@@ -688,7 +727,13 @@ fn main() {
         let parsed = parse_simple_sparql(query).expect("Should parse");
         match parsed {
             QueryType::Ask { where_patterns } => {
-                assert_eq!(where_patterns.len(), 1, "Expected 1 pattern, got {}: {:?}", where_patterns.len(), where_patterns);
+                assert_eq!(
+                    where_patterns.len(),
+                    1,
+                    "Expected 1 pattern, got {}: {:?}",
+                    where_patterns.len(),
+                    where_patterns
+                );
                 println!("[PASS] SPARQL ASK parser works");
             }
             _ => panic!("Expected ASK query"),
@@ -701,12 +746,20 @@ fn main() {
         let query = r#"SELECT ?person ?name WHERE { ?person <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/Person> . ?person <http://xmlns.com/foaf/0.1/name> ?name . }"#;
         let parsed = parse_simple_sparql(query).expect("Should parse");
         let results = execute_query(&store, &parsed);
-        assert_eq!(results.len(), 3, "Expected 3 results, got {}", results.len()); // alice, bob, charlie
+        assert_eq!(
+            results.len(),
+            3,
+            "Expected 3 results, got {}",
+            results.len()
+        ); // alice, bob, charlie
         for binding in &results {
             assert!(binding.contains_key("person"));
             assert!(binding.contains_key("name"));
         }
-        println!("[PASS] SPARQL SELECT execution returns {} bindings", results.len());
+        println!(
+            "[PASS] SPARQL SELECT execution returns {} bindings",
+            results.len()
+        );
     }
 
     // Test 7: SPARQL ASK true
@@ -735,8 +788,16 @@ fn main() {
         let query = r#"SELECT ?person ?friend WHERE { ?person <http://xmlns.com/foaf/0.1/knows> ?friend . ?friend <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/Person> . }"#;
         let parsed = parse_simple_sparql(query).expect("Should parse");
         let results = execute_query(&store, &parsed);
-        assert_eq!(results.len(), 2, "Expected 2 results, got {}", results.len()); // alice->bob, bob->charlie
-        println!("[PASS] SPARQL JOIN execution returns {} bindings", results.len());
+        assert_eq!(
+            results.len(),
+            2,
+            "Expected 2 results, got {}",
+            results.len()
+        ); // alice->bob, bob->charlie
+        println!(
+            "[PASS] SPARQL JOIN execution returns {} bindings",
+            results.len()
+        );
     }
 
     println!();
@@ -752,7 +813,10 @@ fn main() {
     for count in counts {
         let duration = benchmark_triple_insertion(count);
         let rate = count as f64 / duration.as_secs_f64();
-        println!("Insert {:>7} triples: {:>10.2?} ({:>12.0} triples/sec)", count, duration, rate);
+        println!(
+            "Insert {:>7} triples: {:>10.2?} ({:>12.0} triples/sec)",
+            count, duration, rate
+        );
     }
     println!();
 
@@ -770,19 +834,28 @@ fn main() {
     let iterations = 10_000;
     let duration = benchmark_triple_query(&large_store, iterations);
     let rate = iterations as f64 / duration.as_secs_f64();
-    println!("Query by subject ({} iterations): {:?} ({:.0} queries/sec)", iterations, duration, rate);
+    println!(
+        "Query by subject ({} iterations): {:?} ({:.0} queries/sec)",
+        iterations, duration, rate
+    );
 
     // Parse benchmark
     let duration = benchmark_sparql_parse(iterations);
     let rate = iterations as f64 / duration.as_secs_f64();
-    println!("SPARQL parse ({} iterations): {:?} ({:.0} parses/sec)", iterations, duration, rate);
+    println!(
+        "SPARQL parse ({} iterations): {:?} ({:.0} parses/sec)",
+        iterations, duration, rate
+    );
 
     // Execution benchmark (smaller dataset)
     let small_store = create_test_store();
     let iterations = 1_000;
     let duration = benchmark_sparql_execution(&small_store, iterations);
     let rate = iterations as f64 / duration.as_secs_f64();
-    println!("SPARQL execution ({} iterations): {:?} ({:.0} queries/sec)", iterations, duration, rate);
+    println!(
+        "SPARQL execution ({} iterations): {:?} ({:.0} queries/sec)",
+        iterations, duration, rate
+    );
 
     println!();
     print_separator();

@@ -89,9 +89,7 @@ pub enum HealingOutcome {
         problem_type: ProblemType,
     },
     /// No suitable strategy found
-    NoStrategy {
-        problem_type: ProblemType,
-    },
+    NoStrategy { problem_type: ProblemType },
     /// Healing is disabled
     Disabled,
     /// Already at maximum concurrent remediations
@@ -102,7 +100,12 @@ impl HealingOutcome {
     /// Convert to JSON
     pub fn to_json(&self) -> serde_json::Value {
         match self {
-            HealingOutcome::Completed { problem_type, strategy, result, verified } => {
+            HealingOutcome::Completed {
+                problem_type,
+                strategy,
+                result,
+                verified,
+            } => {
                 serde_json::json!({
                     "status": "completed",
                     "problem_type": problem_type.to_string(),
@@ -111,7 +114,10 @@ impl HealingOutcome {
                     "verified": verified,
                 })
             }
-            HealingOutcome::Deferred { reason, problem_type } => {
+            HealingOutcome::Deferred {
+                reason,
+                problem_type,
+            } => {
                 serde_json::json!({
                     "status": "deferred",
                     "reason": reason,
@@ -160,11 +166,13 @@ pub struct ActiveRemediation {
 impl ActiveRemediation {
     /// Convert to JSON
     pub fn to_json(&self) -> serde_json::Value {
-        let started_ts = self.started_at
+        let started_ts = self
+            .started_at
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_secs();
-        let expected_ts = self.expected_completion
+        let expected_ts = self
+            .expected_completion
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_secs();
@@ -355,7 +363,10 @@ impl RemediationEngine {
         };
 
         // Check if strategy requires approval
-        if config.require_approval_strategies.contains(&strategy.name().to_string()) {
+        if config
+            .require_approval_strategies
+            .contains(&strategy.name().to_string())
+        {
             return HealingOutcome::Deferred {
                 reason: format!("Strategy '{}' requires human approval", strategy.name()),
                 problem_type: problem.problem_type,
@@ -403,7 +414,10 @@ impl RemediationEngine {
 
         // Rollback if not verified and reversible
         if !verified && strategy.reversible() {
-            pgrx::log!("Remediation not verified, rolling back: {}", strategy.name());
+            pgrx::log!(
+                "Remediation not verified, rolling back: {}",
+                strategy.name()
+            );
             if let Err(e) = strategy.rollback(&context, &result) {
                 pgrx::warning!("Rollback failed: {}", e);
             }
@@ -411,8 +425,10 @@ impl RemediationEngine {
 
         // Update learning
         if config.learning_enabled {
-            self.registry.update_weight(strategy.name(), verified, result.improvement_pct);
-            self.tracker.record(problem, strategy.name(), &result, verified);
+            self.registry
+                .update_weight(strategy.name(), verified, result.improvement_pct);
+            self.tracker
+                .record(problem, strategy.name(), &result, verified);
         }
 
         if verified {
@@ -466,7 +482,10 @@ impl RemediationEngine {
     /// Get reason for deferring
     fn get_defer_reason(&self, problem: &Problem, config: &HealingConfig) -> String {
         if config.require_approval.contains(&problem.problem_type) {
-            return format!("Problem type '{:?}' requires human approval", problem.problem_type);
+            return format!(
+                "Problem type '{:?}' requires human approval",
+                problem.problem_type
+            );
         }
 
         if !self.is_past_cooldown(problem.problem_type, config) {
@@ -478,8 +497,7 @@ impl RemediationEngine {
         {
             return format!(
                 "Exceeded maximum {} attempts per {:?}",
-                config.max_attempts_per_window,
-                config.attempt_window
+                config.max_attempts_per_window, config.attempt_window
             );
         }
 
@@ -717,7 +735,9 @@ mod tests {
     #[test]
     fn test_strategy_approval_requirement() {
         let mut config = HealingConfig::default();
-        config.require_approval_strategies.push("promote_replica".to_string());
+        config
+            .require_approval_strategies
+            .push("promote_replica".to_string());
         config.max_auto_heal_impact = 1.0; // Allow high impact
 
         let registry = StrategyRegistry::new_with_defaults();

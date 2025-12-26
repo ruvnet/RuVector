@@ -167,7 +167,8 @@ impl GraphDatabase {
             // Persist to storage if enabled
             if let Some(ref storage_arc) = storage {
                 let storage_guard = storage_arc.write().expect("Storage RwLock poisoned");
-                storage_guard.insert_node(&graph_node)
+                storage_guard
+                    .insert_node(&graph_node)
                     .map_err(|e| Error::from_reason(format!("Failed to persist node: {}", e)))?;
             }
 
@@ -272,21 +273,30 @@ impl GraphDatabase {
                     Statement::Match(match_clause) => {
                         // Extract label from match patterns for query
                         for pattern in &match_clause.patterns {
-                            if let ruvector_graph::cypher::ast::Pattern::Node(node_pattern) = pattern {
+                            if let ruvector_graph::cypher::ast::Pattern::Node(node_pattern) =
+                                pattern
+                            {
                                 for label in &node_pattern.labels {
                                     let nodes = gdb.get_nodes_by_label(label);
                                     for node in nodes {
                                         result_nodes.push(JsNodeResult {
                                             id: node.id.clone(),
-                                            labels: node.labels.iter().map(|l| l.name.clone()).collect(),
-                                            properties: node.properties.iter()
+                                            labels: node
+                                                .labels
+                                                .iter()
+                                                .map(|l| l.name.clone())
+                                                .collect(),
+                                            properties: node
+                                                .properties
+                                                .iter()
                                                 .map(|(k, v)| (k.clone(), format!("{:?}", v)))
                                                 .collect(),
                                         });
                                     }
                                 }
                                 // If no labels specified, return all nodes (simplified)
-                                if node_pattern.labels.is_empty() && node_pattern.variable.is_some() {
+                                if node_pattern.labels.is_empty() && node_pattern.variable.is_some()
+                                {
                                     // This would need iteration over all nodes - for now just stats
                                 }
                             }

@@ -4,40 +4,22 @@
 //! - Poincaré ball model (traditional)
 //! - Lorentz hyperboloid model (novel - faster, more stable)
 
-pub mod poincare;
 pub mod hyperbolic_attention;
-pub mod mixed_curvature;
 pub mod lorentz_cascade;
+pub mod mixed_curvature;
+pub mod poincare;
 
 pub use poincare::{
-    poincare_distance,
-    mobius_add,
-    mobius_scalar_mult,
-    exp_map,
-    log_map,
+    exp_map, frechet_mean, log_map, mobius_add, mobius_scalar_mult, poincare_distance,
     project_to_ball,
-    frechet_mean,
 };
 
-pub use hyperbolic_attention::{
-    HyperbolicAttention,
-    HyperbolicAttentionConfig,
-};
+pub use hyperbolic_attention::{HyperbolicAttention, HyperbolicAttentionConfig};
 
-pub use mixed_curvature::{
-    MixedCurvatureAttention,
-    MixedCurvatureConfig,
-};
+pub use mixed_curvature::{MixedCurvatureAttention, MixedCurvatureConfig};
 
 // Novel Lorentz Cascade Attention (LCA)
 pub use lorentz_cascade::{
-    LorentzCascadeAttention,
-    LCAConfig,
-    CascadeHead,
-    lorentz_distance,
-    lorentz_inner,
-    busemann_score,
-    horosphere_attention_weights,
-    einstein_midpoint,
-    project_hyperboloid,
+    busemann_score, einstein_midpoint, horosphere_attention_weights, lorentz_distance,
+    lorentz_inner, project_hyperboloid, CascadeHead, LCAConfig, LorentzCascadeAttention,
 };

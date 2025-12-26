@@ -139,11 +139,35 @@ impl AsciiMathGenerator {
                     BracketType::Parentheses => ("(", ")"),
                     BracketType::Brackets => ("[", "]"),
                     BracketType::Braces => ("{", "}"),
-                    BracketType::AngleBrackets => if self.unicode { ("⟨", "⟩") } else { ("<", ">") },
+                    BracketType::AngleBrackets => {
+                        if self.unicode {
+                            ("⟨", "⟩")
+                        } else {
+                            ("<", ">")
+                        }
+                    }
                     BracketType::Vertical => ("|", "|"),
-                    BracketType::DoubleVertical => if self.unicode { ("‖", "‖") } else { ("||", "||") },
-                    BracketType::Floor => if self.unicode { ("⌊", "⌋") } else { ("|_", "_|") },
-                    BracketType::Ceiling => if self.unicode { ("⌈", "⌉") } else { ("|^", "^|") },
+                    BracketType::DoubleVertical => {
+                        if self.unicode {
+                            ("‖", "‖")
+                        } else {
+                            ("||", "||")
+                        }
+                    }
+                    BracketType::Floor => {
+                        if self.unicode {
+                            ("⌊", "⌋")
+                        } else {
+                            ("|_", "_|")
+                        }
+                    }
+                    BracketType::Ceiling => {
+                        if self.unicode {
+                            ("⌈", "⌉")
+                        } else {
+                            ("|^", "^|")
+                        }
+                    }
                     BracketType::None => ("", ""),
                 };
 
@@ -174,13 +198,11 @@ impl AsciiMathGenerator {
                 format!("{} {}", result, content_str)
             }
 
-            MathNode::Sequence { elements } => {
-                elements
-                    .iter()
-                    .map(|e| self.generate_node(e, None))
-                    .collect::<Vec<_>>()
-                    .join(", ")
-            }
+            MathNode::Sequence { elements } => elements
+                .iter()
+                .map(|e| self.generate_node(e, None))
+                .collect::<Vec<_>>()
+                .join(", "),
 
             MathNode::Text { content } => {
                 format!("\"{}\"", content)
@@ -240,7 +262,13 @@ impl AsciiMathGenerator {
         match op {
             UnaryOp::Plus => "+",
             UnaryOp::Minus => "-",
-            UnaryOp::Not => if self.unicode { "¬" } else { "not " },
+            UnaryOp::Not => {
+                if self.unicode {
+                    "¬"
+                } else {
+                    "not "
+                }
+            }
             UnaryOp::Custom(s) => s.as_str(),
         }
     }

@@ -141,7 +141,8 @@ impl DeterministicFamilyGenerator {
         let mut seeds = vec![v];
 
         // Deterministically select neighbors based on vertex ID ordering
-        let mut neighbors: Vec<_> = graph.neighbors(v)
+        let mut neighbors: Vec<_> = graph
+            .neighbors(v)
             .into_iter()
             .map(|(neighbor, _)| neighbor)
             .collect();
@@ -325,7 +326,8 @@ impl DeterministicLocalKCut {
 
             for v in layer_vertices {
                 // Get neighbors and sort for determinism
-                let mut neighbors: Vec<_> = graph.neighbors(v)
+                let mut neighbors: Vec<_> = graph
+                    .neighbors(v)
                     .into_iter()
                     .map(|(neighbor, _)| neighbor)
                     .filter(|neighbor| !visited.contains(neighbor))
@@ -419,17 +421,14 @@ impl LocalKCutOracle for DeterministicLocalKCut {
         let radius = query.radius.min(self.max_radius);
 
         // Perform deterministic BFS exploration
-        let result = self.deterministic_bfs(
-            graph,
-            &query.seed_vertices,
-            query.budget_k,
-            radius,
-        );
+        let result = self.deterministic_bfs(graph, &query.seed_vertices, query.budget_k, radius);
 
         match result {
             Some((vertices, boundary_size)) => {
                 // Pick the first seed that's in the vertex set
-                let seed = query.seed_vertices.iter()
+                let seed = query
+                    .seed_vertices
+                    .iter()
                     .find(|&&s| vertices.contains(&s))
                     .copied()
                     .unwrap_or(query.seed_vertices[0]);
@@ -634,8 +633,14 @@ mod tests {
         // Results should be identical (deterministic)
         match (result1, result2) {
             (
-                LocalKCutResult::Found { cut_value: v1, witness: w1 },
-                LocalKCutResult::Found { cut_value: v2, witness: w2 },
+                LocalKCutResult::Found {
+                    cut_value: v1,
+                    witness: w1,
+                },
+                LocalKCutResult::Found {
+                    cut_value: v2,
+                    witness: w2,
+                },
             ) => {
                 assert_eq!(v1, v2);
                 assert_eq!(w1.seed(), w2.seed());
@@ -762,9 +767,8 @@ mod tests {
         match result {
             LocalKCutResult::Found { witness, .. } => {
                 // Witness should contain at least one of the seeds
-                let contains_seed = witness.contains(1)
-                    || witness.contains(2)
-                    || witness.contains(3);
+                let contains_seed =
+                    witness.contains(1) || witness.contains(2) || witness.contains(3);
                 assert!(contains_seed);
             }
             LocalKCutResult::NoneInLocality => {

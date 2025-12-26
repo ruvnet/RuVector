@@ -132,11 +132,7 @@ mod pgvector_syntax_tests {
     /// Test HNSW index with different operator classes
     #[test]
     fn test_hnsw_operator_classes() {
-        let operator_classes = [
-            "vector_l2_ops",
-            "vector_cosine_ops",
-            "vector_ip_ops",
-        ];
+        let operator_classes = ["vector_l2_ops", "vector_cosine_ops", "vector_ip_ops"];
 
         for op_class in operator_classes {
             let sql = format!(
@@ -301,8 +297,8 @@ mod pgvector_syntax_tests {
         let small = vec_to_pg_array(&[1e-10, 1e-15, 1e-20]);
         let large = vec_to_pg_array(&[1e10, 1e15, 1e20]);
 
-        assert!(small.contains("0.000000"));  // Very small rounds to 0
-        assert!(large.len() > 0);  // Large values formatted
+        assert!(small.contains("0.000000")); // Very small rounds to 0
+        assert!(large.len() > 0); // Large values formatted
     }
 
     /// Test vector normalization in SQL

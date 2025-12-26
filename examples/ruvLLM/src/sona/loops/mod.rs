@@ -5,10 +5,10 @@
 //! - Loop B (Background): Hourly pattern extraction and base LoRA updates
 //! - Loop C (Deep): Weekly dream consolidation and full EWC++ update
 
-pub mod instant;
 pub mod background;
 pub mod coordinator;
+pub mod instant;
 
-pub use instant::InstantLoop;
 pub use background::BackgroundLoop;
 pub use coordinator::LoopCoordinator;
+pub use instant::InstantLoop;

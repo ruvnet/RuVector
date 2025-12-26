@@ -11,14 +11,14 @@
 //! curl -X POST -F "image=@equation.png" http://localhost:8080/ocr
 //! ```
 
-use ruvector_scipix::{OcrEngine, OcrConfig, OutputFormat};
 use axum::{
-    Router,
     extract::{Multipart, State},
     http::StatusCode,
     response::{IntoResponse, Json},
     routing::{get, post},
+    Router,
 };
+use ruvector_scipix::{OcrConfig, OcrEngine, OutputFormat};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio::signal;
@@ -99,10 +99,7 @@ async fn health_check() -> impl IntoResponse {
     })
 }
 
-async fn process_ocr(
-    State(state): State<AppState>,
-    mut multipart: Multipart,
-) -> impl IntoResponse {
+async fn process_ocr(State(state): State<AppState>, mut multipart: Multipart) -> impl IntoResponse {
     while let Some(field) = multipart.next_field().await.unwrap() {
         if field.name() == Some("image") {
             let data = match field.bytes().await {

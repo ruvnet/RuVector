@@ -29,8 +29,12 @@ pub mod uncertainty;
 pub use error::{Result, TinyDancerError};
 pub use model::{FastGRNN, FastGRNNConfig};
 pub use router::Router;
-pub use training::{generate_teacher_predictions, Trainer, TrainingConfig, TrainingDataset, TrainingMetrics};
-pub use types::{Candidate, RouterConfig, RoutingDecision, RoutingRequest, RoutingResponse, RoutingMetrics};
+pub use training::{
+    generate_teacher_predictions, Trainer, TrainingConfig, TrainingDataset, TrainingMetrics,
+};
+pub use types::{
+    Candidate, RouterConfig, RoutingDecision, RoutingMetrics, RoutingRequest, RoutingResponse,
+};
 
 /// Version of the Tiny Dancer library
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

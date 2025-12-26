@@ -73,10 +73,7 @@ mod tests {
             expected: 512,
             actual: 256,
         };
-        assert_eq!(
-            err.to_string(),
-            "Dimension mismatch: expected 512, got 256"
-        );
+        assert_eq!(err.to_string(), "Dimension mismatch: expected 512, got 256");
 
         let err = AttentionError::InvalidConfig("dropout must be in [0, 1]".to_string());
         assert_eq!(

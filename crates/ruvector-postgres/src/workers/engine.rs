@@ -38,20 +38,20 @@
 //! +------------------------------------------------------------------+
 //! ```
 
+use parking_lot::RwLock;
 use pgrx::prelude::*;
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::OnceLock;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
-use std::collections::HashMap;
-use parking_lot::RwLock;
-use serde::{Deserialize, Serialize};
 
 use super::ipc::{
-    get_shared_memory, Operation, SearchRequest, WorkItem, WorkResult, ResultStatus,
-    InsertRequest, DeleteRequest, BuildIndexRequest, UpdateIndexRequest, PayloadRef,
+    get_shared_memory, BuildIndexRequest, DeleteRequest, InsertRequest, Operation, PayloadRef,
+    ResultStatus, SearchRequest, UpdateIndexRequest, WorkItem, WorkResult,
 };
-use super::lifecycle::{WorkerHandle, WorkerStatus, get_lifecycle_manager};
-use super::queue::{TaskType, TaskPriority, Task, get_task_queues};
+use super::lifecycle::{get_lifecycle_manager, WorkerHandle, WorkerStatus};
+use super::queue::{get_task_queues, Task, TaskPriority, TaskType};
 
 // Re-export for external use
 pub use super::ipc::SearchRequest as SearchReq;
@@ -376,7 +376,10 @@ impl RuVectorEngine {
             .ok_or_else(|| format!("Collection {} not found", request.collection_id))?;
 
         if !index.is_loaded() {
-            return Err(format!("Index for collection {} not loaded", request.collection_id));
+            return Err(format!(
+                "Index for collection {} not loaded",
+                request.collection_id
+            ));
         }
 
         index.record_query();
@@ -429,12 +432,10 @@ impl RuVectorEngine {
 
         // Get or create index
         let mut indexes = self.indexes.write();
-        let index = indexes
-            .entry(request.collection_id)
-            .or_insert_with(|| {
-                // Create new index (in production, would load from catalog)
-                CollectionIndex::new(request.collection_id, "hnsw", 0)
-            });
+        let index = indexes.entry(request.collection_id).or_insert_with(|| {
+            // Create new index (in production, would load from catalog)
+            CollectionIndex::new(request.collection_id, "hnsw", 0)
+        });
 
         // In production, insert vectors into the index
         let count = request.vectors.len() as u64;
@@ -716,7 +717,9 @@ impl EngineWorker {
             // Send result
             let work_result = match result {
                 Ok(data) => {
-                    shmem.stats.record_success(processing_time_us, data.len() as u64);
+                    shmem
+                        .stats
+                        .record_success(processing_time_us, data.len() as u64);
                     WorkResult {
                         request_id: work_item.request_id,
                         status: ResultStatus::Success,
@@ -831,8 +834,8 @@ fn current_epoch_ms() -> u64 {
 
 /// Compute cache key for a search request
 fn compute_cache_key(request: &SearchRequest) -> u64 {
-    use std::hash::{Hash, Hasher};
     use std::collections::hash_map::DefaultHasher;
+    use std::hash::{Hash, Hasher};
 
     let mut hasher = DefaultHasher::new();
     request.collection_id.hash(&mut hasher);

@@ -40,12 +40,12 @@
 //! witness.delete_edge(1, 2).unwrap();
 //! ```
 
-use crate::graph::{DynamicGraph, VertexId, EdgeId, Weight, Edge};
+use crate::graph::{DynamicGraph, Edge, EdgeId, VertexId, Weight};
 use crate::linkcut::LinkCutTree;
 use crate::{MinCutError, Result};
+use parking_lot::RwLock;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::Arc;
-use parking_lot::RwLock;
 
 /// A witness for a tree edge
 ///
@@ -64,7 +64,11 @@ pub struct EdgeWitness {
 
 impl EdgeWitness {
     /// Create a new witness
-    fn new(tree_edge: (VertexId, VertexId), cut_value: Weight, cut_side: HashSet<VertexId>) -> Self {
+    fn new(
+        tree_edge: (VertexId, VertexId),
+        cut_value: Weight,
+        cut_side: HashSet<VertexId>,
+    ) -> Self {
         Self {
             tree_edge,
             cut_value,
@@ -875,7 +879,11 @@ mod tests {
         // However, depending on which spanning tree we build, we might get different results
         // Since we use BFS, the spanning tree is deterministic but may not find optimal cut
         let min_cut = witness.min_cut_value();
-        assert!(min_cut >= 5.0 && min_cut <= 7.0, "Min cut should be between 5.0 and 7.0, got {}", min_cut);
+        assert!(
+            min_cut >= 5.0 && min_cut <= 7.0,
+            "Min cut should be between 5.0 and 7.0, got {}",
+            min_cut
+        );
     }
 
     #[test]

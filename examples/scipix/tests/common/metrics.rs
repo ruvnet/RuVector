@@ -49,9 +49,7 @@ pub fn calculate_bleu(reference: &str, hypothesis: &str, max_n: usize) -> f64 {
     }
 
     // Geometric mean of precisions
-    let geo_mean = precisions.iter()
-        .map(|p| p.ln())
-        .sum::<f64>() / precisions.len() as f64;
+    let geo_mean = precisions.iter().map(|p| p.ln()).sum::<f64>() / precisions.len() as f64;
 
     // Brevity penalty
     let bp = if hyp_words.len() >= ref_words.len() {
@@ -123,13 +121,20 @@ fn levenshtein_distance(a: &str, b: &str) -> usize {
 
     for i in 1..=a_len {
         for j in 1..=b_len {
-            let cost = if a_chars[i - 1] == b_chars[j - 1] { 0 } else { 1 };
+            let cost = if a_chars[i - 1] == b_chars[j - 1] {
+                0
+            } else {
+                1
+            };
 
             matrix[i][j] = *[
                 matrix[i - 1][j] + 1,        // deletion
                 matrix[i][j - 1] + 1,        // insertion
                 matrix[i - 1][j - 1] + cost, // substitution
-            ].iter().min().unwrap();
+            ]
+            .iter()
+            .min()
+            .unwrap();
         }
     }
 
@@ -165,7 +170,10 @@ fn word_levenshtein_distance(a: &[&str], b: &[&str]) -> usize {
                 matrix[i - 1][j] + 1,        // deletion
                 matrix[i][j - 1] + 1,        // insertion
                 matrix[i - 1][j - 1] + cost, // substitution
-            ].iter().min().unwrap();
+            ]
+            .iter()
+            .min()
+            .unwrap();
         }
     }
 

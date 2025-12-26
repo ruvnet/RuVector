@@ -6,7 +6,7 @@
 
 use crate::config::RouterConfig;
 use crate::error::{Error, Result, RouterError};
-use crate::types::{ModelSize, RoutingDecision, RouterSample, CONTEXT_BINS};
+use crate::types::{ModelSize, RouterSample, RoutingDecision, CONTEXT_BINS};
 
 use ndarray::{Array1, Array2, Axis};
 use parking_lot::RwLock;
@@ -172,7 +172,12 @@ impl AdamState {
 impl FastGRNNRouter {
     /// Create a new router with random initialization
     pub fn new(config: &RouterConfig) -> Result<Self> {
-        let cell = FastGRNNCell::new(config.input_dim, config.hidden_dim, config.sparsity, config.rank);
+        let cell = FastGRNNCell::new(
+            config.input_dim,
+            config.hidden_dim,
+            config.sparsity,
+            config.rank,
+        );
         let output_heads = OutputHeads::new(config.hidden_dim);
         let input_norm = LayerNorm::new(config.input_dim);
 
@@ -207,7 +212,8 @@ impl FastGRNNRouter {
         let data = bincode::serde::encode_to_vec(
             (&self.cell, &self.output_heads, &self.input_norm),
             bincode::config::standard(),
-        ).map_err(|e| Error::Serialization(e.to_string()))?;
+        )
+        .map_err(|e| Error::Serialization(e.to_string()))?;
 
         std::fs::write(path, data)?;
         Ok(())
@@ -220,7 +226,8 @@ impl FastGRNNRouter {
             return Err(RouterError::InvalidFeatures {
                 expected: self.config.input_dim,
                 actual: features.len(),
-            }.into());
+            }
+            .into());
         }
 
         let x = Array1::from_vec(features.to_vec());
@@ -265,7 +272,12 @@ impl FastGRNNRouter {
             temperature,
             top_p,
             confidence,
-            model_probs: [model_probs[0], model_probs[1], model_probs[2], model_probs[3]],
+            model_probs: [
+                model_probs[0],
+                model_probs[1],
+                model_probs[2],
+                model_probs[3],
+            ],
             new_hidden: h_new.to_vec(),
             features: features.to_vec(),
         })
@@ -327,7 +339,13 @@ impl FastGRNNRouter {
             }
 
             // Compute gradients (simplified - using finite differences for demo)
-            self.accumulate_gradients(&mut grad_accum, sample, &h_new, &model_probs, &context_probs);
+            self.accumulate_gradients(
+                &mut grad_accum,
+                sample,
+                &h_new,
+                &model_probs,
+                &context_probs,
+            );
         }
 
         // Average gradients
@@ -359,10 +377,14 @@ impl FastGRNNRouter {
     }
 
     fn parameter_count(&self) -> usize {
-        let cell_params = self.cell.w_z.len() + self.cell.w_h.len()
-            + self.cell.u_z_a.len() + self.cell.u_z_b.len()
-            + self.cell.u_h_a.len() + self.cell.u_h_b.len()
-            + self.cell.b_z.len() + self.cell.b_h.len();
+        let cell_params = self.cell.w_z.len()
+            + self.cell.w_h.len()
+            + self.cell.u_z_a.len()
+            + self.cell.u_z_b.len()
+            + self.cell.u_h_a.len()
+            + self.cell.u_h_b.len()
+            + self.cell.b_z.len()
+            + self.cell.b_h.len();
 
         let head_params = self.output_heads.w_model.len()
             + self.output_heads.w_context.len()
@@ -407,15 +429,14 @@ impl FastGRNNRouter {
         }
     }
 
-    fn add_ewc_gradient(
-        &self,
-        grads: &mut [f32],
-        fisher: &[f32],
-        optimal: &[f32],
-        lambda: f32,
-    ) {
+    fn add_ewc_gradient(&self, grads: &mut [f32], fisher: &[f32], optimal: &[f32], lambda: f32) {
         let params = self.get_flat_params();
-        for (i, ((g, &f), &w_opt)) in grads.iter_mut().zip(fisher.iter()).zip(optimal.iter()).enumerate() {
+        for (i, ((g, &f), &w_opt)) in grads
+            .iter_mut()
+            .zip(fisher.iter())
+            .zip(optimal.iter())
+            .enumerate()
+        {
             if i < params.len() {
                 *g += lambda * f * (params[i] - w_opt);
             }
@@ -515,10 +536,18 @@ impl FastGRNNCell {
 
         // Create sparsity masks
         let w_z_mask = Array2::from_shape_fn((hidden_dim, input_dim), |_| {
-            if rng.gen::<f32>() > sparsity { 1.0 } else { 0.0 }
+            if rng.gen::<f32>() > sparsity {
+                1.0
+            } else {
+                0.0
+            }
         });
         let w_h_mask = Array2::from_shape_fn((hidden_dim, input_dim), |_| {
-            if rng.gen::<f32>() > sparsity { 1.0 } else { 0.0 }
+            if rng.gen::<f32>() > sparsity {
+                1.0
+            } else {
+                0.0
+            }
         });
 
         // Initialize low-rank U matrices
@@ -660,14 +689,22 @@ fn softmax_array(x: &Array1<f32>) -> Array1<f32> {
         let max = x.fold(f32::NEG_INFINITY, |a, &b| a.max(b));
         let exp = x.mapv(|v| fast_exp(v - max));
         let sum = exp.sum();
-        if sum > 0.0 { exp / sum } else { Array1::from_elem(len, 1.0 / len as f32) }
+        if sum > 0.0 {
+            exp / sum
+        } else {
+            Array1::from_elem(len, 1.0 / len as f32)
+        }
     } else {
         // For larger arrays, use standard approach
         let max = x.fold(f32::NEG_INFINITY, |a, &b| a.max(b));
         let exp = x.mapv(|v| (v - max).exp());
         let sum = exp.sum();
         // Guard against division by zero (all -inf inputs)
-        if sum > 0.0 { exp / sum } else { Array1::from_elem(len, 1.0 / len as f32) }
+        if sum > 0.0 {
+            exp / sum
+        } else {
+            Array1::from_elem(len, 1.0 / len as f32)
+        }
     }
 }
 
@@ -702,9 +739,17 @@ fn argmax_array(x: &Array1<f32>) -> usize {
         let mut max_val = x[0];
 
         // Unrolled comparison
-        if x[1] > max_val { max_val = x[1]; max_idx = 1; }
-        if x[2] > max_val { max_val = x[2]; max_idx = 2; }
-        if x[3] > max_val { max_idx = 3; }
+        if x[1] > max_val {
+            max_val = x[1];
+            max_idx = 1;
+        }
+        if x[2] > max_val {
+            max_val = x[2];
+            max_idx = 2;
+        }
+        if x[3] > max_val {
+            max_idx = 3;
+        }
 
         return max_idx;
     }
@@ -715,10 +760,21 @@ fn argmax_array(x: &Array1<f32>) -> usize {
         let mut max_idx = 0usize;
         let mut max_val = x[0];
 
-        if x[1] > max_val { max_val = x[1]; max_idx = 1; }
-        if x[2] > max_val { max_val = x[2]; max_idx = 2; }
-        if x[3] > max_val { max_val = x[3]; max_idx = 3; }
-        if x[4] > max_val { max_idx = 4; }
+        if x[1] > max_val {
+            max_val = x[1];
+            max_idx = 1;
+        }
+        if x[2] > max_val {
+            max_val = x[2];
+            max_idx = 2;
+        }
+        if x[3] > max_val {
+            max_val = x[3];
+            max_idx = 3;
+        }
+        if x[4] > max_val {
+            max_idx = 4;
+        }
 
         return max_idx;
     }

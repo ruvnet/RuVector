@@ -91,9 +91,7 @@ impl PoincareBall {
         let result: Vec<f32> = x
             .iter()
             .zip(y.iter())
-            .map(|(&xi, &yi)| {
-                (numerator_x_coeff * xi + numerator_y_coeff * yi) / denominator
-            })
+            .map(|(&xi, &yi)| (numerator_x_coeff * xi + numerator_y_coeff * yi) / denominator)
             .collect();
 
         self.project(&result)
@@ -102,7 +100,11 @@ impl PoincareBall {
     /// Exponential map: exp_x(v) maps tangent vector v at point x to the manifold
     /// Uses approximation for numerical stability
     pub fn exp_map(&self, base: &[f32], tangent: &[f32]) -> Vec<f32> {
-        assert_eq!(base.len(), tangent.len(), "Vectors must have same dimension");
+        assert_eq!(
+            base.len(),
+            tangent.len(),
+            "Vectors must have same dimension"
+        );
 
         let tangent_norm = self.norm(tangent);
         if tangent_norm < EPSILON {
@@ -135,9 +137,8 @@ impl PoincareBall {
         let k = self.curvature.abs().sqrt();
         let lambda_base = 2.0 / (1.0 - self.norm_squared(base) + EPSILON);
 
-        let coeff = 2.0 / (k * lambda_base + EPSILON)
-            * (k * diff_norm).atanh()
-            / (diff_norm + EPSILON);
+        let coeff =
+            2.0 / (k * lambda_base + EPSILON) * (k * diff_norm).atanh() / (diff_norm + EPSILON);
 
         diff.iter().map(|&v| v * coeff).collect()
     }

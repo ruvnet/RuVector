@@ -70,12 +70,23 @@ impl TrainingMetrics {
         }
 
         let avg = self.avg_quality();
-        let min = self.quality_samples.iter().cloned().fold(f32::MAX, f32::min);
-        let max = self.quality_samples.iter().cloned().fold(f32::MIN, f32::max);
+        let min = self
+            .quality_samples
+            .iter()
+            .cloned()
+            .fold(f32::MAX, f32::min);
+        let max = self
+            .quality_samples
+            .iter()
+            .cloned()
+            .fold(f32::MIN, f32::max);
 
-        let variance = self.quality_samples.iter()
+        let variance = self
+            .quality_samples
+            .iter()
             .map(|q| (q - avg).powi(2))
-            .sum::<f32>() / self.quality_samples.len() as f32;
+            .sum::<f32>()
+            / self.quality_samples.len() as f32;
         let std_dev = variance.sqrt();
 
         QualityMetrics {
@@ -194,7 +205,10 @@ impl std::fmt::Display for EpochStats {
         write!(
             f,
             "Epoch {}: {} examples, avg_quality={:.4}, {:.2}s",
-            self.epoch + 1, self.examples_processed, self.avg_quality, self.duration_secs
+            self.epoch + 1,
+            self.examples_processed,
+            self.avg_quality,
+            self.duration_secs
         )
     }
 }
@@ -325,9 +339,12 @@ impl std::fmt::Display for TrainingComparison {
             "Comparison {} vs {}: quality {}{:.4} ({}{:.1}%), throughput {}{:.1}/s",
             self.comparison_name,
             self.baseline_name,
-            quality_sign, self.quality_diff,
-            quality_sign, self.quality_improvement_pct,
-            throughput_sign, self.throughput_diff
+            quality_sign,
+            self.quality_diff,
+            quality_sign,
+            self.quality_improvement_pct,
+            throughput_sign,
+            self.throughput_diff
         )
     }
 }
@@ -390,9 +407,24 @@ mod tests {
             final_avg_quality: 0.85,
             total_duration_secs: 10.0,
             epoch_stats: vec![
-                EpochStats { epoch: 0, examples_processed: 333, avg_quality: 0.75, duration_secs: 3.0 },
-                EpochStats { epoch: 1, examples_processed: 333, avg_quality: 0.80, duration_secs: 3.5 },
-                EpochStats { epoch: 2, examples_processed: 334, avg_quality: 0.85, duration_secs: 3.5 },
+                EpochStats {
+                    epoch: 0,
+                    examples_processed: 333,
+                    avg_quality: 0.75,
+                    duration_secs: 3.0,
+                },
+                EpochStats {
+                    epoch: 1,
+                    examples_processed: 333,
+                    avg_quality: 0.80,
+                    duration_secs: 3.5,
+                },
+                EpochStats {
+                    epoch: 2,
+                    examples_processed: 334,
+                    avg_quality: 0.85,
+                    duration_secs: 3.5,
+                },
             ],
             validation_quality: Some(0.82),
         };

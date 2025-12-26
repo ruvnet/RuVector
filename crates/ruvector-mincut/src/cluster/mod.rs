@@ -5,7 +5,7 @@
 
 pub mod hierarchy;
 
-use crate::graph::{DynamicGraph, VertexId, EdgeId};
+use crate::graph::{DynamicGraph, EdgeId, VertexId};
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
@@ -104,27 +104,30 @@ impl ClusterHierarchy {
 
     /// Build leaf clusters (each vertex is its own cluster initially)
     fn build_leaf_clusters(&mut self, vertices: &[VertexId]) -> Vec<u64> {
-        vertices.iter().map(|&v| {
-            let cluster_id = self.next_id;
-            self.next_id += 1;
+        vertices
+            .iter()
+            .map(|&v| {
+                let cluster_id = self.next_id;
+                self.next_id += 1;
 
-            // Compute boundary
-            let (boundary_edges, boundary_size) = self.compute_vertex_boundary(v);
+                // Compute boundary
+                let (boundary_edges, boundary_size) = self.compute_vertex_boundary(v);
 
-            let cluster = Cluster {
-                id: cluster_id,
-                level: 0,
-                vertices: [v].into_iter().collect(),
-                boundary_edges,
-                boundary_size,
-                parent: None,
-                children: Vec::new(),
-            };
+                let cluster = Cluster {
+                    id: cluster_id,
+                    level: 0,
+                    vertices: [v].into_iter().collect(),
+                    boundary_edges,
+                    boundary_size,
+                    parent: None,
+                    children: Vec::new(),
+                };
 
-            self.clusters.insert(cluster_id, cluster);
-            self.vertex_cluster.insert(v, cluster_id);
-            cluster_id
-        }).collect()
+                self.clusters.insert(cluster_id, cluster);
+                self.vertex_cluster.insert(v, cluster_id);
+                cluster_id
+            })
+            .collect()
     }
 
     /// Build a level by merging clusters from the previous level
@@ -269,7 +272,8 @@ impl ClusterHierarchy {
 
     /// Get minimum boundary size across all clusters
     pub fn min_boundary(&self) -> u64 {
-        self.clusters.values()
+        self.clusters
+            .values()
             .filter(|c| !c.vertices.is_empty() && c.vertices.len() < self.graph.num_vertices())
             .map(|c| c.boundary_size)
             .min()
@@ -316,7 +320,7 @@ mod tests {
     fn test_path_graph() {
         let graph = Arc::new(DynamicGraph::new());
         for i in 0..9 {
-            graph.insert_edge(i, i+1, 1.0).unwrap();
+            graph.insert_edge(i, i + 1, 1.0).unwrap();
         }
         let hierarchy = ClusterHierarchy::new(graph);
         assert!(hierarchy.num_levels() > 1);
@@ -327,7 +331,7 @@ mod tests {
     fn test_cycle_graph() {
         let graph = Arc::new(DynamicGraph::new());
         for i in 0..5 {
-            graph.insert_edge(i, (i+1) % 5, 1.0).unwrap();
+            graph.insert_edge(i, (i + 1) % 5, 1.0).unwrap();
         }
         let hierarchy = ClusterHierarchy::new(graph);
         assert_eq!(hierarchy.min_boundary(), 2); // Cycle has min cut 2

@@ -12,9 +12,11 @@
 
 use napi::bindgen_prelude::*;
 use napi_derive::napi;
-use ruvector_mincut::{DynamicMinCut, MinCutBuilder, DynamicGraph, MinCutWrapper as RustMinCutWrapper};
-use ruvector_mincut::cluster::hierarchy::{ThreeLevelHierarchy as RustHierarchy, HierarchyConfig};
+use ruvector_mincut::cluster::hierarchy::{HierarchyConfig, ThreeLevelHierarchy as RustHierarchy};
 use ruvector_mincut::localkcut::deterministic::DeterministicLocalKCut;
+use ruvector_mincut::{
+    DynamicGraph, DynamicMinCut, MinCutBuilder, MinCutWrapper as RustMinCutWrapper,
+};
 use std::sync::{Arc, Mutex};
 
 /// Edge representation for JavaScript
@@ -80,7 +82,8 @@ impl MinCut {
             }
         }
 
-        let mincut = builder.build()
+        let mincut = builder
+            .build()
             .map_err(|e| Error::from_reason(format!("Failed to create MinCut: {}", e)))?;
 
         Ok(Self {
@@ -108,10 +111,9 @@ impl MinCut {
             .map(|(u, v, w)| (u as u64, v as u64, w))
             .collect();
 
-        let mincut = builder
-            .with_edges(edge_tuples)
-            .build()
-            .map_err(|e| Error::from_reason(format!("Failed to create MinCut from edges: {}", e)))?;
+        let mincut = builder.with_edges(edge_tuples).build().map_err(|e| {
+            Error::from_reason(format!("Failed to create MinCut from edges: {}", e))
+        })?;
 
         Ok(Self {
             inner: Arc::new(Mutex::new(mincut)),
@@ -325,7 +327,11 @@ impl ThreeLevelHierarchy {
     /// Get all vertices
     #[napi]
     pub fn vertices(&self) -> Vec<u32> {
-        self.inner.vertices().into_iter().map(|v| v as u32).collect()
+        self.inner
+            .vertices()
+            .into_iter()
+            .map(|v| v as u32)
+            .collect()
     }
 }
 
@@ -359,7 +365,11 @@ impl LocalKCut {
     #[napi(constructor)]
     pub fn new(lambda_max: i64, volume_bound: u32, beta: u32) -> Self {
         LocalKCut {
-            inner: DeterministicLocalKCut::new(lambda_max as u64, volume_bound as usize, beta as usize),
+            inner: DeterministicLocalKCut::new(
+                lambda_max as u64,
+                volume_bound as usize,
+                beta as usize,
+            ),
             num_vertices: 0,
             num_edges: 0,
         }
@@ -488,7 +498,11 @@ impl MinCutWrapperNode {
 
     /// Compute connectivity curve
     #[napi]
-    pub fn connectivity_curve(&self, ranked_edges: Vec<(u32, u32, f64)>, k_max: u32) -> Vec<JsCurvePoint> {
+    pub fn connectivity_curve(
+        &self,
+        ranked_edges: Vec<(u32, u32, f64)>,
+        k_max: u32,
+    ) -> Vec<JsCurvePoint> {
         let ranked: Vec<(u64, u64, f64)> = ranked_edges
             .into_iter()
             .map(|(u, v, s)| (u as u64, v as u64, s))

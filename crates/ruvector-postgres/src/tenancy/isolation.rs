@@ -13,10 +13,10 @@ use parking_lot::RwLock;
 use pgrx::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use super::registry::{IsolationLevel, TenantConfig, TenantError, get_registry};
+use super::registry::{get_registry, IsolationLevel, TenantConfig, TenantError};
 use super::validation::{
-    validate_tenant_id, validate_identifier, quote_identifier,
-    escape_string_literal, safe_partition_name, safe_schema_name, ValidationError
+    escape_string_literal, quote_identifier, safe_partition_name, safe_schema_name,
+    validate_identifier, validate_tenant_id, ValidationError,
 };
 
 /// Partition configuration for tenant
@@ -163,7 +163,8 @@ CREATE POLICY ruvector_admin_wildcard ON {table}
             column = quoted_column
         );
 
-        self.rls_tables.insert(table_name.to_string(), tenant_column.to_string());
+        self.rls_tables
+            .insert(table_name.to_string(), tenant_column.to_string());
 
         Ok(sql)
     }
@@ -249,7 +250,11 @@ CREATE INDEX IF NOT EXISTS {index_name}
     }
 
     /// Drop partition for a tenant
-    pub fn drop_partition(&self, tenant_id: &str, partition_name: &str) -> Result<String, IsolationError> {
+    pub fn drop_partition(
+        &self,
+        tenant_id: &str,
+        partition_name: &str,
+    ) -> Result<String, IsolationError> {
         // Validate inputs to prevent SQL injection
         validate_tenant_id(tenant_id)
             .map_err(|e| IsolationError::SqlError(format!("Invalid tenant ID: {}", e)))?;
@@ -257,13 +262,20 @@ CREATE INDEX IF NOT EXISTS {index_name}
             .map_err(|e| IsolationError::SqlError(format!("Invalid partition name: {}", e)))?;
 
         // Verify partition belongs to this tenant (security check)
-        let partition_exists = self.partitions
+        let partition_exists = self
+            .partitions
             .get(tenant_id)
-            .map(|partitions| partitions.iter().any(|p| p.partition_name == partition_name))
+            .map(|partitions| {
+                partitions
+                    .iter()
+                    .any(|p| p.partition_name == partition_name)
+            })
             .unwrap_or(false);
 
         if !partition_exists {
-            return Err(IsolationError::PartitionNotFound(partition_name.to_string()));
+            return Err(IsolationError::PartitionNotFound(
+                partition_name.to_string(),
+            ));
         }
 
         // Remove from tracking
@@ -272,7 +284,10 @@ CREATE INDEX IF NOT EXISTS {index_name}
         }
 
         // Use quoted identifier for safety
-        Ok(format!("DROP TABLE IF EXISTS {} CASCADE;", quote_identifier(partition_name)))
+        Ok(format!(
+            "DROP TABLE IF EXISTS {} CASCADE;",
+            quote_identifier(partition_name)
+        ))
     }
 
     // =========================================================================
@@ -300,7 +315,8 @@ CREATE INDEX IF NOT EXISTS {index_name}
             created_at: chrono_now_millis(),
         };
 
-        self.dedicated_schemas.insert(tenant_id.to_string(), config.clone());
+        self.dedicated_schemas
+            .insert(tenant_id.to_string(), config.clone());
 
         Ok(config)
     }
@@ -345,11 +361,17 @@ GRANT ALL ON ALL SEQUENCES IN SCHEMA {schema} TO ruvector_users;
 
     /// Get dedicated schema for a tenant
     pub fn get_dedicated_schema(&self, tenant_id: &str) -> Option<DedicatedSchemaConfig> {
-        self.dedicated_schemas.get(tenant_id).map(|r| r.value().clone())
+        self.dedicated_schemas
+            .get(tenant_id)
+            .map(|r| r.value().clone())
     }
 
     /// Add table to dedicated schema tracking
-    pub fn register_schema_table(&self, tenant_id: &str, table_name: &str) -> Result<(), IsolationError> {
+    pub fn register_schema_table(
+        &self,
+        tenant_id: &str,
+        table_name: &str,
+    ) -> Result<(), IsolationError> {
         if let Some(mut schema) = self.dedicated_schemas.get_mut(tenant_id) {
             schema.tables.push(table_name.to_string());
             Ok(())
@@ -359,7 +381,11 @@ GRANT ALL ON ALL SEQUENCES IN SCHEMA {schema} TO ruvector_users;
     }
 
     /// Add index to dedicated schema tracking
-    pub fn register_schema_index(&self, tenant_id: &str, index_name: &str) -> Result<(), IsolationError> {
+    pub fn register_schema_index(
+        &self,
+        tenant_id: &str,
+        index_name: &str,
+    ) -> Result<(), IsolationError> {
         if let Some(mut schema) = self.dedicated_schemas.get_mut(tenant_id) {
             schema.indexes.push(index_name.to_string());
             Ok(())
@@ -369,12 +395,17 @@ GRANT ALL ON ALL SEQUENCES IN SCHEMA {schema} TO ruvector_users;
     }
 
     /// Drop dedicated schema
-    pub fn drop_dedicated_schema(&self, tenant_id: &str, cascade: bool) -> Result<String, IsolationError> {
+    pub fn drop_dedicated_schema(
+        &self,
+        tenant_id: &str,
+        cascade: bool,
+    ) -> Result<String, IsolationError> {
         // Validate tenant ID
         validate_tenant_id(tenant_id)
             .map_err(|e| IsolationError::SqlError(format!("Invalid tenant ID: {}", e)))?;
 
-        let config = self.dedicated_schemas
+        let config = self
+            .dedicated_schemas
             .remove(tenant_id)
             .map(|(_, v)| v)
             .ok_or_else(|| IsolationError::SchemaNotFound(tenant_id.to_string()))?;
@@ -384,7 +415,8 @@ GRANT ALL ON ALL SEQUENCES IN SCHEMA {schema} TO ruvector_users;
         // Use quoted identifier for safety
         Ok(format!(
             "DROP SCHEMA IF EXISTS {} {};",
-            quote_identifier(&config.schema_name), cascade_clause
+            quote_identifier(&config.schema_name),
+            cascade_clause
         ))
     }
 
@@ -423,7 +455,8 @@ GRANT ALL ON ALL SEQUENCES IN SCHEMA {schema} TO ruvector_users;
             error: None,
         };
 
-        self.migration_state.insert(tenant_id.to_string(), state.clone());
+        self.migration_state
+            .insert(tenant_id.to_string(), state.clone());
 
         // Mark tenant as migrating
         if let Some(shared_state) = get_registry().get_shared_state(tenant_id) {
@@ -440,7 +473,8 @@ GRANT ALL ON ALL SEQUENCES IN SCHEMA {schema} TO ruvector_users;
         vectors_migrated: u64,
         total_vectors: u64,
     ) -> Result<(), IsolationError> {
-        let mut state = self.migration_state
+        let mut state = self
+            .migration_state
             .get_mut(tenant_id)
             .ok_or_else(|| IsolationError::NoMigrationInProgress(tenant_id.to_string()))?;
 
@@ -458,7 +492,8 @@ GRANT ALL ON ALL SEQUENCES IN SCHEMA {schema} TO ruvector_users;
 
     /// Complete migration
     pub fn complete_migration(&self, tenant_id: &str) -> Result<MigrationState, IsolationError> {
-        let mut state = self.migration_state
+        let mut state = self
+            .migration_state
             .get_mut(tenant_id)
             .ok_or_else(|| IsolationError::NoMigrationInProgress(tenant_id.to_string()))?;
 
@@ -476,7 +511,8 @@ GRANT ALL ON ALL SEQUENCES IN SCHEMA {schema} TO ruvector_users;
 
     /// Fail migration
     pub fn fail_migration(&self, tenant_id: &str, error: &str) -> Result<(), IsolationError> {
-        let mut state = self.migration_state
+        let mut state = self
+            .migration_state
             .get_mut(tenant_id)
             .ok_or_else(|| IsolationError::NoMigrationInProgress(tenant_id.to_string()))?;
 
@@ -494,7 +530,9 @@ GRANT ALL ON ALL SEQUENCES IN SCHEMA {schema} TO ruvector_users;
 
     /// Get migration status
     pub fn get_migration_status(&self, tenant_id: &str) -> Option<MigrationState> {
-        self.migration_state.get(tenant_id).map(|r| r.value().clone())
+        self.migration_state
+            .get(tenant_id)
+            .map(|r| r.value().clone())
     }
 
     // =========================================================================
@@ -519,12 +557,14 @@ GRANT ALL ON ALL SEQUENCES IN SCHEMA {schema} TO ruvector_users;
 
         let config = match get_registry().get(tenant_id) {
             Some(c) => c,
-            None => return QueryRoute::SharedWithFilter {
-                table: base_table.to_string(),
-                // Use parameterized query placeholder - caller must bind tenant_id
-                filter: "tenant_id = $1".to_string(),
-                tenant_param: Some(tenant_id.to_string()),
-            },
+            None => {
+                return QueryRoute::SharedWithFilter {
+                    table: base_table.to_string(),
+                    // Use parameterized query placeholder - caller must bind tenant_id
+                    filter: "tenant_id = $1".to_string(),
+                    tenant_param: Some(tenant_id.to_string()),
+                }
+            }
         };
 
         match config.isolation_level {
@@ -537,8 +577,8 @@ GRANT ALL ON ALL SEQUENCES IN SCHEMA {schema} TO ruvector_users;
             IsolationLevel::Partition => {
                 // Check if partition exists
                 if let Some(partitions) = self.partitions.get(tenant_id) {
-                    if let Some(partition) = partitions.iter()
-                        .find(|p| p.parent_table == base_table)
+                    if let Some(partition) =
+                        partitions.iter().find(|p| p.parent_table == base_table)
                     {
                         return QueryRoute::Partition {
                             partition_table: partition.partition_name.clone(),
@@ -592,14 +632,9 @@ pub enum QueryRoute {
         tenant_param: Option<String>,
     },
     /// Use dedicated partition table
-    Partition {
-        partition_table: String,
-    },
+    Partition { partition_table: String },
     /// Use dedicated schema
-    DedicatedSchema {
-        schema: String,
-        table: String,
-    },
+    DedicatedSchema { schema: String, table: String },
 }
 
 impl QueryRoute {
@@ -636,9 +671,11 @@ impl QueryRoute {
     /// Get WHERE clause and parameter together for convenience
     pub fn where_clause_with_param(&self) -> Option<(String, Option<String>)> {
         match self {
-            Self::SharedWithFilter { filter, tenant_param, .. } => {
-                Some((filter.clone(), tenant_param.clone()))
-            }
+            Self::SharedWithFilter {
+                filter,
+                tenant_param,
+                ..
+            } => Some((filter.clone(), tenant_param.clone())),
             _ => None,
         }
     }
@@ -658,7 +695,10 @@ pub enum IsolationError {
     /// No migration in progress
     NoMigrationInProgress(String),
     /// Invalid isolation level transition
-    InvalidTransition { from: IsolationLevel, to: IsolationLevel },
+    InvalidTransition {
+        from: IsolationLevel,
+        to: IsolationLevel,
+    },
     /// SQL execution error
     SqlError(String),
 }
@@ -669,10 +709,19 @@ impl std::fmt::Display for IsolationError {
             Self::TenantNotFound(id) => write!(f, "Tenant not found: {}", id),
             Self::SchemaNotFound(id) => write!(f, "Dedicated schema not found for tenant: {}", id),
             Self::PartitionNotFound(name) => write!(f, "Partition not found: {}", name),
-            Self::MigrationInProgress(id) => write!(f, "Migration already in progress for tenant: {}", id),
-            Self::NoMigrationInProgress(id) => write!(f, "No migration in progress for tenant: {}", id),
+            Self::MigrationInProgress(id) => {
+                write!(f, "Migration already in progress for tenant: {}", id)
+            }
+            Self::NoMigrationInProgress(id) => {
+                write!(f, "No migration in progress for tenant: {}", id)
+            }
             Self::InvalidTransition { from, to } => {
-                write!(f, "Invalid isolation transition from {} to {}", from.as_str(), to.as_str())
+                write!(
+                    f,
+                    "Invalid isolation transition from {} to {}",
+                    from.as_str(),
+                    to.as_str()
+                )
             }
             Self::SqlError(msg) => write!(f, "SQL error: {}", msg),
         }
@@ -728,7 +777,11 @@ mod tests {
         // Default routing (no config) should use shared with filter
         let route = manager.route_query("unknown_tenant", "embeddings");
         match route {
-            QueryRoute::SharedWithFilter { table, filter, tenant_param } => {
+            QueryRoute::SharedWithFilter {
+                table,
+                filter,
+                tenant_param,
+            } => {
                 assert_eq!(table, "embeddings");
                 // Filter should use parameterized placeholder
                 assert_eq!(filter, "tenant_id = $1");
@@ -746,7 +799,11 @@ mod tests {
         // Invalid tenant_id should return safe "false" filter
         let route = manager.route_query("'; DROP TABLE users;--", "embeddings");
         match route {
-            QueryRoute::SharedWithFilter { filter, tenant_param, .. } => {
+            QueryRoute::SharedWithFilter {
+                filter,
+                tenant_param,
+                ..
+            } => {
                 assert_eq!(filter, "false");
                 assert!(tenant_param.is_none());
             }
@@ -759,11 +816,16 @@ mod tests {
         let manager = IsolationManager::new();
 
         // Enable RLS
-        manager.enable_shared_isolation("embeddings", "tenant_id").unwrap();
+        manager
+            .enable_shared_isolation("embeddings", "tenant_id")
+            .unwrap();
 
         // Check tracking
         assert!(manager.is_rls_enabled("embeddings"));
-        assert_eq!(manager.get_tenant_column("embeddings"), Some("tenant_id".to_string()));
+        assert_eq!(
+            manager.get_tenant_column("embeddings"),
+            Some("tenant_id".to_string())
+        );
         assert!(!manager.is_rls_enabled("other_table"));
     }
 
@@ -777,7 +839,9 @@ mod tests {
         let _ = registry.register(config);
 
         // Start migration
-        let state = manager.start_migration("test-tenant", IsolationLevel::Partition).unwrap();
+        let state = manager
+            .start_migration("test-tenant", IsolationLevel::Partition)
+            .unwrap();
         assert_eq!(state.status, MigrationStatus::Pending);
         assert_eq!(state.from_level, IsolationLevel::Shared);
         assert_eq!(state.to_level, IsolationLevel::Partition);
@@ -787,7 +851,9 @@ mod tests {
         assert!(result.is_err());
 
         // Update progress
-        manager.update_migration_progress("test-tenant", 50, 100).unwrap();
+        manager
+            .update_migration_progress("test-tenant", 50, 100)
+            .unwrap();
         let state = manager.get_migration_status("test-tenant").unwrap();
         assert_eq!(state.progress, 50);
 

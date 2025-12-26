@@ -3,15 +3,14 @@
 //! This script downloads the default embedding model during Docker build
 //! so it's available immediately at runtime without network access.
 
-use fastembed::{TextEmbedding, InitOptions, EmbeddingModel};
+use fastembed::{EmbeddingModel, InitOptions, TextEmbedding};
 
 fn main() {
     println!("=== Downloading Embedding Models ===");
 
     // Download the default model (all-MiniLM-L6-v2)
     println!("Downloading all-MiniLM-L6-v2...");
-    let options = InitOptions::new(EmbeddingModel::AllMiniLML6V2)
-        .with_show_download_progress(true);
+    let options = InitOptions::new(EmbeddingModel::AllMiniLML6V2).with_show_download_progress(true);
 
     match TextEmbedding::try_new(options) {
         Ok(mut model) => {
@@ -36,8 +35,7 @@ fn main() {
 
     // Optionally download BGE-small for better quality
     println!("\nDownloading BAAI/bge-small-en-v1.5...");
-    let options = InitOptions::new(EmbeddingModel::BGESmallENV15)
-        .with_show_download_progress(true);
+    let options = InitOptions::new(EmbeddingModel::BGESmallENV15).with_show_download_progress(true);
 
     match TextEmbedding::try_new(options) {
         Ok(_) => println!("✓ BGE-small model loaded successfully"),

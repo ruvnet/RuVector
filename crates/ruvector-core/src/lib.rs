@@ -73,9 +73,9 @@ pub use advanced_features::{
 #[cfg(feature = "storage")]
 pub use agenticdb::AgenticDB;
 
-pub use embeddings::{EmbeddingProvider, HashEmbedding, BoxedEmbeddingProvider};
 #[cfg(feature = "api-embeddings")]
 pub use embeddings::ApiEmbedding;
+pub use embeddings::{BoxedEmbeddingProvider, EmbeddingProvider, HashEmbedding};
 
 #[cfg(feature = "real-embeddings")]
 pub use embeddings::CandleEmbedding;

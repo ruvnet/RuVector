@@ -236,8 +236,8 @@ mod real {
                 )))
             })?;
 
-            let model_weights =
-                llama::ModelWeights::from_gguf(file, &mut file, &self.device).map_err(|e| {
+            let model_weights = llama::ModelWeights::from_gguf(file, &mut file, &self.device)
+                .map_err(|e| {
                     Error::Inference(InferenceError::InitFailed(format!(
                         "Failed to load GGUF: {}",
                         e

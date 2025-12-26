@@ -284,9 +284,9 @@ impl RelationshipPattern {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Direction {
-    Outgoing,  // ->
-    Incoming,  // <-
-    Both,      // -
+    Outgoing, // ->
+    Incoming, // <-
+    Both,     // -
 }
 
 /// Expression in Cypher
@@ -333,21 +333,21 @@ impl Expression {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum BinaryOperator {
-    Eq,      // =
-    Neq,     // <>
-    Lt,      // <
-    Lte,     // <=
-    Gt,      // >
-    Gte,     // >=
-    And,     // AND
-    Or,      // OR
-    Add,     // +
-    Sub,     // -
-    Mul,     // *
-    Div,     // /
-    Mod,     // %
-    In,      // IN
-    Contains, // CONTAINS
+    Eq,         // =
+    Neq,        // <>
+    Lt,         // <
+    Lte,        // <=
+    Gt,         // >
+    Gte,        // >=
+    And,        // AND
+    Or,         // OR
+    Add,        // +
+    Sub,        // -
+    Mul,        // *
+    Div,        // /
+    Mod,        // %
+    In,         // IN
+    Contains,   // CONTAINS
     StartsWith, // STARTS WITH
     EndsWith,   // ENDS WITH
 }

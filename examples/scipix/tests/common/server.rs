@@ -2,9 +2,9 @@
 //
 // Provides a test server instance for integration tests
 
+use super::types::{CacheStats, OutputFormat, ProcessingOptions, ProcessingResult};
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use super::types::{OutputFormat, ProcessingOptions, ProcessingResult, CacheStats};
 
 #[derive(Clone)]
 pub struct TestServer {
@@ -80,7 +80,9 @@ impl TestServer {
     }
 
     /// Start test server with persistent cache
-    pub async fn with_persistent_cache(cache_dir: &str) -> Result<Self, Box<dyn std::error::Error>> {
+    pub async fn with_persistent_cache(
+        cache_dir: &str,
+    ) -> Result<Self, Box<dyn std::error::Error>> {
         let config = TestServerConfig {
             enable_cache: true,
             cache_dir: Some(cache_dir.to_string()),

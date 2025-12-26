@@ -8,12 +8,9 @@
 use napi::bindgen_prelude::*;
 use napi_derive::napi;
 use ruvector_attention::graph::{
-    EdgeFeaturedAttention as RustEdgeFeatured,
-    EdgeFeaturedConfig as RustEdgeConfig,
-    GraphRoPE as RustGraphRoPE,
-    RoPEConfig as RustRoPEConfig,
-    DualSpaceAttention as RustDualSpace,
-    DualSpaceConfig as RustDualConfig,
+    DualSpaceAttention as RustDualSpace, DualSpaceConfig as RustDualConfig,
+    EdgeFeaturedAttention as RustEdgeFeatured, EdgeFeaturedConfig as RustEdgeConfig,
+    GraphRoPE as RustGraphRoPE, RoPEConfig as RustRoPEConfig,
 };
 use ruvector_attention::traits::Attention;
 
@@ -89,7 +86,9 @@ impl EdgeFeaturedAttention {
         let keys_refs: Vec<&[f32]> = keys_vec.iter().map(|k| k.as_slice()).collect();
         let values_refs: Vec<&[f32]> = values_vec.iter().map(|v| v.as_slice()).collect();
 
-        let result = self.inner.compute(query_slice, &keys_refs, &values_refs)
+        let result = self
+            .inner
+            .compute(query_slice, &keys_refs, &values_refs)
             .map_err(|e| Error::from_reason(e.to_string()))?;
 
         Ok(Float32Array::new(result))
@@ -113,13 +112,16 @@ impl EdgeFeaturedAttention {
         let query_slice = query.as_ref();
         let keys_vec: Vec<Vec<f32>> = keys.into_iter().map(|k| k.to_vec()).collect();
         let values_vec: Vec<Vec<f32>> = values.into_iter().map(|v| v.to_vec()).collect();
-        let edge_features_vec: Vec<Vec<f32>> = edge_features.into_iter().map(|e| e.to_vec()).collect();
+        let edge_features_vec: Vec<Vec<f32>> =
+            edge_features.into_iter().map(|e| e.to_vec()).collect();
 
         let keys_refs: Vec<&[f32]> = keys_vec.iter().map(|k| k.as_slice()).collect();
         let values_refs: Vec<&[f32]> = values_vec.iter().map(|v| v.as_slice()).collect();
         let edges_refs: Vec<&[f32]> = edge_features_vec.iter().map(|e| e.as_slice()).collect();
 
-        let result = self.inner.compute_with_edges(query_slice, &keys_refs, &values_refs, &edges_refs)
+        let result = self
+            .inner
+            .compute_with_edges(query_slice, &keys_refs, &values_refs, &edges_refs)
             .map_err(|e| Error::from_reason(e.to_string()))?;
 
         Ok(Float32Array::new(result))
@@ -209,7 +211,9 @@ impl GraphRoPEAttention {
         let keys_refs: Vec<&[f32]> = keys_vec.iter().map(|k| k.as_slice()).collect();
         let values_refs: Vec<&[f32]> = values_vec.iter().map(|v| v.as_slice()).collect();
 
-        let result = self.inner.compute(query_slice, &keys_refs, &values_refs)
+        let result = self
+            .inner
+            .compute(query_slice, &keys_refs, &values_refs)
             .map_err(|e| Error::from_reason(e.to_string()))?;
 
         Ok(Float32Array::new(result))
@@ -239,13 +243,16 @@ impl GraphRoPEAttention {
         let values_refs: Vec<&[f32]> = values_vec.iter().map(|v| v.as_slice()).collect();
         let positions_usize: Vec<usize> = key_positions.into_iter().map(|p| p as usize).collect();
 
-        let result = self.inner.compute_with_positions(
-            query_slice,
-            &keys_refs,
-            &values_refs,
-            query_position as usize,
-            &positions_usize
-        ).map_err(|e| Error::from_reason(e.to_string()))?;
+        let result = self
+            .inner
+            .compute_with_positions(
+                query_slice,
+                &keys_refs,
+                &values_refs,
+                query_position as usize,
+                &positions_usize,
+            )
+            .map_err(|e| Error::from_reason(e.to_string()))?;
 
         Ok(Float32Array::new(result))
     }
@@ -334,7 +341,12 @@ impl DualSpaceAttention {
 
     /// Create with custom weights
     #[napi(factory)]
-    pub fn with_weights(dim: u32, curvature: f64, euclidean_weight: f64, hyperbolic_weight: f64) -> Self {
+    pub fn with_weights(
+        dim: u32,
+        curvature: f64,
+        euclidean_weight: f64,
+        hyperbolic_weight: f64,
+    ) -> Self {
         Self::new(DualSpaceConfig {
             dim,
             curvature,
@@ -358,7 +370,9 @@ impl DualSpaceAttention {
         let keys_refs: Vec<&[f32]> = keys_vec.iter().map(|k| k.as_slice()).collect();
         let values_refs: Vec<&[f32]> = values_vec.iter().map(|v| v.as_slice()).collect();
 
-        let result = self.inner.compute(query_slice, &keys_refs, &values_refs)
+        let result = self
+            .inner
+            .compute(query_slice, &keys_refs, &values_refs)
             .map_err(|e| Error::from_reason(e.to_string()))?;
 
         Ok(Float32Array::new(result))

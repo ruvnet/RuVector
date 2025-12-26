@@ -34,7 +34,9 @@ fn parse_create(query: &str) -> Result<CypherQuery, String> {
     };
 
     let pattern = parse_pattern(create_part)?;
-    result.clauses.push(Clause::Create(CreateClause::new(vec![pattern])));
+    result
+        .clauses
+        .push(Clause::Create(CreateClause::new(vec![pattern])));
 
     // Check for RETURN clause
     if let Some(idx) = query.to_uppercase().find("RETURN") {
@@ -52,21 +54,22 @@ fn parse_match(query: &str) -> Result<CypherQuery, String> {
 
     // Extract MATCH pattern
     let match_start = 5; // "MATCH".len()
-    let match_end = query.to_uppercase()
+    let match_end = query
+        .to_uppercase()
         .find("WHERE")
         .or_else(|| query.to_uppercase().find("RETURN"))
         .unwrap_or(query.len());
 
     let match_part = &query[match_start..match_end].trim();
     let pattern = parse_pattern(match_part)?;
-    result.clauses.push(Clause::Match(MatchClause::new(vec![pattern])));
+    result
+        .clauses
+        .push(Clause::Match(MatchClause::new(vec![pattern])));
 
     // Check for WHERE clause
     if let Some(where_idx) = query.to_uppercase().find("WHERE") {
         let where_start = where_idx + 5; // "WHERE".len()
-        let where_end = query.to_uppercase()
-            .find("RETURN")
-            .unwrap_or(query.len());
+        let where_end = query.to_uppercase().find("RETURN").unwrap_or(query.len());
 
         let where_part = &query[where_start..where_end].trim();
         let where_clause = parse_where(where_part)?;
@@ -92,8 +95,7 @@ fn parse_pattern(pattern_str: &str) -> Result<Pattern, String> {
 
     if pattern_str.starts_with('(') {
         // Node pattern
-        let end = pattern_str.find(')')
-            .ok_or("Unclosed node pattern")?;
+        let end = pattern_str.find(')').ok_or("Unclosed node pattern")?;
 
         let node_content = &pattern_str[1..end];
         let node_pattern = parse_node_pattern(node_content)?;
@@ -109,8 +111,7 @@ fn parse_pattern(pattern_str: &str) -> Result<Pattern, String> {
 
                 // Parse target node
                 if rest.starts_with('(') {
-                    let end = rest.find(')')
-                        .ok_or("Unclosed target node pattern")?;
+                    let end = rest.find(')').ok_or("Unclosed target node pattern")?;
                     let node_content = &rest[1..end];
                     let node_pattern = parse_node_pattern(node_content)?;
                     pattern = pattern.with_element(PatternElement::Node(node_pattern));
@@ -267,10 +268,7 @@ fn parse_properties(props_str: &str) -> Result<HashMap<String, JsonValue>, Strin
                 JsonValue::Number(num.into())
             } else if let Ok(num) = value.parse::<f64>() {
                 // Float
-                JsonValue::Number(
-                    serde_json::Number::from_f64(num)
-                        .ok_or("Invalid number")?
-                )
+                JsonValue::Number(serde_json::Number::from_f64(num).ok_or("Invalid number")?)
             } else if value == "true" || value == "false" {
                 // Boolean
                 JsonValue::Bool(value == "true")
@@ -303,7 +301,7 @@ fn parse_where(where_str: &str) -> Result<WhereClause, String> {
 
         let right_expr = if right.starts_with('\'') || right.starts_with('"') {
             Expression::Literal(JsonValue::String(
-                right.trim_matches('\'').trim_matches('"').to_string()
+                right.trim_matches('\'').trim_matches('"').to_string(),
             ))
         } else if let Ok(num) = right.parse::<i64>() {
             Expression::Literal(JsonValue::Number(num.into()))
@@ -347,7 +345,10 @@ fn parse_return_expression(expr_str: &str) -> Result<Expression, String> {
 
     // Check for property access
     if let Some((var, prop)) = expr_str.split_once('.') {
-        Ok(Expression::Property(var.trim().to_string(), prop.trim().to_string()))
+        Ok(Expression::Property(
+            var.trim().to_string(),
+            prop.trim().to_string(),
+        ))
     } else {
         Ok(Expression::Variable(expr_str.to_string()))
     }

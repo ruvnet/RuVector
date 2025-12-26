@@ -24,11 +24,19 @@ impl EmbeddingModel {
     pub fn from_name(name: &str) -> Option<Self> {
         match name.to_lowercase().as_str() {
             "all-minilm-l6-v2" | "minilm" | "default" => Some(Self::AllMiniLmL6V2),
-            "bge-small-en-v1.5" | "bge-small" | "baai/bge-small-en-v1.5" => Some(Self::BgeSmallEnV15),
+            "bge-small-en-v1.5" | "bge-small" | "baai/bge-small-en-v1.5" => {
+                Some(Self::BgeSmallEnV15)
+            }
             "bge-base-en-v1.5" | "bge-base" | "baai/bge-base-en-v1.5" => Some(Self::BgeBaseEnV15),
-            "bge-large-en-v1.5" | "bge-large" | "baai/bge-large-en-v1.5" => Some(Self::BgeLargeEnV15),
-            "all-mpnet-base-v2" | "mpnet" | "sentence-transformers/all-mpnet-base-v2" => Some(Self::AllMpnetBaseV2),
-            "nomic-embed-text-v1.5" | "nomic" | "nomic-ai/nomic-embed-text-v1.5" => Some(Self::NomicEmbedTextV15),
+            "bge-large-en-v1.5" | "bge-large" | "baai/bge-large-en-v1.5" => {
+                Some(Self::BgeLargeEnV15)
+            }
+            "all-mpnet-base-v2" | "mpnet" | "sentence-transformers/all-mpnet-base-v2" => {
+                Some(Self::AllMpnetBaseV2)
+            }
+            "nomic-embed-text-v1.5" | "nomic" | "nomic-ai/nomic-embed-text-v1.5" => {
+                Some(Self::NomicEmbedTextV15)
+            }
             _ => None,
         }
     }
@@ -161,10 +169,22 @@ mod tests {
 
     #[test]
     fn test_model_parsing() {
-        assert_eq!(EmbeddingModel::from_name("all-minilm-l6-v2"), Some(EmbeddingModel::AllMiniLmL6V2));
-        assert_eq!(EmbeddingModel::from_name("minilm"), Some(EmbeddingModel::AllMiniLmL6V2));
-        assert_eq!(EmbeddingModel::from_name("default"), Some(EmbeddingModel::AllMiniLmL6V2));
-        assert_eq!(EmbeddingModel::from_name("bge-small"), Some(EmbeddingModel::BgeSmallEnV15));
+        assert_eq!(
+            EmbeddingModel::from_name("all-minilm-l6-v2"),
+            Some(EmbeddingModel::AllMiniLmL6V2)
+        );
+        assert_eq!(
+            EmbeddingModel::from_name("minilm"),
+            Some(EmbeddingModel::AllMiniLmL6V2)
+        );
+        assert_eq!(
+            EmbeddingModel::from_name("default"),
+            Some(EmbeddingModel::AllMiniLmL6V2)
+        );
+        assert_eq!(
+            EmbeddingModel::from_name("bge-small"),
+            Some(EmbeddingModel::BgeSmallEnV15)
+        );
         assert_eq!(EmbeddingModel::from_name("unknown"), None);
     }
 

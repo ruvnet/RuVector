@@ -1,12 +1,12 @@
 // Simplified Cypher query support
 
 pub mod ast;
-pub mod parser;
 pub mod executor;
+pub mod parser;
 
 pub use ast::*;
-pub use parser::parse_cypher;
 pub use executor::execute_cypher;
+pub use parser::parse_cypher;
 
 use super::storage::GraphStore;
 use serde_json::Value as JsonValue;
@@ -38,11 +38,7 @@ mod tests {
     fn test_cypher_create() {
         let graph = GraphStore::new();
 
-        let result = query(
-            &graph,
-            "CREATE (n:Person {name: 'Alice'}) RETURN n",
-            None,
-        );
+        let result = query(&graph, "CREATE (n:Person {name: 'Alice'}) RETURN n", None);
 
         assert!(result.is_ok());
     }

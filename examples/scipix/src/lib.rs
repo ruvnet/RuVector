@@ -43,10 +43,10 @@
 //! - **cache**: Vector-based intelligent caching
 
 // Module declarations
+pub mod api;
+pub mod cli;
 pub mod config;
 pub mod error;
-pub mod cli;
-pub mod api;
 
 #[cfg(feature = "cache")]
 pub mod cache;
@@ -72,10 +72,12 @@ pub mod optimize;
 pub mod wasm;
 
 // Public re-exports
-pub use config::{Config, OcrConfig, ModelConfig, PreprocessConfig, OutputConfig, PerformanceConfig, CacheConfig};
-pub use error::{ScipixError, Result};
+pub use api::{state::AppState, ApiServer};
 pub use cli::{Cli, Commands};
-pub use api::{ApiServer, state::AppState};
+pub use config::{
+    CacheConfig, Config, ModelConfig, OcrConfig, OutputConfig, PerformanceConfig, PreprocessConfig,
+};
+pub use error::{Result, ScipixError};
 
 #[cfg(feature = "cache")]
 pub use cache::CacheManager;

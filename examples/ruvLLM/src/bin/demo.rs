@@ -2,7 +2,7 @@
 //!
 //! Interactive demonstration of self-learning LLM capabilities.
 
-use ruvllm::{Config, RuvLLM, Result, Feedback};
+use ruvllm::{Config, Feedback, Result, RuvLLM};
 use std::io::{self, Write};
 
 #[tokio::main]

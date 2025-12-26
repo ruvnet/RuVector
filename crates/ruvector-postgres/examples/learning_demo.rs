@@ -6,9 +6,9 @@ use std::sync::Arc;
 
 // Mock imports for demo purposes
 mod learning_mock {
+    use dashmap::DashMap;
     use std::sync::RwLock;
     use std::time::SystemTime;
-    use dashmap::DashMap;
 
     // Include the actual learning module types
     pub struct QueryTrajectory {

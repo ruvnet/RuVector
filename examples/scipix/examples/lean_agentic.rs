@@ -8,13 +8,13 @@
 //! cargo run --example lean_agentic -- /path/to/documents
 //! ```
 
-use ruvector_scipix::{OcrEngine, OcrConfig};
 use anyhow::{Context, Result};
+use ruvector_scipix::{OcrConfig, OcrEngine};
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
 use tokio::sync::{mpsc, RwLock};
-use serde::{Serialize, Deserialize};
-use std::collections::HashMap;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct OcrTask {
@@ -59,39 +59,25 @@ impl OcrAgent {
         println!("[Agent {}] Processing task: {}", self.id, task.id);
 
         let result = match image::open(&task.file_path) {
-            Ok(img) => {
-                match self.engine.recognize(&img).await {
-                    Ok(ocr_result) => {
-                        let mut count = self.tasks_completed.write().await;
-                        *count += 1;
+            Ok(img) => match self.engine.recognize(&img).await {
+                Ok(ocr_result) => {
+                    let mut count = self.tasks_completed.write().await;
+                    *count += 1;
 
-                        OcrTaskResult {
-                            task_id: task.id,
-                            agent_id: self.id.clone(),
-                            success: true,
-                            text: Some(ocr_result.text.clone()),
-                            latex: ocr_result.to_format(ruvector_scipix::OutputFormat::LaTeX).ok(),
-                            confidence: Some(ocr_result.confidence),
-                            processing_time_ms: start.elapsed().as_millis() as u64,
-                            error: None,
-                        }
-                    }
-                    Err(e) => {
-                        OcrTaskResult {
-                            task_id: task.id,
-                            agent_id: self.id.clone(),
-                            success: false,
-                            text: None,
-                            latex: None,
-                            confidence: None,
-                            processing_time_ms: start.elapsed().as_millis() as u64,
-                            error: Some(e.to_string()),
-                        }
+                    OcrTaskResult {
+                        task_id: task.id,
+                        agent_id: self.id.clone(),
+                        success: true,
+                        text: Some(ocr_result.text.clone()),
+                        latex: ocr_result
+                            .to_format(ruvector_scipix::OutputFormat::LaTeX)
+                            .ok(),
+                        confidence: Some(ocr_result.confidence),
+                        processing_time_ms: start.elapsed().as_millis() as u64,
+                        error: None,
                     }
                 }
-            }
-            Err(e) => {
-                OcrTaskResult {
+                Err(e) => OcrTaskResult {
                     task_id: task.id,
                     agent_id: self.id.clone(),
                     success: false,
@@ -100,12 +86,24 @@ impl OcrAgent {
                     confidence: None,
                     processing_time_ms: start.elapsed().as_millis() as u64,
                     error: Some(e.to_string()),
-                }
-            }
+                },
+            },
+            Err(e) => OcrTaskResult {
+                task_id: task.id,
+                agent_id: self.id.clone(),
+                success: false,
+                text: None,
+                latex: None,
+                confidence: None,
+                processing_time_ms: start.elapsed().as_millis() as u64,
+                error: Some(e.to_string()),
+            },
         };
 
-        println!("[Agent {}] Completed task: {} ({}ms)",
-            self.id, result.task_id, result.processing_time_ms);
+        println!(
+            "[Agent {}] Completed task: {} ({}ms)",
+            self.id, result.task_id, result.processing_time_ms
+        );
 
         result
     }
@@ -157,7 +155,9 @@ impl AgentCoordinator {
     }
 
     async fn submit_task(&self, task: OcrTask) -> Result<()> {
-        self.task_queue.send(task).await
+        self.task_queue
+            .send(task)
+            .await
             .context("Failed to submit task")?;
         Ok(())
     }
@@ -262,24 +262,28 @@ async fn main() -> Result<()> {
     // Calculate statistics
     let successful = results.iter().filter(|r| r.success).count();
     let failed = results.len() - successful;
-    let avg_confidence = results.iter()
-        .filter_map(|r| r.confidence)
-        .sum::<f32>() / successful.max(1) as f32;
-    let avg_time = results.iter()
-        .map(|r| r.processing_time_ms)
-        .sum::<u64>() / results.len() as u64;
+    let avg_confidence =
+        results.iter().filter_map(|r| r.confidence).sum::<f32>() / successful.max(1) as f32;
+    let avg_time = results.iter().map(|r| r.processing_time_ms).sum::<u64>() / results.len() as u64;
 
     // Display results
     println!("\n{}", "=".repeat(80));
     println!("Agent Swarm Results");
     println!("{}", "=".repeat(80));
     println!("Total Tasks: {}", results.len());
-    println!("Successful: {} ({:.1}%)", successful, (successful as f32 / results.len() as f32) * 100.0);
+    println!(
+        "Successful: {} ({:.1}%)",
+        successful,
+        (successful as f32 / results.len() as f32) * 100.0
+    );
     println!("Failed: {}", failed);
     println!("Average Confidence: {:.2}%", avg_confidence * 100.0);
     println!("Average Processing Time: {}ms", avg_time);
     println!("Total Time: {:.2}s", total_time.as_secs_f32());
-    println!("Throughput: {:.2} tasks/sec", results.len() as f32 / total_time.as_secs_f32());
+    println!(
+        "Throughput: {:.2} tasks/sec",
+        results.len() as f32 / total_time.as_secs_f32()
+    );
 
     // Agent statistics
     println!("\n📊 Agent Statistics:");

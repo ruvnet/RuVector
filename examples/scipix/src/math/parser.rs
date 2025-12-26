@@ -254,8 +254,11 @@ impl Parser {
     /// Parse radical (\sqrt[n]{x})
     fn parse_radical<'a>(&self, input: &'a str) -> IResult<&'a str, MathNode> {
         let (input, _) = tag("\\sqrt")(input)?;
-        let (input, index) =
-            opt(delimited(char('['), |i| self.parse_expression(i), char(']')))(input)?;
+        let (input, index) = opt(delimited(
+            char('['),
+            |i| self.parse_expression(i),
+            char(']'),
+        ))(input)?;
         let (input, radicand) =
             delimited(char('{'), |i| self.parse_expression(i), char('}'))(input)?;
 
@@ -383,11 +386,7 @@ impl Parser {
 
     /// Parse grouped expression (parentheses)
     fn parse_grouped<'a>(&self, input: &'a str) -> IResult<&'a str, MathNode> {
-        delimited(
-            char('('),
-            |i| self.parse_expression(i),
-            char(')'),
-        )(input)
+        delimited(char('('), |i| self.parse_expression(i), char(')'))(input)
     }
 }
 

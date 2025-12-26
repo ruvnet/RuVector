@@ -9,10 +9,7 @@ use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 
 /// Evaluate a SPARQL function call
-pub fn evaluate_function(
-    name: &str,
-    args: Vec<Option<RdfTerm>>,
-) -> SparqlResult<Option<RdfTerm>> {
+pub fn evaluate_function(name: &str, args: Vec<Option<RdfTerm>>) -> SparqlResult<Option<RdfTerm>> {
     let name_upper = name.to_uppercase();
 
     match name_upper.as_str() {
@@ -69,7 +66,10 @@ pub fn evaluate_function(
         "RUVECTOR_SIMILARITY" => fn_vector_similarity(args),
         "RUVECTOR_DISTANCE" => fn_vector_distance(args),
 
-        _ => Err(SparqlError::UnsupportedOperation(format!("Unknown function: {}", name))),
+        _ => Err(SparqlError::UnsupportedOperation(format!(
+            "Unknown function: {}",
+            name
+        ))),
     }
 }
 
@@ -85,7 +85,8 @@ fn fn_strlen(args: Vec<Option<RdfTerm>>) -> SparqlResult<Option<RdfTerm>> {
 fn fn_substr(args: Vec<Option<RdfTerm>>) -> SparqlResult<Option<RdfTerm>> {
     let s = get_string_arg(&args, 0)?;
     let start = get_integer_arg(&args, 1)? as usize;
-    let length = args.get(2)
+    let length = args
+        .get(2)
         .and_then(|a| a.as_ref())
         .and_then(|t| term_to_integer(t))
         .map(|n| n as usize);
@@ -115,19 +116,25 @@ fn fn_lcase(args: Vec<Option<RdfTerm>>) -> SparqlResult<Option<RdfTerm>> {
 fn fn_strstarts(args: Vec<Option<RdfTerm>>) -> SparqlResult<Option<RdfTerm>> {
     let s = get_string_arg(&args, 0)?;
     let prefix = get_string_arg(&args, 1)?;
-    Ok(Some(RdfTerm::Literal(Literal::boolean(s.starts_with(&prefix)))))
+    Ok(Some(RdfTerm::Literal(Literal::boolean(
+        s.starts_with(&prefix),
+    ))))
 }
 
 fn fn_strends(args: Vec<Option<RdfTerm>>) -> SparqlResult<Option<RdfTerm>> {
     let s = get_string_arg(&args, 0)?;
     let suffix = get_string_arg(&args, 1)?;
-    Ok(Some(RdfTerm::Literal(Literal::boolean(s.ends_with(&suffix)))))
+    Ok(Some(RdfTerm::Literal(Literal::boolean(
+        s.ends_with(&suffix),
+    ))))
 }
 
 fn fn_contains(args: Vec<Option<RdfTerm>>) -> SparqlResult<Option<RdfTerm>> {
     let s = get_string_arg(&args, 0)?;
     let pattern = get_string_arg(&args, 1)?;
-    Ok(Some(RdfTerm::Literal(Literal::boolean(s.contains(&pattern)))))
+    Ok(Some(RdfTerm::Literal(Literal::boolean(
+        s.contains(&pattern),
+    ))))
 }
 
 fn fn_strbefore(args: Vec<Option<RdfTerm>>) -> SparqlResult<Option<RdfTerm>> {
@@ -163,7 +170,8 @@ fn fn_strafter(args: Vec<Option<RdfTerm>>) -> SparqlResult<Option<RdfTerm>> {
 fn fn_encode_for_uri(args: Vec<Option<RdfTerm>>) -> SparqlResult<Option<RdfTerm>> {
     let s = get_string_arg(&args, 0)?;
 
-    let encoded: String = s.chars()
+    let encoded: String = s
+        .chars()
         .map(|c| {
             if c.is_ascii_alphanumeric() || "-_.~".contains(c) {
                 c.to_string()
@@ -316,7 +324,9 @@ fn fn_seconds(args: Vec<Option<RdfTerm>>) -> SparqlResult<Option<RdfTerm>> {
         if dt.len() >= t_pos + 9 {
             // Handle both integer and decimal seconds
             let sec_str = &dt[t_pos + 7..];
-            let end_pos = sec_str.find(|c: char| !c.is_ascii_digit() && c != '.').unwrap_or(sec_str.len());
+            let end_pos = sec_str
+                .find(|c: char| !c.is_ascii_digit() && c != '.')
+                .unwrap_or(sec_str.len());
             if let Ok(seconds) = sec_str[..end_pos].parse::<f64>() {
                 return Ok(Some(RdfTerm::Literal(Literal::decimal(seconds))));
             }
@@ -334,7 +344,8 @@ fn fn_timezone(args: Vec<Option<RdfTerm>>) -> SparqlResult<Option<RdfTerm>> {
 
     // Look for +/-HH:MM
     if let Some(tz_pos) = dt.rfind('+').or_else(|| dt.rfind('-')) {
-        if tz_pos > 10 { // After date part
+        if tz_pos > 10 {
+            // After date part
             let tz = &dt[tz_pos..];
             if tz.len() >= 6 {
                 let sign = if tz.starts_with('-') { "-" } else { "" };
@@ -421,7 +432,10 @@ fn fn_struuid(_args: Vec<Option<RdfTerm>>) -> SparqlResult<Option<RdfTerm>> {
 fn fn_uuid(_args: Vec<Option<RdfTerm>>) -> SparqlResult<Option<RdfTerm>> {
     let struuid = fn_struuid(vec![])?;
     if let Some(RdfTerm::Literal(lit)) = struuid {
-        Ok(Some(RdfTerm::Iri(Iri::new(format!("urn:uuid:{}", lit.value)))))
+        Ok(Some(RdfTerm::Iri(Iri::new(format!(
+            "urn:uuid:{}",
+            lit.value
+        )))))
     } else {
         Ok(None)
     }
@@ -503,7 +517,8 @@ fn fn_vector_distance(args: Vec<Option<RdfTerm>>) -> SparqlResult<Option<RdfTerm
     }
 
     // L2 (Euclidean) distance
-    let distance: f64 = v1.iter()
+    let distance: f64 = v1
+        .iter()
         .zip(v2.iter())
         .map(|(a, b)| (a - b).powi(2))
         .sum::<f64>()
@@ -546,12 +561,10 @@ fn get_integer_arg(args: &[Option<RdfTerm>], index: usize) -> SparqlResult<i64> 
 fn get_iri_arg(args: &[Option<RdfTerm>], index: usize) -> SparqlResult<Iri> {
     args.get(index)
         .and_then(|a| a.as_ref())
-        .and_then(|t| {
-            match t {
-                RdfTerm::Iri(iri) => Some(iri.clone()),
-                RdfTerm::Literal(lit) => Some(Iri::new(&lit.value)),
-                _ => None,
-            }
+        .and_then(|t| match t {
+            RdfTerm::Iri(iri) => Some(iri.clone()),
+            RdfTerm::Literal(lit) => Some(Iri::new(&lit.value)),
+            _ => None,
         })
         .ok_or_else(|| SparqlError::TypeMismatch {
             expected: "IRI".to_string(),
@@ -615,7 +628,8 @@ mod tests {
             Some(RdfTerm::literal("hello")),
             Some(RdfTerm::Literal(Literal::integer(2))),
             Some(RdfTerm::Literal(Literal::integer(3))),
-        ]).unwrap();
+        ])
+        .unwrap();
         assert!(matches!(result, Some(RdfTerm::Literal(l)) if l.value == "ell"));
     }
 
@@ -633,7 +647,8 @@ mod tests {
         let result = fn_contains(vec![
             Some(RdfTerm::literal("hello world")),
             Some(RdfTerm::literal("world")),
-        ]).unwrap();
+        ])
+        .unwrap();
         assert!(matches!(result, Some(RdfTerm::Literal(l)) if l.as_boolean() == Some(true)));
     }
 
@@ -649,7 +664,8 @@ mod tests {
             Some(RdfTerm::literal("hello")),
             Some(RdfTerm::literal(" ")),
             Some(RdfTerm::literal("world")),
-        ]).unwrap();
+        ])
+        .unwrap();
         assert!(matches!(result, Some(RdfTerm::Literal(l)) if l.value == "hello world"));
     }
 
@@ -658,7 +674,8 @@ mod tests {
         let result = fn_vector_similarity(vec![
             Some(RdfTerm::literal("[1.0, 0.0, 0.0]")),
             Some(RdfTerm::literal("[1.0, 0.0, 0.0]")),
-        ]).unwrap();
+        ])
+        .unwrap();
 
         if let Some(RdfTerm::Literal(l)) = result {
             let sim = l.as_double().unwrap();
@@ -673,7 +690,8 @@ mod tests {
         let result = fn_vector_distance(vec![
             Some(RdfTerm::literal("[0.0, 0.0]")),
             Some(RdfTerm::literal("[3.0, 4.0]")),
-        ]).unwrap();
+        ])
+        .unwrap();
 
         if let Some(RdfTerm::Literal(l)) = result {
             let dist = l.as_double().unwrap();

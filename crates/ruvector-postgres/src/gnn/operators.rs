@@ -27,10 +27,15 @@ pub fn ruvector_gcn_forward(
 ) -> JsonB {
     // Parse embeddings from JSON
     let embeddings: Vec<Vec<f32>> = match embeddings_json.0.as_array() {
-        Some(arr) => arr.iter()
-            .filter_map(|v| v.as_array().map(|a|
-                a.iter().filter_map(|x| x.as_f64().map(|f| f as f32)).collect()
-            ))
+        Some(arr) => arr
+            .iter()
+            .filter_map(|v| {
+                v.as_array().map(|a| {
+                    a.iter()
+                        .filter_map(|x| x.as_f64().map(|f| f as f32))
+                        .collect()
+                })
+            })
             .collect(),
         None => return JsonB(serde_json::json!([])),
     };
@@ -70,10 +75,15 @@ pub fn ruvector_gcn_forward(
 pub fn ruvector_gnn_aggregate(messages_json: JsonB, method: String) -> Vec<f32> {
     // Parse messages from JSON
     let messages: Vec<Vec<f32>> = match messages_json.0.as_array() {
-        Some(arr) => arr.iter()
-            .filter_map(|v| v.as_array().map(|a|
-                a.iter().filter_map(|x| x.as_f64().map(|f| f as f32)).collect()
-            ))
+        Some(arr) => arr
+            .iter()
+            .filter_map(|v| {
+                v.as_array().map(|a| {
+                    a.iter()
+                        .filter_map(|x| x.as_f64().map(|f| f as f32))
+                        .collect()
+                })
+            })
             .collect(),
         None => return vec![],
     };
@@ -146,10 +156,15 @@ pub fn ruvector_graphsage_forward(
 ) -> JsonB {
     // Parse embeddings from JSON
     let embeddings: Vec<Vec<f32>> = match embeddings_json.0.as_array() {
-        Some(arr) => arr.iter()
-            .filter_map(|v| v.as_array().map(|a|
-                a.iter().filter_map(|x| x.as_f64().map(|f| f as f32)).collect()
-            ))
+        Some(arr) => arr
+            .iter()
+            .filter_map(|v| {
+                v.as_array().map(|a| {
+                    a.iter()
+                        .filter_map(|x| x.as_f64().map(|f| f as f32))
+                        .collect()
+                })
+            })
             .collect(),
         None => return JsonB(serde_json::json!([])),
     };
@@ -198,10 +213,15 @@ pub fn ruvector_gnn_batch_forward(
 ) -> JsonB {
     // Parse embeddings from JSON
     let embeddings_batch: Vec<Vec<f32>> = match embeddings_batch_json.0.as_array() {
-        Some(arr) => arr.iter()
-            .filter_map(|v| v.as_array().map(|a|
-                a.iter().filter_map(|x| x.as_f64().map(|f| f as f32)).collect()
-            ))
+        Some(arr) => arr
+            .iter()
+            .filter_map(|v| {
+                v.as_array().map(|a| {
+                    a.iter()
+                        .filter_map(|x| x.as_f64().map(|f| f as f32))
+                        .collect()
+                })
+            })
             .collect(),
         None => return JsonB(serde_json::json!([])),
     };
@@ -218,9 +238,8 @@ pub fn ruvector_gnn_batch_forward(
         let num_nodes = graph_size as usize;
 
         // Extract embeddings for this graph
-        let graph_embeddings: Vec<Vec<f32>> = embeddings_batch
-            [node_offset..node_offset + num_nodes]
-            .to_vec();
+        let graph_embeddings: Vec<Vec<f32>> =
+            embeddings_batch[node_offset..node_offset + num_nodes].to_vec();
 
         // Extract edges for this graph (simplified - assumes edges come in pairs)
         let num_edges = edge_indices_batch
@@ -254,18 +273,22 @@ pub fn ruvector_gnn_batch_forward(
             .collect();
 
         // Apply GNN layer
-        let in_features = if graph_embeddings.is_empty() { 0 } else { graph_embeddings[0].len() };
+        let in_features = if graph_embeddings.is_empty() {
+            0
+        } else {
+            graph_embeddings[0].len()
+        };
         let out_features = out_dim as usize;
 
         let graph_result = match layer_type.to_lowercase().as_str() {
             "gcn" => {
                 let layer = GCNLayer::new(in_features, out_features);
                 layer.forward(&graph_embeddings, &edge_index, None)
-            },
+            }
             "sage" => {
                 let layer = GraphSAGELayer::new(in_features, out_features, 10);
                 layer.forward(&graph_embeddings, &edge_index)
-            },
+            }
             _ => graph_embeddings,
         };
 

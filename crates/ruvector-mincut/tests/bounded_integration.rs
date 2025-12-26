@@ -2,9 +2,9 @@
 //!
 //! Tests the full system: wrapper + instances + LocalKCut
 
-use ruvector_mincut::prelude::*;
-use ruvector_mincut::wrapper::{MinCutWrapper, MinCutResult};
 use ruvector_mincut::instance::StubInstance;
+use ruvector_mincut::prelude::*;
+use ruvector_mincut::wrapper::{MinCutResult, MinCutWrapper};
 use std::sync::Arc;
 
 /// Test path graph P_n has min cut 1
@@ -175,14 +175,17 @@ fn test_weighted_graph_integration() {
     // For this test, we're checking it reports a proper cut
     let result = wrapper.query();
     assert!(result.is_connected());
-    assert!(result.value() > 0, "Weighted graph should have positive min cut");
+    assert!(
+        result.value() > 0,
+        "Weighted graph should have positive min cut"
+    );
 }
 
 /// Stress test with many updates
 #[test]
 fn test_stress_many_updates() {
-    use rand::{Rng, SeedableRng};
     use rand::rngs::StdRng;
+    use rand::{Rng, SeedableRng};
 
     let mut rng = StdRng::seed_from_u64(12345);
     let graph = Arc::new(DynamicGraph::new());
@@ -208,13 +211,24 @@ fn test_stress_many_updates() {
 
     // Result should be valid (either disconnected or connected with positive cut)
     if result.is_connected() {
-        assert!(result.value() >= 1, "Connected graph should have min cut >= 1");
+        assert!(
+            result.value() >= 1,
+            "Connected graph should have min cut >= 1"
+        );
     } else {
-        assert_eq!(result.value(), 0, "Disconnected graph should have min cut 0");
+        assert_eq!(
+            result.value(),
+            0,
+            "Disconnected graph should have min cut 0"
+        );
     }
 
     // Should have buffered updates initially
-    assert_eq!(wrapper.pending_updates(), 0, "After query, updates should be processed");
+    assert_eq!(
+        wrapper.pending_updates(),
+        0,
+        "After query, updates should be processed"
+    );
 }
 
 /// Test determinism: same sequence produces same result
@@ -244,7 +258,11 @@ fn test_determinism() {
     let result2 = wrapper2.query();
 
     // Both should produce identical results
-    assert_eq!(result1.value(), result2.value(), "Determinism: same input should produce same output");
+    assert_eq!(
+        result1.value(),
+        result2.value(),
+        "Determinism: same input should produce same output"
+    );
     assert_eq!(result1.is_connected(), result2.is_connected());
 }
 
@@ -294,7 +312,10 @@ fn test_lazy_instantiation() {
     let _ = wrapper.query();
 
     // Now instances should be created
-    assert!(wrapper.num_instances() > 0, "Query should instantiate instances");
+    assert!(
+        wrapper.num_instances() > 0,
+        "Query should instantiate instances"
+    );
 }
 
 /// Test multiple queries are consistent

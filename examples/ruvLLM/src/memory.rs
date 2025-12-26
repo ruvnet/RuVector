@@ -135,7 +135,10 @@ impl PartialOrd for Candidate {
 impl Ord for Candidate {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         // Reverse for min-heap (smaller distance = higher priority)
-        other.distance.partial_cmp(&self.distance).unwrap_or(std::cmp::Ordering::Equal)
+        other
+            .distance
+            .partial_cmp(&self.distance)
+            .unwrap_or(std::cmp::Ordering::Equal)
     }
 }
 
@@ -222,7 +225,9 @@ impl MemoryService {
 
         // HNSW search
         let (neighbors, layers_traversed, dist_comps) = self.hnsw_search(query, k, ef_search);
-        self.stats.distance_computations.fetch_add(dist_comps as u64, Ordering::Relaxed);
+        self.stats
+            .distance_computations
+            .fetch_add(dist_comps as u64, Ordering::Relaxed);
 
         // Convert to candidates
         let index_to_id = self.index_to_id.read();
@@ -314,7 +319,11 @@ impl MemoryService {
             node_id: current,
         }));
 
-        while let Some(Candidate { distance: _, node_id: current_node }) = candidates.pop() {
+        while let Some(Candidate {
+            distance: _,
+            node_id: current_node,
+        }) = candidates.pop()
+        {
             // Check if we should stop
             if let Some(std::cmp::Reverse(furthest)) = result.peek() {
                 if result.len() >= ef {
@@ -518,7 +527,11 @@ impl MemoryService {
         });
         result.push((entry, entry_dist));
 
-        while let Some(Candidate { distance: _, node_id }) = candidates.pop() {
+        while let Some(Candidate {
+            distance: _,
+            node_id,
+        }) = candidates.pop()
+        {
             if result.len() >= ef {
                 result.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
                 if let Some(&(_, furthest_dist)) = result.last() {
@@ -674,14 +687,20 @@ impl MemoryService {
         })
     }
 
-    fn compute_stats(&self, candidates: &[SearchCandidate], layers: usize, dist_comps: usize) -> SearchStats {
+    fn compute_stats(
+        &self,
+        candidates: &[SearchCandidate],
+        layers: usize,
+        dist_comps: usize,
+    ) -> SearchStats {
         if candidates.is_empty() {
             return SearchStats::default();
         }
 
         let distances: Vec<f32> = candidates.iter().map(|c| c.distance).collect();
         let mean = distances.iter().sum::<f32>() / distances.len() as f32;
-        let var = distances.iter().map(|d| (d - mean).powi(2)).sum::<f32>() / distances.len() as f32;
+        let var =
+            distances.iter().map(|d| (d - mean).powi(2)).sum::<f32>() / distances.len() as f32;
 
         SearchStats {
             k_retrieved: candidates.len(),
@@ -907,7 +926,10 @@ mod tests {
         }
 
         // Perform a search
-        memory.search_with_graph(&[0.0, 0.0, 0.0], 5, 32, 0).await.unwrap();
+        memory
+            .search_with_graph(&[0.0, 0.0, 0.0], 5, 32, 0)
+            .await
+            .unwrap();
 
         let stats = memory.get_stats();
         assert_eq!(stats.node_count, 5);

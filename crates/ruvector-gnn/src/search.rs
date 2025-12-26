@@ -7,8 +7,16 @@ pub fn cosine_similarity(a: &[f32], b: &[f32]) -> f32 {
     let dot_product: f32 = a.iter().zip(b.iter()).map(|(x, y)| x * y).sum();
 
     // Use f64 accumulator for better precision in norm computation
-    let norm_a: f32 = (a.iter().map(|&x| (x as f64) * (x as f64)).sum::<f64>().sqrt()) as f32;
-    let norm_b: f32 = (b.iter().map(|&x| (x as f64) * (x as f64)).sum::<f64>().sqrt()) as f32;
+    let norm_a: f32 = (a
+        .iter()
+        .map(|&x| (x as f64) * (x as f64))
+        .sum::<f64>()
+        .sqrt()) as f32;
+    let norm_b: f32 = (b
+        .iter()
+        .map(|&x| (x as f64) * (x as f64))
+        .sum::<f64>()
+        .sqrt()) as f32;
 
     if norm_a == 0.0 || norm_b == 0.0 {
         0.0

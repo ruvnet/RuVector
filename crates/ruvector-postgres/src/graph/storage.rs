@@ -141,11 +141,7 @@ impl NodeStore {
     pub fn find_by_label(&self, label: &str) -> Vec<Node> {
         self.label_index
             .get(label)
-            .map(|ids| {
-                ids.iter()
-                    .filter_map(|id| self.get(*id))
-                    .collect()
-            })
+            .map(|ids| ids.iter().filter_map(|id| self.get(*id)).collect())
             .unwrap_or_default()
     }
 
@@ -280,11 +276,7 @@ impl EdgeStore {
     pub fn find_by_type(&self, edge_type: &str) -> Vec<Edge> {
         self.type_index
             .get(edge_type)
-            .map(|ids| {
-                ids.iter()
-                    .filter_map(|id| self.get(*id))
-                    .collect()
-            })
+            .map(|ids| ids.iter().filter_map(|id| self.get(*id)).collect())
             .unwrap_or_default()
     }
 
@@ -317,7 +309,11 @@ impl GraphStore {
         }
     }
 
-    pub fn add_node(&self, labels: Vec<String>, properties: HashMap<String, serde_json::Value>) -> u64 {
+    pub fn add_node(
+        &self,
+        labels: Vec<String>,
+        properties: HashMap<String, serde_json::Value>,
+    ) -> u64 {
         let id = self.nodes.next_id();
         let mut node = Node::new(id);
         node.labels = labels;
@@ -352,8 +348,18 @@ impl GraphStore {
         GraphStats {
             node_count: self.nodes.count(),
             edge_count: self.edges.count(),
-            labels: self.nodes.label_index.iter().map(|e| e.key().clone()).collect(),
-            edge_types: self.edges.type_index.iter().map(|e| e.key().clone()).collect(),
+            labels: self
+                .nodes
+                .label_index
+                .iter()
+                .map(|e| e.key().clone())
+                .collect(),
+            edge_types: self
+                .edges
+                .type_index
+                .iter()
+                .map(|e| e.key().clone())
+                .collect(),
         }
     }
 }
@@ -402,8 +408,7 @@ mod tests {
     fn test_edge_operations() {
         let store = EdgeStore::new();
 
-        let edge = Edge::new(1, 10, 20, "KNOWS")
-            .with_property("since", 2020);
+        let edge = Edge::new(1, 10, 20, "KNOWS").with_property("since", 2020);
 
         store.insert(edge);
 
@@ -429,12 +434,14 @@ mod tests {
             HashMap::from([("name".to_string(), "Bob".into())]),
         );
 
-        let e1 = graph.add_edge(
-            n1,
-            n2,
-            "KNOWS".to_string(),
-            HashMap::from([("since".to_string(), 2020.into())]),
-        ).unwrap();
+        let e1 = graph
+            .add_edge(
+                n1,
+                n2,
+                "KNOWS".to_string(),
+                HashMap::from([("since".to_string(), 2020.into())]),
+            )
+            .unwrap();
 
         assert_eq!(graph.nodes.count(), 2);
         assert_eq!(graph.edges.count(), 1);

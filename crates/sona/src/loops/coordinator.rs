@@ -1,12 +1,12 @@
 //! Loop Coordinator - Orchestrates all learning loops
 
 use crate::ewc::{EwcConfig, EwcPlusPlus};
-use crate::lora::{BaseLoRA, MicroLoRA};
 use crate::loops::background::{BackgroundLoop, BackgroundLoopConfig, BackgroundResult};
 use crate::loops::instant::{InstantLoop, InstantLoopConfig};
+use crate::lora::{BaseLoRA, MicroLoRA};
 use crate::reasoning_bank::{PatternConfig, ReasoningBank};
-use crate::types::{QueryTrajectory, SonaConfig};
 use crate::time_compat::Instant;
+use crate::types::{QueryTrajectory, SonaConfig};
 use parking_lot::RwLock;
 use std::sync::Arc;
 
@@ -164,7 +164,10 @@ impl LoopCoordinator {
 
 /// Coordinator statistics
 #[derive(Debug, Clone)]
-#[cfg_attr(feature = "serde-support", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "serde-support",
+    derive(serde::Serialize, serde::Deserialize)
+)]
 pub struct CoordinatorStats {
     pub trajectories_buffered: usize,
     pub trajectories_dropped: u64,

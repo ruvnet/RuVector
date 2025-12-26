@@ -290,10 +290,10 @@ impl TrainingTemplate {
     /// **Training data**: Code completions, fixes, reviews
     pub fn code_agent() -> Self {
         let mut template = Self::new("code-agent", AgentType::CodeAgent);
-        template.sona_config.base_lora_rank = 16;  // Deeper for code patterns
-        template.sona_config.pattern_clusters = 200;  // Many code patterns
+        template.sona_config.base_lora_rank = 16; // Deeper for code patterns
+        template.sona_config.pattern_clusters = 200; // Many code patterns
         template.sona_config.trajectory_capacity = 10000;
-        template.sona_config.quality_threshold = 0.2;  // Learn from most examples
+        template.sona_config.quality_threshold = 0.2; // Learn from most examples
         template.training_method = TrainingMethod::Online {
             lr_decay: 0.9995,
             window_size: 5000,
@@ -312,7 +312,7 @@ impl TrainingTemplate {
         template.sona_config.base_lora_rank = 8;
         template.sona_config.pattern_clusters = 50;
         template.sona_config.quality_threshold = 0.4;
-        template.target_latency_us = 500;  // Fast responses
+        template.target_latency_us = 500; // Fast responses
         template.training_method = TrainingMethod::RLHF {
             reward_weight: 0.5,
             kl_penalty: 0.1,
@@ -328,9 +328,9 @@ impl TrainingTemplate {
     /// **Training data**: Document chunks, Q&A pairs
     pub fn rag_agent() -> Self {
         let mut template = Self::new("rag-agent", AgentType::RagAgent);
-        template.sona_config.pattern_clusters = 200;  // Many document patterns
+        template.sona_config.pattern_clusters = 200; // Many document patterns
         template.sona_config.trajectory_capacity = 10000;
-        template.sona_config.embedding_dim = 512;  // Larger embeddings for retrieval
+        template.sona_config.embedding_dim = 512; // Larger embeddings for retrieval
         template.sona_config.hidden_dim = 512;
         template.training_method = TrainingMethod::Supervised {
             batch_size: 32,
@@ -348,7 +348,7 @@ impl TrainingTemplate {
     pub fn task_planner() -> Self {
         let mut template = Self::new("task-planner", AgentType::TaskPlanner);
         template.sona_config.base_lora_rank = 16;
-        template.sona_config.ewc_lambda = 2000.0;  // Important for multi-task
+        template.sona_config.ewc_lambda = 2000.0; // Important for multi-task
         template.sona_config.pattern_clusters = 100;
         template.training_method = TrainingMethod::DPO {
             beta: 0.1,
@@ -365,8 +365,11 @@ impl TrainingTemplate {
     /// **Training data**: Domain-specific Q&A, expert responses
     pub fn domain_expert(domain: TaskDomain) -> Self {
         let domain_name = format!("{:?}", domain).to_lowercase();
-        let mut template = Self::new(format!("domain-expert-{}", domain_name), AgentType::DomainExpert);
-        template.sona_config.quality_threshold = 0.1;  // Learn from all domain examples
+        let mut template = Self::new(
+            format!("domain-expert-{}", domain_name),
+            AgentType::DomainExpert,
+        );
+        template.sona_config.quality_threshold = 0.1; // Learn from all domain examples
         template.sona_config.trajectory_capacity = 20000;
         template.sona_config.base_lora_rank = 16;
         template.vertical = Some(VerticalConfig {
@@ -429,11 +432,11 @@ impl TrainingTemplate {
     pub fn creative_writer() -> Self {
         let mut template = Self::new("creative-writer", AgentType::CreativeWriter);
         template.sona_config.base_lora_rank = 8;
-        template.sona_config.pattern_clusters = 50;  // Fewer clusters for diversity
-        template.sona_config.quality_threshold = 0.5;  // Only learn from high quality
+        template.sona_config.pattern_clusters = 50; // Fewer clusters for diversity
+        template.sona_config.quality_threshold = 0.5; // Only learn from high quality
         template.training_method = TrainingMethod::RLHF {
             reward_weight: 0.7,
-            kl_penalty: 0.05,  // Less constraint for creativity
+            kl_penalty: 0.05, // Less constraint for creativity
         };
         template.vertical = Some(VerticalConfig {
             domain: TaskDomain::Marketing,
@@ -452,7 +455,7 @@ impl TrainingTemplate {
     pub fn reasoning_agent() -> Self {
         let mut template = Self::new("reasoning-agent", AgentType::ReasoningAgent);
         template.sona_config.base_lora_rank = 16;
-        template.sona_config.ewc_lambda = 3000.0;  // Strong protection
+        template.sona_config.ewc_lambda = 3000.0; // Strong protection
         template.sona_config.pattern_clusters = 150;
         template.sona_config.quality_threshold = 0.3;
         template.training_method = TrainingMethod::DPO {
@@ -524,7 +527,7 @@ impl TrainingTemplate {
 
     /// Set LoRA ranks
     pub fn with_lora_ranks(mut self, micro: usize, base: usize) -> Self {
-        self.sona_config.micro_lora_rank = micro.min(2);  // MicroLoRA max rank is 2
+        self.sona_config.micro_lora_rank = micro.min(2); // MicroLoRA max rank is 2
         self.sona_config.base_lora_rank = base;
         self
     }
@@ -581,7 +584,8 @@ impl TrainingTemplate {
         let engine_mb = 5;
 
         // LoRA weights: hidden_dim * rank * 2 (A and B matrices) * 4 bytes * 2 (micro + base)
-        let lora_bytes = config.hidden_dim * (config.micro_lora_rank + config.base_lora_rank) * 2 * 4 * 2;
+        let lora_bytes =
+            config.hidden_dim * (config.micro_lora_rank + config.base_lora_rank) * 2 * 4 * 2;
         let lora_mb = lora_bytes / (1024 * 1024);
 
         // Trajectory buffer: capacity * ~800 bytes per trajectory
@@ -608,7 +612,8 @@ mod tests {
 
     #[test]
     fn test_preset_templates() {
-        let production = TrainingTemplate::from_preset(TemplatePreset::Production, AgentType::ChatAgent);
+        let production =
+            TrainingTemplate::from_preset(TemplatePreset::Production, AgentType::ChatAgent);
         assert!(production.auto_export);
 
         let edge = TrainingTemplate::from_preset(TemplatePreset::Edge, AgentType::ChatAgent);

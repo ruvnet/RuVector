@@ -6,8 +6,8 @@
 //! - Concurrent safety and thread-safe operations
 //! - Performance benchmarks for instant loop latency
 
-use ruvllm::sona::*;
 use ruvllm::sona::engine::SonaEngineBuilder;
+use ruvllm::sona::*;
 use std::sync::Arc;
 use std::thread;
 use std::time::Instant;
@@ -68,8 +68,14 @@ fn test_full_sona_workflow() {
 
     // Run background learning cycle
     let result = engine.force_learn();
-    assert!(result.contains("Forced learning:"), "Expected force_learn result message");
-    assert!(result.contains("trajectories"), "Expected trajectory count in result");
+    assert!(
+        result.contains("Forced learning:"),
+        "Expected force_learn result message"
+    );
+    assert!(
+        result.contains("trajectories"),
+        "Expected trajectory count in result"
+    );
 
     // Verify patterns were extracted (may be 0 if quality threshold filters them out)
     let stats = engine.stats();
@@ -121,7 +127,10 @@ fn test_trajectory_to_pattern_flow() {
 
     // Force background learning to extract patterns
     let result = engine.force_learn();
-    assert!(result.contains("100 trajectories"), "Expected 100 trajectories processed");
+    assert!(
+        result.contains("100 trajectories"),
+        "Expected 100 trajectories processed"
+    );
 
     // Note: Patterns may not cluster perfectly into 2 groups due to:
     // - Quality threshold filtering
@@ -195,7 +204,8 @@ fn test_learning_signal_to_microlora() {
     engine.apply_micro_lora(&input, &mut output_after);
 
     // Verify that LoRA output has changed (learning occurred)
-    let diff: f32 = output_before.iter()
+    let diff: f32 = output_before
+        .iter()
         .zip(&output_after)
         .map(|(a, b)| (a - b).abs())
         .sum();
@@ -243,7 +253,10 @@ fn test_ewc_task_boundary_detection() {
 
     // Task boundary should be detected due to distribution shift
     // EWC task count should increase if boundary was detected
-    assert!(ewc_tasks_2 >= ewc_tasks_1, "Expected EWC to track task progression");
+    assert!(
+        ewc_tasks_2 >= ewc_tasks_1,
+        "Expected EWC to track task progression"
+    );
 }
 
 // ============================================================================
@@ -259,11 +272,7 @@ fn test_lora_engine_integration() {
 
     // Create learning signals
     for _ in 0..10 {
-        let signal = LearningSignal::with_gradient(
-            vec![0.1; 64],
-            vec![0.5; 64],
-            0.85,
-        );
+        let signal = LearningSignal::with_gradient(vec![0.1; 64], vec![0.5; 64], 0.85);
         engine.accumulate_micro(&signal);
     }
 
@@ -335,7 +344,10 @@ fn test_concurrent_trajectory_recording() {
     let expected = num_threads * trajectories_per_thread;
 
     // Account for potential buffer overflow in high-concurrency scenarios
-    assert!(stats.trajectories_buffered > 0, "Expected trajectories to be recorded");
+    assert!(
+        stats.trajectories_buffered > 0,
+        "Expected trajectories to be recorded"
+    );
     assert!(
         stats.trajectories_buffered <= expected,
         "Buffered count should not exceed total submitted"
@@ -383,7 +395,9 @@ fn test_concurrent_lora_application() {
 
     // Wait for all threads
     for handle in handles {
-        handle.join().expect("Thread panicked during LoRA application");
+        handle
+            .join()
+            .expect("Thread panicked during LoRA application");
     }
 }
 
@@ -421,7 +435,9 @@ fn test_concurrent_learning_signals() {
 
     // Wait for completion
     for handle in handles {
-        handle.join().expect("Thread panicked during signal processing");
+        handle
+            .join()
+            .expect("Thread panicked during signal processing");
     }
 
     // Verify learning occurred
@@ -503,8 +519,8 @@ fn test_lockfree_trajectory_buffer() {
     }
 
     // Verify non-blocking behavior
-    let avg_nanos: u128 = record_times.iter().map(|d| d.as_nanos()).sum::<u128>()
-        / record_times.len() as u128;
+    let avg_nanos: u128 =
+        record_times.iter().map(|d| d.as_nanos()).sum::<u128>() / record_times.len() as u128;
 
     println!("Lock-free buffer record:");
     println!("  Average: {}ns", avg_nanos);
@@ -558,11 +574,20 @@ fn test_background_loop_pattern_extraction() {
 
     // Pattern extraction depends on quality threshold and minimum cluster size
     // With quality_threshold=0.7 (default), patterns with avg_quality < 0.7 are filtered
-    println!("Patterns stored: {} from 150 trajectories", stats.patterns_stored);
+    println!(
+        "Patterns stored: {} from 150 trajectories",
+        stats.patterns_stored
+    );
 
     // Just verify the learning cycle ran successfully
-    assert!(result.contains("Forced learning:"), "Background learning should complete");
-    assert!(result.contains("150 trajectories"), "Expected 150 trajectories processed");
+    assert!(
+        result.contains("Forced learning:"),
+        "Background learning should complete"
+    );
+    assert!(
+        result.contains("150 trajectories"),
+        "Expected 150 trajectories processed"
+    );
 }
 
 // ============================================================================
@@ -759,7 +784,10 @@ fn test_engine_enable_disable() {
     engine.end_trajectory(builder, 0.82);
 
     let stats2 = engine.stats();
-    assert_eq!(stats2.trajectories_buffered, 1, "Disabled engine should not record");
+    assert_eq!(
+        stats2.trajectories_buffered, 1,
+        "Disabled engine should not record"
+    );
 
     // Re-enable
     engine.set_enabled(true);

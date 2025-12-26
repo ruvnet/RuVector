@@ -6,14 +6,14 @@
 //! - The LocalKCut responses that prove no smaller cut exists
 //! - A proof structure for verification
 
+use crate::graph::{EdgeId, VertexId};
 use crate::instance::WitnessHandle;
-use crate::graph::{VertexId, EdgeId};
-use std::time::SystemTime;
 use serde::{Deserialize, Serialize};
+use std::time::SystemTime;
 
 pub mod audit;
 
-pub use audit::{AuditLogger, AuditEntry, AuditEntryType, AuditData};
+pub use audit::{AuditData, AuditEntry, AuditEntryType, AuditLogger};
 
 /// Witness summary for serialization
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -54,8 +54,7 @@ mod system_time_serde {
     where
         S: Serializer,
     {
-        let duration = time.duration_since(UNIX_EPOCH)
-            .unwrap_or_default();
+        let duration = time.duration_since(UNIX_EPOCH).unwrap_or_default();
         duration.as_secs().serialize(serializer)
     }
 
@@ -270,14 +269,14 @@ impl CutCertificate {
 
     /// Get the certified minimum cut value
     pub fn certified_value(&self) -> Option<u64> {
-        self.best_witness_idx.and_then(|idx| {
-            self.witnesses.get(idx).map(|w| w.boundary_size())
-        })
+        self.best_witness_idx
+            .and_then(|idx| self.witnesses.get(idx).map(|w| w.boundary_size()))
     }
 
     /// Get the best witness
     pub fn best_witness(&self) -> Option<&WitnessHandle> {
-        self.best_witness_idx.and_then(|idx| self.witnesses.get(idx))
+        self.best_witness_idx
+            .and_then(|idx| self.witnesses.get(idx))
     }
 
     /// Export to JSON for external verification
@@ -366,7 +365,11 @@ impl std::fmt::Display for CertificateError {
         match self {
             Self::NoWitness => write!(f, "No witness available in certificate"),
             Self::InconsistentBoundary { expected, actual } => {
-                write!(f, "Inconsistent boundary: expected {}, got {}", expected, actual)
+                write!(
+                    f,
+                    "Inconsistent boundary: expected {}, got {}",
+                    expected, actual
+                )
             }
             Self::MissingLocalKCutProof { operation } => {
                 write!(f, "Missing LocalKCut proof for operation: {}", operation)
@@ -378,7 +381,11 @@ impl std::fmt::Display for CertificateError {
                 write!(f, "Invalid query: {}", reason)
             }
             Self::IncompatibleVersion { found, expected } => {
-                write!(f, "Incompatible version: found {}, expected {}", found, expected)
+                write!(
+                    f,
+                    "Incompatible version: found {}, expected {}",
+                    found, expected
+                )
             }
             Self::SerializationError(msg) => {
                 write!(f, "Serialization error: {}", msg)
@@ -456,7 +463,10 @@ mod tests {
         cert.best_witness_idx = Some(5);
 
         let result = cert.verify();
-        assert!(matches!(result, Err(CertificateError::InvalidWitnessIndex { .. })));
+        assert!(matches!(
+            result,
+            Err(CertificateError::InvalidWitnessIndex { .. })
+        ));
     }
 
     #[test]
@@ -466,7 +476,10 @@ mod tests {
         cert.set_best_witness(0, witness);
 
         let query = CertLocalKCutQuery::new(vec![1], 5, 2);
-        let result = LocalKCutResultSummary::Found { cut_value: 3, witness_hash: 999 };
+        let result = LocalKCutResultSummary::Found {
+            cut_value: 3,
+            witness_hash: 999,
+        };
         let response = LocalKCutResponse::new(query, result, 100, None);
         cert.add_response(response);
 

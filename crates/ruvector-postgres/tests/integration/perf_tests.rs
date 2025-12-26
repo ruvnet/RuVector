@@ -14,8 +14,8 @@ use std::time::{Duration, Instant};
 /// Performance requirements and thresholds
 pub mod thresholds {
     /// Insert performance thresholds
-    pub const MIN_INSERT_RATE: f64 = 10000.0;  // vectors per second
-    pub const MAX_BATCH_INSERT_LATENCY_MS: f64 = 100.0;  // per batch of 1000
+    pub const MIN_INSERT_RATE: f64 = 10000.0; // vectors per second
+    pub const MAX_BATCH_INSERT_LATENCY_MS: f64 = 100.0; // per batch of 1000
 
     /// Query latency thresholds (milliseconds)
     pub const MAX_P50_LATENCY_MS: f64 = 1.0;
@@ -23,13 +23,13 @@ pub mod thresholds {
     pub const MAX_P99_LATENCY_MS: f64 = 10.0;
 
     /// SIMD speedup thresholds
-    pub const MIN_SIMD_SPEEDUP: f64 = 2.0;  // At least 2x faster with SIMD
+    pub const MIN_SIMD_SPEEDUP: f64 = 2.0; // At least 2x faster with SIMD
 
     /// Concurrent scaling thresholds
-    pub const MIN_CONCURRENT_EFFICIENCY: f64 = 0.7;  // 70% efficiency at 10 concurrent
+    pub const MIN_CONCURRENT_EFFICIENCY: f64 = 0.7; // 70% efficiency at 10 concurrent
 
     /// Memory thresholds
-    pub const MAX_MEMORY_PER_VECTOR_BYTES: usize = 600;  // For 128-dim vector with overhead
+    pub const MAX_MEMORY_PER_VECTOR_BYTES: usize = 600; // For 128-dim vector with overhead
 }
 
 /// Test module for insert throughput
@@ -41,7 +41,7 @@ mod insert_throughput_tests {
     fn simulate_batch_insert(batch_size: usize, dimensions: usize) -> Duration {
         // Simulated timing based on expected performance
         // Real test would measure actual database operations
-        let bytes_per_vector = dimensions * 4;  // f32
+        let bytes_per_vector = dimensions * 4; // f32
         let total_bytes = batch_size * bytes_per_vector;
 
         // Approximate: 100MB/s write throughput
@@ -71,7 +71,7 @@ mod insert_throughput_tests {
 
         // Single insert should be fast
         assert!(
-            stats.p99 < 1000.0,  // < 1ms
+            stats.p99 < 1000.0, // < 1ms
             "Single insert p99 {} us should be < 1000 us",
             stats.p99
         );
@@ -146,8 +146,8 @@ mod insert_throughput_tests {
 
         // Duration should scale roughly linearly with dimensions
         for i in 1..durations.len() {
-            let dim_ratio = durations[i].0 as f64 / durations[i-1].0 as f64;
-            let time_ratio = durations[i].1.as_secs_f64() / durations[i-1].1.as_secs_f64();
+            let dim_ratio = durations[i].0 as f64 / durations[i - 1].0 as f64;
+            let time_ratio = durations[i].1.as_secs_f64() / durations[i - 1].1.as_secs_f64();
 
             // Time should not increase more than 1.5x the dimension ratio
             assert!(
@@ -241,8 +241,8 @@ mod query_latency_tests {
 
         // HNSW should have logarithmic scaling
         for i in 1..latencies.len() {
-            let size_ratio = (latencies[i].0 as f64).ln() / (latencies[i-1].0 as f64).ln();
-            let time_ratio = latencies[i].1.as_secs_f64() / latencies[i-1].1.as_secs_f64();
+            let size_ratio = (latencies[i].0 as f64).ln() / (latencies[i - 1].0 as f64).ln();
+            let time_ratio = latencies[i].1.as_secs_f64() / latencies[i - 1].1.as_secs_f64();
 
             // Time should scale sub-linearly (logarithmically)
             assert!(
@@ -269,7 +269,7 @@ mod query_latency_tests {
         // Latency should increase with k, but sub-linearly
         for i in 1..latencies.len() {
             assert!(
-                latencies[i].1 >= latencies[i-1].1,
+                latencies[i].1 >= latencies[i - 1].1,
                 "Latency should increase with k"
             );
         }
@@ -288,7 +288,7 @@ mod query_latency_tests {
             let loaded_latency = base_latency_us * load_factor;
 
             // p99 under load
-            let p99_under_load = loaded_latency * 3.0;  // Rough estimate
+            let p99_under_load = loaded_latency * 3.0; // Rough estimate
 
             println!(
                 "Concurrency {}: estimated p99 = {} us",
@@ -338,7 +338,7 @@ mod simd_acceleration_tests {
         let scalar_duration = start.elapsed();
 
         // SIMD timing (simulated as faster)
-        let simd_duration = scalar_duration / 4;  // Approximate 4x speedup
+        let simd_duration = scalar_duration / 4; // Approximate 4x speedup
 
         let speedup = scalar_duration.as_secs_f64() / simd_duration.as_secs_f64();
 
@@ -365,10 +365,7 @@ mod simd_acceleration_tests {
 
             let speedup = scalar_time_us / simd_time_us;
 
-            println!(
-                "Batch size {}: SIMD speedup = {:.2}x",
-                batch_size, speedup
-            );
+            println!("Batch size {}: SIMD speedup = {:.2}x", batch_size, speedup);
 
             assert!(
                 speedup >= thresholds::MIN_SIMD_SPEEDUP,
@@ -385,7 +382,7 @@ mod simd_acceleration_tests {
 
         for dim in dimensions {
             // Check if dimension is SIMD-friendly
-            let is_simd_aligned = dim % 8 == 0;  // AVX2 processes 8 floats
+            let is_simd_aligned = dim % 8 == 0; // AVX2 processes 8 floats
 
             if is_simd_aligned {
                 // Full SIMD speedup expected
@@ -416,14 +413,17 @@ mod simd_acceleration_tests {
         for metric in metrics {
             // All distance metrics should benefit from SIMD
             let min_speedup = match metric {
-                "L2" => 4.0,           // Best case: simple FMA
-                "cosine" => 3.5,       // Requires norm calculation
+                "L2" => 4.0,            // Best case: simple FMA
+                "cosine" => 3.5,        // Requires norm calculation
                 "inner_product" => 4.0, // Simple dot product
-                "hamming" => 8.0,      // Bit operations highly parallel
+                "hamming" => 8.0,       // Bit operations highly parallel
                 _ => 2.0,
             };
 
-            println!("{}: expected min SIMD speedup = {:.1}x", metric, min_speedup);
+            println!(
+                "{}: expected min SIMD speedup = {:.1}x",
+                metric, min_speedup
+            );
 
             assert!(
                 min_speedup >= thresholds::MIN_SIMD_SPEEDUP,
@@ -451,7 +451,7 @@ mod concurrent_scaling_tests {
     /// Test concurrent query throughput
     #[test]
     fn test_concurrent_query_throughput() {
-        let single_thread_qps = 1000.0;  // 1000 queries per second
+        let single_thread_qps = 1000.0; // 1000 queries per second
         let concurrency_levels = [1, 2, 4, 8, 16, 32];
 
         let mut previous_throughput = 0.0;
@@ -489,8 +489,9 @@ mod concurrent_scaling_tests {
 
         for concurrency in concurrency_levels {
             // Simulated efficiency based on Amdahl's law
-            let serial_fraction = 0.1;  // 10% serial work
-            let max_speedup = 1.0 / (serial_fraction + (1.0 - serial_fraction) / concurrency as f64);
+            let serial_fraction = 0.1; // 10% serial work
+            let max_speedup =
+                1.0 / (serial_fraction + (1.0 - serial_fraction) / concurrency as f64);
             let efficiency = max_speedup / concurrency as f64;
 
             println!(
@@ -539,8 +540,8 @@ mod concurrent_scaling_tests {
     /// Test query queue behavior
     #[test]
     fn test_query_queue_behavior() {
-        let query_arrival_rate = 1000.0;  // queries per second
-        let service_rate = 1200.0;  // queries per second (capacity)
+        let query_arrival_rate = 1000.0; // queries per second
+        let service_rate = 1200.0; // queries per second (capacity)
         let utilization = query_arrival_rate / service_rate;
 
         // M/M/1 queue: avg queue length = rho / (1 - rho)
@@ -573,7 +574,7 @@ mod memory_efficiency_tests {
     #[test]
     fn test_memory_per_vector() {
         let dimensions = 128;
-        let float_size = 4;  // f32
+        let float_size = 4; // f32
 
         // Raw vector data
         let data_size = dimensions * float_size;
@@ -605,24 +606,18 @@ mod memory_efficiency_tests {
     fn test_memory_scaling() {
         let vector_counts = [10_000, 100_000, 1_000_000, 10_000_000];
         let dimensions = 128;
-        let bytes_per_vector = 600;  // Approximate
+        let bytes_per_vector = 600; // Approximate
 
         for count in vector_counts {
             let memory_mb = (count * bytes_per_vector) / (1024 * 1024);
             let memory_gb = memory_mb as f64 / 1024.0;
 
-            println!(
-                "{} vectors: ~{} MB ({:.2} GB)",
-                count, memory_mb, memory_gb
-            );
+            println!("{} vectors: ~{} MB ({:.2} GB)", count, memory_mb, memory_gb);
         }
 
         // 1M vectors should fit in < 1GB
         let one_million_memory = 1_000_000 * bytes_per_vector / (1024 * 1024);
-        assert!(
-            one_million_memory < 1024,
-            "1M vectors should require < 1GB"
-        );
+        assert!(one_million_memory < 1024, "1M vectors should require < 1GB");
     }
 
     /// Test index memory overhead
@@ -634,11 +629,11 @@ mod memory_efficiency_tests {
         // HNSW index overhead
         let m = 16;
         let max_layers = (num_vectors as f64).log2().ceil() as usize;
-        let avg_connections_per_vector = m * 2 * max_layers / 2;  // Approximate
-        let connection_size = 8;  // bytes per connection (ID + distance)
+        let avg_connections_per_vector = m * 2 * max_layers / 2; // Approximate
+        let connection_size = 8; // bytes per connection (ID + distance)
 
-        let hnsw_overhead_mb = (num_vectors * avg_connections_per_vector * connection_size)
-            / (1024 * 1024);
+        let hnsw_overhead_mb =
+            (num_vectors * avg_connections_per_vector * connection_size) / (1024 * 1024);
 
         println!(
             "HNSW index overhead for 1M vectors: ~{} MB",
@@ -701,10 +696,10 @@ mod index_build_tests {
         let num_threads = 8;
 
         // Serial build time estimate
-        let serial_time_sec = 120.0;  // 2 minutes
+        let serial_time_sec = 120.0; // 2 minutes
 
         // Parallel speedup (with overhead)
-        let parallel_efficiency = 0.7;  // 70% parallel efficiency
+        let parallel_efficiency = 0.7; // 70% parallel efficiency
         let parallel_time_sec = serial_time_sec / (num_threads as f64 * parallel_efficiency);
 
         println!(
@@ -731,7 +726,8 @@ mod index_build_tests {
         // IVFFlat build: k-means clustering + assignment
         // O(n * k * iterations * dimensions)
         let iterations = 10;
-        let complexity = num_vectors as f64 * num_lists as f64 * iterations as f64 * dimensions as f64;
+        let complexity =
+            num_vectors as f64 * num_lists as f64 * iterations as f64 * dimensions as f64;
 
         let ops_per_sec = 1_000_000_000.0;
         let build_time_sec = complexity / ops_per_sec;
@@ -760,9 +756,16 @@ mod benchmark_sql_tests {
         let batch_size = 1000;
         let vectors = generate_random_vectors(batch_size, 128);
 
-        let values: Vec<String> = vectors.iter()
+        let values: Vec<String> = vectors
+            .iter()
             .enumerate()
-            .map(|(i, v)| format!("('{}', '{}')", vec_to_pg_array(v), format!("{{\"id\":{}}}", i)))
+            .map(|(i, v)| {
+                format!(
+                    "('{}', '{}')",
+                    vec_to_pg_array(v),
+                    format!("{{\"id\":{}}}", i)
+                )
+            })
             .collect();
 
         let sql = format!(

@@ -32,10 +32,10 @@
 
 #![cfg(feature = "wasm")]
 
-use wasm_bindgen::prelude::*;
-use crate::{SonaEngine, SonaConfig, LearningSignal};
-use std::sync::Arc;
+use crate::{LearningSignal, SonaConfig, SonaEngine};
 use parking_lot::RwLock;
+use std::sync::Arc;
+use wasm_bindgen::prelude::*;
 
 /// WASM-compatible SONA Engine wrapper
 ///
@@ -138,10 +138,13 @@ impl WasmSonaEngine {
     pub fn record_step(&self, trajectory_id: u64, node_id: u32, score: f32, latency_us: u64) {
         // Note: This is a simplified version. In production, you'd want to maintain
         // a map of active trajectory builders
-        web_sys::console::log_1(&format!(
-            "Recording step: traj={}, node={}, score={}, latency={}us",
-            trajectory_id, node_id, score, latency_us
-        ).into());
+        web_sys::console::log_1(
+            &format!(
+                "Recording step: traj={}, node={}, score={}, latency={}us",
+                trajectory_id, node_id, score, latency_us
+            )
+            .into(),
+        );
     }
 
     /// End the trajectory and submit for learning
@@ -156,10 +159,13 @@ impl WasmSonaEngine {
     /// ```
     #[wasm_bindgen(js_name = endTrajectory)]
     pub fn end_trajectory(&self, trajectory_id: u64, final_score: f32) {
-        web_sys::console::log_1(&format!(
-            "Ending trajectory: traj={}, score={}",
-            trajectory_id, final_score
-        ).into());
+        web_sys::console::log_1(
+            &format!(
+                "Ending trajectory: traj={}, score={}",
+                trajectory_id, final_score
+            )
+            .into(),
+        );
     }
 
     /// Apply learning from user feedback
@@ -176,10 +182,13 @@ impl WasmSonaEngine {
     #[wasm_bindgen(js_name = learnFromFeedback)]
     pub fn learn_from_feedback(&self, success: bool, latency_ms: f32, quality: f32) {
         let reward = if success { quality } else { -quality };
-        web_sys::console::log_1(&format!(
-            "Feedback: success={}, latency={}ms, quality={}, reward={}",
-            success, latency_ms, quality, reward
-        ).into());
+        web_sys::console::log_1(
+            &format!(
+                "Feedback: success={}, latency={}ms, quality={}, reward={}",
+                success, latency_ms, quality, reward
+            )
+            .into(),
+        );
     }
 
     /// Apply LoRA transformation to input vector
@@ -356,8 +365,7 @@ pub fn wasm_init() {
 // ============================================================================
 
 use crate::training::{
-    EphemeralAgent as RustEphemeralAgent,
-    FederatedCoordinator as RustFederatedCoordinator,
+    EphemeralAgent as RustEphemeralAgent, FederatedCoordinator as RustFederatedCoordinator,
     FederatedTopology,
 };
 
@@ -448,7 +456,8 @@ impl WasmEphemeralAgent {
     /// * `route` - Model route used (e.g., "gpt-4", "claude-3")
     #[wasm_bindgen(js_name = processTaskWithRoute)]
     pub fn process_task_with_route(&mut self, embedding: Vec<f32>, quality: f32, route: &str) {
-        self.inner.process_task_with_route(embedding, quality, route);
+        self.inner
+            .process_task_with_route(embedding, quality, route);
     }
 
     /// Export agent state for coordinator aggregation
@@ -574,7 +583,10 @@ impl WasmFederatedCoordinator {
     /// const coordinator = WasmFederatedCoordinator.with_config("central", config);
     /// ```
     #[wasm_bindgen(js_name = withConfig)]
-    pub fn with_config(coordinator_id: &str, config: JsValue) -> Result<WasmFederatedCoordinator, JsValue> {
+    pub fn with_config(
+        coordinator_id: &str,
+        config: JsValue,
+    ) -> Result<WasmFederatedCoordinator, JsValue> {
         let config: SonaConfig = serde_wasm_bindgen::from_value(config)?;
         Ok(Self {
             inner: RustFederatedCoordinator::new(coordinator_id, config),
@@ -698,8 +710,7 @@ mod serde_wasm_bindgen {
 
     pub fn from_value<T: serde::de::DeserializeOwned>(value: JsValue) -> Result<T, JsValue> {
         if let Some(s) = value.as_string() {
-            serde_json::from_str(&s)
-                .map_err(|e| JsValue::from_str(&e.to_string()))
+            serde_json::from_str(&s).map_err(|e| JsValue::from_str(&e.to_string()))
         } else {
             Err(JsValue::from_str("Expected JSON string"))
         }

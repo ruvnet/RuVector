@@ -29,7 +29,13 @@ pub fn stable_softmax(values: &[f32]) -> Vec<f32> {
     // Compute exp(x - max) and sum
     let mut exp_values: Vec<f32> = values
         .iter()
-        .map(|&x| if x.is_finite() { (x - max_val).exp() } else { 0.0 })
+        .map(|&x| {
+            if x.is_finite() {
+                (x - max_val).exp()
+            } else {
+                0.0
+            }
+        })
         .collect();
 
     let sum: f32 = exp_values.iter().sum();
@@ -67,10 +73,7 @@ pub fn softmax(values: &[f32]) -> AttentionResult<Vec<f32>> {
     }
 
     // Find maximum for numerical stability
-    let max_val = values
-        .iter()
-        .copied()
-        .fold(f32::NEG_INFINITY, f32::max);
+    let max_val = values.iter().copied().fold(f32::NEG_INFINITY, f32::max);
 
     if !max_val.is_finite() {
         return Err(AttentionError::NumericalInstability(

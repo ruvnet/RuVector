@@ -4,10 +4,10 @@
 //! that should always hold true, helping catch edge cases and numerical issues.
 
 use proptest::prelude::*;
-use ruvector_postgres::types::RuVector;
 use ruvector_postgres::distance::{
-    euclidean_distance, cosine_distance, inner_product_distance, manhattan_distance,
+    cosine_distance, euclidean_distance, inner_product_distance, manhattan_distance,
 };
+use ruvector_postgres::types::RuVector;
 
 // ============================================================================
 // Property: Distance Functions

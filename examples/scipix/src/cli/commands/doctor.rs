@@ -294,9 +294,7 @@ fn get_memory_info() -> (u64, u64) {
 }
 
 fn parse_meminfo_value(line: &str) -> Option<u64> {
-    line.split_whitespace()
-        .nth(1)
-        .and_then(|s| s.parse().ok())
+    line.split_whitespace().nth(1).and_then(|s| s.parse().ok())
 }
 
 fn detect_simd_features() -> SimdFeatures {
@@ -360,7 +358,10 @@ fn check_cpu(system_info: &SystemInfo, verbose: bool) -> Vec<DiagnosticCheck> {
         status: cpu_status,
         message: format!("{} cores detected", system_info.cpu_count),
         recommendation: if system_info.cpu_count < 4 {
-            Some("Consider running on a machine with more CPU cores for better batch processing".to_string())
+            Some(
+                "Consider running on a machine with more CPU cores for better batch processing"
+                    .to_string(),
+            )
         } else {
             None
         },
@@ -381,10 +382,26 @@ fn check_cpu(system_info: &SystemInfo, verbose: bool) -> Vec<DiagnosticCheck> {
         message: format!(
             "Best SIMD: {} (SSE2: {}, AVX: {}, AVX2: {}, AVX-512: {})",
             system_info.simd_features.best_available,
-            if system_info.simd_features.sse2 { "✓" } else { "✗" },
-            if system_info.simd_features.avx { "✓" } else { "✗" },
-            if system_info.simd_features.avx2 { "✓" } else { "✗" },
-            if system_info.simd_features.avx512f { "✓" } else { "✗" },
+            if system_info.simd_features.sse2 {
+                "✓"
+            } else {
+                "✗"
+            },
+            if system_info.simd_features.avx {
+                "✓"
+            } else {
+                "✗"
+            },
+            if system_info.simd_features.avx2 {
+                "✓"
+            } else {
+                "✗"
+            },
+            if system_info.simd_features.avx512f {
+                "✓"
+            } else {
+                "✗"
+            },
         ),
         recommendation: if simd_status == CheckStatus::Fail {
             Some("Upgrade to a CPU with AVX2 support for 4x faster preprocessing".to_string())
@@ -484,10 +501,17 @@ fn check_dependencies(verbose: bool) -> Vec<DiagnosticCheck> {
     checks.push(DiagnosticCheck {
         name: "ONNX Runtime".to_string(),
         category: "Dependencies".to_string(),
-        status: if onnx_status.0 { CheckStatus::Pass } else { CheckStatus::Warning },
+        status: if onnx_status.0 {
+            CheckStatus::Pass
+        } else {
+            CheckStatus::Warning
+        },
         message: onnx_status.1.clone(),
         recommendation: if !onnx_status.0 {
-            Some("Install ONNX Runtime for neural network acceleration: https://onnxruntime.ai/".to_string())
+            Some(
+                "Install ONNX Runtime for neural network acceleration: https://onnxruntime.ai/"
+                    .to_string(),
+            )
         } else {
             None
         },
@@ -514,7 +538,11 @@ fn check_dependencies(verbose: bool) -> Vec<DiagnosticCheck> {
     checks.push(DiagnosticCheck {
         name: "OpenSSL".to_string(),
         category: "Dependencies".to_string(),
-        status: if openssl_available { CheckStatus::Pass } else { CheckStatus::Warning },
+        status: if openssl_available {
+            CheckStatus::Pass
+        } else {
+            CheckStatus::Warning
+        },
         message: if openssl_available {
             "OpenSSL available for HTTPS".to_string()
         } else {
@@ -530,7 +558,10 @@ fn check_dependencies(verbose: bool) -> Vec<DiagnosticCheck> {
 
     if verbose {
         // Check Rust version
-        if let Ok(output) = std::process::Command::new("rustc").arg("--version").output() {
+        if let Ok(output) = std::process::Command::new("rustc")
+            .arg("--version")
+            .output()
+        {
             let version = String::from_utf8_lossy(&output.stdout);
             checks.push(DiagnosticCheck {
                 name: "Rust Compiler".to_string(),
@@ -565,7 +596,10 @@ fn check_onnx_runtime() -> (bool, String) {
         return (true, "Configured via ORT_DYLIB_PATH".to_string());
     }
 
-    (false, "Not found (optional for ONNX acceleration)".to_string())
+    (
+        false,
+        "Not found (optional for ONNX acceleration)".to_string(),
+    )
 }
 
 fn check_config(config_path: &Option<PathBuf>, verbose: bool) -> Vec<DiagnosticCheck> {
@@ -657,14 +691,16 @@ async fn check_network(verbose: bool) -> Vec<DiagnosticCheck> {
     let mut checks = Vec::new();
 
     // Check localhost binding
-    let localhost_available = tokio::net::TcpListener::bind("127.0.0.1:0")
-        .await
-        .is_ok();
+    let localhost_available = tokio::net::TcpListener::bind("127.0.0.1:0").await.is_ok();
 
     checks.push(DiagnosticCheck {
         name: "Localhost Binding".to_string(),
         category: "Network".to_string(),
-        status: if localhost_available { CheckStatus::Pass } else { CheckStatus::Fail },
+        status: if localhost_available {
+            CheckStatus::Pass
+        } else {
+            CheckStatus::Fail
+        },
         message: if localhost_available {
             "Can bind to localhost".to_string()
         } else {
@@ -690,14 +726,21 @@ async fn check_network(verbose: bool) -> Vec<DiagnosticCheck> {
             checks.push(DiagnosticCheck {
                 name: format!("Port {}", port),
                 category: "Network".to_string(),
-                status: if available { CheckStatus::Pass } else { CheckStatus::Warning },
+                status: if available {
+                    CheckStatus::Pass
+                } else {
+                    CheckStatus::Warning
+                },
                 message: if available {
                     format!("Port {} ({}) available", port, desc)
                 } else {
                     format!("Port {} ({}) in use", port, desc)
                 },
                 recommendation: if !available {
-                    Some(format!("Free port {} or use --port to specify alternative", port))
+                    Some(format!(
+                        "Free port {} or use --port to specify alternative",
+                        port
+                    ))
                 } else {
                     None
                 },
@@ -765,8 +808,10 @@ fn print_system_info(info: &SystemInfo) {
     println!("  OS:           {} ({})", info.os, info.arch);
     println!("  CPU:          {}", info.cpu_brand);
     println!("  Cores:        {}", info.cpu_count);
-    println!("  Memory:       {} MB total, {} MB available",
-             info.total_memory_mb, info.available_memory_mb);
+    println!(
+        "  Memory:       {} MB total, {} MB available",
+        info.total_memory_mb, info.available_memory_mb
+    );
     println!("  Best SIMD:    {}", info.simd_features.best_available);
     println!();
 }
@@ -827,9 +872,18 @@ fn print_optimal_config(config: &OptimalConfig) {
 }
 
 fn print_summary(checks: &[DiagnosticCheck]) {
-    let pass_count = checks.iter().filter(|c| c.status == CheckStatus::Pass).count();
-    let warn_count = checks.iter().filter(|c| c.status == CheckStatus::Warning).count();
-    let fail_count = checks.iter().filter(|c| c.status == CheckStatus::Fail).count();
+    let pass_count = checks
+        .iter()
+        .filter(|c| c.status == CheckStatus::Pass)
+        .count();
+    let warn_count = checks
+        .iter()
+        .filter(|c| c.status == CheckStatus::Warning)
+        .count();
+    let fail_count = checks
+        .iter()
+        .filter(|c| c.status == CheckStatus::Fail)
+        .count();
 
     println!("\n═══════════════════════════════════════════════════════════");
     println!(

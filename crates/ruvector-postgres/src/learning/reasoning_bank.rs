@@ -46,7 +46,9 @@ impl ReasoningBank {
 
     /// Lookup k most similar patterns to a query
     pub fn lookup(&self, query: &[f32], k: usize) -> Vec<(usize, LearnedPattern, f64)> {
-        let mut similarities: Vec<(usize, LearnedPattern, f64)> = self.patterns.iter()
+        let mut similarities: Vec<(usize, LearnedPattern, f64)> = self
+            .patterns
+            .iter()
             .map(|entry| {
                 let id = *entry.key();
                 let pattern = &entry.value().pattern;
@@ -87,7 +89,9 @@ impl ReasoningBank {
 
     /// Consolidate similar patterns
     pub fn consolidate(&self, similarity_threshold: f64) -> usize {
-        let patterns: Vec<(usize, LearnedPattern)> = self.patterns.iter()
+        let patterns: Vec<(usize, LearnedPattern)> = self
+            .patterns
+            .iter()
             .map(|entry| (*entry.key(), entry.value().pattern.clone()))
             .collect();
 
@@ -115,35 +119,41 @@ impl ReasoningBank {
                     if let Some(mut entry_i) = self.patterns.get_mut(&patterns[i].0) {
                         if let Some(entry_j) = self.patterns.get(&patterns[j].0) {
                             // Weighted merge based on sample counts
-                            let total_samples = entry_i.pattern.sample_count + entry_j.pattern.sample_count;
-                            let weight_i = entry_i.pattern.sample_count as f64 / total_samples as f64;
-                            let weight_j = entry_j.pattern.sample_count as f64 / total_samples as f64;
+                            let total_samples =
+                                entry_i.pattern.sample_count + entry_j.pattern.sample_count;
+                            let weight_i =
+                                entry_i.pattern.sample_count as f64 / total_samples as f64;
+                            let weight_j =
+                                entry_j.pattern.sample_count as f64 / total_samples as f64;
 
                             // Merge centroids
                             for k in 0..entry_i.pattern.centroid.len() {
-                                entry_i.pattern.centroid[k] =
-                                    (entry_i.pattern.centroid[k] as f64 * weight_i +
-                                     entry_j.pattern.centroid[k] as f64 * weight_j) as f32;
+                                entry_i.pattern.centroid[k] = (entry_i.pattern.centroid[k] as f64
+                                    * weight_i
+                                    + entry_j.pattern.centroid[k] as f64 * weight_j)
+                                    as f32;
                             }
 
                             // Merge parameters (weighted average)
-                            entry_i.pattern.optimal_ef =
-                                (entry_i.pattern.optimal_ef as f64 * weight_i +
-                                  entry_j.pattern.optimal_ef as f64 * weight_j) as usize;
+                            entry_i.pattern.optimal_ef = (entry_i.pattern.optimal_ef as f64
+                                * weight_i
+                                + entry_j.pattern.optimal_ef as f64 * weight_j)
+                                as usize;
 
-                            entry_i.pattern.optimal_probes =
-                                (entry_i.pattern.optimal_probes as f64 * weight_i +
-                                  entry_j.pattern.optimal_probes as f64 * weight_j) as usize;
+                            entry_i.pattern.optimal_probes = (entry_i.pattern.optimal_probes as f64
+                                * weight_i
+                                + entry_j.pattern.optimal_probes as f64 * weight_j)
+                                as usize;
 
                             // Update statistics
                             entry_i.pattern.sample_count += entry_j.pattern.sample_count;
-                            entry_i.pattern.avg_latency_us =
-                                entry_i.pattern.avg_latency_us * weight_i +
-                                entry_j.pattern.avg_latency_us * weight_j;
+                            entry_i.pattern.avg_latency_us = entry_i.pattern.avg_latency_us
+                                * weight_i
+                                + entry_j.pattern.avg_latency_us * weight_j;
 
-                            entry_i.pattern.confidence =
-                                (entry_i.pattern.confidence * weight_i +
-                                 entry_j.pattern.confidence * weight_j).min(1.0);
+                            entry_i.pattern.confidence = (entry_i.pattern.confidence * weight_i
+                                + entry_j.pattern.confidence * weight_j)
+                                .min(1.0);
 
                             entry_i.usage_count += entry_j.usage_count;
                         }
@@ -165,10 +175,12 @@ impl ReasoningBank {
 
     /// Prune low-quality patterns
     pub fn prune(&self, min_usage: usize, min_confidence: f64) -> usize {
-        let to_remove: Vec<usize> = self.patterns.iter()
+        let to_remove: Vec<usize> = self
+            .patterns
+            .iter()
             .filter(|entry| {
-                entry.value().usage_count < min_usage ||
-                entry.value().pattern.confidence < min_confidence
+                entry.value().usage_count < min_usage
+                    || entry.value().pattern.confidence < min_confidence
             })
             .map(|entry| *entry.key())
             .collect();
@@ -198,17 +210,20 @@ impl ReasoningBank {
         }
 
         let total = self.patterns.len();
-        let total_samples: usize = self.patterns.iter()
+        let total_samples: usize = self
+            .patterns
+            .iter()
             .map(|e| e.value().pattern.sample_count)
             .sum();
 
-        let avg_confidence: f64 = self.patterns.iter()
+        let avg_confidence: f64 = self
+            .patterns
+            .iter()
             .map(|e| e.value().pattern.confidence)
-            .sum::<f64>() / total as f64;
+            .sum::<f64>()
+            / total as f64;
 
-        let total_usage: usize = self.patterns.iter()
-            .map(|e| e.value().usage_count)
-            .sum();
+        let total_usage: usize = self.patterns.iter().map(|e| e.value().usage_count).sum();
 
         BankStats {
             total_patterns: total,
@@ -245,15 +260,7 @@ mod tests {
     use super::*;
 
     fn create_test_pattern(centroid: Vec<f32>, ef: usize) -> LearnedPattern {
-        LearnedPattern::new(
-            centroid,
-            ef,
-            10,
-            0.9,
-            100,
-            1000.0,
-            Some(0.95),
-        )
+        LearnedPattern::new(centroid, ef, 10, 0.9, 100, 1000.0, Some(0.95))
     }
 
     #[test]

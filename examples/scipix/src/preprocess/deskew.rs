@@ -4,8 +4,8 @@ use super::{PreprocessError, Result};
 use image::{GrayImage, Luma};
 use imageproc::edges::canny;
 use imageproc::geometric_transformations::{rotate_about_center, Interpolation};
-use std::f32;
 use std::collections::BTreeMap;
+use std::f32;
 
 /// Detect skew angle using Hough transform
 ///
@@ -64,11 +64,7 @@ pub fn detect_skew_angle(image: &GrayImage) -> Result<f32> {
 /// Detect lines using Hough transform
 ///
 /// Returns map of angles to their confidence weights
-fn detect_lines_hough(
-    edges: &GrayImage,
-    width: u32,
-    height: u32,
-) -> Result<BTreeMap<i32, f32>> {
+fn detect_lines_hough(edges: &GrayImage, width: u32, height: u32) -> Result<BTreeMap<i32, f32>> {
     let max_rho = ((width * width + height * height) as f32).sqrt() as usize;
     let num_angles = 360;
 
@@ -188,7 +184,9 @@ pub fn auto_deskew(image: &GrayImage, max_angle: f32) -> Result<(GrayImage, f32)
 ///
 /// This is a faster but less accurate method compared to Hough transform
 pub fn detect_skew_projection(image: &GrayImage) -> Result<f32> {
-    let angles = [-45.0, -30.0, -15.0, -10.0, -5.0, 0.0, 5.0, 10.0, 15.0, 30.0, 45.0];
+    let angles = [
+        -45.0, -30.0, -15.0, -10.0, -5.0, 0.0, 5.0, 10.0, 15.0, 30.0, 45.0,
+    ];
     let mut max_variance = 0.0;
     let mut best_angle = 0.0;
 

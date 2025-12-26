@@ -1,6 +1,6 @@
 //! JSON API response formatter matching Scipix API specification
 
-use super::{OcrResult, FormatsData, LineData};
+use super::{FormatsData, LineData, OcrResult};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
@@ -115,20 +115,17 @@ impl ApiResponse {
 
     /// Convert to JSON string
     pub fn to_json(&self) -> Result<String, String> {
-        serde_json::to_string(self)
-            .map_err(|e| format!("JSON serialization error: {}", e))
+        serde_json::to_string(self).map_err(|e| format!("JSON serialization error: {}", e))
     }
 
     /// Convert to pretty JSON string
     pub fn to_json_pretty(&self) -> Result<String, String> {
-        serde_json::to_string_pretty(self)
-            .map_err(|e| format!("JSON serialization error: {}", e))
+        serde_json::to_string_pretty(self).map_err(|e| format!("JSON serialization error: {}", e))
     }
 
     /// Parse from JSON string
     pub fn from_json(json: &str) -> Result<Self, String> {
-        serde_json::from_str(json)
-            .map_err(|e| format!("JSON parsing error: {}", e))
+        serde_json::from_str(json).map_err(|e| format!("JSON parsing error: {}", e))
     }
 }
 
@@ -171,18 +168,20 @@ impl BatchApiResponse {
             total,
             completed,
             results,
-            errors: if errors.is_empty() { None } else { Some(errors) },
+            errors: if errors.is_empty() {
+                None
+            } else {
+                Some(errors)
+            },
         }
     }
 
     pub fn to_json(&self) -> Result<String, String> {
-        serde_json::to_string(self)
-            .map_err(|e| format!("JSON serialization error: {}", e))
+        serde_json::to_string(self).map_err(|e| format!("JSON serialization error: {}", e))
     }
 
     pub fn to_json_pretty(&self) -> Result<String, String> {
-        serde_json::to_string_pretty(self)
-            .map_err(|e| format!("JSON serialization error: {}", e))
+        serde_json::to_string_pretty(self).map_err(|e| format!("JSON serialization error: {}", e))
     }
 }
 
@@ -288,7 +287,7 @@ mod tests {
         let response = ApiResponse::error(
             "test_456".to_string(),
             "invalid_image",
-            "Image format not supported"
+            "Image format not supported",
         );
 
         assert_eq!(response.request_id, "test_456");
@@ -320,16 +319,10 @@ mod tests {
     #[test]
     fn test_batch_with_errors() {
         let success = create_test_result();
-        let error_response = ApiResponse::error(
-            "fail_1".to_string(),
-            "timeout",
-            "Processing timeout"
-        );
+        let error_response =
+            ApiResponse::error("fail_1".to_string(), "timeout", "Processing timeout");
 
-        let responses = vec![
-            ApiResponse::from_ocr_result(success),
-            error_response,
-        ];
+        let responses = vec![ApiResponse::from_ocr_result(success), error_response];
 
         let batch = BatchApiResponse::new("batch_error".to_string(), responses);
 

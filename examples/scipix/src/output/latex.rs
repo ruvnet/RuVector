@@ -15,10 +15,7 @@ pub struct LaTeXFormatter {
 impl LaTeXFormatter {
     pub fn new() -> Self {
         Self {
-            packages: vec![
-                "amsmath".to_string(),
-                "amssymb".to_string(),
-            ],
+            packages: vec!["amsmath".to_string(), "amssymb".to_string()],
             document_class: "article".to_string(),
             preamble: String::new(),
             numbered_equations: false,
@@ -217,7 +214,8 @@ impl LaTeXFormatter {
         output.push_str("\\hline\n");
 
         for (i, row) in rows.iter().enumerate() {
-            let cells: Vec<&str> = row.split('|')
+            let cells: Vec<&str> = row
+                .split('|')
                 .map(|s| s.trim())
                 .filter(|s| !s.is_empty())
                 .collect();
@@ -318,7 +316,12 @@ impl StyledLaTeXFormatter {
         Self { base, style }
     }
 
-    pub fn format_document(&self, content: &str, title: Option<&str>, author: Option<&str>) -> String {
+    pub fn format_document(
+        &self,
+        content: &str,
+        title: Option<&str>,
+        author: Option<&str>,
+    ) -> String {
         let mut preamble = String::new();
 
         if let Some(t) = title {
@@ -338,7 +341,7 @@ impl StyledLaTeXFormatter {
         if title.is_some() || author.is_some() {
             doc = doc.replace(
                 "\\begin{document}\n\n",
-                "\\begin{document}\n\n\\maketitle\n\n"
+                "\\begin{document}\n\n\\maketitle\n\n",
             );
         }
 
@@ -390,11 +393,7 @@ mod tests {
     #[test]
     fn test_styled_formatter() {
         let formatter = StyledLaTeXFormatter::new(LaTeXStyle::Article);
-        let doc = formatter.format_document(
-            "Content",
-            Some("My Title"),
-            Some("Author Name")
-        );
+        let doc = formatter.format_document("Content", Some("My Title"), Some("Author Name"));
 
         assert!(doc.contains(r"\title{My Title}"));
         assert!(doc.contains(r"\author{Author Name}"));

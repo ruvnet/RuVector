@@ -13,23 +13,15 @@ pub enum SchedulerType {
 
     /// Step decay: multiply learning rate by gamma every step_size epochs
     /// Formula: lr = base_lr * gamma^(epoch / step_size)
-    StepDecay {
-        step_size: usize,
-        gamma: f32,
-    },
+    StepDecay { step_size: usize, gamma: f32 },
 
     /// Exponential decay: multiply learning rate by gamma each epoch
     /// Formula: lr = base_lr * gamma^epoch
-    Exponential {
-        gamma: f32,
-    },
+    Exponential { gamma: f32 },
 
     /// Cosine annealing with warm restarts
     /// Formula: lr = eta_min + 0.5 * (base_lr - eta_min) * (1 + cos(pi * (epoch % t_max) / t_max))
-    CosineAnnealing {
-        t_max: usize,
-        eta_min: f32,
-    },
+    CosineAnnealing { t_max: usize, eta_min: f32 },
 
     /// Warmup phase followed by linear decay
     /// Linearly increases lr from 0 to base_lr over warmup_steps,
@@ -114,7 +106,11 @@ impl LearningRateScheduler {
         self.step_count += 1;
 
         match &self.scheduler_type {
-            SchedulerType::ReduceOnPlateau { factor, patience, min_lr } => {
+            SchedulerType::ReduceOnPlateau {
+                factor,
+                patience,
+                min_lr,
+            } => {
                 // Check if metric improved
                 if metric < self.best_metric - 1e-8 {
                     self.best_metric = metric;
@@ -172,7 +168,10 @@ impl LearningRateScheduler {
                 eta_min + 0.5 * (self.base_lr - eta_min) * (1.0 + cos_term)
             }
 
-            SchedulerType::WarmupLinear { warmup_steps, total_steps } => {
+            SchedulerType::WarmupLinear {
+                warmup_steps,
+                total_steps,
+            } => {
                 if self.step_count < *warmup_steps {
                     // Warmup phase: linear increase
                     self.base_lr * (self.step_count as f32 / *warmup_steps as f32)
@@ -252,17 +251,15 @@ mod tests {
 
     #[test]
     fn test_exponential_decay() {
-        let mut scheduler = LearningRateScheduler::new(
-            SchedulerType::Exponential { gamma: 0.9 },
-            0.1,
-        );
+        let mut scheduler =
+            LearningRateScheduler::new(SchedulerType::Exponential { gamma: 0.9 }, 0.1);
 
         assert_close(scheduler.get_lr(), 0.1, "Initial LR");
 
         let expected_lrs = vec![
-            0.1 * 0.9,      // Step 1
-            0.1 * 0.81,     // Step 2 (0.9^2)
-            0.1 * 0.729,    // Step 3 (0.9^3)
+            0.1 * 0.9,   // Step 1
+            0.1 * 0.81,  // Step 2 (0.9^2)
+            0.1 * 0.729, // Step 3 (0.9^3)
         ];
 
         for (i, expected) in expected_lrs.iter().enumerate() {
@@ -298,15 +295,26 @@ mod tests {
             scheduler.step();
         }
         let lr_step9 = scheduler.get_lr();
-        assert!(lr_step9 < 0.1, "Near end of cycle LR (step 9) should be small: {}", lr_step9);
+        assert!(
+            lr_step9 < 0.1,
+            "Near end of cycle LR (step 9) should be small: {}",
+            lr_step9
+        );
 
         // At step 10: warm restart (cycle_step = 0), LR goes back to base
         scheduler.step();
-        assert_close(scheduler.get_lr(), 1.0, "Restart at step 10 (cycle_step = 0)");
+        assert_close(
+            scheduler.get_lr(),
+            1.0,
+            "Restart at step 10 (cycle_step = 0)",
+        );
 
         // Continue new cycle
         scheduler.step();
-        assert!(scheduler.get_lr() < 1.0, "Step 11 should be less than base LR");
+        assert!(
+            scheduler.get_lr() < 1.0,
+            "Step 11 should be less than base LR"
+        );
     }
 
     #[test]
@@ -373,7 +381,11 @@ mod tests {
 
         // Improving metrics: no reduction (sets best_metric, resets patience)
         scheduler.step_with_metric(1.0);
-        assert_close(scheduler.get_lr(), 0.01, "Step 1 (first metric, sets baseline)");
+        assert_close(
+            scheduler.get_lr(),
+            0.01,
+            "Step 1 (first metric, sets baseline)",
+        );
 
         scheduler.step_with_metric(0.9);
         assert_close(scheduler.get_lr(), 0.01, "Step 2 (improving)");
@@ -388,31 +400,36 @@ mod tests {
         // patience=3 means after 3 non-improvements, reduce LR
         // Step 5 is the 3rd non-improvement, so LR gets reduced
         scheduler.step_with_metric(0.93);
-        assert_close(scheduler.get_lr(), 0.005, "Step 5 (patience exceeded, reduced)");
+        assert_close(
+            scheduler.get_lr(),
+            0.005,
+            "Step 5 (patience exceeded, reduced)",
+        );
 
         // Counter is reset after reduction, so we need 3 more non-improvements
-        scheduler.step_with_metric(0.94);  // plateau 1 after reset
+        scheduler.step_with_metric(0.94); // plateau 1 after reset
         assert_close(scheduler.get_lr(), 0.005, "Step 6 (plateau 1 after reset)");
 
-        scheduler.step_with_metric(0.95);  // plateau 2
+        scheduler.step_with_metric(0.95); // plateau 2
         assert_close(scheduler.get_lr(), 0.005, "Step 7 (plateau 2)");
 
-        scheduler.step_with_metric(0.96);  // plateau 3 - triggers reduction
+        scheduler.step_with_metric(0.96); // plateau 3 - triggers reduction
         assert_close(scheduler.get_lr(), 0.0025, "Step 8 (reduced again)");
 
         // Test min_lr floor
         for _ in 0..20 {
             scheduler.step_with_metric(1.0);
         }
-        assert!(scheduler.get_lr() >= 0.0001, "LR should not go below min_lr");
+        assert!(
+            scheduler.get_lr() >= 0.0001,
+            "LR should not go below min_lr"
+        );
     }
 
     #[test]
     fn test_scheduler_reset() {
-        let mut scheduler = LearningRateScheduler::new(
-            SchedulerType::Exponential { gamma: 0.9 },
-            0.1,
-        );
+        let mut scheduler =
+            LearningRateScheduler::new(SchedulerType::Exponential { gamma: 0.9 }, 0.1);
 
         // Run for several steps
         for _ in 0..5 {
@@ -450,11 +467,36 @@ mod tests {
     fn test_multiple_scheduler_types() {
         let schedulers = vec![
             (SchedulerType::Constant, 0.01),
-            (SchedulerType::StepDecay { step_size: 5, gamma: 0.9 }, 0.01),
+            (
+                SchedulerType::StepDecay {
+                    step_size: 5,
+                    gamma: 0.9,
+                },
+                0.01,
+            ),
             (SchedulerType::Exponential { gamma: 0.95 }, 0.01),
-            (SchedulerType::CosineAnnealing { t_max: 10, eta_min: 0.001 }, 0.01),
-            (SchedulerType::WarmupLinear { warmup_steps: 5, total_steps: 20 }, 0.01),
-            (SchedulerType::ReduceOnPlateau { factor: 0.5, patience: 5, min_lr: 0.0001 }, 0.01),
+            (
+                SchedulerType::CosineAnnealing {
+                    t_max: 10,
+                    eta_min: 0.001,
+                },
+                0.01,
+            ),
+            (
+                SchedulerType::WarmupLinear {
+                    warmup_steps: 5,
+                    total_steps: 20,
+                },
+                0.01,
+            ),
+            (
+                SchedulerType::ReduceOnPlateau {
+                    factor: 0.5,
+                    patience: 5,
+                    min_lr: 0.0001,
+                },
+                0.01,
+            ),
         ];
 
         for (sched_type, base_lr) in schedulers {
@@ -478,10 +520,8 @@ mod tests {
         assert_close(scheduler.get_lr(), 0.0, "Zero LR after step");
 
         // Very small gamma
-        let mut scheduler = LearningRateScheduler::new(
-            SchedulerType::Exponential { gamma: 0.1 },
-            1.0,
-        );
+        let mut scheduler =
+            LearningRateScheduler::new(SchedulerType::Exponential { gamma: 0.1 }, 1.0);
         for _ in 0..10 {
             scheduler.step();
         }

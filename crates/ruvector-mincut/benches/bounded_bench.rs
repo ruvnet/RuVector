@@ -1,11 +1,11 @@
 //! Benchmarks for bounded-range dynamic minimum cut
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId, Throughput};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
+use rand::rngs::StdRng;
+use rand::{Rng, SeedableRng};
 use ruvector_mincut::prelude::*;
 use ruvector_mincut::wrapper::MinCutWrapper;
 use std::sync::Arc;
-use rand::{Rng, SeedableRng};
-use rand::rngs::StdRng;
 
 /// Generate a random graph with n vertices and m edges
 fn generate_random_edges(n: usize, m: usize, seed: u64) -> Vec<(u64, u64)> {
@@ -190,46 +190,50 @@ fn benchmark_query_after_updates(c: &mut Criterion) {
 
     for &num_updates in &[10, 50, 100, 500] {
         group.throughput(Throughput::Elements(num_updates as u64));
-        group.bench_with_input(BenchmarkId::from_parameter(num_updates), &num_updates, |b, &num_updates| {
-            b.iter_batched(
-                || {
-                    // Setup: build base graph
-                    let graph = Arc::new(DynamicGraph::new());
-                    let base_size = 500;
-                    let edges = generate_path_edges(base_size);
+        group.bench_with_input(
+            BenchmarkId::from_parameter(num_updates),
+            &num_updates,
+            |b, &num_updates| {
+                b.iter_batched(
+                    || {
+                        // Setup: build base graph
+                        let graph = Arc::new(DynamicGraph::new());
+                        let base_size = 500;
+                        let edges = generate_path_edges(base_size);
 
-                    for (u, v) in &edges {
-                        graph.insert_edge(*u, *v, 1.0).unwrap();
-                    }
-
-                    let mut wrapper = MinCutWrapper::new(Arc::clone(&graph));
-                    for (i, (u, v)) in edges.iter().enumerate() {
-                        wrapper.insert_edge(i as u64, *u, *v);
-                    }
-
-                    // Add buffered updates
-                    let mut rng = StdRng::seed_from_u64(42);
-                    let mut edge_id = base_size as u64;
-
-                    for _ in 0..num_updates {
-                        let u = rng.gen_range(0..base_size as u64);
-                        let v = rng.gen_range(0..base_size as u64);
-                        if u != v && graph.insert_edge(u, v, 1.0).is_ok() {
-                            wrapper.insert_edge(edge_id, u, v);
-                            edge_id += 1;
+                        for (u, v) in &edges {
+                            graph.insert_edge(*u, *v, 1.0).unwrap();
                         }
-                    }
 
-                    wrapper
-                },
-                |mut wrapper| {
-                    // Benchmark: query with buffered updates
-                    let result = wrapper.query();
-                    black_box(result)
-                },
-                criterion::BatchSize::SmallInput,
-            );
-        });
+                        let mut wrapper = MinCutWrapper::new(Arc::clone(&graph));
+                        for (i, (u, v)) in edges.iter().enumerate() {
+                            wrapper.insert_edge(i as u64, *u, *v);
+                        }
+
+                        // Add buffered updates
+                        let mut rng = StdRng::seed_from_u64(42);
+                        let mut edge_id = base_size as u64;
+
+                        for _ in 0..num_updates {
+                            let u = rng.gen_range(0..base_size as u64);
+                            let v = rng.gen_range(0..base_size as u64);
+                            if u != v && graph.insert_edge(u, v, 1.0).is_ok() {
+                                wrapper.insert_edge(edge_id, u, v);
+                                edge_id += 1;
+                            }
+                        }
+
+                        wrapper
+                    },
+                    |mut wrapper| {
+                        // Benchmark: query with buffered updates
+                        let result = wrapper.query();
+                        black_box(result)
+                    },
+                    criterion::BatchSize::SmallInput,
+                );
+            },
+        );
     }
 
     group.finish();
@@ -459,7 +463,10 @@ fn benchmark_lazy_instantiation(c: &mut Criterion) {
 
                 // Trigger initial instantiation
                 let _ = wrapper.query();
-                assert!(wrapper.num_instances() > 0, "Instances created after first query");
+                assert!(
+                    wrapper.num_instances() > 0,
+                    "Instances created after first query"
+                );
 
                 wrapper
             },

@@ -143,7 +143,10 @@ fn format_json(result: &QueryResult) -> String {
                 .iter()
                 .map(|triple| {
                     let mut binding = HashMap::new();
-                    binding.insert("subject".to_string(), ResultValue::from_term(&triple.subject));
+                    binding.insert(
+                        "subject".to_string(),
+                        ResultValue::from_term(&triple.subject),
+                    );
                     binding.insert(
                         "predicate".to_string(),
                         ResultValue {
@@ -160,7 +163,11 @@ fn format_json(result: &QueryResult) -> String {
 
             SparqlResults {
                 head: ResultHead {
-                    vars: vec!["subject".to_string(), "predicate".to_string(), "object".to_string()],
+                    vars: vec![
+                        "subject".to_string(),
+                        "predicate".to_string(),
+                        "object".to_string(),
+                    ],
                     link: vec![],
                 },
                 results: Some(ResultBindings { bindings }),
@@ -186,9 +193,11 @@ fn format_json(result: &QueryResult) -> String {
 // ============================================================================
 
 fn format_xml(result: &QueryResult) -> String {
-    let mut xml = String::from(r#"<?xml version="1.0"?>
+    let mut xml = String::from(
+        r#"<?xml version="1.0"?>
 <sparql xmlns="http://www.w3.org/2005/sparql-results#">
-"#);
+"#,
+    );
 
     match result {
         QueryResult::Select(select) => {
@@ -232,7 +241,10 @@ fn format_xml(result: &QueryResult) -> String {
                 xml.push_str(&format_term_xml(&triple.subject));
                 xml.push_str("      </binding>\n");
                 xml.push_str("      <binding name=\"predicate\">\n");
-                xml.push_str(&format!("        <uri>{}</uri>\n", escape_xml(triple.predicate.as_str())));
+                xml.push_str(&format!(
+                    "        <uri>{}</uri>\n",
+                    escape_xml(triple.predicate.as_str())
+                ));
                 xml.push_str("      </binding>\n");
                 xml.push_str("      <binding name=\"object\">\n");
                 xml.push_str(&format_term_xml(&triple.object));
@@ -262,7 +274,10 @@ fn format_term_xml(term: &RdfTerm) -> String {
             if let Some(lang) = &lit.language {
                 s.push_str(&format!(" xml:lang=\"{}\"", escape_xml(lang)));
             } else if lit.datatype.as_str() != "http://www.w3.org/2001/XMLSchema#string" {
-                s.push_str(&format!(" datatype=\"{}\"", escape_xml(lit.datatype.as_str())));
+                s.push_str(&format!(
+                    " datatype=\"{}\"",
+                    escape_xml(lit.datatype.as_str())
+                ));
             }
             s.push_str(&format!(">{}</literal>\n", escape_xml(&lit.value)));
             s
@@ -328,7 +343,10 @@ fn format_delimited(result: &QueryResult, delimiter: char) -> String {
         }
 
         QueryResult::Construct(triples) | QueryResult::Describe(triples) => {
-            output.push_str(&format!("subject{}predicate{}object\n", delimiter, delimiter));
+            output.push_str(&format!(
+                "subject{}predicate{}object\n",
+                delimiter, delimiter
+            ));
             for triple in triples {
                 output.push_str(&format!(
                     "{}{}{}{}{}",
@@ -354,7 +372,9 @@ fn format_term_csv(term: &RdfTerm, delimiter: char) -> String {
     match term {
         RdfTerm::Iri(iri) => escape_csv(iri.as_str(), delimiter),
         RdfTerm::Literal(lit) => {
-            if lit.language.is_some() || lit.datatype.as_str() != "http://www.w3.org/2001/XMLSchema#string" {
+            if lit.language.is_some()
+                || lit.datatype.as_str() != "http://www.w3.org/2001/XMLSchema#string"
+            {
                 // Use N-Triples-like format for typed/language literals
                 let mut s = format!("\"{}\"", lit.value.replace('"', "\\\""));
                 if let Some(lang) = &lit.language {
@@ -403,7 +423,8 @@ fn format_term_nt(term: &RdfTerm) -> String {
     match term {
         RdfTerm::Iri(iri) => format!("<{}>", iri.as_str()),
         RdfTerm::Literal(lit) => {
-            let escaped = lit.value
+            let escaped = lit
+                .value
                 .replace('\\', "\\\\")
                 .replace('"', "\\\"")
                 .replace('\n', "\\n")
@@ -462,9 +483,9 @@ pub fn format_turtle(triples: &[Triple]) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use super::super::ast::{Literal, Iri};
+    use super::super::ast::{Iri, Literal};
     use super::super::executor::SelectResult;
+    use super::*;
     use std::collections::HashMap;
 
     fn create_test_select() -> QueryResult {

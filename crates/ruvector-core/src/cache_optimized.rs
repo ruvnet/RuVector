@@ -142,7 +142,8 @@ impl SoAVectorStorage {
         let new_capacity = self.capacity * 2;
 
         // Security: Use checked arithmetic to prevent overflow
-        let new_total_elements = self.dimensions
+        let new_total_elements = self
+            .dimensions
             .checked_mul(new_capacity)
             .expect("dimensions * new_capacity overflow");
         let new_total_bytes = new_total_elements

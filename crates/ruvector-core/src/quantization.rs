@@ -104,9 +104,10 @@ impl ProductQuantized {
             ));
         }
         if codebook_size > 256 {
-            return Err(crate::error::RuvectorError::InvalidParameter(
-                format!("Codebook size {} exceeds u8 maximum of 256", codebook_size),
-            ));
+            return Err(crate::error::RuvectorError::InvalidParameter(format!(
+                "Codebook size {} exceeds u8 maximum of 256",
+                codebook_size
+            )));
         }
         let dimensions = vectors[0].len();
         let subspace_dim = dimensions / num_subspaces;

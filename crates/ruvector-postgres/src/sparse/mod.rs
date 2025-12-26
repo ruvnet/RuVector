@@ -6,13 +6,13 @@
 //! - PostgreSQL operators and functions
 //! - Support for BM25, SPLADE, and learned sparse representations
 
-pub mod types;
 pub mod distance;
 pub mod operators;
+pub mod types;
 
 // Re-exports for convenience
+pub use distance::{sparse_cosine, sparse_dot, sparse_euclidean};
 pub use types::SparseVec;
-pub use distance::{sparse_dot, sparse_cosine, sparse_euclidean};
 
 #[cfg(test)]
 mod tests {

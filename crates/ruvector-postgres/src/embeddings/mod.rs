@@ -29,13 +29,13 @@
 //! SELECT ruvector_model_info('all-MiniLM-L6-v2');
 //! ```
 
-mod models;
 mod cache;
 mod functions;
+mod models;
 
-pub use models::{EmbeddingModel, ModelInfo};
 pub use cache::ModelCache;
 pub use functions::*;
+pub use models::{EmbeddingModel, ModelInfo};
 
 /// Default embedding model
 pub const DEFAULT_MODEL: &str = "all-MiniLM-L6-v2";

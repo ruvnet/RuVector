@@ -122,7 +122,11 @@ async fn feedback(
     State(state): State<AppState>,
     Json(req): Json<FeedbackRequest>,
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
-    match state.llm.submit_feedback(&req.query, &req.response, req.quality).await {
+    match state
+        .llm
+        .submit_feedback(&req.query, &req.response, req.quality)
+        .await
+    {
         Ok(_) => Ok(StatusCode::OK),
         Err(e) => Err((StatusCode::INTERNAL_SERVER_ERROR, e.to_string())),
     }
@@ -164,9 +168,7 @@ async fn main() -> ruvllm::Result<()> {
     let llm = RuvLLM::new(config).await?;
     println!("✅ RuvLLM initialized!");
 
-    let state = AppState {
-        llm: Arc::new(llm),
-    };
+    let state = AppState { llm: Arc::new(llm) };
 
     // Build router
     let app = Router::new()

@@ -270,12 +270,7 @@ impl RefragStore {
             } else {
                 // Default to EXPAND (text)
                 self.stats.expand_count.fetch_add(1, Ordering::Relaxed);
-                RefragSearchResult::expand(
-                    entry.id.clone(),
-                    score,
-                    entry.text_content.clone(),
-                    1.0,
-                )
+                RefragSearchResult::expand(entry.id.clone(), score, entry.text_content.clone(), 1.0)
             };
 
             results.push(result);
@@ -333,10 +328,8 @@ impl RefragStore {
                     .fetch_add(projection_time, Ordering::Relaxed);
 
                 // Encode tensor as base64
-                let tensor_bytes: Vec<u8> = final_tensor
-                    .iter()
-                    .flat_map(|f| f.to_le_bytes())
-                    .collect();
+                let tensor_bytes: Vec<u8> =
+                    final_tensor.iter().flat_map(|f| f.to_le_bytes()).collect();
                 let tensor_b64 = BASE64.encode(&tensor_bytes);
 
                 Ok(RefragSearchResult::compress(
@@ -516,7 +509,9 @@ mod tests {
 
         // Insert test entries
         for i in 0..5 {
-            store.insert(create_test_entry(&format!("doc_{}", i), 4)).unwrap();
+            store
+                .insert(create_test_entry(&format!("doc_{}", i), 4))
+                .unwrap();
         }
 
         let query: Vec<f32> = (0..4).map(|i| (i as f32) / 4.0).collect();
@@ -541,7 +536,9 @@ mod tests {
             .unwrap();
 
         for i in 0..5 {
-            store.insert(create_test_entry(&format!("doc_{}", i), 4)).unwrap();
+            store
+                .insert(create_test_entry(&format!("doc_{}", i), 4))
+                .unwrap();
         }
 
         let query: Vec<f32> = (0..4).map(|i| (i as f32) / 4.0).collect();
@@ -559,7 +556,9 @@ mod tests {
         let store = RefragStore::new(4, 768).unwrap();
 
         for i in 0..3 {
-            store.insert(create_test_entry(&format!("doc_{}", i), 4)).unwrap();
+            store
+                .insert(create_test_entry(&format!("doc_{}", i), 4))
+                .unwrap();
         }
 
         let query: Vec<f32> = (0..4).map(|i| (i as f32) / 4.0).collect();

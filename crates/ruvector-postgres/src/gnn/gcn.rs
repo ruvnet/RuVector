@@ -54,11 +54,7 @@ impl GCNLayer {
     }
 
     /// Create GCN layer with provided weights
-    pub fn with_weights(
-        in_features: usize,
-        out_features: usize,
-        weights: Vec<Vec<f32>>,
-    ) -> Self {
+    pub fn with_weights(in_features: usize, out_features: usize, weights: Vec<Vec<f32>>) -> Self {
         assert_eq!(weights.len(), in_features);
         assert_eq!(weights[0].len(), out_features);
 

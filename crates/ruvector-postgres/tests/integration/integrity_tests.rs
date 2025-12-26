@@ -28,8 +28,14 @@ mod contracted_graph_tests {
 
         let contraction_ratio = contracted_size as f64 / num_nodes as f64;
 
-        assert!(contraction_ratio >= 0.05, "Contraction should retain at least 5%");
-        assert!(contraction_ratio <= 0.20, "Contraction should be at most 20%");
+        assert!(
+            contraction_ratio >= 0.05,
+            "Contraction should retain at least 5%"
+        );
+        assert!(
+            contraction_ratio <= 0.20,
+            "Contraction should be at most 20%"
+        );
     }
 
     /// Test graph contraction preserves connectivity
@@ -54,9 +60,9 @@ mod contracted_graph_tests {
     #[test]
     fn test_contraction_density_variations() {
         let densities = [
-            (1000, 16),   // HNSW M=16
-            (1000, 32),   // HNSW M=32
-            (1000, 64),   // HNSW M=64
+            (1000, 16), // HNSW M=16
+            (1000, 32), // HNSW M=32
+            (1000, 64), // HNSW M=64
         ];
 
         for (nodes, m) in densities {
@@ -122,9 +128,9 @@ mod mincut_computation_tests {
     fn test_mincut_health_indicator() {
         // Higher mincut = better connectivity = healthier graph
 
-        let healthy_mincut = 16;  // Well-connected
-        let degraded_mincut = 8;  // Some connectivity lost
-        let critical_mincut = 2;  // Barely connected
+        let healthy_mincut = 16; // Well-connected
+        let degraded_mincut = 8; // Some connectivity lost
+        let critical_mincut = 2; // Barely connected
 
         assert!(healthy_mincut > degraded_mincut);
         assert!(degraded_mincut > critical_mincut);
@@ -140,8 +146,8 @@ mod mincut_computation_tests {
         let contracted_edges = 500;
 
         // For Karger's algorithm or similar, expected O(n^2 * log n) for mincut
-        let expected_ops = (contracted_nodes * contracted_nodes) as f64
-            * (contracted_nodes as f64).ln();
+        let expected_ops =
+            (contracted_nodes * contracted_nodes) as f64 * (contracted_nodes as f64).ln();
 
         // Should be manageable (< 1M operations)
         assert!(
@@ -307,11 +313,7 @@ mod operation_gating_tests {
     }
 
     /// Determine if operation is allowed in current state
-    fn is_operation_allowed(
-        op: Operation,
-        mincut: usize,
-        load: f64,
-    ) -> bool {
+    fn is_operation_allowed(op: Operation, mincut: usize, load: f64) -> bool {
         match op {
             // Reads always allowed
             Operation::Read => true,
@@ -425,9 +427,9 @@ mod operation_gating_tests {
         // when lower priority ones are blocked
 
         let test_cases = [
-            (16, 0.6),  // Medium load
-            (10, 0.5),  // Low mincut
-            (16, 0.8),  // High load
+            (16, 0.6), // Medium load
+            (10, 0.5), // Low mincut
+            (16, 0.8), // High load
         ];
 
         for (mincut, load) in test_cases {
@@ -459,9 +461,9 @@ mod integrity_monitoring_tests {
     #[test]
     fn test_monitoring_frequency() {
         // Monitoring should run at appropriate intervals
-        let normal_interval_ms = 1000;  // 1 second when healthy
-        let stress_interval_ms = 100;   // 100ms when stressed
-        let critical_interval_ms = 50;  // 50ms when critical
+        let normal_interval_ms = 1000; // 1 second when healthy
+        let stress_interval_ms = 100; // 100ms when stressed
+        let critical_interval_ms = 50; // 50ms when critical
 
         assert!(normal_interval_ms > stress_interval_ms);
         assert!(stress_interval_ms > critical_interval_ms);
@@ -516,7 +518,8 @@ mod integrity_monitoring_tests {
         let samples = [8, 9, 10, 11, 12, 13, 14, 14, 15, 15, 16];
 
         // Count samples above threshold
-        let above_threshold = samples.iter()
+        let above_threshold = samples
+            .iter()
             .filter(|&&s| s >= recovery_threshold_mincut)
             .count();
 

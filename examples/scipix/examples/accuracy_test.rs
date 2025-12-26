@@ -20,8 +20,8 @@
 //! ]
 //! ```
 
-use ruvector_scipix::{OcrEngine, OcrConfig, OutputFormat};
 use anyhow::{Context, Result};
+use ruvector_scipix::{OcrConfig, OcrEngine, OutputFormat};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -75,14 +75,16 @@ async fn main() -> Result<()> {
     if args.len() < 2 {
         eprintln!("Usage: {} <dataset.json>", args[0]);
         eprintln!("\nDataset format:");
-        eprintln!(r#"[
+        eprintln!(
+            r#"[
   {{
     "image_path": "path/to/image.png",
     "ground_truth_text": "x^2 + 2x + 1 = 0",
     "ground_truth_latex": "x^{{2}} + 2x + 1 = 0",
     "category": "quadratic"
   }}
-]"#);
+]"#
+        );
         std::process::exit(1);
     }
 
@@ -106,12 +108,17 @@ async fn main() -> Result<()> {
     let mut results = Vec::new();
 
     for (idx, test_case) in test_cases.iter().enumerate() {
-        println!("[{}/{}] Processing: {}",
-            idx + 1, test_cases.len(), test_case.image_path);
+        println!(
+            "[{}/{}] Processing: {}",
+            idx + 1,
+            test_cases.len(),
+            test_case.image_path
+        );
 
         match run_test_case(&engine, test_case).await {
             Ok(result) => {
-                println!("  Accuracy: {:.2}%, CER: {:.2}%, WER: {:.2}%",
+                println!(
+                    "  Accuracy: {:.2}%, CER: {:.2}%, WER: {:.2}%",
                     result.text_accuracy * 100.0,
                     result.character_error_rate * 100.0,
                     result.word_error_rate * 100.0
@@ -132,26 +139,45 @@ async fn main() -> Result<()> {
     println!("Accuracy Test Results");
     println!("{}", "=".repeat(80));
     println!("Total Cases: {}", metrics.total_cases);
-    println!("Successful: {} ({:.1}%)",
+    println!(
+        "Successful: {} ({:.1}%)",
         metrics.successful_cases,
         (metrics.successful_cases as f32 / metrics.total_cases as f32) * 100.0
     );
     println!("Failed: {}", metrics.failed_cases);
     println!("\n📊 Overall Metrics:");
-    println!("  Average Confidence: {:.2}%", metrics.average_confidence * 100.0);
-    println!("  Average Text Accuracy: {:.2}%", metrics.average_text_accuracy * 100.0);
-    println!("  Average LaTeX Accuracy: {:.2}%", metrics.average_latex_accuracy * 100.0);
+    println!(
+        "  Average Confidence: {:.2}%",
+        metrics.average_confidence * 100.0
+    );
+    println!(
+        "  Average Text Accuracy: {:.2}%",
+        metrics.average_text_accuracy * 100.0
+    );
+    println!(
+        "  Average LaTeX Accuracy: {:.2}%",
+        metrics.average_latex_accuracy * 100.0
+    );
     println!("  Average CER: {:.2}%", metrics.average_cer * 100.0);
     println!("  Average WER: {:.2}%", metrics.average_wer * 100.0);
-    println!("  Confidence Correlation: {:.3}", metrics.confidence_correlation);
+    println!(
+        "  Confidence Correlation: {:.3}",
+        metrics.confidence_correlation
+    );
 
     if !metrics.category_breakdown.is_empty() {
         println!("\n📂 Category Breakdown:");
         for (category, cat_metrics) in &metrics.category_breakdown {
             println!("  {}:", category);
             println!("    Count: {}", cat_metrics.count);
-            println!("    Average Accuracy: {:.2}%", cat_metrics.average_accuracy * 100.0);
-            println!("    Average Confidence: {:.2}%", cat_metrics.average_confidence * 100.0);
+            println!(
+                "    Average Accuracy: {:.2}%",
+                cat_metrics.average_accuracy * 100.0
+            );
+            println!(
+                "    Average Confidence: {:.2}%",
+                cat_metrics.average_confidence * 100.0
+            );
         }
     }
 
@@ -178,18 +204,22 @@ async fn run_test_case(engine: &OcrEngine, test_case: &TestCase) -> Result<TestR
     let predicted_latex = ocr_result.to_format(OutputFormat::LaTeX).ok();
 
     let text_accuracy = calculate_accuracy(&predicted_text, &test_case.ground_truth_text);
-    let latex_accuracy = if let (Some(pred), Some(gt)) = (&predicted_latex, &test_case.ground_truth_latex) {
-        Some(calculate_accuracy(pred, gt))
-    } else {
-        None
-    };
+    let latex_accuracy =
+        if let (Some(pred), Some(gt)) = (&predicted_latex, &test_case.ground_truth_latex) {
+            Some(calculate_accuracy(pred, gt))
+        } else {
+            None
+        };
 
     let cer = calculate_character_error_rate(&predicted_text, &test_case.ground_truth_text);
     let wer = calculate_word_error_rate(&predicted_text, &test_case.ground_truth_text);
 
     Ok(TestResult {
         image_path: test_case.image_path.clone(),
-        category: test_case.category.clone().unwrap_or_else(|| "uncategorized".to_string()),
+        category: test_case
+            .category
+            .clone()
+            .unwrap_or_else(|| "uncategorized".to_string()),
         predicted_text,
         predicted_latex,
         ground_truth_text: test_case.ground_truth_text.clone(),
@@ -253,7 +283,10 @@ fn levenshtein_distance(s1: &str, s2: &str) -> usize {
                 matrix[i][j + 1] + 1,
                 matrix[i + 1][j] + 1,
                 matrix[i][j] + cost,
-            ].iter().min().unwrap();
+            ]
+            .iter()
+            .min()
+            .unwrap();
         }
     }
 
@@ -279,7 +312,10 @@ fn levenshtein_distance_vec<T: Eq>(s1: &[T], s2: &[T]) -> usize {
                 matrix[i][j + 1] + 1,
                 matrix[i + 1][j] + 1,
                 matrix[i][j] + cost,
-            ].iter().min().unwrap();
+            ]
+            .iter()
+            .min()
+            .unwrap();
         }
     }
 
@@ -292,24 +328,28 @@ fn calculate_metrics(results: &[TestResult]) -> AccuracyMetrics {
     let failed_cases = 0;
 
     let average_confidence = results.iter().map(|r| r.confidence).sum::<f32>() / total_cases as f32;
-    let average_text_accuracy = results.iter().map(|r| r.text_accuracy).sum::<f32>() / total_cases as f32;
+    let average_text_accuracy =
+        results.iter().map(|r| r.text_accuracy).sum::<f32>() / total_cases as f32;
 
-    let latex_count = results.iter().filter(|r| r.latex_accuracy.is_some()).count();
+    let latex_count = results
+        .iter()
+        .filter(|r| r.latex_accuracy.is_some())
+        .count();
     let average_latex_accuracy = if latex_count > 0 {
-        results.iter()
-            .filter_map(|r| r.latex_accuracy)
-            .sum::<f32>() / latex_count as f32
+        results.iter().filter_map(|r| r.latex_accuracy).sum::<f32>() / latex_count as f32
     } else {
         0.0
     };
 
-    let average_cer = results.iter().map(|r| r.character_error_rate).sum::<f32>() / total_cases as f32;
+    let average_cer =
+        results.iter().map(|r| r.character_error_rate).sum::<f32>() / total_cases as f32;
     let average_wer = results.iter().map(|r| r.word_error_rate).sum::<f32>() / total_cases as f32;
 
     // Calculate category breakdown
     let mut category_breakdown = HashMap::new();
     for result in results {
-        let entry = category_breakdown.entry(result.category.clone())
+        let entry = category_breakdown
+            .entry(result.category.clone())
             .or_insert_with(|| CategoryMetrics {
                 count: 0,
                 average_accuracy: 0.0,
@@ -329,7 +369,7 @@ fn calculate_metrics(results: &[TestResult]) -> AccuracyMetrics {
     // Calculate confidence correlation (Pearson correlation)
     let confidence_correlation = calculate_pearson_correlation(
         &results.iter().map(|r| r.confidence).collect::<Vec<_>>(),
-        &results.iter().map(|r| r.text_accuracy).collect::<Vec<_>>()
+        &results.iter().map(|r| r.text_accuracy).collect::<Vec<_>>(),
     );
 
     AccuracyMetrics {

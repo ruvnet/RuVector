@@ -18,9 +18,7 @@ pub fn simd_popcount(bits: &[u64; 4]) -> u32 {
 
         // Count bits using POPCNT
         // WASM SIMD doesn't have direct popcnt, so we use a table lookup method
-        let lookup = i8x16(
-            0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4
-        );
+        let lookup = i8x16(0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4);
         let mask = i8x16_splat(0x0F);
 
         // Process v0
@@ -86,10 +84,7 @@ pub fn simd_xor(a: &BitSet256, b: &BitSet256) -> BitSet256 {
 /// SIMD-accelerated boundary computation
 /// Counts edges crossing between two vertex sets
 #[inline]
-pub fn simd_boundary_size(
-    set_a: &BitSet256,
-    edges: &[(CompactVertexId, CompactVertexId)],
-) -> u16 {
+pub fn simd_boundary_size(set_a: &BitSet256, edges: &[(CompactVertexId, CompactVertexId)]) -> u16 {
     let mut count = 0u16;
 
     for &(src, tgt) in edges {

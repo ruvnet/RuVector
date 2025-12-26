@@ -70,7 +70,11 @@ impl SparseVec {
             }
         }
 
-        Ok(Self { indices, values, dim })
+        Ok(Self {
+            indices,
+            values,
+            dim,
+        })
     }
 
     /// Number of non-zero elements
@@ -96,7 +100,10 @@ impl SparseVec {
 
     /// Iterate over non-zero elements as (index, value) pairs
     pub fn iter(&self) -> impl Iterator<Item = (u32, f32)> + '_ {
-        self.indices.iter().copied().zip(self.values.iter().copied())
+        self.indices
+            .iter()
+            .copied()
+            .zip(self.values.iter().copied())
     }
 
     /// Get reference to indices

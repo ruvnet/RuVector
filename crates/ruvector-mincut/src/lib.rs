@@ -121,27 +121,27 @@
 #![allow(clippy::missing_panics_doc)]
 
 // Core modules
-pub mod error;
-pub mod graph;
-pub mod linkcut;
-pub mod euler;
-pub mod tree;
-pub mod witness;
 pub mod algorithm;
-pub mod sparsify;
-pub mod expander;
-pub mod localkcut;
-pub mod connectivity;
-pub mod instance;
-pub mod wrapper;
 pub mod certificate;
-pub mod fragment;
-pub mod fragmentation;
 pub mod cluster;
 pub mod compact;
+pub mod connectivity;
+pub mod error;
+pub mod euler;
+pub mod expander;
+pub mod fragment;
+pub mod fragmentation;
+pub mod graph;
+pub mod instance;
+pub mod integration;
+pub mod linkcut;
+pub mod localkcut;
 pub mod parallel;
 pub mod pool;
-pub mod integration;
+pub mod sparsify;
+pub mod tree;
+pub mod witness;
+pub mod wrapper;
 
 /// Spiking Neural Network integration for deep MinCut optimization.
 ///
@@ -193,80 +193,107 @@ pub mod monitoring;
 pub mod wasm;
 
 // Re-exports for convenient access
-pub use error::{MinCutError, Result};
-pub use graph::{DynamicGraph, Edge, GraphStats, VertexId, EdgeId, Weight};
-pub use algorithm::{DynamicMinCut, MinCutBuilder, MinCutConfig, MinCutResult, AlgorithmStats};
-pub use algorithm::approximate::{ApproxMinCut, ApproxMinCutConfig, ApproxMinCutResult, ApproxMinCutStats};
-pub use tree::{HierarchicalDecomposition, DecompositionNode, LevelInfo};
-pub use witness::{WitnessTree, LazyWitnessTree, EdgeWitness};
-pub use linkcut::LinkCutTree;
-pub use euler::EulerTourTree;
-pub use sparsify::{SparseGraph, SparsifyConfig};
-pub use expander::{ExpanderDecomposition, ExpanderComponent, Conductance};
-pub use localkcut::{
-    LocalKCut, LocalCutResult, EdgeColor, ColorMask, ForestPacking,
-    LocalKCutQuery, LocalKCutResult as PaperLocalKCutResult, LocalKCutOracle,
-    DeterministicLocalKCut, DeterministicFamilyGenerator,
+pub use algorithm::approximate::{
+    ApproxMinCut, ApproxMinCutConfig, ApproxMinCutResult, ApproxMinCutStats,
 };
-pub use connectivity::DynamicConnectivity;
-pub use connectivity::polylog::{PolylogConnectivity, PolylogStats};
-pub use instance::{ProperCutInstance, InstanceResult, WitnessHandle, StubInstance, BoundedInstance};
-pub use wrapper::MinCutWrapper;
+pub use algorithm::{AlgorithmStats, DynamicMinCut, MinCutBuilder, MinCutConfig, MinCutResult};
 pub use certificate::{
-    CutCertificate, CertificateError, CertLocalKCutQuery, LocalKCutResponse,
-    LocalKCutResultSummary, UpdateTrigger, UpdateType, AuditLogger,
-    AuditEntry, AuditEntryType, AuditData,
+    AuditData, AuditEntry, AuditEntryType, AuditLogger, CertLocalKCutQuery, CertificateError,
+    CutCertificate, LocalKCutResponse, LocalKCutResultSummary, UpdateTrigger, UpdateType,
 };
-pub use cluster::{ClusterHierarchy, Cluster};
 pub use cluster::hierarchy::{
-    ThreeLevelHierarchy, Expander, Precluster, HierarchyCluster,
-    MirrorCut, HierarchyConfig, HierarchyStats,
+    Expander, HierarchyCluster, HierarchyConfig, HierarchyStats, MirrorCut, Precluster,
+    ThreeLevelHierarchy,
 };
+pub use cluster::{Cluster, ClusterHierarchy};
+pub use compact::{
+    BitSet256, CompactAdjacency, CompactCoreState, CompactEdge, CompactEdgeId, CompactVertexId,
+    CompactWitness, CoreResult, MAX_EDGES_PER_CORE, MAX_VERTICES_PER_CORE,
+};
+pub use connectivity::polylog::{PolylogConnectivity, PolylogStats};
+pub use connectivity::DynamicConnectivity;
+pub use error::{MinCutError, Result};
+pub use euler::EulerTourTree;
+pub use expander::{Conductance, ExpanderComponent, ExpanderDecomposition};
 pub use fragment::{Fragment, FragmentResult, FragmentingAlgorithm};
 pub use fragmentation::{
-    Fragmentation, FragmentationConfig, TrimResult,
-    Fragment as FragmentationFragment,
+    Fragment as FragmentationFragment, Fragmentation, FragmentationConfig, TrimResult,
 };
-pub use compact::{
-    BitSet256, CompactEdge, CompactWitness, CompactAdjacency, CompactCoreState,
-    CoreResult, CompactVertexId, CompactEdgeId, MAX_VERTICES_PER_CORE, MAX_EDGES_PER_CORE,
+pub use graph::{DynamicGraph, Edge, EdgeId, GraphStats, VertexId, Weight};
+pub use instance::{
+    BoundedInstance, InstanceResult, ProperCutInstance, StubInstance, WitnessHandle,
+};
+pub use integration::{CommunityDetector, GraphPartitioner, RuVectorGraphAnalyzer};
+pub use linkcut::LinkCutTree;
+pub use localkcut::{
+    ColorMask, DeterministicFamilyGenerator, DeterministicLocalKCut, EdgeColor, ForestPacking,
+    LocalCutResult, LocalKCut, LocalKCutOracle, LocalKCutQuery,
+    LocalKCutResult as PaperLocalKCutResult,
 };
 pub use parallel::{
-    NUM_CORES, RANGES_PER_CORE, TOTAL_RANGES, RANGE_FACTOR,
-    CoreStrategy, CoreMessage, WorkItem, SharedCoordinator,
-    CoreDistributor, CoreExecutor, ResultAggregator,
-    compute_core_range,
+    compute_core_range, CoreDistributor, CoreExecutor, CoreMessage, CoreStrategy, ResultAggregator,
+    SharedCoordinator, WorkItem, NUM_CORES, RANGES_PER_CORE, RANGE_FACTOR, TOTAL_RANGES,
 };
-pub use integration::{
-    RuVectorGraphAnalyzer, CommunityDetector, GraphPartitioner,
-};
+pub use sparsify::{SparseGraph, SparsifyConfig};
 pub use subpolynomial::{
-    SubpolynomialMinCut, SubpolyConfig, RecourseStats,
-    MinCutQueryResult, HierarchyStatistics, LevelExpander, HierarchyLevel,
+    HierarchyLevel, HierarchyStatistics, LevelExpander, MinCutQueryResult, RecourseStats,
+    SubpolyConfig, SubpolynomialMinCut,
 };
+pub use tree::{DecompositionNode, HierarchicalDecomposition, LevelInfo};
+pub use witness::{EdgeWitness, LazyWitnessTree, WitnessTree};
+pub use wrapper::MinCutWrapper;
 
 // SNN Integration re-exports
 pub use snn::{
-    // Core SNN types
-    LIFNeuron, NeuronState, NeuronConfig, SpikeTrain,
-    Synapse, STDPConfig, SynapseMatrix,
-    SpikingNetwork, NetworkConfig, LayerConfig,
+    AttractorConfig,
     // Layer 1: Attractors
-    AttractorDynamics, EnergyLandscape, AttractorConfig,
-    // Layer 2: Strange Loop
-    MetaCognitiveMinCut, MetaAction, MetaLevel, StrangeLoopConfig,
+    AttractorDynamics,
+    CPGConfig,
+    CausalConfig,
     // Layer 3: Causal Discovery
-    CausalDiscoverySNN, CausalGraph, CausalRelation, CausalConfig,
-    // Layer 4: Time Crystal
-    TimeCrystalCPG, OscillatorNeuron, PhaseTopology, CPGConfig,
-    // Layer 5: Morphogenetic
-    MorphogeneticSNN, GrowthRules, TuringPattern, MorphConfig,
-    // Layer 6: Neural Optimizer
-    NeuralGraphOptimizer, PolicySNN, ValueNetwork, OptimizerConfig, OptimizationResult,
+    CausalDiscoverySNN,
+    CausalGraph,
+    CausalRelation,
     // Unified Engine
-    CognitiveMinCutEngine, EngineConfig, EngineMetrics,
+    CognitiveMinCutEngine,
+    EnergyLandscape,
+    EngineConfig,
+    EngineMetrics,
+    GrowthRules,
+    // Core SNN types
+    LIFNeuron,
+    LayerConfig,
+    MetaAction,
+    // Layer 2: Strange Loop
+    MetaCognitiveMinCut,
+    MetaLevel,
+    MorphConfig,
+    // Layer 5: Morphogenetic
+    MorphogeneticSNN,
+    NetworkConfig,
+    // Layer 6: Neural Optimizer
+    NeuralGraphOptimizer,
+    NeuronConfig,
+    NeuronState,
+    OptimizationResult,
+    OptimizerConfig,
+    OscillatorNeuron,
+    PhaseTopology,
+    PolicySNN,
+    SNNMinCutConfig,
+    STDPConfig,
+    SimTime,
     // Utilities
-    Spike, SimTime, SNNMinCutConfig,
+    Spike,
+    SpikeTrain,
+    SpikingNetwork,
+    StrangeLoopConfig,
+    Synapse,
+    SynapseMatrix,
+    // Layer 4: Time Crystal
+    TimeCrystalCPG,
+    TuringPattern,
+    ValueNetwork,
 };
 
 #[cfg(feature = "agentic")]
@@ -274,8 +301,7 @@ pub use integration::AgenticAnalyzer;
 
 #[cfg(feature = "monitoring")]
 pub use monitoring::{
-    MinCutMonitor, MonitorBuilder, MonitorConfig, MinCutEvent,
-    EventType, Threshold, MonitorMetrics
+    EventType, MinCutEvent, MinCutMonitor, MonitorBuilder, MonitorConfig, MonitorMetrics, Threshold,
 };
 
 /// Crate version
@@ -300,40 +326,94 @@ pub mod prelude {
     //! Prelude module with commonly used types
 
     pub use crate::{
-        DynamicMinCut, MinCutBuilder, MinCutConfig, MinCutResult, ApproxMinCut, ApproxMinCutConfig,
-        DynamicGraph, Edge, VertexId, EdgeId, Weight,
-        MinCutError, Result,
+        compute_core_range,
         AlgorithmStats,
-        ExpanderDecomposition, ExpanderComponent, Conductance,
-        LocalKCut, LocalCutResult, EdgeColor, ColorMask, ForestPacking,
-        LocalKCutQuery, PaperLocalKCutResult, LocalKCutOracle,
-        DeterministicLocalKCut, DeterministicFamilyGenerator,
-        CutCertificate, CertificateError, AuditLogger,
-        DynamicConnectivity, PolylogConnectivity, PolylogStats,
-        ProperCutInstance, InstanceResult, WitnessHandle, StubInstance, BoundedInstance,
-        MinCutWrapper,
-        ClusterHierarchy, Cluster,
-        Fragment, FragmentResult, FragmentingAlgorithm,
-        BitSet256, CompactEdge, CompactWitness, CompactAdjacency, CompactCoreState,
-        CoreResult, CompactVertexId, CompactEdgeId, MAX_VERTICES_PER_CORE, MAX_EDGES_PER_CORE,
-        NUM_CORES, RANGES_PER_CORE, CoreStrategy, SharedCoordinator,
-        CoreDistributor, CoreExecutor, ResultAggregator, compute_core_range,
-        RuVectorGraphAnalyzer, CommunityDetector, GraphPartitioner,
-        // Subpolynomial min-cut
-        SubpolynomialMinCut, SubpolyConfig, RecourseStats,
+        ApproxMinCut,
+        ApproxMinCutConfig,
+        AttractorConfig,
+        AttractorDynamics,
+        AuditLogger,
+        BitSet256,
+        BoundedInstance,
+        CPGConfig,
+        CertificateError,
+        Cluster,
+        ClusterHierarchy,
         // SNN Integration types
-        CognitiveMinCutEngine, EngineConfig, EngineMetrics,
-        AttractorDynamics, AttractorConfig,
-        TimeCrystalCPG, CPGConfig,
-        NeuralGraphOptimizer, OptimizerConfig,
-        Spike, SimTime,
+        CognitiveMinCutEngine,
+        ColorMask,
+        CommunityDetector,
+        CompactAdjacency,
+        CompactCoreState,
+        CompactEdge,
+        CompactEdgeId,
+        CompactVertexId,
+        CompactWitness,
+        Conductance,
+        CoreDistributor,
+        CoreExecutor,
+        CoreResult,
+        CoreStrategy,
+        CutCertificate,
+        DeterministicFamilyGenerator,
+        DeterministicLocalKCut,
+        DynamicConnectivity,
+        DynamicGraph,
+        DynamicMinCut,
+        Edge,
+        EdgeColor,
+        EdgeId,
+        EngineConfig,
+        EngineMetrics,
+        ExpanderComponent,
+        ExpanderDecomposition,
+        ForestPacking,
+        Fragment,
+        FragmentResult,
+        FragmentingAlgorithm,
+        GraphPartitioner,
+        InstanceResult,
+        LocalCutResult,
+        LocalKCut,
+        LocalKCutOracle,
+        LocalKCutQuery,
+        MinCutBuilder,
+        MinCutConfig,
+        MinCutError,
+        MinCutResult,
+        MinCutWrapper,
+        NeuralGraphOptimizer,
+        OptimizerConfig,
+        PaperLocalKCutResult,
+        PolylogConnectivity,
+        PolylogStats,
+        ProperCutInstance,
+        RecourseStats,
+        Result,
+        ResultAggregator,
+        RuVectorGraphAnalyzer,
+        SharedCoordinator,
+        SimTime,
+        Spike,
+        StubInstance,
+        SubpolyConfig,
+        // Subpolynomial min-cut
+        SubpolynomialMinCut,
+        TimeCrystalCPG,
+        VertexId,
+        Weight,
+        WitnessHandle,
+        MAX_EDGES_PER_CORE,
+        MAX_VERTICES_PER_CORE,
+        NUM_CORES,
+        RANGES_PER_CORE,
     };
 
     #[cfg(feature = "agentic")]
     pub use crate::AgenticAnalyzer;
 
     #[cfg(feature = "monitoring")]
-    pub use crate::{MinCutMonitor, MonitorBuilder, MinCutEvent, EventType};
+    pub use crate::{EventType, MinCutEvent, MinCutMonitor, MonitorBuilder};
 }
 
 #[cfg(test)]
@@ -352,11 +432,7 @@ mod tests {
         // Test the main API works correctly
         let mut mincut = MinCutBuilder::new()
             .exact()
-            .with_edges(vec![
-                (1, 2, 1.0),
-                (2, 3, 1.0),
-                (3, 1, 1.0),
-            ])
+            .with_edges(vec![(1, 2, 1.0), (2, 3, 1.0), (3, 1, 1.0)])
             .build()
             .unwrap();
 
@@ -381,9 +457,7 @@ mod tests {
         use crate::prelude::*;
 
         // Ensure all prelude items are accessible
-        let mincut = MinCutBuilder::new()
-            .build()
-            .unwrap();
+        let mincut = MinCutBuilder::new().build().unwrap();
 
         assert_eq!(mincut.min_cut_value(), f64::INFINITY);
     }
@@ -417,11 +491,7 @@ mod tests {
     #[test]
     fn test_min_cut_result() {
         let mincut = MinCutBuilder::new()
-            .with_edges(vec![
-                (1, 2, 1.0),
-                (2, 3, 1.0),
-                (3, 1, 1.0),
-            ])
+            .with_edges(vec![(1, 2, 1.0), (2, 3, 1.0), (3, 1, 1.0)])
             .build()
             .unwrap();
 
@@ -440,11 +510,7 @@ mod tests {
     #[test]
     fn test_graph_stats() {
         let mincut = MinCutBuilder::new()
-            .with_edges(vec![
-                (1, 2, 2.0),
-                (2, 3, 3.0),
-                (3, 1, 1.0),
-            ])
+            .with_edges(vec![(1, 2, 2.0), (2, 3, 3.0), (3, 1, 1.0)])
             .build()
             .unwrap();
 
@@ -497,10 +563,7 @@ mod tests {
     #[test]
     fn test_disconnected_graph() {
         let mincut = MinCutBuilder::new()
-            .with_edges(vec![
-                (1, 2, 1.0),
-                (3, 4, 1.0),
-            ])
+            .with_edges(vec![(1, 2, 1.0), (3, 4, 1.0)])
             .build()
             .unwrap();
 
@@ -526,11 +589,7 @@ mod tests {
     #[test]
     fn test_weighted_graph() {
         let mincut = MinCutBuilder::new()
-            .with_edges(vec![
-                (1, 2, 5.0),
-                (2, 3, 3.0),
-                (3, 1, 2.0),
-            ])
+            .with_edges(vec![(1, 2, 5.0), (2, 3, 3.0), (3, 1, 2.0)])
             .build()
             .unwrap();
 
@@ -562,10 +621,7 @@ mod tests {
             edges.push((i, i + 1, 1.0));
         }
 
-        let mincut = MinCutBuilder::new()
-            .with_edges(edges)
-            .build()
-            .unwrap();
+        let mincut = MinCutBuilder::new().with_edges(edges).build().unwrap();
 
         assert_eq!(mincut.num_vertices(), 100);
         assert_eq!(mincut.num_edges(), 99);

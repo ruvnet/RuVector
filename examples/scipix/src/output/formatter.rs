@@ -168,7 +168,10 @@ impl OutputFormatter {
 
     fn format_latex(&self, result: &OcrResult, styled: bool) -> Result<String, String> {
         let latex_content = if styled {
-            result.formats.latex_styled.as_ref()
+            result
+                .formats
+                .latex_styled
+                .as_ref()
                 .or(result.formats.latex_normal.as_ref())
         } else {
             result.formats.latex_normal.as_ref()
@@ -199,9 +202,7 @@ impl OutputFormatter {
 
         // Generate MMD from line data
         if let Some(line_data) = &result.line_data {
-            let formatter = mmd::MmdFormatter::with_delimiters(
-                self.config.math_delimiters.clone()
-            );
+            let formatter = mmd::MmdFormatter::with_delimiters(self.config.math_delimiters.clone());
             return Ok(formatter.format(line_data));
         }
 
@@ -263,7 +264,7 @@ impl OutputFormatter {
             OutputFormat::Smiles => formats.smiles = Some(output),
             OutputFormat::MathML => formats.mathml = Some(output),
             OutputFormat::AsciiMath => formats.asciimath = Some(output),
-            OutputFormat::Docx => {}, // Binary format, handled separately
+            OutputFormat::Docx => {} // Binary format, handled separately
         }
     }
 }
@@ -369,7 +370,9 @@ mod tests {
         let formatter = OutputFormatter::new();
         let result = create_test_result();
 
-        let output = formatter.format_single(&result, OutputFormat::Text).unwrap();
+        let output = formatter
+            .format_single(&result, OutputFormat::Text)
+            .unwrap();
         assert_eq!(output, "E = mc^2");
     }
 
@@ -378,7 +381,9 @@ mod tests {
         let formatter = OutputFormatter::new();
         let result = create_test_result();
 
-        let output = formatter.format_single(&result, OutputFormat::LaTeX).unwrap();
+        let output = formatter
+            .format_single(&result, OutputFormat::LaTeX)
+            .unwrap();
         assert!(output.contains("mc^2"));
     }
 

@@ -184,13 +184,11 @@ impl AgenticDB {
     ) -> Result<Self> {
         // Validate dimensions match
         if options.dimensions != embedding_provider.dimensions() {
-            return Err(RuvectorError::InvalidDimension(
-                format!(
-                    "Options dimensions ({}) do not match embedding provider dimensions ({})",
-                    options.dimensions,
-                    embedding_provider.dimensions()
-                )
-            ));
+            return Err(RuvectorError::InvalidDimension(format!(
+                "Options dimensions ({}) do not match embedding provider dimensions ({})",
+                options.dimensions,
+                embedding_provider.dimensions()
+            )));
         }
 
         // Create vector DB for core vector operations

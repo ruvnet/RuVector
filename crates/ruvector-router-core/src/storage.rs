@@ -53,7 +53,7 @@ impl Storage {
                         std::path::Component::ParentDir => {
                             if !normalized.pop() || !normalized.starts_with(&cwd) {
                                 return Err(VectorDbError::InvalidPath(
-                                    "Path traversal attempt detected".to_string()
+                                    "Path traversal attempt detected".to_string(),
                                 ));
                             }
                         }
@@ -88,7 +88,7 @@ impl Storage {
             if let Ok(cwd) = std::env::current_dir() {
                 if !canonical_path.starts_with(&cwd) {
                     return Err(VectorDbError::InvalidPath(
-                        "Path traversal attempt detected".to_string()
+                        "Path traversal attempt detected".to_string(),
                     ));
                 }
             }

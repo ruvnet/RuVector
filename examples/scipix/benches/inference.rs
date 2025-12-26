@@ -1,4 +1,4 @@
-use criterion::{criterion_group, criterion_main, Criterion, BenchmarkId, black_box};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use std::time::Duration;
 
 /// Benchmark text detection model inference
@@ -15,9 +15,7 @@ fn bench_text_detection(c: &mut Criterion) {
             BenchmarkId::new("inference", format!("{}x{}", w, h)),
             &input_tensor,
             |b, tensor| {
-                b.iter(|| {
-                    black_box(run_detection_model(black_box(tensor)))
-                });
+                b.iter(|| black_box(run_detection_model(black_box(tensor))));
             },
         );
     }
@@ -40,9 +38,7 @@ fn bench_text_recognition(c: &mut Criterion) {
             BenchmarkId::new("inference", format!("{}x{}", w, h)),
             &input_tensor,
             |b, tensor| {
-                b.iter(|| {
-                    black_box(run_recognition_model(black_box(tensor)))
-                });
+                b.iter(|| black_box(run_recognition_model(black_box(tensor))));
             },
         );
     }
@@ -64,9 +60,7 @@ fn bench_math_model(c: &mut Criterion) {
             BenchmarkId::new("inference", format!("{}x{}", w, h)),
             &input_tensor,
             |b, tensor| {
-                b.iter(|| {
-                    black_box(run_math_model(black_box(tensor)))
-                });
+                b.iter(|| black_box(run_math_model(black_box(tensor))));
             },
         );
     }
@@ -82,28 +76,20 @@ fn bench_tensor_preprocessing(c: &mut Criterion) {
     let image_data = vec![128u8; 384 * 384 * 3];
 
     group.bench_function("normalization", |b| {
-        b.iter(|| {
-            black_box(normalize_tensor(black_box(&image_data)))
-        });
+        b.iter(|| black_box(normalize_tensor(black_box(&image_data))));
     });
 
     group.bench_function("standardization", |b| {
-        b.iter(|| {
-            black_box(standardize_tensor(black_box(&image_data)))
-        });
+        b.iter(|| black_box(standardize_tensor(black_box(&image_data))));
     });
 
     group.bench_function("to_chw_layout", |b| {
-        b.iter(|| {
-            black_box(convert_to_chw(black_box(&image_data), 384, 384))
-        });
+        b.iter(|| black_box(convert_to_chw(black_box(&image_data), 384, 384)));
     });
 
     group.bench_function("add_batch_dimension", |b| {
         let tensor = normalize_tensor(&image_data);
-        b.iter(|| {
-            black_box(add_batch_dim(black_box(&tensor)))
-        });
+        b.iter(|| black_box(add_batch_dim(black_box(&tensor))));
     });
 
     group.finish();
@@ -118,27 +104,19 @@ fn bench_output_postprocessing(c: &mut Criterion) {
     let recognition_output = create_recognition_output(100);
 
     group.bench_function("nms_filtering", |b| {
-        b.iter(|| {
-            black_box(apply_nms(black_box(&detection_output), 0.5))
-        });
+        b.iter(|| black_box(apply_nms(black_box(&detection_output), 0.5)));
     });
 
     group.bench_function("confidence_filtering", |b| {
-        b.iter(|| {
-            black_box(filter_by_confidence(black_box(&detection_output), 0.7))
-        });
+        b.iter(|| black_box(filter_by_confidence(black_box(&detection_output), 0.7)));
     });
 
     group.bench_function("decode_sequence", |b| {
-        b.iter(|| {
-            black_box(decode_ctc_output(black_box(&recognition_output)))
-        });
+        b.iter(|| black_box(decode_ctc_output(black_box(&recognition_output))));
     });
 
     group.bench_function("beam_search", |b| {
-        b.iter(|| {
-            black_box(beam_search_decode(black_box(&recognition_output), 5))
-        });
+        b.iter(|| black_box(beam_search_decode(black_box(&recognition_output), 5)));
     });
 
     group.finish();
@@ -159,9 +137,7 @@ fn bench_batch_inference(c: &mut Criterion) {
             BenchmarkId::new("detection_batch", batch_size),
             &batch_tensor,
             |b, tensor| {
-                b.iter(|| {
-                    black_box(run_detection_model(black_box(tensor)))
-                });
+                b.iter(|| black_box(run_detection_model(black_box(tensor))));
             },
         );
     }
@@ -175,21 +151,15 @@ fn bench_model_warmup(c: &mut Criterion) {
     group.measurement_time(Duration::from_secs(10));
 
     group.bench_function("detection_model_init", |b| {
-        b.iter_with_large_drop(|| {
-            black_box(initialize_detection_model())
-        });
+        b.iter_with_large_drop(|| black_box(initialize_detection_model()));
     });
 
     group.bench_function("recognition_model_init", |b| {
-        b.iter_with_large_drop(|| {
-            black_box(initialize_recognition_model())
-        });
+        b.iter_with_large_drop(|| black_box(initialize_recognition_model()));
     });
 
     group.bench_function("math_model_init", |b| {
-        b.iter_with_large_drop(|| {
-            black_box(initialize_math_model())
-        });
+        b.iter_with_large_drop(|| black_box(initialize_math_model()));
     });
 
     group.finish();
@@ -284,9 +254,7 @@ fn normalize_tensor(data: &[u8]) -> Vec<f32> {
 fn standardize_tensor(data: &[u8]) -> Vec<f32> {
     let mean = 128.0f32;
     let std = 64.0f32;
-    data.iter()
-        .map(|&x| (x as f32 - mean) / std)
-        .collect()
+    data.iter().map(|&x| (x as f32 - mean) / std).collect()
 }
 
 fn convert_to_chw(data: &[f32], width: u32, height: u32) -> Vec<f32> {
@@ -337,9 +305,9 @@ fn apply_nms(detections: &[Detection], iou_threshold: f32) -> Vec<Detection> {
     sorted.sort_by(|a, b| b.confidence.partial_cmp(&a.confidence).unwrap());
 
     for det in sorted {
-        let overlap = filtered.iter().any(|kept: &Detection| {
-            calculate_iou(&det.bbox, &kept.bbox) > iou_threshold
-        });
+        let overlap = filtered
+            .iter()
+            .any(|kept: &Detection| calculate_iou(&det.bbox, &kept.bbox) > iou_threshold);
 
         if !overlap {
             filtered.push(det);

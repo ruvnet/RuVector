@@ -8,11 +8,11 @@ use std::time::Instant;
 use pgrx::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use super::isolation::{QueryRoute, get_isolation_manager};
-use super::quotas::{QuotaResult, get_quota_manager};
-use super::registry::{TenantConfig, TenantError, get_registry};
+use super::isolation::{get_isolation_manager, QueryRoute};
+use super::quotas::{get_quota_manager, QuotaResult};
+use super::registry::{get_registry, TenantConfig, TenantError};
 use super::rls::RlsManager;
-use super::validation::{escape_string_literal, validate_tenant_id, validate_ip_address};
+use super::validation::{escape_string_literal, validate_ip_address, validate_tenant_id};
 
 /// Result of a tenant-aware operation
 #[derive(Debug, Clone)]
@@ -47,7 +47,9 @@ impl<T> OperationResult<T> {
     pub fn into_result(self) -> Result<T, String> {
         match self {
             Self::Success(v) => Ok(v),
-            Self::QuotaDenied(q) => Err(q.error_message().unwrap_or_else(|| "Quota denied".to_string())),
+            Self::QuotaDenied(q) => Err(q
+                .error_message()
+                .unwrap_or_else(|| "Quota denied".to_string())),
             Self::TenantError(e) => Err(e.to_string()),
             Self::Error(e) => Err(e),
         }
@@ -74,8 +76,7 @@ pub struct ValidatedTenantId(String);
 impl ValidatedTenantId {
     /// Create a new validated tenant ID
     pub fn new(tenant_id: &str) -> Result<Self, TenantError> {
-        validate_tenant_id(tenant_id)
-            .map_err(|e| TenantError::InvalidId(format!("{}", e)))?;
+        validate_tenant_id(tenant_id).map_err(|e| TenantError::InvalidId(format!("{}", e)))?;
         Ok(Self(tenant_id.to_string()))
     }
 
@@ -99,7 +100,7 @@ impl TenantContext {
                 route: QueryRoute::SharedWithFilter {
                     table: "".to_string(),
                     filter: "true".to_string(), // No filter for admin
-                    tenant_param: None, // Admin doesn't need tenant param
+                    tenant_param: None,         // Admin doesn't need tenant param
                 },
                 is_admin: true,
             });
@@ -245,11 +246,7 @@ impl<'a> TenantVectorInsert<'a> {
         let inserted_count = self.vectors.len();
 
         // Record successful insert
-        quota_manager.record_vector_insert(
-            &self.ctx.tenant_id,
-            inserted_count as u64,
-            total_bytes,
-        );
+        quota_manager.record_vector_insert(&self.ctx.tenant_id, inserted_count as u64, total_bytes);
 
         OperationResult::Success(InsertResult {
             inserted_count,
@@ -392,7 +389,11 @@ impl<'a> TenantVectorDelete<'a> {
         let deleted_bytes = (deleted_count * 4 * 1536) as u64; // Estimate
 
         // Record deletion in quota manager
-        quota_manager.record_vector_delete(&self.ctx.tenant_id, deleted_count as u64, deleted_bytes);
+        quota_manager.record_vector_delete(
+            &self.ctx.tenant_id,
+            deleted_count as u64,
+            deleted_bytes,
+        );
 
         OperationResult::Success(DeleteResult {
             deleted_count,
@@ -442,15 +443,16 @@ pub fn get_tenant_stats(tenant_id: &str) -> Result<TenantStats, TenantError> {
         .get(tenant_id)
         .ok_or_else(|| TenantError::NotFound(tenant_id.to_string()))?;
 
-    let usage = get_quota_manager()
-        .get_usage(tenant_id)
-        .unwrap_or_default();
+    let usage = get_quota_manager().get_usage(tenant_id).unwrap_or_default();
 
     let shared_state = get_registry().get_shared_state(tenant_id);
 
     let (integrity_state, lambda_cut) = match shared_state {
         Some(state) => {
-            let integrity = match state.integrity_state.load(std::sync::atomic::Ordering::Relaxed) {
+            let integrity = match state
+                .integrity_state
+                .load(std::sync::atomic::Ordering::Relaxed)
+            {
                 0 => "normal",
                 1 => "stress",
                 2 => "critical",
@@ -470,7 +472,8 @@ pub fn get_tenant_stats(tenant_id: &str) -> Result<TenantStats, TenantError> {
         integrity_state,
         lambda_cut,
         is_suspended: config.is_suspended(),
-        quota_usage_percent: (usage.vector_count as f64 / config.quota.max_vectors as f64 * 100.0) as f32,
+        quota_usage_percent: (usage.vector_count as f64 / config.quota.max_vectors as f64 * 100.0)
+            as f32,
     })
 }
 
@@ -546,7 +549,11 @@ VALUES ($1, $2, $3, $4, $5, $6, $7)
             Some(serde_json::to_string(&self.details).unwrap_or_else(|_| "{}".to_string())),
             // Only include IP if it's a valid IP address (defense in depth)
             self.ip_address.as_ref().and_then(|ip| {
-                if validate_ip_address(ip) { Some(ip.clone()) } else { None }
+                if validate_ip_address(ip) {
+                    Some(ip.clone())
+                } else {
+                    None
+                }
             }),
             Some(self.success.to_string()),
             self.error.clone(),
@@ -569,13 +576,17 @@ VALUES ($1, $2, $3, $4, $5, $6, $7)
         // Escape all string values
         let escaped_tenant_id = escape_string_literal(&self.tenant_id);
         let escaped_operation = escape_string_literal(&self.operation);
-        let escaped_user_id = self.user_id.as_ref()
+        let escaped_user_id = self
+            .user_id
+            .as_ref()
             .map(|u| format!("'{}'", escape_string_literal(u)))
             .unwrap_or_else(|| "NULL".to_string());
         let escaped_details = escape_string_literal(
-            &serde_json::to_string(&self.details).unwrap_or_else(|_| "{}".to_string())
+            &serde_json::to_string(&self.details).unwrap_or_else(|_| "{}".to_string()),
         );
-        let escaped_ip = self.ip_address.as_ref()
+        let escaped_ip = self
+            .ip_address
+            .as_ref()
             .and_then(|ip| {
                 // Only include if valid IP format
                 if validate_ip_address(ip) {
@@ -585,7 +596,9 @@ VALUES ($1, $2, $3, $4, $5, $6, $7)
                 }
             })
             .unwrap_or_else(|| "NULL".to_string());
-        let escaped_error = self.error.as_ref()
+        let escaped_error = self
+            .error
+            .as_ref()
             .map(|e| format!("'{}'", escape_string_literal(e)))
             .unwrap_or_else(|| "NULL".to_string());
 
@@ -641,8 +654,8 @@ pub fn validate_cross_tenant(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::registry::TenantConfig;
+    use super::*;
 
     fn setup_test_tenant(id: &str) {
         let registry = get_registry();
@@ -688,8 +701,8 @@ mod tests {
         assert_eq!(entry.operation, "vector_insert");
         assert!(entry.success);
 
-        let failed_entry = AuditLogEntry::new("acme-corp", "vector_insert")
-            .failed("Quota exceeded");
+        let failed_entry =
+            AuditLogEntry::new("acme-corp", "vector_insert").failed("Quota exceeded");
 
         assert!(!failed_entry.success);
         assert!(failed_entry.error.is_some());

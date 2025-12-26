@@ -50,10 +50,7 @@ pub fn quantize_weights(weights: &[f32]) -> (Vec<i8>, QuantParams) {
 
 /// Quantize with given parameters
 pub fn quantize_with_params(weights: &[f32], params: QuantParams) -> Vec<i8> {
-    weights
-        .iter()
-        .map(|&w| quantize_value(w, params))
-        .collect()
+    weights.iter().map(|&w| quantize_value(w, params)).collect()
 }
 
 /// Quantize single value
@@ -115,7 +112,9 @@ impl QuantizedTensor {
 
     /// Get size in bytes
     pub fn size_bytes(&self) -> usize {
-        self.data.len() + std::mem::size_of::<QuantParams>() + self.shape.len() * std::mem::size_of::<usize>()
+        self.data.len()
+            + std::mem::size_of::<QuantParams>()
+            + self.shape.len() * std::mem::size_of::<usize>()
     }
 
     /// Calculate memory savings vs f32
@@ -204,8 +203,7 @@ impl DynamicQuantizer {
         let mut sorted: Vec<f32> = data.iter().copied().collect();
         sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
 
-        let idx = ((sorted.len() as f32 * self.percentile / 100.0) as usize)
-            .min(sorted.len() - 1);
+        let idx = ((sorted.len() as f32 * self.percentile / 100.0) as usize).min(sorted.len() - 1);
 
         let min = -sorted[sorted.len() - idx];
         let max = sorted[idx];
@@ -225,7 +223,8 @@ pub fn quantization_error(original: &[f32], quantized: &[i8], params: QuantParam
         .iter()
         .zip(dequantized.iter())
         .map(|(o, d)| (o - d).powi(2))
-        .sum::<f32>() / original.len() as f32;
+        .sum::<f32>()
+        / original.len() as f32;
 
     mse
 }
@@ -239,7 +238,8 @@ pub fn sqnr(original: &[f32], quantized: &[i8], params: QuantParams) -> f32 {
         .iter()
         .zip(dequantized.iter())
         .map(|(o, d)| (o - d).powi(2))
-        .sum::<f32>() / original.len() as f32;
+        .sum::<f32>()
+        / original.len() as f32;
 
     10.0 * (signal_power / noise_power).log10()
 }
@@ -290,7 +290,7 @@ mod tests {
     fn test_per_channel_quant() {
         // 2 channels, 3 values each
         let data = vec![
-            1.0, 2.0, 3.0,  // Channel 0
+            1.0, 2.0, 3.0, // Channel 0
             10.0, 20.0, 30.0, // Channel 1
         ];
 

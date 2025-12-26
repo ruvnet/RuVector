@@ -3,11 +3,11 @@
 // Executes parsed SPARQL queries against a triple store.
 
 use super::ast::*;
-use super::triple_store::{Triple, TripleStore};
 use super::functions::evaluate_function;
+use super::triple_store::{Triple, TripleStore};
 use super::{SparqlError, SparqlResult};
-use std::collections::HashMap;
 use once_cell::sync::Lazy;
+use std::collections::HashMap;
 
 /// Solution binding - maps variables to RDF terms
 pub type Binding = HashMap<String, RdfTerm>;
@@ -59,10 +59,7 @@ impl<'a> SparqlContext<'a> {
 }
 
 /// Execute a SPARQL query
-pub fn execute_sparql(
-    store: &TripleStore,
-    query: &SparqlQuery,
-) -> SparqlResult<QueryResult> {
+pub fn execute_sparql(store: &TripleStore, query: &SparqlQuery) -> SparqlResult<QueryResult> {
     let mut ctx = SparqlContext::new(store)
         .with_base(query.base.as_ref())
         .with_prefixes(&query.prefixes);
@@ -112,7 +109,10 @@ pub struct SelectResult {
 
 impl SelectResult {
     pub fn new(variables: Vec<String>, bindings: Solutions) -> Self {
-        Self { variables, bindings }
+        Self {
+            variables,
+            bindings,
+        }
     }
 
     pub fn empty() -> Self {
@@ -142,7 +142,10 @@ fn execute_select(ctx: &mut SparqlContext, query: &SelectQuery) -> SparqlResult<
     // Project variables
     let (variables, bindings) = project_solutions(&query.projection, solutions)?;
 
-    Ok(SelectResult { variables, bindings })
+    Ok(SelectResult {
+        variables,
+        bindings,
+    })
 }
 
 fn project_solutions(
@@ -215,7 +218,10 @@ fn bindings_equal(a: &Binding, b: &Binding) -> bool {
 // Graph Pattern Evaluation
 // ============================================================================
 
-fn evaluate_graph_pattern(ctx: &mut SparqlContext, pattern: &GraphPattern) -> SparqlResult<Solutions> {
+fn evaluate_graph_pattern(
+    ctx: &mut SparqlContext,
+    pattern: &GraphPattern,
+) -> SparqlResult<Solutions> {
     match pattern {
         GraphPattern::Empty => Ok(vec![Binding::new()]),
 
@@ -290,9 +296,17 @@ fn evaluate_graph_pattern(ctx: &mut SparqlContext, pattern: &GraphPattern) -> Sp
         GraphPattern::Exists(inner, positive) => {
             let solutions = evaluate_graph_pattern(ctx, inner)?;
             if *positive {
-                Ok(if solutions.is_empty() { vec![] } else { vec![Binding::new()] })
+                Ok(if solutions.is_empty() {
+                    vec![]
+                } else {
+                    vec![Binding::new()]
+                })
             } else {
-                Ok(if solutions.is_empty() { vec![Binding::new()] } else { vec![] })
+                Ok(if solutions.is_empty() {
+                    vec![Binding::new()]
+                } else {
+                    vec![]
+                })
             }
         }
 
@@ -311,9 +325,7 @@ fn evaluate_graph_pattern(ctx: &mut SparqlContext, pattern: &GraphPattern) -> Sp
             evaluate_group(solutions, group_by, aggregates)
         }
 
-        GraphPattern::SubSelect(subquery) => {
-            execute_select(ctx, subquery).map(|r| r.bindings)
-        }
+        GraphPattern::SubSelect(subquery) => execute_select(ctx, subquery).map(|r| r.bindings),
 
         GraphPattern::Values(values) => {
             let mut solutions = Vec::new();
@@ -329,9 +341,9 @@ fn evaluate_graph_pattern(ctx: &mut SparqlContext, pattern: &GraphPattern) -> Sp
             Ok(solutions)
         }
 
-        GraphPattern::Service(_, _, _) => {
-            Err(SparqlError::UnsupportedOperation("SERVICE queries not supported".to_string()))
-        }
+        GraphPattern::Service(_, _, _) => Err(SparqlError::UnsupportedOperation(
+            "SERVICE queries not supported".to_string(),
+        )),
     }
 }
 
@@ -367,9 +379,15 @@ fn match_triple_pattern(
 
     // Handle property paths
     match &pattern.predicate {
-        PropertyPath::Iri(iri) => {
-            match_simple_triple(ctx, subject, Some(iri), object, &pattern.subject, &pattern.object, binding)
-        }
+        PropertyPath::Iri(iri) => match_simple_triple(
+            ctx,
+            subject,
+            Some(iri),
+            object,
+            &pattern.subject,
+            &pattern.object,
+            binding,
+        ),
         PropertyPath::Variable(var) => {
             let pred = binding.get(var).and_then(|t| {
                 if let RdfTerm::Iri(iri) = t {
@@ -378,9 +396,26 @@ fn match_triple_pattern(
                     None
                 }
             });
-            match_simple_triple_with_var_pred(ctx, subject, pred.as_ref(), object, &pattern.subject, var, &pattern.object, binding)
+            match_simple_triple_with_var_pred(
+                ctx,
+                subject,
+                pred.as_ref(),
+                object,
+                &pattern.subject,
+                var,
+                &pattern.object,
+                binding,
+            )
         }
-        path => evaluate_property_path(ctx, subject, path, object, &pattern.subject, &pattern.object, binding),
+        path => evaluate_property_path(
+            ctx,
+            subject,
+            path,
+            object,
+            &pattern.subject,
+            &pattern.object,
+            binding,
+        ),
     }
 }
 
@@ -401,11 +436,9 @@ fn match_simple_triple(
     obj_pattern: &TermOrVariable,
     binding: &Binding,
 ) -> SparqlResult<Solutions> {
-    let triples = ctx.store.query(
-        subject.as_ref(),
-        predicate,
-        object.as_ref(),
-    );
+    let triples = ctx
+        .store
+        .query(subject.as_ref(), predicate, object.as_ref());
 
     let mut solutions = Vec::new();
 
@@ -455,11 +488,9 @@ fn match_simple_triple_with_var_pred(
     obj_pattern: &TermOrVariable,
     binding: &Binding,
 ) -> SparqlResult<Solutions> {
-    let triples = ctx.store.query(
-        subject.as_ref(),
-        predicate,
-        object.as_ref(),
-    );
+    let triples = ctx
+        .store
+        .query(subject.as_ref(), predicate, object.as_ref());
 
     let mut solutions = Vec::new();
 
@@ -524,13 +555,27 @@ fn evaluate_property_path(
     binding: &Binding,
 ) -> SparqlResult<Solutions> {
     match path {
-        PropertyPath::Iri(iri) => {
-            match_simple_triple(ctx, subject, Some(iri), object, subj_pattern, obj_pattern, binding)
-        }
+        PropertyPath::Iri(iri) => match_simple_triple(
+            ctx,
+            subject,
+            Some(iri),
+            object,
+            subj_pattern,
+            obj_pattern,
+            binding,
+        ),
 
         PropertyPath::Inverse(inner) => {
             // Swap subject and object
-            evaluate_property_path(ctx, object, inner, subject, obj_pattern, subj_pattern, binding)
+            evaluate_property_path(
+                ctx,
+                object,
+                inner,
+                subject,
+                obj_pattern,
+                subj_pattern,
+                binding,
+            )
         }
 
         PropertyPath::Sequence(first, second) => {
@@ -539,14 +584,26 @@ fn evaluate_property_path(
             let mid_pattern = TermOrVariable::Variable(mid_var.clone());
 
             let first_solutions = evaluate_property_path(
-                ctx, subject, first, None, subj_pattern, &mid_pattern, binding
+                ctx,
+                subject,
+                first,
+                None,
+                subj_pattern,
+                &mid_pattern,
+                binding,
             )?;
 
             let mut solutions = Vec::new();
             for sol in first_solutions {
                 let mid_value = sol.get(&mid_var).cloned();
                 let second_solutions = evaluate_property_path(
-                    ctx, mid_value, second, object.clone(), &mid_pattern, obj_pattern, &sol
+                    ctx,
+                    mid_value,
+                    second,
+                    object.clone(),
+                    &mid_pattern,
+                    obj_pattern,
+                    &sol,
                 )?;
                 solutions.extend(second_solutions);
             }
@@ -556,22 +613,48 @@ fn evaluate_property_path(
 
         PropertyPath::Alternative(left, right) => {
             let mut left_solutions = evaluate_property_path(
-                ctx, subject.clone(), left, object.clone(), subj_pattern, obj_pattern, binding
+                ctx,
+                subject.clone(),
+                left,
+                object.clone(),
+                subj_pattern,
+                obj_pattern,
+                binding,
             )?;
             let right_solutions = evaluate_property_path(
-                ctx, subject, right, object, subj_pattern, obj_pattern, binding
+                ctx,
+                subject,
+                right,
+                object,
+                subj_pattern,
+                obj_pattern,
+                binding,
             )?;
             left_solutions.extend(right_solutions);
             Ok(left_solutions)
         }
 
-        PropertyPath::ZeroOrMore(inner) => {
-            evaluate_transitive_path(ctx, subject, inner, object, subj_pattern, obj_pattern, binding, true)
-        }
+        PropertyPath::ZeroOrMore(inner) => evaluate_transitive_path(
+            ctx,
+            subject,
+            inner,
+            object,
+            subj_pattern,
+            obj_pattern,
+            binding,
+            true,
+        ),
 
-        PropertyPath::OneOrMore(inner) => {
-            evaluate_transitive_path(ctx, subject, inner, object, subj_pattern, obj_pattern, binding, false)
-        }
+        PropertyPath::OneOrMore(inner) => evaluate_transitive_path(
+            ctx,
+            subject,
+            inner,
+            object,
+            subj_pattern,
+            obj_pattern,
+            binding,
+            false,
+        ),
 
         PropertyPath::ZeroOrOne(inner) => {
             let mut solutions = Vec::new();
@@ -592,7 +675,13 @@ fn evaluate_property_path(
 
             // One case
             let one_solutions = evaluate_property_path(
-                ctx, subject, inner, object, subj_pattern, obj_pattern, binding
+                ctx,
+                subject,
+                inner,
+                object,
+                subj_pattern,
+                obj_pattern,
+                binding,
             )?;
             solutions.extend(one_solutions);
 
@@ -622,7 +711,9 @@ fn evaluate_property_path(
             Ok(solutions)
         }
 
-        _ => Err(SparqlError::PropertyPathError("Unsupported property path".to_string())),
+        _ => Err(SparqlError::PropertyPathError(
+            "Unsupported property path".to_string(),
+        )),
     }
 }
 
@@ -829,7 +920,8 @@ fn filter_solutions(solutions: Solutions, condition: &Expression) -> SparqlResul
 }
 
 fn join_values(solutions: Solutions, values: &ValuesClause) -> SparqlResult<Solutions> {
-    let value_solutions: Solutions = values.bindings
+    let value_solutions: Solutions = values
+        .bindings
         .iter()
         .map(|row| {
             let mut binding = Binding::new();
@@ -1029,7 +1121,11 @@ fn compute_aggregate(agg: &Aggregate, group: &Solutions) -> SparqlResult<Option<
             Ok(max)
         }
 
-        Aggregate::GroupConcat { expr, separator, distinct } => {
+        Aggregate::GroupConcat {
+            expr,
+            separator,
+            distinct,
+        } => {
             let sep = separator.as_deref().unwrap_or(" ");
             let mut values: Vec<String> = Vec::new();
             let mut seen: std::collections::HashSet<String> = std::collections::HashSet::new();
@@ -1080,7 +1176,10 @@ fn compare_terms(a: &RdfTerm, b: &RdfTerm) -> std::cmp::Ordering {
 // Solution Modifiers
 // ============================================================================
 
-fn apply_modifiers(mut solutions: Solutions, modifier: &SolutionModifier) -> SparqlResult<Solutions> {
+fn apply_modifiers(
+    mut solutions: Solutions,
+    modifier: &SolutionModifier,
+) -> SparqlResult<Solutions> {
     // ORDER BY
     if !modifier.order_by.is_empty() {
         solutions.sort_by(|a, b| {
@@ -1149,16 +1248,17 @@ fn evaluate_expression(expr: &Expression, binding: &Binding) -> SparqlResult<Opt
         }
 
         Expression::Function(func) => {
-            let args: Vec<Option<RdfTerm>> = func.args
+            let args: Vec<Option<RdfTerm>> = func
+                .args
                 .iter()
                 .map(|a| evaluate_expression(a, binding))
                 .collect::<SparqlResult<Vec<_>>>()?;
             evaluate_function(&func.name, args)
         }
 
-        Expression::Bound(var) => {
-            Ok(Some(RdfTerm::Literal(Literal::boolean(binding.contains_key(var)))))
-        }
+        Expression::Bound(var) => Ok(Some(RdfTerm::Literal(Literal::boolean(
+            binding.contains_key(var),
+        )))),
 
         Expression::If(cond, then_expr, else_expr) => {
             if evaluate_expression_as_bool(cond, binding)? {
@@ -1202,33 +1302,35 @@ fn evaluate_expression(expr: &Expression, binding: &Binding) -> SparqlResult<Opt
         Expression::IsIri(e) => {
             let v = evaluate_expression(e, binding)?;
             Ok(Some(RdfTerm::Literal(Literal::boolean(
-                v.map(|t| t.is_iri()).unwrap_or(false)
+                v.map(|t| t.is_iri()).unwrap_or(false),
             ))))
         }
 
         Expression::IsBlank(e) => {
             let v = evaluate_expression(e, binding)?;
             Ok(Some(RdfTerm::Literal(Literal::boolean(
-                v.map(|t| t.is_blank_node()).unwrap_or(false)
+                v.map(|t| t.is_blank_node()).unwrap_or(false),
             ))))
         }
 
         Expression::IsLiteral(e) => {
             let v = evaluate_expression(e, binding)?;
             Ok(Some(RdfTerm::Literal(Literal::boolean(
-                v.map(|t| t.is_literal()).unwrap_or(false)
+                v.map(|t| t.is_literal()).unwrap_or(false),
             ))))
         }
 
         Expression::IsNumeric(e) => {
             let v = evaluate_expression(e, binding)?;
-            let is_numeric = v.map(|t| {
-                if let RdfTerm::Literal(lit) = t {
-                    lit.as_double().is_some()
-                } else {
-                    false
-                }
-            }).unwrap_or(false);
+            let is_numeric = v
+                .map(|t| {
+                    if let RdfTerm::Literal(lit) = t {
+                        lit.as_double().is_some()
+                    } else {
+                        false
+                    }
+                })
+                .unwrap_or(false);
             Ok(Some(RdfTerm::Literal(Literal::boolean(is_numeric))))
         }
 
@@ -1271,14 +1373,17 @@ fn evaluate_expression(expr: &Expression, binding: &Binding) -> SparqlResult<Opt
             let pattern_val = evaluate_expression(pattern, binding)?
                 .map(|t| term_to_string(&t))
                 .unwrap_or_default();
-            let flags_val = flags.as_ref()
+            let flags_val = flags
+                .as_ref()
                 .and_then(|f| evaluate_expression(f, binding).ok().flatten())
                 .map(|t| term_to_string(&t))
                 .unwrap_or_default();
 
             // Simple regex matching (limited without regex crate)
             let matches = if flags_val.contains('i') {
-                text_val.to_lowercase().contains(&pattern_val.to_lowercase())
+                text_val
+                    .to_lowercase()
+                    .contains(&pattern_val.to_lowercase())
             } else {
                 text_val.contains(&pattern_val)
             };
@@ -1288,12 +1393,16 @@ fn evaluate_expression(expr: &Expression, binding: &Binding) -> SparqlResult<Opt
 
         Expression::Aggregate(_) => {
             // Aggregates are handled separately in GROUP BY
-            Err(SparqlError::AggregateError("Aggregate in non-aggregate context".to_string()))
+            Err(SparqlError::AggregateError(
+                "Aggregate in non-aggregate context".to_string(),
+            ))
         }
 
         Expression::Exists(pattern) | Expression::NotExists(pattern) => {
             // Would need context to evaluate
-            Err(SparqlError::UnsupportedOperation("EXISTS requires context".to_string()))
+            Err(SparqlError::UnsupportedOperation(
+                "EXISTS requires context".to_string(),
+            ))
         }
     }
 }
@@ -1379,9 +1488,7 @@ fn evaluate_binary_op(
             }
         }
 
-        BinaryOp::SameTerm => {
-            Ok(Some(RdfTerm::Literal(Literal::boolean(left == right))))
-        }
+        BinaryOp::SameTerm => Ok(Some(RdfTerm::Literal(Literal::boolean(left == right)))),
 
         BinaryOp::LangMatches => {
             let lang = left.map(|t| term_to_string(&t)).unwrap_or_default();
@@ -1390,8 +1497,10 @@ fn evaluate_binary_op(
             let matches = if range == "*" {
                 !lang.is_empty()
             } else {
-                lang.eq_ignore_ascii_case(&range) ||
-                lang.to_lowercase().starts_with(&format!("{}-", range.to_lowercase()))
+                lang.eq_ignore_ascii_case(&range)
+                    || lang
+                        .to_lowercase()
+                        .starts_with(&format!("{}-", range.to_lowercase()))
             };
 
             Ok(Some(RdfTerm::Literal(Literal::boolean(matches))))
@@ -1595,20 +1704,36 @@ fn execute_update(ctx: &mut SparqlContext, op: &UpdateOperation) -> SparqlResult
             Ok(())
         }
 
-        UpdateOperation::Load { source, destination, silent } => {
-            Err(SparqlError::UnsupportedOperation("LOAD not supported".to_string()))
-        }
+        UpdateOperation::Load {
+            source,
+            destination,
+            silent,
+        } => Err(SparqlError::UnsupportedOperation(
+            "LOAD not supported".to_string(),
+        )),
 
         UpdateOperation::Create { graph, silent } => {
             // Named graphs are created automatically
             Ok(())
         }
 
-        UpdateOperation::Copy { source, destination, silent } |
-        UpdateOperation::Move { source, destination, silent } |
-        UpdateOperation::Add { source, destination, silent } => {
-            Err(SparqlError::UnsupportedOperation("Graph management not fully supported".to_string()))
+        UpdateOperation::Copy {
+            source,
+            destination,
+            silent,
         }
+        | UpdateOperation::Move {
+            source,
+            destination,
+            silent,
+        }
+        | UpdateOperation::Add {
+            source,
+            destination,
+            silent,
+        } => Err(SparqlError::UnsupportedOperation(
+            "Graph management not fully supported".to_string(),
+        )),
     }
 }
 
@@ -1679,12 +1804,15 @@ mod tests {
     #[test]
     fn test_select_with_filter() {
         let store = setup_test_store();
-        let query = parse_sparql(r#"
+        let query = parse_sparql(
+            r#"
             SELECT ?name WHERE {
                 ?s <http://example.org/name> ?name .
                 FILTER(?name = "Alice")
             }
-        "#).unwrap();
+        "#,
+        )
+        .unwrap();
         let result = execute_sparql(&store, &query).unwrap();
 
         if let QueryResult::Select(select) = result {
@@ -1699,9 +1827,12 @@ mod tests {
     fn test_ask_query() {
         let store = setup_test_store();
 
-        let query = parse_sparql(r#"
+        let query = parse_sparql(
+            r#"
             ASK { <http://example.org/person/1> <http://example.org/name> "Alice" }
-        "#).unwrap();
+        "#,
+        )
+        .unwrap();
         let result = execute_sparql(&store, &query).unwrap();
 
         assert!(matches!(result, QueryResult::Ask(true)));
@@ -1710,11 +1841,14 @@ mod tests {
     #[test]
     fn test_count_aggregate() {
         let store = setup_test_store();
-        let query = parse_sparql(r#"
+        let query = parse_sparql(
+            r#"
             SELECT (COUNT(?s) AS ?count) WHERE {
                 ?s a <http://example.org/Person>
             }
-        "#).unwrap();
+        "#,
+        )
+        .unwrap();
         let result = execute_sparql(&store, &query).unwrap();
 
         if let QueryResult::Select(select) = result {
@@ -1725,18 +1859,25 @@ mod tests {
     #[test]
     fn test_optional_pattern() {
         let store = setup_test_store();
-        let query = parse_sparql(r#"
+        let query = parse_sparql(
+            r#"
             SELECT ?name ?age WHERE {
                 ?s <http://example.org/name> ?name .
                 OPTIONAL { ?s <http://example.org/age> ?age }
             }
-        "#).unwrap();
+        "#,
+        )
+        .unwrap();
         let result = execute_sparql(&store, &query).unwrap();
 
         if let QueryResult::Select(select) = result {
             assert_eq!(select.bindings.len(), 2);
             // One binding should have age, one should not
-            let with_age = select.bindings.iter().filter(|b| b.contains_key("age")).count();
+            let with_age = select
+                .bindings
+                .iter()
+                .filter(|b| b.contains_key("age"))
+                .count();
             assert_eq!(with_age, 1);
         }
     }

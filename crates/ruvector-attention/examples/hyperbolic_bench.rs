@@ -6,18 +6,18 @@ use std::time::Instant;
 
 // Import both attention mechanisms
 use ruvector_attention::hyperbolic::{
+    busemann_score,
+    einstein_midpoint,
+    frechet_mean,
+    lorentz_distance,
     // Poincaré (baseline)
     poincare_distance,
-    frechet_mean,
+    project_hyperboloid,
     HyperbolicAttention,
     HyperbolicAttentionConfig,
+    LCAConfig,
     // Lorentz Cascade (novel)
     LorentzCascadeAttention,
-    LCAConfig,
-    lorentz_distance,
-    einstein_midpoint,
-    project_hyperboloid,
-    busemann_score,
 };
 
 fn generate_test_data(n: usize, dim: usize) -> (Vec<f32>, Vec<Vec<f32>>) {
@@ -107,7 +107,11 @@ fn bench_einstein_midpoint(iterations: usize, n_points: usize, dim: usize) -> st
     start.elapsed()
 }
 
-fn bench_full_poincare_attention(iterations: usize, n_keys: usize, dim: usize) -> std::time::Duration {
+fn bench_full_poincare_attention(
+    iterations: usize,
+    n_keys: usize,
+    dim: usize,
+) -> std::time::Duration {
     let (query, keys) = generate_test_data(n_keys, dim);
     let keys_refs: Vec<&[f32]> = keys.iter().map(|k| k.as_slice()).collect();
 
@@ -156,7 +160,10 @@ fn main() {
     let n_keys = 100;
     let dim = 64;
 
-    println!("Configuration: {} iterations, {} keys, {} dimensions\n", iterations, n_keys, dim);
+    println!(
+        "Configuration: {} iterations, {} keys, {} dimensions\n",
+        iterations, n_keys, dim
+    );
 
     // Distance computation benchmarks
     println!("┌─────────────────────────────────────────────────────────────────┐");
@@ -171,11 +178,20 @@ fn main() {
     let lorentz_per_op = lorentz_dist_time.as_nanos() as f64 / (iterations * n_keys) as f64;
     let busemann_per_op = busemann_time.as_nanos() as f64 / (iterations * n_keys) as f64;
 
-    println!("│ Poincaré distance:     {:>8.1} ns/op                          │", poincare_per_op);
-    println!("│ Lorentz distance:      {:>8.1} ns/op  ({:.1}x vs Poincaré)      │",
-             lorentz_per_op, poincare_per_op / lorentz_per_op);
-    println!("│ Busemann scoring:      {:>8.1} ns/op  ({:.1}x vs Poincaré)      │",
-             busemann_per_op, poincare_per_op / busemann_per_op);
+    println!(
+        "│ Poincaré distance:     {:>8.1} ns/op                          │",
+        poincare_per_op
+    );
+    println!(
+        "│ Lorentz distance:      {:>8.1} ns/op  ({:.1}x vs Poincaré)      │",
+        lorentz_per_op,
+        poincare_per_op / lorentz_per_op
+    );
+    println!(
+        "│ Busemann scoring:      {:>8.1} ns/op  ({:.1}x vs Poincaré)      │",
+        busemann_per_op,
+        poincare_per_op / busemann_per_op
+    );
     println!("└─────────────────────────────────────────────────────────────────┘\n");
 
     // Aggregation benchmarks
@@ -183,15 +199,21 @@ fn main() {
     println!("│ 2. AGGREGATION (CENTROID)                                       │");
     println!("├─────────────────────────────────────────────────────────────────┤");
 
-    let frechet_time = bench_frechet_mean(iterations / 10, n_keys, dim);  // Fewer iterations (slow)
+    let frechet_time = bench_frechet_mean(iterations / 10, n_keys, dim); // Fewer iterations (slow)
     let einstein_time = bench_einstein_midpoint(iterations, n_keys, dim);
 
     let frechet_per_op = frechet_time.as_nanos() as f64 / (iterations / 10) as f64;
     let einstein_per_op = einstein_time.as_nanos() as f64 / iterations as f64;
 
-    println!("│ Fréchet mean (50 iter): {:>10.1} ns/op                       │", frechet_per_op);
-    println!("│ Einstein midpoint:      {:>10.1} ns/op  ({:.1}x faster!)      │",
-             einstein_per_op, frechet_per_op / einstein_per_op);
+    println!(
+        "│ Fréchet mean (50 iter): {:>10.1} ns/op                       │",
+        frechet_per_op
+    );
+    println!(
+        "│ Einstein midpoint:      {:>10.1} ns/op  ({:.1}x faster!)      │",
+        einstein_per_op,
+        frechet_per_op / einstein_per_op
+    );
     println!("└─────────────────────────────────────────────────────────────────┘\n");
 
     // Full attention benchmarks
@@ -205,18 +227,33 @@ fn main() {
     let poincare_full_per_op = poincare_full_time.as_nanos() as f64 / (iterations / 10) as f64;
     let lca_full_per_op = lca_full_time.as_nanos() as f64 / (iterations / 10) as f64;
 
-    println!("│ Poincaré Attention:     {:>10.1} ns/op                       │", poincare_full_per_op);
-    println!("│ Lorentz Cascade (4 heads): {:>7.1} ns/op  ({:.1}x speedup)   │",
-             lca_full_per_op, poincare_full_per_op / lca_full_per_op);
+    println!(
+        "│ Poincaré Attention:     {:>10.1} ns/op                       │",
+        poincare_full_per_op
+    );
+    println!(
+        "│ Lorentz Cascade (4 heads): {:>7.1} ns/op  ({:.1}x speedup)   │",
+        lca_full_per_op,
+        poincare_full_per_op / lca_full_per_op
+    );
     println!("└─────────────────────────────────────────────────────────────────┘\n");
 
     // Summary
     println!("╔══════════════════════════════════════════════════════════════════╗");
     println!("║ SUMMARY: Lorentz Cascade Attention Improvements                  ║");
     println!("╠══════════════════════════════════════════════════════════════════╣");
-    println!("║ • Busemann scoring:    {:.1}x faster than Poincaré distance       ║", poincare_per_op / busemann_per_op);
-    println!("║ • Einstein midpoint:   {:.1}x faster than Fréchet mean           ║", frechet_per_op / einstein_per_op);
-    println!("║ • End-to-end:          {:.1}x overall speedup                     ║", poincare_full_per_op / lca_full_per_op);
+    println!(
+        "║ • Busemann scoring:    {:.1}x faster than Poincaré distance       ║",
+        poincare_per_op / busemann_per_op
+    );
+    println!(
+        "║ • Einstein midpoint:   {:.1}x faster than Fréchet mean           ║",
+        frechet_per_op / einstein_per_op
+    );
+    println!(
+        "║ • End-to-end:          {:.1}x overall speedup                     ║",
+        poincare_full_per_op / lca_full_per_op
+    );
     println!("║                                                                  ║");
     println!("║ Additional benefits:                                             ║");
     println!("║ • No boundary instability (Lorentz vs Poincaré ball)            ║");

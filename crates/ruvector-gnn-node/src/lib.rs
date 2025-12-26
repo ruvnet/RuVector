@@ -92,7 +92,9 @@ impl RuvectorLayer {
             .collect();
         let weights_slice = edge_weights.as_ref();
 
-        let result = self.inner.forward(node_slice, &neighbors_vec, weights_slice);
+        let result = self
+            .inner
+            .forward(node_slice, &neighbors_vec, weights_slice);
 
         Ok(Float32Array::new(result))
     }
@@ -368,12 +370,7 @@ pub fn hierarchical_forward(
 
     let embeddings_f32: Vec<Vec<Vec<f32>>> = layer_embeddings
         .into_iter()
-        .map(|layer| {
-            layer
-                .into_iter()
-                .map(|arr| arr.to_vec())
-                .collect()
-        })
+        .map(|layer| layer.into_iter().map(|arr| arr.to_vec()).collect())
         .collect();
 
     let gnn_layers: Vec<RustRuvectorLayer> = gnn_layers_json

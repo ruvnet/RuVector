@@ -10,7 +10,7 @@ use governor::{
     Quota, RateLimiter,
 };
 use nonzero_ext::nonzero;
-use sha2::{Sha256, Digest};
+use sha2::{Digest, Sha256};
 use std::sync::Arc;
 use tracing::{debug, warn};
 
@@ -138,15 +138,13 @@ fn constant_time_compare(a: &str, b: &str) -> bool {
 
 /// Extract query parameter from query string
 fn extract_query_param<'a>(query: &'a str, param: &str) -> Option<&'a str> {
-    query
-        .split('&')
-        .find_map(|pair| {
-            let mut parts = pair.split('=');
-            match (parts.next(), parts.next()) {
-                (Some(k), Some(v)) if k == param => Some(v),
-                _ => None,
-            }
-        })
+    query.split('&').find_map(|pair| {
+        let mut parts = pair.split('=');
+        match (parts.next(), parts.next()) {
+            (Some(k), Some(v)) if k == param => Some(v),
+            _ => None,
+        }
+    })
 }
 
 /// Create a rate limiter with token bucket algorithm

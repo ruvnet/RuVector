@@ -4,9 +4,9 @@
 //! Recomputes minimum cut on every query - O(2^n) worst case.
 //! Only suitable for small graphs (n < 20).
 
-use super::{ProperCutInstance, InstanceResult};
 use super::witness::WitnessHandle;
-use crate::graph::{VertexId, EdgeId, DynamicGraph};
+use super::{InstanceResult, ProperCutInstance};
+use crate::graph::{DynamicGraph, EdgeId, VertexId};
 use roaring::RoaringBitmap;
 use std::collections::{HashMap, HashSet, VecDeque};
 
@@ -105,7 +105,8 @@ impl StubInstance {
         // Check if graph is connected
         if !self.is_connected() {
             // Disconnected graph has min cut 0
-            let membership = RoaringBitmap::from_iter(self.vertices.iter().take(1).map(|&v| v as u32));
+            let membership =
+                RoaringBitmap::from_iter(self.vertices.iter().take(1).map(|&v| v as u32));
             let seed = *self.vertices.iter().next().unwrap();
             let witness = WitnessHandle::new(seed, membership, 0);
             return Some((0, witness));
@@ -515,7 +516,7 @@ mod tests {
         // so it returns ValueInRange
         let result = instance.query();
         // Stub doesn't check lambda_min, so behavior depends on implementation
-        
+
         // Instance with range [0, 1]
         let mut instance = StubInstance::new(&graph, 0, 1);
 

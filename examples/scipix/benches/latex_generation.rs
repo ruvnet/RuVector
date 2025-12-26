@@ -1,4 +1,4 @@
-use criterion::{criterion_group, criterion_main, Criterion, BenchmarkId, black_box};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use std::time::Duration;
 
 /// Benchmark simple LaTeX expression generation
@@ -7,22 +7,40 @@ fn bench_simple_expressions(c: &mut Criterion) {
     group.measurement_time(Duration::from_secs(5));
 
     let test_cases = vec![
-        ("fraction", Expression::Fraction(Box::new(Expression::Number(1)), Box::new(Expression::Number(2)))),
-        ("power", Expression::Power(Box::new(Expression::Variable("x".to_string())), Box::new(Expression::Number(2)))),
-        ("sum", Expression::Sum(Box::new(Expression::Number(1)), Box::new(Expression::Number(2)))),
-        ("product", Expression::Product(Box::new(Expression::Variable("a".to_string())), Box::new(Expression::Variable("b".to_string())))),
+        (
+            "fraction",
+            Expression::Fraction(
+                Box::new(Expression::Number(1)),
+                Box::new(Expression::Number(2)),
+            ),
+        ),
+        (
+            "power",
+            Expression::Power(
+                Box::new(Expression::Variable("x".to_string())),
+                Box::new(Expression::Number(2)),
+            ),
+        ),
+        (
+            "sum",
+            Expression::Sum(
+                Box::new(Expression::Number(1)),
+                Box::new(Expression::Number(2)),
+            ),
+        ),
+        (
+            "product",
+            Expression::Product(
+                Box::new(Expression::Variable("a".to_string())),
+                Box::new(Expression::Variable("b".to_string())),
+            ),
+        ),
     ];
 
     for (name, expr) in test_cases {
-        group.bench_with_input(
-            BenchmarkId::new("to_latex", name),
-            &expr,
-            |b, expr| {
-                b.iter(|| {
-                    black_box(expr.to_latex())
-                });
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("to_latex", name), &expr, |b, expr| {
+            b.iter(|| black_box(expr.to_latex()));
+        });
     }
 
     group.finish();
@@ -45,15 +63,9 @@ fn bench_complex_expressions(c: &mut Criterion) {
     ];
 
     for (name, expr) in test_cases {
-        group.bench_with_input(
-            BenchmarkId::new("to_latex", name),
-            &expr,
-            |b, expr| {
-                b.iter(|| {
-                    black_box(expr.to_latex())
-                });
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("to_latex", name), &expr, |b, expr| {
+            b.iter(|| black_box(expr.to_latex()));
+        });
     }
 
     group.finish();
@@ -69,15 +81,9 @@ fn bench_ast_traversal(c: &mut Criterion) {
     for depth in depths {
         let expr = create_nested_expression(depth);
 
-        group.bench_with_input(
-            BenchmarkId::new("depth", depth),
-            &expr,
-            |b, expr| {
-                b.iter(|| {
-                    black_box(count_nodes(black_box(expr)))
-                });
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("depth", depth), &expr, |b, expr| {
+            b.iter(|| black_box(count_nodes(black_box(expr))));
+        });
     }
 
     group.finish();
@@ -92,15 +98,11 @@ fn bench_string_building(c: &mut Criterion) {
 
     // Compare different string building strategies
     group.bench_function("to_latex_default", |b| {
-        b.iter(|| {
-            black_box(expr.to_latex())
-        });
+        b.iter(|| black_box(expr.to_latex()));
     });
 
     group.bench_function("to_latex_with_capacity", |b| {
-        b.iter(|| {
-            black_box(expr.to_latex_with_capacity())
-        });
+        b.iter(|| black_box(expr.to_latex_with_capacity()));
     });
 
     group.finish();
@@ -119,15 +121,9 @@ fn bench_latex_escaping(c: &mut Criterion) {
     ];
 
     for (name, text) in test_strings {
-        group.bench_with_input(
-            BenchmarkId::new("escape", name),
-            &text,
-            |b, text| {
-                b.iter(|| {
-                    black_box(escape_latex(black_box(text)))
-                });
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("escape", name), &text, |b, text| {
+            b.iter(|| black_box(escape_latex(black_box(text))));
+        });
     }
 
     group.finish();
@@ -143,9 +139,7 @@ fn bench_latency_target(c: &mut Criterion) {
     let expr = create_typical_ocr_expression();
 
     group.bench_function("typical_ocr_expression", |b| {
-        b.iter(|| {
-            black_box(expr.to_latex())
-        });
+        b.iter(|| black_box(expr.to_latex()));
     });
 
     group.finish();
@@ -159,19 +153,14 @@ fn bench_batch_generation(c: &mut Criterion) {
     let batch_sizes = [10, 50, 100];
 
     for size in batch_sizes {
-        let expressions: Vec<_> = (0..size)
-            .map(|i| create_polynomial(i % 10 + 1))
-            .collect();
+        let expressions: Vec<_> = (0..size).map(|i| create_polynomial(i % 10 + 1)).collect();
 
         group.bench_with_input(
             BenchmarkId::new("batch_size", size),
             &expressions,
             |b, exprs| {
                 b.iter(|| {
-                    let results: Vec<_> = exprs
-                        .iter()
-                        .map(|expr| expr.to_latex())
-                        .collect();
+                    let results: Vec<_> = exprs.iter().map(|expr| expr.to_latex()).collect();
                     black_box(results)
                 });
             },
@@ -230,10 +219,22 @@ impl Expression {
                 result
             }
             Expression::Integral(expr, var, lower, upper) => {
-                format!("\\int_{{{}}}^{{{}}} {} \\, d{}", lower, upper, expr.to_latex(), var)
+                format!(
+                    "\\int_{{{}}}^{{{}}} {} \\, d{}",
+                    lower,
+                    upper,
+                    expr.to_latex(),
+                    var
+                )
             }
             Expression::Summation(expr, var, lower, upper) => {
-                format!("\\sum_{{{}={}}}^{{{}}} {}", var, lower, upper, expr.to_latex())
+                format!(
+                    "\\sum_{{{}={}}}^{{{}}} {}",
+                    var,
+                    lower,
+                    upper,
+                    expr.to_latex()
+                )
             }
         }
     }
@@ -347,12 +348,15 @@ fn create_typical_ocr_expression() -> Expression {
 fn count_nodes(expr: &Expression) -> usize {
     match expr {
         Expression::Number(_) | Expression::Variable(_) => 1,
-        Expression::Fraction(a, b) | Expression::Power(a, b)
-        | Expression::Sum(a, b) | Expression::Product(a, b) => {
-            1 + count_nodes(a) + count_nodes(b)
-        }
+        Expression::Fraction(a, b)
+        | Expression::Power(a, b)
+        | Expression::Sum(a, b)
+        | Expression::Product(a, b) => 1 + count_nodes(a) + count_nodes(b),
         Expression::Matrix(rows) => {
-            1 + rows.iter().map(|row| row.iter().map(|e| count_nodes(e)).sum::<usize>()).sum::<usize>()
+            1 + rows
+                .iter()
+                .map(|row| row.iter().map(|e| count_nodes(e)).sum::<usize>())
+                .sum::<usize>()
         }
         Expression::Integral(expr, _, _, _) | Expression::Summation(expr, _, _, _) => {
             1 + count_nodes(expr)

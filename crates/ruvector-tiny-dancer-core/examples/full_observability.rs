@@ -136,7 +136,11 @@ fn create_candidates(offset: i32, count: usize) -> Vec<Candidate> {
 }
 
 fn count_routes(response: &RoutingResponse) -> (usize, usize) {
-    let lightweight = response.decisions.iter().filter(|d| d.use_lightweight).count();
+    let lightweight = response
+        .decisions
+        .iter()
+        .filter(|d| d.use_lightweight)
+        .count();
     let powerful = response.decisions.len() - lightweight;
     (lightweight, powerful)
 }

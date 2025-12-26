@@ -1,12 +1,11 @@
 //! Integration tests for certificate system
 
+use roaring::RoaringBitmap;
 use ruvector_mincut::prelude::*;
 use ruvector_mincut::{
-    CutCertificate, CertificateError, CertLocalKCutQuery, LocalKCutResponse,
-    LocalKCutResultSummary, UpdateTrigger, UpdateType, AuditLogger,
-    AuditEntryType, AuditData,
+    AuditData, AuditEntryType, AuditLogger, CertLocalKCutQuery, CertificateError, CutCertificate,
+    LocalKCutResponse, LocalKCutResultSummary, UpdateTrigger, UpdateType,
 };
-use roaring::RoaringBitmap;
 
 #[test]
 fn test_certificate_creation() {
@@ -114,7 +113,10 @@ fn test_certificate_verify_invalid_index() {
     cert.best_witness_idx = Some(10);
 
     let result = cert.verify();
-    assert!(matches!(result, Err(CertificateError::InvalidWitnessIndex { .. })));
+    assert!(matches!(
+        result,
+        Err(CertificateError::InvalidWitnessIndex { .. })
+    ));
 }
 
 #[test]
@@ -140,7 +142,10 @@ fn test_certificate_json_roundtrip() {
     cert.set_best_witness(1, witness2);
 
     let query = CertLocalKCutQuery::new(vec![1], 5, 2);
-    let result = LocalKCutResultSummary::Found { cut_value: 3, witness_hash: 999 };
+    let result = LocalKCutResultSummary::Found {
+        cut_value: 3,
+        witness_hash: 999,
+    };
     let response = LocalKCutResponse::new(query, result, 100, None);
     cert.add_response(response);
 
@@ -184,7 +189,12 @@ fn test_audit_logger_log_query() {
     let entries = logger.by_type(AuditEntryType::LocalKCutQuery);
     assert_eq!(entries.len(), 1);
 
-    if let AuditData::Query { budget, radius, seeds } = &entries[0].data {
+    if let AuditData::Query {
+        budget,
+        radius,
+        seeds,
+    } = &entries[0].data
+    {
         assert_eq!(*budget, 10);
         assert_eq!(*radius, 5);
         assert_eq!(seeds.len(), 3);
@@ -197,7 +207,10 @@ fn test_audit_logger_log_query() {
 fn test_audit_logger_log_response() {
     let logger = AuditLogger::new(100);
     let query = CertLocalKCutQuery::new(vec![1], 5, 2);
-    let result = LocalKCutResultSummary::Found { cut_value: 3, witness_hash: 999 };
+    let result = LocalKCutResultSummary::Found {
+        cut_value: 3,
+        witness_hash: 999,
+    };
     let response = LocalKCutResponse::new(query, result, 100, None);
 
     logger.log_response(&response);
@@ -216,7 +229,12 @@ fn test_audit_logger_log_mincut_change() {
     let entries = logger.by_type(AuditEntryType::MinCutChanged);
     assert_eq!(entries.len(), 1);
 
-    if let AuditData::MinCut { old_value, new_value, .. } = &entries[0].data {
+    if let AuditData::MinCut {
+        old_value,
+        new_value,
+        ..
+    } = &entries[0].data
+    {
         assert_eq!(*old_value, 10);
         assert_eq!(*new_value, 8);
     } else {
@@ -229,7 +247,8 @@ fn test_audit_logger_max_capacity() {
     let logger = AuditLogger::new(3);
 
     for i in 0..10 {
-        let witness = WitnessHandle::new(i, RoaringBitmap::from_iter([i as u32, (i+1) as u32]), i);
+        let witness =
+            WitnessHandle::new(i, RoaringBitmap::from_iter([i as u32, (i + 1) as u32]), i);
         logger.log_witness_created(&witness);
     }
 
@@ -311,7 +330,10 @@ fn test_certificate_with_audit_trail() {
     let query = CertLocalKCutQuery::new(vec![1, 2], 10, 5);
     logger.log_query(10, 5, vec![1, 2]);
 
-    let result = LocalKCutResultSummary::Found { cut_value: 5, witness_hash: 12345 };
+    let result = LocalKCutResultSummary::Found {
+        cut_value: 5,
+        witness_hash: 12345,
+    };
     let response = LocalKCutResponse::new(query, result, 100, None);
     logger.log_response(&response);
     cert.add_response(response);
@@ -386,7 +408,10 @@ fn test_local_kcut_result_summary() {
     }
 
     let result_none = LocalKCutResultSummary::NoneInLocality;
-    assert!(matches!(result_none, LocalKCutResultSummary::NoneInLocality));
+    assert!(matches!(
+        result_none,
+        LocalKCutResultSummary::NoneInLocality
+    ));
 }
 
 #[test]
@@ -397,7 +422,10 @@ fn test_certificate_error_display() {
     let err = CertificateError::InvalidWitnessIndex { index: 5, max: 3 };
     assert!(err.to_string().contains("Invalid witness index"));
 
-    let err = CertificateError::InconsistentBoundary { expected: 10, actual: 5 };
+    let err = CertificateError::InconsistentBoundary {
+        expected: 10,
+        actual: 5,
+    };
     assert!(err.to_string().contains("Inconsistent boundary"));
 }
 

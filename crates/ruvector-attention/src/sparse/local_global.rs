@@ -53,11 +53,7 @@ impl LocalGlobalAttention {
     }
 
     /// Compute attention scores for global tokens
-    fn compute_global_scores(
-        &self,
-        query: &[f32],
-        keys: &[&[f32]],
-    ) -> Vec<(usize, f32)> {
+    fn compute_global_scores(&self, query: &[f32], keys: &[&[f32]]) -> Vec<(usize, f32)> {
         let num_global = self.num_global_tokens.min(keys.len());
 
         (0..num_global)
@@ -114,7 +110,9 @@ impl Attention for LocalGlobalAttention {
         }
 
         if attended.is_empty() {
-            return Err(AttentionError::ComputationError("No attended positions".to_string()));
+            return Err(AttentionError::ComputationError(
+                "No attended positions".to_string(),
+            ));
         }
 
         // Softmax over attended positions
@@ -140,7 +138,12 @@ impl Attention for LocalGlobalAttention {
         mask: Option<&[bool]>,
     ) -> AttentionResult<Vec<f32>> {
         if let Some(m) = mask {
-            let filtered: Vec<(usize, bool)> = m.iter().copied().enumerate().filter(|(_, keep)| *keep).collect();
+            let filtered: Vec<(usize, bool)> = m
+                .iter()
+                .copied()
+                .enumerate()
+                .filter(|(_, keep)| *keep)
+                .collect();
             let filtered_keys: Vec<&[f32]> = filtered.iter().map(|(i, _)| keys[*i]).collect();
             let filtered_values: Vec<&[f32]> = filtered.iter().map(|(i, _)| values[*i]).collect();
             self.compute(query, &filtered_keys, &filtered_values)

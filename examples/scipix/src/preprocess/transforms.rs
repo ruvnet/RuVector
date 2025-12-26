@@ -135,8 +135,8 @@ pub fn otsu_threshold(image: &GrayImage) -> Result<u8> {
         let mean_foreground = (sum_total - sum_background) / weight_foreground;
 
         // Inter-class variance
-        let variance = weight_background * weight_foreground *
-                      (mean_background - mean_foreground).powi(2);
+        let variance =
+            weight_background * weight_foreground * (mean_background - mean_foreground).powi(2);
 
         if variance > max_variance {
             max_variance = variance;
@@ -219,7 +219,11 @@ pub fn adaptive_threshold(image: &GrayImage, window_size: u32) -> Result<GrayIma
             // Apply threshold with small bias
             let pixel = image.get_pixel(x as u32, y as u32)[0];
             let bias = 5; // Small bias to reduce noise
-            let value = if pixel >= mean.saturating_sub(bias) { 255 } else { 0 };
+            let value = if pixel >= mean.saturating_sub(bias) {
+                255
+            } else {
+                0
+            };
 
             result.put_pixel(x as u32, y as u32, Luma([value]));
         }
@@ -236,10 +240,8 @@ fn compute_integral_image(image: &GrayImage) -> Vec<Vec<u64>> {
     for y in 1..=height as usize {
         for x in 1..=width as usize {
             let pixel = image.get_pixel(x as u32 - 1, y as u32 - 1)[0] as u64;
-            integral[y][x] = pixel
-                + integral[y - 1][x]
-                + integral[y][x - 1]
-                - integral[y - 1][x - 1];
+            integral[y][x] =
+                pixel + integral[y - 1][x] + integral[y][x - 1] - integral[y - 1][x - 1];
         }
     }
 
@@ -323,7 +325,11 @@ mod tests {
         let t = threshold.unwrap();
         // Should be somewhere between the two values (not necessarily strictly between)
         // Otsu finds optimal threshold which could be at boundary
-        assert!(t >= 50 && t <= 200, "threshold {} should be between 50 and 200", t);
+        assert!(
+            t >= 50 && t <= 200,
+            "threshold {} should be between 50 and 200",
+            t
+        );
     }
 
     #[test]

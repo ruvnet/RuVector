@@ -32,7 +32,11 @@ mod routing_tests {
         // Test cost-optimized routing
         let request_emb = vec![0.1; 384];
         let decision = router
-            .route(&request_emb, &RoutingConstraints::new(), OptimizationTarget::Cost)
+            .route(
+                &request_emb,
+                &RoutingConstraints::new(),
+                OptimizationTarget::Cost,
+            )
             .unwrap();
 
         assert_eq!(decision.agent_name, "llama-2"); // Free option
@@ -40,14 +44,22 @@ mod routing_tests {
 
         // Test quality-optimized routing
         let decision = router
-            .route(&request_emb, &RoutingConstraints::new(), OptimizationTarget::Quality)
+            .route(
+                &request_emb,
+                &RoutingConstraints::new(),
+                OptimizationTarget::Quality,
+            )
             .unwrap();
 
         assert_eq!(decision.agent_name, "gpt-4"); // Highest quality
 
         // Test latency-optimized routing
         let decision = router
-            .route(&request_emb, &RoutingConstraints::new(), OptimizationTarget::Latency)
+            .route(
+                &request_emb,
+                &RoutingConstraints::new(),
+                OptimizationTarget::Latency,
+            )
             .unwrap();
 
         assert_eq!(decision.agent_name, "gpt-3.5"); // Fastest
@@ -58,13 +70,27 @@ mod routing_tests {
         let registry = AgentRegistry::new();
         let router = Router::with_registry(std::sync::Arc::new(registry));
 
-        router.registry().register(
-            create_agent("expensive-high-quality", 1.0, 200.0, 0.99, vec!["coding"])
-        ).unwrap();
+        router
+            .registry()
+            .register(create_agent(
+                "expensive-high-quality",
+                1.0,
+                200.0,
+                0.99,
+                vec!["coding"],
+            ))
+            .unwrap();
 
-        router.registry().register(
-            create_agent("cheap-medium-quality", 0.01, 200.0, 0.75, vec!["coding"])
-        ).unwrap();
+        router
+            .registry()
+            .register(create_agent(
+                "cheap-medium-quality",
+                0.01,
+                200.0,
+                0.75,
+                vec!["coding"],
+            ))
+            .unwrap();
 
         let request_emb = vec![0.1; 384];
 
@@ -86,14 +112,19 @@ mod routing_tests {
         let mut router = Router::new();
         router.init_grnn(64);
 
-        router.registry().register(
-            create_agent("agent1", 0.05, 200.0, 0.85, vec!["coding"])
-        ).unwrap();
+        router
+            .registry()
+            .register(create_agent("agent1", 0.05, 200.0, 0.85, vec!["coding"]))
+            .unwrap();
 
         let request_emb = vec![0.1; 384];
 
         let decision = router
-            .route(&request_emb, &RoutingConstraints::new(), OptimizationTarget::Balanced)
+            .route(
+                &request_emb,
+                &RoutingConstraints::new(),
+                OptimizationTarget::Balanced,
+            )
             .unwrap();
 
         // Verify neural network enhanced confidence
@@ -106,23 +137,43 @@ mod routing_tests {
         let registry = AgentRegistry::new();
         let router = Router::with_registry(std::sync::Arc::new(registry));
 
-        router.registry().register(
-            create_agent("coder", 0.05, 200.0, 0.90, vec!["coding", "debugging"])
-        ).unwrap();
+        router
+            .registry()
+            .register(create_agent(
+                "coder",
+                0.05,
+                200.0,
+                0.90,
+                vec!["coding", "debugging"],
+            ))
+            .unwrap();
 
-        router.registry().register(
-            create_agent("writer", 0.03, 150.0, 0.85, vec!["writing", "translation"])
-        ).unwrap();
+        router
+            .registry()
+            .register(create_agent(
+                "writer",
+                0.03,
+                150.0,
+                0.85,
+                vec!["writing", "translation"],
+            ))
+            .unwrap();
 
-        router.registry().register(
-            create_agent("generalist", 0.02, 300.0, 0.70, vec!["coding", "writing", "general"])
-        ).unwrap();
+        router
+            .registry()
+            .register(create_agent(
+                "generalist",
+                0.02,
+                300.0,
+                0.70,
+                vec!["coding", "writing", "general"],
+            ))
+            .unwrap();
 
         let request_emb = vec![0.1; 384];
 
         // Require coding capability
-        let constraints = RoutingConstraints::new()
-            .with_capability("coding".to_string());
+        let constraints = RoutingConstraints::new().with_capability("coding".to_string());
 
         let decision = router
             .route(&request_emb, &constraints, OptimizationTarget::Quality)
@@ -199,15 +250,26 @@ mod routing_tests {
         for i in 0..5 {
             let quality = 0.7 + (i as f32 * 0.05);
             let cost = 0.01 + (i as f32 * 0.01);
-            router.registry().register(
-                create_agent(&format!("agent-{}", i), cost, 200.0, quality, vec!["test"])
-            ).unwrap();
+            router
+                .registry()
+                .register(create_agent(
+                    &format!("agent-{}", i),
+                    cost,
+                    200.0,
+                    quality,
+                    vec!["test"],
+                ))
+                .unwrap();
         }
 
         let request_emb = vec![0.1; 384];
 
         let decision = router
-            .route(&request_emb, &RoutingConstraints::new(), OptimizationTarget::Quality)
+            .route(
+                &request_emb,
+                &RoutingConstraints::new(),
+                OptimizationTarget::Quality,
+            )
             .unwrap();
 
         // Should have alternatives listed
@@ -226,19 +288,20 @@ mod routing_tests {
         let registry = AgentRegistry::new();
         let router = Router::with_registry(std::sync::Arc::new(registry));
 
-        router.registry().register(
-            create_agent("agent-a", 0.05, 200.0, 0.90, vec!["test"])
-        ).unwrap();
+        router
+            .registry()
+            .register(create_agent("agent-a", 0.05, 200.0, 0.90, vec!["test"]))
+            .unwrap();
 
-        router.registry().register(
-            create_agent("agent-b", 0.05, 200.0, 0.85, vec!["test"])
-        ).unwrap();
+        router
+            .registry()
+            .register(create_agent("agent-b", 0.05, 200.0, 0.85, vec!["test"]))
+            .unwrap();
 
         let request_emb = vec![0.1; 384];
 
         // Exclude the best agent
-        let constraints = RoutingConstraints::new()
-            .with_excluded_agent("agent-a".to_string());
+        let constraints = RoutingConstraints::new().with_excluded_agent("agent-a".to_string());
 
         let decision = router
             .route(&request_emb, &constraints, OptimizationTarget::Quality)

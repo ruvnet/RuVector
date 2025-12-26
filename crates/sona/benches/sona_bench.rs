@@ -1,5 +1,5 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId};
-use ruvector_sona::{SonaEngine, SonaConfig};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
+use ruvector_sona::{SonaConfig, SonaEngine};
 
 fn trajectory_benchmark(c: &mut Criterion) {
     let mut group = c.benchmark_group("trajectory");

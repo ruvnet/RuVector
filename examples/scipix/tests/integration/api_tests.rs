@@ -3,13 +3,15 @@
 // Tests HTTP API endpoints, authentication, rate limiting, and async processing
 
 use super::*;
-use reqwest::{Client, StatusCode, multipart};
+use reqwest::{multipart, Client, StatusCode};
 use serde_json::json;
 use tokio;
 
 #[tokio::test]
 async fn test_api_post_text_with_file() {
-    let test_server = TestServer::start_api().await.expect("Failed to start API server");
+    let test_server = TestServer::start_api()
+        .await
+        .expect("Failed to start API server");
     let client = Client::new();
 
     // Create test image
@@ -18,10 +20,13 @@ async fn test_api_post_text_with_file() {
     let image_bytes = std::fs::read("/tmp/api_test.png").unwrap();
 
     // Create multipart form
-    let form = multipart::Form::new()
-        .part("file", multipart::Part::bytes(image_bytes)
+    let form = multipart::Form::new().part(
+        "file",
+        multipart::Part::bytes(image_bytes)
             .file_name("equation.png")
-            .mime_str("image/png").unwrap());
+            .mime_str("image/png")
+            .unwrap(),
+    );
 
     // POST to /v3/text
     let response = client
@@ -38,14 +43,19 @@ async fn test_api_post_text_with_file() {
     let result: serde_json::Value = response.json().await.unwrap();
     assert!(result.get("request_id").is_some(), "Should have request_id");
     assert!(result.get("text").is_some(), "Should have text field");
-    assert!(result.get("processing_time_ms").is_some(), "Should have processing time");
+    assert!(
+        result.get("processing_time_ms").is_some(),
+        "Should have processing time"
+    );
 
     test_server.shutdown().await;
 }
 
 #[tokio::test]
 async fn test_api_authentication_validation() {
-    let test_server = TestServer::start_api().await.expect("Failed to start API server");
+    let test_server = TestServer::start_api()
+        .await
+        .expect("Failed to start API server");
     let client = Client::new();
 
     let payload = json!({
@@ -60,8 +70,11 @@ async fn test_api_authentication_validation() {
         .await
         .expect("Request failed");
 
-    assert_eq!(response.status(), StatusCode::UNAUTHORIZED,
-        "Should require authentication");
+    assert_eq!(
+        response.status(),
+        StatusCode::UNAUTHORIZED,
+        "Should require authentication"
+    );
 
     test_server.shutdown().await;
 }

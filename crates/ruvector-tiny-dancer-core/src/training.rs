@@ -136,12 +136,16 @@ impl TrainingDataset {
         let train_indices = &indices[..n_train];
         let val_indices = &indices[n_train..];
 
-        let train_features: Vec<Vec<f32>> =
-            train_indices.iter().map(|&i| self.features[i].clone()).collect();
+        let train_features: Vec<Vec<f32>> = train_indices
+            .iter()
+            .map(|&i| self.features[i].clone())
+            .collect();
         let train_labels: Vec<f32> = train_indices.iter().map(|&i| self.labels[i]).collect();
 
-        let val_features: Vec<Vec<f32>> =
-            val_indices.iter().map(|&i| self.features[i].clone()).collect();
+        let val_features: Vec<Vec<f32>> = val_indices
+            .iter()
+            .map(|&i| self.features[i].clone())
+            .collect();
         let val_labels: Vec<f32> = val_indices.iter().map(|&i| self.labels[i]).collect();
 
         let mut train_dataset = Self::new(train_features, train_labels)?;
@@ -256,11 +260,16 @@ impl<'a> Iterator for BatchIterator<'a> {
             .map(|&i| self.dataset.features[i].clone())
             .collect();
 
-        let labels: Vec<f32> = batch_indices.iter().map(|&i| self.dataset.labels[i]).collect();
+        let labels: Vec<f32> = batch_indices
+            .iter()
+            .map(|&i| self.dataset.labels[i])
+            .collect();
 
-        let soft_targets = self.dataset.soft_targets.as_ref().map(|targets| {
-            batch_indices.iter().map(|&i| targets[i]).collect()
-        });
+        let soft_targets = self
+            .dataset
+            .soft_targets
+            .as_ref()
+            .map(|targets| batch_indices.iter().map(|&i| targets[i]).collect());
 
         self.current_idx = end_idx;
 
@@ -293,11 +302,11 @@ impl AdamOptimizer {
 
         Self {
             m_weights: vec![
-                Array2::zeros((hidden_dim, input_dim)),   // w_reset
-                Array2::zeros((hidden_dim, input_dim)),   // w_update
-                Array2::zeros((hidden_dim, input_dim)),   // w_candidate
-                Array2::zeros((hidden_dim, hidden_dim)),  // w_recurrent
-                Array2::zeros((output_dim, hidden_dim)),  // w_output
+                Array2::zeros((hidden_dim, input_dim)),  // w_reset
+                Array2::zeros((hidden_dim, input_dim)),  // w_update
+                Array2::zeros((hidden_dim, input_dim)),  // w_candidate
+                Array2::zeros((hidden_dim, hidden_dim)), // w_recurrent
+                Array2::zeros((output_dim, hidden_dim)), // w_output
             ],
             m_biases: vec![
                 Array1::zeros(hidden_dim), // b_reset
@@ -376,7 +385,11 @@ impl Trainer {
         let (train_dataset, val_dataset) = dataset.split(self.config.validation_split)?;
 
         println!("Training FastGRNN model");
-        println!("Train samples: {}, Val samples: {}", train_dataset.len(), val_dataset.len());
+        println!(
+            "Train samples: {}, Val samples: {}",
+            train_dataset.len(),
+            val_dataset.len()
+        );
         println!("Hyperparameters: {:?}", self.config);
 
         let mut current_lr = self.config.learning_rate;
@@ -449,7 +462,13 @@ impl Trainer {
         let batch_iter = BatchIterator::new(dataset, self.config.batch_size, true);
 
         for (features, labels, soft_targets) in batch_iter {
-            let batch_loss = self.train_batch(model, &features, &labels, soft_targets.as_ref(), learning_rate)?;
+            let batch_loss = self.train_batch(
+                model,
+                &features,
+                &labels,
+                soft_targets.as_ref(),
+                learning_rate,
+            )?;
             total_loss += batch_loss;
             n_batches += 1;
         }

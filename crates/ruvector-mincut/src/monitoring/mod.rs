@@ -3,10 +3,10 @@
 //! Provides event-driven notifications when minimum cut changes,
 //! with support for thresholds, callbacks, and metrics collection.
 
-use std::sync::Arc;
 use parking_lot::RwLock;
-use std::time::{Duration, Instant};
 use std::collections::HashMap;
+use std::sync::Arc;
+use std::time::{Duration, Instant};
 
 /// Type of event that occurred
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -237,9 +237,10 @@ impl MinCutMonitor {
     {
         let mut callbacks = self.callbacks.write();
         if callbacks.len() >= self.config.max_callbacks {
-            return Err(crate::MinCutError::InvalidParameter(
-                format!("Maximum number of callbacks ({}) reached", self.config.max_callbacks)
-            ));
+            return Err(crate::MinCutError::InvalidParameter(format!(
+                "Maximum number of callbacks ({}) reached",
+                self.config.max_callbacks
+            )));
         }
 
         callbacks.push(CallbackEntry {
@@ -252,15 +253,21 @@ impl MinCutMonitor {
     }
 
     /// Register a callback for specific event type
-    pub fn on_event_type<F>(&self, event_type: EventType, name: &str, callback: F) -> crate::Result<()>
+    pub fn on_event_type<F>(
+        &self,
+        event_type: EventType,
+        name: &str,
+        callback: F,
+    ) -> crate::Result<()>
     where
         F: Fn(&MinCutEvent) + Send + Sync + 'static,
     {
         let mut callbacks = self.callbacks.write();
         if callbacks.len() >= self.config.max_callbacks {
-            return Err(crate::MinCutError::InvalidParameter(
-                format!("Maximum number of callbacks ({}) reached", self.config.max_callbacks)
-            ));
+            return Err(crate::MinCutError::InvalidParameter(format!(
+                "Maximum number of callbacks ({}) reached",
+                self.config.max_callbacks
+            )));
         }
 
         callbacks.push(CallbackEntry {
@@ -278,9 +285,10 @@ impl MinCutMonitor {
 
         // Check if threshold with same name already exists
         if thresholds.iter().any(|t| t.name == threshold.name) {
-            return Err(crate::MinCutError::InvalidParameter(
-                format!("Threshold with name '{}' already exists", threshold.name)
-            ));
+            return Err(crate::MinCutError::InvalidParameter(format!(
+                "Threshold with name '{}' already exists",
+                threshold.name
+            )));
         }
 
         thresholds.push(threshold);
@@ -435,14 +443,17 @@ impl MinCutMonitor {
         let thresholds = self.thresholds.read();
         let current = *self.current_cut.read();
 
-        thresholds.iter().map(|t| {
-            let active = if t.alert_below {
-                current < t.value
-            } else {
-                current > t.value
-            };
-            (t.name.clone(), active && t.enabled)
-        }).collect()
+        thresholds
+            .iter()
+            .map(|t| {
+                let active = if t.alert_below {
+                    current < t.value
+                } else {
+                    current > t.value
+                };
+                (t.name.clone(), active && t.enabled)
+            })
+            .collect()
     }
 
     // Internal methods
@@ -469,7 +480,10 @@ impl MinCutMonitor {
             }));
 
             if result.is_err() {
-                eprintln!("Warning: Callback '{}' panicked during execution", entry.name);
+                eprintln!(
+                    "Warning: Callback '{}' panicked during execution",
+                    entry.name
+                );
             }
         }
     }
@@ -518,7 +532,10 @@ impl MinCutMonitor {
         }
 
         // Count threshold violations
-        if matches!(event.event_type, EventType::ThresholdCrossedBelow | EventType::ThresholdCrossedAbove) {
+        if matches!(
+            event.event_type,
+            EventType::ThresholdCrossedBelow | EventType::ThresholdCrossedAbove
+        ) {
             metrics.threshold_violations += 1;
         }
 
@@ -562,13 +579,15 @@ impl MonitorBuilder {
 
     /// Add a threshold that alerts when cut goes below the given value
     pub fn threshold_below(mut self, value: f64, name: &str) -> Self {
-        self.thresholds.push(Threshold::new(value, name.to_string(), true));
+        self.thresholds
+            .push(Threshold::new(value, name.to_string(), true));
         self
     }
 
     /// Add a threshold that alerts when cut goes above the given value
     pub fn threshold_above(mut self, value: f64, name: &str) -> Self {
-        self.thresholds.push(Threshold::new(value, name.to_string(), false));
+        self.thresholds
+            .push(Threshold::new(value, name.to_string(), false));
         self
     }
 
@@ -577,7 +596,8 @@ impl MonitorBuilder {
     where
         F: Fn(&MinCutEvent) + Send + Sync + 'static,
     {
-        self.callbacks.push((name.to_string(), Box::new(callback), None));
+        self.callbacks
+            .push((name.to_string(), Box::new(callback), None));
         self
     }
 
@@ -586,7 +606,8 @@ impl MonitorBuilder {
     where
         F: Fn(&MinCutEvent) + Send + Sync + 'static,
     {
-        self.callbacks.push((name.to_string(), Box::new(callback), Some(event_type)));
+        self.callbacks
+            .push((name.to_string(), Box::new(callback), Some(event_type)));
         self
     }
 
@@ -628,7 +649,10 @@ mod tests {
     fn test_event_type_str() {
         assert_eq!(EventType::CutIncreased.as_str(), "cut_increased");
         assert_eq!(EventType::CutDecreased.as_str(), "cut_decreased");
-        assert_eq!(EventType::ThresholdCrossedBelow.as_str(), "threshold_crossed_below");
+        assert_eq!(
+            EventType::ThresholdCrossedBelow.as_str(),
+            "threshold_crossed_below"
+        );
     }
 
     #[test]
@@ -688,9 +712,11 @@ mod tests {
         let counter = Arc::new(AtomicU64::new(0));
         let counter_clone = counter.clone();
 
-        monitor.on_event("test", move |_| {
-            counter_clone.fetch_add(1, Ordering::SeqCst);
-        }).unwrap();
+        monitor
+            .on_event("test", move |_| {
+                counter_clone.fetch_add(1, Ordering::SeqCst);
+            })
+            .unwrap();
 
         monitor.notify(0.0, 10.0, None);
 
@@ -706,9 +732,11 @@ mod tests {
         let counter = Arc::new(AtomicU64::new(0));
         let counter_clone = counter.clone();
 
-        monitor.on_event_type(EventType::CutIncreased, "test", move |_| {
-            counter_clone.fetch_add(1, Ordering::SeqCst);
-        }).unwrap();
+        monitor
+            .on_event_type(EventType::CutIncreased, "test", move |_| {
+                counter_clone.fetch_add(1, Ordering::SeqCst);
+            })
+            .unwrap();
 
         // This should trigger the callback
         monitor.notify(5.0, 10.0, None);
@@ -733,9 +761,15 @@ mod tests {
         let counter = Arc::new(AtomicU64::new(0));
         let counter_clone = counter.clone();
 
-        monitor.on_event_type(EventType::ThresholdCrossedBelow, "threshold_cb", move |_| {
-            counter_clone.fetch_add(1, Ordering::SeqCst);
-        }).unwrap();
+        monitor
+            .on_event_type(
+                EventType::ThresholdCrossedBelow,
+                "threshold_cb",
+                move |_| {
+                    counter_clone.fetch_add(1, Ordering::SeqCst);
+                },
+            )
+            .unwrap();
 
         // Cross below threshold
         monitor.notify(15.0, 5.0, None);
@@ -766,9 +800,11 @@ mod tests {
         let counter = Arc::new(AtomicU64::new(0));
         let counter_clone = counter.clone();
 
-        monitor.on_event("test", move |_| {
-            counter_clone.fetch_add(1, Ordering::SeqCst);
-        }).unwrap();
+        monitor
+            .on_event("test", move |_| {
+                counter_clone.fetch_add(1, Ordering::SeqCst);
+            })
+            .unwrap();
 
         monitor.notify(0.0, 10.0, None);
         std::thread::sleep(Duration::from_millis(10));
@@ -828,13 +864,17 @@ mod tests {
         let disc_clone = disconnected.clone();
         let conn_clone = connected.clone();
 
-        monitor.on_event_type(EventType::Disconnected, "disc", move |_| {
-            disc_clone.fetch_add(1, Ordering::SeqCst);
-        }).unwrap();
+        monitor
+            .on_event_type(EventType::Disconnected, "disc", move |_| {
+                disc_clone.fetch_add(1, Ordering::SeqCst);
+            })
+            .unwrap();
 
-        monitor.on_event_type(EventType::Connected, "conn", move |_| {
-            conn_clone.fetch_add(1, Ordering::SeqCst);
-        }).unwrap();
+        monitor
+            .on_event_type(EventType::Connected, "conn", move |_| {
+                conn_clone.fetch_add(1, Ordering::SeqCst);
+            })
+            .unwrap();
 
         // Become disconnected
         monitor.notify(10.0, 0.0, None);
@@ -893,10 +933,12 @@ mod tests {
         let counter = Arc::new(AtomicU64::new(0));
         let counter_clone = counter.clone();
 
-        monitor.on_event_type(EventType::EdgeInserted, "edge", move |event| {
-            assert!(event.edge.is_some());
-            counter_clone.fetch_add(1, Ordering::SeqCst);
-        }).unwrap();
+        monitor
+            .on_event_type(EventType::EdgeInserted, "edge", move |event| {
+                assert!(event.edge.is_some());
+                counter_clone.fetch_add(1, Ordering::SeqCst);
+            })
+            .unwrap();
 
         monitor.notify(10.0, 15.0, Some((1, 2)));
         std::thread::sleep(Duration::from_millis(10));
@@ -909,7 +951,10 @@ mod tests {
         let mut threshold = Threshold::new(10.0, "test".to_string(), true);
 
         // Cross below
-        assert_eq!(threshold.check_crossing(15.0, 5.0), Some(EventType::ThresholdCrossedBelow));
+        assert_eq!(
+            threshold.check_crossing(15.0, 5.0),
+            Some(EventType::ThresholdCrossedBelow)
+        );
 
         // Stay below (no event)
         assert_eq!(threshold.check_crossing(5.0, 3.0), None);
@@ -919,7 +964,10 @@ mod tests {
         assert_eq!(threshold.check_crossing(8.0, 15.0), None);
 
         // Cross below again (should trigger)
-        assert_eq!(threshold.check_crossing(15.0, 5.0), Some(EventType::ThresholdCrossedBelow));
+        assert_eq!(
+            threshold.check_crossing(15.0, 5.0),
+            Some(EventType::ThresholdCrossedBelow)
+        );
     }
 
     #[test]
@@ -930,18 +978,22 @@ mod tests {
         // Register multiple callbacks
         for i in 0..10 {
             let counter_clone = counter.clone();
-            monitor.on_event(&format!("cb{}", i), move |_| {
-                counter_clone.fetch_add(1, Ordering::SeqCst);
-            }).unwrap();
+            monitor
+                .on_event(&format!("cb{}", i), move |_| {
+                    counter_clone.fetch_add(1, Ordering::SeqCst);
+                })
+                .unwrap();
         }
 
         // Trigger events from multiple threads
-        let handles: Vec<_> = (0..5).map(|i| {
-            let monitor_clone = monitor.clone();
-            std::thread::spawn(move || {
-                monitor_clone.notify(i as f64, (i + 1) as f64, None);
+        let handles: Vec<_> = (0..5)
+            .map(|i| {
+                let monitor_clone = monitor.clone();
+                std::thread::spawn(move || {
+                    monitor_clone.notify(i as f64, (i + 1) as f64, None);
+                })
             })
-        }).collect();
+            .collect();
 
         for handle in handles {
             handle.join().unwrap();
@@ -992,9 +1044,11 @@ mod tests {
         let counter = Arc::new(AtomicU64::new(0));
         let counter_clone = counter.clone();
 
-        monitor.on_event("test", move |_| {
-            counter_clone.fetch_add(1, Ordering::SeqCst);
-        }).unwrap();
+        monitor
+            .on_event("test", move |_| {
+                counter_clone.fetch_add(1, Ordering::SeqCst);
+            })
+            .unwrap();
 
         // Same value, no edge - should not trigger event
         monitor.notify(10.0, 10.0, None);
@@ -1007,8 +1061,12 @@ mod tests {
     fn test_threshold_status() {
         let monitor = MinCutMonitor::new(MonitorConfig::default());
 
-        monitor.add_threshold(Threshold::new(10.0, "low".to_string(), true)).unwrap();
-        monitor.add_threshold(Threshold::new(100.0, "high".to_string(), false)).unwrap();
+        monitor
+            .add_threshold(Threshold::new(10.0, "low".to_string(), true))
+            .unwrap();
+        monitor
+            .add_threshold(Threshold::new(100.0, "high".to_string(), false))
+            .unwrap();
 
         // Set current cut to 50
         monitor.notify(0.0, 50.0, None);

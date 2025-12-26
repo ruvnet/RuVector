@@ -14,9 +14,7 @@ pub struct MathMLGenerator {
 impl MathMLGenerator {
     /// Create a new MathML generator (presentation mode)
     pub fn new() -> Self {
-        Self {
-            presentation: true,
-        }
+        Self { presentation: true }
     }
 
     /// Create a content MathML generator

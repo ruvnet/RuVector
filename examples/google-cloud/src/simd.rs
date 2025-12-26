@@ -556,7 +556,10 @@ impl SimdBenchmark {
         use crate::benchmark::generate_vectors;
 
         println!("🔧 SIMD Capability: {}", self.simd.capability().name());
-        println!("   Vector width: {} floats", self.simd.capability().vector_width());
+        println!(
+            "   Vector width: {} floats",
+            self.simd.capability().vector_width()
+        );
 
         let vectors = generate_vectors(num_vectors, dims, true);
         let queries = generate_vectors(iterations.min(1000), dims, true);

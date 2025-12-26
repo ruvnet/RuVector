@@ -91,9 +91,9 @@ impl LearningService {
         }));
 
         let handle = tokio::spawn(async move {
-            let mut interval = tokio::time::interval(
-                std::time::Duration::from_millis(config.training_interval_ms)
-            );
+            let mut interval = tokio::time::interval(std::time::Duration::from_millis(
+                config.training_interval_ms,
+            ));
 
             loop {
                 tokio::select! {
@@ -166,7 +166,7 @@ impl LearningService {
         // Update memory edges based on feedback
         if let Some(rating) = feedback.rating {
             let delta = (rating as f32 - 3.0) / 10.0; // -0.2 to +0.2
-            // In production, look up the request and update edge weights
+                                                      // In production, look up the request and update edge weights
             tracing::debug!(delta = delta, "Would update edge weights");
         }
 
@@ -237,7 +237,10 @@ impl LearningService {
             metadata: {
                 let mut m = HashMap::new();
                 m.insert("quality".into(), serde_json::json!(quality));
-                m.insert("timestamp".into(), serde_json::json!(chrono::Utc::now().timestamp()));
+                m.insert(
+                    "timestamp".into(),
+                    serde_json::json!(chrono::Utc::now().timestamp()),
+                );
                 m
             },
         };
@@ -278,11 +281,14 @@ impl EWCState {
             return 0.0;
         }
 
-        self.fisher_info.iter()
+        self.fisher_info
+            .iter()
             .zip(current_weights.iter())
             .zip(self.optimal_weights.iter())
             .map(|((f, w), w_star)| f * (w - w_star).powi(2))
-            .sum::<f32>() * self.lambda / 2.0
+            .sum::<f32>()
+            * self.lambda
+            / 2.0
     }
 }
 

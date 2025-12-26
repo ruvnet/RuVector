@@ -12,8 +12,8 @@
 //! On graphs with good cache locality, these optimizations can provide
 //! 20-40% speedup on BFS/DFS operations.
 
-use std::collections::{HashMap, HashSet, VecDeque};
 use crate::graph::VertexId;
+use std::collections::{HashMap, HashSet, VecDeque};
 
 /// Cache-optimized adjacency list
 ///
@@ -272,11 +272,7 @@ mod tests {
 
     #[test]
     fn test_cache_opt_adjacency() {
-        let edges = vec![
-            (0, 1, 1.0),
-            (1, 2, 1.0),
-            (2, 3, 1.0),
-        ];
+        let edges = vec![(0, 1, 1.0), (1, 2, 1.0), (2, 3, 1.0)];
 
         let adj = CacheOptAdjacency::from_edges(&edges, 3);
 
@@ -289,11 +285,7 @@ mod tests {
 
     #[test]
     fn test_cache_opt_bfs() {
-        let edges = vec![
-            (0, 1, 1.0),
-            (1, 2, 1.0),
-            (2, 3, 1.0),
-        ];
+        let edges = vec![(0, 1, 1.0), (1, 2, 1.0), (2, 3, 1.0)];
 
         let adj = CacheOptAdjacency::from_edges(&edges, 3);
         let bfs = CacheOptBFS::new(&adj, 0);
@@ -307,10 +299,7 @@ mod tests {
 
     #[test]
     fn test_bfs_connectivity() {
-        let edges = vec![
-            (0, 1, 1.0),
-            (2, 3, 1.0),
-        ];
+        let edges = vec![(0, 1, 1.0), (2, 3, 1.0)];
 
         let adj = CacheOptAdjacency::from_edges(&edges, 3);
 
@@ -320,11 +309,7 @@ mod tests {
 
     #[test]
     fn test_batch_processor() {
-        let edges = vec![
-            (0, 1, 1.0),
-            (1, 2, 1.0),
-            (2, 3, 1.0),
-        ];
+        let edges = vec![(0, 1, 1.0), (1, 2, 1.0), (2, 3, 1.0)];
 
         let adj = CacheOptAdjacency::from_edges(&edges, 3);
         let processor = BatchProcessor::new();

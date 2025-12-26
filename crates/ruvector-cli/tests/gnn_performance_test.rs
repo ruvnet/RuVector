@@ -131,7 +131,10 @@ mod gnn_cache_tests {
         ];
 
         println!("\nLayer size scaling test:");
-        println!("{:>10} {:>10} {:>8} {:>12} {:>12}", "Input", "Hidden", "Heads", "Create(ms)", "Forward(ms)");
+        println!(
+            "{:>10} {:>10} {:>8} {:>12} {:>12}",
+            "Input", "Hidden", "Heads", "Create(ms)", "Forward(ms)"
+        );
 
         for (input, hidden, heads) in sizes {
             // Measure creation
@@ -241,10 +244,7 @@ mod gnn_cache_integration {
             "Warm average ({} iterations): {:.3}ms/op (threshold: {:.0}ms)",
             iterations, avg_warm_ms, warm_threshold_ms
         );
-        println!(
-            "Warm total: {:.3}ms",
-            warm_time.as_secs_f64() * 1000.0
-        );
+        println!("Warm total: {:.3}ms", warm_time.as_secs_f64() * 1000.0);
 
         // Warm operations should be significantly faster per-op
         assert!(
@@ -286,7 +286,10 @@ mod gnn_cache_integration {
 
         println!("\nCaching benefit demonstration:");
         println!("Layer creation: {:.3}ms (one-time cost)", creation_ms);
-        println!("Forward passes: {:.3}ms total for {} ops", total_forward_ms, iterations);
+        println!(
+            "Forward passes: {:.3}ms total for {} ops",
+            total_forward_ms, iterations
+        );
         println!("Average forward: {:.3}ms/op", avg_forward_ms);
 
         // The key insight: creation cost is paid once, forward is repeated

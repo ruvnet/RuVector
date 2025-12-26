@@ -15,12 +15,12 @@
 //! - Subpolynomial search exploiting learned graph structure
 
 use super::{
+    network::{LayerConfig, NetworkConfig, SpikingNetwork},
     neuron::{LIFNeuron, NeuronConfig, NeuronPopulation},
-    synapse::{Synapse, SynapseMatrix, STDPConfig},
-    network::{SpikingNetwork, NetworkConfig, LayerConfig},
+    synapse::{STDPConfig, Synapse, SynapseMatrix},
     SimTime, Spike,
 };
-use crate::graph::{DynamicGraph, VertexId, EdgeId, Weight};
+use crate::graph::{DynamicGraph, EdgeId, VertexId, Weight};
 use std::collections::VecDeque;
 
 /// Configuration for neural graph optimizer
@@ -147,7 +147,10 @@ impl PrioritizedReplayBuffer {
         // Prioritized by TD error (simplified: just take recent high-error samples)
         let mut sorted: Vec<_> = self.buffer.iter().collect();
         sorted.sort_by(|a, b| {
-            b.td_error.abs().partial_cmp(&a.td_error.abs()).unwrap_or(std::cmp::Ordering::Equal)
+            b.td_error
+                .abs()
+                .partial_cmp(&a.td_error.abs())
+                .unwrap_or(std::cmp::Ordering::Equal)
         });
 
         sorted.into_iter().take(batch_size).collect()
@@ -185,7 +188,9 @@ impl ValueNetwork {
         let b_hidden = vec![0.0; hidden_size];
 
         let output_scale = (1.0 / hidden_size as f64).sqrt();
-        let w_output: Vec<f64> = (0..hidden_size).map(|_| rand_small() * output_scale).collect();
+        let w_output: Vec<f64> = (0..hidden_size)
+            .map(|_| rand_small() * output_scale)
+            .collect();
         let b_output = 0.0;
 
         Self {
@@ -234,7 +239,11 @@ impl ValueNetwork {
     /// - Weight update: w += lr * td_error * ∂V/∂w
     pub fn update(&mut self, state: &[f64], td_error: f64, lr: f64) {
         let hidden_size = self.w_hidden.len();
-        let input_size = if self.w_hidden.is_empty() { 0 } else { self.w_hidden[0].len() };
+        let input_size = if self.w_hidden.is_empty() {
+            0
+        } else {
+            self.w_hidden[0].len()
+        };
 
         // Forward pass: compute hidden activations and pre-activations
         let mut hidden_pre = vec![0.0; hidden_size]; // Before ReLU
@@ -370,8 +379,8 @@ impl PolicySNN {
             let mut hidden_currents = vec![0.0; self.config.hidden_size];
             for j in 0..self.config.hidden_size {
                 for i in 0..self.config.input_size {
-                    hidden_currents[j] += self.w_ih.weight(i, j) *
-                        self.input_layer.neurons[i].membrane_potential().max(0.0);
+                    hidden_currents[j] += self.w_ih.weight(i, j)
+                        * self.input_layer.neurons[i].membrane_potential().max(0.0);
                 }
             }
 
@@ -382,8 +391,8 @@ impl PolicySNN {
             let mut output_currents = vec![0.0; self.config.num_actions];
             for j in 0..self.config.num_actions {
                 for i in 0..self.config.hidden_size {
-                    output_currents[j] += self.w_ho.weight(i, j) *
-                        self.hidden_layer.neurons[i].membrane_potential().max(0.0);
+                    output_currents[j] += self.w_ho.weight(i, j)
+                        * self.hidden_layer.neurons[i].membrane_potential().max(0.0);
                 }
             }
 
@@ -415,7 +424,8 @@ impl PolicySNN {
 
     /// Get regions with low activity (for search skip)
     pub fn low_activity_regions(&self) -> Vec<usize> {
-        self.hidden_layer.spike_trains
+        self.hidden_layer
+            .spike_trains
             .iter()
             .enumerate()
             .filter(|(_, t)| t.spike_rate(100.0) < 0.001)
@@ -508,7 +518,8 @@ impl NeuralGraphOptimizer {
         self.policy_snn.apply_reward_modulated_stdp(td_error);
 
         // 7. Update value network
-        self.value_network.update(&state, td_error, self.config.learning_rate);
+        self.value_network
+            .update(&state, td_error, self.config.learning_rate);
 
         // 8. Store experience
         let exp = Experience {
@@ -634,7 +645,8 @@ impl NeuralGraphOptimizer {
         // Simple nearest neighbor in graph space
         let vertices: Vec<_> = self.graph.vertices();
 
-        let mut scores: Vec<(VertexId, f64)> = vertices.iter()
+        let mut scores: Vec<(VertexId, f64)> = vertices
+            .iter()
             .enumerate()
             .filter(|(i, _)| !skip_regions.contains(i))
             .map(|(i, &v)| {
@@ -681,23 +693,30 @@ fn extract_features(graph: &DynamicGraph, num_features: usize) -> Vec<f64> {
     let mut features = vec![0.0; num_features];
 
     if num_features > 0 {
-        features[0] = n / 1000.0;  // Normalized vertex count
+        features[0] = n / 1000.0; // Normalized vertex count
     }
     if num_features > 1 {
-        features[1] = m / 5000.0;  // Normalized edge count
+        features[1] = m / 5000.0; // Normalized edge count
     }
     if num_features > 2 {
-        features[2] = if n > 1.0 { m / (n * (n - 1.0) / 2.0) } else { 0.0 };  // Density
+        features[2] = if n > 1.0 {
+            m / (n * (n - 1.0) / 2.0)
+        } else {
+            0.0
+        }; // Density
     }
     if num_features > 3 {
         // Average degree
-        let avg_deg: f64 = graph.vertices().iter()
+        let avg_deg: f64 = graph
+            .vertices()
+            .iter()
             .map(|&v| graph.degree(v) as f64)
-            .sum::<f64>() / n.max(1.0);
+            .sum::<f64>()
+            / n.max(1.0);
         features[3] = avg_deg / 10.0;
     }
     if num_features > 4 {
-        features[4] = estimate_mincut(graph) / m.max(1.0);  // Normalized mincut
+        features[4] = estimate_mincut(graph) / m.max(1.0); // Normalized mincut
     }
 
     // Fill rest with zeros or derived features
@@ -714,7 +733,8 @@ fn estimate_mincut(graph: &DynamicGraph) -> f64 {
         return 0.0;
     }
 
-    graph.vertices()
+    graph
+        .vertices()
         .iter()
         .map(|&v| graph.degree(v) as f64)
         .fold(f64::INFINITY, f64::min)
@@ -729,7 +749,12 @@ fn rand_small() -> f64 {
     let state = loop {
         let current = OPTIMIZER_RNG.load(Ordering::Relaxed);
         let next = current.wrapping_mul(0x5851f42d4c957f2d).wrapping_add(1);
-        match OPTIMIZER_RNG.compare_exchange_weak(current, next, Ordering::Relaxed, Ordering::Relaxed) {
+        match OPTIMIZER_RNG.compare_exchange_weak(
+            current,
+            next,
+            Ordering::Relaxed,
+            Ordering::Relaxed,
+        ) {
             Ok(_) => break next,
             Err(_) => continue,
         }

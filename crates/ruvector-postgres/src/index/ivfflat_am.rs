@@ -30,21 +30,22 @@
 //! SET ruvector.ivfflat_adaptive_probes = on;
 //! ```
 
+use pgrx::pg_sys::{
+    self, bytea, BlockNumber, Buffer, Cost, Datum, IndexAmRoutine, IndexBuildResult,
+    IndexBulkDeleteCallback, IndexBulkDeleteResult, IndexInfo, IndexPath, IndexScanDesc,
+    IndexUniqueCheck, IndexVacuumInfo, ItemPointer, ItemPointerData, NodeTag, Page, PlannerInfo,
+    Relation, ScanDirection, ScanKey, Selectivity, Size, TIDBitmap,
+};
 use pgrx::prelude::*;
-use pgrx::pg_sys::{self, Relation, IndexInfo, IndexBuildResult, IndexVacuumInfo,
-    IndexBulkDeleteResult, IndexBulkDeleteCallback, PlannerInfo, IndexPath,
-    Cost, Selectivity, IndexScanDesc, ScanDirection, TIDBitmap, ScanKey,
-    IndexUniqueCheck, ItemPointer, Datum, Buffer, BlockNumber, Page,
-    IndexAmRoutine, NodeTag, bytea, ItemPointerData, Size};
 use pgrx::Internal;
-use std::ptr;
-use std::mem::size_of;
 use std::cmp::Ordering;
 use std::collections::BinaryHeap;
-use std::sync::atomic::{AtomicU64, AtomicBool, Ordering as AtomicOrdering};
+use std::mem::size_of;
+use std::ptr;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering as AtomicOrdering};
 
-use crate::distance::{DistanceMetric, distance};
-use crate::quantization::{QuantizationType, scalar, product, binary};
+use crate::distance::{distance, DistanceMetric};
+use crate::quantization::{binary, product, scalar, QuantizationType};
 use crate::types::RuVector;
 use pgrx::FromDatum;
 
@@ -187,7 +188,7 @@ impl Default for IvfFlatMetaPage {
             dimensions: 0,
             trained: 0,
             vector_count: 0,
-            metric: 0, // L2
+            metric: 0,       // L2
             quantization: 0, // None
             centroid_start_page: 1,
             lists_start_page: 0,
@@ -358,7 +359,10 @@ impl PartialOrd for SearchCandidate {
 impl Ord for SearchCandidate {
     fn cmp(&self, other: &Self) -> Ordering {
         // Max-heap: reverse ordering for min-distance priority
-        other.distance.partial_cmp(&self.distance).unwrap_or(Ordering::Equal)
+        other
+            .distance
+            .partial_cmp(&self.distance)
+            .unwrap_or(Ordering::Equal)
     }
 }
 
@@ -436,12 +440,7 @@ fn quantization_to_u32(q: QuantizationType) -> u32 {
 }
 
 /// Compute adaptive probe count based on query and index characteristics
-fn compute_adaptive_probes(
-    dimensions: usize,
-    lists: usize,
-    k: usize,
-    query_norm: f32,
-) -> usize {
+fn compute_adaptive_probes(dimensions: usize, lists: usize, k: usize, query_norm: f32) -> usize {
     let base_probes = get_probes_guc();
 
     if !get_adaptive_probes_guc() {
@@ -543,11 +542,7 @@ fn kmeans_plus_plus_init(
 }
 
 /// Find nearest centroid index for a vector
-fn find_nearest_centroid(
-    vector: &[f32],
-    centroids: &[Vec<f32>],
-    metric: DistanceMetric,
-) -> usize {
+fn find_nearest_centroid(vector: &[f32], centroids: &[Vec<f32>], metric: DistanceMetric) -> usize {
     let mut best_cluster = 0;
     let mut best_dist = f32::MAX;
 
@@ -588,13 +583,16 @@ fn kmeans_cluster(
     metric: DistanceMetric,
 ) -> Vec<Vec<f32>> {
     let n_clusters = centroids.len();
-    let dimensions = if vectors.is_empty() { 0 } else { vectors[0].len() };
+    let dimensions = if vectors.is_empty() {
+        0
+    } else {
+        vectors[0].len()
+    };
 
     for _ in 0..iterations {
         // Assign vectors to clusters
-        let mut cluster_sums: Vec<Vec<f32>> = (0..n_clusters)
-            .map(|_| vec![0.0; dimensions])
-            .collect();
+        let mut cluster_sums: Vec<Vec<f32>> =
+            (0..n_clusters).map(|_| vec![0.0; dimensions]).collect();
         let mut cluster_counts: Vec<usize> = vec![0; n_clusters];
 
         for vector in vectors {
@@ -629,10 +627,7 @@ fn vector_norm(v: &[f32]) -> f32 {
 
 /// Read metadata from page 0
 unsafe fn read_meta_page(index: Relation) -> IvfFlatMetaPage {
-    let nblocks = pg_sys::RelationGetNumberOfBlocksInFork(
-        index,
-        pg_sys::ForkNumber::MAIN_FORKNUM,
-    );
+    let nblocks = pg_sys::RelationGetNumberOfBlocksInFork(index, pg_sys::ForkNumber::MAIN_FORKNUM);
 
     if nblocks == 0 {
         return IvfFlatMetaPage::default();
@@ -659,10 +654,7 @@ unsafe fn read_meta_page(index: Relation) -> IvfFlatMetaPage {
 
 /// Write metadata to page 0
 unsafe fn write_meta_page(index: Relation, meta: &IvfFlatMetaPage) {
-    let nblocks = pg_sys::RelationGetNumberOfBlocksInFork(
-        index,
-        pg_sys::ForkNumber::MAIN_FORKNUM,
-    );
+    let nblocks = pg_sys::RelationGetNumberOfBlocksInFork(index, pg_sys::ForkNumber::MAIN_FORKNUM);
 
     let buffer = if nblocks == 0 {
         pg_sys::ReadBuffer(index, P_NEW_BLOCK)
@@ -887,10 +879,8 @@ unsafe fn read_inverted_list(
                         let data_ptr = entry_ptr.add(size_of::<VectorEntry>());
                         let scale = ptr::read(data_ptr as *const f32);
                         let offset = ptr::read(data_ptr.add(4) as *const f32);
-                        let quantized = std::slice::from_raw_parts(
-                            data_ptr.add(8) as *const i8,
-                            dimensions,
-                        );
+                        let quantized =
+                            std::slice::from_raw_parts(data_ptr.add(8) as *const i8, dimensions);
                         scalar::dequantize(quantized, scale, offset)
                     }
                     QuantizationType::Binary => {
@@ -944,7 +934,10 @@ unsafe fn write_inverted_list(
 
     let entries_per_page = usable_space / entry_size;
     if entries_per_page == 0 {
-        pgrx::warning!("IVFFlat: Vector too large for page, entry_size={}", entry_size);
+        pgrx::warning!(
+            "IVFFlat: Vector too large for page, entry_size={}",
+            entry_size
+        );
         return (0, 0);
     }
 
@@ -1074,12 +1067,8 @@ unsafe fn ivfflat_search(
         let (entry, _) = &centroids[*cluster_idx];
 
         // Read inverted list
-        let list_entries = read_inverted_list(
-            index,
-            entry.list_start_page,
-            dimensions,
-            quantization,
-        );
+        let list_entries =
+            read_inverted_list(index, entry.list_start_page, dimensions, quantization);
 
         for (vec_entry, vector) in list_entries {
             let dist = calc_distance(query, &vector, metric);
@@ -1088,7 +1077,8 @@ unsafe fn ivfflat_search(
                 tid: vec_entry.to_item_pointer(),
                 distance: dist,
                 cluster_id: entry.cluster_id,
-                needs_rerank: vec_entry.has_quantized_data() && quantization != QuantizationType::None,
+                needs_rerank: vec_entry.has_quantized_data()
+                    && quantization != QuantizationType::None,
             };
 
             candidates.push(candidate);
@@ -1206,7 +1196,10 @@ unsafe extern "C" fn ivfflat_ambuild(
         std::ptr::null_mut(),
     );
 
-    pgrx::info!("IVFFlat v2: Collected {} vectors from heap", all_vectors.len());
+    pgrx::info!(
+        "IVFFlat v2: Collected {} vectors from heap",
+        all_vectors.len()
+    );
 
     // Set dimensions from first vector
     if !all_vectors.is_empty() {
@@ -1214,24 +1207,32 @@ unsafe extern "C" fn ivfflat_ambuild(
     }
 
     // Sample vectors for training
-    let training_sample: Vec<Vec<f32>> = all_vectors.iter()
+    let training_sample: Vec<Vec<f32>> = all_vectors
+        .iter()
         .take(10000.min(all_vectors.len()))
         .map(|(_, v)| v.clone())
         .collect();
 
-    pgrx::info!("IVFFlat v2: Training with {} samples, {} lists",
-        training_sample.len(), lists);
+    pgrx::info!(
+        "IVFFlat v2: Training with {} samples, {} lists",
+        training_sample.len(),
+        lists
+    );
 
     // Train centroids with k-means++
     let n_clusters = lists as usize;
     let mut centroids = kmeans_plus_plus_init(&training_sample, n_clusters, metric, 42);
-    centroids = kmeans_cluster(&training_sample, centroids, DEFAULT_KMEANS_ITERATIONS, metric);
+    centroids = kmeans_cluster(
+        &training_sample,
+        centroids,
+        DEFAULT_KMEANS_ITERATIONS,
+        metric,
+    );
 
     pgrx::info!("IVFFlat v2: Trained {} centroids", centroids.len());
 
     // Assign all vectors to clusters
-    let mut cluster_lists: Vec<Vec<(ItemPointerData, Vec<f32>)>> =
-        vec![Vec::new(); n_clusters];
+    let mut cluster_lists: Vec<Vec<(ItemPointerData, Vec<f32>)>> = vec![Vec::new(); n_clusters];
 
     for (tid, vector) in &all_vectors {
         let cluster = find_nearest_centroid(vector, &centroids, metric);
@@ -1252,14 +1253,17 @@ unsafe extern "C" fn ivfflat_ambuild(
         .iter()
         .enumerate()
         .map(|(i, c)| {
-            (CentroidEntry {
-                cluster_id: i as u32,
-                list_start_page: 0, // Will be updated after writing lists
-                list_page_count: 0,
-                vector_count: cluster_lists.get(i).map(|l| l.len()).unwrap_or(0) as u32,
-                distance_sum: 0.0,
-                reserved: 0,
-            }, c.clone())
+            (
+                CentroidEntry {
+                    cluster_id: i as u32,
+                    list_start_page: 0, // Will be updated after writing lists
+                    list_page_count: 0,
+                    vector_count: cluster_lists.get(i).map(|l| l.len()).unwrap_or(0) as u32,
+                    distance_sum: 0.0,
+                    reserved: 0,
+                },
+                c.clone(),
+            )
         })
         .collect();
 
@@ -1271,7 +1275,10 @@ unsafe extern "C" fn ivfflat_ambuild(
     );
 
     // Write inverted lists for each cluster
-    pgrx::info!("IVFFlat v2: Writing inverted lists for {} clusters", n_clusters);
+    pgrx::info!(
+        "IVFFlat v2: Writing inverted lists for {} clusters",
+        n_clusters
+    );
     let mut list_info: Vec<(u32, u32)> = Vec::with_capacity(n_clusters);
     let mut total_vectors_written = 0u64;
 
@@ -1287,7 +1294,10 @@ unsafe extern "C" fn ivfflat_ambuild(
         total_vectors_written += entries.len() as u64;
     }
 
-    pgrx::info!("IVFFlat v2: Written {} vectors to inverted lists", total_vectors_written);
+    pgrx::info!(
+        "IVFFlat v2: Written {} vectors to inverted lists",
+        total_vectors_written
+    );
 
     // Re-write centroids with correct list_start_page values
     let centroid_entries_final: Vec<(CentroidEntry, Vec<f32>)> = centroids
@@ -1295,14 +1305,17 @@ unsafe extern "C" fn ivfflat_ambuild(
         .enumerate()
         .map(|(i, c)| {
             let (start_page, page_count) = list_info.get(i).copied().unwrap_or((0, 0));
-            (CentroidEntry {
-                cluster_id: i as u32,
-                list_start_page: start_page,
-                list_page_count: page_count,
-                vector_count: cluster_lists.get(i).map(|l| l.len()).unwrap_or(0) as u32,
-                distance_sum: 0.0,
-                reserved: 0,
-            }, c.clone())
+            (
+                CentroidEntry {
+                    cluster_id: i as u32,
+                    list_start_page: start_page,
+                    list_page_count: page_count,
+                    vector_count: cluster_lists.get(i).map(|l| l.len()).unwrap_or(0) as u32,
+                    distance_sum: 0.0,
+                    reserved: 0,
+                },
+                c.clone(),
+            )
         })
         .collect();
 
@@ -1320,8 +1333,11 @@ unsafe extern "C" fn ivfflat_ambuild(
     meta.vector_count = all_vectors.len() as u64;
     write_meta_page(index, &meta);
 
-    pgrx::info!("IVFFlat v2: Index build complete, {} vectors in {} lists",
-        all_vectors.len(), lists);
+    pgrx::info!(
+        "IVFFlat v2: Index build complete, {} vectors in {} lists",
+        all_vectors.len(),
+        lists
+    );
 
     // Return build result
     let mut result = PgBox::<IndexBuildResult>::alloc0();
@@ -1619,10 +1635,7 @@ unsafe extern "C" fn ivfflat_amgettuple(
 
 /// Get bitmap callback (for bitmap scans)
 #[pg_guard]
-unsafe extern "C" fn ivfflat_amgetbitmap(
-    _scan: IndexScanDesc,
-    _tbm: *mut TIDBitmap,
-) -> i64 {
+unsafe extern "C" fn ivfflat_amgetbitmap(_scan: IndexScanDesc, _tbm: *mut TIDBitmap) -> i64 {
     // IVFFlat doesn't efficiently support bitmap scans
     // Return 0 to indicate no tuples
     0
@@ -1643,20 +1656,14 @@ unsafe extern "C" fn ivfflat_amendscan(scan: IndexScanDesc) {
 
 /// Can return callback
 #[pg_guard]
-unsafe extern "C" fn ivfflat_amcanreturn(
-    _index: Relation,
-    _attno: ::std::os::raw::c_int,
-) -> bool {
+unsafe extern "C" fn ivfflat_amcanreturn(_index: Relation, _attno: ::std::os::raw::c_int) -> bool {
     // IVFFlat can return the indexed vector (useful for covering indexes)
     false // For now, disable to avoid complexity
 }
 
 /// Options callback - parse index options
 #[pg_guard]
-unsafe extern "C" fn ivfflat_amoptions(
-    _reloptions: Datum,
-    _validate: bool,
-) -> *mut bytea {
+unsafe extern "C" fn ivfflat_amoptions(_reloptions: Datum, _validate: bool) -> *mut bytea {
     // TODO: Parse options: lists, quantization, etc.
     // Options format:
     //   lists = 100
@@ -1731,21 +1738,21 @@ static IVFFLAT_AM_HANDLER: IndexAmRoutine = IndexAmRoutine {
     type_: NodeTag::T_IndexAmRoutine,
 
     // Index structure capabilities
-    amstrategies: 1,              // One strategy: nearest neighbor
-    amsupport: 1,                 // One support function: distance
+    amstrategies: 1, // One strategy: nearest neighbor
+    amsupport: 1,    // One support function: distance
     amoptsprocnum: 0,
     amcanorder: false,
-    amcanorderbyop: true,         // Supports ORDER BY with distance operators
+    amcanorderbyop: true, // Supports ORDER BY with distance operators
     amcanbackward: false,
     amcanunique: false,
-    amcanmulticol: false,         // Single column only (vector)
+    amcanmulticol: false, // Single column only (vector)
     amoptionalkey: true,
     amsearcharray: false,
     amsearchnulls: false,
     amstorage: false,
     amclusterable: false,
     ampredlocks: false,
-    amcanparallel: true,          // Supports parallel scan
+    amcanparallel: true, // Supports parallel scan
     amcaninclude: false,
     amusemaintenanceworkmem: true,
     amsummarizing: false,
@@ -1857,16 +1864,19 @@ RETURNS TABLE (
 "#)]
 fn ruivfflat_index_health(
     index_name: &str,
-) -> TableIterator<'static, (
-    name!(lists, i32),
-    name!(vector_count, i64),
-    name!(max_list_size, i32),
-    name!(min_list_size, i32),
-    name!(health_score, f32),
-    name!(needs_retrain, bool),
-    name!(insertions_since_retrain, i64),
-    name!(quantization, String),
-)> {
+) -> TableIterator<
+    'static,
+    (
+        name!(lists, i32),
+        name!(vector_count, i64),
+        name!(max_list_size, i32),
+        name!(min_list_size, i32),
+        name!(health_score, f32),
+        name!(needs_retrain, bool),
+        name!(insertions_since_retrain, i64),
+        name!(quantization, String),
+    ),
+> {
     // TODO: Look up index by name and read metadata
     // For now, return placeholder data
 
@@ -1904,7 +1914,10 @@ fn ruivfflat_get_probes() -> i32 {
 #[pg_extern]
 fn ruivfflat_set_adaptive_probes(enabled: bool) {
     GUC_ADAPTIVE_PROBES.store(enabled, AtomicOrdering::Relaxed);
-    pgrx::notice!("IVFFlat adaptive probes {}", if enabled { "enabled" } else { "disabled" });
+    pgrx::notice!(
+        "IVFFlat adaptive probes {}",
+        if enabled { "enabled" } else { "disabled" }
+    );
 }
 
 /// Trigger index retraining (incremental centroid update)

@@ -367,7 +367,12 @@ impl TripleStore {
     pub fn clear_graph(&self, graph: Option<&str>) {
         let ids_to_remove: Vec<u64> = if let Some(graph_iri) = graph {
             let graphs = self.graphs.read().unwrap();
-            graphs.get(graph_iri).cloned().unwrap_or_default().into_iter().collect()
+            graphs
+                .get(graph_iri)
+                .cloned()
+                .unwrap_or_default()
+                .into_iter()
+                .collect()
         } else {
             let default_graph = self.default_graph.read().unwrap();
             default_graph.iter().copied().collect()

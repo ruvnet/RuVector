@@ -87,11 +87,11 @@ impl EdgeFeaturedConfigBuilder {
 pub struct EdgeFeaturedAttention {
     config: EdgeFeaturedConfig,
     // Weight matrices (would be learnable in training)
-    w_node: Vec<f32>,  // [num_heads, head_dim, node_dim]
-    w_edge: Vec<f32>,  // [num_heads, head_dim, edge_dim]
-    a_src: Vec<f32>,   // [num_heads, head_dim]
-    a_dst: Vec<f32>,   // [num_heads, head_dim]
-    a_edge: Vec<f32>,  // [num_heads, head_dim]
+    w_node: Vec<f32>, // [num_heads, head_dim, node_dim]
+    w_edge: Vec<f32>, // [num_heads, head_dim, edge_dim]
+    a_src: Vec<f32>,  // [num_heads, head_dim]
+    a_dst: Vec<f32>,  // [num_heads, head_dim]
+    a_edge: Vec<f32>, // [num_heads, head_dim]
 }
 
 impl EdgeFeaturedAttention {
@@ -296,7 +296,12 @@ impl Attention for EdgeFeaturedAttention {
     ) -> AttentionResult<Vec<f32>> {
         // Apply mask by filtering keys/values
         if let Some(m) = mask {
-            let filtered: Vec<(usize, bool)> = m.iter().copied().enumerate().filter(|(_, keep)| *keep).collect();
+            let filtered: Vec<(usize, bool)> = m
+                .iter()
+                .copied()
+                .enumerate()
+                .filter(|(_, keep)| *keep)
+                .collect();
             let filtered_keys: Vec<&[f32]> = filtered.iter().map(|(i, _)| keys[*i]).collect();
             let filtered_values: Vec<&[f32]> = filtered.iter().map(|(i, _)| values[*i]).collect();
             self.compute(query, &filtered_keys, &filtered_values)

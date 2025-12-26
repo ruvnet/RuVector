@@ -55,7 +55,9 @@ impl QueryTrajectory {
             return None;
         }
 
-        let relevant_retrieved = self.result_ids.iter()
+        let relevant_retrieved = self
+            .result_ids
+            .iter()
             .filter(|id| self.relevant_ids.contains(id))
             .count();
 
@@ -68,7 +70,9 @@ impl QueryTrajectory {
             return None;
         }
 
-        let relevant_retrieved = self.result_ids.iter()
+        let relevant_retrieved = self
+            .result_ids
+            .iter()
             .filter(|id| self.relevant_ids.contains(id))
             .count();
 
@@ -147,7 +151,8 @@ impl TrajectoryTracker {
         let trajectories = self.trajectories.read().unwrap();
         let cutoff = SystemTime::now() - duration;
 
-        trajectories.iter()
+        trajectories
+            .iter()
             .filter(|t| t.timestamp >= cutoff)
             .cloned()
             .collect()
@@ -156,7 +161,8 @@ impl TrajectoryTracker {
     /// Get trajectories with feedback only
     pub fn get_with_feedback(&self) -> Vec<QueryTrajectory> {
         let trajectories = self.trajectories.read().unwrap();
-        trajectories.iter()
+        trajectories
+            .iter()
             .filter(|t| !t.relevant_ids.is_empty())
             .cloned()
             .collect()
@@ -182,22 +188,26 @@ impl TrajectoryTracker {
         }
 
         let total = trajectories.len();
-        let with_feedback = trajectories.iter().filter(|t| !t.relevant_ids.is_empty()).count();
+        let with_feedback = trajectories
+            .iter()
+            .filter(|t| !t.relevant_ids.is_empty())
+            .count();
 
-        let avg_latency = trajectories.iter().map(|t| t.latency_us).sum::<u64>() as f64 / total as f64;
+        let avg_latency =
+            trajectories.iter().map(|t| t.latency_us).sum::<u64>() as f64 / total as f64;
 
         let avg_precision = if with_feedback > 0 {
-            trajectories.iter()
+            trajectories
+                .iter()
                 .filter_map(|t| t.precision())
-                .sum::<f64>() / with_feedback as f64
+                .sum::<f64>()
+                / with_feedback as f64
         } else {
             0.0
         };
 
         let avg_recall = if with_feedback > 0 {
-            trajectories.iter()
-                .filter_map(|t| t.recall())
-                .sum::<f64>() / with_feedback as f64
+            trajectories.iter().filter_map(|t| t.recall()).sum::<f64>() / with_feedback as f64
         } else {
             0.0
         };
@@ -228,13 +238,7 @@ mod tests {
 
     #[test]
     fn test_trajectory_creation() {
-        let traj = QueryTrajectory::new(
-            vec![1.0, 2.0, 3.0],
-            vec![1, 2, 3],
-            1000,
-            50,
-            10,
-        );
+        let traj = QueryTrajectory::new(vec![1.0, 2.0, 3.0], vec![1, 2, 3], 1000, 50, 10);
 
         assert_eq!(traj.query_vector, vec![1.0, 2.0, 3.0]);
         assert_eq!(traj.result_ids, vec![1, 2, 3]);
@@ -243,13 +247,7 @@ mod tests {
 
     #[test]
     fn test_trajectory_feedback() {
-        let mut traj = QueryTrajectory::new(
-            vec![1.0, 2.0],
-            vec![1, 2, 3, 4],
-            1000,
-            50,
-            10,
-        );
+        let mut traj = QueryTrajectory::new(vec![1.0, 2.0], vec![1, 2, 3, 4], 1000, 50, 10);
 
         traj.add_feedback(vec![1, 2, 5], vec![3]);
 
@@ -263,13 +261,7 @@ mod tests {
 
         // Add 5 trajectories
         for i in 0..5 {
-            tracker.record(QueryTrajectory::new(
-                vec![i as f32],
-                vec![i],
-                1000,
-                50,
-                10,
-            ));
+            tracker.record(QueryTrajectory::new(vec![i as f32], vec![i], 1000, 50, 10));
         }
 
         let all = tracker.get_all();
@@ -284,21 +276,9 @@ mod tests {
     fn test_tracker_stats() {
         let tracker = TrajectoryTracker::new(10);
 
-        tracker.record(QueryTrajectory::new(
-            vec![1.0],
-            vec![1, 2],
-            1000,
-            50,
-            10,
-        ));
+        tracker.record(QueryTrajectory::new(vec![1.0], vec![1, 2], 1000, 50, 10));
 
-        tracker.record(QueryTrajectory::new(
-            vec![2.0],
-            vec![3, 4],
-            2000,
-            60,
-            15,
-        ));
+        tracker.record(QueryTrajectory::new(vec![2.0], vec![3, 4], 2000, 60, 15));
 
         let stats = tracker.stats();
         assert_eq!(stats.total_trajectories, 2);

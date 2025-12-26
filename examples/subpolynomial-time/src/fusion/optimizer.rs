@@ -3,7 +3,7 @@
 //! Provides optimization actions and maintenance planning based on
 //! structural monitor signals.
 
-use super::structural_monitor::{StructuralMonitor, BrittlenessSignal, TriggerType};
+use super::structural_monitor::{BrittlenessSignal, StructuralMonitor, TriggerType};
 use std::collections::HashMap;
 
 /// Optimization action types
@@ -134,28 +134,30 @@ impl MaintenanceTask {
             OptimizerAction::Reindex { nodes, .. } => {
                 (if nodes.len() > 100 { 8 } else { 4 }, false)
             }
-            OptimizerAction::Rewire { strengthen, weaken, .. } => {
-                ((strengthen.len() + weaken.len()).min(10) as u8, false)
-            }
+            OptimizerAction::Rewire {
+                strengthen, weaken, ..
+            } => ((strengthen.len() + weaken.len()).min(10) as u8, false),
             OptimizerAction::SplitShard { .. } => (6, false),
-            OptimizerAction::MergeShards { shard_ids } => {
-                (shard_ids.len().min(10) as u8, false)
-            }
+            OptimizerAction::MergeShards { shard_ids } => (shard_ids.len().min(10) as u8, false),
             OptimizerAction::LearningGate { enable, .. } => {
-                if *enable { (1, false) } else { (2, true) }
+                if *enable {
+                    (1, false)
+                } else {
+                    (2, true)
+                }
             }
             OptimizerAction::NoOp => (0, false),
         };
 
         let benefit = match &action {
-            OptimizerAction::Reindex { .. } =>
-                "Refresh vector similarity edges".to_string(),
-            OptimizerAction::Rewire { .. } =>
-                "Adjust edge weights for better balance".to_string(),
-            OptimizerAction::SplitShard { .. } =>
-                "Reduce partition size for better locality".to_string(),
-            OptimizerAction::MergeShards { .. } =>
-                "Combine sparse partitions for density".to_string(),
+            OptimizerAction::Reindex { .. } => "Refresh vector similarity edges".to_string(),
+            OptimizerAction::Rewire { .. } => "Adjust edge weights for better balance".to_string(),
+            OptimizerAction::SplitShard { .. } => {
+                "Reduce partition size for better locality".to_string()
+            }
+            OptimizerAction::MergeShards { .. } => {
+                "Combine sparse partitions for density".to_string()
+            }
             OptimizerAction::LearningGate { enable, .. } => {
                 if *enable {
                     "Re-enable learning for adaptation".to_string()
@@ -309,7 +311,8 @@ impl Optimizer {
             let task = MaintenanceTask::new(
                 self.next_task_id,
                 OptimizerAction::Rewire {
-                    strengthen: state.boundary_edges
+                    strengthen: state
+                        .boundary_edges
                         .iter()
                         .map(|&(u, v)| (u, v, 1.2))
                         .collect(),
@@ -329,8 +332,14 @@ impl Optimizer {
         metrics.insert("lambda_est".to_string(), state.lambda_est);
         metrics.insert("lambda_trend".to_string(), state.lambda_trend);
         metrics.insert("cut_volatility".to_string(), state.cut_volatility);
-        metrics.insert("boundary_edges".to_string(), state.boundary_edges.len() as f64);
-        metrics.insert("learning_rate".to_string(), self.learning_gate.learning_rate);
+        metrics.insert(
+            "boundary_edges".to_string(),
+            state.boundary_edges.len() as f64,
+        );
+        metrics.insert(
+            "learning_rate".to_string(),
+            self.learning_gate.learning_rate,
+        );
 
         let result = OptimizationResult {
             signal,
@@ -357,7 +366,8 @@ impl Optimizer {
         match trigger_type {
             TriggerType::IslandingRisk => {
                 // Strengthen boundary edges to prevent islanding
-                let strengthen: Vec<_> = state.boundary_edges
+                let strengthen: Vec<_> = state
+                    .boundary_edges
                     .iter()
                     .map(|&(u, v)| (u, v, 1.5))
                     .collect();
@@ -383,7 +393,7 @@ impl Optimizer {
                 // Reindex to refresh connections
                 (
                     OptimizerAction::Reindex {
-                        nodes: Vec::new(), // All nodes
+                        nodes: Vec::new(),        // All nodes
                         new_threshold: Some(0.6), // Lower threshold
                     },
                     6,

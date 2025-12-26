@@ -18,14 +18,13 @@
 //! SET ruvector.hnsw_ef_search = 100;
 //! ```
 
-use pgrx::prelude::*;
 use pgrx::pg_sys::{
-    self, BlockNumber, Buffer, Cost, Datum, IndexAmRoutine, IndexBuildResult,
+    self, bytea, BlockNumber, Buffer, Cost, Datum, IndexAmRoutine, IndexBuildResult,
     IndexBulkDeleteCallback, IndexBulkDeleteResult, IndexInfo, IndexPath, IndexScanDesc,
-    IndexUniqueCheck, IndexVacuumInfo, ItemPointer, ItemPointerData, NodeTag, Page,
-    PageHeaderData, PlannerInfo, Relation, ScanDirection, ScanKey, Selectivity, Size,
-    TIDBitmap, bytea,
+    IndexUniqueCheck, IndexVacuumInfo, ItemPointer, ItemPointerData, NodeTag, Page, PageHeaderData,
+    PlannerInfo, Relation, ScanDirection, ScanKey, Selectivity, Size, TIDBitmap,
 };
+use pgrx::prelude::*;
 use pgrx::Internal;
 
 use std::cmp::Ordering;
@@ -62,9 +61,9 @@ const DEFAULT_EF_CONSTRUCTION: u32 = 64;
 const DEFAULT_EF_SEARCH: u32 = 40;
 
 /// Maximum neighbors per node
-const MAX_NEIGHBORS_L0: usize = 64;   // 2*M for layer 0
-const MAX_NEIGHBORS: usize = 32;       // M for other layers
-const MAX_LAYERS: usize = 16;          // Maximum graph layers
+const MAX_NEIGHBORS_L0: usize = 64; // 2*M for layer 0
+const MAX_NEIGHBORS: usize = 32; // M for other layers
+const MAX_LAYERS: usize = 16; // Maximum graph layers
 
 /// P_NEW equivalent for allocating new pages
 const P_NEW_BLOCK: BlockNumber = pg_sys::InvalidBlockNumber;
@@ -309,7 +308,10 @@ impl PartialOrd for SearchCandidate {
 impl Ord for SearchCandidate {
     fn cmp(&self, other: &Self) -> Ordering {
         // Min-heap by distance
-        other.distance.partial_cmp(&self.distance).unwrap_or(Ordering::Equal)
+        other
+            .distance
+            .partial_cmp(&self.distance)
+            .unwrap_or(Ordering::Equal)
     }
 }
 
@@ -338,7 +340,9 @@ impl PartialOrd for ResultCandidate {
 impl Ord for ResultCandidate {
     fn cmp(&self, other: &Self) -> Ordering {
         // Max-heap for pruning (furthest first)
-        self.distance.partial_cmp(&other.distance).unwrap_or(Ordering::Equal)
+        self.distance
+            .partial_cmp(&other.distance)
+            .unwrap_or(Ordering::Equal)
     }
 }
 
@@ -364,10 +368,8 @@ unsafe fn get_meta_page_exclusive(index_rel: Relation) -> (Page, Buffer) {
 
 /// Get or create metadata page for new indexes
 unsafe fn get_or_create_meta_page(index_rel: Relation, for_write: bool) -> (Page, Buffer) {
-    let nblocks = pg_sys::RelationGetNumberOfBlocksInFork(
-        index_rel,
-        pg_sys::ForkNumber::MAIN_FORKNUM,
-    );
+    let nblocks =
+        pg_sys::RelationGetNumberOfBlocksInFork(index_rel, pg_sys::ForkNumber::MAIN_FORKNUM);
 
     let buffer = if nblocks == 0 {
         pg_sys::ReadBuffer(index_rel, P_NEW_BLOCK)
@@ -618,7 +620,8 @@ unsafe fn hnsw_search(
             let mut improved = false;
 
             for neighbor in neighbors {
-                let dist = calculate_distance(index_rel, query, neighbor.block_num, dimensions, metric);
+                let dist =
+                    calculate_distance(index_rel, query, neighbor.block_num, dimensions, metric);
                 if dist < current_dist {
                     current = neighbor.block_num;
                     current_dist = dist;
@@ -675,8 +678,8 @@ unsafe fn hnsw_search(
             let dist = calculate_distance(index_rel, query, neighbor.block_num, dimensions, metric);
 
             // Check if should add to candidates
-            let should_add = results.len() < ef_search
-                || results.peek().map_or(true, |w| dist < w.distance);
+            let should_add =
+                results.len() < ef_search || results.peek().map_or(true, |w| dist < w.distance);
 
             if should_add {
                 candidates.push(SearchCandidate {
@@ -685,7 +688,8 @@ unsafe fn hnsw_search(
                 });
 
                 // Get TID and add to results
-                if let Some((node_header, buffer)) = read_node_header(index_rel, neighbor.block_num) {
+                if let Some((node_header, buffer)) = read_node_header(index_rel, neighbor.block_num)
+                {
                     pg_sys::UnlockReleaseBuffer(buffer);
 
                     if node_header.flags & NODE_FLAG_DELETED == 0 {
@@ -755,9 +759,19 @@ unsafe extern "C" fn hnsw_build(
         metric: metric_to_byte(config.metric),
         recall_target: options.recall_target,
         build_timestamp,
-        flags: if options.parallel_build { FLAG_PARALLEL_BUILD } else { 0 }
-            | if options.integrity_enabled { FLAG_INTEGRITY_ENABLED } else { 0 }
-            | if options.mmap_enabled { FLAG_MMAP_ENABLED } else { 0 },
+        flags: if options.parallel_build {
+            FLAG_PARALLEL_BUILD
+        } else {
+            0
+        } | if options.integrity_enabled {
+            FLAG_INTEGRITY_ENABLED
+        } else {
+            0
+        } | if options.mmap_enabled {
+            FLAG_MMAP_ENABLED
+        } else {
+            0
+        },
         ..Default::default()
     };
 
@@ -766,13 +780,8 @@ unsafe extern "C" fn hnsw_build(
     pg_sys::UnlockReleaseBuffer(buffer);
 
     // Build index by scanning heap
-    let tuple_count = build_index_from_heap(
-        heap,
-        index,
-        index_info,
-        &mut meta,
-        options.parallel_build,
-    );
+    let tuple_count =
+        build_index_from_heap(heap, index, index_info, &mut meta, options.parallel_build);
 
     // Update final metadata
     let (page, buffer) = get_meta_page_exclusive(index);
@@ -879,7 +888,7 @@ unsafe fn build_index_from_heap(
         heap,
         index,
         index_info,
-        true, // allow_sync
+        true,  // allow_sync
         false, // progress
         Some(hnsw_build_callback),
         &mut build_state as *mut HnswBuildState as *mut ::std::os::raw::c_void,
@@ -1025,7 +1034,8 @@ unsafe fn hnsw_insert_vector(
             let mut improved = false;
 
             for neighbor in neighbors {
-                let dist = calculate_distance(index, vector, neighbor.block_num, dimensions, metric);
+                let dist =
+                    calculate_distance(index, vector, neighbor.block_num, dimensions, metric);
                 if dist < current_dist {
                     current = neighbor.block_num;
                     current_dist = dist;
@@ -1091,8 +1101,14 @@ unsafe fn search_layer_for_insert(
 
     let entry_dist = calculate_distance(index, query, entry, dimensions, metric);
     visited.insert(entry);
-    candidates.push(SearchCandidate { block: entry, distance: entry_dist });
-    results.push(SearchCandidate { block: entry, distance: -entry_dist }); // Negate for max-heap
+    candidates.push(SearchCandidate {
+        block: entry,
+        distance: entry_dist,
+    });
+    results.push(SearchCandidate {
+        block: entry,
+        distance: -entry_dist,
+    }); // Negate for max-heap
 
     while let Some(current) = candidates.pop() {
         let worst_dist = results.peek().map(|r| -r.distance).unwrap_or(f32::MAX);
@@ -1112,8 +1128,14 @@ unsafe fn search_layer_for_insert(
             let worst_dist = results.peek().map(|r| -r.distance).unwrap_or(f32::MAX);
 
             if dist < worst_dist || results.len() < ef {
-                candidates.push(SearchCandidate { block: neighbor.block_num, distance: dist });
-                results.push(SearchCandidate { block: neighbor.block_num, distance: -dist });
+                candidates.push(SearchCandidate {
+                    block: neighbor.block_num,
+                    distance: dist,
+                });
+                results.push(SearchCandidate {
+                    block: neighbor.block_num,
+                    distance: -dist,
+                });
 
                 if results.len() > ef {
                     results.pop();
@@ -1125,10 +1147,17 @@ unsafe fn search_layer_for_insert(
     // Convert to neighbor list sorted by distance
     let mut result_vec: Vec<_> = results
         .into_iter()
-        .map(|c| HnswNeighbor { block_num: c.block, distance: -c.distance })
+        .map(|c| HnswNeighbor {
+            block_num: c.block,
+            distance: -c.distance,
+        })
         .collect();
 
-    result_vec.sort_by(|a, b| a.distance.partial_cmp(&b.distance).unwrap_or(Ordering::Equal));
+    result_vec.sort_by(|a, b| {
+        a.distance
+            .partial_cmp(&b.distance)
+            .unwrap_or(Ordering::Equal)
+    });
     result_vec
 }
 
@@ -1323,7 +1352,11 @@ unsafe extern "C" fn hnsw_beginscan(
     nkeys: ::std::os::raw::c_int,
     norderbys: ::std::os::raw::c_int,
 ) -> IndexScanDesc {
-    pgrx::debug1!("HNSW v2: Begin scan (nkeys={}, norderbys={})", nkeys, norderbys);
+    pgrx::debug1!(
+        "HNSW v2: Begin scan (nkeys={}, norderbys={})",
+        nkeys,
+        norderbys
+    );
 
     let scan = pg_sys::RelationGetIndexScan(index, nkeys, norderbys);
 
@@ -1410,10 +1443,7 @@ unsafe extern "C" fn hnsw_rescan(
 
 /// Get tuple callback - return next result
 #[pg_guard]
-unsafe extern "C" fn hnsw_gettuple(
-    scan: IndexScanDesc,
-    direction: ScanDirection::Type,
-) -> bool {
+unsafe extern "C" fn hnsw_gettuple(scan: IndexScanDesc, direction: ScanDirection::Type) -> bool {
     // Only support forward scans
     if direction != pg_sys::ScanDirection::ForwardScanDirection {
         return false;
@@ -1433,13 +1463,7 @@ unsafe extern "C" fn hnsw_gettuple(
         state.ef_search = ef_search;
 
         // Perform search
-        state.results = hnsw_search(
-            index,
-            &state.query_vector,
-            state.k,
-            ef_search,
-            &meta,
-        );
+        state.results = hnsw_search(index, &state.query_vector, state.k, ef_search, &meta);
 
         state.search_done = true;
 
@@ -1501,10 +1525,7 @@ unsafe extern "C" fn hnsw_canreturn(_index: Relation, attno: ::std::os::raw::c_i
 
 /// Options callback - parse index options from WITH clause
 #[pg_guard]
-unsafe extern "C" fn hnsw_options(
-    reloptions: Datum,
-    validate: bool,
-) -> *mut bytea {
+unsafe extern "C" fn hnsw_options(reloptions: Datum, validate: bool) -> *mut bytea {
     pgrx::debug1!("HNSW v2: Parsing options (validate={})", validate);
 
     // TODO: Implement proper reloptions parsing using pg_sys::parseRelOptions
@@ -1581,21 +1602,21 @@ static HNSW_AM_HANDLER: IndexAmRoutine = IndexAmRoutine {
     type_: NodeTag::T_IndexAmRoutine,
 
     // Index structure capabilities
-    amstrategies: 1,               // One strategy: nearest neighbor
-    amsupport: 2,                  // Two support functions: distance, normalize
+    amstrategies: 1, // One strategy: nearest neighbor
+    amsupport: 2,    // Two support functions: distance, normalize
     amoptsprocnum: 0,
     amcanorder: false,
-    amcanorderbyop: true,          // Supports ORDER BY with distance operators
+    amcanorderbyop: true, // Supports ORDER BY with distance operators
     amcanbackward: false,
     amcanunique: false,
-    amcanmulticol: false,          // Single column only (vector)
+    amcanmulticol: false, // Single column only (vector)
     amoptionalkey: true,
     amsearcharray: false,
     amsearchnulls: false,
-    amstorage: true,               // Custom storage format
+    amstorage: true, // Custom storage format
     amclusterable: false,
     ampredlocks: false,
-    amcanparallel: true,           // Supports parallel scan
+    amcanparallel: true, // Supports parallel scan
     amcaninclude: false,
     amusemaintenanceworkmem: true,
     amsummarizing: false,
@@ -1695,11 +1716,7 @@ fn ruhnsw_reset_stats() {
 
 /// Get dynamic ef_search recommendation
 #[pg_extern]
-fn ruhnsw_recommended_ef_search(
-    index_name: &str,
-    k: i32,
-    recall_target: f64,
-) -> i32 {
+fn ruhnsw_recommended_ef_search(index_name: &str, k: i32, recall_target: f64) -> i32 {
     // Heuristic for ef_search based on k and recall target
     let base_ef = k.max(10);
     let recall_factor = 1.0 / (1.0 - recall_target + 0.01);
@@ -1735,9 +1752,18 @@ mod tests {
 
     #[test]
     fn test_metric_conversion() {
-        assert_eq!(byte_to_metric(metric_to_byte(DistanceMetric::Euclidean)), DistanceMetric::Euclidean);
-        assert_eq!(byte_to_metric(metric_to_byte(DistanceMetric::Cosine)), DistanceMetric::Cosine);
-        assert_eq!(byte_to_metric(metric_to_byte(DistanceMetric::InnerProduct)), DistanceMetric::InnerProduct);
+        assert_eq!(
+            byte_to_metric(metric_to_byte(DistanceMetric::Euclidean)),
+            DistanceMetric::Euclidean
+        );
+        assert_eq!(
+            byte_to_metric(metric_to_byte(DistanceMetric::Cosine)),
+            DistanceMetric::Cosine
+        );
+        assert_eq!(
+            byte_to_metric(metric_to_byte(DistanceMetric::InnerProduct)),
+            DistanceMetric::InnerProduct
+        );
     }
 
     #[test]
@@ -1781,9 +1807,18 @@ mod tests {
     fn test_search_candidate_ordering() {
         let mut heap: BinaryHeap<SearchCandidate> = BinaryHeap::new();
 
-        heap.push(SearchCandidate { block: 1, distance: 0.5 });
-        heap.push(SearchCandidate { block: 2, distance: 0.1 });
-        heap.push(SearchCandidate { block: 3, distance: 0.9 });
+        heap.push(SearchCandidate {
+            block: 1,
+            distance: 0.5,
+        });
+        heap.push(SearchCandidate {
+            block: 2,
+            distance: 0.1,
+        });
+        heap.push(SearchCandidate {
+            block: 3,
+            distance: 0.9,
+        });
 
         // Should be min-heap by distance
         assert_eq!(heap.pop().unwrap().distance, 0.1);
@@ -1799,9 +1834,21 @@ mod tests {
             ip_posid: 0,
         };
 
-        heap.push(ResultCandidate { block: 1, tid: dummy_tid, distance: 0.5 });
-        heap.push(ResultCandidate { block: 2, tid: dummy_tid, distance: 0.1 });
-        heap.push(ResultCandidate { block: 3, tid: dummy_tid, distance: 0.9 });
+        heap.push(ResultCandidate {
+            block: 1,
+            tid: dummy_tid,
+            distance: 0.5,
+        });
+        heap.push(ResultCandidate {
+            block: 2,
+            tid: dummy_tid,
+            distance: 0.1,
+        });
+        heap.push(ResultCandidate {
+            block: 3,
+            tid: dummy_tid,
+            distance: 0.9,
+        });
 
         // Should be max-heap by distance (for pruning)
         assert_eq!(heap.pop().unwrap().distance, 0.9);

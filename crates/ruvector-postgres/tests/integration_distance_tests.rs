@@ -9,8 +9,8 @@
 #[pgrx::pg_schema]
 mod integration_tests {
     use pgrx::prelude::*;
-    use ruvector_postgres::types::RuVector;
     use ruvector_postgres::operators::*;
+    use ruvector_postgres::types::RuVector;
 
     // ========================================================================
     // L2 Distance Tests
@@ -83,7 +83,10 @@ mod integration_tests {
         let b = RuVector::from_slice(&[-1.0, 0.0, 0.0]);
 
         let dist = ruvector_cosine_distance(a, b);
-        assert!((dist - 2.0).abs() < 1e-5, "Opposite direction should have distance ~2");
+        assert!(
+            (dist - 2.0).abs() < 1e-5,
+            "Opposite direction should have distance ~2"
+        );
     }
 
     #[pg_test]
@@ -92,7 +95,10 @@ mod integration_tests {
         let b = RuVector::from_slice(&[0.0, 1.0, 0.0]);
 
         let dist = ruvector_cosine_distance(a, b);
-        assert!((dist - 1.0).abs() < 1e-5, "Orthogonal vectors should have distance ~1");
+        assert!(
+            (dist - 1.0).abs() < 1e-5,
+            "Orthogonal vectors should have distance ~1"
+        );
     }
 
     #[pg_test]
@@ -218,8 +224,11 @@ mod integration_tests {
             let b = RuVector::from_slice(&b_data);
 
             let dist = ruvector_l2_distance(a, b);
-            assert!(dist.is_finite() && dist > 0.0,
-                   "L2 distance failed for size {}", size);
+            assert!(
+                dist.is_finite() && dist > 0.0,
+                "L2 distance failed for size {}",
+                size
+            );
         }
     }
 
@@ -321,7 +330,10 @@ mod integration_tests {
         let d1 = ruvector_cosine_distance(a.clone(), b.clone());
         let d2 = ruvector_cosine_distance(b, a);
 
-        assert!((d1 - d2).abs() < 1e-6, "Cosine distance should be symmetric");
+        assert!(
+            (d1 - d2).abs() < 1e-6,
+            "Cosine distance should be symmetric"
+        );
     }
 
     #[pg_test]

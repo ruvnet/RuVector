@@ -1,8 +1,8 @@
 //! End-to-end integration tests for the minimum cut implementation
 
 use ruvector_mincut::{
-    DynamicGraph, MinCutWrapper, BoundedInstance, ProperCutInstance,
-    RuVectorGraphAnalyzer, CommunityDetector, GraphPartitioner,
+    BoundedInstance, CommunityDetector, DynamicGraph, GraphPartitioner, MinCutWrapper,
+    ProperCutInstance, RuVectorGraphAnalyzer,
 };
 use std::sync::Arc;
 
@@ -108,18 +108,24 @@ fn test_graph_partitioner_full_pipeline() {
 
     // Line graph: 0-1-2-3-4
     for i in 0..4u64 {
-        graph.insert_edge(i, i+1, 1.0).unwrap();
+        graph.insert_edge(i, i + 1, 1.0).unwrap();
     }
 
     let partitioner = GraphPartitioner::new(graph, 2);
     let partitions = partitioner.partition();
 
     // Verify partitioning produces reasonable results
-    assert!(partitions.len() >= 1 && partitions.len() <= 5,
-        "Partitions should be between 1 and 5, got {}", partitions.len());
+    assert!(
+        partitions.len() >= 1 && partitions.len() <= 5,
+        "Partitions should be between 1 and 5, got {}",
+        partitions.len()
+    );
     let total: usize = partitions.iter().map(|p| p.len()).sum();
-    assert!(total >= 1 && total <= 5,
-        "Total vertices should be 5 or fewer, got {}", total);
+    assert!(
+        total >= 1 && total <= 5,
+        "Total vertices should be 5 or fewer, got {}",
+        total
+    );
 }
 
 #[test]
@@ -144,7 +150,7 @@ fn test_large_graph_performance() {
 
     // Create a larger graph: path of 100 vertices
     for i in 0..99u64 {
-        graph.insert_edge(i, i+1, 1.0).unwrap();
+        graph.insert_edge(i, i + 1, 1.0).unwrap();
     }
 
     let mut wrapper = MinCutWrapper::with_factory(Arc::clone(&graph), |g, min, max| {

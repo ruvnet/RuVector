@@ -4,8 +4,8 @@
 //! rest of the minimum cut system.
 
 use ruvector_mincut::{
-    DynamicGraph, LocalKCutQuery, PaperLocalKCutResult as LocalKCutResult,
-    LocalKCutOracle, DeterministicLocalKCut, DeterministicFamilyGenerator,
+    DeterministicFamilyGenerator, DeterministicLocalKCut, DynamicGraph, LocalKCutOracle,
+    LocalKCutQuery, PaperLocalKCutResult as LocalKCutResult,
 };
 use std::sync::Arc;
 
@@ -159,8 +159,14 @@ fn test_determinism_across_calls() {
     for i in 1..results.len() {
         match (&results[0], &results[i]) {
             (
-                LocalKCutResult::Found { cut_value: v1, witness: w1 },
-                LocalKCutResult::Found { cut_value: v2, witness: w2 },
+                LocalKCutResult::Found {
+                    cut_value: v1,
+                    witness: w1,
+                },
+                LocalKCutResult::Found {
+                    cut_value: v2,
+                    witness: w2,
+                },
             ) => {
                 assert_eq!(v1, v2, "Cut values should be deterministic");
                 assert_eq!(w1.seed(), w2.seed(), "Seeds should match");

@@ -19,26 +19,25 @@
 #![allow(unused_mut)]
 
 pub mod ast;
-pub mod parser;
 pub mod executor;
-pub mod triple_store;
 pub mod functions;
+pub mod parser;
 pub mod results;
+pub mod triple_store;
 
 pub use ast::{
-    SparqlQuery, QueryForm, SelectQuery, ConstructQuery, AskQuery, DescribeQuery,
-    GraphPattern, TriplePattern, Filter, Expression, RdfTerm, Iri, Literal,
-    Aggregate, OrderCondition, GroupCondition, SolutionModifier,
-    UpdateOperation, InsertData, DeleteData, Modify,
+    Aggregate, AskQuery, ConstructQuery, DeleteData, DescribeQuery, Expression, Filter,
+    GraphPattern, GroupCondition, InsertData, Iri, Literal, Modify, OrderCondition, QueryForm,
+    RdfTerm, SelectQuery, SolutionModifier, SparqlQuery, TriplePattern, UpdateOperation,
 };
-pub use parser::parse_sparql;
 pub use executor::{execute_sparql, SparqlContext};
-pub use triple_store::{TripleStore, Triple, TripleIndex};
-pub use results::{SparqlResults, ResultFormat, format_results};
+pub use parser::parse_sparql;
+pub use results::{format_results, ResultFormat, SparqlResults};
+pub use triple_store::{Triple, TripleIndex, TripleStore};
 
-use std::sync::Arc;
 use dashmap::DashMap;
 use once_cell::sync::Lazy;
+use std::sync::Arc;
 
 /// Global RDF triple store registry
 static TRIPLE_STORE_REGISTRY: Lazy<DashMap<String, Arc<TripleStore>>> =
@@ -64,7 +63,10 @@ pub fn delete_store(name: &str) -> bool {
 
 /// List all triple store names
 pub fn list_stores() -> Vec<String> {
-    TRIPLE_STORE_REGISTRY.iter().map(|e| e.key().clone()).collect()
+    TRIPLE_STORE_REGISTRY
+        .iter()
+        .map(|e| e.key().clone())
+        .collect()
 }
 
 /// SPARQL error type

@@ -9,7 +9,7 @@ use dashmap::DashMap;
 use parking_lot::RwLock;
 use rayon::prelude::*;
 
-use crate::distance::{DistanceMetric, distance};
+use crate::distance::{distance, DistanceMetric};
 
 /// IVFFlat configuration
 #[derive(Debug, Clone)]
@@ -72,7 +72,10 @@ impl PartialOrd for SearchResult {
 impl Ord for SearchResult {
     fn cmp(&self, other: &Self) -> Ordering {
         // Reverse for max-heap
-        other.distance.partial_cmp(&self.distance).unwrap_or(Ordering::Equal)
+        other
+            .distance
+            .partial_cmp(&self.distance)
+            .unwrap_or(Ordering::Equal)
     }
 }
 
@@ -175,7 +178,8 @@ impl IvfFlatIndex {
             self.lists.insert(i, Vec::new());
         }
 
-        self.trained.store(true, std::sync::atomic::Ordering::Relaxed);
+        self.trained
+            .store(true, std::sync::atomic::Ordering::Relaxed);
     }
 
     /// K-means++ initialization
@@ -251,7 +255,9 @@ impl IvfFlatIndex {
         assert_eq!(vector.len(), self.dimensions, "Vector dimension mismatch");
         assert!(self.is_trained(), "Index must be trained before insertion");
 
-        let id = self.next_id.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        let id = self
+            .next_id
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
 
         let centroids = self.centroids.read();
         let cluster = self.find_nearest_centroid(&vector, &centroids);
@@ -264,7 +270,8 @@ impl IvfFlatIndex {
         }
 
         self.id_to_cluster.insert(id, cluster);
-        self.vector_count.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        self.vector_count
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
 
         id
     }
@@ -298,7 +305,10 @@ impl IvfFlatIndex {
             if let Some(list) = self.lists.get(cluster_id) {
                 for entry in list.iter() {
                     let dist = self.calc_distance(query, &entry.vector);
-                    heap.push(SearchResult { id: entry.id, distance: dist });
+                    heap.push(SearchResult {
+                        id: entry.id,
+                        distance: dist,
+                    });
 
                     if heap.len() > k {
                         heap.pop();
@@ -314,7 +324,12 @@ impl IvfFlatIndex {
     }
 
     /// Parallel search
-    pub fn search_parallel(&self, query: &[f32], k: usize, probes: Option<usize>) -> Vec<(VectorId, f32)> {
+    pub fn search_parallel(
+        &self,
+        query: &[f32],
+        k: usize,
+        probes: Option<usize>,
+    ) -> Vec<(VectorId, f32)> {
         assert_eq!(query.len(), self.dimensions, "Query dimension mismatch");
 
         if !self.is_trained() {

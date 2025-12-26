@@ -10,7 +10,7 @@
 
 use super::{
     neuron::{LIFNeuron, NeuronConfig, NeuronPopulation, SpikeTrain},
-    synapse::{Synapse, SynapseMatrix, STDPConfig},
+    synapse::{STDPConfig, Synapse, SynapseMatrix},
     SimTime, Spike, Vector,
 };
 use crate::graph::DynamicGraph;
@@ -183,11 +183,8 @@ impl SpikingNetwork {
         // Copy graph edges as recurrent connections
         if let Some(ref mut recurrent) = network.recurrent_weights[0] {
             let vertices: Vec<_> = graph.vertices();
-            let vertex_to_idx: std::collections::HashMap<_, _> = vertices
-                .iter()
-                .enumerate()
-                .map(|(i, &v)| (v, i))
-                .collect();
+            let vertex_to_idx: std::collections::HashMap<_, _> =
+                vertices.iter().enumerate().map(|(i, &v)| (v, i)).collect();
 
             for edge in graph.edges() {
                 if let (Some(&pre), Some(&post)) = (
@@ -236,9 +233,7 @@ impl SpikingNetwork {
             let n = currents.len().min(input_layer.size());
 
             for (i, neuron) in input_layer.neurons.iter_mut().take(n).enumerate() {
-                neuron.set_membrane_potential(
-                    neuron.membrane_potential() + currents[i] * 0.1
-                );
+                neuron.set_membrane_potential(neuron.membrane_potential() + currents[i] * 0.1);
             }
         }
     }
@@ -317,7 +312,8 @@ impl SpikingNetwork {
             // STDP updates for feedforward weights
             if layer_idx > 0 {
                 for spike in &spikes {
-                    self.feedforward_weights[layer_idx - 1].on_post_spike(spike.neuron_id, self.time);
+                    self.feedforward_weights[layer_idx - 1]
+                        .on_post_spike(spike.neuron_id, self.time);
                 }
             }
 
@@ -377,11 +373,8 @@ impl SpikingNetwork {
 
         for i in 0..n {
             for j in (i + 1)..n {
-                let corr = layer.spike_trains[i].cross_correlation(
-                    &layer.spike_trains[j],
-                    50.0,
-                    5.0,
-                );
+                let corr =
+                    layer.spike_trains[i].cross_correlation(&layer.spike_trains[j], 50.0, 5.0);
                 let sync = corr.iter().sum::<f64>() / corr.len() as f64;
                 matrix[i][j] = sync;
                 matrix[j][i] = sync;
@@ -454,7 +447,9 @@ fn rand_u64() -> u64 {
     // Use compare_exchange loop to ensure atomicity
     loop {
         let current = RNG_STATE.load(Ordering::Relaxed);
-        let next = current.wrapping_mul(0x5851f42d4c957f2d).wrapping_add(0x14057b7ef767814f);
+        let next = current
+            .wrapping_mul(0x5851f42d4c957f2d)
+            .wrapping_add(0x14057b7ef767814f);
         match RNG_STATE.compare_exchange_weak(current, next, Ordering::Relaxed, Ordering::Relaxed) {
             Ok(_) => return next,
             Err(_) => continue, // Retry on contention

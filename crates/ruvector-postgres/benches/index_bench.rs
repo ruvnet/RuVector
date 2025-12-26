@@ -8,7 +8,7 @@
 //! - Recall vs latency tradeoffs
 //! - Memory usage analysis
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId, Throughput};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 use rand::prelude::*;
 use rand_chacha::ChaCha8Rng;
 use rayon::prelude::*;
@@ -19,13 +19,13 @@ use std::time::{Duration, Instant};
 // ============================================================================
 
 mod hnsw {
+    use dashmap::DashMap;
+    use parking_lot::RwLock;
+    use rand::prelude::*;
+    use rand_chacha::ChaCha8Rng;
     use std::cmp::Ordering;
     use std::collections::{BinaryHeap, HashSet};
     use std::sync::atomic::{AtomicUsize, Ordering as AtomicOrdering};
-    use parking_lot::RwLock;
-    use dashmap::DashMap;
-    use rand::prelude::*;
-    use rand_chacha::ChaCha8Rng;
 
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
     pub enum DistanceMetric {
@@ -83,7 +83,10 @@ mod hnsw {
 
     impl Ord for Neighbor {
         fn cmp(&self, other: &Self) -> Ordering {
-            other.distance.partial_cmp(&self.distance).unwrap_or(Ordering::Equal)
+            other
+                .distance
+                .partial_cmp(&self.distance)
+                .unwrap_or(Ordering::Equal)
         }
     }
 
@@ -139,16 +142,15 @@ mod hnsw {
 
         fn calc_distance(&self, a: &[f32], b: &[f32]) -> f32 {
             match self.config.metric {
-                DistanceMetric::Euclidean => {
-                    a.iter()
-                        .zip(b.iter())
-                        .map(|(x, y)| {
-                            let diff = x - y;
-                            diff * diff
-                        })
-                        .sum::<f32>()
-                        .sqrt()
-                }
+                DistanceMetric::Euclidean => a
+                    .iter()
+                    .zip(b.iter())
+                    .map(|(x, y)| {
+                        let diff = x - y;
+                        diff * diff
+                    })
+                    .sum::<f32>()
+                    .sqrt(),
                 DistanceMetric::Cosine => {
                     let mut dot = 0.0f32;
                     let mut norm_a = 0.0f32;
@@ -159,7 +161,11 @@ mod hnsw {
                         norm_b += y * y;
                     }
                     let denom = (norm_a * norm_b).sqrt();
-                    if denom == 0.0 { 1.0 } else { 1.0 - (dot / denom) }
+                    if denom == 0.0 {
+                        1.0
+                    } else {
+                        1.0 - (dot / denom)
+                    }
                 }
                 DistanceMetric::InnerProduct => {
                     -a.iter().zip(b.iter()).map(|(x, y)| x * y).sum::<f32>()
@@ -198,7 +204,11 @@ mod hnsw {
             self.nodes.insert(id, node);
 
             // Simplified insertion - connect to entry point
-            let max_connections = if level == 0 { self.config.m0 } else { self.config.m };
+            let max_connections = if level == 0 {
+                self.config.m0
+            } else {
+                self.config.m
+            };
 
             if let Some(entry_node) = self.nodes.get(&entry_id) {
                 let min_level = level.min(entry_node.max_layer);
@@ -235,11 +245,15 @@ mod hnsw {
             };
 
             // Brute force search (simplified for benchmarking)
-            let mut results: Vec<SearchResult> = self.nodes
+            let mut results: Vec<SearchResult> = self
+                .nodes
                 .iter()
                 .map(|entry| {
                     let dist = self.calc_distance(query, &entry.value().vector);
-                    SearchResult { id: *entry.key(), distance: dist }
+                    SearchResult {
+                        id: *entry.key(),
+                        distance: dist,
+                    }
                 })
                 .collect();
 
@@ -266,13 +280,13 @@ mod hnsw {
 // ============================================================================
 
 mod ivfflat {
-    use std::cmp::Ordering;
-    use std::collections::BinaryHeap;
-    use parking_lot::RwLock;
     use dashmap::DashMap;
+    use parking_lot::RwLock;
     use rand::prelude::*;
     use rand_chacha::ChaCha8Rng;
     use rayon::prelude::*;
+    use std::cmp::Ordering;
+    use std::collections::BinaryHeap;
 
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
     pub enum DistanceMetric {
@@ -332,7 +346,10 @@ mod ivfflat {
 
     impl Ord for SearchResult {
         fn cmp(&self, other: &Self) -> Ordering {
-            other.distance.partial_cmp(&self.distance).unwrap_or(Ordering::Equal)
+            other
+                .distance
+                .partial_cmp(&self.distance)
+                .unwrap_or(Ordering::Equal)
         }
     }
 
@@ -369,16 +386,15 @@ mod ivfflat {
 
         fn calc_distance(&self, a: &[f32], b: &[f32]) -> f32 {
             match self.config.metric {
-                DistanceMetric::Euclidean => {
-                    a.iter()
-                        .zip(b.iter())
-                        .map(|(x, y)| {
-                            let diff = x - y;
-                            diff * diff
-                        })
-                        .sum::<f32>()
-                        .sqrt()
-                }
+                DistanceMetric::Euclidean => a
+                    .iter()
+                    .zip(b.iter())
+                    .map(|(x, y)| {
+                        let diff = x - y;
+                        diff * diff
+                    })
+                    .sum::<f32>()
+                    .sqrt(),
                 DistanceMetric::Cosine => {
                     let mut dot = 0.0f32;
                     let mut norm_a = 0.0f32;
@@ -389,7 +405,11 @@ mod ivfflat {
                         norm_b += y * y;
                     }
                     let denom = (norm_a * norm_b).sqrt();
-                    if denom == 0.0 { 1.0 } else { 1.0 - (dot / denom) }
+                    if denom == 0.0 {
+                        1.0
+                    } else {
+                        1.0 - (dot / denom)
+                    }
                 }
                 DistanceMetric::InnerProduct => {
                     -a.iter().zip(b.iter()).map(|(x, y)| x * y).sum::<f32>()
@@ -471,7 +491,8 @@ mod ivfflat {
                 self.lists.insert(i, Vec::new());
             }
 
-            self.trained.store(true, std::sync::atomic::Ordering::Relaxed);
+            self.trained
+                .store(true, std::sync::atomic::Ordering::Relaxed);
         }
 
         fn find_nearest_centroid(&self, vector: &[f32], centroids: &[Vec<f32>]) -> usize {
@@ -503,10 +524,16 @@ mod ivfflat {
             }
 
             self.id_to_cluster.insert(id, cluster);
-            self.vector_count.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            self.vector_count
+                .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         }
 
-        pub fn search(&self, query: &[f32], k: usize, probes: Option<usize>) -> Vec<(VectorId, f32)> {
+        pub fn search(
+            &self,
+            query: &[f32],
+            k: usize,
+            probes: Option<usize>,
+        ) -> Vec<(VectorId, f32)> {
             if !self.is_trained() {
                 return Vec::new();
             }
@@ -529,7 +556,10 @@ mod ivfflat {
                 if let Some(list) = self.lists.get(cluster_id) {
                     for entry in list.iter() {
                         let dist = self.calc_distance(query, &entry.vector);
-                        heap.push(SearchResult { id: entry.id, distance: dist });
+                        heap.push(SearchResult {
+                            id: entry.id,
+                            distance: dist,
+                        });
 
                         if heap.len() > k {
                             heap.pop();
@@ -543,7 +573,12 @@ mod ivfflat {
             results
         }
 
-        pub fn search_parallel(&self, query: &[f32], k: usize, probes: Option<usize>) -> Vec<(VectorId, f32)> {
+        pub fn search_parallel(
+            &self,
+            query: &[f32],
+            k: usize,
+            probes: Option<usize>,
+        ) -> Vec<(VectorId, f32)> {
             if !self.is_trained() {
                 return Vec::new();
             }
@@ -601,8 +636,8 @@ mod ivfflat {
     }
 }
 
-use hnsw::{HnswConfig, HnswIndex, DistanceMetric as HnswMetric};
-use ivfflat::{IvfFlatConfig, IvfFlatIndex, DistanceMetric as IvfMetric};
+use hnsw::{DistanceMetric as HnswMetric, HnswConfig, HnswIndex};
+use ivfflat::{DistanceMetric as IvfMetric, IvfFlatConfig, IvfFlatIndex};
 
 // ============================================================================
 // Test Data Generation
@@ -611,23 +646,20 @@ use ivfflat::{IvfFlatConfig, IvfFlatIndex, DistanceMetric as IvfMetric};
 fn generate_random_vectors(n: usize, dims: usize, seed: u64) -> Vec<Vec<f32>> {
     let mut rng = ChaCha8Rng::seed_from_u64(seed);
     (0..n)
-        .map(|_| {
-            (0..dims)
-                .map(|_| rng.gen_range(-1.0..1.0))
-                .collect()
-        })
+        .map(|_| (0..dims).map(|_| rng.gen_range(-1.0..1.0)).collect())
         .collect()
 }
 
-fn generate_clustered_vectors(n: usize, dims: usize, num_clusters: usize, seed: u64) -> Vec<Vec<f32>> {
+fn generate_clustered_vectors(
+    n: usize,
+    dims: usize,
+    num_clusters: usize,
+    seed: u64,
+) -> Vec<Vec<f32>> {
     let mut rng = ChaCha8Rng::seed_from_u64(seed);
 
     let centers: Vec<Vec<f32>> = (0..num_clusters)
-        .map(|_| {
-            (0..dims)
-                .map(|_| rng.gen_range(-1.0..1.0))
-                .collect()
-        })
+        .map(|_| (0..dims).map(|_| rng.gen_range(-1.0..1.0)).collect())
         .collect();
 
     (0..n)
@@ -693,29 +725,25 @@ fn bench_hnsw_build_ef_construction(c: &mut Criterion) {
     let vectors = generate_random_vectors(n, dims, 42);
 
     for &ef in [16, 32, 64, 128, 256].iter() {
-        group.bench_with_input(
-            BenchmarkId::from_parameter(ef),
-            &ef,
-            |bench, &ef_val| {
-                bench.iter(|| {
-                    let config = HnswConfig {
-                        m: 16,
-                        m0: 32,
-                        ef_construction: ef_val,
-                        max_elements: n,
-                        metric: HnswMetric::Euclidean,
-                        seed: 42,
-                        ..Default::default()
-                    };
+        group.bench_with_input(BenchmarkId::from_parameter(ef), &ef, |bench, &ef_val| {
+            bench.iter(|| {
+                let config = HnswConfig {
+                    m: 16,
+                    m0: 32,
+                    ef_construction: ef_val,
+                    max_elements: n,
+                    metric: HnswMetric::Euclidean,
+                    seed: 42,
+                    ..Default::default()
+                };
 
-                    let mut index = HnswIndex::new(config);
-                    for (id, vec) in vectors.iter().enumerate() {
-                        index.insert(id as u64, vec);
-                    }
-                    black_box(index)
-                });
-            },
-        );
+                let mut index = HnswIndex::new(config);
+                for (id, vec) in vectors.iter().enumerate() {
+                    index.insert(id as u64, vec);
+                }
+                black_box(index)
+            });
+        });
     }
 
     group.finish();
@@ -730,29 +758,25 @@ fn bench_hnsw_build_m_parameter(c: &mut Criterion) {
     let vectors = generate_random_vectors(n, dims, 42);
 
     for &m in [8, 12, 16, 24, 32, 48].iter() {
-        group.bench_with_input(
-            BenchmarkId::from_parameter(m),
-            &m,
-            |bench, &m_val| {
-                bench.iter(|| {
-                    let config = HnswConfig {
-                        m: m_val,
-                        m0: m_val * 2,
-                        ef_construction: 64,
-                        max_elements: n,
-                        metric: HnswMetric::Euclidean,
-                        seed: 42,
-                        ..Default::default()
-                    };
+        group.bench_with_input(BenchmarkId::from_parameter(m), &m, |bench, &m_val| {
+            bench.iter(|| {
+                let config = HnswConfig {
+                    m: m_val,
+                    m0: m_val * 2,
+                    ef_construction: 64,
+                    max_elements: n,
+                    metric: HnswMetric::Euclidean,
+                    seed: 42,
+                    ..Default::default()
+                };
 
-                    let mut index = HnswIndex::new(config);
-                    for (id, vec) in vectors.iter().enumerate() {
-                        index.insert(id as u64, vec);
-                    }
-                    black_box(index)
-                });
-            },
-        );
+                let mut index = HnswIndex::new(config);
+                for (id, vec) in vectors.iter().enumerate() {
+                    index.insert(id as u64, vec);
+                }
+                black_box(index)
+            });
+        });
     }
 
     group.finish();
@@ -789,9 +813,7 @@ fn bench_hnsw_search(c: &mut Criterion) {
                 BenchmarkId::new(format!("{}d", dims), n),
                 &(&index, &query),
                 |bench, (idx, q)| {
-                    bench.iter(|| {
-                        black_box(idx.search(q, 10))
-                    });
+                    bench.iter(|| black_box(idx.search(q, 10)));
                 },
             );
         }
@@ -824,17 +846,13 @@ fn bench_hnsw_search_ef_values(c: &mut Criterion) {
     }
 
     for &ef in [10, 20, 40, 80, 160, 320].iter() {
-        group.bench_with_input(
-            BenchmarkId::from_parameter(ef),
-            &ef,
-            |bench, &ef_val| {
-                bench.iter(|| {
-                    for query in &queries {
-                        black_box(index.search_with_ef(query, 10, ef_val));
-                    }
-                });
-            },
-        );
+        group.bench_with_input(BenchmarkId::from_parameter(ef), &ef, |bench, &ef_val| {
+            bench.iter(|| {
+                for query in &queries {
+                    black_box(index.search_with_ef(query, 10, ef_val));
+                }
+            });
+        });
     }
 
     group.finish();
@@ -864,15 +882,9 @@ fn bench_hnsw_search_k_values(c: &mut Criterion) {
     }
 
     for &k in [1, 5, 10, 20, 50, 100].iter() {
-        group.bench_with_input(
-            BenchmarkId::from_parameter(k),
-            &k,
-            |bench, &k_val| {
-                bench.iter(|| {
-                    black_box(index.search(&query, k_val))
-                });
-            },
-        );
+        group.bench_with_input(BenchmarkId::from_parameter(k), &k, |bench, &k_val| {
+            bench.iter(|| black_box(index.search(&query, k_val)));
+        });
     }
 
     group.finish();
@@ -990,9 +1002,7 @@ fn bench_ivfflat_search(c: &mut Criterion) {
                 BenchmarkId::new(format!("{}d", dims), n),
                 &(&index, &query),
                 |bench, (idx, q)| {
-                    bench.iter(|| {
-                        black_box(idx.search(q, 10, None))
-                    });
+                    bench.iter(|| black_box(idx.search(q, 10, None)));
                 },
             );
         }
@@ -1140,27 +1150,23 @@ fn bench_hnsw_recall(c: &mut Criterion) {
     };
 
     for &ef in [10, 20, 40, 80, 160].iter() {
-        group.bench_with_input(
-            BenchmarkId::new("recall@10", ef),
-            &ef,
-            |bench, &ef_val| {
-                bench.iter(|| {
-                    let mut total_recall = 0.0;
-                    for query in &queries {
-                        let ground_truth = compute_ground_truth(query, 10);
-                        let results = index.search_with_ef(query, 10, ef_val);
+        group.bench_with_input(BenchmarkId::new("recall@10", ef), &ef, |bench, &ef_val| {
+            bench.iter(|| {
+                let mut total_recall = 0.0;
+                for query in &queries {
+                    let ground_truth = compute_ground_truth(query, 10);
+                    let results = index.search_with_ef(query, 10, ef_val);
 
-                        let hits = results
-                            .iter()
-                            .filter(|r| ground_truth.contains(&r.id))
-                            .count();
+                    let hits = results
+                        .iter()
+                        .filter(|r| ground_truth.contains(&r.id))
+                        .count();
 
-                        total_recall += hits as f32 / 10.0;
-                    }
-                    black_box(total_recall / queries.len() as f32)
-                });
-            },
-        );
+                    total_recall += hits as f32 / 10.0;
+                }
+                black_box(total_recall / queries.len() as f32)
+            });
+        });
     }
 
     group.finish();
@@ -1253,9 +1259,7 @@ fn bench_hnsw_distance_metrics(c: &mut Criterion) {
             BenchmarkId::new("search", metric_name),
             &(&index, &query),
             |bench, (idx, q)| {
-                bench.iter(|| {
-                    black_box(idx.search(q, 10))
-                });
+                bench.iter(|| black_box(idx.search(q, 10)));
             },
         );
     }

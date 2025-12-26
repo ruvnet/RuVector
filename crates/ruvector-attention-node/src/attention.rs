@@ -12,10 +12,13 @@
 use napi::bindgen_prelude::*;
 use napi_derive::napi;
 use ruvector_attention::{
-    attention::{ScaledDotProductAttention, MultiHeadAttention as RustMultiHead},
-    sparse::{FlashAttention as RustFlash, LinearAttention as RustLinear, LocalGlobalAttention as RustLocalGlobal},
+    attention::{MultiHeadAttention as RustMultiHead, ScaledDotProductAttention},
     hyperbolic::{HyperbolicAttention as RustHyperbolic, HyperbolicAttentionConfig},
     moe::{MoEAttention as RustMoE, MoEConfig as RustMoEConfig},
+    sparse::{
+        FlashAttention as RustFlash, LinearAttention as RustLinear,
+        LocalGlobalAttention as RustLocalGlobal,
+    },
     traits::Attention,
 };
 
@@ -67,7 +70,9 @@ impl DotProductAttention {
         let keys_refs: Vec<&[f32]> = keys_vec.iter().map(|k| k.as_slice()).collect();
         let values_refs: Vec<&[f32]> = values_vec.iter().map(|v| v.as_slice()).collect();
 
-        let result = self.inner.compute(query_slice, &keys_refs, &values_refs)
+        let result = self
+            .inner
+            .compute(query_slice, &keys_refs, &values_refs)
             .map_err(|e| Error::from_reason(e.to_string()))?;
 
         Ok(Float32Array::new(result))
@@ -94,7 +99,9 @@ impl DotProductAttention {
         let keys_refs: Vec<&[f32]> = keys_vec.iter().map(|k| k.as_slice()).collect();
         let values_refs: Vec<&[f32]> = values_vec.iter().map(|v| v.as_slice()).collect();
 
-        let result = self.inner.compute_with_mask(query_slice, &keys_refs, &values_refs, Some(mask.as_slice()))
+        let result = self
+            .inner
+            .compute_with_mask(query_slice, &keys_refs, &values_refs, Some(mask.as_slice()))
             .map_err(|e| Error::from_reason(e.to_string()))?;
 
         Ok(Float32Array::new(result))
@@ -155,7 +162,9 @@ impl MultiHeadAttention {
         let keys_refs: Vec<&[f32]> = keys_vec.iter().map(|k| k.as_slice()).collect();
         let values_refs: Vec<&[f32]> = values_vec.iter().map(|v| v.as_slice()).collect();
 
-        let result = self.inner.compute(query_slice, &keys_refs, &values_refs)
+        let result = self
+            .inner
+            .compute(query_slice, &keys_refs, &values_refs)
             .map_err(|e| Error::from_reason(e.to_string()))?;
 
         Ok(Float32Array::new(result))
@@ -217,7 +226,12 @@ impl HyperbolicAttention {
     /// * `adaptive_curvature` - Whether to use adaptive curvature
     /// * `temperature` - Temperature for softmax
     #[napi(factory)]
-    pub fn with_config(dim: u32, curvature: f64, adaptive_curvature: bool, temperature: f64) -> Self {
+    pub fn with_config(
+        dim: u32,
+        curvature: f64,
+        adaptive_curvature: bool,
+        temperature: f64,
+    ) -> Self {
         let config = HyperbolicAttentionConfig {
             dim: dim as usize,
             curvature: curvature as f32,
@@ -247,7 +261,9 @@ impl HyperbolicAttention {
         let keys_refs: Vec<&[f32]> = keys_vec.iter().map(|k| k.as_slice()).collect();
         let values_refs: Vec<&[f32]> = values_vec.iter().map(|v| v.as_slice()).collect();
 
-        let result = self.inner.compute(query_slice, &keys_refs, &values_refs)
+        let result = self
+            .inner
+            .compute(query_slice, &keys_refs, &values_refs)
             .map_err(|e| Error::from_reason(e.to_string()))?;
 
         Ok(Float32Array::new(result))
@@ -304,7 +320,9 @@ impl FlashAttention {
         let keys_refs: Vec<&[f32]> = keys_vec.iter().map(|k| k.as_slice()).collect();
         let values_refs: Vec<&[f32]> = values_vec.iter().map(|v| v.as_slice()).collect();
 
-        let result = self.inner.compute(query_slice, &keys_refs, &values_refs)
+        let result = self
+            .inner
+            .compute(query_slice, &keys_refs, &values_refs)
             .map_err(|e| Error::from_reason(e.to_string()))?;
 
         Ok(Float32Array::new(result))
@@ -361,7 +379,9 @@ impl LinearAttention {
         let keys_refs: Vec<&[f32]> = keys_vec.iter().map(|k| k.as_slice()).collect();
         let values_refs: Vec<&[f32]> = values_vec.iter().map(|v| v.as_slice()).collect();
 
-        let result = self.inner.compute(query_slice, &keys_refs, &values_refs)
+        let result = self
+            .inner
+            .compute(query_slice, &keys_refs, &values_refs)
             .map_err(|e| Error::from_reason(e.to_string()))?;
 
         Ok(Float32Array::new(result))
@@ -400,7 +420,11 @@ impl LocalGlobalAttention {
     #[napi(constructor)]
     pub fn new(dim: u32, local_window: u32, global_tokens: u32) -> Self {
         Self {
-            inner: RustLocalGlobal::new(dim as usize, local_window as usize, global_tokens as usize),
+            inner: RustLocalGlobal::new(
+                dim as usize,
+                local_window as usize,
+                global_tokens as usize,
+            ),
             dim_value: dim as usize,
             local_window_value: local_window as usize,
             global_tokens_value: global_tokens as usize,
@@ -421,7 +445,9 @@ impl LocalGlobalAttention {
         let keys_refs: Vec<&[f32]> = keys_vec.iter().map(|k| k.as_slice()).collect();
         let values_refs: Vec<&[f32]> = values_vec.iter().map(|v| v.as_slice()).collect();
 
-        let result = self.inner.compute(query_slice, &keys_refs, &values_refs)
+        let result = self
+            .inner
+            .compute(query_slice, &keys_refs, &values_refs)
             .map_err(|e| Error::from_reason(e.to_string()))?;
 
         Ok(Float32Array::new(result))
@@ -514,7 +540,9 @@ impl MoEAttention {
         let keys_refs: Vec<&[f32]> = keys_vec.iter().map(|k| k.as_slice()).collect();
         let values_refs: Vec<&[f32]> = values_vec.iter().map(|v| v.as_slice()).collect();
 
-        let result = self.inner.compute(query_slice, &keys_refs, &values_refs)
+        let result = self
+            .inner
+            .compute(query_slice, &keys_refs, &values_refs)
             .map_err(|e| Error::from_reason(e.to_string()))?;
 
         Ok(Float32Array::new(result))
@@ -571,7 +599,8 @@ pub fn mobius_addition(a: Float32Array, b: Float32Array, curvature: f64) -> Floa
 pub fn exp_map(base: Float32Array, tangent: Float32Array, curvature: f64) -> Float32Array {
     let base_slice = base.as_ref();
     let tangent_slice = tangent.as_ref();
-    let result = ruvector_attention::hyperbolic::exp_map(base_slice, tangent_slice, curvature as f32);
+    let result =
+        ruvector_attention::hyperbolic::exp_map(base_slice, tangent_slice, curvature as f32);
     Float32Array::new(result)
 }
 

@@ -8,15 +8,12 @@
 //! - Full cognitive engine throughput
 //! - Synchrony computation efficiency
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId, Throughput};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 use ruvector_mincut::graph::DynamicGraph;
 use ruvector_mincut::snn::{
-    LIFNeuron, NeuronConfig, SpikeTrain,
+    compute_synchrony, AttractorConfig, AttractorDynamics, CognitiveMinCutEngine, EngineConfig,
+    LIFNeuron, LayerConfig, NetworkConfig, NeuronConfig, Spike, SpikeTrain, SpikingNetwork,
     SynapseMatrix,
-    SpikingNetwork, NetworkConfig, LayerConfig,
-    AttractorDynamics, AttractorConfig,
-    CognitiveMinCutEngine, EngineConfig,
-    compute_synchrony, Spike,
 };
 
 /// Generate a random graph for benchmarking
@@ -87,7 +84,7 @@ fn bench_stdp(c: &mut Criterion) {
             // Create sparse connections
             let mut seed: u64 = 42;
             for i in 0..size {
-                for _ in 0..size/10 {
+                for _ in 0..size / 10 {
                     seed = seed.wrapping_mul(6364136223846793005).wrapping_add(1);
                     let j = (seed as usize) % size;
                     matrix.add_synapse(i, j, 0.5);
@@ -96,7 +93,7 @@ fn bench_stdp(c: &mut Criterion) {
 
             b.iter(|| {
                 // Simulate spike events
-                for i in 0..size/10 {
+                for i in 0..size / 10 {
                     matrix.on_pre_spike(i, black_box(i as f64));
                     matrix.on_post_spike(i + 1, black_box(i as f64 + 5.0));
                 }
@@ -116,21 +113,23 @@ fn bench_network(c: &mut Criterion) {
         group.throughput(Throughput::Elements(total as u64));
 
         let name = format!("{}-{}-{}", input, hidden, output);
-        group.bench_with_input(BenchmarkId::new("step", &name), &(input, hidden, output), |b, &(i, h, o)| {
-            let config = NetworkConfig {
-                layers: vec![
-                    LayerConfig::new(i),
-                    LayerConfig::new(h),
-                    LayerConfig::new(o),
-                ],
-                ..NetworkConfig::default()
-            };
-            let mut network = SpikingNetwork::new(config);
+        group.bench_with_input(
+            BenchmarkId::new("step", &name),
+            &(input, hidden, output),
+            |b, &(i, h, o)| {
+                let config = NetworkConfig {
+                    layers: vec![
+                        LayerConfig::new(i),
+                        LayerConfig::new(h),
+                        LayerConfig::new(o),
+                    ],
+                    ..NetworkConfig::default()
+                };
+                let mut network = SpikingNetwork::new(config);
 
-            b.iter(|| {
-                black_box(network.step())
-            });
-        });
+                b.iter(|| black_box(network.step()));
+            },
+        );
     }
 
     group.finish();
@@ -149,9 +148,7 @@ fn bench_attractor(c: &mut Criterion) {
             let config = AttractorConfig::default();
             let mut attractor = AttractorDynamics::new(graph, config);
 
-            b.iter(|| {
-                black_box(attractor.step())
-            });
+            b.iter(|| black_box(attractor.step()));
         });
     }
 
@@ -168,17 +165,17 @@ fn bench_synchrony(c: &mut Criterion) {
         group.bench_with_input(BenchmarkId::new("compute", size), size, |b, &size| {
             // Generate random spikes
             let mut seed: u64 = 999;
-            let spikes: Vec<Spike> = (0..size).map(|i| {
-                seed = seed.wrapping_mul(6364136223846793005).wrapping_add(1);
-                Spike {
-                    neuron_id: (seed as usize) % 100,
-                    time: (i as f64) + ((seed % 100) as f64) / 100.0,
-                }
-            }).collect();
+            let spikes: Vec<Spike> = (0..size)
+                .map(|i| {
+                    seed = seed.wrapping_mul(6364136223846793005).wrapping_add(1);
+                    Spike {
+                        neuron_id: (seed as usize) % 100,
+                        time: (i as f64) + ((seed % 100) as f64) / 100.0,
+                    }
+                })
+                .collect();
 
-            b.iter(|| {
-                black_box(compute_synchrony(&spikes, 10.0))
-            });
+            b.iter(|| black_box(compute_synchrony(&spikes, 10.0)));
         });
     }
 
@@ -198,9 +195,7 @@ fn bench_cognitive_engine(c: &mut Criterion) {
             let config = EngineConfig::default();
             let mut engine = CognitiveMinCutEngine::new(graph, config);
 
-            b.iter(|| {
-                black_box(engine.step())
-            });
+            b.iter(|| black_box(engine.step()));
         });
 
         group.bench_with_input(BenchmarkId::new("run_10", size), size, |b, &size| {
@@ -208,9 +203,7 @@ fn bench_cognitive_engine(c: &mut Criterion) {
             let config = EngineConfig::default();
             let mut engine = CognitiveMinCutEngine::new(graph, config);
 
-            b.iter(|| {
-                black_box(engine.run(10))
-            });
+            b.iter(|| black_box(engine.run(10)));
         });
     }
 
@@ -230,23 +223,23 @@ fn bench_spike_train(c: &mut Criterion) {
                 train.record_spike(i as f64 * 0.5);
             }
 
-            b.iter(|| {
-                black_box(train.to_pattern(0.0, 1.0, 100))
-            });
+            b.iter(|| black_box(train.to_pattern(0.0, 1.0, 100)));
         });
 
-        group.bench_with_input(BenchmarkId::new("cross_correlation", size), size, |b, &size| {
-            let mut train1 = SpikeTrain::new(0);
-            let mut train2 = SpikeTrain::new(1);
-            for i in 0..size {
-                train1.record_spike(i as f64 * 0.5);
-                train2.record_spike(i as f64 * 0.5 + 2.0);
-            }
+        group.bench_with_input(
+            BenchmarkId::new("cross_correlation", size),
+            size,
+            |b, &size| {
+                let mut train1 = SpikeTrain::new(0);
+                let mut train2 = SpikeTrain::new(1);
+                for i in 0..size {
+                    train1.record_spike(i as f64 * 0.5);
+                    train2.record_spike(i as f64 * 0.5 + 2.0);
+                }
 
-            b.iter(|| {
-                black_box(train1.cross_correlation(&train2, 50.0, 1.0))
-            });
-        });
+                b.iter(|| black_box(train1.cross_correlation(&train2, 50.0, 1.0)));
+            },
+        );
     }
 
     group.finish();

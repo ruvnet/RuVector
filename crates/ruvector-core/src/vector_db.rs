@@ -37,10 +37,7 @@ impl VectorDB {
         let storage = {
             // First, try to load existing configuration from the database
             // We create a temporary storage to check for config
-            let temp_storage = VectorStorage::new(
-                &options.storage_path,
-                options.dimensions,
-            )?;
+            let temp_storage = VectorStorage::new(&options.storage_path, options.dimensions)?;
 
             let stored_config = temp_storage.load_config()?;
 

@@ -36,8 +36,10 @@ pub struct Vocabulary {
 impl Vocabulary {
     /// Create a new vocabulary
     pub fn new(chars: Vec<char>, blank_idx: usize) -> Self {
-        let idx_to_char: HashMap<usize, char> = chars.iter().enumerate().map(|(i, &c)| (i, c)).collect();
-        let char_to_idx: HashMap<char, usize> = chars.iter().enumerate().map(|(i, &c)| (c, i)).collect();
+        let idx_to_char: HashMap<usize, char> =
+            chars.iter().enumerate().map(|(i, &c)| (i, c)).collect();
+        let char_to_idx: HashMap<char, usize> =
+            chars.iter().enumerate().map(|(i, &c)| (c, i)).collect();
 
         Self {
             idx_to_char,
@@ -202,8 +204,11 @@ impl Decoder for BeamSearchDecoder {
 
             for (text, score, last_idx) in &beams {
                 // Get top-k predictions for this frame
-                let mut indexed_logits: Vec<(usize, f32)> =
-                    frame_logits.iter().enumerate().map(|(i, &v)| (i, v)).collect();
+                let mut indexed_logits: Vec<(usize, f32)> = frame_logits
+                    .iter()
+                    .enumerate()
+                    .map(|(i, &v)| (i, v))
+                    .collect();
                 indexed_logits.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
 
                 // Expand each beam with top-k predictions
@@ -238,7 +243,10 @@ impl Decoder for BeamSearchDecoder {
         }
 
         // Return the best beam
-        Ok(beams.first().map(|(text, _, _)| text.clone()).unwrap_or_default())
+        Ok(beams
+            .first()
+            .map(|(text, _, _)| text.clone())
+            .unwrap_or_default())
     }
 }
 
@@ -282,7 +290,10 @@ impl Decoder for CTCDecoder {
         debug!("CTC decoding {} frames", logits.len());
 
         // Get best path (greedy)
-        let indices: Vec<usize> = logits.iter().map(|frame| GreedyDecoder::argmax(frame)).collect();
+        let indices: Vec<usize> = logits
+            .iter()
+            .map(|frame| GreedyDecoder::argmax(frame))
+            .collect();
 
         // Collapse repeats and remove blanks
         let collapsed = self.collapse_repeats(&indices);
@@ -297,7 +308,10 @@ impl Decoder for CTCDecoder {
     }
 
     fn decode_with_confidence(&self, logits: &[Vec<f32>]) -> Result<(String, Vec<f32>)> {
-        let indices: Vec<usize> = logits.iter().map(|frame| GreedyDecoder::argmax(frame)).collect();
+        let indices: Vec<usize> = logits
+            .iter()
+            .map(|frame| GreedyDecoder::argmax(frame))
+            .collect();
         let confidences: Vec<f32> = logits.iter().map(|frame| softmax_max(frame)).collect();
 
         let collapsed = self.collapse_repeats(&indices);

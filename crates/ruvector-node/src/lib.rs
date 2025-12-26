@@ -207,9 +207,7 @@ impl From<SearchResult> for JsSearchResult {
         let vector = result.vector.map(|v| Float32Array::new(v));
 
         // Convert HashMap to JSON string
-        let metadata = result.metadata.and_then(|m| {
-            serde_json::to_string(&m).ok()
-        });
+        let metadata = result.metadata.and_then(|m| serde_json::to_string(&m).ok());
 
         JsSearchResult {
             id: result.id,
@@ -394,9 +392,7 @@ impl VectorDB {
 
         Ok(result.map(|entry| {
             // Convert HashMap to JSON string
-            let metadata = entry.metadata.and_then(|m| {
-                serde_json::to_string(&m).ok()
-            });
+            let metadata = entry.metadata.and_then(|m| serde_json::to_string(&m).ok());
 
             JsVectorEntry {
                 id: entry.id,

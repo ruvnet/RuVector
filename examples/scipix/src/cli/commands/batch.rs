@@ -7,8 +7,8 @@ use std::sync::Arc;
 use tokio::sync::Semaphore;
 use tracing::{debug, error, info, warn};
 
-use crate::cli::{output, Cli, OutputFormat};
 use super::{OcrConfig, OcrResult};
+use crate::cli::{output, Cli, OutputFormat};
 
 /// Process multiple files in batch mode
 #[derive(Args, Debug, Clone)]
@@ -62,18 +62,11 @@ pub struct BatchArgs {
     pub max_retries: usize,
 
     /// Save individual results as separate files
-    #[arg(
-        long,
-        help = "Save each result as a separate file (requires --output)"
-    )]
+    #[arg(long, help = "Save each result as a separate file (requires --output)")]
     pub separate_files: bool,
 
     /// Recursive directory search
-    #[arg(
-        short = 'R',
-        long,
-        help = "Recursively search directories"
-    )]
+    #[arg(short = 'R', long, help = "Recursively search directories")]
     pub recursive: bool,
 }
 
@@ -94,17 +87,11 @@ pub async fn execute(args: BatchArgs, cli: &Cli) -> Result<()> {
 
     // Create output directory if needed
     if let Some(output_dir) = &args.output {
-        std::fs::create_dir_all(output_dir)
-            .context("Failed to create output directory")?;
+        std::fs::create_dir_all(output_dir).context("Failed to create output directory")?;
     }
 
     // Process files in parallel with progress bars
-    let results = process_files_parallel(
-        files,
-        &args,
-        &config,
-        cli.quiet,
-    ).await?;
+    let results = process_files_parallel(files, &args, &config, cli.quiet).await?;
 
     // Filter by confidence threshold
     let (passed, failed): (Vec<_>, Vec<_>) = results
@@ -126,8 +113,7 @@ pub async fn execute(args: BatchArgs, cli: &Cli) -> Result<()> {
         }
     } else {
         // Output as JSON array to stdout
-        let json = serde_json::to_string_pretty(&passed)
-            .context("Failed to serialize results")?;
+        let json = serde_json::to_string_pretty(&passed).context("Failed to serialize results")?;
         println!("{}", json);
     }
 
@@ -196,7 +182,9 @@ async fn process_files_parallel(
         let pb = multi_progress.add(ProgressBar::new(files.len() as u64));
         pb.set_style(
             ProgressStyle::default_bar()
-                .template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len} ({eta})")
+                .template(
+                    "{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len} ({eta})",
+                )
                 .unwrap()
                 .progress_chars("#>-"),
         );
@@ -218,7 +206,10 @@ async fn process_files_parallel(
             let _permit = semaphore.acquire().await.unwrap();
 
             let file_progress = if !quiet {
-                let pb = multi_progress.insert_before(&overall_progress.as_ref().unwrap(), ProgressBar::new_spinner());
+                let pb = multi_progress.insert_before(
+                    &overall_progress.as_ref().unwrap(),
+                    ProgressBar::new_spinner(),
+                );
                 pb.set_style(
                     ProgressStyle::default_spinner()
                         .template("{spinner:.green} {msg}")
@@ -234,12 +225,14 @@ async fn process_files_parallel(
 
             if let Some(pb) = &file_progress {
                 match &result {
-                    Ok(r) => pb.finish_with_message(
-                        format!("[{}] ✓ Confidence: {:.2}%", file.display(), r.confidence * 100.0)
-                    ),
-                    Err(e) => pb.finish_with_message(
-                        format!("[{}] ✗ Error: {}", file.display(), e)
-                    ),
+                    Ok(r) => pb.finish_with_message(format!(
+                        "[{}] ✓ Confidence: {:.2}%",
+                        file.display(),
+                        r.confidence * 100.0
+                    )),
+                    Err(e) => {
+                        pb.finish_with_message(format!("[{}] ✗ Error: {}", file.display(), e))
+                    }
                 }
             }
 
@@ -287,7 +280,8 @@ async fn process_with_retry(
 
                 if attempts <= max_retries {
                     debug!("Retry {}/{} for {}", attempts, max_retries, file.display());
-                    tokio::time::sleep(tokio::time::Duration::from_millis(100 * attempts as u64)).await;
+                    tokio::time::sleep(tokio::time::Duration::from_millis(100 * attempts as u64))
+                        .await;
                 }
             }
         }
@@ -358,8 +352,7 @@ fn save_results(
         let output_path = output_dir.join(filename);
         let content = format_batch_results(results, format)?;
 
-        std::fs::write(&output_path, content)
-            .context("Failed to write results file")?;
+        std::fs::write(&output_path, content).context("Failed to write results file")?;
     }
 
     Ok(())
@@ -367,17 +360,12 @@ fn save_results(
 
 fn format_single_result(result: &OcrResult, format: &OutputFormat) -> Result<String> {
     match format {
-        OutputFormat::Json => serde_json::to_string_pretty(result)
-            .context("Failed to serialize result"),
+        OutputFormat::Json => {
+            serde_json::to_string_pretty(result).context("Failed to serialize result")
+        }
         OutputFormat::Text => Ok(result.text.clone()),
         OutputFormat::Latex => Ok(result.latex.clone().unwrap_or_else(|| result.text.clone())),
-        OutputFormat::Markdown => {
-            Ok(format!(
-                "# {}\n\n{}\n",
-                result.file.display(),
-                result.text
-            ))
-        }
+        OutputFormat::Markdown => Ok(format!("# {}\n\n{}\n", result.file.display(), result.text)),
         OutputFormat::MathMl => Ok(format!(
             "<math xmlns=\"http://www.w3.org/1998/Math/MathML\">\n  {}\n</math>",
             result.text
@@ -387,8 +375,9 @@ fn format_single_result(result: &OcrResult, format: &OutputFormat) -> Result<Str
 
 fn format_batch_results(results: &[OcrResult], format: &OutputFormat) -> Result<String> {
     match format {
-        OutputFormat::Json => serde_json::to_string_pretty(results)
-            .context("Failed to serialize results"),
+        OutputFormat::Json => {
+            serde_json::to_string_pretty(results).context("Failed to serialize results")
+        }
         _ => {
             let mut output = String::new();
             for result in results {
@@ -402,10 +391,8 @@ fn format_batch_results(results: &[OcrResult], format: &OutputFormat) -> Result<
 
 fn load_config(config_path: Option<&PathBuf>) -> Result<OcrConfig> {
     if let Some(path) = config_path {
-        let content = std::fs::read_to_string(path)
-            .context("Failed to read config file")?;
-        toml::from_str(&content)
-            .context("Failed to parse config file")
+        let content = std::fs::read_to_string(path).context("Failed to read config file")?;
+        toml::from_str(&content).context("Failed to parse config file")
     } else {
         Ok(OcrConfig::default())
     }

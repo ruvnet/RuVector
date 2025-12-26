@@ -276,9 +276,15 @@ mod tests {
         let gen = SmilesGenerator::new();
 
         assert_eq!(gen.simple_formula_to_smiles("H2O"), Some("O".to_string()));
-        assert_eq!(gen.simple_formula_to_smiles("CO2"), Some("O=C=O".to_string()));
+        assert_eq!(
+            gen.simple_formula_to_smiles("CO2"),
+            Some("O=C=O".to_string())
+        );
         assert_eq!(gen.simple_formula_to_smiles("CH4"), Some("C".to_string()));
-        assert_eq!(gen.simple_formula_to_smiles("benzene"), Some("c1ccccc1".to_string()));
+        assert_eq!(
+            gen.simple_formula_to_smiles("benzene"),
+            Some("c1ccccc1".to_string())
+        );
     }
 
     #[test]

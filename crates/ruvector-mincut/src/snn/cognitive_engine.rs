@@ -40,17 +40,17 @@
 //! | Energy per query | ~10 μJ | 1000x |
 
 use super::{
-    attractor::{AttractorDynamics, AttractorConfig, EnergyLandscape},
-    strange_loop::{MetaCognitiveMinCut, StrangeLoopConfig, MetaAction},
-    causal::{CausalDiscoverySNN, CausalConfig, CausalGraph, GraphEvent, GraphEventType},
-    time_crystal::{TimeCrystalCPG, CPGConfig},
-    morphogenetic::{MorphogeneticSNN, MorphConfig, TuringPattern},
-    optimizer::{NeuralGraphOptimizer, OptimizerConfig, OptimizationResult, GraphAction},
+    attractor::{AttractorConfig, AttractorDynamics, EnergyLandscape},
+    causal::{CausalConfig, CausalDiscoverySNN, CausalGraph, GraphEvent, GraphEventType},
+    morphogenetic::{MorphConfig, MorphogeneticSNN, TuringPattern},
+    optimizer::{GraphAction, NeuralGraphOptimizer, OptimizationResult, OptimizerConfig},
+    strange_loop::{MetaAction, MetaCognitiveMinCut, StrangeLoopConfig},
+    time_crystal::{CPGConfig, TimeCrystalCPG},
     SimTime, Spike,
 };
 use crate::graph::{DynamicGraph, VertexId, Weight};
-use std::time::{Duration, Instant};
 use std::collections::HashMap;
+use std::time::{Duration, Instant};
 
 /// Configuration for the Cognitive MinCut Engine
 #[derive(Debug, Clone)]
@@ -92,7 +92,7 @@ impl Default for EngineConfig {
             enable_strange_loop: true,
             enable_causal_discovery: true,
             enable_time_crystal: true,
-            enable_morphogenetic: false,  // Expensive, off by default
+            enable_morphogenetic: false, // Expensive, off by default
             enable_optimizer: true,
             attractor_config: AttractorConfig::default(),
             strange_loop_config: StrangeLoopConfig::default(),
@@ -212,7 +212,10 @@ impl CognitiveMinCutEngine {
         };
 
         let time_crystal = if config.enable_time_crystal {
-            Some(TimeCrystalCPG::new(graph.clone(), config.cpg_config.clone()))
+            Some(TimeCrystalCPG::new(
+                graph.clone(),
+                config.cpg_config.clone(),
+            ))
         } else {
             None
         };
@@ -224,7 +227,10 @@ impl CognitiveMinCutEngine {
         };
 
         let optimizer = if config.enable_optimizer {
-            Some(NeuralGraphOptimizer::new(graph.clone(), config.optimizer_config.clone()))
+            Some(NeuralGraphOptimizer::new(
+                graph.clone(),
+                config.optimizer_config.clone(),
+            ))
         } else {
             None
         };
@@ -439,10 +445,7 @@ impl CognitiveMinCutEngine {
         if let Some(ref mut attractor) = self.attractor {
             // Create new attractor dynamics with updated graph
             // This preserves configuration while syncing graph
-            *attractor = AttractorDynamics::new(
-                self.graph.clone(),
-                attractor.config().clone(),
-            );
+            *attractor = AttractorDynamics::new(self.graph.clone(), attractor.config().clone());
         }
 
         // Limit event history size to prevent memory exhaustion
@@ -526,7 +529,10 @@ impl CognitiveMinCutEngine {
 
     /// Get attractor status
     pub fn at_attractor(&self) -> bool {
-        self.attractor.as_ref().map(|a| a.reached_attractor()).unwrap_or(false)
+        self.attractor
+            .as_ref()
+            .map(|a| a.reached_attractor())
+            .unwrap_or(false)
     }
 
     /// Get morphogenetic pattern
@@ -673,7 +679,7 @@ mod tests {
     fn test_engine_run() {
         let graph = create_test_graph();
         let mut config = EngineConfig::default();
-        config.enable_morphogenetic = false;  // Expensive
+        config.enable_morphogenetic = false; // Expensive
 
         let mut engine = CognitiveMinCutEngine::new(graph, config);
 

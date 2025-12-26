@@ -12,15 +12,15 @@ use pgrx::prelude::*;
 use serde::{Deserialize, Serialize};
 
 // Submodules
-pub mod scaled_dot;
-pub mod multi_head;
 pub mod flash;
+pub mod multi_head;
 pub mod operators;
+pub mod scaled_dot;
 
 // Re-exports
-pub use scaled_dot::ScaledDotAttention;
-pub use multi_head::MultiHeadAttention;
 pub use flash::FlashAttention;
+pub use multi_head::MultiHeadAttention;
+pub use scaled_dot::ScaledDotAttention;
 
 /// Attention mechanism types supported by the extension
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, PostgresEnum)]
@@ -140,7 +140,11 @@ pub trait Attention: Send + Sync {
 
     /// Compute weighted sum of values using attention scores
     fn apply_attention(&self, scores: &[f32], values: &[&[f32]]) -> Vec<f32> {
-        assert_eq!(scores.len(), values.len(), "Scores and values length mismatch");
+        assert_eq!(
+            scores.len(),
+            values.len(),
+            "Scores and values length mismatch"
+        );
 
         if values.is_empty() {
             return Vec::new();
@@ -268,9 +272,18 @@ mod tests {
 
     #[test]
     fn test_attention_type_parsing() {
-        assert_eq!("scaled_dot".parse::<AttentionType>().unwrap(), AttentionType::ScaledDot);
-        assert_eq!("flash_v2".parse::<AttentionType>().unwrap(), AttentionType::FlashV2);
-        assert_eq!("multi_head".parse::<AttentionType>().unwrap(), AttentionType::MultiHead);
+        assert_eq!(
+            "scaled_dot".parse::<AttentionType>().unwrap(),
+            AttentionType::ScaledDot
+        );
+        assert_eq!(
+            "flash_v2".parse::<AttentionType>().unwrap(),
+            AttentionType::FlashV2
+        );
+        assert_eq!(
+            "multi_head".parse::<AttentionType>().unwrap(),
+            AttentionType::MultiHead
+        );
 
         assert!("unknown".parse::<AttentionType>().is_err());
     }

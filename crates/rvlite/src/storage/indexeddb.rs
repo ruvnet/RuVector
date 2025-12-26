@@ -4,11 +4,11 @@
 //! for persistent storage of RvLite state.
 
 use super::state::RvLiteState;
+use js_sys::{Object, Reflect};
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 use wasm_bindgen_futures::JsFuture;
 use web_sys::{IdbDatabase, IdbObjectStore, IdbRequest, IdbTransaction, IdbTransactionMode};
-use js_sys::{Object, Reflect};
 
 const DB_NAME: &str = "rvlite_db";
 const DB_VERSION: u32 = 1;
@@ -67,7 +67,9 @@ impl IndexedDBStorage {
 
     /// Save state to IndexedDB
     pub async fn save(&self, state: &RvLiteState) -> Result<(), JsValue> {
-        let db = self.db.as_ref()
+        let db = self
+            .db
+            .as_ref()
             .ok_or_else(|| JsValue::from_str("Database not initialized. Call init() first."))?;
 
         // Convert state to JsValue
@@ -77,10 +79,8 @@ impl IndexedDBStorage {
         let store_names = js_sys::Array::new();
         store_names.push(&JsValue::from_str(STORE_NAME));
 
-        let transaction = db.transaction_with_str_sequence_and_mode(
-            &store_names,
-            IdbTransactionMode::Readwrite,
-        )?;
+        let transaction =
+            db.transaction_with_str_sequence_and_mode(&store_names, IdbTransactionMode::Readwrite)?;
 
         let store = transaction.object_store(STORE_NAME)?;
 
@@ -95,7 +95,9 @@ impl IndexedDBStorage {
 
     /// Load state from IndexedDB
     pub async fn load(&self) -> Result<Option<RvLiteState>, JsValue> {
-        let db = self.db.as_ref()
+        let db = self
+            .db
+            .as_ref()
             .ok_or_else(|| JsValue::from_str("Database not initialized. Call init() first."))?;
 
         // Start read transaction
@@ -119,16 +121,16 @@ impl IndexedDBStorage {
 
     /// Delete all stored state
     pub async fn clear(&self) -> Result<(), JsValue> {
-        let db = self.db.as_ref()
+        let db = self
+            .db
+            .as_ref()
             .ok_or_else(|| JsValue::from_str("Database not initialized. Call init() first."))?;
 
         let store_names = js_sys::Array::new();
         store_names.push(&JsValue::from_str(STORE_NAME));
 
-        let transaction = db.transaction_with_str_sequence_and_mode(
-            &store_names,
-            IdbTransactionMode::Readwrite,
-        )?;
+        let transaction =
+            db.transaction_with_str_sequence_and_mode(&store_names, IdbTransactionMode::Readwrite)?;
 
         let store = transaction.object_store(STORE_NAME)?;
         let request = store.clear()?;
@@ -139,7 +141,9 @@ impl IndexedDBStorage {
 
     /// Check if state exists in storage
     pub async fn exists(&self) -> Result<bool, JsValue> {
-        let db = self.db.as_ref()
+        let db = self
+            .db
+            .as_ref()
             .ok_or_else(|| JsValue::from_str("Database not initialized. Call init() first."))?;
 
         let transaction = db.transaction_with_str(STORE_NAME)?;
@@ -154,7 +158,9 @@ impl IndexedDBStorage {
 
     /// Get storage info (for debugging)
     pub async fn get_info(&self) -> Result<JsValue, JsValue> {
-        let db = self.db.as_ref()
+        let db = self
+            .db
+            .as_ref()
             .ok_or_else(|| JsValue::from_str("Database not initialized. Call init() first."))?;
 
         let transaction = db.transaction_with_str(STORE_NAME)?;
@@ -204,7 +210,9 @@ async fn wait_for_request(request: &IdbRequest) -> Result<JsValue, JsValue> {
 
         // Error handler
         let onerror = Closure::once(Box::new(move |_event: web_sys::Event| {
-            reject.call1(&JsValue::NULL, &JsValue::from_str("IndexedDB error")).unwrap();
+            reject
+                .call1(&JsValue::NULL, &JsValue::from_str("IndexedDB error"))
+                .unwrap();
         }) as Box<dyn FnOnce(_)>);
 
         request.set_onsuccess(Some(onsuccess.as_ref().unchecked_ref()));

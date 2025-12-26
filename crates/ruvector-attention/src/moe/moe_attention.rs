@@ -1,9 +1,9 @@
 //! Mixture of Experts attention layer
 
+use super::expert::{Expert, HyperbolicExpert, LinearExpert, StandardExpert};
+use super::router::{LearnedRouter, Router, TopKRouting};
 use crate::error::{AttentionError, AttentionResult};
 use crate::traits::Attention;
-use super::expert::{Expert, StandardExpert, HyperbolicExpert, LinearExpert};
-use super::router::{Router, LearnedRouter, TopKRouting};
 
 /// MoE configuration
 #[derive(Clone, Debug)]
@@ -183,7 +183,12 @@ impl Attention for MoEAttention {
         mask: Option<&[bool]>,
     ) -> AttentionResult<Vec<f32>> {
         if let Some(m) = mask {
-            let filtered: Vec<(usize, bool)> = m.iter().copied().enumerate().filter(|(_, keep)| *keep).collect();
+            let filtered: Vec<(usize, bool)> = m
+                .iter()
+                .copied()
+                .enumerate()
+                .filter(|(_, keep)| *keep)
+                .collect();
             let filtered_keys: Vec<&[f32]> = filtered.iter().map(|(i, _)| keys[*i]).collect();
             let filtered_values: Vec<&[f32]> = filtered.iter().map(|(i, _)| values[*i]).collect();
             self.compute(query, &filtered_keys, &filtered_values)
@@ -203,11 +208,7 @@ mod tests {
 
     #[test]
     fn test_moe_attention() {
-        let config = MoEConfig::builder()
-            .dim(64)
-            .num_experts(4)
-            .top_k(2)
-            .build();
+        let config = MoEConfig::builder().dim(64).num_experts(4).top_k(2).build();
 
         let moe = MoEAttention::new(config);
 
@@ -224,11 +225,7 @@ mod tests {
 
     #[test]
     fn test_moe_with_loss() {
-        let config = MoEConfig::builder()
-            .dim(32)
-            .num_experts(4)
-            .top_k(2)
-            .build();
+        let config = MoEConfig::builder().dim(32).num_experts(4).top_k(2).build();
 
         let moe = MoEAttention::new(config);
 

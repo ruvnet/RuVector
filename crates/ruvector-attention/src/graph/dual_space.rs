@@ -6,9 +6,9 @@
 //! - Hyperbolic: Good for hierarchical, tree-like structure
 
 use crate::error::{AttentionError, AttentionResult};
+use crate::hyperbolic::project_to_ball;
 use crate::traits::Attention;
 use crate::utils::stable_softmax;
-use crate::hyperbolic::project_to_ball;
 
 /// Compute Poincaré distance between two points
 fn poincare_dist(u: &[f32], v: &[f32], curvature: f32) -> f32 {
@@ -182,11 +182,7 @@ impl DualSpaceAttention {
     }
 
     /// Get the contribution weights for analysis
-    pub fn get_space_contributions(
-        &self,
-        query: &[f32],
-        keys: &[&[f32]],
-    ) -> (Vec<f32>, Vec<f32>) {
+    pub fn get_space_contributions(&self, query: &[f32], keys: &[&[f32]]) -> (Vec<f32>, Vec<f32>) {
         let q_euc = self.to_euclidean(query);
         let q_hyp = self.to_hyperbolic(query);
 
@@ -280,7 +276,12 @@ impl Attention for DualSpaceAttention {
         mask: Option<&[bool]>,
     ) -> AttentionResult<Vec<f32>> {
         if let Some(m) = mask {
-            let filtered: Vec<(usize, bool)> = m.iter().copied().enumerate().filter(|(_, keep)| *keep).collect();
+            let filtered: Vec<(usize, bool)> = m
+                .iter()
+                .copied()
+                .enumerate()
+                .filter(|(_, keep)| *keep)
+                .collect();
             let filtered_keys: Vec<&[f32]> = filtered.iter().map(|(i, _)| keys[*i]).collect();
             let filtered_values: Vec<&[f32]> = filtered.iter().map(|(i, _)| values[*i]).collect();
             self.compute(query, &filtered_keys, &filtered_values)
@@ -385,15 +386,9 @@ mod tests {
 
     #[test]
     fn test_temperature_scaling() {
-        let config_low_temp = DualSpaceConfig::builder()
-            .dim(16)
-            .temperature(0.5)
-            .build();
+        let config_low_temp = DualSpaceConfig::builder().dim(16).temperature(0.5).build();
 
-        let config_high_temp = DualSpaceConfig::builder()
-            .dim(16)
-            .temperature(2.0)
-            .build();
+        let config_high_temp = DualSpaceConfig::builder().dim(16).temperature(2.0).build();
 
         let attn_low = DualSpaceAttention::new(config_low_temp);
         let attn_high = DualSpaceAttention::new(config_high_temp);

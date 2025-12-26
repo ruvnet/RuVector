@@ -1,10 +1,10 @@
 // SQL executor that integrates with ruvector-core VectorDB
 use super::ast::*;
-use crate::{RvLiteError, ErrorKind};
-use ruvector_core::{VectorDB, VectorEntry, SearchQuery};
+use crate::{ErrorKind, RvLiteError};
+use parking_lot::RwLock;
+use ruvector_core::{SearchQuery, VectorDB, VectorEntry};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use parking_lot::RwLock;
 
 /// Table schema definition
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -41,7 +41,8 @@ impl TableSchema {
 
     /// Get column data type
     fn get_column_type(&self, name: &str) -> Option<&DataType> {
-        self.columns.iter()
+        self.columns
+            .iter()
             .find(|c| c.name == name)
             .map(|c| &c.data_type)
     }
@@ -74,22 +75,28 @@ impl SqlEngine {
     /// Execute a SQL statement
     pub fn execute(&self, statement: SqlStatement) -> Result<ExecutionResult, RvLiteError> {
         match statement {
-            SqlStatement::CreateTable { name, columns } => {
-                self.create_table(name, columns)
-            }
-            SqlStatement::Insert { table, columns, values } => {
-                self.insert(table, columns, values)
-            }
-            SqlStatement::Select { columns, from, where_clause, order_by, limit } => {
-                self.select(columns, from, where_clause, order_by, limit)
-            }
-            SqlStatement::Drop { table } => {
-                self.drop_table(table)
-            }
+            SqlStatement::CreateTable { name, columns } => self.create_table(name, columns),
+            SqlStatement::Insert {
+                table,
+                columns,
+                values,
+            } => self.insert(table, columns, values),
+            SqlStatement::Select {
+                columns,
+                from,
+                where_clause,
+                order_by,
+                limit,
+            } => self.select(columns, from, where_clause, order_by, limit),
+            SqlStatement::Drop { table } => self.drop_table(table),
         }
     }
 
-    fn create_table(&self, name: String, columns: Vec<Column>) -> Result<ExecutionResult, RvLiteError> {
+    fn create_table(
+        &self,
+        name: String,
+        columns: Vec<Column>,
+    ) -> Result<ExecutionResult, RvLiteError> {
         let mut schemas = self.schemas.write();
 
         if schemas.contains_key(&name) {
@@ -100,7 +107,8 @@ impl SqlEngine {
         }
 
         // Find vector column
-        let (vector_column, vector_dimensions) = columns.iter()
+        let (vector_column, vector_dimensions) = columns
+            .iter()
             .find_map(|col| {
                 if let DataType::Vector(dims) = col.data_type {
                     Some((col.name.clone(), dims))
@@ -129,11 +137,10 @@ impl SqlEngine {
             quantization: None,
         };
 
-        let db = VectorDB::new(db_options)
-            .map_err(|e| RvLiteError {
-                message: format!("Failed to create vector database: {}", e),
-                kind: ErrorKind::VectorError,
-            })?;
+        let db = VectorDB::new(db_options).map_err(|e| RvLiteError {
+            message: format!("Failed to create vector database: {}", e),
+            kind: ErrorKind::VectorError,
+        })?;
 
         let mut databases = self.databases.write();
         databases.insert(name.clone(), db);
@@ -145,7 +152,12 @@ impl SqlEngine {
         })
     }
 
-    fn insert(&self, table: String, columns: Vec<String>, values: Vec<Value>) -> Result<ExecutionResult, RvLiteError> {
+    fn insert(
+        &self,
+        table: String,
+        columns: Vec<String>,
+        values: Vec<Value>,
+    ) -> Result<ExecutionResult, RvLiteError> {
         let schemas = self.schemas.read();
         let schema = schemas.get(&table).ok_or_else(|| RvLiteError {
             message: format!("Table '{}' not found", table),
@@ -157,8 +169,11 @@ impl SqlEngine {
 
         if columns.len() != values.len() {
             return Err(RvLiteError {
-                message: format!("Column count ({}) does not match value count ({})",
-                    columns.len(), values.len()),
+                message: format!(
+                    "Column count ({}) does not match value count ({})",
+                    columns.len(),
+                    values.len()
+                ),
                 kind: ErrorKind::SqlError,
             });
         }
@@ -200,8 +215,11 @@ impl SqlEngine {
         if let Some(expected_dims) = schema.vector_dimensions {
             if vector.len() != expected_dims {
                 return Err(RvLiteError {
-                    message: format!("Vector dimension mismatch: expected {}, got {}",
-                        expected_dims, vector.len()),
+                    message: format!(
+                        "Vector dimension mismatch: expected {}, got {}",
+                        expected_dims,
+                        vector.len()
+                    ),
                     kind: ErrorKind::SqlError,
                 });
             }
@@ -253,7 +271,12 @@ impl SqlEngine {
 
         // Handle vector similarity search
         if let Some(order_by) = order_by {
-            if let Expression::Distance { column: _, metric: _, vector } = order_by.expression {
+            if let Expression::Distance {
+                column: _,
+                metric: _,
+                vector,
+            } = order_by.expression
+            {
                 let k = limit.unwrap_or(10);
 
                 // Build filter from WHERE clause
@@ -276,7 +299,8 @@ impl SqlEngine {
                 })?;
 
                 // Convert results to rows
-                let rows: Vec<HashMap<String, Value>> = results.into_iter()
+                let rows: Vec<HashMap<String, Value>> = results
+                    .into_iter()
                     .map(|result| {
                         let mut row = HashMap::new();
 
@@ -336,7 +360,8 @@ impl SqlEngine {
         })?;
 
         // Convert results to rows
-        let rows: Vec<HashMap<String, Value>> = results.into_iter()
+        let rows: Vec<HashMap<String, Value>> = results
+            .into_iter()
             .map(|result| {
                 let mut row = HashMap::new();
 
@@ -382,7 +407,10 @@ impl SqlEngine {
     }
 
     /// Build metadata filter from WHERE expression
-    fn build_filter(&self, expr: Expression) -> Result<HashMap<String, serde_json::Value>, RvLiteError> {
+    fn build_filter(
+        &self,
+        expr: Expression,
+    ) -> Result<HashMap<String, serde_json::Value>, RvLiteError> {
         let mut filter = HashMap::new();
 
         match expr {
@@ -444,9 +472,18 @@ mod tests {
         let create = SqlStatement::CreateTable {
             name: "docs".to_string(),
             columns: vec![
-                Column { name: "id".to_string(), data_type: DataType::Text },
-                Column { name: "content".to_string(), data_type: DataType::Text },
-                Column { name: "embedding".to_string(), data_type: DataType::Vector(3) },
+                Column {
+                    name: "id".to_string(),
+                    data_type: DataType::Text,
+                },
+                Column {
+                    name: "content".to_string(),
+                    data_type: DataType::Text,
+                },
+                Column {
+                    name: "embedding".to_string(),
+                    data_type: DataType::Vector(3),
+                },
             ],
         };
         engine.execute(create).unwrap();
@@ -454,7 +491,11 @@ mod tests {
         // Insert row
         let insert = SqlStatement::Insert {
             table: "docs".to_string(),
-            columns: vec!["id".to_string(), "content".to_string(), "embedding".to_string()],
+            columns: vec![
+                "id".to_string(),
+                "content".to_string(),
+                "embedding".to_string(),
+            ],
             values: vec![
                 Value::Text("1".to_string()),
                 Value::Text("hello".to_string()),
@@ -473,8 +514,14 @@ mod tests {
         let create = SqlStatement::CreateTable {
             name: "docs".to_string(),
             columns: vec![
-                Column { name: "id".to_string(), data_type: DataType::Text },
-                Column { name: "embedding".to_string(), data_type: DataType::Vector(3) },
+                Column {
+                    name: "id".to_string(),
+                    data_type: DataType::Text,
+                },
+                Column {
+                    name: "embedding".to_string(),
+                    data_type: DataType::Vector(3),
+                },
             ],
         };
         engine.execute(create).unwrap();

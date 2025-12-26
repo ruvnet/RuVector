@@ -529,11 +529,18 @@ fn test_pq_recall_384d() {
     // First result should be among the top candidates (PQ is approximate)
     // Due to quantization, the exact match might not be at position 0
     // but the distance should be reasonably small relative to random vectors
-    let min_distance = results.iter().map(|(_, d)| *d).fold(f32::INFINITY, f32::min);
+    let min_distance = results
+        .iter()
+        .map(|(_, d)| *d)
+        .fold(f32::INFINITY, f32::min);
 
     // In high dimensions, PQ distances vary based on quantization quality
     // Check that we get reasonable results (top result should be closer than random)
-    assert!(min_distance < 50.0, "Minimum distance {} should be reasonable for quantized search", min_distance);
+    assert!(
+        min_distance < 50.0,
+        "Minimum distance {} should be reasonable for quantized search",
+        min_distance
+    );
 
     println!(
         "✓ PQ 384D Recall Test: top-{} results retrieved, min distance = {:.4}",

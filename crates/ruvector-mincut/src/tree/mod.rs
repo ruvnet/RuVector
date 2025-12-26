@@ -66,10 +66,10 @@
 //! requires a partition not represented in the tree structure. For guaranteed
 //! minimum cut finding, use the exact algorithm in the `algorithm` module.
 
+use crate::error::Result;
+use crate::graph::{DynamicGraph, VertexId, Weight};
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
-use crate::graph::{DynamicGraph, VertexId, Weight};
-use crate::error::Result;
 
 /// A node in the hierarchical decomposition tree
 #[derive(Debug, Clone)]
@@ -185,10 +185,8 @@ impl HierarchicalDecomposition {
         // The partition is: node's vertices vs all other vertices
         let partition_a = node.vertices.clone();
         let all_vertices: HashSet<VertexId> = self.graph.vertices().into_iter().collect();
-        let partition_b: HashSet<VertexId> = all_vertices
-            .difference(&partition_a)
-            .copied()
-            .collect();
+        let partition_b: HashSet<VertexId> =
+            all_vertices.difference(&partition_a).copied().collect();
 
         (partition_a, partition_b)
     }
@@ -334,11 +332,8 @@ impl HierarchicalDecomposition {
         // Create internal node
         let node_id = self.next_node_id;
         self.next_node_id += 1;
-        let mut internal = DecompositionNode::new_internal(
-            node_id,
-            level,
-            vec![left_idx, right_idx],
-        );
+        let mut internal =
+            DecompositionNode::new_internal(node_id, level, vec![left_idx, right_idx]);
 
         // Collect vertices from children
         internal.vertices.extend(&self.nodes[left_idx].vertices);
@@ -440,7 +435,10 @@ impl HierarchicalDecomposition {
         let mut levels: HashMap<usize, Vec<f64>> = HashMap::new();
 
         for node in &self.nodes {
-            levels.entry(node.level).or_insert_with(Vec::new).push(node.cut_value);
+            levels
+                .entry(node.level)
+                .or_insert_with(Vec::new)
+                .push(node.cut_value);
         }
 
         let mut result: Vec<LevelInfo> = levels
@@ -591,7 +589,11 @@ mod tests {
 
         // Initially all nodes should be clean (after propagate_updates)
         for node in &decomp.nodes {
-            assert!(!node.dirty, "Node {} should not be dirty after build", node.id);
+            assert!(
+                !node.dirty,
+                "Node {} should not be dirty after build",
+                node.id
+            );
         }
 
         // Mark a leaf as dirty
@@ -683,7 +685,11 @@ mod tests {
         let decomp = HierarchicalDecomposition::build(graph).unwrap();
 
         // Height should be O(log n) = O(log 15) ≈ 4
-        assert!(decomp.height() <= 4, "Height {} should be <= 4", decomp.height());
+        assert!(
+            decomp.height() <= 4,
+            "Height {} should be <= 4",
+            decomp.height()
+        );
 
         // Verify balanced: all leaves should be at level 0
         let leaf_count = decomp.nodes.iter().filter(|n| n.level == 0).count();
@@ -727,7 +733,11 @@ mod tests {
         let decomp = HierarchicalDecomposition::build(graph).unwrap();
 
         // Height should be O(log n) = O(log 100) ≈ 7
-        assert!(decomp.height() <= 7, "Height {} should be <= 7", decomp.height());
+        assert!(
+            decomp.height() <= 7,
+            "Height {} should be <= 7",
+            decomp.height()
+        );
 
         // Min cut of a path is 1.0 (any single edge)
         assert_eq!(decomp.min_cut_value(), 1.0);

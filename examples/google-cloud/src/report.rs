@@ -11,7 +11,11 @@ use crate::benchmark::BenchmarkResult;
 
 /// Generate report from benchmark results
 pub fn generate_report(input_dir: &Path, output: &Path, format: &str) -> Result<()> {
-    println!("📊 Generating {} report from: {}", format, input_dir.display());
+    println!(
+        "📊 Generating {} report from: {}",
+        format,
+        input_dir.display()
+    );
 
     // Load all benchmark results
     let results = load_results(input_dir)?;
@@ -32,7 +36,10 @@ pub fn generate_report(input_dir: &Path, output: &Path, format: &str) -> Result<
         "csv" => generate_csv_report(&results, output)?,
         "html" => generate_html_report(&results, output)?,
         "markdown" | "md" => generate_markdown_report(&results, output)?,
-        _ => anyhow::bail!("Unknown format: {}. Use json, csv, html, or markdown", format),
+        _ => anyhow::bail!(
+            "Unknown format: {}. Use json, csv, html, or markdown",
+            format
+        ),
     }
 
     println!("✓ Report saved to: {}", output.display());
@@ -473,9 +480,15 @@ fn generate_markdown_report(results: &[BenchmarkResult], output: &Path) -> Resul
     md.push_str(&format!("**Generated:** {}\n\n", report.timestamp));
 
     md.push_str("## Summary\n\n");
-    md.push_str(&format!("- **Total Benchmarks:** {}\n", report.total_benchmarks));
+    md.push_str(&format!(
+        "- **Total Benchmarks:** {}\n",
+        report.total_benchmarks
+    ));
     md.push_str(&format!("- **Peak QPS:** {:.0}\n", report.peak_qps));
-    md.push_str(&format!("- **Best P99 Latency:** {:.2} ms\n", report.best_p99_ms));
+    md.push_str(&format!(
+        "- **Best P99 Latency:** {:.2} ms\n",
+        report.best_p99_ms
+    ));
     md.push_str(&format!(
         "- **GPU Enabled:** {}\n\n",
         if report.gpu_enabled { "Yes" } else { "No" }
@@ -546,10 +559,16 @@ fn generate_report_data(results: &[BenchmarkResult]) -> ReportData {
     let throughput_qps: Vec<f64> = results.iter().take(10).map(|r| r.qps).collect();
 
     ReportData {
-        timestamp: chrono::Utc::now().format("%Y-%m-%d %H:%M:%S UTC").to_string(),
+        timestamp: chrono::Utc::now()
+            .format("%Y-%m-%d %H:%M:%S UTC")
+            .to_string(),
         total_benchmarks: results.len(),
         peak_qps,
-        best_p99_ms: if best_p99.is_infinite() { 0.0 } else { best_p99 },
+        best_p99_ms: if best_p99.is_infinite() {
+            0.0
+        } else {
+            best_p99
+        },
         gpu_enabled,
         chart_labels,
         latency_p50,

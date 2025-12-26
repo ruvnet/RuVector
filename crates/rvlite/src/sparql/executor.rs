@@ -46,10 +46,7 @@ impl<'a> SparqlContext<'a> {
 }
 
 /// Execute a SPARQL query
-pub fn execute_sparql(
-    store: &TripleStore,
-    query: &SparqlQuery,
-) -> SparqlResult<QueryResult> {
+pub fn execute_sparql(store: &TripleStore, query: &SparqlQuery) -> SparqlResult<QueryResult> {
     let mut ctx = SparqlContext::new(store)
         .with_base(query.base.as_ref())
         .with_prefixes(&query.prefixes);
@@ -99,7 +96,10 @@ pub struct SelectResult {
 
 impl SelectResult {
     pub fn new(variables: Vec<String>, bindings: Solutions) -> Self {
-        Self { variables, bindings }
+        Self {
+            variables,
+            bindings,
+        }
     }
 }
 
@@ -117,7 +117,10 @@ fn execute_select(ctx: &mut SparqlContext, query: &SelectQuery) -> SparqlResult<
     // Project variables
     let (variables, bindings) = project_solutions(&query.projection, solutions)?;
 
-    Ok(SelectResult { variables, bindings })
+    Ok(SelectResult {
+        variables,
+        bindings,
+    })
 }
 
 fn project_solutions(
@@ -322,7 +325,9 @@ fn match_simple_triple(
     obj_pattern: &TermOrVariable,
     binding: &Binding,
 ) -> SparqlResult<Solutions> {
-    let triples = ctx.store.query(subject.as_ref(), predicate, object.as_ref());
+    let triples = ctx
+        .store
+        .query(subject.as_ref(), predicate, object.as_ref());
 
     let mut solutions = Vec::new();
 
@@ -500,11 +505,7 @@ fn apply_modifiers(
                     (None, None) => std::cmp::Ordering::Equal,
                 };
 
-                let ord = if cond.ascending {
-                    ord
-                } else {
-                    ord.reverse()
-                };
+                let ord = if cond.ascending { ord } else { ord.reverse() };
 
                 if ord != std::cmp::Ordering::Equal {
                     return ord;
@@ -566,11 +567,9 @@ fn evaluate_expression(expr: &Expression, binding: &Binding) -> SparqlResult<Opt
             evaluate_unary_op(*op, v)
         }
 
-        Expression::Bound(var) => {
-            Ok(Some(RdfTerm::Literal(Literal::boolean(
-                binding.contains_key(var),
-            ))))
-        }
+        Expression::Bound(var) => Ok(Some(RdfTerm::Literal(Literal::boolean(
+            binding.contains_key(var),
+        )))),
 
         Expression::If(cond, then_expr, else_expr) => {
             if evaluate_expression_as_bool(cond, binding)? {

@@ -39,23 +39,28 @@ mod problem_detection_tests {
     ) -> Vec<ProblemType> {
         let mut problems = Vec::new();
 
-        if latency_p99 > 100.0 {  // > 100ms
+        if latency_p99 > 100.0 {
+            // > 100ms
             problems.push(ProblemType::HighLatency);
         }
 
-        if recall < 0.90 {  // < 90% recall
+        if recall < 0.90 {
+            // < 90% recall
             problems.push(ProblemType::LowRecall);
         }
 
-        if memory_usage > 0.90 {  // > 90% memory
+        if memory_usage > 0.90 {
+            // > 90% memory
             problems.push(ProblemType::MemoryPressure);
         }
 
-        if active_connections > max_connections * 90 / 100 {  // > 90% connections
+        if active_connections > max_connections * 90 / 100 {
+            // > 90% connections
             problems.push(ProblemType::ConnectionExhaustion);
         }
 
-        if query_timeout_rate > 0.01 {  // > 1% timeouts
+        if query_timeout_rate > 0.01 {
+            // > 1% timeouts
             problems.push(ProblemType::QueryTimeout);
         }
 
@@ -238,7 +243,7 @@ mod remediation_strategy_tests {
         // Verify ordering is monotonically increasing
         for i in 1..action_disruption.len() {
             assert!(
-                action_disruption[i].1 >= action_disruption[i-1].1,
+                action_disruption[i].1 >= action_disruption[i - 1].1,
                 "Actions should be ordered by disruption level"
             );
         }
@@ -265,7 +270,7 @@ mod failure_recovery_tests {
         let scenario = FailureScenario {
             name: "Index corruption detected".to_string(),
             affected_component: "HNSW index".to_string(),
-            expected_recovery_time_ms: 60000,  // 1 minute for rebuild
+            expected_recovery_time_ms: 60000, // 1 minute for rebuild
             requires_manual_intervention: false,
         };
 
@@ -366,7 +371,7 @@ mod failure_recovery_tests {
             name: "Replication lag too high".to_string(),
             affected_component: "Streaming replication".to_string(),
             expected_recovery_time_ms: 30000,
-            requires_manual_intervention: true,  // May need manual intervention
+            requires_manual_intervention: true, // May need manual intervention
         };
 
         // Automatic mitigation steps:
@@ -391,10 +396,10 @@ mod failure_recovery_tests {
 
         // During index rebuild
         let during_rebuild = DegradedCapabilities {
-            read_available: true,      // Reads still work
-            write_available: true,     // Writes still work
-            index_scan_available: false,  // Index unavailable
-            approximate_results: true,    // Falls back to seq scan
+            read_available: true,        // Reads still work
+            write_available: true,       // Writes still work
+            index_scan_available: false, // Index unavailable
+            approximate_results: true,   // Falls back to seq scan
         };
 
         assert!(during_rebuild.read_available);
@@ -403,7 +408,7 @@ mod failure_recovery_tests {
         // During memory pressure
         let during_memory_pressure = DegradedCapabilities {
             read_available: true,
-            write_available: false,  // Writes blocked
+            write_available: false, // Writes blocked
             index_scan_available: true,
             approximate_results: false,
         };
@@ -477,7 +482,7 @@ mod learning_system_tests {
             context: "high_dimension".to_string(),
             action: "increase_ef_search".to_string(),
             outcome: outcome.clone(),
-            confidence: 0.3,  // Lower confidence after failure
+            confidence: 0.3, // Lower confidence after failure
         };
 
         assert!(!record.outcome.success);
@@ -496,18 +501,20 @@ mod learning_system_tests {
             ("09:00", "high_latency"),
         ];
 
-        let morning_issues = pattern.iter()
+        let morning_issues = pattern
+            .iter()
             .filter(|(time, issue)| time == &"09:00" && issue == &"high_latency")
             .count();
 
-        let total_morning = pattern.iter()
-            .filter(|(time, _)| time == &"09:00")
-            .count();
+        let total_morning = pattern.iter().filter(|(time, _)| time == &"09:00").count();
 
         let morning_issue_rate = morning_issues as f64 / total_morning as f64;
 
         // Should recognize the pattern
-        assert!(morning_issue_rate > 0.8, "Should detect recurring morning issues");
+        assert!(
+            morning_issue_rate > 0.8,
+            "Should detect recurring morning issues"
+        );
     }
 
     /// Test proactive remediation based on learned patterns
@@ -521,7 +528,7 @@ mod learning_system_tests {
         }
 
         let proactive = ProactiveAction {
-            trigger_time: "08:55".to_string(),  // Before 9 AM issues
+            trigger_time: "08:55".to_string(), // Before 9 AM issues
             action: "reduce_probes".to_string(),
             expected_benefit: "Prevent high latency at 9 AM".to_string(),
         };
@@ -534,13 +541,13 @@ mod learning_system_tests {
     fn test_confidence_decay() {
         // Older learnings should have decayed confidence
         let initial_confidence: f64 = 0.9;
-        let decay_rate: f64 = 0.1;  // 10% per week
+        let decay_rate: f64 = 0.1; // 10% per week
         let weeks_old: i32 = 4;
 
         let current_confidence = initial_confidence * (1.0 - decay_rate).powi(weeks_old);
 
         assert!(current_confidence < initial_confidence);
-        assert!(current_confidence > 0.5);  // Still useful
+        assert!(current_confidence > 0.5); // Still useful
     }
 
     /// Test learning persistence
@@ -602,7 +609,8 @@ mod learning_system_tests {
         ];
 
         // Score = success_rate * (1 - log(recovery_time)/10) * sqrt(sample_count)/10
-        let scored: Vec<(_, f64)> = remediations.iter()
+        let scored: Vec<(_, f64)> = remediations
+            .iter()
             .map(|r| {
                 let time_factor = 1.0 - r.avg_recovery_time_ms.ln() / 15.0;
                 let confidence_factor = (r.sample_count as f64).sqrt() / 10.0;

@@ -32,30 +32,32 @@
 //! | Search (1M vectors) | 400 μs | ~40 μs | 10x |
 //! | Energy per query | ~10 mJ | ~10 μJ | 1000x |
 
-pub mod neuron;
-pub mod synapse;
-pub mod network;
 pub mod attractor;
-pub mod strange_loop;
 pub mod causal;
-pub mod time_crystal;
-pub mod morphogenetic;
-pub mod optimizer;
 pub mod cognitive_engine;
+pub mod morphogenetic;
+pub mod network;
+pub mod neuron;
+pub mod optimizer;
+pub mod strange_loop;
+pub mod synapse;
+pub mod time_crystal;
 
 // Re-exports
-pub use neuron::{LIFNeuron, NeuronState, NeuronConfig, SpikeTrain};
-pub use synapse::{Synapse, STDPConfig, SynapseMatrix};
-pub use network::{SpikingNetwork, NetworkConfig, LayerConfig};
-pub use attractor::{AttractorDynamics, EnergyLandscape, AttractorConfig};
-pub use strange_loop::{MetaCognitiveMinCut, MetaAction, MetaLevel, StrangeLoopConfig};
-pub use causal::{CausalDiscoverySNN, CausalGraph, CausalRelation, CausalConfig};
-pub use time_crystal::{TimeCrystalCPG, OscillatorNeuron, PhaseTopology, CPGConfig};
-pub use morphogenetic::{MorphogeneticSNN, GrowthRules, TuringPattern, MorphConfig};
-pub use optimizer::{NeuralGraphOptimizer, PolicySNN, ValueNetwork, OptimizerConfig, OptimizationResult};
+pub use attractor::{AttractorConfig, AttractorDynamics, EnergyLandscape};
+pub use causal::{CausalConfig, CausalDiscoverySNN, CausalGraph, CausalRelation};
 pub use cognitive_engine::{CognitiveMinCutEngine, EngineConfig, EngineMetrics, OperationMode};
+pub use morphogenetic::{GrowthRules, MorphConfig, MorphogeneticSNN, TuringPattern};
+pub use network::{LayerConfig, NetworkConfig, SpikingNetwork};
+pub use neuron::{LIFNeuron, NeuronConfig, NeuronState, SpikeTrain};
+pub use optimizer::{
+    NeuralGraphOptimizer, OptimizationResult, OptimizerConfig, PolicySNN, ValueNetwork,
+};
+pub use strange_loop::{MetaAction, MetaCognitiveMinCut, MetaLevel, StrangeLoopConfig};
+pub use synapse::{STDPConfig, Synapse, SynapseMatrix};
+pub use time_crystal::{CPGConfig, OscillatorNeuron, PhaseTopology, TimeCrystalCPG};
 
-use crate::graph::{DynamicGraph, VertexId, EdgeId, Weight};
+use crate::graph::{DynamicGraph, EdgeId, VertexId, Weight};
 use std::time::{Duration, Instant};
 
 /// Simulation time in milliseconds
@@ -174,8 +176,14 @@ impl SpikeToGraph for DefaultSpikeGraphTransducer {
 
         // High spike correlation → strengthen edge
         for edge in graph.edges() {
-            let src_spikes = spike_counts.get(&(edge.source as usize)).copied().unwrap_or(0);
-            let tgt_spikes = spike_counts.get(&(edge.target as usize)).copied().unwrap_or(0);
+            let src_spikes = spike_counts
+                .get(&(edge.source as usize))
+                .copied()
+                .unwrap_or(0);
+            let tgt_spikes = spike_counts
+                .get(&(edge.target as usize))
+                .copied()
+                .unwrap_or(0);
 
             // Hebbian-like weight update
             let correlation = (src_spikes * tgt_spikes) as f64;
@@ -196,10 +204,13 @@ impl SpikeToGraph for DefaultSpikeGraphTransducer {
             // Higher degree → higher rate
             let degree = graph.degree(*v);
             // Total incident weight → rate modulation
-            let weight_sum: f64 = graph.neighbors(*v)
+            let weight_sum: f64 = graph
+                .neighbors(*v)
                 .iter()
                 .filter_map(|(_, eid)| {
-                    graph.edges().iter()
+                    graph
+                        .edges()
+                        .iter()
                         .find(|e| e.id == *eid)
                         .map(|e| e.weight)
                 })
@@ -247,7 +258,11 @@ pub fn compute_synchrony(spikes: &[Spike], window_ms: f64) -> f64 {
 
     // Sort by time for efficient windowed counting
     let mut sorted: Vec<_> = spikes.to_vec();
-    sorted.sort_by(|a, b| a.time.partial_cmp(&b.time).unwrap_or(std::cmp::Ordering::Equal));
+    sorted.sort_by(|a, b| {
+        a.time
+            .partial_cmp(&b.time)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
 
     // Use sliding window approach: O(n log n) due to sort
     let mut coincidences = 0usize;
@@ -269,7 +284,8 @@ pub fn compute_synchrony(spikes: &[Spike], window_ms: f64) -> f64 {
 
     // Total inter-neuron pairs (excluding same-neuron pairs)
     let n = sorted.len();
-    let mut neuron_counts: std::collections::HashMap<usize, usize> = std::collections::HashMap::new();
+    let mut neuron_counts: std::collections::HashMap<usize, usize> =
+        std::collections::HashMap::new();
     for spike in &sorted {
         *neuron_counts.entry(spike.neuron_id).or_insert(0) += 1;
     }
@@ -307,9 +323,18 @@ mod tests {
     #[test]
     fn test_synchrony_computation() {
         let spikes = vec![
-            Spike { neuron_id: 0, time: 0.0 },
-            Spike { neuron_id: 1, time: 0.5 },
-            Spike { neuron_id: 2, time: 10.0 },
+            Spike {
+                neuron_id: 0,
+                time: 0.0,
+            },
+            Spike {
+                neuron_id: 1,
+                time: 0.5,
+            },
+            Spike {
+                neuron_id: 2,
+                time: 10.0,
+            },
         ];
 
         let sync_narrow = compute_synchrony(&spikes, 1.0);
@@ -331,7 +356,10 @@ mod tests {
 
     #[test]
     fn test_spike_train() {
-        let spike = Spike { neuron_id: 42, time: 100.5 };
+        let spike = Spike {
+            neuron_id: 42,
+            time: 100.5,
+        };
         assert_eq!(spike.neuron_id, 42);
         assert!((spike.time - 100.5).abs() < 1e-10);
     }

@@ -107,22 +107,38 @@ fn main() -> anyhow::Result<()> {
         let search_time = search_start.elapsed();
         let avg_query_time_us = search_time.as_micros() as f64 / num_queries as f64;
 
-        println!("  Total search time: {:.2}ms", search_time.as_secs_f64() * 1000.0);
+        println!(
+            "  Total search time: {:.2}ms",
+            search_time.as_secs_f64() * 1000.0
+        );
         println!("  Average query time: {:.1}us", avg_query_time_us);
-        println!("  QPS: {:.0}", num_queries as f64 / search_time.as_secs_f64());
+        println!(
+            "  QPS: {:.0}",
+            num_queries as f64 / search_time.as_secs_f64()
+        );
 
         // Results breakdown
         let compress_ratio = compress_count as f64 / total_results as f64 * 100.0;
         println!("\nResults breakdown:");
-        println!("  - COMPRESS (tensor): {} ({:.1}%)", compress_count, compress_ratio);
-        println!("  - EXPAND (text): {} ({:.1}%)", expand_count, 100.0 - compress_ratio);
+        println!(
+            "  - COMPRESS (tensor): {} ({:.1}%)",
+            compress_count, compress_ratio
+        );
+        println!(
+            "  - EXPAND (text): {} ({:.1}%)",
+            expand_count,
+            100.0 - compress_ratio
+        );
 
         // Statistics
         let stats = store.stats();
         println!("\nStore statistics:");
         println!("  - Total searches: {}", stats.total_searches);
         println!("  - Avg policy time: {:.1}us", stats.avg_policy_time_us);
-        println!("  - Compression ratio: {:.1}%", stats.compression_ratio() * 100.0);
+        println!(
+            "  - Compression ratio: {:.1}%",
+            stats.compression_ratio() * 100.0
+        );
         println!();
     }
 
@@ -152,8 +168,7 @@ fn main() -> anyhow::Result<()> {
         let tensor_vec: Vec<f32> = (0..tensor_dim).map(|_| rng.gen_range(-1.0..1.0)).collect();
         let tensor_bytes: Vec<u8> = tensor_vec.iter().flat_map(|f| f.to_le_bytes()).collect();
 
-        let entry = RefragEntry::new(id, search_vec, text)
-            .with_tensor(tensor_bytes, "llama3-8b");
+        let entry = RefragEntry::new(id, search_vec, text).with_tensor(tensor_bytes, "llama3-8b");
         demo_store.insert(entry)?;
     }
 
@@ -163,7 +178,12 @@ fn main() -> anyhow::Result<()> {
     println!("Query: [synthetic vector]\n");
     println!("Results:");
     for (i, result) in results.iter().enumerate() {
-        println!("  {}. ID: {} (score: {:.3})", i + 1, result.id, result.score);
+        println!(
+            "  {}. ID: {} (score: {:.3})",
+            i + 1,
+            result.id,
+            result.score
+        );
         println!("     Type: {:?}", result.response_type);
         println!("     Confidence: {:.2}", result.policy_confidence);
 
@@ -202,7 +222,10 @@ fn main() -> anyhow::Result<()> {
     for dim in tensor_dims {
         let bytes = dim * 4; // f32
         let b64_bytes = (bytes * 4 + 2) / 3; // Base64 overhead
-        println!("  - {} dims = {} bytes (raw), ~{} bytes (base64)", dim, bytes, b64_bytes);
+        println!(
+            "  - {} dims = {} bytes (raw), ~{} bytes (base64)",
+            dim, bytes, b64_bytes
+        );
     }
 
     println!("\nEstimated latency savings:");

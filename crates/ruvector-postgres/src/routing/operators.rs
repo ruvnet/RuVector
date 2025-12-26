@@ -59,11 +59,7 @@ fn ruvector_register_agent(
 ) -> Result<bool, String> {
     let registry = get_registry();
 
-    let mut agent = Agent::new(
-        name.clone(),
-        AgentType::from_str(&agent_type),
-        capabilities,
-    );
+    let mut agent = Agent::new(name.clone(), AgentType::from_str(&agent_type), capabilities);
 
     agent.cost_model.per_request = cost_per_request;
     agent.performance.avg_latency_ms = avg_latency_ms;
@@ -146,7 +142,9 @@ fn ruvector_update_agent_metrics(
 #[pg_extern]
 fn ruvector_remove_agent(name: String) -> Result<bool, String> {
     let registry = get_registry();
-    registry.remove(&name).ok_or_else(|| format!("Agent '{}' not found", name))?;
+    registry
+        .remove(&name)
+        .ok_or_else(|| format!("Agent '{}' not found", name))?;
     Ok(true)
 }
 
@@ -198,8 +196,7 @@ fn ruvector_route(
     let target = OptimizationTarget::from_str(&optimize_for);
 
     let routing_constraints = if let Some(JsonB(json_val)) = constraints {
-        serde_json::from_value(json_val)
-            .map_err(|e| format!("Invalid constraints: {}", e))?
+        serde_json::from_value(json_val).map_err(|e| format!("Invalid constraints: {}", e))?
     } else {
         RoutingConstraints::default()
     };
@@ -236,8 +233,7 @@ fn ruvector_route(
 /// SELECT * FROM ruvector_list_agents();
 /// ```
 #[pg_extern]
-fn ruvector_list_agents(
-) -> TableIterator<
+fn ruvector_list_agents() -> TableIterator<
     'static,
     (
         name!(name, String),
@@ -288,8 +284,7 @@ fn ruvector_get_agent(name: String) -> Result<JsonB, String> {
         .get(&name)
         .ok_or_else(|| format!("Agent '{}' not found", name))?;
 
-    let result = serde_json::to_value(&agent)
-        .map_err(|e| format!("Serialization error: {}", e))?;
+    let result = serde_json::to_value(&agent).map_err(|e| format!("Serialization error: {}", e))?;
 
     Ok(JsonB(result))
 }
@@ -348,7 +343,11 @@ fn ruvector_routing_stats() -> JsonB {
 
     let total_requests: u64 = agents.iter().map(|a| a.performance.total_requests).sum();
     let avg_quality: f32 = if !agents.is_empty() {
-        agents.iter().map(|a| a.performance.quality_score).sum::<f32>() / agents.len() as f32
+        agents
+            .iter()
+            .map(|a| a.performance.quality_score)
+            .sum::<f32>()
+            / agents.len() as f32
     } else {
         0.0
     };
@@ -438,12 +437,8 @@ mod tests {
         )
         .unwrap();
 
-        let result = ruvector_update_agent_metrics(
-            "test-agent".to_string(),
-            150.0,
-            true,
-            Some(0.9),
-        );
+        let result =
+            ruvector_update_agent_metrics("test-agent".to_string(), 150.0, true, Some(0.9));
 
         assert!(result.is_ok());
     }

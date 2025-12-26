@@ -144,13 +144,14 @@ impl LIFNeuron {
 
         // Membrane dynamics: τ dV/dt = -(V - V_rest) + R*I
         let dv = (-self.state.v + self.config.v_rest + self.config.resistance * current)
-                 / self.config.tau_membrane * dt;
+            / self.config.tau_membrane
+            * dt;
         self.state.v += dv;
 
         // Threshold adaptation decay
         if self.state.threshold > self.config.threshold {
-            let d_thresh = -(self.state.threshold - self.config.threshold)
-                           / self.config.tau_threshold * dt;
+            let d_thresh =
+                -(self.state.threshold - self.config.threshold) / self.config.tau_threshold * dt;
             self.state.threshold += d_thresh;
         }
 
@@ -276,7 +277,9 @@ impl SpikeTrain {
         }
 
         let latest = self.spike_times.last().copied().unwrap_or(0.0);
-        let count = self.spike_times.iter()
+        let count = self
+            .spike_times
+            .iter()
             .filter(|&&t| t >= latest - window)
             .count();
 
@@ -496,7 +499,8 @@ impl NeuronPopulation {
 
         if self.neurons.len() >= PARALLEL_THRESHOLD {
             // Parallel path: compute neuron updates in parallel
-            let spike_flags: Vec<bool> = self.neurons
+            let spike_flags: Vec<bool> = self
+                .neurons
                 .par_iter_mut()
                 .enumerate()
                 .map(|(i, neuron)| {
@@ -541,9 +545,7 @@ impl NeuronPopulation {
 
     /// Get population spike rate
     pub fn population_rate(&self, window: f64) -> f64 {
-        let total: f64 = self.spike_trains.iter()
-            .map(|t| t.spike_rate(window))
-            .sum();
+        let total: f64 = self.spike_trains.iter().map(|t| t.spike_rate(window)).sum();
         total / self.neurons.len() as f64
     }
 
@@ -556,7 +558,10 @@ impl NeuronPopulation {
         for train in &self.spike_trains {
             for &t in &train.spike_times {
                 if t >= cutoff {
-                    all_spikes.push(Spike { neuron_id: train.neuron_id, time: t });
+                    all_spikes.push(Spike {
+                        neuron_id: train.neuron_id,
+                        time: t,
+                    });
                 }
             }
         }
@@ -632,9 +637,9 @@ mod tests {
 
         let pattern = train.to_pattern(0.0, 1.0, 10);
         assert_eq!(pattern.len(), 10);
-        assert!(pattern[1]);  // Spike at t=1
-        assert!(pattern[3]);  // Spike at t=3
-        assert!(pattern[7]);  // Spike at t=7
+        assert!(pattern[1]); // Spike at t=1
+        assert!(pattern[3]); // Spike at t=3
+        assert!(pattern[7]); // Spike at t=7
         assert!(!pattern[0]); // No spike at t=0
     }
 }

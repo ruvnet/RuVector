@@ -20,8 +20,8 @@
 //! 3. Build sparsifier with O(n log n / ε²) edges
 //! 4. Run exact min-cut on sparsifier (feasible due to small size)
 
-use std::collections::{HashMap, HashSet, VecDeque};
 use crate::graph::VertexId;
+use std::collections::{HashMap, HashSet, VecDeque};
 
 /// Configuration for approximate min-cut
 #[derive(Debug, Clone)]
@@ -590,7 +590,9 @@ impl ApproxMinCut {
         }
 
         let s: Vec<VertexId> = visited.into_iter().collect();
-        let t: Vec<VertexId> = self.vertices.iter()
+        let t: Vec<VertexId> = self
+            .vertices
+            .iter()
             .filter(|v| !s.contains(v))
             .copied()
             .collect();

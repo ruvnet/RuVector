@@ -19,8 +19,8 @@
 //! - Pre-allocation with capacity hints
 //! - Node caching for frequently accessed roots
 
-use std::collections::HashMap;
 use crate::error::{MinCutError, Result};
+use std::collections::HashMap;
 
 /// Node identifier
 pub type NodeId = u64;
@@ -814,7 +814,10 @@ mod tests {
         lct.link(4, 7).unwrap();
 
         // Verify the connection was successful
-        assert!(lct.connected(4, 7), "4 and 7 should be connected after link");
+        assert!(
+            lct.connected(4, 7),
+            "4 and 7 should be connected after link"
+        );
         assert!(lct.connected(3, 7), "3 and 7 should be connected through 4");
 
         // Note: After cutting 2, we have two separate trees:

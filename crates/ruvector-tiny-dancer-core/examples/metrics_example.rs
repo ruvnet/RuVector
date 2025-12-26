@@ -119,7 +119,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     println!("tiny_dancer_routing_requests_total {}", total_requests);
-    println!("tiny_dancer_candidates_processed_total {}", total_candidates);
+    println!(
+        "tiny_dancer_candidates_processed_total {}",
+        total_candidates
+    );
     println!(
         "tiny_dancer_routing_decisions_total{{model_type=\"lightweight\"}} {}",
         lightweight_count

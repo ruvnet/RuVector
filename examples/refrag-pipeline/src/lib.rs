@@ -30,13 +30,13 @@
 //! ```
 
 pub mod compress;
-pub mod sense;
 pub mod expand;
-pub mod types;
+pub mod sense;
 pub mod store;
+pub mod types;
 
 pub use compress::TensorCompressor;
-pub use sense::{PolicyNetwork, RefragAction};
 pub use expand::Projector;
-pub use types::{RefragEntry, RefragSearchResult, RefragResponseType};
+pub use sense::{PolicyNetwork, RefragAction};
 pub use store::RefragStore;
+pub use types::{RefragEntry, RefragResponseType, RefragSearchResult};

@@ -1,4 +1,4 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId, Throughput};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 use scipix_ocr::optimize::*;
 
 fn bench_grayscale(c: &mut Criterion) {
@@ -109,19 +109,13 @@ fn bench_parallel_map(c: &mut Criterion) {
         // Parallel version
         group.bench_with_input(BenchmarkId::new("parallel", size), size, |b, _| {
             b.iter(|| {
-                parallel::parallel_map_chunked(
-                    black_box(data.clone()),
-                    100,
-                    |x| x * x + x * 2 + 1,
-                )
+                parallel::parallel_map_chunked(black_box(data.clone()), 100, |x| x * x + x * 2 + 1)
             });
         });
 
         // Sequential version
         group.bench_with_input(BenchmarkId::new("sequential", size), size, |b, _| {
-            b.iter(|| {
-                data.iter().map(|&x| x * x + x * 2 + 1).collect::<Vec<_>>()
-            });
+            b.iter(|| data.iter().map(|&x| x * x + x * 2 + 1).collect::<Vec<_>>());
         });
     }
 
@@ -158,23 +152,21 @@ fn bench_quantization(c: &mut Criterion) {
     let mut group = c.benchmark_group("quantization");
 
     for size in [1024, 4096, 16384].iter() {
-        let weights: Vec<f32> = (0..*size).map(|i| (i as f32 / *size as f32) * 2.0 - 1.0).collect();
+        let weights: Vec<f32> = (0..*size)
+            .map(|i| (i as f32 / *size as f32) * 2.0 - 1.0)
+            .collect();
 
         group.throughput(Throughput::Elements(*size as u64));
 
         // Quantize
         group.bench_with_input(BenchmarkId::new("quantize", size), size, |b, _| {
-            b.iter(|| {
-                quantize::quantize_weights(black_box(&weights))
-            });
+            b.iter(|| quantize::quantize_weights(black_box(&weights)));
         });
 
         // Dequantize
         let (quantized, params) = quantize::quantize_weights(&weights);
         group.bench_with_input(BenchmarkId::new("dequantize", size), size, |b, _| {
-            b.iter(|| {
-                quantize::dequantize(black_box(&quantized), black_box(params))
-            });
+            b.iter(|| quantize::dequantize(black_box(&quantized), black_box(params)));
         });
 
         // Per-channel quantization

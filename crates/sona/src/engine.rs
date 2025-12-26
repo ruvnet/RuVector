@@ -90,9 +90,7 @@ impl SonaEngine {
         if let Some(result) = self.coordinator.maybe_run_background() {
             Some(format!(
                 "Background cycle: {} trajectories -> {} patterns in {:?}",
-                result.trajectories_processed,
-                result.patterns_extracted,
-                result.elapsed
+                result.trajectories_processed, result.patterns_extracted, result.elapsed
             ))
         } else {
             None
@@ -104,9 +102,7 @@ impl SonaEngine {
         let result = self.coordinator.force_background();
         format!(
             "Forced learning: {} trajectories -> {} patterns, status: {}",
-            result.trajectories_processed,
-            result.patterns_extracted,
-            result.status
+            result.trajectories_processed, result.patterns_extracted, result.status
         )
     }
 
@@ -155,7 +151,7 @@ impl SonaEngine {
     /// Export LoRA state for serialization
     #[cfg(feature = "serde-support")]
     pub fn export_lora_state(&self) -> crate::export::safetensors::LoRAState {
-        use crate::export::safetensors::{LoRAState, LoRALayerState};
+        use crate::export::safetensors::{LoRALayerState, LoRAState};
 
         let mut state = LoRAState::default();
 
@@ -197,15 +193,18 @@ impl SonaEngine {
         // Get buffered trajectories from the instant loop via coordinator
         let trajectories = self.coordinator.reasoning_bank().read().get_all_patterns();
 
-        trajectories.iter().map(|p| {
-            QualityTrajectory {
-                query_embedding: p.centroid.clone(),
-                response_embedding: p.centroid.clone(), // Use centroid as proxy
-                route: p.pattern_type.to_string(),
-                quality: p.avg_quality,
-                context_ids: vec![],
-            }
-        }).collect()
+        trajectories
+            .iter()
+            .map(|p| {
+                QualityTrajectory {
+                    query_embedding: p.centroid.clone(),
+                    response_embedding: p.centroid.clone(), // Use centroid as proxy
+                    route: p.pattern_type.to_string(),
+                    quality: p.avg_quality,
+                    context_ids: vec![],
+                }
+            })
+            .collect()
     }
 
     /// Get routing decisions for distillation export
@@ -215,15 +214,18 @@ impl SonaEngine {
 
         let patterns = self.coordinator.reasoning_bank().read().get_all_patterns();
 
-        patterns.iter().map(|p| {
-            RoutingDecision {
-                query_embedding: p.centroid.clone(),
-                routing_logits: vec![p.avg_quality], // Simplified
-                selected_route: p.pattern_type.to_string(),
-                confidence: p.avg_quality,
-                quality: p.avg_quality,
-            }
-        }).collect()
+        patterns
+            .iter()
+            .map(|p| {
+                RoutingDecision {
+                    query_embedding: p.centroid.clone(),
+                    routing_logits: vec![p.avg_quality], // Simplified
+                    selected_route: p.pattern_type.to_string(),
+                    confidence: p.avg_quality,
+                    quality: p.avg_quality,
+                }
+            })
+            .collect()
     }
 }
 

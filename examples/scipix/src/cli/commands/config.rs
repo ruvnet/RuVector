@@ -4,8 +4,8 @@ use dialoguer::{theme::ColorfulTheme, Confirm, Input};
 use std::path::PathBuf;
 use tracing::info;
 
-use crate::cli::Cli;
 use super::OcrConfig;
+use crate::cli::Cli;
 
 /// Manage configuration
 #[derive(Args, Debug, Clone)]
@@ -83,11 +83,9 @@ fn init_config(output: &PathBuf, force: bool) -> Result<()> {
     }
 
     let config = OcrConfig::default();
-    let toml = toml::to_string_pretty(&config)
-        .context("Failed to serialize config")?;
+    let toml = toml::to_string_pretty(&config).context("Failed to serialize config")?;
 
-    std::fs::write(output, toml)
-        .context("Failed to write config file")?;
+    std::fs::write(output, toml).context("Failed to write config file")?;
 
     info!("Configuration file created: {}", output.display());
     println!("✓ Created configuration file: {}", output.display());
@@ -104,11 +102,9 @@ fn validate_config(file: &PathBuf) -> Result<()> {
         anyhow::bail!("Config file not found: {}", file.display());
     }
 
-    let content = std::fs::read_to_string(file)
-        .context("Failed to read config file")?;
+    let content = std::fs::read_to_string(file).context("Failed to read config file")?;
 
-    let config: OcrConfig = toml::from_str(&content)
-        .context("Failed to parse config file")?;
+    let config: OcrConfig = toml::from_str(&content).context("Failed to parse config file")?;
 
     // Validate configuration values
     if config.min_confidence < 0.0 || config.min_confidence > 1.0 {
@@ -127,7 +123,10 @@ fn validate_config(file: &PathBuf) -> Result<()> {
     println!("\nSettings:");
     println!("  Min confidence: {}", config.min_confidence);
     println!("  Max image size: {} bytes", config.max_image_size);
-    println!("  Supported extensions: {}", config.supported_extensions.join(", "));
+    println!(
+        "  Supported extensions: {}",
+        config.supported_extensions.join(", ")
+    );
 
     if let Some(endpoint) = &config.api_endpoint {
         println!("  API endpoint: {}", endpoint);
@@ -137,9 +136,7 @@ fn validate_config(file: &PathBuf) -> Result<()> {
 }
 
 fn show_config(file: Option<PathBuf>) -> Result<()> {
-    let config_path = file.unwrap_or_else(|| {
-        PathBuf::from("scipix.toml")
-    });
+    let config_path = file.unwrap_or_else(|| PathBuf::from("scipix.toml"));
 
     if !config_path.exists() {
         println!("No configuration file found.");
@@ -148,8 +145,7 @@ fn show_config(file: Option<PathBuf>) -> Result<()> {
         return Ok(());
     }
 
-    let content = std::fs::read_to_string(&config_path)
-        .context("Failed to read config file")?;
+    let content = std::fs::read_to_string(&config_path).context("Failed to read config file")?;
 
     println!("Configuration from: {}\n", config_path.display());
     println!("{}", content);
@@ -165,11 +161,9 @@ fn edit_config(file: &PathBuf) -> Result<()> {
         );
     }
 
-    let content = std::fs::read_to_string(file)
-        .context("Failed to read config file")?;
+    let content = std::fs::read_to_string(file).context("Failed to read config file")?;
 
-    let mut config: OcrConfig = toml::from_str(&content)
-        .context("Failed to parse config file")?;
+    let mut config: OcrConfig = toml::from_str(&content).context("Failed to parse config file")?;
 
     let theme = ColorfulTheme::default();
 
@@ -244,11 +238,9 @@ fn edit_config(file: &PathBuf) -> Result<()> {
         .context("Failed to read input")?;
 
     if save {
-        let toml = toml::to_string_pretty(&config)
-            .context("Failed to serialize config")?;
+        let toml = toml::to_string_pretty(&config).context("Failed to serialize config")?;
 
-        std::fs::write(file, toml)
-            .context("Failed to write config file")?;
+        std::fs::write(file, toml).context("Failed to write config file")?;
 
         println!("\n✓ Configuration saved to: {}", file.display());
     } else {

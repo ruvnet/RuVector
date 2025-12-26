@@ -25,8 +25,8 @@
 //!
 //! This ordering ensures graph connectivity is maintained during updates.
 
-use crate::graph::{VertexId, EdgeId, DynamicGraph};
 use super::witness::WitnessHandle;
+use crate::graph::{DynamicGraph, EdgeId, VertexId};
 
 /// Result from a bounded-range instance query
 ///

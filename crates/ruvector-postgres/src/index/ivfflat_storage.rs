@@ -6,11 +6,11 @@
 //! - Vector serialization/deserialization
 //! - Zero-copy vector access
 
-use pgrx::prelude::*;
 use pgrx::pg_sys;
+use pgrx::prelude::*;
+use std::mem::size_of;
 use std::ptr;
 use std::slice;
-use std::mem::size_of;
 
 // ============================================================================
 // Constants
@@ -250,12 +250,7 @@ pub unsafe fn extract_vector_from_tuple(
     attno: i16,
 ) -> Option<Vec<f32>> {
     let mut is_null = false;
-    let datum = pg_sys::heap_getattr(
-        tuple,
-        attno as i32,
-        tuple_desc,
-        &mut is_null,
-    );
+    let datum = pg_sys::heap_getattr(tuple, attno as i32, tuple_desc, &mut is_null);
 
     if is_null {
         return None;
@@ -327,10 +322,8 @@ pub unsafe fn create_vector_datum(vector: &[f32]) -> pg_sys::Datum {
 // ============================================================================
 
 /// Callback for heap scan
-pub type HeapScanCallback = unsafe extern "C" fn(
-    tuple: *mut pg_sys::HeapTupleData,
-    context: *mut ::std::os::raw::c_void,
-);
+pub type HeapScanCallback =
+    unsafe extern "C" fn(tuple: *mut pg_sys::HeapTupleData, context: *mut ::std::os::raw::c_void);
 
 /// Scan heap relation and collect vectors
 pub unsafe fn scan_heap_for_vectors(

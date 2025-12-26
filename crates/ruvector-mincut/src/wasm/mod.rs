@@ -5,8 +5,8 @@
 //! - Agentic chip interface
 //! - Inter-core messaging
 
-pub mod simd;
 pub mod agentic;
+pub mod simd;
 
-pub use simd::*;
 pub use agentic::*;
+pub use simd::*;

@@ -3,8 +3,10 @@
 //! Direct integration with HuggingFace Hub API for uploading SONA models,
 //! patterns, and datasets.
 
+use super::{
+    DatasetExporter, ExportConfig, ExportError, ExportResult, ExportType, SafeTensorsExporter,
+};
 use crate::engine::SonaEngine;
-use super::{ExportConfig, ExportResult, ExportType, ExportError, SafeTensorsExporter, DatasetExporter};
 use std::path::Path;
 
 #[cfg(feature = "serde-support")]
@@ -62,14 +64,16 @@ impl HuggingFaceHub {
 
         // Export patterns
         if config.include_patterns {
-            let result = dataset_exporter.export_patterns(engine, temp_dir.join("patterns.jsonl"))?;
+            let result =
+                dataset_exporter.export_patterns(engine, temp_dir.join("patterns.jsonl"))?;
             total_items += result.items_exported;
             total_size += result.size_bytes;
         }
 
         // Export preferences
         if config.include_preferences {
-            let result = dataset_exporter.export_preferences(engine, temp_dir.join("preferences.jsonl"))?;
+            let result =
+                dataset_exporter.export_preferences(engine, temp_dir.join("preferences.jsonl"))?;
             total_items += result.items_exported;
             total_size += result.size_bytes;
         }
@@ -109,7 +113,7 @@ impl HuggingFaceHub {
 
         if !has_git {
             return Err(ExportError::HubError(
-                "git is required for HuggingFace Hub upload. Install git and git-lfs.".to_string()
+                "git is required for HuggingFace Hub upload. Install git and git-lfs.".to_string(),
             ));
         }
 
@@ -148,7 +152,13 @@ impl HuggingFaceHub {
             .map_err(|e| ExportError::HubError(format!("git add failed: {}", e)))?;
 
         std::process::Command::new("git")
-            .args(["-C", clone_dir.to_str().unwrap(), "commit", "-m", "Upload SONA adapter"])
+            .args([
+                "-C",
+                clone_dir.to_str().unwrap(),
+                "commit",
+                "-m",
+                "Upload SONA adapter",
+            ])
             .output()
             .map_err(|e| ExportError::HubError(format!("git commit failed: {}", e)))?;
 
@@ -159,7 +169,10 @@ impl HuggingFaceHub {
 
         if !push_result.status.success() {
             let stderr = String::from_utf8_lossy(&push_result.stderr);
-            return Err(ExportError::HubError(format!("git push failed: {}", stderr)));
+            return Err(ExportError::HubError(format!(
+                "git push failed: {}",
+                stderr
+            )));
         }
 
         // Cleanup
@@ -196,10 +209,14 @@ impl HuggingFaceHub {
 
         let output = std::process::Command::new("curl")
             .args([
-                "-X", "POST",
-                "-H", &format!("Authorization: Bearer {}", token),
-                "-H", "Content-Type: application/json",
-                "-d", &body,
+                "-X",
+                "POST",
+                "-H",
+                &format!("Authorization: Bearer {}", token),
+                "-H",
+                "Content-Type: application/json",
+                "-d",
+                &body,
                 &url,
             ])
             .output()
@@ -209,7 +226,10 @@ impl HuggingFaceHub {
             let stderr = String::from_utf8_lossy(&output.stderr);
             // Repo might already exist, which is fine
             if !stderr.contains("already exists") {
-                return Err(ExportError::HubError(format!("Failed to create repo: {}", stderr)));
+                return Err(ExportError::HubError(format!(
+                    "Failed to create repo: {}",
+                    stderr
+                )));
             }
         }
 
@@ -219,7 +239,8 @@ impl HuggingFaceHub {
     /// Create model card content
     fn create_model_card(&self, engine: &SonaEngine, config: &ExportConfig) -> String {
         let stats = engine.stats();
-        format!(r#"---
+        format!(
+            r#"---
 license: mit
 library_name: peft
 base_model: {}
@@ -314,7 +335,11 @@ Generated with [ruvector-sona](https://crates.io/crates/ruvector-sona) v{}
     }
 
     /// Create PEFT-compatible adapter config
-    fn create_adapter_config(&self, engine: &SonaEngine, config: &ExportConfig) -> AdapterConfigJson {
+    fn create_adapter_config(
+        &self,
+        engine: &SonaEngine,
+        config: &ExportConfig,
+    ) -> AdapterConfigJson {
         let sona_config = engine.config();
         AdapterConfigJson {
             peft_type: "LORA".to_string(),

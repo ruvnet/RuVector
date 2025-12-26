@@ -49,13 +49,10 @@ impl CompressionService {
     }
 
     /// Summarize a cluster into a concept node
-    pub fn summarize_cluster(
-        &self,
-        cluster: &Cluster,
-        nodes: &[MemoryNode],
-    ) -> Result<MemoryNode> {
+    pub fn summarize_cluster(&self, cluster: &Cluster, nodes: &[MemoryNode]) -> Result<MemoryNode> {
         // Collect texts
-        let texts: Vec<&str> = nodes.iter()
+        let texts: Vec<&str> = nodes
+            .iter()
             .filter(|n| cluster.node_ids.contains(&n.id))
             .map(|n| n.text.as_str())
             .collect();
@@ -76,7 +73,10 @@ impl CompressionService {
             source: "compression".into(),
             metadata: {
                 let mut m = HashMap::new();
-                m.insert("cluster_size".into(), serde_json::json!(cluster.node_ids.len()));
+                m.insert(
+                    "cluster_size".into(),
+                    serde_json::json!(cluster.node_ids.len()),
+                );
                 m.insert("density".into(), serde_json::json!(cluster.density));
                 m.insert("source_ids".into(), serde_json::json!(cluster.node_ids));
                 m
@@ -92,7 +92,8 @@ impl CompressionService {
         concept_id: &str,
         member_ids: &[String],
     ) -> Vec<MemoryEdge> {
-        member_ids.iter()
+        member_ids
+            .iter()
             .map(|member_id| MemoryEdge {
                 id: Uuid::new_v4().to_string(),
                 src: concept_id.to_string(),

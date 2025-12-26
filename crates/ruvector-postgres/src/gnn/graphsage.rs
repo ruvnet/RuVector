@@ -42,12 +42,7 @@ pub struct GraphSAGELayer {
 impl GraphSAGELayer {
     /// Create a new GraphSAGE layer
     pub fn new(in_features: usize, out_features: usize, num_samples: usize) -> Self {
-        Self::with_aggregator(
-            in_features,
-            out_features,
-            num_samples,
-            SAGEAggregator::Mean,
-        )
+        Self::with_aggregator(in_features, out_features, num_samples, SAGEAggregator::Mean)
     }
 
     /// Create GraphSAGE layer with specific aggregator

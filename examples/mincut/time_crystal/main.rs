@@ -244,10 +244,7 @@ impl TimeCrystalSwarm {
             return Ok(f64::INFINITY);
         }
 
-        let mincut = MinCutBuilder::new()
-            .exact()
-            .with_edges(edges)
-            .build()?;
+        let mincut = MinCutBuilder::new().exact().with_edges(edges).build()?;
 
         let value = mincut.min_cut_value();
         Ok(value)
@@ -303,7 +300,11 @@ impl TimeCrystalSwarm {
 
                 let mincut = self.mincut_history.last().copied().unwrap_or(0.0);
                 let expected = self.current_phase.expected_mincut(self.swarm_size);
-                let status = if (mincut - expected).abs() < 0.5 { "✓" } else { "✗" };
+                let status = if (mincut - expected).abs() < 0.5 {
+                    "✓"
+                } else {
+                    "✗"
+                };
 
                 println!(
                     "  Tick {:2} | Phase: {:18} | MinCut: {:5.1} (expected {:5.1}) {}",
@@ -320,7 +321,11 @@ impl TimeCrystalSwarm {
                 let periodic = self.verify_periodicity();
                 println!(
                     "\n  Periodicity: {} | Stability: {:.1}%\n",
-                    if periodic { "✓ VERIFIED" } else { "✗ BROKEN" },
+                    if periodic {
+                        "✓ VERIFIED"
+                    } else {
+                        "✗ BROKEN"
+                    },
                     self.stability * 100.0
                 );
             }
@@ -408,7 +413,14 @@ fn main() -> Result<()> {
     println!("\n  Total Ticks: {}", stats.tick);
     println!("  Current Phase: {:?}", stats.current_phase);
     println!("  Stability: {:.1}%", stats.stability * 100.0);
-    println!("  Periodicity: {}", if stats.periodicity_verified { "✓ VERIFIED" } else { "✗ BROKEN" });
+    println!(
+        "  Periodicity: {}",
+        if stats.periodicity_verified {
+            "✓ VERIFIED"
+        } else {
+            "✗ BROKEN"
+        }
+    );
     println!("  Average MinCut: {:.2}", stats.avg_mincut);
     println!();
 
@@ -432,7 +444,11 @@ fn main() -> Result<()> {
             format!("{:?}", phase),
             mincut,
             bar,
-            if (*mincut - expected).abs() < 0.5 { "✓" } else { "✗" }
+            if (*mincut - expected).abs() < 0.5 {
+                "✓"
+            } else {
+                "✗"
+            }
         );
     }
 

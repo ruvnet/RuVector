@@ -20,8 +20,8 @@ pub struct PQConfig {
 impl Default for PQConfig {
     fn default() -> Self {
         Self {
-            m: 8,      // 8 subspaces
-            k: 256,    // 256 centroids (8-bit codes)
+            m: 8,   // 8 subspaces
+            k: 256, // 256 centroids (8-bit codes)
             seed: 42,
         }
     }
@@ -74,10 +74,8 @@ impl ProductQuantizer {
             let end = start + self.dims_per_subspace;
 
             // Extract subvectors
-            let subvectors: Vec<Vec<f32>> = vectors
-                .iter()
-                .map(|v| v[start..end].to_vec())
-                .collect();
+            let subvectors: Vec<Vec<f32>> =
+                vectors.iter().map(|v| v[start..end].to_vec()).collect();
 
             // Run k-means on this subspace
             let centroids = self.kmeans(&subvectors, self.config.k, 10, &mut rng);

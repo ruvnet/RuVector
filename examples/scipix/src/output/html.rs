@@ -1,6 +1,6 @@
 //! HTML output formatter with math rendering support
 
-use super::{LineData, HtmlEngine};
+use super::{HtmlEngine, LineData};
 
 /// HTML formatter with math rendering
 pub struct HtmlFormatter {
@@ -92,7 +92,9 @@ impl HtmlFormatter {
         header.push_str("\n");
 
         if self.responsive {
-            header.push_str(r#"    <meta name="viewport" content="width=device-width, initial-scale=1.0">"#);
+            header.push_str(
+                r#"    <meta name="viewport" content="width=device-width, initial-scale=1.0">"#,
+            );
             header.push_str("\n");
         }
 
@@ -178,7 +180,9 @@ impl HtmlFormatter {
         css.push_str("        .math-inline { display: inline; }\n");
         css.push_str("        .equation-block { margin: 15px 0; padding: 10px; background: #f5f5f5; border-radius: 4px; }\n");
         css.push_str("        table { border-collapse: collapse; width: 100%; margin: 20px 0; }\n");
-        css.push_str("        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }\n");
+        css.push_str(
+            "        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }\n",
+        );
         css.push_str("        th { background-color: #f2f2f2; }\n");
 
         if self.accessibility {
@@ -264,7 +268,8 @@ impl HtmlFormatter {
         for (i, row) in rows.iter().enumerate() {
             html.push_str("  <tr>\n");
 
-            let cells: Vec<&str> = row.split('|')
+            let cells: Vec<&str> = row
+                .split('|')
                 .map(|s| s.trim())
                 .filter(|s| !s.is_empty())
                 .collect();
@@ -272,7 +277,12 @@ impl HtmlFormatter {
             let tag = if i == 0 { "th" } else { "td" };
 
             for cell in cells {
-                html.push_str(&format!("    <{}>{}</{}>\n", tag, self.escape_html(cell), tag));
+                html.push_str(&format!(
+                    "    <{}>{}</{}>\n",
+                    tag,
+                    self.escape_html(cell),
+                    tag
+                ));
             }
 
             html.push_str("  </tr>\n");
@@ -370,16 +380,14 @@ mod tests {
     #[test]
     fn test_accessibility() {
         let formatter = HtmlFormatter::new().accessibility(true);
-        let lines = vec![
-            LineData {
-                line_type: "equation".to_string(),
-                text: "x squared".to_string(),
-                latex: Some("x^2".to_string()),
-                bbox: BoundingBox::new(0.0, 0.0, 100.0, 20.0),
-                confidence: 0.98,
-                words: None,
-            },
-        ];
+        let lines = vec![LineData {
+            line_type: "equation".to_string(),
+            text: "x squared".to_string(),
+            latex: Some("x^2".to_string()),
+            bbox: BoundingBox::new(0.0, 0.0, 100.0, 20.0),
+            confidence: 0.98,
+            words: None,
+        }];
 
         let result = formatter.format_lines(&lines);
         assert!(result.contains("sr-only"));

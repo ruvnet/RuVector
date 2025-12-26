@@ -100,12 +100,7 @@ impl Synapse {
     }
 
     /// Compute STDP weight change
-    pub fn stdp_update(
-        &mut self,
-        t_pre: SimTime,
-        t_post: SimTime,
-        config: &STDPConfig,
-    ) -> f64 {
+    pub fn stdp_update(&mut self, t_pre: SimTime, t_post: SimTime, config: &STDPConfig) -> f64 {
         let dt = t_post - t_pre;
 
         let dw = if dt > 0.0 {
@@ -185,7 +180,8 @@ impl SynapseMatrix {
     /// Add a synapse
     pub fn add_synapse(&mut self, pre: usize, post: usize, weight: f64) {
         if pre < self.n_pre && post < self.n_post {
-            self.synapses.insert((pre, post), Synapse::new(pre, post, weight));
+            self.synapses
+                .insert((pre, post), Synapse::new(pre, post, weight));
         }
     }
 
@@ -414,7 +410,7 @@ impl Default for AsymmetricSTDP {
     fn default() -> Self {
         Self {
             tau_forward: 15.0,
-            tau_backward: 30.0,  // Longer backward window
+            tau_backward: 30.0, // Longer backward window
             a_forward: 0.015,   // Stronger forward (causal)
             a_backward: 0.008,  // Weaker backward
         }
@@ -435,12 +431,7 @@ impl AsymmetricSTDP {
     }
 
     /// Update weight matrix for causal discovery
-    pub fn update_weights(
-        &self,
-        matrix: &mut SynapseMatrix,
-        neuron_id: usize,
-        time: SimTime,
-    ) {
+    pub fn update_weights(&self, matrix: &mut SynapseMatrix, neuron_id: usize, time: SimTime) {
         let w_min = matrix.config.w_min;
         let w_max = matrix.config.w_max;
         let n_pre = matrix.n_pre;
@@ -448,7 +439,13 @@ impl AsymmetricSTDP {
 
         // Collect pre-spike times first to avoid borrow conflicts
         let pre_times: Vec<_> = (0..n_pre)
-            .map(|pre| matrix.pre_spike_times.get(pre).copied().unwrap_or(f64::NEG_INFINITY))
+            .map(|pre| {
+                matrix
+                    .pre_spike_times
+                    .get(pre)
+                    .copied()
+                    .unwrap_or(f64::NEG_INFINITY)
+            })
             .collect();
 
         // This neuron just spiked - update all synapses involving it (incoming)
@@ -465,13 +462,19 @@ impl AsymmetricSTDP {
 
         // Collect post-spike times
         let post_times: Vec<_> = (0..n_post)
-            .map(|post| matrix.post_spike_times.get(post).copied().unwrap_or(f64::NEG_INFINITY))
+            .map(|post| {
+                matrix
+                    .post_spike_times
+                    .get(post)
+                    .copied()
+                    .unwrap_or(f64::NEG_INFINITY)
+            })
             .collect();
 
         for post in 0..n_post {
             let t_post = post_times[post];
             if t_post > f64::NEG_INFINITY {
-                let dt = t_post - time;  // Reversed for outgoing
+                let dt = t_post - time; // Reversed for outgoing
                 let dw = self.compute_dw(dt);
                 if let Some(synapse) = matrix.get_synapse_mut(neuron_id, post) {
                     synapse.weight = (synapse.weight + dw).clamp(w_min, w_max);

@@ -11,10 +11,10 @@
 //! cargo run --example custom_pipeline -- image.png
 //! ```
 
-use ruvector_scipix::{OcrEngine, OcrConfig, OcrResult, OutputFormat};
 use anyhow::{Context, Result};
 use image::{DynamicImage, ImageBuffer, Luma};
-use serde::{Serialize, Deserialize};
+use ruvector_scipix::{OcrConfig, OcrEngine, OcrResult, OutputFormat};
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone)]
 struct CustomPipeline {
@@ -102,11 +102,8 @@ impl CustomPipeline {
         };
 
         for step in &self.postprocessing {
-            let (new_text, step_validation) = self.apply_postprocessing(
-                result_text.clone(),
-                &ocr_result,
-                step
-            )?;
+            let (new_text, step_validation) =
+                self.apply_postprocessing(result_text.clone(), &ocr_result, step)?;
             result_text = new_text;
             postprocessing_log.push(format!("{:?}", step));
 
@@ -136,7 +133,11 @@ impl CustomPipeline {
         })
     }
 
-    fn apply_preprocessing(&self, image: DynamicImage, step: &PreprocessStep) -> Result<DynamicImage> {
+    fn apply_preprocessing(
+        &self,
+        image: DynamicImage,
+        step: &PreprocessStep,
+    ) -> Result<DynamicImage> {
         match step {
             PreprocessStep::Denoise => Ok(denoise_image(image)),
             PreprocessStep::Sharpen => Ok(sharpen_image(image)),
@@ -249,7 +250,8 @@ fn calculate_otsu_threshold(gray: &ImageBuffer<Luma<u8>, Vec<u8>>) -> u8 {
         let mean_background = sum_background as f64 / weight_background as f64;
         let mean_foreground = (sum - sum_background) as f64 / weight_foreground as f64;
 
-        let variance = weight_background as f64 * weight_foreground as f64
+        let variance = weight_background as f64
+            * weight_foreground as f64
             * (mean_background - mean_foreground).powi(2);
 
         if variance > max_variance {
@@ -336,8 +338,14 @@ async fn main() -> Result<()> {
 
     println!("\n✅ Validation:");
     println!("  LaTeX Valid: {}", result.validation_results.latex_valid);
-    println!("  Spell Corrections: {}", result.validation_results.spell_check_corrections);
-    println!("  Confidence Passed: {}", result.validation_results.confidence_threshold_passed);
+    println!(
+        "  Spell Corrections: {}",
+        result.validation_results.spell_check_corrections
+    );
+    println!(
+        "  Confidence Passed: {}",
+        result.validation_results.confidence_threshold_passed
+    );
 
     println!("\n{}", "=".repeat(80));
 

@@ -15,7 +15,7 @@ use parking_lot::RwLock;
 use pgrx::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use super::registry::{TenantConfig, TenantError, TenantQuota, get_registry};
+use super::registry::{get_registry, TenantConfig, TenantError, TenantQuota};
 
 /// Current resource usage for a tenant
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -97,9 +97,12 @@ impl AtomicTenantUsage {
 
     /// Reset from TenantUsage (for initialization from stored data)
     pub fn reset_from(&self, usage: &TenantUsage) {
-        self.vector_count.store(usage.vector_count, Ordering::Relaxed);
-        self.storage_bytes.store(usage.storage_bytes, Ordering::Relaxed);
-        self.collection_count.store(usage.collection_count, Ordering::Relaxed);
+        self.vector_count
+            .store(usage.vector_count, Ordering::Relaxed);
+        self.storage_bytes
+            .store(usage.storage_bytes, Ordering::Relaxed);
+        self.collection_count
+            .store(usage.collection_count, Ordering::Relaxed);
         // Rate limiting and concurrent are not persisted
     }
 }
@@ -221,25 +224,16 @@ pub enum QuotaResult {
         retry_after_ms: u64,
     },
     /// Vector quota exceeded
-    VectorQuotaExceeded {
-        current: u64,
-        limit: u64,
-    },
+    VectorQuotaExceeded { current: u64, limit: u64 },
     /// Storage quota exceeded
     StorageQuotaExceeded {
         current_bytes: u64,
         limit_bytes: u64,
     },
     /// Concurrent query limit exceeded
-    ConcurrentLimitExceeded {
-        current: u32,
-        limit: u32,
-    },
+    ConcurrentLimitExceeded { current: u32, limit: u32 },
     /// Collection limit exceeded
-    CollectionLimitExceeded {
-        current: u32,
-        limit: u32,
-    },
+    CollectionLimitExceeded { current: u32, limit: u32 },
 }
 
 impl QuotaResult {
@@ -252,23 +246,33 @@ impl QuotaResult {
     pub fn error_message(&self) -> Option<String> {
         match self {
             Self::Allowed => None,
-            Self::RateLimited { retry_after_ms } => {
-                Some(format!("Rate limit exceeded. Retry after {}ms", retry_after_ms))
-            }
-            Self::VectorQuotaExceeded { current, limit } => {
-                Some(format!("Vector quota exceeded: {} / {} vectors", current, limit))
-            }
-            Self::StorageQuotaExceeded { current_bytes, limit_bytes } => {
+            Self::RateLimited { retry_after_ms } => Some(format!(
+                "Rate limit exceeded. Retry after {}ms",
+                retry_after_ms
+            )),
+            Self::VectorQuotaExceeded { current, limit } => Some(format!(
+                "Vector quota exceeded: {} / {} vectors",
+                current, limit
+            )),
+            Self::StorageQuotaExceeded {
+                current_bytes,
+                limit_bytes,
+            } => {
                 let current_gb = *current_bytes as f64 / (1024.0 * 1024.0 * 1024.0);
                 let limit_gb = *limit_bytes as f64 / (1024.0 * 1024.0 * 1024.0);
-                Some(format!("Storage quota exceeded: {:.2} / {:.2} GB", current_gb, limit_gb))
+                Some(format!(
+                    "Storage quota exceeded: {:.2} / {:.2} GB",
+                    current_gb, limit_gb
+                ))
             }
-            Self::ConcurrentLimitExceeded { current, limit } => {
-                Some(format!("Concurrent query limit exceeded: {} / {}", current, limit))
-            }
-            Self::CollectionLimitExceeded { current, limit } => {
-                Some(format!("Collection limit exceeded: {} / {}", current, limit))
-            }
+            Self::ConcurrentLimitExceeded { current, limit } => Some(format!(
+                "Concurrent query limit exceeded: {} / {}",
+                current, limit
+            )),
+            Self::CollectionLimitExceeded { current, limit } => Some(format!(
+                "Collection limit exceeded: {} / {}",
+                current, limit
+            )),
         }
     }
 }
@@ -293,7 +297,8 @@ impl QuotaManager {
     /// Get or create usage tracker for tenant
     fn get_or_create_usage(&self, tenant_id: &str) -> &AtomicTenantUsage {
         if !self.usage.contains_key(tenant_id) {
-            self.usage.insert(tenant_id.to_string(), AtomicTenantUsage::new());
+            self.usage
+                .insert(tenant_id.to_string(), AtomicTenantUsage::new());
         }
         // Safe because we just inserted if not present
         // Use leak to get 'static reference - in production would use proper lifetime management
@@ -411,8 +416,14 @@ impl QuotaManager {
     /// Record vector delete
     pub fn record_vector_delete(&self, tenant_id: &str, count: u64, bytes: u64) {
         let usage = self.get_or_create_usage(tenant_id);
-        usage.vector_count.fetch_sub(count.min(usage.vector_count.load(Ordering::Relaxed)), Ordering::Relaxed);
-        usage.storage_bytes.fetch_sub(bytes.min(usage.storage_bytes.load(Ordering::Relaxed)), Ordering::Relaxed);
+        usage.vector_count.fetch_sub(
+            count.min(usage.vector_count.load(Ordering::Relaxed)),
+            Ordering::Relaxed,
+        );
+        usage.storage_bytes.fetch_sub(
+            bytes.min(usage.storage_bytes.load(Ordering::Relaxed)),
+            Ordering::Relaxed,
+        );
     }
 
     /// Record collection creation
@@ -460,12 +471,14 @@ impl QuotaManager {
             vectors: ResourceUsage {
                 current: usage.vector_count,
                 limit: config.quota.max_vectors,
-                usage_percent: (usage.vector_count as f64 / config.quota.max_vectors as f64 * 100.0) as f32,
+                usage_percent: (usage.vector_count as f64 / config.quota.max_vectors as f64 * 100.0)
+                    as f32,
             },
             storage: ResourceUsage {
                 current: usage.storage_bytes,
                 limit: config.quota.max_storage_bytes,
-                usage_percent: (usage.storage_bytes as f64 / config.quota.max_storage_bytes as f64 * 100.0) as f32,
+                usage_percent: (usage.storage_bytes as f64 / config.quota.max_storage_bytes as f64
+                    * 100.0) as f32,
             },
             qps: RateUsage {
                 current: usage.queries_this_second,
@@ -474,12 +487,15 @@ impl QuotaManager {
             concurrent: ResourceUsage {
                 current: usage.concurrent_queries as u64,
                 limit: config.quota.max_concurrent as u64,
-                usage_percent: (usage.concurrent_queries as f64 / config.quota.max_concurrent as f64 * 100.0) as f32,
+                usage_percent: (usage.concurrent_queries as f64
+                    / config.quota.max_concurrent as f64
+                    * 100.0) as f32,
             },
             collections: ResourceUsage {
                 current: usage.collection_count as u64,
                 limit: config.quota.max_collections as u64,
-                usage_percent: (usage.collection_count as f64 / config.quota.max_collections as f64 * 100.0) as f32,
+                usage_percent: (usage.collection_count as f64 / config.quota.max_collections as f64
+                    * 100.0) as f32,
             },
         })
     }
@@ -555,8 +571,7 @@ impl QuotaStatus {
 
     /// Check if any quota is critical (>95%)
     pub fn is_critical(&self) -> bool {
-        self.vectors.usage_percent > 95.0
-            || self.storage.usage_percent > 95.0
+        self.vectors.usage_percent > 95.0 || self.storage.usage_percent > 95.0
     }
 }
 
@@ -616,11 +631,16 @@ mod tests {
 
     #[test]
     fn test_quota_result_messages() {
-        let result = QuotaResult::RateLimited { retry_after_ms: 100 };
+        let result = QuotaResult::RateLimited {
+            retry_after_ms: 100,
+        };
         assert!(!result.is_allowed());
         assert!(result.error_message().unwrap().contains("100"));
 
-        let result = QuotaResult::VectorQuotaExceeded { current: 1000, limit: 1000 };
+        let result = QuotaResult::VectorQuotaExceeded {
+            current: 1000,
+            limit: 1000,
+        };
         assert!(!result.is_allowed());
         assert!(result.error_message().unwrap().contains("1000"));
 

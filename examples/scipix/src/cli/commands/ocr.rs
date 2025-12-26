@@ -4,8 +4,8 @@ use std::path::PathBuf;
 use std::time::Instant;
 use tracing::{debug, info};
 
-use crate::cli::{output, Cli, OutputFormat};
 use super::{OcrConfig, OcrResult};
+use crate::cli::{output, Cli, OutputFormat};
 
 /// Process a single image or file with OCR
 #[derive(Args, Debug, Clone)]
@@ -41,11 +41,7 @@ pub struct OcrArgs {
     pub pretty: bool,
 
     /// Include metadata in output
-    #[arg(
-        short,
-        long,
-        help = "Include processing metadata in output"
-    )]
+    #[arg(short, long, help = "Include processing metadata in output")]
     pub metadata: bool,
 
     /// Force processing even if confidence is below threshold
@@ -87,8 +83,7 @@ pub async fn execute(args: OcrArgs, cli: &Cli) -> Result<()> {
     }
 
     // Check file size
-    let metadata = std::fs::metadata(&args.file)
-        .context("Failed to read file metadata")?;
+    let metadata = std::fs::metadata(&args.file).context("Failed to read file metadata")?;
 
     if metadata.len() as usize > config.max_image_size {
         anyhow::bail!(
@@ -118,8 +113,7 @@ pub async fn execute(args: OcrArgs, cli: &Cli) -> Result<()> {
     let output_content = format_result(&result, &cli.format, args.pretty, args.metadata)?;
 
     if let Some(output_path) = &args.output {
-        std::fs::write(output_path, &output_content)
-            .context("Failed to write output file")?;
+        std::fs::write(output_path, &output_content).context("Failed to write output file")?;
         info!("Output saved to: {}", output_path.display());
     } else {
         println!("{}", output_content);
@@ -161,31 +155,27 @@ fn format_result(
     include_metadata: bool,
 ) -> Result<String> {
     match format {
-        OutputFormat::Json => {
-            if include_metadata {
-                if pretty {
-                    serde_json::to_string_pretty(result)
-                } else {
-                    serde_json::to_string(result)
-                }
+        OutputFormat::Json => if include_metadata {
+            if pretty {
+                serde_json::to_string_pretty(result)
             } else {
-                let simple = serde_json::json!({
-                    "text": result.text,
-                    "latex": result.latex,
-                    "confidence": result.confidence,
-                });
-                if pretty {
-                    serde_json::to_string_pretty(&simple)
-                } else {
-                    serde_json::to_string(&simple)
-                }
+                serde_json::to_string(result)
             }
-            .context("Failed to serialize to JSON")
+        } else {
+            let simple = serde_json::json!({
+                "text": result.text,
+                "latex": result.latex,
+                "confidence": result.confidence,
+            });
+            if pretty {
+                serde_json::to_string_pretty(&simple)
+            } else {
+                serde_json::to_string(&simple)
+            }
         }
+        .context("Failed to serialize to JSON"),
         OutputFormat::Text => Ok(result.text.clone()),
-        OutputFormat::Latex => {
-            Ok(result.latex.clone().unwrap_or_else(|| result.text.clone()))
-        }
+        OutputFormat::Latex => Ok(result.latex.clone().unwrap_or_else(|| result.text.clone())),
         OutputFormat::Markdown => {
             let mut md = format!("# OCR Result\n\n{}\n", result.text);
             if let Some(latex) = &result.latex {
@@ -212,10 +202,8 @@ fn format_result(
 
 fn load_config(config_path: Option<&PathBuf>) -> Result<OcrConfig> {
     if let Some(path) = config_path {
-        let content = std::fs::read_to_string(path)
-            .context("Failed to read config file")?;
-        toml::from_str(&content)
-            .context("Failed to parse config file")
+        let content = std::fs::read_to_string(path).context("Failed to read config file")?;
+        toml::from_str(&content).context("Failed to parse config file")
     } else {
         Ok(OcrConfig::default())
     }

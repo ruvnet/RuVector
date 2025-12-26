@@ -113,7 +113,8 @@ impl InferenceEngine {
         if !self.models_loaded {
             return Err(OcrError::ModelLoading(
                 "ONNX models not loaded. Please download and configure OCR models before use. \
-                 See examples/scipix/docs/MODEL_SETUP.md for instructions.".to_string()
+                 See examples/scipix/docs/MODEL_SETUP.md for instructions."
+                    .to_string(),
             ));
         }
 
@@ -122,7 +123,9 @@ impl InferenceEngine {
 
         #[cfg(feature = "ocr")]
         {
-            let detections = self.run_onnx_detection(&input_tensor, threshold, image_data).await?;
+            let detections = self
+                .run_onnx_detection(&input_tensor, threshold, image_data)
+                .await?;
             debug!("Detected {} regions", detections.len());
             return Ok(detections);
         }
@@ -130,7 +133,8 @@ impl InferenceEngine {
         #[cfg(not(feature = "ocr"))]
         {
             Err(OcrError::Inference(
-                "OCR feature not enabled. Rebuild with `--features ocr` to enable ONNX inference.".to_string()
+                "OCR feature not enabled. Rebuild with `--features ocr` to enable ONNX inference."
+                    .to_string(),
             ))
         }
     }
@@ -143,7 +147,8 @@ impl InferenceEngine {
     ) -> Result<RecognitionResult> {
         if !self.models_loaded {
             return Err(OcrError::ModelLoading(
-                "ONNX models not loaded. Please download and configure OCR models before use.".to_string()
+                "ONNX models not loaded. Please download and configure OCR models before use."
+                    .to_string(),
             ));
         }
 
@@ -159,7 +164,8 @@ impl InferenceEngine {
         #[cfg(not(feature = "ocr"))]
         {
             Err(OcrError::Inference(
-                "OCR feature not enabled. Rebuild with `--features ocr` to enable ONNX inference.".to_string()
+                "OCR feature not enabled. Rebuild with `--features ocr` to enable ONNX inference."
+                    .to_string(),
             ))
         }
     }
@@ -172,7 +178,8 @@ impl InferenceEngine {
     ) -> Result<RecognitionResult> {
         if !self.models_loaded {
             return Err(OcrError::ModelLoading(
-                "ONNX models not loaded. Please download and configure OCR models before use.".to_string()
+                "ONNX models not loaded. Please download and configure OCR models before use."
+                    .to_string(),
             ));
         }
 
@@ -187,14 +194,17 @@ impl InferenceEngine {
 
         #[cfg(feature = "ocr")]
         {
-            let result = self.run_onnx_math_recognition(&input_tensor, options).await?;
+            let result = self
+                .run_onnx_math_recognition(&input_tensor, options)
+                .await?;
             return Ok(result);
         }
 
         #[cfg(not(feature = "ocr"))]
         {
             Err(OcrError::Inference(
-                "OCR feature not enabled. Rebuild with `--features ocr` to enable ONNX inference.".to_string()
+                "OCR feature not enabled. Rebuild with `--features ocr` to enable ONNX inference."
+                    .to_string(),
             ))
         }
     }
@@ -205,7 +215,12 @@ impl InferenceEngine {
             .map_err(|e| OcrError::ImageProcessing(format!("Failed to decode image: {}", e)))?;
 
         let input_shape = self.detection_model.input_shape();
-        let (_, _, height, width) = (input_shape[0], input_shape[1], input_shape[2], input_shape[3]);
+        let (_, _, height, width) = (
+            input_shape[0],
+            input_shape[1],
+            input_shape[2],
+            input_shape[3],
+        );
 
         let resized = img.resize_exact(
             width as u32,
@@ -235,7 +250,12 @@ impl InferenceEngine {
             .map_err(|e| OcrError::ImageProcessing(format!("Failed to decode image: {}", e)))?;
 
         let input_shape = self.recognition_model.input_shape();
-        let (_, channels, height, width) = (input_shape[0], input_shape[1], input_shape[2], input_shape[3]);
+        let (_, channels, height, width) = (
+            input_shape[0],
+            input_shape[1],
+            input_shape[2],
+            input_shape[3],
+        );
 
         let resized = img.resize_exact(
             width as u32,
@@ -270,14 +290,21 @@ impl InferenceEngine {
 
     /// Preprocess image for math recognition model
     fn preprocess_image_for_math(&self, image_data: &[u8]) -> Result<Vec<f32>> {
-        let math_model = self.math_model.as_ref()
+        let math_model = self
+            .math_model
+            .as_ref()
             .ok_or_else(|| OcrError::Inference("Math model not loaded".to_string()))?;
 
         let img = image::load_from_memory(image_data)
             .map_err(|e| OcrError::ImageProcessing(format!("Failed to decode image: {}", e)))?;
 
         let input_shape = math_model.input_shape();
-        let (_, channels, height, width) = (input_shape[0], input_shape[1], input_shape[2], input_shape[3]);
+        let (_, channels, height, width) = (
+            input_shape[0],
+            input_shape[1],
+            input_shape[2],
+            input_shape[3],
+        );
 
         let resized = img.resize_exact(
             width as u32,
@@ -318,8 +345,9 @@ impl InferenceEngine {
         threshold: f32,
         original_image: &[u8],
     ) -> Result<Vec<DetectionResult>> {
-        let session_arc = self.detection_model.session()
-            .ok_or_else(|| OcrError::OnnxRuntime("Detection model session not loaded".to_string()))?;
+        let session_arc = self.detection_model.session().ok_or_else(|| {
+            OcrError::OnnxRuntime("Detection model session not loaded".to_string())
+        })?;
         let mut session = session_arc.lock();
 
         let input_shape = self.detection_model.input_shape();
@@ -329,7 +357,8 @@ impl InferenceEngine {
         let input_array = Array4::from_shape_vec(
             (shape[0], shape[1], shape[2], shape[3]),
             input_tensor.to_vec(),
-        ).map_err(|e| OcrError::Inference(format!("Failed to create input tensor: {}", e)))?;
+        )
+        .map_err(|e| OcrError::Inference(format!("Failed to create input tensor: {}", e)))?;
 
         // Convert to dynamic-dimension view and create ORT tensor
         let input_dyn = input_array.into_dyn();
@@ -337,10 +366,13 @@ impl InferenceEngine {
             .map_err(|e| OcrError::OnnxRuntime(format!("Failed to create ORT tensor: {}", e)))?;
 
         // Run inference
-        let outputs = session.run(ort::inputs![input_tensor])
+        let outputs = session
+            .run(ort::inputs![input_tensor])
             .map_err(|e| OcrError::OnnxRuntime(format!("Inference failed: {}", e)))?;
 
-        let output_tensor = outputs.iter().next()
+        let output_tensor = outputs
+            .iter()
+            .next()
             .map(|(_, v)| v)
             .ok_or_else(|| OcrError::OnnxRuntime("No output tensor found".to_string()))?;
 
@@ -369,7 +401,11 @@ impl InferenceEngine {
 
         if output_shape.len() >= 2 {
             let num_detections = output_shape[1];
-            let detection_size = if output_shape.len() >= 3 { output_shape[2] } else { 85 };
+            let detection_size = if output_shape.len() >= 3 {
+                output_shape[2]
+            } else {
+                85
+            };
 
             for i in 0..num_detections {
                 let base_idx = i * detection_size;
@@ -399,15 +435,18 @@ impl InferenceEngine {
                     continue;
                 }
 
-                let cropped = original_img.crop_imm(
-                    x as u32, y as u32, width as u32, height as u32,
-                );
+                let cropped =
+                    original_img.crop_imm(x as u32, y as u32, width as u32, height as u32);
 
                 let mut region_bytes = Vec::new();
-                cropped.write_to(
-                    &mut std::io::Cursor::new(&mut region_bytes),
-                    image::ImageFormat::Png,
-                ).map_err(|e| OcrError::ImageProcessing(format!("Failed to encode region: {}", e)))?;
+                cropped
+                    .write_to(
+                        &mut std::io::Cursor::new(&mut region_bytes),
+                        image::ImageFormat::Png,
+                    )
+                    .map_err(|e| {
+                        OcrError::ImageProcessing(format!("Failed to encode region: {}", e))
+                    })?;
 
                 let aspect_ratio = width / height;
                 let is_math_likely = aspect_ratio > 2.0 || aspect_ratio < 0.5;
@@ -431,8 +470,9 @@ impl InferenceEngine {
         input_tensor: &[f32],
         _options: &OcrOptions,
     ) -> Result<RecognitionResult> {
-        let session_arc = self.recognition_model.session()
-            .ok_or_else(|| OcrError::OnnxRuntime("Recognition model session not loaded".to_string()))?;
+        let session_arc = self.recognition_model.session().ok_or_else(|| {
+            OcrError::OnnxRuntime("Recognition model session not loaded".to_string())
+        })?;
         let mut session = session_arc.lock();
 
         let input_shape = self.recognition_model.input_shape();
@@ -441,16 +481,20 @@ impl InferenceEngine {
         let input_array = Array4::from_shape_vec(
             (shape[0], shape[1], shape[2], shape[3]),
             input_tensor.to_vec(),
-        ).map_err(|e| OcrError::Inference(format!("Failed to create input tensor: {}", e)))?;
+        )
+        .map_err(|e| OcrError::Inference(format!("Failed to create input tensor: {}", e)))?;
 
         let input_dyn = input_array.into_dyn();
         let input_ort = Tensor::from_array(input_dyn)
             .map_err(|e| OcrError::OnnxRuntime(format!("Failed to create ORT tensor: {}", e)))?;
 
-        let outputs = session.run(ort::inputs![input_ort])
+        let outputs = session
+            .run(ort::inputs![input_ort])
             .map_err(|e| OcrError::OnnxRuntime(format!("Recognition inference failed: {}", e)))?;
 
-        let output_tensor = outputs.iter().next()
+        let output_tensor = outputs
+            .iter()
+            .next()
             .map(|(_, v)| v)
             .ok_or_else(|| OcrError::OnnxRuntime("No output tensor found".to_string()))?;
 
@@ -473,10 +517,14 @@ impl InferenceEngine {
             if end_idx <= output_data.len() {
                 let step_logits: Vec<f32> = output_data[start_idx..end_idx].to_vec();
 
-                let max_logit = step_logits.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
+                let max_logit = step_logits
+                    .iter()
+                    .cloned()
+                    .fold(f32::NEG_INFINITY, f32::max);
                 let exp_sum: f32 = step_logits.iter().map(|&x| (x - max_logit).exp()).sum();
 
-                let softmax: Vec<f32> = step_logits.iter()
+                let softmax: Vec<f32> = step_logits
+                    .iter()
                     .map(|&x| (x - max_logit).exp() / exp_sum)
                     .collect();
 
@@ -500,10 +548,13 @@ impl InferenceEngine {
         input_tensor: &[f32],
         _options: &OcrOptions,
     ) -> Result<RecognitionResult> {
-        let math_model = self.math_model.as_ref()
+        let math_model = self
+            .math_model
+            .as_ref()
             .ok_or_else(|| OcrError::Inference("Math model not loaded".to_string()))?;
 
-        let session_arc = math_model.session()
+        let session_arc = math_model
+            .session()
             .ok_or_else(|| OcrError::OnnxRuntime("Math model session not loaded".to_string()))?;
         let mut session = session_arc.lock();
 
@@ -513,16 +564,20 @@ impl InferenceEngine {
         let input_array = Array4::from_shape_vec(
             (shape[0], shape[1], shape[2], shape[3]),
             input_tensor.to_vec(),
-        ).map_err(|e| OcrError::Inference(format!("Failed to create input tensor: {}", e)))?;
+        )
+        .map_err(|e| OcrError::Inference(format!("Failed to create input tensor: {}", e)))?;
 
         let input_dyn = input_array.into_dyn();
         let input_ort = Tensor::from_array(input_dyn)
             .map_err(|e| OcrError::OnnxRuntime(format!("Failed to create ORT tensor: {}", e)))?;
 
-        let outputs = session.run(ort::inputs![input_ort])
-            .map_err(|e| OcrError::OnnxRuntime(format!("Math recognition inference failed: {}", e)))?;
+        let outputs = session.run(ort::inputs![input_ort]).map_err(|e| {
+            OcrError::OnnxRuntime(format!("Math recognition inference failed: {}", e))
+        })?;
 
-        let output_tensor = outputs.iter().next()
+        let output_tensor = outputs
+            .iter()
+            .next()
             .map(|(_, v)| v)
             .ok_or_else(|| OcrError::OnnxRuntime("No output tensor found".to_string()))?;
 
@@ -545,10 +600,14 @@ impl InferenceEngine {
             if end_idx <= output_data.len() {
                 let step_logits: Vec<f32> = output_data[start_idx..end_idx].to_vec();
 
-                let max_logit = step_logits.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
+                let max_logit = step_logits
+                    .iter()
+                    .cloned()
+                    .fold(f32::NEG_INFINITY, f32::max);
                 let exp_sum: f32 = step_logits.iter().map(|&x| (x - max_logit).exp()).sum();
 
-                let softmax: Vec<f32> = step_logits.iter()
+                let softmax: Vec<f32> = step_logits
+                    .iter()
                     .map(|&x| (x - max_logit).exp() / exp_sum)
                     .collect();
 
@@ -596,7 +655,7 @@ impl InferenceEngine {
     ) -> Result<Vec<Vec<DetectionResult>>> {
         if !self.models_loaded {
             return Err(OcrError::ModelLoading(
-                "ONNX models not loaded. Cannot run batch detection.".to_string()
+                "ONNX models not loaded. Cannot run batch detection.".to_string(),
             ));
         }
 
@@ -619,7 +678,7 @@ impl InferenceEngine {
     ) -> Result<Vec<RecognitionResult>> {
         if !self.models_loaded {
             return Err(OcrError::ModelLoading(
-                "ONNX models not loaded. Cannot run batch recognition.".to_string()
+                "ONNX models not loaded. Cannot run batch recognition.".to_string(),
             ));
         }
 
@@ -657,8 +716,14 @@ mod tests {
 
     #[test]
     fn test_inference_engine_creation_without_models() {
-        let detection = create_test_model(ModelType::Detection, PathBuf::from("/nonexistent/model.onnx"));
-        let recognition = create_test_model(ModelType::Recognition, PathBuf::from("/nonexistent/model.onnx"));
+        let detection = create_test_model(
+            ModelType::Detection,
+            PathBuf::from("/nonexistent/model.onnx"),
+        );
+        let recognition = create_test_model(
+            ModelType::Recognition,
+            PathBuf::from("/nonexistent/model.onnx"),
+        );
 
         let engine = InferenceEngine::new(detection, recognition, None, false).unwrap();
         assert!(!engine.is_ready());
@@ -666,8 +731,14 @@ mod tests {
 
     #[tokio::test]
     async fn test_detection_fails_without_models() {
-        let detection = create_test_model(ModelType::Detection, PathBuf::from("/nonexistent/model.onnx"));
-        let recognition = create_test_model(ModelType::Recognition, PathBuf::from("/nonexistent/model.onnx"));
+        let detection = create_test_model(
+            ModelType::Detection,
+            PathBuf::from("/nonexistent/model.onnx"),
+        );
+        let recognition = create_test_model(
+            ModelType::Recognition,
+            PathBuf::from("/nonexistent/model.onnx"),
+        );
         let engine = InferenceEngine::new(detection, recognition, None, false).unwrap();
 
         let png_data = create_test_png();
@@ -679,8 +750,14 @@ mod tests {
 
     #[tokio::test]
     async fn test_recognition_fails_without_models() {
-        let detection = create_test_model(ModelType::Detection, PathBuf::from("/nonexistent/model.onnx"));
-        let recognition = create_test_model(ModelType::Recognition, PathBuf::from("/nonexistent/model.onnx"));
+        let detection = create_test_model(
+            ModelType::Detection,
+            PathBuf::from("/nonexistent/model.onnx"),
+        );
+        let recognition = create_test_model(
+            ModelType::Recognition,
+            PathBuf::from("/nonexistent/model.onnx"),
+        );
         let engine = InferenceEngine::new(detection, recognition, None, false).unwrap();
 
         let png_data = create_test_png();
@@ -703,7 +780,11 @@ mod tests {
         use image::{ImageBuffer, RgbImage};
         let img: RgbImage = ImageBuffer::from_fn(10, 10, |_, _| image::Rgb([255, 255, 255]));
         let mut bytes: Vec<u8> = Vec::new();
-        img.write_to(&mut std::io::Cursor::new(&mut bytes), image::ImageFormat::Png).unwrap();
+        img.write_to(
+            &mut std::io::Cursor::new(&mut bytes),
+            image::ImageFormat::Png,
+        )
+        .unwrap();
         bytes
     }
 }

@@ -16,19 +16,18 @@
 #![allow(unused_mut)]
 
 pub mod ast;
-pub mod parser;
 pub mod executor;
+pub mod parser;
 pub mod triple_store;
 
 pub use ast::{
-    SparqlQuery, QueryBody, SelectQuery, ConstructQuery, AskQuery, DescribeQuery,
-    GraphPattern, TriplePattern, Expression, RdfTerm, Iri, Literal,
-    Aggregate, OrderCondition, SolutionModifier,
-    UpdateOperation, InsertData, DeleteData,
+    Aggregate, AskQuery, ConstructQuery, DeleteData, DescribeQuery, Expression, GraphPattern,
+    InsertData, Iri, Literal, OrderCondition, QueryBody, RdfTerm, SelectQuery, SolutionModifier,
+    SparqlQuery, TriplePattern, UpdateOperation,
 };
-pub use parser::parse_sparql;
 pub use executor::{execute_sparql, SparqlContext};
-pub use triple_store::{TripleStore, Triple};
+pub use parser::parse_sparql;
+pub use triple_store::{Triple, TripleStore};
 
 /// SPARQL error type
 #[derive(Debug, Clone)]
@@ -116,9 +115,8 @@ mod tests {
             RdfTerm::literal("Alice"),
         ));
 
-        let query = parse_sparql(
-            "SELECT ?name WHERE { ?person <http://example.org/name> ?name }"
-        ).unwrap();
+        let query =
+            parse_sparql("SELECT ?name WHERE { ?person <http://example.org/name> ?name }").unwrap();
 
         let result = execute_sparql(&store, &query);
         assert!(result.is_ok());

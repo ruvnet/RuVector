@@ -2,8 +2,8 @@
 //!
 //! Provides efficient, non-blocking trajectory recording during inference.
 
-use crate::types::{QueryTrajectory, TrajectoryStep};
 use crate::time_compat::Instant;
+use crate::types::{QueryTrajectory, TrajectoryStep};
 use crossbeam::queue::ArrayQueue;
 use std::sync::atomic::{AtomicU64, Ordering};
 
@@ -160,11 +160,16 @@ impl TrajectoryBuilder {
     }
 
     /// Add step with layer name
-    pub fn add_named_step(&mut self, name: &str, activations: Vec<f32>, attention_weights: Vec<f32>, reward: f32) {
+    pub fn add_named_step(
+        &mut self,
+        name: &str,
+        activations: Vec<f32>,
+        attention_weights: Vec<f32>,
+        reward: f32,
+    ) {
         let step_idx = self.steps.len();
         self.steps.push(
-            TrajectoryStep::new(activations, attention_weights, reward, step_idx)
-                .with_layer(name)
+            TrajectoryStep::new(activations, attention_weights, reward, step_idx).with_layer(name),
         );
     }
 

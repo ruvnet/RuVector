@@ -106,16 +106,19 @@ impl Trigger {
         };
 
         let recommendation = match trigger_type {
-            TriggerType::IslandingRisk =>
-                "Consider adding bridge edges or merging sparse partitions".to_string(),
-            TriggerType::Instability =>
-                "Structure is volatile; consider stabilizing with explicit relations".to_string(),
-            TriggerType::Degradation =>
-                "Connectivity trending down; review recent deletions".to_string(),
-            TriggerType::OverClustering =>
-                "May have too many clusters; consider relaxing similarity threshold".to_string(),
-            TriggerType::Disconnected =>
-                "Critical: graph has disconnected components".to_string(),
+            TriggerType::IslandingRisk => {
+                "Consider adding bridge edges or merging sparse partitions".to_string()
+            }
+            TriggerType::Instability => {
+                "Structure is volatile; consider stabilizing with explicit relations".to_string()
+            }
+            TriggerType::Degradation => {
+                "Connectivity trending down; review recent deletions".to_string()
+            }
+            TriggerType::OverClustering => {
+                "May have too many clusters; consider relaxing similarity threshold".to_string()
+            }
+            TriggerType::Disconnected => "Critical: graph has disconnected components".to_string(),
         };
 
         Self {
@@ -240,11 +243,7 @@ impl StructuralMonitor {
 
         // Check triggers
         if lambda == 0.0 || lambda.is_infinite() && lambda.is_sign_negative() {
-            new_triggers.push(Trigger::new(
-                TriggerType::Disconnected,
-                lambda,
-                0.0,
-            ));
+            new_triggers.push(Trigger::new(TriggerType::Disconnected, lambda, 0.0));
         } else if lambda < self.config.lambda_critical {
             new_triggers.push(Trigger::new(
                 TriggerType::IslandingRisk,
@@ -319,7 +318,8 @@ impl StructuralMonitor {
         let n_f64 = n as f64;
         let sum_x: f64 = (0..n).map(|i| i as f64).sum();
         let sum_y: f64 = self.lambda_history.iter().sum();
-        let sum_xy: f64 = self.lambda_history
+        let sum_xy: f64 = self
+            .lambda_history
             .iter()
             .enumerate()
             .map(|(i, &y)| i as f64 * y)
@@ -342,7 +342,8 @@ impl StructuralMonitor {
         }
 
         let mean: f64 = self.lambda_history.iter().sum::<f64>() / n as f64;
-        let variance: f64 = self.lambda_history
+        let variance: f64 = self
+            .lambda_history
             .iter()
             .map(|&x| (x - mean) * (x - mean))
             .sum::<f64>()
@@ -397,7 +398,9 @@ mod tests {
         let triggers = monitor.observe(0.5, vec![(1, 2)]);
 
         assert!(!triggers.is_empty());
-        assert!(triggers.iter().any(|t| t.trigger_type == TriggerType::IslandingRisk));
+        assert!(triggers
+            .iter()
+            .any(|t| t.trigger_type == TriggerType::IslandingRisk));
     }
 
     #[test]

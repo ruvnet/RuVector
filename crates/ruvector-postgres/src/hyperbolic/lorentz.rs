@@ -86,10 +86,7 @@ impl LorentzModel {
             return vec![0.0; x.len() - 1];
         }
 
-        x[1..]
-            .iter()
-            .map(|&xi| xi / denominator)
-            .collect()
+        x[1..].iter().map(|&xi| xi / denominator).collect()
     }
 
     /// Verify that a point lies on the hyperboloid

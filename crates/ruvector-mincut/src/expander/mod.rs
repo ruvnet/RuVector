@@ -56,8 +56,8 @@
 //! decomp.delete_edge(2, 3).unwrap();
 //! ```
 
-use crate::graph::{DynamicGraph, VertexId, EdgeId, Weight};
 use crate::error::{MinCutError, Result};
+use crate::graph::{DynamicGraph, EdgeId, VertexId, Weight};
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::Arc;
 
@@ -145,9 +145,10 @@ impl ExpanderDecomposition {
     /// A hierarchical expander decomposition
     pub fn build(graph: Arc<DynamicGraph>, phi: Conductance) -> Result<Self> {
         if phi <= 0.0 || phi >= 1.0 {
-            return Err(MinCutError::InvalidParameter(
-                format!("Conductance phi must be in (0, 1), got {}", phi)
-            ));
+            return Err(MinCutError::InvalidParameter(format!(
+                "Conductance phi must be in (0, 1), got {}",
+                phi
+            )));
         }
 
         let mut decomp = Self {
@@ -205,7 +206,8 @@ impl ExpanderDecomposition {
                         let volume = self.compute_volume(&vertices);
 
                         // Update component
-                        if let Some(comp) = self.levels[level].iter_mut().find(|c| c.id == comp_id) {
+                        if let Some(comp) = self.levels[level].iter_mut().find(|c| c.id == comp_id)
+                        {
                             comp.conductance = conductance;
                             comp.volume = volume;
                         }
@@ -344,9 +346,7 @@ impl ExpanderDecomposition {
 
     /// Compute volume (sum of degrees) of a vertex set
     fn compute_volume(&self, vertices: &HashSet<VertexId>) -> f64 {
-        vertices.iter()
-            .map(|&v| self.graph.degree(v) as f64)
-            .sum()
+        vertices.iter().map(|&v| self.graph.degree(v) as f64).sum()
     }
 
     /// Expander pruning: find low-conductance cut
@@ -656,7 +656,7 @@ mod tests {
         let graph = Arc::new(DynamicGraph::new());
         // Create a well-connected graph (complete graph on 5 vertices)
         for i in 1..=5 {
-            for j in (i+1)..=5 {
+            for j in (i + 1)..=5 {
                 graph.insert_edge(i, j, 1.0).unwrap();
             }
         }
@@ -940,7 +940,7 @@ mod tests {
 
         // Create a larger complete graph
         for i in 1..=10 {
-            for j in (i+1)..=10 {
+            for j in (i + 1)..=10 {
                 graph.insert_edge(i, j, 1.0).unwrap();
             }
         }

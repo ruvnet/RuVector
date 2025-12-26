@@ -6,16 +6,18 @@
 //! - Character recognition latency
 //! - End-to-end pipeline benchmarks
 
-use std::time::{Duration, Instant};
-use std::path::PathBuf;
-use std::fs;
-use image::{ImageBuffer, Rgb, RgbImage, DynamicImage, Luma};
+use image::{DynamicImage, ImageBuffer, Luma, Rgb, RgbImage};
+use imageproc::contrast::ThresholdType;
 use imageproc::drawing::draw_filled_rect_mut;
 use imageproc::rect::Rect;
-use imageproc::contrast::ThresholdType;
+use std::fs;
+use std::path::PathBuf;
+use std::time::{Duration, Instant};
 
 // Import SIMD optimizations
-use ruvector_scipix::optimize::simd::{simd_resize_bilinear, fast_area_resize, simd_grayscale, simd_threshold};
+use ruvector_scipix::optimize::simd::{
+    fast_area_resize, simd_grayscale, simd_resize_bilinear, simd_threshold,
+};
 
 /// Benchmark results
 #[derive(Debug, Clone)]
@@ -72,18 +74,36 @@ fn generate_test_image(width: u32, height: u32) -> RgbImage {
 
 /// Generate a math-like test image
 fn generate_math_image(width: u32, height: u32) -> RgbImage {
-    let mut img: RgbImage = ImageBuffer::from_fn(width, height, |_, _| {
-        Rgb([255u8, 255u8, 255u8])
-    });
+    let mut img: RgbImage = ImageBuffer::from_fn(width, height, |_, _| Rgb([255u8, 255u8, 255u8]));
 
     // Draw elements resembling a fraction
-    draw_filled_rect_mut(&mut img, Rect::at(50, 20).of_size(100, 30), Rgb([0u8, 0u8, 0u8]));
-    draw_filled_rect_mut(&mut img, Rect::at(20, 60).of_size(160, 3), Rgb([0u8, 0u8, 0u8]));
-    draw_filled_rect_mut(&mut img, Rect::at(70, 70).of_size(60, 30), Rgb([0u8, 0u8, 0u8]));
+    draw_filled_rect_mut(
+        &mut img,
+        Rect::at(50, 20).of_size(100, 30),
+        Rgb([0u8, 0u8, 0u8]),
+    );
+    draw_filled_rect_mut(
+        &mut img,
+        Rect::at(20, 60).of_size(160, 3),
+        Rgb([0u8, 0u8, 0u8]),
+    );
+    draw_filled_rect_mut(
+        &mut img,
+        Rect::at(70, 70).of_size(60, 30),
+        Rgb([0u8, 0u8, 0u8]),
+    );
 
     // Draw square root symbol approximation
-    draw_filled_rect_mut(&mut img, Rect::at(200, 30).of_size(5, 40), Rgb([0u8, 0u8, 0u8]));
-    draw_filled_rect_mut(&mut img, Rect::at(200, 30).of_size(80, 3), Rgb([0u8, 0u8, 0u8]));
+    draw_filled_rect_mut(
+        &mut img,
+        Rect::at(200, 30).of_size(5, 40),
+        Rgb([0u8, 0u8, 0u8]),
+    );
+    draw_filled_rect_mut(
+        &mut img,
+        Rect::at(200, 30).of_size(80, 3),
+        Rgb([0u8, 0u8, 0u8]),
+    );
 
     img
 }
@@ -281,7 +301,11 @@ fn benchmark_connected_components(images: &[DynamicImage]) -> BenchmarkResult {
         idx += 1;
         let gray = img.to_luma8();
         let binary = imageproc::contrast::threshold(&gray, 128, ThresholdType::Binary);
-        let _cc = imageproc::region_labelling::connected_components(&binary, imageproc::region_labelling::Connectivity::Eight, Luma([0u8]));
+        let _cc = imageproc::region_labelling::connected_components(
+            &binary,
+            imageproc::region_labelling::Connectivity::Eight,
+            Luma([0u8]),
+        );
         Ok(())
     })
 }
@@ -391,13 +415,18 @@ fn benchmark_original_pipeline(images: &[DynamicImage]) -> BenchmarkResult {
         let gray = img.to_luma8();
 
         // Step 2: Resize
-        let resized = image::imageops::resize(&gray, 224, 224, image::imageops::FilterType::Nearest);
+        let resized =
+            image::imageops::resize(&gray, 224, 224, image::imageops::FilterType::Nearest);
 
         // Step 3: Threshold
         let binary = imageproc::contrast::threshold(&resized, 128, ThresholdType::Binary);
 
         // Step 4: Normalize
-        let _tensor: Vec<f32> = binary.as_raw().iter().map(|&x| (x as f32 / 127.5) - 1.0).collect();
+        let _tensor: Vec<f32> = binary
+            .as_raw()
+            .iter()
+            .map(|&x| (x as f32 / 127.5) - 1.0)
+            .collect();
 
         Ok(())
     })
@@ -474,14 +503,22 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     results.push(benchmark_image_load(&test_dir.join("text_test.png")));
 
     println!("\nRunning HD image benchmarks...");
-    results.push(run_benchmark::<_, std::convert::Infallible>("HD Grayscale (1920x1080)", 100, || {
-        let _gray = hd_images[0].to_luma8();
-        Ok(())
-    }));
-    results.push(run_benchmark::<_, std::convert::Infallible>("HD Resize to 640x480", 50, || {
-        let _resized = hd_images[0].resize(640, 480, image::imageops::FilterType::Lanczos3);
-        Ok(())
-    }));
+    results.push(run_benchmark::<_, std::convert::Infallible>(
+        "HD Grayscale (1920x1080)",
+        100,
+        || {
+            let _gray = hd_images[0].to_luma8();
+            Ok(())
+        },
+    ));
+    results.push(run_benchmark::<_, std::convert::Infallible>(
+        "HD Resize to 640x480",
+        50,
+        || {
+            let _resized = hd_images[0].resize(640, 480, image::imageops::FilterType::Lanczos3);
+            Ok(())
+        },
+    ));
 
     // Display results
     println!("\n\n{}", "#".repeat(60));
@@ -499,9 +536,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     for result in &results {
         println!(
             "{:45} {:>15.2?} {:>12.2} ops/s",
-            result.name,
-            result.avg_time,
-            result.throughput
+            result.name, result.avg_time, result.throughput
         );
     }
     println!("{}", "=".repeat(75));
@@ -512,67 +547,160 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("{}", "=".repeat(60));
 
     // Calculate total preprocessing time for a typical pipeline
-    let grayscale_time = results.iter().find(|r| r.name == "Grayscale Conversion").map(|r| r.avg_time).unwrap_or_default();
-    let resize_time = results.iter().find(|r| r.name == "Fast Resize (Nearest)").map(|r| r.avg_time).unwrap_or_default();
-    let threshold_time = results.iter().find(|r| r.name == "Otsu Threshold").map(|r| r.avg_time).unwrap_or_default();
-    let normalize_time = results.iter().find(|r| r.name == "Image Normalization").map(|r| r.avg_time).unwrap_or_default();
+    let grayscale_time = results
+        .iter()
+        .find(|r| r.name == "Grayscale Conversion")
+        .map(|r| r.avg_time)
+        .unwrap_or_default();
+    let resize_time = results
+        .iter()
+        .find(|r| r.name == "Fast Resize (Nearest)")
+        .map(|r| r.avg_time)
+        .unwrap_or_default();
+    let threshold_time = results
+        .iter()
+        .find(|r| r.name == "Otsu Threshold")
+        .map(|r| r.avg_time)
+        .unwrap_or_default();
+    let normalize_time = results
+        .iter()
+        .find(|r| r.name == "Image Normalization")
+        .map(|r| r.avg_time)
+        .unwrap_or_default();
 
     let total_preprocess = grayscale_time + resize_time + threshold_time + normalize_time;
 
     // SIMD optimized times
-    let simd_grayscale = results.iter().find(|r| r.name == "SIMD Grayscale").map(|r| r.avg_time).unwrap_or_default();
-    let simd_resize = results.iter().find(|r| r.name == "SIMD Resize (Bilinear)").map(|r| r.avg_time).unwrap_or_default();
-    let simd_threshold = results.iter().find(|r| r.name == "SIMD Threshold").map(|r| r.avg_time).unwrap_or_default();
+    let simd_grayscale = results
+        .iter()
+        .find(|r| r.name == "SIMD Grayscale")
+        .map(|r| r.avg_time)
+        .unwrap_or_default();
+    let simd_resize = results
+        .iter()
+        .find(|r| r.name == "SIMD Resize (Bilinear)")
+        .map(|r| r.avg_time)
+        .unwrap_or_default();
+    let simd_threshold = results
+        .iter()
+        .find(|r| r.name == "SIMD Threshold")
+        .map(|r| r.avg_time)
+        .unwrap_or_default();
 
-    let original_pipeline = results.iter().find(|r| r.name == "Original Full Pipeline").map(|r| r.avg_time).unwrap_or_default();
-    let simd_pipeline = results.iter().find(|r| r.name == "SIMD Full Pipeline").map(|r| r.avg_time).unwrap_or_default();
+    let original_pipeline = results
+        .iter()
+        .find(|r| r.name == "Original Full Pipeline")
+        .map(|r| r.avg_time)
+        .unwrap_or_default();
+    let simd_pipeline = results
+        .iter()
+        .find(|r| r.name == "SIMD Full Pipeline")
+        .map(|r| r.avg_time)
+        .unwrap_or_default();
 
     println!("\n┌──────────────────────────────────────────────────────────────────┐");
     println!("│  SIMD Optimization Comparison                                    │");
     println!("├────────────────────┬──────────────┬──────────────┬───────────────┤");
     println!("│  Operation         │ Original     │ SIMD         │ Speedup       │");
     println!("├────────────────────┼──────────────┼──────────────┼───────────────┤");
-    println!("│  Grayscale         │ {:>10.2?} │ {:>10.2?} │ {:>6.2}x       │",
-             grayscale_time, simd_grayscale,
-             if simd_grayscale.as_nanos() > 0 { grayscale_time.as_secs_f64() / simd_grayscale.as_secs_f64() } else { 1.0 });
-    println!("│  Resize            │ {:>10.2?} │ {:>10.2?} │ {:>6.2}x       │",
-             resize_time, simd_resize,
-             if simd_resize.as_nanos() > 0 { resize_time.as_secs_f64() / simd_resize.as_secs_f64() } else { 1.0 });
-    println!("│  Threshold         │ {:>10.2?} │ {:>10.2?} │ {:>6.2}x       │",
-             threshold_time, simd_threshold,
-             if simd_threshold.as_nanos() > 0 { threshold_time.as_secs_f64() / simd_threshold.as_secs_f64() } else { 1.0 });
+    println!(
+        "│  Grayscale         │ {:>10.2?} │ {:>10.2?} │ {:>6.2}x       │",
+        grayscale_time,
+        simd_grayscale,
+        if simd_grayscale.as_nanos() > 0 {
+            grayscale_time.as_secs_f64() / simd_grayscale.as_secs_f64()
+        } else {
+            1.0
+        }
+    );
+    println!(
+        "│  Resize            │ {:>10.2?} │ {:>10.2?} │ {:>6.2}x       │",
+        resize_time,
+        simd_resize,
+        if simd_resize.as_nanos() > 0 {
+            resize_time.as_secs_f64() / simd_resize.as_secs_f64()
+        } else {
+            1.0
+        }
+    );
+    println!(
+        "│  Threshold         │ {:>10.2?} │ {:>10.2?} │ {:>6.2}x       │",
+        threshold_time,
+        simd_threshold,
+        if simd_threshold.as_nanos() > 0 {
+            threshold_time.as_secs_f64() / simd_threshold.as_secs_f64()
+        } else {
+            1.0
+        }
+    );
     println!("├────────────────────┼──────────────┼──────────────┼───────────────┤");
-    println!("│  Full Pipeline     │ {:>10.2?} │ {:>10.2?} │ {:>6.2}x       │",
-             original_pipeline, simd_pipeline,
-             if simd_pipeline.as_nanos() > 0 { original_pipeline.as_secs_f64() / simd_pipeline.as_secs_f64() } else { 1.0 });
+    println!(
+        "│  Full Pipeline     │ {:>10.2?} │ {:>10.2?} │ {:>6.2}x       │",
+        original_pipeline,
+        simd_pipeline,
+        if simd_pipeline.as_nanos() > 0 {
+            original_pipeline.as_secs_f64() / simd_pipeline.as_secs_f64()
+        } else {
+            1.0
+        }
+    );
     println!("└────────────────────┴──────────────┴──────────────┴───────────────┘");
 
     println!("\n┌──────────────────────────────────────────────────┐");
     println!("│  Typical Preprocessing Pipeline Breakdown        │");
     println!("├──────────────────────────────────────────────────┤");
-    println!("│  Grayscale:     {:>10.2?} ({:.1}%)               │", grayscale_time, 100.0 * grayscale_time.as_secs_f64() / total_preprocess.as_secs_f64());
-    println!("│  Resize:        {:>10.2?} ({:.1}%)               │", resize_time, 100.0 * resize_time.as_secs_f64() / total_preprocess.as_secs_f64());
-    println!("│  Threshold:     {:>10.2?} ({:.1}%)               │", threshold_time, 100.0 * threshold_time.as_secs_f64() / total_preprocess.as_secs_f64());
-    println!("│  Normalization: {:>10.2?} ({:.1}%)               │", normalize_time, 100.0 * normalize_time.as_secs_f64() / total_preprocess.as_secs_f64());
+    println!(
+        "│  Grayscale:     {:>10.2?} ({:.1}%)               │",
+        grayscale_time,
+        100.0 * grayscale_time.as_secs_f64() / total_preprocess.as_secs_f64()
+    );
+    println!(
+        "│  Resize:        {:>10.2?} ({:.1}%)               │",
+        resize_time,
+        100.0 * resize_time.as_secs_f64() / total_preprocess.as_secs_f64()
+    );
+    println!(
+        "│  Threshold:     {:>10.2?} ({:.1}%)               │",
+        threshold_time,
+        100.0 * threshold_time.as_secs_f64() / total_preprocess.as_secs_f64()
+    );
+    println!(
+        "│  Normalization: {:>10.2?} ({:.1}%)               │",
+        normalize_time,
+        100.0 * normalize_time.as_secs_f64() / total_preprocess.as_secs_f64()
+    );
     println!("├──────────────────────────────────────────────────┤");
-    println!("│  TOTAL:         {:>10.2?}                      │", total_preprocess);
+    println!(
+        "│  TOTAL:         {:>10.2?}                      │",
+        total_preprocess
+    );
     println!("└──────────────────────────────────────────────────┘");
 
     println!("\nTarget latency for real-time (30 fps): 33.3ms");
 
     if total_preprocess.as_millis() < 33 {
-        println!("✓ Preprocessing meets real-time requirements ({:.1}ms < 33.3ms)", total_preprocess.as_secs_f64() * 1000.0);
+        println!(
+            "✓ Preprocessing meets real-time requirements ({:.1}ms < 33.3ms)",
+            total_preprocess.as_secs_f64() * 1000.0
+        );
     } else {
-        println!("⚠ Preprocessing exceeds real-time target ({:.1}ms > 33.3ms)", total_preprocess.as_secs_f64() * 1000.0);
+        println!(
+            "⚠ Preprocessing exceeds real-time target ({:.1}ms > 33.3ms)",
+            total_preprocess.as_secs_f64() * 1000.0
+        );
     }
 
     // Memory efficiency
-    let tensor_throughput = results.iter()
+    let tensor_throughput = results
+        .iter()
         .find(|r| r.name.contains("Tensor Creation"))
         .map(|r| r.throughput)
         .unwrap_or(0.0);
 
-    println!("\nTensor creation throughput: {:.0} tensors/sec", tensor_throughput);
+    println!(
+        "\nTensor creation throughput: {:.0} tensors/sec",
+        tensor_throughput
+    );
     println!("Target for batch inference: >100 tensors/sec");
 
     if tensor_throughput > 100.0 {
@@ -588,10 +716,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("\n┌──────────────────────────────────────────────────┐");
     println!("│  Estimated End-to-End Performance                │");
     println!("├──────────────────────────────────────────────────┤");
-    println!("│  Preprocessing:  {:>8.2}ms                      │", total_preprocess.as_secs_f64() * 1000.0);
+    println!(
+        "│  Preprocessing:  {:>8.2}ms                      │",
+        total_preprocess.as_secs_f64() * 1000.0
+    );
     println!("│  Est. Inference: {:>8.2}ms (target)              │", 50.0);
-    println!("│  Total latency:  {:>8.2}ms                      │", estimated_ocr_time);
-    println!("│  Throughput:     {:>8.1} images/sec             │", estimated_throughput);
+    println!(
+        "│  Total latency:  {:>8.2}ms                      │",
+        estimated_ocr_time
+    );
+    println!(
+        "│  Throughput:     {:>8.1} images/sec             │",
+        estimated_throughput
+    );
     println!("└──────────────────────────────────────────────────┘");
 
     // State of the art comparison
@@ -604,10 +741,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("│  Tesseract       │ ~200ms     │ ~5 img/s    │ Slow    │");
     println!("│  PaddleOCR       │ ~50ms      │ ~20 img/s   │ Fast    │");
     println!("│  EasyOCR         │ ~100ms     │ ~10 img/s   │ Medium  │");
-    println!("│  SciPix (est.)   │ {:>6.1}ms   │ {:>6.1} img/s  │ {}│",
-             estimated_ocr_time,
-             estimated_throughput,
-             if estimated_throughput > 15.0 { "Fast    " } else if estimated_throughput > 8.0 { "Medium  " } else { "Slow    " });
+    println!(
+        "│  SciPix (est.)   │ {:>6.1}ms   │ {:>6.1} img/s  │ {}│",
+        estimated_ocr_time,
+        estimated_throughput,
+        if estimated_throughput > 15.0 {
+            "Fast    "
+        } else if estimated_throughput > 8.0 {
+            "Medium  "
+        } else {
+            "Slow    "
+        }
+    );
     println!("└────────────────────────────────────────────────────────┘");
 
     println!("\n{}", "=".repeat(60));

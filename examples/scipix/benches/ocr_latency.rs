@@ -1,4 +1,4 @@
-use criterion::{criterion_group, criterion_main, Criterion, BenchmarkId, black_box};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use std::time::Duration;
 
 /// Benchmark single image OCR at various sizes
@@ -63,7 +63,8 @@ fn bench_batch_processing(c: &mut Criterion) {
                     let results: Vec<_> = images
                         .iter()
                         .map(|img| {
-                            let preprocessed = preprocess_image(black_box(img), image_size.0, image_size.1);
+                            let preprocessed =
+                                preprocess_image(black_box(img), image_size.0, image_size.1);
                             let features = extract_features(black_box(&preprocessed));
                             recognize_text(black_box(&features))
                         })
@@ -173,9 +174,7 @@ fn preprocess_image(data: &[u8], width: u32, height: u32) -> Vec<u8> {
 
 fn extract_features(data: &[u8]) -> Vec<f32> {
     // Simulate feature extraction
-    data.iter()
-        .map(|&x| x as f32 / 255.0)
-        .collect()
+    data.iter().map(|&x| x as f32 / 255.0).collect()
 }
 
 fn recognize_text(features: &[f32]) -> String {

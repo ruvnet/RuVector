@@ -5,7 +5,7 @@
 //!
 //! Reference: "FlashAttention-2: Faster Attention with Better Parallelism and Work Partitioning"
 
-use super::{Attention, softmax_inplace};
+use super::{softmax_inplace, Attention};
 
 /// Flash Attention v2 - memory-efficient attention
 ///
@@ -94,12 +94,7 @@ impl FlashAttention {
     /// For simplicity, this implementation processes the full sequence in blocks
     /// along the key/value dimension. A full Flash Attention implementation would
     /// also tile the query dimension and use online softmax updates.
-    pub fn forward_tiled(
-        &self,
-        query: &[f32],
-        keys: &[&[f32]],
-        values: &[&[f32]],
-    ) -> Vec<f32> {
+    pub fn forward_tiled(&self, query: &[f32], keys: &[&[f32]], values: &[&[f32]]) -> Vec<f32> {
         assert_eq!(keys.len(), values.len(), "Keys and values length mismatch");
 
         if keys.is_empty() {
@@ -150,13 +145,18 @@ impl FlashAttention {
         }
 
         // Global max for numerical stability
-        let global_max = block_max_scores.iter().copied().fold(f32::NEG_INFINITY, f32::max);
+        let global_max = block_max_scores
+            .iter()
+            .copied()
+            .fold(f32::NEG_INFINITY, f32::max);
 
         // Combine block outputs with proper normalization
         let mut output = vec![0.0; value_dim];
         let mut total_weight = 0.0;
 
-        for ((block_sum, block_output), block_max) in block_outputs.iter().zip(block_max_scores.iter()) {
+        for ((block_sum, block_output), block_max) in
+            block_outputs.iter().zip(block_max_scores.iter())
+        {
             let correction = (block_max - global_max).exp();
             let block_weight = block_sum * correction;
             total_weight += block_weight;
@@ -261,12 +261,7 @@ mod tests {
             vec![0.8, 0.2, 0.0, 0.0],
             vec![0.0, 1.0, 0.0, 0.0],
         ];
-        let values: Vec<Vec<f32>> = vec![
-            vec![1.0],
-            vec![2.0],
-            vec![3.0],
-            vec![4.0],
-        ];
+        let values: Vec<Vec<f32>> = vec![vec![1.0], vec![2.0], vec![3.0], vec![4.0]];
 
         let key_refs: Vec<&[f32]> = keys.iter().map(|k| &k[..]).collect();
         let value_refs: Vec<&[f32]> = values.iter().map(|v| &v[..]).collect();
@@ -293,11 +288,7 @@ mod tests {
             vec![0.0, 0.25, 0.5, 1.0],
             vec![0.5, 0.5, 0.5, 0.5],
         ];
-        let values: Vec<Vec<f32>> = vec![
-            vec![1.0, 0.0],
-            vec![0.0, 1.0],
-            vec![0.5, 0.5],
-        ];
+        let values: Vec<Vec<f32>> = vec![vec![1.0, 0.0], vec![0.0, 1.0], vec![0.5, 0.5]];
 
         let key_refs: Vec<&[f32]> = keys.iter().map(|k| &k[..]).collect();
         let value_refs: Vec<&[f32]> = values.iter().map(|v| &v[..]).collect();
@@ -333,11 +324,7 @@ mod tests {
             vec![99.0, 99.0, 99.0, 99.0],
             vec![98.0, 98.0, 98.0, 98.0],
         ];
-        let values: Vec<Vec<f32>> = vec![
-            vec![1.0, 0.0],
-            vec![0.0, 1.0],
-            vec![0.5, 0.5],
-        ];
+        let values: Vec<Vec<f32>> = vec![vec![1.0, 0.0], vec![0.0, 1.0], vec![0.5, 0.5]];
 
         let key_refs: Vec<&[f32]> = keys.iter().map(|k| &k[..]).collect();
         let value_refs: Vec<&[f32]> = values.iter().map(|v| &v[..]).collect();
@@ -386,12 +373,7 @@ mod pg_tests {
             vec![0.0, 1.0],
             vec![0.1, 0.9],
         ];
-        let values: Vec<Vec<f32>> = vec![
-            vec![10.0],
-            vec![20.0],
-            vec![30.0],
-            vec![40.0],
-        ];
+        let values: Vec<Vec<f32>> = vec![vec![10.0], vec![20.0], vec![30.0], vec![40.0]];
 
         let key_refs: Vec<&[f32]> = keys.iter().map(|k| &k[..]).collect();
         let value_refs: Vec<&[f32]> = values.iter().map(|v| &v[..]).collect();

@@ -94,15 +94,24 @@ fn test_geometric_range_factor() {
         let lambda_max = (base.powi(i + 1)).floor() as u64;
 
         // Verify geometric progression
-        assert!(lambda_max >= lambda_min,
-            "Range {} must be valid: min={}, max={}", i, lambda_min, lambda_max);
+        assert!(
+            lambda_max >= lambda_min,
+            "Range {} must be valid: min={}, max={}",
+            i,
+            lambda_min,
+            lambda_max
+        );
 
         // For larger indices (where floor effects are minimal), verify approximate ratio
         // Skip first 10 indices where floor causes large variations
         if i >= 10 {
             let ratio = lambda_max as f64 / lambda_min.max(1) as f64;
-            assert!(ratio >= 1.0 && ratio <= 1.5,
-                "Ratio {} should be close to 1.2: {}", i, ratio);
+            assert!(
+                ratio >= 1.0 && ratio <= 1.5,
+                "Ratio {} should be close to 1.2: {}",
+                i,
+                ratio
+            );
         }
     }
 }
@@ -126,7 +135,12 @@ fn test_geometric_range_coverage() {
 
         // Gap should be small (at most 1-2 due to floor operations)
         let gap = curr_min.saturating_sub(prev_max);
-        assert!(gap <= 2, "Gap between ranges too large: {} at index {}", gap, i);
+        assert!(
+            gap <= 2,
+            "Gap between ranges too large: {} at index {}",
+            gap,
+            i
+        );
     }
 }
 
@@ -136,21 +150,27 @@ fn test_geometric_range_bounds() {
     let base: f64 = 1.2;
 
     let test_cases = vec![
-        (0, 1, 1),     // 1.2^0 = 1, 1.2^1 = 1.2 → [1, 1]
-        (1, 1, 1),     // 1.2^1 = 1.2, 1.2^2 = 1.44 → [1, 1]
-        (5, 2, 2),     // 1.2^5 ≈ 2.49, 1.2^6 ≈ 2.99 → [2, 2]
-        (10, 6, 7),    // 1.2^10 ≈ 6.19, 1.2^11 ≈ 7.43 → [6, 7]
-        (20, 38, 46),  // 1.2^20 ≈ 38.34, 1.2^21 ≈ 46.01 → [38, 46]
+        (0, 1, 1),    // 1.2^0 = 1, 1.2^1 = 1.2 → [1, 1]
+        (1, 1, 1),    // 1.2^1 = 1.2, 1.2^2 = 1.44 → [1, 1]
+        (5, 2, 2),    // 1.2^5 ≈ 2.49, 1.2^6 ≈ 2.99 → [2, 2]
+        (10, 6, 7),   // 1.2^10 ≈ 6.19, 1.2^11 ≈ 7.43 → [6, 7]
+        (20, 38, 46), // 1.2^20 ≈ 38.34, 1.2^21 ≈ 46.01 → [38, 46]
     ];
 
     for (i, expected_min, expected_max) in test_cases {
         let lambda_min = (base.powi(i)).floor() as u64;
         let lambda_max = (base.powi(i + 1)).floor() as u64;
 
-        assert_eq!(lambda_min, expected_min,
-            "Range {} min should be {}", i, expected_min);
-        assert_eq!(lambda_max, expected_max,
-            "Range {} max should be {}", i, expected_max);
+        assert_eq!(
+            lambda_min, expected_min,
+            "Range {} min should be {}",
+            i, expected_min
+        );
+        assert_eq!(
+            lambda_max, expected_max,
+            "Range {} max should be {}",
+            i, expected_max
+        );
     }
 }
 
@@ -172,10 +192,7 @@ fn test_disconnected_returns_zero() {
     // Disconnected graph should have min cut = 0
     assert!(!graph.is_connected(), "Graph should be disconnected");
 
-    let mincut = MinCutBuilder::new()
-        .exact()
-        .build()
-        .unwrap();
+    let mincut = MinCutBuilder::new().exact().build().unwrap();
 
     // Build from edges
     let mut mincut_dynamic = MinCutBuilder::new()
@@ -183,26 +200,31 @@ fn test_disconnected_returns_zero() {
         .build()
         .unwrap();
 
-    assert_eq!(mincut_dynamic.min_cut_value(), 0.0,
-        "Disconnected graph must have min cut = 0");
+    assert_eq!(
+        mincut_dynamic.min_cut_value(),
+        0.0,
+        "Disconnected graph must have min cut = 0"
+    );
 }
 
 #[test]
 fn test_disconnected_multiple_components() {
     // Three separate components
     let edges = vec![
-        (1, 2, 1.0), (2, 3, 1.0),           // Component 1
-        (10, 11, 2.0), (11, 12, 2.0),       // Component 2
-        (20, 21, 3.0),                       // Component 3
+        (1, 2, 1.0),
+        (2, 3, 1.0), // Component 1
+        (10, 11, 2.0),
+        (11, 12, 2.0), // Component 2
+        (20, 21, 3.0), // Component 3
     ];
 
-    let mincut = MinCutBuilder::new()
-        .with_edges(edges)
-        .build()
-        .unwrap();
+    let mincut = MinCutBuilder::new().with_edges(edges).build().unwrap();
 
-    assert_eq!(mincut.min_cut_value(), 0.0,
-        "Multiple disconnected components must have min cut = 0");
+    assert_eq!(
+        mincut.min_cut_value(),
+        0.0,
+        "Multiple disconnected components must have min cut = 0"
+    );
     assert!(!mincut.is_connected());
 }
 
@@ -212,7 +234,7 @@ fn test_becomes_disconnected_after_delete() {
     let mut mincut = MinCutBuilder::new()
         .with_edges(vec![
             (1, 2, 1.0),
-            (2, 3, 1.0),  // Bridge edge
+            (2, 3, 1.0), // Bridge edge
             (3, 4, 1.0),
         ])
         .build()
@@ -242,13 +264,22 @@ fn test_single_edge_min_cut() {
         .build()
         .unwrap();
 
-    assert_eq!(mincut.min_cut_value(), 3.5, "Single edge min cut should equal edge weight");
+    assert_eq!(
+        mincut.min_cut_value(),
+        3.5,
+        "Single edge min cut should equal edge weight"
+    );
     assert!(mincut.is_connected());
 
     // Verify against brute force
     let brute_force = stoer_wagner_min_cut(&graph);
-    assert_eq!(mincut.min_cut_value(), brute_force,
-        "Should match brute force: {} vs {}", mincut.min_cut_value(), brute_force);
+    assert_eq!(
+        mincut.min_cut_value(),
+        brute_force,
+        "Should match brute force: {} vs {}",
+        mincut.min_cut_value(),
+        brute_force
+    );
 }
 
 #[test]
@@ -257,10 +288,7 @@ fn test_path_graph_min_cut() {
     for n in 3..10 {
         let graph = build_path_graph(n);
 
-        let mincut = MinCutBuilder::new()
-            .exact()
-            .build()
-            .unwrap();
+        let mincut = MinCutBuilder::new().exact().build().unwrap();
 
         // Build from graph
         let mut edges = Vec::new();
@@ -268,18 +296,23 @@ fn test_path_graph_min_cut() {
             edges.push((i as u64, (i + 1) as u64, 1.0));
         }
 
-        let mincut = MinCutBuilder::new()
-            .with_edges(edges)
-            .build()
-            .unwrap();
+        let mincut = MinCutBuilder::new().with_edges(edges).build().unwrap();
 
-        assert_eq!(mincut.min_cut_value(), 1.0,
-            "Path graph P_{} should have min cut = 1", n);
+        assert_eq!(
+            mincut.min_cut_value(),
+            1.0,
+            "Path graph P_{} should have min cut = 1",
+            n
+        );
 
         // Verify against brute force
         let brute_force = stoer_wagner_min_cut(&graph);
-        assert_eq!(mincut.min_cut_value(), brute_force,
-            "P_{} should match brute force", n);
+        assert_eq!(
+            mincut.min_cut_value(),
+            brute_force,
+            "P_{} should match brute force",
+            n
+        );
     }
 }
 
@@ -295,18 +328,23 @@ fn test_cycle_graph_min_cut() {
             edges.push((i as u64, next as u64, 1.0));
         }
 
-        let mincut = MinCutBuilder::new()
-            .with_edges(edges)
-            .build()
-            .unwrap();
+        let mincut = MinCutBuilder::new().with_edges(edges).build().unwrap();
 
-        assert_eq!(mincut.min_cut_value(), 2.0,
-            "Cycle C_{} should have min cut = 2", n);
+        assert_eq!(
+            mincut.min_cut_value(),
+            2.0,
+            "Cycle C_{} should have min cut = 2",
+            n
+        );
 
         // Verify against brute force
         let brute_force = stoer_wagner_min_cut(&graph);
-        assert_eq!(mincut.min_cut_value(), brute_force,
-            "C_{} should match brute force", n);
+        assert_eq!(
+            mincut.min_cut_value(),
+            brute_force,
+            "C_{} should match brute force",
+            n
+        );
     }
 }
 
@@ -323,19 +361,25 @@ fn test_complete_graph_min_cut() {
             }
         }
 
-        let mincut = MinCutBuilder::new()
-            .with_edges(edges)
-            .build()
-            .unwrap();
+        let mincut = MinCutBuilder::new().with_edges(edges).build().unwrap();
 
         let expected = (n - 1) as f64;
-        assert_eq!(mincut.min_cut_value(), expected,
-            "Complete graph K_{} should have min cut = {}", n, expected);
+        assert_eq!(
+            mincut.min_cut_value(),
+            expected,
+            "Complete graph K_{} should have min cut = {}",
+            n,
+            expected
+        );
 
         // Verify against brute force
         let brute_force = stoer_wagner_min_cut(&graph);
-        assert_eq!(mincut.min_cut_value(), brute_force,
-            "K_{} should match brute force", n);
+        assert_eq!(
+            mincut.min_cut_value(),
+            brute_force,
+            "K_{} should match brute force",
+            n
+        );
     }
 }
 
@@ -347,7 +391,7 @@ fn test_weighted_graph_correctness() {
         (2, 3, 3.0),
         (3, 4, 7.0),
         (4, 1, 2.0),
-        (1, 3, 4.0),  // Diagonal
+        (1, 3, 4.0), // Diagonal
     ];
 
     let graph = Arc::new(DynamicGraph::new());
@@ -355,17 +399,17 @@ fn test_weighted_graph_correctness() {
         graph.insert_edge(*u, *v, *w).unwrap();
     }
 
-    let mincut = MinCutBuilder::new()
-        .with_edges(edges)
-        .build()
-        .unwrap();
+    let mincut = MinCutBuilder::new().with_edges(edges).build().unwrap();
 
     let brute_force = stoer_wagner_min_cut(&graph);
 
     // Should match brute force (within floating point tolerance)
-    assert!((mincut.min_cut_value() - brute_force).abs() < 0.001,
+    assert!(
+        (mincut.min_cut_value() - brute_force).abs() < 0.001,
         "Weighted graph should match brute force: {} vs {}",
-        mincut.min_cut_value(), brute_force);
+        mincut.min_cut_value(),
+        brute_force
+    );
 }
 
 // ============================================================================
@@ -376,10 +420,7 @@ fn test_weighted_graph_correctness() {
 fn test_insert_before_delete_ordering() {
     // Verify that in a batch of operations, inserts are processed before deletes
     let mut mincut = MinCutBuilder::new()
-        .with_edges(vec![
-            (1, 2, 1.0),
-            (2, 3, 1.0),
-        ])
+        .with_edges(vec![(1, 2, 1.0), (2, 3, 1.0)])
         .build()
         .unwrap();
 
@@ -413,8 +454,12 @@ fn test_operation_sequence_determinism() {
 
         for (op, u, v, w) in &operations {
             match *op {
-                "insert" => { let _ = mincut.insert_edge(*u, *v, *w); },
-                "delete" => { let _ = mincut.delete_edge(*u, *v); },
+                "insert" => {
+                    let _ = mincut.insert_edge(*u, *v, *w);
+                }
+                "delete" => {
+                    let _ = mincut.delete_edge(*u, *v);
+                }
                 _ => panic!("Unknown operation"),
             }
         }
@@ -424,8 +469,11 @@ fn test_operation_sequence_determinism() {
 
         // After: insert 1-2, insert 2-3, insert 3-4, delete 2-3, insert 1-4
         // Expected: 3 edges (1-2, 3-4, 1-4)
-        assert!(final_edges >= 2 && final_edges <= 4,
-            "Should have reasonable edge count: {}", final_edges);
+        assert!(
+            final_edges >= 2 && final_edges <= 4,
+            "Should have reasonable edge count: {}",
+            final_edges
+        );
     }
 }
 
@@ -435,8 +483,8 @@ fn test_operation_sequence_determinism() {
 
 #[test]
 fn fuzz_random_small_graphs() {
-    use rand::{Rng, SeedableRng};
     use rand::rngs::StdRng;
+    use rand::{Rng, SeedableRng};
 
     let mut rng = StdRng::seed_from_u64(42);
 
@@ -476,9 +524,7 @@ fn fuzz_random_small_graphs() {
         }
 
         // Build mincut structure
-        let mincut = MinCutBuilder::new()
-            .with_edges(edges.clone())
-            .build();
+        let mincut = MinCutBuilder::new().with_edges(edges.clone()).build();
 
         // Verify structure builds without panic
         if let Ok(mc) = mincut {
@@ -491,8 +537,8 @@ fn fuzz_random_small_graphs() {
 
 #[test]
 fn fuzz_random_operations_sequence() {
-    use rand::{Rng, SeedableRng};
     use rand::rngs::StdRng;
+    use rand::{Rng, SeedableRng};
 
     let mut rng = StdRng::seed_from_u64(123);
 
@@ -567,11 +613,12 @@ fn test_delete_maintains_correctness() {
         assert!(current_cut >= 0.0, "Cut must be non-negative");
 
         if mincut.is_connected() {
-            assert!(current_cut > 0.0 && current_cut < f64::INFINITY,
-                "Connected graph must have finite positive cut");
+            assert!(
+                current_cut > 0.0 && current_cut < f64::INFINITY,
+                "Connected graph must have finite positive cut"
+            );
         } else {
-            assert_eq!(current_cut, 0.0,
-                "Disconnected graph must have cut = 0");
+            assert_eq!(current_cut, 0.0, "Disconnected graph must have cut = 0");
         }
     }
 }
@@ -581,9 +628,13 @@ fn test_delete_bridge_creates_disconnection() {
     // Create graph with clear bridge
     let mut mincut = MinCutBuilder::new()
         .with_edges(vec![
-            (1, 2, 1.0), (2, 3, 1.0), (3, 1, 1.0),  // Triangle
-            (3, 4, 1.0),                              // Bridge
-            (4, 5, 1.0), (5, 6, 1.0), (6, 4, 1.0),  // Another triangle
+            (1, 2, 1.0),
+            (2, 3, 1.0),
+            (3, 1, 1.0), // Triangle
+            (3, 4, 1.0), // Bridge
+            (4, 5, 1.0),
+            (5, 6, 1.0),
+            (6, 4, 1.0), // Another triangle
         ])
         .build()
         .unwrap();
@@ -617,10 +668,7 @@ fn property_min_cut_bounded_by_min_degree() {
             graph.insert_edge(*u, *v, *w).unwrap();
         }
 
-        let mincut = MinCutBuilder::new()
-            .with_edges(edges)
-            .build()
-            .unwrap();
+        let mincut = MinCutBuilder::new().with_edges(edges).build().unwrap();
 
         if mincut.is_connected() {
             // Find minimum degree
@@ -637,9 +685,12 @@ fn property_min_cut_bounded_by_min_degree() {
                 min_degree = min_degree.min(degree_weight);
             }
 
-            assert!(mincut.min_cut_value() <= min_degree + 0.001,
+            assert!(
+                mincut.min_cut_value() <= min_degree + 0.001,
                 "Min cut must be ≤ minimum degree: {} vs {}",
-                mincut.min_cut_value(), min_degree);
+                mincut.min_cut_value(),
+                min_degree
+            );
         }
     }
 }
@@ -653,7 +704,7 @@ fn property_min_cut_monotonic_on_edge_removal() {
             (2, 3, 1.0),
             (3, 4, 1.0),
             (4, 1, 1.0),
-            (1, 3, 2.0),  // Diagonal
+            (1, 3, 2.0), // Diagonal
         ])
         .build()
         .unwrap();
@@ -664,23 +715,20 @@ fn property_min_cut_monotonic_on_edge_removal() {
     mincut.delete_edge(1, 3).unwrap();
     let after_delete = mincut.min_cut_value();
 
-    assert!(after_delete <= initial_cut,
+    assert!(
+        after_delete <= initial_cut,
         "Deleting edges cannot increase min cut: {} -> {}",
-        initial_cut, after_delete);
+        initial_cut,
+        after_delete
+    );
 }
 
 #[test]
 fn property_symmetry() {
     // Property: graph (u,v,w) has same min cut as (v,u,w)
-    let edges_forward = vec![
-        (1, 2, 1.5),
-        (2, 3, 2.5),
-        (3, 1, 1.0),
-    ];
+    let edges_forward = vec![(1, 2, 1.5), (2, 3, 2.5), (3, 1, 1.0)];
 
-    let edges_reverse: Vec<_> = edges_forward.iter()
-        .map(|(u, v, w)| (*v, *u, *w))
-        .collect();
+    let edges_reverse: Vec<_> = edges_forward.iter().map(|(u, v, w)| (*v, *u, *w)).collect();
 
     let mincut_fwd = MinCutBuilder::new()
         .with_edges(edges_forward)
@@ -692,6 +740,9 @@ fn property_symmetry() {
         .build()
         .unwrap();
 
-    assert_eq!(mincut_fwd.min_cut_value(), mincut_rev.min_cut_value(),
-        "Graph should have same min cut regardless of edge direction");
+    assert_eq!(
+        mincut_fwd.min_cut_value(),
+        mincut_rev.min_cut_value(),
+        "Graph should have same min cut regardless of edge direction"
+    );
 }

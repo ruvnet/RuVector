@@ -8,10 +8,10 @@
 //!
 //! Unlike PostgreSQL's ts_rank, this is a proper BM25 implementation.
 
-use std::collections::HashMap;
-use std::sync::Arc;
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::sync::Arc;
 
 /// Default BM25 k1 parameter (term frequency saturation)
 pub const DEFAULT_K1: f32 = 1.2;
@@ -228,7 +228,8 @@ impl BM25Scorer {
         // Length normalization factor
         let len_norm = 1.0 - self.config.b + self.config.b * (doc_len / avg_doc_len);
 
-        query_terms.iter()
+        query_terms
+            .iter()
             .filter_map(|term| {
                 let tf = doc.term_freq(term)? as f32;
                 let idf = self.idf(term);
@@ -255,7 +256,8 @@ impl BM25Scorer {
 
         let len_norm = 1.0 - self.config.b + self.config.b * (doc_len / avg_doc_len);
 
-        term_freqs.iter()
+        term_freqs
+            .iter()
             .map(|(_, tf, df)| {
                 let tf = *tf as f32;
                 let idf = self.idf_with_df(*df);
@@ -420,7 +422,10 @@ mod tests {
         let long_score = scorer.score(&long_doc, &query_terms);
 
         // Short doc should score higher (same tf, less length penalty)
-        assert!(short_score > long_score, "Short doc should score higher than long doc with same TF");
+        assert!(
+            short_score > long_score,
+            "Short doc should score higher than long doc with same TF"
+        );
     }
 
     #[test]

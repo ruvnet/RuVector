@@ -25,10 +25,10 @@
 
 use super::{
     neuron::{LIFNeuron, NeuronConfig, SpikeTrain},
-    synapse::{Synapse, SynapseMatrix, STDPConfig, AsymmetricSTDP},
+    synapse::{AsymmetricSTDP, STDPConfig, Synapse, SynapseMatrix},
     SimTime, Spike,
 };
-use crate::graph::{DynamicGraph, VertexId, EdgeId};
+use crate::graph::{DynamicGraph, EdgeId, VertexId};
 use std::collections::{HashMap, HashSet, VecDeque};
 
 /// Configuration for causal discovery
@@ -107,7 +107,13 @@ impl CausalGraph {
     }
 
     /// Add a causal edge
-    pub fn add_edge(&mut self, source: usize, target: usize, strength: f64, relation: CausalRelation) {
+    pub fn add_edge(
+        &mut self,
+        source: usize,
+        target: usize,
+        strength: f64,
+        relation: CausalRelation,
+    ) {
         self.edges.push(CausalEdge {
             source,
             target,
@@ -123,7 +129,10 @@ impl CausalGraph {
 
     /// Get edges from a node
     pub fn edges_from(&self, source: usize) -> &[(usize, f64, CausalRelation)] {
-        self.adjacency.get(&source).map(|v| v.as_slice()).unwrap_or(&[])
+        self.adjacency
+            .get(&source)
+            .map(|v| v.as_slice())
+            .unwrap_or(&[])
     }
 
     /// Get all edges
@@ -164,11 +173,15 @@ impl CausalGraph {
                     }
 
                     // Check if path i→k→j exists
-                    let ik_strength = self.adjacency.get(&i)
+                    let ik_strength = self
+                        .adjacency
+                        .get(&i)
                         .and_then(|edges| edges.iter().find(|(t, _, _)| *t == k))
                         .map(|(_, s, _)| *s);
 
-                    let kj_strength = self.adjacency.get(&k)
+                    let kj_strength = self
+                        .adjacency
+                        .get(&k)
                         .and_then(|edges| edges.iter().find(|(t, _, _)| *t == j))
                         .map(|(_, s, _)| *s);
 
@@ -176,7 +189,9 @@ impl CausalGraph {
                         let indirect_strength = s1 * s2;
 
                         // Only add if stronger than existing direct path
-                        let existing = closed.adjacency.get(&i)
+                        let existing = closed
+                            .adjacency
+                            .get(&i)
                             .and_then(|edges| edges.iter().find(|(t, _, _)| *t == j))
                             .map(|(_, s, _)| *s)
                             .unwrap_or(0.0);
@@ -217,11 +232,7 @@ impl CausalGraph {
 
         for edge in &self.edges {
             if !graph.has_edge(edge.source as u64, edge.target as u64) {
-                let _ = graph.insert_edge(
-                    edge.source as u64,
-                    edge.target as u64,
-                    edge.strength,
-                );
+                let _ = graph.insert_edge(edge.source as u64, edge.target as u64, edge.strength);
             }
         }
 
@@ -286,7 +297,7 @@ impl CausalDiscoverySNN {
 
         // Create event neurons
         let neuron_config = NeuronConfig {
-            tau_membrane: 10.0,  // Fast response
+            tau_membrane: 10.0, // Fast response
             threshold: 0.5,
             ..NeuronConfig::default()
         };
@@ -304,7 +315,7 @@ impl CausalDiscoverySNN {
         for i in 0..n {
             for j in 0..n {
                 if i != j {
-                    synapses.add_synapse(i, j, 0.0);  // Start with zero weights
+                    synapses.add_synapse(i, j, 0.0); // Start with zero weights
                 }
             }
         }
@@ -317,11 +328,12 @@ impl CausalDiscoverySNN {
             (GraphEventType::MinCutChange, 3),
             (GraphEventType::ComponentSplit, 4),
             (GraphEventType::ComponentMerge, 5),
-        ].iter().cloned().collect();
+        ]
+        .iter()
+        .cloned()
+        .collect();
 
-        let index_to_event: HashMap<_, _> = event_type_map.iter()
-            .map(|(k, v)| (*v, *k))
-            .collect();
+        let index_to_event: HashMap<_, _> = event_type_map.iter().map(|(k, v)| (*v, *k)).collect();
 
         Self {
             event_neurons,
@@ -337,7 +349,10 @@ impl CausalDiscoverySNN {
 
     /// Convert graph event to neuron index
     fn event_to_neuron(&self, event: &GraphEvent) -> usize {
-        self.event_type_map.get(&event.event_type).copied().unwrap_or(0)
+        self.event_type_map
+            .get(&event.event_type)
+            .copied()
+            .unwrap_or(0)
     }
 
     /// Observe a graph event
@@ -353,7 +368,8 @@ impl CausalDiscoverySNN {
             self.spike_trains[neuron_id].record_spike(timestamp);
 
             // STDP update: causal relationships emerge in weights
-            self.stdp.update_weights(&mut self.synapses, neuron_id, timestamp);
+            self.stdp
+                .update_weights(&mut self.synapses, neuron_id, timestamp);
         }
     }
 
@@ -422,8 +438,7 @@ impl CausalDiscoverySNN {
 
         for edge in causal.edges() {
             // If edge connects controllable region to target region
-            if controllable_set.contains(&edge.source) ||
-               target_set.contains(&edge.target) {
+            if controllable_set.contains(&edge.source) || target_set.contains(&edge.target) {
                 intervention_points.push(edge.source);
             }
         }

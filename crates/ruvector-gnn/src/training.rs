@@ -93,9 +93,13 @@ impl Optimizer {
         }
 
         match (&self.optimizer_type, &mut self.state) {
-            (OptimizerType::Sgd { learning_rate, momentum }, OptimizerState::Sgd { velocity }) => {
-                Self::sgd_step_with_momentum(params, grads, *learning_rate, *momentum, velocity)
-            }
+            (
+                OptimizerType::Sgd {
+                    learning_rate,
+                    momentum,
+                },
+                OptimizerState::Sgd { velocity },
+            ) => Self::sgd_step_with_momentum(params, grads, *learning_rate, *momentum, velocity),
             (
                 OptimizerType::Adam {
                     learning_rate,
@@ -104,12 +108,18 @@ impl Optimizer {
                     epsilon,
                 },
                 OptimizerState::Adam { m, v, t },
-            ) => Self::adam_step(params, grads, *learning_rate, *beta1, *beta2, *epsilon, m, v, t),
-            _ => {
-                return Err(GnnError::invalid_input(
-                    "Optimizer type and state mismatch",
-                ))
-            }
+            ) => Self::adam_step(
+                params,
+                grads,
+                *learning_rate,
+                *beta1,
+                *beta2,
+                *epsilon,
+                m,
+                v,
+                t,
+            ),
+            _ => return Err(GnnError::invalid_input("Optimizer type and state mismatch")),
         }
     }
 
@@ -203,9 +213,10 @@ impl Optimizer {
 
             // Update parameters
             // params = params - lr * m_hat / (sqrt(v_hat) + epsilon)
-            let update = m_hat.iter().zip(v_hat.iter()).map(|(&m_val, &v_val)| {
-                learning_rate * m_val / (v_val.sqrt() + epsilon)
-            });
+            let update = m_hat
+                .iter()
+                .zip(v_hat.iter())
+                .map(|(&m_val, &v_val)| learning_rate * m_val / (v_val.sqrt() + epsilon));
 
             for (param, upd) in params.iter_mut().zip(update) {
                 *param -= upd;
@@ -280,7 +291,9 @@ impl Loss {
         }
 
         if predictions.is_empty() {
-            return Err(GnnError::invalid_input("Cannot compute loss on empty arrays"));
+            return Err(GnnError::invalid_input(
+                "Cannot compute loss on empty arrays",
+            ));
         }
 
         match loss_type {
@@ -1109,7 +1122,10 @@ mod tests {
         let pred = Array2::from_shape_vec((2, 2), vec![1.0, 2.0, 3.0, 4.0]).unwrap();
         let target = pred.clone();
         let loss = Loss::compute(LossType::Mse, &pred, &target).unwrap();
-        assert!((loss - 0.0).abs() < 1e-6, "MSE should be 0 when pred == target");
+        assert!(
+            (loss - 0.0).abs() < 1e-6,
+            "MSE should be 0 when pred == target"
+        );
     }
 
     #[test]
@@ -1144,8 +1160,14 @@ mod tests {
         let target = Array2::from_shape_vec((1, 2), vec![1.0, 1.0]).unwrap();
         let grad = Loss::gradient(LossType::Mse, &pred, &target).unwrap();
         // grad = 2*(pred - target)/n = 2*(-1, 1)/2 = (-1, 1)
-        assert!(grad[[0, 0]] < 0.0, "Gradient should be negative when pred < target");
-        assert!(grad[[0, 1]] > 0.0, "Gradient should be positive when pred > target");
+        assert!(
+            grad[[0, 0]] < 0.0,
+            "Gradient should be negative when pred < target"
+        );
+        assert!(
+            grad[[0, 1]] > 0.0,
+            "Gradient should be positive when pred > target"
+        );
     }
 
     #[test]
@@ -1153,7 +1175,10 @@ mod tests {
         let pred = Array2::from_shape_vec((2, 2), vec![1.0, 2.0, 3.0, 4.0]).unwrap();
         let target = pred.clone();
         let grad = Loss::gradient(LossType::Mse, &pred, &target).unwrap();
-        assert!(grad.iter().all(|&x| x.abs() < 1e-6), "Gradient should be zero when pred == target");
+        assert!(
+            grad.iter().all(|&x| x.abs() < 1e-6),
+            "Gradient should be zero when pred == target"
+        );
     }
 
     #[test]
@@ -1162,7 +1187,11 @@ mod tests {
         let target = Array2::from_shape_vec((1, 2), vec![1.0, 0.0]).unwrap();
         let loss = Loss::compute(LossType::BinaryCrossEntropy, &pred, &target).unwrap();
         // Near-perfect predictions should have low loss
-        assert!(loss < 0.1, "BCE should be low for good predictions, got {}", loss);
+        assert!(
+            loss < 0.1,
+            "BCE should be low for good predictions, got {}",
+            loss
+        );
     }
 
     #[test]
@@ -1171,7 +1200,11 @@ mod tests {
         let target = Array2::from_shape_vec((1, 2), vec![1.0, 0.0]).unwrap();
         let loss = Loss::compute(LossType::BinaryCrossEntropy, &pred, &target).unwrap();
         // Bad predictions should have high loss
-        assert!(loss > 1.0, "BCE should be high for bad predictions, got {}", loss);
+        assert!(
+            loss > 1.0,
+            "BCE should be high for bad predictions, got {}",
+            loss
+        );
     }
 
     #[test]
@@ -1180,7 +1213,10 @@ mod tests {
         let pred = Array2::from_shape_vec((1, 2), vec![0.0, 1.0]).unwrap();
         let target = Array2::from_shape_vec((1, 2), vec![0.0, 1.0]).unwrap();
         let loss = Loss::compute(LossType::BinaryCrossEntropy, &pred, &target).unwrap();
-        assert!(loss.is_finite(), "BCE should be finite even with extreme values");
+        assert!(
+            loss.is_finite(),
+            "BCE should be finite even with extreme values"
+        );
     }
 
     #[test]
@@ -1197,9 +1233,15 @@ mod tests {
         let target = Array2::from_shape_vec((1, 2), vec![1.0, 0.0]).unwrap();
         let grad = Loss::gradient(LossType::BinaryCrossEntropy, &pred, &target).unwrap();
         // When target=1 and pred<1, gradient should push pred up (negative gradient)
-        assert!(grad[[0, 0]] < 0.0, "Gradient should be negative to increase pred towards 1");
+        assert!(
+            grad[[0, 0]] < 0.0,
+            "Gradient should be negative to increase pred towards 1"
+        );
         // When target=0 and pred>0, gradient should push pred down (positive gradient)
-        assert!(grad[[0, 1]] > 0.0, "Gradient should be positive to decrease pred towards 0");
+        assert!(
+            grad[[0, 1]] > 0.0,
+            "Gradient should be positive to decrease pred towards 0"
+        );
     }
 
     #[test]
@@ -1209,7 +1251,11 @@ mod tests {
         let target = Array2::from_shape_vec((2, 3), vec![1.0, 0.0, 0.0, 0.0, 1.0, 0.0]).unwrap();
         let loss = Loss::compute(LossType::CrossEntropy, &pred, &target).unwrap();
         // Good predictions should have reasonable loss
-        assert!(loss > 0.0 && loss < 1.0, "CE should be reasonable for good predictions, got {}", loss);
+        assert!(
+            loss > 0.0 && loss < 1.0,
+            "CE should be reasonable for good predictions, got {}",
+            loss
+        );
     }
 
     #[test]
@@ -1218,13 +1264,18 @@ mod tests {
         let target = Array2::from_shape_vec((1, 3), vec![1.0, 0.0, 0.0]).unwrap();
         let loss = Loss::compute(LossType::CrossEntropy, &pred, &target).unwrap();
         // Predicting wrong class should have high loss
-        assert!(loss > 1.0, "CE should be high for wrong predictions, got {}", loss);
+        assert!(
+            loss > 1.0,
+            "CE should be high for wrong predictions, got {}",
+            loss
+        );
     }
 
     #[test]
     fn test_cross_entropy_gradient_shape() {
         let pred = Array2::from_shape_vec((2, 4), vec![0.25; 8]).unwrap();
-        let target = Array2::from_shape_vec((2, 4), vec![1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0]).unwrap();
+        let target =
+            Array2::from_shape_vec((2, 4), vec![1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0]).unwrap();
         let grad = Loss::gradient(LossType::CrossEntropy, &pred, &target).unwrap();
         assert_eq!(grad.shape(), pred.shape());
     }
@@ -1238,7 +1289,10 @@ mod tests {
         assert!(result.is_err(), "Should error on dimension mismatch");
 
         let result = Loss::gradient(LossType::Mse, &pred, &target);
-        assert!(result.is_err(), "Gradient should error on dimension mismatch");
+        assert!(
+            result.is_err(),
+            "Gradient should error on dimension mismatch"
+        );
     }
 
     #[test]
@@ -1275,8 +1329,12 @@ mod tests {
             let numerical_grad = (loss_plus - loss_minus) / (2.0 * eps);
             let error = (analytical_grad[[0, i]] - numerical_grad).abs();
 
-            assert!(error < 1e-3, "Numerical gradient check failed: analytical={}, numerical={}",
-                    analytical_grad[[0, i]], numerical_grad);
+            assert!(
+                error < 1e-3,
+                "Numerical gradient check failed: analytical={}, numerical={}",
+                analytical_grad[[0, i]],
+                numerical_grad
+            );
         }
     }
 
@@ -1301,6 +1359,9 @@ mod tests {
 
         let final_loss = Loss::compute(LossType::Mse, &pred, &target).unwrap();
 
-        assert!(final_loss < initial_loss, "Loss should decrease during training");
+        assert!(
+            final_loss < initial_loss,
+            "Loss should decrease during training"
+        );
     }
 }

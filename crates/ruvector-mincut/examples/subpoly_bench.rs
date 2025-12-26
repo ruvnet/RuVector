@@ -2,8 +2,8 @@
 //!
 //! Demonstrates subpolynomial update performance.
 
+use ruvector_mincut::subpolynomial::{SubpolyConfig, SubpolynomialMinCut};
 use std::time::Instant;
-use ruvector_mincut::subpolynomial::{SubpolynomialMinCut, SubpolyConfig};
 
 fn main() {
     println!("=== SubpolynomialMinCut Benchmark ===\n");
@@ -46,7 +46,10 @@ fn benchmark_size(n: usize) {
     println!("  Build hierarchy: {:?}", hier_start.elapsed());
 
     let stats = mincut.hierarchy_stats();
-    println!("  Levels: {}, Expanders: {}", stats.num_levels, stats.total_expanders);
+    println!(
+        "  Levels: {}, Expanders: {}",
+        stats.num_levels, stats.total_expanders
+    );
 
     // Benchmark updates
     let num_updates = 100;
@@ -63,13 +66,18 @@ fn benchmark_size(n: usize) {
     let update_time = update_start.elapsed();
     let avg_update_us = update_time.as_micros() as f64 / num_updates as f64;
 
-    println!("  {} updates: {:?} ({:.2} μs/update)", num_updates, update_time, avg_update_us);
+    println!(
+        "  {} updates: {:?} ({:.2} μs/update)",
+        num_updates, update_time, avg_update_us
+    );
     println!("  Min cut: {:.1}", mincut.min_cut_value());
 
     let recourse = mincut.recourse_stats();
-    println!("  Avg recourse: {:.2}, Is subpolynomial: {}",
+    println!(
+        "  Avg recourse: {:.2}, Is subpolynomial: {}",
         recourse.amortized_recourse(),
-        recourse.is_subpolynomial(n));
+        recourse.is_subpolynomial(n)
+    );
 
     println!();
 }
@@ -136,7 +144,13 @@ fn verify_subpolynomial_complexity() {
 
     println!("\nOverall scaling: n^{:.2}", overall_exponent);
     println!("For subpolynomial, expect exponent → 0 as n → ∞");
-    println!("Current exponent ({:.2}) is {} polynomial",
+    println!(
+        "Current exponent ({:.2}) is {} polynomial",
         overall_exponent,
-        if overall_exponent < 0.5 { "sub" } else { "super" });
+        if overall_exponent < 0.5 {
+            "sub"
+        } else {
+            "super"
+        }
+    );
 }

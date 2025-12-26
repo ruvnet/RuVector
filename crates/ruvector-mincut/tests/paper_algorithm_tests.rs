@@ -5,11 +5,11 @@
 //! - Fragmentation with Trim (Theorem 5.1)
 //! - ThreeLevelHierarchy (expander→precluster→cluster)
 
-use ruvector_mincut::localkcut::deterministic::{
-    DeterministicLocalKCut, GreedyForestPacking, EdgeColoring, EdgeColor,
-};
+use ruvector_mincut::cluster::hierarchy::{HierarchyConfig, ThreeLevelHierarchy};
 use ruvector_mincut::fragmentation::{Fragmentation, FragmentationConfig};
-use ruvector_mincut::cluster::hierarchy::{ThreeLevelHierarchy, HierarchyConfig};
+use ruvector_mincut::localkcut::deterministic::{
+    DeterministicLocalKCut, EdgeColor, EdgeColoring, GreedyForestPacking,
+};
 use std::collections::HashSet;
 
 // ============================================================================
@@ -17,10 +17,7 @@ use std::collections::HashSet;
 // ============================================================================
 
 /// Brute-force minimum cut for small graphs using exhaustive subset enumeration
-fn brute_force_min_cut(
-    adjacency: &[(u64, u64, f64)],
-    vertices: &[u64],
-) -> f64 {
+fn brute_force_min_cut(adjacency: &[(u64, u64, f64)], vertices: &[u64]) -> f64 {
     if vertices.len() <= 1 {
         return f64::INFINITY;
     }
@@ -150,7 +147,10 @@ fn test_forest_packing_no_cycles() {
     let forest = packing.insert_edge(1, 4);
 
     // Should still be assigned (to a different forest)
-    assert!(forest.is_some(), "Cycle-closing edge should fit in some forest");
+    assert!(
+        forest.is_some(),
+        "Cycle-closing edge should fit in some forest"
+    );
 
     // Verify no single forest has a cycle
     for f in 0..3 {
@@ -223,12 +223,12 @@ fn test_fragmentation_boundary_sparse() {
 
     // Build two cliques connected by single edge
     for i in 1..=4 {
-        for j in i+1..=4 {
+        for j in i + 1..=4 {
             frag.insert_edge(i, j, 1.0);
         }
     }
     for i in 5..=8 {
-        for j in i+1..=8 {
+        for j in i + 1..=8 {
             frag.insert_edge(i, j, 1.0);
         }
     }
@@ -240,7 +240,11 @@ fn test_fragmentation_boundary_sparse() {
     for fragment in frag.leaf_fragments() {
         let sparsity = fragment.boundary_sparsity();
         // Sparsity should be bounded (not guaranteed to be below threshold due to greedy)
-        assert!(sparsity <= 2.0, "Fragment has very high sparsity: {}", sparsity);
+        assert!(
+            sparsity <= 2.0,
+            "Fragment has very high sparsity: {}",
+            sparsity
+        );
     }
 }
 
@@ -310,12 +314,12 @@ fn test_hierarchy_global_min_cut_bound() {
 
     // Build two cliques connected by edges of weight 3
     for i in 1..=4 {
-        for j in i+1..=4 {
+        for j in i + 1..=4 {
             h.insert_edge(i, j, 1.0);
         }
     }
     for i in 5..=8 {
-        for j in i+1..=8 {
+        for j in i + 1..=8 {
             h.insert_edge(i, j, 1.0);
         }
     }
@@ -327,19 +331,33 @@ fn test_hierarchy_global_min_cut_bound() {
 
     // Brute force min cut
     let edges: Vec<(u64, u64, f64)> = vec![
-        (1, 2, 1.0), (1, 3, 1.0), (1, 4, 1.0),
-        (2, 3, 1.0), (2, 4, 1.0), (3, 4, 1.0),
-        (5, 6, 1.0), (5, 7, 1.0), (5, 8, 1.0),
-        (6, 7, 1.0), (6, 8, 1.0), (7, 8, 1.0),
-        (4, 5, 1.0), (3, 6, 1.0), (2, 7, 1.0),
+        (1, 2, 1.0),
+        (1, 3, 1.0),
+        (1, 4, 1.0),
+        (2, 3, 1.0),
+        (2, 4, 1.0),
+        (3, 4, 1.0),
+        (5, 6, 1.0),
+        (5, 7, 1.0),
+        (5, 8, 1.0),
+        (6, 7, 1.0),
+        (6, 8, 1.0),
+        (7, 8, 1.0),
+        (4, 5, 1.0),
+        (3, 6, 1.0),
+        (2, 7, 1.0),
     ];
     let vertices: Vec<u64> = (1..=8).collect();
     let brute = brute_force_min_cut(&edges, &vertices);
 
     // Hierarchy estimate should be <= actual min cut * some factor
     // (it's an upper bound approximation)
-    assert!(h.global_min_cut <= brute * 2.0 + 0.1 || h.global_min_cut.is_infinite(),
-        "Global min cut {} should be close to brute force {}", h.global_min_cut, brute);
+    assert!(
+        h.global_min_cut <= brute * 2.0 + 0.1 || h.global_min_cut.is_infinite(),
+        "Global min cut {} should be close to brute force {}",
+        h.global_min_cut,
+        brute
+    );
 }
 
 #[test]
@@ -377,12 +395,12 @@ fn test_mirror_cuts_between_expanders() {
 
     // Build two dense components
     for i in 1..=4 {
-        for j in i+1..=4 {
+        for j in i + 1..=4 {
             h.insert_edge(i, j, 1.0);
         }
     }
     for i in 10..=14 {
-        for j in i+1..=14 {
+        for j in i + 1..=14 {
             h.insert_edge(i, j, 1.0);
         }
     }
@@ -398,15 +416,20 @@ fn test_mirror_cuts_between_expanders() {
             has_mirror_cut = true;
             // Mirror cut should have the bridge
             for mirror in &cluster.mirror_cuts {
-                assert!(mirror.cut_value > 0.0, "Mirror cut should have positive value");
+                assert!(
+                    mirror.cut_value > 0.0,
+                    "Mirror cut should have positive value"
+                );
             }
         }
     }
 
     // If we have multiple expanders, should have mirror cuts
     if h.get_expanders().len() > 1 {
-        assert!(has_mirror_cut || h.get_clusters().len() > 1,
-            "Should track mirror cuts between expanders");
+        assert!(
+            has_mirror_cut || h.get_clusters().len() > 1,
+            "Should track mirror cuts between expanders"
+        );
     }
 }
 
@@ -435,8 +458,8 @@ fn property_fragmentation_idempotent() {
 
 #[test]
 fn property_hierarchy_covers_graph() {
-    use rand::{Rng, SeedableRng};
     use rand::rngs::StdRng;
+    use rand::{Rng, SeedableRng};
 
     let mut rng = StdRng::seed_from_u64(42);
 
@@ -445,7 +468,7 @@ fn property_hierarchy_covers_graph() {
 
         // Random edges
         let n = rng.gen_range(5..20);
-        let m = rng.gen_range(n..n*2);
+        let m = rng.gen_range(n..n * 2);
 
         for _ in 0..m {
             let u = rng.gen_range(1..=n) as u64;
@@ -465,8 +488,12 @@ fn property_hierarchy_covers_graph() {
 
         // All graph vertices should be covered
         let graph_vertices = h.stats().num_vertices;
-        assert_eq!(in_expanders.len(), graph_vertices,
-            "Expanders should cover all {} vertices", graph_vertices);
+        assert_eq!(
+            in_expanders.len(),
+            graph_vertices,
+            "Expanders should cover all {} vertices",
+            graph_vertices
+        );
     }
 }
 
@@ -477,7 +504,7 @@ fn property_localkcut_deterministic() {
     let mut lkc2 = DeterministicLocalKCut::new(10, 50, 2);
 
     // Same edges in same order
-    for (u, v) in [(1,2), (2,3), (3,4), (4,1), (1,3)] {
+    for (u, v) in [(1, 2), (2, 3), (3, 4), (4, 1), (1, 3)] {
         lkc1.insert_edge(u, v, 1.0);
         lkc2.insert_edge(u, v, 1.0);
     }
@@ -501,13 +528,13 @@ fn test_mirror_cut_certification() {
     // Build two well-separated components connected by a bridge
     // Component 1: vertices 1-4
     for i in 1..=4 {
-        for j in i+1..=4 {
+        for j in i + 1..=4 {
             h.insert_edge(i, j, 1.0);
         }
     }
     // Component 2: vertices 10-14
     for i in 10..=14 {
-        for j in i+1..=14 {
+        for j in i + 1..=14 {
             h.insert_edge(i, j, 1.0);
         }
     }
@@ -524,13 +551,20 @@ fn test_mirror_cut_certification() {
 
     // After certification, certified count should be >= 0
     let certified = h.num_certified_mirror_cuts();
-    assert!(certified <= total_mirror_cuts,
-        "Certified {} should be <= total {}", certified, total_mirror_cuts);
+    assert!(
+        certified <= total_mirror_cuts,
+        "Certified {} should be <= total {}",
+        certified,
+        total_mirror_cuts
+    );
 
     // If we have mirror cuts, certification should have processed them
     if total_mirror_cuts > 0 {
         // At least some should be certified (or all if valid)
-        assert!(certified >= 0, "Certification should not produce negative count");
+        assert!(
+            certified >= 0,
+            "Certification should not produce negative count"
+        );
     }
 }
 
@@ -538,24 +572,24 @@ fn test_mirror_cut_certification() {
 fn test_brute_force_matches_known_cut() {
     // Test our brute force helper against a known graph
     // Triangle with vertices 1, 2, 3 - min cut is 2 (remove any vertex)
-    let edges = vec![
-        (1, 2, 1.0),
-        (2, 3, 1.0),
-        (1, 3, 1.0),
-    ];
+    let edges = vec![(1, 2, 1.0), (2, 3, 1.0), (1, 3, 1.0)];
     let vertices = vec![1, 2, 3];
 
     let min_cut = brute_force_min_cut(&edges, &vertices);
-    assert!((min_cut - 2.0).abs() < 0.001, "Triangle min cut should be 2, got {}", min_cut);
+    assert!(
+        (min_cut - 2.0).abs() < 0.001,
+        "Triangle min cut should be 2, got {}",
+        min_cut
+    );
 
     // Path graph 1-2-3-4 - min cut is 1
-    let path_edges = vec![
-        (1, 2, 1.0),
-        (2, 3, 1.0),
-        (3, 4, 1.0),
-    ];
+    let path_edges = vec![(1, 2, 1.0), (2, 3, 1.0), (3, 4, 1.0)];
     let path_vertices = vec![1, 2, 3, 4];
 
     let path_cut = brute_force_min_cut(&path_edges, &path_vertices);
-    assert!((path_cut - 1.0).abs() < 0.001, "Path min cut should be 1, got {}", path_cut);
+    assert!(
+        (path_cut - 1.0).abs() < 0.001,
+        "Path min cut should be 1, got {}",
+        path_cut
+    );
 }

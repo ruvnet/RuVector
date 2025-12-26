@@ -1,9 +1,9 @@
 //! Loop Coordinator - Orchestrates all learning loops
 
 use crate::sona::ewc::{EwcConfig, EwcPlusPlus};
-use crate::sona::lora::{BaseLoRA, MicroLoRA};
 use crate::sona::loops::background::{BackgroundLoop, BackgroundLoopConfig, BackgroundResult};
 use crate::sona::loops::instant::{InstantLoop, InstantLoopConfig};
+use crate::sona::lora::{BaseLoRA, MicroLoRA};
 use crate::sona::reasoning_bank::{PatternConfig, ReasoningBank};
 use crate::sona::types::{QueryTrajectory, SonaConfig};
 use parking_lot::RwLock;

@@ -13,61 +13,33 @@
 
 use napi_derive::napi;
 
-pub mod attention;
-pub mod training;
 pub mod async_ops;
+pub mod attention;
 pub mod graph;
+pub mod training;
 
 // Re-export main attention types
 pub use attention::{
-    DotProductAttention,
-    MultiHeadAttention,
-    HyperbolicAttention,
-    FlashAttention,
-    LinearAttention,
-    LocalGlobalAttention,
-    MoEAttention,
-    MoEConfig,
-    AttentionConfig,
+    AttentionConfig, DotProductAttention, FlashAttention, HyperbolicAttention, LinearAttention,
+    LocalGlobalAttention, MoEAttention, MoEConfig, MultiHeadAttention,
 };
 
 // Re-export training types
 pub use training::{
-    InfoNCELoss,
-    LocalContrastiveLoss,
-    SpectralRegularization,
-    LossWithGradients,
-    SGDOptimizer,
-    AdamOptimizer,
-    AdamWOptimizer,
-    LearningRateScheduler,
-    TemperatureAnnealing,
-    DecayType,
-    CurriculumScheduler,
-    CurriculumStageConfig,
-    MiningStrategy,
-    HardNegativeMiner,
-    InBatchMiner,
+    AdamOptimizer, AdamWOptimizer, CurriculumScheduler, CurriculumStageConfig, DecayType,
+    HardNegativeMiner, InBatchMiner, InfoNCELoss, LearningRateScheduler, LocalContrastiveLoss,
+    LossWithGradients, MiningStrategy, SGDOptimizer, SpectralRegularization, TemperatureAnnealing,
 };
 
 // Re-export async/batch types
 pub use async_ops::{
-    BatchConfig,
-    BatchResult,
-    ParallelConfig,
-    AttentionType,
-    StreamProcessor,
-    BenchmarkResult,
+    AttentionType, BatchConfig, BatchResult, BenchmarkResult, ParallelConfig, StreamProcessor,
 };
 
 // Re-export graph attention types
 pub use graph::{
-    EdgeFeaturedAttention,
-    EdgeFeaturedConfig,
-    GraphRoPEAttention,
-    RoPEConfig,
-    DualSpaceAttention,
-    DualSpaceConfig,
+    DualSpaceAttention, DualSpaceConfig, EdgeFeaturedAttention, EdgeFeaturedConfig,
+    GraphRoPEAttention, RoPEConfig,
 };
 
 /// Get library version

@@ -109,7 +109,10 @@ pub mod ffi {
     #[no_mangle]
     pub extern "C" fn mincut_get_coordinator() -> *const SharedCoordinator {
         unsafe {
-            INSTANCE.as_ref().map(|i| i.coordinator_ptr()).unwrap_or(core::ptr::null())
+            INSTANCE
+                .as_ref()
+                .map(|i| i.coordinator_ptr())
+                .unwrap_or(core::ptr::null())
         }
     }
 
@@ -143,16 +146,17 @@ pub mod ffi {
     /// Get the current minimum cut value.
     #[no_mangle]
     pub extern "C" fn mincut_get_result() -> u16 {
-        unsafe {
-            INSTANCE.as_ref().map(|i| i.min_cut()).unwrap_or(u16::MAX)
-        }
+        unsafe { INSTANCE.as_ref().map(|i| i.min_cut()).unwrap_or(u16::MAX) }
     }
 
     /// Check if the computation is complete (returns 1 if complete, 0 otherwise).
     #[no_mangle]
     pub extern "C" fn mincut_is_complete() -> u8 {
         unsafe {
-            INSTANCE.as_ref().map(|i| i.is_complete() as u8).unwrap_or(0)
+            INSTANCE
+                .as_ref()
+                .map(|i| i.is_complete() as u8)
+                .unwrap_or(0)
         }
     }
 }
@@ -166,7 +170,10 @@ pub mod ruvector {
     pub fn from_ruvector_graph(
         vertices: &[u64],
         edges: &[(u64, u64, f32)],
-    ) -> (Vec<CompactVertexId>, Vec<(CompactVertexId, CompactVertexId, u16)>) {
+    ) -> (
+        Vec<CompactVertexId>,
+        Vec<(CompactVertexId, CompactVertexId, u16)>,
+    ) {
         // Create vertex ID mapping
         let mut vertex_map = BTreeMap::new();
         for (i, &v) in vertices.iter().enumerate() {
@@ -174,7 +181,8 @@ pub mod ruvector {
         }
 
         // Convert edges
-        let compact_edges: Vec<_> = edges.iter()
+        let compact_edges: Vec<_> = edges
+            .iter()
             .filter_map(|&(src, tgt, weight)| {
                 let cs = vertex_map.get(&src)?;
                 let ct = vertex_map.get(&tgt)?;
@@ -189,10 +197,7 @@ pub mod ruvector {
     }
 
     /// Compute minimum cut for RuVector graph
-    pub fn compute_mincut(
-        vertices: &[u64],
-        edges: &[(u64, u64, f32)],
-    ) -> Option<(u16, Vec<u64>)> {
+    pub fn compute_mincut(vertices: &[u64], edges: &[(u64, u64, f32)]) -> Option<(u16, Vec<u64>)> {
         let (compact_v, compact_e) = from_ruvector_graph(vertices, edges);
 
         if compact_v.len() > MAX_VERTICES_PER_CORE || compact_e.len() > 512 {
@@ -257,12 +262,7 @@ mod tests {
     #[test]
     fn test_ruvector_mincut() {
         let vertices: Vec<u64> = (0..5).collect();
-        let edges = vec![
-            (0u64, 1, 1.0f32),
-            (1, 2, 1.0),
-            (2, 3, 1.0),
-            (3, 4, 1.0),
-        ];
+        let edges = vec![(0u64, 1, 1.0f32), (1, 2, 1.0), (2, 3, 1.0), (3, 4, 1.0)];
 
         let result = ruvector::compute_mincut(&vertices, &edges);
 

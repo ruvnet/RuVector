@@ -19,7 +19,11 @@ pub struct Triple {
 
 impl Triple {
     pub fn new(subject: RdfTerm, predicate: Iri, object: RdfTerm) -> Self {
-        Self { subject, predicate, object }
+        Self {
+            subject,
+            predicate,
+            object,
+        }
     }
 
     /// Create from string components
@@ -340,7 +344,10 @@ impl TripleStore {
                     .unwrap_or_default()
                     .into_iter()
                     .filter(|id| {
-                        self.triples.get(id).map(|t| term_to_key(&t.object) == o_key).unwrap_or(false)
+                        self.triples
+                            .get(id)
+                            .map(|t| term_to_key(&t.object) == o_key)
+                            .unwrap_or(false)
                     })
                     .collect::<Vec<_>>()
             }
@@ -439,9 +446,7 @@ impl TripleStore {
             }
 
             // Nothing bound - return all
-            (None, None, None) => {
-                self.triples.iter().map(|entry| *entry.key()).collect()
-            }
+            (None, None, None) => self.triples.iter().map(|entry| *entry.key()).collect(),
         };
 
         // Apply graph filter and collect results
@@ -458,7 +463,10 @@ impl TripleStore {
 
     /// Get all triples in the store
     pub fn all_triples(&self) -> Vec<Triple> {
-        self.triples.iter().map(|entry| entry.value().clone()).collect()
+        self.triples
+            .iter()
+            .map(|entry| entry.value().clone())
+            .collect()
     }
 
     /// Get triple count
@@ -492,7 +500,10 @@ impl TripleStore {
                 .map(|ids| ids.iter().copied().collect())
                 .unwrap_or_default()
         } else {
-            self.default_graph.iter().map(|entry| *entry.key()).collect()
+            self.default_graph
+                .iter()
+                .map(|entry| *entry.key())
+                .collect()
         };
 
         for id in ids_to_remove {
@@ -513,7 +524,10 @@ impl TripleStore {
 
     /// List all named graphs
     pub fn list_graphs(&self) -> Vec<String> {
-        self.graphs.iter().map(|entry| entry.key().clone()).collect()
+        self.graphs
+            .iter()
+            .map(|entry| entry.key().clone())
+            .collect()
     }
 
     /// Get triples from a specific graph
@@ -718,6 +732,8 @@ mod tests {
         assert!(matches!(lang, RdfTerm::Literal(ref l) if l.language == Some("en".to_string())));
 
         let typed = parse_literal_string("\"42\"^^<http://www.w3.org/2001/XMLSchema#integer>");
-        assert!(matches!(typed, RdfTerm::Literal(ref l) if l.datatype.as_str() == "http://www.w3.org/2001/XMLSchema#integer"));
+        assert!(
+            matches!(typed, RdfTerm::Literal(ref l) if l.datatype.as_str() == "http://www.w3.org/2001/XMLSchema#integer")
+        );
     }
 }

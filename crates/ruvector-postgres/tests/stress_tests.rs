@@ -100,8 +100,10 @@ mod stress_tests {
 
                         let norm = normalized.norm();
                         if !data.iter().all(|&x| x == 0.0) {
-                            assert!((norm - 1.0).abs() < 1e-5,
-                                   "Normalized vector should have unit norm");
+                            assert!(
+                                (norm - 1.0).abs() < 1e-5,
+                                "Normalized vector should have unit norm"
+                            );
                         }
                     }
                 })
@@ -135,8 +137,7 @@ mod stress_tests {
         // Verify all vectors are intact
         for (i, v) in vectors.iter().enumerate() {
             assert_eq!(v.dimensions(), dimensions);
-            assert!(v.as_slice()[0] == (i * dimensions) as f32 * 0.001 ||
-                   v.as_slice()[0] == 0.0);
+            assert!(v.as_slice()[0] == (i * dimensions) as f32 * 0.001 || v.as_slice()[0] == 0.0);
         }
     }
 
@@ -145,9 +146,7 @@ mod stress_tests {
         // Test with maximum supported dimensions
         let max_dims = 10_000;
 
-        let data: Vec<f32> = (0..max_dims)
-            .map(|i| (i as f32) * 0.0001)
-            .collect();
+        let data: Vec<f32> = (0..max_dims).map(|i| (i as f32) * 0.0001).collect();
 
         let v = RuVector::from_slice(&data);
         assert_eq!(v.dimensions(), max_dims);
@@ -215,14 +214,13 @@ mod stress_tests {
 
         let candidates: Vec<_> = (0..num_candidates)
             .map(|i| {
-                let data: Vec<f32> = (0..5)
-                    .map(|j| ((i * 5 + j) as f32) * 0.01)
-                    .collect();
+                let data: Vec<f32> = (0..5).map(|j| ((i * 5 + j) as f32) * 0.01).collect();
                 RuVector::from_slice(&data)
             })
             .collect();
 
-        let distances: Vec<_> = candidates.iter()
+        let distances: Vec<_> = candidates
+            .iter()
             .map(|c| {
                 use ruvector_postgres::distance::euclidean_distance;
                 euclidean_distance(query.as_slice(), c.as_slice())
@@ -240,16 +238,12 @@ mod stress_tests {
 
         let vectors: Vec<_> = (0..num_vectors)
             .map(|i| {
-                let data: Vec<f32> = (0..dimensions)
-                    .map(|j| ((i + j) as f32) * 0.1)
-                    .collect();
+                let data: Vec<f32> = (0..dimensions).map(|j| ((i + j) as f32) * 0.1).collect();
                 RuVector::from_slice(&data)
             })
             .collect();
 
-        let normalized: Vec<_> = vectors.iter()
-            .map(|v| v.normalize())
-            .collect();
+        let normalized: Vec<_> = vectors.iter().map(|v| v.normalize()).collect();
 
         for n in &normalized {
             let norm = n.norm();
@@ -282,7 +276,7 @@ mod stress_tests {
             let _ = v1.normalize();
 
             use ruvector_postgres::distance::{
-                euclidean_distance, cosine_distance, manhattan_distance
+                cosine_distance, euclidean_distance, manhattan_distance,
             };
 
             let d1 = euclidean_distance(&data1, &data2);
@@ -329,8 +323,13 @@ mod stress_tests {
             let norm = v.norm();
 
             let expected = (size as f32).sqrt();
-            assert!((norm - expected).abs() < 0.01,
-                   "Size {}: expected {}, got {}", size, expected, norm);
+            assert!(
+                (norm - expected).abs() < 0.01,
+                "Size {}: expected {}, got {}",
+                size,
+                expected,
+                norm
+            );
         }
     }
 

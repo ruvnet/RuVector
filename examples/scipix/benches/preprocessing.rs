@@ -1,4 +1,4 @@
-use criterion::{criterion_group, criterion_main, Criterion, BenchmarkId, black_box};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use std::time::Duration;
 
 /// Benchmark individual preprocessing transforms
@@ -16,9 +16,7 @@ fn bench_individual_transforms(c: &mut Criterion) {
             BenchmarkId::new("grayscale", format!("{}x{}", w, h)),
             &image_data,
             |b, img| {
-                b.iter(|| {
-                    black_box(convert_to_grayscale(black_box(img), w, h))
-                });
+                b.iter(|| black_box(convert_to_grayscale(black_box(img), w, h)));
             },
         );
 
@@ -27,9 +25,7 @@ fn bench_individual_transforms(c: &mut Criterion) {
             BenchmarkId::new("gaussian_blur", format!("{}x{}", w, h)),
             &image_data,
             |b, img| {
-                b.iter(|| {
-                    black_box(apply_gaussian_blur(black_box(img), w, h, 5))
-                });
+                b.iter(|| black_box(apply_gaussian_blur(black_box(img), w, h, 5)));
             },
         );
 
@@ -38,9 +34,7 @@ fn bench_individual_transforms(c: &mut Criterion) {
             BenchmarkId::new("threshold", format!("{}x{}", w, h)),
             &image_data,
             |b, img| {
-                b.iter(|| {
-                    black_box(apply_adaptive_threshold(black_box(img), w, h))
-                });
+                b.iter(|| black_box(apply_adaptive_threshold(black_box(img), w, h)));
             },
         );
 
@@ -49,9 +43,7 @@ fn bench_individual_transforms(c: &mut Criterion) {
             BenchmarkId::new("edge_detection", format!("{}x{}", w, h)),
             &image_data,
             |b, img| {
-                b.iter(|| {
-                    black_box(detect_edges(black_box(img), w, h))
-                });
+                b.iter(|| black_box(detect_edges(black_box(img), w, h)));
             },
         );
 
@@ -60,9 +52,7 @@ fn bench_individual_transforms(c: &mut Criterion) {
             BenchmarkId::new("normalize", format!("{}x{}", w, h)),
             &image_data,
             |b, img| {
-                b.iter(|| {
-                    black_box(normalize_image(black_box(img)))
-                });
+                b.iter(|| black_box(normalize_image(black_box(img))));
             },
         );
     }
@@ -160,9 +150,7 @@ fn bench_resize_operations(c: &mut Criterion) {
             BenchmarkId::new("nearest_neighbor", format!("{}x{}", target_w, target_h)),
             &(target_w, target_h),
             |b, &(tw, th)| {
-                b.iter(|| {
-                    black_box(resize_nearest(&source_image, 1024, 1024, tw, th))
-                });
+                b.iter(|| black_box(resize_nearest(&source_image, 1024, 1024, tw, th)));
             },
         );
 
@@ -170,9 +158,7 @@ fn bench_resize_operations(c: &mut Criterion) {
             BenchmarkId::new("bilinear", format!("{}x{}", target_w, target_h)),
             &(target_w, target_h),
             |b, &(tw, th)| {
-                b.iter(|| {
-                    black_box(resize_bilinear(&source_image, 1024, 1024, tw, th))
-                });
+                b.iter(|| black_box(resize_bilinear(&source_image, 1024, 1024, tw, th)));
             },
         );
     }
@@ -205,9 +191,7 @@ fn bench_latency_target(c: &mut Criterion) {
 
 fn generate_test_image(width: u32, height: u32) -> Vec<u8> {
     let size = (width * height * 3) as usize;
-    (0..size)
-        .map(|i| ((i * 123 + 456) % 256) as u8)
-        .collect()
+    (0..size).map(|i| ((i * 123 + 456) % 256) as u8).collect()
 }
 
 fn convert_to_grayscale(rgb_data: &[u8], width: u32, height: u32) -> Vec<u8> {
@@ -306,9 +290,7 @@ fn detect_edges(data: &[u8], width: u32, height: u32) -> Vec<u8> {
 }
 
 fn normalize_image(data: &[u8]) -> Vec<f32> {
-    data.iter()
-        .map(|&x| (x as f32 - 128.0) / 128.0)
-        .collect()
+    data.iter().map(|&x| (x as f32 - 128.0) / 128.0).collect()
 }
 
 fn resize_nearest(src: &[u8], src_w: u32, src_h: u32, dst_w: u32, dst_h: u32) -> Vec<u8> {

@@ -209,9 +209,13 @@ impl EulerTourTree {
     /// Link: Make v a child of u (v must be in separate tree)
     pub fn link(&mut self, u: NodeId, v: NodeId) -> Result<()> {
         // Validate vertices exist
-        let u_idx = *self.first_occurrence.get(&u)
+        let u_idx = *self
+            .first_occurrence
+            .get(&u)
             .ok_or_else(|| MinCutError::InvalidVertex(u))?;
-        let v_root = *self.first_occurrence.get(&v)
+        let v_root = *self
+            .first_occurrence
+            .get(&v)
             .ok_or_else(|| MinCutError::InvalidVertex(v))?;
 
         // Check they're in different trees
@@ -255,7 +259,9 @@ impl EulerTourTree {
     /// O(log n) via Euler tour split and merge with O(1) exit node lookup.
     pub fn cut(&mut self, u: NodeId, v: NodeId) -> Result<()> {
         // Find the edge occurrence nodes
-        let edge_node = self.edge_to_node.remove(&(u, v))
+        let edge_node = self
+            .edge_to_node
+            .remove(&(u, v))
             .or_else(|| self.edge_to_node.remove(&(v, u)))
             .ok_or_else(|| MinCutError::EdgeNotFound(u, v))?;
 
@@ -343,7 +349,9 @@ impl EulerTourTree {
     /// Find the root of the tree containing v
     #[inline]
     pub fn find_root(&self, v: NodeId) -> Result<NodeId> {
-        let v_idx = *self.first_occurrence.get(&v)
+        let v_idx = *self
+            .first_occurrence
+            .get(&v)
             .ok_or_else(|| MinCutError::InvalidVertex(v))?;
         let root_idx = self.find_root_idx(v_idx)?;
         Ok(self.nodes[root_idx].vertex)
@@ -352,7 +360,9 @@ impl EulerTourTree {
     /// Get the size of the tree containing v
     #[inline]
     pub fn tree_size(&self, v: NodeId) -> Result<usize> {
-        let v_idx = *self.first_occurrence.get(&v)
+        let v_idx = *self
+            .first_occurrence
+            .get(&v)
             .ok_or_else(|| MinCutError::InvalidVertex(v))?;
         let root_idx = self.find_root_idx(v_idx)?;
 
@@ -364,9 +374,13 @@ impl EulerTourTree {
     /// Get the size of the subtree rooted at v
     #[inline]
     pub fn subtree_size(&self, v: NodeId) -> Result<usize> {
-        let first_idx = *self.first_occurrence.get(&v)
+        let first_idx = *self
+            .first_occurrence
+            .get(&v)
             .ok_or_else(|| MinCutError::InvalidVertex(v))?;
-        let last_idx = *self.last_occurrence.get(&v)
+        let last_idx = *self
+            .last_occurrence
+            .get(&v)
             .ok_or_else(|| MinCutError::InvalidVertex(v))?;
 
         if first_idx == last_idx {
@@ -384,7 +398,9 @@ impl EulerTourTree {
     /// Aggregate over the subtree rooted at v
     #[inline]
     pub fn subtree_aggregate(&self, v: NodeId) -> Result<f64> {
-        let first_idx = *self.first_occurrence.get(&v)
+        let first_idx = *self
+            .first_occurrence
+            .get(&v)
             .ok_or_else(|| MinCutError::InvalidVertex(v))?;
 
         // For simplicity, return the aggregate of the first occurrence's subtree
@@ -394,7 +410,9 @@ impl EulerTourTree {
     /// Update the value at vertex v
     #[inline]
     pub fn update_value(&mut self, v: NodeId, value: f64) -> Result<()> {
-        let first_idx = *self.first_occurrence.get(&v)
+        let first_idx = *self
+            .first_occurrence
+            .get(&v)
             .ok_or_else(|| MinCutError::InvalidVertex(v))?;
 
         self.nodes[first_idx].value = value;
@@ -463,7 +481,9 @@ impl EulerTourTree {
         let mut affected_indices = Vec::with_capacity(updates.len());
 
         for &(v, value) in updates {
-            let idx = *self.first_occurrence.get(&v)
+            let idx = *self
+                .first_occurrence
+                .get(&v)
                 .ok_or_else(|| MinCutError::InvalidVertex(v))?;
 
             self.nodes[idx].lazy_value = Some(value);
@@ -487,9 +507,11 @@ impl EulerTourTree {
     pub fn bulk_link(&mut self, edges: &[(NodeId, NodeId)]) -> Result<()> {
         // Validate all edges exist first
         for &(u, v) in edges {
-            self.first_occurrence.get(&u)
+            self.first_occurrence
+                .get(&u)
                 .ok_or_else(|| MinCutError::InvalidVertex(u))?;
-            self.first_occurrence.get(&v)
+            self.first_occurrence
+                .get(&v)
                 .ok_or_else(|| MinCutError::InvalidVertex(v))?;
         }
 
@@ -516,7 +538,9 @@ impl EulerTourTree {
             idx = parent;
             visited += 1;
             if visited > max_depth {
-                return Err(MinCutError::InternalError("Cycle detected in tree".to_string()));
+                return Err(MinCutError::InternalError(
+                    "Cycle detected in tree".to_string(),
+                ));
             }
         }
         Ok(idx)
@@ -524,7 +548,9 @@ impl EulerTourTree {
 
     /// Reroot implementation
     fn reroot_internal(&mut self, v: NodeId) -> Result<()> {
-        let v_first = *self.first_occurrence.get(&v)
+        let v_first = *self
+            .first_occurrence
+            .get(&v)
             .ok_or_else(|| MinCutError::InvalidVertex(v))?;
 
         // Get current root
@@ -574,7 +600,12 @@ impl EulerTourTree {
     }
 
     #[inline]
-    fn collect_vertices_helper(&self, idx: usize, vertices: &mut Vec<NodeId>, visited: &mut std::collections::HashSet<NodeId>) {
+    fn collect_vertices_helper(
+        &self,
+        idx: usize,
+        vertices: &mut Vec<NodeId>,
+        visited: &mut std::collections::HashSet<NodeId>,
+    ) {
         let node = &self.nodes[idx];
         if visited.insert(node.vertex) {
             vertices.push(node.vertex);
@@ -594,12 +625,12 @@ impl EulerTourTree {
     /// O(1) lookup via the enter_to_exit HashMap
     #[inline]
     fn find_matching_exit(&self, enter_idx: usize) -> Result<usize> {
-        self.enter_to_exit
-            .get(&enter_idx)
-            .copied()
-            .ok_or_else(|| MinCutError::InternalError(
-                format!("No matching exit node found for enter index {}", enter_idx)
+        self.enter_to_exit.get(&enter_idx).copied().ok_or_else(|| {
+            MinCutError::InternalError(format!(
+                "No matching exit node found for enter index {}",
+                enter_idx
             ))
+        })
     }
 
     /// Split treap at position pos
@@ -618,7 +649,10 @@ impl EulerTourTree {
         // Push down lazy values before split
         self.push_down_lazy(root);
 
-        let left_size = self.nodes[root].left.map(|l| self.nodes[l].size).unwrap_or(0);
+        let left_size = self.nodes[root]
+            .left
+            .map(|l| self.nodes[l].size)
+            .unwrap_or(0);
 
         if pos <= left_size {
             // Split in left subtree
@@ -810,7 +844,10 @@ impl EulerTourTree {
     /// Optimized walk-up with minimal overhead
     #[inline]
     fn get_position(&self, idx: usize) -> usize {
-        let mut pos = self.nodes[idx].left.map(|l| self.nodes[l].size).unwrap_or(0);
+        let mut pos = self.nodes[idx]
+            .left
+            .map(|l| self.nodes[l].size)
+            .unwrap_or(0);
         let mut current = idx;
 
         while let Some(parent) = self.nodes[current].parent {
@@ -952,10 +989,7 @@ mod tests {
         ett.link(1, 2).unwrap();
 
         // Trying to link again should fail
-        assert!(matches!(
-            ett.link(1, 2),
-            Err(MinCutError::EdgeExists(1, 2))
-        ));
+        assert!(matches!(ett.link(1, 2), Err(MinCutError::EdgeExists(1, 2))));
     }
 
     #[test]
@@ -1036,7 +1070,7 @@ mod tests {
         }
 
         // Create a chain
-        for i in 0..n-1 {
+        for i in 0..n - 1 {
             ett.link(i, i + 1).unwrap();
         }
 

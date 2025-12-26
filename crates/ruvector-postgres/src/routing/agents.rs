@@ -174,8 +174,7 @@ impl Agent {
 
         // Update quality score if provided
         if let Some(q) = quality {
-            self.performance.quality_score =
-                (self.performance.quality_score * n + q) / new_n;
+            self.performance.quality_score = (self.performance.quality_score * n + q) / new_n;
         }
 
         self.performance.total_requests += 1;

@@ -53,14 +53,16 @@ impl Graph {
     }
 
     fn weighted_degree(&self, v: u64) -> f64 {
-        self.adjacency.get(&v)
+        self.adjacency
+            .get(&v)
             .map(|adj| adj.iter().map(|(_, w)| w).sum())
             .unwrap_or(0.0)
     }
 
     /// Approximate min-cut using minimum weighted degree
     fn approx_mincut(&self) -> f64 {
-        self.vertices.iter()
+        self.vertices
+            .iter()
             .map(|&v| self.weighted_degree(v))
             .min_by(|a, b| a.partial_cmp(b).unwrap())
             .unwrap_or(0.0)
@@ -68,12 +70,15 @@ impl Graph {
 
     /// Find vertices with lowest connectivity (critical points)
     fn find_weak_vertices(&self) -> Vec<u64> {
-        let min_degree = self.vertices.iter()
+        let min_degree = self
+            .vertices
+            .iter()
             .map(|&v| self.degree(v))
             .min()
             .unwrap_or(0);
 
-        self.vertices.iter()
+        self.vertices
+            .iter()
             .filter(|&&v| self.degree(v) == min_degree)
             .copied()
             .collect()
@@ -146,8 +151,8 @@ struct Observation {
 /// Action the swarm can take on itself
 #[derive(Debug, Clone)]
 enum Action {
-    Strengthen(Vec<u64>),  // Add edges to these vertices
-    Redistribute,          // Balance connectivity
+    Strengthen(Vec<u64>), // Add edges to these vertices
+    Redistribute,         // Balance connectivity
     Stabilize,            // Do nothing - optimal state
 }
 
@@ -183,7 +188,10 @@ impl MetaSwarm {
         self.iteration += 1;
 
         println!("\n╔══════════════════════════════════════════════════════════╗");
-        println!("║  ITERATION {} - STRANGE LOOP CYCLE                       ", self.iteration);
+        println!(
+            "║  ITERATION {} - STRANGE LOOP CYCLE                       ",
+            self.iteration
+        );
         println!("╚══════════════════════════════════════════════════════════╝");
 
         // STEP 1: OBSERVE SELF
@@ -193,8 +201,11 @@ impl MetaSwarm {
 
         println!("   Min-cut value: {:.2}", current_mincut);
         println!("   Weak vertices: {:?}", weak_vertices);
-        println!("   Graph: {} vertices, {} edges",
-                 self.graph.vertex_count(), self.graph.edge_count());
+        println!(
+            "   Graph: {} vertices, {} edges",
+            self.graph.vertex_count(),
+            self.graph.edge_count()
+        );
 
         // STEP 2: UPDATE SELF-MODEL
         println!("\n🧠 Step 2: Update Self-Model");
@@ -206,7 +217,10 @@ impl MetaSwarm {
         println!("   Predicted min-cut: {:.2}", predicted);
         println!("   Actual min-cut: {:.2}", current_mincut);
         println!("   Prediction error: {:.2}", error);
-        println!("   Model confidence: {:.1}%", self.self_model.confidence * 100.0);
+        println!(
+            "   Model confidence: {:.1}%",
+            self.self_model.confidence * 100.0
+        );
 
         // STEP 3: DECIDE REORGANIZATION
         println!("\n🤔 Step 3: Decide Reorganization");
@@ -224,8 +238,11 @@ impl MetaSwarm {
 
         if changed {
             let new_mincut = self.graph.approx_mincut();
-            println!("   New min-cut: {:.2} (Δ = {:.2})",
-                     new_mincut, new_mincut - current_mincut);
+            println!(
+                "   New min-cut: {:.2} (Δ = {:.2})",
+                new_mincut,
+                new_mincut - current_mincut
+            );
         } else {
             println!("   No changes applied (stable state)");
         }
@@ -286,10 +303,16 @@ impl MetaSwarm {
             }
             Action::Redistribute => {
                 // Find most connected and least connected
-                let max_v = self.graph.vertices.iter()
+                let max_v = self
+                    .graph
+                    .vertices
+                    .iter()
                     .max_by_key(|&&v| self.graph.degree(v))
                     .copied();
-                let min_v = self.graph.vertices.iter()
+                let min_v = self
+                    .graph
+                    .vertices
+                    .iter()
                     .min_by_key(|&&v| self.graph.degree(v))
                     .copied();
 
@@ -313,7 +336,9 @@ impl MetaSwarm {
         }
 
         // Check if min-cut has stabilized
-        let recent: Vec<f64> = self.observations.iter()
+        let recent: Vec<f64> = self
+            .observations
+            .iter()
             .rev()
             .take(3)
             .map(|o| o.mincut)
@@ -334,8 +359,10 @@ impl MetaSwarm {
         println!("{}", "-".repeat(60));
 
         for obs in &self.observations {
-            println!("{:^9} | {:^7.2} | {}",
-                     obs.iteration, obs.mincut, obs.action_taken);
+            println!(
+                "{:^9} | {:^7.2} | {}",
+                obs.iteration, obs.mincut, obs.action_taken
+            );
         }
 
         if let (Some(first), Some(last)) = (self.observations.first(), self.observations.last()) {
@@ -344,7 +371,10 @@ impl MetaSwarm {
             println!("   Final min-cut: {:.2}", last.mincut);
             println!("   Improvement: {:.2}", last.mincut - first.mincut);
             println!("   Iterations: {}", self.iteration);
-            println!("   Final confidence: {:.1}%", self.self_model.confidence * 100.0);
+            println!(
+                "   Final confidence: {:.1}%",
+                self.self_model.confidence * 100.0
+            );
         }
     }
 }

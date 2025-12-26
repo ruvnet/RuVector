@@ -5,9 +5,9 @@
 //! - Product (PQ): 8-32x compression
 //! - Binary: 32x compression
 
-pub mod scalar;
-pub mod product;
 pub mod binary;
+pub mod product;
+pub mod scalar;
 
 use std::sync::atomic::{AtomicUsize, Ordering};
 

@@ -6,8 +6,8 @@ use crate::lora::MicroLoRA;
 use crate::trajectory::{TrajectoryBuffer, TrajectoryIdGen};
 use crate::types::{LearningSignal, QueryTrajectory, SonaConfig};
 use parking_lot::RwLock;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Arc;
 
 /// Configuration for instant loop
 #[derive(Clone, Debug)]
@@ -78,7 +78,10 @@ impl InstantLoop {
     pub fn new(hidden_dim: usize, config: InstantLoopConfig) -> Self {
         Self {
             trajectory_buffer: Arc::new(TrajectoryBuffer::new(config.buffer_capacity)),
-            micro_lora: Arc::new(RwLock::new(MicroLoRA::new(hidden_dim, config.micro_lora_rank))),
+            micro_lora: Arc::new(RwLock::new(MicroLoRA::new(
+                hidden_dim,
+                config.micro_lora_rank,
+            ))),
             id_gen: TrajectoryIdGen::new(),
             pending_signals: AtomicU64::new(0),
             config,
@@ -100,7 +103,9 @@ impl InstantLoop {
     pub fn on_trajectory(&self, trajectory: QueryTrajectory) {
         // Record to buffer
         self.trajectory_buffer.record(trajectory.clone());
-        self.metrics.trajectories_processed.fetch_add(1, Ordering::Relaxed);
+        self.metrics
+            .trajectories_processed
+            .fetch_add(1, Ordering::Relaxed);
 
         // Generate learning signal
         let signal = LearningSignal::from_trajectory(&trajectory);
@@ -108,7 +113,9 @@ impl InstantLoop {
         // Accumulate gradient (non-blocking)
         if let Some(mut lora) = self.micro_lora.try_write() {
             lora.accumulate_gradient(&signal);
-            self.metrics.signals_accumulated.fetch_add(1, Ordering::Relaxed);
+            self.metrics
+                .signals_accumulated
+                .fetch_add(1, Ordering::Relaxed);
 
             let pending = self.pending_signals.fetch_add(1, Ordering::Relaxed) + 1;
 
@@ -131,8 +138,12 @@ impl InstantLoop {
         if pending > 0 {
             lora.apply_accumulated(self.config.micro_lora_lr);
             self.pending_signals.store(0, Ordering::Relaxed);
-            self.metrics.flushes_performed.fetch_add(1, Ordering::Relaxed);
-            self.metrics.updates_applied.fetch_add(pending as u64, Ordering::Relaxed);
+            self.metrics
+                .flushes_performed
+                .fetch_add(1, Ordering::Relaxed);
+            self.metrics
+                .updates_applied
+                .fetch_add(pending as u64, Ordering::Relaxed);
         }
     }
 
@@ -197,7 +208,13 @@ mod tests {
         loop_a.on_trajectory(t);
 
         assert_eq!(loop_a.pending_count(), 1);
-        assert_eq!(loop_a.metrics.trajectories_processed.load(Ordering::Relaxed), 1);
+        assert_eq!(
+            loop_a
+                .metrics
+                .trajectories_processed
+                .load(Ordering::Relaxed),
+            1
+        );
     }
 
     #[test]

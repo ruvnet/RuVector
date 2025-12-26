@@ -252,12 +252,7 @@ mod tests {
 
     #[test]
     fn test_response_types() {
-        let expand = RefragSearchResult::expand(
-            "doc_1".into(),
-            0.95,
-            "Text content".into(),
-            0.9,
-        );
+        let expand = RefragSearchResult::expand("doc_1".into(), 0.95, "Text content".into(), 0.9);
         assert_eq!(expand.response_type, RefragResponseType::Expand);
         assert!(expand.content.is_some());
         assert!(expand.tensor_b64.is_none());

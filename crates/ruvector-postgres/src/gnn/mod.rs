@@ -58,7 +58,10 @@ impl GnnModel {
     }
 
     pub fn with_config(config: GnnConfig) -> Self {
-        Self { config, trained: false }
+        Self {
+            config,
+            trained: false,
+        }
     }
 
     pub fn is_trained(&self) -> bool {
@@ -73,14 +76,27 @@ impl GnnModel {
         node_features.to_vec()
     }
 
-    pub fn train(&mut self, _node_features: &[Vec<f32>], _adjacency: &[(usize, usize)], _epochs: usize) -> GnnTrainingStatus {
+    pub fn train(
+        &mut self,
+        _node_features: &[Vec<f32>],
+        _adjacency: &[(usize, usize)],
+        _epochs: usize,
+    ) -> GnnTrainingStatus {
         self.trained = true;
-        GnnTrainingStatus { epoch: 1, total_epochs: 1, loss: 0.0, accuracy: 1.0, completed: true }
+        GnnTrainingStatus {
+            epoch: 1,
+            total_epochs: 1,
+            loss: 0.0,
+            accuracy: 1.0,
+            completed: true,
+        }
     }
 }
 
 impl Default for GnnModel {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[pg_extern]

@@ -1,8 +1,8 @@
 // Graph traversal algorithms
 
 use super::storage::GraphStore;
-use std::collections::{VecDeque, HashMap, HashSet, BinaryHeap};
 use std::cmp::Ordering;
+use std::collections::{BinaryHeap, HashMap, HashSet, VecDeque};
 
 /// Result of a path search
 #[derive(Debug, Clone)]
@@ -247,11 +247,7 @@ pub fn shortest_path_dijkstra(
 }
 
 /// Reconstruct path from parent map
-fn reconstruct_path(
-    parent: &HashMap<u64, (u64, u64)>,
-    start: u64,
-    end: u64,
-) -> PathResult {
+fn reconstruct_path(parent: &HashMap<u64, (u64, u64)>, start: u64, end: u64) -> PathResult {
     let mut nodes = Vec::new();
     let mut edges = Vec::new();
     let mut current = end;
@@ -362,11 +358,21 @@ mod tests {
         let n4 = graph.add_node(vec![], HashMap::new());
         let n5 = graph.add_node(vec![], HashMap::new());
 
-        graph.add_edge(n1, n2, "KNOWS".to_string(), HashMap::new()).unwrap();
-        graph.add_edge(n2, n3, "KNOWS".to_string(), HashMap::new()).unwrap();
-        graph.add_edge(n3, n4, "KNOWS".to_string(), HashMap::new()).unwrap();
-        graph.add_edge(n1, n5, "KNOWS".to_string(), HashMap::new()).unwrap();
-        graph.add_edge(n5, n4, "KNOWS".to_string(), HashMap::new()).unwrap();
+        graph
+            .add_edge(n1, n2, "KNOWS".to_string(), HashMap::new())
+            .unwrap();
+        graph
+            .add_edge(n2, n3, "KNOWS".to_string(), HashMap::new())
+            .unwrap();
+        graph
+            .add_edge(n3, n4, "KNOWS".to_string(), HashMap::new())
+            .unwrap();
+        graph
+            .add_edge(n1, n5, "KNOWS".to_string(), HashMap::new())
+            .unwrap();
+        graph
+            .add_edge(n5, n4, "KNOWS".to_string(), HashMap::new())
+            .unwrap();
 
         graph
     }
@@ -402,26 +408,32 @@ mod tests {
         let n2 = graph.add_node(vec![], HashMap::new());
         let n3 = graph.add_node(vec![], HashMap::new());
 
-        graph.add_edge(
-            n1,
-            n2,
-            "KNOWS".to_string(),
-            HashMap::from([("weight".to_string(), 5.0.into())]),
-        ).unwrap();
+        graph
+            .add_edge(
+                n1,
+                n2,
+                "KNOWS".to_string(),
+                HashMap::from([("weight".to_string(), 5.0.into())]),
+            )
+            .unwrap();
 
-        graph.add_edge(
-            n2,
-            n3,
-            "KNOWS".to_string(),
-            HashMap::from([("weight".to_string(), 3.0.into())]),
-        ).unwrap();
+        graph
+            .add_edge(
+                n2,
+                n3,
+                "KNOWS".to_string(),
+                HashMap::from([("weight".to_string(), 3.0.into())]),
+            )
+            .unwrap();
 
-        graph.add_edge(
-            n1,
-            n3,
-            "KNOWS".to_string(),
-            HashMap::from([("weight".to_string(), 10.0.into())]),
-        ).unwrap();
+        graph
+            .add_edge(
+                n1,
+                n3,
+                "KNOWS".to_string(),
+                HashMap::from([("weight".to_string(), 10.0.into())]),
+            )
+            .unwrap();
 
         let path = shortest_path_dijkstra(&graph, n1, n3, "weight").unwrap();
         assert_eq!(path.cost, 8.0); // 5 + 3

@@ -105,7 +105,10 @@ impl ConfidenceCalibrator {
     /// * `predictions` - Raw confidence scores from the model
     /// * `ground_truth` - Binary labels (1.0 if correct, 0.0 if incorrect)
     pub fn train(&mut self, predictions: &[f32], ground_truth: &[f32]) -> Result<()> {
-        debug!("Training confidence calibrator on {} samples", predictions.len());
+        debug!(
+            "Training confidence calibrator on {} samples",
+            predictions.len()
+        );
 
         if predictions.len() != ground_truth.len() {
             return Err(super::OcrError::InvalidConfig(
@@ -138,7 +141,10 @@ impl ConfidenceCalibrator {
         self.enforce_monotonicity();
 
         self.is_trained = true;
-        debug!("Calibrator trained with {} bins", self.calibration_map.len());
+        debug!(
+            "Calibrator trained with {} bins",
+            self.calibration_map.len()
+        );
 
         Ok(())
     }

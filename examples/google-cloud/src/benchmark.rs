@@ -129,8 +129,12 @@ impl LatencyStats {
             return 0.0;
         }
         let mean = self.mean();
-        let variance =
-            self.times_ms.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / self.times_ms.len() as f64;
+        let variance = self
+            .times_ms
+            .iter()
+            .map(|x| (x - mean).powi(2))
+            .sum::<f64>()
+            / self.times_ms.len() as f64;
         variance.sqrt()
     }
 
@@ -139,7 +143,10 @@ impl LatencyStats {
     }
 
     pub fn max(&self) -> f64 {
-        self.times_ms.iter().cloned().fold(f64::NEG_INFINITY, f64::max)
+        self.times_ms
+            .iter()
+            .cloned()
+            .fold(f64::NEG_INFINITY, f64::max)
     }
 
     pub fn count(&self) -> usize {
@@ -180,7 +187,10 @@ impl SystemInfo {
 fn detect_gpu() -> (bool, Option<String>, Option<f64>) {
     // Check for NVIDIA GPU via nvidia-smi
     if let Ok(output) = std::process::Command::new("nvidia-smi")
-        .args(["--query-gpu=name,memory.total", "--format=csv,noheader,nounits"])
+        .args([
+            "--query-gpu=name,memory.total",
+            "--format=csv,noheader,nounits",
+        ])
         .output()
     {
         if output.status.success() {
@@ -218,11 +228,7 @@ pub fn generate_vectors(count: usize, dims: usize, normalized: bool) -> Vec<Vec<
 }
 
 /// Generate clustered vectors (for more realistic workloads)
-pub fn generate_clustered_vectors(
-    count: usize,
-    dims: usize,
-    num_clusters: usize,
-) -> Vec<Vec<f32>> {
+pub fn generate_clustered_vectors(count: usize, dims: usize, num_clusters: usize) -> Vec<Vec<f32>> {
     let mut rng = rand::thread_rng();
 
     // Generate cluster centers
@@ -240,10 +246,7 @@ pub fn generate_clustered_vectors(
             let center = &centers[cluster_idx];
             let normal = Normal::new(0.0f32, 0.5f32).unwrap();
 
-            center
-                .iter()
-                .map(|c| c + normal.sample(&mut rng))
-                .collect()
+            center.iter().map(|c| c + normal.sample(&mut rng)).collect()
         })
         .collect()
 }
@@ -322,8 +325,13 @@ pub async fn run_quick(
 
     // Distance computation benchmark
     println!("\n🚀 Running distance computation benchmark...");
-    let distance_result =
-        benchmark_distance_computation(dims, num_vectors, num_queries, 100, gpu && sys_info.gpu_available)?;
+    let distance_result = benchmark_distance_computation(
+        dims,
+        num_vectors,
+        num_queries,
+        100,
+        gpu && sys_info.gpu_available,
+    )?;
     results.push(distance_result);
 
     // HNSW index benchmark
@@ -427,7 +435,13 @@ pub async fn run_distance(
     println!("🚀 Running distance computation benchmark...");
 
     let sys_info = SystemInfo::collect();
-    let result = benchmark_distance_computation(dims, num_vectors, batch_size, iterations, sys_info.gpu_available)?;
+    let result = benchmark_distance_computation(
+        dims,
+        num_vectors,
+        batch_size,
+        iterations,
+        sys_info.gpu_available,
+    )?;
 
     println!("\n📈 Results:");
     println!("   Mean: {:.3} ms", result.mean_time_ms);
@@ -451,14 +465,20 @@ pub async fn run_gnn(
     output: Option<PathBuf>,
 ) -> Result<()> {
     println!("🚀 Running GNN benchmark...");
-    println!("   Nodes: {}, Edges: {}, Dims: {}, Layers: {}", num_nodes, num_edges, dims, layers);
+    println!(
+        "   Nodes: {}, Edges: {}, Dims: {}, Layers: {}",
+        num_nodes, num_edges, dims, layers
+    );
 
     let result = benchmark_gnn_forward(num_nodes, num_edges, dims, layers, iterations)?;
 
     println!("\n📈 Results:");
     println!("   Mean: {:.3} ms", result.mean_time_ms);
     println!("   P99:  {:.3} ms", result.p99_ms);
-    println!("   Throughput: {:.1} nodes/sec", result.throughput_vectors_sec);
+    println!(
+        "   Throughput: {:.1} nodes/sec",
+        result.throughput_vectors_sec
+    );
 
     if let Some(output) = output {
         save_results(&[result], &output)?;
@@ -497,7 +517,11 @@ pub async fn run_hnsw(
 }
 
 /// Quantization benchmark
-pub async fn run_quantization(dims: usize, num_vectors: usize, output: Option<PathBuf>) -> Result<()> {
+pub async fn run_quantization(
+    dims: usize,
+    num_vectors: usize,
+    output: Option<PathBuf>,
+) -> Result<()> {
     println!("🚀 Running quantization benchmark...");
 
     let result = benchmark_quantization(dims, num_vectors)?;
@@ -602,10 +626,8 @@ fn benchmark_hnsw_index(
     _ef_search: usize,
     k: usize,
 ) -> Result<BenchmarkResult> {
-    let mut result = BenchmarkResult::new(
-        &format!("hnsw_{}d_{}v", dims, num_vectors),
-        "hnsw_search",
-    );
+    let mut result =
+        BenchmarkResult::new(&format!("hnsw_{}d_{}v", dims, num_vectors), "hnsw_search");
     result.dimensions = dims;
     result.num_vectors = num_vectors;
     result.num_queries = num_queries;
@@ -695,8 +717,12 @@ fn benchmark_gnn_forward(
     result.dimensions = dims;
     result.num_vectors = num_nodes;
     result.iterations = iterations;
-    result.metadata.insert("num_edges".to_string(), num_edges.to_string());
-    result.metadata.insert("num_layers".to_string(), layers.to_string());
+    result
+        .metadata
+        .insert("num_edges".to_string(), num_edges.to_string());
+    result
+        .metadata
+        .insert("num_layers".to_string(), layers.to_string());
 
     // Generate graph data
     let mut rng = rand::thread_rng();
@@ -772,8 +798,7 @@ fn benchmark_gnn_forward(
     result.qps = 1000.0 / result.mean_time_ms;
 
     // Memory estimate
-    result.memory_mb =
-        ((num_nodes * dims * 4) + (num_edges * 8)) as f64 / (1024.0 * 1024.0);
+    result.memory_mb = ((num_nodes * dims * 4) + (num_edges * 8)) as f64 / (1024.0 * 1024.0);
 
     Ok(result)
 }
@@ -808,8 +833,14 @@ fn benchmark_quantization(dims: usize, num_vectors: usize) -> Result<BenchmarkRe
     let quantized_size = (num_vectors * dims) as f64 / (1024.0 * 1024.0);
 
     result.memory_mb = quantized_size;
-    result.metadata.insert("original_memory_mb".to_string(), format!("{:.2}", original_size));
-    result.metadata.insert("compression_ratio".to_string(), format!("{:.1}x", original_size / quantized_size));
+    result.metadata.insert(
+        "original_memory_mb".to_string(),
+        format!("{:.2}", original_size),
+    );
+    result.metadata.insert(
+        "compression_ratio".to_string(),
+        format!("{:.1}x", original_size / quantized_size),
+    );
 
     // Mean quantization time per vector
     result.mean_time_ms = (result.build_time_secs * 1000.0) / num_vectors as f64;

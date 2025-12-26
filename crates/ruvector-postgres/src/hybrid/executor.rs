@@ -3,11 +3,13 @@
 //! Executes vector and keyword search branches, optionally in parallel,
 //! and fuses results using the configured algorithm.
 
-use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
-use super::bm25::{BM25Scorer, CorpusStats, TermFrequencies, Document, tokenize_query};
-use super::fusion::{DocId, FusionConfig, FusionMethod, FusedResult, FusionModel, fuse_results, learned_fusion};
+use super::bm25::{tokenize_query, BM25Scorer, CorpusStats, Document, TermFrequencies};
+use super::fusion::{
+    fuse_results, learned_fusion, DocId, FusedResult, FusionConfig, FusionMethod, FusionModel,
+};
 
 /// Hybrid search query
 #[derive(Debug, Clone)]
@@ -285,11 +287,7 @@ impl HybridExecutor {
 
         // Fuse results
         let fusion_start = std::time::Instant::now();
-        let fused = self.fuse(
-            &query,
-            &vector_results.results,
-            &keyword_results.results,
-        );
+        let fused = self.fuse(&query, &vector_results.results, &keyword_results.results);
         let fusion_elapsed = fusion_start.elapsed().as_secs_f64() * 1000.0;
 
         // Add rank information
@@ -479,17 +477,10 @@ mod tests {
 
         let executor = HybridExecutor::new(stats);
 
-        let query = HybridQuery::new(
-            "database query".into(),
-            vec![0.1; 128],
-            5,
-        );
+        let query = HybridQuery::new("database query".into(), vec![0.1; 128], 5);
 
-        let (results, exec_stats) = executor.execute(
-            &query,
-            mock_vector_search,
-            mock_keyword_search,
-        );
+        let (results, exec_stats) =
+            executor.execute(&query, mock_vector_search, mock_keyword_search);
 
         assert!(!results.is_empty());
         assert!(results.len() <= 5);
@@ -499,10 +490,7 @@ mod tests {
     #[test]
     fn test_strategy_selection() {
         // No filter -> Full
-        assert_eq!(
-            choose_strategy(None, 10000, false),
-            HybridStrategy::Full
-        );
+        assert_eq!(choose_strategy(None, 10000, false), HybridStrategy::Full);
 
         // Very selective filter -> PreFilter
         assert_eq!(
@@ -524,11 +512,7 @@ mod tests {
 
         let query = HybridQuery::new("test".into(), vec![0.1; 16], 5);
 
-        let (_, exec_stats) = executor.execute(
-            &query,
-            mock_vector_search,
-            mock_keyword_search,
-        );
+        let (_, exec_stats) = executor.execute(&query, mock_vector_search, mock_keyword_search);
 
         assert!(exec_stats.vector_latency_ms >= 0.0);
         assert!(exec_stats.keyword_latency_ms >= 0.0);

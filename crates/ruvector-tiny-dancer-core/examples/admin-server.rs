@@ -37,9 +37,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("Creating router with config:");
     println!("  Model path: {}", router_config.model_path);
-    println!("  Confidence threshold: {}", router_config.confidence_threshold);
+    println!(
+        "  Confidence threshold: {}",
+        router_config.confidence_threshold
+    );
     println!("  Max uncertainty: {}", router_config.max_uncertainty);
-    println!("  Circuit breaker: {}", router_config.enable_circuit_breaker);
+    println!(
+        "  Circuit breaker: {}",
+        router_config.enable_circuit_breaker
+    );
 
     let router = Router::new(router_config.clone())?;
 
@@ -68,16 +74,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Test routing to verify system works
     println!("\n--- Test Routing ---");
-    let candidates = vec![
-        Candidate {
-            id: "test-1".to_string(),
-            embedding: vec![0.5; 384],
-            metadata: HashMap::new(),
-            created_at: chrono::Utc::now().timestamp(),
-            access_count: 10,
-            success_rate: 0.95,
-        },
-    ];
+    let candidates = vec![Candidate {
+        id: "test-1".to_string(),
+        embedding: vec![0.5; 384],
+        metadata: HashMap::new(),
+        created_at: chrono::Utc::now().timestamp(),
+        access_count: 10,
+        success_rate: 0.95,
+    }];
 
     let request = RoutingRequest {
         query_embedding: vec![0.5; 384],
@@ -126,6 +130,6 @@ fn check_readiness(router: &Router) -> bool {
     // Check circuit breaker status
     match router.circuit_breaker_status() {
         Some(is_closed) => is_closed, // Ready only if circuit breaker is closed
-        None => true,                  // Ready if circuit breaker is disabled
+        None => true,                 // Ready if circuit breaker is disabled
     }
 }
