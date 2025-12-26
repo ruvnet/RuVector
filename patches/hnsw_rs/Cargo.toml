@@ -8,7 +8,7 @@ readme = "README.md"
 keywords = ["algorithms", "ann", "hnsw"]
 repository = "https://github.com/jean-pierreBoth/hnswlib-rs"
 documentation = "https://docs.rs/hnsw_rs"
-edition = "2024"
+edition = "2021"
 
 
 # declare a feature with no dependancy to get some modulated debug print
