@@ -2,7 +2,7 @@
 # Build, test, and package the PostgreSQL vector extension
 #
 # Features:
-# - Matrix testing across PostgreSQL 14, 15, 16, 17
+# - Matrix testing across PostgreSQL 16, 17 (LTS versions)
 # - Docker-based integration tests
 # - Performance regression detection
 # - Automated packaging for releases
@@ -118,7 +118,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest]
-        pg_version: [14, 15, 16, 17]
+        pg_version: [16, 17]
         include:
           # macOS tests for pg16 and pg17
           - os: macos-latest
@@ -246,7 +246,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        pg_version: [14, 15, 16, 17]
+        pg_version: [16, 17]
 
     steps:
       - name: Checkout code
@@ -424,7 +424,7 @@ jobs:
 
     strategy:
       matrix:
-        pg_version: [14, 15, 16, 17]
+        pg_version: [16, 17]
 
     steps:
       - name: Checkout code
