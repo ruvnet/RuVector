@@ -104,6 +104,11 @@ pub mod attention;
 pub mod ffn;
 pub mod mod_routing;
 pub mod early_exit;
+pub mod flash_attention;
+pub mod speculative;
+pub mod kv_cache;
+pub mod rope;
+pub mod mamba;
 
 #[cfg(feature = "trace")]
 pub mod trace;
@@ -135,6 +140,16 @@ pub use mod_routing::{
 pub use early_exit::{
     CoherenceEarlyExit, EarlyExitConfig, EarlyExitDecision, ExitReason,
 };
+pub use flash_attention::{
+    FlashAttentionConfig, flash_attention_forward, flash_attention_forward_i8, flash_mha,
+};
+pub use kv_cache::{QuantizedKVCache, HadamardTransform, QuantBits};
+pub use speculative::{
+    SpeculativeDecoder, SpeculativeConfig, DraftTree, DraftToken,
+    VerificationResult, generate_tree_attention_mask,
+};
+pub use rope::{RopeEmbedding, RopeConfig, RopeScaling};
+pub use mamba::{MambaLayer, MambaConfig, MambaState, MambaWeights};
 
 #[cfg(feature = "trace")]
 pub use trace::{TraceState, TraceSnapshot, TraceCounters};
@@ -163,6 +178,11 @@ pub mod prelude {
         QuantizedWeights, WeightsLoader,
         MincutDepthRouter, ModRoutingConfig, TokenRoute, RoutingStats,
         CoherenceEarlyExit, EarlyExitConfig, EarlyExitDecision, ExitReason,
+        QuantizedKVCache, HadamardTransform, QuantBits,
+        SpeculativeDecoder, SpeculativeConfig, DraftTree, DraftToken,
+        VerificationResult, generate_tree_attention_mask,
+        RopeEmbedding, RopeConfig, RopeScaling,
+        MambaLayer, MambaConfig, MambaState, MambaWeights,
         Error, Result,
     };
 
