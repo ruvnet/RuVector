@@ -584,9 +584,10 @@ mod tests {
 }
 
 #[cfg(feature = "pg_test")]
-#[pg_schema]
+#[pgrx::pg_schema]
 mod pg_tests {
     use super::*;
+    use pgrx::pg_test;
 
     // Note: sparsevec_in/out SQL functions are not exposed via #[pg_extern]
     // due to pgrx 0.12 trait requirements. Testing parse/display instead.
