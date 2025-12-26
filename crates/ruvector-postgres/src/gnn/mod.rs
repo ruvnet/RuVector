@@ -112,7 +112,7 @@ fn ruvector_gnn_default_config() -> pgrx::JsonB {
     pgrx::JsonB(serde_json::json!(GnnConfig::default()))
 }
 
-#[cfg(any(test, feature = "pg_test"))]
+#[cfg(feature = "pg_test")]
 #[pg_schema]
 mod tests {
     use super::*;

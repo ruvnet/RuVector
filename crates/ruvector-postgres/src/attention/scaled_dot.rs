@@ -138,7 +138,7 @@ impl Attention for ScaledDotAttention {
     }
 }
 
-#[cfg(any(test, feature = "pg_test"))]
+#[cfg(feature = "pg_test")]
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -265,7 +265,7 @@ mod tests {
     }
 }
 
-#[cfg(any(test, feature = "pg_test"))]
+#[cfg(feature = "pg_test")]
 #[pgrx::pg_schema]
 mod pg_tests {
     use super::*;

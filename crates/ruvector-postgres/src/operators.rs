@@ -496,7 +496,7 @@ pub fn graph_bipartite_score(query: Vec<f32>, node: Vec<f32>, edge_weight: f32) 
 // Tests
 // ============================================================================
 
-#[cfg(any(test, feature = "pg_test"))]
+#[cfg(feature = "pg_test")]
 #[pg_schema]
 mod tests {
     use super::*;

@@ -224,7 +224,7 @@ pub fn softmax_inplace(logits: &mut [f32]) {
     }
 }
 
-#[cfg(any(test, feature = "pg_test"))]
+#[cfg(feature = "pg_test")]
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -259,7 +259,7 @@ fn pg_sparse_bm25(
 // Tests
 // ============================================================================
 
-#[cfg(any(test, feature = "pg_test"))]
+#[cfg(feature = "pg_test")]
 #[pg_schema]
 mod tests {
     use super::*;

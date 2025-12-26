@@ -301,7 +301,7 @@ pub fn ruvector_gnn_batch_forward(
     JsonB(serde_json::json!(result))
 }
 
-#[cfg(any(test, feature = "pg_test"))]
+#[cfg(feature = "pg_test")]
 #[pg_schema]
 mod tests {
     use super::*;

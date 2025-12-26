@@ -6770,6 +6770,7 @@ dependencies = [
  "rand_chacha 0.3.1",
  "rayon",
  "rkyv",
+ "ruvector-mincut-gated-transformer",
  "serde",
  "serde_json",
  "simsimd",

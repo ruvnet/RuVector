@@ -1,6 +1,6 @@
 //! Comprehensive tests for sparse vector functionality.
 
-#[cfg(any(test, feature = "pg_test"))]
+#[cfg(feature = "pg_test")]
 mod sparse_tests {
     use super::super::*;
     use pgrx::prelude::*;

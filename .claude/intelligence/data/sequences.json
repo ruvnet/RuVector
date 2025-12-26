@@ -21,6 +21,21 @@
       "source": "crates/ruvector-postgres/src/tenancy/mod.rs",
       "test": "crates/ruvector-postgres/tests/tenancy/mod.test.rs",
       "editCount": 2
+    },
+    "crates/ruvector-postgres/src/gated_transformer/mod.rs|crates/ruvector-postgres/tests/gated_transformer/mod.test.rs": {
+      "source": "crates/ruvector-postgres/src/gated_transformer/mod.rs",
+      "test": "crates/ruvector-postgres/tests/gated_transformer/mod.test.rs",
+      "editCount": 8
+    },
+    "crates/ruvector-postgres/src/integrity/mod.rs|crates/ruvector-postgres/tests/integrity/mod.test.rs": {
+      "source": "crates/ruvector-postgres/src/integrity/mod.rs",
+      "test": "crates/ruvector-postgres/tests/integrity/mod.test.rs",
+      "editCount": 2
+    },
+    "crates/ruvector-postgres/src/lib.rs|crates/ruvector-postgres/tests/lib.test.rs": {
+      "source": "crates/ruvector-postgres/src/lib.rs",
+      "test": "crates/ruvector-postgres/tests/lib.test.rs",
+      "editCount": 1
     }
   }
 }

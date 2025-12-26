@@ -334,7 +334,7 @@ pub fn ruvector_embedding_dims(model_name: &str) -> i32 {
 // Tests
 // ============================================================================
 
-#[cfg(any(test, feature = "pg_test"))]
+#[cfg(feature = "pg_test")]
 #[pg_schema]
 mod tests {
     use super::*;

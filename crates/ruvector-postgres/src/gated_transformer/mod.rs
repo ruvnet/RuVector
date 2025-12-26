@@ -20,7 +20,7 @@ use pgrx::prelude::*;
 use ruvector_mincut_gated_transformer::{
     GatePacket, GateDecision, GateReason, TransformerConfig, GatePolicy,
     GateController, TierDecision,
-    CoherenceEarlyExit, EarlyExitConfig, EarlyExitDecision, ExitReason,
+    CoherenceEarlyExit, EarlyExitConfig, ExitReason,
     MincutDepthRouter, ModRoutingConfig, TokenRoute,
 };
 use serde::{Deserialize, Serialize};

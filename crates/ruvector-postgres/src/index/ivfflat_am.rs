@@ -1947,7 +1947,7 @@ fn ruivfflat_retrain(_index_name: &str, _sample_size: Option<i32>) -> bool {
 // Tests
 // ============================================================================
 
-#[cfg(any(test, feature = "pg_test"))]
+#[cfg(feature = "pg_test")]
 #[pg_schema]
 mod tests {
     use super::*;

@@ -367,6 +367,118 @@
       "followed": null,
       "outcome": null,
       "timestamp": "2025-12-26T20:53:07.165Z"
+    },
+    {
+      "id": "sug-1766790035260",
+      "suggested": "coder",
+      "confidence": 0,
+      "followed": null,
+      "outcome": null,
+      "timestamp": "2025-12-26T23:00:35.260Z"
+    },
+    {
+      "id": "sug-1766790045106",
+      "suggested": "coder",
+      "confidence": 0,
+      "followed": null,
+      "outcome": null,
+      "timestamp": "2025-12-26T23:00:45.106Z"
+    },
+    {
+      "id": "sug-1766790055005",
+      "suggested": "coder",
+      "confidence": 0,
+      "followed": null,
+      "outcome": null,
+      "timestamp": "2025-12-26T23:00:55.005Z"
+    },
+    {
+      "id": "sug-1766790155881",
+      "suggested": "rust-developer",
+      "confidence": 0.810964637699407,
+      "followed": null,
+      "outcome": null,
+      "timestamp": "2025-12-26T23:02:35.881Z"
+    },
+    {
+      "id": "sug-1766790188501",
+      "suggested": "rust-developer",
+      "confidence": 0.810964637699407,
+      "followed": null,
+      "outcome": null,
+      "timestamp": "2025-12-26T23:03:08.501Z"
+    },
+    {
+      "id": "sug-1766790205965",
+      "suggested": "rust-developer",
+      "confidence": 0.810964637699407,
+      "followed": null,
+      "outcome": null,
+      "timestamp": "2025-12-26T23:03:25.965Z"
+    },
+    {
+      "id": "sug-1766790422076",
+      "suggested": "backend-dev",
+      "confidence": 0,
+      "followed": null,
+      "outcome": null,
+      "timestamp": "2025-12-26T23:07:02.076Z"
+    },
+    {
+      "id": "sug-1766790511444",
+      "suggested": "rust-developer",
+      "confidence": 0.810964637699407,
+      "followed": null,
+      "outcome": null,
+      "timestamp": "2025-12-26T23:08:31.444Z"
+    },
+    {
+      "id": "sug-1766790521340",
+      "suggested": "rust-developer",
+      "confidence": 0.810964637699407,
+      "followed": null,
+      "outcome": null,
+      "timestamp": "2025-12-26T23:08:41.340Z"
+    },
+    {
+      "id": "sug-1766790532174",
+      "suggested": "rust-developer",
+      "confidence": 0.810964637699407,
+      "followed": null,
+      "outcome": null,
+      "timestamp": "2025-12-26T23:08:52.174Z"
+    },
+    {
+      "id": "sug-1766790546143",
+      "suggested": "rust-developer",
+      "confidence": 0.810964637699407,
+      "followed": null,
+      "outcome": null,
+      "timestamp": "2025-12-26T23:09:06.143Z"
+    },
+    {
+      "id": "sug-1766790585901",
+      "suggested": "rust-developer",
+      "confidence": 0.810964637699407,
+      "followed": null,
+      "outcome": null,
+      "timestamp": "2025-12-26T23:09:45.901Z"
+    },
+    {
+      "id": "sug-1766790632424",
+      "suggested": "rust-developer",
+      "confidence": 0.810964637699407,
+      "followed": null,
+      "outcome": null,
+      "timestamp": "2025-12-26T23:10:32.425Z"
+    },
+    {
+      "id": "sug-1766791874974",
+      "suggested": "rust-developer",
+      "confidence": 0.810964637699407,
+      "followed": null,
+      "outcome": null,
+      "timestamp": "2025-12-26T23:31:14.974Z"
     }
   ],
   "followRates": {

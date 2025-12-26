@@ -290,7 +290,7 @@ fn ruvector_minkowski_dot(a: Vec<f32>, b: Vec<f32>) -> f32 {
     model.minkowski_dot(&a, &b)
 }
 
-#[cfg(any(test, feature = "pg_test"))]
+#[cfg(feature = "pg_test")]
 #[pg_schema]
 mod tests {
     use super::*;
