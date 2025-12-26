@@ -80,3 +80,6 @@ hive-mind-prompt-*.txt
 
 # Native intelligence database (binary)
 .claude/intelligence/data/intelligence.db
+
+# Intelligence data files (generated, not tracked)
+.claude/intelligence/data/*.json
