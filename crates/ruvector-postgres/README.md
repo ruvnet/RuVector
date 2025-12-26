@@ -8,14 +8,18 @@
 [![npm](https://img.shields.io/npm/v/@ruvector/core.svg)](https://www.npmjs.com/package/@ruvector/core)
 [![Security](https://img.shields.io/badge/Security-Audited-green.svg)](docs/SECURITY_AUDIT_REPORT.md)
 
-**The most advanced PostgreSQL vector database extension.** A drop-in pgvector replacement with 77+ SQL functions, SIMD acceleration, 39 attention mechanisms, GNN layers, hyperbolic embeddings, SPARQL/RDF support, and self-learning capabilities.
+**The most advanced PostgreSQL vector database extension.** A drop-in pgvector replacement with **230+ SQL functions**, SIMD acceleration, 39 attention mechanisms, GNN layers, hyperbolic embeddings, mincut-gated transformers, hybrid search, multi-tenancy, self-healing, and self-learning capabilities.
 
 ## v2.0.0 Highlights (December 2025)
 
+- **Mincut-Gated Transformers**: Ultra-low-latency inference with coherence control via λ signals
+- **Hybrid Search**: Vector + BM25 fusion with RRF and linear blending
+- **Multi-Tenancy**: Row-level security with automatic tenant isolation
+- **Self-Healing**: Automated index repair with integrity validation
+- **Integrity Control**: Stoer-Wagner mincut-based quality assurance
 - **IVFFlat Index**: Full inverted list storage with proper page management
 - **HNSW Index**: Fixed query execution with heap scan integration
 - **Security Audit**: 3 critical SQL injection vulnerabilities fixed
-- **Multi-tenant**: Validated tenant isolation with parameterized queries
 - **GNN Module**: Complete Graph Neural Network operators
 
 ## Why RuVector?
@@ -26,9 +30,14 @@
 | Distance Metrics | 3 | 8+ (including hyperbolic) |
 | **Local Embeddings** | - | **6 models (fastembed)** |
 | **Attention Mechanisms** | - | **39 types** |
+| **Gated Transformers** | - | **Mincut-coherence control** |
+| **Hybrid Search** | - | **RRF + Linear fusion** |
 | **Graph Neural Networks** | - | **GCN, GraphSAGE, GAT** |
 | **Hyperbolic Embeddings** | - | **Poincare, Lorentz** |
 | **Sparse Vectors / BM25** | Partial | **Full support** |
+| **Multi-Tenancy** | - | **Row-level isolation** |
+| **Self-Healing** | - | **Auto index repair** |
+| **Integrity Control** | - | **Stoer-Wagner mincut** |
 | **Self-Learning** | - | **ReasoningBank** |
 | **Agent Routing** | - | **Tiny Dancer** |
 | **Graph/Cypher** | - | **Full support** |
@@ -124,7 +133,7 @@ ORDER BY distance
 LIMIT 10;
 ```
 
-## 67+ SQL Functions
+## 230+ SQL Functions
 
 RuVector exposes all advanced AI capabilities as native PostgreSQL functions.
 
@@ -448,6 +457,209 @@ SELECT ruvector_sparql_update('knowledge_graph', '
 - Named graphs support
 - Result formats: JSON, XML, CSV, TSV
 - **~198K triples/sec** insertion, **~5.5M queries/sec** lookups
+
+### Gated Transformers (13 functions)
+
+Ultra-low-latency transformer inference with mincut-gated coherence control.
+
+```sql
+-- Get gate decision from integrity mincut signals
+SELECT gated_transformer_gate_decision(
+    lambda := 150,        -- Current mincut value
+    lambda_prev := 160,   -- Previous mincut
+    boundary_count := 5,  -- Witness edge count
+    layer := 3            -- Current transformer layer
+);
+-- Returns: {"decision": "Allow", "reason": "None", "tier": 3, ...}
+
+-- Check early exit conditions
+SELECT gated_transformer_early_exit_check(
+    lambda := 180,
+    layer := 8,
+    total_layers := 12
+);
+-- Returns: {"can_exit": true, "confidence": 0.92, "exit_layer": 8, ...}
+
+-- Mixture-of-Depths token routing (50% FLOPs reduction)
+SELECT gated_transformer_route_tokens(
+    lambda := 150,
+    token_count := 512,
+    layer_capacity := 0.5  -- Route only 50% of tokens through compute
+);
+-- Returns: [{"index": 0, "route": "Compute"}, {"index": 1, "route": "Skip"}, ...]
+
+-- Configuration management
+SELECT gated_transformer_config();  -- Get current config
+SELECT gated_transformer_set_config(
+    lambda_min := 50,
+    lambda_critical := 20,
+    check_interval := 64
+);
+
+-- Policy management
+SELECT gated_transformer_gate_policy();  -- Get current policy
+SELECT gated_transformer_set_policy(
+    enable_tiering := true,
+    enable_kv_flush := true,
+    enable_freeze := false
+);
+
+-- Bridge with integrity module
+SELECT gated_transformer_from_integrity('my_hnsw_index');
+
+-- Get combined coherence score
+SELECT gated_transformer_coherence_score(
+    lambda := 150,
+    lambda_prev := 160,
+    boundary_count := 5
+);
+-- Returns: 0.875 (normalized 0-1 coherence)
+```
+
+**Gated Transformer Features:**
+- **Dynamic Compute Allocation**: Mixture-of-Depths routes tokens for 50% FLOPs reduction
+- **Early Exit**: Layer-skipping with 30-50% latency reduction when coherence is high
+- **Tiered Decisions**: 5 tiers from Full→Reduced→Conservative→Minimal→Critical
+- **KV-Cache Management**: Automatic flush/freeze based on coherence signals
+- **Boundary Detection**: Witness edge tracking for structural integrity
+
+### Hybrid Search (7 functions)
+
+Vector + keyword fusion with multiple ranking strategies.
+
+```sql
+-- Linear fusion (alpha blending)
+SELECT ruvector_hybrid_linear(
+    vector_results,   -- Array of (id, score) from vector search
+    keyword_results,  -- Array of (id, score) from BM25
+    alpha := 0.7      -- 0.7 vector weight, 0.3 keyword weight
+);
+
+-- Reciprocal Rank Fusion (RRF)
+SELECT ruvector_hybrid_rrf(
+    vector_results,
+    keyword_results,
+    k := 60  -- RRF constant
+);
+
+-- Combined search with auto-fusion
+SELECT ruvector_hybrid_search(
+    query_text := 'machine learning optimization',
+    query_embedding := $embedding,
+    table_name := 'documents',
+    text_column := 'content',
+    vector_column := 'embedding',
+    limit_k := 10
+);
+
+-- Get/Set hybrid search parameters
+SELECT ruvector_get_hybrid_alpha();  -- Returns current alpha
+SELECT ruvector_set_hybrid_alpha(0.6);
+SELECT ruvector_get_hybrid_rrf_k();
+SELECT ruvector_set_hybrid_rrf_k(40);
+```
+
+### Multi-Tenancy (17 functions)
+
+Row-level security with automatic tenant isolation.
+
+```sql
+-- Set current tenant context
+SELECT ruvector_set_tenant('tenant_123');
+SELECT ruvector_get_tenant();
+
+-- Create tenant-isolated table
+SELECT ruvector_create_tenant_table(
+    'documents',
+    'id SERIAL PRIMARY KEY, content TEXT, embedding ruvector(384)'
+);
+
+-- Automatic tenant filtering (via RLS policies)
+INSERT INTO documents (content, embedding)
+VALUES ('Hello', '[0.1, 0.2, ...]'::ruvector);
+-- Automatically tagged with tenant_id
+
+-- Query only sees current tenant's data
+SELECT * FROM documents
+WHERE embedding <-> $query < 0.5;
+
+-- Tenant management
+SELECT ruvector_list_tenants();
+SELECT ruvector_tenant_stats('tenant_123');
+SELECT ruvector_migrate_tenant('old_tenant', 'new_tenant');
+
+-- Cross-tenant queries (admin only)
+SELECT ruvector_admin_query_all_tenants('documents', 'SELECT count(*) FROM documents');
+```
+
+### Self-Healing (23 functions)
+
+Automated index repair with integrity validation.
+
+```sql
+-- Check index health
+SELECT ruvector_index_health('documents_embedding_idx');
+-- Returns: {"status": "healthy", "fragmentation": 0.05, "orphaned_nodes": 0}
+
+-- Automatic repair
+SELECT ruvector_auto_repair('documents_embedding_idx');
+
+-- Schedule maintenance
+SELECT ruvector_schedule_maintenance(
+    'documents_embedding_idx',
+    interval := '1 day',
+    repair_threshold := 0.1  -- Repair if fragmentation > 10%
+);
+
+-- Self-healing operations
+SELECT ruvector_compact_index('documents_embedding_idx');
+SELECT ruvector_rebalance_hnsw('documents_embedding_idx');
+SELECT ruvector_rebuild_ivf_centroids('documents_embedding_idx');
+SELECT ruvector_validate_graph_connectivity('documents_embedding_idx');
+
+-- Monitor healing status
+SELECT ruvector_healing_status();
+SELECT ruvector_last_repair_log('documents_embedding_idx');
+
+-- Integrity checks
+SELECT ruvector_check_orphaned_vectors('documents');
+SELECT ruvector_check_duplicate_vectors('documents', threshold := 0.001);
+```
+
+### Integrity Control (4 functions)
+
+Stoer-Wagner mincut-based quality assurance for vector indices.
+
+```sql
+-- Get integrity status
+SELECT ruvector_integrity_status();
+-- Returns: {"enabled": true, "active_contracts": 1, "contracts": ["default"]}
+
+-- Create integrity contract (SLA)
+SELECT ruvector_integrity_create_contract(
+    id := 'production_sla',
+    name := 'Production SLA',
+    min_recall := 0.95,        -- Minimum recall requirement
+    max_latency_ms := 100,     -- Maximum query latency
+    min_mincut := 0.1          -- Minimum graph connectivity
+);
+
+-- Validate against contract
+SELECT ruvector_integrity_validate(
+    'production_sla',
+    recall := 0.97,
+    latency_ms := 45,
+    mincut := 0.15
+);
+-- Returns: {"passed": true, "recall": 0.97, "latency_ms": 45, "mincut": 0.15, "failures": []}
+
+-- Compute mincut for graph connectivity
+SELECT ruvector_mincut(
+    n := 100,  -- Number of nodes
+    edges_json := '[{"u": 0, "v": 1, "w": 1.0}, ...]'::jsonb
+);
+-- Returns minimum cut value (Stoer-Wagner algorithm)
+```
 
 ## Vector Types
 
