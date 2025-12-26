@@ -1,0 +1,52 @@
+{
+  "name": "ruvllm-esp32",
+  "version": "0.2.0",
+  "description": "RuvLLM ESP32 - Full-featured LLM inference engine for ESP32 microcontrollers",
+  "keywords": [
+    "esp32",
+    "llm",
+    "ai",
+    "inference",
+    "embedded",
+    "microcontroller",
+    "rag",
+    "vector-search"
+  ],
+  "author": "RuVector Team",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ruvnet/ruvector.git",
+    "directory": "examples/ruvLLM/esp32-flash"
+  },
+  "homepage": "https://github.com/ruvnet/ruvector/tree/main/examples/ruvLLM/esp32-flash",
+  "bugs": {
+    "url": "https://github.com/ruvnet/ruvector/issues"
+  },
+  "bin": {
+    "ruvllm-esp32": "./bin/cli.js"
+  },
+  "files": [
+    "bin/",
+    "binaries/",
+    "scripts/",
+    "templates/",
+    "README.md"
+  ],
+  "scripts": {
+    "postinstall": "node bin/postinstall.js"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "os": [
+    "darwin",
+    "linux",
+    "win32"
+  ],
+  "cpu": [
+    "x64",
+    "arm64"
+  ],
+  "preferGlobal": true
+}

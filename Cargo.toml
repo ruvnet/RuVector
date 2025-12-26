@@ -1,5 +1,5 @@
 [workspace]
-exclude = ["crates/micro-hnsw-wasm"]
+exclude = ["crates/micro-hnsw-wasm", "examples/ruvLLM/esp32", "examples/ruvLLM/esp32-flash"]
 members = [
     "crates/ruvector-core",
     "crates/ruvector-node",
