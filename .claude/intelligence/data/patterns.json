@@ -124,12 +124,11 @@
     }
   },
   "cargo_in_general": {
-    "command-succeeded": 0.8,
+    "command-succeeded": 0.03282057241011145,
     "command-failed": 0,
     "_meta": {
-      "lastUpdate": "2025-11-20T22:36:54.000Z",
-      "updateCount": 88,
-      "firstSeen": "2025-12-25T19:13:29.000Z"
+      "lastUpdate": "2025-12-27T00:35:50.295Z",
+      "updateCount": 89
     }
   },
   "build_in_mincut": {
@@ -472,11 +471,11 @@
   },
   "edit_rs_in_ruvector-core": {
     "_meta": {
-      "lastUpdate": "2025-11-21T13:24:54.000Z",
-      "updateCount": 12,
-      "firstSeen": "2025-12-16T17:26:07.000Z"
+      "lastUpdate": "2025-12-27T00:35:46.788Z",
+      "updateCount": 13
     },
-    "rust-developer": 0.6959263623272283
+    "rust-developer": 0.6959263623272283,
+    "successful-edit": 0.02773500981126146
   },
   "edit_unknown_in_project": {
     "_meta": {
