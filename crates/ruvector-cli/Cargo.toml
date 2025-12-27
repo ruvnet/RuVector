@@ -17,10 +17,18 @@ path = "src/main.rs"
 name = "ruvector-mcp"
 path = "src/mcp_server.rs"
 
+[features]
+default = []
+postgres = ["tokio-postgres", "deadpool-postgres"]
+
 [dependencies]
 ruvector-core = { version = "0.1.2", path = "../ruvector-core" }
 ruvector-graph = { version = "0.1.0", path = "../ruvector-graph", features = ["storage"] }
 ruvector-gnn = { version = "0.1.0", path = "../ruvector-gnn" }
+
+# PostgreSQL support (optional)
+tokio-postgres = { version = "0.7", optional = true }
+deadpool-postgres = { version = "0.14", optional = true }
 
 # LRU cache for performance optimization
 lru = "0.12"

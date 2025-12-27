@@ -12,7 +12,8 @@ import { program } from 'commander';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { createStorageSync, StorageBackend, JsonStorage } from './storage.js';
+
+const INTEL_PATH = path.join(os.homedir(), '.ruvector', 'intelligence.json');
 
 interface QPattern {
   state: string;
@@ -64,6 +65,12 @@ interface SwarmEdge {
   coordination_count: number;
 }
 
+interface FileSequence {
+  from_file: string;
+  to_file: string;
+  count: number;
+}
+
 interface IntelligenceStats {
   total_patterns: number;
   total_memories: number;
@@ -78,7 +85,7 @@ interface IntelligenceData {
   memories: MemoryEntry[];
   trajectories: Trajectory[];
   errors: Record<string, ErrorPattern>;
-  file_sequences: { from_file: string; to_file: string; count: number }[];
+  file_sequences: FileSequence[];
   agents: Record<string, SwarmAgent>;
   edges: SwarmEdge[];
   stats: IntelligenceStats;
@@ -87,6 +94,7 @@ interface IntelligenceData {
 class Intelligence {
   private data: IntelligenceData;
   private alpha = 0.1;
+  private lastEditedFile: string | null = null;
 
   constructor() {
     this.data = this.load();
@@ -264,6 +272,100 @@ class Intelligence {
     }
   }
 
+  // Record file edit sequence for prediction
+  recordFileSequence(fromFile: string, toFile: string): void {
+    const existing = this.data.file_sequences.find(
+      s => s.from_file === fromFile && s.to_file === toFile
+    );
+    if (existing) {
+      existing.count++;
+    } else {
+      this.data.file_sequences.push({ from_file: fromFile, to_file: toFile, count: 1 });
+    }
+    this.lastEditedFile = toFile;
+  }
+
+  // Suggest next files based on sequences
+  suggestNext(file: string, limit = 3): { file: string; score: number }[] {
+    return this.data.file_sequences
+      .filter(s => s.from_file === file)
+      .sort((a, b) => b.count - a.count)
+      .slice(0, limit)
+      .map(s => ({ file: s.to_file, score: s.count }));
+  }
+
+  // Record error pattern
+  recordError(command: string, message: string): string[] {
+    const codeMatch = message.match(/error\[([A-Z]\d+)\]/i) || message.match(/([A-Z]\d{4})/);
+    const codes: string[] = [];
+
+    if (codeMatch) {
+      const code = codeMatch[1];
+      codes.push(code);
+
+      if (!this.data.errors[code]) {
+        this.data.errors[code] = {
+          code,
+          error_type: this.classifyError(code),
+          message: message.slice(0, 500),
+          fixes: [],
+          occurrences: 0
+        };
+      }
+      this.data.errors[code].occurrences++;
+      this.data.errors[code].message = message.slice(0, 500);
+      this.data.stats.total_errors = Object.keys(this.data.errors).length;
+    }
+
+    return codes;
+  }
+
+  private classifyError(code: string): string {
+    if (code.startsWith('E0')) return 'type-error';
+    if (code.startsWith('E1')) return 'borrow-error';
+    if (code.startsWith('E2')) return 'lifetime-error';
+    if (code.startsWith('E3')) return 'trait-error';
+    if (code.startsWith('E4')) return 'macro-error';
+    if (code.startsWith('E5')) return 'pattern-error';
+    if (code.startsWith('E6')) return 'import-error';
+    if (code.startsWith('E7')) return 'async-error';
+    return 'unknown-error';
+  }
+
+  // Get fix suggestions for error code
+  suggestFix(code: string): { code: string; type: string; fixes: string[]; occurrences: number } | null {
+    const error = this.data.errors[code];
+    if (!error) return null;
+    return {
+      code: error.code,
+      type: error.error_type,
+      fixes: error.fixes,
+      occurrences: error.occurrences
+    };
+  }
+
+  // Classify command type
+  classifyCommand(command: string): { category: string; subcategory: string; risk: string } {
+    const cmd = command.toLowerCase();
+
+    if (cmd.includes('cargo') || cmd.includes('rustc')) {
+      return { category: 'rust', subcategory: cmd.includes('test') ? 'test' : 'build', risk: 'low' };
+    }
+    if (cmd.includes('npm') || cmd.includes('node') || cmd.includes('yarn')) {
+      return { category: 'javascript', subcategory: cmd.includes('test') ? 'test' : 'build', risk: 'low' };
+    }
+    if (cmd.includes('git')) {
+      const risk = cmd.includes('push') || cmd.includes('force') ? 'medium' : 'low';
+      return { category: 'git', subcategory: 'vcs', risk };
+    }
+    if (cmd.includes('rm') || cmd.includes('delete')) {
+      return { category: 'filesystem', subcategory: 'destructive', risk: 'high' };
+    }
+
+    return { category: 'shell', subcategory: 'general', risk: 'low' };
+  }
+
+  // Swarm methods
   swarmRegister(id: string, agentType: string, capabilities: string[]): void {
     this.data.agents[id] = {
       id,
@@ -285,11 +387,52 @@ class Intelligence {
     }
   }
 
+  swarmOptimize(tasks: string[]): { task: string; agents: number; edges: number }[] {
+    return tasks.map(task => ({
+      task,
+      agents: Object.keys(this.data.agents).length,
+      edges: this.data.edges.length
+    }));
+  }
+
+  swarmRecommend(taskType: string): { agent: string; type: string; score: number } | null {
+    const agents = Object.values(this.data.agents);
+    if (agents.length === 0) return null;
+
+    // Find agent with matching capability or best success rate
+    const matching = agents.filter(a =>
+      a.capabilities.some(c => taskType.toLowerCase().includes(c.toLowerCase()))
+    );
+
+    const best = matching.length > 0
+      ? matching.sort((a, b) => b.success_rate - a.success_rate)[0]
+      : agents.sort((a, b) => b.success_rate - a.success_rate)[0];
+
+    return { agent: best.id, type: best.agent_type, score: best.success_rate };
+  }
+
+  swarmHeal(failedAgentId: string): { healed: boolean; replacement: string | null } {
+    const failed = this.data.agents[failedAgentId];
+    if (!failed) return { healed: false, replacement: null };
+
+    // Mark as failed
+    failed.status = 'failed';
+    failed.success_rate = 0;
+
+    // Find replacement with same type
+    const replacement = Object.values(this.data.agents).find(
+      a => a.agent_type === failed.agent_type && a.status === 'active' && a.id !== failedAgentId
+    );
+
+    return { healed: true, replacement: replacement?.id ?? null };
+  }
+
   swarmStats(): { agents: number; edges: number; avgSuccess: number } {
     const agents = Object.keys(this.data.agents).length;
     const edges = this.data.edges.length;
-    const avgSuccess = agents > 0
-      ? Object.values(this.data.agents).reduce((sum, a) => sum + a.success_rate, 0) / agents
+    const activeAgents = Object.values(this.data.agents).filter(a => a.status === 'active');
+    const avgSuccess = activeAgents.length > 0
+      ? activeAgents.reduce((sum, a) => sum + a.success_rate, 0) / activeAgents.length
       : 0;
     return { agents, edges, avgSuccess };
   }
@@ -302,6 +445,61 @@ class Intelligence {
     this.data.stats.session_count++;
     this.data.stats.last_session = this.now();
   }
+
+  sessionEnd(): { duration: number; actions: number } {
+    const duration = this.now() - this.data.stats.last_session;
+    const actions = this.data.trajectories.filter(t => t.timestamp >= this.data.stats.last_session).length;
+    return { duration, actions };
+  }
+
+  getLastEditedFile(): string | null {
+    return this.lastEditedFile;
+  }
+}
+
+// Generate Claude hooks configuration
+function generateClaudeHooksConfig(): object {
+  return {
+    hooks: {
+      PreToolUse: [
+        {
+          matcher: "Edit|Write|MultiEdit",
+          hooks: [
+            "npx @ruvector/cli hooks pre-edit \"$TOOL_INPUT_file_path\""
+          ]
+        },
+        {
+          matcher: "Bash",
+          hooks: [
+            "npx @ruvector/cli hooks pre-command \"$TOOL_INPUT_command\""
+          ]
+        }
+      ],
+      PostToolUse: [
+        {
+          matcher: "Edit|Write|MultiEdit",
+          hooks: [
+            "npx @ruvector/cli hooks post-edit --success \"$TOOL_INPUT_file_path\""
+          ]
+        },
+        {
+          matcher: "Bash",
+          hooks: [
+            "npx @ruvector/cli hooks post-command --success \"$TOOL_INPUT_command\""
+          ]
+        }
+      ],
+      SessionStart: [
+        "npx @ruvector/cli hooks session-start"
+      ],
+      Stop: [
+        "npx @ruvector/cli hooks session-end"
+      ],
+      PreCompact: [
+        "npx @ruvector/cli hooks pre-compact"
+      ]
+    }
+  };
 }
 
 // CLI setup
@@ -311,6 +509,67 @@ program
   .version('0.1.25');
 
 const hooks = program.command('hooks').description('Self-learning intelligence hooks for Claude Code');
+
+// ============================================================================
+// Core Commands
+// ============================================================================
+
+hooks.command('init')
+  .description('Initialize hooks in current project')
+  .option('--force', 'Force overwrite existing configuration')
+  .action((opts: { force?: boolean }) => {
+    const configPath = path.join(process.cwd(), '.ruvector', 'hooks.json');
+    const configDir = path.dirname(configPath);
+
+    if (fs.existsSync(configPath) && !opts.force) {
+      console.log('Hooks already initialized. Use --force to overwrite.');
+      return;
+    }
+
+    if (!fs.existsSync(configDir)) {
+      fs.mkdirSync(configDir, { recursive: true });
+    }
+
+    const config = {
+      version: '1.0.0',
+      enabled: true,
+      storage: 'json',
+      postgres_url: null,
+      learning: { alpha: 0.1, gamma: 0.95, epsilon: 0.1 }
+    };
+
+    fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+    console.log('✅ Hooks initialized at .ruvector/hooks.json');
+  });
+
+hooks.command('install')
+  .description('Install hooks into Claude settings')
+  .option('--settings-dir <dir>', 'Claude settings directory', '.claude')
+  .action((opts: { settingsDir: string }) => {
+    const settingsPath = path.join(process.cwd(), opts.settingsDir, 'settings.json');
+    const settingsDir = path.dirname(settingsPath);
+
+    if (!fs.existsSync(settingsDir)) {
+      fs.mkdirSync(settingsDir, { recursive: true });
+    }
+
+    let settings: Record<string, unknown> = {};
+    if (fs.existsSync(settingsPath)) {
+      try {
+        settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
+      } catch {}
+    }
+
+    const hooksConfig = generateClaudeHooksConfig();
+    settings = { ...settings, ...hooksConfig };
+
+    fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
+    console.log(`✅ Hooks installed to ${settingsPath}`);
+    console.log('\nInstalled hooks:');
+    console.log('  - PreToolUse: Edit, Write, MultiEdit, Bash');
+    console.log('  - PostToolUse: Edit, Write, MultiEdit, Bash');
+    console.log('  - SessionStart, Stop, PreCompact');
+  });
 
 hooks.command('stats')
   .description('Show intelligence statistics')
@@ -331,6 +590,10 @@ hooks.command('stats')
     console.log(`  \x1b[36m${rate}\x1b[0m average success rate`);
   });
 
+// ============================================================================
+// Session Hooks
+// ============================================================================
+
 hooks.command('session-start')
   .description('Session start hook')
   .action(() => {
@@ -340,6 +603,38 @@ hooks.command('session-start')
     console.log('\x1b[36m\x1b[1m🧠 RuVector Intelligence Layer Active\x1b[0m\n');
     console.log('⚡ Intelligence guides: agent routing, error fixes, file sequences');
   });
+
+hooks.command('session-end')
+  .description('Session end hook')
+  .option('--export-metrics', 'Export session metrics')
+  .action((opts: { exportMetrics?: boolean }) => {
+    const intel = new Intelligence();
+    const sessionInfo = intel.sessionEnd();
+    intel.save();
+
+    console.log('📊 Session ended. Learning data saved.');
+    if (opts.exportMetrics) {
+      console.log(JSON.stringify({
+        duration_seconds: sessionInfo.duration,
+        actions_recorded: sessionInfo.actions,
+        saved: true
+      }, null, 2));
+    }
+  });
+
+hooks.command('pre-compact')
+  .description('Pre-compact hook - save state before context compaction')
+  .action(() => {
+    const intel = new Intelligence();
+    const stats = intel.stats();
+    intel.save();
+
+    console.log(`🗜️ Pre-compact: ${stats.total_trajectories} trajectories, ${stats.total_memories} memories saved`);
+  });
+
+// ============================================================================
+// Edit Hooks
+// ============================================================================
 
 hooks.command('pre-edit')
   .description('Pre-edit intelligence hook')
@@ -355,6 +650,13 @@ hooks.command('pre-edit')
     console.log(`   📁 \x1b[36m${crate ?? 'project'}\x1b[0m/${fileName}`);
     console.log(`   🤖 Recommended: \x1b[32m\x1b[1m${agent}\x1b[0m (${(confidence * 100).toFixed(0)}% confidence)`);
     if (reason) console.log(`      → \x1b[2m${reason}\x1b[0m`);
+
+    // Show suggested next files
+    const nextFiles = intel.suggestNext(file, 3);
+    if (nextFiles.length > 0) {
+      console.log('   📎 Likely next files:');
+      nextFiles.forEach(n => console.log(`      - ${n.file} (${n.score} edits)`));
+    }
   });
 
 hooks.command('post-edit')
@@ -369,6 +671,12 @@ hooks.command('post-edit')
     const crate = crateMatch?.[1] ?? 'project';
     const state = `edit_${ext}_in_${crate}`;
 
+    // Record file sequence
+    const lastFile = intel.getLastEditedFile();
+    if (lastFile && lastFile !== file) {
+      intel.recordFileSequence(lastFile, file);
+    }
+
     intel.learn(state, success ? 'successful-edit' : 'failed-edit', success ? 'completed' : 'failed', success ? 1.0 : -0.5);
     intel.remember('edit', `${success ? 'successful' : 'failed'} edit of ${ext} in ${crate}`);
     intel.save();
@@ -378,6 +686,112 @@ hooks.command('post-edit')
     const test = intel.shouldTest(file);
     if (test.suggest) console.log(`   🧪 Consider: \x1b[36m${test.command}\x1b[0m`);
   });
+
+// ============================================================================
+// Command Hooks
+// ============================================================================
+
+hooks.command('pre-command')
+  .description('Pre-command intelligence hook')
+  .argument('<command...>', 'Command to analyze')
+  .action((command: string[]) => {
+    const intel = new Intelligence();
+    const cmd = command.join(' ');
+    const classification = intel.classifyCommand(cmd);
+
+    console.log('\x1b[1m🧠 Command Analysis:\x1b[0m');
+    console.log(`   📦 Category: \x1b[36m${classification.category}\x1b[0m`);
+    console.log(`   🏷️  Type: ${classification.subcategory}`);
+
+    if (classification.risk === 'high') {
+      console.log('   ⚠️  Risk: \x1b[31mHIGH\x1b[0m - Review carefully');
+    } else if (classification.risk === 'medium') {
+      console.log('   ⚡ Risk: \x1b[33mMEDIUM\x1b[0m');
+    } else {
+      console.log('   ✅ Risk: \x1b[32mLOW\x1b[0m');
+    }
+  });
+
+hooks.command('post-command')
+  .description('Post-command learning hook')
+  .argument('<command...>', 'Command that ran')
+  .option('--success', 'Command succeeded')
+  .option('--stderr <stderr>', 'Stderr output for error learning')
+  .action((command: string[], opts: { success?: boolean; stderr?: string }) => {
+    const intel = new Intelligence();
+    const cmd = command.join(' ');
+    const success = opts.success ?? true;
+
+    // Learn from command outcome
+    const classification = intel.classifyCommand(cmd);
+    intel.learn(
+      `cmd_${classification.category}_${classification.subcategory}`,
+      success ? 'success' : 'failure',
+      success ? 'completed' : 'failed',
+      success ? 0.8 : -0.3
+    );
+
+    // Learn from errors if stderr provided
+    if (opts.stderr) {
+      const errorCodes = intel.recordError(cmd, opts.stderr);
+      if (errorCodes.length > 0) {
+        console.log(`📊 Learned error patterns: ${errorCodes.join(', ')}`);
+      }
+    }
+
+    intel.remember('command', `${cmd} ${success ? 'succeeded' : 'failed'}`);
+    intel.save();
+
+    console.log(`📊 Command ${success ? '✅' : '❌'} recorded`);
+  });
+
+// ============================================================================
+// Error Learning
+// ============================================================================
+
+hooks.command('record-error')
+  .description('Record error pattern for learning')
+  .argument('<command>', 'Command that produced error')
+  .argument('<message>', 'Error message')
+  .action((command: string, message: string) => {
+    const intel = new Intelligence();
+    const codes = intel.recordError(command, message);
+    intel.save();
+
+    console.log(JSON.stringify({ errors: codes, recorded: codes.length }));
+  });
+
+hooks.command('suggest-fix')
+  .description('Get suggested fix for error code')
+  .argument('<code>', 'Error code (e.g., E0308)')
+  .action((code: string) => {
+    const intel = new Intelligence();
+    const fix = intel.suggestFix(code);
+
+    if (fix) {
+      console.log(JSON.stringify(fix, null, 2));
+    } else {
+      console.log(JSON.stringify({ code, fixes: [], occurrences: 0, type: 'unknown' }));
+    }
+  });
+
+hooks.command('suggest-next')
+  .description('Suggest next files to edit based on patterns')
+  .argument('<file>', 'Current file')
+  .option('-n, --limit <n>', 'Number of suggestions', '3')
+  .action((file: string, opts: { limit: string }) => {
+    const intel = new Intelligence();
+    const suggestions = intel.suggestNext(file, parseInt(opts.limit));
+
+    console.log(JSON.stringify({
+      current_file: file,
+      suggestions: suggestions.map(s => ({ file: s.file, frequency: s.score }))
+    }, null, 2));
+  });
+
+// ============================================================================
+// Memory Commands
+// ============================================================================
 
 hooks.command('remember')
   .description('Store content in semantic memory')
@@ -406,6 +820,10 @@ hooks.command('recall')
       }))
     }, null, 2));
   });
+
+// ============================================================================
+// Learning Commands
+// ============================================================================
 
 hooks.command('learn')
   .description('Record a learning trajectory')
@@ -442,9 +860,7 @@ hooks.command('route')
       task: task.join(' '),
       recommended: result.agent,
       confidence: result.confidence,
-      reasoning: result.reason,
-      file: opts.file,
-      crate: opts.crateName
+      reasoning: result.reason
     }, null, 2));
   });
 
@@ -455,6 +871,10 @@ hooks.command('should-test')
     const intel = new Intelligence();
     console.log(JSON.stringify(intel.shouldTest(file), null, 2));
   });
+
+// ============================================================================
+// Swarm Commands
+// ============================================================================
 
 hooks.command('swarm-register')
   .description('Register agent in swarm')
@@ -467,6 +887,51 @@ hooks.command('swarm-register')
     intel.swarmRegister(id, type, caps);
     intel.save();
     console.log(JSON.stringify({ success: true, agent_id: id, type }));
+  });
+
+hooks.command('swarm-coordinate')
+  .description('Record agent coordination')
+  .argument('<source>', 'Source agent ID')
+  .argument('<target>', 'Target agent ID')
+  .option('-w, --weight <n>', 'Coordination weight', '1.0')
+  .action((source: string, target: string, opts: { weight: string }) => {
+    const intel = new Intelligence();
+    intel.swarmCoordinate(source, target, parseFloat(opts.weight));
+    intel.save();
+    console.log(JSON.stringify({ success: true, source, target, weight: parseFloat(opts.weight) }));
+  });
+
+hooks.command('swarm-optimize')
+  .description('Optimize task distribution')
+  .argument('<tasks>', 'Tasks (comma-separated)')
+  .action((tasks: string) => {
+    const intel = new Intelligence();
+    const taskList = tasks.split(',').map(s => s.trim());
+    const result = intel.swarmOptimize(taskList);
+    console.log(JSON.stringify({ tasks: taskList.length, assignments: result }, null, 2));
+  });
+
+hooks.command('swarm-recommend')
+  .description('Recommend agent for task type')
+  .argument('<task-type>', 'Type of task')
+  .action((taskType: string) => {
+    const intel = new Intelligence();
+    const result = intel.swarmRecommend(taskType);
+    if (result) {
+      console.log(JSON.stringify({ task_type: taskType, recommended: result.agent, type: result.type, score: result.score }));
+    } else {
+      console.log(JSON.stringify({ task_type: taskType, recommended: null, message: 'No matching agent found' }));
+    }
+  });
+
+hooks.command('swarm-heal')
+  .description('Handle agent failure')
+  .argument('<agent-id>', 'Failed agent ID')
+  .action((agentId: string) => {
+    const intel = new Intelligence();
+    const result = intel.swarmHeal(agentId);
+    intel.save();
+    console.log(JSON.stringify({ failed_agent: agentId, healed: result.healed, replacement: result.replacement }));
   });
 
 hooks.command('swarm-stats')
