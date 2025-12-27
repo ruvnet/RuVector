@@ -18,6 +18,8 @@ ruvector hooks <command> [options]
 
 ## Commands Overview
 
+### Core Commands
+
 | Command | Description |
 |---------|-------------|
 | `init` | Initialize hooks system in current project |
@@ -28,14 +30,54 @@ ruvector hooks <command> [options]
 | `import` | Import patterns from file |
 | `enable` | Enable hooks system |
 | `disable` | Disable hooks system |
-| `pre-edit` | Execute pre-edit hook |
-| `post-edit` | Execute post-edit hook |
-| `pre-command` | Execute pre-command hook |
-| `post-command` | Execute post-command hook |
+| `validate-config` | Validate hook configuration |
+
+### Hook Execution Commands
+
+| Command | Description |
+|---------|-------------|
+| `pre-edit` | Pre-edit intelligence (agent assignment, validation) |
+| `post-edit` | Post-edit learning (record outcome, suggest next) |
+| `pre-command` | Pre-command intelligence (safety check) |
+| `post-command` | Post-command learning (error patterns) |
+
+### Session Commands
+
+| Command | Description |
+|---------|-------------|
 | `session-start` | Start a new session |
 | `session-end` | End current session |
 | `session-restore` | Restore a previous session |
-| `validate-config` | Validate hook configuration |
+
+### Memory Commands
+
+| Command | Description |
+|---------|-------------|
+| `remember` | Store content in vector memory |
+| `recall` | Search memory semantically |
+| `learn` | Record learning trajectory |
+| `suggest` | Get best action suggestion |
+| `route` | Route task to best agent |
+
+### V3 Intelligence Features
+
+| Command | Description |
+|---------|-------------|
+| `record-error` | Record error for pattern learning |
+| `suggest-fix` | Get suggested fixes for error code |
+| `suggest-next` | Suggest next files to edit |
+| `should-test` | Check if tests should run |
+
+### Swarm/Hive-Mind Commands
+
+| Command | Description |
+|---------|-------------|
+| `swarm-register` | Register agent in swarm |
+| `swarm-coordinate` | Record agent coordination |
+| `swarm-optimize` | Optimize task distribution |
+| `swarm-recommend` | Get best agent for task type |
+| `swarm-heal` | Handle agent failure |
+| `swarm-stats` | Show swarm statistics |
 
 ---
 
@@ -650,6 +692,333 @@ npx ruvector hooks validate-config --file .claude/settings.json
 
 # Auto-fix issues
 npx ruvector hooks validate-config --fix
+```
+
+---
+
+## Memory Commands
+
+### `remember`
+
+Store content in vector memory for semantic search.
+
+**Syntax:**
+```bash
+node .claude/intelligence/cli.js remember <type> <content>
+```
+
+**Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `type` | string | Memory category: `edit`, `command`, `decision`, `error` |
+| `content` | string | Content to store |
+
+**Examples:**
+
+```bash
+# Store an edit memory
+node .claude/intelligence/cli.js remember edit "implemented OAuth2 in auth.ts"
+
+# Store a decision
+node .claude/intelligence/cli.js remember decision "chose JWT over sessions for auth"
+```
+
+---
+
+### `recall`
+
+Search memory semantically.
+
+**Syntax:**
+```bash
+node .claude/intelligence/cli.js recall <query>
+```
+
+**Examples:**
+
+```bash
+# Find related memories
+node .claude/intelligence/cli.js recall "authentication implementation"
+
+# Search for error patterns
+node .claude/intelligence/cli.js recall "E0308 type mismatch"
+```
+
+**Output (JSON):**
+```json
+{
+  "query": "authentication",
+  "results": [
+    {
+      "type": "edit",
+      "content": "implemented OAuth2 in auth.ts",
+      "score": "0.85",
+      "timestamp": "2025-12-27T10:30:00Z"
+    }
+  ]
+}
+```
+
+---
+
+### `route`
+
+Route a task to the best agent based on learned patterns.
+
+**Syntax:**
+```bash
+node .claude/intelligence/cli.js route <task> [OPTIONS]
+```
+
+**Options:**
+
+| Option | Type | Description |
+|--------|------|-------------|
+| `--file` | `PATH` | File being worked on |
+| `--crate` | `NAME` | Crate name for Rust projects |
+| `--op` | `TYPE` | Operation type: `edit`, `test`, `review` |
+
+**Examples:**
+
+```bash
+# Route based on file type
+node .claude/intelligence/cli.js route "fix bug" --file src/auth.rs --crate ruvector-core
+
+# Route a testing task
+node .claude/intelligence/cli.js route "add tests" --file lib.rs --op test
+```
+
+**Output (JSON):**
+```json
+{
+  "recommended": "rust-developer",
+  "confidence": 0.82,
+  "reasoning": "Learned from 47 similar edits"
+}
+```
+
+---
+
+## V3 Intelligence Features
+
+### `record-error`
+
+Record an error for pattern learning.
+
+**Syntax:**
+```bash
+node .claude/intelligence/cli.js record-error <command> <stderr>
+```
+
+**Examples:**
+
+```bash
+# Record a Rust compilation error
+node .claude/intelligence/cli.js record-error "cargo build" "error[E0308]: mismatched types"
+```
+
+**Output:**
+```json
+{
+  "recorded": 1,
+  "errors": [{"type": "rust", "code": "E0308"}]
+}
+```
+
+---
+
+### `suggest-fix`
+
+Get suggested fixes for an error code based on past solutions.
+
+**Syntax:**
+```bash
+node .claude/intelligence/cli.js suggest-fix <error-code>
+```
+
+**Examples:**
+
+```bash
+# Get fix suggestions for Rust error
+node .claude/intelligence/cli.js suggest-fix "rust:E0308"
+
+# Get fix for npm error
+node .claude/intelligence/cli.js suggest-fix "npm:ERESOLVE"
+```
+
+**Output:**
+```json
+{
+  "errorCode": "rust:E0308",
+  "recentFixes": [
+    "Add explicit type annotation",
+    "Use .into() for conversion"
+  ],
+  "confidence": 0.75
+}
+```
+
+---
+
+### `suggest-next`
+
+Suggest next files to edit based on edit sequence patterns.
+
+**Syntax:**
+```bash
+node .claude/intelligence/cli.js suggest-next <file>
+```
+
+**Examples:**
+
+```bash
+# Get suggestions after editing lib.rs
+node .claude/intelligence/cli.js suggest-next "crates/ruvector-core/src/lib.rs"
+```
+
+**Output:**
+```json
+[
+  {"file": "mod.rs", "confidence": 0.85},
+  {"file": "tests.rs", "confidence": 0.72}
+]
+```
+
+---
+
+### `should-test`
+
+Check if tests should be run after editing a file.
+
+**Syntax:**
+```bash
+node .claude/intelligence/cli.js should-test <file>
+```
+
+**Examples:**
+
+```bash
+node .claude/intelligence/cli.js should-test "src/lib.rs"
+```
+
+**Output:**
+```json
+{
+  "suggest": true,
+  "command": "cargo test -p ruvector-core",
+  "reason": "Core library modified"
+}
+```
+
+---
+
+## Swarm/Hive-Mind Commands
+
+### `swarm-register`
+
+Register an agent in the swarm.
+
+**Syntax:**
+```bash
+node .claude/intelligence/cli.js swarm-register <id> <type> [capabilities...]
+```
+
+**Examples:**
+
+```bash
+# Register a Rust developer agent
+node .claude/intelligence/cli.js swarm-register agent-1 rust-developer testing optimization
+```
+
+---
+
+### `swarm-coordinate`
+
+Record coordination between agents.
+
+**Syntax:**
+```bash
+node .claude/intelligence/cli.js swarm-coordinate <source> <destination> [weight]
+```
+
+**Examples:**
+
+```bash
+# Record coordination from coder to reviewer
+node .claude/intelligence/cli.js swarm-coordinate coder-1 reviewer-1 1.5
+```
+
+---
+
+### `swarm-optimize`
+
+Optimize task distribution across agents.
+
+**Syntax:**
+```bash
+node .claude/intelligence/cli.js swarm-optimize <task1> <task2> ...
+```
+
+**Examples:**
+
+```bash
+node .claude/intelligence/cli.js swarm-optimize "implement auth" "write tests" "review code"
+```
+
+---
+
+### `swarm-recommend`
+
+Get the best agent for a task type.
+
+**Syntax:**
+```bash
+node .claude/intelligence/cli.js swarm-recommend <task-type> [capabilities...]
+```
+
+**Examples:**
+
+```bash
+node .claude/intelligence/cli.js swarm-recommend rust-development testing
+```
+
+---
+
+### `swarm-heal`
+
+Handle agent failure and recover.
+
+**Syntax:**
+```bash
+node .claude/intelligence/cli.js swarm-heal <agent-id>
+```
+
+**Examples:**
+
+```bash
+node .claude/intelligence/cli.js swarm-heal agent-3
+```
+
+---
+
+### `swarm-stats`
+
+Show swarm statistics.
+
+**Syntax:**
+```bash
+node .claude/intelligence/cli.js swarm-stats
+```
+
+**Output:**
+```json
+{
+  "agents": 5,
+  "activeAgents": 4,
+  "totalCoordinations": 127,
+  "avgCoordinationWeight": 1.2
+}
 ```
 
 ---
