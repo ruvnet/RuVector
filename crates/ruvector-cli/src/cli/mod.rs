@@ -3,9 +3,11 @@
 pub mod commands;
 pub mod format;
 pub mod graph;
+pub mod hooks;
 pub mod progress;
 
 pub use commands::*;
 pub use format::*;
 pub use graph::*;
+pub use hooks::*;
 pub use progress::ProgressTracker;

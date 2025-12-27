@@ -2,18 +2,21 @@
 
 Intelligent hooks for Claude Code that provide automatic agent assignment, code formatting, neural pattern training, and cross-session memory persistence.
 
-> **Implementation Status**: The hooks intelligence layer is fully functional via Node.js CLI (`.claude/intelligence/cli.js`). The portable Rust CLI (`npx ruvector hooks`) is planned - see [Implementation Plan](IMPLEMENTATION_PLAN.md).
+> **Implementation Status**: ✅ **FULLY IMPLEMENTED** - Both implementations are now functional:
+> - **Rust CLI**: `ruvector hooks <command>` (portable, high-performance)
+> - **Node.js**: `.claude/intelligence/cli.js` (legacy compatibility)
 
-## Current Implementation
+## Available Implementations
 
 ```bash
-# Working NOW - Node.js intelligence layer
-node .claude/intelligence/cli.js pre-edit <file>
-node .claude/intelligence/cli.js stats
+# Rust CLI (recommended - faster, portable)
+cargo run --bin ruvector -- hooks stats
+cargo run --bin ruvector -- hooks pre-edit <file>
+cargo run --bin ruvector -- hooks post-edit <file> --success
 
-# Planned - Portable Rust CLI (see Implementation Plan)
-npx ruvector hooks pre-edit --file <file>
-npx ruvector hooks stats
+# Node.js (legacy - still functional)
+node .claude/intelligence/cli.js stats
+node .claude/intelligence/cli.js pre-edit <file>
 ```
 
 ## Quick Navigation

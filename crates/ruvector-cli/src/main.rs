@@ -136,6 +136,12 @@ enum Commands {
         #[command(subcommand)]
         action: cli::graph::GraphCommands,
     },
+
+    /// Self-learning intelligence hooks for Claude Code
+    Hooks {
+        #[command(subcommand)]
+        action: cli::hooks::HooksCommands,
+    },
 }
 
 #[tokio::main]
@@ -228,6 +234,82 @@ async fn main() -> Result<()> {
                     grpc_port,
                     graphql,
                 } => cli::graph::serve_graph(&db, &host, http_port, grpc_port, graphql, &config),
+            }
+        }
+        Commands::Hooks { action } => {
+            use cli::hooks::HooksCommands;
+            match action {
+                HooksCommands::Init { force } => cli::hooks::init_hooks(force, &config),
+                HooksCommands::Install { settings_dir } => cli::hooks::install_hooks(&settings_dir, &config),
+                HooksCommands::Stats => cli::hooks::show_stats(&config),
+                HooksCommands::Remember { memory_type, content } => {
+                    cli::hooks::remember_content(&memory_type, &content.join(" "), &config)
+                }
+                HooksCommands::Recall { query, top_k } => {
+                    cli::hooks::recall_content(&query.join(" "), top_k, &config)
+                }
+                HooksCommands::Learn { state, action, reward } => {
+                    cli::hooks::learn_trajectory(&state, &action, reward, &config)
+                }
+                HooksCommands::Suggest { state, actions } => {
+                    cli::hooks::suggest_action(&state, &actions, &config)
+                }
+                HooksCommands::Route { task, file, crate_name, operation } => {
+                    cli::hooks::route_task(
+                        &task.join(" "),
+                        file.as_deref(),
+                        crate_name.as_deref(),
+                        &operation,
+                        &config,
+                    )
+                }
+                HooksCommands::PreEdit { file } => cli::hooks::pre_edit_hook(&file, &config),
+                HooksCommands::PostEdit { file, success } => {
+                    cli::hooks::post_edit_hook(&file, success, &config)
+                }
+                HooksCommands::PreCommand { command } => {
+                    cli::hooks::pre_command_hook(&command.join(" "), &config)
+                }
+                HooksCommands::PostCommand { command, success, stderr } => {
+                    cli::hooks::post_command_hook(&command.join(" "), success, stderr.as_deref(), &config)
+                }
+                HooksCommands::SessionStart { session_id } => {
+                    cli::hooks::session_start_hook(session_id.as_deref(), &config)
+                }
+                HooksCommands::SessionEnd { export_metrics } => {
+                    cli::hooks::session_end_hook(export_metrics, &config)
+                }
+                HooksCommands::PreCompact { length } => {
+                    cli::hooks::pre_compact_hook(length, &config)
+                }
+                HooksCommands::RecordError { command, stderr } => {
+                    cli::hooks::record_error_cmd(&command, &stderr, &config)
+                }
+                HooksCommands::SuggestFix { error_code } => {
+                    cli::hooks::suggest_fix_cmd(&error_code, &config)
+                }
+                HooksCommands::SuggestNext { file, count } => {
+                    cli::hooks::suggest_next_cmd(&file, count, &config)
+                }
+                HooksCommands::ShouldTest { file } => {
+                    cli::hooks::should_test_cmd(&file, &config)
+                }
+                HooksCommands::SwarmRegister { agent_id, agent_type, capabilities } => {
+                    cli::hooks::swarm_register_cmd(&agent_id, &agent_type, capabilities.as_deref(), &config)
+                }
+                HooksCommands::SwarmCoordinate { source, target, weight } => {
+                    cli::hooks::swarm_coordinate_cmd(&source, &target, weight, &config)
+                }
+                HooksCommands::SwarmOptimize { tasks } => {
+                    cli::hooks::swarm_optimize_cmd(&tasks, &config)
+                }
+                HooksCommands::SwarmRecommend { task_type } => {
+                    cli::hooks::swarm_recommend_cmd(&task_type, &config)
+                }
+                HooksCommands::SwarmHeal { agent_id } => {
+                    cli::hooks::swarm_heal_cmd(&agent_id, &config)
+                }
+                HooksCommands::SwarmStats => cli::hooks::swarm_stats_cmd(&config),
             }
         }
     };
