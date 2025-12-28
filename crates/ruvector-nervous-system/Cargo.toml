@@ -56,3 +56,42 @@ harness = false
 [[bench]]
 name = "latency_benchmarks"
 harness = false
+
+# Tier 1: Immediate Practical Applications
+[[example]]
+name = "anomaly_detection"
+path = "examples/tier1/anomaly_detection.rs"
+
+[[example]]
+name = "edge_autonomy"
+path = "examples/tier1/edge_autonomy.rs"
+
+[[example]]
+name = "medical_wearable"
+path = "examples/tier1/medical_wearable.rs"
+
+# Tier 2: Near-Term Transformative Applications
+[[example]]
+name = "self_optimizing_systems"
+path = "examples/tier2/self_optimizing_systems.rs"
+
+[[example]]
+name = "swarm_intelligence"
+path = "examples/tier2/swarm_intelligence.rs"
+
+[[example]]
+name = "adaptive_simulation"
+path = "examples/tier2/adaptive_simulation.rs"
+
+# Tier 3: Exotic But Real Applications
+[[example]]
+name = "machine_self_awareness"
+path = "examples/tier3/machine_self_awareness.rs"
+
+[[example]]
+name = "synthetic_nervous_systems"
+path = "examples/tier3/synthetic_nervous_systems.rs"
+
+[[example]]
+name = "bio_machine_interface"
+path = "examples/tier3/bio_machine_interface.rs"
