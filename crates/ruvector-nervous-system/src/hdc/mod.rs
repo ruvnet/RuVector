@@ -10,7 +10,10 @@ mod memory;
 
 pub use vector::{Hypervector, HdcError};
 pub use ops::{bind, bundle};
-pub use similarity::{hamming_distance, cosine_similarity};
+pub use similarity::{
+    batch_similarities, cosine_similarity, find_similar, hamming_distance,
+    jaccard_similarity, normalized_hamming, pairwise_similarities, top_k_similar,
+};
 pub use memory::HdcMemory;
 
 /// Number of bits in a hypervector (10,000)
