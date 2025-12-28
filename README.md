@@ -684,19 +684,29 @@ This creates `.claude/settings.json` with hook configurations:
 ```json
 {
   "hooks": {
-    "PreToolUse": [{
-      "matcher": "Edit|Write|MultiEdit",
-      "hooks": ["ruvector hooks pre-edit \"$TOOL_INPUT_file_path\""]
-    }],
-    "PostToolUse": [{
-      "matcher": "Edit|Write|MultiEdit",
-      "hooks": ["ruvector hooks post-edit \"$TOOL_INPUT_file_path\" --success"]
-    }],
+    "PreToolUse": [
+      { "matcher": "Edit|Write|MultiEdit", "hooks": ["ruvector hooks pre-edit \"$TOOL_INPUT_FILE_PATH\""] },
+      { "matcher": "Bash", "hooks": ["ruvector hooks pre-command \"$TOOL_INPUT_COMMAND\""] }
+    ],
+    "PostToolUse": [
+      { "matcher": "Edit|Write|MultiEdit", "hooks": ["ruvector hooks post-edit ... --success"] },
+      { "matcher": "Bash", "hooks": ["ruvector hooks post-command ... --success"] }
+    ],
     "SessionStart": ["ruvector hooks session-start"],
-    "Stop": ["ruvector hooks session-end"]
+    "Stop": ["ruvector hooks session-end --export-metrics"],
+    "PreCompact": ["ruvector hooks pre-compact"]
   }
 }
 ```
+
+**All 5 Claude Code hooks covered:**
+| Hook | When It Fires | What RuVector Does |
+|------|---------------|-------------------|
+| `PreToolUse` | Before file edit or command | Suggests agent, shows related files |
+| `PostToolUse` | After file edit or command | Records outcome, updates Q-values |
+| `SessionStart` | When session begins | Loads intelligence, shows stats |
+| `Stop` | When session ends | Saves state, exports metrics |
+| `PreCompact` | Before context compaction | Preserves critical memories |
 
 **2. Use routing for intelligent agent selection:**
 

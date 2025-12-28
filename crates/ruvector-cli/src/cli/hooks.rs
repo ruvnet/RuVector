@@ -936,6 +936,12 @@ pub fn init_hooks(force: bool, _config: &Config) -> Result<()> {
                     "type": "command",
                     "command": "ruvector hooks pre-edit \"$TOOL_INPUT_FILE_PATH\""
                 }]
+            }, {
+                "matcher": "Bash",
+                "hooks": [{
+                    "type": "command",
+                    "command": "ruvector hooks pre-command \"$TOOL_INPUT_COMMAND\""
+                }]
             }],
             "PostToolUse": [{
                 "matcher": "Edit|Write|MultiEdit",
@@ -954,6 +960,18 @@ pub fn init_hooks(force: bool, _config: &Config) -> Result<()> {
                 "hooks": [{
                     "type": "command",
                     "command": "ruvector hooks session-start"
+                }]
+            }],
+            "Stop": [{
+                "hooks": [{
+                    "type": "command",
+                    "command": "ruvector hooks session-end --export-metrics"
+                }]
+            }],
+            "PreCompact": [{
+                "hooks": [{
+                    "type": "command",
+                    "command": "ruvector hooks pre-compact"
                 }]
             }]
         }
