@@ -6507,6 +6507,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "ruvector-dag"
+version = "0.1.0"
+dependencies = [
+ "criterion",
+ "crossbeam",
+ "dashmap 5.5.3",
+ "getrandom 0.2.16",
+ "ndarray 0.15.6",
+ "parking_lot 0.12.5",
+ "proptest",
+ "rand 0.8.5",
+ "ruvector-core",
+ "serde",
+ "serde_json",
+ "thiserror 1.0.69",
+ "tokio",
+ "tokio-test",
+ "tracing",
+ "zeroize",
+]
+
+[[package]]
 name = "ruvector-filter"
 version = "0.1.29"
 dependencies = [
@@ -9785,6 +9807,20 @@ name = "zeroize"
 version = "1.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b97154e67e32c85465826e8bcc1c59429aaaf107c1e4a9e53c8d8ccd5eff88d0"
+dependencies = [
+ "zeroize_derive",
+]
+
+[[package]]
+name = "zeroize_derive"
+version = "1.4.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "85a5b4158499876c763cb03bc4e49185d3cccbabb15b33c627f7884f43db852e"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.111",
+]
 
 [[package]]
 name = "zerotrie"

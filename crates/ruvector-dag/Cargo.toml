@@ -1,0 +1,48 @@
+[package]
+name = "ruvector-dag"
+version = "0.1.0"
+edition = "2021"
+authors = ["RuVector Team"]
+description = "Directed Acyclic Graph (DAG) structures for query plan optimization with neural learning"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/ruvnet/ruvector"
+
+[dependencies]
+ruvector-core = { path = "../ruvector-core" }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+thiserror = "1.0"
+dashmap = "5.5"
+crossbeam = "0.8"
+parking_lot = "0.12"
+ndarray = "0.15"
+rand = "0.8"
+tokio = { version = "1", features = ["full"] }
+tracing = "0.1"
+getrandom = "0.2"
+zeroize = { version = "1.7", features = ["derive"] }
+
+[dev-dependencies]
+criterion = "0.5"
+proptest = "1.4"
+tokio-test = "0.4"
+
+[[bench]]
+name = "dag_benchmarks"
+harness = false
+
+[[test]]
+name = "integration"
+path = "tests/integration/mod.rs"
+
+[[example]]
+name = "basic_usage"
+
+[[example]]
+name = "attention_selection"
+
+[[example]]
+name = "learning_workflow"
+
+[[example]]
+name = "self_healing"

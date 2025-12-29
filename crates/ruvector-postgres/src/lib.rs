@@ -21,6 +21,7 @@ use pgrx::{GucContext, GucFlags, GucRegistry, GucSetting};
 
 // Module declarations
 pub mod attention;
+pub mod dag;
 pub mod distance;
 pub mod gnn;
 pub mod graph;
@@ -143,6 +144,9 @@ pub extern "C" fn _PG_init() {
 
     // Initialize tenant GUCs for multi-tenancy
     tenancy::init_tenant_gucs();
+
+    // Note: DAG neural learning is initialized on first use
+    // No explicit initialization required - state is lazy-loaded
 
     // Log initialization
     pgrx::log!(

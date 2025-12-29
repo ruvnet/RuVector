@@ -45,6 +45,7 @@ members = [
     "crates/sona",
     "crates/rvlite",
     "crates/ruvector-nervous-system",
+    "crates/ruvector-dag",
 ]
 resolver = "2"
 
