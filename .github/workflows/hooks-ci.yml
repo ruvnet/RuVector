@@ -74,33 +74,33 @@ jobs:
           node-version: '20'
 
       - name: Install dependencies
-        working-directory: npm/packages/cli
-        run: npm install --ignore-scripts --no-optional
+        working-directory: npm
+        run: npm install --omit=optional --ignore-scripts
 
       - name: Build CLI
-        working-directory: npm/packages/cli
-        run: npm run build
+        working-directory: npm
+        run: npm run build -w @ruvector/cli
 
       - name: Test hooks commands
-        working-directory: npm/packages/cli
+        working-directory: npm
         run: |
-          node dist/cli.js hooks --help
-          node dist/cli.js hooks stats
-          node dist/cli.js hooks session-start
-          node dist/cli.js hooks pre-edit src/test.ts
-          node dist/cli.js hooks post-edit --success src/test.ts
-          node dist/cli.js hooks remember --type test "CI test content"
-          node dist/cli.js hooks recall "CI test"
-          node dist/cli.js hooks learn test-state test-action --reward 0.5
-          node dist/cli.js hooks suggest edit-ts --actions coder,reviewer
-          node dist/cli.js hooks route "test task"
-          node dist/cli.js hooks should-test src/lib.ts
-          node dist/cli.js hooks swarm-register ci-agent typescript-dev
-          node dist/cli.js hooks swarm-coordinate ci-agent other-agent --weight 0.8
-          node dist/cli.js hooks swarm-optimize "task1,task2"
-          node dist/cli.js hooks swarm-recommend "typescript"
-          node dist/cli.js hooks swarm-stats
-          node dist/cli.js hooks session-end
+          node packages/cli/dist/cli.js hooks --help
+          node packages/cli/dist/cli.js hooks stats
+          node packages/cli/dist/cli.js hooks session-start
+          node packages/cli/dist/cli.js hooks pre-edit src/test.ts
+          node packages/cli/dist/cli.js hooks post-edit --success src/test.ts
+          node packages/cli/dist/cli.js hooks remember --type test "CI test content"
+          node packages/cli/dist/cli.js hooks recall "CI test"
+          node packages/cli/dist/cli.js hooks learn test-state test-action --reward 0.5
+          node packages/cli/dist/cli.js hooks suggest edit-ts --actions coder,reviewer
+          node packages/cli/dist/cli.js hooks route "test task"
+          node packages/cli/dist/cli.js hooks should-test src/lib.ts
+          node packages/cli/dist/cli.js hooks swarm-register ci-agent typescript-dev
+          node packages/cli/dist/cli.js hooks swarm-coordinate ci-agent other-agent --weight 0.8
+          node packages/cli/dist/cli.js hooks swarm-optimize "task1,task2"
+          node packages/cli/dist/cli.js hooks swarm-recommend "typescript"
+          node packages/cli/dist/cli.js hooks swarm-stats
+          node packages/cli/dist/cli.js hooks session-end
 
   postgres-schema-validation:
     name: PostgreSQL Schema Validation
@@ -188,7 +188,7 @@ jobs:
       - name: Build both CLIs
         run: |
           cargo build -p ruvector-cli --release
-          cd npm/packages/cli && npm install --ignore-scripts --no-optional && npm run build
+          cd npm && npm install --omit=optional --ignore-scripts && npm run build -w @ruvector/cli
 
       - name: Compare command counts
         run: |
