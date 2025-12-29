@@ -8,7 +8,7 @@
 [![npm](https://img.shields.io/npm/v/@ruvector/core.svg)](https://www.npmjs.com/package/@ruvector/core)
 [![Security](https://img.shields.io/badge/Security-Audited-green.svg)](docs/SECURITY_AUDIT_REPORT.md)
 
-**The most advanced PostgreSQL vector database extension.** A drop-in pgvector replacement with **230+ SQL functions**, SIMD acceleration, 39 attention mechanisms, GNN layers, hyperbolic embeddings, mincut-gated transformers, hybrid search, multi-tenancy, self-healing, and self-learning capabilities.
+**The most advanced PostgreSQL vector database extension.** A drop-in pgvector replacement with **290+ SQL functions**, SIMD acceleration, 39 attention mechanisms, GNN layers, hyperbolic embeddings, mincut-gated transformers, hybrid search, multi-tenancy, self-healing, and self-learning capabilities.
 
 ## v2.0.0 Highlights (December 2025)
 
@@ -39,6 +39,7 @@
 | **Self-Healing** | - | **Auto index repair** |
 | **Integrity Control** | - | **Stoer-Wagner mincut** |
 | **Self-Learning** | - | **ReasoningBank** |
+| **Neural DAG Learning** | - | **59 SQL functions** |
 | **Agent Routing** | - | **Tiny Dancer** |
 | **Graph/Cypher** | - | **Full support** |
 | **SPARQL/RDF** | - | **W3C SPARQL 1.1** |
@@ -133,7 +134,7 @@ ORDER BY distance
 LIMIT 10;
 ```
 
-## 230+ SQL Functions
+## 290+ SQL Functions
 
 RuVector exposes all advanced AI capabilities as native PostgreSQL functions.
 
@@ -367,6 +368,79 @@ SELECT ruvector_get_learning_patterns(context);
 -- Optimize search parameters
 SELECT ruvector_optimize_search_params(query_type, historical_data);
 ```
+
+### Neural DAG Learning (59 functions)
+
+Query optimization with neural self-learning DAG analysis. The system learns from query patterns and automatically optimizes execution plans.
+
+```sql
+-- Configuration
+SELECT rudag_set_config(
+    learning_rate := 0.01,
+    attention_mechanism := 'mincut_gated',
+    trajectory_capacity := 10000,
+    ewc_lambda := 5000.0
+);
+SELECT rudag_get_config();
+SELECT rudag_reset_config();
+
+-- DAG Analysis
+SELECT rudag_analyze_query('SELECT * FROM vectors WHERE embedding <-> $1 < 0.5');
+SELECT rudag_get_bottlenecks(query_id);
+SELECT rudag_compute_critical_path(query_id);
+SELECT rudag_estimate_cost(query_id);
+
+-- Attention Mechanisms (7 types)
+SELECT rudag_attention_topological(query_id);      -- Position-based
+SELECT rudag_attention_causal_cone(query_id);      -- Downstream impact
+SELECT rudag_attention_critical_path(query_id);    -- Latency focus
+SELECT rudag_attention_mincut_gated(query_id);     -- Flow-aware (default)
+SELECT rudag_attention_hierarchical(query_id);     -- Deep hierarchies
+SELECT rudag_attention_parallel_branch(query_id);  -- Wide execution
+SELECT rudag_attention_temporal(query_id);         -- Time-series
+
+-- Learning Status
+SELECT rudag_status();                  -- Current learning state
+SELECT rudag_pattern_count();           -- Learned patterns
+SELECT rudag_trajectory_count();        -- Recorded trajectories
+SELECT rudag_get_statistics();          -- Comprehensive stats
+
+-- Pattern Management
+SELECT rudag_get_patterns(limit_n := 100);
+SELECT rudag_search_patterns(query_embedding, top_k := 10);
+SELECT rudag_export_patterns();         -- JSON export
+SELECT rudag_import_patterns(json_data);
+
+-- Trajectory Recording
+SELECT rudag_record_trajectory(query_id, execution_time, baseline_time);
+SELECT rudag_get_trajectories(limit_n := 100);
+SELECT rudag_clear_trajectories();
+
+-- Background Learning
+SELECT rudag_trigger_learning();        -- Force learning cycle
+SELECT rudag_get_learning_progress();
+
+-- Self-Healing Integration
+SELECT rudag_healing_status();
+SELECT rudag_detect_anomalies();
+SELECT rudag_trigger_repair(strategy := 'reindex');
+SELECT rudag_get_repair_history();
+
+-- QuDAG Distributed Learning (quantum-resistant)
+SELECT rudag_qudag_status();            -- Network connection status
+SELECT rudag_qudag_sync_patterns();     -- Sync with network
+SELECT rudag_qudag_receive_patterns();  -- Get network patterns
+SELECT rudag_qudag_get_peers();         -- Connected peers
+SELECT rudag_qudag_stake_info();        -- rUv token staking
+SELECT rudag_qudag_governance_vote(proposal_id, approve := true);
+```
+
+**Key Features:**
+- **MinCut as Control Signal**: Bottleneck tension drives attention switching and healing
+- **SONA Learning**: MicroLoRA adaptation (<100μs) with EWC++ catastrophic forgetting prevention
+- **7 Attention Mechanisms**: Auto-selected based on query characteristics and MinCut stress
+- **Predictive Healing**: Rising cut tension triggers early intervention before failures
+- **QuDAG Integration**: Distributed pattern learning with ML-KEM-768 quantum-resistant crypto
 
 ### Graph Storage & Cypher (8 functions)
 
