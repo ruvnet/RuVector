@@ -286,7 +286,12 @@ mod tests {
             score_value: 0.5,
         })];
 
-        let mut selector = AttentionSelector::new(mechanisms, SelectorConfig::default());
+        // Use initial_value = 0 so we can test pure update accumulation
+        let config = SelectorConfig {
+            initial_value: 0.0,
+            ..Default::default()
+        };
+        let mut selector = AttentionSelector::new(mechanisms, config);
         selector.update(0, 1.0);
         selector.update(0, 2.0);
 

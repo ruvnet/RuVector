@@ -59,14 +59,17 @@ impl DifferentialPrivacy {
 
     fn sample_laplace(&self, scale: f64) -> f64 {
         let mut rng = rand::thread_rng();
+        // Clamp to avoid ln(0) - use small epsilon for numerical stability
         let u: f64 = rng.gen::<f64>() - 0.5;
-        -scale * u.signum() * (1.0 - 2.0 * u.abs()).ln()
+        let clamped = (1.0 - 2.0 * u.abs()).clamp(f64::EPSILON, 1.0);
+        -scale * u.signum() * clamped.ln()
     }
 
     fn sample_gaussian(&self, sigma: f64) -> f64 {
         let mut rng = rand::thread_rng();
-        // Box-Muller transform
-        let u1: f64 = rng.gen();
+        // Box-Muller transform with numerical stability
+        // Clamp u1 to avoid ln(0)
+        let u1: f64 = rng.gen::<f64>().clamp(f64::EPSILON, 1.0 - f64::EPSILON);
         let u2: f64 = rng.gen();
         sigma * (-2.0 * u1.ln()).sqrt() * (2.0 * std::f64::consts::PI * u2).cos()
     }
