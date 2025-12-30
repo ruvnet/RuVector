@@ -2311,7 +2311,9 @@ hooksCmd.command('init')
   .option('--no-gitignore', 'Skip .gitignore update')
   .option('--no-mcp', 'Skip MCP server configuration')
   .option('--no-statusline', 'Skip statusLine configuration')
-  .action((opts) => {
+  .option('--pretrain', 'Run pretrain after init to bootstrap intelligence')
+  .option('--build-agents [focus]', 'Generate optimized agents (quality|speed|security|testing|fullstack)')
+  .action(async (opts) => {
   const settingsPath = path.join(process.cwd(), '.claude', 'settings.json');
   const settingsDir = path.dirname(settingsPath);
   if (!fs.existsSync(settingsDir)) fs.mkdirSync(settingsDir, { recursive: true });
@@ -2573,7 +2575,35 @@ npx ruvector hooks init --force      # Overwrite existing
   }
 
   console.log(chalk.green('\n✅ RuVector hooks initialization complete!'));
-  console.log(chalk.dim('   Run `npx ruvector hooks verify` to test the setup'));
+
+  // Run pretrain if requested
+  if (opts.pretrain) {
+    console.log(chalk.yellow('\n📚 Running pretrain to bootstrap intelligence...\n'));
+    const { execSync } = require('child_process');
+    try {
+      execSync('npx ruvector hooks pretrain', { stdio: 'inherit' });
+    } catch (e) {
+      console.log(chalk.yellow('⚠️  Pretrain completed with warnings'));
+    }
+  }
+
+  // Build agents if requested
+  if (opts.buildAgents) {
+    const focus = typeof opts.buildAgents === 'string' ? opts.buildAgents : 'quality';
+    console.log(chalk.yellow(`\n🏗️  Building optimized agents (focus: ${focus})...\n`));
+    const { execSync } = require('child_process');
+    try {
+      execSync(`npx ruvector hooks build-agents --focus ${focus} --include-prompts`, { stdio: 'inherit' });
+    } catch (e) {
+      console.log(chalk.yellow('⚠️  Agent build completed with warnings'));
+    }
+  }
+
+  if (!opts.pretrain && !opts.buildAgents) {
+    console.log(chalk.dim('   Run `npx ruvector hooks verify` to test the setup'));
+    console.log(chalk.dim('   Run `npx ruvector hooks pretrain` to bootstrap intelligence'));
+    console.log(chalk.dim('   Run `npx ruvector hooks build-agents` to generate optimized agents'));
+  }
 });
 
 hooksCmd.command('stats').description('Show intelligence statistics').action(() => {
@@ -3272,6 +3302,310 @@ hooksCmd.command('pretrain')
     console.log(`  🔗 ${stats.coedits} co-edit patterns`);
     console.log(`  💾 ${stats.memories} memory entries`);
     console.log(chalk.dim('\nThe intelligence layer will now provide better recommendations.'));
+  });
+
+// Agent Builder - generate optimized agent configs based on pretrain
+hooksCmd.command('build-agents')
+  .description('Generate optimized agent configurations based on repository analysis')
+  .option('--focus <type>', 'Focus type: quality, speed, security, testing, fullstack', 'quality')
+  .option('--output <dir>', 'Output directory', '.claude/agents')
+  .option('--format <fmt>', 'Format: yaml, json, md', 'yaml')
+  .option('--include-prompts', 'Include detailed system prompts')
+  .action((opts) => {
+    console.log(chalk.bold.cyan('\n🏗️  RuVector Agent Builder\n'));
+
+    const intel = new Intelligence();
+    const outputDir = path.join(process.cwd(), opts.output);
+
+    // Check if pretrained
+    if (!intel.data.pretrained && Object.keys(intel.data.patterns || {}).length === 0) {
+      console.log(chalk.yellow('⚠️  No pretrain data found. Running quick analysis...\n'));
+      // Quick file analysis
+      try {
+        const { execSync } = require('child_process');
+        const files = execSync('git ls-files 2>/dev/null', { encoding: 'utf-8' }).trim().split('\n');
+        files.forEach(f => {
+          const ext = path.extname(f);
+          intel.data.patterns = intel.data.patterns || {};
+          intel.data.patterns[`edit:${ext}`] = intel.data.patterns[`edit:${ext}`] || {};
+        });
+      } catch (e) { /* continue without git */ }
+    }
+
+    // Analyze patterns to determine relevant agents
+    const patterns = intel.data.patterns || {};
+    const detectedLangs = new Set();
+    const detectedFrameworks = new Set();
+
+    Object.keys(patterns).forEach(state => {
+      if (state.includes('.rs')) detectedLangs.add('rust');
+      if (state.includes('.ts') || state.includes('.js')) detectedLangs.add('typescript');
+      if (state.includes('.tsx') || state.includes('.jsx')) detectedFrameworks.add('react');
+      if (state.includes('.py')) detectedLangs.add('python');
+      if (state.includes('.go')) detectedLangs.add('go');
+      if (state.includes('.vue')) detectedFrameworks.add('vue');
+      if (state.includes('.sql')) detectedFrameworks.add('database');
+    });
+
+    // Detect project type from files
+    const projectTypes = detectProjectType();
+
+    console.log(chalk.blue(`  Detected languages: ${[...detectedLangs].join(', ') || 'generic'}`));
+    console.log(chalk.blue(`  Detected frameworks: ${[...detectedFrameworks].join(', ') || 'none'}`));
+    console.log(chalk.blue(`  Focus mode: ${opts.focus}\n`));
+
+    // Focus configurations
+    const focusConfigs = {
+      quality: {
+        description: 'Emphasizes code quality, best practices, and maintainability',
+        priorities: ['code-review', 'refactoring', 'documentation', 'testing'],
+        temperature: 0.3
+      },
+      speed: {
+        description: 'Optimized for rapid development and iteration',
+        priorities: ['implementation', 'prototyping', 'quick-fixes'],
+        temperature: 0.7
+      },
+      security: {
+        description: 'Security-first development with vulnerability awareness',
+        priorities: ['security-audit', 'input-validation', 'authentication', 'encryption'],
+        temperature: 0.2
+      },
+      testing: {
+        description: 'Test-driven development with comprehensive coverage',
+        priorities: ['unit-tests', 'integration-tests', 'e2e-tests', 'mocking'],
+        temperature: 0.4
+      },
+      fullstack: {
+        description: 'Balanced full-stack development capabilities',
+        priorities: ['frontend', 'backend', 'database', 'api-design'],
+        temperature: 0.5
+      }
+    };
+
+    const focus = focusConfigs[opts.focus] || focusConfigs.quality;
+
+    // Agent templates based on detected stack
+    const agents = [];
+
+    // Core agents based on detected languages
+    if (detectedLangs.has('rust')) {
+      agents.push({
+        name: 'rust-specialist',
+        type: 'rust-developer',
+        description: 'Rust development specialist for this codebase',
+        capabilities: ['cargo', 'unsafe-rust', 'async-rust', 'wasm', 'error-handling'],
+        focus: focus.priorities,
+        systemPrompt: opts.includePrompts ? `You are a Rust specialist for this project.
+Focus on: memory safety, zero-cost abstractions, idiomatic Rust patterns.
+Use cargo conventions, prefer Result over panic, leverage the type system.
+${focus.description}` : null
+      });
+    }
+
+    if (detectedLangs.has('typescript')) {
+      agents.push({
+        name: 'typescript-specialist',
+        type: 'typescript-developer',
+        description: 'TypeScript development specialist',
+        capabilities: ['types', 'generics', 'decorators', 'async-await', 'modules'],
+        focus: focus.priorities,
+        systemPrompt: opts.includePrompts ? `You are a TypeScript specialist for this project.
+Focus on: strict typing, type inference, generic patterns, module organization.
+Prefer type safety over any, use discriminated unions, leverage utility types.
+${focus.description}` : null
+      });
+    }
+
+    if (detectedLangs.has('python')) {
+      agents.push({
+        name: 'python-specialist',
+        type: 'python-developer',
+        description: 'Python development specialist',
+        capabilities: ['typing', 'async', 'testing', 'packaging', 'data-science'],
+        focus: focus.priorities,
+        systemPrompt: opts.includePrompts ? `You are a Python specialist for this project.
+Focus on: type hints, PEP standards, pythonic idioms, virtual environments.
+Use dataclasses, prefer pathlib, leverage context managers.
+${focus.description}` : null
+      });
+    }
+
+    if (detectedLangs.has('go')) {
+      agents.push({
+        name: 'go-specialist',
+        type: 'go-developer',
+        description: 'Go development specialist',
+        capabilities: ['goroutines', 'channels', 'interfaces', 'testing', 'modules'],
+        focus: focus.priorities,
+        systemPrompt: opts.includePrompts ? `You are a Go specialist for this project.
+Focus on: simplicity, explicit error handling, goroutines, interface composition.
+Follow Go conventions, use go fmt, prefer composition over inheritance.
+${focus.description}` : null
+      });
+    }
+
+    // Framework-specific agents
+    if (detectedFrameworks.has('react')) {
+      agents.push({
+        name: 'react-specialist',
+        type: 'react-developer',
+        description: 'React/Next.js development specialist',
+        capabilities: ['hooks', 'state-management', 'components', 'ssr', 'testing'],
+        focus: focus.priorities,
+        systemPrompt: opts.includePrompts ? `You are a React specialist for this project.
+Focus on: functional components, hooks, state management, performance optimization.
+Prefer composition, use memo wisely, follow React best practices.
+${focus.description}` : null
+      });
+    }
+
+    if (detectedFrameworks.has('database')) {
+      agents.push({
+        name: 'database-specialist',
+        type: 'database-specialist',
+        description: 'Database design and optimization specialist',
+        capabilities: ['schema-design', 'queries', 'indexing', 'migrations', 'orm'],
+        focus: focus.priorities,
+        systemPrompt: opts.includePrompts ? `You are a database specialist for this project.
+Focus on: normalized schemas, efficient queries, proper indexing, data integrity.
+Consider performance implications, use transactions appropriately.
+${focus.description}` : null
+      });
+    }
+
+    // Focus-specific agents
+    if (opts.focus === 'testing' || opts.focus === 'quality') {
+      agents.push({
+        name: 'test-architect',
+        type: 'test-engineer',
+        description: 'Testing and quality assurance specialist',
+        capabilities: ['unit-tests', 'integration-tests', 'mocking', 'coverage', 'tdd'],
+        focus: ['testing', 'quality', 'reliability'],
+        systemPrompt: opts.includePrompts ? `You are a testing specialist for this project.
+Focus on: comprehensive test coverage, meaningful assertions, test isolation.
+Write tests first when possible, mock external dependencies, aim for >80% coverage.
+${focus.description}` : null
+      });
+    }
+
+    if (opts.focus === 'security') {
+      agents.push({
+        name: 'security-auditor',
+        type: 'security-specialist',
+        description: 'Security audit and hardening specialist',
+        capabilities: ['vulnerability-scan', 'auth', 'encryption', 'input-validation', 'owasp'],
+        focus: ['security', 'compliance', 'hardening'],
+        systemPrompt: opts.includePrompts ? `You are a security specialist for this project.
+Focus on: OWASP top 10, input validation, authentication, authorization, encryption.
+Never trust user input, use parameterized queries, implement defense in depth.
+${focus.description}` : null
+      });
+    }
+
+    // Add coordinator agent
+    agents.push({
+      name: 'project-coordinator',
+      type: 'coordinator',
+      description: 'Coordinates multi-agent workflows for this project',
+      capabilities: ['task-decomposition', 'agent-routing', 'context-management'],
+      focus: focus.priorities,
+      routes: agents.filter(a => a.name !== 'project-coordinator').map(a => ({
+        pattern: a.capabilities[0],
+        agent: a.name
+      }))
+    });
+
+    // Create output directory
+    if (!fs.existsSync(outputDir)) {
+      fs.mkdirSync(outputDir, { recursive: true });
+    }
+
+    // Generate agent files
+    agents.forEach(agent => {
+      let content;
+      const filename = `${agent.name}.${opts.format}`;
+      const filepath = path.join(outputDir, filename);
+
+      if (opts.format === 'yaml') {
+        const yaml = [
+          `# Auto-generated by RuVector Agent Builder`,
+          `# Focus: ${opts.focus}`,
+          `# Generated: ${new Date().toISOString()}`,
+          ``,
+          `name: ${agent.name}`,
+          `type: ${agent.type}`,
+          `description: ${agent.description}`,
+          ``,
+          `capabilities:`,
+          ...agent.capabilities.map(c => `  - ${c}`),
+          ``,
+          `focus:`,
+          ...agent.focus.map(f => `  - ${f}`),
+        ];
+        if (agent.systemPrompt) {
+          yaml.push(``, `system_prompt: |`);
+          agent.systemPrompt.split('\n').forEach(line => yaml.push(`  ${line}`));
+        }
+        if (agent.routes) {
+          yaml.push(``, `routes:`);
+          agent.routes.forEach(r => yaml.push(`  - pattern: "${r.pattern}"`, `    agent: ${r.agent}`));
+        }
+        content = yaml.join('\n');
+      } else if (opts.format === 'json') {
+        content = JSON.stringify(agent, null, 2);
+      } else {
+        // Markdown format
+        content = [
+          `# ${agent.name}`,
+          ``,
+          `**Type:** ${agent.type}`,
+          `**Description:** ${agent.description}`,
+          ``,
+          `## Capabilities`,
+          ...agent.capabilities.map(c => `- ${c}`),
+          ``,
+          `## Focus Areas`,
+          ...agent.focus.map(f => `- ${f}`),
+        ].join('\n');
+        if (agent.systemPrompt) {
+          content += `\n\n## System Prompt\n\n\`\`\`\n${agent.systemPrompt}\n\`\`\``;
+        }
+      }
+
+      fs.writeFileSync(filepath, content);
+      console.log(chalk.green(`  ✓ Created ${filename}`));
+    });
+
+    // Create index file
+    const indexContent = opts.format === 'yaml'
+      ? `# RuVector Agent Configuration\n# Focus: ${opts.focus}\n\nagents:\n${agents.map(a => `  - ${a.name}`).join('\n')}`
+      : JSON.stringify({ focus: opts.focus, agents: agents.map(a => a.name) }, null, 2);
+
+    fs.writeFileSync(path.join(outputDir, `index.${opts.format === 'md' ? 'json' : opts.format}`), indexContent);
+
+    // Update settings to reference agents
+    const settingsPath = path.join(process.cwd(), '.claude', 'settings.json');
+    if (fs.existsSync(settingsPath)) {
+      try {
+        const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
+        settings.agentConfig = {
+          directory: opts.output,
+          focus: opts.focus,
+          agents: agents.map(a => a.name),
+          generated: new Date().toISOString()
+        };
+        fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
+        console.log(chalk.blue('\n  ✓ Updated .claude/settings.json with agent config'));
+      } catch (e) { /* ignore settings errors */ }
+    }
+
+    console.log(chalk.bold.green(`\n✅ Generated ${agents.length} optimized agents in ${opts.output}/\n`));
+    console.log(chalk.cyan('Agents created:'));
+    agents.forEach(a => {
+      console.log(`  🤖 ${chalk.bold(a.name)}: ${a.description}`);
+    });
+    console.log(chalk.dim(`\nFocus mode "${opts.focus}": ${focus.description}`));
   });
 
 program.parse();
