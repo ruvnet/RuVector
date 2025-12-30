@@ -64,6 +64,9 @@ pub use attention::{
 
 pub use qudag::QuDagClient;
 
+// Re-export crypto security functions for easy access
+pub use qudag::crypto::{check_crypto_security, is_production_ready, security_status, SecurityStatus};
+
 pub use healing::{
     Anomaly, AnomalyConfig, AnomalyDetector, AnomalyType, DriftMetric, DriftTrend,
     HealingCycleResult, HealingOrchestrator, HealthStatus, IndexCheckResult, IndexHealth,

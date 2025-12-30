@@ -11,9 +11,12 @@ repository = "https://github.com/ruvnet/ruvector"
 default = []
 # Enable when using real ML-DSA/ML-KEM implementations
 # This flag indicates production-ready cryptography is in use
-production-crypto = []
+production-crypto = ["pqcrypto-dilithium", "pqcrypto-kyber"]
 
 [dependencies]
+# Post-quantum cryptography (optional, for production use)
+pqcrypto-dilithium = { version = "0.5", optional = true }
+pqcrypto-kyber = { version = "0.8", optional = true }
 ruvector-core = { path = "../ruvector-core" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"

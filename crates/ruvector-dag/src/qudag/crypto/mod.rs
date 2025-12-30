@@ -1,20 +1,23 @@
 //! Quantum-Resistant Cryptography for QuDAG
 //!
-//! # Security Warning
+//! # Security Status
 //!
-//! This module contains **PLACEHOLDER** implementations for ML-DSA and ML-KEM.
-//! See [`security_notice`] module for full security status and production requirements.
+//! | Component | With `production-crypto` | Without Feature |
+//! |-----------|-------------------------|-----------------|
+//! | ML-DSA-65 | ✓ Dilithium3 | ✗ HMAC-SHA256 placeholder |
+//! | ML-KEM-768 | ✓ Kyber768 | ✗ HKDF-SHA256 placeholder |
+//! | Differential Privacy | ✓ Production | ✓ Production |
+//! | Keystore | ✓ Uses zeroize | ✓ Uses zeroize |
 //!
-//! ## Production Readiness
+//! ## Enabling Production Cryptography
 //!
-//! | Component | Status |
-//! |-----------|--------|
-//! | ML-DSA-65 | ⚠️ Placeholder (HMAC-SHA256) |
-//! | ML-KEM-768 | ⚠️ Placeholder (HKDF-SHA256) |
-//! | Differential Privacy | ✓ Production-ready |
-//! | Keystore | ✓ Uses zeroize |
+//! ```toml
+//! ruvector-dag = { version = "0.1", features = ["production-crypto"] }
+//! ```
 //!
-//! Call [`security_notice::check_crypto_security()`] at startup to log warnings.
+//! ## Startup Check
+//!
+//! Call [`check_crypto_security()`] at application startup to log security status.
 
 mod differential_privacy;
 mod identity;
@@ -27,13 +30,13 @@ pub use differential_privacy::{DifferentialPrivacy, DpConfig};
 pub use identity::{IdentityError, QuDagIdentity};
 pub use keystore::{KeystoreError, SecureKeystore};
 pub use ml_dsa::{
-    DsaError, MlDsa65, MlDsa65PublicKey, MlDsa65SecretKey, Signature, ML_DSA_65_PUBLIC_KEY_SIZE,
-    ML_DSA_65_SECRET_KEY_SIZE, ML_DSA_65_SIGNATURE_SIZE,
+    is_production as is_ml_dsa_production, DsaError, MlDsa65, MlDsa65PublicKey, MlDsa65SecretKey,
+    Signature, ML_DSA_65_PUBLIC_KEY_SIZE, ML_DSA_65_SECRET_KEY_SIZE, ML_DSA_65_SIGNATURE_SIZE,
 };
 pub use ml_kem::{
-    EncapsulatedKey, KemError, MlKem768, MlKem768PublicKey, MlKem768SecretKey,
-    ML_KEM_768_CIPHERTEXT_SIZE, ML_KEM_768_PUBLIC_KEY_SIZE, ML_KEM_768_SECRET_KEY_SIZE,
-    SHARED_SECRET_SIZE,
+    is_production as is_ml_kem_production, EncapsulatedKey, KemError, MlKem768, MlKem768PublicKey,
+    MlKem768SecretKey, ML_KEM_768_CIPHERTEXT_SIZE, ML_KEM_768_PUBLIC_KEY_SIZE,
+    ML_KEM_768_SECRET_KEY_SIZE, SHARED_SECRET_SIZE,
 };
 pub use security_notice::{
     check_crypto_security, is_production_ready, security_status, SecurityStatus,
