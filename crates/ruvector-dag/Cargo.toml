@@ -74,3 +74,6 @@ path = "examples/exotic/thought_integrity.rs"
 [[example]]
 name = "federated_coherence"
 path = "examples/exotic/federated_coherence.rs"
+
+[[example]]
+name = "synthetic_haptic"
