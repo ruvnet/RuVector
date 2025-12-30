@@ -2267,7 +2267,7 @@ class Intelligence {
 // Hooks command group
 const hooksCmd = program.command('hooks').description('Self-learning intelligence hooks for Claude Code');
 
-hooksCmd.command('init').description('Initialize hooks in current project').option('--force', 'Force overwrite').action((opts) => {
+hooksCmd.command('init').description('Initialize hooks in current project').option('--force', 'Force overwrite').option('--no-claude-md', 'Skip CLAUDE.md creation').action((opts) => {
   const settingsPath = path.join(process.cwd(), '.claude', 'settings.json');
   const settingsDir = path.dirname(settingsPath);
   if (!fs.existsSync(settingsDir)) fs.mkdirSync(settingsDir, { recursive: true });
@@ -2297,6 +2297,60 @@ hooksCmd.command('init').description('Initialize hooks in current project').opti
   settings.hooks.Stop = [{ hooks: [{ type: 'command', command: 'npx ruvector hooks session-end' }] }];
   fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
   console.log(chalk.green('✅ Hooks initialized in .claude/settings.json'));
+
+  // Create CLAUDE.md if it doesn't exist (or force)
+  const claudeMdPath = path.join(process.cwd(), 'CLAUDE.md');
+  if (opts.claudeMd !== false && (!fs.existsSync(claudeMdPath) || opts.force)) {
+    const claudeMdContent = `# Claude Code Project Configuration
+
+## RuVector Self-Learning Hooks
+
+This project uses RuVector's self-learning intelligence hooks for enhanced AI-assisted development.
+
+### Active Hooks
+
+| Hook | Trigger | Purpose |
+|------|---------|---------|
+| PreToolUse | Before Edit/Write/Bash | Agent routing, command analysis |
+| PostToolUse | After Edit/Write/Bash | Q-learning update, pattern recording |
+| SessionStart | Conversation begins | Load intelligence, display stats |
+| Stop | Conversation ends | Save learning data |
+
+### Commands
+
+\`\`\`bash
+# View learning statistics
+npx ruvector hooks stats
+
+# Route a task to best agent
+npx ruvector hooks route "implement feature X"
+
+# Store context in memory
+npx ruvector hooks remember "important context" -t project
+
+# Recall from memory
+npx ruvector hooks recall "context query"
+\`\`\`
+
+### How It Works
+
+1. **Pre-edit hooks** analyze files and suggest the best agent for the task
+2. **Post-edit hooks** record outcomes to improve future suggestions via Q-learning
+3. **Memory hooks** store and retrieve context using vector embeddings
+4. **Session hooks** manage learning state across conversations
+
+### Configuration
+
+Settings are stored in \`.claude/settings.json\`. Run \`npx ruvector hooks init\` to regenerate.
+
+---
+*Powered by [RuVector](https://github.com/ruvnet/ruvector) self-learning intelligence*
+`;
+    fs.writeFileSync(claudeMdPath, claudeMdContent);
+    console.log(chalk.green('✅ CLAUDE.md created in project root'));
+  } else if (fs.existsSync(claudeMdPath) && !opts.force) {
+    console.log(chalk.yellow('ℹ️  CLAUDE.md already exists (use --force to overwrite)'));
+  }
 });
 
 hooksCmd.command('stats').description('Show intelligence statistics').action(() => {
