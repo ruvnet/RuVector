@@ -31,13 +31,10 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest]
-        pg_version: [14, 15, 16, 17]
+        pg_version: [17]
         rust: [stable]
         include:
-          # Test on macOS for pg16 and pg17
-          - os: macos-latest
-            pg_version: 16
-            rust: stable
+          # Test on macOS for pg17
           - os: macos-latest
             pg_version: 17
             rust: stable
@@ -122,7 +119,7 @@ jobs:
 
   # Test with all features enabled
   test-all-features:
-    name: Test All Features (PostgreSQL 16)
+    name: Test All Features (PostgreSQL 17)
     runs-on: ubuntu-latest
 
     steps:
@@ -137,23 +134,23 @@ jobs:
       - name: Install PostgreSQL
         run: |
           sudo apt-get update
-          sudo apt-get install -y postgresql-16 postgresql-server-dev-16
+          sudo apt-get install -y postgresql-17 postgresql-server-dev-17
 
       - name: Install cargo-pgrx
         run: cargo install cargo-pgrx --version 0.12.0 --locked
 
       - name: Initialize pgrx
-        run: cargo pgrx init --pg16=/usr/lib/postgresql/16/bin/pg_config
+        run: cargo pgrx init --pg17=/usr/lib/postgresql/17/bin/pg_config
         working-directory: crates/ruvector-postgres
 
       - name: Build with all features
         run: |
-          cargo build --no-default-features --features pg16,index-all,quant-all --release
+          cargo build --no-default-features --features pg17,index-all,quant-all --release
         working-directory: crates/ruvector-postgres
 
       - name: Test with all features
         run: |
-          cargo pgrx test pg16 --no-default-features --features index-all,quant-all
+          cargo pgrx test pg17 --no-default-features --features index-all,quant-all
         working-directory: crates/ruvector-postgres
 
   # Benchmark on pull requests
@@ -174,17 +171,17 @@ jobs:
       - name: Install PostgreSQL
         run: |
           sudo apt-get update
-          sudo apt-get install -y postgresql-16 postgresql-server-dev-16
+          sudo apt-get install -y postgresql-17 postgresql-server-dev-17
 
       - name: Install cargo-pgrx
         run: cargo install cargo-pgrx --version 0.12.0 --locked
 
       - name: Initialize pgrx
-        run: cargo pgrx init --pg16=/usr/lib/postgresql/16/bin/pg_config
+        run: cargo pgrx init --pg17=/usr/lib/postgresql/17/bin/pg_config
         working-directory: crates/ruvector-postgres
 
       - name: Run benchmarks
-        run: cargo bench --no-default-features --features pg16 -- --output-format bencher | tee benchmark-output.txt
+        run: cargo bench --no-default-features --features pg17 -- --output-format bencher | tee benchmark-output.txt
         working-directory: crates/ruvector-postgres
 
       - name: Store benchmark result
@@ -223,7 +220,7 @@ jobs:
 
     strategy:
       matrix:
-        pg_version: [14, 15, 16, 17]
+        pg_version: [17]
 
     steps:
       - name: Checkout code

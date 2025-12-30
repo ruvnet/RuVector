@@ -118,11 +118,9 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest]
-        pg_version: [16, 17]
+        pg_version: [17]
         include:
-          # macOS tests for pg16 and pg17
-          - os: macos-latest
-            pg_version: 16
+          # macOS tests for pg17
           - os: macos-latest
             pg_version: 17
 
@@ -246,7 +244,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        pg_version: [16, 17]
+        pg_version: [17]
 
     steps:
       - name: Checkout code
@@ -424,7 +422,7 @@ jobs:
 
     strategy:
       matrix:
-        pg_version: [16, 17]
+        pg_version: [17]
 
     steps:
       - name: Checkout code
