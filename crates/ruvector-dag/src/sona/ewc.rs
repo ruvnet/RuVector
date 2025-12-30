@@ -4,9 +4,9 @@ use ndarray::Array1;
 
 #[derive(Debug, Clone)]
 pub struct EwcConfig {
-    pub lambda: f32,      // Importance weight (2000-15000)
-    pub decay: f32,       // Fisher decay rate
-    pub online: bool,     // Use online EWC
+    pub lambda: f32,  // Importance weight (2000-15000)
+    pub decay: f32,   // Fisher decay rate
+    pub online: bool, // Use online EWC
 }
 
 impl Default for EwcConfig {
@@ -41,9 +41,8 @@ impl EwcPlusPlus {
         if self.config.online && self.fisher_diag.is_some() {
             // Online EWC: accumulate Fisher information
             let current_fisher = self.fisher_diag.as_ref().unwrap();
-            self.fisher_diag = Some(
-                current_fisher * self.config.decay + fisher * (1.0 - self.config.decay)
-            );
+            self.fisher_diag =
+                Some(current_fisher * self.config.decay + fisher * (1.0 - self.config.decay));
         } else {
             self.fisher_diag = Some(fisher.clone());
         }

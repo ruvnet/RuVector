@@ -4,22 +4,28 @@ use ndarray::{Array1, Array2};
 
 #[derive(Debug, Clone)]
 pub struct MicroLoRAConfig {
-    pub rank: usize,        // 1-2 for micro
-    pub alpha: f32,         // Scaling factor
-    pub dropout: f32,       // Dropout rate
+    pub rank: usize,  // 1-2 for micro
+    pub alpha: f32,   // Scaling factor
+    pub dropout: f32, // Dropout rate
 }
 
 impl Default for MicroLoRAConfig {
     fn default() -> Self {
-        Self { rank: 2, alpha: 1.0, dropout: 0.0 }
+        Self {
+            rank: 2,
+            alpha: 1.0,
+            dropout: 0.0,
+        }
     }
 }
 
 pub struct MicroLoRA {
     config: MicroLoRAConfig,
-    a_matrix: Array2<f32>,  // (in_dim, rank)
-    b_matrix: Array2<f32>,  // (rank, out_dim)
+    a_matrix: Array2<f32>, // (in_dim, rank)
+    b_matrix: Array2<f32>, // (rank, out_dim)
+    #[allow(dead_code)]
     in_dim: usize,
+    #[allow(dead_code)]
     out_dim: usize,
 }
 
@@ -27,9 +33,7 @@ impl MicroLoRA {
     pub fn new(config: MicroLoRAConfig, dim: usize) -> Self {
         let rank = config.rank;
         // Initialize A with small random values, B with zeros
-        let a_matrix = Array2::from_shape_fn((dim, rank), |_| {
-            (rand::random::<f32>() - 0.5) * 0.01
-        });
+        let a_matrix = Array2::from_shape_fn((dim, rank), |_| (rand::random::<f32>() - 0.5) * 0.01);
         let b_matrix = Array2::zeros((rank, dim));
 
         Self {
@@ -57,8 +61,8 @@ impl MicroLoRA {
             // Outer product update to B
             for i in 0..self.config.rank {
                 for j in 0..self.out_dim {
-                    self.b_matrix[[i, j]] += learning_rate *
-                        self.a_matrix.column(i).sum() * normalized[j];
+                    self.b_matrix[[i, j]] +=
+                        learning_rate * self.a_matrix.column(i).sum() * normalized[j];
                 }
             }
         }

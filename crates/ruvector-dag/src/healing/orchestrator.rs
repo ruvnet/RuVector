@@ -1,10 +1,8 @@
 //! Healing Orchestrator - Main coordination
 
 use super::{
-    AnomalyDetector, AnomalyConfig,
-    IndexHealthChecker, IndexThresholds,
-    LearningDriftDetector,
-    RepairStrategy, RepairResult,
+    AnomalyConfig, AnomalyDetector, IndexHealthChecker, IndexThresholds, LearningDriftDetector,
+    RepairResult, RepairStrategy,
 };
 use std::sync::Arc;
 
@@ -45,10 +43,8 @@ impl HealingOrchestrator {
     }
 
     pub fn add_detector(&mut self, name: &str, config: AnomalyConfig) {
-        self.anomaly_detectors.insert(
-            name.to_string(),
-            AnomalyDetector::new(config),
-        );
+        self.anomaly_detectors
+            .insert(name.to_string(), AnomalyDetector::new(config));
     }
 
     pub fn add_repair_strategy(&mut self, strategy: Arc<dyn RepairStrategy>) {
@@ -70,6 +66,7 @@ impl HealingOrchestrator {
     }
 
     pub fn run_cycle(&mut self) -> HealingCycleResult {
+        #[allow(unused_assignments)]
         let mut anomalies_detected = 0;
         let mut repairs_attempted = 0;
         let mut repairs_succeeded = 0;
@@ -122,16 +119,15 @@ impl HealingOrchestrator {
 
     pub fn health_score(&self) -> f64 {
         // Compute overall health score 0-1
-        let recent_repairs = self.repair_history.iter()
+        let recent_repairs = self
+            .repair_history
+            .iter()
             .rev()
             .take(10)
             .filter(|r| r.success)
             .count();
 
-        let recent_total = self.repair_history.iter()
-            .rev()
-            .take(10)
-            .count();
+        let recent_total = self.repair_history.iter().rev().take(10).count();
 
         if recent_total == 0 {
             1.0 // No recent issues = healthy
@@ -145,11 +141,13 @@ impl HealingOrchestrator {
     }
 
     pub fn detector_stats(&self, component: &str) -> Option<DetectorStats> {
-        self.anomaly_detectors.get(component).map(|d| DetectorStats {
-            component: component.to_string(),
-            mean: d.mean(),
-            std_dev: d.std_dev(),
-        })
+        self.anomaly_detectors
+            .get(component)
+            .map(|d| DetectorStats {
+                component: component.to_string(),
+                mean: d.mean(),
+                std_dev: d.std_dev(),
+            })
     }
 
     pub fn drift_detector(&self) -> &LearningDriftDetector {
@@ -185,7 +183,7 @@ impl Default for HealingOrchestrator {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::healing::{IndexRebalanceStrategy, AnomalyType, Anomaly};
+    use crate::healing::{Anomaly, AnomalyType, IndexRebalanceStrategy};
 
     #[test]
     fn test_orchestrator_creation() {

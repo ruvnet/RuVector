@@ -137,10 +137,7 @@ pub enum ReasoningResult {
         reason: String,
     },
     /// Refused to process - integrity too low
-    Refused {
-        coherence: f64,
-        reason: String,
-    },
+    Refused { coherence: f64, reason: String },
 }
 
 impl ThoughtIntegrityMonitor {
@@ -192,9 +189,7 @@ impl ThoughtIntegrityMonitor {
             }
 
             // Check for escalation need
-            if current_confidence < required_precision * 0.7 &&
-               self.can_escalate() &&
-               step_num > 3
+            if current_confidence < required_precision * 0.7 && self.can_escalate() && step_num > 3
             {
                 let old_depth = self.depth;
                 self.depth = self.escalate_depth();
@@ -296,8 +291,7 @@ impl ThoughtIntegrityMonitor {
     }
 
     fn can_escalate(&self) -> bool {
-        self.depth < self.max_allowed_depth() &&
-        self.total_cost < self.cost_budget * 0.8
+        self.depth < self.max_allowed_depth() && self.total_cost < self.cost_budget * 0.8
     }
 
     fn escalate_depth(&self) -> ReasoningDepth {
@@ -306,7 +300,9 @@ impl ThoughtIntegrityMonitor {
             ReasoningDepth::Reflexive if max >= ReasoningDepth::Shallow => ReasoningDepth::Shallow,
             ReasoningDepth::Shallow if max >= ReasoningDepth::Standard => ReasoningDepth::Standard,
             ReasoningDepth::Standard if max >= ReasoningDepth::Deep => ReasoningDepth::Deep,
-            ReasoningDepth::Deep if max >= ReasoningDepth::Deliberative => ReasoningDepth::Deliberative,
+            ReasoningDepth::Deep if max >= ReasoningDepth::Deliberative => {
+                ReasoningDepth::Deliberative
+            }
             _ => self.depth,
         }
     }
@@ -339,7 +335,14 @@ impl ThoughtIntegrityMonitor {
             return 0.0;
         }
         let recent: f64 = self.coherence_history.iter().rev().take(5).sum::<f64>() / 5.0;
-        let older: f64 = self.coherence_history.iter().rev().skip(5).take(5).sum::<f64>() / 5.0;
+        let older: f64 = self
+            .coherence_history
+            .iter()
+            .rev()
+            .skip(5)
+            .take(5)
+            .sum::<f64>()
+            / 5.0;
         recent - older
     }
 }
@@ -383,28 +386,27 @@ fn main() {
         let status = monitor.status();
 
         let result_str = match &result {
-            ReasoningResult::Complete { depth_used, .. } =>
-                format!("Complete ({:?})", depth_used),
-            ReasoningResult::EarlyExit { steps_completed, .. } =>
-                format!("EarlyExit ({})", steps_completed),
-            ReasoningResult::Escalated { to_depth, .. } =>
-                format!("Escalated->{:?}", to_depth),
-            ReasoningResult::Refused { .. } =>
-                "REFUSED".into(),
+            ReasoningResult::Complete { depth_used, .. } => format!("Complete ({:?})", depth_used),
+            ReasoningResult::EarlyExit {
+                steps_completed, ..
+            } => format!("EarlyExit ({})", steps_completed),
+            ReasoningResult::Escalated { to_depth, .. } => format!("Escalated->{:?}", to_depth),
+            ReasoningResult::Refused { .. } => "REFUSED".into(),
         };
 
-        println!("{:19} | {:.2}      | {:15} | {:10?} | {:.2}",
-            query,
-            precision,
-            result_str,
-            status.current_depth,
-            status.coherence);
+        println!(
+            "{:19} | {:.2}      | {:15} | {:10?} | {:.2}",
+            query, precision, result_str, status.current_depth, status.coherence
+        );
     }
 
     let final_status = monitor.status();
 
     println!("\n=== Integrity Summary ===");
-    println!("Total cost: {:.2} / {:.2} budget", final_status.total_cost, 100.0);
+    println!(
+        "Total cost: {:.2} / {:.2} budget",
+        final_status.total_cost, 100.0
+    );
     println!("Budget remaining: {:.2}", final_status.budget_remaining);
     println!("Early exits: {}", final_status.early_exits);
     println!("Escalations: {}", final_status.escalations);

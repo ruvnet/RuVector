@@ -6,8 +6,8 @@ use std::collections::HashMap;
 
 #[derive(Debug, Clone)]
 pub struct TopologicalConfig {
-    pub decay_factor: f32,  // 0.9 default
-    pub max_depth: usize,   // 10 default
+    pub decay_factor: f32, // 0.9 default
+    pub max_depth: usize,  // 10 default
 }
 
 impl Default for TopologicalConfig {
@@ -88,7 +88,8 @@ mod tests {
         // Create a simple DAG: 0 -> 1 -> 2
         let id0 = dag.add_node(OperatorNode::seq_scan(0, "users").with_estimates(100.0, 1.0));
         let id1 = dag.add_node(OperatorNode::filter(0, "age > 18").with_estimates(50.0, 1.0));
-        let id2 = dag.add_node(OperatorNode::project(0, vec!["name".to_string()]).with_estimates(50.0, 1.0));
+        let id2 = dag
+            .add_node(OperatorNode::project(0, vec!["name".to_string()]).with_estimates(50.0, 1.0));
 
         dag.add_edge(id0, id1).unwrap();
         dag.add_edge(id1, id2).unwrap();

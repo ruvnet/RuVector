@@ -140,7 +140,9 @@ impl AttentionSelector {
             .max_by(|(i, _), (j, _)| {
                 let avg_i = self.rewards[*i] / self.counts[*i] as f32;
                 let avg_j = self.rewards[*j] / self.counts[*j] as f32;
-                avg_i.partial_cmp(&avg_j).unwrap_or(std::cmp::Ordering::Equal)
+                avg_i
+                    .partial_cmp(&avg_j)
+                    .unwrap_or(std::cmp::Ordering::Equal)
             })
             .map(|(i, _)| i)
     }
@@ -157,7 +159,8 @@ impl AttentionSelector {
     /// Forward pass using selected mechanism
     pub fn forward(&mut self, dag: &QueryDag) -> Result<(AttentionScores, usize), AttentionError> {
         let selected = self.select();
-        let mechanism = self.get_mechanism(selected)
+        let mechanism = self
+            .get_mechanism(selected)
             .ok_or_else(|| AttentionError::ConfigError("No mechanisms available".to_string()))?;
 
         let scores = mechanism.forward(dag)?;
@@ -201,9 +204,18 @@ mod tests {
     #[test]
     fn test_ucb_selection() {
         let mechanisms: Vec<Box<dyn DagAttentionMechanism>> = vec![
-            Box::new(MockMechanism { name: "mech1", score_value: 0.5 }),
-            Box::new(MockMechanism { name: "mech2", score_value: 0.7 }),
-            Box::new(MockMechanism { name: "mech3", score_value: 0.3 }),
+            Box::new(MockMechanism {
+                name: "mech1",
+                score_value: 0.5,
+            }),
+            Box::new(MockMechanism {
+                name: "mech2",
+                score_value: 0.7,
+            }),
+            Box::new(MockMechanism {
+                name: "mech3",
+                score_value: 0.3,
+            }),
         ];
 
         let mut selector = AttentionSelector::new(mechanisms, SelectorConfig::default());
@@ -221,14 +233,23 @@ mod tests {
     #[test]
     fn test_best_mechanism() {
         let mechanisms: Vec<Box<dyn DagAttentionMechanism>> = vec![
-            Box::new(MockMechanism { name: "poor", score_value: 0.3 }),
-            Box::new(MockMechanism { name: "good", score_value: 0.8 }),
+            Box::new(MockMechanism {
+                name: "poor",
+                score_value: 0.3,
+            }),
+            Box::new(MockMechanism {
+                name: "good",
+                score_value: 0.8,
+            }),
         ];
 
-        let mut selector = AttentionSelector::new(mechanisms, SelectorConfig {
-            min_samples: 2,
-            ..Default::default()
-        });
+        let mut selector = AttentionSelector::new(
+            mechanisms,
+            SelectorConfig {
+                min_samples: 2,
+                ..Default::default()
+            },
+        );
 
         // Simulate different rewards
         selector.update(0, 0.3);
@@ -242,9 +263,10 @@ mod tests {
 
     #[test]
     fn test_selector_forward() {
-        let mechanisms: Vec<Box<dyn DagAttentionMechanism>> = vec![
-            Box::new(MockMechanism { name: "test", score_value: 0.5 }),
-        ];
+        let mechanisms: Vec<Box<dyn DagAttentionMechanism>> = vec![Box::new(MockMechanism {
+            name: "test",
+            score_value: 0.5,
+        })];
 
         let mut selector = AttentionSelector::new(mechanisms, SelectorConfig::default());
 
@@ -259,9 +281,10 @@ mod tests {
 
     #[test]
     fn test_stats() {
-        let mechanisms: Vec<Box<dyn DagAttentionMechanism>> = vec![
-            Box::new(MockMechanism { name: "mech1", score_value: 0.5 }),
-        ];
+        let mechanisms: Vec<Box<dyn DagAttentionMechanism>> = vec![Box::new(MockMechanism {
+            name: "mech1",
+            score_value: 0.5,
+        })];
 
         let mut selector = AttentionSelector::new(mechanisms, SelectorConfig::default());
         selector.update(0, 1.0);

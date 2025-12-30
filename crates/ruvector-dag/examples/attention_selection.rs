@@ -1,11 +1,9 @@
 //! Attention mechanism selection example
 
-use ruvector_dag::dag::{QueryDag, OperatorNode, OperatorType};
 use ruvector_dag::attention::{
-    TopologicalAttention, TopologicalConfig,
-    CausalConeAttention, CausalConeConfig,
-    DagAttention,
+    CausalConeAttention, CausalConeConfig, DagAttention, TopologicalAttention, TopologicalConfig,
 };
+use ruvector_dag::dag::{OperatorNode, OperatorType, QueryDag};
 
 fn main() {
     println!("=== Attention Mechanism Selection ===\n");
@@ -61,8 +59,10 @@ fn main() {
         let topo_score = scores.get(&node_id).unwrap_or(&0.0);
         let causal_score = causal_scores.get(&node_id).unwrap_or(&0.0);
         let diff = (topo_score - causal_score).abs();
-        println!("{:4} | {:11.4} | {:11.4} | {:11.4}",
-            node_id, topo_score, causal_score, diff);
+        println!(
+            "{:4} | {:11.4} | {:11.4} | {:11.4}",
+            node_id, topo_score, causal_score, diff
+        );
     }
 
     println!("\n=== Example Complete ===");

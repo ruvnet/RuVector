@@ -1,6 +1,8 @@
 //! QuDAG Identity Management
 
-use super::{MlKem768, MlDsa65, MlKem768PublicKey, MlKem768SecretKey, MlDsa65PublicKey, MlDsa65SecretKey};
+use super::{
+    MlDsa65, MlDsa65PublicKey, MlDsa65SecretKey, MlKem768, MlKem768PublicKey, MlKem768SecretKey,
+};
 
 pub struct QuDagIdentity {
     pub node_id: String,
@@ -12,11 +14,11 @@ pub struct QuDagIdentity {
 
 impl QuDagIdentity {
     pub fn generate() -> Result<Self, IdentityError> {
-        let (kem_public, kem_secret) = MlKem768::generate_keypair()
-            .map_err(|_| IdentityError::KeyGenerationFailed)?;
+        let (kem_public, kem_secret) =
+            MlKem768::generate_keypair().map_err(|_| IdentityError::KeyGenerationFailed)?;
 
-        let (dsa_public, dsa_secret) = MlDsa65::generate_keypair()
-            .map_err(|_| IdentityError::KeyGenerationFailed)?;
+        let (dsa_public, dsa_secret) =
+            MlDsa65::generate_keypair().map_err(|_| IdentityError::KeyGenerationFailed)?;
 
         // Generate node ID from public key hash
         let node_id = Self::hash_to_id(&kem_public.0[..32]);
@@ -31,8 +33,8 @@ impl QuDagIdentity {
     }
 
     pub fn sign(&self, message: &[u8]) -> Result<Vec<u8>, IdentityError> {
-        let sig = MlDsa65::sign(&self.dsa_secret, message)
-            .map_err(|_| IdentityError::SigningFailed)?;
+        let sig =
+            MlDsa65::sign(&self.dsa_secret, message).map_err(|_| IdentityError::SigningFailed)?;
         Ok(sig.0.to_vec())
     }
 
@@ -44,11 +46,19 @@ impl QuDagIdentity {
         let mut sig_array = [0u8; super::ml_dsa::ML_DSA_65_SIGNATURE_SIZE];
         sig_array.copy_from_slice(signature);
 
-        MlDsa65::verify(&self.dsa_public, message, &super::ml_dsa::Signature(sig_array))
-            .map_err(|_| IdentityError::VerificationFailed)
+        MlDsa65::verify(
+            &self.dsa_public,
+            message,
+            &super::ml_dsa::Signature(sig_array),
+        )
+        .map_err(|_| IdentityError::VerificationFailed)
     }
 
-    pub fn encrypt_for(&self, recipient_pk: &[u8], plaintext: &[u8]) -> Result<Vec<u8>, IdentityError> {
+    pub fn encrypt_for(
+        &self,
+        recipient_pk: &[u8],
+        plaintext: &[u8],
+    ) -> Result<Vec<u8>, IdentityError> {
         if recipient_pk.len() != super::ml_kem::ML_KEM_768_PUBLIC_KEY_SIZE {
             return Err(IdentityError::InvalidPublicKey);
         }
@@ -81,7 +91,8 @@ impl QuDagIdentity {
 
         // Decrypt with XOR
         let encrypted_data = &ciphertext[super::ml_kem::ML_KEM_768_CIPHERTEXT_SIZE..];
-        let plaintext: Vec<u8> = encrypted_data.iter()
+        let plaintext: Vec<u8> = encrypted_data
+            .iter()
             .enumerate()
             .map(|(i, &b)| b ^ shared_secret[i % 32])
             .collect();
@@ -90,9 +101,9 @@ impl QuDagIdentity {
     }
 
     fn hash_to_id(data: &[u8]) -> String {
-        let hash: u64 = data.iter().fold(0u64, |acc, &b| {
-            acc.wrapping_mul(31).wrapping_add(b as u64)
-        });
+        let hash: u64 = data
+            .iter()
+            .fold(0u64, |acc, &b| acc.wrapping_mul(31).wrapping_add(b as u64));
         format!("qudag_{:016x}", hash)
     }
 }

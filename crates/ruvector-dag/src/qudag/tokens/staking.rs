@@ -86,8 +86,7 @@ impl StakingManager {
     }
 
     pub fn unstake(&mut self, node_id: &str) -> Result<f64, StakingError> {
-        let stake = self.stakes.get(node_id)
-            .ok_or(StakingError::NotStaked)?;
+        let stake = self.stakes.get(node_id).ok_or(StakingError::NotStaked)?;
 
         if stake.is_locked() {
             return Err(StakingError::StillLocked(stake.time_remaining()));
@@ -109,7 +108,8 @@ impl StakingManager {
     }
 
     pub fn validator_weight(&self, node_id: &str) -> f64 {
-        self.stakes.get(node_id)
+        self.stakes
+            .get(node_id)
             .map(|s| s.validator_weight)
             .unwrap_or(0.0)
     }

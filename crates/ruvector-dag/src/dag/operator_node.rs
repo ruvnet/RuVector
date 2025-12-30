@@ -103,33 +103,45 @@ impl OperatorNode {
 
     /// Create a sequential scan node
     pub fn seq_scan(id: usize, table: &str) -> Self {
-        Self::new(id, OperatorType::SeqScan {
-            table: table.to_string(),
-        })
+        Self::new(
+            id,
+            OperatorType::SeqScan {
+                table: table.to_string(),
+            },
+        )
     }
 
     /// Create an index scan node
     pub fn index_scan(id: usize, index: &str, table: &str) -> Self {
-        Self::new(id, OperatorType::IndexScan {
-            index: index.to_string(),
-            table: table.to_string(),
-        })
+        Self::new(
+            id,
+            OperatorType::IndexScan {
+                index: index.to_string(),
+                table: table.to_string(),
+            },
+        )
     }
 
     /// Create an HNSW scan node
     pub fn hnsw_scan(id: usize, index: &str, ef_search: u32) -> Self {
-        Self::new(id, OperatorType::HnswScan {
-            index: index.to_string(),
-            ef_search,
-        })
+        Self::new(
+            id,
+            OperatorType::HnswScan {
+                index: index.to_string(),
+                ef_search,
+            },
+        )
     }
 
     /// Create an IVF-Flat scan node
     pub fn ivf_flat_scan(id: usize, index: &str, nprobe: u32) -> Self {
-        Self::new(id, OperatorType::IvfFlatScan {
-            index: index.to_string(),
-            nprobe,
-        })
+        Self::new(
+            id,
+            OperatorType::IvfFlatScan {
+                index: index.to_string(),
+                nprobe,
+            },
+        )
     }
 
     /// Create a nested loop join node
@@ -139,23 +151,32 @@ impl OperatorNode {
 
     /// Create a hash join node
     pub fn hash_join(id: usize, key: &str) -> Self {
-        Self::new(id, OperatorType::HashJoin {
-            hash_key: key.to_string(),
-        })
+        Self::new(
+            id,
+            OperatorType::HashJoin {
+                hash_key: key.to_string(),
+            },
+        )
     }
 
     /// Create a merge join node
     pub fn merge_join(id: usize, key: &str) -> Self {
-        Self::new(id, OperatorType::MergeJoin {
-            merge_key: key.to_string(),
-        })
+        Self::new(
+            id,
+            OperatorType::MergeJoin {
+                merge_key: key.to_string(),
+            },
+        )
     }
 
     /// Create a filter node
     pub fn filter(id: usize, predicate: &str) -> Self {
-        Self::new(id, OperatorType::Filter {
-            predicate: predicate.to_string(),
-        })
+        Self::new(
+            id,
+            OperatorType::Filter {
+                predicate: predicate.to_string(),
+            },
+        )
     }
 
     /// Create a project node
@@ -191,16 +212,22 @@ impl OperatorNode {
 
     /// Create a vector distance node
     pub fn vector_distance(id: usize, metric: &str) -> Self {
-        Self::new(id, OperatorType::VectorDistance {
-            metric: metric.to_string(),
-        })
+        Self::new(
+            id,
+            OperatorType::VectorDistance {
+                metric: metric.to_string(),
+            },
+        )
     }
 
     /// Create a rerank node
     pub fn rerank(id: usize, model: &str) -> Self {
-        Self::new(id, OperatorType::Rerank {
-            model: model.to_string(),
-        })
+        Self::new(
+            id,
+            OperatorType::Rerank {
+                model: model.to_string(),
+            },
+        )
     }
 
     /// Create a materialize node

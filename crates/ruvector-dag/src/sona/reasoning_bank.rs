@@ -74,7 +74,9 @@ impl DagReasoningBank {
 
     /// Query similar patterns using cosine similarity
     pub fn query_similar(&self, query: &[f32], k: usize) -> Vec<(u64, f32)> {
-        let mut similarities: Vec<(u64, f32)> = self.patterns.iter()
+        let mut similarities: Vec<(u64, f32)> = self
+            .patterns
+            .iter()
             .map(|p| (p.id, cosine_similarity(&p.vector, query)))
             .filter(|(_, sim)| *sim >= self.config.similarity_threshold)
             .collect();
@@ -98,7 +100,9 @@ impl DagReasoningBank {
         // K-means iterations
         for _ in 0..10 {
             // Assign points to clusters
-            self.cluster_assignments = self.patterns.iter()
+            self.cluster_assignments = self
+                .patterns
+                .iter()
                 .map(|p| self.nearest_centroid(&p.vector))
                 .collect();
 
@@ -108,7 +112,8 @@ impl DagReasoningBank {
     }
 
     fn nearest_centroid(&self, point: &[f32]) -> usize {
-        self.centroids.iter()
+        self.centroids
+            .iter()
             .enumerate()
             .map(|(i, c)| (i, euclidean_distance(point, c)))
             .min_by(|a, b| a.1.partial_cmp(&b.1).unwrap())
@@ -118,7 +123,11 @@ impl DagReasoningBank {
 
     fn update_centroids(&mut self) {
         let k = self.centroids.len();
-        let dim = if !self.centroids.is_empty() { self.centroids[0].len() } else { return };
+        let dim = if !self.centroids.is_empty() {
+            self.centroids[0].len()
+        } else {
+            return;
+        };
 
         // Initialize new centroids
         let mut new_centroids = vec![vec![0.0; dim]; k];
@@ -148,7 +157,9 @@ impl DagReasoningBank {
 
     fn evict_lowest_quality(&mut self) {
         // Remove pattern with lowest quality * usage score
-        if let Some(min_idx) = self.patterns.iter()
+        if let Some(min_idx) = self
+            .patterns
+            .iter()
             .enumerate()
             .min_by(|(_, a), (_, b)| {
                 let score_a = a.quality_score * (a.usage_count as f32 + 1.0).ln();
@@ -182,7 +193,11 @@ fn cosine_similarity(a: &[f32], b: &[f32]) -> f32 {
 }
 
 fn euclidean_distance(a: &[f32], b: &[f32]) -> f32 {
-    a.iter().zip(b.iter()).map(|(x, y)| (x - y).powi(2)).sum::<f32>().sqrt()
+    a.iter()
+        .zip(b.iter())
+        .map(|(x, y)| (x - y).powi(2))
+        .sum::<f32>()
+        .sqrt()
 }
 
 fn kmeans_pp_init(patterns: &[DagPattern], k: usize) -> Vec<Vec<f32>> {
@@ -194,7 +209,7 @@ fn kmeans_pp_init(patterns: &[DagPattern], k: usize) -> Vec<Vec<f32>> {
 
     let mut rng = rand::thread_rng();
     let mut centroids = Vec::with_capacity(k);
-    let dim = patterns[0].vector.len();
+    let _dim = patterns[0].vector.len();
 
     // Choose first centroid randomly
     let first_idx = rng.gen_range(0..patterns.len());
@@ -207,7 +222,8 @@ fn kmeans_pp_init(patterns: &[DagPattern], k: usize) -> Vec<Vec<f32>> {
 
         // Compute minimum distance to existing centroids for each point
         for pattern in patterns {
-            let min_dist = centroids.iter()
+            let min_dist = centroids
+                .iter()
                 .map(|c| euclidean_distance(&pattern.vector, c))
                 .min_by(|a, b| a.partial_cmp(b).unwrap())
                 .unwrap_or(0.0);

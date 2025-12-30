@@ -1,7 +1,7 @@
 //! MinCut optimization integration tests
 
+use ruvector_dag::dag::{OperatorNode, OperatorType, QueryDag};
 use ruvector_dag::mincut::*;
-use ruvector_dag::dag::{QueryDag, OperatorNode, OperatorType};
 
 #[test]
 fn test_mincut_bottleneck_detection() {
@@ -15,9 +15,12 @@ fn test_mincut_bottleneck_detection() {
     //  3   4
 
     for i in 0..5 {
-        let mut node = OperatorNode::new(i, OperatorType::SeqScan {
-            table: format!("t{}", i)
-        });
+        let mut node = OperatorNode::new(
+            i,
+            OperatorType::SeqScan {
+                table: format!("t{}", i),
+            },
+        );
         node.estimated_cost = if i == 2 { 100.0 } else { 10.0 };
         dag.add_node(node);
     }
@@ -34,12 +37,16 @@ fn test_mincut_bottleneck_detection() {
 
     // Node 2 should have highest criticality
     let node2_crit = criticality.get(&2).copied().unwrap_or(0.0);
-    let max_other = criticality.iter()
+    let max_other = criticality
+        .iter()
         .filter(|(&k, _)| k != 2)
         .map(|(_, &v)| v)
         .fold(0.0f64, f64::max);
 
-    assert!(node2_crit >= max_other, "Bottleneck should have highest criticality");
+    assert!(
+        node2_crit >= max_other,
+        "Bottleneck should have highest criticality"
+    );
 }
 
 #[test]
@@ -48,9 +55,12 @@ fn test_bottleneck_analysis() {
 
     // Linear chain
     for i in 0..5 {
-        let mut node = OperatorNode::new(i, OperatorType::SeqScan {
-            table: format!("t{}", i)
-        });
+        let mut node = OperatorNode::new(
+            i,
+            OperatorType::SeqScan {
+                table: format!("t{}", i),
+            },
+        );
         node.estimated_cost = (i + 1) as f64 * 10.0;
         dag.add_node(node);
     }
@@ -123,9 +133,12 @@ fn test_criticality_propagation() {
 
     // Linear chain where criticality should propagate
     for i in 0..5 {
-        let mut node = OperatorNode::new(i, OperatorType::SeqScan {
-            table: format!("t{}", i)
-        });
+        let mut node = OperatorNode::new(
+            i,
+            OperatorType::SeqScan {
+                table: format!("t{}", i),
+            },
+        );
         // Last node has high cost
         node.estimated_cost = if i == 4 { 100.0 } else { 10.0 };
         dag.add_node(node);
@@ -185,9 +198,12 @@ fn test_bottleneck_ranking() {
     let mut dag = QueryDag::new();
 
     for i in 0..6 {
-        let mut node = OperatorNode::new(i, OperatorType::SeqScan {
-            table: format!("t{}", i)
-        });
+        let mut node = OperatorNode::new(
+            i,
+            OperatorType::SeqScan {
+                table: format!("t{}", i),
+            },
+        );
         // Vary costs to create different bottlenecks
         node.estimated_cost = match i {
             2 => 80.0,

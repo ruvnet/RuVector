@@ -159,7 +159,9 @@ impl FederatedNode {
     /// Add a peer to the federation
     pub fn add_peer(&mut self, peer_id: &str) {
         self.peer_coherence.insert(peer_id.to_string(), 1.0);
-        self.partition_detector.last_heard.insert(peer_id.to_string(), Instant::now());
+        self.partition_detector
+            .last_heard
+            .insert(peer_id.to_string(), Instant::now());
     }
 
     /// Update local tension and propagate if significant
@@ -181,7 +183,9 @@ impl FederatedNode {
     /// Learn a pattern locally
     pub fn learn_pattern(&mut self, signature: Vec<f64>, response: String, efficacy: f64) {
         // Check if pattern already exists
-        if let Some(existing) = self.local_patterns.iter_mut()
+        if let Some(existing) = self
+            .local_patterns
+            .iter_mut()
             .find(|p| Self::signature_match(&p.signature, &signature))
         {
             existing.local_efficacy = existing.local_efficacy * 0.9 + efficacy * 0.1;
@@ -198,24 +202,34 @@ impl FederatedNode {
 
     /// Propose mature patterns to federation
     pub fn propose_patterns(&self) -> Vec<FederationMessage> {
-        self.local_patterns.iter()
+        self.local_patterns
+            .iter()
             .filter(|p| {
-                p.local_efficacy >= self.config.proposal_threshold &&
-                p.observation_count >= 5 &&
-                !self.is_already_federated(&p.signature)
+                p.local_efficacy >= self.config.proposal_threshold
+                    && p.observation_count >= 5
+                    && !self.is_already_federated(&p.signature)
             })
             .map(|p| FederationMessage::ProposePattern { pattern: p.clone() })
             .collect()
     }
 
     /// Handle incoming federation message
-    pub fn handle_message(&mut self, from: &str, msg: FederationMessage) -> Option<FederationMessage> {
+    pub fn handle_message(
+        &mut self,
+        from: &str,
+        msg: FederationMessage,
+    ) -> Option<FederationMessage> {
         // Update partition detector
-        self.partition_detector.last_heard.insert(from.to_string(), Instant::now());
+        self.partition_detector
+            .last_heard
+            .insert(from.to_string(), Instant::now());
         self.partition_detector.suspected_partitions.remove(from);
 
         match msg {
-            FederationMessage::Heartbeat { tension, pattern_count: _ } => {
+            FederationMessage::Heartbeat {
+                tension,
+                pattern_count: _,
+            } => {
                 // Update peer coherence based on tension similarity
                 let tension_diff = (self.tension - tension).abs();
                 let coherence = 1.0 - tension_diff;
@@ -230,7 +244,9 @@ impl FederatedNode {
 
             FederationMessage::ProposePattern { pattern } => {
                 // Validate against local experience
-                let local_match = self.local_patterns.iter()
+                let local_match = self
+                    .local_patterns
+                    .iter()
                     .find(|p| Self::signature_match(&p.signature, &pattern.signature));
 
                 if let Some(local) = local_match {
@@ -248,7 +264,9 @@ impl FederatedNode {
                     }
                 } else {
                     // No local evidence - accept if coherence is high
-                    if self.peer_coherence.get(from).copied().unwrap_or(0.0) >= self.config.acceptance_coherence {
+                    if self.peer_coherence.get(from).copied().unwrap_or(0.0)
+                        >= self.config.acceptance_coherence
+                    {
                         self.pending_proposals.push_back(PatternProposal {
                             pattern,
                             proposer: from.to_string(),
@@ -256,7 +274,13 @@ impl FederatedNode {
                             coherence_at_proposal: self.federation_coherence(),
                         });
                         Some(FederationMessage::ValidatePattern {
-                            signature: self.pending_proposals.back().unwrap().pattern.signature.clone(),
+                            signature: self
+                                .pending_proposals
+                                .back()
+                                .unwrap()
+                                .pattern
+                                .signature
+                                .clone(),
                             efficacy: 0.5, // Neutral validation
                         })
                     } else {
@@ -268,9 +292,14 @@ impl FederatedNode {
                 }
             }
 
-            FederationMessage::ValidatePattern { signature, efficacy } => {
+            FederationMessage::ValidatePattern {
+                signature,
+                efficacy,
+            } => {
                 // Update federated pattern
-                if let Some(fp) = self.federated_patterns.iter_mut()
+                if let Some(fp) = self
+                    .federated_patterns
+                    .iter_mut()
                     .find(|p| Self::signature_match(&p.signature, &signature))
                 {
                     fp.validations += 1;
@@ -280,8 +309,13 @@ impl FederatedNode {
                 None
             }
 
-            FederationMessage::RejectPattern { signature, reason: _ } => {
-                if let Some(fp) = self.federated_patterns.iter_mut()
+            FederationMessage::RejectPattern {
+                signature,
+                reason: _,
+            } => {
+                if let Some(fp) = self
+                    .federated_patterns
+                    .iter_mut()
                     .find(|p| Self::signature_match(&p.signature, &signature))
                 {
                     fp.rejections += 1;
@@ -291,14 +325,19 @@ impl FederatedNode {
 
             FederationMessage::TensionAlert { severity, source } => {
                 // Propagate tension through coherence coupling
-                let coherence_with_source = self.peer_coherence.get(&source).copied().unwrap_or(0.5);
+                let coherence_with_source =
+                    self.peer_coherence.get(&source).copied().unwrap_or(0.5);
                 let propagated = severity * coherence_with_source * 0.5;
                 self.tension = (self.tension + propagated).min(1.0);
                 None
             }
 
-            FederationMessage::SyncRequest { since_pattern_count } => {
-                let patterns: Vec<FederatedPattern> = self.federated_patterns.iter()
+            FederationMessage::SyncRequest {
+                since_pattern_count,
+            } => {
+                let patterns: Vec<FederatedPattern> = self
+                    .federated_patterns
+                    .iter()
                     .skip(since_pattern_count)
                     .cloned()
                     .collect();
@@ -324,7 +363,9 @@ impl FederatedNode {
         for (peer, last_heard) in &self.partition_detector.last_heard {
             if now.duration_since(*last_heard) > self.partition_detector.partition_threshold {
                 if !self.partition_detector.suspected_partitions.contains(peer) {
-                    self.partition_detector.suspected_partitions.insert(peer.clone());
+                    self.partition_detector
+                        .suspected_partitions
+                        .insert(peer.clone());
                     newly_partitioned.push(peer.clone());
 
                     // Reduce coherence with partitioned peer
@@ -360,15 +401,16 @@ impl FederatedNode {
     }
 
     fn signature_match(a: &[f64], b: &[f64]) -> bool {
-        if a.len() != b.len() { return false; }
-        let diff: f64 = a.iter().zip(b.iter())
-            .map(|(x, y)| (x - y).abs())
-            .sum();
+        if a.len() != b.len() {
+            return false;
+        }
+        let diff: f64 = a.iter().zip(b.iter()).map(|(x, y)| (x - y).abs()).sum();
         (diff / a.len() as f64) < 0.1
     }
 
     fn is_already_federated(&self, signature: &[f64]) -> bool {
-        self.federated_patterns.iter()
+        self.federated_patterns
+            .iter()
             .any(|p| Self::signature_match(&p.signature, signature))
     }
 }
@@ -429,7 +471,13 @@ impl CoherenceFederation {
         }
     }
 
-    pub fn learn_pattern(&mut self, node_id: &str, signature: Vec<f64>, response: &str, efficacy: f64) {
+    pub fn learn_pattern(
+        &mut self,
+        node_id: &str,
+        signature: Vec<f64>,
+        response: &str,
+        efficacy: f64,
+    ) {
         if let Some(node) = self.nodes.get_mut(node_id) {
             node.learn_pattern(signature, response.to_string(), efficacy);
         }
@@ -438,7 +486,9 @@ impl CoherenceFederation {
     /// Run one tick of the federation
     pub fn tick(&mut self) {
         // Generate heartbeats
-        let heartbeats: Vec<(String, Vec<String>, FederationMessage)> = self.nodes.iter()
+        let heartbeats: Vec<(String, Vec<String>, FederationMessage)> = self
+            .nodes
+            .iter()
             .map(|(id, node)| {
                 let peers: Vec<String> = node.peer_coherence.keys().cloned().collect();
                 let msg = FederationMessage::Heartbeat {
@@ -451,15 +501,19 @@ impl CoherenceFederation {
 
         for (from, peers, msg) in heartbeats {
             for to in peers {
-                self.message_queue.push_back((from.clone(), to, msg.clone()));
+                self.message_queue
+                    .push_back((from.clone(), to, msg.clone()));
             }
         }
 
         // Generate pattern proposals
-        let proposals: Vec<(String, Vec<String>, FederationMessage)> = self.nodes.iter()
+        let proposals: Vec<(String, Vec<String>, FederationMessage)> = self
+            .nodes
+            .iter()
             .flat_map(|(id, node)| {
                 let peers: Vec<String> = node.peer_coherence.keys().cloned().collect();
-                node.propose_patterns().into_iter()
+                node.propose_patterns()
+                    .into_iter()
                     .map(|msg| (id.clone(), peers.clone(), msg))
                     .collect::<Vec<_>>()
             })
@@ -467,7 +521,8 @@ impl CoherenceFederation {
 
         for (from, peers, msg) in proposals {
             for to in peers {
-                self.message_queue.push_back((from.clone(), to, msg.clone()));
+                self.message_queue
+                    .push_back((from.clone(), to, msg.clone()));
             }
         }
 
@@ -491,17 +546,21 @@ impl CoherenceFederation {
     }
 
     pub fn global_coherence(&self) -> f64 {
-        if self.nodes.is_empty() { return 1.0; }
-        self.nodes.values()
+        if self.nodes.is_empty() {
+            return 1.0;
+        }
+        self.nodes
+            .values()
             .map(|n| n.federation_coherence())
-            .sum::<f64>() / self.nodes.len() as f64
+            .sum::<f64>()
+            / self.nodes.len() as f64
     }
 
     pub fn global_tension(&self) -> f64 {
-        if self.nodes.is_empty() { return 0.0; }
-        self.nodes.values()
-            .map(|n| n.tension)
-            .sum::<f64>() / self.nodes.len() as f64
+        if self.nodes.is_empty() {
+            return 0.0;
+        }
+        self.nodes.values().map(|n| n.tension).sum::<f64>() / self.nodes.len() as f64
     }
 }
 
@@ -550,21 +609,25 @@ fn main() {
         let statuses = federation.status();
         let node2 = statuses.iter().find(|s| s.node_id == "node_2").unwrap();
 
-        println!("{:4} | {:.3}          | {:.3}            | {:.3}",
+        println!(
+            "{:4} | {:.3}          | {:.3}            | {:.3}",
             i,
             federation.global_tension(),
             federation.global_coherence(),
-            node2.tension);
+            node2.tension
+        );
     }
 
     println!("\n=== Final Status ===");
     for status in federation.status() {
-        println!("{}: tension={:.2}, coherence={:.2}, local={}, federated={}",
+        println!(
+            "{}: tension={:.2}, coherence={:.2}, local={}, federated={}",
             status.node_id,
             status.tension,
             status.federation_coherence,
             status.local_patterns,
-            status.federated_patterns);
+            status.federated_patterns
+        );
     }
 
     println!("\n\"Not distributed computing. Distributed feeling.\"");

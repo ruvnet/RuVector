@@ -77,7 +77,11 @@ impl CriticalPathAttention {
         // Find the path with maximum cost
         longest_path
             .into_iter()
-            .max_by(|a, b| a.1.0.partial_cmp(&b.1.0).unwrap_or(std::cmp::Ordering::Equal))
+            .max_by(|a, b| {
+                a.1 .0
+                    .partial_cmp(&b.1 .0)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
             .map(|(_, (_, path))| path)
             .unwrap_or_default()
     }
@@ -136,7 +140,8 @@ impl DagAttention for CriticalPathAttention {
         // Could adjust path_weight based on execution time variance
         if !execution_times.is_empty() {
             let max_time = execution_times.values().fold(0.0f64, |a, &b| a.max(b));
-            let avg_time: f64 = execution_times.values().sum::<f64>() / execution_times.len() as f64;
+            let avg_time: f64 =
+                execution_times.values().sum::<f64>() / execution_times.len() as f64;
 
             if max_time > 0.0 && avg_time > 0.0 {
                 // Increase path weight if there's high variance
@@ -167,8 +172,10 @@ mod tests {
         let mut dag = QueryDag::new();
 
         // Create a DAG with different costs
-        let id0 = dag.add_node(OperatorNode::seq_scan(0, "large_table").with_estimates(10000.0, 10.0));
-        let id1 = dag.add_node(OperatorNode::filter(0, "status = 'active'").with_estimates(1000.0, 1.0));
+        let id0 =
+            dag.add_node(OperatorNode::seq_scan(0, "large_table").with_estimates(10000.0, 10.0));
+        let id1 =
+            dag.add_node(OperatorNode::filter(0, "status = 'active'").with_estimates(1000.0, 1.0));
         let id2 = dag.add_node(OperatorNode::hash_join(0, "user_id").with_estimates(5000.0, 5.0));
 
         dag.add_edge(id0, id2).unwrap();

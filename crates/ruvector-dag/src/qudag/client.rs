@@ -23,10 +23,12 @@ impl Default for QuDagConfig {
 }
 
 pub struct QuDagClient {
+    #[allow(dead_code)]
     config: QuDagConfig,
     node_id: String,
     connected: Arc<RwLock<bool>>,
     // In real implementation, would have ML-DSA keypair
+    #[allow(dead_code)]
     identity_key: Vec<u8>,
 }
 
@@ -63,7 +65,7 @@ impl QuDagClient {
 
     pub async fn propose_pattern(
         &self,
-        pattern: super::proposal::PatternProposal,
+        _pattern: super::proposal::PatternProposal,
     ) -> Result<String, QuDagError> {
         if !self.is_connected().await {
             return Err(QuDagError::NotConnected);
@@ -82,7 +84,7 @@ impl QuDagClient {
 
     pub async fn get_proposal_status(
         &self,
-        proposal_id: &str,
+        _proposal_id: &str,
     ) -> Result<super::proposal::ProposalStatus, QuDagError> {
         if !self.is_connected().await {
             return Err(QuDagError::NotConnected);
@@ -94,7 +96,7 @@ impl QuDagClient {
 
     pub async fn sync_patterns(
         &self,
-        since_round: u64,
+        _since_round: u64,
     ) -> Result<Vec<super::sync::SyncedPattern>, QuDagError> {
         if !self.is_connected().await {
             return Err(QuDagError::NotConnected);

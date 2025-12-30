@@ -15,16 +15,11 @@ pub struct Vote {
     pub proposal_id: String,
     pub approve: bool,
     pub stake_weight: f64,
-    pub signature: Vec<u8>,  // ML-DSA signature
+    pub signature: Vec<u8>, // ML-DSA signature
 }
 
 impl Vote {
-    pub fn new(
-        voter_id: String,
-        proposal_id: String,
-        approve: bool,
-        stake_weight: f64,
-    ) -> Self {
+    pub fn new(voter_id: String, proposal_id: String, approve: bool, stake_weight: f64) -> Self {
         Self {
             voter_id,
             proposal_id,
@@ -45,11 +40,13 @@ impl Vote {
     }
 }
 
+#[allow(dead_code)]
 pub struct ConsensusTracker {
     proposals: std::collections::HashMap<String, Vec<Vote>>,
-    threshold: f64,  // Stake threshold for acceptance (e.g., 0.67)
+    threshold: f64, // Stake threshold for acceptance (e.g., 0.67)
 }
 
+#[allow(dead_code)]
 impl ConsensusTracker {
     pub fn new(threshold: f64) -> Self {
         Self {
@@ -69,7 +66,8 @@ impl ConsensusTracker {
         let votes = self.proposals.get(proposal_id)?;
 
         let total_stake: f64 = votes.iter().map(|v| v.stake_weight).sum();
-        let approve_stake: f64 = votes.iter()
+        let approve_stake: f64 = votes
+            .iter()
             .filter(|v| v.approve)
             .map(|v| v.stake_weight)
             .sum();

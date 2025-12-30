@@ -1,6 +1,6 @@
 //! Bottleneck Detection
 
-use crate::dag::{QueryDag, OperatorType};
+use crate::dag::{OperatorType, QueryDag};
 use std::collections::HashMap;
 
 /// A detected bottleneck in the DAG
@@ -26,7 +26,8 @@ impl BottleneckAnalysis {
         let mut bottlenecks = Vec::new();
 
         for (&node_id, &score) in criticality {
-            if score > 0.5 {  // Threshold for bottleneck
+            if score > 0.5 {
+                // Threshold for bottleneck
                 let node = dag.get_node(node_id).unwrap();
                 let action = Self::suggest_action(&node.op_type);
 
@@ -64,15 +65,9 @@ impl BottleneckAnalysis {
             OperatorType::SeqScan { table } => {
                 format!("Consider adding index on {}", table)
             }
-            OperatorType::NestedLoopJoin => {
-                "Consider using hash join instead".to_string()
-            }
-            OperatorType::Sort { .. } => {
-                "Consider adding sorted index".to_string()
-            }
-            OperatorType::HnswScan { .. } => {
-                "Consider increasing ef_search parameter".to_string()
-            }
+            OperatorType::NestedLoopJoin => "Consider using hash join instead".to_string(),
+            OperatorType::Sort { .. } => "Consider adding sorted index".to_string(),
+            OperatorType::HnswScan { .. } => "Consider increasing ef_search parameter".to_string(),
             _ => "Review operator parameters".to_string(),
         }
     }
@@ -89,7 +84,8 @@ impl BottleneckAnalysis {
 
         for node_id in sorted {
             let node = dag.get_node(node_id).unwrap();
-            let parent_max = dag.parents(node_id)
+            let parent_max = dag
+                .parents(node_id)
                 .iter()
                 .filter_map(|&p| max_cost.get(&p))
                 .max_by(|a, b| a.partial_cmp(b).unwrap())
@@ -99,6 +95,10 @@ impl BottleneckAnalysis {
             max_cost.insert(node_id, parent_max + node.estimated_cost);
         }
 
-        max_cost.values().max_by(|a, b| a.partial_cmp(b).unwrap()).copied().unwrap_or(0.0)
+        max_cost
+            .values()
+            .max_by(|a, b| a.partial_cmp(b).unwrap())
+            .copied()
+            .unwrap_or(0.0)
     }
 }

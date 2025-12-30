@@ -38,16 +38,16 @@
 //! - [`healing`] - Self-healing system with anomaly detection
 //! - [`qudag`] - QuDAG network integration for distributed learning
 
-pub mod dag;
-pub mod mincut;
 pub mod attention;
-pub mod qudag;
+pub mod dag;
 pub mod healing;
+pub mod mincut;
+pub mod qudag;
 pub mod sona;
 
 pub use dag::{
-    BfsIterator, DagDeserializer, DagError, DagSerializer, DfsIterator, OperatorNode,
-    OperatorType, QueryDag, TopologicalIterator,
+    BfsIterator, DagDeserializer, DagError, DagSerializer, DfsIterator, OperatorNode, OperatorType,
+    QueryDag, TopologicalIterator,
 };
 
 pub use mincut::{
@@ -56,29 +56,24 @@ pub use mincut::{
 };
 
 pub use attention::{
-    DagAttention, AttentionScores, AttentionConfig, AttentionError,
-    TopologicalAttention, TopologicalConfig,
-    CausalConeAttention, CausalConeConfig,
-    CriticalPathAttention, CriticalPathConfig,
-    MinCutGatedAttention, MinCutConfig as AttentionMinCutConfig, FlowCapacity,
+    AttentionConfig, AttentionError, AttentionScores, CausalConeAttention, CausalConeConfig,
+    CriticalPathAttention, CriticalPathConfig, DagAttention, FlowCapacity,
+    MinCutConfig as AttentionMinCutConfig, MinCutGatedAttention, TopologicalAttention,
+    TopologicalConfig,
 };
 
 pub use qudag::QuDagClient;
 
 pub use healing::{
-    HealingOrchestrator, HealingCycleResult,
-    AnomalyDetector, Anomaly, AnomalyType, AnomalyConfig,
-    IndexHealthChecker, IndexHealth, IndexType, IndexThresholds, IndexCheckResult, HealthStatus,
-    LearningDriftDetector, DriftMetric, DriftTrend,
-    RepairStrategy, RepairResult,
+    Anomaly, AnomalyConfig, AnomalyDetector, AnomalyType, DriftMetric, DriftTrend,
+    HealingCycleResult, HealingOrchestrator, HealthStatus, IndexCheckResult, IndexHealth,
+    IndexHealthChecker, IndexThresholds, IndexType, LearningDriftDetector, RepairResult,
+    RepairStrategy,
 };
 
 pub use sona::{
-    DagSonaEngine,
-    MicroLoRA, MicroLoRAConfig,
-    DagTrajectory, DagTrajectoryBuffer,
-    DagReasoningBank, DagPattern, ReasoningBankConfig,
-    EwcPlusPlus, EwcConfig,
+    DagPattern, DagReasoningBank, DagSonaEngine, DagTrajectory, DagTrajectoryBuffer, EwcConfig,
+    EwcPlusPlus, MicroLoRA, MicroLoRAConfig, ReasoningBankConfig,
 };
 
 #[cfg(test)]

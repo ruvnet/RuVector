@@ -145,10 +145,16 @@ impl HierarchicalLorentzAttention {
 
         // Convert distances to attention scores using softmax
         // Closer nodes (smaller distance) should have higher attention
-        let neg_distances: Vec<f32> = distances.iter().map(|&d| -d / self.config.temperature).collect();
+        let neg_distances: Vec<f32> = distances
+            .iter()
+            .map(|&d| -d / self.config.temperature)
+            .collect();
 
         // Softmax
-        let max_val = neg_distances.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
+        let max_val = neg_distances
+            .iter()
+            .cloned()
+            .fold(f32::NEG_INFINITY, f32::max);
         let exp_sum: f32 = neg_distances.iter().map(|&x| (x - max_val).exp()).sum();
 
         if exp_sum == 0.0 {
@@ -156,7 +162,10 @@ impl HierarchicalLorentzAttention {
             return vec![1.0 / distances.len() as f32; distances.len()];
         }
 
-        neg_distances.iter().map(|&x| (x - max_val).exp() / exp_sum).collect()
+        neg_distances
+            .iter()
+            .map(|&x| (x - max_val).exp() / exp_sum)
+            .collect()
     }
 }
 
@@ -172,9 +181,8 @@ impl DagAttentionMechanism for HierarchicalLorentzAttention {
         let depths = self.compute_depths(dag);
 
         // Step 2: Embed each node in Euclidean space
-        let euclidean_embeddings: Vec<Vec<f32>> = (0..n)
-            .map(|i| self.embed_node(i, depths[i], n))
-            .collect();
+        let euclidean_embeddings: Vec<Vec<f32>> =
+            (0..n).map(|i| self.embed_node(i, depths[i], n)).collect();
 
         // Step 3: Project to hyperboloid
         let hyperbolic_embeddings: Vec<Vec<f32>> = euclidean_embeddings
@@ -196,7 +204,8 @@ impl DagAttentionMechanism for HierarchicalLorentzAttention {
         let mut edge_weights = vec![vec![0.0; n]; n];
         for i in 0..n {
             for j in 0..n {
-                let dist = self.lorentz_distance(&hyperbolic_embeddings[i], &hyperbolic_embeddings[j]);
+                let dist =
+                    self.lorentz_distance(&hyperbolic_embeddings[i], &hyperbolic_embeddings[j]);
                 edge_weights[i][j] = (-dist / self.config.temperature).exp();
             }
         }
@@ -205,8 +214,10 @@ impl DagAttentionMechanism for HierarchicalLorentzAttention {
             .with_edge_weights(edge_weights)
             .with_metadata("mechanism".to_string(), "hierarchical_lorentz".to_string());
 
-        result.metadata.insert("avg_depth".to_string(),
-            format!("{:.2}", depths.iter().sum::<usize>() as f32 / n as f32));
+        result.metadata.insert(
+            "avg_depth".to_string(),
+            format!("{:.2}", depths.iter().sum::<usize>() as f32 / n as f32),
+        );
 
         Ok(result)
     }
@@ -259,7 +270,12 @@ mod tests {
         node0.estimated_cost = 1.0;
         dag.add_node(node0);
 
-        let mut node1 = OperatorNode::new(1, OperatorType::Filter { predicate: "x > 0".to_string() });
+        let mut node1 = OperatorNode::new(
+            1,
+            OperatorType::Filter {
+                predicate: "x > 0".to_string(),
+            },
+        );
         node1.estimated_cost = 2.0;
         dag.add_node(node1);
 

@@ -1,12 +1,15 @@
 //! rUv Token Integration for QuDAG
 
-mod staking;
-mod rewards;
 mod governance;
+mod rewards;
+mod staking;
 
-pub use staking::{StakingManager, StakeInfo, StakingError};
+pub use governance::{
+    GovernanceError, GovernanceSystem, GovernanceVote, Proposal, ProposalStatus, ProposalType,
+    VoteChoice,
+};
 pub use rewards::{RewardCalculator, RewardClaim, RewardSource};
-pub use governance::{GovernanceSystem, GovernanceVote, Proposal, ProposalType, ProposalStatus, VoteChoice, GovernanceError};
+pub use staking::{StakeInfo, StakingError, StakingManager};
 
 #[cfg(test)]
 mod tests {
@@ -39,7 +42,8 @@ mod tests {
             Duration::from_secs(86400),
         );
 
-        gov.vote("voter1".to_string(), &proposal_id, VoteChoice::For, 100.0).unwrap();
+        gov.vote("voter1".to_string(), &proposal_id, VoteChoice::For, 100.0)
+            .unwrap();
         let tally = gov.tally(&proposal_id, 1000.0).unwrap();
         assert_eq!(tally.for_weight, 100.0);
     }

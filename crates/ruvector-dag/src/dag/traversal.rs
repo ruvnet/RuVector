@@ -6,6 +6,7 @@ use super::query_dag::{DagError, QueryDag};
 
 /// Iterator for topological order traversal (dependencies first)
 pub struct TopologicalIterator<'a> {
+    #[allow(dead_code)]
     dag: &'a QueryDag,
     sorted: Vec<usize>,
     index: usize,
@@ -170,7 +171,9 @@ mod tests {
         assert_eq!(nodes.len(), 4);
 
         // Check ordering constraints
-        let pos: Vec<usize> = (0..4).map(|i| nodes.iter().position(|&x| x == i).unwrap()).collect();
+        let pos: Vec<usize> = (0..4)
+            .map(|i| nodes.iter().position(|&x| x == i).unwrap())
+            .collect();
 
         assert!(pos[0] < pos[1]); // 0 before 1
         assert!(pos[1] < pos[2]); // 1 before 2

@@ -5,7 +5,7 @@
 
 use super::trait_def::AttentionScores;
 use crate::dag::QueryDag;
-use std::collections::{HashMap, hash_map::DefaultHasher};
+use std::collections::{hash_map::DefaultHasher, HashMap};
 use std::hash::{Hash, Hasher};
 use std::time::{Duration, Instant};
 
@@ -93,7 +93,9 @@ impl AttentionCache {
         let key = Self::hash_dag(dag, mechanism);
 
         // Check if key exists and is not expired
-        let is_expired = self.cache.get(&key)
+        let is_expired = self
+            .cache
+            .get(&key)
             .map(|entry| self.is_expired(entry))
             .unwrap_or(true);
 

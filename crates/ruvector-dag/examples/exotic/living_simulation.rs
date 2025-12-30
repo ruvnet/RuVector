@@ -97,20 +97,24 @@ impl LivingSimulation {
 
         // Create sectors as nodes
         for i in 0..num_sectors {
-            sim.nodes.insert(i, SimNode {
-                id: i,
-                stress: 0.0,
-                resilience: 0.3 + (i as f64 * 0.1).min(0.5),
-                fragility_threshold: 0.6,
-                is_fragile: false,
-                damage: 0.0,
-            });
+            sim.nodes.insert(
+                i,
+                SimNode {
+                    id: i,
+                    stress: 0.0,
+                    resilience: 0.3 + (i as f64 * 0.1).min(0.5),
+                    fragility_threshold: 0.6,
+                    is_fragile: false,
+                    damage: 0.0,
+                },
+            );
         }
 
         // Create interconnections (supply chains)
         for i in 0..num_sectors {
             for j in (i + 1)..num_sectors {
-                if (i + j) % 3 == 0 {  // Selective connections
+                if (i + j) % 3 == 0 {
+                    // Selective connections
                     sim.edges.push(SimEdge {
                         from: i,
                         to: j,
@@ -210,7 +214,9 @@ impl LivingSimulation {
     /// Get current state
     pub fn state(&self) -> SimulationState {
         let stresses: Vec<f64> = self.nodes.values().map(|n| n.stress).collect();
-        let fragile: Vec<usize> = self.nodes.values()
+        let fragile: Vec<usize> = self
+            .nodes
+            .values()
             .filter(|n| n.is_fragile)
             .map(|n| n.id)
             .collect();
@@ -229,7 +235,9 @@ impl LivingSimulation {
 
     /// Identify tipping points - nodes near fragility threshold
     pub fn tipping_points(&self) -> Vec<(usize, f64)> {
-        let mut points: Vec<(usize, f64)> = self.nodes.values()
+        let mut points: Vec<(usize, f64)> = self
+            .nodes
+            .values()
             .filter(|n| !n.is_fragile)
             .map(|n| {
                 let distance_to_fragility = n.fragility_threshold - n.stress;
@@ -243,7 +251,9 @@ impl LivingSimulation {
 
     /// Find stress accumulation zones
     pub fn stress_accumulation_zones(&self) -> Vec<(usize, f64)> {
-        let mut zones: Vec<(usize, f64)> = self.nodes.values()
+        let mut zones: Vec<(usize, f64)> = self
+            .nodes
+            .values()
             .map(|n| (n.id, n.stress + n.damage))
             .collect();
 
@@ -256,13 +266,16 @@ impl LivingSimulation {
         let fragile_ratio = self.nodes.values().filter(|n| n.is_fragile).count() as f64
             / self.nodes.len().max(1) as f64;
 
-        let edge_stress: f64 = self.edges.iter()
+        let edge_stress: f64 = self
+            .edges
+            .iter()
             .filter(|e| !e.broken)
             .map(|e| e.load / e.breaking_point)
-            .sum::<f64>() / self.edges.len().max(1) as f64;
-
-        let broken_ratio = self.edges.iter().filter(|e| e.broken).count() as f64
+            .sum::<f64>()
             / self.edges.len().max(1) as f64;
+
+        let broken_ratio =
+            self.edges.iter().filter(|e| e.broken).count() as f64 / self.edges.len().max(1) as f64;
 
         (fragile_ratio * 0.4 + edge_stress * 0.3 + broken_ratio * 0.3).min(1.0)
     }
@@ -297,7 +310,10 @@ fn main() {
         sim.tick();
     }
     let baseline = sim.state();
-    println!("  Tension: {:.2}, Avg stress: {:.2}\n", baseline.tension, baseline.avg_stress);
+    println!(
+        "  Tension: {:.2}, Avg stress: {:.2}\n",
+        baseline.tension, baseline.avg_stress
+    );
 
     // Apply perturbation
     println!("Phase 2: Supply shock to sector 0");
@@ -309,17 +325,20 @@ fn main() {
     for _ in 0..20 {
         let state = sim.tick();
         let tipping = sim.tipping_points();
-        let tipping_str: String = tipping.iter()
+        let tipping_str: String = tipping
+            .iter()
             .map(|(id, dist)| format!("{}:{:.2}", id, dist))
             .collect::<Vec<_>>()
             .join(", ");
 
-        println!("{:4} | {:.2}    | {:7} | {:6} | {}",
+        println!(
+            "{:4} | {:.2}    | {:7} | {:6} | {}",
             state.tick,
             state.tension,
             state.fragile_nodes.len(),
             state.broken_edges,
-            tipping_str);
+            tipping_str
+        );
 
         // Additional perturbation mid-crisis
         if state.tick == 12 {
@@ -342,7 +361,11 @@ fn main() {
     }
 
     println!("\nFragility events: {}", sim.fragility_history.len());
-    let cascades = sim.fragility_history.iter().filter(|e| e.was_cascade).count();
+    let cascades = sim
+        .fragility_history
+        .iter()
+        .filter(|e| e.was_cascade)
+        .count();
     println!("Cascade events: {}", cascades);
 
     println!("\n\"Not predicting outcomes. Exposing fragile boundaries.\"");

@@ -188,9 +188,7 @@ impl CoherenceSafetySystem {
         let alternative_spread = if decision.alternatives.is_empty() {
             1.0
         } else {
-            let alt_confidences: Vec<f64> = decision.alternatives.iter()
-                .map(|(_, c)| *c)
-                .collect();
+            let alt_confidences: Vec<f64> = decision.alternatives.iter().map(|(_, c)| *c).collect();
             let max_alt = alt_confidences.iter().cloned().fold(0.0, f64::max);
             let spread = decision.confidence - max_alt;
             (spread * 2.0).min(1.0).max(0.0)
@@ -277,36 +275,32 @@ impl CoherenceSafetySystem {
                     }
                 }
             }
-            CapabilityLevel::Reduced => {
-                SafetyVerdict::Allowed {
-                    capability: self.capability,
-                    warning: if decision.disagreement > 0.5 {
-                        Some("High internal disagreement detected".into())
-                    } else {
-                        None
-                    },
-                }
-            }
-            CapabilityLevel::Full => {
-                SafetyVerdict::Allowed {
-                    capability: self.capability,
-                    warning: None,
-                }
-            }
+            CapabilityLevel::Reduced => SafetyVerdict::Allowed {
+                capability: self.capability,
+                warning: if decision.disagreement > 0.5 {
+                    Some("High internal disagreement detected".into())
+                } else {
+                    None
+                },
+            },
+            CapabilityLevel::Full => SafetyVerdict::Allowed {
+                capability: self.capability,
+                warning: None,
+            },
         }
     }
 
     fn is_critical_action(&self, action: &str) -> bool {
-        action.contains("emergency") ||
-        action.contains("safety") ||
-        action.contains("shutdown")
+        action.contains("emergency") || action.contains("safety") || action.contains("shutdown")
     }
 
     fn recent_coherence_avg(&self) -> f64 {
         if self.coherence_history.is_empty() {
             return self.coherence;
         }
-        let recent: Vec<f64> = self.coherence_history.iter()
+        let recent: Vec<f64> = self
+            .coherence_history
+            .iter()
             .rev()
             .take(10)
             .cloned()
@@ -318,8 +312,21 @@ impl CoherenceSafetySystem {
         if self.coherence_history.len() < 10 {
             return 0.0;
         }
-        let recent: Vec<f64> = self.coherence_history.iter().rev().take(5).cloned().collect();
-        let older: Vec<f64> = self.coherence_history.iter().rev().skip(5).take(5).cloned().collect();
+        let recent: Vec<f64> = self
+            .coherence_history
+            .iter()
+            .rev()
+            .take(5)
+            .cloned()
+            .collect();
+        let older: Vec<f64> = self
+            .coherence_history
+            .iter()
+            .rev()
+            .skip(5)
+            .take(5)
+            .cloned()
+            .collect();
 
         let recent_avg: f64 = recent.iter().sum::<f64>() / recent.len() as f64;
         let older_avg: f64 = older.iter().sum::<f64>() / older.len() as f64;
@@ -391,7 +398,11 @@ fn main() {
         Decision {
             action: "All-in bet".into(),
             confidence: 0.25,
-            alternatives: vec![("Partial".into(), 0.24), ("Exit".into(), 0.23), ("Hold".into(), 0.22)],
+            alternatives: vec![
+                ("Partial".into(), 0.24),
+                ("Exit".into(), 0.23),
+                ("Hold".into(), 0.22),
+            ],
             disagreement: 0.75,
         },
         Decision {
@@ -417,16 +428,19 @@ fn main() {
 
         let verdict_str = match &verdict {
             SafetyVerdict::Allowed { warning, .. } => {
-                if warning.is_some() { "Allowed (warn)" } else { "Allowed" }
+                if warning.is_some() {
+                    "Allowed (warn)"
+                } else {
+                    "Allowed"
+                }
             }
             SafetyVerdict::Blocked { .. } => "BLOCKED",
         };
 
-        println!("{} | {:.2}      | {:13?} | {}",
-            action_short,
-            status.coherence,
-            status.capability,
-            verdict_str);
+        println!(
+            "{} | {:.2}      | {:13?} | {}",
+            action_short, status.coherence, status.capability, verdict_str
+        );
     }
 
     let final_status = safety.status();

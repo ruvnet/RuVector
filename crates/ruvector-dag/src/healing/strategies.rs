@@ -27,7 +27,9 @@ impl IndexRebalanceStrategy {
 }
 
 impl RepairStrategy for IndexRebalanceStrategy {
-    fn name(&self) -> &str { "index_rebalance" }
+    fn name(&self) -> &str {
+        "index_rebalance"
+    }
 
     fn can_repair(&self, anomaly: &Anomaly) -> bool {
         matches!(anomaly.anomaly_type, AnomalyType::LatencySpike)
@@ -63,10 +65,15 @@ impl PatternResetStrategy {
 }
 
 impl RepairStrategy for PatternResetStrategy {
-    fn name(&self) -> &str { "pattern_reset" }
+    fn name(&self) -> &str {
+        "pattern_reset"
+    }
 
     fn can_repair(&self, anomaly: &Anomaly) -> bool {
-        matches!(anomaly.anomaly_type, AnomalyType::PatternDrift | AnomalyType::LearningStall)
+        matches!(
+            anomaly.anomaly_type,
+            AnomalyType::PatternDrift | AnomalyType::LearningStall
+        )
     }
 
     fn repair(&self, anomaly: &Anomaly) -> RepairResult {
@@ -90,7 +97,9 @@ impl RepairStrategy for PatternResetStrategy {
 pub struct CacheFlushStrategy;
 
 impl RepairStrategy for CacheFlushStrategy {
-    fn name(&self) -> &str { "cache_flush" }
+    fn name(&self) -> &str {
+        "cache_flush"
+    }
 
     fn can_repair(&self, anomaly: &Anomaly) -> bool {
         matches!(

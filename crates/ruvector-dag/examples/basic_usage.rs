@@ -1,6 +1,6 @@
 //! Basic usage example for Neural DAG Learning
 
-use ruvector_dag::dag::{QueryDag, OperatorNode, OperatorType};
+use ruvector_dag::dag::{OperatorNode, OperatorType, QueryDag};
 
 fn main() {
     println!("=== Neural DAG Learning - Basic Usage ===\n");

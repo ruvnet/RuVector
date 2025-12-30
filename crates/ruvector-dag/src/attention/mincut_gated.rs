@@ -52,12 +52,14 @@ impl MinCutGatedAttention {
             for &child in dag.children(node_id) {
                 let cap = match self.config.flow_capacity {
                     FlowCapacity::UnitCapacity => 1.0,
-                    FlowCapacity::CostBased => {
-                        dag.get_node(node_id).map(|n| n.estimated_cost).unwrap_or(1.0)
-                    }
-                    FlowCapacity::RowBased => {
-                        dag.get_node(node_id).map(|n| n.estimated_rows).unwrap_or(1.0)
-                    }
+                    FlowCapacity::CostBased => dag
+                        .get_node(node_id)
+                        .map(|n| n.estimated_cost)
+                        .unwrap_or(1.0),
+                    FlowCapacity::RowBased => dag
+                        .get_node(node_id)
+                        .map(|n| n.estimated_rows)
+                        .unwrap_or(1.0),
                 };
                 capacity.insert((node_id, child), cap);
             }
@@ -79,6 +81,7 @@ impl MinCutGatedAttention {
 
         // Ford-Fulkerson to find max flow
         let mut residual = capacity.clone();
+        #[allow(unused_variables, unused_assignments)]
         let mut total_flow = 0.0;
 
         loop {
@@ -96,7 +99,8 @@ impl MinCutGatedAttention {
                 }
 
                 for v in dag.children(u) {
-                    if !visited.contains(v) && residual.get(&(u, *v)).copied().unwrap_or(0.0) > 0.0 {
+                    if !visited.contains(v) && residual.get(&(u, *v)).copied().unwrap_or(0.0) > 0.0
+                    {
                         visited.insert(*v);
                         parent.insert(*v, u);
                         queue.push_back(*v);
@@ -210,7 +214,6 @@ impl DagAttentionMechanism for MinCutGatedAttention {
     fn complexity(&self) -> &'static str {
         "O(n * e^2)"
     }
-
 }
 
 #[cfg(test)]

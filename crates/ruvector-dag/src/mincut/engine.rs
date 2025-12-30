@@ -1,12 +1,12 @@
 //! DagMinCutEngine: Main min-cut computation engine
 
-use std::collections::{HashMap, HashSet};
-use crate::dag::QueryDag;
 use super::local_kcut::LocalKCut;
+use crate::dag::QueryDag;
+use std::collections::{HashMap, HashSet};
 
 #[derive(Debug, Clone)]
 pub struct MinCutConfig {
-    pub epsilon: f32,           // Approximation factor
+    pub epsilon: f32, // Approximation factor
     pub local_search_depth: usize,
     pub cache_cuts: bool,
 }
@@ -133,7 +133,8 @@ impl DagMinCutEngine {
 
         // Invalidate affected cached cuts
         // Extract keys to avoid borrowing issues
-        let keys_to_remove: Vec<(usize, usize)> = self.cached_cuts
+        let keys_to_remove: Vec<(usize, usize)> = self
+            .cached_cuts
             .keys()
             .filter(|(s, t)| self.cut_involves_edge(*s, *t, from, to))
             .copied()

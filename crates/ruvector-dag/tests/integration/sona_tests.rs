@@ -1,7 +1,7 @@
 //! SONA learning integration tests
 
+use ruvector_dag::dag::{OperatorNode, OperatorType, QueryDag};
 use ruvector_dag::sona::*;
-use ruvector_dag::dag::{QueryDag, OperatorNode, OperatorType};
 
 #[test]
 fn test_micro_lora_adaptation() {
@@ -17,7 +17,9 @@ fn test_micro_lora_adaptation() {
     let output2 = lora.forward(&input);
 
     // Output should change after adaptation
-    let diff: f32 = output1.iter().zip(output2.iter())
+    let diff: f32 = output1
+        .iter()
+        .zip(output2.iter())
         .map(|(a, b)| (a - b).abs())
         .sum();
 
@@ -59,9 +61,9 @@ fn test_reasoning_bank_clustering() {
 
     // Store patterns
     for i in 0..50 {
-        let pattern: Vec<f32> = (0..256).map(|j| {
-            ((i * 256 + j) as f32 / 1000.0).sin()
-        }).collect();
+        let pattern: Vec<f32> = (0..256)
+            .map(|j| ((i * 256 + j) as f32 / 1000.0).sin())
+            .collect();
         bank.store_pattern(pattern, 0.8);
     }
 
@@ -222,9 +224,7 @@ fn test_reasoning_bank_cluster_count() {
 
     // Store diverse patterns
     for i in 0..20 {
-        let pattern: Vec<f32> = (0..128).map(|j| {
-            ((i + j) as f32 / 10.0).sin()
-        }).collect();
+        let pattern: Vec<f32> = (0..128).map(|j| ((i + j) as f32 / 10.0).sin()).collect();
         bank.store_pattern(pattern, 0.7);
     }
 

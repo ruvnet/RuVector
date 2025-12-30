@@ -1,14 +1,16 @@
 //! Dynamic Updates: O(n^0.12) amortized update algorithms
 
-use std::collections::HashMap;
 use super::engine::FlowEdge;
+use std::collections::HashMap;
 
 /// Maintains hierarchical decomposition for fast updates
+#[allow(dead_code)]
 pub struct HierarchicalDecomposition {
     levels: Vec<HashMap<usize, Vec<usize>>>,
     level_count: usize,
 }
 
+#[allow(dead_code)]
 impl HierarchicalDecomposition {
     pub fn new(node_count: usize) -> Self {
         // Number of levels = O(log n)

@@ -1,6 +1,6 @@
 //! DAG integration tests
 
-use ruvector_dag::dag::{QueryDag, OperatorNode, OperatorType};
+use ruvector_dag::dag::{OperatorNode, OperatorType, QueryDag};
 
 #[test]
 fn test_complex_query_dag() {
@@ -45,9 +45,12 @@ fn test_dag_serialization_roundtrip() {
     let mut dag = QueryDag::new();
 
     for i in 0..10 {
-        dag.add_node(OperatorNode::new(i, OperatorType::SeqScan {
-            table: format!("table_{}", i)
-        }));
+        dag.add_node(OperatorNode::new(
+            i,
+            OperatorType::SeqScan {
+                table: format!("table_{}", i),
+            },
+        ));
     }
 
     // Create chain
@@ -137,9 +140,12 @@ fn test_dag_subgraph_extraction() {
 
     // Create larger graph
     for i in 0..10 {
-        dag.add_node(OperatorNode::new(i, OperatorType::SeqScan {
-            table: format!("t{}", i)
-        }));
+        dag.add_node(OperatorNode::new(
+            i,
+            OperatorType::SeqScan {
+                table: format!("t{}", i),
+            },
+        ));
     }
 
     // Create edges

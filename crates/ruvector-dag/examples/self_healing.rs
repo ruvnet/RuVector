@@ -1,9 +1,8 @@
 //! Self-healing system example
 
 use ruvector_dag::healing::{
-    HealingOrchestrator, AnomalyConfig, AnomalyDetector,
-    LearningDriftDetector, IndexHealthChecker, IndexThresholds,
-    IndexHealth, IndexType,
+    AnomalyConfig, AnomalyDetector, HealingOrchestrator, IndexHealth, IndexHealthChecker,
+    IndexThresholds, IndexType, LearningDriftDetector,
 };
 use std::time::Instant;
 
@@ -14,23 +13,32 @@ fn main() {
     let mut orchestrator = HealingOrchestrator::new();
 
     // Add detectors for different metrics
-    orchestrator.add_detector("query_latency", AnomalyConfig {
-        z_threshold: 3.0,
-        window_size: 100,
-        min_samples: 10,
-    });
+    orchestrator.add_detector(
+        "query_latency",
+        AnomalyConfig {
+            z_threshold: 3.0,
+            window_size: 100,
+            min_samples: 10,
+        },
+    );
 
-    orchestrator.add_detector("pattern_quality", AnomalyConfig {
-        z_threshold: 2.5,
-        window_size: 50,
-        min_samples: 5,
-    });
+    orchestrator.add_detector(
+        "pattern_quality",
+        AnomalyConfig {
+            z_threshold: 2.5,
+            window_size: 50,
+            min_samples: 5,
+        },
+    );
 
-    orchestrator.add_detector("memory_usage", AnomalyConfig {
-        z_threshold: 2.0,
-        window_size: 50,
-        min_samples: 5,
-    });
+    orchestrator.add_detector(
+        "memory_usage",
+        AnomalyConfig {
+            z_threshold: 2.0,
+            window_size: 50,
+            min_samples: 5,
+        },
+    );
 
     println!("Orchestrator configured:");
     println!("  Detectors: 3 (query_latency, pattern_quality, memory_usage)");
@@ -54,15 +62,20 @@ fn main() {
         if i % 10 == 9 {
             let result = orchestrator.run_cycle();
             let failures = result.repairs_attempted - result.repairs_succeeded;
-            println!("Cycle {}: {} anomalies, {} repairs, {} failures",
+            println!(
+                "Cycle {}: {} anomalies, {} repairs, {} failures",
                 i + 1,
                 result.anomalies_detected,
                 result.repairs_succeeded,
-                failures);
+                failures
+            );
         }
     }
 
-    println!("\nHealth Score after normal operation: {:.2}", orchestrator.health_score());
+    println!(
+        "\nHealth Score after normal operation: {:.2}",
+        orchestrator.health_score()
+    );
 
     // Inject anomalies
     println!("\n--- Injecting Anomalies ---");
@@ -81,7 +94,10 @@ fn main() {
     println!("\nAfter anomalies:");
     println!("  Detected: {}", result.anomalies_detected);
     println!("  Repairs succeeded: {}", result.repairs_succeeded);
-    println!("  Repairs failed: {}", result.repairs_attempted - result.repairs_succeeded);
+    println!(
+        "  Repairs failed: {}",
+        result.repairs_attempted - result.repairs_succeeded
+    );
     println!("  Health Score: {:.2}", orchestrator.health_score());
 
     // Recovery phase
@@ -95,8 +111,11 @@ fn main() {
     }
 
     let result = orchestrator.run_cycle();
-    println!("After recovery: {} anomalies, health score: {:.2}",
-        result.anomalies_detected, orchestrator.health_score());
+    println!(
+        "After recovery: {} anomalies, health score: {:.2}",
+        result.anomalies_detected,
+        orchestrator.health_score()
+    );
 
     // Demonstrate index health checking
     println!("\n--- Index Health Check ---");
@@ -162,10 +181,15 @@ fn main() {
         println!("  Baseline: {:.3}", metric.baseline_value);
         println!("  Magnitude: {:.3}", metric.drift_magnitude);
         println!("  Trend: {:?}", metric.trend);
-        println!("  Severity: {}",
-            if metric.drift_magnitude > 0.2 { "HIGH" }
-            else if metric.drift_magnitude > 0.1 { "MEDIUM" }
-            else { "LOW" }
+        println!(
+            "  Severity: {}",
+            if metric.drift_magnitude > 0.2 {
+                "HIGH"
+            } else if metric.drift_magnitude > 0.1 {
+                "MEDIUM"
+            } else {
+                "LOW"
+            }
         );
     }
 

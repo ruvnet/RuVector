@@ -40,7 +40,8 @@ impl LearningDriftDetector {
     }
 
     pub fn record(&mut self, metric: &str, value: f64) {
-        let values = self.current_values
+        let values = self
+            .current_values
             .entry(metric.to_string())
             .or_insert_with(Vec::new);
 
@@ -81,7 +82,8 @@ impl LearningDriftDetector {
     }
 
     pub fn check_all_drifts(&self) -> Vec<DriftMetric> {
-        self.baselines.keys()
+        self.baselines
+            .keys()
             .filter_map(|metric| self.check_drift(metric))
             .filter(|d| d.drift_magnitude > self.drift_threshold)
             .collect()

@@ -21,7 +21,7 @@ pub enum DagError {
 #[derive(Debug, Clone)]
 pub struct QueryDag {
     pub(crate) nodes: HashMap<usize, OperatorNode>,
-    pub(crate) edges: HashMap<usize, Vec<usize>>,         // parent -> children
+    pub(crate) edges: HashMap<usize, Vec<usize>>, // parent -> children
     pub(crate) reverse_edges: HashMap<usize, Vec<usize>>, // child -> parents
     pub(crate) root: Option<usize>,
     next_id: usize,
@@ -79,7 +79,11 @@ impl QueryDag {
         // Update root if child was previously root and now has parents
         if self.root == Some(child) && !self.reverse_edges[&child].is_empty() {
             // Find new root (node with no parents)
-            self.root = self.nodes.keys().find(|&&id| self.reverse_edges[&id].is_empty()).copied();
+            self.root = self
+                .nodes
+                .keys()
+                .find(|&&id| self.reverse_edges[&id].is_empty())
+                .copied();
         }
 
         Ok(())
@@ -108,7 +112,11 @@ impl QueryDag {
 
         // Update root if necessary
         if self.root == Some(id) {
-            self.root = self.nodes.keys().find(|&&nid| self.reverse_edges[&nid].is_empty()).copied();
+            self.root = self
+                .nodes
+                .keys()
+                .find(|&&nid| self.reverse_edges[&nid].is_empty())
+                .copied();
         }
 
         Some(node)
@@ -381,7 +389,10 @@ mod tests {
         dag.add_edge(id2, id3).unwrap();
 
         // This would create a cycle
-        assert!(matches!(dag.add_edge(id3, id1), Err(DagError::CycleDetected)));
+        assert!(matches!(
+            dag.add_edge(id3, id1),
+            Err(DagError::CycleDetected)
+        ));
     }
 
     #[test]

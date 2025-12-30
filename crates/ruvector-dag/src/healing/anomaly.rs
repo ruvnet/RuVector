@@ -4,9 +4,9 @@ use std::collections::VecDeque;
 
 #[derive(Debug, Clone)]
 pub struct AnomalyConfig {
-    pub z_threshold: f64,      // Z-score threshold (default: 3.0)
-    pub window_size: usize,    // Rolling window size (default: 100)
-    pub min_samples: usize,    // Minimum samples before detection (default: 10)
+    pub z_threshold: f64,   // Z-score threshold (default: 3.0)
+    pub window_size: usize, // Rolling window size (default: 100)
+    pub min_samples: usize, // Minimum samples before detection (default: 10)
 }
 
 impl Default for AnomalyConfig {

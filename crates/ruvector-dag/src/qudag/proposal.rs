@@ -7,15 +7,11 @@ pub struct PatternProposal {
     pub pattern_vector: Vec<f32>,
     pub metadata: serde_json::Value,
     pub quality_score: f64,
-    pub noise_epsilon: Option<f64>,  // Differential privacy
+    pub noise_epsilon: Option<f64>, // Differential privacy
 }
 
 impl PatternProposal {
-    pub fn new(
-        pattern_vector: Vec<f32>,
-        metadata: serde_json::Value,
-        quality_score: f64,
-    ) -> Self {
+    pub fn new(pattern_vector: Vec<f32>, metadata: serde_json::Value, quality_score: f64) -> Self {
         Self {
             pattern_vector,
             metadata,
@@ -63,6 +59,7 @@ impl std::fmt::Display for ProposalStatus {
     }
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct ProposalResult {
     pub proposal_id: String,

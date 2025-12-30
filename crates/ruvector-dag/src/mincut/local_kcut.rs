@@ -1,7 +1,7 @@
 //! Local K-Cut: Sublinear min-cut approximation
 
-use std::collections::{HashMap, HashSet, VecDeque};
 use super::engine::{FlowEdge, MinCutResult};
+use std::collections::{HashMap, HashSet, VecDeque};
 
 /// Local K-Cut oracle for approximate min-cut
 pub struct LocalKCut {

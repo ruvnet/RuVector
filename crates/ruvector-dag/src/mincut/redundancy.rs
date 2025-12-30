@@ -1,7 +1,7 @@
 //! Redundancy Suggestions for reliability
 
-use crate::dag::{QueryDag, OperatorType};
 use super::bottleneck::Bottleneck;
+use crate::dag::{OperatorType, QueryDag};
 
 /// Suggestion for adding redundancy
 #[derive(Debug, Clone)]
@@ -37,14 +37,10 @@ impl RedundancySuggestion {
 
             // Determine best strategy based on operator type
             let strategy = match &node.op_type {
-                OperatorType::SeqScan { .. } |
-                OperatorType::IndexScan { .. } |
-                OperatorType::IvfFlatScan { .. } => {
-                    RedundancyStrategy::Materialize
-                }
-                OperatorType::HnswScan { .. } => {
-                    RedundancyStrategy::Prefetch
-                }
+                OperatorType::SeqScan { .. }
+                | OperatorType::IndexScan { .. }
+                | OperatorType::IvfFlatScan { .. } => RedundancyStrategy::Materialize,
+                OperatorType::HnswScan { .. } => RedundancyStrategy::Prefetch,
                 _ => RedundancyStrategy::Replicate,
             };
 

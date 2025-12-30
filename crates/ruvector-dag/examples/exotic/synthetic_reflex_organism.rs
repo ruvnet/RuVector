@@ -10,8 +10,8 @@
 //! This is not intelligence as problem-solving.
 //! This is intelligence as homeostasis.
 
-use std::time::{Duration, Instant};
 use std::collections::VecDeque;
+use std::time::{Duration, Instant};
 
 /// The organism's internal state - no goals, only coherence
 pub struct ReflexOrganism {
@@ -68,7 +68,7 @@ impl ReflexOrganism {
             tension_history: VecDeque::with_capacity(1000),
             resting_threshold: 0.2,
             learning_threshold: 0.6,
-            metabolic_rate: 0.1,  // Calm baseline
+            metabolic_rate: 0.1, // Calm baseline
             accumulated_stress: 0.0,
             coherence_patterns: Vec::new(),
         }
@@ -103,7 +103,7 @@ impl ReflexOrganism {
         if self.tension > self.resting_threshold {
             self.accumulated_stress += self.tension * 0.01;
         } else {
-            self.accumulated_stress *= 0.95;  // Slow release when calm
+            self.accumulated_stress *= 0.95; // Slow release when calm
         }
     }
 
@@ -138,7 +138,7 @@ impl ReflexOrganism {
         }
 
         let signature = self.current_tension_signature();
-        let efficacy = 1.0 - outcome_tension;  // Lower resulting tension = better
+        let efficacy = 1.0 - outcome_tension; // Lower resulting tension = better
 
         // Check if we already have this pattern
         if let Some(pattern) = self.find_matching_pattern_mut(&signature) {
@@ -156,8 +156,12 @@ impl ReflexOrganism {
             });
         }
 
-        println!("[LEARN] Tension={:.2}, Efficacy={:.2}, Patterns={}",
-            self.tension, efficacy, self.coherence_patterns.len());
+        println!(
+            "[LEARN] Tension={:.2}, Efficacy={:.2}, Patterns={}",
+            self.tension,
+            efficacy,
+            self.coherence_patterns.len()
+        );
     }
 
     /// Is the organism in a calm state?
@@ -171,12 +175,16 @@ impl ReflexOrganism {
             return false;
         }
 
-        let recent: Vec<f32> = self.tension_history.iter()
+        let recent: Vec<f32> = self
+            .tension_history
+            .iter()
             .rev()
             .take(5)
             .map(|(_, t)| *t)
             .collect();
-        let older: Vec<f32> = self.tension_history.iter()
+        let older: Vec<f32> = self
+            .tension_history
+            .iter()
             .rev()
             .skip(5)
             .take(5)
@@ -186,17 +194,18 @@ impl ReflexOrganism {
         let recent_avg: f32 = recent.iter().sum::<f32>() / recent.len() as f32;
         let older_avg: f32 = older.iter().sum::<f32>() / older.len() as f32;
 
-        recent_avg > older_avg * 1.5  // 50% increase = spike
+        recent_avg > older_avg * 1.5 // 50% increase = spike
     }
 
     fn compute_metabolic_response(&self) -> f32 {
         // Metabolic rate follows tension with damping
-        let target = self.tension * 0.8 + 0.1;  // Never fully dormant
+        let target = self.tension * 0.8 + 0.1; // Never fully dormant
         self.metabolic_rate * 0.9 + target * 0.1
     }
 
     fn current_tension_signature(&self) -> Vec<f32> {
-        self.tension_history.iter()
+        self.tension_history
+            .iter()
             .rev()
             .take(10)
             .map(|(_, t)| *t)
@@ -204,12 +213,14 @@ impl ReflexOrganism {
     }
 
     fn find_matching_pattern(&self, signature: &[f32]) -> Option<&CoherencePattern> {
-        self.coherence_patterns.iter()
+        self.coherence_patterns
+            .iter()
             .find(|p| Self::signature_similarity(&p.tension_signature, signature) > 0.8)
     }
 
     fn find_matching_pattern_mut(&mut self, signature: &[f32]) -> Option<&mut CoherencePattern> {
-        self.coherence_patterns.iter_mut()
+        self.coherence_patterns
+            .iter_mut()
             .find(|p| Self::signature_similarity(&p.tension_signature, signature) > 0.8)
     }
 
@@ -218,7 +229,9 @@ impl ReflexOrganism {
             return 0.0;
         }
         let len = a.len().min(b.len());
-        let diff: f32 = a.iter().zip(b.iter())
+        let diff: f32 = a
+            .iter()
+            .zip(b.iter())
             .take(len)
             .map(|(x, y)| (x - y).abs())
             .sum();
@@ -267,11 +280,13 @@ fn main() {
             "Active"
         };
 
-        println!("{:4} | {:.2}    | {:9} | {:13?} | {:.2}  <- {}",
-            i, organism.tension, state, response, organism.metabolic_rate, desc);
+        println!(
+            "{:4} | {:.2}    | {:9} | {:13?} | {:.2}  <- {}",
+            i, organism.tension, state, response, organism.metabolic_rate, desc
+        );
 
         // Simulate response outcome and maybe learn
-        let outcome = organism.tension * 0.7;  // Response reduces tension by 30%
+        let outcome = organism.tension * 0.7; // Response reduces tension by 30%
         organism.maybe_learn(response, outcome);
 
         std::thread::sleep(Duration::from_millis(100));
@@ -279,8 +294,14 @@ fn main() {
 
     println!("\n=== Organism Summary ===");
     println!("Learned patterns: {}", organism.coherence_patterns.len());
-    println!("Final accumulated stress: {:.3}", organism.accumulated_stress);
-    println!("Current state: {}", if organism.is_calm() { "Calm" } else { "Active" });
+    println!(
+        "Final accumulated stress: {:.3}",
+        organism.accumulated_stress
+    );
+    println!(
+        "Current state: {}",
+        if organism.is_calm() { "Calm" } else { "Active" }
+    );
 
     println!("\n\"Intelligence as homeostasis, not problem-solving.\"");
 }

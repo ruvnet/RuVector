@@ -1,6 +1,6 @@
 //! SONA learning workflow example
 
-use ruvector_dag::dag::{QueryDag, OperatorNode, OperatorType};
+use ruvector_dag::dag::{OperatorNode, OperatorType, QueryDag};
 use ruvector_dag::sona::{DagSonaEngine, DagTrajectory, DagTrajectoryBuffer};
 
 fn main() {
@@ -22,11 +22,18 @@ fn main() {
 
         // Create a query DAG
         let dag = create_random_dag(query_num);
-        println!("  DAG nodes: {}, edges: {}", dag.node_count(), dag.edge_count());
+        println!(
+            "  DAG nodes: {}, edges: {}",
+            dag.node_count(),
+            dag.edge_count()
+        );
 
         // Pre-query: Get enhanced embedding
         let enhanced = sona.pre_query(&dag);
-        println!("  Pre-query adaptation complete (embedding dim: {})", enhanced.len());
+        println!(
+            "  Pre-query adaptation complete (embedding dim: {})",
+            enhanced.len()
+        );
 
         // Simulate execution - later queries get faster as SONA learns
         let learning_factor = 1.0 - (query_num as f64 * 0.08);
@@ -37,15 +44,21 @@ fn main() {
         sona.post_query(&dag, execution_time, baseline_time, "topological");
 
         let improvement = ((baseline_time - execution_time) / baseline_time) * 100.0;
-        println!("  Execution: {:.1}ms (baseline: {:.1}ms)", execution_time, baseline_time);
+        println!(
+            "  Execution: {:.1}ms (baseline: {:.1}ms)",
+            execution_time, baseline_time
+        );
         println!("  Improvement: {:.1}%", improvement);
 
         // Every 2 queries, trigger learning
         if query_num % 2 == 0 {
             println!("  Running background learning...");
             sona.background_learn();
-            println!("  Patterns: {}, Trajectories: {}",
-                sona.pattern_count(), sona.trajectory_count());
+            println!(
+                "  Patterns: {}, Trajectories: {}",
+                sona.pattern_count(),
+                sona.trajectory_count()
+            );
         }
     }
 
@@ -103,11 +116,13 @@ fn create_random_dag(seed: usize) -> QueryDag {
         let op = if i == 0 {
             // Start with a scan
             if seed % 2 == 0 {
-                OperatorType::SeqScan { table: format!("table_{}", seed) }
+                OperatorType::SeqScan {
+                    table: format!("table_{}", seed),
+                }
             } else {
                 OperatorType::HnswScan {
                     index: format!("idx_{}", seed),
-                    ef_search: 64
+                    ef_search: 64,
                 }
             }
         } else if i == node_count - 1 {
@@ -117,13 +132,15 @@ fn create_random_dag(seed: usize) -> QueryDag {
             // Middle operators vary
             match (seed + i) % 4 {
                 0 => OperatorType::Filter {
-                    predicate: format!("col{} > {}", i, seed * 10)
+                    predicate: format!("col{} > {}", i, seed * 10),
                 },
                 1 => OperatorType::Sort {
                     keys: vec![format!("col{}", i)],
-                    descending: vec![false]
+                    descending: vec![false],
                 },
-                2 => OperatorType::Limit { count: 10 + (seed * i) },
+                2 => OperatorType::Limit {
+                    count: 10 + (seed * i),
+                },
                 _ => OperatorType::NestedLoopJoin,
             }
         };

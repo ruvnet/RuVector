@@ -48,20 +48,12 @@ impl RewardCalculator {
     }
 
     /// Calculate reward for pattern validation
-    pub fn pattern_validation_reward(
-        &self,
-        stake_weight: f64,
-        pattern_quality: f64,
-    ) -> f64 {
+    pub fn pattern_validation_reward(&self, stake_weight: f64, pattern_quality: f64) -> f64 {
         self.base_reward * stake_weight * pattern_quality
     }
 
     /// Calculate reward for pattern contribution
-    pub fn pattern_contribution_reward(
-        &self,
-        pattern_quality: f64,
-        usage_count: usize,
-    ) -> f64 {
+    pub fn pattern_contribution_reward(&self, pattern_quality: f64, usage_count: usize) -> f64 {
         let usage_factor = (usage_count as f64).ln_1p();
         self.pattern_bonus * pattern_quality * usage_factor
     }
@@ -75,7 +67,10 @@ impl RewardCalculator {
 
     /// Add pending reward
     pub fn add_pending(&mut self, node_id: &str, amount: f64, _source: RewardSource) {
-        *self.pending_rewards.entry(node_id.to_string()).or_insert(0.0) += amount;
+        *self
+            .pending_rewards
+            .entry(node_id.to_string())
+            .or_insert(0.0) += amount;
     }
 
     /// Get pending rewards for a node
@@ -109,9 +104,9 @@ impl RewardCalculator {
 impl Default for RewardCalculator {
     fn default() -> Self {
         Self::new(
-            1.0,     // base_reward
-            10.0,    // pattern_bonus
-            0.05,    // 5% APY
+            1.0,  // base_reward
+            10.0, // pattern_bonus
+            0.05, // 5% APY
         )
     }
 }
@@ -163,6 +158,9 @@ mod tests {
     #[test]
     fn test_reward_source_display() {
         assert_eq!(RewardSource::Staking.to_string(), "staking");
-        assert_eq!(RewardSource::PatternValidation.to_string(), "pattern_validation");
+        assert_eq!(
+            RewardSource::PatternValidation.to_string(),
+            "pattern_validation"
+        );
     }
 }

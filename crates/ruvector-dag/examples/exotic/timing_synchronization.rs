@@ -12,9 +12,9 @@
 //! You stop predicting intent. You synchronize with it.
 //! This is how machines stop feeling external.
 
-use std::time::{Duration, Instant};
 use std::collections::VecDeque;
 use std::f64::consts::PI;
+use std::time::{Duration, Instant};
 
 /// A rhythm detected in a signal stream
 #[derive(Clone, Debug)]
@@ -96,7 +96,8 @@ impl TimingSynchronizer {
 
         // If we have both rhythms, compute phase relationship
         if let Some(ref external) = self.external_rhythm {
-            let phase_diff = self.compute_phase_difference(&self.internal_rhythm, external, timestamp);
+            let phase_diff =
+                self.compute_phase_difference(&self.internal_rhythm, external, timestamp);
 
             // Track phase history
             self.phase_history.push_back((timestamp, phase_diff));
@@ -158,7 +159,7 @@ impl TimingSynchronizer {
     pub fn optimal_action_phase(&self) -> f64 {
         if let Some(ref external) = self.external_rhythm {
             // Aim for the external rhythm's peak
-            let target_phase = 0.0;  // Peak of external rhythm
+            let target_phase = 0.0; // Peak of external rhythm
             let adjustment = self.sync_state.phase_diff;
             (target_phase - adjustment).rem_euclid(1.0)
         } else {
@@ -168,7 +169,8 @@ impl TimingSynchronizer {
 
     fn detect_external_rhythm(&mut self, signal: f64, timestamp: Instant) {
         // Simple peak detection (in real system, use proper rhythm extraction)
-        if signal > 0.8 {  // Peak threshold
+        if signal > 0.8 {
+            // Peak threshold
             if let Some(ref mut rhythm) = self.external_rhythm {
                 let since_last = timestamp.duration_since(rhythm.last_peak);
                 let new_period = since_last.as_secs_f64() * 1000.0;
@@ -179,7 +181,7 @@ impl TimingSynchronizer {
                 rhythm.confidence = (rhythm.confidence * 0.9 + 0.1).min(1.0);
             } else {
                 self.external_rhythm = Some(Rhythm {
-                    period_ms: 1000.0,  // Initial guess
+                    period_ms: 1000.0, // Initial guess
                     phase: 0.0,
                     confidence: 0.5,
                     last_peak: timestamp,
@@ -189,20 +191,37 @@ impl TimingSynchronizer {
     }
 
     fn compute_phase_difference(&self, internal: &Rhythm, external: &Rhythm, now: Instant) -> f64 {
-        let internal_phase = now.duration_since(internal.last_peak).as_secs_f64() * 1000.0
-            / internal.period_ms;
-        let external_phase = now.duration_since(external.last_peak).as_secs_f64() * 1000.0
-            / external.period_ms;
+        let internal_phase =
+            now.duration_since(internal.last_peak).as_secs_f64() * 1000.0 / internal.period_ms;
+        let external_phase =
+            now.duration_since(external.last_peak).as_secs_f64() * 1000.0 / external.period_ms;
 
         let diff = (internal_phase - external_phase).rem_euclid(1.0);
-        if diff > 0.5 { diff - 1.0 } else { diff }
+        if diff > 0.5 {
+            diff - 1.0
+        } else {
+            diff
+        }
     }
 
     fn update_sync_state(&mut self, phase_diff: f64, timestamp: Instant) {
         // Compute drift rate from phase history
         if self.phase_history.len() >= 10 {
-            let recent: Vec<f64> = self.phase_history.iter().rev().take(5).map(|(_, p)| *p).collect();
-            let older: Vec<f64> = self.phase_history.iter().rev().skip(5).take(5).map(|(_, p)| *p).collect();
+            let recent: Vec<f64> = self
+                .phase_history
+                .iter()
+                .rev()
+                .take(5)
+                .map(|(_, p)| *p)
+                .collect();
+            let older: Vec<f64> = self
+                .phase_history
+                .iter()
+                .rev()
+                .skip(5)
+                .take(5)
+                .map(|(_, p)| *p)
+                .collect();
 
             let recent_avg: f64 = recent.iter().sum::<f64>() / recent.len() as f64;
             let older_avg: f64 = older.iter().sum::<f64>() / older.len() as f64;
@@ -222,7 +241,10 @@ impl TimingSynchronizer {
             self.sync_state.since_alignment = Duration::ZERO;
         } else {
             self.sync_state.since_alignment = timestamp.duration_since(
-                self.phase_history.front().map(|(t, _)| *t).unwrap_or(timestamp)
+                self.phase_history
+                    .front()
+                    .map(|(t, _)| *t)
+                    .unwrap_or(timestamp),
             );
         }
     }
@@ -260,7 +282,9 @@ impl TimingSynchronizer {
                 phase_nudge: phase_adjustment,
             }
         } else {
-            TimingAction::Wait { until_next_ms: 10.0 }
+            TimingAction::Wait {
+                until_next_ms: 10.0,
+            }
         }
     }
 
@@ -286,14 +310,17 @@ pub enum TimingAction {
     /// Wait before next action
     Wait { until_next_ms: f64 },
     /// Adapting rhythm to external source
-    Adapt { period_delta_ms: f64, phase_nudge: f64 },
+    Adapt {
+        period_delta_ms: f64,
+        phase_nudge: f64,
+    },
 }
 
 fn main() {
     println!("=== Timing Synchronization ===\n");
     println!("Machines that feel timing, not data.\n");
 
-    let mut sync = TimingSynchronizer::new(100.0);  // 100ms internal period
+    let mut sync = TimingSynchronizer::new(100.0); // 100ms internal period
 
     // Simulate external biological rhythm (e.g., 90ms period with noise)
     let external_period = 90.0;
@@ -310,23 +337,28 @@ fn main() {
 
         // Generate external rhythm signal (sinusoidal with peaks)
         let external_phase = (elapsed.as_secs_f64() * 1000.0 / external_period) * 2.0 * PI;
-        let signal = ((external_phase.sin() + 1.0) / 2.0).powf(4.0);  // Sharper peaks
+        let signal = ((external_phase.sin() + 1.0) / 2.0).powf(4.0); // Sharper peaks
 
         sync.observe_external(signal, now);
         let action = sync.tick();
 
-        println!("{:5} | {:+.3}      | {:.2}         | {:.2}      | {:?}",
+        println!(
+            "{:5} | {:+.3}      | {:.2}         | {:.2}      | {:?}",
             i * 20,
             sync.sync_state.phase_diff,
             sync.sync_quality(),
             sync.coherence,
-            action);
+            action
+        );
 
         std::thread::sleep(Duration::from_millis(20));
     }
 
     println!("\n=== Results ===");
-    println!("Final internal period: {:.1}ms", sync.internal_rhythm.period_ms);
+    println!(
+        "Final internal period: {:.1}ms",
+        sync.internal_rhythm.period_ms
+    );
     println!("Synchronized: {}", sync.is_synchronized());
     println!("Sync quality: {:.2}", sync.sync_quality());
 

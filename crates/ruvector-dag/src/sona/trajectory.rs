@@ -51,6 +51,7 @@ impl DagTrajectory {
 pub struct DagTrajectoryBuffer {
     queue: ArrayQueue<DagTrajectory>,
     count: AtomicUsize,
+    #[allow(dead_code)]
     capacity: usize,
 }
 

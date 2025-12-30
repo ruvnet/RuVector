@@ -50,8 +50,14 @@ impl ParallelBranchAttention {
             let children = dag.children(node_id);
             if !children.is_empty() {
                 for &child in children {
-                    children_of.entry(node_id).or_insert_with(Vec::new).push(child);
-                    parents_of.entry(child).or_insert_with(Vec::new).push(node_id);
+                    children_of
+                        .entry(node_id)
+                        .or_insert_with(Vec::new)
+                        .push(child);
+                    parents_of
+                        .entry(child)
+                        .or_insert_with(Vec::new)
+                        .push(node_id);
                 }
             }
         }
@@ -70,9 +76,9 @@ impl ParallelBranchAttention {
                         if !visited.contains(&child) {
                             // Check if this child has edges to any siblings
                             let child_children = dag.children(child);
-                            let has_sibling_edge = children.iter().any(|&other| {
-                                other != child && child_children.contains(&other)
-                            });
+                            let has_sibling_edge = children
+                                .iter()
+                                .any(|&other| other != child && child_children.contains(&other));
 
                             if !has_sibling_edge {
                                 parallel_group.push(child);
@@ -105,7 +111,8 @@ impl ParallelBranchAttention {
             }
 
             // Compute costs for each node in the branch
-            let costs: Vec<f64> = branch.iter()
+            let costs: Vec<f64> = branch
+                .iter()
                 .filter_map(|&id| dag.get_node(id).map(|n| n.estimated_cost))
                 .collect();
 
@@ -115,9 +122,8 @@ impl ParallelBranchAttention {
 
             // Compute variance
             let mean = costs.iter().sum::<f64>() / costs.len() as f64;
-            let variance = costs.iter()
-                .map(|&c| (c - mean).powi(2))
-                .sum::<f64>() / costs.len() as f64;
+            let variance =
+                costs.iter().map(|&c| (c - mean).powi(2)).sum::<f64>() / costs.len() as f64;
 
             total_variance += variance as f32;
         }
@@ -137,14 +143,17 @@ impl ParallelBranchAttention {
         }
 
         // Sum of costs in the branch
-        let total_cost: f64 = branch.iter()
+        let total_cost: f64 = branch
+            .iter()
             .filter_map(|&id| dag.get_node(id).map(|n| n.estimated_cost))
             .sum();
 
         // Average rows (higher rows = more critical for filtering)
-        let avg_rows: f64 = branch.iter()
+        let avg_rows: f64 = branch
+            .iter()
             .filter_map(|&id| dag.get_node(id).map(|n| n.estimated_rows))
-            .sum::<f64>() / branch.len().max(1) as f64;
+            .sum::<f64>()
+            / branch.len().max(1) as f64;
 
         // Criticality is high cost + high row count
         (total_cost * (avg_rows / 1000.0).min(1.0)) as f32
@@ -196,7 +205,10 @@ impl ParallelBranchAttention {
 
         // Normalize using softmax
         let max_score = scores.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
-        let exp_sum: f32 = scores.iter().map(|&s| ((s - max_score) / self.config.temperature).exp()).sum();
+        let exp_sum: f32 = scores
+            .iter()
+            .map(|&s| ((s - max_score) / self.config.temperature).exp())
+            .sum();
 
         if exp_sum > 0.0 {
             for score in scores.iter_mut() {
@@ -230,7 +242,9 @@ impl DagAttentionMechanism for ParallelBranchAttention {
             .with_metadata("num_branches".to_string(), branches.len().to_string());
 
         let balance = self.branch_balance(&branches, dag);
-        result.metadata.insert("balance_score".to_string(), format!("{:.4}", balance));
+        result
+            .metadata
+            .insert("balance_score".to_string(), format!("{:.4}", balance));
 
         Ok(result)
     }

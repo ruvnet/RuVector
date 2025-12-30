@@ -1,11 +1,10 @@
 //! Demo of DAG attention mechanisms
 
-use ruvector_dag::{
-    QueryDag, OperatorNode,
-    TopologicalAttention, CausalConeAttention, CriticalPathAttention, MinCutGatedAttention,
-    DagAttention,
-};
 use ruvector_dag::attention::DagAttentionMechanism;
+use ruvector_dag::{
+    CausalConeAttention, CriticalPathAttention, DagAttention, MinCutGatedAttention, OperatorNode,
+    QueryDag, TopologicalAttention,
+};
 use std::time::Instant;
 
 fn create_sample_dag() -> QueryDag {
@@ -18,7 +17,7 @@ fn create_sample_dag() -> QueryDag {
     for i in 0..10 {
         let id = dag.add_node(
             OperatorNode::seq_scan(0, &format!("table_{}", i))
-                .with_estimates(1000.0 * (i as f64 + 1.0), 10.0)
+                .with_estimates(1000.0 * (i as f64 + 1.0), 10.0),
         );
         ids.push(id);
     }
@@ -26,8 +25,7 @@ fn create_sample_dag() -> QueryDag {
     // Layer 2: 20 filter nodes
     for i in 0..20 {
         let id = dag.add_node(
-            OperatorNode::filter(0, &format!("col_{} > 0", i))
-                .with_estimates(500.0, 5.0)
+            OperatorNode::filter(0, &format!("col_{} > 0", i)).with_estimates(500.0, 5.0),
         );
         dag.add_edge(ids[i % 10], id).unwrap();
         ids.push(id);
@@ -36,8 +34,7 @@ fn create_sample_dag() -> QueryDag {
     // Layer 3: 30 join nodes
     for i in 0..30 {
         let id = dag.add_node(
-            OperatorNode::hash_join(0, &format!("key_{}", i))
-                .with_estimates(2000.0, 20.0)
+            OperatorNode::hash_join(0, &format!("key_{}", i)).with_estimates(2000.0, 20.0),
         );
         dag.add_edge(ids[10 + (i % 20)], id).unwrap();
         dag.add_edge(ids[10 + ((i + 1) % 20)], id).unwrap();
@@ -47,8 +44,7 @@ fn create_sample_dag() -> QueryDag {
     // Layer 4: 20 aggregate nodes
     for i in 0..20 {
         let id = dag.add_node(
-            OperatorNode::aggregate(0, vec![format!("sum(col_{})", i)])
-                .with_estimates(100.0, 15.0)
+            OperatorNode::aggregate(0, vec![format!("sum(col_{})", i)]).with_estimates(100.0, 15.0),
         );
         dag.add_edge(ids[30 + (i % 30)], id).unwrap();
         ids.push(id);
@@ -57,8 +53,7 @@ fn create_sample_dag() -> QueryDag {
     // Layer 5: 10 sort nodes
     for i in 0..10 {
         let id = dag.add_node(
-            OperatorNode::sort(0, vec![format!("col_{}", i)])
-                .with_estimates(100.0, 12.0)
+            OperatorNode::sort(0, vec![format!("col_{}", i)]).with_estimates(100.0, 12.0),
         );
         dag.add_edge(ids[60 + (i * 2)], id).unwrap();
         ids.push(id);
@@ -66,10 +61,7 @@ fn create_sample_dag() -> QueryDag {
 
     // Layer 6: 5 limit nodes
     for i in 0..5 {
-        let id = dag.add_node(
-            OperatorNode::limit(0, 100)
-                .with_estimates(100.0, 1.0)
-        );
+        let id = dag.add_node(OperatorNode::limit(0, 100).with_estimates(100.0, 1.0));
         dag.add_edge(ids[80 + (i * 2)], id).unwrap();
         ids.push(id);
     }
@@ -88,7 +80,11 @@ fn main() {
     println!("==========================================\n");
 
     let dag = create_sample_dag();
-    println!("Created DAG with {} nodes and {} edges\n", dag.node_count(), dag.edge_count());
+    println!(
+        "Created DAG with {} nodes and {} edges\n",
+        dag.node_count(),
+        dag.edge_count()
+    );
 
     // Test TopologicalAttention
     println!("1. TopologicalAttention");
@@ -99,7 +95,10 @@ fn main() {
     println!("   Time: {:?}", elapsed);
     println!("   Complexity: {}", topo.complexity());
     println!("   Score sum: {:.6}", scores.values().sum::<f32>());
-    println!("   Max score: {:.6}\n", scores.values().fold(0.0f32, |a, &b| a.max(b)));
+    println!(
+        "   Max score: {:.6}\n",
+        scores.values().fold(0.0f32, |a, &b| a.max(b))
+    );
 
     // Test CausalConeAttention
     println!("2. CausalConeAttention");
@@ -110,7 +109,10 @@ fn main() {
     println!("   Time: {:?}", elapsed);
     println!("   Complexity: {}", causal.complexity());
     println!("   Score sum: {:.6}", scores.values().sum::<f32>());
-    println!("   Max score: {:.6}\n", scores.values().fold(0.0f32, |a, &b| a.max(b)));
+    println!(
+        "   Max score: {:.6}\n",
+        scores.values().fold(0.0f32, |a, &b| a.max(b))
+    );
 
     // Test CriticalPathAttention
     println!("3. CriticalPathAttention");
@@ -121,7 +123,10 @@ fn main() {
     println!("   Time: {:?}", elapsed);
     println!("   Complexity: {}", critical.complexity());
     println!("   Score sum: {:.6}", scores.values().sum::<f32>());
-    println!("   Max score: {:.6}\n", scores.values().fold(0.0f32, |a, &b| a.max(b)));
+    println!(
+        "   Max score: {:.6}\n",
+        scores.values().fold(0.0f32, |a, &b| a.max(b))
+    );
 
     // Test MinCutGatedAttention
     println!("4. MinCutGatedAttention");
@@ -132,7 +137,10 @@ fn main() {
     println!("   Time: {:?}", elapsed);
     println!("   Complexity: {}", mincut.complexity());
     println!("   Score sum: {:.6}", result.scores.iter().sum::<f32>());
-    println!("   Max score: {:.6}\n", result.scores.iter().fold(0.0f32, |a, b| a.max(*b)));
+    println!(
+        "   Max score: {:.6}\n",
+        result.scores.iter().fold(0.0f32, |a, b| a.max(*b))
+    );
 
     println!("All attention mechanisms completed successfully!");
 }

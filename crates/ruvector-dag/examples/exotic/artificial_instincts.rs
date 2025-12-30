@@ -73,7 +73,9 @@ impl AvoidFragmentation {
 }
 
 impl Instinct for AvoidFragmentation {
-    fn name(&self) -> &str { "AvoidFragmentation" }
+    fn name(&self) -> &str {
+        "AvoidFragmentation"
+    }
 
     fn evaluate(&self, context: &InstinctContext, action: &ProposedAction) -> f64 {
         // Strong negative bias if action increases fragmentation
@@ -85,7 +87,9 @@ impl Instinct for AvoidFragmentation {
         }
     }
 
-    fn strength(&self) -> f64 { self.strength }
+    fn strength(&self) -> f64 {
+        self.strength
+    }
 }
 
 /// Instinct: Preserve causal continuity
@@ -97,12 +101,17 @@ pub struct PreserveCausality {
 
 impl PreserveCausality {
     pub fn new(strength: f64, max_chain_depth: usize) -> Self {
-        Self { strength, max_chain_depth }
+        Self {
+            strength,
+            max_chain_depth,
+        }
     }
 }
 
 impl Instinct for PreserveCausality {
-    fn name(&self) -> &str { "PreserveCausality" }
+    fn name(&self) -> &str {
+        "PreserveCausality"
+    }
 
     fn evaluate(&self, context: &InstinctContext, action: &ProposedAction) -> f64 {
         let new_depth = context.causal_depth + action.causal_chain_additions;
@@ -119,7 +128,9 @@ impl Instinct for PreserveCausality {
         }
     }
 
-    fn strength(&self) -> f64 { self.strength }
+    fn strength(&self) -> f64 {
+        self.strength
+    }
 }
 
 /// Instinct: Minimize delayed consequences
@@ -135,17 +146,21 @@ impl MinimizeDelayedEffects {
 }
 
 impl Instinct for MinimizeDelayedEffects {
-    fn name(&self) -> &str { "MinimizeDelayedEffects" }
+    fn name(&self) -> &str {
+        "MinimizeDelayedEffects"
+    }
 
     fn evaluate(&self, _context: &InstinctContext, action: &ProposedAction) -> f64 {
         if action.delayed_effects {
             -0.3 * self.strength
         } else {
-            0.1 * self.strength  // Slight preference for immediate feedback
+            0.1 * self.strength // Slight preference for immediate feedback
         }
     }
 
-    fn strength(&self) -> f64 { self.strength }
+    fn strength(&self) -> f64 {
+        self.strength
+    }
 }
 
 /// Instinct: Prefer reversible actions under uncertainty
@@ -157,12 +172,17 @@ pub struct PreferReversibility {
 
 impl PreferReversibility {
     pub fn new(strength: f64, uncertainty_threshold: f64) -> Self {
-        Self { strength, uncertainty_threshold }
+        Self {
+            strength,
+            uncertainty_threshold,
+        }
     }
 }
 
 impl Instinct for PreferReversibility {
-    fn name(&self) -> &str { "PreferReversibility" }
+    fn name(&self) -> &str {
+        "PreferReversibility"
+    }
 
     fn evaluate(&self, context: &InstinctContext, action: &ProposedAction) -> f64 {
         if context.uncertainty > self.uncertainty_threshold {
@@ -177,7 +197,9 @@ impl Instinct for PreferReversibility {
         }
     }
 
-    fn strength(&self) -> f64 { self.strength }
+    fn strength(&self) -> f64 {
+        self.strength
+    }
 }
 
 /// Instinct: Seek homeostasis
@@ -189,21 +211,29 @@ pub struct SeekHomeostasis {
 
 impl SeekHomeostasis {
     pub fn new(strength: f64, baseline_tension: f64) -> Self {
-        Self { strength, baseline_tension }
+        Self {
+            strength,
+            baseline_tension,
+        }
     }
 }
 
 impl Instinct for SeekHomeostasis {
-    fn name(&self) -> &str { "SeekHomeostasis" }
+    fn name(&self) -> &str {
+        "SeekHomeostasis"
+    }
 
     fn evaluate(&self, context: &InstinctContext, action: &ProposedAction) -> f64 {
         // Look at recent history to predict tension change
         let avg_tension_delta: f64 = if context.recent_actions.is_empty() {
             0.0
         } else {
-            context.recent_actions.iter()
+            context
+                .recent_actions
+                .iter()
                 .map(|a| a.tension_after - a.tension_before)
-                .sum::<f64>() / context.recent_actions.len() as f64
+                .sum::<f64>()
+                / context.recent_actions.len() as f64
         };
 
         let current_deviation = (context.mincut_tension - self.baseline_tension).abs();
@@ -218,7 +248,9 @@ impl Instinct for SeekHomeostasis {
         }
     }
 
-    fn strength(&self) -> f64 { self.strength }
+    fn strength(&self) -> f64 {
+        self.strength
+    }
 }
 
 // =============================================================================
@@ -232,16 +264,22 @@ pub struct InstinctEngine {
 
 impl InstinctEngine {
     pub fn new() -> Self {
-        Self { instincts: Vec::new() }
+        Self {
+            instincts: Vec::new(),
+        }
     }
 
     /// Add a primal instinct set (recommended defaults)
     pub fn with_primal_instincts(mut self) -> Self {
         self.instincts.push(Box::new(AvoidFragmentation::new(0.8)));
-        self.instincts.push(Box::new(PreserveCausality::new(0.7, 10)));
-        self.instincts.push(Box::new(MinimizeDelayedEffects::new(0.5)));
-        self.instincts.push(Box::new(PreferReversibility::new(0.9, 0.4)));
-        self.instincts.push(Box::new(SeekHomeostasis::new(0.6, 0.2)));
+        self.instincts
+            .push(Box::new(PreserveCausality::new(0.7, 10)));
+        self.instincts
+            .push(Box::new(MinimizeDelayedEffects::new(0.5)));
+        self.instincts
+            .push(Box::new(PreferReversibility::new(0.9, 0.4)));
+        self.instincts
+            .push(Box::new(SeekHomeostasis::new(0.6, 0.2)));
         self
     }
 
@@ -250,7 +288,11 @@ impl InstinctEngine {
     }
 
     /// Evaluate all instincts and return combined bias
-    pub fn evaluate(&self, context: &InstinctContext, action: &ProposedAction) -> InstinctEvaluation {
+    pub fn evaluate(
+        &self,
+        context: &InstinctContext,
+        action: &ProposedAction,
+    ) -> InstinctEvaluation {
         let mut contributions = Vec::new();
         let mut total_bias = 0.0;
 
@@ -275,8 +317,13 @@ impl InstinctEngine {
     }
 
     /// Rank actions by instinctive preference
-    pub fn rank_actions(&self, context: &InstinctContext, actions: &[ProposedAction]) -> Vec<(String, f64)> {
-        let mut rankings: Vec<(String, f64)> = actions.iter()
+    pub fn rank_actions(
+        &self,
+        context: &InstinctContext,
+        actions: &[ProposedAction],
+    ) -> Vec<(String, f64)> {
+        let mut rankings: Vec<(String, f64)> = actions
+            .iter()
             .map(|a| {
                 let eval = self.evaluate(context, a);
                 (a.name.clone(), eval.total_bias)
@@ -315,14 +362,12 @@ fn main() {
         fragmentation: 0.3,
         causal_depth: 5,
         uncertainty: 0.6,
-        recent_actions: vec![
-            ActionOutcome {
-                action_name: "rebalance".into(),
-                tension_before: 0.6,
-                tension_after: 0.5,
-                fragmentation_delta: -0.05,
-            }
-        ],
+        recent_actions: vec![ActionOutcome {
+            action_name: "rebalance".into(),
+            tension_before: 0.6,
+            tension_after: 0.5,
+            fragmentation_delta: -0.05,
+        }],
     };
 
     // Possible actions
@@ -369,8 +414,10 @@ fn main() {
         },
     ];
 
-    println!("Context: tension={:.2}, fragmentation={:.2}, uncertainty={:.2}\n",
-        context.mincut_tension, context.fragmentation, context.uncertainty);
+    println!(
+        "Context: tension={:.2}, fragmentation={:.2}, uncertainty={:.2}\n",
+        context.mincut_tension, context.fragmentation, context.uncertainty
+    );
 
     println!("Action                  | Bias   | Recommendation | Top Contributors");
     println!("------------------------|--------|----------------|------------------");
@@ -381,24 +428,31 @@ fn main() {
         // Get top 2 contributors
         let mut contribs = eval.contributions.clone();
         contribs.sort_by(|a, b| b.1.abs().partial_cmp(&a.1.abs()).unwrap());
-        let top_contribs: Vec<String> = contribs.iter()
+        let top_contribs: Vec<String> = contribs
+            .iter()
             .take(2)
             .map(|(name, bias)| format!("{}:{:+.2}", &name[..3.min(name.len())], bias))
             .collect();
 
-        println!("{:23} | {:+.2}   | {:14?} | {}",
+        println!(
+            "{:23} | {:+.2}   | {:14?} | {}",
             action.name,
             eval.total_bias,
             eval.recommendation,
-            top_contribs.join(", "));
+            top_contribs.join(", ")
+        );
     }
 
     println!("\n=== Instinctive Ranking ===");
     let rankings = engine.rank_actions(&context, &actions);
     for (i, (name, bias)) in rankings.iter().enumerate() {
-        let marker = if *bias > 0.3 { "+" }
-            else if *bias < -0.3 { "-" }
-            else { " " };
+        let marker = if *bias > 0.3 {
+            "+"
+        } else if *bias < -0.3 {
+            "-"
+        } else {
+            " "
+        };
         println!("{}. {} {:23} ({:+.2})", i + 1, marker, name, bias);
     }
 

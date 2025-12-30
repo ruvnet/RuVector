@@ -4,9 +4,9 @@ use rand::Rng;
 
 #[derive(Debug, Clone)]
 pub struct DpConfig {
-    pub epsilon: f64,      // Privacy budget
-    pub delta: f64,        // Failure probability
-    pub sensitivity: f64,  // Query sensitivity
+    pub epsilon: f64,     // Privacy budget
+    pub delta: f64,       // Failure probability
+    pub sensitivity: f64, // Query sensitivity
 }
 
 impl Default for DpConfig {
@@ -81,7 +81,7 @@ impl DifferentialPrivacy {
     pub fn advanced_privacy_loss(&self, num_queries: usize) -> f64 {
         let k = num_queries as f64;
         // Advanced composition theorem
-        (2.0 * k * (1.0 / self.config.delta).ln()).sqrt() * self.config.epsilon +
-            k * self.config.epsilon * (self.config.epsilon.exp() - 1.0)
+        (2.0 * k * (1.0 / self.config.delta).ln()).sqrt() * self.config.epsilon
+            + k * self.config.epsilon * (self.config.epsilon.exp() - 1.0)
     }
 }

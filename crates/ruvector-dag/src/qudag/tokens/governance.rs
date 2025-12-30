@@ -50,8 +50,8 @@ pub enum VoteChoice {
 pub struct GovernanceSystem {
     proposals: HashMap<String, Proposal>,
     votes: HashMap<String, Vec<GovernanceVote>>,
-    quorum_threshold: f64,       // Minimum participation (e.g., 0.1 = 10%)
-    approval_threshold: f64,     // Minimum approval (e.g., 0.67 = 67%)
+    quorum_threshold: f64,   // Minimum participation (e.g., 0.1 = 10%)
+    approval_threshold: f64, // Minimum approval (e.g., 0.67 = 67%)
 }
 
 impl GovernanceSystem {
@@ -98,7 +98,9 @@ impl GovernanceSystem {
         choice: VoteChoice,
         stake_weight: f64,
     ) -> Result<(), GovernanceError> {
-        let proposal = self.proposals.get(proposal_id)
+        let proposal = self
+            .proposals
+            .get(proposal_id)
             .ok_or(GovernanceError::ProposalNotFound)?;
 
         if proposal.status != ProposalStatus::Active {
@@ -163,10 +165,16 @@ impl GovernanceSystem {
         })
     }
 
-    pub fn finalize(&mut self, proposal_id: &str, total_stake: f64) -> Result<ProposalStatus, GovernanceError> {
+    pub fn finalize(
+        &mut self,
+        proposal_id: &str,
+        total_stake: f64,
+    ) -> Result<ProposalStatus, GovernanceError> {
         // First, validate the proposal without holding a mutable borrow
         {
-            let proposal = self.proposals.get(proposal_id)
+            let proposal = self
+                .proposals
+                .get(proposal_id)
                 .ok_or(GovernanceError::ProposalNotFound)?;
 
             if proposal.status != ProposalStatus::Active {
@@ -179,7 +187,8 @@ impl GovernanceSystem {
         }
 
         // Calculate tally (immutable borrow)
-        let tally = self.tally(proposal_id, total_stake)
+        let tally = self
+            .tally(proposal_id, total_stake)
             .ok_or(GovernanceError::ProposalNotFound)?;
 
         let new_status = if tally.approved {
@@ -199,7 +208,8 @@ impl GovernanceSystem {
     }
 
     pub fn active_proposals(&self) -> Vec<&Proposal> {
-        self.proposals.values()
+        self.proposals
+            .values()
             .filter(|p| p.status == ProposalStatus::Active)
             .collect()
     }
@@ -271,7 +281,9 @@ mod tests {
         );
 
         // First vote succeeds
-        assert!(gov.vote("voter1".to_string(), &id, VoteChoice::For, 100.0).is_ok());
+        assert!(gov
+            .vote("voter1".to_string(), &id, VoteChoice::For, 100.0)
+            .is_ok());
 
         // Duplicate vote fails
         assert!(matches!(
@@ -291,8 +303,10 @@ mod tests {
             Duration::from_secs(86400),
         );
 
-        gov.vote("voter1".to_string(), &id, VoteChoice::For, 700.0).unwrap();
-        gov.vote("voter2".to_string(), &id, VoteChoice::Against, 300.0).unwrap();
+        gov.vote("voter1".to_string(), &id, VoteChoice::For, 700.0)
+            .unwrap();
+        gov.vote("voter2".to_string(), &id, VoteChoice::Against, 300.0)
+            .unwrap();
 
         let tally = gov.tally(&id, 10000.0).unwrap();
         assert_eq!(tally.for_weight, 700.0);
@@ -314,7 +328,8 @@ mod tests {
             Duration::from_secs(86400),
         );
 
-        gov.vote("voter1".to_string(), &id, VoteChoice::For, 100.0).unwrap();
+        gov.vote("voter1".to_string(), &id, VoteChoice::For, 100.0)
+            .unwrap();
 
         let tally = gov.tally(&id, 10000.0).unwrap();
         assert!(!tally.quorum_met); // Only 1% participation

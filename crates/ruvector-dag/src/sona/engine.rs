@@ -1,7 +1,10 @@
 //! DagSonaEngine: Main orchestration for SONA learning
 
-use super::{MicroLoRA, MicroLoRAConfig, DagTrajectoryBuffer, DagTrajectory, DagReasoningBank, ReasoningBankConfig, EwcPlusPlus, EwcConfig};
-use crate::dag::{QueryDag, OperatorType};
+use super::{
+    DagReasoningBank, DagTrajectory, DagTrajectoryBuffer, EwcConfig, EwcPlusPlus, MicroLoRA,
+    MicroLoRAConfig, ReasoningBankConfig,
+};
+use crate::dag::{OperatorType, QueryDag};
 use ndarray::Array1;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
@@ -10,6 +13,7 @@ pub struct DagSonaEngine {
     micro_lora: MicroLoRA,
     trajectory_buffer: DagTrajectoryBuffer,
     reasoning_bank: DagReasoningBank,
+    #[allow(dead_code)]
     ewc: EwcPlusPlus,
     embedding_dim: usize,
 }
@@ -38,11 +42,14 @@ impl DagSonaEngine {
         // If we have similar patterns, adapt MicroLoRA
         if !similar.is_empty() {
             let adaptation_signal = self.compute_adaptation_signal(&similar, &embedding);
-            self.micro_lora.adapt(&Array1::from_vec(adaptation_signal), 0.01);
+            self.micro_lora
+                .adapt(&Array1::from_vec(adaptation_signal), 0.01);
         }
 
         // Return enhanced embedding
-        self.micro_lora.forward(&Array1::from_vec(embedding)).to_vec()
+        self.micro_lora
+            .forward(&Array1::from_vec(embedding))
+            .to_vec()
     }
 
     /// Post-query trajectory recording
@@ -75,10 +82,8 @@ impl DagSonaEngine {
         // Store high-quality patterns
         for t in &trajectories {
             if t.quality() > 0.6 {
-                self.reasoning_bank.store_pattern(
-                    t.dag_embedding.clone(),
-                    t.quality(),
-                );
+                self.reasoning_bank
+                    .store_pattern(t.dag_embedding.clone(), t.quality());
             }
         }
 
@@ -183,7 +188,11 @@ impl DagSonaEngine {
         max_depth
     }
 
-    fn compute_adaptation_signal(&self, similar: &[(u64, f32)], _current_embedding: &[f32]) -> Vec<f32> {
+    fn compute_adaptation_signal(
+        &self,
+        _similar: &[(u64, f32)],
+        _current_embedding: &[f32],
+    ) -> Vec<f32> {
         // Weighted average of similar pattern embeddings
         // For now, just return zeros as we'd need to store pattern vectors
         vec![0.0; self.embedding_dim]

@@ -7,18 +7,10 @@ fn test_mincut_engine_basic() {
     let mut dag = QueryDag::new();
 
     // Create a simple query plan: SeqScan -> Filter -> Sort
-    let scan = dag.add_node(
-        OperatorNode::seq_scan(0, "users")
-            .with_estimates(1000.0, 100.0)
-    );
-    let filter = dag.add_node(
-        OperatorNode::filter(0, "age > 18")
-            .with_estimates(500.0, 50.0)
-    );
-    let sort = dag.add_node(
-        OperatorNode::sort(0, vec!["name".to_string()])
-            .with_estimates(500.0, 150.0)
-    );
+    let scan = dag.add_node(OperatorNode::seq_scan(0, "users").with_estimates(1000.0, 100.0));
+    let filter = dag.add_node(OperatorNode::filter(0, "age > 18").with_estimates(500.0, 50.0));
+    let sort =
+        dag.add_node(OperatorNode::sort(0, vec!["name".to_string()]).with_estimates(500.0, 150.0));
 
     dag.add_edge(scan, filter).unwrap();
     dag.add_edge(filter, sort).unwrap();
@@ -36,12 +28,10 @@ fn test_bottleneck_analysis() {
 
     // Create a query plan with a potential bottleneck
     let scan = dag.add_node(
-        OperatorNode::seq_scan(0, "users")
-            .with_estimates(10000.0, 1000.0)  // High cost
+        OperatorNode::seq_scan(0, "users").with_estimates(10000.0, 1000.0), // High cost
     );
     let filter = dag.add_node(
-        OperatorNode::filter(0, "active = true")
-            .with_estimates(5000.0, 10.0)  // Low cost
+        OperatorNode::filter(0, "active = true").with_estimates(5000.0, 10.0), // Low cost
     );
 
     dag.add_edge(scan, filter).unwrap();
@@ -62,10 +52,8 @@ fn test_bottleneck_analysis() {
 fn test_redundancy_suggestions() {
     let mut dag = QueryDag::new();
 
-    let scan = dag.add_node(
-        OperatorNode::hnsw_scan(0, "embeddings_idx", 100)
-            .with_estimates(1000.0, 200.0)
-    );
+    let scan = dag
+        .add_node(OperatorNode::hnsw_scan(0, "embeddings_idx", 100).with_estimates(1000.0, 200.0));
 
     // Create a high-criticality bottleneck
     let bottleneck = Bottleneck {
@@ -78,7 +66,10 @@ fn test_redundancy_suggestions() {
     let suggestions = RedundancySuggestion::generate(&dag, &[bottleneck]);
 
     assert_eq!(suggestions.len(), 1);
-    assert!(matches!(suggestions[0].strategy, RedundancyStrategy::Prefetch));
+    assert!(matches!(
+        suggestions[0].strategy,
+        RedundancyStrategy::Prefetch
+    ));
 }
 
 #[test]

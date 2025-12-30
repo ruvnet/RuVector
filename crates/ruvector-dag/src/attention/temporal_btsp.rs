@@ -160,11 +160,23 @@ impl DagAttentionMechanism for TemporalBTSPAttention {
             .with_metadata("mechanism".to_string(), "temporal_btsp".to_string())
             .with_metadata("update_count".to_string(), self.update_count.to_string());
 
-        let active_traces = self.eligibility_traces.values().filter(|&&t| t > 0.01).count();
-        result.metadata.insert("active_traces".to_string(), active_traces.to_string());
+        let active_traces = self
+            .eligibility_traces
+            .values()
+            .filter(|&&t| t > 0.01)
+            .count();
+        result
+            .metadata
+            .insert("active_traces".to_string(), active_traces.to_string());
 
-        let active_plateaus = self.last_plateau.keys().filter(|k| self.is_plateau(**k)).count();
-        result.metadata.insert("active_plateaus".to_string(), active_plateaus.to_string());
+        let active_plateaus = self
+            .last_plateau
+            .keys()
+            .filter(|k| self.is_plateau(**k))
+            .count();
+        result
+            .metadata
+            .insert("active_plateaus".to_string(), active_plateaus.to_string());
 
         Ok(result)
     }
@@ -274,7 +286,7 @@ mod tests {
 
         // Simulate execution feedback
         let mut exec_times = HashMap::new();
-        exec_times.insert(0, 5.0);  // Faster than expected
+        exec_times.insert(0, 5.0); // Faster than expected
         exec_times.insert(1, 15.0); // Slower than expected
 
         attention.update(&dag, &exec_times);

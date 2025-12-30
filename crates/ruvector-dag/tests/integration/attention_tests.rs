@@ -1,16 +1,19 @@
 //! Attention mechanism integration tests
 
-use ruvector_dag::dag::{QueryDag, OperatorNode, OperatorType};
 use ruvector_dag::attention::*;
+use ruvector_dag::dag::{OperatorNode, OperatorType, QueryDag};
 
 fn create_test_dag() -> QueryDag {
     let mut dag = QueryDag::new();
 
     // Simple linear DAG
     for i in 0..5 {
-        dag.add_node(OperatorNode::new(i, OperatorType::SeqScan {
-            table: format!("t{}", i)
-        }));
+        dag.add_node(OperatorNode::new(
+            i,
+            OperatorType::SeqScan {
+                table: format!("t{}", i),
+            },
+        ));
     }
 
     for i in 0..4 {
@@ -29,7 +32,10 @@ fn test_topological_attention() {
 
     // Verify normalization
     let sum: f32 = scores.values().sum();
-    assert!((sum - 1.0).abs() < 0.001, "Attention scores should sum to 1.0");
+    assert!(
+        (sum - 1.0).abs() < 0.001,
+        "Attention scores should sum to 1.0"
+    );
 
     // Verify all scores in [0, 1]
     assert!(scores.values().all(|&s| s >= 0.0 && s <= 1.0));
@@ -37,14 +43,11 @@ fn test_topological_attention() {
 
 #[test]
 fn test_attention_selector_convergence() {
-    let mechanisms: Vec<Box<dyn DagAttention>> = vec![
-        Box::new(TopologicalAttention::new(TopologicalConfig::default())),
-    ];
+    let mechanisms: Vec<Box<dyn DagAttention>> = vec![Box::new(TopologicalAttention::new(
+        TopologicalConfig::default(),
+    ))];
 
-    let mut selector = AttentionSelector::new(
-        mechanisms,
-        SelectorConfig::default(),
-    );
+    let mut selector = AttentionSelector::new(mechanisms, SelectorConfig::default());
 
     // Run selection multiple times
     let mut selection_counts = std::collections::HashMap::new();
@@ -97,7 +100,10 @@ fn test_attention_temperature_scaling() {
     let variance_high: f32 = scores_high.values().map(|&x| x * x).sum::<f32>()
         - scores_high.values().sum::<f32>().powi(2) / scores_high.len() as f32;
 
-    assert!(variance_low >= variance_high, "Lower temperature should have higher variance");
+    assert!(
+        variance_low >= variance_high,
+        "Lower temperature should have higher variance"
+    );
 }
 
 #[test]

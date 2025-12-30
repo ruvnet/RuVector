@@ -6,31 +6,33 @@
 //! compute attention scores.
 
 // Team 2 (Agent #2) - Base attention mechanisms
-mod traits;
-mod topological;
 mod causal_cone;
 mod critical_path;
 mod mincut_gated;
+mod topological;
+mod traits;
 
 // Team 2 (Agent #3) - Advanced attention mechanisms
-mod trait_def;
+mod cache;
 mod hierarchical_lorentz;
 mod parallel_branch;
-mod temporal_btsp;
 mod selector;
-mod cache;
+mod temporal_btsp;
+mod trait_def;
 
 // Export base mechanisms
-pub use traits::{DagAttention, AttentionScores, AttentionConfig, AttentionError};
-pub use topological::{TopologicalAttention, TopologicalConfig};
 pub use causal_cone::{CausalConeAttention, CausalConeConfig};
 pub use critical_path::{CriticalPathAttention, CriticalPathConfig};
-pub use mincut_gated::{MinCutGatedAttention, MinCutConfig, FlowCapacity};
+pub use mincut_gated::{FlowCapacity, MinCutConfig, MinCutGatedAttention};
+pub use topological::{TopologicalAttention, TopologicalConfig};
+pub use traits::{AttentionConfig, AttentionError, AttentionScores, DagAttention};
 
 // Export advanced mechanisms
-pub use trait_def::{DagAttentionMechanism, AttentionScores as AttentionScoresV2, AttentionError as AttentionErrorV2};
+pub use cache::{AttentionCache, CacheConfig, CacheStats};
 pub use hierarchical_lorentz::{HierarchicalLorentzAttention, HierarchicalLorentzConfig};
 pub use parallel_branch::{ParallelBranchAttention, ParallelBranchConfig};
+pub use selector::{AttentionSelector, MechanismStats, SelectorConfig};
 pub use temporal_btsp::{TemporalBTSPAttention, TemporalBTSPConfig};
-pub use selector::{AttentionSelector, SelectorConfig, MechanismStats};
-pub use cache::{AttentionCache, CacheConfig, CacheStats};
+pub use trait_def::{
+    AttentionError as AttentionErrorV2, AttentionScores as AttentionScoresV2, DagAttentionMechanism,
+};
