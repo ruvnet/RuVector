@@ -19,7 +19,8 @@ fn dag_analyze_plan(
     ),
 > {
     // Parse and plan the query using PostgreSQL's EXPLAIN
-    let plan_json = Spi::connect(|client| {
+    // Note: plan_json is computed but not used in placeholder implementation
+    let _plan_json: Result<pgrx::JsonB, String> = Spi::connect(|client| {
         let query = format!("EXPLAIN (FORMAT JSON) {}", query_text);
         match client.select(&query, None, None) {
             Ok(mut cursor) => {
@@ -28,9 +29,9 @@ fn dag_analyze_plan(
                         return Ok(json);
                     }
                 }
-                Err("Failed to get EXPLAIN output")
+                Err("Failed to get EXPLAIN output".to_string())
             }
-            Err(e) => Err(format!("EXPLAIN failed: {}", e).as_str()),
+            Err(e) => Err(format!("EXPLAIN failed: {}", e)),
         }
     });
 

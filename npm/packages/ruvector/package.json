@@ -1,6 +1,6 @@
 {
   "name": "ruvector",
-  "version": "0.1.35",
+  "version": "0.1.42",
   "description": "High-performance vector database for Node.js with automatic native/WASM fallback",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

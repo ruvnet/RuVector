@@ -217,21 +217,21 @@ Flow-Nexus extends MCP capabilities with 70+ cloud-based orchestration tools:
 
 **1️⃣ BEFORE Work:**
 ```bash
-ruvector hooks session-start
-ruvector hooks pre-edit "[file]"
-ruvector hooks pre-command "[command]"
+npx ruvector hooks session-start
+npx ruvector hooks pre-edit "[file]"
+npx ruvector hooks pre-command "[command]"
 ```
 
 **2️⃣ DURING Work:**
 ```bash
-ruvector hooks post-edit "[file]" --success
-ruvector hooks remember "[context]" -t swarm
-ruvector hooks post-command "[command]" --success
+npx ruvector hooks post-edit "[file]" --success
+npx ruvector hooks remember "[context]" -t swarm
+npx ruvector hooks post-command "[command]" --success
 ```
 
 **3️⃣ AFTER Work:**
 ```bash
-ruvector hooks session-end
+npx ruvector hooks session-end
 ```
 
 ## 🎯 Concurrent Execution Examples
@@ -301,18 +301,15 @@ This project uses **RuVector's self-learning intelligence hooks** configured in 
 {
   "hooks": {
     "PreToolUse": [
-      { "matcher": "Edit|Write|MultiEdit", "hooks": ["ruvector hooks pre-edit \"$TOOL_INPUT_file_path\""] },
-      { "matcher": "Bash", "hooks": ["ruvector hooks pre-command \"$TOOL_INPUT_command\""] }
+      { "matcher": "Edit|Write|MultiEdit", "hooks": [{ "type": "command", "command": "npx ruvector hooks pre-edit \"$TOOL_INPUT_file_path\"" }] },
+      { "matcher": "Bash", "hooks": [{ "type": "command", "command": "npx ruvector hooks pre-command \"$TOOL_INPUT_command\"" }] }
     ],
     "PostToolUse": [
-      { "matcher": "Edit|Write|MultiEdit", "hooks": ["ruvector hooks post-edit \"$TOOL_INPUT_file_path\""] },
-      { "matcher": "Bash", "hooks": ["ruvector hooks post-command \"$TOOL_INPUT_command\""] }
+      { "matcher": "Edit|Write|MultiEdit", "hooks": [{ "type": "command", "command": "npx ruvector hooks post-edit \"$TOOL_INPUT_file_path\"" }] },
+      { "matcher": "Bash", "hooks": [{ "type": "command", "command": "npx ruvector hooks post-command \"$TOOL_INPUT_command\"" }] }
     ],
-    "SessionStart": ["ruvector hooks session-start"],
-    "Stop": ["ruvector hooks session-end"],
-    "UserPromptSubmit": [{ "hooks": [{ "command": "ruvector-cli hooks suggest-context" }] }],
-    "PreCompact": [{ "matcher": "auto|manual", "hooks": [{ "command": "ruvector-cli hooks pre-compact" }] }],
-    "Notification": [{ "matcher": ".*", "hooks": [{ "command": "ruvector-cli hooks track-notification" }] }]
+    "SessionStart": [{ "hooks": [{ "type": "command", "command": "npx ruvector hooks session-start" }] }],
+    "Stop": [{ "hooks": [{ "type": "command", "command": "npx ruvector hooks session-end" }] }]
   }
 }
 ```
@@ -342,26 +339,26 @@ RUVECTOR_MEMORY_BACKEND=rvlite        # Memory storage backend
 
 ```bash
 # Session Management
-ruvector hooks session-start          # Start session tracking
-ruvector hooks session-end            # End session, save learning
+npx ruvector hooks session-start          # Start session tracking
+npx ruvector hooks session-end            # End session, save learning
 
 # Pre/Post Edit (triggered automatically)
-ruvector hooks pre-edit <file>        # Get agent suggestions
-ruvector hooks post-edit <file> --success  # Record outcome
+npx ruvector hooks pre-edit <file>        # Get agent suggestions
+npx ruvector hooks post-edit <file> --success  # Record outcome
 
 # Pre/Post Command (triggered automatically)
-ruvector hooks pre-command "cargo test"    # Analyze command risk
-ruvector hooks post-command "cargo test" --success  # Record outcome
+npx ruvector hooks pre-command "cargo test"    # Analyze command risk
+npx ruvector hooks post-command "cargo test" --success  # Record outcome
 
 # Intelligence
-ruvector hooks init                   # Initialize hooks in project
-ruvector hooks stats                  # Show learning statistics
-ruvector hooks route <task>           # Get agent routing suggestion
-ruvector hooks suggest-context        # Get context suggestions
+npx ruvector hooks init                   # Initialize hooks in project
+npx ruvector hooks stats                  # Show learning statistics
+npx ruvector hooks route <task>           # Get agent routing suggestion
+npx ruvector hooks suggest-context        # Get context suggestions
 
 # Memory
-ruvector hooks remember <content> -t <type>  # Store in vector memory
-ruvector hooks recall <query>                # Semantic search memory
+npx ruvector hooks remember <content> -t <type>  # Store in vector memory
+npx ruvector hooks recall <query>                # Semantic search memory
 ```
 
 ### What You'll See

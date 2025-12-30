@@ -29,11 +29,11 @@ fn dag_health_check() -> TableIterator<
     (
         name!(component, String),
         name!(status, String),
-        name!(last_check, pgrx::TimestampWithTimeZone),
+        name!(last_check, String),
         name!(message, String),
     ),
 > {
-    let now = pgrx::TimestampWithTimeZone::now();
+    let now = chrono::Utc::now().to_rfc3339();
 
     let state = &crate::dag::state::DAG_STATE;
     let cache_hit_rate = state.get_cache_hit_rate();
@@ -42,7 +42,7 @@ fn dag_health_check() -> TableIterator<
         (
             "sona_engine".to_string(),
             "healthy".to_string(),
-            now,
+            now.clone(),
             "Operating normally with 1024 learned patterns".to_string(),
         ),
         (
@@ -53,13 +53,13 @@ fn dag_health_check() -> TableIterator<
                 "degraded"
             }
             .to_string(),
-            now,
+            now.clone(),
             format!("{:.1}% hit rate", cache_hit_rate * 100.0),
         ),
         (
             "trajectory_buffer".to_string(),
             "healthy".to_string(),
-            now,
+            now.clone(),
             format!("{} trajectories stored", state.get_trajectory_count()),
         ),
         (
@@ -194,7 +194,7 @@ fn dag_performance_history(
 ) -> TableIterator<
     'static,
     (
-        name!(timestamp, pgrx::TimestampWithTimeZone),
+        name!(timestamp, String),
         name!(queries_per_minute, f64),
         name!(avg_improvement, f64),
         name!(cache_hit_rate, f64),
@@ -203,11 +203,11 @@ fn dag_performance_history(
 > {
     // Return historical performance data
     // In a real implementation, this would query a time-series buffer
-    let now = pgrx::TimestampWithTimeZone::now();
+    let now = chrono::Utc::now().to_rfc3339();
 
     let results = vec![
-        (now, 145.0, 0.14, 0.84, 3),
-        (now, 152.0, 0.16, 0.86, 2),
+        (now.clone(), 145.0, 0.14, 0.84, 3),
+        (now.clone(), 152.0, 0.16, 0.86, 2),
         (now, 138.0, 0.15, 0.85, 4),
     ];
 
@@ -222,7 +222,7 @@ fn dag_export_state() -> pgrx::JsonB {
 
     let export = serde_json::json!({
         "version": "1.0.0",
-        "timestamp": pgrx::TimestampWithTimeZone::now().to_iso_string(),
+        "timestamp": chrono::Utc::now().to_rfc3339(),
         "config": {
             "enabled": config.enabled,
             "learning_rate": config.learning_rate,

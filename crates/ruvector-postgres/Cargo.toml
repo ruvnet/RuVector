@@ -112,6 +112,9 @@ thiserror = "1.0"
 # Logging
 tracing = "0.1"
 
+# Date/time
+chrono = "0.4"
+
 # Lazy static initialization
 lazy_static = "1.4"
 once_cell = "1.19"

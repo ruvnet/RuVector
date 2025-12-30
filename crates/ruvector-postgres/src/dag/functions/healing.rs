@@ -42,17 +42,17 @@ fn dag_health_report() -> TableIterator<'static, (
 #[pg_extern]
 fn dag_anomalies() -> TableIterator<'static, (
     name!(anomaly_id, i64),
-    name!(detected_at, pgrx::TimestampWithTimeZone),
+    name!(detected_at, String),
     name!(anomaly_type, String),
     name!(severity, String),
     name!(affected_component, String),
     name!(z_score, f64),
     name!(resolved, bool),
 )> {
-    let now = pgrx::TimestampWithTimeZone::now();
+    let now = chrono::Utc::now().to_rfc3339();
 
     let results = vec![
-        (1i64, now, "latency_spike".to_string(), "warning".to_string(),
+        (1i64, now.clone(), "latency_spike".to_string(), "warning".to_string(),
          "attention".to_string(), 3.2, true),
         (2i64, now, "pattern_drift".to_string(), "info".to_string(),
          "reasoning_bank".to_string(), 2.5, false),

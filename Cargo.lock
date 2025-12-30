@@ -6906,6 +6906,7 @@ dependencies = [
  "approx",
  "bincode 1.3.3",
  "bitvec",
+ "chrono",
  "criterion",
  "crossbeam",
  "dashmap 6.1.0",

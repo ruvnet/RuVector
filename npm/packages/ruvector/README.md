@@ -597,6 +597,145 @@ npx ruvector attention hyperbolic -a exp-map -v "[0.1,0.2,0.3]"
 | **Large-Scale Graphs** | LocalGlobalAttention | Efficient local + global context |
 | **Model Routing/MoE** | MoEAttention | Expert selection and routing |
 
+### 🧠 Self-Learning Hooks
+
+Ruvector includes **self-learning intelligence hooks** for Claude Code integration. These hooks enable automatic agent routing, pattern learning, and context suggestions.
+
+#### Initialize Hooks
+
+```bash
+# Initialize hooks in your project
+npx ruvector hooks init
+
+# Options:
+#   --force     Overwrite existing configuration
+#   --minimal   Minimal configuration (no optional hooks)
+```
+
+This creates `.claude/settings.json` with pre-configured hooks for intelligent development assistance.
+
+#### Session Management
+
+```bash
+# Start a session (load intelligence data)
+npx ruvector hooks session-start
+
+# End a session (save learned patterns)
+npx ruvector hooks session-end
+```
+
+#### Pre/Post Edit Hooks
+
+```bash
+# Before editing a file - get agent recommendations
+npx ruvector hooks pre-edit src/index.ts
+# Output: 🤖 Recommended: typescript-developer (85% confidence)
+
+# After editing - record success/failure for learning
+npx ruvector hooks post-edit src/index.ts --success
+npx ruvector hooks post-edit src/index.ts --error "Type error on line 42"
+```
+
+#### Pre/Post Command Hooks
+
+```bash
+# Before running a command - risk analysis
+npx ruvector hooks pre-command "npm test"
+# Output: ✅ Risk: LOW, Category: test
+
+# After running - record outcome
+npx ruvector hooks post-command "npm test" --success
+npx ruvector hooks post-command "npm test" --error "3 tests failed"
+```
+
+#### Agent Routing
+
+```bash
+# Get agent recommendation for a task
+npx ruvector hooks route "fix the authentication bug in login.ts"
+# Output: 🤖 Recommended: security-specialist (92% confidence)
+
+npx ruvector hooks route "add unit tests for the API"
+# Output: 🤖 Recommended: tester (88% confidence)
+```
+
+#### Memory Operations
+
+```bash
+# Store context in vector memory
+npx ruvector hooks remember "API uses JWT tokens with 1h expiry" --type decision
+npx ruvector hooks remember "Database schema in docs/schema.md" --type reference
+
+# Semantic search memory
+npx ruvector hooks recall "authentication mechanism"
+# Returns relevant stored memories
+```
+
+#### Context Suggestions
+
+```bash
+# Get relevant context for current task
+npx ruvector hooks suggest-context
+# Output: Based on recent files, suggests relevant context
+```
+
+#### Intelligence Statistics
+
+```bash
+# Show learned patterns and statistics
+npx ruvector hooks stats
+
+# Output:
+#   Patterns: 156 learned
+#   Success rate: 87%
+#   Top agents: rust-developer, tester, reviewer
+#   Memory entries: 42
+```
+
+#### Swarm Recommendations
+
+```bash
+# Get agent recommendation for task type
+npx ruvector hooks swarm-recommend "code-review"
+# Output: Recommended agents for code review task
+```
+
+#### Hooks Configuration
+
+The hooks integrate with Claude Code via `.claude/settings.json`:
+
+```json
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": ["ruvector hooks pre-edit \"$TOOL_INPUT_file_path\""]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": ["ruvector hooks pre-command \"$TOOL_INPUT_command\""]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": ["ruvector hooks post-edit \"$TOOL_INPUT_file_path\""]
+      }
+    ],
+    "SessionStart": ["ruvector hooks session-start"],
+    "Stop": ["ruvector hooks session-end"]
+  }
+}
+```
+
+#### How Self-Learning Works
+
+1. **Pattern Recording**: Every edit and command is recorded with context
+2. **Q-Learning**: Success/failure updates agent routing weights
+3. **Vector Memory**: Decisions and references stored for semantic recall
+4. **Continuous Improvement**: The more you use it, the smarter it gets
+
 ## 📊 Performance Benchmarks
 
 Tested on AMD Ryzen 9 5950X, 128-dimensional vectors:

@@ -31,17 +31,17 @@ fn dag_trajectory_history(
 ) -> TableIterator<'static, (
     name!(trajectory_id, i64),
     name!(query_hash, i64),
-    name!(recorded_at, pgrx::TimestampWithTimeZone),
+    name!(recorded_at, String),
     name!(execution_time_ms, f64),
     name!(improvement_ratio, f64),
     name!(attention_mechanism, String),
 )> {
-    let now = pgrx::TimestampWithTimeZone::now();
+    let now = chrono::Utc::now().to_rfc3339();
 
     // Get trajectories from buffer
     let results = vec![
-        (1i64, 12345i64, now, 50.0, 0.15, "topological".to_string()),
-        (2i64, 12346i64, now, 75.0, 0.22, "critical_path".to_string()),
+        (1i64, 12345i64, now.clone(), 50.0, 0.15, "topological".to_string()),
+        (2i64, 12346i64, now.clone(), 75.0, 0.22, "critical_path".to_string()),
         (3i64, 12347i64, now, 30.0, 0.08, "auto".to_string()),
     ];
 
@@ -58,13 +58,13 @@ fn dag_trajectory_history(
 fn dag_trajectory_trends(
     window_size: default!(&str, "1 hour"),
 ) -> TableIterator<'static, (
-    name!(window_start, pgrx::TimestampWithTimeZone),
+    name!(window_start, String),
     name!(trajectory_count, i32),
     name!(avg_improvement, f64),
     name!(best_mechanism, String),
     name!(pattern_discoveries, i32),
 )> {
-    let now = pgrx::TimestampWithTimeZone::now();
+    let now = chrono::Utc::now().to_rfc3339();
 
     let results = vec![
         (now, 150, 0.18, "critical_path".to_string(), 12),
