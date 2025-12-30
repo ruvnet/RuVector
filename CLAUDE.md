@@ -301,18 +301,15 @@ This project uses **RuVector's self-learning intelligence hooks** configured in 
 {
   "hooks": {
     "PreToolUse": [
-      { "matcher": "Edit|Write|MultiEdit", "hooks": ["npx ruvector hooks pre-edit \"$TOOL_INPUT_file_path\""] },
-      { "matcher": "Bash", "hooks": ["npx ruvector hooks pre-command \"$TOOL_INPUT_command\""] }
+      { "matcher": { "tools": ["Edit", "Write", "MultiEdit"] }, "hooks": [{ "type": "command", "command": "npx ruvector hooks pre-edit \"$TOOL_INPUT_file_path\"" }] },
+      { "matcher": { "tools": ["Bash"] }, "hooks": [{ "type": "command", "command": "npx ruvector hooks pre-command \"$TOOL_INPUT_command\"" }] }
     ],
     "PostToolUse": [
-      { "matcher": "Edit|Write|MultiEdit", "hooks": ["npx ruvector hooks post-edit \"$TOOL_INPUT_file_path\""] },
-      { "matcher": "Bash", "hooks": ["npx ruvector hooks post-command \"$TOOL_INPUT_command\""] }
+      { "matcher": { "tools": ["Edit", "Write", "MultiEdit"] }, "hooks": [{ "type": "command", "command": "npx ruvector hooks post-edit \"$TOOL_INPUT_file_path\"" }] },
+      { "matcher": { "tools": ["Bash"] }, "hooks": [{ "type": "command", "command": "npx ruvector hooks post-command \"$TOOL_INPUT_command\"" }] }
     ],
-    "SessionStart": ["npx ruvector hooks session-start"],
-    "Stop": ["npx ruvector hooks session-end"],
-    "UserPromptSubmit": [{ "hooks": [{ "command": "npx ruvector hooks suggest-context" }] }],
-    "PreCompact": [{ "matcher": "auto|manual", "hooks": [{ "command": "npx ruvector hooks pre-compact" }] }],
-    "Notification": [{ "matcher": ".*", "hooks": [{ "command": "npx ruvector hooks track-notification" }] }]
+    "SessionStart": [{ "type": "command", "command": "npx ruvector hooks session-start" }],
+    "Stop": [{ "type": "command", "command": "npx ruvector hooks session-end" }]
   }
 }
 ```
