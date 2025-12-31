@@ -329,32 +329,60 @@ async fn download_from_huggingface(
         model_id, revision
     );
 
-    // Files to download
-    let files = ["model.onnx", "tokenizer.json", "config.json"];
+    let model_path = cache_path.join("model.onnx");
 
-    for file in files {
-        let url = format!("{}/{}", base_url, file);
-        let path = cache_path.join(file);
+    // Try to download model.onnx - check multiple locations
+    if !model_path.exists() {
+        // Location 1: Root directory (model.onnx)
+        let root_url = format!("{}/model.onnx", base_url);
+        debug!("Trying to download model from root: {}", root_url);
 
-        if !path.exists() {
-            match download_file(&url, &path, show_progress).await {
-                Ok(_) => debug!("Downloaded {}", file),
+        let root_result = download_file(&root_url, &model_path, show_progress).await;
+
+        // Location 2: ONNX subfolder (onnx/model.onnx) - common for sentence-transformers
+        if root_result.is_err() && !model_path.exists() {
+            let onnx_url = format!("{}/onnx/model.onnx", base_url);
+            debug!("Root download failed, trying onnx subfolder: {}", onnx_url);
+
+            match download_file(&onnx_url, &model_path, show_progress).await {
+                Ok(_) => debug!("Downloaded model.onnx from onnx/ subfolder"),
                 Err(e) => {
-                    if file == "model.onnx" {
-                        return Err(e);
-                    }
-                    warn!("Failed to download {}: {}", file, e);
+                    // Both locations failed
+                    return Err(EmbeddingError::download_failed(format!(
+                        "Failed to download model.onnx from {} - tried both root and onnx/ subfolder: {}",
+                        model_id, e
+                    )));
                 }
             }
+        } else if let Err(e) = root_result {
+            // Root failed but model exists (shouldn't happen, but handle gracefully)
+            if !model_path.exists() {
+                return Err(e);
+            }
+        } else {
+            debug!("Downloaded model.onnx from root");
         }
     }
 
-    // Also try ONNX subfolder
-    let onnx_model_url = format!("{}/onnx/model.onnx", base_url);
-    let model_path = cache_path.join("model.onnx");
-
-    if !model_path.exists() {
-        download_file(&onnx_model_url, &model_path, show_progress).await?;
+    // Download auxiliary files (tokenizer.json, config.json) - these are optional
+    let aux_files = ["tokenizer.json", "config.json"];
+    for file in aux_files {
+        let path = cache_path.join(file);
+        if !path.exists() {
+            // Try root first, then onnx subfolder
+            let root_url = format!("{}/{}", base_url, file);
+            match download_file(&root_url, &path, show_progress).await {
+                Ok(_) => debug!("Downloaded {}", file),
+                Err(_) => {
+                    // Try onnx subfolder
+                    let onnx_url = format!("{}/onnx/{}", base_url, file);
+                    match download_file(&onnx_url, &path, show_progress).await {
+                        Ok(_) => debug!("Downloaded {} from onnx/ subfolder", file),
+                        Err(e) => warn!("Failed to download {} (optional): {}", file, e),
+                    }
+                }
+            }
+        }
     }
 
     Ok(())
