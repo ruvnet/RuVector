@@ -1,9 +1,9 @@
 [package]
 name = "ruvector-onnx-embeddings-wasm"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 authors = ["RuVector Team"]
-description = "WASM-compatible embedding generation for RuVector - runs in browsers and edge environments"
+description = "WASM embedding generation with SIMD - runs in browsers, Cloudflare Workers, Deno, and edge runtimes"
 license = "MIT"
 repository = "https://github.com/ruvnet/ruvector"
 keywords = ["onnx", "embeddings", "wasm", "webassembly", "ml"]

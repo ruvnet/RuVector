@@ -58,9 +58,9 @@ pub fn version() -> String {
 }
 
 /// Check if SIMD is available (for performance info)
+/// Returns true if compiled with WASM SIMD128 support
 #[wasm_bindgen]
 pub fn simd_available() -> bool {
-    // WASM SIMD detection would go here
-    // For now, assume not available in base WASM
-    false
+    // Check if compiled with SIMD128 target feature
+    cfg!(target_feature = "simd128")
 }
