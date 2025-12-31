@@ -172,9 +172,19 @@ class CircuitBreaker {
     // Tracking data
     this.peakEquity = 0;
     this.currentEquity = 0;
-    this.recentTrades = [];
-    this.dailyVolatility = [];
     this.consecutiveLosses = 0;
+
+    // Optimized: Use ring buffers instead of arrays with shift/slice
+    const tradeWindowSize = config.lossRateWindow * 2;
+    this._tradeBuffer = new Array(tradeWindowSize);
+    this._tradeIndex = 0;
+    this._tradeCount = 0;
+    this._tradeLossCount = 0;  // Track losses incrementally
+
+    this._volBuffer = new Array(20);
+    this._volIndex = 0;
+    this._volCount = 0;
+    this._volSum = 0;  // Running sum for O(1) average
   }
 
   // Update with new equity value
@@ -191,17 +201,25 @@ class CircuitBreaker {
     }
   }
 
-  // Record a trade result
+  // Optimized: Record trade with O(1) ring buffer
   recordTrade(profit) {
-    this.recentTrades.push({
-      profit,
-      timestamp: Date.now()
-    });
+    const bufferSize = this._tradeBuffer.length;
+    const windowSize = this.config.lossRateWindow;
 
-    // Keep only recent trades
-    if (this.recentTrades.length > this.config.lossRateWindow * 2) {
-      this.recentTrades = this.recentTrades.slice(-this.config.lossRateWindow);
+    // If overwriting an old trade, adjust loss count
+    if (this._tradeCount >= bufferSize) {
+      const oldTrade = this._tradeBuffer[this._tradeIndex];
+      if (oldTrade && oldTrade.profit < 0) {
+        this._tradeLossCount--;
+      }
     }
+
+    // Add new trade
+    this._tradeBuffer[this._tradeIndex] = { profit, timestamp: Date.now() };
+    if (profit < 0) this._tradeLossCount++;
+
+    this._tradeIndex = (this._tradeIndex + 1) % bufferSize;
+    if (this._tradeCount < bufferSize) this._tradeCount++;
 
     // Update consecutive losses
     if (profit < 0) {
@@ -210,11 +228,18 @@ class CircuitBreaker {
       this.consecutiveLosses = 0;
     }
 
-    // Check loss rate breaker
-    const recentWindow = this.recentTrades.slice(-this.config.lossRateWindow);
-    if (recentWindow.length >= this.config.lossRateWindow) {
-      const losses = recentWindow.filter(t => t.profit < 0).length;
-      const lossRate = losses / recentWindow.length;
+    // Check loss rate breaker (O(1) using tracked count)
+    if (this._tradeCount >= windowSize) {
+      // Count losses in recent window
+      let recentLosses = 0;
+      const startIdx = (this._tradeIndex - windowSize + bufferSize) % bufferSize;
+      for (let i = 0; i < windowSize; i++) {
+        const idx = (startIdx + i) % bufferSize;
+        if (this._tradeBuffer[idx] && this._tradeBuffer[idx].profit < 0) {
+          recentLosses++;
+        }
+      }
+      const lossRate = recentLosses / windowSize;
 
       if (lossRate >= this.config.lossRateThreshold) {
         this.trip('lossRate', `Loss rate ${(lossRate * 100).toFixed(1)}% exceeds threshold`);
@@ -227,21 +252,28 @@ class CircuitBreaker {
     }
   }
 
-  // Update daily volatility
+  // Optimized: Update volatility with O(1) ring buffer and running sum
   updateVolatility(dailyReturn) {
-    this.dailyVolatility.push(Math.abs(dailyReturn));
+    const absReturn = Math.abs(dailyReturn);
+    const bufferSize = this._volBuffer.length;
 
-    // Keep rolling window
-    if (this.dailyVolatility.length > 20) {
-      this.dailyVolatility.shift();
+    // If overwriting old value, subtract from running sum
+    if (this._volCount >= bufferSize) {
+      this._volSum -= this._volBuffer[this._volIndex];
     }
 
-    // Calculate average volatility
-    if (this.dailyVolatility.length >= 5) {
-      const avgVol = this.dailyVolatility.slice(0, -1).reduce((a, b) => a + b, 0) / (this.dailyVolatility.length - 1);
-      const currentVol = this.dailyVolatility[this.dailyVolatility.length - 1];
+    // Add new value
+    this._volBuffer[this._volIndex] = absReturn;
+    this._volSum += absReturn;
 
-      // Check volatility spike
+    this._volIndex = (this._volIndex + 1) % bufferSize;
+    if (this._volCount < bufferSize) this._volCount++;
+
+    // Check volatility spike (O(1) using running sum)
+    if (this._volCount >= 5) {
+      const avgVol = (this._volSum - absReturn) / (this._volCount - 1);
+      const currentVol = absReturn;
+
       if (currentVol > avgVol * this.config.volatilityMultiplier ||
           currentVol > this.config.volatilityThreshold) {
         this.trip('volatility', `Volatility spike: ${(currentVol * 100).toFixed(2)}%`);
@@ -298,7 +330,13 @@ class CircuitBreaker {
   forceReset() {
     this.reset();
     this.peakEquity = this.currentEquity;
-    this.recentTrades = [];
+    // Reset ring buffers
+    this._tradeIndex = 0;
+    this._tradeCount = 0;
+    this._tradeLossCount = 0;
+    this._volIndex = 0;
+    this._volCount = 0;
+    this._volSum = 0;
   }
 
   getState() {
@@ -310,10 +348,24 @@ class CircuitBreaker {
     };
   }
 
+  // Optimized: O(windowSize) but only called for reporting
   calculateRecentLossRate() {
-    const recent = this.recentTrades.slice(-this.config.lossRateWindow);
-    if (recent.length === 0) return 0;
-    return recent.filter(t => t.profit < 0).length / recent.length;
+    const windowSize = this.config.lossRateWindow;
+    const count = Math.min(this._tradeCount, windowSize);
+    if (count === 0) return 0;
+
+    let losses = 0;
+    const bufferSize = this._tradeBuffer.length;
+    const startIdx = (this._tradeIndex - count + bufferSize) % bufferSize;
+
+    for (let i = 0; i < count; i++) {
+      const idx = (startIdx + i) % bufferSize;
+      if (this._tradeBuffer[idx] && this._tradeBuffer[idx].profit < 0) {
+        losses++;
+      }
+    }
+
+    return losses / count;
   }
 }
 
