@@ -20,6 +20,26 @@ Built by [rUv](https://ruv.io) with production-grade Rust performance and intell
 
 ---
 
+## 🧠 Claude Code Hooks (NEW)
+
+**Self-learning intelligence for Claude Code** — RuVector provides optimized hooks that learn from your development patterns.
+
+```bash
+# One-command setup with pretrain and agent generation
+npx ruvector hooks init --pretrain --build-agents quality
+```
+
+**Features:**
+- 🎯 **Smart Agent Routing** — Automatically suggests the best agent for each file type
+- 📚 **Repository Pretrain** — Analyzes your codebase to bootstrap intelligence
+- 🤖 **Agent Builder** — Generates optimized `.claude/agents/` configs for your stack
+- 🔗 **Co-edit Patterns** — Learns which files are edited together from git history
+- 💾 **Vector Memory** — Semantic recall of project context
+
+📖 **[Full Hooks Documentation →](https://github.com/ruvnet/ruvector/blob/main/npm/packages/ruvector/HOOKS.md)**
+
+---
+
 ## 🌟 Why Ruvector?
 
 ### The Problem with Existing Vector Databases

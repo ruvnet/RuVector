@@ -2093,21 +2093,115 @@ program
 
 // ============================================
 // Self-Learning Intelligence Hooks
+// Full RuVector Stack: VectorDB + SONA + Attention
 // ============================================
 
-const INTEL_PATH = path.join(require('os').homedir(), '.ruvector', 'intelligence.json');
+// Try to load the full IntelligenceEngine, fallback to simple implementation
+let IntelligenceEngine = null;
+let engineAvailable = false;
+
+try {
+  const core = require('../dist/core/intelligence-engine.js');
+  IntelligenceEngine = core.IntelligenceEngine || core.default;
+  engineAvailable = true;
+} catch (e) {
+  // IntelligenceEngine not available, use fallback
+}
 
 class Intelligence {
   constructor() {
+    this.intelPath = this.getIntelPath();
     this.data = this.load();
     this.alpha = 0.1;
     this.lastEditedFile = null;
+    this.sessionStartTime = null;
+
+    // Initialize full RuVector engine if available
+    this.engine = null;
+    if (engineAvailable && IntelligenceEngine) {
+      try {
+        this.engine = new IntelligenceEngine({
+          embeddingDim: 256,
+          maxMemories: 100000,
+          maxEpisodes: 50000,
+          enableSona: true,
+          enableAttention: true,
+          learningRate: this.alpha,
+        });
+        // Import existing data into engine
+        if (this.data) {
+          this.engine.import(this.convertLegacyData(this.data), true);
+        }
+      } catch (e) {
+        // Engine initialization failed, use fallback
+        this.engine = null;
+      }
+    }
+  }
+
+  // Convert legacy data format to new engine format
+  convertLegacyData(data) {
+    const converted = {
+      memories: [],
+      routingPatterns: {},
+      errorPatterns: data.errors || {},
+      coEditPatterns: {},
+      agentMappings: {},
+    };
+
+    // Convert memories
+    if (data.memories) {
+      converted.memories = data.memories.map(m => ({
+        id: m.id,
+        content: m.content,
+        type: m.memory_type || 'general',
+        embedding: m.embedding || this.embed(m.content),
+        created: m.timestamp ? new Date(m.timestamp * 1000).toISOString() : new Date().toISOString(),
+        accessed: 0,
+      }));
+    }
+
+    // Convert Q-learning patterns to routing patterns
+    if (data.patterns) {
+      for (const [key, value] of Object.entries(data.patterns)) {
+        const [state, action] = key.split('|');
+        if (state && action) {
+          if (!converted.routingPatterns[state]) {
+            converted.routingPatterns[state] = {};
+          }
+          converted.routingPatterns[state][action] = value.q_value || 0.5;
+        }
+      }
+    }
+
+    // Convert file sequences to co-edit patterns
+    if (data.file_sequences) {
+      for (const seq of data.file_sequences) {
+        if (!converted.coEditPatterns[seq.from_file]) {
+          converted.coEditPatterns[seq.from_file] = {};
+        }
+        converted.coEditPatterns[seq.from_file][seq.to_file] = seq.count;
+      }
+    }
+
+    return converted;
+  }
+
+  // Prefer project-local storage, fall back to home directory
+  getIntelPath() {
+    const projectPath = path.join(process.cwd(), '.ruvector', 'intelligence.json');
+    const homePath = path.join(require('os').homedir(), '.ruvector', 'intelligence.json');
+
+    if (fs.existsSync(path.dirname(projectPath))) return projectPath;
+    if (fs.existsSync(path.join(process.cwd(), '.claude'))) return projectPath;
+    if (fs.existsSync(homePath)) return homePath;
+    return projectPath;
   }
 
   load() {
     try {
-      if (fs.existsSync(INTEL_PATH)) {
-        return JSON.parse(fs.readFileSync(INTEL_PATH, 'utf-8'));
+      if (fs.existsSync(this.intelPath)) {
+        return JSON.parse(fs.readFileSync(this.intelPath, 'utf-8'));
       }
     } catch {}
     return {
@@ -2123,14 +2217,43 @@ class Intelligence {
   }
 
   save() {
-    const dir = path.dirname(INTEL_PATH);
+    const dir = path.dirname(this.intelPath);
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(INTEL_PATH, JSON.stringify(this.data, null, 2));
+
+    // If engine is available, export its data
+    if (this.engine) {
+      try {
+        const engineData = this.engine.export();
+        // Merge engine data with legacy format for compatibility
+        this.data.patterns = {};
+        for (const [state, actions] of Object.entries(engineData.routingPatterns || {})) {
+          for (const [action, value] of Object.entries(actions)) {
+            this.data.patterns[`${state}|${action}`] = { state, action, q_value: value, visits: 1, last_update: this.now() };
+          }
+        }
+        this.data.stats.total_patterns = Object.keys(this.data.patterns).length;
+        this.data.stats.total_memories = engineData.stats?.totalMemories || this.data.memories.length;
+
+        // Add engine stats
+        this.data.engineStats = engineData.stats;
+      } catch (e) {
+        // Ignore engine export errors
+      }
+    }
+
+    fs.writeFileSync(this.intelPath, JSON.stringify(this.data, null, 2));
   }
 
   now() { return Math.floor(Date.now() / 1000); }
 
+  // Use engine embedding if available (256-dim with attention), otherwise fallback (64-dim hash)
   embed(text) {
+    if (this.engine) {
+      try {
+        return this.engine.embed(text);
+      } catch {}
+    }
+    // Fallback: simple 64-dim hash embedding
     const embedding = new Array(64).fill(0);
     for (let i = 0; i < text.length; i++) {
       const idx = (text.charCodeAt(i) + i * 7) % 64;
@@ -2142,19 +2265,66 @@ class Intelligence {
   }
 
   similarity(a, b) {
-    if (a.length !== b.length) return 0;
+    if (!a || !b || a.length !== b.length) return 0;
     const dot = a.reduce((sum, v, i) => sum + v * b[i], 0);
     const normA = Math.sqrt(a.reduce((sum, v) => sum + v * v, 0));
     const normB = Math.sqrt(b.reduce((sum, v) => sum + v * v, 0));
     return normA > 0 && normB > 0 ? dot / (normA * normB) : 0;
   }
 
+  // Memory operations - use engine's VectorDB for semantic search
+  async rememberAsync(memoryType, content, metadata = {}) {
+    if (this.engine) {
+      try {
+        const entry = await this.engine.remember(content, memoryType);
+        // Also store in legacy format for compatibility
+        this.data.memories.push({
+          id: entry.id,
+          memory_type: memoryType,
+          content,
+          embedding: entry.embedding,
+          metadata,
+          timestamp: this.now()
+        });
+        if (this.data.memories.length > 5000) this.data.memories.splice(0, 1000);
+        this.data.stats.total_memories = this.data.memories.length;
+        return entry.id;
+      } catch {}
+    }
+    return this.remember(memoryType, content, metadata);
+  }
+
   remember(memoryType, content, metadata = {}) {
     const id = `mem_${this.now()}`;
-    this.data.memories.push({ id, memory_type: memoryType, content, embedding: this.embed(content), metadata, timestamp: this.now() });
+    const embedding = this.embed(content);
+    this.data.memories.push({ id, memory_type: memoryType, content, embedding, metadata, timestamp: this.now() });
     if (this.data.memories.length > 5000) this.data.memories.splice(0, 1000);
     this.data.stats.total_memories = this.data.memories.length;
+
+    // Also store in engine if available
+    if (this.engine) {
+      this.engine.remember(content, memoryType).catch(() => {});
+    }
+
     return id;
+  }
+
+  async recallAsync(query, topK = 5) {
+    if (this.engine) {
+      try {
+        const results = await this.engine.recall(query, topK);
+        return results.map(r => ({
+          score: r.score || 0,
+          memory: {
+            id: r.id,
+            content: r.content,
+            memory_type: r.type,
+            timestamp: r.created
+          }
+        }));
+      } catch {}
+    }
+    return this.recall(query, topK);
   }
 
   recall(query, topK) {
@@ -2164,6 +2334,7 @@ class Intelligence {
       .sort((a, b) => b.score - a.score).slice(0, topK).map(r => r.memory);
   }
 
+  // Q-learning operations - enhanced with SONA trajectory tracking
   getQ(state, action) {
     const key = `${state}|${action}`;
     return this.data.patterns[key]?.q_value ?? 0;
@@ -2171,12 +2342,19 @@ class Intelligence {
 
   updateQ(state, action, reward) {
     const key = `${state}|${action}`;
-    if (!this.data.patterns[key]) this.data.patterns[key] = { state, action, q_value: 0, visits: 0, last_update: 0 };
+    if (!this.data.patterns[key]) {
+      this.data.patterns[key] = { state, action, q_value: 0, visits: 0, last_update: 0 };
+    }
     const p = this.data.patterns[key];
     p.q_value = p.q_value + this.alpha * (reward - p.q_value);
     p.visits++;
     p.last_update = this.now();
     this.data.stats.total_patterns = Object.keys(this.data.patterns).length;
+
+    // Record episode in engine if available
+    if (this.engine) {
+      this.engine.recordEpisode(state, action, reward, state, false).catch(() => {});
+    }
   }
 
   learn(state, action, outcome, reward) {
@@ -2185,6 +2363,12 @@ class Intelligence {
     this.data.trajectories.push({ id, state, action, outcome, reward, timestamp: this.now() });
     if (this.data.trajectories.length > 1000) this.data.trajectories.splice(0, 200);
     this.data.stats.total_trajectories = this.data.trajectories.length;
+
+    // End trajectory in engine if available
+    if (this.engine) {
+      this.engine.endTrajectory(reward > 0.5, reward);
+    }
+
     return id;
   }
 
@@ -2198,20 +2382,53 @@ class Intelligence {
     return { action: bestAction, confidence: bestQ > 0 ? Math.min(bestQ, 1) : 0 };
   }
 
+  // Agent routing - use engine's SONA-enhanced routing
+  async routeAsync(task, file, crateName, operation = 'edit') {
+    if (this.engine) {
+      try {
+        const result = await this.engine.route(task, file);
+        // Begin trajectory for learning
+        this.engine.beginTrajectory(task, file);
+        if (result.agent) {
+          this.engine.setTrajectoryRoute(result.agent);
+        }
+        return {
+          agent: result.agent,
+          confidence: result.confidence,
+          reason: result.reason + (result.patterns?.length ? ` (${result.patterns.length} SONA patterns)` : ''),
+          alternates: result.alternates,
+          patterns: result.patterns
+        };
+      } catch {}
+    }
+    return this.route(task, file, crateName, operation);
+  }
+
   route(task, file, crateName, operation = 'edit') {
     const fileType = file ? path.extname(file).slice(1) : 'unknown';
     const state = `${operation}_${fileType}_in_${crateName ?? 'project'}`;
     const agentMap = {
       rs: ['rust-developer', 'coder', 'reviewer', 'tester'],
       ts: ['typescript-developer', 'coder', 'frontend-dev'],
-      tsx: ['typescript-developer', 'coder', 'frontend-dev'],
-      js: ['coder', 'frontend-dev'],
+      tsx: ['react-developer', 'typescript-developer', 'coder'],
+      js: ['javascript-developer', 'coder', 'frontend-dev'],
+      jsx: ['react-developer', 'coder'],
       py: ['python-developer', 'coder', 'ml-developer'],
-      md: ['docs-writer', 'coder']
+      go: ['go-developer', 'coder'],
+      sql: ['database-specialist', 'coder'],
+      md: ['documentation-specialist', 'coder'],
+      yml: ['devops-engineer', 'coder'],
+      yaml: ['devops-engineer', 'coder']
     };
     const agents = agentMap[fileType] ?? ['coder', 'reviewer'];
     const { action, confidence } = this.suggest(state, agents);
     const reason = confidence > 0.5 ? 'learned from past success' : confidence > 0 ? 'based on patterns' : `default for ${fileType} files`;
+
+    // Begin trajectory in engine
+    if (this.engine) {
+      this.engine.beginTrajectory(task || operation, file);
+    }
+
     return { agent: action, confidence, reason };
   }
 
@@ -2224,27 +2441,77 @@ class Intelligence {
       }
       case 'ts': case 'tsx': case 'js': case 'jsx': return { suggest: true, command: 'npm test' };
       case 'py': return { suggest: true, command: 'pytest' };
+      case 'go': return { suggest: true, command: 'go test ./...' };
       default: return { suggest: false, command: '' };
     }
   }
 
+  // Co-edit pattern tracking - use engine's co-edit patterns
   recordFileSequence(fromFile, toFile) {
     const existing = this.data.file_sequences.find(s => s.from_file === fromFile && s.to_file === toFile);
     if (existing) existing.count++;
     else this.data.file_sequences.push({ from_file: fromFile, to_file: toFile, count: 1 });
     this.lastEditedFile = toFile;
+
+    // Record in engine
+    if (this.engine) {
+      this.engine.recordCoEdit(fromFile, toFile);
+    }
   }
 
   suggestNext(file, limit = 3) {
-    return this.data.file_sequences.filter(s => s.from_file === file).sort((a, b) => b.count - a.count).slice(0, limit).map(s => ({ file: s.to_file, score: s.count }));
+    // Try engine first
+    if (this.engine) {
+      try {
+        const results = this.engine.getLikelyNextFiles(file, limit);
+        if (results.length > 0) {
+          return results.map(r => ({ file: r.file, score: r.count }));
+        }
+      } catch {}
+    }
+    return this.data.file_sequences
+      .filter(s => s.from_file === file)
+      .sort((a, b) => b.count - a.count)
+      .slice(0, limit)
+      .map(s => ({ file: s.to_file, score: s.count }));
+  }
+
+  // Error pattern learning
+  recordErrorFix(errorPattern, fix) {
+    if (!this.data.errors[errorPattern]) {
+      this.data.errors[errorPattern] = [];
+    }
+    if (!this.data.errors[errorPattern].includes(fix)) {
+      this.data.errors[errorPattern].push(fix);
+    }
+    this.data.stats.total_errors = Object.keys(this.data.errors).length;
+
+    if (this.engine) {
+      this.engine.recordErrorFix(errorPattern, fix);
+    }
+  }
+
+  getSuggestedFixes(error) {
+    // Try engine first (uses embedding similarity)
+    if (this.engine) {
+      try {
+        const fixes = this.engine.getSuggestedFixes(error);
+        if (fixes.length > 0) return fixes;
+      } catch {}
+    }
+    return this.data.errors[error] || [];
   }
 
   classifyCommand(command) {
     const cmd = command.toLowerCase();
     if (cmd.includes('cargo') || cmd.includes('rustc')) return { category: 'rust', subcategory: cmd.includes('test') ? 'test' : 'build', risk: 'low' };
-    if (cmd.includes('npm') || cmd.includes('node')) return { category: 'javascript', subcategory: cmd.includes('test') ? 'test' : 'build', risk: 'low' };
-    if (cmd.includes('git')) return { category: 'git', subcategory: 'vcs', risk: cmd.includes('push') ? 'medium' : 'low' };
-    if (cmd.includes('rm') || cmd.includes('delete')) return { category: 'filesystem', subcategory: 'destructive', risk: 'high' };
+    if (cmd.includes('npm') || cmd.includes('node') || cmd.includes('yarn') || cmd.includes('pnpm')) return { category: 'javascript', subcategory: cmd.includes('test') ? 'test' : 'build', risk: 'low' };
+    if (cmd.includes('python') || cmd.includes('pip') || cmd.includes('pytest')) return { category: 'python', subcategory: cmd.includes('test') ? 'test' : 'run', risk: 'low' };
+    if (cmd.includes('go ')) return { category: 'go', subcategory: cmd.includes('test') ? 'test' : 'build', risk: 'low' };
+    if (cmd.includes('git')) return { category: 'git', subcategory: 'vcs', risk: cmd.includes('push') || cmd.includes('force') ? 'medium' : 'low' };
+    if (cmd.includes('rm ') || cmd.includes('delete') || cmd.includes('rmdir')) return { category: 'filesystem', subcategory: 'destructive', risk: 'high' };
+    if (cmd.includes('sudo') || cmd.includes('chmod') || cmd.includes('chown')) return { category: 'system', subcategory: 'privileged', risk: 'high' };
+    if (cmd.includes('docker') || cmd.includes('kubectl')) return { category: 'container', subcategory: 'orchestration', risk: 'medium' };
     return { category: 'shell', subcategory: 'general', risk: 'low' };
   }
 
@@ -2254,20 +2521,139 @@ class Intelligence {
     return { agents, edges };
   }
 
-  stats() { return this.data.stats; }
-  sessionStart() { this.data.stats.session_count++; this.data.stats.last_session = this.now(); }
+  // Enhanced stats with engine metrics
+  stats() {
+    const baseStats = this.data.stats;
+
+    if (this.engine) {
+      try {
+        const engineStats = this.engine.getStats();
+        return {
+          ...baseStats,
+          // Engine stats
+          engineEnabled: true,
+          sonaEnabled: engineStats.sonaEnabled,
+          attentionEnabled: engineStats.attentionEnabled,
+          embeddingDim: engineStats.memoryDimensions,
+          totalMemories: engineStats.totalMemories,
+          totalEpisodes: engineStats.totalEpisodes,
+          trajectoriesRecorded: engineStats.trajectoriesRecorded,
+          patternsLearned: engineStats.patternsLearned,
+          microLoraUpdates: engineStats.microLoraUpdates,
+          baseLoraUpdates: engineStats.baseLoraUpdates,
+          ewcConsolidations: engineStats.ewcConsolidations,
+        };
+      } catch {}
+    }
+
+    return { ...baseStats, engineEnabled: false };
+  }
+
+  sessionStart() {
+    this.data.stats.session_count++;
+    this.data.stats.last_session = this.now();
+    this.sessionStartTime = this.now();
+
+    // Tick engine for background learning
+    if (this.engine) {
+      this.engine.tick();
+    }
+  }
+
   sessionEnd() {
-    const duration = this.now() - this.data.stats.last_session;
+    const duration = this.now() - (this.sessionStartTime || this.data.stats.last_session);
     const actions = this.data.trajectories.filter(t => t.timestamp >= this.data.stats.last_session).length;
+
+    // Force learning cycle
+    if (this.engine) {
+      this.engine.forceLearn();
+    }
+
+    // Save all data
+    this.save();
+
     return { duration, actions };
   }
+
   getLastEditedFile() { return this.lastEditedFile; }
+
+  // New: Check if full engine is available
+  isEngineEnabled() {
+    return this.engine !== null;
+  }
+
+  // New: Get engine capabilities
+  getCapabilities() {
+    if (!this.engine) {
+      return {
+        engine: false,
+        vectorDb: false,
+        sona: false,
+        attention: false,
+        embeddingDim: 64,
+      };
+    }
+    const stats = this.engine.getStats();
+    return {
+      engine: true,
+      vectorDb: true,
+      sona: stats.sonaEnabled,
+      attention: stats.attentionEnabled,
+      embeddingDim: stats.memoryDimensions,
+    };
+  }
 }
 
 // Hooks command group
 const hooksCmd = program.command('hooks').description('Self-learning intelligence hooks for Claude Code');
 
-hooksCmd.command('init').description('Initialize hooks in current project').option('--force', 'Force overwrite').action((opts) => {
+// Helper: Detect project type
+function detectProjectType() {
+  const cwd = process.cwd();
+  const types = [];
+  if (fs.existsSync(path.join(cwd, 'Cargo.toml'))) types.push('rust');
+  if (fs.existsSync(path.join(cwd, 'package.json'))) types.push('node');
+  if (fs.existsSync(path.join(cwd, 'requirements.txt')) || fs.existsSync(path.join(cwd, 'pyproject.toml'))) types.push('python');
+  if (fs.existsSync(path.join(cwd, 'go.mod'))) types.push('go');
+  if (fs.existsSync(path.join(cwd, 'Gemfile'))) types.push('ruby');
+  if (fs.existsSync(path.join(cwd, 'pom.xml')) || fs.existsSync(path.join(cwd, 'build.gradle'))) types.push('java');
+  return types.length > 0 ? types : ['generic'];
+}
+
+// Helper: Get permissions for project type
+function getPermissionsForProjectType(types) {
+  const basePermissions = [
+    'Bash(git status)', 'Bash(git diff:*)', 'Bash(git log:*)', 'Bash(git add:*)',
+    'Bash(git commit:*)', 'Bash(git push)', 'Bash(git branch:*)', 'Bash(git checkout:*)',
+    'Bash(ls:*)', 'Bash(pwd)', 'Bash(cat:*)', 'Bash(mkdir:*)', 'Bash(which:*)', 'Bash(ruvector:*)'
+  ];
+  const typePermissions = {
+    rust: ['Bash(cargo:*)', 'Bash(rustc:*)', 'Bash(rustfmt:*)', 'Bash(clippy:*)', 'Bash(wasm-pack:*)'],
+    node: ['Bash(npm:*)', 'Bash(npx:*)', 'Bash(node:*)', 'Bash(yarn:*)', 'Bash(pnpm:*)'],
+    python: ['Bash(python:*)', 'Bash(pip:*)', 'Bash(pytest:*)', 'Bash(poetry:*)', 'Bash(uv:*)'],
+    go: ['Bash(go:*)', 'Bash(gofmt:*)'],
+    ruby: ['Bash(ruby:*)', 'Bash(gem:*)', 'Bash(bundle:*)', 'Bash(rails:*)'],
+    java: ['Bash(mvn:*)', 'Bash(gradle:*)', 'Bash(java:*)', 'Bash(javac:*)'],
+    generic: ['Bash(make:*)']
+  };
+  let perms = [...basePermissions];
+  types.forEach(t => { if (typePermissions[t]) perms = perms.concat(typePermissions[t]); });
+  return [...new Set(perms)];
+}
+
+hooksCmd.command('init')
+  .description('Initialize hooks in current project')
+  .option('--force', 'Force overwrite existing settings')
+  .option('--minimal', 'Only basic hooks (no env, permissions, or advanced hooks)')
+  .option('--no-claude-md', 'Skip CLAUDE.md creation')
+  .option('--no-permissions', 'Skip permissions configuration')
+  .option('--no-env', 'Skip environment variables')
+  .option('--no-gitignore', 'Skip .gitignore update')
+  .option('--no-mcp', 'Skip MCP server configuration')
+  .option('--no-statusline', 'Skip statusLine configuration')
+  .option('--pretrain', 'Run pretrain after init to bootstrap intelligence')
+  .option('--build-agents [focus]', 'Generate optimized agents (quality|speed|security|testing|fullstack)')
+  .action(async (opts) => {
   const settingsPath = path.join(process.cwd(), '.claude', 'settings.json');
   const settingsDir = path.dirname(settingsPath);
   if (!fs.existsSync(settingsDir)) fs.mkdirSync(settingsDir, { recursive: true });
@@ -2275,6 +2661,86 @@ hooksCmd.command('init').description('Initialize hooks in current project').opti
   if (fs.existsSync(settingsPath) && !opts.force) {
     try { settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8')); } catch {}
   }
+
+  // Fix schema if present
+  if (settings.$schema) {
+    settings.$schema = 'https://json.schemastore.org/claude-code-settings.json';
+  }
+
+  // Clean up invalid hook names
+  if (settings.hooks) {
+    if (settings.hooks.Start) { delete settings.hooks.Start; }
+    if (settings.hooks.End) { delete settings.hooks.End; }
+  }
+
+  // Detect project type
+  const projectTypes = detectProjectType();
+  console.log(chalk.blue(`  ✓ Detected project type(s): ${projectTypes.join(', ')}`));
+
+  // Environment variables for intelligence (unless --minimal or --no-env)
+  if (!opts.minimal && opts.env !== false) {
+    settings.env = settings.env || {};
+    settings.env.RUVECTOR_INTELLIGENCE_ENABLED = settings.env.RUVECTOR_INTELLIGENCE_ENABLED || 'true';
+    settings.env.RUVECTOR_LEARNING_RATE = settings.env.RUVECTOR_LEARNING_RATE || '0.1';
+    settings.env.RUVECTOR_MEMORY_BACKEND = settings.env.RUVECTOR_MEMORY_BACKEND || 'rvlite';
+    settings.env.INTELLIGENCE_MODE = settings.env.INTELLIGENCE_MODE || 'treatment';
+    console.log(chalk.blue('  ✓ Environment variables configured'));
+  }
+
+  // Permissions based on detected project type (unless --minimal or --no-permissions)
+  if (!opts.minimal && opts.permissions !== false) {
+    settings.permissions = settings.permissions || {};
+    settings.permissions.allow = settings.permissions.allow || getPermissionsForProjectType(projectTypes);
+    settings.permissions.deny = settings.permissions.deny || [
+      'Bash(rm -rf /)',
+      'Bash(sudo rm:*)',
+      'Bash(chmod 777:*)',
+      'Bash(mkfs:*)',
+      'Bash(dd if=/dev/zero:*)'
+    ];
+    console.log(chalk.blue('  ✓ Permissions configured (project-specific)'));
+  }
+
+  // MCP server configuration (unless --minimal or --no-mcp)
+  if (!opts.minimal && opts.mcp !== false) {
+    settings.mcpServers = settings.mcpServers || {};
+    // Only add if not already configured
+    if (!settings.mcpServers['claude-flow'] && !settings.enabledMcpjsonServers?.includes('claude-flow')) {
+      settings.enabledMcpjsonServers = settings.enabledMcpjsonServers || [];
+      if (!settings.enabledMcpjsonServers.includes('claude-flow')) {
+        settings.enabledMcpjsonServers.push('claude-flow');
+      }
+    }
+    console.log(chalk.blue('  ✓ MCP servers configured'));
+  }
+
+  // StatusLine configuration (unless --minimal or --no-statusline)
+  if (!opts.minimal && opts.statusline !== false) {
+    if (!settings.statusLine) {
+      // Create a simple statusline script
+      const statuslineScript = path.join(settingsDir, 'statusline.sh');
+      const statuslineContent = `#!/bin/bash
+# RuVector Status Line - shows intelligence stats
+INTEL_FILE=".ruvector/intelligence.json"
+if [ -f "$INTEL_FILE" ]; then
+  PATTERNS=$(jq -r '.patterns | length // 0' "$INTEL_FILE" 2>/dev/null || echo "0")
+  MEMORIES=$(jq -r '.memories | length // 0' "$INTEL_FILE" 2>/dev/null || echo "0")
+  echo "🧠 $PATTERNS patterns | 💾 $MEMORIES memories"
+else
+  echo "🧠 RuVector"
+fi
+`;
+      fs.writeFileSync(statuslineScript, statuslineContent);
+      fs.chmodSync(statuslineScript, '755');
+      settings.statusLine = {
+        type: 'command',
+        command: '.claude/statusline.sh'
+      };
+      console.log(chalk.blue('  ✓ StatusLine configured'));
+    }
+  }
+
+  // Core hooks (always included)
   settings.hooks = settings.hooks || {};
   settings.hooks.PreToolUse = [
     { matcher: 'Edit|Write|MultiEdit', hooks: [{ type: 'command', command: 'npx ruvector hooks pre-edit "$TOOL_INPUT_file_path"' }] },
@@ -2286,8 +2752,198 @@ hooksCmd.command('init').description('Initialize hooks in current project').opti
   ];
   settings.hooks.SessionStart = [{ hooks: [{ type: 'command', command: 'npx ruvector hooks session-start' }] }];
   settings.hooks.Stop = [{ hooks: [{ type: 'command', command: 'npx ruvector hooks session-end' }] }];
+  console.log(chalk.blue('  ✓ Core hooks (PreToolUse, PostToolUse, SessionStart, Stop)'));
+
+  // Advanced hooks (unless --minimal)
+  if (!opts.minimal) {
+    // UserPromptSubmit - context suggestions on each prompt
+    settings.hooks.UserPromptSubmit = [{
+      hooks: [{
+        type: 'command',
+        timeout: 2000,
+        command: 'npx ruvector hooks suggest-context'
+      }]
+    }];
+
+    // PreCompact - preserve important context before compaction
+    settings.hooks.PreCompact = [
+      {
+        matcher: 'auto',
+        hooks: [{
+          type: 'command',
+          timeout: 3000,
+          command: 'npx ruvector hooks pre-compact --auto'
+        }]
+      },
+      {
+        matcher: 'manual',
+        hooks: [{
+          type: 'command',
+          timeout: 3000,
+          command: 'npx ruvector hooks pre-compact'
+        }]
+      }
+    ];
+
+    // Notification - track all notifications for learning
+    settings.hooks.Notification = [{
+      matcher: '.*',
+      hooks: [{
+        type: 'command',
+        timeout: 1000,
+        command: 'npx ruvector hooks track-notification'
+      }]
+    }];
+    console.log(chalk.blue('  ✓ Advanced hooks (UserPromptSubmit, PreCompact, Notification)'));
+  }
+
   fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
-  console.log(chalk.green('✅ Hooks initialized in .claude/settings.json'));
+  console.log(chalk.green('\n✅ Hooks initialized in .claude/settings.json'));
+
+  // Create CLAUDE.md if it doesn't exist (or force)
+  const claudeMdPath = path.join(process.cwd(), 'CLAUDE.md');
+  if (opts.claudeMd !== false && (!fs.existsSync(claudeMdPath) || opts.force)) {
+    const claudeMdContent = `# Claude Code Project Configuration
+
+## RuVector Self-Learning Intelligence
+
+This project uses RuVector's self-learning intelligence hooks for enhanced AI-assisted development with Q-learning, vector memory, and automatic agent routing.
+
+### Active Hooks
+
+| Hook | Trigger | Purpose |
+|------|---------|---------|
+| **PreToolUse** | Before Edit/Write/Bash | Agent routing, file analysis, command risk assessment |
+| **PostToolUse** | After Edit/Write/Bash | Q-learning update, pattern recording, outcome tracking |
+| **SessionStart** | Conversation begins | Load intelligence state, display learning stats |
+| **Stop** | Conversation ends | Save learning data, export metrics |
+| **UserPromptSubmit** | User sends message | Context suggestions, pattern recommendations |
+| **PreCompact** | Before context compaction | Preserve important context and memories |
+| **Notification** | Any notification | Track events for learning |
+
+### Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| \`RUVECTOR_INTELLIGENCE_ENABLED\` | \`true\` | Enable/disable intelligence layer |
+| \`RUVECTOR_LEARNING_RATE\` | \`0.1\` | Q-learning rate (0.0-1.0) |
+| \`RUVECTOR_MEMORY_BACKEND\` | \`rvlite\` | Memory storage backend |
+| \`INTELLIGENCE_MODE\` | \`treatment\` | A/B testing mode (treatment/control) |
+
+### Commands
+
+\`\`\`bash
+# Initialize hooks in a project
+npx ruvector hooks init
+
+# View learning statistics
+npx ruvector hooks stats
+
+# Route a task to best agent
+npx ruvector hooks route "implement feature X"
+
+# Store context in vector memory
+npx ruvector hooks remember "important context" -t project
+
+# Recall from memory (semantic search)
+npx ruvector hooks recall "context query"
+
+# Manual session management
+npx ruvector hooks session-start
+npx ruvector hooks session-end
+\`\`\`
+
+### How It Works
+
+1. **Pre-edit hooks** analyze files and suggest the best agent based on learned patterns
+2. **Post-edit hooks** record outcomes to improve future suggestions via Q-learning
+3. **Memory hooks** store and retrieve context using vector embeddings (cosine similarity)
+4. **Session hooks** manage learning state across conversations
+5. **UserPromptSubmit** provides context suggestions on each message
+6. **PreCompact** preserves critical context before conversation compaction
+7. **Notification** tracks all events for continuous learning
+
+### Learning Data
+
+Stored in \`.ruvector/intelligence.json\`:
+- **Q-table patterns**: State-action values for agent routing
+- **Vector memories**: Embeddings for semantic recall
+- **Trajectories**: Learning history for improvement tracking
+- **Error patterns**: Known issues and suggested fixes
+
+### Init Options
+
+\`\`\`bash
+npx ruvector hooks init              # Full configuration
+npx ruvector hooks init --minimal    # Basic hooks only
+npx ruvector hooks init --no-env     # Skip environment variables
+npx ruvector hooks init --no-permissions  # Skip permissions
+npx ruvector hooks init --no-claude-md    # Skip this file
+npx ruvector hooks init --force      # Overwrite existing
+\`\`\`
+
+---
+*Powered by [RuVector](https://github.com/ruvnet/ruvector) self-learning intelligence*
+`;
+    fs.writeFileSync(claudeMdPath, claudeMdContent);
+    console.log(chalk.green('✅ CLAUDE.md created in project root'));
+  } else if (fs.existsSync(claudeMdPath) && !opts.force) {
+    console.log(chalk.yellow('ℹ️  CLAUDE.md already exists (use --force to overwrite)'));
+  }
+
+  // Update .gitignore (unless --no-gitignore)
+  if (opts.gitignore !== false) {
+    const gitignorePath = path.join(process.cwd(), '.gitignore');
+    const entriesToAdd = ['.ruvector/', '.claude/statusline.sh'];
+    let gitignoreContent = '';
+    if (fs.existsSync(gitignorePath)) {
+      gitignoreContent = fs.readFileSync(gitignorePath, 'utf-8');
+    }
+    const linesToAdd = entriesToAdd.filter(entry => !gitignoreContent.includes(entry));
+    if (linesToAdd.length > 0) {
+      const newContent = gitignoreContent.trim() + '\n\n# RuVector intelligence data\n' + linesToAdd.join('\n') + '\n';
+      fs.writeFileSync(gitignorePath, newContent);
+      console.log(chalk.blue('  ✓ .gitignore updated'));
+    }
+  }
+
+  // Create .ruvector directory for intelligence data
+  const ruvectorDir = path.join(process.cwd(), '.ruvector');
+  if (!fs.existsSync(ruvectorDir)) {
+    fs.mkdirSync(ruvectorDir, { recursive: true });
+    console.log(chalk.blue('  ✓ .ruvector/ directory created'));
+  }
+
+  console.log(chalk.green('\n✅ RuVector hooks initialization complete!'));
+
+  // Run pretrain if requested
+  if (opts.pretrain) {
+    console.log(chalk.yellow('\n📚 Running pretrain to bootstrap intelligence...\n'));
+    const { execSync } = require('child_process');
+    try {
+      execSync('npx ruvector hooks pretrain', { stdio: 'inherit' });
+    } catch (e) {
+      console.log(chalk.yellow('⚠️  Pretrain completed with warnings'));
+    }
+  }
+
+  // Build agents if requested
+  if (opts.buildAgents) {
+    const focus = typeof opts.buildAgents === 'string' ? opts.buildAgents : 'quality';
+    console.log(chalk.yellow(`\n🏗️  Building optimized agents (focus: ${focus})...\n`));
+    const { execSync } = require('child_process');
+    try {
+      execSync(`npx ruvector hooks build-agents --focus ${focus} --include-prompts`, { stdio: 'inherit' });
+    } catch (e) {
+      console.log(chalk.yellow('⚠️  Agent build completed with warnings'));
+    }
+  }
+
+  if (!opts.pretrain && !opts.buildAgents) {
+    console.log(chalk.dim('   Run `npx ruvector hooks verify` to test the setup'));
+    console.log(chalk.dim('   Run `npx ruvector hooks pretrain` to bootstrap intelligence'));
+    console.log(chalk.dim('   Run `npx ruvector hooks build-agents` to generate optimized agents'));
+  }
 });
 
 hooksCmd.command('stats').description('Show intelligence statistics').action(() => {
@@ -2423,5 +3079,1080 @@ hooksCmd.command('lsp-diagnostic').description('LSP diagnostic hook').option('--
 hooksCmd.command('track-notification').description('Track notification').action(() => {
   console.log(JSON.stringify({ tracked: true }));
 });
+
+// Trajectory tracking commands
+hooksCmd.command('trajectory-begin')
+  .description('Begin tracking a new execution trajectory')
+  .requiredOption('-c, --context <context>', 'Task or operation context')
+  .option('-a, --agent <agent>', 'Agent performing the task', 'unknown')
+  .action((opts) => {
+    const intel = new Intelligence();
+    const trajId = `traj_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    if (!intel.data.activeTrajectories) intel.data.activeTrajectories = {};
+    intel.data.activeTrajectories[trajId] = {
+      id: trajId,
+      context: opts.context,
+      agent: opts.agent,
+      steps: [],
+      startTime: Date.now()
+    };
+    intel.save();
+    console.log(JSON.stringify({ success: true, trajectory_id: trajId, context: opts.context, agent: opts.agent }));
+  });
+
+hooksCmd.command('trajectory-step')
+  .description('Add a step to the current trajectory')
+  .requiredOption('-a, --action <action>', 'Action taken')
+  .option('-r, --result <result>', 'Result of action')
+  .option('--reward <reward>', 'Reward signal (0-1)', '0.5')
+  .action((opts) => {
+    const intel = new Intelligence();
+    const trajectories = intel.data.activeTrajectories || {};
+    const trajIds = Object.keys(trajectories);
+    if (trajIds.length === 0) {
+      console.log(JSON.stringify({ success: false, error: 'No active trajectory' }));
+      return;
+    }
+    const latestTrajId = trajIds[trajIds.length - 1];
+    trajectories[latestTrajId].steps.push({
+      action: opts.action,
+      result: opts.result || '',
+      reward: parseFloat(opts.reward),
+      time: Date.now()
+    });
+    intel.save();
+    console.log(JSON.stringify({ success: true, trajectory_id: latestTrajId, step: trajectories[latestTrajId].steps.length }));
+  });
+
+hooksCmd.command('trajectory-end')
+  .description('End the current trajectory with a quality score')
+  .option('--success', 'Task succeeded')
+  .option('--quality <quality>', 'Quality score (0-1)', '0.5')
+  .action((opts) => {
+    const intel = new Intelligence();
+    const trajectories = intel.data.activeTrajectories || {};
+    const trajIds = Object.keys(trajectories);
+    if (trajIds.length === 0) {
+      console.log(JSON.stringify({ success: false, error: 'No active trajectory' }));
+      return;
+    }
+    const latestTrajId = trajIds[trajIds.length - 1];
+    const traj = trajectories[latestTrajId];
+    const quality = opts.success ? 0.8 : parseFloat(opts.quality);
+    traj.endTime = Date.now();
+    traj.quality = quality;
+    traj.success = opts.success || false;
+
+    if (!intel.data.trajectories) intel.data.trajectories = [];
+    intel.data.trajectories.push(traj);
+    delete trajectories[latestTrajId];
+    intel.save();
+
+    console.log(JSON.stringify({
+      success: true,
+      trajectory_id: latestTrajId,
+      steps: traj.steps.length,
+      duration_ms: traj.endTime - traj.startTime,
+      quality
+    }));
+  });
+
+// Co-edit pattern commands
+hooksCmd.command('coedit-record')
+  .description('Record co-edit pattern (files edited together)')
+  .requiredOption('-p, --primary <file>', 'Primary file being edited')
+  .requiredOption('-r, --related <files...>', 'Related files edited together')
+  .action((opts) => {
+    const intel = new Intelligence();
+    if (!intel.data.coEditPatterns) intel.data.coEditPatterns = {};
+    if (!intel.data.coEditPatterns[opts.primary]) intel.data.coEditPatterns[opts.primary] = {};
+
+    for (const related of opts.related) {
+      intel.data.coEditPatterns[opts.primary][related] = (intel.data.coEditPatterns[opts.primary][related] || 0) + 1;
+    }
+    intel.save();
+    console.log(JSON.stringify({ success: true, primary_file: opts.primary, related_count: opts.related.length }));
+  });
+
+hooksCmd.command('coedit-suggest')
+  .description('Get suggested related files based on co-edit patterns')
+  .requiredOption('-f, --file <file>', 'Current file')
+  .option('-k, --top-k <n>', 'Number of suggestions', '5')
+  .action((opts) => {
+    const intel = new Intelligence();
+    let suggestions = [];
+
+    if (intel.data.coEditPatterns && intel.data.coEditPatterns[opts.file]) {
+      suggestions = Object.entries(intel.data.coEditPatterns[opts.file])
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, parseInt(opts.topK))
+        .map(([f, count]) => ({ file: f, count, confidence: Math.min(count / 10, 1) }));
+    }
+    console.log(JSON.stringify({ success: true, file: opts.file, suggestions }));
+  });
+
+// Error pattern commands
+hooksCmd.command('error-record')
+  .description('Record an error and its fix for learning')
+  .requiredOption('-e, --error <error>', 'Error message or code')
+  .requiredOption('-x, --fix <fix>', 'Fix that resolved the error')
+  .option('-f, --file <file>', 'File where error occurred')
+  .action((opts) => {
+    const intel = new Intelligence();
+    if (!intel.data.errors) intel.data.errors = {};
+    if (!intel.data.errors[opts.error]) intel.data.errors[opts.error] = [];
+    intel.data.errors[opts.error].push({ fix: opts.fix, file: opts.file || '', recorded: Date.now() });
+    intel.save();
+    console.log(JSON.stringify({ success: true, error: opts.error.substring(0, 50), fixes_recorded: intel.data.errors[opts.error].length }));
+  });
+
+hooksCmd.command('error-suggest')
+  .description('Get suggested fixes for an error based on learned patterns')
+  .requiredOption('-e, --error <error>', 'Error message or code')
+  .action((opts) => {
+    const intel = new Intelligence();
+    let suggestions = [];
+
+    if (intel.data.errors) {
+      for (const [errKey, fixes] of Object.entries(intel.data.errors)) {
+        if (opts.error.includes(errKey) || errKey.includes(opts.error)) {
+          suggestions.push(...fixes.map(f => f.fix));
+        }
+      }
+    }
+    console.log(JSON.stringify({ success: true, error: opts.error.substring(0, 50), suggestions: [...new Set(suggestions)].slice(0, 5) }));
+  });
+
+// Force learning command
+hooksCmd.command('force-learn')
+  .description('Force an immediate learning cycle')
+  .action(() => {
+    const intel = new Intelligence();
+    intel.tick();
+    console.log(JSON.stringify({ success: true, result: 'Learning cycle triggered', stats: intel.stats() }));
+  });
+
+// Verify hooks are working
+hooksCmd.command('verify')
+  .description('Verify hooks are working correctly')
+  .option('--verbose', 'Show detailed output')
+  .action((opts) => {
+    console.log(chalk.bold.cyan('\n🔍 RuVector Hooks Verification\n'));
+    const checks = [];
+
+    // Check 1: Settings file exists
+    const settingsPath = path.join(process.cwd(), '.claude', 'settings.json');
+    if (fs.existsSync(settingsPath)) {
+      checks.push({ name: 'Settings file', status: 'pass', detail: '.claude/settings.json exists' });
+      try {
+        const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
+        // Check hooks
+        const requiredHooks = ['PreToolUse', 'PostToolUse', 'SessionStart', 'Stop'];
+        const missingHooks = requiredHooks.filter(h => !settings.hooks?.[h]);
+        if (missingHooks.length === 0) {
+          checks.push({ name: 'Required hooks', status: 'pass', detail: 'All core hooks configured' });
+        } else {
+          checks.push({ name: 'Required hooks', status: 'fail', detail: `Missing: ${missingHooks.join(', ')}` });
+        }
+        // Check advanced hooks
+        const advancedHooks = ['UserPromptSubmit', 'PreCompact', 'Notification'];
+        const hasAdvanced = advancedHooks.filter(h => settings.hooks?.[h]);
+        if (hasAdvanced.length > 0) {
+          checks.push({ name: 'Advanced hooks', status: 'pass', detail: `${hasAdvanced.length}/3 configured` });
+        } else {
+          checks.push({ name: 'Advanced hooks', status: 'warn', detail: 'None configured (optional)' });
+        }
+        // Check env
+        if (settings.env?.RUVECTOR_INTELLIGENCE_ENABLED) {
+          checks.push({ name: 'Environment vars', status: 'pass', detail: 'Intelligence enabled' });
+        } else {
+          checks.push({ name: 'Environment vars', status: 'warn', detail: 'Not configured' });
+        }
+        // Check permissions
+        if (settings.permissions?.allow?.length > 0) {
+          checks.push({ name: 'Permissions', status: 'pass', detail: `${settings.permissions.allow.length} allowed patterns` });
+        } else {
+          checks.push({ name: 'Permissions', status: 'warn', detail: 'Not configured' });
+        }
+      } catch (e) {
+        checks.push({ name: 'Settings parse', status: 'fail', detail: 'Invalid JSON' });
+      }
+    } else {
+      checks.push({ name: 'Settings file', status: 'fail', detail: 'Run `npx ruvector hooks init` first' });
+    }
+
+    // Check 2: .ruvector directory
+    const ruvectorDir = path.join(process.cwd(), '.ruvector');
+    if (fs.existsSync(ruvectorDir)) {
+      checks.push({ name: 'Data directory', status: 'pass', detail: '.ruvector/ exists' });
+      const intelFile = path.join(ruvectorDir, 'intelligence.json');
+      if (fs.existsSync(intelFile)) {
+        const stats = fs.statSync(intelFile);
+        checks.push({ name: 'Intelligence file', status: 'pass', detail: `${(stats.size / 1024).toFixed(1)}KB` });
+      } else {
+        checks.push({ name: 'Intelligence file', status: 'warn', detail: 'Will be created on first use' });
+      }
+    } else {
+      checks.push({ name: 'Data directory', status: 'warn', detail: 'Will be created on first use' });
+    }
+
+    // Check 3: Hook command execution
+    try {
+      const { execSync } = require('child_process');
+      execSync('npx ruvector hooks stats', { stdio: 'pipe', timeout: 5000 });
+      checks.push({ name: 'Command execution', status: 'pass', detail: 'Hooks commands work' });
+    } catch (e) {
+      checks.push({ name: 'Command execution', status: 'fail', detail: 'Commands failed to execute' });
+    }
+
+    // Display results
+    let passCount = 0, warnCount = 0, failCount = 0;
+    checks.forEach(c => {
+      const icon = c.status === 'pass' ? chalk.green('✓') : c.status === 'warn' ? chalk.yellow('⚠') : chalk.red('✗');
+      const statusColor = c.status === 'pass' ? chalk.green : c.status === 'warn' ? chalk.yellow : chalk.red;
+      console.log(`  ${icon} ${c.name}: ${statusColor(c.detail)}`);
+      if (c.status === 'pass') passCount++;
+      else if (c.status === 'warn') warnCount++;
+      else failCount++;
+    });
+
+    console.log('');
+    if (failCount === 0) {
+      console.log(chalk.green(`✅ Verification passed! ${passCount} checks passed, ${warnCount} warnings`));
+    } else {
+      console.log(chalk.red(`❌ Verification failed: ${failCount} issues found`));
+      console.log(chalk.dim('   Run `npx ruvector hooks doctor` for detailed diagnostics'));
+    }
+  });
+
+// Doctor - diagnose setup issues
+hooksCmd.command('doctor')
+  .description('Diagnose and fix setup issues')
+  .option('--fix', 'Automatically fix issues')
+  .action((opts) => {
+    console.log(chalk.bold.cyan('\n🩺 RuVector Hooks Doctor\n'));
+    const issues = [];
+    const fixes = [];
+
+    // Check settings file
+    const settingsPath = path.join(process.cwd(), '.claude', 'settings.json');
+    if (!fs.existsSync(settingsPath)) {
+      issues.push({ severity: 'error', message: 'No .claude/settings.json found', fix: 'Run `npx ruvector hooks init`' });
+    } else {
+      try {
+        const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
+
+        // Check for invalid schema
+        if (settings.$schema && !settings.$schema.includes('schemastore.org')) {
+          issues.push({ severity: 'warning', message: 'Invalid schema URL', fix: 'Will be corrected' });
+          if (opts.fix) {
+            settings.$schema = 'https://json.schemastore.org/claude-code-settings.json';
+            fixes.push('Fixed schema URL');
+          }
+        }
+
+        // Check for old hook names
+        if (settings.hooks?.Start || settings.hooks?.End) {
+          issues.push({ severity: 'error', message: 'Invalid hook names (Start/End)', fix: 'Should be SessionStart/Stop' });
+          if (opts.fix) {
+            delete settings.hooks.Start;
+            delete settings.hooks.End;
+            fixes.push('Removed invalid hook names');
+          }
+        }
+
+        // Check hook format
+        const hookNames = ['PreToolUse', 'PostToolUse'];
+        hookNames.forEach(name => {
+          if (settings.hooks?.[name]) {
+            settings.hooks[name].forEach((hook, i) => {
+              if (typeof hook.matcher === 'object') {
+                issues.push({ severity: 'error', message: `${name}[${i}].matcher should be string, not object`, fix: 'Will be corrected' });
+              }
+            });
+          }
+        });
+
+        // Check for npx vs direct command
+        const checkCommands = (hooks) => {
+          if (!hooks) return;
+          hooks.forEach(h => {
+            h.hooks?.forEach(hh => {
+              if (hh.command && hh.command.includes('ruvector') && !hh.command.startsWith('npx ') && !hh.command.includes('/bin/')) {
+                issues.push({ severity: 'warning', message: `Command should use 'npx ruvector' for portability`, fix: 'Update to use npx' });
+              }
+            });
+          });
+        };
+        Object.values(settings.hooks || {}).forEach(checkCommands);
+
+        // Save fixes
+        if (opts.fix && fixes.length > 0) {
+          fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
+        }
+      } catch (e) {
+        issues.push({ severity: 'error', message: 'Invalid JSON in settings file', fix: 'Re-run `npx ruvector hooks init --force`' });
+      }
+    }
+
+    // Check .gitignore
+    const gitignorePath = path.join(process.cwd(), '.gitignore');
+    if (fs.existsSync(gitignorePath)) {
+      const content = fs.readFileSync(gitignorePath, 'utf-8');
+      if (!content.includes('.ruvector/')) {
+        issues.push({ severity: 'warning', message: '.ruvector/ not in .gitignore', fix: 'Add to prevent committing learning data' });
+        if (opts.fix) {
+          fs.appendFileSync(gitignorePath, '\n# RuVector intelligence data\n.ruvector/\n');
+          fixes.push('Added .ruvector/ to .gitignore');
+        }
+      }
+    }
+
+    // Display results
+    if (issues.length === 0) {
+      console.log(chalk.green('  ✓ No issues found! Your setup looks healthy.'));
+    } else {
+      issues.forEach(i => {
+        const icon = i.severity === 'error' ? chalk.red('✗') : chalk.yellow('⚠');
+        console.log(`  ${icon} ${i.message}`);
+        console.log(chalk.dim(`     Fix: ${i.fix}`));
+      });
+
+      if (opts.fix && fixes.length > 0) {
+        console.log(chalk.green(`\n✅ Applied ${fixes.length} fix(es):`));
+        fixes.forEach(f => console.log(chalk.green(`   • ${f}`)));
+      } else if (issues.some(i => i.severity === 'error')) {
+        console.log(chalk.yellow('\n💡 Run with --fix to automatically fix issues'));
+      }
+    }
+  });
+
+// Export intelligence data
+hooksCmd.command('export')
+  .description('Export intelligence data for backup')
+  .option('-o, --output <file>', 'Output file path', 'ruvector-export.json')
+  .option('--include-all', 'Include all data (patterns, memories, trajectories)')
+  .action((opts) => {
+    const intel = new Intelligence();
+    const exportData = {
+      version: '1.0',
+      exported_at: new Date().toISOString(),
+      patterns: intel.data?.patterns || {},
+      memories: opts.includeAll ? (intel.data?.memories || []) : [],
+      trajectories: opts.includeAll ? (intel.data?.trajectories || []) : [],
+      errors: intel.data?.errors || {},
+      stats: intel.stats()
+    };
+
+    const outputPath = path.resolve(opts.output);
+    fs.writeFileSync(outputPath, JSON.stringify(exportData, null, 2));
+
+    console.log(chalk.green(`✅ Exported intelligence data to ${outputPath}`));
+    console.log(chalk.dim(`   ${Object.keys(exportData.patterns).length} patterns`));
+    console.log(chalk.dim(`   ${exportData.memories.length} memories`));
+    console.log(chalk.dim(`   ${exportData.trajectories.length} trajectories`));
+  });
+
+// Import intelligence data
+hooksCmd.command('import')
+  .description('Import intelligence data from backup')
+  .argument('<file>', 'Import file path')
+  .option('--merge', 'Merge with existing data (default: replace)')
+  .option('--dry-run', 'Show what would be imported without making changes')
+  .action((file, opts) => {
+    const importPath = path.resolve(file);
+    if (!fs.existsSync(importPath)) {
+      console.error(chalk.red(`❌ File not found: ${importPath}`));
+      process.exit(1);
+    }
+
+    try {
+      const importData = JSON.parse(fs.readFileSync(importPath, 'utf-8'));
+
+      if (!importData.version) {
+        console.error(chalk.red('❌ Invalid export file (missing version)'));
+        process.exit(1);
+      }
+
+      console.log(chalk.cyan(`📦 Import file: ${file}`));
+      console.log(chalk.dim(`   Version: ${importData.version}`));
+      console.log(chalk.dim(`   Exported: ${importData.exported_at}`));
+      console.log(chalk.dim(`   Patterns: ${Object.keys(importData.patterns || {}).length}`));
+      console.log(chalk.dim(`   Memories: ${(importData.memories || []).length}`));
+      console.log(chalk.dim(`   Trajectories: ${(importData.trajectories || []).length}`));
+
+      if (opts.dryRun) {
+        console.log(chalk.yellow('\n⚠️  Dry run - no changes made'));
+        return;
+      }
+
+      const intel = new Intelligence();
+
+      if (opts.merge) {
+        // Merge patterns
+        Object.assign(intel.data.patterns, importData.patterns || {});
+        // Merge memories (deduplicate by content)
+        const existingContent = new Set((intel.data.memories || []).map(m => m.content));
+        (importData.memories || []).forEach(m => {
+          if (!existingContent.has(m.content)) {
+            intel.data.memories.push(m);
+          }
+        });
+        // Merge trajectories
+        intel.data.trajectories = (intel.data.trajectories || []).concat(importData.trajectories || []);
+        // Merge errors
+        Object.assign(intel.data.errors, importData.errors || {});
+        console.log(chalk.green('✅ Merged intelligence data'));
+      } else {
+        intel.data.patterns = importData.patterns || {};
+        intel.data.memories = importData.memories || [];
+        intel.data.trajectories = importData.trajectories || [];
+        intel.data.errors = importData.errors || {};
+        console.log(chalk.green('✅ Replaced intelligence data'));
+      }
+
+      intel.save();
+      console.log(chalk.dim('   Data saved to .ruvector/intelligence.json'));
+    } catch (e) {
+      console.error(chalk.red(`❌ Failed to import: ${e.message}`));
+      process.exit(1);
+    }
+  });
+
+// Pretrain - analyze repo and bootstrap learning with agent swarm
+hooksCmd.command('pretrain')
+  .description('Pretrain intelligence by analyzing the repository with agent swarm')
+  .option('--depth <n>', 'Git history depth to analyze', '100')
+  .option('--workers <n>', 'Number of parallel analysis workers', '4')
+  .option('--skip-git', 'Skip git history analysis')
+  .option('--skip-files', 'Skip file structure analysis')
+  .option('--verbose', 'Show detailed progress')
+  .action(async (opts) => {
+    const { execSync, spawn } = require('child_process');
+    console.log(chalk.bold.cyan('\n🧠 RuVector Pretrain - Repository Intelligence Bootstrap\n'));
+
+    const intel = new Intelligence();
+    const startTime = Date.now();
+    const stats = { files: 0, patterns: 0, memories: 0, coedits: 0 };
+
+    // Agent types for different file patterns
+    const agentMapping = {
+      // Rust
+      '.rs': 'rust-developer',
+      'Cargo.toml': 'rust-developer',
+      'Cargo.lock': 'rust-developer',
+      // JavaScript/TypeScript
+      '.js': 'javascript-developer',
+      '.jsx': 'react-developer',
+      '.ts': 'typescript-developer',
+      '.tsx': 'react-developer',
+      '.mjs': 'javascript-developer',
+      '.cjs': 'javascript-developer',
+      'package.json': 'node-developer',
+      // Python
+      '.py': 'python-developer',
+      'requirements.txt': 'python-developer',
+      'pyproject.toml': 'python-developer',
+      'setup.py': 'python-developer',
+      // Go
+      '.go': 'go-developer',
+      'go.mod': 'go-developer',
+      // Web
+      '.html': 'frontend-developer',
+      '.css': 'frontend-developer',
+      '.scss': 'frontend-developer',
+      '.vue': 'vue-developer',
+      '.svelte': 'svelte-developer',
+      // Config
+      '.json': 'config-specialist',
+      '.yaml': 'config-specialist',
+      '.yml': 'config-specialist',
+      '.toml': 'config-specialist',
+      // Docs
+      '.md': 'documentation-specialist',
+      '.mdx': 'documentation-specialist',
+      // Tests
+      '.test.js': 'test-engineer',
+      '.test.ts': 'test-engineer',
+      '.spec.js': 'test-engineer',
+      '.spec.ts': 'test-engineer',
+      '_test.go': 'test-engineer',
+      '_test.rs': 'test-engineer',
+      // DevOps
+      'Dockerfile': 'devops-engineer',
+      'docker-compose.yml': 'devops-engineer',
+      '.github/workflows': 'cicd-engineer',
+      'Makefile': 'devops-engineer',
+      // SQL
+      '.sql': 'database-specialist',
+    };
+
+    // Phase 1: Analyze file structure
+    if (!opts.skipFiles) {
+      console.log(chalk.yellow('📁 Phase 1: Analyzing file structure...\n'));
+
+      try {
+        // Get all files in repo
+        const files = execSync('git ls-files 2>/dev/null || find . -type f -not -path "./.git/*" -not -path "./node_modules/*" -not -path "./target/*"',
+          { encoding: 'utf-8', maxBuffer: 50 * 1024 * 1024 }).trim().split('\n').filter(f => f);
+
+        const filesByType = {};
+        const dirPatterns = {};
+
+        files.forEach(file => {
+          stats.files++;
+          const ext = path.extname(file);
+          const basename = path.basename(file);
+          const dir = path.dirname(file);
+
+          // Determine agent for this file
+          let agent = 'coder'; // default
+          if (agentMapping[basename]) {
+            agent = agentMapping[basename];
+          } else if (agentMapping[ext]) {
+            agent = agentMapping[ext];
+          } else if (file.includes('.test.') || file.includes('.spec.') || file.includes('_test.')) {
+            agent = 'test-engineer';
+          } else if (file.includes('.github/workflows')) {
+            agent = 'cicd-engineer';
+          }
+
+          // Track file types
+          filesByType[ext] = (filesByType[ext] || 0) + 1;
+
+          // Track directory patterns
+          const parts = dir.split('/');
+          if (parts[0]) {
+            dirPatterns[parts[0]] = dirPatterns[parts[0]] || { count: 0, agents: {} };
+            dirPatterns[parts[0]].count++;
+            dirPatterns[parts[0]].agents[agent] = (dirPatterns[parts[0]].agents[agent] || 0) + 1;
+          }
+
+          // Create Q-learning pattern for this file type
+          const state = `edit:${ext || 'unknown'}`;
+          if (!intel.data.patterns[state]) {
+            intel.data.patterns[state] = {};
+          }
+          intel.data.patterns[state][agent] = (intel.data.patterns[state][agent] || 0) + 0.5;
+          stats.patterns++;
+        });
+
+        // Log summary
+        if (opts.verbose) {
+          console.log(chalk.dim('  File types found:'));
+          Object.entries(filesByType).sort((a, b) => b[1] - a[1]).slice(0, 10).forEach(([ext, count]) => {
+            console.log(chalk.dim(`    ${ext || '(no ext)'}: ${count} files`));
+          });
+        }
+        console.log(chalk.green(`  ✓ Analyzed ${stats.files} files`));
+        console.log(chalk.green(`  ✓ Created ${Object.keys(intel.data.patterns).length} routing patterns`));
+
+      } catch (e) {
+        console.log(chalk.yellow(`  ⚠ File analysis skipped: ${e.message}`));
+      }
+    }
+
+    // Phase 2: Analyze git history for co-edit patterns
+    if (!opts.skipGit) {
+      console.log(chalk.yellow('\n📜 Phase 2: Analyzing git history for co-edit patterns...\n'));
+
+      try {
+        // Get commits with files changed
+        const gitLog = execSync(
+          `git log --name-only --pretty=format:"COMMIT:%H" -n ${opts.depth} 2>/dev/null`,
+          { encoding: 'utf-8', maxBuffer: 50 * 1024 * 1024 }
+        );
+
+        const commits = gitLog.split('COMMIT:').filter(c => c.trim());
+        const coEditMap = {};
+
+        commits.forEach(commit => {
+          const lines = commit.trim().split('\n').filter(l => l && !l.startsWith('COMMIT:'));
+          const files = lines.slice(1).filter(f => f.trim()); // Skip the hash
+
+          // Track which files are edited together
+          files.forEach(file1 => {
+            files.forEach(file2 => {
+              if (file1 !== file2) {
+                const key = [file1, file2].sort().join('|');
+                coEditMap[key] = (coEditMap[key] || 0) + 1;
+              }
+            });
+          });
+        });
+
+        // Find strong co-edit patterns (files edited together 3+ times)
+        const strongPatterns = Object.entries(coEditMap)
+          .filter(([, count]) => count >= 3)
+          .sort((a, b) => b[1] - a[1]);
+
+        // Store as sequence patterns
+        strongPatterns.slice(0, 100).forEach(([key, count]) => {
+          const [file1, file2] = key.split('|');
+          if (!intel.data.sequences) intel.data.sequences = {};
+          if (!intel.data.sequences[file1]) intel.data.sequences[file1] = [];
+
+          const existing = intel.data.sequences[file1].find(s => s.file === file2);
+          if (existing) {
+            existing.score += count;
+          } else {
+            intel.data.sequences[file1].push({ file: file2, score: count });
+          }
+          stats.coedits++;
+        });
+
+        console.log(chalk.green(`  ✓ Analyzed ${commits.length} commits`));
+        console.log(chalk.green(`  ✓ Found ${strongPatterns.length} co-edit patterns`));
+
+        if (opts.verbose && strongPatterns.length > 0) {
+          console.log(chalk.dim('  Top co-edit patterns:'));
+          strongPatterns.slice(0, 5).forEach(([key, count]) => {
+            const [f1, f2] = key.split('|');
+            console.log(chalk.dim(`    ${path.basename(f1)} ↔ ${path.basename(f2)}: ${count} times`));
+          });
+        }
+
+      } catch (e) {
+        console.log(chalk.yellow(`  ⚠ Git analysis skipped: ${e.message}`));
+      }
+    }
+
+    // Phase 3: Create vector memories from important files
+    console.log(chalk.yellow('\n💾 Phase 3: Creating vector memories from key files...\n'));
+
+    try {
+      const importantFiles = [
+        'README.md', 'CLAUDE.md', 'package.json', 'Cargo.toml',
+        'pyproject.toml', 'go.mod', '.claude/settings.json'
+      ];
+
+      for (const filename of importantFiles) {
+        const filePath = path.join(process.cwd(), filename);
+        if (fs.existsSync(filePath)) {
+          try {
+            const content = fs.readFileSync(filePath, 'utf-8').slice(0, 2000); // First 2KB
+            intel.data.memories = intel.data.memories || [];
+            intel.data.memories.push({
+              content: `[${filename}] ${content.replace(/\n/g, ' ').slice(0, 500)}`,
+              type: 'project',
+              created: new Date().toISOString(),
+              embedding: intel.simpleEmbed ? intel.simpleEmbed(content) : null
+            });
+            stats.memories++;
+            if (opts.verbose) console.log(chalk.dim(`    ✓ ${filename}`));
+          } catch (e) { /* skip unreadable files */ }
+        }
+      }
+
+      console.log(chalk.green(`  ✓ Created ${stats.memories} memory entries`));
+
+    } catch (e) {
+      console.log(chalk.yellow(`  ⚠ Memory creation skipped: ${e.message}`));
+    }
+
+    // Phase 4: Analyze directory structure for agent recommendations
+    console.log(chalk.yellow('\n🗂️  Phase 4: Building directory-agent mappings...\n'));
+
+    try {
+      const dirs = execSync('find . -type d -maxdepth 2 -not -path "./.git*" -not -path "./node_modules*" -not -path "./target*" 2>/dev/null || echo "."',
+        { encoding: 'utf-8' }).trim().split('\n');
+
+      const dirAgentMap = {};
+      dirs.forEach(dir => {
+        const name = path.basename(dir);
+        // Infer agent from directory name
+        if (['src', 'lib', 'core'].includes(name)) dirAgentMap[dir] = 'coder';
+        else if (['test', 'tests', '__tests__', 'spec'].includes(name)) dirAgentMap[dir] = 'test-engineer';
+        else if (['docs', 'documentation'].includes(name)) dirAgentMap[dir] = 'documentation-specialist';
+        else if (['scripts', 'bin'].includes(name)) dirAgentMap[dir] = 'devops-engineer';
+        else if (['components', 'views', 'pages'].includes(name)) dirAgentMap[dir] = 'frontend-developer';
+        else if (['api', 'routes', 'handlers'].includes(name)) dirAgentMap[dir] = 'backend-developer';
+        else if (['models', 'entities', 'schemas'].includes(name)) dirAgentMap[dir] = 'database-specialist';
+        else if (['.github', '.gitlab', 'ci'].includes(name)) dirAgentMap[dir] = 'cicd-engineer';
+      });
+
+      // Store directory patterns
+      intel.data.dirPatterns = dirAgentMap;
+      console.log(chalk.green(`  ✓ Mapped ${Object.keys(dirAgentMap).length} directories to agents`));
+
+    } catch (e) {
+      console.log(chalk.yellow(`  ⚠ Directory analysis skipped: ${e.message}`));
+    }
+
+    // Save all learning data
+    intel.data.pretrained = {
+      date: new Date().toISOString(),
+      stats: stats
+    };
+    intel.save();
+
+    const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+    console.log(chalk.bold.green(`\n✅ Pretrain complete in ${elapsed}s!\n`));
+    console.log(chalk.cyan('Summary:'));
+    console.log(`  📁 ${stats.files} files analyzed`);
+    console.log(`  🧠 ${stats.patterns} agent routing patterns`);
+    console.log(`  🔗 ${stats.coedits} co-edit patterns`);
+    console.log(`  💾 ${stats.memories} memory entries`);
+    console.log(chalk.dim('\nThe intelligence layer will now provide better recommendations.'));
+  });
+
+// Agent Builder - generate optimized agent configs based on pretrain
+hooksCmd.command('build-agents')
+  .description('Generate optimized agent configurations based on repository analysis')
+  .option('--focus <type>', 'Focus type: quality, speed, security, testing, fullstack', 'quality')
+  .option('--output <dir>', 'Output directory', '.claude/agents')
+  .option('--format <fmt>', 'Format: yaml, json, md', 'yaml')
+  .option('--include-prompts', 'Include detailed system prompts')
+  .action((opts) => {
+    console.log(chalk.bold.cyan('\n🏗️  RuVector Agent Builder\n'));
+
+    const intel = new Intelligence();
+    const outputDir = path.join(process.cwd(), opts.output);
+
+    // Check if pretrained
+    if (!intel.data.pretrained && Object.keys(intel.data.patterns || {}).length === 0) {
+      console.log(chalk.yellow('⚠️  No pretrain data found. Running quick analysis...\n'));
+      // Quick file analysis
+      try {
+        const { execSync } = require('child_process');
+        const files = execSync('git ls-files 2>/dev/null', { encoding: 'utf-8' }).trim().split('\n');
+        files.forEach(f => {
+          const ext = path.extname(f);
+          intel.data.patterns = intel.data.patterns || {};
+          intel.data.patterns[`edit:${ext}`] = intel.data.patterns[`edit:${ext}`] || {};
+        });
+      } catch (e) { /* continue without git */ }
+    }
+
+    // Analyze patterns to determine relevant agents
+    const patterns = intel.data.patterns || {};
+    const detectedLangs = new Set();
+    const detectedFrameworks = new Set();
+
+    Object.keys(patterns).forEach(state => {
+      if (state.includes('.rs')) detectedLangs.add('rust');
+      if (state.includes('.ts') || state.includes('.js')) detectedLangs.add('typescript');
+      if (state.includes('.tsx') || state.includes('.jsx')) detectedFrameworks.add('react');
+      if (state.includes('.py')) detectedLangs.add('python');
+      if (state.includes('.go')) detectedLangs.add('go');
+      if (state.includes('.vue')) detectedFrameworks.add('vue');
+      if (state.includes('.sql')) detectedFrameworks.add('database');
+    });
+
+    // Detect project type from files
+    const projectTypes = detectProjectType();
+
+    console.log(chalk.blue(`  Detected languages: ${[...detectedLangs].join(', ') || 'generic'}`));
+    console.log(chalk.blue(`  Detected frameworks: ${[...detectedFrameworks].join(', ') || 'none'}`));
+    console.log(chalk.blue(`  Focus mode: ${opts.focus}\n`));
+
+    // Focus configurations
+    const focusConfigs = {
+      quality: {
+        description: 'Emphasizes code quality, best practices, and maintainability',
+        priorities: ['code-review', 'refactoring', 'documentation', 'testing'],
+        temperature: 0.3
+      },
+      speed: {
+        description: 'Optimized for rapid development and iteration',
+        priorities: ['implementation', 'prototyping', 'quick-fixes'],
+        temperature: 0.7
+      },
+      security: {
+        description: 'Security-first development with vulnerability awareness',
+        priorities: ['security-audit', 'input-validation', 'authentication', 'encryption'],
+        temperature: 0.2
+      },
+      testing: {
+        description: 'Test-driven development with comprehensive coverage',
+        priorities: ['unit-tests', 'integration-tests', 'e2e-tests', 'mocking'],
+        temperature: 0.4
+      },
+      fullstack: {
+        description: 'Balanced full-stack development capabilities',
+        priorities: ['frontend', 'backend', 'database', 'api-design'],
+        temperature: 0.5
+      }
+    };
+
+    const focus = focusConfigs[opts.focus] || focusConfigs.quality;
+
+    // Agent templates based on detected stack
+    const agents = [];
+
+    // Core agents based on detected languages
+    if (detectedLangs.has('rust')) {
+      agents.push({
+        name: 'rust-specialist',
+        type: 'rust-developer',
+        description: 'Rust development specialist for this codebase',
+        capabilities: ['cargo', 'unsafe-rust', 'async-rust', 'wasm', 'error-handling'],
+        focus: focus.priorities,
+        systemPrompt: opts.includePrompts ? `You are a Rust specialist for this project.
+Focus on: memory safety, zero-cost abstractions, idiomatic Rust patterns.
+Use cargo conventions, prefer Result over panic, leverage the type system.
+${focus.description}` : null
+      });
+    }
+
+    if (detectedLangs.has('typescript')) {
+      agents.push({
+        name: 'typescript-specialist',
+        type: 'typescript-developer',
+        description: 'TypeScript development specialist',
+        capabilities: ['types', 'generics', 'decorators', 'async-await', 'modules'],
+        focus: focus.priorities,
+        systemPrompt: opts.includePrompts ? `You are a TypeScript specialist for this project.
+Focus on: strict typing, type inference, generic patterns, module organization.
+Prefer type safety over any, use discriminated unions, leverage utility types.
+${focus.description}` : null
+      });
+    }
+
+    if (detectedLangs.has('python')) {
+      agents.push({
+        name: 'python-specialist',
+        type: 'python-developer',
+        description: 'Python development specialist',
+        capabilities: ['typing', 'async', 'testing', 'packaging', 'data-science'],
+        focus: focus.priorities,
+        systemPrompt: opts.includePrompts ? `You are a Python specialist for this project.
+Focus on: type hints, PEP standards, pythonic idioms, virtual environments.
+Use dataclasses, prefer pathlib, leverage context managers.
+${focus.description}` : null
+      });
+    }
+
+    if (detectedLangs.has('go')) {
+      agents.push({
+        name: 'go-specialist',
+        type: 'go-developer',
+        description: 'Go development specialist',
+        capabilities: ['goroutines', 'channels', 'interfaces', 'testing', 'modules'],
+        focus: focus.priorities,
+        systemPrompt: opts.includePrompts ? `You are a Go specialist for this project.
+Focus on: simplicity, explicit error handling, goroutines, interface composition.
+Follow Go conventions, use go fmt, prefer composition over inheritance.
+${focus.description}` : null
+      });
+    }
+
+    // Framework-specific agents
+    if (detectedFrameworks.has('react')) {
+      agents.push({
+        name: 'react-specialist',
+        type: 'react-developer',
+        description: 'React/Next.js development specialist',
+        capabilities: ['hooks', 'state-management', 'components', 'ssr', 'testing'],
+        focus: focus.priorities,
+        systemPrompt: opts.includePrompts ? `You are a React specialist for this project.
+Focus on: functional components, hooks, state management, performance optimization.
+Prefer composition, use memo wisely, follow React best practices.
+${focus.description}` : null
+      });
+    }
+
+    if (detectedFrameworks.has('database')) {
+      agents.push({
+        name: 'database-specialist',
+        type: 'database-specialist',
+        description: 'Database design and optimization specialist',
+        capabilities: ['schema-design', 'queries', 'indexing', 'migrations', 'orm'],
+        focus: focus.priorities,
+        systemPrompt: opts.includePrompts ? `You are a database specialist for this project.
+Focus on: normalized schemas, efficient queries, proper indexing, data integrity.
+Consider performance implications, use transactions appropriately.
+${focus.description}` : null
+      });
+    }
+
+    // Focus-specific agents
+    if (opts.focus === 'testing' || opts.focus === 'quality') {
+      agents.push({
+        name: 'test-architect',
+        type: 'test-engineer',
+        description: 'Testing and quality assurance specialist',
+        capabilities: ['unit-tests', 'integration-tests', 'mocking', 'coverage', 'tdd'],
+        focus: ['testing', 'quality', 'reliability'],
+        systemPrompt: opts.includePrompts ? `You are a testing specialist for this project.
+Focus on: comprehensive test coverage, meaningful assertions, test isolation.
+Write tests first when possible, mock external dependencies, aim for >80% coverage.
+${focus.description}` : null
+      });
+    }
+
+    if (opts.focus === 'security') {
+      agents.push({
+        name: 'security-auditor',
+        type: 'security-specialist',
+        description: 'Security audit and hardening specialist',
+        capabilities: ['vulnerability-scan', 'auth', 'encryption', 'input-validation', 'owasp'],
+        focus: ['security', 'compliance', 'hardening'],
+        systemPrompt: opts.includePrompts ? `You are a security specialist for this project.
+Focus on: OWASP top 10, input validation, authentication, authorization, encryption.
+Never trust user input, use parameterized queries, implement defense in depth.
+${focus.description}` : null
+      });
+    }
+
+    // Add coordinator agent
+    agents.push({
+      name: 'project-coordinator',
+      type: 'coordinator',
+      description: 'Coordinates multi-agent workflows for this project',
+      capabilities: ['task-decomposition', 'agent-routing', 'context-management'],
+      focus: focus.priorities,
+      routes: agents.filter(a => a.name !== 'project-coordinator').map(a => ({
+        pattern: a.capabilities[0],
+        agent: a.name
+      }))
+    });
+
+    // Create output directory
+    if (!fs.existsSync(outputDir)) {
+      fs.mkdirSync(outputDir, { recursive: true });
+    }
+
+    // Generate agent files
+    agents.forEach(agent => {
+      let content;
+      const filename = `${agent.name}.${opts.format}`;
+      const filepath = path.join(outputDir, filename);
+
+      if (opts.format === 'yaml') {
+        const yaml = [
+          `# Auto-generated by RuVector Agent Builder`,
+          `# Focus: ${opts.focus}`,
+          `# Generated: ${new Date().toISOString()}`,
+          ``,
+          `name: ${agent.name}`,
+          `type: ${agent.type}`,
+          `description: ${agent.description}`,
+          ``,
+          `capabilities:`,
+          ...agent.capabilities.map(c => `  - ${c}`),
+          ``,
+          `focus:`,
+          ...agent.focus.map(f => `  - ${f}`),
+        ];
+        if (agent.systemPrompt) {
+          yaml.push(``, `system_prompt: |`);
+          agent.systemPrompt.split('\n').forEach(line => yaml.push(`  ${line}`));
+        }
+        if (agent.routes) {
+          yaml.push(``, `routes:`);
+          agent.routes.forEach(r => yaml.push(`  - pattern: "${r.pattern}"`, `    agent: ${r.agent}`));
+        }
+        content = yaml.join('\n');
+      } else if (opts.format === 'json') {
+        content = JSON.stringify(agent, null, 2);
+      } else {
+        // Markdown format
+        content = [
+          `# ${agent.name}`,
+          ``,
+          `**Type:** ${agent.type}`,
+          `**Description:** ${agent.description}`,
+          ``,
+          `## Capabilities`,
+          ...agent.capabilities.map(c => `- ${c}`),
+          ``,
+          `## Focus Areas`,
+          ...agent.focus.map(f => `- ${f}`),
+        ].join('\n');
+        if (agent.systemPrompt) {
+          content += `\n\n## System Prompt\n\n\`\`\`\n${agent.systemPrompt}\n\`\`\``;
+        }
+      }
+
+      fs.writeFileSync(filepath, content);
+      console.log(chalk.green(`  ✓ Created ${filename}`));
+    });
+
+    // Create index file
+    const indexContent = opts.format === 'yaml'
+      ? `# RuVector Agent Configuration\n# Focus: ${opts.focus}\n\nagents:\n${agents.map(a => `  - ${a.name}`).join('\n')}`
+      : JSON.stringify({ focus: opts.focus, agents: agents.map(a => a.name) }, null, 2);
+
+    fs.writeFileSync(path.join(outputDir, `index.${opts.format === 'md' ? 'json' : opts.format}`), indexContent);
+
+    // Update settings to reference agents
+    const settingsPath = path.join(process.cwd(), '.claude', 'settings.json');
+    if (fs.existsSync(settingsPath)) {
+      try {
+        const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
+        settings.agentConfig = {
+          directory: opts.output,
+          focus: opts.focus,
+          agents: agents.map(a => a.name),
+          generated: new Date().toISOString()
+        };
+        fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
+        console.log(chalk.blue('\n  ✓ Updated .claude/settings.json with agent config'));
+      } catch (e) { /* ignore settings errors */ }
+    }
+
+    console.log(chalk.bold.green(`\n✅ Generated ${agents.length} optimized agents in ${opts.output}/\n`));
+    console.log(chalk.cyan('Agents created:'));
+    agents.forEach(a => {
+      console.log(`  🤖 ${chalk.bold(a.name)}: ${a.description}`);
+    });
+    console.log(chalk.dim(`\nFocus mode "${opts.focus}": ${focus.description}`));
+  });
+
+// MCP Server command
+const mcpCmd = program.command('mcp').description('MCP (Model Context Protocol) server for Claude Code integration');
+
+mcpCmd.command('start')
+  .description('Start the RuVector MCP server')
+  .action(() => {
+    // Execute the mcp-server.js directly
+    const mcpServerPath = path.join(__dirname, 'mcp-server.js');
+    if (!fs.existsSync(mcpServerPath)) {
+      console.error(chalk.red('Error: MCP server not found at'), mcpServerPath);
+      process.exit(1);
+    }
+    require(mcpServerPath);
+  });
+
+mcpCmd.command('info')
+  .description('Show MCP server information and setup instructions')
+  .action(() => {
+    console.log(chalk.bold.cyan('\n🔌 RuVector MCP Server\n'));
+    console.log(chalk.white('The RuVector MCP server provides self-learning intelligence'));
+    console.log(chalk.white('tools to Claude Code via the Model Context Protocol.\n'));
+
+    console.log(chalk.bold('Available Tools:'));
+    console.log(chalk.dim('  hooks_stats      - Get intelligence statistics'));
+    console.log(chalk.dim('  hooks_route      - Route task to best agent'));
+    console.log(chalk.dim('  hooks_remember   - Store context in vector memory'));
+    console.log(chalk.dim('  hooks_recall     - Search vector memory'));
+    console.log(chalk.dim('  hooks_init       - Initialize hooks in project'));
+    console.log(chalk.dim('  hooks_pretrain   - Pretrain from repository'));
+    console.log(chalk.dim('  hooks_build_agents - Generate agent configs'));
+    console.log(chalk.dim('  hooks_verify     - Verify hooks configuration'));
+    console.log(chalk.dim('  hooks_doctor     - Diagnose setup issues'));
+    console.log(chalk.dim('  hooks_export     - Export intelligence data'));
+
+    console.log(chalk.bold('\n📦 Resources:'));
+    console.log(chalk.dim('  ruvector://intelligence/stats     - Current statistics'));
+    console.log(chalk.dim('  ruvector://intelligence/patterns  - Learned patterns'));
+    console.log(chalk.dim('  ruvector://intelligence/memories  - Vector memories'));
+
+    console.log(chalk.bold.yellow('\n⚙️  Setup Instructions:\n'));
+    console.log(chalk.white('Add to Claude Code:'));
+    console.log(chalk.cyan('  claude mcp add ruvector npx ruvector mcp start\n'));
+
+    console.log(chalk.white('Or add to .claude/settings.json:'));
+    console.log(chalk.dim(`  {
+    "mcpServers": {
+      "ruvector": {
+        "command": "npx",
+        "args": ["ruvector", "mcp", "start"]
+      }
+    }
+  }`));
+    console.log();
+  });
 
 program.parse();

@@ -63,6 +63,36 @@
             "command": "ruvector hooks pre-command \"$TOOL_INPUT_command\""
           }
         ]
+      },
+      {
+        "matcher": "Read",
+        "hooks": [
+          {
+            "type": "command",
+            "timeout": 1000,
+            "command": "ruvector hooks remember \"Reading: $TOOL_INPUT_file_path\" -t file_access --silent"
+          }
+        ]
+      },
+      {
+        "matcher": "Glob|Grep",
+        "hooks": [
+          {
+            "type": "command",
+            "timeout": 1000,
+            "command": "ruvector hooks remember \"Search: $TOOL_INPUT_pattern\" -t search_pattern --silent"
+          }
+        ]
+      },
+      {
+        "matcher": "Task",
+        "hooks": [
+          {
+            "type": "command",
+            "timeout": 1000,
+            "command": "ruvector hooks remember \"Agent: $TOOL_INPUT_subagent_type\" -t agent_spawn --silent"
+          }
+        ]
       }
     ],
     "PostToolUse": [

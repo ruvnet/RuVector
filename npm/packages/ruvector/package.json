@@ -1,6 +1,6 @@
 {
   "name": "ruvector",
-  "version": "0.1.42",
+  "version": "0.1.53",
   "description": "High-performance vector database for Node.js with automatic native/WASM fallback",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -52,8 +52,9 @@
     "directory": "npm/packages/ruvector"
   },
   "dependencies": {
-    "@ruvector/core": "^0.1.25",
+    "@modelcontextprotocol/sdk": "^1.0.0",
     "@ruvector/attention": "^0.1.3",
+    "@ruvector/core": "^0.1.25",
     "@ruvector/gnn": "^0.1.22",
     "@ruvector/sona": "^0.1.4",
     "chalk": "^4.1.2",
