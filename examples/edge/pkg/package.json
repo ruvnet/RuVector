@@ -1,6 +1,6 @@
 {
   "name": "@ruvector/edge",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "type": "module",
   "description": "WASM bindings for RuVector Edge - Distributed AI swarm with post-quantum crypto, HNSW vector search, and neural networks",
   "main": "ruvector_edge.js",
@@ -40,6 +40,7 @@
     "ruvector_edge.js",
     "ruvector_edge.d.ts",
     "ruvector_edge_bg.wasm.d.ts",
+    "generator.html",
     "LICENSE"
   ],
   "exports": {

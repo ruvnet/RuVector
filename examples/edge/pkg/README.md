@@ -1024,6 +1024,56 @@ comp.condition()  // "excellent"|"good"|"poor"|"critical"
 
 ---
 
+## Interactive Generator
+
+The package includes an interactive HTML generator for creating swarm configurations:
+
+```bash
+# After installing, open the generator
+npx serve node_modules/@ruvector/edge/generator.html
+# Or just open the file directly in your browser
+```
+
+**Generator Features:**
+
+| Category | Options |
+|----------|---------|
+| **Topologies** | Mesh, Star, Hierarchical, Ring, Gossip, Sharded |
+| **Transports** | GUN.js, WebRTC, libp2p, Nostr |
+| **Use Cases** | AI Assistants, Data Pipeline, Gaming, IoT, Marketplace, Research |
+| **Features** | Identity, Encryption, HNSW, Semantic, Raft, Post-Quantum, Spiking, Compression |
+| **Exotic** | MCP Tools, Byzantine Fault, Quantum Resistant, Neural Consensus, Swarm Intelligence, Self-Healing, Emergent Behavior |
+
+### Browser-Based MCP Tools
+
+The generator includes MCP (Model Context Protocol) tools for browser-based AI collaboration:
+
+```javascript
+import init from '@ruvector/edge';
+
+// Create browser MCP server
+const mcp = new BrowserMCPServer();
+await mcp.init();
+
+// Built-in tools
+// - discover_agents: Find agents by capability
+// - send_secure_message: Encrypted P2P messaging
+// - store_memory: Vector memory storage
+// - search_memory: Semantic search
+// - sign_message: Cryptographic signing
+
+// Handle MCP requests
+const response = await mcp.handleRequest({
+  method: 'tools/call',
+  params: {
+    name: 'discover_agents',
+    arguments: { query: 'coding expert' }
+  }
+});
+```
+
+---
+
 ## License
 
 MIT License - Free for commercial and personal use.
