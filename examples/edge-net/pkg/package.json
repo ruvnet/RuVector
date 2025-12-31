@@ -1,0 +1,83 @@
+{
+  "name": "@ruvector/edge-net",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Distributed compute intelligence network - contribute browser compute, earn credits. Add one script tag to participate in a P2P compute marketplace.",
+  "main": "edge-net.js",
+  "module": "edge-net.js",
+  "types": "edge-net.d.ts",
+  "keywords": [
+    "wasm",
+    "distributed-computing",
+    "p2p",
+    "web-workers",
+    "ai",
+    "machine-learning",
+    "compute",
+    "credits",
+    "marketplace",
+    "browser",
+    "edge-computing",
+    "vector-search",
+    "embeddings",
+    "cryptography"
+  ],
+  "author": "RuVector Team",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ruvnet/ruvector"
+  },
+  "homepage": "https://github.com/ruvnet/ruvector/tree/main/examples/edge-net",
+  "bugs": {
+    "url": "https://github.com/ruvnet/ruvector/issues"
+  },
+  "files": [
+    "edge-net_bg.wasm",
+    "edge-net.js",
+    "edge-net.min.js",
+    "edge-net.d.ts",
+    "edge-net_bg.wasm.d.ts",
+    "worker.js",
+    "worker-pool.js",
+    "network.js",
+    "widget.js",
+    "widget.css",
+    "LICENSE"
+  ],
+  "exports": {
+    ".": {
+      "import": "./edge-net.js",
+      "types": "./edge-net.d.ts"
+    },
+    "./worker": {
+      "import": "./worker.js"
+    },
+    "./worker-pool": {
+      "import": "./worker-pool.js"
+    },
+    "./network": {
+      "import": "./network.js"
+    },
+    "./widget": {
+      "import": "./widget.js"
+    }
+  },
+  "sideEffects": [
+    "./snippets/*"
+  ],
+  "scripts": {
+    "build": "cd .. && wasm-pack build --target web --out-dir pkg",
+    "build:node": "cd .. && wasm-pack build --target nodejs --out-dir pkg-node",
+    "bundle": "esbuild edge-net.js --bundle --minify --outfile=edge-net.min.js",
+    "test": "wasm-pack test --headless --chrome"
+  },
+  "peerDependencies": {
+    "gun": "^0.2020.0"
+  },
+  "peerDependenciesMeta": {
+    "gun": {
+      "optional": true
+    }
+  }
+}

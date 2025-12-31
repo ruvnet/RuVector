@@ -1,0 +1,75 @@
+[package]
+name = "ruvector-edge-net"
+version = "0.1.0"
+edition = "2021"
+authors = ["RuVector Team"]
+license = "MIT"
+description = "Distributed compute intelligence network - contribute browser compute, earn credits"
+repository = "https://github.com/ruvnet/ruvector"
+keywords = ["wasm", "p2p", "distributed-computing", "web-workers", "ai"]
+categories = ["wasm", "web-programming", "cryptography"]
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+path = "src/lib.rs"
+
+[features]
+default = ["console_error_panic_hook"]
+full = ["embeddings", "neural"]
+embeddings = []
+neural = []
+
+[dependencies]
+# WASM bindings
+wasm-bindgen = "0.2"
+wasm-bindgen-futures = "0.4"
+js-sys = "0.3"
+web-sys = { version = "0.3", features = [
+    "console",
+    "Window",
+    "Document",
+    "Navigator",
+    "Performance",
+    "Worker",
+    "MessageEvent",
+    "Crypto",
+    "SubtleCrypto",
+    "CryptoKey",
+    "Storage",
+    "Request",
+    "Response",
+    "Headers",
+    "Screen",
+]}
+
+# Crypto
+ed25519-dalek = { version = "2.1", default-features = false, features = ["rand_core"] }
+x25519-dalek = { version = "2.0", default-features = false }
+aes-gcm = { version = "0.10", default-features = false, features = ["aes", "alloc"] }
+sha2 = { version = "0.10", default-features = false }
+rand = { version = "0.8", default-features = false, features = ["getrandom"] }
+getrandom = { version = "0.2", features = ["js"] }
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+bincode = "1.3"
+
+# Utilities
+thiserror = "1.0"
+uuid = { version = "1.0", features = ["v4", "js", "serde"] }
+hex = "0.4"
+
+# Error handling for WASM
+console_error_panic_hook = { version = "0.1", optional = true }
+
+[dev-dependencies]
+wasm-bindgen-test = "0.3"
+
+[profile.release]
+lto = true
+opt-level = "s"
+codegen-units = 1
+
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = ["-Os", "--enable-simd"]
