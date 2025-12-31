@@ -1,10 +1,28 @@
 # RuVector Edge
 
 [![Rust](https://img.shields.io/badge/rust-1.75%2B-orange.svg)](https://www.rust-lang.org/)
+[![npm](https://img.shields.io/npm/v/@ruvector/edge.svg)](https://www.npmjs.com/package/@ruvector/edge)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Tests](https://img.shields.io/badge/tests-60%20passing-brightgreen.svg)]()
 [![Security](https://img.shields.io/badge/security-production--grade-green.svg)]()
-[![WASM](https://img.shields.io/badge/wasm-compatible-purple.svg)]()
+[![WASM](https://img.shields.io/badge/wasm-364KB-purple.svg)]()
+
+**Free self-learning AI swarms at the edge - in Rust and the browser.**
+
+## npm Package
+
+For browser/JavaScript usage, install the pre-built WASM package:
+
+```bash
+npm install @ruvector/edge         # Core (364KB) - crypto, vectors, consensus
+npm install @ruvector/edge-full    # Full (8MB) - adds graph DB, SQL, ONNX
+```
+
+See [pkg/README.md](./pkg/README.md) for JavaScript API documentation.
+
+---
+
+## Rust Crate
 
 **The most advanced distributed AI swarm communication framework in Rust.**
 
@@ -39,7 +57,8 @@ RuVector Edge solves all of these with a unified, production-ready framework.
 | **Hybrid Post-Quantum Signatures** | Ed25519 + Dilithium-style defense-in-depth | Quantum-resistant |
 | **Spiking Neural Networks** | LIF neurons with STDP learning for temporal patterns | Bio-inspired learning |
 | **Hyperdimensional Computing** | 10,000-bit vectors for neural-symbolic reasoning | Near-orthogonal encoding |
-| **Raft Consensus** | Leader election + log replication for distributed state | Tolerates f failures in 2f+1 nodes |
+| **Raft Consensus** | Leader election for trusted cohorts (stable membership) | Tolerates f failures in 2f+1 nodes |
+| **Gossip + CRDT** | Eventually consistent state for open swarms | High-churn, Byzantine-tolerant |
 | **Semantic Task Matching** | LSH-based embeddings for intelligent agent routing | Sub-millisecond matching |
 | **Adaptive Compression** | Network-aware quantization (4x-32x) | Auto-adjusts to conditions |
 | **Canonical Signatures** | Deterministic JSON serialization for verifiable messages | Bit-perfect verification |
@@ -66,10 +85,12 @@ RuVector Edge solves all of these with a unified, production-ready framework.
 - **LZ4 Compression** - Fast tensor compression
 
 ### Distributed Systems
-- **Raft Consensus** - Leader election and log replication
+- **Raft Consensus** - Leader election for trusted cohorts (teams, enterprise LANs)
+- **Gossip + CRDT** - Eventually consistent state for open swarms (public, high-churn)
 - **GUN Integration** - Decentralized P2P database
 - **Multi-Transport** - WebSocket, SharedMemory, WASM
 - **Heartbeat Protocol** - Automatic failure detection
+- **Web Worker Pool** - Parallel operations, non-blocking UI in browsers
 
 ## Architecture
 
