@@ -18,14 +18,16 @@ mod crypto;
 mod relay;
 mod artifact;
 mod envelope;
+#[cfg(feature = "native")]
 mod swarm;
 mod advanced;
 
 pub use identity::{IdentityManager, KeyPair, RegisteredMember};
-pub use crypto::{CryptoV2, EncryptedPayload};
+pub use crypto::{CryptoV2, EncryptedPayload, CanonicalJson};
 pub use relay::RelayManager;
 pub use artifact::ArtifactStore;
 pub use envelope::{SignedEnvelope, TaskEnvelope, TaskReceipt, ArtifactPointer};
+#[cfg(feature = "native")]
 pub use swarm::{P2PSwarmV2, SwarmStatus};
 pub use advanced::{
     // Quantization

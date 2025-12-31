@@ -143,7 +143,7 @@ impl SwarmAgent {
 
     /// Sync learning patterns with swarm
     pub async fn sync_patterns(&self) -> Result<()> {
-        let state = self.intelligence.get_state().await;
+        let state = self.intelligence.get_state();
         let msg = SwarmMessage::sync_patterns(&self.config.agent_id, state);
         self.broadcast(msg).await
     }
@@ -164,24 +164,23 @@ impl SwarmAgent {
 
     /// Update learning pattern locally
     pub async fn learn(&self, state: &str, action: &str, reward: f64) {
-        self.intelligence.update_pattern(state, action, reward).await;
+        self.intelligence.update_pattern(state, action, reward);
     }
 
     /// Get best action for state
     pub async fn get_best_action(&self, state: &str, actions: &[String]) -> Option<(String, f64)> {
-        self.intelligence.get_best_action(state, actions).await
+        self.intelligence.get_best_action(state, actions)
     }
 
     /// Store vector in shared memory
     pub async fn store_memory(&self, content: &str, embedding: Vec<f32>) -> Result<String> {
-        self.memory.store(content, embedding).await
+        self.memory.store(content, embedding)
     }
 
     /// Search vector memory
     pub async fn search_memory(&self, query: &[f32], top_k: usize) -> Vec<(String, f32)> {
         self.memory
             .search(query, top_k)
-            .await
             .into_iter()
             .map(|(entry, score)| (entry.content, score))
             .collect()
@@ -194,8 +193,8 @@ impl SwarmAgent {
 
     /// Get swarm statistics
     pub async fn get_stats(&self) -> AgentStats {
-        let intelligence_stats = self.intelligence.get_swarm_stats().await;
-        let memory_stats = self.memory.stats().await;
+        let intelligence_stats = self.intelligence.get_swarm_stats();
+        let memory_stats = self.memory.stats();
         let peers = self.peers.read().await;
 
         AgentStats {
@@ -224,7 +223,7 @@ impl SwarmAgent {
 
                 // Sync patterns periodically
                 if config.enable_learning {
-                    let state = intelligence.get_state().await;
+                    let state = intelligence.get_state();
                     let msg = SwarmMessage::sync_patterns(&config.agent_id, state);
                     let _ = message_tx.send(msg).await;
                 }
@@ -263,13 +262,12 @@ impl SwarmAgent {
             MessageType::SyncPatterns => {
                 if let MessagePayload::Patterns(payload) = msg.payload {
                     self.intelligence
-                        .merge_peer_state(&msg.sender_id, &serde_json::to_vec(&payload.state).unwrap())
-                        .await?;
+                        .merge_peer_state(&msg.sender_id, &serde_json::to_vec(&payload.state).unwrap())?;
                 }
             }
             MessageType::RequestPatterns => {
                 if let MessagePayload::Request(payload) = msg.payload {
-                    let delta = self.intelligence.get_delta(payload.since_version).await;
+                    let delta = self.intelligence.get_delta(payload.since_version);
                     let response = SwarmMessage::sync_patterns(&self.config.agent_id, delta);
                     self.send_message(response).await?;
                 }

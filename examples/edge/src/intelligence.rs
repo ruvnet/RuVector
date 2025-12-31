@@ -6,7 +6,7 @@ use crate::{Result, SwarmError, compression::TensorCodec};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
-use tokio::sync::RwLock;
+use parking_lot::RwLock;
 
 /// Learning pattern with Q-value
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -118,13 +118,13 @@ impl IntelligenceSync {
     }
 
     /// Get local learning state
-    pub async fn get_state(&self) -> LearningState {
-        self.local_state.read().await.clone()
+    pub fn get_state(&self) -> LearningState {
+        self.local_state.read().clone()
     }
 
     /// Update local pattern
-    pub async fn update_pattern(&self, state: &str, action: &str, reward: f64) {
-        let mut local = self.local_state.write().await;
+    pub fn update_pattern(&self, state: &str, action: &str, reward: f64) {
+        let mut local = self.local_state.write();
         let key = format!("{}|{}", state, action);
 
         let pattern = local.patterns.entry(key).or_insert_with(|| Pattern::new(state, action));
@@ -140,8 +140,8 @@ impl IntelligenceSync {
     }
 
     /// Serialize state for network transfer
-    pub async fn serialize_state(&self) -> Result<Vec<u8>> {
-        let state = self.local_state.read().await;
+    pub fn serialize_state(&self) -> Result<Vec<u8>> {
+        let state = self.local_state.read();
         let json = serde_json::to_vec(&*state)
             .map_err(|e| SwarmError::Serialization(e.to_string()))?;
 
@@ -150,7 +150,7 @@ impl IntelligenceSync {
     }
 
     /// Deserialize and merge peer state
-    pub async fn merge_peer_state(&self, peer_id: &str, data: &[u8]) -> Result<MergeResult> {
+    pub fn merge_peer_state(&self, peer_id: &str, data: &[u8]) -> Result<MergeResult> {
         // Decompress
         let json = self.codec.decompress(data)?;
         let peer_state: LearningState = serde_json::from_slice(&json)
@@ -158,12 +158,12 @@ impl IntelligenceSync {
 
         // Store peer state
         {
-            let mut peers = self.peer_states.write().await;
+            let mut peers = self.peer_states.write();
             peers.insert(peer_id.to_string(), peer_state.clone());
         }
 
         // Merge patterns
-        let mut local = self.local_state.write().await;
+        let mut local = self.local_state.write();
         let mut merged_count = 0;
         let mut new_count = 0;
 
@@ -193,8 +193,8 @@ impl IntelligenceSync {
     }
 
     /// Get best action for state using aggregated knowledge
-    pub async fn get_best_action(&self, state: &str, actions: &[String]) -> Option<(String, f64)> {
-        let local = self.local_state.read().await;
+    pub fn get_best_action(&self, state: &str, actions: &[String]) -> Option<(String, f64)> {
+        let local = self.local_state.read();
 
         let mut best_action = None;
         let mut best_q = f64::NEG_INFINITY;
@@ -213,8 +213,8 @@ impl IntelligenceSync {
     }
 
     /// Get sync delta (only changed patterns since version)
-    pub async fn get_delta(&self, since_version: u64) -> LearningState {
-        let local = self.local_state.read().await;
+    pub fn get_delta(&self, since_version: u64) -> LearningState {
+        let local = self.local_state.read();
 
         let mut delta = LearningState {
             agent_id: local.agent_id.clone(),
@@ -234,9 +234,9 @@ impl IntelligenceSync {
     }
 
     /// Get aggregated stats across all peers
-    pub async fn get_swarm_stats(&self) -> SwarmStats {
-        let local = self.local_state.read().await;
-        let peers = self.peer_states.read().await;
+    pub fn get_swarm_stats(&self) -> SwarmStats {
+        let local = self.local_state.read();
+        let peers = self.peer_states.read();
 
         let mut total_patterns = local.patterns.len();
         let mut total_visits = 0u64;
@@ -289,29 +289,29 @@ pub struct SwarmStats {
 mod tests {
     use super::*;
 
-    #[tokio::test]
-    async fn test_pattern_update() {
+    #[test]
+    fn test_pattern_update() {
         let sync = IntelligenceSync::new("test-agent");
 
-        sync.update_pattern("edit_ts", "coder", 0.8).await;
-        sync.update_pattern("edit_ts", "coder", 0.9).await;
+        sync.update_pattern("edit_ts", "coder", 0.8);
+        sync.update_pattern("edit_ts", "coder", 0.9);
 
-        let state = sync.get_state().await;
+        let state = sync.get_state();
         let pattern = state.patterns.get("edit_ts|coder").unwrap();
 
         assert!(pattern.q_value > 0.0);
         assert_eq!(pattern.visits, 2);
     }
 
-    #[tokio::test]
-    async fn test_best_action() {
+    #[test]
+    fn test_best_action() {
         let sync = IntelligenceSync::new("test-agent");
 
-        sync.update_pattern("edit_ts", "coder", 0.5).await;
-        sync.update_pattern("edit_ts", "reviewer", 0.9).await;
+        sync.update_pattern("edit_ts", "coder", 0.5);
+        sync.update_pattern("edit_ts", "reviewer", 0.9);
 
         let actions = vec!["coder".to_string(), "reviewer".to_string()];
-        let best = sync.get_best_action("edit_ts", &actions).await;
+        let best = sync.get_best_action("edit_ts", &actions);
 
         assert!(best.is_some());
         assert_eq!(best.unwrap().0, "reviewer");

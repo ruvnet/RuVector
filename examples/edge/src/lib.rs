@@ -30,29 +30,51 @@
 //! }
 //! ```
 
+// Native-only modules (require tokio)
+#[cfg(feature = "native")]
 pub mod transport;
+#[cfg(feature = "native")]
+pub mod agent;
+#[cfg(feature = "native")]
+pub mod gun;
+
+// Cross-platform modules
 pub mod intelligence;
 pub mod memory;
 pub mod compression;
 pub mod protocol;
-pub mod agent;
-pub mod gun;
 pub mod p2p;
 
-// Re-exports
+// WASM bindings
+#[cfg(feature = "wasm")]
+pub mod wasm;
+
+// Native re-exports
+#[cfg(feature = "native")]
 pub use agent::{SwarmAgent, AgentRole};
+#[cfg(feature = "native")]
 pub use transport::{Transport, TransportConfig};
+#[cfg(feature = "native")]
+pub use gun::{GunSync, GunSwarmBuilder, GunSwarmConfig, GunSwarmStats};
+
+// Cross-platform re-exports
 pub use intelligence::{IntelligenceSync, LearningState, Pattern};
 pub use memory::{SharedMemory, VectorMemory};
 pub use compression::{TensorCodec, CompressionLevel};
 pub use protocol::{SwarmMessage, MessageType};
-pub use gun::{GunSync, GunSwarmBuilder, GunSwarmConfig, GunSwarmStats};
-pub use p2p::{P2PSwarmV2, SwarmStatus, IdentityManager, CryptoV2, RelayManager, ArtifactStore};
+pub use p2p::{IdentityManager, CryptoV2, RelayManager, ArtifactStore};
+#[cfg(feature = "native")]
+pub use p2p::{P2PSwarmV2, SwarmStatus};
+
+// WASM re-exports
+#[cfg(feature = "wasm")]
+pub use wasm::*;
 
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-/// Swarm configuration
+/// Swarm configuration (native only - uses Transport)
+#[cfg(feature = "native")]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SwarmConfig {
     pub agent_id: String,
@@ -66,6 +88,7 @@ pub struct SwarmConfig {
     pub enable_memory_sync: bool,
 }
 
+#[cfg(feature = "native")]
 impl Default for SwarmConfig {
     fn default() -> Self {
         Self {
@@ -82,6 +105,7 @@ impl Default for SwarmConfig {
     }
 }
 
+#[cfg(feature = "native")]
 impl SwarmConfig {
     pub fn with_transport(mut self, transport: Transport) -> Self {
         self.transport = transport;
@@ -134,14 +158,19 @@ pub type Result<T> = std::result::Result<T, SwarmError>;
 /// Prelude for convenient imports
 pub mod prelude {
     pub use crate::{
-        SwarmAgent, SwarmConfig, SwarmError, Result,
-        Transport, AgentRole, MessageType,
+        SwarmError, Result, MessageType,
         IntelligenceSync, SharedMemory,
         CompressionLevel,
     };
+
+    #[cfg(feature = "native")]
+    pub use crate::{
+        SwarmAgent, SwarmConfig,
+        Transport, AgentRole,
+    };
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "native"))]
 mod tests {
     use super::*;
 

@@ -32,7 +32,7 @@ async fn main() -> Result<()> {
     println!("Distributed learning phase:");
     for (agent, state, action, reward) in &scenarios {
         let sync_guard = sync.write().await;
-        sync_guard.update_pattern(state, action, *reward).await;
+        sync_guard.update_pattern(state, action, *reward);
         println!("  {} learned: {} -> {} ({:.2})", agent, state, action, reward);
     }
 
@@ -46,13 +46,13 @@ async fn main() -> Result<()> {
             state,
             &["coder", "reviewer", "tester", "debugger", "devops"]
                 .iter().map(|s| s.to_string()).collect::<Vec<_>>()
-        ).await {
+        ) {
             println!("  {} -> {} (confidence: {:.1}%)", state, action, confidence * 100.0);
         }
     }
 
     // Get swarm stats
-    let stats = sync_guard.get_swarm_stats().await;
+    let stats = sync_guard.get_swarm_stats();
     println!("\nSwarm statistics:");
     println!("  Total patterns: {}", stats.total_patterns);
     println!("  Total visits: {}", stats.total_visits);

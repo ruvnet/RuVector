@@ -6,7 +6,7 @@ use crate::{Result, SwarmError, compression::TensorCodec};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
-use tokio::sync::RwLock;
+use parking_lot::RwLock;
 
 /// Vector memory entry
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -77,11 +77,11 @@ impl VectorMemory {
     }
 
     /// Store a vector entry
-    pub async fn store(&self, content: &str, embedding: Vec<f32>) -> Result<String> {
+    pub fn store(&self, content: &str, embedding: Vec<f32>) -> Result<String> {
         let id = uuid::Uuid::new_v4().to_string();
         let entry = VectorEntry::new(&id, content, embedding, &self.agent_id);
 
-        let mut entries = self.entries.write().await;
+        let mut entries = self.entries.write();
 
         // Evict oldest if at capacity
         if entries.len() >= self.max_entries {
@@ -99,8 +99,8 @@ impl VectorMemory {
     }
 
     /// Search for similar vectors
-    pub async fn search(&self, query: &[f32], top_k: usize) -> Vec<(VectorEntry, f32)> {
-        let mut entries = self.entries.write().await;
+    pub fn search(&self, query: &[f32], top_k: usize) -> Vec<(VectorEntry, f32)> {
+        let mut entries = self.entries.write();
 
         let mut results: Vec<_> = entries
             .values_mut()
@@ -117,8 +117,8 @@ impl VectorMemory {
     }
 
     /// Get entry by ID
-    pub async fn get(&self, id: &str) -> Option<VectorEntry> {
-        let mut entries = self.entries.write().await;
+    pub fn get(&self, id: &str) -> Option<VectorEntry> {
+        let mut entries = self.entries.write();
         if let Some(entry) = entries.get_mut(id) {
             entry.access_count += 1;
             Some(entry.clone())
@@ -128,14 +128,14 @@ impl VectorMemory {
     }
 
     /// Delete entry
-    pub async fn delete(&self, id: &str) -> bool {
-        let mut entries = self.entries.write().await;
+    pub fn delete(&self, id: &str) -> bool {
+        let mut entries = self.entries.write();
         entries.remove(id).is_some()
     }
 
     /// Serialize all entries for sync
-    pub async fn serialize(&self) -> Result<Vec<u8>> {
-        let entries = self.entries.read().await;
+    pub fn serialize(&self) -> Result<Vec<u8>> {
+        let entries = self.entries.read();
         let data: Vec<_> = entries.values().cloned().collect();
         let json = serde_json::to_vec(&data)
             .map_err(|e| SwarmError::Serialization(e.to_string()))?;
@@ -143,12 +143,12 @@ impl VectorMemory {
     }
 
     /// Merge entries from peer
-    pub async fn merge(&self, data: &[u8]) -> Result<usize> {
+    pub fn merge(&self, data: &[u8]) -> Result<usize> {
         let json = self.codec.decompress(data)?;
         let peer_entries: Vec<VectorEntry> = serde_json::from_slice(&json)
             .map_err(|e| SwarmError::Serialization(e.to_string()))?;
 
-        let mut entries = self.entries.write().await;
+        let mut entries = self.entries.write();
         let mut merged = 0;
 
         for entry in peer_entries {
@@ -164,8 +164,8 @@ impl VectorMemory {
     }
 
     /// Get memory stats
-    pub async fn stats(&self) -> MemoryStats {
-        let entries = self.entries.read().await;
+    pub fn stats(&self) -> MemoryStats {
+        let entries = self.entries.read();
 
         let total_vectors = entries.len();
         let total_dims: usize = entries.values().map(|e| e.embedding.len()).sum();
@@ -214,8 +214,8 @@ impl SharedMemory {
     }
 
     /// Write data at offset
-    pub async fn write(&self, offset: usize, data: &[u8]) -> Result<()> {
-        let mut buffer = self.buffer.write().await;
+    pub fn write(&self, offset: usize, data: &[u8]) -> Result<()> {
+        let mut buffer = self.buffer.write();
 
         if offset + data.len() > self.size {
             return Err(SwarmError::Transport("Buffer overflow".into()));
@@ -226,8 +226,8 @@ impl SharedMemory {
     }
 
     /// Read data at offset
-    pub async fn read(&self, offset: usize, len: usize) -> Result<Vec<u8>> {
-        let buffer = self.buffer.read().await;
+    pub fn read(&self, offset: usize, len: usize) -> Result<Vec<u8>> {
+        let buffer = self.buffer.read();
 
         if offset + len > self.size {
             return Err(SwarmError::Transport("Buffer underflow".into()));
@@ -255,30 +255,30 @@ pub struct SharedMemoryInfo {
 mod tests {
     use super::*;
 
-    #[tokio::test]
-    async fn test_vector_memory() {
+    #[test]
+    fn test_vector_memory() {
         let memory = VectorMemory::new("test-agent", 100);
 
         let embedding = vec![0.1, 0.2, 0.3, 0.4];
-        let id = memory.store("test content", embedding.clone()).await.unwrap();
+        let id = memory.store("test content", embedding.clone()).unwrap();
 
-        let results = memory.search(&embedding, 5).await;
+        let results = memory.search(&embedding, 5);
         assert!(!results.is_empty());
         assert!(results[0].1 > 0.99); // Should be almost identical
 
-        let entry = memory.get(&id).await;
+        let entry = memory.get(&id);
         assert!(entry.is_some());
         assert_eq!(entry.unwrap().content, "test content");
     }
 
-    #[tokio::test]
-    async fn test_shared_memory() {
+    #[test]
+    fn test_shared_memory() {
         let shm = SharedMemory::new("test-segment", 1024).unwrap();
 
         let data = b"Hello, Swarm!";
-        shm.write(0, data).await.unwrap();
+        shm.write(0, data).unwrap();
 
-        let read = shm.read(0, data.len()).await.unwrap();
+        let read = shm.read(0, data.len()).unwrap();
         assert_eq!(read, data);
     }
 }
