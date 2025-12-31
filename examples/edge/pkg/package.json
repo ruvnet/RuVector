@@ -1,8 +1,8 @@
 {
   "name": "@ruvector/edge",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "type": "module",
-  "description": "WASM bindings for RuVector Edge - Distributed AI swarm with post-quantum crypto, HNSW vector search, and neural networks",
+  "description": "Free edge-based AI swarms in the browser - P2P, crypto, vector search, neural networks. Install @ruvector/edge-full for graph DB, SQL, ONNX embeddings.",
   "main": "ruvector_edge.js",
   "module": "ruvector_edge.js",
   "types": "ruvector_edge.d.ts",
@@ -51,5 +51,16 @@
   },
   "sideEffects": [
     "./snippets/*"
-  ]
+  ],
+  "optionalDependencies": {
+    "@ruvector/edge-full": "^0.1.0"
+  },
+  "peerDependencies": {
+    "@ruvector/edge-full": "^0.1.0"
+  },
+  "peerDependenciesMeta": {
+    "@ruvector/edge-full": {
+      "optional": true
+    }
+  }
 }

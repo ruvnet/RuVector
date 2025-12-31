@@ -61,17 +61,75 @@ This library gives you everything you need to build distributed AI systems: cryp
 | Consensus | $100-200/month | **$0** (built-in Raft) |
 | **Total** | **$450-1100/month** | **$0/month** |
 
-### Need More Power?
+---
 
-Check out **[@ruvector/edge-full](https://www.npmjs.com/package/@ruvector/edge-full)** - the batteries-included version with additional modules:
+## Full Platform Capabilities
 
-| Module | Size | Adds |
-|--------|------|------|
-| **Graph DB** | +288KB | Neo4j-style graph database with Cypher queries |
-| **RVLite** | +260KB | SQL/SPARQL/Cypher vector database |
-| **SONA** | +238KB | Self-learning neural router with LoRA |
-| **DAG** | +132KB | Workflow orchestration engine |
-| **ONNX** | +7.1MB | HuggingFace embedding models |
+RuVector provides a complete edge AI platform. This package (`@ruvector/edge`) is the lightweight core. For the full toolkit, install `@ruvector/edge-full`.
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                        RUVECTOR EDGE PLATFORM                               │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  @ruvector/edge (364KB)              @ruvector/edge-full (+8MB)             │
+│  ─────────────────────               ───────────────────────────            │
+│  ✓ Ed25519 Identity                  Everything in edge, PLUS:              │
+│  ✓ AES-256-GCM Encryption                                                   │
+│  ✓ HNSW Vector Search                ✓ Graph DB (288KB)                     │
+│  ✓ Semantic Task Routing               Neo4j-style API, Cypher queries      │
+│  ✓ Raft Consensus                      Relationship modeling, traversals    │
+│  ✓ Post-Quantum Crypto                                                      │
+│  ✓ Spiking Neural Networks           ✓ RVLite Vector DB (260KB)             │
+│  ✓ Adaptive Compression                SQL + SPARQL + Cypher queries        │
+│                                        IndexedDB persistence                │
+│  Best for:                                                                  │
+│  • Lightweight P2P apps              ✓ SONA Neural Router (238KB)           │
+│  • Secure messaging                    Self-learning with LoRA              │
+│  • Simple agent swarms                 EWC++ continual learning             │
+│  • Mobile/embedded                     ReasoningBank experience replay      │
+│                                                                             │
+│                                      ✓ DAG Workflows (132KB)                │
+│                                        Task orchestration                   │
+│                                        Dependency resolution                │
+│                                        Topological execution                │
+│                                                                             │
+│                                      ✓ ONNX Embeddings (7.1MB)              │
+│                                        6 HuggingFace models                 │
+│                                        3.8x parallel speedup                │
+│                                        MiniLM, BGE, E5, GTE                 │
+│                                                                             │
+│                                      Best for:                              │
+│                                      • Full RAG pipelines                   │
+│                                      • Knowledge graphs                     │
+│                                      • Self-learning agents                 │
+│                                      • Complex workflows                    │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Choose Your Package
+
+```bash
+# Lightweight core (364KB) - P2P, crypto, vectors, consensus
+npm install @ruvector/edge
+
+# Full platform (8.4MB) - adds graph DB, SQL, neural routing, ONNX
+npm install @ruvector/edge-full
+```
+
+### Using Both Together
+
+```javascript
+// Start with edge core
+import init, { WasmIdentity, WasmHnswIndex } from '@ruvector/edge';
+
+// Add full capabilities when needed
+import { graph, rvlite, sona, dag } from '@ruvector/edge-full';
+import onnxInit from '@ruvector/edge-full/onnx';
+```
+
+---
 
 ### Quick Start
 
