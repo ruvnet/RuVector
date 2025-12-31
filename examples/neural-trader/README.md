@@ -106,6 +106,42 @@ npm run specialized:news
 npm run full:platform
 ```
 
+### Advanced Examples
+```bash
+# Production broker integration with Alpaca
+npm run advanced:broker
+
+# Order book microstructure analysis (VPIN, Kyle's Lambda)
+npm run advanced:microstructure
+
+# Conformal prediction with guaranteed intervals
+npm run advanced:conformal
+```
+
+### Exotic Examples
+```bash
+# Multi-agent swarm trading coordination
+npm run exotic:swarm
+
+# Graph neural network correlation analysis
+npm run exotic:gnn
+
+# Transformer attention-based regime detection
+npm run exotic:attention
+
+# Deep Q-Learning reinforcement learning agent
+npm run exotic:rl
+
+# Quantum-inspired portfolio optimization (QAOA)
+npm run exotic:quantum
+
+# Hyperbolic Poincaré disk market embeddings
+npm run exotic:hyperbolic
+
+# Cross-exchange atomic arbitrage with MEV protection
+npm run exotic:arbitrage
+```
+
 ## Directory Structure
 
 ```
@@ -132,6 +168,18 @@ examples/neural-trader/
 │   ├── sports-betting.js
 │   ├── prediction-markets.js
 │   └── news-trading.js
+├── advanced/              # Production-grade implementations
+│   ├── live-broker-alpaca.js
+│   ├── order-book-microstructure.js
+│   └── conformal-prediction.js
+├── exotic/                # Cutting-edge techniques
+│   ├── multi-agent-swarm.js
+│   ├── gnn-correlation-network.js
+│   ├── attention-regime-detection.js
+│   ├── reinforcement-learning-agent.js
+│   ├── quantum-portfolio-optimization.js
+│   ├── hyperbolic-embeddings.js
+│   └── atomic-arbitrage.js
 └── full-integration/      # Complete platform
     └── platform.js
 ```
@@ -145,6 +193,28 @@ These examples demonstrate how to leverage RuVector with neural-trader:
 3. **Model Weights**: Store neural network checkpoints for versioning
 4. **News Embeddings**: Index news articles with sentiment embeddings
 5. **Trade Decision Logging**: Log decisions with vector search for analysis
+
+## Advanced & Exotic Techniques
+
+### Advanced (Production-Grade)
+
+| Example | Description | Key Concepts |
+|---------|-------------|--------------|
+| `live-broker-alpaca.js` | Production broker integration | Smart order routing, pre-trade risk checks, slicing algorithms |
+| `order-book-microstructure.js` | Market microstructure analysis | VPIN, Kyle's Lambda, spread decomposition, hidden liquidity |
+| `conformal-prediction.js` | Guaranteed prediction intervals | Distribution-free coverage, adaptive conformal inference |
+
+### Exotic (Cutting-Edge)
+
+| Example | Description | Key Concepts |
+|---------|-------------|--------------|
+| `multi-agent-swarm.js` | Distributed trading intelligence | Consensus mechanisms, pheromone signals, emergent behavior |
+| `gnn-correlation-network.js` | Graph neural network analysis | Correlation networks, centrality measures, spectral analysis |
+| `attention-regime-detection.js` | Transformer-based regimes | Multi-head attention, positional encoding, regime classification |
+| `reinforcement-learning-agent.js` | DQN trading agent | Experience replay, epsilon-greedy, target networks |
+| `quantum-portfolio-optimization.js` | QAOA & quantum annealing | QUBO formulation, simulated quantum circuits, cardinality constraints |
+| `hyperbolic-embeddings.js` | Poincaré disk embeddings | Hyperbolic geometry, hierarchical structure, Möbius operations |
+| `atomic-arbitrage.js` | Cross-exchange arbitrage | Flash loans, MEV protection, atomic execution |
 
 ## Performance
 

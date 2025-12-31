@@ -30,6 +30,16 @@
     "specialized:news": "node specialized/news-trading.js",
     "full:platform": "node full-integration/platform.js",
     "full:swarm": "node full-integration/swarm-trading.js",
+    "advanced:broker": "node advanced/live-broker-alpaca.js",
+    "advanced:microstructure": "node advanced/order-book-microstructure.js",
+    "advanced:conformal": "node advanced/conformal-prediction.js",
+    "exotic:swarm": "node exotic/multi-agent-swarm.js",
+    "exotic:gnn": "node exotic/gnn-correlation-network.js",
+    "exotic:attention": "node exotic/attention-regime-detection.js",
+    "exotic:rl": "node exotic/reinforcement-learning-agent.js",
+    "exotic:quantum": "node exotic/quantum-portfolio-optimization.js",
+    "exotic:hyperbolic": "node exotic/hyperbolic-embeddings.js",
+    "exotic:arbitrage": "node exotic/atomic-arbitrage.js",
     "test": "node --test tests/*.test.js"
   },
   "dependencies": {
