@@ -2634,6 +2634,25 @@ class Intelligence {
       // Ignore engine errors on session end
     }
 
+    // Auto-compress patterns if enabled (v2.1)
+    try {
+      if (process.env.RUVECTOR_AUTO_COMPRESS === 'true' || process.env.RUVECTOR_TENSOR_COMPRESS === 'true') {
+        const TensorCompressClass = require('../dist/core/tensor-compress').default;
+        if (TensorCompressClass && this.data.compressedPatterns) {
+          const compress = new TensorCompressClass({ autoCompress: false });
+          compress.import(this.data.compressedPatterns);
+          const stats = compress.recompressAll();
+          this.data.compressedPatterns = compress.export();
+          // Only log if significant savings
+          if (stats.savingsPercent > 10 && stats.totalTensors > 5) {
+            // Silently compress, no console output to avoid hook noise
+          }
+        }
+      }
+    } catch (e) {
+      // Ignore compression errors on session end
+    }
+
     // Save all data
     try {
       this.save();
@@ -2749,11 +2768,23 @@ hooksCmd.command('init')
   // Environment variables for intelligence (unless --minimal or --no-env)
   if (!opts.minimal && opts.env !== false) {
     settings.env = settings.env || {};
+    // Core intelligence settings
     settings.env.RUVECTOR_INTELLIGENCE_ENABLED = settings.env.RUVECTOR_INTELLIGENCE_ENABLED || 'true';
     settings.env.RUVECTOR_LEARNING_RATE = settings.env.RUVECTOR_LEARNING_RATE || '0.1';
     settings.env.RUVECTOR_MEMORY_BACKEND = settings.env.RUVECTOR_MEMORY_BACKEND || 'rvlite';
     settings.env.INTELLIGENCE_MODE = settings.env.INTELLIGENCE_MODE || 'treatment';
-    console.log(chalk.blue('  ✓ Environment variables configured'));
+    // v2.0 capabilities
+    settings.env.RUVECTOR_AST_ENABLED = settings.env.RUVECTOR_AST_ENABLED || 'true';
+    settings.env.RUVECTOR_DIFF_EMBEDDINGS = settings.env.RUVECTOR_DIFF_EMBEDDINGS || 'true';
+    settings.env.RUVECTOR_COVERAGE_ROUTING = settings.env.RUVECTOR_COVERAGE_ROUTING || 'true';
+    settings.env.RUVECTOR_GRAPH_ALGORITHMS = settings.env.RUVECTOR_GRAPH_ALGORITHMS || 'true';
+    settings.env.RUVECTOR_SECURITY_SCAN = settings.env.RUVECTOR_SECURITY_SCAN || 'true';
+    // v2.1 learning & compression
+    settings.env.RUVECTOR_MULTI_ALGORITHM = settings.env.RUVECTOR_MULTI_ALGORITHM || 'true';
+    settings.env.RUVECTOR_DEFAULT_ALGORITHM = settings.env.RUVECTOR_DEFAULT_ALGORITHM || 'double-q';
+    settings.env.RUVECTOR_TENSOR_COMPRESS = settings.env.RUVECTOR_TENSOR_COMPRESS || 'true';
+    settings.env.RUVECTOR_AUTO_COMPRESS = settings.env.RUVECTOR_AUTO_COMPRESS || 'true';
+    console.log(chalk.blue('  ✓ Environment variables configured (v2.1 with multi-algorithm learning)'));
   }
 
   // Permissions based on detected project type (unless --minimal or --no-permissions)
@@ -5107,10 +5138,98 @@ hooksCmd.command('pretrain')
       console.log(chalk.yellow(`  ⚠ Graph analysis skipped: ${e.message}`));
     }
 
+    // Phase 10: Initialize multi-algorithm learning engine
+    console.log(chalk.yellow('\n🎯 Phase 10: Initializing multi-algorithm learning engine...\n'));
+
+    try {
+      if (loadLearningModules() && LearningEngineClass) {
+        const engine = new LearningEngineClass();
+
+        // Configure optimal algorithms for each task type based on repo analysis
+        engine.configure('agent-routing', { algorithm: 'double-q', learningRate: 0.1, epsilon: 0.1 });
+        engine.configure('error-avoidance', { algorithm: 'sarsa', learningRate: 0.05, epsilon: 0.05 });
+        engine.configure('confidence-scoring', { algorithm: 'actor-critic', learningRate: 0.01 });
+        engine.configure('trajectory-learning', { algorithm: 'decision-transformer', sequenceLength: 20 });
+        engine.configure('context-ranking', { algorithm: 'ppo', clipRange: 0.2 });
+        engine.configure('memory-recall', { algorithm: 'td-lambda', lambda: 0.8 });
+
+        // Bootstrap with initial experiences from file patterns
+        let bootstrapCount = 0;
+        for (const [state, actions] of Object.entries(intel.data.patterns || {})) {
+          for (const [action, value] of Object.entries(actions)) {
+            if (value > 0.3) { // Only strong patterns
+              engine.update('agent-routing', {
+                state,
+                action,
+                reward: value,
+                nextState: state,
+                done: true
+              });
+              bootstrapCount++;
+            }
+          }
+        }
+
+        intel.data.learning = engine.export();
+        stats.learningBootstrap = bootstrapCount;
+        console.log(chalk.green(`  ✓ Configured 6 task-specific algorithms`));
+        console.log(chalk.green(`  ✓ Bootstrapped with ${bootstrapCount} initial experiences`));
+        console.log(chalk.dim('  Algorithms: double-q, sarsa, actor-critic, decision-transformer, ppo, td-lambda'));
+      } else {
+        console.log(chalk.dim('  ⏭️  LearningEngine not available'));
+      }
+    } catch (e) {
+      console.log(chalk.yellow(`  ⚠ Learning engine init skipped: ${e.message}`));
+    }
+
+    // Phase 11: Initialize TensorCompress for pattern storage
+    console.log(chalk.yellow('\n📦 Phase 11: Initializing TensorCompress for efficient storage...\n'));
+
+    try {
+      if (loadLearningModules() && TensorCompressClass) {
+        const compress = new TensorCompressClass({
+          autoCompress: false,
+          hotThreshold: 0.8,
+          warmThreshold: 0.4,
+          coolThreshold: 0.1,
+          coldThreshold: 0.01
+        });
+
+        // Store any existing embeddings with compression
+        let compressed = 0;
+        if (intel.data.memories) {
+          for (let i = 0; i < intel.data.memories.length; i++) {
+            const mem = intel.data.memories[i];
+            if (mem.embedding && Array.isArray(mem.embedding)) {
+              compress.store(`memory_${i}`, mem.embedding, 'pq8');
+              compressed++;
+            }
+          }
+        }
+
+        if (compressed > 0) {
+          const compStats = compress.recompressAll();
+          intel.data.compressedPatterns = compress.export();
+          stats.compressed = compressed;
+          stats.compressionSavings = compStats.savingsPercent;
+          console.log(chalk.green(`  ✓ Compressed ${compressed} embeddings`));
+          console.log(chalk.green(`  ✓ Memory savings: ${compStats.savingsPercent.toFixed(1)}%`));
+        } else {
+          intel.data.compressedPatterns = compress.export();
+          console.log(chalk.green(`  ✓ TensorCompress initialized (ready for future embeddings)`));
+        }
+        console.log(chalk.dim('  Levels: none (hot), half (warm), pq8 (cool), pq4 (cold), binary (archive)'));
+      } else {
+        console.log(chalk.dim('  ⏭️  TensorCompress not available'));
+      }
+    } catch (e) {
+      console.log(chalk.yellow(`  ⚠ TensorCompress init skipped: ${e.message}`));
+    }
+
     // Save all learning data
     intel.data.pretrained = {
       date: new Date().toISOString(),
-      version: '2.0',
+      version: '2.1',
       stats: stats
     };
     intel.save();
@@ -5127,6 +5246,8 @@ hooksCmd.command('pretrain')
     if (stats.coverage) console.log(`  🧪 Coverage: ${stats.coverage.lines.toFixed(1)}% lines`);
     if (stats.neural?.attention) console.log(`  🧠 10 attention mechanisms available`);
     if (stats.graph) console.log(`  🔗 ${stats.graph.communities} code communities detected`);
+    if (stats.learningBootstrap) console.log(`  🎯 ${stats.learningBootstrap} learning experiences bootstrapped`);
+    if (stats.compressionSavings) console.log(`  📦 ${stats.compressionSavings.toFixed(1)}% compression savings`);
     console.log(chalk.dim('\nThe intelligence layer will now provide better recommendations.'));
   });
 

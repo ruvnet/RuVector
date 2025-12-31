@@ -51,7 +51,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "ruvector hooks pre-edit \"$TOOL_INPUT_file_path\""
+            "command": "/usr/local/bin/ruvector-cli hooks pre-edit \"$TOOL_INPUT_file_path\""
           }
         ]
       },
@@ -60,7 +60,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "ruvector hooks pre-command \"$TOOL_INPUT_command\""
+            "command": "/usr/local/bin/ruvector-cli hooks pre-command \"$TOOL_INPUT_command\""
           }
         ]
       },
@@ -70,7 +70,7 @@
           {
             "type": "command",
             "timeout": 1000,
-            "command": "ruvector hooks remember \"Reading: $TOOL_INPUT_file_path\" -t file_access --silent"
+            "command": "/usr/local/bin/ruvector-cli hooks remember \"Reading: $TOOL_INPUT_file_path\" -t file_access --silent"
           }
         ]
       },
@@ -80,7 +80,7 @@
           {
             "type": "command",
             "timeout": 1000,
-            "command": "ruvector hooks remember \"Search: $TOOL_INPUT_pattern\" -t search_pattern --silent"
+            "command": "/usr/local/bin/ruvector-cli hooks remember \"Search: $TOOL_INPUT_pattern\" -t search_pattern --silent"
           }
         ]
       },
@@ -90,7 +90,7 @@
           {
             "type": "command",
             "timeout": 1000,
-            "command": "ruvector hooks remember \"Agent: $TOOL_INPUT_subagent_type\" -t agent_spawn --silent"
+            "command": "/usr/local/bin/ruvector-cli hooks remember \"Agent: $TOOL_INPUT_subagent_type\" -t agent_spawn --silent"
           }
         ]
       }
@@ -101,7 +101,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "ruvector hooks post-edit \"$TOOL_INPUT_file_path\""
+            "command": "/usr/local/bin/ruvector-cli hooks post-edit \"$TOOL_INPUT_file_path\""
           }
         ]
       },
@@ -110,7 +110,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "ruvector hooks post-command \"$TOOL_INPUT_command\""
+            "command": "/usr/local/bin/ruvector-cli hooks post-command \"$TOOL_INPUT_command\""
           }
         ]
       }
@@ -120,7 +120,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "ruvector hooks session-start"
+            "command": "/usr/local/bin/ruvector-cli hooks session-start"
           }
         ]
       }
@@ -130,7 +130,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "ruvector hooks session-end"
+            "command": "/usr/local/bin/ruvector-cli hooks session-end"
           }
         ]
       }
