@@ -50,6 +50,7 @@ This library gives you everything you need to build distributed AI systems: cryp
 | **Post-Quantum** | Hybrid signatures | Future-proof |
 | **Neural Networks** | Spiking + STDP | Bio-inspired learning |
 | **Compression** | Adaptive 4-32x | Network-aware |
+| **Web Workers** | Worker pool | Parallel ops, non-blocking UI |
 
 ### What It Costs
 
@@ -84,6 +85,7 @@ RuVector provides a complete edge AI platform. This package (`@ruvector/edge`) i
 │  ✓ Post-Quantum Crypto               ✓ RVLite Vector DB (260KB)             │
 │  ✓ Spiking Neural Networks             SQL + SPARQL + Cypher queries        │
 │  ✓ Adaptive Compression                IndexedDB persistence                │
+│  ✓ Web Worker Pool                                                          │
 │                                                                             │
 │  Best for:                           ✓ SONA Neural Router (238KB)           │
 │  • Lightweight P2P apps                Self-learning with LoRA              │
@@ -153,6 +155,57 @@ gossipNode.join_swarm(relayUrl);  // Eventually consistent, Byzantine-tolerant
 ```
 
 **Why two modes?** Raft assumes known membership and trusted nodes - perfect for your dev team or enterprise deployment. But a public browser swarm has nodes joining/leaving constantly and can't trust everyone. Gossip protocols with CRDTs handle this gracefully: no leader election, no membership tracking, eventual consistency that converges even with malicious actors.
+
+---
+
+### Web Workers: Keep the UI Responsive
+
+Heavy operations (vector search, encryption, neural network inference) run in Web Workers to avoid blocking the main thread. The package includes a ready-to-use worker pool:
+
+```javascript
+import { WorkerPool } from '@ruvector/edge/worker-pool';
+
+// Create worker pool (auto-detects CPU cores)
+const pool = new WorkerPool(
+  new URL('@ruvector/edge/worker', import.meta.url),
+  new URL('@ruvector/edge/ruvector_edge_bg.wasm', import.meta.url),
+  {
+    poolSize: navigator.hardwareConcurrency,
+    dimensions: 384,
+    useHnsw: true
+  }
+);
+
+await pool.init();
+
+// Operations run in parallel across workers
+await pool.insert(embedding, 'doc-1', { title: 'Hello' });
+await pool.insertBatch([
+  { vector: emb1, id: 'doc-2' },
+  { vector: emb2, id: 'doc-3' },
+  { vector: emb3, id: 'doc-4' }
+]);
+
+// Search distributed across workers
+const results = await pool.search(queryEmbedding, 10);
+
+// Batch search (each query on different worker)
+const batchResults = await pool.searchBatch([query1, query2, query3], 10);
+
+// Pool statistics
+console.log(pool.getStats());
+// { poolSize: 8, busyWorkers: 2, idleWorkers: 6, pendingRequests: 0 }
+
+// Clean up
+pool.terminate();
+```
+
+**Worker Pool Features:**
+- Round-robin task distribution with load balancing
+- Automatic batch splitting across workers
+- Promise-based API with 30s timeout
+- Zero-copy transfers via transferable objects
+- Works in browsers, Deno, and Cloudflare Workers
 
 ---
 

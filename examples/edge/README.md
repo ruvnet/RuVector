@@ -156,6 +156,64 @@ gossipNode.join_swarm(relayUrl);  // Eventually consistent, Byzantine-tolerant
 
 ---
 
+### Web Workers: Keep Your UI Responsive
+
+When you're running vector searches on thousands of vectors or encrypting large messages, you don't want your app to freeze. Web Workers solve this by running heavy operations in background threads while your UI stays smooth.
+
+**The problem without workers:**
+```javascript
+// This blocks your UI - buttons won't click, animations freeze
+const results = await vectorDB.search(query, k); // 100ms+ blocking
+```
+
+**The solution with WorkerPool:**
+```javascript
+import { WorkerPool } from '@ruvector/edge/worker-pool';
+
+// Create a pool of background workers (auto-detects CPU cores)
+const pool = new WorkerPool(
+  new URL('@ruvector/edge/worker', import.meta.url),
+  new URL('@ruvector/edge/ruvector_edge.js', import.meta.url),
+  { dimensions: 128, metric: 'cosine', useHnsw: true }
+);
+
+await pool.init(); // Workers load WASM in parallel
+
+// Now searches run in background - UI stays responsive!
+const results = await pool.search(queryVector, 10);
+
+// Insert 10,000 vectors? Workers split the work automatically
+const ids = await pool.insertBatch(largeDataset); // Parallel insertion
+
+// Search multiple queries at once
+const allResults = await pool.searchBatch(queries, 10); // Parallel search
+```
+
+**What the Worker Pool does for you:**
+
+| Feature | What It Means |
+|---------|---------------|
+| **Auto-scaling** | Creates workers based on your CPU cores (2-8 typically) |
+| **Load balancing** | Distributes work evenly across workers |
+| **Batch splitting** | Large datasets are chunked and processed in parallel |
+| **Timeout handling** | Stuck operations fail gracefully after 30 seconds |
+| **Error recovery** | One failing worker doesn't crash your whole app |
+
+**When to use workers:**
+
+| Scenario | Use Workers? | Why |
+|----------|--------------|-----|
+| 100+ vectors | Maybe | Small searches are fast enough inline |
+| 1,000+ vectors | Yes | Noticeable speedup from parallelism |
+| 10,000+ vectors | Definitely | 3-4x faster with worker pool |
+| Batch inserts | Yes | Don't block UI during data loading |
+| Real-time search | Yes | Keep typing responsive during search |
+| Mobile devices | Yes | Avoid UI jank on slower processors |
+
+**Simple rule:** If the operation takes more than 50ms, use a worker.
+
+---
+
 ### Quick Start
 
 ```bash
@@ -187,13 +245,15 @@ const best = matcher.find_best_agent("write a function");
 
 1. [Why Edge-First?](#why-edge-first)
 2. [Features](#features)
-3. [Tutorial: Build Your First Swarm](#tutorial-build-your-first-swarm)
-4. [P2P Transport Options](#p2p-transport-options)
-5. [Free Infrastructure](#free-infrastructure-zero-cost-at-any-scale)
-6. [Architecture](#architecture)
-7. [API Reference](#api-reference)
-8. [Performance](#performance)
-9. [Security](#security)
+3. [Consensus Modes](#consensus-modes-trusted-vs-open)
+4. [Web Workers](#web-workers-keep-your-ui-responsive)
+5. [Tutorial: Build Your First Swarm](#tutorial-build-your-first-swarm)
+6. [P2P Transport Options](#p2p-transport-options)
+7. [Free Infrastructure](#free-infrastructure-zero-cost-at-any-scale)
+8. [Architecture](#architecture)
+9. [API Reference](#api-reference)
+10. [Performance](#performance)
+11. [Security](#security)
 
 ---
 
@@ -1095,6 +1155,23 @@ comp.update_metrics(bandwidth, latency)
 comp.compress(data)
 comp.decompress(data)
 comp.condition()  // "excellent"|"good"|"poor"|"critical"
+```
+
+### WorkerPool (Web Workers)
+```javascript
+import { WorkerPool } from '@ruvector/edge/worker-pool';
+
+const pool = new WorkerPool(workerUrl, wasmUrl, options);
+await pool.init()                    // Start workers
+pool.insert(vector, id, metadata)    // Insert single vector
+pool.insertBatch(entries)            // Parallel batch insert
+pool.search(query, k, filter)        // Search k nearest
+pool.searchBatch(queries, k)         // Parallel multi-query
+pool.delete(id)                      // Remove vector
+pool.get(id)                         // Retrieve by ID
+pool.len()                           // Count vectors
+pool.getStats()                      // {poolSize, busyWorkers, ...}
+pool.terminate()                     // Stop all workers
 ```
 
 ---

@@ -328,6 +328,28 @@
         </div>
 
         <div class="section">
+          <div class="section-title">Concurrency (Web Workers)</div>
+          <div class="option-grid" id="worker-options">
+            <div class="option" data-value="none">
+              <div class="option-title">⚡ Main Thread</div>
+              <div class="option-desc">Simple, no workers</div>
+            </div>
+            <div class="option selected" data-value="pool">
+              <div class="option-title">🔄 Worker Pool</div>
+              <div class="option-desc">Auto-scaling workers</div>
+            </div>
+            <div class="option" data-value="dedicated">
+              <div class="option-title">🎯 Dedicated</div>
+              <div class="option-desc">One worker per task</div>
+            </div>
+            <div class="option" data-value="shared">
+              <div class="option-title">🤝 Shared Worker</div>
+              <div class="option-desc">Cross-tab sharing</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="section">
           <div class="section-title">Exotic Patterns</div>
           <div class="tag-list" id="exotic-tags">
             <div class="tag" data-value="mcp-browser">MCP Tools</div>
@@ -346,8 +368,8 @@
             <div class="stat-label">Agents</div>
           </div>
           <div class="stat">
-            <div class="stat-value" id="msg-latency">~100ms</div>
-            <div class="stat-label">Latency</div>
+            <div class="stat-value" id="worker-count">4</div>
+            <div class="stat-label">Workers</div>
           </div>
           <div class="stat">
             <div class="stat-value">$0</div>
@@ -415,6 +437,7 @@
       usecase: 'ai-assistants',
       modules: ['edge'],
       features: ['identity', 'encryption'],
+      workers: 'pool',
       exotic: []
     };
 
@@ -1431,6 +1454,210 @@ class SelfHealingSwarm {
 }`,
 
         emergent: `// Emergent Behavior - Agent evolution
+class EmergentSwarm {`,
+      },
+
+      // Worker patterns
+      workers: {
+        none: `// Main Thread Execution
+// All operations run on the main thread (simpler, but may block UI)
+// Best for: Small datasets (<1000 vectors), simple operations`,
+
+        pool: `// Worker Pool - Auto-scaling background threads
+import { WorkerPool } from '@ruvector/edge/worker-pool';
+
+class SwarmWorkerPool {
+  constructor(options = {}) {
+    this.pool = null;
+    this.options = {
+      dimensions: options.dimensions || 128,
+      metric: options.metric || 'cosine',
+      useHnsw: options.useHnsw !== false,
+      poolSize: options.poolSize || navigator.hardwareConcurrency || 4
+    };
+  }
+
+  async init() {
+    // Create worker pool - auto-detects CPU cores
+    this.pool = new WorkerPool(
+      new URL('@ruvector/edge/worker', import.meta.url),
+      new URL('@ruvector/edge/ruvector_edge.js', import.meta.url),
+      this.options
+    );
+    await this.pool.init();
+    console.log(\`Worker pool ready: \${this.options.poolSize} workers\`);
+  }
+
+  // Non-blocking vector insert
+  async insert(vector, id, metadata) {
+    return this.pool.insert(vector, id, metadata);
+  }
+
+  // Parallel batch insert - splits across workers
+  async insertBatch(entries) {
+    return this.pool.insertBatch(entries);
+  }
+
+  // Background search - UI stays responsive
+  async search(query, k = 10) {
+    return this.pool.search(query, k);
+  }
+
+  // Parallel multi-query search
+  async searchBatch(queries, k = 10) {
+    return this.pool.searchBatch(queries, k);
+  }
+
+  // Get pool statistics
+  getStats() {
+    return this.pool.getStats();
+  }
+
+  // Clean up workers
+  terminate() {
+    this.pool.terminate();
+  }
+}
+
+// Usage example
+const workerPool = new SwarmWorkerPool({ dimensions: 128 });
+await workerPool.init();
+
+// Insert 10,000 vectors in parallel (doesn't block UI)
+const vectors = Array(10000).fill(null).map((_, i) => ({
+  vector: new Float32Array(128).fill(Math.random()),
+  id: \`doc-\${i}\`,
+  metadata: { index: i }
+}));
+await workerPool.insertBatch(vectors);
+
+// Search runs in background
+const results = await workerPool.search(queryVector, 10);`,
+
+        dedicated: `// Dedicated Worker - One worker per task type
+class DedicatedWorkerManager {
+  constructor() {
+    this.workers = new Map();
+  }
+
+  // Create dedicated worker for a task type
+  createWorker(taskType, workerScript) {
+    const worker = new Worker(workerScript, { type: 'module' });
+    this.workers.set(taskType, {
+      worker,
+      busy: false,
+      pending: []
+    });
+
+    worker.onmessage = (e) => this.handleResponse(taskType, e.data);
+    return worker;
+  }
+
+  // Send task to dedicated worker
+  async execute(taskType, data) {
+    const workerInfo = this.workers.get(taskType);
+    if (!workerInfo) throw new Error(\`No worker for: \${taskType}\`);
+
+    return new Promise((resolve, reject) => {
+      workerInfo.pending.push({ resolve, reject });
+      workerInfo.worker.postMessage(data);
+    });
+  }
+
+  handleResponse(taskType, data) {
+    const workerInfo = this.workers.get(taskType);
+    const pending = workerInfo.pending.shift();
+    if (data.error) pending.reject(new Error(data.error));
+    else pending.resolve(data.result);
+  }
+
+  terminateAll() {
+    for (const [_, info] of this.workers) {
+      info.worker.terminate();
+    }
+    this.workers.clear();
+  }
+}
+
+// Example: Separate workers for different operations
+const manager = new DedicatedWorkerManager();
+manager.createWorker('search', './search-worker.js');
+manager.createWorker('embed', './embed-worker.js');
+manager.createWorker('encrypt', './crypto-worker.js');`,
+
+        shared: `// Shared Worker - Cross-tab coordination
+class SharedSwarmWorker {
+  constructor(workerUrl) {
+    this.worker = new SharedWorker(workerUrl, { type: 'module' });
+    this.port = this.worker.port;
+    this.requestId = 0;
+    this.pending = new Map();
+
+    this.port.onmessage = (e) => this.handleMessage(e.data);
+    this.port.start();
+  }
+
+  handleMessage(data) {
+    const pending = this.pending.get(data.requestId);
+    if (pending) {
+      this.pending.delete(data.requestId);
+      if (data.error) pending.reject(new Error(data.error));
+      else pending.resolve(data.result);
+    }
+  }
+
+  async execute(type, data) {
+    return new Promise((resolve, reject) => {
+      const requestId = this.requestId++;
+      this.pending.set(requestId, { resolve, reject });
+      this.port.postMessage({ type, requestId, data });
+    });
+  }
+}
+
+// Benefits of Shared Workers:
+// 1. Single WASM instance shared across all tabs
+// 2. Consistent vector index across browser tabs
+// 3. Reduced memory usage (one index, not N copies)
+// 4. Cross-tab agent coordination
+
+// Example shared-worker.js:
+/*
+let vectorIndex = null;
+const connections = [];
+
+self.onconnect = (e) => {
+  const port = e.ports[0];
+  connections.push(port);
+
+  port.onmessage = async (event) => {
+    const { type, requestId, data } = event.data;
+
+    if (type === 'init' && !vectorIndex) {
+      const { init, WasmHnswIndex } = await import('./ruvector_edge.js');
+      await init();
+      vectorIndex = new WasmHnswIndex(128, 16, 200);
+    }
+
+    // All tabs share the same index
+    if (type === 'insert') {
+      vectorIndex.insert(data.id, new Float32Array(data.vector));
+    }
+
+    if (type === 'search') {
+      const results = vectorIndex.search(new Float32Array(data.query), data.k);
+      port.postMessage({ requestId, result: results });
+    }
+  };
+
+  port.start();
+};
+*/`
+      }
+    };
+
+    // Replace the last line of exotic.emergent to close the object properly
+    templates.exotic.emergent = `// Emergent Behavior - Agent evolution
 class EmergentSwarm {
   constructor(populationSize = 20) {
     this.population = [];
@@ -1500,7 +1727,7 @@ class EmergentSwarm {
 
       let code = `// ${packageName} - Generated Swarm Configuration
 // Topology: ${state.topology} | Transport: ${state.transport} | Use Case: ${state.usecase}
-// Modules: ${state.modules.join(', ')} | Features: ${state.features.join(', ')}${state.exotic.length ? '\n// Exotic: ' + state.exotic.join(', ') : ''}
+// Modules: ${state.modules.join(', ')} | Workers: ${state.workers} | Features: ${state.features.join(', ')}${state.exotic.length ? '\n// Exotic: ' + state.exotic.join(', ') : ''}
 `;
 
       // Generate imports based on selected modules
@@ -1569,6 +1796,17 @@ ${templates.transports[state.transport]}
 // ═══════════════════════════════════════════════════════════════
 
 ${templates.usecases[state.usecase]}`;
+
+      // Add worker pattern if not 'none'
+      if (state.workers !== 'none') {
+        code += `
+
+// ═══════════════════════════════════════════════════════════════
+// CONCURRENCY: ${state.workers.toUpperCase()} WORKERS
+// ═══════════════════════════════════════════════════════════════
+
+${templates.workers[state.workers]}`;
+      }
 
       // Add module-specific sections
       if (state.modules.includes('graph')) {
@@ -1890,6 +2128,21 @@ main().catch(console.error);`;
             }
           }
           updateBundleSize();
+          updateCode();
+        });
+      });
+
+      // Worker options
+      document.querySelectorAll('#worker-options .option').forEach(el => {
+        el.addEventListener('click', () => {
+          document.querySelectorAll('#worker-options .option').forEach(e => e.classList.remove('selected'));
+          el.classList.add('selected');
+          state.workers = el.dataset.value;
+
+          // Update worker count display
+          const workerCounts = { none: '0', pool: '4', dedicated: '3', shared: '1' };
+          document.getElementById('worker-count').textContent = workerCounts[state.workers];
+
           updateCode();
         });
       });

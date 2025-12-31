@@ -1,6 +1,6 @@
 {
   "name": "@ruvector/edge",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "type": "module",
   "description": "Free edge-based AI swarms in the browser - P2P, crypto, vector search, neural networks. Install @ruvector/edge-full for graph DB, SQL, ONNX embeddings.",
   "main": "ruvector_edge.js",
@@ -40,6 +40,8 @@
     "ruvector_edge.js",
     "ruvector_edge.d.ts",
     "ruvector_edge_bg.wasm.d.ts",
+    "worker.js",
+    "worker-pool.js",
     "generator.html",
     "LICENSE"
   ],
@@ -47,6 +49,12 @@
     ".": {
       "import": "./ruvector_edge.js",
       "types": "./ruvector_edge.d.ts"
+    },
+    "./worker": {
+      "import": "./worker.js"
+    },
+    "./worker-pool": {
+      "import": "./worker-pool.js"
     }
   },
   "sideEffects": [
