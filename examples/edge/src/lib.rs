@@ -44,6 +44,7 @@ pub mod memory;
 pub mod compression;
 pub mod protocol;
 pub mod p2p;
+pub mod plaid;
 
 // WASM bindings
 #[cfg(feature = "wasm")]
@@ -63,6 +64,10 @@ pub use memory::{SharedMemory, VectorMemory};
 pub use compression::{TensorCodec, CompressionLevel};
 pub use protocol::{SwarmMessage, MessageType};
 pub use p2p::{IdentityManager, CryptoV2, RelayManager, ArtifactStore};
+pub use plaid::{
+    Transaction, SpendingPattern, CategoryPrediction,
+    AnomalyResult, BudgetRecommendation, FinancialLearningState,
+};
 #[cfg(feature = "native")]
 pub use p2p::{P2PSwarmV2, SwarmStatus};
 
