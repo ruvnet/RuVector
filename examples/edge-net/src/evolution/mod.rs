@@ -5,7 +5,8 @@
 
 use wasm_bindgen::prelude::*;
 use serde::{Serialize, Deserialize};
-use std::collections::HashMap;
+use rustc_hash::FxHashMap;  // 30-50% faster than std HashMap
+use std::collections::VecDeque;
 
 /// Network topology adaptation for self-organization
 #[wasm_bindgen]
@@ -13,14 +14,16 @@ use std::collections::HashMap;
 pub struct NetworkTopology {
     /// Current network structure fingerprint
     topology_hash: String,
-    /// Node connectivity graph (adjacency scores)
-    connectivity: HashMap<String, Vec<(String, f32)>>,
-    /// Cluster assignments for efficient routing
-    clusters: HashMap<String, u32>,
+    /// Node connectivity graph (adjacency scores) - FxHashMap for faster lookups
+    connectivity: FxHashMap<String, Vec<(String, f32)>>,
+    /// Cluster assignments for efficient routing - FxHashMap for O(1) lookups
+    clusters: FxHashMap<String, u32>,
     /// Adaptation learning rate
     learning_rate: f32,
     /// Optimization generation
     generation: u64,
+    /// Max connections per node (bounded to prevent memory growth)
+    max_connections_per_node: usize,
 }
 
 #[wasm_bindgen]
@@ -29,10 +32,11 @@ impl NetworkTopology {
     pub fn new() -> NetworkTopology {
         NetworkTopology {
             topology_hash: String::new(),
-            connectivity: HashMap::new(),
-            clusters: HashMap::new(),
+            connectivity: FxHashMap::default(),
+            clusters: FxHashMap::default(),
             learning_rate: 0.1,
             generation: 0,
+            max_connections_per_node: 100,  // Bounded connectivity
         }
     }
 
@@ -54,6 +58,16 @@ impl NetworkTopology {
                 // Exponential moving average
                 conn.1 = conn.1 * (1.0 - self.learning_rate) + success_rate * self.learning_rate;
             } else {
+                // Bounded connections: evict lowest score if at limit
+                if connections.len() >= self.max_connections_per_node {
+                    if let Some(min_idx) = connections.iter()
+                        .enumerate()
+                        .min_by(|(_, a), (_, b)| a.1.partial_cmp(&b.1).unwrap())
+                        .map(|(i, _)| i)
+                    {
+                        connections.swap_remove(min_idx);
+                    }
+                }
                 connections.push((to.to_string(), success_rate));
             }
         }
@@ -262,21 +276,23 @@ pub struct RewardDistribution {
 #[wasm_bindgen]
 #[derive(Clone)]
 pub struct EvolutionEngine {
-    /// Fitness scores by capability
-    fitness_scores: HashMap<String, f32>,
-    /// Successful patterns for replication
+    /// Fitness scores by capability - FxHashMap for faster lookups
+    fitness_scores: FxHashMap<String, f32>,
+    /// Successful patterns for replication (bounded to 100)
     successful_patterns: Vec<NodePattern>,
     /// Evolution generation
     generation: u64,
     /// Mutation rate for variation
     mutation_rate: f32,
+    /// Max patterns to track
+    max_patterns: usize,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
 struct NodePattern {
     pattern_id: String,
     capabilities: Vec<f32>,
-    configuration: HashMap<String, String>,
+    configuration: FxHashMap<String, String>,
     success_rate: f32,
     replications: u32,
 }
@@ -286,10 +302,11 @@ impl EvolutionEngine {
     #[wasm_bindgen(constructor)]
     pub fn new() -> EvolutionEngine {
         EvolutionEngine {
-            fitness_scores: HashMap::new(),
-            successful_patterns: Vec::new(),
+            fitness_scores: FxHashMap::default(),
+            successful_patterns: Vec::with_capacity(100),  // Pre-allocate
             generation: 0,
             mutation_rate: 0.05,
+            max_patterns: 100,
         }
     }
 
@@ -354,14 +371,16 @@ impl EvolutionEngine {
 #[wasm_bindgen]
 #[derive(Clone)]
 pub struct OptimizationEngine {
-    /// Task routing decisions and outcomes
-    routing_history: Vec<RoutingDecision>,
-    /// Resource utilization by node
-    resource_usage: HashMap<String, ResourceMetrics>,
+    /// Task routing decisions and outcomes (VecDeque for efficient trimming)
+    routing_history: VecDeque<RoutingDecision>,
+    /// Resource utilization by node - FxHashMap for faster lookups
+    resource_usage: FxHashMap<String, ResourceMetrics>,
     /// Optimization policies
     policies: OptimizationPolicies,
     /// Learning from outcomes
     learning_enabled: bool,
+    /// Max routing history to keep
+    max_history: usize,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -408,10 +427,11 @@ impl OptimizationEngine {
     #[wasm_bindgen(constructor)]
     pub fn new() -> OptimizationEngine {
         OptimizationEngine {
-            routing_history: Vec::new(),
-            resource_usage: HashMap::new(),
+            routing_history: VecDeque::with_capacity(10000),  // Pre-allocate
+            resource_usage: FxHashMap::default(),
             policies: OptimizationPolicies::default(),
             learning_enabled: true,
+            max_history: 10000,
         }
     }
 
@@ -433,11 +453,11 @@ impl OptimizationEngine {
             timestamp: js_sys::Date::now() as u64,
         };
 
-        self.routing_history.push(decision);
+        self.routing_history.push_back(decision);
 
-        // Keep history bounded
-        if self.routing_history.len() > 10000 {
-            self.routing_history.drain(0..5000);
+        // Keep history bounded (O(1) amortized vs O(n) drain)
+        while self.routing_history.len() > self.max_history {
+            self.routing_history.pop_front();
         }
 
         // Update resource usage

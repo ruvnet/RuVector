@@ -48,6 +48,7 @@ pub mod events;
 pub mod adversarial;
 pub mod evolution;
 pub mod tribute;
+pub mod pikey;
 
 use identity::WasmNodeIdentity;
 use credits::{WasmCreditLedger, ContributionCurve};
@@ -520,6 +521,9 @@ impl EdgeNetConfig {
         EdgeNetNode::new(&self.site_id, Some(config))
     }
 }
+
+#[cfg(all(test, feature = "bench"))]
+mod bench;
 
 #[cfg(test)]
 mod tests {

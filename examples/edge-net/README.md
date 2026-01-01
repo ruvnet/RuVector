@@ -202,7 +202,7 @@ const report = cell.runSecurityAudit();
 
 ### Lifecycle Events
 
-The network celebrates milestones (Easter eggs for researchers):
+The network celebrates milestones:
 
 ```javascript
 // Check for active events

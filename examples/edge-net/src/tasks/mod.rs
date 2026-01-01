@@ -9,6 +9,9 @@ use aes_gcm::{
 };
 use rand::rngs::OsRng;
 use sha2::{Sha256, Digest};
+use rustc_hash::FxHashMap;  // 30-50% faster than std HashMap
+use std::collections::BinaryHeap;
+use std::cmp::Ordering;
 
 /// Task types supported by the network
 #[wasm_bindgen]
@@ -261,18 +264,47 @@ impl WasmTaskExecutor {
     }
 }
 
-/// Task queue for P2P distribution
+/// Wrapper for priority queue ordering
+#[derive(Clone)]
+struct PrioritizedTask {
+    task: Task,
+    priority_score: u32,
+}
+
+impl PartialEq for PrioritizedTask {
+    fn eq(&self, other: &Self) -> bool {
+        self.priority_score == other.priority_score
+    }
+}
+
+impl Eq for PrioritizedTask {}
+
+impl PartialOrd for PrioritizedTask {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for PrioritizedTask {
+    fn cmp(&self, other: &Self) -> Ordering {
+        // Higher priority first (reverse for max-heap)
+        self.priority_score.cmp(&other.priority_score)
+    }
+}
+
+/// Task queue for P2P distribution - optimized with priority heap
 #[wasm_bindgen]
 pub struct WasmTaskQueue {
-    pending: Vec<Task>,
-    claimed: std::collections::HashMap<String, String>, // task_id -> worker_id
+    // BinaryHeap for O(log n) insertion and O(1) max lookup vs O(n) linear scan
+    pending: BinaryHeap<PrioritizedTask>,
+    claimed: FxHashMap<String, String>, // task_id -> worker_id - FxHashMap for faster lookups
 }
 
 impl WasmTaskQueue {
     pub fn new() -> Result<WasmTaskQueue, JsValue> {
         Ok(WasmTaskQueue {
-            pending: Vec::new(),
-            claimed: std::collections::HashMap::new(),
+            pending: BinaryHeap::with_capacity(1000),  // Pre-allocate
+            claimed: FxHashMap::default(),
         })
     }
 
@@ -321,40 +353,55 @@ impl WasmTaskQueue {
         Ok(task)
     }
 
-    /// Submit task to network
+    /// Submit task to network - O(log n) with priority heap
     pub async fn submit(&mut self, task: Task) -> Result<SubmitResult, JsValue> {
-        self.pending.push(task.clone());
+        let priority_score = match task.priority {
+            TaskPriority::High => 100,
+            TaskPriority::Normal => 50,
+            TaskPriority::Low => 10,
+        };
+
+        let task_id = task.id.clone();
+        let cost = task.base_reward;
+
+        self.pending.push(PrioritizedTask {
+            task,
+            priority_score,
+        });
 
         Ok(SubmitResult {
-            task_id: task.id,
-            cost: task.base_reward,
+            task_id,
+            cost,
         })
     }
 
-    /// Claim next available task
+    /// Claim next available task - O(1) with priority heap vs O(n) linear scan
     pub async fn claim_next(
         &mut self,
         identity: &crate::identity::WasmNodeIdentity,
     ) -> Result<Option<Task>, JsValue> {
-        // Find unclaimed task
-        for task in &self.pending {
-            if !self.claimed.contains_key(&task.id) {
+        // Peek at highest priority task (O(1))
+        while let Some(prioritized) = self.pending.peek() {
+            if !self.claimed.contains_key(&prioritized.task.id) {
+                let task = self.pending.pop().unwrap().task;
                 self.claimed.insert(task.id.clone(), identity.node_id());
-                return Ok(Some(task.clone()));
+                return Ok(Some(task));
+            } else {
+                // Already claimed, remove and check next
+                self.pending.pop();
             }
         }
         Ok(None)
     }
 
-    /// Complete a task
+    /// Complete a task - just remove claim (heap automatically filters completed)
     pub async fn complete(
         &mut self,
         task_id: String,
         _result: TaskResult,
         _identity: &crate::identity::WasmNodeIdentity,
     ) -> Result<(), JsValue> {
-        // Remove from pending
-        self.pending.retain(|t| t.id != task_id);
+        // Just remove claim - completed tasks filtered in claim_next
         self.claimed.remove(&task_id);
         Ok(())
     }
