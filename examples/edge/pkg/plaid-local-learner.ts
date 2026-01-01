@@ -251,10 +251,15 @@ export class PlaidLocalLearner {
 
   /**
    * Derive encryption key from password
+   *
+   * Uses a unique salt per installation stored in IndexedDB.
+   * This prevents rainbow table attacks across different users.
    */
   private async deriveKey(password: string): Promise<CryptoKey> {
     const encoder = new TextEncoder();
-    const salt = encoder.encode('plaid_local_learner_salt_v1');
+
+    // Get or create unique salt for this installation
+    const salt = await this.getOrCreateSalt();
 
     const keyMaterial = await crypto.subtle.importKey(
       'raw',
@@ -276,6 +281,41 @@ export class PlaidLocalLearner {
       false,
       ['encrypt', 'decrypt']
     );
+  }
+
+  /**
+   * Get or create a unique salt for this installation
+   *
+   * Salt is stored in IndexedDB and persists across sessions.
+   * Each browser/device gets a unique salt.
+   */
+  private async getOrCreateSalt(): Promise<Uint8Array> {
+    const SALT_KEY = '_encryption_salt';
+
+    return new Promise(async (resolve, reject) => {
+      const transaction = this.db!.transaction([STORES.STATE], 'readwrite');
+      const store = transaction.objectStore(STORES.STATE);
+
+      // Try to get existing salt
+      const getRequest = store.get(SALT_KEY);
+
+      getRequest.onsuccess = () => {
+        if (getRequest.result) {
+          // Use existing salt
+          resolve(new Uint8Array(getRequest.result));
+        } else {
+          // Generate new random salt (32 bytes)
+          const newSalt = crypto.getRandomValues(new Uint8Array(32));
+
+          // Store it for future use
+          const putRequest = store.put(newSalt.buffer, SALT_KEY);
+          putRequest.onsuccess = () => resolve(newSalt);
+          putRequest.onerror = () => reject(putRequest.error);
+        }
+      };
+
+      getRequest.onerror = () => reject(getRequest.error);
+    });
   }
 
   /**

@@ -86,9 +86,17 @@ impl PlaidLocalLearner {
             // Add to HNSW index for similarity search
             self.hnsw_index.insert(&tx.transaction_id, embedding.clone());
 
-            // Update category embedding
+            // Update category embedding (HashMap prevents memory leak - overwrites existing)
             let category_key = tx.category.join(":");
-            state.category_embeddings.push((category_key.clone(), embedding.clone()));
+
+            // LRU-style eviction if at capacity
+            if state.category_embeddings.len() >= state.max_embeddings {
+                // Remove oldest entry (in production, use proper LRU cache)
+                if let Some(key) = state.category_embeddings.keys().next().cloned() {
+                    state.category_embeddings.remove(&key);
+                }
+            }
+            state.category_embeddings.insert(category_key.clone(), embedding.clone());
 
             // Learn spending pattern
             self.learn_pattern(&mut state, tx, &features);

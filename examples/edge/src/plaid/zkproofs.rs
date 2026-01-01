@@ -3,17 +3,38 @@
 //! Prove financial statements without revealing actual numbers.
 //! All proofs are generated in the browser - private data never leaves.
 //!
-//! ## Supported Proofs
+//! # ⚠️ SECURITY WARNING ⚠️
+//!
+//! **THIS IS A DEMONSTRATION IMPLEMENTATION - NOT PRODUCTION READY**
+//!
+//! The cryptographic primitives in this module are SIMPLIFIED for educational
+//! purposes and API demonstration. They do NOT provide real security:
+//!
+//! - Custom hash function (not SHA-256)
+//! - Simplified Pedersen commitments (not elliptic curve based)
+//! - Mock bulletproof verification (does not verify mathematical properties)
+//!
+//! ## For Production Use
+//!
+//! Replace with battle-tested cryptographic libraries:
+//! ```toml
+//! bulletproofs = "4.0"           # Real bulletproofs
+//! curve25519-dalek = "4.0"       # Elliptic curve operations
+//! merlin = "3.0"                 # Fiat-Shamir transcripts
+//! sha2 = "0.10"                  # Cryptographic hash
+//! ```
+//!
+//! ## Supported Proofs (API Demo)
 //!
 //! - **Range Proofs**: Prove a value is within a range
 //! - **Comparison Proofs**: Prove value A > value B
 //! - **Aggregate Proofs**: Prove sum/average meets criteria
 //! - **History Proofs**: Prove statements about transaction history
 //!
-//! ## Cryptographic Basis
+//! ## Cryptographic Basis (Production)
 //!
-//! Uses Bulletproofs for range proofs (no trusted setup required).
-//! Pedersen commitments hide values while allowing verification.
+//! Real implementation would use Bulletproofs for range proofs (no trusted setup).
+//! Pedersen commitments on Ristretto255 curve hide values while allowing verification.
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -23,13 +44,15 @@ use std::collections::HashMap;
 // ============================================================================
 
 /// A committed value - hides the actual number
+///
+/// # Security Note
+/// In production, this would be a Ristretto255 point: `C = v·G + r·H`
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Commitment {
-    /// The Pedersen commitment point (compressed)
+    /// The commitment point (in production: compressed Ristretto255)
     pub point: [u8; 32],
-    /// Blinding factor (kept secret by prover)
-    #[serde(skip)]
-    pub blinding: Option<[u8; 32]>,
+    // NOTE: Blinding factor removed from struct to prevent accidental leakage.
+    // Prover must track blindings separately in a secure manner.
 }
 
 /// A zero-knowledge proof

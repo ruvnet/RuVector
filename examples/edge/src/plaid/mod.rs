@@ -145,10 +145,18 @@ pub struct BudgetRecommendation {
 pub struct FinancialLearningState {
     pub version: u64,
     pub patterns: HashMap<String, SpendingPattern>,
-    pub category_embeddings: Vec<(String, Vec<f32>)>,
+    /// Category embeddings - HashMap prevents unbounded growth (was Vec which leaked memory)
+    pub category_embeddings: HashMap<String, Vec<f32>>,
     pub q_values: HashMap<String, f64>, // state|action -> Q-value
-    pub temporal_weights: Vec<f32>, // Day-of-week weights
-    pub monthly_weights: Vec<f32>,  // Day-of-month weights
+    pub temporal_weights: Vec<f32>, // Day-of-week weights (7 days: Sun-Sat)
+    pub monthly_weights: Vec<f32>,  // Day-of-month weights (31 days)
+    /// Maximum embeddings to store (LRU eviction when exceeded)
+    #[serde(default = "default_max_embeddings")]
+    pub max_embeddings: usize,
+}
+
+fn default_max_embeddings() -> usize {
+    10_000 // ~400KB at 10 floats per embedding
 }
 
 impl Default for FinancialLearningState {
@@ -156,10 +164,11 @@ impl Default for FinancialLearningState {
         Self {
             version: 0,
             patterns: HashMap::new(),
-            category_embeddings: Vec::new(),
+            category_embeddings: HashMap::new(),
             q_values: HashMap::new(),
             temporal_weights: vec![1.0; 7],  // 7 days
             monthly_weights: vec![1.0; 31],   // 31 days
+            max_embeddings: default_max_embeddings(),
         }
     }
 }
