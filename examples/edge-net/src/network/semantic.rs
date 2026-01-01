@@ -34,7 +34,7 @@ use serde::{Serialize, Deserialize};
 use rustc_hash::FxHashMap;
 use std::sync::RwLock;
 
-use crate::rac::{Event, EventKind, Ruvector};
+use crate::rac::Event;
 
 // ============================================================================
 // Types
@@ -377,22 +377,42 @@ impl HnswIndex {
 
             // Add bidirectional edges
             for neighbor_id in &neighbor_ids {
-                if let Some(neighbor_node) = self.layers[l].get_mut(neighbor_id) {
-                    if !neighbor_node.neighbors.contains(&peer_id) {
-                        neighbor_node.neighbors.push(peer_id);
-                        // Prune if too many connections
-                        if neighbor_node.neighbors.len() > max_conn {
-                            // Keep closest neighbors
-                            let node_vec = neighbor_node.vector.clone();
-                            let mut scored: Vec<_> = neighbor_node.neighbors
-                                .iter()
-                                .filter_map(|nid| {
-                                    self.layers[l].get(nid).map(|n| (*nid, Self::similarity(&node_vec, &n.vector)))
-                                })
-                                .collect();
-                            scored.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
-                            neighbor_node.neighbors = scored.into_iter().take(max_conn).map(|(id, _)| id).collect();
+                // First, check if we need to add the edge and if pruning is needed
+                let needs_prune = {
+                    if let Some(neighbor_node) = self.layers[l].get_mut(neighbor_id) {
+                        if !neighbor_node.neighbors.contains(&peer_id) {
+                            neighbor_node.neighbors.push(peer_id);
+                            neighbor_node.neighbors.len() > max_conn
+                        } else {
+                            false
                         }
+                    } else {
+                        false
+                    }
+                };
+
+                // If pruning needed, do it in a separate scope
+                if needs_prune {
+                    // Collect vectors we need for scoring
+                    let (node_vec, neighbor_list): (Vec<f32>, Vec<PeerId>) = {
+                        let node = self.layers[l].get(neighbor_id).unwrap();
+                        (node.vector.clone(), node.neighbors.clone())
+                    };
+
+                    // Score all neighbors
+                    let mut scored: Vec<_> = neighbor_list
+                        .iter()
+                        .filter_map(|nid| {
+                            self.layers[l].get(nid).map(|n| (*nid, Self::similarity(&node_vec, &n.vector)))
+                        })
+                        .collect();
+
+                    scored.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+                    let pruned_neighbors: Vec<PeerId> = scored.into_iter().take(max_conn).map(|(id, _)| id).collect();
+
+                    // Apply pruned neighbors
+                    if let Some(neighbor_node) = self.layers[l].get_mut(neighbor_id) {
+                        neighbor_node.neighbors = pruned_neighbors;
                     }
                 }
             }
@@ -983,6 +1003,7 @@ impl SemanticRouter {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::rac::{EventKind, Ruvector};
 
     fn make_peer_id(seed: u8) -> PeerId {
         [seed; 32]

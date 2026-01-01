@@ -2806,4 +2806,520 @@ mod tests {
         let stats: CoherenceStats = serde_json::from_str(&engine.get_stats()).unwrap();
         assert!(stats.escalations > 0);
     }
+
+    // ========================================================================
+    // AI Model Consensus Tests
+    // ========================================================================
+
+    #[test]
+    fn test_task_type_enum() {
+        let text_gen = TaskType::TextGeneration;
+        let code_gen = TaskType::CodeGeneration;
+        let custom = TaskType::Custom("my-task".to_string());
+
+        assert_eq!(text_gen, TaskType::TextGeneration);
+        assert_ne!(text_gen, code_gen);
+        assert_eq!(TaskType::default(), TaskType::TextGeneration);
+
+        if let TaskType::Custom(name) = custom {
+            assert_eq!(name, "my-task");
+        } else {
+            panic!("Expected Custom variant");
+        }
+    }
+
+    #[test]
+    fn test_model_weight_claim() {
+        let claim = ModelWeightClaim {
+            model_id: "llama-7b".to_string(),
+            layer: "transformer.h.0.attn".to_string(),
+            weights_hash: [1u8; 32],
+            version: 1,
+            quantization: Some("int8".to_string()),
+            param_count: 1_000_000,
+        };
+
+        assert_eq!(claim.model_id, "llama-7b");
+        assert_eq!(claim.version, 1);
+        assert_eq!(claim.param_count, 1_000_000);
+    }
+
+    #[test]
+    fn test_lora_adapter_claim() {
+        let claim = LoraAdapterClaim {
+            adapter_id: "code-adapter-v1".to_string(),
+            task_type: TaskType::CodeGeneration,
+            rank: 4,
+            weights_hash: [2u8; 32],
+            base_model_id: "llama-7b".to_string(),
+            metrics: Some(AdapterMetrics {
+                final_loss: 0.15,
+                val_accuracy: 0.92,
+                train_samples: 10_000,
+                epochs: 3,
+            }),
+        };
+
+        assert_eq!(claim.rank, 4);
+        assert_eq!(claim.task_type, TaskType::CodeGeneration);
+        assert!(claim.metrics.is_some());
+        assert!((claim.metrics.as_ref().unwrap().val_accuracy - 0.92).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_learning_pattern_claim() {
+        let claim = LearningPatternClaim {
+            pattern_id: "pattern-1".to_string(),
+            embedding: vec![0.1, 0.2, 0.3, 0.4],
+            quality_score: 0.85,
+            sample_count: 500,
+            domain: "code-completion".to_string(),
+            confidence_interval: (0.80, 0.90),
+        };
+
+        assert_eq!(claim.embedding.len(), 4);
+        assert_eq!(claim.sample_count, 500);
+        assert_eq!(claim.confidence_interval, (0.80, 0.90));
+    }
+
+    #[test]
+    fn test_gradient_contribution_claim() {
+        let claim = GradientContributionClaim {
+            round: 42,
+            contributor: [3u8; 32],
+            gradient_hash: [4u8; 32],
+            reputation_at_time: 0.8,
+            local_samples: 1000,
+            gradient_norm: 5.5,
+            model_id: "llama-7b".to_string(),
+            signature: vec![0u8; 64],
+        };
+
+        assert_eq!(claim.round, 42);
+        assert_eq!(claim.local_samples, 1000);
+        assert!((claim.gradient_norm - 5.5).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_claim_type_names() {
+        let standard = ClaimType::Standard(AssertEvent {
+            proposition: vec![],
+            evidence: vec![],
+            confidence: 0.9,
+            expires_at_unix_ms: None,
+        });
+        assert_eq!(standard.type_name(), "standard");
+
+        let model_weight = ClaimType::ModelWeight(ModelWeightClaim {
+            model_id: "test".to_string(),
+            layer: "layer0".to_string(),
+            weights_hash: [0u8; 32],
+            version: 1,
+            quantization: None,
+            param_count: 100,
+        });
+        assert_eq!(model_weight.type_name(), "model_weight");
+
+        let gradient = ClaimType::GradientContribution(GradientContributionClaim {
+            round: 1,
+            contributor: [0u8; 32],
+            gradient_hash: [0u8; 32],
+            reputation_at_time: 0.5,
+            local_samples: 10,
+            gradient_norm: 1.0,
+            model_id: "test".to_string(),
+            signature: vec![],
+        });
+        assert_eq!(gradient.type_name(), "gradient_contribution");
+    }
+
+    #[test]
+    fn test_model_consensus_manager_basic() {
+        let manager = ModelConsensusManager::new(2);
+
+        assert_eq!(manager.model_count(), 0);
+        assert_eq!(manager.dispute_count(), 0);
+        assert_eq!(manager.quarantined_update_count(), 0);
+
+        let stats = manager.get_stats();
+        assert!(stats.contains("\"models\":0"));
+        assert!(stats.contains("\"disputes\":0"));
+    }
+
+    #[test]
+    fn test_model_weight_registration() {
+        let manager = ModelConsensusManager::new(2);
+
+        let event_id_1 = [1u8; 32];
+        let event_id_2 = [2u8; 32];
+
+        let claim1 = ModelWeightClaim {
+            model_id: "llama-7b".to_string(),
+            layer: "layer0".to_string(),
+            weights_hash: [10u8; 32],
+            version: 1,
+            quantization: None,
+            param_count: 1000,
+        };
+
+        let claim2 = ModelWeightClaim {
+            model_id: "llama-7b".to_string(),
+            layer: "layer0".to_string(),
+            weights_hash: [10u8; 32], // Same hash = agreement
+            version: 1,
+            quantization: None,
+            param_count: 1000,
+        };
+
+        manager.register_model_claim(event_id_1, claim1);
+        manager.register_model_claim(event_id_2, claim2);
+
+        assert_eq!(manager.model_count(), 1);
+
+        // Should reach consensus with 2 agreeing witnesses
+        let consensus = manager.model_consensus("llama-7b", "layer0");
+        assert!(consensus.is_some());
+
+        let consensus = consensus.unwrap();
+        assert_eq!(consensus.agreed_version, 1);
+        assert_eq!(consensus.witness_count, 2);
+        assert!((consensus.confidence - 1.0).abs() < 0.001); // 100% agreement
+    }
+
+    #[test]
+    fn test_model_weight_conflict_detection() {
+        let manager = ModelConsensusManager::new(1);
+
+        let event_id_1 = [1u8; 32];
+        let event_id_2 = [2u8; 32];
+
+        // Same model, same layer, same version, DIFFERENT hash = conflict
+        let claim1 = ModelWeightClaim {
+            model_id: "llama-7b".to_string(),
+            layer: "layer0".to_string(),
+            weights_hash: [10u8; 32],
+            version: 1,
+            quantization: None,
+            param_count: 1000,
+        };
+
+        let claim2 = ModelWeightClaim {
+            model_id: "llama-7b".to_string(),
+            layer: "layer0".to_string(),
+            weights_hash: [20u8; 32], // Different hash!
+            version: 1,
+            quantization: None,
+            param_count: 1000,
+        };
+
+        manager.register_model_claim(event_id_1, claim1);
+        manager.register_model_claim(event_id_2, claim2);
+
+        let disputes = manager.detect_model_conflicts("llama-7b");
+        assert_eq!(disputes.len(), 1);
+        assert!(!disputes[0].resolved);
+        assert!((disputes[0].severity - 0.8).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_gradient_validation_missing_signature() {
+        let manager = ModelConsensusManager::new(2);
+
+        let claim = GradientContributionClaim {
+            round: 1,
+            contributor: [1u8; 32],
+            gradient_hash: [2u8; 32],
+            reputation_at_time: 0.8,
+            local_samples: 100,
+            gradient_norm: 5.0,
+            model_id: "test".to_string(),
+            signature: vec![], // Empty signature
+        };
+
+        let result = manager.validate_gradient(&claim, None);
+
+        assert!(!result.valid);
+        assert_eq!(result.score, 0.0);
+        assert!(result.rejection_reason.is_some());
+        assert!(result.rejection_reason.unwrap().contains("Missing signature"));
+    }
+
+    #[test]
+    fn test_gradient_validation_excessive_norm() {
+        let manager = ModelConsensusManager::new(2);
+
+        let claim = GradientContributionClaim {
+            round: 1,
+            contributor: [1u8; 32],
+            gradient_hash: [2u8; 32],
+            reputation_at_time: 0.8,
+            local_samples: 100,
+            gradient_norm: 500.0, // Exceeds max of 100.0
+            model_id: "test".to_string(),
+            signature: vec![0u8; 64],
+        };
+
+        let result = manager.validate_gradient(&claim, None);
+
+        // Should have anomaly but might still be valid with reduced score
+        assert!(result.anomalies.iter().any(|a| a.contains("Gradient norm")));
+        assert!(result.score < 1.0);
+    }
+
+    #[test]
+    fn test_gradient_equivocation_detection() {
+        let manager = ModelConsensusManager::new(2);
+
+        let contributor = [1u8; 32];
+        let event_id_1 = [10u8; 32];
+
+        // First gradient for round 1
+        let claim1 = GradientContributionClaim {
+            round: 1,
+            contributor,
+            gradient_hash: [2u8; 32],
+            reputation_at_time: 0.8,
+            local_samples: 100,
+            gradient_norm: 5.0,
+            model_id: "test".to_string(),
+            signature: vec![0u8; 64],
+        };
+
+        manager.register_gradient_claim(event_id_1, claim1);
+
+        // Second gradient for same round with DIFFERENT hash = equivocation
+        let claim2 = GradientContributionClaim {
+            round: 1,
+            contributor,
+            gradient_hash: [3u8; 32], // Different!
+            reputation_at_time: 0.8,
+            local_samples: 100,
+            gradient_norm: 5.0,
+            model_id: "test".to_string(),
+            signature: vec![0u8; 64],
+        };
+
+        let result = manager.validate_gradient(&claim2, None);
+
+        assert!(!result.valid);
+        assert!(result.rejection_reason.is_some());
+        assert!(result.rejection_reason.unwrap().contains("Equivocation"));
+    }
+
+    #[test]
+    fn test_quarantine_model_update() {
+        let manager = ModelConsensusManager::new(2);
+
+        let model_id = "llama-7b";
+        let event_id = [5u8; 32];
+
+        assert!(!manager.is_update_quarantined(model_id, &event_id));
+
+        manager.quarantine_model_update(model_id, event_id, None);
+
+        assert!(manager.is_update_quarantined(model_id, &event_id));
+        assert_eq!(manager.quarantined_update_count(), 1);
+
+        // Lift quarantine
+        assert!(manager.lift_quarantine(model_id, &event_id));
+        assert!(!manager.is_update_quarantined(model_id, &event_id));
+    }
+
+    #[test]
+    fn test_lora_consensus() {
+        let manager = ModelConsensusManager::new(1);
+
+        let event_id_1 = [1u8; 32];
+        let event_id_2 = [2u8; 32];
+
+        // LoRA adapter with lower accuracy
+        let claim1 = LoraAdapterClaim {
+            adapter_id: "code-adapter".to_string(),
+            task_type: TaskType::CodeGeneration,
+            rank: 4,
+            weights_hash: [10u8; 32],
+            base_model_id: "llama-7b".to_string(),
+            metrics: Some(AdapterMetrics {
+                final_loss: 0.2,
+                val_accuracy: 0.85,
+                train_samples: 5000,
+                epochs: 2,
+            }),
+        };
+
+        // LoRA adapter with higher accuracy (should win)
+        let claim2 = LoraAdapterClaim {
+            adapter_id: "code-adapter".to_string(),
+            task_type: TaskType::CodeGeneration,
+            rank: 4,
+            weights_hash: [20u8; 32],
+            base_model_id: "llama-7b".to_string(),
+            metrics: Some(AdapterMetrics {
+                final_loss: 0.1,
+                val_accuracy: 0.92,
+                train_samples: 10000,
+                epochs: 3,
+            }),
+        };
+
+        manager.register_lora_claim(event_id_1, claim1);
+        manager.register_lora_claim(event_id_2, claim2);
+
+        let consensus = manager.lora_consensus("code-adapter");
+        assert!(consensus.is_some());
+
+        let (_, best_claim) = consensus.unwrap();
+        assert!((best_claim.metrics.unwrap().val_accuracy - 0.92).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_pattern_consensus() {
+        let manager = ModelConsensusManager::new(1);
+
+        let event_id_1 = [1u8; 32];
+        let event_id_2 = [2u8; 32];
+
+        // Pattern with lower quality
+        let claim1 = LearningPatternClaim {
+            pattern_id: "pattern-1".to_string(),
+            embedding: vec![0.1, 0.2],
+            quality_score: 0.7,
+            sample_count: 100,
+            domain: "test".to_string(),
+            confidence_interval: (0.65, 0.75),
+        };
+
+        // Pattern with higher quality and more samples
+        let claim2 = LearningPatternClaim {
+            pattern_id: "pattern-1".to_string(),
+            embedding: vec![0.3, 0.4],
+            quality_score: 0.9,
+            sample_count: 1000,
+            domain: "test".to_string(),
+            confidence_interval: (0.85, 0.95),
+        };
+
+        manager.register_pattern_claim(event_id_1, claim1);
+        manager.register_pattern_claim(event_id_2, claim2);
+
+        let consensus = manager.pattern_consensus("pattern-1");
+        assert!(consensus.is_some());
+
+        let (_, best_claim) = consensus.unwrap();
+        assert!((best_claim.quality_score - 0.9).abs() < 0.001);
+        assert_eq!(best_claim.sample_count, 1000);
+    }
+
+    #[test]
+    fn test_federated_learning_round_aggregation() {
+        let manager = ModelConsensusManager::new(1);
+
+        let round = 42u64;
+
+        // Three different contributors for the same round
+        for i in 0..3 {
+            let mut contributor = [0u8; 32];
+            contributor[0] = i as u8;
+
+            let claim = GradientContributionClaim {
+                round,
+                contributor,
+                gradient_hash: [(i + 10) as u8; 32],
+                reputation_at_time: 0.5 + (i as f32 * 0.1),
+                local_samples: 100 + i * 50,
+                gradient_norm: 5.0,
+                model_id: "test".to_string(),
+                signature: vec![0u8; 64],
+            };
+
+            manager.register_gradient_claim([(i + 100) as u8; 32], claim);
+        }
+
+        let result = manager.aggregate_round_gradients(round, 2);
+        assert!(result.is_some());
+
+        let contributors = result.unwrap();
+        assert_eq!(contributors.len(), 3);
+    }
+
+    #[test]
+    fn test_coherence_engine_model_consensus_integration() {
+        let mut engine = CoherenceEngine::new();
+        let manager = engine.create_model_consensus_manager(2);
+        let context = [0u8; 32];
+        let author = [1u8; 32];
+
+        // Create model weight claim event
+        let claim = ModelWeightClaim {
+            model_id: "llama-7b".to_string(),
+            layer: "layer0".to_string(),
+            weights_hash: [10u8; 32],
+            version: 1,
+            quantization: None,
+            param_count: 1000,
+        };
+
+        let event = Event::new(
+            author,
+            context,
+            Ruvector::new(vec![1.0, 0.0]),
+            EventKind::ModelClaim(ClaimType::ModelWeight(claim)),
+            None,
+        );
+
+        let result = engine.ingest_model_claim(event, &manager);
+        assert!(matches!(result, IngestResult::Success(_)));
+        assert_eq!(manager.model_count(), 1);
+    }
+
+    #[test]
+    fn test_weight_consensus_struct() {
+        let consensus = WeightConsensus {
+            model_id: "test-model".to_string(),
+            agreed_version: 5,
+            agreed_hash: [42u8; 32],
+            witness_count: 3,
+            confidence: 0.95,
+            consensus_time: 1234567890,
+            contributing_events: vec![[1u8; 32], [2u8; 32], [3u8; 32]],
+            quarantined_claims: vec![[4u8; 32]],
+        };
+
+        assert_eq!(consensus.agreed_version, 5);
+        assert_eq!(consensus.witness_count, 3);
+        assert_eq!(consensus.contributing_events.len(), 3);
+        assert_eq!(consensus.quarantined_claims.len(), 1);
+    }
+
+    #[test]
+    fn test_model_dispute_struct() {
+        let dispute = ModelDispute {
+            model_id: "llama-7b:layer0".to_string(),
+            version_conflicts: vec![([1u8; 32], 1), ([2u8; 32], 1)],
+            hash_conflicts: vec![([1u8; 32], [10u8; 32]), ([2u8; 32], [20u8; 32])],
+            severity: 0.8,
+            detected_at: 1234567890,
+            resolved: false,
+        };
+
+        assert_eq!(dispute.version_conflicts.len(), 2);
+        assert_eq!(dispute.hash_conflicts.len(), 2);
+        assert!(!dispute.resolved);
+    }
+
+    #[test]
+    fn test_gradient_validation_struct() {
+        let validation = GradientValidation {
+            valid: true,
+            score: 0.95,
+            rejection_reason: None,
+            anomalies: vec![],
+            reputation_factor: 0.8,
+        };
+
+        assert!(validation.valid);
+        assert!((validation.score - 0.95).abs() < 0.001);
+        assert!(validation.rejection_reason.is_none());
+        assert!(validation.anomalies.is_empty());
+    }
 }

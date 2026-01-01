@@ -241,7 +241,18 @@ impl HnswIndex {
         let m = self.config.m.max(2) as f32;
         let ml = 1.0 / m.ln();
 
-        let r: f32 = rand::random();
+        // Use wasm-compatible random via js_sys
+        #[cfg(target_arch = "wasm32")]
+        let r: f32 = js_sys::Math::random() as f32;
+        #[cfg(not(target_arch = "wasm32"))]
+        let r: f32 = {
+            use std::time::{SystemTime, UNIX_EPOCH};
+            let seed = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap_or_default()
+                .subsec_nanos();
+            ((seed as f32 / u32::MAX as f32) * 1000.0).fract()
+        };
         if r <= f32::EPSILON {
             return 0;
         }

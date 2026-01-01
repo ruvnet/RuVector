@@ -1,10 +1,10 @@
 //! # AI Module for Edge-Net
 //!
-//! Provides core AI capabilities for the P2P network, ported from ruvLLM:
+//! Provides core AI capabilities for the P2P network:
 //!
 //! - **HNSW Vector Index** (`memory.rs`): 150x faster than naive search, O(log N) complexity
-//! - **Graph Attention** (`attention.rs`): Multi-head attention with edge features
-//! - **FastGRNN Router** (`router.rs`): Model selection with sparse/low-rank matrices
+//! - **MicroLoRA Adapter Pool** (`lora.rs`): Task-specific adaptation with LRU eviction
+//! - **Federated Learning** (`federated.rs`): P2P gradient gossip without coordinators
 //!
 //! ## Architecture
 //!
@@ -13,13 +13,22 @@
 //! |                    AI Intelligence Layer                       |
 //! +----------------------------------------------------------------+
 //! |  +-----------------+  +-----------------+  +-----------------+ |
-//! |  |  HNSW Index     |  | Graph Attention |  | FastGRNN Router | |
-//! |  |  (memory.rs)    |  |  (attention.rs) |  |   (router.rs)   | |
+//! |  |  HNSW Index     |  |  AdapterPool    |  |  Federated      | |
+//! |  |  (memory.rs)    |  |   (lora.rs)     |  | (federated.rs)  | |
 //! |  |                 |  |                 |  |                 | |
-//! |  | - 150x speedup  |  | - 8 heads       |  | - 90% sparse    | |
-//! |  | - O(log N)      |  | - Edge features |  | - Low-rank U    | |
-//! |  | - P2P sync      |  | - Residual      |  | - Multi-output  | |
+//! |  | - 150x speedup  |  | - LRU eviction  |  | - TopK Sparse   | |
+//! |  | - O(log N)      |  | - 16 slots      |  | - Byzantine tol | |
+//! |  | - P2P sync      |  | - Task routing  |  | - Rep-weighted  | |
 //! |  +-----------------+  +-----------------+  +-----------------+ |
+//! |                            |                                   |
+//! |  +-----------------+  +-----------------+                      |
+//! |  |  LoraAdapter    |  |   GradientGossip |                     |
+//! |  |  (lora.rs)      |  |  (federated.rs) |                      |
+//! |  |                 |  |                 |                      |
+//! |  | - Rank 1-16     |  | - Error feedback|                      |
+//! |  | - SIMD forward  |  | - Diff privacy  |                      |
+//! |  | - 4/8-bit quant |  | - Gossipsub     |                      |
+//! |  +-----------------+  +-----------------+                      |
 //! |                            |                                   |
 //! |                    ComputeOps Trait                            |
 //! |             (SIMD acceleration when available)                 |
@@ -29,30 +38,50 @@
 //! ## Usage
 //!
 //! ```rust,ignore
-//! use edge_net::ai::{HnswIndex, GraphAttention, FastGRNNRouter};
+//! use edge_net::ai::{HnswIndex, GradientGossip, FederatedModel};
 //!
 //! // Create HNSW index for semantic search
 //! let mut index = HnswIndex::new(128, HnswConfig::default());
 //! index.insert("doc-1", vec![0.1; 128])?;
 //! let results = index.search(&query, 10)?;
 //!
-//! // Graph attention for context ranking
-//! let attn = GraphAttention::new(128, 8)?;
-//! let context = attn.attend(&query, &subgraph)?;
+//! // Federated learning with gradient gossip
+//! let gossip = GradientGossip::new(&peer_id, 1000, 0.1)?;
+//! gossip.set_local_gradients(&gradients)?;
+//! let aggregated = gossip.aggregate();
 //!
-//! // FastGRNN for model routing
-//! let router = FastGRNNRouter::new(RouterConfig::default())?;
-//! let decision = router.forward(&features, &hidden)?;
+//! // Apply to model
+//! let model = FederatedModel::new(1000, 0.01, 0.9);
+//! model.apply_gradients(&aggregated)?;
 //! ```
 
 pub mod memory;
-pub mod attention;
-pub mod router;
+pub mod lora;
+pub mod federated;
 
-// Re-export main types
+// Re-export memory types
 pub use memory::{HnswIndex, HnswConfig, HnswNode, SearchResult as HnswSearchResult};
-pub use attention::{GraphAttention, GraphContext, AttentionConfig};
-pub use router::{FastGRNNRouter, RouterConfig, RoutingDecision};
+
+// Re-export LoRA types
+pub use lora::{
+    AdapterPool, LoraAdapter, TaskType, PoolStats,
+    QuantizationLevel, QuantizedTensor,
+    LruEvictionPolicy, WasmAdapterPool,
+    OPTIMAL_BATCH_SIZE, DEFAULT_MAX_ADAPTERS,
+};
+
+// Re-export federated learning types
+pub use federated::{
+    GradientGossip,
+    GradientMessage,
+    SparseGradient,
+    TopKSparsifier,
+    ByzantineDetector,
+    DifferentialPrivacy,
+    FederatedModel,
+    TOPIC_GRADIENT_GOSSIP,
+    TOPIC_MODEL_SYNC,
+};
 
 /// Common compute operations trait for SIMD acceleration
 /// Used by all AI components for distance calculations and matrix ops

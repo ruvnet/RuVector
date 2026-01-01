@@ -52,8 +52,10 @@ pub mod pikey;
 pub mod learning;
 pub mod rac;
 pub mod mcp;
-pub mod capabilities;
 pub mod swarm;
+pub mod capabilities;
+pub mod compute;
+pub mod ai;
 
 use identity::WasmNodeIdentity;
 use learning::NetworkLearning;
@@ -65,7 +67,7 @@ use events::NetworkEvents;
 use adversarial::AdversarialSimulator;
 use evolution::{EconomicEngine, EvolutionEngine, NetworkTopology, OptimizationEngine};
 use tribute::{FoundingRegistry, ContributionStream};
-use capabilities::WasmCapabilities;
+pub use capabilities::WasmCapabilities;
 
 /// Initialize panic hook for better error messages in console
 #[wasm_bindgen(start)]
@@ -575,12 +577,6 @@ impl EdgeNetNode {
     }
 
     /// Enable Time Crystal for P2P synchronization
-    ///
-    /// Time crystals provide robust distributed coordination using
-    /// discrete time crystal dynamics with period-doubled oscillations.
-    ///
-    /// # Arguments
-    /// * `oscillators` - Number of oscillators (more = better coordination, e.g., 8-16)
     #[wasm_bindgen(js_name = enableTimeCrystal)]
     pub fn enable_time_crystal(&mut self, oscillators: usize) -> bool {
         self.capabilities.enable_time_crystal(oscillators, 100)
@@ -592,147 +588,61 @@ impl EdgeNetNode {
         self.capabilities.get_time_crystal_sync()
     }
 
-    /// Check if Time Crystal is stable (crystallized)
-    #[wasm_bindgen(js_name = isTimeCrystalStable)]
-    pub fn is_time_crystal_stable(&self) -> bool {
-        self.capabilities.is_time_crystal_stable()
-    }
-
-    /// Enable Neural Autonomous Organization for decentralized governance
-    ///
-    /// NAO provides stake-weighted quadratic voting for collective
-    /// decision-making with oscillatory synchronization.
-    ///
-    /// # Arguments
-    /// * `quorum` - Required quorum for proposals (0.0 - 1.0, e.g., 0.7 = 70%)
+    /// Enable Neural Autonomous Organization for governance
     #[wasm_bindgen(js_name = enableNAO)]
     pub fn enable_nao(&mut self, quorum: f32) -> bool {
         self.capabilities.enable_nao(quorum)
     }
 
-    /// Add a member to the NAO governance system
-    #[wasm_bindgen(js_name = addNAOMember)]
-    pub fn add_nao_member(&mut self, member_id: &str, stake: u64) -> bool {
-        self.capabilities.add_nao_member(member_id, stake)
-    }
-
     /// Propose an action in the NAO
-    #[wasm_bindgen(js_name = proposeNAOAction)]
-    pub fn propose_nao_action(&mut self, action: &str) -> String {
+    #[wasm_bindgen(js_name = proposeNAO)]
+    pub fn propose_nao(&mut self, action: &str) -> String {
         self.capabilities.propose_nao(action)
     }
 
     /// Vote on a NAO proposal
-    #[wasm_bindgen(js_name = voteNAOProposal)]
-    pub fn vote_nao_proposal(&mut self, proposal_id: &str, weight: f32) -> bool {
+    #[wasm_bindgen(js_name = voteNAO)]
+    pub fn vote_nao(&mut self, proposal_id: &str, weight: f32) -> bool {
         self.capabilities.vote_nao(proposal_id, weight)
     }
 
-    /// Execute a NAO proposal if quorum reached
-    #[wasm_bindgen(js_name = executeNAOProposal)]
-    pub fn execute_nao_proposal(&mut self, proposal_id: &str) -> bool {
-        self.capabilities.execute_nao(proposal_id)
-    }
-
-    /// Enable MicroLoRA for per-node self-learning
-    ///
-    /// MicroLoRA provides rank-2 LoRA adaptation with <100us latency
-    /// for real-time per-operator learning.
-    ///
-    /// # Arguments
-    /// * `rank` - Rank of the LoRA adaptation (typically 2-4)
+    /// Enable MicroLoRA for self-learning
     #[wasm_bindgen(js_name = enableMicroLoRA)]
     pub fn enable_micro_lora(&mut self, rank: usize) -> bool {
-        // Use 128-dim embeddings by default
         self.capabilities.enable_micro_lora(128, rank)
     }
 
-    /// Adapt MicroLoRA weights with a gradient
-    #[wasm_bindgen(js_name = adaptMicroLoRA)]
-    pub fn adapt_micro_lora(&mut self, operator_type: &str, gradient: &[f32]) -> bool {
-        self.capabilities.adapt_micro_lora(operator_type, gradient)
-    }
-
-    /// Apply MicroLoRA to get adapted output
-    #[wasm_bindgen(js_name = applyMicroLoRA)]
-    pub fn apply_micro_lora(&self, operator_type: &str, input: &[f32]) -> Vec<f32> {
-        self.capabilities.apply_micro_lora(operator_type, input)
-    }
-
-    /// Enable HDC (Hyperdimensional Computing) for distributed reasoning
-    ///
-    /// HDC uses 10,000-bit binary hypervectors for efficient semantic
-    /// operations with <50ns bind time.
+    /// Enable HDC for hyperdimensional computing
     #[wasm_bindgen(js_name = enableHDC)]
     pub fn enable_hdc(&mut self) -> bool {
         self.capabilities.enable_hdc()
     }
 
-    /// Store a pattern in HDC memory
-    #[wasm_bindgen(js_name = storeHDCPattern)]
-    pub fn store_hdc_pattern(&mut self, key: &str) -> bool {
-        self.capabilities.store_hdc(key)
-    }
-
-    /// Enable WTA (Winner-Take-All) for instant decisions
-    ///
-    /// WTA provides <1us decision time with lateral inhibition.
-    ///
-    /// # Arguments
-    /// * `num_neurons` - Number of competing neurons
+    /// Enable WTA for instant decisions
     #[wasm_bindgen(js_name = enableWTA)]
     pub fn enable_wta(&mut self, num_neurons: usize) -> bool {
         self.capabilities.enable_wta(num_neurons, 0.5, 0.8)
     }
 
-    /// Enable Global Workspace for attention bottleneck
-    ///
-    /// Based on Global Workspace Theory with 7 +/- 2 item capacity.
-    ///
-    /// # Arguments
-    /// * `capacity` - Workspace capacity (typically 5-7)
+    /// Enable Global Workspace for attention
     #[wasm_bindgen(js_name = enableGlobalWorkspace)]
     pub fn enable_global_workspace(&mut self, capacity: usize) -> bool {
         self.capabilities.enable_global_workspace(capacity)
     }
 
     /// Enable BTSP for one-shot learning
-    ///
-    /// BTSP (Behavioral Timescale Synaptic Plasticity) enables immediate
-    /// pattern association without iterative training.
-    ///
-    /// # Arguments
-    /// * `input_dim` - Input dimension
     #[wasm_bindgen(js_name = enableBTSP)]
     pub fn enable_btsp(&mut self, input_dim: usize) -> bool {
         self.capabilities.enable_btsp(input_dim, 2000.0)
     }
 
-    /// One-shot associate a pattern using BTSP
-    #[wasm_bindgen(js_name = oneShotAssociate)]
-    pub fn one_shot_associate(&mut self, pattern: &[f32], eligibility: f32) -> bool {
-        self.capabilities.one_shot_associate(pattern, eligibility)
-    }
-
     /// Enable Morphogenetic Network for emergent topology
-    ///
-    /// Uses cellular differentiation through morphogen gradients
-    /// for self-organizing network growth.
-    ///
-    /// # Arguments
-    /// * `size` - Grid size (width and height)
     #[wasm_bindgen(js_name = enableMorphogenetic)]
     pub fn enable_morphogenetic(&mut self, size: i32) -> bool {
         self.capabilities.enable_morphogenetic(size, size)
     }
 
-    /// Get morphogenetic network cell count
-    #[wasm_bindgen(js_name = getMorphogeneticCellCount)]
-    pub fn get_morphogenetic_cell_count(&self) -> usize {
-        self.capabilities.get_morphogenetic_cell_count()
-    }
-
-    /// Step all exotic capabilities forward (call in main loop)
+    /// Step all exotic capabilities forward
     #[wasm_bindgen(js_name = stepCapabilities)]
     pub fn step_capabilities(&mut self, dt: f32) {
         self.capabilities.step(dt);

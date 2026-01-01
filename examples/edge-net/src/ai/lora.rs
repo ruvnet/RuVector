@@ -253,7 +253,7 @@ impl QuantizedTensor {
 ///
 /// Uses low-rank decomposition: W' = W + (A @ B) * (alpha / rank)
 /// Where A is down projection and B is up projection.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct LoraAdapter {
     /// Rank of the adapter (1-16)
     pub rank: u8,
@@ -279,6 +279,24 @@ pub struct LoraAdapter {
     a_quantized: Option<QuantizedTensor>,
     /// Quantized B matrix (if quantized)
     b_quantized: Option<QuantizedTensor>,
+}
+
+impl Clone for LoraAdapter {
+    fn clone(&self) -> Self {
+        Self {
+            rank: self.rank,
+            alpha: self.alpha,
+            a_matrix: self.a_matrix.clone(),
+            b_matrix: self.b_matrix.clone(),
+            task_embedding: self.task_embedding.clone(),
+            hidden_dim: self.hidden_dim,
+            usage_count: AtomicU64::new(self.usage_count.load(Ordering::Relaxed)),
+            last_used: AtomicU64::new(self.last_used.load(Ordering::Relaxed)),
+            quantization: self.quantization,
+            a_quantized: self.a_quantized.clone(),
+            b_quantized: self.b_quantized.clone(),
+        }
+    }
 }
 
 impl LoraAdapter {
@@ -1005,7 +1023,7 @@ impl AdapterPool {
 }
 
 /// Pool statistics
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct PoolStats {
     /// Number of active adapters
     pub adapter_count: usize,

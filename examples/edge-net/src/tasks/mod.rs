@@ -15,7 +15,7 @@ use std::cmp::Ordering;
 
 /// Task types supported by the network
 #[wasm_bindgen]
-#[derive(Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Debug)]
 pub enum TaskType {
     /// Vector search in HNSW index
     VectorSearch,
