@@ -670,17 +670,17 @@ impl RewardManager {
 // Combined Economic Engine
 // ============================================================================
 
-/// Combined economic engine managing stakes, reputation, and rewards
-#[wasm_bindgen]
-pub struct EconomicEngine {
+/// RAC-specific combined economic engine managing stakes, reputation, and rewards
+#[wasm_bindgen(js_name = RacEconomicEngine)]
+pub struct RacEconomicEngine {
     stakes: StakeManager,
     reputation: ReputationManager,
     rewards: RewardManager,
 }
 
 #[wasm_bindgen]
-impl EconomicEngine {
-    /// Create a new economic engine
+impl RacEconomicEngine {
+    /// Create a new RAC economic engine
     #[wasm_bindgen(constructor)]
     pub fn new() -> Self {
         Self {
@@ -722,13 +722,13 @@ impl EconomicEngine {
     }
 }
 
-impl Default for EconomicEngine {
+impl Default for RacEconomicEngine {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl EconomicEngine {
+impl RacEconomicEngine {
     /// Record a successful task with economic effects
     pub fn record_task_success(&self, node_id: &PublicKeyBytes, task_id: EventId, reward_amount: u64) {
         self.reputation.record_success(node_id, 1.0);
@@ -830,7 +830,7 @@ mod tests {
 
     #[test]
     fn test_economic_engine() {
-        let engine = EconomicEngine::new();
+        let engine = RacEconomicEngine::new();
 
         let node_id = [1u8; 32];
 

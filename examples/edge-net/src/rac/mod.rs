@@ -61,7 +61,7 @@ use sha2::{Sha256, Digest};
 // Economic layer with staking, reputation, and rewards
 pub mod economics;
 pub use economics::{
-    EconomicEngine, StakeManager, ReputationManager, RewardManager,
+    RacEconomicEngine, StakeManager, ReputationManager, RewardManager,
     SlashReason, StakeRecord, ReputationRecord, RewardRecord,
 };
 
@@ -1705,9 +1705,9 @@ pub struct PeerRoute {
     pub latency_ms: u32,
 }
 
-/// Semantic gossip router for event propagation
-#[wasm_bindgen]
-pub struct SemanticRouter {
+/// RAC-specific semantic gossip router for event propagation
+#[wasm_bindgen(js_name = RacSemanticRouter)]
+pub struct RacSemanticRouter {
     /// Known peers
     peers: RwLock<Vec<PeerRoute>>,
     /// Random peer sample size
@@ -1717,7 +1717,7 @@ pub struct SemanticRouter {
 }
 
 #[wasm_bindgen]
-impl SemanticRouter {
+impl RacSemanticRouter {
     /// Create a new semantic router
     #[wasm_bindgen(constructor)]
     pub fn new() -> Self {
@@ -1735,13 +1735,13 @@ impl SemanticRouter {
     }
 }
 
-impl Default for SemanticRouter {
+impl Default for RacSemanticRouter {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl SemanticRouter {
+impl RacSemanticRouter {
     /// Register a peer
     pub fn register_peer(&self, peer_id: PublicKeyBytes, centroid: Ruvector, latency_ms: u32) {
         let mut peers = self.peers.write().unwrap();
@@ -2677,7 +2677,7 @@ mod tests {
 
     #[test]
     fn test_semantic_router() {
-        let router = SemanticRouter::new();
+        let router = RacSemanticRouter::new();
 
         router.register_peer([1u8; 32], Ruvector::new(vec![1.0, 0.0, 0.0]), 50);
         router.register_peer([2u8; 32], Ruvector::new(vec![0.0, 1.0, 0.0]), 100);

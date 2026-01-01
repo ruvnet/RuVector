@@ -2,10 +2,14 @@
   "name": "@ruvector/edge-net",
   "version": "0.1.0",
   "type": "module",
-  "description": "Distributed compute intelligence network - contribute browser compute, earn credits. Add one script tag to participate in a P2P compute marketplace.",
-  "main": "edge-net.js",
-  "module": "edge-net.js",
-  "types": "edge-net.d.ts",
+  "description": "Distributed compute intelligence network - contribute browser compute, earn credits. Features Time Crystal coordination, Neural DAG attention, and P2P swarm intelligence.",
+  "main": "ruvector_edge_net.js",
+  "module": "ruvector_edge_net.js",
+  "types": "ruvector_edge_net.d.ts",
+  "bin": {
+    "edge-net": "./cli.js",
+    "ruvector-edge": "./cli.js"
+  },
   "keywords": [
     "wasm",
     "distributed-computing",
@@ -20,9 +24,13 @@
     "edge-computing",
     "vector-search",
     "embeddings",
-    "cryptography"
+    "cryptography",
+    "time-crystal",
+    "dag-attention",
+    "swarm-intelligence",
+    "neural-network"
   ],
-  "author": "RuVector Team",
+  "author": "RuVector Team <team@ruvector.dev>",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -33,51 +41,32 @@
     "url": "https://github.com/ruvnet/ruvector/issues"
   },
   "files": [
-    "edge-net_bg.wasm",
-    "edge-net.js",
-    "edge-net.min.js",
-    "edge-net.d.ts",
-    "edge-net_bg.wasm.d.ts",
-    "worker.js",
-    "worker-pool.js",
-    "network.js",
-    "widget.js",
-    "widget.css",
+    "ruvector_edge_net_bg.wasm",
+    "ruvector_edge_net.js",
+    "ruvector_edge_net.d.ts",
+    "ruvector_edge_net_bg.wasm.d.ts",
+    "cli.js",
+    "README.md",
     "LICENSE"
   ],
   "exports": {
     ".": {
-      "import": "./edge-net.js",
-      "types": "./edge-net.d.ts"
+      "import": "./ruvector_edge_net.js",
+      "types": "./ruvector_edge_net.d.ts"
     },
-    "./worker": {
-      "import": "./worker.js"
-    },
-    "./worker-pool": {
-      "import": "./worker-pool.js"
-    },
-    "./network": {
-      "import": "./network.js"
-    },
-    "./widget": {
-      "import": "./widget.js"
+    "./wasm": {
+      "import": "./ruvector_edge_net_bg.wasm"
     }
   },
   "sideEffects": [
     "./snippets/*"
   ],
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "scripts": {
-    "build": "cd .. && wasm-pack build --target web --out-dir pkg",
-    "build:node": "cd .. && wasm-pack build --target nodejs --out-dir pkg-node",
-    "bundle": "esbuild edge-net.js --bundle --minify --outfile=edge-net.min.js",
-    "test": "wasm-pack test --headless --chrome"
-  },
-  "peerDependencies": {
-    "gun": "^0.2020.0"
-  },
-  "peerDependenciesMeta": {
-    "gun": {
-      "optional": true
-    }
+    "start": "node cli.js start",
+    "benchmark": "node cli.js benchmark",
+    "info": "node cli.js info"
   }
 }
