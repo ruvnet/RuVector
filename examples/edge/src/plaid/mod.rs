@@ -11,6 +11,7 @@
 //! - `zk_wasm` - WASM bindings for ZK proofs
 
 pub mod zkproofs;
+pub mod zkproofs_prod;
 
 #[cfg(feature = "wasm")]
 pub mod wasm;
@@ -18,72 +19,21 @@ pub mod wasm;
 #[cfg(feature = "wasm")]
 pub mod zk_wasm;
 
-// Re-export ZK types
+#[cfg(feature = "wasm")]
+pub mod zk_wasm_prod;
+
+// Re-export demo ZK types (for backward compatibility)
 pub use zkproofs::{
     ZkProof, ProofType, VerificationResult, Commitment,
     FinancialProofBuilder, RentalApplicationProof,
 };
-//!
-//! ## Architecture
-//!
-//! ```text
-//! ┌─────────────────────────────────────────────────────────────────────────┐
-//! │                        USER'S BROWSER (All Data Stays Here)             │
-//! │  ┌─────────────────────────────────────────────────────────────────────┤
-//! │  │                                                                      │
-//! │  │  ┌─────────────┐    ┌──────────────────┐    ┌──────────────────┐   │
-//! │  │  │ Plaid Link  │───▶│  Transaction     │───▶│  Local Learning  │   │
-//! │  │  │ (OAuth)     │    │  Processor       │    │  Engine (WASM)   │   │
-//! │  │  └─────────────┘    └──────────────────┘    └──────────────────┘   │
-//! │  │        │                    │                        │              │
-//! │  │        │                    │                        │              │
-//! │  │        ▼                    ▼                        ▼              │
-//! │  │  ┌─────────────┐    ┌──────────────────┐    ┌──────────────────┐   │
-//! │  │  │ Access      │    │  Pattern         │    │  Q-Learning      │   │
-//! │  │  │ Token       │    │  Embeddings      │    │  Patterns        │   │
-//! │  │  │ (IndexedDB) │    │  (IndexedDB)     │    │  (IndexedDB)     │   │
-//! │  │  └─────────────┘    └──────────────────┘    └──────────────────┘   │
-//! │  │                                                                      │
-//! │  │  ┌─────────────────────────────────────────────────────────────┐   │
-//! │  │  │                    HNSW Vector Index (WASM)                  │   │
-//! │  │  │  - Semantic transaction search                              │   │
-//! │  │  │  - Category prediction                                      │   │
-//! │  │  │  - Anomaly detection                                        │   │
-//! │  │  └─────────────────────────────────────────────────────────────┘   │
-//! │  │                                                                      │
-//! │  │  ┌─────────────────────────────────────────────────────────────┐   │
-//! │  │  │                 Spiking Neural Network (WASM)               │   │
-//! │  │  │  - Temporal spending patterns                               │   │
-//! │  │  │  - Habit detection                                          │   │
-//! │  │  │  - STDP learning (bio-inspired)                             │   │
-//! │  │  └─────────────────────────────────────────────────────────────┘   │
-//! │  │                                                                      │
-//! │  └──────────────────────────────────────────────────────────────────────┤
-//! └─────────────────────────────────────────────────────────────────────────┘
-//!                                    │
-//!                                    │ HTTPS (only OAuth + API calls)
-//!                                    ▼
-//!                         ┌─────────────────────┐
-//!                         │    Plaid Servers    │
-//!                         │  (Auth & Raw Data)  │
-//!                         └─────────────────────┘
-//! ```
-//!
-//! ## Privacy Guarantees
-//!
-//! 1. **No data exfiltration**: Financial data never leaves the browser
-//! 2. **Local-only learning**: All ML models train and run in WASM
-//! 3. **Encrypted storage**: IndexedDB data encrypted with user key
-//! 4. **No analytics/telemetry**: Zero tracking or data collection
-//! 5. **Optional differential privacy**: If sync enabled, noise is added
-//!
-//! ## Features
-//!
-//! - **Smart categorization**: ML-based transaction categorization
-//! - **Spending insights**: Pattern recognition without cloud processing
-//! - **Anomaly detection**: Flag unusual transactions locally
-//! - **Budget optimization**: Self-learning budget recommendations
-//! - **Temporal patterns**: Weekly/monthly spending habit detection
+
+// Re-export production ZK types
+pub use zkproofs_prod::{
+    PedersenCommitment, ZkRangeProof, ProofMetadata,
+    VerificationResult as ProdVerificationResult,
+    FinancialProver, FinancialVerifier, RentalApplicationBundle,
+};
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

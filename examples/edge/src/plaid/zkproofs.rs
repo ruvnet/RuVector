@@ -145,14 +145,15 @@ impl PedersenCommitment {
 
         Commitment {
             point,
-            blinding: Some(*blinding),
         }
     }
 
     /// Generate random blinding factor
     pub fn random_blinding() -> [u8; 32] {
+        use rand::Rng;
+        let mut rng = rand::thread_rng();
         let mut blinding = [0u8; 32];
-        getrandom::getrandom(&mut blinding).expect("Failed to generate randomness");
+        rng.fill(&mut blinding);
         blinding
     }
 
@@ -630,8 +631,10 @@ fn current_timestamp() -> u64 {
 }
 
 fn generate_anonymous_id() -> String {
+    use rand::Rng;
+    let mut rng = rand::thread_rng();
     let mut bytes = [0u8; 16];
-    getrandom::getrandom(&mut bytes).expect("Failed to generate ID");
+    rng.fill(&mut bytes);
     hex::encode(bytes)
 }
 

@@ -49,6 +49,7 @@ lz4_flex = "0.11"
 # Cryptography (for P2P security)
 ed25519-dalek = { version = "2.1", features = ["rand_core", "serde"] }
 x25519-dalek = { version = "2.0", features = ["static_secrets", "serde"] }
+curve25519-dalek = { version = "4.1", features = ["serde", "rand_core"] }
 aes-gcm = "0.10"
 hkdf = "0.12"
 sha2 = "0.10"
@@ -60,6 +61,12 @@ hex = { version = "0.4", features = ["serde"] }
 serde_bytes = "0.11"
 serde-big-array = "0.5"
 ordered-float = "4.2"
+
+# Production ZK proofs
+bulletproofs = "5.0"
+merlin = "3.0"
+subtle = "2.5"
+lazy_static = "1.4"
 
 # CLI
 clap = { version = "4.5", features = ["derive"] }
