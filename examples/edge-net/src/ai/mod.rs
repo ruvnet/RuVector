@@ -9,30 +9,30 @@
 //! ## Architecture
 //!
 //! ```text
-//! +----------------------------------------------------------------+
-//! |                    AI Intelligence Layer                       |
-//! +----------------------------------------------------------------+
-//! |  +-----------------+  +-----------------+  +-----------------+ |
-//! |  |  HNSW Index     |  |  AdapterPool    |  |  Federated      | |
-//! |  |  (memory.rs)    |  |   (lora.rs)     |  | (federated.rs)  | |
-//! |  |                 |  |                 |  |                 | |
-//! |  | - 150x speedup  |  | - LRU eviction  |  | - TopK Sparse   | |
-//! |  | - O(log N)      |  | - 16 slots      |  | - Byzantine tol | |
-//! |  | - P2P sync      |  | - Task routing  |  | - Rep-weighted  | |
-//! |  +-----------------+  +-----------------+  +-----------------+ |
-//! |                            |                                   |
-//! |  +-----------------+  +-----------------+                      |
-//! |  |  LoraAdapter    |  |   GradientGossip |                     |
-//! |  |  (lora.rs)      |  |  (federated.rs) |                      |
-//! |  |                 |  |                 |                      |
-//! |  | - Rank 1-16     |  | - Error feedback|                      |
-//! |  | - SIMD forward  |  | - Diff privacy  |                      |
-//! |  | - 4/8-bit quant |  | - Gossipsub     |                      |
-//! |  +-----------------+  +-----------------+                      |
-//! |                            |                                   |
-//! |                    ComputeOps Trait                            |
-//! |             (SIMD acceleration when available)                 |
-//! +----------------------------------------------------------------+
+//! +------------------------------------------------------------------------+
+//! |                       AI Intelligence Layer                            |
+//! +------------------------------------------------------------------------+
+//! |  +-----------------+  +-----------------+  +-----------------+         |
+//! |  |  HNSW Index     |  |  AdapterPool    |  |  Federated      |         |
+//! |  |  (memory.rs)    |  |   (lora.rs)     |  | (federated.rs)  |         |
+//! |  | Neural Attention|  |                 |  |                 |         |
+//! |  | "What matters?" |  | - LRU eviction  |  | - TopK Sparse   |         |
+//! |  | - 150x speedup  |  | - 16 slots      |  | - Byzantine tol |         |
+//! |  | - O(log N)      |  | - Task routing  |  | - Rep-weighted  |         |
+//! |  +-----------------+  +-----------------+  +-----------------+         |
+//! |            |                  |                    |                   |
+//! |  +-----------------+  +-----------------+  +-----------------+         |
+//! |  |  DAG Attention  |  |  LoraAdapter    |  | GradientGossip  |         |
+//! |  |(dag_attention.rs|  |  (lora.rs)      |  | (federated.rs)  |         |
+//! |  | "What steps?"   |  |                 |  |                 |         |
+//! |  | - Critical path |  | - Rank 1-16     |  | - Error feedback|         |
+//! |  | - Topo sort     |  | - SIMD forward  |  | - Diff privacy  |         |
+//! |  | - Parallelism   |  | - 4/8-bit quant |  | - Gossipsub     |         |
+//! |  +-----------------+  +-----------------+  +-----------------+         |
+//! |                            |                                           |
+//! |                    ComputeOps Trait                                    |
+//! |             (SIMD acceleration when available)                         |
+//! +------------------------------------------------------------------------+
 //! ```
 //!
 //! ## Usage
@@ -58,6 +58,15 @@
 pub mod memory;
 pub mod lora;
 pub mod federated;
+pub mod dag_attention;
+pub mod attention_unified;
+
+// Re-export unified attention types
+pub use attention_unified::{
+    UnifiedAttention, NeuralAttention, DAGAttention, GraphAttentionNetwork, StateSpaceModel,
+    AttentionOutput, AttentionMetadata, AttentionConfig, AttentionType,
+    DAGNode, Edge,
+};
 
 // Re-export memory types
 pub use memory::{HnswIndex, HnswConfig, HnswNode, SearchResult as HnswSearchResult};
@@ -81,6 +90,15 @@ pub use federated::{
     FederatedModel,
     TOPIC_GRADIENT_GOSSIP,
     TOPIC_MODEL_SYNC,
+};
+
+// Re-export DAG attention types
+pub use dag_attention::{
+    DagAttention,
+    TaskNode,
+    TaskEdge,
+    TaskStatus,
+    DagSummary,
 };
 
 /// Common compute operations trait for SIMD acceleration
