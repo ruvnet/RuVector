@@ -34,7 +34,7 @@ const createMockRAC = () => ({
 
     computeRoot() {
       const hash = crypto.createHash('sha256');
-      this.events.forEach(e => hash.update(e.id));
+      this.events.forEach(e => hash.update(Buffer.from(e.id)));
       return Array.from(hash.digest());
     }
 

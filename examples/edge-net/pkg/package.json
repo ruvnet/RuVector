@@ -8,7 +8,8 @@
   "types": "ruvector_edge_net.d.ts",
   "bin": {
     "edge-net": "./cli.js",
-    "ruvector-edge": "./cli.js"
+    "ruvector-edge": "./cli.js",
+    "edge-net-join": "./join.js"
   },
   "keywords": [
     "wasm",
@@ -48,6 +49,7 @@
     "node/",
     "index.js",
     "cli.js",
+    "join.js",
     "README.md",
     "LICENSE"
   ],
@@ -69,6 +71,9 @@
   "scripts": {
     "start": "node cli.js start",
     "benchmark": "node cli.js benchmark",
-    "info": "node cli.js info"
+    "info": "node cli.js info",
+    "join": "node join.js",
+    "join:generate": "node join.js --generate",
+    "join:multi": "node join.js --generate"
   }
 }

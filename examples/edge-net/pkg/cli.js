@@ -109,6 +109,7 @@ function printHelp() {
 
 ${c('bold', 'COMMANDS:')}
   ${c('green', 'start')}       Start an edge-net node in the terminal
+  ${c('green', 'join')}        Join network with public key (multi-contributor support)
   ${c('green', 'benchmark')}   Run performance benchmarks
   ${c('green', 'info')}        Show package and WASM information
   ${c('green', 'demo')}        Run interactive demonstration
@@ -118,6 +119,9 @@ ${c('bold', 'COMMANDS:')}
 ${c('bold', 'EXAMPLES:')}
   ${c('dim', '# Start a node')}
   $ npx @ruvector/edge-net start
+
+  ${c('dim', '# Join with new identity (multi-contributor)')}
+  $ npx @ruvector/edge-net join --generate
 
   ${c('dim', '# Run benchmarks')}
   $ npx @ruvector/edge-net benchmark
@@ -408,12 +412,25 @@ async function runDemo() {
   console.log(`${c('dim', 'For full P2P features, run in a browser environment.')}`);
 }
 
+async function runJoin() {
+  // Delegate to join.js
+  const { spawn } = await import('child_process');
+  const args = process.argv.slice(3);
+  const child = spawn('node', [join(__dirname, 'join.js'), ...args], {
+    stdio: 'inherit'
+  });
+  child.on('close', (code) => process.exit(code));
+}
+
 // Main
 const command = process.argv[2] || 'help';
 
 switch (command) {
   case 'start':
     startNode();
+    break;
+  case 'join':
+    runJoin();
     break;
   case 'benchmark':
   case 'bench':
