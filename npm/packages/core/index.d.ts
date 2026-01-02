@@ -14,8 +14,8 @@ export interface SearchResult {
   score: number;
 }
 
-export class VectorDB {
-  static withDimensions(dimensions: number): VectorDB;
+export class VectorDb {
+  constructor(options: { dimensions: number; storagePath?: string; distanceMetric?: string; hnswConfig?: any });
   insert(entry: VectorEntry): Promise<string>;
   insertBatch(entries: VectorEntry[]): Promise<string[]>;
   search(query: SearchQuery): Promise<SearchResult[]>;
@@ -24,3 +24,6 @@ export class VectorDB {
   len(): Promise<number>;
   isEmpty(): Promise<boolean>;
 }
+
+// Alias for backwards compatibility
+export { VectorDb as VectorDB };

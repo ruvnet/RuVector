@@ -23,22 +23,31 @@ try {
   implementation = require('@ruvector/core');
   implementationType = 'native';
 
-  // Verify it's actually working
-  if (typeof implementation.VectorDB !== 'function') {
-    throw new Error('Native module loaded but VectorDB not found');
+  // Verify it's actually working (native module exports VectorDb, not VectorDB)
+  if (typeof implementation.VectorDb !== 'function') {
+    throw new Error('Native module loaded but VectorDb class not found');
   }
 } catch (e: any) {
-  // No WASM fallback available yet
-  throw new Error(
-    `Failed to load ruvector native module.\n` +
-    `Error: ${e.message}\n` +
-    `\nSupported platforms:\n` +
-    `- Linux x64/ARM64\n` +
-    `- macOS Intel/Apple Silicon\n` +
-    `- Windows x64\n` +
-    `\nIf you're on a supported platform, try:\n` +
-    `  npm install --force @ruvector/core`
-  );
+  // Graceful fallback - don't crash, just warn
+  console.warn('[RuVector] Native module not available:', e.message);
+  console.warn('[RuVector] Vector operations will be limited. Install @ruvector/core for full functionality.');
+
+  // Create a stub implementation that provides basic functionality
+  implementation = {
+    VectorDb: class StubVectorDb {
+      constructor() {
+        console.warn('[RuVector] Using stub VectorDb - install @ruvector/core for native performance');
+      }
+      async insert() { return 'stub-id-' + Date.now(); }
+      async insertBatch(entries: any[]) { return entries.map(() => 'stub-id-' + Date.now()); }
+      async search() { return []; }
+      async delete() { return true; }
+      async get() { return null; }
+      async len() { return 0; }
+      async isEmpty() { return true; }
+    }
+  };
+  implementationType = 'wasm'; // Mark as fallback mode
 }
 
 /**

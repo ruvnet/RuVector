@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Microscope,
@@ -16,87 +16,114 @@ import {
   Loader2,
   ChevronRight,
   X,
+  Globe,
 } from 'lucide-react';
 import type { SpecializedNetwork } from '../../types';
+import { useNetworkStore } from '../../stores/networkStore';
 
-// Predefined specialized networks
-const SPECIALIZED_NETWORKS: SpecializedNetwork[] = [
+// Relay endpoint for real stats
+const RELAY_URL = 'https://edge-net-relay-875130704813.us-central1.run.app';
+
+// Relay stats interface
+interface RelayStats {
+  nodes: number;
+  uptime: number;
+  tasks: number;
+  connectedNodes: string[];
+}
+
+// Fetch real network stats from relay
+async function fetchRelayStats(): Promise<RelayStats> {
+  try {
+    const response = await fetch(`${RELAY_URL}/stats`);
+    if (!response.ok) throw new Error('Failed to fetch');
+    const data = await response.json();
+    return {
+      nodes: data.activeNodes || 0,
+      uptime: data.uptime || 0,
+      tasks: data.totalTasks || 0,
+      connectedNodes: data.connectedNodes || [],
+    };
+  } catch {
+    return { nodes: 0, uptime: 0, tasks: 0, connectedNodes: [] };
+  }
+}
+
+// Real network - Edge-Net Genesis (the only real one)
+function createRealNetwork(relayStats: { nodes: number; uptime: number; tasks: number }): SpecializedNetwork {
+  const uptimePercent = relayStats.uptime > 0 ? Math.min(100, (relayStats.uptime / (24 * 60 * 60 * 1000)) * 100) : 0;
+  return {
+    id: 'edge-net-genesis',
+    name: 'Edge-Net Genesis',
+    description: 'The founding distributed compute network. Join to contribute idle CPU cycles and earn rUv credits.',
+    category: 'compute',
+    icon: 'globe',
+    color: 'sky',
+    stats: {
+      nodes: relayStats.nodes,
+      compute: relayStats.nodes * 0.5, // Estimate 0.5 TFLOPS per node
+      tasks: relayStats.tasks,
+      uptime: Number(uptimePercent.toFixed(1)),
+    },
+    requirements: { minCompute: 0.1, minBandwidth: 5, capabilities: ['compute'] },
+    rewards: { baseRate: 1.0, bonusMultiplier: 1.0 },
+    status: 'active',
+    joined: false,
+  };
+}
+
+// Planned networks - clearly marked as "Coming Soon"
+const PLANNED_NETWORKS: SpecializedNetwork[] = [
   {
     id: 'medical-research',
     name: 'MedGrid',
-    description: 'Distributed medical research computing for drug discovery, genomics analysis, and clinical trial simulations.',
+    description: 'Planned: Distributed medical research computing for drug discovery and genomics analysis.',
     category: 'healthcare',
     icon: 'microscope',
     color: 'rose',
-    stats: { nodes: 2847, compute: 156.4, tasks: 12847, uptime: 99.7 },
+    stats: { nodes: 0, compute: 0, tasks: 0, uptime: 0 },
     requirements: { minCompute: 0.5, minBandwidth: 10, capabilities: ['compute', 'storage'] },
     rewards: { baseRate: 2.5, bonusMultiplier: 1.5 },
-    status: 'active',
+    status: 'launching',
     joined: false,
   },
   {
     id: 'seti-search',
     name: 'SETI@Edge',
-    description: 'Search for extraterrestrial intelligence by analyzing radio telescope data from around the world.',
+    description: 'Planned: Search for extraterrestrial intelligence by analyzing radio telescope data.',
     category: 'science',
     icon: 'radio',
     color: 'violet',
-    stats: { nodes: 8234, compute: 423.7, tasks: 89234, uptime: 99.9 },
+    stats: { nodes: 0, compute: 0, tasks: 0, uptime: 0 },
     requirements: { minCompute: 0.2, minBandwidth: 5, capabilities: ['compute'] },
     rewards: { baseRate: 1.0, bonusMultiplier: 1.2 },
-    status: 'active',
-    joined: false,
-  },
-  {
-    id: 'quant-trading',
-    name: 'QuantNet',
-    description: 'High-frequency trading signal analysis and market prediction models for decentralized finance.',
-    category: 'finance',
-    icon: 'trending',
-    color: 'emerald',
-    stats: { nodes: 1234, compute: 89.2, tasks: 45678, uptime: 99.99 },
-    requirements: { minCompute: 1.0, minBandwidth: 100, capabilities: ['compute', 'relay'] },
-    rewards: { baseRate: 5.0, bonusMultiplier: 2.0 },
-    status: 'active',
+    status: 'launching',
     joined: false,
   },
   {
     id: 'ai-training',
     name: 'NeuralMesh',
-    description: 'Distributed AI model training for open-source machine learning projects and research.',
+    description: 'Planned: Distributed AI model training for open-source machine learning projects.',
     category: 'ai',
     icon: 'brain',
     color: 'amber',
-    stats: { nodes: 4521, compute: 678.9, tasks: 23456, uptime: 98.5 },
+    stats: { nodes: 0, compute: 0, tasks: 0, uptime: 0 },
     requirements: { minCompute: 2.0, minBandwidth: 50, capabilities: ['compute', 'storage'] },
     rewards: { baseRate: 3.5, bonusMultiplier: 1.8 },
-    status: 'active',
+    status: 'launching',
     joined: false,
   },
   {
     id: 'game-rendering',
     name: 'CloudPlay',
-    description: 'Cloud gaming infrastructure for low-latency game streaming and real-time rendering.',
+    description: 'Planned: Cloud gaming infrastructure for low-latency game streaming.',
     category: 'gaming',
     icon: 'gamepad',
-    color: 'sky',
-    stats: { nodes: 3456, compute: 234.5, tasks: 67890, uptime: 99.2 },
+    color: 'emerald',
+    stats: { nodes: 0, compute: 0, tasks: 0, uptime: 0 },
     requirements: { minCompute: 1.5, minBandwidth: 200, capabilities: ['compute', 'relay'] },
     rewards: { baseRate: 4.0, bonusMultiplier: 1.6 },
     status: 'launching',
-    joined: false,
-  },
-  {
-    id: 'social-moderation',
-    name: 'TrustNet',
-    description: 'Decentralized content moderation and fact-checking for social platforms using AI consensus.',
-    category: 'social',
-    icon: 'users',
-    color: 'cyan',
-    stats: { nodes: 5678, compute: 123.4, tasks: 234567, uptime: 99.5 },
-    requirements: { minCompute: 0.3, minBandwidth: 10, capabilities: ['validation'] },
-    rewards: { baseRate: 1.5, bonusMultiplier: 1.3 },
-    status: 'active',
     joined: false,
   },
 ];
@@ -108,6 +135,7 @@ const iconMap: Record<string, React.ReactNode> = {
   brain: <Brain size={24} />,
   gamepad: <Gamepad2 size={24} />,
   users: <Users size={24} />,
+  globe: <Globe size={24} />,
 };
 
 const colorMap: Record<string, { bg: string; border: string; text: string; glow: string }> = {
@@ -369,24 +397,100 @@ function NetworkDetailsModal({ network, onClose, onJoin, onLeave }: NetworkDetai
   );
 }
 
+// Persist joined networks to localStorage
+const STORAGE_KEY = 'edge-net-joined-networks';
+
+function loadJoinedIds(): Set<string> {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    return saved ? new Set(JSON.parse(saved)) : new Set();
+  } catch {
+    return new Set();
+  }
+}
+
+function saveJoinedIds(ids: Set<string>) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify([...ids]));
+}
+
 export function SpecializedNetworks() {
-  const [networks, setNetworks] = useState<SpecializedNetwork[]>(SPECIALIZED_NETWORKS);
+  const [networks, setNetworks] = useState<SpecializedNetwork[]>([]);
   const [selectedNetwork, setSelectedNetwork] = useState<SpecializedNetwork | null>(null);
   const [filter, setFilter] = useState<string>('all');
+  const [isLoading, setIsLoading] = useState(true);
+  const [joinedIds, setJoinedIds] = useState<Set<string>>(loadJoinedIds);
+
+  // Connect to the network store for real contribution
+  const { contributionSettings, startContributing, stopContributing, giveConsent } = useNetworkStore();
+
+  // Sync join status with contribution status
+  useEffect(() => {
+    if (contributionSettings.enabled && !joinedIds.has('edge-net-genesis')) {
+      const newJoinedIds = new Set(joinedIds);
+      newJoinedIds.add('edge-net-genesis');
+      setJoinedIds(newJoinedIds);
+      saveJoinedIds(newJoinedIds);
+    }
+  }, [contributionSettings.enabled, joinedIds]);
+
+  // Fetch real stats on mount and periodically
+  useEffect(() => {
+    const loadRealStats = async () => {
+      const relayStats = await fetchRelayStats();
+      const realNetwork = createRealNetwork(relayStats);
+      const allNetworks = [realNetwork, ...PLANNED_NETWORKS];
+
+      // Apply persisted join status, but Edge-Net Genesis follows contribution status
+      setNetworks(allNetworks.map(n => ({
+        ...n,
+        joined: n.id === 'edge-net-genesis'
+          ? contributionSettings.enabled || joinedIds.has(n.id)
+          : joinedIds.has(n.id),
+      })));
+      setIsLoading(false);
+    };
+
+    loadRealStats();
+    const interval = setInterval(loadRealStats, 10000); // Refresh every 10s
+    return () => clearInterval(interval);
+  }, [joinedIds, contributionSettings.enabled]);
 
   const handleJoin = (id: string) => {
+    const newJoinedIds = new Set(joinedIds);
+    newJoinedIds.add(id);
+    setJoinedIds(newJoinedIds);
+    saveJoinedIds(newJoinedIds);
     setNetworks((prev) =>
       prev.map((n) => (n.id === id ? { ...n, joined: true, joinedAt: new Date() } : n))
     );
+
+    // For Edge-Net Genesis, actually start contributing to the network
+    if (id === 'edge-net-genesis') {
+      if (!contributionSettings.consentGiven) {
+        giveConsent();
+      }
+      startContributing();
+      console.log('[Networks] Joined Edge-Net Genesis - started contributing');
+    }
   };
 
   const handleLeave = (id: string) => {
+    const newJoinedIds = new Set(joinedIds);
+    newJoinedIds.delete(id);
+    setJoinedIds(newJoinedIds);
+    saveJoinedIds(newJoinedIds);
     setNetworks((prev) =>
       prev.map((n) => (n.id === id ? { ...n, joined: false, joinedAt: undefined } : n))
     );
+
+    // For Edge-Net Genesis, stop contributing
+    if (id === 'edge-net-genesis') {
+      stopContributing();
+      console.log('[Networks] Left Edge-Net Genesis - stopped contributing');
+    }
   };
 
-  const categories = ['all', 'science', 'finance', 'healthcare', 'ai', 'gaming', 'social'];
+  const categories = ['all', 'compute', 'science', 'healthcare', 'ai', 'gaming'];
   const filteredNetworks = filter === 'all'
     ? networks
     : networks.filter((n) => n.category === filter);
@@ -395,6 +499,15 @@ export function SpecializedNetworks() {
   const totalEarnings = networks
     .filter((n) => n.joined)
     .reduce((sum, n) => sum + n.rewards.baseRate, 0);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="w-8 h-8 animate-spin text-sky-400" />
+        <span className="ml-3 text-zinc-400">Fetching network data...</span>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

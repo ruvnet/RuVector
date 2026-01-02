@@ -19,6 +19,8 @@
   "permissions": {
     "allow": [
       "Bash(npx claude-flow:*)",
+      "Bash(npx ruvector:*)",
+      "Bash(npx agentic-flow:*)",
       "Bash(npm run:*)",
       "Bash(npm test:*)",
       "Bash(cargo:*)",
@@ -41,6 +43,8 @@
       "Bash(ls:*)",
       "Bash(.claude/hooks:*)",
       "Bash(.claude/intelligence:*)",
+      "Bash(.claude/ruvector-fast.sh:*)",
+      "Bash(.claude/agentic-flow-fast.sh:*)",
       "Bash(ruvector:*)",
       "Bash(ruvector-cli:*)"
     ],
@@ -55,7 +59,13 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/usr/local/bin/ruvector-cli hooks pre-edit \"$TOOL_INPUT_file_path\""
+            "timeout": 500,
+            "command": ".claude/ruvector-fast.sh hooks pre-edit \"$TOOL_INPUT_file_path\" 2>/dev/null || true"
+          },
+          {
+            "type": "command",
+            "timeout": 500,
+            "command": ".claude/ruvector-fast.sh hooks coedit-suggest --file \"$TOOL_INPUT_file_path\" 2>/dev/null || true"
           }
         ]
       },
@@ -64,7 +74,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/usr/local/bin/ruvector-cli hooks pre-command \"$TOOL_INPUT_command\""
+            "timeout": 500,
+            "command": ".claude/ruvector-fast.sh hooks pre-command \"$TOOL_INPUT_command\" 2>/dev/null || true"
           }
         ]
       },
@@ -73,8 +84,8 @@
         "hooks": [
           {
             "type": "command",
-            "timeout": 1000,
-            "command": "/usr/local/bin/ruvector-cli hooks remember \"Reading: $TOOL_INPUT_file_path\" -t file_access 2>/dev/null || true"
+            "timeout": 300,
+            "command": ".claude/ruvector-fast.sh hooks remember \"Reading: $TOOL_INPUT_file_path\" -t file_access 2>/dev/null || true"
           }
         ]
       },
@@ -83,8 +94,8 @@
         "hooks": [
           {
             "type": "command",
-            "timeout": 1000,
-            "command": "/usr/local/bin/ruvector-cli hooks remember \"Search: $TOOL_INPUT_pattern\" -t search_pattern 2>/dev/null || true"
+            "timeout": 300,
+            "command": ".claude/ruvector-fast.sh hooks remember \"Search: $TOOL_INPUT_pattern\" -t search_pattern 2>/dev/null || true"
           }
         ]
       },
@@ -93,8 +104,8 @@
         "hooks": [
           {
             "type": "command",
-            "timeout": 1000,
-            "command": "/usr/local/bin/ruvector-cli hooks remember \"Agent: $TOOL_INPUT_subagent_type\" -t agent_spawn 2>/dev/null || true"
+            "timeout": 300,
+            "command": ".claude/ruvector-fast.sh hooks remember \"Agent: $TOOL_INPUT_subagent_type\" -t agent_spawn 2>/dev/null || true"
           }
         ]
       }
@@ -105,7 +116,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/usr/local/bin/ruvector-cli hooks post-edit \"$TOOL_INPUT_file_path\""
+            "timeout": 500,
+            "command": ".claude/ruvector-fast.sh hooks post-edit \"$TOOL_INPUT_file_path\" 2>/dev/null || true"
           }
         ]
       },
@@ -114,7 +126,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/usr/local/bin/ruvector-cli hooks post-command \"$TOOL_INPUT_command\""
+            "timeout": 500,
+            "command": ".claude/ruvector-fast.sh hooks post-command \"$TOOL_INPUT_command\" 2>/dev/null || true"
           }
         ]
       }
@@ -124,7 +137,13 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/usr/local/bin/ruvector-cli hooks session-start"
+            "timeout": 1000,
+            "command": ".claude/ruvector-fast.sh hooks session-start 2>/dev/null || true"
+          },
+          {
+            "type": "command",
+            "timeout": 500,
+            "command": ".claude/ruvector-fast.sh hooks trajectory-begin -c \"claude-session\" -a \"claude\" 2>/dev/null || true"
           }
         ]
       }
@@ -134,7 +153,13 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/usr/local/bin/ruvector-cli hooks session-end"
+            "timeout": 500,
+            "command": ".claude/ruvector-fast.sh hooks trajectory-end --success --quality 0.8 2>/dev/null || true"
+          },
+          {
+            "type": "command",
+            "timeout": 500,
+            "command": ".claude/ruvector-fast.sh hooks session-end 2>/dev/null || true"
           }
         ]
       }
@@ -145,8 +170,13 @@
         "hooks": [
           {
             "type": "command",
-            "timeout": 3000,
-            "command": "/usr/local/bin/ruvector-cli hooks pre-compact --auto"
+            "timeout": 1000,
+            "command": ".claude/ruvector-fast.sh hooks pre-compact --auto 2>/dev/null || true"
+          },
+          {
+            "type": "command",
+            "timeout": 1000,
+            "command": ".claude/ruvector-fast.sh hooks compress 2>/dev/null || true"
           }
         ]
       },
@@ -155,8 +185,8 @@
         "hooks": [
           {
             "type": "command",
-            "timeout": 3000,
-            "command": "/usr/local/bin/ruvector-cli hooks pre-compact"
+            "timeout": 1000,
+            "command": ".claude/ruvector-fast.sh hooks pre-compact 2>/dev/null || true"
           }
         ]
       }
@@ -166,8 +196,18 @@
         "hooks": [
           {
             "type": "command",
+            "timeout": 500,
+            "command": ".claude/ruvector-fast.sh hooks suggest-context 2>/dev/null || true"
+          },
+          {
+            "type": "command",
             "timeout": 2000,
-            "command": "/usr/local/bin/ruvector-cli hooks suggest-context"
+            "command": ".claude/agentic-flow-fast.sh workers dispatch-prompt \"$CLAUDE_USER_PROMPT\" 2>/dev/null || true"
+          },
+          {
+            "type": "command",
+            "timeout": 1000,
+            "command": ".claude/agentic-flow-fast.sh workers inject-context \"$CLAUDE_USER_PROMPT\" 2>/dev/null || true"
           }
         ]
       }
@@ -178,8 +218,8 @@
         "hooks": [
           {
             "type": "command",
-            "timeout": 1000,
-            "command": "/usr/local/bin/ruvector-cli hooks track-notification"
+            "timeout": 300,
+            "command": ".claude/ruvector-fast.sh hooks track-notification 2>/dev/null || true"
           }
         ]
       }

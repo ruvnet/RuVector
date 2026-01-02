@@ -117,7 +117,7 @@ export interface SpecializedNetwork {
   id: string;
   name: string;
   description: string;
-  category: 'science' | 'finance' | 'healthcare' | 'ai' | 'gaming' | 'social';
+  category: 'science' | 'finance' | 'healthcare' | 'ai' | 'gaming' | 'social' | 'compute';
   icon: string;
   color: string;
   stats: {

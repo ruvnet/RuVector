@@ -564,8 +564,17 @@ export function __wbg_randomFillSync_ac0988aba3254290() { return handleError(fun
 }, arguments) };
 
 export function __wbg_require_60cc747a6bc5215a() { return handleError(function () {
-    const ret = module.require;
-    return ret;
+    // ESM-compatible require: use createRequire instead of module.require
+    // This fixes "module is not defined" errors on Windows and strict ESM
+    if (typeof module !== 'undefined' && module.require) {
+        return module.require;
+    }
+    // ESM fallback: create require function from import.meta.url
+    if (typeof globalThis !== 'undefined' && globalThis.__ruvector_require) {
+        return globalThis.__ruvector_require;
+    }
+    // Return undefined to signal require not available (will use crypto.getRandomValues instead)
+    return undefined;
 }, arguments) };
 
 export function __wbg_stack_0ed75d68575b0f3c(arg0, arg1) {

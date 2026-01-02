@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import type { NetworkStats, NodeInfo, TimeCrystal, CreditBalance } from '../types';
 import { edgeNetService } from '../services/edgeNet';
 import { storageService } from '../services/storage';
+import { relayClient, type TaskAssignment, type NetworkState as RelayNetworkState } from '../services/relayClient';
 
 interface ContributionSettings {
   enabled: boolean;
@@ -23,12 +24,17 @@ interface NetworkState {
   timeCrystal: TimeCrystal;
   credits: CreditBalance;
   isConnected: boolean;
+  isRelayConnected: boolean;
   isLoading: boolean;
   error: string | null;
   startTime: number;
   contributionSettings: ContributionSettings;
   isWASMReady: boolean;
   nodeId: string | null;
+  // Relay network state
+  relayNetworkState: RelayNetworkState | null;
+  connectedPeers: string[];
+  pendingTasks: TaskAssignment[];
   // Persisted cumulative values from IndexedDB
   persistedCredits: number;
   persistedTasks: number;
@@ -53,6 +59,9 @@ interface NetworkState {
   stopContributing: () => void;
   saveToIndexedDB: () => Promise<void>;
   loadFromIndexedDB: () => Promise<void>;
+  connectToRelay: () => Promise<boolean>;
+  disconnectFromRelay: () => void;
+  processAssignedTask: (task: TaskAssignment) => Promise<void>;
 }
 
 const initialStats: NetworkStats = {
@@ -101,12 +110,16 @@ export const useNetworkStore = create<NetworkState>()((set, get) => ({
   timeCrystal: initialTimeCrystal,
   credits: initialCredits,
   isConnected: false,
+  isRelayConnected: false,
   isLoading: true,
   error: null,
   startTime: Date.now(),
   contributionSettings: defaultContributionSettings,
   isWASMReady: false,
   nodeId: null,
+  relayNetworkState: null,
+  connectedPeers: [],
+  pendingTasks: [],
   persistedCredits: 0,
   persistedTasks: 0,
   persistedUptime: 0,
@@ -296,6 +309,11 @@ export const useNetworkStore = create<NetworkState>()((set, get) => ({
               contributionSettings: { ...s.contributionSettings, enabled: true },
             }));
             console.log('[EdgeNet] Auto-started from previous session');
+
+            // Auto-connect to relay
+            setTimeout(() => {
+              get().connectToRelay();
+            }, 1000);
           }
         }
       }
@@ -311,24 +329,42 @@ export const useNetworkStore = create<NetworkState>()((set, get) => ({
     }
   },
 
-  startContributing: () => {
-    const { contributionSettings, isWASMReady } = get();
+  startContributing: async () => {
+    const { contributionSettings, isWASMReady, nodeId } = get();
     if (!contributionSettings.consentGiven) {
       console.warn('[EdgeNet] Cannot start without consent');
       return;
     }
+
+    // Start WASM node
     if (isWASMReady) {
       edgeNetService.startNode();
-      console.log('[EdgeNet] Started contributing');
+      console.log('[EdgeNet] Started WASM node');
     }
+
     set((state) => ({
       contributionSettings: { ...state.contributionSettings, enabled: true },
     }));
+
+    // Connect to relay for distributed network
+    if (nodeId) {
+      const connected = await get().connectToRelay();
+      if (connected) {
+        console.log('[EdgeNet] Connected to distributed network');
+      }
+    }
+
     get().saveToIndexedDB();
+    console.log('[EdgeNet] Started contributing');
   },
 
   stopContributing: () => {
+    // Pause WASM node
     edgeNetService.pauseNode();
+
+    // Disconnect from relay
+    get().disconnectFromRelay();
+
     set((state) => ({
       contributionSettings: { ...state.contributionSettings, enabled: false },
     }));
@@ -409,7 +445,7 @@ export const useNetworkStore = create<NetworkState>()((set, get) => ({
           earned: Math.round(totalRuvEarned * 100) / 100,
           spent: Math.round((sessionRuvSpent + state.credits.spent) * 100) / 100,
         },
-        isConnected: isWASMReady,
+        isConnected: isWASMReady || get().isRelayConnected,
         isLoading: false,
       });
 
@@ -436,6 +472,158 @@ export const useNetworkStore = create<NetworkState>()((set, get) => ({
         isConnected: false,
         isLoading: !isWASMReady,
       });
+    }
+  },
+
+  connectToRelay: async () => {
+    const state = get();
+    if (!state.nodeId) {
+      console.warn('[EdgeNet] Cannot connect to relay without node ID');
+      return false;
+    }
+
+    // Set up relay event handlers
+    relayClient.setHandlers({
+      onConnected: (_nodeId, networkState, peers) => {
+        console.log('[EdgeNet] Connected to relay, peers:', peers.length);
+        set({
+          isRelayConnected: true,
+          relayNetworkState: networkState,
+          connectedPeers: peers,
+          stats: {
+            ...get().stats,
+            activeNodes: networkState.activeNodes + 1, // Include ourselves
+            totalNodes: networkState.totalNodes + 1,
+          },
+          timeCrystal: {
+            ...get().timeCrystal,
+            phase: networkState.timeCrystalPhase,
+            synchronizedNodes: networkState.activeNodes + 1,
+          },
+        });
+      },
+
+      onDisconnected: () => {
+        console.log('[EdgeNet] Disconnected from relay');
+        set({
+          isRelayConnected: false,
+          connectedPeers: [],
+        });
+      },
+
+      onNodeJoined: (nodeId, totalNodes) => {
+        console.log('[EdgeNet] Peer joined:', nodeId);
+        set((s) => ({
+          connectedPeers: [...s.connectedPeers, nodeId],
+          stats: { ...s.stats, activeNodes: totalNodes, totalNodes },
+          timeCrystal: { ...s.timeCrystal, synchronizedNodes: totalNodes },
+        }));
+      },
+
+      onNodeLeft: (nodeId, totalNodes) => {
+        console.log('[EdgeNet] Peer left:', nodeId);
+        set((s) => ({
+          connectedPeers: s.connectedPeers.filter((id) => id !== nodeId),
+          stats: { ...s.stats, activeNodes: totalNodes, totalNodes },
+          timeCrystal: { ...s.timeCrystal, synchronizedNodes: totalNodes },
+        }));
+      },
+
+      onTaskAssigned: (task) => {
+        console.log('[EdgeNet] Task assigned:', task.id);
+        set((s) => ({
+          pendingTasks: [...s.pendingTasks, task],
+        }));
+        // Auto-process the task
+        get().processAssignedTask(task);
+      },
+
+      onCreditEarned: (amount, taskId) => {
+        const ruvAmount = Number(amount) / 1e9; // Convert from nanoRuv
+        console.log('[EdgeNet] Credit earned:', ruvAmount, 'rUv for task', taskId);
+        set((s) => ({
+          credits: {
+            ...s.credits,
+            earned: s.credits.earned + ruvAmount,
+            available: s.credits.available + ruvAmount,
+          },
+          stats: {
+            ...s.stats,
+            creditsEarned: s.stats.creditsEarned + ruvAmount,
+            tasksCompleted: s.stats.tasksCompleted + 1,
+          },
+        }));
+        get().saveToIndexedDB();
+      },
+
+      onTimeCrystalSync: (phase, _timestamp, activeNodes) => {
+        set((s) => ({
+          timeCrystal: {
+            ...s.timeCrystal,
+            phase,
+            synchronizedNodes: activeNodes,
+            coherence: Math.min(1, activeNodes / 10), // Coherence increases with more nodes
+          },
+        }));
+      },
+
+      onError: (error) => {
+        console.error('[EdgeNet] Relay error:', error);
+        set({ error: error.message });
+      },
+    });
+
+    // Connect to the relay
+    const connected = await relayClient.connect(state.nodeId);
+    if (connected) {
+      console.log('[EdgeNet] Relay connection established');
+    } else {
+      console.warn('[EdgeNet] Failed to connect to relay');
+    }
+    return connected;
+  },
+
+  disconnectFromRelay: () => {
+    relayClient.disconnect();
+    set({
+      isRelayConnected: false,
+      connectedPeers: [],
+      pendingTasks: [],
+    });
+  },
+
+  processAssignedTask: async (task) => {
+    const state = get();
+    if (!state.isWASMReady) {
+      console.warn('[EdgeNet] Cannot process task - WASM not ready');
+      return;
+    }
+
+    try {
+      console.log('[EdgeNet] Processing task:', task.id, task.taskType);
+
+      // Process the task using WASM
+      const result = await edgeNetService.submitTask(
+        task.taskType,
+        task.payload,
+        task.maxCredits
+      );
+
+      // Process the task in WASM node
+      await edgeNetService.processNextTask();
+
+      // Report completion to relay
+      const reward = task.maxCredits / BigInt(2); // Earn half the max credits
+      relayClient.completeTask(task.id, task.submitter, result, reward);
+
+      // Remove from pending
+      set((s) => ({
+        pendingTasks: s.pendingTasks.filter((t) => t.id !== task.id),
+      }));
+
+      console.log('[EdgeNet] Task completed:', task.id);
+    } catch (error) {
+      console.error('[EdgeNet] Task processing failed:', error);
     }
   },
 }));

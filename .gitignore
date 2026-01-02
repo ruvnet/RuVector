@@ -83,3 +83,7 @@ hive-mind-prompt-*.txt
 
 # Intelligence data files (generated, not tracked)
 .claude/intelligence/data/*.json
+
+# RuVector intelligence data
+.ruvector/
+.claude/statusline.sh
