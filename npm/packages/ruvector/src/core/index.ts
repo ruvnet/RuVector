@@ -11,6 +11,7 @@ export * from './agentdb-fast';
 export * from './sona-wrapper';
 export * from './intelligence-engine';
 export * from './onnx-embedder';
+export * from './onnx-optimized';
 export * from './parallel-intelligence';
 export * from './parallel-workers';
 export * from './router-wrapper';
@@ -22,6 +23,12 @@ export * from './coverage-router';
 export * from './graph-algorithms';
 export * from './tensor-compress';
 export * from './learning-engine';
+export * from './adaptive-embedder';
+export * from './neural-embeddings';
+export * from './neural-perf';
+
+// Analysis module (consolidated security, complexity, patterns)
+export * from '../analysis';
 
 // Re-export default objects for convenience
 export { default as gnnWrapper } from './gnn-wrapper';
@@ -30,6 +37,7 @@ export { default as agentdbFast } from './agentdb-fast';
 export { default as Sona } from './sona-wrapper';
 export { default as IntelligenceEngine } from './intelligence-engine';
 export { default as OnnxEmbedder } from './onnx-embedder';
+export { default as OptimizedOnnxEmbedder } from './onnx-optimized';
 export { default as ParallelIntelligence } from './parallel-intelligence';
 export { default as ExtendedWorkerPool } from './parallel-workers';
 export { default as SemanticRouter } from './router-wrapper';
@@ -43,3 +51,5 @@ export { CodeParser as ASTParser } from './ast-parser';
 // New v2.1 modules
 export { default as TensorCompress } from './tensor-compress';
 export { default as LearningEngine } from './learning-engine';
+export { default as AdaptiveEmbedder } from './adaptive-embedder';
+export { default as NeuralSubstrate } from './neural-embeddings';

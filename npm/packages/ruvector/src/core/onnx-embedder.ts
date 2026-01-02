@@ -17,6 +17,29 @@
 import * as path from 'path';
 import * as fs from 'fs';
 import { pathToFileURL } from 'url';
+import { createRequire } from 'module';
+
+// Extend globalThis type for ESM require compatibility
+declare global {
+  // eslint-disable-next-line no-var
+  var __ruvector_require: NodeRequire | undefined;
+}
+
+// Set up ESM-compatible require for WASM module (fixes Windows/ESM compatibility)
+// The WASM bindings use module.require for Node.js crypto, this provides a fallback
+if (typeof globalThis !== 'undefined' && !globalThis.__ruvector_require) {
+  try {
+    // In ESM context, use createRequire with __filename
+    globalThis.__ruvector_require = createRequire(__filename);
+  } catch {
+    // Fallback: require should be available in CommonJS
+    try {
+      globalThis.__ruvector_require = require;
+    } catch {
+      // Neither available - WASM will fall back to crypto.getRandomValues
+    }
+  }
+}
 
 // Force native dynamic import (avoids TypeScript transpiling to require)
 // eslint-disable-next-line @typescript-eslint/no-implied-eval

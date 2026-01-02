@@ -44,6 +44,9 @@ import * as os from 'os';
 import * as path from 'path';
 import * as fs from 'fs';
 
+// Import shared types from analysis module
+import { SecurityFinding } from '../analysis/security';
+
 // ============================================================================
 // Types
 // ============================================================================
@@ -72,14 +75,8 @@ export interface ASTAnalysis {
   dependencies: string[];
 }
 
-export interface SecurityFinding {
-  file: string;
-  line: number;
-  severity: 'low' | 'medium' | 'high' | 'critical';
-  rule: string;
-  message: string;
-  suggestion?: string;
-}
+// SecurityFinding imported from ../analysis/security
+export type { SecurityFinding };
 
 export interface ContextChunk {
   content: string;

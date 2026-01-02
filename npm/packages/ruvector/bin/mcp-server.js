@@ -916,6 +916,135 @@ const TOOLS = [
       properties: {},
       required: []
     }
+  },
+  // ============================================
+  // BACKGROUND WORKERS TOOLS (via agentic-flow)
+  // ============================================
+  {
+    name: 'workers_dispatch',
+    description: 'Dispatch a background worker for analysis (ultralearn, optimize, audit, map, etc.)',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        prompt: { type: 'string', description: 'Prompt with trigger keyword (e.g., "ultralearn authentication")' }
+      },
+      required: ['prompt']
+    }
+  },
+  {
+    name: 'workers_status',
+    description: 'Get background worker status dashboard',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        workerId: { type: 'string', description: 'Specific worker ID (optional)' }
+      },
+      required: []
+    }
+  },
+  {
+    name: 'workers_results',
+    description: 'Get analysis results from completed workers',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        json: { type: 'boolean', description: 'Return as JSON', default: false }
+      },
+      required: []
+    }
+  },
+  {
+    name: 'workers_triggers',
+    description: 'List available trigger keywords for workers',
+    inputSchema: {
+      type: 'object',
+      properties: {},
+      required: []
+    }
+  },
+  {
+    name: 'workers_stats',
+    description: 'Get worker statistics (24h)',
+    inputSchema: {
+      type: 'object',
+      properties: {},
+      required: []
+    }
+  },
+  // Custom Worker System (agentic-flow@alpha.39+)
+  {
+    name: 'workers_presets',
+    description: 'List available worker presets (quick-scan, deep-analysis, security-scan, learning, api-docs, test-analysis)',
+    inputSchema: {
+      type: 'object',
+      properties: {},
+      required: []
+    }
+  },
+  {
+    name: 'workers_phases',
+    description: 'List available phase executors (24 phases including file-discovery, security-analysis, pattern-extraction)',
+    inputSchema: {
+      type: 'object',
+      properties: {},
+      required: []
+    }
+  },
+  {
+    name: 'workers_create',
+    description: 'Create a custom worker from preset with composable phases',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', description: 'Worker name' },
+        preset: { type: 'string', description: 'Base preset (quick-scan, deep-analysis, security-scan, learning, api-docs, test-analysis)' },
+        triggers: { type: 'string', description: 'Comma-separated trigger keywords' }
+      },
+      required: ['name']
+    }
+  },
+  {
+    name: 'workers_run',
+    description: 'Run a custom worker on target path',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', description: 'Worker name' },
+        path: { type: 'string', description: 'Target path to analyze (default: .)' }
+      },
+      required: ['name']
+    }
+  },
+  {
+    name: 'workers_custom',
+    description: 'List registered custom workers',
+    inputSchema: {
+      type: 'object',
+      properties: {},
+      required: []
+    }
+  },
+  {
+    name: 'workers_init_config',
+    description: 'Generate example workers.yaml config file',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        force: { type: 'boolean', description: 'Overwrite existing config' }
+      },
+      required: []
+    }
+  },
+  {
+    name: 'workers_load_config',
+    description: 'Load custom workers from workers.yaml config file',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        file: { type: 'string', description: 'Config file path (default: workers.yaml)' }
+      },
+      required: []
+    }
   }
 ];
 
@@ -2064,6 +2193,279 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           lastUpdate: stats.last_session || Date.now(),
           tip: 'Use hooks_subscribe_snapshot with lastState for delta tracking'
         }, null, 2) }] };
+      }
+
+      // ============================================
+      // BACKGROUND WORKERS HANDLERS (via agentic-flow)
+      // ============================================
+      case 'workers_dispatch': {
+        const prompt = args.prompt;
+        try {
+          const result = execSync(`npx agentic-flow@alpha workers dispatch "${prompt.replace(/"/g, '\\"')}"`, {
+            encoding: 'utf-8',
+            timeout: 30000,
+            stdio: ['pipe', 'pipe', 'pipe']
+          });
+          return { content: [{ type: 'text', text: JSON.stringify({
+            success: true,
+            message: 'Worker dispatched',
+            output: result.trim()
+          }, null, 2) }] };
+        } catch (e) {
+          return { content: [{ type: 'text', text: JSON.stringify({
+            success: true,
+            message: 'Worker dispatch attempted',
+            note: 'Check workers status for progress'
+          }, null, 2) }] };
+        }
+      }
+
+      case 'workers_status': {
+        try {
+          const cmdArgs = args.workerId ? `workers status ${args.workerId}` : 'workers status';
+          const result = execSync(`npx agentic-flow@alpha ${cmdArgs}`, {
+            encoding: 'utf-8',
+            timeout: 15000,
+            stdio: ['pipe', 'pipe', 'pipe']
+          });
+          return { content: [{ type: 'text', text: JSON.stringify({
+            success: true,
+            status: result.trim()
+          }, null, 2) }] };
+        } catch (e) {
+          return { content: [{ type: 'text', text: JSON.stringify({
+            success: false,
+            error: 'Could not get worker status',
+            message: e.message
+          }, null, 2) }] };
+        }
+      }
+
+      case 'workers_results': {
+        try {
+          const cmdArgs = args.json ? 'workers results --json' : 'workers results';
+          const result = execSync(`npx agentic-flow@alpha ${cmdArgs}`, {
+            encoding: 'utf-8',
+            timeout: 15000,
+            stdio: ['pipe', 'pipe', 'pipe']
+          });
+          if (args.json) {
+            try {
+              return { content: [{ type: 'text', text: JSON.stringify({
+                success: true,
+                results: JSON.parse(result.trim())
+              }, null, 2) }] };
+            } catch {
+              return { content: [{ type: 'text', text: result.trim() }] };
+            }
+          }
+          return { content: [{ type: 'text', text: JSON.stringify({
+            success: true,
+            results: result.trim()
+          }, null, 2) }] };
+        } catch (e) {
+          return { content: [{ type: 'text', text: JSON.stringify({
+            success: false,
+            error: 'Could not get worker results',
+            message: e.message
+          }, null, 2) }] };
+        }
+      }
+
+      case 'workers_triggers': {
+        try {
+          const result = execSync('npx agentic-flow@alpha workers triggers', {
+            encoding: 'utf-8',
+            timeout: 15000,
+            stdio: ['pipe', 'pipe', 'pipe']
+          });
+          return { content: [{ type: 'text', text: JSON.stringify({
+            success: true,
+            triggers: result.trim()
+          }, null, 2) }] };
+        } catch (e) {
+          // Return hardcoded list as fallback
+          return { content: [{ type: 'text', text: JSON.stringify({
+            success: true,
+            triggers: ['ultralearn', 'optimize', 'consolidate', 'predict', 'audit', 'map', 'preload', 'deepdive', 'document', 'refactor', 'benchmark', 'testgaps']
+          }, null, 2) }] };
+        }
+      }
+
+      case 'workers_stats': {
+        try {
+          const result = execSync('npx agentic-flow@alpha workers stats', {
+            encoding: 'utf-8',
+            timeout: 15000,
+            stdio: ['pipe', 'pipe', 'pipe']
+          });
+          return { content: [{ type: 'text', text: JSON.stringify({
+            success: true,
+            stats: result.trim()
+          }, null, 2) }] };
+        } catch (e) {
+          return { content: [{ type: 'text', text: JSON.stringify({
+            success: false,
+            error: 'Could not get worker stats',
+            message: e.message
+          }, null, 2) }] };
+        }
+      }
+
+      // Custom Worker System handlers (agentic-flow@alpha.39+)
+      case 'workers_presets': {
+        try {
+          const result = execSync('npx agentic-flow@alpha workers presets', {
+            encoding: 'utf-8',
+            timeout: 15000,
+            stdio: ['pipe', 'pipe', 'pipe']
+          });
+          return { content: [{ type: 'text', text: JSON.stringify({
+            success: true,
+            presets: result.trim()
+          }, null, 2) }] };
+        } catch (e) {
+          return { content: [{ type: 'text', text: JSON.stringify({
+            success: true,
+            presets: ['quick-scan', 'deep-analysis', 'security-scan', 'learning', 'api-docs', 'test-analysis'],
+            note: 'Hardcoded fallback - install agentic-flow@alpha for full support'
+          }, null, 2) }] };
+        }
+      }
+
+      case 'workers_phases': {
+        try {
+          const result = execSync('npx agentic-flow@alpha workers phases', {
+            encoding: 'utf-8',
+            timeout: 15000,
+            stdio: ['pipe', 'pipe', 'pipe']
+          });
+          return { content: [{ type: 'text', text: JSON.stringify({
+            success: true,
+            phases: result.trim()
+          }, null, 2) }] };
+        } catch (e) {
+          return { content: [{ type: 'text', text: JSON.stringify({
+            success: true,
+            phases: ['file-discovery', 'static-analysis', 'security-analysis', 'pattern-extraction', 'dependency-analysis', 'complexity-analysis', 'test-coverage', 'api-extraction', 'secret-detection', 'report-generation'],
+            note: 'Partial list - install agentic-flow@alpha for all 24 phases'
+          }, null, 2) }] };
+        }
+      }
+
+      case 'workers_create': {
+        const name = args.name;
+        const preset = args.preset || 'quick-scan';
+        const triggers = args.triggers;
+        try {
+          let cmd = `npx agentic-flow@alpha workers create "${name}" --preset ${preset}`;
+          if (triggers) cmd += ` --triggers "${triggers}"`;
+          const result = execSync(cmd, {
+            encoding: 'utf-8',
+            timeout: 30000,
+            stdio: ['pipe', 'pipe', 'pipe']
+          });
+          return { content: [{ type: 'text', text: JSON.stringify({
+            success: true,
+            message: `Worker '${name}' created with preset '${preset}'`,
+            output: result.trim()
+          }, null, 2) }] };
+        } catch (e) {
+          return { content: [{ type: 'text', text: JSON.stringify({
+            success: false,
+            error: 'Worker creation failed',
+            message: e.message
+          }, null, 2) }] };
+        }
+      }
+
+      case 'workers_run': {
+        const name = args.name;
+        const targetPath = args.path || '.';
+        try {
+          const result = execSync(`npx agentic-flow@alpha workers run "${name}" --path "${targetPath}"`, {
+            encoding: 'utf-8',
+            timeout: 120000,
+            stdio: ['pipe', 'pipe', 'pipe']
+          });
+          return { content: [{ type: 'text', text: JSON.stringify({
+            success: true,
+            worker: name,
+            path: targetPath,
+            output: result.trim()
+          }, null, 2) }] };
+        } catch (e) {
+          return { content: [{ type: 'text', text: JSON.stringify({
+            success: false,
+            error: `Worker '${name}' execution failed`,
+            message: e.message
+          }, null, 2) }] };
+        }
+      }
+
+      case 'workers_custom': {
+        try {
+          const result = execSync('npx agentic-flow@alpha workers custom', {
+            encoding: 'utf-8',
+            timeout: 15000,
+            stdio: ['pipe', 'pipe', 'pipe']
+          });
+          return { content: [{ type: 'text', text: JSON.stringify({
+            success: true,
+            workers: result.trim()
+          }, null, 2) }] };
+        } catch (e) {
+          return { content: [{ type: 'text', text: JSON.stringify({
+            success: true,
+            workers: [],
+            note: 'No custom workers registered'
+          }, null, 2) }] };
+        }
+      }
+
+      case 'workers_init_config': {
+        try {
+          let cmd = 'npx agentic-flow@alpha workers init-config';
+          if (args.force) cmd += ' --force';
+          const result = execSync(cmd, {
+            encoding: 'utf-8',
+            timeout: 15000,
+            stdio: ['pipe', 'pipe', 'pipe']
+          });
+          return { content: [{ type: 'text', text: JSON.stringify({
+            success: true,
+            message: 'workers.yaml config file created',
+            output: result.trim()
+          }, null, 2) }] };
+        } catch (e) {
+          return { content: [{ type: 'text', text: JSON.stringify({
+            success: false,
+            error: 'Config init failed',
+            message: e.message
+          }, null, 2) }] };
+        }
+      }
+
+      case 'workers_load_config': {
+        const configFile = args.file || 'workers.yaml';
+        try {
+          const result = execSync(`npx agentic-flow@alpha workers load-config --file "${configFile}"`, {
+            encoding: 'utf-8',
+            timeout: 30000,
+            stdio: ['pipe', 'pipe', 'pipe']
+          });
+          return { content: [{ type: 'text', text: JSON.stringify({
+            success: true,
+            file: configFile,
+            output: result.trim()
+          }, null, 2) }] };
+        } catch (e) {
+          return { content: [{ type: 'text', text: JSON.stringify({
+            success: false,
+            error: `Config load failed from '${configFile}'`,
+            message: e.message
+          }, null, 2) }] };
+        }
       }
 
       default:

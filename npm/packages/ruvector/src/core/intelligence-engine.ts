@@ -60,6 +60,7 @@ export interface LearningStats {
   routingPatterns: number;
   errorPatterns: number;
   coEditPatterns: number;
+  workerTriggers: number;
 
   // Attention stats
   attentionEnabled: boolean;
@@ -166,6 +167,7 @@ export class IntelligenceEngine {
   private errorPatterns: Map<string, string[]> = new Map(); // error -> fixes
   private coEditPatterns: Map<string, Map<string, number>> = new Map(); // file -> related files -> count
   private agentMappings: Map<string, string> = new Map(); // extension/dir -> agent
+  private workerTriggerMappings: Map<string, { priority: string; agents: string[] }> = new Map(); // trigger -> agents
 
   // Runtime state
   private currentTrajectoryId: number | null = null;
@@ -778,6 +780,75 @@ export class IntelligenceEngine {
   }
 
   // =========================================================================
+  // Worker-Agent Mappings
+  // =========================================================================
+
+  /**
+   * Register worker trigger to agent mappings
+   */
+  registerWorkerTrigger(trigger: string, priority: string, agents: string[]): void {
+    this.workerTriggerMappings.set(trigger, { priority, agents });
+  }
+
+  /**
+   * Get agents for a worker trigger
+   */
+  getAgentsForTrigger(trigger: string): { priority: string; agents: string[] } | undefined {
+    return this.workerTriggerMappings.get(trigger);
+  }
+
+  /**
+   * Route a task using worker trigger patterns first, then fall back to regular routing
+   */
+  async routeWithWorkers(task: string, file?: string): Promise<AgentRoute> {
+    // Check if task matches any worker trigger patterns
+    const taskLower = task.toLowerCase();
+
+    for (const [trigger, config] of this.workerTriggerMappings) {
+      if (taskLower.includes(trigger)) {
+        const primaryAgent = config.agents[0] || 'coder';
+        const alternates = config.agents.slice(1).map(a => ({ agent: a, confidence: 0.7 }));
+
+        return {
+          agent: primaryAgent,
+          confidence: config.priority === 'critical' ? 0.95 :
+                      config.priority === 'high' ? 0.85 :
+                      config.priority === 'medium' ? 0.75 : 0.65,
+          reason: `worker trigger: ${trigger}`,
+          alternates,
+        };
+      }
+    }
+
+    // Fall back to regular routing
+    return this.route(task, file);
+  }
+
+  /**
+   * Initialize default worker trigger mappings
+   */
+  initDefaultWorkerMappings(): void {
+    const defaults: Array<[string, string, string[]]> = [
+      ['ultralearn', 'high', ['researcher', 'coder']],
+      ['optimize', 'high', ['performance-analyzer']],
+      ['audit', 'critical', ['security-analyst', 'tester']],
+      ['map', 'medium', ['architect']],
+      ['security', 'critical', ['security-analyst']],
+      ['benchmark', 'low', ['performance-analyzer']],
+      ['document', 'medium', ['documenter']],
+      ['refactor', 'medium', ['coder', 'reviewer']],
+      ['testgaps', 'high', ['tester']],
+      ['deepdive', 'low', ['researcher']],
+      ['predict', 'medium', ['analyst']],
+      ['consolidate', 'low', ['architect']],
+    ];
+
+    for (const [trigger, priority, agents] of defaults) {
+      this.workerTriggerMappings.set(trigger, { priority, agents });
+    }
+  }
+
+  // =========================================================================
   // Co-edit Pattern Learning
   // =========================================================================
 
@@ -938,6 +1009,7 @@ export class IntelligenceEngine {
       routingPatterns: this.routingPatterns.size,
       errorPatterns: this.errorPatterns.size,
       coEditPatterns: this.coEditPatterns.size,
+      workerTriggers: this.workerTriggerMappings.size,
 
       attentionEnabled: this.attention !== null,
       onnxEnabled: this.onnxReady,
@@ -981,6 +1053,10 @@ export class IntelligenceEngine {
       ),
 
       agentMappings: Object.fromEntries(this.agentMappings),
+
+      workerTriggerMappings: Object.fromEntries(
+        Array.from(this.workerTriggerMappings.entries()).map(([k, v]) => [k, v])
+      ),
 
       stats: this.getStats(),
     };
@@ -1055,6 +1131,14 @@ export class IntelligenceEngine {
         this.agentMappings.set(ext, agent as string);
       }
     }
+
+    // Import worker trigger mappings
+    if (data.workerTriggerMappings) {
+      for (const [trigger, config] of Object.entries(data.workerTriggerMappings)) {
+        const typedConfig = config as { priority: string; agents: string[] };
+        this.workerTriggerMappings.set(trigger, typedConfig);
+      }
+    }
   }
 
   /**
@@ -1066,6 +1150,7 @@ export class IntelligenceEngine {
     this.errorPatterns.clear();
     this.coEditPatterns.clear();
     this.agentMappings.clear();
+    this.workerTriggerMappings.clear();
     this.agentDb.clear();
   }
 
