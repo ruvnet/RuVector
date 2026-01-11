@@ -258,9 +258,11 @@ jobs:
         run: find artifacts -type f -name "*.node" -o -name "*.wasm" | head -50
 
       # --- Publish WASM packages ---
-      - name: Publish ruvector-math-wasm to npm
+      - name: Publish @ruvector/math-wasm to npm
         run: |
           cd artifacts/wasm-ruvector-math-wasm
+          # Update package name to scoped
+          jq '.name = "@ruvector/math-wasm"' package.json > tmp.json && mv tmp.json package.json
           npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
@@ -462,7 +464,7 @@ jobs:
         run: |
           echo "## npm Publishing" >> $GITHUB_STEP_SUMMARY
           echo "### WASM Packages" >> $GITHUB_STEP_SUMMARY
-          echo "✅ ruvector-math-wasm" >> $GITHUB_STEP_SUMMARY
+          echo "✅ @ruvector/math-wasm" >> $GITHUB_STEP_SUMMARY
           echo "✅ @ruvector/attention-wasm" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Native Packages" >> $GITHUB_STEP_SUMMARY
@@ -528,7 +530,7 @@ jobs:
             - `ruvector-attention-wasm` - WASM bindings for attention
 
             #### npm
-            - `ruvector-math-wasm` - Browser WASM package
+            - `@ruvector/math-wasm` - Browser WASM package
             - `@ruvector/attention` - Main Node.js package (auto-selects platform)
             - `@ruvector/attention-wasm` - Browser WASM package
             - Platform-specific: linux-x64, linux-arm64, darwin-x64, darwin-arm64, win32-x64
@@ -543,7 +545,7 @@ jobs:
             npm install @ruvector/attention
 
             # Browser (WASM)
-            npm install ruvector-math-wasm @ruvector/attention-wasm
+            npm install @ruvector/math-wasm @ruvector/attention-wasm
             ```
           files: release-assets/*
           draft: false

@@ -1,6 +1,6 @@
-# ruvector-math-wasm
+# @ruvector/math-wasm
 
-[![npm version](https://img.shields.io/npm/v/ruvector-math-wasm.svg)](https://www.npmjs.com/package/ruvector-math-wasm)
+[![npm version](https://img.shields.io/npm/v/@ruvector/math-wasm.svg)](https://www.npmjs.com/package/@ruvector/math-wasm)
 [![crates.io](https://img.shields.io/crates/v/ruvector-math-wasm.svg)](https://crates.io/crates/ruvector-math-wasm)
 [![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg)](LICENSE)
 [![WASM](https://img.shields.io/badge/target-wasm32-orange.svg)](https://webassembly.org/)
@@ -21,7 +21,7 @@ Brings Optimal Transport, Information Geometry, and Product Manifolds to the bro
 ## Installation
 
 ```bash
-npm install ruvector-math-wasm
+npm install @ruvector/math-wasm
 # or
 yarn add ruvector-math-wasm
 # or
@@ -37,7 +37,7 @@ import init, {
   WasmSlicedWasserstein,
   WasmSinkhorn,
   WasmProductManifold
-} from 'ruvector-math-wasm';
+} from '@ruvector/math-wasm';
 
 // Initialize WASM module
 await init();
@@ -53,7 +53,7 @@ console.log(`Wasserstein distance: ${distance}`);
 ### Node.js
 
 ```javascript
-const { WasmSlicedWasserstein } = require('ruvector-math-wasm');
+const { WasmSlicedWasserstein } = require('@ruvector/math-wasm');
 
 const sw = new WasmSlicedWasserstein(100);
 const dist = sw.distance(source, target, 2);
@@ -163,7 +163,7 @@ Benchmarked on M1 MacBook Pro (WASM in Chrome):
 Full TypeScript definitions are included:
 
 ```typescript
-import { WasmSlicedWasserstein, WasmSinkhornConfig } from 'ruvector-math-wasm';
+import { WasmSlicedWasserstein, WasmSinkhornConfig } from '@ruvector/math-wasm';
 
 const sw: WasmSlicedWasserstein = new WasmSlicedWasserstein(100);
 const distance: number = sw.distance(source, target, dim);
