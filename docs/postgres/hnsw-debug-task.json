@@ -1,0 +1,6 @@
+{
+  "task": "ROOT CAUSE ANALYSIS: HNSW index scan crash on PostgreSQL 18. OBJECTIVE: 1) Analyze why ORDER BY embedding with vector operator crashes on pg18, 2) Examine amgettuple/amgetbitmap implementations in hnsw_am.rs, 3) Compare pg17 vs pg18 IndexAmRoutine API differences, 4) Identify missing pg18-specific callback implementations, 5) Implement fix for HNSW index scans on pg18, 6) Validate fix. KEY FILES: /Users/devops/Projects/active/ruvector/crates/ruvector-postgres/src/index/hnsw_am.rs. ERROR: Index builds successfully but crashes during index scan with ORDER BY. DELIVERABLES: RCA report, code fix, test validation.",
+  "strategy": "sequential",
+  "priority": "critical",
+  "dependencies": ["code-analysis", "rca", "fix-implementation", "validation"]
+}
