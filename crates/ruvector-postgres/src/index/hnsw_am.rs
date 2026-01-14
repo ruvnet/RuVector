@@ -1395,10 +1395,36 @@ unsafe extern "C-unwind" fn hnsw_rescan(
     state.current_pos = 0;
     state.search_done = false;
 
-    // Extract query vector from ORDER BY
-    if norderbys > 0 && !orderbys.is_null() {
+    // PG18: Try to get ORDER BY data from scan->orderByData directly
+    #[cfg(feature = "pg18")]
+    {
+        if !(*scan).orderByData.is_null() && (*scan).numberOfOrderBys > 0 {
+            let scan_orderbys = (*scan).orderByData;
+            let first_orderby = &*scan_orderbys;
+            let datum = first_orderby.sk_argument;
+
+            pgrx::debug1!("HNSW v2: PG18 extracting from orderByData, datum={:?}", datum);
+
+            if let Some(vector) = RuVector::from_polymorphic_datum(
+                datum,
+                false,
+                pg_sys::InvalidOid,
+            ) {
+                state.query_vector = vector.as_slice().to_vec();
+                pgrx::debug1!(
+                    "HNSW v2: PG18 Extracted query vector with {} dimensions",
+                    state.query_vector.len()
+                );
+            }
+        }
+    }
+
+    // Standard extraction from orderbys parameter
+    if state.query_vector.is_empty() && norderbys > 0 && !orderbys.is_null() {
         let orderby = &*orderbys;
         let datum = orderby.sk_argument;
+
+        pgrx::debug1!("HNSW v2: Extracting from orderbys parameter, datum={:?}", datum);
 
         // Extract RuVector from datum using FromDatum trait
         if let Some(vector) = RuVector::from_polymorphic_datum(
@@ -1634,6 +1660,9 @@ static HNSW_AM_HANDLER: IndexAmRoutine = IndexAmRoutine {
     amvacuumcleanup: None,
     amcanreturn: None,
     amcostestimate: None,
+    // PG18: amgettreeheight MUST be between amcostestimate and amoptions
+    #[cfg(feature = "pg18")]
+    amgettreeheight: None,
     amoptions: None,
     amproperty: None,
     ambuildphasename: None,
@@ -1654,15 +1683,13 @@ static HNSW_AM_HANDLER: IndexAmRoutine = IndexAmRoutine {
     amcanbuildparallel: true,
     #[cfg(any(feature = "pg17", feature = "pg18"))]
     aminsertcleanup: None,
-    // PG18 additions
+    // PG18 additions - new boolean flags
     #[cfg(feature = "pg18")]
     amcanhash: false,
     #[cfg(feature = "pg18")]
     amconsistentequality: false,
     #[cfg(feature = "pg18")]
     amconsistentordering: false,
-    #[cfg(feature = "pg18")]
-    amgettreeheight: None,
     #[cfg(feature = "pg18")]
     amtranslatestrategy: None,
     #[cfg(feature = "pg18")]
