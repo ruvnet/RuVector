@@ -140,7 +140,7 @@ fn get_worker_state() -> &'static Arc<BgWorkerState> {
 ///
 /// This is registered with PostgreSQL and runs in a separate background process.
 #[pg_guard]
-pub extern "C" fn ruvector_bgworker_main(_arg: pg_sys::Datum) {
+pub extern "C-unwind" fn ruvector_bgworker_main(_arg: pg_sys::Datum) {
     // Initialize worker
     pgrx::log!("RuVector background worker starting");
 

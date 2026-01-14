@@ -728,7 +728,7 @@ unsafe fn hnsw_search(
 
 /// Build callback - builds the index from scratch
 #[pg_guard]
-unsafe extern "C" fn hnsw_build(
+unsafe extern "C-unwind" fn hnsw_build(
     heap: Relation,
     index: Relation,
     index_info: *mut IndexInfo,
@@ -810,7 +810,7 @@ struct HnswBuildState {
 }
 
 /// Build callback called for each heap tuple
-unsafe extern "C" fn hnsw_build_callback(
+unsafe extern "C-unwind" fn hnsw_build_callback(
     index: Relation,
     ctid: ItemPointer,
     values: *mut Datum,
@@ -906,7 +906,7 @@ unsafe fn build_index_from_heap(
 
 /// Build empty index callback (for CREATE INDEX CONCURRENTLY)
 #[pg_guard]
-unsafe extern "C" fn hnsw_buildempty(index: Relation) {
+unsafe extern "C-unwind" fn hnsw_buildempty(index: Relation) {
     pgrx::log!("HNSW v2: Building empty index");
 
     let (page, buffer) = get_or_create_meta_page(index, true);
@@ -921,7 +921,7 @@ unsafe extern "C" fn hnsw_buildempty(index: Relation) {
 
 /// Insert callback - insert a single tuple into the index
 #[pg_guard]
-unsafe extern "C" fn hnsw_insert(
+unsafe extern "C-unwind" fn hnsw_insert(
     index: Relation,
     values: *mut Datum,
     isnull: *mut bool,
@@ -1175,7 +1175,7 @@ unsafe fn connect_node_to_neighbors(
 
 /// Bulk delete callback
 #[pg_guard]
-unsafe extern "C" fn hnsw_bulkdelete(
+unsafe extern "C-unwind" fn hnsw_bulkdelete(
     info: *mut IndexVacuumInfo,
     stats: *mut IndexBulkDeleteResult,
     callback: IndexBulkDeleteCallback,
@@ -1255,7 +1255,7 @@ unsafe fn mark_node_deleted(index: Relation, block: BlockNumber) {
 
 /// Vacuum cleanup callback
 #[pg_guard]
-unsafe extern "C" fn hnsw_vacuumcleanup(
+unsafe extern "C-unwind" fn hnsw_vacuumcleanup(
     info: *mut IndexVacuumInfo,
     stats: *mut IndexBulkDeleteResult,
 ) -> *mut IndexBulkDeleteResult {
@@ -1302,7 +1302,7 @@ unsafe extern "C" fn hnsw_vacuumcleanup(
 
 /// Cost estimate callback
 #[pg_guard]
-unsafe extern "C" fn hnsw_costestimate(
+unsafe extern "C-unwind" fn hnsw_costestimate(
     _root: *mut PlannerInfo,
     path: *mut IndexPath,
     _loop_count: f64,
@@ -1347,7 +1347,7 @@ unsafe fn extract_limit_from_path(_path: *mut IndexPath) -> Option<usize> {
 
 /// Begin scan callback
 #[pg_guard]
-unsafe extern "C" fn hnsw_beginscan(
+unsafe extern "C-unwind" fn hnsw_beginscan(
     index: Relation,
     nkeys: ::std::os::raw::c_int,
     norderbys: ::std::os::raw::c_int,
@@ -1379,7 +1379,7 @@ unsafe extern "C" fn hnsw_beginscan(
 
 /// Rescan callback - set query vector
 #[pg_guard]
-unsafe extern "C" fn hnsw_rescan(
+unsafe extern "C-unwind" fn hnsw_rescan(
     scan: IndexScanDesc,
     _keys: ScanKey,
     _nkeys: ::std::os::raw::c_int,
@@ -1443,7 +1443,7 @@ unsafe extern "C" fn hnsw_rescan(
 
 /// Get tuple callback - return next result
 #[pg_guard]
-unsafe extern "C" fn hnsw_gettuple(scan: IndexScanDesc, direction: ScanDirection::Type) -> bool {
+unsafe extern "C-unwind" fn hnsw_gettuple(scan: IndexScanDesc, direction: ScanDirection::Type) -> bool {
     // Only support forward scans
     if direction != pg_sys::ScanDirection::ForwardScanDirection {
         return false;
@@ -1501,14 +1501,14 @@ unsafe extern "C" fn hnsw_gettuple(scan: IndexScanDesc, direction: ScanDirection
 
 /// Get bitmap callback - for bitmap scans (not typically used for k-NN)
 #[pg_guard]
-unsafe extern "C" fn hnsw_getbitmap(_scan: IndexScanDesc, _tbm: *mut TIDBitmap) -> i64 {
+unsafe extern "C-unwind" fn hnsw_getbitmap(_scan: IndexScanDesc, _tbm: *mut TIDBitmap) -> i64 {
     pgrx::warning!("HNSW v2: Bitmap scans not supported for k-NN queries");
     0
 }
 
 /// End scan callback
 #[pg_guard]
-unsafe extern "C" fn hnsw_endscan(scan: IndexScanDesc) {
+unsafe extern "C-unwind" fn hnsw_endscan(scan: IndexScanDesc) {
     pgrx::debug1!("HNSW v2: End scan");
 
     // Free scan state
@@ -1518,14 +1518,14 @@ unsafe extern "C" fn hnsw_endscan(scan: IndexScanDesc) {
 
 /// Can return callback - indicates if index can return indexed data
 #[pg_guard]
-unsafe extern "C" fn hnsw_canreturn(_index: Relation, attno: ::std::os::raw::c_int) -> bool {
+unsafe extern "C-unwind" fn hnsw_canreturn(_index: Relation, attno: ::std::os::raw::c_int) -> bool {
     // HNSW can return the vector column (attribute 1)
     attno == 1
 }
 
 /// Options callback - parse index options from WITH clause
 #[pg_guard]
-unsafe extern "C" fn hnsw_options(reloptions: Datum, validate: bool) -> *mut bytea {
+unsafe extern "C-unwind" fn hnsw_options(reloptions: Datum, validate: bool) -> *mut bytea {
     pgrx::debug1!("HNSW v2: Parsing options (validate={})", validate);
 
     // TODO: Implement proper reloptions parsing using pg_sys::parseRelOptions
@@ -1545,7 +1545,7 @@ unsafe extern "C" fn hnsw_options(reloptions: Datum, validate: bool) -> *mut byt
 
 /// Validate callback - validate operator class
 #[pg_guard]
-unsafe extern "C" fn hnsw_validate(opclassoid: pg_sys::Oid) -> bool {
+unsafe extern "C-unwind" fn hnsw_validate(opclassoid: pg_sys::Oid) -> bool {
     pgrx::debug1!("HNSW v2: Validating operator class {:?}", opclassoid);
 
     // Validate that the operator class provides required operators:
@@ -1559,7 +1559,7 @@ unsafe extern "C" fn hnsw_validate(opclassoid: pg_sys::Oid) -> bool {
 
 /// Property callback - report index properties
 #[pg_guard]
-unsafe extern "C" fn hnsw_property(
+unsafe extern "C-unwind" fn hnsw_property(
     _index_oid: pg_sys::Oid,
     attno: ::std::os::raw::c_int,
     prop: ::std::os::raw::c_int,
@@ -1619,7 +1619,7 @@ static HNSW_AM_HANDLER: IndexAmRoutine = IndexAmRoutine {
     amcanparallel: true, // Supports parallel scan
     amcaninclude: false,
     amusemaintenanceworkmem: true,
-    #[cfg(any(feature = "pg16", feature = "pg17"))]
+    #[cfg(any(feature = "pg16", feature = "pg17", feature = "pg18"))]
     amsummarizing: false,
     amparallelvacuumoptions: pg_sys::VACUUM_OPTION_PARALLEL_COND_CLEANUP as u8,
 
@@ -1649,11 +1649,24 @@ static HNSW_AM_HANDLER: IndexAmRoutine = IndexAmRoutine {
     amestimateparallelscan: None,
     aminitparallelscan: None,
     amparallelrescan: None,
-    // PG17 additions
-    #[cfg(feature = "pg17")]
+    // PG17+ additions
+    #[cfg(any(feature = "pg17", feature = "pg18"))]
     amcanbuildparallel: true,
-    #[cfg(feature = "pg17")]
+    #[cfg(any(feature = "pg17", feature = "pg18"))]
     aminsertcleanup: None,
+    // PG18 additions
+    #[cfg(feature = "pg18")]
+    amcanhash: false,
+    #[cfg(feature = "pg18")]
+    amconsistentequality: false,
+    #[cfg(feature = "pg18")]
+    amconsistentordering: false,
+    #[cfg(feature = "pg18")]
+    amgettreeheight: None,
+    #[cfg(feature = "pg18")]
+    amtranslatestrategy: None,
+    #[cfg(feature = "pg18")]
+    amtranslatecmptype: None,
 };
 
 /// Main handler function for HNSW index access method

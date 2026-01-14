@@ -1108,7 +1108,7 @@ unsafe fn ivfflat_search(
 
 /// Build an IVFFlat index
 #[pg_guard]
-unsafe extern "C" fn ivfflat_ambuild(
+unsafe extern "C-unwind" fn ivfflat_ambuild(
     heap: Relation,
     index: Relation,
     index_info: *mut IndexInfo,
@@ -1140,7 +1140,7 @@ unsafe extern "C" fn ivfflat_ambuild(
         vectors: *mut Vec<(ItemPointerData, Vec<f32>)>,
     }
 
-    unsafe extern "C" fn ivf_build_callback(
+    unsafe extern "C-unwind" fn ivf_build_callback(
         _index: Relation,
         ctid: ItemPointer,
         values: *mut Datum,
@@ -1348,7 +1348,7 @@ unsafe extern "C" fn ivfflat_ambuild(
 
 /// Build empty IVFFlat index
 #[pg_guard]
-unsafe extern "C" fn ivfflat_ambuildempty(index: Relation) {
+unsafe extern "C-unwind" fn ivfflat_ambuildempty(index: Relation) {
     pgrx::info!("IVFFlat v2: Building empty index");
 
     // Initialize empty metadata page
@@ -1358,7 +1358,7 @@ unsafe extern "C" fn ivfflat_ambuildempty(index: Relation) {
 
 /// Insert a tuple into the index
 #[pg_guard]
-unsafe extern "C" fn ivfflat_aminsert(
+unsafe extern "C-unwind" fn ivfflat_aminsert(
     index: Relation,
     values: *mut Datum,
     isnull: *mut bool,
@@ -1403,7 +1403,7 @@ unsafe extern "C" fn ivfflat_aminsert(
 
 /// Bulk delete callback
 #[pg_guard]
-unsafe extern "C" fn ivfflat_ambulkdelete(
+unsafe extern "C-unwind" fn ivfflat_ambulkdelete(
     _info: *mut IndexVacuumInfo,
     stats: *mut IndexBulkDeleteResult,
     _callback: IndexBulkDeleteCallback,
@@ -1421,7 +1421,7 @@ unsafe extern "C" fn ivfflat_ambulkdelete(
 
 /// Vacuum cleanup callback
 #[pg_guard]
-unsafe extern "C" fn ivfflat_amvacuumcleanup(
+unsafe extern "C-unwind" fn ivfflat_amvacuumcleanup(
     info: *mut IndexVacuumInfo,
     stats: *mut IndexBulkDeleteResult,
 ) -> *mut IndexBulkDeleteResult {
@@ -1450,7 +1450,7 @@ unsafe extern "C" fn ivfflat_amvacuumcleanup(
 
 /// Cost estimate callback
 #[pg_guard]
-unsafe extern "C" fn ivfflat_amcostestimate(
+unsafe extern "C-unwind" fn ivfflat_amcostestimate(
     _root: *mut PlannerInfo,
     path: *mut IndexPath,
     _loop_count: f64,
@@ -1488,7 +1488,7 @@ unsafe extern "C" fn ivfflat_amcostestimate(
 
 /// Begin scan callback
 #[pg_guard]
-unsafe extern "C" fn ivfflat_ambeginscan(
+unsafe extern "C-unwind" fn ivfflat_ambeginscan(
     index: Relation,
     nkeys: ::std::os::raw::c_int,
     norderbys: ::std::os::raw::c_int,
@@ -1518,7 +1518,7 @@ unsafe extern "C" fn ivfflat_ambeginscan(
 
 /// Rescan callback
 #[pg_guard]
-unsafe extern "C" fn ivfflat_amrescan(
+unsafe extern "C-unwind" fn ivfflat_amrescan(
     scan: IndexScanDesc,
     _keys: ScanKey,
     _nkeys: ::std::os::raw::c_int,
@@ -1587,7 +1587,7 @@ unsafe extern "C" fn ivfflat_amrescan(
 
 /// Get tuple callback
 #[pg_guard]
-unsafe extern "C" fn ivfflat_amgettuple(
+unsafe extern "C-unwind" fn ivfflat_amgettuple(
     scan: IndexScanDesc,
     direction: ScanDirection::Type,
 ) -> bool {
@@ -1635,7 +1635,7 @@ unsafe extern "C" fn ivfflat_amgettuple(
 
 /// Get bitmap callback (for bitmap scans)
 #[pg_guard]
-unsafe extern "C" fn ivfflat_amgetbitmap(_scan: IndexScanDesc, _tbm: *mut TIDBitmap) -> i64 {
+unsafe extern "C-unwind" fn ivfflat_amgetbitmap(_scan: IndexScanDesc, _tbm: *mut TIDBitmap) -> i64 {
     // IVFFlat doesn't efficiently support bitmap scans
     // Return 0 to indicate no tuples
     0
@@ -1643,7 +1643,7 @@ unsafe extern "C" fn ivfflat_amgetbitmap(_scan: IndexScanDesc, _tbm: *mut TIDBit
 
 /// End scan callback
 #[pg_guard]
-unsafe extern "C" fn ivfflat_amendscan(scan: IndexScanDesc) {
+unsafe extern "C-unwind" fn ivfflat_amendscan(scan: IndexScanDesc) {
     pgrx::debug1!("IVFFlat v2: End scan");
 
     let state = (*scan).opaque as *mut IvfFlatScanState;
@@ -1656,14 +1656,14 @@ unsafe extern "C" fn ivfflat_amendscan(scan: IndexScanDesc) {
 
 /// Can return callback
 #[pg_guard]
-unsafe extern "C" fn ivfflat_amcanreturn(_index: Relation, _attno: ::std::os::raw::c_int) -> bool {
+unsafe extern "C-unwind" fn ivfflat_amcanreturn(_index: Relation, _attno: ::std::os::raw::c_int) -> bool {
     // IVFFlat can return the indexed vector (useful for covering indexes)
     false // For now, disable to avoid complexity
 }
 
 /// Options callback - parse index options
 #[pg_guard]
-unsafe extern "C" fn ivfflat_amoptions(_reloptions: Datum, _validate: bool) -> *mut bytea {
+unsafe extern "C-unwind" fn ivfflat_amoptions(_reloptions: Datum, _validate: bool) -> *mut bytea {
     // TODO: Parse options: lists, quantization, etc.
     // Options format:
     //   lists = 100
@@ -1674,7 +1674,7 @@ unsafe extern "C" fn ivfflat_amoptions(_reloptions: Datum, _validate: bool) -> *
 
 /// Validate callback
 #[pg_guard]
-unsafe extern "C" fn ivfflat_amvalidate(_opclass_oid: pg_sys::Oid) -> bool {
+unsafe extern "C-unwind" fn ivfflat_amvalidate(_opclass_oid: pg_sys::Oid) -> bool {
     // Validate that the operator class is appropriate for IVFFlat
     true
 }
@@ -1682,7 +1682,7 @@ unsafe extern "C" fn ivfflat_amvalidate(_opclass_oid: pg_sys::Oid) -> bool {
 /// Estimate parallel scan size (PG14/15/16 - no parameters)
 #[cfg(any(feature = "pg14", feature = "pg15", feature = "pg16"))]
 #[pg_guard]
-unsafe extern "C" fn ivfflat_amestimateparallelscan() -> Size {
+unsafe extern "C-unwind" fn ivfflat_amestimateparallelscan() -> Size {
     // Size needed for parallel scan coordination
     size_of::<IvfFlatParallelScanState>() as Size
 }
@@ -1690,7 +1690,19 @@ unsafe extern "C" fn ivfflat_amestimateparallelscan() -> Size {
 /// Estimate parallel scan size (PG17+ - with parameters)
 #[cfg(feature = "pg17")]
 #[pg_guard]
-unsafe extern "C" fn ivfflat_amestimateparallelscan(
+unsafe extern "C-unwind" fn ivfflat_amestimateparallelscan(
+    _nkeys: ::std::os::raw::c_int,
+    _norderbys: ::std::os::raw::c_int,
+) -> Size {
+    // Size needed for parallel scan coordination
+    size_of::<IvfFlatParallelScanState>() as Size
+}
+
+/// Estimate parallel scan size (PG18+ - with relation parameter)
+#[cfg(feature = "pg18")]
+#[pg_guard]
+unsafe extern "C-unwind" fn ivfflat_amestimateparallelscan(
+    _rel: Relation,
     _nkeys: ::std::os::raw::c_int,
     _norderbys: ::std::os::raw::c_int,
 ) -> Size {
@@ -1713,7 +1725,7 @@ struct IvfFlatParallelScanState {
 
 /// Initialize parallel scan
 #[pg_guard]
-unsafe extern "C" fn ivfflat_aminitparallelscan(target: *mut ::std::os::raw::c_void) {
+unsafe extern "C-unwind" fn ivfflat_aminitparallelscan(target: *mut ::std::os::raw::c_void) {
     let state = target as *mut IvfFlatParallelScanState;
 
     pg_sys::SpinLockInit(&mut (*state).mutex);
@@ -1724,7 +1736,7 @@ unsafe extern "C" fn ivfflat_aminitparallelscan(target: *mut ::std::os::raw::c_v
 
 /// Parallel rescan
 #[pg_guard]
-unsafe extern "C" fn ivfflat_amparallelrescan(scan: IndexScanDesc) {
+unsafe extern "C-unwind" fn ivfflat_amparallelrescan(scan: IndexScanDesc) {
     if (*scan).parallel_scan.is_null() {
         return;
     }
@@ -1764,7 +1776,7 @@ static IVFFLAT_AM_HANDLER: IndexAmRoutine = IndexAmRoutine {
     amcanparallel: true, // Supports parallel scan
     amcaninclude: false,
     amusemaintenanceworkmem: true,
-    #[cfg(any(feature = "pg16", feature = "pg17"))]
+    #[cfg(any(feature = "pg16", feature = "pg17", feature = "pg18"))]
     amsummarizing: false,
     amparallelvacuumoptions: 0,
 
@@ -1794,10 +1806,24 @@ static IVFFLAT_AM_HANDLER: IndexAmRoutine = IndexAmRoutine {
     amestimateparallelscan: None,
     aminitparallelscan: None,
     amparallelrescan: None,
-    #[cfg(feature = "pg17")]
+    // PG17+ additions
+    #[cfg(any(feature = "pg17", feature = "pg18"))]
     amcanbuildparallel: false,
-    #[cfg(feature = "pg17")]
+    #[cfg(any(feature = "pg17", feature = "pg18"))]
     aminsertcleanup: None,
+    // PG18 additions
+    #[cfg(feature = "pg18")]
+    amcanhash: false,
+    #[cfg(feature = "pg18")]
+    amconsistentequality: false,
+    #[cfg(feature = "pg18")]
+    amconsistentordering: false,
+    #[cfg(feature = "pg18")]
+    amgettreeheight: None,
+    #[cfg(feature = "pg18")]
+    amtranslatestrategy: None,
+    #[cfg(feature = "pg18")]
+    amtranslatecmptype: None,
 };
 
 /// Main handler function for IVFFlat index access method
