@@ -22,6 +22,7 @@ pg14 = ["pgrx/pg14", "pgrx-tests/pg14"]
 pg15 = ["pgrx/pg15", "pgrx-tests/pg15"]
 pg16 = ["pgrx/pg16", "pgrx-tests/pg16"]
 pg17 = ["pgrx/pg17", "pgrx-tests/pg17"]
+pg18 = ["pgrx/pg18", "pgrx-tests/pg18"]
 pg_test = []
 
 # SIMD features for compile-time selection
@@ -64,7 +65,7 @@ all-features = ["ai-complete", "graph-complete", "embeddings"]
 
 [dependencies]
 # PostgreSQL extension framework
-pgrx = "0.12"
+pgrx = "0.16"
 
 # Pin home to avoid edition2024 issues
 home = "=0.5.9"
@@ -123,7 +124,7 @@ fastembed = { version = "5", optional = true }
 # ruvector-core = { path = "../ruvector-core", optional = true }
 
 [dev-dependencies]
-pgrx-tests = "0.12"
+pgrx-tests = "0.16"
 criterion = "0.5"
 proptest = "1.4"
 approx = "0.5"
@@ -173,3 +174,4 @@ pg14 = "pg14"
 pg15 = "pg15"
 pg16 = "pg16"
 pg17 = "pg17"
+pg18 = "pg18"

@@ -66,15 +66,15 @@ static HYBRID_PREFETCH_K: GucSetting<i32> = GucSetting::<i32>::new(100);
 
 /// Called when the extension is loaded
 #[pg_guard]
-pub extern "C" fn _PG_init() {
+pub extern "C-unwind" fn _PG_init() {
     // Initialize SIMD dispatch
     distance::init_simd_dispatch();
 
     // Register GUCs
     GucRegistry::define_int_guc(
-        "ruvector.ef_search",
-        "HNSW ef_search parameter for query time",
-        "Higher values improve recall at the cost of speed",
+        c"ruvector.ef_search",
+        c"HNSW ef_search parameter for query time",
+        c"Higher values improve recall at the cost of speed",
         &EF_SEARCH,
         1,
         1000,
@@ -83,9 +83,9 @@ pub extern "C" fn _PG_init() {
     );
 
     GucRegistry::define_int_guc(
-        "ruvector.probes",
-        "IVFFlat number of lists to probe",
-        "Higher values improve recall at the cost of speed",
+        c"ruvector.probes",
+        c"IVFFlat number of lists to probe",
+        c"Higher values improve recall at the cost of speed",
         &PROBES,
         1,
         10000,
@@ -95,9 +95,9 @@ pub extern "C" fn _PG_init() {
 
     // Hybrid search GUCs
     GucRegistry::define_float_guc(
-        "ruvector.hybrid_alpha",
-        "Default alpha for hybrid linear fusion (0=keyword only, 1=vector only)",
-        "Controls the blend between vector and keyword search",
+        c"ruvector.hybrid_alpha",
+        c"Default alpha for hybrid linear fusion (0=keyword only, 1=vector only)",
+        c"Controls the blend between vector and keyword search",
         &HYBRID_ALPHA,
         0.0,
         1.0,
@@ -106,9 +106,9 @@ pub extern "C" fn _PG_init() {
     );
 
     GucRegistry::define_int_guc(
-        "ruvector.hybrid_rrf_k",
-        "RRF constant for hybrid search (default 60)",
-        "Lower values give more weight to top-ranked results",
+        c"ruvector.hybrid_rrf_k",
+        c"RRF constant for hybrid search (default 60)",
+        c"Lower values give more weight to top-ranked results",
         &HYBRID_RRF_K,
         1,
         1000,
@@ -117,9 +117,9 @@ pub extern "C" fn _PG_init() {
     );
 
     GucRegistry::define_int_guc(
-        "ruvector.hybrid_prefetch_k",
-        "Number of results to prefetch from each branch",
-        "Higher values improve recall but increase latency",
+        c"ruvector.hybrid_prefetch_k",
+        c"Number of results to prefetch from each branch",
+        c"Higher values improve recall but increase latency",
         &HYBRID_PREFETCH_K,
         1,
         10000,
