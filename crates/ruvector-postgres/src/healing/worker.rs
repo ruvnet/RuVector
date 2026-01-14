@@ -372,7 +372,7 @@ impl HealingWorker {
 
 /// PostgreSQL background worker entry point
 #[pgrx::pg_guard]
-pub extern "C" fn healing_bgworker_main(_arg: pgrx::pg_sys::Datum) {
+pub extern "C-unwind" fn healing_bgworker_main(_arg: pgrx::pg_sys::Datum) {
     pgrx::log!("RuVector healing background worker starting");
 
     let config = HealingWorkerConfig::default();

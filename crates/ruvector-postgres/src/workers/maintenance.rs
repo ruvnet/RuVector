@@ -612,7 +612,7 @@ impl MaintenanceWorker {
 
 /// Main background worker function for maintenance
 #[pg_guard]
-pub extern "C" fn ruvector_maintenance_worker_main(arg: pg_sys::Datum) {
+pub extern "C-unwind" fn ruvector_maintenance_worker_main(arg: pg_sys::Datum) {
     let worker_id = arg.value() as u64;
 
     pgrx::log!("RuVector maintenance worker {} starting", worker_id);
