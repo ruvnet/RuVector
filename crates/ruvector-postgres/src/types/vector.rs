@@ -405,7 +405,7 @@ pub fn ruvector_out_fn(v: RuVector) -> String {
 /// This is the PostgreSQL IN function for the ruvector type.
 #[pg_guard]
 #[no_mangle]
-pub extern "C" fn ruvector_in(fcinfo: pg_sys::FunctionCallInfo) -> pg_sys::Datum {
+pub extern "C-unwind" fn ruvector_in(fcinfo: pg_sys::FunctionCallInfo) -> pg_sys::Datum {
     unsafe {
         let datum = (*fcinfo).args.as_ptr().add(0).read().value;
         let input_cstr = datum.cast_mut_ptr::<std::os::raw::c_char>();
@@ -435,7 +435,7 @@ pub extern "C" fn pg_finfo_ruvector_in() -> &'static pg_sys::Pg_finfo_record {
 /// Text output function: Convert RuVector to '[1.0, 2.0, 3.0]'
 #[pg_guard]
 #[no_mangle]
-pub extern "C" fn ruvector_out(fcinfo: pg_sys::FunctionCallInfo) -> pg_sys::Datum {
+pub extern "C-unwind" fn ruvector_out(fcinfo: pg_sys::FunctionCallInfo) -> pg_sys::Datum {
     unsafe {
         let datum = (*fcinfo).args.as_ptr().add(0).read().value;
         let varlena_ptr = datum.cast_mut_ptr::<pg_sys::varlena>();
@@ -467,7 +467,7 @@ pub extern "C" fn pg_finfo_ruvector_out() -> &'static pg_sys::Pg_finfo_record {
 /// Binary input function: Receive vector from network in binary format
 #[pg_guard]
 #[no_mangle]
-pub extern "C" fn ruvector_recv(fcinfo: pg_sys::FunctionCallInfo) -> pg_sys::Datum {
+pub extern "C-unwind" fn ruvector_recv(fcinfo: pg_sys::FunctionCallInfo) -> pg_sys::Datum {
     unsafe {
         let datum = (*fcinfo).args.as_ptr().add(0).read().value;
         let buf = datum.cast_mut_ptr::<pg_sys::StringInfoData>();
@@ -609,7 +609,7 @@ fn ruvector_typmod_in_fn(list: pgrx::Array<&CStr>) -> i32 {
 /// It uses PostgreSQL's array accessor macros for robust array element access.
 #[pg_guard]
 #[no_mangle]
-pub extern "C" fn ruvector_typmod_in(fcinfo: pg_sys::FunctionCallInfo) -> pg_sys::Datum {
+pub extern "C-unwind" fn ruvector_typmod_in(fcinfo: pg_sys::FunctionCallInfo) -> pg_sys::Datum {
     unsafe {
         // Get the cstring array argument
         let array_datum = (*fcinfo).args.as_ptr().add(0).read().value;
@@ -703,7 +703,7 @@ pub extern "C" fn pg_finfo_ruvector_typmod_in() -> &'static pg_sys::Pg_finfo_rec
 /// Typmod output function: format dimension specification for display
 #[pg_guard]
 #[no_mangle]
-pub extern "C" fn ruvector_typmod_out(fcinfo: pg_sys::FunctionCallInfo) -> pg_sys::Datum {
+pub extern "C-unwind" fn ruvector_typmod_out(fcinfo: pg_sys::FunctionCallInfo) -> pg_sys::Datum {
     unsafe {
         let typmod = (*fcinfo).args.as_ptr().add(0).read().value.value() as i32;
 

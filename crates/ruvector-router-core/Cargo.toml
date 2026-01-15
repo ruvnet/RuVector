@@ -28,7 +28,7 @@ anyhow = { workspace = true }
 tracing = { workspace = true }
 
 # Additional dependencies
-ndarray = "0.15"
+ndarray = { workspace = true }
 rand = "0.8"
 uuid = { version = "1.10", features = ["v4", "serde"] }
 chrono = { version = "0.4", features = ["serde"] }

@@ -22,7 +22,7 @@ fn dag_analyze_plan(
     // Note: plan_json is computed but not used in placeholder implementation
     let _plan_json: Result<pgrx::JsonB, String> = Spi::connect(|client| {
         let query = format!("EXPLAIN (FORMAT JSON) {}", query_text);
-        match client.select(&query, None, None) {
+        match client.select(&query, None, &[]) {
             Ok(mut cursor) => {
                 if let Some(row) = cursor.next() {
                     if let Ok(Some(json)) = row.get::<pgrx::JsonB>(1) {
