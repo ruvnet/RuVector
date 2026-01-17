@@ -1,0 +1,62 @@
+[package]
+name = "ruvector-neural-decoder"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+readme = "README.md"
+description = "Neural Quantum Error Decoder (NQED) - GNN-based decoder with O(d^2) Mamba state-space architecture"
+keywords = ["quantum", "error-correction", "neural-network", "graph-attention", "mamba"]
+categories = ["science", "algorithms", "mathematics", "simulation"]
+homepage = "https://ruv.io"
+documentation = "https://docs.rs/ruvector-neural-decoder"
+
+[dependencies]
+# RuVector dependencies
+ruvector-mincut = { version = "0.1.32", path = "../ruvector-mincut", default-features = false, features = ["exact"] }
+ruqu = { version = "0.1.32", path = "../ruQu", default-features = false, optional = true }
+
+# Math and numerics
+ndarray = { workspace = true, features = ["serde"] }
+rand = { workspace = true }
+rand_distr = { workspace = true }
+
+# Serialization
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+# Error handling
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+
+# Performance
+rayon = { workspace = true, optional = true }
+parking_lot = { workspace = true }
+dashmap = { workspace = true }
+
+# Graph data structures
+petgraph = "0.6"
+ordered-float = "4.2"
+
+[dev-dependencies]
+criterion = { workspace = true }
+proptest = { workspace = true }
+approx = "0.5"
+
+[features]
+default = ["parallel"]
+full = ["parallel", "simd", "ruqu-integration", "training"]
+parallel = ["rayon"]
+simd = ["ruvector-mincut/simd"]
+ruqu-integration = ["ruqu"]
+training = []
+
+[lib]
+crate-type = ["rlib"]
+bench = false
+
+[[bench]]
+name = "neural_decoder_bench"
+harness = false

@@ -7392,6 +7392,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "ruvector-neural-decoder"
+version = "0.1.32"
+dependencies = [
+ "anyhow",
+ "approx",
+ "criterion",
+ "dashmap 6.1.0",
+ "ndarray 0.16.1",
+ "ordered-float",
+ "parking_lot 0.12.5",
+ "petgraph",
+ "proptest",
+ "rand 0.8.5",
+ "rand_distr 0.4.3",
+ "rayon",
+ "ruqu",
+ "ruvector-mincut 0.1.32",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.17",
+]
+
+[[package]]
 name = "ruvector-node"
 version = "0.1.32"
 dependencies = [
@@ -7444,6 +7467,28 @@ dependencies = [
  "tempfile",
  "thiserror 1.0.69",
  "tracing",
+]
+
+[[package]]
+name = "ruvector-quantum-monitor"
+version = "0.1.32"
+dependencies = [
+ "anyhow",
+ "cognitum-gate-tilezero 0.1.1",
+ "criterion",
+ "futures",
+ "ndarray 0.16.1",
+ "parking_lot 0.12.5",
+ "proptest",
+ "rand 0.8.5",
+ "rand_distr 0.4.3",
+ "ruqu",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.17",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]

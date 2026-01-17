@@ -1,0 +1,63 @@
+[package]
+name = "ruvector-quantum-monitor"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+readme = "README.md"
+description = "Anytime-Valid Quantum Kernel Coherence Monitor (AV-QKCM) - Sequential MMD testing with e-values for quantum syndrome distribution drift detection"
+keywords = ["quantum", "kernel", "monitoring", "mmd", "e-value", "drift-detection"]
+categories = ["science", "mathematics", "algorithms"]
+
+[dependencies]
+# RuVector ecosystem integration
+ruqu = { path = "../ruQu", optional = true }
+cognitum-gate-tilezero = { path = "../cognitum-gate-tilezero", optional = true }
+
+# Math and numerics
+ndarray = { workspace = true, features = ["serde"] }
+rand = { workspace = true }
+rand_distr = { workspace = true }
+
+# Serialization
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+# Error handling
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+tracing = { workspace = true }
+
+# Performance
+parking_lot = { workspace = true }
+
+# Async streaming (optional)
+tokio = { workspace = true, optional = true }
+futures = { workspace = true, optional = true }
+
+[dev-dependencies]
+proptest = { workspace = true }
+criterion = { workspace = true }
+tracing-subscriber = { workspace = true }
+tokio = { version = "1.0", features = ["rt-multi-thread", "macros", "sync", "time"] }
+
+[[bench]]
+name = "quantum_kernel_bench"
+harness = false
+
+[[bench]]
+name = "mmd_bench"
+harness = false
+
+[features]
+default = []
+ruqu-integration = ["ruqu"]
+tilezero-integration = ["cognitum-gate-tilezero"]
+streaming = ["tokio", "futures"]
+simd = []  # SIMD optimizations for kernel computations
+full = ["ruqu-integration", "tilezero-integration", "streaming", "simd"]
+
+[lib]
+crate-type = ["rlib"]

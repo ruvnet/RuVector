@@ -1,0 +1,116 @@
+# Capability Scorecard for AI-Quantum Research Swarm
+# Machine-runnable scoring rubric for consistent agent evaluation
+version: 1
+max_points: 100
+
+criteria:
+  novelty:
+    points: 15
+    anchors:
+      high: "New mechanism or theorem level idea, not a remix. Clear delta vs prior art."
+      mid: "Known ideas combined in a new way, moderate delta."
+      low: "Mostly standard with minor changes."
+    scoring:
+      high: [13, 15]
+      mid: [7, 12]
+      low: [1, 6]
+
+  synergy:
+    points: 20
+    anchors:
+      high: "Quantum and AI create value that neither side can plausibly do alone."
+      mid: "Some benefit, but could be matched classically with effort."
+      low: "Two parallel parts without emergent gain."
+    scoring:
+      high: [17, 20]
+      mid: [10, 16]
+      low: [1, 9]
+
+  feasibility:
+    points: 20
+    anchors:
+      high: "Prototype in 6 weeks, credible path to usable in 12 to 18 months."
+      mid: "Prototype in 12 weeks, usable in 18 to 24 months."
+      low: "Blocked by hardware, data, or theory."
+    scoring:
+      high: [17, 20]
+      mid: [10, 16]
+      low: [1, 9]
+
+  ruvector_integration:
+    points: 15
+    anchors:
+      high: "Direct reuse of existing crates and abstractions. Minimal new primitives."
+      mid: "Some reuse, but requires new core types."
+      low: "Mostly standalone."
+    scoring:
+      high: [13, 15]
+      mid: [7, 12]
+      low: [1, 6]
+
+  real_world_impact:
+    points: 15
+    anchors:
+      high: "Clear buyer, clear workflow, clear measurable win."
+      mid: "Plausible value, but unclear adoption path."
+      low: "Interesting but speculative."
+    scoring:
+      high: [13, 15]
+      mid: [7, 12]
+      low: [1, 6]
+
+  verification_path:
+    points: 15
+    anchors:
+      high: "Falsifiable, benchmarkable, independent external signals exist."
+      mid: "Benchmarks exist but weak falsifiability or single source."
+      low: "Hard to test, mostly narrative."
+    scoring:
+      high: [13, 15]
+      mid: [7, 12]
+      low: [1, 6]
+
+# Research Foundation Gate - must pass before Tier 1/2
+research_foundation_gate:
+  enabled: true
+  requirements:
+    primary_sources_min: 3
+    recency_months: 24
+    reproducible_sources_min: 1
+  failure_action: "demote_to_tier3"
+
+# Tier classification thresholds
+tiers:
+  tier1:
+    min_score: 88
+    label: "Immediate"
+    description: "Begin implementation within 2 weeks"
+  tier2:
+    min_score: 80
+    label: "Near-term"
+    description: "Begin implementation within 6 weeks"
+  tier3:
+    min_score: 70
+    label: "Exploratory"
+    description: "Research only, no implementation commitment"
+
+# Promotion and demotion rules
+lifecycle:
+  two_week_test:
+    required_for: ["tier1", "tier2"]
+    description: "Concrete falsifiable test with measurable outputs"
+    failure_action: "cannot_promote"
+
+  six_week_prototype:
+    required_for: ["tier1", "tier2"]
+    description: "Runnable proof of concept"
+    failure_action: "demote_one_tier"
+    exception_requires: "explicit_approval_with_rationale"
+
+# Scoring rules for agents
+agent_rules:
+  - "Each score must cite specific evidence"
+  - "Use anchor descriptions to calibrate scores"
+  - "If uncertain, default to mid-range"
+  - "Multiple agents should converge within 2 points per criterion"
+  - "Re-score quarterly with updated evidence"

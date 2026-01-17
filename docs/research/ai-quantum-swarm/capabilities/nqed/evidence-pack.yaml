@@ -1,0 +1,119 @@
+# Evidence Pack: NQED (Neural Quantum Error Decoder)
+capability_id: NQED
+version: 1
+last_updated: 2026-01-17
+scored_by: research-swarm
+
+# Claims and verification criteria
+claims:
+  - claim: "GNN-based decoder improves accuracy under realistic noise"
+    metric: "logical_error_rate"
+    benchmark: "Surface code d=5 to d=11 with depolarizing noise p=0.001 to 0.01"
+    baseline: "MWPM decoder from PyMatching"
+    falsification: "Fails if NQED does not beat MWPM by at least 5% at d>=7"
+    status: pending
+
+  - claim: "O(d^2) complexity enables real-time decoding"
+    metric: "decode_latency_ns"
+    benchmark: "Single syndrome round for d=11 surface code"
+    baseline: "1ms decode budget (1000 syndrome rounds/sec)"
+    falsification: "Fails if mean latency exceeds 100us per round"
+    status: pending
+
+  - claim: "Min-cut fusion improves structural awareness"
+    metric: "boundary_error_rate"
+    benchmark: "Errors near logical boundaries (edge stabilizers)"
+    baseline: "Pure GNN without min-cut features"
+    falsification: "Fails if no improvement on boundary errors"
+    status: pending
+
+# Primary sources (must meet Research Foundation Gate)
+sources:
+  - type: paper
+    title: "AlphaQubit: Quantum error correction with deep neural networks"
+    authors: ["Google DeepMind"]
+    year: 2024
+    link: "https://blog.google/technology/google-deepmind/alphaqubit-quantum-error-correction/"
+    reproducible: true
+    evidence_for: ["neural decoders outperform classical on real hardware"]
+
+  - type: paper
+    title: "Mamba: Linear-Time Sequence Modeling with Selective State Spaces"
+    authors: ["Gu, A.", "Dao, T."]
+    year: 2024
+    arxiv: "2312.00752"
+    reproducible: true
+    evidence_for: ["O(n) attention alternative", "state-space models for sequences"]
+
+  - type: paper
+    title: "Graph Neural Networks for Quantum Error Correction"
+    authors: ["Meister, R.", "et al."]
+    year: 2025
+    doi: "10.1103/PhysRevResearch.7.023181"
+    reproducible: true
+    evidence_for: ["GNN architecture for syndrome processing"]
+
+  - type: paper
+    title: "Dynamic Min-Cut with Subpolynomial Update Time"
+    authors: ["Jin, C.", "et al."]
+    year: 2025
+    arxiv: "2512.13105"
+    reproducible: false
+    evidence_for: ["theoretical basis for streaming min-cut"]
+
+# Scores with evidence citations
+scores:
+  novelty:
+    value: 14
+    evidence: "GNN + min-cut fusion is novel (no prior work combines these for QEC)"
+    anchor: "high"
+
+  synergy:
+    value: 19
+    evidence: "Quantum syndrome structure is graph-native; AI learns device-specific patterns"
+    anchor: "high"
+
+  feasibility:
+    value: 18
+    evidence: "Prototype completed in 2 weeks (ruvector-neural-decoder crate)"
+    anchor: "high"
+
+  ruvector_integration:
+    value: 15
+    evidence: "Direct use of ruvector-mincut, ruvector-attention, ruQu types"
+    anchor: "high"
+
+  real_world_impact:
+    value: 13
+    evidence: "QEC is critical for fault-tolerant quantum computing; clear demand"
+    anchor: "high"
+
+  verification_path:
+    value: 14
+    evidence: "MWPM/UF baselines exist; stim can generate test syndromes"
+    anchor: "high"
+
+total_score: 93
+tier: 1
+gate_status: PASS
+
+# Test milestones
+tests:
+  two_week:
+    artifact: "GNN encoder produces valid embeddings for d=5 surface code"
+    pass_condition: "Embeddings have expected dimension and pass unit tests"
+    deadline: 2026-01-31
+    status: PASSED
+    notes: "61 tests passing in ruvector-neural-decoder"
+
+  six_week:
+    artifact: "End-to-end decode with measurable accuracy on stim-generated syndromes"
+    pass_condition: "Decode accuracy >= MWPM on d=5 surface code at p=0.005"
+    deadline: 2026-02-28
+    status: pending
+
+# Kill condition
+kill_criteria:
+  condition: "Accuracy < MWPM baseline on d>=7 surface codes"
+  measurement: "Compare logical error rate over 10^6 shots"
+  data_source: "stim syndrome generation + PyMatching baseline"

@@ -57,3 +57,7 @@ tempfile = "3.10"
 
 [lib]
 crate-type = ["rlib"]
+
+[[bench]]
+name = "gnn_forward"
+harness = false

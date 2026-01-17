@@ -63,6 +63,8 @@ members = [
     "crates/cognitum-gate-tilezero",
     "crates/mcp-gate",
     "crates/ruQu",
+    "crates/ruvector-neural-decoder",
+    "crates/ruvector-quantum-monitor",
 ]
 resolver = "2"
 

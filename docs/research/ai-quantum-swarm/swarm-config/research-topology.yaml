@@ -1,0 +1,191 @@
+# AI-Quantum Research Swarm Configuration
+# Usage: npx claude-flow swarm init --config research-topology.yaml
+
+swarm:
+  name: ai-quantum-research
+  version: "1.0"
+  description: "Deep research swarm for AI-infused quantum computing capabilities"
+
+topology:
+  type: hierarchical-mesh
+  max_agents: 20
+  strategy: specialized
+
+clusters:
+  - name: coordination
+    agents:
+      - type: queen-coordinator
+        name: research-queen
+        config:
+          memory_namespace: "ai-quantum-research"
+          sync_interval_ms: 5000
+          consensus: raft
+
+  - name: domain-experts
+    agents:
+      - type: researcher
+        name: qec-expert
+        config:
+          focus: "quantum error correction"
+          sources: ["arxiv", "nature", "google-ai"]
+      - type: researcher
+        name: qml-expert
+        config:
+          focus: "quantum machine learning"
+          sources: ["arxiv", "neurips", "icml"]
+      - type: researcher
+        name: qchem-expert
+        config:
+          focus: "quantum chemistry"
+          sources: ["arxiv", "acs", "nature-chem"]
+
+  - name: technical-analysts
+    agents:
+      - type: coder
+        name: rust-analyst
+        config:
+          languages: ["rust"]
+          focus: "implementation feasibility"
+      - type: coder
+        name: wasm-analyst
+        config:
+          languages: ["rust", "wasm"]
+          focus: "deployment constraints"
+
+  - name: integration-architects
+    agents:
+      - type: system-architect
+        name: ruqu-integrator
+        config:
+          crates: ["ruqu", "ruvector-mincut"]
+          focus: "coherence pipeline integration"
+      - type: system-architect
+        name: ecosystem-integrator
+        config:
+          crates: ["ruvector-attention", "cognitum-gate-tilezero"]
+          focus: "ecosystem alignment"
+
+  - name: capability-researchers
+    agents:
+      - type: researcher
+        name: nqed-researcher
+        config:
+          capability: "NQED"
+          priority: "tier-1"
+      - type: researcher
+        name: av-qkcm-researcher
+        config:
+          capability: "AV-QKCM"
+          priority: "tier-1"
+      - type: researcher
+        name: qear-researcher
+        config:
+          capability: "QEAR"
+          priority: "tier-2"
+      - type: researcher
+        name: qgat-mol-researcher
+        config:
+          capability: "QGAT-Mol"
+          priority: "tier-2"
+      - type: researcher
+        name: qflg-researcher
+        config:
+          capability: "QFLG"
+          priority: "tier-2"
+      - type: researcher
+        name: vq-nas-researcher
+        config:
+          capability: "VQ-NAS"
+          priority: "tier-3"
+      - type: researcher
+        name: qarlp-researcher
+        config:
+          capability: "QARLP"
+          priority: "tier-3"
+
+  - name: quality-assurance
+    agents:
+      - type: reviewer
+        name: cross-validator
+        config:
+          focus: "cross-capability validation"
+      - type: reviewer
+        name: integration-tester
+        config:
+          focus: "integration testing"
+
+communication:
+  patterns:
+    - type: hierarchical
+      from: coordination
+      to: "*"
+      purpose: "strategic direction"
+    - type: mesh
+      within: domain-experts
+      purpose: "knowledge sharing"
+    - type: mesh
+      within: capability-researchers
+      purpose: "cross-pollination"
+    - type: broadcast
+      from: coordination
+      purpose: "milestones"
+
+memory:
+  backend: hybrid
+  namespaces:
+    - name: research-findings
+      retention: permanent
+    - name: literature
+      retention: "30d"
+    - name: experiments
+      retention: "7d"
+
+tasks:
+  discovery:
+    duration: "2w"
+    focus: "literature review, feasibility"
+    deliverables:
+      - "literature-summary.md per capability"
+      - "feasibility-assessment.md"
+
+  specification:
+    duration: "2w"
+    focus: "DDD documents, ADRs"
+    deliverables:
+      - "DDD-xxx documents"
+      - "ADR-xxx documents"
+      - "API sketches"
+
+  prototyping:
+    duration: "4w"
+    focus: "proof-of-concept implementations"
+    deliverables:
+      - "prototype crates"
+      - "benchmark results"
+
+  validation:
+    duration: "2w"
+    focus: "benchmarks, comparisons"
+    deliverables:
+      - "benchmark-report.md"
+      - "comparison-matrix.md"
+
+  documentation:
+    duration: "2w"
+    focus: "papers, crate documentation"
+    deliverables:
+      - "technical-report.md"
+      - "README.md per crate"
+
+hooks:
+  pre_task:
+    - command: "npx claude-flow memory search --namespace research-findings --query '$TASK_DESCRIPTION'"
+  post_task:
+    - command: "npx claude-flow memory store --namespace research-findings --key '$TASK_ID' --value '$TASK_RESULT'"
+
+metrics:
+  track:
+    - literature_papers_reviewed
+    - capabilities_prototyped
+    - integration_points_validated
+    - benchmarks_completed
