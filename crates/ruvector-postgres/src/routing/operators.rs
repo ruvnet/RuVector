@@ -232,6 +232,7 @@ fn ruvector_route(
 /// ```sql
 /// SELECT * FROM ruvector_list_agents();
 /// ```
+// PG18 compatibility: Add pg_guard for proper panic handling
 #[pg_extern]
 fn ruvector_list_agents() -> TableIterator<
     'static,

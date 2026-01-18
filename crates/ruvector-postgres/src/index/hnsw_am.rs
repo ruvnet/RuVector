@@ -1698,10 +1698,10 @@ static HNSW_AM_HANDLER: IndexAmRoutine = IndexAmRoutine {
 
 /// Main handler function for HNSW index access method
 #[pg_extern(sql = "
-CREATE OR REPLACE FUNCTION hnsw_handler(internal) RETURNS index_am_handler
-AS 'MODULE_PATHNAME', 'hnsw_handler_wrapper' LANGUAGE C STRICT;
+CREATE OR REPLACE FUNCTION ruvector_hnsw_handler(internal) RETURNS index_am_handler
+AS 'MODULE_PATHNAME', 'ruvector_hnsw_handler_wrapper' LANGUAGE C STRICT;
 ")]
-fn hnsw_handler(_fcinfo: pg_sys::FunctionCallInfo) -> Internal {
+fn ruvector_hnsw_handler(_fcinfo: pg_sys::FunctionCallInfo) -> Internal {
     unsafe {
         // Allocate IndexAmRoutine in PostgreSQL memory context
         let am_routine = pg_sys::palloc0(size_of::<IndexAmRoutine>()) as *mut IndexAmRoutine;

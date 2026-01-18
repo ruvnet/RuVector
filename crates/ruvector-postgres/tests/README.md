@@ -2,7 +2,7 @@
 
 ## 📋 Overview
 
-This directory contains the comprehensive test framework for ruvector-postgres, a high-performance PostgreSQL vector similarity search extension. The test suite consists of **9 test files** with **3,276 lines** of test code, providing extensive coverage across all components.
+This directory contains the comprehensive test framework for ruvector-postgres, a high-performance PostgreSQL vector similarity search extension. The test suite consists of **10 test files** with **3,784 lines** of test code, providing extensive coverage across all components.
 
 ## 🗂️ Test Files
 
@@ -432,10 +432,50 @@ fn test_l2_symmetry() {
 - **Performance**: Stress tests included
 - **Documentation**: Comprehensive guides
 
+### 10. `pg18_routing_integration.sql` (508 lines)
+**PostgreSQL 18 Routing Integration Tests**
+
+Comprehensive SQL integration tests for agent routing operators with specific focus on PG18 compatibility:
+
+- **CRITICAL BUG FIX VERIFICATION**: Tests the fix for `TableIterator<'static>` to `SetOfIterator` migration
+- Agent registration (single and multiple)
+- Agent retrieval and listing
+- Capability search with limits
+- Agent metrics updates
+- Active status toggling
+- Routing statistics
+- Routing decisions with different optimization targets
+- Edge cases (empty results, non-existent agents)
+- PostgreSQL version compatibility
+
+**Test Count**: 12 sections with 50+ individual SQL test statements
+
+**CRITICAL**: This test file specifically validates the fix for the PostgreSQL 18 crash bug:
+
+**Bug**: `ruvector_list_agents()` and `ruvector_find_agents_by_capability()` used `TableIterator<'static>` which crashed on PG18 due to stricter lifetime checking.
+
+**Fix**: Changed to `SetOfIterator` which properly handles non-static lifetime borrows.
+
+**Test That Would Have Caught the Bug**:
+```sql
+-- This query crashed on PG18 before the fix
+SELECT ruvector_register_agent('test-agent', 'worker', ARRAY['test'], 1.0, 100, 0.9);
+SELECT * FROM ruvector_list_agents();  -- <-- CRASH HERE on PG18
+```
+
+**Run with**:
+```bash
+# Via psql
+psql -d testdb -f tests/pg18_routing_integration.sql
+
+# Via cargo pgrx (if extension is installed)
+cargo pgrx test pg18
+```
+
 ---
 
-**Last Updated**: 2025-12-02
-**Test Framework Version**: 1.0.0
-**Total Test Files**: 9
-**Total Lines**: 3,276
-**Estimated Runtime**: ~50 seconds
+**Last Updated**: 2026-01-14
+**Test Framework Version**: 1.1.0
+**Total Test Files**: 10
+**Total Lines**: 3,784
+**Estimated Runtime**: ~60 seconds
