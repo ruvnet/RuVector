@@ -1231,12 +1231,4 @@ export class DSPyTrainingSession extends EventEmitter {
 // Exports
 // ============================================================================
 
-// Note: ModelProvider and TrainingPhase are already exported as enums above
-export type {
-  QualityMetrics,
-  PerformanceMetrics,
-  IterationResult,
-  ModelConfig,
-  DSPySignature,
-  TrainingConfig
-};
+// Note: All types are exported inline where they are defined above

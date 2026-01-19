@@ -135,8 +135,8 @@ export class StockMarketSimulator extends EventEmitter {
     this.synth = new AgenticSynth(this.config);
 
     // Initialize starting prices
-    this.config.symbols.forEach(symbol => {
-      this.currentPrice.set(symbol, this.config.startPrice);
+    (this.config.symbols ?? []).forEach(symbol => {
+      this.currentPrice.set(symbol, this.config.startPrice ?? 100);
     });
   }
 
@@ -149,7 +149,7 @@ export class StockMarketSimulator extends EventEmitter {
     interval?: string;
     symbol?: string;
   } = {}): Promise<GenerationResult<OHLCVData>> {
-    const symbol = options.symbol || this.config.symbols[0];
+    const symbol = options.symbol || this.config.symbols?.[0] || 'STOCK';
 
     this.emit('generation:start', { symbol, options });
 
@@ -160,9 +160,9 @@ export class StockMarketSimulator extends EventEmitter {
         endDate: options.endDate || new Date(),
         interval: options.interval || '1h',
         metrics: ['price', 'volume'],
-        trend: this.mapMarketConditionToTrend(this.config.marketCondition),
+        trend: this.mapMarketConditionToTrend(this.config.marketCondition ?? 'sideways'),
         seasonality: true,
-        noise: this.config.volatility
+        noise: this.config.volatility ?? 0.02
       };
 
       const result = await this.synth.generateTimeSeries<{ price: number; volume: number }>(
@@ -221,7 +221,7 @@ export class StockMarketSimulator extends EventEmitter {
         headline: event.headline,
         sentiment: this.parseSentiment(event.sentiment),
         impact: this.parseImpact(event.impact),
-        affectedSymbols: event.symbols.filter(s => this.config.symbols.includes(s))
+        affectedSymbols: event.symbols.filter((s: string) => (this.config.symbols ?? []).includes(s))
       }));
 
       this.newsEvents.push(...newsEvents);
@@ -243,12 +243,13 @@ export class StockMarketSimulator extends EventEmitter {
     endDate?: Date;
     interval?: string;
   } = {}): Promise<Map<string, OHLCVData[]>> {
-    this.emit('multi-symbol:start', { symbols: this.config.symbols });
+    const symbols = this.config.symbols ?? [];
+    this.emit('multi-symbol:start', { symbols });
 
     const results = new Map<string, OHLCVData[]>();
 
     // Generate for all symbols in parallel
-    const promises = this.config.symbols.map(async symbol => {
+    const promises = symbols.map(async symbol => {
       const result = await this.generateMarketData({ ...options, symbol });
       return { symbol, data: result.data };
     });
@@ -260,7 +261,7 @@ export class StockMarketSimulator extends EventEmitter {
     });
 
     this.emit('multi-symbol:complete', {
-      symbols: this.config.symbols.length,
+      symbols: symbols.length,
       totalCandles: Array.from(results.values()).reduce((sum, candles) => sum + candles.length, 0)
     });
 
@@ -341,8 +342,8 @@ export class StockMarketSimulator extends EventEmitter {
   reset(): void {
     this.generatedCandles = [];
     this.newsEvents = [];
-    this.config.symbols.forEach(symbol => {
-      this.currentPrice.set(symbol, this.config.startPrice);
+    (this.config.symbols ?? []).forEach(symbol => {
+      this.currentPrice.set(symbol, this.config.startPrice ?? 100);
     });
 
     this.emit('reset', { timestamp: new Date() });
@@ -354,7 +355,7 @@ export class StockMarketSimulator extends EventEmitter {
   private convertToOHLCV(data: { price: number; volume: number }[], symbol: string): OHLCVData[] {
     return data.map((point, i) => {
       const basePrice = point.price;
-      const dailyVolatility = this.config.volatility * basePrice;
+      const dailyVolatility = (this.config.volatility ?? 0.02) * basePrice;
 
       // Generate realistic OHLC from base price
       const open = i === 0 ? basePrice : basePrice * (1 + (Math.random() - 0.5) * 0.01);
