@@ -1,14 +1,14 @@
 [package]
 name = "ruvllm"
-version = "0.1.0"
+version = "2.0.0"
 edition = "2021"
 rust-version = "1.77"
 license = "MIT"
 authors = ["Ruvector Team"]
-description = "Self-learning LLM with LFM2 and Ruvector integration"
+description = "Self-learning LLM with LFM2, Ruvector integration, and optimized NEON/Metal kernels"
 repository = "https://github.com/ruvnet/ruvector"
 readme = "README.md"
-keywords = ["llm", "self-learning", "vector-database", "rag", "lfm2"]
+keywords = ["llm", "self-learning", "vector-database", "rag", "lfm2", "neon", "simd"]
 categories = ["science", "machine-learning"]
 
 [dependencies]
@@ -17,6 +17,9 @@ ruvector-core = { path = "../../crates/ruvector-core", default-features = false 
 ruvector-gnn = { path = "../../crates/ruvector-gnn", default-features = false }
 ruvector-attention = { path = "../../crates/ruvector-attention" }
 ruvector-graph = { path = "../../crates/ruvector-graph" }
+
+# Optimized inference backend (ruvllm crate)
+ruvllm-lib = { package = "ruvllm", path = "../../crates/ruvllm", default-features = false, features = ["async-runtime"] }
 
 # Async runtime
 tokio = { version = "1.41", features = ["rt-multi-thread", "sync", "macros", "time", "fs"] }
@@ -99,7 +102,15 @@ real-inference = ["candle-core", "candle-nn", "candle-transformers", "hf-hub", "
 hf-export = ["ruvector-sona"]
 # N-API bindings for Node.js
 napi = ["dep:napi", "dep:napi-derive"]
-full = ["storage", "metrics", "server", "real-inference", "hf-export"]
+# Multi-threaded GEMM/GEMV with rayon (4-6x speedup)
+parallel = ["ruvllm-lib/parallel"]
+# Candle backend for LLM inference (Rust-native, Metal acceleration on Mac)
+candle = ["ruvllm-lib/candle"]
+# Metal GPU acceleration for Apple Silicon (M1/M2/M3/M4)
+metal = ["ruvllm-lib/metal"]
+# Full inference with Metal
+inference-metal = ["candle", "metal", "parallel"]
+full = ["storage", "metrics", "server", "real-inference", "hf-export", "parallel"]
 
 [[bench]]
 name = "pipeline"

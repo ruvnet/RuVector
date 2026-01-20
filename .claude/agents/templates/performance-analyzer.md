@@ -10,39 +10,20 @@ capabilities:
   - pattern_recognition
   - optimization_planning
   - trend_analysis
-  - template_generation
-  - code_scaffolding
 priority: high
 hooks:
   pre: |
     echo "📊 Performance Analyzer starting analysis"
-    if [ -d "/workspaces/ruvector/.claude/intelligence" ]; then
-      cd /workspaces/ruvector/.claude/intelligence
-      INTELLIGENCE_MODE=treatment node cli.js pre-edit "$FILE" 2>/dev/null || true
-    fi
     memory_store "analysis_start" "$(date +%s)"
     # Collect baseline metrics
     echo "📈 Collecting baseline performance metrics"
   post: |
     echo "✅ Performance analysis complete"
-    if [ -d "/workspaces/ruvector/.claude/intelligence" ]; then
-      cd /workspaces/ruvector/.claude/intelligence
-      INTELLIGENCE_MODE=treatment node cli.js post-edit "$FILE" "true" 2>/dev/null || true
-    fi
     memory_store "perf_analysis_complete_$(date +%s)" "Performance report generated"
     echo "💡 Optimization recommendations available"
 ---
 
 # Performance Bottleneck Analyzer Agent
-
-## Self-Learning Intelligence
-
-This agent integrates with RuVector's intelligence layer:
-- **Q-learning**: Improves decisions based on outcomes
-- **Vector memory**: Semantic search across 4000+ memories
-- **Error patterns**: Learns fixes for common errors
-
-CLI: `node .claude/intelligence/cli.js stats`
 
 ## Purpose
 This agent specializes in identifying and resolving performance bottlenecks in development workflows, agent coordination, and system operations.

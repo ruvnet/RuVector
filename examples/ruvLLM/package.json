@@ -1,6 +1,7 @@
 {
   "name": "ruvllm-native",
-  "version": "0.2.0",
+  "version": "2.0.0",
+  "description": "Self-learning LLM with optimized NEON/Metal kernels, Flash Attention 2, and multi-threaded GEMM/GEMV",
   "napi": {
     "binaryName": "ruvllm",
     "targets": [
@@ -16,5 +17,14 @@
   },
   "devDependencies": {
     "@napi-rs/cli": "^2.18.0"
-  }
+  },
+  "keywords": [
+    "llm",
+    "neon",
+    "simd",
+    "metal",
+    "self-learning",
+    "flash-attention",
+    "ruvector"
+  ]
 }

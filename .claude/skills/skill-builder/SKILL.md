@@ -1,26 +1,9 @@
 ---
 name: "Skill Builder"
 description: "Create new Claude Code Skills with proper YAML frontmatter, progressive disclosure structure, and complete directory organization. Use when you need to build custom skills for specific workflows, generate skill templates, or understand the Claude Skills specification."
-hooks:
-  pre: |
-    echo "🧠 Skill Builder activated"
-    if [ -d "/workspaces/ruvector/.claude/intelligence" ]; then
-      cd /workspaces/ruvector/.claude/intelligence
-      INTELLIGENCE_MODE=treatment node cli.js pre-edit "$FILE" 2>/dev/null || true
-    fi
-  post: |
-    echo "✅ Skill Builder complete"
-    if [ -d "/workspaces/ruvector/.claude/intelligence" ]; then
-      cd /workspaces/ruvector/.claude/intelligence
-      INTELLIGENCE_MODE=treatment node cli.js post-edit "$FILE" "true" 2>/dev/null || true
-    fi
 ---
 
 # Skill Builder
-
-## 🧠 Self-Learning Intelligence
-Integrates with RuVector's Q-learning and vector memory for improved performance.
-CLI: `node .claude/intelligence/cli.js stats`
 
 ## What This Skill Does
 

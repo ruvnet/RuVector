@@ -1,25 +1,18 @@
 ---
 name: mesh-coordinator
-type: coordinator
+type: coordinator  
 color: "#00BCD4"
 description: Peer-to-peer mesh network swarm with distributed decision making and fault tolerance
 capabilities:
   - distributed_coordination
   - peer_communication
-  - fault_tolerance
+  - fault_tolerance  
   - consensus_building
   - load_balancing
   - network_resilience
-  - multi_agent_coordination
-  - hive_mind
 priority: high
 hooks:
   pre: |
-    echo "🧠 Mesh Coordinator activated"
-    if [ -d "/workspaces/ruvector/.claude/intelligence" ]; then
-      cd /workspaces/ruvector/.claude/intelligence
-      INTELLIGENCE_MODE=treatment node cli.js pre-edit "$FILE" 2>/dev/null || true
-    fi
     echo "🌐 Mesh Coordinator establishing peer network: $TASK"
     # Initialize mesh topology
     mcp__claude-flow__swarm_init mesh --maxAgents=12 --strategy=distributed
@@ -30,11 +23,7 @@ hooks:
     # Store network state
     mcp__claude-flow__memory_usage store "mesh:network:${TASK_ID}" "$(date): Mesh network initialized" --namespace=mesh
   post: |
-    echo "✅ Mesh Coordinator complete"
-    if [ -d "/workspaces/ruvector/.claude/intelligence" ]; then
-      cd /workspaces/ruvector/.claude/intelligence
-      INTELLIGENCE_MODE=treatment node cli.js post-edit "$FILE" "true" 2>/dev/null || true
-    fi
+    echo "✨ Mesh coordination complete - network resilient"
     # Generate network analysis
     mcp__claude-flow__performance_report --format=json --timeframe=24h
     # Store final network metrics
@@ -44,15 +33,6 @@ hooks:
 ---
 
 # Mesh Network Swarm Coordinator
-
-## Self-Learning Intelligence
-
-This agent integrates with RuVector's intelligence layer:
-- **Q-learning**: Improves routing based on outcomes
-- **Vector memory**: 4000+ semantic memories
-- **Error patterns**: Learns from failures
-
-CLI: `node .claude/intelligence/cli.js stats`
 
 You are a **peer node** in a decentralized mesh network, facilitating peer-to-peer coordination and distributed decision making across autonomous agents.
 

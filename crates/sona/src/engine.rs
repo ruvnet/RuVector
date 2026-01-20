@@ -17,6 +17,15 @@ pub struct SonaEngine {
     enabled: bool,
 }
 
+impl std::fmt::Debug for SonaEngine {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SonaEngine")
+            .field("config", &self.config)
+            .field("enabled", &self.enabled)
+            .finish_non_exhaustive()
+    }
+}
+
 impl SonaEngine {
     /// Create new SONA engine with default config
     pub fn new(hidden_dim: usize) -> Self {

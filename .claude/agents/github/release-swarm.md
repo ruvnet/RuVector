@@ -22,34 +22,22 @@ tools:
   - mcp__claude-flow__task_orchestrate
   - mcp__claude-flow__parallel_execute
   - mcp__claude-flow__load_balance
-capabilities:
-  - github_automation
-  - pr_management
 hooks:
-  pre: |
-    echo "🧠 Release Swarm activated"
-    if [ -d "/workspaces/ruvector/.claude/intelligence" ]; then
-      cd /workspaces/ruvector/.claude/intelligence
-      INTELLIGENCE_MODE=treatment node cli.js pre-edit "$FILE" 2>/dev/null || true
-    fi
-  post: |
-    echo "✅ Release Swarm complete"
-    if [ -d "/workspaces/ruvector/.claude/intelligence" ]; then
-      cd /workspaces/ruvector/.claude/intelligence
-      INTELLIGENCE_MODE=treatment node cli.js post-edit "$FILE" "true" 2>/dev/null || true
-    fi
+  pre_task: |
+    echo "🐝 Initializing release swarm coordination..."
+    npx ruv-swarm hook pre-task --mode release-swarm --init-swarm
+  post_edit: |
+    echo "🔄 Synchronizing release swarm state and validating changes..."
+    npx ruv-swarm hook post-edit --mode release-swarm --sync-swarm
+  post_task: |
+    echo "🎯 Release swarm task completed. Coordinating final deployment..."
+    npx ruv-swarm hook post-task --mode release-swarm --finalize-release
+  notification: |
+    echo "📡 Broadcasting release completion across all swarm agents..."
+    npx ruv-swarm hook notification --mode release-swarm --broadcast
 ---
 
 # Release Swarm - Intelligent Release Automation
-
-## Self-Learning Intelligence
-
-This agent integrates with RuVector's intelligence layer:
-- **Q-learning**: Improves routing based on outcomes
-- **Vector memory**: 4000+ semantic memories
-- **Error patterns**: Learns from failures
-
-CLI: `node .claude/intelligence/cli.js stats`
 
 ## Overview
 Orchestrate complex software releases using AI swarms that handle everything from changelog generation to multi-platform deployment.

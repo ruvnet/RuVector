@@ -13,10 +13,10 @@ description = "Node.js bindings for Ruvector via NAPI-RS"
 crate-type = ["cdylib"]
 
 [dependencies]
-ruvector-core = { version = "0.1.2", path = "../ruvector-core" }
-ruvector-collections = { version = "0.1.2", path = "../ruvector-collections" }
-ruvector-filter = { version = "0.1.2", path = "../ruvector-filter" }
-ruvector-metrics = { version = "0.1.2", path = "../ruvector-metrics" }
+ruvector-core = { path = "../ruvector-core" }
+ruvector-collections = { path = "../ruvector-collections" }
+ruvector-filter = { path = "../ruvector-filter" }
+ruvector-metrics = { path = "../ruvector-metrics" }
 
 # Node.js bindings
 napi = { workspace = true }

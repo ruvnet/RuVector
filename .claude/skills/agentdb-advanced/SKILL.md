@@ -1,19 +1,6 @@
 ---
 name: "AgentDB Advanced Features"
 description: "Master advanced AgentDB features including QUIC synchronization, multi-database management, custom distance metrics, hybrid search, and distributed systems integration. Use when building distributed AI systems, multi-agent coordination, or advanced vector search applications."
-hooks:
-  pre: |
-    echo "AgentDB Advanced activated"
-    if [ -d "/workspaces/ruvector/.claude/intelligence" ]; then
-      cd /workspaces/ruvector/.claude/intelligence
-      INTELLIGENCE_MODE=treatment node cli.js pre-edit "$FILE" 2>/dev/null || true
-    fi
-  post: |
-    echo "AgentDB Advanced complete"
-    if [ -d "/workspaces/ruvector/.claude/intelligence" ]; then
-      cd /workspaces/ruvector/.claude/intelligence
-      INTELLIGENCE_MODE=treatment node cli.js post-edit "$FILE" "true" 2>/dev/null || true
-    fi
 ---
 
 # AgentDB Advanced Features
@@ -23,11 +10,6 @@ hooks:
 Covers advanced AgentDB capabilities for distributed systems, multi-database coordination, custom distance metrics, hybrid search (vector + metadata), QUIC synchronization, and production deployment patterns. Enables building sophisticated AI systems with sub-millisecond cross-node communication and advanced search capabilities.
 
 **Performance**: <1ms QUIC sync, hybrid search with filters, custom distance metrics.
-
-## Self-Learning Intelligence
-
-Integrates with RuVector's Q-learning and vector memory for improved performance.
-CLI: `node .claude/intelligence/cli.js stats`
 
 ## Prerequisites
 

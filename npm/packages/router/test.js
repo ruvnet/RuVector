@@ -54,4 +54,51 @@ try {
   console.error('✗ DistanceMetric check failed:', e.message);
 }
 
+// Test SemanticRouter class exists (GitHub issue #67)
+try {
+  if (typeof router.SemanticRouter === 'function') {
+    console.log('✓ SemanticRouter class available');
+
+    // Test creating an instance
+    const semanticRouter = new router.SemanticRouter({
+      dimension: 384,
+      metric: 'cosine',
+      threshold: 0.7
+    });
+    console.log('✓ SemanticRouter instance created');
+
+    // Test adding an intent with pre-computed embedding
+    const testEmbedding = new Float32Array(384).fill(0.5);
+    semanticRouter.addIntent({
+      name: 'test-intent',
+      utterances: ['test utterance 1', 'test utterance 2'],
+      embedding: testEmbedding,
+      metadata: { handler: 'test_handler' }
+    });
+    console.log('✓ addIntent() worked');
+
+    // Test getIntents
+    const intents = semanticRouter.getIntents();
+    console.log(`✓ getIntents() returned: ${intents.join(', ')}`);
+
+    // Test routeWithEmbedding
+    const results = semanticRouter.routeWithEmbedding(testEmbedding, 1);
+    console.log(`✓ routeWithEmbedding() returned ${results.length} result(s)`);
+    if (results.length > 0) {
+      console.log(`  Top result: ${results[0].intent} (score: ${results[0].score.toFixed(4)})`);
+    }
+
+    // Test count
+    console.log(`✓ count(): ${semanticRouter.count()}`);
+
+    // Test clear
+    semanticRouter.clear();
+    console.log(`✓ clear() worked, count now: ${semanticRouter.count()}`);
+  } else {
+    console.log('✗ SemanticRouter class not found');
+  }
+} catch (e) {
+  console.error('✗ SemanticRouter test failed:', e.message);
+}
+
 console.log('\nAll basic tests completed!');

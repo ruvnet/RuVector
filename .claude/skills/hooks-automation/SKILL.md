@@ -1,28 +1,11 @@
 ---
 name: Hooks Automation
 description: Automated coordination, formatting, and learning from Claude Code operations using intelligent hooks with MCP integration. Includes pre/post task hooks, session management, Git integration, memory coordination, and neural pattern training for enhanced development workflows.
-hooks:
-  pre: |
-    echo "🧠 Hooks Automation activated"
-    if [ -d "/workspaces/ruvector/.claude/intelligence" ]; then
-      cd /workspaces/ruvector/.claude/intelligence
-      INTELLIGENCE_MODE=treatment node cli.js pre-edit "$FILE" 2>/dev/null || true
-    fi
-  post: |
-    echo "✅ Hooks Automation complete"
-    if [ -d "/workspaces/ruvector/.claude/intelligence" ]; then
-      cd /workspaces/ruvector/.claude/intelligence
-      INTELLIGENCE_MODE=treatment node cli.js post-edit "$FILE" "true" 2>/dev/null || true
-    fi
 ---
 
 # Hooks Automation
 
 Intelligent automation system that coordinates, validates, and learns from Claude Code operations through hooks integrated with MCP tools and neural pattern training.
-
-## 🧠 Self-Learning Intelligence
-Integrates with RuVector's Q-learning and vector memory for improved performance.
-CLI: `node .claude/intelligence/cli.js stats`
 
 ## What This Skill Does
 

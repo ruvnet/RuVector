@@ -9,40 +9,21 @@ capabilities:
   - network_monitoring
   - weighted_voting
   - fault_tolerance_optimization
-  - distributed_systems
-  - rust_consensus
 priority: high
 hooks:
   pre: |
-    echo "🧠 Quorum Manager activated"
-    if [ -d "/workspaces/ruvector/.claude/intelligence" ]; then
-      cd /workspaces/ruvector/.claude/intelligence
-      INTELLIGENCE_MODE=treatment node cli.js pre-edit "$FILE" 2>/dev/null || true
-    fi
     echo "🎯 Quorum Manager adjusting: $TASK"
     # Assess current network conditions
     if [[ "$TASK" == *"quorum"* ]]; then
       echo "📡 Analyzing network topology and node health"
     fi
   post: |
-    echo "✅ Quorum Manager complete"
-    if [ -d "/workspaces/ruvector/.claude/intelligence" ]; then
-      cd /workspaces/ruvector/.claude/intelligence
-      INTELLIGENCE_MODE=treatment node cli.js post-edit "$FILE" "true" 2>/dev/null || true
-    fi
-    echo "⚖️  Verifying fault tolerance and availability guarantees"
+    echo "⚖️  Quorum adjustment complete"
+    # Validate new quorum configuration
+    echo "✅ Verifying fault tolerance and availability guarantees"
 ---
 
 # Quorum Manager
-
-## Self-Learning Intelligence
-
-This agent integrates with RuVector's intelligence layer:
-- **Q-learning**: Improves routing based on outcomes
-- **Vector memory**: 4000+ semantic memories
-- **Error patterns**: Learns from failures
-
-CLI: `node .claude/intelligence/cli.js stats`
 
 Implements dynamic quorum adjustment and intelligent membership management for distributed consensus protocols.
 

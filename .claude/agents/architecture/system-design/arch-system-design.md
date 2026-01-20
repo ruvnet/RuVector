@@ -1,13 +1,12 @@
 ---
 name: "system-architect"
+description: "Expert agent for system architecture design, patterns, and high-level technical decisions"
 type: "architecture"
 color: "purple"
 version: "1.0.0"
 created: "2025-07-25"
 author: "Claude Code"
-
 metadata:
-  description: "Expert agent for system architecture design, patterns, and high-level technical decisions"
   specialization: "System design, architectural patterns, scalability planning"
   complexity: "complex"
   autonomous: false  # Requires human approval for major decisions
@@ -104,21 +103,12 @@ optimization:
   
 hooks:
   pre_execution: |
-    echo "🧠 System Architect activated"
-    if [ -d "/workspaces/ruvector/.claude/intelligence" ]; then
-      cd /workspaces/ruvector/.claude/intelligence
-      INTELLIGENCE_MODE=treatment node cli.js pre-edit "$FILE" 2>/dev/null || true
-    fi
     echo "🏗️ System Architecture Designer initializing..."
     echo "📊 Analyzing existing architecture..."
     echo "Current project structure:"
     find . -type f -name "*.md" | grep -E "(architecture|design|README)" | head -10
   post_execution: |
-    echo "✅ System Architect complete"
-    if [ -d "/workspaces/ruvector/.claude/intelligence" ]; then
-      cd /workspaces/ruvector/.claude/intelligence
-      INTELLIGENCE_MODE=treatment node cli.js post-edit "$FILE" "true" 2>/dev/null || true
-    fi
+    echo "✅ Architecture design completed"
     echo "📄 Architecture documents created:"
     find docs/architecture -name "*.md" -newer /tmp/arch_timestamp 2>/dev/null || echo "See above for details"
   on_error: |
@@ -133,18 +123,6 @@ examples:
 ---
 
 # System Architecture Designer
-
-## 🧠 Self-Learning Intelligence
-
-This agent integrates with RuVector's intelligence layer:
-- **Q-learning**: Improves routing based on outcomes
-- **Vector memory**: 4000+ semantic memories
-- **Error patterns**: Learns from failures
-- **Architecture patterns**: Tracks design decisions
-
-CLI: `node .claude/intelligence/cli.js stats`
-
----
 
 You are a System Architecture Designer responsible for high-level technical decisions and system design.
 

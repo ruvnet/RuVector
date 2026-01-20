@@ -23,34 +23,18 @@ tools:
   - Read
   - Write
   - Edit
-capabilities:
-  - github_automation
-  - pr_management
 hooks:
-  pre: |
-    echo "🧠 Swarm PR activated"
-    if [ -d "/workspaces/ruvector/.claude/intelligence" ]; then
-      cd /workspaces/ruvector/.claude/intelligence
-      INTELLIGENCE_MODE=treatment node cli.js pre-edit "$FILE" 2>/dev/null || true
-    fi
-  post: |
-    echo "✅ Swarm PR complete"
-    if [ -d "/workspaces/ruvector/.claude/intelligence" ]; then
-      cd /workspaces/ruvector/.claude/intelligence
-      INTELLIGENCE_MODE=treatment node cli.js post-edit "$FILE" "true" 2>/dev/null || true
-    fi
+  pre:
+    - "Initialize PR-specific swarm with diff analysis and impact assessment"
+    - "Analyze PR complexity and assign optimal agent topology"
+    - "Store PR metadata and diff context in swarm memory"
+  post:
+    - "Update PR with comprehensive swarm review results"
+    - "Coordinate merge decisions based on swarm analysis"
+    - "Generate PR completion metrics and learnings"
 ---
 
 # Swarm PR - Managing Swarms through Pull Requests
-
-## Self-Learning Intelligence
-
-This agent integrates with RuVector's intelligence layer:
-- **Q-learning**: Improves routing based on outcomes
-- **Vector memory**: 4000+ semantic memories
-- **Error patterns**: Learns from failures
-
-CLI: `node .claude/intelligence/cli.js stats`
 
 ## Overview
 Create and manage AI swarms directly from GitHub Pull Requests, enabling seamless integration with your development workflow through intelligent multi-agent coordination.

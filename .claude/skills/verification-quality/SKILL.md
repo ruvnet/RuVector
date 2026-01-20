@@ -4,26 +4,9 @@ description: "Comprehensive truth scoring, code quality verification, and automa
 version: "2.0.0"
 category: "quality-assurance"
 tags: ["verification", "truth-scoring", "quality", "rollback", "metrics", "ci-cd"]
-hooks:
-  pre: |
-    echo "🧠 Verification & Quality Assurance activated"
-    if [ -d "/workspaces/ruvector/.claude/intelligence" ]; then
-      cd /workspaces/ruvector/.claude/intelligence
-      INTELLIGENCE_MODE=treatment node cli.js pre-edit "$FILE" 2>/dev/null || true
-    fi
-  post: |
-    echo "✅ Verification & Quality Assurance complete"
-    if [ -d "/workspaces/ruvector/.claude/intelligence" ]; then
-      cd /workspaces/ruvector/.claude/intelligence
-      INTELLIGENCE_MODE=treatment node cli.js post-edit "$FILE" "true" 2>/dev/null || true
-    fi
 ---
 
 # Verification & Quality Assurance Skill
-
-## 🧠 Self-Learning Intelligence
-Integrates with RuVector's Q-learning and vector memory for improved performance.
-CLI: `node .claude/intelligence/cli.js stats`
 
 ## What This Skill Does
 

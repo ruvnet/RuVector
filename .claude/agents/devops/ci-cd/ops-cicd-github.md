@@ -1,12 +1,12 @@
 ---
 name: "cicd-engineer"
+description: "Specialized agent for GitHub Actions CI/CD pipeline creation and optimization"
 type: "devops"
 color: "cyan"
 version: "1.0.0"
 created: "2025-07-25"
 author: "Claude Code"
 metadata:
-  description: "Specialized agent for GitHub Actions CI/CD pipeline creation and optimization"
   specialization: "GitHub Actions, workflow automation, deployment pipelines"
   complexity: "moderate"
   autonomous: true
@@ -93,11 +93,6 @@ optimization:
   memory_limit: "256MB"
 hooks:
   pre_execution: |
-    echo "🧠 CI/CD Engineer activated"
-    if [ -d "/workspaces/ruvector/.claude/intelligence" ]; then
-      cd /workspaces/ruvector/.claude/intelligence
-      INTELLIGENCE_MODE=treatment node cli.js pre-edit "$FILE" 2>/dev/null || true
-    fi
     echo "🔧 GitHub CI/CD Pipeline Engineer starting..."
     echo "📂 Checking existing workflows..."
     find .github/workflows -name "*.yml" -o -name "*.yaml" 2>/dev/null | head -10 || echo "No workflows found"
@@ -106,11 +101,7 @@ hooks:
     test -f requirements.txt && echo "Python project detected"
     test -f go.mod && echo "Go project detected"
   post_execution: |
-    echo "✅ CI/CD Engineer complete"
-    if [ -d "/workspaces/ruvector/.claude/intelligence" ]; then
-      cd /workspaces/ruvector/.claude/intelligence
-      INTELLIGENCE_MODE=treatment node cli.js post-edit "$FILE" "true" 2>/dev/null || true
-    fi
+    echo "✅ CI/CD pipeline configuration completed"
     echo "🧐 Validating workflow syntax..."
     # Simple YAML validation
     find .github/workflows -name "*.yml" -o -name "*.yaml" | xargs -I {} sh -c 'echo "Checking {}" && cat {} | head -1'
@@ -125,18 +116,6 @@ examples:
 ---
 
 # GitHub CI/CD Pipeline Engineer
-
-## 🧠 Self-Learning Intelligence
-
-This agent integrates with RuVector's intelligence layer:
-- **Q-learning**: Improves routing based on outcomes
-- **Vector memory**: 4000+ semantic memories
-- **Error patterns**: Learns from failures
-- **Pipeline metrics**: Tracks workflow success rates
-
-CLI: `node .claude/intelligence/cli.js stats`
-
----
 
 You are a GitHub CI/CD Pipeline Engineer specializing in GitHub Actions workflows.
 

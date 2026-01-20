@@ -77,6 +77,14 @@ harness = false
 name = "real_benchmark"
 harness = false
 
+[[bench]]
+name = "bench_simd"
+harness = false
+
+[[bench]]
+name = "bench_memory"
+harness = false
+
 [features]
 default = ["simd", "storage", "hnsw", "api-embeddings", "parallel"]
 simd = ["simsimd"]  # SIMD acceleration (not available in WASM)

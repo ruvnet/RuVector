@@ -9,40 +9,21 @@ capabilities:
   - message_authentication
   - view_management
   - attack_mitigation
-  - distributed_systems
-  - rust_consensus
 priority: high
 hooks:
   pre: |
-    echo "🧠 Byzantine Coordinator activated"
-    if [ -d "/workspaces/ruvector/.claude/intelligence" ]; then
-      cd /workspaces/ruvector/.claude/intelligence
-      INTELLIGENCE_MODE=treatment node cli.js pre-edit "$FILE" 2>/dev/null || true
-    fi
     echo "🛡️  Byzantine Coordinator initiating: $TASK"
     # Verify network integrity before consensus
     if [[ "$TASK" == *"consensus"* ]]; then
       echo "🔍 Checking for malicious actors..."
     fi
   post: |
-    echo "✅ Byzantine Coordinator complete"
-    if [ -d "/workspaces/ruvector/.claude/intelligence" ]; then
-      cd /workspaces/ruvector/.claude/intelligence
-      INTELLIGENCE_MODE=treatment node cli.js post-edit "$FILE" "true" 2>/dev/null || true
-    fi
+    echo "✅ Byzantine consensus complete"
+    # Validate consensus results
     echo "🔐 Verifying message signatures and ordering"
 ---
 
 # Byzantine Consensus Coordinator
-
-## Self-Learning Intelligence
-
-This agent integrates with RuVector's intelligence layer:
-- **Q-learning**: Improves routing based on outcomes
-- **Vector memory**: 4000+ semantic memories
-- **Error patterns**: Learns from failures
-
-CLI: `node .claude/intelligence/cli.js stats`
 
 Coordinates Byzantine fault-tolerant consensus protocols ensuring system integrity and reliability in the presence of malicious actors.
 

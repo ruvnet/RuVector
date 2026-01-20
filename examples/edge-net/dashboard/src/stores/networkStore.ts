@@ -35,6 +35,8 @@ interface NetworkState {
   relayNetworkState: RelayNetworkState | null;
   connectedPeers: string[];
   pendingTasks: TaskAssignment[];
+  // Firebase peers (alias for connectedPeers for backward compatibility)
+  firebasePeers: string[];
   // Persisted cumulative values from IndexedDB
   persistedCredits: number;
   persistedTasks: number;
@@ -62,6 +64,7 @@ interface NetworkState {
   connectToRelay: () => Promise<boolean>;
   disconnectFromRelay: () => void;
   processAssignedTask: (task: TaskAssignment) => Promise<void>;
+  clearLocalData: () => Promise<void>;
 }
 
 const initialStats: NetworkStats = {
@@ -120,6 +123,7 @@ export const useNetworkStore = create<NetworkState>()((set, get) => ({
   relayNetworkState: null,
   connectedPeers: [],
   pendingTasks: [],
+  firebasePeers: [], // Kept in sync with connectedPeers for backward compatibility
   persistedCredits: 0,
   persistedTasks: 0,
   persistedUptime: 0,
@@ -490,6 +494,7 @@ export const useNetworkStore = create<NetworkState>()((set, get) => ({
           isRelayConnected: true,
           relayNetworkState: networkState,
           connectedPeers: peers,
+          firebasePeers: peers,
           stats: {
             ...get().stats,
             activeNodes: networkState.activeNodes + 1, // Include ourselves
@@ -508,6 +513,7 @@ export const useNetworkStore = create<NetworkState>()((set, get) => ({
         set({
           isRelayConnected: false,
           connectedPeers: [],
+          firebasePeers: [],
         });
       },
 
@@ -515,6 +521,7 @@ export const useNetworkStore = create<NetworkState>()((set, get) => ({
         console.log('[EdgeNet] Peer joined:', nodeId);
         set((s) => ({
           connectedPeers: [...s.connectedPeers, nodeId],
+          firebasePeers: [...s.firebasePeers, nodeId],
           stats: { ...s.stats, activeNodes: totalNodes, totalNodes },
           timeCrystal: { ...s.timeCrystal, synchronizedNodes: totalNodes },
         }));
@@ -524,6 +531,7 @@ export const useNetworkStore = create<NetworkState>()((set, get) => ({
         console.log('[EdgeNet] Peer left:', nodeId);
         set((s) => ({
           connectedPeers: s.connectedPeers.filter((id) => id !== nodeId),
+          firebasePeers: s.firebasePeers.filter((id) => id !== nodeId),
           stats: { ...s.stats, activeNodes: totalNodes, totalNodes },
           timeCrystal: { ...s.timeCrystal, synchronizedNodes: totalNodes },
         }));
@@ -588,6 +596,7 @@ export const useNetworkStore = create<NetworkState>()((set, get) => ({
     set({
       isRelayConnected: false,
       connectedPeers: [],
+      firebasePeers: [],
       pendingTasks: [],
     });
   },
@@ -625,5 +634,37 @@ export const useNetworkStore = create<NetworkState>()((set, get) => ({
     } catch (error) {
       console.error('[EdgeNet] Task processing failed:', error);
     }
+  },
+
+  clearLocalData: async () => {
+    // Disconnect from relay
+    get().disconnectFromRelay();
+    // Stop contributing
+    get().stopContributing();
+    // Clear IndexedDB
+    await storageService.clear();
+    // Reset state to defaults
+    set({
+      stats: initialStats,
+      nodes: [],
+      timeCrystal: initialTimeCrystal,
+      credits: initialCredits,
+      isConnected: false,
+      isRelayConnected: false,
+      isLoading: false,
+      error: null,
+      startTime: Date.now(),
+      contributionSettings: defaultContributionSettings,
+      isWASMReady: false,
+      nodeId: null,
+      relayNetworkState: null,
+      connectedPeers: [],
+      pendingTasks: [],
+      firebasePeers: [],
+      persistedCredits: 0,
+      persistedTasks: 0,
+      persistedUptime: 0,
+    });
+    console.log('[EdgeNet] Local data cleared');
   },
 }));

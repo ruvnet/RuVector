@@ -1,6 +1,6 @@
 {
   "name": "@ruvector/ruvllm-win32-x64-msvc",
-  "version": "0.2.0",
+  "version": "2.0.0",
   "os": ["win32"],
   "cpu": ["x64"],
   "main": "ruvllm.win32-x64-msvc.node",

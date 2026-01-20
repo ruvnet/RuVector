@@ -1,26 +1,9 @@
 ---
 name: "ReasoningBank Intelligence"
 description: "Implement adaptive learning with ReasoningBank for pattern recognition, strategy optimization, and continuous improvement. Use when building self-learning agents, optimizing workflows, or implementing meta-cognitive systems."
-hooks:
-  pre: |
-    echo "🧠 ReasoningBank Intelligence activated"
-    if [ -d "/workspaces/ruvector/.claude/intelligence" ]; then
-      cd /workspaces/ruvector/.claude/intelligence
-      INTELLIGENCE_MODE=treatment node cli.js pre-edit "$FILE" 2>/dev/null || true
-    fi
-  post: |
-    echo "✅ ReasoningBank Intelligence complete"
-    if [ -d "/workspaces/ruvector/.claude/intelligence" ]; then
-      cd /workspaces/ruvector/.claude/intelligence
-      INTELLIGENCE_MODE=treatment node cli.js post-edit "$FILE" "true" 2>/dev/null || true
-    fi
 ---
 
 # ReasoningBank Intelligence
-
-## 🧠 Self-Learning Intelligence
-Integrates with RuVector's Q-learning and vector memory for improved performance.
-CLI: `node .claude/intelligence/cli.js stats`
 
 ## What This Skill Does
 

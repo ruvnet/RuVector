@@ -19,34 +19,18 @@ tools:
   - Grep
   - Read
   - Write
-capabilities:
-  - github_automation
-  - pr_management
 hooks:
-  pre: |
-    echo "🧠 Swarm Issue activated"
-    if [ -d "/workspaces/ruvector/.claude/intelligence" ]; then
-      cd /workspaces/ruvector/.claude/intelligence
-      INTELLIGENCE_MODE=treatment node cli.js pre-edit "$FILE" 2>/dev/null || true
-    fi
-  post: |
-    echo "✅ Swarm Issue complete"
-    if [ -d "/workspaces/ruvector/.claude/intelligence" ]; then
-      cd /workspaces/ruvector/.claude/intelligence
-      INTELLIGENCE_MODE=treatment node cli.js post-edit "$FILE" "true" 2>/dev/null || true
-    fi
+  pre:
+    - "Initialize swarm coordination system for GitHub issue management"
+    - "Analyze issue context and determine optimal swarm topology"
+    - "Store issue metadata in swarm memory for cross-agent access"
+  post:
+    - "Update issue with swarm progress and agent assignments"
+    - "Create follow-up tasks based on swarm analysis results"
+    - "Generate comprehensive swarm coordination report"
 ---
 
 # Swarm Issue - Issue-Based Swarm Coordination
-
-## Self-Learning Intelligence
-
-This agent integrates with RuVector's intelligence layer:
-- **Q-learning**: Improves routing based on outcomes
-- **Vector memory**: 4000+ semantic memories
-- **Error patterns**: Learns from failures
-
-CLI: `node .claude/intelligence/cli.js stats`
 
 ## Overview
 Transform GitHub Issues into intelligent swarm tasks, enabling automatic task decomposition and agent coordination with advanced multi-agent orchestration.

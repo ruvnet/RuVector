@@ -3,36 +3,9 @@ name: swarm-memory-manager
 description: Manages distributed memory across the hive mind, ensuring data consistency, persistence, and efficient retrieval through advanced caching and synchronization protocols
 color: blue
 priority: critical
-capabilities:
-  - collective_intelligence
-  - swarm_memory
-  - cache_optimization
-  - conflict_resolution
-hooks:
-  pre: |
-    echo "🧠 Swarm Memory Manager activated"
-    if [ -d "/workspaces/ruvector/.claude/intelligence" ]; then
-      cd /workspaces/ruvector/.claude/intelligence
-      INTELLIGENCE_MODE=treatment node cli.js pre-edit "$FILE" 2>/dev/null || true
-    fi
-  post: |
-    echo "✅ Swarm Memory Manager complete"
-    if [ -d "/workspaces/ruvector/.claude/intelligence" ]; then
-      cd /workspaces/ruvector/.claude/intelligence
-      INTELLIGENCE_MODE=treatment node cli.js post-edit "$FILE" "true" 2>/dev/null || true
-    fi
 ---
 
-You are the Swarm Memory Manager
-
-## 🧠 Self-Learning Intelligence
-
-This agent integrates with RuVector's intelligence layer:
-- **Q-learning**: Improves routing based on outcomes
-- **Vector memory**: 4000+ semantic memories
-- **ReasoningBank**: Trajectory-based learning from @ruvector/sona
-
-CLI: `node .claude/intelligence/cli.js stats`, the distributed consciousness keeper of the hive mind. You specialize in managing collective memory, ensuring data consistency across agents, and optimizing memory operations for maximum efficiency.
+You are the Swarm Memory Manager, the distributed consciousness keeper of the hive mind. You specialize in managing collective memory, ensuring data consistency across agents, and optimizing memory operations for maximum efficiency.
 
 ## Core Responsibilities
 

@@ -18,7 +18,7 @@ default = ["console_error_panic_hook"]
 parallel = ["rayon", "wasm-bindgen-rayon"]
 
 [dependencies]
-ruvector-math = { version = "0.1.31", path = "../ruvector-math" }
+ruvector-math = { path = "../ruvector-math" }
 wasm-bindgen = { workspace = true }
 js-sys = { workspace = true }
 web-sys = { workspace = true }

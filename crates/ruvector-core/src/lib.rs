@@ -6,7 +6,7 @@
 //!
 //! - **HNSW Indexing**: Approximate nearest neighbor search with O(log n) complexity
 //! - **SIMD Distance**: SimSIMD-powered distance calculations (~16M ops/sec for 512-dim)
-//! - **Quantization**: Scalar (4x) and binary (32x) compression with distance support
+//! - **Quantization**: Scalar (4x), Int4 (8x), Product (8-16x), and binary (32x) compression with distance support
 //! - **Persistence**: REDB-based storage with config persistence
 //! - **Search**: ~2.5K queries/sec on 10K vectors (benchmarked)
 //!
@@ -60,6 +60,15 @@ pub mod cache_optimized;
 pub mod lockfree;
 pub mod simd_intrinsics;
 
+/// Unified Memory Pool and Paging System (ADR-006)
+///
+/// High-performance paged memory management for LLM inference:
+/// - 2MB page-granular allocation with best-fit strategy
+/// - Reference-counted pinning with RAII guards
+/// - LRU eviction with hysteresis for thrash prevention
+/// - Multi-tenant isolation with Hot/Warm/Cold residency tiers
+pub mod memory;
+
 /// Advanced techniques: hypergraphs, learned indexes, neural hashing, TDA (Phase 6)
 pub mod advanced;
 
@@ -71,7 +80,10 @@ pub use advanced_features::{
 };
 
 #[cfg(feature = "storage")]
-pub use agenticdb::AgenticDB;
+pub use agenticdb::{
+    AgenticDB, PolicyMemoryStore, PolicyEntry, PolicyAction,
+    SessionStateIndex, SessionTurn, WitnessLog, WitnessEntry,
+};
 
 #[cfg(feature = "api-embeddings")]
 pub use embeddings::ApiEmbedding;
@@ -95,6 +107,30 @@ const _: () = {
 pub use error::{Result, RuvectorError};
 pub use types::{DistanceMetric, SearchQuery, SearchResult, VectorEntry, VectorId};
 pub use vector_db::VectorDB;
+
+// Quantization types (ADR-001)
+pub use quantization::{
+    ScalarQuantized, ProductQuantized, BinaryQuantized, Int4Quantized,
+    QuantizedVector,
+};
+
+// Memory management types (ADR-001)
+pub use arena::{
+    Arena, ArenaVec, CacheAlignedVec, BatchVectorAllocator,
+    CACHE_LINE_SIZE,
+};
+
+// Lock-free structures (requires parallel feature)
+#[cfg(all(feature = "parallel", not(target_arch = "wasm32")))]
+pub use lockfree::{
+    LockFreeCounter, LockFreeStats, StatsSnapshot,
+    ObjectPool, PooledObject, LockFreeWorkQueue,
+    AtomicVectorPool, VectorPoolStats, PooledVector,
+    LockFreeBatchProcessor, BatchItem, BatchResult,
+};
+
+// Cache-optimized storage
+pub use cache_optimized::SoAVectorStorage;
 
 #[cfg(test)]
 mod tests {

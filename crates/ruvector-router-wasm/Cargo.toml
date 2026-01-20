@@ -12,7 +12,7 @@ description = "WASM bindings for ruvector-router-core"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-ruvector-router-core = { version = "0.1.2", path = "../ruvector-router-core" }
+ruvector-router-core = { path = "../ruvector-router-core" }
 
 # WASM dependencies
 wasm-bindgen = { workspace = true }

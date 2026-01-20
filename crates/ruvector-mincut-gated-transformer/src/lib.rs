@@ -131,7 +131,19 @@ pub use flash_attention::{
     flash_attention_forward, flash_attention_forward_i8, flash_mha, FlashAttentionConfig,
 };
 pub use gate::{GateController, TierDecision};
+// Legacy KV cache types (backward compatibility)
 pub use kv_cache::{HadamardTransform, QuantBits, QuantizedKVCache};
+// New three-tier KV cache types (ADR-004)
+pub use kv_cache::{
+    AdaptiveKVCache, AdaptiveKVCacheConfig, ArchiveQuantizer,
+    CacheTier, TierBoundary, TierConfig,
+    HotBuffer, HotBufferConfig,
+    KiviQuantizer, QuantScheme, QuantizedKV,
+    SQuatQuantizer, SQuatCompressed,
+    KVQuantQuantizer, KVQuantKeyMode, KVQuantValueMode,
+    TierPolicy, RematerializationPolicy, EvictionDecision,
+    QualityTracker, QualityMetric, QualityFeedback, MemoryStats,
+};
 pub use mamba::{MambaConfig, MambaLayer, MambaState, MambaWeights};
 pub use mod_routing::{MincutDepthRouter, ModRoutingConfig, RoutingStats, TokenRoute};
 pub use model::{MincutGatedTransformer, QuantizedWeights, WeightsLoader};
@@ -181,6 +193,9 @@ pub mod prelude {
         QuantBits, QuantizedKVCache, QuantizedWeights, Result, RopeConfig, RopeEmbedding,
         RopeScaling, RoutingStats, SpeculativeConfig, SpeculativeDecoder, SpikePacket, TokenRoute,
         TransformerConfig, VerificationResult, WeightsLoader, Witness,
+        // Three-tier KV cache (ADR-004)
+        AdaptiveKVCache, AdaptiveKVCacheConfig, ArchiveQuantizer,
+        CacheTier, TierBoundary, KiviQuantizer, SQuatQuantizer, KVQuantQuantizer,
     };
 
     #[cfg(feature = "trace")]

@@ -29,7 +29,7 @@ napi = { version = "2", optional = true }
 napi-derive = { version = "2", optional = true }
 
 # Advanced math primitives for OT, mixed-curvature, and topology-gated attention
-ruvector-math = { version = "0.1.31", path = "../ruvector-math", optional = true }
+ruvector-math = { path = "../ruvector-math", optional = true }
 
 [dev-dependencies]
 criterion = "0.5"

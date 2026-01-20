@@ -10,7 +10,7 @@ repository = "https://github.com/ruvnet/ruvector"
 crate-type = ["cdylib"]
 
 [dependencies]
-ruvector-attention = { version = "0.1.0", path = "../ruvector-attention", default-features = false }
+ruvector-attention = { path = "../ruvector-attention", default-features = false }
 napi = { version = "2", default-features = false, features = ["napi9", "async", "serde-json"] }
 napi-derive = "2"
 serde = { version = "1.0", features = ["derive"] }

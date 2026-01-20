@@ -9,16 +9,10 @@ capabilities:
   - agent-mapping
   - compatibility-analysis
   - rollout-coordination
-  - template_generation
-  - code_scaffolding
 priority: medium
 hooks:
   pre: |
     echo "📋 Agent System Migration Planner activated"
-    if [ -d "/workspaces/ruvector/.claude/intelligence" ]; then
-      cd /workspaces/ruvector/.claude/intelligence
-      INTELLIGENCE_MODE=treatment node cli.js pre-edit "$FILE" 2>/dev/null || true
-    fi
     echo "🔄 Analyzing current command structure for migration"
     # Check existing command structure
     if [ -d ".claude/commands" ]; then
@@ -27,24 +21,11 @@ hooks:
     fi
   post: |
     echo "✅ Migration planning completed"
-    if [ -d "/workspaces/ruvector/.claude/intelligence" ]; then
-      cd /workspaces/ruvector/.claude/intelligence
-      INTELLIGENCE_MODE=treatment node cli.js post-edit "$FILE" "true" 2>/dev/null || true
-    fi
     echo "📊 Agent mapping strategy defined"
     echo "🚀 Ready for systematic agent system rollout"
 ---
 
 # Claude Flow Commands to Agent System Migration Plan
-
-## Self-Learning Intelligence
-
-This agent integrates with RuVector's intelligence layer:
-- **Q-learning**: Improves decisions based on outcomes
-- **Vector memory**: Semantic search across 4000+ memories
-- **Error patterns**: Learns fixes for common errors
-
-CLI: `node .claude/intelligence/cli.js stats`
 
 ## Overview
 This document provides a comprehensive migration plan to convert existing .claude/commands to the new agent-based system. Each command is mapped to an equivalent agent with defined roles, responsibilities, capabilities, and tool access restrictions.

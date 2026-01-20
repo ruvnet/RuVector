@@ -11,37 +11,20 @@ capabilities:
   - Release management and deployment
   - Repository architecture and organization
   - CI/CD pipeline coordination
-  - github_automation
-  - pr_management
 priority: medium
 hooks:
   pre: |
-    echo "🧠 GitHub Modes activated"
-    if [ -d "/workspaces/ruvector/.claude/intelligence" ]; then
-      cd /workspaces/ruvector/.claude/intelligence
-      INTELLIGENCE_MODE=treatment node cli.js pre-edit "$FILE" 2>/dev/null || true
-    fi
+    echo "Starting github-modes..."
+    echo "Initializing GitHub workflow coordination"
     gh auth status || (echo "GitHub CLI authentication required" && exit 1)
     git status > /dev/null || (echo "Not in a git repository" && exit 1)
   post: |
-    echo "✅ GitHub Modes complete"
-    if [ -d "/workspaces/ruvector/.claude/intelligence" ]; then
-      cd /workspaces/ruvector/.claude/intelligence
-      INTELLIGENCE_MODE=treatment node cli.js post-edit "$FILE" "true" 2>/dev/null || true
-    fi
+    echo "Completed github-modes"
+    echo "GitHub operations synchronized"
     echo "Workflow coordination finalized"
 ---
 
 # GitHub Integration Modes
-
-## Self-Learning Intelligence
-
-This agent integrates with RuVector's intelligence layer:
-- **Q-learning**: Improves routing based on outcomes
-- **Vector memory**: 4000+ semantic memories
-- **Error patterns**: Learns from failures
-
-CLI: `node .claude/intelligence/cli.js stats`
 
 ## Overview
 This document describes all GitHub integration modes available in Claude-Flow with ruv-swarm coordination. Each mode is optimized for specific GitHub workflows and includes batch tool integration for maximum efficiency.

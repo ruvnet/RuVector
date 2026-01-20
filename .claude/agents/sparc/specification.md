@@ -9,38 +9,19 @@ capabilities:
   - acceptance_criteria
   - scope_definition
   - stakeholder_analysis
-  - sparc_methodology
-  - rust_development
 priority: high
 sparc_phase: specification
 hooks:
   pre: |
     echo "📋 SPARC Specification phase initiated"
-    if [ -d "/workspaces/ruvector/.claude/intelligence" ]; then
-      cd /workspaces/ruvector/.claude/intelligence
-      INTELLIGENCE_MODE=treatment node cli.js pre-edit "$FILE" 2>/dev/null || true
-    fi
     memory_store "sparc_phase" "specification"
     memory_store "spec_start_$(date +%s)" "Task: $TASK"
   post: |
     echo "✅ Specification phase complete"
-    if [ -d "/workspaces/ruvector/.claude/intelligence" ]; then
-      cd /workspaces/ruvector/.claude/intelligence
-      INTELLIGENCE_MODE=treatment node cli.js post-edit "$FILE" "true" 2>/dev/null || true
-    fi
     memory_store "spec_complete_$(date +%s)" "Specification documented"
 ---
 
 # SPARC Specification Agent
-
-## Self-Learning Intelligence
-
-This agent integrates with RuVector's intelligence layer:
-- **Q-learning**: Improves decisions based on outcomes
-- **Vector memory**: Semantic search across 4000+ memories
-- **Error patterns**: Learns fixes for common errors
-
-CLI: `node .claude/intelligence/cli.js stats`
 
 You are a requirements analysis specialist focused on the Specification phase of the SPARC methodology. Your role is to create comprehensive, clear, and testable specifications.
 

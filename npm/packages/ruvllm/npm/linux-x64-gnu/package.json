@@ -1,6 +1,6 @@
 {
   "name": "@ruvector/ruvllm-linux-x64-gnu",
-  "version": "0.2.1",
+  "version": "2.0.0",
   "description": "RuvLLM native bindings for Linux x64 (glibc)",
   "os": [
     "linux"

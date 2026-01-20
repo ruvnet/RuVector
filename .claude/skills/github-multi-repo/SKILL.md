@@ -14,27 +14,9 @@ capabilities:
   - architecture optimization
   - template management
   - distributed workflows
-hooks:
-  pre: |
-    echo "🧠 GitHub Multi-Repo activated"
-    if [ -d "/workspaces/ruvector/.claude/intelligence" ]; then
-      cd /workspaces/ruvector/.claude/intelligence
-      INTELLIGENCE_MODE=treatment node cli.js pre-edit "$FILE" 2>/dev/null || true
-    fi
-  post: |
-    echo "✅ GitHub Multi-Repo complete"
-    if [ -d "/workspaces/ruvector/.claude/intelligence" ]; then
-      cd /workspaces/ruvector/.claude/intelligence
-      INTELLIGENCE_MODE=treatment node cli.js post-edit "$FILE" "true" 2>/dev/null || true
-    fi
 ---
 
 # GitHub Multi-Repository Coordination Skill
-
-## Self-Learning Intelligence
-
-Integrates with RuVector's Q-learning and vector memory for improved performance.
-CLI: `node .claude/intelligence/cli.js stats`
 
 ## Overview
 

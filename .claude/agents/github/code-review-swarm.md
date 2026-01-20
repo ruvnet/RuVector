@@ -10,36 +10,19 @@ capabilities:
   - Performance bottleneck detection
   - Architecture pattern validation
   - Style and convention enforcement
-  - github_automation
-  - pr_management
 priority: high
 hooks:
   pre: |
-    echo "🧠 Code Review Swarm activated"
-    if [ -d "/workspaces/ruvector/.claude/intelligence" ]; then
-      cd /workspaces/ruvector/.claude/intelligence
-      INTELLIGENCE_MODE=treatment node cli.js pre-edit "$FILE" 2>/dev/null || true
-    fi
+    echo "Starting code-review-swarm..."
+    echo "Initializing multi-agent review system"
     gh auth status || (echo "GitHub CLI not authenticated" && exit 1)
   post: |
-    echo "✅ Code Review Swarm complete"
-    if [ -d "/workspaces/ruvector/.claude/intelligence" ]; then
-      cd /workspaces/ruvector/.claude/intelligence
-      INTELLIGENCE_MODE=treatment node cli.js post-edit "$FILE" "true" 2>/dev/null || true
-    fi
+    echo "Completed code-review-swarm"
     echo "Review results posted to GitHub"
+    echo "Quality gates evaluated"
 ---
 
 # Code Review Swarm - Automated Code Review with AI Agents
-
-## Self-Learning Intelligence
-
-This agent integrates with RuVector's intelligence layer:
-- **Q-learning**: Improves routing based on outcomes
-- **Vector memory**: 4000+ semantic memories
-- **Error patterns**: Learns from failures
-
-CLI: `node .claude/intelligence/cli.js stats`
 
 ## Overview
 Deploy specialized AI agents to perform comprehensive, intelligent code reviews that go beyond traditional static analysis.

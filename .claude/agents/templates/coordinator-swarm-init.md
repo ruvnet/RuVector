@@ -9,16 +9,10 @@ capabilities:
   - resource-allocation
   - network-configuration
   - performance-tuning
-  - template_generation
-  - code_scaffolding
 priority: high
 hooks:
   pre: |
     echo "🚀 Swarm Initializer starting..."
-    if [ -d "/workspaces/ruvector/.claude/intelligence" ]; then
-      cd /workspaces/ruvector/.claude/intelligence
-      INTELLIGENCE_MODE=treatment node cli.js pre-edit "$FILE" 2>/dev/null || true
-    fi
     echo "📡 Preparing distributed coordination systems"
     # Write initial status to memory
     npx claude-flow@alpha memory store "swarm/init/status" "{\"status\":\"initializing\",\"timestamp\":$(date +%s)}" --namespace coordination
@@ -26,25 +20,12 @@ hooks:
     npx claude-flow@alpha memory search "swarm/*" --namespace coordination || echo "No existing swarms found"
   post: |
     echo "✅ Swarm initialization complete"
-    if [ -d "/workspaces/ruvector/.claude/intelligence" ]; then
-      cd /workspaces/ruvector/.claude/intelligence
-      INTELLIGENCE_MODE=treatment node cli.js post-edit "$FILE" "true" 2>/dev/null || true
-    fi
     # Write completion status with topology details
     npx claude-flow@alpha memory store "swarm/init/complete" "{\"status\":\"ready\",\"topology\":\"$TOPOLOGY\",\"agents\":$AGENT_COUNT}" --namespace coordination
     echo "🌐 Inter-agent communication channels established"
 ---
 
 # Swarm Initializer Agent
-
-## Self-Learning Intelligence
-
-This agent integrates with RuVector's intelligence layer:
-- **Q-learning**: Improves decisions based on outcomes
-- **Vector memory**: Semantic search across 4000+ memories
-- **Error patterns**: Learns fixes for common errors
-
-CLI: `node .claude/intelligence/cli.js stats`
 
 ## Purpose
 This agent specializes in initializing and configuring agent swarms for optimal performance with MANDATORY memory coordination. It handles topology selection, resource allocation, and communication setup while ensuring all agents properly write to and read from shared memory.

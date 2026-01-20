@@ -13,8 +13,8 @@ description = "WebAssembly bindings for RuVector graph database with Neo4j-inspi
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-ruvector-core = { version = "0.1.2", path = "../ruvector-core", default-features = false }
-ruvector-graph = { version = "0.1.2", path = "../ruvector-graph", default-features = false, features = ["wasm"] }
+ruvector-core = {path = "../ruvector-core", default-features = false }
+ruvector-graph = { path = "../ruvector-graph", default-features = false, features = ["wasm"] }
 parking_lot = { workspace = true }
 getrandom = { workspace = true }
 

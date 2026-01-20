@@ -13,8 +13,8 @@ description = "Node.js bindings for RuVector Graph Database via NAPI-RS"
 crate-type = ["cdylib"]
 
 [dependencies]
-ruvector-core = { version = "0.1.2", path = "../ruvector-core" }
-ruvector-graph = { version = "0.1.0", path = "../ruvector-graph", features = ["storage"] }
+ruvector-core = {path = "../ruvector-core" }
+ruvector-graph = { path = "../ruvector-graph", features = ["storage"] }
 
 # Node.js bindings
 napi = { workspace = true }

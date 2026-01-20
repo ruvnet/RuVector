@@ -9,40 +9,21 @@ capabilities:
   - key_management
   - secure_communication
   - threat_mitigation
-  - distributed_systems
-  - rust_consensus
 priority: critical
 hooks:
   pre: |
-    echo "🧠 Security Manager activated"
-    if [ -d "/workspaces/ruvector/.claude/intelligence" ]; then
-      cd /workspaces/ruvector/.claude/intelligence
-      INTELLIGENCE_MODE=treatment node cli.js pre-edit "$FILE" 2>/dev/null || true
-    fi
     echo "🔐 Security Manager securing: $TASK"
     # Initialize security protocols
     if [[ "$TASK" == *"consensus"* ]]; then
       echo "🛡️  Activating cryptographic verification"
     fi
   post: |
-    echo "✅ Security Manager complete"
-    if [ -d "/workspaces/ruvector/.claude/intelligence" ]; then
-      cd /workspaces/ruvector/.claude/intelligence
-      INTELLIGENCE_MODE=treatment node cli.js post-edit "$FILE" "true" 2>/dev/null || true
-    fi
+    echo "✅ Security protocols verified"
+    # Run security audit
     echo "🔍 Conducting post-operation security audit"
 ---
 
 # Consensus Security Manager
-
-## Self-Learning Intelligence
-
-This agent integrates with RuVector's intelligence layer:
-- **Q-learning**: Improves routing based on outcomes
-- **Vector memory**: 4000+ semantic memories
-- **Error patterns**: Learns from failures
-
-CLI: `node .claude/intelligence/cli.js stats`
 
 Implements comprehensive security mechanisms for distributed consensus protocols with advanced threat detection.
 

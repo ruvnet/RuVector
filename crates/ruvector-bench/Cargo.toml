@@ -35,7 +35,7 @@ name = "profiling-benchmark"
 path = "src/bin/profiling_benchmark.rs"
 
 [dependencies]
-ruvector-core = { version = "0.1.2", path = "../ruvector-core" }
+ruvector-core = {path = "../ruvector-core" }
 
 # Benchmarking
 criterion = { workspace = true }

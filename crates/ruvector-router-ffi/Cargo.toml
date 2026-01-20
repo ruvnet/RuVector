@@ -12,7 +12,7 @@ description = "NAPI-RS bindings for ruvector-router-core vector database"
 crate-type = ["cdylib"]
 
 [dependencies]
-ruvector-router-core = { version = "0.1.2", path = "../ruvector-router-core" }
+ruvector-router-core = { path = "../ruvector-router-core" }
 
 # NAPI-RS dependencies
 napi = { workspace = true }

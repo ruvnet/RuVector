@@ -132,14 +132,33 @@ export class RuvLLM {
 
   /**
    * Generate text with SIMD-optimized inference
+   *
+   * Note: If no trained model is loaded (demo mode), returns an informational
+   * message instead of garbled output.
    */
   generate(prompt: string, config?: GenerationConfig): string {
     if (this.native) {
       return this.native.generate(prompt, toNativeGenConfig(config));
     }
 
-    // Fallback
-    return `[Fallback] Generated response for: ${prompt.slice(0, 50)}...`;
+    // Fallback - provide helpful message instead of garbled output
+    const maxTokens = config?.maxTokens ?? 256;
+    const temp = config?.temperature ?? 0.7;
+    const topP = config?.topP ?? 0.9;
+
+    return `[RuvLLM JavaScript Fallback Mode]
+No native SIMD module loaded. Running in JavaScript fallback mode.
+
+Your prompt: "${prompt.slice(0, 100)}${prompt.length > 100 ? '...' : ''}"
+
+To enable native SIMD inference:
+1. Install the native bindings: npm install @ruvector/ruvllm-${process.platform}-${process.arch}
+2. Or load a GGUF model file
+3. Or connect to an external LLM API
+
+Config: temp=${temp.toFixed(2)}, top_p=${topP.toFixed(2)}, max_tokens=${maxTokens}
+
+This fallback provides routing, memory, and embedding features but not full text generation.`;
   }
 
   /**
@@ -226,13 +245,15 @@ export class RuvLLM {
   stats(): RuvLLMStats {
     if (this.native) {
       const s = this.native.stats();
+      // Map native stats (snake_case) to TypeScript interface (camelCase)
+      // Handle both old and new field names for backward compatibility
       return {
-        totalQueries: s.total_queries,
-        memoryNodes: s.memory_nodes,
-        patternsLearned: s.patterns_learned,
-        avgLatencyMs: s.avg_latency_ms,
-        cacheHitRate: s.cache_hit_rate,
-        routerAccuracy: s.router_accuracy,
+        totalQueries: s.total_queries ?? 0,
+        memoryNodes: s.memory_nodes ?? 0,
+        patternsLearned: s.patterns_learned ?? (s as any).training_steps ?? 0,
+        avgLatencyMs: s.avg_latency_ms ?? 0,
+        cacheHitRate: s.cache_hit_rate ?? 0,
+        routerAccuracy: s.router_accuracy ?? 0.5,
       };
     }
 

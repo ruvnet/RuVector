@@ -16,7 +16,7 @@ description = "WebAssembly bindings for RuVector GNN with tensor compression and
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-ruvector-gnn = { version = "0.1.15", path = "../ruvector-gnn", default-features = false, features = ["wasm"] }
+ruvector-gnn = { path = "../ruvector-gnn", default-features = false, features = ["wasm"] }
 
 # WASM
 wasm-bindgen = { workspace = true }

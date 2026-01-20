@@ -7,15 +7,15 @@ license.workspace = true
 authors.workspace = true
 repository.workspace = true
 readme = "README.md"
-description = "WASM bindings for Ruvector for browser deployment"
+description = "WASM bindings for Ruvector including kernel pack system (ADR-005)"
 
 [lib]
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-ruvector-core = { version = "0.1.2", path = "../ruvector-core", default-features = false, features = ["memory-only", "uuid-support"] }
-ruvector-collections = { version = "0.1.2", path = "../ruvector-collections", optional = true }
-ruvector-filter = { version = "0.1.2", path = "../ruvector-filter", optional = true }
+ruvector-core = { path = "../ruvector-core", default-features = false, features = ["memory-only", "uuid-support"] }
+ruvector-collections = { path = "../ruvector-collections", optional = true }
+ruvector-filter = { path = "../ruvector-filter", optional = true }
 parking_lot = { workspace = true }
 getrandom = { workspace = true }
 
@@ -51,8 +51,16 @@ serde-wasm-bindgen = "0.6"
 console_error_panic_hook = "0.1"
 tracing-wasm = "0.2"
 
+# Cryptography for kernel pack verification (ADR-005)
+sha2 = { version = "0.10", optional = true }
+ed25519-dalek = { version = "2.1", optional = true }
+hex = { version = "0.4", optional = true }
+base64 = { version = "0.22", optional = true }
+rand = { workspace = true, optional = true }
+
 [dev-dependencies]
 wasm-bindgen-test = "0.3"
+rand = { workspace = true }
 
 [features]
 default = []
@@ -60,6 +68,10 @@ simd = ["ruvector-core/simd"]
 # Collections and filter features (not available in WASM due to file I/O requirements)
 # These features are provided for completeness but will not work in browser WASM
 collections = ["dep:ruvector-collections", "dep:ruvector-filter"]
+# Kernel pack system (ADR-005) - sandboxed compute kernel execution
+kernel-pack = ["dep:sha2", "dep:ed25519-dalek", "dep:hex", "dep:base64"]
+# Enable kernel signing capability (requires rand)
+signing = ["kernel-pack", "dep:rand"]
 
 # Ensure getrandom uses wasm_js/js features for WASM (both 0.2 and 0.3 versions)
 [target.'cfg(target_arch = "wasm32")'.dependencies]

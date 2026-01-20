@@ -91,3 +91,7 @@ hive-mind-prompt-*.txt
 # Benchmark generated files
 logs/
 data/
+
+# Large model files
+*.gguf
+test_models/*.gguf

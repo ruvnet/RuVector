@@ -14,13 +14,13 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 # Core attention mechanisms (7 neural attention types)
-ruvector-attention = { version = "0.1.0", path = "../ruvector-attention", default-features = false, features = ["wasm"] }
+ruvector-attention = { path = "../ruvector-attention", default-features = false, features = ["wasm"] }
 
 # DAG attention mechanisms (7 DAG-specific attention types)
-ruvector-dag = { version = "0.1.0", path = "../ruvector-dag", default-features = false, features = ["wasm"] }
+ruvector-dag = { path = "../ruvector-dag", default-features = false, features = ["wasm"] }
 
 # GNN/Graph attention (GAT, GCN, GraphSAGE)
-ruvector-gnn = { version = "0.1.15", path = "../ruvector-gnn", default-features = false, features = ["wasm"] }
+ruvector-gnn = { path = "../ruvector-gnn", default-features = false, features = ["wasm"] }
 
 # WASM bindings
 wasm-bindgen = "0.2"

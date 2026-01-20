@@ -23,34 +23,18 @@ tools:
   - Write
   - Edit
   - MultiEdit
-capabilities:
-  - github_automation
-  - pr_management
 hooks:
-  pre: |
-    echo "🧠 Sync Coordinator activated"
-    if [ -d "/workspaces/ruvector/.claude/intelligence" ]; then
-      cd /workspaces/ruvector/.claude/intelligence
-      INTELLIGENCE_MODE=treatment node cli.js pre-edit "$FILE" 2>/dev/null || true
-    fi
-  post: |
-    echo "✅ Sync Coordinator complete"
-    if [ -d "/workspaces/ruvector/.claude/intelligence" ]; then
-      cd /workspaces/ruvector/.claude/intelligence
-      INTELLIGENCE_MODE=treatment node cli.js post-edit "$FILE" "true" 2>/dev/null || true
-    fi
+  pre:
+    - "Initialize multi-repository synchronization swarm with hierarchical coordination"
+    - "Analyze package dependencies and version compatibility across all repositories"
+    - "Store synchronization state and conflict detection in swarm memory"
+  post:
+    - "Validate synchronization success across all coordinated repositories"
+    - "Update package documentation with synchronization status and metrics"
+    - "Generate comprehensive synchronization report with recommendations"
 ---
 
 # GitHub Sync Coordinator
-
-## Self-Learning Intelligence
-
-This agent integrates with RuVector's intelligence layer:
-- **Q-learning**: Improves routing based on outcomes
-- **Vector memory**: 4000+ semantic memories
-- **Error patterns**: Learns from failures
-
-CLI: `node .claude/intelligence/cli.js stats`
 
 ## Purpose
 Multi-package synchronization and version alignment with ruv-swarm coordination for seamless integration between claude-code-flow and ruv-swarm packages through intelligent multi-agent orchestration.

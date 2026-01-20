@@ -11,10 +11,10 @@ description = "Distributed Neo4j-compatible hypergraph database with SIMD optimi
 
 [dependencies]
 # RuVector dependencies
-ruvector-core = { version = "0.1.30", path = "../ruvector-core", default-features = false, features = ["simd", "parallel"] }
-ruvector-raft = { version = "0.1.30", path = "../ruvector-raft", optional = true }
-ruvector-cluster = { version = "0.1.30", path = "../ruvector-cluster", optional = true }
-ruvector-replication = { version = "0.1.30", path = "../ruvector-replication", optional = true }
+ruvector-core = { path = "../ruvector-core", default-features = false, features = ["simd", "parallel"] }
+ruvector-raft = { path = "../ruvector-raft", optional = true }
+ruvector-cluster = { path = "../ruvector-cluster", optional = true }
+ruvector-replication = { path = "../ruvector-replication", optional = true }
 
 # Storage and indexing (optional for WASM)
 redb = { workspace = true, optional = true }

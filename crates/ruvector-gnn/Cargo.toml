@@ -11,7 +11,7 @@ description = "Graph Neural Network layer for Ruvector on HNSW topology"
 
 [dependencies]
 # Core
-ruvector-core = { version = "0.1.2", path = "../ruvector-core", default-features = false }
+ruvector-core = { path = "../ruvector-core", default-features = false }
 
 # Math and numerics
 ndarray = { workspace = true, features = ["serde"] }

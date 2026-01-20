@@ -23,35 +23,20 @@ tools:
   - mcp__claude-flow__github_metrics
   - mcp__claude-flow__workflow_create
   - mcp__claude-flow__workflow_execute
-capabilities:
-  - github_automation
-  - pr_management
 hooks:
-  pre: |
-    echo "🧠 Project Board Sync activated"
-    if [ -d "/workspaces/ruvector/.claude/intelligence" ]; then
-      cd /workspaces/ruvector/.claude/intelligence
-      INTELLIGENCE_MODE=treatment node cli.js pre-edit "$FILE" 2>/dev/null || true
-    fi
-    gh auth status || (echo 'GitHub CLI not authenticated' && exit 1)
-  post: |
-    echo "✅ Project Board Sync complete"
-    if [ -d "/workspaces/ruvector/.claude/intelligence" ]; then
-      cd /workspaces/ruvector/.claude/intelligence
-      INTELLIGENCE_MODE=treatment node cli.js post-edit "$FILE" "true" 2>/dev/null || true
-    fi
+  pre:
+    - "gh auth status || (echo 'GitHub CLI not authenticated' && exit 1)"
+    - "gh project list --owner @me --limit 1 >/dev/null || echo 'No projects accessible'"
+    - "git status --porcelain || echo 'Not in git repository'"
+    - "gh api user | jq -r '.login' || echo 'API access check'"
+  post:
+    - "gh project list --owner @me --limit 3 | head -5"
+    - "gh issue list --limit 3 --json number,title,state"
+    - "git branch --show-current || echo 'Not on a branch'"
+    - "gh repo view --json name,description"
 ---
 
 # Project Board Sync - GitHub Projects Integration
-
-## Self-Learning Intelligence
-
-This agent integrates with RuVector's intelligence layer:
-- **Q-learning**: Improves routing based on outcomes
-- **Vector memory**: 4000+ semantic memories
-- **Error patterns**: Learns from failures
-
-CLI: `node .claude/intelligence/cli.js stats`
 
 ## Overview
 Synchronize AI swarms with GitHub Projects for visual task management, progress tracking, and team coordination.

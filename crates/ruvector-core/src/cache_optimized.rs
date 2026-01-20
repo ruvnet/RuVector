@@ -186,22 +186,49 @@ impl SoAVectorStorage {
 
     /// Compute distance from query to all stored vectors using dimension-wise operations
     /// This takes advantage of the SoA layout for better cache utilization
+    #[inline(always)]
     pub fn batch_euclidean_distances(&self, query: &[f32], output: &mut [f32]) {
         assert_eq!(query.len(), self.dimensions);
         assert_eq!(output.len(), self.count);
 
+        // Use SIMD-optimized version for larger batches
+        #[cfg(target_arch = "aarch64")]
+        {
+            if self.count >= 16 {
+                unsafe { self.batch_euclidean_distances_neon(query, output) };
+                return;
+            }
+        }
+
+        #[cfg(target_arch = "x86_64")]
+        {
+            if self.count >= 32 && is_x86_feature_detected!("avx2") {
+                unsafe { self.batch_euclidean_distances_avx2(query, output) };
+                return;
+            }
+        }
+
+        // Scalar fallback
+        self.batch_euclidean_distances_scalar(query, output);
+    }
+
+    /// Scalar implementation of batch euclidean distances
+    #[inline(always)]
+    fn batch_euclidean_distances_scalar(&self, query: &[f32], output: &mut [f32]) {
         // Initialize output with zeros
         output.fill(0.0);
 
-        // Process dimension by dimension
+        // Process dimension by dimension for cache-friendly access
         for dim_idx in 0..self.dimensions {
             let dim_slice = self.dimension_slice(dim_idx);
-            let query_val = query[dim_idx];
+            // Safety: dim_idx is bounded by self.dimensions which is validated in constructor
+            let query_val = unsafe { *query.get_unchecked(dim_idx) };
 
             // Compute squared differences for this dimension
+            // Use unchecked access since vec_idx is bounded by self.count
             for vec_idx in 0..self.count {
-                let diff = dim_slice[vec_idx] - query_val;
-                output[vec_idx] += diff * diff;
+                let diff = unsafe { *dim_slice.get_unchecked(vec_idx) } - query_val;
+                unsafe { *output.get_unchecked_mut(vec_idx) += diff * diff };
             }
         }
 
@@ -209,6 +236,127 @@ impl SoAVectorStorage {
         for distance in output.iter_mut() {
             *distance = distance.sqrt();
         }
+    }
+
+    /// NEON-optimized batch euclidean distances
+    ///
+    /// # Safety
+    /// Caller must ensure query.len() == self.dimensions and output.len() == self.count
+    #[cfg(target_arch = "aarch64")]
+    #[inline(always)]
+    unsafe fn batch_euclidean_distances_neon(&self, query: &[f32], output: &mut [f32]) {
+        use std::arch::aarch64::*;
+
+        let out_ptr = output.as_mut_ptr();
+        let query_ptr = query.as_ptr();
+
+        // Initialize output with zeros
+        let chunks = self.count / 4;
+
+        // Zero initialize using SIMD
+        let zero = vdupq_n_f32(0.0);
+        for i in 0..chunks {
+            let idx = i * 4;
+            vst1q_f32(out_ptr.add(idx), zero);
+        }
+        for i in (chunks * 4)..self.count {
+            *output.get_unchecked_mut(i) = 0.0;
+        }
+
+        // Process dimension by dimension for cache-friendly access
+        for dim_idx in 0..self.dimensions {
+            let dim_slice = self.dimension_slice(dim_idx);
+            let dim_ptr = dim_slice.as_ptr();
+            let query_val = vdupq_n_f32(*query_ptr.add(dim_idx));
+
+            // SIMD processing of 4 vectors at a time
+            for i in 0..chunks {
+                let idx = i * 4;
+                let dim_vals = vld1q_f32(dim_ptr.add(idx));
+                let out_vals = vld1q_f32(out_ptr.add(idx));
+
+                let diff = vsubq_f32(dim_vals, query_val);
+                let result = vfmaq_f32(out_vals, diff, diff);
+
+                vst1q_f32(out_ptr.add(idx), result);
+            }
+
+            // Handle remainder with bounds-check elimination
+            let query_val_scalar = *query_ptr.add(dim_idx);
+            for i in (chunks * 4)..self.count {
+                let diff = *dim_slice.get_unchecked(i) - query_val_scalar;
+                *output.get_unchecked_mut(i) += diff * diff;
+            }
+        }
+
+        // Take square root using SIMD vsqrtq_f32
+        for i in 0..chunks {
+            let idx = i * 4;
+            let vals = vld1q_f32(out_ptr.add(idx));
+            let sqrt_vals = vsqrtq_f32(vals);
+            vst1q_f32(out_ptr.add(idx), sqrt_vals);
+        }
+        for i in (chunks * 4)..self.count {
+            *output.get_unchecked_mut(i) = output.get_unchecked(i).sqrt();
+        }
+    }
+
+    /// AVX2-optimized batch euclidean distances
+    #[cfg(target_arch = "x86_64")]
+    #[target_feature(enable = "avx2")]
+    unsafe fn batch_euclidean_distances_avx2(&self, query: &[f32], output: &mut [f32]) {
+        use std::arch::x86_64::*;
+
+        let chunks = self.count / 8;
+
+        // Zero initialize using SIMD
+        let zero = _mm256_setzero_ps();
+        for i in 0..chunks {
+            let idx = i * 8;
+            _mm256_storeu_ps(output.as_mut_ptr().add(idx), zero);
+        }
+        for i in (chunks * 8)..self.count {
+            output[i] = 0.0;
+        }
+
+        // Process dimension by dimension
+        for dim_idx in 0..self.dimensions {
+            let dim_slice = self.dimension_slice(dim_idx);
+            let query_val = _mm256_set1_ps(query[dim_idx]);
+
+            // SIMD processing of 8 vectors at a time
+            for i in 0..chunks {
+                let idx = i * 8;
+                let dim_vals = _mm256_loadu_ps(dim_slice.as_ptr().add(idx));
+                let out_vals = _mm256_loadu_ps(output.as_ptr().add(idx));
+
+                let diff = _mm256_sub_ps(dim_vals, query_val);
+                let sq = _mm256_mul_ps(diff, diff);
+                let result = _mm256_add_ps(out_vals, sq);
+
+                _mm256_storeu_ps(output.as_mut_ptr().add(idx), result);
+            }
+
+            // Handle remainder
+            for i in (chunks * 8)..self.count {
+                let diff = dim_slice[i] - query[dim_idx];
+                output[i] += diff * diff;
+            }
+        }
+
+        // Take square root (no SIMD sqrt in basic AVX2, use scalar)
+        for distance in output.iter_mut() {
+            *distance = distance.sqrt();
+        }
+    }
+}
+
+// Feature detection helper for x86_64
+#[cfg(target_arch = "x86_64")]
+fn is_x86_feature_detected_helper(feature: &str) -> bool {
+    match feature {
+        "avx2" => is_x86_feature_detected!("avx2"),
+        _ => false,
     }
 }
 

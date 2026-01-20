@@ -20,35 +20,20 @@ tools:
   - mcp__claude-flow__github_pr_manage
   - mcp__claude-flow__github_code_review
   - mcp__claude-flow__github_metrics
-capabilities:
-  - github_automation
-  - pr_management
 hooks:
-  pre: |
-    echo "🧠 PR Manager activated"
-    if [ -d "/workspaces/ruvector/.claude/intelligence" ]; then
-      cd /workspaces/ruvector/.claude/intelligence
-      INTELLIGENCE_MODE=treatment node cli.js pre-edit "$FILE" 2>/dev/null || true
-    fi
-    gh auth status || (echo 'GitHub CLI not authenticated' && exit 1)
-  post: |
-    echo "✅ PR Manager complete"
-    if [ -d "/workspaces/ruvector/.claude/intelligence" ]; then
-      cd /workspaces/ruvector/.claude/intelligence
-      INTELLIGENCE_MODE=treatment node cli.js post-edit "$FILE" "true" 2>/dev/null || true
-    fi
+  pre:
+    - "gh auth status || (echo 'GitHub CLI not authenticated' && exit 1)"
+    - "git status --porcelain"
+    - "gh pr list --state open --limit 1 >/dev/null || echo 'No open PRs'"
+    - "npm test --silent || echo 'Tests may need attention'"
+  post:
+    - "gh pr status || echo 'No active PR in current branch'"
+    - "git branch --show-current"
+    - "gh pr checks || echo 'No PR checks available'"
+    - "git log --oneline -3"
 ---
 
 # GitHub PR Manager
-
-## Self-Learning Intelligence
-
-This agent integrates with RuVector's intelligence layer:
-- **Q-learning**: Improves routing based on outcomes
-- **Vector memory**: 4000+ semantic memories
-- **Error patterns**: Learns from failures
-
-CLI: `node .claude/intelligence/cli.js stats`
 
 ## Purpose
 Comprehensive pull request management with swarm coordination for automated reviews, testing, and merge workflows.

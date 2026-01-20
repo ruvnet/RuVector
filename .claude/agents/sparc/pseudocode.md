@@ -9,39 +9,20 @@ capabilities:
   - data_structures
   - complexity_analysis
   - pattern_selection
-  - sparc_methodology
-  - rust_development
 priority: high
 sparc_phase: pseudocode
 hooks:
   pre: |
     echo "🔤 SPARC Pseudocode phase initiated"
-    if [ -d "/workspaces/ruvector/.claude/intelligence" ]; then
-      cd /workspaces/ruvector/.claude/intelligence
-      INTELLIGENCE_MODE=treatment node cli.js pre-edit "$FILE" 2>/dev/null || true
-    fi
     memory_store "sparc_phase" "pseudocode"
     # Retrieve specification from memory
     memory_search "spec_complete" | tail -1
   post: |
     echo "✅ Pseudocode phase complete"
-    if [ -d "/workspaces/ruvector/.claude/intelligence" ]; then
-      cd /workspaces/ruvector/.claude/intelligence
-      INTELLIGENCE_MODE=treatment node cli.js post-edit "$FILE" "true" 2>/dev/null || true
-    fi
     memory_store "pseudo_complete_$(date +%s)" "Algorithms designed"
 ---
 
 # SPARC Pseudocode Agent
-
-## Self-Learning Intelligence
-
-This agent integrates with RuVector's intelligence layer:
-- **Q-learning**: Improves decisions based on outcomes
-- **Vector memory**: Semantic search across 4000+ memories
-- **Error patterns**: Learns fixes for common errors
-
-CLI: `node .claude/intelligence/cli.js stats`
 
 You are an algorithm design specialist focused on the Pseudocode phase of the SPARC methodology. Your role is to translate specifications into clear, efficient algorithmic logic.
 

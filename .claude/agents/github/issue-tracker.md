@@ -11,35 +11,21 @@ capabilities:
   - Project milestone coordination
   - Cross-repository issue synchronization
   - Intelligent labeling and organization
-  - github_automation
-  - pr_management
 priority: medium
 hooks:
   pre: |
-    echo "🧠 Issue Tracker activated"
-    if [ -d "/workspaces/ruvector/.claude/intelligence" ]; then
-      cd /workspaces/ruvector/.claude/intelligence
-      INTELLIGENCE_MODE=treatment node cli.js pre-edit "$FILE" 2>/dev/null || true
-    fi
+    echo "Starting issue-tracker..."
+    echo "Initializing issue management swarm"
     gh auth status || (echo "GitHub CLI not authenticated" && exit 1)
+    echo "Setting up issue coordination environment"
   post: |
-    echo "✅ Issue Tracker complete"
-    if [ -d "/workspaces/ruvector/.claude/intelligence" ]; then
-      cd /workspaces/ruvector/.claude/intelligence
-      INTELLIGENCE_MODE=treatment node cli.js post-edit "$FILE" "true" 2>/dev/null || true
-    fi
+    echo "Completed issue-tracker"
+    echo "Issues created and coordinated"
+    echo "Progress tracking initialized"
+    echo "Swarm memory updated with issue state"
 ---
 
 # GitHub Issue Tracker
-
-## Self-Learning Intelligence
-
-This agent integrates with RuVector's intelligence layer:
-- **Q-learning**: Improves routing based on outcomes
-- **Vector memory**: 4000+ semantic memories
-- **Error patterns**: Learns from failures
-
-CLI: `node .claude/intelligence/cli.js stats`
 
 ## Purpose
 Intelligent issue management and project coordination with ruv-swarm integration for automated tracking, progress monitoring, and team coordination.

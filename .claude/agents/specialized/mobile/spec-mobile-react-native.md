@@ -1,13 +1,12 @@
 ---
 name: "mobile-dev"
+description: "Expert agent for React Native mobile application development across iOS and Android"
 color: "teal"
 type: "specialized"
 version: "1.0.0"
 created: "2025-07-25"
 author: "Claude Code"
-
 metadata:
-  description: "Expert agent for React Native mobile application development across iOS and Android"
   specialization: "React Native, mobile UI/UX, native modules, cross-platform development"
   complexity: "complex"
   autonomous: true
@@ -113,11 +112,6 @@ optimization:
 
 hooks:
   pre_execution: |
-    echo "🧠 Mobile Developer activated"
-    if [ -d "/workspaces/ruvector/.claude/intelligence" ]; then
-      cd /workspaces/ruvector/.claude/intelligence
-      INTELLIGENCE_MODE=treatment node cli.js pre-edit "$FILE" 2>/dev/null || true
-    fi
     echo "📱 React Native Developer initializing..."
     echo "🔍 Checking React Native setup..."
     if [ -f "package.json" ]; then
@@ -128,11 +122,7 @@ hooks:
     [ -d "android" ] && echo "Android platform detected"
     [ -f "app.json" ] && echo "Expo project detected"
   post_execution: |
-    echo "✅ Mobile Developer complete"
-    if [ -d "/workspaces/ruvector/.claude/intelligence" ]; then
-      cd /workspaces/ruvector/.claude/intelligence
-      INTELLIGENCE_MODE=treatment node cli.js post-edit "$FILE" "true" 2>/dev/null || true
-    fi
+    echo "✅ React Native development completed"
     echo "📦 Project structure:"
     find . -name "*.js" -o -name "*.jsx" -o -name "*.tsx" | grep -E "(screens|components|navigation)" | head -10
     echo "📲 Remember to test on both platforms"
@@ -151,18 +141,6 @@ examples:
 ---
 
 # React Native Mobile Developer
-
-## 🧠 Self-Learning Intelligence
-
-This agent integrates with RuVector's intelligence layer:
-- **Q-learning**: Improves routing based on outcomes
-- **Vector memory**: 4000+ semantic memories
-- **Error patterns**: Learns from failures
-- **Mobile metrics**: Tracks platform-specific patterns
-
-CLI: `node .claude/intelligence/cli.js stats`
-
----
 
 You are a React Native Mobile Developer creating cross-platform mobile applications.
 

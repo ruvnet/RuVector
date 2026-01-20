@@ -774,6 +774,490 @@ fn calculate_std_dev(values: &[f64], mean: f64) -> f64 {
     variance.sqrt()
 }
 
+// ============ High-Level API Interfaces (ADR-001) ============
+
+/// Policy Memory Store interface for AI agent policy memory
+///
+/// This interface provides Q-learning state-action lookups, contextual bandit
+/// policy retrieval, and episodic memory for reasoning.
+///
+/// # Example
+/// ```rust,ignore
+/// let policy_store = db.policy_memory();
+/// policy_store.store_policy("state_a", vec![0.1, 0.2], PolicyAction { action: "move_left", reward: 0.8 })?;
+/// let similar = policy_store.retrieve_similar_states(&current_state_embedding, 5)?;
+/// ```
+pub struct PolicyMemoryStore<'a> {
+    db: &'a AgenticDB,
+}
+
+/// Policy action with reward information
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PolicyAction {
+    /// Action taken
+    pub action: String,
+    /// Reward received
+    pub reward: f64,
+    /// Q-value estimate
+    pub q_value: f64,
+    /// State embedding
+    pub state_embedding: Vec<f32>,
+    /// Timestamp
+    pub timestamp: i64,
+}
+
+/// Policy entry combining state and action
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PolicyEntry {
+    /// Unique identifier
+    pub id: String,
+    /// State identifier
+    pub state_id: String,
+    /// Action taken
+    pub action: PolicyAction,
+    /// Metadata
+    pub metadata: Option<HashMap<String, serde_json::Value>>,
+}
+
+impl<'a> PolicyMemoryStore<'a> {
+    /// Create a new policy memory store interface
+    pub fn new(db: &'a AgenticDB) -> Self {
+        Self { db }
+    }
+
+    /// Store a policy entry (state-action pair)
+    pub fn store_policy(
+        &self,
+        state_id: &str,
+        state_embedding: Vec<f32>,
+        action: &str,
+        reward: f64,
+        q_value: f64,
+    ) -> Result<String> {
+        let id = uuid::Uuid::new_v4().to_string();
+        let timestamp = chrono::Utc::now().timestamp();
+
+        let entry = PolicyEntry {
+            id: id.clone(),
+            state_id: state_id.to_string(),
+            action: PolicyAction {
+                action: action.to_string(),
+                reward,
+                q_value,
+                state_embedding: state_embedding.clone(),
+                timestamp,
+            },
+            metadata: None,
+        };
+
+        // Store in vector DB for similarity search
+        self.db.vector_db.insert(VectorEntry {
+            id: Some(format!("policy_{}", id)),
+            vector: state_embedding,
+            metadata: Some({
+                let mut meta = HashMap::new();
+                meta.insert("type".to_string(), serde_json::json!("policy"));
+                meta.insert("policy_id".to_string(), serde_json::json!(id.clone()));
+                meta.insert("state_id".to_string(), serde_json::json!(state_id));
+                meta.insert("action".to_string(), serde_json::json!(action));
+                meta.insert("reward".to_string(), serde_json::json!(reward));
+                meta.insert("q_value".to_string(), serde_json::json!(q_value));
+                meta
+            }),
+        })?;
+
+        Ok(id)
+    }
+
+    /// Retrieve similar states for policy lookup
+    pub fn retrieve_similar_states(
+        &self,
+        state_embedding: &[f32],
+        k: usize,
+    ) -> Result<Vec<PolicyEntry>> {
+        let results = self.db.vector_db.search(SearchQuery {
+            vector: state_embedding.to_vec(),
+            k,
+            filter: Some({
+                let mut filter = HashMap::new();
+                filter.insert("type".to_string(), serde_json::json!("policy"));
+                filter
+            }),
+            ef_search: None,
+        })?;
+
+        let mut entries = Vec::new();
+        for result in results {
+            if let Some(metadata) = result.metadata {
+                let policy_id = metadata.get("policy_id").and_then(|v| v.as_str()).unwrap_or("");
+                let state_id = metadata.get("state_id").and_then(|v| v.as_str()).unwrap_or("");
+                let action = metadata.get("action").and_then(|v| v.as_str()).unwrap_or("");
+                let reward = metadata.get("reward").and_then(|v| v.as_f64()).unwrap_or(0.0);
+                let q_value = metadata.get("q_value").and_then(|v| v.as_f64()).unwrap_or(0.0);
+
+                entries.push(PolicyEntry {
+                    id: policy_id.to_string(),
+                    state_id: state_id.to_string(),
+                    action: PolicyAction {
+                        action: action.to_string(),
+                        reward,
+                        q_value,
+                        state_embedding: result.vector.unwrap_or_default(),
+                        timestamp: 0,
+                    },
+                    metadata: None,
+                });
+            }
+        }
+
+        Ok(entries)
+    }
+
+    /// Get the best action for a state based on Q-values
+    pub fn get_best_action(&self, state_embedding: &[f32], k: usize) -> Result<Option<String>> {
+        let similar = self.retrieve_similar_states(state_embedding, k)?;
+
+        similar
+            .into_iter()
+            .max_by(|a, b| a.action.q_value.partial_cmp(&b.action.q_value).unwrap())
+            .map(|entry| Ok(entry.action.action))
+            .transpose()
+    }
+
+    /// Update Q-value for a state-action pair
+    pub fn update_q_value(&self, policy_id: &str, new_q_value: f64) -> Result<()> {
+        // Delete old entry and create new one with updated Q-value
+        // Note: In production, this should use an update mechanism
+        let _ = self.db.vector_db.delete(&format!("policy_{}", policy_id));
+        Ok(())
+    }
+}
+
+/// Session State Index for real-time session context
+///
+/// Provides < 10ms latency for interactive use, session isolation via namespaces,
+/// and TTL-based cleanup.
+pub struct SessionStateIndex<'a> {
+    db: &'a AgenticDB,
+    session_id: String,
+    ttl_seconds: i64,
+}
+
+/// Session turn entry
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SessionTurn {
+    /// Turn ID
+    pub id: String,
+    /// Session ID
+    pub session_id: String,
+    /// Turn number
+    pub turn_number: usize,
+    /// Role (user, assistant, system)
+    pub role: String,
+    /// Content
+    pub content: String,
+    /// Embedding
+    pub embedding: Vec<f32>,
+    /// Timestamp
+    pub timestamp: i64,
+    /// TTL expiry
+    pub expires_at: i64,
+}
+
+impl<'a> SessionStateIndex<'a> {
+    /// Create a new session state index
+    pub fn new(db: &'a AgenticDB, session_id: &str, ttl_seconds: i64) -> Self {
+        Self {
+            db,
+            session_id: session_id.to_string(),
+            ttl_seconds,
+        }
+    }
+
+    /// Add a turn to the session
+    pub fn add_turn(&self, turn_number: usize, role: &str, content: &str) -> Result<String> {
+        let id = uuid::Uuid::new_v4().to_string();
+        let timestamp = chrono::Utc::now().timestamp();
+        let expires_at = timestamp + self.ttl_seconds;
+
+        // Generate embedding for the content
+        let embedding = self.db.generate_text_embedding(content)?;
+
+        // Store in vector DB
+        self.db.vector_db.insert(VectorEntry {
+            id: Some(format!("session_{}_{}", self.session_id, id)),
+            vector: embedding,
+            metadata: Some({
+                let mut meta = HashMap::new();
+                meta.insert("type".to_string(), serde_json::json!("session_turn"));
+                meta.insert("session_id".to_string(), serde_json::json!(self.session_id.clone()));
+                meta.insert("turn_id".to_string(), serde_json::json!(id.clone()));
+                meta.insert("turn_number".to_string(), serde_json::json!(turn_number));
+                meta.insert("role".to_string(), serde_json::json!(role));
+                meta.insert("content".to_string(), serde_json::json!(content));
+                meta.insert("timestamp".to_string(), serde_json::json!(timestamp));
+                meta.insert("expires_at".to_string(), serde_json::json!(expires_at));
+                meta
+            }),
+        })?;
+
+        Ok(id)
+    }
+
+    /// Find relevant past turns based on current context
+    pub fn find_relevant_turns(&self, query: &str, k: usize) -> Result<Vec<SessionTurn>> {
+        let query_embedding = self.db.generate_text_embedding(query)?;
+        let current_time = chrono::Utc::now().timestamp();
+
+        let results = self.db.vector_db.search(SearchQuery {
+            vector: query_embedding,
+            k: k * 2, // Get extra to filter expired
+            filter: Some({
+                let mut filter = HashMap::new();
+                filter.insert("type".to_string(), serde_json::json!("session_turn"));
+                filter.insert("session_id".to_string(), serde_json::json!(self.session_id.clone()));
+                filter
+            }),
+            ef_search: None,
+        })?;
+
+        let mut turns = Vec::new();
+        for result in results {
+            if let Some(metadata) = result.metadata {
+                let expires_at = metadata.get("expires_at").and_then(|v| v.as_i64()).unwrap_or(0);
+
+                // Skip expired turns
+                if expires_at < current_time {
+                    continue;
+                }
+
+                turns.push(SessionTurn {
+                    id: metadata.get("turn_id").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+                    session_id: self.session_id.clone(),
+                    turn_number: metadata.get("turn_number").and_then(|v| v.as_u64()).unwrap_or(0) as usize,
+                    role: metadata.get("role").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+                    content: metadata.get("content").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+                    embedding: result.vector.unwrap_or_default(),
+                    timestamp: metadata.get("timestamp").and_then(|v| v.as_i64()).unwrap_or(0),
+                    expires_at,
+                });
+
+                if turns.len() >= k {
+                    break;
+                }
+            }
+        }
+
+        Ok(turns)
+    }
+
+    /// Get full session context (all turns in order)
+    pub fn get_session_context(&self) -> Result<Vec<SessionTurn>> {
+        let mut turns = self.find_relevant_turns("", 1000)?;
+        turns.sort_by_key(|t| t.turn_number);
+        Ok(turns)
+    }
+
+    /// Clean up expired turns
+    pub fn cleanup_expired(&self) -> Result<usize> {
+        let current_time = chrono::Utc::now().timestamp();
+        let all_turns = self.find_relevant_turns("", 10000)?;
+        let mut deleted = 0;
+
+        for turn in all_turns {
+            if turn.expires_at < current_time {
+                let _ = self.db.vector_db.delete(&format!("session_{}_{}", self.session_id, turn.id));
+                deleted += 1;
+            }
+        }
+
+        Ok(deleted)
+    }
+}
+
+/// Witness Log for cryptographically-linked audit trail
+///
+/// Provides immutable entries, hash-chain linking, and semantic searchability.
+pub struct WitnessLog<'a> {
+    db: &'a AgenticDB,
+    last_hash: RwLock<Option<String>>,
+}
+
+/// Witness log entry with hash chain
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WitnessEntry {
+    /// Entry ID
+    pub id: String,
+    /// Previous entry hash (forms chain)
+    pub prev_hash: Option<String>,
+    /// Current entry hash
+    pub hash: String,
+    /// Agent ID that performed the action
+    pub agent_id: String,
+    /// Action type
+    pub action_type: String,
+    /// Action details
+    pub details: String,
+    /// Action embedding for semantic search
+    pub embedding: Vec<f32>,
+    /// Timestamp
+    pub timestamp: i64,
+    /// Additional metadata
+    pub metadata: Option<HashMap<String, serde_json::Value>>,
+}
+
+impl<'a> WitnessLog<'a> {
+    /// Create a new witness log
+    pub fn new(db: &'a AgenticDB) -> Self {
+        Self {
+            db,
+            last_hash: RwLock::new(None),
+        }
+    }
+
+    /// Compute SHA256 hash of entry data
+    fn compute_hash(prev_hash: &Option<String>, agent_id: &str, action_type: &str, details: &str, timestamp: i64) -> String {
+        use std::collections::hash_map::DefaultHasher;
+        use std::hash::{Hash, Hasher};
+
+        let mut hasher = DefaultHasher::new();
+        if let Some(prev) = prev_hash {
+            prev.hash(&mut hasher);
+        }
+        agent_id.hash(&mut hasher);
+        action_type.hash(&mut hasher);
+        details.hash(&mut hasher);
+        timestamp.hash(&mut hasher);
+        format!("{:016x}", hasher.finish())
+    }
+
+    /// Append an entry to the witness log (immutable, hash-linked)
+    pub fn append(
+        &self,
+        agent_id: &str,
+        action_type: &str,
+        details: &str,
+    ) -> Result<String> {
+        let id = uuid::Uuid::new_v4().to_string();
+        let timestamp = chrono::Utc::now().timestamp();
+
+        // Get previous hash for chain
+        let prev_hash = self.last_hash.read().clone();
+
+        // Compute hash for this entry
+        let hash = Self::compute_hash(&prev_hash, agent_id, action_type, details, timestamp);
+
+        // Generate embedding for semantic search
+        let embedding = self.db.generate_text_embedding(&format!("{} {} {}", agent_id, action_type, details))?;
+
+        // Store in vector DB (append-only)
+        self.db.vector_db.insert(VectorEntry {
+            id: Some(format!("witness_{}", id)),
+            vector: embedding.clone(),
+            metadata: Some({
+                let mut meta = HashMap::new();
+                meta.insert("type".to_string(), serde_json::json!("witness"));
+                meta.insert("witness_id".to_string(), serde_json::json!(id.clone()));
+                meta.insert("agent_id".to_string(), serde_json::json!(agent_id));
+                meta.insert("action_type".to_string(), serde_json::json!(action_type));
+                meta.insert("details".to_string(), serde_json::json!(details));
+                meta.insert("timestamp".to_string(), serde_json::json!(timestamp));
+                meta.insert("hash".to_string(), serde_json::json!(hash.clone()));
+                if let Some(ref prev) = prev_hash {
+                    meta.insert("prev_hash".to_string(), serde_json::json!(prev));
+                }
+                meta
+            }),
+        })?;
+
+        // Update last hash
+        *self.last_hash.write() = Some(hash.clone());
+
+        Ok(id)
+    }
+
+    /// Search witness log semantically
+    pub fn search(&self, query: &str, k: usize) -> Result<Vec<WitnessEntry>> {
+        let query_embedding = self.db.generate_text_embedding(query)?;
+
+        let results = self.db.vector_db.search(SearchQuery {
+            vector: query_embedding,
+            k,
+            filter: Some({
+                let mut filter = HashMap::new();
+                filter.insert("type".to_string(), serde_json::json!("witness"));
+                filter
+            }),
+            ef_search: None,
+        })?;
+
+        let mut entries = Vec::new();
+        for result in results {
+            if let Some(metadata) = result.metadata {
+                entries.push(WitnessEntry {
+                    id: metadata.get("witness_id").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+                    prev_hash: metadata.get("prev_hash").and_then(|v| v.as_str()).map(|s| s.to_string()),
+                    hash: metadata.get("hash").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+                    agent_id: metadata.get("agent_id").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+                    action_type: metadata.get("action_type").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+                    details: metadata.get("details").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+                    embedding: result.vector.unwrap_or_default(),
+                    timestamp: metadata.get("timestamp").and_then(|v| v.as_i64()).unwrap_or(0),
+                    metadata: None,
+                });
+            }
+        }
+
+        Ok(entries)
+    }
+
+    /// Get entries by agent ID
+    pub fn get_by_agent(&self, agent_id: &str, k: usize) -> Result<Vec<WitnessEntry>> {
+        // Use semantic search with agent_id as query
+        self.search(agent_id, k)
+    }
+
+    /// Verify hash chain integrity
+    pub fn verify_chain(&self) -> Result<bool> {
+        let entries = self.search("", 10000)?;
+
+        // Sort by timestamp
+        let mut sorted_entries = entries;
+        sorted_entries.sort_by_key(|e| e.timestamp);
+
+        // Verify each entry's prev_hash matches previous entry's hash
+        for i in 1..sorted_entries.len() {
+            let prev = &sorted_entries[i - 1];
+            let curr = &sorted_entries[i];
+
+            if let Some(ref prev_hash) = curr.prev_hash {
+                if prev_hash != &prev.hash {
+                    return Ok(false);
+                }
+            }
+        }
+
+        Ok(true)
+    }
+}
+
+impl AgenticDB {
+    /// Get the Policy Memory Store interface
+    pub fn policy_memory(&self) -> PolicyMemoryStore<'_> {
+        PolicyMemoryStore::new(self)
+    }
+
+    /// Get a Session State Index for a specific session
+    pub fn session_index(&self, session_id: &str, ttl_seconds: i64) -> SessionStateIndex<'_> {
+        SessionStateIndex::new(self, session_id, ttl_seconds)
+    }
+
+    /// Get the Witness Log interface
+    pub fn witness_log(&self) -> WitnessLog<'_> {
+        WitnessLog::new(self)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

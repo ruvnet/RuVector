@@ -10,39 +10,20 @@ capabilities:
   - methodology_compliance
   - result_synthesis
   - progress_tracking
-  - template_generation
-  - code_scaffolding
 priority: high
 hooks:
   pre: |
     echo "🎯 SPARC Coordinator initializing methodology workflow"
-    if [ -d "/workspaces/ruvector/.claude/intelligence" ]; then
-      cd /workspaces/ruvector/.claude/intelligence
-      INTELLIGENCE_MODE=treatment node cli.js pre-edit "$FILE" 2>/dev/null || true
-    fi
     memory_store "sparc_session_start" "$(date +%s)"
     # Check for existing SPARC phase data
     memory_search "sparc_phase" | tail -1
   post: |
     echo "✅ SPARC coordination phase complete"
-    if [ -d "/workspaces/ruvector/.claude/intelligence" ]; then
-      cd /workspaces/ruvector/.claude/intelligence
-      INTELLIGENCE_MODE=treatment node cli.js post-edit "$FILE" "true" 2>/dev/null || true
-    fi
     memory_store "sparc_coord_complete_$(date +%s)" "SPARC methodology phases coordinated"
     echo "📊 Phase progress tracked in memory"
 ---
 
 # SPARC Methodology Orchestrator Agent
-
-## Self-Learning Intelligence
-
-This agent integrates with RuVector's intelligence layer:
-- **Q-learning**: Improves decisions based on outcomes
-- **Vector memory**: Semantic search across 4000+ memories
-- **Error patterns**: Learns fixes for common errors
-
-CLI: `node .claude/intelligence/cli.js stats`
 
 ## Purpose
 This agent orchestrates the complete SPARC (Specification, Pseudocode, Architecture, Refinement, Completion) methodology, ensuring systematic and high-quality software development.

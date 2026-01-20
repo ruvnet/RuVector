@@ -2,7 +2,7 @@
 name: sparc-coder
 type: development
 color: blue
-description: Transform specifications into working code with TDD and self-learning intelligence
+description: Transform specifications into working code with TDD practices
 capabilities:
   - code-generation
   - test-implementation
@@ -10,36 +10,20 @@ capabilities:
   - optimization
   - documentation
   - parallel-execution
-  - rust-implementation
-  - wasm-development
 priority: high
 hooks:
   pre: |
     echo "💻 SPARC Implementation Specialist initiating code generation"
     echo "🧪 Preparing TDD workflow: Red → Green → Refactor"
-    # Self-learning: Get implementation guidance
-    if [ -d "/workspaces/ruvector/.claude/intelligence" ]; then
-      cd /workspaces/ruvector/.claude/intelligence
-      INTELLIGENCE_MODE=treatment node cli.js pre-edit "$FILE" 2>/dev/null || true
-    fi
     # Check for test files and create if needed
-    if [ -f "Cargo.toml" ]; then
-      echo "🦀 Rust project detected - using cargo test"
-    elif [ ! -d "tests" ] && [ ! -d "test" ] && [ ! -d "__tests__" ]; then
+    if [ ! -d "tests" ] && [ ! -d "test" ] && [ ! -d "__tests__" ]; then
       echo "📁 No test directory found - will create during implementation"
     fi
   post: |
     echo "✨ Implementation phase complete"
-    # Self-learning: Record implementation outcome
-    if [ -d "/workspaces/ruvector/.claude/intelligence" ]; then
-      cd /workspaces/ruvector/.claude/intelligence
-      INTELLIGENCE_MODE=treatment node cli.js post-edit "$FILE" "true" 2>/dev/null || true
-    fi
     echo "🧪 Running test suite to verify implementation"
-    # Run tests based on project type
-    if [ -f "Cargo.toml" ]; then
-      cargo test --quiet 2>/dev/null || echo "cargo test completed"
-    elif [ -f "package.json" ]; then
+    # Run tests if available
+    if [ -f "package.json" ]; then
       npm test --if-present
     elif [ -f "pytest.ini" ] || [ -f "setup.py" ]; then
       python -m pytest --version > /dev/null 2>&1 && python -m pytest -v || echo "pytest not available"
@@ -50,93 +34,7 @@ hooks:
 # SPARC Implementation Specialist Agent
 
 ## Purpose
-This agent specializes in the implementation phases of SPARC methodology, focusing on transforming specifications and designs into high-quality, tested code. Uses **self-learning intelligence** to improve implementation patterns over time.
-
-## 🧠 Self-Learning Intelligence Integration
-
-### Implementation Intelligence
-The intelligence layer provides:
-- **Agent routing** - Best specialist for file type (Rust, TS, WASM)
-- **Crate guidance** - Build/test tips for RuVector crates
-- **Error patterns** - Learned fixes for common errors
-- **File sequences** - Files often edited together
-
-### CLI Commands for Implementation
-```bash
-# Get implementation guidance
-node .claude/intelligence/cli.js pre-edit "crates/ruvector-core/src/hnsw.rs"
-
-# Record implementation success
-node .claude/intelligence/cli.js post-edit "crates/ruvector-core/src/hnsw.rs" "true"
-
-# Suggest next files to implement
-node .claude/intelligence/cli.js suggest-next "src/lib.rs"
-
-# Get fix suggestions for errors
-node .claude/intelligence/cli.js suggest-fix "E0308"
-```
-
-## 🦀 RuVector Implementation Patterns
-
-### Rust TDD Workflow
-```rust
-// 1. RED: Write failing test
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_insert_vector() {
-        let mut index = HnswIndex::new(128);
-        let result = index.insert("id1", vec![0.1; 128]);
-        assert!(result.is_ok());
-    }
-}
-
-// 2. GREEN: Minimal implementation
-impl HnswIndex {
-    pub fn insert(&mut self, id: &str, vector: Vec<f32>) -> Result<(), VectorError> {
-        // Minimal passing implementation
-        Ok(())
-    }
-}
-
-// 3. REFACTOR: Optimize and clean up
-```
-
-### WASM Implementation Pattern
-```rust
-#[wasm_bindgen]
-impl VectorDB {
-    #[wasm_bindgen(constructor)]
-    pub fn new(dimensions: usize) -> Result<VectorDB, JsValue> {
-        Ok(VectorDB {
-            inner: HnswIndex::new(dimensions)
-                .map_err(|e| JsValue::from_str(&e.to_string()))?
-        })
-    }
-
-    #[wasm_bindgen]
-    pub fn insert(&mut self, id: &str, vector: &[f32]) -> Result<(), JsValue> {
-        self.inner.insert(id, vector.to_vec())
-            .map_err(|e| JsValue::from_str(&e.to_string()))
-    }
-}
-```
-
-### Build Commands
-```bash
-# Rust core
-cargo test -p ruvector-core --lib
-cargo clippy -p ruvector-core
-
-# WASM
-wasm-pack build crates/micro-hnsw-wasm --target web
-wasm-pack test --headless --chrome
-
-# PostgreSQL extension
-cargo pgrx test -p ruvector-postgres
-```
+This agent specializes in the implementation phases of SPARC methodology, focusing on transforming specifications and designs into high-quality, tested code.
 
 ## Core Implementation Principles
 

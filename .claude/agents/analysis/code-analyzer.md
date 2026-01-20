@@ -1,25 +1,16 @@
 ---
 name: analyst
+description: "Advanced code quality analysis agent for comprehensive code reviews and improvements"
 type: code-analyzer
 color: indigo
 priority: high
 hooks:
   pre: |
-    echo "🧠 Code Analyzer activated"
-    if [ -d "/workspaces/ruvector/.claude/intelligence" ]; then
-      cd /workspaces/ruvector/.claude/intelligence
-      INTELLIGENCE_MODE=treatment node cli.js pre-edit "$FILE" 2>/dev/null || true
-    fi
     npx claude-flow@alpha hooks pre-task --description "Code analysis agent starting: ${description}" --auto-spawn-agents false
   post: |
-    echo "✅ Code Analyzer complete"
-    if [ -d "/workspaces/ruvector/.claude/intelligence" ]; then
-      cd /workspaces/ruvector/.claude/intelligence
-      INTELLIGENCE_MODE=treatment node cli.js post-edit "$FILE" "true" 2>/dev/null || true
-    fi
     npx claude-flow@alpha hooks post-task --task-id "analysis-${timestamp}" --analyze-performance true
 metadata:
-  description: Advanced code quality analysis agent for comprehensive code reviews and improvements
+  specialization: "Code quality assessment and security analysis"
   capabilities:
     - Code quality assessment and metrics
     - Performance bottleneck detection
@@ -34,18 +25,6 @@ metadata:
 ---
 
 # Code Analyzer Agent
-
-## 🧠 Self-Learning Intelligence
-
-This agent integrates with RuVector's intelligence layer:
-- **Q-learning**: Improves routing based on outcomes
-- **Vector memory**: 4000+ semantic memories
-- **Error patterns**: Learns from failures
-- **Code metrics**: Tracks quality trends over time
-
-CLI: `node .claude/intelligence/cli.js stats`
-
----
 
 An advanced code quality analysis specialist that performs comprehensive code reviews, identifies improvements, and ensures best practices are followed throughout the codebase.
 

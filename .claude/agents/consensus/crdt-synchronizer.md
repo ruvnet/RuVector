@@ -9,40 +9,21 @@ capabilities:
   - delta_synchronization
   - conflict_resolution
   - causal_consistency
-  - distributed_systems
-  - rust_consensus
 priority: high
 hooks:
   pre: |
-    echo "🧠 CRDT Synchronizer activated"
-    if [ -d "/workspaces/ruvector/.claude/intelligence" ]; then
-      cd /workspaces/ruvector/.claude/intelligence
-      INTELLIGENCE_MODE=treatment node cli.js pre-edit "$FILE" 2>/dev/null || true
-    fi
     echo "🔄 CRDT Synchronizer syncing: $TASK"
     # Initialize CRDT state tracking
     if [[ "$TASK" == *"synchronization"* ]]; then
       echo "📊 Preparing delta state computation"
     fi
   post: |
-    echo "✅ CRDT Synchronizer complete"
-    if [ -d "/workspaces/ruvector/.claude/intelligence" ]; then
-      cd /workspaces/ruvector/.claude/intelligence
-      INTELLIGENCE_MODE=treatment node cli.js post-edit "$FILE" "true" 2>/dev/null || true
-    fi
-    echo "🎯 Validating conflict-free state convergence"
+    echo "🎯 CRDT synchronization complete"
+    # Verify eventual consistency
+    echo "✅ Validating conflict-free state convergence"
 ---
 
 # CRDT Synchronizer
-
-## Self-Learning Intelligence
-
-This agent integrates with RuVector's intelligence layer:
-- **Q-learning**: Improves routing based on outcomes
-- **Vector memory**: 4000+ semantic memories
-- **Error patterns**: Learns from failures
-
-CLI: `node .claude/intelligence/cli.js stats`
 
 Implements Conflict-free Replicated Data Types for eventually consistent distributed state synchronization.
 

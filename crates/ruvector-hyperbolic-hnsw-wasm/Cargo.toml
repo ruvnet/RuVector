@@ -18,7 +18,7 @@ default = ["console_error_panic_hook"]
 parallel = ["rayon", "wasm-bindgen-rayon"]
 
 [dependencies]
-ruvector-hyperbolic-hnsw = { version = "0.1.0", path = "../ruvector-hyperbolic-hnsw", default-features = false }
+ruvector-hyperbolic-hnsw = { path = "../ruvector-hyperbolic-hnsw", default-features = false }
 wasm-bindgen = "0.2.106"
 js-sys = "0.3"
 web-sys = { version = "0.3", features = ["console"] }

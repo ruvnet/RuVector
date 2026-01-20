@@ -7,6 +7,28 @@
 //! - Web Workers support for parallel operations
 //! - IndexedDB persistence
 //! - Zero-copy transfers via transferable objects
+//!
+//! # Kernel Pack System (ADR-005)
+//!
+//! When compiled with the `kernel-pack` feature, this crate also provides the WASM
+//! kernel pack infrastructure for secure, sandboxed execution of ML compute kernels.
+//!
+//! ```toml
+//! [dependencies]
+//! ruvector-wasm = { version = "0.1", features = ["kernel-pack"] }
+//! ```
+//!
+//! The kernel pack system includes:
+//! - Manifest parsing and validation
+//! - Ed25519 signature verification
+//! - SHA256 hash verification
+//! - Trusted kernel allowlist
+//! - Epoch-based execution budgets
+//! - Shared memory protocol for tensor data
+
+// Kernel pack module (ADR-005)
+#[cfg(feature = "kernel-pack")]
+pub mod kernel;
 
 use js_sys::{Array, Float32Array, Object, Promise, Reflect, Uint8Array};
 use parking_lot::Mutex;

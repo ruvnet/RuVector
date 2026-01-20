@@ -12,7 +12,7 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 # ===== 100% REUSE - Existing WASM Crates =====
-ruvector-core = { version = "0.1.29", path = "../ruvector-core", default-features = false, features = ["memory-only"] }
+ruvector-core = {path = "../ruvector-core", default-features = false, features = ["memory-only"] }
 # Note: ruvector-wasm, ruvector-graph-wasm, ruvector-gnn-wasm will be added after validating they exist
 
 # Optional features (to be enabled after basic integration works)

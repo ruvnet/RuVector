@@ -259,10 +259,11 @@ impl ReasoningBank {
             }
 
             // Select next centroid (deterministic: highest distance)
+            // SECURITY FIX (H-004): Handle NaN values in partial_cmp safely
             let (next_idx, _) = distances
                 .iter()
                 .enumerate()
-                .max_by(|a, b| a.1.partial_cmp(b.1).unwrap())
+                .max_by(|a, b| a.1.partial_cmp(b.1).unwrap_or(std::cmp::Ordering::Equal))
                 .unwrap_or((0, &0.0));
 
             centroids.push(self.trajectories[next_idx].embedding.clone());
@@ -283,11 +284,12 @@ impl ReasoningBank {
             // Assign points to nearest centroid
             let mut changed = false;
             for (i, t) in self.trajectories.iter().enumerate() {
+                // SECURITY FIX (H-004): Handle NaN values in partial_cmp safely
                 let (nearest, _) = centroids
                     .iter()
                     .enumerate()
                     .map(|(j, c)| (j, self.squared_distance(&t.embedding, c)))
-                    .min_by(|a, b| a.1.partial_cmp(&b.1).unwrap())
+                    .min_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal))
                     .unwrap_or((0, 0.0));
 
                 if assignments[i] != nearest {
@@ -350,6 +352,7 @@ impl ReasoningBank {
             .map(|p| (p, p.similarity(query)))
             .collect();
 
+        // Note: This already has the safe unwrap_or pattern for NaN handling
         scored.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
 
         scored.into_iter().take(k).map(|(p, _)| p).collect()

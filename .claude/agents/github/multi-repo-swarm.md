@@ -21,35 +21,18 @@ tools:
   - mcp__claude-flow__github_pr_manage
   - mcp__claude-flow__github_sync_coord
   - mcp__claude-flow__github_metrics
-capabilities:
-  - github_automation
-  - pr_management
 hooks:
-  pre: |
-    echo "🧠 Multi-Repo Swarm activated"
-    if [ -d "/workspaces/ruvector/.claude/intelligence" ]; then
-      cd /workspaces/ruvector/.claude/intelligence
-      INTELLIGENCE_MODE=treatment node cli.js pre-edit "$FILE" 2>/dev/null || true
-    fi
-    gh auth status || (echo 'GitHub CLI not authenticated' && exit 1)
-  post: |
-    echo "✅ Multi-Repo Swarm complete"
-    if [ -d "/workspaces/ruvector/.claude/intelligence" ]; then
-      cd /workspaces/ruvector/.claude/intelligence
-      INTELLIGENCE_MODE=treatment node cli.js post-edit "$FILE" "true" 2>/dev/null || true
-    fi
+  pre:
+    - "gh auth status || (echo 'GitHub CLI not authenticated' && exit 1)"
+    - "git status --porcelain || echo 'Not in git repository'"
+    - "gh repo list --limit 1 >/dev/null || (echo 'No repo access' && exit 1)"
+  post:
+    - "gh pr list --state open --limit 5 | grep -q . && echo 'Active PRs found'"
+    - "git log --oneline -5 | head -3"
+    - "gh repo view --json name,description,topics"
 ---
 
 # Multi-Repo Swarm - Cross-Repository Swarm Orchestration
-
-## Self-Learning Intelligence
-
-This agent integrates with RuVector's intelligence layer:
-- **Q-learning**: Improves routing based on outcomes
-- **Vector memory**: 4000+ semantic memories
-- **Error patterns**: Learns from failures
-
-CLI: `node .claude/intelligence/cli.js stats`
 
 ## Overview
 Coordinate AI swarms across multiple repositories, enabling organization-wide automation and intelligent cross-project collaboration.

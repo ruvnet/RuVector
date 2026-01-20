@@ -224,6 +224,242 @@ impl<T> LockFreeWorkQueue<T> {
     }
 }
 
+/// Atomic vector pool for lock-free vector operations (ADR-001)
+///
+/// Provides a pool of pre-allocated vectors that can be acquired and released
+/// without locking, ideal for high-throughput batch operations.
+pub struct AtomicVectorPool {
+    /// Pool of available vectors
+    pool: SegQueue<Vec<f32>>,
+    /// Dimensions per vector
+    dimensions: usize,
+    /// Maximum pool size
+    max_size: usize,
+    /// Current pool size
+    size: AtomicUsize,
+    /// Total allocations
+    total_allocations: AtomicU64,
+    /// Pool hits (reused vectors)
+    pool_hits: AtomicU64,
+}
+
+impl AtomicVectorPool {
+    /// Create a new atomic vector pool
+    pub fn new(dimensions: usize, initial_size: usize, max_size: usize) -> Self {
+        let pool = SegQueue::new();
+
+        // Pre-allocate vectors
+        for _ in 0..initial_size {
+            pool.push(vec![0.0; dimensions]);
+        }
+
+        Self {
+            pool,
+            dimensions,
+            max_size,
+            size: AtomicUsize::new(initial_size),
+            total_allocations: AtomicU64::new(0),
+            pool_hits: AtomicU64::new(0),
+        }
+    }
+
+    /// Acquire a vector from the pool (or allocate new one)
+    pub fn acquire(&self) -> PooledVector {
+        self.total_allocations.fetch_add(1, Ordering::Relaxed);
+
+        let vec = if let Some(mut v) = self.pool.pop() {
+            self.pool_hits.fetch_add(1, Ordering::Relaxed);
+            // Clear the vector for reuse
+            v.fill(0.0);
+            v
+        } else {
+            // Allocate new vector
+            vec![0.0; self.dimensions]
+        };
+
+        PooledVector {
+            vec: Some(vec),
+            pool: self,
+        }
+    }
+
+    /// Return a vector to the pool
+    fn return_to_pool(&self, vec: Vec<f32>) {
+        let current_size = self.size.load(Ordering::Relaxed);
+        if current_size < self.max_size {
+            self.pool.push(vec);
+            self.size.fetch_add(1, Ordering::Relaxed);
+        }
+        // If pool is full, vector is dropped
+    }
+
+    /// Get pool statistics
+    pub fn stats(&self) -> VectorPoolStats {
+        let total = self.total_allocations.load(Ordering::Relaxed);
+        let hits = self.pool_hits.load(Ordering::Relaxed);
+        let hit_rate = if total > 0 {
+            hits as f64 / total as f64
+        } else {
+            0.0
+        };
+
+        VectorPoolStats {
+            total_allocations: total,
+            pool_hits: hits,
+            hit_rate,
+            current_size: self.size.load(Ordering::Relaxed),
+            max_size: self.max_size,
+        }
+    }
+
+    /// Get dimensions
+    pub fn dimensions(&self) -> usize {
+        self.dimensions
+    }
+}
+
+/// Statistics for the vector pool
+#[derive(Debug, Clone)]
+pub struct VectorPoolStats {
+    pub total_allocations: u64,
+    pub pool_hits: u64,
+    pub hit_rate: f64,
+    pub current_size: usize,
+    pub max_size: usize,
+}
+
+/// RAII wrapper for pooled vectors
+pub struct PooledVector<'a> {
+    vec: Option<Vec<f32>>,
+    pool: &'a AtomicVectorPool,
+}
+
+impl<'a> PooledVector<'a> {
+    /// Get as slice
+    pub fn as_slice(&self) -> &[f32] {
+        self.vec.as_ref().unwrap()
+    }
+
+    /// Get as mutable slice
+    pub fn as_mut_slice(&mut self) -> &mut [f32] {
+        self.vec.as_mut().unwrap()
+    }
+
+    /// Copy from source slice
+    pub fn copy_from(&mut self, src: &[f32]) {
+        let vec = self.vec.as_mut().unwrap();
+        assert_eq!(vec.len(), src.len(), "Dimension mismatch");
+        vec.copy_from_slice(src);
+    }
+
+    /// Detach the vector from the pool (it won't be returned)
+    pub fn detach(mut self) -> Vec<f32> {
+        self.vec.take().unwrap()
+    }
+}
+
+impl<'a> Drop for PooledVector<'a> {
+    fn drop(&mut self) {
+        if let Some(vec) = self.vec.take() {
+            self.pool.return_to_pool(vec);
+        }
+    }
+}
+
+impl<'a> std::ops::Deref for PooledVector<'a> {
+    type Target = [f32];
+
+    fn deref(&self) -> &[f32] {
+        self.as_slice()
+    }
+}
+
+impl<'a> std::ops::DerefMut for PooledVector<'a> {
+    fn deref_mut(&mut self) -> &mut [f32] {
+        self.as_mut_slice()
+    }
+}
+
+/// Lock-free batch processor for parallel vector operations (ADR-001)
+///
+/// Distributes work across multiple workers without contention.
+pub struct LockFreeBatchProcessor {
+    /// Work queue for pending items
+    work_queue: ArrayQueue<BatchItem>,
+    /// Results queue
+    results_queue: SegQueue<BatchResult>,
+    /// Pending count
+    pending: AtomicUsize,
+    /// Completed count
+    completed: AtomicUsize,
+}
+
+/// Item in the batch work queue
+#[derive(Debug)]
+pub struct BatchItem {
+    pub id: u64,
+    pub data: Vec<f32>,
+}
+
+/// Result from batch processing
+pub struct BatchResult {
+    pub id: u64,
+    pub result: Vec<f32>,
+}
+
+impl LockFreeBatchProcessor {
+    /// Create a new batch processor with given capacity
+    pub fn new(capacity: usize) -> Self {
+        Self {
+            work_queue: ArrayQueue::new(capacity),
+            results_queue: SegQueue::new(),
+            pending: AtomicUsize::new(0),
+            completed: AtomicUsize::new(0),
+        }
+    }
+
+    /// Submit a batch item for processing
+    pub fn submit(&self, item: BatchItem) -> Result<(), BatchItem> {
+        self.pending.fetch_add(1, Ordering::Relaxed);
+        self.work_queue.push(item)
+    }
+
+    /// Try to get a work item (for workers)
+    pub fn try_get_work(&self) -> Option<BatchItem> {
+        self.work_queue.pop()
+    }
+
+    /// Submit a result (from workers)
+    pub fn submit_result(&self, result: BatchResult) {
+        self.completed.fetch_add(1, Ordering::Relaxed);
+        self.results_queue.push(result);
+    }
+
+    /// Collect all available results
+    pub fn collect_results(&self) -> Vec<BatchResult> {
+        let mut results = Vec::new();
+        while let Some(result) = self.results_queue.pop() {
+            results.push(result);
+        }
+        results
+    }
+
+    /// Get pending count
+    pub fn pending(&self) -> usize {
+        self.pending.load(Ordering::Relaxed)
+    }
+
+    /// Get completed count
+    pub fn completed(&self) -> usize {
+        self.completed.load(Ordering::Relaxed)
+    }
+
+    /// Check if all work is done
+    pub fn is_done(&self) -> bool {
+        self.pending() == self.completed()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -277,5 +513,78 @@ mod tests {
         assert_eq!(snapshot.queries, 2);
         assert_eq!(snapshot.inserts, 1);
         assert_eq!(snapshot.avg_latency_ns, 1500);
+    }
+
+    #[test]
+    fn test_atomic_vector_pool() {
+        let pool = AtomicVectorPool::new(4, 2, 10);
+
+        // Acquire first vector
+        let mut v1 = pool.acquire();
+        v1.copy_from(&[1.0, 2.0, 3.0, 4.0]);
+        assert_eq!(v1.as_slice(), &[1.0, 2.0, 3.0, 4.0]);
+
+        // Acquire second vector
+        let mut v2 = pool.acquire();
+        v2.copy_from(&[5.0, 6.0, 7.0, 8.0]);
+
+        // Stats should show allocations
+        let stats = pool.stats();
+        assert_eq!(stats.total_allocations, 2);
+    }
+
+    #[test]
+    fn test_vector_pool_reuse() {
+        let pool = AtomicVectorPool::new(3, 1, 5);
+
+        // Acquire and release
+        {
+            let mut v = pool.acquire();
+            v.copy_from(&[1.0, 2.0, 3.0]);
+        } // v is returned to pool here
+
+        // Acquire again - should be a pool hit
+        let _v2 = pool.acquire();
+
+        let stats = pool.stats();
+        assert_eq!(stats.total_allocations, 2);
+        assert!(stats.pool_hits >= 1, "Should have at least one pool hit");
+    }
+
+    #[test]
+    fn test_batch_processor() {
+        let processor = LockFreeBatchProcessor::new(10);
+
+        // Submit work items
+        processor
+            .submit(BatchItem {
+                id: 1,
+                data: vec![1.0, 2.0],
+            })
+            .unwrap();
+        processor
+            .submit(BatchItem {
+                id: 2,
+                data: vec![3.0, 4.0],
+            })
+            .unwrap();
+
+        assert_eq!(processor.pending(), 2);
+
+        // Process work
+        while let Some(item) = processor.try_get_work() {
+            let result = BatchResult {
+                id: item.id,
+                result: item.data.iter().map(|x| x * 2.0).collect(),
+            };
+            processor.submit_result(result);
+        }
+
+        assert!(processor.is_done());
+        assert_eq!(processor.completed(), 2);
+
+        // Collect results
+        let results = processor.collect_results();
+        assert_eq!(results.len(), 2);
     }
 }

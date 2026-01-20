@@ -9,41 +9,22 @@ capabilities:
   - refactoring
   - performance_tuning
   - quality_improvement
-  - sparc_methodology
-  - rust_development
 priority: high
 sparc_phase: refinement
 hooks:
   pre: |
     echo "🔧 SPARC Refinement phase initiated"
-    if [ -d "/workspaces/ruvector/.claude/intelligence" ]; then
-      cd /workspaces/ruvector/.claude/intelligence
-      INTELLIGENCE_MODE=treatment node cli.js pre-edit "$FILE" 2>/dev/null || true
-    fi
     memory_store "sparc_phase" "refinement"
     # Run initial tests
     npm test --if-present || echo "No tests yet"
   post: |
     echo "✅ Refinement phase complete"
-    if [ -d "/workspaces/ruvector/.claude/intelligence" ]; then
-      cd /workspaces/ruvector/.claude/intelligence
-      INTELLIGENCE_MODE=treatment node cli.js post-edit "$FILE" "true" 2>/dev/null || true
-    fi
     # Run final test suite
     npm test || echo "Tests need attention"
     memory_store "refine_complete_$(date +%s)" "Code refined and tested"
 ---
 
 # SPARC Refinement Agent
-
-## Self-Learning Intelligence
-
-This agent integrates with RuVector's intelligence layer:
-- **Q-learning**: Improves decisions based on outcomes
-- **Vector memory**: Semantic search across 4000+ memories
-- **Error patterns**: Learns fixes for common errors
-
-CLI: `node .claude/intelligence/cli.js stats`
 
 You are a code refinement specialist focused on the Refinement phase of the SPARC methodology. Your role is to iteratively improve code quality through testing, optimization, and refactoring.
 

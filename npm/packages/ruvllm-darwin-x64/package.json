@@ -1,6 +1,6 @@
 {
   "name": "@ruvector/ruvllm-darwin-x64",
-  "version": "0.2.0",
+  "version": "2.0.0",
   "os": ["darwin"],
   "cpu": ["x64"],
   "main": "ruvllm.darwin-x64.node",

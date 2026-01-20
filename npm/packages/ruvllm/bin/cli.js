@@ -7,11 +7,13 @@
  *   ruvllm generate "Write a haiku about AI"
  *   ruvllm memory add "Important context"
  *   ruvllm memory search "context"
+ *   ruvllm models list
+ *   ruvllm models download claude-code
  *   ruvllm stats
  *   ruvllm benchmark
  */
 
-const { RuvLLM, SimdOps, version, hasSimdSupport } = require('../dist/cjs/index.js');
+const { RuvLLM, SimdOps, version, hasSimdSupport, ModelDownloader, listModels, getModelInfo, RUVLTRA_MODELS, getDefaultModelsDir, runRoutingBenchmark, formatRoutingResults, baselineKeywordRouter, runEmbeddingBenchmark, formatEmbeddingResults, runFullBenchmark, formatFullResults, ROUTING_TEST_CASES } = require('../dist/cjs/index.js');
 
 const args = process.argv.slice(2);
 const command = args[0];
@@ -235,6 +237,324 @@ async function runInfo(flags) {
   }
 }
 
+// Model management commands
+async function runModelsList(flags) {
+  const downloader = new ModelDownloader();
+  const status = downloader.getStatus();
+
+  if (flags.json) {
+    console.log(formatJson(status));
+  } else {
+    console.log('\n╔══════════════════════════════════════════════════════════════════════════╗');
+    console.log('║                         RuvLTRA Models                                   ║');
+    console.log('║         https://huggingface.co/ruv/ruvltra                               ║');
+    console.log('╠══════════════════════════════════════════════════════════════════════════╣');
+    console.log('║  Model        │ Size    │ Params │ Status     │ Use Case                 ║');
+    console.log('╠══════════════════════════════════════════════════════════════════════════╣');
+
+    for (const { model, downloaded } of status) {
+      const statusIcon = downloaded ? '✓ Ready  ' : '○ Not DL ';
+      const name = model.id.padEnd(12);
+      const size = model.size.padEnd(7);
+      const params = model.parameters.padEnd(6);
+      const useCase = model.useCase.slice(0, 24).padEnd(24);
+      console.log(`║  ${name} │ ${size} │ ${params} │ ${statusIcon} │ ${useCase} ║`);
+    }
+
+    console.log('╚══════════════════════════════════════════════════════════════════════════╝');
+    console.log(`\nModels directory: ${getDefaultModelsDir()}`);
+    console.log('\nDownload with: ruvllm models download <model-id>');
+    console.log('  Examples:    ruvllm models download claude-code');
+    console.log('               ruvllm models download --all');
+  }
+}
+
+async function runModelsDownload(modelId, flags) {
+  const downloader = new ModelDownloader();
+
+  if (flags.all) {
+    console.log('\nDownloading all RuvLTRA models...\n');
+    const models = listModels();
+
+    for (const model of models) {
+      console.log(`\n[${model.id}] ${model.name} (${model.size})`);
+
+      if (downloader.isDownloaded(model.id) && !flags.force) {
+        console.log('  Already downloaded, skipping (use --force to re-download)');
+        continue;
+      }
+
+      try {
+        const lastPercent = { value: -1 };
+        const path = await downloader.download(model.id, {
+          force: flags.force,
+          onProgress: (p) => {
+            const percent = Math.floor(p.percent / 5) * 5; // Round to 5%
+            if (percent !== lastPercent.value) {
+              const bar = '█'.repeat(percent / 5) + '░'.repeat(20 - percent / 5);
+              const speed = (p.speedBps / 1024 / 1024).toFixed(1);
+              const eta = p.etaSeconds < 60
+                ? `${Math.ceil(p.etaSeconds)}s`
+                : `${Math.ceil(p.etaSeconds / 60)}m`;
+              process.stdout.write(`\r  [${bar}] ${p.percent}% | ${speed} MB/s | ETA: ${eta}   `);
+              lastPercent.value = percent;
+            }
+          },
+        });
+        console.log(`\n  ✓ Downloaded to: ${path}`);
+      } catch (error) {
+        console.error(`\n  ✗ Failed: ${error.message}`);
+      }
+    }
+
+    console.log('\n\nDownload complete!');
+    return;
+  }
+
+  if (!modelId) {
+    console.error('Error: model ID required. Use --all to download all models.');
+    console.error('\nAvailable models:');
+    listModels().forEach(m => console.error(`  - ${m.id}: ${m.name} (${m.size})`));
+    process.exit(1);
+  }
+
+  const model = getModelInfo(modelId);
+  if (!model) {
+    console.error(`Error: Unknown model "${modelId}"`);
+    console.error('\nAvailable models:');
+    listModels().forEach(m => console.error(`  - ${m.id}: ${m.name} (${m.size})`));
+    process.exit(1);
+  }
+
+  console.log(`\nDownloading ${model.name} (${model.size})...`);
+  console.log(`From: ${model.url}\n`);
+
+  if (downloader.isDownloaded(modelId) && !flags.force) {
+    const path = downloader.getModelPath(modelId);
+    console.log(`Model already downloaded at: ${path}`);
+    console.log('Use --force to re-download.');
+    return;
+  }
+
+  const lastPercent = { value: -1 };
+  try {
+    const path = await downloader.download(modelId, {
+      force: flags.force,
+      onProgress: (p) => {
+        const percent = Math.floor(p.percent / 2) * 2; // Round to 2%
+        if (percent !== lastPercent.value) {
+          const bar = '█'.repeat(Math.floor(percent / 5)) + '░'.repeat(20 - Math.floor(percent / 5));
+          const downloaded = (p.downloaded / 1024 / 1024).toFixed(1);
+          const total = (p.total / 1024 / 1024).toFixed(1);
+          const speed = (p.speedBps / 1024 / 1024).toFixed(1);
+          const eta = p.etaSeconds < 60
+            ? `${Math.ceil(p.etaSeconds)}s`
+            : `${Math.ceil(p.etaSeconds / 60)}m`;
+          process.stdout.write(`\r[${bar}] ${p.percent}% | ${downloaded}/${total} MB | ${speed} MB/s | ETA: ${eta}   `);
+          lastPercent.value = percent;
+        }
+      },
+    });
+    console.log(`\n\n✓ Downloaded to: ${path}`);
+    console.log(`\nModel ready to use!`);
+    console.log(`  Context length: ${model.contextLength} tokens`);
+    console.log(`  Quantization:   ${model.quantization}`);
+  } catch (error) {
+    console.error(`\n\n✗ Download failed: ${error.message}`);
+    process.exit(1);
+  }
+}
+
+async function runModelsStatus(flags) {
+  const downloader = new ModelDownloader();
+  const status = downloader.getStatus();
+
+  if (flags.json) {
+    console.log(formatJson(status.map(s => ({
+      id: s.model.id,
+      name: s.model.name,
+      downloaded: s.downloaded,
+      path: s.path,
+      size: s.model.size,
+    }))));
+  } else {
+    console.log('\nModel Status:');
+    console.log(`Directory: ${getDefaultModelsDir()}\n`);
+
+    for (const { model, downloaded, path } of status) {
+      const icon = downloaded ? '✓' : '○';
+      const status = downloaded ? 'Ready' : 'Not downloaded';
+      console.log(`  ${icon} ${model.name.padEnd(25)} ${status.padEnd(15)} ${model.size}`);
+      if (downloaded) {
+        console.log(`    Path: ${path}`);
+      }
+    }
+  }
+}
+
+async function runModelsDelete(modelId, flags) {
+  const downloader = new ModelDownloader();
+
+  if (flags.all) {
+    const count = downloader.deleteAll();
+    console.log(`Deleted ${count} model(s).`);
+    return;
+  }
+
+  if (!modelId) {
+    console.error('Error: model ID required. Use --all to delete all models.');
+    process.exit(1);
+  }
+
+  if (downloader.delete(modelId)) {
+    console.log(`Deleted model: ${modelId}`);
+  } else {
+    console.log(`Model not found or not downloaded: ${modelId}`);
+  }
+}
+
+// Benchmark commands for Claude Code use cases
+async function runBenchmarkRouting(flags) {
+  console.log('\nRunning Routing Benchmark...');
+  console.log(`Testing ${ROUTING_TEST_CASES.length} task routing scenarios\n`);
+
+  const llm = new RuvLLM({ embeddingDim: 768, learningEnabled: false });
+
+  // Router function using the model
+  const modelRouter = (task) => {
+    try {
+      const decision = llm.route(task);
+      return { agent: decision.model, confidence: decision.confidence };
+    } catch (e) {
+      // Fallback to keyword router if model not available
+      return baselineKeywordRouter(task);
+    }
+  };
+
+  // Run with baseline (keyword) router
+  console.log('Baseline (keyword matching):');
+  const baselineResults = runRoutingBenchmark(baselineKeywordRouter);
+
+  if (flags.json) {
+    console.log(JSON.stringify(baselineResults, null, 2));
+  } else {
+    console.log(formatRoutingResults(baselineResults));
+  }
+
+  // Try model router if native is available
+  if (llm.isNativeLoaded() && !flags['baseline-only']) {
+    console.log('\nModel Router (RuvLTRA):');
+    const modelResults = runRoutingBenchmark(modelRouter);
+    if (flags.json) {
+      console.log(JSON.stringify(modelResults, null, 2));
+    } else {
+      console.log(formatRoutingResults(modelResults));
+    }
+
+    // Comparison
+    const improvement = modelResults.accuracy - baselineResults.accuracy;
+    console.log(`\nComparison: Model ${improvement >= 0 ? '+' : ''}${(improvement * 100).toFixed(1)}% vs baseline`);
+  }
+}
+
+async function runBenchmarkEmbedding(flags) {
+  console.log('\nRunning Embedding Benchmark...');
+  console.log('Testing similarity detection, clustering, and search quality\n');
+
+  const llm = new RuvLLM({ embeddingDim: 768, learningEnabled: false });
+  const simd = new SimdOps();
+
+  // Embedder function
+  const embedder = (text) => {
+    try {
+      return llm.embed(text);
+    } catch (e) {
+      // Fallback: simple hash-based embedding for testing
+      const hash = text.split('').reduce((h, c) => ((h << 5) - h + c.charCodeAt(0)) | 0, 0);
+      return Array.from({ length: 768 }, (_, i) => Math.sin(hash + i) * 0.5);
+    }
+  };
+
+  // Similarity function
+  const similarity = (a, b) => {
+    try {
+      return simd.cosineSimilarity(a, b);
+    } catch (e) {
+      // Fallback cosine similarity
+      let dot = 0, normA = 0, normB = 0;
+      for (let i = 0; i < a.length; i++) {
+        dot += a[i] * b[i];
+        normA += a[i] * a[i];
+        normB += b[i] * b[i];
+      }
+      return dot / (Math.sqrt(normA) * Math.sqrt(normB));
+    }
+  };
+
+  const results = runEmbeddingBenchmark(embedder, similarity);
+
+  if (flags.json) {
+    console.log(JSON.stringify(results, null, 2));
+  } else {
+    console.log(formatEmbeddingResults(results));
+  }
+}
+
+async function runBenchmarkFull(flags) {
+  console.log('\n╔═══════════════════════════════════════════════════════════════════════════╗');
+  console.log('║                    RUVLTRA FULL BENCHMARK SUITE                           ║');
+  console.log('║            Evaluating for Claude Code Use Cases                           ║');
+  console.log('╚═══════════════════════════════════════════════════════════════════════════╝\n');
+
+  const llm = new RuvLLM({ embeddingDim: 768, learningEnabled: false });
+  const simd = new SimdOps();
+
+  const modelName = llm.isNativeLoaded() ? 'RuvLTRA (native)' : 'RuvLTRA (JS fallback)';
+
+  // Router
+  const router = (task) => {
+    try {
+      const decision = llm.route(task);
+      return { agent: decision.model, confidence: decision.confidence };
+    } catch (e) {
+      return baselineKeywordRouter(task);
+    }
+  };
+
+  // Embedder
+  const embedder = (text) => {
+    try {
+      return llm.embed(text);
+    } catch (e) {
+      const hash = text.split('').reduce((h, c) => ((h << 5) - h + c.charCodeAt(0)) | 0, 0);
+      return Array.from({ length: 768 }, (_, i) => Math.sin(hash + i) * 0.5);
+    }
+  };
+
+  // Similarity
+  const similarity = (a, b) => {
+    try {
+      return simd.cosineSimilarity(a, b);
+    } catch (e) {
+      let dot = 0, normA = 0, normB = 0;
+      for (let i = 0; i < a.length; i++) {
+        dot += a[i] * b[i];
+        normA += a[i] * a[i];
+        normB += b[i] * b[i];
+      }
+      return dot / (Math.sqrt(normA) * Math.sqrt(normB));
+    }
+  };
+
+  const results = runFullBenchmark(router, embedder, similarity, modelName);
+
+  if (flags.json) {
+    console.log(JSON.stringify(results, null, 2));
+  } else {
+    console.log(formatFullResults(results));
+  }
+}
+
 function printHelp() {
   console.log(`
 RuvLLM - Self-learning LLM Orchestration
@@ -254,6 +574,19 @@ Commands:
   info                      Show system information
   help                      Show this help message
 
+Model Management:
+  models list               List available RuvLTRA models
+  models download <id>      Download a model from HuggingFace
+  models download --all     Download all available models
+  models status             Check which models are downloaded
+  models delete <id>        Delete a downloaded model
+
+Claude Code Benchmarks:
+  benchmark routing         Test agent routing accuracy (100 tasks)
+  benchmark embedding       Test embedding quality (similarity, search, clustering)
+  benchmark full            Run complete benchmark suite
+  benchmark simd            Run SIMD performance benchmark
+
 Options:
   --json                    Output as JSON
   --temperature <float>     Sampling temperature (0.0-2.0)
@@ -264,6 +597,13 @@ Options:
   --metadata <json>         Metadata for memory add
   --dims <int>              Dimensions for benchmark (default: 768)
   --iterations <int>        Iterations for benchmark (default: 1000)
+  --force                   Force re-download even if model exists
+  --all                     Apply to all models (download/delete)
+
+Available Models (from https://huggingface.co/ruv/ruvltra):
+  claude-code               RuvLTRA Claude Code (398MB) - Claude Code workflows
+  small                     RuvLTRA Small (398MB) - Edge devices, IoT
+  medium                    RuvLTRA Medium (669MB) - General purpose
 
 Examples:
   ruvllm query "What is machine learning?"
@@ -272,6 +612,17 @@ Examples:
   ruvllm memory search "context" --k 5
   ruvllm similarity "hello world" "hi there"
   ruvllm benchmark --dims 1024 --iterations 5000
+
+  # Model management
+  ruvllm models list
+  ruvllm models download claude-code
+  ruvllm models download --all
+  ruvllm models status
+
+  # Claude Code benchmarks
+  ruvllm benchmark routing            # Test task routing accuracy
+  ruvllm benchmark embedding          # Test embedding quality
+  ruvllm benchmark full               # Run complete benchmark suite
 
 Learn more: https://github.com/ruvnet/ruvector
 `);
@@ -360,11 +711,41 @@ async function main() {
         break;
 
       case 'benchmark':
-        await runBenchmark(flags);
+        const benchSubcmd = positional[0];
+        if (benchSubcmd === 'routing') {
+          await runBenchmarkRouting(flags);
+        } else if (benchSubcmd === 'embedding' || benchSubcmd === 'embeddings') {
+          await runBenchmarkEmbedding(flags);
+        } else if (benchSubcmd === 'full' || benchSubcmd === 'all') {
+          await runBenchmarkFull(flags);
+        } else if (benchSubcmd === 'simd' || !benchSubcmd) {
+          // Default to SIMD benchmark for backwards compatibility
+          await runBenchmark(flags);
+        } else {
+          console.error(`Unknown benchmark type: ${benchSubcmd}`);
+          console.error('Available: routing, embedding, full, simd');
+          process.exit(1);
+        }
         break;
 
       case 'info':
         await runInfo(flags);
+        break;
+
+      case 'models':
+        const modelsSubcmd = positional[0];
+        if (!modelsSubcmd || modelsSubcmd === 'list') {
+          await runModelsList(flags);
+        } else if (modelsSubcmd === 'download') {
+          await runModelsDownload(positional[1], flags);
+        } else if (modelsSubcmd === 'status') {
+          await runModelsStatus(flags);
+        } else if (modelsSubcmd === 'delete' || modelsSubcmd === 'remove') {
+          await runModelsDelete(positional[1], flags);
+        } else {
+          // Treat subcommand as model ID for download
+          await runModelsDownload(modelsSubcmd, flags);
+        }
         break;
 
       default:

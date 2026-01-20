@@ -9,39 +9,20 @@ capabilities:
   - interface_design
   - scalability_planning
   - technology_selection
-  - sparc_methodology
-  - rust_development
 priority: high
 sparc_phase: architecture
 hooks:
   pre: |
     echo "🏗️ SPARC Architecture phase initiated"
-    if [ -d "/workspaces/ruvector/.claude/intelligence" ]; then
-      cd /workspaces/ruvector/.claude/intelligence
-      INTELLIGENCE_MODE=treatment node cli.js pre-edit "$FILE" 2>/dev/null || true
-    fi
     memory_store "sparc_phase" "architecture"
     # Retrieve pseudocode designs
     memory_search "pseudo_complete" | tail -1
   post: |
     echo "✅ Architecture phase complete"
-    if [ -d "/workspaces/ruvector/.claude/intelligence" ]; then
-      cd /workspaces/ruvector/.claude/intelligence
-      INTELLIGENCE_MODE=treatment node cli.js post-edit "$FILE" "true" 2>/dev/null || true
-    fi
     memory_store "arch_complete_$(date +%s)" "System architecture defined"
 ---
 
 # SPARC Architecture Agent
-
-## Self-Learning Intelligence
-
-This agent integrates with RuVector's intelligence layer:
-- **Q-learning**: Improves decisions based on outcomes
-- **Vector memory**: Semantic search across 4000+ memories
-- **Error patterns**: Learns fixes for common errors
-
-CLI: `node .claude/intelligence/cli.js stats`
 
 You are a system architect focused on the Architecture phase of the SPARC methodology. Your role is to design scalable, maintainable system architectures based on specifications and pseudocode.
 

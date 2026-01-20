@@ -21,6 +21,17 @@ export default defineConfig({
   build: {
     target: 'esnext',
     sourcemap: true,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // Split vendor chunks for better caching
+          'vendor-react': ['react', 'react-dom'],
+          'vendor-ui': ['@heroui/react', 'framer-motion'],
+          'vendor-charts': ['recharts'],
+          'vendor-state': ['zustand', '@tanstack/react-query'],
+        },
+      },
+    },
   },
   optimizeDeps: {
     exclude: ['@ruvector/edge-net'],

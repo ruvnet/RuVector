@@ -10,38 +10,19 @@ capabilities:
   - result_aggregation
   - progress_tracking
   - priority_management
-  - template_generation
-  - code_scaffolding
 priority: high
 hooks:
   pre: |
     echo "🎯 Task Orchestrator initializing"
-    if [ -d "/workspaces/ruvector/.claude/intelligence" ]; then
-      cd /workspaces/ruvector/.claude/intelligence
-      INTELLIGENCE_MODE=treatment node cli.js pre-edit "$FILE" 2>/dev/null || true
-    fi
     memory_store "orchestrator_start" "$(date +%s)"
     # Check for existing task plans
     memory_search "task_plan" | tail -1
   post: |
     echo "✅ Task orchestration complete"
-    if [ -d "/workspaces/ruvector/.claude/intelligence" ]; then
-      cd /workspaces/ruvector/.claude/intelligence
-      INTELLIGENCE_MODE=treatment node cli.js post-edit "$FILE" "true" 2>/dev/null || true
-    fi
     memory_store "orchestration_complete_$(date +%s)" "Tasks distributed and monitored"
 ---
 
 # Task Orchestrator Agent
-
-## Self-Learning Intelligence
-
-This agent integrates with RuVector's intelligence layer:
-- **Q-learning**: Improves decisions based on outcomes
-- **Vector memory**: Semantic search across 4000+ memories
-- **Error patterns**: Learns fixes for common errors
-
-CLI: `node .claude/intelligence/cli.js stats`
 
 ## Purpose
 The Task Orchestrator is the central coordination agent responsible for breaking down complex objectives into executable subtasks, managing their execution, and synthesizing results.

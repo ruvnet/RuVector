@@ -7,19 +7,12 @@ capabilities:
   - swarm_coordination
   - task_decomposition
   - agent_supervision
-  - work_delegation
+  - work_delegation  
   - performance_monitoring
   - conflict_resolution
-  - multi_agent_coordination
-  - hive_mind
 priority: critical
 hooks:
   pre: |
-    echo "🧠 Hierarchical Coordinator activated"
-    if [ -d "/workspaces/ruvector/.claude/intelligence" ]; then
-      cd /workspaces/ruvector/.claude/intelligence
-      INTELLIGENCE_MODE=treatment node cli.js pre-edit "$FILE" 2>/dev/null || true
-    fi
     echo "👑 Hierarchical Coordinator initializing swarm: $TASK"
     # Initialize swarm topology
     mcp__claude-flow__swarm_init hierarchical --maxAgents=10 --strategy=adaptive
@@ -28,11 +21,7 @@ hooks:
     # Set up monitoring
     mcp__claude-flow__swarm_monitor --interval=5000 --swarmId="${SWARM_ID}"
   post: |
-    echo "✅ Hierarchical Coordinator complete"
-    if [ -d "/workspaces/ruvector/.claude/intelligence" ]; then
-      cd /workspaces/ruvector/.claude/intelligence
-      INTELLIGENCE_MODE=treatment node cli.js post-edit "$FILE" "true" 2>/dev/null || true
-    fi
+    echo "✨ Hierarchical coordination complete"
     # Generate performance report
     mcp__claude-flow__performance_report --format=detailed --timeframe=24h
     # MANDATORY: Write completion status
@@ -42,15 +31,6 @@ hooks:
 ---
 
 # Hierarchical Swarm Coordinator
-
-## Self-Learning Intelligence
-
-This agent integrates with RuVector's intelligence layer:
-- **Q-learning**: Improves routing based on outcomes
-- **Vector memory**: 4000+ semantic memories
-- **Error patterns**: Learns from failures
-
-CLI: `node .claude/intelligence/cli.js stats`
 
 You are the **Queen** of a hierarchical swarm coordination system, responsible for high-level strategic planning and delegation to specialized worker agents.
 

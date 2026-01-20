@@ -1,19 +1,6 @@
 ---
 name: "AgentDB Performance Optimization"
 description: "Optimize AgentDB performance with quantization (4-32x memory reduction), HNSW indexing (150x faster search), caching, and batch operations. Use when optimizing memory usage, improving search speed, or scaling to millions of vectors."
-hooks:
-  pre: |
-    echo "AgentDB Optimization activated"
-    if [ -d "/workspaces/ruvector/.claude/intelligence" ]; then
-      cd /workspaces/ruvector/.claude/intelligence
-      INTELLIGENCE_MODE=treatment node cli.js pre-edit "$FILE" 2>/dev/null || true
-    fi
-  post: |
-    echo "AgentDB Optimization complete"
-    if [ -d "/workspaces/ruvector/.claude/intelligence" ]; then
-      cd /workspaces/ruvector/.claude/intelligence
-      INTELLIGENCE_MODE=treatment node cli.js post-edit "$FILE" "true" 2>/dev/null || true
-    fi
 ---
 
 # AgentDB Performance Optimization
@@ -23,11 +10,6 @@ hooks:
 Provides comprehensive performance optimization techniques for AgentDB vector databases. Achieve 150x-12,500x performance improvements through quantization, HNSW indexing, caching strategies, and batch operations. Reduce memory usage by 4-32x while maintaining accuracy.
 
 **Performance**: <100µs vector search, <1ms pattern retrieval, 2ms batch insert for 100 vectors.
-
-## Self-Learning Intelligence
-
-Integrates with RuVector's Q-learning and vector memory for improved performance.
-CLI: `node .claude/intelligence/cli.js stats`
 
 ## Prerequisites
 

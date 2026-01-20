@@ -9,40 +9,21 @@ capabilities:
   - resource_monitoring
   - comparative_analysis
   - adaptive_tuning
-  - distributed_systems
-  - rust_consensus
 priority: medium
 hooks:
   pre: |
-    echo "🧠 Performance Benchmarker activated"
-    if [ -d "/workspaces/ruvector/.claude/intelligence" ]; then
-      cd /workspaces/ruvector/.claude/intelligence
-      INTELLIGENCE_MODE=treatment node cli.js pre-edit "$FILE" 2>/dev/null || true
-    fi
     echo "📊 Performance Benchmarker analyzing: $TASK"
     # Initialize monitoring systems
     if [[ "$TASK" == *"benchmark"* ]]; then
       echo "⚡ Starting performance metric collection"
     fi
   post: |
-    echo "✅ Performance Benchmarker complete"
-    if [ -d "/workspaces/ruvector/.claude/intelligence" ]; then
-      cd /workspaces/ruvector/.claude/intelligence
-      INTELLIGENCE_MODE=treatment node cli.js post-edit "$FILE" "true" 2>/dev/null || true
-    fi
+    echo "📈 Performance analysis complete"
+    # Generate performance report
     echo "📋 Compiling benchmarking results and recommendations"
 ---
 
 # Performance Benchmarker
-
-## Self-Learning Intelligence
-
-This agent integrates with RuVector's intelligence layer:
-- **Q-learning**: Improves routing based on outcomes
-- **Vector memory**: 4000+ semantic memories
-- **Error patterns**: Learns from failures
-
-CLI: `node .claude/intelligence/cli.js stats`
 
 Implements comprehensive performance benchmarking and optimization analysis for distributed consensus protocols.
 

@@ -24,34 +24,18 @@ tools:
   - Write
   - Edit
   - Grep
-capabilities:
-  - github_automation
-  - pr_management
 hooks:
-  pre: |
-    echo "🧠 Workflow Automation activated"
-    if [ -d "/workspaces/ruvector/.claude/intelligence" ]; then
-      cd /workspaces/ruvector/.claude/intelligence
-      INTELLIGENCE_MODE=treatment node cli.js pre-edit "$FILE" 2>/dev/null || true
-    fi
-  post: |
-    echo "✅ Workflow Automation complete"
-    if [ -d "/workspaces/ruvector/.claude/intelligence" ]; then
-      cd /workspaces/ruvector/.claude/intelligence
-      INTELLIGENCE_MODE=treatment node cli.js post-edit "$FILE" "true" 2>/dev/null || true
-    fi
+  pre:
+    - "Initialize workflow automation swarm with adaptive pipeline intelligence"
+    - "Analyze repository structure and determine optimal CI/CD strategies"
+    - "Store workflow templates and automation rules in swarm memory"
+  post:
+    - "Deploy optimized workflows with continuous performance monitoring"
+    - "Generate workflow automation metrics and optimization recommendations"
+    - "Update automation rules based on swarm learning and performance data"
 ---
 
 # Workflow Automation - GitHub Actions Integration
-
-## Self-Learning Intelligence
-
-This agent integrates with RuVector's intelligence layer:
-- **Q-learning**: Improves routing based on outcomes
-- **Vector memory**: 4000+ semantic memories
-- **Error patterns**: Learns from failures
-
-CLI: `node .claude/intelligence/cli.js stats`
 
 ## Overview
 Integrate AI swarms with GitHub Actions to create intelligent, self-organizing CI/CD pipelines that adapt to your codebase through advanced multi-agent coordination and automation.

@@ -21,34 +21,22 @@ tools:
   - mcp__claude-flow__agent_spawn
   - mcp__claude-flow__task_orchestrate
   - mcp__claude-flow__memory_usage
-capabilities:
-  - github_automation
-  - pr_management
 hooks:
-  pre: |
-    echo "🧠 Release Manager activated"
-    if [ -d "/workspaces/ruvector/.claude/intelligence" ]; then
-      cd /workspaces/ruvector/.claude/intelligence
-      INTELLIGENCE_MODE=treatment node cli.js pre-edit "$FILE" 2>/dev/null || true
-    fi
-  post: |
-    echo "✅ Release Manager complete"
-    if [ -d "/workspaces/ruvector/.claude/intelligence" ]; then
-      cd /workspaces/ruvector/.claude/intelligence
-      INTELLIGENCE_MODE=treatment node cli.js post-edit "$FILE" "true" 2>/dev/null || true
-    fi
+  pre_task: |
+    echo "🚀 Initializing release management pipeline..."
+    npx ruv-swarm hook pre-task --mode release-manager
+  post_edit: |
+    echo "📝 Validating release changes and updating documentation..."
+    npx ruv-swarm hook post-edit --mode release-manager --validate-release
+  post_task: |
+    echo "✅ Release management task completed. Updating release status..."
+    npx ruv-swarm hook post-task --mode release-manager --update-status
+  notification: |
+    echo "📢 Sending release notifications to stakeholders..."
+    npx ruv-swarm hook notification --mode release-manager
 ---
 
 # GitHub Release Manager
-
-## Self-Learning Intelligence
-
-This agent integrates with RuVector's intelligence layer:
-- **Q-learning**: Improves routing based on outcomes
-- **Vector memory**: 4000+ semantic memories
-- **Error patterns**: Learns from failures
-
-CLI: `node .claude/intelligence/cli.js stats`
 
 ## Purpose
 Automated release coordination and deployment with ruv-swarm orchestration for seamless version management, testing, and deployment across multiple packages.

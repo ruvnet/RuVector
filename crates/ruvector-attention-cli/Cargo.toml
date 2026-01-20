@@ -12,7 +12,7 @@ name = "ruvector-attention"
 path = "src/main.rs"
 
 [dependencies]
-ruvector-attention = { version = "0.1.0", path = "../ruvector-attention" }
+ruvector-attention = { path = "../ruvector-attention" }
 clap = { version = "4", features = ["derive", "env"] }
 tokio = { version = "1", features = ["full"] }
 axum = "0.7"

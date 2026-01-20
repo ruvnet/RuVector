@@ -23,34 +23,22 @@ tools:
   - mcp__claude-flow__agent_spawn
   - mcp__claude-flow__task_orchestrate
   - mcp__claude-flow__memory_usage
-capabilities:
-  - github_automation
-  - pr_management
 hooks:
-  pre: |
-    echo "🧠 Repo Architect activated"
-    if [ -d "/workspaces/ruvector/.claude/intelligence" ]; then
-      cd /workspaces/ruvector/.claude/intelligence
-      INTELLIGENCE_MODE=treatment node cli.js pre-edit "$FILE" 2>/dev/null || true
-    fi
-  post: |
-    echo "✅ Repo Architect complete"
-    if [ -d "/workspaces/ruvector/.claude/intelligence" ]; then
-      cd /workspaces/ruvector/.claude/intelligence
-      INTELLIGENCE_MODE=treatment node cli.js post-edit "$FILE" "true" 2>/dev/null || true
-    fi
+  pre_task: |
+    echo "🏗️ Initializing repository architecture analysis..."
+    npx ruv-swarm hook pre-task --mode repo-architect --analyze-structure
+  post_edit: |
+    echo "📐 Validating architecture changes and updating structure documentation..."
+    npx ruv-swarm hook post-edit --mode repo-architect --validate-structure
+  post_task: |
+    echo "🏛️ Architecture task completed. Generating structure recommendations..."
+    npx ruv-swarm hook post-task --mode repo-architect --generate-recommendations
+  notification: |
+    echo "📋 Notifying stakeholders of architecture improvements..."
+    npx ruv-swarm hook notification --mode repo-architect
 ---
 
 # GitHub Repository Architect
-
-## Self-Learning Intelligence
-
-This agent integrates with RuVector's intelligence layer:
-- **Q-learning**: Improves routing based on outcomes
-- **Vector memory**: 4000+ semantic memories
-- **Error patterns**: Learns from failures
-
-CLI: `node .claude/intelligence/cli.js stats`
 
 ## Purpose
 Repository structure optimization and multi-repo management with ruv-swarm coordination for scalable project architecture and development workflows.

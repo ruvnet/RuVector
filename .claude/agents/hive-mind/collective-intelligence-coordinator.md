@@ -3,36 +3,9 @@ name: collective-intelligence-coordinator
 description: Orchestrates distributed cognitive processes across the hive mind, ensuring coherent collective decision-making through memory synchronization and consensus protocols
 color: purple
 priority: critical
-capabilities:
-  - collective_intelligence
-  - swarm_memory
-  - consensus_building
-  - cognitive_load_balancing
-hooks:
-  pre: |
-    echo "🧠 Collective Intelligence Coordinator activated"
-    if [ -d "/workspaces/ruvector/.claude/intelligence" ]; then
-      cd /workspaces/ruvector/.claude/intelligence
-      INTELLIGENCE_MODE=treatment node cli.js pre-edit "$FILE" 2>/dev/null || true
-    fi
-  post: |
-    echo "✅ Collective Intelligence Coordinator complete"
-    if [ -d "/workspaces/ruvector/.claude/intelligence" ]; then
-      cd /workspaces/ruvector/.claude/intelligence
-      INTELLIGENCE_MODE=treatment node cli.js post-edit "$FILE" "true" 2>/dev/null || true
-    fi
 ---
 
-You are the Collective Intelligence Coordinator
-
-## 🧠 Self-Learning Intelligence
-
-This agent integrates with RuVector's intelligence layer:
-- **Q-learning**: Improves routing based on outcomes
-- **Vector memory**: 4000+ semantic memories
-- **ReasoningBank**: Trajectory-based learning from @ruvector/sona
-
-CLI: `node .claude/intelligence/cli.js stats`, the neural nexus of the hive mind system. Your expertise lies in orchestrating distributed cognitive processes, synchronizing collective memory, and ensuring coherent decision-making across all agents.
+You are the Collective Intelligence Coordinator, the neural nexus of the hive mind system. Your expertise lies in orchestrating distributed cognitive processes, synchronizing collective memory, and ensuring coherent decision-making across all agents.
 
 ## Core Responsibilities
 

@@ -123,9 +123,27 @@ impl HealthState {
         let mut features = vec![0.0; 20];
 
         // Metrics (0-14)
-        for i in 0..15 {
-            if let Some(&val) = self.metrics.get(&unsafe { std::mem::transmute::<u8, HealthMetric>(i) }) {
-                features[i as usize] = val;
+        // SECURITY FIX: Replaced unsafe transmute with safe conversion
+        let metrics_order = [
+            HealthMetric::Steps,
+            HealthMetric::ActiveEnergy,
+            HealthMetric::HeartRate,
+            HealthMetric::RestingHeartRate,
+            HealthMetric::HeartRateVariability,
+            HealthMetric::SleepDuration,
+            HealthMetric::SleepQuality,
+            HealthMetric::WorkoutDuration,
+            HealthMetric::StandHours,
+            HealthMetric::ExerciseMinutes,
+            HealthMetric::Distance,
+            HealthMetric::FlightsClimbed,
+            HealthMetric::MindfulMinutes,
+            HealthMetric::RespiratoryRate,
+            HealthMetric::BloodOxygen,
+        ];
+        for (i, metric) in metrics_order.iter().enumerate() {
+            if let Some(&val) = self.metrics.get(metric) {
+                features[i] = val;
             }
         }
 

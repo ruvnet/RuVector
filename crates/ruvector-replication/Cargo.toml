@@ -10,7 +10,7 @@ readme = "README.md"
 description = "Data replication and synchronization for ruvector"
 
 [dependencies]
-ruvector-core = { version = "0.1.2", path = "../ruvector-core" }
+ruvector-core = {path = "../ruvector-core" }
 tokio = { workspace = true, features = ["time"] }
 serde = { workspace = true }
 serde_json = { workspace = true }

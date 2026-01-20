@@ -10,16 +10,10 @@ capabilities:
   - conflict-resolution
   - status-tracking
   - ci-cd-integration
-  - template_generation
-  - code_scaffolding
 priority: high
 hooks:
   pre: |
     echo "🔄 Pull Request Manager initializing..."
-    if [ -d "/workspaces/ruvector/.claude/intelligence" ]; then
-      cd /workspaces/ruvector/.claude/intelligence
-      INTELLIGENCE_MODE=treatment node cli.js pre-edit "$FILE" 2>/dev/null || true
-    fi
     echo "📋 Checking GitHub CLI authentication and repository status"
     # Verify gh CLI is authenticated
     gh auth status || echo "⚠️ GitHub CLI authentication required"
@@ -27,24 +21,11 @@ hooks:
     git branch --show-current | xargs echo "Current branch:"
   post: |
     echo "✅ Pull request operations completed"
-    if [ -d "/workspaces/ruvector/.claude/intelligence" ]; then
-      cd /workspaces/ruvector/.claude/intelligence
-      INTELLIGENCE_MODE=treatment node cli.js post-edit "$FILE" "true" 2>/dev/null || true
-    fi
     memory_store "pr_activity_$(date +%s)" "Pull request lifecycle management executed"
     echo "🎯 All CI/CD checks and reviews coordinated"
 ---
 
 # Pull Request Manager Agent
-
-## Self-Learning Intelligence
-
-This agent integrates with RuVector's intelligence layer:
-- **Q-learning**: Improves decisions based on outcomes
-- **Vector memory**: Semantic search across 4000+ memories
-- **Error patterns**: Learns fixes for common errors
-
-CLI: `node .claude/intelligence/cli.js stats`
 
 ## Purpose
 This agent specializes in managing the complete lifecycle of pull requests, from creation through review to merge, using GitHub's gh CLI and swarm coordination for complex workflows.

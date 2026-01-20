@@ -9,7 +9,7 @@ readme = "README.md"
 description = "Point-in-time snapshots and backup for Ruvector vector databases"
 
 [dependencies]
-ruvector-core = { version = "0.1.2", path = "../ruvector-core" }
+ruvector-core = {path = "../ruvector-core" }
 serde = { workspace = true }
 serde_json = { workspace = true }
 bincode = { workspace = true, features = ["serde"] }

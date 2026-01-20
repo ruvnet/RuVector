@@ -9,7 +9,7 @@ readme = "README.md"
 description = "High-performance collection management for Ruvector vector databases"
 
 [dependencies]
-ruvector-core = { version = "0.1.2", path = "../ruvector-core" }
+ruvector-core = { path = "../ruvector-core" }
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }

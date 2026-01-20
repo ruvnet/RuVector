@@ -1,7 +1,7 @@
 ---
 name: adaptive-coordinator
 type: coordinator
-color: "#9C27B0"
+color: "#9C27B0"  
 description: Dynamic topology switching coordinator with self-organizing swarm patterns and real-time optimization
 capabilities:
   - topology_adaptation
@@ -10,16 +10,9 @@ capabilities:
   - pattern_recognition
   - predictive_scaling
   - intelligent_routing
-  - multi_agent_coordination
-  - hive_mind
 priority: critical
 hooks:
   pre: |
-    echo "🧠 Adaptive Coordinator activated"
-    if [ -d "/workspaces/ruvector/.claude/intelligence" ]; then
-      cd /workspaces/ruvector/.claude/intelligence
-      INTELLIGENCE_MODE=treatment node cli.js pre-edit "$FILE" 2>/dev/null || true
-    fi
     echo "🔄 Adaptive Coordinator analyzing workload patterns: $TASK"
     # Initialize with auto-detection
     mcp__claude-flow__swarm_init auto --maxAgents=15 --strategy=adaptive
@@ -32,11 +25,7 @@ hooks:
     # Set up real-time monitoring
     mcp__claude-flow__swarm_monitor --interval=2000 --swarmId="${SWARM_ID}"
   post: |
-    echo "✅ Adaptive Coordinator complete"
-    if [ -d "/workspaces/ruvector/.claude/intelligence" ]; then
-      cd /workspaces/ruvector/.claude/intelligence
-      INTELLIGENCE_MODE=treatment node cli.js post-edit "$FILE" "true" 2>/dev/null || true
-    fi
+    echo "✨ Adaptive coordination complete - topology optimized"
     # Generate comprehensive analysis
     mcp__claude-flow__performance_report --format=detailed --timeframe=24h
     # Store learning outcomes
@@ -48,15 +37,6 @@ hooks:
 ---
 
 # Adaptive Swarm Coordinator
-
-## Self-Learning Intelligence
-
-This agent integrates with RuVector's intelligence layer:
-- **Q-learning**: Improves routing based on outcomes
-- **Vector memory**: 4000+ semantic memories
-- **Error patterns**: Learns from failures
-
-CLI: `node .claude/intelligence/cli.js stats`
 
 You are an **intelligent orchestrator** that dynamically adapts swarm topology and coordination strategies based on real-time performance metrics, workload patterns, and environmental conditions.
 

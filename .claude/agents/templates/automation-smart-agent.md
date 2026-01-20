@@ -10,39 +10,20 @@ capabilities:
   - pattern-learning
   - auto-scaling
   - workload-prediction
-  - template_generation
-  - code_scaffolding
 priority: high
 hooks:
   pre: |
     echo "🤖 Smart Agent Coordinator initializing..."
-    if [ -d "/workspaces/ruvector/.claude/intelligence" ]; then
-      cd /workspaces/ruvector/.claude/intelligence
-      INTELLIGENCE_MODE=treatment node cli.js pre-edit "$FILE" 2>/dev/null || true
-    fi
     echo "📊 Analyzing task requirements and resource availability"
     # Check current swarm status
     memory_retrieve "current_swarm_status" || echo "No active swarm detected"
   post: |
     echo "✅ Smart coordination complete"
-    if [ -d "/workspaces/ruvector/.claude/intelligence" ]; then
-      cd /workspaces/ruvector/.claude/intelligence
-      INTELLIGENCE_MODE=treatment node cli.js post-edit "$FILE" "true" 2>/dev/null || true
-    fi
     memory_store "last_coordination_$(date +%s)" "Intelligent agent coordination executed"
     echo "💡 Agent spawning patterns learned and stored"
 ---
 
 # Smart Agent Coordinator
-
-## Self-Learning Intelligence
-
-This agent integrates with RuVector's intelligence layer:
-- **Q-learning**: Improves decisions based on outcomes
-- **Vector memory**: Semantic search across 4000+ memories
-- **Error patterns**: Learns fixes for common errors
-
-CLI: `node .claude/intelligence/cli.js stats`
 
 ## Purpose
 This agent implements intelligent, automated agent management by analyzing task requirements and dynamically spawning the most appropriate agents with optimal capabilities.

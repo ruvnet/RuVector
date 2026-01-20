@@ -22,9 +22,9 @@ default = []
 postgres = ["tokio-postgres", "deadpool-postgres"]
 
 [dependencies]
-ruvector-core = { version = "0.1.2", path = "../ruvector-core" }
-ruvector-graph = { version = "0.1.0", path = "../ruvector-graph", features = ["storage"] }
-ruvector-gnn = { version = "0.1.0", path = "../ruvector-gnn" }
+ruvector-core = { path = "../ruvector-core" }
+ruvector-graph = { path = "../ruvector-graph", features = ["storage"] }
+ruvector-gnn = { path = "../ruvector-gnn" }
 
 # PostgreSQL support (optional)
 tokio-postgres = { version = "0.7", optional = true }

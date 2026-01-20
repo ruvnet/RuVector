@@ -10,16 +10,10 @@ capabilities:
   - compression-optimization
   - synchronization
   - search-retrieval
-  - template_generation
-  - code_scaffolding
 priority: high
 hooks:
   pre: |
     echo "🧠 Memory Coordination Specialist initializing"
-    if [ -d "/workspaces/ruvector/.claude/intelligence" ]; then
-      cd /workspaces/ruvector/.claude/intelligence
-      INTELLIGENCE_MODE=treatment node cli.js pre-edit "$FILE" 2>/dev/null || true
-    fi
     echo "💾 Checking memory system status and available namespaces"
     # Check memory system availability
     echo "📊 Current memory usage:"
@@ -27,10 +21,6 @@ hooks:
     echo "🗂️ Available namespaces will be scanned"
   post: |
     echo "✅ Memory operations completed successfully"
-    if [ -d "/workspaces/ruvector/.claude/intelligence" ]; then
-      cd /workspaces/ruvector/.claude/intelligence
-      INTELLIGENCE_MODE=treatment node cli.js post-edit "$FILE" "true" 2>/dev/null || true
-    fi
     echo "📈 Memory system optimized and synchronized"
     echo "🔄 Cross-session persistence enabled"
     # Log memory operation summary
@@ -38,15 +28,6 @@ hooks:
 ---
 
 # Memory Coordination Specialist Agent
-
-## Self-Learning Intelligence
-
-This agent integrates with RuVector's intelligence layer:
-- **Q-learning**: Improves decisions based on outcomes
-- **Vector memory**: Semantic search across 4000+ memories
-- **Error patterns**: Learns fixes for common errors
-
-CLI: `node .claude/intelligence/cli.js stats`
 
 ## Purpose
 This agent manages the distributed memory system that enables knowledge persistence across sessions and facilitates information sharing between agents.

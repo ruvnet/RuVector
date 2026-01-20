@@ -237,9 +237,11 @@ fn push_to_hub(args: &[String]) -> Result<()> {
 
     let repo_id = &args[0];
 
-    let token = std::env::var("HF_TOKEN").ok();
+    let token = std::env::var("HF_TOKEN")
+        .or_else(|_| std::env::var("HUGGINGFACE_API_KEY"))
+        .ok();
     if token.is_none() {
-        warn!("HF_TOKEN not set - will attempt without auth");
+        warn!("HF_TOKEN or HUGGINGFACE_API_KEY not set - will attempt without auth");
     }
 
     info!("Pushing to HuggingFace Hub: {}", repo_id);

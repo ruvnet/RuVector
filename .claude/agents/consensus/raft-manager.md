@@ -9,40 +9,21 @@ capabilities:
   - follower_management
   - membership_changes
   - consistency_verification
-  - distributed_systems
-  - rust_consensus
 priority: high
 hooks:
   pre: |
-    echo "🧠 Raft Manager activated"
-    if [ -d "/workspaces/ruvector/.claude/intelligence" ]; then
-      cd /workspaces/ruvector/.claude/intelligence
-      INTELLIGENCE_MODE=treatment node cli.js pre-edit "$FILE" 2>/dev/null || true
-    fi
     echo "🗳️  Raft Manager starting: $TASK"
     # Check cluster health before operations
     if [[ "$TASK" == *"election"* ]]; then
       echo "🎯 Preparing leader election process"
     fi
   post: |
-    echo "✅ Raft Manager complete"
-    if [ -d "/workspaces/ruvector/.claude/intelligence" ]; then
-      cd /workspaces/ruvector/.claude/intelligence
-      INTELLIGENCE_MODE=treatment node cli.js post-edit "$FILE" "true" 2>/dev/null || true
-    fi
+    echo "📝 Raft operation complete"
+    # Verify log consistency
     echo "🔍 Validating log replication and consistency"
 ---
 
 # Raft Consensus Manager
-
-## Self-Learning Intelligence
-
-This agent integrates with RuVector's intelligence layer:
-- **Q-learning**: Improves routing based on outcomes
-- **Vector memory**: 4000+ semantic memories
-- **Error patterns**: Learns from failures
-
-CLI: `node .claude/intelligence/cli.js stats`
 
 Implements and manages the Raft consensus algorithm for distributed systems with strong consistency guarantees.
 
