@@ -1727,6 +1727,557 @@ npm install @neural-trader/core @neural-trader/strategies @neural-trader/mcp
 </details>
 
 <details>
+<summary><strong>🥋 Agentic-Jujutsu - Quantum-Resistant Version Control</strong></summary>
+
+[![npm](https://img.shields.io/npm/v/agentic-jujutsu.svg)](https://www.npmjs.com/package/agentic-jujutsu)
+[![License](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+
+### What is Agentic-Jujutsu?
+
+Agentic-Jujutsu is a **quantum-resistant, self-learning version control system** designed for AI agents. It combines lock-free concurrent operations with ReasoningBank trajectory learning for continuous improvement.
+
+| Traditional Git | Agentic-Jujutsu |
+|----------------|-----------------|
+| Lock-based commits | Lock-free (23x faster) |
+| Manual conflict resolution | 87% automatic resolution |
+| Static operations | Self-learning from patterns |
+| No quantum protection | SHA3-512 + HQC-128 |
+| Sequential agents | Concurrent multi-agent |
+
+### Key Features
+
+| Feature | Performance | Description |
+|---------|-------------|-------------|
+| **Concurrent Commits** | 350 ops/s | 23x faster than Git (15 ops/s) |
+| **Context Switching** | <100ms | 10x faster than Git (500-1000ms) |
+| **Conflict Resolution** | 87% auto | AI-powered pattern matching |
+| **Quantum Security** | <1ms verify | SHA3-512 fingerprints, HQC-128 encryption |
+| **ReasoningBank** | Continuous | Trajectory learning with verdicts |
+
+### Quick Start
+
+```bash
+# Install
+npm install agentic-jujutsu
+
+# Basic usage
+npx agentic-jujutsu
+```
+
+```typescript
+import { JjWrapper } from 'agentic-jujutsu';
+
+const jj = new JjWrapper();
+
+// Start learning trajectory
+jj.startTrajectory('Implement feature X');
+
+// Make changes and commit
+await jj.newCommit('Add authentication module');
+jj.addToTrajectory();
+
+// Finalize with success score
+jj.finalizeTrajectory(0.9, 'Feature implemented successfully');
+
+// Get AI-powered suggestions
+const suggestions = await jj.getSuggestions();
+```
+
+### Multi-Agent Coordination
+
+```typescript
+// Concurrent commits without locks
+const agents = ['agent-1', 'agent-2', 'agent-3'];
+await Promise.all(agents.map(agent =>
+  jj.newCommit(`Changes from ${agent}`)
+));
+// All commits succeed - no lock waiting!
+```
+
+> **Full Documentation**: [agentic-jujutsu README](./examples/agentic-jujutsu/README.md)
+
+</details>
+
+<details>
+<summary><strong>🔬 SciPix - Scientific Document OCR</strong></summary>
+
+[![crates.io](https://img.shields.io/crates/v/ruvector-scipix.svg)](https://crates.io/crates/ruvector-scipix)
+[![docs.rs](https://docs.rs/ruvector-scipix/badge.svg)](https://docs.rs/ruvector-scipix)
+[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+### What is SciPix?
+
+SciPix is a **blazing-fast, memory-safe OCR engine** written in pure Rust, purpose-built for scientific documents, mathematical equations, and technical diagrams.
+
+| Feature | SciPix | Tesseract | Mathpix |
+|---------|--------|-----------|---------|
+| Simple Text OCR | **50ms** | 120ms | 200ms* |
+| Math Equation | **80ms** | N/A | 150ms* |
+| Batch (100 images) | **2.1s** | 8.5s | N/A |
+| Memory Usage | **45MB** | 180MB | Cloud |
+| LaTeX Output | Yes | No | Yes |
+
+*API latency, not processing time
+
+### Key Features
+
+| Feature | Description |
+|---------|-------------|
+| **ONNX Runtime** | GPU-accelerated with CUDA, TensorRT, CoreML |
+| **LaTeX Output** | Mathematical equation recognition with LaTeX, MathML, AsciiMath |
+| **SIMD Optimized** | 4x faster image preprocessing with AVX2, SSE4, NEON |
+| **REST API** | Production-ready HTTP server with rate limiting |
+| **MCP Server** | Integrate with Claude, ChatGPT via Model Context Protocol |
+| **WebAssembly** | Run OCR directly in browsers |
+
+### Quick Start
+
+```bash
+# Add to Cargo.toml
+cargo add ruvector-scipix
+
+# With features
+ruvector-scipix = { version = "0.1.16", features = ["ocr", "math", "optimize"] }
+```
+
+```rust
+use ruvector_scipix::{SciPixOcr, OcrConfig};
+
+// Initialize OCR engine
+let ocr = SciPixOcr::new(OcrConfig::default())?;
+
+// Process scientific image
+let result = ocr.process_image("equation.png")?;
+println!("LaTeX: {}", result.latex);
+println!("Confidence: {:.2}%", result.confidence * 100.0);
+```
+
+### Use Cases
+
+- **Academic Paper Digitization** - Extract text and equations from scanned research papers
+- **Math Homework Assistance** - Convert handwritten equations to LaTeX for AI tutoring
+- **Technical Documentation** - Process engineering diagrams and scientific charts
+- **AI/LLM Integration** - Feed scientific content to language models via MCP
+
+> **Full Documentation**: [scipix README](./examples/scipix/README.md)
+
+</details>
+
+<details>
+<summary><strong>🧠 Meta-Cognition SNN - Spiking Neural Networks</strong></summary>
+
+### What is Meta-Cognition SNN?
+
+A hybrid AI architecture combining **Spiking Neural Networks (SNN)**, **SIMD-optimized vector operations**, and **5 attention mechanisms** with meta-cognitive self-discovery capabilities.
+
+| Capability | Performance | Description |
+|------------|-------------|-------------|
+| **Spiking Neural Networks** | 10-50x faster | LIF neurons + STDP learning with N-API SIMD |
+| **SIMD Vector Operations** | 5-54x faster | Loop-unrolled distance/dot product calculations |
+| **5 Attention Mechanisms** | Sub-millisecond | Multi-Head, Flash, Linear, Hyperbolic, MoE |
+| **Vector Search** | 150x faster | RuVector-powered semantic search |
+| **Meta-Cognition** | Autonomous | Self-discovering emergent capabilities |
+
+### SIMD Performance
+
+| Operation | Speedup | Notes |
+|-----------|---------|-------|
+| LIF Updates | **16.7x** | Leaky integrate-and-fire neurons |
+| Synaptic Forward | **14.9x** | Forward propagation |
+| STDP Learning | **26.3x** | Spike-timing dependent plasticity |
+| Distance (128d) | **54x** | Euclidean distance calculation |
+| Full Simulation | **18.4x** | End-to-end SNN simulation |
+
+### 5 Attention Mechanisms
+
+| Mechanism | Best For | Latency |
+|-----------|----------|---------|
+| **Flash** | Long sequences | 0.023ms |
+| **MoE** | Specialized domains | 0.021ms |
+| **Multi-Head** | Complex patterns | 0.047ms |
+| **Linear** | Real-time processing | 0.075ms |
+| **Hyperbolic** | Hierarchical data | 0.222ms |
+
+### Quick Start
+
+```bash
+# Install and run demos
+cd examples/meta-cognition-spiking-neural-network
+npm install
+node demos/run-all.js
+```
+
+```javascript
+const { createFeedforwardSNN, rateEncoding } = require('./demos/snn/lib/SpikingNeuralNetwork');
+
+// Create SNN with SIMD optimization
+const snn = createFeedforwardSNN([100, 50, 10], {
+  dt: 1.0,
+  tau: 20.0,
+  a_plus: 0.005,
+  lateral_inhibition: true
+});
+
+// Train with STDP
+const input = rateEncoding(pattern, snn.dt, 100);
+snn.step(input);
+```
+
+### 6 Emergent Discoveries
+
+1. Multi-Scale Attention Hierarchy (Novelty: 5/5)
+2. Spike Synchronization Patterns
+3. Attention-Gated Spike Propagation
+4. Temporal Coherence Emergence
+5. Emergent Sparsity (80% fewer active neurons)
+6. Meta-Plasticity (faster learning on later tasks)
+
+> **Full Documentation**: [meta-cognition-snn README](./examples/meta-cognition-spiking-neural-network/README.md)
+
+</details>
+
+<details>
+<summary><strong>🤖 RuvLLM - Self-Learning LLM Orchestration</strong></summary>
+
+[![Rust](https://img.shields.io/badge/rust-1.77%2B-orange.svg)](https://www.rust-lang.org/)
+[![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg)](LICENSE)
+[![HuggingFace](https://img.shields.io/badge/export-HuggingFace-yellow.svg)](#)
+
+### What is RuvLLM?
+
+RuvLLM is a **self-learning language model orchestration system** that combines frozen foundation models with adaptive memory and intelligent routing. Unlike traditional LLMs that rely solely on static parameters, RuvLLM continuously improves from every interaction.
+
+> *"The intelligence is not in one model anymore. It is in the loop."*
+
+### SONA: 3-Tier Temporal Learning
+
+| Loop | Frequency | Latency | Description |
+|------|-----------|---------|-------------|
+| **A: Instant** | Per-request | <100μs | MicroLoRA adaptation (rank 1-2) |
+| **B: Background** | Hourly | ~1.3ms | K-means++ clustering, base LoRA (rank 4-16) |
+| **C: Deep** | Weekly | N/A | EWC++ consolidation, concept hierarchies |
+
+### Core Components
+
+| Component | Description |
+|-----------|-------------|
+| **LFM2 Cortex** | Frozen reasoning engine (135M-2.6B params) |
+| **Ruvector Memory** | Adaptive synaptic mesh with HNSW indexing |
+| **FastGRNN Router** | Intelligent model selection circuit |
+| **Graph Attention** | 8-head attention with edge features |
+| **SONA Engine** | LoRA + EWC++ + ReasoningBank |
+
+### Performance (CPU-Only)
+
+| Metric | Value |
+|--------|-------|
+| **Initialization** | 3.71ms |
+| **Average Query** | 0.09ms |
+| **Session Query** | 0.04ms |
+| **Throughput** | ~38,000 q/s |
+| **Memory** | ~50MB |
+
+### Quick Start
+
+```rust
+use ruvllm::{RuvLLMOrchestrator, OrchestratorConfig};
+
+// Initialize orchestrator
+let config = OrchestratorConfig::default();
+let orchestrator = RuvLLMOrchestrator::new(config)?;
+
+// Query with automatic learning
+let response = orchestrator.query("Explain quantum entanglement").await?;
+println!("{}", response.text);
+
+// Response improves over time as SONA learns patterns
+```
+
+### Federated Learning
+
+```rust
+// Ephemeral agents collect trajectories
+let agent = EphemeralAgent::new("task-specific-agent");
+agent.process_task(&task).await?;
+let export = agent.export();
+
+// Central coordinator aggregates learning
+coordinator.accept_export(export)?;
+coordinator.consolidate();  // Share patterns with new agents
+```
+
+### Advanced Features
+
+- **SIMD Inference**: AVX2/AVX512/SSE4.1 optimization
+- **Q4 Quantization**: 4-bit weights for memory efficiency
+- **HuggingFace Export**: Export LoRA weights and preference pairs
+- **Multi-Model Routing**: SmolLM, Qwen2, TinyLlama selection
+- **WASM Support**: Run SONA in browsers and edge devices
+
+> **Full Documentation**: [ruvLLM README](./examples/ruvLLM/README.md)
+
+</details>
+
+<details>
+<summary><strong>🗜️ REFRAG - Compress-Sense-Expand RAG</strong></summary>
+
+### What is REFRAG?
+
+REFRAG implements the **Compress-Sense-Expand architecture** from [arXiv:2509.01092](https://arxiv.org/abs/2509.01092), achieving **~30x RAG latency reduction** by storing pre-computed representation tensors instead of raw text.
+
+### Architecture
+
+```
+┌────────────────┐    ┌────────────────┐    ┌────────────────┐
+│   COMPRESS     │───▶│     SENSE      │───▶│    EXPAND      │
+│    Layer       │    │     Layer      │    │    Layer       │
+└────────────────┘    └────────────────┘    └────────────────┘
+
+Binary tensor         Policy network        Dimension projection
+storage with          decides COMPRESS      (768 → 4096 dims)
+zero-copy access      vs EXPAND
+```
+
+### Compression Strategies
+
+| Strategy | Compression | Use Case |
+|----------|-------------|----------|
+| `None` | 1x | Maximum precision |
+| `Float16` | 2x | Good balance |
+| `Int8` | 4x | Memory constrained |
+| `Binary` | 32x | Extreme compression |
+
+### Policy Networks
+
+| Policy | Latency | Description |
+|--------|---------|-------------|
+| `ThresholdPolicy` | ~2μs | Cosine similarity threshold |
+| `LinearPolicy` | ~5μs | Single layer classifier |
+| `MLPPolicy` | ~15μs | Two-layer neural network |
+
+### Quick Start
+
+```bash
+# Run demo
+cargo run --bin refrag-demo
+
+# Run benchmarks
+cargo run --bin refrag-benchmark --release
+```
+
+```rust
+use refrag_pipeline_example::{RefragStore, RefragEntry};
+
+// Create REFRAG-enabled store
+let store = RefragStore::new(384, 768)?;
+
+// Insert with representation tensor
+let entry = RefragEntry::new("doc_1", search_vector, "The quick brown fox...")
+    .with_tensor(tensor_bytes, "llama3-8b");
+store.insert(entry)?;
+
+// Hybrid search (policy-based COMPRESS/EXPAND)
+let results = store.search_hybrid(&query, 10, Some(0.85))?;
+
+for result in results {
+    match result.response_type {
+        RefragResponseType::Compress => {
+            // Tensor directly injectable into LLM context
+            println!("Tensor: {} dims", result.tensor_dims.unwrap());
+        }
+        RefragResponseType::Expand => {
+            // Original text when full context needed
+            println!("Text: {}", result.content.unwrap());
+        }
+    }
+}
+```
+
+### Target LLM Dimensions
+
+| Source | Target | LLM |
+|--------|--------|-----|
+| 768 | 4096 | LLaMA-3 8B |
+| 768 | 8192 | LLaMA-3 70B |
+| 1536 | 8192 | GPT-4 |
+
+> **Full Documentation**: [refrag-pipeline README](./examples/refrag-pipeline/README.md)
+
+</details>
+
+<details>
+<summary><strong>🐦 7sense - Bioacoustic Intelligence Platform</strong></summary>
+
+[![Rust](https://img.shields.io/badge/rust-1.75+-orange.svg)](https://www.rust-lang.org)
+[![Tests](https://img.shields.io/badge/tests-329%20passed-brightgreen.svg)]()
+[![Coverage](https://img.shields.io/badge/coverage-85%25-green.svg)]()
+
+### What is 7sense?
+
+7sense transforms **bird calls into navigable geometric space** using cutting-edge AI and vector search. It converts audio recordings of bird songs into rich, searchable embeddings using Perch 2.0 neural networks and ultra-fast HNSW indexing.
+
+| Traditional Monitoring | 7sense |
+|----------------------|--------|
+| Expert human listeners | Instant AI species ID |
+| Basic spectrogram analysis | Neural embeddings (1536-dim) |
+| Limited scale | Millions of recordings |
+| Manual pattern finding | Automated discovery |
+
+### Performance Targets
+
+| Metric | Target | Status |
+|--------|--------|--------|
+| HNSW Search Speedup | 150x vs brute force | Achieved |
+| Query Latency (p99) | < 50ms | Achieved |
+| Recall@10 | >= 0.95 | Achieved |
+| Embedding Throughput | > 100 segments/sec | Achieved |
+| Memory per 1M vectors | < 6 GB | Achieved |
+
+### 9 Rust Crates
+
+| Crate | Description |
+|-------|-------------|
+| `sevensense-core` | Species taxonomy, temporal types |
+| `sevensense-audio` | WAV/MP3/FLAC, Mel spectrograms |
+| `sevensense-embedding` | Perch 2.0 ONNX, 1536-dim vectors |
+| `sevensense-vector` | HNSW with 150x speedup |
+| `sevensense-learning` | GNN training, EWC regularization |
+| `sevensense-analysis` | HDBSCAN clustering, Markov models |
+| `sevensense-interpretation` | Evidence packs, species narratives |
+| `sevensense-api` | GraphQL, REST, WebSocket streaming |
+| `sevensense-benches` | Criterion.rs performance suites |
+
+### Quick Start
+
+```bash
+# Build and run
+cd examples/vibecast-7sense
+cargo build --release
+cargo run -p sevensense-api --release
+```
+
+```rust
+use sevensense_audio::AudioProcessor;
+use sevensense_embedding::EmbeddingPipeline;
+use sevensense_vector::HnswIndex;
+
+// Load and process audio
+let processor = AudioProcessor::new(Default::default());
+let segments = processor.process_file("recording.wav").await?;
+
+// Generate Perch 2.0 embeddings
+let pipeline = EmbeddingPipeline::new(Default::default()).await?;
+let embeddings = pipeline.embed_segments(&segments).await?;
+
+// Search for similar calls (150x faster)
+let index = HnswIndex::new(Default::default());
+index.add_batch(&embeddings)?;
+let neighbors = index.search(&embeddings[0], 10)?;
+
+println!("Found {} similar bird calls", neighbors.len());
+```
+
+### Use Cases
+
+- **Species Identification** - Instant predictions with confidence scores
+- **Pattern Discovery** - Find similar calls across millions of recordings
+- **Behavioral Insights** - Detect singing patterns, dialects, anomalies
+- **Conservation Monitoring** - Track biodiversity at scale
+
+> **Full Documentation**: [7sense README](./examples/vibecast-7sense/README.md)
+
+</details>
+
+<details>
+<summary><strong>🧬 EXO-AI - Advanced Cognitive Substrate</strong></summary>
+
+[![crates.io](https://img.shields.io/crates/v/exo-core.svg)](https://crates.io/crates/exo-core)
+[![docs.rs](https://docs.rs/exo-core/badge.svg)](https://docs.rs/exo-core)
+[![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg)](LICENSE)
+
+### What is EXO-AI?
+
+EXO-AI 2025 is a comprehensive **cognitive substrate** implementing cutting-edge theories from neuroscience, physics, and consciousness research. It provides 9 interconnected Rust crates totaling ~15,800+ lines of research-grade code.
+
+> Traditional AI systems process information. EXO-AI aims to understand it.
+
+### SIMD-Accelerated Performance
+
+| Operation | Speedup | Notes |
+|-----------|---------|-------|
+| Distance (128d) | **54x** | AVX2/NEON optimized |
+| Cosine Similarity | **2.73x** | Batch operations |
+| Pattern Matching | **8-54x** | Loop-unrolled |
+| Meta-Simulation | **13+ quadrillion/s** | From ultra-low-latency-sim |
+
+### 9 Rust Crates
+
+| Crate | Description |
+|-------|-------------|
+| `exo-core` | IIT consciousness (Φ) measurement & Landauer thermodynamics |
+| `exo-temporal` | Temporal memory with causal tracking & consolidation |
+| `exo-hypergraph` | Topological analysis with persistent homology |
+| `exo-manifold` | SIREN networks + SIMD-accelerated retrieval |
+| `exo-exotic` | 10 cutting-edge cognitive experiments |
+| `exo-federation` | Post-quantum federated cognitive mesh |
+| `exo-backend-classical` | SIMD-accelerated compute backend |
+| `exo-wasm` | Browser & edge WASM deployment |
+| `exo-node` | Node.js bindings via NAPI-RS |
+
+### Key Theories Implemented
+
+| Theory | Implementation |
+|--------|---------------|
+| **IIT (Integrated Information Theory)** | Consciousness level (Φ) measurement |
+| **Landauer's Principle** | Computational thermodynamics |
+| **Free Energy Principle** | Friston's predictive processing |
+| **Strange Loops** | Hofstadter's self-referential patterns |
+| **Morphogenesis** | Pattern formation emergence |
+
+### Quick Start
+
+```toml
+[dependencies]
+exo-core = "0.1"
+exo-temporal = "0.1"
+exo-exotic = "0.1"
+exo-manifold = "0.1"  # SIMD acceleration!
+```
+
+```rust
+use exo_core::consciousness::{ConsciousnessSubstrate, IITConfig};
+use exo_core::thermodynamics::CognitiveThermometer;
+
+// Measure integrated information (Φ)
+let substrate = ConsciousnessSubstrate::new(IITConfig::default());
+substrate.add_pattern(pattern);
+let phi = substrate.compute_phi();
+println!("Consciousness level (Φ): {:.4}", phi);
+
+// Track computational thermodynamics
+let thermo = CognitiveThermometer::new(300.0); // Kelvin
+let cost = thermo.landauer_cost_bits(1024);
+println!("Landauer cost: {:.2e} J", cost);
+```
+
+### SIMD Pattern Retrieval
+
+```rust
+use exo_manifold::{ManifoldEngine, cosine_similarity_simd, batch_distances};
+
+// 54x faster similarity search
+let query = vec![0.5; 768];
+let results = engine.retrieve(&query, 10)?;
+
+// Batch distance computation
+let distances = batch_distances(&query, &database);  // 8-54x speedup
+```
+
+> **Full Documentation**: [exo-ai README](./examples/exo-ai-2025/README.md)
+
+</details>
+
+<details>
 <summary><strong>🐘 PostgreSQL Extension</strong></summary>
 
 [![crates.io](https://img.shields.io/crates/v/ruvector-postgres.svg)](https://crates.io/crates/ruvector-postgres)
