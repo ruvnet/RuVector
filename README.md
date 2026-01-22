@@ -1086,7 +1086,8 @@ See [ruvector-postgres README](./crates/ruvector-postgres/README.md) for full SQ
 
 </details>
 
-### Tools & Utilities
+<details>
+<summary>🛠️ Tools & Utilities</summary>
 
 | Crate | Description | crates.io |
 |-------|-------------|-----------|
@@ -1115,6 +1116,8 @@ let db = RvLite::new(128);  // 128-dim vectors
 db.insert(0, &embedding);
 let results = db.search(&query, 5);
 ```
+
+</details>
 
 <details>
 <summary>🌐 WASM Packages (Browser & Edge)</summary>
