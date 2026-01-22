@@ -595,29 +595,96 @@ RETURN related
 <details>
 <summary>📦 npm Packages (45+ Packages)</summary>
 
-#### ✅ Published
+#### Core Packages
 
 | Package | Description | Version | Downloads |
 |---------|-------------|---------|-----------|
 | [ruvector](https://www.npmjs.com/package/ruvector) | All-in-one CLI & package | [![npm](https://img.shields.io/npm/v/ruvector.svg)](https://www.npmjs.com/package/ruvector) | [![downloads](https://img.shields.io/npm/dt/ruvector.svg)](https://www.npmjs.com/package/ruvector) |
-| [@ruvector/core](https://www.npmjs.com/package/@ruvector/core) | Core vector database | [![npm](https://img.shields.io/npm/v/@ruvector/core.svg)](https://www.npmjs.com/package/@ruvector/core) | [![downloads](https://img.shields.io/npm/dt/@ruvector/core.svg)](https://www.npmjs.com/package/@ruvector/core) |
+| [@ruvector/core](https://www.npmjs.com/package/@ruvector/core) | Core vector database with HNSW | [![npm](https://img.shields.io/npm/v/@ruvector/core.svg)](https://www.npmjs.com/package/@ruvector/core) | [![downloads](https://img.shields.io/npm/dt/@ruvector/core.svg)](https://www.npmjs.com/package/@ruvector/core) |
+| [@ruvector/node](https://www.npmjs.com/package/@ruvector/node) | Unified Node.js bindings | [![npm](https://img.shields.io/npm/v/@ruvector/node.svg)](https://www.npmjs.com/package/@ruvector/node) | [![downloads](https://img.shields.io/npm/dt/@ruvector/node.svg)](https://www.npmjs.com/package/@ruvector/node) |
+| [ruvector-extensions](https://www.npmjs.com/package/ruvector-extensions) | Advanced features: embeddings, UI | [![npm](https://img.shields.io/npm/v/ruvector-extensions.svg)](https://www.npmjs.com/package/ruvector-extensions) | [![downloads](https://img.shields.io/npm/dt/ruvector-extensions.svg)](https://www.npmjs.com/package/ruvector-extensions) |
+
+#### Graph & GNN
+
+| Package | Description | Version | Downloads |
+|---------|-------------|---------|-----------|
 | [@ruvector/gnn](https://www.npmjs.com/package/@ruvector/gnn) | Graph Neural Network layers | [![npm](https://img.shields.io/npm/v/@ruvector/gnn.svg)](https://www.npmjs.com/package/@ruvector/gnn) | [![downloads](https://img.shields.io/npm/dt/@ruvector/gnn.svg)](https://www.npmjs.com/package/@ruvector/gnn) |
-| [@ruvector/graph-node](https://www.npmjs.com/package/@ruvector/graph-node) | Hypergraph with Cypher | [![npm](https://img.shields.io/npm/v/@ruvector/graph-node.svg)](https://www.npmjs.com/package/@ruvector/graph-node) | [![downloads](https://img.shields.io/npm/dt/@ruvector/graph-node.svg)](https://www.npmjs.com/package/@ruvector/graph-node) |
-| [@ruvector/tiny-dancer](https://www.npmjs.com/package/@ruvector/tiny-dancer) | FastGRNN AI routing | [![npm](https://img.shields.io/npm/v/@ruvector/tiny-dancer.svg)](https://www.npmjs.com/package/@ruvector/tiny-dancer) | [![downloads](https://img.shields.io/npm/dt/@ruvector/tiny-dancer.svg)](https://www.npmjs.com/package/@ruvector/tiny-dancer) |
+| [@ruvector/graph-node](https://www.npmjs.com/package/@ruvector/graph-node) | Hypergraph with Cypher queries | [![npm](https://img.shields.io/npm/v/@ruvector/graph-node.svg)](https://www.npmjs.com/package/@ruvector/graph-node) | [![downloads](https://img.shields.io/npm/dt/@ruvector/graph-node.svg)](https://www.npmjs.com/package/@ruvector/graph-node) |
+| [@ruvector/graph-wasm](https://www.npmjs.com/package/@ruvector/graph-wasm) | Browser graph queries | [![npm](https://img.shields.io/npm/v/@ruvector/graph-wasm.svg)](https://www.npmjs.com/package/@ruvector/graph-wasm) | [![downloads](https://img.shields.io/npm/dt/@ruvector/graph-wasm.svg)](https://www.npmjs.com/package/@ruvector/graph-wasm) |
+| [@ruvector/graph-data-generator](https://www.npmjs.com/package/@ruvector/graph-data-generator) | AI-powered synthetic graph data | [![npm](https://img.shields.io/npm/v/@ruvector/graph-data-generator.svg)](https://www.npmjs.com/package/@ruvector/graph-data-generator) | [![downloads](https://img.shields.io/npm/dt/@ruvector/graph-data-generator.svg)](https://www.npmjs.com/package/@ruvector/graph-data-generator) |
+
+#### AI Routing & Attention
+
+| Package | Description | Version | Downloads |
+|---------|-------------|---------|-----------|
+| [@ruvector/tiny-dancer](https://www.npmjs.com/package/@ruvector/tiny-dancer) | FastGRNN neural routing | [![npm](https://img.shields.io/npm/v/@ruvector/tiny-dancer.svg)](https://www.npmjs.com/package/@ruvector/tiny-dancer) | [![downloads](https://img.shields.io/npm/dt/@ruvector/tiny-dancer.svg)](https://www.npmjs.com/package/@ruvector/tiny-dancer) |
 | [@ruvector/router](https://www.npmjs.com/package/@ruvector/router) | Semantic router + HNSW | [![npm](https://img.shields.io/npm/v/@ruvector/router.svg)](https://www.npmjs.com/package/@ruvector/router) | [![downloads](https://img.shields.io/npm/dt/@ruvector/router.svg)](https://www.npmjs.com/package/@ruvector/router) |
 | [@ruvector/attention](https://www.npmjs.com/package/@ruvector/attention) | 39 attention mechanisms | [![npm](https://img.shields.io/npm/v/@ruvector/attention.svg)](https://www.npmjs.com/package/@ruvector/attention) | [![downloads](https://img.shields.io/npm/dt/@ruvector/attention.svg)](https://www.npmjs.com/package/@ruvector/attention) |
+
+#### Learning & Neural
+
+| Package | Description | Version | Downloads |
+|---------|-------------|---------|-----------|
 | [@ruvector/sona](https://www.npmjs.com/package/@ruvector/sona) | Self-Optimizing Neural Architecture | [![npm](https://img.shields.io/npm/v/@ruvector/sona.svg)](https://www.npmjs.com/package/@ruvector/sona) | [![downloads](https://img.shields.io/npm/dt/@ruvector/sona.svg)](https://www.npmjs.com/package/@ruvector/sona) |
+| [@ruvector/spiking-neural](https://www.npmjs.com/package/@ruvector/spiking-neural) | Spiking neural networks (SNN) | [![npm](https://img.shields.io/npm/v/@ruvector/spiking-neural.svg)](https://www.npmjs.com/package/@ruvector/spiking-neural) | [![downloads](https://img.shields.io/npm/dt/@ruvector/spiking-neural.svg)](https://www.npmjs.com/package/@ruvector/spiking-neural) |
+
+#### LLM Runtime
+
+| Package | Description | Version | Downloads |
+|---------|-------------|---------|-----------|
 | [@ruvector/ruvllm](https://www.npmjs.com/package/@ruvector/ruvllm) | LLM orchestration + SONA | [![npm](https://img.shields.io/npm/v/@ruvector/ruvllm.svg)](https://www.npmjs.com/package/@ruvector/ruvllm) | [![downloads](https://img.shields.io/npm/dt/@ruvector/ruvllm.svg)](https://www.npmjs.com/package/@ruvector/ruvllm) |
-| [@ruvector/cli](https://www.npmjs.com/package/@ruvector/cli) | CLI + self-learning hooks | [![npm](https://img.shields.io/npm/v/@ruvector/cli.svg)](https://www.npmjs.com/package/@ruvector/cli) | [![downloads](https://img.shields.io/npm/dt/@ruvector/cli.svg)](https://www.npmjs.com/package/@ruvector/cli) |
-| [@ruvector/rvlite](https://www.npmjs.com/package/@ruvector/rvlite) | SQLite-style edge DB | [![npm](https://img.shields.io/npm/v/@ruvector/rvlite.svg)](https://www.npmjs.com/package/@ruvector/rvlite) | [![downloads](https://img.shields.io/npm/dt/@ruvector/rvlite.svg)](https://www.npmjs.com/package/@ruvector/rvlite) |
+| [@ruvector/ruvllm-cli](https://www.npmjs.com/package/@ruvector/ruvllm-cli) | LLM CLI: inference, benchmarks | [![npm](https://img.shields.io/npm/v/@ruvector/ruvllm-cli.svg)](https://www.npmjs.com/package/@ruvector/ruvllm-cli) | [![downloads](https://img.shields.io/npm/dt/@ruvector/ruvllm-cli.svg)](https://www.npmjs.com/package/@ruvector/ruvllm-cli) |
+| [@ruvector/ruvllm-wasm](https://www.npmjs.com/package/@ruvector/ruvllm-wasm) | Browser LLM inference | [![npm](https://img.shields.io/npm/v/@ruvector/ruvllm-wasm.svg)](https://www.npmjs.com/package/@ruvector/ruvllm-wasm) | [![downloads](https://img.shields.io/npm/dt/@ruvector/ruvllm-wasm.svg)](https://www.npmjs.com/package/@ruvector/ruvllm-wasm) |
+
+#### Distributed Systems
+
+| Package | Description | Version | Downloads |
+|---------|-------------|---------|-----------|
 | [@ruvector/cluster](https://www.npmjs.com/package/@ruvector/cluster) | Distributed clustering | [![npm](https://img.shields.io/npm/v/@ruvector/cluster.svg)](https://www.npmjs.com/package/@ruvector/cluster) | [![downloads](https://img.shields.io/npm/dt/@ruvector/cluster.svg)](https://www.npmjs.com/package/@ruvector/cluster) |
 | [@ruvector/server](https://www.npmjs.com/package/@ruvector/server) | HTTP/gRPC server | [![npm](https://img.shields.io/npm/v/@ruvector/server.svg)](https://www.npmjs.com/package/@ruvector/server) | [![downloads](https://img.shields.io/npm/dt/@ruvector/server.svg)](https://www.npmjs.com/package/@ruvector/server) |
-| [@ruvector/rudag](https://www.npmjs.com/package/@ruvector/rudag) | Self-learning DAG | [![npm](https://img.shields.io/npm/v/@ruvector/rudag.svg)](https://www.npmjs.com/package/@ruvector/rudag) | [![downloads](https://img.shields.io/npm/dt/@ruvector/rudag.svg)](https://www.npmjs.com/package/@ruvector/rudag) |
+| [@ruvector/raft](https://www.npmjs.com/package/@ruvector/raft) | Raft consensus | [![npm](https://img.shields.io/npm/v/@ruvector/raft.svg)](https://www.npmjs.com/package/@ruvector/raft) | [![downloads](https://img.shields.io/npm/dt/@ruvector/raft.svg)](https://www.npmjs.com/package/@ruvector/raft) |
+| [@ruvector/replication](https://www.npmjs.com/package/@ruvector/replication) | Multi-master replication | [![npm](https://img.shields.io/npm/v/@ruvector/replication.svg)](https://www.npmjs.com/package/@ruvector/replication) | [![downloads](https://img.shields.io/npm/dt/@ruvector/replication.svg)](https://www.npmjs.com/package/@ruvector/replication) |
 | [@ruvector/burst-scaling](https://www.npmjs.com/package/@ruvector/burst-scaling) | 10-50x burst scaling | [![npm](https://img.shields.io/npm/v/@ruvector/burst-scaling.svg)](https://www.npmjs.com/package/@ruvector/burst-scaling) | [![downloads](https://img.shields.io/npm/dt/@ruvector/burst-scaling.svg)](https://www.npmjs.com/package/@ruvector/burst-scaling) |
-| [@ruvector/spiking-neural](https://www.npmjs.com/package/@ruvector/spiking-neural) | Spiking neural networks | [![npm](https://img.shields.io/npm/v/@ruvector/spiking-neural.svg)](https://www.npmjs.com/package/@ruvector/spiking-neural) | [![downloads](https://img.shields.io/npm/dt/@ruvector/spiking-neural.svg)](https://www.npmjs.com/package/@ruvector/spiking-neural) |
-| [@ruvector/raft](https://www.npmjs.com/package/@ruvector/raft) | Raft consensus for distributed systems | [![npm](https://img.shields.io/npm/v/@ruvector/raft.svg)](https://www.npmjs.com/package/@ruvector/raft) | [![downloads](https://img.shields.io/npm/dt/@ruvector/raft.svg)](https://www.npmjs.com/package/@ruvector/raft) |
-| [@ruvector/replication](https://www.npmjs.com/package/@ruvector/replication) | Multi-master replication with vector clocks | [![npm](https://img.shields.io/npm/v/@ruvector/replication.svg)](https://www.npmjs.com/package/@ruvector/replication) | [![downloads](https://img.shields.io/npm/dt/@ruvector/replication.svg)](https://www.npmjs.com/package/@ruvector/replication) |
-| [@ruvector/scipix](https://www.npmjs.com/package/@ruvector/scipix) | Scientific OCR (LaTeX/MathML extraction) | [![npm](https://img.shields.io/npm/v/@ruvector/scipix.svg)](https://www.npmjs.com/package/@ruvector/scipix) | [![downloads](https://img.shields.io/npm/dt/@ruvector/scipix.svg)](https://www.npmjs.com/package/@ruvector/scipix) |
+
+#### Edge & Standalone
+
+| Package | Description | Version | Downloads |
+|---------|-------------|---------|-----------|
+| [rvlite](https://www.npmjs.com/package/rvlite) | SQLite-style edge DB | [![npm](https://img.shields.io/npm/v/rvlite.svg)](https://www.npmjs.com/package/rvlite) | [![downloads](https://img.shields.io/npm/dt/rvlite.svg)](https://www.npmjs.com/package/rvlite) |
+| [@ruvector/rudag](https://www.npmjs.com/package/@ruvector/rudag) | Self-learning DAG | [![npm](https://img.shields.io/npm/v/@ruvector/rudag.svg)](https://www.npmjs.com/package/@ruvector/rudag) | [![downloads](https://img.shields.io/npm/dt/@ruvector/rudag.svg)](https://www.npmjs.com/package/@ruvector/rudag) |
+
+#### Agentic & Synthetic Data
+
+| Package | Description | Version | Downloads |
+|---------|-------------|---------|-----------|
+| [@ruvector/agentic-synth](https://www.npmjs.com/package/@ruvector/agentic-synth) | AI synthetic data generator | [![npm](https://img.shields.io/npm/v/@ruvector/agentic-synth.svg)](https://www.npmjs.com/package/@ruvector/agentic-synth) | [![downloads](https://img.shields.io/npm/dt/@ruvector/agentic-synth.svg)](https://www.npmjs.com/package/@ruvector/agentic-synth) |
+| [@ruvector/agentic-integration](https://www.npmjs.com/package/@ruvector/agentic-integration) | Distributed agent coordination | [![npm](https://img.shields.io/npm/v/@ruvector/agentic-integration.svg)](https://www.npmjs.com/package/@ruvector/agentic-integration) | [![downloads](https://img.shields.io/npm/dt/@ruvector/agentic-integration.svg)](https://www.npmjs.com/package/@ruvector/agentic-integration) |
+| [@cognitum/gate](https://www.npmjs.com/package/@cognitum/gate) | AI coherence gate | [![npm](https://img.shields.io/npm/v/@cognitum/gate.svg)](https://www.npmjs.com/package/@cognitum/gate) | [![downloads](https://img.shields.io/npm/dt/@cognitum/gate.svg)](https://www.npmjs.com/package/@cognitum/gate) |
+
+#### CLI Tools
+
+| Package | Description | Version | Downloads |
+|---------|-------------|---------|-----------|
+| [@ruvector/cli](https://www.npmjs.com/package/@ruvector/cli) | CLI + self-learning hooks | [![npm](https://img.shields.io/npm/v/@ruvector/cli.svg)](https://www.npmjs.com/package/@ruvector/cli) | [![downloads](https://img.shields.io/npm/dt/@ruvector/cli.svg)](https://www.npmjs.com/package/@ruvector/cli) |
+| [@ruvector/postgres-cli](https://www.npmjs.com/package/@ruvector/postgres-cli) | PostgreSQL extension CLI | [![npm](https://img.shields.io/npm/v/@ruvector/postgres-cli.svg)](https://www.npmjs.com/package/@ruvector/postgres-cli) | [![downloads](https://img.shields.io/npm/dt/@ruvector/postgres-cli.svg)](https://www.npmjs.com/package/@ruvector/postgres-cli) |
+| [@ruvector/scipix](https://www.npmjs.com/package/@ruvector/scipix) | Scientific OCR client | [![npm](https://img.shields.io/npm/v/@ruvector/scipix.svg)](https://www.npmjs.com/package/@ruvector/scipix) | [![downloads](https://img.shields.io/npm/dt/@ruvector/scipix.svg)](https://www.npmjs.com/package/@ruvector/scipix) |
+
+#### WASM Packages
+
+| Package | Description | Version | Downloads |
+|---------|-------------|---------|-----------|
+| [@ruvector/wasm](https://www.npmjs.com/package/@ruvector/wasm) | Unified WASM meta-package | [![npm](https://img.shields.io/npm/v/@ruvector/wasm.svg)](https://www.npmjs.com/package/@ruvector/wasm) | [![downloads](https://img.shields.io/npm/dt/@ruvector/wasm.svg)](https://www.npmjs.com/package/@ruvector/wasm) |
+| [@ruvector/wasm-unified](https://www.npmjs.com/package/@ruvector/wasm-unified) | Unified TypeScript API | [![npm](https://img.shields.io/npm/v/@ruvector/wasm-unified.svg)](https://www.npmjs.com/package/@ruvector/wasm-unified) | [![downloads](https://img.shields.io/npm/dt/@ruvector/wasm-unified.svg)](https://www.npmjs.com/package/@ruvector/wasm-unified) |
+| [@ruvector/gnn-wasm](https://www.npmjs.com/package/@ruvector/gnn-wasm) | GNN WASM bindings | [![npm](https://img.shields.io/npm/v/@ruvector/gnn-wasm.svg)](https://www.npmjs.com/package/@ruvector/gnn-wasm) | [![downloads](https://img.shields.io/npm/dt/@ruvector/gnn-wasm.svg)](https://www.npmjs.com/package/@ruvector/gnn-wasm) |
+| [@ruvector/attention-wasm](https://www.npmjs.com/package/@ruvector/attention-wasm) | Attention WASM bindings | [![npm](https://img.shields.io/npm/v/@ruvector/attention-wasm.svg)](https://www.npmjs.com/package/@ruvector/attention-wasm) | [![downloads](https://img.shields.io/npm/dt/@ruvector/attention-wasm.svg)](https://www.npmjs.com/package/@ruvector/attention-wasm) |
+| [@ruvector/attention-unified-wasm](https://www.npmjs.com/package/@ruvector/attention-unified-wasm) | All 39 attention mechanisms | [![npm](https://img.shields.io/npm/v/@ruvector/attention-unified-wasm.svg)](https://www.npmjs.com/package/@ruvector/attention-unified-wasm) | [![downloads](https://img.shields.io/npm/dt/@ruvector/attention-unified-wasm.svg)](https://www.npmjs.com/package/@ruvector/attention-unified-wasm) |
+| [@ruvector/tiny-dancer-wasm](https://www.npmjs.com/package/@ruvector/tiny-dancer-wasm) | AI routing WASM | [![npm](https://img.shields.io/npm/v/@ruvector/tiny-dancer-wasm.svg)](https://www.npmjs.com/package/@ruvector/tiny-dancer-wasm) | [![downloads](https://img.shields.io/npm/dt/@ruvector/tiny-dancer-wasm.svg)](https://www.npmjs.com/package/@ruvector/tiny-dancer-wasm) |
+| [@ruvector/router-wasm](https://www.npmjs.com/package/@ruvector/router-wasm) | Semantic router WASM | [![npm](https://img.shields.io/npm/v/@ruvector/router-wasm.svg)](https://www.npmjs.com/package/@ruvector/router-wasm) | [![downloads](https://img.shields.io/npm/dt/@ruvector/router-wasm.svg)](https://www.npmjs.com/package/@ruvector/router-wasm) |
+| [@ruvector/learning-wasm](https://www.npmjs.com/package/@ruvector/learning-wasm) | Learning module WASM | [![npm](https://img.shields.io/npm/v/@ruvector/learning-wasm.svg)](https://www.npmjs.com/package/@ruvector/learning-wasm) | [![downloads](https://img.shields.io/npm/dt/@ruvector/learning-wasm.svg)](https://www.npmjs.com/package/@ruvector/learning-wasm) |
+| [@ruvector/economy-wasm](https://www.npmjs.com/package/@ruvector/economy-wasm) | Tokenomics WASM | [![npm](https://img.shields.io/npm/v/@ruvector/economy-wasm.svg)](https://www.npmjs.com/package/@ruvector/economy-wasm) | [![downloads](https://img.shields.io/npm/dt/@ruvector/economy-wasm.svg)](https://www.npmjs.com/package/@ruvector/economy-wasm) |
+| [@ruvector/exotic-wasm](https://www.npmjs.com/package/@ruvector/exotic-wasm) | Exotic features WASM | [![npm](https://img.shields.io/npm/v/@ruvector/exotic-wasm.svg)](https://www.npmjs.com/package/@ruvector/exotic-wasm) | [![downloads](https://img.shields.io/npm/dt/@ruvector/exotic-wasm.svg)](https://www.npmjs.com/package/@ruvector/exotic-wasm) |
+| [@ruvector/nervous-system-wasm](https://www.npmjs.com/package/@ruvector/nervous-system-wasm) | Nervous system WASM | [![npm](https://img.shields.io/npm/v/@ruvector/nervous-system-wasm.svg)](https://www.npmjs.com/package/@ruvector/nervous-system-wasm) | [![downloads](https://img.shields.io/npm/dt/@ruvector/nervous-system-wasm.svg)](https://www.npmjs.com/package/@ruvector/nervous-system-wasm) |
+
 </details>
 
 <details>
