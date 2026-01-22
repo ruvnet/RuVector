@@ -642,6 +642,38 @@ network.enable_stdp();                    // Spike-timing plasticity
 let output = network.forward(&input_spikes);
 ```
 
+### Neuromorphic Computing (micro-hnsw v2.3)
+
+Novel neuromorphic discoveries for brain-inspired vector search in **11.8KB WASM**.
+
+| Discovery | Description | Benefit |
+|-----------|-------------|---------|
+| **Spike-Timing Vector Encoding** | Convert vectors to temporal spike patterns | Temporal similarity matching |
+| **Homeostatic Plasticity** | Self-stabilizing network activity | Prevents runaway activation |
+| **Oscillatory Resonance** | Gamma-frequency (40Hz) search amplification | Improved recall via resonance |
+| **Winner-Take-All Circuits** | Competitive neural selection with lateral inhibition | Sparse, efficient representations |
+| **Dendritic Computation** | Non-linear local processing in dendrites | Complex pattern detection |
+| **STDP Learning** | Spike-Timing Dependent Plasticity | Unsupervised Hebbian learning |
+
+```rust
+// micro-hnsw: Neuromorphic HNSW in 11.8KB WASM
+use micro_hnsw_wasm::{MicroHnsw, LIFNeuron, SpikeTrain};
+
+// 256 cores × 32 vectors = 8K total capacity
+let mut hnsw = MicroHnsw::new(16, Metric::Cosine);  // 16-dim vectors
+
+// Spike-timing vector encoding
+let spike_train = SpikeTrain::encode(&embedding, 8);  // 8-bit temporal resolution
+
+// LIF neuron with STDP learning
+let neuron = LIFNeuron::new(0.8);  // threshold = 0.8
+neuron.enable_stdp(0.01, 0.012);   // A+ = 0.01, A- = 0.012
+neuron.enable_homeostasis(0.1);    // Target rate: 0.1 spikes/ms
+
+// Winner-take-all search with lateral inhibition
+let results = hnsw.search_wta(&query, 10, 0.8);  // WTA inhibition = 0.8
+```
+
 ### Distributed & Enterprise
 
 | Use Case | Features Used | Example |
@@ -668,6 +700,76 @@ CREATE INDEX ON documents USING hnsw_gnn (embedding);
 SELECT * FROM documents
 ORDER BY embedding <-> query_vector
 LIMIT 10;
+```
+
+### AI Safety & Coherence (Cognitum Gate)
+
+A **256-tile WASM fabric** for real-time AI agent safety decisions with cryptographic verification.
+
+| Component | Description | Memory |
+|-----------|-------------|--------|
+| **Worker Tiles (255)** | Local graph shards, evidence accumulation, witness fragments | 64KB each |
+| **TileZero Arbiter** | Supergraph merging, global decisions, permit tokens | Central |
+| **Gate Decisions** | Permit / Defer / Deny with confidence scores | <1ms |
+| **Witness Receipts** | Hash-chained cryptographic audit trail | Immutable |
+
+| Feature | Description |
+|---------|-------------|
+| **Anytime-Valid Testing** | Sequential hypothesis testing with e-values |
+| **Min-Cut Aggregation** | Global coherence via distributed min-cut |
+| **Signed Permits** | Cryptographic tokens for approved actions |
+| **Evidence Filters** | Three-filter decision system (structural, evidence, combined) |
+
+```rust
+// Cognitum Gate: AI agent safety in microseconds
+use cognitum_gate_tilezero::{GateDecision, ActionContext, PermitToken};
+
+let gate = CoherenceGate::new_256_tiles();
+
+// Evaluate action safety
+let context = ActionContext {
+    action_id: "deploy-model-v2".into(),
+    action_type: "config_change".into(),
+    agent_id: "coder-agent-01".into(),
+    ..Default::default()
+};
+
+let decision = gate.evaluate(&context).await?;
+
+match decision {
+    GateDecision::Permit(token) => {
+        // Cryptographically signed permit token
+        assert!(token.verify(&gate.public_key()));
+        execute_action(token);
+    }
+    GateDecision::Defer(reason) => {
+        // Needs more evidence - retry later
+        log::info!("Deferred: {}", reason);
+    }
+    GateDecision::Deny(evidence) => {
+        // Action blocked with witness receipt
+        log::warn!("Denied: {:?}", evidence);
+    }
+}
+```
+
+```javascript
+// Browser: Real-time safety checks via WASM
+import { CognitumGate } from '@cognitum/gate';
+
+const gate = await CognitumGate.init();
+
+// Check action in <1ms
+const result = await gate.evaluate({
+  action: 'modify_user_data',
+  agent: 'assistant-v3',
+  context: { user_id: '12345' }
+});
+
+if (result.permitted) {
+  const receipt = result.witnessReceipt;  // Hash-chained audit log
+  console.log('Permit token:', result.token);
+}
 ```
 
 ### Dynamic Embedding Fine-Tuning
