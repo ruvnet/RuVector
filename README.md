@@ -2,6 +2,7 @@
 
 [![Crates.io](https://img.shields.io/crates/v/ruvector-core.svg)](https://crates.io/crates/ruvector-core)
 [![npm](https://img.shields.io/npm/v/ruvector.svg)](https://www.npmjs.com/package/ruvector)
+[![npm Downloads](https://img.shields.io/npm/dt/ruvector.svg?label=total)](https://www.npmjs.com/package/ruvector)
 [![npm Downloads](https://img.shields.io/npm/dm/ruvector.svg?label=monthly)](https://www.npmjs.com/package/ruvector)
 [![HuggingFace](https://img.shields.io/badge/🤗-RuvLTRA_Models-yellow.svg)](https://huggingface.co/ruv/ruvltra)
 [![ruv.io](https://img.shields.io/badge/ruv.io-website-purple.svg)](https://ruv.io)
