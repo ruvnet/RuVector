@@ -218,7 +218,7 @@ npx ruvector
 | **AI Agent Routing** | ✅ Tiny Dancer | ❌ | ❌ | ❌ | ❌ |
 | **Attention Mechanisms** | ✅ 39 types | ❌ | ❌ | ❌ | ❌ |
 | **Hyperbolic Embeddings** | ✅ Poincaré+Lorentz | ❌ | ❌ | ❌ | ❌ |
-| **Local Embeddings** | ✅ 6 models | ❌ | ❌ | ❌ | ❌ |
+| **Local Embeddings** | ✅ 8+ models | ❌ | ❌ | ❌ | ❌ |
 | **PostgreSQL Extension** | ✅ 77+ functions | ❌ | ❌ | ❌ | ❌ |
 | **SIMD Optimization** | ✅ AVX-512/NEON | Partial | ✅ | ✅ | ❌ |
 | **Metadata Filtering** | ✅ | ✅ | ✅ | ✅ | ✅ |
@@ -228,7 +228,7 @@ npx ruvector
 | **Auto-Sharding** | ✅ | ✅ | ✅ | ✅ | ❌ |
 | **Auto-Compression** | ✅ 2-32x | ❌ | ❌ | ✅ | ❌ |
 | **Snapshots/Backups** | ✅ | ✅ | ✅ | ✅ | ❌ |
-| **Browser/WASM** | ✅ | ❌ | ❌ | ❌ | ❌ |
+| **Browser/WASM** | ✅ WebGPU | ❌ | ❌ | ❌ | ❌ |
 | **Standalone Edge DB** | ✅ rvLite | ❌ | ❌ | ❌ | ❌ |
 | **LLM Runtime** | ✅ ruvllm | ❌ | ❌ | ❌ | ❌ |
 | **Pre-trained Models** | ✅ RuvLTRA (HF) | ❌ | ❌ | ❌ | ❌ |
@@ -240,6 +240,16 @@ npx ruvector
 | **Local ONNX Embeddings** | ✅ 8+ models | ❌ | ❌ | ❌ | ❌ |
 | **Differentiable** | ✅ | ❌ | ❌ | ❌ | ❌ |
 | **Multi-Tenancy** | ✅ Collections | ✅ | ✅ | ✅ | ✅ |
+| **DAG Workflows** | ✅ Self-learning | ❌ | ❌ | ❌ | ❌ |
+| **ReasoningBank** | ✅ Trajectory learning | ❌ | ❌ | ❌ | ❌ |
+| **Economy System** | ✅ CRDT tokenomics | ❌ | ❌ | ❌ | ❌ |
+| **Nervous System** | ✅ Event-driven | ❌ | ❌ | ❌ | ❌ |
+| **Cognitum Gate** | ✅ TileZero | ❌ | ❌ | ❌ | ❌ |
+| **SciPix OCR** | ✅ LaTeX/MathML | ❌ | ❌ | ❌ | ❌ |
+| **Spiking Neural Nets** | ✅ Neuromorphic | ❌ | ❌ | ❌ | ❌ |
+| **Node.js Native** | ✅ napi-rs | ❌ | ❌ | ❌ | ✅ |
+| **Burst Scaling** | ✅ 10-50x | ✅ | ❌ | ✅ | ❌ |
+| **Streaming API** | ✅ | ✅ | ✅ | ✅ | ❌ |
 | **Open Source** | ✅ MIT | ❌ | ✅ | ✅ | ✅ |
 
 *With PQ8 compression. Benchmarks on Apple M2 / Intel i7.
@@ -259,6 +269,41 @@ npx ruvector
 | **Hyperedges** | Connect 3+ nodes at once | Model complex relationships |
 | **Metadata Filtering** | Filter vectors by properties | Combine semantic + structured search |
 | **Collections** | Namespace isolation, multi-tenancy | Organize vectors by project/user |
+| **Hyperbolic HNSW** | Poincaré ball indexing for hierarchies | Better tree/taxonomy embeddings |
+| **Sparse Vectors** | BM25/TF-IDF hybrid search | Combine keyword + semantic |
+
+### LLM Runtime
+
+| Feature | What It Does | Why It Matters |
+|---------|--------------|----------------|
+| **ruvllm** | Local LLM inference with GGUF models | Run AI without cloud APIs |
+| **Metal/CUDA/ANE** | Hardware acceleration on Mac/NVIDIA/Apple | 10-50x faster inference |
+| **ruvllm-wasm** | Browser LLM with WebGPU acceleration | Client-side AI, zero latency |
+| **RuvLTRA Models** | Pre-trained GGUF for routing & embeddings | <10ms inference → [HuggingFace](https://huggingface.co/ruv/ruvltra) |
+| **Streaming Tokens** | Real-time token generation | Responsive chat UX |
+| **Quantization** | Q4, Q5, Q8 model support | Run 7B models in 4GB RAM |
+
+```bash
+npm install @ruvector/ruvllm        # Node.js
+cargo add ruvllm                    # Rust
+```
+
+### Platform & Edge
+
+| Feature | What It Does | Why It Matters |
+|---------|--------------|----------------|
+| **rvLite** | Standalone 2MB edge database | IoT, mobile, embedded |
+| **PostgreSQL Extension** | 77+ SQL functions, pgvector replacement | Drop-in upgrade for existing DBs |
+| **MCP Server** | Model Context Protocol integration | AI assistant tool calling |
+| **WASM/Browser** | Full client-side vector search | Offline-first apps |
+| **Node.js Bindings** | Native napi-rs, zero-copy | No serialization overhead |
+| **HTTP/gRPC Server** | REST API with streaming | Easy microservice integration |
+
+```bash
+docker pull ruvnet/ruvector-postgres    # PostgreSQL
+npm install rvlite                       # Edge DB
+npx ruvector mcp start                   # MCP Server
+```
 
 ### Distributed Systems
 
@@ -269,6 +314,7 @@ npx ruvector
 | **Multi-Master Replication** | Write to any node, conflict resolution | High availability, no SPOF |
 | **Snapshots** | Point-in-time backups, incremental | Disaster recovery |
 | **Cluster Metrics** | Prometheus-compatible monitoring | Observability at scale |
+| **Burst Scaling** | 10-50x capacity for traffic spikes | Handle viral moments |
 
 ```bash
 cargo add ruvector-raft ruvector-cluster ruvector-replication
@@ -285,6 +331,35 @@ cargo add ruvector-raft ruvector-cluster ruvector-replication
 | **Tiny Dancer** | FastGRNN neural inference | Optimize LLM inference costs |
 | **Adaptive Routing** | Learn optimal routing strategies | Minimize latency, maximize accuracy |
 | **SONA** | Two-tier LoRA + EWC++ + ReasoningBank | Runtime learning without retraining |
+| **Local Embeddings** | 8+ ONNX models built-in | No external API needed |
+
+### Specialized Processing
+
+| Feature | What It Does | Why It Matters |
+|---------|--------------|----------------|
+| **SciPix OCR** | LaTeX/MathML from scientific docs | Index research papers |
+| **DAG Workflows** | Self-learning directed acyclic graphs | Complex pipeline orchestration |
+| **Cognitum Gate** | Cognitive AI gateway + TileZero | Unified AI model routing |
+| **FPGA Transformer** | Hardware-accelerated inference | Ultra-low latency serving |
+| **ruQu Quantum** | Quantum error correction via min-cut | Future-proof algorithms |
+| **Mincut-Gated Transformer** | Dynamic attention via graph optimization | **50% compute reduction** |
+| **Sparse Inference** | Efficient sparse matrix operations | 10x faster for sparse data |
+
+### Self-Learning & Adaptation
+
+| Feature | What It Does | Why It Matters |
+|---------|--------------|----------------|
+| **Self-Learning Hooks** | Q-learning + neural patterns + HNSW | System improves automatically |
+| **ReasoningBank** | Trajectory learning with verdict judgment | Learn from successes/failures |
+| **Economy System** | Tokenomics, CRDT-based distributed state | Incentivize agent behavior |
+| **Nervous System** | Event-driven reactive architecture | Real-time adaptation |
+| **Agentic Synthesis** | Multi-agent workflow composition | Emergent problem solving |
+| **EWC++** | Elastic weight consolidation | Prevent catastrophic forgetting |
+
+```bash
+npx @ruvector/cli hooks init      # Install self-learning hooks
+npx @ruvector/cli hooks install   # Configure for Claude Code
+```
 
 ### Attention Mechanisms (`@ruvector/attention`)
 
