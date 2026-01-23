@@ -174,6 +174,12 @@ pub mod execution;
 /// Storage layer - PostgreSQL authority, ruvector graph/vector, event log
 pub mod storage;
 
+/// Security module - input validation, resource limits, path sanitization
+pub mod security;
+
+/// Cohomology computation - sheaf cohomology, obstruction detection, sheaf neural networks
+pub mod cohomology;
+
 // -----------------------------------------------------------------------------
 // Ecosystem Integration Modules
 // -----------------------------------------------------------------------------
@@ -263,6 +269,12 @@ pub use error::{
     CoherenceError, SubstrateError, GovernanceError, ExecutionError, StorageError,
 };
 
+// Re-export security types
+pub use security::{
+    GraphLimits, ResourceLimits, SecurityConfig,
+    InputValidator, PathValidator, StateValidator, ValidationError, ValidationResult,
+};
+
 pub use events::DomainEvent;
 
 // Re-export substrate types
@@ -275,6 +287,27 @@ pub use substrate::{
 pub use coherence::{
     CoherenceEngine, CoherenceEnergy, CoherenceConfig,
     ResidualCache, EnergyHistory,
+};
+
+// Re-export cohomology types
+pub use cohomology::{
+    // Simplex and simplicial complex
+    Simplex, SimplexId, SimplicialComplex, Chain, Cochain,
+    // Sheaf types
+    Sheaf, Stalk, SheafSection, LocalSection, SheafBuilder,
+    // Cocycle and coboundary
+    Cocycle, CocycleBuilder, Coboundary,
+    // Cohomology groups
+    CohomologyGroup, CohomologyComputer, CohomologyConfig, BettiNumbers,
+    // Laplacian
+    SheafLaplacian, LaplacianConfig, LaplacianSpectrum, HarmonicRepresentative,
+    // Obstruction detection
+    ObstructionDetector, Obstruction, ObstructionSeverity, ObstructionReport,
+    // Diffusion
+    SheafDiffusion, SheafDiffusionConfig, DiffusionResult, ObstructionIndicator,
+    // Neural network layers
+    SheafNeuralLayer, SheafNeuralConfig, SheafConvolution, CohomologyPooling,
+    PoolingMethod, Activation,
 };
 
 // Re-export governance types
@@ -398,6 +431,10 @@ pub mod prelude {
         // Coherence
         CoherenceEngine, CoherenceEnergy,
 
+        // Cohomology
+        SheafLaplacian, SheafDiffusion, ObstructionDetector,
+        CohomologyGroup, CohomologyComputer, SheafNeuralLayer,
+
         // Governance
         PolicyBundle, ThresholdConfig,
         GovWitnessRecord as WitnessRecord, // Re-export governance witness as default
@@ -405,8 +442,11 @@ pub mod prelude {
         // Execution
         CoherenceGate, GateDecision, ComputeLane,
 
+        // Security
+        InputValidator, SecurityConfig,
+
         // Errors
-        CoherenceError,
+        CoherenceError, ValidationError,
 
         // Events
         DomainEvent,

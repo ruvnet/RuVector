@@ -17,6 +17,18 @@ use uuid::Uuid;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct NodeId(Uuid);
 
+impl PartialOrd for NodeId {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for NodeId {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.0.as_bytes().cmp(other.0.as_bytes())
+    }
+}
+
 impl NodeId {
     /// Create a new random node ID
     pub fn new() -> Self {

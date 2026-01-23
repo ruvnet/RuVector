@@ -2,6 +2,11 @@
 //!
 //! Persistent file storage with write-ahead logging (WAL) for durability.
 //! Supports both JSON and bincode serialization formats.
+//!
+//! # Security
+//!
+//! All identifiers used in file paths are sanitized to prevent path traversal attacks.
+//! Only alphanumeric characters, dashes, underscores, and dots are allowed.
 
 use super::{GraphStorage, GovernanceStorage, StorageConfig, StorageError};
 use parking_lot::{Mutex, RwLock};
@@ -11,6 +16,71 @@ use std::fs::{self, File, OpenOptions};
 use std::io::{BufReader, BufWriter, Read, Write};
 use std::path::{Path, PathBuf};
 use uuid::Uuid;
+
+/// Maximum allowed identifier length for security
+const MAX_ID_LENGTH: usize = 256;
+
+/// Validate and sanitize an identifier for use in file paths.
+///
+/// # Security
+///
+/// This function prevents path traversal attacks by:
+/// - Rejecting empty identifiers
+/// - Rejecting identifiers over MAX_ID_LENGTH
+/// - Only allowing alphanumeric, dash, underscore, and dot characters
+/// - Rejecting "." and ".." path components
+/// - Rejecting identifiers starting with a dot (hidden files)
+fn validate_path_id(id: &str) -> Result<(), StorageError> {
+    if id.is_empty() {
+        return Err(StorageError::Io(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "Identifier cannot be empty",
+        )));
+    }
+
+    if id.len() > MAX_ID_LENGTH {
+        return Err(StorageError::Io(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            format!("Identifier too long: {} (max: {})", id.len(), MAX_ID_LENGTH),
+        )));
+    }
+
+    // Reject path traversal attempts
+    if id == "." || id == ".." {
+        return Err(StorageError::Io(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "Path traversal detected",
+        )));
+    }
+
+    // Reject hidden files (starting with dot)
+    if id.starts_with('.') {
+        return Err(StorageError::Io(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "Identifiers cannot start with '.'",
+        )));
+    }
+
+    // Check each character is safe
+    for c in id.chars() {
+        if !c.is_ascii_alphanumeric() && c != '-' && c != '_' && c != '.' {
+            return Err(StorageError::Io(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                format!("Invalid character '{}' in identifier", c),
+            )));
+        }
+    }
+
+    // Reject path separators
+    if id.contains('/') || id.contains('\\') {
+        return Err(StorageError::Io(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "Path separators not allowed in identifier",
+        )));
+    }
+
+    Ok(())
+}
 
 /// File storage format for serialization
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -277,8 +347,15 @@ impl FileStorage {
     }
 
     fn node_path(&self, node_id: &str) -> PathBuf {
+        // Note: Caller must validate node_id first using validate_path_id()
         let ext = if self.format == StorageFormat::Json { "json" } else { "bin" };
         self.root.join("nodes").join(format!("{}.{}", node_id, ext))
+    }
+
+    /// Validate node_id and return the safe path
+    fn safe_node_path(&self, node_id: &str) -> Result<PathBuf, StorageError> {
+        validate_path_id(node_id)?;
+        Ok(self.node_path(node_id))
     }
 
     fn write_edge_file(&self, source: &str, target: &str, weight: f32) -> Result<(), StorageError> {
@@ -314,11 +391,22 @@ impl FileStorage {
     }
 
     fn edge_path(&self, source: &str, target: &str) -> PathBuf {
+        // Note: Caller must validate source and target first using validate_path_id()
         let ext = if self.format == StorageFormat::Json { "json" } else { "bin" };
         self.root.join("edges").join(format!("{}_{}.{}", source, target, ext))
     }
 
+    /// Validate edge identifiers and return the safe path
+    fn safe_edge_path(&self, source: &str, target: &str) -> Result<PathBuf, StorageError> {
+        validate_path_id(source)?;
+        validate_path_id(target)?;
+        Ok(self.edge_path(source, target))
+    }
+
     fn write_data_file(&self, dir: &str, id: &str, data: &[u8]) -> Result<(), StorageError> {
+        // Validate both directory name and id to prevent path traversal
+        validate_path_id(dir)?;
+        validate_path_id(id)?;
         let mut file = File::create(self.root.join(dir).join(format!("{}.bin", id)))?;
         file.write_all(data)?;
         file.flush()?;
@@ -326,6 +414,9 @@ impl FileStorage {
     }
 
     fn read_data_file(&self, dir: &str, id: &str) -> Result<Vec<u8>, StorageError> {
+        // Validate both directory name and id to prevent path traversal
+        validate_path_id(dir)?;
+        validate_path_id(id)?;
         let mut data = Vec::new();
         File::open(self.root.join(dir).join(format!("{}.bin", id)))?.read_to_end(&mut data)?;
         Ok(data)
@@ -393,6 +484,8 @@ impl Drop for FileStorage {
 
 impl GraphStorage for FileStorage {
     fn store_node(&self, node_id: &str, state: &[f32]) -> Result<(), StorageError> {
+        // Validate node_id to prevent path traversal
+        validate_path_id(node_id)?;
         let seq = self.write_wal(WalOperation::StoreNode { node_id: node_id.to_string(), state: state.to_vec() })?;
         self.write_node_file(node_id, state)?;
         self.node_cache.write().insert(node_id.to_string(), state.to_vec());
@@ -403,6 +496,8 @@ impl GraphStorage for FileStorage {
     }
 
     fn get_node(&self, node_id: &str) -> Result<Option<Vec<f32>>, StorageError> {
+        // Validate node_id to prevent path traversal
+        validate_path_id(node_id)?;
         if let Some(state) = self.node_cache.read().get(node_id) { return Ok(Some(state.clone())); }
         match self.read_node_file(node_id) {
             Ok(state) => { self.node_cache.write().insert(node_id.to_string(), state.clone()); Ok(Some(state)) }
@@ -412,6 +507,9 @@ impl GraphStorage for FileStorage {
     }
 
     fn store_edge(&self, source: &str, target: &str, weight: f32) -> Result<(), StorageError> {
+        // Validate identifiers to prevent path traversal
+        validate_path_id(source)?;
+        validate_path_id(target)?;
         let seq = self.write_wal(WalOperation::StoreEdge { source: source.to_string(), target: target.to_string(), weight })?;
         self.write_edge_file(source, target, weight)?;
         self.edge_cache.write().insert((source.to_string(), target.to_string()), weight);
@@ -423,6 +521,9 @@ impl GraphStorage for FileStorage {
     }
 
     fn delete_edge(&self, source: &str, target: &str) -> Result<(), StorageError> {
+        // Validate identifiers to prevent path traversal
+        validate_path_id(source)?;
+        validate_path_id(target)?;
         let seq = self.write_wal(WalOperation::DeleteEdge { source: source.to_string(), target: target.to_string() })?;
         self.delete_edge_file(source, target)?;
         self.edge_cache.write().remove(&(source.to_string(), target.to_string()));
