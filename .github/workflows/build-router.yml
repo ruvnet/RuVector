@@ -155,7 +155,7 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
-          VERSION="0.1.15"
+          VERSION=$(node -p "require('./npm/packages/router/package.json').version")
           echo "Publishing version: $VERSION"
 
           for dir in artifacts/router-*/; do
