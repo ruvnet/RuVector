@@ -96,24 +96,37 @@ impl HnswIndex {
         // Store vector
         self.vectors.write().insert(id.clone(), vector.clone());
 
-        // Initialize graph connections
-        let mut graph = self.graph.write();
-        graph.insert(id.clone(), Vec::new());
+        // Initialize graph connections and check if this is the first vector
+        // IMPORTANT: Release all locks before calling search_knn_internal to avoid deadlock
+        // (parking_lot::RwLock is NOT reentrant)
+        let is_first = {
+            let mut graph = self.graph.write();
+            graph.insert(id.clone(), Vec::new());
 
-        // Set entry point if this is the first vector
-        let mut entry_point = self.entry_point.write();
-        if entry_point.is_none() {
-            *entry_point = Some(id.clone());
+            let mut entry_point = self.entry_point.write();
+            if entry_point.is_none() {
+                *entry_point = Some(id.clone());
+                return Ok(());
+            }
+            false
+        }; // All locks released here
+
+        if is_first {
             return Ok(());
         }
 
-        // Find nearest neighbors
+        // Find nearest neighbors (safe now - no locks held)
         let neighbors =
             self.search_knn_internal(&vector, self.config.ef_construction.min(self.config.m * 2));
 
+        // Re-acquire graph lock for modifications
+        let mut graph = self.graph.write();
+
         // Connect to nearest neighbors (bidirectional)
         for neighbor in neighbors.iter().take(self.config.m) {
-            graph.get_mut(&id).unwrap().push(neighbor.id.clone());
+            if let Some(connections) = graph.get_mut(&id) {
+                connections.push(neighbor.id.clone());
+            }
 
             if let Some(neighbor_connections) = graph.get_mut(&neighbor.id) {
                 neighbor_connections.push(id.clone());
@@ -315,5 +328,79 @@ mod tests {
         let results = index.search(&query).unwrap();
         assert_eq!(results.len(), 2);
         assert_eq!(results[0].id, "v1"); // Should be closest
+    }
+
+    #[test]
+    fn test_hnsw_multiple_inserts_no_deadlock() {
+        // Regression test for issue #133: VectorDb.insert() deadlocks on second call
+        // The bug was caused by holding write locks while calling search_knn_internal,
+        // which tries to acquire read locks on the same RwLocks (parking_lot is not reentrant)
+        let config = HnswConfig {
+            m: 16,
+            ef_construction: 100,
+            ef_search: 50,
+            metric: DistanceMetric::Cosine,
+            dimensions: 128,
+        };
+
+        let index = HnswIndex::new(config);
+
+        // Insert many vectors to ensure we exercise the KNN search path
+        for i in 0..20 {
+            let mut vector = vec![0.0f32; 128];
+            vector[i % 128] = 1.0;
+            index.insert(format!("v{}", i), vector).unwrap();
+        }
+
+        assert_eq!(index.len(), 20);
+
+        // Verify search still works
+        let query = SearchQuery {
+            vector: vec![1.0; 128],
+            k: 5,
+            filters: None,
+            threshold: None,
+            ef_search: None,
+        };
+
+        let results = index.search(&query).unwrap();
+        assert_eq!(results.len(), 5);
+    }
+
+    #[test]
+    fn test_hnsw_concurrent_inserts() {
+        use std::sync::Arc;
+        use std::thread;
+
+        let config = HnswConfig {
+            m: 16,
+            ef_construction: 100,
+            ef_search: 50,
+            metric: DistanceMetric::Euclidean,
+            dimensions: 3,
+        };
+
+        let index = Arc::new(HnswIndex::new(config));
+
+        // Spawn multiple threads to insert concurrently
+        let mut handles = vec![];
+        for t in 0..4 {
+            let index_clone = Arc::clone(&index);
+            let handle = thread::spawn(move || {
+                for i in 0..10 {
+                    let id = format!("t{}_v{}", t, i);
+                    let vector = vec![t as f32, i as f32, 0.0];
+                    index_clone.insert(id, vector).unwrap();
+                }
+            });
+            handles.push(handle);
+        }
+
+        // Wait for all threads
+        for handle in handles {
+            handle.join().unwrap();
+        }
+
+        assert_eq!(index.len(), 40);
     }
 }
