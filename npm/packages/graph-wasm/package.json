@@ -1,6 +1,6 @@
 {
   "name": "@ruvector/graph-wasm",
-  "version": "0.1.25",
+  "version": "0.1.26",
   "description": "WebAssembly bindings for RuVector graph database with Neo4j-inspired API and Cypher support",
   "main": "index.js",
   "types": "index.d.ts",

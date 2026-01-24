@@ -131,8 +131,56 @@ function getUserInfo() {
   return { name, gitBranch, modelName };
 }
 
+// Get RuVector intelligence data (primary source of learning)
+function getRuVectorIntelligence() {
+  const intelPaths = [
+    path.join(process.cwd(), '.ruvector', 'intelligence.json'),
+    path.join(process.cwd(), 'npm', 'packages', 'ruvector', '.ruvector', 'intelligence.json'),
+    path.join(require('os').homedir(), '.ruvector', 'intelligence.json'),
+  ];
+
+  for (const intelPath of intelPaths) {
+    if (fs.existsSync(intelPath)) {
+      try {
+        const data = JSON.parse(fs.readFileSync(intelPath, 'utf-8'));
+        return {
+          patterns: data.patterns ? Object.keys(data.patterns).length : 0,
+          memories: data.memories ? data.memories.length : 0,
+          trajectories: data.trajectories ? data.trajectories.length : 0,
+          sessions: data.stats?.session_count || 0,
+          fileSequences: data.file_sequences ? Object.keys(data.file_sequences).length : 0,
+          agents: data.agents ? Object.keys(data.agents).length : 0,
+          errors: data.errors ? data.errors.length : 0,
+          learning: data.learning || null,
+          tensorCompress: data.tensorCompress || null,
+          raw: data,
+        };
+      } catch (e) {
+        // Ignore parse errors
+      }
+    }
+  }
+  return null;
+}
+
 // Get learning stats from memory database
 function getLearningStats() {
+  // First try RuVector intelligence (primary source)
+  const ruVector = getRuVectorIntelligence();
+  if (ruVector && (ruVector.patterns > 0 || ruVector.memories > 0)) {
+    return {
+      patterns: ruVector.patterns,
+      sessions: ruVector.sessions,
+      trajectories: ruVector.trajectories,
+      memories: ruVector.memories,
+      fileSequences: ruVector.fileSequences,
+      agents: ruVector.agents,
+      errors: ruVector.errors,
+      learning: ruVector.learning,
+      tensorCompress: ruVector.tensorCompress,
+    };
+  }
+
   const memoryPaths = [
     path.join(process.cwd(), '.swarm', 'memory.db'),
     path.join(process.cwd(), '.claude-flow', 'memory.db'),
@@ -175,7 +223,7 @@ function getLearningStats() {
     }
   }
 
-  return { patterns, sessions, trajectories };
+  return { patterns, sessions, trajectories, memories: 0, fileSequences: 0, agents: 0, errors: 0 };
 }
 
 // Get V3 progress from learning state (grows as system learns)
@@ -184,48 +232,54 @@ function getV3Progress() {
 
   // Check for metrics file first (created by init)
   const metricsPath = path.join(process.cwd(), '.claude-flow', 'metrics', 'v3-progress.json');
+  let metricsData = null;
   if (fs.existsSync(metricsPath)) {
     try {
-      const data = JSON.parse(fs.readFileSync(metricsPath, 'utf-8'));
-      if (data.domains) {
-        const domainsCompleted = data.domains.completed || 0;
-        const totalDomains = data.domains.total || 5;
-        // Use ddd.progress if provided and > 0, otherwise calculate from domains
-        const dddProgress = (data.ddd?.progress > 0)
-          ? data.ddd.progress
-          : Math.min(100, Math.floor((domainsCompleted / totalDomains) * 100));
-        return {
-          domainsCompleted,
-          totalDomains,
-          dddProgress,
-          patternsLearned: data.learning?.patternsLearned || learning.patterns,
-          sessionsCompleted: data.learning?.sessionsCompleted || learning.sessions
-        };
-      }
+      metricsData = JSON.parse(fs.readFileSync(metricsPath, 'utf-8'));
     } catch (e) {
-      // Fall through to pattern-based calculation
+      // Ignore
     }
   }
 
-  // DDD progress based on actual learned patterns
-  // New install: 0 patterns = 0/5 domains, 0% DDD
-  // As patterns grow: 10+ patterns = 1 domain, 50+ = 2, 100+ = 3, 200+ = 4, 500+ = 5
-  let domainsCompleted = 0;
-  if (learning.patterns >= 500) domainsCompleted = 5;
-  else if (learning.patterns >= 200) domainsCompleted = 4;
-  else if (learning.patterns >= 100) domainsCompleted = 3;
-  else if (learning.patterns >= 50) domainsCompleted = 2;
-  else if (learning.patterns >= 10) domainsCompleted = 1;
+  // Use RuVector patterns if available and greater than metrics file
+  const actualPatterns = Math.max(learning.patterns, metricsData?.learning?.patternsLearned || 0);
+  const actualSessions = Math.max(learning.sessions, metricsData?.learning?.sessionsCompleted || 0);
 
-  const totalDomains = 5;
-  const dddProgress = Math.min(100, Math.floor((domainsCompleted / totalDomains) * 100));
+  // DDD progress based on actual learned patterns + memories + trajectories
+  // Combined learning score = patterns + (memories/10) + (trajectories/5) + (agents*5)
+  const learningScore = actualPatterns +
+    Math.floor((learning.memories || 0) / 10) +
+    Math.floor((learning.trajectories || 0) / 5) +
+    ((learning.agents || 0) * 5);
+
+  // Domain completion thresholds based on combined score
+  let domainsCompleted = 0;
+  if (learningScore >= 500) domainsCompleted = 5;
+  else if (learningScore >= 200) domainsCompleted = 4;
+  else if (learningScore >= 100) domainsCompleted = 3;
+  else if (learningScore >= 50) domainsCompleted = 2;
+  else if (learningScore >= 10) domainsCompleted = 1;
+
+  // Override with metrics file if it has higher values
+  if (metricsData?.domains?.completed > domainsCompleted) {
+    domainsCompleted = metricsData.domains.completed;
+  }
+
+  const totalDomains = metricsData?.domains?.total || 5;
+  const dddProgress = metricsData?.ddd?.progress > 0
+    ? metricsData.ddd.progress
+    : Math.min(100, Math.floor((domainsCompleted / totalDomains) * 100));
 
   return {
     domainsCompleted,
     totalDomains,
     dddProgress,
-    patternsLearned: learning.patterns,
-    sessionsCompleted: learning.sessions
+    patternsLearned: actualPatterns,
+    sessionsCompleted: actualSessions,
+    memories: learning.memories || 0,
+    trajectories: learning.trajectories || 0,
+    fileSequences: learning.fileSequences || 0,
+    agents: learning.agents || 0,
   };
 }
 
@@ -406,14 +460,36 @@ function getSystemMetrics() {
   // Calculate all sources and take the maximum
   let intelligencePct = 0;
 
-  if (intelligenceFromFile !== null) {
-    intelligencePct = intelligenceFromFile;
-  } else {
-    // Calculate from multiple sources and take the best
-    const fromPatterns = learning.patterns > 0 ? Math.min(100, Math.floor(learning.patterns / 10)) : 0;
-    const fromVectors = agentdbStats.vectorCount > 0 ? Math.min(100, Math.floor(agentdbStats.vectorCount / 100)) : 0;
+  // Calculate intelligence from RuVector learning data (primary source)
+  // Weighted formula: patterns*2 + memories/5 + trajectories/2 + sessions*3 + agents*10
+  if (learning.patterns > 0 || learning.memories > 0 || learning.trajectories > 0) {
+    const ruVectorScore =
+      (learning.patterns * 2) +
+      Math.floor((learning.memories || 0) / 5) +
+      Math.floor((learning.trajectories || 0) / 2) +
+      ((learning.sessions || 0) * 3) +
+      ((learning.agents || 0) * 10);
+    // Scale: 0-50 score = 0-50%, 50-200 = 50-90%, 200+ = 90-100%
+    if (ruVectorScore >= 200) {
+      intelligencePct = Math.min(100, 90 + Math.floor((ruVectorScore - 200) / 50));
+    } else if (ruVectorScore >= 50) {
+      intelligencePct = 50 + Math.floor((ruVectorScore - 50) * 40 / 150);
+    } else {
+      intelligencePct = Math.floor(ruVectorScore);
+    }
+  }
 
-    intelligencePct = Math.max(fromPatterns, fromVectors);
+  // Fallback to metrics file if higher
+  if (intelligenceFromFile !== null && intelligenceFromFile > intelligencePct) {
+    intelligencePct = intelligenceFromFile;
+  }
+
+  // Fallback to AgentDB vectors if higher
+  if (agentdbStats.vectorCount > 0) {
+    const fromVectors = Math.min(100, Math.floor(agentdbStats.vectorCount / 100));
+    if (fromVectors > intelligencePct) {
+      intelligencePct = fromVectors;
+    }
   }
 
   // If still 0, use project maturity fallback
@@ -713,6 +789,34 @@ function getAgentDBStats() {
       }
     } catch (e) {
       // Ignore
+    }
+  }
+
+  // Check RuVector intelligence for vectors (memories with embeddings)
+  if (vectorCount === 0) {
+    const ruVector = getRuVectorIntelligence();
+    if (ruVector) {
+      // Memories with embeddings count as vectors
+      vectorCount = ruVector.memories || 0;
+      // Calculate size from intelligence file
+      const intelPaths = [
+        path.join(process.cwd(), '.ruvector', 'intelligence.json'),
+        path.join(require('os').homedir(), '.ruvector', 'intelligence.json'),
+      ];
+      for (const intelPath of intelPaths) {
+        if (fs.existsSync(intelPath)) {
+          try {
+            const stats = fs.statSync(intelPath);
+            dbSizeKB = Math.floor(stats.size / 1024);
+            namespaces = 1;
+            // Check if we have trajectories (indicates HNSW-like indexing)
+            if (ruVector.trajectories > 10) {
+              hasHnsw = true;
+            }
+            break;
+          } catch (e) { /* ignore */ }
+        }
+      }
     }
   }
 
@@ -1050,28 +1154,30 @@ function generateStatusline() {
   // Separator
   lines.push(`${c.dim}─────────────────────────────────────────────────────${c.reset}`);
 
-  // Line 1: DDD Domain Progress with dynamic performance indicator
+  // Line 1: DDD Domain Progress with learning indicators
   const domainsColor = progress.domainsCompleted >= 3 ? c.brightGreen : progress.domainsCompleted > 0 ? c.yellow : c.red;
-  // Show HNSW speedup if enabled, otherwise show patterns learned
-  let perfIndicator = '';
+  // Build learning indicator with patterns, memories, trajectories
+  let learningIndicator = '';
+  const hasLearning = progress.patternsLearned > 0 || progress.memories > 0 || progress.trajectories > 0;
   if (agentdb.hasHnsw && agentdb.vectorCount > 0) {
-    // HNSW enabled: show estimated speedup (150x-12500x based on vector count)
+    // HNSW enabled: show estimated speedup
     const speedup = agentdb.vectorCount > 10000 ? '12500x' : agentdb.vectorCount > 1000 ? '150x' : '10x';
-    perfIndicator = `${c.brightGreen}⚡ HNSW ${speedup}${c.reset}`;
-  } else if (progress.patternsLearned > 0) {
-    // Show patterns learned
-    const patternsK = progress.patternsLearned >= 1000
-      ? `${(progress.patternsLearned / 1000).toFixed(1)}k`
-      : String(progress.patternsLearned);
-    perfIndicator = `${c.brightYellow}📚 ${patternsK} patterns${c.reset}`;
+    learningIndicator = `${c.brightGreen}⚡ HNSW ${speedup}${c.reset}`;
+  } else if (hasLearning) {
+    // Show learning metrics: patterns/memories/trajectories
+    const parts = [];
+    if (progress.patternsLearned > 0) parts.push(`${c.brightYellow}◆${progress.patternsLearned}${c.reset}`);
+    if (progress.memories > 0) parts.push(`${c.brightBlue}⬡${progress.memories}${c.reset}`);
+    if (progress.trajectories > 0) parts.push(`${c.brightCyan}↝${progress.trajectories}${c.reset}`);
+    learningIndicator = `${c.brightPurple}🧠 Learning${c.reset} ${parts.join(' ')}`;
   } else {
     // New project: show target
-    perfIndicator = `${c.dim}⚡ target: 150x-12500x${c.reset}`;
+    learningIndicator = `${c.dim}⚡ target: 150x-12500x${c.reset}`;
   }
   lines.push(
     `${c.brightCyan}🏗️  DDD Domains${c.reset}    ${progressBar(progress.domainsCompleted, progress.totalDomains)}  ` +
     `${domainsColor}${progress.domainsCompleted}${c.reset}/${c.brightWhite}${progress.totalDomains}${c.reset}    ` +
-    perfIndicator
+    learningIndicator
   );
 
   // Line 2: Swarm + Hooks + CVE + Memory + Context + Intelligence
@@ -1081,12 +1187,29 @@ function generateStatusline() {
   let securityColor = security.status === 'CLEAN' ? c.brightGreen : security.status === 'IN_PROGRESS' ? c.brightYellow : c.brightRed;
   const hooksColor = hooks.enabled > 0 ? c.brightGreen : c.dim;
 
+  // Get RuVector intelligence file size for memory indicator
+  let intelSizeKB = 0;
+  const intelFilePaths = [
+    path.join(process.cwd(), '.ruvector', 'intelligence.json'),
+    path.join(require('os').homedir(), '.ruvector', 'intelligence.json'),
+  ];
+  for (const intelPath of intelFilePaths) {
+    if (fs.existsSync(intelPath)) {
+      try {
+        const stats = fs.statSync(intelPath);
+        intelSizeKB = Math.floor(stats.size / 1024);
+        break;
+      } catch (e) { /* ignore */ }
+    }
+  }
+  const memoryDisplay = intelSizeKB > 0 ? `${intelSizeKB}KB` : `${system.memoryMB}MB`;
+
   lines.push(
     `${c.brightYellow}🤖 Swarm${c.reset}  ${swarmIndicator} [${agentsColor}${String(swarm.activeAgents).padStart(2)}${c.reset}/${c.brightWhite}${swarm.maxAgents}${c.reset}]  ` +
     `${c.brightPurple}👥 ${system.subAgents}${c.reset}    ` +
     `${c.brightBlue}🪝 ${hooksColor}${hooks.enabled}${c.reset}/${c.brightWhite}${hooks.total}${c.reset}    ` +
     `${securityIcon} ${securityColor}CVE ${security.cvesFixed}${c.reset}/${c.brightWhite}${security.totalCves}${c.reset}    ` +
-    `${c.brightCyan}💾 ${system.memoryMB}MB${c.reset}    ` +
+    `${c.brightCyan}💾 ${memoryDisplay}${c.reset}    ` +
     `${system.intelligencePct >= 80 ? c.brightGreen : system.intelligencePct >= 40 ? c.brightYellow : c.dim}🧠 ${String(system.intelligencePct).padStart(3)}%${intellTrend}${c.reset}`
   );
 

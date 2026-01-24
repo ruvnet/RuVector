@@ -1,6 +1,6 @@
 {
   "name": "@ruvector/graph-node",
-  "version": "0.1.25",
+  "version": "0.1.26",
   "description": "Native Node.js bindings for RuVector Graph Database with hypergraph support, Cypher queries, and persistence - 10x faster than WASM",
   "main": "index.js",
   "types": "index.d.ts",

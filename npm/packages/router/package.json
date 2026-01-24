@@ -1,6 +1,6 @@
 {
   "name": "@ruvector/router",
-  "version": "0.1.25",
+  "version": "0.1.26",
   "description": "Semantic router for AI agents - vector-based intent matching with HNSW indexing and SIMD acceleration",
   "main": "index.js",
   "types": "index.d.ts",
@@ -32,10 +32,11 @@
     "@napi-rs/cli": "^2.18.0"
   },
   "optionalDependencies": {
-    "@ruvector/router-linux-x64-gnu": "0.1.25",
-    "@ruvector/router-linux-arm64-gnu": "0.1.25",
-    "@ruvector/router-darwin-arm64": "0.1.25",
-    "@ruvector/router-win32-x64-msvc": "0.1.25"
+    "@ruvector/router-linux-x64-gnu": "0.1.26",
+    "@ruvector/router-linux-arm64-gnu": "0.1.26",
+    "@ruvector/router-darwin-x64": "0.1.26",
+    "@ruvector/router-darwin-arm64": "0.1.26",
+    "@ruvector/router-win32-x64-msvc": "0.1.26"
   },
   "publishConfig": {
     "access": "public"

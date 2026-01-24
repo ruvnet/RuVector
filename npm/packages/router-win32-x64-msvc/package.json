@@ -1,6 +1,6 @@
 {
   "name": "@ruvector/router-win32-x64-msvc",
-  "version": "0.1.25",
+  "version": "0.1.26",
   "description": "Windows x64 native bindings for @ruvector/router",
   "main": "ruvector-router.win32-x64-msvc.node",
   "files": [
