@@ -275,11 +275,15 @@ pub use wrapper::MinCutWrapper;
 // J-Tree re-exports (feature-gated)
 #[cfg(feature = "jtree")]
 pub use jtree::{
-    ApproximateCut, BmsspJTreeLevel, ContractedGraph, CutResult, DynamicCutSparsifier,
-    ForestPacking, JTreeConfig, JTreeError, JTreeHierarchy, JTreeLevel, JTreeStatistics,
+    ApproximateCut, BmsspJTreeLevel, ContractedGraph, CutResult as JTreeCutResult,
+    DynamicCutSparsifier, JTreeConfig, JTreeError, JTreeHierarchy, JTreeLevel, JTreeStatistics,
     LevelConfig, LevelStatistics, PathCutResult, RecourseTracker, SparsifierConfig,
     SparsifierStatistics, Tier, VertexSplitResult,
 };
+
+// Re-export ForestPacking with explicit disambiguation (also defined in localkcut)
+#[cfg(feature = "jtree")]
+pub use jtree::ForestPacking as JTreeForestPacking;
 
 // SNN Integration re-exports
 pub use snn::{
@@ -455,8 +459,8 @@ pub mod prelude {
 
     #[cfg(feature = "jtree")]
     pub use crate::{
-        ApproximateCut, BmsspJTreeLevel, ContractedGraph, CutResult as JTreeCutResult,
-        DynamicCutSparsifier, ForestPacking, JTreeConfig, JTreeError, JTreeHierarchy,
+        ApproximateCut, BmsspJTreeLevel, ContractedGraph, DynamicCutSparsifier,
+        JTreeConfig, JTreeCutResult, JTreeError, JTreeForestPacking, JTreeHierarchy,
         JTreeLevel, JTreeStatistics, LevelConfig, LevelStatistics, PathCutResult,
         RecourseTracker, SparsifierConfig, SparsifierStatistics, Tier, VertexSplitResult,
     };
