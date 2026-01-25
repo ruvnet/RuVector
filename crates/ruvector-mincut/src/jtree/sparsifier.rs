@@ -286,9 +286,14 @@ impl ForestPacking {
         // In full implementation, would use effective resistance
         let sample_prob = (weight / (weight + 1.0)).min(1.0);
 
+        // Pre-generate random numbers to avoid borrow conflict
+        let num_forests = self.forests.len();
+        let random_values: Vec<f64> = (0..num_forests)
+            .map(|_| (self.next_random() % 1000) as f64 / 1000.0)
+            .collect();
+
         for (i, forest) in self.forests.iter_mut().enumerate() {
-            let rand = (self.next_random() % 1000) as f64 / 1000.0;
-            if rand < sample_prob {
+            if random_values[i] < sample_prob {
                 if forest.add_edge(u, v) {
                     sampled_forests.push(i);
                 }
