@@ -1189,6 +1189,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "cognitum-gate-kernel"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ad608b706e3ffa448744047059858875c8cea5cebbec7fa3dc50ca79e7b0a4ba"
+dependencies = [
+ "libm",
+ "ruvector-mincut 0.1.30",
+]
+
+[[package]]
 name = "cognitum-gate-tilezero"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3217,7 +3227,7 @@ dependencies = [
  "log",
  "presser",
  "thiserror 1.0.69",
- "windows 0.57.0",
+ "windows 0.58.0",
 ]
 
 [[package]]
@@ -6352,7 +6362,7 @@ dependencies = [
  "blake3",
  "bytemuck",
  "chrono",
- "cognitum-gate-kernel",
+ "cognitum-gate-kernel 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "criterion",
  "crossbeam",
  "dashmap 6.1.0",
@@ -6374,16 +6384,16 @@ dependencies = [
  "rayon",
  "rkyv",
  "roaring",
- "ruvector-attention",
- "ruvector-core 2.0.0",
- "ruvector-gnn",
- "ruvector-graph",
+ "ruvector-attention 0.1.31 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ruvector-core 0.1.31",
+ "ruvector-gnn 0.1.31",
+ "ruvector-graph 0.1.31",
  "ruvector-hyperbolic-hnsw",
- "ruvector-mincut 2.0.0",
- "ruvector-nervous-system",
- "ruvector-raft",
- "ruvector-sona",
- "ruvllm",
+ "ruvector-mincut 0.1.30",
+ "ruvector-nervous-system 0.1.30",
+ "ruvector-raft 0.1.30",
+ "ruvector-sona 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ruvllm 2.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde",
  "serde_json",
  "sqlx",
@@ -7126,7 +7136,7 @@ dependencies = [
  "ndarray 0.16.1",
  "rand 0.8.5",
  "rand_distr 0.4.3",
- "ruvector-core 2.0.0",
+ "ruvector-core 2.0.1",
  "serde",
  "serde_json",
  "thiserror 2.0.17",
@@ -7363,7 +7373,7 @@ dependencies = [
 
 [[package]]
 name = "ruqu"
-version = "2.0.0"
+version = "2.0.1"
 dependencies = [
  "blake3",
  "cognitum-gate-tilezero 0.1.0",
@@ -7597,13 +7607,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "ruvector-attention"
+version = "0.1.31"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ebc18d0ffdebacabce4a4c6030e4359682ffe667fd7aab0c3e5bbe547693da3a"
+dependencies = [
+ "rand 0.8.5",
+ "rayon",
+ "serde",
+ "thiserror 1.0.69",
+]
+
+[[package]]
 name = "ruvector-attention-node"
 version = "0.1.0"
 dependencies = [
  "napi",
  "napi-build",
  "napi-derive",
- "ruvector-attention",
+ "ruvector-attention 0.1.31",
  "serde",
  "serde_json",
  "tokio",
@@ -7616,9 +7638,9 @@ dependencies = [
  "console_error_panic_hook",
  "getrandom 0.2.16",
  "js-sys",
- "ruvector-attention",
+ "ruvector-attention 0.1.31",
  "ruvector-dag",
- "ruvector-gnn",
+ "ruvector-gnn 2.0.1",
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
@@ -7630,12 +7652,12 @@ dependencies = [
 
 [[package]]
 name = "ruvector-attention-wasm"
-version = "0.1.31"
+version = "0.1.32"
 dependencies = [
  "console_error_panic_hook",
  "getrandom 0.2.16",
  "js-sys",
- "ruvector-attention",
+ "ruvector-attention 0.1.31",
  "serde",
  "serde-wasm-bindgen",
  "wasm-bindgen",
@@ -7645,7 +7667,7 @@ dependencies = [
 
 [[package]]
 name = "ruvector-bench"
-version = "2.0.0"
+version = "2.0.1"
 dependencies = [
  "anyhow",
  "byteorder",
@@ -7663,7 +7685,7 @@ dependencies = [
  "rand 0.8.5",
  "rand_distr 0.4.3",
  "rayon",
- "ruvector-core 2.0.0",
+ "ruvector-core 2.0.1",
  "serde",
  "serde_json",
  "statistical",
@@ -7692,7 +7714,7 @@ dependencies = [
  "rand_distr 0.4.3",
  "rayon",
  "reqwest 0.11.27",
- "ruvector-core 2.0.0",
+ "ruvector-core 2.0.1",
  "serde",
  "serde_json",
  "statistical",
@@ -7705,7 +7727,7 @@ dependencies = [
 
 [[package]]
 name = "ruvector-cli"
-version = "2.0.0"
+version = "2.0.1"
 dependencies = [
  "anyhow",
  "assert_cmd",
@@ -7730,9 +7752,9 @@ dependencies = [
  "predicates",
  "prettytable-rs",
  "rand 0.8.5",
- "ruvector-core 2.0.0",
- "ruvector-gnn",
- "ruvector-graph",
+ "ruvector-core 2.0.1",
+ "ruvector-gnn 2.0.1",
+ "ruvector-graph 2.0.1",
  "serde",
  "serde_json",
  "shellexpand",
@@ -7762,10 +7784,10 @@ dependencies = [
  "rand 0.8.5",
  "rand_distr 0.4.3",
  "rayon",
- "ruvector-attention",
- "ruvector-core 2.0.0",
- "ruvector-gnn",
- "ruvector-graph",
+ "ruvector-attention 0.1.31",
+ "ruvector-core 2.0.1",
+ "ruvector-gnn 2.0.1",
+ "ruvector-graph 2.0.1",
  "serde",
  "serde_json",
  "sysinfo 0.31.4",
@@ -7779,7 +7801,7 @@ dependencies = [
 
 [[package]]
 name = "ruvector-cluster"
-version = "2.0.0"
+version = "2.0.1"
 dependencies = [
  "async-trait",
  "bincode 2.0.1",
@@ -7788,7 +7810,7 @@ dependencies = [
  "futures",
  "parking_lot 0.12.5",
  "rand 0.8.5",
- "ruvector-core 2.0.0",
+ "ruvector-core 2.0.1",
  "serde",
  "serde_json",
  "thiserror 2.0.17",
@@ -7799,13 +7821,13 @@ dependencies = [
 
 [[package]]
 name = "ruvector-collections"
-version = "2.0.0"
+version = "2.0.1"
 dependencies = [
  "bincode 2.0.1",
  "chrono",
  "dashmap 6.1.0",
  "parking_lot 0.12.5",
- "ruvector-core 2.0.0",
+ "ruvector-core 2.0.1",
  "serde",
  "serde_json",
  "thiserror 2.0.17",
@@ -7821,15 +7843,22 @@ dependencies = [
  "anyhow",
  "bincode 2.0.1",
  "chrono",
+ "crossbeam",
  "dashmap 6.1.0",
+ "hnsw_rs",
+ "memmap2",
  "ndarray 0.16.1",
  "once_cell",
  "parking_lot 0.12.5",
  "rand 0.8.5",
  "rand_distr 0.4.3",
+ "rayon",
+ "redb",
+ "reqwest 0.11.27",
  "rkyv",
  "serde",
  "serde_json",
+ "simsimd",
  "thiserror 2.0.17",
  "tracing",
  "uuid",
@@ -7837,7 +7866,7 @@ dependencies = [
 
 [[package]]
 name = "ruvector-core"
-version = "2.0.0"
+version = "2.0.1"
 dependencies = [
  "anyhow",
  "bincode 2.0.1",
@@ -7882,7 +7911,7 @@ dependencies = [
  "pqcrypto-kyber",
  "proptest",
  "rand 0.8.5",
- "ruvector-core 2.0.0",
+ "ruvector-core 2.0.1",
  "serde",
  "serde_json",
  "sha2",
@@ -7921,7 +7950,7 @@ dependencies = [
 
 [[package]]
 name = "ruvector-exotic-wasm"
-version = "2.0.0"
+version = "2.0.1"
 dependencies = [
  "console_error_panic_hook",
  "getrandom 0.2.16",
@@ -7937,12 +7966,12 @@ dependencies = [
 
 [[package]]
 name = "ruvector-filter"
-version = "2.0.0"
+version = "2.0.1"
 dependencies = [
  "chrono",
  "dashmap 6.1.0",
  "ordered-float",
- "ruvector-core 2.0.0",
+ "ruvector-core 2.0.1",
  "serde",
  "serde_json",
  "thiserror 2.0.17",
@@ -7988,7 +8017,27 @@ dependencies = [
 
 [[package]]
 name = "ruvector-gnn"
-version = "2.0.0"
+version = "0.1.31"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c429f920fb1a1e5d8c843bb6569e7203be4a929bc9d90aeeac9ec3c0cd434b1c"
+dependencies = [
+ "anyhow",
+ "dashmap 6.1.0",
+ "libc",
+ "ndarray 0.16.1",
+ "parking_lot 0.12.5",
+ "rand 0.8.5",
+ "rand_distr 0.4.3",
+ "rayon",
+ "ruvector-core 0.1.31",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.17",
+]
+
+[[package]]
+name = "ruvector-gnn"
+version = "2.0.1"
 dependencies = [
  "anyhow",
  "criterion",
@@ -8004,7 +8053,7 @@ dependencies = [
  "rand 0.8.5",
  "rand_distr 0.4.3",
  "rayon",
- "ruvector-core 2.0.0",
+ "ruvector-core 2.0.1",
  "serde",
  "serde_json",
  "tempfile",
@@ -8013,12 +8062,12 @@ dependencies = [
 
 [[package]]
 name = "ruvector-gnn-node"
-version = "2.0.0"
+version = "2.0.1"
 dependencies = [
  "napi",
  "napi-build",
  "napi-derive",
- "ruvector-gnn",
+ "ruvector-gnn 2.0.1",
  "serde_json",
 ]
 
@@ -8030,7 +8079,7 @@ dependencies = [
  "getrandom 0.2.16",
  "getrandom 0.3.4",
  "js-sys",
- "ruvector-gnn",
+ "ruvector-gnn 2.0.1",
  "serde",
  "serde-wasm-bindgen",
  "wasm-bindgen",
@@ -8039,7 +8088,41 @@ dependencies = [
 
 [[package]]
 name = "ruvector-graph"
-version = "2.0.0"
+version = "0.1.31"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0cc658867ac5a986ae337467891c69256354d95d0bef828c113ed4eae68241e7"
+dependencies = [
+ "anyhow",
+ "bincode 2.0.1",
+ "chrono",
+ "crossbeam",
+ "dashmap 6.1.0",
+ "lru",
+ "ndarray 0.16.1",
+ "nom 7.1.3",
+ "nom_locate",
+ "num_cpus",
+ "once_cell",
+ "ordered-float",
+ "parking_lot 0.12.5",
+ "pest_generator",
+ "petgraph",
+ "rand 0.8.5",
+ "rand_distr 0.4.3",
+ "rayon",
+ "rkyv",
+ "roaring",
+ "ruvector-core 0.1.31",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.17",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
+name = "ruvector-graph"
+version = "2.0.1"
 dependencies = [
  "anyhow",
  "bincode 2.0.1",
@@ -8079,8 +8162,8 @@ dependencies = [
  "rkyv",
  "roaring",
  "ruvector-cluster",
- "ruvector-core 2.0.0",
- "ruvector-raft",
+ "ruvector-core 2.0.1",
+ "ruvector-raft 2.0.1",
  "ruvector-replication",
  "serde",
  "serde_json",
@@ -8100,15 +8183,15 @@ dependencies = [
 
 [[package]]
 name = "ruvector-graph-node"
-version = "2.0.0"
+version = "2.0.1"
 dependencies = [
  "anyhow",
  "futures",
  "napi",
  "napi-build",
  "napi-derive",
- "ruvector-core 2.0.0",
- "ruvector-graph",
+ "ruvector-core 2.0.1",
+ "ruvector-graph 2.0.1",
  "serde",
  "serde_json",
  "thiserror 2.0.17",
@@ -8119,7 +8202,7 @@ dependencies = [
 
 [[package]]
 name = "ruvector-graph-wasm"
-version = "2.0.0"
+version = "2.0.1"
 dependencies = [
  "anyhow",
  "console_error_panic_hook",
@@ -8128,8 +8211,8 @@ dependencies = [
  "js-sys",
  "parking_lot 0.12.5",
  "regex",
- "ruvector-core 2.0.0",
- "ruvector-graph",
+ "ruvector-core 2.0.1",
+ "ruvector-graph 2.0.1",
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
@@ -8145,6 +8228,8 @@ dependencies = [
 [[package]]
 name = "ruvector-hyperbolic-hnsw"
 version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e941df9ae71909a551c5ff49ff0c778d2e52cabe11ecb9d027eb921d8c22c772"
 dependencies = [
  "nalgebra 0.34.1",
  "ndarray 0.17.2",
@@ -8168,7 +8253,7 @@ dependencies = [
 
 [[package]]
 name = "ruvector-math"
-version = "2.0.0"
+version = "2.0.1"
 dependencies = [
  "approx",
  "criterion",
@@ -8183,7 +8268,7 @@ dependencies = [
 
 [[package]]
 name = "ruvector-math-wasm"
-version = "2.0.0"
+version = "2.0.1"
 dependencies = [
  "console_error_panic_hook",
  "getrandom 0.2.16",
@@ -8201,7 +8286,7 @@ dependencies = [
 
 [[package]]
 name = "ruvector-metrics"
-version = "2.0.0"
+version = "2.0.1"
 dependencies = [
  "chrono",
  "lazy_static",
@@ -8234,7 +8319,7 @@ dependencies = [
 
 [[package]]
 name = "ruvector-mincut"
-version = "2.0.0"
+version = "2.0.1"
 dependencies = [
  "anyhow",
  "criterion",
@@ -8248,8 +8333,8 @@ dependencies = [
  "rand 0.8.5",
  "rayon",
  "roaring",
- "ruvector-core 2.0.0",
- "ruvector-graph",
+ "ruvector-core 2.0.1",
+ "ruvector-graph 2.0.1",
  "serde",
  "serde_json",
  "thiserror 2.0.17",
@@ -8293,24 +8378,24 @@ dependencies = [
 
 [[package]]
 name = "ruvector-mincut-node"
-version = "2.0.0"
+version = "2.0.1"
 dependencies = [
  "napi",
  "napi-build",
  "napi-derive",
- "ruvector-mincut 2.0.0",
+ "ruvector-mincut 2.0.1",
  "serde",
  "serde_json",
 ]
 
 [[package]]
 name = "ruvector-mincut-wasm"
-version = "2.0.0"
+version = "2.0.1"
 dependencies = [
  "console_error_panic_hook",
  "getrandom 0.2.16",
  "js-sys",
- "ruvector-mincut 2.0.0",
+ "ruvector-mincut 2.0.1",
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
@@ -8320,7 +8405,22 @@ dependencies = [
 
 [[package]]
 name = "ruvector-nervous-system"
-version = "2.0.0"
+version = "0.1.30"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5aad7596ad2fb13c037f485dbc2beb7171130b7d3092f9f2cd27eea3353ec07e"
+dependencies = [
+ "anyhow",
+ "ndarray 0.16.1",
+ "parking_lot 0.12.5",
+ "rand 0.8.5",
+ "rand_distr 0.4.3",
+ "serde",
+ "thiserror 2.0.17",
+]
+
+[[package]]
+name = "ruvector-nervous-system"
+version = "2.0.1"
 dependencies = [
  "anyhow",
  "approx",
@@ -8354,14 +8454,14 @@ dependencies = [
 
 [[package]]
 name = "ruvector-node"
-version = "2.0.0"
+version = "2.0.1"
 dependencies = [
  "anyhow",
  "napi",
  "napi-build",
  "napi-derive",
  "ruvector-collections",
- "ruvector-core 2.0.0",
+ "ruvector-core 2.0.1",
  "ruvector-filter",
  "ruvector-metrics",
  "serde",
@@ -8409,7 +8509,9 @@ dependencies = [
 
 [[package]]
 name = "ruvector-raft"
-version = "2.0.0"
+version = "0.1.30"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a5057e37870e53235f41ba12c5c27eeba9a9f8a868f1565237f008e565e64567"
 dependencies = [
  "bincode 2.0.1",
  "chrono",
@@ -8417,7 +8519,26 @@ dependencies = [
  "futures",
  "parking_lot 0.12.5",
  "rand 0.8.5",
- "ruvector-core 2.0.0",
+ "ruvector-core 0.1.31",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.17",
+ "tokio",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
+name = "ruvector-raft"
+version = "2.0.1"
+dependencies = [
+ "bincode 2.0.1",
+ "chrono",
+ "dashmap 6.1.0",
+ "futures",
+ "parking_lot 0.12.5",
+ "rand 0.8.5",
+ "ruvector-core 2.0.1",
  "serde",
  "serde_json",
  "thiserror 2.0.17",
@@ -8428,7 +8549,7 @@ dependencies = [
 
 [[package]]
 name = "ruvector-replication"
-version = "2.0.0"
+version = "2.0.1"
 dependencies = [
  "bincode 2.0.1",
  "chrono",
@@ -8436,7 +8557,7 @@ dependencies = [
  "futures",
  "parking_lot 0.12.5",
  "rand 0.8.5",
- "ruvector-core 2.0.0",
+ "ruvector-core 2.0.1",
  "serde",
  "serde_json",
  "thiserror 2.0.17",
@@ -8447,7 +8568,7 @@ dependencies = [
 
 [[package]]
 name = "ruvector-router-cli"
-version = "2.0.0"
+version = "2.0.1"
 dependencies = [
  "anyhow",
  "chrono",
@@ -8462,7 +8583,7 @@ dependencies = [
 
 [[package]]
 name = "ruvector-router-core"
-version = "2.0.0"
+version = "2.0.1"
 dependencies = [
  "anyhow",
  "bincode 2.0.1",
@@ -8489,7 +8610,7 @@ dependencies = [
 
 [[package]]
 name = "ruvector-router-ffi"
-version = "2.0.0"
+version = "2.0.1"
 dependencies = [
  "anyhow",
  "chrono",
@@ -8504,7 +8625,7 @@ dependencies = [
 
 [[package]]
 name = "ruvector-router-wasm"
-version = "2.0.0"
+version = "2.0.1"
 dependencies = [
  "js-sys",
  "ruvector-router-core",
@@ -8518,7 +8639,7 @@ dependencies = [
 
 [[package]]
 name = "ruvector-scipix"
-version = "2.0.0"
+version = "2.0.1"
 dependencies = [
  "ab_glyph",
  "anyhow",
@@ -8591,12 +8712,12 @@ dependencies = [
 
 [[package]]
 name = "ruvector-server"
-version = "2.0.0"
+version = "2.0.1"
 dependencies = [
  "axum",
  "dashmap 6.1.0",
  "parking_lot 0.12.5",
- "ruvector-core 2.0.0",
+ "ruvector-core 2.0.1",
  "serde",
  "serde_json",
  "thiserror 2.0.17",
@@ -8609,13 +8730,13 @@ dependencies = [
 
 [[package]]
 name = "ruvector-snapshot"
-version = "2.0.0"
+version = "2.0.1"
 dependencies = [
  "async-trait",
  "bincode 2.0.1",
  "chrono",
  "flate2",
- "ruvector-core 2.0.0",
+ "ruvector-core 2.0.1",
  "serde",
  "serde_json",
  "sha2",
@@ -8646,8 +8767,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "ruvector-sona"
+version = "0.1.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fdb181c34b259aa642a59fbd1a31e818e442d743f9c2f1bea97cb8ffb8c87c48"
+dependencies = [
+ "crossbeam",
+ "getrandom 0.2.16",
+ "parking_lot 0.12.5",
+ "rand 0.8.5",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "ruvector-sparse-inference"
-version = "2.0.0"
+version = "2.0.1"
 dependencies = [
  "anyhow",
  "byteorder",
@@ -8670,7 +8805,7 @@ dependencies = [
 
 [[package]]
 name = "ruvector-sparse-inference-wasm"
-version = "2.0.0"
+version = "2.0.1"
 dependencies = [
  "console_error_panic_hook",
  "getrandom 0.3.4",
@@ -8687,7 +8822,7 @@ dependencies = [
 
 [[package]]
 name = "ruvector-tiny-dancer-core"
-version = "2.0.0"
+version = "2.0.1"
 dependencies = [
  "anyhow",
  "bytemuck",
@@ -8717,7 +8852,7 @@ dependencies = [
 
 [[package]]
 name = "ruvector-tiny-dancer-node"
-version = "2.0.0"
+version = "2.0.1"
 dependencies = [
  "anyhow",
  "chrono",
@@ -8734,7 +8869,7 @@ dependencies = [
 
 [[package]]
 name = "ruvector-tiny-dancer-wasm"
-version = "2.0.0"
+version = "2.0.1"
 dependencies = [
  "js-sys",
  "ruvector-tiny-dancer-core",
@@ -8748,7 +8883,7 @@ dependencies = [
 
 [[package]]
 name = "ruvector-wasm"
-version = "2.0.0"
+version = "2.0.1"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
@@ -8761,7 +8896,7 @@ dependencies = [
  "parking_lot 0.12.5",
  "rand 0.8.5",
  "ruvector-collections",
- "ruvector-core 2.0.0",
+ "ruvector-core 2.0.1",
  "ruvector-filter",
  "serde",
  "serde-wasm-bindgen",
@@ -8777,7 +8912,7 @@ dependencies = [
 
 [[package]]
 name = "ruvllm"
-version = "2.0.0"
+version = "2.0.1"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -8806,11 +8941,11 @@ dependencies = [
  "rand 0.8.5",
  "rayon",
  "regex",
- "ruvector-attention",
- "ruvector-core 2.0.0",
- "ruvector-gnn",
- "ruvector-graph",
- "ruvector-sona",
+ "ruvector-attention 0.1.31",
+ "ruvector-core 2.0.1",
+ "ruvector-gnn 2.0.1",
+ "ruvector-graph 2.0.1",
+ "ruvector-sona 0.1.4",
  "serde",
  "serde_json",
  "sha2",
@@ -8826,8 +8961,43 @@ dependencies = [
 ]
 
 [[package]]
+name = "ruvllm"
+version = "2.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a131c860e1464b4f92d93821655d0b7d25d0624f7885b3137c40c60a79a7a7ff"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "bincode 2.0.1",
+ "chrono",
+ "dashmap 6.1.0",
+ "dirs 5.0.1",
+ "futures-core",
+ "getrandom 0.2.16",
+ "half 2.7.1",
+ "lru",
+ "md5",
+ "ndarray 0.16.1",
+ "once_cell",
+ "parking_lot 0.12.5",
+ "rand 0.8.5",
+ "regex",
+ "ruvector-core 0.1.31",
+ "ruvector-sona 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde",
+ "serde_json",
+ "sha2",
+ "smallvec 1.15.1",
+ "thiserror 2.0.17",
+ "tokio",
+ "tokio-stream",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
 name = "ruvllm-cli"
-version = "2.0.0"
+version = "2.0.1"
 dependencies = [
  "anyhow",
  "assert_cmd",
@@ -8847,7 +9017,7 @@ dependencies = [
  "predicates",
  "prettytable-rs",
  "rustyline",
- "ruvllm",
+ "ruvllm 2.0.1",
  "serde",
  "serde_json",
  "tempfile",
@@ -8886,7 +9056,7 @@ dependencies = [
  "js-sys",
  "once_cell",
  "parking_lot 0.12.5",
- "ruvector-core 2.0.0",
+ "ruvector-core 2.0.1",
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
@@ -9629,7 +9799,7 @@ name = "subpolynomial-time-mincut-demo"
 version = "0.1.0"
 dependencies = [
  "rand 0.8.5",
- "ruvector-mincut 2.0.0",
+ "ruvector-mincut 2.0.1",
 ]
 
 [[package]]

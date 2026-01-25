@@ -75,6 +75,10 @@ harness = false
 name = "snn_bench"
 harness = false
 
+[[bench]]
+name = "jtree_bench"
+harness = false
+
 [[example]]
 name = "temporal_attractors"
 path = "../../examples/mincut/temporal_attractors/src/main.rs"
