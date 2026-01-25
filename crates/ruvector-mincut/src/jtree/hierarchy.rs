@@ -162,7 +162,6 @@ pub struct JTreeStatistics {
 }
 
 /// State of a level (for lazy evaluation)
-#[derive(Debug)]
 enum LevelState {
     /// Not yet materialized
     Unmaterialized,
@@ -170,6 +169,16 @@ enum LevelState {
     Materialized(Box<dyn JTreeLevel>),
     /// Needs recomputation due to updates
     Dirty(Box<dyn JTreeLevel>),
+}
+
+impl std::fmt::Debug for LevelState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Unmaterialized => write!(f, "Unmaterialized"),
+            Self::Materialized(l) => write!(f, "Materialized(level={})", l.level()),
+            Self::Dirty(l) => write!(f, "Dirty(level={})", l.level()),
+        }
+    }
 }
 
 /// The main j-tree hierarchy structure
