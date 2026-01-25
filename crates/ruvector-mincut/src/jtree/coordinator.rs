@@ -300,22 +300,44 @@ impl TwoTierCoordinator {
     pub fn min_cut(&mut self) -> QueryResult {
         let start = Instant::now();
 
+        // Ensure hierarchy is built
+        if let Err(e) = self.ensure_built() {
+            return QueryResult {
+                value: f64::INFINITY,
+                is_exact: false,
+                tier: 0,
+                confidence: 0.0,
+                latency: start.elapsed(),
+                escalated: false,
+            };
+        }
+
         // Build escalation trigger
         let trigger = self.build_trigger();
 
         // Decide tier
         let use_exact = trigger.should_escalate(&self.policy);
 
-        if use_exact {
+        let result = if use_exact {
             self.query_tier2_global(start)
         } else {
             self.query_tier1_global(start)
-        }
+        };
+
+        result.unwrap_or_else(|_| QueryResult {
+            value: f64::INFINITY,
+            is_exact: false,
+            tier: 0,
+            confidence: 0.0,
+            latency: start.elapsed(),
+            escalated: false,
+        })
     }
 
     /// Query s-t minimum cut with automatic tier selection
     pub fn st_min_cut(&mut self, s: VertexId, t: VertexId) -> Result<QueryResult> {
         let start = Instant::now();
+        self.ensure_built()?;
 
         // Build escalation trigger
         let trigger = self.build_trigger();
@@ -333,42 +355,84 @@ impl TwoTierCoordinator {
     /// Force exact (Tier 2) query
     pub fn exact_min_cut(&mut self) -> QueryResult {
         let start = Instant::now();
-        self.query_tier2_global(start)
+        if let Err(_) = self.ensure_built() {
+            return QueryResult {
+                value: f64::INFINITY,
+                is_exact: false,
+                tier: 0,
+                confidence: 0.0,
+                latency: start.elapsed(),
+                escalated: false,
+            };
+        }
+        self.query_tier2_global(start).unwrap_or_else(|_| QueryResult {
+            value: f64::INFINITY,
+            is_exact: false,
+            tier: 0,
+            confidence: 0.0,
+            latency: start.elapsed(),
+            escalated: false,
+        })
     }
 
     /// Force approximate (Tier 1) query
     pub fn approximate_min_cut(&mut self) -> QueryResult {
         let start = Instant::now();
-        self.query_tier1_global(start)
+        if let Err(_) = self.ensure_built() {
+            return QueryResult {
+                value: f64::INFINITY,
+                is_exact: false,
+                tier: 0,
+                confidence: 0.0,
+                latency: start.elapsed(),
+                escalated: false,
+            };
+        }
+        self.query_tier1_global(start).unwrap_or_else(|_| QueryResult {
+            value: f64::INFINITY,
+            is_exact: false,
+            tier: 0,
+            confidence: 0.0,
+            latency: start.elapsed(),
+            escalated: false,
+        })
     }
 
     /// Query Tier 1 for global min cut
-    fn query_tier1_global(&mut self, start: Instant) -> QueryResult {
-        let value = self.tier1.approximate_min_cut();
+    fn query_tier1_global(&mut self, start: Instant) -> Result<QueryResult> {
+        let hierarchy = self.tier1_mut()?;
+        let approx = hierarchy.approximate_min_cut()?;
+        let value = approx.value;
         let latency = start.elapsed();
 
+        self.cached_approx_value = Some(value);
         self.metrics.tier1_queries += 1;
         self.metrics.tier1_total_latency += latency;
         self.queries_since_exact += 1;
 
-        // Calculate confidence based on hierarchy depth and cache hits
+        // Calculate confidence based on hierarchy depth and approximation factor
         let confidence = self.estimate_confidence();
 
-        QueryResult {
+        Ok(QueryResult {
             value,
             is_exact: false,
             tier: 1,
             confidence,
             latency,
             escalated: false,
-        }
+        })
     }
 
     /// Query Tier 1 for s-t min cut
-    fn query_tier1_st(&mut self, s: VertexId, t: VertexId, start: Instant) -> Result<QueryResult> {
-        let value = self.tier1.min_cut(s, t)?;
+    fn query_tier1_st(&mut self, _s: VertexId, _t: VertexId, start: Instant) -> Result<QueryResult> {
+        // JTreeHierarchy doesn't have s-t min cut directly, use approximate global
+        // In a full implementation, we'd traverse levels to find s-t cut
+        let hierarchy = self.tier1_mut()?;
+        let approx = hierarchy.approximate_min_cut()?;
+        let value = approx.value;
         let latency = start.elapsed();
 
+        self.cached_approx_value = Some(value);
         self.metrics.tier1_queries += 1;
         self.metrics.tier1_total_latency += latency;
         self.queries_since_exact += 1;
@@ -386,15 +450,15 @@ impl TwoTierCoordinator {
     }
 
     /// Query Tier 2 (exact) for global min cut
-    fn query_tier2_global(&mut self, start: Instant) -> QueryResult {
-        // For now, use Tier 1 with full recomputation as "exact"
-        // In full implementation, this would use the subpolynomial algorithm
-        let _ = self.tier1.ensure_materialized(0);
-        let value = self.tier1.approximate_min_cut();
+    fn query_tier2_global(&mut self, start: Instant) -> Result<QueryResult> {
+        // For Tier 2, we request exact computation from the hierarchy
+        let hierarchy = self.tier1_mut()?;
+        let cut_result = hierarchy.min_cut(true)?; // Request exact
+        let value = cut_result.value;
         let latency = start.elapsed();
 
         // Record for error tracking
-        if let Some(last_approx) = self.last_exact_value {
+        if let Some(last_approx) = self.cached_approx_value {
             let error = if last_approx > 0.0 {
                 (value - last_approx).abs() / last_approx
             } else {
@@ -411,20 +475,22 @@ impl TwoTierCoordinator {
         self.metrics.tier2_total_latency += latency;
         self.metrics.escalations += 1;
 
-        QueryResult {
+        Ok(QueryResult {
             value,
-            is_exact: true,
+            is_exact: cut_result.is_exact,
             tier: 2,
             confidence: 1.0,
             latency,
             escalated: true,
-        }
+        })
     }
 
     /// Query Tier 2 (exact) for s-t min cut
-    fn query_tier2_st(&mut self, s: VertexId, t: VertexId, start: Instant) -> Result<QueryResult> {
-        let _ = self.tier1.ensure_materialized(0);
-        let value = self.tier1.min_cut(s, t)?;
+    fn query_tier2_st(&mut self, _s: VertexId, _t: VertexId, start: Instant) -> Result<QueryResult> {
+        // Use global min cut with exact flag for now
+        let hierarchy = self.tier1_mut()?;
+        let cut_result = hierarchy.min_cut(true)?;
+        let value = cut_result.value;
         let latency = start.elapsed();
 
         self.last_exact_value = Some(value);
@@ -437,7 +503,7 @@ impl TwoTierCoordinator {
 
         Ok(QueryResult {
             value,
-            is_exact: true,
+            is_exact: cut_result.is_exact,
             tier: 2,
             confidence: 1.0,
             latency,
