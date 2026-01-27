@@ -4,7 +4,8 @@
  * Provides extensible skill system with hot-reload support.
  */
 
-export { SkillEntity, SkillExecutor, SkillOptions } from '../core/entities/Skill.js';
+export { SkillEntity } from '../core/entities/Skill.js';
+export type { SkillExecutor, SkillOptions } from '../core/entities/Skill.js';
 export type {
   SkillDefinition,
   SkillInput,

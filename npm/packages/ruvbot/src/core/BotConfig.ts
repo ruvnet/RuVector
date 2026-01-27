@@ -177,68 +177,63 @@ export class ConfigManager {
    * Load configuration from environment variables
    */
   static fromEnv(): ConfigManager {
-    const config: Partial<BotConfig> = {};
+    // Build partial config - Zod will apply defaults
+    const llmConfig: Partial<z.infer<typeof LLMConfigSchema>> = {};
+    const slackConfig: Partial<z.infer<typeof SlackConfigSchema>> = {};
+    const discordConfig: Partial<z.infer<typeof DiscordConfigSchema>> = {};
+    const apiConfig: Partial<z.infer<typeof APIConfigSchema>> = {};
+    const storageConfig: Partial<z.infer<typeof StorageConfigSchema>> = {};
+    const loggingConfig: Partial<z.infer<typeof LoggingConfigSchema>> = {};
 
     // LLM configuration
     if (process.env.ANTHROPIC_API_KEY) {
-      config.llm = {
-        ...config.llm,
-        provider: 'anthropic',
-        apiKey: process.env.ANTHROPIC_API_KEY,
-      };
+      llmConfig.provider = 'anthropic';
+      llmConfig.apiKey = process.env.ANTHROPIC_API_KEY;
     } else if (process.env.OPENAI_API_KEY) {
-      config.llm = {
-        ...config.llm,
-        provider: 'openai',
-        apiKey: process.env.OPENAI_API_KEY,
-      };
+      llmConfig.provider = 'openai';
+      llmConfig.apiKey = process.env.OPENAI_API_KEY;
     }
 
     // Slack configuration
     if (process.env.SLACK_BOT_TOKEN) {
-      config.slack = {
-        enabled: true,
-        botToken: process.env.SLACK_BOT_TOKEN,
-        signingSecret: process.env.SLACK_SIGNING_SECRET,
-        appToken: process.env.SLACK_APP_TOKEN,
-        socketMode: true,
-      };
+      slackConfig.enabled = true;
+      slackConfig.botToken = process.env.SLACK_BOT_TOKEN;
+      slackConfig.signingSecret = process.env.SLACK_SIGNING_SECRET;
+      slackConfig.appToken = process.env.SLACK_APP_TOKEN;
+      slackConfig.socketMode = true;
     }
 
     // Discord configuration
     if (process.env.DISCORD_TOKEN) {
-      config.discord = {
-        enabled: true,
-        token: process.env.DISCORD_TOKEN,
-        clientId: process.env.DISCORD_CLIENT_ID,
-        guildId: process.env.DISCORD_GUILD_ID,
-      };
+      discordConfig.enabled = true;
+      discordConfig.token = process.env.DISCORD_TOKEN;
+      discordConfig.clientId = process.env.DISCORD_CLIENT_ID;
+      discordConfig.guildId = process.env.DISCORD_GUILD_ID;
     }
 
     // API configuration
     if (process.env.RUVBOT_PORT) {
-      config.api = {
-        ...config.api,
-        port: parseInt(process.env.RUVBOT_PORT, 10),
-      };
+      apiConfig.port = parseInt(process.env.RUVBOT_PORT, 10);
     }
 
     // Storage configuration
     if (process.env.DATABASE_URL) {
-      config.storage = {
-        type: 'postgres',
-        connectionString: process.env.DATABASE_URL,
-        path: '',
-      };
+      storageConfig.type = 'postgres';
+      storageConfig.connectionString = process.env.DATABASE_URL;
     }
 
     // Logging
     if (process.env.RUVBOT_LOG_LEVEL) {
-      config.logging = {
-        ...config.logging,
-        level: process.env.RUVBOT_LOG_LEVEL as 'debug' | 'info' | 'warn' | 'error',
-      };
+      loggingConfig.level = process.env.RUVBOT_LOG_LEVEL as 'debug' | 'info' | 'warn' | 'error';
     }
+
+    const config: Partial<BotConfig> = {};
+    if (Object.keys(llmConfig).length > 0) config.llm = llmConfig as BotConfig['llm'];
+    if (Object.keys(slackConfig).length > 0) config.slack = slackConfig as BotConfig['slack'];
+    if (Object.keys(discordConfig).length > 0) config.discord = discordConfig as BotConfig['discord'];
+    if (Object.keys(apiConfig).length > 0) config.api = apiConfig as BotConfig['api'];
+    if (Object.keys(storageConfig).length > 0) config.storage = storageConfig as BotConfig['storage'];
+    if (Object.keys(loggingConfig).length > 0) config.logging = loggingConfig as BotConfig['logging'];
 
     return new ConfigManager(config);
   }

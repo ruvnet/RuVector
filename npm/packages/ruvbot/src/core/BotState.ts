@@ -8,7 +8,7 @@ import type { Agent, AgentStatus, Session, BotEvent, BotEventType } from './type
 // Bot State Types
 // ============================================================================
 
-export type BotStatus = 'initializing' | 'ready' | 'running' | 'stopping' | 'stopped' | 'error';
+export type BotStatus = 'initializing' | 'starting' | 'ready' | 'running' | 'stopping' | 'stopped' | 'error';
 
 export interface BotMetrics {
   uptime: number;

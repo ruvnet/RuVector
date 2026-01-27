@@ -53,7 +53,7 @@ export default defineConfig({
     hookTimeout: 15000,
 
     // Setup files
-    setupFiles: ['./tests/utils/setup.ts'],
+    setupFiles: ['./tests/setup.ts'],
 
     // Parallel execution
     pool: 'threads',

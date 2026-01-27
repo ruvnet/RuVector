@@ -1,9 +1,10 @@
 /**
- * Core module exports
+ * Core Context - Agent, Session, Memory, Skill
+ *
+ * The heart of RuvBot, handling conversation management and agent behavior.
  */
 
-export * from './types.js';
-export * from './errors.js';
-export * from './entities/index.js';
-export * from './BotConfig.js';
-export * from './BotState.js';
+export * from './agent';
+export * from './session';
+export * from './memory';
+export * from './skill';

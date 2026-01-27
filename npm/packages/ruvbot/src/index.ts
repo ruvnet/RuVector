@@ -1,83 +1,74 @@
 /**
- * @ruvector/ruvbot - Self-learning AI assistant bot
+ * RuvBot - Clawdbot-style Personal AI Assistant
  *
- * High-performance bot with WASM embeddings, vector memory,
- * and multi-platform integrations (Slack, Discord, webhooks).
+ * A multi-tenant, self-learning AI assistant built on RuVector.
  *
- * @example Quick Start
- * ```typescript
- * import { RuvBot } from '@ruvector/ruvbot';
- *
- * const bot = new RuvBot({
- *   name: 'MyBot',
- *   llm: { provider: 'anthropic' },
- *   slack: { enabled: true }
- * });
- *
- * await bot.start();
- * const response = await bot.chat('Hello!');
- * console.log(response.content);
- * ```
- *
- * @example With Memory
- * ```typescript
- * import { RuvBot } from '@ruvector/ruvbot';
- *
- * const bot = new RuvBot({
- *   memory: {
- *     dimensions: 384,
- *     maxVectors: 100000,
- *     indexType: 'hnsw'
- *   }
- * });
- *
- * await bot.start();
- *
- * // Store knowledge
- * await bot.storeInMemory('Important fact about X', {
- *   source: 'external',
- *   tags: ['facts', 'important']
- * });
- *
- * // Search memory
- * const memories = await bot.searchMemory('tell me about X');
- * ```
- *
- * @example With Skills
- * ```typescript
- * import { RuvBot, SkillEntity } from '@ruvector/ruvbot';
- *
- * const bot = new RuvBot();
- *
- * // Register custom skill
- * const weatherSkill = SkillEntity.create(
- *   'weather',
- *   'Get current weather for a location',
- *   async (input, context) => {
- *     const { location } = input;
- *     // Fetch weather...
- *     return { success: true, data: { temp: 72, condition: 'sunny' } };
- *   }
- * );
- *
- * await bot.start();
- * ```
+ * Architecture: Domain-Driven Design with four bounded contexts:
+ * - Core: Agent, Session, Memory, Skill
+ * - Infrastructure: Persistence, Messaging, Workers
+ * - Integration: Slack, Webhooks, Providers
+ * - Learning: Embeddings, Training, Patterns
  *
  * @packageDocumentation
  */
 
-// Main RuvBot class
-export { RuvBot, RuvBotOptions, ChatOptions, ChatResponse } from './RuvBot.js';
+// Core Context
+export * from './core/index.js';
 
-// Core types and entities
-export * from './core/types.js';
-export * from './core/errors.js';
-export * from './core/entities/index.js';
-export { BotConfig, BotConfigSchema, ConfigManager } from './core/BotConfig.js';
-export { BotStateManager, BotStatus, BotMetrics } from './core/BotState.js';
+// Infrastructure Context - explicit exports to avoid duplicates
+export * from './infrastructure/persistence/index.js';
+export {
+  type EventBus,
+  type DomainEvent,
+  type EventHandler,
+  type Subscription,
+  type QueueManager,
+  type Job,
+  type JobOptions,
+} from './infrastructure/messaging/index.js';
+export {
+  type WorkerPool,
+  type JobHandler,
+  type WorkerJob,
+  type WorkerJobOptions,
+  type WorkerContext,
+  type JobResult,
+  type WorkerPoolStatus,
+  WORKER_TYPES,
+  type WorkerType,
+} from './infrastructure/workers/index.js';
 
-// Utilities
-export { createLogger, Logger, LogLevel } from './utils/logger.js';
+// Integration Context
+export * from './integration/index.js';
 
-// Default export
-export { RuvBot as default } from './RuvBot.js';
+// Learning Context
+export * from './learning/index.js';
+
+// Types - exclude duplicates (DomainEvent, EventHandler already exported from infrastructure)
+export type {
+  TenantId,
+  WorkspaceId,
+  UserId,
+  AgentId,
+  SessionId,
+  TurnId,
+  MemoryId,
+  SkillId,
+  PatternId,
+  TrajectoryId,
+  TenantContext,
+  Role,
+  GeoLocation,
+  TimeRange,
+  SemanticVersion,
+  Result,
+  RuvBotConfig,
+  DatabaseConfig,
+  RedisConfig,
+  VectorStoreConfig,
+  LLMConfig as RuvBotLLMConfig,
+  SlackConfig as RuvBotSlackConfig,
+  WebhooksConfig,
+  LearningConfig,
+} from './types.js';
+export { ok, err } from './types.js';

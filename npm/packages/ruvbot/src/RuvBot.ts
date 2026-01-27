@@ -10,7 +10,7 @@ import pino from 'pino';
 import { v4 as uuidv4 } from 'uuid';
 
 import { ConfigManager, type BotConfig } from './core/BotConfig.js';
-import { BotStateManager, type BotState } from './core/BotState.js';
+import { BotStateManager, type BotStatus } from './core/BotState.js';
 import type {
   Agent,
   AgentConfig,
@@ -23,6 +23,8 @@ import type {
   err,
 } from './core/types.js';
 import { RuvBotError, ConfigurationError, InitializationError } from './core/errors.js';
+
+type BotState = BotStatus;
 
 // ============================================================================
 // Types
@@ -119,7 +121,7 @@ export class RuvBot extends EventEmitter<RuvBotEvents> {
     }
 
     this.logger.info('Starting RuvBot...');
-    this.stateManager.setState('starting');
+    this.stateManager.setStatus('starting');
 
     try {
       const config = this.configManager.getConfig();
@@ -138,7 +140,7 @@ export class RuvBot extends EventEmitter<RuvBotEvents> {
       // Mark as running
       this.isRunning = true;
       this.startTime = new Date();
-      this.stateManager.setState('running');
+      this.stateManager.setStatus('running');
 
       this.logger.info(
         { botId: this.id, name: config.name },
@@ -146,7 +148,7 @@ export class RuvBot extends EventEmitter<RuvBotEvents> {
       );
       this.emit('ready');
     } catch (error) {
-      this.stateManager.setState('error');
+      this.stateManager.setStatus('error');
       this.logger.error({ error }, 'Failed to start RuvBot');
       throw new InitializationError(
         `Failed to start RuvBot: ${error instanceof Error ? error.message : 'Unknown error'}`
@@ -164,7 +166,7 @@ export class RuvBot extends EventEmitter<RuvBotEvents> {
     }
 
     this.logger.info('Stopping RuvBot...');
-    this.stateManager.setState('stopping');
+    this.stateManager.setStatus('stopping');
 
     try {
       // Stop all agents
@@ -184,12 +186,12 @@ export class RuvBot extends EventEmitter<RuvBotEvents> {
       await this.stopApiServer();
 
       this.isRunning = false;
-      this.stateManager.setState('stopped');
+      this.stateManager.setStatus('stopped');
 
       this.logger.info('RuvBot stopped successfully');
       this.emit('shutdown');
     } catch (error) {
-      this.stateManager.setState('error');
+      this.stateManager.setStatus('error');
       this.logger.error({ error }, 'Error during shutdown');
       throw error;
     }
@@ -206,7 +208,7 @@ export class RuvBot extends EventEmitter<RuvBotEvents> {
     const agentId = config.id || uuidv4();
 
     if (this.agents.has(agentId)) {
-      throw new RuvBotError(`Agent with ID ${agentId} already exists`);
+      throw new RuvBotError(`Agent with ID ${agentId} already exists`, 'AGENT_EXISTS');
     }
 
     const agent: Agent = {
@@ -231,7 +233,7 @@ export class RuvBot extends EventEmitter<RuvBotEvents> {
   async stopAgent(agentId: string): Promise<void> {
     const agent = this.agents.get(agentId);
     if (!agent) {
-      throw new RuvBotError(`Agent with ID ${agentId} not found`);
+      throw new RuvBotError(`Agent with ID ${agentId} not found`, 'AGENT_NOT_FOUND');
     }
 
     // End all sessions for this agent
@@ -278,7 +280,7 @@ export class RuvBot extends EventEmitter<RuvBotEvents> {
   ): Promise<Session> {
     const agent = this.agents.get(agentId);
     if (!agent) {
-      throw new RuvBotError(`Agent with ID ${agentId} not found`);
+      throw new RuvBotError(`Agent with ID ${agentId} not found`, 'AGENT_NOT_FOUND');
     }
 
     const sessionId = uuidv4();
@@ -314,7 +316,7 @@ export class RuvBot extends EventEmitter<RuvBotEvents> {
   async endSession(sessionId: string): Promise<void> {
     const session = this.sessions.get(sessionId);
     if (!session) {
-      throw new RuvBotError(`Session with ID ${sessionId} not found`);
+      throw new RuvBotError(`Session with ID ${sessionId} not found`, 'SESSION_NOT_FOUND');
     }
 
     this.sessions.delete(sessionId);
@@ -354,12 +356,12 @@ export class RuvBot extends EventEmitter<RuvBotEvents> {
   ): Promise<Message> {
     const session = this.sessions.get(sessionId);
     if (!session) {
-      throw new RuvBotError(`Session with ID ${sessionId} not found`);
+      throw new RuvBotError(`Session with ID ${sessionId} not found`, 'SESSION_NOT_FOUND');
     }
 
     const agent = this.agents.get(session.agentId);
     if (!agent) {
-      throw new RuvBotError(`Agent with ID ${session.agentId} not found`);
+      throw new RuvBotError(`Agent with ID ${session.agentId} not found`, 'AGENT_NOT_FOUND');
     }
 
     // Create user message
@@ -435,7 +437,7 @@ export class RuvBot extends EventEmitter<RuvBotEvents> {
     return {
       id: this.id,
       name: config.name,
-      state: this.stateManager.getState(),
+      state: this.stateManager.getStatus(),
       isRunning: this.isRunning,
       uptime: this.startTime
         ? Date.now() - this.startTime.getTime()

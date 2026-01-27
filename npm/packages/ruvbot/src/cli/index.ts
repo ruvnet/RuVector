@@ -141,7 +141,6 @@ export async function main(): Promise<void> {
   await program.parseAsync(process.argv);
 }
 
-// Run if called directly
-if (import.meta.url === `file://${process.argv[1]}`) {
-  main().catch(console.error);
-}
+// Run if called directly (works in both ESM and CJS)
+// The bin entry point will call main() directly
+export default main;

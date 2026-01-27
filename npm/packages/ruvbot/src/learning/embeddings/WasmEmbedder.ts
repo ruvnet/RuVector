@@ -99,19 +99,14 @@ export class WasmEmbedder implements Embedder {
     if (this.initialized) return;
 
     try {
-      // Try to load @ruvector/wasm-unified
+      // Try to load @ruvector/ruvllm (WASM module)
       try {
-        const wasmModule = await import('@ruvector/wasm-unified');
-        this.wasmModule = wasmModule;
+        // Dynamic import - may not be available
+        const ruvllm = await import('@ruvector/ruvllm');
+        this.wasmModule = ruvllm;
       } catch {
-        // Fall back to @ruvector/ruvllm if available
-        try {
-          const ruvllm = await import('@ruvector/ruvllm');
-          this.wasmModule = ruvllm;
-        } catch {
-          // Use fallback embedder if no WASM available
-          console.warn('No WASM module available, using fallback embedder');
-        }
+        // Use fallback embedder if no WASM available
+        console.warn('No WASM module available, using fallback embedder');
       }
 
       this.initialized = true;

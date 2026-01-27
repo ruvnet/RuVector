@@ -76,22 +76,32 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.20.0",
-    "@ruvector/core": "workspace:*",
-    "@ruvector/wasm": "workspace:*",
-    "@ruvector/ruvllm": "workspace:*",
+    "commander": "^12.0.0",
+    "chalk": "^5.3.0",
+    "ora": "^8.0.1",
+    "dotenv": "^16.3.1",
+    "eventemitter3": "^5.0.1",
+    "uuid": "^9.0.0",
+    "pino": "^8.17.2",
+    "pino-pretty": "^10.3.1",
+    "zod": "^3.22.4"
+  },
+  "optionalDependencies": {
+    "@ruvector/ruvllm": "^2.3.0",
     "@slack/bolt": "^3.17.0",
     "@slack/web-api": "^7.0.0",
     "bullmq": "^5.1.0",
     "ioredis": "^5.3.2",
-    "pg": "^8.11.3",
-    "zod": "^3.22.4"
+    "pg": "^8.11.3"
   },
   "devDependencies": {
     "@types/node": "^20.10.5",
     "@types/pg": "^8.10.9",
+    "@types/uuid": "^9.0.7",
     "eslint": "^8.56.0",
     "typescript": "^5.3.3",
-    "vitest": "^1.2.0"
+    "vitest": "^1.2.0",
+    "@vitest/coverage-v8": "^1.2.0"
   },
   "peerDependencies": {
     "typescript": ">=5.0.0"
