@@ -19,20 +19,24 @@ import type { Embedder, VectorIndex } from '../../../src/learning/memory/MemoryM
 class MockVectorIndex implements VectorIndex {
   private vectors: Map<string, Float32Array> = new Map();
 
-  add(id: string, embedding: Float32Array): void {
+  async add(id: string, embedding: Float32Array): Promise<void> {
     this.vectors.set(id, embedding);
+  }
+
+  async remove(id: string): Promise<boolean> {
+    return this.vectors.delete(id);
   }
 
   delete(id: string): boolean {
     return this.vectors.delete(id);
   }
 
-  search(query: Float32Array, topK: number): Array<{ id: string; score: number }> {
-    const results: Array<{ id: string; score: number }> = [];
+  async search(query: Float32Array, topK: number): Promise<Array<{ id: string; score: number; distance: number }>> {
+    const results: Array<{ id: string; score: number; distance: number }> = [];
 
     for (const [id, vec] of this.vectors.entries()) {
       const score = this.cosineSimilarity(query, vec);
-      results.push({ id, score });
+      results.push({ id, score, distance: 1 - score });
     }
 
     return results
@@ -66,28 +70,36 @@ class MockVectorIndex implements VectorIndex {
 
 // Mock embedder for testing
 class MockEmbedder implements Embedder {
-  private dimension = 128;
+  private _dimension = 128;
 
   async embed(text: string): Promise<Float32Array> {
     // Simple deterministic embedding based on text hash
-    const embedding = new Float32Array(this.dimension);
+    const embedding = new Float32Array(this._dimension);
     const hash = this.simpleHash(text);
 
-    for (let i = 0; i < this.dimension; i++) {
+    for (let i = 0; i < this._dimension; i++) {
       embedding[i] = Math.sin(hash * (i + 1)) * Math.cos(hash / (i + 1));
     }
 
     // Normalize
     let norm = 0;
-    for (let i = 0; i < this.dimension; i++) {
+    for (let i = 0; i < this._dimension; i++) {
       norm += embedding[i] * embedding[i];
     }
     norm = Math.sqrt(norm);
-    for (let i = 0; i < this.dimension; i++) {
+    for (let i = 0; i < this._dimension; i++) {
       embedding[i] /= norm;
     }
 
     return embedding;
+  }
+
+  async embedBatch(texts: string[]): Promise<Float32Array[]> {
+    return Promise.all(texts.map(t => this.embed(t)));
+  }
+
+  dimension(): number {
+    return this._dimension;
   }
 
   private simpleHash(str: string): number {
@@ -226,7 +238,7 @@ describe('HybridSearch Integration Tests', () => {
     });
 
     it('should respect topK parameter', async () => {
-      const results = await hybridSearch.search('learning', 2);
+      const results = await hybridSearch.search('learning', { topK: 2 });
       expect(results.length).toBeLessThanOrEqual(2);
     });
 

@@ -165,7 +165,7 @@ class SkillRegistry {
     }
 
     // Execute with timeout
-    const startTime = Date.now();
+    const startTime = performance.now();
     const timeout = context.timeout || skill.timeout;
 
     try {
@@ -174,7 +174,8 @@ class SkillRegistry {
         this.createTimeout(timeout)
       ]);
 
-      const latency = Date.now() - startTime;
+      // Use performance.now() for sub-millisecond precision, ensure minimum 0.001ms
+      const latency = Math.max(performance.now() - startTime, 0.001);
 
       // Update metrics
       this.updateMetrics(skill, true, latency);
@@ -185,7 +186,7 @@ class SkillRegistry {
         latency
       };
     } catch (error) {
-      const latency = Date.now() - startTime;
+      const latency = Math.max(performance.now() - startTime, 0.001);
 
       // Update metrics
       this.updateMetrics(skill, false, latency);
@@ -322,20 +323,17 @@ class SkillRegistry {
   }
 
   private updateMetrics(skill: SkillDefinition, success: boolean, latency: number): void {
-    const totalExecutions = skill.metadata.usageCount + 1;
-    const totalLatency = skill.metadata.averageLatency * skill.metadata.usageCount + latency;
+    const previousCount = skill.metadata.usageCount;
+    const totalExecutions = previousCount + 1;
+    const totalLatency = skill.metadata.averageLatency * previousCount + latency;
+
+    // Calculate success count from previous executions
+    const previousSuccessCount = skill.metadata.successRate * previousCount;
+    const newSuccessCount = success ? previousSuccessCount + 1 : previousSuccessCount;
 
     skill.metadata.usageCount = totalExecutions;
     skill.metadata.averageLatency = totalLatency / totalExecutions;
-
-    if (!success) {
-      const successCount = skill.metadata.successRate * skill.metadata.usageCount;
-      skill.metadata.successRate = successCount / totalExecutions;
-    } else {
-      const successCount = skill.metadata.successRate * skill.metadata.usageCount + 1;
-      skill.metadata.successRate = successCount / totalExecutions;
-    }
-
+    skill.metadata.successRate = newSuccessCount / totalExecutions;
     skill.metadata.updatedAt = new Date();
   }
 }

@@ -123,7 +123,9 @@ class MockRouter {
 
   private matchPath(path: string): string {
     for (const key of this.routes.keys()) {
-      const routePath = key.split(':')[1];
+      // Split only on first colon to separate method from path
+      const colonIdx = key.indexOf(':');
+      const routePath = key.slice(colonIdx + 1);
       if (this.pathMatches(routePath, path)) {
         return routePath;
       }

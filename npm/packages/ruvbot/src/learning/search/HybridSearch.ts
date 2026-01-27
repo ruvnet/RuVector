@@ -122,7 +122,7 @@ export class HybridSearch {
         embedding = await this.embedder.embed(content);
       }
       if (embedding) {
-        this.vectorIndex.add(id, embedding);
+        await this.vectorIndex.add(id, embedding);
       }
     }
   }
@@ -151,6 +151,11 @@ export class HybridSearch {
     query: string,
     options: HybridSearchOptions = {}
   ): Promise<HybridSearchResult[]> {
+    // Return empty results for empty query
+    if (!query || query.trim().length === 0) {
+      return [];
+    }
+
     const {
       topK = 10,
       threshold = 0,
@@ -224,9 +229,9 @@ export class HybridSearch {
     }
 
     const queryEmbedding = await this.embedder.embed(query);
-    const results = this.vectorIndex.search(queryEmbedding, topK);
+    const results = await this.vectorIndex.search(queryEmbedding, topK);
 
-    return results.map(r => ({
+    return results.map((r: { id: string; score: number }) => ({
       id: r.id,
       vectorScore: r.score,
       keywordScore: 0,

@@ -45,12 +45,12 @@ export interface SlackChannel {
  */
 export class MockSlackWebClient {
   private messageLog: SlackMessage[] = [];
-  private reactions: Map<string, string[]> = new Map();
-  private files: Map<string, unknown> = new Map();
+  private _reactionsData: Map<string, string[]> = new Map();
+  private _filesData: Map<string, unknown> = new Map();
 
   // User and channel data
-  private users: Map<string, SlackUser> = new Map();
-  private channels: Map<string, SlackChannel> = new Map();
+  private _usersData: Map<string, SlackUser> = new Map();
+  private _channelsData: Map<string, SlackChannel> = new Map();
 
   constructor() {
     // Seed default test data
@@ -103,7 +103,7 @@ export class MockSlackWebClient {
   // Conversations API
   conversations = {
     info: vi.fn(async (args: { channel: string }): Promise<{ ok: boolean; channel?: SlackChannel }> => {
-      const channel = this.channels.get(args.channel);
+      const channel = this._channelsData.get(args.channel);
       return {
         ok: !!channel,
         channel
@@ -146,7 +146,7 @@ export class MockSlackWebClient {
   // Users API
   users = {
     info: vi.fn(async (args: { user: string }): Promise<{ ok: boolean; user?: SlackUser }> => {
-      const user = this.users.get(args.user);
+      const user = this._usersData.get(args.user);
       return {
         ok: !!user,
         user
@@ -156,7 +156,7 @@ export class MockSlackWebClient {
     list: vi.fn(async (): Promise<{ ok: boolean; members: SlackUser[] }> => {
       return {
         ok: true,
-        members: Array.from(this.users.values())
+        members: Array.from(this._usersData.values())
       };
     })
   };
@@ -165,21 +165,21 @@ export class MockSlackWebClient {
   reactions = {
     add: vi.fn(async (args: { channel: string; timestamp: string; name: string }): Promise<SlackResponse> => {
       const key = `${args.channel}:${args.timestamp}`;
-      const existing = this.reactions.get(key) || [];
-      this.reactions.set(key, [...existing, args.name]);
+      const existing = this._reactionsData.get(key) || [];
+      this._reactionsData.set(key, [...existing, args.name]);
       return { ok: true };
     }),
 
     remove: vi.fn(async (args: { channel: string; timestamp: string; name: string }): Promise<SlackResponse> => {
       const key = `${args.channel}:${args.timestamp}`;
-      const existing = this.reactions.get(key) || [];
-      this.reactions.set(key, existing.filter(r => r !== args.name));
+      const existing = this._reactionsData.get(key) || [];
+      this._reactionsData.set(key, existing.filter(r => r !== args.name));
       return { ok: true };
     }),
 
     get: vi.fn(async (args: { channel: string; timestamp: string }): Promise<{ ok: boolean; message: { reactions: unknown[] } }> => {
       const key = `${args.channel}:${args.timestamp}`;
-      const reactions = this.reactions.get(key) || [];
+      const reactions = this._reactionsData.get(key) || [];
       return {
         ok: true,
         message: {
@@ -194,12 +194,12 @@ export class MockSlackWebClient {
     upload: vi.fn(async (args: { channels: string; content: string; filename: string }): Promise<{ ok: boolean; file: unknown }> => {
       const fileId = `F${Date.now()}`;
       const file = { id: fileId, name: args.filename, content: args.content };
-      this.files.set(fileId, file);
+      this._filesData.set(fileId, file);
       return { ok: true, file };
     }),
 
     delete: vi.fn(async (args: { file: string }): Promise<SlackResponse> => {
-      this.files.delete(args.file);
+      this._filesData.delete(args.file);
       return { ok: true };
     })
   };
@@ -226,21 +226,21 @@ export class MockSlackWebClient {
   }
 
   getReactions(channel: string, timestamp: string): string[] {
-    return this.reactions.get(`${channel}:${timestamp}`) || [];
+    return this._reactionsData.get(`${channel}:${timestamp}`) || [];
   }
 
   addUser(user: SlackUser): void {
-    this.users.set(user.id, user);
+    this._usersData.set(user.id, user);
   }
 
   addChannel(channel: SlackChannel): void {
-    this.channels.set(channel.id, channel);
+    this._channelsData.set(channel.id, channel);
   }
 
   reset(): void {
     this.messageLog = [];
-    this.reactions.clear();
-    this.files.clear();
+    this._reactionsData.clear();
+    this._filesData.clear();
     this.seedDefaultData();
 
     // Reset all mocks
@@ -249,7 +249,7 @@ export class MockSlackWebClient {
 
   private seedDefaultData(): void {
     // Default users
-    this.users.set('U12345678', {
+    this._usersData.set('U12345678', {
       id: 'U12345678',
       name: 'testuser',
       real_name: 'Test User',
@@ -257,7 +257,7 @@ export class MockSlackWebClient {
       team_id: 'T12345678'
     });
 
-    this.users.set('U_BOT', {
+    this._usersData.set('U_BOT', {
       id: 'U_BOT',
       name: 'ruvbot',
       real_name: 'RuvBot',
@@ -266,7 +266,7 @@ export class MockSlackWebClient {
     });
 
     // Default channels
-    this.channels.set('C12345678', {
+    this._channelsData.set('C12345678', {
       id: 'C12345678',
       name: 'general',
       is_private: false,
