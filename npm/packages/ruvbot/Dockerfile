@@ -74,4 +74,4 @@ USER ruvbot
 EXPOSE 8080
 
 # Start the application
-CMD ["node", "dist/cjs/server.js"]
+CMD ["node", "dist/server.js"]
