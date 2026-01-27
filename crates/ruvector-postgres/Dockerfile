@@ -69,17 +69,20 @@ RUN mkdir -p /opt/ruvector/models && \
     echo "Model cache size: $(du -sh /opt/ruvector/models)" && \
     ls -la /opt/ruvector/models/
 
-# Copy the pre-built SQL schema file (with sparse functions removed)
-# cargo pgrx schema doesn't work reliably in Docker, so we use the hand-crafted file
+# Copy the pre-built SQL schema files (with sparse functions removed)
+# cargo pgrx schema doesn't work reliably in Docker, so we use the hand-crafted files
+# Both versions are needed: 0.1.0 for legacy and 2.0.0 to match ruvector.control default_version
 RUN cp /build/sql/ruvector--0.1.0.sql /build/target/release/ruvector-pg17/usr/share/postgresql/17/extension/ruvector--0.1.0.sql && \
-    echo "SQL schema copied with $(grep -c 'CREATE FUNCTION\|CREATE OR REPLACE FUNCTION' /build/target/release/ruvector-pg17/usr/share/postgresql/17/extension/ruvector--0.1.0.sql) functions"
+    cp /build/sql/ruvector--2.0.0.sql /build/target/release/ruvector-pg17/usr/share/postgresql/17/extension/ruvector--2.0.0.sql && \
+    echo "SQL schema (0.1.0) copied with $(grep -c 'CREATE FUNCTION\|CREATE OR REPLACE FUNCTION' /build/target/release/ruvector-pg17/usr/share/postgresql/17/extension/ruvector--0.1.0.sql) functions" && \
+    echo "SQL schema (2.0.0) copied with $(grep -c 'CREATE FUNCTION\|CREATE OR REPLACE FUNCTION' /build/target/release/ruvector-pg17/usr/share/postgresql/17/extension/ruvector--2.0.0.sql) functions"
 
 # Verify the extension files are complete
 RUN ls -la /build/target/release/ruvector-pg17/usr/share/postgresql/17/extension/ && \
-    echo "=== First 20 lines of SQL ===" && \
-    head -20 /build/target/release/ruvector-pg17/usr/share/postgresql/17/extension/ruvector--0.1.0.sql && \
-    echo "=== CREATE FUNCTION count ===" && \
-    grep -c "CREATE FUNCTION\|CREATE OR REPLACE FUNCTION" /build/target/release/ruvector-pg17/usr/share/postgresql/17/extension/ruvector--0.1.0.sql
+    echo "=== ruvector--2.0.0.sql CREATE FUNCTION count ===" && \
+    grep -c "CREATE FUNCTION\|CREATE OR REPLACE FUNCTION" /build/target/release/ruvector-pg17/usr/share/postgresql/17/extension/ruvector--2.0.0.sql && \
+    echo "=== Verify embedding functions present in 2.0.0 ===" && \
+    grep -c "ruvector_embed" /build/target/release/ruvector-pg17/usr/share/postgresql/17/extension/ruvector--2.0.0.sql
 
 # Runtime stage
 FROM postgres:17-bookworm

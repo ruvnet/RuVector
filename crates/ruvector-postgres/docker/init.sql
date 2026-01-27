@@ -50,5 +50,10 @@ BEGIN
     RAISE NOTICE 'Inner product: %', inner_product_arr(ARRAY[1.0, 2.0, 3.0]::real[], ARRAY[1.0, 2.0, 3.0]::real[]);
     RAISE NOTICE 'Cosine distance: %', cosine_distance_arr(ARRAY[1.0, 0.0, 0.0]::real[], ARRAY[0.0, 1.0, 0.0]::real[]);
 
+    -- Test embedding functions
+    RAISE NOTICE 'Testing embedding functions...';
+    RAISE NOTICE 'Default model: %', ruvector_default_model();
+    RAISE NOTICE 'MiniLM dims: %', ruvector_embedding_dims('all-MiniLM-L6-v2');
+
     RAISE NOTICE 'All basic tests passed!';
 END $$;
