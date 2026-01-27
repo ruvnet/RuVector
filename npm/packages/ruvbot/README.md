@@ -353,6 +353,94 @@ services:
       - ./skills:/app/skills
 ```
 
+## Google Cloud Deployment
+
+RuvBot includes cost-optimized Google Cloud Platform deployment (~$15-20/month for low traffic).
+
+### Quick Deploy
+
+```bash
+# Set environment variables
+export ANTHROPIC_API_KEY="sk-ant-..."
+export PROJECT_ID="my-gcp-project"
+
+# Deploy with script
+./deploy/gcp/deploy.sh --project-id $PROJECT_ID
+```
+
+### Terraform (Infrastructure as Code)
+
+```bash
+cd deploy/gcp/terraform
+terraform init
+terraform apply \
+  -var="project_id=my-project" \
+  -var="anthropic_api_key=$ANTHROPIC_API_KEY"
+```
+
+### Cost Breakdown
+
+| Service | Configuration | Monthly Cost |
+|---------|---------------|--------------|
+| Cloud Run | 0-10 instances, 512Mi | ~$0-5 (free tier) |
+| Cloud SQL | db-f1-micro PostgreSQL | ~$10-15 |
+| Secret Manager | 3-5 secrets | ~$0.18 |
+| Cloud Storage | Standard | ~$0.02/GB |
+| **Total** | | **~$15-20/month** |
+
+### Features
+
+- **Serverless**: Scale to zero when not in use
+- **Managed Database**: Cloud SQL PostgreSQL with automatic backups
+- **Secure Secrets**: Secret Manager for API keys
+- **CI/CD**: Cloud Build pipeline included
+- **Terraform**: Full infrastructure as code support
+
+See [ADR-013: GCP Deployment](docs/adr/ADR-013-gcp-deployment.md) for architecture details.
+
+## LLM Providers
+
+RuvBot supports multiple LLM providers for flexibility and cost optimization.
+
+### Anthropic (Direct)
+
+```typescript
+import { createAnthropicProvider } from '@ruvector/ruvbot';
+
+const provider = createAnthropicProvider({
+  apiKey: process.env.ANTHROPIC_API_KEY,
+  model: 'claude-3-5-sonnet-20241022',
+});
+```
+
+### OpenRouter (200+ Models)
+
+```typescript
+import { createOpenRouterProvider, createQwQProvider } from '@ruvector/ruvbot';
+
+// Use Qwen QwQ reasoning model
+const qwq = createQwQProvider(process.env.OPENROUTER_API_KEY);
+
+// Or any OpenRouter model
+const provider = createOpenRouterProvider({
+  apiKey: process.env.OPENROUTER_API_KEY,
+  model: 'deepseek/deepseek-r1',  // Reasoning model
+});
+```
+
+### Supported Models
+
+| Model | Provider | Use Case | Context |
+|-------|----------|----------|---------|
+| Claude 3.5 Sonnet | Anthropic | General | 200K |
+| Claude 3 Opus | Anthropic | Complex | 200K |
+| QwQ-32B | OpenRouter | Reasoning | 32K |
+| DeepSeek R1 | OpenRouter | Reasoning | 64K |
+| GPT-4o | OpenRouter | General | 128K |
+| Gemini Pro 1.5 | OpenRouter | Long context | 1M |
+
+See [ADR-012: LLM Providers](docs/adr/ADR-012-llm-providers.md) for details.
+
 ## Development
 
 ```bash
