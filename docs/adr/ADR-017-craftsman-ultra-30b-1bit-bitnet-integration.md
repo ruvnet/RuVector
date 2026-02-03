@@ -1372,6 +1372,157 @@ fn ternary_gemv_scalar(weights: &TernaryTensor, activations: &[i8], output: &mut
 
 ---
 
+### AD-22: Evaluation Infrastructure and Behavioral Gates
+
+**Decision**: Define a three-gate behavioral evaluation framework with a structured trace schema, auto-labeling strategy, and Go/No-Go shipping rule. All gates are non-LLM-judge, deterministic, reproducible, and executable on CPU without external API calls. The system ships on integrity/citations/refusal behavior, not raw model quality benchmarks. Full GPU distillation (Phase 1+) is deferred; the eval infrastructure must validate Phase 0 and Phase 0.5 outputs at zero marginal cost.
+
+**Rationale**: Standard LLM evaluation relies on either (a) benchmark suites (HumanEval, MMLU) that measure general capability, or (b) LLM-as-judge approaches that are non-deterministic, expensive, and unsuitable for gating CI/CD pipelines. For Craftsman Ultra, the critical shipping question is not "does it score well on benchmarks?" but "does it route correctly, cite honestly, and refuse when uncertain?" These behavioral properties are testable with deterministic, cheap-to-run gate checks that compare model outputs against known ground-truth traces.
+
+The three gates correspond to the three failure modes that would make the system untrustworthy regardless of benchmark scores:
+1. **Misrouting** — wrong experts selected, producing semantically wrong outputs from correct-seeming completions
+2. **Hallucinated citations** — model cites evidence that does not exist or does not support the claim
+3. **Over/under-refusal** — model refuses answerable questions or confidently answers indeterminate ones
+
+**Gate 1 — Routing Correctness**
+
+Run the FP16 teacher model once on the 200-prompt evaluation suite to record ground-truth routing traces: which experts are selected, with what softmax weights, per token per layer. Then run the ternary student model on the same prompts and compare routing decisions.
+
+| Parameter | Value |
+|-----------|-------|
+| Metric | `routing_agreement = count(same_topk_experts) / total_tokens` |
+| Comparison | Per-token, per-layer: do the top-K selected expert indices match between teacher and student? |
+| Pass threshold | >= 0.85 (85% of tokens route to the same expert set as the teacher) |
+| Fail action | Trigger targeted router repair via `ContrastiveTrainer` (AD-19, AD-20) with triplets generated from the misrouted token positions |
+
+Teacher traces are recorded once and cached as JSONL. The ternary model is evaluated against these cached traces on every pipeline run. Agreement is measured at the expert-set level (order-invariant): if teacher selects experts {2, 5} and student selects {5, 2}, this counts as agreement.
+
+**Gate 2 — Citation Correctness**
+
+For retrieval-augmented responses, verify that citations are grounded in the actual retrieval corpus. This gate requires a labeled subset of the 200-prompt suite where prompts include retrieval context with known chunk IDs.
+
+| Parameter | Value |
+|-----------|-------|
+| Metric (precision) | `citation_precision = valid_citations / total_citations` |
+| Metric (recall) | `citation_recall = cited_evidence / relevant_evidence` (from labeled prompts) |
+| Validity check | For each cited `chunk_id`: (1) chunk exists in retrieval corpus, (2) cited span is an exact substring match OR Jaccard similarity between cited span and chunk content > 0.6 |
+| Pass threshold | Precision >= 0.90, Recall >= 0.70 |
+| Fail action | Trigger retrieval-first policy training via `GrpoOptimizer` (GRPO reward penalizes hallucinated citations, rewards grounded ones) |
+
+Jaccard similarity is computed at the word level: `|intersection(words_cited, words_chunk)| / |union(words_cited, words_chunk)|`. This catches paraphrased citations while rejecting fabricated ones. The 0.6 threshold was chosen to allow minor rephrasing while catching wholesale fabrication.
+
+**Gate 3 — Refusal Calibration**
+
+Test the model's ability to refuse when evidence is insufficient and answer when evidence is adequate. Uses the auto-labeled prompt suite (see below) where each prompt is classified as `resolved`, `contested`, or `indeterminate`.
+
+| Parameter | Value |
+|-----------|-------|
+| Metric | `refusal_f1 = harmonic_mean(refusal_precision, refusal_recall)` |
+| Refusal detection | Output contains a refusal signal (configurable string set, e.g., "I cannot determine", "insufficient evidence", "I'm not sure", or a structured `<refusal>` tag) |
+| Must-refuse rate | Model must refuse >= 80% of `indeterminate` prompts |
+| Must-answer rate | Model must NOT refuse >= 95% of `resolved` prompts |
+| Pass threshold | Refusal F1 >= 0.85 |
+| Fail action | Adjust refusal threshold in controller policy, or retrain controller via `GrpoOptimizer` with refusal-aware reward signal |
+
+`contested` prompts (sources actively contradict) are evaluated separately and not gated — they are tracked for monitoring but the correct behavior (refuse vs. present both sides) is domain-dependent.
+
+**Trace Schema (JSONL format)**
+
+Every evaluation run produces a JSONL trace file where each line records per-token, per-layer routing decisions alongside response-level citation and refusal assessments:
+
+```json
+{
+  "prompt_id": "p-001",
+  "token_idx": 42,
+  "layer_idx": 3,
+  "routing": {
+    "topk_expert_ids": [2, 5],
+    "topk_weights": [0.62, 0.38],
+    "teacher_expert_ids": [2, 5],
+    "teacher_weights": [0.65, 0.35],
+    "agreement": true
+  },
+  "citations": [
+    {"chunk_id": "doc-17-p3", "span": "exact quoted text", "valid": true}
+  ],
+  "refusal": {
+    "should_refuse": false,
+    "did_refuse": false,
+    "correct": true
+  },
+  "coherence_score": 0.91,
+  "stop_reason": "eos"
+}
+```
+
+Schema notes:
+- `routing` is emitted per-token per-layer (one record per token-layer pair)
+- `citations` and `refusal` are emitted once per response (attached to the final token record, `stop_reason != null`)
+- `coherence_score` is the cosine similarity between student and teacher hidden states at the final layer — a cheap proxy for output quality without LLM-judge
+- Trace files are stored in `eval/traces/` (never in the project root) and named `{model_version}_{prompt_suite}_{timestamp}.jsonl`
+
+**Auto-Labeling Strategy**
+
+The 200-prompt evaluation suite is labeled without manual annotation by using RuVector retrieval signals as proxy ground truth:
+
+| Label | Condition | Meaning | Gate Usage |
+|-------|-----------|---------|------------|
+| `resolved` | Evidence redundancy > 3 (multiple independent sources agree on the answer) | The question is clearly answerable from the corpus | Gate 3: model must answer (not refuse) |
+| `contested` | Cluster disagreement > 0.4 (sources actively contradict each other) | The question has conflicting evidence | Monitored only (not gated) |
+| `indeterminate` | Mincut fragility > 0.7 (removing a single source breaks the entire evidence chain) | The question cannot be reliably answered | Gate 3: model must refuse |
+
+These labels also feed Gate 2:
+- `resolved` prompts provide the `relevant_evidence` denominator for citation recall (all supporting chunks should be cited)
+- `indeterminate` prompts should produce no citations (any citation on an indeterminate prompt is likely hallucinated)
+
+Auto-labeling is deterministic given a fixed retrieval corpus and runs on CPU via existing RuVector HNSW search. Labels are stored alongside prompts in the evaluation suite and versioned with the corpus.
+
+**Go/No-Go Rule**
+
+All three gates must pass on the same evaluation suite run for the system to ship:
+
+```
+SHIP = (routing_agreement >= 0.85)
+     AND (citation_precision >= 0.90)
+     AND (citation_recall >= 0.70)
+     AND (refusal_f1 >= 0.85)
+```
+
+If any gate fails, the system cannot ship. The remediation path is gate-specific:
+
+| Failed Gate | Remediation | Component | Estimated Duration |
+|-------------|-------------|-----------|-------------------|
+| Routing Correctness | Router repair via `ContrastiveTrainer` with misrouted-token triplets | `training/contrastive.rs` | 1-4 hours |
+| Citation Correctness | Retrieval-first policy training via `GrpoOptimizer` (reward grounded citations) | `training/grpo.rs` | 2-8 hours |
+| Refusal Calibration | Adjust refusal threshold or retrain controller policy via `GrpoOptimizer` | `training/grpo.rs` + controller config | 1-2 hours |
+
+Re-evaluation after remediation must re-run all three gates (not just the failed one) to confirm no regression.
+
+**Implementation location:**
+
+| Component | Path | Lines | Notes |
+|-----------|------|-------|-------|
+| Gate runner orchestrator | `crates/ruvllm/src/eval/gates.rs` | ~300 | New module; runs all three gates, produces trace JSONL |
+| Routing trace recorder | `crates/ruvllm/src/eval/routing_trace.rs` | ~150 | Records teacher routing decisions; compares against student |
+| Citation validator | `crates/ruvllm/src/eval/citation_check.rs` | ~200 | Substring match + Jaccard similarity; corpus lookup |
+| Refusal detector | `crates/ruvllm/src/eval/refusal_detect.rs` | ~100 | Configurable refusal signal set; F1 computation |
+| Auto-labeler | `crates/ruvllm/src/eval/auto_label.rs` | ~150 | RuVector signal extraction; prompt classification |
+| Trace schema types | `crates/ruvllm/src/eval/trace.rs` | ~80 | Serde-annotated structs matching the JSONL schema |
+| **Total new code** | | **~980** | All CPU-only, no external dependencies |
+
+**Exit criteria:**
+- [ ] Teacher routing traces recorded for full 200-prompt suite and cached as JSONL
+- [ ] Gate 1 (routing agreement) runs in < 30 minutes on Mac Studio for 200 prompts
+- [ ] Gate 2 (citation correctness) validates chunk_id existence and span grounding
+- [ ] Gate 3 (refusal calibration) correctly classifies refusal signals in model output
+- [ ] Auto-labeler produces `resolved`/`contested`/`indeterminate` labels from RuVector signals
+- [ ] All gates produce deterministic results (same inputs = same pass/fail, bit-exact)
+- [ ] Trace JSONL files are written to `eval/traces/`, never to project root
+- [ ] Go/No-Go rule enforced: all three gates must pass on same run
+- [ ] Failed gate triggers correct remediation path (ContrastiveTrainer or GrpoOptimizer)
+- [ ] Total eval suite runtime < 2 hours on Mac Studio (CPU-only)
+
+---
+
 ## Consequences
 
 ### Positive
@@ -1398,6 +1549,11 @@ fn ternary_gemv_scalar(weights: &TernaryTensor, activations: &[i8], output: &mut
 20. **Single-source dual-target**: One Rust codebase compiles to both native SIMD (NEON/AVX2/AVX512) and WASM SIMD128, eliminating the need for separate C++ and JS codebases
 21. **Safe Rust kernels**: Following R3-Engine's approach, production kernels can be 100% Safe Rust (no `unsafe` in hot path), eliminating entire classes of memory safety bugs vs bitnet.cpp's C++
 22. **Existing Rust ecosystem**: R3-Engine (Apache-compatible) and bitnet.rs (Apache 2.0) provide proven reference implementations to accelerate kernel development
+23. **Deterministic behavioral gates**: Three non-LLM-judge evaluation gates (routing, citation, refusal) provide reproducible pass/fail shipping decisions without expensive API calls or non-deterministic judge models
+24. **Structured trace schema**: JSONL trace format captures per-token routing, per-response citation, and refusal decisions in a single auditable artifact — enables regression detection across model versions
+25. **Zero-annotation auto-labeling**: RuVector retrieval signals (evidence redundancy, cluster disagreement, mincut fragility) classify prompts as resolved/contested/indeterminate without human annotation effort
+26. **Gate-specific remediation**: Each failed gate maps to a concrete repair action using existing RLM components (ContrastiveTrainer for routing, GrpoOptimizer for citations and refusal), avoiding manual debugging cycles
+27. **CPU-only evaluation**: Full eval suite runs on Mac Studio in < 2 hours with no cloud GPU or external API dependency, keeping the evaluation loop at $0 marginal cost
 
 ### Negative
 
@@ -1409,6 +1565,9 @@ fn ternary_gemv_scalar(weights: &TernaryTensor, activations: &[i8], output: &mut
 6. **WASM SIMD128 ceiling**: Fixed 128-bit width limits throughput vs native AVX2 (256-bit) or AVX512 (512-bit); no popcount instruction requires emulation; single-threaded unless SharedArrayBuffer enabled — expect ~20-40 tok/s vs ~80-117 tok/s native
 7. **RLM scale gap**: Existing `RealContrastiveTrainer` targets 0.5B models (embedding_dim=896); scaling to 30B requires distributed data loading and increased batch sizes
 8. **No x86 SIMD kernels**: Current `kernels/matmul.rs` only implements NEON (aarch64); x86 falls to scalar fallback (~3-5x slower than NEON). Adding AVX2/AVX512 kernels would make x86 SIMD-only mode competitive but is not yet implemented
+9. **Teacher trace dependency**: Gate 1 requires a full FP16 teacher forward pass to generate ground-truth routing traces; this must be re-run whenever the evaluation suite changes or the teacher model is updated
+10. **Auto-label noise**: RuVector-derived labels (evidence redundancy, mincut fragility) are proxies for true answerability; edge cases near thresholds (e.g., fragility = 0.69 vs 0.71) may produce inconsistent labels across corpus versions
+11. **200-prompt suite coverage**: A fixed 200-prompt suite may not cover all failure modes; adversarial or distribution-shifted prompts could pass all gates yet fail in production
 
 ### Risks
 
@@ -1424,6 +1583,9 @@ fn ternary_gemv_scalar(weights: &TernaryTensor, activations: &[i8], output: &mut
 | GRPO reward signal too noisy for distillation | Low | Low | Fall back to static KD loss; GRPO reward as optional multiplier |
 | `RealContrastiveTrainer` doesn't scale to 30B | Medium | Medium | Extract training loop; replace Candle Linear with BitLinear; keep optimizer/scheduler |
 | Calibration data bias in Phase 0 PTQ | Low | Low | Use diverse calibration corpus (WikiText + code); measure variance across calibration sets |
+| Auto-label thresholds misclassify edge-case prompts | Medium | Medium | Track label stability across corpus versions; flag prompts with signals near threshold boundaries for manual review |
+| 200-prompt suite insufficient for production coverage | Low | Medium | Expand suite iteratively as production failure modes are discovered; run gates on user-submitted adversarial prompts quarterly |
+| Teacher routing traces become stale after model update | Low | Low | Re-record teacher traces as part of every model version bump; cache invalidation keyed on teacher model hash |
 
 ---
 
