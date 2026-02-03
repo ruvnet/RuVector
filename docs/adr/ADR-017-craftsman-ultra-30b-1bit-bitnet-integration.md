@@ -223,11 +223,13 @@ Take the existing BF16 GLM-4.7-Flash weights and quantize to low-bit formats wit
 
 **Sub-option 0C: PT-BitNet ternary PTQ** (per [PT-BitNet paper](https://www.sciencedirect.com/science/article/abs/pii/S089360802500735X))
 - Apply absmean ternary quantization (BitNet's native method) to pre-trained weights with calibration data
-- Cost: ~$50-200 (small GPU calibration run, 1-4 hours on 1× A100)
+- Cost: **$0** (runs locally on Mac Studio via mmap + Metal; 1-4 hours wall time)
+- Alternative: ~$50-200 on cloud GPU if no local Apple Silicon hardware
 - Quality: ~55-65% downstream accuracy (PT-BitNet reports 61% on 70B; GLM-4.7-Flash's 30B-A3B may differ)
 - THIS IS proper BitNet ternary format → **enables multiplication-free inference with AD-4 kernels**
 - Requires implementing absmean ternary quantizer (~200-300 lines of new code)
 - Requires calibration dataset (WikiText-2 or similar, ~1M tokens)
+- Mac Studio M4 Max 64GB+ or M3 Ultra 96GB+ recommended (see AD-18)
 
 **Sub-option 0D: BitDistill Lite (10B tokens)** (per [BitDistill paper](https://arxiv.org/html/2510.13998v1))
 - 3-stage: SubLN insertion → 10B-token continued pre-training → KL + attention distillation
@@ -243,8 +245,8 @@ Take the existing BF16 GLM-4.7-Flash weights and quantize to low-bit formats wit
 |-----------|------|------|---------------|----------------|-------------|
 | 0A: IQ2_XXS download | $0 | 5 min | ~75-80% | No | No (missing dequant) |
 | 0B: IQ1_S quantize | $0 | 30 min | ~40-50% | No | No (missing dequant) |
-| 0C: PT-BitNet PTQ | ~$100 | 2-4 hrs | ~55-65% | **Yes** | Needs quantizer impl |
-| 0D: BitDistill Lite | ~$300 | 1-2 days | ~90-95% | **Yes** | Needs SubLN + KD loop |
+| 0C: PT-BitNet PTQ | **$0 (Mac Studio)** | 1-4 hrs | ~55-65% | **Yes** | Needs quantizer impl |
+| 0D: BitDistill Lite | $0 local / ~$300 cloud | 2-4 wks / 1-2 days | ~90-95% | **Yes** | Needs SubLN + KD loop |
 
 **Pros (of PTQ approach generally):**
 - Immediate or near-immediate results ($0-$300, minutes to days)
@@ -366,7 +368,8 @@ Keep GLM-4.7-Flash structure but replace only the expert MLP layers with BitLine
 
 ### Phase 0: PTQ Rapid Prototype (Option A, Sub-option 0C)
 - **Timeline**: 1-2 weeks
-- **Cost**: ~$100 (calibration on 1× A100 spot, 2-4 hours)
+- **Cost**: **$0** (runs entirely on Mac Studio locally)
+- **Platform**: Mac Studio (M4 Max 64GB+ or M3 Ultra 96GB+)
 - **Goal**: Produce a genuine BitNet ternary GGUF of GLM-4.7-Flash for kernel development, inference pipeline validation, and baseline quality measurement
 - **Deliverables**:
   - PT-BitNet ternary quantized GLM-4.7-Flash GGUF file (~6-7 GB)
@@ -375,8 +378,9 @@ Keep GLM-4.7-Flash structure but replace only the expert MLP layers with BitLine
   - Baseline quality benchmarks (HumanEval, MMLU) to compare against Phase 1+
   - Functional TL1 kernel validated against ternary model
 - **Expected quality**: ~55-65% of GLM-4.7-Flash (adequate for kernel validation, not production)
-- **Key value**: De-risks Phase 1 by validating the entire inference pipeline (GGUF loading → ternary dequant → TL1 kernel → MoE routing → token generation) at near-zero cost before committing to $1,300+ distillation training
-- **Optional upgrade (0D)**: If 0C quality is too low for meaningful testing, apply BitDistill Lite (10B tokens, ~$300, 1-2 days) to reach ~90-95% quality
+- **Key value**: De-risks Phase 1 by validating the entire inference pipeline (GGUF loading → ternary dequant → TL1 kernel → MoE routing → token generation) at zero cost before committing to $1,300+ distillation training
+- **Why Mac Studio works**: Phase 0 is PTQ (no training loop) — just load FP16 weights via mmap, compute absmean per block, round to ternary, export. The absmean computation is trivial math; the bottleneck is memory bandwidth, not compute. Calibration forward pass uses Metal GPU acceleration via existing Candle integration.
+- **Optional upgrade (0D)**: If 0C quality is too low for meaningful testing, apply BitDistill Lite (10B tokens, ~$300 cloud or ~$0 on Mac Studio over several weeks) to reach ~90-95% quality
 
 ### Phase 1: BitNet Expert Replacement (Option D)
 - **Timeline**: 3-4 months
@@ -825,26 +829,31 @@ let expert_results: Vec<DistillResult> = experts
 
 **Throughput and cost comparison:**
 
-| Platform | Training tok/s | Time (200B tok, Phase 1) | Cost |
-|----------|---------------|--------------------------|------|
-| CPU AVX2 (Ryzen 9) | ~50-100 | ~65 years | N/A |
-| Apple M4 Max (Metal) | ~500-1000 | ~6.5 years | N/A |
-| 1× A100 80GB (GCP on-demand) | ~15,000 | ~155 days | ~$3,700 |
-| 4× A100 80GB (GCP on-demand) | ~50,000 | ~46 days | ~$4,400 |
-| 4× A100 80GB (GCP spot) | ~50,000 | ~46 days | **~$1,300** |
-| 1× H100 (DataCrunch) | ~40,000 | ~58 days | ~$2,900 |
-| 4× H100 (DataCrunch) | ~140,000 | ~16 days | **~$3,200** |
+| Platform | Training tok/s | Time (200B tok, Phase 1) | Cost | Phase 0 PTQ? |
+|----------|---------------|--------------------------|------|-------------|
+| **Mac Studio M4 Max (Metal)** | ~500-1000 | ~6.5 years | N/A | **Yes — 1-4 hrs, $0** |
+| **Mac Studio M3 Ultra (Metal)** | ~800-1500 | ~4.2 years | N/A | **Yes — 1-1.5 hrs, $0** |
+| CPU AVX2 (Ryzen 9) | ~50-100 | ~65 years | N/A | Yes — 2-6 hrs, $0 |
+| 1× A100 80GB (GCP on-demand) | ~15,000 | ~155 days | ~$3,700 | Yes — 30 min, ~$5 |
+| 4× A100 80GB (GCP on-demand) | ~50,000 | ~46 days | ~$4,400 | Overkill for PTQ |
+| 4× A100 80GB (GCP spot) | ~50,000 | ~46 days | **~$1,300** | Overkill for PTQ |
+| 1× H100 (DataCrunch) | ~40,000 | ~58 days | ~$2,900 | Overkill for PTQ |
+| 4× H100 (DataCrunch) | ~140,000 | ~16 days | **~$3,200** | Overkill for PTQ |
+
+**Key insight**: Mac Studio is infeasible for Phase 1+ training (years of wall time) but **ideal for Phase 0 PTQ** (hours, $0). This separation justifies the phased approach.
 
 **Recommended infrastructure per phase:**
 
 | Phase | Instance | Duration | Estimated Cost | Strategy |
 |-------|----------|----------|----------------|----------|
+| **Phase 0 (PTQ)** | **Mac Studio (M4 Max/M3 Ultra)** | **1-4 hours** | **$0** | **Mmap FP16 weights → absmean quantize → export GGUF; Metal GPU for calibration pass** |
+| Phase 0D (BitDistill Lite, 10B tok) | Mac Studio Metal or 1× A100 spot | 2-4 weeks (local) / 1-2 days (cloud) | $0 (local) / ~$300 (cloud) | Optional quality upgrade if Phase 0C too degraded |
 | Phase 1 (expert FFN, 200B tok) | 4× A100 80GB spot (GCP) | ~46 days | $1,300-$2,000 | Per-expert sequential with EWC++; each expert fits 1 GPU |
-| Phase 1 (router validation) | 1× A100 or local Metal | ~2-4 hours | <$10 | Contrastive training on router only (~2B params) |
+| Phase 1 (router validation) | Mac Studio Metal or 1× A100 | ~2-4 hours | $0 (local) / <$10 (cloud) | Contrastive training on router only (~2B params) |
 | Phase 2 (full ternary, 500B tok) | 4× H100 (DataCrunch) | ~16-32 days | $2,500-$5,000 | All layers; model-parallel across GPUs |
 | Phase 3 (native training, 4T tok) | 8× H100 cluster | ~90-180 days | $15,000-$30,000 | Full from-scratch; depends on funding |
-| Inference validation | Local CPU (AVX2/NEON) | Continuous | $0 | SIMD kernels validate TL1/TL2/I2_S correctness |
-| MicroLoRA adaptation | Local CPU | <1ms/update | $0 | Existing ndarray-based EWC++ pipeline |
+| Inference validation | Mac Studio (NEON) | Continuous | $0 | TL1/TL2 kernel testing on ARM NEON |
+| MicroLoRA adaptation | Mac Studio | <1ms/update | $0 | Existing ndarray-based EWC++ pipeline |
 
 **Required code change**: Add CUDA device dispatch to `RealContrastiveTrainer`:
 ```rust
@@ -874,27 +883,58 @@ This is a single-line addition to `RealTrainingConfig` (`use_cuda: bool`, `cuda_
 4. **Mixed precision training**: FP16 shadow weights + BF16 activations reduces memory, enabling smaller instances
 5. **Gradient checkpointing**: Trade compute for memory to fit on fewer GPUs
 
-### AD-18: Phase 0 — PT-BitNet Post-Training Quantization Strategy
+### AD-18: Phase 0 — PT-BitNet Post-Training Quantization on Mac Studio
 
-**Decision**: Implement a PT-BitNet ternary post-training quantizer as Phase 0, producing a rapid prototype GGUF for inference pipeline validation before investing in full distillation.
+**Decision**: Implement a PT-BitNet ternary post-training quantizer as Phase 0, running entirely on a local Mac Studio, producing a rapid prototype GGUF for inference pipeline validation before investing in full distillation.
 
 **Rationale**: The original Option A ("Rejected") assumed only generic IQ1_S quantization, which produces garbled outputs at 1.56 bpw. However, PT-BitNet (2025) demonstrates that applying BitNet's native absmean ternary quantization to pre-trained weights with calibration data achieves significantly better results (61% downstream at 70B) than generic codebook PTQ. This produces genuine BitNet ternary format that enables multiplication-free inference with TL1/TL2 kernels — unlike IQ1_S which still requires dequant-then-multiply.
+
+**Target platform: Mac Studio (Apple Silicon)**
+
+Phase 0 is pure quantization (no training loop), making it ideal for local execution on Mac Studio:
+
+| Config | Unified RAM | FP16 Load | PTQ? | Calibration? | Notes |
+|--------|------------|-----------|------|-------------|-------|
+| M4 Max 36GB | 36 GB | mmap (demand-paged) | **Yes** | Slow (paging) | Minimum viable; mmap means only active tensor pages in RAM |
+| M4 Max 64GB | 64 GB | Fits with mmap assist | **Yes** | **Yes** | Comfortable for PTQ; calibration may page |
+| M4 Max 128GB | 128 GB | Fits entirely | **Yes** | **Yes** | Ideal — FP16 model (60GB) + ternary output (7GB) + calibration buffers all in RAM |
+| M3 Ultra 96GB | 96 GB | Fits entirely | **Yes** | **Yes** | Good headroom |
+| M3 Ultra 192GB+ | 192+ GB | Fits entirely | **Yes** | **Yes** | Ample room for full model + calibration + inference validation |
+
+**Why Mac Studio works for Phase 0 (but not Phase 1+):**
+- **PTQ is not training**: No gradient computation, no optimizer state, no backpropagation — just load → quantize → export
+- **Memory-mapped I/O**: FP16 weights can be mmap'd from disk; only the current tensor's pages need to be in RAM
+- **Per-tensor processing**: Quantize one tensor at a time (read FP16 block → compute absmean → round to ternary → write output) — working memory is ~2-4 MB per tensor regardless of total model size
+- **Metal GPU for calibration**: RuvLLM's existing `RealContrastiveTrainer` and `kernels/matmul.rs` support Metal via Candle (`use_metal: true` default, 3x speedup on M4 Pro GEMV)
+- **ARM NEON for TL1 kernels**: Mac Studio's Apple Silicon has NEON SIMD — the same target ISA as the TL1 kernel for ternary inference validation
+- **Phase 1 still needs cloud GPU**: 200B token distillation at ~500-1000 tok/s (Metal) = ~6.5 years locally vs ~46 days on 4× A100
+
+**Estimated Phase 0 wall time on Mac Studio:**
+
+| Step | M4 Max 128GB | M4 Max 64GB | M3 Ultra 192GB |
+|------|-------------|-------------|----------------|
+| Download GLM-4.7-Flash FP16 (~60GB) | ~30 min (1Gbps) | ~30 min | ~30 min |
+| Absmean ternary quantization | ~5-15 min | ~10-30 min (paging) | ~5-10 min |
+| Calibration pass (1000 samples, Metal) | ~30-60 min | ~60-120 min | ~20-40 min |
+| GGUF export | ~2-5 min | ~2-5 min | ~2-5 min |
+| TL1 kernel validation inference | ~10-20 min | ~10-20 min | ~10-20 min |
+| **Total** | **~1-2 hours** | **~2-4 hours** | **~1-1.5 hours** |
 
 **Implementation approach**:
 
 ```
-Phase 0 Pipeline:
-  1. Load GLM-4.7-Flash FP16/BF16 weights
+Phase 0 Pipeline (runs on Mac Studio):
+  1. Load GLM-4.7-Flash FP16/BF16 weights via mmap
   2. For each linear layer in expert FFNs:
      a. Compute gamma = mean(|W|)  (absmean scale)
      b. W_ternary = RoundClip(W / (gamma + epsilon), -1, 1)
      c. Store: 2-bit packed ternary weights + FP16 scale per block
-  3. Calibration pass (optional, improves quality):
+  3. Calibration pass (optional, improves quality, uses Metal GPU):
      a. Run ~1000 calibration samples through teacher model
      b. Record activation statistics per layer
      c. Optimize scale factors to minimize MSE between teacher and ternary outputs
   4. Export to GGUF with BITNET_T158 tensor type + metadata
-  5. Validate: load in BitNetBackend → TL1 kernel → generate tokens
+  5. Validate: load in BitNetBackend → TL1 NEON kernel → generate tokens
 ```
 
 **Absmean ternary quantizer (core algorithm)**:
@@ -942,7 +982,7 @@ For each block of 256 elements:
 3. **Throughput benchmarking**: Measure real tok/s with TL1/TL2/I2_S kernels on target hardware
 4. **Pipeline testing**: End-to-end GGUF load → inference → token output
 5. **Baseline measurement**: Quantitative quality floor establishes improvement target for Phase 1
-6. **Cost**: ~$100 vs ~$1,300 for Phase 1 — validates infrastructure before 10x investment
+6. **Cost**: $0 on Mac Studio vs ~$1,300 for Phase 1 — validates infrastructure at zero cost before committing to cloud GPU
 
 **Key configuration**:
 ```rust
@@ -953,6 +993,9 @@ pub struct PtBitnetConfig {
     pub layers_to_quantize: LayerMask,  // ExpertsOnly (Phase 0) or All (future)
     pub export_format: TernaryFormat,   // BitnetT158 (native) or IQ1S (llama.cpp compat)
     pub router_precision: Precision,    // FP16 (always, per AD-2)
+    pub use_mmap: bool,                 // true: memory-map FP16 weights (required for <128GB systems)
+    pub use_metal_calibration: bool,    // true: Metal GPU for calibration pass (Mac Studio)
+    pub max_memory_gb: Option<f32>,     // Cap memory usage; enables streaming quantization
 }
 ```
 
@@ -977,7 +1020,7 @@ pub struct PtBitnetConfig {
 10. **Cross-expert stability**: EWC++ Fisher diagonal prevents catastrophic forgetting during sequential expert distillation
 11. **Learned quantization policies**: PolicyStore persists per-layer ternary scale distributions for reproducible future distillation runs
 12. **Expert-parallel distillation**: Independent expert FFNs enable rayon-parallel distillation across CPU cores
-13. **Phase 0 de-risks Phase 1**: ~$100 PTQ prototype validates entire inference pipeline (GGUF → dequant → kernel → MoE → generation) before committing $1,300+ to distillation
+13. **Phase 0 de-risks Phase 1 at zero cost**: Mac Studio PTQ prototype validates entire inference pipeline (GGUF → dequant → kernel → MoE → generation) for $0 before committing $1,300+ to cloud GPU distillation
 14. **Existing GGUF ecosystem**: Community-published GLM-4.7-Flash GGUFs (bartowski, unsloth) available as comparison baselines
 
 ### Negative
@@ -1011,14 +1054,15 @@ pub struct PtBitnetConfig {
 
 ### Phase 0 Exit Criteria
 - [ ] Absmean ternary quantizer produces valid {-1, 0, +1} weights from GLM-4.7-Flash FP16
+- [ ] Quantization runs successfully on Mac Studio via mmap (no cloud GPU required)
 - [ ] GGUF export with BITNET_T158 tensor type loads without error in BitNetBackend
-- [ ] TL1 kernel produces non-zero, bounded output on PTQ ternary weights
+- [ ] TL1 NEON kernel produces non-zero, bounded output on PTQ ternary weights
 - [ ] MoE routing selects experts (not all-zero or all-same-expert degenerate routing)
 - [ ] End-to-end token generation produces coherent (if degraded) text
 - [ ] Memory usage measured and documented for real MoE activation patterns
-- [ ] Throughput measured: tok/s on target CPU (AVX2 and/or NEON)
+- [ ] Throughput measured: tok/s on Mac Studio (ARM NEON) and optionally x86 AVX2
 - [ ] Baseline quality benchmarks recorded (HumanEval, MMLU) as Phase 1 improvement target
-- [ ] Total Phase 0 cost < $200
+- [ ] Total Phase 0 cost = $0 (local Mac Studio execution)
 
 ### Phase 1 Exit Criteria
 - [ ] BitNet backend loads GGUF with ternary expert weights
@@ -1070,3 +1114,5 @@ pub struct PtBitnetConfig {
 19. unsloth, GLM-4.7-Flash-GGUF dynamic quantizations — https://huggingface.co/unsloth/GLM-4.7-Flash-GGUF
 20. llama.cpp IQ1_S blind testing (Discussion #5962) — https://github.com/ggml-org/llama.cpp/discussions/5962
 21. STBLLM: "Breaking the 1-bit Barrier" (ICLR 2025) — https://proceedings.iclr.cc/paper_files/paper/2025/file/ff997469ac66cf893c4183efeb22212a-Paper-Conference.pdf
+22. Apple Mac Studio Technical Specifications (2025) — https://www.apple.com/mac-studio/specs/
+23. RuvLLM Metal GEMV integration: `crates/ruvllm/src/kernels/matmul.rs:1444-1582`
