@@ -130,6 +130,11 @@ pub enum Precision {
 /// println!("Ternary: {:?}", ternary);  // e.g., [1, -1, 1, 0, 0, 1]
 /// ```
 pub fn absmean_ternary(block: &[f32]) -> (Vec<i8>, f32) {
+    // Guard: empty block returns empty ternary with epsilon scale
+    if block.is_empty() {
+        return (vec![], 1e-8);
+    }
+
     // Compute absmean scale: gamma = mean(|W|)
     let sum_abs: f32 = block.iter().map(|&w| w.abs()).sum();
     let gamma = (sum_abs / block.len() as f32) + 1e-8;
@@ -184,7 +189,27 @@ pub fn quantize_tensor(
     config: &PtBitnetConfig,
 ) -> Result<TernaryTensor> {
     let (rows, cols) = shape;
-    let total_elements = rows * cols;
+
+    if rows == 0 || cols == 0 {
+        return Err(RuvLLMError::Model(format!(
+            "Invalid tensor shape: dimensions must be non-zero, got {:?}",
+            shape
+        )));
+    }
+
+    let block_size = config.block_size;
+    if block_size == 0 {
+        return Err(RuvLLMError::Model(
+            "block_size must be non-zero".to_string(),
+        ));
+    }
+
+    let total_elements = rows.checked_mul(cols).ok_or_else(|| {
+        RuvLLMError::Model(format!(
+            "Integer overflow computing total elements for shape {:?}",
+            shape
+        ))
+    })?;
 
     if weights.len() != total_elements {
         return Err(RuvLLMError::Model(format!(
@@ -195,8 +220,13 @@ pub fn quantize_tensor(
         )));
     }
 
-    let block_size = config.block_size;
-    let num_blocks = (total_elements + block_size - 1) / block_size;
+    // Use checked arithmetic to prevent overflow in block count
+    let num_blocks = total_elements
+        .checked_add(block_size - 1)
+        .ok_or_else(|| {
+            RuvLLMError::Model("Integer overflow in block count calculation".to_string())
+        })?
+        / block_size;
 
     let mut all_ternary = Vec::with_capacity(total_elements);
     let mut scales = Vec::with_capacity(num_blocks);

@@ -292,10 +292,24 @@ impl<W: Write + Seek> GgufBitnetWriter<W> {
 /// Identifies ternary (expert FFN) vs FP16 (router, embed, head, norms) tensors
 /// and writes all data with correct quantization types. Adds standard BitNet
 /// metadata including version, encoding, and block size.
+///
+/// # Security
+///
+/// Validates the output path to reject path traversal components (`..`).
 pub fn export_craftsman_model(
     path: &Path,
     tensors: HashMap<String, ExportTensor>,
 ) -> Result<()> {
+    // Security: reject paths containing ".." components to prevent path traversal
+    for component in path.components() {
+        if let std::path::Component::ParentDir = component {
+            return Err(RuvLLMError::Model(format!(
+                "Path traversal detected: export path must not contain '..' components, got: {:?}",
+                path
+            )));
+        }
+    }
+
     let file = std::fs::File::create(path)
         .map_err(|e| RuvLLMError::Model(format!("Failed to create file: {}", e)))?;
     let mut gguf = GgufBitnetWriter::new(file);

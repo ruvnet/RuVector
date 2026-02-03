@@ -55,9 +55,13 @@ impl TernaryTensor {
     ///
     /// # Returns
     ///
-    /// Fraction of weights that are exactly 0, in range [0.0, 1.0]
+    /// Fraction of weights that are exactly 0, in range [0.0, 1.0].
+    /// Returns 0.0 if the tensor has zero elements.
     pub fn sparsity(&self) -> f32 {
-        let total_elements = self.shape.0 * self.shape.1;
+        let total_elements = self.shape.0.saturating_mul(self.shape.1);
+        if total_elements == 0 {
+            return 0.0;
+        }
         let unpacked = unpack_ternary(&self.packed_data, total_elements);
 
         let zero_count = unpacked.iter().filter(|&&x| x == 0).count();
@@ -76,9 +80,17 @@ impl TernaryTensor {
     }
 
     /// Get the number of quantization blocks.
+    ///
+    /// Uses saturating arithmetic to prevent overflow for very large tensors.
+    /// Returns 0 if `block_size` is zero or the tensor has no elements.
     pub fn num_blocks(&self) -> usize {
-        let total_elements = self.shape.0 * self.shape.1;
-        (total_elements + self.block_size - 1) / self.block_size
+        if self.block_size == 0 {
+            return 0;
+        }
+        let total_elements = self.shape.0.saturating_mul(self.shape.1);
+        total_elements
+            .saturating_add(self.block_size - 1)
+            / self.block_size
     }
 }
 
@@ -95,17 +107,16 @@ impl TernaryTensor {
 /// byte = [v3:v2:v1:v0]
 /// ```
 ///
+/// Values outside {-1, 0, +1} are clamped: negative values map to -1,
+/// positive values map to +1.
+///
 /// # Arguments
 ///
-/// * `values` - Slice of i8 values, must be in {-1, 0, +1}
+/// * `values` - Slice of i8 values, ideally in {-1, 0, +1}
 ///
 /// # Returns
 ///
 /// Vector of bytes, length = ceil(values.len() / 4)
-///
-/// # Panics
-///
-/// Panics if any value is not in {-1, 0, +1}
 ///
 /// # Example
 ///
@@ -124,11 +135,13 @@ pub fn pack_ternary(values: &[i8]) -> Vec<u8> {
         let byte_idx = i / 4;
         let bit_offset = (i % 4) * 2;
 
+        // Clamp out-of-range values: negative -> -1, positive -> +1, zero -> 0
         let encoded: u8 = match val {
             -1 => 0b00,
             0 => 0b01,
             1 => 0b10,
-            _ => panic!("Invalid ternary value: {} (must be -1, 0, or +1)", val),
+            v if v < -1 => 0b00, // clamp to -1
+            _ => 0b10,           // v > 1, clamp to +1
         };
 
         packed[byte_idx] |= encoded << bit_offset;
@@ -225,10 +238,15 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "Invalid ternary value")]
-    fn test_pack_invalid_value() {
-        let values = vec![-1, 0, 2]; // 2 is invalid
-        pack_ternary(&values);
+    fn test_pack_clamps_invalid_value() {
+        // Values outside {-1, 0, +1} are clamped: 2 -> +1, -5 -> -1
+        let values = vec![-5, 0, 2, 3];
+        let packed = pack_ternary(&values);
+        let unpacked = unpack_ternary(&packed, 4);
+        assert_eq!(unpacked[0], -1); // -5 clamped to -1
+        assert_eq!(unpacked[1], 0);
+        assert_eq!(unpacked[2], 1);  // 2 clamped to +1
+        assert_eq!(unpacked[3], 1);  // 3 clamped to +1
     }
 
     #[test]

@@ -57,6 +57,7 @@ const BLOCK_SIZE: usize = 256;
 ///
 /// - All-zero input returns (all-zero INT8, scale = 1.0)
 /// - Single-element input quantizes to +/-127
+#[inline]
 pub fn absmax_quantize_activations(input: &[f32]) -> (Vec<i8>, f32) {
     if input.is_empty() {
         return (vec![], 1.0);
@@ -124,6 +125,7 @@ pub fn absmax_quantize_activations(input: &[f32]) -> (Vec<i8>, f32) {
 /// a0 occupies the low byte index, a1 the high byte index. Since activations
 /// are INT8 and we process them in pairs, we index by `(a0 as u8)` and
 /// compute: `result = w0 * (a0 as i16) + w1 * (a1 as i16)`.
+#[inline]
 pub fn generate_tl1_lut(weights_pair: (i8, i8)) -> [i16; 256] {
     let (w0, w1) = weights_pair;
     let mut lut = [0i16; 256];
@@ -193,6 +195,7 @@ fn decode_ternary_2bit(bits: u8) -> i8 {
 /// * `out_features` - Number of output rows (M dimension)
 /// * `in_features` - Number of input columns (N dimension)
 /// * `output` - Output FP32 vector (length = out_features)
+#[inline]
 fn tl1_gemv_scalar(
     packed: &[u8],
     scales: &[f32],
@@ -202,6 +205,14 @@ fn tl1_gemv_scalar(
     in_features: usize,
     output: &mut [f32],
 ) {
+    // Guard against division by zero from all-zero activations
+    if act_scale.abs() < 1e-30 {
+        for v in output.iter_mut() {
+            *v = 0.0;
+        }
+        return;
+    }
+
     // Each row of the weight matrix is `in_features` ternary values.
     // Packed: `in_features / 4` bytes per row (4 values per byte).
     let packed_cols = (in_features + 3) / 4;
@@ -210,9 +221,12 @@ fn tl1_gemv_scalar(
         let row_packed_start = row * packed_cols;
         let mut acc = 0i32;
 
-        // Process each column
+        // Process each column with bounds check on packed data
         for col in 0..in_features {
             let byte_idx = row_packed_start + col / 4;
+            if byte_idx >= packed.len() {
+                break;
+            }
             let bit_offset = (col % 4) * 2;
             let encoded = (packed[byte_idx] >> bit_offset) & 0x03;
             let weight = decode_ternary_2bit(encoded);

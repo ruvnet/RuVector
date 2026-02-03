@@ -116,6 +116,11 @@ pub fn compute_dequant_error(original: &[f32], dequantized: &[f32]) -> (f32, f32
         "Arrays must have same length"
     );
 
+    // Guard against empty inputs to avoid division by zero
+    if original.is_empty() {
+        return (0.0, 0.0, 0.0);
+    }
+
     let mut sum_abs_error = 0.0f32;
     let mut sum_sq_error = 0.0f32;
     let mut max_error = 0.0f32;

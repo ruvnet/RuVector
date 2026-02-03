@@ -538,6 +538,13 @@ impl BitNetBackend {
         // --- Expert forward + weighted sum ---
         let mut moe_output = vec![0.0f32; hidden];
         for (&eidx, &eweight) in expert_indices.iter().zip(expert_weights.iter()) {
+            if eidx >= layer.experts.len() {
+                return Err(RuvLLMError::Model(format!(
+                    "Expert index {} out of bounds (layer has {} experts)",
+                    eidx,
+                    layer.experts.len()
+                )));
+            }
             let expert_out =
                 self.expert_forward(&normed_ffn, &layer.experts[eidx], config)?;
             for (o, &e) in moe_output.iter_mut().zip(expert_out.iter()) {
@@ -573,7 +580,12 @@ impl BitNetBackend {
     ) -> Result<(Vec<usize>, Vec<f32>)> {
         let num_experts = config.num_experts;
         let hidden = config.hidden_size;
-        let top_k = config.active_experts;
+        // Clamp top_k to num_experts to prevent selecting more experts than exist
+        let top_k = config.active_experts.min(num_experts);
+
+        if num_experts == 0 {
+            return Ok((vec![], vec![]));
+        }
 
         // Gate: scores[e] = dot(hidden_states, gate_weight[e])
         let mut scores = vec![0.0f32; num_experts];
@@ -926,17 +938,41 @@ fn rms_norm_inplace(x: &mut [f32], weight: &[f32], eps: f32) {
 }
 
 /// In-place softmax.
+///
+/// Guards against NaN propagation: if all inputs are -inf or NaN,
+/// the result is a uniform distribution (1/n for each element).
 fn softmax_inplace(x: &mut [f32]) {
+    if x.is_empty() {
+        return;
+    }
+
     let max_val = x.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
+
+    // Guard: if max_val is -inf or NaN, no valid scores exist.
+    // Fall back to uniform distribution.
+    if max_val.is_nan() || max_val.is_infinite() && max_val.is_sign_negative() {
+        let uniform = 1.0 / x.len() as f32;
+        for v in x.iter_mut() {
+            *v = uniform;
+        }
+        return;
+    }
+
     let mut sum_exp = 0.0f32;
     for v in x.iter_mut() {
         *v = (*v - max_val).exp();
         sum_exp += *v;
     }
-    if sum_exp > 0.0 {
+    // Guard: if sum_exp is zero, NaN, or subnormal, fall back to uniform
+    if !sum_exp.is_normal() || sum_exp <= 0.0 {
+        let uniform = 1.0 / x.len() as f32;
         for v in x.iter_mut() {
-            *v /= sum_exp;
+            *v = uniform;
         }
+        return;
+    }
+    for v in x.iter_mut() {
+        *v /= sum_exp;
     }
 }
 

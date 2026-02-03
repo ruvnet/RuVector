@@ -1591,6 +1591,98 @@ No full expert weight updates are allowed in Phase-1.
 
 ---
 
+### AD-24: RLM-Style Recursive Sentence Transformer Embedder
+
+**Status**: Accepted
+
+**Context**: The Craftsman Ultra system uses RuVector for evidence retrieval, cluster analysis, contradiction detection, and mincut fragility scoring. Standard sentence transformers produce embeddings in a single forward pass — one chunk in, one vector out. This works for basic retrieval but fails at three critical boundaries:
+
+1. **Contradiction boundaries**: Two chunks with opposing claims embed near each other because they share vocabulary, despite being semantically opposed
+2. **Domain drift**: Embeddings trained on general corpora perform poorly when the corpus shifts to a specialized domain (legal, medical, code)
+3. **Context blindness**: The embedding of a chunk is independent of its neighborhood, losing structural signals that RuVector already knows (entity links, claim chains, cluster membership)
+
+A normal embedding pipeline cannot distinguish "Drug X cures condition Y" from "Drug X does NOT cure condition Y" — they embed almost identically. The system needs embeddings that reflect the structural position of a chunk within the evidence graph, not just its surface semantics.
+
+**Decision**: Implement an **RLM-style recursive embedder** — not a new architecture, but an inference strategy that wraps any base sentence transformer in a short iterative loop that retrieves context, decomposes, re-embeds, and merges.
+
+**Core Loop** (bounded to 2-3 iterations):
+
+```
+State: { text, intent, neighbors, candidate_embeddings, iteration, stop_reason }
+
+1. Embed the base chunk                           → base_embedding
+2. Retrieve k nearest neighbors from RuVector      → neighbors[]
+3. Normalize/summarize chunk with neighbor context  → contextualized_text
+4. Re-embed the normalized view                    → ctx_embedding
+5. If contested (low-cut boundary), embed both     → cluster_a_emb, cluster_b_emb
+   sides of the disagreement separately
+6. Merge into final representation                 → final_embedding + metadata
+```
+
+**Output Schema**:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `embedding` | `Vec<f32>` | Final merged embedding vector |
+| `confidence` | `f32` | Embedding stability across iterations (cosine similarity between iteration N and N-1) |
+| `evidence_neighbor_ids` | `Vec<String>` | RuVector chunk IDs used as context |
+| `contradiction_flags` | `Vec<bool>` | Per-neighbor: true if neighbor is in opposing cluster |
+| `cluster_id` | `Option<usize>` | Primary cluster assignment |
+| `stop_reason` | `StopReason` | Why the loop terminated: `Converged`, `MaxIterations`, `Contested` |
+
+**Three Embedding Variants**:
+
+| Variant | Conditioning | Use Case | Output |
+|---------|-------------|----------|--------|
+| **A: Query-Conditioned** | Query text + neighborhood | Retrieval under a specific query | Embedding optimized for that query's intent |
+| **B: Corpus-Conditioned** | Stable neighbors + entity graph | Corpus indexing | Embedding stable over time, less sensitive to local phrasing |
+| **C: Contradiction-Aware Twin** | Both sides of a low-cut boundary | Disputed claims | Bimodal representation: one embedding per cluster side |
+
+**Merge Rule** (auditable, not learned):
+
+```
+final = normalize(w0 * base + w1 * ctx + w2 * anti)
+```
+
+Where `anti` is the embedding of the strongest counter-cluster neighbor set. Weights can be fixed (`w0=0.6, w1=0.3, w2=0.1`) or learned with a small regression on the eval set.
+
+**Training Strategy** (minimal, no full model training):
+
+Only three components are trainable:
+1. **Merge weights** (`w0, w1, w2`) — 3 parameters, learned via grid search or small regression
+2. **Stop policy** — when to terminate the loop (convergence threshold on cosine similarity between iterations)
+3. **Adapter layer** — optional small linear layer on top of base embeddings for domain adaptation (rank-4 LoRA or single linear)
+
+**Evaluation Criteria**:
+
+| Metric | Definition | Target |
+|--------|-----------|--------|
+| Top-k retrieval accuracy | Correct chunk in top-k results | Improvement over single-pass baseline |
+| False neighbor rate | Contradicting chunks incorrectly ranked as similar | Reduction vs baseline |
+| Cluster purity | Intra-cluster coherence after re-embedding | Improvement vs baseline |
+| Contradiction separation | Cosine distance between opposing claim embeddings | > 0.3 (vs ~0.05 for single-pass) |
+| Stability under perturbation | Embedding change when 10% of corpus is modified | < 0.05 cosine drift |
+| Latency per embedding | Wall time including retrieval + re-embedding | < 50ms for 2 iterations on target hardware |
+
+**Appliance Fit** (CPU-first):
+
+- Small base embedder model (e.g., 22M-110M params)
+- 2-3 passes maximum per chunk
+- RuVector supplies all context (no additional retrieval infrastructure)
+- Ternary quantization of the base embedder is possible (future AD)
+- Compatible with WASM deployment for browser-side embedding
+
+**Acceptance Criteria**:
+
+- [ ] On a held-out corpus slice, RLM-style embedder improves top-k retrieval accuracy vs single-pass baseline
+- [ ] False neighbor matches near contradiction boundaries are reduced
+- [ ] Latency stays within budget (< 50ms for 2 iterations on target hardware)
+- [ ] Memory usage does not exceed appliance budget
+- [ ] Variant C produces measurably separated embeddings for known contradictions
+- [ ] Merge weights are interpretable and auditable (no black-box learned fusion)
+
+---
+
 ## Consequences
 
 ### Positive
@@ -1625,6 +1717,9 @@ No full expert weight updates are allowed in Phase-1.
 28. **Bounded GPU cost**: Phase-1 distillation requires only a single short-lived cloud GPU session to generate behavioral artifacts (routing traces, sparse logits, preference labels) — no ongoing GPU dependency
 29. **Artifact reusability**: Teacher artifacts are immutable and versioned; CPU refinement runs can be repeated, tuned, and audited without re-running the GPU job
 30. **Behavioral distillation**: Distilling routing decisions and refusal signals rather than full logit sequences aligns training objectives with the system's integrity-first design goal
+31. **RLM-style embeddings**: Recursive context-aware embeddings improve retrieval accuracy and contradiction separation without requiring a larger embedding model — inference strategy, not new architecture
+32. **Contradiction-aware twin embeddings**: Variant C produces bimodal representations at low-cut boundaries, preserving disagreement structure in the embedding space for downstream decision-making
+33. **Minimal training surface**: Only 3 merge weights + stop policy + optional adapter need training for the RLM embedder — no full model fine-tuning required
 
 ### Negative
 
