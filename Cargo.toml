@@ -71,6 +71,7 @@ members = [
     "crates/ruvector-delta-index",
     "crates/ruvector-delta-graph",
     "crates/ruvector-delta-consensus",
+    "crates/ruvector-crv",
 ]
 resolver = "2"
 

@@ -7939,6 +7939,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "ruvector-crv"
+version = "0.1.0"
+dependencies = [
+ "approx",
+ "ruvector-attention 0.1.31",
+ "ruvector-gnn 2.0.1",
+ "ruvector-mincut 2.0.1",
+ "serde",
+ "serde_json",
+ "thiserror 1.0.69",
+]
+
+[[package]]
 name = "ruvector-dag"
 version = "0.1.0"
 dependencies = [
@@ -8606,7 +8619,7 @@ dependencies = [
 
 [[package]]
 name = "ruvector-postgres"
-version = "2.0.0"
+version = "2.0.1"
 dependencies = [
  "approx",
  "bincode 1.3.3",
