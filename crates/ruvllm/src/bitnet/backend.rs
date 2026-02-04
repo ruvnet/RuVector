@@ -638,6 +638,17 @@ pub struct BitNetBackend {
     routing_history: Mutex<Vec<Vec<usize>>>,
     /// Maximum routing history length
     max_routing_history: usize,
+    /// Cached expert predictor, rebuilt periodically from routing history.
+    /// Used to prefetch likely-next experts before they're computed.
+    expert_predictor: Option<ExpertPredictor>,
+    /// Number of routing history entries since last predictor rebuild.
+    predictor_stale_count: usize,
+    /// Per-layer compressed MLA KV caches (used instead of `kv_caches` for MLA layers).
+    mla_caches: Vec<CompressedMlaCache>,
+    /// When true, MLA layers store compressed latents (c_kv + k_pe) instead of
+    /// full K/V vectors, giving ~17.8x memory reduction at the cost of recomputing
+    /// K_nope and V during attention. Ideal for memory-constrained targets (Pi 5).
+    use_compressed_kv: bool,
 }
 
 impl BitNetBackend {
@@ -659,12 +670,34 @@ impl BitNetBackend {
             scratch: ScratchPool::new(),
             routing_history: Mutex::new(Vec::new()),
             max_routing_history: 128,
+            expert_predictor: None,
+            predictor_stale_count: 0,
+            mla_caches: Vec::new(),
+            use_compressed_kv: false,
         }
+    }
+
+    /// Enable or disable compressed MLA KV cache mode.
+    ///
+    /// When enabled, MLA layers store only the compressed latents (c_kv + k_pe)
+    /// instead of full K/V vectors, giving ~17.8x memory reduction. K_nope and V
+    /// are recomputed from the compressed latent during attention, which trades
+    /// compute for memory. Ideal for memory-constrained targets (e.g., Pi 5).
+    pub fn set_compressed_kv(&mut self, enabled: bool) {
+        self.use_compressed_kv = enabled;
+    }
+
+    /// Returns whether compressed MLA KV cache mode is enabled.
+    pub fn compressed_kv_enabled(&self) -> bool {
+        self.use_compressed_kv
     }
 
     /// Clear the KV cache (call between sequences).
     pub fn reset_cache(&mut self) {
         for cache in &mut self.kv_caches {
+            cache.clear();
+        }
+        for cache in &mut self.mla_caches {
             cache.clear();
         }
     }
@@ -723,6 +756,11 @@ impl BitNetBackend {
             cache.keys.reserve(pre_alloc_seq);
             cache.values.reserve(pre_alloc_seq);
             cache
+        }).collect();
+
+        // Initialize compressed MLA caches (one per layer for MLA layers)
+        self.mla_caches = (0..config.num_layers).map(|_| {
+            CompressedMlaCache::new()
         }).collect();
 
         // Build RoPE cos/sin tables
@@ -1381,6 +1419,19 @@ impl BitNetBackend {
             )));
         }
 
+        // Periodically rebuild expert predictor from routing history.
+        // Rebuild every 16 tokens to amortize the transition matrix cost.
+        self.predictor_stale_count += 1;
+        if self.predictor_stale_count >= 16 {
+            let hist = self.routing_history.lock().unwrap();
+            if hist.len() >= 2 {
+                self.expert_predictor = Some(
+                    ExpertPredictor::from_history(config.num_experts, &hist),
+                );
+            }
+            self.predictor_stale_count = 0;
+        }
+
         // Embedding lookup
         let start = (token_id as usize) * hidden;
         let mut hidden_states: Vec<f32> = self.embedding[start..start + hidden].to_vec();
@@ -1596,6 +1647,10 @@ impl BitNetBackend {
     ///    K: RMSNorm(c_kv) → W_k_b → K_nope → concat(K_nope, K_rope)
     ///    V: c_kv → W_v_b → V
     /// 3. Standard multi-head attention on concatenated Q/K
+    ///
+    /// When `use_compressed_kv` is enabled, stores only compressed latents (c_kv + k_pe)
+    /// instead of full K/V vectors (~17.8x memory reduction), recomputing K_nope and V
+    /// from cached latents during attention.
     fn forward_mla_cached(
         &mut self,
         normed: &[f32],
@@ -1616,24 +1671,21 @@ impl BitNetBackend {
         let attn = &self.layers[layer_idx].attention;
 
         // --- Q path ---
-        // Step 1: c_q = x @ W_q_a  [hidden → q_lora_rank]
         let q_a = attn.q_a.as_ref().ok_or_else(|| {
             RuvLLMError::Model("MLA q_a missing".into())
         })?;
         let mut c_q = self.tl1_gemv(q_a, normed, q_lora_rank, hidden);
 
-        // Step 2: RMSNorm(c_q)
         if let Some(ref norm_w) = attn.q_a_norm {
             rms_norm_inplace(&mut c_q, norm_w, 1e-6);
         }
 
-        // Step 3: Q = c_q @ W_q_b  [q_lora_rank → num_heads * q_head_dim]
         let q_b = attn.q_b.as_ref().ok_or_else(|| {
             RuvLLMError::Model("MLA q_b missing".into())
         })?;
         let q_full = self.tl1_gemv(q_b, &c_q, num_heads * q_head_dim, q_lora_rank);
 
-        // Step 4: Split Q into nope and rope parts per head, apply RoPE to rope part
+        // Split Q into nope and rope parts, apply RoPE
         let mut q_nope = vec![0.0f32; num_heads * qk_nope_dim];
         let mut q_rope_part = vec![0.0f32; num_heads * qk_rope_dim];
 
@@ -1647,97 +1699,160 @@ impl BitNetBackend {
                 .copy_from_slice(&q_full[src + qk_nope_dim..src + q_head_dim]);
         }
 
-        // Apply RoPE to the rope portion of Q
         self.apply_rope(&mut q_rope_part, num_heads, qk_rope_dim, position);
 
-        // --- KV path ---
-        // Step 1: [c_kv, k_pe] = x @ W_kv_a  [hidden → kv_lora_rank + qk_rope_dim]
-        let kv_a = attn.kv_a_mqa.as_ref().ok_or_else(|| {
-            RuvLLMError::Model("MLA kv_a_mqa missing".into())
-        })?;
-        let kv_combined = self.tl1_gemv(kv_a, normed, kv_a_out, hidden);
-
-        // Split: first kv_lora_rank dims = c_kv, last qk_rope_dim = k_pe
-        let c_kv = &kv_combined[..kv_lora_rank];
-        let mut k_pe = kv_combined[kv_lora_rank..].to_vec();
-
-        // Apply RoPE to k_pe (single head worth of rope dims)
-        self.apply_rope(&mut k_pe, 1, qk_rope_dim, position);
-
-        // Step 2: K_nope = RMSNorm(c_kv) @ W_k_b  [kv_lora_rank → num_heads * qk_nope_dim]
-        let mut c_kv_normed = c_kv.to_vec();
-        if let Some(ref norm_w) = attn.kv_a_norm {
-            rms_norm_inplace(&mut c_kv_normed, norm_w, 1e-6);
-        }
-
-        let k_b = attn.k_b.as_ref().ok_or_else(|| {
-            RuvLLMError::Model("MLA k_b missing".into())
-        })?;
-        let k_nope = self.tl1_gemv(k_b, &c_kv_normed, num_heads * qk_nope_dim, kv_lora_rank);
-
-        // Step 3: V = c_kv @ W_v_b  [kv_lora_rank → num_heads * v_dim]
-        let v_b = attn.v_b.as_ref().ok_or_else(|| {
-            RuvLLMError::Model("MLA v_b missing".into())
-        })?;
-        let v_full = self.tl1_gemv(v_b, c_kv, num_heads * v_dim, kv_lora_rank);
-
-        // --- Build full K by concatenating K_nope + K_rope per head ---
-        // K_rope is shared across all heads (replicated from k_pe)
-        let k_full_dim = num_heads * q_head_dim; // per-head: qk_nope + qk_rope
-        let mut k_full = vec![0.0f32; k_full_dim];
-        for h in 0..num_heads {
-            let dst = h * q_head_dim;
-            let nope_src = h * qk_nope_dim;
-            k_full[dst..dst + qk_nope_dim].copy_from_slice(&k_nope[nope_src..nope_src + qk_nope_dim]);
-            k_full[dst + qk_nope_dim..dst + q_head_dim].copy_from_slice(&k_pe[..qk_rope_dim]);
-        }
-
-        // --- Build full Q by concatenating Q_nope + Q_rope per head ---
+        // Build full Q by concatenating Q_nope + Q_rope per head
         let mut q_full_concat = vec![0.0f32; num_heads * q_head_dim];
         for h in 0..num_heads {
             let dst = h * q_head_dim;
             let nope_src = h * qk_nope_dim;
             let rope_src = h * qk_rope_dim;
-            q_full_concat[dst..dst + qk_nope_dim].copy_from_slice(&q_nope[nope_src..nope_src + qk_nope_dim]);
-            q_full_concat[dst + qk_nope_dim..dst + q_head_dim].copy_from_slice(&q_rope_part[rope_src..rope_src + qk_rope_dim]);
+            q_full_concat[dst..dst + qk_nope_dim]
+                .copy_from_slice(&q_nope[nope_src..nope_src + qk_nope_dim]);
+            q_full_concat[dst + qk_nope_dim..dst + q_head_dim]
+                .copy_from_slice(&q_rope_part[rope_src..rope_src + qk_rope_dim]);
         }
 
-        // --- Update KV cache ---
-        self.kv_caches[layer_idx].keys.push(k_full);
-        self.kv_caches[layer_idx].values.push(v_full);
-        let seq_len = self.kv_caches[layer_idx].len();
+        // --- KV path ---
+        let kv_a = attn.kv_a_mqa.as_ref().ok_or_else(|| {
+            RuvLLMError::Model("MLA kv_a_mqa missing".into())
+        })?;
+        let kv_combined = self.tl1_gemv(kv_a, normed, kv_a_out, hidden);
 
-        // --- Multi-head attention ---
-        let inv_sqrt_d = 1.0 / (q_head_dim as f32).sqrt();
-        let mut attn_out = vec![0.0f32; num_heads * v_dim];
+        let c_kv_raw = kv_combined[..kv_lora_rank].to_vec();
+        let mut k_pe = kv_combined[kv_lora_rank..].to_vec();
+        self.apply_rope(&mut k_pe, 1, qk_rope_dim, position);
 
-        for h in 0..num_heads {
-            let q_off = h * q_head_dim;
+        // --- Attention dispatch: compressed or full KV cache ---
+        if self.use_compressed_kv {
+            // COMPRESSED PATH: store only c_kv + k_pe, recompute K/V during attention.
+            // ~17.8x memory savings at the cost of per-position recomputation.
+            self.mla_caches[layer_idx].push(c_kv_raw.clone(), k_pe.clone());
+            let seq_len = self.mla_caches[layer_idx].len();
 
-            let mut scores = Vec::with_capacity(seq_len);
-            for pos in 0..seq_len {
-                let k_vec = &self.kv_caches[layer_idx].keys[pos];
-                let k_off = h * q_head_dim;
-                let mut dot = 0.0f32;
-                for d in 0..q_head_dim {
-                    dot += q_full_concat[q_off + d] * k_vec[k_off + d];
+            let k_b = self.layers[layer_idx].attention.k_b.as_ref().ok_or_else(|| {
+                RuvLLMError::Model("MLA k_b missing".into())
+            })?;
+            let v_b = self.layers[layer_idx].attention.v_b.as_ref().ok_or_else(|| {
+                RuvLLMError::Model("MLA v_b missing".into())
+            })?;
+
+            let inv_sqrt_d = 1.0 / (q_head_dim as f32).sqrt();
+            let mut attn_out = vec![0.0f32; num_heads * v_dim];
+
+            for h in 0..num_heads {
+                let q_off = h * q_head_dim;
+
+                let mut scores = Vec::with_capacity(seq_len);
+                for pos in 0..seq_len {
+                    // Recompute K for this cached position from compressed latent
+                    let cached_ckv = &self.mla_caches[layer_idx].c_kv[pos];
+                    let cached_kpe = &self.mla_caches[layer_idx].k_pe[pos];
+
+                    let mut ckv_normed = cached_ckv.clone();
+                    if let Some(ref norm_w) = self.layers[layer_idx].attention.kv_a_norm {
+                        rms_norm_inplace(&mut ckv_normed, norm_w, 1e-6);
+                    }
+
+                    let k_nope = self.tl1_gemv(k_b, &ckv_normed, num_heads * qk_nope_dim, kv_lora_rank);
+
+                    // Build K for this head: [K_nope_h | K_rope]
+                    let nope_off = h * qk_nope_dim;
+                    let mut dot = 0.0f32;
+                    // Dot with nope portion
+                    for d in 0..qk_nope_dim {
+                        dot += q_full_concat[q_off + d] * k_nope[nope_off + d];
+                    }
+                    // Dot with rope portion (shared across heads)
+                    for d in 0..qk_rope_dim {
+                        dot += q_full_concat[q_off + qk_nope_dim + d] * cached_kpe[d];
+                    }
+                    scores.push(dot * inv_sqrt_d);
                 }
-                scores.push(dot * inv_sqrt_d);
+
+                softmax_inplace(&mut scores);
+
+                // Weighted value accumulation (recompute V from cached c_kv)
+                let v_off = h * v_dim;
+                for pos in 0..seq_len {
+                    let w = scores[pos];
+                    if w < 1e-10 { continue; }
+
+                    let cached_ckv = &self.mla_caches[layer_idx].c_kv[pos];
+                    let v_full = self.tl1_gemv(v_b, cached_ckv, num_heads * v_dim, kv_lora_rank);
+                    for d in 0..v_dim {
+                        attn_out[v_off + d] += w * v_full[h * v_dim + d];
+                    }
+                }
             }
 
-            softmax_inplace(&mut scores);
+            Ok(attn_out)
+        } else {
+            // FULL PATH: expand K/V and store in standard KV cache (fast, more memory).
+            let mut c_kv_normed = c_kv_raw;
+            if let Some(ref norm_w) = self.layers[layer_idx].attention.kv_a_norm {
+                rms_norm_inplace(&mut c_kv_normed, norm_w, 1e-6);
+            }
 
-            let v_off = h * v_dim;
-            for pos in 0..seq_len {
-                let v_vec = &self.kv_caches[layer_idx].values[pos];
-                let w = scores[pos];
-                for d in 0..v_dim {
-                    attn_out[v_off + d] += w * v_vec[h * v_dim + d];
+            let k_b = self.layers[layer_idx].attention.k_b.as_ref().ok_or_else(|| {
+                RuvLLMError::Model("MLA k_b missing".into())
+            })?;
+            let k_nope = self.tl1_gemv(k_b, &c_kv_normed, num_heads * qk_nope_dim, kv_lora_rank);
+
+            let v_b = self.layers[layer_idx].attention.v_b.as_ref().ok_or_else(|| {
+                RuvLLMError::Model("MLA v_b missing".into())
+            })?;
+            let c_kv_for_v = &kv_combined[..kv_lora_rank];
+            let v_full = self.tl1_gemv(v_b, c_kv_for_v, num_heads * v_dim, kv_lora_rank);
+
+            // Build full K
+            let mut k_full = vec![0.0f32; num_heads * q_head_dim];
+            for h in 0..num_heads {
+                let dst = h * q_head_dim;
+                let nope_src = h * qk_nope_dim;
+                k_full[dst..dst + qk_nope_dim]
+                    .copy_from_slice(&k_nope[nope_src..nope_src + qk_nope_dim]);
+                k_full[dst + qk_nope_dim..dst + q_head_dim]
+                    .copy_from_slice(&k_pe[..qk_rope_dim]);
+            }
+
+            // Update KV cache
+            self.kv_caches[layer_idx].keys.push(k_full);
+            self.kv_caches[layer_idx].values.push(v_full);
+            let seq_len = self.kv_caches[layer_idx].len();
+
+            // Multi-head attention
+            let inv_sqrt_d = 1.0 / (q_head_dim as f32).sqrt();
+            let mut attn_out = vec![0.0f32; num_heads * v_dim];
+
+            for h in 0..num_heads {
+                let q_off = h * q_head_dim;
+
+                let mut scores = Vec::with_capacity(seq_len);
+                for pos in 0..seq_len {
+                    let k_vec = &self.kv_caches[layer_idx].keys[pos];
+                    let k_off = h * q_head_dim;
+                    let mut dot = 0.0f32;
+                    for d in 0..q_head_dim {
+                        dot += q_full_concat[q_off + d] * k_vec[k_off + d];
+                    }
+                    scores.push(dot * inv_sqrt_d);
+                }
+
+                softmax_inplace(&mut scores);
+
+                let v_off = h * v_dim;
+                for pos in 0..seq_len {
+                    let v_vec = &self.kv_caches[layer_idx].values[pos];
+                    let w = scores[pos];
+                    for d in 0..v_dim {
+                        attn_out[v_off + d] += w * v_vec[h * v_dim + d];
+                    }
                 }
             }
+
+            Ok(attn_out)
         }
-
-        Ok(attn_out)
     }
 
     /// Unified FFN forward: dispatches to dense, MoE, or MoE+shared based on layer type.
@@ -1761,36 +1876,37 @@ impl BitNetBackend {
                 })?;
                 self.expert_forward(normed_ffn, ffn, config)
             }
-            LayerType::Moe => {
-                // MoE: route to top-K experts, weighted sum
-                let (indices, weights) = self.route_experts(normed_ffn, &self.layers[layer_idx].gate_weight, config)?;
-
-                // Track routing for expert prediction (interior mutability via RefCell)
-                if layer_idx == 0 {
-                    let mut hist = self.routing_history.lock().unwrap();
-                    hist.push(indices.clone());
-                    if hist.len() > self.max_routing_history {
-                        hist.remove(0);
+            LayerType::Moe | LayerType::MoeWithShared => {
+                // Predictive prefetch: touch predicted expert weight data before routing.
+                // This pulls weight cache lines into L2/L3 during the router computation,
+                // hiding memory latency for the upcoming expert GEMVs.
+                if let Some(ref predictor) = self.expert_predictor {
+                    let hist = self.routing_history.lock().unwrap();
+                    if let Some(last) = hist.last() {
+                        let predicted = predictor.predict_next(last, config.active_experts);
+                        let experts = &self.layers[layer_idx].experts;
+                        for &eidx in &predicted {
+                            if eidx < experts.len() {
+                                // Touch first cache line of gate_proj packed data
+                                let data = &experts[eidx].gate_proj.packed_data;
+                                if !data.is_empty() {
+                                    // Volatile read forces the load, acting as software prefetch
+                                    unsafe { std::ptr::read_volatile(data.as_ptr()); }
+                                }
+                            }
+                        }
                     }
                 }
 
-                let mut output = vec![0.0f32; hidden];
-                let experts = &self.layers[layer_idx].experts;
-                for (&eidx, &ew) in indices.iter().zip(weights.iter()) {
-                    if eidx >= experts.len() { continue; }
-                    let e_out = self.expert_forward(normed_ffn, &experts[eidx], config)?;
-                    for (o, &e) in output.iter_mut().zip(e_out.iter()) {
-                        *o += ew * e;
-                    }
-                }
-                Ok(output)
-            }
-            LayerType::MoeWithShared => {
-                // MoE + shared expert: routed output + shared expert output
-                let (indices, weights) = self.route_experts(normed_ffn, &self.layers[layer_idx].gate_weight, config)?;
+                // Route to top-K experts
+                let (indices, weights) = self.route_experts(
+                    normed_ffn, &self.layers[layer_idx].gate_weight, config,
+                )?;
 
-                // Track routing for expert prediction (interior mutability via RefCell)
-                if layer_idx == 0 {
+                // Track routing decisions from the first MoE layer for expert prediction.
+                // For GLM-4.7-Flash, layer 0 is Dense (first_k_dense_replace=1), so
+                // the first MoE layer is at index first_k_dense_replace.
+                if layer_idx == config.first_k_dense_replace {
                     let mut hist = self.routing_history.lock().unwrap();
                     hist.push(indices.clone());
                     if hist.len() > self.max_routing_history {
@@ -1810,11 +1926,13 @@ impl BitNetBackend {
                     }
                 }
 
-                // Shared expert (always active, weight = 1.0)
-                if let Some(ref shared) = self.layers[layer_idx].shared_expert {
-                    let s_out = self.expert_forward(normed_ffn, shared, config)?;
-                    for (o, &s) in output.iter_mut().zip(s_out.iter()) {
-                        *o += s;
+                // Shared expert (MoeWithShared only)
+                if layer.layer_type == LayerType::MoeWithShared {
+                    if let Some(ref shared) = self.layers[layer_idx].shared_expert {
+                        let s_out = self.expert_forward(normed_ffn, shared, config)?;
+                        for (o, &s) in output.iter_mut().zip(s_out.iter()) {
+                            *o += s;
+                        }
                     }
                 }
 
@@ -4055,5 +4173,386 @@ mod tests {
         assert!(full_total > compressed_total * 10,
             "Full ({} bytes) should be >10x compressed ({} bytes)",
             full_total, compressed_total);
+    }
+
+    // =========================================================================
+    // End-to-end inference tests with synthetic model
+    // =========================================================================
+
+    /// Build a tiny synthetic model for E2E testing.
+    ///
+    /// Config: 2 layers, hidden_size=8, vocab=16, 2 heads, 2 KV heads, GQA,
+    /// 2 experts (top-1), dense layer 0 + MoE layer 1, intermediate_size=4.
+    fn build_tiny_model() -> BitNetBackend {
+        let hidden = 8;
+        let vocab = 16;
+        let num_heads = 2;
+        let num_kv_heads = 2;
+        let head_dim = hidden / num_heads; // 4
+        let intermediate = 4;
+        let num_experts = 2;
+
+        // Helper: create a ternary tensor of given shape filled with +1
+        let make_ternary = |rows: usize, cols: usize| -> TernaryTensor {
+            let ternary_vals: Vec<i8> = (0..rows * cols)
+                .map(|i| match i % 3 { 0 => 1, 1 => -1, _ => 0 })
+                .collect();
+            let packed = pack_ternary(&ternary_vals);
+            let block_size = 256;
+            let blocks_per_row = (cols + block_size - 1) / block_size;
+            TernaryTensor {
+                packed_data: packed,
+                scales: vec![1.0; rows * blocks_per_row],
+                shape: (rows, cols),
+                block_size,
+            }
+        };
+
+        let make_expert = || ExpertWeights {
+            gate_proj: make_ternary(intermediate, hidden),
+            up_proj: make_ternary(intermediate, hidden),
+            down_proj: make_ternary(hidden, intermediate),
+        };
+
+        let make_gqa_attn = || AttentionWeights {
+            is_mla: false,
+            q_proj: make_ternary(hidden, hidden),
+            k_proj: make_ternary(num_kv_heads * head_dim, hidden),
+            v_proj: make_ternary(num_kv_heads * head_dim, hidden),
+            o_proj: make_ternary(hidden, hidden),
+            q_a: None, q_b: None, q_a_norm: None,
+            kv_a_mqa: None, kv_a_norm: None, k_b: None, v_b: None,
+        };
+
+        // Layer 0: Dense FFN
+        let layer0 = TransformerLayer {
+            input_norm_weight: vec![1.0; hidden],
+            post_attn_norm_weight: vec![1.0; hidden],
+            attention: make_gqa_attn(),
+            layer_type: LayerType::Dense,
+            gate_weight: Vec::new(),
+            experts: Vec::new(),
+            shared_expert: None,
+            dense_ffn: Some(make_expert()),
+        };
+
+        // Layer 1: MoE with 2 experts, top-1
+        let layer1 = TransformerLayer {
+            input_norm_weight: vec![1.0; hidden],
+            post_attn_norm_weight: vec![1.0; hidden],
+            attention: make_gqa_attn(),
+            layer_type: LayerType::Moe,
+            gate_weight: vec![1.0; num_experts * hidden], // [2 experts, 8 hidden]
+            experts: vec![make_expert(), make_expert()],
+            shared_expert: None,
+            dense_ffn: None,
+        };
+
+        let config = BitNetModelConfig {
+            num_layers: 2,
+            hidden_size: hidden,
+            intermediate_size: intermediate,
+            vocab_size: vocab,
+            num_attention_heads: num_heads,
+            num_kv_heads,
+            num_experts,
+            active_experts: 1,
+            moe_intermediate_size: intermediate,
+            max_context: 64,
+            use_mla: false,
+            q_lora_rank: 0,
+            kv_lora_rank: 0,
+            qk_nope_head_dim: 0,
+            qk_rope_head_dim: 0,
+            v_head_dim: 0,
+            n_shared_experts: 0,
+            first_k_dense_replace: 1,
+            rope_theta: 10000.0,
+            routed_scaling_factor: 1.0,
+        };
+
+        // Build embedding table: [vocab * hidden] with simple deterministic pattern
+        let mut embedding = vec![0.0f32; vocab * hidden];
+        for tok in 0..vocab {
+            for d in 0..hidden {
+                embedding[tok * hidden + d] = ((tok * hidden + d) as f32 * 0.01).sin();
+            }
+        }
+
+        // LM head: [vocab * hidden] — simple identity-like
+        let mut lm_head = vec![0.0f32; vocab * hidden];
+        for tok in 0..vocab {
+            for d in 0..hidden {
+                lm_head[tok * hidden + d] = if d == tok % hidden { 1.0 } else { 0.0 };
+            }
+        }
+
+        let final_norm = vec![1.0; hidden];
+
+        let mut backend = BitNetBackend::new();
+        backend.config = Some(config.clone());
+        backend.embedding = embedding;
+        backend.lm_head = lm_head;
+        backend.final_norm_weight = final_norm;
+        backend.layers = vec![layer0, layer1];
+        backend.kv_caches = vec![LayerKvCache::new(), LayerKvCache::new()];
+        backend.mla_caches = vec![CompressedMlaCache::new(), CompressedMlaCache::new()];
+        backend.loaded = true;
+        backend.scratch.allocate(&config);
+        backend.build_rope_tables(
+            config.max_context.min(64),
+            hidden / num_heads,
+            config.rope_theta,
+        );
+
+        backend
+    }
+
+    #[test]
+    fn test_e2e_forward_produces_logits() {
+        let backend = build_tiny_model();
+        let logits = backend.forward(&[0, 1, 2]).unwrap();
+        assert_eq!(logits.len(), 16, "Should produce vocab_size=16 logits");
+
+        // Logits should be finite
+        for (i, &l) in logits.iter().enumerate() {
+            assert!(l.is_finite(), "Logit {} is not finite: {}", i, l);
+        }
+    }
+
+    #[test]
+    fn test_e2e_forward_token_with_kv_cache() {
+        let mut backend = build_tiny_model();
+        backend.reset_cache();
+
+        // Process 3 tokens autoregressively
+        let logits_0 = backend.forward_token(0, 0).unwrap();
+        assert_eq!(logits_0.len(), 16);
+
+        let logits_1 = backend.forward_token(1, 1).unwrap();
+        assert_eq!(logits_1.len(), 16);
+
+        let logits_2 = backend.forward_token(2, 2).unwrap();
+        assert_eq!(logits_2.len(), 16);
+
+        // KV cache should have 3 positions per layer
+        assert_eq!(backend.kv_caches[0].len(), 3);
+        assert_eq!(backend.kv_caches[1].len(), 3);
+
+        // All logits should be finite
+        for &l in logits_2.iter() {
+            assert!(l.is_finite());
+        }
+    }
+
+    #[test]
+    fn test_e2e_forward_deterministic() {
+        let backend = build_tiny_model();
+        let logits_a = backend.forward(&[3, 5, 7]).unwrap();
+        let logits_b = backend.forward(&[3, 5, 7]).unwrap();
+
+        // Same input should produce same output (no randomness)
+        for (a, b) in logits_a.iter().zip(logits_b.iter()) {
+            assert!((a - b).abs() < 1e-6, "Forward should be deterministic: {} vs {}", a, b);
+        }
+    }
+
+    #[test]
+    fn test_e2e_forward_different_tokens_different_logits() {
+        let backend = build_tiny_model();
+        let logits_a = backend.forward(&[0]).unwrap();
+        let logits_b = backend.forward(&[1]).unwrap();
+
+        // Different tokens should produce different logits
+        let diff: f32 = logits_a.iter().zip(logits_b.iter())
+            .map(|(a, b)| (a - b).abs())
+            .sum();
+        assert!(diff > 1e-6, "Different tokens should produce different logits, diff={}", diff);
+    }
+
+    #[test]
+    fn test_e2e_expert_predictor_builds_from_inference() {
+        let mut backend = build_tiny_model();
+        backend.reset_cache();
+
+        // Run enough tokens to accumulate routing history and trigger predictor rebuild
+        for pos in 0..20 {
+            let _ = backend.forward_token(pos as u32 % 16, pos).unwrap();
+        }
+
+        // Predictor should have been built (rebuilds every 16 tokens)
+        assert!(backend.expert_predictor.is_some(),
+            "Expert predictor should be built after 16+ tokens");
+
+        let predictor = backend.expert_predictor.as_ref().unwrap();
+        assert!(predictor.total_observations() > 0,
+            "Predictor should have observations from routing history");
+    }
+
+    #[test]
+    fn test_e2e_forward_token_reset_cache() {
+        let mut backend = build_tiny_model();
+
+        // First sequence
+        let _ = backend.forward_token(0, 0).unwrap();
+        let _ = backend.forward_token(1, 1).unwrap();
+        assert_eq!(backend.kv_caches[0].len(), 2);
+
+        // Reset and start new sequence
+        backend.reset_cache();
+        assert_eq!(backend.kv_caches[0].len(), 0);
+
+        let logits = backend.forward_token(5, 0).unwrap();
+        assert_eq!(logits.len(), 16);
+        assert_eq!(backend.kv_caches[0].len(), 1);
+    }
+
+    #[test]
+    fn test_e2e_compressed_kv_toggle() {
+        let mut backend = build_tiny_model();
+
+        // Default: compressed KV disabled
+        assert!(!backend.compressed_kv_enabled());
+
+        backend.set_compressed_kv(true);
+        assert!(backend.compressed_kv_enabled());
+
+        backend.set_compressed_kv(false);
+        assert!(!backend.compressed_kv_enabled());
+    }
+
+    #[test]
+    fn test_e2e_scratch_pool_allocated() {
+        let backend = build_tiny_model();
+
+        // Scratch pool should be allocated after build
+        assert!(backend.scratch.memory_bytes() > 0,
+            "Scratch pool should be allocated");
+
+        // Should have buffers for at least hidden_size (8)
+        assert!(backend.scratch.buf_hidden_a.len() >= 8);
+        assert!(backend.scratch.buf_ffn_gate.len() >= 4); // intermediate_size
+    }
+
+    // =========================================================================
+    // Benchmark-style performance tests
+    // =========================================================================
+
+    #[test]
+    fn test_bench_forward_token_throughput() {
+        let mut backend = build_tiny_model();
+        backend.reset_cache();
+
+        let start = std::time::Instant::now();
+        let num_tokens = 32;
+        for pos in 0..num_tokens {
+            let _ = backend.forward_token(pos as u32 % 16, pos).unwrap();
+        }
+        let elapsed = start.elapsed();
+
+        let tokens_per_sec = num_tokens as f64 / elapsed.as_secs_f64();
+        // Just verify it runs and is reasonably fast (should be >100 tok/s on any machine)
+        assert!(tokens_per_sec > 10.0,
+            "Expected >10 tok/s for tiny model, got {:.1}", tokens_per_sec);
+    }
+
+    #[test]
+    fn test_bench_tl1_gemv_dispatch_performance() {
+        let backend = BitNetBackend::new();
+
+        // Create a 64x64 ternary weight matrix
+        let vals: Vec<i8> = (0..64 * 64).map(|i| match i % 3 { 0 => 1, 1 => -1, _ => 0 }).collect();
+        let packed = pack_ternary(&vals);
+        let weight = TernaryTensor {
+            packed_data: packed,
+            scales: vec![1.0; 64],
+            shape: (64, 64),
+            block_size: 256,
+        };
+        let input: Vec<f32> = (0..64).map(|i| (i as f32) * 0.1).collect();
+
+        let start = std::time::Instant::now();
+        let iters = 1000;
+        for _ in 0..iters {
+            let _ = backend.tl1_gemv(&weight, &input, 64, 64);
+        }
+        let elapsed = start.elapsed();
+
+        let gemvs_per_sec = iters as f64 / elapsed.as_secs_f64();
+        // Verify GEMV performance: should manage >10K/s for 64x64 on any machine
+        assert!(gemvs_per_sec > 1000.0,
+            "Expected >1K GEMV/s for 64x64, got {:.1}", gemvs_per_sec);
+    }
+
+    #[test]
+    fn test_bench_rms_norm_performance() {
+        let w = vec![1.0f32; 2048];
+        let mut x: Vec<f32> = (0..2048).map(|i| (i as f32) * 0.001).collect();
+
+        let start = std::time::Instant::now();
+        let iters = 10000;
+        for _ in 0..iters {
+            rms_norm_inplace(&mut x, &w, 1e-6);
+        }
+        let elapsed = start.elapsed();
+
+        let norms_per_sec = iters as f64 / elapsed.as_secs_f64();
+        assert!(norms_per_sec > 10000.0,
+            "Expected >10K norms/s for dim=2048, got {:.1}", norms_per_sec);
+    }
+
+    #[test]
+    fn test_bench_softmax_performance() {
+        let mut x: Vec<f32> = (0..1024).map(|i| (i as f32) * 0.01).collect();
+
+        let start = std::time::Instant::now();
+        let iters = 10000;
+        for _ in 0..iters {
+            softmax_inplace(&mut x);
+        }
+        let elapsed = start.elapsed();
+
+        let ops_per_sec = iters as f64 / elapsed.as_secs_f64();
+        assert!(ops_per_sec > 10000.0,
+            "Expected >10K softmax/s for dim=1024, got {:.1}", ops_per_sec);
+    }
+
+    #[test]
+    fn test_bench_expert_forward_performance() {
+        let backend = BitNetBackend::new();
+        let config = BitNetModelConfig {
+            hidden_size: 64,
+            intermediate_size: 32,
+            moe_intermediate_size: 32,
+            ..Default::default()
+        };
+
+        let vals: Vec<i8> = (0..32 * 64).map(|i| match i % 3 { 0 => 1, 1 => -1, _ => 0 }).collect();
+        let packed = pack_ternary(&vals);
+        let make_t = |rows, cols| TernaryTensor {
+            packed_data: packed.clone(),
+            scales: vec![1.0; rows],
+            shape: (rows, cols),
+            block_size: 256,
+        };
+
+        let expert = ExpertWeights {
+            gate_proj: make_t(32, 64),
+            up_proj: make_t(32, 64),
+            down_proj: make_t(64, 32),
+        };
+
+        let input: Vec<f32> = (0..64).map(|i| (i as f32) * 0.01).collect();
+
+        let start = std::time::Instant::now();
+        let iters = 500;
+        for _ in 0..iters {
+            let _ = backend.expert_forward(&input, &expert, &config).unwrap();
+        }
+        let elapsed = start.elapsed();
+
+        let experts_per_sec = iters as f64 / elapsed.as_secs_f64();
+        assert!(experts_per_sec > 100.0,
+            "Expected >100 expert_forward/s for 64→32→64, got {:.1}", experts_per_sec);
     }
 }
