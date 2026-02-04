@@ -81,8 +81,8 @@ pub use rlm_embedder::{
 };
 pub use rlm_refiner::{RefinementResult, RefinementStepMetrics, RlmRefiner, RlmRefinerConfig};
 pub use backend::{
-    BitNetBackend, BitNetModelConfig, ModelValidation, TensorDiscoveryReport, TensorEntry,
-    TensorGroup,
+    BitNetBackend, BitNetModelConfig, CompressedMlaCache, ExpertPredictor, GenerationStats,
+    ModelValidation, TensorDiscoveryReport, TensorEntry, TensorGroup,
 };
 pub use expert_cache::{
     ExpertBatch, ExpertCache, ExpertCacheConfig, ExpertCacheStats, EvictionPolicy,

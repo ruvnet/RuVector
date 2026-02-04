@@ -2205,6 +2205,229 @@ pub struct ModelValidation {
 }
 
 // ============================================================================
+// Generation Statistics
+// ============================================================================
+
+/// Statistics from a streaming generation run.
+#[derive(Debug, Clone)]
+pub struct GenerationStats {
+    /// Number of tokens in the prompt
+    pub prompt_tokens: usize,
+    /// Number of tokens generated
+    pub generated_tokens: usize,
+    /// Total tokens processed (prompt + generated)
+    pub total_tokens: usize,
+    /// Wall-clock time for generation (excluding prefill) in milliseconds
+    pub elapsed_ms: u64,
+    /// Tokens per second (generated tokens / elapsed time)
+    pub tokens_per_second: f64,
+}
+
+// ============================================================================
+// Predictive Expert Prefetcher
+// ============================================================================
+
+/// Predicts which experts will be needed next based on routing history.
+///
+/// Maintains a transition matrix `P[i][j]` estimating the probability that
+/// expert `j` is selected at position `t+1` given expert `i` at position `t`.
+/// Uses Laplace smoothing to handle unseen transitions.
+///
+/// # Usage
+///
+/// ```rust,ignore
+/// // Build from routing history (one entry per token position)
+/// let history = vec![vec![2, 5], vec![5, 3], vec![2, 7]]; // top-K per position
+/// let predictor = ExpertPredictor::from_history(64, &history);
+///
+/// // Predict next experts given current selection
+/// let current = vec![2, 5];
+/// let predicted = predictor.predict_next(&current, 4);
+/// // predicted might be [3, 7, 5, 2] — likely next experts
+/// ```
+pub struct ExpertPredictor {
+    /// Number of experts
+    num_experts: usize,
+    /// Transition counts: transition_counts[from][to] = number of observed transitions
+    transition_counts: Vec<Vec<u32>>,
+    /// Total transitions observed from each expert
+    row_totals: Vec<u32>,
+}
+
+impl ExpertPredictor {
+    /// Build a predictor from routing history.
+    ///
+    /// `routing_history` is a sequence of expert selections, where each entry
+    /// contains the expert IDs selected at that position (top-K).
+    pub fn from_history(num_experts: usize, routing_history: &[Vec<usize>]) -> Self {
+        let mut transition_counts = vec![vec![0u32; num_experts]; num_experts];
+        let mut row_totals = vec![0u32; num_experts];
+
+        // Count transitions: for each consecutive pair of positions,
+        // every expert at position t transitions to every expert at position t+1
+        for window in routing_history.windows(2) {
+            let prev = &window[0];
+            let next = &window[1];
+            for &from in prev {
+                if from >= num_experts { continue; }
+                for &to in next {
+                    if to >= num_experts { continue; }
+                    transition_counts[from][to] += 1;
+                    row_totals[from] += 1;
+                }
+            }
+        }
+
+        Self {
+            num_experts,
+            transition_counts,
+            row_totals,
+        }
+    }
+
+    /// Predict the most likely next experts given the current selection.
+    ///
+    /// Returns up to `top_k` expert IDs ranked by predicted probability.
+    /// Aggregates predictions from all currently-active experts.
+    pub fn predict_next(&self, current_experts: &[usize], top_k: usize) -> Vec<usize> {
+        let mut scores = vec![0.0f32; self.num_experts];
+
+        for &from in current_experts {
+            if from >= self.num_experts { continue; }
+            let total = self.row_totals[from] as f32 + self.num_experts as f32; // Laplace denom
+            for to in 0..self.num_experts {
+                // Laplace-smoothed probability
+                let count = self.transition_counts[from][to] as f32 + 1.0;
+                scores[to] += count / total;
+            }
+        }
+
+        // Exclude currently-active experts (they're already loaded)
+        for &cur in current_experts {
+            if cur < self.num_experts {
+                scores[cur] = 0.0;
+            }
+        }
+
+        // Top-K by score
+        let mut indexed: Vec<(usize, f32)> = scores.into_iter().enumerate().collect();
+        indexed.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+        indexed.into_iter().take(top_k).map(|(id, _)| id).collect()
+    }
+
+    /// Get the transition probability from expert `from` to expert `to`.
+    ///
+    /// Returns a Laplace-smoothed probability in (0, 1).
+    pub fn transition_prob(&self, from: usize, to: usize) -> f32 {
+        if from >= self.num_experts || to >= self.num_experts {
+            return 0.0;
+        }
+        let total = self.row_totals[from] as f32 + self.num_experts as f32;
+        let count = self.transition_counts[from][to] as f32 + 1.0;
+        count / total
+    }
+
+    /// Return the number of experts this predictor covers.
+    pub fn num_experts(&self) -> usize {
+        self.num_experts
+    }
+
+    /// Total number of observed transitions.
+    pub fn total_observations(&self) -> u64 {
+        self.row_totals.iter().map(|&r| r as u64).sum()
+    }
+}
+
+// ============================================================================
+// Compressed MLA KV Cache
+// ============================================================================
+
+/// Compressed KV cache for MLA (Multi-Head Latent Attention) layers.
+///
+/// Instead of storing the full decompressed K and V vectors (which are
+/// `num_heads * (qk_nope_head_dim + qk_rope_head_dim)` and
+/// `num_heads * v_head_dim` per position), this cache stores the
+/// compressed latent representation:
+///
+/// - `c_kv`: The compressed KV latent, size `kv_lora_rank` per position
+/// - `k_pe`: The RoPE-applied key portion, size `qk_rope_head_dim` per position
+///
+/// Total per position: `kv_lora_rank + qk_rope_head_dim` (e.g., 512 + 64 = 576)
+/// vs full KV: `num_heads * (qk_nope_head_dim + qk_rope_head_dim) + num_heads * v_head_dim`
+///            (e.g., 20 * 256 + 20 * 256 = 10240)
+///
+/// This gives a **17.8x memory reduction** for GLM-4.7-Flash at the cost of
+/// recomputing K_nope and V from the compressed latent during attention.
+#[derive(Debug, Clone)]
+pub struct CompressedMlaCache {
+    /// Compressed KV latents: one [kv_lora_rank] vector per position
+    c_kv: Vec<Vec<f32>>,
+    /// RoPE-applied key portion: one [qk_rope_head_dim] vector per position
+    k_pe: Vec<Vec<f32>>,
+}
+
+impl CompressedMlaCache {
+    /// Create a new empty compressed cache.
+    pub fn new() -> Self {
+        Self {
+            c_kv: Vec::new(),
+            k_pe: Vec::new(),
+        }
+    }
+
+    /// Push a new position's compressed KV data.
+    pub fn push(&mut self, c_kv: Vec<f32>, k_pe: Vec<f32>) {
+        self.c_kv.push(c_kv);
+        self.k_pe.push(k_pe);
+    }
+
+    /// Number of cached positions.
+    pub fn len(&self) -> usize {
+        self.c_kv.len()
+    }
+
+    /// Check if the cache is empty.
+    pub fn is_empty(&self) -> bool {
+        self.c_kv.is_empty()
+    }
+
+    /// Clear the cache.
+    pub fn clear(&mut self) {
+        self.c_kv.clear();
+        self.k_pe.clear();
+    }
+
+    /// Memory usage in bytes.
+    pub fn memory_bytes(&self) -> usize {
+        let c_kv_bytes: usize = self.c_kv.iter().map(|v| v.len() * 4).sum();
+        let k_pe_bytes: usize = self.k_pe.iter().map(|v| v.len() * 4).sum();
+        c_kv_bytes + k_pe_bytes
+    }
+
+    /// Compute the memory savings ratio vs full KV cache.
+    ///
+    /// Returns the ratio of full cache size to compressed cache size.
+    /// E.g., a return value of 17.8 means the compressed cache is 17.8x smaller.
+    pub fn savings_ratio(
+        num_heads: usize,
+        qk_nope_head_dim: usize,
+        qk_rope_head_dim: usize,
+        v_head_dim: usize,
+        kv_lora_rank: usize,
+    ) -> f32 {
+        let full_k_dim = num_heads * (qk_nope_head_dim + qk_rope_head_dim);
+        let full_v_dim = num_heads * v_head_dim;
+        let full_per_pos = (full_k_dim + full_v_dim) as f32;
+        let compressed_per_pos = (kv_lora_rank + qk_rope_head_dim) as f32;
+        if compressed_per_pos > 0.0 {
+            full_per_pos / compressed_per_pos
+        } else {
+            0.0
+        }
+    }
+}
+
+// ============================================================================
 // LlmBackend Trait Implementation
 // ============================================================================
 
@@ -2493,6 +2716,115 @@ impl BitNetBackend {
     /// Get the loaded tokenizer (if any).
     pub fn tok(&self) -> Option<&BpeTokenizer> {
         self.tok.as_ref()
+    }
+
+    // ========================================================================
+    // Streaming Generation
+    // ========================================================================
+
+    /// Streaming autoregressive generation with per-token callback.
+    ///
+    /// Calls `on_token` for each generated token, allowing callers to process
+    /// tokens incrementally (e.g., for real-time output). The callback receives
+    /// the token ID, the decoded text for that token, and the token's position.
+    ///
+    /// Returns the concatenated generated text. If the callback returns `false`,
+    /// generation stops early (allows callers to implement stop conditions).
+    ///
+    /// # Arguments
+    ///
+    /// * `prompt` - Input text to condition on
+    /// * `max_tokens` - Maximum number of tokens to generate
+    /// * `on_token` - Callback invoked for each token: `(token_id, text, position) -> continue?`
+    pub fn generate_streaming<F>(
+        &mut self,
+        prompt: &str,
+        max_tokens: usize,
+        mut on_token: F,
+    ) -> Result<GenerationStats>
+    where
+        F: FnMut(u32, &str, usize) -> bool,
+    {
+        if !self.loaded {
+            return Err(RuvLLMError::Model("No model loaded".to_string()));
+        }
+        let tokenizer = self.tok.as_ref().ok_or_else(|| {
+            RuvLLMError::Model("No tokenizer loaded".to_string())
+        })?;
+
+        let prompt_tokens = tokenizer.encode(prompt);
+        let eos_id = 2u32;
+        let prompt_len = prompt_tokens.len();
+
+        self.reset_cache();
+
+        // Prefill: process all prompt tokens
+        let mut last_logits = Vec::new();
+        for (pos, &tid) in prompt_tokens.iter().enumerate() {
+            last_logits = self.forward_token(tid, pos)?;
+        }
+
+        // Decode with streaming callback
+        let mut generated_tokens = Vec::new();
+        let mut pos = prompt_len;
+
+        let start_time = std::time::Instant::now();
+
+        for _ in 0..max_tokens {
+            let next_token = Self::argmax(&last_logits);
+            if next_token == eos_id || next_token == 0 {
+                break;
+            }
+
+            // Decode single token
+            let tokenizer = self.tok.as_ref().unwrap();
+            let token_text = tokenizer.decode(&[next_token]);
+
+            generated_tokens.push(next_token);
+
+            // Invoke callback; stop if it returns false
+            if !on_token(next_token, &token_text, pos) {
+                break;
+            }
+
+            last_logits = self.forward_token(next_token, pos)?;
+            pos += 1;
+        }
+
+        let elapsed = start_time.elapsed();
+        let num_generated = generated_tokens.len();
+
+        Ok(GenerationStats {
+            prompt_tokens: prompt_len,
+            generated_tokens: num_generated,
+            total_tokens: prompt_len + num_generated,
+            elapsed_ms: elapsed.as_millis() as u64,
+            tokens_per_second: if elapsed.as_secs_f64() > 0.0 {
+                num_generated as f64 / elapsed.as_secs_f64()
+            } else {
+                0.0
+            },
+        })
+    }
+
+    // ========================================================================
+    // Predictive Expert Prefetcher
+    // ========================================================================
+
+    /// Create a predictive expert prefetcher from routing history.
+    ///
+    /// Analyzes past routing decisions to build a co-occurrence matrix:
+    /// if expert A is selected at position t, which experts are likely at t+1?
+    /// Uses this to predict and warm up likely-next experts before they're needed.
+    pub fn build_expert_predictor(
+        &self,
+        routing_history: &[Vec<usize>],
+    ) -> ExpertPredictor {
+        let num_experts = self.config.as_ref()
+            .map(|c| c.num_experts)
+            .unwrap_or(64);
+
+        ExpertPredictor::from_history(num_experts, routing_history)
     }
 }
 
@@ -3173,5 +3505,219 @@ mod tests {
         let config = BitNetModelConfig::default();
         assert_eq!(config.rope_theta, 1_000_000.0);
         assert_eq!(config.routed_scaling_factor, 1.8);
+    }
+
+    // =========================================================================
+    // Generation Stats tests
+    // =========================================================================
+
+    #[test]
+    fn test_generation_stats_struct() {
+        let stats = GenerationStats {
+            prompt_tokens: 10,
+            generated_tokens: 50,
+            total_tokens: 60,
+            elapsed_ms: 1000,
+            tokens_per_second: 50.0,
+        };
+        assert_eq!(stats.prompt_tokens, 10);
+        assert_eq!(stats.generated_tokens, 50);
+        assert_eq!(stats.total_tokens, 60);
+        assert_eq!(stats.elapsed_ms, 1000);
+        assert!((stats.tokens_per_second - 50.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_generation_stats_zero_elapsed() {
+        let stats = GenerationStats {
+            prompt_tokens: 5,
+            generated_tokens: 0,
+            total_tokens: 5,
+            elapsed_ms: 0,
+            tokens_per_second: 0.0,
+        };
+        assert_eq!(stats.generated_tokens, 0);
+        assert_eq!(stats.tokens_per_second, 0.0);
+    }
+
+    // =========================================================================
+    // Expert Predictor tests
+    // =========================================================================
+
+    #[test]
+    fn test_expert_predictor_from_empty_history() {
+        let predictor = ExpertPredictor::from_history(8, &[]);
+        assert_eq!(predictor.num_experts(), 8);
+        assert_eq!(predictor.total_observations(), 0);
+    }
+
+    #[test]
+    fn test_expert_predictor_from_single_entry() {
+        // Single entry = no transitions
+        let history = vec![vec![2, 5]];
+        let predictor = ExpertPredictor::from_history(8, &history);
+        assert_eq!(predictor.total_observations(), 0);
+    }
+
+    #[test]
+    fn test_expert_predictor_transition_counts() {
+        // Two entries: experts [2,5] -> experts [3,7]
+        // Expected transitions: 2->3, 2->7, 5->3, 5->7 (each count=1)
+        let history = vec![vec![2, 5], vec![3, 7]];
+        let predictor = ExpertPredictor::from_history(8, &history);
+        assert_eq!(predictor.total_observations(), 4);
+
+        // Transition probabilities should reflect counts + Laplace smoothing
+        let p_2_3 = predictor.transition_prob(2, 3);
+        let p_2_7 = predictor.transition_prob(2, 7);
+        let p_2_0 = predictor.transition_prob(2, 0); // unobserved
+
+        // 2->3 has count=1, total from expert 2 = 2, Laplace denom = 2+8=10
+        // p = (1+1)/10 = 0.2
+        assert!((p_2_3 - 0.2).abs() < 1e-6, "p(2->3)={}", p_2_3);
+        assert!((p_2_7 - 0.2).abs() < 1e-6, "p(2->7)={}", p_2_7);
+        // 2->0 has count=0, p = (0+1)/10 = 0.1
+        assert!((p_2_0 - 0.1).abs() < 1e-6, "p(2->0)={}", p_2_0);
+    }
+
+    #[test]
+    fn test_expert_predictor_predict_next() {
+        // Build a history where expert 2 always transitions to expert 5
+        let history = vec![
+            vec![2], vec![5],
+            vec![2], vec![5],
+            vec![2], vec![5],
+            vec![2], vec![5],
+        ];
+        let predictor = ExpertPredictor::from_history(8, &history);
+
+        // Given current = [2], predict next
+        let predicted = predictor.predict_next(&[2], 3);
+
+        // Expert 5 should be the top prediction (highest transition count)
+        assert!(!predicted.is_empty());
+        assert_eq!(predicted[0], 5, "Expert 5 should be top prediction");
+    }
+
+    #[test]
+    fn test_expert_predictor_excludes_current() {
+        // Build a history where expert 2 transitions to itself often
+        let history = vec![
+            vec![2], vec![2],
+            vec![2], vec![2],
+        ];
+        let predictor = ExpertPredictor::from_history(8, &history);
+
+        // Predict next given current=[2]; expert 2 should be excluded
+        let predicted = predictor.predict_next(&[2], 3);
+        assert!(!predicted.contains(&2), "Current experts should be excluded");
+    }
+
+    #[test]
+    fn test_expert_predictor_out_of_bounds() {
+        let predictor = ExpertPredictor::from_history(4, &[]);
+        assert_eq!(predictor.transition_prob(10, 0), 0.0);
+        assert_eq!(predictor.transition_prob(0, 10), 0.0);
+
+        // Predict with out-of-bounds experts should not panic
+        let predicted = predictor.predict_next(&[99], 2);
+        assert!(predicted.len() <= 2);
+    }
+
+    #[test]
+    fn test_expert_predictor_build_from_backend() {
+        let backend = BitNetBackend::new();
+        let history = vec![vec![1, 2], vec![3, 4]];
+        let predictor = backend.build_expert_predictor(&history);
+        assert_eq!(predictor.num_experts(), 64); // default config
+    }
+
+    // =========================================================================
+    // Compressed MLA Cache tests
+    // =========================================================================
+
+    #[test]
+    fn test_compressed_mla_cache_new() {
+        let cache = CompressedMlaCache::new();
+        assert_eq!(cache.len(), 0);
+        assert!(cache.is_empty());
+        assert_eq!(cache.memory_bytes(), 0);
+    }
+
+    #[test]
+    fn test_compressed_mla_cache_push() {
+        let mut cache = CompressedMlaCache::new();
+        let c_kv = vec![1.0f32; 512];  // kv_lora_rank
+        let k_pe = vec![0.5f32; 64];   // qk_rope_head_dim
+
+        cache.push(c_kv, k_pe);
+        assert_eq!(cache.len(), 1);
+        assert!(!cache.is_empty());
+
+        // Memory: 512*4 + 64*4 = 2304 bytes
+        assert_eq!(cache.memory_bytes(), 2304);
+    }
+
+    #[test]
+    fn test_compressed_mla_cache_clear() {
+        let mut cache = CompressedMlaCache::new();
+        cache.push(vec![1.0; 512], vec![0.5; 64]);
+        cache.push(vec![2.0; 512], vec![0.5; 64]);
+        assert_eq!(cache.len(), 2);
+
+        cache.clear();
+        assert_eq!(cache.len(), 0);
+        assert!(cache.is_empty());
+        assert_eq!(cache.memory_bytes(), 0);
+    }
+
+    #[test]
+    fn test_compressed_mla_cache_savings_ratio() {
+        // GLM-4.7-Flash dimensions
+        let ratio = CompressedMlaCache::savings_ratio(
+            20,   // num_heads
+            192,  // qk_nope_head_dim
+            64,   // qk_rope_head_dim
+            256,  // v_head_dim
+            512,  // kv_lora_rank
+        );
+        // Full K: 20 * 256 = 5120, Full V: 20 * 256 = 5120, total = 10240
+        // Compressed: 512 + 64 = 576
+        // Ratio: 10240 / 576 ≈ 17.78
+        assert!(ratio > 17.0, "Expected ~17.8x savings, got {}", ratio);
+        assert!(ratio < 18.5, "Expected ~17.8x savings, got {}", ratio);
+    }
+
+    #[test]
+    fn test_compressed_mla_cache_multiple_positions() {
+        let mut cache = CompressedMlaCache::new();
+        for i in 0..100 {
+            cache.push(vec![i as f32; 512], vec![(i as f32) * 0.1; 64]);
+        }
+        assert_eq!(cache.len(), 100);
+        // 100 positions * (512 + 64) * 4 bytes = 230,400 bytes
+        assert_eq!(cache.memory_bytes(), 230_400);
+    }
+
+    #[test]
+    fn test_compressed_vs_full_kv_memory() {
+        // Compare memory usage: compressed vs full cache for 1024 positions
+        let positions = 1024;
+        let config = BitNetModelConfig::default();
+
+        // Full KV cache per position:
+        let full_k_dim = config.num_attention_heads * (config.qk_nope_head_dim + config.qk_rope_head_dim);
+        let full_v_dim = config.num_attention_heads * config.v_head_dim;
+        let full_per_pos = (full_k_dim + full_v_dim) * 4; // FP32
+        let full_total = full_per_pos * positions;
+
+        // Compressed cache per position:
+        let compressed_per_pos = (config.kv_lora_rank + config.qk_rope_head_dim) * 4;
+        let compressed_total = compressed_per_pos * positions;
+
+        // For 1024 positions, full = ~40 MB vs compressed = ~2.3 MB
+        assert!(full_total > compressed_total * 10,
+            "Full ({} bytes) should be >10x compressed ({} bytes)",
+            full_total, compressed_total);
     }
 }
