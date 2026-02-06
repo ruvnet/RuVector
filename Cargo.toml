@@ -75,6 +75,7 @@ members = [
     "crates/ruqu-core",
     "crates/ruqu-algorithms",
     "crates/ruqu-wasm",
+    "crates/ruqu-exotic",
 ]
 resolver = "2"
 

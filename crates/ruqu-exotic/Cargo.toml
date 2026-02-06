@@ -1,0 +1,24 @@
+[package]
+name = "ruqu-exotic"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Exotic quantum-classical hybrid algorithms: quantum memory decay, interference search, reasoning QEC, swarm interference, syndrome diagnosis, reversible memory"
+keywords = ["quantum", "vector-database", "interference", "error-correction", "exotic"]
+categories = ["science", "simulation", "algorithms"]
+
+[features]
+default = ["std"]
+std = []
+
+[dependencies]
+ruqu-core = { path = "../ruqu-core" }
+rand = { workspace = true }
+thiserror = { workspace = true }
+serde = { workspace = true, optional = true }
+
+[dev-dependencies]
+approx = "0.5"

@@ -7466,6 +7466,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "ruqu-exotic"
+version = "2.0.1"
+dependencies = [
+ "approx",
+ "rand 0.8.5",
+ "ruqu-core",
+ "serde",
+ "thiserror 2.0.17",
+]
+
+[[package]]
 name = "ruqu-wasm"
 version = "2.0.1"
 dependencies = [
