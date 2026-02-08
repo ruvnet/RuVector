@@ -10,13 +10,13 @@ description = "LLM serving runtime with Ruvector integration - Paged attention, 
 
 [dependencies]
 # Ruvector integration
-ruvector-core = { path = "../ruvector-core", default-features = false, features = ["storage", "hnsw", "parallel", "simd"] }
-ruvector-sona = { path = "../sona", default-features = false, features = ["serde-support"] }
+ruvector-core = { version = "2.0", path = "../ruvector-core", default-features = false, features = ["storage", "hnsw", "parallel", "simd"] }
+ruvector-sona = { version = "0.1.5", path = "../sona", default-features = false, features = ["serde-support"] }
 
 # Optional Ruvector crates for advanced features
-ruvector-attention = { path = "../ruvector-attention", optional = true }
-ruvector-graph = { path = "../ruvector-graph", optional = true, default-features = false }
-ruvector-gnn = { path = "../ruvector-gnn", optional = true }
+ruvector-attention = { version = "0.1", path = "../ruvector-attention", optional = true }
+ruvector-graph = { version = "2.0", path = "../ruvector-graph", optional = true, default-features = false }
+ruvector-gnn = { version = "2.0", path = "../ruvector-gnn", optional = true }
 
 # Serialization
 serde = { workspace = true }
@@ -115,6 +115,7 @@ async-runtime = ["tokio", "tokio-stream"]
 # Minimal build without inference (for embedding/library use only)
 minimal = ["async-runtime"]
 wasm = []
+wasm-simd = []
 
 # Ruvector integration features
 attention = ["dep:ruvector-attention"]

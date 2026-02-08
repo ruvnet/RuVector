@@ -1138,11 +1138,11 @@ All crates are published to [crates.io](https://crates.io) under the `ruvector-*
 
 | Crate | Description | crates.io |
 |-------|-------------|-----------|
-| [ruvllm](./crates/ruvllm) | LLM serving runtime with SONA, paged attention, KV cache | [![crates.io](https://img.shields.io/crates/v/ruvllm.svg)](https://crates.io/crates/ruvllm) |
+| [ruvllm](./crates/ruvllm) | LLM serving runtime with SONA, paged attention, KV cache, BitNet | [![crates.io](https://img.shields.io/crates/v/ruvllm.svg)](https://crates.io/crates/ruvllm) |
 | [ruvllm-cli](./crates/ruvllm-cli) | CLI for model inference and benchmarking | [![crates.io](https://img.shields.io/crates/v/ruvllm-cli.svg)](https://crates.io/crates/ruvllm-cli) |
 | [ruvllm-wasm](./crates/ruvllm-wasm) | WASM bindings for browser LLM inference | [![crates.io](https://img.shields.io/crates/v/ruvllm-wasm.svg)](https://crates.io/crates/ruvllm-wasm) |
 
-**Features:** Candle backend, Metal/CUDA acceleration, Apple Neural Engine, GGUF support, SONA learning integration.
+**Features:** Candle backend, Metal/CUDA acceleration, Apple Neural Engine, GGUF support, SONA learning, **BitNet 1.58-bit quantization** (TL1 kernels, AVX2/WASM).
 
 ```bash
 cargo add ruvllm --features inference-metal  # Mac with Metal
@@ -1334,6 +1334,42 @@ let scores = selector.select_and_apply(SelectionPolicy::Adaptive, &dag)?;
 ```
 
 See [ruvector-dag README](./crates/ruvector-dag/README.md) for full documentation.
+
+### Temporal Tensor Store
+
+| Crate | Description | crates.io |
+|-------|-------------|-----------|
+| [ruvector-temporal-tensor](./crates/ruvector-temporal-tensor) | Time-series tensor storage with tiered quantization | [![crates.io](https://img.shields.io/crates/v/ruvector-temporal-tensor.svg)](https://crates.io/crates/ruvector-temporal-tensor) |
+| [ruvector-temporal-tensor-wasm](./crates/ruvector-temporal-tensor-wasm) | WASM bindings for browser temporal tensors | [![crates.io](https://img.shields.io/crates/v/ruvector-temporal-tensor-wasm.svg)](https://crates.io/crates/ruvector-temporal-tensor-wasm) |
+
+**High-performance temporal embedding storage** optimized for AI agent memory systems:
+
+| Feature | Description |
+|---------|-------------|
+| **Block-Based Storage** | 4KB aligned blocks with SIMD-optimized I/O ([ADR-018](./docs/adr/temporal-tensor-store/ADR-018-block-based-storage-engine.md)) |
+| **Tiered Quantization** | F32 → F16 → INT8 → INT4 with <1% accuracy loss ([ADR-019](./docs/adr/temporal-tensor-store/ADR-019-tiered-quantization-formats.md)) |
+| **Temporal Scoring** | Access frequency + recency decay for automatic tier migration ([ADR-020](./docs/adr/temporal-tensor-store/ADR-020-temporal-scoring-tier-migration.md)) |
+| **Delta Compression** | 60-80% storage reduction via temporal differencing ([ADR-021](./docs/adr/temporal-tensor-store/ADR-021-delta-compression-reconstruction.md)) |
+| **Cross-Platform WASM** | Unified API for browser, Node.js, and edge ([ADR-022](./docs/adr/temporal-tensor-store/ADR-022-wasm-api-cross-platform.md)) |
+| **AgentDB Integration** | Native coherence scoring and memory persistence |
+
+**Performance Targets:** >100K writes/sec, <1ms p99 read latency, 4-32x compression ([ADR-023](./docs/adr/temporal-tensor-store/ADR-023-benchmarking-acceptance-criteria.md))
+
+See [Domain-Driven Design](./docs/architecture/temporal-tensor-store-ddd.md) for architecture details.
+
+### CRV Signal Line Protocol
+
+| Crate | Description | crates.io |
+|-------|-------------|-----------|
+| [ruvector-crv](./crates/ruvector-crv) | 6-stage CRV signal line methodology for vector search | [![crates.io](https://img.shields.io/crates/v/ruvector-crv.svg)](https://crates.io/crates/ruvector-crv) |
+
+**Maps CRV stages to ruvector subsystems:**
+- Stage I (Ideograms) → Poincaré ball hyperbolic embeddings
+- Stage II (Sensory) → Multi-head attention vectors
+- Stage III (Dimensional) → GNN graph topology
+- Stage IV (Emotional) → SNN temporal encoding
+- Stage V (Interrogation) → Differentiable search
+- Stage VI (3D Model) → MinCut partitioning
 
 ### Distributed Systems (Raft & Replication)
 

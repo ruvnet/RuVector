@@ -432,16 +432,8 @@ impl GpuCapabilities {
             return Self::detect_webgpu();
         }
 
-        #[cfg(not(any(
-            target_os = "macos",
-            target_os = "ios",
-            target_os = "linux",
-            target_os = "windows",
-            target_arch = "wasm32"
-        )))]
-        {
-            None
-        }
+        #[allow(unreachable_code)]
+        None
     }
 
     /// Detect Metal GPU capabilities

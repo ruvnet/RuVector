@@ -44,6 +44,7 @@
 pub mod adapter_manager;
 pub mod autodetect;
 pub mod backends;
+pub mod bitnet;
 pub mod capabilities;
 pub mod claude_flow;
 pub mod context;

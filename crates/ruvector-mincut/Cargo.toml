@@ -15,8 +15,8 @@ documentation = "https://docs.rs/ruvector-mincut"
 
 [dependencies]
 # RuVector dependencies
-ruvector-core = {path = "../ruvector-core", default-features = false }
-ruvector-graph = { path = "../ruvector-graph", default-features = false, optional = true }
+ruvector-core = { version = "2.0.1", path = "../ruvector-core", default-features = false }
+ruvector-graph = { version = "2.0.1", path = "../ruvector-graph", default-features = false, optional = true }
 
 # Core dependencies
 petgraph = "0.6"

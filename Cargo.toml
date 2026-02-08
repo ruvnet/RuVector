@@ -72,6 +72,7 @@ members = [
     "crates/ruvector-delta-graph",
     "crates/ruvector-delta-consensus",
     "crates/ruvector-crv",
+    "crates/ruvector-temporal-tensor",
     "crates/ruqu-core",
     "crates/ruqu-algorithms",
     "crates/ruqu-wasm",
@@ -80,7 +81,7 @@ members = [
 resolver = "2"
 
 [workspace.package]
-version = "2.0.1"
+version = "2.0.2"
 edition = "2021"
 rust-version = "1.77"
 license = "MIT"

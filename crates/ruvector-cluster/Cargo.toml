@@ -10,7 +10,7 @@ readme = "README.md"
 description = "Distributed clustering and sharding for ruvector"
 
 [dependencies]
-ruvector-core = {path = "../ruvector-core" }
+ruvector-core = { version = "2.0.1", path = "../ruvector-core" }
 tokio = { workspace = true, features = ["time"] }
 serde = { workspace = true }
 serde_json = { workspace = true }
