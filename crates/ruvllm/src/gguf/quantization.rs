@@ -29,6 +29,7 @@
 //! | IQ4_NL | 4.5 | 32 | i-quant 4-bit non-linear |
 
 use crate::error::{Result, RuvLLMError};
+use crate::bitnet::dequantize_bitnet_t158;
 
 // ============================================================================
 // Quantization Types
@@ -100,6 +101,8 @@ pub enum GgufQuantType {
     F64 = 28,
     /// BF16 brain float
     Bf16 = 29,
+    /// BitNet b1.58 ternary quantization (2-bit packed)
+    BitnetT158 = 30,
 }
 
 impl TryFrom<u32> for GgufQuantType {
@@ -137,6 +140,7 @@ impl TryFrom<u32> for GgufQuantType {
             27 => Ok(Self::I64),
             28 => Ok(Self::F64),
             29 => Ok(Self::Bf16),
+            30 => Ok(Self::BitnetT158),
             _ => Err(RuvLLMError::Model(format!(
                 "Unknown GGUF quantization type: {}",
                 value
@@ -163,6 +167,7 @@ impl GgufQuantType {
             Self::IQ1_S => 256,
             Self::IQ4_NL => 32,
             Self::IQ4_XS => 256,
+            Self::BitnetT158 => 256,
         }
     }
 
@@ -214,6 +219,8 @@ impl GgufQuantType {
             Self::IQ1_S => 50,
             Self::IQ4_NL => 18,
             Self::IQ4_XS => 136,
+            // BitNet b1.58: 256 elements -> 64 bytes (2-bit packed) + 2 bytes (FP16 scale) = 66 bytes
+            Self::BitnetT158 => 66,
         }
     }
 
@@ -280,6 +287,7 @@ impl GgufQuantType {
             Self::IQ1_S => "IQ1_S",
             Self::IQ4_NL => "IQ4_NL",
             Self::IQ4_XS => "IQ4_XS",
+            Self::BitnetT158 => "BITNET_T158",
         }
     }
 }
@@ -355,6 +363,14 @@ pub fn dequantize_tensor(
         GgufQuantType::Q5_K => dequantize_q5_k(data, &mut output),
         GgufQuantType::Q6_K => dequantize_q6_k(data, &mut output),
         GgufQuantType::IQ4_NL => dequantize_iq4_nl(data, &mut output),
+        GgufQuantType::BitnetT158 => dequantize_bitnet_t158_wrapper(data, &mut output),
+        GgufQuantType::IQ1_S => {
+            return Err(RuvLLMError::Model(
+                "IQ1_S dequantization requires codebook lookup tables (not yet implemented). \
+                 For BitNet ternary quantization, use BITNET_T158 type instead."
+                    .to_string(),
+            ));
+        }
         _ => {
             return Err(RuvLLMError::Model(format!(
                 "Dequantization not implemented for {:?}",
@@ -379,11 +395,37 @@ pub fn dequantize_block(data: &[u8], dtype: GgufQuantType, output: &mut [f32]) {
         GgufQuantType::Q4_1 => dequantize_q4_1_block(data, output),
         GgufQuantType::Q8_0 => dequantize_q8_0_block(data, output),
         GgufQuantType::Q4_K => dequantize_q4_k_block(data, output),
+        GgufQuantType::BitnetT158 => dequantize_bitnet_t158_block_wrapper(data, output),
         _ => {
             // Fallback: fill with zeros
             output.fill(0.0);
         }
     }
+}
+
+/// Dequantize a single BITNET_T158 block from GGUF format.
+///
+/// Block format (66 bytes):
+/// - 64 bytes: packed 2-bit ternary data
+/// - 2 bytes: FP16 scale
+fn dequantize_bitnet_t158_block_wrapper(data: &[u8], output: &mut [f32]) {
+    if data.len() < BITNET_T158_TYPE_SIZE {
+        output.fill(0.0);
+        return;
+    }
+
+    // Extract packed data (first 64 bytes)
+    let packed = &data[..64];
+
+    // Extract scale (last 2 bytes)
+    let scale = f16_to_f32(u16::from_le_bytes([data[64], data[65]]));
+
+    // Dequantize using bitnet module (expects 256 elements)
+    let min_output_len = output.len().min(BITNET_T158_BLOCK_SIZE);
+    let dequantized = dequantize_bitnet_t158(packed, &[scale], min_output_len);
+
+    // Copy to output
+    output[..dequantized.len()].copy_from_slice(&dequantized);
 }
 
 // ============================================================================
@@ -934,6 +976,53 @@ fn dequantize_iq4_nl(data: &[u8], output: &mut [f32]) {
             output[out_start + i * 2 + 1] = IQ4_NL_LUT[q1] * scale;
         }
     }
+}
+
+// ============================================================================
+// BITNET_T158: BitNet b1.58 Ternary Quantization
+// ============================================================================
+
+const BITNET_T158_BLOCK_SIZE: usize = 256;
+const BITNET_T158_TYPE_SIZE: usize = 66; // 64 bytes packed + 2 bytes FP16 scale
+
+/// Wrapper for BitNet T158 dequantization from GGUF format.
+///
+/// GGUF BITNET_T158 block layout (66 bytes per 256 elements):
+/// - 64 bytes: packed 2-bit ternary data (256 values × 2 bits = 512 bits = 64 bytes)
+/// - 2 bytes: FP16 scale factor
+///
+/// This wrapper extracts scales from the interleaved GGUF format and passes
+/// them to the bitnet module's dequantization function.
+fn dequantize_bitnet_t158_wrapper(data: &[u8], output: &mut [f32]) {
+    let num_blocks = output.len() / BITNET_T158_BLOCK_SIZE;
+
+    // Extract scales from GGUF format (interleaved with packed data)
+    let mut scales = Vec::with_capacity(num_blocks);
+    let mut packed_data = Vec::with_capacity(num_blocks * 64);
+
+    for block_idx in 0..num_blocks {
+        let block_start = block_idx * BITNET_T158_TYPE_SIZE;
+
+        if block_start + BITNET_T158_TYPE_SIZE > data.len() {
+            break;
+        }
+
+        // Extract 64 bytes of packed ternary data
+        packed_data.extend_from_slice(&data[block_start..block_start + 64]);
+
+        // Extract FP16 scale (last 2 bytes of block)
+        let scale_f16 = f16_to_f32(u16::from_le_bytes([
+            data[block_start + 64],
+            data[block_start + 65],
+        ]));
+        scales.push(scale_f16);
+    }
+
+    // Call bitnet module's dequantization function
+    let dequantized = dequantize_bitnet_t158(&packed_data, &scales, output.len());
+
+    // Copy to output buffer
+    output[..dequantized.len()].copy_from_slice(&dequantized);
 }
 
 // ============================================================================

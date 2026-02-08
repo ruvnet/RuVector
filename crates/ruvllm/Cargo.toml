@@ -115,6 +115,7 @@ async-runtime = ["tokio", "tokio-stream"]
 # Minimal build without inference (for embedding/library use only)
 minimal = ["async-runtime"]
 wasm = []
+wasm-simd = []
 
 # Ruvector integration features
 attention = ["dep:ruvector-attention"]

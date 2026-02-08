@@ -143,9 +143,11 @@ pub use accelerate::{
     MatrixLayout,
 };
 
-// Re-export availability check for all platforms
+// Fallback availability check for non-macOS platforms
 #[cfg(not(all(target_os = "macos", feature = "accelerate")))]
-pub use accelerate::is_accelerate_available;
+pub fn is_accelerate_available() -> bool {
+    false
+}
 
 // ANE (Apple Neural Engine) ops exports (macOS only with coreml feature)
 #[cfg(all(target_os = "macos", feature = "coreml"))]
