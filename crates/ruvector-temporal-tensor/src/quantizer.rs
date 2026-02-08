@@ -123,6 +123,95 @@ pub fn quantize_and_pack_f32(
         return;
     }
 
+    // Fast path: 5-bit quantization packs 8 values into 5 bytes.
+    // 8 values * 5 bits = 40 bits = 5 bytes exactly, avoiding the bit accumulator.
+    // LSB-first packing layout for 8 values in 5 bytes:
+    //   byte0 = v0 | (v1 << 5)
+    //   byte1 = (v1 >> 3) | (v2 << 2) | (v3 << 7)
+    //   byte2 = (v3 >> 1) | (v4 << 4)
+    //   byte3 = (v4 >> 4) | (v5 << 1) | (v6 << 6)
+    //   byte4 = (v6 >> 2) | (v7 << 3)
+    #[inline]
+    fn pack_5bit_group(chunk: &[f32], inv_scale: f32, out: &mut Vec<u8>) {
+        let quantize = |v: f32| -> u32 {
+            let mut q: i32 = 0;
+            if v.is_finite() {
+                let scaled = v * inv_scale;
+                q = if scaled >= 0.0 {
+                    (scaled + 0.5) as i32
+                } else {
+                    (scaled - 0.5) as i32
+                };
+                q = q.clamp(-15, 15);
+            }
+            (q + 15) as u32
+        };
+        let v0 = quantize(chunk[0]);
+        let v1 = quantize(chunk[1]);
+        let v2 = quantize(chunk[2]);
+        let v3 = quantize(chunk[3]);
+        let v4 = quantize(chunk[4]);
+        let v5 = quantize(chunk[5]);
+        let v6 = quantize(chunk[6]);
+        let v7 = quantize(chunk[7]);
+
+        out.push((v0 | (v1 << 5)) as u8);
+        out.push(((v1 >> 3) | (v2 << 2) | (v3 << 7)) as u8);
+        out.push(((v3 >> 1) | (v4 << 4)) as u8);
+        out.push(((v4 >> 4) | (v5 << 1) | (v6 << 6)) as u8);
+        out.push(((v6 >> 2) | (v7 << 3)) as u8);
+    }
+    if bits == 5 {
+        let needed_bytes = (frame.len() * 5).div_ceil(8);
+        out.reserve(needed_bytes);
+
+        let mut acc: u64 = 0;
+        let mut acc_bits: u32 = 0;
+
+        for (group_idx, chunk) in frame.chunks(group_len).enumerate() {
+            let scale = if group_idx < scales_f32.len() {
+                scales_f32[group_idx]
+            } else {
+                0.0
+            };
+            let inv_scale = if scale == 0.0 { 0.0 } else { 1.0 / scale };
+
+            let mut i = 0;
+            // Process 8 values at a time into 5 bytes when byte-aligned
+            while acc_bits == 0 && i + 8 <= chunk.len() {
+                pack_5bit_group(&chunk[i..i + 8], inv_scale, out);
+                i += 8;
+            }
+            // Remainder (or misaligned) with bit accumulator
+            while i < chunk.len() {
+                let mut q: i32 = 0;
+                if chunk[i].is_finite() {
+                    let scaled = chunk[i] * inv_scale;
+                    q = if scaled >= 0.0 {
+                        (scaled + 0.5) as i32
+                    } else {
+                        (scaled - 0.5) as i32
+                    };
+                    q = q.clamp(-15, 15);
+                }
+                let u = (q + 15) as u32;
+                acc |= (u as u64) << acc_bits;
+                acc_bits += 5;
+                while acc_bits >= 8 {
+                    out.push((acc & 0xFF) as u8);
+                    acc >>= 8;
+                    acc_bits -= 8;
+                }
+                i += 1;
+            }
+        }
+
+        if acc_bits > 0 {
+            out.push((acc & 0xFF) as u8);
+        }
+        return;
+    }
+
     // Generic path for sub-byte bit widths.
     let qmax_i = qmax;
     let bias = qmax;
@@ -274,6 +363,162 @@ pub fn dequantize_f32(
                         let u = (acc & 0x7) as i32;
                         acc >>= 3;
                         acc_bits -= 3;
+                        out[out_idx] = (u - bias) as f32 * scale;
+                        out_idx += 1;
+                        pos += 1;
+                    }
+                }
+                group_idx += 1;
+            }
+        }
+        return;
+    }
+
+    // Fast path: 7-bit dequantization processes 8 values from 7 bytes.
+    // 8 values * 7 bits = 56 bits = 7 bytes exactly, avoiding the bit accumulator.
+    // LSB-first packing layout for 8 values in 7 bytes:
+    //   v0 = b0 & 0x7F
+    //   v1 = ((b0 >> 7) | (b1 << 1)) & 0x7F
+    //   v2 = ((b1 >> 6) | (b2 << 2)) & 0x7F
+    //   v3 = ((b2 >> 5) | (b3 << 3)) & 0x7F
+    //   v4 = ((b3 >> 4) | (b4 << 4)) & 0x7F
+    //   v5 = ((b4 >> 3) | (b5 << 5)) & 0x7F
+    //   v6 = ((b5 >> 2) | (b6 << 6)) & 0x7F
+    //   v7 = (b6 >> 1) & 0x7F
+    if bits == 7 {
+        let bias = 63i32; // qmax for 7-bit
+        let mut out_idx = 0usize;
+        let mut byte_idx = 0usize;
+        for _frame in 0..frame_count {
+            let mut pos = 0usize;
+            let mut group_idx = 0usize;
+            while pos < tensor_len {
+                let group_end = (pos + group_len).min(tensor_len);
+                let scale = if group_idx < scales_f32.len() {
+                    scales_f32[group_idx]
+                } else {
+                    0.0
+                };
+                // Process 8 values at a time from 7 bytes
+                #[inline]
+                fn unpack_7bit(out: &mut [f32], out_idx: usize, data: &[u8], byte_idx: usize, bias: i32, scale: f32) {
+                    let b0 = data[byte_idx] as u32;
+                    let b1 = data[byte_idx + 1] as u32;
+                    let b2 = data[byte_idx + 2] as u32;
+                    let b3 = data[byte_idx + 3] as u32;
+                    let b4 = data[byte_idx + 4] as u32;
+                    let b5 = data[byte_idx + 5] as u32;
+                    let b6 = data[byte_idx + 6] as u32;
+
+                    out[out_idx]     = ((b0 & 0x7F) as i32 - bias) as f32 * scale;
+                    out[out_idx + 1] = ((((b0 >> 7) | (b1 << 1)) & 0x7F) as i32 - bias) as f32 * scale;
+                    out[out_idx + 2] = ((((b1 >> 6) | (b2 << 2)) & 0x7F) as i32 - bias) as f32 * scale;
+                    out[out_idx + 3] = ((((b2 >> 5) | (b3 << 3)) & 0x7F) as i32 - bias) as f32 * scale;
+                    out[out_idx + 4] = ((((b3 >> 4) | (b4 << 4)) & 0x7F) as i32 - bias) as f32 * scale;
+                    out[out_idx + 5] = ((((b4 >> 3) | (b5 << 5)) & 0x7F) as i32 - bias) as f32 * scale;
+                    out[out_idx + 6] = ((((b5 >> 2) | (b6 << 6)) & 0x7F) as i32 - bias) as f32 * scale;
+                    out[out_idx + 7] = (((b6 >> 1) & 0x7F) as i32 - bias) as f32 * scale;
+                }
+                while pos + 8 <= group_end && byte_idx + 7 <= data.len() {
+                    unpack_7bit(out, out_idx, data, byte_idx, bias, scale);
+                    byte_idx += 7;
+                    out_idx += 8;
+                    pos += 8;
+                }
+                // Handle remaining values (< 8) with a local bit accumulator
+                if pos < group_end {
+                    let remaining = group_end - pos;
+                    let mut acc: u64 = 0;
+                    let mut acc_bits: u32 = 0;
+                    while acc_bits < (remaining as u32) * 7 && byte_idx < data.len() {
+                        acc |= (data[byte_idx] as u64) << acc_bits;
+                        acc_bits += 8;
+                        byte_idx += 1;
+                    }
+                    for _ in 0..remaining {
+                        if acc_bits < 7 {
+                            break;
+                        }
+                        let u = (acc & 0x7F) as i32;
+                        acc >>= 7;
+                        acc_bits -= 7;
+                        out[out_idx] = (u - bias) as f32 * scale;
+                        out_idx += 1;
+                        pos += 1;
+                    }
+                }
+                group_idx += 1;
+            }
+        }
+        return;
+    }
+
+    // Fast path: 5-bit dequantization processes 8 values from 5 bytes.
+    // 8 values * 5 bits = 40 bits = 5 bytes exactly, avoiding the bit accumulator.
+    // LSB-first packing layout for 8 values in 5 bytes:
+    //   v0 = b0 & 0x1F
+    //   v1 = ((b0 >> 5) | (b1 << 3)) & 0x1F
+    //   v2 = (b1 >> 2) & 0x1F
+    //   v3 = ((b1 >> 7) | (b2 << 1)) & 0x1F
+    //   v4 = ((b2 >> 4) | (b3 << 4)) & 0x1F
+    //   v5 = (b3 >> 1) & 0x1F
+    //   v6 = ((b3 >> 6) | (b4 << 2)) & 0x1F
+    //   v7 = (b4 >> 3) & 0x1F
+    if bits == 5 {
+        let bias = 15i32; // qmax for 5-bit
+        let mut out_idx = 0usize;
+        let mut byte_idx = 0usize;
+        for _frame in 0..frame_count {
+            let mut pos = 0usize;
+            let mut group_idx = 0usize;
+            while pos < tensor_len {
+                let group_end = (pos + group_len).min(tensor_len);
+                let scale = if group_idx < scales_f32.len() {
+                    scales_f32[group_idx]
+                } else {
+                    0.0
+                };
+                // Process 8 values at a time from 5 bytes
+                #[inline]
+                fn unpack_5bit(out: &mut [f32], out_idx: usize, data: &[u8], byte_idx: usize, bias: i32, scale: f32) {
+                    let b0 = data[byte_idx] as u32;
+                    let b1 = data[byte_idx + 1] as u32;
+                    let b2 = data[byte_idx + 2] as u32;
+                    let b3 = data[byte_idx + 3] as u32;
+                    let b4 = data[byte_idx + 4] as u32;
+
+                    out[out_idx]     = ((b0 & 0x1F) as i32 - bias) as f32 * scale;
+                    out[out_idx + 1] = ((((b0 >> 5) | (b1 << 3)) & 0x1F) as i32 - bias) as f32 * scale;
+                    out[out_idx + 2] = (((b1 >> 2) & 0x1F) as i32 - bias) as f32 * scale;
+                    out[out_idx + 3] = ((((b1 >> 7) | (b2 << 1)) & 0x1F) as i32 - bias) as f32 * scale;
+                    out[out_idx + 4] = ((((b2 >> 4) | (b3 << 4)) & 0x1F) as i32 - bias) as f32 * scale;
+                    out[out_idx + 5] = (((b3 >> 1) & 0x1F) as i32 - bias) as f32 * scale;
+                    out[out_idx + 6] = ((((b3 >> 6) | (b4 << 2)) & 0x1F) as i32 - bias) as f32 * scale;
+                    out[out_idx + 7] = (((b4 >> 3) & 0x1F) as i32 - bias) as f32 * scale;
+                }
+                while pos + 8 <= group_end && byte_idx + 5 <= data.len() {
+                    unpack_5bit(out, out_idx, data, byte_idx, bias, scale);
+                    byte_idx += 5;
+                    out_idx += 8;
+                    pos += 8;
+                }
+                // Handle remaining values (< 8) with a local bit accumulator
+                if pos < group_end {
+                    let remaining = group_end - pos;
+                    let mut acc: u64 = 0;
+                    let mut acc_bits: u32 = 0;
+                    while acc_bits < (remaining as u32) * 5 && byte_idx < data.len() {
+                        acc |= (data[byte_idx] as u64) << acc_bits;
+                        acc_bits += 8;
+                        byte_idx += 1;
+                    }
+                    for _ in 0..remaining {
+                        if acc_bits < 5 {
+                            break;
+                        }
+                        let u = (acc & 0x1F) as i32;
+                        acc >>= 5;
+                        acc_bits -= 5;
                         out[out_idx] = (u - bias) as f32 * scale;
                         out_idx += 1;
                         pos += 1;

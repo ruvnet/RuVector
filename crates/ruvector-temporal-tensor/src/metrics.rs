@@ -195,6 +195,123 @@ impl StoreMetrics {
     pub fn total_stored_bytes(&self) -> u64 {
         self.tier1_bytes + self.tier2_bytes + self.tier3_bytes
     }
+
+    /// Generate a human-readable multi-line status report.
+    pub fn format_report(&self) -> String {
+        let mut s = String::with_capacity(512);
+        s.push_str("=== Temporal Tensor Store Report ===\n");
+        s.push_str(&format_line("Total blocks", self.total_blocks));
+        s.push_str(&format_line("  Tier0 (raw)", self.tier0_blocks));
+        s.push_str(&format_line("  Tier1 (hot)", self.tier1_blocks));
+        s.push_str(&format_line("  Tier2 (warm)", self.tier2_blocks));
+        s.push_str(&format_line("  Tier3 (cold)", self.tier3_blocks));
+        s.push_str("--- Storage ---\n");
+        s.push_str(&format_line("Tier1 bytes", self.tier1_bytes));
+        s.push_str(&format_line("Tier2 bytes", self.tier2_bytes));
+        s.push_str(&format_line("Tier3 bytes", self.tier3_bytes));
+        s.push_str(&format_line("Total stored", self.total_stored_bytes()));
+        s.push_str(&format!("Compression ratio: {:.2}x\n", self.compression_ratio()));
+        s.push_str("--- Operations ---\n");
+        s.push_str(&format_line("Reads", self.total_reads));
+        s.push_str(&format_line("Writes", self.total_writes));
+        s.push_str(&format_line("Evictions", self.total_evictions));
+        s.push_str(&format_line("Upgrades", self.total_upgrades));
+        s.push_str(&format_line("Downgrades", self.total_downgrades));
+        s.push_str(&format_line("Reconstructions", self.total_reconstructions));
+        s.push_str(&format_line("Compactions", self.total_compactions));
+        s.push_str(&format_line("Checksum failures", self.total_checksum_failures));
+        s.push_str(&format!("Tier flip rate: {:.4}/block/min\n", self.tier_flips_last_minute));
+        s
+    }
+
+    /// Generate a JSON representation (no serde dependency).
+    pub fn format_json(&self) -> String {
+        format!(
+            concat!(
+                "{{",
+                "\"total_blocks\":{},",
+                "\"tier0_blocks\":{},",
+                "\"tier1_blocks\":{},",
+                "\"tier2_blocks\":{},",
+                "\"tier3_blocks\":{},",
+                "\"tier1_bytes\":{},",
+                "\"tier2_bytes\":{},",
+                "\"tier3_bytes\":{},",
+                "\"total_reads\":{},",
+                "\"total_writes\":{},",
+                "\"total_evictions\":{},",
+                "\"total_upgrades\":{},",
+                "\"total_downgrades\":{},",
+                "\"total_reconstructions\":{},",
+                "\"total_checksum_failures\":{},",
+                "\"total_compactions\":{},",
+                "\"compression_ratio\":{:.4},",
+                "\"tier_flips_last_minute\":{:.4},",
+                "\"avg_score_tier1\":{:.4},",
+                "\"avg_score_tier2\":{:.4},",
+                "\"avg_score_tier3\":{:.4}",
+                "}}"
+            ),
+            self.total_blocks,
+            self.tier0_blocks,
+            self.tier1_blocks,
+            self.tier2_blocks,
+            self.tier3_blocks,
+            self.tier1_bytes,
+            self.tier2_bytes,
+            self.tier3_bytes,
+            self.total_reads,
+            self.total_writes,
+            self.total_evictions,
+            self.total_upgrades,
+            self.total_downgrades,
+            self.total_reconstructions,
+            self.total_checksum_failures,
+            self.total_compactions,
+            self.compression_ratio(),
+            self.tier_flips_last_minute,
+            self.avg_score_tier1,
+            self.avg_score_tier2,
+            self.avg_score_tier3,
+        )
+    }
+
+    /// Automated health assessment.
+    pub fn health_check(&self) -> StoreHealthStatus {
+        // Critical: checksum failures
+        if self.total_checksum_failures > 0 {
+            return StoreHealthStatus::Critical(
+                format!("{} checksum failures detected", self.total_checksum_failures)
+            );
+        }
+        // Warning: high tier flip rate
+        if self.tier_flips_last_minute > 0.5 {
+            return StoreHealthStatus::Warning(
+                format!("High tier flip rate: {:.3}/block/min", self.tier_flips_last_minute)
+            );
+        }
+        // Warning: mostly evictions
+        if self.total_evictions > 0 && self.total_blocks > 0 {
+            let eviction_ratio = self.total_evictions as f32 / (self.total_reads + self.total_writes).max(1) as f32;
+            if eviction_ratio > 0.3 {
+                return StoreHealthStatus::Warning(
+                    format!("High eviction ratio: {:.1}%", eviction_ratio * 100.0)
+                );
+            }
+        }
+        StoreHealthStatus::Healthy
+    }
+}
+
+/// Health status of the store.
+#[derive(Clone, Debug, PartialEq)]
+pub enum StoreHealthStatus {
+    /// Everything is operating normally.
+    Healthy,
+    /// Non-critical issue detected.
+    Warning(String),
+    /// Critical issue requiring attention.
+    Critical(String),
 }
 
 // ---------------------------------------------------------------------------
@@ -405,9 +522,125 @@ impl StoreSnapshot {
 }
 
 // ---------------------------------------------------------------------------
+// Time-series metrics ring buffer
+// ---------------------------------------------------------------------------
+
+/// Ring buffer of [`StoreMetrics`] snapshots for trend analysis.
+pub struct MetricsSeries {
+    snapshots: Vec<(u64, StoreMetrics)>,
+    capacity: usize,
+}
+
+/// Trend analysis computed from a [`MetricsSeries`].
+#[derive(Clone, Debug)]
+pub struct MetricsTrend {
+    /// Evictions per snapshot (rate of change).
+    pub eviction_rate: f32,
+    /// Whether compression ratio is improving over recent snapshots.
+    pub compression_improving: bool,
+    /// Whether tier distribution is stable (low variance).
+    pub tier_distribution_stable: bool,
+}
+
+impl MetricsSeries {
+    /// Create a new series with the given capacity.
+    pub fn new(capacity: usize) -> Self {
+        Self {
+            snapshots: Vec::with_capacity(capacity.min(256)),
+            capacity: capacity.max(1),
+        }
+    }
+
+    /// Record a metrics snapshot at the given timestamp.
+    pub fn record(&mut self, timestamp: u64, metrics: StoreMetrics) {
+        if self.snapshots.len() >= self.capacity {
+            self.snapshots.remove(0);
+        }
+        self.snapshots.push((timestamp, metrics));
+    }
+
+    /// Number of snapshots stored.
+    pub fn len(&self) -> usize {
+        self.snapshots.len()
+    }
+
+    /// Whether the series is empty.
+    pub fn is_empty(&self) -> bool {
+        self.snapshots.is_empty()
+    }
+
+    /// Get the most recent snapshot.
+    pub fn latest(&self) -> Option<&(u64, StoreMetrics)> {
+        self.snapshots.last()
+    }
+
+    /// Compute trend analysis over the stored snapshots.
+    pub fn trend(&self) -> MetricsTrend {
+        if self.snapshots.len() < 2 {
+            return MetricsTrend {
+                eviction_rate: 0.0,
+                compression_improving: false,
+                tier_distribution_stable: true,
+            };
+        }
+
+        let n = self.snapshots.len();
+        let first = &self.snapshots[0].1;
+        let last = &self.snapshots[n - 1].1;
+
+        // Eviction rate: evictions delta / number of snapshots
+        let eviction_delta = last.total_evictions.saturating_sub(first.total_evictions);
+        let eviction_rate = eviction_delta as f32 / n as f32;
+
+        // Compression trend: compare first half average to second half average
+        let mid = n / 2;
+        let first_half_ratio: f32 = self.snapshots[..mid]
+            .iter()
+            .map(|(_, m)| m.compression_ratio())
+            .sum::<f32>()
+            / mid as f32;
+        let second_half_ratio: f32 = self.snapshots[mid..]
+            .iter()
+            .map(|(_, m)| m.compression_ratio())
+            .sum::<f32>()
+            / (n - mid) as f32;
+        let compression_improving = second_half_ratio > first_half_ratio;
+
+        // Tier stability: check if tier1_blocks variance is low
+        let avg_tier1: f64 = self
+            .snapshots
+            .iter()
+            .map(|(_, m)| m.tier1_blocks as f64)
+            .sum::<f64>()
+            / n as f64;
+        let var_tier1: f64 = self
+            .snapshots
+            .iter()
+            .map(|(_, m)| {
+                let d = m.tier1_blocks as f64 - avg_tier1;
+                d * d
+            })
+            .sum::<f64>()
+            / n as f64;
+        let tier_distribution_stable = var_tier1.sqrt() < avg_tier1.max(1.0) * 0.3;
+
+        MetricsTrend {
+            eviction_rate,
+            compression_improving,
+            tier_distribution_stable,
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Serialization helpers (no alloc formatting -- we avoid `format!` to stay
 // lightweight; instead we write digits manually).
 // ---------------------------------------------------------------------------
+
+/// Format a key-value line for the text report.
+fn format_line(key: &str, value: u64) -> String {
+    format!("{}: {}\n", key, value)
+}
 
 /// Push `key=value\n` for a u64 value.
 fn push_kv(buf: &mut Vec<u8>, key: &str, value: u64) {
@@ -860,5 +1093,133 @@ mod tests {
         push_f32(&mut buf, -1.5);
         let s = core::str::from_utf8(&buf).unwrap();
         assert!(s.starts_with("-1."), "got: {s}");
+    }
+
+    // -----------------------------------------------------------------------
+    // StoreMetrics: format_report
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn test_format_report_contains_sections() {
+        let m = StoreMetrics {
+            total_blocks: 100,
+            tier1_blocks: 50,
+            tier2_blocks: 30,
+            tier3_blocks: 20,
+            tier1_bytes: 5000,
+            tier2_bytes: 3000,
+            tier3_bytes: 1000,
+            total_reads: 1000,
+            total_writes: 500,
+            ..Default::default()
+        };
+        let report = m.format_report();
+        assert!(report.contains("Temporal Tensor Store Report"));
+        assert!(report.contains("Total blocks: 100"));
+        assert!(report.contains("Reads: 1000"));
+        assert!(report.contains("Compression ratio:"));
+    }
+
+    #[test]
+    fn test_format_json_valid_structure() {
+        let m = StoreMetrics {
+            total_blocks: 10,
+            tier1_bytes: 100,
+            ..Default::default()
+        };
+        let json = m.format_json();
+        assert!(json.starts_with('{'));
+        assert!(json.ends_with('}'));
+        assert!(json.contains("\"total_blocks\":10"));
+        assert!(json.contains("\"tier1_bytes\":100"));
+    }
+
+    // -----------------------------------------------------------------------
+    // StoreMetrics: health_check
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn test_health_check_healthy() {
+        let m = StoreMetrics {
+            total_blocks: 100,
+            total_reads: 1000,
+            total_writes: 500,
+            ..Default::default()
+        };
+        assert_eq!(m.health_check(), StoreHealthStatus::Healthy);
+    }
+
+    #[test]
+    fn test_health_check_critical_checksum() {
+        let m = StoreMetrics {
+            total_checksum_failures: 5,
+            ..Default::default()
+        };
+        match m.health_check() {
+            StoreHealthStatus::Critical(msg) => assert!(msg.contains("checksum")),
+            other => panic!("expected Critical, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_health_check_warning_flip_rate() {
+        let m = StoreMetrics {
+            tier_flips_last_minute: 0.8,
+            ..Default::default()
+        };
+        match m.health_check() {
+            StoreHealthStatus::Warning(msg) => assert!(msg.contains("flip rate")),
+            other => panic!("expected Warning, got {:?}", other),
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // MetricsSeries
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn test_metrics_series_record_and_latest() {
+        let mut series = MetricsSeries::new(10);
+        assert!(series.is_empty());
+        series.record(1, StoreMetrics { total_blocks: 10, ..Default::default() });
+        series.record(2, StoreMetrics { total_blocks: 20, ..Default::default() });
+        assert_eq!(series.len(), 2);
+        assert_eq!(series.latest().unwrap().1.total_blocks, 20);
+    }
+
+    #[test]
+    fn test_metrics_series_capacity() {
+        let mut series = MetricsSeries::new(3);
+        for i in 0..5 {
+            series.record(i as u64, StoreMetrics { total_blocks: i, ..Default::default() });
+        }
+        assert_eq!(series.len(), 3);
+        assert_eq!(series.latest().unwrap().1.total_blocks, 4);
+    }
+
+    #[test]
+    fn test_metrics_trend_empty() {
+        let series = MetricsSeries::new(10);
+        let trend = series.trend();
+        assert_eq!(trend.eviction_rate, 0.0);
+        assert!(trend.tier_distribution_stable);
+    }
+
+    #[test]
+    fn test_metrics_trend_with_data() {
+        let mut series = MetricsSeries::new(10);
+        for i in 0..6u64 {
+            series.record(i, StoreMetrics {
+                total_blocks: 100,
+                tier1_blocks: 50,
+                total_evictions: i * 2,
+                tier1_bytes: 5000 + i * 100,
+                tier2_bytes: 3000,
+                tier3_bytes: 1000,
+                ..Default::default()
+            });
+        }
+        let trend = series.trend();
+        assert!(trend.eviction_rate > 0.0);
     }
 }

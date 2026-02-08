@@ -83,6 +83,12 @@ pub mod store;
 pub mod tier_policy;
 pub mod tiering;
 
+pub mod agentdb;
+pub mod coherence;
+pub mod core_trait;
+#[cfg(feature = "persistence")]
+pub mod persistence;
+
 #[cfg(feature = "ffi")]
 pub mod ffi;
 

@@ -284,6 +284,73 @@ impl FactorSet {
         }
         Self { m, n, k, u_data, s_data, v_data }
     }
+
+    /// Compute the relative reconstruction error (Frobenius norm).
+    ///
+    /// Returns `||original - reconstructed|| / ||original||`.
+    /// Returns 0.0 if the original has zero norm.
+    pub fn reconstruction_error(&self, original: &[f32]) -> f32 {
+        let reconstructed = self.reconstruct();
+        let mut diff_sq = 0.0f32;
+        let mut orig_sq = 0.0f32;
+        for (i, &o) in original.iter().enumerate() {
+            let r = if i < reconstructed.len() { reconstructed[i] } else { 0.0 };
+            diff_sq += (o - r) * (o - r);
+            orig_sq += o * o;
+        }
+        if orig_sq < 1e-30 {
+            return 0.0;
+        }
+        (diff_sq / orig_sq).sqrt()
+    }
+
+    /// Estimate the fraction of total energy (Frobenius norm) captured by factors.
+    ///
+    /// Uses `sum(s_i^2)` as captured energy. Requires the original data to compute
+    /// total energy as `||data||_F^2`. Returns 1.0 if total energy is near zero.
+    pub fn energy_captured(&self, original: &[f32]) -> f32 {
+        let total_energy: f32 = original.iter().map(|x| x * x).sum();
+        if total_energy < 1e-30 {
+            return 1.0;
+        }
+        let captured: f32 = self.s_data.iter().map(|s| s * s).sum();
+        (captured / total_energy).min(1.0)
+    }
+
+    /// Compression ratio: original_elements * 4 bytes / storage_bytes.
+    ///
+    /// Returns 0.0 if storage_bytes is zero.
+    pub fn compression_ratio(&self, original_elements: usize) -> f32 {
+        let raw = original_elements * 4;
+        let stored = self.storage_bytes();
+        if stored == 0 {
+            return 0.0;
+        }
+        raw as f32 / stored as f32
+    }
+
+    /// Create factors with adaptive rank selection.
+    ///
+    /// Starts with rank 1 and increases until either `max_rank` is reached or
+    /// the reconstruction error falls below `target_error`.
+    pub fn from_data_adaptive(
+        data: &[f32],
+        rows: usize,
+        cols: usize,
+        max_rank: usize,
+        target_error: f32,
+    ) -> Self {
+        let max_k = max_rank.min(rows).min(cols);
+        let mut best = Self::from_data(data, rows, cols, 1);
+        for rank in 2..=max_k {
+            let err = best.reconstruction_error(data);
+            if err <= target_error {
+                break;
+            }
+            best = Self::from_data(data, rows, cols, rank);
+        }
+        best
+    }
 }
 
 /// Encode a [`DeltaRecord`] to bytes (little-endian, ADR-021 section 4.1).
@@ -516,5 +583,73 @@ mod tests {
         let mut recon = old.clone();
         apply_delta(&mut recon, &d);
         for i in 0..64 { assert!((recon[i] - new[i]).abs() < 0.01, "index {i}"); }
+    }
+
+    #[test]
+    fn test_reconstruction_error_zero_for_exact() {
+        // Rank-1 data should be exactly reconstructed with rank-1 factors
+        let (m, n) = (4, 3);
+        let data: Vec<f32> = (0..m * n).map(|idx| {
+            let (i, j) = (idx / n, idx % n);
+            (i as f32 + 1.0) * (j as f32 + 1.0)
+        }).collect();
+        let factors = FactorSet::from_data(&data, m, n, 1);
+        let err = factors.reconstruction_error(&data);
+        assert!(err < 0.01, "err={err} too large for rank-1 data");
+    }
+
+    #[test]
+    fn test_reconstruction_error_decreases_with_rank() {
+        let (m, n) = (8, 6);
+        let data: Vec<f32> = (0..m * n).map(|i| (i as f32 * 0.7).sin()).collect();
+        let err1 = FactorSet::from_data(&data, m, n, 1).reconstruction_error(&data);
+        let err3 = FactorSet::from_data(&data, m, n, 3).reconstruction_error(&data);
+        assert!(err3 <= err1 + 1e-6, "err3={err3} > err1={err1}");
+    }
+
+    #[test]
+    fn test_energy_captured_rank1_data() {
+        let (m, n) = (4, 3);
+        let data: Vec<f32> = (0..m * n).map(|idx| {
+            let (i, j) = (idx / n, idx % n);
+            (i as f32 + 1.0) * (j as f32 + 1.0)
+        }).collect();
+        let factors = FactorSet::from_data(&data, m, n, 1);
+        let energy = factors.energy_captured(&data);
+        assert!(energy > 0.95, "energy={energy} too low for rank-1 data");
+    }
+
+    #[test]
+    fn test_compression_ratio_meaningful() {
+        let (m, n) = (16, 16);
+        let data: Vec<f32> = (0..m * n).map(|i| i as f32).collect();
+        let factors = FactorSet::from_data(&data, m, n, 2);
+        let ratio = factors.compression_ratio(m * n);
+        // rank-2 storage: (16*2 + 2 + 2*16) * 4 = 264 bytes vs 16*16*4 = 1024 bytes
+        assert!(ratio > 1.0, "ratio={ratio} should be > 1");
+    }
+
+    #[test]
+    fn test_from_data_adaptive_stops_early() {
+        let (m, n) = (4, 3);
+        // Rank-1 data: adaptive should stop at rank 1
+        let data: Vec<f32> = (0..m * n).map(|idx| {
+            let (i, j) = (idx / n, idx % n);
+            (i as f32 + 1.0) * (j as f32 + 1.0)
+        }).collect();
+        let factors = FactorSet::from_data_adaptive(&data, m, n, 5, 0.05);
+        // Should use rank 1 since data is rank 1
+        assert!(factors.k <= 2, "k={} should be small for rank-1 data", factors.k);
+    }
+
+    #[test]
+    fn test_from_data_adaptive_increases_rank() {
+        let (m, n) = (8, 6);
+        // Multi-rank data
+        let data: Vec<f32> = (0..m * n).map(|i| (i as f32 * 0.3).sin() + (i as f32 * 0.7).cos()).collect();
+        let factors = FactorSet::from_data_adaptive(&data, m, n, 6, 0.01);
+        let err = factors.reconstruction_error(&data);
+        // Should achieve close to target error or use max rank
+        assert!(err < 0.1 || factors.k == 6, "err={err}, k={}", factors.k);
     }
 }

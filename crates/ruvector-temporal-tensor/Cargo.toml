@@ -12,6 +12,7 @@ description = "Temporal tensor compression with tiered quantization for RuVector
 default = []
 ffi = []          # Enable WASM/C FFI exports
 simd = []         # Enable SIMD-accelerated quantization (future)
+persistence = []  # Enable disk-backed BlockIO and MetaLog (uses std::fs)
 
 [lib]
 crate-type = ["lib"]

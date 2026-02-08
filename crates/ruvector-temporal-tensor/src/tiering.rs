@@ -433,6 +433,84 @@ pub fn select_candidates(
 }
 
 // ---------------------------------------------------------------------------
+// Batch scoring
+// ---------------------------------------------------------------------------
+
+/// Result of scoring and partitioning blocks into tier buckets.
+#[derive(Clone, Debug)]
+pub struct ScoredPartition {
+    /// Indices of blocks classified as hot (Tier1).
+    pub hot: Vec<usize>,
+    /// Indices of blocks classified as warm (Tier2).
+    pub warm: Vec<usize>,
+    /// Indices of blocks classified as cold (Tier3).
+    pub cold: Vec<usize>,
+    /// Indices of blocks below eviction threshold.
+    pub evict: Vec<usize>,
+    /// Computed scores, parallel to input slice.
+    pub scores: Vec<f32>,
+}
+
+/// Compute scores for many blocks at once.
+///
+/// Returns a `Vec<f32>` parallel to `metas`, where each entry is
+/// `compute_score(config, now, &metas[i])`.
+pub fn compute_scores_batch(config: &TierConfig, now: u64, metas: &[BlockMeta]) -> Vec<f32> {
+    metas.iter().map(|m| compute_score(config, now, m)).collect()
+}
+
+/// Compute tier decisions for many blocks at once.
+///
+/// Returns a `Vec<Option<Tier>>` parallel to `metas`, where each entry is
+/// `choose_tier(config, now, &metas[i])`.
+pub fn choose_tiers_batch(config: &TierConfig, now: u64, metas: &[BlockMeta]) -> Vec<Option<Tier>> {
+    metas.iter().map(|m| choose_tier(config, now, m)).collect()
+}
+
+/// Score blocks and partition into hot/warm/cold/evict buckets based on raw
+/// score thresholds.
+///
+/// Unlike [`choose_tier`], this function uses the *raw* thresholds (`t1`,
+/// `t2`, `t3`) without hysteresis or residency checks, making it suitable
+/// for bulk classification and capacity planning.
+pub fn score_and_partition(config: &TierConfig, now: u64, metas: &[BlockMeta]) -> ScoredPartition {
+    let scores = compute_scores_batch(config, now, metas);
+    let mut hot = Vec::new();
+    let mut warm = Vec::new();
+    let mut cold = Vec::new();
+    let mut evict = Vec::new();
+    for (i, &score) in scores.iter().enumerate() {
+        if score >= config.t1 {
+            hot.push(i);
+        } else if score >= config.t2 {
+            warm.push(i);
+        } else if score >= config.t3 {
+            cold.push(i);
+        } else {
+            evict.push(i);
+        }
+    }
+    ScoredPartition { hot, warm, cold, evict, scores }
+}
+
+/// Find the `k` blocks with the lowest scores (useful for eviction).
+///
+/// Returns up to `k` `(index, score)` pairs sorted in ascending score order.
+/// Uses a partial sort (`select_nth_unstable_by`) for efficiency when
+/// `k << metas.len()`.
+pub fn top_k_coldest(config: &TierConfig, now: u64, metas: &[BlockMeta], k: usize) -> Vec<(usize, f32)> {
+    let scores = compute_scores_batch(config, now, metas);
+    let mut indexed: Vec<(usize, f32)> = scores.into_iter().enumerate().collect();
+    // Partial sort: we only need the k smallest
+    if k < indexed.len() {
+        indexed.select_nth_unstable_by(k, |a, b| a.1.partial_cmp(&b.1).unwrap_or(core::cmp::Ordering::Equal));
+        indexed.truncate(k);
+    }
+    indexed.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(core::cmp::Ordering::Equal));
+    indexed
+}
+
+// ---------------------------------------------------------------------------
 // Quantization bit-width selection
 // ---------------------------------------------------------------------------
 
@@ -965,5 +1043,87 @@ mod tests {
         assert!(Tier::Tier0 < Tier::Tier1);
         assert!(Tier::Tier1 < Tier::Tier2);
         assert!(Tier::Tier2 < Tier::Tier3);
+    }
+
+    // -----------------------------------------------------------------------
+    // 11. Batch scoring
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn batch_scores_match_individual() {
+        let cfg = default_config();
+        let metas: Vec<BlockMeta> = vec![
+            make_meta(1.0, u64::MAX, 100, Tier::Tier1, 0),
+            make_meta(0.0, 0, 0, Tier::Tier3, 0),
+            make_meta(0.5, 0x0000_0000_FFFF_FFFF, 50, Tier::Tier2, 0),
+        ];
+        let batch = compute_scores_batch(&cfg, 100, &metas);
+        for (i, meta) in metas.iter().enumerate() {
+            let single = compute_score(&cfg, 100, meta);
+            assert!((batch[i] - single).abs() < 1e-6, "index {i}");
+        }
+    }
+
+    #[test]
+    fn batch_tiers_match_individual() {
+        let cfg = default_config();
+        let metas: Vec<BlockMeta> = vec![
+            make_meta(1.0, u64::MAX, 100, Tier::Tier1, 0),
+            make_meta(0.0, 0, 0, Tier::Tier3, 0),
+        ];
+        let batch = choose_tiers_batch(&cfg, 100, &metas);
+        for (i, meta) in metas.iter().enumerate() {
+            let single = choose_tier(&cfg, 100, meta);
+            assert_eq!(batch[i], single, "index {i}");
+        }
+    }
+
+    #[test]
+    fn score_and_partition_distributes_correctly() {
+        let cfg = default_config();
+        let metas: Vec<BlockMeta> = vec![
+            make_meta(1.0, u64::MAX, 100, Tier::Tier1, 0),   // hot
+            make_meta(0.5, 0x0000_0000_FFFF_FFFF, 90, Tier::Tier2, 0),  // warm
+            make_meta(0.0, 0, 0, Tier::Tier3, 0),             // cold/evict
+        ];
+        let part = score_and_partition(&cfg, 100, &metas);
+        assert!(!part.hot.is_empty(), "should have hot blocks");
+        assert_eq!(part.scores.len(), 3);
+    }
+
+    #[test]
+    fn top_k_coldest_returns_lowest() {
+        let cfg = default_config();
+        let metas: Vec<BlockMeta> = vec![
+            make_meta(1.0, u64::MAX, 100, Tier::Tier1, 0),
+            make_meta(0.0, 0, 0, Tier::Tier3, 0),
+            make_meta(0.5, 0x0000_0000_FFFF_FFFF, 50, Tier::Tier2, 0),
+        ];
+        let coldest = top_k_coldest(&cfg, 100, &metas, 2);
+        assert_eq!(coldest.len(), 2);
+        // The coldest should be index 1 (score near 0)
+        assert_eq!(coldest[0].0, 1);
+        assert!(coldest[0].1 <= coldest[1].1);
+    }
+
+    #[test]
+    fn top_k_coldest_k_exceeds_len() {
+        let cfg = default_config();
+        let metas: Vec<BlockMeta> = vec![
+            make_meta(1.0, u64::MAX, 100, Tier::Tier1, 0),
+        ];
+        let coldest = top_k_coldest(&cfg, 100, &metas, 10);
+        assert_eq!(coldest.len(), 1);
+    }
+
+    #[test]
+    fn batch_empty_input() {
+        let cfg = default_config();
+        let empty: Vec<BlockMeta> = vec![];
+        assert!(compute_scores_batch(&cfg, 100, &empty).is_empty());
+        assert!(choose_tiers_batch(&cfg, 100, &empty).is_empty());
+        let part = score_and_partition(&cfg, 100, &empty);
+        assert!(part.hot.is_empty() && part.warm.is_empty() && part.cold.is_empty() && part.evict.is_empty());
+        assert!(top_k_coldest(&cfg, 100, &empty, 5).is_empty());
     }
 }
