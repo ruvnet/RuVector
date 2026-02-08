@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RuVector VWM - 4D Gaussian Splatting Viewer</title>
+  <style>
+    /* ---- Reset & full-viewport canvas ---- */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #0a0a0f; color: #e0e0e8; font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace; }
+    canvas { display: block; width: 100%; height: 100%; }
+
+    /* ---- Fallback message ---- */
+    #no-webgpu {
+      display: none;
+      position: fixed; inset: 0;
+      background: #0a0a0f;
+      z-index: 1000;
+      justify-content: center; align-items: center;
+      flex-direction: column; gap: 1rem;
+      text-align: center; padding: 2rem;
+    }
+    #no-webgpu h1 { font-size: 1.5rem; color: #ff6b6b; }
+    #no-webgpu p  { font-size: 0.9rem; color: #888; max-width: 30rem; }
+
+    /* ---- UI Overlay ---- */
+    #overlay {
+      position: fixed; inset: 0;
+      pointer-events: none;
+      z-index: 10;
+    }
+    #overlay > * { pointer-events: auto; }
+
+    /* Top-left: stats */
+    #stats-panel {
+      position: absolute; top: 12px; left: 12px;
+      background: rgba(10, 10, 20, 0.75);
+      backdrop-filter: blur(6px);
+      border: 1px solid rgba(100, 120, 255, 0.25);
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 0.75rem;
+      line-height: 1.6;
+      min-width: 180px;
+    }
+    #stats-panel .label { color: #888; }
+    #stats-panel .value { color: #a0c4ff; font-weight: 600; }
+
+    /* Top-right: coherence badge */
+    .coherence-badge {
+      position: absolute; top: 12px; right: 12px;
+      background: rgba(10, 10, 20, 0.75);
+      backdrop-filter: blur(6px);
+      border: 1px solid rgba(100, 120, 255, 0.25);
+      border-radius: 8px;
+      padding: 6px 14px;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .coherence-badge.coherent  { border-color: #4ade80; color: #4ade80; }
+    .coherence-badge.degraded  { border-color: #facc15; color: #facc15; }
+    .coherence-badge.unknown   { border-color: #888;    color: #888;    }
+
+    /* Bottom: transport bar */
+    #transport-bar {
+      position: absolute; bottom: 0; left: 0; right: 0;
+      background: rgba(10, 10, 20, 0.8);
+      backdrop-filter: blur(6px);
+      border-top: 1px solid rgba(100, 120, 255, 0.2);
+      display: flex; align-items: center; gap: 12px;
+      padding: 8px 16px;
+      font-size: 0.75rem;
+    }
+    #play-btn {
+      background: rgba(100, 120, 255, 0.2);
+      border: 1px solid rgba(100, 120, 255, 0.4);
+      color: #a0c4ff;
+      border-radius: 4px;
+      padding: 4px 12px;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 0.75rem;
+    }
+    #play-btn:hover { background: rgba(100, 120, 255, 0.35); }
+    #time-slider {
+      flex: 1;
+      accent-color: #6478ff;
+      height: 4px;
+    }
+    #time-label { color: #888; min-width: 5rem; text-align: right; }
+
+    /* Search */
+    #search-box {
+      position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
+      background: rgba(10, 10, 20, 0.75);
+      backdrop-filter: blur(6px);
+      border: 1px solid rgba(100, 120, 255, 0.25);
+      border-radius: 8px;
+      padding: 6px 14px;
+      color: #e0e0e8;
+      font-family: inherit;
+      font-size: 0.75rem;
+      width: 220px;
+      outline: none;
+    }
+    #search-box::placeholder { color: #555; }
+    #search-box:focus { border-color: rgba(100, 120, 255, 0.6); }
+
+    /* Status bar at bottom-left */
+    #status-text {
+      position: absolute; bottom: 44px; left: 16px;
+      font-size: 0.65rem; color: #555;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Fallback for no WebGPU -->
+  <div id="no-webgpu">
+    <h1>WebGPU Not Available</h1>
+    <p>
+      This viewer requires WebGPU support. Please use a recent version of
+      Chrome (113+), Edge (113+), or Firefox Nightly with WebGPU enabled.
+    </p>
+    <p style="color:#555; font-size:0.8rem;">
+      Check <code>chrome://flags/#enable-unsafe-webgpu</code> or
+      <code>about:config &rarr; dom.webgpu.enabled</code>
+    </p>
+  </div>
+
+  <!-- Main render canvas -->
+  <canvas id="viewport"></canvas>
+
+  <!-- UI Overlay -->
+  <div id="overlay">
+    <!-- Stats panel -->
+    <div id="stats-panel">
+      <div><span class="label">FPS </span><span class="value" id="fps-value">--</span></div>
+      <div><span class="label">Gaussians </span><span class="value" id="gaussian-count">0</span></div>
+      <div><span class="label">Mode </span><span class="value" id="mode-label">demo</span></div>
+    </div>
+
+    <!-- Coherence state -->
+    <div id="coherence-state" class="coherence-badge unknown">initializing</div>
+
+    <!-- Search -->
+    <input id="search-box" type="text" placeholder="Search entities..." />
+
+    <!-- Status -->
+    <div id="status-text">starting...</div>
+
+    <!-- Transport bar -->
+    <div id="transport-bar">
+      <button id="play-btn">Pause</button>
+      <input id="time-slider" type="range" min="0" max="1000" value="0" />
+      <span id="time-label">t=0.000</span>
+    </div>
+  </div>
+
+  <!-- Application entry point (ES module) -->
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>

@@ -9032,6 +9032,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "ruvector-vwm"
+version = "2.0.1"
+dependencies = [
+ "criterion 0.5.1",
+]
+
+[[package]]
+name = "ruvector-vwm-wasm"
+version = "2.0.1"
+dependencies = [
+ "console_error_panic_hook",
+ "js-sys",
+ "ruvector-vwm",
+ "serde",
+ "serde_json",
+ "wasm-bindgen",
+ "wasm-bindgen-test",
+ "web-sys",
+]
+
+[[package]]
 name = "ruvector-wasm"
 version = "2.0.1"
 dependencies = [

@@ -1,0 +1,35 @@
+[package]
+name = "ruvector-vwm-wasm"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "WASM bindings for RuVector Visual World Model: 4D Gaussian splatting in the browser"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+default = ["console_error_panic_hook"]
+
+[dependencies]
+ruvector-vwm = { path = "../ruvector-vwm" }
+wasm-bindgen = { workspace = true }
+js-sys = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+console_error_panic_hook = { version = "0.1", optional = true }
+
+[dependencies.web-sys]
+workspace = true
+features = [
+    "console",
+    "Performance",
+    "Window",
+    "Worker",
+]
+
+[dev-dependencies]
+wasm-bindgen-test = "0.3"

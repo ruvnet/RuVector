@@ -1,0 +1,11 @@
+{
+  "name": "ruvector-vwm-viewer",
+  "version": "0.1.0",
+  "description": "WebGPU 4D Gaussian Splatting Viewer for RuVector Visual World Model",
+  "private": true,
+  "scripts": {
+    "dev": "npx serve .",
+    "build:wasm": "cd ../../crates/ruvector-vwm-wasm && wasm-pack build --target web --out-dir ../../examples/vwm-viewer/pkg"
+  },
+  "license": "MIT"
+}
