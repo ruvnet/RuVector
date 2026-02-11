@@ -2,9 +2,7 @@
 # Claude Checkpoint Manager
 # Provides easy rollback and management of Claude Code checkpoints
 
-set -euo pipefail
-export PATH="/usr/local/bin:/usr/bin:/bin:$PATH"
-umask 077
+set -e
 
 # Colors
 RED='\033[0;31m'
