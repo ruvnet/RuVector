@@ -13,8 +13,7 @@
 
 use super::{
     network::{LayerConfig, NetworkConfig, SpikingNetwork},
-    neuron::{LIFNeuron, NeuronConfig, NeuronPopulation},
-    SimTime, Spike,
+    SimTime,
 };
 use crate::graph::{DynamicGraph, VertexId};
 use std::collections::VecDeque;

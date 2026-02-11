@@ -96,6 +96,11 @@ uuid-support = []  # Deprecated: uuid is now always included
 real-embeddings = []  # Feature flag for embedding provider API (use ApiEmbedding for production)
 api-embeddings = ["reqwest"]  # API-based embeddings (not available in WASM)
 
+[[example]]
+name = "dna_analysis_pipeline"
+path = "../../examples/dna_analysis_pipeline.rs"
+required-features = ["hnsw", "parallel"]
+
 [lib]
 crate-type = ["rlib"]
 bench = false

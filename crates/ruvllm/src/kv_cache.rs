@@ -22,7 +22,7 @@
 //! efficient block allocation with multiple size classes.
 
 use crate::error::{Result, RuvLLMError};
-use crate::memory_pool::{BufferPool, BufferSize, PooledBuffer};
+use crate::memory_pool::{BufferPool, PooledBuffer};
 use crate::types::Precision;
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
@@ -1201,7 +1201,7 @@ impl PooledKvCache {
     /// Append KV pairs to the cache.
     pub fn append(&self, keys: &[f32], values: &[f32]) -> Result<()> {
         let stride = self.config.num_kv_heads * self.config.head_dim;
-        let input_tokens = keys.len() / stride;
+        let _input_tokens = keys.len() / stride;
 
         if keys.len() != values.len() {
             return Err(RuvLLMError::KvCache(

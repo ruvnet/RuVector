@@ -18,7 +18,7 @@
 //! - STDP learning → edge weight evolution → dynamic mincut
 
 use super::{SimTime, Spike};
-use crate::graph::{DynamicGraph, VertexId, Weight};
+use crate::graph::{DynamicGraph, VertexId};
 use std::collections::HashMap;
 
 /// Configuration for STDP learning

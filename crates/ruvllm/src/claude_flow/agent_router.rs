@@ -230,7 +230,7 @@ impl AgentRouter {
     /// Record feedback for learning
     pub fn record_feedback(
         &mut self,
-        task: &str,
+        _task: &str,
         embedding: &[f32],
         agent_used: AgentType,
         success: bool,

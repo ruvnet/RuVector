@@ -8,7 +8,6 @@
 //! - Dataset generation utilities
 
 use crate::error::{Result, RuvLLMError};
-use crate::lora::adapters::{AdapterMetadata, LoraConfig};
 use crate::lora::micro_lora::{AdaptFeedback, MicroLoRA};
 use crate::lora::training::{LearningRateSchedule, TrainingConfig, TrainingPipeline};
 use serde::{Deserialize, Serialize};
@@ -329,7 +328,7 @@ impl AdapterTrainer {
     }
 
     /// Validate on validation set
-    fn validate(&self, lora: &MicroLoRA, validation: &[TrainingExample]) -> Result<f32> {
+    fn validate(&self, _lora: &MicroLoRA, validation: &[TrainingExample]) -> Result<f32> {
         let mut total_loss = 0.0;
 
         for example in validation {

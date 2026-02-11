@@ -57,8 +57,8 @@ pub use strange_loop::{MetaAction, MetaCognitiveMinCut, MetaLevel, StrangeLoopCo
 pub use synapse::{STDPConfig, Synapse, SynapseMatrix};
 pub use time_crystal::{CPGConfig, OscillatorNeuron, PhaseTopology, TimeCrystalCPG};
 
-use crate::graph::{DynamicGraph, EdgeId, VertexId, Weight};
-use std::time::{Duration, Instant};
+use crate::graph::{DynamicGraph, Weight};
+use std::time::Duration;
 
 /// Simulation time in milliseconds
 pub type SimTime = f64;

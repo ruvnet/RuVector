@@ -17,12 +17,9 @@
 //! - Blocked layouts matching ANE tile sizes (typically 16x16 or 32x32)
 //! - Interleaved scales for efficient fused operations
 
-use std::fs::File;
-use std::io::{BufWriter, Read, Seek, SeekFrom, Write as IoWrite};
-use std::path::Path;
 
 use crate::error::{Result, RuvLLMError};
-use crate::gguf::{GgufQuantType, GGUF_MAGIC, GGUF_VERSION};
+use crate::gguf::GgufQuantType;
 
 // ============================================================================
 // Constants

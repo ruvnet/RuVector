@@ -179,7 +179,7 @@ impl EvalReport {
         md.push_str("Improvements over baseline:\n\n");
 
         for comparison in self.compare_all_to_baseline() {
-            let direction = if comparison.success_delta > 0.0 {
+            let _direction = if comparison.success_delta > 0.0 {
                 "↑"
             } else {
                 "↓"

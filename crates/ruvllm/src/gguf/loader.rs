@@ -43,7 +43,6 @@
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::Arc;
 
 use super::{GgufFile, GgufQuantType, ModelConfig as GgufConfig, QuantizedTensor, TensorInfo};
 use crate::backends::ModelArchitecture;

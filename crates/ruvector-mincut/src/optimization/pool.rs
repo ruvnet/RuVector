@@ -9,9 +9,9 @@
 //! Target: 50-75% memory reduction
 
 use crate::graph::VertexId;
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::{HashMap, VecDeque};
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
-use std::sync::{Arc, RwLock};
+use std::sync::RwLock;
 
 /// Configuration for level pool
 #[derive(Debug, Clone)]

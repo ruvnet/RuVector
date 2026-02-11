@@ -12,11 +12,7 @@
 //! Different phases correspond to different graph topologies. Phase transitions
 //! trigger topology changes, and MinCut verification ensures stability within each phase.
 
-use super::{
-    network::{LayerConfig, NetworkConfig, SpikingNetwork},
-    neuron::{LIFNeuron, NeuronConfig},
-    SimTime, Spike, Vector,
-};
+use super::SimTime;
 use crate::graph::{DynamicGraph, VertexId};
 use std::f64::consts::PI;
 
@@ -314,7 +310,7 @@ impl TimeCrystalCPG {
     }
 
     /// Transition between topologies
-    fn transition_topology(&mut self, from: usize, to: usize) {
+    fn transition_topology(&mut self, _from: usize, to: usize) {
         // Blend topologies during transition
         if let Some(to_topo) = self.phase_topologies.get(to) {
             self.active_graph = to_topo.graph.clone();

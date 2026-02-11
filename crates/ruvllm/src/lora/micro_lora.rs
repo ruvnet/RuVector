@@ -15,7 +15,7 @@
 //! - **Specialized rank-1/rank-2 kernels**: Eliminate loop overhead for small ranks
 
 use crate::error::{Result, RuvLLMError};
-use ndarray::{Array1, Array2, Axis};
+use ndarray::{Array1, Array2};
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

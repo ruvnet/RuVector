@@ -1,0 +1,49 @@
+[package]
+name = "ruvector-dna-bench"
+version = "0.1.0"
+edition = "2021"
+description = "Comprehensive benchmark suite for RuVector DNA Analyzer core crates"
+publish = false
+
+[dependencies]
+# Crates under test
+ruvector-core = { path = "../ruvector-core", features = ["hnsw", "simd", "parallel"] }
+ruvector-mincut = { path = "../ruvector-mincut", default-features = true }
+ruvector-attention = { path = "../ruvector-attention", default-features = true }
+ruvector-delta-core = { path = "../ruvector-delta-core", features = ["std"] }
+
+# Benchmarking
+criterion = { version = "0.5", features = ["html_reports"] }
+rand = "0.8"
+
+[lib]
+bench = false
+
+# ---------------------------------------------------------------------------
+# Benchmark targets -- each file lives in ../../benches/ (workspace root)
+# ---------------------------------------------------------------------------
+
+[[bench]]
+name = "bench_hnsw_genomic"
+harness = false
+path = "../../benches/bench_hnsw_genomic.rs"
+
+[[bench]]
+name = "bench_mincut_genome_graph"
+harness = false
+path = "../../benches/bench_mincut_genome_graph.rs"
+
+[[bench]]
+name = "bench_attention_genomic"
+harness = false
+path = "../../benches/bench_attention_genomic.rs"
+
+[[bench]]
+name = "bench_delta_propagation"
+harness = false
+path = "../../benches/bench_delta_propagation.rs"
+
+[[bench]]
+name = "bench_quantization"
+harness = false
+path = "../../benches/bench_quantization.rs"

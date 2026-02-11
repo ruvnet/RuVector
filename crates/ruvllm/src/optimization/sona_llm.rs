@@ -31,7 +31,6 @@
 //!                           +-------------------+
 //! ```
 
-use crate::error::{Result, RuvLLMError};
 use crate::lora::{
     AdaptFeedback, MicroLoRA, MicroLoraConfig, TargetModule, TrainingConfig, TrainingPipeline,
 };
@@ -41,7 +40,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, VecDeque};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 /// Configuration for SONA LLM integration
 #[derive(Debug, Clone, Serialize, Deserialize)]

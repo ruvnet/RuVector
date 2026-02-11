@@ -57,7 +57,7 @@
 //! ```
 
 use crate::error::{MinCutError, Result};
-use crate::graph::{DynamicGraph, EdgeId, VertexId, Weight};
+use crate::graph::{DynamicGraph, EdgeId, VertexId};
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::Arc;
 

@@ -12,13 +12,13 @@
 
 use super::cache::{CacheConfig, PathDistanceCache};
 use super::dspar::{DegreePresparse, PresparseConfig};
-use super::parallel::{LevelUpdateResult, ParallelConfig, ParallelLevelUpdater, WorkItem};
+use super::parallel::{LevelUpdateResult, ParallelConfig, ParallelLevelUpdater};
 use super::pool::{LevelData, LevelPool, PoolConfig};
 use super::simd_distance::{DistanceArray, SimdDistanceOps};
 use super::wasm_batch::{BatchConfig, WasmBatchOps};
 use crate::graph::DynamicGraph;
 use std::collections::HashSet;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 /// Single benchmark result
 #[derive(Debug, Clone)]

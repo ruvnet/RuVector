@@ -15,9 +15,9 @@ pub mod replacement;
 
 pub use replacement::{ReplacementEdgeIndex, ReplacementIndexStats};
 
-use crate::error::{MinCutError, Result};
+use crate::error::Result;
 use crate::euler::EulerTourTree;
-use crate::graph::{DynamicGraph, Edge, EdgeId, VertexId, Weight};
+use crate::graph::{DynamicGraph, Edge, VertexId, Weight};
 use crate::linkcut::LinkCutTree;
 use crate::tree::HierarchicalDecomposition;
 use parking_lot::RwLock;

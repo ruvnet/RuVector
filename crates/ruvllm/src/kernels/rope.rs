@@ -25,8 +25,6 @@
 #[cfg(target_arch = "aarch64")]
 use std::arch::aarch64::*;
 
-use super::{NEON_LANE_WIDTH, UNROLL_FACTOR};
-use std::f32::consts::PI;
 
 /// RoPE configuration
 #[derive(Debug, Clone, Copy)]
@@ -422,7 +420,7 @@ fn apply_rope_scalar(
     x: &mut [f32],
     positions: &[usize],
     inv_freq: &[f32],
-    half_dim: usize,
+    _half_dim: usize,
     stride: usize,
 ) {
     for (tok_idx, &pos) in positions.iter().enumerate() {

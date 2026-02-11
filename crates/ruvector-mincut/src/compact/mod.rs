@@ -108,7 +108,7 @@ impl BitSet256 {
         }
     }
 
-    pub fn iter(&self) -> BitSet256Iter {
+    pub fn iter(&self) -> BitSet256Iter<'_> {
         // Initialize with the first word's value
         BitSet256Iter {
             set: self,

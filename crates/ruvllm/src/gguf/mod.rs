@@ -71,8 +71,6 @@ use std::fs::File;
 use std::io::{BufReader, Read, Seek, SeekFrom};
 use std::path::Path;
 
-#[cfg(unix)]
-use std::os::unix::fs::FileExt;
 
 use crate::backends::ModelArchitecture;
 use crate::error::{Result, RuvLLMError};

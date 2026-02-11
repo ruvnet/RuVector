@@ -53,7 +53,6 @@ use crate::sona::{SonaConfig, SonaIntegration, Trajectory};
 use crate::tokenizer::{ChatMessage, ChatTemplate, RuvTokenizer};
 
 use std::path::{Path, PathBuf};
-use std::sync::mpsc;
 use std::time::Instant;
 
 #[cfg(feature = "candle")]

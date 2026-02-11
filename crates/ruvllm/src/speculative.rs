@@ -567,7 +567,7 @@ impl<M: LlmBackend + ?Sized, D: LlmBackend + ?Sized> SpeculativeDecoder<M, D> {
         // Build prompt from context for draft model
         let prompt_text = self.decode(&ctx)?;
 
-        for i in 0..k {
+        for _i in 0..k {
             // Generate one token with draft model
             let draft_params = GenerateParams {
                 max_tokens: 1,
@@ -621,7 +621,7 @@ impl<M: LlmBackend + ?Sized, D: LlmBackend + ?Sized> SpeculativeDecoder<M, D> {
         draft_tokens: &[u32],
         params: &GenerateParams,
     ) -> Result<VerificationResult> {
-        let config = self.config.read();
+        let _config = self.config.read();
 
         // In a full implementation, we would do a single forward pass through the main model
         // with all tokens (context + draft) to get logits for all positions at once.
@@ -631,7 +631,7 @@ impl<M: LlmBackend + ?Sized, D: LlmBackend + ?Sized> SpeculativeDecoder<M, D> {
         let mut accepted_logprobs = Vec::new();
         let mut ctx = context.to_vec();
 
-        for (i, &draft_token) in draft_tokens.iter().enumerate() {
+        for (_i, &draft_token) in draft_tokens.iter().enumerate() {
             // Get main model's probability distribution at this position
             let prompt_text = self.decode(&ctx)?;
 

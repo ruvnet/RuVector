@@ -25,10 +25,10 @@
 
 use super::{
     neuron::{LIFNeuron, NeuronConfig, SpikeTrain},
-    synapse::{AsymmetricSTDP, STDPConfig, Synapse, SynapseMatrix},
-    SimTime, Spike,
+    synapse::{AsymmetricSTDP, SynapseMatrix},
+    SimTime,
 };
-use crate::graph::{DynamicGraph, EdgeId, VertexId};
+use crate::graph::{DynamicGraph, VertexId};
 use std::collections::{HashMap, HashSet, VecDeque};
 
 /// Configuration for causal discovery
@@ -429,7 +429,7 @@ impl CausalDiscoverySNN {
         targets: &[usize],
     ) -> Vec<usize> {
         let causal = self.extract_causal_graph();
-        let undirected = causal.to_undirected();
+        let _undirected = causal.to_undirected();
 
         // Simple heuristic: find nodes on paths from controllable to targets
         let mut intervention_points = Vec::new();

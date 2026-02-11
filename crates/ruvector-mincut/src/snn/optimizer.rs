@@ -15,12 +15,11 @@
 //! - Subpolynomial search exploiting learned graph structure
 
 use super::{
-    network::{LayerConfig, NetworkConfig, SpikingNetwork},
-    neuron::{LIFNeuron, NeuronConfig, NeuronPopulation},
-    synapse::{STDPConfig, Synapse, SynapseMatrix},
+    neuron::{NeuronConfig, NeuronPopulation},
+    synapse::{STDPConfig, SynapseMatrix},
     SimTime, Spike,
 };
-use crate::graph::{DynamicGraph, EdgeId, VertexId, Weight};
+use crate::graph::{DynamicGraph, VertexId, Weight};
 use std::collections::VecDeque;
 
 /// Configuration for neural graph optimizer
@@ -239,7 +238,7 @@ impl ValueNetwork {
     /// - Weight update: w += lr * td_error * ∂V/∂w
     pub fn update(&mut self, state: &[f64], td_error: f64, lr: f64) {
         let hidden_size = self.w_hidden.len();
-        let input_size = if self.w_hidden.is_empty() {
+        let _input_size = if self.w_hidden.is_empty() {
             0
         } else {
             self.w_hidden[0].len()
@@ -638,7 +637,7 @@ impl NeuralGraphOptimizer {
     }
 
     /// Search with learned structure
-    pub fn search(&self, query: &[f64], k: usize) -> Vec<VertexId> {
+    pub fn search(&self, _query: &[f64], k: usize) -> Vec<VertexId> {
         // Use skip regions to guide search
         let skip_regions = self.search_skip_regions();
 
@@ -649,7 +648,7 @@ impl NeuralGraphOptimizer {
             .iter()
             .enumerate()
             .filter(|(i, _)| !skip_regions.contains(i))
-            .map(|(i, &v)| {
+            .map(|(_i, &v)| {
                 // Score based on degree (proxy for centrality)
                 let score = self.graph.degree(v) as f64;
                 (v, score)

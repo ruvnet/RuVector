@@ -3,8 +3,7 @@
 //! This module provides structures for organizing requests into
 //! efficient batches that can be processed together by the model.
 
-use super::request::{RequestId, RunningRequest};
-use std::collections::HashMap;
+use super::request::RequestId;
 
 /// A request that has been prepared for batch processing
 #[derive(Debug, Clone)]

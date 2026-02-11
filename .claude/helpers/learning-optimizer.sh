@@ -3,8 +3,6 @@
 # Runs SONA micro-LoRA optimization on patterns
 
 set -euo pipefail
-export PATH="/usr/local/bin:/usr/bin:/bin:$PATH"
-umask 077
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"

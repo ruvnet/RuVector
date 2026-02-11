@@ -4,11 +4,10 @@
 //! efficiently batches prefill and decode requests for maximum GPU utilization.
 
 use super::batch::{
-    BatchedRequest, DecodeTask, IterationPlan, PrefillTask, ScheduledBatch, TokenBudget,
+    DecodeTask, IterationPlan, PrefillTask, ScheduledBatch, TokenBudget,
 };
 use super::kv_cache_manager::{KvCacheManager, KvCachePoolConfig};
-use super::request::{InferenceRequest, Priority, RequestId, RequestState, RunningRequest};
-use crate::error::{Result, RuvLLMError};
+use super::request::{InferenceRequest, Priority, RequestId, RunningRequest};
 use parking_lot::RwLock;
 use std::collections::{HashMap, VecDeque};
 use std::sync::atomic::{AtomicU64, Ordering};

@@ -31,20 +31,16 @@
 //! ```
 
 use super::task_generator::{GeneratedTask, TaskCategory, TaskComplexity, TaskGenerator};
-use super::{ClaudeFlowAgent, ClaudeFlowTask};
+use super::ClaudeFlowAgent;
 use crate::sona::{
-    PretrainSample, RoutingPretrainResult, RuvLtraPretrainConfig, RuvLtraPretrainer, SeedingResult,
-    SonaConfig, SonaIntegration, Trajectory,
+    PretrainSample, RuvLtraPretrainConfig, RuvLtraPretrainer,
+    SonaConfig,
 };
-use parking_lot::RwLock;
-use ruvector_sona::{
-    EwcConfig, EwcPlusPlus, LearnedPattern, PatternConfig, ReasoningBank, SonaEngine,
-};
+use ruvector_sona::LearnedPattern;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::Path;
-use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 /// Pretraining phase
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -1057,7 +1053,7 @@ impl PretrainPipeline {
 
         // Compute Fisher information for important patterns
         let ewc = self.pretrainer.ewc();
-        let ewc_task_count = ewc.task_count();
+        let _ewc_task_count = ewc.task_count();
 
         // Consolidate patterns using EWC++
         // This prevents catastrophic forgetting by regularizing updates
@@ -1067,7 +1063,7 @@ impl PretrainPipeline {
         for pattern in &patterns {
             if pattern.avg_quality >= self.config.quality_threshold {
                 // Pattern is important, contribute to Fisher diagonal
-                let pseudo_gradients = self.compute_pattern_gradients(pattern);
+                let _pseudo_gradients = self.compute_pattern_gradients(pattern);
 
                 // The EWC++ will use these to compute importance weights
                 // (Actual EWC++ update happens internally in the pretrainer)
@@ -1276,8 +1272,8 @@ impl PretrainPipeline {
 /// Simple pseudo-random number generator (for determinism without external deps)
 fn rand_simple() -> f32 {
     use std::cell::RefCell;
-    use std::collections::hash_map::DefaultHasher;
-    use std::hash::{Hash, Hasher};
+    
+    
 
     thread_local! {
         static STATE: RefCell<u64> = RefCell::new(42);

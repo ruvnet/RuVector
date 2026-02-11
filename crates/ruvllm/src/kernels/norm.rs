@@ -24,7 +24,6 @@
 #[cfg(target_arch = "aarch64")]
 use std::arch::aarch64::*;
 
-use super::{NEON_LANE_WIDTH, UNROLL_FACTOR};
 
 /// RMSNorm with NEON optimization
 ///

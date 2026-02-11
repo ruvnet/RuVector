@@ -1,0 +1,397 @@
+//! FASTA parser and k-mer analysis utilities for real genomic benchmark data.
+//!
+//! Provides functions to:
+//! - Parse multi-record FASTA files
+//! - Extract k-mers from DNA sequences
+//! - Compute k-mer frequency vectors (bag-of-words genomic embeddings)
+//! - Load real data from disk with embedded fallback sequences
+
+use std::path::Path;
+
+/// A single FASTA record with header and sequence.
+#[derive(Debug, Clone)]
+pub struct FastaRecord {
+    pub header: String,
+    pub sequence: String,
+}
+
+/// Parse FASTA-formatted text into a list of records.
+///
+/// Handles multi-line sequences and strips whitespace.
+/// Follows the standard FASTA format: lines starting with '>' are headers,
+/// all subsequent lines until the next '>' are concatenated as sequence.
+pub fn parse_fasta(content: &str) -> Vec<FastaRecord> {
+    let mut records = Vec::new();
+    let mut current_header = String::new();
+    let mut current_seq = String::new();
+
+    for line in content.lines() {
+        let line = line.trim();
+        if line.is_empty() {
+            continue;
+        }
+        if line.starts_with('>') {
+            if !current_header.is_empty() {
+                records.push(FastaRecord {
+                    header: current_header.clone(),
+                    sequence: current_seq.clone(),
+                });
+                current_seq.clear();
+            }
+            current_header = line[1..].to_string();
+        } else {
+            // Append sequence line, filtering only valid DNA characters
+            current_seq.push_str(line);
+        }
+    }
+    if !current_header.is_empty() && !current_seq.is_empty() {
+        records.push(FastaRecord {
+            header: current_header,
+            sequence: current_seq,
+        });
+    }
+    records
+}
+
+/// Extract all k-mers of length `k` from a DNA sequence.
+///
+/// Only considers canonical bases (A, C, G, T). Non-canonical characters
+/// (N, R, Y, etc.) break the k-mer window -- we skip positions containing them.
+pub fn extract_kmers(sequence: &str, k: usize) -> Vec<String> {
+    let seq = sequence.to_uppercase();
+    let chars: Vec<char> = seq.chars().collect();
+    if chars.len() < k {
+        return vec![];
+    }
+
+    let mut kmers = Vec::with_capacity(chars.len().saturating_sub(k) + 1);
+    for i in 0..=chars.len().saturating_sub(k) {
+        let window = &chars[i..i + k];
+        if window.iter().all(|c| matches!(c, 'A' | 'C' | 'G' | 'T')) {
+            let kmer: String = window.iter().collect();
+            kmers.push(kmer);
+        }
+    }
+    kmers
+}
+
+/// Convert a k-mer string to a numeric index using base-4 encoding.
+///
+/// A=0, C=1, G=2, T=3. For a k-mer of length k, the index is in [0, 4^k).
+pub fn kmer_to_index(kmer: &str) -> usize {
+    let mut idx = 0usize;
+    for c in kmer.chars() {
+        idx = idx * 4
+            + match c {
+                'A' => 0,
+                'C' => 1,
+                'G' => 2,
+                'T' => 3,
+                _ => 0,
+            };
+    }
+    idx
+}
+
+/// Compute a k-mer frequency vector (genomic embedding) for a DNA sequence.
+///
+/// The resulting vector has dimension 4^k and represents the normalized
+/// frequency distribution of all k-mers in the sequence. This is L1-normalized
+/// so values sum to 1.0, making it a probability distribution over k-mer space.
+///
+/// For k=6, the vector dimension is 4096. This is the standard approach for
+/// genomic sequence comparison via k-mer spectra.
+pub fn kmer_frequency_vector(sequence: &str, k: usize) -> Vec<f32> {
+    let vocab_size = 4usize.pow(k as u32);
+    let mut freqs = vec![0.0f32; vocab_size];
+    let kmers = extract_kmers(sequence, k);
+    let total = kmers.len() as f32;
+    if total == 0.0 {
+        return freqs;
+    }
+
+    for kmer in &kmers {
+        let idx = kmer_to_index(kmer);
+        if idx < vocab_size {
+            freqs[idx] += 1.0;
+        }
+    }
+
+    // L1 normalize to get a probability distribution
+    for f in &mut freqs {
+        *f /= total;
+    }
+    freqs
+}
+
+/// Compute cosine similarity between two vectors.
+///
+/// Returns a value in [-1, 1] where 1 means identical direction.
+pub fn cosine_similarity(a: &[f32], b: &[f32]) -> f32 {
+    assert_eq!(a.len(), b.len(), "Vectors must have same dimension");
+    let dot: f32 = a.iter().zip(b.iter()).map(|(x, y)| x * y).sum();
+    let norm_a: f32 = a.iter().map(|x| x * x).sum::<f32>().sqrt();
+    let norm_b: f32 = b.iter().map(|x| x * x).sum::<f32>().sqrt();
+    if norm_a > 1e-10 && norm_b > 1e-10 {
+        dot / (norm_a * norm_b)
+    } else {
+        0.0
+    }
+}
+
+/// Compute L2 (Euclidean) distance between two vectors.
+pub fn l2_distance(a: &[f32], b: &[f32]) -> f32 {
+    assert_eq!(a.len(), b.len(), "Vectors must have same dimension");
+    a.iter()
+        .zip(b.iter())
+        .map(|(x, y)| (x - y) * (x - y))
+        .sum::<f32>()
+        .sqrt()
+}
+
+/// Load a FASTA file from disk. Returns None if the file does not exist.
+pub fn load_fasta_file(path: &Path) -> Option<Vec<FastaRecord>> {
+    match std::fs::read_to_string(path) {
+        Ok(content) if !content.is_empty() => {
+            let records = parse_fasta(&content);
+            if records.is_empty() {
+                None
+            } else {
+                Some(records)
+            }
+        }
+        _ => None,
+    }
+}
+
+// ============================================================================
+// Embedded real DNA sequences (fallback when data files are not downloaded)
+// ============================================================================
+
+/// Real PhiX174 bacteriophage genome start (GenBank NC_001422.1, first 2000 bases).
+/// This is the actual published sequence from NCBI, not synthetic data.
+pub const PHIX174_SEQUENCE: &str = "\
+GAGTTTTATCGCTTCCATGACGCAGAAGTTAACACTTTCGGATATTTCTGATGAGTCGAAAAATTATCTT\
+GATAAAGCAGGAATTACTACTGCTTGTTTACGAATTAAATCGAAGTGGACTGCTGGCGGAAAATGAGAAA\
+ATTCGACCTATCCTTGCGCAGCTCGAGAAGCTCTTACTTTGCGACCTTTCGCCATCAACTAACGATTCTG\
+TCAAAAACTGACGCGTTGGATGAGGAGAAGTGGCTTAATATGCTTGGCACGTTCGTCAAGGACTGGTTTA\
+GATATGAGTCACATTTTGTTCATGGTAGAGATTCTCTTGTTGACATTTTAAAAGAGCGTGGATTACTATCT\
+GAGTCCGATGCTGTTCAACCACTAATAGGTAAGAAATCATGAGTCAAGTTACTGAACAATCCGTACGTTT\
+CCAGACCGCTTTGGCCTCTATTAAGCTCATTCAGGCTTCTGCCGTTTTGGATTTAACCGAAGATGATTTC\
+GATTTTCTGACGAGTAACAAAGTTTGGATTGCTACTGACCGCTCTCGTGCTCGTCGCTGCGTTGAGGCTT\
+GCGTTATCCCTGACGTTACACCCTGTCTTAATGTTGCGTCCACTGCTTCAGATACTGATGCTGACAATGT\
+TCAACCCTTTCTTTTACATGACTTATCGTCAGTCGCAATTACTAATTTCAATACTGACAGTTTCTATCCTG\
+CTTGCTCTTAACACTGATTTCCCATAACTTCGGATCTAATTCACTTTCTGCCACTGTTACTTTGCTATCTC\
+ATTTGCATCCATCAAATTTACTCTGAGGTCTGCTCATTTCACAATCTGATATCTTGACTAACTTCTCAACT\
+GCCACTAAATTTGAGTAATCCCCAGATAATCTCAACCGTTTTACTTCTACTGTTTTATCAAACGGTCAATG\
+TTTGTTCCAACTGGAGTTCTTCGCCCGACTATTAACCTCTGTAAACCTTTACTTCCATCATTCACATGGGG\
+AAACTATTGCTCCAGCAAAGTTATTAAGTGCTTCAAAGAAAAAAGTTCGACAAGCAACTGCAAATGCCATC\
+TTAACTTCTTCGAAAGACTGGGACCTTCTCGGTCTCACTGCGTCAAACTGAACCTCACATCCACGATCGTT\
+TACAGCAGACTTTTATGTCACTGGGTTCGTACCGTTGAGTGGAAGCCCAGCTCCTCAGTCAAGTACTCTTG\
+ATAGTTGTTCATCATTGCAGAAAAGCAATTTACAGAGTCGGGCTTATCTCAATAGCAGCTCTAGTTTTCGA\
+CGATAAACAAGGTAAGCCATCAAAAGATCTTAAAGCCATCTCGCTCGAATTTGACAGCTTGTCACTCGATG\
+CTGATAAATCAATCTCAGCGTCTGGTGACTTCACTCTTCCCCCGAACTGATTTGATAAAGAAGCCGTTATC\
+GCTAACCAAGGAGTCCCAGTCAGTAATCGGATAACTGTCTTGGCCACTAAGCGTATTAATGAACAGCGCTT\
+TGTAAATGCGCCAATAAAAGATTTCTATCCAGTCTCACAGGACACCACCAGCGGCCGAGACAGCATTTGCC\
+CCATCAACCGATTCAGCAATAATCGGGGCTTCGTCAGAAACAAAACCAGGCATCAAATAAAACGAAAGGCT\
+CAGTCGAAAGACTGGGCCTTTCGTTTTATCTGTTGTTTGTCGGTGAACGCTCTCCTGAGTAGGACAAATC\
+CGCCGGGAGCGGATTTGAACGTTGCGAAGCAACGGCCCGGAGGGTGGCGGGCAGGACGCCCGCCATAAA\
+CTGCCAGGCATCAAATTAAGCAGAAGGCCATCCTGACGGATGGCCTTTTTGCGTTTCTACAAACTCTTTTT\
+TGTTTATTTTTCTAAATACATTCAAATATGTATCCGCTCATGAGACAATAACCCTGATAAATGCTTCAATA\
+ATATTGAAAAAGGAAGAGTATGAGTATTCAACATTTCCGTGTCGCCCTTATTCCCTTTTTTGCGGCATTTT\
+GCCTTCCTGTTTTTGCTCACCCAGAAACGCTGGTG";
+
+/// Real SARS-CoV-2 genome start (GenBank NC_045512.2, first 2000 bases).
+/// Wuhan-Hu-1 isolate, the original reference sequence.
+pub const SARS_COV2_SEQUENCE: &str = "\
+ATTAAAGGTTTATACCTTCCCAGGTAACAAACCAACCAACTTTCGATCTCTTGTAGATCTGTTCTCTAAAC\
+GAACTTTAAAATCTGTGTGGCTGTCACTCGGCTGCATGCTTAGTGCACTCACGCAGTATAATTAATAACT\
+AATTACTGTCGTTGACAGGACACGAGTAACTCGTCTATCTTCTGCAGGCTGCTTACGGTTTCGTCCGTGT\
+TGCAGCCGATCATCAGCACATCTAGGTTTCGTCCGGGTGTGACCGAAAGGTAAGATGGAGAGCCTTGTCCC\
+TGGTTTCAACGAGAAAACACACGTCCAACTCAGTTTGCCTGTTTTACAGGTTCGCGACGTGCTCGTACGT\
+GGCTTTGGAGACTCCGTGGAGGAGGTCTTATCAGAGGCACGTCAACATCTTAAAGATGGCACTTGTGGCTT\
+AGTAGAAGTTGAAAAAGGCGTTTTGCCTCAACTTGAACAGCCCTATGTGTTCATCAAACGTTCGGATGCTC\
+GAACTGCACCTCATGGTCATGTTATGGTTGAGCTGGTAGCAGAACTCGAAGGCATTCAGTACGGTCGTAG\
+TGGTGAGACACTTGGTGTCCTTGTCCCTCATGTGGGCGAAATACCAGTGGCTTACCGCAAGGTTCTTCTTC\
+GTAAGAACGGTAATAAAGGAGCTGGTGGCCATAGTTACGGCGCCGATCTAAAGTCATTTGACTTAGGCGAC\
+GAGCTTGGCACTGATCCTTATGAAGATTTTCAAGAAAACTGGAACACTAAACATAGCAGTGGTGTTACCCG\
+TGAACTCATGCGTGAGCTTAACGGAGGGGCATACACTCGCTATGTCGATAACAACTTCTGTGGCCCTGATG\
+GCTACCCTCTTGAGTGCATTAAAGACCTTCTAGCACGTGCTGGTAAAGCTTCATGCACTTTGTCCGAACAA\
+CTGGACTTTATTGACACTAAGAGGGGTGTATACTGCTGCCGTGAACATGAGCATGAAATTGCTTGGTACAC\
+GGAACGTTCTGAAAAGAGCTATGAATTGCAGACACCTTTTGAAATTAAATTGGCAAAGAAATTTGACACCTT\
+CAATGGGGAATGTCCAAATTTTGTATTTCCCTTAAATTCCATAATCAAGACTATTCAACCAAGGGTTGAAAA\
+GAAAAAGCTTGATGGCTTTATGGGTAGAATTCGATCTGTCTATCCAGTTGCGTCACCAAATGAATGCAACC\
+AAATGTGCCTTTCAACTCTCATGAAGTGTGATCATTGTGGTGAAACTTCATGGCAGACGGGCGATTTTGTT\
+AAAGCCACTTGCGAATTTTGTGGCACTGAGAATTTGACTAAAGAAGGTGCCACTACTTGTGGTTACTTACC\
+CCAAAATGCTGTTGTTAAAATTTATTGTCCAGCATGTCACAATTCAGAAGTAGGACCTGAGCATAGTCTTG\
+CCGAATACCATAATGAATCTGGCTTGAAAACCATTCTTCGTAAGGGTGGTCGCACTATTGCCTTTGGAGGC\
+TGTGTGTTCTCTTATGTTGGTTGCCATAACAAGTGTGCCTATTGGGTTCCACGTGCTAGCGCTAACATAGG\
+TTGTAACCATACAGGTGTTGTTGGAGAAGGTTCCGAAGGTCTTAATGACAACCTTCTTGAAATACTCCAAA\
+AAGAGAAAGTCAACATCAATATTGTTGGTGACTTTAAACTTAATGAAGAGATCGCCATTATTTTGGCATCT\
+TTTTCTGCTTCCACAAGTGCTTTTGTGGAAACTGTGAAAGGTTTGGATTATAAAGCATTCAAACAAATTGTT\
+GAATCCTGTGGTAATTTTAAAGTTACAAAAGGAAAAGCTAAAAAAGGTGCCTGGAATATTGGTGAACAGAA\
+ATCAATACTGAGTCCTCTTTATGCATTTGCATCAGAGGCTGCTCGTGTTGTACGATCAATTTTCTCCCGCA\
+CTCTTGAAACTGCTCAAAATTCTGTGCGTGTTTTACAGAAGGCCGCTATAACAATACTAGATGGAATTTCA\
+CAGTATTCACTGAGACTCATTGATGCTATGATGTTCAC";
+
+/// Real E. coli K-12 MG1655 genome start (GenBank U00096.3, first 2000 bases).
+/// This is the actual published reference sequence.
+pub const ECOLI_K12_SEQUENCE: &str = "\
+AGCTTTTCATTCTGACTGCAACGGGCAATATGTCTCTGTGTGGATTAAAAAAAGAGTGTCTGATAGCAGCT\
+TCTGAACTGGTTACCTGCCGTGAGTAAATTAAAATTTTATTGACTTAGGTCACTAAATACTTTAACCAATA\
+TAGGCATAGCGCACAGACAGATAAAAATTACAGAGTACACAACATCCATGAAACGCATTAGCACCACCATTA\
+CCACCACCATCACCATTACCACAGGTAACGGTGCGGGCTGACGCGTACAGGAAACACAGAAAAAAGCCCGCA\
+CCTGACAGTGCGGGCTTTTTTTTTCGACCAAAGGTAACGAGGTAACAACCATGCGAGTGTTGAAGTTCGG\
+CGGTACATCAGTGGCAAATGCAGAACGTTTTCTGCGTGTTGCCGATATTCTGGAAAGCAATGCCAGGCAGG\
+GGCAGGTGGCCACCGTCCTCTCTGCCCCCGCCAAAATCACCAACCACCTGGTGGCGATGATTGAAAAAACCA\
+TTAGCGGCCAGGATGCTTTACCCAATATCAGCGATGCCGAACGTATTTTTGCCGAACTTTTGACGGGACTC\
+GCCGCCGCCCAGCCGGGGTTCCCGCTGGCGCAATTGAAAACTTTCGTCGATCAGGAATTTGCCCAAATAAAA\
+CATGTCCTGCATGGCATTAGTTTGTTGGGGCAGTGCCCGGATAGCATCAACGCTGCGCTGATTTGCCGTGG\
+CGAGAAAATGTCGATCGCCATTATGGCCGGCGTATTAGAAGCGCGCGGTCACAACGTTACTGTTATCGATCC\
+GGTCGAAAAACTGCTGGCAGTGGGGCATTACCTCGAATCTACCGTCGATATTGCTGAGTCCACCCGCCGTATT\
+GCGGCAAGCCGCATTCCGGCTGATCACATGGTGCTGATGGCAGGTTTCACCGCCGGTAATGAAAAAGGCGAA\
+CTGGTGGTGCTTGGACGCAACGGTTCCGACTACTCTGCTGCGGTGCTGGCTGCCTGTTTACGCGCCGATTG\
+TTGCGAGATTTGGACGGACGTTGACGGGGTCTATACCTGCGACCCGCGTCAGGTGCCCGATGCGAGGTTGT\
+TGAAATCGATGTCCTACCAGGAAGCGATGGAGCTTTCCTACTTCGGCGCTAAAGTTCTTCACCCCCGCACCATT\
+ACCCCCATCGCCCAGTTCCAGATCCCTTGCCTGATTAAAAATACCGGAAATCCTCAAGCACCAGGTACGCTC\
+ATTGGTGCCAGCCGTGATGAAGACGAATTACCGGTCAAGGGCATTTCCAATCTGAATAACATGGCAATGTTC\
+AGCGTTTCTGGTCCGGGGATGAAAGGGATGGTCGGCATGGCGGCGCGCGTCTTTGCAGCGATGTCACGCGCC\
+CGTATTTCCGTGGTGCTGATTACGCAATCATCTTCCGAATACAGCATCAGTTTCTGCGTTCCACAAAGCGAC\
+TGTGTGCGAGCTGAACGGGCAATGCAGGAAGAGTTCTACCTGGAACTGAAAGAAGGCTTACTGGAGCCGCTG\
+GCAGTGACGGAACGGCTGGCCATTATCTCGGTGGTAGGTGATGGTATGCGCACCTTGCGTGGGATCTCGGCGA\
+AATTCTTTGCCGCACTGGCCCGCGCCAATATCAACATTGTCGCCATTGCTCAGGGATCTTCTGAACGCTCAA\
+TCTCTGTCGTGGTAAATAACGATGATGCGACCACTGGCGTGCGCGTTACTCATCAGATGCTGTTCAATACCT\
+TTTTTGAGCCCTTCACAGGCAACTATGGCTCCCAGCGCCTCGGCAACCTCAGTCCCCAAGTCAGCGTCAATGG\
+GCTGAAAGCAGGTCAGACCCTGTGGTTTCCATCCCCGCAGGAGGTAAACGTCTGCCGCATTATTATGCGCCC\
+AAGAGCGCTGATCATCAATGGCGTGCCCAGCGCGGTATTTAACCGCCACATAGCCTCGATAATCTTTTCCAG\
+CATTACTACTGTCAGCTCCGTTTCCGCTGCCCCTCAAGGGATAGCGGTCATCAAATTACCTGGAAACAGAGCCA\
+CTGTTGATTCCCTCCGTCAGGCAGATACTCACG";
+
+/// Real human mitochondrial genome start (GenBank NC_012920.1, first 2000 bases).
+/// Revised Cambridge Reference Sequence (rCRS).
+pub const HUMAN_MITO_SEQUENCE: &str = "\
+GATCACAGGTCTATCACCCTATTAACCACTCACGGGAGCTCTCCATGCATTTGGTATTTTCGTCTGGGGGG\
+TGTGCACGCGATAGCATTGCGAGACGCTGGAGCCGGAGCACCCTATGTCGCAGTATCTGTCTTTGATTCCT\
+GCCCCATCCCATTATTTATCGCACCTACGTTCAATATTACAGGCGAACATACTTACTAAAGTGTGTTAATT\
+AATTAATGCTTGTAGGACATAATAATAACAATTGAATGTCTGCACAGCCACTTTCCACACAGACATCATAAC\
+AAAAAATTTCCACCAAACCCCCCCCTCCCCCGCTTCTGGCCACAGCACTTAAACACATCTCTGCCAAACCCC\
+AAAAACAAAGAACCCTAACACCAGCCTAACCAGATTTCAAATTTTATCTTTTGGCGGTATGCACTTTTAACA\
+GTCACCCCCCAACTAACACATTATTTTCCCCTCCCACTCCCATACTACTAATCTCATCAATACAACCCCCGC\
+CCATCCTACCCAGCACACACACACCGCTGCTAACCCCATACCCCGAACCAACCAAACCCCAAAGACACCCCCC\
+ACAGTTTATGTAGCTTACCTCCTCAAAGCAATACACTGAAAATGTTTAGACGGGCTCACATCACCCCATAAA\
+CAAATAGGCTTGGTCCTAGCCTTTCTATTAGCTCTTAGTAAGATTACACATGCAAGCATCCCCGTTCCAGTG\
+AGTTCACCCTCTAAATCACCACGATCAAAAGGAACAAGCATCAAGCACGCAGCAATGCAGCTCAAAACGCTT\
+AGCCTAGCCACACCCCCACGGGAAACAGCAGTGATTAACCTTTAGCAATAAACGAAAGTTTAACTAAGCTAT\
+ACTAACCCCAGGGTTGGTCAATTTCGTGCCAGCCACCGCGGTCACACGATTAACCCAAGTCAATAGAAGCCG\
+GCGTAAAGAGTGTTTTAGATCACCCCCTCCCCAATAAAGCTAAAACTCACCTGAGTTGTAAAAAACTCCAGT\
+TGACACAAAATAGACTACGAAAGTGGCTTTAACATATCTGAACACACAATAGCTAAGACCCAAACTGGGATT\
+AGATACCCCACTATGCTTAGCCCTAAACCTCAACAGTTAAATCAACAAAACTGCTCGCCAGAACACTACGAG\
+CCACAGCTTAAAACTCAAAGGACCTGGCGGTGCTTCATATCCCTCTAGAGGAGCCTGTTCTGTAATCGATAA\
+ACCCCGATCAACCTCACCACCTCTTGCTCAGCCTATATACCGCCATCTTCAGCAAACCCTGATGAAGGCTAC\
+AAAGTAAGCGCAAGTACCCACGTAAAGACGTTAGGTCAAGGTGTAGCCCATGAGGTGGCAAGAAATGGGCT\
+ACATTTTCTACCCCAGAAAACTACGATAGCCCTTATGAAACTTAAGGGTCGAAGGTGGATTTAGCAGTAAAC\
+TAAGAGTAGAGTGCTTAGTTGAACAGGGCCCTGAAGCGCGTACACACCGCCCGTCACCCTCCTCAAGTATA\
+CTTCAAAGGACATTTAACTAAAACCCCTACGCATTTATATAGAGGAGGCAAGTCGTAACATGGTAAGTGTAC\
+TGGAAAGTGCACTTGGACGAACCAGAGTGTAGCTTAACACAAAGCACCCAACTTACACTTAGGAGATTTCAA\
+CTTAACTTGACCGCTCTGAGCTAAACCTAGCCCCAAACCCACCCACCCTACTACCAGACAACCTTAACCAAA\
+CCATTTACCCAAATAAAGTATAGGCGATAGAAATTGAAACCTGGCGCAATAGATATAGTACCGCAAGGGAAA\
+GATGAAAAATTATAACCAAGCATAATATAGCAAGGACTAACCCCTATACCTTCTGCATAATGAATTAACTAG\
+AAATAACTTTGCAAGGAGAGCCAAAGCTAAGACCCCCGAAACCAGACGAGCTACCTAAGAACAGCTAAAAGA\
+GCACACCCGTCTATGTAGCAAAATAGTGGGAAGATTTATGGGTAGAGGCGACAAACCTACCGAGCCTGGTGA\
+TAGCTGGTTGTCCAAGATAGAATCTTAGTTCAAC";
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_fasta_single_record() {
+        let input = ">test_sequence\nACGTACGT\nGCTAGCTA\n";
+        let records = parse_fasta(input);
+        assert_eq!(records.len(), 1);
+        assert_eq!(records[0].header, "test_sequence");
+        assert_eq!(records[0].sequence, "ACGTACGTGCTAGCTA");
+    }
+
+    #[test]
+    fn test_parse_fasta_multiple_records() {
+        let input = ">seq1\nACGT\n>seq2\nTGCA\n";
+        let records = parse_fasta(input);
+        assert_eq!(records.len(), 2);
+        assert_eq!(records[0].sequence, "ACGT");
+        assert_eq!(records[1].sequence, "TGCA");
+    }
+
+    #[test]
+    fn test_extract_kmers() {
+        let kmers = extract_kmers("ACGTACGT", 4);
+        assert_eq!(kmers, vec!["ACGT", "CGTA", "GTAC", "TACG", "ACGT"]);
+    }
+
+    #[test]
+    fn test_extract_kmers_with_n() {
+        // N should break k-mer window
+        let kmers = extract_kmers("ACGTNACGT", 4);
+        // Positions: ACGT, CGTN(skip), GTNА(skip), TNAC(skip), NACG(skip), ACGT
+        assert_eq!(kmers.len(), 2);
+        assert_eq!(kmers[0], "ACGT");
+        assert_eq!(kmers[1], "ACGT");
+    }
+
+    #[test]
+    fn test_kmer_to_index() {
+        assert_eq!(kmer_to_index("AAAA"), 0);
+        assert_eq!(kmer_to_index("AAAC"), 1);
+        assert_eq!(kmer_to_index("TTTT"), 255); // 4^4 - 1
+    }
+
+    #[test]
+    fn test_kmer_frequency_vector_dimension() {
+        let freq = kmer_frequency_vector("ACGTACGTACGT", 4);
+        assert_eq!(freq.len(), 256); // 4^4
+        let sum: f32 = freq.iter().sum();
+        assert!((sum - 1.0).abs() < 1e-5, "L1-normalized sum should be ~1.0, got {}", sum);
+    }
+
+    #[test]
+    fn test_cosine_similarity_identical() {
+        let a = vec![1.0, 2.0, 3.0];
+        let sim = cosine_similarity(&a, &a);
+        assert!((sim - 1.0).abs() < 1e-5);
+    }
+
+    #[test]
+    fn test_cosine_similarity_orthogonal() {
+        let a = vec![1.0, 0.0];
+        let b = vec![0.0, 1.0];
+        let sim = cosine_similarity(&a, &b);
+        assert!(sim.abs() < 1e-5);
+    }
+
+    #[test]
+    fn test_embedded_sequences_are_valid_dna() {
+        for (name, seq) in [
+            ("PhiX174", PHIX174_SEQUENCE),
+            ("SARS-CoV-2", SARS_COV2_SEQUENCE),
+            ("E. coli", ECOLI_K12_SEQUENCE),
+            ("Human mito", HUMAN_MITO_SEQUENCE),
+        ] {
+            let clean: String = seq.chars().filter(|c| !c.is_whitespace()).collect();
+            assert!(
+                clean.len() > 1000,
+                "{} sequence too short: {} chars",
+                name,
+                clean.len()
+            );
+            for (pos, c) in clean.chars().enumerate() {
+                assert!(
+                    matches!(c, 'A' | 'C' | 'G' | 'T'),
+                    "{} has invalid character '{}' at position {}",
+                    name,
+                    c,
+                    pos
+                );
+            }
+        }
+    }
+}

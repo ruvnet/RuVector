@@ -4,15 +4,15 @@
 //! capabilities. The reflective agent can retry with context, check confidence levels,
 //! apply multi-perspective critique, and learn from execution trajectories.
 
-use super::confidence::{ConfidenceChecker, ConfidenceConfig, ConfidenceLevel, WeakPoint};
+use super::confidence::{ConfidenceChecker, ConfidenceConfig, WeakPoint};
 use super::error_recovery::{ErrorPatternLearner, ErrorPatternLearnerConfig, RecoverySuggestion};
-use super::perspectives::{CritiqueResult, Perspective, UnifiedCritique};
+use super::perspectives::{CritiqueResult, Perspective};
 use crate::claude_flow::{AgentType, Verdict};
-use crate::error::{Result, RuvLLMError};
+use crate::error::Result;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 /// Configuration for reflection behavior
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -47,12 +47,11 @@
 //! ```
 
 use crate::capabilities::{
-    RuvectorCapabilities, ATTENTION_AVAILABLE, GNN_AVAILABLE, GRAPH_AVAILABLE, HNSW_AVAILABLE,
-    SONA_AVAILABLE,
+    RuvectorCapabilities, ATTENTION_AVAILABLE, GNN_AVAILABLE, GRAPH_AVAILABLE,
 };
 use crate::claude_flow::{AgentRouter, AgentType};
 use crate::error::{Result, RuvLLMError};
-use crate::sona::{RoutingRecommendation, SonaConfig, SonaIntegration, SonaStats, Trajectory};
+use crate::sona::{SonaConfig, SonaIntegration, SonaStats, Trajectory};
 use parking_lot::RwLock;
 use ruvector_core::index::hnsw::HnswIndex;
 use ruvector_core::index::VectorIndex;

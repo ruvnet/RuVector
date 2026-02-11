@@ -38,8 +38,6 @@ pub use pretrain::{PretrainConfig, PretrainPipeline};
 pub use safetensors::SafeTensorsExporter;
 
 use crate::engine::SonaEngine;
-use crate::lora::{BaseLoRA, MicroLoRA};
-use crate::types::{LearnedPattern, SonaConfig};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 

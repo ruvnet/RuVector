@@ -1,12 +1,11 @@
 //! Model download functionality with progress tracking and resume support
 
-use super::progress::{ProgressBar, ProgressStyle};
 use super::registry::ModelInfo;
 use super::{default_cache_dir, get_hf_token, HubError, Result};
 use regex::Regex;
 use sha2::{Digest, Sha256};
 use std::fs::{self, File};
-use std::io::{self, BufWriter, Write};
+use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 
 // ============================================================================

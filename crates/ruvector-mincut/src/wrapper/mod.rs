@@ -26,7 +26,7 @@
 use crate::connectivity::DynamicConnectivity;
 use crate::graph::{DynamicGraph, EdgeId, VertexId};
 use crate::instance::{
-    BoundedInstance, InstanceResult, ProperCutInstance, StubInstance, WitnessHandle,
+    BoundedInstance, InstanceResult, ProperCutInstance, WitnessHandle,
 };
 use std::sync::Arc;
 

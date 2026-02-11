@@ -10,7 +10,6 @@
 
 use crate::graph::{DynamicGraph, EdgeId, VertexId, Weight};
 use std::collections::{HashMap, HashSet};
-use std::sync::Arc;
 
 /// Configuration for degree-based presparse
 #[derive(Debug, Clone)]
@@ -182,7 +181,7 @@ impl DegreePresparse {
         let mut edge_mapping = HashMap::with_capacity(target_count);
         let mut kept_vertices = HashSet::new();
 
-        for (idx, (edge_id, u, v, weight, resistance)) in scored_edges.into_iter().enumerate() {
+        for (_idx, (edge_id, u, v, weight, resistance)) in scored_edges.into_iter().enumerate() {
             if result_edges.len() >= target_count && resistance < threshold {
                 break;
             }

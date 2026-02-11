@@ -33,7 +33,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::mpsc;
 
-use super::{AgentType, ClaudeFlowAgent, ClaudeFlowTask};
+use super::AgentType;
 use crate::error::{Result, RuvLLMError};
 
 // ============================================================================

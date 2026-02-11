@@ -1118,7 +1118,7 @@ impl SystemCapabilities {
     }
 
     /// Select the best compute backend for a specific model size (in MB)
-    pub fn select_compute_backend_for_model(&self, model_size_mb: f32) -> ComputeBackend {
+    pub fn select_compute_backend_for_model(&self, _model_size_mb: f32) -> ComputeBackend {
         // Check if ANE is available and suitable for this model
         #[cfg(feature = "coreml")]
         {

@@ -6,11 +6,10 @@
 //! - Memory-efficient storage and caching
 
 use crate::error::{Result, RuvLLMError};
-use crate::lora::micro_lora::{LoraAdapter, MicroLoRA, MicroLoraConfig, TargetModule};
+use crate::lora::micro_lora::{MicroLoRA, MicroLoraConfig, TargetModule};
 use dashmap::DashMap;
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::sync::Arc;
 use uuid::Uuid;
@@ -407,7 +406,7 @@ impl AdapterPool {
     }
 
     /// Return an adapter to the pool
-    pub fn release(&self, mut adapter: MicroLoRA) {
+    pub fn release(&self, adapter: MicroLoRA) {
         adapter.reset();
         let mut available = self.available.write();
         if available.len() < self.size {

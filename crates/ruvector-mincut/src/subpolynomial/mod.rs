@@ -42,15 +42,9 @@
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::time::Instant;
 
-use crate::cluster::hierarchy::{
-    Expander, HierarchyCluster, HierarchyConfig, Precluster, ThreeLevelHierarchy,
-};
 use crate::error::{MinCutError, Result};
-use crate::expander::{ExpanderComponent, ExpanderDecomposition};
-use crate::fragmentation::{Fragmentation, FragmentationConfig, TrimResult};
-use crate::graph::{DynamicGraph, EdgeId, VertexId, Weight};
-use crate::localkcut::deterministic::{DeterministicLocalKCut, LocalCut as DetLocalCut};
-use crate::witness::{LazyWitnessTree, WitnessTree};
+use crate::graph::{VertexId, Weight};
+use crate::localkcut::deterministic::DeterministicLocalKCut;
 
 /// Configuration for the subpolynomial algorithm
 #[derive(Debug, Clone)]

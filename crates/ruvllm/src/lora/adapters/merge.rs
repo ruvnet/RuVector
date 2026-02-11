@@ -8,7 +8,7 @@
 
 use crate::error::{Result, RuvLLMError};
 use crate::lora::adapters::LoraConfig;
-use crate::lora::micro_lora::{LoraAdapter, MicroLoRA, MicroLoraConfig, TargetModule};
+use crate::lora::micro_lora::MicroLoRA;
 use ndarray::Array2;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

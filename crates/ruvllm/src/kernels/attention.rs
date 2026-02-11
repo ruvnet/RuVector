@@ -46,7 +46,7 @@ use std::arch::aarch64::*;
 
 use smallvec::SmallVec;
 
-use super::{AttentionConfig, NEON_LANE_WIDTH, UNROLL_FACTOR};
+use super::AttentionConfig;
 
 #[cfg(all(feature = "parallel", not(target_arch = "wasm32")))]
 use rayon::prelude::*;
@@ -684,7 +684,7 @@ pub fn flash_attention_v2(
     value: &[f32],
     scale: f32,
     causal: bool,
-    block_size: usize,
+    _block_size: usize,
 ) -> Vec<f32> {
     let head_dim = if !query.is_empty() && !key.is_empty() {
         query.len()
@@ -776,7 +776,7 @@ pub fn flash_attention_into(
         return;
     }
 
-    let block_size = select_block_size(kv_len, head_dim);
+    let _block_size = select_block_size(kv_len, head_dim);
 
     #[cfg(target_arch = "aarch64")]
     {
@@ -838,7 +838,7 @@ pub fn flash_attention_with_scratch(
         return;
     }
 
-    let block_size = select_block_size(kv_len, head_dim).min(scratch.max_block_size());
+    let _block_size = select_block_size(kv_len, head_dim).min(scratch.max_block_size());
 
     #[cfg(target_arch = "aarch64")]
     {
@@ -1456,7 +1456,7 @@ fn flash_attention_scalar(
 pub fn paged_attention_neon(
     query: &[f32],
     kv_cache: &PagedKvCache,
-    block_tables: &[usize],
+    _block_tables: &[usize],
     scale: f32,
 ) -> Vec<f32> {
     if kv_cache.num_tokens == 0 {
@@ -1497,7 +1497,7 @@ pub fn multi_query_attention_neon(
     let head_dim = config.head_dim;
     let num_heads = config.num_heads;
     let scale = config.effective_scale();
-    let kv_len = key.len() / head_dim;
+    let _kv_len = key.len() / head_dim;
 
     // Auto-select parallel vs sequential based on workload
     #[cfg(all(feature = "parallel", not(target_arch = "wasm32")))]

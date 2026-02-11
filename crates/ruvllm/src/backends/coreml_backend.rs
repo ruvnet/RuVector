@@ -64,14 +64,11 @@
 //! - `hybrid-ane`: Enable hybrid GPU+ANE pipeline
 
 use super::{
-    DType, DeviceType, GenerateParams, GeneratedToken, LlmBackend, ModelArchitecture, ModelConfig,
-    ModelInfo, Quantization, SpecialTokens, StreamEvent, TokenStream, Tokenizer,
+    GenerateParams, GeneratedToken, LlmBackend, ModelConfig,
+    ModelInfo, TokenStream, Tokenizer,
 };
 use crate::error::{Result, RuvLLMError};
 
-use std::path::{Path, PathBuf};
-use std::sync::mpsc;
-use std::time::Instant;
 
 /// Compute units for Core ML inference
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]

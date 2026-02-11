@@ -10,7 +10,7 @@
 //! - Color-coded DFS for cut enumeration
 
 use crate::graph::{VertexId, Weight};
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::{HashMap, HashSet};
 
 /// Color for edge partitioning in deterministic LocalKCut.
 /// Uses 4-color scheme for forest/non-forest edge classification.
@@ -78,7 +78,7 @@ pub fn generate_coloring_family(a: usize, b: usize, num_edges: usize) -> Vec<Edg
 
     let mut family = Vec::with_capacity(family_size);
 
-    for seed in 0..family_size {
+    for _seed in 0..family_size {
         let coloring = EdgeColoring::new(a, b);
         // Each coloring in the family uses different hash function
         // to partition edges

@@ -21,12 +21,10 @@
 //! - Maturity detected via mincut stability
 
 use super::{
-    network::{LayerConfig, NetworkConfig, SpikingNetwork},
-    neuron::{LIFNeuron, NeuronConfig, NeuronPopulation},
-    SimTime, Spike,
+    neuron::{LIFNeuron, NeuronConfig},
+    SimTime,
 };
 use crate::graph::{DynamicGraph, VertexId};
-use std::collections::HashMap;
 
 /// Configuration for morphogenetic development
 #[derive(Debug, Clone)]
@@ -430,7 +428,7 @@ impl MorphogeneticSNN {
     }
 
     /// Check if development is mature
-    fn check_maturity(&self, current_mincut: f64) -> bool {
+    fn check_maturity(&self, _current_mincut: f64) -> bool {
         // Mature when connectivity target reached AND mincut is stable
         let connectivity = self.graph.num_edges() as f64
             / (self.graph.num_vertices() * (self.graph.num_vertices() - 1) / 2).max(1) as f64;

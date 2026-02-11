@@ -1,10 +1,10 @@
 //! Model upload functionality for publishing to HuggingFace Hub
 
 use super::model_card::{ModelCard, ModelCardBuilder};
-use super::{get_hf_token, HubError, Result};
+use super::{HubError, Result};
 use regex::Regex;
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 // ============================================================================
 // Security: Input Validation (H-002)
@@ -331,7 +331,7 @@ impl ModelUploader {
 
     /// Generate model card from metadata
     fn generate_model_card(&self, metadata: &ModelMetadata) -> ModelCard {
-        use super::model_card::{Framework, License, TaskType};
+        use super::model_card::{Framework, TaskType};
 
         let mut builder = ModelCardBuilder::new(&metadata.name);
 

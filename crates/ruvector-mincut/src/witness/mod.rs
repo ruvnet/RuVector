@@ -40,9 +40,9 @@
 //! witness.delete_edge(1, 2).unwrap();
 //! ```
 
-use crate::graph::{DynamicGraph, Edge, EdgeId, VertexId, Weight};
+use crate::graph::{DynamicGraph, Edge, VertexId, Weight};
 use crate::linkcut::LinkCutTree;
-use crate::{MinCutError, Result};
+use crate::Result;
 use parking_lot::RwLock;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::Arc;

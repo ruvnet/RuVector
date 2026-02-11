@@ -8135,6 +8135,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "ruvector-dna-bench"
+version = "0.1.0"
+dependencies = [
+ "criterion 0.5.1",
+ "rand 0.8.5",
+ "ruvector-attention 0.1.31",
+ "ruvector-core 2.0.2",
+ "ruvector-delta-core",
+ "ruvector-mincut 2.0.2",
+]
+
+[[package]]
 name = "ruvector-economy-wasm"
 version = "0.1.0"
 dependencies = [

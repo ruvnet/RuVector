@@ -2,32 +2,13 @@
 # V3 Progress Update Script
 # Usage: ./update-v3-progress.sh [domain|agent|security|performance] [value]
 
-set -euo pipefail
-export PATH="/usr/local/bin:/usr/bin:/bin:$PATH"
-umask 077
+set -e
 
 METRICS_DIR=".claude-flow/metrics"
 SECURITY_DIR=".claude-flow/security"
 
 # Ensure directories exist
 mkdir -p "$METRICS_DIR" "$SECURITY_DIR"
-
-# Secure temp file handling - cleanup on exit
-TEMP_FILES=()
-cleanup() {
-  for f in "${TEMP_FILES[@]}"; do
-    rm -f "$f" 2>/dev/null || true
-  done
-}
-trap cleanup EXIT INT TERM
-
-# Create secure temp file
-create_temp() {
-  local tmpfile
-  tmpfile=$(mktemp) || { echo "Failed to create temp file" >&2; exit 1; }
-  TEMP_FILES+=("$tmpfile")
-  echo "$tmpfile"
-}
 
 case "$1" in
   "domain")
@@ -38,11 +19,9 @@ case "$1" in
     fi
 
     # Update domain completion count
-    local tmpfile
-    tmpfile=$(create_temp)
     jq --argjson count "$2" '.domains.completed = $count' \
-      "$METRICS_DIR/v3-progress.json" > "$tmpfile" && \
-      mv "$tmpfile" "$METRICS_DIR/v3-progress.json"
+      "$METRICS_DIR/v3-progress.json" > tmp.json && \
+      mv tmp.json "$METRICS_DIR/v3-progress.json"
 
     echo "✅ Updated domain count to $2/5"
     ;;
@@ -55,11 +34,9 @@ case "$1" in
     fi
 
     # Update active agent count
-    local tmpfile
-    tmpfile=$(create_temp)
     jq --argjson count "$2" '.swarm.activeAgents = $count' \
-      "$METRICS_DIR/v3-progress.json" > "$tmpfile" && \
-      mv "$tmpfile" "$METRICS_DIR/v3-progress.json"
+      "$METRICS_DIR/v3-progress.json" > tmp.json && \
+      mv tmp.json "$METRICS_DIR/v3-progress.json"
 
     echo "✅ Updated active agents to $2/15"
     ;;
@@ -72,17 +49,14 @@ case "$1" in
     fi
 
     # Update CVE fixes
-    local tmpfile
-    tmpfile=$(create_temp)
     jq --argjson count "$2" '.cvesFixed = $count' \
-      "$SECURITY_DIR/audit-status.json" > "$tmpfile" && \
-      mv "$tmpfile" "$SECURITY_DIR/audit-status.json"
+      "$SECURITY_DIR/audit-status.json" > tmp.json && \
+      mv tmp.json "$SECURITY_DIR/audit-status.json"
 
     if [ "$2" -eq 3 ]; then
-      tmpfile=$(create_temp)
       jq '.status = "CLEAN"' \
-        "$SECURITY_DIR/audit-status.json" > "$tmpfile" && \
-        mv "$tmpfile" "$SECURITY_DIR/audit-status.json"
+        "$SECURITY_DIR/audit-status.json" > tmp.json && \
+        mv tmp.json "$SECURITY_DIR/audit-status.json"
     fi
 
     echo "✅ Updated security: $2/3 CVEs fixed"
@@ -96,11 +70,9 @@ case "$1" in
     fi
 
     # Update performance metrics
-    local tmpfile
-    tmpfile=$(create_temp)
     jq --arg speedup "$2" '.flashAttention.speedup = $speedup' \
-      "$METRICS_DIR/performance.json" > "$tmpfile" && \
-      mv "$tmpfile" "$METRICS_DIR/performance.json"
+      "$METRICS_DIR/performance.json" > tmp.json && \
+      mv tmp.json "$METRICS_DIR/performance.json"
 
     echo "✅ Updated Flash Attention speedup to $2"
     ;;
@@ -113,11 +85,9 @@ case "$1" in
     fi
 
     # Update memory reduction
-    local tmpfile
-    tmpfile=$(create_temp)
     jq --arg reduction "$2" '.memory.reduction = $reduction' \
-      "$METRICS_DIR/performance.json" > "$tmpfile" && \
-      mv "$tmpfile" "$METRICS_DIR/performance.json"
+      "$METRICS_DIR/performance.json" > tmp.json && \
+      mv tmp.json "$METRICS_DIR/performance.json"
 
     echo "✅ Updated memory reduction to $2"
     ;;
@@ -130,11 +100,9 @@ case "$1" in
     fi
 
     # Update DDD progress percentage
-    local tmpfile
-    tmpfile=$(create_temp)
     jq --argjson progress "$2" '.ddd.progress = $progress' \
-      "$METRICS_DIR/v3-progress.json" > "$tmpfile" && \
-      mv "$tmpfile" "$METRICS_DIR/v3-progress.json"
+      "$METRICS_DIR/v3-progress.json" > tmp.json && \
+      mv tmp.json "$METRICS_DIR/v3-progress.json"
 
     echo "✅ Updated DDD progress to $2%"
     ;;

@@ -81,12 +81,11 @@ impl WasmSimBackend {
         };
 
         // Determine number of layers from artifact or default
-        let num_layers = artifact
-            .manifest
-            .backend
-            .as_ref()
-            .and_then(|b| if b.early_exit { Some(6) } else { None })
-            .unwrap_or(4);
+        let num_layers = if artifact.manifest.backend.options.early_exit {
+            6
+        } else {
+            4
+        };
 
         Ok(WasmModel {
             artifact: artifact.clone(),

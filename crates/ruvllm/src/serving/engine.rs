@@ -5,14 +5,14 @@
 
 use super::kv_cache_manager::KvCachePoolConfig;
 use super::request::{
-    CompletedRequest, FinishReason, InferenceRequest, Priority, RequestId, RequestState,
+    CompletedRequest, FinishReason, InferenceRequest, RequestId,
     RunningRequest, TokenOutput,
 };
 use super::scheduler::{ContinuousBatchScheduler, RequestQueue, SchedulerConfig};
-use crate::backends::{GenerateParams, GeneratedToken, LlmBackend};
+use crate::backends::{GenerateParams, LlmBackend};
 use crate::error::{Result, RuvLLMError};
 use crate::optimization::realtime::RealtimeOptimizer;
-use crate::speculative::{SpeculativeConfig, SpeculativeDecoder};
+use crate::speculative::SpeculativeConfig;
 use parking_lot::{Mutex, RwLock};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
@@ -1033,7 +1033,7 @@ impl ServingEngine {
         request: InferenceRequest,
     ) -> Result<impl futures_core::Stream<Item = TokenOutput>> {
         let (tx, rx) = mpsc::unbounded_channel();
-        let request_id = request.id;
+        let _request_id = request.id;
 
         // Create callback that sends to channel
         let callback: TokenCallback = Box::new(move |output| {

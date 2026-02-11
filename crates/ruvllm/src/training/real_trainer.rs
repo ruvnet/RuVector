@@ -7,7 +7,6 @@
 //! - GGUF export of trained weights
 //! - GRPO feedback integration
 
-use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
@@ -17,7 +16,7 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "candle")]
 use candle_core::{DType, Device, Tensor, D};
 #[cfg(feature = "candle")]
-use candle_nn::{linear, ops, Embedding, Linear, Module, Optimizer, VarBuilder, VarMap};
+use candle_nn::{linear, ops, Linear, Module, Optimizer, VarBuilder, VarMap};
 
 use super::TrainingTriplet;
 
@@ -313,7 +312,7 @@ impl RealContrastiveTrainer {
         for epoch in 0..self.config.epochs {
             let mut total_triplet_loss = 0.0;
             let mut total_infonce_loss = 0.0;
-            let mut total_grad_norm = 0.0;
+            let total_grad_norm = 0.0;
             let mut correct = 0;
             let mut hard_correct = 0;
             let mut hard_total = 0;
@@ -331,7 +330,7 @@ impl RealContrastiveTrainer {
                 global_step += 1;
 
                 // Learning rate warmup
-                let lr_scale = if global_step < self.config.warmup_steps {
+                let _lr_scale = if global_step < self.config.warmup_steps {
                     global_step as f64 / self.config.warmup_steps as f64
                 } else {
                     1.0

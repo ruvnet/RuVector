@@ -17,13 +17,11 @@
 //! for subpolynomial mincut computation.
 
 use super::{
-    compute_energy, compute_synchrony,
+    compute_energy,
     network::{LayerConfig, NetworkConfig, SpikingNetwork},
-    synapse::SynapseMatrix,
     SimTime, Spike,
 };
-use crate::graph::{DynamicGraph, VertexId, Weight};
-use std::time::Duration;
+use crate::graph::{DynamicGraph, VertexId};
 
 /// Configuration for attractor dynamics
 #[derive(Debug, Clone)]
@@ -300,7 +298,7 @@ impl AttractorDynamics {
         }
 
         // Build compact adjacency representation (Vec-based for speed)
-        let mut vertex_to_idx: std::collections::HashMap<VertexId, usize> =
+        let vertex_to_idx: std::collections::HashMap<VertexId, usize> =
             vertices.iter().enumerate().map(|(i, &v)| (v, i)).collect();
 
         let mut adj_weights: Vec<Vec<(usize, f64)>> = vec![Vec::new(); n];
@@ -371,7 +369,7 @@ impl AttractorDynamics {
 
         // Try all 2^(n-1) - 1 partitions (fixing first vertex)
         let mut best_cut = f64::INFINITY;
-        let first = vertices[0];
+        let _first = vertices[0];
 
         for mask in 1..(1u64 << (n - 1)) {
             let mut cut_weight = 0.0;

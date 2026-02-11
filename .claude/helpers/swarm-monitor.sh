@@ -2,10 +2,6 @@
 # Claude Flow V3 - Real-time Swarm Activity Monitor
 # Continuously monitors and updates metrics based on running processes
 
-set -euo pipefail
-export PATH="/usr/local/bin:/usr/bin:/bin:$PATH"
-umask 077
-
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 METRICS_DIR="$PROJECT_ROOT/.claude-flow/metrics"

@@ -2,10 +2,9 @@
 
 use crate::ewc::{EwcConfig, EwcPlusPlus};
 use crate::loops::background::{BackgroundLoop, BackgroundLoopConfig, BackgroundResult};
-use crate::loops::instant::{InstantLoop, InstantLoopConfig};
+use crate::loops::instant::InstantLoop;
 use crate::lora::{BaseLoRA, MicroLoRA};
 use crate::reasoning_bank::{PatternConfig, ReasoningBank};
-use crate::time_compat::Instant;
 use crate::types::{QueryTrajectory, SonaConfig};
 use parking_lot::RwLock;
 use std::sync::Arc;

@@ -62,11 +62,11 @@
 //! ```
 
 use super::AgentType;
-use crate::error::{Result, RuvLLMError};
+use crate::error::Result;
 use crate::sona::{SonaConfig, SonaIntegration, Trajectory as SonaTrajectory};
 use parking_lot::RwLock;
 use ruvector_sona::{
-    EwcConfig, EwcPlusPlus, LearnedPattern, PatternConfig, PatternType, ReasoningBank,
+    EwcConfig, EwcPlusPlus, PatternConfig, ReasoningBank,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

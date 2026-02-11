@@ -2,7 +2,7 @@
 //!
 //! Logs every witness change with full provenance.
 
-use super::{CertLocalKCutQuery, LocalKCutResponse, LocalKCutResultSummary, UpdateTrigger};
+use super::{LocalKCutResponse, UpdateTrigger};
 use crate::instance::WitnessHandle;
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;

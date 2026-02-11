@@ -34,7 +34,7 @@
 //!                           +-------------------+
 //! ```
 
-use crate::error::{Result, RuvLLMError};
+use crate::error::Result;
 use crate::policy_store::{PolicyEntry, PolicySource, PolicyStore, PolicyType};
 use crate::witness_log::WitnessEntry;
 use parking_lot::RwLock;
@@ -231,7 +231,7 @@ impl SonaIntegration {
 
     /// Run instant loop (per-request, <1ms target)
     fn run_instant_loop(&self, trajectory: &Trajectory) -> Result<()> {
-        let mut engine = self.engine.write();
+        let engine = self.engine.write();
 
         // Begin trajectory in SONA engine
         let mut builder = engine.begin_trajectory(trajectory.query_embedding.clone());

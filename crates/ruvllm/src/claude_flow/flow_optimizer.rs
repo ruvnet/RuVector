@@ -126,7 +126,7 @@ impl FlowOptimizer {
         self.samples_processed += 1;
 
         // Route the task
-        let decision = self.router.route(task, Some(embedding));
+        let _decision = self.router.route(task, Some(embedding));
 
         // Record feedback
         let agent_type = correct_agent.into();

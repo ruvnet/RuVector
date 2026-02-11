@@ -11,7 +11,7 @@
 
 use super::correctness::{CorrectnessMetrics, TaskResult, VerificationLevel};
 use super::diff_quality::{DiffAnalyzer, DiffQualityMetrics};
-use super::economics::{CostTracker, EconomicsMetrics, LatencyDistribution};
+use super::economics::{CostTracker, EconomicsMetrics};
 use crate::Result;
 
 use serde::{Deserialize, Serialize};

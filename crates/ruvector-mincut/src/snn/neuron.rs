@@ -19,7 +19,6 @@
 
 use super::{SimTime, Spike};
 use rayon::prelude::*;
-use std::collections::VecDeque;
 
 /// Threshold for using parallel neuron updates (overhead not worth it for small populations)
 /// Set high because neuron.step() is very fast, parallel overhead dominates for smaller sizes.
@@ -179,7 +178,7 @@ impl LIFNeuron {
         // Homeostatic plasticity: adjust threshold based on firing rate
         if self.config.homeostatic {
             let rate_error = self.state.spike_rate - self.config.target_rate;
-            let d_base_thresh = rate_error * dt / self.config.tau_homeostatic;
+            let _d_base_thresh = rate_error * dt / self.config.tau_homeostatic;
             // Only apply to base threshold, not adapted part
             // This is a simplification - full implementation would track separately
         }

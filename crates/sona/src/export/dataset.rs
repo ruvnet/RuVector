@@ -5,7 +5,6 @@
 
 use super::{ExportConfig, ExportError, ExportResult, ExportType};
 use crate::engine::SonaEngine;
-use crate::types::LearnedPattern;
 use std::io::{BufWriter, Write};
 use std::path::Path;
 

@@ -3,7 +3,7 @@
 //! Runs actual LLM inference for evaluation - no simulations.
 //! Uses the full RuvLLM stack: backends, SONA, HNSW routing.
 
-use super::correctness::{CorrectnessMetrics, TaskResult, VerificationLevel};
+use super::correctness::{CorrectnessMetrics, TaskResult};
 use super::diff_quality::DiffAnalyzer;
 use super::economics::{CostTracker, EconomicsMetrics};
 use super::harness::{
@@ -170,7 +170,7 @@ impl RealEvaluationHarness {
             None => return Ok(()),
         };
 
-        let mut router = router.write();
+        let router = router.write();
         let dim = router.config().embedding_dim;
 
         // Seed patterns for different task types
@@ -475,7 +475,7 @@ impl RealEvaluationHarness {
     ) -> Result<()> {
         // Learn pattern in HNSW router
         if let Some(ref router) = self.hnsw_router {
-            let mut router = router.write();
+            let router = router.write();
 
             let embedding = self
                 .get_embedding(&task.description)

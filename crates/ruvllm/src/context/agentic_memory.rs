@@ -15,7 +15,7 @@ use std::sync::Arc;
 
 use crate::error::{Result, RuvLLMError};
 
-use super::episodic_memory::{Episode, EpisodicMemory, EpisodicMemoryConfig, Trajectory};
+use super::episodic_memory::{EpisodicMemory, EpisodicMemoryConfig, Trajectory};
 use super::working_memory::{TaskContext, WorkingMemory, WorkingMemoryConfig};
 
 /// Configuration for agentic memory

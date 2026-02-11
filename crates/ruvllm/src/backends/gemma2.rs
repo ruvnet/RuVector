@@ -28,7 +28,7 @@
 
 use crate::error::{Result, RuvLLMError};
 use crate::kernels::rope::{precompute_rope_tables_with_config, RopeConfig, RopeTables};
-use crate::kernels::{apply_rope_neon, flash_attention_neon, rms_norm_neon, AttentionConfig};
+use crate::kernels::{apply_rope_neon, rms_norm_neon, AttentionConfig};
 
 #[cfg(target_arch = "aarch64")]
 use std::arch::aarch64::*;
@@ -598,7 +598,7 @@ impl Gemma2MLP {
 
     /// Forward pass with GeGLU activation
     pub fn forward(&self, hidden_states: &[f32]) -> Result<Vec<f32>> {
-        let batch_size = hidden_states.len() / self.hidden_size;
+        let _batch_size = hidden_states.len() / self.hidden_size;
 
         // Gate projection + GELU
         let gate = self.linear(

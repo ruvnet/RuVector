@@ -40,7 +40,7 @@
 
 use crate::{
     claude_flow::{
-        AgentType, ClaudeFlowAgent, ClaudeFlowTask, ClaudeModel, HnswRouter, HnswRouterConfig,
+        AgentType, HnswRouter, HnswRouterConfig,
         ModelRouter, ReasoningBankConfig, ReasoningBankIntegration, TaskComplexityAnalyzer,
     },
     context::{
@@ -49,24 +49,22 @@ use crate::{
     },
     quality::{
         CoherenceConfig, CoherenceValidator, DiversityAnalyzer, DiversityConfig, QualityMetrics,
-        QualityScoringEngine, ScoringConfig,
+        QualityScoringEngine,
     },
     reasoning_bank::{
-        ConsolidationConfig, DistillationConfig, MemoryDistiller, Pattern, PatternCategory,
-        PatternConsolidator, PatternStore, PatternStoreConfig, RootCause, StepOutcome, Trajectory,
-        TrajectoryRecorder, TrajectoryStep, Verdict,
+        ConsolidationConfig, Pattern, PatternCategory,
+        PatternConsolidator, PatternStore, PatternStoreConfig, TrajectoryStep,
     },
     reflection::{
         ConfidenceChecker, ConfidenceConfig, ErrorPatternLearner, ErrorPatternLearnerConfig,
     },
-    Result, RuvLLMError,
+    Result,
 };
 
 use chrono::{DateTime, Utc};
 use dashmap::DashMap;
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::sync::Arc;
 use uuid::Uuid;
 
@@ -717,7 +715,7 @@ impl HooksIntegration {
     /// Post-edit hook: record edit outcome
     pub fn post_edit(&mut self, input: PostEditInput) -> Result<PostEditResult> {
         let mut pattern_learned = false;
-        let mut error_learned = false;
+        let error_learned = false;
 
         // Record successful edit pattern
         if input.success {
@@ -763,7 +761,7 @@ impl HooksIntegration {
     pub fn session_start(
         &mut self,
         session_id: Option<&str>,
-        restore_latest: bool,
+        _restore_latest: bool,
     ) -> Result<SessionState> {
         let session_id = session_id
             .unwrap_or(&Uuid::new_v4().to_string())
@@ -842,7 +840,7 @@ impl HooksIntegration {
 
     /// Route a task to optimal agent (convenience method)
     pub fn route_task(&self, task: &str, context: Option<&str>) -> Result<PreTaskResult> {
-        let mut input = PreTaskInput {
+        let input = PreTaskInput {
             task_id: Uuid::new_v4().to_string(),
             description: task.to_string(),
             context: context.map(String::from),
@@ -992,7 +990,7 @@ impl HooksIntegration {
         success: bool,
         agent: &str,
         quality: f32,
-        error: Option<&str>,
+        _error: Option<&str>,
     ) -> Result<bool> {
         let trajectory = self.active_trajectories.remove(task_id);
 

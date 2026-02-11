@@ -65,8 +65,8 @@
 use crate::error::{Result, RuvLLMError};
 use crate::kernels::rope::{precompute_rope_tables_with_config, RopeConfig, RopeTables};
 use crate::kernels::{apply_rope_neon, flash_attention_neon, rms_norm_neon, AttentionConfig};
-use crate::paged_attention::{PageTable, PagedAttention, PagedAttentionConfig};
-use crate::sona::{SonaConfig, SonaIntegration, Trajectory};
+use crate::paged_attention::{PagedAttention, PagedAttentionConfig};
+use crate::sona::{SonaConfig, SonaIntegration};
 
 /// Type alias for PagedAttention used as KV cache
 pub type PagedKVCache = PagedAttention;
@@ -523,7 +523,7 @@ impl RuvLtraMediumAttention {
         &self,
         hidden_states: &[f32],
         positions: &[usize],
-        paged_cache: Option<&mut PagedKVCache>,
+        _paged_cache: Option<&mut PagedKVCache>,
     ) -> Result<Vec<f32>> {
         let seq_len = positions.len();
         let hidden_size = self.config.hidden_size;
@@ -856,7 +856,7 @@ impl RuvLtraMediumDecoderLayer {
     fn apply_sona_hook(
         &self,
         hidden_states: &[f32],
-        sona: &Arc<RwLock<SonaIntegration>>,
+        _sona: &Arc<RwLock<SonaIntegration>>,
     ) -> Result<Vec<f32>> {
         // Extract embeddings for trajectory recording
         // This is a simplified version - real implementation would be more sophisticated

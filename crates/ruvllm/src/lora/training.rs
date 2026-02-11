@@ -6,9 +6,9 @@
 //! - Learning rate scheduling
 //! - Async adaptation support
 
-use crate::error::{Result, RuvLLMError};
+use crate::error::Result;
 use crate::lora::micro_lora::{AdaptFeedback, EwcState, MicroLoRA, TargetModule};
-use ndarray::{Array1, Array2};
+use ndarray::Array2;
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, VecDeque};

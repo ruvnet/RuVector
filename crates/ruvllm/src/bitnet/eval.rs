@@ -27,7 +27,6 @@
 //! }
 //! ```
 
-use crate::error::{Result, RuvLLMError};
 use super::trace::TraceEntry;
 
 // ============================================================================

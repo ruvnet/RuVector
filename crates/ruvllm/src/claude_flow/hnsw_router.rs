@@ -837,7 +837,7 @@ impl HnswRouter {
             bincode::serde::decode_from_slice(bytes, bincode::config::standard())
                 .map_err(|e| RuvLLMError::Serialization(e.to_string()))?;
 
-        let mut router = Self::new(state.config)?;
+        let router = Self::new(state.config)?;
 
         // Restore patterns
         router.add_patterns(state.patterns)?;
@@ -946,7 +946,7 @@ impl HybridRouter {
     /// Route using both keyword and semantic methods
     pub fn route(
         &self,
-        task_description: &str,
+        _task_description: &str,
         embedding: &[f32],
         keyword_decision: Option<RoutingDecision>,
     ) -> Result<RoutingDecision> {

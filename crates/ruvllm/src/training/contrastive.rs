@@ -37,7 +37,7 @@ use std::path::{Path, PathBuf};
 #[cfg(feature = "candle")]
 use candle_core::{DType, Device, IndexOp, Result as CandleResult, Tensor, D};
 #[cfg(feature = "candle")]
-use candle_nn::{linear, ops, Linear, Module, Optimizer, VarBuilder, VarMap};
+use candle_nn::{linear, ops, Module, Optimizer, VarBuilder, VarMap};
 
 /// Configuration for contrastive training
 #[derive(Debug, Clone, Serialize, Deserialize)]

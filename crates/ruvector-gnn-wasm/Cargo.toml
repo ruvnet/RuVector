@@ -17,30 +17,22 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 ruvector-gnn = { path = "../ruvector-gnn", default-features = false, features = ["wasm"] }
+serde = { workspace = true }
 
-# WASM
+[target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = { workspace = true }
 js-sys = { workspace = true }
-getrandom = { workspace = true }
-
-# Serialization
-serde = { workspace = true }
+getrandom = { workspace = true, features = ["wasm_js"] }
+getrandom02 = { package = "getrandom", version = "0.2", features = ["js"] }
 serde-wasm-bindgen = "0.6"
-
-# Utils
 console_error_panic_hook = { version = "0.1", optional = true }
 
-[dev-dependencies]
+[target.'cfg(target_arch = "wasm32")'.dev-dependencies]
 wasm-bindgen-test = "0.3"
 
 [features]
 default = []
 console_error_panic_hook = ["dep:console_error_panic_hook"]
-
-# Ensure getrandom uses wasm_js/js feature for WASM
-[target.'cfg(target_arch = "wasm32")'.dependencies]
-getrandom = { workspace = true, features = ["wasm_js"] }
-getrandom02 = { package = "getrandom", version = "0.2", features = ["js"] }
 
 [profile.release]
 opt-level = "z"

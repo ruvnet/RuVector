@@ -33,11 +33,10 @@
 //! let model = initializer.build_model()?;
 //! ```
 
-use std::collections::HashMap;
 use std::sync::Arc;
 
 use super::{
-    GgufQuantType, LoadedTensor, LoadedWeights, ModelConfig, QuantizedTensor, TensorCategory,
+    GgufQuantType, LoadedTensor, LoadedWeights, ModelConfig,
 };
 use crate::backends::ModelArchitecture;
 use crate::error::{Result, RuvLLMError};

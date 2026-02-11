@@ -27,7 +27,6 @@
 
 use std::collections::HashMap;
 
-use crate::error::{Result, RuvLLMError};
 
 // ============================================================================
 // Special Tokens

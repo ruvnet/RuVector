@@ -39,7 +39,7 @@
 //! ```
 
 use super::{
-    DType, DeviceType, GenerateParams, GeneratedToken, LlmBackend, ModelArchitecture, ModelConfig,
+    DType, DeviceType, GenerateParams, GeneratedToken, LlmBackend, ModelConfig,
     ModelInfo, Quantization, SpecialTokens, Tokenizer,
 };
 use crate::error::{Result, RuvLLMError};
@@ -48,7 +48,6 @@ use crate::paged_attention::{PagedAttention, PagedAttentionConfig};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::sync::Arc;
 
 use dashmap::DashMap;
 use parking_lot::RwLock;

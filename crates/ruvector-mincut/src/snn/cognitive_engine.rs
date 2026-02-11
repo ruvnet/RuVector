@@ -43,13 +43,12 @@ use super::{
     attractor::{AttractorConfig, AttractorDynamics, EnergyLandscape},
     causal::{CausalConfig, CausalDiscoverySNN, CausalGraph, GraphEvent, GraphEventType},
     morphogenetic::{MorphConfig, MorphogeneticSNN, TuringPattern},
-    optimizer::{GraphAction, NeuralGraphOptimizer, OptimizationResult, OptimizerConfig},
+    optimizer::{GraphAction, NeuralGraphOptimizer, OptimizerConfig},
     strange_loop::{MetaAction, MetaCognitiveMinCut, StrangeLoopConfig},
     time_crystal::{CPGConfig, TimeCrystalCPG},
     SimTime, Spike,
 };
-use crate::graph::{DynamicGraph, VertexId, Weight};
-use std::collections::HashMap;
+use crate::graph::{DynamicGraph, VertexId};
 use std::time::{Duration, Instant};
 
 /// Configuration for the Cognitive MinCut Engine

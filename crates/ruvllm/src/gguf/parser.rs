@@ -27,7 +27,7 @@
 //! ```
 
 use std::collections::HashMap;
-use std::io::{BufRead, Read};
+use std::io::Read;
 
 use super::quantization::GgufQuantType;
 use super::tensors::TensorInfo;

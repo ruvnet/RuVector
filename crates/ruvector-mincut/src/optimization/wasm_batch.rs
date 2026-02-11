@@ -9,7 +9,6 @@
 //! Target: 10x reduction in FFI overhead
 
 use crate::graph::VertexId;
-use std::collections::HashMap;
 
 /// Configuration for WASM batch operations
 #[derive(Debug, Clone)]

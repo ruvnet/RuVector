@@ -37,7 +37,6 @@ pub use paper_impl::{
 };
 
 use crate::graph::{DynamicGraph, EdgeId, VertexId, Weight};
-use crate::{MinCutError, Result};
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::Arc;
 

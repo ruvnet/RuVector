@@ -11,7 +11,7 @@
 use crate::graph::VertexId;
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::{Arc, RwLock};
 
 #[cfg(feature = "rayon")]
 use rayon::prelude::*;
@@ -289,7 +289,7 @@ impl ParallelLevelUpdater {
 
     /// Process levels in parallel (scalar fallback)
     #[cfg(not(feature = "rayon"))]
-    pub fn process_parallel<F>(&self, levels: &[usize], mut process_fn: F) -> Vec<LevelUpdateResult>
+    pub fn process_parallel<F>(&self, levels: &[usize], process_fn: F) -> Vec<LevelUpdateResult>
     where
         F: FnMut(usize) -> LevelUpdateResult + Clone,
     {

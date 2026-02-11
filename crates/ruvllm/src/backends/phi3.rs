@@ -329,7 +329,7 @@ impl Phi3Attention {
                 }
 
                 // Apply sliding window if configured
-                let (k_slice, v_slice, effective_kv_len) =
+                let (k_slice, v_slice, _effective_kv_len) =
                     if let Some(window) = self.config.sliding_window {
                         let pos = positions[t];
                         let start = pos.saturating_sub(window);
@@ -476,7 +476,7 @@ impl Phi3MLP {
 
     /// Forward pass with SwiGLU activation
     pub fn forward(&self, hidden_states: &[f32]) -> Result<Vec<f32>> {
-        let batch_size = hidden_states.len() / self.hidden_size;
+        let _batch_size = hidden_states.len() / self.hidden_size;
 
         // Gate projection + SiLU
         let gate = self.linear(

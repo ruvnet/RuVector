@@ -235,7 +235,7 @@ impl InferenceArena {
                     Some(std::slice::from_raw_parts_mut(ptr, count))
                 }
             }
-            Err(actual) => {
+            Err(_actual) => {
                 // Retry with new offset (concurrent allocation occurred)
                 // For simplicity, we return None and let caller retry
                 // A production implementation might spin-retry

@@ -40,7 +40,7 @@
 #[cfg(target_arch = "aarch64")]
 use std::arch::aarch64::*;
 
-use super::{NEON_LANE_WIDTH, PREFETCH_DISTANCE};
+use super::PREFETCH_DISTANCE;
 
 // ============================================================================
 // Cache Tile Sizes - Optimized for M4 Pro (192KB L1d, 4MB L2, 128B cache line)

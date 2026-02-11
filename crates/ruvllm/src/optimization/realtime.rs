@@ -6,8 +6,7 @@
 //! - Token budget allocation
 //! - Speculative decoding integration
 
-use crate::error::{Result, RuvLLMError};
-use crate::optimization::metrics::{InferenceMetrics, MetricsSnapshot};
+use crate::optimization::metrics::InferenceMetrics;
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;

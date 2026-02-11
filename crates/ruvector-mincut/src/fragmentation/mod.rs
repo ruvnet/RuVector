@@ -15,7 +15,7 @@
 //! - **Expander detection**: Identifies well-connected subgraphs
 
 use crate::graph::{VertexId, Weight};
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::{HashMap, HashSet};
 
 /// Configuration for the fragmentation algorithm
 #[derive(Debug, Clone)]

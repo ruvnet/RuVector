@@ -10,7 +10,7 @@
 
 use crate::graph::VertexId;
 use std::collections::{HashMap, VecDeque};
-use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::RwLock;
 
 /// Configuration for path distance cache

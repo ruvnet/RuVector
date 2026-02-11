@@ -419,12 +419,12 @@ impl SharedAgentFactory {
     }
 
     /// Get read access to factory
-    pub fn read(&self) -> std::sync::RwLockReadGuard<AgentFactory> {
+    pub fn read(&self) -> std::sync::RwLockReadGuard<'_, AgentFactory> {
         self.inner.read().unwrap()
     }
 
     /// Get write access to factory
-    pub fn write(&self) -> std::sync::RwLockWriteGuard<AgentFactory> {
+    pub fn write(&self) -> std::sync::RwLockWriteGuard<'_, AgentFactory> {
         self.inner.write().unwrap()
     }
 

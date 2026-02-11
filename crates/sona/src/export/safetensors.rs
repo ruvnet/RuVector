@@ -5,7 +5,6 @@
 
 use super::{ExportConfig, ExportError, ExportResult, ExportType};
 use crate::engine::SonaEngine;
-use crate::lora::{BaseLoRA, MicroLoRA};
 use std::collections::HashMap;
 use std::path::Path;
 
@@ -209,7 +208,7 @@ impl<'a> SafeTensorsExporter<'a> {
         // ... tensor data (aligned to 8 bytes)
 
         let mut header_data: HashMap<String, TensorMetadata> = HashMap::new();
-        let mut data_offset: usize = 0;
+        let _data_offset: usize = 0;
         let mut tensor_bytes: Vec<u8> = Vec::new();
 
         // Sort keys for deterministic output
@@ -218,7 +217,7 @@ impl<'a> SafeTensorsExporter<'a> {
 
         for key in keys {
             let tensor = &tensors[key];
-            let tensor_size = tensor.data.len() * 4; // f32 = 4 bytes
+            let _tensor_size = tensor.data.len() * 4; // f32 = 4 bytes
 
             // Align to 8 bytes
             let padding = (8 - (tensor_bytes.len() % 8)) % 8;

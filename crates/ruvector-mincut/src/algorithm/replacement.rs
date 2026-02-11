@@ -4,7 +4,7 @@
 //! Based on the level-based approach from dynamic connectivity literature.
 
 use crate::graph::VertexId;
-use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
+use std::collections::{BTreeSet, HashMap, HashSet};
 
 /// Edge identifier as (smaller, larger) vertex pair
 pub type EdgeKey = (VertexId, VertexId);

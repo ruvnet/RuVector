@@ -4,13 +4,11 @@
 //! for different model token limits.
 
 use chrono::{DateTime, Utc};
-use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::Arc;
 
-use crate::error::{Result, RuvLLMError};
+use crate::error::Result;
 
 use super::agentic_memory::{AgenticMemory, AgenticMemoryConfig, MemoryType, RetrievedMemory};
 use super::semantic_cache::{SemanticCacheConfig, SemanticToolCache};

@@ -9,9 +9,9 @@
 //! - **Graph-coupled**: Topology mirrors graph structure
 
 use super::{
-    neuron::{LIFNeuron, NeuronConfig, NeuronPopulation, SpikeTrain},
-    synapse::{STDPConfig, Synapse, SynapseMatrix},
-    SimTime, Spike, Vector,
+    neuron::{NeuronConfig, NeuronPopulation},
+    synapse::{STDPConfig, SynapseMatrix},
+    SimTime, Spike,
 };
 use crate::graph::DynamicGraph;
 use rayon::prelude::*;
