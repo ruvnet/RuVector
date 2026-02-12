@@ -1,0 +1,43 @@
+{
+  "name": "@ruvector/rvdna",
+  "version": "0.1.0",
+  "description": "rvDNA — AI-native genomic analysis and the .rvdna file format. WASM bindings for variant calling, protein prediction, and HNSW vector search.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ruvnet/ruvector",
+    "directory": "examples/dna"
+  },
+  "homepage": "https://github.com/ruvnet/ruvector/tree/main/examples/dna",
+  "keywords": [
+    "genomics",
+    "bioinformatics",
+    "dna",
+    "wasm",
+    "webassembly",
+    "variant-calling",
+    "protein",
+    "hnsw",
+    "vector-search",
+    "rvdna"
+  ],
+  "files": [
+    "pkg/*.js",
+    "pkg/*.wasm",
+    "pkg/*.d.ts",
+    "pkg/package.json",
+    "README.md"
+  ],
+  "main": "pkg/rvdna.js",
+  "types": "pkg/rvdna.d.ts",
+  "scripts": {
+    "build": "wasm-pack build --target bundler --release",
+    "build:web": "wasm-pack build --target web --release",
+    "build:node": "wasm-pack build --target nodejs --release",
+    "test": "wasm-pack test --node",
+    "prepublishOnly": "npm run build"
+  },
+  "devDependencies": {
+    "wasm-pack": "^0.13.0"
+  }
+}

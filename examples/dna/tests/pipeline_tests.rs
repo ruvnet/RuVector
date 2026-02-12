@@ -4,7 +4,7 @@
 //! Tests the complete DNA analysis workflow from nucleotide encoding
 //! through variant calling, protein translation, epigenetics, and pharmacogenomics.
 
-use dna_analyzer_example::*;
+use rvdna::*;
 
 // ============================================================================
 // NUCLEOTIDE & SEQUENCE TESTS
@@ -137,7 +137,7 @@ fn test_variant_quality_filtering() {
 
 #[test]
 fn test_protein_translation() {
-    use dna_analyzer_example::protein::{translate_dna, AminoAcid};
+    use rvdna::protein::{translate_dna, AminoAcid};
     let proteins = translate_dna(b"ATGGCAGGT");
     assert_eq!(proteins.len(), 3);
     assert_eq!(proteins[0], AminoAcid::Met);
@@ -147,7 +147,7 @@ fn test_protein_translation() {
 
 #[test]
 fn test_protein_translation_stop_codon() {
-    use dna_analyzer_example::protein::{translate_dna, AminoAcid};
+    use rvdna::protein::{translate_dna, AminoAcid};
     let p1 = translate_dna(b"ATGGCATAA");
     assert_eq!(p1.len(), 2);
     assert_eq!(p1[0], AminoAcid::Met);
@@ -161,7 +161,7 @@ fn test_protein_translation_stop_codon() {
 
 #[test]
 fn test_amino_acid_hydrophobicity() {
-    use dna_analyzer_example::protein::AminoAcid;
+    use rvdna::protein::AminoAcid;
     assert_eq!(AminoAcid::Ile.hydrophobicity(), 4.5);
     assert_eq!(AminoAcid::Arg.hydrophobicity(), -4.5);
     assert_eq!(AminoAcid::Val.hydrophobicity(), 4.2);

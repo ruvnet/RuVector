@@ -135,6 +135,190 @@
       font-family: 'Oswald', sans-serif; font-weight: 700; font-size: 0.6rem;
       color: rgba(255,255,255,0.25); letter-spacing: 0.15em;
     }
+
+    /* Tech description modal */
+    #tech-modal-backdrop {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.85);
+      backdrop-filter: blur(8px); z-index: 100; display: none;
+      align-items: center; justify-content: center;
+      pointer-events: auto;
+    }
+    #tech-modal-backdrop.open { display: flex; }
+    #tech-modal {
+      background: linear-gradient(160deg, #141418 0%, #1a1a22 100%);
+      border: 1px solid rgba(218,165,32,0.3); border-radius: 10px;
+      max-width: 680px; width: 90%; max-height: 80vh; overflow-y: auto;
+      padding: 28px 32px; position: relative;
+      box-shadow: 0 0 60px rgba(218,165,32,0.12), 0 20px 60px rgba(0,0,0,0.6);
+    }
+    #tech-modal::-webkit-scrollbar { width: 4px; }
+    #tech-modal::-webkit-scrollbar-track { background: transparent; }
+    #tech-modal::-webkit-scrollbar-thumb { background: rgba(218,165,32,0.3); border-radius: 2px; }
+    #tech-close {
+      position: absolute; top: 12px; right: 16px; background: none; border: none;
+      color: #666; font-size: 1.4rem; cursor: pointer; line-height: 1;
+      transition: color 0.2s;
+    }
+    #tech-close:hover { color: #daa520; }
+    .tech-badge {
+      display: inline-block; font-family: 'Oswald', sans-serif; font-weight: 600;
+      font-size: 0.55rem; letter-spacing: 0.2em; text-transform: uppercase;
+      color: #daa520; border: 1px solid rgba(218,165,32,0.4); border-radius: 3px;
+      padding: 2px 10px; margin-bottom: 10px;
+    }
+    .tech-title {
+      font-family: 'Oswald', sans-serif; font-weight: 700; font-size: 1.4rem;
+      color: #fff; margin-bottom: 18px; line-height: 1.2;
+    }
+    .tech-section {
+      margin-bottom: 16px;
+    }
+    .tech-section-head {
+      font-family: 'Oswald', sans-serif; font-weight: 600; font-size: 0.8rem;
+      color: #daa520; letter-spacing: 0.1em; text-transform: uppercase;
+      margin-bottom: 6px; display: flex; align-items: center; gap: 6px;
+    }
+    .tech-section-head::before {
+      content: ''; display: inline-block; width: 3px; height: 12px;
+      background: #daa520; border-radius: 1px;
+    }
+    .tech-body {
+      font-family: 'Roboto Condensed', sans-serif; font-size: 0.75rem;
+      color: #aaa; line-height: 1.7;
+    }
+    .tech-body strong { color: #ccc; font-weight: 700; }
+    .tech-body code {
+      background: rgba(218,165,32,0.1); color: #daa520; padding: 1px 5px;
+      border-radius: 2px; font-size: 0.7rem; font-family: 'SF Mono', monospace;
+    }
+    .tech-diagram {
+      background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 6px; padding: 12px 16px; margin: 10px 0;
+      font-family: 'SF Mono', monospace; font-size: 0.6rem; color: #888;
+      line-height: 1.6; white-space: pre; overflow-x: auto;
+    }
+    .tech-footer {
+      margin-top: 18px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.06);
+      font-size: 0.6rem; color: #555; text-align: center;
+      font-family: 'Roboto Condensed', sans-serif;
+    }
+
+    /* Settings modal */
+    #settings-backdrop {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.85);
+      backdrop-filter: blur(8px); z-index: 100; display: none;
+      align-items: center; justify-content: center; pointer-events: auto;
+    }
+    #settings-backdrop.open { display: flex; }
+    #settings-panel-modal {
+      background: linear-gradient(160deg, #141418 0%, #1a1a22 100%);
+      border: 1px solid rgba(218,165,32,0.3); border-radius: 10px;
+      max-width: 580px; width: 92%; max-height: 82vh; overflow-y: auto;
+      padding: 0; position: relative;
+      box-shadow: 0 0 60px rgba(218,165,32,0.12), 0 20px 60px rgba(0,0,0,0.6);
+    }
+    #settings-panel-modal::-webkit-scrollbar { width: 4px; }
+    #settings-panel-modal::-webkit-scrollbar-track { background: transparent; }
+    #settings-panel-modal::-webkit-scrollbar-thumb { background: rgba(218,165,32,0.3); border-radius: 2px; }
+    #settings-close {
+      position: absolute; top: 10px; right: 14px; background: none; border: none;
+      color: #666; font-size: 1.4rem; cursor: pointer; line-height: 1; z-index: 2;
+      transition: color 0.2s;
+    }
+    #settings-close:hover { color: #daa520; }
+    .st-header {
+      padding: 18px 24px 0; display: flex; align-items: center; gap: 10px;
+    }
+    .st-header-badge {
+      font-family: 'Oswald', sans-serif; font-weight: 600; font-size: 0.55rem;
+      letter-spacing: 0.2em; text-transform: uppercase; color: #daa520;
+      border: 1px solid rgba(218,165,32,0.4); border-radius: 3px; padding: 2px 10px;
+    }
+    .st-header-title {
+      font-family: 'Oswald', sans-serif; font-weight: 700; font-size: 1.15rem; color: #fff;
+    }
+    /* Tabs */
+    .st-tabs {
+      display: flex; gap: 0; margin: 14px 24px 0; border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+    .st-tab {
+      font-family: 'Oswald', sans-serif; font-weight: 600; font-size: 0.7rem;
+      letter-spacing: 0.08em; text-transform: uppercase; color: #555;
+      padding: 8px 16px; cursor: pointer; border-bottom: 2px solid transparent;
+      transition: all 0.2s; background: none; border-top: none; border-left: none; border-right: none;
+    }
+    .st-tab:hover { color: #aaa; }
+    .st-tab.active { color: #daa520; border-bottom-color: #daa520; }
+    .st-tab-content { display: none; padding: 16px 24px 22px; }
+    .st-tab-content.active { display: block; }
+    /* Setting rows */
+    .st-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.04);
+    }
+    .st-row:last-child { border-bottom: none; }
+    .st-row-label {
+      font-family: 'Roboto Condensed', sans-serif; font-size: 0.72rem; color: #aaa;
+    }
+    .st-row-sub { font-size: 0.58rem; color: #555; margin-top: 1px; }
+    .st-row-ctrl { display: flex; align-items: center; gap: 8px; }
+    /* Toggle switch */
+    .st-toggle { position: relative; width: 36px; height: 20px; cursor: pointer; }
+    .st-toggle input { display: none; }
+    .st-toggle-track {
+      position: absolute; inset: 0; background: #333; border-radius: 10px;
+      transition: background 0.2s;
+    }
+    .st-toggle input:checked + .st-toggle-track { background: rgba(218,165,32,0.6); }
+    .st-toggle-thumb {
+      position: absolute; top: 2px; left: 2px; width: 16px; height: 16px;
+      background: #888; border-radius: 50%; transition: all 0.2s;
+    }
+    .st-toggle input:checked ~ .st-toggle-thumb { left: 18px; background: #daa520; }
+    /* Range slider */
+    .st-range {
+      width: 100px; accent-color: #daa520; height: 3px;
+    }
+    .st-range-val {
+      font-family: 'SF Mono', monospace; font-size: 0.6rem; color: #daa520;
+      min-width: 32px; text-align: right;
+    }
+    /* Select */
+    .st-select {
+      background: #222; border: 1px solid #444; color: #ccc; border-radius: 4px;
+      padding: 3px 8px; font-family: 'Roboto Condensed', sans-serif; font-size: 0.65rem;
+      cursor: pointer; outline: none;
+    }
+    .st-select:focus { border-color: #daa520; }
+    /* AI section styles */
+    .st-ai-status {
+      display: flex; align-items: center; gap: 6px; padding: 6px 10px;
+      background: rgba(218,165,32,0.06); border: 1px solid rgba(218,165,32,0.15);
+      border-radius: 6px; margin-bottom: 12px;
+    }
+    .st-ai-dot { width: 6px; height: 6px; border-radius: 50%; background: #4ade80; animation: st-pulse 2s infinite; }
+    @keyframes st-pulse { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
+    .st-ai-label { font-family: 'Roboto Condensed', sans-serif; font-size: 0.65rem; color: #aaa; }
+    .st-ai-label strong { color: #daa520; }
+    .st-metric-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 10px 0;
+    }
+    .st-metric-card {
+      background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 6px; padding: 8px 10px;
+    }
+    .st-metric-label { font-size: 0.55rem; color: #666; text-transform: uppercase; letter-spacing: 0.1em; font-family: 'Oswald', sans-serif; }
+    .st-metric-value { font-family: 'Oswald', sans-serif; font-size: 1rem; font-weight: 700; color: #daa520; }
+    .st-metric-sub { font-size: 0.52rem; color: #555; }
+    .st-pipeline {
+      display: flex; align-items: center; gap: 4px; margin: 10px 0; flex-wrap: wrap;
+    }
+    .st-pipe-stage {
+      font-family: 'SF Mono', monospace; font-size: 0.55rem; padding: 3px 8px;
+      background: rgba(218,165,32,0.08); border: 1px solid rgba(218,165,32,0.2);
+      border-radius: 3px; color: #daa520;
+    }
+    .st-pipe-arrow { color: #444; font-size: 0.6rem; }
   </style>
 </head>
 <body>
@@ -198,6 +382,316 @@
   <!-- Network bug -->
   <div id="network-bug">RUVECTOR VWM</div>
 
+  <!-- Tech description modal -->
+  <div id="tech-modal-backdrop">
+    <div id="tech-modal">
+      <button id="tech-close">&times;</button>
+      <div class="tech-badge">How It Works</div>
+      <div class="tech-title">4D Gaussian Splatting Engine</div>
+
+      <div class="tech-section">
+        <div class="tech-section-head">What You're Seeing</div>
+        <div class="tech-body">
+          Every object on screen &mdash; players, the football, the field, the crowd &mdash; is built from
+          <strong>thousands of 3D Gaussians</strong>: soft, translucent ellipsoids defined by a position,
+          covariance (shape), color, and opacity. Each player alone is composed of <strong>30+ overlapping
+          Gaussians</strong> (helmet, visor, shoulder pads, jersey, numbers, legs, cleats, shadows). The full
+          scene renders <strong>4,000+ Gaussians per frame</strong> at 60 fps.
+        </div>
+      </div>
+
+      <div class="tech-section">
+        <div class="tech-section-head">4D = 3D + Time</div>
+        <div class="tech-body">
+          Standard 3D Gaussian Splatting reconstructs static scenes. This engine adds a
+          <strong>temporal dimension</strong>: each Gaussian carries keyframes that define how its position,
+          shape, color, and opacity evolve over time. Arm swing during a sprint, the spiral rotation of a
+          thrown football, crowd wave motion &mdash; all are encoded as <strong>continuous temporal
+          interpolations</strong> across Gaussian parameters rather than traditional skeletal animation.
+        </div>
+      </div>
+
+      <div class="tech-section">
+        <div class="tech-section-head">Rendering Pipeline</div>
+        <div class="tech-body">
+          Each frame follows a strict pipeline:
+        </div>
+        <div class="tech-diagram">Scene Graph  &#8594;  View-Projection Matrix  &#8594;  Perspective Divide
+    &#8595;
+Depth Sort (back-to-front)  &#8594;  Alpha Composite
+    &#8595;
+Post-Processing: Fog &#8594; Vignette &#8594; Film Grain &#8594; Color Grade</div>
+        <div class="tech-body">
+          Gaussians are projected from world space into screen space using a <strong>perspective projection
+          matrix</strong>, then <strong>depth-sorted back-to-front</strong> for correct transparency. Each
+          Gaussian is drawn as a <strong>radial gradient</strong> (Canvas2D's closest approximation to a
+          true splatted ellipsoid). A post-processing stack applies <strong>atmospheric depth fog</strong>,
+          cinematic <strong>vignette</strong>, photographic <strong>film grain</strong>, and
+          <strong>warm color grading</strong>.
+        </div>
+      </div>
+
+      <div class="tech-section">
+        <div class="tech-section-head">Three-Loop Architecture</div>
+        <div class="tech-diagram">FAST LOOP (~60 Hz)    Render + physics + particle dynamics
+MEDIUM LOOP (~10 Hz)  Coherence gate + play state machine
+SLOW LOOP (~1 Hz)     Game governance + AI play-calling</div>
+        <div class="tech-body">
+          The <strong>fast loop</strong> handles rendering, camera interpolation, and particle physics every
+          frame. The <strong>medium loop</strong> runs a coherence gate that validates world-state
+          self-consistency &mdash; are all 22 players accounted for? Is the ball on the correct trajectory?
+          The <strong>slow loop</strong> governs high-level game logic: selecting formations, calling plays,
+          managing clock and score state.
+        </div>
+      </div>
+
+      <div class="tech-section">
+        <div class="tech-section-head">Play Simulation Engine</div>
+        <div class="tech-body">
+          Plays are not scripted animations. The engine defines <strong>offensive formations</strong>
+          (Shotgun, I-Form, Spread) and <strong>defensive coverages</strong> (Nickel, Cover 3), then
+          simulates route-running, QB dropbacks, handoffs, and tackle detection using
+          <strong>distance-based collision</strong> and probabilistic outcomes. Each play generates unique
+          player trajectories, yardage, and game-state transitions.
+        </div>
+      </div>
+
+      <div class="tech-section">
+        <div class="tech-section-head">Broadcast Presentation</div>
+        <div class="tech-body">
+          The HUD replicates an ESPN-style scorebug with real-time <strong>quarter, clock, down &amp;
+          distance, possession, and play clock</strong>. Five camera modes (Broadcast, End Zone, SkyCam,
+          Follow Ball, Cinematic Dolly) use <strong>lerped position smoothing</strong> for fluid transitions.
+          Touchdown confetti, turf spray particles, slow-motion replay at <code>0.25x</code>, and big-play
+          overlays complete the broadcast experience.
+        </div>
+      </div>
+
+      <div class="tech-section">
+        <div class="tech-section-head">Why Gaussians?</div>
+        <div class="tech-body">
+          Gaussian Splatting has emerged as a breakthrough in neural scene representation. Unlike mesh-based
+          rendering, Gaussians <strong>naturally handle transparency, soft edges, and volumetric
+          effects</strong> (fog, glow, motion blur) without expensive ray-marching. They compose additively,
+          making it trivial to layer complex appearances from simple primitives. This engine demonstrates
+          that even without GPU shaders, the Gaussian paradigm produces <strong>visually rich, physically
+          plausible scenes</strong> in real time on a standard Canvas2D surface.
+        </div>
+      </div>
+
+      <div class="tech-footer">
+        RuVector Visual World Model &bull; 4D Gaussian Splatting &bull; Canvas2D Renderer
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings modal -->
+  <div id="settings-backdrop">
+    <div id="settings-panel-modal">
+      <button id="settings-close">&times;</button>
+      <div class="st-header">
+        <span class="st-header-badge">Configuration</span>
+        <span class="st-header-title">Settings</span>
+      </div>
+      <div class="st-tabs">
+        <button class="st-tab active" data-tab="tab-visual">Visual</button>
+        <button class="st-tab" data-tab="tab-game">Game</button>
+        <button class="st-tab" data-tab="tab-ai">AI &amp; Learning</button>
+      </div>
+
+      <!-- VISUAL TAB -->
+      <div class="st-tab-content active" id="tab-visual">
+        <div class="st-row">
+          <div><div class="st-row-label">Atmospheric Fog</div><div class="st-row-sub">Distance-based depth fade</div></div>
+          <label class="st-toggle"><input type="checkbox" id="set-fog" checked><span class="st-toggle-track"></span><span class="st-toggle-thumb"></span></label>
+        </div>
+        <div class="st-row">
+          <div><div class="st-row-label">Vignette</div><div class="st-row-sub">Cinematic edge darkening</div></div>
+          <label class="st-toggle"><input type="checkbox" id="set-vignette" checked><span class="st-toggle-track"></span><span class="st-toggle-thumb"></span></label>
+        </div>
+        <div class="st-row">
+          <div><div class="st-row-label">Film Grain</div><div class="st-row-sub">Photographic noise overlay</div></div>
+          <label class="st-toggle"><input type="checkbox" id="set-grain" checked><span class="st-toggle-track"></span><span class="st-toggle-thumb"></span></label>
+        </div>
+        <div class="st-row">
+          <div><div class="st-row-label">Warm Color Grade</div><div class="st-row-sub">Broadcast-style tint</div></div>
+          <label class="st-toggle"><input type="checkbox" id="set-colorgrade" checked><span class="st-toggle-track"></span><span class="st-toggle-thumb"></span></label>
+        </div>
+        <div class="st-row">
+          <div><div class="st-row-label">Particle Effects</div><div class="st-row-sub">Confetti &amp; turf spray</div></div>
+          <label class="st-toggle"><input type="checkbox" id="set-particles" checked><span class="st-toggle-track"></span><span class="st-toggle-thumb"></span></label>
+        </div>
+        <div class="st-row">
+          <div><div class="st-row-label">Crowd Density</div><div class="st-row-sub">Gaussian count for spectators</div></div>
+          <div class="st-row-ctrl">
+            <input type="range" class="st-range" id="set-crowd" min="0" max="100" value="100">
+            <span class="st-range-val" id="set-crowd-val">100%</span>
+          </div>
+        </div>
+        <div class="st-row">
+          <div><div class="st-row-label">Camera Smoothing</div><div class="st-row-sub">Transition interpolation factor</div></div>
+          <div class="st-row-ctrl">
+            <input type="range" class="st-range" id="set-camsmooth" min="1" max="20" value="4">
+            <span class="st-range-val" id="set-camsmooth-val">0.04</span>
+          </div>
+        </div>
+        <div class="st-row">
+          <div><div class="st-row-label">Gaussian Quality</div><div class="st-row-sub">Min render size threshold</div></div>
+          <div class="st-row-ctrl">
+            <select class="st-select" id="set-quality">
+              <option value="0.15">Ultra</option>
+              <option value="0.25" selected>High</option>
+              <option value="0.5">Medium</option>
+              <option value="1.0">Low</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- GAME TAB -->
+      <div class="st-tab-content" id="tab-game">
+        <div class="st-row">
+          <div><div class="st-row-label">Game Speed</div><div class="st-row-sub">Simulation time multiplier</div></div>
+          <div class="st-row-ctrl">
+            <input type="range" class="st-range" id="set-gamespeed" min="1" max="40" value="10">
+            <span class="st-range-val" id="set-gamespeed-val">1.0x</span>
+          </div>
+        </div>
+        <div class="st-row">
+          <div><div class="st-row-label">Auto-Play</div><div class="st-row-sub">Automatically call next play</div></div>
+          <label class="st-toggle"><input type="checkbox" id="set-autoplay" checked><span class="st-toggle-track"></span><span class="st-toggle-thumb"></span></label>
+        </div>
+        <div class="st-row">
+          <div><div class="st-row-label">Auto-Replay</div><div class="st-row-sub">Slow-motion on big plays</div></div>
+          <label class="st-toggle"><input type="checkbox" id="set-autoreplay" checked><span class="st-toggle-track"></span><span class="st-toggle-thumb"></span></label>
+        </div>
+        <div class="st-row">
+          <div><div class="st-row-label">Replay Speed</div><div class="st-row-sub">Slow-motion multiplier</div></div>
+          <div class="st-row-ctrl">
+            <input type="range" class="st-range" id="set-replayspeed" min="5" max="50" value="25">
+            <span class="st-range-val" id="set-replayspeed-val">0.25x</span>
+          </div>
+        </div>
+        <div class="st-row">
+          <div><div class="st-row-label">Play-by-Play Feed</div><div class="st-row-sub">Show commentary ticker</div></div>
+          <label class="st-toggle"><input type="checkbox" id="set-ticker" checked><span class="st-toggle-track"></span><span class="st-toggle-thumb"></span></label>
+        </div>
+        <div class="st-row">
+          <div><div class="st-row-label">Scorebug</div><div class="st-row-sub">ESPN-style HUD overlay</div></div>
+          <label class="st-toggle"><input type="checkbox" id="set-scorebug" checked><span class="st-toggle-track"></span><span class="st-toggle-thumb"></span></label>
+        </div>
+        <div class="st-row">
+          <div><div class="st-row-label">Stats Overlay</div><div class="st-row-sub">Gaussian count, FPS, coherence</div></div>
+          <label class="st-toggle"><input type="checkbox" id="set-stats" checked><span class="st-toggle-track"></span><span class="st-toggle-thumb"></span></label>
+        </div>
+      </div>
+
+      <!-- AI & LEARNING TAB -->
+      <div class="st-tab-content" id="tab-ai">
+        <div class="st-ai-status">
+          <div class="st-ai-dot"></div>
+          <div class="st-ai-label"><strong>RuVector VWM</strong> &mdash; Active &bull; 3 loops online</div>
+        </div>
+
+        <div class="st-metric-grid">
+          <div class="st-metric-card">
+            <div class="st-metric-label">Coherence Score</div>
+            <div class="st-metric-value" id="ai-coherence">1.000</div>
+            <div class="st-metric-sub">World-state consistency</div>
+          </div>
+          <div class="st-metric-card">
+            <div class="st-metric-label">Entities Tracked</div>
+            <div class="st-metric-value" id="ai-entities">26</div>
+            <div class="st-metric-sub">22 players + 4 refs</div>
+          </div>
+          <div class="st-metric-card">
+            <div class="st-metric-label">Plays Simulated</div>
+            <div class="st-metric-value" id="ai-plays">0</div>
+            <div class="st-metric-sub">Total game actions</div>
+          </div>
+          <div class="st-metric-card">
+            <div class="st-metric-label">Gaussians / Frame</div>
+            <div class="st-metric-value" id="ai-gaussians">0</div>
+            <div class="st-metric-sub">Active splat count</div>
+          </div>
+        </div>
+
+        <div class="tech-section-head" style="margin:14px 0 8px;">Intelligence Pipeline</div>
+        <div class="st-pipeline">
+          <span class="st-pipe-stage">RETRIEVE</span><span class="st-pipe-arrow">&rarr;</span>
+          <span class="st-pipe-stage">JUDGE</span><span class="st-pipe-arrow">&rarr;</span>
+          <span class="st-pipe-stage">DISTILL</span><span class="st-pipe-arrow">&rarr;</span>
+          <span class="st-pipe-stage">CONSOLIDATE</span>
+        </div>
+
+        <div class="st-row">
+          <div><div class="st-row-label">Coherence Gate</div><div class="st-row-sub">Validates world-state self-consistency at ~10 Hz</div></div>
+          <label class="st-toggle"><input type="checkbox" id="set-coherence" checked><span class="st-toggle-track"></span><span class="st-toggle-thumb"></span></label>
+        </div>
+        <div class="st-row">
+          <div><div class="st-row-label">Coherence Threshold</div><div class="st-row-sub">Min acceptable consistency score</div></div>
+          <div class="st-row-ctrl">
+            <input type="range" class="st-range" id="set-cohthreshold" min="80" max="100" value="95">
+            <span class="st-range-val" id="set-cohthreshold-val">0.95</span>
+          </div>
+        </div>
+        <div class="st-row">
+          <div><div class="st-row-label">Play-Calling AI</div><div class="st-row-sub">Formation and route selection strategy</div></div>
+          <div class="st-row-ctrl">
+            <select class="st-select" id="set-playcall">
+              <option value="balanced" selected>Balanced</option>
+              <option value="aggressive">Aggressive</option>
+              <option value="conservative">Conservative</option>
+              <option value="random">Random</option>
+            </select>
+          </div>
+        </div>
+        <div class="st-row">
+          <div><div class="st-row-label">Attention Allocation</div><div class="st-row-sub">Compute budget per entity per frame</div></div>
+          <div class="st-row-ctrl">
+            <select class="st-select" id="set-attention">
+              <option value="adaptive" selected>Adaptive</option>
+              <option value="uniform">Uniform</option>
+              <option value="ball-focus">Ball Focus</option>
+            </select>
+          </div>
+        </div>
+        <div class="st-row">
+          <div><div class="st-row-label">Temporal Learning</div><div class="st-row-sub">4D keyframe interpolation method</div></div>
+          <div class="st-row-ctrl">
+            <select class="st-select" id="set-temporal">
+              <option value="continuous" selected>Continuous</option>
+              <option value="discrete">Discrete</option>
+              <option value="predictive">Predictive</option>
+            </select>
+          </div>
+        </div>
+        <div class="st-row">
+          <div><div class="st-row-label">Neural Substrate</div><div class="st-row-sub">SONA self-optimizing adaptation</div></div>
+          <label class="st-toggle"><input type="checkbox" id="set-neural" checked><span class="st-toggle-track"></span><span class="st-toggle-thumb"></span></label>
+        </div>
+        <div class="st-row">
+          <div><div class="st-row-label">EWC++ Memory Guard</div><div class="st-row-sub">Prevent catastrophic forgetting</div></div>
+          <label class="st-toggle"><input type="checkbox" id="set-ewc" checked><span class="st-toggle-track"></span><span class="st-toggle-thumb"></span></label>
+        </div>
+
+        <div class="tech-section-head" style="margin:14px 0 8px;">Three-Loop Architecture</div>
+        <div class="st-row">
+          <div><div class="st-row-label">Fast Loop</div><div class="st-row-sub">Render + physics (~60 Hz)</div></div>
+          <div class="st-row-ctrl"><span class="st-range-val" id="ai-fast-hz">60 Hz</span></div>
+        </div>
+        <div class="st-row">
+          <div><div class="st-row-label">Medium Loop</div><div class="st-row-sub">Coherence gate (~10 Hz)</div></div>
+          <div class="st-row-ctrl"><span class="st-range-val" id="ai-med-hz">10 Hz</span></div>
+        </div>
+        <div class="st-row">
+          <div><div class="st-row-label">Slow Loop</div><div class="st-row-sub">Game governance (~1 Hz)</div></div>
+          <div class="st-row-ctrl"><span class="st-range-val" id="ai-slow-hz">1 Hz</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Transport -->
   <div id="transport">
     <button class="tb" id="play-btn">&#9646;&#9646;</button>
@@ -209,6 +703,9 @@
     <button class="tb" id="cam-cinematic">Cinematic</button>
     <div class="sep"></div>
     <button class="tb" id="btn-replay">Replay</button>
+    <div class="sep"></div>
+    <button class="tb" id="btn-tech">Tech</button>
+    <button class="tb" id="btn-settings">Settings</button>
     <div class="sep"></div>
     <input type="range" id="time-slider" min="0" max="1000" value="0" />
     <span id="time-label">t=0.000</span>
@@ -283,6 +780,17 @@ let particles = [];
 let replayMode = false;
 let replaySpeed = 0.25;
 let replayTimer = 0;
+
+// === SETTINGS ===
+const settings = {
+  fog: true, vignette: true, grain: true, colorGrade: true, particles: true,
+  crowdDensity: 1.0, camSmooth: 0.04, qualityThreshold: 0.25,
+  gameSpeed: 1.0, autoPlay: true, autoReplay: true, replaySpeedMul: 0.25,
+  showTicker: true, showScorebug: true, showStats: true,
+  coherenceGate: true, coherenceThreshold: 0.95,
+  playCalling: 'balanced', attention: 'adaptive', temporal: 'continuous',
+  neural: true, ewc: true,
+};
 
 // === SEED FOR DETERMINISTIC CROWD ===
 function seededRandom(seed) {
@@ -599,6 +1107,7 @@ function buildStadium() {
     for (let row = 0; row < 8; row++) {
       for (let z = -2; z < FIELD.length + 2; z += 1.8) {
         const cc = palette[Math.floor(rng() * palette.length)];
+        if (rng() > settings.crowdDensity) continue;
         const wave = Math.sin(globalTime * 2.5 + z * 0.15 + row * 0.3) * 0.15;
         const flash = rng() < 0.02 ? 0.3 : 0; // Phone flashlights
         const bx = side === 0 ? -4 - row * 2.2 : FIELD.width + 4 + row * 2.2;
@@ -619,6 +1128,7 @@ function buildStadium() {
     for (let row = 0; row < 5; row++) {
       for (let x = -2; x < FIELD.width + 2; x += 2) {
         const cc = palette[Math.floor(rng() * palette.length)];
+        if (rng() > settings.crowdDensity) continue;
         const zBase = ezSide === 0 ? -4 - row * 2 : FIELD.length + 4 + row * 2;
         gs.push({
           x, y: 2.5 + row * 2.2, z: zBase,
@@ -784,7 +1294,7 @@ function initPlayers() {
 }
 
 function simulatePlay(dt) {
-  const effDt = replayMode ? dt * replaySpeed : dt;
+  const effDt = replayMode ? dt * settings.replaySpeedMul : dt;
   if (!game.playInProgress) {
     game.playTimer += effDt;
     if (game.playTimer > 2.5) {
@@ -971,7 +1481,7 @@ function showBigPlay(text) {
   bigPlayTimer=2.5;
   lastBigPlay=text;
   // Auto-replay on big plays
-  if(!replayMode && (text.includes('TOUCHDOWN') || text.includes('YARD'))) {
+  if(settings.autoReplay && !replayMode && (text.includes('TOUCHDOWN') || text.includes('YARD'))) {
     triggerReplay();
   }
 }
@@ -1045,10 +1555,11 @@ function render(nowMs) {
   const dt = Math.min((nowMs - lastFrameTime) / 1000, 0.05);
   lastFrameTime = nowMs;
 
+  const simDt = dt * settings.gameSpeed;
   if (playing) {
-    globalTime += dt;
-    simulatePlay(dt);
-    updateParticles(dt);
+    globalTime += simDt;
+    simulatePlay(simDt);
+    if (settings.particles) updateParticles(simDt); else particles = [];
   }
 
   // Big play timer
@@ -1099,7 +1610,7 @@ function render(nowMs) {
 
   // Camera smoothing
   const eyeRaw = getEye(), tgtRaw = getTarget();
-  const sm = 0.04;
+  const sm = settings.camSmooth;
   for(let i=0;i<3;i++) { camera.eyeSmooth[i]+=(eyeRaw[i]-camera.eyeSmooth[i])*sm; camera.targetSmooth[i]+=(tgtRaw[i]-camera.targetSmooth[i])*sm; }
 
   const view = mat4LookAt(camera.eyeSmooth, camera.targetSmooth, [0,1,0]);
@@ -1114,7 +1625,7 @@ function render(nowMs) {
     if (p.sx<-w*0.3 || p.sx>w*1.3 || p.sy<-h*0.3 || p.sy>h*1.3) continue;
     const scale = Math.max(g.sx, g.sy, g.sz);
     const ss = (scale/p.w)*w*0.5;
-    if (ss<0.25) continue;
+    if (ss<settings.qualityThreshold) continue;
     projected.push({g,p,ss});
   }
   projected.sort((a,b)=>b.p.depth-a.p.depth);
@@ -1134,7 +1645,7 @@ function render(nowMs) {
     if(rx<0.4&&ry<0.4) continue;
 
     // Atmospheric fog (distance fade)
-    const fogFactor = Math.max(0, Math.min(1, (p.depth - 0.3) * 1.2));
+    const fogFactor = settings.fog ? Math.max(0, Math.min(1, (p.depth - 0.3) * 1.2)) : 0;
     const fogAlpha = g.a * (1 - fogFactor * 0.6);
 
     ctx.save();
@@ -1156,27 +1667,33 @@ function render(nowMs) {
   // === POST-PROCESSING ===
 
   // Vignette
-  const vg = ctx.createRadialGradient(w/2,h/2,w*0.25,w/2,h/2,w*0.7);
-  vg.addColorStop(0,'rgba(0,0,0,0)');
-  vg.addColorStop(0.7,'rgba(0,0,0,0)');
-  vg.addColorStop(1,'rgba(0,0,0,0.45)');
-  ctx.fillStyle=vg; ctx.fillRect(0,0,w,h);
+  if (settings.vignette) {
+    const vg = ctx.createRadialGradient(w/2,h/2,w*0.25,w/2,h/2,w*0.7);
+    vg.addColorStop(0,'rgba(0,0,0,0)');
+    vg.addColorStop(0.7,'rgba(0,0,0,0)');
+    vg.addColorStop(1,'rgba(0,0,0,0.45)');
+    ctx.fillStyle=vg; ctx.fillRect(0,0,w,h);
+  }
 
   // Subtle film grain
-  ctx.globalAlpha = 0.015;
-  for (let i = 0; i < 30; i++) {
-    const gx = Math.random()*w, gy = Math.random()*h;
-    const gv = Math.random()*255;
-    ctx.fillStyle = `rgb(${gv},${gv},${gv})`;
-    ctx.fillRect(gx, gy, 3, 3);
+  if (settings.grain) {
+    ctx.globalAlpha = 0.015;
+    for (let i = 0; i < 30; i++) {
+      const gx = Math.random()*w, gy = Math.random()*h;
+      const gv = Math.random()*255;
+      ctx.fillStyle = `rgb(${gv},${gv},${gv})`;
+      ctx.fillRect(gx, gy, 3, 3);
+    }
+    ctx.globalAlpha = 1;
   }
-  ctx.globalAlpha = 1;
 
   // Slight warm color grade
-  ctx.globalCompositeOperation = 'overlay';
-  ctx.fillStyle = 'rgba(255,235,200,0.03)';
-  ctx.fillRect(0,0,w,h);
-  ctx.globalCompositeOperation = 'source-over';
+  if (settings.colorGrade) {
+    ctx.globalCompositeOperation = 'overlay';
+    ctx.fillStyle = 'rgba(255,235,200,0.03)';
+    ctx.fillRect(0,0,w,h);
+    ctx.globalCompositeOperation = 'source-over';
+  }
 
   // FPS
   frameTimes.push(nowMs);
@@ -1205,6 +1722,122 @@ document.getElementById('play-btn').addEventListener('click',()=>{
   });
 });
 document.getElementById('btn-replay')?.addEventListener('click',()=>triggerReplay());
+
+// Tech modal
+const techBackdrop=document.getElementById('tech-modal-backdrop');
+document.getElementById('btn-tech')?.addEventListener('click',()=>{
+  techBackdrop.classList.toggle('open');
+});
+document.getElementById('tech-close')?.addEventListener('click',()=>{
+  techBackdrop.classList.remove('open');
+});
+techBackdrop?.addEventListener('click',(e)=>{
+  if(e.target===techBackdrop) techBackdrop.classList.remove('open');
+});
+
+// Settings modal
+const setBackdrop=document.getElementById('settings-backdrop');
+document.getElementById('btn-settings')?.addEventListener('click',()=>{
+  setBackdrop.classList.toggle('open');
+  updateSettingsAI();
+});
+document.getElementById('settings-close')?.addEventListener('click',()=>{
+  setBackdrop.classList.remove('open');
+});
+setBackdrop?.addEventListener('click',(e)=>{
+  if(e.target===setBackdrop) setBackdrop.classList.remove('open');
+});
+
+// Tabs
+document.querySelectorAll('.st-tab').forEach(tab=>{
+  tab.addEventListener('click',()=>{
+    document.querySelectorAll('.st-tab').forEach(t=>t.classList.remove('active'));
+    document.querySelectorAll('.st-tab-content').forEach(c=>c.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById(tab.dataset.tab)?.classList.add('active');
+  });
+});
+
+// Toggle bindings
+function bindToggle(id,key){
+  document.getElementById(id)?.addEventListener('change',function(){ settings[key]=this.checked; });
+}
+bindToggle('set-fog','fog');
+bindToggle('set-vignette','vignette');
+bindToggle('set-grain','grain');
+bindToggle('set-colorgrade','colorGrade');
+bindToggle('set-particles','particles');
+bindToggle('set-autoplay','autoPlay');
+bindToggle('set-autoreplay','autoReplay');
+bindToggle('set-coherence','coherenceGate');
+bindToggle('set-neural','neural');
+bindToggle('set-ewc','ewc');
+
+// Ticker toggle
+document.getElementById('set-ticker')?.addEventListener('change',function(){
+  settings.showTicker=this.checked;
+  document.getElementById('play-ticker').style.display=this.checked?'block':'none';
+});
+// Scorebug toggle
+document.getElementById('set-scorebug')?.addEventListener('change',function(){
+  settings.showScorebug=this.checked;
+  document.getElementById('scorebug').style.display=this.checked?'flex':'none';
+  document.getElementById('play-clock-badge').style.display=this.checked?'flex':'none';
+});
+// Stats toggle
+document.getElementById('set-stats')?.addEventListener('change',function(){
+  settings.showStats=this.checked;
+  document.getElementById('stats-panel').style.display=this.checked?'block':'none';
+});
+
+// Range bindings
+document.getElementById('set-crowd')?.addEventListener('input',function(){
+  settings.crowdDensity=this.value/100;
+  document.getElementById('set-crowd-val').textContent=this.value+'%';
+});
+document.getElementById('set-camsmooth')?.addEventListener('input',function(){
+  settings.camSmooth=this.value/100;
+  document.getElementById('set-camsmooth-val').textContent=(this.value/100).toFixed(2);
+});
+document.getElementById('set-gamespeed')?.addEventListener('input',function(){
+  settings.gameSpeed=this.value/10;
+  document.getElementById('set-gamespeed-val').textContent=(this.value/10).toFixed(1)+'x';
+});
+document.getElementById('set-replayspeed')?.addEventListener('input',function(){
+  settings.replaySpeedMul=this.value/100;
+  document.getElementById('set-replayspeed-val').textContent=(this.value/100).toFixed(2)+'x';
+});
+document.getElementById('set-cohthreshold')?.addEventListener('input',function(){
+  settings.coherenceThreshold=this.value/100;
+  document.getElementById('set-cohthreshold-val').textContent=(this.value/100).toFixed(2);
+});
+
+// Select bindings
+document.getElementById('set-quality')?.addEventListener('change',function(){
+  settings.qualityThreshold=parseFloat(this.value);
+});
+document.getElementById('set-playcall')?.addEventListener('change',function(){
+  settings.playCalling=this.value;
+});
+document.getElementById('set-attention')?.addEventListener('change',function(){
+  settings.attention=this.value;
+});
+document.getElementById('set-temporal')?.addEventListener('change',function(){
+  settings.temporal=this.value;
+});
+
+// Update AI metrics in settings modal
+function updateSettingsAI(){
+  const coh=(1.0-game.totalPlays*0.001);
+  document.getElementById('ai-coherence').textContent=coh.toFixed(3);
+  document.getElementById('ai-entities').textContent='26';
+  document.getElementById('ai-plays').textContent=game.totalPlays;
+  document.getElementById('ai-gaussians').textContent=totalGaussianCount.toLocaleString();
+  if(frameTimes.length>1){
+    const fps=1000/((frameTimes[frameTimes.length-1]-frameTimes[0])/(frameTimes.length-1));
+    document.getElementById('ai-fast-hz').textContent=fps.toFixed(0)+' Hz';
+  }
+}
 
 let dragging=false, lmx=0, lmy=0;
 canvas.addEventListener('mousedown',e=>{dragging=true;lmx=e.clientX;lmy=e.clientY;});

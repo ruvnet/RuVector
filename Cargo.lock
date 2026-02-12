@@ -2059,35 +2059,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "dna-analyzer-example"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "bincode 2.0.1",
- "chrono",
- "criterion 0.5.1",
- "ndarray 0.16.1",
- "rand 0.8.5",
- "rand_distr 0.4.3",
- "ruvector-attention 0.1.31",
- "ruvector-collections",
- "ruvector-core 2.0.2",
- "ruvector-dag",
- "ruvector-filter",
- "ruvector-gnn 2.0.2",
- "ruvector-graph 2.0.2",
- "ruvector-math",
- "serde",
- "serde_json",
- "tempfile",
- "thiserror 2.0.17",
- "tokio",
- "tracing",
- "tracing-subscriber",
- "uuid",
-]
-
-[[package]]
 name = "document-features"
 version = "0.2.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9277,6 +9248,35 @@ dependencies = [
  "wasm-bindgen-futures",
  "wasm-bindgen-test",
  "web-sys",
+]
+
+[[package]]
+name = "rvdna"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "bincode 2.0.1",
+ "chrono",
+ "criterion 0.5.1",
+ "ndarray 0.16.1",
+ "rand 0.8.5",
+ "rand_distr 0.4.3",
+ "ruvector-attention 0.1.31",
+ "ruvector-collections",
+ "ruvector-core 2.0.2",
+ "ruvector-dag",
+ "ruvector-filter",
+ "ruvector-gnn 2.0.2",
+ "ruvector-graph 2.0.2",
+ "ruvector-math",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.17",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+ "uuid",
 ]
 
 [[package]]

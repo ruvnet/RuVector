@@ -1,10 +1,15 @@
 [package]
-name = "dna-analyzer-example"
+name = "rvdna"
 version = "0.1.0"
 edition = "2021"
-description = "RuVector DNA Analyzer - SOTA genomic analysis using vector computing, flash attention, GNN, and HNSW indexing"
+description = "rvDNA — AI-native genomic analysis and the .rvdna file format. Variant calling, protein prediction, and HNSW vector search in pure Rust with WASM support."
 license = "MIT"
-publish = false
+repository = "https://github.com/ruvnet/ruvector"
+homepage = "https://github.com/ruvnet/ruvector/tree/main/examples/dna"
+documentation = "https://docs.rs/rvdna"
+readme = "README.md"
+keywords = ["genomics", "bioinformatics", "dna", "wasm", "vector-search"]
+categories = ["science", "algorithms", "wasm"]
 
 [dependencies]
 # RuVector core for HNSW vector storage
@@ -55,7 +60,7 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 [[bin]]
-name = "dna-analyzer"
+name = "rvdna"
 path = "src/main.rs"
 
 [dev-dependencies]

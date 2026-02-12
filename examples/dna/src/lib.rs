@@ -1,15 +1,16 @@
-//! # DNA Analyzer - State-of-the-Art Genomic Analysis with RuVector
+//! # rvDNA — AI-Native Genomic Analysis
 //!
-//! A comprehensive genomic analysis pipeline demonstrating RuVector's
-//! vector computing capabilities applied to bioinformatics:
+//! Fast, accurate genomic analysis in pure Rust with WASM support.
+//! Includes the `.rvdna` binary file format for storing pre-computed
+//! AI features alongside raw DNA sequences.
 //!
-//! - **K-mer HNSW Indexing**: Fast sequence similarity search via vector embeddings
-//! - **Attention Alignment**: Smith-Waterman alignment with attention scoring
-//! - **Variant Calling**: SNP/indel detection from pileup data
-//! - **Protein Translation**: DNA-to-protein with contact graph prediction
-//! - **Epigenomics**: Methylation profiling and Horvath clock age prediction
+//! - **K-mer HNSW Indexing**: Sequence similarity search via vector embeddings
+//! - **Smith-Waterman Alignment**: Local alignment with CIGAR and mapping quality
+//! - **Bayesian Variant Calling**: SNP/indel detection with Phred quality scores
+//! - **Protein Translation**: DNA-to-protein with GNN contact graph prediction
+//! - **Epigenomics**: Methylation profiling and Horvath biological age clock
 //! - **Pharmacogenomics**: CYP enzyme star allele calling and drug recommendations
-//! - **Pipeline**: DAG-based orchestration of analysis stages
+//! - **Pipeline Orchestration**: DAG-based multi-stage execution
 //! - **RVDNA Format**: AI-native binary file format with pre-computed tensors
 
 #![warn(missing_docs)]
