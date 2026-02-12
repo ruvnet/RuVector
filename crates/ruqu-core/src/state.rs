@@ -12,7 +12,7 @@ use rand::Rng;
 use rand::SeedableRng;
 
 /// Maximum number of qubits supported on this platform.
-pub const MAX_QUBITS: u32 = 25;
+pub const MAX_QUBITS: u32 = 32;
 
 /// Quantum state represented as a state vector of 2^n complex amplitudes.
 pub struct QuantumState {

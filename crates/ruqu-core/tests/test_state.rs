@@ -844,8 +844,8 @@ fn test_memory_estimate_20_qubits() {
 
 #[test]
 fn test_qubit_limit_too_many() {
-    // Should fail for too many qubits (implementation-defined limit)
-    assert!(QuantumState::new(30).is_err());
+    // Should fail for too many qubits (MAX_QUBITS = 32)
+    assert!(QuantumState::new(35).is_err());
 }
 
 #[test]
