@@ -1,6 +1,6 @@
 # ADR-032: RVF WASM Integration into npx ruvector and rvlite
 
-**Status**: Proposed
+**Status**: Accepted
 **Date**: 2026-02-14
 **Deciders**: ruv.io Team
 **Supersedes**: None
@@ -25,11 +25,59 @@ Two existing packages would benefit from RVF integration:
 
 2. **`rvlite`** -- A lightweight multi-query vector database (SQL, SPARQL, Cypher) running entirely in WASM. It uses `ruvector-core` for vectors and IndexedDB for browser persistence. A Rust adapter already exists at `crates/rvf/rvf-adapters/rvlite/` wrapping `RvfStore` as `RvliteCollection`.
 
+The main gap is operational truth: what happens on crash, partial migrate, concurrent writers, browser refresh, and mixed backends. This ADR locks the invariants that keep the integration boring and durable.
+
+---
+
+## Key Invariants
+
+### 1. Single writer rule
+
+Any open store has exactly one writer lease. Node uses a file lock (`flock`). Browser uses a lock record with heartbeat in IndexedDB. Readers are unlimited. A stale lease (heartbeat older than 30 seconds) is recoverable by a new writer.
+
+### 2. Crash ordering rule (rvlite hybrid mode)
+
+RVF is the source of truth for vectors. IndexedDB is a rebuildable cache for metadata.
+
+**Write order:**
+1. Write vectors to RVF (append-only, crash-safe)
+2. Write metadata to IndexedDB
+3. Commit a shared monotonic epoch value in both stores
+
+**On startup:** Compare epochs. If RVF epoch > IndexedDB epoch, rebuild metadata from RVF. If IndexedDB epoch > RVF epoch (should not happen), log warning and trust RVF.
+
+### 3. Backend selection rule
+
+Explicit override beats auto detection. If user passes `--backend rvf`, do not silently fall back to `core` or `memory`. Fail loud with a clear install hint. This prevents data going to the wrong place.
+
+```
+Error: @ruvector/rvf is not installed.
+  Run: npm install @ruvector/rvf
+  The --backend rvf flag requires this package.
+```
+
+### 4. Cross-platform compatibility rule
+
+Every `.rvf` file written by WASM must be readable by Node N-API and vice versa for the same RVF wire version. If a file uses features from a newer version, the header must declare it and the CLI must refuse with an upgrade path:
+
+```
+Error: vectors.rvf requires RVF wire version 2, but this CLI supports version 1.
+  Run: npm update @ruvector/rvf
+```
+
+---
+
 ## Decision
 
 Integrate `@ruvector/rvf` (and its WASM backend) into both packages in three phases:
 
 ### Phase 1: npx ruvector -- Add RVF as optional dependency + CLI command group
+
+**Contract:**
+- **Input**: path, dimension, vectors
+- **Output**: deterministic `.rvf` file and status metadata
+- **Failure**: missing `@ruvector/rvf` package gives error with install instruction (never silent fallback)
+- **Success metric**: hooks memory persists across process restart
 
 **Changes:**
 
@@ -47,6 +95,7 @@ Integrate `@ruvector/rvf` (and its WASM backend) into both packages in three pha
    2. @ruvector/rvf   (RVF store -- persistent, file-backed)
    3. Stub fallback   (in-memory, testing only)
    ```
+   If `--backend rvf` is explicit, skip detection and fail if unavailable.
 
 3. **bin/cli.js** -- Add `rvf` command group before the `mcp` command (~line 7010):
    ```
@@ -60,11 +109,17 @@ Integrate `@ruvector/rvf` (and its WASM backend) into both packages in three pha
    ruvector rvf export <path>           Export store
    ```
 
-4. **src/core/rvf-wrapper.ts** -- Create wrapper module exposing `RvfDatabase` through the existing core interface pattern. Exports added to `src/core/index.ts`.
+4. **src/core/rvf-wrapper.ts** -- Create wrapper module exposing `RvfDatabase` through the existing core interface pattern. Must match the core interface exactly so callers are backend-agnostic. Exports added to `src/core/index.ts`.
 
-5. **Hooks integration** -- Add `ruvector hooks rvf-backend` subcommand to use `.rvf` files as persistent vector memory backend for the hooks/intelligence system (replacing in-memory storage).
+5. **Hooks integration** -- Add `ruvector hooks rvf-backend` subcommand to use `.rvf` files as persistent vector memory backend. The `--backend rvf` flag requires explicit selection; recall is read-only by default.
 
 ### Phase 2: rvlite -- RVF as storage backend for vector data
+
+**Contract:**
+- **Input**: existing rvlite database state (vectors + metadata + graphs)
+- **Output**: `.rvf` file for vectors plus IndexedDB metadata cache
+- **Failure**: crash mid-sync triggers epoch reconciliation on next open (self-healing)
+- **Success metric**: migrate tool is idempotent and safe to rerun
 
 **Changes:**
 
@@ -74,11 +129,13 @@ Integrate `@ruvector/rvf` (and its WASM backend) into both packages in three pha
    default = []
    rvf-backend = ["rvf-runtime", "rvf-types"]
    ```
+   Default stays unchanged. No behavior change unless feature is enabled.
 
 2. **Hybrid persistence model:**
    - **Vectors**: Stored in `.rvf` file via `RvliteCollection` adapter (already exists at `rvf-adapters/rvlite/`)
    - **Metadata/Graphs**: Continue using IndexedDB JSON state (SQL tables, Cypher nodes/edges, SPARQL triples)
-   - **Rationale**: RVF is optimized for vector storage with SIMD-aligned slabs and HNSW indexing. Graph and relational data are better served by the existing serialization.
+   - **Epoch reconciliation**: Both stores share a monotonic epoch. On startup, compare and rebuild the lagging side.
+   - RVF vector IDs map directly to rvlite SQL primary keys (no internal mapping layer -- IDs are u64 in both systems).
 
 3. **npm package (`npm/packages/rvlite`)** -- Add `@ruvector/rvf-wasm` as optional dependency. Extend `RvLite` TypeScript class:
    ```typescript
@@ -90,13 +147,22 @@ Integrate `@ruvector/rvf` (and its WASM backend) into both packages in three pha
    async loadFromRvf(path: string): Promise<void>
    ```
 
-4. **Migration utility** -- `rvlite rvf-migrate` CLI command to convert existing IndexedDB vector data into `.rvf` files.
+4. **Migration utility** -- `rvlite rvf-migrate` CLI command to convert existing IndexedDB vector data into `.rvf` files. Supports `--dry-run` and `--verify` modes. Idempotent: rerunning on an already-migrated store is a no-op.
+
+5. **Rebuild command** -- `rvlite rvf-rebuild` reconstructs IndexedDB metadata from RVF when cache is missing or corrupted.
 
 ### Phase 3: Shared WASM backend unification
 
+**Contract:**
+- **Input**: browser environment with both `ruvector` and `rvlite` installed
+- **Output**: one shared WASM engine instance resolved through a single import path
+- **Success metric**: bundle diff shows zero duplicate WASM; CI check enforces this
+
+**Changes:**
+
 1. **Single WASM build** -- Both `rvlite` and `ruvector` share `@ruvector/rvf-wasm` as the vector computation engine in browser environments, eliminating duplicate WASM binaries.
 
-2. **MCP bridge** -- The existing `@ruvector/rvf-mcp-server` exposes all RVF operations to AI agents. Extend with rvlite-specific tools:
+2. **MCP bridge** -- The existing `@ruvector/rvf-mcp-server` exposes all RVF operations to AI agents. Extend with rvlite-specific tools (read-only by default unless `--write` flag is set):
    ```
    rvlite_sql(storeId, query)       Execute SQL over RVF-backed store
    rvlite_cypher(storeId, query)    Execute Cypher query
@@ -108,6 +174,10 @@ Integrate `@ruvector/rvf` (and its WASM backend) into both packages in three pha
    import { RvfDatabase } from 'ruvector';
    ```
 
+4. **CI duplicate check** -- Build step that fails if two copies of the WASM artifact are present in the bundle.
+
+---
+
 ## API Mapping
 
 ### ruvector hooks system -> RVF
@@ -115,7 +185,7 @@ Integrate `@ruvector/rvf` (and its WASM backend) into both packages in three pha
 | Hooks Operation | Current Implementation | RVF Equivalent |
 |----------------|----------------------|----------------|
 | `hooks remember` | In-memory vector store | `RvfDatabase.ingestBatch()` |
-| `hooks recall` | In-memory k-NN | `RvfDatabase.query()` |
+| `hooks recall` | In-memory k-NN | `RvfDatabase.query()` (read-only) |
 | `hooks export` | JSON dump | `RvfDatabase.segments()` + file copy |
 | `hooks stats` | Runtime counters | `RvfDatabase.status()` |
 
@@ -142,6 +212,8 @@ Integrate `@ruvector/rvf` (and its WASM backend) into both packages in three pha
 | `rvf_store_count` | Both | Live vector count |
 | `rvf_store_status` | ruvector | Store statistics |
 
+---
+
 ## Consequences
 
 ### Positive
@@ -151,17 +223,95 @@ Integrate `@ruvector/rvf` (and its WASM backend) into both packages in three pha
 - **Reduced bundle size** -- Sharing `@ruvector/rvf-wasm` (~46 KB) between packages eliminates duplicate vector engines.
 - **Lineage tracking** -- `RvfDatabase.derive()` brings COW branching and provenance to both packages.
 - **Cross-platform** -- RVF auto-selects N-API (Node.js) or WASM (browser) without user configuration.
+- **Self-healing** -- Epoch reconciliation means crashes never corrupt data permanently.
 
 ### Negative
 
 - **Optional dependency complexity** -- Both packages must gracefully handle missing `@ruvector/rvf` at runtime.
-- **Dual persistence in rvlite** -- Vectors in `.rvf` files + metadata in IndexedDB adds a split-brain risk if one store is modified without the other.
+- **Dual persistence in rvlite** -- Vectors in `.rvf` files + metadata in IndexedDB adds a split-brain risk. Mitigated by epoch reconciliation and treating IndexedDB as rebuildable cache.
 - **API surface growth** -- `npx ruvector` gains 8 new CLI subcommands.
 
 ### Risks
 
-- **IndexedDB + RVF sync** -- In rvlite's hybrid mode, crash between RVF write and IndexedDB write could leave metadata inconsistent. Mitigated by writing RVF first (append-only, crash-safe) and treating IndexedDB as rebuildable cache.
-- **WASM size budget** -- Adding RVF WASM (~46 KB) to rvlite's existing WASM bundle (~850 KB) is acceptable (<6% increase).
+| Risk | Severity | Mitigation |
+|------|----------|------------|
+| IndexedDB + RVF sync crash | High | Write RVF first (append-only, crash-safe). IndexedDB is rebuildable. Epoch reconciliation on startup. |
+| WASM size budget | Low | Adding ~46 KB to rvlite's ~850 KB bundle is <6% increase. |
+| Concurrent open in two tabs | Medium | Writer lease with heartbeat in IndexedDB. Stale lease (>30s) is recoverable. Second writer gets clear error. |
+| Version skew across packages | Medium | RVF header version gate. CI compatibility test matrix: WASM-written files must be readable by Node and vice versa. |
+| Migration data loss | Medium | Migrate tool has `--dry-run` and `--verify` modes. Idempotent. Never deletes source data. |
+
+---
+
+## Decision Matrix: Hybrid Persistence
+
+| Criteria | Option A: Vectors in RVF, metadata in IndexedDB | Option B: Everything in IndexedDB |
+|----------|----|----|
+| **Durability** | High (RVF is append-only, crash-safe) | Medium (IndexedDB has no crash ordering guarantee) |
+| **Simplicity** | Medium (two stores, epoch sync) | High (single store) |
+| **Performance** | High (SIMD-aligned slabs, HNSW indexing) | Medium (JSON serialization) |
+| **Recoverability** | High (rebuild metadata from RVF) | Medium (no independent source of truth) |
+| **User surprise** | Medium (two persistence targets) | Low (familiar single-store model) |
+
+**Decision**: Option A wins if we implement epoch reconciliation and writer leases (both specified in this ADR).
+
+---
+
+## Failure Modes to Test
+
+| # | Scenario | Expected Behavior |
+|---|----------|-------------------|
+| 1 | Power loss during ingest | Reopen succeeds. Last committed epoch is consistent. Partial append is invisible. |
+| 2 | Crash between RVF write and metadata write | Next open reconciles by epoch. Metadata rebuilt from RVF. |
+| 3 | Two writers attempting to open same store | Second writer gets `ELOCK` error with clear message. |
+| 4 | Migration rerun on already-migrated store | No-op. No duplication. Exit code 0. |
+| 5 | Write in Node, read in browser, write, read back in Node | Top-10 nearest neighbors match within 1e-6 distance tolerance. |
+| 6 | Browser refresh during write | Writer lease expires. Next open acquires fresh lease. No corruption. |
+| 7 | Mixed RVF versions (v1 file opened by v2 reader) | Forward-compatible read succeeds. v1 file opened by v0 reader fails with upgrade hint. |
+
+---
+
+## Implementation Checklist
+
+### npx ruvector (Phase 1)
+
+- [ ] Add backend adapter matching existing core interface exactly
+- [ ] Add `rvf` CLI group with create, ingest, query, status, segments, derive, compact, export
+- [ ] Add hooks `--backend rvf` flag requiring explicit selection (no silent fallback)
+- [ ] Smoke test: create, ingest, query, restart process, query again -- same results
+- [ ] Error messages for missing `@ruvector/rvf` include install command
+
+### rvlite (Phase 2)
+
+- [ ] Feature-flag RVF backend in Rust; default stays unchanged
+- [ ] Define and implement epoch reconciliation algorithm
+- [ ] Add `rvf-migrate` command with `--dry-run` and `--verify` modes
+- [ ] Add `rvf-rebuild` command to reconstruct metadata from RVF
+- [ ] Writer lease implementation (file lock on Node, heartbeat on browser)
+- [ ] Direct ID mapping: RVF vector IDs = SQL primary keys (no mapping layer)
+
+### Shared (Phase 3)
+
+- [ ] Both packages import same WASM module entry point
+- [ ] CI build step fails if two copies of WASM artifact are present
+- [ ] MCP server rvlite tools are read-only by default, write requires flag
+- [ ] Cross-platform compatibility test: WASM write -> Node read -> WASM read
+
+---
+
+## Acceptance Test
+
+A clean machine with no prior data can:
+1. `ruvector rvf create test.rvf --dimension 384`
+2. `ruvector rvf ingest test.rvf --input vectors.json`
+3. `ruvector rvf query test.rvf --vector "..." --k 10` -- returns results
+4. Restart the process
+5. `ruvector rvf query test.rvf --vector "..." --k 10` -- same results (persistence verified)
+6. `rvlite rvf-migrate` converts an existing rvlite store
+7. Open the migrated store in a browser via WASM
+8. Top-10 nearest neighbors match Node results within 1e-6 distance tolerance
+
+---
 
 ## Implementation Files
 
@@ -170,8 +320,8 @@ Integrate `@ruvector/rvf` (and its WASM backend) into both packages in three pha
 | File | Action |
 |------|--------|
 | `npm/packages/ruvector/package.json` | Edit -- add `@ruvector/rvf` optional dep |
-| `npm/packages/ruvector/src/index.ts` | Edit -- add RVF to platform detection |
-| `npm/packages/ruvector/src/core/rvf-wrapper.ts` | Create -- RVF wrapper module |
+| `npm/packages/ruvector/src/index.ts` | Edit -- add RVF to platform detection with explicit backend support |
+| `npm/packages/ruvector/src/core/rvf-wrapper.ts` | Create -- RVF wrapper matching core interface |
 | `npm/packages/ruvector/src/core/index.ts` | Edit -- export rvf-wrapper |
 | `npm/packages/ruvector/bin/cli.js` | Edit -- add `rvf` command group (~line 7010) |
 
@@ -179,16 +329,19 @@ Integrate `@ruvector/rvf` (and its WASM backend) into both packages in three pha
 
 | File | Action |
 |------|--------|
-| `crates/rvlite/Cargo.toml` | Edit -- add optional `rvf-runtime` dep |
+| `crates/rvlite/Cargo.toml` | Edit -- add optional `rvf-runtime` dep behind feature flag |
 | `crates/rvlite/src/lib.rs` | Edit -- add RVF backend behind feature flag |
+| `crates/rvlite/src/storage/epoch.rs` | Create -- epoch reconciliation algorithm |
 | `npm/packages/rvlite/package.json` | Edit -- add `@ruvector/rvf-wasm` optional dep |
-| `npm/packages/rvlite/src/index.ts` | Edit -- add `createWithRvf()` factory |
+| `npm/packages/rvlite/src/index.ts` | Edit -- add `createWithRvf()` factory, migrate, rebuild |
 
 ### Shared (Phase 3)
 
 | File | Action |
 |------|--------|
-| `npm/packages/rvf-mcp-server/src/server.ts` | Edit -- add rvlite query tools |
+| `npm/packages/rvf-mcp-server/src/server.ts` | Edit -- add rvlite query tools (read-only default) |
+
+---
 
 ## Verification
 
@@ -208,4 +361,11 @@ cargo test -p rvlite --features rvf-backend
 # Phase 3: Shared WASM
 # Verify single @ruvector/rvf-wasm instance in node_modules
 npm ls @ruvector/rvf-wasm
+
+# Failure mode tests
+cargo test --test rvf_crash_recovery
+cargo test --test rvf_writer_lease
+cargo test --test rvf_epoch_reconciliation
+cargo test --test rvf_cross_platform_compat
+cargo test --test rvf_migration_idempotent
 ```
