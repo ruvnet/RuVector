@@ -79,6 +79,7 @@ export interface RvfBackend {
   membershipCount(): Promise<number | null>;
   // Witness
   lastWitnessHash(): Promise<Uint8Array>;
+  queryAudited(vector: Float32Array, k: number, options?: RvfQueryOptions): Promise<RvfSearchResult[]>;
 }
 
 // ---------------------------------------------------------------------------
@@ -488,6 +489,21 @@ export class NodeBackend implements RvfBackend {
       throw RvfError.fromNative(err);
     }
   }
+
+  async queryAudited(vector: Float32Array, k: number, options?: RvfQueryOptions): Promise<RvfSearchResult[]> {
+    this.ensureHandle();
+    try {
+      const f64Vec = Array.from(vector).map(v => v as number);
+      const efSearch = options?.efSearch ?? 100;
+      const results = this.handle.queryAudited(f64Vec, k, efSearch);
+      return results.map((r: { id: number; distance: number }) => ({
+        id: String(r.id),
+        distance: r.distance,
+      }));
+    } catch (err) {
+      throw RvfError.fromNative(err);
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -691,6 +707,7 @@ export class WasmBackend implements RvfBackend {
   async membershipRemove(): Promise<void> { throw new RvfError(RvfErrorCode.BackendNotFound, 'membershipRemove not supported in WASM backend'); }
   async membershipCount(): Promise<number | null> { throw new RvfError(RvfErrorCode.BackendNotFound, 'membershipCount not supported in WASM backend'); }
   async lastWitnessHash(): Promise<Uint8Array> { throw new RvfError(RvfErrorCode.BackendNotFound, 'lastWitnessHash not supported in WASM backend'); }
+  async queryAudited(): Promise<RvfSearchResult[]> { throw new RvfError(RvfErrorCode.BackendNotFound, 'queryAudited not supported in WASM backend'); }
 }
 
 // ---------------------------------------------------------------------------

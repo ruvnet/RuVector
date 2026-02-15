@@ -364,6 +364,22 @@ export class RvfDatabase {
     return this.backend.lastWitnessHash();
   }
 
+  /**
+   * Query for the k nearest neighbors with an audit witness trail.
+   *
+   * Behaves identically to `query()` but appends a WITNESS_SEG recording
+   * the query operation for tamper-evident audit logging.
+   */
+  async queryAudited(
+    vector: Float32Array | number[],
+    k: number,
+    options?: RvfQueryOptions,
+  ): Promise<RvfSearchResult[]> {
+    this.ensureOpen();
+    const f32 = vector instanceof Float32Array ? vector : new Float32Array(vector);
+    return this.backend.queryAudited(f32, k, options);
+  }
+
   // -----------------------------------------------------------------------
   // Lifecycle
   // -----------------------------------------------------------------------
