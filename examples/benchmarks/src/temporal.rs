@@ -577,20 +577,25 @@ pub struct SkipModeStats {
     pub successes: usize,
     pub total_steps: usize,
     pub early_commit_wrongs: usize,
+    /// Accumulated normalized early-commit penalty (remaining/initial fractions)
+    pub early_commit_penalty_sum: f64,
 }
 
 impl SkipModeStats {
-    /// Reward: balances accuracy, cost, and early-commit safety.
+    /// Reward: balances accuracy (50%), cost (30%), and robustness (20%).
+    ///
+    /// Robustness = inverse of early-commit penalty rate.
+    /// This is the signal that drives Mode C to prefer Hybrid/None
+    /// in distractor-heavy contexts where Weekday commits early and wrong.
     pub fn reward(&self) -> f64 {
         if self.attempts == 0 { return 0.5; }
         let accuracy = self.successes as f64 / self.attempts as f64;
         let cost_bonus = 0.3 * (1.0 - (self.total_steps as f64 / self.attempts as f64) / 200.0).max(0.0);
-        let penalty = if self.early_commit_wrongs > 0 {
-            0.2 * (self.early_commit_wrongs as f64 / self.attempts as f64)
-        } else {
-            0.0
-        };
-        (accuracy * 0.5 + cost_bonus - penalty).max(0.0)
+        // Robustness penalty: normalized penalty per attempt, scaled to 0..0.2
+        // Higher penalty_sum → worse robustness → lower reward
+        let avg_penalty = self.early_commit_penalty_sum / self.attempts as f64;
+        let robustness_penalty = 0.2 * avg_penalty.min(1.0);
+        (accuracy * 0.5 + cost_bonus - robustness_penalty).max(0.0)
     }
 }
 
@@ -626,15 +631,20 @@ impl PolicyKernel {
     }
 
     /// Fixed baseline policy (Mode A):
-    /// Uses risk_score = R + k*D where R=posterior_range, D=distractor_count.
+    /// Uses risk_score = R - k*D where R=posterior_range, D=distractor_count.
     ///
     /// Constants (fixed, not learned — Mode A is the control arm):
-    ///   k = 30 (one distractor raises perceived risk by ~30 range-days)
-    ///   T = 140 (threshold: skip only when range is large enough to justify it)
+    ///   k = 30 (one distractor reduces effective range by ~30 days)
+    ///   T = 140 (threshold: skip only when effective range justifies it)
+    ///
+    /// Rationale: distractors make the search space noisier, so a rational
+    /// fixed agent should be *more cautious* (less likely to skip) when
+    /// distractors are present. This is the conservative-under-distractors
+    /// baseline that Mode C must learn to outperform.
     ///
     /// Decision:
     ///   If no DayOfWeek: None (nothing to skip to)
-    ///   Else risk_score = R + 30*D
+    ///   Else risk_score = R - 30*D
     ///     risk_score >= 140 → Weekday (large range, few distractors)
     ///     risk_score <  140 → None    (small range or distractor-heavy)
     const BASELINE_K: usize = 30;
@@ -644,8 +654,9 @@ impl PolicyKernel {
         if !ctx.has_day_of_week {
             return SkipMode::None;
         }
-        let risk_score = ctx.posterior_range + Self::BASELINE_K * ctx.distractor_count;
-        if risk_score >= Self::BASELINE_T {
+        let effective_range = ctx.posterior_range
+            .saturating_sub(Self::BASELINE_K * ctx.distractor_count);
+        if effective_range >= Self::BASELINE_T {
             SkipMode::Weekday
         } else {
             SkipMode::None
@@ -732,7 +743,10 @@ impl PolicyKernel {
                 // Fallback: use step-based estimate
                 1.0 - (outcome.steps as f64 / 200.0).min(1.0)
             };
+            // Wire penalty into BOTH global accumulator AND per-arm stats
+            // so the bandit reward function can see it and learn from it
             self.early_commit_penalties += penalty;
+            stats.early_commit_penalty_sum += penalty;
         }
         self.early_commits_total += 1;
     }
@@ -749,15 +763,23 @@ impl PolicyKernel {
     }
 
     /// Build a context bucket key for stats grouping.
+    ///
+    /// 3 range × 3 distractor × 2 noise = 18 buckets.
+    /// Fine enough for the bandit to learn per-context preferences,
+    /// coarse enough to accumulate enough samples per bucket.
     fn context_bucket(ctx: &PolicyContext) -> String {
         let range_bucket = match ctx.posterior_range {
-            0..=30 => "small",
-            31..=100 => "medium",
-            101..=300 => "large",
-            _ => "xlarge",
+            0..=60 => "small",
+            61..=180 => "medium",
+            _ => "large",
         };
-        let distractor_bucket = if ctx.distractor_count == 0 { "clean" } else { "distracted" };
-        format!("{}:{}", range_bucket, distractor_bucket)
+        let distractor_bucket = match ctx.distractor_count {
+            0 => "clean",
+            1 => "some",
+            _ => "heavy",
+        };
+        let noise_bucket = if ctx.noisy { "noisy" } else { "clean" };
+        format!("{}:{}:{}", range_bucket, distractor_bucket, noise_bucket)
     }
 
     fn next_f64(&mut self) -> f64 {
@@ -1199,6 +1221,8 @@ pub struct AdaptiveSolver {
     pub router_enabled: bool,
     /// PolicyKernel for skip-mode decisions (all modes use this)
     pub policy_kernel: PolicyKernel,
+    /// Whether the current puzzle is noisy (set by caller before solve)
+    pub noisy_hint: bool,
 }
 
 impl Default for AdaptiveSolver {
@@ -1221,6 +1245,7 @@ impl AdaptiveSolver {
             router: StrategyRouter::new(),
             router_enabled: false,
             policy_kernel: PolicyKernel::new(),
+            noisy_hint: false,
         }
     }
 
@@ -1237,6 +1262,7 @@ impl AdaptiveSolver {
             router: StrategyRouter::new(),
             router_enabled: false,
             policy_kernel: PolicyKernel::new(),
+            noisy_hint: false,
         }
     }
 
@@ -1274,7 +1300,7 @@ impl AdaptiveSolver {
             posterior_range,
             distractor_count,
             has_day_of_week: has_dow,
-            noisy: false,
+            noisy: self.noisy_hint,
             difficulty: dv,
             recent_false_hit_rate: self.policy_kernel.early_commit_rate(),
         }
