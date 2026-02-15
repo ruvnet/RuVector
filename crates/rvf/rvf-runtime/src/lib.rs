@@ -23,6 +23,7 @@ pub mod filter;
 pub mod locking;
 pub mod membership;
 pub mod options;
+pub mod qr_seed;
 pub mod read_path;
 pub mod safety_net;
 pub mod status;
@@ -42,6 +43,10 @@ pub use membership::MembershipFilter;
 pub use options::{
     CompactionResult, DeleteResult, IngestResult, MetadataEntry, MetadataValue, QueryOptions,
     QualityEnvelope, RvfOptions, SearchResult, WitnessConfig,
+};
+pub use qr_seed::{
+    BootstrapProgress, DownloadManifest, ParsedSeed, SeedBuilder, SeedError,
+    make_host_entry,
 };
 pub use safety_net::{
     selective_safety_net_scan, should_activate_safety_net, Candidate, SafetyNetResult,

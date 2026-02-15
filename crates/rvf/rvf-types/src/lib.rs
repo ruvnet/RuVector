@@ -33,6 +33,7 @@ pub mod signature;
 pub mod attestation;
 pub mod lineage;
 pub mod quality;
+pub mod qr_seed;
 pub mod security;
 pub mod wasm_bootstrap;
 
@@ -77,6 +78,12 @@ pub use quality::{
     BudgetReport, BudgetType, DegradationReason, DegradationReport, FallbackPath,
     IndexLayersUsed, QualityPreference, ResponseQuality, RetrievalQuality,
     SafetyNetBudget, SearchEvidenceSummary, derive_response_quality,
+};
+pub use qr_seed::{
+    HostEntry, LayerEntry, SeedHeader, SEED_MAGIC, QR_MAX_BYTES,
+    SEED_HEADER_SIZE, SEED_HAS_MICROKERNEL, SEED_HAS_DOWNLOAD,
+    SEED_SIGNED, SEED_OFFLINE_CAPABLE, SEED_ENCRYPTED, SEED_COMPRESSED,
+    SEED_HAS_VECTORS, SEED_STREAM_UPGRADE,
 };
 pub use security::{HardeningFields, SecurityError, SecurityPolicy};
 pub use wasm_bootstrap::{
