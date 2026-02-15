@@ -78,6 +78,7 @@ coordination/orchestration/*
 *.sqlite-journal
 *.sqlite-wal
 claude-flow
+!crates/rvf/rvf-adapters/claude-flow/
 # Removed Windows wrapper files per user request
 hive-mind-prompt-*.txt
 
