@@ -9402,6 +9402,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "rvf-adapter-agentdb"
+version = "0.1.0"
+dependencies = [
+ "rvf-index",
+ "rvf-runtime",
+ "rvf-types",
+ "tempfile",
+]
+
+[[package]]
+name = "rvf-adapter-claude-flow"
+version = "0.1.0"
+dependencies = [
+ "rvf-crypto",
+ "rvf-runtime",
+ "rvf-types",
+ "tempfile",
+]
+
+[[package]]
 name = "rvf-adapter-rvlite"
 version = "0.1.0"
 dependencies = [
@@ -9503,7 +9523,7 @@ dependencies = [
 
 [[package]]
 name = "rvf-kernel"
-version = "0.2.0"
+version = "0.1.0"
 dependencies = [
  "flate2",
  "rvf-types",
@@ -9528,6 +9548,19 @@ version = "0.1.0"
 dependencies = [
  "crc32c",
  "rvf-types",
+ "tempfile",
+]
+
+[[package]]
+name = "rvf-mcp"
+version = "0.1.0"
+dependencies = [
+ "rvf-adapter-agentdb",
+ "rvf-adapter-claude-flow",
+ "rvf-runtime",
+ "rvf-types",
+ "serde",
+ "serde_json",
  "tempfile",
 ]
 

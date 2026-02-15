@@ -95,6 +95,9 @@ members = [
     "crates/rvf/rvf-cli",
     "crates/rvf/tests/rvf-integration",
     "crates/rvf/benches",
+    "crates/rvf/rvf-adapters/claude-flow",
+    "crates/rvf/rvf-adapters/agentdb",
+    "crates/rvf/rvf-mcp",
 ]
 resolver = "2"
 
