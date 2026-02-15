@@ -202,6 +202,21 @@ export interface RvfSegmentInfo {
 }
 
 // ---------------------------------------------------------------------------
+// COW stats
+// ---------------------------------------------------------------------------
+
+/** Copy-on-write branching statistics for a store. */
+export interface CowStats {
+  clusterCount: number;
+  localClusterCount: number;
+  clusterSize: number;
+  vectorsPerCluster: number;
+  frozen: boolean;
+  snapshotEpoch: number;
+  pendingWrites: number;
+}
+
+// ---------------------------------------------------------------------------
 // Backend identifier
 // ---------------------------------------------------------------------------
 

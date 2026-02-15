@@ -10,6 +10,7 @@
  */
 
 import { createServer } from './transports.js';
+import type { RvfMcpServer } from './server.js';
 
 function parseArgs(): { transport: 'stdio' | 'sse'; port: number } {
   const args = process.argv.slice(2);
@@ -80,18 +81,21 @@ async function main(): Promise<void> {
     console.error('RVF MCP Server starting (stdio transport)...');
   }
 
-  await createServer(transport, port);
+  const server: RvfMcpServer = await createServer(transport, port);
 
-  // Keep process alive
-  process.on('SIGINT', () => {
-    console.error('\nRVF MCP Server shutting down...');
+  // Graceful shutdown: flush native database handles before exit
+  async function shutdown(signal: string): Promise<void> {
+    console.error(`\nRVF MCP Server shutting down (${signal})...`);
+    try {
+      await server.close();
+    } catch (err) {
+      console.error('Error during shutdown:', err);
+    }
     process.exit(0);
-  });
+  }
 
-  process.on('SIGTERM', () => {
-    console.error('RVF MCP Server terminated.');
-    process.exit(0);
-  });
+  process.on('SIGINT', () => { shutdown('SIGINT'); });
+  process.on('SIGTERM', () => { shutdown('SIGTERM'); });
 }
 
 main().catch((err) => {

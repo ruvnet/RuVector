@@ -12,6 +12,7 @@ import type {
   RvfEbpfData,
   RvfSegmentInfo,
   BackendType,
+  CowStats,
 } from './types';
 import type { RvfBackend } from './backend';
 import { resolveBackend } from './backend';
@@ -256,6 +257,111 @@ export class RvfDatabase {
   async dimension(): Promise<number> {
     this.ensureOpen();
     return this.backend.dimension();
+  }
+
+  // -----------------------------------------------------------------------
+  // META_SEG KV
+  // -----------------------------------------------------------------------
+
+  /** Store a binary value under the given key in the META_SEG segment. */
+  async putMeta(key: string, value: Uint8Array): Promise<void> {
+    this.ensureOpen();
+    return this.backend.putMeta(key, value);
+  }
+
+  /** Retrieve a binary value by key from the META_SEG segment. */
+  async getMeta(key: string): Promise<Uint8Array | null> {
+    this.ensureOpen();
+    return this.backend.getMeta(key);
+  }
+
+  /** Delete a key from the META_SEG segment. Returns true if the key existed. */
+  async deleteMeta(key: string): Promise<boolean> {
+    this.ensureOpen();
+    return this.backend.deleteMeta(key);
+  }
+
+  /** List all keys currently stored in the META_SEG segment. */
+  async listMetaKeys(): Promise<string[]> {
+    this.ensureOpen();
+    return this.backend.listMetaKeys();
+  }
+
+  // -----------------------------------------------------------------------
+  // COW Branching
+  // -----------------------------------------------------------------------
+
+  /**
+   * Create a copy-on-write branch of this store at `childPath`.
+   *
+   * Returns a new `RvfDatabase` wrapping the branched child store.
+   */
+  async branch(childPath: string): Promise<RvfDatabase> {
+    this.ensureOpen();
+    const childBackend = await this.backend.branch(childPath);
+    return RvfDatabase.fromBackend(childBackend);
+  }
+
+  /** Freeze this store, making it immutable and eligible as a COW parent. */
+  async freeze(): Promise<void> {
+    this.ensureOpen();
+    return this.backend.freeze();
+  }
+
+  /** Get COW branching statistics. Returns null if not a COW store. */
+  async cowStats(): Promise<CowStats | null> {
+    this.ensureOpen();
+    return this.backend.cowStats();
+  }
+
+  /** Returns true if this store is a COW child (branched from a parent). */
+  async isCowChild(): Promise<boolean> {
+    this.ensureOpen();
+    return this.backend.isCowChild();
+  }
+
+  /** Get the file path of the parent store, or null if this is a root store. */
+  async parentStorePath(): Promise<string | null> {
+    this.ensureOpen();
+    return this.backend.parentStorePath();
+  }
+
+  // -----------------------------------------------------------------------
+  // Membership Filter
+  // -----------------------------------------------------------------------
+
+  /** Check whether the given vector ID is in the membership filter. */
+  async membershipContains(id: number): Promise<boolean> {
+    this.ensureOpen();
+    return this.backend.membershipContains(id);
+  }
+
+  /** Add a vector ID to the membership filter. */
+  async membershipAdd(id: number): Promise<void> {
+    this.ensureOpen();
+    return this.backend.membershipAdd(id);
+  }
+
+  /** Remove a vector ID from the membership filter. */
+  async membershipRemove(id: number): Promise<void> {
+    this.ensureOpen();
+    return this.backend.membershipRemove(id);
+  }
+
+  /** Get the number of entries in the membership filter, or null if unsupported. */
+  async membershipCount(): Promise<number | null> {
+    this.ensureOpen();
+    return this.backend.membershipCount();
+  }
+
+  // -----------------------------------------------------------------------
+  // Witness Chain
+  // -----------------------------------------------------------------------
+
+  /** Get the last witness hash from the integrity chain. */
+  async lastWitnessHash(): Promise<Uint8Array> {
+    this.ensureOpen();
+    return this.backend.lastWitnessHash();
   }
 
   // -----------------------------------------------------------------------

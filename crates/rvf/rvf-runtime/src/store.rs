@@ -3,7 +3,7 @@
 //! Ties together the write path, read path, indexing, deletion, and
 //! compaction into a single cohesive store.
 
-use std::collections::BinaryHeap;
+use std::collections::{BinaryHeap, HashMap};
 use std::fs::{self, File, OpenOptions};
 use std::io::{BufReader, BufWriter, Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
@@ -66,6 +66,13 @@ pub struct RvfStore {
     /// Hash of the last witness entry, used to chain-link successive witnesses.
     /// All zeros when no witness has been written yet (genesis).
     last_witness_hash: [u8; 32],
+    /// In-memory key-value metadata store (META_SEG KV layer).
+    ///
+    /// This is separate from the `metadata: MetadataStore` field which holds
+    /// per-vector metadata used for filtered queries. `meta_kv` stores
+    /// store-level key-value pairs (e.g. schema version, config, user tags)
+    /// persisted in META_SEG segments on disk.
+    meta_kv: HashMap<String, Vec<u8>>,
 }
 
 impl RvfStore {
@@ -116,6 +123,7 @@ impl RvfStore {
             membership_filter: None,
             parent_path: None,
             last_witness_hash: [0u8; 32],
+            meta_kv: HashMap::new(),
         };
 
         store.write_manifest()?;
@@ -167,6 +175,7 @@ impl RvfStore {
             membership_filter: None,
             parent_path: None,
             last_witness_hash: [0u8; 32],
+            meta_kv: HashMap::new(),
         };
 
         store.boot()?;
@@ -213,6 +222,7 @@ impl RvfStore {
             membership_filter: None,
             parent_path: None,
             last_witness_hash: [0u8; 32],
+            meta_kv: HashMap::new(),
         };
 
         store.boot()?;
@@ -1137,6 +1147,7 @@ impl RvfStore {
             membership_filter: None,
             parent_path: Some(self.path.clone()),
             last_witness_hash: [0u8; 32],
+            meta_kv: HashMap::new(),
         };
 
         store.write_manifest()?;
@@ -1165,6 +1176,95 @@ impl RvfStore {
     /// Return the hash of the last witness entry (for external verification).
     pub fn last_witness_hash(&self) -> &[u8; 32] {
         &self.last_witness_hash
+    }
+
+    // ── META_SEG KV API ─────────────────────────────────────────────
+
+    /// Store a key-value pair in store-level metadata (persisted in META_SEG).
+    ///
+    /// Writes to disk immediately. For batched writes, use multiple
+    /// in-memory mutations followed by [`flush_meta`].
+    ///
+    /// Returns an error if the store is read-only, or if the key exceeds the
+    /// wire format limit of 65,535 bytes (u16 key length field).
+    pub fn put_meta(&mut self, key: &str, value: &[u8]) -> Result<(), RvfError> {
+        if key.len() > u16::MAX as usize {
+            return Err(err(ErrorCode::InvalidManifest)); // key too long for META_SEG wire format
+        }
+        if self.read_only {
+            return Err(err(ErrorCode::ReadOnly));
+        }
+        self.meta_kv.insert(key.to_string(), value.to_vec());
+        self.write_meta_snapshot()
+    }
+
+    /// Retrieve a value by key from store-level metadata.
+    ///
+    /// Returns `None` if the key does not exist.
+    pub fn get_meta(&self, key: &str) -> Option<&[u8]> {
+        self.meta_kv.get(key).map(|v| v.as_slice())
+    }
+
+    /// Remove a key from store-level metadata. Returns `true` if the key existed.
+    ///
+    /// Only writes to disk when the key actually existed. Returns an error if
+    /// the store is read-only.
+    pub fn delete_meta(&mut self, key: &str) -> Result<bool, RvfError> {
+        if self.read_only {
+            return Err(err(ErrorCode::ReadOnly));
+        }
+        let existed = self.meta_kv.remove(key).is_some();
+        if existed {
+            self.write_meta_snapshot()?;
+        }
+        Ok(existed)
+    }
+
+    /// List all keys in store-level metadata.
+    ///
+    /// The returned order is arbitrary (HashMap iteration order).
+    pub fn list_meta_keys(&self) -> Vec<&str> {
+        self.meta_kv.keys().map(|s| s.as_str()).collect()
+    }
+
+    /// Write all pending metadata to disk as a META_SEG snapshot.
+    ///
+    /// Use this after batching multiple in-memory metadata mutations to
+    /// persist them in a single disk write.
+    pub fn flush_meta(&mut self) -> Result<(), RvfError> {
+        if self.read_only {
+            return Err(err(ErrorCode::ReadOnly));
+        }
+        self.write_meta_snapshot()
+    }
+
+    /// Write the entire `meta_kv` HashMap as a META_SEG snapshot.
+    ///
+    /// Serializes all key-value pairs into the META_SEG v1 wire format,
+    /// appends a new META_SEG segment to the file, and rewrites the manifest.
+    /// The total serialized payload is capped at 16 MB to prevent unbounded
+    /// growth.
+    fn write_meta_snapshot(&mut self) -> Result<(), RvfError> {
+        // Estimate payload size to guard against unbounded growth.
+        let estimated_size: usize = self.meta_kv.iter()
+            .map(|(k, v)| 2 + k.len() + 4 + v.len()) // key_len(u16) + key + val_len(u32) + val
+            .sum::<usize>() + 5; // version(1) + count(4)
+        if estimated_size > 16 * 1024 * 1024 {
+            return Err(err(ErrorCode::InvalidManifest)); // META_SEG payload would exceed 16MB limit
+        }
+
+        let payload = serialize_kv_meta(&self.meta_kv);
+        let writer = self.seg_writer.as_mut().ok_or_else(|| err(ErrorCode::InvalidManifest))?;
+        let (seg_id, offset) = {
+            let mut buf_writer = BufWriter::new(&self.file);
+            buf_writer.seek(SeekFrom::End(0)).map_err(|_| err(ErrorCode::FsyncFailed))?;
+            writer.write_meta_seg(&mut buf_writer, &payload)
+                .map_err(|_| err(ErrorCode::FsyncFailed))?
+        };
+        self.segment_dir.push((seg_id, offset, payload.len() as u64, SegmentType::Meta as u8));
+        self.file.sync_all().map_err(|_| err(ErrorCode::FsyncFailed))?;
+        self.epoch += 1;
+        self.write_manifest()
     }
 
     // ── Internal methods ──────────────────────────────────────────────
@@ -1265,6 +1365,19 @@ impl RvfStore {
         // Restore FileIdentity from manifest if present
         if let Some(fi) = manifest.file_identity {
             self.file_identity = fi;
+        }
+
+        // Load store-level KV metadata from latest META_SEG
+        let meta_entries: Vec<_> = self.segment_dir.iter()
+            .filter(|&&(_, _, _, seg_type)| seg_type == SegmentType::Meta as u8)
+            .collect();
+        if let Some(&&(_, offset, _, _)) = meta_entries.iter().max_by_key(|&&&(seg_id, _, _, _)| seg_id) {
+            let mut reader = BufReader::new(&self.file);
+            if let Ok((_hdr, payload)) = read_path::read_segment_payload(&mut reader, offset) {
+                if let Some(map) = deserialize_kv_meta(&payload) {
+                    self.meta_kv = map;
+                }
+            }
         }
 
         if !self.read_only {
@@ -1394,6 +1507,51 @@ pub(crate) fn simple_shake256_256(data: &[u8]) -> [u8; 32] {
         out[j] = out[j].wrapping_add(out[i % 32].rotate_left(3));
     }
     out
+}
+
+/// Serialize a HashMap<String, Vec<u8>> into the META_SEG wire format v1.
+///
+/// Wire format: version(u8=1) | count(u32 LE) |
+///   [key_len(u16 LE) key(UTF-8) value_len(u32 LE) value(bytes)]*
+fn serialize_kv_meta(map: &HashMap<String, Vec<u8>>) -> Vec<u8> {
+    let mut buf = Vec::new();
+    buf.push(1u8); // version
+    buf.extend_from_slice(&(map.len() as u32).to_le_bytes());
+    for (key, value) in map {
+        buf.extend_from_slice(&(key.len() as u16).to_le_bytes());
+        buf.extend_from_slice(key.as_bytes());
+        buf.extend_from_slice(&(value.len() as u32).to_le_bytes());
+        buf.extend_from_slice(value);
+    }
+    buf
+}
+
+/// Deserialize META_SEG wire format v1 back into a HashMap.
+fn deserialize_kv_meta(payload: &[u8]) -> Option<HashMap<String, Vec<u8>>> {
+    if payload.is_empty() { return None; }
+    let mut pos = 0;
+    if payload[pos] != 1 { return None; } // version check
+    pos += 1;
+    if pos + 4 > payload.len() { return None; }
+    let count = u32::from_le_bytes(payload[pos..pos+4].try_into().ok()?) as usize;
+    pos += 4;
+    let mut map = HashMap::with_capacity(count);
+    for _ in 0..count {
+        if pos + 2 > payload.len() { return None; }
+        let key_len = u16::from_le_bytes(payload[pos..pos+2].try_into().ok()?) as usize;
+        pos += 2;
+        if pos + key_len > payload.len() { return None; }
+        let key = std::str::from_utf8(&payload[pos..pos+key_len]).ok()?.to_string();
+        pos += key_len;
+        if pos + 4 > payload.len() { return None; }
+        let val_len = u32::from_le_bytes(payload[pos..pos+4].try_into().ok()?) as usize;
+        pos += 4;
+        if pos + val_len > payload.len() { return None; }
+        let value = payload[pos..pos+val_len].to_vec();
+        pos += val_len;
+        map.insert(key, value);
+    }
+    Some(map)
 }
 
 /// Scan raw file bytes for segment headers whose type should be preserved
@@ -2145,6 +2303,283 @@ mod tests {
         assert_ne!(store.last_witness_hash(), &[0u8; 32]);
 
         store.close().unwrap();
+    }
+
+    // ── META_SEG KV API tests (RED phase — methods not yet implemented) ──
+
+    #[test]
+    fn test_put_get_meta_round_trip() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("meta_rt.rvf");
+
+        let options = RvfOptions {
+            dimension: 4,
+            metric: DistanceMetric::L2,
+            ..Default::default()
+        };
+
+        let mut store = RvfStore::create(&path, options).unwrap();
+
+        store.put_meta("key1", b"value1").unwrap();
+
+        let val = store.get_meta("key1");
+        assert_eq!(val, Some(b"value1".as_slice()));
+
+        store.close().unwrap();
+    }
+
+    #[test]
+    fn test_get_meta_returns_none_missing() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("meta_none.rvf");
+
+        let options = RvfOptions {
+            dimension: 4,
+            metric: DistanceMetric::L2,
+            ..Default::default()
+        };
+
+        let store = RvfStore::create(&path, options).unwrap();
+
+        assert_eq!(store.get_meta("nonexistent"), None);
+
+        store.close().unwrap();
+    }
+
+    #[test]
+    fn test_put_meta_overwrites() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("meta_overwrite.rvf");
+
+        let options = RvfOptions {
+            dimension: 4,
+            metric: DistanceMetric::L2,
+            ..Default::default()
+        };
+
+        let mut store = RvfStore::create(&path, options).unwrap();
+
+        store.put_meta("k", b"v1").unwrap();
+        store.put_meta("k", b"v2").unwrap();
+
+        let val = store.get_meta("k");
+        assert_eq!(val, Some(b"v2".as_slice()));
+
+        store.close().unwrap();
+    }
+
+    #[test]
+    fn test_delete_meta_removes_key() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("meta_delete.rvf");
+
+        let options = RvfOptions {
+            dimension: 4,
+            metric: DistanceMetric::L2,
+            ..Default::default()
+        };
+
+        let mut store = RvfStore::create(&path, options).unwrap();
+
+        store.put_meta("k", b"v").unwrap();
+        let deleted = store.delete_meta("k").unwrap();
+        assert!(deleted);
+
+        assert_eq!(store.get_meta("k"), None);
+
+        store.close().unwrap();
+    }
+
+    #[test]
+    fn test_delete_meta_missing_returns_false() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("meta_del_miss.rvf");
+
+        let options = RvfOptions {
+            dimension: 4,
+            metric: DistanceMetric::L2,
+            ..Default::default()
+        };
+
+        let mut store = RvfStore::create(&path, options).unwrap();
+
+        let deleted = store.delete_meta("nonexistent").unwrap();
+        assert!(!deleted);
+
+        store.close().unwrap();
+    }
+
+    #[test]
+    fn test_list_meta_keys() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("meta_list.rvf");
+
+        let options = RvfOptions {
+            dimension: 4,
+            metric: DistanceMetric::L2,
+            ..Default::default()
+        };
+
+        let mut store = RvfStore::create(&path, options).unwrap();
+
+        store.put_meta("beta", b"2").unwrap();
+        store.put_meta("alpha", b"1").unwrap();
+        store.put_meta("gamma", b"3").unwrap();
+
+        let mut keys: Vec<&str> = store.list_meta_keys();
+        keys.sort();
+        assert_eq!(keys, vec!["alpha", "beta", "gamma"]);
+
+        store.close().unwrap();
+    }
+
+    #[test]
+    fn test_meta_persists_through_reopen() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("meta_persist.rvf");
+
+        let options = RvfOptions {
+            dimension: 4,
+            metric: DistanceMetric::L2,
+            ..Default::default()
+        };
+
+        {
+            let mut store = RvfStore::create(&path, options).unwrap();
+            store.put_meta("persist_key", b"persist_value").unwrap();
+            store.close().unwrap();
+        }
+
+        {
+            let store = RvfStore::open(&path).unwrap();
+            let val = store.get_meta("persist_key");
+            assert_eq!(val, Some(b"persist_value".as_slice()));
+            store.close().unwrap();
+        }
+    }
+
+    #[test]
+    fn test_meta_survives_compaction() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("meta_compact.rvf");
+
+        let options = RvfOptions {
+            dimension: 4,
+            metric: DistanceMetric::L2,
+            ..Default::default()
+        };
+
+        let mut store = RvfStore::create(&path, options).unwrap();
+
+        store.put_meta("survive", b"compaction").unwrap();
+
+        // Ingest some vectors then delete them to create dead space.
+        let vecs: Vec<Vec<f32>> = (0..5).map(|i| vec![i as f32, 0.0, 0.0, 0.0]).collect();
+        let vec_refs: Vec<&[f32]> = vecs.iter().map(|v| v.as_slice()).collect();
+        let ids: Vec<u64> = (0..5).collect();
+        store.ingest_batch(&vec_refs, &ids, None).unwrap();
+        store.delete(&[0, 1, 2, 3, 4]).unwrap();
+
+        store.compact().unwrap();
+
+        let val = store.get_meta("survive");
+        assert_eq!(val, Some(b"compaction".as_slice()));
+
+        store.close().unwrap();
+    }
+
+    #[test]
+    fn test_readonly_rejects_put_meta() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("meta_readonly.rvf");
+
+        let options = RvfOptions {
+            dimension: 4,
+            metric: DistanceMetric::L2,
+            ..Default::default()
+        };
+
+        {
+            let store = RvfStore::create(&path, options).unwrap();
+            store.close().unwrap();
+        }
+
+        {
+            let mut store = RvfStore::open_readonly(&path).unwrap();
+            let result = store.put_meta("k", b"v");
+            assert!(result.is_err());
+        }
+    }
+
+    #[test]
+    fn test_empty_value_allowed() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("meta_empty.rvf");
+
+        let options = RvfOptions {
+            dimension: 4,
+            metric: DistanceMetric::L2,
+            ..Default::default()
+        };
+
+        let mut store = RvfStore::create(&path, options).unwrap();
+
+        store.put_meta("k", b"").unwrap();
+
+        let val = store.get_meta("k");
+        assert_eq!(val, Some(b"".as_slice()));
+
+        store.close().unwrap();
+    }
+
+    #[test]
+    fn test_large_value_64kb() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("meta_large.rvf");
+
+        let options = RvfOptions {
+            dimension: 4,
+            metric: DistanceMetric::L2,
+            ..Default::default()
+        };
+
+        let mut store = RvfStore::create(&path, options).unwrap();
+
+        let large_value: Vec<u8> = (0..65536u32).map(|i| (i % 256) as u8).collect();
+        store.put_meta("big", &large_value).unwrap();
+
+        let val = store.get_meta("big");
+        assert_eq!(val, Some(large_value.as_slice()));
+
+        store.close().unwrap();
+    }
+
+    #[test]
+    fn test_multiple_puts_latest_on_reopen() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("meta_multi_reopen.rvf");
+
+        let options = RvfOptions {
+            dimension: 4,
+            metric: DistanceMetric::L2,
+            ..Default::default()
+        };
+
+        {
+            let mut store = RvfStore::create(&path, options).unwrap();
+            store.put_meta("a", b"alpha").unwrap();
+            store.put_meta("b", b"bravo").unwrap();
+            store.put_meta("c", b"charlie").unwrap();
+            store.close().unwrap();
+        }
+
+        {
+            let store = RvfStore::open(&path).unwrap();
+            assert_eq!(store.get_meta("a"), Some(b"alpha".as_slice()));
+            assert_eq!(store.get_meta("b"), Some(b"bravo".as_slice()));
+            assert_eq!(store.get_meta("c"), Some(b"charlie".as_slice()));
+            store.close().unwrap();
+        }
     }
 
 }

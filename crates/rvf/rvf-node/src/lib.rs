@@ -363,6 +363,18 @@ pub struct RvfSegmentInfo {
     pub seg_type: String,
 }
 
+/// COW (Copy-on-Write) statistics for branched stores.
+#[napi(object)]
+pub struct JsCowStats {
+    pub cluster_count: u32,
+    pub local_cluster_count: u32,
+    pub cluster_size: u32,
+    pub vectors_per_cluster: u32,
+    pub frozen: bool,
+    pub snapshot_epoch: u32,
+    pub pending_writes: u32,
+}
+
 // ── Main RvfDatabase class ───────────────────────────────────────────
 
 /// The main RVF database handle exposed to Node.js.
@@ -810,6 +822,206 @@ impl RvfDatabase {
         let store = guard.as_ref()
             .ok_or_else(|| napi::Error::from_reason("Store is closed"))?;
         Ok(store.dimension() as u32)
+    }
+
+    // ── META_SEG KV methods ─────────────────────────────────────────
+
+    /// Store a key-value pair in the store's metadata map.
+    #[napi]
+    pub fn put_meta(&self, key: String, value: Buffer) -> Result<()> {
+        let mut guard = self.inner.lock()
+            .map_err(|_| napi::Error::from_reason("Lock poisoned"))?;
+        let store = guard.as_mut()
+            .ok_or_else(|| napi::Error::from_reason("Store is closed"))?;
+        store.put_meta(&key, &value).map_err(map_rvf_err)
+    }
+
+    /// Retrieve a value by key from the store's metadata map.
+    /// Returns null if the key does not exist.
+    #[napi]
+    pub fn get_meta(&self, key: String) -> Result<Option<Buffer>> {
+        let guard = self.inner.lock()
+            .map_err(|_| napi::Error::from_reason("Lock poisoned"))?;
+        let store = guard.as_ref()
+            .ok_or_else(|| napi::Error::from_reason("Store is closed"))?;
+        Ok(store.get_meta(&key).map(|v| Buffer::from(v.to_vec())))
+    }
+
+    /// Delete a key from the store's metadata map.
+    /// Returns true if the key existed.
+    #[napi]
+    pub fn delete_meta(&self, key: String) -> Result<bool> {
+        let mut guard = self.inner.lock()
+            .map_err(|_| napi::Error::from_reason("Lock poisoned"))?;
+        let store = guard.as_mut()
+            .ok_or_else(|| napi::Error::from_reason("Store is closed"))?;
+        store.delete_meta(&key).map_err(map_rvf_err)
+    }
+
+    /// List all keys in the store's metadata map.
+    #[napi]
+    pub fn list_meta_keys(&self) -> Result<Vec<String>> {
+        let guard = self.inner.lock()
+            .map_err(|_| napi::Error::from_reason("Lock poisoned"))?;
+        let store = guard.as_ref()
+            .ok_or_else(|| napi::Error::from_reason("Store is closed"))?;
+        Ok(store.list_meta_keys().into_iter().map(|s| s.to_string()).collect())
+    }
+
+    // ── COW Branching methods ───────────────────────────────────────
+
+    /// Create a COW (Copy-on-Write) branch of this store at the given path.
+    /// The child store shares the parent's data and only copies clusters on write.
+    #[napi]
+    pub fn branch(&self, child_path: String) -> Result<RvfDatabase> {
+        let guard = self.inner.lock()
+            .map_err(|_| napi::Error::from_reason("Lock poisoned"))?;
+        let store = guard.as_ref()
+            .ok_or_else(|| napi::Error::from_reason("Store is closed"))?;
+        let child = store.branch(std::path::Path::new(&child_path)).map_err(map_rvf_err)?;
+        Ok(RvfDatabase { inner: Mutex::new(Some(child)) })
+    }
+
+    /// Freeze (snapshot) this store, preventing further writes to this generation.
+    #[napi]
+    pub fn freeze(&self) -> Result<()> {
+        let mut guard = self.inner.lock()
+            .map_err(|_| napi::Error::from_reason("Lock poisoned"))?;
+        let store = guard.as_mut()
+            .ok_or_else(|| napi::Error::from_reason("Store is closed"))?;
+        store.freeze().map_err(map_rvf_err)
+    }
+
+    /// Get COW statistics for this store.
+    /// Returns null if this store does not use COW (i.e., is not a branch).
+    #[napi]
+    pub fn cow_stats(&self) -> Result<Option<JsCowStats>> {
+        let guard = self.inner.lock()
+            .map_err(|_| napi::Error::from_reason("Lock poisoned"))?;
+        let store = guard.as_ref()
+            .ok_or_else(|| napi::Error::from_reason("Store is closed"))?;
+        Ok(store.cow_stats().map(|s| JsCowStats {
+            cluster_count: s.cluster_count,
+            local_cluster_count: s.local_cluster_count,
+            cluster_size: s.cluster_size,
+            vectors_per_cluster: s.vectors_per_cluster,
+            frozen: s.frozen,
+            snapshot_epoch: s.snapshot_epoch,
+            pending_writes: s.pending_writes as u32,
+        }))
+    }
+
+    /// Check if this store is a COW child (has a parent store).
+    #[napi]
+    pub fn is_cow_child(&self) -> Result<bool> {
+        let guard = self.inner.lock()
+            .map_err(|_| napi::Error::from_reason("Lock poisoned"))?;
+        let store = guard.as_ref()
+            .ok_or_else(|| napi::Error::from_reason("Store is closed"))?;
+        Ok(store.is_cow_child())
+    }
+
+    /// Get the path of the parent store, if this is a COW child.
+    /// Returns null for root stores.
+    #[napi]
+    pub fn parent_store_path(&self) -> Result<Option<String>> {
+        let guard = self.inner.lock()
+            .map_err(|_| napi::Error::from_reason("Lock poisoned"))?;
+        let store = guard.as_ref()
+            .ok_or_else(|| napi::Error::from_reason("Store is closed"))?;
+        Ok(store.parent_path().map(|p| p.to_string_lossy().into_owned()))
+    }
+
+    // ── Membership Filter methods ───────────────────────────────────
+
+    /// Check if a vector ID is visible through the membership filter.
+    /// Returns false if no membership filter is present.
+    #[napi]
+    pub fn membership_contains(&self, id: i64) -> Result<bool> {
+        let guard = self.inner.lock()
+            .map_err(|_| napi::Error::from_reason("Lock poisoned"))?;
+        let store = guard.as_ref()
+            .ok_or_else(|| napi::Error::from_reason("Store is closed"))?;
+        Ok(store.membership_filter().map_or(false, |f| f.contains(id as u64)))
+    }
+
+    /// Add a vector ID to the membership filter.
+    /// Errors if no membership filter is present (not a COW branch).
+    #[napi]
+    pub fn membership_add(&self, id: i64) -> Result<()> {
+        let mut guard = self.inner.lock()
+            .map_err(|_| napi::Error::from_reason("Lock poisoned"))?;
+        let store = guard.as_mut()
+            .ok_or_else(|| napi::Error::from_reason("Store is closed"))?;
+        match store.membership_filter_mut() {
+            Some(f) => { f.add(id as u64); Ok(()) },
+            None => Err(napi::Error::from_reason("No membership filter (not a COW branch)")),
+        }
+    }
+
+    /// Remove a vector ID from the membership filter.
+    /// Errors if no membership filter is present (not a COW branch).
+    #[napi]
+    pub fn membership_remove(&self, id: i64) -> Result<()> {
+        let mut guard = self.inner.lock()
+            .map_err(|_| napi::Error::from_reason("Lock poisoned"))?;
+        let store = guard.as_mut()
+            .ok_or_else(|| napi::Error::from_reason("Store is closed"))?;
+        match store.membership_filter_mut() {
+            Some(f) => { f.remove(id as u64); Ok(()) },
+            None => Err(napi::Error::from_reason("No membership filter (not a COW branch)")),
+        }
+    }
+
+    /// Get the number of members in the membership filter.
+    /// Returns null if no membership filter is present.
+    #[napi]
+    pub fn membership_count(&self) -> Result<Option<f64>> {
+        let guard = self.inner.lock()
+            .map_err(|_| napi::Error::from_reason("Lock poisoned"))?;
+        let store = guard.as_ref()
+            .ok_or_else(|| napi::Error::from_reason("Store is closed"))?;
+        Ok(store.membership_filter().map(|f| f.member_count() as f64))
+    }
+
+    // ── Witness Chain methods ───────────────────────────────────────
+
+    /// Get the hash of the last witness entry as a Buffer.
+    /// Returns a 32-byte buffer (all zeros if no witness has been written).
+    #[napi]
+    pub fn last_witness_hash(&self) -> Result<Buffer> {
+        let guard = self.inner.lock()
+            .map_err(|_| napi::Error::from_reason("Lock poisoned"))?;
+        let store = guard.as_ref()
+            .ok_or_else(|| napi::Error::from_reason("Store is closed"))?;
+        Ok(Buffer::from(store.last_witness_hash().as_slice()))
+    }
+
+    /// Query for the k nearest neighbors with an audit witness trail.
+    ///
+    /// Behaves identically to `query()` but appends a WITNESS_SEG recording
+    /// the query operation when audit_queries is enabled in the store's config.
+    #[napi]
+    pub fn query_audited(
+        &self,
+        vector: Vec<f64>,
+        k: u32,
+        ef_search: Option<u32>,
+    ) -> Result<Vec<RvfSearchResult>> {
+        let mut guard = self.inner.lock()
+            .map_err(|_| napi::Error::from_reason("Lock poisoned"))?;
+        let store = guard.as_mut()
+            .ok_or_else(|| napi::Error::from_reason("Store is closed"))?;
+        let f32_vec: Vec<f32> = vector.iter().map(|&v| v as f32).collect();
+        let opts = rvf_runtime::options::QueryOptions {
+            ef_search: ef_search.unwrap_or(100) as u16,
+            ..Default::default()
+        };
+        let results = store.query_audited(&f32_vec, k as usize, &opts).map_err(map_rvf_err)?;
+        Ok(results.into_iter().map(|r| RvfSearchResult {
+            id: r.id as i64,
+            distance: r.distance as f64,
+        }).collect())
     }
 }
 

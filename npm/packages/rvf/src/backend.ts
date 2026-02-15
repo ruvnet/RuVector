@@ -12,6 +12,7 @@ import type {
   RvfEbpfData,
   RvfSegmentInfo,
   BackendType,
+  CowStats,
 } from './types';
 import { RvfError, RvfErrorCode } from './errors';
 
@@ -60,6 +61,24 @@ export interface RvfBackend {
   // Inspection
   segments(): Promise<RvfSegmentInfo[]>;
   dimension(): Promise<number>;
+  // META_SEG KV
+  putMeta(key: string, value: Uint8Array): Promise<void>;
+  getMeta(key: string): Promise<Uint8Array | null>;
+  deleteMeta(key: string): Promise<boolean>;
+  listMetaKeys(): Promise<string[]>;
+  // COW branching
+  branch(childPath: string): Promise<RvfBackend>;
+  freeze(): Promise<void>;
+  cowStats(): Promise<CowStats | null>;
+  isCowChild(): Promise<boolean>;
+  parentStorePath(): Promise<string | null>;
+  // Membership
+  membershipContains(id: number): Promise<boolean>;
+  membershipAdd(id: number): Promise<void>;
+  membershipRemove(id: number): Promise<void>;
+  membershipCount(): Promise<number | null>;
+  // Witness
+  lastWitnessHash(): Promise<Uint8Array>;
 }
 
 // ---------------------------------------------------------------------------
@@ -338,6 +357,137 @@ export class NodeBackend implements RvfBackend {
       throw RvfError.fromNative(err);
     }
   }
+
+  async putMeta(key: string, value: Uint8Array): Promise<void> {
+    this.ensureHandle();
+    try {
+      this.handle.putMeta(key, Buffer.from(value));
+    } catch (err) {
+      throw RvfError.fromNative(err);
+    }
+  }
+
+  async getMeta(key: string): Promise<Uint8Array | null> {
+    this.ensureHandle();
+    try {
+      const result = this.handle.getMeta(key);
+      return result ? new Uint8Array(result) : null;
+    } catch (err) {
+      throw RvfError.fromNative(err);
+    }
+  }
+
+  async deleteMeta(key: string): Promise<boolean> {
+    this.ensureHandle();
+    try {
+      return this.handle.deleteMeta(key);
+    } catch (err) {
+      throw RvfError.fromNative(err);
+    }
+  }
+
+  async listMetaKeys(): Promise<string[]> {
+    this.ensureHandle();
+    try {
+      return this.handle.listMetaKeys();
+    } catch (err) {
+      throw RvfError.fromNative(err);
+    }
+  }
+
+  async branch(childPath: string): Promise<RvfBackend> {
+    this.ensureHandle();
+    try {
+      const childHandle = this.handle.branch(childPath);
+      const child = new NodeBackend();
+      child.native = this.native;
+      child.handle = childHandle;
+      return child;
+    } catch (err) {
+      throw RvfError.fromNative(err);
+    }
+  }
+
+  async freeze(): Promise<void> {
+    this.ensureHandle();
+    try {
+      this.handle.freeze();
+    } catch (err) {
+      throw RvfError.fromNative(err);
+    }
+  }
+
+  async cowStats(): Promise<CowStats | null> {
+    this.ensureHandle();
+    try {
+      return this.handle.cowStats() ?? null;
+    } catch (err) {
+      throw RvfError.fromNative(err);
+    }
+  }
+
+  async isCowChild(): Promise<boolean> {
+    this.ensureHandle();
+    try {
+      return this.handle.isCowChild();
+    } catch (err) {
+      throw RvfError.fromNative(err);
+    }
+  }
+
+  async parentStorePath(): Promise<string | null> {
+    this.ensureHandle();
+    try {
+      return this.handle.parentStorePath() ?? null;
+    } catch (err) {
+      throw RvfError.fromNative(err);
+    }
+  }
+
+  async membershipContains(id: number): Promise<boolean> {
+    this.ensureHandle();
+    try {
+      return this.handle.membershipContains(id);
+    } catch (err) {
+      throw RvfError.fromNative(err);
+    }
+  }
+
+  async membershipAdd(id: number): Promise<void> {
+    this.ensureHandle();
+    try {
+      this.handle.membershipAdd(id);
+    } catch (err) {
+      throw RvfError.fromNative(err);
+    }
+  }
+
+  async membershipRemove(id: number): Promise<void> {
+    this.ensureHandle();
+    try {
+      this.handle.membershipRemove(id);
+    } catch (err) {
+      throw RvfError.fromNative(err);
+    }
+  }
+
+  async membershipCount(): Promise<number | null> {
+    this.ensureHandle();
+    try {
+      return this.handle.membershipCount() ?? null;
+    } catch (err) {
+      throw RvfError.fromNative(err);
+    }
+  }
+
+  async lastWitnessHash(): Promise<Uint8Array> {
+    this.ensureHandle();
+    try {
+      return new Uint8Array(this.handle.lastWitnessHash());
+    } catch (err) {
+      throw RvfError.fromNative(err);
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -527,6 +677,20 @@ export class WasmBackend implements RvfBackend {
   async dimension(): Promise<number> {
     throw new RvfError(RvfErrorCode.BackendNotFound, 'dimension not supported in WASM backend');
   }
+  async putMeta(): Promise<void> { throw new RvfError(RvfErrorCode.BackendNotFound, 'putMeta not supported in WASM backend'); }
+  async getMeta(): Promise<Uint8Array | null> { throw new RvfError(RvfErrorCode.BackendNotFound, 'getMeta not supported in WASM backend'); }
+  async deleteMeta(): Promise<boolean> { throw new RvfError(RvfErrorCode.BackendNotFound, 'deleteMeta not supported in WASM backend'); }
+  async listMetaKeys(): Promise<string[]> { throw new RvfError(RvfErrorCode.BackendNotFound, 'listMetaKeys not supported in WASM backend'); }
+  async branch(): Promise<RvfBackend> { throw new RvfError(RvfErrorCode.BackendNotFound, 'branch not supported in WASM backend'); }
+  async freeze(): Promise<void> { throw new RvfError(RvfErrorCode.BackendNotFound, 'freeze not supported in WASM backend'); }
+  async cowStats(): Promise<null> { throw new RvfError(RvfErrorCode.BackendNotFound, 'cowStats not supported in WASM backend'); }
+  async isCowChild(): Promise<boolean> { throw new RvfError(RvfErrorCode.BackendNotFound, 'isCowChild not supported in WASM backend'); }
+  async parentStorePath(): Promise<string | null> { throw new RvfError(RvfErrorCode.BackendNotFound, 'parentStorePath not supported in WASM backend'); }
+  async membershipContains(): Promise<boolean> { throw new RvfError(RvfErrorCode.BackendNotFound, 'membershipContains not supported in WASM backend'); }
+  async membershipAdd(): Promise<void> { throw new RvfError(RvfErrorCode.BackendNotFound, 'membershipAdd not supported in WASM backend'); }
+  async membershipRemove(): Promise<void> { throw new RvfError(RvfErrorCode.BackendNotFound, 'membershipRemove not supported in WASM backend'); }
+  async membershipCount(): Promise<number | null> { throw new RvfError(RvfErrorCode.BackendNotFound, 'membershipCount not supported in WASM backend'); }
+  async lastWitnessHash(): Promise<Uint8Array> { throw new RvfError(RvfErrorCode.BackendNotFound, 'lastWitnessHash not supported in WASM backend'); }
 }
 
 // ---------------------------------------------------------------------------

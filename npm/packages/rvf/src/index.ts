@@ -38,6 +38,7 @@ export type {
   RvfEbpfData,
   RvfSegmentInfo,
   BackendType,
+  CowStats,
 } from './types';
 
 // Re-export error types
