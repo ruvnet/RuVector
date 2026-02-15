@@ -1,0 +1,811 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentic-qe.dev/schemas/qcsd-refinement-swarm-output.json",
+  "title": "QCSD Refinement Swarm Output Schema",
+  "description": "Schema for QCSD refinement swarm output. Includes SFDIPOT analysis, BDD scenarios, requirements validation, and multi-agent reports.",
+  "type": "object",
+  "required": ["skillName", "version", "timestamp", "status", "trustTier", "output"],
+  "properties": {
+    "skillName": {
+      "type": "string",
+      "const": "qcsd-refinement-swarm",
+      "description": "Must be 'qcsd-refinement-swarm'"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+(-[a-zA-Z0-9]+)?$"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["success", "partial", "failed", "skipped"]
+    },
+    "trustTier": {
+      "type": "integer",
+      "const": 3
+    },
+    "output": {
+      "type": "object",
+      "required": ["summary", "sfdipotFactors", "bddScenarios", "requirements", "testIdeas"],
+      "properties": {
+        "summary": {
+          "type": "string",
+          "minLength": 100,
+          "maxLength": 3000
+        },
+        "recommendation": {
+          "type": "string",
+          "enum": ["READY", "CONDITIONAL", "NOT-READY"],
+          "description": "Overall refinement recommendation"
+        },
+        "sfdipotFactors": {
+          "$ref": "#/$defs/sfdipotAnalysis"
+        },
+        "bddScenarios": {
+          "$ref": "#/$defs/bddScenariosCollection"
+        },
+        "requirements": {
+          "$ref": "#/$defs/requirementsValidation"
+        },
+        "testIdeas": {
+          "$ref": "#/$defs/testIdeasCollection"
+        },
+        "agentReports": {
+          "$ref": "#/$defs/agentReports"
+        },
+        "flagDetection": {
+          "$ref": "#/$defs/flagDetection"
+        },
+        "conditionalAnalysis": {
+          "$ref": "#/$defs/conditionalAnalysis"
+        },
+        "executiveSummary": {
+          "$ref": "#/$defs/executiveSummary"
+        },
+        "artifacts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/artifact"
+          },
+          "maxItems": 20
+        }
+      }
+    },
+    "metadata": {
+      "$ref": "#/$defs/metadata"
+    },
+    "validation": {
+      "$ref": "#/$defs/validationResult"
+    },
+    "learning": {
+      "$ref": "#/$defs/learningData"
+    }
+  },
+  "$defs": {
+    "sfdipotAnalysis": {
+      "type": "object",
+      "required": ["factors"],
+      "properties": {
+        "sfdipotVersion": {
+          "type": "string",
+          "default": "1.0"
+        },
+        "factors": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/sfdipotFactor"
+          },
+          "minItems": 5,
+          "maxItems": 7,
+          "description": "SFDIPOT heuristic factors analyzed"
+        },
+        "overallScore": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "clarifyingQuestions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "sfdipotFactor": {
+      "type": "object",
+      "required": ["name", "priority"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "enum": ["Structure", "Function", "Data", "Interfaces", "Platform", "Operations", "Time"]
+        },
+        "priority": {
+          "type": "string",
+          "enum": ["P0", "P1", "P2", "P3"]
+        },
+        "weight": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "relevanceScore": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "subcategories": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/subcategoryItem"
+          }
+        },
+        "testIdeas": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "subcategoryItem": {
+      "type": "object",
+      "required": ["name"],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "relevance": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "testIdeas": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "bddScenariosCollection": {
+      "type": "object",
+      "required": ["features"],
+      "properties": {
+        "totalScenarios": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "features": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/bddFeature"
+          },
+          "minItems": 1,
+          "maxItems": 20
+        },
+        "coverage": {
+          "type": "object",
+          "properties": {
+            "happyPath": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "errorPath": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "boundary": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "security": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        }
+      }
+    },
+    "bddFeature": {
+      "type": "object",
+      "required": ["name", "scenarios"],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "scenarios": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/bddScenario"
+          },
+          "minItems": 1,
+          "maxItems": 50
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "bddScenario": {
+      "type": "object",
+      "required": ["name", "given", "when", "then"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 5
+        },
+        "given": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1
+        },
+        "when": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1
+        },
+        "then": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1
+        },
+        "examples": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "type": {
+          "type": "string",
+          "enum": ["happy_path", "error", "boundary", "security"]
+        }
+      }
+    },
+    "requirementsValidation": {
+      "type": "object",
+      "required": ["investScore"],
+      "properties": {
+        "investScore": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "completeness": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "gaps": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "valid": {
+          "type": "boolean"
+        },
+        "criteria": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/investCriterion"
+          }
+        }
+      }
+    },
+    "investCriterion": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "enum": ["Independent", "Negotiable", "Valuable", "Estimable", "Small", "Testable"]
+        },
+        "score": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10
+        },
+        "evidence": {
+          "type": "string"
+        },
+        "issues": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "testIdeasCollection": {
+      "type": "object",
+      "required": ["ideas"],
+      "properties": {
+        "total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "ideas": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/testIdea"
+          },
+          "minItems": 5,
+          "maxItems": 100
+        },
+        "byCategory": {
+          "type": "object",
+          "properties": {
+            "functional": {
+              "type": "integer"
+            },
+            "nonfunctional": {
+              "type": "integer"
+            },
+            "exploratory": {
+              "type": "integer"
+            },
+            "regression": {
+              "type": "integer"
+            }
+          }
+        }
+      }
+    },
+    "testIdea": {
+      "type": "object",
+      "required": ["id", "title", "type"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^TI-\\d{3}$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 10
+        },
+        "description": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string",
+          "enum": ["functional", "nonfunctional", "exploratory", "regression", "security", "accessibility", "performance"]
+        },
+        "priority": {
+          "type": "string",
+          "enum": ["critical", "high", "medium", "low"]
+        },
+        "linkedRisks": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "linkedCriteria": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "automation": {
+          "type": "string",
+          "enum": ["automated", "manual", "hybrid"]
+        }
+      }
+    },
+    "agentReports": {
+      "type": "object",
+      "required": ["coreAgents"],
+      "properties": {
+        "coreAgents": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/agentReport"
+          },
+          "minItems": 3,
+          "maxItems": 3,
+          "description": "Must have exactly 3 core agents"
+        },
+        "conditionalAgents": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/agentReport"
+          },
+          "maxItems": 3
+        },
+        "transformationAgents": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/agentReport"
+          },
+          "maxItems": 1
+        },
+        "totalAgents": {
+          "type": "integer",
+          "minimum": 3,
+          "maximum": 7
+        }
+      }
+    },
+    "agentReport": {
+      "type": "object",
+      "required": ["agentId", "domain", "status"],
+      "properties": {
+        "agentId": {
+          "type": "string",
+          "pattern": "^qe-[a-z][a-z0-9-]*$"
+        },
+        "domain": {
+          "type": "string",
+          "enum": [
+            "requirements-validation", "contract-testing", "code-intelligence", "test-generation"
+          ]
+        },
+        "status": {
+          "type": "string",
+          "enum": ["completed", "partial", "failed", "skipped"]
+        },
+        "reportPath": {
+          "type": "string"
+        },
+        "executionTimeMs": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "findingsCount": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "flagDetection": {
+      "type": "object",
+      "required": ["HAS_API", "HAS_REFACTORING", "HAS_DEPENDENCIES", "HAS_SECURITY"],
+      "properties": {
+        "HAS_API": {
+          "type": "boolean"
+        },
+        "HAS_REFACTORING": {
+          "type": "boolean"
+        },
+        "HAS_DEPENDENCIES": {
+          "type": "boolean"
+        },
+        "HAS_SECURITY": {
+          "type": "boolean"
+        },
+        "evidence": {
+          "type": "object",
+          "properties": {
+            "api": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "refactoring": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "dependencies": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "security": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "conditionalAnalysis": {
+      "type": "object",
+      "properties": {
+        "contracts": {
+          "$ref": "#/$defs/contractValidation"
+        },
+        "impact": {
+          "$ref": "#/$defs/impactAnalysis"
+        },
+        "dependencies": {
+          "$ref": "#/$defs/dependencyAnalysis"
+        }
+      }
+    },
+    "contractValidation": {
+      "type": "object",
+      "properties": {
+        "valid": {
+          "type": "boolean"
+        },
+        "breakingChanges": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "recommendations": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "consumerDriven": {
+          "type": "boolean"
+        }
+      }
+    },
+    "impactAnalysis": {
+      "type": "object",
+      "properties": {
+        "blastRadius": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "affectedServices": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "testSelection": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "dependencyAnalysis": {
+      "type": "object",
+      "properties": {
+        "couplingScore": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "afferentCoupling": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "efferentCoupling": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "instabilityIndex": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "circularDeps": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "executiveSummary": {
+      "type": "object",
+      "required": ["recommendation"],
+      "properties": {
+        "recommendation": {
+          "type": "string",
+          "enum": ["READY", "CONDITIONAL", "NOT-READY"]
+        },
+        "rationale": {
+          "type": "string",
+          "minLength": 50
+        },
+        "metrics": {
+          "type": "object",
+          "properties": {
+            "sfdipotCoverage": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 7
+            },
+            "bddScenarioCount": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "investCompleteness": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 100
+            },
+            "criticalGaps": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "blockers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "immediateActions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "developmentActions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "preReleaseActions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "followUpRecommendations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "action": {
+                "type": "string"
+              },
+              "skill": {
+                "type": "string"
+              },
+              "reason": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "required": ["type", "path"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["report", "sfdipot-analysis", "bdd-scenarios", "requirements-validation", "test-ideas", "executive-summary"]
+        },
+        "path": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "format": {
+          "type": "string",
+          "enum": ["html", "md", "json", "feature"]
+        },
+        "description": {
+          "type": "string"
+        }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "executionTimeMs": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "agentId": {
+          "type": "string",
+          "pattern": "^qe-[a-z][a-z0-9-]*$"
+        },
+        "targetUrl": {
+          "type": "string"
+        },
+        "epicId": {
+          "type": "string"
+        },
+        "storyId": {
+          "type": "string"
+        },
+        "fetchMethod": {
+          "type": "string",
+          "enum": ["playwright", "webfetch", "websearch-fallback"]
+        },
+        "sourcePhase": {
+          "type": "string",
+          "enum": ["refinement", "sprint-planning", "mid-sprint"],
+          "description": "The SDLC phase that triggered this refinement"
+        }
+      }
+    },
+    "validationResult": {
+      "type": "object",
+      "properties": {
+        "schemaValid": {
+          "type": "boolean"
+        },
+        "contentValid": {
+          "type": "boolean"
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "errors": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "learningData": {
+      "type": "object",
+      "properties": {
+        "patternsDetected": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "reward": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "refinementPatterns": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "pattern": {
+                "type": "string"
+              },
+              "recommendation": {
+                "type": "string"
+              },
+              "outcome": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

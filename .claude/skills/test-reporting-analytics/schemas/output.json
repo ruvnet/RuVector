@@ -1,0 +1,329 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentic-qe.dev/schemas/skills/test-reporting-analytics/output.json",
+  "title": "Test Reporting Analytics Skill Output Schema",
+  "description": "Schema for test-reporting-analytics skill output. Advanced test reporting with quality dashboards and analytics.",
+  "type": "object",
+  "required": ["skillName", "version", "timestamp", "status", "trustTier", "output"],
+  "properties": {
+    "skillName": {
+      "type": "string",
+      "const": "test-reporting-analytics"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+(-[a-zA-Z0-9]+)?$"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["success", "partial", "failed", "skipped"]
+    },
+    "trustTier": {
+      "type": "integer",
+      "const": 3
+    },
+    "output": {
+      "type": "object",
+      "required": ["summary", "reports", "metrics", "completeness"],
+      "properties": {
+        "summary": {
+          "type": "string",
+          "minLength": 50,
+          "maxLength": 3000
+        },
+        "reports": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/report"
+          },
+          "minItems": 1,
+          "maxItems": 50
+        },
+        "metrics": {
+          "$ref": "#/$defs/testMetrics"
+        },
+        "completeness": {
+          "$ref": "#/$defs/completeness"
+        },
+        "trends": {
+          "$ref": "#/$defs/trends"
+        },
+        "qualityGates": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/qualityGate"
+          }
+        },
+        "dashboards": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/dashboard"
+          }
+        },
+        "recommendations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/recommendation"
+          },
+          "maxItems": 50
+        },
+        "documentStructure": {
+          "$ref": "#/$defs/documentStructure"
+        },
+        "clarity": {
+          "$ref": "#/$defs/clarity"
+        }
+      }
+    },
+    "metadata": {
+      "$ref": "#/$defs/metadata"
+    },
+    "validation": {
+      "$ref": "#/$defs/validationResult"
+    },
+    "learning": {
+      "$ref": "#/$defs/learningData"
+    }
+  },
+  "$defs": {
+    "report": {
+      "type": "object",
+      "required": ["id", "title", "type", "content"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^RPT-\\d{3,6}$"
+        },
+        "title": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "type": {
+          "type": "string",
+          "enum": ["summary", "detailed", "executive", "trend", "coverage", "defect", "performance", "comparison"]
+        },
+        "content": {
+          "type": "string",
+          "maxLength": 50000
+        },
+        "format": {
+          "type": "string",
+          "enum": ["markdown", "html", "json", "csv"]
+        },
+        "audience": {
+          "type": "string",
+          "enum": ["executive", "management", "technical", "qa", "all"]
+        },
+        "period": {
+          "type": "object",
+          "properties": {
+            "start": { "type": "string", "format": "date" },
+            "end": { "type": "string", "format": "date" }
+          }
+        },
+        "keyFindings": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "visualizations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/visualization"
+          }
+        }
+      }
+    },
+    "testMetrics": {
+      "type": "object",
+      "properties": {
+        "totalTests": { "type": "integer", "minimum": 0 },
+        "passedTests": { "type": "integer", "minimum": 0 },
+        "failedTests": { "type": "integer", "minimum": 0 },
+        "skippedTests": { "type": "integer", "minimum": 0 },
+        "flakyTests": { "type": "integer", "minimum": 0 },
+        "passRate": { "type": "number", "minimum": 0, "maximum": 100 },
+        "coverage": {
+          "type": "object",
+          "properties": {
+            "line": { "type": "number", "minimum": 0, "maximum": 100 },
+            "branch": { "type": "number", "minimum": 0, "maximum": 100 },
+            "function": { "type": "number", "minimum": 0, "maximum": 100 },
+            "statement": { "type": "number", "minimum": 0, "maximum": 100 }
+          }
+        },
+        "executionTime": {
+          "type": "object",
+          "properties": {
+            "total": { "type": "integer", "minimum": 0 },
+            "average": { "type": "number", "minimum": 0 },
+            "p95": { "type": "number", "minimum": 0 }
+          }
+        },
+        "defects": {
+          "type": "object",
+          "properties": {
+            "open": { "type": "integer", "minimum": 0 },
+            "closed": { "type": "integer", "minimum": 0 },
+            "critical": { "type": "integer", "minimum": 0 }
+          }
+        },
+        "automationRate": { "type": "number", "minimum": 0, "maximum": 100 }
+      }
+    },
+    "completeness": {
+      "type": "object",
+      "required": ["score"],
+      "properties": {
+        "score": { "type": "number", "minimum": 0, "maximum": 100 },
+        "dataCompleteness": { "type": "number", "minimum": 0, "maximum": 100 },
+        "reportCoverage": { "type": "number", "minimum": 0, "maximum": 100 },
+        "missingData": { "type": "array", "items": { "type": "string" } },
+        "dataQuality": { "type": "string", "enum": ["excellent", "good", "fair", "poor"] }
+      }
+    },
+    "trends": {
+      "type": "object",
+      "properties": {
+        "passRateTrend": {
+          "type": "string",
+          "enum": ["improving", "stable", "declining"]
+        },
+        "coverageTrend": {
+          "type": "string",
+          "enum": ["improving", "stable", "declining"]
+        },
+        "defectTrend": {
+          "type": "string",
+          "enum": ["improving", "stable", "worsening"]
+        },
+        "velocityTrend": {
+          "type": "string",
+          "enum": ["improving", "stable", "declining"]
+        },
+        "historicalData": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "date": { "type": "string", "format": "date" },
+              "passRate": { "type": "number" },
+              "coverage": { "type": "number" },
+              "defectCount": { "type": "integer" }
+            }
+          }
+        },
+        "predictions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "metric": { "type": "string" },
+              "prediction": { "type": "string" },
+              "confidence": { "type": "number" }
+            }
+          }
+        }
+      }
+    },
+    "qualityGate": {
+      "type": "object",
+      "required": ["name", "passed", "threshold", "actual"],
+      "properties": {
+        "name": { "type": "string" },
+        "passed": { "type": "boolean" },
+        "threshold": { "type": "number" },
+        "actual": { "type": "number" },
+        "status": { "type": "string", "enum": ["pass", "fail", "warn"] },
+        "message": { "type": "string" }
+      }
+    },
+    "dashboard": {
+      "type": "object",
+      "required": ["name", "widgets"],
+      "properties": {
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "audience": { "type": "string" },
+        "widgets": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": { "type": "string", "enum": ["chart", "metric", "table", "status", "trend"] },
+              "title": { "type": "string" },
+              "data": { "type": "object" }
+            }
+          }
+        }
+      }
+    },
+    "visualization": {
+      "type": "object",
+      "required": ["type", "title"],
+      "properties": {
+        "type": { "type": "string", "enum": ["bar", "line", "pie", "heatmap", "table", "gauge"] },
+        "title": { "type": "string" },
+        "data": { "type": "object" },
+        "config": { "type": "object" }
+      }
+    },
+    "documentStructure": {
+      "type": "object",
+      "properties": {
+        "type": { "type": "string" },
+        "sections": { "type": "array", "items": { "type": "string" } },
+        "hasExecutiveSummary": { "type": "boolean" },
+        "hasVisualizations": { "type": "boolean" }
+      }
+    },
+    "clarity": {
+      "type": "object",
+      "properties": {
+        "score": { "type": "number", "minimum": 0, "maximum": 100 },
+        "dataVisualizationClarity": { "type": "number", "minimum": 0, "maximum": 100 },
+        "insightClarity": { "type": "number", "minimum": 0, "maximum": 100 }
+      }
+    },
+    "recommendation": {
+      "type": "object",
+      "required": ["id", "title", "priority"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^REC-\\d{3,6}$" },
+        "title": { "type": "string", "maxLength": 200 },
+        "description": { "type": "string", "maxLength": 2000 },
+        "priority": { "type": "string", "enum": ["critical", "high", "medium", "low"] },
+        "category": { "type": "string", "enum": ["coverage", "quality", "process", "tooling", "reporting"] },
+        "expectedImpact": { "type": "string" }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "executionTimeMs": { "type": "integer", "minimum": 0 },
+        "toolsUsed": { "type": "array", "items": { "type": "string" } },
+        "agentId": { "type": "string", "pattern": "^qe-[a-z][a-z0-9-]*$" },
+        "dataSource": { "type": "string" },
+        "reportingPeriod": { "type": "string" }
+      }
+    },
+    "validationResult": {
+      "type": "object",
+      "properties": {
+        "schemaValid": { "type": "boolean" },
+        "contentValid": { "type": "boolean" },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "learningData": {
+      "type": "object",
+      "properties": {
+        "patternsDetected": { "type": "array", "items": { "type": "string" } },
+        "reward": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    }
+  }
+}

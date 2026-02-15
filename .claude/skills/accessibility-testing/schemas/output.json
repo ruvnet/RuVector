@@ -1,0 +1,776 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://agentic-qe.dev/schemas/accessibility-testing-output.json",
+  "title": "AQE Accessibility Testing Skill Output Schema",
+  "description": "Schema for WCAG 2.2 accessibility audit output. Extends base skill output template with accessibility-specific fields including POUR principles, conformance levels, and remediation guidance.",
+  "type": "object",
+  "required": ["skillName", "version", "timestamp", "status", "trustTier", "output"],
+  "properties": {
+    "skillName": {
+      "type": "string",
+      "const": "accessibility-testing",
+      "description": "Skill identifier"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+(-[a-zA-Z0-9]+)?$",
+      "description": "Semantic version of the skill"
+    },
+    "timestamp": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})?$",
+      "description": "ISO 8601 timestamp of audit execution"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["success", "partial", "failed", "skipped"],
+      "description": "Overall execution status"
+    },
+    "trustTier": {
+      "type": "integer",
+      "const": 3,
+      "description": "Trust tier 3: has schema, validator, and eval suite"
+    },
+    "output": {
+      "type": "object",
+      "required": ["summary", "conformanceLevel", "pourBreakdown"],
+      "properties": {
+        "summary": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 2000,
+          "description": "Human-readable summary of accessibility audit findings"
+        },
+        "score": {
+          "$ref": "#/$defs/accessibilityScore",
+          "description": "Overall accessibility compliance score"
+        },
+        "conformanceLevel": {
+          "$ref": "#/$defs/conformanceLevel",
+          "description": "WCAG conformance level achieved"
+        },
+        "targetLevel": {
+          "$ref": "#/$defs/conformanceLevel",
+          "description": "Target WCAG conformance level for the audit"
+        },
+        "wcagVersion": {
+          "type": "string",
+          "enum": ["2.0", "2.1", "2.2"],
+          "default": "2.2",
+          "description": "WCAG version tested against"
+        },
+        "pourBreakdown": {
+          "$ref": "#/$defs/pourBreakdown",
+          "description": "Breakdown by POUR principles (Perceivable, Operable, Understandable, Robust)"
+        },
+        "findings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/accessibilityFinding"
+          },
+          "maxItems": 500,
+          "description": "List of accessibility violations found"
+        },
+        "recommendations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/accessibilityRecommendation"
+          },
+          "maxItems": 100,
+          "description": "Remediation recommendations with code fixes"
+        },
+        "metrics": {
+          "$ref": "#/$defs/accessibilityMetrics",
+          "description": "Quantitative accessibility metrics"
+        },
+        "artifacts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/artifact"
+          },
+          "maxItems": 50,
+          "description": "Generated artifacts (reports, captions, etc.)"
+        },
+        "categories": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/categoryScore"
+          },
+          "description": "Scores by WCAG category"
+        },
+        "videoCaptions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/videoCaptionOutput"
+          },
+          "description": "Generated video captions and audio descriptions"
+        },
+        "euCompliance": {
+          "$ref": "#/$defs/euComplianceResult",
+          "description": "EN 301 549 / EU Accessibility Act compliance (if tested)"
+        }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "executionTimeMs": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Execution time in milliseconds"
+        },
+        "toolsUsed": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["axe-core", "pa11y", "lighthouse", "claude-vision", "ffmpeg", "nvda", "voiceover", "jaws"]
+          },
+          "description": "Accessibility tools used during audit"
+        },
+        "agentId": {
+          "type": "string",
+          "pattern": "^qe-[a-z][a-z0-9-]*$",
+          "description": "Agent that executed the audit"
+        },
+        "targetUrl": {
+          "type": "string",
+          "pattern": "^https?://",
+          "description": "URL audited"
+        },
+        "pagesAudited": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Number of pages audited"
+        },
+        "elementsAnalyzed": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of DOM elements analyzed"
+        }
+      }
+    },
+    "validation": {
+      "type": "object",
+      "properties": {
+        "schemaValid": {
+          "type": "boolean"
+        },
+        "contentValid": {
+          "type": "boolean"
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "warnings": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "errors": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "learning": {
+      "type": "object",
+      "properties": {
+        "patternsDetected": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Accessibility patterns detected"
+        },
+        "reward": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Learning reward signal"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "conformanceLevel": {
+      "type": "string",
+      "enum": ["A", "AA", "AAA", "none"],
+      "description": "WCAG conformance level"
+    },
+    "pourPrinciple": {
+      "type": "string",
+      "enum": ["perceivable", "operable", "understandable", "robust"],
+      "description": "POUR accessibility principle"
+    },
+    "accessibilityScore": {
+      "type": "object",
+      "required": ["value", "max"],
+      "properties": {
+        "value": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Accessibility score (0-100)"
+        },
+        "max": {
+          "type": "number",
+          "const": 100
+        },
+        "grade": {
+          "type": "string",
+          "pattern": "^[A-F][+-]?$",
+          "description": "Letter grade"
+        },
+        "conformanceAchieved": {
+          "$ref": "#/$defs/conformanceLevel",
+          "description": "Highest conformance level achieved"
+        },
+        "trend": {
+          "type": "string",
+          "enum": ["improving", "stable", "declining", "unknown"]
+        }
+      }
+    },
+    "pourBreakdown": {
+      "type": "object",
+      "required": ["perceivable", "operable", "understandable", "robust"],
+      "properties": {
+        "perceivable": {
+          "$ref": "#/$defs/pourScore",
+          "description": "Perceivable (WCAG 1.x) - Text alternatives, time-based media, adaptable, distinguishable"
+        },
+        "operable": {
+          "$ref": "#/$defs/pourScore",
+          "description": "Operable (WCAG 2.x) - Keyboard, timing, seizures, navigation, input modalities"
+        },
+        "understandable": {
+          "$ref": "#/$defs/pourScore",
+          "description": "Understandable (WCAG 3.x) - Readable, predictable, input assistance"
+        },
+        "robust": {
+          "$ref": "#/$defs/pourScore",
+          "description": "Robust (WCAG 4.x) - Compatible with assistive technologies"
+        }
+      }
+    },
+    "pourScore": {
+      "type": "object",
+      "required": ["score", "violationCount"],
+      "properties": {
+        "score": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Principle score (0-100)"
+        },
+        "violationCount": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of violations in this principle"
+        },
+        "criticalCount": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of critical violations"
+        },
+        "seriousCount": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of serious violations"
+        },
+        "moderateCount": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of moderate violations"
+        },
+        "minorCount": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of minor violations"
+        },
+        "guidelines": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/guidelineResult"
+          },
+          "description": "Results by WCAG guideline"
+        }
+      }
+    },
+    "guidelineResult": {
+      "type": "object",
+      "required": ["guideline", "title", "passed"],
+      "properties": {
+        "guideline": {
+          "type": "string",
+          "pattern": "^\\d+\\.\\d+$",
+          "description": "WCAG guideline number (e.g., 1.1, 2.4)"
+        },
+        "title": {
+          "type": "string",
+          "description": "Guideline title"
+        },
+        "passed": {
+          "type": "boolean",
+          "description": "Whether all success criteria passed"
+        },
+        "successCriteria": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/successCriterionResult"
+          }
+        }
+      }
+    },
+    "successCriterionResult": {
+      "type": "object",
+      "required": ["criterion", "level", "status"],
+      "properties": {
+        "criterion": {
+          "type": "string",
+          "pattern": "^\\d+\\.\\d+\\.\\d+$",
+          "description": "WCAG success criterion (e.g., 1.1.1, 2.4.7)"
+        },
+        "level": {
+          "$ref": "#/$defs/conformanceLevel"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["passed", "failed", "not-applicable", "not-tested"],
+          "description": "Criterion status"
+        },
+        "violationCount": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "accessibilityFinding": {
+      "type": "object",
+      "required": ["id", "title", "severity", "wcagCriterion", "pourPrinciple"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^A11Y-\\d{3,6}$",
+          "description": "Unique finding identifier (e.g., A11Y-001)"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 5,
+          "maxLength": 200,
+          "description": "Finding title"
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 2000,
+          "description": "Detailed description of the violation"
+        },
+        "severity": {
+          "type": "string",
+          "enum": ["critical", "serious", "moderate", "minor"],
+          "description": "Severity: critical=prevents access, serious=major barrier, moderate=some difficulty, minor=annoyance"
+        },
+        "impact": {
+          "type": "string",
+          "maxLength": 500,
+          "description": "Impact on users with disabilities"
+        },
+        "wcagCriterion": {
+          "type": "string",
+          "pattern": "^\\d+\\.\\d+\\.\\d+$",
+          "description": "WCAG success criterion violated (e.g., 1.1.1)"
+        },
+        "wcagLevel": {
+          "$ref": "#/$defs/conformanceLevel",
+          "description": "WCAG conformance level of the criterion"
+        },
+        "pourPrinciple": {
+          "$ref": "#/$defs/pourPrinciple",
+          "description": "POUR principle violated"
+        },
+        "location": {
+          "$ref": "#/$defs/elementLocation",
+          "description": "Location of the violation"
+        },
+        "element": {
+          "type": "object",
+          "properties": {
+            "tagName": {
+              "type": "string",
+              "description": "HTML tag name"
+            },
+            "selector": {
+              "type": "string",
+              "description": "CSS selector"
+            },
+            "xpath": {
+              "type": "string",
+              "description": "XPath expression"
+            },
+            "html": {
+              "type": "string",
+              "maxLength": 1000,
+              "description": "HTML snippet of the element"
+            },
+            "attributes": {
+              "type": "object",
+              "additionalProperties": { "type": "string" },
+              "description": "Relevant element attributes"
+            }
+          }
+        },
+        "remediation": {
+          "type": "string",
+          "maxLength": 2000,
+          "description": "How to fix this violation"
+        },
+        "codeExample": {
+          "type": "object",
+          "properties": {
+            "before": {
+              "type": "string",
+              "description": "Code before fix"
+            },
+            "after": {
+              "type": "string",
+              "description": "Code after fix"
+            }
+          },
+          "description": "Before/after code example for remediation"
+        },
+        "affectedUsers": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["blind", "low-vision", "color-blind", "deaf", "hard-of-hearing", "motor-impaired", "cognitive", "photosensitive"]
+          },
+          "description": "User groups affected by this violation"
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Confidence in this finding"
+        },
+        "tool": {
+          "type": "string",
+          "description": "Tool that detected this violation"
+        }
+      }
+    },
+    "accessibilityRecommendation": {
+      "type": "object",
+      "required": ["id", "title", "priority"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^REC-\\d{3,6}$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 5,
+          "maxLength": 200
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 2000
+        },
+        "priority": {
+          "type": "string",
+          "enum": ["critical", "high", "medium", "low"]
+        },
+        "effort": {
+          "type": "string",
+          "enum": ["trivial", "low", "medium", "high", "major"],
+          "description": "Estimated effort to implement"
+        },
+        "wcagCriteria": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^\\d+\\.\\d+\\.\\d+$"
+          },
+          "description": "WCAG criteria addressed"
+        },
+        "relatedFindings": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^A11Y-\\d{3,6}$"
+          },
+          "description": "Related finding IDs"
+        },
+        "codeExample": {
+          "type": "string",
+          "maxLength": 5000,
+          "description": "Code example for remediation"
+        },
+        "resources": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["title", "url"],
+            "properties": {
+              "title": { "type": "string" },
+              "url": { "type": "string", "pattern": "^https?://" }
+            }
+          },
+          "description": "External resources"
+        }
+      }
+    },
+    "accessibilityMetrics": {
+      "type": "object",
+      "properties": {
+        "totalElements": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total DOM elements analyzed"
+        },
+        "imagesWithAlt": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Images with proper alt text"
+        },
+        "imagesWithoutAlt": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Images missing alt text"
+        },
+        "formsWithLabels": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Form fields with proper labels"
+        },
+        "formsWithoutLabels": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Form fields missing labels"
+        },
+        "colorContrastPasses": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Elements passing color contrast"
+        },
+        "colorContrastFails": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Elements failing color contrast"
+        },
+        "keyboardAccessible": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Interactive elements keyboard accessible"
+        },
+        "keyboardTraps": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Keyboard traps detected"
+        },
+        "ariaUsage": {
+          "type": "object",
+          "properties": {
+            "correct": { "type": "integer", "minimum": 0 },
+            "incorrect": { "type": "integer", "minimum": 0 },
+            "missing": { "type": "integer", "minimum": 0 }
+          }
+        },
+        "headingStructure": {
+          "type": "object",
+          "properties": {
+            "valid": { "type": "boolean" },
+            "skippedLevels": { "type": "array", "items": { "type": "integer" } }
+          }
+        },
+        "videosWithCaptions": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "videosWithoutCaptions": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "elementLocation": {
+      "type": "object",
+      "properties": {
+        "url": {
+          "type": "string",
+          "pattern": "^https?://",
+          "description": "Page URL"
+        },
+        "selector": {
+          "type": "string",
+          "description": "CSS selector"
+        },
+        "xpath": {
+          "type": "string",
+          "description": "XPath"
+        },
+        "line": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Source line number"
+        },
+        "column": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Source column number"
+        }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "required": ["type", "path"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["report", "captions", "audio-description", "screenshot", "data", "log"]
+        },
+        "path": {
+          "type": "string"
+        },
+        "format": {
+          "type": "string",
+          "enum": ["json", "html", "md", "vtt", "txt", "png", "csv"]
+        },
+        "description": {
+          "type": "string"
+        }
+      }
+    },
+    "categoryScore": {
+      "type": "object",
+      "required": ["score"],
+      "properties": {
+        "score": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "grade": {
+          "type": "string",
+          "pattern": "^[A-F][+-]?$"
+        },
+        "findingCount": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "videoCaptionOutput": {
+      "type": "object",
+      "required": ["videoId", "source"],
+      "properties": {
+        "videoId": {
+          "type": "string",
+          "description": "Video identifier"
+        },
+        "source": {
+          "type": "string",
+          "description": "Video source URL or element ID"
+        },
+        "duration": {
+          "type": "number",
+          "description": "Video duration in seconds"
+        },
+        "framesAnalyzed": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Number of frames analyzed"
+        },
+        "captionsPath": {
+          "type": "string",
+          "description": "Path to generated WebVTT captions file"
+        },
+        "audioDescriptionPath": {
+          "type": "string",
+          "description": "Path to generated audio description file"
+        },
+        "frameDescriptions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/frameDescription"
+          },
+          "description": "Descriptions of analyzed frames"
+        }
+      }
+    },
+    "frameDescription": {
+      "type": "object",
+      "required": ["frameNumber", "timestamp", "description"],
+      "properties": {
+        "frameNumber": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "timestamp": {
+          "type": "string",
+          "pattern": "^\\d{2}:\\d{2}:\\d{2}\\.\\d{3}$",
+          "description": "Timestamp in HH:MM:SS.mmm format"
+        },
+        "description": {
+          "type": "string",
+          "description": "Visual description of the frame"
+        },
+        "scene": {
+          "type": "string",
+          "description": "Scene setting"
+        },
+        "text": {
+          "type": "string",
+          "description": "Any visible text"
+        },
+        "action": {
+          "type": "string",
+          "description": "Action occurring"
+        }
+      }
+    },
+    "euComplianceResult": {
+      "type": "object",
+      "properties": {
+        "standard": {
+          "type": "string",
+          "enum": ["EN 301 549 V3.2.1"],
+          "description": "EU standard tested against"
+        },
+        "productCategory": {
+          "type": "string",
+          "description": "EAA product category"
+        },
+        "overallStatus": {
+          "type": "string",
+          "enum": ["compliant", "partially-compliant", "non-compliant"]
+        },
+        "clausesPassed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "clausesFailed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "clausesPartial": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "failedClauses": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "clause": { "type": "string" },
+              "title": { "type": "string" },
+              "wcagMapping": { "type": "string" },
+              "testMethod": {
+                "type": "string",
+                "enum": ["automated", "manual", "hybrid"]
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

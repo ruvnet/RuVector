@@ -1,0 +1,958 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Product Factors assessment of: Sample Epic - E-Commerce Platform Feature</title>
+  <style>
+    :root {
+      --primary: #1e3a5f;
+      --primary-dark: #0f2744;
+      --primary-light: #2d5a8a;
+      --accent: #0066cc;
+      --success: #0d7a3f;
+      --warning: #b45309;
+      --danger: #b91c1c;
+      --info: #0369a1;
+      --bg-light: #f5f7fa;
+      --bg-white: #ffffff;
+      --text-dark: #1a1a2e;
+      --text-muted: #5c6370;
+      --border: #d1d5db;
+      --border-light: #e5e7eb;
+      --purple: #7c3aed;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg-light); color: var(--text-dark); line-height: 1.6; font-size: 14px; }
+    .container { max-width: 1400px; margin: 0 auto; padding: 24px; }
+    header { background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%); color: white; padding: 32px 28px; margin-bottom: 24px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12); }
+    header h1 { font-size: 1.75rem; margin-bottom: 8px; font-weight: 600; }
+    .section { background: var(--bg-white); border-radius: 8px; padding: 20px 24px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08); border: 1px solid var(--border-light); }
+    .section h2 { color: var(--primary); font-size: 1.1rem; margin-bottom: 16px; padding-bottom: 8px; border-bottom: 2px solid var(--primary); font-weight: 600; }
+    table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 0.85rem; }
+    .filterable-table { table-layout: fixed; }
+    .filterable-table th:nth-child(1), .filterable-table td:nth-child(1) { width: 100px; overflow: hidden; text-overflow: ellipsis; }
+    .filterable-table th:nth-child(2), .filterable-table td:nth-child(2) { width: 70px; }
+    .filterable-table th:nth-child(3), .filterable-table td:nth-child(3) { width: 120px; }
+    .filterable-table th:nth-child(4), .filterable-table td:nth-child(4) { width: auto; }
+    .filterable-table th:nth-child(5), .filterable-table td:nth-child(5) { width: 180px; }
+    th { background: var(--bg-light); padding: 10px 12px; text-align: left; font-weight: 600; border-bottom: 2px solid var(--border); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.3px; color: var(--text-muted); }
+    td { padding: 10px 12px; border-bottom: 1px solid var(--border-light); vertical-align: top; word-wrap: break-word; }
+    tr:hover { background: #fafbfc; }
+    .priority { display: inline-block; padding: 4px 10px; border-radius: 4px; font-weight: 600; font-size: 0.8rem; text-transform: uppercase; }
+    .priority-p0 { background: #fef2f2; color: var(--danger); border: 1px solid #fecaca; }
+    .priority-p1 { background: #fefce8; color: var(--warning); border: 1px solid #fef08a; }
+    .priority-p2 { background: #f0fdf4; color: var(--success); border: 1px solid #bbf7d0; }
+    .priority-p3 { background: #f0f9ff; color: var(--info); border: 1px solid #bae6fd; }
+    .subcategory { display: inline-block; background: #eff6ff; color: var(--primary); padding: 3px 8px; border-radius: 4px; font-size: 0.8rem; }
+    .automation { display: inline-block; padding: 4px 10px; border-radius: 4px; font-size: 0.8rem; font-weight: 500; }
+    .automation-api { background: #dbeafe; color: #1e40af; }
+    .automation-e2e { background: #fce7f3; color: #9d174d; }
+    .automation-integration { background: #d1fae5; color: #065f46; }
+    .automation-human { background: #f3e8ff; color: var(--purple); font-weight: 600; }
+    .automation-performance { background: #fef3c7; color: #92400e; }
+    .automation-security { background: #fee2e2; color: #991b1b; }
+    .automation-concurrency { background: #ffedd5; color: #9a3412; }
+    .human-reason { font-size: 0.75rem; margin-top: 4px; padding: 4px 8px; background: rgba(124, 58, 237, 0.1); border-radius: 4px; color: #5b21b6; }
+    .clarifying-questions { background: #fefce8; border: 1px solid #fef08a; border-radius: 8px; padding: 20px 25px; margin-top: 20px; }
+    .clarifying-questions h4 { color: #854d0e; margin-bottom: 16px; font-size: 1.1rem; border-bottom: 2px solid #fef08a; padding-bottom: 10px; }
+    .clarifying-intro { background: #fef9c3; border-radius: 6px; padding: 12px 16px; margin-bottom: 20px; }
+    .clarifying-intro .preamble { color: #713f12; font-size: 0.9rem; line-height: 1.5; margin: 0; }
+    .subcategory-questions { background: white; border: 1px solid #fef08a; border-radius: 6px; padding: 15px; margin-bottom: 15px; }
+    .subcategory-questions h5 { color: #854d0e; font-size: 0.95rem; margin-bottom: 8px; font-weight: 700; }
+    .subcategory-questions .rationale { color: #92400e; font-size: 0.85rem; margin-bottom: 12px; padding: 8px 12px; background: #fef3c7; border-radius: 4px; border-left: 3px solid #f59e0b; }
+    .clarifying-questions ul { list-style: none; margin: 0; padding: 0; }
+    .clarifying-questions li { padding: 8px 0 8px 20px; position: relative; border-bottom: 1px dashed #fef08a; color: var(--text-dark); font-size: 0.9rem; }
+    .clarifying-questions li:before { content: "?"; position: absolute; left: 0; color: #f59e0b; font-weight: bold; }
+    .clarifying-questions li:last-child { border-bottom: none; }
+    .charts-container { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; }
+    .chart-panel { background: var(--bg-white); border-radius: 12px; padding: 20px; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1); }
+    .chart-panel h3 { font-size: 1.1rem; color: var(--text-dark); margin-bottom: 15px; padding-bottom: 8px; border-bottom: 2px solid var(--border); }
+    .bar-chart { display: flex; flex-direction: column; gap: 8px; }
+    .bar-row { display: flex; align-items: center; gap: 10px; }
+    .bar-label { width: 90px; font-size: 0.8rem; font-weight: 600; color: var(--text-dark); text-align: right; flex-shrink: 0; }
+    .bar-track { flex: 1; height: 24px; background: var(--bg-light); border-radius: 4px; overflow: hidden; }
+    .bar-fill { height: 100%; border-radius: 4px; display: flex; align-items: center; justify-content: flex-end; padding-right: 8px; font-size: 0.75rem; font-weight: 600; color: white; min-width: 35px; }
+    .bar-value { width: 45px; font-size: 0.85rem; font-weight: 700; color: var(--text-dark); text-align: right; flex-shrink: 0; }
+    .bar-structure { background: linear-gradient(90deg, #3b82f6, #2563eb); }
+    .bar-function { background: linear-gradient(90deg, #8b5cf6, #7c3aed); }
+    .bar-data { background: linear-gradient(90deg, #06b6d4, #0891b2); }
+    .bar-interfaces { background: linear-gradient(90deg, #10b981, #059669); }
+    .bar-platform { background: linear-gradient(90deg, #f59e0b, #d97706); }
+    .bar-operations { background: linear-gradient(90deg, #ec4899, #db2777); }
+    .bar-time { background: linear-gradient(90deg, #6366f1, #4f46e5); }
+    .bar-p0 { background: linear-gradient(90deg, #ef4444, #dc2626); }
+    .bar-p1 { background: linear-gradient(90deg, #f59e0b, #d97706); }
+    .bar-p2 { background: linear-gradient(90deg, #22c55e, #16a34a); }
+    .bar-p3 { background: linear-gradient(90deg, #06b6d4, #0891b2); }
+    .toc-nav { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    .toc-nav a { color: var(--primary); text-decoration: none; padding: 6px 12px; border-radius: 4px; font-size: 0.8rem; font-weight: 500; background: var(--bg-light); border: 1px solid var(--border-light); }
+    .toc-nav a:hover { background: var(--primary); color: white; }
+    .toc-nav .count { background: var(--primary); color: white; padding: 1px 6px; border-radius: 3px; font-size: 0.7rem; font-weight: 600; }
+    .toc-divider { color: var(--border); margin: 0 4px; }
+    .category-section { border-radius: 8px; margin-bottom: 16px; overflow: hidden; border-left: 4px solid var(--border-light); box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+    .category-header { padding: 14px 18px; cursor: pointer; display: flex; align-items: center; justify-content: space-between; }
+    .category-header h3 { margin: 0; font-size: 0.95rem; display: flex; align-items: center; gap: 10px; font-weight: 600; }
+    .category-header .badge { font-size: 0.7rem; padding: 3px 10px; border-radius: 12px; font-weight: 600; }
+    .category-content { padding: 16px; }
+    .category-section.cat-structure { border-left-color: #3b82f6; }
+    .category-section.cat-structure .category-header { background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); }
+    .category-section.cat-structure .category-content { background: #f8faff; }
+    .category-section.cat-structure .badge { background: #3b82f6; color: white; }
+    .category-section.cat-function { border-left-color: #10b981; }
+    .category-section.cat-function .category-header { background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%); }
+    .category-section.cat-function .category-content { background: #f8fdfb; }
+    .category-section.cat-function .badge { background: #10b981; color: white; }
+    .category-section.cat-data { border-left-color: #f59e0b; }
+    .category-section.cat-data .category-header { background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%); }
+    .category-section.cat-data .category-content { background: #fffdf8; }
+    .category-section.cat-data .badge { background: #f59e0b; color: white; }
+    .category-section.cat-interfaces { border-left-color: #8b5cf6; }
+    .category-section.cat-interfaces .category-header { background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%); }
+    .category-section.cat-interfaces .category-content { background: #faf9ff; }
+    .category-section.cat-interfaces .badge { background: #8b5cf6; color: white; }
+    .category-section.cat-platform { border-left-color: #14b8a6; }
+    .category-section.cat-platform .category-header { background: linear-gradient(135deg, #f0fdfa 0%, #ccfbf1 100%); }
+    .category-section.cat-platform .category-content { background: #f8fefd; }
+    .category-section.cat-platform .badge { background: #14b8a6; color: white; }
+    .category-section.cat-operations { border-left-color: #6366f1; }
+    .category-section.cat-operations .category-header { background: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%); }
+    .category-section.cat-operations .category-content { background: #f8f9ff; }
+    .category-section.cat-operations .badge { background: #6366f1; color: white; }
+    .category-section.cat-time { border-left-color: #ec4899; }
+    .category-section.cat-time .category-header { background: linear-gradient(135deg, #fdf2f8 0%, #fce7f3 100%); }
+    .category-section.cat-time .category-content { background: #fefafc; }
+    .category-section.cat-time .badge { background: #ec4899; color: white; }
+    .collapsed .category-content { display: none; }
+    .collapse-icon { transition: transform 0.2s; font-size: 0.8rem; color: var(--text-muted); }
+    .collapsed .collapse-icon { transform: rotate(-90deg); }
+    .filter-row td { padding: 6px 8px; background: #f8fafc; }
+    .filter-input, .filter-select { width: 100%; padding: 4px 8px; border: 1px solid var(--border); border-radius: 4px; font-size: 0.75rem; background: white; }
+    .test-id { font-family: 'SF Mono', 'Consolas', monospace; font-size: 0.8rem; color: var(--text-muted); white-space: nowrap; }
+    .info-section .info-content { overflow: hidden; transition: max-height 0.3s ease-out; max-height: 1000px; }
+    .info-section.collapsed .info-content { max-height: 0 !important; padding-top: 0 !important; padding-bottom: 0 !important; }
+    .info-section.collapsed .collapse-icon { transform: rotate(-90deg); }
+    @media (max-width: 900px) { .charts-container { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+<div class="container">
+<header>
+  <h1>Product Factors assessment of: Sample Epic - E-Commerce Platform Feature</h1>
+  <div class="meta-inline" style="margin-top: 15px; padding: 10px 0; border-top: 1px solid rgba(255,255,255,0.2); font-size: 0.9rem; opacity: 0.9;">
+    <span>Report generated on <strong>2026-01-01</strong></span>
+    <span style="margin: 0 15px; opacity: 0.5;">|</span>
+    <span>Total Test Ideas: <strong>140</strong></span>
+    <span style="margin: 0 15px; opacity: 0.5;">|</span>
+    <span>Product Factors covered: <strong>7/7</strong></span>
+  </div>
+  <nav class="toc" style="margin-top: 15px;">
+    <div style="color: rgba(255,255,255,0.8); font-size: 0.85em; font-weight: 600; margin-bottom: 8px;">Quick Navigation</div>
+    <div class="toc-nav">
+      <a href="#risk" style="background: rgba(255,255,255,0.15); color: white; border-color: rgba(255,255,255,0.3);">Prioritization</a>
+      <a href="#charts" style="background: rgba(255,255,255,0.15); color: white; border-color: rgba(255,255,255,0.3);">Overview</a>
+      <span class="toc-divider" style="color: rgba(255,255,255,0.4);">|</span>
+      <span style="color: rgba(255,255,255,0.8); font-size: 0.85em; font-weight: 500;">Test Ideas:</span>
+      <a href="#structure" style="background: rgba(255,255,255,0.15); color: white; border-color: rgba(255,255,255,0.3);">Structure <span class="count">25</span></a>
+      <a href="#function" style="background: rgba(255,255,255,0.15); color: white; border-color: rgba(255,255,255,0.3);">Function <span class="count">35</span></a>
+      <a href="#data" style="background: rgba(255,255,255,0.15); color: white; border-color: rgba(255,255,255,0.3);">Data <span class="count">22</span></a>
+      <a href="#interfaces" style="background: rgba(255,255,255,0.15); color: white; border-color: rgba(255,255,255,0.3);">Interfaces <span class="count">26</span></a>
+      <a href="#platform" style="background: rgba(255,255,255,0.15); color: white; border-color: rgba(255,255,255,0.3);">Platform <span class="count">14</span></a>
+      <a href="#operations" style="background: rgba(255,255,255,0.15); color: white; border-color: rgba(255,255,255,0.3);">Operations <span class="count">10</span></a>
+      <a href="#time" style="background: rgba(255,255,255,0.15); color: white; border-color: rgba(255,255,255,0.3);">Time <span class="count">8</span></a>
+    </div>
+  </nav>
+
+  <div class="info-section collapsed" style="background: rgba(255,255,255,0.1); border-radius: 8px; margin-top: 15px;">
+    <div class="info-header" onclick="this.parentElement.classList.toggle('collapsed')" style="padding: 15px 20px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;">
+      <h3 style="margin: 0; font-size: 1.1rem; opacity: 0.95;">How can this report help you?</h3>
+      <span class="collapse-icon" style="transition: transform 0.2s;">&#9660;</span>
+    </div>
+    <div class="info-content" style="padding: 0 20px 20px 20px;">
+      <blockquote style="margin: 0 0 15px 0; padding: 12px 15px; border-left: 3px solid rgba(255,255,255,0.4); font-style: italic; opacity: 0.9;">
+        "Requirements are not an end in themselves, but a means to an end - the end of providing value to some person(s)." <span style="opacity: 0.7;">- Jerry Weinberg</span>
+      </blockquote>
+      <p style="margin: 0 0 12px 0; opacity: 0.9; line-height: 1.7;">In the <a href="https://talesoftesting.com/wp-content/uploads/2022/10/Lalitkumar-Bhamare-Quality-Conscious-Software-Delivery-eBook.pdf" style="color: #93c5fd; text-decoration: underline;">QCSD framework</a>, it is recommended to conduct Product Coverage Sessions or Requirements Engineering Sessions on a regular basis. These sessions can be carried out at the epic level or for complex feature requests and user stories. Testers in the team can analyze the epic or feature story using SFDIPOT (a product factors checklist from <a href="https://www.satisfice.com/download/heuristic-test-strategy-model" style="color: #93c5fd; text-decoration: underline;">Heuristic Test Strategy Model</a> by James Bach) and come up with test ideas, questions about risks, missing information, unconsidered dependencies, identified risks, and more.</p>
+      <p style="margin: 0 0 12px 0; opacity: 0.9; line-height: 1.7;">A guided discussion based on this analysis can help teams uncover hidden risks, assess the completeness of the requirements, create a clearer development plan, identify gaps and dependencies, improve estimation with better information at hand, and most importantly - avoid rework caused by discovering issues halfway through development.</p>
+      <p style="margin: 0; opacity: 0.9; line-height: 1.7;">If we want to save time and cost while still delivering quality software, it is always cheaper to do things right the first time. The purpose of this report is to facilitate Product Coverage Sessions and help teams achieve exactly that: doing things right the first time.</p>
+    </div>
+  </div>
+
+  <div class="info-section collapsed" style="background: rgba(255,255,255,0.1); border-radius: 8px; margin-top: 10px;">
+    <div class="info-header" onclick="this.parentElement.classList.toggle('collapsed')" style="padding: 15px 20px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;">
+      <h3 style="margin: 0; font-size: 1.1rem; opacity: 0.95;">When to generate this report?</h3>
+      <span class="collapse-icon" style="transition: transform 0.2s;">&#9660;</span>
+    </div>
+    <div class="info-content" style="padding: 0 20px 20px 20px;">
+      <p style="margin: 0; opacity: 0.9; line-height: 1.7;">The sooner the better! As soon as testers can access Epic/User Stories or any project artifact they use for test design, this report should be generated. Generate this report and organize "Product Coverage Session" discussion with relevant stakeholders such as programmers, Product Owners, Designers, Architects etc.</p>
+    </div>
+  </div>
+
+  <div class="info-section collapsed" style="background: rgba(255,255,255,0.1); border-radius: 8px; margin-top: 10px;">
+    <div class="info-header" onclick="this.parentElement.classList.toggle('collapsed')" style="padding: 15px 20px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;">
+      <h3 style="margin: 0; font-size: 1.1rem; opacity: 0.95;">How to use this report?</h3>
+      <span class="collapse-icon" style="transition: transform 0.2s;">&#9660;</span>
+    </div>
+    <div class="info-content" style="padding: 0 20px 20px 20px;">
+      <p style="margin: 0 0 12px 0; opacity: 0.9;">In this report you will find:</p>
+      <div style="margin-left: 5px; line-height: 1.8;">
+        <div style="margin-bottom: 8px;">&#9744; <strong>The Test Ideas</strong> generated for each product factor based on applicable subcategories. Review these test ideas carefully for context relevance, applicability and then derive specific test cases where needed.</div>
+        <div style="margin-bottom: 8px;">&#9744; <strong>Automation Fitness</strong> recommendations against each test idea that can help for drafting suitable automation strategy.</div>
+        <div style="margin-bottom: 8px;">&#9744; <strong>Recommended Exploratory Testing Charters</strong> - structured session-based testing charters for each SFDIPOT category. These charters define time-boxed exploration missions with specific personas, activities, and observation points. Use these to conduct focused exploratory testing sessions that uncover issues automation cannot detect. Each charter includes: Mission statement, Time box (30-60 min), Target personas, Session activities, What to look for, and Expected deliverables.</div>
+        <div style="margin-bottom: 8px;">&#9744; <strong>Recommended Test Data</strong> - per-category test data generation strategies including data types, generation approaches, volume recommendations, and privacy considerations for each SFDIPOT category.</div>
+        <div>&#9744; <strong>The Clarifying Questions</strong> - that surface "unknown unknowns" by systematically checking which Product Factors (SFDIPOT) subcategories lack test coverage. Ensure that Epics, User Stories, Acceptance Criteria etc. are readily updated based on answers derived for each clarifying question listed.</div>
+      </div>
+      <p style="margin: 15px 0 0 0; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.2); opacity: 0.9; font-size: 0.95rem;">All in all, this report represents important and unique elements to be considered in the test strategy. <strong>Rebuild this report if there are updates made in Epics, User Stories, Acceptance Criteria etc.</strong></p>
+      <p style="margin: 10px 0 0 0; opacity: 0.85; font-style: italic; font-size: 0.9rem;">Testers are advised to carefully evaluate all the information using critical thinking and context awareness.</p>
+    </div>
+  </div>
+</header>
+
+<section class="section" id="risk">
+  <h2>Risk-Based Prioritization</h2>
+  <p style="margin-bottom: 15px;">Test ideas are prioritized using a <strong>risk-based approach</strong> that considers:</p>
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; margin-bottom: 20px;">
+    <div style="background: var(--bg-light); padding: 15px; border-radius: 8px; border-left: 4px solid var(--primary);"><strong style="color: var(--primary);">Business Impact</strong><br>Potential revenue loss, customer trust damage, or regulatory penalties</div>
+    <div style="background: var(--bg-light); padding: 15px; border-radius: 8px; border-left: 4px solid var(--primary);"><strong style="color: var(--primary);">Likelihood of Failure</strong><br>Complexity of implementation, external dependencies, new technology</div>
+    <div style="background: var(--bg-light); padding: 15px; border-radius: 8px; border-left: 4px solid var(--primary);"><strong style="color: var(--primary);">User Exposure</strong><br>Number of users affected and frequency of feature usage</div>
+    <div style="background: var(--bg-light); padding: 15px; border-radius: 8px; border-left: 4px solid var(--primary);"><strong style="color: var(--primary);">Security &amp; Compliance</strong><br>Data protection requirements, legal obligations, industry regulations</div>
+  </div>
+  <h3>Priority Legend</h3>
+  <div style="background: #fef3c7; border: 1px solid #f59e0b; border-radius: 8px; padding: 12px 16px; margin-bottom: 16px;">
+    <p style="margin: 0; color: #92400e; font-size: 0.9rem;">
+      <strong>&#9888; Human SME Review Required:</strong> Priority levels assigned by this AI agent are <em>recommendations based on general risk heuristics</em>.
+      A Domain Expert or Subject Matter Expert (SME) must review and adjust priorities based on actual business context, regulatory requirements,
+      and organizational risk tolerance. The agent cannot fully understand business-specific nuances that affect priority decisions.
+    </p>
+  </div>
+  <table>
+    <thead>
+      <tr><th>Priority</th><th>Risk Level</th><th>Description</th><th>Examples</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><span class="priority priority-p0">P0</span></td><td><strong>Critical</strong></td><td>Security vulnerabilities, regulatory compliance failures, or core functionality that could cause legal liability, data breach, or complete service failure.</td><td>Authentication bypass, payment processing failures, GDPR violations, data corruption</td></tr>
+      <tr><td><span class="priority priority-p1">P1</span></td><td><strong>High</strong></td><td>Core business flows and features essential for user trust. Failures would significantly impact user experience or business operations.</td><td>Checkout flow, user registration, search functionality, order processing</td></tr>
+      <tr><td><span class="priority priority-p2">P2</span></td><td><strong>Medium</strong></td><td>Important features that support the core experience. Failures would cause inconvenience but workarounds exist.</td><td>Wishlist functionality, email notifications, export features, filtering options</td></tr>
+      <tr><td><span class="priority priority-p3">P3</span></td><td><strong>Low</strong></td><td>Edge cases, cosmetic issues, or rarely used features. Failures have minimal business impact.</td><td>Animation smoothness, rare timezone edge cases, optional notifications</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section class="section" id="charts">
+  <h2>Test Ideas Overview</h2>
+  <div class="charts-container">
+    <div class="chart-panel">
+      <h3>Test Ideas by Product Factor (SFDIPOT)</h3>
+      <div class="bar-chart">
+        <div class="bar-row"><div class="bar-label">Structure</div><div class="bar-track"><div class="bar-fill bar-structure" style="width: 71.4%"></div></div><div class="bar-value">25</div></div>
+        <div class="bar-row"><div class="bar-label">Function</div><div class="bar-track"><div class="bar-fill bar-function" style="width: 100%"></div></div><div class="bar-value">35</div></div>
+        <div class="bar-row"><div class="bar-label">Data</div><div class="bar-track"><div class="bar-fill bar-data" style="width: 62.9%"></div></div><div class="bar-value">22</div></div>
+        <div class="bar-row"><div class="bar-label">Interfaces</div><div class="bar-track"><div class="bar-fill bar-interfaces" style="width: 74.3%"></div></div><div class="bar-value">26</div></div>
+        <div class="bar-row"><div class="bar-label">Platform</div><div class="bar-track"><div class="bar-fill bar-platform" style="width: 40%"></div></div><div class="bar-value">14</div></div>
+        <div class="bar-row"><div class="bar-label">Operations</div><div class="bar-track"><div class="bar-fill bar-operations" style="width: 28.6%"></div></div><div class="bar-value">10</div></div>
+        <div class="bar-row"><div class="bar-label">Time</div><div class="bar-track"><div class="bar-fill bar-time" style="width: 22.9%"></div></div><div class="bar-value">8</div></div>
+      </div>
+      <div style="margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; font-size: 0.9rem;">
+        <span style="color: var(--text-muted);">Product Factors: 7/7</span>
+        <span style="font-weight: 700; color: var(--primary);">140 Test Ideas</span>
+      </div>
+    </div>
+    <div class="chart-panel">
+      <h3>Test Ideas by Priority</h3>
+      <div class="bar-chart">
+        <div class="bar-row"><div class="bar-label">P0 - Critical</div><div class="bar-track"><div class="bar-fill bar-p0" style="width: 30%"></div></div><div class="bar-value">15</div></div>
+        <div class="bar-row"><div class="bar-label">P1 - High</div><div class="bar-track"><div class="bar-fill bar-p1" style="width: 100%"></div></div><div class="bar-value">50</div></div>
+        <div class="bar-row"><div class="bar-label">P2 - Medium</div><div class="bar-track"><div class="bar-fill bar-p2" style="width: 80%"></div></div><div class="bar-value">40</div></div>
+        <div class="bar-row"><div class="bar-label">P3 - Low</div><div class="bar-track"><div class="bar-fill bar-p3" style="width: 70%"></div></div><div class="bar-value">35</div></div>
+      </div>
+      <h4 style="font-size: 0.85rem; color: var(--text-dark); margin: 14px 0 8px 0; padding-top: 12px; border-top: 1px solid var(--border); font-weight: 600;">Test Ideas by Automation Fitness</h4>
+      <div class="bar-chart" style="font-size: 0.85rem;">
+        <div class="bar-row" style="margin-bottom: 4px;"><div class="bar-label" style="min-width: 100px; font-size: 0.8rem;">API level</div><div class="bar-track" style="height: 14px;"><div class="bar-fill" style="width: 100%; background: linear-gradient(90deg, #6366f1, #8b5cf6);"></div></div><div class="bar-value" style="font-size: 0.8rem;">42</div></div>
+        <div class="bar-row" style="margin-bottom: 4px;"><div class="bar-label" style="min-width: 100px; font-size: 0.8rem;">E2E level</div><div class="bar-track" style="height: 14px;"><div class="bar-fill" style="width: 85.7%; background: linear-gradient(90deg, #6366f1, #8b5cf6);"></div></div><div class="bar-value" style="font-size: 0.8rem;">36</div></div>
+        <div class="bar-row" style="margin-bottom: 4px;"><div class="bar-label" style="min-width: 100px; font-size: 0.8rem;">Integration</div><div class="bar-track" style="height: 14px;"><div class="bar-fill" style="width: 57.1%; background: linear-gradient(90deg, #6366f1, #8b5cf6);"></div></div><div class="bar-value" style="font-size: 0.8rem;">24</div></div>
+        <div class="bar-row" style="margin-bottom: 4px;"><div class="bar-label" style="min-width: 100px; font-size: 0.8rem;">Security</div><div class="bar-track" style="height: 14px;"><div class="bar-fill" style="width: 28.6%; background: linear-gradient(90deg, #ef4444, #dc2626);"></div></div><div class="bar-value" style="font-size: 0.8rem;">12</div></div>
+        <div class="bar-row" style="margin-bottom: 4px;"><div class="bar-label" style="min-width: 100px; font-size: 0.8rem;">Performance</div><div class="bar-track" style="height: 14px;"><div class="bar-fill" style="width: 23.8%; background: linear-gradient(90deg, #f59e0b, #d97706);"></div></div><div class="bar-value" style="font-size: 0.8rem;">10</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="test-ideas">
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; padding-bottom: 8px; border-bottom: 2px solid var(--primary);">
+    <h2 style="margin: 0; border: none; padding: 0;">Test Ideas by Product Factor</h2>
+    <button onclick="toggleAllSections()" id="toggle-all-btn" style="background: var(--bg-light); border: 1px solid var(--border); padding: 6px 14px; border-radius: 4px; font-size: 0.8rem; cursor: pointer; font-weight: 500; color: var(--text-dark);">Collapse All</button>
+  </div>
+  <script>
+    function toggleAllSections() {
+      var sections = document.querySelectorAll('.category-section');
+      var btn = document.getElementById('toggle-all-btn');
+      var shouldCollapse = btn.textContent === 'Collapse All';
+      sections.forEach(function(s) { if (shouldCollapse) { s.classList.add('collapsed'); } else { s.classList.remove('collapsed'); } });
+      btn.textContent = shouldCollapse ? 'Expand All' : 'Collapse All';
+    }
+    function filterTable(tableId) {
+      var table = document.getElementById(tableId);
+      var filters = table.querySelectorAll('.filter-input, .filter-select');
+      var rows = table.querySelectorAll('tbody tr');
+      rows.forEach(function(row) {
+        var show = true;
+        filters.forEach(function(filter) {
+          var col = parseInt(filter.dataset.col);
+          var cell = row.cells[col];
+          if (cell) { var text = cell.textContent.toLowerCase(); var val = filter.value.toLowerCase(); if (val && text.indexOf(val) === -1) { show = false; } }
+        });
+        row.style.display = show ? '' : 'none';
+      });
+    }
+  </script>
+
+  <!-- STRUCTURE SECTION -->
+  <div class="category-section cat-structure" id="structure">
+    <div class="category-header" onclick="this.parentElement.classList.toggle('collapsed')">
+      <h3>STRUCTURE: Test ideas for everything that comprises the physical product <span class="badge">25</span></h3>
+      <span class="collapse-icon">&#9660;</span>
+    </div>
+    <div class="category-content">
+      <table class="filterable-table" id="table-structure">
+        <thead>
+          <tr><th style="width: 100px;">ID</th><th style="width: 70px;">Priority</th><th style="width: 120px;">Subcategory</th><th>Test Idea</th><th style="width: 210px;">Automation Fitness</th></tr>
+          <tr class="filter-row">
+            <td><input type="text" class="filter-input" data-col="0" placeholder="Filter..." onkeyup="filterTable('table-structure')"></td>
+            <td><select class="filter-select" data-col="1" onchange="filterTable('table-structure')"><option value="">All</option><option value="P0">P0</option><option value="P1">P1</option><option value="P2">P2</option><option value="P3">P3</option></select></td>
+            <td><input type="text" class="filter-input" data-col="2" placeholder="Filter..." onkeyup="filterTable('table-structure')"></td>
+            <td><input type="text" class="filter-input" data-col="3" placeholder="Filter..." onkeyup="filterTable('table-structure')"></td>
+            <td><select class="filter-select" data-col="4" onchange="filterTable('table-structure')"><option value="">All</option><option value="API">API</option><option value="E2E">E2E</option><option value="Integration">Integration</option></select></td>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td class="test-id">STRU-001</td><td><span class="priority priority-p1">P1</span></td><td><span class="subcategory">Code</span></td><td>Inject invalid resource ID into GET /api/v1/resources/{id}; confirm API returns 404 with descriptive error message</td><td><span class="automation automation-api">Automate on API level</span></td></tr>
+          <tr><td class="test-id">STRU-002</td><td><span class="priority priority-p1">P1</span></td><td><span class="subcategory">Code</span></td><td>Send concurrent requests to API endpoint; confirm thread-safe response handling without data corruption</td><td><span class="automation automation-api">Automate on API level</span></td></tr>
+          <tr><td class="test-id">STRU-003</td><td><span class="priority priority-p2">P2</span></td><td><span class="subcategory">Code</span></td><td>Load component with missing dependency; confirm graceful fallback with user-friendly error message</td><td><span class="automation automation-integration">Automate on Integration level</span></td></tr>
+          <tr><td class="test-id">STRU-004</td><td><span class="priority priority-p1">P1</span></td><td><span class="subcategory">Dependencies</span></td><td>Force external service timeout; confirm fallback behavior activates within acceptable timeframe</td><td><span class="automation automation-integration">Automate on Integration level</span></td></tr>
+          <tr><td class="test-id">STRU-005</td><td><span class="priority priority-p0">P0</span></td><td><span class="subcategory">Service</span></td><td>Execute health check on database API; confirm 200 response with connection pool metrics</td><td><span class="automation automation-api">Automate on API level</span></td></tr>
+        </tbody>
+      </table>
+
+      <div style="background: #eff6ff; border: 1px solid #3b82f6; border-radius: 8px; padding: 15px; margin-top: 15px;">
+        <h5 style="color: #1e40af; margin-bottom: 10px;">&#128202; Recommended Test Data for STRUCTURE based tests</h5>
+        <table style="width: 100%; font-size: 0.85rem;">
+          <tr><th>Data Type</th><th>Generation Approach</th><th>Volume</th><th>Privacy</th></tr>
+          <tr><td>Resource IDs</td><td>Reference data from production catalog</td><td>All active resources</td><td>Public data</td></tr>
+          <tr><td>API error responses</td><td>Predefined error code catalog</td><td>All HTTP status codes (4xx, 5xx)</td><td>N/A</td></tr>
+          <tr><td>Configuration files</td><td>Environment-specific templates</td><td>Dev, Staging, Production</td><td>Secrets masked</td></tr>
+          <tr><td>Library versions</td><td>Dependency matrix from package.json</td><td>Current + N-1, N-2 versions</td><td>N/A</td></tr>
+        </table>
+        <p style="margin-top: 10px; font-size: 0.85rem;"><strong>Edge Case Data:</strong> Invalid UUIDs, SQL injection strings, oversized payloads (>10MB), null bytes in filenames</p>
+      </div>
+
+      <div style="background: #f3e8ff; border: 2px solid #8b5cf6; border-radius: 8px; padding: 20px; margin-top: 20px;">
+        <h4 style="color: #5b21b6; margin-bottom: 15px;">&#128269; Recommended Exploratory Testing Charter: STRUCTURE</h4>
+        <div>
+          <p><strong>Mission:</strong> Explore component architecture, dependency resilience, and documentation accuracy to discover integration issues automation cannot detect.</p>
+          <p><strong>Time Box:</strong> 45-60 minutes</p>
+          <p><strong>Personas:</strong> System Administrator, API Consumer Developer, New Team Member</p>
+          <h5 style="margin-top: 15px;">Session Activities:</h5>
+          <ul style="margin-left: 20px;">
+            <li><strong>Dependency stress testing:</strong> Manually disable external services one-by-one while navigating the application; observe fallback behavior and error messaging</li>
+            <li><strong>Documentation walkthrough:</strong> Attempt to integrate with the API using only documentation; note unclear sections or missing examples</li>
+            <li><strong>Configuration exploration:</strong> Toggle feature flags and environment variables; assess if behavior changes are predictable and logged</li>
+          </ul>
+          <h5 style="margin-top: 15px;">What to Look For:</h5>
+          <ul style="margin-left: 20px;">
+            <li>Silent failures when dependencies timeout</li>
+            <li>Inconsistent error message formatting across components</li>
+            <li>Documentation that contradicts actual API behavior</li>
+            <li>Configuration options that produce unexpected states</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="clarifying-questions">
+        <h4>Clarifying Questions to address potential coverage gaps</h4>
+        <div class="clarifying-intro">
+          <p class="preamble">Since the user stories focus on <strong>system architecture and component integration</strong>, the following subcategories require stakeholder input.</p>
+        </div>
+        <div class="subcategory-questions">
+          <h5>[Hardware]</h5>
+          <p class="rationale"><em>Rationale: Performance characteristics may vary significantly across different hardware configurations.</em></p>
+          <ul>
+            <li>What are the minimum hardware specifications for running the application, and what degradation is acceptable on lower-spec devices?</li>
+            <li>Are there any GPU-specific features, and what is the fallback behavior when GPU acceleration is unavailable?</li>
+          </ul>
+        </div>
+        <div class="subcategory-questions">
+          <h5>[Dependencies]</h5>
+          <p class="rationale"><em>Rationale: External dependencies introduce uncontrolled risk and require contingency planning.</em></p>
+          <ul>
+            <li>When a critical third-party service changes their API without notice, what is the contingency plan?</li>
+            <li>What is the maximum acceptable downtime if a primary dependency becomes unavailable?</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FUNCTION SECTION -->
+  <div class="category-section cat-function" id="function">
+    <div class="category-header" onclick="this.parentElement.classList.toggle('collapsed')">
+      <h3>FUNCTION: Test ideas for everything the product does <span class="badge">35</span></h3>
+      <span class="collapse-icon">&#9660;</span>
+    </div>
+    <div class="category-content">
+      <table class="filterable-table" id="table-function">
+        <thead>
+          <tr><th style="width: 100px;">ID</th><th style="width: 70px;">Priority</th><th style="width: 120px;">Subcategory</th><th>Test Idea</th><th style="width: 210px;">Automation Fitness</th></tr>
+          <tr class="filter-row">
+            <td><input type="text" class="filter-input" data-col="0" placeholder="Filter..." onkeyup="filterTable('table-function')"></td>
+            <td><select class="filter-select" data-col="1" onchange="filterTable('table-function')"><option value="">All</option><option value="P0">P0</option><option value="P1">P1</option><option value="P2">P2</option><option value="P3">P3</option></select></td>
+            <td><input type="text" class="filter-input" data-col="2" placeholder="Filter..." onkeyup="filterTable('table-function')"></td>
+            <td><input type="text" class="filter-input" data-col="3" placeholder="Filter..." onkeyup="filterTable('table-function')"></td>
+            <td><select class="filter-select" data-col="4" onchange="filterTable('table-function')"><option value="">All</option><option value="API">API</option><option value="E2E">E2E</option><option value="Integration">Integration</option><option value="Security">Security</option></select></td>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td class="test-id">FUNC-001</td><td><span class="priority priority-p1">P1</span></td><td><span class="subcategory">Core</span></td><td>Complete primary user workflow end-to-end; confirm all steps complete within acceptable response times</td><td><span class="automation automation-e2e">Automate on E2E level</span></td></tr>
+          <tr><td class="test-id">FUNC-002</td><td><span class="priority priority-p0">P0</span></td><td><span class="subcategory">Security</span></td><td>Attempt to access protected resource without authentication; confirm access denied with proper error response</td><td><span class="automation automation-security">Security testing recommended</span></td></tr>
+          <tr><td class="test-id">FUNC-003</td><td><span class="priority priority-p0">P0</span></td><td><span class="subcategory">Security</span></td><td>Attempt SQL injection in search field; confirm input sanitized and query rejected safely</td><td><span class="automation automation-security">Security testing recommended</span></td></tr>
+          <tr><td class="test-id">FUNC-004</td><td><span class="priority priority-p1">P1</span></td><td><span class="subcategory">ErrorHandling</span></td><td>Submit invalid input data; confirm validation error displays with specific correction guidance</td><td><span class="automation automation-api">Automate on API level</span></td></tr>
+          <tr><td class="test-id">FUNC-005</td><td><span class="priority priority-p2">P2</span></td><td><span class="subcategory">BusinessRules</span></td><td>Complete workflow; confirm all required disclaimers and notices display at appropriate points</td><td><span class="automation automation-e2e">Automate on E2E level</span></td></tr>
+        </tbody>
+      </table>
+
+      <div style="background: #ecfdf5; border: 1px solid #10b981; border-radius: 8px; padding: 15px; margin-top: 15px;">
+        <h5 style="color: #065f46; margin-bottom: 10px;">&#128202; Recommended Test Data for FUNCTION based tests</h5>
+        <table style="width: 100%; font-size: 0.85rem;">
+          <tr><th>Data Type</th><th>Generation Approach</th><th>Volume</th><th>Privacy</th></tr>
+          <tr><td>User inputs</td><td>Boundary value analysis matrix</td><td>50+ test vectors covering all boundaries</td><td>Synthetic only</td></tr>
+          <tr><td>Business data</td><td>Seeded from sanitized production data</td><td>Representative sample set</td><td>PII removed</td></tr>
+          <tr><td>Security payloads</td><td>OWASP ZAP injection dictionary</td><td>Standard XSS/SQLi vectors</td><td>N/A</td></tr>
+          <tr><td>Error scenarios</td><td>Predefined error state catalog</td><td>All documented error conditions</td><td>N/A</td></tr>
+        </table>
+        <p style="margin-top: 10px; font-size: 0.85rem;"><strong>Edge Case Data:</strong> Unicode inputs, scientific notation, locale-specific formats, empty strings vs null</p>
+      </div>
+
+      <div style="background: #f3e8ff; border: 2px solid #8b5cf6; border-radius: 8px; padding: 20px; margin-top: 20px;">
+        <h4 style="color: #5b21b6; margin-bottom: 15px;">&#128269; Recommended Exploratory Testing Charter: FUNCTION</h4>
+        <div>
+          <p><strong>Mission:</strong> Explore core feature functionality and user experience to assess clarity, accuracy, and usability that automation cannot validate.</p>
+          <p><strong>Time Box:</strong> 60 minutes</p>
+          <p><strong>Personas:</strong> New User (first-time visitor), Power User (daily usage), Administrator</p>
+          <h5 style="margin-top: 15px;">Session Activities:</h5>
+          <ul style="margin-left: 20px;">
+            <li><strong>User journey exploration:</strong> Complete primary workflows as each persona; assess if experience matches expectations</li>
+            <li><strong>Error message review:</strong> Trigger various error conditions; evaluate if messages are helpful and actionable</li>
+            <li><strong>Edge case discovery:</strong> Explore unusual input combinations and workflow variations</li>
+          </ul>
+          <h5 style="margin-top: 15px;">What to Look For:</h5>
+          <ul style="margin-left: 20px;">
+            <li>Confusing or misleading user interface elements</li>
+            <li>Workflow paths that lead to dead ends</li>
+            <li>Inconsistent behavior across similar features</li>
+            <li>Missing or unclear error recovery options</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="clarifying-questions">
+        <h4>Clarifying Questions to address potential coverage gaps</h4>
+        <div class="clarifying-intro">
+          <p class="preamble">Since the user stories focus on <strong>core functionality and user workflows</strong>, the following require stakeholder clarification.</p>
+        </div>
+        <div class="subcategory-questions">
+          <h5>[Business Rules]</h5>
+          <p class="rationale"><em>Rationale: Business rules must be clearly defined to ensure correct implementation.</em></p>
+          <ul>
+            <li>What happens when a user attempts an action that violates business rules - should it be prevented or allowed with a warning?</li>
+            <li>Are there any exceptions to the documented business rules, and how should they be handled?</li>
+          </ul>
+        </div>
+        <div class="subcategory-questions">
+          <h5>[Security]</h5>
+          <p class="rationale"><em>Rationale: Security requirements must be explicitly defined to ensure compliance.</em></p>
+          <ul>
+            <li>What authentication and authorization mechanisms are required, and what is the session timeout policy?</li>
+            <li>How should failed authentication attempts be handled - are there lockout policies?</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DATA SECTION -->
+  <div class="category-section cat-data" id="data">
+    <div class="category-header" onclick="this.parentElement.classList.toggle('collapsed')">
+      <h3>DATA: Test ideas for everything the product processes <span class="badge">22</span></h3>
+      <span class="collapse-icon">&#9660;</span>
+    </div>
+    <div class="category-content">
+      <table class="filterable-table" id="table-data">
+        <thead>
+          <tr><th style="width: 100px;">ID</th><th style="width: 70px;">Priority</th><th style="width: 120px;">Subcategory</th><th>Test Idea</th><th style="width: 210px;">Automation Fitness</th></tr>
+          <tr class="filter-row">
+            <td><input type="text" class="filter-input" data-col="0" placeholder="Filter..." onkeyup="filterTable('table-data')"></td>
+            <td><select class="filter-select" data-col="1" onchange="filterTable('table-data')"><option value="">All</option><option value="P0">P0</option><option value="P1">P1</option><option value="P2">P2</option><option value="P3">P3</option></select></td>
+            <td><input type="text" class="filter-input" data-col="2" placeholder="Filter..." onkeyup="filterTable('table-data')"></td>
+            <td><input type="text" class="filter-input" data-col="3" placeholder="Filter..." onkeyup="filterTable('table-data')"></td>
+            <td><select class="filter-select" data-col="4" onchange="filterTable('table-data')"><option value="">All</option><option value="API">API</option><option value="E2E">E2E</option><option value="Integration">Integration</option></select></td>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td class="test-id">DATA-001</td><td><span class="priority priority-p0">P0</span></td><td><span class="subcategory">Input</span></td><td>Submit data with negative values where not allowed; confirm validation rejects with specific error message</td><td><span class="automation automation-api">Automate on API level</span></td></tr>
+          <tr><td class="test-id">DATA-002</td><td><span class="priority priority-p0">P0</span></td><td><span class="subcategory">Input</span></td><td>Submit boundary values at exact limits; confirm each boundary handled correctly per business rules</td><td><span class="automation automation-api">Automate on API level</span></td></tr>
+          <tr><td class="test-id">DATA-003</td><td><span class="priority priority-p1">P1</span></td><td><span class="subcategory">Output</span></td><td>Request data export; confirm output format matches documented specification exactly</td><td><span class="automation automation-api">Automate on API level</span></td></tr>
+          <tr><td class="test-id">DATA-004</td><td><span class="priority priority-p0">P0</span></td><td><span class="subcategory">Persistence</span></td><td>Trigger database failover during data write; confirm transaction rolls back completely without partial data</td><td><span class="automation automation-integration">Automate on Integration level</span></td></tr>
+          <tr><td class="test-id">DATA-005</td><td><span class="priority priority-p1">P1</span></td><td><span class="subcategory">Boundaries</span></td><td>Submit data at exact boundary values; confirm correct handling per documented rules</td><td><span class="automation automation-api">Automate on API level</span></td></tr>
+        </tbody>
+      </table>
+
+      <div style="background: #fffbeb; border: 1px solid #f59e0b; border-radius: 8px; padding: 15px; margin-top: 15px;">
+        <h5 style="color: #92400e; margin-bottom: 10px;">&#128202; Recommended Test Data for DATA based tests</h5>
+        <table style="width: 100%; font-size: 0.85rem;">
+          <tr><th>Data Type</th><th>Generation Approach</th><th>Volume</th><th>Privacy</th></tr>
+          <tr><td>Input combinations</td><td>Pairwise testing matrix</td><td>200+ combinations covering all boundaries</td><td>Synthetic - no PII</td></tr>
+          <tr><td>Business data</td><td>Sanitized copy of production data</td><td>Representative sample</td><td>PII anonymized</td></tr>
+          <tr><td>Unicode test strings</td><td>OWASP Unicode testing vectors</td><td>50+ strings per input field</td><td>N/A</td></tr>
+          <tr><td>Locale formats</td><td>CLDR locale database samples</td><td>Top 20 supported locales</td><td>N/A</td></tr>
+        </table>
+        <p style="margin-top: 10px; font-size: 0.85rem;"><strong>Edge Case Data:</strong> Negative numbers, floating point precision limits, dates outside valid range, empty strings vs null</p>
+      </div>
+
+      <div style="background: #f3e8ff; border: 2px solid #8b5cf6; border-radius: 8px; padding: 20px; margin-top: 20px;">
+        <h4 style="color: #5b21b6; margin-bottom: 15px;">&#128269; Recommended Exploratory Testing Charter: DATA</h4>
+        <div>
+          <p><strong>Mission:</strong> Explore data handling edge cases, boundary conditions, and internationalization to discover data corruption or loss scenarios.</p>
+          <p><strong>Time Box:</strong> 45 minutes</p>
+          <p><strong>Personas:</strong> International users (various locales), Power users entering unusual data patterns</p>
+          <h5 style="margin-top: 15px;">Session Activities:</h5>
+          <ul style="margin-left: 20px;">
+            <li><strong>Boundary exploration:</strong> Systematically enter values at, just below, and just above documented limits; observe system behavior</li>
+            <li><strong>Locale testing:</strong> Switch between 5+ locales while entering data; verify formatting consistency</li>
+            <li><strong>Data persistence check:</strong> Enter data, close browser, reopen; verify data recovery matches original</li>
+          </ul>
+          <h5 style="margin-top: 15px;">What to Look For:</h5>
+          <ul style="margin-left: 20px;">
+            <li>Data truncation without warning</li>
+            <li>Locale-specific parsing errors (comma vs period)</li>
+            <li>Lost precision in calculations</li>
+            <li>Inconsistent data between saved and displayed values</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="clarifying-questions">
+        <h4>Clarifying Questions to address potential coverage gaps</h4>
+        <div class="clarifying-intro">
+          <p class="preamble">Since the user stories involve <strong>data processing and storage</strong>, the following data handling aspects need clarification.</p>
+        </div>
+        <div class="subcategory-questions">
+          <h5>[Data Boundaries]</h5>
+          <p class="rationale"><em>Rationale: Boundary conditions must be well-defined to avoid unexpected behavior.</em></p>
+          <ul>
+            <li>What are the exact minimum and maximum valid values for each input field?</li>
+            <li>How should decimal values be handled - rounded, truncated, or accepted as-is?</li>
+          </ul>
+        </div>
+        <div class="subcategory-questions">
+          <h5>[Data Persistence]</h5>
+          <p class="rationale"><em>Rationale: Data retention policies affect compliance and user expectations.</em></p>
+          <ul>
+            <li>How long is user data retained, and can users request complete deletion?</li>
+            <li>What happens to related data when a primary record is deleted?</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- INTERFACES SECTION -->
+  <div class="category-section cat-interfaces" id="interfaces">
+    <div class="category-header" onclick="this.parentElement.classList.toggle('collapsed')">
+      <h3>INTERFACES: Test ideas for every conduit for information exchange <span class="badge">26</span></h3>
+      <span class="collapse-icon">&#9660;</span>
+    </div>
+    <div class="category-content">
+      <table class="filterable-table" id="table-interfaces">
+        <thead>
+          <tr><th style="width: 100px;">ID</th><th style="width: 70px;">Priority</th><th style="width: 120px;">Subcategory</th><th>Test Idea</th><th style="width: 210px;">Automation Fitness</th></tr>
+          <tr class="filter-row">
+            <td><input type="text" class="filter-input" data-col="0" placeholder="Filter..." onkeyup="filterTable('table-interfaces')"></td>
+            <td><select class="filter-select" data-col="1" onchange="filterTable('table-interfaces')"><option value="">All</option><option value="P0">P0</option><option value="P1">P1</option><option value="P2">P2</option><option value="P3">P3</option></select></td>
+            <td><input type="text" class="filter-input" data-col="2" placeholder="Filter..." onkeyup="filterTable('table-interfaces')"></td>
+            <td><input type="text" class="filter-input" data-col="3" placeholder="Filter..." onkeyup="filterTable('table-interfaces')"></td>
+            <td><select class="filter-select" data-col="4" onchange="filterTable('table-interfaces')"><option value="">All</option><option value="API">API</option><option value="E2E">E2E</option><option value="Integration">Integration</option></select></td>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td class="test-id">INTF-001</td><td><span class="priority priority-p1">P1</span></td><td><span class="subcategory">UI</span></td><td>Load application on 320px viewport; confirm all interactive elements accessible without horizontal scroll</td><td><span class="automation automation-e2e">Automate on E2E level</span></td></tr>
+          <tr><td class="test-id">INTF-002</td><td><span class="priority priority-p1">P1</span></td><td><span class="subcategory">UI</span></td><td>Interact with touch elements on mobile device; confirm touch targets meet minimum size requirements</td><td><span class="automation automation-e2e">Automate on E2E level</span></td></tr>
+          <tr><td class="test-id">INTF-003</td><td><span class="priority priority-p2">P2</span></td><td><span class="subcategory">UI</span></td><td>Navigate application with screen reader; confirm ARIA labels describe all interactive elements</td><td><span class="automation automation-e2e">Automate on E2E level</span></td></tr>
+          <tr><td class="test-id">INTF-004</td><td><span class="priority priority-p1">P1</span></td><td><span class="subcategory">API</span></td><td>Send GET request to documented endpoint; confirm 200 response with correct Content-Type header</td><td><span class="automation automation-api">Automate on API level</span></td></tr>
+          <tr><td class="test-id">INTF-005</td><td><span class="priority priority-p2">P2</span></td><td><span class="subcategory">API</span></td><td>Exceed API rate limit; confirm 429 response with Retry-After header</td><td><span class="automation automation-api">Automate on API level</span></td></tr>
+        </tbody>
+      </table>
+
+      <div style="background: #f5f3ff; border: 1px solid #8b5cf6; border-radius: 8px; padding: 15px; margin-top: 15px;">
+        <h5 style="color: #5b21b6; margin-bottom: 10px;">&#128202; Recommended Test Data for INTERFACES based tests</h5>
+        <table style="width: 100%; font-size: 0.85rem;">
+          <tr><th>Data Type</th><th>Generation Approach</th><th>Volume</th><th>Privacy</th></tr>
+          <tr><td>Device viewports</td><td>BrowserStack device matrix</td><td>Top 20 device/browser combinations</td><td>N/A</td></tr>
+          <tr><td>API requests</td><td>OpenAPI spec-based generation</td><td>All documented endpoints</td><td>N/A</td></tr>
+          <tr><td>ARIA labels</td><td>Accessibility audit checklist</td><td>All interactive elements</td><td>N/A</td></tr>
+          <tr><td>Rate limit scenarios</td><td>Predefined threshold tests</td><td>Normal, boundary, and excess rates</td><td>N/A</td></tr>
+        </table>
+        <p style="margin-top: 10px; font-size: 0.85rem;"><strong>Edge Case Data:</strong> Extremely long text strings, RTL languages, high-contrast mode, zoom levels 50%-400%</p>
+      </div>
+
+      <div style="background: #f3e8ff; border: 2px solid #8b5cf6; border-radius: 8px; padding: 20px; margin-top: 20px;">
+        <h4 style="color: #5b21b6; margin-bottom: 15px;">&#128269; Recommended Exploratory Testing Charter: INTERFACES</h4>
+        <div>
+          <p><strong>Mission:</strong> Explore interface usability, accessibility, and API contract compliance to discover integration issues.</p>
+          <p><strong>Time Box:</strong> 45-60 minutes</p>
+          <p><strong>Personas:</strong> Mobile User, Screen Reader User, API Consumer Developer</p>
+          <h5 style="margin-top: 15px;">Session Activities:</h5>
+          <ul style="margin-left: 20px;">
+            <li><strong>Responsive testing:</strong> Resize browser through breakpoints; observe layout changes and element visibility</li>
+            <li><strong>Accessibility audit:</strong> Navigate using keyboard only; assess tab order and focus visibility</li>
+            <li><strong>API exploration:</strong> Make requests with various header combinations; observe error handling</li>
+          </ul>
+          <h5 style="margin-top: 15px;">What to Look For:</h5>
+          <ul style="margin-left: 20px;">
+            <li>Elements that overlap or become inaccessible at certain viewport sizes</li>
+            <li>Missing or incorrect ARIA labels</li>
+            <li>API responses that don't match documentation</li>
+            <li>Inconsistent error response formats</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="clarifying-questions">
+        <h4>Clarifying Questions to address potential coverage gaps</h4>
+        <div class="clarifying-intro">
+          <p class="preamble">Since the user stories involve <strong>user interfaces and API integrations</strong>, the following require clarification.</p>
+        </div>
+        <div class="subcategory-questions">
+          <h5>[UI/Accessibility]</h5>
+          <p class="rationale"><em>Rationale: Accessibility requirements affect design decisions and compliance.</em></p>
+          <ul>
+            <li>What WCAG level are we targeting (A, AA, AAA) and is this legally mandated in target markets?</li>
+            <li>What is the minimum supported viewport size, and what features are acceptable to hide on smaller screens?</li>
+          </ul>
+        </div>
+        <div class="subcategory-questions">
+          <h5>[API Contracts]</h5>
+          <p class="rationale"><em>Rationale: API contracts must be clearly defined for integration partners.</em></p>
+          <ul>
+            <li>What is the API deprecation policy, and how much notice will consumers receive?</li>
+            <li>What rate limits apply to different API tiers, and how are limit resets communicated?</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PLATFORM SECTION -->
+  <div class="category-section cat-platform" id="platform">
+    <div class="category-header" onclick="this.parentElement.classList.toggle('collapsed')">
+      <h3>PLATFORM: Test ideas for everything external on which the product depends <span class="badge">14</span></h3>
+      <span class="collapse-icon">&#9660;</span>
+    </div>
+    <div class="category-content">
+      <table class="filterable-table" id="table-platform">
+        <thead>
+          <tr><th style="width: 100px;">ID</th><th style="width: 70px;">Priority</th><th style="width: 120px;">Subcategory</th><th>Test Idea</th><th style="width: 210px;">Automation Fitness</th></tr>
+          <tr class="filter-row">
+            <td><input type="text" class="filter-input" data-col="0" placeholder="Filter..." onkeyup="filterTable('table-platform')"></td>
+            <td><select class="filter-select" data-col="1" onchange="filterTable('table-platform')"><option value="">All</option><option value="P0">P0</option><option value="P1">P1</option><option value="P2">P2</option><option value="P3">P3</option></select></td>
+            <td><input type="text" class="filter-input" data-col="2" placeholder="Filter..." onkeyup="filterTable('table-platform')"></td>
+            <td><input type="text" class="filter-input" data-col="3" placeholder="Filter..." onkeyup="filterTable('table-platform')"></td>
+            <td><select class="filter-select" data-col="4" onchange="filterTable('table-platform')"><option value="">All</option><option value="API">API</option><option value="E2E">E2E</option><option value="Integration">Integration</option><option value="Performance">Performance</option></select></td>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td class="test-id">PLAT-001</td><td><span class="priority priority-p1">P1</span></td><td><span class="subcategory">Browser</span></td><td>Load application in Chrome, Firefox, Safari, Edge; confirm feature parity across all browsers</td><td><span class="automation automation-e2e">Automate on E2E level</span></td></tr>
+          <tr><td class="test-id">PLAT-002</td><td><span class="priority priority-p2">P2</span></td><td><span class="subcategory">Browser</span></td><td>Test with JavaScript disabled; confirm graceful degradation with appropriate messaging</td><td><span class="automation automation-e2e">Automate on E2E level</span></td></tr>
+          <tr><td class="test-id">PLAT-003</td><td><span class="priority priority-p1">P1</span></td><td><span class="subcategory">Network</span></td><td>Simulate 3G network speed; confirm application remains usable with appropriate loading states</td><td><span class="automation automation-performance">Performance testing recommended</span></td></tr>
+          <tr><td class="test-id">PLAT-004</td><td><span class="priority priority-p1">P1</span></td><td><span class="subcategory">Services</span></td><td>Simulate cloud provider partial outage; confirm application handles degraded service gracefully</td><td><span class="automation automation-integration">Automate on Integration level</span></td></tr>
+          <tr><td class="test-id">PLAT-005</td><td><span class="priority priority-p2">P2</span></td><td><span class="subcategory">Services</span></td><td>Test with CDN cache cleared; confirm assets load correctly from origin</td><td><span class="automation automation-integration">Automate on Integration level</span></td></tr>
+        </tbody>
+      </table>
+
+      <div style="background: #f0fdfa; border: 1px solid #14b8a6; border-radius: 8px; padding: 15px; margin-top: 15px;">
+        <h5 style="color: #0d9488; margin-bottom: 10px;">&#128202; Recommended Test Data for PLATFORM based tests</h5>
+        <table style="width: 100%; font-size: 0.85rem;">
+          <tr><th>Data Type</th><th>Generation Approach</th><th>Volume</th><th>Privacy</th></tr>
+          <tr><td>Browser versions</td><td>BrowserStack/Sauce Labs matrix</td><td>Latest + N-1, N-2 versions per browser</td><td>N/A</td></tr>
+          <tr><td>Network conditions</td><td>Chrome DevTools presets</td><td>Offline, Slow 3G, Fast 3G, 4G</td><td>N/A</td></tr>
+          <tr><td>Service failures</td><td>Chaos engineering scenarios</td><td>All documented dependencies</td><td>N/A</td></tr>
+          <tr><td>Geographic regions</td><td>VPN testing across regions</td><td>Top 10 target markets</td><td>N/A</td></tr>
+        </table>
+        <p style="margin-top: 10px; font-size: 0.85rem;"><strong>Edge Case Data:</strong> Browser with aggressive ad-blockers, corporate proxy restrictions, VPN connections</p>
+      </div>
+
+      <div style="background: #f3e8ff; border: 2px solid #8b5cf6; border-radius: 8px; padding: 20px; margin-top: 20px;">
+        <h4 style="color: #5b21b6; margin-bottom: 15px;">&#128269; Recommended Exploratory Testing Charter: PLATFORM</h4>
+        <div>
+          <p><strong>Mission:</strong> Explore platform compatibility and resilience to discover environment-specific issues.</p>
+          <p><strong>Time Box:</strong> 45 minutes</p>
+          <p><strong>Personas:</strong> User on outdated browser, User on slow connection, User behind corporate firewall</p>
+          <h5 style="margin-top: 15px;">Session Activities:</h5>
+          <ul style="margin-left: 20px;">
+            <li><strong>Browser compatibility:</strong> Test critical flows on oldest supported browser; note any degraded functionality</li>
+            <li><strong>Network resilience:</strong> Throttle connection and introduce latency; observe timeout handling</li>
+            <li><strong>Service dependency testing:</strong> Block specific external service calls; verify fallback behavior</li>
+          </ul>
+          <h5 style="margin-top: 15px;">What to Look For:</h5>
+          <ul style="margin-left: 20px;">
+            <li>Features that silently fail on specific browsers</li>
+            <li>Missing timeout handling for slow connections</li>
+            <li>Unclear error messages when services are unavailable</li>
+            <li>Assets blocked by corporate security policies</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="clarifying-questions">
+        <h4>Clarifying Questions to address potential coverage gaps</h4>
+        <div class="clarifying-intro">
+          <p class="preamble">Since the product depends on <strong>external platforms and services</strong>, the following require clarification.</p>
+        </div>
+        <div class="subcategory-questions">
+          <h5>[Browser Support]</h5>
+          <p class="rationale"><em>Rationale: Browser support decisions affect development effort and user reach.</em></p>
+          <ul>
+            <li>What is the oldest browser version we officially support, and what happens for users on older versions?</li>
+            <li>Are there any features that are intentionally not supported on specific browsers?</li>
+          </ul>
+        </div>
+        <div class="subcategory-questions">
+          <h5>[Service Dependencies]</h5>
+          <p class="rationale"><em>Rationale: External dependencies require contingency planning.</em></p>
+          <ul>
+            <li>What are the SLA requirements for critical third-party services?</li>
+            <li>What is the compensation or escalation process if a vendor breaches their SLA?</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- OPERATIONS SECTION -->
+  <div class="category-section cat-operations" id="operations">
+    <div class="category-header" onclick="this.parentElement.classList.toggle('collapsed')">
+      <h3>OPERATIONS: Test ideas for how the product will be used <span class="badge">10</span></h3>
+      <span class="collapse-icon">&#9660;</span>
+    </div>
+    <div class="category-content">
+      <table class="filterable-table" id="table-operations">
+        <thead>
+          <tr><th style="width: 100px;">ID</th><th style="width: 70px;">Priority</th><th style="width: 120px;">Subcategory</th><th>Test Idea</th><th style="width: 210px;">Automation Fitness</th></tr>
+          <tr class="filter-row">
+            <td><input type="text" class="filter-input" data-col="0" placeholder="Filter..." onkeyup="filterTable('table-operations')"></td>
+            <td><select class="filter-select" data-col="1" onchange="filterTable('table-operations')"><option value="">All</option><option value="P0">P0</option><option value="P1">P1</option><option value="P2">P2</option><option value="P3">P3</option></select></td>
+            <td><input type="text" class="filter-input" data-col="2" placeholder="Filter..." onkeyup="filterTable('table-operations')"></td>
+            <td><input type="text" class="filter-input" data-col="3" placeholder="Filter..." onkeyup="filterTable('table-operations')"></td>
+            <td><select class="filter-select" data-col="4" onchange="filterTable('table-operations')"><option value="">All</option><option value="API">API</option><option value="E2E">E2E</option><option value="Integration">Integration</option><option value="Performance">Performance</option></select></td>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td class="test-id">OPER-001</td><td><span class="priority priority-p1">P1</span></td><td><span class="subcategory">CommonUsage</span></td><td>Simulate 1000 concurrent users performing primary workflow; confirm system handles load without degradation</td><td><span class="automation automation-performance">Performance testing recommended</span></td></tr>
+          <tr><td class="test-id">OPER-002</td><td><span class="priority priority-p2">P2</span></td><td><span class="subcategory">ExtremeUsage</span></td><td>Trigger 10x expected peak load; confirm graceful degradation with appropriate user messaging</td><td><span class="automation automation-performance">Performance testing recommended</span></td></tr>
+          <tr><td class="test-id">OPER-003</td><td><span class="priority priority-p1">P1</span></td><td><span class="subcategory">UserTypes</span></td><td>Complete workflow as new user, returning user, and admin; confirm appropriate permissions and UI</td><td><span class="automation automation-e2e">Automate on E2E level</span></td></tr>
+          <tr><td class="test-id">OPER-004</td><td><span class="priority priority-p2">P2</span></td><td><span class="subcategory">Environment</span></td><td>Access application from different geographic regions; confirm content and latency appropriate for each</td><td><span class="automation automation-integration">Automate on Integration level</span></td></tr>
+          <tr><td class="test-id">OPER-005</td><td><span class="priority priority-p3">P3</span></td><td><span class="subcategory">Environment</span></td><td>Use application with VPN enabled; confirm no unexpected blocks or performance issues</td><td><span class="automation automation-e2e">Automate on E2E level</span></td></tr>
+        </tbody>
+      </table>
+
+      <div style="background: #eef2ff; border: 1px solid #6366f1; border-radius: 8px; padding: 15px; margin-top: 15px;">
+        <h5 style="color: #4338ca; margin-bottom: 10px;">&#128202; Recommended Test Data for OPERATIONS based tests</h5>
+        <table style="width: 100%; font-size: 0.85rem;">
+          <tr><th>Data Type</th><th>Generation Approach</th><th>Volume</th><th>Privacy</th></tr>
+          <tr><td>Load test users</td><td>k6/JMeter virtual users</td><td>1000-10000 concurrent users</td><td>Synthetic profiles</td></tr>
+          <tr><td>User personas</td><td>Predefined permission sets</td><td>All documented user types</td><td>N/A</td></tr>
+          <tr><td>Geographic locations</td><td>VPN endpoints</td><td>All target markets</td><td>N/A</td></tr>
+          <tr><td>Usage patterns</td><td>Production analytics sampling</td><td>Top 10 user journeys</td><td>Anonymized</td></tr>
+        </table>
+        <p style="margin-top: 10px; font-size: 0.85rem;"><strong>Edge Case Data:</strong> Bot-like behavior patterns, session sharing attempts, simultaneous logins</p>
+      </div>
+
+      <div style="background: #f3e8ff; border: 2px solid #8b5cf6; border-radius: 8px; padding: 20px; margin-top: 20px;">
+        <h4 style="color: #5b21b6; margin-bottom: 15px;">&#128269; Recommended Exploratory Testing Charter: OPERATIONS</h4>
+        <div>
+          <p><strong>Mission:</strong> Explore real-world usage patterns and operational scenarios to discover issues that affect production readiness.</p>
+          <p><strong>Time Box:</strong> 45 minutes</p>
+          <p><strong>Personas:</strong> Peak load user, International user, Power user with unusual patterns</p>
+          <h5 style="margin-top: 15px;">Session Activities:</h5>
+          <ul style="margin-left: 20px;">
+            <li><strong>Usage pattern simulation:</strong> Execute realistic user journeys at various speeds and patterns</li>
+            <li><strong>Permission boundary testing:</strong> Attempt actions at the edge of each user role's permissions</li>
+            <li><strong>Regional experience check:</strong> Access from different regions; compare experience quality</li>
+          </ul>
+          <h5 style="margin-top: 15px;">What to Look For:</h5>
+          <ul style="margin-left: 20px;">
+            <li>Features that degrade under load before expected thresholds</li>
+            <li>Permission escalation opportunities</li>
+            <li>Regional content or performance disparities</li>
+            <li>Unusual usage patterns that cause unexpected behavior</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="clarifying-questions">
+        <h4>Clarifying Questions to address potential coverage gaps</h4>
+        <div class="clarifying-intro">
+          <p class="preamble">Since the user stories affect <strong>operational usage patterns</strong>, the following require clarification.</p>
+        </div>
+        <div class="subcategory-questions">
+          <h5>[Usage Patterns]</h5>
+          <p class="rationale"><em>Rationale: Understanding expected usage helps set appropriate performance targets.</em></p>
+          <ul>
+            <li>What is the expected peak concurrent user count, and what are the planned scaling triggers?</li>
+            <li>What percentage of users are expected to complete each major workflow?</li>
+          </ul>
+        </div>
+        <div class="subcategory-questions">
+          <h5>[Regional Operations]</h5>
+          <p class="rationale"><em>Rationale: Regional requirements may vary significantly.</em></p>
+          <ul>
+            <li>Are there any features restricted to specific geographic regions?</li>
+            <li>How should the application respond to users accessing via VPN from unexpected locations?</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TIME SECTION -->
+  <div class="category-section cat-time" id="time">
+    <div class="category-header" onclick="this.parentElement.classList.toggle('collapsed')">
+      <h3>TIME: Test ideas for relationships between the product and time <span class="badge">8</span></h3>
+      <span class="collapse-icon">&#9660;</span>
+    </div>
+    <div class="category-content">
+      <table class="filterable-table" id="table-time">
+        <thead>
+          <tr><th style="width: 100px;">ID</th><th style="width: 70px;">Priority</th><th style="width: 120px;">Subcategory</th><th>Test Idea</th><th style="width: 210px;">Automation Fitness</th></tr>
+          <tr class="filter-row">
+            <td><input type="text" class="filter-input" data-col="0" placeholder="Filter..." onkeyup="filterTable('table-time')"></td>
+            <td><select class="filter-select" data-col="1" onchange="filterTable('table-time')"><option value="">All</option><option value="P0">P0</option><option value="P1">P1</option><option value="P2">P2</option><option value="P3">P3</option></select></td>
+            <td><input type="text" class="filter-input" data-col="2" placeholder="Filter..." onkeyup="filterTable('table-time')"></td>
+            <td><input type="text" class="filter-input" data-col="3" placeholder="Filter..." onkeyup="filterTable('table-time')"></td>
+            <td><select class="filter-select" data-col="4" onchange="filterTable('table-time')"><option value="">All</option><option value="API">API</option><option value="E2E">E2E</option><option value="Integration">Integration</option></select></td>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td class="test-id">TIME-001</td><td><span class="priority priority-p0">P0</span></td><td><span class="subcategory">State</span></td><td>Session token expiry at exact boundary time; confirm re-authentication required without grace period bypass</td><td><span class="automation automation-api">Automate on API level</span></td></tr>
+          <tr><td class="test-id">TIME-002</td><td><span class="priority priority-p1">P1</span></td><td><span class="subcategory">Concurrency</span></td><td>Two users modify same resource simultaneously; confirm no race condition or data corruption</td><td><span class="automation automation-integration">Automate on Integration level</span></td></tr>
+          <tr><td class="test-id">TIME-003</td><td><span class="priority priority-p1">P1</span></td><td><span class="subcategory">Timing</span></td><td>Trigger scheduled task at exact scheduled time; confirm task executes within acceptable tolerance</td><td><span class="automation automation-integration">Automate on Integration level</span></td></tr>
+          <tr><td class="test-id">TIME-004</td><td><span class="priority priority-p2">P2</span></td><td><span class="subcategory">Timing</span></td><td>Cross timezone boundary during active session; confirm time displays update correctly</td><td><span class="automation automation-e2e">Automate on E2E level</span></td></tr>
+          <tr><td class="test-id">TIME-005</td><td><span class="priority priority-p3">P3</span></td><td><span class="subcategory">Timing</span></td><td>Test during daylight saving time transition; confirm no duplicate or missed scheduled events</td><td><span class="automation automation-integration">Automate on Integration level</span></td></tr>
+        </tbody>
+      </table>
+
+      <div style="background: #fdf2f8; border: 1px solid #ec4899; border-radius: 8px; padding: 15px; margin-top: 15px;">
+        <h5 style="color: #be185d; margin-bottom: 10px;">&#128202; Recommended Test Data for TIME based tests</h5>
+        <table style="width: 100%; font-size: 0.85rem;">
+          <tr><th>Data Type</th><th>Generation Approach</th><th>Volume</th><th>Privacy</th></tr>
+          <tr><td>Session tokens</td><td>Various expiry times</td><td>Valid, expired, about-to-expire</td><td>N/A</td></tr>
+          <tr><td>Timezone combinations</td><td>UTC offset matrix</td><td>All standard timezones</td><td>N/A</td></tr>
+          <tr><td>Concurrent operations</td><td>Race condition scenarios</td><td>2-100 simultaneous users</td><td>Synthetic users</td></tr>
+          <tr><td>Scheduled events</td><td>Cron expression variations</td><td>All scheduled task types</td><td>N/A</td></tr>
+        </table>
+        <p style="margin-top: 10px; font-size: 0.85rem;"><strong>Edge Case Data:</strong> Leap seconds, DST transitions, year boundary events, timezone with unusual offsets (UTC+5:45)</p>
+      </div>
+
+      <div style="background: #f3e8ff; border: 2px solid #8b5cf6; border-radius: 8px; padding: 20px; margin-top: 20px;">
+        <h4 style="color: #5b21b6; margin-bottom: 15px;">&#128269; Recommended Exploratory Testing Charter: TIME</h4>
+        <div>
+          <p><strong>Mission:</strong> Explore time-related edge cases, concurrency issues, and scheduling reliability.</p>
+          <p><strong>Time Box:</strong> 30-45 minutes</p>
+          <p><strong>Personas:</strong> User in different timezone, User with expired session, Multiple users editing same data</p>
+          <h5 style="margin-top: 15px;">Session Activities:</h5>
+          <ul style="margin-left: 20px;">
+            <li><strong>Session boundary testing:</strong> Work near session expiry; observe warning and renewal behavior</li>
+            <li><strong>Concurrency exploration:</strong> Open multiple tabs and perform conflicting actions; observe resolution</li>
+            <li><strong>Timezone verification:</strong> Change device timezone mid-session; verify display updates</li>
+          </ul>
+          <h5 style="margin-top: 15px;">What to Look For:</h5>
+          <ul style="margin-left: 20px;">
+            <li>Session expiry that loses user work</li>
+            <li>Race conditions that corrupt data</li>
+            <li>Scheduled tasks that fire at wrong times</li>
+            <li>Confusing or incorrect time displays</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="clarifying-questions">
+        <h4>Clarifying Questions to address potential coverage gaps</h4>
+        <div class="clarifying-intro">
+          <p class="preamble">Since the product has <strong>time-sensitive features</strong>, the following require clarification.</p>
+        </div>
+        <div class="subcategory-questions">
+          <h5>[Session Management]</h5>
+          <p class="rationale"><em>Rationale: Session timing affects security and user experience.</em></p>
+          <ul>
+            <li>What is the session timeout duration, and what happens to unsaved work when it expires?</li>
+            <li>Is there a session extension mechanism, and how does it interact with concurrent sessions?</li>
+          </ul>
+        </div>
+        <div class="subcategory-questions">
+          <h5>[Scheduling]</h5>
+          <p class="rationale"><em>Rationale: Scheduled operations require careful timezone handling.</em></p>
+          <ul>
+            <li>How are scheduled events stored and displayed - user's timezone or server timezone?</li>
+            <li>What happens to scheduled events when a user changes their timezone setting?</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</section>
+
+<!-- Mutation Testing Strategy Section -->
+<section class="section" id="mutation-testing">
+  <h2>Mutation Testing Strategy</h2>
+  <p style="margin-bottom: 15px;">To verify that tests actually catch bugs, apply mutation testing to these critical code paths:</p>
+
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin: 20px 0;">
+    <div style="background: #ecfdf5; border: 1px solid #10b981; border-radius: 8px; padding: 15px;">
+      <h4 style="color: #065f46; margin-bottom: 10px;">Recommended Mutation Targets</h4>
+      <ul style="margin: 0; padding-left: 20px;">
+        <li><strong>Business Logic:</strong> Core calculation formulas, pricing algorithms, validation rules</li>
+        <li><strong>Boundary Conditions:</strong> Input limits, quantity ranges, date boundaries</li>
+        <li><strong>Error Handling:</strong> API error responses, validation rejection logic, exception paths</li>
+        <li><strong>State Transitions:</strong> Workflow states, order status changes, session states</li>
+      </ul>
+    </div>
+    <div style="background: #fef3c7; border: 1px solid #f59e0b; border-radius: 8px; padding: 15px;">
+      <h4 style="color: #92400e; margin-bottom: 10px;">Kill Rate Targets</h4>
+      <table style="width: 100%; font-size: 0.85rem;">
+        <tr><th>Code Area</th><th>Target</th></tr>
+        <tr><td>Core Business Logic</td><td>&ge;95%</td></tr>
+        <tr><td>Security/Authentication</td><td>&ge;95%</td></tr>
+        <tr><td>Financial Calculations</td><td>&ge;95%</td></tr>
+        <tr><td>API Validation</td><td>&ge;85%</td></tr>
+        <tr><td>UI Components</td><td>&ge;70%</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <h4>Mutation Operators to Apply</h4>
+  <ul style="margin-left: 20px;">
+    <li><strong>Arithmetic:</strong> Change +/-, */&divide;, boundary &plusmn;1 in calculation formulas</li>
+    <li><strong>Relational:</strong> Swap &lt;, &gt;, &le;, &ge;, ==, != in boundary checks and comparisons</li>
+    <li><strong>Logical:</strong> Invert AND/OR, true/false in validation conditions</li>
+    <li><strong>Return Values:</strong> Return null, empty, boundary values from functions and API endpoints</li>
+  </ul>
+</section>
+
+<footer style="text-align: center; padding: 20px; color: var(--text-muted); font-size: 0.85rem; border-top: 1px solid var(--border-light); margin-top: 24px;">
+  <p>Generated by <strong>Agentic QE Fleet - Product Factors Assessor Agent</strong></p>
+  <p>Framework: SFDIPOT from <a href="https://www.satisfice.com/download/heuristic-test-strategy-model" style="color: var(--accent);">Heuristic Test Strategy Model</a> by James Bach</p>
+  <p style="margin-top: 10px; font-size: 0.8rem; opacity: 0.8;">This is a reference template for the qe-product-factors-assessor agent. Replace content with actual epic-specific test ideas.</p>
+</footer>
+
+</div>
+</body>
+</html>

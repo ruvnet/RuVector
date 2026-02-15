@@ -1,0 +1,587 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentic-qe.dev/schemas/qe-requirements-validation-output.json",
+  "title": "AQE Requirements Validation Skill Output Schema",
+  "description": "Schema for requirements validation skill output. Includes requirements analysis, traceability matrix, and coverage assessment.",
+  "type": "object",
+  "required": ["skillName", "version", "timestamp", "status", "trustTier", "output"],
+  "properties": {
+    "skillName": {
+      "type": "string",
+      "const": "qe-requirements-validation",
+      "description": "Must be 'qe-requirements-validation'"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+(-[a-zA-Z0-9]+)?$",
+      "description": "Semantic version of the skill"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp of output generation"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["success", "partial", "failed", "skipped"],
+      "description": "Overall execution status"
+    },
+    "trustTier": {
+      "type": "integer",
+      "const": 3,
+      "description": "Trust tier 3 indicates full validation with eval suite"
+    },
+    "output": {
+      "type": "object",
+      "required": ["summary", "requirements", "traceability"],
+      "properties": {
+        "summary": {
+          "type": "string",
+          "minLength": 50,
+          "maxLength": 2000,
+          "description": "Human-readable summary of requirements validation"
+        },
+        "requirements": {
+          "$ref": "#/$defs/requirementsAnalysis",
+          "description": "Requirements analysis results"
+        },
+        "traceability": {
+          "$ref": "#/$defs/traceabilityMatrix",
+          "description": "Requirements traceability matrix"
+        },
+        "coverage": {
+          "$ref": "#/$defs/requirementsCoverage",
+          "description": "Requirements coverage assessment"
+        },
+        "testability": {
+          "$ref": "#/$defs/testabilityAssessment",
+          "description": "Testability assessment"
+        },
+        "gaps": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/requirementGap"
+          },
+          "maxItems": 100,
+          "description": "Identified gaps in requirements"
+        },
+        "recommendations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/recommendation"
+          },
+          "maxItems": 50
+        },
+        "bddScenarios": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/bddScenario"
+          },
+          "maxItems": 100,
+          "description": "Generated BDD scenarios"
+        },
+        "artifacts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/artifact"
+          },
+          "maxItems": 20
+        }
+      }
+    },
+    "metadata": {
+      "$ref": "#/$defs/metadata"
+    },
+    "validation": {
+      "$ref": "#/$defs/validationResult"
+    },
+    "learning": {
+      "$ref": "#/$defs/learningData"
+    }
+  },
+  "$defs": {
+    "requirementsAnalysis": {
+      "type": "object",
+      "required": ["total", "analyzed"],
+      "properties": {
+        "total": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total requirements found"
+        },
+        "analyzed": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Requirements analyzed"
+        },
+        "valid": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Valid requirements"
+        },
+        "incomplete": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Incomplete requirements"
+        },
+        "ambiguous": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Ambiguous requirements"
+        },
+        "untestable": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Untestable requirements"
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/requirementItem"
+          },
+          "description": "Individual requirement analysis"
+        }
+      }
+    },
+    "requirementItem": {
+      "type": "object",
+      "required": ["id", "title", "status"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Z]{2,10}-\\d+$",
+          "description": "Requirement ID (e.g., REQ-001, US-123)"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 5,
+          "maxLength": 500
+        },
+        "type": {
+          "type": "string",
+          "enum": ["story", "epic", "task", "bug", "requirement", "feature"],
+          "description": "Requirement type"
+        },
+        "priority": {
+          "type": "string",
+          "enum": ["critical", "high", "medium", "low"]
+        },
+        "status": {
+          "type": "string",
+          "enum": ["valid", "incomplete", "ambiguous", "untestable", "duplicate"]
+        },
+        "investScore": {
+          "$ref": "#/$defs/investScore",
+          "description": "INVEST criteria score"
+        },
+        "acceptanceCriteria": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/acceptanceCriterion"
+          }
+        },
+        "issues": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Issues found"
+        },
+        "linkedTests": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Linked test IDs"
+        }
+      }
+    },
+    "investScore": {
+      "type": "object",
+      "properties": {
+        "total": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 6,
+          "description": "Total INVEST score (0-6)"
+        },
+        "independent": {
+          "type": "boolean",
+          "description": "Can be tested alone"
+        },
+        "negotiable": {
+          "type": "boolean",
+          "description": "Not over-specified"
+        },
+        "valuable": {
+          "type": "boolean",
+          "description": "Delivers value"
+        },
+        "estimable": {
+          "type": "boolean",
+          "description": "Can estimate effort"
+        },
+        "small": {
+          "type": "boolean",
+          "description": "Testable in one session"
+        },
+        "testable": {
+          "type": "boolean",
+          "description": "Clear pass/fail"
+        }
+      }
+    },
+    "acceptanceCriterion": {
+      "type": "object",
+      "required": ["id", "text", "testable"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "AC identifier"
+        },
+        "text": {
+          "type": "string",
+          "description": "Acceptance criterion text"
+        },
+        "format": {
+          "type": "string",
+          "enum": ["given-when-then", "free-form", "checklist"]
+        },
+        "testable": {
+          "type": "boolean",
+          "description": "Whether AC is testable"
+        },
+        "issues": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "traceabilityMatrix": {
+      "type": "object",
+      "required": ["completeness"],
+      "properties": {
+        "completeness": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Traceability completeness percentage"
+        },
+        "requirementToTest": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/traceLink"
+          },
+          "description": "Requirement to test mappings"
+        },
+        "requirementToCode": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/traceLink"
+          },
+          "description": "Requirement to code mappings"
+        },
+        "orphanTests": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Tests without linked requirements"
+        },
+        "untracedRequirements": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Requirements without traces"
+        }
+      }
+    },
+    "traceLink": {
+      "type": "object",
+      "required": ["sourceId", "targetIds"],
+      "properties": {
+        "sourceId": {
+          "type": "string",
+          "description": "Source requirement ID"
+        },
+        "targetIds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Target test/code IDs"
+        },
+        "coverage": {
+          "type": "string",
+          "enum": ["full", "partial", "none"],
+          "description": "Coverage level"
+        }
+      }
+    },
+    "requirementsCoverage": {
+      "type": "object",
+      "required": ["percentage"],
+      "properties": {
+        "percentage": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Overall coverage percentage"
+        },
+        "covered": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "partiallyCovered": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "uncovered": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "byPriority": {
+          "type": "object",
+          "properties": {
+            "critical": { "type": "number", "minimum": 0, "maximum": 100 },
+            "high": { "type": "number", "minimum": 0, "maximum": 100 },
+            "medium": { "type": "number", "minimum": 0, "maximum": 100 },
+            "low": { "type": "number", "minimum": 0, "maximum": 100 }
+          }
+        },
+        "automationCoverage": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Percentage with automated tests"
+        }
+      }
+    },
+    "testabilityAssessment": {
+      "type": "object",
+      "required": ["score"],
+      "properties": {
+        "score": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Overall testability score"
+        },
+        "grade": {
+          "type": "string",
+          "pattern": "^[A-F][+-]?$"
+        },
+        "principles": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/testabilityPrinciple"
+          },
+          "description": "Individual principle scores"
+        },
+        "blockers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Testability blockers"
+        }
+      }
+    },
+    "testabilityPrinciple": {
+      "type": "object",
+      "required": ["name", "score"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "enum": [
+            "controllability", "observability", "isolability",
+            "separation-of-concerns", "understandability", "automatability",
+            "heterogeneity", "simplicity", "stability", "information-availability"
+          ]
+        },
+        "score": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10
+        },
+        "evidence": {
+          "type": "string"
+        }
+      }
+    },
+    "requirementGap": {
+      "type": "object",
+      "required": ["id", "type", "severity"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^GAP-\\d{3,6}$"
+        },
+        "type": {
+          "type": "string",
+          "enum": ["missing", "incomplete", "ambiguous", "conflicting", "untestable"]
+        },
+        "severity": {
+          "type": "string",
+          "enum": ["critical", "high", "medium", "low"]
+        },
+        "description": {
+          "type": "string"
+        },
+        "affectedRequirements": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "recommendation": {
+          "type": "string"
+        }
+      }
+    },
+    "bddScenario": {
+      "type": "object",
+      "required": ["title", "requirement"],
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "requirement": {
+          "type": "string",
+          "description": "Linked requirement ID"
+        },
+        "feature": {
+          "type": "string"
+        },
+        "given": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "when": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "then": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "tags": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "recommendation": {
+      "type": "object",
+      "required": ["id", "title", "priority"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^REC-\\d{3,6}$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 200
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 2000
+        },
+        "priority": {
+          "type": "string",
+          "enum": ["critical", "high", "medium", "low"]
+        },
+        "effort": {
+          "type": "string",
+          "enum": ["trivial", "low", "medium", "high", "major"]
+        },
+        "affectedRequirements": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "required": ["type", "path"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["report", "matrix", "bdd-features", "data", "log"]
+        },
+        "path": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "format": {
+          "type": "string",
+          "enum": ["json", "html", "md", "feature", "csv"]
+        },
+        "description": {
+          "type": "string"
+        }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "executionTimeMs": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "toolsUsed": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "agentId": {
+          "type": "string",
+          "pattern": "^qe-[a-z][a-z0-9-]*$"
+        },
+        "source": {
+          "type": "string",
+          "description": "Requirements source (jira, confluence, etc.)"
+        },
+        "project": {
+          "type": "string"
+        }
+      }
+    },
+    "validationResult": {
+      "type": "object",
+      "properties": {
+        "schemaValid": { "type": "boolean" },
+        "contentValid": { "type": "boolean" },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "warnings": {
+          "type": "array",
+          "items": { "type": "string" },
+          "maxItems": 20
+        },
+        "errors": {
+          "type": "array",
+          "items": { "type": "string" },
+          "maxItems": 20
+        }
+      }
+    },
+    "learningData": {
+      "type": "object",
+      "properties": {
+        "patternsDetected": {
+          "type": "array",
+          "items": { "type": "string" },
+          "maxItems": 20
+        },
+        "reward": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    }
+  }
+}

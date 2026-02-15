@@ -1,0 +1,40 @@
+{
+  "skillName": "qe-iterative-loop",
+  "skillVersion": "1.0.0",
+  "requiredTools": [
+    "jq"
+  ],
+  "optionalTools": [
+    "python3"
+  ],
+  "schemaPath": "schemas/output.json",
+  "requiredFields": [
+    "skillName",
+    "status",
+    "output",
+    "output.summary",
+    "output.iterations",
+    "output.convergence"
+  ],
+  "requiredNonEmptyFields": [
+    "output.summary"
+  ],
+  "mustContainTerms": [
+    "iteration",
+    "convergence",
+    "improvement"
+  ],
+  "mustNotContainTerms": [
+    "TODO",
+    "FIXME",
+    "placeholder"
+  ],
+  "enumValidations": {
+    ".status": [
+      "success",
+      "partial",
+      "failed",
+      "skipped"
+    ]
+  }
+}

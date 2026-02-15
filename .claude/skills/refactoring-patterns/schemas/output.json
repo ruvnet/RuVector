@@ -1,0 +1,475 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentic-qe.dev/schemas/refactoring-patterns-output.json",
+  "title": "Refactoring Patterns Skill Output Schema",
+  "description": "Schema for refactoring patterns output with refactoring catalog, code smells, and transformation metrics.",
+  "type": "object",
+  "required": ["skillName", "version", "timestamp", "status", "trustTier", "output"],
+  "properties": {
+    "skillName": {
+      "type": "string",
+      "const": "refactoring-patterns",
+      "description": "Must be 'refactoring-patterns'"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+(-[a-zA-Z0-9]+)?$"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["success", "partial", "failed", "skipped"]
+    },
+    "trustTier": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 3
+    },
+    "output": {
+      "type": "object",
+      "required": ["summary", "refactorings"],
+      "properties": {
+        "summary": {
+          "type": "string",
+          "minLength": 50,
+          "maxLength": 2000
+        },
+        "refactorings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/refactoring"
+          },
+          "minItems": 0,
+          "description": "List of refactorings performed or recommended"
+        },
+        "codeSmells": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/codeSmell"
+          },
+          "description": "Code smells detected"
+        },
+        "qualityMetrics": {
+          "$ref": "#/$defs/qualityMetrics"
+        },
+        "transformationSummary": {
+          "$ref": "#/$defs/transformationSummary"
+        },
+        "findings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/finding"
+          },
+          "maxItems": 100
+        },
+        "recommendations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/recommendation"
+          },
+          "maxItems": 50
+        },
+        "artifacts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/artifact"
+          }
+        }
+      }
+    },
+    "metadata": {
+      "$ref": "#/$defs/metadata"
+    },
+    "validation": {
+      "$ref": "#/$defs/validationResult"
+    },
+    "learning": {
+      "$ref": "#/$defs/learningData"
+    }
+  },
+  "$defs": {
+    "refactoring": {
+      "type": "object",
+      "required": ["id", "name", "category", "status"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^REF-\\d{3,6}$"
+        },
+        "name": {
+          "type": "string",
+          "description": "Refactoring pattern name (e.g., Extract Method, Rename Variable)"
+        },
+        "category": {
+          "type": "string",
+          "enum": [
+            "composing-methods",
+            "moving-features",
+            "organizing-data",
+            "simplifying-conditional",
+            "simplifying-method-calls",
+            "dealing-with-generalization",
+            "encapsulation",
+            "inline",
+            "extract"
+          ]
+        },
+        "status": {
+          "type": "string",
+          "enum": ["applied", "suggested", "rejected", "in-progress"]
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 1000
+        },
+        "motivation": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "location": {
+          "type": "object",
+          "properties": {
+            "file": {
+              "type": "string"
+            },
+            "line": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "method": {
+              "type": "string"
+            },
+            "class": {
+              "type": "string"
+            }
+          }
+        },
+        "codeExample": {
+          "type": "object",
+          "properties": {
+            "before": {
+              "type": "string"
+            },
+            "after": {
+              "type": "string"
+            },
+            "language": {
+              "type": "string"
+            }
+          }
+        },
+        "risk": {
+          "type": "string",
+          "enum": ["low", "medium", "high"]
+        },
+        "effort": {
+          "type": "string",
+          "enum": ["trivial", "low", "medium", "high", "major"]
+        },
+        "impact": {
+          "type": "object",
+          "properties": {
+            "readability": {
+              "type": "number",
+              "minimum": -10,
+              "maximum": 10
+            },
+            "maintainability": {
+              "type": "number",
+              "minimum": -10,
+              "maximum": 10
+            },
+            "performance": {
+              "type": "number",
+              "minimum": -10,
+              "maximum": 10
+            },
+            "testability": {
+              "type": "number",
+              "minimum": -10,
+              "maximum": 10
+            }
+          }
+        },
+        "relatedSmells": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "codeSmell": {
+      "type": "object",
+      "required": ["id", "name", "severity"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^SMELL-\\d{3,6}$"
+        },
+        "name": {
+          "type": "string",
+          "description": "Code smell name (e.g., Long Method, Feature Envy)"
+        },
+        "severity": {
+          "type": "string",
+          "enum": ["critical", "high", "medium", "low", "info"]
+        },
+        "category": {
+          "type": "string",
+          "enum": [
+            "bloaters",
+            "oo-abusers",
+            "change-preventers",
+            "dispensables",
+            "couplers"
+          ]
+        },
+        "description": {
+          "type": "string"
+        },
+        "location": {
+          "type": "object",
+          "properties": {
+            "file": {
+              "type": "string"
+            },
+            "line": {
+              "type": "integer"
+            },
+            "method": {
+              "type": "string"
+            }
+          }
+        },
+        "suggestedRefactorings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "metrics": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "number"
+          }
+        }
+      }
+    },
+    "qualityMetrics": {
+      "type": "object",
+      "properties": {
+        "beforeRefactoring": {
+          "type": "object",
+          "properties": {
+            "cyclomaticComplexity": {
+              "type": "number"
+            },
+            "linesOfCode": {
+              "type": "integer"
+            },
+            "duplications": {
+              "type": "number"
+            },
+            "couplingScore": {
+              "type": "number"
+            },
+            "cohesionScore": {
+              "type": "number"
+            }
+          }
+        },
+        "afterRefactoring": {
+          "type": "object",
+          "properties": {
+            "cyclomaticComplexity": {
+              "type": "number"
+            },
+            "linesOfCode": {
+              "type": "integer"
+            },
+            "duplications": {
+              "type": "number"
+            },
+            "couplingScore": {
+              "type": "number"
+            },
+            "cohesionScore": {
+              "type": "number"
+            }
+          }
+        },
+        "improvement": {
+          "type": "object",
+          "properties": {
+            "complexityReduction": {
+              "type": "number"
+            },
+            "locReduction": {
+              "type": "number"
+            },
+            "duplicationReduction": {
+              "type": "number"
+            }
+          }
+        }
+      }
+    },
+    "transformationSummary": {
+      "type": "object",
+      "properties": {
+        "totalRefactorings": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "appliedRefactorings": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "suggestedRefactorings": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "codeSmellsResolved": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "codeSmellsRemaining": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "testsPreserved": {
+          "type": "boolean"
+        },
+        "behaviorPreserved": {
+          "type": "boolean"
+        }
+      }
+    },
+    "finding": {
+      "type": "object",
+      "required": ["id", "title", "severity", "category"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^RFP-\\d{3,6}$"
+        },
+        "title": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "severity": {
+          "type": "string",
+          "enum": ["critical", "high", "medium", "low", "info"]
+        },
+        "category": {
+          "type": "string",
+          "enum": ["smell", "pattern", "design", "safety", "test-impact"]
+        },
+        "remediation": {
+          "type": "string"
+        }
+      }
+    },
+    "recommendation": {
+      "type": "object",
+      "required": ["id", "title", "priority"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^REC-\\d{3,6}$"
+        },
+        "title": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "priority": {
+          "type": "string",
+          "enum": ["critical", "high", "medium", "low"]
+        },
+        "effort": {
+          "type": "string",
+          "enum": ["trivial", "low", "medium", "high", "major"]
+        },
+        "impact": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10
+        }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "required": ["type", "path"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["report", "diff", "code", "metrics"]
+        },
+        "path": {
+          "type": "string"
+        },
+        "format": {
+          "type": "string"
+        }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "executionTimeMs": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "toolsUsed": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "agentId": {
+          "type": "string"
+        }
+      }
+    },
+    "validationResult": {
+      "type": "object",
+      "properties": {
+        "schemaValid": {
+          "type": "boolean"
+        },
+        "contentValid": {
+          "type": "boolean"
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    },
+    "learningData": {
+      "type": "object",
+      "properties": {
+        "patternsDetected": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "reward": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    }
+  }
+}

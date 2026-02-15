@@ -1,0 +1,165 @@
+# =============================================================================
+# AQE WMS Testing Patterns Skill Evaluation Test Suite v1.0.0
+# Per ADR-056 - Trust Tier 3 Validation
+# =============================================================================
+
+skill: wms-testing-patterns
+version: 1.0.0
+description: >
+  Evaluation suite for WMS testing patterns skill. Tests inventory operations,
+  pick/pack/ship workflows, EDI compliance, RF scanning, and WMS-ERP integration.
+
+models_to_test:
+  - claude-sonnet-4
+
+mcp_integration:
+  enabled: true
+  namespace: skill-validation
+  query_patterns: true
+  track_outcomes: true
+
+learning:
+  store_success_patterns: true
+  store_failure_patterns: true
+  pattern_ttl_days: 90
+  min_confidence_to_store: 0.7
+
+result_format:
+  json_output: true
+  markdown_report: true
+  include_timing: true
+
+setup:
+  required_tools:
+    - jq
+
+test_cases:
+  - id: tc001_inventory_accuracy
+    description: "Skill generates inventory accuracy test scenarios"
+    category: inventory
+    priority: critical
+    input:
+      prompt: |
+        Generate test scenarios for warehouse inventory accuracy:
+        - Cycle count verification
+        - Receipt putaway validation
+        - Adjustment reconciliation
+        Target: 99.5% inventory accuracy
+    expected_output:
+      must_contain:
+        - "inventory"
+        - "accuracy"
+        - "cycle count"
+      must_not_contain:
+        - "TODO"
+        - "error"
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+
+  - id: tc002_pick_pack_ship
+    description: "Skill covers pick/pack/ship workflow testing"
+    category: workflow
+    priority: critical
+    input:
+      prompt: |
+        Create end-to-end test plan for pick/pack/ship workflow:
+        - Wave release triggers picks
+        - Pick confirmation updates inventory
+        - Pack station validates items
+        - Shipment confirm generates ASN (EDI 856)
+    expected_output:
+      must_contain:
+        - "pick"
+        - "pack"
+        - "ship"
+        - "wave"
+      must_match_regex:
+        - "(?i)(workflow|end.to.end|sequence)"
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+
+  - id: tc003_edi_compliance
+    description: "Skill validates EDI message testing"
+    category: edi
+    priority: high
+    input:
+      prompt: |
+        Test EDI X12 message processing for WMS:
+        - 940 Warehouse Shipping Order
+        - 945 Warehouse Shipping Advice
+        - 856 ASN (Advance Ship Notice)
+        - 943/944 Warehouse Stock Transfer
+    expected_output:
+      must_contain:
+        - "EDI"
+        - "940"
+        - "945"
+        - "856"
+      must_match_regex:
+        - "(?i)(x12|edi|transaction.set)"
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.7
+
+  - id: tc004_rf_scanning
+    description: "Skill tests RF/barcode scanning flows"
+    category: rf-scanning
+    priority: high
+    input:
+      prompt: |
+        Test RF scanning workflows:
+        - Scan location barcode -> validate location
+        - Scan item barcode -> verify item matches pick
+        - Scan LPN -> confirm container
+        - Handle scan errors and re-scans
+    expected_output:
+      must_contain:
+        - "scan"
+        - "barcode"
+        - "location"
+      must_match_regex:
+        - "(?i)(rf|scan|barcode|validate)"
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.7
+
+  - id: tc005_wms_erp_integration
+    description: "Skill covers WMS-ERP integration testing"
+    category: integration
+    priority: critical
+    input:
+      prompt: |
+        Test WMS-ERP integration points:
+        - Inventory sync (real-time vs batch)
+        - Order status updates
+        - Goods receipt posting
+        - Master data synchronization
+    expected_output:
+      must_contain:
+        - "integration"
+        - "ERP"
+        - "inventory"
+        - "sync"
+      must_match_regex:
+        - "(?i)(integration|sync|interface|api)"
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+
+success_criteria:
+  pass_rate: 0.80
+  critical_pass_rate: 1.0
+  avg_reasoning_quality: 0.7
+  max_execution_time_ms: 300000
+
+metadata:
+  author: "@agentic-qe"
+  created: "2026-02-11"
+  last_updated: "2026-02-11"
+  coverage_target: >
+    WMS testing patterns including inventory accuracy, pick/pack/ship workflows,
+    EDI X12 compliance, RF/barcode scanning, and WMS-ERP integration.
+  adr_reference: "ADR-056"
+  trust_tier: 3

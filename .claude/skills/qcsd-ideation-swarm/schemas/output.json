@@ -1,0 +1,568 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentic-qe.dev/schemas/qcsd-ideation-swarm-output.json",
+  "title": "QCSD Ideation Swarm Output Schema",
+  "description": "Schema for QCSD ideation swarm output. Includes quality criteria, risks, test ideas, and multi-agent reports.",
+  "type": "object",
+  "required": ["skillName", "version", "timestamp", "status", "trustTier", "output"],
+  "properties": {
+    "skillName": {
+      "type": "string",
+      "const": "qcsd-ideation-swarm",
+      "description": "Must be 'qcsd-ideation-swarm'"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+(-[a-zA-Z0-9]+)?$"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["success", "partial", "failed", "skipped"]
+    },
+    "trustTier": {
+      "type": "integer",
+      "const": 3
+    },
+    "output": {
+      "type": "object",
+      "required": ["summary", "qualityCriteria", "risks", "testIdeas"],
+      "properties": {
+        "summary": {
+          "type": "string",
+          "minLength": 100,
+          "maxLength": 3000
+        },
+        "recommendation": {
+          "type": "string",
+          "enum": ["GO", "CONDITIONAL", "NO-GO"],
+          "description": "Overall ideation recommendation"
+        },
+        "qualityCriteria": {
+          "$ref": "#/$defs/qualityCriteriaAnalysis"
+        },
+        "risks": {
+          "$ref": "#/$defs/riskAnalysis"
+        },
+        "testIdeas": {
+          "$ref": "#/$defs/testIdeasCollection"
+        },
+        "agentReports": {
+          "$ref": "#/$defs/agentReports"
+        },
+        "testability": {
+          "$ref": "#/$defs/testabilityAssessment"
+        },
+        "flagDetection": {
+          "$ref": "#/$defs/flagDetection"
+        },
+        "conditionalAnalysis": {
+          "$ref": "#/$defs/conditionalAnalysis"
+        },
+        "executiveSummary": {
+          "$ref": "#/$defs/executiveSummary"
+        },
+        "artifacts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/artifact"
+          },
+          "maxItems": 20
+        }
+      }
+    },
+    "metadata": {
+      "$ref": "#/$defs/metadata"
+    },
+    "validation": {
+      "$ref": "#/$defs/validationResult"
+    },
+    "learning": {
+      "$ref": "#/$defs/learningData"
+    }
+  },
+  "$defs": {
+    "qualityCriteriaAnalysis": {
+      "type": "object",
+      "required": ["htsmCategories"],
+      "properties": {
+        "htsmVersion": {
+          "type": "string",
+          "default": "6.3"
+        },
+        "htsmCategories": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/htsmCategory"
+          },
+          "minItems": 5,
+          "maxItems": 10,
+          "description": "HTSM v6.3 categories analyzed"
+        },
+        "prioritySummary": {
+          "type": "object",
+          "properties": {
+            "p0": { "type": "integer", "minimum": 0 },
+            "p1": { "type": "integer", "minimum": 0 },
+            "p2": { "type": "integer", "minimum": 0 },
+            "p3": { "type": "integer", "minimum": 0 }
+          }
+        },
+        "crossCuttingConcerns": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "htsmCategory": {
+      "type": "object",
+      "required": ["name", "priority"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "enum": [
+            "Capability", "Reliability", "Security", "Performance", "Development",
+            "Usability", "Charisma", "Scalability", "Compatibility", "Installability"
+          ]
+        },
+        "priority": {
+          "type": "string",
+          "enum": ["P0", "P1", "P2", "P3"]
+        },
+        "weight": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "testabilityScore": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/evidenceItem"
+          }
+        },
+        "qualityImplication": {
+          "type": "string"
+        },
+        "businessImpact": {
+          "type": "string"
+        }
+      }
+    },
+    "evidenceItem": {
+      "type": "object",
+      "required": ["text", "type"],
+      "properties": {
+        "text": { "type": "string" },
+        "type": {
+          "type": "string",
+          "enum": ["direct", "inferred", "claimed"]
+        },
+        "source": { "type": "string" },
+        "line": { "type": "integer" }
+      }
+    },
+    "riskAnalysis": {
+      "type": "object",
+      "required": ["risks"],
+      "properties": {
+        "methodology": {
+          "type": "string",
+          "enum": ["SFDIPOT", "STRIDE", "custom"]
+        },
+        "totalRisks": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "criticalRisks": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "highestScore": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 25
+        },
+        "risks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/risk"
+          },
+          "minItems": 5,
+          "maxItems": 50
+        },
+        "riskDistribution": {
+          "type": "object",
+          "properties": {
+            "technical": { "type": "integer" },
+            "business": { "type": "integer" },
+            "quality": { "type": "integer" },
+            "integration": { "type": "integer" }
+          }
+        }
+      }
+    },
+    "risk": {
+      "type": "object",
+      "required": ["id", "description", "category", "likelihood", "impact", "score"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^R\\d{3}$"
+        },
+        "description": { "type": "string", "minLength": 10 },
+        "category": {
+          "type": "string",
+          "enum": ["technical", "business", "quality", "integration"]
+        },
+        "likelihood": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5
+        },
+        "impact": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5
+        },
+        "score": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 25
+        },
+        "mitigation": { "type": "string" },
+        "owner": {
+          "type": "string",
+          "enum": ["Dev", "QE", "Product", "Ops", "Security"]
+        }
+      }
+    },
+    "testIdeasCollection": {
+      "type": "object",
+      "required": ["ideas"],
+      "properties": {
+        "total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "ideas": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/testIdea"
+          },
+          "minItems": 5,
+          "maxItems": 100
+        },
+        "byCategory": {
+          "type": "object",
+          "properties": {
+            "functional": { "type": "integer" },
+            "nonfunctional": { "type": "integer" },
+            "exploratory": { "type": "integer" },
+            "regression": { "type": "integer" }
+          }
+        }
+      }
+    },
+    "testIdea": {
+      "type": "object",
+      "required": ["id", "title", "type"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^TI-\\d{3}$"
+        },
+        "title": { "type": "string", "minLength": 10 },
+        "description": { "type": "string" },
+        "type": {
+          "type": "string",
+          "enum": ["functional", "nonfunctional", "exploratory", "regression", "security", "accessibility", "performance"]
+        },
+        "priority": {
+          "type": "string",
+          "enum": ["critical", "high", "medium", "low"]
+        },
+        "linkedRisks": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "linkedCriteria": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "automation": {
+          "type": "string",
+          "enum": ["automated", "manual", "hybrid"]
+        }
+      }
+    },
+    "agentReports": {
+      "type": "object",
+      "required": ["coreAgents"],
+      "properties": {
+        "coreAgents": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/agentReport"
+          },
+          "minItems": 3,
+          "maxItems": 3,
+          "description": "Must have exactly 3 core agents"
+        },
+        "conditionalAgents": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/agentReport"
+          },
+          "maxItems": 3
+        },
+        "totalAgents": {
+          "type": "integer",
+          "minimum": 3,
+          "maximum": 6
+        }
+      }
+    },
+    "agentReport": {
+      "type": "object",
+      "required": ["agentId", "domain", "status"],
+      "properties": {
+        "agentId": {
+          "type": "string",
+          "pattern": "^qe-[a-z][a-z0-9-]*$"
+        },
+        "domain": {
+          "type": "string",
+          "enum": [
+            "requirements-validation", "coverage-analysis", "security-compliance",
+            "visual-accessibility", "cross-domain"
+          ]
+        },
+        "status": {
+          "type": "string",
+          "enum": ["completed", "partial", "failed", "skipped"]
+        },
+        "reportPath": { "type": "string" },
+        "executionTimeMs": { "type": "integer", "minimum": 0 },
+        "findingsCount": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "testabilityAssessment": {
+      "type": "object",
+      "required": ["score"],
+      "properties": {
+        "score": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "grade": {
+          "type": "string",
+          "pattern": "^[A-F][+-]?$"
+        },
+        "principles": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "score": { "type": "integer", "minimum": 0, "maximum": 10 },
+              "evidence": { "type": "string" }
+            }
+          },
+          "minItems": 10,
+          "maxItems": 10
+        },
+        "blockers": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "flagDetection": {
+      "type": "object",
+      "required": ["HAS_UI", "HAS_SECURITY", "HAS_UX"],
+      "properties": {
+        "HAS_UI": {
+          "type": "boolean"
+        },
+        "HAS_SECURITY": {
+          "type": "boolean"
+        },
+        "HAS_UX": {
+          "type": "boolean"
+        },
+        "HAS_VIDEO": {
+          "type": "boolean"
+        },
+        "evidence": {
+          "type": "object",
+          "properties": {
+            "ui": { "type": "array", "items": { "type": "string" } },
+            "security": { "type": "array", "items": { "type": "string" } },
+            "ux": { "type": "array", "items": { "type": "string" } },
+            "video": { "type": "array", "items": { "type": "string" } }
+          }
+        }
+      }
+    },
+    "conditionalAnalysis": {
+      "type": "object",
+      "properties": {
+        "accessibility": {
+          "$ref": "#/$defs/accessibilityAnalysis"
+        },
+        "security": {
+          "$ref": "#/$defs/securityAnalysis"
+        },
+        "qualityExperience": {
+          "$ref": "#/$defs/qxAnalysis"
+        }
+      }
+    },
+    "accessibilityAnalysis": {
+      "type": "object",
+      "properties": {
+        "wcagLevel": { "type": "string", "enum": ["A", "AA", "AAA"] },
+        "uiComponents": { "type": "array", "items": { "type": "string" } },
+        "findings": { "type": "array", "items": { "type": "object" } }
+      }
+    },
+    "securityAnalysis": {
+      "type": "object",
+      "properties": {
+        "strideCategories": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "authRequirements": { "type": "string" },
+        "dataProtection": { "type": "array", "items": { "type": "object" } },
+        "compliance": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "qxAnalysis": {
+      "type": "object",
+      "properties": {
+        "pact": {
+          "type": "object",
+          "properties": {
+            "people": { "type": "string" },
+            "activities": { "type": "string" },
+            "contexts": { "type": "string" },
+            "technologies": { "type": "string" }
+          }
+        },
+        "personas": { "type": "array", "items": { "type": "object" } },
+        "userJourneys": { "type": "array", "items": { "type": "string" } },
+        "qxRisks": { "type": "array", "items": { "type": "object" } }
+      }
+    },
+    "executiveSummary": {
+      "type": "object",
+      "required": ["recommendation"],
+      "properties": {
+        "recommendation": {
+          "type": "string",
+          "enum": ["GO", "CONDITIONAL", "NO-GO"]
+        },
+        "rationale": { "type": "string", "minLength": 50 },
+        "metrics": {
+          "type": "object",
+          "properties": {
+            "htsmCoverage": { "type": "integer", "minimum": 0, "maximum": 10 },
+            "testabilityScore": { "type": "integer", "minimum": 0, "maximum": 100 },
+            "acCompleteness": { "type": "integer", "minimum": 0, "maximum": 100 },
+            "criticalRisks": { "type": "integer", "minimum": 0 }
+          }
+        },
+        "immediateActions": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "developmentActions": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "preReleaseActions": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "followUpRecommendations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "action": { "type": "string" },
+              "skill": { "type": "string" },
+              "reason": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "required": ["type", "path"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["report", "htsm-analysis", "risk-matrix", "test-ideas", "executive-summary"]
+        },
+        "path": { "type": "string", "maxLength": 500 },
+        "format": {
+          "type": "string",
+          "enum": ["html", "md", "json"]
+        },
+        "description": { "type": "string" }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "executionTimeMs": { "type": "integer", "minimum": 0 },
+        "agentId": { "type": "string", "pattern": "^qe-[a-z][a-z0-9-]*$" },
+        "targetUrl": { "type": "string" },
+        "epicId": { "type": "string" },
+        "fetchMethod": {
+          "type": "string",
+          "enum": ["playwright", "webfetch", "websearch-fallback"]
+        }
+      }
+    },
+    "validationResult": {
+      "type": "object",
+      "properties": {
+        "schemaValid": { "type": "boolean" },
+        "contentValid": { "type": "boolean" },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "warnings": { "type": "array", "items": { "type": "string" } },
+        "errors": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "learningData": {
+      "type": "object",
+      "properties": {
+        "patternsDetected": { "type": "array", "items": { "type": "string" } },
+        "reward": { "type": "number", "minimum": 0, "maximum": 1 },
+        "ideationPatterns": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "pattern": { "type": "string" },
+              "recommendation": { "type": "string" },
+              "outcome": { "type": "string" }
+            }
+          }
+        }
+      }
+    }
+  }
+}

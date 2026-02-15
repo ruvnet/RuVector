@@ -1,0 +1,549 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentic-qe.dev/schemas/a11y-ally-output.json",
+  "title": "A11y Ally Accessibility Skill Output Schema",
+  "description": "Schema for comprehensive accessibility audit output with WCAG compliance, video captions, screenshots, and POUR analysis.",
+  "type": "object",
+  "required": ["skillName", "version", "timestamp", "status", "trustTier", "output"],
+  "properties": {
+    "skillName": {
+      "type": "string",
+      "const": "a11y-ally",
+      "description": "Must be 'a11y-ally'"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+(-[a-zA-Z0-9]+)?$"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["success", "partial", "failed", "skipped"]
+    },
+    "trustTier": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 3
+    },
+    "output": {
+      "type": "object",
+      "required": ["summary", "a11yResults", "conformanceLevel"],
+      "properties": {
+        "summary": {
+          "type": "string",
+          "minLength": 50,
+          "maxLength": 2000
+        },
+        "a11yResults": {
+          "$ref": "#/$defs/a11yResults"
+        },
+        "conformanceLevel": {
+          "type": "string",
+          "enum": ["A", "AA", "AAA", "none"],
+          "description": "WCAG conformance level achieved"
+        },
+        "screenshots": {
+          "$ref": "#/$defs/screenshots"
+        },
+        "videoCaptions": {
+          "$ref": "#/$defs/videoCaptions"
+        },
+        "pourBreakdown": {
+          "$ref": "#/$defs/pourBreakdown"
+        },
+        "findings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/a11yFinding"
+          },
+          "maxItems": 200
+        },
+        "recommendations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/recommendation"
+          },
+          "maxItems": 100
+        },
+        "artifacts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/artifact"
+          }
+        }
+      }
+    },
+    "metadata": {
+      "$ref": "#/$defs/metadata"
+    },
+    "validation": {
+      "$ref": "#/$defs/validationResult"
+    },
+    "learning": {
+      "$ref": "#/$defs/learningData"
+    }
+  },
+  "$defs": {
+    "a11yResults": {
+      "type": "object",
+      "required": ["totalChecks", "passed", "failed", "score"],
+      "properties": {
+        "totalChecks": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "passed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "failed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "warnings": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "score": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Accessibility score"
+        },
+        "grade": {
+          "type": "string",
+          "pattern": "^[A-F][+-]?$"
+        },
+        "wcagVersion": {
+          "type": "string",
+          "enum": ["2.0", "2.1", "2.2"]
+        },
+        "targetLevel": {
+          "type": "string",
+          "enum": ["A", "AA", "AAA"]
+        },
+        "criticalIssues": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "seriousIssues": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "moderateIssues": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "minorIssues": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "toolsUsed": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["axe-core", "pa11y", "lighthouse", "claude-vision", "manual"]
+          }
+        }
+      }
+    },
+    "screenshots": {
+      "type": "object",
+      "properties": {
+        "total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "annotated": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Screenshots with accessibility issues highlighted"
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "path"],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "path": {
+                "type": "string"
+              },
+              "url": {
+                "type": "string"
+              },
+              "viewport": {
+                "type": "object",
+                "properties": {
+                  "width": {
+                    "type": "integer"
+                  },
+                  "height": {
+                    "type": "integer"
+                  }
+                }
+              },
+              "issuesHighlighted": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "annotations": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "findingId": {
+                      "type": "string"
+                    },
+                    "x": {
+                      "type": "integer"
+                    },
+                    "y": {
+                      "type": "integer"
+                    },
+                    "width": {
+                      "type": "integer"
+                    },
+                    "height": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "videoCaptions": {
+      "type": "object",
+      "properties": {
+        "videosAnalyzed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "captionsGenerated": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "audioDescriptionsGenerated": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "videos": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["videoId", "source"],
+            "properties": {
+              "videoId": {
+                "type": "string"
+              },
+              "source": {
+                "type": "string"
+              },
+              "duration": {
+                "type": "number",
+                "description": "Duration in seconds"
+              },
+              "framesAnalyzed": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "captionsPath": {
+                "type": "string",
+                "description": "Path to WebVTT captions file"
+              },
+              "audioDescriptionPath": {
+                "type": "string",
+                "description": "Path to audio description VTT file"
+              },
+              "captionLanguage": {
+                "type": "string"
+              },
+              "frameDescriptions": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "frameNumber": {
+                      "type": "integer"
+                    },
+                    "timestamp": {
+                      "type": "string",
+                      "pattern": "^\\d{2}:\\d{2}:\\d{2}\\.\\d{3}$"
+                    },
+                    "description": {
+                      "type": "string"
+                    },
+                    "scene": {
+                      "type": "string"
+                    },
+                    "text": {
+                      "type": "string"
+                    },
+                    "action": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "pourBreakdown": {
+      "type": "object",
+      "required": ["perceivable", "operable", "understandable", "robust"],
+      "properties": {
+        "perceivable": {
+          "$ref": "#/$defs/pourScore"
+        },
+        "operable": {
+          "$ref": "#/$defs/pourScore"
+        },
+        "understandable": {
+          "$ref": "#/$defs/pourScore"
+        },
+        "robust": {
+          "$ref": "#/$defs/pourScore"
+        }
+      }
+    },
+    "pourScore": {
+      "type": "object",
+      "required": ["score", "violationCount"],
+      "properties": {
+        "score": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "violationCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "criticalCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "seriousCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "moderateCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "minorCount": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "a11yFinding": {
+      "type": "object",
+      "required": ["id", "title", "severity", "wcagCriterion", "pourPrinciple"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^A11Y-\\d{3,6}$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 5,
+          "maxLength": 200
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 2000
+        },
+        "severity": {
+          "type": "string",
+          "enum": ["critical", "serious", "moderate", "minor"]
+        },
+        "wcagCriterion": {
+          "type": "string",
+          "pattern": "^\\d+\\.\\d+\\.\\d+$"
+        },
+        "wcagLevel": {
+          "type": "string",
+          "enum": ["A", "AA", "AAA"]
+        },
+        "pourPrinciple": {
+          "type": "string",
+          "enum": ["perceivable", "operable", "understandable", "robust"]
+        },
+        "impact": {
+          "type": "string",
+          "description": "Impact on users with disabilities"
+        },
+        "element": {
+          "type": "object",
+          "properties": {
+            "selector": {
+              "type": "string"
+            },
+            "html": {
+              "type": "string"
+            },
+            "tagName": {
+              "type": "string"
+            }
+          }
+        },
+        "remediation": {
+          "type": "string"
+        },
+        "codeExample": {
+          "type": "object",
+          "properties": {
+            "before": {
+              "type": "string"
+            },
+            "after": {
+              "type": "string"
+            }
+          }
+        },
+        "affectedUsers": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["blind", "low-vision", "color-blind", "deaf", "hard-of-hearing", "motor-impaired", "cognitive", "photosensitive"]
+          }
+        },
+        "screenshotId": {
+          "type": "string",
+          "description": "Reference to screenshot showing the issue"
+        }
+      }
+    },
+    "recommendation": {
+      "type": "object",
+      "required": ["id", "title", "priority"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^REC-\\d{3,6}$"
+        },
+        "title": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "priority": {
+          "type": "string",
+          "enum": ["critical", "high", "medium", "low"]
+        },
+        "effort": {
+          "type": "string",
+          "enum": ["trivial", "low", "medium", "high", "major"]
+        },
+        "wcagCriteria": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^\\d+\\.\\d+\\.\\d+$"
+          }
+        },
+        "relatedFindings": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^A11Y-\\d{3,6}$"
+          }
+        }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "required": ["type", "path"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["report", "captions", "audio-description", "screenshot", "data", "vtt"]
+        },
+        "path": {
+          "type": "string"
+        },
+        "format": {
+          "type": "string",
+          "enum": ["json", "html", "md", "vtt", "png", "jpg", "txt"]
+        },
+        "description": {
+          "type": "string"
+        }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "executionTimeMs": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "toolsUsed": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "agentId": {
+          "type": "string"
+        },
+        "targetUrl": {
+          "type": "string",
+          "format": "uri"
+        },
+        "pagesAudited": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "elementsAnalyzed": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "validationResult": {
+      "type": "object",
+      "properties": {
+        "schemaValid": {
+          "type": "boolean"
+        },
+        "contentValid": {
+          "type": "boolean"
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    },
+    "learningData": {
+      "type": "object",
+      "properties": {
+        "patternsDetected": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "reward": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    }
+  }
+}

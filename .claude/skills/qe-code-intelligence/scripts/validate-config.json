@@ -1,0 +1,41 @@
+{
+  "skillName": "qe-code-intelligence",
+  "skillVersion": "1.0.0",
+  "requiredTools": [
+    "jq"
+  ],
+  "optionalTools": [
+    "node",
+    "python3"
+  ],
+  "schemaPath": "schemas/output.json",
+  "requiredFields": [
+    "skillName",
+    "status",
+    "output",
+    "output.summary",
+    "output.codeGraph",
+    "output.complexityMetrics"
+  ],
+  "requiredNonEmptyFields": [
+    "output.summary"
+  ],
+  "mustContainTerms": [
+    "code",
+    "complexity",
+    "dependency"
+  ],
+  "mustNotContainTerms": [
+    "TODO",
+    "FIXME",
+    "placeholder"
+  ],
+  "enumValidations": {
+    ".status": [
+      "success",
+      "partial",
+      "failed",
+      "skipped"
+    ]
+  }
+}

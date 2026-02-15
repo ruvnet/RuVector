@@ -1,0 +1,761 @@
+# =============================================================================
+# AQE Skill Evaluation Test Suite: Chaos Engineering Resilience v1.0.0
+# =============================================================================
+#
+# Comprehensive evaluation suite for the chaos-engineering-resilience skill
+# per ADR-056. Tests fault injection, steady-state validation, blast radius
+# control, recovery time measurement, and resilience scoring.
+#
+# Schema: .claude/skills/.validation/schemas/skill-eval.schema.json
+# Validator: .claude/skills/chaos-engineering-resilience/scripts/validate-config.json
+#
+# Coverage:
+# - Network chaos (latency, packet loss, partition)
+# - Resource chaos (CPU stress, memory exhaust, disk fill)
+# - Infrastructure chaos (pod kill, node drain, zone failure)
+# - Application chaos (exception injection, deadlocks)
+# - Byzantine fault tolerance (malicious nodes, split-brain)
+# - Spike and ramp-up load testing
+# - Negative tests (safety controls validation)
+#
+# =============================================================================
+
+skill: chaos-engineering-resilience
+version: 1.0.0
+description: >
+  Comprehensive evaluation suite for the chaos-engineering-resilience skill.
+  Tests fault injection types, steady-state hypothesis validation, blast
+  radius controls, recovery time measurement, Byzantine fault tolerance,
+  and resilience scoring. Supports multi-model testing and integrates with
+  ReasoningBank for continuous improvement.
+
+# =============================================================================
+# Multi-Model Configuration
+# =============================================================================
+
+models_to_test:
+  - claude-3.5-sonnet    # Primary model (high accuracy expected)
+  - claude-3-haiku       # Fast model (minimum quality threshold)
+  - gpt-4o               # Cross-vendor validation
+
+# =============================================================================
+# MCP Integration Configuration
+# =============================================================================
+
+mcp_integration:
+  enabled: true
+  namespace: skill-validation
+
+  # Query existing chaos patterns before running evals
+  query_patterns: true
+
+  # Track each test outcome for learning feedback loop
+  track_outcomes: true
+
+  # Store successful patterns after evals complete
+  store_patterns: true
+
+  # Share learning with fleet coordinator agents
+  share_learning: true
+
+  # Update quality gate with validation metrics
+  update_quality_gate: true
+
+  # Target agents for learning distribution
+  target_agents:
+    - qe-learning-coordinator
+    - qe-queen-coordinator
+    - qe-chaos-engineer
+    - qe-performance-tester
+
+# =============================================================================
+# ReasoningBank Learning Configuration
+# =============================================================================
+
+learning:
+  store_success_patterns: true
+  store_failure_patterns: true
+  pattern_ttl_days: 90
+  min_confidence_to_store: 0.7
+  cross_model_comparison: true
+
+# =============================================================================
+# Result Format Configuration
+# =============================================================================
+
+result_format:
+  json_output: true
+  markdown_report: true
+  include_raw_output: false
+  include_timing: true
+  include_token_usage: true
+
+# =============================================================================
+# Environment Setup
+# =============================================================================
+
+setup:
+  required_tools:
+    - jq       # JSON parsing (required)
+
+  environment_variables:
+    CHAOS_ENABLED: "true"
+    BLAST_RADIUS_LIMIT: "single-service"
+    SAFETY_CONTROLS: "enabled"
+
+  fixtures:
+    - name: kubernetes_deployment
+      path: fixtures/kubernetes-deployment.yaml
+      content: |
+        apiVersion: apps/v1
+        kind: Deployment
+        metadata:
+          name: user-service
+          namespace: production
+        spec:
+          replicas: 3
+          selector:
+            matchLabels:
+              app: user-service
+          template:
+            metadata:
+              labels:
+                app: user-service
+            spec:
+              containers:
+              - name: user-service
+                image: user-service:v1.2.3
+                resources:
+                  limits:
+                    cpu: "500m"
+                    memory: "512Mi"
+
+# =============================================================================
+# TEST CASES
+# =============================================================================
+
+test_cases:
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Network Chaos
+  # ---------------------------------------------------------------------------
+
+  - id: tc001_network_latency_injection
+    description: "Test network latency injection and system tolerance"
+    category: network
+    priority: critical
+
+    input:
+      scenario: |
+        Target: user-service in production
+        Inject: 500ms latency with 100ms jitter
+        Duration: 10 minutes
+        Blast radius: 50% of pods
+        Steady-state: error_rate < 1%, p99 < 300ms
+      context:
+        environment: staging
+        kubernetes: true
+        service_mesh: istio
+
+    expected_output:
+      must_contain:
+        - "latency"
+        - "steady-state"
+        - "recovery"
+        - "experiment"
+      must_not_contain:
+        - "no impact"
+        - "skipped"
+      must_match_regex:
+        - "CHAOS-\\d{3,6}"
+        - "network|latency"
+      experiment_result: ["passed", "partial"]
+      experiment_count:
+        min: 1
+        max: 5
+      weakness_count:
+        max: 5
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+      reasoning_quality_min: 0.7
+
+    timeout_ms: 60000
+
+  - id: tc002_network_partition_zones
+    description: "Test network partition between availability zones"
+    category: network
+    priority: critical
+
+    input:
+      scenario: |
+        Target: Cross-zone communication between zone-a and zone-b
+        Inject: Full network partition
+        Duration: 15 minutes
+        Blast radius: All cross-zone traffic
+        Steady-state: availability > 99%, database failover < 5s
+      context:
+        environment: staging
+        multi_zone: true
+
+    expected_output:
+      must_contain:
+        - "partition"
+        - "zone"
+        - "failover"
+        - "availability"
+      must_match_regex:
+        - "CHAOS-\\d{3,6}"
+        - "zone|partition"
+      experiment_result: ["passed", "partial", "failed"]
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.7
+
+  - id: tc003_packet_loss_simulation
+    description: "Test packet loss simulation and retry handling"
+    category: network
+    priority: high
+
+    input:
+      scenario: |
+        Target: payment-service
+        Inject: 10% packet loss with 50% correlation
+        Duration: 5 minutes
+        Steady-state: success_rate > 99%
+      context:
+        environment: staging
+
+    expected_output:
+      must_contain:
+        - "packet"
+        - "loss"
+        - "retry"
+      must_match_regex:
+        - "CHAOS-\\d{3,6}"
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.7
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Resource Chaos
+  # ---------------------------------------------------------------------------
+
+  - id: tc004_cpu_stress_test
+    description: "Test CPU stress and auto-scaling response"
+    category: resource
+    priority: high
+
+    input:
+      scenario: |
+        Target: compute-service pods
+        Inject: 90% CPU load for 10 minutes
+        Blast radius: 2 pods out of 6
+        Steady-state: response_time_p99 < 500ms
+        Expected: Auto-scaling triggers new pods
+      context:
+        environment: staging
+        auto_scaling: true
+
+    expected_output:
+      must_contain:
+        - "CPU"
+        - "stress"
+        - "scaling"
+      must_match_regex:
+        - "CHAOS-\\d{3,6}"
+        - "resource|cpu"
+      experiment_result: ["passed", "partial"]
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.7
+
+  - id: tc005_memory_exhaustion
+    description: "Test memory exhaustion and OOM behavior"
+    category: resource
+    priority: critical
+
+    input:
+      scenario: |
+        Target: data-processor service
+        Inject: Fill 90% of container memory
+        Duration: 8 minutes
+        Steady-state: No OOM kills, graceful degradation
+        Blast radius: 1 pod
+      context:
+        environment: staging
+        memory_limits: true
+
+    expected_output:
+      must_contain:
+        - "memory"
+        - "OOM"
+        - "graceful"
+      must_match_regex:
+        - "CHAOS-\\d{3,6}"
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.7
+
+  - id: tc006_disk_iops_limit
+    description: "Test disk IOPS throttling impact on database"
+    category: resource
+    priority: high
+
+    input:
+      scenario: |
+        Target: database service
+        Inject: Limit IOPS to 100 (from baseline 1000)
+        Duration: 5 minutes
+        Steady-state: query_latency_p99 < 200ms
+        Blast radius: Single database pod
+      context:
+        environment: staging
+        database: postgresql
+
+    expected_output:
+      must_contain:
+        - "disk"
+        - "IOPS"
+        - "database"
+        - "latency"
+      must_match_regex:
+        - "CHAOS-\\d{3,6}"
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.7
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Infrastructure Chaos
+  # ---------------------------------------------------------------------------
+
+  - id: tc007_pod_termination
+    description: "Test pod termination and restart behavior"
+    category: infrastructure
+    priority: critical
+
+    input:
+      scenario: |
+        Target: api-gateway pods
+        Inject: Terminate 50% of pods randomly
+        Duration: Instant, observe recovery
+        Steady-state: availability > 99.9%
+        Expected: Kubernetes restarts pods, no user impact
+      context:
+        environment: staging
+        replicas: 6
+
+    expected_output:
+      must_contain:
+        - "pod"
+        - "terminate"
+        - "restart"
+        - "recovery"
+      must_match_regex:
+        - "CHAOS-\\d{3,6}"
+        - "infrastructure|pod"
+      experiment_result: ["passed", "partial"]
+      recovery_time:
+        max_ms: 30000
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+
+  - id: tc008_node_drain_simulation
+    description: "Test node drain and workload redistribution"
+    category: infrastructure
+    priority: high
+
+    input:
+      scenario: |
+        Target: Worker node hosting critical services
+        Inject: Drain node (cordon + evict pods)
+        Duration: Until redistribution complete
+        Steady-state: All services remain available
+        Blast radius: 1 node
+      context:
+        environment: staging
+        node_count: 5
+
+    expected_output:
+      must_contain:
+        - "node"
+        - "drain"
+        - "redistribute"
+        - "evict"
+      must_match_regex:
+        - "CHAOS-\\d{3,6}"
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.7
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Application Chaos
+  # ---------------------------------------------------------------------------
+
+  - id: tc009_exception_injection
+    description: "Test exception injection and error handling"
+    category: application
+    priority: high
+
+    input:
+      scenario: |
+        Target: order-service
+        Inject: RuntimeException on 10% of requests
+        Duration: 5 minutes
+        Steady-state: error_rate < 5%, circuit_breaker triggers
+        Expected: Circuit breaker protects downstream services
+      context:
+        environment: staging
+        circuit_breaker: true
+
+    expected_output:
+      must_contain:
+        - "exception"
+        - "circuit breaker"
+        - "error"
+      must_match_regex:
+        - "CHAOS-\\d{3,6}"
+        - "application|exception"
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.7
+
+  - id: tc010_connection_pool_exhaust
+    description: "Test database connection pool exhaustion"
+    category: application
+    priority: high
+
+    input:
+      scenario: |
+        Target: user-service database connections
+        Inject: Exhaust connection pool (hold connections)
+        Duration: 3 minutes
+        Steady-state: Service remains responsive with queue
+        Expected: Connection timeout and retry behavior
+      context:
+        environment: staging
+        pool_size: 50
+
+    expected_output:
+      must_contain:
+        - "connection"
+        - "pool"
+        - "exhaust"
+        - "timeout"
+      must_match_regex:
+        - "CHAOS-\\d{3,6}"
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.7
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Byzantine Fault Tolerance
+  # ---------------------------------------------------------------------------
+
+  - id: tc011_byzantine_malicious_node
+    description: "Test Byzantine fault tolerance with malicious node"
+    category: byzantine
+    priority: critical
+
+    input:
+      scenario: |
+        Target: Consensus cluster (7 nodes, f=2 tolerance)
+        Inject: 1 node sends incorrect values to subset of nodes
+        Duration: 10 minutes
+        Steady-state: Consensus reached with correct values
+        Expected: System tolerates 1 Byzantine node (f < n/3)
+      context:
+        environment: staging
+        consensus: pbft
+        nodes: 7
+
+    expected_output:
+      must_contain:
+        - "Byzantine"
+        - "consensus"
+        - "malicious"
+        - "tolerance"
+      must_match_regex:
+        - "CHAOS-\\d{3,6}"
+        - "byzantine|consensus"
+      experiment_result: ["passed"]
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+      reasoning_quality_min: 0.8
+
+  - id: tc012_split_brain_scenario
+    description: "Test split-brain detection and resolution"
+    category: byzantine
+    priority: critical
+
+    input:
+      scenario: |
+        Target: Distributed database cluster
+        Inject: Network partition causing split-brain
+        Duration: 5 minutes
+        Steady-state: No conflicting writes accepted
+        Expected: Leader election resolves split-brain
+      context:
+        environment: staging
+        database: distributed
+
+    expected_output:
+      must_contain:
+        - "split-brain"
+        - "partition"
+        - "leader"
+        - "election"
+      must_match_regex:
+        - "CHAOS-\\d{3,6}"
+        - "split|brain|partition"
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.7
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Load Testing (Spike/Ramp)
+  # ---------------------------------------------------------------------------
+
+  - id: tc013_spike_load_test
+    description: "Test sudden 10x load spike and auto-scaling"
+    category: load
+    priority: critical
+
+    input:
+      scenario: |
+        Target: api-gateway
+        Inject: Sudden spike from 100 req/s to 1000 req/s
+        Duration: 60 seconds spike, then observe recovery
+        Steady-state: error_rate < 5%, p99 < 500ms
+        Expected: Auto-scaling handles spike within 45s
+      context:
+        environment: staging
+        auto_scaling: true
+
+    expected_output:
+      must_contain:
+        - "spike"
+        - "load"
+        - "scaling"
+        - "recovery"
+      must_match_regex:
+        - "CHAOS-\\d{3,6}"
+        - "spike|load|ramp"
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.7
+
+  - id: tc014_ramp_up_capacity_test
+    description: "Test gradual ramp-up to find capacity limits"
+    category: load
+    priority: high
+
+    input:
+      scenario: |
+        Target: order-service
+        Inject: Ramp from 100 req/s to 1600 req/s (2x every 5 min)
+        Duration: 25 minutes total
+        Steady-state: Track degradation point
+        Expected: Identify max capacity before degradation
+      context:
+        environment: staging
+
+    expected_output:
+      must_contain:
+        - "ramp"
+        - "capacity"
+        - "throughput"
+        - "degradation"
+      must_match_regex:
+        - "CHAOS-\\d{3,6}"
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.7
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Safety Controls
+  # ---------------------------------------------------------------------------
+
+  - id: tc015_blast_radius_enforcement
+    description: "Verify blast radius limits are enforced"
+    category: safety
+    priority: critical
+
+    input:
+      scenario: |
+        Target: All services (attempt wide blast radius)
+        Inject: Attempt to affect 100% of pods
+        Blast radius limit: single-service
+        Expected: Experiment blocked or limited by safety controls
+      context:
+        environment: staging
+        safety_controls: true
+
+    expected_output:
+      must_contain:
+        - "blast radius"
+        - "safety"
+        - "limit"
+      must_not_contain:
+        - "100% affected"
+        - "all services"
+      must_match_regex:
+        - "CHAOS-\\d{3,6}|WEAK-\\d{3,6}"
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.7
+
+  - id: tc016_emergency_stop_validation
+    description: "Verify emergency stop triggers on threshold breach"
+    category: safety
+    priority: critical
+
+    input:
+      scenario: |
+        Target: payment-service
+        Inject: Network latency that causes error_rate > 10%
+        Emergency stop trigger: error_rate > 5%
+        Expected: Experiment stopped, rollback executed
+      context:
+        environment: staging
+        emergency_stop: true
+
+    expected_output:
+      must_contain:
+        - "emergency"
+        - "stop"
+        - "rollback"
+        - "threshold"
+      must_match_regex:
+        - "CHAOS-\\d{3,6}"
+        - "rollback|emergency"
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Negative Tests
+  # ---------------------------------------------------------------------------
+
+  - id: tc017_resilient_system_validation
+    description: "Verify resilient system passes chaos experiments"
+    category: negative
+    priority: high
+
+    input:
+      scenario: |
+        Target: Well-architected microservice with:
+        - Circuit breakers (Hystrix)
+        - Retry policies (exponential backoff)
+        - Health checks and auto-restart
+        - Multi-zone deployment
+        - Auto-scaling enabled
+
+        Inject: Multiple chaos types (latency, pod kill, CPU stress)
+        Expected: System remains resilient, no critical weaknesses
+      context:
+        environment: staging
+        resilience_patterns: all
+
+    expected_output:
+      must_contain:
+        - "resilient"
+        - "passed"
+        - "circuit breaker"
+      must_not_contain:
+        - "critical weakness"
+        - "system failure"
+      experiment_result: ["passed"]
+      weakness_count:
+        max: 2  # Allow minor observations
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.6
+      allow_partial: true
+
+  - id: tc018_steady_state_validation
+    description: "Verify steady-state hypothesis is validated pre/post"
+    category: validation
+    priority: critical
+
+    input:
+      scenario: |
+        Target: inventory-service
+        Inject: 200ms latency injection
+
+        Steady-state hypothesis:
+        - error_rate < 0.1%
+        - latency_p99 < 300ms
+        - throughput > 800 req/s
+
+        Expected: Pre and post validation of steady-state
+      context:
+        environment: staging
+
+    expected_output:
+      must_contain:
+        - "steady-state"
+        - "hypothesis"
+        - "before"
+        - "after"
+        - "validated"
+      must_match_regex:
+        - "CHAOS-\\d{3,6}"
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+
+# =============================================================================
+# SUCCESS CRITERIA
+# =============================================================================
+
+success_criteria:
+  # Overall pass rate (90% of tests must pass)
+  pass_rate: 0.9
+
+  # Critical tests must ALL pass (100%)
+  critical_pass_rate: 1.0
+
+  # Average reasoning quality score
+  avg_reasoning_quality: 0.75
+
+  # Maximum suite execution time (10 minutes)
+  max_execution_time_ms: 600000
+
+  # Maximum variance between model results (15%)
+  cross_model_variance: 0.15
+
+# =============================================================================
+# METADATA
+# =============================================================================
+
+metadata:
+  author: "qe-chaos-engineer"
+  created: "2026-02-02"
+  last_updated: "2026-02-02"
+  coverage_target: >
+    Chaos Engineering Coverage: Network chaos (latency, partition, packet loss),
+    Resource chaos (CPU, memory, disk), Infrastructure chaos (pod/node/zone failure),
+    Application chaos (exceptions, deadlocks), Byzantine fault tolerance (malicious
+    nodes, split-brain), Load testing (spike, ramp-up), Safety controls (blast
+    radius, emergency stop). 18 test cases with 90% pass rate requirement and
+    100% critical pass rate for safety-related tests.

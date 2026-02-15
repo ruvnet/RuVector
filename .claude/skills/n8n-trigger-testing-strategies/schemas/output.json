@@ -1,0 +1,295 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentic-qe.dev/schemas/skills/n8n-trigger-testing-strategies/output.json",
+  "title": "N8N Trigger Testing Strategies Skill Output Schema",
+  "description": "Schema for n8n-trigger-testing-strategies skill output. Validates webhook, schedule, and event trigger testing patterns.",
+  "type": "object",
+  "required": ["skillName", "version", "timestamp", "status", "trustTier", "output"],
+  "properties": {
+    "skillName": {
+      "type": "string",
+      "const": "n8n-trigger-testing-strategies"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+(-[a-zA-Z0-9]+)?$"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["success", "partial", "failed", "skipped"]
+    },
+    "trustTier": {
+      "type": "integer",
+      "const": 3
+    },
+    "output": {
+      "type": "object",
+      "required": ["summary", "triggerTests", "triggerAnalysis"],
+      "properties": {
+        "summary": {
+          "type": "string",
+          "minLength": 20,
+          "maxLength": 2000
+        },
+        "triggerTests": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/triggerTest"
+          },
+          "maxItems": 200
+        },
+        "triggerAnalysis": {
+          "$ref": "#/$defs/triggerAnalysis"
+        },
+        "workflowValidation": {
+          "$ref": "#/$defs/workflowValidation"
+        },
+        "webhookTests": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/webhookTest"
+          }
+        },
+        "scheduleTests": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/scheduleTest"
+          }
+        },
+        "eventTests": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/eventTest"
+          }
+        },
+        "recommendations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/recommendation"
+          },
+          "maxItems": 50
+        },
+        "metrics": {
+          "$ref": "#/$defs/metrics"
+        }
+      }
+    },
+    "metadata": {
+      "$ref": "#/$defs/metadata"
+    },
+    "validation": {
+      "$ref": "#/$defs/validationResult"
+    },
+    "learning": {
+      "$ref": "#/$defs/learningData"
+    }
+  },
+  "$defs": {
+    "triggerTest": {
+      "type": "object",
+      "required": ["id", "triggerType", "testType", "status"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^TRIG-\\d{3,6}$"
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 1000
+        },
+        "triggerType": {
+          "type": "string",
+          "enum": ["webhook", "schedule", "manual", "polling", "event", "cron"]
+        },
+        "testType": {
+          "type": "string",
+          "enum": ["unit", "integration", "e2e", "load", "security"]
+        },
+        "status": {
+          "type": "string",
+          "enum": ["passed", "failed", "skipped", "pending", "error"]
+        },
+        "priority": {
+          "type": "string",
+          "enum": ["critical", "high", "medium", "low"]
+        },
+        "nodeName": {
+          "type": "string"
+        },
+        "testPayload": {
+          "type": "object",
+          "description": "Sample payload for trigger test"
+        },
+        "expectedBehavior": {
+          "type": "string"
+        },
+        "assertions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/assertion"
+          }
+        },
+        "executionTimeMs": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "triggerAnalysis": {
+      "type": "object",
+      "required": ["totalTriggers", "triggerTypes"],
+      "properties": {
+        "totalTriggers": { "type": "integer", "minimum": 0 },
+        "webhookCount": { "type": "integer", "minimum": 0 },
+        "scheduleCount": { "type": "integer", "minimum": 0 },
+        "eventCount": { "type": "integer", "minimum": 0 },
+        "pollingCount": { "type": "integer", "minimum": 0 },
+        "triggerTypes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": { "type": "string" },
+              "count": { "type": "integer" },
+              "coverage": { "type": "number", "minimum": 0, "maximum": 100 }
+            }
+          }
+        },
+        "overallCoverage": { "type": "number", "minimum": 0, "maximum": 100 },
+        "riskAreas": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "workflowValidation": {
+      "type": "object",
+      "required": ["workflowId", "valid"],
+      "properties": {
+        "workflowId": { "type": "string" },
+        "workflowName": { "type": "string" },
+        "valid": { "type": "boolean" },
+        "triggerCoverage": { "type": "number", "minimum": 0, "maximum": 100 },
+        "activeTriggers": { "type": "integer", "minimum": 0 },
+        "disabledTriggers": { "type": "integer", "minimum": 0 },
+        "overallScore": { "type": "number", "minimum": 0, "maximum": 100 },
+        "grade": { "type": "string", "pattern": "^[A-F][+-]?$" }
+      }
+    },
+    "webhookTest": {
+      "type": "object",
+      "required": ["webhookPath", "httpMethod"],
+      "properties": {
+        "webhookPath": { "type": "string" },
+        "httpMethod": { "type": "string", "enum": ["GET", "POST", "PUT", "DELETE", "PATCH"] },
+        "authentication": { "type": "string", "enum": ["none", "basic", "header", "jwt"] },
+        "payloadValidation": { "type": "boolean" },
+        "responseFormat": { "type": "string" },
+        "testScenarios": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "payload": { "type": "object" },
+              "expectedStatus": { "type": "integer" },
+              "passed": { "type": "boolean" }
+            }
+          }
+        }
+      }
+    },
+    "scheduleTest": {
+      "type": "object",
+      "required": ["cronExpression"],
+      "properties": {
+        "cronExpression": { "type": "string" },
+        "timezone": { "type": "string" },
+        "frequency": { "type": "string" },
+        "nextExecutions": { "type": "array", "items": { "type": "string", "format": "date-time" } },
+        "boundaryTests": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "scenario": { "type": "string" },
+              "passed": { "type": "boolean" }
+            }
+          }
+        }
+      }
+    },
+    "eventTest": {
+      "type": "object",
+      "required": ["eventType", "eventSource"],
+      "properties": {
+        "eventType": { "type": "string" },
+        "eventSource": { "type": "string" },
+        "eventPayload": { "type": "object" },
+        "handlerVerified": { "type": "boolean" },
+        "propagationTested": { "type": "boolean" }
+      }
+    },
+    "assertion": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": { "type": "string", "enum": ["triggered", "not-triggered", "payload-match", "timing", "error-handling"] },
+        "expected": {},
+        "actual": {},
+        "passed": { "type": "boolean" }
+      }
+    },
+    "recommendation": {
+      "type": "object",
+      "required": ["id", "title", "priority"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^REC-\\d{3,6}$" },
+        "title": { "type": "string", "maxLength": 200 },
+        "description": { "type": "string", "maxLength": 2000 },
+        "priority": { "type": "string", "enum": ["critical", "high", "medium", "low"] },
+        "triggerType": { "type": "string" }
+      }
+    },
+    "metrics": {
+      "type": "object",
+      "properties": {
+        "totalTriggerTests": { "type": "integer", "minimum": 0 },
+        "passedTests": { "type": "integer", "minimum": 0 },
+        "failedTests": { "type": "integer", "minimum": 0 },
+        "triggerCoverage": { "type": "number", "minimum": 0, "maximum": 100 },
+        "webhookCoverage": { "type": "number", "minimum": 0, "maximum": 100 },
+        "scheduleCoverage": { "type": "number", "minimum": 0, "maximum": 100 }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "executionTimeMs": { "type": "integer", "minimum": 0 },
+        "toolsUsed": { "type": "array", "items": { "type": "string" } },
+        "agentId": { "type": "string", "pattern": "^qe-[a-z][a-z0-9-]*$" },
+        "n8nVersion": { "type": "string" }
+      }
+    },
+    "validationResult": {
+      "type": "object",
+      "properties": {
+        "schemaValid": { "type": "boolean" },
+        "contentValid": { "type": "boolean" },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "learningData": {
+      "type": "object",
+      "properties": {
+        "patternsDetected": { "type": "array", "items": { "type": "string" } },
+        "reward": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    }
+  }
+}

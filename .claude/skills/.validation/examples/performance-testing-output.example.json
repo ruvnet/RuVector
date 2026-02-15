@@ -1,0 +1,252 @@
+{
+  "skillName": "performance-testing",
+  "version": "1.0.0",
+  "timestamp": "2026-02-02T10:30:00Z",
+  "status": "success",
+  "trustTier": 3,
+  "output": {
+    "summary": "Load test completed successfully with 100 virtual users over 5 minutes. All SLA thresholds met. Response time p95 of 180ms is well within the 300ms target. Throughput of 850 requests per second demonstrates adequate capacity. Error rate of 0.02% is excellent. No significant bottlenecks detected.",
+    "testType": "load",
+    "score": {
+      "value": 92,
+      "max": 100,
+      "grade": "A",
+      "trend": "stable",
+      "healthStatus": "healthy"
+    },
+    "metrics": {
+      "responseTime": {
+        "min": 15,
+        "max": 450,
+        "avg": 95,
+        "median": 85,
+        "p50": 85,
+        "p75": 120,
+        "p90": 150,
+        "p95": 180,
+        "p99": 280,
+        "stdDev": 45,
+        "unit": "ms"
+      },
+      "throughput": {
+        "requestsPerSecond": 850,
+        "peakRequestsPerSecond": 920,
+        "totalRequests": 255000,
+        "successfulRequests": 254949,
+        "failedRequests": 51,
+        "transactionsPerSecond": 425,
+        "iterationsPerSecond": 85
+      },
+      "errorRate": {
+        "percentage": 0.02,
+        "totalErrors": 51,
+        "errorsByType": {
+          "timeout": 30,
+          "5xx": 15,
+          "connection": 6
+        }
+      },
+      "concurrency": {
+        "virtualUsers": 100,
+        "peakConcurrentUsers": 100,
+        "avgConcurrentUsers": 98,
+        "rampUpTime": 60,
+        "steadyStateTime": 180,
+        "rampDownTime": 60
+      }
+    },
+    "slaCompliance": {
+      "overallCompliant": true,
+      "compliancePercentage": 100,
+      "thresholds": [
+        {
+          "metric": "p95_response_time",
+          "operator": "<",
+          "threshold": 300,
+          "actual": 180,
+          "passed": true,
+          "unit": "ms",
+          "description": "95th percentile response time must be under 300ms"
+        },
+        {
+          "metric": "error_rate",
+          "operator": "<",
+          "threshold": 1,
+          "actual": 0.02,
+          "passed": true,
+          "unit": "%",
+          "description": "Error rate must be below 1%"
+        },
+        {
+          "metric": "throughput",
+          "operator": ">=",
+          "threshold": 500,
+          "actual": 850,
+          "passed": true,
+          "unit": "req/s",
+          "description": "Throughput must be at least 500 requests per second"
+        }
+      ],
+      "violations": []
+    },
+    "bottlenecks": [],
+    "findings": [
+      {
+        "id": "PERF-001",
+        "title": "Excellent response time performance",
+        "description": "Response time percentiles are well within acceptable ranges. p95 of 180ms provides 40% headroom below the 300ms SLA threshold.",
+        "severity": "info",
+        "category": "latency",
+        "metric": "p95_response_time",
+        "value": 180,
+        "threshold": 300,
+        "confidence": 0.95
+      },
+      {
+        "id": "PERF-002",
+        "title": "Strong throughput capacity",
+        "description": "System handled 850 requests per second with minimal degradation. Peak throughput of 920 req/s indicates additional headroom.",
+        "severity": "info",
+        "category": "throughput",
+        "metric": "requests_per_second",
+        "value": 850,
+        "confidence": 0.92
+      }
+    ],
+    "recommendations": [
+      {
+        "id": "REC-001",
+        "title": "Consider stress testing at higher load",
+        "description": "Current load test shows system is healthy at 100 VUs. Consider stress testing at 200-300 VUs to identify breaking points and ensure adequate capacity for traffic spikes.",
+        "priority": "medium",
+        "effort": "low",
+        "impact": 7,
+        "category": "scaling"
+      }
+    ],
+    "scenarios": [
+      {
+        "name": "standard_load",
+        "description": "Standard user load simulation with 100 concurrent users",
+        "status": "passed",
+        "virtualUsers": 100,
+        "duration": 300,
+        "thresholdsResult": "passed"
+      }
+    ],
+    "resourceUtilization": {
+      "cpu": {
+        "avg": 45,
+        "max": 62,
+        "min": 25,
+        "p95": 58
+      },
+      "memory": {
+        "avg": 65,
+        "max": 72,
+        "min": 60,
+        "p95": 70
+      },
+      "database": {
+        "connectionPoolUsage": 35,
+        "queryTime": 12,
+        "activeConnections": 14
+      }
+    },
+    "testConfiguration": {
+      "target": "https://api.example.com",
+      "tool": "k6",
+      "toolVersion": "0.47.0",
+      "testType": "load",
+      "duration": 300,
+      "virtualUsers": 100,
+      "rampUp": 60,
+      "steadyState": 180,
+      "rampDown": 60,
+      "thresholds": {
+        "http_req_duration": ["p(95)<300"],
+        "http_req_failed": ["rate<0.01"]
+      },
+      "scenarios": ["standard_load"],
+      "endpoints": [
+        "/api/products",
+        "/api/users",
+        "/api/orders"
+      ],
+      "environment": "staging"
+    },
+    "artifacts": [
+      {
+        "type": "report",
+        "path": "reports/load-test-2026-02-02.html",
+        "format": "html",
+        "description": "Detailed HTML report with charts"
+      },
+      {
+        "type": "data",
+        "path": "reports/load-test-2026-02-02.json",
+        "format": "json",
+        "description": "Raw metrics data"
+      }
+    ],
+    "timeline": [
+      {
+        "timestamp": "2026-02-02T10:25:00Z",
+        "event": "Test initialization started",
+        "type": "start",
+        "phase": "initialization"
+      },
+      {
+        "timestamp": "2026-02-02T10:25:30Z",
+        "event": "Ramp-up phase started",
+        "type": "ramp-up",
+        "phase": "load",
+        "virtualUsers": 0
+      },
+      {
+        "timestamp": "2026-02-02T10:26:30Z",
+        "event": "Steady state reached",
+        "type": "steady-state",
+        "phase": "load",
+        "virtualUsers": 100
+      },
+      {
+        "timestamp": "2026-02-02T10:29:30Z",
+        "event": "Ramp-down started",
+        "type": "ramp-down",
+        "phase": "load",
+        "virtualUsers": 100
+      },
+      {
+        "timestamp": "2026-02-02T10:30:00Z",
+        "event": "Test completed successfully",
+        "type": "complete",
+        "phase": "reporting",
+        "virtualUsers": 0
+      }
+    ]
+  },
+  "metadata": {
+    "executionTimeMs": 305000,
+    "toolsUsed": ["k6", "prometheus", "grafana"],
+    "agentId": "qe-performance-tester",
+    "modelUsed": "claude-3.5-sonnet",
+    "targetUrl": "https://api.example.com",
+    "environment": "staging"
+  },
+  "validation": {
+    "schemaValid": true,
+    "contentValid": true,
+    "confidence": 0.95,
+    "warnings": [],
+    "errors": [],
+    "validatorVersion": "1.0.0"
+  },
+  "learning": {
+    "patternsDetected": [
+      "healthy-load-test",
+      "optimal-response-time"
+    ],
+    "reward": 0.92
+  }
+}

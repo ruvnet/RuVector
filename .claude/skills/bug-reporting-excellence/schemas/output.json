@@ -1,0 +1,288 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentic-qe.dev/schemas/skills/bug-reporting-excellence/output.json",
+  "title": "Bug Reporting Excellence Skill Output Schema",
+  "description": "Schema for bug-reporting-excellence skill output. High-quality bug reports with reproduction steps and impact assessment.",
+  "type": "object",
+  "required": ["skillName", "version", "timestamp", "status", "trustTier", "output"],
+  "properties": {
+    "skillName": {
+      "type": "string",
+      "const": "bug-reporting-excellence"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+(-[a-zA-Z0-9]+)?$"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["success", "partial", "failed", "skipped"]
+    },
+    "trustTier": {
+      "type": "integer",
+      "const": 3
+    },
+    "output": {
+      "type": "object",
+      "required": ["summary", "bugReports", "reportQuality"],
+      "properties": {
+        "summary": {
+          "type": "string",
+          "minLength": 20,
+          "maxLength": 2000
+        },
+        "bugReports": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/bugReport"
+          },
+          "minItems": 1,
+          "maxItems": 100
+        },
+        "reportQuality": {
+          "$ref": "#/$defs/reportQuality"
+        },
+        "severity": {
+          "$ref": "#/$defs/severityBreakdown"
+        },
+        "recommendations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/recommendation"
+          },
+          "maxItems": 50
+        },
+        "impactAnalysis": {
+          "$ref": "#/$defs/impactAnalysis"
+        },
+        "triageGuidance": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/triageGuidance"
+          }
+        },
+        "metrics": {
+          "$ref": "#/$defs/metrics"
+        }
+      }
+    },
+    "metadata": {
+      "$ref": "#/$defs/metadata"
+    },
+    "validation": {
+      "$ref": "#/$defs/validationResult"
+    },
+    "learning": {
+      "$ref": "#/$defs/learningData"
+    }
+  },
+  "$defs": {
+    "bugReport": {
+      "type": "object",
+      "required": ["id", "title", "severity", "stepsToReproduce", "expectedBehavior", "actualBehavior"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^BUG-\\d{3,6}$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 15,
+          "maxLength": 200,
+          "description": "Clear, descriptive bug title"
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 3000,
+          "description": "Detailed bug description"
+        },
+        "severity": {
+          "type": "string",
+          "enum": ["critical", "high", "medium", "low", "trivial"]
+        },
+        "priority": {
+          "type": "string",
+          "enum": ["urgent", "high", "medium", "low"]
+        },
+        "type": {
+          "type": "string",
+          "enum": ["functional", "performance", "security", "usability", "compatibility", "data", "regression"]
+        },
+        "stepsToReproduce": {
+          "type": "array",
+          "items": { "type": "string" },
+          "minItems": 1,
+          "maxItems": 20,
+          "description": "Clear reproduction steps"
+        },
+        "expectedBehavior": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 1000
+        },
+        "actualBehavior": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 1000
+        },
+        "environment": {
+          "$ref": "#/$defs/environment"
+        },
+        "attachments": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/attachment"
+          }
+        },
+        "reproducibility": {
+          "type": "string",
+          "enum": ["always", "sometimes", "rarely", "once"]
+        },
+        "affectedUsers": {
+          "type": "string",
+          "enum": ["all", "most", "some", "few"]
+        },
+        "workaround": {
+          "type": "string",
+          "maxLength": 1000
+        },
+        "rootCauseHypothesis": {
+          "type": "string",
+          "maxLength": 1000
+        },
+        "relatedBugs": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "qualityScore": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Bug report quality score"
+        }
+      }
+    },
+    "environment": {
+      "type": "object",
+      "properties": {
+        "os": { "type": "string" },
+        "osVersion": { "type": "string" },
+        "browser": { "type": "string" },
+        "browserVersion": { "type": "string" },
+        "device": { "type": "string" },
+        "appVersion": { "type": "string" },
+        "buildNumber": { "type": "string" },
+        "environment": { "type": "string", "enum": ["production", "staging", "development", "qa"] },
+        "additionalInfo": { "type": "object" }
+      }
+    },
+    "attachment": {
+      "type": "object",
+      "required": ["type", "description"],
+      "properties": {
+        "type": { "type": "string", "enum": ["screenshot", "video", "log", "har", "data", "code"] },
+        "path": { "type": "string" },
+        "description": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      }
+    },
+    "reportQuality": {
+      "type": "object",
+      "required": ["overallScore", "grade"],
+      "properties": {
+        "overallScore": { "type": "number", "minimum": 0, "maximum": 100 },
+        "grade": { "type": "string", "pattern": "^[A-F][+-]?$" },
+        "dimensions": {
+          "type": "object",
+          "properties": {
+            "clarity": { "type": "number", "minimum": 0, "maximum": 100 },
+            "completeness": { "type": "number", "minimum": 0, "maximum": 100 },
+            "reproducibility": { "type": "number", "minimum": 0, "maximum": 100 },
+            "evidence": { "type": "number", "minimum": 0, "maximum": 100 },
+            "actionability": { "type": "number", "minimum": 0, "maximum": 100 }
+          }
+        }
+      }
+    },
+    "severityBreakdown": {
+      "type": "object",
+      "properties": {
+        "critical": { "type": "integer", "minimum": 0 },
+        "high": { "type": "integer", "minimum": 0 },
+        "medium": { "type": "integer", "minimum": 0 },
+        "low": { "type": "integer", "minimum": 0 },
+        "trivial": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "impactAnalysis": {
+      "type": "object",
+      "properties": {
+        "businessImpact": { "type": "string", "enum": ["critical", "significant", "moderate", "minor"] },
+        "userImpact": { "type": "string", "enum": ["blocking", "major", "minor", "cosmetic"] },
+        "affectedFeatures": { "type": "array", "items": { "type": "string" } },
+        "affectedUserSegments": { "type": "array", "items": { "type": "string" } },
+        "estimatedAffectedUsers": { "type": "integer" }
+      }
+    },
+    "triageGuidance": {
+      "type": "object",
+      "required": ["bugId", "recommendedPriority"],
+      "properties": {
+        "bugId": { "type": "string" },
+        "recommendedPriority": { "type": "string", "enum": ["urgent", "high", "medium", "low"] },
+        "suggestedAssignee": { "type": "string" },
+        "suggestedLabels": { "type": "array", "items": { "type": "string" } },
+        "rationale": { "type": "string" }
+      }
+    },
+    "recommendation": {
+      "type": "object",
+      "required": ["id", "title", "priority"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^REC-\\d{3,6}$" },
+        "title": { "type": "string", "maxLength": 200 },
+        "description": { "type": "string", "maxLength": 2000 },
+        "priority": { "type": "string", "enum": ["critical", "high", "medium", "low"] },
+        "category": { "type": "string", "enum": ["process", "documentation", "testing", "tooling"] }
+      }
+    },
+    "metrics": {
+      "type": "object",
+      "properties": {
+        "totalBugs": { "type": "integer", "minimum": 0 },
+        "averageQualityScore": { "type": "number", "minimum": 0, "maximum": 100 },
+        "bugsWithReproSteps": { "type": "integer", "minimum": 0 },
+        "bugsWithEvidence": { "type": "integer", "minimum": 0 },
+        "criticalBugs": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "executionTimeMs": { "type": "integer", "minimum": 0 },
+        "toolsUsed": { "type": "array", "items": { "type": "string" } },
+        "agentId": { "type": "string", "pattern": "^qe-[a-z][a-z0-9-]*$" },
+        "sourcePlatform": { "type": "string" }
+      }
+    },
+    "validationResult": {
+      "type": "object",
+      "properties": {
+        "schemaValid": { "type": "boolean" },
+        "contentValid": { "type": "boolean" },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "learningData": {
+      "type": "object",
+      "properties": {
+        "patternsDetected": { "type": "array", "items": { "type": "string" } },
+        "reward": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    }
+  }
+}

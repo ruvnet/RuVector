@@ -1,0 +1,42 @@
+{
+  "skillName": "a11y-ally",
+  "skillVersion": "1.0.0",
+  "requiredTools": [
+    "jq"
+  ],
+  "optionalTools": [
+    "npm",
+    "playwright",
+    "axe-core",
+    "python3"
+  ],
+  "schemaPath": "schemas/output.json",
+  "requiredFields": [
+    "skillName",
+    "status",
+    "output",
+    "output.summary",
+    "output.findings"
+  ],
+  "requiredNonEmptyFields": [
+    "output.summary"
+  ],
+  "mustContainTerms": [
+    "WCAG",
+    "accessibility",
+    "a11y"
+  ],
+  "mustNotContainTerms": [
+    "TODO",
+    "placeholder",
+    "FIXME"
+  ],
+  "enumValidations": {
+    ".status": [
+      "success",
+      "partial",
+      "failed",
+      "skipped"
+    ]
+  }
+}

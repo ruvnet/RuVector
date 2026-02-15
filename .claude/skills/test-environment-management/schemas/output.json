@@ -1,0 +1,310 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://agentic-qe.dev/schemas/test-environment-management-output.json",
+  "title": "AQE Test Environment Management Skill Output Schema",
+  "description": "Schema for test environment provisioning, IaC validation, and environment parity assessment.",
+  "type": "object",
+  "required": ["skillName", "version", "timestamp", "status", "trustTier", "output"],
+  "properties": {
+    "skillName": {
+      "type": "string",
+      "const": "test-environment-management",
+      "description": "Skill identifier"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+(-[a-zA-Z0-9]+)?$"
+    },
+    "timestamp": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})?$"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["success", "partial", "failed", "skipped"]
+    },
+    "trustTier": {
+      "type": "integer",
+      "const": 3
+    },
+    "output": {
+      "type": "object",
+      "required": ["summary", "environments", "parityCheck", "metrics"],
+      "properties": {
+        "summary": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 2000
+        },
+        "score": {
+          "$ref": "#/$defs/environmentScore"
+        },
+        "environments": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/environmentResult"
+          },
+          "minItems": 1,
+          "description": "Environment status"
+        },
+        "parityCheck": {
+          "$ref": "#/$defs/parityCheck",
+          "description": "Dev/prod parity assessment"
+        },
+        "serviceVirtualization": {
+          "$ref": "#/$defs/serviceVirtualization",
+          "description": "Mock/stub service status"
+        },
+        "costAnalysis": {
+          "$ref": "#/$defs/costAnalysis",
+          "description": "Environment cost metrics"
+        },
+        "infrastructure": {
+          "$ref": "#/$defs/infrastructureStatus",
+          "description": "IaC and provisioning status"
+        },
+        "findings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/environmentFinding"
+          },
+          "maxItems": 500
+        },
+        "recommendations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/recommendation"
+          },
+          "maxItems": 100
+        },
+        "metrics": {
+          "$ref": "#/$defs/environmentMetrics"
+        },
+        "artifacts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/artifact"
+          },
+          "maxItems": 50
+        }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "executionTimeMs": { "type": "integer", "minimum": 0 },
+        "toolsUsed": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["docker", "kubernetes", "terraform", "ansible", "wiremock", "localstack", "testcontainers"]
+          }
+        },
+        "agentId": { "type": "string", "pattern": "^qe-[a-z][a-z0-9-]*$" },
+        "cloudProvider": { "type": "string", "enum": ["aws", "gcp", "azure", "local", "hybrid"] }
+      }
+    },
+    "validation": {
+      "type": "object",
+      "properties": {
+        "schemaValid": { "type": "boolean" },
+        "contentValid": { "type": "boolean" },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "learning": {
+      "type": "object",
+      "properties": {
+        "patternsDetected": { "type": "array", "items": { "type": "string" } },
+        "reward": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    }
+  },
+  "$defs": {
+    "environmentScore": {
+      "type": "object",
+      "required": ["value", "max"],
+      "properties": {
+        "value": { "type": "number", "minimum": 0, "maximum": 100 },
+        "max": { "type": "number", "const": 100 },
+        "grade": { "type": "string", "pattern": "^[A-F][+-]?$" },
+        "parityScore": { "type": "number", "minimum": 0, "maximum": 100 }
+      }
+    },
+    "environmentResult": {
+      "type": "object",
+      "required": ["name", "type", "status"],
+      "properties": {
+        "name": { "type": "string" },
+        "type": {
+          "type": "string",
+          "enum": ["local", "ci", "staging", "production", "ephemeral"]
+        },
+        "status": {
+          "type": "string",
+          "enum": ["healthy", "degraded", "unavailable", "provisioning"]
+        },
+        "services": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/serviceStatus"
+          }
+        },
+        "uptime": { "type": "number", "minimum": 0, "maximum": 100 },
+        "lastHealthCheck": { "type": "string" },
+        "lifetime": {
+          "type": "string",
+          "enum": ["permanent", "ephemeral", "scheduled"]
+        }
+      }
+    },
+    "serviceStatus": {
+      "type": "object",
+      "required": ["name", "status"],
+      "properties": {
+        "name": { "type": "string" },
+        "status": { "type": "string", "enum": ["running", "stopped", "error", "mocked"] },
+        "version": { "type": "string" },
+        "port": { "type": "integer" },
+        "healthEndpoint": { "type": "string" }
+      }
+    },
+    "parityCheck": {
+      "type": "object",
+      "properties": {
+        "overallParity": { "type": "number", "minimum": 0, "maximum": 100 },
+        "checks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/parityItem"
+          }
+        },
+        "discrepancies": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/discrepancy"
+          }
+        }
+      }
+    },
+    "parityItem": {
+      "type": "object",
+      "required": ["item", "match"],
+      "properties": {
+        "item": {
+          "type": "string",
+          "enum": ["os", "database", "dependencies", "config", "env-vars", "network", "storage"]
+        },
+        "match": { "type": "boolean" },
+        "devValue": { "type": "string" },
+        "prodValue": { "type": "string" }
+      }
+    },
+    "discrepancy": {
+      "type": "object",
+      "required": ["item", "severity"],
+      "properties": {
+        "item": { "type": "string" },
+        "description": { "type": "string" },
+        "severity": { "type": "string", "enum": ["critical", "high", "medium", "low"] },
+        "devValue": { "type": "string" },
+        "prodValue": { "type": "string" },
+        "recommendation": { "type": "string" }
+      }
+    },
+    "serviceVirtualization": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "mockedServices": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/mockedService"
+          }
+        },
+        "stubCount": { "type": "integer", "minimum": 0 },
+        "mockServer": { "type": "string", "enum": ["wiremock", "mockserver", "mountebank", "localstack"] }
+      }
+    },
+    "mockedService": {
+      "type": "object",
+      "required": ["name", "type"],
+      "properties": {
+        "name": { "type": "string" },
+        "type": { "type": "string", "enum": ["api", "database", "queue", "storage", "auth"] },
+        "stubFile": { "type": "string" },
+        "requestCount": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "costAnalysis": {
+      "type": "object",
+      "properties": {
+        "dailyCost": { "type": "number", "minimum": 0 },
+        "monthlyCost": { "type": "number", "minimum": 0 },
+        "costByEnvironment": {
+          "type": "object",
+          "additionalProperties": { "type": "number" }
+        },
+        "optimizationSavings": { "type": "number", "minimum": 0 },
+        "recommendations": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "infrastructureStatus": {
+      "type": "object",
+      "properties": {
+        "iacTool": { "type": "string", "enum": ["terraform", "pulumi", "cloudformation", "ansible", "docker-compose"] },
+        "lastApplied": { "type": "string" },
+        "driftDetected": { "type": "boolean" },
+        "resourcesManaged": { "type": "integer", "minimum": 0 },
+        "containerized": { "type": "boolean" }
+      }
+    },
+    "environmentFinding": {
+      "type": "object",
+      "required": ["id", "title", "severity", "category"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^ENV-\\d{3,6}$" },
+        "title": { "type": "string", "minLength": 5, "maxLength": 200 },
+        "description": { "type": "string", "maxLength": 2000 },
+        "severity": { "type": "string", "enum": ["critical", "high", "medium", "low", "info"] },
+        "category": {
+          "type": "string",
+          "enum": ["parity", "availability", "performance", "security", "cost", "configuration"]
+        },
+        "affectedEnvironments": { "type": "array", "items": { "type": "string" } },
+        "remediation": { "type": "string" }
+      }
+    },
+    "environmentMetrics": {
+      "type": "object",
+      "properties": {
+        "environmentsManaged": { "type": "integer", "minimum": 0 },
+        "servicesDeployed": { "type": "integer", "minimum": 0 },
+        "parityScore": { "type": "number", "minimum": 0, "maximum": 100 },
+        "availabilityPercent": { "type": "number", "minimum": 0, "maximum": 100 },
+        "provisioningTimeMs": { "type": "integer", "minimum": 0 },
+        "monthlyCost": { "type": "number", "minimum": 0 }
+      }
+    },
+    "recommendation": {
+      "type": "object",
+      "required": ["id", "title", "priority"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^REC-\\d{3,6}$" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "priority": { "type": "string", "enum": ["critical", "high", "medium", "low"] },
+        "costImpact": { "type": "string" }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "required": ["type", "path"],
+      "properties": {
+        "type": { "type": "string", "enum": ["config", "report", "diagram", "log", "iac"] },
+        "path": { "type": "string" },
+        "format": { "type": "string", "enum": ["json", "yaml", "tf", "yml", "html", "md"] }
+      }
+    }
+  }
+}

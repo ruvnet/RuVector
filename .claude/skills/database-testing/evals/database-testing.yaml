@@ -1,0 +1,968 @@
+# =============================================================================
+# AQE Skill Evaluation Test Suite: Database Testing v1.0.0
+# =============================================================================
+#
+# Comprehensive evaluation suite for the database-testing skill per ADR-056.
+# Tests schema validation, data integrity, migration testing, transaction ACID
+# properties, and query performance analysis across multiple database types.
+#
+# Schema: .claude/skills/.validation/schemas/skill-eval.schema.json
+# Validator: .claude/skills/database-testing/scripts/validate-config.json
+#
+# Coverage:
+# - Schema validation (tables, columns, constraints, indexes)
+# - Data integrity (unique, foreign key, check constraints)
+# - Migration testing (forward, rollback, data preservation)
+# - Transaction testing (ACID properties, isolation levels)
+# - Query performance (slow queries, missing indexes, N+1)
+# - Multi-database support (PostgreSQL, MySQL, MongoDB, SQLite)
+#
+# =============================================================================
+
+skill: database-testing
+version: 1.0.0
+description: >
+  Comprehensive evaluation suite for the database-testing skill.
+  Tests database schema validation, data integrity verification,
+  migration testing, transaction ACID compliance, and query performance
+  analysis. Supports PostgreSQL, MySQL, MongoDB, and SQLite.
+  Integrates with ReasoningBank for continuous improvement.
+
+# =============================================================================
+# Multi-Model Configuration
+# =============================================================================
+
+models_to_test:
+  - claude-sonnet-4     # Primary model (high accuracy expected)
+  - claude-3-haiku       # Fast model (minimum quality threshold)
+  - gpt-4o               # Cross-vendor validation
+
+# =============================================================================
+# MCP Integration Configuration
+# =============================================================================
+
+mcp_integration:
+  enabled: true
+  namespace: skill-validation
+
+  # Query existing database patterns before running evals
+  query_patterns: true
+
+  # Track each test outcome for learning feedback loop
+  track_outcomes: true
+
+  # Store successful patterns after evals complete
+  store_patterns: true
+
+  # Share learning with fleet coordinator agents
+  share_learning: true
+
+  # Update quality gate with validation metrics
+  update_quality_gate: true
+
+  # Target agents for learning distribution
+  target_agents:
+    - qe-learning-coordinator
+    - qe-queen-coordinator
+    - qe-test-data-architect
+    - qe-test-executor
+    - qe-performance-tester
+
+# =============================================================================
+# ReasoningBank Learning Configuration
+# =============================================================================
+
+learning:
+  store_success_patterns: true
+  store_failure_patterns: true
+  pattern_ttl_days: 90
+  min_confidence_to_store: 0.7
+  cross_model_comparison: true
+
+# =============================================================================
+# Result Format Configuration
+# =============================================================================
+
+result_format:
+  json_output: true
+  markdown_report: true
+  include_raw_output: false
+  include_timing: true
+  include_token_usage: true
+
+# =============================================================================
+# Environment Setup
+# =============================================================================
+
+setup:
+  required_tools:
+    - jq       # JSON parsing (required)
+    - node     # ORM validation (optional but recommended)
+
+  environment_variables:
+    DATABASE_TEST_DEPTH: "comprehensive"
+    MIGRATION_TEST_ROLLBACK: "true"
+    ACID_TEST_ENABLED: "true"
+
+  fixtures:
+    - name: postgresql_schema_test
+      path: fixtures/postgresql-schema.sql
+      content: |
+        -- PostgreSQL test schema with intentional issues
+        CREATE TABLE users (
+          id SERIAL PRIMARY KEY,
+          email VARCHAR(255),  -- Missing UNIQUE constraint
+          password VARCHAR(255), -- Should be NOT NULL
+          created_at TIMESTAMP DEFAULT NOW()
+        );
+
+        CREATE TABLE orders (
+          id SERIAL PRIMARY KEY,
+          user_id INTEGER,  -- Missing FOREIGN KEY
+          total DECIMAL(10,2),
+          status VARCHAR(50)
+        );
+
+        -- Missing index on frequently queried column
+        CREATE TABLE products (
+          id SERIAL PRIMARY KEY,
+          name VARCHAR(255),
+          category VARCHAR(100),
+          price DECIMAL(10,2)
+        );
+
+    - name: migration_test_file
+      path: fixtures/migration-add-age.js
+      content: |
+        exports.up = async function(knex) {
+          await knex.schema.alterTable('users', (table) => {
+            table.integer('age').nullable();
+          });
+        };
+
+        exports.down = async function(knex) {
+          await knex.schema.alterTable('users', (table) => {
+            table.dropColumn('age');
+          });
+        };
+
+# =============================================================================
+# TEST CASES
+# =============================================================================
+
+test_cases:
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Schema Validation
+  # ---------------------------------------------------------------------------
+
+  - id: tc001_missing_unique_constraint
+    description: "Detect missing UNIQUE constraint on email column"
+    category: schema
+    priority: critical
+
+    input:
+      code: |
+        -- User table without unique email constraint
+        CREATE TABLE users (
+          id SERIAL PRIMARY KEY,
+          email VARCHAR(255),
+          name VARCHAR(100),
+          created_at TIMESTAMP DEFAULT NOW()
+        );
+
+        -- Application code that assumes email uniqueness
+        INSERT INTO users (email, name) VALUES ('john@example.com', 'John');
+        INSERT INTO users (email, name) VALUES ('john@example.com', 'Johnny'); -- Duplicate allowed!
+      context:
+        database: postgresql
+        framework: knex
+        environment: production
+
+    expected_output:
+      must_contain:
+        - "unique"
+        - "constraint"
+        - "email"
+        - "duplicate"
+      must_not_contain:
+        - "no issues"
+        - "valid schema"
+      must_match_regex:
+        - "DB-\\d{3}"
+      severity_classification: high
+      finding_count:
+        min: 1
+        max: 5
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+      reasoning_quality_min: 0.7
+      grading_rubric:
+        completeness: 0.3
+        accuracy: 0.5
+        actionability: 0.2
+
+    timeout_ms: 30000
+
+  - id: tc002_missing_foreign_key
+    description: "Detect missing foreign key constraint causing orphaned records"
+    category: schema
+    priority: critical
+
+    input:
+      code: |
+        CREATE TABLE users (
+          id SERIAL PRIMARY KEY,
+          email VARCHAR(255) UNIQUE NOT NULL
+        );
+
+        CREATE TABLE orders (
+          id SERIAL PRIMARY KEY,
+          user_id INTEGER,  -- No FK constraint!
+          total DECIMAL(10,2)
+        );
+
+        -- This allows orphaned orders
+        INSERT INTO orders (user_id, total) VALUES (999, 100.00);
+        DELETE FROM users WHERE id = 1; -- Orphans all orders for user 1
+      context:
+        database: postgresql
+        framework: prisma
+
+    expected_output:
+      must_contain:
+        - "foreign key"
+        - "referential integrity"
+        - "orphaned"
+      must_match_regex:
+        - "DB-\\d{3}"
+      severity_classification: critical
+      finding_count:
+        min: 1
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+
+  - id: tc003_missing_index_on_foreign_key
+    description: "Detect missing index on foreign key column affecting performance"
+    category: schema
+    priority: high
+
+    input:
+      code: |
+        CREATE TABLE orders (
+          id SERIAL PRIMARY KEY,
+          user_id INTEGER REFERENCES users(id),
+          product_id INTEGER REFERENCES products(id),
+          quantity INTEGER,
+          created_at TIMESTAMP
+        );
+
+        -- Frequently run queries without indexes
+        SELECT * FROM orders WHERE user_id = 123;
+        SELECT COUNT(*) FROM orders WHERE product_id = 456;
+      context:
+        database: postgresql
+        framework: typeorm
+
+    expected_output:
+      must_contain:
+        - "index"
+        - "foreign key"
+        - "performance"
+        - "user_id"
+      must_match_regex:
+        - "CREATE INDEX"
+      severity_classification: medium
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.7
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Data Integrity
+  # ---------------------------------------------------------------------------
+
+  - id: tc004_check_constraint_violation
+    description: "Detect check constraint violations on status column"
+    category: integrity
+    priority: high
+
+    input:
+      code: |
+        CREATE TABLE orders (
+          id SERIAL PRIMARY KEY,
+          status VARCHAR(20) CHECK (status IN ('pending', 'processing', 'shipped', 'delivered')),
+          total DECIMAL(10,2) CHECK (total >= 0)
+        );
+
+        -- Test constraint enforcement
+        INSERT INTO orders (status, total) VALUES ('invalid_status', 100.00);
+        INSERT INTO orders (status, total) VALUES ('pending', -50.00);
+      context:
+        database: postgresql
+        test_type: integrity
+
+    expected_output:
+      must_contain:
+        - "check constraint"
+        - "violation"
+        - "status"
+      must_not_contain:
+        - "passed"
+        - "valid"
+      severity_classification: high
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+
+  - id: tc005_null_constraint_test
+    description: "Detect NOT NULL constraint violations"
+    category: integrity
+    priority: high
+
+    input:
+      code: |
+        const user = new User();
+        user.email = 'test@example.com';
+        // Missing required field: password
+        await user.save();
+
+        // Schema:
+        // email VARCHAR(255) NOT NULL
+        // password VARCHAR(255) NOT NULL
+        // name VARCHAR(100)  -- nullable
+      context:
+        database: mysql
+        framework: sequelize
+        test_type: integrity
+
+    expected_output:
+      must_contain:
+        - "NOT NULL"
+        - "constraint"
+        - "password"
+        - "required"
+      severity_classification: high
+      finding_count:
+        min: 1
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Migration Testing
+  # ---------------------------------------------------------------------------
+
+  - id: tc006_migration_forward_test
+    description: "Test migration applies successfully forward"
+    category: migration
+    priority: critical
+
+    input:
+      code: |
+        // Migration: add-user-roles.js
+        exports.up = async function(knex) {
+          await knex.schema.createTable('roles', (table) => {
+            table.increments('id');
+            table.string('name').unique().notNullable();
+          });
+
+          await knex.schema.alterTable('users', (table) => {
+            table.integer('role_id').references('id').inTable('roles');
+          });
+        };
+
+        exports.down = async function(knex) {
+          await knex.schema.alterTable('users', (table) => {
+            table.dropColumn('role_id');
+          });
+          await knex.schema.dropTable('roles');
+        };
+      context:
+        database: postgresql
+        framework: knex
+        test_type: migration
+
+    expected_output:
+      must_contain:
+        - "migration"
+        - "forward"
+        - "roles"
+        - "users"
+      must_not_contain:
+        - "failed"
+        - "error"
+      must_match_regex:
+        - "up|forward|apply"
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.7
+
+  - id: tc007_migration_rollback_test
+    description: "Test migration rollback works correctly"
+    category: migration
+    priority: critical
+
+    input:
+      code: |
+        // Test migration rollback
+        await migrate.latest();  // Apply all migrations
+        await migrate.rollback(); // Rollback last batch
+
+        // Verify tables are removed
+        const tables = await knex.raw("SELECT table_name FROM information_schema.tables");
+        expect(tables).not.toContain('new_feature_table');
+      context:
+        database: postgresql
+        framework: knex
+        test_type: migration
+
+    expected_output:
+      must_contain:
+        - "rollback"
+        - "down"
+        - "reverse"
+      must_not_contain:
+        - "irreversible"
+        - "failed"
+      severity_classification: medium
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.7
+
+  - id: tc008_migration_data_preservation
+    description: "Test migration preserves existing data"
+    category: migration
+    priority: critical
+
+    input:
+      code: |
+        // Existing data before migration
+        await db.users.create({ email: 'existing@example.com', name: 'Existing User' });
+
+        // Migration adds new column
+        exports.up = async function(knex) {
+          await knex.schema.alterTable('users', (table) => {
+            table.string('phone').nullable();
+          });
+        };
+
+        // After migration, verify existing data is preserved
+        const user = await db.users.findOne({ email: 'existing@example.com' });
+        expect(user.name).toBe('Existing User');  // Data should be intact
+        expect(user.phone).toBeNull();  // New column should be null
+      context:
+        database: postgresql
+        framework: knex
+        test_type: migration
+
+    expected_output:
+      must_contain:
+        - "data preservation"
+        - "existing"
+        - "intact"
+        - "backward compatible"
+      must_not_contain:
+        - "data loss"
+        - "corrupted"
+      severity_classification: critical
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.7
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Transaction Testing (ACID)
+  # ---------------------------------------------------------------------------
+
+  - id: tc009_atomicity_test
+    description: "Test transaction atomicity - all or nothing"
+    category: transaction
+    priority: critical
+
+    input:
+      code: |
+        test('transaction rolls back on error', async () => {
+          const initialCount = await db.users.count();
+
+          try {
+            await db.transaction(async (trx) => {
+              await trx('users').insert({ email: 'user1@example.com' });
+              await trx('users').insert({ email: 'user2@example.com' });
+              throw new Error('Intentional rollback');
+            });
+          } catch (error) { /* Expected */ }
+
+          // Count should be unchanged
+          expect(await db.users.count()).toBe(initialCount);
+        });
+      context:
+        database: postgresql
+        framework: knex
+        test_type: transaction
+
+    expected_output:
+      must_contain:
+        - "atomicity"
+        - "rollback"
+        - "transaction"
+        - "all or nothing"
+      must_not_contain:
+        - "partial commit"
+      must_match_regex:
+        - "ACID|atomic"
+      severity_classification: critical
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+      reasoning_quality_min: 0.8
+
+  - id: tc010_isolation_test
+    description: "Test transaction isolation - concurrent access"
+    category: transaction
+    priority: critical
+
+    input:
+      code: |
+        test('concurrent transactions isolated', async () => {
+          const user = await db.users.create({ balance: 100 });
+
+          // Two concurrent withdrawals - race condition test
+          const results = await Promise.all([
+            db.transaction(async (trx) => {
+              const current = await trx('users').where({ id: user.id }).first();
+              if (current.balance >= 50) {
+                await trx('users').where({ id: user.id }).update({
+                  balance: current.balance - 50
+                });
+                return 'success';
+              }
+              return 'insufficient';
+            }),
+            db.transaction(async (trx) => {
+              const current = await trx('users').where({ id: user.id }).first();
+              if (current.balance >= 50) {
+                await trx('users').where({ id: user.id }).update({
+                  balance: current.balance - 50
+                });
+                return 'success';
+              }
+              return 'insufficient';
+            })
+          ]);
+
+          const final = await db.users.findOne({ id: user.id });
+          // With proper isolation, one should fail or balance should be 0
+          expect(final.balance).toBeGreaterThanOrEqual(0);
+        });
+      context:
+        database: postgresql
+        framework: knex
+        test_type: transaction
+        isolation_level: REPEATABLE_READ
+
+    expected_output:
+      must_contain:
+        - "isolation"
+        - "concurrent"
+        - "race condition"
+        - "lock"
+      must_match_regex:
+        - "READ_COMMITTED|REPEATABLE_READ|SERIALIZABLE"
+      severity_classification: critical
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.7
+
+  - id: tc011_deadlock_detection
+    description: "Test deadlock detection and resolution"
+    category: transaction
+    priority: high
+
+    input:
+      code: |
+        test('deadlock is detected and handled', async () => {
+          // Create potential deadlock scenario
+          const tx1 = db.transaction(async (trx) => {
+            await trx('accounts').where({ id: 1 }).update({ balance: 100 });
+            await delay(100);
+            await trx('accounts').where({ id: 2 }).update({ balance: 200 });
+          });
+
+          const tx2 = db.transaction(async (trx) => {
+            await trx('accounts').where({ id: 2 }).update({ balance: 150 });
+            await delay(100);
+            await trx('accounts').where({ id: 1 }).update({ balance: 250 });
+          });
+
+          // One should fail with deadlock, other should succeed
+          const results = await Promise.allSettled([tx1, tx2]);
+          const failures = results.filter(r => r.status === 'rejected');
+          expect(failures.some(f => f.reason.message.includes('deadlock'))).toBe(true);
+        });
+      context:
+        database: postgresql
+        framework: knex
+        test_type: transaction
+
+    expected_output:
+      must_contain:
+        - "deadlock"
+        - "detection"
+        - "retry"
+        - "conflict"
+      severity_classification: high
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.7
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Performance Testing
+  # ---------------------------------------------------------------------------
+
+  - id: tc012_slow_query_detection
+    description: "Detect slow queries without proper indexing"
+    category: performance
+    priority: high
+
+    input:
+      code: |
+        -- Slow query: full table scan on large table
+        SELECT * FROM orders
+        WHERE created_at BETWEEN '2024-01-01' AND '2024-12-31'
+        AND status = 'pending';
+
+        -- Table has 10 million rows, no index on created_at or status
+        EXPLAIN ANALYZE SELECT * FROM orders
+        WHERE created_at BETWEEN '2024-01-01' AND '2024-12-31';
+        -- Output: Seq Scan on orders (cost=0.00..250000.00 rows=5000000)
+      context:
+        database: postgresql
+        test_type: performance
+        table_size: 10000000
+
+    expected_output:
+      must_contain:
+        - "slow query"
+        - "full table scan"
+        - "index"
+        - "Seq Scan"
+      must_match_regex:
+        - "CREATE INDEX"
+      severity_classification: high
+      finding_count:
+        min: 1
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+
+  - id: tc013_n_plus_one_detection
+    description: "Detect N+1 query problem"
+    category: performance
+    priority: high
+
+    input:
+      code: |
+        // N+1 query problem
+        const users = await User.findAll();  // 1 query
+
+        for (const user of users) {
+          const orders = await Order.findAll({
+            where: { userId: user.id }
+          });  // N queries!
+          user.orderCount = orders.length;
+        }
+
+        // Should be:
+        // const users = await User.findAll({
+        //   include: [{ model: Order }]
+        // });
+      context:
+        database: postgresql
+        framework: sequelize
+        test_type: performance
+
+    expected_output:
+      must_contain:
+        - "N+1"
+        - "query"
+        - "include"
+        - "eager loading"
+        - "join"
+      must_not_contain:
+        - "efficient"
+        - "optimal"
+      severity_classification: high
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+
+  - id: tc014_connection_pool_exhaustion
+    description: "Detect connection pool exhaustion risk"
+    category: performance
+    priority: critical
+
+    input:
+      code: |
+        // Connection leak - connections not released
+        async function getUserData(userId) {
+          const connection = await pool.getConnection();
+          const user = await connection.query('SELECT * FROM users WHERE id = ?', [userId]);
+          // Missing: connection.release()
+          return user;
+        }
+
+        // Called in a loop without releasing connections
+        for (let i = 0; i < 1000; i++) {
+          await getUserData(i);
+        }
+      context:
+        database: mysql
+        framework: mysql2
+        test_type: performance
+        pool_size: 10
+
+    expected_output:
+      must_contain:
+        - "connection"
+        - "pool"
+        - "leak"
+        - "release"
+        - "exhaustion"
+      severity_classification: critical
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Multi-Database Support
+  # ---------------------------------------------------------------------------
+
+  - id: tc015_mongodb_schema_validation
+    description: "Test MongoDB schema validation"
+    category: schema
+    priority: high
+
+    input:
+      code: |
+        // MongoDB collection without schema validation
+        db.createCollection("users");
+
+        // Can insert inconsistent documents
+        db.users.insertOne({ email: "user@example.com", age: 25 });
+        db.users.insertOne({ email: 123, age: "twenty" });  // Wrong types!
+        db.users.insertOne({ name: "John" });  // Missing email
+
+        // Should have JSON Schema validation:
+        db.createCollection("users", {
+          validator: {
+            $jsonSchema: {
+              bsonType: "object",
+              required: ["email"],
+              properties: {
+                email: { bsonType: "string" },
+                age: { bsonType: "int" }
+              }
+            }
+          }
+        });
+      context:
+        database: mongodb
+        test_type: schema
+
+    expected_output:
+      must_contain:
+        - "schema validation"
+        - "MongoDB"
+        - "jsonSchema"
+        - "bsonType"
+      severity_classification: high
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.7
+
+  - id: tc016_sqlite_foreign_key_enforcement
+    description: "Test SQLite foreign key enforcement"
+    category: integrity
+    priority: high
+
+    input:
+      code: |
+        -- SQLite: Foreign keys are OFF by default!
+        CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT);
+        CREATE TABLE orders (
+          id INTEGER PRIMARY KEY,
+          user_id INTEGER REFERENCES users(id)
+        );
+
+        -- This succeeds even though user 999 doesn't exist
+        INSERT INTO orders (user_id) VALUES (999);
+
+        -- Need to enable: PRAGMA foreign_keys = ON;
+      context:
+        database: sqlite
+        test_type: integrity
+
+    expected_output:
+      must_contain:
+        - "foreign_keys"
+        - "PRAGMA"
+        - "SQLite"
+        - "enforcement"
+      must_match_regex:
+        - "PRAGMA foreign_keys\\s*=\\s*ON"
+      severity_classification: high
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Negative Tests (Secure/Valid Code)
+  # ---------------------------------------------------------------------------
+
+  - id: tc017_valid_schema_no_false_positives
+    description: "Verify well-designed schema is NOT flagged as problematic"
+    category: negative
+    priority: critical
+
+    input:
+      code: |
+        CREATE TABLE users (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          email VARCHAR(255) UNIQUE NOT NULL,
+          password_hash VARCHAR(255) NOT NULL,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+          updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+        );
+
+        CREATE TABLE orders (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          total DECIMAL(10,2) NOT NULL CHECK (total >= 0),
+          status VARCHAR(20) NOT NULL DEFAULT 'pending'
+            CHECK (status IN ('pending', 'processing', 'shipped', 'delivered', 'cancelled')),
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+        );
+
+        CREATE INDEX idx_orders_user_id ON orders(user_id);
+        CREATE INDEX idx_orders_status ON orders(status);
+        CREATE INDEX idx_orders_created_at ON orders(created_at);
+      context:
+        database: postgresql
+        framework: prisma
+        environment: production
+
+    expected_output:
+      must_contain:
+        - "valid"
+        - "well-designed"
+        - "proper constraints"
+      must_not_contain:
+        - "missing constraint"
+        - "critical"
+        - "high severity"
+        - "orphaned"
+      finding_count:
+        max: 2  # Allow informational findings only
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.6
+      allow_partial: true
+
+  - id: tc018_proper_migration_pattern
+    description: "Verify proper migration pattern is recognized"
+    category: negative
+    priority: high
+
+    input:
+      code: |
+        // Proper reversible migration with data preservation
+        exports.up = async function(knex) {
+          // Check if column exists before adding
+          const hasColumn = await knex.schema.hasColumn('users', 'phone');
+          if (!hasColumn) {
+            await knex.schema.alterTable('users', (table) => {
+              table.string('phone').nullable();
+            });
+          }
+        };
+
+        exports.down = async function(knex) {
+          const hasColumn = await knex.schema.hasColumn('users', 'phone');
+          if (hasColumn) {
+            await knex.schema.alterTable('users', (table) => {
+              table.dropColumn('phone');
+            });
+          }
+        };
+      context:
+        database: postgresql
+        framework: knex
+        test_type: migration
+
+    expected_output:
+      must_contain:
+        - "reversible"
+        - "idempotent"
+        - "safe"
+      must_not_contain:
+        - "irreversible"
+        - "data loss"
+        - "critical"
+      severity_classification: info
+
+    validation:
+      schema_check: true
+      allow_partial: true
+
+# =============================================================================
+# SUCCESS CRITERIA
+# =============================================================================
+
+success_criteria:
+  # Overall pass rate (90% of tests must pass)
+  pass_rate: 0.9
+
+  # Critical tests must ALL pass (100%)
+  critical_pass_rate: 1.0
+
+  # Average reasoning quality score
+  avg_reasoning_quality: 0.75
+
+  # Maximum suite execution time (5 minutes)
+  max_execution_time_ms: 300000
+
+  # Maximum variance between model results (15%)
+  cross_model_variance: 0.15
+
+# =============================================================================
+# METADATA
+# =============================================================================
+
+metadata:
+  author: "qe-test-data-architect"
+  created: "2026-02-02"
+  last_updated: "2026-02-02"
+  coverage_target: >
+    Database testing coverage: Schema validation (missing constraints, indexes),
+    Data integrity (unique, FK, check, NOT NULL), Migration testing (forward,
+    rollback, data preservation), Transaction testing (ACID: atomicity, isolation,
+    deadlock), Performance (slow queries, N+1, connection pools). Multi-database
+    support: PostgreSQL, MySQL, MongoDB, SQLite. 18 test cases with 90% pass rate
+    requirement and 100% critical pass rate for ACID and migration tests.

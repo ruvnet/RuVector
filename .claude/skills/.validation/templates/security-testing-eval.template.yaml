@@ -1,0 +1,725 @@
+# =============================================================================
+# AQE Skill Evaluation Test Suite: Security Testing
+# =============================================================================
+#
+# This is a comprehensive example evaluation suite for the security-testing skill.
+# Use this as a reference for creating evaluation suites for other skills.
+#
+# Schema: docs/schemas/skill-eval.schema.json
+# MCP Integration: docs/specs/skill-validation-mcp-integration.md
+#
+# Key Features Demonstrated:
+# 1. Multi-model testing (claude-sonnet, claude-haiku, gpt-4o)
+# 2. MCP integration for shared learning
+# 3. Various test categories (injection, auth, crypto, negative tests)
+# 4. Different priority levels and validation strategies
+# 5. ReasoningBank integration for pattern learning
+#
+# =============================================================================
+
+skill: security-testing
+version: 1.0.0
+description: >
+  Comprehensive evaluation suite for the security-testing skill.
+  Tests OWASP Top 10 detection capabilities, severity classification accuracy,
+  remediation quality, and cross-model consistency. Integrates with ReasoningBank
+  for pattern learning and QualityFeedbackLoop for continuous improvement.
+
+# =============================================================================
+# Multi-Model Configuration
+# =============================================================================
+# Test across multiple models to ensure consistent behavior and identify
+# model-specific quirks. Results are compared to detect variance.
+
+models_to_test:
+  - claude-3.5-sonnet    # Primary model (high accuracy expected)
+  - claude-3-haiku       # Fast model (ensure it meets minimum quality)
+  - gpt-4o               # Cross-vendor validation (optional)
+
+# =============================================================================
+# MCP Integration Configuration
+# =============================================================================
+# Per docs/specs/skill-validation-mcp-integration.md
+# These settings control how the eval runner interacts with AQE MCP tools.
+
+mcp_integration:
+  enabled: true
+  namespace: skill-validation
+
+  # Before running evals, query existing patterns for context
+  query_patterns: true
+
+  # Track each test outcome for the learning feedback loop
+  track_outcomes: true
+
+  # After evals, store successful patterns for future reference
+  store_patterns: true
+
+  # Share learning with the fleet coordinator agents
+  share_learning: true
+
+  # Update quality gate with validation metrics
+  update_quality_gate: true
+
+  # Agents to share learning with
+  target_agents:
+    - qe-learning-coordinator
+    - qe-queen-coordinator
+    - qe-security-scanner
+
+# =============================================================================
+# ReasoningBank Learning Configuration
+# =============================================================================
+# Controls how patterns are stored and retrieved from ReasoningBank.
+
+learning:
+  store_success_patterns: true
+  store_failure_patterns: true
+  pattern_ttl_days: 90
+  min_confidence_to_store: 0.7
+  cross_model_comparison: true
+
+# =============================================================================
+# Result Format Configuration
+# =============================================================================
+
+result_format:
+  json_output: true
+  markdown_report: true
+  include_raw_output: false
+  include_timing: true
+  include_token_usage: true
+
+# =============================================================================
+# Environment Setup
+# =============================================================================
+
+setup:
+  required_tools:
+    - npm    # For running security scanners
+    - node   # JavaScript runtime
+
+  environment_variables:
+    SECURITY_SCAN_DEPTH: "deep"
+    OWASP_ENABLED: "true"
+
+  fixtures:
+    - name: vulnerable_express_app
+      path: fixtures/vulnerable-express-app.js
+      content: |
+        const express = require('express');
+        const app = express();
+
+        // Vulnerable: SQL Injection
+        app.get('/user', (req, res) => {
+          const query = `SELECT * FROM users WHERE id = ${req.params.id}`;
+          db.query(query);
+        });
+
+        // Vulnerable: XSS
+        app.get('/profile', (req, res) => {
+          res.send(`<h1>Hello ${req.query.name}</h1>`);
+        });
+
+        // Vulnerable: Path Traversal
+        app.get('/file', (req, res) => {
+          const path = './uploads/' + req.query.filename;
+          res.sendFile(path);
+        });
+
+# =============================================================================
+# TEST CASES
+# =============================================================================
+
+test_cases:
+  # ---------------------------------------------------------------------------
+  # CATEGORY: SQL Injection (OWASP A03:2021)
+  # ---------------------------------------------------------------------------
+
+  - id: tc001_sql_injection_basic
+    description: "Detect basic SQL injection vulnerability in user input concatenation"
+    category: injection
+    priority: critical
+
+    input:
+      code: |
+        const express = require('express');
+        const app = express();
+
+        app.get('/api/users', (req, res) => {
+          const userId = req.params.id;
+          const query = `SELECT * FROM users WHERE id = ${userId}`;
+          db.query(query, (err, results) => {
+            res.json(results);
+          });
+        });
+      context:
+        language: javascript
+        framework: express
+        environment: production
+
+    expected_output:
+      must_contain:
+        - "SQL injection"
+        - "parameterized"
+        - "prepared statement"
+      must_not_contain:
+        - "no vulnerabilities"
+        - "code is secure"
+      must_match_regex:
+        - "CWE-89|CWE-564"
+        - "A0[13]:20[21][0-9]"
+      severity_classification: critical
+      finding_count:
+        min: 1
+        max: 3
+      recommendation_count:
+        min: 1
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+      reasoning_quality_min: 0.7
+      grading_rubric:
+        completeness: 0.3
+        accuracy: 0.5
+        actionability: 0.2
+
+    timeout_ms: 30000
+
+  - id: tc002_sql_injection_parameterized
+    description: "Verify parameterized queries are correctly identified as secure"
+    category: injection
+    priority: high
+
+    input:
+      code: |
+        app.get('/api/users', (req, res) => {
+          const userId = parseInt(req.params.id, 10);
+          db.query('SELECT * FROM users WHERE id = ?', [userId], (err, results) => {
+            res.json(results);
+          });
+        });
+      context:
+        language: javascript
+        framework: express
+
+    expected_output:
+      must_contain:
+        - "parameterized"
+        - "secure"
+      must_not_contain:
+        - "SQL injection"
+        - "critical"
+        - "high"
+      severity_classification: info
+      finding_count:
+        max: 1
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.7
+      allow_partial: true
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Cross-Site Scripting (OWASP A03:2021)
+  # ---------------------------------------------------------------------------
+
+  - id: tc003_xss_reflected
+    description: "Detect reflected XSS vulnerability in HTML output"
+    category: injection
+    priority: critical
+
+    input:
+      code: |
+        app.get('/profile', (req, res) => {
+          const name = req.query.name;
+          res.send(`
+            <html>
+              <body>
+                <h1>Welcome, ${name}!</h1>
+                <p>Your profile has been loaded.</p>
+              </body>
+            </html>
+          `);
+        });
+      context:
+        language: javascript
+        framework: express
+
+    expected_output:
+      must_contain:
+        - "XSS"
+        - "cross-site scripting"
+        - "sanitize"
+        - "encode"
+        - "escape"
+      must_match_regex:
+        - "CWE-79"
+      severity_classification: high
+      finding_count:
+        min: 1
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+      reasoning_quality_min: 0.75
+
+  - id: tc004_xss_dom_based
+    description: "Detect DOM-based XSS in client-side JavaScript"
+    category: injection
+    priority: high
+
+    input:
+      code: |
+        // Client-side JavaScript
+        const params = new URLSearchParams(window.location.search);
+        const message = params.get('msg');
+        document.getElementById('output').innerHTML = message;
+      context:
+        language: javascript
+        framework: vanilla
+        environment: production
+
+    expected_output:
+      must_contain:
+        - "DOM"
+        - "XSS"
+        - "innerHTML"
+        - "textContent"
+      must_match_regex:
+        - "CWE-79"
+      severity_classification: high
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.7
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Authentication/Authorization (OWASP A01/A07:2021)
+  # ---------------------------------------------------------------------------
+
+  - id: tc005_insecure_auth
+    description: "Detect hardcoded credentials and weak authentication"
+    category: authentication
+    priority: critical
+
+    input:
+      code: |
+        const ADMIN_PASSWORD = 'admin123';
+        const API_KEY = 'sk-1234567890abcdef';
+
+        app.post('/login', (req, res) => {
+          if (req.body.password === ADMIN_PASSWORD) {
+            req.session.isAdmin = true;
+            res.send('Login successful');
+          }
+        });
+      context:
+        language: javascript
+        framework: express
+
+    expected_output:
+      must_contain:
+        - "hardcoded"
+        - "credentials"
+        - "secret"
+        - "environment variable"
+      must_match_regex:
+        - "CWE-798|CWE-259"
+      severity_classification: critical
+      finding_count:
+        min: 2
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+      reasoning_quality_min: 0.8
+
+  - id: tc006_broken_access_control
+    description: "Detect missing authorization checks (IDOR)"
+    category: authorization
+    priority: critical
+
+    input:
+      code: |
+        app.get('/api/users/:id/profile', (req, res) => {
+          // No authorization check - any user can access any profile
+          const userId = req.params.id;
+          db.query('SELECT * FROM profiles WHERE user_id = ?', [userId])
+            .then(profile => res.json(profile));
+        });
+
+        app.delete('/api/users/:id', (req, res) => {
+          // No check if requesting user owns this account
+          db.query('DELETE FROM users WHERE id = ?', [req.params.id]);
+          res.send('User deleted');
+        });
+      context:
+        language: javascript
+        framework: express
+
+    expected_output:
+      must_contain:
+        - "authorization"
+        - "access control"
+        - "IDOR"
+        - "verify"
+        - "ownership"
+      must_match_regex:
+        - "CWE-639|CWE-284"
+        - "A01:2021"
+      severity_classification: critical
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.7
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Cryptographic Failures (OWASP A02:2021)
+  # ---------------------------------------------------------------------------
+
+  - id: tc007_weak_crypto
+    description: "Detect weak cryptographic algorithms (MD5, SHA1 for passwords)"
+    category: cryptography
+    priority: high
+
+    input:
+      code: |
+        const crypto = require('crypto');
+
+        function hashPassword(password) {
+          return crypto.createHash('md5').update(password).digest('hex');
+        }
+
+        function encryptData(data, key) {
+          const cipher = crypto.createCipher('des', key);
+          return cipher.update(data, 'utf8', 'hex') + cipher.final('hex');
+        }
+      context:
+        language: javascript
+        framework: nodejs
+
+    expected_output:
+      must_contain:
+        - "MD5"
+        - "weak"
+        - "bcrypt"
+        - "argon2"
+        - "DES"
+        - "deprecated"
+      must_match_regex:
+        - "CWE-327|CWE-328"
+      severity_classification: high
+      finding_count:
+        min: 2
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Path Traversal (OWASP A01:2021)
+  # ---------------------------------------------------------------------------
+
+  - id: tc008_path_traversal
+    description: "Detect path traversal vulnerability in file access"
+    category: injection
+    priority: critical
+
+    input:
+      code: |
+        const path = require('path');
+        const fs = require('fs');
+
+        app.get('/download', (req, res) => {
+          const filename = req.query.file;
+          const filepath = './uploads/' + filename;
+          res.sendFile(filepath);
+        });
+
+        app.get('/read', (req, res) => {
+          const content = fs.readFileSync('./data/' + req.params.name);
+          res.send(content);
+        });
+      context:
+        language: javascript
+        framework: express
+
+    expected_output:
+      must_contain:
+        - "path traversal"
+        - "directory traversal"
+        - "../"
+        - "sanitize"
+        - "path.resolve"
+        - "path.normalize"
+      must_match_regex:
+        - "CWE-22|CWE-23"
+      severity_classification: critical
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.7
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Negative Tests (Should NOT find critical issues)
+  # ---------------------------------------------------------------------------
+
+  - id: tc010_secure_code_no_false_positives
+    description: "Verify skill does not flag secure code as vulnerable"
+    category: negative
+    priority: high
+
+    input:
+      code: |
+        const express = require('express');
+        const helmet = require('helmet');
+        const rateLimit = require('express-rate-limit');
+        const bcrypt = require('bcrypt');
+        const validator = require('validator');
+
+        const app = express();
+        app.use(helmet());
+        app.use(rateLimit({ windowMs: 15 * 60 * 1000, max: 100 }));
+
+        app.post('/api/users', async (req, res) => {
+          const { email, password } = req.body;
+
+          // Input validation
+          if (!validator.isEmail(email)) {
+            return res.status(400).json({ error: 'Invalid email' });
+          }
+
+          // Secure password hashing
+          const hashedPassword = await bcrypt.hash(password, 12);
+
+          // Parameterized query
+          await db.query(
+            'INSERT INTO users (email, password) VALUES ($1, $2)',
+            [email, hashedPassword]
+          );
+
+          res.status(201).json({ message: 'User created' });
+        });
+      context:
+        language: javascript
+        framework: express
+        environment: production
+
+    expected_output:
+      must_contain:
+        - "secure"
+        - "best practice"
+      must_not_contain:
+        - "SQL injection"
+        - "XSS"
+        - "critical vulnerability"
+        - "high severity"
+      finding_count:
+        max: 2  # Allow informational findings only
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.6
+      allow_partial: true
+
+  - id: tc011_informational_only
+    description: "Code with only informational-level findings (no vulnerabilities)"
+    category: negative
+    priority: medium
+
+    input:
+      code: |
+        // Secure but could use some improvements
+        app.get('/api/health', (req, res) => {
+          res.json({ status: 'healthy', timestamp: Date.now() });
+        });
+
+        app.get('/api/version', (req, res) => {
+          res.json({ version: process.env.APP_VERSION || '1.0.0' });
+        });
+      context:
+        language: javascript
+        framework: express
+
+    expected_output:
+      must_not_contain:
+        - "critical"
+        - "high"
+        - "vulnerability"
+        - "injection"
+      severity_classification: info
+
+    validation:
+      schema_check: true
+      allow_partial: true
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Edge Cases
+  # ---------------------------------------------------------------------------
+
+  - id: tc020_mixed_vulnerabilities
+    description: "Detect multiple vulnerability types in single codebase"
+    category: edge_cases
+    priority: high
+
+    input:
+      code: |
+        const express = require('express');
+        const mysql = require('mysql');
+
+        // SQL Injection
+        app.get('/users', (req, res) => {
+          db.query(`SELECT * FROM users WHERE name = '${req.query.name}'`);
+        });
+
+        // XSS
+        app.get('/greet', (req, res) => {
+          res.send(`<div>${req.query.message}</div>`);
+        });
+
+        // Hardcoded secret
+        const JWT_SECRET = 'super-secret-key-123';
+
+        // Weak random
+        function generateToken() {
+          return Math.random().toString(36);
+        }
+      context:
+        language: javascript
+        framework: express
+
+    expected_output:
+      must_contain:
+        - "SQL injection"
+        - "XSS"
+        - "hardcoded"
+        - "random"
+      finding_count:
+        min: 3
+        max: 6
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.7
+
+    timeout_ms: 45000
+
+  - id: tc021_typescript_analysis
+    description: "Analyze TypeScript code with type information"
+    category: edge_cases
+    priority: medium
+
+    input:
+      code: |
+        import express, { Request, Response } from 'express';
+
+        interface UserQuery {
+          id: string;
+          filter?: string;
+        }
+
+        app.get('/api/users', (req: Request<{}, {}, {}, UserQuery>, res: Response) => {
+          const { id, filter } = req.query;
+          // Still vulnerable despite TypeScript
+          const query = `SELECT * FROM users WHERE id = '${id}' AND status = '${filter}'`;
+          db.query(query);
+        });
+      context:
+        language: typescript
+        framework: express
+
+    expected_output:
+      must_contain:
+        - "SQL injection"
+        - "TypeScript"
+        - "runtime"
+      must_match_regex:
+        - "CWE-89"
+
+    validation:
+      schema_check: true
+
+  - id: tc022_python_flask_vulnerabilities
+    description: "Detect vulnerabilities in Python Flask application"
+    category: language_support
+    priority: medium
+
+    input:
+      code: |
+        from flask import Flask, request, render_template_string
+        import sqlite3
+        import pickle
+
+        app = Flask(__name__)
+
+        @app.route('/user')
+        def get_user():
+            user_id = request.args.get('id')
+            conn = sqlite3.connect('users.db')
+            cursor = conn.cursor()
+            cursor.execute(f"SELECT * FROM users WHERE id = {user_id}")
+            return str(cursor.fetchone())
+
+        @app.route('/render')
+        def render():
+            template = request.args.get('template')
+            return render_template_string(template)
+
+        @app.route('/load')
+        def load_data():
+            data = request.get_data()
+            return pickle.loads(data)
+      context:
+        language: python
+        framework: flask
+
+    expected_output:
+      must_contain:
+        - "SQL injection"
+        - "SSTI"
+        - "template injection"
+        - "pickle"
+        - "deserialization"
+      finding_count:
+        min: 3
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.7
+
+# =============================================================================
+# SUCCESS CRITERIA
+# =============================================================================
+# These criteria determine whether the eval suite passes or fails overall.
+
+success_criteria:
+  # Overall pass rate (90% of tests must pass)
+  pass_rate: 0.9
+
+  # Critical tests must ALL pass (100%)
+  critical_pass_rate: 1.0
+
+  # Average reasoning quality score
+  avg_reasoning_quality: 0.75
+
+  # Maximum suite execution time (5 minutes)
+  max_execution_time_ms: 300000
+
+  # Maximum variance between model results (15%)
+  # If claude-sonnet gets 95% and claude-haiku gets 75%, variance is 20% (FAIL)
+  cross_model_variance: 0.15
+
+# =============================================================================
+# METADATA
+# =============================================================================
+
+metadata:
+  author: "qe-security-scanner"
+  created: "2026-02-02"
+  last_updated: "2026-02-02"
+  coverage_target: >
+    OWASP Top 10 2021: A01 (Broken Access Control), A02 (Cryptographic Failures),
+    A03 (Injection), A07 (Identification and Authentication Failures).
+    Covers JavaScript/TypeScript Express apps and Python Flask apps.

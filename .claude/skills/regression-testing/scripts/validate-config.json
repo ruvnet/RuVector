@@ -1,0 +1,50 @@
+{
+  "skillName": "regression-testing",
+  "skillVersion": "1.0.0",
+  "requiredTools": [
+    "jq"
+  ],
+  "optionalTools": [
+    "ajv",
+    "jsonschema",
+    "python3"
+  ],
+  "schemaPath": "schemas/output.json",
+  "requiredFields": [
+    "skillName",
+    "status",
+    "output",
+    "output.testSelection",
+    "output.impactAnalysis",
+    "output.metrics"
+  ],
+  "requiredNonEmptyFields": [
+    "output.summary",
+    "output.testSelection"
+  ],
+  "mustContainTerms": [
+    "regression",
+    "test"
+  ],
+  "mustNotContainTerms": [
+    "TODO",
+    "placeholder",
+    "FIXME"
+  ],
+  "enumValidations": {
+    ".status": [
+      "success",
+      "partial",
+      "failed",
+      "skipped"
+    ],
+    ".output.testSelection.strategy": [
+      "change-based",
+      "risk-based",
+      "historical",
+      "time-budget",
+      "full",
+      "smoke"
+    ]
+  }
+}

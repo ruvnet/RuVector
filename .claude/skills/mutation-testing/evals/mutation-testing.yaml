@@ -1,0 +1,652 @@
+# =============================================================================
+# Mutation Testing Skill Evaluation Test Suite v1.0.0
+# Path: .claude/skills/mutation-testing/evals/mutation-testing.yaml
+# =============================================================================
+#
+# This evaluation suite validates mutation testing skill behavior through:
+# 1. Input/expected-output test cases for mutation operators
+# 2. Multi-model consistency testing
+# 3. Semantic validation of mutation analysis quality
+# 4. AQE MCP integration for shared learning
+#
+# Schema: .claude/skills/.validation/schemas/skill-eval.schema.json
+# =============================================================================
+
+skill: mutation-testing
+version: 1.0.0
+description: >
+  Comprehensive evaluation test suite for the mutation-testing skill.
+  Tests mutation score calculation, operator detection, surviving mutant
+  analysis, and test improvement recommendations across multiple models
+  to ensure consistent, high-quality mutation analysis output.
+
+# =============================================================================
+# Multi-Model Configuration
+# =============================================================================
+
+models_to_test:
+  - claude-3.5-sonnet    # Primary model (high accuracy expected)
+  - claude-3-haiku       # Fast model (ensure minimum quality)
+  - gpt-4o               # Cross-vendor validation
+
+# =============================================================================
+# MCP Integration Configuration
+# =============================================================================
+
+mcp_integration:
+  enabled: true
+  namespace: skill-validation/mutation-testing
+
+  query_patterns: true
+  track_outcomes: true
+  store_patterns: true
+  share_learning: true
+  update_quality_gate: true
+
+  target_agents:
+    - qe-learning-coordinator
+    - qe-queen-coordinator
+    - qe-mutation-tester
+
+# =============================================================================
+# ReasoningBank Learning Configuration
+# =============================================================================
+
+learning:
+  store_success_patterns: true
+  store_failure_patterns: true
+  pattern_ttl_days: 90
+  min_confidence_to_store: 0.7
+  cross_model_comparison: true
+
+# =============================================================================
+# Result Format Configuration
+# =============================================================================
+
+result_format:
+  json_output: true
+  markdown_report: true
+  include_raw_output: false
+  include_timing: true
+  include_token_usage: true
+
+# =============================================================================
+# Environment Setup
+# =============================================================================
+
+setup:
+  required_tools:
+    - jq
+  environment_variables:
+    MUTATION_TIMEOUT_MS: "30000"
+  fixtures:
+    - name: simple_arithmetic_code
+      content: |
+        function calculateTotal(price, quantity) {
+          return price * quantity;
+        }
+    - name: conditional_code
+      content: |
+        function isAdult(age) {
+          return age >= 18;
+        }
+    - name: complex_code
+      content: |
+        function processOrder(order) {
+          if (order.quantity <= 0) {
+            throw new Error('Invalid quantity');
+          }
+          let discount = 0;
+          if (order.quantity >= 10 && order.isPremium) {
+            discount = 0.1;
+          }
+          return order.price * order.quantity * (1 - discount);
+        }
+
+# =============================================================================
+# Test Cases
+# =============================================================================
+
+test_cases:
+  # -------------------------------------------------------------------------
+  # Basic Functionality Tests
+  # -------------------------------------------------------------------------
+
+  - id: tc001_basic_mutation_analysis
+    description: "Skill analyzes simple code and identifies potential mutations"
+    category: basic
+    priority: critical
+
+    input:
+      code: |
+        function add(a, b) {
+          return a + b;
+        }
+      context:
+        language: javascript
+      prompt: |
+        Analyze this code for mutation testing. Identify what mutations
+        could be applied and what tests would be needed to kill them.
+
+    expected_output:
+      must_contain:
+        - "mutation"
+        - "arithmetic"
+        - "+"
+      must_not_contain:
+        - "unable to analyze"
+        - "error"
+      finding_count:
+        min: 1
+        max: 10
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+      reasoning_quality_min: 0.7
+
+  - id: tc002_mutation_score_calculation
+    description: "Skill correctly calculates mutation score from kill/survive data"
+    category: basic
+    priority: critical
+
+    input:
+      prompt: |
+        Given these mutation testing results:
+        - Total mutants: 100
+        - Killed: 85
+        - Survived: 12
+        - Timeout: 2
+        - No Coverage: 1
+
+        Calculate the mutation score and assess the test suite quality.
+
+    expected_output:
+      must_contain:
+        - "85"
+        - "mutation score"
+        - "quality"
+      must_match_regex:
+        - "8[0-9](\\.\\d+)?%"  # Score around 85%
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.9
+
+  # -------------------------------------------------------------------------
+  # Arithmetic Operator Tests (AOR)
+  # -------------------------------------------------------------------------
+
+  - id: tc003_arithmetic_operator_mutation
+    description: "Skill identifies arithmetic operator mutations (+, -, *, /)"
+    category: operators
+    priority: high
+
+    input:
+      code: |
+        function calculateTotal(price, quantity, tax) {
+          const subtotal = price * quantity;
+          const taxAmount = subtotal * tax;
+          return subtotal + taxAmount;
+        }
+      context:
+        language: javascript
+      prompt: |
+        Perform mutation analysis focusing on arithmetic operators.
+        Identify all AOR (Arithmetic Operator Replacement) mutations.
+
+    expected_output:
+      must_contain:
+        - "arithmetic"
+        - "*"
+        - "+"
+        - "mutant"
+      must_not_contain:
+        - "no mutations"
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+
+  # -------------------------------------------------------------------------
+  # Relational Operator Tests (ROR)
+  # -------------------------------------------------------------------------
+
+  - id: tc004_relational_operator_mutation
+    description: "Skill identifies relational operator mutations (>, <, >=, <=, ==, !=)"
+    category: operators
+    priority: high
+
+    input:
+      code: |
+        function isEligible(age, income) {
+          if (age >= 18 && income > 30000) {
+            return true;
+          }
+          if (age < 65 && income <= 100000) {
+            return true;
+          }
+          return false;
+        }
+      context:
+        language: javascript
+      prompt: |
+        Analyze this code for relational operator mutations (ROR).
+        Identify boundary conditions that need testing.
+
+    expected_output:
+      must_contain:
+        - "relational"
+        - ">="
+        - "boundary"
+        - "18"
+      must_not_contain:
+        - "unable"
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+      reasoning_quality_min: 0.7
+
+  - id: tc005_boundary_mutation_detection
+    description: "Skill detects boundary value mutations (>= to >, etc.)"
+    category: operators
+    priority: critical
+
+    input:
+      code: |
+        function getDiscount(quantity) {
+          if (quantity >= 10) {
+            return 0.1;  // 10% discount
+          }
+          return 0;
+        }
+      context:
+        language: javascript
+      prompt: |
+        This code has a boundary condition at quantity=10.
+        What mutation would test if the boundary is correctly tested?
+        What test case would kill that mutant?
+
+    expected_output:
+      must_contain:
+        - "10"
+        - "boundary"
+        - ">="
+        - ">"
+      must_not_contain:
+        - "no boundary"
+
+    validation:
+      schema_check: true
+      reasoning_quality_min: 0.8
+
+  # -------------------------------------------------------------------------
+  # Logical Operator Tests (LCR/LOD)
+  # -------------------------------------------------------------------------
+
+  - id: tc006_logical_operator_mutation
+    description: "Skill identifies logical operator mutations (&&, ||, !)"
+    category: operators
+    priority: high
+
+    input:
+      code: |
+        function canAccess(user) {
+          return user.isActive && (user.role === 'admin' || user.hasPermission);
+        }
+      context:
+        language: javascript
+      prompt: |
+        Analyze this code for logical connector replacements (LCR).
+        What happens if && is changed to || or vice versa?
+
+    expected_output:
+      must_contain:
+        - "logical"
+        - "&&"
+        - "||"
+      must_not_contain:
+        - "no logical"
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+
+  # -------------------------------------------------------------------------
+  # Conditional Operator Tests (COR)
+  # -------------------------------------------------------------------------
+
+  - id: tc007_conditional_mutation
+    description: "Skill identifies conditional/decision mutations"
+    category: operators
+    priority: high
+
+    input:
+      code: |
+        function processPayment(payment) {
+          if (payment.amount > 0) {
+            if (payment.verified) {
+              return 'approved';
+            }
+            return 'pending';
+          }
+          return 'rejected';
+        }
+      context:
+        language: javascript
+      prompt: |
+        Analyze conditional mutations for this payment processing code.
+        Consider mutations like replacing conditions with true/false.
+
+    expected_output:
+      must_contain:
+        - "conditional"
+        - "if"
+        - "true"
+        - "false"
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.7
+
+  # -------------------------------------------------------------------------
+  # Return Value Tests (RVR)
+  # -------------------------------------------------------------------------
+
+  - id: tc008_return_value_mutation
+    description: "Skill identifies return value mutations"
+    category: operators
+    priority: medium
+
+    input:
+      code: |
+        function getStatus(code) {
+          if (code === 200) return 'success';
+          if (code === 404) return 'not found';
+          if (code >= 500) return 'error';
+          return 'unknown';
+        }
+      context:
+        language: javascript
+      prompt: |
+        Analyze return value mutations for this status code handler.
+        What mutations could be applied to the return statements?
+
+    expected_output:
+      must_contain:
+        - "return"
+        - "mutation"
+        - "success"
+        - "error"
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.7
+
+  # -------------------------------------------------------------------------
+  # Surviving Mutant Analysis Tests
+  # -------------------------------------------------------------------------
+
+  - id: tc009_surviving_mutant_analysis
+    description: "Skill analyzes surviving mutants and suggests test improvements"
+    category: analysis
+    priority: critical
+
+    input:
+      prompt: |
+        The following mutant survived:
+        - File: src/validator.ts
+        - Line: 45
+        - Original: if (age >= 18)
+        - Mutated: if (age > 18)
+        - Tests that cover this line: ['should validate adult', 'should validate minor']
+
+        Why did this mutant survive and what test would kill it?
+
+    expected_output:
+      must_contain:
+        - "boundary"
+        - "18"
+        - "test"
+        - "exactly"
+      must_not_contain:
+        - "cannot determine"
+
+    validation:
+      schema_check: true
+      reasoning_quality_min: 0.8
+
+  - id: tc010_weak_test_identification
+    description: "Skill identifies weak tests based on surviving mutants"
+    category: analysis
+    priority: high
+
+    input:
+      prompt: |
+        Mutation testing results for auth.test.js:
+        - 50 mutants generated in auth.js
+        - 35 killed by auth.test.js
+        - 15 survived
+
+        Surviving mutant operators:
+        - 8 relational (ROR)
+        - 5 boundary (BOR)
+        - 2 logical (LCR)
+
+        Analyze what makes auth.test.js weak and how to improve it.
+
+    expected_output:
+      must_contain:
+        - "weak"
+        - "boundary"
+        - "relational"
+        - "improve"
+      recommendation_count:
+        min: 1
+
+    validation:
+      schema_check: true
+      reasoning_quality_min: 0.7
+
+  # -------------------------------------------------------------------------
+  # Edge Cases
+  # -------------------------------------------------------------------------
+
+  - id: tc011_empty_code_handling
+    description: "Skill handles empty or minimal code gracefully"
+    category: edge_cases
+    priority: medium
+
+    input:
+      code: |
+        // Empty function
+        function noop() {}
+      context:
+        language: javascript
+      prompt: Analyze this code for mutation testing.
+
+    expected_output:
+      must_contain:
+        - "no mutation"
+      must_not_contain:
+        - "error"
+        - "crash"
+
+    validation:
+      schema_check: true
+      allow_partial: true
+
+  - id: tc012_complex_nested_conditions
+    description: "Skill handles complex nested conditions"
+    category: edge_cases
+    priority: medium
+
+    input:
+      code: |
+        function complexValidation(data) {
+          if (data && data.type === 'A') {
+            if (data.value > 0 && data.value <= 100) {
+              if (data.status === 'active' || data.override) {
+                return data.priority >= 1 && data.priority <= 5;
+              }
+            }
+          }
+          return false;
+        }
+      context:
+        language: javascript
+      prompt: |
+        Analyze all possible mutations in this complex nested validation.
+        Prioritize by impact.
+
+    expected_output:
+      must_contain:
+        - "nested"
+        - "condition"
+        - "mutation"
+      finding_count:
+        min: 5
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.7
+
+  # -------------------------------------------------------------------------
+  # Multi-Language Support
+  # -------------------------------------------------------------------------
+
+  - id: tc013_python_mutation_analysis
+    description: "Skill correctly analyzes Python code mutations"
+    category: language_support
+    priority: medium
+
+    input:
+      code: |
+        def calculate_price(base_price, discount_percent, tax_rate):
+            discount = base_price * (discount_percent / 100)
+            subtotal = base_price - discount
+            tax = subtotal * tax_rate
+            return subtotal + tax
+      context:
+        language: python
+      prompt: Analyze this Python code for mutation testing.
+
+    expected_output:
+      must_contain:
+        - "mutation"
+        - "arithmetic"
+        - "python"
+
+    validation:
+      schema_check: true
+
+  - id: tc014_typescript_mutation_analysis
+    description: "Skill correctly analyzes TypeScript code mutations"
+    category: language_support
+    priority: medium
+
+    input:
+      code: |
+        interface Order {
+          quantity: number;
+          price: number;
+          isPremium: boolean;
+        }
+
+        function calculateDiscount(order: Order): number {
+          if (order.quantity >= 10 && order.isPremium) {
+            return order.price * 0.15;
+          }
+          if (order.quantity >= 5) {
+            return order.price * 0.05;
+          }
+          return 0;
+        }
+      context:
+        language: typescript
+      prompt: Analyze this TypeScript code for mutation testing.
+
+    expected_output:
+      must_contain:
+        - "mutation"
+        - "typescript"
+        - "boundary"
+
+    validation:
+      schema_check: true
+
+  # -------------------------------------------------------------------------
+  # Integration with Coverage
+  # -------------------------------------------------------------------------
+
+  - id: tc015_coverage_mutation_correlation
+    description: "Skill correlates coverage with mutation score"
+    category: integration
+    priority: high
+
+    input:
+      prompt: |
+        Coverage report shows:
+        - Line coverage: 95%
+        - Branch coverage: 88%
+
+        Mutation testing shows:
+        - Mutation score: 65%
+
+        Analyze the gap between coverage and mutation score.
+        Why can high coverage coexist with low mutation score?
+
+    expected_output:
+      must_contain:
+        - "coverage"
+        - "mutation"
+        - "assertion"
+        - "quality"
+      must_not_contain:
+        - "coverage equals"
+
+    validation:
+      schema_check: true
+      reasoning_quality_min: 0.8
+      grading_rubric:
+        completeness: 0.4
+        accuracy: 0.4
+        actionability: 0.2
+
+# =============================================================================
+# Success Criteria
+# =============================================================================
+
+success_criteria:
+  # Minimum 90% of tests must pass
+  pass_rate: 0.9
+
+  # All critical tests must pass
+  critical_pass_rate: 1.0
+
+  # Minimum reasoning quality
+  avg_reasoning_quality: 0.7
+
+  # Maximum 5 minutes for full suite
+  max_execution_time_ms: 300000
+
+  # Maximum 15% variance between models
+  cross_model_variance: 0.15
+
+# =============================================================================
+# Metadata
+# =============================================================================
+
+metadata:
+  author: "@agentic-qe"
+  created: "2026-02-02"
+  last_updated: "2026-02-02"
+  coverage_target: >
+    Comprehensive mutation operator coverage (AOR, ROR, LCR, COR, RVR),
+    surviving mutant analysis, weak test identification, multi-language
+    support, and coverage correlation analysis.
+  related_skills:
+    - test-design-techniques
+    - coverage-analysis
+    - tdd-london-chicago

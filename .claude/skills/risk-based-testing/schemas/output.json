@@ -1,0 +1,480 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentic-qe.dev/schemas/risk-based-testing-output.json",
+  "title": "AQE Risk-Based Testing Skill Output Schema",
+  "description": "Schema for risk-based-testing skill output validation. Extends the base skill-output template with risk matrix, prioritization, and test allocation.",
+  "type": "object",
+  "required": ["skillName", "version", "timestamp", "status", "trustTier", "output"],
+  "properties": {
+    "skillName": {
+      "type": "string",
+      "const": "risk-based-testing",
+      "description": "Must be 'risk-based-testing'"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+(-[a-zA-Z0-9]+)?$"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["success", "partial", "failed", "skipped"]
+    },
+    "trustTier": {
+      "type": "integer",
+      "const": 3
+    },
+    "output": {
+      "type": "object",
+      "required": ["summary", "riskMatrix", "prioritization", "findings", "recommendations"],
+      "properties": {
+        "summary": {
+          "type": "string",
+          "minLength": 50,
+          "maxLength": 2000,
+          "description": "Human-readable summary of risk assessment"
+        },
+        "score": {
+          "$ref": "#/$defs/riskScore"
+        },
+        "riskMatrix": {
+          "$ref": "#/$defs/riskMatrix",
+          "description": "Complete risk assessment matrix"
+        },
+        "prioritization": {
+          "$ref": "#/$defs/prioritization",
+          "description": "Test prioritization based on risk"
+        },
+        "testAllocation": {
+          "$ref": "#/$defs/testAllocation",
+          "description": "Recommended test effort allocation"
+        },
+        "findings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/riskFinding"
+          },
+          "maxItems": 200
+        },
+        "recommendations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/riskRecommendation"
+          },
+          "maxItems": 50
+        },
+        "mlAnalysis": {
+          "$ref": "#/$defs/mlRiskAnalysis",
+          "description": "ML-enhanced risk prediction"
+        },
+        "metrics": {
+          "$ref": "#/$defs/riskMetrics"
+        },
+        "artifacts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/artifact"
+          },
+          "maxItems": 50
+        }
+      }
+    },
+    "metadata": {
+      "$ref": "#/$defs/metadata"
+    },
+    "validation": {
+      "$ref": "#/$defs/validationResult"
+    },
+    "learning": {
+      "$ref": "#/$defs/learningData"
+    }
+  },
+  "$defs": {
+    "riskScore": {
+      "type": "object",
+      "required": ["value", "max"],
+      "properties": {
+        "value": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Overall risk mitigation score (100=all risks addressed)"
+        },
+        "max": {
+          "type": "number",
+          "const": 100
+        },
+        "grade": {
+          "type": "string",
+          "pattern": "^[A-F][+-]?$"
+        },
+        "riskPosture": {
+          "type": "string",
+          "enum": ["critical", "high", "moderate", "low", "minimal"],
+          "description": "Overall risk posture"
+        }
+      }
+    },
+    "riskMatrix": {
+      "type": "object",
+      "required": ["items"],
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "feature", "probability", "impact", "riskScore", "priority"],
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^RISK-\\d{3,6}$"
+              },
+              "feature": {
+                "type": "string",
+                "description": "Feature or component name"
+              },
+              "description": {
+                "type": "string",
+                "description": "Risk description"
+              },
+              "probability": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 5,
+                "description": "Probability of defect (1-5)"
+              },
+              "impact": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 5,
+                "description": "Business impact if defect occurs (1-5)"
+              },
+              "riskScore": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 25,
+                "description": "Calculated risk score (probability x impact)"
+              },
+              "priority": {
+                "type": "string",
+                "enum": ["critical", "high", "medium", "low"],
+                "description": "Testing priority based on risk"
+              },
+              "probabilityFactors": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "factor": {
+                      "type": "string",
+                      "enum": ["complexity", "change-rate", "developer-experience", "technical-debt", "dependencies", "age"]
+                    },
+                    "score": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 5
+                    },
+                    "evidence": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "description": "Factors contributing to probability"
+              },
+              "impactFactors": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "factor": {
+                      "type": "string",
+                      "enum": ["users-affected", "revenue", "safety", "reputation", "regulatory", "data-loss"]
+                    },
+                    "score": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 5
+                    },
+                    "evidence": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "description": "Factors contributing to impact"
+              },
+              "mitigations": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "Risk mitigation strategies"
+              },
+              "testingStrategy": {
+                "type": "string",
+                "enum": ["comprehensive", "thorough", "standard", "smoke"],
+                "description": "Recommended testing depth"
+              }
+            }
+          }
+        },
+        "criticalCount": {
+          "type": "integer",
+          "description": "Number of critical-priority risks"
+        },
+        "highCount": {
+          "type": "integer",
+          "description": "Number of high-priority risks"
+        },
+        "mediumCount": {
+          "type": "integer",
+          "description": "Number of medium-priority risks"
+        },
+        "lowCount": {
+          "type": "integer",
+          "description": "Number of low-priority risks"
+        }
+      }
+    },
+    "prioritization": {
+      "type": "object",
+      "properties": {
+        "critical": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Features requiring comprehensive testing"
+        },
+        "high": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Features requiring thorough testing"
+        },
+        "medium": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Features requiring standard testing"
+        },
+        "low": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Features requiring smoke testing"
+        },
+        "testOrder": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "order": { "type": "integer" },
+              "feature": { "type": "string" },
+              "rationale": { "type": "string" }
+            }
+          },
+          "description": "Recommended test execution order"
+        }
+      }
+    },
+    "testAllocation": {
+      "type": "object",
+      "properties": {
+        "totalEffort": {
+          "type": "string",
+          "description": "Total estimated testing effort"
+        },
+        "criticalAllocation": {
+          "type": "object",
+          "properties": {
+            "percentage": { "type": "number" },
+            "techniques": { "type": "array", "items": { "type": "string" } },
+            "estimatedTime": { "type": "string" }
+          }
+        },
+        "highAllocation": {
+          "type": "object",
+          "properties": {
+            "percentage": { "type": "number" },
+            "techniques": { "type": "array", "items": { "type": "string" } },
+            "estimatedTime": { "type": "string" }
+          }
+        },
+        "mediumAllocation": {
+          "type": "object",
+          "properties": {
+            "percentage": { "type": "number" },
+            "techniques": { "type": "array", "items": { "type": "string" } },
+            "estimatedTime": { "type": "string" }
+          }
+        },
+        "lowAllocation": {
+          "type": "object",
+          "properties": {
+            "percentage": { "type": "number" },
+            "techniques": { "type": "array", "items": { "type": "string" } },
+            "estimatedTime": { "type": "string" }
+          }
+        },
+        "recommendedDistribution": {
+          "type": "object",
+          "properties": {
+            "critical": { "type": "number", "default": 60 },
+            "high": { "type": "number", "default": 25 },
+            "medium": { "type": "number", "default": 10 },
+            "low": { "type": "number", "default": 5 }
+          },
+          "description": "Recommended effort distribution percentages"
+        }
+      }
+    },
+    "riskFinding": {
+      "type": "object",
+      "required": ["id", "title", "type", "severity"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^RBT-\\d{3,6}$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 200
+        },
+        "description": { "type": "string" },
+        "type": {
+          "type": "string",
+          "enum": ["unmitigated-risk", "coverage-gap", "incorrect-priority", "missing-assessment", "outdated-risk", "opportunity"]
+        },
+        "severity": {
+          "type": "string",
+          "enum": ["critical", "high", "medium", "low", "info"]
+        },
+        "affectedRisk": {
+          "type": "string",
+          "description": "Which risk item this finding affects"
+        }
+      }
+    },
+    "riskRecommendation": {
+      "type": "object",
+      "required": ["id", "title", "priority", "riskReduction"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^REC-\\d{3,6}$"
+        },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "priority": {
+          "type": "string",
+          "enum": ["critical", "high", "medium", "low"]
+        },
+        "riskReduction": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Expected percentage reduction in risk"
+        },
+        "effort": {
+          "type": "string",
+          "enum": ["trivial", "low", "medium", "high", "major"]
+        },
+        "affectedRisks": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Risk IDs this addresses"
+        }
+      }
+    },
+    "mlRiskAnalysis": {
+      "type": "object",
+      "properties": {
+        "model": {
+          "type": "string",
+          "description": "ML model used"
+        },
+        "accuracy": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Model accuracy percentage"
+        },
+        "predictions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "feature": { "type": "string" },
+              "predictedRisk": { "type": "number" },
+              "confidence": { "type": "number" },
+              "factors": { "type": "array", "items": { "type": "string" } }
+            }
+          }
+        },
+        "historicalCorrelation": {
+          "type": "number",
+          "description": "How well predictions match historical bugs"
+        }
+      }
+    },
+    "riskMetrics": {
+      "type": "object",
+      "properties": {
+        "totalRisks": { "type": "integer" },
+        "averageRiskScore": { "type": "number" },
+        "maxRiskScore": { "type": "integer" },
+        "coverageByPriority": {
+          "type": "object",
+          "properties": {
+            "critical": { "type": "number" },
+            "high": { "type": "number" },
+            "medium": { "type": "number" },
+            "low": { "type": "number" }
+          }
+        },
+        "riskReductionTarget": { "type": "number" }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "required": ["type", "path"],
+      "properties": {
+        "type": { "type": "string" },
+        "path": { "type": "string" },
+        "format": { "type": "string" },
+        "description": { "type": "string" }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "executionTimeMs": { "type": "integer" },
+        "agentId": { "type": "string" },
+        "modelUsed": { "type": "string" },
+        "environment": { "type": "string" }
+      }
+    },
+    "validationResult": {
+      "type": "object",
+      "properties": {
+        "schemaValid": { "type": "boolean" },
+        "contentValid": { "type": "boolean" },
+        "confidence": { "type": "number" }
+      }
+    },
+    "learningData": {
+      "type": "object",
+      "properties": {
+        "patternsDetected": { "type": "array", "items": { "type": "string" } },
+        "reward": { "type": "number" }
+      }
+    }
+  }
+}

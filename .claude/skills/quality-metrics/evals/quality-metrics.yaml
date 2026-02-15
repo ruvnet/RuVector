@@ -1,0 +1,494 @@
+# =============================================================================
+# AQE Skill Evaluation Test Suite: Quality Metrics v1.0.0
+# =============================================================================
+#
+# Comprehensive evaluation suite for the quality-metrics skill.
+# Tests DORA metrics, quality gates, test effectiveness measurement,
+# bug escape rate calculation, and actionable KPI definition.
+#
+# Schema: .claude/skills/.validation/schemas/skill-eval.schema.json
+# Validator: .claude/skills/quality-metrics/scripts/validate-config.json
+#
+# Coverage:
+# - DORA metrics (Deployment Frequency, Lead Time, MTTD, MTTR, CFR)
+# - Quality gates and thresholds
+# - Bug escape rate calculation
+# - Test effectiveness metrics
+# - Actionable KPIs vs vanity metrics
+#
+# =============================================================================
+
+skill: quality-metrics
+version: 1.0.0
+description: >
+  Comprehensive evaluation suite for the quality-metrics skill.
+  Tests DORA metrics calculation, quality gate definition, bug escape rate
+  measurement, test effectiveness scoring, and KPI selection to drive
+  meaningful quality improvements.
+
+# =============================================================================
+# Multi-Model Configuration
+# =============================================================================
+
+models_to_test:
+  - claude-3.5-sonnet
+  - claude-3-haiku
+
+# =============================================================================
+# MCP Integration Configuration
+# =============================================================================
+
+mcp_integration:
+  enabled: true
+  namespace: skill-validation
+
+  query_patterns: true
+  track_outcomes: true
+  store_patterns: true
+  share_learning: true
+  update_quality_gate: true
+
+  target_agents:
+    - qe-learning-coordinator
+    - qe-queen-coordinator
+    - qe-quality-gate
+
+# =============================================================================
+# ReasoningBank Learning Configuration
+# =============================================================================
+
+learning:
+  store_success_patterns: true
+  store_failure_patterns: true
+  pattern_ttl_days: 90
+  min_confidence_to_store: 0.7
+  cross_model_comparison: true
+
+# =============================================================================
+# Result Format Configuration
+# =============================================================================
+
+result_format:
+  json_output: true
+  markdown_report: true
+  include_raw_output: false
+  include_timing: true
+  include_token_usage: true
+
+# =============================================================================
+# Environment Setup
+# =============================================================================
+
+setup:
+  required_tools:
+    - jq
+
+  environment_variables:
+    METRICS_ENABLED: "true"
+    DORA_TRACKING: "true"
+
+# =============================================================================
+# TEST CASES
+# =============================================================================
+
+test_cases:
+  # ---------------------------------------------------------------------------
+  # CATEGORY: DORA Metrics Calculation
+  # ---------------------------------------------------------------------------
+
+  - id: tc001_deployment_frequency_calculation
+    description: "Calculate deployment frequency from commit history"
+    category: dora_metrics
+    priority: critical
+
+    input:
+      deployments:
+        - date: "2025-02-01"
+          version: "v1.0.0"
+        - date: "2025-02-05"
+          version: "v1.0.1"
+        - date: "2025-02-08"
+          version: "v1.1.0"
+        - date: "2025-02-15"
+          version: "v1.1.1"
+        - date: "2025-02-22"
+          version: "v1.2.0"
+      period_days: 30
+      context:
+        metric: deployment_frequency
+
+    expected_output:
+      must_contain:
+        - "deployment"
+        - "frequency"
+        - "per day"
+        - "0.17"
+      must_not_contain:
+        - "invalid"
+      severity_classification: info
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.75
+
+    timeout_ms: 30000
+
+  - id: tc002_lead_time_for_changes
+    description: "Calculate lead time from commit to production deployment"
+    category: dora_metrics
+    priority: critical
+
+    input:
+      changes:
+        - commit_date: "2025-02-01T10:00:00Z"
+          deployed_date: "2025-02-01T14:30:00Z"
+          hours: 4.5
+        - commit_date: "2025-02-02T09:00:00Z"
+          deployed_date: "2025-02-02T16:00:00Z"
+          hours: 7
+        - commit_date: "2025-02-03T11:00:00Z"
+          deployed_date: "2025-02-04T10:00:00Z"
+          hours: 23
+      context:
+        deployment_type: continuous
+
+    expected_output:
+      must_contain:
+        - "lead time"
+        - "hours"
+        - "average"
+      must_match_regex:
+        - "\\d+\\.?\\d* hours"
+      severity_classification: info
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.75
+
+  - id: tc003_mean_time_to_recovery
+    description: "Calculate MTTR from incident detection to resolution"
+    category: dora_metrics
+    priority: critical
+
+    input:
+      incidents:
+        - detected_date: "2025-02-01T12:00:00Z"
+          resolved_date: "2025-02-01T12:45:00Z"
+          minutes: 45
+        - detected_date: "2025-02-03T09:30:00Z"
+          resolved_date: "2025-02-03T11:15:00Z"
+          minutes: 105
+        - detected_date: "2025-02-05T14:00:00Z"
+          resolved_date: "2025-02-05T14:30:00Z"
+          minutes: 30
+      context:
+        severity: all
+
+    expected_output:
+      must_contain:
+        - "MTTR"
+        - "recovery"
+        - "minutes"
+        - "60"
+      must_not_contain:
+        - "error"
+      severity_classification: info
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.75
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Quality Gates
+  # ---------------------------------------------------------------------------
+
+  - id: tc004_quality_gate_definition
+    description: "Define appropriate quality gates based on risk"
+    category: quality_gates
+    priority: critical
+
+    input:
+      criteria:
+        - name: "Test Coverage"
+          minimum: 80
+          actual: 85
+          status: passed
+        - name: "Flaky Tests"
+          maximum: 5
+          actual: 2
+          status: passed
+        - name: "Critical Issues"
+          maximum: 0
+          actual: 0
+          status: passed
+        - name: "Code Review"
+          minimum: 2
+          actual: 1
+          status: failed
+      context:
+        gate_type: pre_deployment
+
+    expected_output:
+      must_contain:
+        - "gate"
+        - "threshold"
+        - "passed"
+        - "failed"
+      must_not_contain:
+        - "invalid"
+      severity_classification: high
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+
+  - id: tc005_vanity_metrics_detection
+    description: "Identify vanity metrics vs actionable metrics"
+    category: quality_gates
+    priority: high
+
+    input:
+      metrics:
+        - name: "Test Count"
+          type: vanity
+          issue: "100 tests catching same bug is not quality"
+        - name: "Code Coverage"
+          type: vanity
+          issue: "100% coverage without assertion value is meaningless"
+        - name: "Bug Escape Rate"
+          type: actionable
+          value: 0.02
+        - name: "MTTR"
+          type: actionable
+          value: 60
+      context:
+        goal: "actionable metrics"
+
+    expected_output:
+      must_contain:
+        - "vanity"
+        - "actionable"
+        - "test"
+        - "escape"
+      must_not_contain:
+        - "no issues"
+      severity_classification: medium
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Bug Escape Rate
+  # ---------------------------------------------------------------------------
+
+  - id: tc006_bug_escape_rate_calculation
+    description: "Calculate bug escape rate from production defects"
+    category: bug_metrics
+    priority: critical
+
+    input:
+      period: "Feb 2025"
+      bugs_found_in_testing: 45
+      bugs_found_in_production: 3
+      total_bugs: 48
+      context:
+        calculation: "production_bugs / total_bugs"
+
+    expected_output:
+      must_contain:
+        - "escape rate"
+        - "6.25"
+        - "percent"
+      must_not_contain:
+        - "invalid"
+      severity_classification: high
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.75
+
+  - id: tc007_test_effectiveness_scoring
+    description: "Score test effectiveness based on bug detection"
+    category: bug_metrics
+    priority: high
+
+    input:
+      test_suite: "Unit Tests"
+      bugs_created: 100
+      bugs_caught: 88
+      effectiveness_percent: 88
+      severity_distribution:
+        critical: 98
+        high: 85
+        medium: 82
+        low: 65
+      context:
+        goal: improve_effectiveness
+
+    expected_output:
+      must_contain:
+        - "effectiveness"
+        - "88"
+        - "percent"
+      must_not_contain:
+        - "error"
+      severity_classification: info
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.75
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: KPI Selection and Tracking
+  # ---------------------------------------------------------------------------
+
+  - id: tc008_actionable_kpi_selection
+    description: "Select KPIs that drive behavior and measurable outcomes"
+    category: kpi_selection
+    priority: critical
+
+    input:
+      proposed_kpis:
+        - metric: "Deployment Frequency"
+          measurable: true
+          actionable: true
+          drives_behavior: true
+          status: recommended
+        - metric: "Lead Time for Changes"
+          measurable: true
+          actionable: true
+          drives_behavior: true
+          status: recommended
+        - metric: "Bug Escape Rate"
+          measurable: true
+          actionable: true
+          drives_behavior: true
+          status: recommended
+        - metric: "Total Test Count"
+          measurable: true
+          actionable: false
+          drives_behavior: false
+          status: not_recommended
+      context:
+        selection_method: "behavior_driven"
+
+    expected_output:
+      must_contain:
+        - "KPI"
+        - "actionable"
+        - "behavior"
+        - "deployment"
+      must_match_regex:
+        - "deployment|frequency|escape"
+      severity_classification: info
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+
+  - id: tc009_trend_analysis_over_time
+    description: "Analyze metric trends and identify patterns"
+    category: trend_analysis
+    priority: high
+
+    input:
+      metrics:
+        - week: 1
+          bug_escape_rate: 0.08
+          deployment_frequency: 0.5
+          lead_time_hours: 48
+        - week: 2
+          bug_escape_rate: 0.06
+          deployment_frequency: 1.0
+          lead_time_hours: 36
+        - week: 3
+          bug_escape_rate: 0.04
+          deployment_frequency: 2.0
+          lead_time_hours: 24
+        - week: 4
+          bug_escape_rate: 0.02
+          deployment_frequency: 3.0
+          lead_time_hours: 12
+      context:
+        direction: improving
+
+    expected_output:
+      must_contain:
+        - "trend"
+        - "improving"
+        - "direction"
+      must_not_contain:
+        - "static"
+      severity_classification: info
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.75
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Quality Dashboard Design
+  # ---------------------------------------------------------------------------
+
+  - id: tc010_quality_dashboard_structure
+    description: "Design effective quality dashboard with right metrics"
+    category: dashboards
+    priority: high
+
+    input:
+      dashboard_sections:
+        - title: "Deployment Health"
+          metrics:
+            - "Deployment Frequency"
+            - "Lead Time"
+            - "Change Failure Rate"
+        - title: "Quality Health"
+          metrics:
+            - "Bug Escape Rate"
+            - "MTTR"
+            - "Test Coverage Trend"
+        - title: "Product Health"
+          metrics:
+            - "Critical Issues"
+            - "User-Reported Bugs"
+            - "Performance Score"
+      context:
+        target_audience: "engineering_leaders"
+
+    expected_output:
+      must_contain:
+        - "dashboard"
+        - "DORA"
+        - "health"
+      must_not_contain:
+        - "invalid"
+      severity_classification: info
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.75
+
+# =============================================================================
+# SUCCESS CRITERIA
+# =============================================================================
+
+success_criteria:
+  pass_rate: 0.85
+  critical_pass_rate: 1.0
+  avg_reasoning_quality: 0.75
+  max_execution_time_ms: 300000
+  cross_model_variance: 0.15
+
+# =============================================================================
+# METADATA
+# =============================================================================
+
+metadata:
+  author: "qe-quality-analyzer"
+  created: "2026-02-02"
+  last_updated: "2026-02-02"
+  coverage_target: >
+    Quality metrics including DORA metrics (Deployment Frequency, Lead Time,
+    MTTD, MTTR, Change Failure Rate), quality gate definition, bug escape rate
+    calculation, test effectiveness scoring, and KPI selection. 10 test cases
+    covering actionable metrics vs vanity metrics with 85% pass rate.

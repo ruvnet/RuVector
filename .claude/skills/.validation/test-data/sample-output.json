@@ -1,0 +1,73 @@
+{
+  "$schema": "https://agentic-qe.dev/schemas/skill-output-template.json",
+  "skillName": "sample-skill",
+  "version": "1.0.0",
+  "timestamp": "2026-02-02T12:00:00Z",
+  "status": "success",
+  "trustTier": 2,
+  "output": {
+    "summary": "Sample skill execution completed successfully. This is a demonstration output for validator self-testing.",
+    "findings": [
+      {
+        "id": "FINDING-001",
+        "title": "Sample Finding",
+        "description": "This is a sample finding to demonstrate the output structure. In a real skill, this would contain actual analysis results.",
+        "severity": "medium",
+        "category": "demonstration",
+        "location": {
+          "file": "src/example.ts",
+          "line": 42
+        },
+        "evidence": "Example code snippet showing the issue"
+      },
+      {
+        "id": "FINDING-002",
+        "title": "Another Sample Finding",
+        "description": "A second sample finding showing multiple findings can exist.",
+        "severity": "low",
+        "category": "demonstration"
+      }
+    ],
+    "recommendations": [
+      {
+        "id": "REC-001",
+        "title": "Implement Best Practice",
+        "description": "Consider implementing this best practice to improve code quality.",
+        "priority": "medium",
+        "effort": "low",
+        "relatedFindings": ["FINDING-001"]
+      }
+    ],
+    "metrics": {
+      "totalIssues": 2,
+      "criticalCount": 0,
+      "highCount": 0,
+      "mediumCount": 1,
+      "lowCount": 1,
+      "score": 85.5,
+      "passRate": 0.95
+    },
+    "artifacts": [
+      {
+        "type": "report",
+        "path": "reports/sample-report.html",
+        "format": "html",
+        "description": "Detailed HTML report with findings"
+      }
+    ]
+  },
+  "metadata": {
+    "executionTimeMs": 1250,
+    "toolsUsed": ["eslint", "typescript", "custom-analyzer"],
+    "agentId": "qe-test-architect",
+    "modelUsed": "claude-sonnet-4",
+    "inputHash": "sha256:abc123def456",
+    "parentTaskId": "task-789"
+  },
+  "validation": {
+    "schemaValid": true,
+    "contentValid": true,
+    "confidence": 0.95,
+    "warnings": []
+  }
+}

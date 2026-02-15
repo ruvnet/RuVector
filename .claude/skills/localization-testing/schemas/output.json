@@ -1,0 +1,325 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://agentic-qe.dev/schemas/localization-testing-output.json",
+  "title": "AQE Localization Testing Skill Output Schema",
+  "description": "Schema for i18n/l10n testing output including translation coverage, locale formats, RTL validation, and Unicode support.",
+  "type": "object",
+  "required": ["skillName", "version", "timestamp", "status", "trustTier", "output"],
+  "properties": {
+    "skillName": {
+      "type": "string",
+      "const": "localization-testing",
+      "description": "Skill identifier"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+(-[a-zA-Z0-9]+)?$"
+    },
+    "timestamp": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})?$"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["success", "partial", "failed", "skipped"]
+    },
+    "trustTier": {
+      "type": "integer",
+      "const": 3
+    },
+    "output": {
+      "type": "object",
+      "required": ["summary", "localesCovered", "translationCoverage", "metrics"],
+      "properties": {
+        "summary": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 2000
+        },
+        "score": {
+          "$ref": "#/$defs/localizationScore"
+        },
+        "localesCovered": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/localeEntry"
+          },
+          "minItems": 1,
+          "description": "Locales tested"
+        },
+        "translationCoverage": {
+          "$ref": "#/$defs/translationCoverage",
+          "description": "Translation completeness metrics"
+        },
+        "formatValidation": {
+          "$ref": "#/$defs/formatValidation",
+          "description": "Date/time/currency format validation"
+        },
+        "rtlValidation": {
+          "$ref": "#/$defs/rtlValidation",
+          "description": "Right-to-left language support"
+        },
+        "unicodeSupport": {
+          "$ref": "#/$defs/unicodeSupport",
+          "description": "Unicode character handling"
+        },
+        "findings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/localizationFinding"
+          },
+          "maxItems": 500
+        },
+        "recommendations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/recommendation"
+          },
+          "maxItems": 100
+        },
+        "metrics": {
+          "$ref": "#/$defs/localizationMetrics"
+        },
+        "hardcodedStrings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/hardcodedString"
+          },
+          "description": "Detected hardcoded strings"
+        },
+        "artifacts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/artifact"
+          },
+          "maxItems": 50
+        }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "executionTimeMs": { "type": "integer", "minimum": 0 },
+        "toolsUsed": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "agentId": { "type": "string", "pattern": "^qe-[a-z][a-z0-9-]*$" },
+        "targetUrl": { "type": "string" },
+        "baseLocale": { "type": "string", "description": "Base locale (e.g., en-US)" }
+      }
+    },
+    "validation": {
+      "type": "object",
+      "properties": {
+        "schemaValid": { "type": "boolean" },
+        "contentValid": { "type": "boolean" },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "learning": {
+      "type": "object",
+      "properties": {
+        "patternsDetected": { "type": "array", "items": { "type": "string" } },
+        "reward": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    }
+  },
+  "$defs": {
+    "localizationScore": {
+      "type": "object",
+      "required": ["value", "max"],
+      "properties": {
+        "value": { "type": "number", "minimum": 0, "maximum": 100 },
+        "max": { "type": "number", "const": 100 },
+        "grade": { "type": "string", "pattern": "^[A-F][+-]?$" },
+        "i18nReadiness": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Internationalization readiness percentage"
+        }
+      }
+    },
+    "localeEntry": {
+      "type": "object",
+      "required": ["locale", "status"],
+      "properties": {
+        "locale": {
+          "type": "string",
+          "pattern": "^[a-z]{2}(-[A-Z]{2})?$",
+          "description": "Locale code (e.g., en-US, fr-FR)"
+        },
+        "language": { "type": "string", "description": "Language name" },
+        "status": { "type": "string", "enum": ["passed", "failed", "partial", "skipped"] },
+        "translationPercent": { "type": "number", "minimum": 0, "maximum": 100 },
+        "issueCount": { "type": "integer", "minimum": 0 },
+        "isRtl": { "type": "boolean", "description": "Is right-to-left language" }
+      }
+    },
+    "translationCoverage": {
+      "type": "object",
+      "properties": {
+        "totalStrings": { "type": "integer", "minimum": 0 },
+        "translatedStrings": { "type": "integer", "minimum": 0 },
+        "missingStrings": { "type": "integer", "minimum": 0 },
+        "coveragePercent": { "type": "number", "minimum": 0, "maximum": 100 },
+        "missingKeys": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Translation keys with missing values"
+        },
+        "placeholderIssues": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Issues with translation placeholders"
+        }
+      }
+    },
+    "formatValidation": {
+      "type": "object",
+      "properties": {
+        "dateFormat": {
+          "$ref": "#/$defs/formatCheck",
+          "description": "Date format validation"
+        },
+        "timeFormat": {
+          "$ref": "#/$defs/formatCheck",
+          "description": "Time format validation"
+        },
+        "currencyFormat": {
+          "$ref": "#/$defs/formatCheck",
+          "description": "Currency format validation"
+        },
+        "numberFormat": {
+          "$ref": "#/$defs/formatCheck",
+          "description": "Number format validation"
+        }
+      }
+    },
+    "formatCheck": {
+      "type": "object",
+      "properties": {
+        "status": { "type": "string", "enum": ["passed", "failed", "partial"] },
+        "localesChecked": { "type": "integer", "minimum": 0 },
+        "issueCount": { "type": "integer", "minimum": 0 },
+        "examples": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "locale": { "type": "string" },
+              "expected": { "type": "string" },
+              "actual": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "rtlValidation": {
+      "type": "object",
+      "properties": {
+        "supported": { "type": "boolean" },
+        "rtlLocales": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "RTL locales tested (ar, he, fa, etc.)"
+        },
+        "layoutMirrored": { "type": "boolean" },
+        "textAlignmentCorrect": { "type": "boolean" },
+        "iconsMirrored": { "type": "boolean" },
+        "issues": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "unicodeSupport": {
+      "type": "object",
+      "properties": {
+        "status": { "type": "string", "enum": ["passed", "failed", "partial"] },
+        "encodingCorrect": { "type": "boolean" },
+        "scriptsSupported": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Unicode scripts supported (Latin, CJK, Arabic, etc.)"
+        },
+        "emojiSupport": { "type": "boolean" },
+        "issues": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "localizationFinding": {
+      "type": "object",
+      "required": ["id", "title", "severity", "category"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^L10N-\\d{3,6}$" },
+        "title": { "type": "string", "minLength": 5, "maxLength": 200 },
+        "description": { "type": "string", "maxLength": 2000 },
+        "severity": { "type": "string", "enum": ["critical", "high", "medium", "low", "info"] },
+        "category": {
+          "type": "string",
+          "enum": ["translation", "format", "rtl", "unicode", "hardcoded", "cultural", "layout"]
+        },
+        "affectedLocales": { "type": "array", "items": { "type": "string" } },
+        "location": {
+          "type": "object",
+          "properties": {
+            "file": { "type": "string" },
+            "key": { "type": "string" },
+            "line": { "type": "integer" }
+          }
+        },
+        "remediation": { "type": "string" }
+      }
+    },
+    "hardcodedString": {
+      "type": "object",
+      "required": ["value", "location"],
+      "properties": {
+        "value": { "type": "string" },
+        "location": {
+          "type": "object",
+          "properties": {
+            "file": { "type": "string" },
+            "line": { "type": "integer" },
+            "column": { "type": "integer" }
+          }
+        },
+        "suggestion": { "type": "string", "description": "Suggested translation key" }
+      }
+    },
+    "localizationMetrics": {
+      "type": "object",
+      "properties": {
+        "localesTested": { "type": "integer", "minimum": 0 },
+        "localesPassed": { "type": "integer", "minimum": 0 },
+        "localesFailed": { "type": "integer", "minimum": 0 },
+        "overallCoverage": { "type": "number", "minimum": 0, "maximum": 100 },
+        "hardcodedStringsFound": { "type": "integer", "minimum": 0 },
+        "rtlIssues": { "type": "integer", "minimum": 0 },
+        "formatIssues": { "type": "integer", "minimum": 0 },
+        "duration": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "recommendation": {
+      "type": "object",
+      "required": ["id", "title", "priority"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^REC-\\d{3,6}$" },
+        "title": { "type": "string", "minLength": 5, "maxLength": 200 },
+        "description": { "type": "string", "maxLength": 2000 },
+        "priority": { "type": "string", "enum": ["critical", "high", "medium", "low"] },
+        "effort": { "type": "string", "enum": ["trivial", "low", "medium", "high", "major"] }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "required": ["type", "path"],
+      "properties": {
+        "type": { "type": "string", "enum": ["report", "data", "screenshot", "log"] },
+        "path": { "type": "string", "maxLength": 500 },
+        "format": { "type": "string", "enum": ["json", "html", "md", "csv", "png"] }
+      }
+    }
+  }
+}

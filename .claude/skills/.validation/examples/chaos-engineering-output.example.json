@@ -1,0 +1,530 @@
+{
+  "skillName": "chaos-engineering-resilience",
+  "version": "1.0.0",
+  "timestamp": "2026-02-02T15:30:00Z",
+  "status": "success",
+  "trustTier": 3,
+  "output": {
+    "summary": "Chaos engineering resilience assessment completed successfully. Executed 5 chaos experiments targeting user-service and payment-service. System demonstrated strong resilience to network latency and pod termination. Found 2 weaknesses: missing circuit breaker on user-service and insufficient memory limits on data-processor. Overall resilience score: 82/100 (Grade B).",
+    "resilienceScore": {
+      "value": 82,
+      "max": 100,
+      "grade": "B",
+      "trend": "improving",
+      "riskLevel": "medium"
+    },
+    "experiments": [
+      {
+        "id": "CHAOS-001",
+        "name": "Network latency injection on user-service",
+        "description": "Inject 500ms latency with 100ms jitter to test timeout handling and circuit breaker behavior",
+        "type": "network",
+        "subType": "latency",
+        "target": {
+          "type": "service",
+          "name": "user-service",
+          "namespace": "production",
+          "percentage": 50
+        },
+        "faultInjection": {
+          "latency": {
+            "delay": "500ms",
+            "jitter": "100ms",
+            "correlation": 25
+          }
+        },
+        "steadyStateHypothesis": {
+          "description": "System maintains acceptable error rate and latency during fault injection",
+          "metrics": [
+            {
+              "name": "error-rate",
+              "operator": "<",
+              "threshold": 1,
+              "unit": "percent",
+              "actual": 0.3,
+              "passed": true
+            },
+            {
+              "name": "latency-p99",
+              "operator": "<",
+              "threshold": 800,
+              "unit": "ms",
+              "actual": 650,
+              "passed": true
+            }
+          ],
+          "before": {
+            "validated": true,
+            "timestamp": "2026-02-02T15:00:00Z"
+          },
+          "after": {
+            "validated": true,
+            "timestamp": "2026-02-02T15:12:00Z",
+            "recoveryDuration": 15000
+          }
+        },
+        "blastRadius": {
+          "scope": "single-service",
+          "maxImpact": {
+            "pods": 3,
+            "services": 1,
+            "percentage": 50
+          },
+          "safeguards": ["Automatic rollback on error_rate > 5%", "Manual kill switch available"],
+          "emergencyStop": true
+        },
+        "rollback": {
+          "automatic": true,
+          "trigger": "error_rate > 5%",
+          "executed": false
+        },
+        "result": "passed",
+        "observations": [
+          "Load balancer redirected traffic within 2.3 seconds",
+          "Circuit breaker triggered at 3% error rate",
+          "Auto-recovery completed in 15 seconds"
+        ],
+        "recoveryTime": {
+          "actual": 15000,
+          "sla": 30000,
+          "withinSla": true
+        },
+        "duration": 600000,
+        "tool": "toxiproxy",
+        "confidence": 0.92
+      },
+      {
+        "id": "CHAOS-002",
+        "name": "Pod termination test on payment-service",
+        "description": "Randomly terminate 2 of 6 pods to validate Kubernetes auto-restart and load balancing",
+        "type": "infrastructure",
+        "subType": "pod-terminate",
+        "target": {
+          "type": "pod",
+          "name": "payment-service",
+          "namespace": "production",
+          "count": 2
+        },
+        "faultInjection": {
+          "process": {
+            "action": "kill",
+            "signal": "SIGKILL"
+          }
+        },
+        "steadyStateHypothesis": {
+          "description": "Service availability remains above 99% during pod termination",
+          "metrics": [
+            {
+              "name": "availability",
+              "operator": ">=",
+              "threshold": 99,
+              "unit": "percent",
+              "actual": 99.7,
+              "passed": true
+            }
+          ],
+          "before": {
+            "validated": true,
+            "timestamp": "2026-02-02T15:15:00Z"
+          },
+          "after": {
+            "validated": true,
+            "timestamp": "2026-02-02T15:18:00Z",
+            "recoveryDuration": 8000
+          }
+        },
+        "blastRadius": {
+          "scope": "single-service",
+          "maxImpact": {
+            "pods": 2,
+            "percentage": 33
+          },
+          "emergencyStop": true
+        },
+        "rollback": {
+          "automatic": true,
+          "trigger": "availability < 95%",
+          "executed": false
+        },
+        "result": "passed",
+        "observations": [
+          "Kubernetes restarted pods within 8 seconds",
+          "No requests dropped during transition",
+          "Health checks correctly detected pod state"
+        ],
+        "recoveryTime": {
+          "actual": 8000,
+          "sla": 15000,
+          "withinSla": true
+        },
+        "duration": 180000,
+        "tool": "kubectl",
+        "confidence": 0.95
+      },
+      {
+        "id": "CHAOS-003",
+        "name": "CPU stress test on compute-service",
+        "description": "Apply 90% CPU load to test auto-scaling trigger and performance degradation",
+        "type": "resource",
+        "subType": "cpu-stress",
+        "target": {
+          "type": "pod",
+          "name": "compute-service",
+          "namespace": "production",
+          "count": 2
+        },
+        "faultInjection": {
+          "resource": {
+            "cpu": {
+              "load": 90,
+              "workers": 4
+            }
+          }
+        },
+        "steadyStateHypothesis": {
+          "description": "Response time remains acceptable and auto-scaling triggers",
+          "metrics": [
+            {
+              "name": "latency-p99",
+              "operator": "<",
+              "threshold": 500,
+              "unit": "ms",
+              "actual": 380,
+              "passed": true
+            },
+            {
+              "name": "throughput",
+              "operator": ">=",
+              "threshold": 800,
+              "unit": "rps",
+              "actual": 850,
+              "passed": true
+            }
+          ]
+        },
+        "blastRadius": {
+          "scope": "single-service",
+          "maxImpact": {
+            "pods": 2,
+            "percentage": 33
+          },
+          "emergencyStop": true
+        },
+        "result": "passed",
+        "observations": [
+          "Auto-scaling triggered at 80% CPU",
+          "New pods ready within 45 seconds",
+          "No degradation in user experience"
+        ],
+        "recoveryTime": {
+          "actual": 45000,
+          "sla": 60000,
+          "withinSla": true
+        },
+        "duration": 600000,
+        "tool": "stress-ng",
+        "confidence": 0.88
+      },
+      {
+        "id": "CHAOS-004",
+        "name": "Memory exhaustion test on data-processor",
+        "description": "Fill 90% of container memory to validate OOM behavior and graceful degradation",
+        "type": "resource",
+        "subType": "memory-exhaust",
+        "target": {
+          "type": "pod",
+          "name": "data-processor",
+          "namespace": "production",
+          "count": 1
+        },
+        "faultInjection": {
+          "resource": {
+            "memory": {
+              "percentage": 90
+            }
+          }
+        },
+        "steadyStateHypothesis": {
+          "description": "Service gracefully degrades without OOM kill",
+          "metrics": [
+            {
+              "name": "error-rate",
+              "operator": "<",
+              "threshold": 5,
+              "unit": "percent",
+              "actual": 8.5,
+              "passed": false
+            }
+          ]
+        },
+        "blastRadius": {
+          "scope": "single-instance",
+          "emergencyStop": true
+        },
+        "rollback": {
+          "automatic": true,
+          "trigger": "error_rate > 10%",
+          "executed": false
+        },
+        "result": "failed",
+        "observations": [
+          "OOM killer triggered after 8 minutes",
+          "No memory limits configured",
+          "Service crashed without graceful degradation"
+        ],
+        "duration": 480000,
+        "tool": "stress-ng",
+        "confidence": 0.90
+      },
+      {
+        "id": "CHAOS-005",
+        "name": "Circuit breaker missing on user-service",
+        "description": "Test cascade failure protection when downstream service times out",
+        "type": "application",
+        "subType": "exception-inject",
+        "target": {
+          "type": "service",
+          "name": "user-service",
+          "namespace": "production"
+        },
+        "faultInjection": {
+          "exception": {
+            "type": "TimeoutException",
+            "probability": 0.3
+          }
+        },
+        "steadyStateHypothesis": {
+          "description": "Circuit breaker protects against cascade failures",
+          "metrics": [
+            {
+              "name": "error-rate",
+              "operator": "<",
+              "threshold": 5,
+              "unit": "percent",
+              "actual": 12,
+              "passed": false
+            }
+          ]
+        },
+        "blastRadius": {
+          "scope": "single-service",
+          "emergencyStop": true
+        },
+        "rollback": {
+          "automatic": true,
+          "trigger": "error_rate > 15%",
+          "executed": false
+        },
+        "result": "failed",
+        "observations": [
+          "No circuit breaker configured",
+          "Cascade failures propagated to auth-service",
+          "Recovery required manual intervention"
+        ],
+        "duration": 300000,
+        "tool": "custom",
+        "confidence": 0.85
+      }
+    ],
+    "weaknesses": [
+      {
+        "id": "WEAK-001",
+        "title": "Missing circuit breaker on user-service calls",
+        "description": "user-service does not implement circuit breaker pattern for downstream calls, causing cascade failures when dependencies timeout",
+        "severity": "high",
+        "category": "availability",
+        "discoveredBy": ["CHAOS-005"],
+        "impact": "Cascade failures can propagate to all dependent services, causing system-wide outage",
+        "remediation": "Implement circuit breaker using resilience4j or Hystrix. Configure with 50% failure threshold, 10s timeout, 5s half-open state.",
+        "runbook": "## Circuit Breaker Incident Runbook\n\n1. Identify failing downstream service\n2. Enable circuit breaker bypass for critical requests\n3. Monitor error rates for recovery\n4. Gradually re-enable circuit\n5. Post-incident: review threshold configuration"
+      },
+      {
+        "id": "WEAK-002",
+        "title": "No memory limits configured on data-processor",
+        "description": "data-processor containers have no memory limits, allowing unbounded memory growth and OOM kills",
+        "severity": "medium",
+        "category": "recovery",
+        "discoveredBy": ["CHAOS-004"],
+        "impact": "Container can consume all node memory, affecting co-located workloads",
+        "remediation": "Configure memory limits in Kubernetes deployment: limits.memory: 512Mi, requests.memory: 256Mi"
+      }
+    ],
+    "recommendations": [
+      {
+        "id": "REC-001",
+        "title": "Implement circuit breaker for user-service",
+        "description": "Add circuit breaker pattern to protect against cascade failures from downstream timeouts",
+        "priority": "critical",
+        "effort": "medium",
+        "impact": 9,
+        "category": "circuit-breaker",
+        "relatedWeaknesses": ["WEAK-001"],
+        "codeExample": "// resilience4j circuit breaker configuration\nCircuitBreakerConfig config = CircuitBreakerConfig.custom()\n  .failureRateThreshold(50)\n  .waitDurationInOpenState(Duration.ofSeconds(10))\n  .slidingWindowSize(10)\n  .build();",
+        "resources": [
+          {
+            "title": "Resilience4j Circuit Breaker",
+            "url": "https://resilience4j.readme.io/docs/circuitbreaker"
+          }
+        ]
+      },
+      {
+        "id": "REC-002",
+        "title": "Configure memory limits for data-processor",
+        "description": "Add Kubernetes resource limits to prevent unbounded memory growth",
+        "priority": "high",
+        "effort": "low",
+        "impact": 7,
+        "category": "resource-limit",
+        "relatedWeaknesses": ["WEAK-002"]
+      }
+    ],
+    "metrics": {
+      "totalExperiments": 5,
+      "passedExperiments": 3,
+      "failedExperiments": 2,
+      "skippedExperiments": 0,
+      "weaknessesFound": 2,
+      "criticalWeaknesses": 0,
+      "servicesAffected": 4,
+      "averageRecoveryTime": 19250,
+      "maxRecoveryTime": 45000,
+      "rollbacksTriggered": 0,
+      "safetyViolations": 0,
+      "totalDurationMs": 2160000,
+      "coverage": {
+        "network": true,
+        "resource": true,
+        "state": false,
+        "application": true,
+        "infrastructure": true,
+        "byzantine": false
+      }
+    },
+    "categories": {
+      "network": {
+        "tested": true,
+        "score": 95,
+        "grade": "A",
+        "experimentCount": 1,
+        "passedCount": 1,
+        "failedCount": 0,
+        "weaknessCount": 0,
+        "status": "pass"
+      },
+      "resource": {
+        "tested": true,
+        "score": 70,
+        "grade": "C",
+        "experimentCount": 2,
+        "passedCount": 1,
+        "failedCount": 1,
+        "weaknessCount": 1,
+        "status": "warn"
+      },
+      "infrastructure": {
+        "tested": true,
+        "score": 95,
+        "grade": "A",
+        "experimentCount": 1,
+        "passedCount": 1,
+        "failedCount": 0,
+        "weaknessCount": 0,
+        "status": "pass"
+      },
+      "application": {
+        "tested": true,
+        "score": 60,
+        "grade": "D",
+        "experimentCount": 1,
+        "passedCount": 0,
+        "failedCount": 1,
+        "weaknessCount": 1,
+        "status": "fail"
+      }
+    },
+    "artifacts": [
+      {
+        "type": "report",
+        "path": "docs/chaos/resilience-report-2026-02-02.html",
+        "format": "html",
+        "description": "Full chaos experiment report with visualizations"
+      },
+      {
+        "type": "runbook",
+        "path": "docs/runbooks/circuit-breaker-failure.md",
+        "format": "md",
+        "description": "Generated runbook for circuit breaker incidents"
+      }
+    ],
+    "timeline": [
+      {
+        "timestamp": "2026-02-02T15:00:00Z",
+        "event": "Chaos experiment suite started",
+        "type": "start"
+      },
+      {
+        "timestamp": "2026-02-02T15:00:05Z",
+        "event": "Steady-state validated for user-service",
+        "type": "checkpoint",
+        "experimentId": "CHAOS-001"
+      },
+      {
+        "timestamp": "2026-02-02T15:00:10Z",
+        "event": "Latency injection started on user-service",
+        "type": "inject",
+        "experimentId": "CHAOS-001"
+      },
+      {
+        "timestamp": "2026-02-02T15:10:00Z",
+        "event": "CHAOS-001 completed - PASSED",
+        "type": "complete",
+        "experimentId": "CHAOS-001"
+      },
+      {
+        "timestamp": "2026-02-02T15:36:00Z",
+        "event": "All experiments completed",
+        "type": "complete"
+      }
+    ],
+    "experimentConfiguration": {
+      "target": "microservices-cluster",
+      "environment": "staging",
+      "chaosTypes": ["network", "resource", "application", "infrastructure"],
+      "tools": ["toxiproxy", "kubectl", "stress-ng", "custom"],
+      "blastRadiusLimit": "single-service",
+      "duration": 60,
+      "progressionStrategy": "gradual"
+    }
+  },
+  "metadata": {
+    "executionTimeMs": 2160000,
+    "toolsUsed": ["toxiproxy", "kubectl", "stress-ng", "custom"],
+    "agentId": "qe-chaos-engineer",
+    "modelUsed": "claude-3.5-sonnet",
+    "environment": "staging"
+  },
+  "validation": {
+    "schemaValid": true,
+    "contentValid": true,
+    "confidence": 0.92,
+    "warnings": [],
+    "errors": [],
+    "validatorVersion": "1.0.0"
+  },
+  "learning": {
+    "patternsDetected": [
+      "missing-circuit-breaker",
+      "unbounded-memory-growth",
+      "successful-pod-recovery",
+      "auto-scaling-effective"
+    ],
+    "reward": 0.85,
+    "newResiliencePatterns": [
+      {
+        "pattern": "latency-tolerance-with-circuit-breaker",
+        "category": "network",
+        "confidence": 0.9
+      }
+    ]
+  }
+}

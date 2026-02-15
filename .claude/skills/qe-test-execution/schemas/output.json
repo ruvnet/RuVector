@@ -1,0 +1,529 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentic-qe.dev/schemas/qe-test-execution-output.json",
+  "title": "AQE Test Execution Skill Output Schema",
+  "description": "Schema for test execution skill output. Includes parallel execution results, retries, and execution metrics.",
+  "type": "object",
+  "required": ["skillName", "version", "timestamp", "status", "trustTier", "output"],
+  "properties": {
+    "skillName": {
+      "type": "string",
+      "const": "qe-test-execution",
+      "description": "Must be 'qe-test-execution'"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+(-[a-zA-Z0-9]+)?$"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["success", "partial", "failed", "skipped"]
+    },
+    "trustTier": {
+      "type": "integer",
+      "const": 3
+    },
+    "output": {
+      "type": "object",
+      "required": ["summary", "results", "metrics"],
+      "properties": {
+        "summary": {
+          "type": "string",
+          "minLength": 50,
+          "maxLength": 2000
+        },
+        "results": {
+          "$ref": "#/$defs/executionResults"
+        },
+        "parallelization": {
+          "$ref": "#/$defs/parallelizationConfig"
+        },
+        "retries": {
+          "$ref": "#/$defs/retryReport"
+        },
+        "metrics": {
+          "$ref": "#/$defs/executionMetrics"
+        },
+        "failures": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/testFailure"
+          },
+          "maxItems": 500
+        },
+        "flakyTests": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/flakyTest"
+          },
+          "maxItems": 100
+        },
+        "shards": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/shardResult"
+          },
+          "maxItems": 50
+        },
+        "coverage": {
+          "$ref": "#/$defs/coverageReport"
+        },
+        "timing": {
+          "$ref": "#/$defs/timingAnalysis"
+        },
+        "artifacts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/artifact"
+          },
+          "maxItems": 30
+        }
+      }
+    },
+    "metadata": {
+      "$ref": "#/$defs/metadata"
+    },
+    "validation": {
+      "$ref": "#/$defs/validationResult"
+    },
+    "learning": {
+      "$ref": "#/$defs/learningData"
+    }
+  },
+  "$defs": {
+    "executionResults": {
+      "type": "object",
+      "required": ["total", "passed", "failed"],
+      "properties": {
+        "total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "passed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "failed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "skipped": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "pending": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "flaky": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "passRate": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "status": {
+          "type": "string",
+          "enum": ["pass", "fail", "partial"]
+        },
+        "testsByType": {
+          "type": "object",
+          "properties": {
+            "unit": { "$ref": "#/$defs/typeSummary" },
+            "integration": { "$ref": "#/$defs/typeSummary" },
+            "e2e": { "$ref": "#/$defs/typeSummary" },
+            "performance": { "$ref": "#/$defs/typeSummary" }
+          }
+        }
+      }
+    },
+    "typeSummary": {
+      "type": "object",
+      "properties": {
+        "total": { "type": "integer", "minimum": 0 },
+        "passed": { "type": "integer", "minimum": 0 },
+        "failed": { "type": "integer", "minimum": 0 },
+        "duration": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "parallelizationConfig": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "workers": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 64
+        },
+        "strategy": {
+          "type": "string",
+          "enum": ["by-file", "by-test", "by-duration", "by-shard"]
+        },
+        "sharding": {
+          "type": "object",
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "totalShards": { "type": "integer", "minimum": 1 },
+            "shardIndex": { "type": "integer", "minimum": 0 }
+          }
+        },
+        "isolation": {
+          "type": "string",
+          "enum": ["process", "thread", "worker", "container"]
+        }
+      }
+    },
+    "retryReport": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "maxRetries": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10
+        },
+        "retryDelay": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Delay in milliseconds"
+        },
+        "testsRetried": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "successAfterRetry": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "failedAfterAllRetries": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "retriedTests": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "testId": { "type": "string" },
+              "attempts": { "type": "integer" },
+              "finalStatus": { "type": "string", "enum": ["pass", "fail"] }
+            }
+          }
+        }
+      }
+    },
+    "executionMetrics": {
+      "type": "object",
+      "required": ["totalDuration"],
+      "properties": {
+        "totalDuration": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total execution time in milliseconds"
+        },
+        "setupDuration": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "testDuration": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "teardownDuration": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "parallelEfficiency": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Parallel efficiency percentage"
+        },
+        "testsPerSecond": {
+          "type": "number",
+          "minimum": 0
+        },
+        "avgTestDuration": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "maxTestDuration": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "slowestTests": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "duration": { "type": "integer" }
+            }
+          },
+          "maxItems": 10
+        },
+        "memoryUsage": {
+          "type": "object",
+          "properties": {
+            "peak": { "type": "integer" },
+            "average": { "type": "integer" }
+          }
+        }
+      }
+    },
+    "testFailure": {
+      "type": "object",
+      "required": ["testId", "name", "error"],
+      "properties": {
+        "testId": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "file": {
+          "type": "string"
+        },
+        "suite": {
+          "type": "string"
+        },
+        "error": {
+          "type": "string",
+          "maxLength": 5000
+        },
+        "stackTrace": {
+          "type": "string",
+          "maxLength": 10000
+        },
+        "type": {
+          "type": "string",
+          "enum": ["assertion", "timeout", "error", "setup", "teardown"]
+        },
+        "duration": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "retryCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "screenshot": {
+          "type": "string",
+          "description": "Path to failure screenshot"
+        },
+        "diff": {
+          "type": "object",
+          "properties": {
+            "expected": { "type": "string" },
+            "actual": { "type": "string" }
+          }
+        }
+      }
+    },
+    "flakyTest": {
+      "type": "object",
+      "required": ["testId", "name", "flakinessRate"],
+      "properties": {
+        "testId": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "file": {
+          "type": "string"
+        },
+        "flakinessRate": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Rate of flaky behavior (0-1)"
+        },
+        "recentRuns": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "failures": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "quarantined": {
+          "type": "boolean"
+        },
+        "lastFailure": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "failureReasons": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "shardResult": {
+      "type": "object",
+      "required": ["shardIndex", "status"],
+      "properties": {
+        "shardIndex": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "status": {
+          "type": "string",
+          "enum": ["pass", "fail", "running", "pending"]
+        },
+        "tests": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "passed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "failed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "duration": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "worker": {
+          "type": "string"
+        }
+      }
+    },
+    "coverageReport": {
+      "type": "object",
+      "properties": {
+        "statement": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "branch": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "function": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "line": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "delta": {
+          "type": "object",
+          "properties": {
+            "statement": { "type": "number" },
+            "branch": { "type": "number" },
+            "function": { "type": "number" },
+            "line": { "type": "number" }
+          },
+          "description": "Coverage change from previous run"
+        }
+      }
+    },
+    "timingAnalysis": {
+      "type": "object",
+      "properties": {
+        "percentiles": {
+          "type": "object",
+          "properties": {
+            "p50": { "type": "integer" },
+            "p75": { "type": "integer" },
+            "p90": { "type": "integer" },
+            "p95": { "type": "integer" },
+            "p99": { "type": "integer" }
+          }
+        },
+        "distribution": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "range": { "type": "string" },
+              "count": { "type": "integer" }
+            }
+          }
+        },
+        "criticalPath": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Tests on the critical path"
+        }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "required": ["type", "path"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["report", "junit", "coverage", "screenshot", "video", "log"]
+        },
+        "path": { "type": "string", "maxLength": 500 },
+        "format": {
+          "type": "string",
+          "enum": ["json", "xml", "html", "md", "lcov", "png", "mp4"]
+        },
+        "description": { "type": "string" }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "executionTimeMs": { "type": "integer", "minimum": 0 },
+        "framework": {
+          "type": "string",
+          "enum": ["jest", "vitest", "mocha", "pytest", "junit", "playwright", "cypress"]
+        },
+        "agentId": { "type": "string", "pattern": "^qe-[a-z][a-z0-9-]*$" },
+        "environment": {
+          "type": "string",
+          "enum": ["development", "staging", "production", "ci"]
+        },
+        "nodeVersion": { "type": "string" },
+        "platform": { "type": "string" }
+      }
+    },
+    "validationResult": {
+      "type": "object",
+      "properties": {
+        "schemaValid": { "type": "boolean" },
+        "contentValid": { "type": "boolean" },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "warnings": { "type": "array", "items": { "type": "string" } },
+        "errors": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "learningData": {
+      "type": "object",
+      "properties": {
+        "patternsDetected": { "type": "array", "items": { "type": "string" } },
+        "reward": { "type": "number", "minimum": 0, "maximum": 1 },
+        "optimizationSuggestions": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    }
+  }
+}

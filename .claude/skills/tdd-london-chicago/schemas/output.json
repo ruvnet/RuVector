@@ -1,0 +1,444 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentic-qe.dev/schemas/tdd-london-chicago-output.json",
+  "title": "TDD London & Chicago Schools Skill Output Schema",
+  "description": "Schema for TDD skill output with red-green-refactor cycles, test-first metrics, and approach comparison.",
+  "type": "object",
+  "required": ["skillName", "version", "timestamp", "status", "trustTier", "output"],
+  "properties": {
+    "skillName": {
+      "type": "string",
+      "const": "tdd-london-chicago",
+      "description": "Must be 'tdd-london-chicago'"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+(-[a-zA-Z0-9]+)?$"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["success", "partial", "failed", "skipped"]
+    },
+    "trustTier": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 3
+    },
+    "output": {
+      "type": "object",
+      "required": ["summary", "tddCycles", "approach"],
+      "properties": {
+        "summary": {
+          "type": "string",
+          "minLength": 50,
+          "maxLength": 2000
+        },
+        "tddCycles": {
+          "$ref": "#/$defs/tddCycles"
+        },
+        "approach": {
+          "$ref": "#/$defs/tddApproach"
+        },
+        "testMetrics": {
+          "$ref": "#/$defs/testMetrics"
+        },
+        "codeQuality": {
+          "$ref": "#/$defs/codeQuality"
+        },
+        "findings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/finding"
+          },
+          "maxItems": 100
+        },
+        "recommendations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/recommendation"
+          },
+          "maxItems": 50
+        },
+        "artifacts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/artifact"
+          }
+        }
+      }
+    },
+    "metadata": {
+      "$ref": "#/$defs/metadata"
+    },
+    "validation": {
+      "$ref": "#/$defs/validationResult"
+    },
+    "learning": {
+      "$ref": "#/$defs/learningData"
+    }
+  },
+  "$defs": {
+    "tddCycles": {
+      "type": "object",
+      "required": ["totalCycles", "completedCycles"],
+      "properties": {
+        "totalCycles": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total red-green-refactor cycles"
+        },
+        "completedCycles": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Successfully completed cycles"
+        },
+        "redPhases": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of red phases (failing tests)"
+        },
+        "greenPhases": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of green phases (passing tests)"
+        },
+        "refactorPhases": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of refactor phases"
+        },
+        "averageCycleDuration": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Average cycle duration in milliseconds"
+        },
+        "cycleDetails": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "cycleNumber": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "phase": {
+                "type": "string",
+                "enum": ["red", "green", "refactor"]
+              },
+              "duration": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "testsWritten": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "codeChanges": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "status": {
+                "type": "string",
+                "enum": ["completed", "in-progress", "failed", "skipped"]
+              }
+            }
+          }
+        },
+        "testFirstRatio": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Percentage of tests written before implementation"
+        }
+      }
+    },
+    "tddApproach": {
+      "type": "object",
+      "required": ["school", "justification"],
+      "properties": {
+        "school": {
+          "type": "string",
+          "enum": ["london", "chicago", "hybrid"],
+          "description": "TDD school used"
+        },
+        "justification": {
+          "type": "string",
+          "maxLength": 1000,
+          "description": "Why this approach was chosen"
+        },
+        "londonMetrics": {
+          "type": "object",
+          "properties": {
+            "mockCount": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "stubCount": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "isolationLevel": {
+              "type": "string",
+              "enum": ["full", "partial", "minimal"]
+            },
+            "outsideInScore": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 100
+            }
+          }
+        },
+        "chicagoMetrics": {
+          "type": "object",
+          "properties": {
+            "integrationTests": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "realCollaborators": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "triangulation": {
+              "type": "boolean"
+            },
+            "insideOutScore": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 100
+            }
+          }
+        },
+        "comparison": {
+          "type": "object",
+          "properties": {
+            "testMaintainability": {
+              "type": "string",
+              "enum": ["london-better", "chicago-better", "equal"]
+            },
+            "designFeedback": {
+              "type": "string",
+              "enum": ["london-better", "chicago-better", "equal"]
+            },
+            "refactoringEase": {
+              "type": "string",
+              "enum": ["london-better", "chicago-better", "equal"]
+            }
+          }
+        }
+      }
+    },
+    "testMetrics": {
+      "type": "object",
+      "properties": {
+        "totalTests": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unitTests": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "integrationTests": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "passing": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "failing": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "coverage": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "branchCoverage": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "mutationScore": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "testExecutionTime": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "codeQuality": {
+      "type": "object",
+      "properties": {
+        "qualityScore": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "cyclomaticComplexity": {
+          "type": "number",
+          "minimum": 0
+        },
+        "linesOfCode": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "testToCodeRatio": {
+          "type": "number",
+          "minimum": 0
+        },
+        "duplications": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "designPatterns": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "finding": {
+      "type": "object",
+      "required": ["id", "title", "severity", "category"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^TDD-\\d{3,6}$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 200
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 2000
+        },
+        "severity": {
+          "type": "string",
+          "enum": ["critical", "high", "medium", "low", "info"]
+        },
+        "category": {
+          "type": "string",
+          "enum": ["cycle", "coverage", "design", "mocking", "isolation", "refactoring"]
+        },
+        "phase": {
+          "type": "string",
+          "enum": ["red", "green", "refactor"]
+        },
+        "remediation": {
+          "type": "string"
+        }
+      }
+    },
+    "recommendation": {
+      "type": "object",
+      "required": ["id", "title", "priority"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^REC-\\d{3,6}$"
+        },
+        "title": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "priority": {
+          "type": "string",
+          "enum": ["critical", "high", "medium", "low"]
+        },
+        "effort": {
+          "type": "string",
+          "enum": ["trivial", "low", "medium", "high", "major"]
+        },
+        "school": {
+          "type": "string",
+          "enum": ["london", "chicago", "both"]
+        }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "required": ["type", "path"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["test", "report", "coverage", "code"]
+        },
+        "path": {
+          "type": "string"
+        },
+        "format": {
+          "type": "string"
+        }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "executionTimeMs": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "toolsUsed": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "agentId": {
+          "type": "string"
+        },
+        "testFramework": {
+          "type": "string"
+        }
+      }
+    },
+    "validationResult": {
+      "type": "object",
+      "properties": {
+        "schemaValid": {
+          "type": "boolean"
+        },
+        "contentValid": {
+          "type": "boolean"
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    },
+    "learningData": {
+      "type": "object",
+      "properties": {
+        "patternsDetected": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "reward": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,295 @@
+{
+  "skillName": "mutation-testing",
+  "version": "1.0.0",
+  "timestamp": "2026-02-02T12:00:00Z",
+  "status": "success",
+  "trustTier": 3,
+  "output": {
+    "summary": "Mutation testing completed for src/auth module. Generated 150 mutants across 8 files. Test suite killed 127 mutants (84.7% mutation score). Identified 5 weak tests requiring boundary value improvements.",
+    "mutationScore": {
+      "score": 84.67,
+      "killed": 127,
+      "survived": 18,
+      "timeout": 3,
+      "noCoverage": 1,
+      "equivalent": 1,
+      "total": 150,
+      "grade": "B",
+      "threshold": {
+        "target": 80,
+        "met": true
+      },
+      "trend": "improving"
+    },
+    "mutants": {
+      "total": 150,
+      "byStatus": {
+        "killed": 127,
+        "survived": 18,
+        "timeout": 3,
+        "noCoverage": 1,
+        "equivalent": 1,
+        "runtimeError": 0,
+        "compileError": 0
+      },
+      "byOperator": {
+        "AOR": 25,
+        "ROR": 45,
+        "LCR": 30,
+        "COR": 28,
+        "RVR": 22
+      }
+    },
+    "survivors": [
+      {
+        "id": "MUT-001",
+        "operator": "ROR",
+        "operatorDescription": "Relational Operator Replacement (>= to >)",
+        "location": {
+          "file": "src/auth/validator.ts",
+          "line": 45,
+          "column": 12,
+          "function": "validateAge"
+        },
+        "original": "if (age >= 18)",
+        "mutated": "if (age > 18)",
+        "impact": "high",
+        "impactDescription": "Edge case at exactly 18 years old would incorrectly fail validation",
+        "suggestedTest": "test('should validate user exactly 18 years old', () => { expect(validateAge(18)).toBe(true); });",
+        "relatedTests": ["should validate adult", "should reject minor"],
+        "equivalentSuspect": false
+      },
+      {
+        "id": "MUT-002",
+        "operator": "LCR",
+        "operatorDescription": "Logical Connector Replacement (&& to ||)",
+        "location": {
+          "file": "src/auth/permissions.ts",
+          "line": 28,
+          "column": 8,
+          "function": "canAccess"
+        },
+        "original": "isAdmin && hasPermission",
+        "mutated": "isAdmin || hasPermission",
+        "impact": "critical",
+        "impactDescription": "Would allow unauthorized access if only one condition is true",
+        "suggestedTest": "test('should deny access when only admin flag is set', () => { expect(canAccess({ isAdmin: true, hasPermission: false })).toBe(false); });",
+        "relatedTests": ["should allow admin access"],
+        "equivalentSuspect": false
+      },
+      {
+        "id": "MUT-003",
+        "operator": "conditional",
+        "operatorDescription": "Conditional boundary mutation",
+        "location": {
+          "file": "src/auth/session.ts",
+          "line": 67,
+          "column": 6,
+          "function": "isSessionValid"
+        },
+        "original": "if (expiresAt > now)",
+        "mutated": "if (expiresAt >= now)",
+        "impact": "medium",
+        "impactDescription": "Session might be considered valid at exact expiration moment",
+        "suggestedTest": "test('should invalidate session at exact expiration time', () => { const now = Date.now(); expect(isSessionValid({ expiresAt: now })).toBe(false); });",
+        "relatedTests": ["should validate active session"],
+        "equivalentSuspect": false
+      }
+    ],
+    "operatorBreakdown": [
+      {
+        "operator": "AOR",
+        "operatorCategory": "arithmetic",
+        "total": 25,
+        "killed": 24,
+        "survived": 1,
+        "score": 96.0
+      },
+      {
+        "operator": "ROR",
+        "operatorCategory": "relational",
+        "total": 45,
+        "killed": 36,
+        "survived": 8,
+        "score": 80.0
+      },
+      {
+        "operator": "LCR",
+        "operatorCategory": "logical",
+        "total": 30,
+        "killed": 25,
+        "survived": 5,
+        "score": 83.3
+      },
+      {
+        "operator": "COR",
+        "operatorCategory": "conditional",
+        "total": 28,
+        "killed": 24,
+        "survived": 3,
+        "score": 85.7
+      },
+      {
+        "operator": "RVR",
+        "operatorCategory": "return",
+        "total": 22,
+        "killed": 18,
+        "survived": 1,
+        "score": 81.8
+      }
+    ],
+    "fileBreakdown": [
+      {
+        "file": "src/auth/validator.ts",
+        "total": 35,
+        "killed": 28,
+        "survived": 6,
+        "score": 80.0,
+        "priority": "high"
+      },
+      {
+        "file": "src/auth/permissions.ts",
+        "total": 28,
+        "killed": 22,
+        "survived": 5,
+        "score": 78.6,
+        "priority": "high"
+      },
+      {
+        "file": "src/auth/session.ts",
+        "total": 25,
+        "killed": 21,
+        "survived": 3,
+        "score": 84.0,
+        "priority": "medium"
+      }
+    ],
+    "weakTests": [
+      {
+        "testFile": "tests/auth/validator.test.ts",
+        "mutantsNotKilled": 6,
+        "priority": "high",
+        "reason": "Missing boundary value tests for age validation",
+        "suggestions": [
+          "Add test for exactly 18 years old",
+          "Add test for age = 0",
+          "Add test for maximum age boundary"
+        ]
+      },
+      {
+        "testFile": "tests/auth/permissions.test.ts",
+        "mutantsNotKilled": 5,
+        "priority": "high",
+        "reason": "Incomplete logical condition coverage",
+        "suggestions": [
+          "Test all combinations of admin and permission flags",
+          "Add negative tests for partial conditions"
+        ]
+      },
+      {
+        "testFile": "tests/auth/session.test.ts",
+        "mutantsNotKilled": 3,
+        "priority": "medium",
+        "reason": "Missing exact boundary tests for session expiration",
+        "suggestions": [
+          "Test session validity at exact expiration time"
+        ]
+      }
+    ],
+    "recommendations": [
+      {
+        "id": "REC-001",
+        "title": "Add boundary value tests for age validation",
+        "description": "The validator.ts file has multiple surviving relational operator mutations. Add tests for exact boundary values (18, 0, max age).",
+        "priority": "high",
+        "effort": "low",
+        "impact": 8,
+        "relatedMutants": ["MUT-001"],
+        "codeExample": "test('should validate exact boundary ages', () => {\n  expect(validateAge(18)).toBe(true);\n  expect(validateAge(17)).toBe(false);\n});",
+        "targetFile": "tests/auth/validator.test.ts"
+      },
+      {
+        "id": "REC-002",
+        "title": "Add combinatorial tests for permission logic",
+        "description": "The permissions.ts file has surviving logical operator mutations. Test all combinations of boolean conditions.",
+        "priority": "critical",
+        "effort": "medium",
+        "impact": 9,
+        "relatedMutants": ["MUT-002"],
+        "targetFile": "tests/auth/permissions.test.ts"
+      },
+      {
+        "id": "REC-003",
+        "title": "Add session expiration edge case tests",
+        "description": "Test session validity at the exact moment of expiration.",
+        "priority": "medium",
+        "effort": "low",
+        "impact": 6,
+        "relatedMutants": ["MUT-003"],
+        "targetFile": "tests/auth/session.test.ts"
+      }
+    ],
+    "metrics": {
+      "coverageCorrelation": 0.72,
+      "assertionDensity": 3.2,
+      "testEfficiency": 89.5,
+      "avgMutantsPerFile": 18.75,
+      "avgTimePerMutant": 245,
+      "parallelWorkers": 8
+    },
+    "testSuiteEffectiveness": {
+      "overallRating": "good",
+      "strengthAreas": [
+        "Good arithmetic operator coverage",
+        "Strong return value testing"
+      ],
+      "weaknessAreas": [
+        "Boundary value testing needs improvement",
+        "Logical condition combinations incomplete"
+      ],
+      "boundaryTesting": 72,
+      "conditionCoverage": 78,
+      "errorHandling": 85
+    },
+    "artifacts": [
+      {
+        "type": "report",
+        "path": "reports/mutation/mutation-report.html",
+        "format": "html",
+        "description": "Interactive HTML mutation testing report",
+        "sizeBytes": 245678
+      },
+      {
+        "type": "data",
+        "path": "reports/mutation/mutation-results.json",
+        "format": "json",
+        "description": "Raw mutation testing data",
+        "sizeBytes": 89234
+      }
+    ]
+  },
+  "metadata": {
+    "executionTimeMs": 125430,
+    "toolsUsed": ["stryker"],
+    "agentId": "qe-mutation-tester",
+    "modelUsed": "claude-3.5-sonnet",
+    "targetPath": "src/auth",
+    "testPath": "tests/auth",
+    "incremental": false,
+    "changedLinesOnly": false
+  },
+  "validation": {
+    "schemaValid": true,
+    "contentValid": true,
+    "confidence": 0.92,
+    "warnings": []
+  },
+  "learning": {
+    "patternsDetected": [
+      "boundary-value-weakness",
+      "logical-condition-gaps",
+      "high-arithmetic-coverage"
+    ],
+    "reward": 0.85
+  }
+}

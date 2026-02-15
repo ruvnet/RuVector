@@ -1,0 +1,56 @@
+{
+  "skillName": "accessibility-testing",
+  "skillVersion": "1.0.0",
+  "requiredTools": [
+    "jq"
+  ],
+  "optionalTools": [
+    "axe",
+    "pa11y",
+    "lighthouse",
+    "ffmpeg",
+    "python3",
+    "ajv",
+    "jsonschema"
+  ],
+  "schemaPath": "schemas/output.json",
+  "requiredFields": [
+    "skillName",
+    "status",
+    "output",
+    "output.conformanceLevel",
+    "output.pourBreakdown"
+  ],
+  "requiredNonEmptyFields": [
+    "output.summary",
+    "output.pourBreakdown"
+  ],
+  "mustContainTerms": [
+    "WCAG",
+    "accessibility"
+  ],
+  "mustNotContainTerms": [
+    "TODO",
+    "placeholder",
+    "FIXME"
+  ],
+  "enumValidations": {
+    ".status": [
+      "success",
+      "partial",
+      "failed",
+      "skipped"
+    ],
+    ".output.conformanceLevel": [
+      "A",
+      "AA",
+      "AAA",
+      "none"
+    ],
+    ".output.wcagVersion": [
+      "2.0",
+      "2.1",
+      "2.2"
+    ]
+  }
+}

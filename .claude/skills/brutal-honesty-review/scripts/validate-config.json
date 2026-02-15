@@ -1,0 +1,34 @@
+{
+  "skillName": "brutal-honesty-review",
+  "skillVersion": "1.0.0",
+  "requiredTools": [
+    "jq"
+  ],
+  "optionalTools": [],
+  "schemaPath": "schemas/output.json",
+  "requiredFields": [
+    "skillName",
+    "status",
+    "output",
+    "output.summary",
+    "output.reviewFindings",
+    "output.codeQuality"
+  ],
+  "requiredNonEmptyFields": [],
+  "mustContainTerms": [
+    "review",
+    "code"
+  ],
+  "mustNotContainTerms": [
+    "TODO",
+    "FIXME"
+  ],
+  "enumValidations": {
+    ".status": [
+      "success",
+      "partial",
+      "failed",
+      "skipped"
+    ]
+  }
+}

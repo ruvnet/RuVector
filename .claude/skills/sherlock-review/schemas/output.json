@@ -1,0 +1,297 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentic-qe.dev/schemas/skills/sherlock-review/output.json",
+  "title": "Sherlock Review Skill Output Schema",
+  "description": "Schema for sherlock-review skill output. Evidence-based investigative code review with deductive reasoning.",
+  "type": "object",
+  "required": ["skillName", "version", "timestamp", "status", "trustTier", "output"],
+  "properties": {
+    "skillName": {
+      "type": "string",
+      "const": "sherlock-review"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+(-[a-zA-Z0-9]+)?$"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["success", "partial", "failed", "skipped"]
+    },
+    "trustTier": {
+      "type": "integer",
+      "const": 3
+    },
+    "output": {
+      "type": "object",
+      "required": ["summary", "reviewFindings", "deductions", "codeQuality"],
+      "properties": {
+        "summary": {
+          "type": "string",
+          "minLength": 50,
+          "maxLength": 3000,
+          "description": "Investigation summary with key deductions"
+        },
+        "reviewFindings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/reviewFinding"
+          },
+          "maxItems": 200
+        },
+        "deductions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/deduction"
+          },
+          "description": "Logical deductions based on evidence"
+        },
+        "codeQuality": {
+          "$ref": "#/$defs/codeQuality"
+        },
+        "severity": {
+          "$ref": "#/$defs/severityBreakdown"
+        },
+        "recommendations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/recommendation"
+          },
+          "maxItems": 100
+        },
+        "evidenceChain": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/evidence"
+          },
+          "description": "Chain of evidence supporting findings"
+        },
+        "suspiciousPatterns": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/suspiciousPattern"
+          }
+        },
+        "verdict": {
+          "type": "string",
+          "enum": ["case-closed-clean", "minor-infractions", "significant-concerns", "major-violations", "investigation-required"]
+        },
+        "metrics": {
+          "$ref": "#/$defs/metrics"
+        }
+      }
+    },
+    "metadata": {
+      "$ref": "#/$defs/metadata"
+    },
+    "validation": {
+      "$ref": "#/$defs/validationResult"
+    },
+    "learning": {
+      "$ref": "#/$defs/learningData"
+    }
+  },
+  "$defs": {
+    "reviewFinding": {
+      "type": "object",
+      "required": ["id", "title", "severity", "category", "evidence"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^SHRK-\\d{3,6}$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 200
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 2000
+        },
+        "severity": {
+          "type": "string",
+          "enum": ["critical", "high", "medium", "low", "observation"]
+        },
+        "category": {
+          "type": "string",
+          "enum": ["logic-flaw", "security-risk", "performance-issue", "design-smell", "hidden-bug", "race-condition", "data-integrity", "edge-case", "assumption-violation"]
+        },
+        "evidence": {
+          "type": "string",
+          "minLength": 20,
+          "maxLength": 3000,
+          "description": "Evidence supporting this finding"
+        },
+        "deductiveReasoning": {
+          "type": "string",
+          "maxLength": 2000,
+          "description": "Step-by-step deductive reasoning"
+        },
+        "location": {
+          "type": "object",
+          "properties": {
+            "file": { "type": "string" },
+            "line": { "type": "integer", "minimum": 1 },
+            "endLine": { "type": "integer", "minimum": 1 },
+            "function": { "type": "string" }
+          }
+        },
+        "codeSnippet": {
+          "type": "string",
+          "maxLength": 5000
+        },
+        "suggestedFix": {
+          "type": "string",
+          "maxLength": 5000
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Confidence in this deduction"
+        }
+      }
+    },
+    "deduction": {
+      "type": "object",
+      "required": ["id", "observation", "hypothesis", "conclusion"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^DED-\\d{3,6}$"
+        },
+        "observation": {
+          "type": "string",
+          "description": "What was observed in the code"
+        },
+        "hypothesis": {
+          "type": "string",
+          "description": "What this might indicate"
+        },
+        "evidence": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Supporting evidence"
+        },
+        "conclusion": {
+          "type": "string",
+          "description": "Deductive conclusion"
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "relatedFindings": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "required": ["type", "description"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["code-pattern", "data-flow", "control-flow", "state-mutation", "external-call", "configuration", "comment", "commit-history"]
+        },
+        "description": { "type": "string" },
+        "location": { "type": "string" },
+        "significance": { "type": "string", "enum": ["critical", "supporting", "circumstantial"] }
+      }
+    },
+    "suspiciousPattern": {
+      "type": "object",
+      "required": ["patternType", "description", "locations"],
+      "properties": {
+        "patternType": {
+          "type": "string",
+          "enum": ["anti-pattern", "code-smell", "security-risk", "performance-trap", "maintenance-nightmare", "time-bomb"]
+        },
+        "description": { "type": "string" },
+        "locations": { "type": "array", "items": { "type": "string" } },
+        "riskLevel": { "type": "string", "enum": ["critical", "high", "medium", "low"] }
+      }
+    },
+    "codeQuality": {
+      "type": "object",
+      "required": ["overallScore", "grade"],
+      "properties": {
+        "overallScore": { "type": "number", "minimum": 0, "maximum": 100 },
+        "grade": { "type": "string", "pattern": "^[A-F][+-]?$" },
+        "dimensions": {
+          "type": "object",
+          "properties": {
+            "correctness": { "type": "number", "minimum": 0, "maximum": 100 },
+            "clarity": { "type": "number", "minimum": 0, "maximum": 100 },
+            "robustness": { "type": "number", "minimum": 0, "maximum": 100 },
+            "security": { "type": "number", "minimum": 0, "maximum": 100 },
+            "testability": { "type": "number", "minimum": 0, "maximum": 100 }
+          }
+        }
+      }
+    },
+    "severityBreakdown": {
+      "type": "object",
+      "properties": {
+        "critical": { "type": "integer", "minimum": 0 },
+        "high": { "type": "integer", "minimum": 0 },
+        "medium": { "type": "integer", "minimum": 0 },
+        "low": { "type": "integer", "minimum": 0 },
+        "observation": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "recommendation": {
+      "type": "object",
+      "required": ["id", "title", "priority"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^REC-\\d{3,6}$" },
+        "title": { "type": "string", "maxLength": 200 },
+        "description": { "type": "string", "maxLength": 2000 },
+        "priority": { "type": "string", "enum": ["critical", "high", "medium", "low"] },
+        "evidence": { "type": "string" },
+        "codeExample": { "type": "string", "maxLength": 5000 }
+      }
+    },
+    "metrics": {
+      "type": "object",
+      "properties": {
+        "filesInvestigated": { "type": "integer", "minimum": 0 },
+        "linesAnalyzed": { "type": "integer", "minimum": 0 },
+        "deductionsMade": { "type": "integer", "minimum": 0 },
+        "suspiciousPatternsFound": { "type": "integer", "minimum": 0 },
+        "evidenceCollected": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "executionTimeMs": { "type": "integer", "minimum": 0 },
+        "toolsUsed": { "type": "array", "items": { "type": "string" } },
+        "agentId": { "type": "string", "pattern": "^qe-[a-z][a-z0-9-]*$" },
+        "investigationType": { "type": "string", "enum": ["comprehensive", "focused", "targeted"] }
+      }
+    },
+    "validationResult": {
+      "type": "object",
+      "properties": {
+        "schemaValid": { "type": "boolean" },
+        "contentValid": { "type": "boolean" },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "learningData": {
+      "type": "object",
+      "properties": {
+        "patternsDetected": { "type": "array", "items": { "type": "string" } },
+        "reward": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    }
+  }
+}

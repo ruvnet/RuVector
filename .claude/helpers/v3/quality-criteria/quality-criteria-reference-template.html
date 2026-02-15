@@ -1,0 +1,811 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Quality Criteria Recommendations - {EPIC_TITLE}</title>
+  <style>
+    /* ============================================
+       QUALITY CRITERIA REFERENCE TEMPLATE
+       Template Version: 1.0.0 (Semantic Analysis)
+
+       USAGE: Copy this template structure exactly.
+       Only replace {PLACEHOLDER} values with actual data.
+       DO NOT modify CSS or HTML structure.
+       ============================================ */
+
+    :root {
+      --critical: #dc3545;
+      --critical-bg: #fff5f5;
+      --high: #fd7e14;
+      --high-bg: #fff8f0;
+      --medium: #ffc107;
+      --medium-bg: #fffdf5;
+      --low: #28a745;
+      --low-bg: #f5fff5;
+      --primary: #1a1a2e;
+      --secondary: #16213e;
+      --accent: #0f3460;
+      --text: #333;
+      --text-light: #666;
+      --border: #e4e8ec;
+      --bg: #f8f9fa;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      line-height: 1.7;
+      color: var(--text);
+      background: linear-gradient(135deg, #f5f7fa 0%, #e4e8ec 100%);
+      min-height: 100vh;
+      padding: 2rem;
+    }
+
+    .container { max-width: 1200px; margin: 0 auto; }
+
+    /* Header */
+    .header {
+      background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+      color: white;
+      padding: 2.5rem;
+      border-radius: 16px;
+      margin-bottom: 2rem;
+      box-shadow: 0 10px 40px rgba(26, 26, 46, 0.2);
+    }
+    .header h1 { font-size: 1.75rem; margin-bottom: 0.5rem; }
+    .header-subtitle { opacity: 0.9; font-size: 1.1rem; margin-bottom: 1rem; }
+    .header-meta { display: flex; gap: 2rem; flex-wrap: wrap; opacity: 0.85; font-size: 0.9rem; }
+
+    /* Executive Summary */
+    .executive-summary {
+      background: white;
+      border-radius: 16px;
+      padding: 2rem;
+      margin-bottom: 2rem;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+      border-left: 5px solid var(--accent);
+    }
+    .executive-summary h2 { color: var(--primary); margin-bottom: 1rem; }
+    .key-message {
+      font-size: 1.15rem;
+      font-weight: 500;
+      color: var(--primary);
+      padding: 1rem;
+      background: var(--bg);
+      border-radius: 8px;
+      margin-bottom: 1.5rem;
+    }
+    .priorities-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1.5rem;
+    }
+    .priority-box {
+      padding: 1rem;
+      border-radius: 8px;
+    }
+    .priority-box.critical { background: var(--critical-bg); border-left: 4px solid var(--critical); }
+    .priority-box.high { background: var(--high-bg); border-left: 4px solid var(--high); }
+    .priority-box h4 { margin-bottom: 0.5rem; }
+    .priority-box ul { margin-left: 1.2rem; }
+    .priority-box li { margin-bottom: 0.25rem; }
+
+    /* Quick Reference Table */
+    .quick-reference {
+      background: white;
+      border-radius: 16px;
+      padding: 2rem;
+      margin-bottom: 2rem;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+    }
+    .quick-reference h2 { color: var(--primary); margin-bottom: 1rem; }
+    .quick-reference table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .quick-reference th, .quick-reference td {
+      padding: 0.75rem;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+    .quick-reference th { background: var(--bg); font-weight: 600; }
+    .quick-reference tr:hover { background: #f8f9fa; }
+
+    /* Priority Sections */
+    .priority-section {
+      margin-bottom: 2rem;
+    }
+    .section-header {
+      padding: 1rem 1.5rem;
+      border-radius: 12px 12px 0 0;
+      color: white;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .section-header.critical { background: var(--critical); }
+    .section-header.high { background: var(--high); }
+    .section-header.medium { background: var(--medium); color: var(--text); }
+    .section-header.low { background: var(--low); }
+    .section-header h2 { font-size: 1.25rem; margin: 0; }
+    .section-description {
+      padding: 1rem 1.5rem;
+      background: white;
+      border-left: 1px solid var(--border);
+      border-right: 1px solid var(--border);
+      color: var(--text-light);
+      font-style: italic;
+    }
+
+    /* Recommendation Cards */
+    .rec-card {
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 0 0 12px 12px;
+      overflow: hidden;
+      margin-bottom: 1rem;
+    }
+    .rec-card:not(:last-child) {
+      border-radius: 0;
+    }
+    .rec-header {
+      padding: 1.5rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .rec-title-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 0.5rem;
+    }
+    .rec-category {
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: var(--primary);
+    }
+    /* REMOVED: confidence-badge - confidence percentages were arbitrary without methodology */
+    /* Use evidence-type badges instead to classify evidence quality */
+
+    /* Evidence Type Badges - Classifies evidence quality */
+    .evidence-type {
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+    .evidence-type.direct {
+      background: #dcfce7;
+      color: #166534;
+      border: 1px solid #86efac;
+    }
+    .evidence-type.inferred {
+      background: #fef3c7;
+      color: #92400e;
+      border: 1px solid #fcd34d;
+    }
+    .evidence-type.claimed {
+      background: #fee2e2;
+      color: #991b1b;
+      border: 1px solid #fca5a5;
+    }
+
+    .htsm-question {
+      font-style: italic;
+      color: var(--text-light);
+      padding: 0.75rem;
+      background: var(--bg);
+      border-radius: 8px;
+      border-left: 3px solid var(--accent);
+      margin-top: 0.5rem;
+    }
+
+    /* Why It Matters */
+    .why-section {
+      padding: 1.5rem;
+      background: #fafbfc;
+      border-bottom: 1px solid var(--border);
+    }
+    .why-section h4 {
+      color: var(--accent);
+      margin-bottom: 0.75rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .why-section p { line-height: 1.8; }
+
+    /* Evidence Section (Semantic Analysis) */
+    .evidence-section {
+      padding: 1.5rem;
+      background: #f0f7ff;
+      border-bottom: 1px solid var(--border);
+    }
+    .evidence-section h4 {
+      color: #1e40af;
+      margin-bottom: 0.75rem;
+    }
+    .evidence-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+    }
+    .evidence-table th {
+      background: #e0e7ff;
+      text-align: left;
+      padding: 0.5rem;
+    }
+    .evidence-table td {
+      padding: 0.5rem;
+      border-bottom: 1px solid #c7d2fe;
+    }
+    .evidence-reasoning {
+      font-style: italic;
+      color: var(--text-light);
+    }
+
+    /* Risk Warnings */
+    .risk-warnings {
+      padding: 1rem 1.5rem;
+      background: var(--critical-bg);
+      border-bottom: 1px solid var(--border);
+    }
+    .risk-warning {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.75rem;
+      padding: 0.5rem 0;
+      color: var(--critical);
+    }
+    .risk-warning:not(:last-child) { border-bottom: 1px dashed rgba(220,53,69,0.3); }
+
+    /* Recommended Actions */
+    .actions-section {
+      padding: 1.5rem;
+    }
+    .collapsible-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      cursor: pointer;
+      padding: 0.5rem 0;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 1rem;
+    }
+    .collapsible-header h4 { color: var(--primary); margin: 0; }
+    .collapse-icon { font-size: 0.8rem; color: var(--text-light); }
+    .collapsible-content.collapsed { display: none; }
+
+    .action-item {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 1rem;
+      padding: 1rem;
+      margin-bottom: 0.75rem;
+      background: var(--bg);
+      border-radius: 8px;
+      border-left: 3px solid var(--accent);
+    }
+    .action-type {
+      padding: 0.25rem 0.75rem;
+      border-radius: 4px;
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      white-space: nowrap;
+      height: fit-content;
+    }
+    .action-type.engineering { background: #e3f2fd; color: #1565c0; }
+    .action-type.user_story { background: #f3e5f5; color: #7b1fa2; }
+    .action-type.testing { background: #e8f5e9; color: #2e7d32; }
+    .action-type.governance { background: #fff3e0; color: #e65100; }
+    .action-type.security { background: #ffebee; color: #c62828; }
+    .action-type.pi_planning { background: #e0f7fa; color: #00838f; }
+    .action-type.performance { background: #fce4ec; color: #ad1457; }
+    .action-content h5 { margin-bottom: 0.25rem; color: var(--primary); }
+    .action-content p { font-size: 0.9rem; color: var(--text-light); margin: 0; }
+
+    /* Cross-Cutting Concerns */
+    .cross-cutting {
+      background: white;
+      border-radius: 16px;
+      padding: 2rem;
+      margin-bottom: 2rem;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+    }
+    .cross-cutting h2 { color: var(--primary); margin-bottom: 1rem; }
+    .concern-card {
+      padding: 1.5rem;
+      background: var(--bg);
+      border-radius: 8px;
+      margin-bottom: 1rem;
+      border-left: 4px solid var(--accent);
+    }
+    .concern-card h4 { margin-bottom: 0.5rem; color: var(--primary); }
+    .concern-categories {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-top: 0.75rem;
+    }
+    .concern-category {
+      background: var(--secondary);
+      color: white;
+      padding: 0.25rem 0.75rem;
+      border-radius: 12px;
+      font-size: 0.75rem;
+    }
+
+    /* PI Planning */
+    .pi-planning {
+      background: white;
+      border-radius: 16px;
+      padding: 2rem;
+      margin-bottom: 2rem;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+    }
+    .pi-planning h2 { color: var(--primary); margin-bottom: 1rem; }
+    .pi-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .pi-table th, .pi-table td {
+      padding: 1rem;
+      text-align: left;
+      border: 1px solid var(--border);
+    }
+    .pi-table th {
+      background: var(--primary);
+      color: white;
+    }
+    .pi-table tr:nth-child(even) { background: var(--bg); }
+    .sprint-badge {
+      background: var(--accent);
+      color: white;
+      padding: 0.25rem 0.5rem;
+      border-radius: 4px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .criteria-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.25rem;
+    }
+    .criteria-tag {
+      background: var(--bg);
+      padding: 0.15rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      border: 1px solid var(--border);
+    }
+
+    /* Footer */
+    .footer {
+      text-align: center;
+      padding: 2rem;
+      color: var(--text-light);
+      font-size: 0.875rem;
+    }
+    .footer a { color: var(--accent); text-decoration: none; }
+
+    /* Info Sections (About/Help) */
+    .info-section {
+      background: rgba(255,255,255,0.1);
+      border-radius: 8px;
+      margin-top: 12px;
+    }
+    .info-header {
+      padding: 15px 20px;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .info-header h3 {
+      margin: 0;
+      font-size: 1rem;
+      opacity: 0.95;
+    }
+    .info-content {
+      padding: 0 20px 20px 20px;
+      overflow: hidden;
+      transition: max-height 0.3s ease-out, padding 0.3s ease-out;
+      max-height: 1000px;
+    }
+    .info-section.collapsed .info-content {
+      max-height: 0 !important;
+      padding-top: 0 !important;
+      padding-bottom: 0 !important;
+    }
+    .info-section.collapsed .collapse-icon {
+      transform: rotate(-90deg);
+    }
+    .info-content blockquote {
+      margin: 0 0 15px 0;
+      padding: 12px 15px;
+      border-left: 3px solid rgba(255,255,255,0.4);
+      font-style: italic;
+      opacity: 0.9;
+    }
+    .info-content p {
+      margin: 0 0 12px 0;
+      opacity: 0.9;
+      line-height: 1.7;
+    }
+    .info-content a {
+      color: #93c5fd;
+      text-decoration: underline;
+    }
+    .checklist-item {
+      margin-bottom: 8px;
+      line-height: 1.8;
+    }
+    .checklist-item strong {
+      color: white;
+    }
+
+    /* Badge styles */
+    .badge {
+      display: inline-block;
+      padding: 0.25rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+    .badge.critical { background: var(--critical); color: white; }
+    .badge.high { background: var(--high); color: white; }
+    .badge.medium { background: var(--medium); color: var(--text); }
+    .badge.low { background: var(--low); color: white; }
+
+    @media (max-width: 768px) {
+      body { padding: 1rem; }
+      .header h1 { font-size: 1.5rem; }
+      .header-meta { flex-direction: column; gap: 0.5rem; }
+      .priorities-grid { grid-template-columns: 1fr; }
+      .pi-table { font-size: 0.85rem; }
+      .pi-table th, .pi-table td { padding: 0.5rem; }
+    }
+
+  </style>
+</head>
+<body>
+  <div class="container">
+
+    <!-- ============================================
+         HEADER SECTION
+         Replace: {EPIC_TITLE}, {EPIC_ID}, {DATE}, {CRITERIA_COUNT}, {COVERAGE}
+         ============================================ -->
+    <header class="header">
+      <h1>Quality Criteria Recommendations</h1>
+      <div class="header-subtitle">{EPIC_TITLE}</div>
+      <div class="header-meta">
+        <span>{EPIC_ID}</span>
+        <span>{DATE}</span>
+        <span>{CRITERIA_COUNT} Quality Criteria Identified</span>
+        <span>{ANALYZED_COUNT} of 10 HTSM Categories Analyzed</span>
+        <span style="font-size: 0.8rem;">Omitted: {OMITTED_CATEGORIES}</span>
+      </div>
+
+      <!-- How can this report help you? -->
+      <div class="info-section collapsed">
+        <div class="info-header" onclick="this.parentElement.classList.toggle('collapsed')">
+          <h3>How can this report help you?</h3>
+          <span class="collapse-icon" style="transition: transform 0.2s;">&#x25BC;</span>
+        </div>
+        <div class="info-content">
+          <blockquote>
+            "Quality is value to some person." <span style="opacity: 0.7;">— Jerry Weinberg</span>
+          </blockquote>
+          <p>This report is generated by the <strong>Quality Criteria Recommender</strong>, one of the core agents based on the <strong>QCSD (Quality Conscious Software Delivery)</strong> framework. The QCSD framework recommends conducting Quality Criteria sessions early in the development lifecycle — ideally during PI Planning or Sprint Planning — to align the entire team on what "quality" means for each feature before a single line of code is written.</p>
+          <p>This analysis uses <strong>AI semantic understanding</strong> to identify relevant Quality Criteria from James Bach's <a href="https://www.satisfice.com/download/heuristic-test-strategy-model">Heuristic Test Strategy Model (HTSM) v6.3</a>. Unlike simple keyword matching, it understands the <em>meaning and implications</em> of your requirements to surface quality dimensions that may not be explicitly stated but are critical for user satisfaction.</p>
+          <p>A guided discussion based on this analysis helps teams uncover hidden quality risks, define testable acceptance criteria, create clearer development plans, identify gaps and dependencies early, improve estimation accuracy, and most importantly — <strong>avoid costly rework</strong> caused by discovering quality issues halfway through development. Research shows that defects found in production cost 30x more to fix than those found during requirements. If we want to save time and cost while still delivering quality software, <strong>it is always cheaper to do things right the first time</strong>.</p>
+          <p>Quality Criteria help answer fundamental questions: <em>What aspects of quality are most important for this feature? Where should we focus our testing effort? What risks exist if we neglect certain quality dimensions? How do we build quality in rather than test it in later?</em></p>
+        </div>
+      </div>
+
+      <!-- When to generate this report? -->
+      <div class="info-section collapsed">
+        <div class="info-header" onclick="this.parentElement.classList.toggle('collapsed')">
+          <h3>When to generate this report?</h3>
+          <span class="collapse-icon" style="transition: transform 0.2s;">&#x25BC;</span>
+        </div>
+        <div class="info-content">
+          <p><strong>During PI Planning &amp; Sprint Planning (QCSD Recommended):</strong> The QCSD framework recommends generating this report as soon as Epic/Feature requirements are available — ideally before Sprint Planning begins. This enables teams to conduct a <em>Quality Criteria Session</em> where programmers, testers, Product Owners, Designers, and Architects align on quality expectations before development starts.</p>
+          <p><strong>Shift-Left Quality Engineering:</strong> The cost of fixing defects increases exponentially as they move through the SDLC (1x in requirements → 5x in design → 10x in coding → 30x in production). Use this report to shift quality discussions left — informing architecture decisions, refining acceptance criteria, identifying non-functional requirements gaps, and allocating appropriate testing effort before the first commit.</p>
+          <p><strong>Before Three Amigos / Refinement Sessions:</strong> Share this report with the team before refinement sessions to facilitate meaningful conversations about quality trade-offs. When everyone understands which quality dimensions matter most, the team can make informed decisions about scope, risk acceptance, and technical approach.</p>
+          <p><strong>As a Living Document:</strong> Regenerate this report when requirements change significantly. Quality criteria priorities may shift as the feature scope evolves — what was medium priority may become critical based on new information.</p>
+        </div>
+      </div>
+
+      <!-- How to use this report? -->
+      <div class="info-section collapsed">
+        <div class="info-header" onclick="this.parentElement.classList.toggle('collapsed')">
+          <h3>How to use this report?</h3>
+          <span class="collapse-icon" style="transition: transform 0.2s;">&#x25BC;</span>
+        </div>
+        <div class="info-content">
+          <p style="margin-bottom: 12px;">In this report you will find:</p>
+          <div style="margin-left: 5px; line-height: 1.8;">
+            <div class="checklist-item">&#x2610; <strong>Executive Summary</strong> - Key message and critical priorities at a glance.</div>
+            <div class="checklist-item">&#x2610; <strong>Quick Reference Table</strong> - All quality criteria with priorities and HTSM questions.</div>
+            <div class="checklist-item">&#x2610; <strong>Priority-Based Recommendations</strong> - Detailed analysis with evidence-based reasoning.</div>
+            <div class="checklist-item">&#x2610; <strong>Actionable Tasks</strong> - Engineering tasks, User Stories, and Testing activities.</div>
+            <div class="checklist-item">&#x2610; <strong>Cross-Cutting Concerns</strong> - Quality aspects spanning multiple criteria.</div>
+            <div class="checklist-item">&#x2610; <strong>PI Planning Guidance</strong> - Sprint-by-sprint quality focus.</div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+
+    <!-- ============================================
+         EXECUTIVE SUMMARY
+         Replace: {KEY_MESSAGE}, {CRITICAL_PRIORITIES}, {QUICK_WINS}
+         ============================================ -->
+    <section class="executive-summary">
+      <h2>Executive Summary</h2>
+      <div class="key-message">{KEY_MESSAGE}</div>
+
+      <div class="priorities-grid">
+        <!-- Critical Priorities (if any) -->
+        <div class="priority-box critical">
+          <h4>&#x1F6A8; Critical Priorities</h4>
+          <ul>
+            <!-- {CRITICAL_PRIORITIES} - List items -->
+          </ul>
+        </div>
+
+        <!-- Quick Wins -->
+        <div class="priority-box high">
+          <h4>&#x26A1; Quick Wins</h4>
+          <ul>
+            <!-- {QUICK_WINS} - List items -->
+          </ul>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- ============================================
+         QUICK REFERENCE TABLE
+         Replace: Table rows with actual criteria data
+         ============================================ -->
+    <section class="quick-reference">
+      <h2>Quick Reference</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Quality Criteria</th>
+            <th>Priority</th>
+            <th>Key Question</th>
+            <th>Primary Focus</th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- TEMPLATE ROW - Repeat for each quality criteria identified -->
+          <tr>
+            <td><strong>{CATEGORY_NAME}</strong></td>
+            <td><span class="badge {PRIORITY_CLASS}">{PRIORITY_LABEL}</span></td>
+            <td style="font-style: italic;">{HTSM_QUESTION}</td>
+            <td>{PRIMARY_FOCUS}</td>
+          </tr>
+          <!-- END TEMPLATE ROW -->
+        </tbody>
+      </table>
+
+      <!-- Priority Legend -->
+      <div style="margin-top: 1.5rem; padding: 1rem; background: #f8fafc; border-radius: 8px; border: 1px solid var(--border);">
+        <h4 style="margin: 0 0 1rem 0; color: var(--primary);">Priority Levels</h4>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+          <div style="padding: 0.75rem; background: var(--critical-bg); border-left: 4px solid var(--critical); border-radius: 4px;">
+            <strong style="color: var(--critical);">P0 - CRITICAL</strong>
+            <p style="margin: 0.25rem 0 0 0; font-size: 0.85rem; color: var(--text-light);">Failure causes immediate business/user harm.</p>
+          </div>
+          <div style="padding: 0.75rem; background: var(--high-bg); border-left: 4px solid var(--high); border-radius: 4px;">
+            <strong style="color: var(--high);">P1 - HIGH</strong>
+            <p style="margin: 0.25rem 0 0 0; font-size: 0.85rem; color: var(--text-light);">Critical to core user value proposition.</p>
+          </div>
+          <div style="padding: 0.75rem; background: var(--medium-bg); border-left: 4px solid var(--medium); border-radius: 4px;">
+            <strong style="color: #b45309;">P2 - MEDIUM</strong>
+            <p style="margin: 0.25rem 0 0 0; font-size: 0.85rem; color: var(--text-light);">Affects satisfaction but not blocking.</p>
+          </div>
+          <div style="padding: 0.75rem; background: var(--low-bg); border-left: 4px solid var(--low); border-radius: 4px;">
+            <strong style="color: var(--low);">P3 - LOW</strong>
+            <p style="margin: 0.25rem 0 0 0; font-size: 0.85rem; color: var(--text-light);">Nice-to-have quality improvements.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- ============================================
+         PRIORITY SECTIONS
+         Create one section per priority level (Critical, High, Medium, Low)
+         ============================================ -->
+
+    <!-- CRITICAL PRIORITY SECTION (if applicable) -->
+    <section class="priority-section">
+      <div class="section-header critical">
+        <h2>Critical Priority Quality Criteria</h2>
+        <span>{CRITICAL_COUNT} criteria</span>
+      </div>
+      <div class="section-description">These quality criteria MUST be addressed immediately - failure poses unacceptable risk.</div>
+
+      <!-- RECOMMENDATION CARD TEMPLATE -->
+      <div class="rec-card">
+        <div class="rec-header">
+          <div class="rec-title-row">
+            <span class="rec-category">{CATEGORY_NAME}</span>
+            <span class="confidence-badge" title="Confidence based on evidence strength">{CONFIDENCE}% confidence</span>
+          </div>
+          <div class="htsm-question">"{HTSM_QUESTION}"</div>
+        </div>
+
+        <div class="why-section">
+          <h4>&#x1F4A1; Why This Matters</h4>
+          <p>{SEMANTIC_RATIONALE}</p>
+          <p style="margin-top: 0.75rem;"><strong>Business Impact:</strong> {BUSINESS_IMPACT}</p>
+        </div>
+
+        <!-- EVIDENCE SECTION (Semantic Analysis) -->
+        <div class="evidence-section">
+          <h4>&#x1F4CA; Evidence Analysis</h4>
+          <table class="evidence-table">
+            <thead>
+              <tr>
+                <th>Source Reference</th>
+                <th>Type</th>
+                <th>Quality Implication</th>
+                <th>Reasoning</th>
+              </tr>
+            </thead>
+            <tbody>
+              <!-- EVIDENCE ROW TEMPLATE - Type must be Direct/Inferred/Claimed -->
+              <tr>
+                <td><code>{SOURCE_REF}</code></td>
+                <td><span class="evidence-type {TYPE_CLASS}">{EVIDENCE_TYPE}</span></td>
+                <td>{QUALITY_IMPLICATION}</td>
+                <td class="evidence-reasoning">{REASONING}</td>
+              </tr>
+              <!-- END EVIDENCE ROW TEMPLATE -->
+            </tbody>
+          </table>
+        </div>
+
+        <div class="risk-warnings">
+          <h4 style="margin-bottom: 0.5rem; color: var(--critical);">&#x26A0;&#xFE0F; Risk Warnings</h4>
+          <!-- RISK WARNING TEMPLATE -->
+          <div class="risk-warning">
+            <span>&#x26A0;&#xFE0F;</span>
+            <span>{RISK_WARNING}</span>
+          </div>
+          <!-- END RISK WARNING TEMPLATE -->
+        </div>
+
+        <div class="actions-section">
+          <div class="collapsible-header" onclick="this.nextElementSibling.classList.toggle('collapsed')">
+            <h4>&#x1F4CB; Recommended Actions</h4>
+            <span class="collapse-icon">&#x25BC;</span>
+          </div>
+          <div class="collapsible-content">
+            <!-- ACTION ITEM TEMPLATE -->
+            <div class="action-item">
+              <span class="action-type {ACTION_TYPE_CLASS}">{ACTION_TYPE}</span>
+              <div class="action-content">
+                <h5>{ACTION_TITLE}</h5>
+                <p>{ACTION_DESCRIPTION}</p>
+              </div>
+            </div>
+            <!-- END ACTION ITEM TEMPLATE -->
+          </div>
+        </div>
+      </div>
+      <!-- END RECOMMENDATION CARD TEMPLATE -->
+
+    </section>
+
+    <!-- HIGH PRIORITY SECTION -->
+    <section class="priority-section">
+      <div class="section-header high">
+        <h2>High Priority Quality Criteria</h2>
+        <span>{HIGH_COUNT} criteria</span>
+      </div>
+      <div class="section-description">These quality criteria SHOULD be addressed to ensure product success and user satisfaction.</div>
+      <!-- Repeat recommendation cards for each high priority criteria -->
+    </section>
+
+    <!-- MEDIUM PRIORITY SECTION -->
+    <section class="priority-section">
+      <div class="section-header medium">
+        <h2>Medium Priority Quality Criteria</h2>
+        <span>{MEDIUM_COUNT} criteria</span>
+      </div>
+      <div class="section-description">These quality criteria enhance product quality and should be planned for upcoming sprints.</div>
+      <!-- Repeat recommendation cards for each medium priority criteria -->
+    </section>
+
+    <!-- LOW PRIORITY SECTION (if applicable) -->
+    <section class="priority-section">
+      <div class="section-header low">
+        <h2>Low Priority Quality Criteria</h2>
+        <span>{LOW_COUNT} criteria</span>
+      </div>
+      <div class="section-description">These quality criteria are nice-to-have improvements for the backlog.</div>
+      <!-- Repeat recommendation cards for each low priority criteria -->
+    </section>
+
+
+    <!-- ============================================
+         CROSS-CUTTING CONCERNS
+         ============================================ -->
+    <section class="cross-cutting">
+      <h2>Cross-Cutting Concerns</h2>
+      <p style="margin-bottom: 1.5rem; color: var(--text-light);">These quality aspects span multiple criteria and require coordinated attention across the implementation.</p>
+
+      <!-- CONCERN CARD TEMPLATE -->
+      <div class="concern-card">
+        <h4>{CONCERN_TITLE}</h4>
+        <p>{CONCERN_DESCRIPTION}</p>
+        <div class="concern-categories">
+          <!-- CATEGORY TAG TEMPLATE -->
+          <span class="concern-category">{AFFECTED_CATEGORY}</span>
+          <!-- END CATEGORY TAG TEMPLATE -->
+        </div>
+      </div>
+      <!-- END CONCERN CARD TEMPLATE -->
+    </section>
+
+
+    <!-- ============================================
+         PI PLANNING GUIDANCE
+         ============================================ -->
+    <section class="pi-planning">
+      <h2>PI Planning Guidance</h2>
+      <p style="margin-bottom: 1.5rem; color: var(--text-light);">Suggested sprint-by-sprint approach to systematically address quality criteria.</p>
+
+      <table class="pi-table">
+        <thead>
+          <tr>
+            <th>Sprint</th>
+            <th>Quality Focus</th>
+            <th>Key Activities</th>
+            <th>Criteria Coverage</th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- PI ROW TEMPLATE -->
+          <tr>
+            <td><span class="sprint-badge">{SPRINT_NAME}</span></td>
+            <td>{QUALITY_FOCUS}</td>
+            <td>{KEY_ACTIVITIES}</td>
+            <td>
+              <div class="criteria-tags">
+                <!-- CRITERIA TAG TEMPLATE -->
+                <span class="criteria-tag">{CRITERIA}</span>
+                <!-- END CRITERIA TAG TEMPLATE -->
+              </div>
+            </td>
+          </tr>
+          <!-- END PI ROW TEMPLATE -->
+        </tbody>
+      </table>
+    </section>
+
+
+    <!-- ============================================
+         FOOTER
+         ============================================ -->
+    <footer class="footer">
+      <p>Generated by <a href="https://github.com/agentic-qe/agentic-qe">Agentic QE</a> — <strong>qe-quality-criteria-recommender</strong> (Core QCSD Agent)</p>
+      <p>Analysis Method: AI Semantic Understanding | Framework: James Bach's HTSM v6.3 Quality Criteria</p>
+      <p>Part of the <strong>QCSD Framework</strong> — Quality Conscious Software Delivery for shift-left quality engineering</p>
+      <p style="margin-top: 0.5rem; font-style: italic; opacity: 0.8;">Recommendations require domain expert validation. Use this report to facilitate team discussions, not replace them.</p>
+    </footer>
+
+  </div>
+</body>
+</html>

@@ -1,0 +1,29 @@
+{
+  "version": "3.6.7",
+  "maxConcurrent": 6,
+  "workers": {
+    "pattern-consolidator": {
+      "name": "pattern-consolidator",
+      "enabled": true,
+      "interval": 1800000,
+      "lastRun": null,
+      "status": "pending"
+    },
+    "routing-accuracy-monitor": {
+      "name": "routing-accuracy-monitor",
+      "enabled": true,
+      "interval": 900000,
+      "lastRun": null,
+      "status": "pending"
+    },
+    "coverage-gap-scanner": {
+      "name": "coverage-gap-scanner",
+      "enabled": true,
+      "interval": 3600000,
+      "lastRun": null,
+      "status": "pending"
+    }
+  },
+  "createdAt": "2026-02-15T15:40:59.308Z",
+  "daemonPid": null
+}

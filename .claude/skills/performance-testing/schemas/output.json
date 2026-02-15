@@ -1,0 +1,1184 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://agentic-qe.dev/schemas/performance-testing-output.json",
+  "title": "AQE Performance Testing Skill Output Schema",
+  "description": "Schema for performance-testing skill output validation. Extends the base skill-output template with load testing metrics, SLA validation, bottleneck identification, and multi-tool support (k6, Artillery, JMeter, Gatling).",
+  "type": "object",
+  "required": ["skillName", "version", "timestamp", "status", "trustTier", "output"],
+  "properties": {
+    "skillName": {
+      "type": "string",
+      "const": "performance-testing",
+      "description": "Must be 'performance-testing'"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+(-[a-zA-Z0-9]+)?$",
+      "description": "Semantic version of the skill"
+    },
+    "timestamp": {
+      "type": "string",
+      "type": "string",
+      "description": "ISO 8601 timestamp of output generation"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["success", "partial", "failed", "skipped"],
+      "description": "Overall execution status"
+    },
+    "trustTier": {
+      "type": "integer",
+      "const": 3,
+      "description": "Trust tier 3 indicates full validation with eval suite"
+    },
+    "output": {
+      "type": "object",
+      "required": ["summary", "testType", "metrics"],
+      "properties": {
+        "summary": {
+          "type": "string",
+          "minLength": 50,
+          "maxLength": 2000,
+          "description": "Human-readable summary of performance test results"
+        },
+        "testType": {
+          "type": "string",
+          "enum": ["load", "stress", "endurance", "spike", "volume", "scalability", "smoke", "soak"],
+          "description": "Type of performance test executed"
+        },
+        "score": {
+          "$ref": "#/$defs/performanceScore",
+          "description": "Overall performance score"
+        },
+        "metrics": {
+          "$ref": "#/$defs/performanceMetrics",
+          "description": "Core performance metrics including response times and throughput"
+        },
+        "slaCompliance": {
+          "$ref": "#/$defs/slaCompliance",
+          "description": "SLA/SLO compliance check results"
+        },
+        "bottlenecks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/bottleneck"
+          },
+          "maxItems": 50,
+          "description": "Identified performance bottlenecks"
+        },
+        "findings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/performanceFinding"
+          },
+          "maxItems": 100,
+          "description": "Performance issues and observations"
+        },
+        "recommendations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/performanceRecommendation"
+          },
+          "maxItems": 50,
+          "description": "Optimization recommendations"
+        },
+        "scenarios": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/testScenario"
+          },
+          "maxItems": 20,
+          "description": "Individual test scenario results"
+        },
+        "resourceUtilization": {
+          "$ref": "#/$defs/resourceUtilization",
+          "description": "System resource utilization during test"
+        },
+        "artifacts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/artifact"
+          },
+          "maxItems": 50,
+          "description": "Generated reports and data files"
+        },
+        "timeline": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/timelineEvent"
+          },
+          "description": "Test execution timeline"
+        },
+        "testConfiguration": {
+          "$ref": "#/$defs/testConfiguration",
+          "description": "Configuration used for the performance test"
+        },
+        "comparison": {
+          "$ref": "#/$defs/performanceComparison",
+          "description": "Comparison with baseline or previous run"
+        }
+      }
+    },
+    "metadata": {
+      "$ref": "#/$defs/metadata"
+    },
+    "validation": {
+      "$ref": "#/$defs/validationResult"
+    },
+    "learning": {
+      "$ref": "#/$defs/learningData"
+    }
+  },
+  "$defs": {
+    "performanceScore": {
+      "type": "object",
+      "required": ["value", "max"],
+      "properties": {
+        "value": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Performance score (0=critical issues, 100=excellent performance)"
+        },
+        "max": {
+          "type": "number",
+          "const": 100,
+          "description": "Maximum score is always 100"
+        },
+        "grade": {
+          "type": "string",
+          "pattern": "^[A-F][+-]?$",
+          "description": "Letter grade: A (90-100), B (80-89), C (70-79), D (60-69), F (<60)"
+        },
+        "trend": {
+          "type": "string",
+          "enum": ["improving", "stable", "declining", "unknown"],
+          "description": "Trend compared to previous tests"
+        },
+        "healthStatus": {
+          "type": "string",
+          "enum": ["healthy", "degraded", "critical", "unknown"],
+          "description": "Overall system health during test"
+        }
+      }
+    },
+    "performanceMetrics": {
+      "type": "object",
+      "required": ["responseTime", "throughput"],
+      "properties": {
+        "responseTime": {
+          "$ref": "#/$defs/responseTimeMetrics",
+          "description": "Response time statistics"
+        },
+        "throughput": {
+          "$ref": "#/$defs/throughputMetrics",
+          "description": "Throughput statistics"
+        },
+        "errorRate": {
+          "$ref": "#/$defs/errorRateMetrics",
+          "description": "Error rate statistics"
+        },
+        "concurrency": {
+          "$ref": "#/$defs/concurrencyMetrics",
+          "description": "Concurrency and virtual user metrics"
+        },
+        "dataTransfer": {
+          "$ref": "#/$defs/dataTransferMetrics",
+          "description": "Data transfer metrics"
+        },
+        "custom": {
+          "type": "object",
+          "additionalProperties": {
+            "oneOf": [
+              { "type": "number" },
+              { "type": "string" },
+              { "type": "boolean" }
+            ]
+          },
+          "description": "Custom metrics specific to the test"
+        }
+      }
+    },
+    "responseTimeMetrics": {
+      "type": "object",
+      "properties": {
+        "min": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Minimum response time in milliseconds"
+        },
+        "max": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Maximum response time in milliseconds"
+        },
+        "avg": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Average response time in milliseconds"
+        },
+        "median": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Median (p50) response time in milliseconds"
+        },
+        "p50": {
+          "type": "number",
+          "minimum": 0,
+          "description": "50th percentile response time in milliseconds"
+        },
+        "p75": {
+          "type": "number",
+          "minimum": 0,
+          "description": "75th percentile response time in milliseconds"
+        },
+        "p90": {
+          "type": "number",
+          "minimum": 0,
+          "description": "90th percentile response time in milliseconds"
+        },
+        "p95": {
+          "type": "number",
+          "minimum": 0,
+          "description": "95th percentile response time in milliseconds"
+        },
+        "p99": {
+          "type": "number",
+          "minimum": 0,
+          "description": "99th percentile response time in milliseconds"
+        },
+        "p999": {
+          "type": "number",
+          "minimum": 0,
+          "description": "99.9th percentile response time in milliseconds"
+        },
+        "stdDev": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Standard deviation of response times"
+        },
+        "unit": {
+          "type": "string",
+          "enum": ["ms", "s", "us"],
+          "default": "ms",
+          "description": "Time unit (milliseconds, seconds, microseconds)"
+        }
+      }
+    },
+    "throughputMetrics": {
+      "type": "object",
+      "properties": {
+        "requestsPerSecond": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Average requests per second"
+        },
+        "peakRequestsPerSecond": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Peak requests per second achieved"
+        },
+        "totalRequests": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total number of requests made"
+        },
+        "successfulRequests": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of successful requests"
+        },
+        "failedRequests": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of failed requests"
+        },
+        "transactionsPerSecond": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Business transactions per second"
+        },
+        "iterationsPerSecond": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Test iterations per second"
+        }
+      }
+    },
+    "errorRateMetrics": {
+      "type": "object",
+      "properties": {
+        "percentage": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Error rate as percentage"
+        },
+        "totalErrors": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total number of errors"
+        },
+        "errorsByType": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "description": "Error counts by type (e.g., timeout, 5xx, connection)"
+        },
+        "errorsByEndpoint": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "description": "Error counts by endpoint"
+        }
+      }
+    },
+    "concurrencyMetrics": {
+      "type": "object",
+      "properties": {
+        "virtualUsers": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of virtual users (VUs)"
+        },
+        "peakConcurrentUsers": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Peak concurrent users during test"
+        },
+        "avgConcurrentUsers": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Average concurrent users"
+        },
+        "rampUpTime": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Ramp-up time in seconds"
+        },
+        "steadyStateTime": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Steady state duration in seconds"
+        },
+        "rampDownTime": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Ramp-down time in seconds"
+        }
+      }
+    },
+    "dataTransferMetrics": {
+      "type": "object",
+      "properties": {
+        "totalDataSent": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total data sent in bytes"
+        },
+        "totalDataReceived": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total data received in bytes"
+        },
+        "avgDataSentPerRequest": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Average data sent per request in bytes"
+        },
+        "avgDataReceivedPerRequest": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Average data received per request in bytes"
+        },
+        "bandwidthUtilization": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Bandwidth utilization percentage"
+        }
+      }
+    },
+    "slaCompliance": {
+      "type": "object",
+      "required": ["overallCompliant"],
+      "properties": {
+        "overallCompliant": {
+          "type": "boolean",
+          "description": "Whether all SLAs are met"
+        },
+        "thresholds": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/slaThreshold"
+          },
+          "description": "Individual SLA threshold results"
+        },
+        "compliancePercentage": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Percentage of SLAs met"
+        },
+        "violations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/slaViolation"
+          },
+          "description": "SLA violations detected"
+        }
+      }
+    },
+    "slaThreshold": {
+      "type": "object",
+      "required": ["metric", "operator", "threshold", "actual", "passed"],
+      "properties": {
+        "metric": {
+          "type": "string",
+          "description": "Metric name (e.g., 'p95_response_time', 'error_rate')"
+        },
+        "operator": {
+          "type": "string",
+          "enum": ["<", "<=", ">", ">=", "==", "!="],
+          "description": "Comparison operator"
+        },
+        "threshold": {
+          "type": "number",
+          "description": "Threshold value"
+        },
+        "actual": {
+          "type": "number",
+          "description": "Actual measured value"
+        },
+        "passed": {
+          "type": "boolean",
+          "description": "Whether threshold was met"
+        },
+        "unit": {
+          "type": "string",
+          "description": "Unit of measurement"
+        },
+        "description": {
+          "type": "string",
+          "description": "Human-readable description"
+        }
+      }
+    },
+    "slaViolation": {
+      "type": "object",
+      "required": ["metric", "severity"],
+      "properties": {
+        "metric": {
+          "type": "string",
+          "description": "Violated metric name"
+        },
+        "severity": {
+          "type": "string",
+          "enum": ["critical", "high", "medium", "low"],
+          "description": "Severity of the violation"
+        },
+        "expected": {
+          "type": "number",
+          "description": "Expected threshold value"
+        },
+        "actual": {
+          "type": "number",
+          "description": "Actual measured value"
+        },
+        "deviation": {
+          "type": "number",
+          "description": "Percentage deviation from threshold"
+        },
+        "impact": {
+          "type": "string",
+          "description": "Business impact description"
+        },
+        "timestamp": {
+          "type": "string",
+          "type": "string",
+          "description": "When violation was detected"
+        }
+      }
+    },
+    "bottleneck": {
+      "type": "object",
+      "required": ["id", "type", "severity", "description"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^PERF-\\d{3,6}$",
+          "description": "Unique bottleneck identifier (e.g., PERF-001)"
+        },
+        "type": {
+          "type": "string",
+          "enum": ["cpu", "memory", "disk", "network", "database", "api", "cache", "queue", "thread-pool", "connection-pool", "external-service", "application", "other"],
+          "description": "Type of bottleneck"
+        },
+        "severity": {
+          "type": "string",
+          "enum": ["critical", "high", "medium", "low"],
+          "description": "Severity of the bottleneck"
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 1000,
+          "description": "Detailed description of the bottleneck"
+        },
+        "component": {
+          "type": "string",
+          "description": "Affected system component"
+        },
+        "threshold": {
+          "type": "number",
+          "description": "Threshold at which bottleneck occurs (e.g., VU count)"
+        },
+        "impact": {
+          "type": "string",
+          "description": "Performance impact description"
+        },
+        "evidence": {
+          "type": "string",
+          "maxLength": 2000,
+          "description": "Evidence supporting the bottleneck identification"
+        },
+        "recommendation": {
+          "type": "string",
+          "description": "Recommended fix for the bottleneck"
+        },
+        "estimatedImprovement": {
+          "type": "string",
+          "description": "Estimated improvement if bottleneck is resolved"
+        }
+      }
+    },
+    "performanceFinding": {
+      "type": "object",
+      "required": ["id", "title", "severity"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^PERF-\\d{3,6}$",
+          "description": "Unique finding identifier"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 200,
+          "description": "Finding title"
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 2000,
+          "description": "Detailed finding description"
+        },
+        "severity": {
+          "type": "string",
+          "enum": ["critical", "high", "medium", "low", "info"],
+          "description": "Finding severity"
+        },
+        "category": {
+          "type": "string",
+          "enum": ["latency", "throughput", "error-rate", "resource", "scalability", "stability", "memory-leak", "connection-exhaustion", "timeout", "other"],
+          "description": "Finding category"
+        },
+        "metric": {
+          "type": "string",
+          "description": "Related metric"
+        },
+        "value": {
+          "type": "number",
+          "description": "Measured value"
+        },
+        "threshold": {
+          "type": "number",
+          "description": "Threshold value"
+        },
+        "location": {
+          "$ref": "#/$defs/location",
+          "description": "Location of the issue"
+        },
+        "evidence": {
+          "type": "string",
+          "description": "Supporting evidence"
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Confidence in finding (0.0-1.0)"
+        }
+      }
+    },
+    "performanceRecommendation": {
+      "type": "object",
+      "required": ["id", "title", "priority"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^REC-\\d{3,6}$",
+          "description": "Unique recommendation identifier"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 200,
+          "description": "Recommendation title"
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 2000,
+          "description": "Detailed recommendation"
+        },
+        "priority": {
+          "type": "string",
+          "enum": ["critical", "high", "medium", "low"],
+          "description": "Implementation priority"
+        },
+        "effort": {
+          "type": "string",
+          "enum": ["trivial", "low", "medium", "high", "major"],
+          "description": "Estimated implementation effort"
+        },
+        "impact": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10,
+          "description": "Expected performance impact (1-10)"
+        },
+        "category": {
+          "type": "string",
+          "enum": ["optimization", "scaling", "caching", "database", "infrastructure", "code", "configuration", "architecture"],
+          "description": "Recommendation category"
+        },
+        "relatedBottlenecks": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^PERF-\\d{3,6}$"
+          },
+          "description": "Related bottleneck IDs"
+        },
+        "estimatedImprovement": {
+          "type": "string",
+          "description": "Estimated performance improvement"
+        },
+        "codeExample": {
+          "type": "object",
+          "properties": {
+            "before": { "type": "string" },
+            "after": { "type": "string" },
+            "language": { "type": "string" }
+          },
+          "description": "Before/after code examples"
+        },
+        "resources": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["title", "url"],
+            "properties": {
+              "title": { "type": "string" },
+              "url": { "type": "string" }
+            }
+          },
+          "maxItems": 10,
+          "description": "External resources"
+        }
+      }
+    },
+    "testScenario": {
+      "type": "object",
+      "required": ["name", "status"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Scenario name"
+        },
+        "description": {
+          "type": "string",
+          "description": "Scenario description"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["passed", "failed", "skipped"],
+          "description": "Scenario execution status"
+        },
+        "virtualUsers": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Virtual users for this scenario"
+        },
+        "duration": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Scenario duration in seconds"
+        },
+        "metrics": {
+          "$ref": "#/$defs/performanceMetrics",
+          "description": "Scenario-specific metrics"
+        },
+        "thresholdsResult": {
+          "type": "string",
+          "enum": ["passed", "failed", "partial"],
+          "description": "Whether scenario met its thresholds"
+        }
+      }
+    },
+    "resourceUtilization": {
+      "type": "object",
+      "properties": {
+        "cpu": {
+          "$ref": "#/$defs/resourceMetric",
+          "description": "CPU utilization"
+        },
+        "memory": {
+          "$ref": "#/$defs/resourceMetric",
+          "description": "Memory utilization"
+        },
+        "disk": {
+          "$ref": "#/$defs/resourceMetric",
+          "description": "Disk I/O utilization"
+        },
+        "network": {
+          "$ref": "#/$defs/resourceMetric",
+          "description": "Network utilization"
+        },
+        "database": {
+          "type": "object",
+          "properties": {
+            "connectionPoolUsage": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 100,
+              "description": "Connection pool usage percentage"
+            },
+            "queryTime": {
+              "type": "number",
+              "minimum": 0,
+              "description": "Average query time in ms"
+            },
+            "activeConnections": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Active database connections"
+            }
+          },
+          "description": "Database metrics"
+        }
+      }
+    },
+    "resourceMetric": {
+      "type": "object",
+      "properties": {
+        "avg": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Average utilization percentage"
+        },
+        "max": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Maximum utilization percentage"
+        },
+        "min": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Minimum utilization percentage"
+        },
+        "p95": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "95th percentile utilization"
+        }
+      }
+    },
+    "testConfiguration": {
+      "type": "object",
+      "properties": {
+        "target": {
+          "type": "string",
+          "description": "Test target (URL or service)"
+        },
+        "tool": {
+          "type": "string",
+          "enum": ["k6", "artillery", "jmeter", "gatling", "locust", "wrk", "ab", "vegeta", "custom"],
+          "description": "Performance testing tool used"
+        },
+        "toolVersion": {
+          "type": "string",
+          "description": "Version of the testing tool"
+        },
+        "testType": {
+          "type": "string",
+          "enum": ["load", "stress", "endurance", "spike", "volume", "scalability", "smoke", "soak"],
+          "description": "Type of performance test"
+        },
+        "duration": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total test duration in seconds"
+        },
+        "virtualUsers": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Number of virtual users"
+        },
+        "rampUp": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Ramp-up time in seconds"
+        },
+        "steadyState": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Steady state duration in seconds"
+        },
+        "rampDown": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Ramp-down time in seconds"
+        },
+        "thresholds": {
+          "type": "object",
+          "additionalProperties": {
+            "type": ["string", "number", "array"]
+          },
+          "description": "Configured thresholds"
+        },
+        "scenarios": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Scenario names"
+        },
+        "endpoints": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Endpoints tested"
+        },
+        "environment": {
+          "type": "string",
+          "enum": ["development", "staging", "production", "ci"],
+          "description": "Test environment"
+        }
+      }
+    },
+    "performanceComparison": {
+      "type": "object",
+      "properties": {
+        "baselineVersion": {
+          "type": "string",
+          "description": "Baseline version for comparison"
+        },
+        "currentVersion": {
+          "type": "string",
+          "description": "Current version being tested"
+        },
+        "comparisonType": {
+          "type": "string",
+          "enum": ["baseline", "previous", "release", "custom"],
+          "description": "Type of comparison"
+        },
+        "regressionDetected": {
+          "type": "boolean",
+          "description": "Whether performance regression was detected"
+        },
+        "tolerancePercentage": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Allowed deviation percentage"
+        },
+        "metrics": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/metricComparison"
+          },
+          "description": "Individual metric comparisons"
+        }
+      }
+    },
+    "metricComparison": {
+      "type": "object",
+      "required": ["metric", "baseline", "current"],
+      "properties": {
+        "metric": {
+          "type": "string",
+          "description": "Metric name"
+        },
+        "baseline": {
+          "type": "number",
+          "description": "Baseline value"
+        },
+        "current": {
+          "type": "number",
+          "description": "Current value"
+        },
+        "change": {
+          "type": "number",
+          "description": "Absolute change"
+        },
+        "changePercentage": {
+          "type": "number",
+          "description": "Change as percentage"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["improved", "stable", "degraded", "regression"],
+          "description": "Comparison status"
+        },
+        "withinTolerance": {
+          "type": "boolean",
+          "description": "Whether change is within tolerance"
+        }
+      }
+    },
+    "location": {
+      "type": "object",
+      "properties": {
+        "endpoint": {
+          "type": "string",
+          "description": "API endpoint"
+        },
+        "method": {
+          "type": "string",
+          "enum": ["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"],
+          "description": "HTTP method"
+        },
+        "service": {
+          "type": "string",
+          "description": "Service name"
+        },
+        "component": {
+          "type": "string",
+          "description": "System component"
+        },
+        "file": {
+          "type": "string",
+          "description": "Source file if applicable"
+        },
+        "line": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Line number if applicable"
+        }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "required": ["type", "path"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["report", "data", "log", "chart", "flamegraph", "profile", "trace", "config"],
+          "description": "Artifact type"
+        },
+        "path": {
+          "type": "string",
+          "maxLength": 500,
+          "description": "Path to artifact"
+        },
+        "format": {
+          "type": "string",
+          "enum": ["json", "html", "csv", "xml", "txt", "png", "svg", "pdf"],
+          "description": "Artifact format"
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 500,
+          "description": "Artifact description"
+        },
+        "sizeBytes": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "File size in bytes"
+        }
+      }
+    },
+    "timelineEvent": {
+      "type": "object",
+      "required": ["timestamp", "event"],
+      "properties": {
+        "timestamp": {
+          "type": "string",
+          "type": "string",
+          "description": "Event timestamp"
+        },
+        "event": {
+          "type": "string",
+          "maxLength": 200,
+          "description": "Event description"
+        },
+        "type": {
+          "type": "string",
+          "enum": ["start", "ramp-up", "steady-state", "ramp-down", "checkpoint", "warning", "error", "complete"],
+          "description": "Event type"
+        },
+        "durationMs": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Duration since previous event"
+        },
+        "phase": {
+          "type": "string",
+          "enum": ["initialization", "warmup", "load", "cooldown", "analysis", "reporting"],
+          "description": "Test phase"
+        },
+        "virtualUsers": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Virtual users at this point"
+        }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "executionTimeMs": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 86400000,
+          "description": "Total execution time in milliseconds (max 24 hours)"
+        },
+        "toolsUsed": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["k6", "artillery", "jmeter", "gatling", "locust", "wrk", "ab", "vegeta", "prometheus", "grafana", "datadog", "newrelic"]
+          },
+          "uniqueItems": true,
+          "description": "Performance tools used"
+        },
+        "agentId": {
+          "type": "string",
+          "pattern": "^qe-[a-z][a-z0-9-]*$",
+          "description": "Agent ID (e.g., qe-performance-tester)"
+        },
+        "modelUsed": {
+          "type": "string",
+          "description": "LLM model used for analysis"
+        },
+        "inputHash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$",
+          "description": "SHA-256 hash of input"
+        },
+        "targetUrl": {
+          "type": "string",
+          "type": "string",
+          "description": "Target URL"
+        },
+        "environment": {
+          "type": "string",
+          "enum": ["development", "staging", "production", "ci"],
+          "description": "Execution environment"
+        },
+        "retryCount": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10,
+          "description": "Number of retries"
+        }
+      }
+    },
+    "validationResult": {
+      "type": "object",
+      "properties": {
+        "schemaValid": {
+          "type": "boolean",
+          "description": "Passes JSON schema validation"
+        },
+        "contentValid": {
+          "type": "boolean",
+          "description": "Passes content validation"
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Confidence score"
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "maxItems": 20,
+          "description": "Validation warnings"
+        },
+        "errors": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "maxItems": 20,
+          "description": "Validation errors"
+        },
+        "validatorVersion": {
+          "type": "string",
+          "pattern": "^\\d+\\.\\d+\\.\\d+$",
+          "description": "Validator version"
+        }
+      }
+    },
+    "learningData": {
+      "type": "object",
+      "properties": {
+        "patternsDetected": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "maxItems": 20,
+          "description": "Performance patterns detected (e.g., n+1-query, connection-pool-exhaustion)"
+        },
+        "reward": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Reward signal for learning (0.0-1.0)"
+        },
+        "feedbackLoop": {
+          "type": "object",
+          "properties": {
+            "previousRunId": {
+              "type": "string",
+              "type": "string",
+              "description": "Previous run ID for comparison"
+            },
+            "improvement": {
+              "type": "number",
+              "minimum": -1,
+              "maximum": 1,
+              "description": "Improvement over previous run"
+            }
+          }
+        },
+        "newPerformancePatterns": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "pattern": { "type": "string" },
+              "bottleneckType": { "type": "string" },
+              "confidence": { "type": "number" }
+            }
+          },
+          "description": "New performance patterns learned"
+        }
+      }
+    }
+  }
+}

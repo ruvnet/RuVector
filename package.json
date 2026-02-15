@@ -56,5 +56,8 @@
   },
   "dependencies": {
     "@claude-flow/memory": "^3.0.0-alpha.7"
+  },
+  "devDependencies": {
+    "agentic-qe": "^3.6.7"
   }
 }

@@ -1,0 +1,1107 @@
+# =============================================================================
+# AQE Skill Evaluation Test Suite: Compliance Testing v1.0.0
+# =============================================================================
+#
+# Comprehensive evaluation suite for the compliance-testing skill.
+# Tests regulatory compliance detection across GDPR, HIPAA, SOC2, PCI-DSS, CCPA.
+#
+# Coverage:
+# - Data privacy controls (GDPR/CCPA)
+# - Healthcare data protection (HIPAA)
+# - Payment security (PCI-DSS)
+# - Security controls (SOC2)
+# - Access control and audit logging
+# - Multi-model consistency
+#
+# Schema: .claude/skills/.validation/schemas/skill-eval.schema.json
+# Runner: scripts/run-skill-eval.ts
+#
+# =============================================================================
+
+skill: compliance-testing
+version: 1.0.0
+description: >
+  Comprehensive evaluation suite for the compliance-testing skill.
+  Validates detection of compliance violations across major regulatory frameworks
+  (GDPR, HIPAA, SOC2, PCI-DSS, CCPA), control assessment accuracy, risk scoring,
+  and remediation quality. Integrates with ReasoningBank for pattern learning.
+
+# =============================================================================
+# Multi-Model Configuration
+# =============================================================================
+
+models_to_test:
+  - claude-3.5-sonnet    # Primary model (high accuracy expected)
+  - claude-3-haiku       # Fast model (minimum quality threshold)
+  - gpt-4o               # Cross-vendor validation
+
+# =============================================================================
+# MCP Integration Configuration
+# =============================================================================
+
+mcp_integration:
+  enabled: true
+  namespace: skill-validation
+
+  query_patterns: true
+  track_outcomes: true
+  store_patterns: true
+  share_learning: true
+  update_quality_gate: true
+
+  target_agents:
+    - qe-learning-coordinator
+    - qe-queen-coordinator
+    - qe-security-scanner
+    - qe-security-auditor
+
+# =============================================================================
+# ReasoningBank Learning Configuration
+# =============================================================================
+
+learning:
+  store_success_patterns: true
+  store_failure_patterns: true
+  pattern_ttl_days: 90
+  min_confidence_to_store: 0.7
+  cross_model_comparison: true
+
+# =============================================================================
+# Result Format Configuration
+# =============================================================================
+
+result_format:
+  json_output: true
+  markdown_report: true
+  include_raw_output: false
+  include_timing: true
+  include_token_usage: true
+
+# =============================================================================
+# Environment Setup
+# =============================================================================
+
+setup:
+  required_tools:
+    - jq       # JSON processing
+
+  environment_variables:
+    COMPLIANCE_AUDIT_MODE: "comprehensive"
+    GDPR_ENABLED: "true"
+    HIPAA_ENABLED: "true"
+    PCI_DSS_ENABLED: "true"
+    SOC2_ENABLED: "true"
+    CCPA_ENABLED: "true"
+
+  fixtures:
+    - name: gdpr_violation_app
+      path: fixtures/gdpr-violation.js
+      content: |
+        // GDPR Violation: No consent tracking, no data subject rights
+        const express = require('express');
+        const app = express();
+
+        // No consent management
+        app.post('/newsletter/subscribe', (req, res) => {
+          db.insert('subscribers', {
+            email: req.body.email,
+            // No consent timestamp, no IP, no opt-in record
+          });
+          res.send('Subscribed!');
+        });
+
+        // No right to erasure
+        app.delete('/user/:id', (req, res) => {
+          // Deletes user but not their data from other tables
+          db.delete('users', { id: req.params.id });
+          // Still has: orders, logs, analytics, backups
+          res.send('Deleted');
+        });
+
+        // No data portability
+        // Missing /user/:id/export endpoint
+
+    - name: hipaa_violation_app
+      path: fixtures/hipaa-violation.py
+      content: |
+        # HIPAA Violation: PHI exposed, no encryption, no audit logging
+        from flask import Flask, request
+        import sqlite3
+
+        app = Flask(__name__)
+
+        @app.route('/patient/<patient_id>')
+        def get_patient(patient_id):
+            # No access control check
+            # No audit logging
+            conn = sqlite3.connect('patients.db')
+            cursor = conn.cursor()
+            # PHI returned without encryption
+            cursor.execute(f"SELECT ssn, medical_history, diagnosis FROM patients WHERE id = {patient_id}")
+            return str(cursor.fetchone())  # Plain text response with PHI
+
+        @app.route('/patient', methods=['POST'])
+        def create_patient():
+            # PHI stored without encryption
+            data = request.json
+            conn = sqlite3.connect('patients.db')
+            cursor = conn.cursor()
+            cursor.execute(f"""
+                INSERT INTO patients (ssn, name, medical_history)
+                VALUES ('{data['ssn']}', '{data['name']}', '{data['history']}')
+            """)
+            # No audit log of PHI access
+            return 'Created'
+
+    - name: pci_dss_violation_app
+      path: fixtures/pci-violation.js
+      content: |
+        // PCI-DSS Violation: Card data stored, CVV logged
+        const express = require('express');
+        const app = express();
+
+        app.post('/payment', (req, res) => {
+          const { cardNumber, expiry, cvv, amount } = req.body;
+
+          // Violation: Storing full card number
+          db.insert('payments', {
+            card_number: cardNumber,  // Should only store last 4
+            expiry: expiry,           // Should not store
+            cvv: cvv,                 // NEVER store CVV
+            amount: amount
+          });
+
+          // Violation: Logging sensitive card data
+          console.log(`Payment processed: ${cardNumber}, CVV: ${cvv}`);
+
+          res.send('Payment processed');
+        });
+
+        // Violation: Exposing card data via API
+        app.get('/payments/:id', (req, res) => {
+          const payment = db.findOne('payments', { id: req.params.id });
+          res.json(payment);  // Returns full card number
+        });
+
+# =============================================================================
+# TEST CASES
+# =============================================================================
+
+test_cases:
+  # ---------------------------------------------------------------------------
+  # CATEGORY: GDPR Compliance (Data Privacy)
+  # ---------------------------------------------------------------------------
+
+  - id: tc001_gdpr_consent_violation
+    description: "Detect missing consent management for data collection"
+    category: gdpr
+    priority: critical
+
+    input:
+      code: |
+        app.post('/newsletter/subscribe', (req, res) => {
+          db.insert('subscribers', {
+            email: req.body.email,
+            subscribed_at: new Date()
+          });
+          res.send('Subscribed!');
+        });
+      context:
+        language: javascript
+        framework: express
+        regulation: GDPR
+
+    expected_output:
+      must_contain:
+        - "consent"
+        - "GDPR"
+        - "Article 7"
+        - "lawful basis"
+      must_not_contain:
+        - "compliant"
+        - "no issues"
+      severity_classification: high
+      finding_count:
+        min: 1
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+      reasoning_quality_min: 0.7
+
+  - id: tc002_gdpr_right_to_erasure
+    description: "Detect incomplete implementation of right to erasure (Article 17)"
+    category: gdpr
+    priority: critical
+
+    input:
+      code: |
+        app.delete('/user/:id', async (req, res) => {
+          const userId = req.params.id;
+          await db.delete('users', { id: userId });
+          // Orders, logs, and analytics still contain user data
+          res.send('User deleted');
+        });
+      context:
+        language: javascript
+        framework: express
+        regulation: GDPR
+
+    expected_output:
+      must_contain:
+        - "erasure"
+        - "Article 17"
+        - "right to be forgotten"
+        - "incomplete"
+        - "related data"
+      must_match_regex:
+        - "GDPR-Art17|Art\\.?\\s*17"
+      severity_classification: high
+      finding_count:
+        min: 1
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.7
+
+  - id: tc003_gdpr_data_portability
+    description: "Detect missing data portability implementation (Article 20)"
+    category: gdpr
+    priority: high
+
+    input:
+      code: |
+        // User management API - No data export endpoint
+        app.get('/user/:id', (req, res) => {
+          const user = db.findOne('users', { id: req.params.id });
+          res.json(user);
+        });
+
+        app.put('/user/:id', (req, res) => {
+          db.update('users', { id: req.params.id }, req.body);
+          res.send('Updated');
+        });
+
+        // Missing: GET /user/:id/export
+      context:
+        language: javascript
+        framework: express
+        regulation: GDPR
+
+    expected_output:
+      must_contain:
+        - "portability"
+        - "Article 20"
+        - "export"
+        - "machine-readable"
+      severity_classification: medium
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.7
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: HIPAA Compliance (Healthcare Data)
+  # ---------------------------------------------------------------------------
+
+  - id: tc004_hipaa_phi_encryption
+    description: "Detect unencrypted PHI storage and transmission"
+    category: hipaa
+    priority: critical
+
+    input:
+      code: |
+        @app.route('/patient', methods=['POST'])
+        def create_patient():
+            data = request.json
+            conn = sqlite3.connect('patients.db')
+            cursor = conn.cursor()
+            cursor.execute(f"""
+                INSERT INTO patients (ssn, name, diagnosis, medical_history)
+                VALUES ('{data['ssn']}', '{data['name']}', '{data['diagnosis']}', '{data['history']}')
+            """)
+            conn.commit()
+            return 'Patient created'
+      context:
+        language: python
+        framework: flask
+        regulation: HIPAA
+
+    expected_output:
+      must_contain:
+        - "PHI"
+        - "encryption"
+        - "HIPAA"
+        - "protected health information"
+        - "encrypt at rest"
+      must_match_regex:
+        - "HIPAA-[0-9]+|164\\.312"
+      severity_classification: critical
+      finding_count:
+        min: 1
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+      reasoning_quality_min: 0.75
+
+  - id: tc005_hipaa_audit_logging
+    description: "Detect missing audit logging for PHI access"
+    category: hipaa
+    priority: critical
+
+    input:
+      code: |
+        @app.route('/patient/<patient_id>')
+        def get_patient(patient_id):
+            conn = sqlite3.connect('patients.db')
+            cursor = conn.cursor()
+            cursor.execute(f"SELECT * FROM patients WHERE id = {patient_id}")
+            return jsonify(cursor.fetchone())
+      context:
+        language: python
+        framework: flask
+        regulation: HIPAA
+
+    expected_output:
+      must_contain:
+        - "audit"
+        - "logging"
+        - "HIPAA"
+        - "access"
+        - "who accessed"
+      severity_classification: high
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.7
+
+  - id: tc006_hipaa_access_control
+    description: "Detect missing access control for PHI"
+    category: hipaa
+    priority: critical
+
+    input:
+      code: |
+        @app.route('/patient/<patient_id>/records')
+        def get_patient_records(patient_id):
+            # No authentication check
+            # No authorization check (role-based access)
+            # No minimum necessary principle
+            conn = sqlite3.connect('patients.db')
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM patient_records WHERE patient_id = ?", [patient_id])
+            return jsonify(cursor.fetchall())  # Returns all fields, not minimum necessary
+      context:
+        language: python
+        framework: flask
+        regulation: HIPAA
+
+    expected_output:
+      must_contain:
+        - "access control"
+        - "authorization"
+        - "minimum necessary"
+        - "role-based"
+      severity_classification: critical
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.7
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: PCI-DSS Compliance (Payment Card Data)
+  # ---------------------------------------------------------------------------
+
+  - id: tc007_pci_card_storage
+    description: "Detect prohibited storage of full card numbers"
+    category: pci-dss
+    priority: critical
+
+    input:
+      code: |
+        app.post('/payment', (req, res) => {
+          const { cardNumber, expiry, amount } = req.body;
+
+          db.insert('payments', {
+            card_number: cardNumber,  // Full card number stored
+            expiry_date: expiry,
+            amount: amount
+          });
+
+          res.send('Payment processed');
+        });
+      context:
+        language: javascript
+        framework: express
+        regulation: PCI-DSS
+
+    expected_output:
+      must_contain:
+        - "PCI"
+        - "card number"
+        - "storage"
+        - "tokenize"
+        - "last 4"
+      must_match_regex:
+        - "PCI-DSS|Requirement\\s*3"
+      severity_classification: critical
+      finding_count:
+        min: 1
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+
+  - id: tc008_pci_cvv_storage
+    description: "Detect prohibited CVV/CVC storage"
+    category: pci-dss
+    priority: critical
+
+    input:
+      code: |
+        app.post('/checkout', (req, res) => {
+          const { cardNumber, cvv, expiry } = req.body;
+
+          // Process payment
+          const result = paymentGateway.charge({
+            card: cardNumber,
+            cvv: cvv,
+            exp: expiry
+          });
+
+          // Store for later reference (VIOLATION)
+          db.insert('transactions', {
+            card_last4: cardNumber.slice(-4),
+            cvv: cvv,  // NEVER store CVV
+            transaction_id: result.id
+          });
+
+          res.json(result);
+        });
+      context:
+        language: javascript
+        framework: express
+        regulation: PCI-DSS
+
+    expected_output:
+      must_contain:
+        - "CVV"
+        - "never store"
+        - "PCI"
+        - "Requirement 3.2"
+      severity_classification: critical
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+
+  - id: tc009_pci_logging_card_data
+    description: "Detect card data in logs"
+    category: pci-dss
+    priority: critical
+
+    input:
+      code: |
+        app.post('/payment', (req, res) => {
+          const { cardNumber, amount } = req.body;
+
+          // Log the transaction (VIOLATION)
+          console.log(`Processing payment: card=${cardNumber}, amount=${amount}`);
+          logger.info({ card: cardNumber, amount }, 'Payment request received');
+
+          // Process payment
+          const result = gateway.charge({ card: cardNumber, amount });
+
+          res.json(result);
+        });
+      context:
+        language: javascript
+        framework: express
+        regulation: PCI-DSS
+
+    expected_output:
+      must_contain:
+        - "log"
+        - "card"
+        - "mask"
+        - "PCI"
+      severity_classification: high
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.7
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: SOC2 Compliance (Security Controls)
+  # ---------------------------------------------------------------------------
+
+  - id: tc010_soc2_access_logging
+    description: "Detect missing access logging for SOC2 CC6.1"
+    category: soc2
+    priority: high
+
+    input:
+      code: |
+        app.get('/admin/users', requireAdmin, (req, res) => {
+          // No access logging
+          const users = db.findAll('users');
+          res.json(users);
+        });
+
+        app.delete('/admin/users/:id', requireAdmin, (req, res) => {
+          // No access logging for destructive operation
+          db.delete('users', { id: req.params.id });
+          res.send('Deleted');
+        });
+      context:
+        language: javascript
+        framework: express
+        regulation: SOC2
+
+    expected_output:
+      must_contain:
+        - "SOC2"
+        - "CC6"
+        - "logging"
+        - "audit trail"
+      severity_classification: high
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.7
+
+  - id: tc011_soc2_change_management
+    description: "Detect missing change management controls for SOC2 CC8.1"
+    category: soc2
+    priority: medium
+
+    input:
+      code: |
+        // Deployment script - no change management
+        const deploy = async () => {
+          // No approval workflow
+          // No change tracking
+          // No rollback capability
+
+          await executeSQL('ALTER TABLE users ADD COLUMN admin BOOLEAN');
+          await restartService('api');
+          console.log('Deployed!');
+        };
+
+        deploy();
+      context:
+        language: javascript
+        framework: nodejs
+        regulation: SOC2
+
+    expected_output:
+      must_contain:
+        - "SOC2"
+        - "change management"
+        - "CC8"
+        - "approval"
+        - "rollback"
+      severity_classification: medium
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.6
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: CCPA Compliance (California Consumer Privacy)
+  # ---------------------------------------------------------------------------
+
+  - id: tc012_ccpa_opt_out
+    description: "Detect missing 'Do Not Sell' opt-out mechanism"
+    category: ccpa
+    priority: high
+
+    input:
+      code: |
+        // Data sharing API - No opt-out mechanism
+        app.post('/analytics/share', (req, res) => {
+          const userData = db.findOne('users', { id: req.body.userId });
+
+          // Share data with third parties without opt-out check
+          thirdPartyAnalytics.send({
+            email: userData.email,
+            browsing_history: userData.history,
+            purchases: userData.purchases
+          });
+
+          res.send('Data shared');
+        });
+      context:
+        language: javascript
+        framework: express
+        regulation: CCPA
+
+    expected_output:
+      must_contain:
+        - "CCPA"
+        - "opt-out"
+        - "do not sell"
+        - "consumer"
+      severity_classification: high
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.7
+
+  - id: tc013_ccpa_disclosure
+    description: "Detect missing data collection disclosure"
+    category: ccpa
+    priority: high
+
+    input:
+      code: |
+        // User signup - no disclosure of data practices
+        app.post('/signup', (req, res) => {
+          const user = db.insert('users', {
+            email: req.body.email,
+            name: req.body.name,
+            ip_address: req.ip,
+            device_info: req.headers['user-agent'],
+            location: geoip.lookup(req.ip)
+          });
+
+          // Collect data without disclosing what's collected
+          // No link to privacy policy
+          // No categories of data disclosed
+
+          res.json({ success: true });
+        });
+      context:
+        language: javascript
+        framework: express
+        regulation: CCPA
+
+    expected_output:
+      must_contain:
+        - "CCPA"
+        - "disclosure"
+        - "categories"
+        - "privacy"
+      severity_classification: medium
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.7
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Negative Tests (Compliant Code)
+  # ---------------------------------------------------------------------------
+
+  - id: tc014_compliant_gdpr_code
+    description: "Verify compliant GDPR implementation is not flagged"
+    category: negative
+    priority: high
+
+    input:
+      code: |
+        // GDPR-compliant user data handling
+        app.post('/newsletter/subscribe', (req, res) => {
+          // Verify consent
+          if (!req.body.consent || !req.body.consent.marketing) {
+            return res.status(400).json({ error: 'Consent required' });
+          }
+
+          db.insert('subscribers', {
+            email: req.body.email,
+            consent: {
+              marketing: true,
+              timestamp: new Date().toISOString(),
+              ip_address: req.ip,
+              version: 'consent-v2.1'
+            }
+          });
+
+          res.json({ success: true, message: 'Subscribed with consent' });
+        });
+
+        // Right to erasure implementation
+        app.delete('/user/:id/data', async (req, res) => {
+          const userId = req.params.id;
+
+          // Delete from all tables
+          await Promise.all([
+            db.delete('users', { id: userId }),
+            db.delete('orders', { user_id: userId }),
+            db.delete('analytics', { user_id: userId }),
+            db.delete('preferences', { user_id: userId })
+          ]);
+
+          // Log the erasure (retain audit log)
+          await db.insert('audit_log', {
+            action: 'GDPR_ERASURE',
+            user_id: userId,
+            timestamp: new Date().toISOString()
+          });
+
+          res.json({ success: true, message: 'All data erased' });
+        });
+
+        // Data portability
+        app.get('/user/:id/export', async (req, res) => {
+          const userId = req.params.id;
+          const userData = await collectAllUserData(userId);
+
+          res.json({
+            format: 'JSON',
+            schema_version: '1.0',
+            exported_at: new Date().toISOString(),
+            data: userData
+          });
+        });
+      context:
+        language: javascript
+        framework: express
+        regulation: GDPR
+
+    expected_output:
+      must_contain:
+        - "compliant"
+        - "consent"
+        - "erasure"
+        - "portability"
+      must_not_contain:
+        - "critical"
+        - "violation"
+        - "missing"
+      finding_count:
+        max: 2  # Allow informational findings only
+
+    validation:
+      schema_check: true
+      allow_partial: true
+
+  - id: tc015_compliant_pci_code
+    description: "Verify PCI-DSS compliant payment handling is not flagged"
+    category: negative
+    priority: high
+
+    input:
+      code: |
+        // PCI-DSS compliant payment processing
+        const processPayment = async (req, res) => {
+          const { paymentToken, amount } = req.body;  // Only token, no raw card data
+
+          // Log without sensitive data
+          logger.info({
+            amount,
+            tokenId: paymentToken.slice(0, 8) + '***',
+            timestamp: new Date().toISOString()
+          }, 'Processing payment');
+
+          // Process via tokenized gateway
+          const result = await paymentGateway.charge({
+            token: paymentToken,
+            amount
+          });
+
+          // Store only safe reference
+          await db.insert('transactions', {
+            transaction_id: result.id,
+            card_last4: result.card.last4,
+            card_brand: result.card.brand,
+            amount,
+            status: result.status
+          });
+
+          res.json({
+            success: true,
+            transactionId: result.id
+          });
+        };
+      context:
+        language: javascript
+        framework: express
+        regulation: PCI-DSS
+
+    expected_output:
+      must_contain:
+        - "token"
+        - "compliant"
+      must_not_contain:
+        - "CVV"
+        - "card number"
+        - "violation"
+        - "critical"
+      finding_count:
+        max: 1
+
+    validation:
+      schema_check: true
+      allow_partial: true
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Multi-Framework Tests
+  # ---------------------------------------------------------------------------
+
+  - id: tc016_multi_framework_violations
+    description: "Detect violations across multiple compliance frameworks"
+    category: multi-framework
+    priority: high
+
+    input:
+      code: |
+        // Healthcare payment app - violates HIPAA and PCI-DSS
+        app.post('/patient/payment', (req, res) => {
+          const { patientId, cardNumber, cvv, diagnosis } = req.body;
+
+          // HIPAA violation: PHI without encryption/logging
+          db.insert('patient_payments', {
+            patient_id: patientId,
+            diagnosis: diagnosis,  // PHI stored unencrypted
+            // No audit log
+
+            // PCI-DSS violation: Card data storage
+            card_number: cardNumber,
+            cvv: cvv  // Never store CVV
+          });
+
+          console.log(`Payment for patient ${patientId}, card ${cardNumber}`);
+
+          res.send('Payment recorded');
+        });
+      context:
+        language: javascript
+        framework: express
+        regulation: [HIPAA, PCI-DSS]
+
+    expected_output:
+      must_contain:
+        - "HIPAA"
+        - "PCI"
+        - "PHI"
+        - "CVV"
+        - "encryption"
+      finding_count:
+        min: 3
+        max: 8
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.7
+
+    timeout_ms: 45000
+
+  - id: tc017_gdpr_ccpa_overlap
+    description: "Detect privacy violations applicable to both GDPR and CCPA"
+    category: multi-framework
+    priority: high
+
+    input:
+      code: |
+        // Privacy violations applicable to GDPR and CCPA
+        app.post('/signup', (req, res) => {
+          // No consent collection
+          // No disclosure of data practices
+          // No opt-out mechanism
+
+          db.insert('users', {
+            email: req.body.email,
+            ip: req.ip,
+            browser: req.headers['user-agent'],
+            location: geoip.lookup(req.ip),
+            referrer: req.headers.referer
+          });
+
+          // Share with third parties without consent
+          analytics.track(req.body.email, 'signup');
+          marketing.addLead(req.body.email);
+
+          res.send('Signed up!');
+        });
+      context:
+        language: javascript
+        framework: express
+        regulation: [GDPR, CCPA]
+
+    expected_output:
+      must_contain:
+        - "consent"
+        - "disclosure"
+        - "third party"
+      must_match_regex:
+        - "GDPR|CCPA"
+      finding_count:
+        min: 2
+
+    validation:
+      schema_check: true
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Edge Cases
+  # ---------------------------------------------------------------------------
+
+  - id: tc018_encrypted_but_logged
+    description: "Detect sensitive data encrypted but logged in plain text"
+    category: edge_cases
+    priority: medium
+
+    input:
+      code: |
+        app.post('/patient', async (req, res) => {
+          const { ssn, diagnosis } = req.body;
+
+          // Properly encrypted for storage
+          const encryptedSSN = await encrypt(ssn);
+          const encryptedDiagnosis = await encrypt(diagnosis);
+
+          await db.insert('patients', {
+            ssn: encryptedSSN,
+            diagnosis: encryptedDiagnosis
+          });
+
+          // But logged in plain text (VIOLATION)
+          console.log(`Created patient with SSN: ${ssn}, diagnosis: ${diagnosis}`);
+
+          res.send('Patient created');
+        });
+      context:
+        language: javascript
+        framework: express
+        regulation: HIPAA
+
+    expected_output:
+      must_contain:
+        - "log"
+        - "plain text"
+        - "SSN"
+        - "diagnosis"
+      severity_classification: high
+
+    validation:
+      schema_check: true
+
+  - id: tc019_partial_compliance
+    description: "Detect partial compliance with some controls passing"
+    category: edge_cases
+    priority: medium
+
+    input:
+      code: |
+        // Partial GDPR compliance
+        app.post('/subscribe', (req, res) => {
+          // PASS: Has consent
+          if (!req.body.consent) {
+            return res.status(400).json({ error: 'Consent required' });
+          }
+
+          db.insert('subscribers', {
+            email: req.body.email,
+            consent: true,
+            // FAIL: Missing timestamp and IP
+            subscribed_at: new Date()
+          });
+
+          res.send('Subscribed');
+        });
+
+        // PASS: Has data export
+        app.get('/user/:id/export', (req, res) => {
+          const data = collectUserData(req.params.id);
+          res.json(data);
+        });
+
+        // FAIL: Incomplete erasure
+        app.delete('/user/:id', (req, res) => {
+          db.delete('users', { id: req.params.id });
+          // Missing: orders, logs, analytics
+          res.send('Deleted');
+        });
+      context:
+        language: javascript
+        framework: express
+        regulation: GDPR
+
+    expected_output:
+      must_contain:
+        - "partial"
+        - "consent"
+        - "erasure"
+        - "incomplete"
+      severity_classification: medium
+
+    validation:
+      schema_check: true
+      allow_partial: true
+
+  - id: tc020_typescript_compliance
+    description: "Detect compliance issues in TypeScript code"
+    category: language_support
+    priority: medium
+
+    input:
+      code: |
+        interface PatientRecord {
+          id: string;
+          ssn: string;  // PHI
+          medicalHistory: string[];  // PHI
+        }
+
+        export const getPatient = async (
+          patientId: string,
+          requester: User  // Unused - no access control
+        ): Promise<PatientRecord> => {
+          // No audit logging
+          // No encryption check
+          const patient = await db.patients.findOne({ id: patientId });
+          return patient as PatientRecord;
+        };
+      context:
+        language: typescript
+        framework: nodejs
+        regulation: HIPAA
+
+    expected_output:
+      must_contain:
+        - "HIPAA"
+        - "PHI"
+        - "access control"
+        - "audit"
+
+    validation:
+      schema_check: true
+
+# =============================================================================
+# SUCCESS CRITERIA
+# =============================================================================
+
+success_criteria:
+  # 90% of tests must pass overall
+  pass_rate: 0.9
+
+  # All critical tests must pass
+  critical_pass_rate: 1.0
+
+  # Average reasoning quality score
+  avg_reasoning_quality: 0.75
+
+  # Maximum suite execution time (5 minutes)
+  max_execution_time_ms: 300000
+
+  # Maximum variance between model results (15%)
+  cross_model_variance: 0.15
+
+# =============================================================================
+# METADATA
+# =============================================================================
+
+metadata:
+  author: "qe-security-auditor"
+  created: "2026-02-02"
+  last_updated: "2026-02-02"
+  coverage_target: >
+    Major compliance frameworks: GDPR (Articles 7, 17, 20), HIPAA (PHI protection,
+    access control, audit logging), PCI-DSS (Requirements 3, 4, 10), SOC2 (CC6, CC8),
+    CCPA (opt-out, disclosure). Covers JavaScript/TypeScript and Python applications.
+  test_count: 20
+  frameworks_covered:
+    - GDPR
+    - HIPAA
+    - PCI-DSS
+    - SOC2
+    - CCPA

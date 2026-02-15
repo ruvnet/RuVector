@@ -1,0 +1,155 @@
+skill: test-reporting-analytics
+version: 1.0.0
+description: >
+  Evaluation suite for test-reporting-analytics skill.
+  Tests generation of comprehensive test reports with actionable analytics,
+  metrics visualization, and trend analysis.
+
+models_to_test:
+  - claude-3.5-sonnet
+  - claude-3-haiku
+
+mcp_integration:
+  enabled: true
+  namespace: skill-validation
+  query_patterns: true
+  track_outcomes: true
+  store_patterns: true
+  share_learning: true
+  target_agents:
+    - qe-learning-coordinator
+
+learning:
+  store_success_patterns: true
+  pattern_ttl_days: 90
+  min_confidence_to_store: 0.7
+
+result_format:
+  json_output: true
+  include_timing: true
+
+setup:
+  required_tools:
+    - jq
+
+test_cases:
+  - id: tc001_test_report_generation
+    description: "Skill generates comprehensive test report"
+    category: core
+    priority: critical
+
+    input:
+      testResults:
+        passed: 150
+        failed: 10
+        skipped: 5
+      context:
+        reportFormat: "comprehensive"
+
+    expected_output:
+      must_contain:
+        - "report"
+        - "summary"
+        - "metrics"
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+
+  - id: tc002_pass_rate_calculation
+    description: "Pass rate is correctly calculated"
+    category: core
+    priority: critical
+
+    input:
+      totalTests: 100
+      passedTests: 85
+      context:
+        calculateMetrics: true
+
+    expected_output:
+      must_contain:
+        - "85"
+        - "pass"
+
+    validation:
+      schema_check: true
+
+  - id: tc003_trend_analysis
+    description: "Skill analyzes test quality trends"
+    category: core
+    priority: high
+
+    input:
+      historicalData:
+        - date: "2026-01-01"
+          passRate: 0.80
+        - date: "2026-02-01"
+          passRate: 0.85
+      context:
+        analyzeTrends: true
+
+    expected_output:
+      must_contain:
+        - "trend"
+        - "improvement"
+
+    validation:
+      schema_check: true
+      allow_partial: true
+
+  - id: tc004_failure_categorization
+    description: "Failures are categorized by root cause"
+    category: core
+    priority: high
+
+    input:
+      failures:
+        - "Assertion failed"
+        - "Timeout"
+        - "Environment unavailable"
+      context:
+        categorizeFailures: true
+
+    expected_output:
+      must_contain:
+        - "category"
+        - "failure"
+
+    validation:
+      schema_check: true
+      allow_partial: true
+
+  - id: tc005_actionable_recommendations
+    description: "Report includes actionable recommendations"
+    category: core
+    priority: high
+
+    input:
+      findings:
+        - "High flaky test rate"
+        - "Low coverage areas"
+      context:
+        includeRecommendations: true
+
+    expected_output:
+      must_contain:
+        - "recommend"
+        - "action"
+
+    validation:
+      schema_check: true
+      allow_partial: true
+
+success_criteria:
+  pass_rate: 0.8
+  critical_pass_rate: 1.0
+  avg_reasoning_quality: 0.7
+  max_execution_time_ms: 300000
+  cross_model_variance: 0.15
+
+metadata:
+  author: "qe-reporting-specialist"
+  created: "2026-02-02"
+  last_updated: "2026-02-02"
+  coverage_target: "Report generation, metrics, trends, failure analysis, recommendations"

@@ -1,0 +1,1446 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentic-qe.dev/schemas/database-testing-output.json",
+  "title": "AQE Database Testing Skill Output Schema",
+  "description": "Schema for database-testing skill output validation. Extends the base skill-output template with schema validation, data integrity testing, migration verification, transaction testing, and query performance analysis.",
+  "type": "object",
+  "required": ["skillName", "version", "timestamp", "status", "trustTier", "output"],
+  "properties": {
+    "skillName": {
+      "type": "string",
+      "const": "database-testing",
+      "description": "Must be 'database-testing'"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+(-[a-zA-Z0-9]+)?$",
+      "description": "Semantic version of the skill"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp of output generation"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["success", "partial", "failed", "skipped"],
+      "description": "Overall execution status"
+    },
+    "trustTier": {
+      "type": "integer",
+      "const": 3,
+      "description": "Trust tier 3 indicates full validation with eval suite"
+    },
+    "output": {
+      "type": "object",
+      "required": ["summary", "findings", "testTypes", "databaseInfo"],
+      "properties": {
+        "summary": {
+          "type": "string",
+          "minLength": 50,
+          "maxLength": 2000,
+          "description": "Human-readable summary of database testing findings"
+        },
+        "score": {
+          "$ref": "#/$defs/databaseScore",
+          "description": "Overall database quality score"
+        },
+        "findings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/databaseFinding"
+          },
+          "maxItems": 500,
+          "description": "List of database issues discovered"
+        },
+        "recommendations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/databaseRecommendation"
+          },
+          "maxItems": 100,
+          "description": "Prioritized recommendations for database improvements"
+        },
+        "metrics": {
+          "$ref": "#/$defs/databaseMetrics",
+          "description": "Database testing metrics and statistics"
+        },
+        "testTypes": {
+          "$ref": "#/$defs/testTypeBreakdown",
+          "description": "Breakdown by database test type"
+        },
+        "databaseInfo": {
+          "$ref": "#/$defs/databaseInfo",
+          "description": "Target database information"
+        },
+        "schemaValidation": {
+          "$ref": "#/$defs/schemaValidation",
+          "description": "Schema validation results"
+        },
+        "dataIntegrity": {
+          "$ref": "#/$defs/dataIntegrity",
+          "description": "Data integrity test results"
+        },
+        "migrationTests": {
+          "$ref": "#/$defs/migrationTests",
+          "description": "Migration test results"
+        },
+        "transactionTests": {
+          "$ref": "#/$defs/transactionTests",
+          "description": "Transaction/ACID test results"
+        },
+        "performanceTests": {
+          "$ref": "#/$defs/performanceTests",
+          "description": "Query performance test results"
+        },
+        "artifacts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/artifact"
+          },
+          "maxItems": 50,
+          "description": "Generated test reports and artifacts"
+        },
+        "timeline": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/timelineEvent"
+          },
+          "description": "Test execution timeline"
+        }
+      }
+    },
+    "metadata": {
+      "$ref": "#/$defs/metadata"
+    },
+    "validation": {
+      "$ref": "#/$defs/validationResult"
+    },
+    "learning": {
+      "$ref": "#/$defs/learningData"
+    }
+  },
+  "$defs": {
+    "databaseScore": {
+      "type": "object",
+      "required": ["value", "max"],
+      "properties": {
+        "value": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Database quality score (0=critical issues, 100=excellent)"
+        },
+        "max": {
+          "type": "number",
+          "const": 100,
+          "description": "Maximum score is always 100"
+        },
+        "grade": {
+          "type": "string",
+          "pattern": "^[A-F][+-]?$",
+          "description": "Letter grade: A (90-100), B (80-89), C (70-79), D (60-69), F (<60)"
+        },
+        "trend": {
+          "type": "string",
+          "enum": ["improving", "stable", "declining", "unknown"],
+          "description": "Trend compared to previous assessments"
+        },
+        "dataQualityLevel": {
+          "type": "string",
+          "enum": ["excellent", "good", "fair", "poor", "critical"],
+          "description": "Overall data quality assessment"
+        }
+      }
+    },
+    "databaseFinding": {
+      "type": "object",
+      "required": ["id", "title", "severity", "testType"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^DB-\\d{3,6}$",
+          "description": "Unique finding identifier (e.g., DB-001)"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 200,
+          "description": "Finding title describing the database issue"
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 2000,
+          "description": "Detailed description of the database issue"
+        },
+        "severity": {
+          "type": "string",
+          "enum": ["critical", "high", "medium", "low", "info"],
+          "description": "Severity: critical=data loss risk, high=integrity risk, medium=performance, low=improvement, info=informational"
+        },
+        "testType": {
+          "type": "string",
+          "enum": ["schema", "integrity", "migration", "transaction", "performance", "data-quality"],
+          "description": "Category of database test that found this issue"
+        },
+        "category": {
+          "type": "string",
+          "enum": [
+            "missing-constraint",
+            "orphaned-records",
+            "constraint-violation",
+            "schema-mismatch",
+            "migration-failure",
+            "migration-rollback-failure",
+            "data-loss",
+            "transaction-isolation",
+            "deadlock",
+            "slow-query",
+            "missing-index",
+            "n-plus-one",
+            "connection-leak",
+            "data-corruption",
+            "referential-integrity",
+            "null-violation",
+            "type-mismatch",
+            "encoding-issue"
+          ],
+          "description": "Specific category of database issue"
+        },
+        "location": {
+          "$ref": "#/$defs/databaseLocation",
+          "description": "Location of the issue in the database"
+        },
+        "evidence": {
+          "type": "string",
+          "maxLength": 5000,
+          "description": "Evidence: SQL query, error message, data sample"
+        },
+        "remediation": {
+          "type": "string",
+          "maxLength": 2000,
+          "description": "Specific fix instructions for this finding"
+        },
+        "sqlFix": {
+          "type": "string",
+          "maxLength": 2000,
+          "description": "SQL statement to fix the issue"
+        },
+        "affectedRows": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of rows affected by this issue"
+        },
+        "affectedTables": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Tables affected by this issue"
+        },
+        "falsePositive": {
+          "type": "boolean",
+          "default": false,
+          "description": "Potential false positive flag"
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Confidence in finding accuracy (0.0-1.0)"
+        },
+        "dataImpact": {
+          "type": "string",
+          "enum": ["none", "low", "medium", "high", "critical"],
+          "description": "Potential data impact if not fixed"
+        }
+      }
+    },
+    "databaseRecommendation": {
+      "type": "object",
+      "required": ["id", "title", "priority", "testType"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^REC-\\d{3,6}$",
+          "description": "Unique recommendation identifier"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 200,
+          "description": "Recommendation title"
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 2000,
+          "description": "Detailed recommendation description"
+        },
+        "priority": {
+          "type": "string",
+          "enum": ["critical", "high", "medium", "low"],
+          "description": "Remediation priority"
+        },
+        "effort": {
+          "type": "string",
+          "enum": ["trivial", "low", "medium", "high", "major"],
+          "description": "Estimated effort"
+        },
+        "impact": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10,
+          "description": "Database quality impact if implemented (1-10)"
+        },
+        "relatedFindings": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^DB-\\d{3,6}$"
+          },
+          "description": "IDs of findings this addresses"
+        },
+        "testType": {
+          "type": "string",
+          "enum": ["schema", "integrity", "migration", "transaction", "performance", "data-quality"],
+          "description": "Related test type"
+        },
+        "sqlExample": {
+          "type": "object",
+          "properties": {
+            "before": {
+              "type": "string",
+              "maxLength": 2000,
+              "description": "Problematic SQL/schema"
+            },
+            "after": {
+              "type": "string",
+              "maxLength": 2000,
+              "description": "Recommended SQL/schema"
+            },
+            "migration": {
+              "type": "string",
+              "maxLength": 2000,
+              "description": "Migration SQL to apply fix"
+            }
+          },
+          "description": "SQL examples for remediation"
+        },
+        "resources": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["title", "url"],
+            "properties": {
+              "title": { "type": "string" },
+              "url": { "type": "string", "format": "uri" }
+            }
+          },
+          "maxItems": 10,
+          "description": "External resources and documentation"
+        },
+        "automatable": {
+          "type": "boolean",
+          "description": "Can this fix be automated via migration?"
+        }
+      }
+    },
+    "testTypeBreakdown": {
+      "type": "object",
+      "description": "Database test type breakdown",
+      "properties": {
+        "schema": {
+          "$ref": "#/$defs/testTypeScore",
+          "description": "Schema validation tests"
+        },
+        "integrity": {
+          "$ref": "#/$defs/testTypeScore",
+          "description": "Data integrity tests"
+        },
+        "migration": {
+          "$ref": "#/$defs/testTypeScore",
+          "description": "Migration tests"
+        },
+        "transaction": {
+          "$ref": "#/$defs/testTypeScore",
+          "description": "Transaction/ACID tests"
+        },
+        "performance": {
+          "$ref": "#/$defs/testTypeScore",
+          "description": "Query performance tests"
+        },
+        "dataQuality": {
+          "$ref": "#/$defs/testTypeScore",
+          "description": "Data quality tests"
+        }
+      },
+      "additionalProperties": false
+    },
+    "testTypeScore": {
+      "type": "object",
+      "required": ["tested", "score"],
+      "properties": {
+        "tested": {
+          "type": "boolean",
+          "description": "Whether this test type was executed"
+        },
+        "score": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Test type score (100 = all passed, 0 = all failed)"
+        },
+        "grade": {
+          "type": "string",
+          "pattern": "^[A-F][+-]?$",
+          "description": "Letter grade for this test type"
+        },
+        "findingCount": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of findings in this category"
+        },
+        "passedTests": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of tests passed"
+        },
+        "failedTests": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of tests failed"
+        },
+        "skippedTests": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of tests skipped"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["pass", "fail", "warn", "skip"],
+          "description": "Overall status for this test type"
+        }
+      }
+    },
+    "databaseInfo": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["postgresql", "mysql", "mariadb", "mongodb", "sqlite", "mssql", "oracle", "redis", "cassandra", "other"],
+          "description": "Database engine type"
+        },
+        "version": {
+          "type": "string",
+          "description": "Database version"
+        },
+        "name": {
+          "type": "string",
+          "description": "Database name"
+        },
+        "host": {
+          "type": "string",
+          "description": "Database host (masked for security)"
+        },
+        "schemaCount": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of schemas analyzed"
+        },
+        "tableCount": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of tables analyzed"
+        },
+        "totalRows": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total rows in database"
+        },
+        "sizeBytes": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Database size in bytes"
+        },
+        "connectionPool": {
+          "type": "object",
+          "properties": {
+            "min": { "type": "integer" },
+            "max": { "type": "integer" },
+            "current": { "type": "integer" }
+          },
+          "description": "Connection pool settings"
+        }
+      }
+    },
+    "schemaValidation": {
+      "type": "object",
+      "description": "Schema validation results",
+      "properties": {
+        "tablesValidated": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of tables validated"
+        },
+        "columnsValidated": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of columns validated"
+        },
+        "tables": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/tableValidation"
+          },
+          "description": "Per-table validation results"
+        },
+        "missingTables": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Tables that should exist but don't"
+        },
+        "extraTables": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Tables that exist but shouldn't"
+        },
+        "constraintIssues": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/constraintIssue"
+          },
+          "description": "Constraint-related issues"
+        },
+        "indexIssues": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/indexIssue"
+          },
+          "description": "Index-related issues"
+        }
+      }
+    },
+    "tableValidation": {
+      "type": "object",
+      "required": ["name", "status"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Table name"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["valid", "invalid", "warning"],
+          "description": "Validation status"
+        },
+        "columns": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/columnValidation"
+          },
+          "description": "Column validation results"
+        },
+        "primaryKey": {
+          "type": "object",
+          "properties": {
+            "exists": { "type": "boolean" },
+            "columns": {
+              "type": "array",
+              "items": { "type": "string" }
+            }
+          },
+          "description": "Primary key validation"
+        },
+        "foreignKeys": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/foreignKeyValidation"
+          },
+          "description": "Foreign key validations"
+        },
+        "indexes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/indexValidation"
+          },
+          "description": "Index validations"
+        },
+        "rowCount": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of rows in table"
+        }
+      }
+    },
+    "columnValidation": {
+      "type": "object",
+      "required": ["name", "dataType"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Column name"
+        },
+        "dataType": {
+          "type": "string",
+          "description": "Column data type"
+        },
+        "expectedType": {
+          "type": "string",
+          "description": "Expected data type (if different)"
+        },
+        "nullable": {
+          "type": "boolean",
+          "description": "Whether column allows NULL"
+        },
+        "hasDefault": {
+          "type": "boolean",
+          "description": "Whether column has a default value"
+        },
+        "defaultValue": {
+          "description": "Default value"
+        },
+        "issues": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Issues with this column"
+        }
+      }
+    },
+    "foreignKeyValidation": {
+      "type": "object",
+      "required": ["name", "referencedTable"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Foreign key constraint name"
+        },
+        "columns": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Local columns"
+        },
+        "referencedTable": {
+          "type": "string",
+          "description": "Referenced table name"
+        },
+        "referencedColumns": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Referenced columns"
+        },
+        "onDelete": {
+          "type": "string",
+          "enum": ["CASCADE", "SET NULL", "SET DEFAULT", "RESTRICT", "NO ACTION"],
+          "description": "ON DELETE action"
+        },
+        "onUpdate": {
+          "type": "string",
+          "enum": ["CASCADE", "SET NULL", "SET DEFAULT", "RESTRICT", "NO ACTION"],
+          "description": "ON UPDATE action"
+        },
+        "valid": {
+          "type": "boolean",
+          "description": "Whether FK is valid"
+        },
+        "orphanedRecords": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of orphaned records found"
+        }
+      }
+    },
+    "indexValidation": {
+      "type": "object",
+      "required": ["name"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Index name"
+        },
+        "columns": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Indexed columns"
+        },
+        "unique": {
+          "type": "boolean",
+          "description": "Whether index is unique"
+        },
+        "type": {
+          "type": "string",
+          "enum": ["btree", "hash", "gin", "gist", "brin", "fulltext", "spatial"],
+          "description": "Index type"
+        },
+        "sizeBytes": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Index size in bytes"
+        },
+        "usage": {
+          "type": "string",
+          "enum": ["high", "medium", "low", "unused"],
+          "description": "Index usage level"
+        }
+      }
+    },
+    "constraintIssue": {
+      "type": "object",
+      "required": ["type", "table", "issue"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["primary_key", "foreign_key", "unique", "check", "not_null", "default"],
+          "description": "Constraint type"
+        },
+        "table": {
+          "type": "string",
+          "description": "Table name"
+        },
+        "constraintName": {
+          "type": "string",
+          "description": "Constraint name"
+        },
+        "issue": {
+          "type": "string",
+          "description": "Issue description"
+        },
+        "affectedRows": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Rows violating constraint"
+        }
+      }
+    },
+    "indexIssue": {
+      "type": "object",
+      "required": ["table", "issue"],
+      "properties": {
+        "table": {
+          "type": "string",
+          "description": "Table name"
+        },
+        "indexName": {
+          "type": "string",
+          "description": "Index name"
+        },
+        "issue": {
+          "type": "string",
+          "description": "Issue description"
+        },
+        "recommendation": {
+          "type": "string",
+          "description": "Recommended action"
+        },
+        "impactedQueries": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of queries impacted"
+        }
+      }
+    },
+    "dataIntegrity": {
+      "type": "object",
+      "description": "Data integrity test results",
+      "properties": {
+        "uniqueConstraintTests": {
+          "type": "object",
+          "properties": {
+            "passed": { "type": "integer" },
+            "failed": { "type": "integer" },
+            "violations": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "table": { "type": "string" },
+                  "constraint": { "type": "string" },
+                  "duplicateCount": { "type": "integer" }
+                }
+              }
+            }
+          },
+          "description": "Unique constraint test results"
+        },
+        "foreignKeyTests": {
+          "type": "object",
+          "properties": {
+            "passed": { "type": "integer" },
+            "failed": { "type": "integer" },
+            "orphanedRecords": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "table": { "type": "string" },
+                  "foreignKey": { "type": "string" },
+                  "count": { "type": "integer" }
+                }
+              }
+            }
+          },
+          "description": "Foreign key constraint test results"
+        },
+        "checkConstraintTests": {
+          "type": "object",
+          "properties": {
+            "passed": { "type": "integer" },
+            "failed": { "type": "integer" },
+            "violations": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "table": { "type": "string" },
+                  "constraint": { "type": "string" },
+                  "violationCount": { "type": "integer" }
+                }
+              }
+            }
+          },
+          "description": "Check constraint test results"
+        },
+        "nullConstraintTests": {
+          "type": "object",
+          "properties": {
+            "passed": { "type": "integer" },
+            "failed": { "type": "integer" },
+            "unexpectedNulls": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "table": { "type": "string" },
+                  "column": { "type": "string" },
+                  "nullCount": { "type": "integer" }
+                }
+              }
+            }
+          },
+          "description": "NOT NULL constraint test results"
+        }
+      }
+    },
+    "migrationTests": {
+      "type": "object",
+      "description": "Migration test results",
+      "properties": {
+        "migrationsFound": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of migrations found"
+        },
+        "migrationsTested": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of migrations tested"
+        },
+        "migrations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/migrationResult"
+          },
+          "description": "Individual migration test results"
+        },
+        "pendingMigrations": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Migrations not yet applied"
+        },
+        "failedMigrations": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Migrations that failed to apply"
+        }
+      }
+    },
+    "migrationResult": {
+      "type": "object",
+      "required": ["name", "status"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Migration name/identifier"
+        },
+        "version": {
+          "type": "string",
+          "description": "Migration version"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["passed", "failed", "skipped", "pending"],
+          "description": "Migration test status"
+        },
+        "upTest": {
+          "type": "object",
+          "properties": {
+            "passed": { "type": "boolean" },
+            "durationMs": { "type": "integer" },
+            "error": { "type": "string" }
+          },
+          "description": "Forward migration test"
+        },
+        "downTest": {
+          "type": "object",
+          "properties": {
+            "passed": { "type": "boolean" },
+            "durationMs": { "type": "integer" },
+            "error": { "type": "string" }
+          },
+          "description": "Rollback migration test"
+        },
+        "dataPreservation": {
+          "type": "object",
+          "properties": {
+            "tested": { "type": "boolean" },
+            "passed": { "type": "boolean" },
+            "dataLossDetected": { "type": "boolean" },
+            "affectedRows": { "type": "integer" }
+          },
+          "description": "Data preservation test"
+        },
+        "idempotent": {
+          "type": "boolean",
+          "description": "Whether migration is idempotent"
+        }
+      }
+    },
+    "transactionTests": {
+      "type": "object",
+      "description": "Transaction/ACID test results",
+      "properties": {
+        "acidCompliance": {
+          "type": "object",
+          "properties": {
+            "atomicity": {
+              "$ref": "#/$defs/acidTest",
+              "description": "Atomicity test (all or nothing)"
+            },
+            "consistency": {
+              "$ref": "#/$defs/acidTest",
+              "description": "Consistency test (constraints valid)"
+            },
+            "isolation": {
+              "$ref": "#/$defs/acidTest",
+              "description": "Isolation test (concurrent access)"
+            },
+            "durability": {
+              "$ref": "#/$defs/acidTest",
+              "description": "Durability test (data persists)"
+            }
+          },
+          "description": "ACID property test results"
+        },
+        "isolationLevel": {
+          "type": "string",
+          "enum": ["READ_UNCOMMITTED", "READ_COMMITTED", "REPEATABLE_READ", "SERIALIZABLE"],
+          "description": "Current transaction isolation level"
+        },
+        "deadlockTests": {
+          "type": "object",
+          "properties": {
+            "tested": { "type": "boolean" },
+            "deadlocksDetected": { "type": "integer" },
+            "avgResolutionMs": { "type": "number" }
+          },
+          "description": "Deadlock detection tests"
+        },
+        "concurrencyTests": {
+          "type": "object",
+          "properties": {
+            "tested": { "type": "boolean" },
+            "maxConcurrent": { "type": "integer" },
+            "raceConditionsDetected": { "type": "integer" }
+          },
+          "description": "Concurrent access tests"
+        }
+      }
+    },
+    "acidTest": {
+      "type": "object",
+      "required": ["tested", "passed"],
+      "properties": {
+        "tested": {
+          "type": "boolean",
+          "description": "Whether this property was tested"
+        },
+        "passed": {
+          "type": "boolean",
+          "description": "Whether test passed"
+        },
+        "testCount": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of tests run"
+        },
+        "failureCount": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of failures"
+        },
+        "details": {
+          "type": "string",
+          "description": "Test details"
+        }
+      }
+    },
+    "performanceTests": {
+      "type": "object",
+      "description": "Query performance test results",
+      "properties": {
+        "queriesAnalyzed": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of queries analyzed"
+        },
+        "slowQueries": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/queryAnalysis"
+          },
+          "description": "Slow queries identified"
+        },
+        "missingIndexes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/missingIndex"
+          },
+          "description": "Missing indexes identified"
+        },
+        "nPlusOneIssues": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "location": { "type": "string" },
+              "queryPattern": { "type": "string" },
+              "queryCount": { "type": "integer" },
+              "recommendation": { "type": "string" }
+            }
+          },
+          "description": "N+1 query issues"
+        },
+        "connectionPoolMetrics": {
+          "type": "object",
+          "properties": {
+            "avgWaitMs": { "type": "number" },
+            "maxWaitMs": { "type": "number" },
+            "timeouts": { "type": "integer" },
+            "leaks": { "type": "integer" }
+          },
+          "description": "Connection pool performance"
+        },
+        "benchmarks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "avgMs": { "type": "number" },
+              "p50Ms": { "type": "number" },
+              "p95Ms": { "type": "number" },
+              "p99Ms": { "type": "number" },
+              "maxMs": { "type": "number" }
+            }
+          },
+          "description": "Performance benchmarks"
+        }
+      }
+    },
+    "queryAnalysis": {
+      "type": "object",
+      "required": ["query", "avgDurationMs"],
+      "properties": {
+        "query": {
+          "type": "string",
+          "description": "SQL query (anonymized)"
+        },
+        "avgDurationMs": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Average execution time"
+        },
+        "maxDurationMs": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Maximum execution time"
+        },
+        "executionCount": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of executions"
+        },
+        "rowsExamined": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Average rows examined"
+        },
+        "rowsReturned": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Average rows returned"
+        },
+        "usesIndex": {
+          "type": "boolean",
+          "description": "Whether query uses indexes"
+        },
+        "executionPlan": {
+          "type": "string",
+          "description": "Query execution plan"
+        },
+        "optimization": {
+          "type": "string",
+          "description": "Suggested optimization"
+        }
+      }
+    },
+    "missingIndex": {
+      "type": "object",
+      "required": ["table", "columns"],
+      "properties": {
+        "table": {
+          "type": "string",
+          "description": "Table name"
+        },
+        "columns": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Columns that should be indexed"
+        },
+        "impact": {
+          "type": "string",
+          "enum": ["critical", "high", "medium", "low"],
+          "description": "Impact of missing index"
+        },
+        "affectedQueries": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of queries that would benefit"
+        },
+        "suggestedIndex": {
+          "type": "string",
+          "description": "SQL to create suggested index"
+        }
+      }
+    },
+    "databaseLocation": {
+      "type": "object",
+      "description": "Location in database",
+      "properties": {
+        "schema": {
+          "type": "string",
+          "description": "Database schema"
+        },
+        "table": {
+          "type": "string",
+          "description": "Table name"
+        },
+        "column": {
+          "type": "string",
+          "description": "Column name"
+        },
+        "constraint": {
+          "type": "string",
+          "description": "Constraint name"
+        },
+        "index": {
+          "type": "string",
+          "description": "Index name"
+        },
+        "migration": {
+          "type": "string",
+          "description": "Migration name"
+        },
+        "file": {
+          "type": "string",
+          "description": "Source file (for migration files)"
+        },
+        "line": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Line number in source file"
+        }
+      }
+    },
+    "databaseMetrics": {
+      "type": "object",
+      "properties": {
+        "totalFindings": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total issues found"
+        },
+        "criticalCount": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Critical severity findings"
+        },
+        "highCount": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "High severity findings"
+        },
+        "mediumCount": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Medium severity findings"
+        },
+        "lowCount": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Low severity findings"
+        },
+        "infoCount": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Informational findings"
+        },
+        "tablesAnalyzed": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of tables analyzed"
+        },
+        "constraintsValidated": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of constraints validated"
+        },
+        "indexesAnalyzed": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of indexes analyzed"
+        },
+        "migrationsAnalyzed": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of migrations analyzed"
+        },
+        "queriesAnalyzed": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of queries analyzed"
+        },
+        "testDurationMs": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total test duration in milliseconds"
+        },
+        "coverage": {
+          "type": "object",
+          "properties": {
+            "schema": { "type": "boolean" },
+            "integrity": { "type": "boolean" },
+            "migration": { "type": "boolean" },
+            "transaction": { "type": "boolean" },
+            "performance": { "type": "boolean" }
+          },
+          "description": "Test coverage indicators"
+        }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "required": ["type", "path"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["report", "schema-dump", "migration-script", "data", "log", "query-plan", "benchmark"],
+          "description": "Artifact type"
+        },
+        "path": {
+          "type": "string",
+          "maxLength": 500,
+          "description": "Path to artifact"
+        },
+        "format": {
+          "type": "string",
+          "enum": ["json", "sql", "html", "md", "txt", "csv", "xml", "yaml"],
+          "description": "Artifact format"
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 500,
+          "description": "Artifact description"
+        },
+        "sizeBytes": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "File size in bytes"
+        },
+        "checksum": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "description": "SHA-256 checksum"
+        }
+      }
+    },
+    "timelineEvent": {
+      "type": "object",
+      "required": ["timestamp", "event"],
+      "properties": {
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Event timestamp"
+        },
+        "event": {
+          "type": "string",
+          "maxLength": 200,
+          "description": "Event description"
+        },
+        "type": {
+          "type": "string",
+          "enum": ["start", "checkpoint", "warning", "error", "complete"],
+          "description": "Event type"
+        },
+        "durationMs": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Duration since previous event"
+        },
+        "phase": {
+          "type": "string",
+          "enum": ["initialization", "schema", "integrity", "migration", "transaction", "performance", "reporting"],
+          "description": "Test phase"
+        }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "executionTimeMs": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 3600000,
+          "description": "Execution time in milliseconds"
+        },
+        "toolsUsed": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["psql", "mysql", "mongo", "sqlite3", "knex", "prisma", "typeorm", "sequelize", "drizzle", "node", "pg-query-analyzer"]
+          },
+          "uniqueItems": true,
+          "description": "Database tools used"
+        },
+        "agentId": {
+          "type": "string",
+          "pattern": "^qe-[a-z][a-z0-9-]*$",
+          "description": "Agent ID"
+        },
+        "modelUsed": {
+          "type": "string",
+          "description": "LLM model used for analysis"
+        },
+        "inputHash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$",
+          "description": "SHA-256 hash of input"
+        },
+        "targetPath": {
+          "type": "string",
+          "description": "Target path"
+        },
+        "environment": {
+          "type": "string",
+          "enum": ["development", "staging", "production", "ci"],
+          "description": "Execution environment"
+        },
+        "retryCount": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10,
+          "description": "Number of retries"
+        }
+      }
+    },
+    "validationResult": {
+      "type": "object",
+      "properties": {
+        "schemaValid": {
+          "type": "boolean",
+          "description": "Passes JSON schema validation"
+        },
+        "contentValid": {
+          "type": "boolean",
+          "description": "Passes content validation"
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Confidence score"
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "maxItems": 20,
+          "description": "Validation warnings"
+        },
+        "errors": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "maxItems": 20,
+          "description": "Validation errors"
+        },
+        "validatorVersion": {
+          "type": "string",
+          "pattern": "^\\d+\\.\\d+\\.\\d+$",
+          "description": "Validator version"
+        }
+      }
+    },
+    "learningData": {
+      "type": "object",
+      "properties": {
+        "patternsDetected": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "maxItems": 20,
+          "description": "Database patterns detected (e.g., n-plus-one-query, missing-index)"
+        },
+        "reward": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Reward signal for learning (0.0-1.0)"
+        },
+        "feedbackLoop": {
+          "type": "object",
+          "properties": {
+            "previousRunId": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Previous run ID for comparison"
+            },
+            "improvement": {
+              "type": "number",
+              "minimum": -1,
+              "maximum": 1,
+              "description": "Improvement over previous run"
+            }
+          }
+        },
+        "newDatabasePatterns": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "pattern": { "type": "string" },
+              "category": { "type": "string" },
+              "confidence": { "type": "number" }
+            }
+          },
+          "description": "New database patterns learned"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,154 @@
+skill: visual-testing-advanced
+version: 1.0.0
+description: >
+  Evaluation suite for visual-testing-advanced skill.
+  Tests advanced visual regression testing with sophisticated diff detection,
+  region analysis, and cross-viewport consistency verification.
+
+models_to_test:
+  - claude-3.5-sonnet
+  - claude-3-haiku
+
+mcp_integration:
+  enabled: true
+  namespace: skill-validation
+  query_patterns: true
+  track_outcomes: true
+  store_patterns: true
+  share_learning: true
+  target_agents:
+    - qe-learning-coordinator
+
+learning:
+  store_success_patterns: true
+  pattern_ttl_days: 90
+  min_confidence_to_store: 0.7
+
+result_format:
+  json_output: true
+  include_timing: true
+
+setup:
+  required_tools:
+    - jq
+  environment_variables:
+    VISUAL_DIFF_THRESHOLD: "0.05"
+    MIN_REGION_SIZE: "10"
+
+test_cases:
+  - id: tc001_visual_diff_detection
+    description: "Visual differences are correctly detected"
+    category: core
+    priority: critical
+
+    input:
+      baselineImage: "baseline.png"
+      actualImage: "actual.png"
+      context:
+        diffThreshold: 0.05
+
+    expected_output:
+      must_contain:
+        - "diff"
+        - "detected"
+      must_not_contain:
+        - "error"
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+
+  - id: tc002_region_analysis
+    description: "Changed regions are identified and analyzed"
+    category: core
+    priority: critical
+
+    input:
+      compareImages: true
+      analyzeRegions: true
+      context:
+        regionMinSize: 10
+
+    expected_output:
+      must_contain:
+        - "region"
+        - "change"
+
+    validation:
+      schema_check: true
+
+  - id: tc003_cross_viewport_consistency
+    description: "Visual consistency is verified across viewports"
+    category: core
+    priority: high
+
+    input:
+      viewports:
+        - "1920x1080"
+        - "1024x768"
+        - "375x667"
+      context:
+        compareAcrossViewports: true
+
+    expected_output:
+      must_contain:
+        - "viewport"
+        - "consistent"
+
+    validation:
+      schema_check: true
+      allow_partial: true
+
+  - id: tc004_diff_percentage_calculation
+    description: "Diff percentage is accurately calculated"
+    category: core
+    priority: high
+
+    input:
+      totalPixels: 1000000
+      changedPixels: 5000
+      context:
+        calculateDiffPercentage: true
+
+    expected_output:
+      must_contain:
+        - "0.5"
+
+    validation:
+      schema_check: true
+      allow_partial: true
+
+  - id: tc005_responsive_design_validation
+    description: "Responsive design changes are properly validated"
+    category: core
+    priority: high
+
+    input:
+      pages:
+        - "homepage"
+        - "product-page"
+      viewports: ["desktop", "tablet", "mobile"]
+      context:
+        validateResponsive: true
+
+    expected_output:
+      must_contain:
+        - "responsive"
+        - "layout"
+
+    validation:
+      schema_check: true
+      allow_partial: true
+
+success_criteria:
+  pass_rate: 0.8
+  critical_pass_rate: 1.0
+  avg_reasoning_quality: 0.7
+  max_execution_time_ms: 300000
+  cross_model_variance: 0.15
+
+metadata:
+  author: "qe-visual-specialist"
+  created: "2026-02-02"
+  last_updated: "2026-02-02"
+  coverage_target: "Diff detection, region analysis, viewport consistency, responsive design, pixel-level accuracy"

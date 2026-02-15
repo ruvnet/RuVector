@@ -1,0 +1,264 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://agentic-qe.dev/schemas/skills/qe-iterative-loop/output.json",
+  "title": "QE Iterative Loop Skill Output Schema",
+  "description": "Schema for qe-iterative-loop skill output with iterations, improvements, and convergence metrics.",
+  "type": "object",
+  "required": ["skillName", "version", "timestamp", "status", "trustTier", "output"],
+  "properties": {
+    "skillName": {
+      "type": "string",
+      "const": "qe-iterative-loop"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+(-[a-zA-Z0-9]+)?$"
+    },
+    "timestamp": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["success", "partial", "failed", "skipped"]
+    },
+    "trustTier": {
+      "type": "integer",
+      "const": 3
+    },
+    "output": {
+      "type": "object",
+      "required": ["summary", "iterations", "convergence"],
+      "properties": {
+        "summary": {
+          "type": "string",
+          "minLength": 50,
+          "maxLength": 2000,
+          "description": "Human-readable summary of iterative improvement process"
+        },
+        "iterations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/iteration"
+          },
+          "minItems": 1,
+          "maxItems": 100,
+          "description": "List of iterations performed"
+        },
+        "improvements": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/improvement"
+          },
+          "maxItems": 200,
+          "description": "Documented improvements across iterations"
+        },
+        "convergence": {
+          "$ref": "#/$defs/convergence",
+          "description": "Convergence status and metrics"
+        },
+        "qualityProgression": {
+          "$ref": "#/$defs/qualityProgression",
+          "description": "Quality metric progression over iterations"
+        },
+        "stoppingCriteria": {
+          "$ref": "#/$defs/stoppingCriteria",
+          "description": "Stopping criteria evaluation"
+        },
+        "findings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/finding"
+          },
+          "maxItems": 200
+        },
+        "recommendations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/recommendation"
+          },
+          "maxItems": 50
+        }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "executionTimeMs": { "type": "integer", "minimum": 0 },
+        "toolsUsed": { "type": "array", "items": { "type": "string" } },
+        "agentId": { "type": "string" },
+        "totalIterations": { "type": "integer", "minimum": 1 },
+        "convergenceAchieved": { "type": "boolean" }
+      }
+    },
+    "validation": {
+      "type": "object",
+      "properties": {
+        "schemaValid": { "type": "boolean" },
+        "contentValid": { "type": "boolean" },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "learning": {
+      "type": "object",
+      "properties": {
+        "patternsDetected": { "type": "array", "items": { "type": "string" } },
+        "reward": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    }
+  },
+  "$defs": {
+    "iteration": {
+      "type": "object",
+      "required": ["id", "number", "status"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^ITER-\\d{3,6}$" },
+        "number": { "type": "integer", "minimum": 1 },
+        "status": { "type": "string", "enum": ["completed", "partial", "failed", "skipped"] },
+        "startTime": { "type": "string" },
+        "endTime": { "type": "string" },
+        "durationMs": { "type": "integer", "minimum": 0 },
+        "actions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/iterationAction"
+          }
+        },
+        "metrics": {
+          "type": "object",
+          "properties": {
+            "qualityScore": { "type": "number", "minimum": 0, "maximum": 100 },
+            "coverage": { "type": "number", "minimum": 0, "maximum": 100 },
+            "defectsFound": { "type": "integer", "minimum": 0 },
+            "defectsFixed": { "type": "integer", "minimum": 0 },
+            "testsAdded": { "type": "integer", "minimum": 0 },
+            "testsFixed": { "type": "integer", "minimum": 0 }
+          }
+        },
+        "deltaFromPrevious": {
+          "type": "object",
+          "properties": {
+            "qualityDelta": { "type": "number" },
+            "coverageDelta": { "type": "number" },
+            "improvementRate": { "type": "number" }
+          }
+        },
+        "feedback": { "type": "string", "maxLength": 1000 }
+      }
+    },
+    "iterationAction": {
+      "type": "object",
+      "required": ["type", "description"],
+      "properties": {
+        "type": { "type": "string", "enum": ["test-generation", "test-execution", "defect-fix", "refactoring", "review", "analysis", "optimization"] },
+        "description": { "type": "string", "maxLength": 500 },
+        "target": { "type": "string" },
+        "result": { "type": "string", "enum": ["success", "partial", "failed"] },
+        "impact": { "type": "string", "maxLength": 500 }
+      }
+    },
+    "improvement": {
+      "type": "object",
+      "required": ["id", "type", "iteration"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^IMP-\\d{3,6}$" },
+        "type": { "type": "string", "enum": ["quality-increase", "coverage-increase", "defect-reduction", "performance-gain", "maintainability-boost"] },
+        "iteration": { "type": "integer", "minimum": 1 },
+        "description": { "type": "string", "maxLength": 500 },
+        "before": { "type": "number" },
+        "after": { "type": "number" },
+        "delta": { "type": "number" },
+        "percentChange": { "type": "number" },
+        "significance": { "type": "string", "enum": ["major", "moderate", "minor", "negligible"] }
+      }
+    },
+    "convergence": {
+      "type": "object",
+      "required": ["achieved", "iterationCount"],
+      "properties": {
+        "achieved": { "type": "boolean" },
+        "iterationCount": { "type": "integer", "minimum": 1 },
+        "convergenceRate": { "type": "number", "minimum": 0, "maximum": 1 },
+        "finalQualityScore": { "type": "number", "minimum": 0, "maximum": 100 },
+        "targetQualityScore": { "type": "number", "minimum": 0, "maximum": 100 },
+        "threshold": { "type": "number", "minimum": 0, "maximum": 1 },
+        "stabilityWindow": { "type": "integer", "minimum": 1 },
+        "oscillationDetected": { "type": "boolean" },
+        "plateauReached": { "type": "boolean" },
+        "reason": { "type": "string", "enum": ["target-reached", "threshold-met", "max-iterations", "no-improvement", "time-limit", "manual-stop"] }
+      }
+    },
+    "qualityProgression": {
+      "type": "object",
+      "properties": {
+        "startScore": { "type": "number", "minimum": 0, "maximum": 100 },
+        "endScore": { "type": "number", "minimum": 0, "maximum": 100 },
+        "peakScore": { "type": "number", "minimum": 0, "maximum": 100 },
+        "averageImprovement": { "type": "number" },
+        "history": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "iteration": { "type": "integer" },
+              "score": { "type": "number" },
+              "timestamp": { "type": "string" }
+            }
+          }
+        },
+        "trendLine": {
+          "type": "object",
+          "properties": {
+            "slope": { "type": "number" },
+            "intercept": { "type": "number" },
+            "rSquared": { "type": "number", "minimum": 0, "maximum": 1 }
+          }
+        }
+      }
+    },
+    "stoppingCriteria": {
+      "type": "object",
+      "properties": {
+        "criteria": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "type": { "type": "string", "enum": ["threshold", "delta", "count", "time", "custom"] },
+              "target": {},
+              "current": {},
+              "met": { "type": "boolean" }
+            }
+          }
+        },
+        "allMet": { "type": "boolean" },
+        "primaryCriteriaMet": { "type": "boolean" }
+      }
+    },
+    "finding": {
+      "type": "object",
+      "required": ["id", "title", "severity"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^LOOP-\\d{3,6}$" },
+        "title": { "type": "string", "minLength": 5, "maxLength": 200 },
+        "description": { "type": "string", "maxLength": 2000 },
+        "severity": { "type": "string", "enum": ["critical", "high", "medium", "low", "info"] },
+        "category": { "type": "string", "enum": ["stagnation", "regression", "inefficiency", "opportunity", "anomaly"] },
+        "iteration": { "type": "integer", "minimum": 1 },
+        "remediation": { "type": "string", "maxLength": 2000 }
+      }
+    },
+    "recommendation": {
+      "type": "object",
+      "required": ["id", "title", "priority"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^REC-\\d{3,6}$" },
+        "title": { "type": "string", "maxLength": 200 },
+        "description": { "type": "string", "maxLength": 2000 },
+        "priority": { "type": "string", "enum": ["critical", "high", "medium", "low"] },
+        "effort": { "type": "string", "enum": ["trivial", "low", "medium", "high", "major"] },
+        "expectedImpact": { "type": "string", "maxLength": 500 }
+      }
+    }
+  }
+}

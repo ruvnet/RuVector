@@ -1,0 +1,607 @@
+# =============================================================================
+# AQE Skill Evaluation Test Suite: QE Test Execution v1.0.0
+# =============================================================================
+#
+# Comprehensive evaluation suite for the qe-test-execution skill.
+# Tests parallel test execution orchestration, smart test selection,
+# flaky test handling, and comprehensive result aggregation.
+#
+# Schema: .claude/skills/.validation/schemas/skill-eval.schema.json
+# Validator: .claude/skills/qe-test-execution/scripts/validate-config.json
+#
+# Coverage:
+# - Parallel execution with intelligent distribution
+# - Smart test selection (affected tests)
+# - Flaky test detection and handling
+# - Test result aggregation and reporting
+# - CI/CD pipeline integration
+#
+# =============================================================================
+
+skill: qe-test-execution
+version: 1.0.0
+description: >
+  Comprehensive evaluation suite for the qe-test-execution skill.
+  Tests parallel test execution orchestration, smart test selection based on
+  code changes, flaky test detection and quarantine, distributed test execution
+  with sharding, and comprehensive result aggregation across shards.
+
+# =============================================================================
+# Multi-Model Configuration
+# =============================================================================
+
+models_to_test:
+  - claude-3.5-sonnet
+  - claude-3-haiku
+
+# =============================================================================
+# MCP Integration Configuration
+# =============================================================================
+
+mcp_integration:
+  enabled: true
+  namespace: skill-validation
+
+  query_patterns: true
+  track_outcomes: true
+  store_patterns: true
+  share_learning: true
+  update_quality_gate: true
+
+  target_agents:
+    - qe-learning-coordinator
+    - qe-queen-coordinator
+    - qe-test-executor
+    - qe-flaky-detector
+
+# =============================================================================
+# ReasoningBank Learning Configuration
+# =============================================================================
+
+learning:
+  store_success_patterns: true
+  store_failure_patterns: true
+  pattern_ttl_days: 90
+  min_confidence_to_store: 0.7
+  cross_model_comparison: true
+
+# =============================================================================
+# Result Format Configuration
+# =============================================================================
+
+result_format:
+  json_output: true
+  markdown_report: true
+  include_raw_output: false
+  include_timing: true
+  include_token_usage: true
+
+# =============================================================================
+# Environment Setup
+# =============================================================================
+
+setup:
+  required_tools:
+    - jq
+  environment_variables:
+    PARALLEL_WORKERS: "4"
+    FLAKY_DETECTION: "enabled"
+    RETRY_COUNT: "3"
+  fixtures: []
+
+# =============================================================================
+# TEST CASES
+# =============================================================================
+
+test_cases:
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Parallel Execution
+  # ---------------------------------------------------------------------------
+
+  - id: tc001_parallel_test_execution
+    description: "Orchestrate parallel test execution with optimal distribution"
+    category: parallel_execution
+    priority: critical
+
+    input:
+      prompt: |
+        Orchestrate parallel execution for full test suite:
+        - 245 unit tests, 89 integration tests, 34 e2e tests
+        - 4 parallel workers available
+        - Timeout: 30 seconds per test
+
+        DISTRIBUTION STRATEGY:
+        By file (balanced): Each worker gets ~89 tests
+        By duration (optimized): Longest tests first to balance execution time
+        By type (isolated): Workers by test type to manage resources
+
+        Which strategy and why?
+        How would you handle test isolation (DB, file system)?
+      context:
+        total_tests: 368
+        workers: 4
+        strategy: "by_duration"
+        isolation: "process"
+
+    expected_output:
+      must_contain:
+        - "parallel"
+        - "distribution"
+        - "worker"
+        - "execution"
+        - "isolation"
+      must_not_contain:
+        - "sequential"
+        - "error"
+      severity_classification: critical
+      finding_count:
+        min: 1
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+      reasoning_quality_min: 0.75
+
+  - id: tc002_test_sharding_ci_cd
+    description: "Distribute tests across CI/CD pipeline shards"
+    category: parallel_execution
+    priority: critical
+
+    input:
+      prompt: |
+        Design test sharding for GitHub Actions:
+        - 4 parallel jobs (shards)
+        - Total 368 tests
+        - Each shard runs 1/4 of tests
+
+        SHARD CONFIGURATION:
+        Shard 1: Tests 1-92 (unit: 0-50, integration: 0-30, e2e: 0-10)
+        Shard 2: Tests 93-184
+        Shard 3: Tests 185-276
+        Shard 4: Tests 277-368
+
+        How would you balance load across shards?
+        How to aggregate results?
+      context:
+        shards: 4
+        total_tests: 368
+        balancing: "by_duration"
+
+    expected_output:
+      must_contain:
+        - "shard"
+        - "distribute"
+        - "aggregate"
+        - "parallel"
+      must_not_contain:
+        - "sequential"
+        - "fail"
+      severity_classification: critical
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Smart Test Selection
+  # ---------------------------------------------------------------------------
+
+  - id: tc003_affected_tests_detection
+    description: "Identify and run only affected tests based on changes"
+    category: smart_selection
+    priority: critical
+
+    input:
+      prompt: |
+        Detect affected tests for PR #456 changes:
+
+        CHANGED FILES:
+        - src/services/UserService.ts
+        - src/utils/validation.ts
+        - tests/unit/UserService.test.ts
+
+        AFFECTED TESTS:
+        DIRECT: tests/unit/UserService.test.ts (tests changed file)
+        TRANSITIVE: tests/unit/ValidationUtils.test.ts (validation.ts changed)
+        INTEGRATION: tests/integration/UserAPI.test.ts (calls UserService)
+        DEPENDENT: tests/e2e/UserFlow.test.ts (user flow uses UserService)
+
+        SELECT FOR EXECUTION:
+        - tests/unit/UserService.test.ts (MUST)
+        - tests/unit/ValidationUtils.test.ts (MUST)
+        - tests/integration/UserAPI.test.ts (SHOULD)
+        - tests/e2e/UserFlow.test.ts (COULD)
+
+        How would you prioritize?
+      context:
+        base_branch: "main"
+        pr_branch: "feature-user-improvements"
+        selection_strategy: "transitive"
+
+    expected_output:
+      must_contain:
+        - "affected"
+        - "test"
+        - "detect"
+        - "transitive"
+        - "priority"
+      must_not_contain:
+        - "all tests"
+        - "no selection"
+      severity_classification: critical
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+      reasoning_quality_min: 0.75
+
+  - id: tc004_test_impact_analysis
+    description: "Analyze which tests are impacted by code changes"
+    category: smart_selection
+    priority: high
+
+    input:
+      prompt: |
+        For change to authentication module, what tests are impacted?
+
+        CHANGE: auth/middleware.ts now requires additional role check
+
+        IMPACT ANALYSIS:
+        1. Tests for auth middleware: 8 tests - DIRECT
+        2. Tests for endpoints using auth: 42 tests - TRANSITIVE
+        3. E2E tests using auth: 12 tests - TRANSITIVE
+        4. Integration tests with external auth: 3 tests - TRANSITIVE
+        5. Performance tests (baseline): 5 tests - POTENTIALLY
+        6. Other tests (user management): 0 tests - NOT AFFECTED
+
+        ESTIMATED EXECUTION TIME:
+        - All affected: ~2 minutes
+        - Just direct: ~30 seconds
+        - Fallback if analysis fails: ~5 minutes (all tests)
+
+        Recommend: Run all affected (65 tests)
+      context:
+        change_module: "auth"
+        impact_scope: "transitive"
+
+    expected_output:
+      must_contain:
+        - "impact"
+        - "affected"
+        - "direct"
+        - "transitive"
+        - "estimate"
+      finding_count:
+        min: 1
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.75
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Flaky Test Handling
+  # ---------------------------------------------------------------------------
+
+  - id: tc005_flaky_test_detection
+    description: "Detect flaky tests based on failure patterns"
+    category: flaky_tests
+    priority: critical
+
+    input:
+      prompt: |
+        Analyze test flakiness from last 100 runs:
+
+        TEST: UserService.getById() test
+        - Passed: 85 times
+        - Failed: 15 times
+        - Flake rate: 15%
+        - Failure pattern: Random, no correlation to time or data
+
+        TEST: PaymentService.process() test
+        - Passed: 97 times
+        - Failed: 3 times
+        - Flake rate: 3% (acceptable)
+        - Failure pattern: Only during peak hours (high CPU)
+
+        TEST: AuthService.login() test
+        - Passed: 99 times
+        - Failed: 1 time
+        - Flake rate: 1% (not flaky)
+
+        ACTIONS:
+        1. Quarantine UserService test (15% too high)
+        2. Investigate PaymentService (peak hour pattern)
+        3. No action on AuthService (1% acceptable)
+      context:
+        flakiness_window: "100_runs"
+        threshold_quarantine: 0.10
+
+    expected_output:
+      must_contain:
+        - "flaky"
+        - "test"
+        - "detect"
+        - "quarantine"
+        - "rate"
+      must_not_contain:
+        - "no flaky"
+        - "all stable"
+      severity_classification: critical
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+      reasoning_quality_min: 0.75
+
+  - id: tc006_flaky_test_remediation
+    description: "Provide fixes for flaky tests"
+    category: flaky_tests
+    priority: high
+
+    input:
+      prompt: |
+        Fix flaky test: UserService.getById() (15% flake rate)
+
+        ROOT CAUSE ANALYSIS:
+        - Test uses real database with data cleanup race condition
+        - Timing-dependent assertions (no proper wait)
+        - Parallel test execution interferes with state
+
+        FIXES (prioritized):
+        1. IMMEDIATE: Add proper wait/retry for async operations
+        2. IMMEDIATE: Use test isolation (separate test data per run)
+        3. SHORT-TERM: Mock external dependencies
+        4. LONG-TERM: Refactor to eliminate race conditions
+
+        CODE EXAMPLES:
+        ```javascript
+        // BEFORE (flaky)
+        test('gets user by id', () => {
+          user = db.insert({name: 'Test'});
+          result = UserService.getById(user.id);
+          expect(result.name).toBe('Test');
+        });
+
+        // AFTER (stable)
+        test('gets user by id', async () => {
+          const user = await testFixture.createUser({name: 'Test'});
+          await waitFor(() => UserService.getById(user.id));
+          expect(result.name).toBe('Test');
+        });
+        ```
+      context:
+        test_name: "UserService.getById"
+        flake_rate: 0.15
+
+    expected_output:
+      must_contain:
+        - "fix"
+        - "flaky"
+        - "isolation"
+        - "async"
+        - "wait"
+      finding_count:
+        min: 1
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.75
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Result Aggregation
+  # ---------------------------------------------------------------------------
+
+  - id: tc007_test_result_aggregation
+    description: "Aggregate results from parallel shards"
+    category: result_aggregation
+    priority: critical
+
+    input:
+      prompt: |
+        Aggregate results from 4 parallel shards:
+
+        SHARD 1: 92 tests - 88 passed, 4 failed, 0 skipped
+        SHARD 2: 92 tests - 92 passed, 0 failed, 0 skipped
+        SHARD 3: 92 tests - 85 passed, 5 failed, 2 skipped
+        SHARD 4: 92 tests - 90 passed, 2 failed, 0 skipped
+
+        AGGREGATED RESULTS:
+        - Total: 368 tests
+        - Passed: 355 (96.5%)
+        - Failed: 11 (3%)
+        - Skipped: 2 (0.5%)
+        - Execution time: 4 minutes 32 seconds
+
+        FAILURES:
+        Shard 1: UserService.test.ts:45, UserService.test.ts:67, ...
+        Shard 3: PaymentService.test.ts:23, ...
+        Shard 4: AuthService.test.ts:12, ...
+
+        Should merge be blocked? (11 failures)
+      context:
+        shards: 4
+        aggregation_scope: "full"
+
+    expected_output:
+      must_contain:
+        - "aggregate"
+        - "result"
+        - "passed"
+        - "failed"
+        - "shard"
+      must_not_contain:
+        - "error"
+        - "incomplete"
+      severity_classification: critical
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+
+  - id: tc008_junitxml_report_generation
+    description: "Generate JUnit XML report for CI/CD integration"
+    category: result_aggregation
+    priority: high
+
+    input:
+      prompt: |
+        Generate JUnit XML report from test results:
+
+        ```xml
+        <?xml version="1.0" encoding="UTF-8"?>
+        <testsuites>
+          <testsuite name="unit" tests="245" failures="4" skipped="0" time="12.34">
+            <testcase name="UserService::getById" classname="unit" time="0.023"/>
+            <testcase name="UserService::create" classname="unit" time="0.045">
+              <failure message="Expected 'John' but got 'Jane'"/>
+            </testcase>
+          </testsuite>
+          <testsuite name="integration" tests="89" failures="5" skipped="2">
+            ...
+          </testsuite>
+        </testsuites>
+        ```
+
+        How would you structure this for:
+        1. GitHub Actions integration
+        2. JUnit report parsing
+        3. Test history tracking
+      context:
+        format: "junit_xml"
+        include_timing: true
+        include_failure_details: true
+
+    expected_output:
+      must_contain:
+        - "JUnit"
+        - "XML"
+        - "testcase"
+        - "failure"
+        - "report"
+      finding_count:
+        min: 1
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.75
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Retry & Recovery
+  # ---------------------------------------------------------------------------
+
+  - id: tc009_test_retry_strategy
+    description: "Design and implement test retry logic"
+    category: retry
+    priority: high
+
+    input:
+      prompt: |
+        Design retry strategy for flaky tests:
+
+        RETRY CONFIG:
+        - Max retries: 3
+        - Delay: 1000ms between retries
+        - Backoff: exponential (1s, 2s, 4s)
+        - Only failed tests retry
+        - Don't retry critical failures (syntax errors)
+
+        EXAMPLE:
+        Test 1: FAIL (1st attempt) -> RETRY -> PASS (2nd attempt) = PASS
+        Test 2: FAIL (all 3 attempts) = FAIL (flaky, quarantine)
+        Test 3: PASS (1st attempt) = PASS (no retry needed)
+
+        How to detect which tests benefit from retry?
+        How to distinguish flaky from actually broken?
+      context:
+        max_retries: 3
+        strategy: "exponential_backoff"
+
+    expected_output:
+      must_contain:
+        - "retry"
+        - "flaky"
+        - "backoff"
+        - "strategy"
+        - "failed"
+      finding_count:
+        min: 1
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.75
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Negative Tests
+  # ---------------------------------------------------------------------------
+
+  - id: tc010_test_execution_optimization
+    description: "Optimize test execution time and resource usage"
+    category: negative
+    priority: high
+
+    input:
+      prompt: |
+        Optimize test suite execution from 5 minutes to < 3 minutes:
+
+        ANALYSIS:
+        - Unit tests: 245 tests, 45 seconds (could be 30s)
+        - Integration tests: 89 tests, 2 minutes 15 seconds (could be 1m 20s)
+        - E2E tests: 34 tests, 2 minutes (fixed, must run)
+
+        OPTIMIZATION STRATEGIES:
+        1. Parallel workers: 4x parallelization = ~50% time reduction
+        2. Smart selection: Run only affected tests (60% reduction for PR)
+        3. Mocking: Mock external services (30% reduction for integration)
+        4. Test fixture reuse: Reduce setup/teardown (10% reduction)
+        5. Resource management: Optimize CPU/memory (5% reduction)
+
+        EXPECTED RESULTS:
+        - Current: 5 minutes
+        - After optimizations: 1-2 minutes (4x-5x improvement)
+
+        How would you measure and track improvements?
+      context:
+        current_time_ms: 300000
+        target_time_ms: 180000
+        optimization_focus: true
+
+    expected_output:
+      must_contain:
+        - "optimize"
+        - "reduce"
+        - "parallel"
+        - "improve"
+        - "measure"
+      finding_count:
+        min: 1
+
+    validation:
+      schema_check: true
+      allow_partial: true
+
+# =============================================================================
+# SUCCESS CRITERIA
+# =============================================================================
+
+success_criteria:
+  pass_rate: 0.8
+  critical_pass_rate: 1.0
+  avg_reasoning_quality: 0.75
+  max_execution_time_ms: 300000
+  cross_model_variance: 0.15
+
+# =============================================================================
+# METADATA
+# =============================================================================
+
+metadata:
+  author: "qe-test-executor"
+  created: "2026-02-02"
+  last_updated: "2026-02-02"
+  coverage_target: >
+    Parallel test execution with distribution strategies (by-file/duration/type),
+    test sharding for CI/CD with load balancing, smart test selection based on
+    code changes and transitive dependencies, flaky test detection and quarantine,
+    test result aggregation across shards, JUnit XML report generation, retry
+    logic with exponential backoff, and comprehensive test execution optimization
+    strategies for reducing execution time.

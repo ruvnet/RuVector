@@ -1,0 +1,537 @@
+# =============================================================================
+# AQE Skill Evaluation Test Suite: Mobile Testing v1.0.0
+# =============================================================================
+#
+# Comprehensive evaluation suite for the mobile-testing skill.
+# Tests device matrix coverage, gesture validation, platform-specific differences,
+# mobile-specific scenarios, and performance metrics on iOS and Android.
+#
+# Schema: .claude/skills/.validation/schemas/skill-eval.schema.json
+# Validator: .claude/skills/mobile-testing/scripts/validate-config.json
+#
+# Coverage:
+# - Device matrix planning (Tier 1/2/3 coverage)
+# - Touch gesture validation (tap, swipe, pinch)
+# - Platform differences (iOS vs Android)
+# - Mobile scenarios (offline, low-battery, interruptions)
+# - Performance metrics (launch time, frame rate, battery drain)
+#
+# =============================================================================
+
+skill: mobile-testing
+version: 1.0.0
+description: >
+  Comprehensive evaluation suite for the mobile-testing skill.
+  Tests device fragmentation handling, platform-specific behaviors,
+  gesture interactions, mobile scenarios (offline mode, orientation changes),
+  and performance metrics for iOS and Android applications.
+
+# =============================================================================
+# Multi-Model Configuration
+# =============================================================================
+
+models_to_test:
+  - claude-3.5-sonnet    # Primary model
+  - claude-3-haiku       # Fast model (minimum quality)
+
+# =============================================================================
+# MCP Integration Configuration
+# =============================================================================
+
+mcp_integration:
+  enabled: true
+  namespace: skill-validation
+
+  query_patterns: true
+  track_outcomes: true
+  store_patterns: true
+  share_learning: true
+  update_quality_gate: true
+
+  target_agents:
+    - qe-learning-coordinator
+    - qe-queen-coordinator
+    - qe-performance-tester
+
+# =============================================================================
+# ReasoningBank Learning Configuration
+# =============================================================================
+
+learning:
+  store_success_patterns: true
+  store_failure_patterns: true
+  pattern_ttl_days: 90
+  min_confidence_to_store: 0.7
+  cross_model_comparison: true
+
+# =============================================================================
+# Result Format Configuration
+# =============================================================================
+
+result_format:
+  json_output: true
+  markdown_report: true
+  include_raw_output: false
+  include_timing: true
+  include_token_usage: true
+
+# =============================================================================
+# Environment Setup
+# =============================================================================
+
+setup:
+  required_tools:
+    - jq
+
+  environment_variables:
+    MOBILE_TESTING_ENABLED: "true"
+    DEVICE_FARM: "local"
+    MIN_DEVICES: "2"
+
+# =============================================================================
+# TEST CASES
+# =============================================================================
+
+test_cases:
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Device Matrix Coverage
+  # ---------------------------------------------------------------------------
+
+  - id: tc001_device_matrix_tier1_coverage
+    description: "Validate Tier 1 device matrix covers 60% of users"
+    category: device_coverage
+    priority: critical
+
+    input:
+      tier1_devices:
+        - name: "iPhone 15"
+          platform: ios
+          osVersion: "17.2"
+          users_percent: 35
+        - name: "Samsung Galaxy S24"
+          platform: android
+          osVersion: "14"
+          users_percent: 25
+      tier2_devices:
+        - name: "iPhone 14"
+          platform: ios
+          osVersion: "17.0"
+          users_percent: 20
+      tier3_devices:
+        - name: "iPhone 12"
+          platform: ios
+          osVersion: "16.7"
+          users_percent: 10
+      context:
+        app_type: native
+        market: global
+
+    expected_output:
+      must_contain:
+        - "device matrix"
+        - "tier"
+        - "coverage"
+        - "60"
+      must_not_contain:
+        - "incomplete"
+      severity_classification: info
+      finding_count:
+        max: 1
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+      reasoning_quality_min: 0.75
+
+    timeout_ms: 30000
+
+  - id: tc002_platform_fragmentation_android
+    description: "Detect Android device fragmentation issues"
+    category: device_coverage
+    priority: critical
+
+    input:
+      devices:
+        - model: "Samsung Galaxy S24"
+          android_version: "14"
+          screen_size: "6.2 inches"
+        - model: "OnePlus 12"
+          android_version: "14"
+          screen_size: "6.7 inches"
+        - model: "Xiaomi 14"
+          android_version: "14"
+          screen_size: "6.36 inches"
+        - model: "Google Pixel 8"
+          android_version: "14"
+          screen_size: "6.2 inches"
+        - model: "Motorola Edge 50"
+          android_version: "14"
+          screen_size: "6.55 inches"
+      context:
+        platform: android
+        concern: "1000+ device variants"
+
+    expected_output:
+      must_contain:
+        - "fragmentation"
+        - "screen size"
+        - "variant"
+      must_not_contain:
+        - "uniform"
+      severity_classification: high
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.75
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Gesture Validation
+  # ---------------------------------------------------------------------------
+
+  - id: tc003_gesture_tap_validation
+    description: "Validate tap gesture detection and response"
+    category: gestures
+    priority: critical
+
+    input:
+      gesture: tap
+      coordinates:
+        x: 320
+        y: 568
+      duration_ms: 100
+      expected_action: "button click"
+      latency_threshold_ms: 100
+      context:
+        app_type: native
+        platform: ios
+
+    expected_output:
+      must_contain:
+        - "tap"
+        - "gesture"
+        - "latency"
+      must_not_contain:
+        - "failed"
+      severity_classification: info
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.7
+
+  - id: tc004_gesture_swipe_detection
+    description: "Validate swipe gesture for navigation"
+    category: gestures
+    priority: high
+
+    input:
+      gesture: swipe
+      direction: down
+      start_coordinates:
+        x: 320
+        y: 200
+      end_coordinates:
+        x: 320
+        y: 600
+      expected_action: "scroll down"
+      velocity: 500
+      context:
+        app_type: native
+        framework: uikit
+
+    expected_output:
+      must_contain:
+        - "swipe"
+        - "scroll"
+        - "velocity"
+      must_not_contain:
+        - "unresponsive"
+      severity_classification: info
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.7
+
+  - id: tc005_gesture_pinch_zoom
+    description: "Validate pinch-to-zoom gesture"
+    category: gestures
+    priority: high
+
+    input:
+      gesture: pinch
+      action: zoom
+      scale_factor: 2.0
+      duration_ms: 500
+      finger_distance_start: 100
+      finger_distance_end: 200
+      context:
+        app_type: native
+        content: image_gallery
+
+    expected_output:
+      must_contain:
+        - "pinch"
+        - "zoom"
+        - "scale"
+      must_not_contain:
+        - "failed"
+      severity_classification: medium
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.7
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Platform-Specific Behavior
+  # ---------------------------------------------------------------------------
+
+  - id: tc006_ios_specific_features
+    description: "Validate iOS-specific navigation and features"
+    category: platform
+    priority: critical
+
+    input:
+      platform: ios
+      features:
+        - name: "safe-area"
+          description: "Notch and home indicator handling"
+          required: true
+        - name: "gesture-navigation"
+          description: "Swipe back from left edge"
+          required: true
+        - name: "haptic-feedback"
+          description: "Taptic Engine feedback"
+          required: false
+      context:
+        osversion_min: "14.0"
+        devices: ["iPhone 13", "iPhone 14", "iPhone 15"]
+
+    expected_output:
+      must_contain:
+        - "iOS"
+        - "safe-area"
+        - "gesture"
+      must_not_contain:
+        - "Android"
+      severity_classification: high
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+
+  - id: tc007_android_specific_features
+    description: "Validate Android-specific features and permissions"
+    category: platform
+    priority: critical
+
+    input:
+      platform: android
+      features:
+        - name: "back-button"
+          description: "Hardware or software back button"
+          required: true
+        - name: "runtime-permissions"
+          description: "Android 6.0+ runtime permissions"
+          required: true
+        - name: "material-design"
+          description: "Material Design 3 guidelines"
+          required: true
+      context:
+        min_sdk: 24
+        target_sdk: 34
+
+    expected_output:
+      must_contain:
+        - "Android"
+        - "permissions"
+        - "back"
+      must_not_contain:
+        - "iOS"
+      severity_classification: high
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Mobile-Specific Scenarios
+  # ---------------------------------------------------------------------------
+
+  - id: tc008_offline_mode_support
+    description: "Verify app functionality in offline mode"
+    category: scenarios
+    priority: critical
+
+    input:
+      scenario: offline_mode
+      steps:
+        - disable_network: true
+        - cached_data_required: true
+        - ui_indicator_required: true
+        - sync_on_reconnect: true
+      context:
+        app_type: native
+        data_persistence: sqlite
+
+    expected_output:
+      must_contain:
+        - "offline"
+        - "cache"
+        - "sync"
+      must_not_contain:
+        - "crash"
+      severity_classification: critical
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+
+  - id: tc009_background_foreground_transitions
+    description: "Test app behavior during background/foreground transitions"
+    category: scenarios
+    priority: high
+
+    input:
+      scenario: background_foreground
+      sequence:
+        - app_running: true
+        - send_to_background: true
+        - expected_state: "paused"
+        - bring_to_foreground: true
+        - expected_state_final: "resumed"
+      context:
+        app_type: native
+
+    expected_output:
+      must_contain:
+        - "transition"
+        - "background"
+        - "foreground"
+        - "state"
+      must_not_contain:
+        - "memory leak"
+      severity_classification: high
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.7
+
+  - id: tc010_orientation_change_handling
+    description: "Verify proper handling of device rotation"
+    category: scenarios
+    priority: high
+
+    input:
+      scenario: orientation_change
+      rotations:
+        - from: portrait
+          to: landscape
+          preserve_state: true
+        - from: landscape
+          to: portrait
+          preserve_state: true
+      context:
+        app_type: native
+        auto_rotate: true
+
+    expected_output:
+      must_contain:
+        - "orientation"
+        - "rotation"
+        - "layout"
+      must_not_contain:
+        - "data loss"
+      severity_classification: high
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.7
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Performance Metrics
+  # ---------------------------------------------------------------------------
+
+  - id: tc011_app_launch_performance
+    description: "Validate app launch time meets performance targets"
+    category: performance
+    priority: critical
+
+    input:
+      measurements:
+        - cold_start_ms: 1500
+          target_ms: 2000
+          status: passed
+        - warm_start_ms: 800
+          target_ms: 1000
+          status: passed
+      context:
+        device: "iPhone 15"
+        platform: ios
+
+    expected_output:
+      must_contain:
+        - "launch"
+        - "performance"
+        - "ms"
+      must_not_contain:
+        - "exceeded"
+      severity_classification: medium
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.7
+
+  - id: tc012_frame_rate_stability
+    description: "Measure frame rate and detect jank"
+    category: performance
+    priority: high
+
+    input:
+      measurements:
+        - average_fps: 58
+          target_fps: 60
+          jank_frames: 2
+        - drops_below_60fps: 5
+          percent_smooth: 99.5
+      context:
+        device: "Samsung Galaxy S24"
+        platform: android
+
+    expected_output:
+      must_contain:
+        - "frame rate"
+        - "fps"
+        - "smooth"
+      must_not_contain:
+        - "jank"
+      severity_classification: medium
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.7
+
+# =============================================================================
+# SUCCESS CRITERIA
+# =============================================================================
+
+success_criteria:
+  pass_rate: 0.85
+  critical_pass_rate: 1.0
+  avg_reasoning_quality: 0.75
+  max_execution_time_ms: 300000
+  cross_model_variance: 0.15
+
+# =============================================================================
+# METADATA
+# =============================================================================
+
+metadata:
+  author: "qe-test-executor"
+  created: "2026-02-02"
+  last_updated: "2026-02-02"
+  coverage_target: >
+    Mobile testing including device matrix coverage (Tier 1/2/3),
+    gesture validation (tap, swipe, pinch), platform-specific behaviors
+    (iOS safe-area, Android permissions), mobile scenarios (offline,
+    background/foreground, orientation), and performance metrics
+    (launch time, frame rate). 12 test cases covering iOS and Android
+    with 85% pass rate requirement.

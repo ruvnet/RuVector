@@ -1,0 +1,748 @@
+# =============================================================================
+# AQE Contract Testing Skill Evaluation Test Suite v1.0.0
+# Per ADR-056 - Trust Tier 3 Validation
+# =============================================================================
+#
+# This evaluation suite validates the contract-testing skill behavior:
+# - Consumer-driven contract testing (Pact)
+# - Provider verification
+# - Breaking change detection
+# - Semantic versioning recommendations
+# - Spring Cloud Contract support
+# - canIDeploy decision logic
+# - Mock generation from contracts
+#
+# Schema: .claude/skills/.validation/schemas/skill-eval.schema.json
+# Runner: scripts/run-skill-eval.ts
+#
+# =============================================================================
+
+skill: contract-testing
+version: 1.0.0
+description: >
+  Comprehensive evaluation suite for the contract-testing skill.
+  Tests consumer-driven contracts, provider verification, breaking change
+  detection, versioning recommendations, and CI/CD integration patterns
+  across multiple models.
+
+# =============================================================================
+# Multi-Model Configuration
+# =============================================================================
+
+models_to_test:
+  - claude-sonnet-4       # Primary model (high accuracy expected)
+  - claude-3-haiku        # Fast model (minimum quality bar)
+  - gpt-4o                # Cross-vendor validation
+
+# =============================================================================
+# MCP Integration Configuration
+# =============================================================================
+
+mcp_integration:
+  enabled: true
+  namespace: skill-validation
+
+  query_patterns: true
+  track_outcomes: true
+  store_patterns: true
+  share_learning: true
+  update_quality_gate: true
+
+  target_agents:
+    - qe-learning-coordinator
+    - qe-queen-coordinator
+    - qe-api-contract-validator
+
+# =============================================================================
+# ReasoningBank Learning Configuration
+# =============================================================================
+
+learning:
+  store_success_patterns: true
+  store_failure_patterns: true
+  pattern_ttl_days: 90
+  min_confidence_to_store: 0.7
+  cross_model_comparison: true
+
+# =============================================================================
+# Result Format Configuration
+# =============================================================================
+
+result_format:
+  json_output: true
+  markdown_report: true
+  include_raw_output: false
+  include_timing: true
+  include_token_usage: true
+
+# =============================================================================
+# Environment Setup
+# =============================================================================
+
+setup:
+  required_tools:
+    - jq
+  environment_variables:
+    AQE_VALIDATION_MODE: "eval"
+  fixtures:
+    - name: sample_pact_file
+      path: fixtures/pact-sample.json
+      content: |
+        {
+          "consumer": { "name": "CheckoutUI" },
+          "provider": { "name": "OrderService" },
+          "interactions": [
+            {
+              "description": "a request to create an order",
+              "providerState": "products exist",
+              "request": {
+                "method": "POST",
+                "path": "/orders",
+                "headers": { "Content-Type": "application/json" },
+                "body": { "productId": "abc-123", "quantity": 2 }
+              },
+              "response": {
+                "status": 201,
+                "headers": { "Content-Type": "application/json" },
+                "body": {
+                  "orderId": "order-456",
+                  "total": 19.99
+                }
+              }
+            }
+          ],
+          "metadata": {
+            "pactSpecification": { "version": "4.0" }
+          }
+        }
+    - name: sample_openapi_v1
+      path: fixtures/openapi-v1.yaml
+      content: |
+        openapi: "3.0.3"
+        info:
+          title: Order API
+          version: "1.0.0"
+        paths:
+          /orders:
+            post:
+              operationId: createOrder
+              requestBody:
+                content:
+                  application/json:
+                    schema:
+                      $ref: '#/components/schemas/CreateOrderRequest'
+              responses:
+                "201":
+                  description: Order created
+                  content:
+                    application/json:
+                      schema:
+                        $ref: '#/components/schemas/Order'
+        components:
+          schemas:
+            CreateOrderRequest:
+              type: object
+              required: [productId, quantity]
+              properties:
+                productId:
+                  type: string
+                quantity:
+                  type: integer
+            Order:
+              type: object
+              properties:
+                orderId:
+                  type: string
+                total:
+                  type: number
+                discount:
+                  type: number
+    - name: sample_openapi_v2
+      path: fixtures/openapi-v2.yaml
+      content: |
+        openapi: "3.0.3"
+        info:
+          title: Order API
+          version: "2.0.0"
+        paths:
+          /orders:
+            post:
+              operationId: createOrder
+              requestBody:
+                content:
+                  application/json:
+                    schema:
+                      $ref: '#/components/schemas/CreateOrderRequest'
+              responses:
+                "201":
+                  description: Order created
+                  content:
+                    application/json:
+                      schema:
+                        $ref: '#/components/schemas/Order'
+        components:
+          schemas:
+            CreateOrderRequest:
+              type: object
+              required: [productId, quantity, customerId]
+              properties:
+                productId:
+                  type: string
+                quantity:
+                  type: integer
+                customerId:
+                  type: string
+            Order:
+              type: object
+              properties:
+                orderId:
+                  type: string
+                total:
+                  type: string
+
+# =============================================================================
+# Test Cases
+# =============================================================================
+
+test_cases:
+  # -------------------------------------------------------------------------
+  # Consumer Contract Generation Tests
+  # -------------------------------------------------------------------------
+
+  - id: tc001_consumer_contract_generation
+    description: "Skill generates consumer contract from API interaction"
+    category: consumer
+    priority: critical
+
+    input:
+      prompt: |
+        Generate a Pact consumer contract for the following API interaction:
+        - Consumer: web-app
+        - Provider: user-service
+        - Interaction: GET /users/{id} returns user details
+        - Expected response: { "id": "123", "name": "John", "email": "john@example.com" }
+      context:
+        contractType: consumer-driven
+        framework: pact
+
+    expected_output:
+      must_contain:
+        - "consumer"
+        - "provider"
+        - "web-app"
+        - "user-service"
+        - "GET"
+        - "users"
+      must_not_contain:
+        - "error"
+        - "unable"
+        - "TODO"
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+      reasoning_quality_min: 0.7
+
+  - id: tc002_pact_matchers
+    description: "Skill correctly uses Pact matchers for flexible contracts"
+    category: consumer
+    priority: high
+
+    input:
+      prompt: |
+        Create a Pact contract with flexible matching for:
+        - Any string for orderId (should match any string pattern)
+        - Any positive number for total
+        - Array of items where each has id and name
+      context:
+        framework: pact
+        pactVersion: "4.0"
+
+    expected_output:
+      must_contain:
+        - "matching"
+        - "type"
+      must_match_regex:
+        - "(?i)(like|regex|matcher|type.*match)"
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.7
+
+  # -------------------------------------------------------------------------
+  # Provider Verification Tests
+  # -------------------------------------------------------------------------
+
+  - id: tc003_provider_verification
+    description: "Skill verifies provider against consumer contracts"
+    category: provider
+    priority: critical
+
+    input:
+      prompt: |
+        Verify the user-service provider against all consumer contracts:
+        - Consumers: web-app (v1.2.0), mobile-app (v2.0.1), admin-portal (v1.0.0)
+        - Provider version: 3.1.0
+        - Pact Broker URL: https://pact-broker.example.com
+      context:
+        contractType: consumer-driven
+        framework: pact
+
+    expected_output:
+      must_contain:
+        - "verification"
+        - "provider"
+        - "consumer"
+        - "user-service"
+      must_match_regex:
+        - "(?i)(pass|fail|verify)"
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+      reasoning_quality_min: 0.8
+
+  - id: tc004_provider_states
+    description: "Skill handles provider states correctly"
+    category: provider
+    priority: high
+
+    input:
+      prompt: |
+        Create provider state handlers for the following contract:
+        - State 1: "user 123 exists" - need to seed user with id 123
+        - State 2: "no users exist" - need to clear database
+        - State 3: "user has orders" - need user and associated orders
+      context:
+        framework: pact
+        language: javascript
+
+    expected_output:
+      must_contain:
+        - "state"
+        - "handler"
+        - "user"
+      must_match_regex:
+        - "(?i)(setup|teardown|before|seed|clear)"
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.7
+
+  # -------------------------------------------------------------------------
+  # Breaking Change Detection Tests
+  # -------------------------------------------------------------------------
+
+  - id: tc005_breaking_change_removed_field
+    description: "Skill detects breaking change when field is removed"
+    category: breaking_change
+    priority: critical
+
+    input:
+      prompt: |
+        Compare these two API versions and identify breaking changes:
+
+        V1 Response:
+        {
+          "orderId": "123",
+          "total": 99.99,
+          "discount": 10.00,
+          "items": []
+        }
+
+        V2 Response:
+        {
+          "orderId": "123",
+          "total": "99.99",
+          "items": []
+        }
+      context:
+        detectBreaking: true
+
+    expected_output:
+      must_contain:
+        - "breaking"
+        - "removed"
+        - "discount"
+        - "type"
+      must_match_regex:
+        - "(?i)(breaking.*change|removed.*field|type.*change)"
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.9
+      grading_rubric:
+        completeness: 0.4
+        accuracy: 0.4
+        actionability: 0.2
+
+  - id: tc006_breaking_change_type_change
+    description: "Skill detects type change as breaking"
+    category: breaking_change
+    priority: critical
+
+    input:
+      prompt: |
+        Is changing a field from number to string a breaking change?
+        Example: "total: 99.99" changed to "total: '99.99'"
+        What consumers might be affected?
+      context:
+        detectBreaking: true
+
+    expected_output:
+      must_contain:
+        - "breaking"
+        - "type"
+        - "number"
+        - "string"
+      must_match_regex:
+        - "(?i)(breaking|incompatible|consumer.*impact)"
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+
+  - id: tc007_non_breaking_change
+    description: "Skill correctly identifies non-breaking changes"
+    category: breaking_change
+    priority: high
+
+    input:
+      prompt: |
+        Are these changes breaking or non-breaking?
+        1. Adding a new optional field "createdAt"
+        2. Adding a new endpoint GET /orders/history
+        3. Adding a new enum value "PENDING_APPROVAL" to status field
+      context:
+        detectBreaking: true
+
+    expected_output:
+      must_contain:
+        - "non-breaking"
+        - "optional"
+        - "add"
+      must_not_contain:
+        - "breaking change"
+        - "incompatible"
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.7
+
+  # -------------------------------------------------------------------------
+  # Semantic Versioning Tests
+  # -------------------------------------------------------------------------
+
+  - id: tc008_semver_major_bump
+    description: "Skill recommends major version bump for breaking changes"
+    category: versioning
+    priority: high
+
+    input:
+      prompt: |
+        Current API version: 1.5.3
+        Changes detected:
+        - Removed field "legacyId" from User response
+        - Changed "createdAt" from string to timestamp
+
+        What version should we release?
+      context:
+        currentVersion: "1.5.3"
+        calculateSemver: true
+
+    expected_output:
+      must_contain:
+        - "2.0.0"
+        - "major"
+        - "breaking"
+      must_not_contain:
+        - "1.5.4"
+        - "1.6.0"
+        - "patch"
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.9
+
+  - id: tc009_semver_minor_bump
+    description: "Skill recommends minor version bump for new features"
+    category: versioning
+    priority: high
+
+    input:
+      prompt: |
+        Current API version: 2.3.1
+        Changes:
+        - Added new endpoint GET /orders/summary
+        - Added optional field "metadata" to Order response
+
+        Recommend the next version.
+      context:
+        currentVersion: "2.3.1"
+        calculateSemver: true
+
+    expected_output:
+      must_contain:
+        - "2.4.0"
+        - "minor"
+      must_not_contain:
+        - "3.0.0"
+        - "major"
+        - "breaking"
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+
+  # -------------------------------------------------------------------------
+  # canIDeploy Tests
+  # -------------------------------------------------------------------------
+
+  - id: tc010_can_i_deploy_yes
+    description: "Skill correctly determines deployment is safe"
+    category: deployment
+    priority: critical
+
+    input:
+      prompt: |
+        Provider: order-service v2.1.0
+        Consumer contracts verified:
+        - web-app v1.5.0: PASSED (12/12 interactions)
+        - mobile-app v2.0.1: PASSED (8/8 interactions)
+        - admin-portal v1.0.0: PASSED (5/5 interactions)
+
+        Can I deploy order-service to production?
+      context:
+        canIDeploy: true
+
+    expected_output:
+      must_contain:
+        - "deploy"
+        - "pass"
+        - "safe"
+      must_match_regex:
+        - "(?i)(can.*deploy|safe.*deploy|yes)"
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+
+  - id: tc011_can_i_deploy_no
+    description: "Skill correctly blocks deployment when contracts fail"
+    category: deployment
+    priority: critical
+
+    input:
+      prompt: |
+        Provider: payment-service v3.0.0
+        Consumer contracts verified:
+        - checkout-ui v2.1.0: PASSED (10/10)
+        - mobile-app v1.9.0: FAILED (7/8 - missing field)
+        - reporting-service v1.0.0: PASSED (3/3)
+
+        Can I deploy payment-service to production?
+      context:
+        canIDeploy: true
+
+    expected_output:
+      must_contain:
+        - "cannot"
+        - "deploy"
+        - "fail"
+        - "mobile-app"
+      must_match_regex:
+        - "(?i)(cannot.*deploy|do.*not.*deploy|block|fail)"
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.9
+
+  # -------------------------------------------------------------------------
+  # Spring Cloud Contract Tests
+  # -------------------------------------------------------------------------
+
+  - id: tc012_spring_cloud_contract
+    description: "Skill generates Spring Cloud Contract DSL"
+    category: spring_cloud
+    priority: medium
+
+    input:
+      prompt: |
+        Generate a Spring Cloud Contract for:
+        - Request: POST /api/users with body { "name": "John", "email": "john@test.com" }
+        - Response: 201 with body { "id": "generated-uuid", "name": "John" }
+
+        Use Groovy DSL format.
+      context:
+        framework: spring-cloud-contract
+        language: groovy
+
+    expected_output:
+      must_contain:
+        - "Contract"
+        - "request"
+        - "response"
+        - "POST"
+        - "201"
+      must_match_regex:
+        - "(?i)(contract|dsl|groovy)"
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.7
+
+  # -------------------------------------------------------------------------
+  # Mock Generation Tests
+  # -------------------------------------------------------------------------
+
+  - id: tc013_mock_generation
+    description: "Skill generates mock from contract for development"
+    category: mock
+    priority: high
+
+    input:
+      prompt: |
+        Generate a WireMock stub from this Pact interaction:
+
+        Request: GET /api/users/123
+        Response: 200 with { "id": "123", "name": "John", "status": "active" }
+
+        Include matching rules for flexible stub.
+      context:
+        mockType: wiremock
+
+    expected_output:
+      must_contain:
+        - "stub"
+        - "request"
+        - "response"
+        - "200"
+      must_match_regex:
+        - "(?i)(wiremock|stub|mapping|mock)"
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.7
+
+  # -------------------------------------------------------------------------
+  # Pact Broker Integration Tests
+  # -------------------------------------------------------------------------
+
+  - id: tc014_pact_broker_publish
+    description: "Skill explains Pact Broker publishing workflow"
+    category: broker
+    priority: medium
+
+    input:
+      prompt: |
+        How do I publish consumer Pact files to a Pact Broker?
+        What tags and versions should I use?
+        CI/CD integration best practices?
+      context:
+        framework: pact
+        environment: ci
+
+    expected_output:
+      must_contain:
+        - "publish"
+        - "broker"
+        - "version"
+        - "tag"
+      must_match_regex:
+        - "(?i)(pact.*broker|publish|ci.*cd)"
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.7
+
+  # -------------------------------------------------------------------------
+  # Edge Cases
+  # -------------------------------------------------------------------------
+
+  - id: tc015_no_contracts
+    description: "Skill handles case with no contracts gracefully"
+    category: edge_cases
+    priority: medium
+
+    input:
+      prompt: |
+        I have a new service with no consumers yet.
+        How should I set up contract testing?
+      context:
+        contractType: consumer-driven
+
+    expected_output:
+      must_contain:
+        - "consumer"
+        - "contract"
+      must_not_contain:
+        - "error"
+        - "impossible"
+
+    validation:
+      schema_check: true
+      allow_partial: true
+
+  - id: tc016_multiple_provider_versions
+    description: "Skill handles multiple provider versions correctly"
+    category: edge_cases
+    priority: medium
+
+    input:
+      prompt: |
+        Our provider has multiple versions in production:
+        - v1.x used by legacy consumers
+        - v2.x used by new consumers
+
+        How do we handle contract testing for both?
+      context:
+        multiVersion: true
+
+    expected_output:
+      must_contain:
+        - "version"
+        - "consumer"
+        - "provider"
+      must_match_regex:
+        - "(?i)(versioning|backward.*compatible|support)"
+
+    validation:
+      schema_check: true
+
+    timeout_ms: 60000
+
+# =============================================================================
+# Success Criteria
+# =============================================================================
+
+success_criteria:
+  # Minimum percentage of tests that must pass
+  pass_rate: 0.90
+
+  # Critical tests must have 100% pass rate
+  critical_pass_rate: 1.0
+
+  # Average reasoning quality across all tests
+  avg_reasoning_quality: 0.7
+
+  # Maximum time for entire suite (5 minutes)
+  max_execution_time_ms: 300000
+
+  # Maximum variance between different models (15%)
+  cross_model_variance: 0.15
+
+# =============================================================================
+# Metadata
+# =============================================================================
+
+metadata:
+  author: "@agentic-qe"
+  created: "2026-02-02"
+  last_updated: "2026-02-02"
+  coverage_target: >
+    Contract testing patterns including consumer-driven contracts (Pact),
+    provider verification, breaking change detection, semantic versioning,
+    canIDeploy decisions, Spring Cloud Contract, and mock generation.
+    Tests 16 scenarios across 9 categories.
+  adr_reference: "ADR-056"
+  trust_tier: 3

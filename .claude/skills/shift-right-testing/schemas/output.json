@@ -1,0 +1,418 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentic-qe.dev/schemas/shift-right-testing-output.json",
+  "title": "AQE Shift-Right Testing Skill Output Schema",
+  "description": "Schema for shift-right-testing skill output validation. Extends the base skill-output template with feature flags, canary deployments, synthetic monitoring, and chaos engineering.",
+  "type": "object",
+  "required": ["skillName", "version", "timestamp", "status", "trustTier", "output"],
+  "properties": {
+    "skillName": {
+      "type": "string",
+      "const": "shift-right-testing",
+      "description": "Must be 'shift-right-testing'"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+(-[a-zA-Z0-9]+)?$"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["success", "partial", "failed", "skipped"]
+    },
+    "trustTier": {
+      "type": "integer",
+      "const": 3
+    },
+    "output": {
+      "type": "object",
+      "required": ["summary", "productionTesting", "findings", "recommendations"],
+      "properties": {
+        "summary": {
+          "type": "string",
+          "minLength": 50,
+          "maxLength": 2000,
+          "description": "Human-readable summary of shift-right assessment"
+        },
+        "score": {
+          "$ref": "#/$defs/shiftRightScore"
+        },
+        "productionTesting": {
+          "$ref": "#/$defs/productionTesting",
+          "description": "Production testing capabilities assessment"
+        },
+        "featureFlags": {
+          "$ref": "#/$defs/featureFlags",
+          "description": "Feature flag usage and configuration"
+        },
+        "canaryDeployment": {
+          "$ref": "#/$defs/canaryDeployment",
+          "description": "Canary deployment configuration"
+        },
+        "syntheticMonitoring": {
+          "$ref": "#/$defs/syntheticMonitoring",
+          "description": "Synthetic monitoring configuration"
+        },
+        "realUserMonitoring": {
+          "$ref": "#/$defs/realUserMonitoring",
+          "description": "RUM configuration and metrics"
+        },
+        "chaosEngineering": {
+          "$ref": "#/$defs/chaosEngineering",
+          "description": "Chaos engineering practices"
+        },
+        "feedbackLoop": {
+          "$ref": "#/$defs/feedbackLoop",
+          "description": "Production to pre-production feedback"
+        },
+        "findings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/shiftRightFinding"
+          },
+          "maxItems": 100
+        },
+        "recommendations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/shiftRightRecommendation"
+          },
+          "maxItems": 50
+        },
+        "metrics": {
+          "$ref": "#/$defs/shiftRightMetrics"
+        },
+        "artifacts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/artifact"
+          },
+          "maxItems": 50
+        }
+      }
+    },
+    "metadata": {
+      "$ref": "#/$defs/metadata"
+    },
+    "validation": {
+      "$ref": "#/$defs/validationResult"
+    },
+    "learning": {
+      "$ref": "#/$defs/learningData"
+    }
+  },
+  "$defs": {
+    "shiftRightScore": {
+      "type": "object",
+      "required": ["value", "max"],
+      "properties": {
+        "value": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "max": {
+          "type": "number",
+          "const": 100
+        },
+        "grade": {
+          "type": "string",
+          "pattern": "^[A-F][+-]?$"
+        },
+        "observabilityLevel": {
+          "type": "string",
+          "enum": ["basic", "intermediate", "advanced", "elite"],
+          "description": "Production observability maturity"
+        }
+      }
+    },
+    "productionTesting": {
+      "type": "object",
+      "required": ["techniques"],
+      "properties": {
+        "techniques": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "enum": ["feature-flags", "canary", "blue-green", "shadow-traffic", "synthetic-monitoring", "rum", "chaos-engineering", "a-b-testing"]
+              },
+              "implemented": { "type": "boolean" },
+              "maturity": { "type": "string", "enum": ["none", "basic", "intermediate", "advanced"] },
+              "tools": { "type": "array", "items": { "type": "string" } }
+            }
+          }
+        },
+        "overallMaturity": {
+          "type": "string",
+          "enum": ["none", "basic", "intermediate", "advanced", "elite"]
+        }
+      }
+    },
+    "featureFlags": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "provider": { "type": "string", "description": "e.g., LaunchDarkly, Unleash, custom" },
+        "flagCount": { "type": "integer" },
+        "progressiveRollout": { "type": "boolean" },
+        "instantRollback": { "type": "boolean" },
+        "targetingCapabilities": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["percentage", "user-id", "group", "geography", "device", "custom-attribute"]
+          }
+        },
+        "flagTypes": {
+          "type": "object",
+          "properties": {
+            "release": { "type": "integer" },
+            "experiment": { "type": "integer" },
+            "operational": { "type": "integer" },
+            "permission": { "type": "integer" }
+          }
+        }
+      }
+    },
+    "canaryDeployment": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "provider": { "type": "string", "description": "e.g., Flagger, Argo, Spinnaker" },
+        "configuration": {
+          "type": "object",
+          "properties": {
+            "initialWeight": { "type": "number", "description": "Initial traffic percentage" },
+            "maxWeight": { "type": "number", "description": "Maximum traffic percentage" },
+            "stepWeight": { "type": "number", "description": "Traffic increment per step" },
+            "interval": { "type": "string", "description": "Analysis interval" },
+            "threshold": { "type": "integer", "description": "Max failed checks before rollback" }
+          }
+        },
+        "metrics": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "threshold": { "type": "number" },
+              "type": { "type": "string", "enum": ["success-rate", "latency", "error-rate", "custom"] }
+            }
+          }
+        },
+        "automaticRollback": { "type": "boolean" }
+      }
+    },
+    "syntheticMonitoring": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "provider": { "type": "string" },
+        "endpoints": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "url": { "type": "string" },
+              "type": { "type": "string", "enum": ["health", "api", "user-flow", "transaction"] },
+              "interval": { "type": "string" },
+              "locations": { "type": "array", "items": { "type": "string" } },
+              "alerts": { "type": "boolean" }
+            }
+          }
+        },
+        "coverage": {
+          "type": "object",
+          "properties": {
+            "criticalPaths": { "type": "number", "minimum": 0, "maximum": 100 },
+            "geographicCoverage": { "type": "number", "minimum": 0, "maximum": 100 }
+          }
+        }
+      }
+    },
+    "realUserMonitoring": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "provider": { "type": "string" },
+        "metrics": {
+          "type": "object",
+          "properties": {
+            "pageLoadTime": { "type": "object", "properties": { "p50": { "type": "number" }, "p95": { "type": "number" }, "p99": { "type": "number" } } },
+            "firstContentfulPaint": { "type": "object" },
+            "largestContentfulPaint": { "type": "object" },
+            "cumulativeLayoutShift": { "type": "number" },
+            "firstInputDelay": { "type": "object" },
+            "errorRate": { "type": "number" },
+            "apdex": { "type": "number" }
+          }
+        },
+        "segmentation": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["browser", "device", "geography", "user-type", "feature"]
+          }
+        }
+      }
+    },
+    "chaosEngineering": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "provider": { "type": "string", "description": "e.g., Chaos Monkey, Gremlin, Litmus" },
+        "experiments": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "type": {
+                "type": "string",
+                "enum": ["network-latency", "network-partition", "pod-kill", "cpu-stress", "memory-stress", "disk-fill", "dns-failure", "http-error"]
+              },
+              "target": { "type": "string" },
+              "frequency": { "type": "string" },
+              "lastRun": { "type": "string" },
+              "result": { "type": "string", "enum": ["passed", "failed", "not-run"] }
+            }
+          }
+        },
+        "gamedays": {
+          "type": "object",
+          "properties": {
+            "frequency": { "type": "string" },
+            "lastGameday": { "type": "string" },
+            "findingsFromLastGameday": { "type": "integer" }
+          }
+        },
+        "steadyStateHypothesis": { "type": "boolean" },
+        "automaticRollback": { "type": "boolean" }
+      }
+    },
+    "feedbackLoop": {
+      "type": "object",
+      "properties": {
+        "incidentToTestConversion": { "type": "boolean" },
+        "productionBugsTracked": { "type": "boolean" },
+        "riskScoreUpdates": { "type": "boolean" },
+        "automatedReplayTests": { "type": "boolean" },
+        "conversionsLastMonth": {
+          "type": "integer",
+          "description": "Production issues converted to tests"
+        }
+      }
+    },
+    "shiftRightFinding": {
+      "type": "object",
+      "required": ["id", "title", "type", "severity"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^SRT-\\d{3,6}$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 200
+        },
+        "description": { "type": "string" },
+        "type": {
+          "type": "string",
+          "enum": ["missing-technique", "configuration-gap", "monitoring-gap", "feedback-gap", "resilience-gap", "opportunity"]
+        },
+        "severity": {
+          "type": "string",
+          "enum": ["critical", "high", "medium", "low", "info"]
+        },
+        "technique": {
+          "type": "string",
+          "enum": ["feature-flags", "canary", "synthetic", "rum", "chaos", "feedback-loop"]
+        }
+      }
+    },
+    "shiftRightRecommendation": {
+      "type": "object",
+      "required": ["id", "title", "priority", "techniqueImpact"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^REC-\\d{3,6}$"
+        },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "priority": {
+          "type": "string",
+          "enum": ["critical", "high", "medium", "low"]
+        },
+        "techniqueImpact": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["feature-flags", "canary", "synthetic", "rum", "chaos", "feedback-loop"]
+          }
+        },
+        "reliabilityImprovement": {
+          "type": "string",
+          "description": "Expected reliability improvement"
+        },
+        "effort": {
+          "type": "string",
+          "enum": ["trivial", "low", "medium", "high", "major"]
+        }
+      }
+    },
+    "shiftRightMetrics": {
+      "type": "object",
+      "properties": {
+        "availability": { "type": "number", "minimum": 0, "maximum": 100 },
+        "mttd": { "type": "integer", "description": "Mean time to detect in minutes" },
+        "mttr": { "type": "integer", "description": "Mean time to recover in minutes" },
+        "deploymentFrequency": { "type": "string" },
+        "changeFailureRate": { "type": "number", "minimum": 0, "maximum": 100 },
+        "syntheticTestsCount": { "type": "integer" },
+        "chaosExperimentsRun": { "type": "integer" }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "required": ["type", "path"],
+      "properties": {
+        "type": { "type": "string" },
+        "path": { "type": "string" },
+        "format": { "type": "string" },
+        "description": { "type": "string" }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "executionTimeMs": { "type": "integer" },
+        "agentId": { "type": "string" },
+        "modelUsed": { "type": "string" },
+        "environment": { "type": "string" }
+      }
+    },
+    "validationResult": {
+      "type": "object",
+      "properties": {
+        "schemaValid": { "type": "boolean" },
+        "contentValid": { "type": "boolean" },
+        "confidence": { "type": "number" }
+      }
+    },
+    "learningData": {
+      "type": "object",
+      "properties": {
+        "patternsDetected": { "type": "array", "items": { "type": "string" } },
+        "reward": { "type": "number" }
+      }
+    }
+  }
+}

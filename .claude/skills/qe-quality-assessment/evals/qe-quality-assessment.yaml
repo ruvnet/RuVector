@@ -1,0 +1,506 @@
+# =============================================================================
+# AQE Skill Evaluation Test Suite: QE Quality Assessment v1.0.0
+# =============================================================================
+#
+# Comprehensive evaluation suite for the qe-quality-assessment skill.
+# Tests quality gates, metrics aggregation, trend analysis, deployment
+# readiness evaluation, and quality scoring.
+#
+# Schema: .claude/skills/.validation/schemas/skill-eval.schema.json
+# Validator: .claude/skills/qe-quality-assessment/scripts/validate-config.json
+#
+# Coverage:
+# - Code quality metrics (complexity, maintainability, duplication)
+# - Quality gates with pass/fail criteria
+# - Deployment readiness assessment
+# - Quality scoring and grading
+# - Trend analysis and alerts
+#
+# =============================================================================
+
+skill: qe-quality-assessment
+version: 1.0.0
+description: >
+  Comprehensive evaluation suite for the qe-quality-assessment skill.
+  Tests automated quality gates, metrics aggregation, trend analysis,
+  deployment readiness evaluation, quality scoring with grading, and
+  comprehensive quality dashboards.
+
+# =============================================================================
+# Multi-Model Configuration
+# =============================================================================
+
+models_to_test:
+  - claude-3.5-sonnet
+  - claude-3-haiku
+
+# =============================================================================
+# MCP Integration Configuration
+# =============================================================================
+
+mcp_integration:
+  enabled: true
+  namespace: skill-validation
+
+  query_patterns: true
+  track_outcomes: true
+  store_patterns: true
+  share_learning: true
+  update_quality_gate: true
+
+  target_agents:
+    - qe-learning-coordinator
+    - qe-queen-coordinator
+    - qe-quality-analyzer
+    - qe-deployment-advisor
+
+# =============================================================================
+# ReasoningBank Learning Configuration
+# =============================================================================
+
+learning:
+  store_success_patterns: true
+  store_failure_patterns: true
+  pattern_ttl_days: 90
+  min_confidence_to_store: 0.7
+  cross_model_comparison: true
+
+# =============================================================================
+# Result Format Configuration
+# =============================================================================
+
+result_format:
+  json_output: true
+  markdown_report: true
+  include_raw_output: false
+  include_timing: true
+  include_token_usage: true
+
+# =============================================================================
+# Environment Setup
+# =============================================================================
+
+setup:
+  required_tools:
+    - jq
+  environment_variables:
+    QUALITY_GATE_BLOCKING: "true"
+    MIN_QUALITY_SCORE: "70"
+  fixtures: []
+
+# =============================================================================
+# TEST CASES
+# =============================================================================
+
+test_cases:
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Code Quality Metrics
+  # ---------------------------------------------------------------------------
+
+  - id: tc001_code_complexity_assessment
+    description: "Assess code complexity across multiple metrics"
+    category: code_quality
+    priority: critical
+
+    input:
+      prompt: |
+        Assess code quality for UserService module:
+        - Cyclomatic complexity (max 15, warn 10)
+        - Cognitive complexity (max 20, warn 15)
+        - Method length (max 50 lines, warn 30)
+        - Nesting depth (max 4, warn 3)
+        - Duplicate code (max 3%, warn 5%)
+
+        For each metric, assign status (OK/WARN/FAIL).
+        What's the overall code quality score?
+      context:
+        scope: "src/services/UserService.ts"
+        metrics: "all"
+        include_recommendations: true
+
+    expected_output:
+      must_contain:
+        - "complexity"
+        - "cyclomatic"
+        - "cognitive"
+        - "quality"
+        - "score"
+      must_not_contain:
+        - "error"
+        - "cannot assess"
+      severity_classification: critical
+      finding_count:
+        min: 1
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+      reasoning_quality_min: 0.75
+
+  - id: tc002_maintainability_index
+    description: "Calculate maintainability index for codebase"
+    category: code_quality
+    priority: high
+
+    input:
+      prompt: |
+        Calculate maintainability index (0-100) for src/:
+        - Lines of code
+        - Cyclomatic complexity
+        - Halstead volume
+        - Comment ratio
+
+        Score: 86-100 = A, 66-85 = B, 51-65 = C, 36-50 = D, <36 = F
+
+        What does score B mean and how to improve?
+      context:
+        metric: "maintainability_index"
+        include_grade: true
+
+    expected_output:
+      must_contain:
+        - "maintainability"
+        - "index"
+        - "grade"
+        - "improve"
+        - "score"
+      severity_classification: high
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.75
+
+  - id: tc003_documentation_coverage
+    description: "Assess API documentation completeness"
+    category: code_quality
+    priority: high
+
+    input:
+      prompt: |
+        Assess documentation coverage:
+        - Public APIs (classes, functions) must have JSDoc
+        - Parameters and return types documented
+        - Complex functions need usage examples
+        - Critical modules need overview comments
+
+        Target: >= 80% for public APIs
+        How would you measure and track this?
+      context:
+        scope: "src/**/*.ts"
+        coverage_target: 0.8
+
+    expected_output:
+      must_contain:
+        - "documentation"
+        - "coverage"
+        - "API"
+        - "JSDoc"
+        - "track"
+      finding_count:
+        min: 1
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.75
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Quality Gates
+  # ---------------------------------------------------------------------------
+
+  - id: tc004_quality_gate_evaluation
+    description: "Evaluate code against quality gates"
+    category: gates
+    priority: critical
+
+    input:
+      prompt: |
+        Evaluate PR against quality gates:
+        1. Coverage gate: new code >= 85% (ACTUAL: 82%) -> FAIL
+        2. Complexity gate: cyclomatic max 15 (ACTUAL: 18) -> FAIL
+        3. Vulnerabilities gate: critical = 0 (ACTUAL: 1) -> FAIL
+        4. Duplication gate: max 3% (ACTUAL: 2%) -> PASS
+        5. Tech debt gate: max 5% (ACTUAL: 6%) -> FAIL
+
+        Should this merge be blocked?
+      context:
+        gates: "all"
+        block_on_fail: true
+
+    expected_output:
+      must_contain:
+        - "gate"
+        - "fail"
+        - "block"
+        - "threshold"
+        - "blocked"
+      must_not_contain:
+        - "pass"
+        - "approved"
+      severity_classification: critical
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+      reasoning_quality_min: 0.75
+
+  - id: tc005_gate_failure_remediation
+    description: "Help fix quality gate failures"
+    category: gates
+    priority: high
+
+    input:
+      prompt: |
+        Fix the gate failures from previous test:
+        1. Coverage 82% (need 85%): What tests to add?
+        2. Complexity 18 (max 15): Refactor strategy?
+        3. Vulnerabilities: 1 critical - fix?
+        4. Tech debt 6% (max 5%): Paydown plan?
+
+        Prioritize by effort vs impact.
+      context:
+        failures: "critical"
+        remediation_guidance: true
+
+    expected_output:
+      must_contain:
+        - "fix"
+        - "test"
+        - "refactor"
+        - "prioritize"
+        - "remediation"
+      finding_count:
+        min: 1
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.75
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Deployment Readiness
+  # ---------------------------------------------------------------------------
+
+  - id: tc006_deployment_readiness_check
+    description: "Assess if release is ready for production"
+    category: deployment
+    priority: critical
+
+    input:
+      prompt: |
+        Assess release v2.1.0 for production readiness:
+
+        TESTING:
+        - Unit tests: PASS (all 245 passing)
+        - Integration tests: PASS (all 89 passing)
+        - E2E tests: 95% pass (1 flaky test)
+        - Performance tests: P95 latency 425ms (target 500ms) PASS
+
+        QUALITY:
+        - Coverage: 84% (target 80%) PASS
+        - Vulnerabilities: 0 critical (target 0) PASS
+        - Code review: 2 approvals PASS
+        - Documentation: Updated PASS
+
+        OPERATIONS:
+        - Changelog: Complete
+        - Rollback plan: Ready
+        - Monitoring: Configured
+
+        GO or NO-GO?
+      context:
+        release_version: "v2.1.0"
+        strict_checks: true
+
+    expected_output:
+      must_contain:
+        - "ready"
+        - "deployment"
+        - "pass"
+        - "go"
+        - "production"
+      must_not_contain:
+        - "concerns"
+        - "risks"
+      severity_classification: critical
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+      reasoning_quality_min: 0.75
+
+  - id: tc007_pre_deployment_risks
+    description: "Identify risks before deployment"
+    category: deployment
+    priority: critical
+
+    input:
+      prompt: |
+        Identify pre-deployment risks for v2.2.0:
+        - 45 files changed (large change set)
+        - Database migration required (can't rollback easily)
+        - Changes to payment processing (high-risk)
+        - New external API integration
+        - Only 3 days of staging testing
+
+        Risk level: HIGH/MEDIUM/LOW?
+        Recommended actions?
+      context:
+        risk_assessment: true
+        recommendations: true
+
+    expected_output:
+      must_contain:
+        - "risk"
+        - "high"
+        - "action"
+        - "recommend"
+      severity_classification: critical
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Quality Scoring
+  # ---------------------------------------------------------------------------
+
+  - id: tc008_quality_score_calculation
+    description: "Calculate overall quality score"
+    category: scoring
+    priority: critical
+
+    input:
+      prompt: |
+        Calculate quality score for project using:
+        1. Test coverage: 82% (weight 25%) -> 82*0.25 = 20.5
+        2. Code quality: 78/100 (weight 20%) -> 78*0.20 = 15.6
+        3. Security: 8/10 vulns (weight 25%) -> 80*0.25 = 20
+        4. Reliability: 99.5% uptime (weight 20%) -> 99.5*0.20 = 19.9
+        5. Documentation: 75% (weight 10%) -> 75*0.10 = 7.5
+
+        Total: 20.5 + 15.6 + 20 + 19.9 + 7.5 = 83.5
+
+        Grade: A (90-100), B (80-89), C (70-79), D (60-69), F (<60)
+        Grade: B
+
+        How would you explain this to stakeholders?
+      context:
+        weights: "default"
+        include_grade: true
+        executive_summary: true
+
+    expected_output:
+      must_contain:
+        - "score"
+        - "grade"
+        - "quality"
+        - "weight"
+        - "coverage"
+      must_not_contain:
+        - "error"
+        - "invalid"
+      severity_classification: critical
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+
+  - id: tc009_quality_trend_tracking
+    description: "Track quality score trends over time"
+    category: scoring
+    priority: high
+
+    input:
+      prompt: |
+        Track quality score trend:
+        - Week 1: 75 (C)
+        - Week 2: 77 (C)
+        - Week 3: 80 (B) - improvement!
+        - Week 4: 78 (C) - regression
+
+        Trend: Volatile, slightly improving
+        Next: Monitor closely, spike team focus
+
+        How would you alert on declining quality?
+      context:
+        trend_period: "4 weeks"
+        alert_triggers: true
+
+    expected_output:
+      must_contain:
+        - "trend"
+        - "score"
+        - "quality"
+        - "alert"
+        - "monitor"
+      finding_count:
+        min: 1
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.75
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Quality Dashboard
+  # ---------------------------------------------------------------------------
+
+  - id: tc010_quality_dashboard_design
+    description: "Design comprehensive quality dashboard"
+    category: dashboard
+    priority: high
+
+    input:
+      prompt: |
+        Design quality dashboard showing:
+        1. Overall quality score (prominent)
+        2. Dimension breakdown (coverage, complexity, security, reliability)
+        3. Gate status (all gates, pass/fail)
+        4. Trend charts (30-day, 90-day)
+        5. Top issues (critical, high priority)
+        6. Deployment readiness
+        7. Team recommendations
+
+        What visualizations would be most useful?
+      context:
+        dashboard_scope: "comprehensive"
+        stakeholders: ["engineers", "managers", "executives"]
+
+    expected_output:
+      must_contain:
+        - "dashboard"
+        - "quality"
+        - "metric"
+        - "trend"
+        - "visualization"
+      finding_count:
+        min: 1
+
+    validation:
+      schema_check: true
+      allow_partial: true
+
+# =============================================================================
+# SUCCESS CRITERIA
+# =============================================================================
+
+success_criteria:
+  pass_rate: 0.8
+  critical_pass_rate: 1.0
+  avg_reasoning_quality: 0.75
+  max_execution_time_ms: 300000
+  cross_model_variance: 0.15
+
+# =============================================================================
+# METADATA
+# =============================================================================
+
+metadata:
+  author: "qe-quality-analyzer"
+  created: "2026-02-02"
+  last_updated: "2026-02-02"
+  coverage_target: >
+    Code complexity metrics (cyclomatic, cognitive, nesting), maintainability
+    index calculation, documentation coverage assessment, quality gates with
+    fail criteria and remediation guidance, deployment readiness evaluation with
+    pre-deployment risk identification, quality scoring with multi-factor
+    weighting and grading (A-F), trend analysis and alerting, and comprehensive
+    quality dashboards for all stakeholders.

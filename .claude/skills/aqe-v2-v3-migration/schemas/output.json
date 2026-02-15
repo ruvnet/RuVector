@@ -1,0 +1,513 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentic-qe.dev/schemas/aqe-v2-v3-migration-output.json",
+  "title": "AQE V2 to V3 Migration Skill Output Schema",
+  "description": "Schema for AQE version migration output with migration plan, compatibility analysis, and upgrade status.",
+  "type": "object",
+  "required": ["skillName", "version", "timestamp", "status", "trustTier", "output"],
+  "properties": {
+    "skillName": {
+      "type": "string",
+      "const": "aqe-v2-v3-migration",
+      "description": "Must be 'aqe-v2-v3-migration'"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+(-[a-zA-Z0-9]+)?$"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["success", "partial", "failed", "skipped"]
+    },
+    "trustTier": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 3
+    },
+    "output": {
+      "type": "object",
+      "required": ["summary", "migrationPlan", "compatibilityAnalysis"],
+      "properties": {
+        "summary": {
+          "type": "string",
+          "minLength": 50,
+          "maxLength": 2000
+        },
+        "migrationPlan": {
+          "$ref": "#/$defs/migrationPlan"
+        },
+        "compatibilityAnalysis": {
+          "$ref": "#/$defs/compatibilityAnalysis"
+        },
+        "upgradeStatus": {
+          "$ref": "#/$defs/upgradeStatus"
+        },
+        "breakingChanges": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/breakingChange"
+          },
+          "description": "List of breaking changes"
+        },
+        "deprecations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/deprecation"
+          }
+        },
+        "qualityScore": {
+          "$ref": "#/$defs/qualityScore"
+        },
+        "findings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/finding"
+          },
+          "maxItems": 100
+        },
+        "recommendations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/recommendation"
+          },
+          "maxItems": 50
+        },
+        "migrationSteps": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/migrationStep"
+          }
+        },
+        "artifacts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/artifact"
+          },
+          "maxItems": 20
+        }
+      }
+    },
+    "metadata": {
+      "$ref": "#/$defs/metadata"
+    },
+    "validation": {
+      "$ref": "#/$defs/validationResult"
+    },
+    "learning": {
+      "$ref": "#/$defs/learningData"
+    }
+  },
+  "$defs": {
+    "migrationPlan": {
+      "type": "object",
+      "required": ["sourceVersion", "targetVersion", "complexity", "estimatedEffort"],
+      "properties": {
+        "sourceVersion": {
+          "type": "string",
+          "pattern": "^v?\\d+\\.\\d+\\.\\d+",
+          "description": "Current version"
+        },
+        "targetVersion": {
+          "type": "string",
+          "pattern": "^v?\\d+\\.\\d+\\.\\d+",
+          "description": "Target version"
+        },
+        "complexity": {
+          "type": "string",
+          "enum": ["trivial", "low", "medium", "high", "critical"],
+          "description": "Migration complexity"
+        },
+        "estimatedEffort": {
+          "type": "string",
+          "enum": ["hours", "days", "weeks", "months"],
+          "description": "Estimated migration effort"
+        },
+        "riskLevel": {
+          "type": "string",
+          "enum": ["low", "medium", "high", "critical"]
+        },
+        "phases": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "order"],
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "order": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "description": {
+                "type": "string"
+              },
+              "estimatedDuration": {
+                "type": "string"
+              },
+              "dependencies": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "rollbackPlan": {
+          "type": "string",
+          "description": "Rollback strategy"
+        },
+        "testingStrategy": {
+          "type": "string",
+          "description": "Testing approach for migration"
+        }
+      }
+    },
+    "compatibilityAnalysis": {
+      "type": "object",
+      "required": ["compatible", "score"],
+      "properties": {
+        "compatible": {
+          "type": "boolean",
+          "description": "Whether migration is compatible"
+        },
+        "score": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Compatibility score"
+        },
+        "apiCompatibility": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "API compatibility percentage"
+        },
+        "schemaCompatibility": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Schema compatibility percentage"
+        },
+        "configCompatibility": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Configuration compatibility percentage"
+        },
+        "dataCompatibility": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Data format compatibility percentage"
+        },
+        "incompatibilities": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "component": {
+                "type": "string"
+              },
+              "issue": {
+                "type": "string"
+              },
+              "severity": {
+                "type": "string",
+                "enum": ["critical", "high", "medium", "low"]
+              },
+              "resolution": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "upgradeStatus": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": ["not-started", "planning", "in-progress", "testing", "completed", "rolled-back"]
+        },
+        "progress": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Upgrade progress percentage"
+        },
+        "currentPhase": {
+          "type": "string",
+          "description": "Current phase name"
+        },
+        "stepsCompleted": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "stepsTotal": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "startTime": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "estimatedCompletion": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "blockers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "breakingChange": {
+      "type": "object",
+      "required": ["id", "description", "severity"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^BC-\\d{3,6}$"
+        },
+        "description": {
+          "type": "string"
+        },
+        "severity": {
+          "type": "string",
+          "enum": ["critical", "high", "medium", "low"]
+        },
+        "component": {
+          "type": "string"
+        },
+        "v2Behavior": {
+          "type": "string"
+        },
+        "v3Behavior": {
+          "type": "string"
+        },
+        "migrationPath": {
+          "type": "string"
+        },
+        "codeExample": {
+          "type": "object",
+          "properties": {
+            "before": {
+              "type": "string"
+            },
+            "after": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "deprecation": {
+      "type": "object",
+      "required": ["feature", "deprecatedIn", "removedIn"],
+      "properties": {
+        "feature": {
+          "type": "string"
+        },
+        "deprecatedIn": {
+          "type": "string"
+        },
+        "removedIn": {
+          "type": "string"
+        },
+        "replacement": {
+          "type": "string"
+        },
+        "migrationGuide": {
+          "type": "string"
+        }
+      }
+    },
+    "migrationStep": {
+      "type": "object",
+      "required": ["order", "name", "status"],
+      "properties": {
+        "order": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["pending", "in-progress", "completed", "failed", "skipped"]
+        },
+        "automated": {
+          "type": "boolean"
+        },
+        "command": {
+          "type": "string"
+        },
+        "duration": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "validations": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "qualityScore": {
+      "type": "object",
+      "required": ["value", "max"],
+      "properties": {
+        "value": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "max": {
+          "type": "number",
+          "const": 100
+        },
+        "grade": {
+          "type": "string",
+          "pattern": "^[A-F][+-]?$"
+        }
+      }
+    },
+    "finding": {
+      "type": "object",
+      "required": ["id", "title", "severity", "category"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^MIG-\\d{3,6}$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 200
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 2000
+        },
+        "severity": {
+          "type": "string",
+          "enum": ["critical", "high", "medium", "low", "info"]
+        },
+        "category": {
+          "type": "string",
+          "enum": ["api", "schema", "config", "data", "dependency", "compatibility"]
+        },
+        "remediation": {
+          "type": "string"
+        }
+      }
+    },
+    "recommendation": {
+      "type": "object",
+      "required": ["id", "title", "priority"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^REC-\\d{3,6}$"
+        },
+        "title": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "priority": {
+          "type": "string",
+          "enum": ["critical", "high", "medium", "low"]
+        },
+        "effort": {
+          "type": "string",
+          "enum": ["trivial", "low", "medium", "high", "major"]
+        }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "required": ["type", "path"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["report", "script", "config", "data", "log"]
+        },
+        "path": {
+          "type": "string"
+        },
+        "format": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "executionTimeMs": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "toolsUsed": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "agentId": {
+          "type": "string"
+        }
+      }
+    },
+    "validationResult": {
+      "type": "object",
+      "properties": {
+        "schemaValid": {
+          "type": "boolean"
+        },
+        "contentValid": {
+          "type": "boolean"
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    },
+    "learningData": {
+      "type": "object",
+      "properties": {
+        "patternsDetected": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "reward": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    }
+  }
+}

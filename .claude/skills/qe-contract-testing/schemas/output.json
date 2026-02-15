@@ -1,0 +1,295 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://agentic-qe.dev/schemas/skills/qe-contract-testing/output.json",
+  "title": "QE Contract Testing Skill Output Schema",
+  "description": "Schema for qe-contract-testing skill output with contracts, consumers, providers, and compatibility analysis.",
+  "type": "object",
+  "required": ["skillName", "version", "timestamp", "status", "trustTier", "output"],
+  "properties": {
+    "skillName": {
+      "type": "string",
+      "const": "qe-contract-testing"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+(-[a-zA-Z0-9]+)?$"
+    },
+    "timestamp": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["success", "partial", "failed", "skipped"]
+    },
+    "trustTier": {
+      "type": "integer",
+      "const": 3
+    },
+    "output": {
+      "type": "object",
+      "required": ["summary", "contracts", "compatibility"],
+      "properties": {
+        "summary": {
+          "type": "string",
+          "minLength": 50,
+          "maxLength": 2000,
+          "description": "Human-readable summary of contract testing analysis"
+        },
+        "contracts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/contract"
+          },
+          "minItems": 1,
+          "maxItems": 500,
+          "description": "List of contracts analyzed"
+        },
+        "consumers": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/consumer"
+          },
+          "maxItems": 100,
+          "description": "Contract consumers"
+        },
+        "providers": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/provider"
+          },
+          "maxItems": 100,
+          "description": "Contract providers"
+        },
+        "compatibility": {
+          "$ref": "#/$defs/compatibility",
+          "description": "Compatibility analysis results"
+        },
+        "breakingChanges": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/breakingChange"
+          },
+          "maxItems": 200
+        },
+        "verificationResult": {
+          "$ref": "#/$defs/verificationResult"
+        },
+        "canIDeploy": {
+          "type": "boolean"
+        },
+        "versionRecommendation": {
+          "$ref": "#/$defs/versionRecommendation"
+        },
+        "findings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/finding"
+          },
+          "maxItems": 200
+        },
+        "recommendations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/recommendation"
+          },
+          "maxItems": 50
+        }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "executionTimeMs": { "type": "integer", "minimum": 0 },
+        "toolsUsed": { "type": "array", "items": { "type": "string" } },
+        "agentId": { "type": "string" },
+        "framework": { "type": "string", "enum": ["pact", "spring-cloud-contract", "openapi", "graphql", "custom"] }
+      }
+    },
+    "validation": {
+      "type": "object",
+      "properties": {
+        "schemaValid": { "type": "boolean" },
+        "contentValid": { "type": "boolean" },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "learning": {
+      "type": "object",
+      "properties": {
+        "patternsDetected": { "type": "array", "items": { "type": "string" } },
+        "reward": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    }
+  },
+  "$defs": {
+    "contract": {
+      "type": "object",
+      "required": ["id", "consumer", "provider"],
+      "properties": {
+        "id": { "type": "string" },
+        "consumer": { "type": "string" },
+        "provider": { "type": "string" },
+        "version": { "type": "string" },
+        "status": { "type": "string", "enum": ["verified", "failed", "pending", "stale"] },
+        "interactions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/interaction"
+          }
+        },
+        "lastVerified": { "type": "string" },
+        "tags": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "consumer": {
+      "type": "object",
+      "required": ["name"],
+      "properties": {
+        "name": { "type": "string" },
+        "version": { "type": "string" },
+        "environment": { "type": "string" },
+        "verificationStatus": { "type": "string", "enum": ["passed", "failed", "pending", "unknown"] },
+        "contractCount": { "type": "integer", "minimum": 0 },
+        "providers": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "provider": {
+      "type": "object",
+      "required": ["name"],
+      "properties": {
+        "name": { "type": "string" },
+        "version": { "type": "string" },
+        "environment": { "type": "string" },
+        "verificationStatus": { "type": "string", "enum": ["passed", "failed", "pending"] },
+        "consumerContracts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "consumer": { "type": "string" },
+              "status": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "interaction": {
+      "type": "object",
+      "required": ["description"],
+      "properties": {
+        "description": { "type": "string" },
+        "providerState": { "type": "string" },
+        "request": {
+          "type": "object",
+          "properties": {
+            "method": { "type": "string", "enum": ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"] },
+            "path": { "type": "string" },
+            "headers": { "type": "object" },
+            "body": {}
+          }
+        },
+        "response": {
+          "type": "object",
+          "properties": {
+            "status": { "type": "integer", "minimum": 100, "maximum": 599 },
+            "headers": { "type": "object" },
+            "body": {}
+          }
+        },
+        "status": { "type": "string", "enum": ["passed", "failed", "pending"] }
+      }
+    },
+    "compatibility": {
+      "type": "object",
+      "required": ["overallStatus", "score"],
+      "properties": {
+        "overallStatus": { "type": "string", "enum": ["compatible", "incompatible", "partial", "unknown"] },
+        "score": { "type": "number", "minimum": 0, "maximum": 100 },
+        "backwardCompatible": { "type": "boolean" },
+        "forwardCompatible": { "type": "boolean" },
+        "breakingChangeCount": { "type": "integer", "minimum": 0 },
+        "affectedConsumers": { "type": "array", "items": { "type": "string" } },
+        "compatibilityMatrix": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "consumer": { "type": "string" },
+              "provider": { "type": "string" },
+              "compatible": { "type": "boolean" }
+            }
+          }
+        }
+      }
+    },
+    "breakingChange": {
+      "type": "object",
+      "required": ["type", "description", "severity"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["removed-endpoint", "removed-field", "type-change", "required-field-added", "response-change", "status-code-change", "removed-enum-value", "narrowed-type"]
+        },
+        "description": { "type": "string", "maxLength": 1000 },
+        "severity": { "type": "string", "enum": ["critical", "high", "medium", "low"] },
+        "location": {
+          "type": "object",
+          "properties": {
+            "endpoint": { "type": "string" },
+            "method": { "type": "string" },
+            "field": { "type": "string" }
+          }
+        },
+        "affectedConsumers": { "type": "array", "items": { "type": "string" } },
+        "migrationPath": { "type": "string", "maxLength": 2000 }
+      }
+    },
+    "verificationResult": {
+      "type": "object",
+      "required": ["status", "totalInteractions", "passedInteractions"],
+      "properties": {
+        "status": { "type": "string", "enum": ["passed", "failed", "pending", "partial"] },
+        "totalInteractions": { "type": "integer", "minimum": 0 },
+        "passedInteractions": { "type": "integer", "minimum": 0 },
+        "failedInteractions": { "type": "integer", "minimum": 0 },
+        "successRate": { "type": "number", "minimum": 0, "maximum": 100 }
+      }
+    },
+    "versionRecommendation": {
+      "type": "object",
+      "required": ["currentVersion", "recommendedVersion", "changeType"],
+      "properties": {
+        "currentVersion": { "type": "string" },
+        "recommendedVersion": { "type": "string" },
+        "changeType": { "type": "string", "enum": ["major", "minor", "patch", "none"] },
+        "reason": { "type": "string" },
+        "breakingChangeCount": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "finding": {
+      "type": "object",
+      "required": ["id", "title", "severity"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^CT-\\d{3,6}$" },
+        "title": { "type": "string", "minLength": 5, "maxLength": 200 },
+        "description": { "type": "string", "maxLength": 2000 },
+        "severity": { "type": "string", "enum": ["critical", "high", "medium", "low", "info"] },
+        "category": { "type": "string", "enum": ["contract-violation", "missing-contract", "stale-contract", "breaking-change", "coverage-gap"] },
+        "consumer": { "type": "string" },
+        "provider": { "type": "string" },
+        "remediation": { "type": "string", "maxLength": 2000 }
+      }
+    },
+    "recommendation": {
+      "type": "object",
+      "required": ["id", "title", "priority"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^REC-\\d{3,6}$" },
+        "title": { "type": "string", "maxLength": 200 },
+        "description": { "type": "string", "maxLength": 2000 },
+        "priority": { "type": "string", "enum": ["critical", "high", "medium", "low"] },
+        "effort": { "type": "string", "enum": ["trivial", "low", "medium", "high", "major"] }
+      }
+    }
+  }
+}

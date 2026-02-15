@@ -1,0 +1,294 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://agentic-qe.dev/schemas/visual-testing-advanced-output.json",
+  "title": "AQE Visual Testing Advanced Skill Output Schema",
+  "description": "Schema for advanced visual regression testing output including pixel comparison, AI-powered diff analysis, and cross-browser visual consistency.",
+  "type": "object",
+  "required": ["skillName", "version", "timestamp", "status", "trustTier", "output"],
+  "properties": {
+    "skillName": {
+      "type": "string",
+      "const": "visual-testing-advanced",
+      "description": "Skill identifier"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+(-[a-zA-Z0-9]+)?$"
+    },
+    "timestamp": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})?$"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["success", "partial", "failed", "skipped"]
+    },
+    "trustTier": {
+      "type": "integer",
+      "const": 3
+    },
+    "output": {
+      "type": "object",
+      "required": ["summary", "comparisons", "regressionStatus", "metrics"],
+      "properties": {
+        "summary": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 2000
+        },
+        "score": {
+          "$ref": "#/$defs/visualScore"
+        },
+        "comparisons": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/visualComparison"
+          },
+          "minItems": 1,
+          "description": "Visual comparison results"
+        },
+        "regressionStatus": {
+          "$ref": "#/$defs/regressionStatus",
+          "description": "Overall visual regression status"
+        },
+        "baselineInfo": {
+          "$ref": "#/$defs/baselineInfo",
+          "description": "Baseline screenshot information"
+        },
+        "responsiveResults": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/responsiveResult"
+          },
+          "description": "Results by viewport size"
+        },
+        "componentResults": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/componentResult"
+          },
+          "description": "Component-level visual results"
+        },
+        "findings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/visualFinding"
+          },
+          "maxItems": 500
+        },
+        "recommendations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/recommendation"
+          },
+          "maxItems": 100
+        },
+        "metrics": {
+          "$ref": "#/$defs/visualMetrics"
+        },
+        "artifacts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/artifact"
+          },
+          "maxItems": 200
+        }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "executionTimeMs": { "type": "integer", "minimum": 0 },
+        "toolsUsed": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["playwright", "percy", "applitools", "backstopjs", "chromatic", "reg-suit"]
+          }
+        },
+        "agentId": { "type": "string", "pattern": "^qe-[a-z][a-z0-9-]*$" },
+        "targetUrl": { "type": "string" },
+        "baselineBranch": { "type": "string" },
+        "comparisonBranch": { "type": "string" }
+      }
+    },
+    "validation": {
+      "type": "object",
+      "properties": {
+        "schemaValid": { "type": "boolean" },
+        "contentValid": { "type": "boolean" },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "learning": {
+      "type": "object",
+      "properties": {
+        "patternsDetected": { "type": "array", "items": { "type": "string" } },
+        "reward": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    }
+  },
+  "$defs": {
+    "visualScore": {
+      "type": "object",
+      "required": ["value", "max"],
+      "properties": {
+        "value": { "type": "number", "minimum": 0, "maximum": 100 },
+        "max": { "type": "number", "const": 100 },
+        "grade": { "type": "string", "pattern": "^[A-F][+-]?$" },
+        "visualConsistency": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Visual consistency score"
+        }
+      }
+    },
+    "visualComparison": {
+      "type": "object",
+      "required": ["page", "status"],
+      "properties": {
+        "page": { "type": "string", "description": "Page or component name" },
+        "url": { "type": "string" },
+        "status": {
+          "type": "string",
+          "enum": ["passed", "failed", "new", "updated", "skipped"]
+        },
+        "diffPercent": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Difference percentage"
+        },
+        "diffPixels": { "type": "integer", "minimum": 0 },
+        "threshold": { "type": "number", "minimum": 0, "maximum": 100 },
+        "viewport": {
+          "type": "object",
+          "properties": {
+            "width": { "type": "integer" },
+            "height": { "type": "integer" }
+          }
+        },
+        "browser": { "type": "string" },
+        "baselineScreenshot": { "type": "string" },
+        "actualScreenshot": { "type": "string" },
+        "diffScreenshot": { "type": "string" },
+        "comparisonAlgorithm": {
+          "type": "string",
+          "enum": ["pixel-diff", "structural-similarity", "ai-semantic", "perceptual-hash"]
+        },
+        "maskedRegions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/maskedRegion"
+          }
+        }
+      }
+    },
+    "maskedRegion": {
+      "type": "object",
+      "properties": {
+        "selector": { "type": "string" },
+        "reason": { "type": "string", "enum": ["dynamic-content", "timestamp", "ad", "user-data", "animation"] }
+      }
+    },
+    "regressionStatus": {
+      "type": "object",
+      "properties": {
+        "hasRegressions": { "type": "boolean" },
+        "regressionCount": { "type": "integer", "minimum": 0 },
+        "newScreenshots": { "type": "integer", "minimum": 0 },
+        "updatedBaselines": { "type": "integer", "minimum": 0 },
+        "requiresReview": { "type": "boolean" }
+      }
+    },
+    "baselineInfo": {
+      "type": "object",
+      "properties": {
+        "branch": { "type": "string" },
+        "commit": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "screenshotCount": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "responsiveResult": {
+      "type": "object",
+      "required": ["viewport", "status"],
+      "properties": {
+        "viewport": {
+          "type": "string",
+          "enum": ["mobile", "tablet", "desktop", "large-desktop"]
+        },
+        "width": { "type": "integer" },
+        "status": { "type": "string", "enum": ["passed", "failed", "partial"] },
+        "comparisonCount": { "type": "integer" },
+        "regressionCount": { "type": "integer" }
+      }
+    },
+    "componentResult": {
+      "type": "object",
+      "required": ["component", "status"],
+      "properties": {
+        "component": { "type": "string" },
+        "selector": { "type": "string" },
+        "status": { "type": "string", "enum": ["passed", "failed", "new"] },
+        "diffPercent": { "type": "number" },
+        "screenshotPath": { "type": "string" }
+      }
+    },
+    "visualFinding": {
+      "type": "object",
+      "required": ["id", "title", "severity", "category"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^VIS-\\d{3,6}$" },
+        "title": { "type": "string", "minLength": 5, "maxLength": 200 },
+        "description": { "type": "string", "maxLength": 2000 },
+        "severity": { "type": "string", "enum": ["critical", "high", "medium", "low", "info"] },
+        "category": {
+          "type": "string",
+          "enum": ["layout-shift", "color-change", "font-rendering", "alignment", "missing-element", "overflow", "responsive", "animation"]
+        },
+        "page": { "type": "string" },
+        "viewport": { "type": "string" },
+        "browser": { "type": "string" },
+        "diffPercent": { "type": "number" },
+        "screenshotEvidence": { "type": "string" },
+        "remediation": { "type": "string" }
+      }
+    },
+    "visualMetrics": {
+      "type": "object",
+      "properties": {
+        "totalComparisons": { "type": "integer", "minimum": 0 },
+        "passed": { "type": "integer", "minimum": 0 },
+        "failed": { "type": "integer", "minimum": 0 },
+        "new": { "type": "integer", "minimum": 0 },
+        "passRate": { "type": "number", "minimum": 0, "maximum": 100 },
+        "avgDiffPercent": { "type": "number", "minimum": 0, "maximum": 100 },
+        "viewportsCovered": { "type": "integer", "minimum": 0 },
+        "browsersCovered": { "type": "integer", "minimum": 0 },
+        "componentsCovered": { "type": "integer", "minimum": 0 },
+        "executionTimeMs": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "recommendation": {
+      "type": "object",
+      "required": ["id", "title", "priority"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^REC-\\d{3,6}$" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "priority": { "type": "string", "enum": ["critical", "high", "medium", "low"] }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "required": ["type", "path"],
+      "properties": {
+        "type": { "type": "string", "enum": ["baseline", "actual", "diff", "report", "video"] },
+        "path": { "type": "string" },
+        "format": { "type": "string", "enum": ["png", "jpg", "webp", "html", "json", "webm"] }
+      }
+    }
+  }
+}

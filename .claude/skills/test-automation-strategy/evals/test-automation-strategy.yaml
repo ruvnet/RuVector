@@ -1,0 +1,148 @@
+skill: test-automation-strategy
+version: 1.0.0
+description: >
+  Evaluation suite for test-automation-strategy skill.
+  Tests generation of comprehensive test automation strategies with proper
+  prioritization, risk assessment, and tool recommendations.
+
+models_to_test:
+  - claude-3.5-sonnet
+  - claude-3-haiku
+
+mcp_integration:
+  enabled: true
+  namespace: skill-validation
+  query_patterns: true
+  track_outcomes: true
+  store_patterns: true
+  share_learning: true
+  update_quality_gate: true
+  target_agents:
+    - qe-learning-coordinator
+
+learning:
+  store_success_patterns: true
+  store_failure_patterns: true
+  pattern_ttl_days: 90
+  min_confidence_to_store: 0.7
+
+result_format:
+  json_output: true
+  include_timing: true
+  include_token_usage: true
+
+setup:
+  required_tools:
+    - jq
+
+test_cases:
+  - id: tc001_basic_strategy_generation
+    description: "Skill generates basic test automation strategy"
+    category: basic
+    priority: critical
+
+    input:
+      projectDescription: "E-commerce platform with React frontend and Node.js backend"
+      context:
+        projectSize: "medium"
+        riskLevel: "high"
+
+    expected_output:
+      must_contain:
+        - "strategy"
+        - "automation"
+        - "test"
+      must_not_contain:
+        - "error"
+        - "unable"
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+
+  - id: tc002_strategy_priorities
+    description: "Strategy identifies test priorities correctly"
+    category: core
+    priority: critical
+
+    input:
+      projectDescription: "API service with critical payment processing"
+      context:
+        criticalComponents: ["payment", "auth"]
+
+    expected_output:
+      must_contain:
+        - "critical"
+        - "priority"
+
+    validation:
+      schema_check: true
+
+  - id: tc003_tool_recommendations
+    description: "Appropriate testing tools are recommended"
+    category: core
+    priority: high
+
+    input:
+      projectDescription: "Full-stack web application"
+      context:
+        frontendFramework: "React"
+        backendFramework: "Node.js"
+
+    expected_output:
+      must_contain:
+        - "tool"
+        - "recommend"
+
+    validation:
+      schema_check: true
+
+  - id: tc004_test_coverage_analysis
+    description: "Skill analyzes required test coverage"
+    category: core
+    priority: high
+
+    input:
+      projectDescription: "Banking application"
+      context:
+        regulatoryRequirements: "high"
+
+    expected_output:
+      must_contain:
+        - "coverage"
+
+    validation:
+      schema_check: true
+      allow_partial: true
+
+  - id: tc005_risk_based_strategy
+    description: "Strategy incorporates risk-based testing approach"
+    category: core
+    priority: high
+
+    input:
+      projectDescription: "Healthcare data platform"
+      context:
+        dataClassification: "sensitive"
+        riskLevel: "critical"
+
+    expected_output:
+      must_contain:
+        - "risk"
+
+    validation:
+      schema_check: true
+      allow_partial: true
+
+success_criteria:
+  pass_rate: 0.8
+  critical_pass_rate: 1.0
+  avg_reasoning_quality: 0.7
+  max_execution_time_ms: 300000
+  cross_model_variance: 0.15
+
+metadata:
+  author: "qe-learning-coordinator"
+  created: "2026-02-02"
+  last_updated: "2026-02-02"
+  coverage_target: "Strategy generation, prioritization, tool recommendations, risk analysis"

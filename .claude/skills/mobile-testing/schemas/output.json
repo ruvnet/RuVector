@@ -1,0 +1,318 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://agentic-qe.dev/schemas/mobile-testing-output.json",
+  "title": "AQE Mobile Testing Skill Output Schema",
+  "description": "Schema for iOS and Android mobile testing output including device matrix, gesture validation, platform differences, and performance metrics.",
+  "type": "object",
+  "required": ["skillName", "version", "timestamp", "status", "trustTier", "output"],
+  "properties": {
+    "skillName": {
+      "type": "string",
+      "const": "mobile-testing",
+      "description": "Skill identifier"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+(-[a-zA-Z0-9]+)?$"
+    },
+    "timestamp": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})?$"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["success", "partial", "failed", "skipped"]
+    },
+    "trustTier": {
+      "type": "integer",
+      "const": 3
+    },
+    "output": {
+      "type": "object",
+      "required": ["summary", "deviceMatrix", "platformCoverage", "metrics"],
+      "properties": {
+        "summary": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 2000
+        },
+        "score": {
+          "$ref": "#/$defs/mobileScore"
+        },
+        "deviceMatrix": {
+          "$ref": "#/$defs/deviceMatrix",
+          "description": "Device coverage by tier"
+        },
+        "platformCoverage": {
+          "$ref": "#/$defs/platformCoverage",
+          "description": "iOS vs Android coverage"
+        },
+        "gestureValidation": {
+          "$ref": "#/$defs/gestureValidation",
+          "description": "Touch gesture test results"
+        },
+        "mobileScenarios": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/mobileScenario"
+          },
+          "description": "Mobile-specific scenario results"
+        },
+        "performanceMetrics": {
+          "$ref": "#/$defs/mobilePerformance",
+          "description": "Mobile performance metrics"
+        },
+        "findings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/mobileFinding"
+          },
+          "maxItems": 500
+        },
+        "recommendations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/recommendation"
+          },
+          "maxItems": 100
+        },
+        "metrics": {
+          "$ref": "#/$defs/mobileMetrics"
+        },
+        "artifacts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/artifact"
+          },
+          "maxItems": 50
+        }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "executionTimeMs": { "type": "integer", "minimum": 0 },
+        "toolsUsed": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["appium", "xcuitest", "espresso", "detox", "browserstack", "saucelabs"]
+          }
+        },
+        "agentId": { "type": "string", "pattern": "^qe-[a-z][a-z0-9-]*$" },
+        "appType": { "type": "string", "enum": ["native", "hybrid", "pwa", "web"] }
+      }
+    },
+    "validation": {
+      "type": "object",
+      "properties": {
+        "schemaValid": { "type": "boolean" },
+        "contentValid": { "type": "boolean" },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "learning": {
+      "type": "object",
+      "properties": {
+        "patternsDetected": { "type": "array", "items": { "type": "string" } },
+        "reward": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    }
+  },
+  "$defs": {
+    "mobileScore": {
+      "type": "object",
+      "required": ["value", "max"],
+      "properties": {
+        "value": { "type": "number", "minimum": 0, "maximum": 100 },
+        "max": { "type": "number", "const": 100 },
+        "grade": { "type": "string", "pattern": "^[A-F][+-]?$" },
+        "userCoveragePercent": { "type": "number", "minimum": 0, "maximum": 100 }
+      }
+    },
+    "deviceMatrix": {
+      "type": "object",
+      "properties": {
+        "tier1": {
+          "$ref": "#/$defs/deviceTier",
+          "description": "Tier 1 devices (60% users)"
+        },
+        "tier2": {
+          "$ref": "#/$defs/deviceTier",
+          "description": "Tier 2 devices (30% users)"
+        },
+        "tier3": {
+          "$ref": "#/$defs/deviceTier",
+          "description": "Tier 3 devices (10% users)"
+        },
+        "totalDevices": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "deviceTier": {
+      "type": "object",
+      "properties": {
+        "devices": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/deviceResult"
+          }
+        },
+        "passRate": { "type": "number", "minimum": 0, "maximum": 100 }
+      }
+    },
+    "deviceResult": {
+      "type": "object",
+      "required": ["device", "platform", "status"],
+      "properties": {
+        "device": { "type": "string", "description": "Device name (e.g., iPhone 15, Galaxy S24)" },
+        "platform": { "type": "string", "enum": ["ios", "android"] },
+        "osVersion": { "type": "string" },
+        "status": { "type": "string", "enum": ["passed", "failed", "partial", "skipped"] },
+        "issueCount": { "type": "integer", "minimum": 0 },
+        "screenSize": { "type": "string" }
+      }
+    },
+    "platformCoverage": {
+      "type": "object",
+      "properties": {
+        "ios": {
+          "$ref": "#/$defs/platformResult"
+        },
+        "android": {
+          "$ref": "#/$defs/platformResult"
+        }
+      }
+    },
+    "platformResult": {
+      "type": "object",
+      "properties": {
+        "versionsSupported": { "type": "array", "items": { "type": "string" } },
+        "versionsTested": { "type": "array", "items": { "type": "string" } },
+        "passRate": { "type": "number", "minimum": 0, "maximum": 100 },
+        "issues": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "gestureValidation": {
+      "type": "object",
+      "properties": {
+        "tap": { "$ref": "#/$defs/gestureResult" },
+        "swipe": { "$ref": "#/$defs/gestureResult" },
+        "pinch": { "$ref": "#/$defs/gestureResult" },
+        "longPress": { "$ref": "#/$defs/gestureResult" },
+        "doubleTap": { "$ref": "#/$defs/gestureResult" },
+        "rotate": { "$ref": "#/$defs/gestureResult" }
+      }
+    },
+    "gestureResult": {
+      "type": "object",
+      "properties": {
+        "status": { "type": "string", "enum": ["passed", "failed", "partial", "not-tested"] },
+        "latencyMs": { "type": "number", "minimum": 0, "description": "Response latency" },
+        "issues": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "mobileScenario": {
+      "type": "object",
+      "required": ["scenario", "status"],
+      "properties": {
+        "scenario": {
+          "type": "string",
+          "enum": ["offline-mode", "low-battery", "incoming-call", "push-notification", "orientation-change", "background-foreground", "memory-pressure", "network-transition"],
+          "description": "Mobile-specific scenario"
+        },
+        "status": { "type": "string", "enum": ["passed", "failed", "partial", "skipped"] },
+        "description": { "type": "string" },
+        "issues": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "mobilePerformance": {
+      "type": "object",
+      "properties": {
+        "appLaunchTime": {
+          "type": "object",
+          "properties": {
+            "cold": { "type": "number", "description": "Cold start time in ms" },
+            "warm": { "type": "number", "description": "Warm start time in ms" },
+            "target": { "type": "number" },
+            "status": { "type": "string", "enum": ["passed", "failed"] }
+          }
+        },
+        "frameRate": {
+          "type": "object",
+          "properties": {
+            "average": { "type": "number" },
+            "minimum": { "type": "number" },
+            "target": { "type": "number", "default": 60 },
+            "jankFrames": { "type": "integer" }
+          }
+        },
+        "batteryDrain": {
+          "type": "object",
+          "properties": {
+            "foregroundPerHour": { "type": "number" },
+            "backgroundPerHour": { "type": "number" },
+            "target": { "type": "number" }
+          }
+        },
+        "memoryUsage": {
+          "type": "object",
+          "properties": {
+            "average": { "type": "number", "description": "MB" },
+            "peak": { "type": "number" },
+            "leaksDetected": { "type": "boolean" }
+          }
+        }
+      }
+    },
+    "mobileFinding": {
+      "type": "object",
+      "required": ["id", "title", "severity", "category"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^MOB-\\d{3,6}$" },
+        "title": { "type": "string", "minLength": 5, "maxLength": 200 },
+        "description": { "type": "string", "maxLength": 2000 },
+        "severity": { "type": "string", "enum": ["critical", "high", "medium", "low", "info"] },
+        "category": {
+          "type": "string",
+          "enum": ["gesture", "performance", "permission", "offline", "platform-specific", "ui", "crash", "memory"]
+        },
+        "affectedPlatforms": { "type": "array", "items": { "type": "string" } },
+        "affectedDevices": { "type": "array", "items": { "type": "string" } },
+        "remediation": { "type": "string" }
+      }
+    },
+    "mobileMetrics": {
+      "type": "object",
+      "properties": {
+        "totalDevices": { "type": "integer", "minimum": 0 },
+        "devicesPassed": { "type": "integer", "minimum": 0 },
+        "devicesFailed": { "type": "integer", "minimum": 0 },
+        "passRate": { "type": "number", "minimum": 0, "maximum": 100 },
+        "iosCoverage": { "type": "number", "minimum": 0, "maximum": 100 },
+        "androidCoverage": { "type": "number", "minimum": 0, "maximum": 100 },
+        "criticalIssues": { "type": "integer", "minimum": 0 },
+        "duration": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "recommendation": {
+      "type": "object",
+      "required": ["id", "title", "priority"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^REC-\\d{3,6}$" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "priority": { "type": "string", "enum": ["critical", "high", "medium", "low"] },
+        "effort": { "type": "string", "enum": ["trivial", "low", "medium", "high", "major"] }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "required": ["type", "path"],
+      "properties": {
+        "type": { "type": "string", "enum": ["report", "screenshot", "video", "log", "trace"] },
+        "path": { "type": "string" },
+        "format": { "type": "string", "enum": ["json", "html", "png", "mp4", "webm", "txt"] }
+      }
+    }
+  }
+}

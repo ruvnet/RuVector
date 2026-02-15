@@ -1,0 +1,42 @@
+{
+  "skillName": "testability-scoring",
+  "skillVersion": "2.2.0",
+  "requiredTools": [
+    "jq"
+  ],
+  "optionalTools": [
+    "node",
+    "ajv",
+    "jsonschema",
+    "python3"
+  ],
+  "schemaPath": "schemas/output.json",
+  "requiredFields": [
+    "skillName",
+    "status",
+    "output",
+    "output.score",
+    "output.categories"
+  ],
+  "requiredNonEmptyFields": [
+    "output.summary",
+    "output.score.value"
+  ],
+  "mustContainTerms": [
+    "testability",
+    "score"
+  ],
+  "mustNotContainTerms": [
+    "TODO",
+    "placeholder",
+    "REPLACE_WITH"
+  ],
+  "enumValidations": {
+    ".status": [
+      "success",
+      "partial",
+      "failed",
+      "skipped"
+    ]
+  }
+}

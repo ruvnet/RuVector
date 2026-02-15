@@ -1,0 +1,366 @@
+# =============================================================================
+# AQE Skill Evaluation Test Suite Template
+# Copy this template to: .claude/skills/{skill-name}/evals/{skill-name}.yaml
+# =============================================================================
+#
+# This evaluation suite validates skill behavior through:
+# 1. Input/expected-output test cases
+# 2. Multi-model consistency testing
+# 3. Semantic validation of reasoning quality
+# 4. AQE MCP integration for shared learning (NEW)
+# 5. ReasoningBank pattern storage (NEW)
+#
+# Schema: docs/schemas/skill-eval.schema.json
+# MCP Spec: docs/specs/skill-validation-mcp-integration.md
+# Runner: scripts/run-skill-eval.ts
+#
+# For a comprehensive example, see: docs/templates/security-testing-eval.template.yaml
+# =============================================================================
+
+skill: REPLACE_WITH_SKILL_NAME
+version: 1.0.0
+description: >
+  Evaluation test suite for REPLACE_WITH_SKILL_NAME skill.
+  Tests core functionality across multiple models to ensure consistent,
+  high-quality output.
+
+# =============================================================================
+# Multi-Model Configuration
+# =============================================================================
+# Test across multiple models to ensure consistent behavior and identify
+# model-specific quirks. Results are compared to detect variance.
+
+models_to_test:
+  - claude-3.5-sonnet    # Primary model (high accuracy expected)
+  - claude-3-haiku       # Fast model (ensure it meets minimum quality)
+  # - gpt-4o             # Optional: Cross-vendor validation
+
+# =============================================================================
+# MCP Integration Configuration (NEW in v1.4)
+# =============================================================================
+# Per docs/specs/skill-validation-mcp-integration.md
+# Enable to integrate with AQE ReasoningBank for shared learning.
+
+mcp_integration:
+  enabled: true
+  namespace: skill-validation
+
+  # Query existing patterns before running evals
+  query_patterns: true
+
+  # Track each test outcome for the learning feedback loop
+  track_outcomes: true
+
+  # Store successful patterns after evals complete
+  store_patterns: true
+
+  # Share learning with fleet coordinator agents
+  share_learning: true
+
+  # Update quality gate with validation metrics
+  update_quality_gate: true
+
+  # Agents to share learning with
+  target_agents:
+    - qe-learning-coordinator
+    - qe-queen-coordinator
+
+# =============================================================================
+# ReasoningBank Learning Configuration (NEW in v1.4)
+# =============================================================================
+
+learning:
+  store_success_patterns: true
+  store_failure_patterns: true
+  pattern_ttl_days: 90
+  min_confidence_to_store: 0.7
+  cross_model_comparison: true
+
+# =============================================================================
+# Result Format Configuration (NEW in v1.4)
+# =============================================================================
+
+result_format:
+  json_output: true
+  markdown_report: false
+  include_raw_output: false
+  include_timing: true
+  include_token_usage: true
+
+# =============================================================================
+# Environment Setup
+# =============================================================================
+
+setup:
+  required_tools: []
+  # - tool_name
+  environment_variables: {}
+  # ENV_VAR: value
+  fixtures: []
+  # - name: fixture_name
+  #   path: fixtures/fixture_name.json
+  #   content: |
+  #     { "key": "value" }
+
+# =============================================================================
+# Test Cases
+# =============================================================================
+# Each test case validates a specific behavior or scenario.
+# IDs follow the pattern: tc{NNN}_{short_description}
+# =============================================================================
+
+test_cases:
+  # -------------------------------------------------------------------------
+  # Basic Functionality Tests
+  # -------------------------------------------------------------------------
+
+  - id: tc001_basic_invocation
+    description: "Skill responds to basic invocation with valid output"
+    category: basic
+    priority: critical
+
+    input:
+      prompt: |
+        Analyze the following code for issues:
+        ```javascript
+        function hello() {
+          console.log("Hello, World!");
+        }
+        ```
+      context:
+        language: javascript
+
+    expected_output:
+      must_contain:
+        - "function"
+        - "hello"
+      must_not_contain:
+        - "error"
+        - "unable to analyze"
+      # finding_count:
+      #   min: 0
+      #   max: 5
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+      reasoning_quality_min: 0.6
+
+  - id: tc002_handles_empty_input
+    description: "Skill handles empty or minimal input gracefully"
+    category: edge_cases
+    priority: high
+
+    input:
+      prompt: "Analyze this code:"
+      context:
+        language: unknown
+
+    expected_output:
+      must_contain:
+        - "no code"
+        - "provide"
+      must_not_contain:
+        - "exception"
+        - "crash"
+
+    validation:
+      schema_check: true
+      allow_partial: true
+
+  # -------------------------------------------------------------------------
+  # Core Functionality Tests - CUSTOMIZE THESE
+  # -------------------------------------------------------------------------
+
+  - id: tc003_core_feature_1
+    description: "DESCRIBE WHAT THIS TEST VALIDATES"
+    category: core
+    priority: high
+
+    input:
+      code: |
+        // Replace with relevant code sample
+        const example = "test";
+      context:
+        language: javascript
+        framework: nodejs
+
+    expected_output:
+      must_contain:
+        - "EXPECTED_KEYWORD_1"
+        - "EXPECTED_KEYWORD_2"
+      severity_classification: medium
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+
+  # -------------------------------------------------------------------------
+  # Negative Tests (Should NOT find issues)
+  # -------------------------------------------------------------------------
+
+  - id: tc010_no_false_positives
+    description: "Skill does not flag clean code as problematic"
+    category: negative
+    priority: high
+
+    input:
+      code: |
+        // Well-written, clean code
+        function add(a, b) {
+          return a + b;
+        }
+      context:
+        language: javascript
+
+    expected_output:
+      must_contain:
+        - "no issues"
+        # OR
+        # - "clean"
+        # - "good"
+      must_not_contain:
+        - "critical"
+        - "vulnerability"
+        - "error"
+
+    validation:
+      schema_check: true
+      finding_count:
+        max: 1  # Allow at most 1 minor finding
+
+  # -------------------------------------------------------------------------
+  # Edge Cases
+  # -------------------------------------------------------------------------
+
+  - id: tc020_large_input
+    description: "Skill handles large input without truncation issues"
+    category: edge_cases
+    priority: medium
+    skip: false
+
+    input:
+      file_path: fixtures/large_sample.js
+      context:
+        language: javascript
+
+    expected_output:
+      must_contain:
+        - "analyzed"
+
+    validation:
+      schema_check: true
+
+    timeout_ms: 60000  # Longer timeout for large files
+
+  - id: tc021_special_characters
+    description: "Skill handles special characters in input"
+    category: edge_cases
+    priority: medium
+
+    input:
+      code: |
+        const emoji = "Hello 🌍!";
+        const unicode = "日本語テスト";
+        const escape = "Line1\nLine2\tTabbed";
+      context:
+        language: javascript
+
+    expected_output:
+      must_not_contain:
+        - "encoding error"
+        - "parse error"
+
+    validation:
+      schema_check: true
+
+  # -------------------------------------------------------------------------
+  # Multi-Language Support (if applicable)
+  # -------------------------------------------------------------------------
+
+  - id: tc030_python_support
+    description: "Skill correctly analyzes Python code"
+    category: language_support
+    priority: medium
+    skip: true  # Enable if skill supports Python
+
+    input:
+      code: |
+        def hello():
+            print("Hello, World!")
+      context:
+        language: python
+
+    expected_output:
+      must_contain:
+        - "def"
+        - "function"
+
+    validation:
+      schema_check: true
+
+  # -------------------------------------------------------------------------
+  # Integration Scenarios
+  # -------------------------------------------------------------------------
+
+  - id: tc040_with_context
+    description: "Skill uses provided context appropriately"
+    category: integration
+    priority: medium
+
+    input:
+      code: |
+        app.get('/api/users', (req, res) => {
+          const users = db.query('SELECT * FROM users');
+          res.json(users);
+        });
+      context:
+        language: javascript
+        framework: express
+        environment: production
+      options:
+        detailed: true
+
+    expected_output:
+      must_contain:
+        - "express"
+        - "api"
+
+    validation:
+      schema_check: true
+      grading_rubric:
+        completeness: 0.4
+        accuracy: 0.4
+        actionability: 0.2
+
+# =============================================================================
+# Success Criteria
+# =============================================================================
+# Define what constitutes a passing evaluation suite run.
+# =============================================================================
+
+success_criteria:
+  # Minimum percentage of tests that must pass
+  pass_rate: 0.9
+
+  # Critical tests must have 100% pass rate
+  critical_pass_rate: 1.0
+
+  # Average reasoning quality across all tests
+  avg_reasoning_quality: 0.7
+
+  # Maximum time for entire suite (5 minutes)
+  max_execution_time_ms: 300000
+
+  # Maximum variance between different models (0.1 = 10%)
+  cross_model_variance: 0.15
+
+# =============================================================================
+# Metadata
+# =============================================================================
+
+metadata:
+  author: "@your-github-handle"
+  created: "2026-02-02"
+  last_updated: "2026-02-02"
+  coverage_target: "Core functionality and common edge cases"

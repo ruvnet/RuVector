@@ -1,0 +1,42 @@
+{
+  "skillName": "cicd-pipeline-qe-orchestrator",
+  "skillVersion": "1.0.0",
+  "requiredTools": [
+    "jq"
+  ],
+  "optionalTools": [
+    "npm",
+    "docker",
+    "python3"
+  ],
+  "schemaPath": "schemas/output.json",
+  "requiredFields": [
+    "skillName",
+    "status",
+    "output",
+    "output.summary",
+    "output.orchestrationPlan"
+  ],
+  "requiredNonEmptyFields": [
+    "output.summary"
+  ],
+  "mustContainTerms": [
+    "CI/CD",
+    "pipeline",
+    "test",
+    "quality"
+  ],
+  "mustNotContainTerms": [
+    "TODO",
+    "placeholder",
+    "FIXME"
+  ],
+  "enumValidations": {
+    ".status": [
+      "success",
+      "partial",
+      "failed",
+      "skipped"
+    ]
+  }
+}

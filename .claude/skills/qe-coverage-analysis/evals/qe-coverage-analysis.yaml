@@ -1,0 +1,494 @@
+# =============================================================================
+# AQE Skill Evaluation Test Suite: QE Coverage Analysis v1.0.0
+# =============================================================================
+#
+# Comprehensive evaluation suite for the qe-coverage-analysis skill.
+# Tests O(log n) sublinear gap detection, risk-weighted analysis, differential
+# coverage, test prioritization, and coverage trend analysis.
+#
+# Schema: .claude/skills/.validation/schemas/skill-eval.schema.json
+# Validator: .claude/skills/qe-coverage-analysis/scripts/validate-config.json
+#
+# Coverage:
+# - Sublinear gap detection (O(log n) complexity)
+# - Risk-weighted coverage scoring
+# - Differential coverage (branch diffs)
+# - Test prioritization by impact
+# - Coverage regression detection
+# - Quality gate enforcement
+#
+# =============================================================================
+
+skill: qe-coverage-analysis
+version: 1.0.0
+description: >
+  Comprehensive evaluation suite for the qe-coverage-analysis skill.
+  Tests O(log n) sublinear coverage gap detection, risk-weighted analysis,
+  differential coverage scoring, intelligent test prioritization, and coverage
+  trend analysis with quality gate enforcement.
+
+# =============================================================================
+# Multi-Model Configuration
+# =============================================================================
+
+models_to_test:
+  - claude-3.5-sonnet
+  - claude-3-haiku
+
+# =============================================================================
+# MCP Integration Configuration
+# =============================================================================
+
+mcp_integration:
+  enabled: true
+  namespace: skill-validation
+
+  query_patterns: true
+  track_outcomes: true
+  store_patterns: true
+  share_learning: true
+  update_quality_gate: true
+
+  target_agents:
+    - qe-learning-coordinator
+    - qe-queen-coordinator
+    - qe-coverage-specialist
+    - qe-gap-detector
+
+# =============================================================================
+# ReasoningBank Learning Configuration
+# =============================================================================
+
+learning:
+  store_success_patterns: true
+  store_failure_patterns: true
+  pattern_ttl_days: 90
+  min_confidence_to_store: 0.7
+  cross_model_comparison: true
+
+# =============================================================================
+# Result Format Configuration
+# =============================================================================
+
+result_format:
+  json_output: true
+  markdown_report: true
+  include_raw_output: false
+  include_timing: true
+  include_token_usage: true
+
+# =============================================================================
+# Environment Setup
+# =============================================================================
+
+setup:
+  required_tools:
+    - jq
+  environment_variables:
+    COVERAGE_ALGORITHM: "sublinear"
+    RISK_WEIGHTING: "enabled"
+    MIN_COVERAGE_THRESHOLD: "80"
+  fixtures: []
+
+# =============================================================================
+# TEST CASES
+# =============================================================================
+
+test_cases:
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Sublinear Gap Detection
+  # ---------------------------------------------------------------------------
+
+  - id: tc001_sublinear_gap_detection
+    description: "Perform O(log n) gap detection on large codebase"
+    category: gap_detection
+    priority: critical
+
+    input:
+      prompt: |
+        Analyze coverage for a large codebase (1000+ files) using O(log n) algorithm:
+        1. Use sampling-based analysis with 95% confidence
+        2. Identify coverage gaps efficiently
+        3. Report uncovered critical paths
+        4. Suggest tests for maximum impact
+
+        How would you achieve sublinear complexity?
+      context:
+        source: "src/**/*.ts"
+        algorithm: "sublinear"
+        confidence: 0.95
+        max_samples: 1000
+
+    expected_output:
+      must_contain:
+        - "O(log n)"
+        - "gap"
+        - "uncovered"
+        - "critical"
+        - "sampling"
+      must_not_contain:
+        - "linear"
+        - "exhaustive"
+      severity_classification: critical
+      finding_count:
+        min: 1
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+      reasoning_quality_min: 0.75
+
+  - id: tc002_coverage_gap_prioritization
+    description: "Identify and prioritize coverage gaps by impact"
+    category: gap_detection
+    priority: critical
+
+    input:
+      prompt: |
+        After detecting coverage gaps, prioritize by:
+        1. Business criticality (payment, auth, data)
+        2. Code complexity (cyclomatic > 10)
+        3. Recent bug frequency (bugs in last 90 days)
+        4. Change frequency (modified recently)
+
+        Which gap should be tested first and why?
+      context:
+        gap_prioritization: true
+        business_impact: true
+        change_analysis: true
+
+    expected_output:
+      must_contain:
+        - "priority"
+        - "critical"
+        - "complexity"
+        - "bug"
+        - "impact"
+      must_not_contain:
+        - "random"
+        - "arbitrary"
+      severity_classification: critical
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Risk-Weighted Coverage
+  # ---------------------------------------------------------------------------
+
+  - id: tc003_risk_weighted_scoring
+    description: "Calculate risk-weighted coverage scores"
+    category: risk_analysis
+    priority: critical
+
+    input:
+      prompt: |
+        Calculate risk-weighted coverage for a module using factors:
+        1. Complexity weight: 0.3 (cyclomatic > 10)
+        2. Change frequency weight: 0.25 (modified in 90d)
+        3. Bug history weight: 0.25 (bugs in 180d)
+        4. Criticality weight: 0.2 (business-critical tag)
+
+        For each uncovered section, calculate risk score 0-1.
+        How would you identify high-risk uncovered code?
+      context:
+        complexity_weight: 0.3
+        change_frequency_weight: 0.25
+        bug_history_weight: 0.25
+        criticality_weight: 0.2
+
+    expected_output:
+      must_contain:
+        - "risk"
+        - "weight"
+        - "score"
+        - "complexity"
+        - "bug"
+        - "critical"
+      must_not_contain:
+        - "simple"
+        - "low priority"
+      severity_classification: critical
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+      reasoning_quality_min: 0.75
+
+  - id: tc004_high_risk_uncovered_identification
+    description: "Find high-risk code with no test coverage"
+    category: risk_analysis
+    priority: critical
+
+    input:
+      prompt: |
+        Identify high-risk uncovered code:
+        1. Payment processing logic - 0% coverage, complexity 15
+        2. Authentication middleware - 0% coverage, 10 bugs in 90d
+        3. Error handling - 50% coverage
+        4. Logging - 0% coverage, low complexity
+
+        Which requires urgent attention? Why?
+      context:
+        risk_threshold: 0.7
+        focus_uncovered: true
+
+    expected_output:
+      must_contain:
+        - "high-risk"
+        - "payment"
+        - "authentication"
+        - "urgent"
+        - "coverage"
+      finding_count:
+        min: 1
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.75
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Differential Coverage
+  # ---------------------------------------------------------------------------
+
+  - id: tc005_differential_coverage_analysis
+    description: "Compare coverage between branches with quality gates"
+    category: differential
+    priority: critical
+
+    input:
+      prompt: |
+        Compare coverage between main and feature-branch:
+        1. New code coverage: must be >= 85%
+        2. Modified code coverage: must not decrease
+        3. Deleted code: ignore coverage
+        4. Overall coverage: must not regress > 2%
+
+        What happens if new code has 75% coverage?
+      context:
+        base_branch: "main"
+        head_branch: "feature-branch"
+        new_code_threshold: 0.85
+        modified_code_requirement: "maintain"
+
+    expected_output:
+      must_contain:
+        - "differential"
+        - "new code"
+        - "coverage"
+        - "regression"
+        - "quality gate"
+      must_not_contain:
+        - "pass"
+        - "acceptable"
+      severity_classification: critical
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+      reasoning_quality_min: 0.75
+
+  - id: tc006_coverage_regression_detection
+    description: "Detect coverage regressions between releases"
+    category: differential
+    priority: high
+
+    input:
+      prompt: |
+        Detect coverage regressions:
+        - v1.0: 85% statement coverage
+        - v2.0: 80% statement coverage (5% regression)
+
+        How would you alert on:
+        1. Individual file regression > 10%
+        2. Overall regression > 2%
+        3. Critical module regression > 1%
+
+        Should this block merge?
+      context:
+        regression_detection: true
+        block_on_regression: true
+
+    expected_output:
+      must_contain:
+        - "regression"
+        - "detect"
+        - "block"
+        - "merge"
+        - "threshold"
+      severity_classification: high
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.75
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Test Prioritization
+  # ---------------------------------------------------------------------------
+
+  - id: tc007_test_prioritization_strategy
+    description: "Prioritize tests to write based on coverage impact"
+    category: prioritization
+    priority: high
+
+    input:
+      prompt: |
+        For these uncovered code sections, estimate test writing impact:
+        1. UserService.validateEmail() - 15 lines, 1 bug fix needed
+        2. PaymentProcessor.process() - 50 lines, critical path
+        3. ErrorHandler.retry() - 20 lines, improved recently
+
+        Which should you test first?
+        How would you estimate test writing effort vs benefit?
+      context:
+        impact_estimation: true
+        effort_assessment: true
+
+    expected_output:
+      must_contain:
+        - "prioritize"
+        - "impact"
+        - "effort"
+        - "critical"
+        - "benefit"
+      finding_count:
+        min: 1
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.75
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Coverage Thresholds & Gates
+  # ---------------------------------------------------------------------------
+
+  - id: tc008_quality_gate_enforcement
+    description: "Enforce coverage quality gates in CI/CD"
+    category: quality_gates
+    priority: critical
+
+    input:
+      prompt: |
+        Define quality gates:
+        - Global: statements >= 80%, branches >= 75%, functions >= 85%
+        - New code: statements >= 85%, branches >= 80%
+        - Critical paths: >= 90%
+
+        If statements = 79%, should merge be blocked?
+        How would you make this configurable per project?
+      context:
+        block_on_fail: true
+        gates_per_module: true
+
+    expected_output:
+      must_contain:
+        - "gate"
+        - "threshold"
+        - "block"
+        - "critical"
+        - "enforce"
+      must_not_contain:
+        - "optional"
+        - "warning"
+      severity_classification: critical
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+
+  - id: tc009_coverage_trend_analysis
+    description: "Track coverage trends over time"
+    category: quality_gates
+    priority: high
+
+    input:
+      prompt: |
+        Analyze coverage trend:
+        - Week 1: 75%
+        - Week 2: 76%
+        - Week 3: 75%  (regression)
+        - Week 4: 73%  (2 week decline)
+
+        How would you detect:
+        1. 3 consecutive regressions
+        2. Significant decline (> 3% in 2 weeks)
+        3. Stagnation (not improving)
+      context:
+        trend_window: "4 weeks"
+        regression_alert: true
+
+    expected_output:
+      must_contain:
+        - "trend"
+        - "regression"
+        - "decline"
+        - "alert"
+      finding_count:
+        min: 1
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.75
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Negative Tests
+  # ---------------------------------------------------------------------------
+
+  - id: tc010_coverage_improvement_recommendations
+    description: "Provide actionable recommendations to improve coverage"
+    category: negative
+    priority: high
+
+    input:
+      prompt: |
+        For code with 60% coverage (target 85%), recommend:
+        1. Which modules to focus on (ROI analysis)
+        2. How many tests needed (estimate)
+        3. Expected coverage improvement
+        4. Time to complete estimate
+        5. Priority ranking
+
+        How would you help teams decide where to focus?
+      context:
+        actionable_recommendations: true
+        roi_focused: true
+
+    expected_output:
+      must_contain:
+        - "recommend"
+        - "focus"
+        - "priority"
+        - "estimate"
+        - "improve"
+      finding_count:
+        min: 1
+
+    validation:
+      schema_check: true
+      allow_partial: true
+
+# =============================================================================
+# SUCCESS CRITERIA
+# =============================================================================
+
+success_criteria:
+  pass_rate: 0.8
+  critical_pass_rate: 1.0
+  avg_reasoning_quality: 0.75
+  max_execution_time_ms: 300000
+  cross_model_variance: 0.15
+
+# =============================================================================
+# METADATA
+# =============================================================================
+
+metadata:
+  author: "qe-coverage-specialist"
+  created: "2026-02-02"
+  last_updated: "2026-02-02"
+  coverage_target: >
+    O(log n) sublinear gap detection with sampling, risk-weighted coverage
+    scoring with multi-factor analysis, differential coverage with quality gates,
+    test prioritization by impact, regression detection, trend analysis,
+    and comprehensive improvement recommendations.

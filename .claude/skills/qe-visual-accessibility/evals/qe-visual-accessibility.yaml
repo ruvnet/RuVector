@@ -1,0 +1,142 @@
+skill: qe-visual-accessibility
+version: 1.0.0
+description: >
+  Evaluation suite for visual accessibility testing.
+  Tests color blind simulation, contrast analysis, and visual hierarchy validation.
+
+models_to_test:
+  - claude-3.5-sonnet
+  - claude-3-haiku
+
+mcp_integration:
+  enabled: true
+  namespace: skill-validation
+  query_patterns: true
+  track_outcomes: true
+  store_patterns: true
+  target_agents:
+    - qe-accessibility-auditor
+
+learning:
+  store_success_patterns: true
+  pattern_ttl_days: 90
+
+result_format:
+  json_output: true
+  include_timing: true
+  include_token_usage: true
+
+setup:
+  required_tools:
+    - jq
+
+test_cases:
+
+  - id: tc001_color_contrast_wcag
+    description: "Validate WCAG color contrast requirements"
+    category: contrast
+    priority: critical
+
+    input:
+      color_pairs:
+        - { foreground: "#000000", background: "#ffffff" }
+        - { foreground: "#666666", background: "#ffffff" }
+      wcag_level: "AA"
+
+    expected_output:
+      must_contain:
+        - "contrast"
+        - "WCAG"
+        - "ratio"
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+
+  - id: tc002_colorblind_simulation
+    description: "Simulate colorblind perspectives"
+    category: colorblind
+    priority: high
+
+    input:
+      image_url: "https://example.com/image.png"
+      simulation_types:
+        - "deuteranopia"
+        - "protanopia"
+        - "tritanopia"
+
+    expected_output:
+      must_contain:
+        - "colorblind"
+        - "simulation"
+
+    validation:
+      schema_check: true
+
+  - id: tc003_visual_hierarchy
+    description: "Validate visual hierarchy and readability"
+    category: hierarchy
+    priority: high
+
+    input:
+      elements:
+        - { type: "heading", size_px: 32, weight: "bold" }
+        - { type: "body", size_px: 16, weight: "normal" }
+
+    expected_output:
+      must_contain:
+        - "hierarchy"
+        - "visual"
+
+    validation:
+      schema_check: true
+
+  - id: tc004_text_readability
+    description: "Assess text readability metrics"
+    category: readability
+    priority: medium
+
+    input:
+      text: "Sample paragraph for readability analysis"
+      font_size_px: 14
+      line_height_ratio: 1.5
+
+    expected_output:
+      must_contain:
+        - "readable"
+        - "legible"
+
+    validation:
+      schema_check: true
+
+  - id: tc005_focus_visibility
+    description: "Verify focus indicator visibility"
+    category: interaction
+    priority: medium
+
+    input:
+      elements:
+        - { type: "button", has_focus_indicator: true }
+        - { type: "input", has_focus_indicator: false }
+
+    expected_output:
+      must_contain:
+        - "focus"
+        - "visible"
+
+    validation:
+      schema_check: true
+      allow_partial: true
+
+success_criteria:
+  pass_rate: 0.9
+  critical_pass_rate: 1.0
+  avg_reasoning_quality: 0.75
+  max_execution_time_ms: 300000
+
+metadata:
+  author: "qe-visual-accessibility-tester"
+  created: "2026-02-02"
+  coverage_target: >
+    Visual accessibility with 5 test cases covering color contrast,
+    colorblind simulation, visual hierarchy, text readability, and focus visibility.

@@ -1,0 +1,61 @@
+{
+  "skillName": "api-testing-patterns",
+  "skillVersion": "1.0.0",
+  "requiredTools": [
+    "jq"
+  ],
+  "optionalTools": [
+    "node",
+    "supertest",
+    "pact",
+    "ajv",
+    "jsonschema",
+    "python3"
+  ],
+  "schemaPath": "schemas/output.json",
+  "requiredFields": [
+    "skillName",
+    "status",
+    "output",
+    "output.testingLevel",
+    "output.endpointCoverage"
+  ],
+  "requiredNonEmptyFields": [
+    "output.summary",
+    "output.testingLevel"
+  ],
+  "mustContainTerms": [
+    "api",
+    "test"
+  ],
+  "mustNotContainTerms": [
+    "TODO",
+    "FIXME",
+    "placeholder",
+    "example.com",
+    "lorem ipsum"
+  ],
+  "enumValidations": {
+    ".status": [
+      "success",
+      "partial",
+      "failed",
+      "skipped"
+    ],
+    ".output.testingLevel": [
+      "contract",
+      "component",
+      "integration",
+      "e2e",
+      "load",
+      "mixed"
+    ],
+    ".output.apiType": [
+      "rest",
+      "graphql",
+      "grpc",
+      "websocket",
+      "mixed"
+    ]
+  }
+}

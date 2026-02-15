@@ -1,0 +1,225 @@
+# =============================================================================
+# AQE Skill Frontmatter Example
+# Schema: docs/schemas/skill-frontmatter.schema.json
+# =============================================================================
+#
+# This example demonstrates ALL available frontmatter fields for SKILL.md files.
+# Only `name` and `description` are required; all other fields are optional.
+#
+# TRUST TIER SYSTEM (Trust But Verify):
+# - Tier 0: Declarative (SKILL.md only) - Default for all skills
+# - Tier 1: Structured (+ JSON output schema)
+# - Tier 2: Validated (+ executable validator script)
+# - Tier 3: Evaluated (+ evaluation test suite with multi-model testing)
+#
+# =============================================================================
+
+---
+# =============================================================================
+# REQUIRED FIELDS
+# =============================================================================
+
+name: security-testing
+description: "Test for security vulnerabilities using OWASP principles. Use when conducting security audits, testing auth, or implementing security practices."
+
+# =============================================================================
+# CATEGORIZATION (Optional but Recommended)
+# =============================================================================
+
+category: specialized-testing
+# Options: qcsd-phases, qe-core, testing-methodologies, test-design,
+#          specialized-testing, analysis-review, infrastructure,
+#          development-practices, bug-management, platform-skills,
+#          learning-skills, orchestration, quality-review
+# Default: qe-core
+
+priority: critical
+# Options: critical, high, medium, low
+# Default: medium
+
+tags:
+  - security
+  - owasp
+  - sast
+  - dast
+  - vulnerabilities
+  - auth
+  - injection
+
+# =============================================================================
+# VERSIONING & STATUS
+# =============================================================================
+
+version: 2.1.0
+# Semantic version of the skill
+
+implementation_status: optimized
+# Options: draft, active, optimized, deprecated
+# Default: active
+
+optimization_version: "2.1"
+# Version of optimization applied
+
+last_optimized: 2026-02-02
+# Date of last optimization (YYYY-MM-DD)
+
+last_updated: 2026-02-02
+# Date of last update (YYYY-MM-DD)
+
+# =============================================================================
+# TOKEN & RESOURCE ESTIMATES
+# =============================================================================
+
+tokenEstimate: 1500
+# Estimated token count for skill content (100-50000)
+
+# =============================================================================
+# AGENT CONFIGURATION
+# =============================================================================
+
+# Simple format (array of agent names):
+agents:
+  - qe-security-scanner
+  - qe-api-contract-validator
+  - qe-quality-analyzer
+
+# Advanced format (structured with core/conditional):
+# agents:
+#   core:
+#     - qe-security-scanner
+#     - qe-api-contract-validator
+#   conditional:
+#     - qe-penetration-tester
+#   total: 3
+#   sub_agents: 0
+
+# =============================================================================
+# DDD DOMAIN MAPPING (For QCSD Integration)
+# =============================================================================
+
+domains:
+  primary:
+    - domain: security-compliance
+      agents:
+        - qe-security-scanner
+        - qe-security-auditor
+  conditional:
+    - domain: quality-assessment
+      agents:
+        - qe-quality-gate
+
+# =============================================================================
+# DEPENDENCIES & REQUIREMENTS
+# =============================================================================
+
+dependencies:
+  - api-testing-patterns
+  - compliance-testing
+
+requires:
+  - npm audit
+  - semgrep (optional)
+  - trivy (optional)
+
+skills:
+  - compliance-testing
+  - api-testing-patterns
+
+# =============================================================================
+# EXECUTION CONFIGURATION
+# =============================================================================
+
+execution:
+  primary: task-tool
+  # Options: task-tool, mcp-tools, cli, bash
+  alternatives:
+    - mcp-tools
+    - cli
+
+swarm_pattern: false
+# Whether skill uses swarm execution pattern
+
+parallel_batches: 1
+# Number of parallel agent batches (1-10)
+
+# =============================================================================
+# OUTPUT & UI CONFIGURATION
+# =============================================================================
+
+quick_reference_card: true
+# Whether skill includes quick reference card
+
+html_output: false
+# Whether skill generates HTML output
+
+enforcement_level: strict
+# Options: strict, moderate, lenient
+# Default: moderate
+
+vibium_integration: optional
+# Options: required, optional, none
+# Default: none
+
+# =============================================================================
+# CONTRIBUTOR INFORMATION
+# =============================================================================
+
+contributor: "@security-team"
+# GitHub handle of primary contributor
+
+# =============================================================================
+# TRUST TIER & VALIDATION (Trust But Verify System)
+# =============================================================================
+
+trust_tier: 3
+# Trust tier level (0-3):
+# - 0: Declarative (SKILL.md only) - Default
+# - 1: Structured (requires validation.schema_path)
+# - 2: Validated (requires validation.validator_path)
+# - 3: Evaluated (requires validation.eval_path)
+
+validation:
+  # Required for trust_tier >= 1
+  schema_path: schemas/output.json
+  # Path to JSON schema defining expected output structure
+
+  # Required for trust_tier >= 2
+  validator_path: scripts/validate-config.json
+  # Path to executable validator script
+  # Supports: .sh, .ts, .js
+
+  # Required for trust_tier >= 3
+  eval_path: evals/security-testing.yaml
+  # Path to evaluation test suite (YAML)
+
+  # Validation status tracking
+  last_validated: 2026-02-02
+  # Date of last successful validation run
+
+  validation_status: passing
+  # Options: passing, failing, skipped, pending, unknown
+  # Default: unknown
+
+  # Multi-model testing configuration
+  validation_models:
+    - claude-3.5-sonnet
+    - claude-3-haiku
+    - gpt-4o
+
+  # Evaluation metrics
+  pass_rate: 0.95
+  # Overall pass rate from evaluation suite (0.0-1.0)
+
+  critical_pass_rate: 1.0
+  # Pass rate for critical test cases only
+
+  avg_reasoning_quality: 0.87
+  # Average reasoning quality score from evaluations
+
+  cross_model_variance: 0.08
+  # Variance in results between different models (<0.15 is good)
+---
+
+# Security Testing
+
+Your skill content goes here...

@@ -1,0 +1,43 @@
+{
+  "skillName": "mobile-testing",
+  "skillVersion": "1.0.0",
+  "requiredTools": [
+    "jq"
+  ],
+  "optionalTools": [
+    "appium",
+    "ajv",
+    "jsonschema",
+    "python3"
+  ],
+  "schemaPath": "schemas/output.json",
+  "requiredFields": [
+    "skillName",
+    "status",
+    "output",
+    "output.deviceMatrix",
+    "output.platformCoverage",
+    "output.metrics"
+  ],
+  "requiredNonEmptyFields": [
+    "output.summary",
+    "output.deviceMatrix"
+  ],
+  "mustContainTerms": [
+    "mobile",
+    "device"
+  ],
+  "mustNotContainTerms": [
+    "TODO",
+    "placeholder",
+    "FIXME"
+  ],
+  "enumValidations": {
+    ".status": [
+      "success",
+      "partial",
+      "failed",
+      "skipped"
+    ]
+  }
+}

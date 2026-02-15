@@ -1,0 +1,504 @@
+# =============================================================================
+# AQE Skill Evaluation Test Suite: Regression Testing v1.0.0
+# =============================================================================
+#
+# Comprehensive evaluation suite for the regression-testing skill.
+# Tests smart test selection, impact analysis, change-based and risk-based
+# regression strategies, suite optimization, and flaky test detection.
+#
+# Schema: .claude/skills/.validation/schemas/skill-eval.schema.json
+# Validator: .claude/skills/regression-testing/scripts/validate-config.json
+#
+# Coverage:
+# - Test selection based on code changes
+# - Impact analysis (what changed affects which tests)
+# - Risk-based test prioritization
+# - Regression suite optimization
+# - Flaky test detection and isolation
+#
+# =============================================================================
+
+skill: regression-testing
+version: 1.0.0
+description: >
+  Comprehensive evaluation suite for the regression-testing skill.
+  Tests smart test selection strategies, code impact analysis, risk-based
+  prioritization, execution optimization for faster feedback, and flaky
+  test detection to ensure regressions are caught efficiently.
+
+# =============================================================================
+# Multi-Model Configuration
+# =============================================================================
+
+models_to_test:
+  - claude-3.5-sonnet
+  - claude-3-haiku
+
+# =============================================================================
+# MCP Integration Configuration
+# =============================================================================
+
+mcp_integration:
+  enabled: true
+  namespace: skill-validation
+
+  query_patterns: true
+  track_outcomes: true
+  store_patterns: true
+  share_learning: true
+  update_quality_gate: true
+
+  target_agents:
+    - qe-learning-coordinator
+    - qe-queen-coordinator
+    - qe-regression-risk-analyzer
+
+# =============================================================================
+# ReasoningBank Learning Configuration
+# =============================================================================
+
+learning:
+  store_success_patterns: true
+  store_failure_patterns: true
+  pattern_ttl_days: 90
+  min_confidence_to_store: 0.7
+  cross_model_comparison: true
+
+# =============================================================================
+# Result Format Configuration
+# =============================================================================
+
+result_format:
+  json_output: true
+  markdown_report: true
+  include_raw_output: false
+  include_timing: true
+  include_token_usage: true
+
+# =============================================================================
+# Environment Setup
+# =============================================================================
+
+setup:
+  required_tools:
+    - jq
+
+  environment_variables:
+    REGRESSION_ENABLED: "true"
+    IMPACT_ANALYSIS: "true"
+
+# =============================================================================
+# TEST CASES
+# =============================================================================
+
+test_cases:
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Test Selection Based on Changes
+  # ---------------------------------------------------------------------------
+
+  - id: tc001_test_selection_auth_module
+    description: "Select only relevant tests for authentication changes"
+    category: test_selection
+    priority: critical
+
+    input:
+      changed_files:
+        - src/auth/login.ts
+        - src/auth/jwt.ts
+      all_tests:
+        - name: "auth.login.test.ts"
+          modules_used: ["login"]
+          relevant: true
+        - name: "auth.jwt.test.ts"
+          modules_used: ["jwt"]
+          relevant: true
+        - name: "cart.checkout.test.ts"
+          modules_used: ["payment"]
+          relevant: false
+        - name: "profile.settings.test.ts"
+          modules_used: ["profile"]
+          relevant: false
+      total_tests: 4
+      context:
+        change_type: "auth module update"
+
+    expected_output:
+      must_contain:
+        - "selection"
+        - "auth"
+        - "2"
+        - "relevant"
+      must_not_contain:
+        - "all tests"
+      severity_classification: info
+      finding_count:
+        max: 1
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+      reasoning_quality_min: 0.75
+
+    timeout_ms: 30000
+
+  - id: tc002_smart_test_selection_database
+    description: "Identify all affected tests for database schema change"
+    category: test_selection
+    priority: critical
+
+    input:
+      change_description: "Add email_verified column to users table"
+      affected_models:
+        - User
+        - Profile
+        - Auth
+      tests_affected:
+        - user.model.test.ts
+        - auth.verification.test.ts
+        - user.profile.test.ts
+        - payment.test.ts  # Not affected
+      context:
+        change_scope: database
+
+    expected_output:
+      must_contain:
+        - "affected"
+        - "User"
+        - "Auth"
+        - "3 tests"
+      must_not_contain:
+        - "payment"
+      severity_classification: high
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Risk-Based Prioritization
+  # ---------------------------------------------------------------------------
+
+  - id: tc003_risk_based_test_ordering
+    description: "Prioritize tests by risk (critical path first)"
+    category: prioritization
+    priority: critical
+
+    input:
+      tests:
+        - name: "checkout.test.ts"
+          criticality: critical
+          revenue_impact: 100000
+          priority: 1
+        - name: "login.test.ts"
+          criticality: critical
+          revenue_impact: 50000
+          priority: 2
+        - name: "profile.test.ts"
+          criticality: high
+          revenue_impact: 5000
+          priority: 3
+        - name: "help.test.ts"
+          criticality: low
+          revenue_impact: 0
+          priority: 4
+      context:
+        strategy: "risk-based"
+
+    expected_output:
+      must_contain:
+        - "priority"
+        - "critical"
+        - "checkout"
+        - "order"
+      must_not_contain:
+        - "random"
+      severity_classification: info
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+
+  - id: tc004_regression_strategy_selection
+    description: "Choose appropriate regression strategy per deployment"
+    category: prioritization
+    priority: high
+
+    input:
+      scenarios:
+        - name: "Per-commit regression"
+          strategy: "smoke + changed-code tests"
+          time_budget_minutes: 10
+          coverage: "50%"
+        - name: "Nightly regression"
+          strategy: "extended regression"
+          time_budget_minutes: 60
+          coverage: "80%"
+        - name: "Pre-release regression"
+          strategy: "full regression"
+          time_budget_minutes: 240
+          coverage: "100%"
+      context:
+        goal: "match_strategy_to_deployment_type"
+
+    expected_output:
+      must_contain:
+        - "strategy"
+        - "smoke"
+        - "nightly"
+        - "full"
+      must_not_contain:
+        - "one size"
+      severity_classification: info
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.75
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Execution Optimization
+  # ---------------------------------------------------------------------------
+
+  - id: tc005_test_execution_parallelization
+    description: "Calculate optimal test parallelization"
+    category: optimization
+    priority: high
+
+    input:
+      tests:
+        - name: "auth.test.ts"
+          duration_ms: 2000
+          dependencies: []
+        - name: "user.test.ts"
+          duration_ms: 1500
+          dependencies: []
+        - name: "cart.test.ts"
+          duration_ms: 3000
+          dependencies: ["user.test.ts"]
+        - name: "checkout.test.ts"
+          duration_ms: 4000
+          dependencies: ["cart.test.ts", "user.test.ts"]
+      available_workers: 4
+      context:
+        goal: "minimize_total_time"
+
+    expected_output:
+      must_contain:
+        - "parallel"
+        - "workers"
+        - "optimal"
+        - "seconds"
+      must_not_contain:
+        - "sequential"
+      severity_classification: info
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.75
+
+  - id: tc006_flaky_test_detection
+    description: "Identify and isolate flaky tests"
+    category: optimization
+    priority: critical
+
+    input:
+      test_results:
+        - test: "auth.login.test.ts"
+          runs: 10
+          failures: 0
+          flakiness_percent: 0
+          status: stable
+        - test: "async.operation.test.ts"
+          runs: 10
+          failures: 3
+          flakiness_percent: 30
+          status: flaky
+        - test: "api.timeout.test.ts"
+          runs: 10
+          failures: 5
+          flakiness_percent: 50
+          status: very_flaky
+      context:
+        threshold: 10
+
+    expected_output:
+      must_contain:
+        - "flaky"
+        - "async"
+        - "api"
+        - "isolate"
+      must_not_contain:
+        - "stable"
+      severity_classification: high
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Smoke vs Extended vs Full Regression
+  # ---------------------------------------------------------------------------
+
+  - id: tc007_smoke_test_definition
+    description: "Define critical smoke tests for quick feedback"
+    category: suite_design
+    priority: critical
+
+    input:
+      smoke_tests:
+        - "login.test.ts"
+        - "dashboard.load.test.ts"
+        - "create.item.test.ts"
+      total_regression_tests: 200
+      smoke_coverage_percent: 10
+      expected_duration_minutes: 5
+      context:
+        execution_frequency: "per-commit"
+
+    expected_output:
+      must_contain:
+        - "smoke"
+        - "critical"
+        - "5 minutes"
+      must_not_contain:
+        - "complete"
+      severity_classification: info
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.75
+
+  - id: tc008_extended_regression_suite
+    description: "Define extended regression for nightly runs"
+    category: suite_design
+    priority: high
+
+    input:
+      extended_tests:
+        - category: smoke
+          count: 20
+        - category: core_features
+          count: 80
+        - category: integrations
+          count: 50
+      total_tests: 150
+      expected_duration_minutes: 45
+      context:
+        execution_frequency: "nightly"
+
+    expected_output:
+      must_contain:
+        - "extended"
+        - "150"
+        - "nightly"
+        - "45"
+      must_not_contain:
+        - "full regression"
+      severity_classification: info
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.75
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Suite Health Monitoring
+  # ---------------------------------------------------------------------------
+
+  - id: tc009_regression_suite_health
+    description: "Monitor regression suite health metrics"
+    category: health
+    priority: high
+
+    input:
+      metrics:
+        - name: "Average Execution Time"
+          value_minutes: 35
+          trend: increasing
+          status: concerning
+        - name: "Flaky Test Rate"
+          value_percent: 8
+          trend: decreasing
+          status: improving
+        - name: "Bug Detection Rate"
+          value_percent: 85
+          trend: stable
+          status: healthy
+        - name: "False Positive Rate"
+          value_percent: 2
+          trend: stable
+          status: good
+      context:
+        goal: "maintain_health"
+
+    expected_output:
+      must_contain:
+        - "health"
+        - "flaky"
+        - "execution time"
+        - "metrics"
+      must_not_contain:
+        - "no concerns"
+      severity_classification: medium
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.75
+
+  - id: tc010_production_bug_regression_test
+    description: "Add regression test for every production bug"
+    category: continuous_improvement
+    priority: critical
+
+    input:
+      production_bugs:
+        - bug_id: "BUG-001"
+          description: "Users unable to reset password"
+          severity: critical
+          regression_test_added: true
+        - bug_id: "BUG-002"
+          description: "Checkout page crashes on Safari"
+          severity: high
+          regression_test_added: true
+        - bug_id: "BUG-003"
+          description: "Typo in help text"
+          severity: low
+          regression_test_added: false
+      context:
+        policy: "all_critical_high_tested"
+
+    expected_output:
+      must_contain:
+        - "regression"
+        - "production"
+        - "test"
+      must_not_contain:
+        - "no regression"
+      severity_classification: high
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+
+# =============================================================================
+# SUCCESS CRITERIA
+# =============================================================================
+
+success_criteria:
+  pass_rate: 0.85
+  critical_pass_rate: 1.0
+  avg_reasoning_quality: 0.75
+  max_execution_time_ms: 300000
+  cross_model_variance: 0.15
+
+# =============================================================================
+# METADATA
+# =============================================================================
+
+metadata:
+  author: "qe-regression-risk-analyzer"
+  created: "2026-02-02"
+  last_updated: "2026-02-02"
+  coverage_target: >
+    Regression testing including smart test selection, impact analysis,
+    risk-based prioritization, execution optimization, flaky test detection,
+    smoke/extended/full regression strategies, and suite health monitoring.
+    10 test cases covering all regression testing aspects with 85% pass rate.

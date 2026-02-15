@@ -1,0 +1,288 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://agentic-qe.dev/schemas/skills/qe-learning-optimization/output.json",
+  "title": "QE Learning Optimization Skill Output Schema",
+  "description": "Schema for qe-learning-optimization skill output with learning curve, transfer metrics, and optimization recommendations.",
+  "type": "object",
+  "required": ["skillName", "version", "timestamp", "status", "trustTier", "output"],
+  "properties": {
+    "skillName": {
+      "type": "string",
+      "const": "qe-learning-optimization"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+(-[a-zA-Z0-9]+)?$"
+    },
+    "timestamp": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["success", "partial", "failed", "skipped"]
+    },
+    "trustTier": {
+      "type": "integer",
+      "const": 3
+    },
+    "output": {
+      "type": "object",
+      "required": ["summary", "learningCurve", "optimizations"],
+      "properties": {
+        "summary": {
+          "type": "string",
+          "minLength": 50,
+          "maxLength": 2000,
+          "description": "Human-readable summary of learning optimization analysis"
+        },
+        "learningCurve": {
+          "$ref": "#/$defs/learningCurve",
+          "description": "Learning curve metrics and trajectory"
+        },
+        "transferMetrics": {
+          "$ref": "#/$defs/transferMetrics",
+          "description": "Knowledge transfer metrics between domains"
+        },
+        "optimizations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/optimization"
+          },
+          "minItems": 1,
+          "maxItems": 100,
+          "description": "Applied or recommended optimizations"
+        },
+        "patternLibrary": {
+          "$ref": "#/$defs/patternLibrary",
+          "description": "Learned patterns and their effectiveness"
+        },
+        "performanceMetrics": {
+          "$ref": "#/$defs/performanceMetrics",
+          "description": "Model and system performance metrics"
+        },
+        "findings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/finding"
+          },
+          "maxItems": 200
+        },
+        "recommendations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/recommendation"
+          },
+          "maxItems": 50
+        }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "executionTimeMs": { "type": "integer", "minimum": 0 },
+        "toolsUsed": { "type": "array", "items": { "type": "string" } },
+        "agentId": { "type": "string" },
+        "trainingEpochs": { "type": "integer", "minimum": 0 },
+        "dataPointsProcessed": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "validation": {
+      "type": "object",
+      "properties": {
+        "schemaValid": { "type": "boolean" },
+        "contentValid": { "type": "boolean" },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "learning": {
+      "type": "object",
+      "properties": {
+        "patternsDetected": { "type": "array", "items": { "type": "string" } },
+        "reward": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    }
+  },
+  "$defs": {
+    "learningCurve": {
+      "type": "object",
+      "required": ["currentPerformance", "trajectory"],
+      "properties": {
+        "currentPerformance": { "type": "number", "minimum": 0, "maximum": 1 },
+        "initialPerformance": { "type": "number", "minimum": 0, "maximum": 1 },
+        "peakPerformance": { "type": "number", "minimum": 0, "maximum": 1 },
+        "trajectory": { "type": "string", "enum": ["accelerating", "linear", "decelerating", "plateau", "declining"] },
+        "learningRate": { "type": "number", "minimum": 0 },
+        "dataEfficiency": { "type": "number", "minimum": 0, "maximum": 1 },
+        "history": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "epoch": { "type": "integer", "minimum": 0 },
+              "performance": { "type": "number" },
+              "loss": { "type": "number" },
+              "timestamp": { "type": "string" }
+            }
+          },
+          "maxItems": 1000
+        },
+        "projectedPerformance": { "type": "number", "minimum": 0, "maximum": 1 },
+        "timeToTarget": { "type": "integer", "minimum": 0 },
+        "convergenceEstimate": {
+          "type": "object",
+          "properties": {
+            "iterations": { "type": "integer" },
+            "confidence": { "type": "number", "minimum": 0, "maximum": 1 }
+          }
+        }
+      }
+    },
+    "transferMetrics": {
+      "type": "object",
+      "properties": {
+        "transferEfficiency": { "type": "number", "minimum": 0, "maximum": 1 },
+        "domainSimilarity": { "type": "number", "minimum": 0, "maximum": 1 },
+        "knowledgeRetention": { "type": "number", "minimum": 0, "maximum": 1 },
+        "negativeTransfer": { "type": "boolean" },
+        "sourcedomains": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "contribution": { "type": "number", "minimum": 0, "maximum": 1 },
+              "patternsTransferred": { "type": "integer", "minimum": 0 }
+            }
+          }
+        },
+        "targetDomains": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "performanceGain": { "type": "number" },
+              "adaptationTime": { "type": "integer", "minimum": 0 }
+            }
+          }
+        },
+        "crossDomainPatterns": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Patterns applicable across domains"
+        }
+      }
+    },
+    "optimization": {
+      "type": "object",
+      "required": ["id", "type", "status"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^OPT-\\d{3,6}$" },
+        "type": { "type": "string", "enum": ["hyperparameter", "architecture", "data-augmentation", "regularization", "feature-selection", "ensemble", "pruning", "quantization"] },
+        "name": { "type": "string", "maxLength": 200 },
+        "status": { "type": "string", "enum": ["applied", "recommended", "tested", "rejected"] },
+        "description": { "type": "string", "maxLength": 1000 },
+        "parameters": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "beforeMetrics": {
+          "type": "object",
+          "properties": {
+            "performance": { "type": "number" },
+            "efficiency": { "type": "number" },
+            "latency": { "type": "number" }
+          }
+        },
+        "afterMetrics": {
+          "type": "object",
+          "properties": {
+            "performance": { "type": "number" },
+            "efficiency": { "type": "number" },
+            "latency": { "type": "number" }
+          }
+        },
+        "improvement": { "type": "number" },
+        "tradeoffs": { "type": "string", "maxLength": 500 }
+      }
+    },
+    "patternLibrary": {
+      "type": "object",
+      "properties": {
+        "totalPatterns": { "type": "integer", "minimum": 0 },
+        "activePatterns": { "type": "integer", "minimum": 0 },
+        "deprecatedPatterns": { "type": "integer", "minimum": 0 },
+        "patterns": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "name": { "type": "string" },
+              "domain": { "type": "string" },
+              "effectiveness": { "type": "number", "minimum": 0, "maximum": 1 },
+              "usageCount": { "type": "integer", "minimum": 0 },
+              "successRate": { "type": "number", "minimum": 0, "maximum": 1 },
+              "lastUsed": { "type": "string" },
+              "confidence": { "type": "number", "minimum": 0, "maximum": 1 }
+            }
+          },
+          "maxItems": 500
+        },
+        "patternEffectiveness": {
+          "type": "object",
+          "properties": {
+            "average": { "type": "number", "minimum": 0, "maximum": 1 },
+            "median": { "type": "number", "minimum": 0, "maximum": 1 },
+            "topPerformer": { "type": "string" }
+          }
+        }
+      }
+    },
+    "performanceMetrics": {
+      "type": "object",
+      "properties": {
+        "accuracy": { "type": "number", "minimum": 0, "maximum": 1 },
+        "precision": { "type": "number", "minimum": 0, "maximum": 1 },
+        "recall": { "type": "number", "minimum": 0, "maximum": 1 },
+        "f1Score": { "type": "number", "minimum": 0, "maximum": 1 },
+        "latency": {
+          "type": "object",
+          "properties": {
+            "p50": { "type": "number", "minimum": 0 },
+            "p95": { "type": "number", "minimum": 0 },
+            "p99": { "type": "number", "minimum": 0 }
+          }
+        },
+        "throughput": { "type": "number", "minimum": 0 },
+        "memoryUsage": { "type": "number", "minimum": 0 },
+        "modelSize": { "type": "number", "minimum": 0 },
+        "inferenceTime": { "type": "number", "minimum": 0 }
+      }
+    },
+    "finding": {
+      "type": "object",
+      "required": ["id", "title", "severity"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^LEARN-\\d{3,6}$" },
+        "title": { "type": "string", "minLength": 5, "maxLength": 200 },
+        "description": { "type": "string", "maxLength": 2000 },
+        "severity": { "type": "string", "enum": ["critical", "high", "medium", "low", "info"] },
+        "category": { "type": "string", "enum": ["underfitting", "overfitting", "data-drift", "concept-drift", "inefficiency", "opportunity"] },
+        "remediation": { "type": "string", "maxLength": 2000 }
+      }
+    },
+    "recommendation": {
+      "type": "object",
+      "required": ["id", "title", "priority"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^REC-\\d{3,6}$" },
+        "title": { "type": "string", "maxLength": 200 },
+        "description": { "type": "string", "maxLength": 2000 },
+        "priority": { "type": "string", "enum": ["critical", "high", "medium", "low"] },
+        "effort": { "type": "string", "enum": ["trivial", "low", "medium", "high", "major"] },
+        "expectedGain": { "type": "number", "minimum": 0 }
+      }
+    }
+  }
+}

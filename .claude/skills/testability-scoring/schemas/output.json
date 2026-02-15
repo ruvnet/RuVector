@@ -1,0 +1,606 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentic-qe.dev/schemas/testability-scoring-output.json",
+  "title": "Testability Scoring Output Schema",
+  "description": "Schema for testability assessment output based on the 10 principles of intrinsic testability (James Bach & Michael Bolton). Validates scoring structure, testability dimensions, and improvement recommendations.",
+  "type": "object",
+  "required": ["skillName", "version", "timestamp", "status", "trustTier", "output"],
+  "properties": {
+    "skillName": {
+      "type": "string",
+      "const": "testability-scoring",
+      "description": "Must be 'testability-scoring'"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+(-[a-zA-Z0-9]+)?$",
+      "description": "Semantic version of the skill"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp of output generation"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["success", "partial", "failed", "skipped"],
+      "description": "Overall execution status"
+    },
+    "trustTier": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 3,
+      "description": "Trust tier level (3 for full validation)"
+    },
+    "output": {
+      "type": "object",
+      "required": ["summary", "score", "categories"],
+      "properties": {
+        "summary": {
+          "type": "string",
+          "minLength": 50,
+          "maxLength": 2000,
+          "description": "Human-readable summary of testability assessment"
+        },
+        "score": {
+          "$ref": "#/$defs/testabilityScore",
+          "description": "Overall testability score"
+        },
+        "findings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/testabilityFinding"
+          },
+          "maxItems": 100,
+          "description": "Testability issues discovered"
+        },
+        "recommendations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/testabilityRecommendation"
+          },
+          "maxItems": 50,
+          "description": "Actionable recommendations for improving testability"
+        },
+        "metrics": {
+          "$ref": "#/$defs/testabilityMetrics",
+          "description": "Quantitative testability metrics"
+        },
+        "categories": {
+          "type": "object",
+          "required": [
+            "observability",
+            "controllability",
+            "algorithmicSimplicity",
+            "algorithmicTransparency",
+            "algorithmicStability",
+            "explainability",
+            "unbugginess",
+            "smallness",
+            "decomposability",
+            "similarity"
+          ],
+          "properties": {
+            "observability": {
+              "$ref": "#/$defs/testabilityDimension",
+              "description": "Transparency of product states and behavior - Can we see what's happening?"
+            },
+            "controllability": {
+              "$ref": "#/$defs/testabilityDimension",
+              "description": "Capacity to provide any input and invoke any state - Can we control the application?"
+            },
+            "algorithmicSimplicity": {
+              "$ref": "#/$defs/testabilityDimension",
+              "description": "Clear relationships between inputs and outputs - Are behaviors predictable?"
+            },
+            "algorithmicTransparency": {
+              "$ref": "#/$defs/testabilityDimension",
+              "description": "Understanding how the product produces output - Can we understand what it does?"
+            },
+            "algorithmicStability": {
+              "$ref": "#/$defs/testabilityDimension",
+              "description": "Changes do not disturb logic - Does behavior remain consistent?"
+            },
+            "explainability": {
+              "$ref": "#/$defs/testabilityDimension",
+              "description": "Design understandable to outsiders - Is the interface understandable?"
+            },
+            "unbugginess": {
+              "$ref": "#/$defs/testabilityDimension",
+              "description": "Minimal defects that slow testing - How error-free is it?"
+            },
+            "smallness": {
+              "$ref": "#/$defs/testabilityDimension",
+              "description": "Less product means less to examine - Are components appropriately sized?"
+            },
+            "decomposability": {
+              "$ref": "#/$defs/testabilityDimension",
+              "description": "Parts can be separated for testing - Can we test parts in isolation?"
+            },
+            "similarity": {
+              "$ref": "#/$defs/testabilityDimension",
+              "description": "Resemblance to known technology - Is the tech stack familiar?"
+            }
+          },
+          "additionalProperties": false,
+          "description": "Breakdown by 10 testability principles"
+        },
+        "artifacts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/artifact"
+          },
+          "maxItems": 20,
+          "description": "Generated artifacts (reports, data files)"
+        },
+        "timeline": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/timelineEvent"
+          },
+          "description": "Execution timeline for debugging"
+        }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "executionTimeMs": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 600000,
+          "description": "Execution time in milliseconds"
+        },
+        "toolsUsed": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Tools/utilities used"
+        },
+        "agentId": {
+          "type": "string",
+          "description": "ID of executing agent"
+        },
+        "modelUsed": {
+          "type": "string",
+          "description": "LLM model used"
+        },
+        "inputHash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$",
+          "description": "SHA-256 hash of input"
+        },
+        "targetUrl": {
+          "type": "string",
+          "format": "uri",
+          "description": "Target URL assessed"
+        },
+        "environment": {
+          "type": "string",
+          "enum": ["development", "staging", "production", "ci"],
+          "description": "Environment where skill was executed"
+        },
+        "retryCount": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10,
+          "description": "Number of retries"
+        }
+      }
+    },
+    "validation": {
+      "type": "object",
+      "properties": {
+        "schemaValid": {
+          "type": "boolean"
+        },
+        "contentValid": {
+          "type": "boolean"
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "errors": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "validatorVersion": {
+          "type": "string"
+        }
+      }
+    },
+    "learning": {
+      "type": "object",
+      "properties": {
+        "patternsDetected": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Pattern names detected during assessment"
+        },
+        "reward": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Reward signal for learning"
+        },
+        "feedbackLoop": {
+          "type": "object",
+          "properties": {
+            "previousRunId": {
+              "type": "string"
+            },
+            "improvement": {
+              "type": "number",
+              "minimum": -1,
+              "maximum": 1
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "testabilityScore": {
+      "type": "object",
+      "required": ["value", "max"],
+      "properties": {
+        "value": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Overall testability score (0-100)"
+        },
+        "max": {
+          "type": "number",
+          "const": 100,
+          "description": "Maximum possible score (always 100)"
+        },
+        "grade": {
+          "type": "string",
+          "pattern": "^[A-F][+-]?$",
+          "description": "Letter grade (A=90-100, B=80-89, C=70-79, D=60-69, F=0-59)"
+        },
+        "percentile": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Percentile ranking compared to baseline"
+        },
+        "trend": {
+          "type": "string",
+          "enum": ["improving", "stable", "declining", "unknown"],
+          "description": "Trend compared to previous assessments"
+        }
+      }
+    },
+    "testabilityDimension": {
+      "type": "object",
+      "required": ["score", "weight"],
+      "properties": {
+        "score": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Dimension score (0-100)"
+        },
+        "weight": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Weight in overall score (must sum to 1.0 across all dimensions)"
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 500,
+          "description": "Explanation of what this dimension measures"
+        },
+        "grade": {
+          "type": "string",
+          "pattern": "^[A-F][+-]?$",
+          "description": "Letter grade for this dimension"
+        },
+        "findingCount": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of findings in this dimension"
+        }
+      }
+    },
+    "testabilityFinding": {
+      "type": "object",
+      "required": ["id", "title", "severity", "category"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^TEST-\\d{3,6}$",
+          "description": "Unique finding identifier (e.g., TEST-001)"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 200,
+          "description": "Finding title"
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 2000,
+          "description": "Detailed description"
+        },
+        "severity": {
+          "type": "string",
+          "enum": ["critical", "high", "medium", "low", "info"],
+          "description": "Severity level"
+        },
+        "category": {
+          "type": "string",
+          "enum": [
+            "observability",
+            "controllability",
+            "algorithmicSimplicity",
+            "algorithmicTransparency",
+            "algorithmicStability",
+            "explainability",
+            "unbugginess",
+            "smallness",
+            "decomposability",
+            "similarity"
+          ],
+          "description": "Which testability dimension this finding relates to"
+        },
+        "location": {
+          "type": "object",
+          "properties": {
+            "url": {
+              "type": "string",
+              "format": "uri"
+            },
+            "selector": {
+              "type": "string"
+            },
+            "file": {
+              "type": "string"
+            },
+            "line": {
+              "type": "integer"
+            }
+          }
+        },
+        "evidence": {
+          "type": "string",
+          "maxLength": 5000,
+          "description": "Evidence supporting the finding"
+        },
+        "remediation": {
+          "type": "string",
+          "maxLength": 2000,
+          "description": "How to fix this finding"
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Confidence in this finding (0.0-1.0)"
+        }
+      }
+    },
+    "testabilityRecommendation": {
+      "type": "object",
+      "required": ["id", "title", "priority"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^REC-\\d{3,6}$",
+          "description": "Unique recommendation identifier"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 200,
+          "description": "Recommendation title"
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 2000,
+          "description": "Detailed recommendation"
+        },
+        "priority": {
+          "type": "string",
+          "enum": ["critical", "high", "medium", "low"],
+          "description": "Priority level"
+        },
+        "effort": {
+          "type": "string",
+          "enum": ["trivial", "low", "medium", "high", "major"],
+          "description": "Estimated effort"
+        },
+        "impact": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10,
+          "description": "Expected improvement impact (1-10 points)"
+        },
+        "relatedFindings": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^TEST-\\d{3,6}$"
+          },
+          "description": "IDs of related findings"
+        },
+        "codeExample": {
+          "type": "string",
+          "maxLength": 5000,
+          "description": "Example code for implementation"
+        },
+        "resources": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["title", "url"],
+            "properties": {
+              "title": {
+                "type": "string"
+              },
+              "url": {
+                "type": "string",
+                "format": "uri"
+              }
+            }
+          },
+          "maxItems": 5,
+          "description": "External resources for learning more"
+        }
+      }
+    },
+    "testabilityMetrics": {
+      "type": "object",
+      "properties": {
+        "total": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total checks performed"
+        },
+        "passed": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Checks that passed"
+        },
+        "failed": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Checks that failed"
+        },
+        "skipped": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Checks skipped"
+        },
+        "coverage": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Percentage of principles assessed"
+        },
+        "duration": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Assessment duration in milliseconds"
+        },
+        "custom": {
+          "type": "object",
+          "properties": {
+            "domElementCount": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Total DOM elements on page"
+            },
+            "consoleErrorCount": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "JavaScript console errors"
+            },
+            "consoleWarningCount": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "JavaScript console warnings"
+            },
+            "dataTestIdCoverage": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 100,
+              "description": "Percentage of interactive elements with data-testid"
+            },
+            "semanticHtmlScore": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 100,
+              "description": "Semantic HTML usage score"
+            },
+            "loadTimeMs": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Page load time in milliseconds"
+            },
+            "thirdPartyScriptCount": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Number of third-party scripts"
+            },
+            "bundleSizeKb": {
+              "type": "number",
+              "minimum": 0,
+              "description": "Total JavaScript bundle size in KB"
+            }
+          },
+          "description": "Custom testability-specific metrics"
+        }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "required": ["type", "path"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["report", "data", "screenshot", "video", "log"],
+          "description": "Artifact type"
+        },
+        "path": {
+          "type": "string",
+          "maxLength": 500,
+          "description": "Path to artifact"
+        },
+        "format": {
+          "type": "string",
+          "enum": ["json", "html", "md", "txt", "png", "jpg", "webm", "mp4"],
+          "description": "File format"
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 500,
+          "description": "Artifact description"
+        },
+        "sizeBytes": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "File size in bytes"
+        }
+      }
+    },
+    "timelineEvent": {
+      "type": "object",
+      "required": ["timestamp", "event"],
+      "properties": {
+        "timestamp": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "event": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "type": {
+          "type": "string",
+          "enum": ["start", "checkpoint", "warning", "error", "complete"]
+        },
+        "durationMs": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    }
+  }
+}

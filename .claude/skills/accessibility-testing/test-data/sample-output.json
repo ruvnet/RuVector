@@ -1,0 +1,191 @@
+{
+  "skillName": "accessibility-testing",
+  "version": "1.0.0",
+  "timestamp": "2026-02-02T08:45:00Z",
+  "status": "partial",
+  "trustTier": 3,
+  "output": {
+    "summary": "Accessibility audit of https://example.com found 5 WCAG 2.2 Level AA violations requiring remediation. Key issues include missing alt text on images, insufficient color contrast, and keyboard accessibility problems.",
+    "conformanceLevel": "none",
+    "targetLevel": "AA",
+    "wcagVersion": "2.2",
+    "score": {
+      "value": 72,
+      "max": 100,
+      "grade": "C",
+      "conformanceAchieved": "none",
+      "trend": "unknown"
+    },
+    "pourBreakdown": {
+      "perceivable": {
+        "score": 65,
+        "violationCount": 3,
+        "criticalCount": 0,
+        "seriousCount": 2,
+        "moderateCount": 1,
+        "minorCount": 0
+      },
+      "operable": {
+        "score": 80,
+        "violationCount": 2,
+        "criticalCount": 1,
+        "seriousCount": 0,
+        "moderateCount": 1,
+        "minorCount": 0
+      },
+      "understandable": {
+        "score": 100,
+        "violationCount": 0,
+        "criticalCount": 0,
+        "seriousCount": 0,
+        "moderateCount": 0,
+        "minorCount": 0
+      },
+      "robust": {
+        "score": 90,
+        "violationCount": 0,
+        "criticalCount": 0,
+        "seriousCount": 0,
+        "moderateCount": 0,
+        "minorCount": 0
+      }
+    },
+    "findings": [
+      {
+        "id": "A11Y-001",
+        "title": "Image missing alt text",
+        "description": "The product image does not have an alt attribute, making it inaccessible to screen reader users.",
+        "severity": "serious",
+        "impact": "Screen reader users cannot perceive the image content",
+        "wcagCriterion": "1.1.1",
+        "wcagLevel": "A",
+        "pourPrinciple": "perceivable",
+        "element": {
+          "tagName": "img",
+          "selector": "#product-image",
+          "html": "<img src=\"product.jpg\" class=\"hero-image\">"
+        },
+        "remediation": "Add a descriptive alt attribute to the image",
+        "codeExample": {
+          "before": "<img src=\"product.jpg\" class=\"hero-image\">",
+          "after": "<img src=\"product.jpg\" class=\"hero-image\" alt=\"Red wireless headphones on white background\">"
+        },
+        "affectedUsers": ["blind", "low-vision"],
+        "confidence": 0.98,
+        "tool": "axe-core"
+      },
+      {
+        "id": "A11Y-002",
+        "title": "Insufficient color contrast",
+        "description": "The gray text on white background has a contrast ratio of 3.2:1, which is below the WCAG AA minimum of 4.5:1.",
+        "severity": "serious",
+        "impact": "Users with low vision may have difficulty reading the text",
+        "wcagCriterion": "1.4.3",
+        "wcagLevel": "AA",
+        "pourPrinciple": "perceivable",
+        "element": {
+          "tagName": "p",
+          "selector": ".subtitle",
+          "html": "<p class=\"subtitle\" style=\"color: #888888;\">Product description</p>"
+        },
+        "remediation": "Increase text color darkness to achieve 4.5:1 contrast ratio",
+        "codeExample": {
+          "before": "color: #888888;",
+          "after": "color: #595959;"
+        },
+        "affectedUsers": ["low-vision", "color-blind"],
+        "confidence": 0.95,
+        "tool": "axe-core"
+      },
+      {
+        "id": "A11Y-003",
+        "title": "Interactive element not keyboard accessible",
+        "description": "The custom dropdown uses a div with onclick but is not focusable or operable via keyboard.",
+        "severity": "critical",
+        "impact": "Keyboard-only users cannot interact with the dropdown",
+        "wcagCriterion": "2.1.1",
+        "wcagLevel": "A",
+        "pourPrinciple": "operable",
+        "element": {
+          "tagName": "div",
+          "selector": ".custom-dropdown",
+          "html": "<div class=\"custom-dropdown\" onclick=\"toggleDropdown()\">"
+        },
+        "remediation": "Use a native button element or add tabindex, role, and keyboard event handlers",
+        "codeExample": {
+          "before": "<div class=\"custom-dropdown\" onclick=\"toggleDropdown()\">",
+          "after": "<button class=\"custom-dropdown\" onclick=\"toggleDropdown()\" aria-expanded=\"false\" aria-haspopup=\"listbox\">"
+        },
+        "affectedUsers": ["motor-impaired", "blind"],
+        "confidence": 0.99,
+        "tool": "axe-core"
+      }
+    ],
+    "recommendations": [
+      {
+        "id": "REC-001",
+        "title": "Add alt text to all images",
+        "description": "Review all images and add descriptive alt text. Use empty alt=\"\" for decorative images.",
+        "priority": "high",
+        "effort": "low",
+        "wcagCriteria": ["1.1.1"],
+        "relatedFindings": ["A11Y-001"],
+        "resources": [
+          {
+            "title": "W3C Alt Text Decision Tree",
+            "url": "https://www.w3.org/WAI/tutorials/images/decision-tree/"
+          }
+        ]
+      },
+      {
+        "id": "REC-002",
+        "title": "Fix color contrast issues",
+        "description": "Update text colors to meet 4.5:1 contrast ratio for normal text and 3:1 for large text.",
+        "priority": "high",
+        "effort": "trivial",
+        "wcagCriteria": ["1.4.3"],
+        "relatedFindings": ["A11Y-002"],
+        "codeExample": "/* Before */\n.subtitle { color: #888888; }\n\n/* After */\n.subtitle { color: #595959; }"
+      },
+      {
+        "id": "REC-003",
+        "title": "Make custom controls keyboard accessible",
+        "description": "Replace custom div-based controls with native HTML elements or add proper ARIA roles and keyboard handling.",
+        "priority": "critical",
+        "effort": "medium",
+        "wcagCriteria": ["2.1.1"],
+        "relatedFindings": ["A11Y-003"]
+      }
+    ],
+    "metrics": {
+      "totalElements": 245,
+      "imagesWithAlt": 8,
+      "imagesWithoutAlt": 3,
+      "formsWithLabels": 4,
+      "formsWithoutLabels": 1,
+      "colorContrastPasses": 42,
+      "colorContrastFails": 5,
+      "keyboardAccessible": 18,
+      "keyboardTraps": 0,
+      "videosWithCaptions": 1,
+      "videosWithoutCaptions": 0
+    }
+  },
+  "metadata": {
+    "executionTimeMs": 4523,
+    "toolsUsed": ["axe-core", "pa11y"],
+    "agentId": "qe-accessibility-auditor",
+    "targetUrl": "https://example.com",
+    "pagesAudited": 1,
+    "elementsAnalyzed": 245
+  },
+  "validation": {
+    "schemaValid": true,
+    "contentValid": true,
+    "confidence": 0.92
+  },
+  "learning": {
+    "patternsDetected": ["missing-alt-pattern", "low-contrast-text", "keyboard-inaccessible-control"],
+    "reward": 0.85
+  }
+}

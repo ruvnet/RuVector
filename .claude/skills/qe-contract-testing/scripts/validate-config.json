@@ -1,0 +1,42 @@
+{
+  "skillName": "qe-contract-testing",
+  "skillVersion": "1.0.0",
+  "requiredTools": [
+    "jq"
+  ],
+  "optionalTools": [
+    "pact",
+    "node",
+    "python3"
+  ],
+  "schemaPath": "schemas/output.json",
+  "requiredFields": [
+    "skillName",
+    "status",
+    "output",
+    "output.summary",
+    "output.contracts",
+    "output.compatibility"
+  ],
+  "requiredNonEmptyFields": [
+    "output.summary"
+  ],
+  "mustContainTerms": [
+    "contract",
+    "consumer",
+    "provider"
+  ],
+  "mustNotContainTerms": [
+    "TODO",
+    "FIXME",
+    "placeholder"
+  ],
+  "enumValidations": {
+    ".status": [
+      "success",
+      "partial",
+      "failed",
+      "skipped"
+    ]
+  }
+}

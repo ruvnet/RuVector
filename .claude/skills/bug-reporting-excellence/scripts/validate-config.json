@@ -1,0 +1,34 @@
+{
+  "skillName": "bug-reporting-excellence",
+  "skillVersion": "1.0.0",
+  "requiredTools": [
+    "jq"
+  ],
+  "optionalTools": [],
+  "schemaPath": "schemas/output.json",
+  "requiredFields": [
+    "skillName",
+    "status",
+    "output",
+    "output.summary",
+    "output.bugReports",
+    "output.reportQuality"
+  ],
+  "requiredNonEmptyFields": [],
+  "mustContainTerms": [
+    "bug",
+    "steps"
+  ],
+  "mustNotContainTerms": [
+    "TODO",
+    "FIXME"
+  ],
+  "enumValidations": {
+    ".status": [
+      "success",
+      "partial",
+      "failed",
+      "skipped"
+    ]
+  }
+}

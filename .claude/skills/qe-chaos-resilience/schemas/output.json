@@ -1,0 +1,314 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://agentic-qe.dev/schemas/skills/qe-chaos-resilience/output.json",
+  "title": "QE Chaos Resilience Skill Output Schema",
+  "description": "Schema for qe-chaos-resilience skill output with chaos experiments, failure scenarios, and recovery metrics.",
+  "type": "object",
+  "required": ["skillName", "version", "timestamp", "status", "trustTier", "output"],
+  "properties": {
+    "skillName": {
+      "type": "string",
+      "const": "qe-chaos-resilience"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+(-[a-zA-Z0-9]+)?$"
+    },
+    "timestamp": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["success", "partial", "failed", "skipped"]
+    },
+    "trustTier": {
+      "type": "integer",
+      "const": 3
+    },
+    "output": {
+      "type": "object",
+      "required": ["summary", "experiments", "resilienceScore"],
+      "properties": {
+        "summary": {
+          "type": "string",
+          "minLength": 50,
+          "maxLength": 2000,
+          "description": "Human-readable summary of chaos resilience assessment"
+        },
+        "experiments": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/chaosExperiment"
+          },
+          "minItems": 1,
+          "maxItems": 100,
+          "description": "List of chaos experiments executed"
+        },
+        "failureScenarios": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/failureScenario"
+          },
+          "maxItems": 50,
+          "description": "Identified failure scenarios and their impact"
+        },
+        "recoveryMetrics": {
+          "$ref": "#/$defs/recoveryMetrics",
+          "description": "System recovery metrics and SLA compliance"
+        },
+        "resilienceScore": {
+          "$ref": "#/$defs/resilienceScore",
+          "description": "Overall resilience score"
+        },
+        "weaknesses": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/weakness"
+          },
+          "maxItems": 50
+        },
+        "recommendations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/recommendation"
+          },
+          "maxItems": 50
+        },
+        "metrics": {
+          "$ref": "#/$defs/chaosMetrics"
+        },
+        "categories": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/categoryScore"
+          }
+        }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "executionTimeMs": { "type": "integer", "minimum": 0 },
+        "toolsUsed": { "type": "array", "items": { "type": "string" } },
+        "agentId": { "type": "string" },
+        "environment": { "type": "string", "enum": ["development", "staging", "production", "ci"] }
+      }
+    },
+    "validation": {
+      "type": "object",
+      "properties": {
+        "schemaValid": { "type": "boolean" },
+        "contentValid": { "type": "boolean" },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "learning": {
+      "type": "object",
+      "properties": {
+        "patternsDetected": { "type": "array", "items": { "type": "string" } },
+        "reward": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    }
+  },
+  "$defs": {
+    "chaosExperiment": {
+      "type": "object",
+      "required": ["id", "name", "type", "result"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^CHAOS-\\d{3,6}$"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 5,
+          "maxLength": 200
+        },
+        "type": {
+          "type": "string",
+          "enum": ["network", "resource", "state", "application", "infrastructure", "byzantine"]
+        },
+        "subType": {
+          "type": "string",
+          "enum": ["latency", "packet-loss", "partition", "cpu-stress", "memory-exhaust", "disk-fill", "pod-terminate", "node-drain", "zone-failure", "exception-inject", "spike-load"]
+        },
+        "target": {
+          "type": "object",
+          "properties": {
+            "type": { "type": "string" },
+            "name": { "type": "string" },
+            "namespace": { "type": "string" }
+          }
+        },
+        "result": {
+          "type": "string",
+          "enum": ["passed", "failed", "partial", "expected-fail"]
+        },
+        "duration": { "type": "integer", "minimum": 0 },
+        "recoveryTime": {
+          "type": "object",
+          "properties": {
+            "actual": { "type": "integer", "minimum": 0 },
+            "sla": { "type": "integer", "minimum": 0 },
+            "withinSla": { "type": "boolean" }
+          }
+        },
+        "steadyStateHypothesis": {
+          "type": "object",
+          "properties": {
+            "metrics": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string" },
+                  "operator": { "type": "string" },
+                  "threshold": {},
+                  "actual": {},
+                  "passed": { "type": "boolean" }
+                }
+              }
+            }
+          }
+        },
+        "blastRadius": {
+          "type": "object",
+          "properties": {
+            "scope": { "type": "string", "enum": ["single-instance", "single-service", "multi-service", "zone", "cluster"] },
+            "emergencyStop": { "type": "boolean" }
+          }
+        }
+      }
+    },
+    "failureScenario": {
+      "type": "object",
+      "required": ["id", "name", "severity"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^FAIL-\\d{3,6}$"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 5,
+          "maxLength": 200
+        },
+        "severity": {
+          "type": "string",
+          "enum": ["critical", "high", "medium", "low"]
+        },
+        "likelihood": {
+          "type": "string",
+          "enum": ["rare", "unlikely", "possible", "likely", "certain"]
+        },
+        "impact": {
+          "type": "string",
+          "maxLength": 1000
+        },
+        "mitigation": {
+          "type": "string",
+          "maxLength": 2000
+        },
+        "triggeredBy": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^CHAOS-\\d{3,6}$" }
+        }
+      }
+    },
+    "recoveryMetrics": {
+      "type": "object",
+      "properties": {
+        "mttr": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Mean Time To Recovery in milliseconds"
+        },
+        "mtbf": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Mean Time Between Failures in milliseconds"
+        },
+        "rto": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Recovery Time Objective in milliseconds"
+        },
+        "rpo": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Recovery Point Objective in milliseconds"
+        },
+        "availability": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Availability percentage during chaos"
+        },
+        "slaCompliance": {
+          "type": "boolean",
+          "description": "Whether SLA was maintained during chaos"
+        },
+        "autoRecoveryRate": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Percentage of failures with auto-recovery"
+        }
+      }
+    },
+    "resilienceScore": {
+      "type": "object",
+      "required": ["value", "max"],
+      "properties": {
+        "value": { "type": "number", "minimum": 0, "maximum": 100 },
+        "max": { "type": "number", "const": 100 },
+        "grade": { "type": "string", "pattern": "^[A-F][+-]?$" },
+        "trend": { "type": "string", "enum": ["improving", "stable", "declining", "unknown"] },
+        "riskLevel": { "type": "string", "enum": ["critical", "high", "medium", "low", "minimal"] }
+      }
+    },
+    "weakness": {
+      "type": "object",
+      "required": ["id", "title", "severity"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^WEAK-\\d{3,6}$" },
+        "title": { "type": "string", "minLength": 10, "maxLength": 200 },
+        "description": { "type": "string", "maxLength": 2000 },
+        "severity": { "type": "string", "enum": ["critical", "high", "medium", "low"] },
+        "category": { "type": "string" },
+        "remediation": { "type": "string", "maxLength": 2000 }
+      }
+    },
+    "recommendation": {
+      "type": "object",
+      "required": ["id", "title", "priority"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^REC-\\d{3,6}$" },
+        "title": { "type": "string", "maxLength": 200 },
+        "description": { "type": "string", "maxLength": 2000 },
+        "priority": { "type": "string", "enum": ["critical", "high", "medium", "low"] },
+        "effort": { "type": "string", "enum": ["trivial", "low", "medium", "high", "major"] }
+      }
+    },
+    "chaosMetrics": {
+      "type": "object",
+      "properties": {
+        "totalExperiments": { "type": "integer", "minimum": 0 },
+        "passedExperiments": { "type": "integer", "minimum": 0 },
+        "failedExperiments": { "type": "integer", "minimum": 0 },
+        "weaknessesFound": { "type": "integer", "minimum": 0 },
+        "averageRecoveryTime": { "type": "integer", "minimum": 0 },
+        "totalDurationMs": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "categoryScore": {
+      "type": "object",
+      "required": ["score"],
+      "properties": {
+        "score": { "type": "number", "minimum": 0, "maximum": 100 },
+        "grade": { "type": "string", "pattern": "^[A-F][+-]?$" },
+        "experimentCount": { "type": "integer", "minimum": 0 }
+      }
+    }
+  }
+}

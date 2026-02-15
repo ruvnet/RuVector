@@ -1,0 +1,286 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://agentic-qe.dev/schemas/skills/qe-coverage-analysis/output.json",
+  "title": "QE Coverage Analysis Skill Output Schema",
+  "description": "Schema for qe-coverage-analysis skill output with coverage map, gaps, and risk scores.",
+  "type": "object",
+  "required": ["skillName", "version", "timestamp", "status", "trustTier", "output"],
+  "properties": {
+    "skillName": {
+      "type": "string",
+      "const": "qe-coverage-analysis"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+(-[a-zA-Z0-9]+)?$"
+    },
+    "timestamp": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["success", "partial", "failed", "skipped"]
+    },
+    "trustTier": {
+      "type": "integer",
+      "const": 3
+    },
+    "output": {
+      "type": "object",
+      "required": ["summary", "coverageMap", "overallCoverage"],
+      "properties": {
+        "summary": {
+          "type": "string",
+          "minLength": 50,
+          "maxLength": 2000,
+          "description": "Human-readable summary of coverage analysis"
+        },
+        "coverageMap": {
+          "$ref": "#/$defs/coverageMap",
+          "description": "Detailed coverage mapping by file/function"
+        },
+        "gaps": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/coverageGap"
+          },
+          "maxItems": 500,
+          "description": "Identified coverage gaps"
+        },
+        "riskScores": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/riskScore"
+          },
+          "maxItems": 200,
+          "description": "Risk scores for uncovered code"
+        },
+        "overallCoverage": {
+          "$ref": "#/$defs/overallCoverage",
+          "description": "Overall coverage metrics"
+        },
+        "trends": {
+          "$ref": "#/$defs/coverageTrends",
+          "description": "Coverage trends over time"
+        },
+        "findings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/finding"
+          },
+          "maxItems": 200
+        },
+        "recommendations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/recommendation"
+          },
+          "maxItems": 50
+        }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "executionTimeMs": { "type": "integer", "minimum": 0 },
+        "toolsUsed": { "type": "array", "items": { "type": "string" } },
+        "agentId": { "type": "string" },
+        "totalFiles": { "type": "integer", "minimum": 0 },
+        "totalLines": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "validation": {
+      "type": "object",
+      "properties": {
+        "schemaValid": { "type": "boolean" },
+        "contentValid": { "type": "boolean" },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "learning": {
+      "type": "object",
+      "properties": {
+        "patternsDetected": { "type": "array", "items": { "type": "string" } },
+        "reward": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    }
+  },
+  "$defs": {
+    "coverageMap": {
+      "type": "object",
+      "properties": {
+        "files": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/fileCoverage"
+          },
+          "description": "Per-file coverage data"
+        },
+        "functions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/functionCoverage"
+          },
+          "description": "Per-function coverage data"
+        },
+        "modules": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/moduleCoverage"
+          },
+          "description": "Per-module coverage data"
+        }
+      }
+    },
+    "fileCoverage": {
+      "type": "object",
+      "required": ["path", "lineCoverage"],
+      "properties": {
+        "path": { "type": "string" },
+        "lineCoverage": { "type": "number", "minimum": 0, "maximum": 100 },
+        "branchCoverage": { "type": "number", "minimum": 0, "maximum": 100 },
+        "functionCoverage": { "type": "number", "minimum": 0, "maximum": 100 },
+        "statementCoverage": { "type": "number", "minimum": 0, "maximum": 100 },
+        "totalLines": { "type": "integer", "minimum": 0 },
+        "coveredLines": { "type": "integer", "minimum": 0 },
+        "uncoveredLines": { "type": "array", "items": { "type": "integer" } },
+        "complexity": { "type": "number", "minimum": 0 }
+      }
+    },
+    "functionCoverage": {
+      "type": "object",
+      "required": ["name", "file", "covered"],
+      "properties": {
+        "name": { "type": "string" },
+        "file": { "type": "string" },
+        "line": { "type": "integer", "minimum": 1 },
+        "covered": { "type": "boolean" },
+        "hitCount": { "type": "integer", "minimum": 0 },
+        "complexity": { "type": "number", "minimum": 0 },
+        "lineCoverage": { "type": "number", "minimum": 0, "maximum": 100 },
+        "branchCoverage": { "type": "number", "minimum": 0, "maximum": 100 }
+      }
+    },
+    "moduleCoverage": {
+      "type": "object",
+      "required": ["name", "lineCoverage"],
+      "properties": {
+        "name": { "type": "string" },
+        "path": { "type": "string" },
+        "lineCoverage": { "type": "number", "minimum": 0, "maximum": 100 },
+        "branchCoverage": { "type": "number", "minimum": 0, "maximum": 100 },
+        "fileCount": { "type": "integer", "minimum": 0 },
+        "functionCount": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "coverageGap": {
+      "type": "object",
+      "required": ["id", "type", "location"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^GAP-\\d{3,6}$" },
+        "type": { "type": "string", "enum": ["uncovered-function", "uncovered-branch", "uncovered-lines", "low-coverage-module", "critical-path-uncovered"] },
+        "location": {
+          "type": "object",
+          "properties": {
+            "file": { "type": "string" },
+            "startLine": { "type": "integer", "minimum": 1 },
+            "endLine": { "type": "integer", "minimum": 1 },
+            "function": { "type": "string" },
+            "module": { "type": "string" }
+          }
+        },
+        "severity": { "type": "string", "enum": ["critical", "high", "medium", "low"] },
+        "impact": { "type": "string", "maxLength": 500 },
+        "suggestedTest": { "type": "string", "maxLength": 2000 }
+      }
+    },
+    "riskScore": {
+      "type": "object",
+      "required": ["path", "score"],
+      "properties": {
+        "path": { "type": "string" },
+        "score": { "type": "number", "minimum": 0, "maximum": 100 },
+        "factors": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "weight": { "type": "number", "minimum": 0, "maximum": 1 },
+              "value": { "type": "number" }
+            }
+          }
+        },
+        "changeFrequency": { "type": "integer", "minimum": 0 },
+        "bugHistory": { "type": "integer", "minimum": 0 },
+        "complexity": { "type": "number", "minimum": 0 },
+        "recommendation": { "type": "string" }
+      }
+    },
+    "overallCoverage": {
+      "type": "object",
+      "required": ["lineCoverage"],
+      "properties": {
+        "lineCoverage": { "type": "number", "minimum": 0, "maximum": 100 },
+        "branchCoverage": { "type": "number", "minimum": 0, "maximum": 100 },
+        "functionCoverage": { "type": "number", "minimum": 0, "maximum": 100 },
+        "statementCoverage": { "type": "number", "minimum": 0, "maximum": 100 },
+        "grade": { "type": "string", "pattern": "^[A-F][+-]?$" },
+        "meetsThreshold": { "type": "boolean" },
+        "threshold": { "type": "number", "minimum": 0, "maximum": 100 },
+        "trend": { "type": "string", "enum": ["improving", "stable", "declining", "unknown"] }
+      }
+    },
+    "coverageTrends": {
+      "type": "object",
+      "properties": {
+        "direction": { "type": "string", "enum": ["improving", "stable", "declining"] },
+        "changeRate": { "type": "number", "minimum": -100, "maximum": 100 },
+        "history": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "date": { "type": "string" },
+              "coverage": { "type": "number" },
+              "commit": { "type": "string" }
+            }
+          },
+          "maxItems": 50
+        },
+        "projectedCoverage": { "type": "number", "minimum": 0, "maximum": 100 }
+      }
+    },
+    "finding": {
+      "type": "object",
+      "required": ["id", "title", "severity"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^COV-\\d{3,6}$" },
+        "title": { "type": "string", "minLength": 5, "maxLength": 200 },
+        "description": { "type": "string", "maxLength": 2000 },
+        "severity": { "type": "string", "enum": ["critical", "high", "medium", "low", "info"] },
+        "category": { "type": "string", "enum": ["coverage-gap", "threshold-violation", "trend-decline", "critical-uncovered", "dead-code"] },
+        "location": {
+          "type": "object",
+          "properties": {
+            "file": { "type": "string" },
+            "line": { "type": "integer" }
+          }
+        },
+        "remediation": { "type": "string", "maxLength": 2000 }
+      }
+    },
+    "recommendation": {
+      "type": "object",
+      "required": ["id", "title", "priority"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^REC-\\d{3,6}$" },
+        "title": { "type": "string", "maxLength": 200 },
+        "description": { "type": "string", "maxLength": 2000 },
+        "priority": { "type": "string", "enum": ["critical", "high", "medium", "low"] },
+        "effort": { "type": "string", "enum": ["trivial", "low", "medium", "high", "major"] },
+        "expectedCoverageIncrease": { "type": "number", "minimum": 0, "maximum": 100 }
+      }
+    }
+  }
+}

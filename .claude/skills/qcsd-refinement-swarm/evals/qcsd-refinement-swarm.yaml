@@ -1,0 +1,139 @@
+skill: qcsd-refinement-swarm
+version: 1.0.0
+description: >
+  Evaluation suite for QCSD refinement swarm orchestration.
+  Tests SFDIPOT product factor analysis, BDD generation, agent coordination, and cross-domain analysis.
+
+models_to_test:
+  - claude-3.5-sonnet
+  - claude-3-haiku
+
+mcp_integration:
+  enabled: true
+  namespace: skill-validation
+  query_patterns: true
+  track_outcomes: true
+  store_patterns: true
+  target_agents:
+    - qe-learning-coordinator
+    - qe-queen-coordinator
+
+learning:
+  store_success_patterns: true
+  pattern_ttl_days: 90
+
+result_format:
+  json_output: true
+  include_timing: true
+  include_token_usage: true
+
+setup:
+  required_tools:
+    - jq
+
+test_cases:
+
+  - id: tc001_sfdipot_analysis
+    description: "Perform SFDIPOT product factor analysis"
+    category: sfdipot
+    priority: critical
+
+    input:
+      story_description: "Build user authentication system with OAuth2"
+      project_type: "web_application"
+
+    expected_output:
+      must_contain:
+        - "structure"
+        - "function"
+        - "data"
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+
+  - id: tc002_bdd_generation
+    description: "Generate BDD scenarios from story"
+    category: bdd
+    priority: critical
+
+    input:
+      story: "Payment processing system"
+      has_security: true
+      has_api: true
+
+    expected_output:
+      must_contain:
+        - "Given"
+        - "When"
+        - "Then"
+
+    validation:
+      schema_check: true
+
+  - id: tc003_domain_flag_detection
+    description: "Detect HAS_API, HAS_REFACTORING, HAS_DEPENDENCIES flags"
+    category: flags
+    priority: high
+
+    input:
+      content: "Refactor the REST API endpoint to decouple the upstream dependency"
+      analyze_flags: true
+
+    expected_output:
+      must_contain:
+        - "HAS_API"
+        - "HAS_REFACTORING"
+        - "HAS_DEPENDENCIES"
+
+    validation:
+      schema_check: true
+
+  - id: tc004_agent_coordination
+    description: "Coordinate multi-agent refinement swarm execution"
+    category: orchestration
+    priority: high
+
+    input:
+      domain_flags:
+        HAS_API: true
+        HAS_REFACTORING: true
+        HAS_DEPENDENCIES: false
+
+    expected_output:
+      must_contain:
+        - "agent"
+        - "coordinate"
+
+    validation:
+      schema_check: true
+
+  - id: tc005_comprehensive_analysis
+    description: "Execute comprehensive QCSD refinement analysis"
+    category: analysis
+    priority: medium
+
+    input:
+      story: "Mobile app with payment integration and user profiles"
+      include_all_domains: true
+
+    expected_output:
+      must_contain:
+        - "analysis"
+        - "domain"
+
+    validation:
+      schema_check: true
+
+success_criteria:
+  pass_rate: 0.9
+  critical_pass_rate: 1.0
+  avg_reasoning_quality: 0.75
+  max_execution_time_ms: 300000
+
+metadata:
+  author: "qe-qcsd-orchestrator"
+  created: "2026-02-02"
+  coverage_target: >
+    QCSD refinement swarm with 5 test cases covering SFDIPOT analysis,
+    BDD generation, domain flag detection, agent coordination, and comprehensive analysis.

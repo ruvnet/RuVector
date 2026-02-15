@@ -1,0 +1,459 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentic-qe.dev/schemas/shift-left-testing-output.json",
+  "title": "AQE Shift-Left Testing Skill Output Schema",
+  "description": "Schema for shift-left-testing skill output validation. Extends the base skill-output template with test pyramid analysis, TDD assessment, and CI/CD integration.",
+  "type": "object",
+  "required": ["skillName", "version", "timestamp", "status", "trustTier", "output"],
+  "properties": {
+    "skillName": {
+      "type": "string",
+      "const": "shift-left-testing",
+      "description": "Must be 'shift-left-testing'"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+(-[a-zA-Z0-9]+)?$"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["success", "partial", "failed", "skipped"]
+    },
+    "trustTier": {
+      "type": "integer",
+      "const": 3
+    },
+    "output": {
+      "type": "object",
+      "required": ["summary", "testPyramid", "shiftLeftLevel", "findings", "recommendations"],
+      "properties": {
+        "summary": {
+          "type": "string",
+          "minLength": 50,
+          "maxLength": 2000,
+          "description": "Human-readable summary of shift-left assessment"
+        },
+        "score": {
+          "$ref": "#/$defs/shiftLeftScore"
+        },
+        "testPyramid": {
+          "$ref": "#/$defs/testPyramid",
+          "description": "Test pyramid analysis"
+        },
+        "shiftLeftLevel": {
+          "$ref": "#/$defs/shiftLeftLevel",
+          "description": "Current shift-left maturity level"
+        },
+        "cicdIntegration": {
+          "$ref": "#/$defs/cicdIntegration",
+          "description": "CI/CD pipeline testing integration"
+        },
+        "tddPractices": {
+          "$ref": "#/$defs/tddPractices",
+          "description": "TDD/BDD practices assessment"
+        },
+        "requirementsValidation": {
+          "$ref": "#/$defs/requirementsValidation",
+          "description": "Early requirements testing"
+        },
+        "defectCostAnalysis": {
+          "$ref": "#/$defs/defectCostAnalysis",
+          "description": "Cost of defects by phase"
+        },
+        "findings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/shiftLeftFinding"
+          },
+          "maxItems": 100
+        },
+        "recommendations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/shiftLeftRecommendation"
+          },
+          "maxItems": 50
+        },
+        "metrics": {
+          "$ref": "#/$defs/shiftLeftMetrics"
+        },
+        "artifacts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/artifact"
+          },
+          "maxItems": 50
+        }
+      }
+    },
+    "metadata": {
+      "$ref": "#/$defs/metadata"
+    },
+    "validation": {
+      "$ref": "#/$defs/validationResult"
+    },
+    "learning": {
+      "$ref": "#/$defs/learningData"
+    }
+  },
+  "$defs": {
+    "shiftLeftScore": {
+      "type": "object",
+      "required": ["value", "max"],
+      "properties": {
+        "value": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "max": {
+          "type": "number",
+          "const": 100
+        },
+        "grade": {
+          "type": "string",
+          "pattern": "^[A-F][+-]?$"
+        },
+        "maturityLevel": {
+          "type": "string",
+          "enum": ["level-1", "level-2", "level-3", "level-4"],
+          "description": "Shift-left maturity level"
+        }
+      }
+    },
+    "testPyramid": {
+      "type": "object",
+      "required": ["unit", "integration", "e2e"],
+      "properties": {
+        "unit": {
+          "type": "object",
+          "properties": {
+            "count": { "type": "integer", "minimum": 0 },
+            "percentage": { "type": "number", "minimum": 0, "maximum": 100 },
+            "target": { "type": "number", "default": 70 },
+            "coverage": { "type": "number", "minimum": 0, "maximum": 100 },
+            "averageExecutionMs": { "type": "number" },
+            "status": { "type": "string", "enum": ["healthy", "needs-attention", "critical"] }
+          },
+          "description": "Unit tests layer"
+        },
+        "integration": {
+          "type": "object",
+          "properties": {
+            "count": { "type": "integer", "minimum": 0 },
+            "percentage": { "type": "number", "minimum": 0, "maximum": 100 },
+            "target": { "type": "number", "default": 20 },
+            "coverage": { "type": "number", "minimum": 0, "maximum": 100 },
+            "averageExecutionMs": { "type": "number" },
+            "status": { "type": "string", "enum": ["healthy", "needs-attention", "critical"] }
+          },
+          "description": "Integration tests layer"
+        },
+        "e2e": {
+          "type": "object",
+          "properties": {
+            "count": { "type": "integer", "minimum": 0 },
+            "percentage": { "type": "number", "minimum": 0, "maximum": 100 },
+            "target": { "type": "number", "default": 10 },
+            "coverage": { "type": "number", "minimum": 0, "maximum": 100 },
+            "averageExecutionMs": { "type": "number" },
+            "status": { "type": "string", "enum": ["healthy", "needs-attention", "critical"] }
+          },
+          "description": "End-to-end tests layer"
+        },
+        "pyramidShape": {
+          "type": "string",
+          "enum": ["healthy-pyramid", "ice-cream-cone", "hourglass", "inverted", "unbalanced"],
+          "description": "Current pyramid shape"
+        },
+        "pyramidScore": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "How close to ideal pyramid (100 = perfect)"
+        }
+      }
+    },
+    "shiftLeftLevel": {
+      "type": "object",
+      "required": ["current", "practices"],
+      "properties": {
+        "current": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4,
+          "description": "Current shift-left level (0-4)"
+        },
+        "target": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4,
+          "description": "Target shift-left level"
+        },
+        "practices": {
+          "type": "object",
+          "properties": {
+            "level1": {
+              "type": "object",
+              "properties": {
+                "testsInPR": { "type": "boolean" },
+                "ciPipeline": { "type": "boolean" },
+                "codeReview": { "type": "boolean" }
+              },
+              "description": "Level 1: Tests in every PR"
+            },
+            "level2": {
+              "type": "object",
+              "properties": {
+                "tddPractice": { "type": "boolean" },
+                "testFirst": { "type": "boolean" },
+                "redGreenRefactor": { "type": "boolean" }
+              },
+              "description": "Level 2: TDD practice"
+            },
+            "level3": {
+              "type": "object",
+              "properties": {
+                "bddInRefinement": { "type": "boolean" },
+                "exampleMapping": { "type": "boolean" },
+                "threeAmigos": { "type": "boolean" }
+              },
+              "description": "Level 3: BDD in refinement"
+            },
+            "level4": {
+              "type": "object",
+              "properties": {
+                "riskAnalysisInDesign": { "type": "boolean" },
+                "testabilityReview": { "type": "boolean" },
+                "architectureValidation": { "type": "boolean" }
+              },
+              "description": "Level 4: Risk analysis in design"
+            }
+          }
+        }
+      }
+    },
+    "cicdIntegration": {
+      "type": "object",
+      "properties": {
+        "hasCI": { "type": "boolean" },
+        "testsOnEveryCommit": { "type": "boolean" },
+        "pipelineDuration": {
+          "type": "object",
+          "properties": {
+            "total": { "type": "integer", "description": "Total duration in seconds" },
+            "unitTests": { "type": "integer" },
+            "integrationTests": { "type": "integer" },
+            "e2eTests": { "type": "integer" },
+            "linting": { "type": "integer" }
+          }
+        },
+        "qualityGates": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "stage": { "type": "string" },
+              "blocking": { "type": "boolean" },
+              "currentStatus": { "type": "string", "enum": ["passing", "failing", "warning"] }
+            }
+          }
+        },
+        "fastFeedback": {
+          "type": "boolean",
+          "description": "Does pipeline provide feedback in < 10 minutes"
+        }
+      }
+    },
+    "tddPractices": {
+      "type": "object",
+      "properties": {
+        "tddAdoption": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Percentage of code developed with TDD"
+        },
+        "testFirstRatio": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Percentage of tests written before code"
+        },
+        "bddAdoption": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Percentage of features with BDD specs"
+        },
+        "practicesAssessment": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "practice": { "type": "string" },
+              "implemented": { "type": "boolean" },
+              "effectiveness": { "type": "string", "enum": ["poor", "fair", "good", "excellent"] }
+            }
+          }
+        }
+      }
+    },
+    "requirementsValidation": {
+      "type": "object",
+      "properties": {
+        "investCriteria": { "type": "boolean" },
+        "testabilityReviewed": { "type": "boolean" },
+        "acceptanceCriteria": { "type": "boolean" },
+        "examplesProvided": { "type": "boolean" },
+        "ambiguityScore": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "How ambiguous are requirements (0=clear, 100=very ambiguous)"
+        }
+      }
+    },
+    "defectCostAnalysis": {
+      "type": "object",
+      "properties": {
+        "byPhase": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "phase": {
+                "type": "string",
+                "enum": ["requirements", "design", "development", "testing", "production"]
+              },
+              "relativeCost": {
+                "type": "number",
+                "description": "Relative cost (requirements = 1x)"
+              },
+              "defectsFound": {
+                "type": "integer",
+                "description": "Number of defects found in this phase"
+              },
+              "percentageFound": {
+                "type": "number",
+                "description": "Percentage of total defects found in this phase"
+              }
+            }
+          }
+        },
+        "potentialSavings": {
+          "type": "string",
+          "description": "Estimated savings from better shift-left"
+        }
+      }
+    },
+    "shiftLeftFinding": {
+      "type": "object",
+      "required": ["id", "title", "type", "severity"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^SLT-\\d{3,6}$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 200
+        },
+        "description": { "type": "string" },
+        "type": {
+          "type": "string",
+          "enum": ["pyramid-imbalance", "ci-gap", "tdd-gap", "late-testing", "missing-gate", "slow-feedback", "opportunity"]
+        },
+        "severity": {
+          "type": "string",
+          "enum": ["critical", "high", "medium", "low", "info"]
+        },
+        "phase": {
+          "type": "string",
+          "enum": ["requirements", "design", "development", "testing", "deployment"],
+          "description": "Which phase this finding affects"
+        }
+      }
+    },
+    "shiftLeftRecommendation": {
+      "type": "object",
+      "required": ["id", "title", "priority", "levelImpact"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^REC-\\d{3,6}$"
+        },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "priority": {
+          "type": "string",
+          "enum": ["critical", "high", "medium", "low"]
+        },
+        "levelImpact": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4,
+          "description": "Which shift-left level this improves"
+        },
+        "costReduction": {
+          "type": "string",
+          "description": "Expected defect cost reduction"
+        },
+        "effort": {
+          "type": "string",
+          "enum": ["trivial", "low", "medium", "high", "major"]
+        }
+      }
+    },
+    "shiftLeftMetrics": {
+      "type": "object",
+      "properties": {
+        "defectEscapeRate": { "type": "number", "minimum": 0, "maximum": 100 },
+        "testCoverage": { "type": "number", "minimum": 0, "maximum": 100 },
+        "ciPassRate": { "type": "number", "minimum": 0, "maximum": 100 },
+        "averageFeedbackTime": { "type": "integer", "description": "Average CI feedback time in minutes" },
+        "tddAdoptionRate": { "type": "number", "minimum": 0, "maximum": 100 }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "required": ["type", "path"],
+      "properties": {
+        "type": { "type": "string" },
+        "path": { "type": "string" },
+        "format": { "type": "string" },
+        "description": { "type": "string" }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "executionTimeMs": { "type": "integer" },
+        "agentId": { "type": "string" },
+        "modelUsed": { "type": "string" },
+        "environment": { "type": "string" }
+      }
+    },
+    "validationResult": {
+      "type": "object",
+      "properties": {
+        "schemaValid": { "type": "boolean" },
+        "contentValid": { "type": "boolean" },
+        "confidence": { "type": "number" }
+      }
+    },
+    "learningData": {
+      "type": "object",
+      "properties": {
+        "patternsDetected": { "type": "array", "items": { "type": "string" } },
+        "reward": { "type": "number" }
+      }
+    }
+  }
+}

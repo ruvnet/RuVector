@@ -1,0 +1,410 @@
+# =============================================================================
+# AQE Compatibility Testing Skill Evaluation Suite v1.0.0
+# Cross-browser, cross-platform, cross-device compatibility testing evaluation
+# =============================================================================
+
+skill: compatibility-testing
+version: 1.0.0
+description: >
+  Comprehensive evaluation suite for cross-browser and cross-platform
+  compatibility testing. Tests browser matrix coverage, device tier validation,
+  responsive breakpoints, and visual difference detection.
+
+# =============================================================================
+# Multi-Model Configuration
+# =============================================================================
+
+models_to_test:
+  - claude-3.5-sonnet
+  - claude-3-haiku
+
+# =============================================================================
+# MCP Integration Configuration
+# =============================================================================
+
+mcp_integration:
+  enabled: true
+  namespace: skill-validation
+  query_patterns: true
+  track_outcomes: true
+  store_patterns: true
+  share_learning: true
+  update_quality_gate: true
+  target_agents:
+    - qe-learning-coordinator
+    - qe-queen-coordinator
+    - qe-visual-tester
+
+# =============================================================================
+# Learning Configuration
+# =============================================================================
+
+learning:
+  store_success_patterns: true
+  store_failure_patterns: true
+  pattern_ttl_days: 90
+  min_confidence_to_store: 0.7
+  cross_model_comparison: true
+
+# =============================================================================
+# Result Format Configuration
+# =============================================================================
+
+result_format:
+  json_output: true
+  markdown_report: true
+  include_raw_output: false
+  include_timing: true
+  include_token_usage: true
+
+# =============================================================================
+# Environment Setup
+# =============================================================================
+
+setup:
+  required_tools:
+    - jq
+  environment_variables:
+    BROWSER_COVERAGE_TARGET: "95"
+  fixtures:
+    - name: responsive_layout
+      content: |
+        <div class="container">
+          <nav class="main-nav">Navigation</nav>
+          <main class="content">Main content</main>
+          <aside class="sidebar">Sidebar</aside>
+        </div>
+
+# =============================================================================
+# Test Cases
+# =============================================================================
+
+test_cases:
+  # -------------------------------------------------------------------------
+  # Browser Matrix Tests
+  # -------------------------------------------------------------------------
+
+  - id: tc001_browser_matrix_detection
+    description: "Detect and report browser compatibility issues"
+    category: browser_matrix
+    priority: critical
+
+    input:
+      code: |
+        // Uses CSS Grid without fallback
+        .container {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+          gap: 20px;
+        }
+        // Uses CSS custom properties
+        :root {
+          --primary-color: #007bff;
+        }
+        .btn { background: var(--primary-color); }
+      context:
+        language: css
+        target_browsers: ["chrome", "firefox", "safari", "edge", "ie11"]
+
+    expected_output:
+      must_contain:
+        - "browser"
+        - "compatibility"
+        - "grid"
+      must_not_contain:
+        - "all browsers supported"
+      finding_count:
+        min: 1
+        max: 3
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+      reasoning_quality_min: 0.7
+
+  - id: tc002_webkit_specific_issues
+    description: "Detect WebKit/Safari-specific compatibility issues"
+    category: browser_matrix
+    priority: high
+
+    input:
+      code: |
+        .flex-container {
+          display: flex;
+          gap: 10px; /* Gap not supported in older Safari */
+        }
+        .gradient {
+          background: linear-gradient(to right, red, blue);
+        }
+        input[type="date"] {
+          /* Date input styling varies by browser */
+          -webkit-appearance: none;
+        }
+      context:
+        language: css
+        target_browsers: ["safari", "mobile-safari"]
+
+    expected_output:
+      must_contain:
+        - "Safari"
+        - "WebKit"
+      finding_count:
+        min: 1
+
+    validation:
+      schema_check: true
+
+  # -------------------------------------------------------------------------
+  # Device Coverage Tests
+  # -------------------------------------------------------------------------
+
+  - id: tc003_device_tier_coverage
+    description: "Validate device coverage across tiers"
+    category: device_coverage
+    priority: critical
+
+    input:
+      prompt: |
+        Analyze compatibility for the following device matrix:
+        Tier 1 (60% users): iPhone 15, Galaxy S24, iPad Pro
+        Tier 2 (30% users): iPhone 13, Pixel 7, Galaxy A54
+        Tier 3 (10% users): iPhone 11, older Android devices
+      context:
+        test_type: device_coverage
+        minimum_coverage: 95
+
+    expected_output:
+      must_contain:
+        - "Tier 1"
+        - "Tier 2"
+        - "coverage"
+        - "device"
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+
+  - id: tc004_mobile_specific_issues
+    description: "Detect mobile-specific compatibility issues"
+    category: device_coverage
+    priority: high
+
+    input:
+      code: |
+        // Touch events without fallback
+        element.addEventListener('touchstart', handler);
+
+        // Fixed positioning issues on iOS
+        .modal {
+          position: fixed;
+          bottom: 0;
+        }
+
+        // Viewport units with address bar
+        .full-height {
+          height: 100vh;
+        }
+      context:
+        language: javascript
+        platforms: ["ios", "android"]
+
+    expected_output:
+      must_contain:
+        - "mobile"
+        - "touch"
+        - "viewport"
+
+    validation:
+      schema_check: true
+
+  # -------------------------------------------------------------------------
+  # Responsive Breakpoint Tests
+  # -------------------------------------------------------------------------
+
+  - id: tc005_responsive_breakpoints
+    description: "Validate responsive design across breakpoints"
+    category: responsive
+    priority: high
+
+    input:
+      code: |
+        @media (max-width: 320px) {
+          .nav { display: none; }
+        }
+        @media (min-width: 768px) {
+          .sidebar { display: block; }
+        }
+        @media (min-width: 1200px) {
+          .container { max-width: 1140px; }
+        }
+      context:
+        language: css
+        breakpoints: [320, 480, 768, 1024, 1200, 1920]
+
+    expected_output:
+      must_contain:
+        - "breakpoint"
+        - "mobile"
+        - "responsive"
+      must_not_contain:
+        - "all breakpoints pass"
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+
+  # -------------------------------------------------------------------------
+  # Visual Consistency Tests
+  # -------------------------------------------------------------------------
+
+  - id: tc006_visual_differences
+    description: "Detect visual differences across platforms"
+    category: visual
+    priority: medium
+
+    input:
+      prompt: |
+        Compare visual rendering of the following component across browsers:
+        - Chrome (Windows): Button renders with 4px border-radius
+        - Firefox (Windows): Button renders with 4px border-radius
+        - Safari (macOS): Button renders with 6px border-radius (native styling)
+        - Edge (Windows): Button renders with 4px border-radius
+      context:
+        test_type: visual_comparison
+        threshold: 0.02
+
+    expected_output:
+      must_contain:
+        - "visual"
+        - "difference"
+        - "Safari"
+      finding_count:
+        min: 1
+
+    validation:
+      schema_check: true
+
+  # -------------------------------------------------------------------------
+  # JavaScript Compatibility Tests
+  # -------------------------------------------------------------------------
+
+  - id: tc007_javascript_features
+    description: "Detect JavaScript feature compatibility issues"
+    category: javascript
+    priority: high
+
+    input:
+      code: |
+        // Optional chaining - not supported in older browsers
+        const value = obj?.nested?.property;
+
+        // Nullish coalescing
+        const result = value ?? 'default';
+
+        // Array.flat() - ES2019
+        const flat = nested.flat(2);
+
+        // BigInt - limited support
+        const big = 9007199254740991n;
+      context:
+        language: javascript
+        target_browsers: ["chrome-80", "firefox-75", "safari-13", "ie11"]
+
+    expected_output:
+      must_contain:
+        - "JavaScript"
+        - "compatibility"
+        - "ES"
+      finding_count:
+        min: 2
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+
+  # -------------------------------------------------------------------------
+  # Negative Tests
+  # -------------------------------------------------------------------------
+
+  - id: tc010_no_issues_modern_code
+    description: "Modern browsers should pass with standard code"
+    category: negative
+    priority: high
+
+    input:
+      code: |
+        .container {
+          display: flex;
+          justify-content: center;
+          align-items: center;
+        }
+        .button {
+          padding: 10px 20px;
+          border-radius: 4px;
+          cursor: pointer;
+        }
+      context:
+        language: css
+        target_browsers: ["chrome-latest", "firefox-latest", "safari-latest"]
+
+    expected_output:
+      must_contain:
+        - "compatible"
+      must_not_contain:
+        - "critical"
+        - "breaking"
+      finding_count:
+        max: 1
+
+    validation:
+      schema_check: true
+
+  # -------------------------------------------------------------------------
+  # Edge Cases
+  # -------------------------------------------------------------------------
+
+  - id: tc011_mixed_platform_issues
+    description: "Handle issues affecting multiple but not all platforms"
+    category: edge_cases
+    priority: medium
+
+    input:
+      prompt: |
+        Analyze this scenario:
+        - Feature works on Chrome, Firefox, Edge
+        - Feature partially works on Safari desktop
+        - Feature fails on Safari iOS
+        - Feature not tested on Opera
+      context:
+        test_type: cross_platform
+
+    expected_output:
+      must_contain:
+        - "Safari"
+        - "partial"
+        - "platform"
+
+    validation:
+      schema_check: true
+      allow_partial: true
+
+# =============================================================================
+# Success Criteria
+# =============================================================================
+
+success_criteria:
+  pass_rate: 0.90
+  critical_pass_rate: 1.0
+  avg_reasoning_quality: 0.70
+  max_execution_time_ms: 300000
+  cross_model_variance: 0.15
+
+# =============================================================================
+# Metadata
+# =============================================================================
+
+metadata:
+  author: "@aqe-team"
+  created: "2026-02-02"
+  last_updated: "2026-02-02"
+  coverage_target: "Browser matrix, device tiers, responsive breakpoints, visual consistency"

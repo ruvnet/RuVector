@@ -1,0 +1,283 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://agentic-qe.dev/schemas/skills/qe-defect-intelligence/output.json",
+  "title": "QE Defect Intelligence Skill Output Schema",
+  "description": "Schema for qe-defect-intelligence skill output with predictions, patterns, and defect clusters.",
+  "type": "object",
+  "required": ["skillName", "version", "timestamp", "status", "trustTier", "output"],
+  "properties": {
+    "skillName": {
+      "type": "string",
+      "const": "qe-defect-intelligence"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+(-[a-zA-Z0-9]+)?$"
+    },
+    "timestamp": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["success", "partial", "failed", "skipped"]
+    },
+    "trustTier": {
+      "type": "integer",
+      "const": 3
+    },
+    "output": {
+      "type": "object",
+      "required": ["summary", "predictions", "riskScore"],
+      "properties": {
+        "summary": {
+          "type": "string",
+          "minLength": 50,
+          "maxLength": 2000,
+          "description": "Human-readable summary of defect intelligence analysis"
+        },
+        "predictions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/defectPrediction"
+          },
+          "minItems": 1,
+          "maxItems": 200,
+          "description": "Predicted defect-prone areas"
+        },
+        "patterns": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/defectPattern"
+          },
+          "maxItems": 100,
+          "description": "Identified defect patterns"
+        },
+        "clusters": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/defectCluster"
+          },
+          "maxItems": 50,
+          "description": "Defect clusters by category or location"
+        },
+        "riskScore": {
+          "$ref": "#/$defs/riskScore",
+          "description": "Overall defect risk score"
+        },
+        "rootCauses": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/rootCause"
+          },
+          "maxItems": 50
+        },
+        "findings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/finding"
+          },
+          "maxItems": 200
+        },
+        "recommendations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/recommendation"
+          },
+          "maxItems": 50
+        },
+        "metrics": {
+          "$ref": "#/$defs/defectMetrics"
+        }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "executionTimeMs": { "type": "integer", "minimum": 0 },
+        "toolsUsed": { "type": "array", "items": { "type": "string" } },
+        "agentId": { "type": "string" },
+        "analyzedCommits": { "type": "integer", "minimum": 0 },
+        "analyzedDefects": { "type": "integer", "minimum": 0 },
+        "modelVersion": { "type": "string" }
+      }
+    },
+    "validation": {
+      "type": "object",
+      "properties": {
+        "schemaValid": { "type": "boolean" },
+        "contentValid": { "type": "boolean" },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "learning": {
+      "type": "object",
+      "properties": {
+        "patternsDetected": { "type": "array", "items": { "type": "string" } },
+        "reward": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    }
+  },
+  "$defs": {
+    "defectPrediction": {
+      "type": "object",
+      "required": ["id", "location", "probability"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^PRED-\\d{3,6}$" },
+        "location": {
+          "type": "object",
+          "required": ["file"],
+          "properties": {
+            "file": { "type": "string" },
+            "startLine": { "type": "integer", "minimum": 1 },
+            "endLine": { "type": "integer", "minimum": 1 },
+            "function": { "type": "string" },
+            "module": { "type": "string" }
+          }
+        },
+        "probability": { "type": "number", "minimum": 0, "maximum": 1 },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "severity": { "type": "string", "enum": ["critical", "high", "medium", "low"] },
+        "defectType": { "type": "string", "enum": ["logic-error", "null-pointer", "race-condition", "resource-leak", "security-flaw", "performance-issue", "boundary-error", "type-error"] },
+        "features": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "value": { "type": "number" },
+              "importance": { "type": "number", "minimum": 0, "maximum": 1 }
+            }
+          }
+        },
+        "explanation": { "type": "string", "maxLength": 1000 }
+      }
+    },
+    "defectPattern": {
+      "type": "object",
+      "required": ["id", "name", "frequency"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^PATT-\\d{3,6}$" },
+        "name": { "type": "string", "minLength": 5, "maxLength": 200 },
+        "description": { "type": "string", "maxLength": 1000 },
+        "frequency": { "type": "integer", "minimum": 1 },
+        "category": { "type": "string", "enum": ["code-smell", "anti-pattern", "security-weakness", "performance-bottleneck", "maintainability-debt"] },
+        "instances": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "file": { "type": "string" },
+              "line": { "type": "integer" },
+              "snippet": { "type": "string" }
+            }
+          },
+          "maxItems": 20
+        },
+        "remediation": { "type": "string", "maxLength": 2000 },
+        "cwe": { "type": "string", "pattern": "^CWE-\\d{1,4}$" }
+      }
+    },
+    "defectCluster": {
+      "type": "object",
+      "required": ["id", "name", "defectCount"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^CLUS-\\d{3,6}$" },
+        "name": { "type": "string", "maxLength": 200 },
+        "type": { "type": "string", "enum": ["spatial", "temporal", "categorical", "author-based", "module-based"] },
+        "defectCount": { "type": "integer", "minimum": 1 },
+        "centroid": {
+          "type": "object",
+          "properties": {
+            "file": { "type": "string" },
+            "module": { "type": "string" }
+          }
+        },
+        "members": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "IDs of defects/predictions in this cluster"
+        },
+        "commonFactors": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "riskLevel": { "type": "string", "enum": ["critical", "high", "medium", "low"] }
+      }
+    },
+    "riskScore": {
+      "type": "object",
+      "required": ["value", "max"],
+      "properties": {
+        "value": { "type": "number", "minimum": 0, "maximum": 100 },
+        "max": { "type": "number", "const": 100 },
+        "grade": { "type": "string", "pattern": "^[A-F][+-]?$" },
+        "trend": { "type": "string", "enum": ["improving", "stable", "declining", "unknown"] },
+        "breakdown": {
+          "type": "object",
+          "properties": {
+            "codeComplexity": { "type": "number", "minimum": 0, "maximum": 100 },
+            "changeVelocity": { "type": "number", "minimum": 0, "maximum": 100 },
+            "historicalDefects": { "type": "number", "minimum": 0, "maximum": 100 },
+            "testCoverage": { "type": "number", "minimum": 0, "maximum": 100 }
+          }
+        }
+      }
+    },
+    "rootCause": {
+      "type": "object",
+      "required": ["id", "category", "frequency"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^ROOT-\\d{3,6}$" },
+        "category": { "type": "string", "enum": ["requirements", "design", "implementation", "testing", "deployment", "environment"] },
+        "description": { "type": "string", "maxLength": 1000 },
+        "frequency": { "type": "integer", "minimum": 1 },
+        "affectedDefects": { "type": "array", "items": { "type": "string" } },
+        "preventiveMeasures": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "finding": {
+      "type": "object",
+      "required": ["id", "title", "severity"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^DEF-\\d{3,6}$" },
+        "title": { "type": "string", "minLength": 5, "maxLength": 200 },
+        "description": { "type": "string", "maxLength": 2000 },
+        "severity": { "type": "string", "enum": ["critical", "high", "medium", "low", "info"] },
+        "category": { "type": "string", "enum": ["high-risk-area", "pattern-violation", "trend-concern", "cluster-alert", "prediction-alert"] },
+        "location": {
+          "type": "object",
+          "properties": {
+            "file": { "type": "string" },
+            "line": { "type": "integer" }
+          }
+        },
+        "remediation": { "type": "string", "maxLength": 2000 }
+      }
+    },
+    "recommendation": {
+      "type": "object",
+      "required": ["id", "title", "priority"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^REC-\\d{3,6}$" },
+        "title": { "type": "string", "maxLength": 200 },
+        "description": { "type": "string", "maxLength": 2000 },
+        "priority": { "type": "string", "enum": ["critical", "high", "medium", "low"] },
+        "effort": { "type": "string", "enum": ["trivial", "low", "medium", "high", "major"] },
+        "expectedRiskReduction": { "type": "number", "minimum": 0, "maximum": 100 }
+      }
+    },
+    "defectMetrics": {
+      "type": "object",
+      "properties": {
+        "totalPredictions": { "type": "integer", "minimum": 0 },
+        "highRiskCount": { "type": "integer", "minimum": 0 },
+        "patternsFound": { "type": "integer", "minimum": 0 },
+        "clustersIdentified": { "type": "integer", "minimum": 0 },
+        "modelAccuracy": { "type": "number", "minimum": 0, "maximum": 1 },
+        "precision": { "type": "number", "minimum": 0, "maximum": 1 },
+        "recall": { "type": "number", "minimum": 0, "maximum": 1 },
+        "f1Score": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    }
+  }
+}

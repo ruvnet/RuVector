@@ -9552,16 +9552,15 @@ dependencies = [
 ]
 
 [[package]]
-name = "rvf-mcp"
+name = "rvf-node"
 version = "0.1.0"
 dependencies = [
- "rvf-adapter-agentdb",
- "rvf-adapter-claude-flow",
+ "napi",
+ "napi-build",
+ "napi-derive",
  "rvf-runtime",
  "rvf-types",
- "serde",
  "serde_json",
- "tempfile",
 ]
 
 [[package]]

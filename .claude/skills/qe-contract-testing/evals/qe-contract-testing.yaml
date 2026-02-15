@@ -1,0 +1,513 @@
+# =============================================================================
+# AQE Skill Evaluation Test Suite: QE Contract Testing v1.0.0
+# =============================================================================
+#
+# Comprehensive evaluation suite for the qe-contract-testing skill.
+# Tests consumer-driven contracts, schema validation, breaking change detection,
+# and API versioning verification for REST, GraphQL, and event-driven systems.
+#
+# Schema: .claude/skills/.validation/schemas/skill-eval.schema.json
+# Validator: .claude/skills/qe-contract-testing/scripts/validate-config.json
+#
+# Coverage:
+# - Consumer-driven contract testing (Pact)
+# - OpenAPI/schema validation
+# - Breaking change detection
+# - GraphQL schema and operation validation
+# - Event schema validation
+# - Backward compatibility checking
+#
+# =============================================================================
+
+skill: qe-contract-testing
+version: 1.0.0
+description: >
+  Comprehensive evaluation suite for the qe-contract-testing skill.
+  Tests consumer-driven contract testing, OpenAPI schema validation,
+  breaking change detection, GraphQL contract validation, event schema
+  validation, and backward compatibility verification.
+
+# =============================================================================
+# Multi-Model Configuration
+# =============================================================================
+
+models_to_test:
+  - claude-3.5-sonnet
+  - claude-3-haiku
+
+# =============================================================================
+# MCP Integration Configuration
+# =============================================================================
+
+mcp_integration:
+  enabled: true
+  namespace: skill-validation
+
+  query_patterns: true
+  track_outcomes: true
+  store_patterns: true
+  share_learning: true
+  update_quality_gate: true
+
+  target_agents:
+    - qe-learning-coordinator
+    - qe-queen-coordinator
+    - qe-api-contract
+    - qe-api-compatibility
+
+# =============================================================================
+# ReasoningBank Learning Configuration
+# =============================================================================
+
+learning:
+  store_success_patterns: true
+  store_failure_patterns: true
+  pattern_ttl_days: 90
+  min_confidence_to_store: 0.7
+  cross_model_comparison: true
+
+# =============================================================================
+# Result Format Configuration
+# =============================================================================
+
+result_format:
+  json_output: true
+  markdown_report: true
+  include_raw_output: false
+  include_timing: true
+  include_token_usage: true
+
+# =============================================================================
+# Environment Setup
+# =============================================================================
+
+setup:
+  required_tools:
+    - jq
+  environment_variables:
+    CONTRACT_PROVIDER_URL: "http://localhost:3000"
+    BREAKING_CHANGE_STRICTNESS: "strict"
+  fixtures: []
+
+# =============================================================================
+# TEST CASES
+# =============================================================================
+
+test_cases:
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Consumer-Driven Contracts
+  # ---------------------------------------------------------------------------
+
+  - id: tc001_pact_contract_generation
+    description: "Generate Pact consumer contracts from API interactions"
+    category: consumer_driven
+    priority: critical
+
+    input:
+      prompt: |
+        Design consumer contracts for a web-app consuming user-service:
+        1. GET /users/:id - returns User object
+        2. POST /users - creates new user
+        3. DELETE /users/:id - deletes user
+
+        For each endpoint, define:
+        - Request contract (method, path, query/body)
+        - Response contract (status, body schema, headers)
+        - Provider states (setup for testing)
+      context:
+        consumer: web-app
+        provider: user-service
+        format: pact
+
+    expected_output:
+      must_contain:
+        - "contract"
+        - "request"
+        - "response"
+        - "provider state"
+        - "schema"
+      must_not_contain:
+        - "error"
+        - "unable"
+      severity_classification: critical
+      finding_count:
+        min: 1
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+      reasoning_quality_min: 0.75
+
+  - id: tc002_contract_verification
+    description: "Verify provider implementation against consumer contracts"
+    category: consumer_driven
+    priority: critical
+
+    input:
+      prompt: |
+        Create a contract verification test for user-service:
+        1. Set up provider states
+        2. Call actual provider endpoints
+        3. Verify responses match contracts
+        4. Report compatibility
+
+        What happens if provider doesn't match?
+      context:
+        provider_url: "http://localhost:3000"
+        contracts: "contracts/web-app-user-service.json"
+        publish_results: true
+
+    expected_output:
+      must_contain:
+        - "verification"
+        - "provider state"
+        - "compatible"
+        - "verification"
+        - "response"
+      must_not_contain:
+        - "mismatch"
+        - "failure"
+      severity_classification: critical
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Schema Validation
+  # ---------------------------------------------------------------------------
+
+  - id: tc003_openapi_schema_validation
+    description: "Validate API requests/responses against OpenAPI schema"
+    category: schema_validation
+    priority: critical
+
+    input:
+      prompt: |
+        Validate a REST API against its OpenAPI specification:
+        1. Load OpenAPI spec from api/openapi.yaml
+        2. Validate actual requests match schema
+        3. Validate actual responses match schema
+        4. Check headers, status codes, body structure
+        5. Report schema violations
+
+        What would you check?
+      context:
+        api_spec: "api/openapi.yaml"
+        requests: collected_requests
+        responses: collected_responses
+
+    expected_output:
+      must_contain:
+        - "OpenAPI"
+        - "schema"
+        - "validation"
+        - "request"
+        - "response"
+        - "violation"
+      must_not_contain:
+        - "pass"
+        - "no issues"
+      severity_classification: critical
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+      reasoning_quality_min: 0.75
+
+  - id: tc004_schema_violations_detection
+    description: "Detect violations of schema constraints"
+    category: schema_validation
+    priority: high
+
+    input:
+      prompt: |
+        How would you detect these schema violations?
+        1. Required field missing in response
+        2. Field type mismatch (string vs number)
+        3. Extra fields not in schema
+        4. Enum value not in allowed list
+        5. String exceeds maxLength
+
+        How would you report each violation?
+      context:
+        include_violations: true
+        severity_levels: true
+
+    expected_output:
+      must_contain:
+        - "required"
+        - "type mismatch"
+        - "extra fields"
+        - "enum"
+        - "violation"
+      finding_count:
+        min: 1
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.75
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Breaking Change Detection
+  # ---------------------------------------------------------------------------
+
+  - id: tc005_breaking_changes_rest_api
+    description: "Detect breaking changes in REST API between versions"
+    category: breaking_changes
+    priority: critical
+
+    input:
+      prompt: |
+        Compare REST API v1.0 vs v2.0 and detect breaking changes:
+
+        ALWAYS BREAKING (client compatibility lost):
+        - Endpoint removed (/api/v1/users -> removed)
+        - Required parameter added (new required query param)
+        - Response field removed (id field gone from User)
+        - Type changed (status: 'active' -> status: 0)
+
+        POTENTIALLY BREAKING:
+        - Optional parameter removed
+        - Response field added (might break parsing)
+        - Enum value removed
+
+        NON-BREAKING:
+        - Endpoint added
+        - Optional parameter added
+        - Response field added (if client ignores unknown fields)
+
+        How would you classify each change?
+      context:
+        api_v1: "api/openapi-v1.yaml"
+        api_v2: "api/openapi-v2.yaml"
+        breaking_classification: true
+
+    expected_output:
+      must_contain:
+        - "breaking"
+        - "removed"
+        - "required"
+        - "type"
+        - "compatibility"
+      must_not_contain:
+        - "all changes break"
+      severity_classification: critical
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+      reasoning_quality_min: 0.75
+
+  - id: tc006_graphql_breaking_changes
+    description: "Detect breaking changes in GraphQL schema"
+    category: breaking_changes
+    priority: high
+
+    input:
+      prompt: |
+        Detect breaking changes from GraphQL schema v1 to v2:
+
+        v1: type User { id: ID! name: String! }
+        v2: type User { id: ID! }  # removed name field
+
+        ALWAYS BREAKING:
+        - Field removed (query field gone)
+        - Required field became optional
+        - Field type changed
+        - Enum value removed
+        - Input type changed
+
+        How would you detect and report these?
+      context:
+        schema_v1: "schema-v1.graphql"
+        schema_v2: "schema-v2.graphql"
+        breaking_detection: true
+
+    expected_output:
+      must_contain:
+        - "field"
+        - "removed"
+        - "type"
+        - "breaking"
+        - "GraphQL"
+      severity_classification: high
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.75
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: GraphQL Contract Testing
+  # ---------------------------------------------------------------------------
+
+  - id: tc007_graphql_operation_validation
+    description: "Validate GraphQL operations against schema"
+    category: graphql
+    priority: critical
+
+    input:
+      prompt: |
+        Validate GraphQL operations:
+        1. Check query validity against schema
+        2. Verify response shape matches expected
+        3. Check nullability (required vs optional fields)
+        4. Validate enum values
+        5. Check for deprecated fields
+
+        ```graphql
+        query GetUser($id: ID!) {
+          user(id: $id) {
+            id
+            name
+            email
+          }
+        }
+        ```
+
+        Is this valid? What would you check?
+      context:
+        schema: "schema.graphql"
+        operations: "queries/**/*.graphql"
+
+    expected_output:
+      must_contain:
+        - "valid"
+        - "query"
+        - "schema"
+        - "nullability"
+        - "response"
+      must_not_contain:
+        - "error"
+        - "invalid"
+      severity_classification: critical
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+
+  - id: tc008_graphql_deprecation_handling
+    description: "Detect and warn about deprecated GraphQL fields"
+    category: graphql
+    priority: high
+
+    input:
+      prompt: |
+        Handle GraphQL deprecations:
+        1. Identify deprecated fields in schema
+        2. Find queries using deprecated fields
+        3. Suggest replacements
+        4. Plan migration timeline
+
+        How would you help teams migrate away from deprecated fields?
+      context:
+        deprecation_warnings: true
+        migration_suggestions: true
+
+    expected_output:
+      must_contain:
+        - "deprecated"
+        - "field"
+        - "replacement"
+        - "migration"
+      finding_count:
+        min: 1
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.75
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Event Schema Validation
+  # ---------------------------------------------------------------------------
+
+  - id: tc009_event_schema_validation
+    description: "Validate event schemas for consistency"
+    category: event_contracts
+    priority: high
+
+    input:
+      prompt: |
+        Validate event schemas:
+        1. user.created event matches schema
+        2. order.completed event matches schema
+        3. Check backward compatibility
+        4. Validate examples against schema
+
+        Define schema validation rules for events.
+      context:
+        event_schemas: "events/schemas/"
+        examples: "events/examples/"
+        backward_compatible: true
+
+    expected_output:
+      must_contain:
+        - "event"
+        - "schema"
+        - "valid"
+        - "backward"
+        - "compatible"
+      severity_classification: high
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.75
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Negative Tests
+  # ---------------------------------------------------------------------------
+
+  - id: tc010_contract_mismatch_reporting
+    description: "Clearly report contract mismatches and violations"
+    category: negative
+    priority: high
+
+    input:
+      prompt: |
+        Design error reporting for contract violations:
+        1. What information should be included?
+        2. How would you help developers fix violations?
+        3. What level of detail is most useful?
+        4. How would you prioritize violations?
+      context:
+        error_reporting: true
+        remediation_guidance: true
+
+    expected_output:
+      must_contain:
+        - "mismatch"
+        - "expected"
+        - "actual"
+        - "fix"
+        - "guidance"
+      finding_count:
+        min: 1
+
+    validation:
+      schema_check: true
+      allow_partial: true
+
+# =============================================================================
+# SUCCESS CRITERIA
+# =============================================================================
+
+success_criteria:
+  pass_rate: 0.8
+  critical_pass_rate: 1.0
+  avg_reasoning_quality: 0.75
+  max_execution_time_ms: 300000
+  cross_model_variance: 0.15
+
+# =============================================================================
+# METADATA
+# =============================================================================
+
+metadata:
+  author: "qe-api-contract"
+  created: "2026-02-02"
+  last_updated: "2026-02-02"
+  coverage_target: >
+    Consumer-driven contract testing with Pact, OpenAPI schema validation,
+    breaking change detection with strict classification (always/potentially/non-breaking),
+    GraphQL contract validation with deprecation handling, event schema validation,
+    backward compatibility checking, and comprehensive mismatch reporting.

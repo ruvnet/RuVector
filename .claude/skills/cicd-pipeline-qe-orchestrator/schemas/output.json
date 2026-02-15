@@ -1,0 +1,542 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentic-qe.dev/schemas/cicd-pipeline-qe-orchestrator-output.json",
+  "title": "CI/CD Pipeline QE Orchestrator Skill Output Schema",
+  "description": "Schema for CI/CD pipeline orchestration output with pipeline phases, quality gates, and agent coordination.",
+  "type": "object",
+  "required": ["skillName", "version", "timestamp", "status", "trustTier", "output"],
+  "properties": {
+    "skillName": {
+      "type": "string",
+      "const": "cicd-pipeline-qe-orchestrator",
+      "description": "Must be 'cicd-pipeline-qe-orchestrator'"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+(-[a-zA-Z0-9]+)?$"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["success", "partial", "failed", "skipped"]
+    },
+    "trustTier": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 3
+    },
+    "output": {
+      "type": "object",
+      "required": ["summary", "pipelineStatus", "qualityGates", "agentCoordination"],
+      "properties": {
+        "summary": {
+          "type": "string",
+          "minLength": 50,
+          "maxLength": 2000
+        },
+        "pipelineStatus": {
+          "$ref": "#/$defs/pipelineStatus"
+        },
+        "qualityGates": {
+          "$ref": "#/$defs/qualityGates"
+        },
+        "agentCoordination": {
+          "$ref": "#/$defs/agentCoordination"
+        },
+        "phases": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/pipelinePhase"
+          },
+          "description": "Pipeline phases executed"
+        },
+        "skillsInvoked": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/skillInvocation"
+          },
+          "description": "QE skills invoked during pipeline"
+        },
+        "qualityScore": {
+          "$ref": "#/$defs/qualityScore"
+        },
+        "findings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/finding"
+          },
+          "maxItems": 100
+        },
+        "recommendations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/recommendation"
+          },
+          "maxItems": 50
+        },
+        "metrics": {
+          "$ref": "#/$defs/metrics"
+        },
+        "artifacts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/artifact"
+          },
+          "maxItems": 30
+        }
+      }
+    },
+    "metadata": {
+      "$ref": "#/$defs/metadata"
+    },
+    "validation": {
+      "$ref": "#/$defs/validationResult"
+    },
+    "learning": {
+      "$ref": "#/$defs/learningData"
+    }
+  },
+  "$defs": {
+    "pipelineStatus": {
+      "type": "object",
+      "required": ["pipelineId", "status", "branch"],
+      "properties": {
+        "pipelineId": {
+          "type": "string",
+          "description": "Pipeline run identifier"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["pending", "running", "passed", "failed", "cancelled", "timeout"]
+        },
+        "branch": {
+          "type": "string",
+          "description": "Git branch"
+        },
+        "commit": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{7,40}$",
+          "description": "Git commit SHA"
+        },
+        "trigger": {
+          "type": "string",
+          "enum": ["push", "pull_request", "schedule", "manual", "webhook"]
+        },
+        "startTime": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "endTime": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "duration": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Duration in milliseconds"
+        },
+        "phasesCompleted": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "phasesTotal": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "qualityGates": {
+      "type": "object",
+      "required": ["totalGates", "passedGates", "overallStatus"],
+      "properties": {
+        "totalGates": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "passedGates": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "failedGates": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "skippedGates": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "overallStatus": {
+          "type": "string",
+          "enum": ["passed", "failed", "warning", "pending"]
+        },
+        "gates": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/qualityGate"
+          }
+        }
+      }
+    },
+    "qualityGate": {
+      "type": "object",
+      "required": ["name", "status", "phase"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Gate name"
+        },
+        "phase": {
+          "type": "string",
+          "enum": ["build", "test", "security", "performance", "deploy", "post-deploy"]
+        },
+        "status": {
+          "type": "string",
+          "enum": ["passed", "failed", "warning", "skipped", "pending"]
+        },
+        "threshold": {
+          "type": "number",
+          "description": "Required threshold"
+        },
+        "actualValue": {
+          "type": "number",
+          "description": "Actual measured value"
+        },
+        "unit": {
+          "type": "string",
+          "description": "Unit of measurement"
+        },
+        "blocking": {
+          "type": "boolean",
+          "description": "Whether failure blocks deployment"
+        },
+        "message": {
+          "type": "string",
+          "maxLength": 500
+        }
+      }
+    },
+    "agentCoordination": {
+      "type": "object",
+      "required": ["agentsInvolved", "tasksDistributed"],
+      "properties": {
+        "agentsInvolved": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "tasksDistributed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "tasksCompleted": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "tasksFailed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "parallelExecution": {
+          "type": "boolean"
+        },
+        "coordinationStrategy": {
+          "type": "string",
+          "enum": ["sequential", "parallel", "adaptive", "priority-based"]
+        },
+        "agentUtilization": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Agent utilization percentage"
+        },
+        "agents": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "role": {
+                "type": "string"
+              },
+              "tasksAssigned": {
+                "type": "integer"
+              },
+              "status": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "pipelinePhase": {
+      "type": "object",
+      "required": ["name", "status"],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["pending", "running", "passed", "failed", "skipped"]
+        },
+        "duration": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "skillsUsed": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "testsRun": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "testsPassed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "coverage": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        }
+      }
+    },
+    "skillInvocation": {
+      "type": "object",
+      "required": ["skillId", "phase", "status"],
+      "properties": {
+        "skillId": {
+          "type": "string"
+        },
+        "phase": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["success", "partial", "failed", "skipped"]
+        },
+        "duration": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "findingsCount": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "qualityScore": {
+      "type": "object",
+      "required": ["value", "max"],
+      "properties": {
+        "value": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "max": {
+          "type": "number",
+          "const": 100
+        },
+        "grade": {
+          "type": "string",
+          "pattern": "^[A-F][+-]?$"
+        },
+        "trend": {
+          "type": "string",
+          "enum": ["improving", "stable", "declining", "unknown"]
+        }
+      }
+    },
+    "finding": {
+      "type": "object",
+      "required": ["id", "title", "severity", "phase"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^CICD-\\d{3,6}$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 200
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 2000
+        },
+        "severity": {
+          "type": "string",
+          "enum": ["critical", "high", "medium", "low", "info"]
+        },
+        "phase": {
+          "type": "string",
+          "enum": ["build", "test", "security", "performance", "deploy", "post-deploy"]
+        },
+        "blocking": {
+          "type": "boolean"
+        },
+        "remediation": {
+          "type": "string",
+          "maxLength": 2000
+        }
+      }
+    },
+    "recommendation": {
+      "type": "object",
+      "required": ["id", "title", "priority"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^REC-\\d{3,6}$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 200
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 2000
+        },
+        "priority": {
+          "type": "string",
+          "enum": ["critical", "high", "medium", "low"]
+        },
+        "effort": {
+          "type": "string",
+          "enum": ["trivial", "low", "medium", "high", "major"]
+        },
+        "impact": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10
+        }
+      }
+    },
+    "metrics": {
+      "type": "object",
+      "properties": {
+        "totalTests": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "testsPassed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "testsFailed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "coverage": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "buildTime": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "deploymentTime": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "required": ["type", "path"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["report", "data", "log", "coverage", "metrics"]
+        },
+        "path": {
+          "type": "string"
+        },
+        "format": {
+          "type": "string",
+          "enum": ["json", "html", "xml", "txt", "yaml"]
+        },
+        "description": {
+          "type": "string"
+        }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "executionTimeMs": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "toolsUsed": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "agentId": {
+          "type": "string"
+        },
+        "environment": {
+          "type": "string",
+          "enum": ["development", "staging", "production", "ci"]
+        }
+      }
+    },
+    "validationResult": {
+      "type": "object",
+      "properties": {
+        "schemaValid": {
+          "type": "boolean"
+        },
+        "contentValid": {
+          "type": "boolean"
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "errors": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "learningData": {
+      "type": "object",
+      "properties": {
+        "patternsDetected": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "reward": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    }
+  }
+}

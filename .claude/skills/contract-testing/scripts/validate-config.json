@@ -1,0 +1,59 @@
+{
+  "skillName": "contract-testing",
+  "skillVersion": "1.0.0",
+  "requiredTools": [
+    "jq"
+  ],
+  "optionalTools": [
+    "pact",
+    "spring-cloud-contract",
+    "node",
+    "ajv",
+    "jsonschema",
+    "python3"
+  ],
+  "schemaPath": "schemas/output.json",
+  "requiredFields": [
+    "skillName",
+    "status",
+    "output",
+    "output.contractType",
+    "output.verificationResult"
+  ],
+  "requiredNonEmptyFields": [
+    "output.summary",
+    "output.contractType"
+  ],
+  "mustContainTerms": [
+    "contract",
+    "consumer",
+    "provider"
+  ],
+  "mustNotContainTerms": [
+    "TODO",
+    "FIXME",
+    "placeholder",
+    "example.com",
+    "lorem ipsum"
+  ],
+  "enumValidations": {
+    ".status": [
+      "success",
+      "partial",
+      "failed",
+      "skipped"
+    ],
+    ".output.contractType": [
+      "consumer-driven",
+      "provider",
+      "bidirectional",
+      "schema-first"
+    ],
+    ".output.verificationResult.status": [
+      "passed",
+      "failed",
+      "pending",
+      "partial"
+    ]
+  }
+}

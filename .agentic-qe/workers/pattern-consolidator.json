@@ -1,0 +1,8 @@
+{
+  "name": "pattern-consolidator",
+  "enabled": true,
+  "interval": 1800000,
+  "projectRoot": "/Users/danielalberttis/Desktop/Projects/ruvector",
+  "dataDir": "/Users/danielalberttis/Desktop/Projects/ruvector/.agentic-qe/data",
+  "createdAt": "2026-02-15T15:40:59.309Z"
+}

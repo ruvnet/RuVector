@@ -1,0 +1,598 @@
+# =============================================================================
+# AQE Skill Evaluation Test Suite: QE Requirements Validation v1.0.0
+# =============================================================================
+#
+# Comprehensive evaluation suite for the qe-requirements-validation skill.
+# Tests requirements traceability, acceptance criteria validation, BDD
+# scenario generation, and coverage gap identification.
+#
+# Schema: .claude/skills/.validation/schemas/skill-eval.schema.json
+# Validator: .claude/skills/qe-requirements-validation/scripts/validate-config.json
+#
+# Coverage:
+# - Acceptance criteria validation (SMART criteria)
+# - Requirements traceability matrix
+# - BDD scenario generation (Gherkin)
+# - Requirements coverage analysis
+# - Gap identification and risk assessment
+#
+# =============================================================================
+
+skill: qe-requirements-validation
+version: 1.0.0
+description: >
+  Comprehensive evaluation suite for the qe-requirements-validation skill.
+  Tests acceptance criteria validation with SMART principles, requirements
+  traceability matrix construction, BDD scenario generation, requirements
+  coverage analysis, and comprehensive gap identification.
+
+# =============================================================================
+# Multi-Model Configuration
+# =============================================================================
+
+models_to_test:
+  - claude-3.5-sonnet
+  - claude-3-haiku
+
+# =============================================================================
+# MCP Integration Configuration
+# =============================================================================
+
+mcp_integration:
+  enabled: true
+  namespace: skill-validation
+
+  query_patterns: true
+  track_outcomes: true
+  store_patterns: true
+  share_learning: true
+  update_quality_gate: true
+
+  target_agents:
+    - qe-learning-coordinator
+    - qe-queen-coordinator
+    - qe-acceptance-criteria
+    - qe-bdd-specialist
+
+# =============================================================================
+# ReasoningBank Learning Configuration
+# =============================================================================
+
+learning:
+  store_success_patterns: true
+  store_failure_patterns: true
+  pattern_ttl_days: 90
+  min_confidence_to_store: 0.7
+  cross_model_comparison: true
+
+# =============================================================================
+# Result Format Configuration
+# =============================================================================
+
+result_format:
+  json_output: true
+  markdown_report: true
+  include_raw_output: false
+  include_timing: true
+  include_token_usage: true
+
+# =============================================================================
+# Environment Setup
+# =============================================================================
+
+setup:
+  required_tools:
+    - jq
+  environment_variables:
+    REQUIREMENTS_SOURCE: "jira"
+    BDD_FORMAT: "gherkin"
+    MIN_COVERAGE_THRESHOLD: "80"
+  fixtures: []
+
+# =============================================================================
+# TEST CASES
+# =============================================================================
+
+test_cases:
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Acceptance Criteria Validation
+  # ---------------------------------------------------------------------------
+
+  - id: tc001_smart_criteria_validation
+    description: "Validate acceptance criteria against SMART principles"
+    category: acceptance_criteria
+    priority: critical
+
+    input:
+      prompt: |
+        Validate these acceptance criteria for "User Registration":
+
+        CRITERIA 1: "User should be able to register"
+        - Specific? NO (vague)
+        - Measurable? NO
+        - Achievable? UNCLEAR
+        - Relevant? YES
+        - Testable? NO
+        VERDICT: REJECT - too vague, rewrite
+
+        CRITERIA 2: "User can register with valid email and password matching requirements (8+ chars, 1 uppercase, 1 number)"
+        - Specific? YES (exactly what's needed)
+        - Measurable? YES (8 chars, regex)
+        - Achievable? YES (standard requirements)
+        - Relevant? YES (security requirement)
+        - Testable? YES (can automate)
+        VERDICT: ACCEPT
+
+        For each criteria, validate SMART and provide feedback.
+      context:
+        story_id: "US-123"
+        validation_type: "SMART"
+
+    expected_output:
+      must_contain:
+        - "SMART"
+        - "specific"
+        - "measurable"
+        - "testable"
+        - "criteria"
+      must_not_contain:
+        - "error"
+        - "unable"
+      severity_classification: critical
+      finding_count:
+        min: 1
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+      reasoning_quality_min: 0.75
+
+  - id: tc002_ambiguity_detection
+    description: "Detect ambiguous or untestable requirements"
+    category: acceptance_criteria
+    priority: critical
+
+    input:
+      prompt: |
+        Identify ambiguities in these acceptance criteria:
+
+        1. "System should respond quickly to user actions"
+        AMBIGUITIES: What's "quickly"? < 1s? < 500ms? User-dependent?
+
+        2. "User should be able to search for products"
+        AMBIGUITIES: What fields? Exact match or fuzzy? Case-sensitive?
+        Include out-of-stock items? How many results max?
+
+        3. "Checkout process should be user-friendly"
+        AMBIGUITIES: What's "user-friendly"? Can't be tested directly.
+
+        For each, suggest improved, unambiguous criteria.
+      context:
+        detect_ambiguities: true
+        suggest_improvements: true
+
+    expected_output:
+      must_contain:
+        - "ambiguity"
+        - "ambiguous"
+        - "clarify"
+        - "improve"
+        - "criteria"
+      finding_count:
+        min: 1
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+
+  - id: tc003_edge_case_identification
+    description: "Identify missing edge cases in acceptance criteria"
+    category: acceptance_criteria
+    priority: high
+
+    input:
+      prompt: |
+        For user registration criteria, identify missing edge cases:
+
+        COVERED: Happy path (valid email/password)
+        MISSING:
+        1. Existing email -> should show error
+        2. Invalid email format -> reject
+        3. Password too weak -> reject
+        4. Concurrent registration attempts -> handle gracefully
+        5. Email verification link expires -> reissue
+        6. Database unavailable -> show error message
+        7. Spam registration -> rate limit
+        8. GDPR compliance -> data retention
+
+        What's critical vs nice-to-have?
+      context:
+        identify_edge_cases: true
+        prioritize: true
+
+    expected_output:
+      must_contain:
+        - "edge case"
+        - "missing"
+        - "error"
+        - "critical"
+        - "edge"
+      severity_classification: high
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.75
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Traceability Matrix
+  # ---------------------------------------------------------------------------
+
+  - id: tc004_requirements_traceability_matrix
+    description: "Build traceability matrix linking requirements to tests"
+    category: traceability
+    priority: critical
+
+    input:
+      prompt: |
+        Build traceability matrix for User Management sprint:
+
+        REQUIREMENT: US-100 "User Registration"
+        TEST CASES:
+        - TC-001: Valid email/password registration
+        - TC-002: Reject existing email
+        - TC-003: Reject weak password
+        - TC-004: Email verification
+        COVERAGE: FULL
+
+        REQUIREMENT: US-101 "Password Reset"
+        TEST CASES:
+        - TC-010: Request password reset
+        - TC-011: Reset with valid token
+        TEST CASES MISSING:
+        - Invalid/expired token handling
+        COVERAGE: PARTIAL
+
+        REQUIREMENT: US-102 "User Profile"
+        TEST CASES: NONE
+        COVERAGE: NONE -> HIGH RISK
+
+        OUTPUT: Matrix with coverage summary
+      context:
+        include_gaps: true
+        risk_assessment: true
+
+    expected_output:
+      must_contain:
+        - "traceability"
+        - "matrix"
+        - "coverage"
+        - "test"
+        - "requirement"
+      must_not_contain:
+        - "error"
+        - "fail"
+      severity_classification: critical
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+      reasoning_quality_min: 0.75
+
+  - id: tc005_coverage_gap_analysis
+    description: "Identify untested requirements and orphan tests"
+    category: traceability
+    priority: critical
+
+    input:
+      prompt: |
+        Analyze requirements coverage:
+
+        GAPS:
+        1. Untested requirements: US-104, US-107 (3 requirements)
+        2. Orphan tests: TC-050, TC-051 (2 tests with no linked requirement)
+        3. Partial coverage: 5 requirements with < 100% test coverage
+
+        RISK ASSESSMENT:
+        - US-104 "Billing Integration" - CRITICAL path, untested
+        - US-107 "Admin Dashboard" - INTERNAL USE, lower risk
+
+        RECOMMENDATIONS:
+        1. Prioritize tests for US-104 immediately
+        2. Review US-107 requirements carefully
+        3. Investigate orphan tests for removal or link
+
+        How would you prevent this in future?
+      context:
+        gap_analysis: true
+        risk_assessment: true
+        prevention: true
+
+    expected_output:
+      must_contain:
+        - "gap"
+        - "untested"
+        - "orphan"
+        - "critical"
+        - "coverage"
+      finding_count:
+        min: 1
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.75
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: BDD Scenario Generation
+  # ---------------------------------------------------------------------------
+
+  - id: tc006_bdd_scenario_generation
+    description: "Generate BDD scenarios from user stories"
+    category: bdd
+    priority: critical
+
+    input:
+      prompt: |
+        Generate BDD scenarios for:
+        "As a user, I want to reset my password so that I can regain access if forgotten"
+
+        HAPPY PATH:
+        Scenario: Successful password reset
+          Given I am on the login page
+          And I have forgotten my password
+          When I click "Forgot Password"
+          And I enter my email "user@example.com"
+          And I submit the form
+          Then I should see "Check your email"
+          And I should receive a reset email
+          And the reset link should be valid for 24 hours
+
+        EDGE CASES:
+        Scenario: Reset with non-existent email
+          Given I am on the password reset page
+          When I enter email "nonexistent@example.com"
+          And I submit the form
+          Then I should see confirmation message (for security, don't reveal if email exists)
+
+        Scenario: Reset link expired
+          Given I have a password reset email
+          And the reset link is older than 24 hours
+          When I click the reset link
+          Then I should see "Link expired"
+          And I should be offered to request a new one
+
+        Generate all scenarios in Gherkin format.
+      context:
+        story: "Password Reset"
+        format: "gherkin"
+        include_edge_cases: true
+
+    expected_output:
+      must_contain:
+        - "Scenario"
+        - "Given"
+        - "When"
+        - "Then"
+        - "Feature"
+      must_not_contain:
+        - "error"
+        - "unable"
+      severity_classification: critical
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+      reasoning_quality_min: 0.75
+
+  - id: tc007_step_definition_generation
+    description: "Generate Gherkin step definitions and skeleton code"
+    category: bdd
+    priority: high
+
+    input:
+      prompt: |
+        For BDD scenario, generate step definitions:
+
+        GHERKIN:
+        Given I am on the password reset page
+        When I enter email "user@example.com"
+        And I submit the form
+        Then I should see "Check your email"
+
+        STEP DEFINITIONS (skeleton):
+        ```javascript
+        Given('I am on the password reset page', async () => {
+          // Implementation: navigate to /forgot-password
+        });
+
+        When('I enter email {string}', async (email) => {
+          // Implementation: fill email field and submit
+        });
+
+        Then('I should see {string}', async (message) => {
+          // Implementation: assert message is visible
+        });
+        ```
+
+        How would you generate these from scenarios?
+      context:
+        generate_skeleton: true
+        include_comments: true
+
+    expected_output:
+      must_contain:
+        - "Given"
+        - "When"
+        - "Then"
+        - "step"
+        - "definition"
+      finding_count:
+        min: 1
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.75
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Requirements Quality
+  # ---------------------------------------------------------------------------
+
+  - id: tc008_requirement_quality_scoring
+    description: "Score requirement quality using criteria"
+    category: quality
+    priority: high
+
+    input:
+      prompt: |
+        Score requirement quality for "Payment Processing":
+
+        CRITERIA:
+        1. Clear acceptance criteria (Y/N)
+        2. Is testable (Y/N)
+        3. Is measurable (Y/N)
+        4. No ambiguity (Y/N)
+        5. Covers edge cases (Y/N)
+        6. Is estimated (Y/N)
+        7. Has clear priority (Y/N)
+        8. Dependencies identified (Y/N)
+
+        SCORE: 6/8 = 75% (GOOD)
+
+        GAPS:
+        - Missing edge cases for network failures
+        - Dependency on payment provider API not clear
+
+        RECOMMENDATION: 75% quality, acceptable but could improve
+      context:
+        requirement_id: "US-200"
+        scoring_criteria: "all"
+
+    expected_output:
+      must_contain:
+        - "score"
+        - "quality"
+        - "criteria"
+        - "gap"
+        - "recommend"
+      severity_classification: high
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.75
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Sprint Integration
+  # ---------------------------------------------------------------------------
+
+  - id: tc009_sprint_requirements_review
+    description: "Review requirements before sprint execution"
+    category: sprint
+    priority: high
+
+    input:
+      prompt: |
+        Sprint planning for Sprint 23 - Pre-execution checklist:
+
+        CHECKLIST:
+        1. All user stories have acceptance criteria? YES (12/12)
+        2. Criteria are SMART? PARTIAL (10/12 full, 2/12 partial)
+        3. Tests defined? PARTIAL (8/12 test cases defined)
+        4. Dependencies clear? YES
+        5. Estimates reasonable? MOSTLY (1 story seems underestimated)
+        6. Team capacity ok? YES
+        7. Blockers identified? NO (none expected)
+        8. Acceptance ready? MOSTLY (2 stories need clarification)
+
+        READINESS: 85% (GOOD - proceed with minor clarifications)
+
+        What's the go/no-go decision?
+      context:
+        sprint_number: 23
+        readiness_check: true
+
+    expected_output:
+      must_contain:
+        - "readiness"
+        - "checklist"
+        - "go"
+        - "criteria"
+        - "sprint"
+      finding_count:
+        min: 1
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.75
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Negative Tests
+  # ---------------------------------------------------------------------------
+
+  - id: tc010_requirements_quality_improvement
+    description: "Provide actionable improvements for poor requirements"
+    category: negative
+    priority: high
+
+    input:
+      prompt: |
+        This requirement needs improvement:
+        "As a user, I want to manage my data so I can control my information"
+
+        PROBLEMS:
+        1. Acceptance criteria missing completely
+        2. "manage my data" is too vague
+        3. Not testable as stated
+        4. No edge cases identified
+        5. Too broad for one story
+
+        IMPROVEMENTS:
+        Split into:
+        - "User can view their data" (specific)
+        - "User can update their data" (specific)
+        - "User can delete their data" (specific)
+        - "User can export their data" (specific)
+
+        For each, add SMART criteria and test cases.
+      context:
+        requirement: "data_management"
+        improvement_guidance: true
+
+    expected_output:
+      must_contain:
+        - "improvement"
+        - "specific"
+        - "testable"
+        - "criteria"
+        - "split"
+      finding_count:
+        min: 1
+
+    validation:
+      schema_check: true
+      allow_partial: true
+
+# =============================================================================
+# SUCCESS CRITERIA
+# =============================================================================
+
+success_criteria:
+  pass_rate: 0.8
+  critical_pass_rate: 1.0
+  avg_reasoning_quality: 0.75
+  max_execution_time_ms: 300000
+  cross_model_variance: 0.15
+
+# =============================================================================
+# METADATA
+# =============================================================================
+
+metadata:
+  author: "qe-acceptance-criteria"
+  created: "2026-02-02"
+  last_updated: "2026-02-02"
+  coverage_target: >
+    SMART criteria validation (Specific, Measurable, Achievable, Relevant,
+    Testable), ambiguity detection with improvement suggestions, edge case
+    identification, requirements traceability matrix construction with gap
+    analysis, BDD Gherkin scenario generation with step definitions, requirement
+    quality scoring, sprint readiness checklist, and comprehensive quality
+    improvement recommendations.

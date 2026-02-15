@@ -1,0 +1,44 @@
+{
+  "skillName": "mutation-testing",
+  "skillVersion": "1.0.0",
+  "requiredTools": [
+    "jq"
+  ],
+  "optionalTools": [
+    "stryker",
+    "pitest",
+    "mutmut",
+    "ajv",
+    "jsonschema",
+    "python3"
+  ],
+  "schemaPath": "schemas/output.json",
+  "requiredFields": [
+    "skillName",
+    "status",
+    "output",
+    "output.mutationScore",
+    "output.mutants"
+  ],
+  "requiredNonEmptyFields": [
+    "output.summary"
+  ],
+  "mustContainTerms": [
+    "mutation",
+    "mutant",
+    "killed"
+  ],
+  "mustNotContainTerms": [
+    "TODO",
+    "placeholder",
+    "undefined mutation score"
+  ],
+  "enumValidations": {
+    ".status": [
+      "success",
+      "partial",
+      "failed",
+      "skipped"
+    ]
+  }
+}

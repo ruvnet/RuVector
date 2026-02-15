@@ -1,0 +1,295 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://agentic-qe.dev/schemas/test-design-techniques-output.json",
+  "title": "AQE Test Design Techniques Skill Output Schema",
+  "description": "Schema for systematic test design output including BVA, EP, decision tables, state transitions, and pairwise testing.",
+  "type": "object",
+  "required": ["skillName", "version", "timestamp", "status", "trustTier", "output"],
+  "properties": {
+    "skillName": {
+      "type": "string",
+      "const": "test-design-techniques",
+      "description": "Skill identifier"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+(-[a-zA-Z0-9]+)?$"
+    },
+    "timestamp": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})?$"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["success", "partial", "failed", "skipped"]
+    },
+    "trustTier": {
+      "type": "integer",
+      "const": 3
+    },
+    "output": {
+      "type": "object",
+      "required": ["summary", "techniquesApplied", "testCasesGenerated", "metrics"],
+      "properties": {
+        "summary": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 2000
+        },
+        "score": {
+          "$ref": "#/$defs/designScore"
+        },
+        "techniquesApplied": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/techniqueResult"
+          },
+          "minItems": 1,
+          "description": "Test design techniques applied"
+        },
+        "testCasesGenerated": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/testCase"
+          },
+          "description": "Generated test cases"
+        },
+        "coverageAnalysis": {
+          "$ref": "#/$defs/coverageAnalysis",
+          "description": "Coverage achieved by generated tests"
+        },
+        "optimizationResult": {
+          "$ref": "#/$defs/optimizationResult",
+          "description": "Test reduction/optimization results"
+        },
+        "findings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/designFinding"
+          },
+          "maxItems": 500
+        },
+        "recommendations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/recommendation"
+          },
+          "maxItems": 100
+        },
+        "metrics": {
+          "$ref": "#/$defs/designMetrics"
+        },
+        "artifacts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/artifact"
+          },
+          "maxItems": 50
+        }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "executionTimeMs": { "type": "integer", "minimum": 0 },
+        "toolsUsed": { "type": "array", "items": { "type": "string" } },
+        "agentId": { "type": "string", "pattern": "^qe-[a-z][a-z0-9-]*$" },
+        "inputType": {
+          "type": "string",
+          "enum": ["requirements", "code", "api-spec", "user-story"]
+        }
+      }
+    },
+    "validation": {
+      "type": "object",
+      "properties": {
+        "schemaValid": { "type": "boolean" },
+        "contentValid": { "type": "boolean" },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "learning": {
+      "type": "object",
+      "properties": {
+        "patternsDetected": { "type": "array", "items": { "type": "string" } },
+        "reward": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    }
+  },
+  "$defs": {
+    "designScore": {
+      "type": "object",
+      "required": ["value", "max"],
+      "properties": {
+        "value": { "type": "number", "minimum": 0, "maximum": 100 },
+        "max": { "type": "number", "const": 100 },
+        "grade": { "type": "string", "pattern": "^[A-F][+-]?$" },
+        "coverageEfficiency": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Coverage achieved vs test count"
+        }
+      }
+    },
+    "techniqueResult": {
+      "type": "object",
+      "required": ["technique", "applied"],
+      "properties": {
+        "technique": {
+          "type": "string",
+          "enum": ["bva", "equivalence-partitioning", "decision-table", "state-transition", "pairwise", "use-case", "classification-tree", "cause-effect"],
+          "description": "Test design technique"
+        },
+        "applied": { "type": "boolean" },
+        "testCasesGenerated": { "type": "integer", "minimum": 0 },
+        "coverageAchieved": { "type": "number", "minimum": 0, "maximum": 100 },
+        "details": {
+          "type": "object",
+          "additionalProperties": true,
+          "description": "Technique-specific details"
+        }
+      }
+    },
+    "testCase": {
+      "type": "object",
+      "required": ["id", "name", "technique"],
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "technique": {
+          "type": "string",
+          "enum": ["bva", "equivalence-partitioning", "decision-table", "state-transition", "pairwise", "use-case"]
+        },
+        "description": { "type": "string" },
+        "preconditions": { "type": "array", "items": { "type": "string" } },
+        "inputs": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "expectedOutput": { "type": "string" },
+        "priority": { "type": "string", "enum": ["critical", "high", "medium", "low"] },
+        "partitions": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Equivalence partitions covered"
+        },
+        "boundaries": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Boundary values tested"
+        },
+        "states": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "States covered"
+        }
+      }
+    },
+    "coverageAnalysis": {
+      "type": "object",
+      "properties": {
+        "partitionsCovered": {
+          "type": "object",
+          "properties": {
+            "total": { "type": "integer" },
+            "covered": { "type": "integer" },
+            "percentage": { "type": "number" }
+          }
+        },
+        "boundariesCovered": {
+          "type": "object",
+          "properties": {
+            "total": { "type": "integer" },
+            "covered": { "type": "integer" },
+            "percentage": { "type": "number" }
+          }
+        },
+        "statesCovered": {
+          "type": "object",
+          "properties": {
+            "total": { "type": "integer" },
+            "covered": { "type": "integer" },
+            "percentage": { "type": "number" }
+          }
+        },
+        "transitionsCovered": {
+          "type": "object",
+          "properties": {
+            "total": { "type": "integer" },
+            "covered": { "type": "integer" },
+            "percentage": { "type": "number" }
+          }
+        },
+        "pairsCovered": {
+          "type": "object",
+          "properties": {
+            "total": { "type": "integer" },
+            "covered": { "type": "integer" },
+            "percentage": { "type": "number" }
+          }
+        }
+      }
+    },
+    "optimizationResult": {
+      "type": "object",
+      "properties": {
+        "originalTestCount": { "type": "integer", "minimum": 0 },
+        "optimizedTestCount": { "type": "integer", "minimum": 0 },
+        "reductionPercent": { "type": "number", "minimum": 0, "maximum": 100 },
+        "coverageRetained": { "type": "number", "minimum": 0, "maximum": 100 },
+        "redundantTestsRemoved": { "type": "integer", "minimum": 0 },
+        "technique": {
+          "type": "string",
+          "description": "Optimization technique used"
+        }
+      }
+    },
+    "designFinding": {
+      "type": "object",
+      "required": ["id", "title", "severity"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^TDT-\\d{3,6}$" },
+        "title": { "type": "string", "minLength": 5, "maxLength": 200 },
+        "description": { "type": "string", "maxLength": 2000 },
+        "severity": { "type": "string", "enum": ["critical", "high", "medium", "low", "info"] },
+        "category": {
+          "type": "string",
+          "enum": ["coverage-gap", "redundancy", "missing-boundary", "missing-partition", "invalid-transition"]
+        },
+        "remediation": { "type": "string" }
+      }
+    },
+    "designMetrics": {
+      "type": "object",
+      "properties": {
+        "techniquesUsed": { "type": "integer", "minimum": 0 },
+        "testCasesGenerated": { "type": "integer", "minimum": 0 },
+        "coverageScore": { "type": "number", "minimum": 0, "maximum": 100 },
+        "redundancyRemoved": { "type": "number", "minimum": 0, "maximum": 100 },
+        "boundariesIdentified": { "type": "integer", "minimum": 0 },
+        "partitionsIdentified": { "type": "integer", "minimum": 0 },
+        "statesIdentified": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "recommendation": {
+      "type": "object",
+      "required": ["id", "title", "priority"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^REC-\\d{3,6}$" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "priority": { "type": "string", "enum": ["critical", "high", "medium", "low"] }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "required": ["type", "path"],
+      "properties": {
+        "type": { "type": "string", "enum": ["test-suite", "coverage-report", "decision-table", "state-diagram"] },
+        "path": { "type": "string" },
+        "format": { "type": "string", "enum": ["json", "yaml", "md", "html", "csv"] }
+      }
+    }
+  }
+}

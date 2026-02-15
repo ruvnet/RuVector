@@ -1,0 +1,311 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://agentic-qe.dev/schemas/regression-testing-output.json",
+  "title": "AQE Regression Testing Skill Output Schema",
+  "description": "Schema for regression testing output including test selection analysis, impact assessment, and suite optimization.",
+  "type": "object",
+  "required": ["skillName", "version", "timestamp", "status", "trustTier", "output"],
+  "properties": {
+    "skillName": {
+      "type": "string",
+      "const": "regression-testing",
+      "description": "Skill identifier"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+(-[a-zA-Z0-9]+)?$"
+    },
+    "timestamp": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})?$"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["success", "partial", "failed", "skipped"]
+    },
+    "trustTier": {
+      "type": "integer",
+      "const": 3
+    },
+    "output": {
+      "type": "object",
+      "required": ["summary", "testSelection", "impactAnalysis", "metrics"],
+      "properties": {
+        "summary": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 2000
+        },
+        "score": {
+          "$ref": "#/$defs/regressionScore"
+        },
+        "testSelection": {
+          "$ref": "#/$defs/testSelection",
+          "description": "Test selection strategy results"
+        },
+        "impactAnalysis": {
+          "$ref": "#/$defs/impactAnalysis",
+          "description": "Change impact analysis"
+        },
+        "executionResults": {
+          "$ref": "#/$defs/executionResults",
+          "description": "Regression test execution results"
+        },
+        "suiteHealth": {
+          "$ref": "#/$defs/suiteHealth",
+          "description": "Test suite health metrics"
+        },
+        "findings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/regressionFinding"
+          },
+          "maxItems": 500,
+          "description": "Regressions detected"
+        },
+        "recommendations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/recommendation"
+          },
+          "maxItems": 100
+        },
+        "metrics": {
+          "$ref": "#/$defs/regressionMetrics"
+        },
+        "artifacts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/artifact"
+          },
+          "maxItems": 50
+        }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "executionTimeMs": { "type": "integer", "minimum": 0 },
+        "toolsUsed": { "type": "array", "items": { "type": "string" } },
+        "agentId": { "type": "string", "pattern": "^qe-[a-z][a-z0-9-]*$" },
+        "prNumber": { "type": "integer", "description": "PR number if applicable" },
+        "baseBranch": { "type": "string" },
+        "headBranch": { "type": "string" }
+      }
+    },
+    "validation": {
+      "type": "object",
+      "properties": {
+        "schemaValid": { "type": "boolean" },
+        "contentValid": { "type": "boolean" },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "learning": {
+      "type": "object",
+      "properties": {
+        "patternsDetected": { "type": "array", "items": { "type": "string" } },
+        "reward": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    }
+  },
+  "$defs": {
+    "regressionScore": {
+      "type": "object",
+      "required": ["value", "max"],
+      "properties": {
+        "value": { "type": "number", "minimum": 0, "maximum": 100 },
+        "max": { "type": "number", "const": 100 },
+        "grade": { "type": "string", "pattern": "^[A-F][+-]?$" },
+        "riskCoverage": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Risk coverage achieved (0.0-1.0)"
+        }
+      }
+    },
+    "testSelection": {
+      "type": "object",
+      "required": ["strategy"],
+      "properties": {
+        "strategy": {
+          "type": "string",
+          "enum": ["change-based", "risk-based", "historical", "time-budget", "full", "smoke"],
+          "description": "Selection strategy used"
+        },
+        "mustRun": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Tests that must run (directly impacted)"
+        },
+        "shouldRun": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Tests that should run (indirectly impacted)"
+        },
+        "canSkip": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Tests that can be safely skipped"
+        },
+        "totalTests": { "type": "integer", "minimum": 0 },
+        "selectedTests": { "type": "integer", "minimum": 0 },
+        "selectionRatio": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Percentage of tests selected"
+        },
+        "estimatedTime": {
+          "type": "string",
+          "description": "Estimated execution time"
+        },
+        "riskCoverage": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Risk coverage of selected tests"
+        }
+      }
+    },
+    "impactAnalysis": {
+      "type": "object",
+      "properties": {
+        "changedFiles": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "impactedModules": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "impactedTests": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "changeRisk": {
+          "type": "string",
+          "enum": ["low", "medium", "high", "critical"],
+          "description": "Overall change risk level"
+        },
+        "coverageMap": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "description": "Map of files to covering tests"
+        }
+      }
+    },
+    "executionResults": {
+      "type": "object",
+      "properties": {
+        "total": { "type": "integer", "minimum": 0 },
+        "passed": { "type": "integer", "minimum": 0 },
+        "failed": { "type": "integer", "minimum": 0 },
+        "skipped": { "type": "integer", "minimum": 0 },
+        "flaky": { "type": "integer", "minimum": 0 },
+        "passRate": { "type": "number", "minimum": 0, "maximum": 100 },
+        "regressions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "test": { "type": "string" },
+              "previousStatus": { "type": "string" },
+              "currentStatus": { "type": "string" },
+              "failureMessage": { "type": "string" }
+            }
+          },
+          "description": "Tests that regressed"
+        },
+        "executionTimeMs": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "suiteHealth": {
+      "type": "object",
+      "properties": {
+        "flakiness": {
+          "type": "object",
+          "properties": {
+            "flakyTests": { "type": "array", "items": { "type": "string" } },
+            "flakinessRate": { "type": "number", "minimum": 0, "maximum": 100 }
+          }
+        },
+        "executionTrend": {
+          "type": "string",
+          "enum": ["improving", "stable", "degrading"],
+          "description": "Execution time trend"
+        },
+        "averageExecutionTime": { "type": "integer", "description": "Average test execution time in ms" },
+        "slowTests": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "test": { "type": "string" },
+              "duration": { "type": "integer" }
+            }
+          }
+        },
+        "recommendations": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "regressionFinding": {
+      "type": "object",
+      "required": ["id", "title", "severity"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^REG-\\d{3,6}$" },
+        "title": { "type": "string", "minLength": 5, "maxLength": 200 },
+        "description": { "type": "string", "maxLength": 2000 },
+        "severity": { "type": "string", "enum": ["critical", "high", "medium", "low", "info"] },
+        "test": { "type": "string", "description": "Test that detected the regression" },
+        "affectedComponent": { "type": "string" },
+        "introducedIn": { "type": "string", "description": "Commit/PR that introduced the regression" },
+        "evidence": { "type": "string" },
+        "remediation": { "type": "string" }
+      }
+    },
+    "regressionMetrics": {
+      "type": "object",
+      "properties": {
+        "totalTests": { "type": "integer", "minimum": 0 },
+        "testsSelected": { "type": "integer", "minimum": 0 },
+        "testsExecuted": { "type": "integer", "minimum": 0 },
+        "passRate": { "type": "number", "minimum": 0, "maximum": 100 },
+        "regressionsFound": { "type": "integer", "minimum": 0 },
+        "selectionEfficiency": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Percentage of tests run vs total"
+        },
+        "riskCoverageAchieved": { "type": "number", "minimum": 0, "maximum": 1 },
+        "executionTimeMs": { "type": "integer", "minimum": 0 },
+        "timeSaved": { "type": "string", "description": "Time saved vs full regression" }
+      }
+    },
+    "recommendation": {
+      "type": "object",
+      "required": ["id", "title", "priority"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^REC-\\d{3,6}$" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "priority": { "type": "string", "enum": ["critical", "high", "medium", "low"] },
+        "effort": { "type": "string", "enum": ["trivial", "low", "medium", "high", "major"] }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "required": ["type", "path"],
+      "properties": {
+        "type": { "type": "string", "enum": ["report", "coverage", "log", "data"] },
+        "path": { "type": "string" },
+        "format": { "type": "string", "enum": ["json", "html", "md", "xml", "txt"] }
+      }
+    }
+  }
+}

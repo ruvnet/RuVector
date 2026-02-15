@@ -1,0 +1,55 @@
+{
+  "skillName": "performance-testing",
+  "skillVersion": "1.0.0",
+  "requiredTools": [
+    "jq"
+  ],
+  "optionalTools": [
+    "k6",
+    "artillery",
+    "jmeter",
+    "node",
+    "ajv",
+    "jsonschema",
+    "python3"
+  ],
+  "schemaPath": "schemas/output.json",
+  "requiredFields": [
+    "skillName",
+    "status",
+    "output",
+    "output.summary",
+    "output.testType",
+    "output.metrics"
+  ],
+  "requiredNonEmptyFields": [
+    "output.summary"
+  ],
+  "mustContainTerms": [
+    "response",
+    "throughput"
+  ],
+  "mustNotContainTerms": [
+    "TODO",
+    "placeholder",
+    "FIXME"
+  ],
+  "enumValidations": {
+    ".status": [
+      "success",
+      "partial",
+      "failed",
+      "skipped"
+    ],
+    ".output.testType": [
+      "load",
+      "stress",
+      "endurance",
+      "spike",
+      "volume",
+      "scalability",
+      "smoke",
+      "soak"
+    ]
+  }
+}

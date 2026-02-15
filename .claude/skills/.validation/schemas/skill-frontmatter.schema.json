@@ -1,0 +1,341 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentic-qe.dev/schemas/skill-frontmatter.json",
+  "title": "AQE Skill Frontmatter Schema",
+  "description": "JSON Schema for SKILL.md YAML frontmatter with Trust Tier validation support. Backward compatible with all 95 existing skills.",
+  "type": "object",
+  "required": ["name", "description"],
+  "properties": {
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100,
+      "description": "Skill identifier. Recommended: lowercase, hyphenated (e.g., 'security-testing'). Legacy: Title Case allowed for backward compatibility."
+    },
+    "description": {
+      "type": "string",
+      "minLength": 10,
+      "maxLength": 1000,
+      "description": "Skill description for manifest and discovery"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "qcsd-phases",
+        "qe-core",
+        "testing-methodologies",
+        "test-design",
+        "specialized-testing",
+        "analysis-review",
+        "infrastructure",
+        "development-practices",
+        "bug-management",
+        "platform-skills",
+        "learning-skills",
+        "orchestration",
+        "quality-review"
+      ],
+      "default": "qe-core",
+      "description": "Skill category for organization"
+    },
+    "priority": {
+      "type": "string",
+      "enum": ["critical", "high", "medium", "low"],
+      "default": "medium",
+      "description": "Skill priority level"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+(\\.\\d+)?$",
+      "description": "Semantic version of the skill (e.g., '1.0.0', '7.5.1')"
+    },
+    "tokenEstimate": {
+      "type": "integer",
+      "minimum": 100,
+      "maximum": 50000,
+      "description": "Estimated token count for skill content"
+    },
+    "agents": {
+      "oneOf": [
+        {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        {
+          "type": "object",
+          "properties": {
+            "core": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "Core agents always spawned"
+            },
+            "conditional": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "Agents spawned based on flags"
+            },
+            "total": {
+              "type": "integer",
+              "description": "Total agent count"
+            },
+            "sub_agents": {
+              "type": "integer",
+              "description": "Sub-agent count"
+            }
+          }
+        }
+      ],
+      "description": "QE agents that implement this skill (array or structured object)"
+    },
+    "domains": {
+      "type": "object",
+      "description": "DDD domain mapping for skill (from QCSD-AGENTIC-QE-MAPPING-FRAMEWORK)",
+      "properties": {
+        "primary": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "domain": { "type": "string" },
+              "agents": {
+                "type": "array",
+                "items": { "type": "string" }
+              }
+            }
+          }
+        },
+        "conditional": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "domain": { "type": "string" },
+              "agents": {
+                "type": "array",
+                "items": { "type": "string" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "skills": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Related skills invoked by this skill"
+    },
+    "implementation_status": {
+      "type": "string",
+      "enum": ["draft", "active", "optimized", "deprecated"],
+      "default": "active",
+      "description": "Current implementation status"
+    },
+    "optimization_version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+$",
+      "description": "Version of optimization applied"
+    },
+    "last_optimized": {
+      "type": "string",
+      "format": "date",
+      "description": "Date of last optimization"
+    },
+    "last_updated": {
+      "type": "string",
+      "format": "date",
+      "description": "Date of last update"
+    },
+    "dependencies": {
+      "oneOf": [
+        {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      ],
+      "description": "Skills or packages this skill depends on"
+    },
+    "requires": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "External requirements (MCP servers, accounts, tools)"
+    },
+    "quick_reference_card": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether skill includes quick reference card"
+    },
+    "tags": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Tags for skill discovery"
+    },
+    "contributor": {
+      "type": "string",
+      "description": "GitHub handle of primary contributor"
+    },
+
+    "execution": {
+      "type": "object",
+      "description": "Execution model configuration",
+      "properties": {
+        "primary": {
+          "type": "string",
+          "enum": ["task-tool", "mcp-tools", "cli", "bash"],
+          "description": "Primary execution method"
+        },
+        "alternatives": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Alternative execution methods"
+        }
+      }
+    },
+    "swarm_pattern": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether skill uses swarm execution pattern"
+    },
+    "parallel_batches": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 10,
+      "description": "Number of parallel agent batches"
+    },
+    "html_output": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether skill generates HTML output"
+    },
+    "enforcement_level": {
+      "type": "string",
+      "enum": ["strict", "moderate", "lenient"],
+      "default": "moderate",
+      "description": "Enforcement level for skill constraints"
+    },
+    "vibium_integration": {
+      "type": "string",
+      "enum": ["required", "optional", "none"],
+      "default": "none",
+      "description": "Vibium browser automation integration level"
+    },
+
+    "trust_tier": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 3,
+      "default": 0,
+      "description": "Trust tier level for validation. 0=Declarative (SKILL.md only), 1=Structured (+ JSON output schema), 2=Validated (+ executable validator), 3=Evaluated (+ evaluation test suite)"
+    },
+    "validation": {
+      "type": "object",
+      "description": "Validation configuration for Trust But Verify system (required for trust_tier >= 1)",
+      "properties": {
+        "schema_path": {
+          "type": "string",
+          "pattern": "^schemas/.*\\.json$",
+          "description": "Path to output JSON schema (relative to skill directory). Required for trust_tier >= 1."
+        },
+        "validator_path": {
+          "type": "string",
+          "pattern": "^scripts/.*\\.(sh|ts|js)$",
+          "description": "Path to validator script (relative to skill directory). Required for trust_tier >= 2."
+        },
+        "eval_path": {
+          "type": "string",
+          "pattern": "^evals/.*\\.ya?ml$",
+          "description": "Path to evaluation test suite (relative to skill directory). Required for trust_tier >= 3."
+        },
+        "last_validated": {
+          "type": "string",
+          "format": "date",
+          "description": "Date of last successful validation run"
+        },
+        "validation_status": {
+          "type": "string",
+          "enum": ["passing", "failing", "skipped", "pending", "unknown"],
+          "default": "unknown",
+          "description": "Current validation status from CI"
+        },
+        "validation_models": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Models used for evaluation testing (e.g., ['claude-3.5-sonnet', 'claude-3-haiku'])"
+        },
+        "pass_rate": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Current pass rate from evaluation suite (0.0-1.0)"
+        },
+        "critical_pass_rate": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Pass rate for critical test cases only"
+        },
+        "avg_reasoning_quality": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Average reasoning quality score from evaluations"
+        },
+        "cross_model_variance": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Variance in results between different models"
+        }
+      },
+      "dependentRequired": {
+        "schema_path": [],
+        "validator_path": ["schema_path"],
+        "eval_path": ["validator_path"]
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "trust_tier": { "const": 1 } },
+        "required": ["trust_tier"]
+      },
+      "then": {
+        "properties": {
+          "validation": {
+            "required": ["schema_path"]
+          }
+        },
+        "required": ["validation"]
+      }
+    },
+    {
+      "if": {
+        "properties": { "trust_tier": { "const": 2 } },
+        "required": ["trust_tier"]
+      },
+      "then": {
+        "properties": {
+          "validation": {
+            "required": ["schema_path", "validator_path"]
+          }
+        },
+        "required": ["validation"]
+      }
+    },
+    {
+      "if": {
+        "properties": { "trust_tier": { "const": 3 } },
+        "required": ["trust_tier"]
+      },
+      "then": {
+        "properties": {
+          "validation": {
+            "required": ["schema_path", "validator_path", "eval_path"]
+          }
+        },
+        "required": ["validation"]
+      }
+    }
+  ],
+  "additionalProperties": true
+}

@@ -1,0 +1,43 @@
+{
+  "skillName": "tdd-london-chicago",
+  "skillVersion": "1.0.0",
+  "requiredTools": [
+    "jq"
+  ],
+  "optionalTools": [],
+  "schemaPath": "schemas/output.json",
+  "requiredFields": [
+    "skillName",
+    "status",
+    "output",
+    "output.summary",
+    "output.tddCycles",
+    "output.approach"
+  ],
+  "requiredNonEmptyFields": [],
+  "mustContainTerms": [
+    "tdd",
+    "test",
+    "red",
+    "green",
+    "refactor"
+  ],
+  "mustNotContainTerms": [
+    "TODO",
+    "FIXME",
+    "placeholder"
+  ],
+  "enumValidations": {
+    ".status": [
+      "success",
+      "partial",
+      "failed",
+      "skipped"
+    ],
+    ".output.approach.school": [
+      "london",
+      "chicago",
+      "hybrid"
+    ]
+  }
+}

@@ -1,0 +1,504 @@
+# =============================================================================
+# AQE Skill Evaluation Test Suite: Test Data Management v1.0.0
+# =============================================================================
+#
+# Comprehensive evaluation suite for the test-data-management skill.
+# Tests synthetic data generation, PII handling, GDPR/CCPA compliance,
+# data anonymization, test data isolation, and batch generation.
+#
+# Schema: .claude/skills/.validation/schemas/skill-eval.schema.json
+# Validator: .claude/skills/test-data-management/scripts/validate-config.json
+#
+# Coverage:
+# - Synthetic data generation with faker
+# - PII detection and anonymization
+# - GDPR/CCPA compliance
+# - Test data isolation and cleanup
+# - Batch data generation
+# - Data privacy validation
+#
+# =============================================================================
+
+skill: test-data-management
+version: 1.0.0
+description: >
+  Comprehensive evaluation suite for the test-data-management skill.
+  Tests synthetic data generation, PII protection, GDPR/CCPA compliance,
+  data anonymization strategies, per-test data isolation, and high-volume
+  batch generation for realistic testing scenarios.
+
+# =============================================================================
+# Multi-Model Configuration
+# =============================================================================
+
+models_to_test:
+  - claude-3.5-sonnet
+  - claude-3-haiku
+
+# =============================================================================
+# MCP Integration Configuration
+# =============================================================================
+
+mcp_integration:
+  enabled: true
+  namespace: skill-validation
+
+  query_patterns: true
+  track_outcomes: true
+  store_patterns: true
+  share_learning: true
+  update_quality_gate: true
+
+  target_agents:
+    - qe-learning-coordinator
+    - qe-queen-coordinator
+    - qe-security-scanner
+
+# =============================================================================
+# ReasoningBank Learning Configuration
+# =============================================================================
+
+learning:
+  store_success_patterns: true
+  store_failure_patterns: true
+  pattern_ttl_days: 90
+  min_confidence_to_store: 0.7
+  cross_model_comparison: true
+
+# =============================================================================
+# Result Format Configuration
+# =============================================================================
+
+result_format:
+  json_output: true
+  markdown_report: true
+  include_raw_output: false
+  include_timing: true
+  include_token_usage: true
+
+# =============================================================================
+# Environment Setup
+# =============================================================================
+
+setup:
+  required_tools:
+    - jq
+
+  environment_variables:
+    DATA_GENERATION_ENABLED: "true"
+    PRIVACY_MODE: "strict"
+    GDPR_COMPLIANCE: "true"
+
+# =============================================================================
+# TEST CASES
+# =============================================================================
+
+test_cases:
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Synthetic Data Generation
+  # ---------------------------------------------------------------------------
+
+  - id: tc001_faker_based_user_generation
+    description: "Generate realistic synthetic user data with faker"
+    category: data_generation
+    priority: critical
+
+    input:
+      generation_request:
+        entity: user
+        count: 100
+        fields:
+          - name
+          - email
+          - phone
+          - address
+      faker_library: faker
+      context:
+        purpose: testing
+        locale: en_US
+
+    expected_output:
+      must_contain:
+        - "generated"
+        - "faker"
+        - "100"
+        - "synthetic"
+      must_not_contain:
+        - "production"
+        - "real users"
+      severity_classification: info
+      finding_count:
+        max: 1
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+      reasoning_quality_min: 0.75
+
+    timeout_ms: 30000
+
+  - id: tc002_realistic_data_generation
+    description: "Generate data realistic enough for integration testing"
+    category: data_generation
+    priority: critical
+
+    input:
+      requirements:
+        - name: "user_purchase_history"
+          entity: purchase
+          realistic_constraints:
+            - purchase_date_recent: true
+            - amount_range: [10, 10000]
+            - product_categories: ["electronics", "clothing", "books"]
+        - name: "customer_interaction_data"
+          entity: interaction
+          requirements:
+            - timestamps_realistic: true
+            - sequential_ordering: true
+            - user_behavior_realistic: true
+      context:
+        test_type: integration
+
+    expected_output:
+      must_contain:
+        - "realistic"
+        - "integration"
+        - "data"
+      must_not_contain:
+        - "random"
+      severity_classification: info
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.75
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: PII Detection and Handling
+  # ---------------------------------------------------------------------------
+
+  - id: tc003_pii_detection_in_data
+    description: "Detect personally identifiable information in dataset"
+    category: pii_detection
+    priority: critical
+
+    input:
+      data_samples:
+        - field: email
+          value: "john.doe@example.com"
+          is_pii: true
+        - field: phone
+          value: "555-123-4567"
+          is_pii: true
+        - field: ssn
+          value: "123-45-6789"
+          is_pii: true
+        - field: first_name
+          value: "John"
+          is_pii: true
+        - field: product_name
+          value: "Laptop"
+          is_pii: false
+      context:
+        scope: "all_fields"
+
+    expected_output:
+      must_contain:
+        - "PII"
+        - "detected"
+        - "email"
+        - "phone"
+      must_not_contain:
+        - "product"
+      severity_classification: critical
+      finding_count:
+        min: 4
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+      reasoning_quality_min: 0.8
+
+  - id: tc004_pii_anonymization_strategy
+    description: "Define anonymization strategy for test data"
+    category: pii_detection
+    priority: critical
+
+    input:
+      pii_fields:
+        - field: email
+          strategy: hash
+          reversible: false
+        - field: name
+          strategy: faker_replace
+          reversible: true
+        - field: phone
+          strategy: mask
+          pattern: "XXX-XXX-****"
+          reversible: false
+        - field: address
+          strategy: truncate
+          keep_only: city_country
+          reversible: false
+      context:
+        compliance: GDPR
+
+    expected_output:
+      must_contain:
+        - "anonymization"
+        - "strategy"
+        - "hash"
+        - "mask"
+      must_not_contain:
+        - "plaintext"
+      severity_classification: critical
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.85
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: GDPR/CCPA Compliance
+  # ---------------------------------------------------------------------------
+
+  - id: tc005_gdpr_compliance_check
+    description: "Verify GDPR compliance in test data handling"
+    category: compliance
+    priority: critical
+
+    input:
+      compliance_checks:
+        - requirement: "No real PII in test environments"
+          status: checked
+          result: passed
+        - requirement: "Consent tracking for EU users"
+          status: checked
+          result: passed
+        - requirement: "Data retention limits (90 days)"
+          status: checked
+          result: passed
+        - requirement: "Right to be forgotten policy"
+          status: checked
+          result: passed
+        - requirement: "Data portability available"
+          status: checked
+          result: passed
+      context:
+        regulation: GDPR
+        scope: EU
+
+    expected_output:
+      must_contain:
+        - "GDPR"
+        - "compliance"
+        - "passed"
+      must_not_contain:
+        - "failed"
+      severity_classification: critical
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.85
+
+  - id: tc006_ccpa_compliance_check
+    description: "Verify CCPA compliance for California users"
+    category: compliance
+    priority: critical
+
+    input:
+      compliance_checks:
+        - requirement: "Privacy policy accessible"
+          status: checked
+          result: passed
+        - requirement: "Opt-out mechanism available"
+          status: checked
+          result: passed
+        - requirement: "Sale of data disclosed"
+          status: checked
+          result: passed
+        - requirement: "Data minimization applied"
+          status: checked
+          result: passed
+      context:
+        regulation: CCPA
+        scope: California
+
+    expected_output:
+      must_contain:
+        - "CCPA"
+        - "compliance"
+        - "passed"
+      must_not_contain:
+        - "violation"
+      severity_classification: critical
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.85
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Data Isolation and Cleanup
+  # ---------------------------------------------------------------------------
+
+  - id: tc007_per_test_data_isolation
+    description: "Verify each test gets isolated, independent data"
+    category: isolation
+    priority: critical
+
+    input:
+      test_execution:
+        - test_id: "test_001"
+          data_namespace: "test_001_namespace"
+          created_records: 10
+          isolated: true
+        - test_id: "test_002"
+          data_namespace: "test_002_namespace"
+          created_records: 8
+          isolated: true
+        - test_id: "test_003"
+          data_namespace: "test_003_namespace"
+          created_records: 15
+          isolated: true
+      cross_contamination: false
+      context:
+        isolation_level: "per_test"
+
+    expected_output:
+      must_contain:
+        - "isolation"
+        - "independent"
+        - "namespace"
+      must_not_contain:
+        - "shared"
+        - "contamination"
+      severity_classification: critical
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+
+  - id: tc008_data_cleanup_verification
+    description: "Verify complete cleanup after test execution"
+    category: isolation
+    priority: critical
+
+    input:
+      cleanup_verification:
+        - test_id: "test_001"
+          records_created: 10
+          records_remaining: 0
+          cleanup_status: successful
+        - test_id: "test_002"
+          records_created: 8
+          records_remaining: 0
+          cleanup_status: successful
+        - test_id: "test_003"
+          records_created: 15
+          records_remaining: 0
+          cleanup_status: successful
+      orphaned_records: 0
+      context:
+        cleanup_strategy: "per_test_transaction_rollback"
+
+    expected_output:
+      must_contain:
+        - "cleanup"
+        - "successful"
+        - "0 remaining"
+      must_not_contain:
+        - "orphaned"
+        - "left behind"
+      severity_classification: high
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Batch Data Generation
+  # ---------------------------------------------------------------------------
+
+  - id: tc009_high_volume_batch_generation
+    description: "Generate large volumes of test data efficiently"
+    category: batch_generation
+    priority: high
+
+    input:
+      batch_request:
+        records_to_generate: 50000
+        entity_type: transaction
+        generation_method: bulk_insert
+        performance_target_seconds: 30
+      context:
+        use_case: "performance_testing"
+        database: postgresql
+
+    expected_output:
+      must_contain:
+        - "batch"
+        - "50000"
+        - "records"
+        - "generated"
+      must_not_contain:
+        - "timeout"
+      severity_classification: info
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.75
+
+  - id: tc010_data_factory_pattern
+    description: "Use factory pattern for consistent test data creation"
+    category: batch_generation
+    priority: high
+
+    input:
+      factories_defined:
+        - factory: UserFactory
+          fields: ["name", "email", "created_at"]
+          default_values: true
+          custom_builders: true
+        - factory: OrderFactory
+          fields: ["user_id", "total", "status"]
+          relationships: ["user_id -> User"]
+          default_values: true
+      context:
+        pattern: "factory_method"
+
+    expected_output:
+      must_contain:
+        - "factory"
+        - "pattern"
+        - "defined"
+      must_not_contain:
+        - "error"
+      severity_classification: info
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.75
+
+# =============================================================================
+# SUCCESS CRITERIA
+# =============================================================================
+
+success_criteria:
+  pass_rate: 0.85
+  critical_pass_rate: 1.0
+  avg_reasoning_quality: 0.75
+  max_execution_time_ms: 300000
+  cross_model_variance: 0.15
+
+# =============================================================================
+# METADATA
+# =============================================================================
+
+metadata:
+  author: "qe-test-data-architect"
+  created: "2026-02-02"
+  last_updated: "2026-02-02"
+  coverage_target: >
+    Test data management including synthetic data generation with faker,
+    PII detection and anonymization, GDPR/CCPA compliance, per-test data
+    isolation with cleanup, batch generation (50k+ records), and factory
+    patterns. 10 test cases covering all aspects with 85% pass rate and
+    100% critical pass rate for compliance.

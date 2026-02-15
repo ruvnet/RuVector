@@ -1,0 +1,157 @@
+skill: cicd-pipeline-qe-orchestrator
+version: 1.0.0
+description: >
+  Evaluation suite for CI/CD pipeline QE orchestration.
+  Tests orchestration plan generation, test execution scheduling,
+  and quality gate configuration across multiple models.
+
+models_to_test:
+  - claude-3.5-sonnet
+  - claude-3-haiku
+
+mcp_integration:
+  enabled: true
+  namespace: skill-validation
+  query_patterns: true
+  track_outcomes: true
+  store_patterns: true
+  share_learning: true
+  target_agents:
+    - qe-learning-coordinator
+
+learning:
+  store_success_patterns: true
+  store_failure_patterns: true
+  pattern_ttl_days: 90
+  min_confidence_to_store: 0.7
+
+result_format:
+  json_output: true
+  markdown_report: true
+  include_timing: true
+  include_token_usage: true
+
+setup:
+  required_tools:
+    - jq
+
+test_cases:
+
+  - id: tc001_basic_pipeline_orchestration
+    description: "Generate orchestration plan for basic pipeline"
+    category: orchestration
+    priority: critical
+
+    input:
+      pipeline_config:
+        stages:
+          - build
+          - test
+          - deploy
+        languages:
+          - javascript
+          - python
+
+    expected_output:
+      must_contain:
+        - "orchestration"
+        - "test"
+        - "quality"
+      must_not_contain:
+        - "error"
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+
+  - id: tc002_parallel_execution_plan
+    description: "Generate parallel test execution schedule"
+    category: orchestration
+    priority: high
+
+    input:
+      test_count: 50
+      parallel_workers: 5
+      test_types:
+        - unit
+        - integration
+        - e2e
+
+    expected_output:
+      must_contain:
+        - "parallel"
+        - "schedule"
+        - "execution"
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.7
+
+  - id: tc003_quality_gates
+    description: "Configure quality gates and thresholds"
+    category: quality_gates
+    priority: high
+
+    input:
+      coverage_threshold: 80
+      test_pass_rate: 95
+      performance_budget_ms: 2000
+
+    expected_output:
+      must_contain:
+        - "gate"
+        - "threshold"
+        - "coverage"
+
+    validation:
+      schema_check: true
+
+  - id: tc004_flaky_test_handling
+    description: "Generate strategy for flaky test detection"
+    category: resilience
+    priority: medium
+
+    input:
+      test_results: [
+        { "name": "test_a", "run1": "pass", "run2": "fail", "run3": "pass" },
+        { "name": "test_b", "run1": "pass", "run2": "pass", "run3": "pass" }
+      ]
+
+    expected_output:
+      must_contain:
+        - "flaky"
+        - "retry"
+        - "strategy"
+
+    validation:
+      schema_check: true
+
+  - id: tc005_negative_invalid_config
+    description: "Handle invalid pipeline configuration gracefully"
+    category: error_handling
+    priority: medium
+
+    input:
+      pipeline_config: null
+
+    expected_output:
+      must_contain:
+        - "invalid"
+        - "require"
+
+    validation:
+      schema_check: true
+      allow_partial: true
+
+success_criteria:
+  pass_rate: 0.9
+  critical_pass_rate: 1.0
+  avg_reasoning_quality: 0.75
+  max_execution_time_ms: 300000
+
+metadata:
+  author: "qe-coordinator"
+  created: "2026-02-02"
+  coverage_target: >
+    CI/CD orchestration with 5 test cases covering basic pipeline setup,
+    parallel execution, quality gates, flaky test handling, and error cases.

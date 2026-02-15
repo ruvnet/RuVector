@@ -1,0 +1,459 @@
+# =============================================================================
+# AQE Skill Evaluation Test Suite: QE Code Intelligence v1.0.0
+# =============================================================================
+#
+# Comprehensive evaluation suite for the qe-code-intelligence skill.
+# Tests knowledge graph construction, semantic code search, dependency mapping,
+# and intelligent context retrieval with 80% token reduction.
+#
+# Schema: .claude/skills/.validation/schemas/skill-eval.schema.json
+# Validator: .claude/skills/qe-code-intelligence/scripts/validate-config.json
+#
+# Coverage:
+# - Codebase indexing and knowledge graph construction
+# - Semantic search with relevance ranking
+# - Dependency analysis and mapping
+# - Intelligent context retrieval with token optimization
+# - Entity relationship extraction
+#
+# =============================================================================
+
+skill: qe-code-intelligence
+version: 1.0.0
+description: >
+  Comprehensive evaluation suite for the qe-code-intelligence skill.
+  Tests knowledge graph construction, semantic code search, dependency mapping,
+  context-aware code understanding, and intelligent token budget optimization.
+
+# =============================================================================
+# Multi-Model Configuration
+# =============================================================================
+
+models_to_test:
+  - claude-3.5-sonnet
+  - claude-3-haiku
+
+# =============================================================================
+# MCP Integration Configuration
+# =============================================================================
+
+mcp_integration:
+  enabled: true
+  namespace: skill-validation
+
+  query_patterns: true
+  track_outcomes: true
+  store_patterns: true
+  share_learning: true
+  update_quality_gate: true
+
+  target_agents:
+    - qe-learning-coordinator
+    - qe-queen-coordinator
+    - qe-knowledge-graph
+    - qe-semantic-searcher
+
+# =============================================================================
+# ReasoningBank Learning Configuration
+# =============================================================================
+
+learning:
+  store_success_patterns: true
+  store_failure_patterns: true
+  pattern_ttl_days: 90
+  min_confidence_to_store: 0.7
+  cross_model_comparison: true
+
+# =============================================================================
+# Result Format Configuration
+# =============================================================================
+
+result_format:
+  json_output: true
+  markdown_report: true
+  include_raw_output: false
+  include_timing: true
+  include_token_usage: true
+
+# =============================================================================
+# Environment Setup
+# =============================================================================
+
+setup:
+  required_tools:
+    - jq
+  environment_variables:
+    KG_CACHE_ENABLED: "true"
+    SEARCH_LIMIT: "20"
+  fixtures: []
+
+# =============================================================================
+# TEST CASES
+# =============================================================================
+
+test_cases:
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Knowledge Graph Construction
+  # ---------------------------------------------------------------------------
+
+  - id: tc001_kg_codebase_indexing
+    description: "Build knowledge graph from TypeScript codebase with entity extraction"
+    category: knowledge_graph
+    priority: critical
+
+    input:
+      prompt: |
+        Index a TypeScript codebase with the following structure:
+        - Extract all classes, interfaces, functions, and types
+        - Map relationships: imports, calls, inheritance, implementation
+        - Generate embeddings for semantic search
+        - Support incremental indexing for changed files only
+
+        What entities and relationships should be extracted?
+      context:
+        language: typescript
+        scope: src/
+        incremental: true
+
+    expected_output:
+      must_contain:
+        - "entities"
+        - "classes"
+        - "functions"
+        - "relationships"
+        - "imports"
+        - "embeddings"
+      must_not_contain:
+        - "error"
+        - "cannot parse"
+      severity_classification: critical
+      finding_count:
+        min: 1
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+      reasoning_quality_min: 0.75
+
+  - id: tc002_entity_relationship_mapping
+    description: "Extract and validate entity-relationship metadata from code"
+    category: knowledge_graph
+    priority: high
+
+    input:
+      prompt: |
+        For this UserService class, extract:
+        1. Class metadata (name, file, line, complexity)
+        2. Method signatures
+        3. Dependencies (what it imports)
+        4. Relationships (what imports it)
+
+        ```typescript
+        export class UserService {
+          constructor(private db: Database) {}
+          async getUserById(id: string): Promise<User> { ... }
+        }
+        ```
+      context:
+        file: src/services/UserService.ts
+        extract_complexity: true
+
+    expected_output:
+      must_contain:
+        - "UserService"
+        - "Database"
+        - "complexity"
+        - "dependencies"
+        - "methods"
+      must_not_contain:
+        - "parse error"
+      severity_classification: high
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.75
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Semantic Code Search
+  # ---------------------------------------------------------------------------
+
+  - id: tc003_semantic_search_relevance
+    description: "Search code semantically and rank results by relevance"
+    category: semantic_search
+    priority: critical
+
+    input:
+      prompt: |
+        Perform semantic search in a codebase for "payment processing with stripe".
+        Return top 10 results ranked by relevance score (0-1).
+
+        Results should include:
+        - File location and line number
+        - Code snippet
+        - Relevance explanation
+
+        How would you score relevance?
+      context:
+        query: "payment processing with stripe"
+        limit: 10
+        threshold: 0.7
+
+    expected_output:
+      must_contain:
+        - "relevance"
+        - "score"
+        - "ranking"
+        - "snippet"
+        - "payment"
+        - "stripe"
+      must_not_contain:
+        - "keyword matching"
+      severity_classification: critical
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+      reasoning_quality_min: 0.75
+
+  - id: tc004_search_with_context_retrieval
+    description: "Return semantic search results with intelligent context"
+    category: semantic_search
+    priority: high
+
+    input:
+      prompt: |
+        Search for "authentication middleware" and return results with:
+        - Before/after code context (surrounding lines)
+        - Related entities (what it calls, what calls it)
+        - Usage examples if available
+
+        How would you prioritize context when token budget is limited?
+      context:
+        query: "authentication middleware"
+        include_context: true
+        max_tokens: 2000
+
+    expected_output:
+      must_contain:
+        - "authentication"
+        - "middleware"
+        - "context"
+        - "related"
+        - "usage"
+      finding_count:
+        min: 1
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.75
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Dependency Analysis
+  # ---------------------------------------------------------------------------
+
+  - id: tc005_dependency_mapping
+    description: "Map dependencies for a service with depth analysis"
+    category: dependencies
+    priority: critical
+
+    input:
+      prompt: |
+        Analyze dependencies for OrderService at depth 3:
+        - Direct dependencies (1 level)
+        - Transitive dependencies (2 levels)
+        - Deep dependencies (3 levels)
+
+        Calculate coupling metrics:
+        - Afferent coupling (incoming dependencies)
+        - Efferent coupling (outgoing dependencies)
+        - Instability score
+      context:
+        entry_point: src/services/OrderService.ts
+        depth: 3
+        direction: both
+
+    expected_output:
+      must_contain:
+        - "dependencies"
+        - "coupling"
+        - "afferent"
+        - "efferent"
+        - "instability"
+      must_not_contain:
+        - "unable"
+        - "cannot resolve"
+      severity_classification: critical
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+
+  - id: tc006_circular_dependency_detection
+    description: "Detect circular dependencies that could cause issues"
+    category: dependencies
+    priority: high
+
+    input:
+      prompt: |
+        How would you detect circular dependencies in a codebase?
+        A -> B -> C -> A
+
+        What are the implications of circular dependencies?
+        How would you report and fix them?
+      context:
+        analysis_type: circular_detection
+        fix_suggestions: true
+
+    expected_output:
+      must_contain:
+        - "circular"
+        - "dependencies"
+        - "cycle"
+        - "implications"
+        - "fix"
+      severity_classification: high
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.75
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Token Optimization
+  # ---------------------------------------------------------------------------
+
+  - id: tc007_intelligent_context_optimization
+    description: "Retrieve context with 80% token reduction"
+    category: optimization
+    priority: critical
+
+    input:
+      prompt: |
+        Retrieve context for "implement user registration" with:
+        - Token budget: 4000 tokens
+        - Include function signatures
+        - Include relevant examples (top 3)
+        - Summarize implementations when necessary
+        - Deduplicate related code
+
+        Achieve 80% token reduction compared to full context.
+        How would you measure the reduction?
+      context:
+        query: "implement user registration"
+        budget_tokens: 4000
+        target_reduction: 0.8
+
+    expected_output:
+      must_contain:
+        - "token"
+        - "optimization"
+        - "budget"
+        - "signature"
+        - "example"
+        - "reduction"
+      must_not_contain:
+        - "full context"
+      severity_classification: critical
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+      reasoning_quality_min: 0.75
+
+  - id: tc008_context_prioritization
+    description: "Prioritize context elements by relevance and importance"
+    category: optimization
+    priority: high
+
+    input:
+      prompt: |
+        When token budget is limited (2000 tokens), what would you prioritize?
+
+        1. Function signatures (essential)
+        2. Comments/documentation (helpful)
+        3. Full implementations (verbose)
+        4. Examples (useful)
+        5. Related entities (context)
+
+        How would you rank these for maximum usefulness?
+      context:
+        budget_tokens: 2000
+        prioritization: true
+
+    expected_output:
+      must_contain:
+        - "prioritize"
+        - "signatures"
+        - "relevant"
+        - "essential"
+        - "examples"
+      finding_count:
+        min: 1
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.75
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Negative Tests
+  # ---------------------------------------------------------------------------
+
+  - id: tc009_graceful_handling_missing_code
+    description: "Handle missing or unparseable code gracefully"
+    category: negative
+    priority: high
+
+    input:
+      prompt: |
+        How should the knowledge graph handle:
+        1. Files with syntax errors
+        2. Generated code (node_modules, dist/)
+        3. Non-supported languages
+        4. Binary files
+        5. Empty files
+
+        What error recovery strategies would you use?
+      context:
+        include_error_handling: true
+        exclude_patterns: ["node_modules", "dist", "*.min.js"]
+
+    expected_output:
+      must_contain:
+        - "graceful"
+        - "error"
+        - "handle"
+        - "skip"
+        - "recovery"
+      must_not_contain:
+        - "crash"
+        - "fail"
+      finding_count:
+        max: 2
+
+    validation:
+      schema_check: true
+      allow_partial: true
+
+# =============================================================================
+# SUCCESS CRITERIA
+# =============================================================================
+
+success_criteria:
+  pass_rate: 0.8
+  critical_pass_rate: 1.0
+  avg_reasoning_quality: 0.75
+  max_execution_time_ms: 300000
+  cross_model_variance: 0.15
+
+# =============================================================================
+# METADATA
+# =============================================================================
+
+metadata:
+  author: "qe-knowledge-graph"
+  created: "2026-02-02"
+  last_updated: "2026-02-02"
+  coverage_target: >
+    Knowledge graph construction with entity/relationship extraction, semantic
+    code search with relevance ranking, dependency analysis with coupling metrics,
+    circular dependency detection, and intelligent token budget optimization
+    achieving 80% token reduction.

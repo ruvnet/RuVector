@@ -1,0 +1,138 @@
+skill: qcsd-ideation-swarm
+version: 1.0.0
+description: >
+  Evaluation suite for QCSD ideation swarm orchestration.
+  Tests quality criteria generation, agent coordination, and cross-domain analysis.
+
+models_to_test:
+  - claude-3.5-sonnet
+  - claude-3-haiku
+
+mcp_integration:
+  enabled: true
+  namespace: skill-validation
+  query_patterns: true
+  track_outcomes: true
+  store_patterns: true
+  target_agents:
+    - qe-learning-coordinator
+    - qe-queen-coordinator
+
+learning:
+  store_success_patterns: true
+  pattern_ttl_days: 90
+
+result_format:
+  json_output: true
+  include_timing: true
+  include_token_usage: true
+
+setup:
+  required_tools:
+    - jq
+
+test_cases:
+
+  - id: tc001_quality_criteria_generation
+    description: "Generate quality criteria for epic"
+    category: qcsd
+    priority: critical
+
+    input:
+      epic_description: "Build user authentication system with OAuth2"
+      project_type: "web_application"
+
+    expected_output:
+      must_contain:
+        - "quality"
+        - "criteria"
+        - "security"
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+
+  - id: tc002_risk_assessment
+    description: "Perform QCSD risk assessment"
+    category: risk
+    priority: critical
+
+    input:
+      epic: "Payment processing system"
+      has_security: true
+      has_compliance: true
+
+    expected_output:
+      must_contain:
+        - "risk"
+        - "security"
+        - "compliance"
+
+    validation:
+      schema_check: true
+
+  - id: tc003_domain_flag_detection
+    description: "Detect HAS_UI, HAS_SECURITY, HAS_UX flags"
+    category: flags
+    priority: high
+
+    input:
+      content: "User dashboard with real-time notifications and payment"
+      analyze_flags: true
+
+    expected_output:
+      must_contain:
+        - "HAS_UI"
+        - "HAS_SECURITY"
+
+    validation:
+      schema_check: true
+
+  - id: tc004_agent_coordination
+    description: "Coordinate multi-agent swarm execution"
+    category: orchestration
+    priority: high
+
+    input:
+      domain_flags:
+        HAS_UI: true
+        HAS_SECURITY: true
+        HAS_UX: true
+
+    expected_output:
+      must_contain:
+        - "agent"
+        - "coordinate"
+
+    validation:
+      schema_check: true
+
+  - id: tc005_comprehensive_analysis
+    description: "Execute comprehensive QCSD analysis"
+    category: analysis
+    priority: medium
+
+    input:
+      epic: "Mobile app with payment and user profiles"
+      include_all_domains: true
+
+    expected_output:
+      must_contain:
+        - "analysis"
+        - "domain"
+
+    validation:
+      schema_check: true
+
+success_criteria:
+  pass_rate: 0.9
+  critical_pass_rate: 1.0
+  avg_reasoning_quality: 0.75
+  max_execution_time_ms: 300000
+
+metadata:
+  author: "qe-qcsd-orchestrator"
+  created: "2026-02-02"
+  coverage_target: >
+    QCSD ideation swarm with 5 test cases covering quality criteria generation,
+    risk assessment, domain flag detection, agent coordination, and comprehensive analysis.

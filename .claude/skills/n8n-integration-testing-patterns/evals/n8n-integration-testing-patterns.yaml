@@ -1,0 +1,522 @@
+# =============================================================================
+# AQE Skill Evaluation Test Suite: n8n Integration Testing Patterns v1.0.0
+# =============================================================================
+#
+# Comprehensive evaluation suite for n8n integration testing patterns.
+# Tests API contract validation, authentication testing, rate limiting,
+# response handling, and cross-service data consistency.
+#
+# Schema: .claude/skills/.validation/schemas/skill-eval.schema.json
+# Validator: .claude/skills/n8n-integration-testing-patterns/scripts/validate-config.json
+#
+# Coverage:
+# - API contract validation (request/response schemas)
+# - Authentication and authorization testing
+# - Rate limiting and throttling
+# - Error response handling
+# - Cross-service data consistency
+# - Integration scenario testing
+#
+# =============================================================================
+
+skill: n8n-integration-testing-patterns
+version: 1.0.0
+description: >
+  Comprehensive evaluation suite for n8n integration testing patterns.
+  Tests API contract validation, authentication flows, rate limit handling,
+  error responses, and cross-service data consistency for reliable
+  n8n workflow integrations.
+
+# =============================================================================
+# Multi-Model Configuration
+# =============================================================================
+
+models_to_test:
+  - claude-3.5-sonnet
+  - claude-3-haiku
+
+# =============================================================================
+# MCP Integration Configuration
+# =============================================================================
+
+mcp_integration:
+  enabled: true
+  namespace: skill-validation
+
+  query_patterns: true
+  track_outcomes: true
+  store_patterns: true
+  share_learning: true
+  update_quality_gate: true
+
+  target_agents:
+    - qe-learning-coordinator
+    - qe-queen-coordinator
+    - n8n-integration-test
+
+# =============================================================================
+# ReasoningBank Learning Configuration
+# =============================================================================
+
+learning:
+  store_success_patterns: true
+  store_failure_patterns: true
+  pattern_ttl_days: 90
+  min_confidence_to_store: 0.7
+  cross_model_comparison: true
+
+# =============================================================================
+# Result Format Configuration
+# =============================================================================
+
+result_format:
+  json_output: true
+  markdown_report: true
+  include_raw_output: false
+  include_timing: true
+  include_token_usage: true
+
+# =============================================================================
+# Environment Setup
+# =============================================================================
+
+setup:
+  required_tools:
+    - jq
+
+  environment_variables:
+    INTEGRATION_TESTING: "true"
+    MOCK_EXTERNAL_SERVICES: "true"
+
+# =============================================================================
+# TEST CASES
+# =============================================================================
+
+test_cases:
+  # ---------------------------------------------------------------------------
+  # CATEGORY: API Contract Validation
+  # ---------------------------------------------------------------------------
+
+  - id: tc001_request_schema_validation
+    description: "Validate outgoing request matches API contract"
+    category: contracts
+    priority: critical
+
+    input:
+      api_endpoint: "https://api.example.com/users"
+      contract:
+        method: POST
+        request_schema:
+          type: object
+          required: ["name", "email"]
+          properties:
+            name: { type: string }
+            email: { type: string, format: email }
+            age: { type: integer, minimum: 0 }
+      actual_request:
+        method: POST
+        body:
+          name: "John Doe"
+          email: "john@example.com"
+          age: 30
+      context:
+        validation_mode: strict
+
+    expected_output:
+      must_contain:
+        - "contract"
+        - "valid"
+        - "schema"
+        - "matches"
+      must_not_contain:
+        - "violation"
+      severity_classification: info
+      finding_count:
+        max: 1
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+      reasoning_quality_min: 0.75
+
+    timeout_ms: 30000
+
+  - id: tc002_response_schema_validation
+    description: "Validate API response matches contract"
+    category: contracts
+    priority: critical
+
+    input:
+      api_endpoint: "https://api.example.com/users/123"
+      contract:
+        response_schema:
+          type: object
+          required: ["id", "name", "email", "created_at"]
+          properties:
+            id: { type: integer }
+            name: { type: string }
+            email: { type: string, format: email }
+            created_at: { type: string, format: date-time }
+      actual_response:
+        id: 123
+        name: "John Doe"
+        email: "john@example.com"
+        created_at: "2025-02-02T10:00:00Z"
+      context:
+        validation: "strict_schema"
+
+    expected_output:
+      must_contain:
+        - "response"
+        - "valid"
+        - "schema"
+      must_not_contain:
+        - "missing"
+      severity_classification: info
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+
+  - id: tc003_contract_violation_detection
+    description: "Detect API contract violations"
+    category: contracts
+    priority: critical
+
+    input:
+      expected_contract:
+        response_fields:
+          - name: "id"
+            type: integer
+          - name: "status"
+            type: string
+            enum: ["active", "inactive"]
+      actual_response:
+        id: 123
+        status: "unknown"  # Violates enum
+        extra_field: "not_in_contract"
+      issues_detected:
+        - contract_violation: "status value not in enum"
+        - missing_field: false
+      context:
+        strictness: "enforce_contract"
+
+    expected_output:
+      must_contain:
+        - "violation"
+        - "contract"
+        - "detected"
+      must_not_contain:
+        - "valid"
+      severity_classification: high
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.85
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Authentication Testing
+  # ---------------------------------------------------------------------------
+
+  - id: tc004_api_key_authentication
+    description: "Test API key authentication flow"
+    category: authentication
+    priority: critical
+
+    input:
+      auth_type: "API Key"
+      test_cases:
+        - request: "with valid API key"
+          headers:
+            Authorization: "Bearer valid_key_12345"
+          expected: 200
+          status: passing
+        - request: "with invalid API key"
+          headers:
+            Authorization: "Bearer invalid_key"
+          expected: 401
+          status: passing
+        - request: "without API key"
+          headers: {}
+          expected: 401
+          status: passing
+      context:
+        standard: "Bearer token"
+
+    expected_output:
+      must_contain:
+        - "authentication"
+        - "API key"
+        - "tested"
+        - "401"
+      must_not_contain:
+        - "failed"
+      severity_classification: critical
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.85
+
+  - id: tc005_oauth_flow_validation
+    description: "Validate OAuth 2.0 authentication flow"
+    category: authentication
+    priority: critical
+
+    input:
+      oauth_config:
+        grant_type: "authorization_code"
+        scopes: ["read:user", "write:repo"]
+        token_endpoint: "https://api.github.com/login/oauth/access_token"
+      flow_validation:
+        - step: "Authorization request"
+          status: valid
+        - step: "Token exchange"
+          status: valid
+        - step: "Refresh token"
+          status: valid
+      context:
+        provider: "GitHub"
+
+    expected_output:
+      must_contain:
+        - "OAuth"
+        - "flow"
+        - "valid"
+        - "authorization"
+      must_not_contain:
+        - "invalid"
+      severity_classification: critical
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.85
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Rate Limiting and Throttling
+  # ---------------------------------------------------------------------------
+
+  - id: tc006_rate_limit_handling
+    description: "Test rate limit detection and handling"
+    category: rate_limiting
+    priority: high
+
+    input:
+      rate_limit_config:
+        requests_per_minute: 60
+        burst_limit: 10
+      test_scenario:
+        - requests: 55
+          response: 200
+          status: "within_limit"
+        - requests: 65
+          response: 429
+          status: "rate_limited"
+        - requests_burst: 12
+          response: 429
+          status: "burst_exceeded"
+      context:
+        recovery: "retry_after_header"
+
+    expected_output:
+      must_contain:
+        - "rate"
+        - "limit"
+        - "429"
+        - "handled"
+      must_not_contain:
+        - "failed"
+      severity_classification: high
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+
+  - id: tc007_exponential_backoff_retry
+    description: "Verify exponential backoff retry strategy"
+    category: rate_limiting
+    priority: high
+
+    input:
+      retry_strategy:
+        max_retries: 3
+        initial_delay_ms: 100
+        backoff_multiplier: 2
+        max_delay_ms: 10000
+      execution:
+        - attempt: 1
+          delay_ms: 100
+          status: fail
+        - attempt: 2
+          delay_ms: 200
+          status: fail
+        - attempt: 3
+          delay_ms: 400
+          status: success
+      context:
+        strategy: "exponential_backoff"
+
+    expected_output:
+      must_contain:
+        - "backoff"
+        - "retry"
+        - "exponential"
+      must_not_contain:
+        - "failed"
+      severity_classification: medium
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.75
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Error Handling
+  # ---------------------------------------------------------------------------
+
+  - id: tc008_http_error_responses
+    description: "Handle various HTTP error responses"
+    category: error_handling
+    priority: critical
+
+    input:
+      error_cases:
+        - status_code: 400
+          error: "Bad Request"
+          handling: "validate input and retry"
+        - status_code: 401
+          error: "Unauthorized"
+          handling: "refresh credentials"
+        - status_code: 403
+          error: "Forbidden"
+          handling: "log and skip"
+        - status_code: 429
+          error: "Too Many Requests"
+          handling: "wait and retry"
+        - status_code: 500
+          error: "Server Error"
+          handling: "retry with backoff"
+        - status_code: 503
+          error: "Service Unavailable"
+          handling: "retry later"
+      context:
+        all_handled: true
+
+    expected_output:
+      must_contain:
+        - "error"
+        - "handling"
+        - "responses"
+      must_not_contain:
+        - "unhandled"
+      severity_classification: high
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Cross-Service Data Consistency
+  # ---------------------------------------------------------------------------
+
+  - id: tc009_data_sync_validation
+    description: "Verify data consistency across services"
+    category: consistency
+    priority: high
+
+    input:
+      services:
+        - name: "User Service"
+          user_id: 123
+          email: "user@example.com"
+          updated_at: "2025-02-02T10:00:00Z"
+        - name: "Profile Service"
+          user_id: 123
+          email: "user@example.com"
+          updated_at: "2025-02-02T10:00:00Z"
+        - name: "Notification Service"
+          user_id: 123
+          email: "user@example.com"
+          updated_at: "2025-02-02T10:00:00Z"
+      consistency_check: "data_matches"
+      context:
+        requirement: "all_services_synchronized"
+
+    expected_output:
+      must_contain:
+        - "consistency"
+        - "data"
+        - "synchronized"
+      must_not_contain:
+        - "mismatch"
+      severity_classification: high
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+
+  - id: tc010_integration_scenario_e2e
+    description: "End-to-end integration scenario test"
+    category: integration
+    priority: high
+
+    input:
+      scenario: "User signup flow"
+      steps:
+        - step: 1
+          action: "User registers"
+          service: "Auth Service"
+          status: "success"
+        - step: 2
+          action: "Profile created"
+          service: "Profile Service"
+          status: "success"
+        - step: 3
+          action: "Welcome email sent"
+          service: "Email Service"
+          status: "success"
+        - step: 4
+          action: "Analytics recorded"
+          service: "Analytics Service"
+          status: "success"
+      overall_status: "passed"
+      context:
+        end_to_end: true
+
+    expected_output:
+      must_contain:
+        - "integration"
+        - "scenario"
+        - "passed"
+        - "e2e"
+      must_not_contain:
+        - "failed"
+      severity_classification: info
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.75
+
+# =============================================================================
+# SUCCESS CRITERIA
+# =============================================================================
+
+success_criteria:
+  pass_rate: 0.85
+  critical_pass_rate: 1.0
+  avg_reasoning_quality: 0.75
+  max_execution_time_ms: 300000
+  cross_model_variance: 0.15
+
+# =============================================================================
+# METADATA
+# =============================================================================
+
+metadata:
+  author: "n8n-integration-test"
+  created: "2026-02-02"
+  last_updated: "2026-02-02"
+  coverage_target: >
+    n8n integration testing patterns including API contract validation
+    (request/response schemas), authentication testing (API keys, OAuth),
+    rate limiting and exponential backoff retry, HTTP error handling,
+    data consistency across services, and end-to-end integration scenarios.
+    10 test cases with 85% pass rate and 100% critical pass rate.

@@ -1,0 +1,1205 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://agentic-qe.dev/schemas/chaos-engineering-resilience-output.json",
+  "title": "AQE Chaos Engineering Resilience Skill Output Schema",
+  "description": "Schema for chaos-engineering-resilience skill output validation. Extends the base skill-output template with chaos experiment types, fault injection structures, steady-state hypothesis, blast radius controls, and tool-specific outputs (Chaos Monkey, Litmus, Gremlin).",
+  "type": "object",
+  "required": ["skillName", "version", "timestamp", "status", "trustTier", "output"],
+  "properties": {
+    "skillName": {
+      "type": "string",
+      "const": "chaos-engineering-resilience",
+      "description": "Must be 'chaos-engineering-resilience'"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+(-[a-zA-Z0-9]+)?$",
+      "description": "Semantic version of the skill"
+    },
+    "timestamp": {
+      "type": "string",
+      "type": "string",
+      "description": "ISO 8601 timestamp of output generation"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["success", "partial", "failed", "skipped"],
+      "description": "Overall execution status"
+    },
+    "trustTier": {
+      "type": "integer",
+      "const": 3,
+      "description": "Trust tier 3 indicates full validation with eval suite"
+    },
+    "output": {
+      "type": "object",
+      "required": ["summary", "experiments", "resilienceScore"],
+      "properties": {
+        "summary": {
+          "type": "string",
+          "minLength": 50,
+          "maxLength": 2000,
+          "description": "Human-readable summary of chaos experiment results"
+        },
+        "resilienceScore": {
+          "$ref": "#/$defs/resilienceScore",
+          "description": "Overall resilience score"
+        },
+        "experiments": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/chaosExperiment"
+          },
+          "minItems": 1,
+          "maxItems": 100,
+          "description": "List of chaos experiments executed"
+        },
+        "weaknesses": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/weakness"
+          },
+          "maxItems": 50,
+          "description": "Discovered system weaknesses"
+        },
+        "recommendations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/recommendation"
+          },
+          "maxItems": 100,
+          "description": "Resilience improvement recommendations"
+        },
+        "metrics": {
+          "$ref": "#/$defs/chaosMetrics",
+          "description": "Chaos experiment metrics and statistics"
+        },
+        "categories": {
+          "$ref": "#/$defs/chaosCategoryBreakdown",
+          "description": "Breakdown by chaos category"
+        },
+        "artifacts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/artifact"
+          },
+          "maxItems": 50,
+          "description": "Generated reports and artifacts"
+        },
+        "timeline": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/timelineEvent"
+          },
+          "description": "Experiment execution timeline"
+        },
+        "experimentConfiguration": {
+          "$ref": "#/$defs/experimentConfiguration",
+          "description": "Configuration used for the chaos experiments"
+        }
+      }
+    },
+    "metadata": {
+      "$ref": "#/$defs/metadata"
+    },
+    "validation": {
+      "$ref": "#/$defs/validationResult"
+    },
+    "learning": {
+      "$ref": "#/$defs/learningData"
+    }
+  },
+  "$defs": {
+    "resilienceScore": {
+      "type": "object",
+      "required": ["value", "max"],
+      "properties": {
+        "value": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Resilience score (0=critical weaknesses, 100=fully resilient)"
+        },
+        "max": {
+          "type": "number",
+          "const": 100,
+          "description": "Maximum score is always 100"
+        },
+        "grade": {
+          "type": "string",
+          "pattern": "^[A-F][+-]?$",
+          "description": "Letter grade: A (90-100), B (80-89), C (70-79), D (60-69), F (<60)"
+        },
+        "trend": {
+          "type": "string",
+          "enum": ["improving", "stable", "declining", "unknown"],
+          "description": "Trend compared to previous experiments"
+        },
+        "riskLevel": {
+          "type": "string",
+          "enum": ["critical", "high", "medium", "low", "minimal"],
+          "description": "Overall risk level assessment"
+        }
+      }
+    },
+    "chaosExperiment": {
+      "type": "object",
+      "required": ["id", "name", "type", "result"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^CHAOS-\\d{3,6}$",
+          "description": "Unique experiment identifier (e.g., CHAOS-001)"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 5,
+          "maxLength": 200,
+          "description": "Experiment name describing the fault injection"
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 2000,
+          "description": "Detailed description of the experiment"
+        },
+        "type": {
+          "type": "string",
+          "enum": ["network", "resource", "state", "application", "infrastructure", "byzantine"],
+          "description": "Chaos experiment type: network=latency/partition, resource=CPU/memory/disk, state=data corruption, application=exception/deadlock, infrastructure=pod/node/zone failure, byzantine=consensus/split-brain"
+        },
+        "subType": {
+          "type": "string",
+          "enum": [
+            "latency",
+            "packet-loss",
+            "partition",
+            "dns-failure",
+            "bandwidth-limit",
+            "cpu-stress",
+            "memory-exhaust",
+            "disk-fill",
+            "iops-limit",
+            "process-kill",
+            "pod-terminate",
+            "node-drain",
+            "zone-failure",
+            "service-crash",
+            "exception-inject",
+            "deadlock",
+            "thread-contention",
+            "connection-pool-exhaust",
+            "malicious-node",
+            "message-corruption",
+            "split-brain",
+            "equivocation",
+            "spike-load",
+            "ramp-load"
+          ],
+          "description": "Specific fault injection subtype"
+        },
+        "target": {
+          "$ref": "#/$defs/experimentTarget",
+          "description": "Target of the chaos experiment"
+        },
+        "faultInjection": {
+          "$ref": "#/$defs/faultInjection",
+          "description": "Fault injection parameters"
+        },
+        "steadyStateHypothesis": {
+          "$ref": "#/$defs/steadyStateHypothesis",
+          "description": "Steady-state hypothesis for the experiment"
+        },
+        "blastRadius": {
+          "$ref": "#/$defs/blastRadius",
+          "description": "Blast radius controls"
+        },
+        "rollback": {
+          "$ref": "#/$defs/rollbackProcedure",
+          "description": "Rollback procedure"
+        },
+        "result": {
+          "type": "string",
+          "enum": ["passed", "failed", "partial", "expected-fail"],
+          "description": "Experiment result: passed=system resilient, failed=weakness found, partial=degraded but acceptable, expected-fail=known limitation validated"
+        },
+        "observations": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "maxItems": 20,
+          "description": "Observations during the experiment"
+        },
+        "recoveryTime": {
+          "type": "object",
+          "properties": {
+            "actual": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Actual recovery time in milliseconds"
+            },
+            "sla": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "SLA recovery time in milliseconds"
+            },
+            "withinSla": {
+              "type": "boolean",
+              "description": "Whether recovery was within SLA"
+            }
+          },
+          "description": "Recovery time metrics"
+        },
+        "duration": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Experiment duration in milliseconds"
+        },
+        "tool": {
+          "type": "string",
+          "enum": ["chaos-monkey", "litmus", "gremlin", "chaos-mesh", "pumba", "toxiproxy", "tc", "stress-ng", "kubectl", "custom"],
+          "description": "Chaos tool used for the experiment"
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Confidence in experiment results (0.0-1.0)"
+        }
+      }
+    },
+    "experimentTarget": {
+      "type": "object",
+      "required": ["type", "name"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["service", "pod", "node", "zone", "cluster", "network", "database", "cache", "queue", "external-api"],
+          "description": "Target type"
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 200,
+          "description": "Target name or identifier"
+        },
+        "namespace": {
+          "type": "string",
+          "maxLength": 100,
+          "description": "Kubernetes namespace if applicable"
+        },
+        "labels": {
+          "type": "object",
+          "additionalProperties": { "type": "string" },
+          "description": "Target selection labels"
+        },
+        "percentage": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Percentage of targets affected"
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Number of target instances"
+        }
+      }
+    },
+    "faultInjection": {
+      "type": "object",
+      "properties": {
+        "latency": {
+          "type": "object",
+          "properties": {
+            "delay": {
+              "type": "string",
+              "pattern": "^\\d+m?s$",
+              "description": "Latency delay (e.g., 500ms, 2s)"
+            },
+            "jitter": {
+              "type": "string",
+              "pattern": "^\\d+m?s$",
+              "description": "Latency jitter"
+            },
+            "correlation": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 100,
+              "description": "Correlation percentage"
+            }
+          },
+          "description": "Network latency injection"
+        },
+        "packetLoss": {
+          "type": "object",
+          "properties": {
+            "percentage": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 100,
+              "description": "Packet loss percentage"
+            },
+            "correlation": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 100,
+              "description": "Correlation percentage"
+            }
+          },
+          "description": "Packet loss injection"
+        },
+        "partition": {
+          "type": "object",
+          "properties": {
+            "direction": {
+              "type": "string",
+              "enum": ["both", "to", "from"],
+              "description": "Partition direction"
+            },
+            "targets": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "Targets to partition from"
+            }
+          },
+          "description": "Network partition"
+        },
+        "resource": {
+          "type": "object",
+          "properties": {
+            "cpu": {
+              "type": "object",
+              "properties": {
+                "load": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 100,
+                  "description": "CPU load percentage"
+                },
+                "workers": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "description": "Number of stress workers"
+                }
+              }
+            },
+            "memory": {
+              "type": "object",
+              "properties": {
+                "size": {
+                  "type": "string",
+                  "pattern": "^\\d+[KMGT]?i?[Bb]?$",
+                  "description": "Memory to consume (e.g., 500Mi, 2Gi)"
+                },
+                "percentage": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 100,
+                  "description": "Percentage of available memory"
+                }
+              }
+            },
+            "disk": {
+              "type": "object",
+              "properties": {
+                "size": {
+                  "type": "string",
+                  "pattern": "^\\d+[KMGT]?i?[Bb]?$",
+                  "description": "Disk space to fill"
+                },
+                "path": {
+                  "type": "string",
+                  "description": "Target path for disk fill"
+                },
+                "iopsLimit": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "description": "IOPS limit to impose"
+                }
+              }
+            }
+          },
+          "description": "Resource stress injection"
+        },
+        "process": {
+          "type": "object",
+          "properties": {
+            "action": {
+              "type": "string",
+              "enum": ["kill", "pause", "resume"],
+              "description": "Process action"
+            },
+            "signal": {
+              "type": "string",
+              "enum": ["SIGKILL", "SIGTERM", "SIGSTOP", "SIGCONT"],
+              "description": "Signal to send"
+            },
+            "pattern": {
+              "type": "string",
+              "description": "Process name pattern"
+            }
+          },
+          "description": "Process manipulation"
+        },
+        "exception": {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "description": "Exception type to inject"
+            },
+            "message": {
+              "type": "string",
+              "description": "Exception message"
+            },
+            "probability": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "description": "Probability of injection (0.0-1.0)"
+            }
+          },
+          "description": "Application exception injection"
+        },
+        "byzantine": {
+          "type": "object",
+          "properties": {
+            "attackType": {
+              "type": "string",
+              "enum": ["malicious-data", "message-corruption", "equivocation", "sybil", "leader-manipulation"],
+              "description": "Byzantine attack type"
+            },
+            "affectedNodes": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Number of Byzantine nodes"
+            },
+            "totalNodes": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Total nodes in cluster"
+            },
+            "toleranceThreshold": {
+              "type": "string",
+              "pattern": "^f\\s*<\\s*n/[23]$",
+              "description": "Byzantine fault tolerance formula (e.g., f < n/3)"
+            }
+          },
+          "description": "Byzantine fault injection"
+        },
+        "load": {
+          "type": "object",
+          "properties": {
+            "pattern": {
+              "type": "string",
+              "enum": ["spike", "ramp", "constant", "wave"],
+              "description": "Load pattern type"
+            },
+            "baseline": {
+              "type": "number",
+              "minimum": 0,
+              "description": "Baseline requests per second"
+            },
+            "peak": {
+              "type": "number",
+              "minimum": 0,
+              "description": "Peak requests per second"
+            },
+            "rampDuration": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Ramp duration in milliseconds"
+            }
+          },
+          "description": "Load pattern injection"
+        }
+      },
+      "description": "Fault injection parameters"
+    },
+    "steadyStateHypothesis": {
+      "type": "object",
+      "required": ["metrics"],
+      "properties": {
+        "description": {
+          "type": "string",
+          "maxLength": 500,
+          "description": "Hypothesis description"
+        },
+        "metrics": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/steadyStateMetric"
+          },
+          "minItems": 1,
+          "maxItems": 20,
+          "description": "Metrics defining steady state"
+        },
+        "before": {
+          "type": "object",
+          "properties": {
+            "validated": {
+              "type": "boolean",
+              "description": "Was steady state validated before experiment"
+            },
+            "timestamp": {
+              "type": "string",
+              "type": "string",
+              "description": "When pre-validation occurred"
+            }
+          }
+        },
+        "after": {
+          "type": "object",
+          "properties": {
+            "validated": {
+              "type": "boolean",
+              "description": "Was steady state validated after experiment"
+            },
+            "timestamp": {
+              "type": "string",
+              "type": "string",
+              "description": "When post-validation occurred"
+            },
+            "recoveryDuration": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Time to return to steady state in ms"
+            }
+          }
+        }
+      },
+      "description": "Steady-state hypothesis definition"
+    },
+    "steadyStateMetric": {
+      "type": "object",
+      "required": ["name", "operator", "threshold"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "enum": ["error-rate", "latency-p50", "latency-p95", "latency-p99", "throughput", "availability", "success-rate", "cpu-usage", "memory-usage", "queue-depth", "connection-count"],
+          "description": "Metric name"
+        },
+        "operator": {
+          "type": "string",
+          "enum": ["<", "<=", ">", ">=", "==", "!="],
+          "description": "Comparison operator"
+        },
+        "threshold": {
+          "description": "Threshold value"
+        },
+        "unit": {
+          "type": "string",
+          "enum": ["percent", "ms", "s", "rps", "count"],
+          "description": "Metric unit"
+        },
+        "actual": {
+          "description": "Actual measured value"
+        },
+        "passed": {
+          "type": "boolean",
+          "description": "Whether metric passed the threshold"
+        }
+      },
+      "description": "Individual steady-state metric"
+    },
+    "blastRadius": {
+      "type": "object",
+      "properties": {
+        "scope": {
+          "type": "string",
+          "enum": ["single-instance", "single-service", "multi-service", "zone", "region", "cluster"],
+          "description": "Blast radius scope"
+        },
+        "maxImpact": {
+          "type": "object",
+          "properties": {
+            "pods": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Maximum pods affected"
+            },
+            "services": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Maximum services affected"
+            },
+            "percentage": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 100,
+              "description": "Maximum percentage affected"
+            }
+          }
+        },
+        "safeguards": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "description": "Safety controls in place"
+        },
+        "emergencyStop": {
+          "type": "boolean",
+          "description": "Whether emergency stop is enabled"
+        }
+      },
+      "description": "Blast radius controls"
+    },
+    "rollbackProcedure": {
+      "type": "object",
+      "properties": {
+        "automatic": {
+          "type": "boolean",
+          "description": "Whether rollback is automatic"
+        },
+        "trigger": {
+          "type": "string",
+          "maxLength": 500,
+          "description": "Condition that triggers rollback"
+        },
+        "steps": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "maxItems": 20,
+          "description": "Manual rollback steps"
+        },
+        "executed": {
+          "type": "boolean",
+          "description": "Whether rollback was executed"
+        },
+        "reason": {
+          "type": "string",
+          "maxLength": 500,
+          "description": "Reason for rollback if executed"
+        }
+      },
+      "description": "Rollback procedure"
+    },
+    "weakness": {
+      "type": "object",
+      "required": ["id", "title", "severity", "category"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^WEAK-\\d{3,6}$",
+          "description": "Unique weakness identifier"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 200,
+          "description": "Weakness title"
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 2000,
+          "description": "Detailed description"
+        },
+        "severity": {
+          "type": "string",
+          "enum": ["critical", "high", "medium", "low"],
+          "description": "Weakness severity"
+        },
+        "category": {
+          "type": "string",
+          "enum": ["availability", "latency", "data-integrity", "security", "scalability", "recovery", "observability"],
+          "description": "Weakness category"
+        },
+        "discoveredBy": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^CHAOS-\\d{3,6}$"
+          },
+          "description": "Experiments that discovered this weakness"
+        },
+        "impact": {
+          "type": "string",
+          "maxLength": 1000,
+          "description": "Business impact of this weakness"
+        },
+        "remediation": {
+          "type": "string",
+          "maxLength": 2000,
+          "description": "Suggested remediation"
+        },
+        "runbook": {
+          "type": "string",
+          "maxLength": 5000,
+          "description": "Generated runbook for handling this weakness"
+        }
+      },
+      "description": "Discovered weakness"
+    },
+    "recommendation": {
+      "type": "object",
+      "required": ["id", "title", "priority"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^REC-\\d{3,6}$",
+          "description": "Unique recommendation identifier"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 200,
+          "description": "Recommendation title"
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 2000,
+          "description": "Detailed recommendation"
+        },
+        "priority": {
+          "type": "string",
+          "enum": ["critical", "high", "medium", "low"],
+          "description": "Implementation priority"
+        },
+        "effort": {
+          "type": "string",
+          "enum": ["trivial", "low", "medium", "high", "major"],
+          "description": "Estimated effort"
+        },
+        "impact": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10,
+          "description": "Expected resilience impact (1-10)"
+        },
+        "category": {
+          "type": "string",
+          "enum": ["circuit-breaker", "retry-policy", "timeout-config", "resource-limit", "auto-scaling", "redundancy", "monitoring", "recovery-automation"],
+          "description": "Recommendation category"
+        },
+        "relatedWeaknesses": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^WEAK-\\d{3,6}$"
+          },
+          "description": "IDs of related weaknesses"
+        },
+        "codeExample": {
+          "type": "string",
+          "maxLength": 5000,
+          "description": "Code example for implementation"
+        },
+        "resources": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["title", "url"],
+            "properties": {
+              "title": { "type": "string" },
+              "url": { "type": "string" }
+            }
+          },
+          "maxItems": 10,
+          "description": "External resources"
+        }
+      },
+      "description": "Resilience recommendation"
+    },
+    "chaosCategoryBreakdown": {
+      "type": "object",
+      "description": "Chaos experiment category breakdown",
+      "properties": {
+        "network": {
+          "$ref": "#/$defs/chaosCategoryScore",
+          "description": "Network chaos (latency, partition, packet loss)"
+        },
+        "resource": {
+          "$ref": "#/$defs/chaosCategoryScore",
+          "description": "Resource chaos (CPU, memory, disk)"
+        },
+        "state": {
+          "$ref": "#/$defs/chaosCategoryScore",
+          "description": "State chaos (data corruption, inconsistency)"
+        },
+        "application": {
+          "$ref": "#/$defs/chaosCategoryScore",
+          "description": "Application chaos (exceptions, deadlocks)"
+        },
+        "infrastructure": {
+          "$ref": "#/$defs/chaosCategoryScore",
+          "description": "Infrastructure chaos (pod/node/zone failure)"
+        },
+        "byzantine": {
+          "$ref": "#/$defs/chaosCategoryScore",
+          "description": "Byzantine faults (consensus, split-brain)"
+        }
+      },
+      "additionalProperties": false
+    },
+    "chaosCategoryScore": {
+      "type": "object",
+      "required": ["tested", "score"],
+      "properties": {
+        "tested": {
+          "type": "boolean",
+          "description": "Whether this category was tested"
+        },
+        "score": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Category resilience score (100 = fully resilient)"
+        },
+        "grade": {
+          "type": "string",
+          "pattern": "^[A-F][+-]?$",
+          "description": "Letter grade"
+        },
+        "experimentCount": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of experiments in this category"
+        },
+        "passedCount": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of passed experiments"
+        },
+        "failedCount": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of failed experiments"
+        },
+        "weaknessCount": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Weaknesses found in this category"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["pass", "fail", "warn", "skip"],
+          "description": "Category status"
+        }
+      }
+    },
+    "chaosMetrics": {
+      "type": "object",
+      "properties": {
+        "totalExperiments": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total chaos experiments executed"
+        },
+        "passedExperiments": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Experiments that passed"
+        },
+        "failedExperiments": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Experiments that failed (weaknesses found)"
+        },
+        "skippedExperiments": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Experiments skipped"
+        },
+        "weaknessesFound": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total weaknesses discovered"
+        },
+        "criticalWeaknesses": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Critical severity weaknesses"
+        },
+        "servicesAffected": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of services affected"
+        },
+        "averageRecoveryTime": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Average recovery time in ms"
+        },
+        "maxRecoveryTime": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Maximum recovery time in ms"
+        },
+        "rollbacksTriggered": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of rollbacks triggered"
+        },
+        "safetyViolations": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Safety limit violations"
+        },
+        "totalDurationMs": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total experiment duration"
+        },
+        "coverage": {
+          "type": "object",
+          "properties": {
+            "network": { "type": "boolean" },
+            "resource": { "type": "boolean" },
+            "state": { "type": "boolean" },
+            "application": { "type": "boolean" },
+            "infrastructure": { "type": "boolean" },
+            "byzantine": { "type": "boolean" }
+          },
+          "description": "Chaos category coverage"
+        }
+      }
+    },
+    "experimentConfiguration": {
+      "type": "object",
+      "properties": {
+        "target": {
+          "type": "string",
+          "description": "Primary target system or service"
+        },
+        "environment": {
+          "type": "string",
+          "enum": ["development", "staging", "production", "ci"],
+          "description": "Target environment"
+        },
+        "chaosTypes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["network", "resource", "state", "application", "infrastructure", "byzantine"]
+          },
+          "description": "Types of chaos tested"
+        },
+        "tools": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["chaos-monkey", "litmus", "gremlin", "chaos-mesh", "pumba", "toxiproxy", "tc", "stress-ng", "kubectl", "custom"]
+          },
+          "description": "Chaos tools used"
+        },
+        "blastRadiusLimit": {
+          "type": "string",
+          "enum": ["single-instance", "single-service", "multi-service", "zone", "region", "cluster"],
+          "description": "Maximum blast radius allowed"
+        },
+        "duration": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total experiment window in minutes"
+        },
+        "progressionStrategy": {
+          "type": "string",
+          "enum": ["gradual", "immediate", "adaptive"],
+          "description": "How experiments progress in intensity"
+        }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "required": ["type", "path"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["report", "runbook", "data", "log", "config", "diagram"],
+          "description": "Artifact type"
+        },
+        "path": {
+          "type": "string",
+          "maxLength": 500,
+          "description": "Path to artifact"
+        },
+        "format": {
+          "type": "string",
+          "enum": ["json", "yaml", "html", "md", "txt", "png", "svg"],
+          "description": "Artifact format"
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 500,
+          "description": "Artifact description"
+        },
+        "sizeBytes": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "File size"
+        }
+      }
+    },
+    "timelineEvent": {
+      "type": "object",
+      "required": ["timestamp", "event"],
+      "properties": {
+        "timestamp": {
+          "type": "string",
+          "type": "string",
+          "description": "Event timestamp"
+        },
+        "event": {
+          "type": "string",
+          "maxLength": 200,
+          "description": "Event description"
+        },
+        "type": {
+          "type": "string",
+          "enum": ["start", "checkpoint", "inject", "observe", "recover", "rollback", "complete", "warning", "error"],
+          "description": "Event type"
+        },
+        "experimentId": {
+          "type": "string",
+          "pattern": "^CHAOS-\\d{3,6}$",
+          "description": "Related experiment ID"
+        },
+        "durationMs": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Duration since previous event"
+        }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "executionTimeMs": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 3600000,
+          "description": "Total execution time"
+        },
+        "toolsUsed": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["chaos-monkey", "litmus", "gremlin", "chaos-mesh", "pumba", "toxiproxy", "tc", "stress-ng", "kubectl", "custom"]
+          },
+          "uniqueItems": true,
+          "description": "Chaos tools used"
+        },
+        "agentId": {
+          "type": "string",
+          "pattern": "^qe-[a-z][a-z0-9-]*$",
+          "description": "Agent ID (e.g., qe-chaos-engineer)"
+        },
+        "modelUsed": {
+          "type": "string",
+          "description": "LLM model used"
+        },
+        "inputHash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$",
+          "description": "SHA-256 hash of input"
+        },
+        "targetPath": {
+          "type": "string",
+          "description": "Target system path"
+        },
+        "environment": {
+          "type": "string",
+          "enum": ["development", "staging", "production", "ci"],
+          "description": "Execution environment"
+        },
+        "retryCount": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10,
+          "description": "Number of retries"
+        }
+      }
+    },
+    "validationResult": {
+      "type": "object",
+      "properties": {
+        "schemaValid": {
+          "type": "boolean",
+          "description": "Passes schema validation"
+        },
+        "contentValid": {
+          "type": "boolean",
+          "description": "Passes content validation"
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Confidence score"
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "maxItems": 20
+        },
+        "errors": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "maxItems": 20
+        },
+        "validatorVersion": {
+          "type": "string",
+          "pattern": "^\\d+\\.\\d+\\.\\d+$"
+        }
+      }
+    },
+    "learningData": {
+      "type": "object",
+      "properties": {
+        "patternsDetected": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "maxItems": 20,
+          "description": "Chaos patterns detected"
+        },
+        "reward": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Reward signal (0.0-1.0)"
+        },
+        "feedbackLoop": {
+          "type": "object",
+          "properties": {
+            "previousRunId": {
+              "type": "string",
+              "type": "string"
+            },
+            "improvement": {
+              "type": "number",
+              "minimum": -1,
+              "maximum": 1
+            }
+          }
+        },
+        "newResiliencePatterns": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "pattern": { "type": "string" },
+              "category": { "type": "string" },
+              "confidence": { "type": "number" }
+            }
+          },
+          "description": "New resilience patterns learned"
+        }
+      }
+    }
+  }
+}

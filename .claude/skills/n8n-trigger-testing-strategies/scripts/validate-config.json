@@ -1,0 +1,34 @@
+{
+  "skillName": "n8n-trigger-testing-strategies",
+  "skillVersion": "1.0.0",
+  "requiredTools": [
+    "jq"
+  ],
+  "optionalTools": [],
+  "schemaPath": "schemas/output.json",
+  "requiredFields": [
+    "skillName",
+    "status",
+    "output",
+    "output.summary",
+    "output.triggerTests",
+    "output.triggerAnalysis"
+  ],
+  "requiredNonEmptyFields": [],
+  "mustContainTerms": [
+    "trigger",
+    "n8n"
+  ],
+  "mustNotContainTerms": [
+    "TODO",
+    "FIXME"
+  ],
+  "enumValidations": {
+    ".status": [
+      "success",
+      "partial",
+      "failed",
+      "skipped"
+    ]
+  }
+}

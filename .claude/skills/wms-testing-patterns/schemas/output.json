@@ -1,0 +1,150 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentic-qe.dev/schemas/skills/wms-testing-patterns/output.json",
+  "title": "WMS Testing Patterns Skill Output Schema",
+  "description": "Schema for WMS testing patterns skill output. Covers inventory operations, pick/pack/ship workflows, EDI compliance, RF scanning, and WMS-ERP integration testing.",
+  "allOf": [
+    {
+      "$comment": "Base schema structure from skill-output.template.json",
+      "type": "object",
+      "required": ["skillName", "version", "timestamp", "status", "trustTier", "output"],
+      "properties": {
+        "skillName": {
+          "type": "string",
+          "const": "wms-testing-patterns"
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^\\d+\\.\\d+\\.\\d+(-[a-zA-Z0-9]+)?$"
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["success", "partial", "failed", "skipped"]
+        },
+        "trustTier": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 3
+        }
+      }
+    }
+  ],
+  "properties": {
+    "output": {
+      "type": "object",
+      "required": ["summary", "testingDomain", "workflowCoverage"],
+      "properties": {
+        "summary": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 2000,
+          "description": "Human-readable summary of WMS testing analysis"
+        },
+        "testingDomain": {
+          "type": "string",
+          "enum": ["inventory", "pick-pack-ship", "edi", "rf-scanning", "allocation", "integration", "mixed"],
+          "description": "Primary WMS testing domain"
+        },
+        "wmsPlatform": {
+          "type": "string",
+          "enum": ["blue-yonder", "manhattan", "sap-ewm", "oracle-wms", "generic", "custom"],
+          "description": "Target WMS platform"
+        },
+        "workflowCoverage": {
+          "type": "object",
+          "required": ["totalWorkflows", "coveredWorkflows"],
+          "properties": {
+            "totalWorkflows": { "type": "integer", "minimum": 0 },
+            "coveredWorkflows": { "type": "integer", "minimum": 0 },
+            "coveragePercentage": { "type": "number", "minimum": 0, "maximum": 100 }
+          }
+        },
+        "testRecommendations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "testType", "description"],
+            "properties": {
+              "id": { "type": "string", "pattern": "^WMS-\\d{3,6}$" },
+              "testType": { "type": "string", "enum": ["inventory", "workflow", "edi", "rf", "integration", "performance"] },
+              "description": { "type": "string", "maxLength": 500 },
+              "priority": { "type": "string", "enum": ["critical", "high", "medium", "low"] }
+            }
+          },
+          "maxItems": 50
+        },
+        "findings": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "title", "severity", "category"],
+            "properties": {
+              "id": { "type": "string", "pattern": "^WMS-\\d{3,6}$" },
+              "title": { "type": "string", "minLength": 5, "maxLength": 200 },
+              "description": { "type": "string", "maxLength": 2000 },
+              "severity": { "type": "string", "enum": ["critical", "high", "medium", "low", "info"] },
+              "category": { "type": "string", "enum": ["inventory-accuracy", "workflow-gap", "edi-compliance", "rf-scanning", "integration-issue", "performance-risk"] },
+              "remediation": { "type": "string" }
+            }
+          },
+          "maxItems": 200
+        },
+        "recommendations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "title", "priority"],
+            "properties": {
+              "id": { "type": "string", "pattern": "^REC-\\d{3,6}$" },
+              "title": { "type": "string", "maxLength": 200 },
+              "description": { "type": "string", "maxLength": 2000 },
+              "priority": { "type": "string", "enum": ["critical", "high", "medium", "low"] },
+              "effort": { "type": "string", "enum": ["trivial", "low", "medium", "high", "major"] }
+            }
+          },
+          "maxItems": 50
+        },
+        "metrics": {
+          "type": "object",
+          "properties": {
+            "inventoryAccuracyTests": { "type": "integer", "minimum": 0 },
+            "workflowTests": { "type": "integer", "minimum": 0 },
+            "ediComplianceTests": { "type": "integer", "minimum": 0 },
+            "rfScanningTests": { "type": "integer", "minimum": 0 },
+            "integrationTests": { "type": "integer", "minimum": 0 },
+            "coveragePercentage": { "type": "number", "minimum": 0, "maximum": 100 }
+          }
+        }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "executionTimeMs": { "type": "integer", "minimum": 0 },
+        "toolsUsed": { "type": "array", "items": { "type": "string" } },
+        "agentId": { "type": "string", "pattern": "^qe-[a-z][a-z0-9-]*$" },
+        "wmsPlatform": { "type": "string" },
+        "ediStandards": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "validation": {
+      "type": "object",
+      "properties": {
+        "schemaValid": { "type": "boolean" },
+        "contentValid": { "type": "boolean" },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "learning": {
+      "type": "object",
+      "properties": {
+        "patternsDetected": { "type": "array", "items": { "type": "string" } },
+        "reward": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    }
+  }
+}

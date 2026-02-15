@@ -1,0 +1,544 @@
+# =============================================================================
+# AQE Skill Evaluation Test Suite: Localization Testing v1.0.0
+# =============================================================================
+#
+# Comprehensive evaluation suite for the localization-testing skill.
+# Tests translation coverage, locale-specific formats, RTL validation,
+# Unicode support, and hardcoded string detection across multiple languages.
+#
+# Schema: .claude/skills/.validation/schemas/skill-eval.schema.json
+# Validator: .claude/skills/localization-testing/scripts/validate-config.json
+#
+# Coverage:
+# - Translation coverage validation
+# - Locale format testing (date, time, currency)
+# - Right-to-left (RTL) language support
+# - Unicode character handling
+# - Hardcoded string detection
+#
+# =============================================================================
+
+skill: localization-testing
+version: 1.0.0
+description: >
+  Comprehensive evaluation suite for the localization-testing skill.
+  Tests translation coverage metrics, locale-specific formatting validation,
+  RTL layout support, Unicode character handling, and detection of hardcoded
+  strings that should be externalized.
+
+# =============================================================================
+# Multi-Model Configuration
+# =============================================================================
+
+models_to_test:
+  - claude-3.5-sonnet    # Primary model (high accuracy expected)
+  - claude-3-haiku       # Fast model (minimum quality threshold)
+
+# =============================================================================
+# MCP Integration Configuration
+# =============================================================================
+
+mcp_integration:
+  enabled: true
+  namespace: skill-validation
+
+  query_patterns: true
+  track_outcomes: true
+  store_patterns: true
+  share_learning: true
+  update_quality_gate: true
+
+  target_agents:
+    - qe-learning-coordinator
+    - qe-queen-coordinator
+    - qe-test-generator
+
+# =============================================================================
+# ReasoningBank Learning Configuration
+# =============================================================================
+
+learning:
+  store_success_patterns: true
+  store_failure_patterns: true
+  pattern_ttl_days: 90
+  min_confidence_to_store: 0.7
+  cross_model_comparison: true
+
+# =============================================================================
+# Result Format Configuration
+# =============================================================================
+
+result_format:
+  json_output: true
+  markdown_report: true
+  include_raw_output: false
+  include_timing: true
+  include_token_usage: true
+
+# =============================================================================
+# Environment Setup
+# =============================================================================
+
+setup:
+  required_tools:
+    - jq       # JSON parsing for validation results
+
+  environment_variables:
+    LOCALIZATION_ENABLED: "true"
+    SUPPORTED_LOCALES: "en-US,fr-FR,de-DE,ja-JP,ar-SA,he-IL"
+    TRANSLATION_COVERAGE_MIN: "90"
+
+# =============================================================================
+# TEST CASES
+# =============================================================================
+
+test_cases:
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Translation Coverage Testing
+  # ---------------------------------------------------------------------------
+
+  - id: tc001_translation_coverage_complete
+    description: "Detect complete translation coverage across all locales"
+    category: translation
+    priority: critical
+
+    input:
+      locales:
+        - en-US
+        - fr-FR
+        - de-DE
+      translations:
+        en-US:
+          home_title: "Welcome"
+          home_subtitle: "Get started"
+          button_submit: "Submit"
+          button_cancel: "Cancel"
+        fr-FR:
+          home_title: "Bienvenue"
+          home_subtitle: "Commencer"
+          button_submit: "Soumettre"
+          button_cancel: "Annuler"
+        de-DE:
+          home_title: "Willkommen"
+          home_subtitle: "Erste Schritte"
+          button_submit: "Senden"
+          button_cancel: "Abbrechen"
+      context:
+        type: json
+        framework: i18n
+
+    expected_output:
+      must_contain:
+        - "coverage"
+        - "100"
+        - "complete"
+      must_not_contain:
+        - "missing"
+        - "incomplete"
+      severity_classification: info
+      finding_count:
+        max: 1
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+      reasoning_quality_min: 0.75
+
+    timeout_ms: 30000
+
+  - id: tc002_translation_coverage_incomplete
+    description: "Detect missing translations in specific locales"
+    category: translation
+    priority: critical
+
+    input:
+      locales:
+        - en-US
+        - fr-FR
+        - de-DE
+      translations:
+        en-US:
+          home_title: "Welcome"
+          home_subtitle: "Get started"
+          button_submit: "Submit"
+          settings_title: "Settings"
+        fr-FR:
+          home_title: "Bienvenue"
+          button_submit: "Soumettre"
+        de-DE:
+          home_title: "Willkommen"
+          home_subtitle: "Erste Schritte"
+          button_submit: "Senden"
+          settings_title: "Einstellungen"
+      context:
+        type: json
+        framework: i18n
+
+    expected_output:
+      must_contain:
+        - "missing"
+        - "home_subtitle"
+        - "button_submit"
+        - "french"
+      must_not_contain:
+        - "100% coverage"
+      severity_classification: high
+      finding_count:
+        min: 1
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+      reasoning_quality_min: 0.75
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Locale Format Validation
+  # ---------------------------------------------------------------------------
+
+  - id: tc003_date_format_validation
+    description: "Validate locale-specific date formats (en-US, fr-FR, ja-JP)"
+    category: format
+    priority: critical
+
+    input:
+      samples:
+        - locale: en-US
+          expected: "10/24/2025"
+          actual: "10/24/2025"
+        - locale: fr-FR
+          expected: "24/10/2025"
+          actual: "24/10/2025"
+        - locale: ja-JP
+          expected: "2025/10/24"
+          actual: "2025/10/24"
+      context:
+        language: javascript
+        date: "2025-10-24"
+
+    expected_output:
+      must_contain:
+        - "date format"
+        - "locale-specific"
+        - "correct"
+      must_not_contain:
+        - "incorrect format"
+      severity_classification: info
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.7
+
+  - id: tc004_currency_format_locale_specific
+    description: "Detect locale-specific currency formatting differences"
+    category: format
+    priority: high
+
+    input:
+      samples:
+        - locale: en-US
+          currency: USD
+          amount: 1234.56
+          expected: "$1,234.56"
+          actual: "$1,234.56"
+        - locale: de-DE
+          currency: EUR
+          amount: 1234.56
+          expected: "1.234,56 €"
+          actual: "1,234.56 €"  # Wrong format
+      context:
+        language: javascript
+
+    expected_output:
+      must_contain:
+        - "currency"
+        - "format"
+        - "incorrect"
+      must_match_regex:
+        - "de-DE|EUR"
+      severity_classification: medium
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.7
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: RTL Language Support
+  # ---------------------------------------------------------------------------
+
+  - id: tc005_rtl_layout_support
+    description: "Validate right-to-left (RTL) language layout mirroring"
+    category: rtl
+    priority: critical
+
+    input:
+      html: |
+        <html>
+          <body>
+            <nav>Navigation</nav>
+            <main>Content</main>
+            <sidebar>Sidebar</sidebar>
+          </body>
+        </html>
+      locale: ar-SA
+      context:
+        type: html
+        language: arabic
+
+    expected_output:
+      must_contain:
+        - "rtl"
+        - "right-to-left"
+        - "direction"
+        - "mirrored"
+      must_not_contain:
+        - "ltr"
+      severity_classification: critical
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+
+  - id: tc006_rtl_icon_mirroring
+    description: "Verify that directional icons are mirrored for RTL languages"
+    category: rtl
+    priority: high
+
+    input:
+      icons:
+        - name: "back-arrow"
+          direction: "left"
+          required_for_rtl: true
+        - name: "forward-arrow"
+          direction: "right"
+          required_for_rtl: true
+      locale: he-IL
+      context:
+        type: ui
+        language: hebrew
+
+    expected_output:
+      must_contain:
+        - "mirrored"
+        - "arrow"
+        - "icon"
+      must_not_contain:
+        - "no mirroring"
+      severity_classification: medium
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.7
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Unicode Support
+  # ---------------------------------------------------------------------------
+
+  - id: tc007_unicode_cjk_characters
+    description: "Validate handling of CJK (Chinese, Japanese, Korean) characters"
+    category: unicode
+    priority: critical
+
+    input:
+      samples:
+        - text: "日本語テスト"
+          language: ja-JP
+          description: "Japanese text"
+        - text: "中文测试"
+          language: zh-CN
+          description: "Chinese text"
+        - text: "한국어 테스트"
+          language: ko-KR
+          description: "Korean text"
+      context:
+        encoding: UTF-8
+        type: text
+
+    expected_output:
+      must_contain:
+        - "unicode"
+        - "supported"
+        - "CJK"
+      must_not_contain:
+        - "encoding error"
+      severity_classification: info
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.7
+
+  - id: tc008_unicode_emoji_support
+    description: "Verify emoji and extended Unicode character support"
+    category: unicode
+    priority: high
+
+    input:
+      samples:
+        - text: "Hello 🌍!"
+          expected_display: true
+        - text: "Task ✓ Complete"
+          expected_display: true
+        - text: "Alert ⚠️ Warning"
+          expected_display: true
+      context:
+        encoding: UTF-8
+        type: text
+
+    expected_output:
+      must_contain:
+        - "emoji"
+        - "supported"
+      must_not_contain:
+        - "not supported"
+      severity_classification: low
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.6
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Hardcoded String Detection
+  # ---------------------------------------------------------------------------
+
+  - id: tc009_hardcoded_strings_in_code
+    description: "Detect hardcoded user-facing strings that should be externalized"
+    category: hardcoded
+    priority: critical
+
+    input:
+      code: |
+        function renderPage() {
+          const title = "Welcome to our app";
+          const subtitle = "Get started today";
+          const button = "Click me";
+
+          return {
+            title: title,
+            subtitle: subtitle,
+            button: button
+          };
+        }
+      context:
+        language: javascript
+        framework: react
+
+    expected_output:
+      must_contain:
+        - "hardcoded"
+        - "Welcome"
+        - "externalize"
+        - "translation key"
+      must_not_contain:
+        - "no issues"
+      severity_classification: high
+      finding_count:
+        min: 3
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+      reasoning_quality_min: 0.75
+
+  - id: tc010_no_hardcoded_strings
+    description: "Verify code with proper i18n patterns is not flagged"
+    category: hardcoded
+    priority: high
+
+    input:
+      code: |
+        import { useTranslation } from 'react-i18next';
+
+        function HomePage() {
+          const { t } = useTranslation();
+
+          return {
+            title: t('home.title'),
+            subtitle: t('home.subtitle'),
+            button: t('actions.submit')
+          };
+        }
+      context:
+        language: javascript
+        framework: react
+        i18n_library: react-i18next
+
+    expected_output:
+      must_contain:
+        - "proper"
+        - "i18n"
+        - "externalized"
+      must_not_contain:
+        - "hardcoded"
+        - "critical"
+      severity_classification: info
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.7
+      allow_partial: true
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Cultural Appropriateness
+  # ---------------------------------------------------------------------------
+
+  - id: tc011_cultural_icons_appropriateness
+    description: "Detect potentially culturally inappropriate icons or colors"
+    category: cultural
+    priority: high
+
+    input:
+      icons:
+        - name: "hand-gesture"
+          description: "OK sign"
+          locale: ar-SA
+          issue: "Offensive in some Arabic cultures"
+        - name: "clock"
+          description: "Time indicator"
+          locale: universal
+          issue: "None"
+      colors:
+        - color: "white"
+          locale: western
+          issue: "Wedding color"
+        - color: "white"
+          locale: asian
+          issue: "Mourning color"
+      context:
+        type: ui
+        market: global
+
+    expected_output:
+      must_contain:
+        - "cultural"
+        - "context-dependent"
+      must_not_contain: []
+      severity_classification: medium
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.6
+
+# =============================================================================
+# SUCCESS CRITERIA
+# =============================================================================
+
+success_criteria:
+  pass_rate: 0.85
+  critical_pass_rate: 1.0
+  avg_reasoning_quality: 0.75
+  max_execution_time_ms: 300000
+  cross_model_variance: 0.15
+
+# =============================================================================
+# METADATA
+# =============================================================================
+
+metadata:
+  author: "qe-test-generator"
+  created: "2026-02-02"
+  last_updated: "2026-02-02"
+  coverage_target: >
+    Localization testing including translation coverage validation,
+    locale-specific formatting (date, time, currency), RTL language support,
+    Unicode character handling, hardcoded string detection, and cultural
+    appropriateness. 11 test cases covering 6 locales (en-US, fr-FR, de-DE,
+    ja-JP, ar-SA, he-IL) with 85% pass rate requirement.

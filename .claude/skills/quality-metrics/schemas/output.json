@@ -1,0 +1,403 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentic-qe.dev/schemas/quality-metrics-output.json",
+  "title": "AQE Quality Metrics Skill Output Schema",
+  "description": "Schema for quality-metrics skill output validation. Extends the base skill-output template with DORA metrics, quality gates, and dashboard configurations.",
+  "type": "object",
+  "required": ["skillName", "version", "timestamp", "status", "trustTier", "output"],
+  "properties": {
+    "skillName": {
+      "type": "string",
+      "const": "quality-metrics",
+      "description": "Must be 'quality-metrics'"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+(-[a-zA-Z0-9]+)?$"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["success", "partial", "failed", "skipped"]
+    },
+    "trustTier": {
+      "type": "integer",
+      "const": 3
+    },
+    "output": {
+      "type": "object",
+      "required": ["summary", "doraMetrics", "qualityGates", "findings", "recommendations"],
+      "properties": {
+        "summary": {
+          "type": "string",
+          "minLength": 50,
+          "maxLength": 2000,
+          "description": "Human-readable summary of quality metrics analysis"
+        },
+        "score": {
+          "$ref": "#/$defs/qualityScore"
+        },
+        "doraMetrics": {
+          "$ref": "#/$defs/doraMetrics",
+          "description": "DORA metrics assessment"
+        },
+        "qualityGates": {
+          "$ref": "#/$defs/qualityGates",
+          "description": "Quality gate configuration and status"
+        },
+        "customMetrics": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/customMetric"
+          },
+          "description": "Custom quality metrics"
+        },
+        "trends": {
+          "$ref": "#/$defs/metricsTrends",
+          "description": "Metric trends over time"
+        },
+        "findings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/metricsFinding"
+          },
+          "maxItems": 100
+        },
+        "recommendations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/metricsRecommendation"
+          },
+          "maxItems": 50
+        },
+        "dashboard": {
+          "$ref": "#/$defs/dashboardConfig",
+          "description": "Dashboard configuration"
+        },
+        "alerts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/alertConfig"
+          },
+          "description": "Alert configurations"
+        },
+        "artifacts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/artifact"
+          },
+          "maxItems": 50
+        }
+      }
+    },
+    "metadata": {
+      "$ref": "#/$defs/metadata"
+    },
+    "validation": {
+      "$ref": "#/$defs/validationResult"
+    },
+    "learning": {
+      "$ref": "#/$defs/learningData"
+    }
+  },
+  "$defs": {
+    "qualityScore": {
+      "type": "object",
+      "required": ["value", "max"],
+      "properties": {
+        "value": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "max": {
+          "type": "number",
+          "const": 100
+        },
+        "grade": {
+          "type": "string",
+          "pattern": "^[A-F][+-]?$"
+        },
+        "doraLevel": {
+          "type": "string",
+          "enum": ["elite", "high", "medium", "low"],
+          "description": "DORA performance level"
+        }
+      }
+    },
+    "doraMetrics": {
+      "type": "object",
+      "required": ["deploymentFrequency", "leadTime", "changeFailureRate", "mttr"],
+      "properties": {
+        "deploymentFrequency": {
+          "type": "object",
+          "required": ["value", "unit", "level"],
+          "properties": {
+            "value": { "type": "number", "minimum": 0 },
+            "unit": {
+              "type": "string",
+              "enum": ["per-hour", "per-day", "per-week", "per-month", "per-quarter", "per-year"]
+            },
+            "level": {
+              "type": "string",
+              "enum": ["elite", "high", "medium", "low"]
+            },
+            "trend": {
+              "type": "string",
+              "enum": ["improving", "stable", "declining"]
+            }
+          }
+        },
+        "leadTime": {
+          "type": "object",
+          "required": ["value", "unit", "level"],
+          "properties": {
+            "value": { "type": "number", "minimum": 0 },
+            "unit": {
+              "type": "string",
+              "enum": ["minutes", "hours", "days", "weeks", "months"]
+            },
+            "level": { "type": "string", "enum": ["elite", "high", "medium", "low"] },
+            "trend": { "type": "string", "enum": ["improving", "stable", "declining"] }
+          }
+        },
+        "changeFailureRate": {
+          "type": "object",
+          "required": ["value", "level"],
+          "properties": {
+            "value": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 100,
+              "description": "Percentage of deployments causing failures"
+            },
+            "level": { "type": "string", "enum": ["elite", "high", "medium", "low"] },
+            "trend": { "type": "string", "enum": ["improving", "stable", "declining"] }
+          }
+        },
+        "mttr": {
+          "type": "object",
+          "required": ["value", "unit", "level"],
+          "properties": {
+            "value": { "type": "number", "minimum": 0 },
+            "unit": {
+              "type": "string",
+              "enum": ["minutes", "hours", "days", "weeks"]
+            },
+            "level": { "type": "string", "enum": ["elite", "high", "medium", "low"] },
+            "trend": { "type": "string", "enum": ["improving", "stable", "declining"] }
+          },
+          "description": "Mean Time to Recovery"
+        },
+        "overallLevel": {
+          "type": "string",
+          "enum": ["elite", "high", "medium", "low"],
+          "description": "Overall DORA performance level"
+        }
+      }
+    },
+    "qualityGates": {
+      "type": "object",
+      "properties": {
+        "commit": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/gateRule"
+          }
+        },
+        "pullRequest": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/gateRule"
+          }
+        },
+        "release": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/gateRule"
+          }
+        },
+        "overallStatus": {
+          "type": "string",
+          "enum": ["passing", "failing", "warning"]
+        }
+      }
+    },
+    "gateRule": {
+      "type": "object",
+      "required": ["metric", "threshold", "status"],
+      "properties": {
+        "metric": { "type": "string" },
+        "threshold": { "type": "number" },
+        "operator": {
+          "type": "string",
+          "enum": ["gt", "gte", "lt", "lte", "eq"]
+        },
+        "currentValue": { "type": "number" },
+        "status": {
+          "type": "string",
+          "enum": ["pass", "fail", "warn"]
+        },
+        "blocking": { "type": "boolean" }
+      }
+    },
+    "customMetric": {
+      "type": "object",
+      "required": ["name", "value", "type"],
+      "properties": {
+        "name": { "type": "string" },
+        "value": { "type": "number" },
+        "unit": { "type": "string" },
+        "type": {
+          "type": "string",
+          "enum": ["delivery", "quality", "stability", "process", "custom"]
+        },
+        "target": { "type": "number" },
+        "trend": { "type": "string", "enum": ["improving", "stable", "declining"] }
+      }
+    },
+    "metricsTrends": {
+      "type": "object",
+      "properties": {
+        "timeframe": { "type": "string" },
+        "dataPoints": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "timestamp": { "type": "string" },
+              "metrics": { "type": "object" }
+            }
+          }
+        },
+        "predictions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "metric": { "type": "string" },
+              "predictedValue": { "type": "number" },
+              "confidence": { "type": "number" }
+            }
+          }
+        }
+      }
+    },
+    "metricsFinding": {
+      "type": "object",
+      "required": ["id", "title", "type", "severity"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^QM-\\d{3,6}$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 200
+        },
+        "description": { "type": "string" },
+        "type": {
+          "type": "string",
+          "enum": ["vanity-metric", "missing-metric", "threshold-breach", "trend-concern", "gate-failure", "opportunity"]
+        },
+        "severity": {
+          "type": "string",
+          "enum": ["critical", "high", "medium", "low", "info"]
+        },
+        "affectedMetric": { "type": "string" },
+        "currentValue": { "type": "number" },
+        "targetValue": { "type": "number" }
+      }
+    },
+    "metricsRecommendation": {
+      "type": "object",
+      "required": ["id", "title", "priority"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^REC-\\d{3,6}$"
+        },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "priority": {
+          "type": "string",
+          "enum": ["critical", "high", "medium", "low"]
+        },
+        "metricsImpact": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "effort": {
+          "type": "string",
+          "enum": ["trivial", "low", "medium", "high", "major"]
+        }
+      }
+    },
+    "dashboardConfig": {
+      "type": "object",
+      "properties": {
+        "panels": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "title": { "type": "string" },
+              "metrics": { "type": "array", "items": { "type": "string" } },
+              "visualization": { "type": "string" }
+            }
+          }
+        },
+        "refreshInterval": { "type": "string" },
+        "exportFormat": { "type": "string" }
+      }
+    },
+    "alertConfig": {
+      "type": "object",
+      "properties": {
+        "metric": { "type": "string" },
+        "condition": { "type": "string" },
+        "threshold": { "type": "number" },
+        "severity": { "type": "string" },
+        "channels": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "required": ["type", "path"],
+      "properties": {
+        "type": { "type": "string" },
+        "path": { "type": "string" },
+        "format": { "type": "string" },
+        "description": { "type": "string" }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "executionTimeMs": { "type": "integer" },
+        "agentId": { "type": "string" },
+        "modelUsed": { "type": "string" },
+        "environment": { "type": "string" }
+      }
+    },
+    "validationResult": {
+      "type": "object",
+      "properties": {
+        "schemaValid": { "type": "boolean" },
+        "contentValid": { "type": "boolean" },
+        "confidence": { "type": "number" }
+      }
+    },
+    "learningData": {
+      "type": "object",
+      "properties": {
+        "patternsDetected": { "type": "array", "items": { "type": "string" } },
+        "reward": { "type": "number" }
+      }
+    }
+  }
+}

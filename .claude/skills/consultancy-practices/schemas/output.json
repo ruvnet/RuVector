@@ -1,0 +1,282 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentic-qe.dev/schemas/skills/consultancy-practices/output.json",
+  "title": "Consultancy Practices Skill Output Schema",
+  "description": "Schema for consultancy-practices skill output. Professional consulting deliverables with stakeholder communication.",
+  "type": "object",
+  "required": ["skillName", "version", "timestamp", "status", "trustTier", "output"],
+  "properties": {
+    "skillName": {
+      "type": "string",
+      "const": "consultancy-practices"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+(-[a-zA-Z0-9]+)?$"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["success", "partial", "failed", "skipped"]
+    },
+    "trustTier": {
+      "type": "integer",
+      "const": 3
+    },
+    "output": {
+      "type": "object",
+      "required": ["summary", "documentStructure", "recommendations", "deliverables"],
+      "properties": {
+        "summary": {
+          "type": "string",
+          "minLength": 50,
+          "maxLength": 3000,
+          "description": "Executive summary for stakeholders"
+        },
+        "documentStructure": {
+          "$ref": "#/$defs/documentStructure"
+        },
+        "recommendations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/recommendation"
+          },
+          "minItems": 1,
+          "maxItems": 50
+        },
+        "deliverables": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/deliverable"
+          }
+        },
+        "stakeholderAnalysis": {
+          "$ref": "#/$defs/stakeholderAnalysis"
+        },
+        "riskAssessment": {
+          "$ref": "#/$defs/riskAssessment"
+        },
+        "roadmap": {
+          "$ref": "#/$defs/roadmap"
+        },
+        "clarity": {
+          "$ref": "#/$defs/clarity"
+        },
+        "completeness": {
+          "$ref": "#/$defs/completeness"
+        },
+        "reports": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/report"
+          }
+        },
+        "qualityScore": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "metrics": {
+          "$ref": "#/$defs/metrics"
+        }
+      }
+    },
+    "metadata": {
+      "$ref": "#/$defs/metadata"
+    },
+    "validation": {
+      "$ref": "#/$defs/validationResult"
+    },
+    "learning": {
+      "$ref": "#/$defs/learningData"
+    }
+  },
+  "$defs": {
+    "documentStructure": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["assessment", "proposal", "roadmap", "status-report", "executive-summary", "recommendations", "audit-report"]
+        },
+        "sections": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "hasExecutiveSummary": { "type": "boolean" },
+        "hasRecommendations": { "type": "boolean" },
+        "hasRoadmap": { "type": "boolean" },
+        "hasAppendix": { "type": "boolean" },
+        "structureScore": { "type": "number", "minimum": 0, "maximum": 100 }
+      }
+    },
+    "recommendation": {
+      "type": "object",
+      "required": ["id", "title", "priority", "impact"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^REC-\\d{3,6}$" },
+        "title": { "type": "string", "maxLength": 200 },
+        "description": { "type": "string", "maxLength": 2000 },
+        "rationale": { "type": "string", "maxLength": 1000 },
+        "priority": { "type": "string", "enum": ["critical", "high", "medium", "low"] },
+        "impact": { "type": "string", "enum": ["transformative", "significant", "moderate", "minor"] },
+        "effort": { "type": "string", "enum": ["trivial", "low", "medium", "high", "major"] },
+        "stakeholders": { "type": "array", "items": { "type": "string" } },
+        "dependencies": { "type": "array", "items": { "type": "string" } },
+        "risks": { "type": "array", "items": { "type": "string" } },
+        "successCriteria": { "type": "array", "items": { "type": "string" } },
+        "timeline": { "type": "string" }
+      }
+    },
+    "deliverable": {
+      "type": "object",
+      "required": ["name", "type", "status"],
+      "properties": {
+        "name": { "type": "string" },
+        "type": { "type": "string", "enum": ["document", "presentation", "report", "code", "template", "checklist"] },
+        "description": { "type": "string" },
+        "status": { "type": "string", "enum": ["draft", "review", "final", "delivered"] },
+        "audience": { "type": "array", "items": { "type": "string" } },
+        "path": { "type": "string" }
+      }
+    },
+    "stakeholderAnalysis": {
+      "type": "object",
+      "properties": {
+        "stakeholders": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "role": { "type": "string" },
+              "interest": { "type": "string", "enum": ["high", "medium", "low"] },
+              "influence": { "type": "string", "enum": ["high", "medium", "low"] },
+              "concerns": { "type": "array", "items": { "type": "string" } },
+              "communicationPreference": { "type": "string" }
+            }
+          }
+        },
+        "communicationPlan": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "stakeholder": { "type": "string" },
+              "frequency": { "type": "string" },
+              "format": { "type": "string" },
+              "topics": { "type": "array", "items": { "type": "string" } }
+            }
+          }
+        }
+      }
+    },
+    "riskAssessment": {
+      "type": "object",
+      "properties": {
+        "risks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "description": { "type": "string" },
+              "probability": { "type": "string", "enum": ["high", "medium", "low"] },
+              "impact": { "type": "string", "enum": ["critical", "high", "medium", "low"] },
+              "mitigation": { "type": "string" },
+              "owner": { "type": "string" }
+            }
+          }
+        },
+        "overallRisk": { "type": "string", "enum": ["critical", "high", "medium", "low"] }
+      }
+    },
+    "roadmap": {
+      "type": "object",
+      "properties": {
+        "phases": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "description": { "type": "string" },
+              "duration": { "type": "string" },
+              "milestones": { "type": "array", "items": { "type": "string" } },
+              "deliverables": { "type": "array", "items": { "type": "string" } },
+              "dependencies": { "type": "array", "items": { "type": "string" } }
+            }
+          }
+        },
+        "totalDuration": { "type": "string" },
+        "criticalPath": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "clarity": {
+      "type": "object",
+      "properties": {
+        "score": { "type": "number", "minimum": 0, "maximum": 100 },
+        "audienceAppropriate": { "type": "boolean" },
+        "jargonLevel": { "type": "string", "enum": ["none", "low", "medium", "high"] },
+        "actionableItems": { "type": "integer" }
+      }
+    },
+    "completeness": {
+      "type": "object",
+      "properties": {
+        "score": { "type": "number", "minimum": 0, "maximum": 100 },
+        "coveredAreas": { "type": "array", "items": { "type": "string" } },
+        "gaps": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "report": {
+      "type": "object",
+      "required": ["title", "type"],
+      "properties": {
+        "title": { "type": "string" },
+        "type": { "type": "string", "enum": ["status", "assessment", "audit", "findings", "executive"] },
+        "content": { "type": "string" },
+        "keyFindings": { "type": "array", "items": { "type": "string" } },
+        "recommendations": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "metrics": {
+      "type": "object",
+      "properties": {
+        "recommendationCount": { "type": "integer", "minimum": 0 },
+        "deliverableCount": { "type": "integer", "minimum": 0 },
+        "riskCount": { "type": "integer", "minimum": 0 },
+        "stakeholderCount": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "executionTimeMs": { "type": "integer", "minimum": 0 },
+        "toolsUsed": { "type": "array", "items": { "type": "string" } },
+        "agentId": { "type": "string", "pattern": "^qe-[a-z][a-z0-9-]*$" },
+        "engagementType": { "type": "string" },
+        "client": { "type": "string" }
+      }
+    },
+    "validationResult": {
+      "type": "object",
+      "properties": {
+        "schemaValid": { "type": "boolean" },
+        "contentValid": { "type": "boolean" },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "learningData": {
+      "type": "object",
+      "properties": {
+        "patternsDetected": { "type": "array", "items": { "type": "string" } },
+        "reward": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    }
+  }
+}

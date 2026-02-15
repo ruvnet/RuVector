@@ -74,6 +74,7 @@ coordination/orchestration/*
 *.db
 *.db-journal
 *.db-wal
+*.db-shm
 *.sqlite
 *.sqlite-journal
 *.sqlite-wal
@@ -99,3 +100,10 @@ data/
 # Large model files
 *.gguf
 test_models/*.gguf
+
+# Backup files
+CLAUDE.md.backup
+
+# AQE runtime state
+.agentic-qe/workers/daemon.pid
+.agentic-qe/workers/daemon.log

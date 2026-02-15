@@ -1,0 +1,34 @@
+{
+  "skillName": "n8n-integration-testing-patterns",
+  "skillVersion": "1.0.0",
+  "requiredTools": [
+    "jq"
+  ],
+  "optionalTools": [],
+  "schemaPath": "schemas/output.json",
+  "requiredFields": [
+    "skillName",
+    "status",
+    "output",
+    "output.summary",
+    "output.integrationTests",
+    "output.serviceConnections"
+  ],
+  "requiredNonEmptyFields": [],
+  "mustContainTerms": [
+    "integration",
+    "n8n"
+  ],
+  "mustNotContainTerms": [
+    "TODO",
+    "FIXME"
+  ],
+  "enumValidations": {
+    ".status": [
+      "success",
+      "partial",
+      "failed",
+      "skipped"
+    ]
+  }
+}

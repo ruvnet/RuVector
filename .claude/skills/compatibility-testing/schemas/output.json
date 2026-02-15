@@ -1,0 +1,551 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://agentic-qe.dev/schemas/compatibility-testing-output.json",
+  "title": "AQE Compatibility Testing Skill Output Schema",
+  "description": "Schema for cross-browser, cross-platform, and cross-device compatibility testing output. Extends base skill output template with browser matrix, device coverage, and visual consistency fields.",
+  "type": "object",
+  "required": ["skillName", "version", "timestamp", "status", "trustTier", "output"],
+  "properties": {
+    "skillName": {
+      "type": "string",
+      "const": "compatibility-testing",
+      "description": "Skill identifier"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+(-[a-zA-Z0-9]+)?$",
+      "description": "Semantic version of the skill"
+    },
+    "timestamp": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})?$",
+      "description": "ISO 8601 timestamp of test execution"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["success", "partial", "failed", "skipped"],
+      "description": "Overall execution status"
+    },
+    "trustTier": {
+      "type": "integer",
+      "const": 3,
+      "description": "Trust tier 3: has schema, validator, and eval suite"
+    },
+    "output": {
+      "type": "object",
+      "required": ["summary", "browserMatrix", "deviceCoverage", "metrics"],
+      "properties": {
+        "summary": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 2000,
+          "description": "Human-readable summary of compatibility test results"
+        },
+        "score": {
+          "$ref": "#/$defs/compatibilityScore",
+          "description": "Overall compatibility score"
+        },
+        "browserMatrix": {
+          "$ref": "#/$defs/browserMatrix",
+          "description": "Browser coverage and results matrix"
+        },
+        "deviceCoverage": {
+          "$ref": "#/$defs/deviceCoverage",
+          "description": "Device coverage breakdown by tier"
+        },
+        "platformResults": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/platformResult"
+          },
+          "maxItems": 100,
+          "description": "Results by platform/browser/device combination"
+        },
+        "findings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/compatibilityFinding"
+          },
+          "maxItems": 500,
+          "description": "Compatibility issues discovered"
+        },
+        "recommendations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/recommendation"
+          },
+          "maxItems": 100,
+          "description": "Recommendations for improving compatibility"
+        },
+        "metrics": {
+          "$ref": "#/$defs/compatibilityMetrics",
+          "description": "Quantitative compatibility metrics"
+        },
+        "artifacts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/artifact"
+          },
+          "maxItems": 50,
+          "description": "Generated artifacts (screenshots, reports)"
+        },
+        "responsiveBreakpoints": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/breakpointResult"
+          },
+          "description": "Results by responsive breakpoint"
+        },
+        "visualDifferences": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/visualDifference"
+          },
+          "description": "Cross-platform visual differences detected"
+        }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "executionTimeMs": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Execution time in milliseconds"
+        },
+        "toolsUsed": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["playwright", "browserstack", "saucelabs", "lambdatest", "percy", "cypress", "selenium"]
+          },
+          "description": "Testing tools used"
+        },
+        "agentId": {
+          "type": "string",
+          "pattern": "^qe-[a-z][a-z0-9-]*$",
+          "description": "Agent that executed the test"
+        },
+        "targetUrl": {
+          "type": "string",
+          "pattern": "^https?://",
+          "description": "URL tested"
+        },
+        "totalCombinations": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Total browser/device combinations tested"
+        }
+      }
+    },
+    "validation": {
+      "type": "object",
+      "properties": {
+        "schemaValid": { "type": "boolean" },
+        "contentValid": { "type": "boolean" },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "warnings": { "type": "array", "items": { "type": "string" } },
+        "errors": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "learning": {
+      "type": "object",
+      "properties": {
+        "patternsDetected": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Compatibility patterns detected"
+        },
+        "reward": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Learning reward signal"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "compatibilityScore": {
+      "type": "object",
+      "required": ["value", "max"],
+      "properties": {
+        "value": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Compatibility score (0-100)"
+        },
+        "max": {
+          "type": "number",
+          "const": 100
+        },
+        "grade": {
+          "type": "string",
+          "pattern": "^[A-F][+-]?$",
+          "description": "Letter grade"
+        },
+        "userCoveragePercent": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Percentage of user base covered by passing platforms"
+        },
+        "trend": {
+          "type": "string",
+          "enum": ["improving", "stable", "declining", "unknown"]
+        }
+      }
+    },
+    "browserMatrix": {
+      "type": "object",
+      "required": ["browsers"],
+      "properties": {
+        "browsers": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/browserEntry"
+          },
+          "minItems": 1,
+          "description": "Browser test results"
+        },
+        "coveragePercent": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Browser market share covered"
+        }
+      }
+    },
+    "browserEntry": {
+      "type": "object",
+      "required": ["browser", "status"],
+      "properties": {
+        "browser": {
+          "type": "string",
+          "enum": ["chrome", "firefox", "safari", "edge", "opera", "mobile-chrome", "mobile-safari", "samsung-internet"],
+          "description": "Browser name"
+        },
+        "version": {
+          "type": "string",
+          "description": "Browser version (e.g., '118.0', 'latest')"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["passed", "failed", "partial", "skipped"],
+          "description": "Test status"
+        },
+        "issueCount": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of issues found"
+        },
+        "marketShare": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Browser market share percentage"
+        }
+      }
+    },
+    "deviceCoverage": {
+      "type": "object",
+      "properties": {
+        "tier1": {
+          "$ref": "#/$defs/tierCoverage",
+          "description": "Tier 1 devices (60% of users)"
+        },
+        "tier2": {
+          "$ref": "#/$defs/tierCoverage",
+          "description": "Tier 2 devices (30% of users)"
+        },
+        "tier3": {
+          "$ref": "#/$defs/tierCoverage",
+          "description": "Tier 3 devices (10% of users)"
+        },
+        "totalDevicesTested": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total unique devices tested"
+        }
+      }
+    },
+    "tierCoverage": {
+      "type": "object",
+      "properties": {
+        "devices": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Device names in this tier"
+        },
+        "passRate": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Pass rate percentage"
+        },
+        "tested": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "passed": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "platformResult": {
+      "type": "object",
+      "required": ["platform", "browser", "status"],
+      "properties": {
+        "platform": {
+          "type": "string",
+          "enum": ["windows", "macos", "linux", "ios", "android"],
+          "description": "Operating system"
+        },
+        "platformVersion": {
+          "type": "string",
+          "description": "OS version"
+        },
+        "browser": {
+          "type": "string",
+          "description": "Browser name"
+        },
+        "browserVersion": {
+          "type": "string",
+          "description": "Browser version"
+        },
+        "device": {
+          "type": "string",
+          "description": "Device name (for mobile)"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["passed", "failed", "partial", "skipped"]
+        },
+        "executionTimeMs": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "screenshotPath": {
+          "type": "string",
+          "description": "Path to screenshot"
+        },
+        "issues": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Issue IDs found on this platform"
+        }
+      }
+    },
+    "compatibilityFinding": {
+      "type": "object",
+      "required": ["id", "title", "severity", "category"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^COMPAT-\\d{3,6}$",
+          "description": "Unique finding identifier"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 5,
+          "maxLength": 200
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 2000
+        },
+        "severity": {
+          "type": "string",
+          "enum": ["critical", "high", "medium", "low", "info"]
+        },
+        "category": {
+          "type": "string",
+          "enum": ["layout", "rendering", "functionality", "performance", "visual", "javascript", "css", "responsive"],
+          "description": "Issue category"
+        },
+        "affectedPlatforms": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Platforms where issue occurs"
+        },
+        "workingPlatforms": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Platforms where it works correctly"
+        },
+        "remediation": {
+          "type": "string",
+          "description": "How to fix this issue"
+        },
+        "evidence": {
+          "type": "string",
+          "description": "Screenshot path or code snippet"
+        },
+        "userImpactPercent": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Percentage of users affected"
+        }
+      }
+    },
+    "recommendation": {
+      "type": "object",
+      "required": ["id", "title", "priority"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^REC-\\d{3,6}$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 5,
+          "maxLength": 200
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 2000
+        },
+        "priority": {
+          "type": "string",
+          "enum": ["critical", "high", "medium", "low"]
+        },
+        "effort": {
+          "type": "string",
+          "enum": ["trivial", "low", "medium", "high", "major"]
+        },
+        "relatedFindings": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "compatibilityMetrics": {
+      "type": "object",
+      "properties": {
+        "totalCombinations": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total platform combinations tested"
+        },
+        "passed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "failed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "skipped": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "passRate": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Overall pass rate percentage"
+        },
+        "userCoverage": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "User base coverage percentage"
+        },
+        "browsersCovered": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "devicesCovered": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "criticalIssues": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "duration": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total test duration in milliseconds"
+        }
+      }
+    },
+    "breakpointResult": {
+      "type": "object",
+      "required": ["breakpoint", "width", "status"],
+      "properties": {
+        "breakpoint": {
+          "type": "string",
+          "enum": ["mobile", "tablet", "desktop", "large-desktop"],
+          "description": "Breakpoint category"
+        },
+        "width": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Screen width in pixels"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["passed", "failed", "partial"]
+        },
+        "issues": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "visualDifference": {
+      "type": "object",
+      "required": ["platform1", "platform2", "diffPercent"],
+      "properties": {
+        "platform1": {
+          "type": "string",
+          "description": "First platform"
+        },
+        "platform2": {
+          "type": "string",
+          "description": "Second platform"
+        },
+        "diffPercent": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Visual difference percentage"
+        },
+        "diffImagePath": {
+          "type": "string",
+          "description": "Path to diff image"
+        },
+        "significant": {
+          "type": "boolean",
+          "description": "Whether difference is significant"
+        }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "required": ["type", "path"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["report", "screenshot", "diff", "video", "log", "data"]
+        },
+        "path": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "format": {
+          "type": "string",
+          "enum": ["json", "html", "md", "png", "jpg", "webm", "mp4", "txt", "csv"]
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 500
+        }
+      }
+    }
+  }
+}

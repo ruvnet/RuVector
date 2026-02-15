@@ -1,0 +1,199 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentic-qe.dev/schemas/skill-output-meta.schema.json",
+  "title": "AQE Skill Output Meta-Schema",
+  "description": "Meta-schema that validates skill-specific output schemas properly extend the base template. Use this to validate schemas in .claude/skills/{skill}/schemas/output.json",
+  "type": "object",
+  "required": ["$schema", "$id", "title", "type", "required", "properties", "$defs"],
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "const": "https://json-schema.org/draft/2020-12/schema",
+      "description": "Must use JSON Schema Draft 2020-12"
+    },
+    "$id": {
+      "type": "string",
+      "pattern": "^https://agentic-qe\\.dev/schemas/skills/[a-z][a-z0-9-]+/output\\.json$",
+      "description": "Schema ID must follow pattern: https://agentic-qe.dev/schemas/skills/{skill-name}/output.json"
+    },
+    "title": {
+      "type": "string",
+      "pattern": "^[A-Z][a-zA-Z0-9 -]+ Skill Output Schema$",
+      "description": "Title must follow pattern: '{Skill Name} Skill Output Schema'"
+    },
+    "description": {
+      "type": "string",
+      "minLength": 20,
+      "maxLength": 500,
+      "description": "Description of what the skill output represents"
+    },
+    "type": {
+      "const": "object",
+      "description": "Root type must be object"
+    },
+    "required": {
+      "type": "array",
+      "contains": {
+        "enum": ["skillName", "version", "timestamp", "status", "trustTier", "output"]
+      },
+      "minContains": 6,
+      "description": "Must require all base template fields"
+    },
+    "properties": {
+      "type": "object",
+      "required": [
+        "skillName",
+        "version",
+        "timestamp",
+        "status",
+        "trustTier",
+        "output",
+        "metadata",
+        "validation"
+      ],
+      "properties": {
+        "skillName": {
+          "$ref": "#/$defs/baseFieldReference",
+          "description": "Must reference or match base template skillName"
+        },
+        "version": {
+          "$ref": "#/$defs/baseFieldReference",
+          "description": "Must reference or match base template version"
+        },
+        "timestamp": {
+          "$ref": "#/$defs/baseFieldReference",
+          "description": "Must reference or match base template timestamp"
+        },
+        "status": {
+          "$ref": "#/$defs/baseFieldReference",
+          "description": "Must reference or match base template status"
+        },
+        "trustTier": {
+          "$ref": "#/$defs/baseFieldReference",
+          "description": "Must reference or match base template trustTier"
+        },
+        "output": {
+          "type": "object",
+          "required": ["type"],
+          "properties": {
+            "type": {
+              "const": "object"
+            },
+            "required": {
+              "type": "array",
+              "description": "Skill-specific required output fields"
+            },
+            "properties": {
+              "type": "object",
+              "description": "Skill-specific output properties (must include or reference base template properties)"
+            }
+          },
+          "description": "Output must be an object type with skill-specific properties"
+        },
+        "metadata": {
+          "$ref": "#/$defs/baseFieldReference",
+          "description": "Must reference or extend base template metadata"
+        },
+        "validation": {
+          "$ref": "#/$defs/baseFieldReference",
+          "description": "Must reference or extend base template validation"
+        }
+      },
+      "description": "Properties must include all base template fields"
+    },
+    "$defs": {
+      "type": "object",
+      "description": "Definitions section for reusable schema components",
+      "properties": {
+        "finding": {
+          "type": "object",
+          "description": "If overriding finding, must include base required fields"
+        },
+        "recommendation": {
+          "type": "object",
+          "description": "If overriding recommendation, must include base required fields"
+        }
+      }
+    },
+    "allOf": {
+      "type": "array",
+      "description": "Optional allOf for extending base template"
+    },
+    "$ref": {
+      "type": "string",
+      "description": "Optional $ref to base template"
+    }
+  },
+  "$defs": {
+    "baseFieldReference": {
+      "type": "object",
+      "description": "Field that references or extends base template field",
+      "oneOf": [
+        {
+          "properties": {
+            "$ref": {
+              "type": "string",
+              "pattern": ".*skill-output-template\\.json#"
+            }
+          },
+          "required": ["$ref"]
+        },
+        {
+          "properties": {
+            "type": {
+              "type": "string"
+            }
+          },
+          "required": ["type"]
+        }
+      ]
+    },
+    "skillSpecificExtension": {
+      "type": "object",
+      "description": "Pattern for skill-specific extensions",
+      "properties": {
+        "allOf": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          },
+          "description": "Use allOf to extend base definitions"
+        }
+      }
+    }
+  },
+  "examples": [
+    {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "$id": "https://agentic-qe.dev/schemas/skills/security-testing/output.json",
+      "title": "Security Testing Skill Output Schema",
+      "description": "Output schema for security-testing skill with OWASP Top 10 findings",
+      "type": "object",
+      "required": ["skillName", "version", "timestamp", "status", "trustTier", "output"],
+      "properties": {
+        "skillName": { "const": "security-testing" },
+        "version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "status": { "enum": ["success", "partial", "failed", "skipped"] },
+        "trustTier": { "const": 3 },
+        "output": {
+          "type": "object",
+          "required": ["owaspFindings", "summary"],
+          "properties": {
+            "summary": { "type": "string" },
+            "owaspFindings": {
+              "type": "object",
+              "properties": {
+                "A01": { "type": "array" },
+                "A02": { "type": "array" }
+              }
+            }
+          }
+        },
+        "metadata": { "type": "object" },
+        "validation": { "type": "object" }
+      },
+      "$defs": {}
+    }
+  ]
+}

@@ -1,0 +1,291 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentic-qe.dev/schemas/skills/brutal-honesty-review/output.json",
+  "title": "Brutal Honesty Review Skill Output Schema",
+  "description": "Schema for brutal-honesty-review skill output. Validates unvarnished technical criticism with actionable recommendations.",
+  "type": "object",
+  "required": ["skillName", "version", "timestamp", "status", "trustTier", "output"],
+  "properties": {
+    "skillName": {
+      "type": "string",
+      "const": "brutal-honesty-review"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+(-[a-zA-Z0-9]+)?$"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["success", "partial", "failed", "skipped"]
+    },
+    "trustTier": {
+      "type": "integer",
+      "const": 3
+    },
+    "output": {
+      "type": "object",
+      "required": ["summary", "reviewFindings", "codeQuality"],
+      "properties": {
+        "summary": {
+          "type": "string",
+          "minLength": 50,
+          "maxLength": 3000,
+          "description": "Brutally honest executive summary"
+        },
+        "reviewFindings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/reviewFinding"
+          },
+          "minItems": 1,
+          "maxItems": 200,
+          "description": "Detailed findings with no sugar-coating"
+        },
+        "codeQuality": {
+          "$ref": "#/$defs/codeQuality"
+        },
+        "severity": {
+          "$ref": "#/$defs/severityBreakdown"
+        },
+        "recommendations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/recommendation"
+          },
+          "maxItems": 100,
+          "description": "Actionable improvement recommendations"
+        },
+        "technicalDebt": {
+          "$ref": "#/$defs/technicalDebt"
+        },
+        "readabilityScore": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "maintainabilityScore": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "verdict": {
+          "type": "string",
+          "enum": ["ship-it", "needs-work", "major-issues", "do-not-merge", "rewrite-needed"],
+          "description": "Final honest verdict"
+        },
+        "metrics": {
+          "$ref": "#/$defs/metrics"
+        }
+      }
+    },
+    "metadata": {
+      "$ref": "#/$defs/metadata"
+    },
+    "validation": {
+      "$ref": "#/$defs/validationResult"
+    },
+    "learning": {
+      "$ref": "#/$defs/learningData"
+    }
+  },
+  "$defs": {
+    "reviewFinding": {
+      "type": "object",
+      "required": ["id", "title", "severity", "category", "honestAssessment"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^REV-\\d{3,6}$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 200
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 2000
+        },
+        "severity": {
+          "type": "string",
+          "enum": ["critical", "high", "medium", "low", "nitpick"]
+        },
+        "category": {
+          "type": "string",
+          "enum": ["architecture", "design", "implementation", "performance", "security", "maintainability", "readability", "testing", "documentation", "naming"]
+        },
+        "honestAssessment": {
+          "type": "string",
+          "minLength": 20,
+          "maxLength": 2000,
+          "description": "Brutally honest assessment with no softening"
+        },
+        "location": {
+          "type": "object",
+          "properties": {
+            "file": { "type": "string" },
+            "line": { "type": "integer", "minimum": 1 },
+            "endLine": { "type": "integer", "minimum": 1 },
+            "function": { "type": "string" }
+          }
+        },
+        "codeSnippet": {
+          "type": "string",
+          "maxLength": 5000
+        },
+        "suggestedFix": {
+          "type": "string",
+          "maxLength": 5000
+        },
+        "effort": {
+          "type": "string",
+          "enum": ["trivial", "low", "medium", "high", "major"]
+        },
+        "blocking": {
+          "type": "boolean",
+          "description": "Whether this blocks merging"
+        }
+      }
+    },
+    "codeQuality": {
+      "type": "object",
+      "required": ["overallScore", "grade"],
+      "properties": {
+        "overallScore": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "grade": {
+          "type": "string",
+          "pattern": "^[A-F][+-]?$"
+        },
+        "dimensions": {
+          "type": "object",
+          "properties": {
+            "correctness": { "type": "number", "minimum": 0, "maximum": 100 },
+            "readability": { "type": "number", "minimum": 0, "maximum": 100 },
+            "maintainability": { "type": "number", "minimum": 0, "maximum": 100 },
+            "performance": { "type": "number", "minimum": 0, "maximum": 100 },
+            "security": { "type": "number", "minimum": 0, "maximum": 100 },
+            "testability": { "type": "number", "minimum": 0, "maximum": 100 }
+          }
+        },
+        "strengths": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "weaknesses": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "severityBreakdown": {
+      "type": "object",
+      "properties": {
+        "critical": { "type": "integer", "minimum": 0 },
+        "high": { "type": "integer", "minimum": 0 },
+        "medium": { "type": "integer", "minimum": 0 },
+        "low": { "type": "integer", "minimum": 0 },
+        "nitpick": { "type": "integer", "minimum": 0 },
+        "blocking": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "recommendation": {
+      "type": "object",
+      "required": ["id", "title", "priority", "impact"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^REC-\\d{3,6}$"
+        },
+        "title": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 2000
+        },
+        "priority": {
+          "type": "string",
+          "enum": ["critical", "high", "medium", "low"]
+        },
+        "impact": {
+          "type": "string",
+          "enum": ["transformative", "significant", "moderate", "minor"]
+        },
+        "relatedFindings": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "effort": {
+          "type": "string",
+          "enum": ["trivial", "low", "medium", "high", "major"]
+        },
+        "codeExample": {
+          "type": "string",
+          "maxLength": 5000
+        }
+      }
+    },
+    "technicalDebt": {
+      "type": "object",
+      "properties": {
+        "totalDebtHours": { "type": "number", "minimum": 0 },
+        "debtRatio": { "type": "number", "minimum": 0, "maximum": 100 },
+        "categories": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "category": { "type": "string" },
+              "hours": { "type": "number" },
+              "priority": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "metrics": {
+      "type": "object",
+      "properties": {
+        "filesReviewed": { "type": "integer", "minimum": 0 },
+        "linesReviewed": { "type": "integer", "minimum": 0 },
+        "totalFindings": { "type": "integer", "minimum": 0 },
+        "blockingIssues": { "type": "integer", "minimum": 0 },
+        "suggestedFixes": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "executionTimeMs": { "type": "integer", "minimum": 0 },
+        "toolsUsed": { "type": "array", "items": { "type": "string" } },
+        "agentId": { "type": "string", "pattern": "^qe-[a-z][a-z0-9-]*$" },
+        "reviewScope": { "type": "string" },
+        "reviewType": { "type": "string", "enum": ["full", "incremental", "focused"] }
+      }
+    },
+    "validationResult": {
+      "type": "object",
+      "properties": {
+        "schemaValid": { "type": "boolean" },
+        "contentValid": { "type": "boolean" },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "learningData": {
+      "type": "object",
+      "properties": {
+        "patternsDetected": { "type": "array", "items": { "type": "string" } },
+        "reward": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    }
+  }
+}

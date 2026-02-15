@@ -1,0 +1,44 @@
+{
+  "skillName": "compatibility-testing",
+  "skillVersion": "1.0.0",
+  "requiredTools": [
+    "jq"
+  ],
+  "optionalTools": [
+    "playwright",
+    "browserstack",
+    "ajv",
+    "jsonschema",
+    "python3"
+  ],
+  "schemaPath": "schemas/output.json",
+  "requiredFields": [
+    "skillName",
+    "status",
+    "output",
+    "output.browserMatrix",
+    "output.deviceCoverage",
+    "output.metrics"
+  ],
+  "requiredNonEmptyFields": [
+    "output.summary",
+    "output.browserMatrix"
+  ],
+  "mustContainTerms": [
+    "browser",
+    "compatibility"
+  ],
+  "mustNotContainTerms": [
+    "TODO",
+    "placeholder",
+    "FIXME"
+  ],
+  "enumValidations": {
+    ".status": [
+      "success",
+      "partial",
+      "failed",
+      "skipped"
+    ]
+  }
+}

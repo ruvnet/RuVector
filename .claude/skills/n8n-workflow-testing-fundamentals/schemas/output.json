@@ -1,0 +1,254 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentic-qe.dev/schemas/skills/n8n-workflow-testing-fundamentals/output.json",
+  "title": "N8N Workflow Testing Fundamentals Skill Output Schema",
+  "description": "Schema for n8n-workflow-testing-fundamentals skill output. Validates workflow structure, node connections, and test coverage.",
+  "type": "object",
+  "required": ["skillName", "version", "timestamp", "status", "trustTier", "output"],
+  "properties": {
+    "skillName": {
+      "type": "string",
+      "const": "n8n-workflow-testing-fundamentals"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+(-[a-zA-Z0-9]+)?$"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["success", "partial", "failed", "skipped"]
+    },
+    "trustTier": {
+      "type": "integer",
+      "const": 3
+    },
+    "output": {
+      "type": "object",
+      "required": ["summary", "workflowValidation", "nodeTests"],
+      "properties": {
+        "summary": {
+          "type": "string",
+          "minLength": 20,
+          "maxLength": 2000
+        },
+        "workflowValidation": {
+          "$ref": "#/$defs/workflowValidation"
+        },
+        "nodeTests": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/nodeTest"
+          },
+          "maxItems": 500
+        },
+        "connectionTests": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/connectionTest"
+          }
+        },
+        "dataFlowTests": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/dataFlowTest"
+          }
+        },
+        "errorHandlingTests": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/errorHandlingTest"
+          }
+        },
+        "structuralIssues": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/structuralIssue"
+          }
+        },
+        "testCoverage": {
+          "$ref": "#/$defs/testCoverage"
+        },
+        "recommendations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/recommendation"
+          },
+          "maxItems": 50
+        },
+        "metrics": {
+          "$ref": "#/$defs/metrics"
+        }
+      }
+    },
+    "metadata": {
+      "$ref": "#/$defs/metadata"
+    },
+    "validation": {
+      "$ref": "#/$defs/validationResult"
+    },
+    "learning": {
+      "$ref": "#/$defs/learningData"
+    }
+  },
+  "$defs": {
+    "workflowValidation": {
+      "type": "object",
+      "required": ["workflowId", "valid"],
+      "properties": {
+        "workflowId": { "type": "string" },
+        "workflowName": { "type": "string" },
+        "valid": { "type": "boolean" },
+        "totalNodes": { "type": "integer", "minimum": 0 },
+        "totalConnections": { "type": "integer", "minimum": 0 },
+        "hasTrigger": { "type": "boolean" },
+        "hasEndNode": { "type": "boolean" },
+        "isLinear": { "type": "boolean" },
+        "hasBranching": { "type": "boolean" },
+        "hasLoops": { "type": "boolean" },
+        "hasErrorHandling": { "type": "boolean" },
+        "complexityScore": { "type": "number", "minimum": 0, "maximum": 100 },
+        "testabilityScore": { "type": "number", "minimum": 0, "maximum": 100 },
+        "overallScore": { "type": "number", "minimum": 0, "maximum": 100 },
+        "grade": { "type": "string", "pattern": "^[A-F][+-]?$" }
+      }
+    },
+    "nodeTest": {
+      "type": "object",
+      "required": ["nodeId", "nodeName", "nodeType", "status"],
+      "properties": {
+        "nodeId": { "type": "string" },
+        "nodeName": { "type": "string" },
+        "nodeType": { "type": "string" },
+        "status": { "type": "string", "enum": ["passed", "failed", "skipped", "untested"] },
+        "testCases": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "input": { "type": "object" },
+              "expectedOutput": {},
+              "actualOutput": {},
+              "passed": { "type": "boolean" }
+            }
+          }
+        },
+        "coverage": { "type": "number", "minimum": 0, "maximum": 100 },
+        "issues": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "connectionTest": {
+      "type": "object",
+      "required": ["sourceNode", "targetNode", "valid"],
+      "properties": {
+        "sourceNode": { "type": "string" },
+        "targetNode": { "type": "string" },
+        "connectionType": { "type": "string", "enum": ["main", "error", "conditional"] },
+        "valid": { "type": "boolean" },
+        "dataFlowVerified": { "type": "boolean" },
+        "issues": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "dataFlowTest": {
+      "type": "object",
+      "required": ["id", "path", "status"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^FLOW-\\d{3,6}$" },
+        "path": { "type": "array", "items": { "type": "string" } },
+        "status": { "type": "string", "enum": ["passed", "failed", "partial"] },
+        "inputData": { "type": "object" },
+        "outputData": { "type": "object" },
+        "transformations": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "errorHandlingTest": {
+      "type": "object",
+      "required": ["scenario", "handled"],
+      "properties": {
+        "scenario": { "type": "string" },
+        "errorType": { "type": "string", "enum": ["timeout", "connection", "validation", "authentication", "rate-limit", "unknown"] },
+        "handled": { "type": "boolean" },
+        "recoveryPath": { "type": "string" },
+        "notificationConfigured": { "type": "boolean" }
+      }
+    },
+    "structuralIssue": {
+      "type": "object",
+      "required": ["issueType", "severity"],
+      "properties": {
+        "issueType": {
+          "type": "string",
+          "enum": ["orphan-node", "missing-trigger", "dead-end", "circular-reference", "missing-error-handler", "duplicate-node"]
+        },
+        "severity": { "type": "string", "enum": ["critical", "high", "medium", "low"] },
+        "affectedNodes": { "type": "array", "items": { "type": "string" } },
+        "description": { "type": "string" },
+        "fix": { "type": "string" }
+      }
+    },
+    "testCoverage": {
+      "type": "object",
+      "properties": {
+        "nodeCoverage": { "type": "number", "minimum": 0, "maximum": 100 },
+        "connectionCoverage": { "type": "number", "minimum": 0, "maximum": 100 },
+        "pathCoverage": { "type": "number", "minimum": 0, "maximum": 100 },
+        "errorPathCoverage": { "type": "number", "minimum": 0, "maximum": 100 },
+        "overallCoverage": { "type": "number", "minimum": 0, "maximum": 100 },
+        "untestedNodes": { "type": "array", "items": { "type": "string" } },
+        "untestedPaths": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "recommendation": {
+      "type": "object",
+      "required": ["id", "title", "priority"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^REC-\\d{3,6}$" },
+        "title": { "type": "string", "maxLength": 200 },
+        "description": { "type": "string", "maxLength": 2000 },
+        "priority": { "type": "string", "enum": ["critical", "high", "medium", "low"] },
+        "category": { "type": "string", "enum": ["coverage", "structure", "reliability", "performance", "maintainability"] }
+      }
+    },
+    "metrics": {
+      "type": "object",
+      "properties": {
+        "totalNodes": { "type": "integer", "minimum": 0 },
+        "testedNodes": { "type": "integer", "minimum": 0 },
+        "passedTests": { "type": "integer", "minimum": 0 },
+        "failedTests": { "type": "integer", "minimum": 0 },
+        "coverage": { "type": "number", "minimum": 0, "maximum": 100 },
+        "structuralIssues": { "type": "integer", "minimum": 0 },
+        "executionTimeMs": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "executionTimeMs": { "type": "integer", "minimum": 0 },
+        "toolsUsed": { "type": "array", "items": { "type": "string" } },
+        "agentId": { "type": "string", "pattern": "^qe-[a-z][a-z0-9-]*$" },
+        "n8nVersion": { "type": "string" },
+        "workflowPath": { "type": "string" }
+      }
+    },
+    "validationResult": {
+      "type": "object",
+      "properties": {
+        "schemaValid": { "type": "boolean" },
+        "contentValid": { "type": "boolean" },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "learningData": {
+      "type": "object",
+      "properties": {
+        "patternsDetected": { "type": "array", "items": { "type": "string" } },
+        "reward": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    }
+  }
+}

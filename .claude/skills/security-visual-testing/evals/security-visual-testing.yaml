@@ -1,0 +1,163 @@
+skill: security-visual-testing
+version: 1.0.0
+description: >
+  Evaluation suite for security-visual-testing skill.
+  Tests combined security and visual testing capabilities, ensuring findings
+  are correctly identified and classified across both domains.
+
+models_to_test:
+  - claude-3.5-sonnet
+  - claude-3-haiku
+
+mcp_integration:
+  enabled: true
+  namespace: skill-validation
+  query_patterns: true
+  track_outcomes: true
+  store_patterns: true
+  share_learning: true
+  update_quality_gate: true
+  target_agents:
+    - qe-learning-coordinator
+    - qe-queen-coordinator
+
+learning:
+  store_success_patterns: true
+  store_failure_patterns: true
+  pattern_ttl_days: 90
+  min_confidence_to_store: 0.7
+  cross_model_comparison: true
+
+result_format:
+  json_output: true
+  markdown_report: false
+  include_raw_output: false
+  include_timing: true
+  include_token_usage: true
+
+setup:
+  required_tools:
+    - jq
+  environment_variables:
+    SECURITY_SCAN_DEPTH: "standard"
+    VISUAL_DIFF_THRESHOLD: "0.05"
+  fixtures: []
+
+test_cases:
+  - id: tc001_basic_security_visual_analysis
+    description: "Skill returns both security findings and visual diffs"
+    category: basic
+    priority: critical
+
+    input:
+      url: "https://example.com"
+      context:
+        testScope: "full_page"
+        compareViewports: ["desktop", "mobile"]
+
+    expected_output:
+      must_contain:
+        - "securityFindings"
+        - "visualDiffs"
+        - "combinedScore"
+      must_not_contain:
+        - "error"
+        - "failed to analyze"
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+
+  - id: tc002_security_findings_structure
+    description: "Security findings have required fields and valid structure"
+    category: core
+    priority: critical
+
+    input:
+      url: "https://example.com/vulnerable"
+      context:
+        testScope: "full_page"
+
+    expected_output:
+      must_contain:
+        - "totalFindings"
+        - "score"
+        - "OWASP"
+      finding_count:
+        min: 0
+        max: 50
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+
+  - id: tc003_visual_diffs_detection
+    description: "Visual diffs are properly detected and reported"
+    category: core
+    priority: high
+
+    input:
+      url: "https://example.com"
+      baselineUrl: "https://baseline.example.com"
+      context:
+        compareViewports: ["desktop", "mobile"]
+
+    expected_output:
+      must_contain:
+        - "totalComparisons"
+        - "diffsDetected"
+        - "passRate"
+
+    validation:
+      schema_check: true
+
+  - id: tc004_combined_scoring_accuracy
+    description: "Combined score correctly weights security and visual scores"
+    category: core
+    priority: high
+
+    input:
+      url: "https://example.com"
+      context:
+        testScope: "full_page"
+
+    expected_output:
+      must_contain:
+        - "combinedScore"
+        - "securityWeight"
+        - "visualWeight"
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.7
+
+  - id: tc005_cross_domain_issue_detection
+    description: "Cross-domain issues spanning security and visual are identified"
+    category: core
+    priority: high
+
+    input:
+      url: "https://example.com"
+      context:
+        detectCrossDomainIssues: true
+
+    expected_output:
+      must_contain:
+        - "crossDomainIssues"
+
+    validation:
+      schema_check: true
+      allow_partial: true
+
+success_criteria:
+  pass_rate: 0.8
+  critical_pass_rate: 1.0
+  avg_reasoning_quality: 0.7
+  max_execution_time_ms: 300000
+  cross_model_variance: 0.15
+
+metadata:
+  author: "qe-security-auditor"
+  created: "2026-02-02"
+  last_updated: "2026-02-02"
+  coverage_target: "Security-visual integration, combined scoring, cross-domain detection"

@@ -1,5 +1,123 @@
 {
-  "hooks": {},
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "^(Write|Edit|MultiEdit)$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx agentic-qe hooks guard --file \"$TOOL_INPUT_file_path\" --json",
+            "timeout": 3000,
+            "continueOnError": true
+          }
+        ]
+      },
+      {
+        "matcher": "^(Write|Edit|MultiEdit)$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx agentic-qe hooks pre-edit --file \"$TOOL_INPUT_file_path\" --json",
+            "timeout": 5000,
+            "continueOnError": true
+          }
+        ]
+      },
+      {
+        "matcher": "^Bash$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx agentic-qe hooks pre-command --command \"$TOOL_INPUT_command\" --json",
+            "timeout": 3000,
+            "continueOnError": true
+          }
+        ]
+      },
+      {
+        "matcher": "^Task$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx agentic-qe hooks pre-task --description \"$TOOL_INPUT_prompt\" --json",
+            "timeout": 5000,
+            "continueOnError": true
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "^(Write|Edit|MultiEdit)$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx agentic-qe hooks post-edit --file \"$TOOL_INPUT_file_path\" --success --json",
+            "timeout": 5000,
+            "continueOnError": true
+          }
+        ]
+      },
+      {
+        "matcher": "^Bash$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx agentic-qe hooks post-command --command \"$TOOL_INPUT_command\" --success --json",
+            "timeout": 5000,
+            "continueOnError": true
+          }
+        ]
+      },
+      {
+        "matcher": "^Task$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx agentic-qe hooks post-task --task-id \"$TOOL_RESULT_agent_id\" --success --json",
+            "timeout": 5000,
+            "continueOnError": true
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx agentic-qe hooks route --task \"$PROMPT\" --json",
+            "timeout": 5000,
+            "continueOnError": true
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx agentic-qe hooks session-start --session-id \"$SESSION_ID\" --json",
+            "timeout": 10000,
+            "continueOnError": true
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx agentic-qe hooks session-end --save-state --json",
+            "timeout": 5000,
+            "continueOnError": true
+          }
+        ]
+      }
+    ]
+  },
   "permissions": {
     "allow": [
       "Bash(npx @claude-flow*)",
@@ -19,7 +137,10 @@
   "env": {
     "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1",
     "CLAUDE_FLOW_V3_ENABLED": "true",
-    "CLAUDE_FLOW_HOOKS_ENABLED": "true"
+    "CLAUDE_FLOW_HOOKS_ENABLED": "true",
+    "AQE_MEMORY_PATH": ".agentic-qe/memory.db",
+    "AQE_V3_MODE": "true",
+    "AQE_LEARNING_ENABLED": "true"
   },
   "claudeFlow": {
     "version": "3.0.0",
@@ -148,6 +269,24 @@
       "scanOnEdit": true,
       "cveCheck": true,
       "threatModel": true
+    }
+  },
+  "aqe": {
+    "version": "3.6.7",
+    "initialized": "2026-02-15T15:40:59.085Z",
+    "hooksConfigured": true
+  },
+  "enabledMcpjsonServers": [
+    "agentic-qe"
+  ],
+  "mcpServers": {
+    "claude-flow": {
+      "command": "npx",
+      "args": [
+        "@anthropic/claude-flow",
+        "mcp"
+      ],
+      "env": {}
     }
   }
 }

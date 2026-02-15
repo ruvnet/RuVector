@@ -1,0 +1,34 @@
+{
+  "skillName": "n8n-security-testing",
+  "skillVersion": "1.0.0",
+  "requiredTools": [
+    "jq"
+  ],
+  "optionalTools": [],
+  "schemaPath": "schemas/output.json",
+  "requiredFields": [
+    "skillName",
+    "status",
+    "output",
+    "output.summary",
+    "output.securityFindings",
+    "output.credentialAudit"
+  ],
+  "requiredNonEmptyFields": [],
+  "mustContainTerms": [
+    "security",
+    "credential"
+  ],
+  "mustNotContainTerms": [
+    "TODO",
+    "FIXME"
+  ],
+  "enumValidations": {
+    ".status": [
+      "success",
+      "partial",
+      "failed",
+      "skipped"
+    ]
+  }
+}

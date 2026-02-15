@@ -1,0 +1,8 @@
+{
+  "name": "routing-accuracy-monitor",
+  "enabled": true,
+  "interval": 900000,
+  "projectRoot": "/Users/danielalberttis/Desktop/Projects/ruvector",
+  "dataDir": "/Users/danielalberttis/Desktop/Projects/ruvector/.agentic-qe/data",
+  "createdAt": "2026-02-15T15:40:59.309Z"
+}

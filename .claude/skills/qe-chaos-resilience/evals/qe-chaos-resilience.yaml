@@ -1,0 +1,443 @@
+# =============================================================================
+# AQE Skill Evaluation Test Suite: QE Chaos Resilience v1.0.0
+# =============================================================================
+#
+# Comprehensive evaluation suite for the qe-chaos-resilience skill.
+# Tests fault injection, load testing, stress testing, resilience validation,
+# circuit breaker testing, and SLA validation capabilities.
+#
+# Schema: .claude/skills/.validation/schemas/skill-eval.schema.json
+# Validator: .claude/skills/qe-chaos-resilience/scripts/validate-config.json
+#
+# Coverage:
+# - Fault Injection (latency, packet loss, CPU stress, memory pressure)
+# - Load Testing (ramp-up profiles, sustained load, bottleneck detection)
+# - Stress Testing (step-increase, breaking point detection)
+# - Resilience Validation (graceful degradation, automatic recovery)
+# - Circuit Breaker Testing
+# - SLA Validation and monitoring
+#
+# =============================================================================
+
+skill: qe-chaos-resilience
+version: 1.0.0
+description: >
+  Comprehensive evaluation suite for the qe-chaos-resilience skill.
+  Tests chaos engineering capabilities including controlled fault injection,
+  load/stress testing, resilience validation, disaster recovery testing,
+  and SLA compliance verification.
+
+# =============================================================================
+# Multi-Model Configuration
+# =============================================================================
+
+models_to_test:
+  - claude-3.5-sonnet    # Primary model (high accuracy expected)
+  - claude-3-haiku       # Fast model (minimum quality threshold)
+
+# =============================================================================
+# MCP Integration Configuration
+# =============================================================================
+
+mcp_integration:
+  enabled: true
+  namespace: skill-validation
+
+  query_patterns: true
+  track_outcomes: true
+  store_patterns: true
+  share_learning: true
+  update_quality_gate: true
+
+  target_agents:
+    - qe-learning-coordinator
+    - qe-queen-coordinator
+    - qe-chaos-engineer
+    - qe-load-tester
+
+# =============================================================================
+# ReasoningBank Learning Configuration
+# =============================================================================
+
+learning:
+  store_success_patterns: true
+  store_failure_patterns: true
+  pattern_ttl_days: 90
+  min_confidence_to_store: 0.7
+  cross_model_comparison: true
+
+# =============================================================================
+# Result Format Configuration
+# =============================================================================
+
+result_format:
+  json_output: true
+  markdown_report: true
+  include_raw_output: false
+  include_timing: true
+  include_token_usage: true
+
+# =============================================================================
+# Environment Setup
+# =============================================================================
+
+setup:
+  required_tools:
+    - jq
+  environment_variables:
+    CHAOS_SAFETY_MODE: "true"
+    LOAD_TEST_TIMEOUT: "60000"
+  fixtures: []
+
+# =============================================================================
+# TEST CASES
+# =============================================================================
+
+test_cases:
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Fault Injection
+  # ---------------------------------------------------------------------------
+
+  - id: tc001_latency_fault_injection
+    description: "Detect and validate latency fault injection configuration"
+    category: fault_injection
+    priority: critical
+
+    input:
+      prompt: |
+        Design a chaos experiment to inject 500ms network latency with 100ms jitter
+        affecting 50% of requests to the api-service for 5 minutes. Include monitoring
+        setup for response times, error rates, and circuit breaker activation.
+      context:
+        service: api-service
+        fault_type: latency
+        target_duration_ms: 300000
+
+    expected_output:
+      must_contain:
+        - "latency"
+        - "500ms"
+        - "monitoring"
+        - "circuit breaker"
+        - "recovery"
+      must_not_contain:
+        - "error"
+        - "unable to"
+      severity_classification: critical
+      finding_count:
+        min: 1
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+      reasoning_quality_min: 0.7
+
+  - id: tc002_packet_loss_stress_test
+    description: "Validate packet loss fault injection with retry logic testing"
+    category: fault_injection
+    priority: high
+
+    input:
+      prompt: |
+        Create a chaos scenario to drop 10% of network packets on a payment service.
+        Design test cases to verify retry logic, idempotency, and graceful degradation.
+        What metrics would you monitor?
+      context:
+        service: payment-service
+        fault_type: packet_loss
+        criticality: high
+
+    expected_output:
+      must_contain:
+        - "packet loss"
+        - "retry"
+        - "idempotent"
+        - "degradation"
+        - "metrics"
+      must_match_regex:
+        - "monitoring|metrics"
+      severity_classification: high
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.75
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Load Testing
+  # -----------------------------------------------------------------------
+
+  - id: tc003_load_test_ramp_profile
+    description: "Plan load testing with realistic ramp-up and sustain phases"
+    category: load_testing
+    priority: critical
+
+    input:
+      prompt: |
+        Design a load test for an e-commerce API expecting Black Friday traffic.
+        Target: ramp to 10,000 concurrent users over 5 minutes, sustain for 30 minutes,
+        then graceful ramp-down. What assertions would you set? How would you identify
+        bottlenecks?
+      context:
+        scenario: peak_traffic
+        target_users: 10000
+        duration_minutes: 40
+
+    expected_output:
+      must_contain:
+        - "ramp"
+        - "10000"
+        - "assertions"
+        - "bottleneck"
+        - "baseline"
+      must_not_contain:
+        - "fail"
+        - "error"
+      severity_classification: critical
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+      reasoning_quality_min: 0.75
+
+  - id: tc004_stress_test_breaking_point
+    description: "Stress test to find breaking point of checkout endpoint"
+    category: load_testing
+    priority: high
+
+    input:
+      prompt: |
+        Design a stress test for /api/checkout using step-increase strategy:
+        Start with 100 users, increase by 500 every 5 minutes until failure.
+        Monitor CPU, memory, database connections, response times.
+        How do you detect the breaking point?
+      context:
+        endpoint: /api/checkout
+        strategy: step_increase
+        resource_monitoring: true
+
+    expected_output:
+      must_contain:
+        - "step-increase"
+        - "breaking point"
+        - "CPU"
+        - "memory"
+        - "database"
+        - "response"
+      finding_count:
+        min: 1
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.75
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Resilience Validation
+  # ---------------------------------------------------------------------------
+
+  - id: tc005_resilience_validation_scenarios
+    description: "Validate resilience across multiple failure scenarios"
+    category: resilience
+    priority: critical
+
+    input:
+      prompt: |
+        Define a comprehensive resilience test suite covering:
+        1. Database failover recovery
+        2. Cache layer failure with graceful degradation
+        3. External service timeout handling
+        4. Pod/container termination recovery
+
+        For each scenario, what would success look like? What metrics prove resilience?
+      context:
+        scope: multi_service
+        include_disaster_recovery: true
+
+    expected_output:
+      must_contain:
+        - "database"
+        - "cache"
+        - "external service"
+        - "recovery"
+        - "graceful"
+        - "metrics"
+      must_not_contain:
+        - "unable"
+        - "cannot test"
+      severity_classification: critical
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+
+  - id: tc006_circuit_breaker_validation
+    description: "Test circuit breaker activation and recovery patterns"
+    category: resilience
+    priority: high
+
+    input:
+      prompt: |
+        Design a test to validate circuit breaker behavior:
+        - Trigger failure conditions to open the circuit
+        - Monitor half-open state transitions
+        - Verify fallback behavior during outage
+        - Test recovery to closed state
+        What failures would trigger the circuit breaker?
+      context:
+        pattern: circuit_breaker
+        failure_threshold: 50
+
+    expected_output:
+      must_contain:
+        - "circuit breaker"
+        - "open"
+        - "half-open"
+        - "fallback"
+        - "recovery"
+        - "failure threshold"
+      severity_classification: high
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.75
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: SLA Validation
+  # ---------------------------------------------------------------------------
+
+  - id: tc007_sla_compliance_check
+    description: "Validate service meets SLA targets during chaos"
+    category: sla_validation
+    priority: critical
+
+    input:
+      prompt: |
+        After running a chaos experiment with 100ms latency injection, validate:
+        - Availability: 99.9% (should remain > 99.9%)
+        - P95 Latency: must stay < 500ms
+        - Error Rate: must stay < 0.1%
+        - Throughput: must handle > 1000 rps
+
+        How would you measure and report SLA compliance?
+      context:
+        availability_sla: 99.9
+        p95_latency_ms: 500
+        error_rate_max: 0.1
+        throughput_min_rps: 1000
+
+    expected_output:
+      must_contain:
+        - "SLA"
+        - "99.9"
+        - "latency"
+        - "error rate"
+        - "throughput"
+        - "compliance"
+      must_not_contain:
+        - "breach"
+        - "violation"
+      severity_classification: critical
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Chaos Report Analysis
+  # ---------------------------------------------------------------------------
+
+  - id: tc008_chaos_report_generation
+    description: "Generate comprehensive chaos experiment report"
+    category: reporting
+    priority: high
+
+    input:
+      prompt: |
+        After a chaos experiment, generate a report including:
+        - Hypothesis (what we expected to happen)
+        - Validation result (did it happen?)
+        - Metrics before/during/after
+        - Recovery detection and time
+        - Findings with severity and recommendations
+        - Artifacts (logs, metrics, traces)
+      context:
+        experiment: network_latency_injection
+        duration_minutes: 5
+
+    expected_output:
+      must_contain:
+        - "hypothesis"
+        - "metrics"
+        - "recovery"
+        - "findings"
+        - "recommendation"
+        - "artifacts"
+      finding_count:
+        min: 1
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.75
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Negative Tests
+  # ---------------------------------------------------------------------------
+
+  - id: tc009_safety_guardrails
+    description: "Verify safety controls prevent dangerous chaos experiments"
+    category: safety
+    priority: critical
+
+    input:
+      prompt: |
+        What safety guardrails should prevent:
+        1. Blast radius > 10% of production
+        2. Error rate spikes > 50%
+        3. Service unavailability
+        4. Running on production-critical systems
+
+        How would you abort an experiment that violates safety thresholds?
+      context:
+        environment: production
+        safety_critical: true
+
+    expected_output:
+      must_contain:
+        - "safety"
+        - "guard"
+        - "abort"
+        - "threshold"
+        - "blast radius"
+      must_not_contain:
+        - "unsafe"
+        - "dangerous"
+      finding_count:
+        max: 2
+
+    validation:
+      schema_check: true
+      allow_partial: true
+
+# =============================================================================
+# SUCCESS CRITERIA
+# =============================================================================
+
+success_criteria:
+  pass_rate: 0.8
+  critical_pass_rate: 1.0
+  avg_reasoning_quality: 0.75
+  max_execution_time_ms: 300000
+  cross_model_variance: 0.15
+
+# =============================================================================
+# METADATA
+# =============================================================================
+
+metadata:
+  author: "qe-chaos-engineer"
+  created: "2026-02-02"
+  last_updated: "2026-02-02"
+  coverage_target: >
+    Fault injection (latency, packet loss, CPU/memory stress), load testing
+    (ramp profiles, sustained load, bottleneck detection), stress testing,
+    resilience validation, circuit breaker patterns, SLA compliance, and
+    chaos report generation with safety guardrails.

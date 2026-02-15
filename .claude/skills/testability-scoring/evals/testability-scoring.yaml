@@ -1,0 +1,814 @@
+# =============================================================================
+# Testability Scoring Skill Evaluation Suite v2.2.0
+# Tests the 10 principles of intrinsic testability assessment
+# =============================================================================
+#
+# This evaluation suite validates:
+# - All 10 testability dimensions (Bach & Bolton framework)
+# - Score calculation accuracy and grade mapping
+# - Recommendation quality and actionability
+# - Code complexity analysis for testability
+# - Multi-model consistency across Claude/GPT models
+#
+# Schema: .claude/skills/.validation/schemas/skill-eval.schema.json
+# Runner: scripts/run-skill-eval.ts
+#
+# =============================================================================
+
+skill: testability-scoring
+version: 2.2.0
+description: >
+  Comprehensive evaluation suite for the testability-scoring skill.
+  Tests all 10 principles of intrinsic testability (Observability, Controllability,
+  Algorithmic Simplicity, Algorithmic Transparency, Algorithmic Stability,
+  Explainability, Unbugginess, Smallness, Decomposability, Similarity).
+  Ensures consistent scoring across models and validates recommendations.
+
+# =============================================================================
+# Multi-Model Configuration
+# =============================================================================
+
+models_to_test:
+  - claude-sonnet-4-20250514    # Primary model (high accuracy expected)
+  - claude-3-haiku              # Fast model (minimum quality threshold)
+  - gpt-4o                      # Cross-vendor validation
+
+# =============================================================================
+# MCP Integration Configuration
+# =============================================================================
+
+mcp_integration:
+  enabled: true
+  namespace: skill-validation/testability-scoring
+
+  # Query existing patterns before running evals
+  query_patterns: true
+
+  # Track each test outcome for learning feedback loop
+  track_outcomes: true
+
+  # Store successful patterns after evals complete
+  store_patterns: true
+
+  # Share learning with fleet coordinator agents
+  share_learning: true
+
+  # Update quality gate with validation metrics
+  update_quality_gate: true
+
+  # Agents to share learning with
+  target_agents:
+    - qe-learning-coordinator
+    - qe-queen-coordinator
+    - qe-quality-analyzer
+
+# =============================================================================
+# ReasoningBank Learning Configuration
+# =============================================================================
+
+learning:
+  store_success_patterns: true
+  store_failure_patterns: true
+  pattern_ttl_days: 90
+  min_confidence_to_store: 0.7
+  cross_model_comparison: true
+
+# =============================================================================
+# Result Format Configuration
+# =============================================================================
+
+result_format:
+  json_output: true
+  markdown_report: true
+  include_raw_output: false
+  include_timing: true
+  include_token_usage: true
+
+# =============================================================================
+# Environment Setup
+# =============================================================================
+
+setup:
+  required_tools:
+    - playwright
+    - jq
+  environment_variables:
+    TEST_TIMEOUT_MS: "30000"
+    HEADLESS: "true"
+  fixtures:
+    - name: high_testability_page
+      path: fixtures/high-testability-sample.html
+      content: |
+        <!DOCTYPE html>
+        <html lang="en">
+        <head><title>High Testability Sample</title></head>
+        <body>
+          <main data-testid="main-content">
+            <h1 data-testid="page-title">Welcome</h1>
+            <form data-testid="contact-form">
+              <label for="name">Name</label>
+              <input id="name" data-testid="name-input" type="text" />
+              <button data-testid="submit-btn" type="submit">Submit</button>
+            </form>
+          </main>
+        </body>
+        </html>
+
+    - name: low_testability_page
+      path: fixtures/low-testability-sample.html
+      content: |
+        <!DOCTYPE html>
+        <html>
+        <head><title>Low Testability Sample</title></head>
+        <body>
+          <div class="x1" onclick="doStuff()">
+            <div class="x2"><div class="x3">Click me</div></div>
+          </div>
+          <script>
+            console.error('Intentional error for testing');
+            var globalState = {};
+          </script>
+        </body>
+        </html>
+
+# =============================================================================
+# Test Cases - 10 Testability Dimensions
+# =============================================================================
+
+test_cases:
+  # -------------------------------------------------------------------------
+  # OBSERVABILITY (15% weight) - Can we see what's happening?
+  # -------------------------------------------------------------------------
+
+  - id: tc001_observability_high
+    description: "Correctly identifies high observability in well-instrumented page"
+    category: observability
+    priority: critical
+
+    input:
+      url: "fixtures/high-testability-sample.html"
+      focus_dimension: observability
+      context:
+        has_logging: true
+        has_devtools_support: true
+        has_network_visibility: true
+
+    expected_output:
+      must_contain:
+        - "observability"
+        - "score"
+      dimension_score:
+        dimension: observability
+        min: 75
+        max: 100
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+      reasoning_quality_min: 0.7
+
+  - id: tc002_observability_console_errors
+    description: "Detects console errors as observability risk"
+    category: observability
+    priority: high
+
+    input:
+      code: |
+        // Application with hidden errors
+        try {
+          processData(input);
+        } catch (e) {
+          // Silent fail - no logging
+        }
+      context:
+        console_errors: 5
+        has_error_tracking: false
+
+    expected_output:
+      must_contain:
+        - "console"
+        - "error"
+        - "observability"
+      severity_classification: medium
+
+    validation:
+      schema_check: true
+      finding_count:
+        min: 1
+
+  # -------------------------------------------------------------------------
+  # CONTROLLABILITY (15% weight) - Can we control the application?
+  # -------------------------------------------------------------------------
+
+  - id: tc003_controllability_testid
+    description: "Identifies data-testid coverage for controllability"
+    category: controllability
+    priority: critical
+
+    input:
+      code: |
+        <button data-testid="submit-btn" onClick={handleSubmit}>Submit</button>
+        <button onClick={handleCancel}>Cancel</button>
+        <input data-testid="email-input" type="email" />
+        <input type="text" />
+      context:
+        framework: react
+        has_test_ids: "partial"
+
+    expected_output:
+      must_contain:
+        - "data-testid"
+        - "controllability"
+      must_not_contain:
+        - "excellent controllability"
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+
+  - id: tc004_controllability_api_access
+    description: "Evaluates API controllability for test data injection"
+    category: controllability
+    priority: high
+
+    input:
+      code: |
+        // API with test hooks
+        class UserService {
+          constructor(private db: Database, private cache?: Cache) {}
+
+          // Test hook
+          static setTestDatabase(testDb: Database) {
+            this.testDb = testDb;
+          }
+
+          async getUser(id: string) {
+            return this.db.findUser(id);
+          }
+        }
+      context:
+        has_dependency_injection: true
+        has_test_hooks: true
+
+    expected_output:
+      must_contain:
+        - "controllability"
+        - "injection"
+      dimension_score:
+        dimension: controllability
+        min: 70
+
+    validation:
+      schema_check: true
+
+  # -------------------------------------------------------------------------
+  # ALGORITHMIC SIMPLICITY (10% weight) - Are behaviors predictable?
+  # -------------------------------------------------------------------------
+
+  - id: tc005_simplicity_deterministic
+    description: "Identifies deterministic behavior as high simplicity"
+    category: algorithmicSimplicity
+    priority: high
+
+    input:
+      code: |
+        function calculateTotal(items: Item[]): number {
+          return items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+        }
+      context:
+        has_side_effects: false
+        is_pure_function: true
+
+    expected_output:
+      must_contain:
+        - "simplicity"
+        - "predictable"
+      dimension_score:
+        dimension: algorithmicSimplicity
+        min: 80
+
+    validation:
+      schema_check: true
+
+  - id: tc006_simplicity_non_deterministic
+    description: "Flags non-deterministic behavior as simplicity risk"
+    category: algorithmicSimplicity
+    priority: high
+
+    input:
+      code: |
+        function getRecommendations(userId: string): Product[] {
+          const random = Math.random();
+          const products = fetchProducts();
+          if (random > 0.5) {
+            return shuffle(products);
+          }
+          return products.slice(0, random * products.length);
+        }
+      context:
+        has_randomness: true
+        is_deterministic: false
+
+    expected_output:
+      must_contain:
+        - "random"
+        - "non-deterministic"
+        - "simplicity"
+      severity_classification: medium
+
+    validation:
+      schema_check: true
+      finding_count:
+        min: 1
+
+  # -------------------------------------------------------------------------
+  # ALGORITHMIC TRANSPARENCY (10% weight) - Can we understand what it does?
+  # -------------------------------------------------------------------------
+
+  - id: tc007_transparency_clear_logic
+    description: "Identifies clear, readable code as high transparency"
+    category: algorithmicTransparency
+    priority: medium
+
+    input:
+      code: |
+        /**
+         * Validates user registration data
+         * @param user - User registration form data
+         * @returns Validation result with errors if any
+         */
+        function validateRegistration(user: RegistrationData): ValidationResult {
+          const errors: string[] = [];
+
+          if (!user.email || !isValidEmail(user.email)) {
+            errors.push('Valid email is required');
+          }
+
+          if (!user.password || user.password.length < 8) {
+            errors.push('Password must be at least 8 characters');
+          }
+
+          return { isValid: errors.length === 0, errors };
+        }
+      context:
+        has_documentation: true
+        cyclomatic_complexity: "low"
+
+    expected_output:
+      must_contain:
+        - "transparency"
+        - "readable"
+      dimension_score:
+        dimension: algorithmicTransparency
+        min: 75
+
+    validation:
+      schema_check: true
+
+  # -------------------------------------------------------------------------
+  # ALGORITHMIC STABILITY (10% weight) - Does behavior remain consistent?
+  # -------------------------------------------------------------------------
+
+  - id: tc008_stability_async_handling
+    description: "Evaluates async operation stability"
+    category: algorithmicStability
+    priority: high
+
+    input:
+      code: |
+        async function loadDashboard() {
+          const [users, orders, products] = await Promise.all([
+            fetchUsers(),
+            fetchOrders(),
+            fetchProducts()
+          ]);
+          // No loading state management
+          renderDashboard({ users, orders, products });
+        }
+      context:
+        has_loading_states: false
+        has_error_boundaries: false
+
+    expected_output:
+      must_contain:
+        - "stability"
+        - "async"
+        - "loading"
+
+    validation:
+      schema_check: true
+
+  # -------------------------------------------------------------------------
+  # EXPLAINABILITY (10% weight) - Is the interface understandable?
+  # -------------------------------------------------------------------------
+
+  - id: tc009_explainability_semantic_html
+    description: "Evaluates semantic HTML usage for explainability"
+    category: explainability
+    priority: medium
+
+    input:
+      code: |
+        <nav role="navigation" aria-label="Main menu">
+          <ul>
+            <li><a href="/home">Home</a></li>
+            <li><a href="/about">About</a></li>
+          </ul>
+        </nav>
+        <main>
+          <article>
+            <h1>Page Title</h1>
+            <p>Content here</p>
+          </article>
+        </main>
+      context:
+        has_aria_labels: true
+        has_semantic_html: true
+
+    expected_output:
+      must_contain:
+        - "explainability"
+        - "semantic"
+      dimension_score:
+        dimension: explainability
+        min: 80
+
+    validation:
+      schema_check: true
+
+  # -------------------------------------------------------------------------
+  # UNBUGGINESS (10% weight) - How error-free is it?
+  # -------------------------------------------------------------------------
+
+  - id: tc010_unbugginess_clean
+    description: "Identifies error-free code as high unbugginess"
+    category: unbugginess
+    priority: critical
+
+    input:
+      context:
+        console_errors: 0
+        console_warnings: 0
+        runtime_exceptions: 0
+
+    expected_output:
+      must_contain:
+        - "unbugginess"
+      dimension_score:
+        dimension: unbugginess
+        min: 85
+
+    validation:
+      schema_check: true
+
+  - id: tc011_unbugginess_errors
+    description: "Flags console errors as unbugginess risk"
+    category: unbugginess
+    priority: high
+
+    input:
+      context:
+        console_errors: 5
+        console_warnings: 10
+        runtime_exceptions: 2
+        error_details:
+          - "TypeError: Cannot read property 'map' of undefined"
+          - "NetworkError: Failed to fetch"
+
+    expected_output:
+      must_contain:
+        - "error"
+        - "unbugginess"
+      severity_classification: high
+
+    validation:
+      schema_check: true
+      finding_count:
+        min: 1
+
+  # -------------------------------------------------------------------------
+  # SMALLNESS (10% weight) - Are components appropriately sized?
+  # -------------------------------------------------------------------------
+
+  - id: tc012_smallness_dom_complexity
+    description: "Evaluates DOM element count for smallness"
+    category: smallness
+    priority: medium
+
+    input:
+      context:
+        dom_element_count: 3500
+        script_bundle_size_kb: 2048
+        third_party_scripts: 25
+
+    expected_output:
+      must_contain:
+        - "smallness"
+        - "DOM"
+        - "element"
+      severity_classification: high
+
+    validation:
+      schema_check: true
+      finding_count:
+        min: 1
+
+  - id: tc013_smallness_optimal
+    description: "Identifies well-sized components as high smallness"
+    category: smallness
+    priority: medium
+
+    input:
+      context:
+        dom_element_count: 500
+        script_bundle_size_kb: 256
+        third_party_scripts: 3
+
+    expected_output:
+      must_contain:
+        - "smallness"
+      dimension_score:
+        dimension: smallness
+        min: 80
+
+    validation:
+      schema_check: true
+
+  # -------------------------------------------------------------------------
+  # DECOMPOSABILITY (5% weight) - Can we test parts in isolation?
+  # -------------------------------------------------------------------------
+
+  - id: tc014_decomposability_modular
+    description: "Identifies modular architecture as high decomposability"
+    category: decomposability
+    priority: medium
+
+    input:
+      code: |
+        // Modular component with clear boundaries
+        export function UserCard({ user, onEdit, onDelete }: UserCardProps) {
+          return (
+            <div data-testid="user-card">
+              <Avatar user={user} />
+              <UserInfo user={user} />
+              <ActionButtons onEdit={onEdit} onDelete={onDelete} />
+            </div>
+          );
+        }
+      context:
+        has_component_isolation: true
+        has_dependency_injection: true
+
+    expected_output:
+      must_contain:
+        - "decomposability"
+        - "modular"
+      dimension_score:
+        dimension: decomposability
+        min: 75
+
+    validation:
+      schema_check: true
+
+  # -------------------------------------------------------------------------
+  # SIMILARITY (5% weight) - Is the tech stack familiar?
+  # -------------------------------------------------------------------------
+
+  - id: tc015_similarity_standard_stack
+    description: "Identifies standard frameworks as high similarity"
+    category: similarity
+    priority: low
+
+    input:
+      context:
+        framework: "React"
+        language: "TypeScript"
+        testing_framework: "Jest"
+        build_tool: "Vite"
+
+    expected_output:
+      must_contain:
+        - "similarity"
+        - "React"
+      dimension_score:
+        dimension: similarity
+        min: 80
+
+    validation:
+      schema_check: true
+
+  # -------------------------------------------------------------------------
+  # Overall Score Calculation
+  # -------------------------------------------------------------------------
+
+  - id: tc016_overall_score_calculation
+    description: "Validates overall score is weighted average of dimensions"
+    category: scoring
+    priority: critical
+
+    input:
+      context:
+        validate_score_calculation: true
+        expected_weights:
+          observability: 0.15
+          controllability: 0.15
+          algorithmicSimplicity: 0.10
+          algorithmicTransparency: 0.10
+          algorithmicStability: 0.10
+          explainability: 0.10
+          unbugginess: 0.10
+          smallness: 0.10
+          decomposability: 0.05
+          similarity: 0.05
+
+    expected_output:
+      must_contain:
+        - "score"
+        - "grade"
+      overall_score:
+        min: 0
+        max: 100
+
+    validation:
+      schema_check: true
+      validate_weights_sum: true
+
+  # -------------------------------------------------------------------------
+  # Grade Mapping
+  # -------------------------------------------------------------------------
+
+  - id: tc017_grade_mapping_excellent
+    description: "Validates A grade for scores 90-100"
+    category: scoring
+    priority: high
+
+    input:
+      context:
+        expected_score: 92
+        expected_grade: "A"
+
+    expected_output:
+      must_contain:
+        - "grade"
+        - "A"
+      overall_score:
+        min: 90
+        max: 100
+
+    validation:
+      schema_check: true
+
+  - id: tc018_grade_mapping_poor
+    description: "Validates F grade for scores below 60"
+    category: scoring
+    priority: high
+
+    input:
+      context:
+        expected_score: 45
+        expected_grade: "F"
+
+    expected_output:
+      must_contain:
+        - "grade"
+        - "F"
+      overall_score:
+        min: 0
+        max: 59
+
+    validation:
+      schema_check: true
+
+  # -------------------------------------------------------------------------
+  # Recommendation Quality
+  # -------------------------------------------------------------------------
+
+  - id: tc019_recommendations_actionable
+    description: "Validates recommendations are actionable with code examples"
+    category: recommendations
+    priority: high
+
+    input:
+      context:
+        finding_type: "missing_testid"
+        require_code_example: true
+        require_impact_score: true
+
+    expected_output:
+      must_contain:
+        - "recommendation"
+        - "data-testid"
+      must_not_contain:
+        - "TODO"
+        - "placeholder"
+
+    validation:
+      schema_check: true
+      recommendation_has_code: true
+      recommendation_has_impact: true
+
+  - id: tc020_recommendations_prioritized
+    description: "Validates recommendations are sorted by priority/impact"
+    category: recommendations
+    priority: medium
+
+    input:
+      context:
+        multiple_issues: true
+        require_prioritization: true
+
+    expected_output:
+      must_contain:
+        - "priority"
+        - "impact"
+
+    validation:
+      schema_check: true
+      recommendations_sorted: true
+
+  # -------------------------------------------------------------------------
+  # Edge Cases
+  # -------------------------------------------------------------------------
+
+  - id: tc021_empty_page
+    description: "Handles empty/blank page gracefully"
+    category: edge_cases
+    priority: medium
+
+    input:
+      code: |
+        <!DOCTYPE html>
+        <html><head></head><body></body></html>
+      context:
+        page_type: "empty"
+
+    expected_output:
+      must_not_contain:
+        - "exception"
+        - "crash"
+        - "error"
+
+    validation:
+      schema_check: true
+      allow_partial: true
+
+  - id: tc022_spa_dynamic_content
+    description: "Handles SPA with dynamic content loading"
+    category: edge_cases
+    priority: medium
+
+    input:
+      context:
+        spa: true
+        lazy_loading: true
+        async_content: true
+        wait_time_ms: 5000
+
+    expected_output:
+      must_contain:
+        - "dynamic"
+        - "loading"
+
+    validation:
+      schema_check: true
+      timeout_ms: 60000
+
+# =============================================================================
+# Success Criteria
+# =============================================================================
+
+success_criteria:
+  # Minimum percentage of tests that must pass
+  pass_rate: 0.90
+
+  # Critical tests must have 100% pass rate
+  critical_pass_rate: 1.0
+
+  # Average reasoning quality across all tests
+  avg_reasoning_quality: 0.7
+
+  # Maximum time for entire suite (10 minutes)
+  max_execution_time_ms: 600000
+
+  # Maximum variance between different models (15%)
+  cross_model_variance: 0.15
+
+  # Testability-specific criteria
+  dimension_coverage: 1.0  # All 10 dimensions must be tested
+  score_range_validation: true  # All scores must be 0-100
+  weight_sum_validation: true  # Weights must sum to 1.0
+
+# =============================================================================
+# Metadata
+# =============================================================================
+
+metadata:
+  author: "@agentic-qe"
+  created: "2026-02-02"
+  last_updated: "2026-02-02"
+  coverage_target: "All 10 testability principles with scoring validation"
+  framework_reference: "James Bach & Michael Bolton - Heuristics for Software Testability"
+  related_skills:
+    - accessibility-testing
+    - visual-testing-advanced
+    - performance-testing

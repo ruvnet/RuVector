@@ -1,0 +1,35 @@
+{
+  "skillName": "n8n-workflow-testing-fundamentals",
+  "skillVersion": "1.0.0",
+  "requiredTools": [
+    "jq"
+  ],
+  "optionalTools": [],
+  "schemaPath": "schemas/output.json",
+  "requiredFields": [
+    "skillName",
+    "status",
+    "output",
+    "output.summary",
+    "output.workflowValidation",
+    "output.nodeTests"
+  ],
+  "requiredNonEmptyFields": [],
+  "mustContainTerms": [
+    "workflow",
+    "n8n",
+    "test"
+  ],
+  "mustNotContainTerms": [
+    "TODO",
+    "FIXME"
+  ],
+  "enumValidations": {
+    ".status": [
+      "success",
+      "partial",
+      "failed",
+      "skipped"
+    ]
+  }
+}

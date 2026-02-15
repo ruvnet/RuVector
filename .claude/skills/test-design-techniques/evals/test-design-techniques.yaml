@@ -1,0 +1,142 @@
+skill: test-design-techniques
+version: 1.0.0
+description: >
+  Evaluation suite for test-design-techniques skill.
+  Tests generation of test design techniques including boundary value analysis,
+  equivalence partitioning, pairwise testing, and state machine modeling.
+
+models_to_test:
+  - claude-3.5-sonnet
+  - claude-3-haiku
+
+mcp_integration:
+  enabled: true
+  namespace: skill-validation
+  query_patterns: true
+  track_outcomes: true
+  store_patterns: true
+  share_learning: true
+  target_agents:
+    - qe-learning-coordinator
+
+learning:
+  store_success_patterns: true
+  pattern_ttl_days: 90
+  min_confidence_to_store: 0.7
+
+result_format:
+  json_output: true
+  include_timing: true
+
+setup:
+  required_tools:
+    - jq
+
+test_cases:
+  - id: tc001_boundary_value_analysis
+    description: "Skill generates boundary value analysis test cases"
+    category: core
+    priority: critical
+
+    input:
+      requirement: "Age field must accept values 18-65"
+      context:
+        technique: "boundary_value_analysis"
+
+    expected_output:
+      must_contain:
+        - "boundary"
+        - "test case"
+
+    validation:
+      schema_check: true
+
+  - id: tc002_equivalence_partitioning
+    description: "Skill applies equivalence partitioning technique"
+    category: core
+    priority: critical
+
+    input:
+      requirement: "User status: active, inactive, suspended"
+      context:
+        technique: "equivalence_partitioning"
+
+    expected_output:
+      must_contain:
+        - "equivalence"
+        - "partition"
+
+    validation:
+      schema_check: true
+
+  - id: tc003_pairwise_testing
+    description: "Skill generates pairwise test combinations"
+    category: core
+    priority: high
+
+    input:
+      parameters:
+        - browser: "Chrome, Firefox, Safari"
+        - os: "Windows, macOS, Linux"
+      context:
+        technique: "pairwise"
+
+    expected_output:
+      must_contain:
+        - "pair"
+        - "combination"
+
+    validation:
+      schema_check: true
+      allow_partial: true
+
+  - id: tc004_state_machine_testing
+    description: "Skill models state transitions for testing"
+    category: core
+    priority: high
+
+    input:
+      workflow: "Order processing: pending -> processing -> shipped -> delivered"
+      context:
+        technique: "state_machine"
+
+    expected_output:
+      must_contain:
+        - "state"
+        - "transition"
+
+    validation:
+      schema_check: true
+      allow_partial: true
+
+  - id: tc005_decision_table_testing
+    description: "Skill creates decision table for business logic"
+    category: core
+    priority: high
+
+    input:
+      rules: "Discount applies if customer is VIP AND order > $100"
+      context:
+        technique: "decision_table"
+
+    expected_output:
+      must_contain:
+        - "decision"
+        - "table"
+
+    validation:
+      schema_check: true
+      allow_partial: true
+
+success_criteria:
+  pass_rate: 0.8
+  critical_pass_rate: 1.0
+  avg_reasoning_quality: 0.7
+  max_execution_time_ms: 300000
+  cross_model_variance: 0.15
+
+metadata:
+  author: "qe-test-architect"
+  created: "2026-02-02"
+  last_updated: "2026-02-02"
+  coverage_target: "Boundary analysis, equivalence partitioning, pairwise, state machine, decision tables"

@@ -1,0 +1,20 @@
+{
+  "mcpServers": {
+    "rvf": {
+      "command": "tsx",
+      "args": ["/Users/danielalberttis/Desktop/Projects/ruvector/npm/packages/rvf-mcp-server/src/cli.ts", "--transport", "stdio"],
+      "env": {
+        "RVF_DATA_DIR": "/Users/danielalberttis/.rvf-mcp",
+        "RVF_DIMENSION": "768"
+      }
+    },
+    "claude-flow": {
+      "command": "node",
+      "args": ["/Users/danielalberttis/Desktop/Projects/claude-flow-local/node_modules/@claude-flow/cli/bin/mcp-server.js"],
+      "env": {
+        "NODE_PATH": "/Users/danielalberttis/Desktop/Projects/claude-flow-local/node_modules",
+        "RVF_META_SEG": "1"
+      }
+    }
+  }
+}

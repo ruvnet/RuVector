@@ -1,0 +1,25 @@
+{
+  "skillName": "qe-test-generation",
+  "skillVersion": "1.0.0",
+  "requiredTools": [
+    "jq"
+  ],
+  "optionalTools": [],
+  "schemaPath": "schemas/output.json",
+  "requiredFields": [
+    "skillName",
+    "status",
+    "output"
+  ],
+  "requiredNonEmptyFields": [],
+  "mustContainTerms": [],
+  "mustNotContainTerms": [],
+  "enumValidations": {
+    ".status": [
+      "success",
+      "partial",
+      "failed",
+      "skipped"
+    ]
+  }
+}

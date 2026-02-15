@@ -1,0 +1,315 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://agentic-qe.dev/schemas/skills/qe-code-intelligence/output.json",
+  "title": "QE Code Intelligence Skill Output Schema",
+  "description": "Schema for qe-code-intelligence skill output with code graph, dependencies, and complexity metrics.",
+  "type": "object",
+  "required": ["skillName", "version", "timestamp", "status", "trustTier", "output"],
+  "properties": {
+    "skillName": {
+      "type": "string",
+      "const": "qe-code-intelligence"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+(-[a-zA-Z0-9]+)?$"
+    },
+    "timestamp": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["success", "partial", "failed", "skipped"]
+    },
+    "trustTier": {
+      "type": "integer",
+      "const": 3
+    },
+    "output": {
+      "type": "object",
+      "required": ["summary", "codeGraph", "complexityMetrics"],
+      "properties": {
+        "summary": {
+          "type": "string",
+          "minLength": 50,
+          "maxLength": 2000,
+          "description": "Human-readable summary of code intelligence analysis"
+        },
+        "codeGraph": {
+          "$ref": "#/$defs/codeGraph",
+          "description": "Code dependency and call graph structure"
+        },
+        "dependencies": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/dependency"
+          },
+          "maxItems": 500,
+          "description": "Module and package dependencies"
+        },
+        "complexityMetrics": {
+          "$ref": "#/$defs/complexityMetrics",
+          "description": "Code complexity measurements"
+        },
+        "qualityScore": {
+          "$ref": "#/$defs/qualityScore",
+          "description": "Overall code quality score"
+        },
+        "findings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/finding"
+          },
+          "maxItems": 200
+        },
+        "recommendations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/recommendation"
+          },
+          "maxItems": 50
+        },
+        "hotspots": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/hotspot"
+          },
+          "maxItems": 50
+        }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "executionTimeMs": { "type": "integer", "minimum": 0 },
+        "toolsUsed": { "type": "array", "items": { "type": "string" } },
+        "agentId": { "type": "string" },
+        "analyzedFiles": { "type": "integer", "minimum": 0 },
+        "analyzedLines": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "validation": {
+      "type": "object",
+      "properties": {
+        "schemaValid": { "type": "boolean" },
+        "contentValid": { "type": "boolean" },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "learning": {
+      "type": "object",
+      "properties": {
+        "patternsDetected": { "type": "array", "items": { "type": "string" } },
+        "reward": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    }
+  },
+  "$defs": {
+    "codeGraph": {
+      "type": "object",
+      "required": ["nodes", "edges"],
+      "properties": {
+        "nodes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/graphNode"
+          },
+          "description": "Code units (modules, classes, functions)"
+        },
+        "edges": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/graphEdge"
+          },
+          "description": "Dependencies and call relationships"
+        },
+        "clusters": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/cluster"
+          },
+          "description": "Identified code clusters/modules"
+        },
+        "entryPoints": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Application entry points"
+        },
+        "circularDependencies": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "description": "Detected circular dependency cycles"
+        }
+      }
+    },
+    "graphNode": {
+      "type": "object",
+      "required": ["id", "name", "type"],
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "type": { "type": "string", "enum": ["module", "class", "function", "method", "file", "package"] },
+        "path": { "type": "string" },
+        "lines": { "type": "integer", "minimum": 0 },
+        "complexity": { "type": "number", "minimum": 0 },
+        "coupling": { "type": "number", "minimum": 0 },
+        "cohesion": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "graphEdge": {
+      "type": "object",
+      "required": ["source", "target", "type"],
+      "properties": {
+        "source": { "type": "string" },
+        "target": { "type": "string" },
+        "type": { "type": "string", "enum": ["imports", "calls", "extends", "implements", "uses", "depends"] },
+        "weight": { "type": "number", "minimum": 0 }
+      }
+    },
+    "cluster": {
+      "type": "object",
+      "required": ["id", "name", "nodes"],
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "nodes": { "type": "array", "items": { "type": "string" } },
+        "cohesion": { "type": "number", "minimum": 0, "maximum": 1 },
+        "coupling": { "type": "number", "minimum": 0 }
+      }
+    },
+    "dependency": {
+      "type": "object",
+      "required": ["name", "type"],
+      "properties": {
+        "name": { "type": "string" },
+        "type": { "type": "string", "enum": ["runtime", "devDependency", "peerDependency", "optional", "internal"] },
+        "version": { "type": "string" },
+        "versionConstraint": { "type": "string" },
+        "usedBy": { "type": "array", "items": { "type": "string" } },
+        "transitiveCount": { "type": "integer", "minimum": 0 },
+        "vulnerabilities": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "severity": { "type": "string" },
+              "fixedIn": { "type": "string" }
+            }
+          }
+        },
+        "outdated": { "type": "boolean" },
+        "latestVersion": { "type": "string" }
+      }
+    },
+    "complexityMetrics": {
+      "type": "object",
+      "properties": {
+        "cyclomaticComplexity": {
+          "type": "object",
+          "properties": {
+            "total": { "type": "number", "minimum": 0 },
+            "average": { "type": "number", "minimum": 0 },
+            "max": { "type": "number", "minimum": 0 },
+            "maxLocation": { "type": "string" }
+          }
+        },
+        "cognitiveComplexity": {
+          "type": "object",
+          "properties": {
+            "total": { "type": "number", "minimum": 0 },
+            "average": { "type": "number", "minimum": 0 },
+            "max": { "type": "number", "minimum": 0 }
+          }
+        },
+        "halsteadMetrics": {
+          "type": "object",
+          "properties": {
+            "volume": { "type": "number" },
+            "difficulty": { "type": "number" },
+            "effort": { "type": "number" },
+            "vocabulary": { "type": "integer" }
+          }
+        },
+        "maintainabilityIndex": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "linesOfCode": {
+          "type": "object",
+          "properties": {
+            "total": { "type": "integer", "minimum": 0 },
+            "source": { "type": "integer", "minimum": 0 },
+            "comment": { "type": "integer", "minimum": 0 },
+            "blank": { "type": "integer", "minimum": 0 }
+          }
+        },
+        "duplication": {
+          "type": "object",
+          "properties": {
+            "percentage": { "type": "number", "minimum": 0, "maximum": 100 },
+            "blocks": { "type": "integer", "minimum": 0 },
+            "lines": { "type": "integer", "minimum": 0 }
+          }
+        }
+      }
+    },
+    "qualityScore": {
+      "type": "object",
+      "required": ["value", "max"],
+      "properties": {
+        "value": { "type": "number", "minimum": 0, "maximum": 100 },
+        "max": { "type": "number", "const": 100 },
+        "grade": { "type": "string", "pattern": "^[A-F][+-]?$" },
+        "trend": { "type": "string", "enum": ["improving", "stable", "declining", "unknown"] }
+      }
+    },
+    "finding": {
+      "type": "object",
+      "required": ["id", "title", "severity"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^CODE-\\d{3,6}$" },
+        "title": { "type": "string", "minLength": 5, "maxLength": 200 },
+        "description": { "type": "string", "maxLength": 2000 },
+        "severity": { "type": "string", "enum": ["critical", "high", "medium", "low", "info"] },
+        "category": { "type": "string", "enum": ["complexity", "coupling", "duplication", "dependency", "maintainability", "architecture"] },
+        "location": {
+          "type": "object",
+          "properties": {
+            "file": { "type": "string" },
+            "line": { "type": "integer" },
+            "column": { "type": "integer" }
+          }
+        },
+        "remediation": { "type": "string", "maxLength": 2000 }
+      }
+    },
+    "recommendation": {
+      "type": "object",
+      "required": ["id", "title", "priority"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^REC-\\d{3,6}$" },
+        "title": { "type": "string", "maxLength": 200 },
+        "description": { "type": "string", "maxLength": 2000 },
+        "priority": { "type": "string", "enum": ["critical", "high", "medium", "low"] },
+        "effort": { "type": "string", "enum": ["trivial", "low", "medium", "high", "major"] },
+        "impact": { "type": "string", "enum": ["complexity", "maintainability", "testability", "performance"] }
+      }
+    },
+    "hotspot": {
+      "type": "object",
+      "required": ["path", "type"],
+      "properties": {
+        "path": { "type": "string" },
+        "type": { "type": "string", "enum": ["complexity", "churn", "coupling", "bug-prone"] },
+        "score": { "type": "number", "minimum": 0 },
+        "changeFrequency": { "type": "integer", "minimum": 0 },
+        "bugCount": { "type": "integer", "minimum": 0 }
+      }
+    }
+  }
+}

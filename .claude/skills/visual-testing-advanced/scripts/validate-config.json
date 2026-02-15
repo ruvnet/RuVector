@@ -1,0 +1,38 @@
+{
+  "skillName": "visual-testing-advanced",
+  "skillVersion": "1.0.0",
+  "requiredTools": [
+    "jq"
+  ],
+  "optionalTools": [
+    "imagemagick",
+    "playwright",
+    "ajv",
+    "jsonschema",
+    "python3"
+  ],
+  "schemaPath": "schemas/output.json",
+  "requiredFields": [
+    "skillName",
+    "status",
+    "output"
+  ],
+  "requiredNonEmptyFields": [],
+  "mustContainTerms": [
+    "visual",
+    "test",
+    "diff"
+  ],
+  "mustNotContainTerms": [
+    "TODO",
+    "placeholder"
+  ],
+  "enumValidations": {
+    ".status": [
+      "success",
+      "partial",
+      "failed",
+      "skipped"
+    ]
+  }
+}

@@ -1,0 +1,413 @@
+{
+  "$schema": "https://agentic-qe.dev/schemas/skill-output-template.json",
+  "skillName": "security-testing",
+  "version": "1.0.0",
+  "timestamp": "2026-02-02T14:30:00.000Z",
+  "status": "success",
+  "trustTier": 3,
+  "output": {
+    "summary": "Security assessment completed for target application. Found 3 critical, 5 high, and 12 medium severity vulnerabilities. OWASP Top 10 coverage: 8/10 categories tested. Immediate action required for SQL injection and broken access control findings.",
+    "score": {
+      "value": 45,
+      "max": 100,
+      "grade": "F",
+      "trend": "stable"
+    },
+    "findings": [
+      {
+        "id": "SEC-001",
+        "title": "SQL Injection in User Search Endpoint",
+        "description": "The /api/users/search endpoint is vulnerable to SQL injection through the 'query' parameter. User input is concatenated directly into SQL query without parameterization.",
+        "severity": "critical",
+        "category": "A03:2021-Injection",
+        "location": {
+          "file": "src/controllers/userController.js",
+          "line": 42,
+          "column": 15,
+          "url": "https://example.com/api/users/search"
+        },
+        "evidence": "const query = `SELECT * FROM users WHERE name LIKE '%${req.query.query}%'`;",
+        "cwe": "CWE-89",
+        "cvss": 9.8,
+        "owasp": "A03:2021",
+        "remediation": "Use parameterized queries: db.query('SELECT * FROM users WHERE name LIKE ?', [`%${query}%`])",
+        "falsePositive": false,
+        "confidence": 0.98
+      },
+      {
+        "id": "SEC-002",
+        "title": "Broken Access Control - Horizontal Privilege Escalation",
+        "description": "Users can access other users' orders by manipulating the order ID in the URL. No ownership check is performed.",
+        "severity": "critical",
+        "category": "A01:2021-Broken-Access-Control",
+        "location": {
+          "file": "src/controllers/orderController.js",
+          "line": 28,
+          "url": "https://example.com/api/orders/:id"
+        },
+        "evidence": "GET /api/orders/12345 returns order data regardless of authenticated user",
+        "cwe": "CWE-639",
+        "cvss": 8.6,
+        "owasp": "A01:2021",
+        "remediation": "Add ownership validation: if (order.userId !== req.user.id) return res.status(403)",
+        "falsePositive": false,
+        "confidence": 0.95
+      },
+      {
+        "id": "SEC-003",
+        "title": "Stored XSS in User Comments",
+        "description": "User comments are rendered without sanitization, allowing script injection that executes in other users' browsers.",
+        "severity": "critical",
+        "category": "A03:2021-Injection",
+        "location": {
+          "file": "src/views/comments.ejs",
+          "line": 15,
+          "url": "https://example.com/posts/1/comments"
+        },
+        "evidence": "<div class='comment'><%- comment.text %></div>",
+        "cwe": "CWE-79",
+        "cvss": 8.2,
+        "owasp": "A03:2021",
+        "remediation": "Use escaped output: <%= comment.text %> or sanitize with DOMPurify",
+        "falsePositive": false,
+        "confidence": 0.92
+      },
+      {
+        "id": "SEC-004",
+        "title": "Passwords Stored in Plaintext",
+        "description": "User passwords are stored in the database without hashing. Database dump would expose all user credentials.",
+        "severity": "high",
+        "category": "A02:2021-Cryptographic-Failures",
+        "location": {
+          "file": "src/models/user.js",
+          "line": 35
+        },
+        "evidence": "this.password = password; // No hashing",
+        "cwe": "CWE-256",
+        "cvss": 7.5,
+        "owasp": "A02:2021",
+        "remediation": "Hash passwords with bcrypt: this.password = await bcrypt.hash(password, 12)",
+        "falsePositive": false,
+        "confidence": 0.99
+      },
+      {
+        "id": "SEC-005",
+        "title": "Missing Rate Limiting on Login Endpoint",
+        "description": "The /api/auth/login endpoint has no rate limiting, allowing brute force password attacks.",
+        "severity": "high",
+        "category": "A07:2021-Identification-Authentication-Failures",
+        "location": {
+          "url": "https://example.com/api/auth/login"
+        },
+        "evidence": "100 login attempts in 10 seconds all returned 401 without blocking",
+        "cwe": "CWE-307",
+        "cvss": 7.3,
+        "owasp": "A07:2021",
+        "remediation": "Implement rate limiting with express-rate-limit: max 5 attempts per minute per IP",
+        "falsePositive": false,
+        "confidence": 0.97
+      },
+      {
+        "id": "SEC-006",
+        "title": "Sensitive Data Exposed in API Response",
+        "description": "GET /api/users/me returns password hash, SSN, and internal user ID in response.",
+        "severity": "high",
+        "category": "A01:2021-Broken-Access-Control",
+        "location": {
+          "file": "src/controllers/userController.js",
+          "line": 58,
+          "url": "https://example.com/api/users/me"
+        },
+        "evidence": "Response includes: { password: '$2b$...', ssn: '123-45-6789', internalId: 'INT-12345' }",
+        "cwe": "CWE-200",
+        "cvss": 6.5,
+        "owasp": "A01:2021",
+        "remediation": "Use DTOs to filter sensitive fields: return { id, name, email } only",
+        "falsePositive": false,
+        "confidence": 0.99
+      },
+      {
+        "id": "SEC-007",
+        "title": "Verbose Error Messages Expose Stack Traces",
+        "description": "Application errors return full stack traces to clients, revealing internal file paths and technology stack.",
+        "severity": "medium",
+        "category": "A05:2021-Security-Misconfiguration",
+        "location": {
+          "file": "src/middleware/errorHandler.js",
+          "line": 12
+        },
+        "evidence": "res.status(500).json({ error: err.message, stack: err.stack })",
+        "cwe": "CWE-209",
+        "cvss": 5.3,
+        "owasp": "A05:2021",
+        "remediation": "In production: res.status(500).json({ error: 'Internal server error' })",
+        "falsePositive": false,
+        "confidence": 0.95
+      },
+      {
+        "id": "SEC-008",
+        "title": "Outdated npm Dependencies with Known Vulnerabilities",
+        "description": "npm audit found 15 vulnerabilities in dependencies: 3 critical, 5 high, 7 moderate.",
+        "severity": "high",
+        "category": "A06:2021-Vulnerable-Components",
+        "location": {
+          "file": "package.json"
+        },
+        "evidence": "lodash@4.17.15 (CVE-2021-23337), axios@0.19.0 (CVE-2021-3749)",
+        "cwe": "CWE-1104",
+        "cvss": 7.4,
+        "owasp": "A06:2021",
+        "remediation": "Run npm audit fix --force and manually review breaking changes",
+        "falsePositive": false,
+        "confidence": 1.0
+      }
+    ],
+    "recommendations": [
+      {
+        "id": "REC-001",
+        "title": "Implement Parameterized Queries Throughout Application",
+        "description": "Replace all raw SQL queries with parameterized queries using your ORM's query builder or prepared statements. This eliminates SQL injection vulnerabilities.",
+        "priority": "critical",
+        "effort": "medium",
+        "impact": 10,
+        "relatedFindings": ["SEC-001"],
+        "codeExample": "// Instead of:\nconst query = `SELECT * FROM users WHERE id = ${id}`;\n\n// Use:\nconst user = await User.findByPk(id);\n// Or:\nconst [rows] = await db.query('SELECT * FROM users WHERE id = ?', [id]);",
+        "resources": [
+          {
+            "title": "OWASP SQL Injection Prevention Cheat Sheet",
+            "url": "https://cheatsheetseries.owasp.org/cheatsheets/SQL_Injection_Prevention_Cheat_Sheet.html"
+          }
+        ]
+      },
+      {
+        "id": "REC-002",
+        "title": "Add Authorization Middleware for Resource Access",
+        "description": "Implement ownership validation middleware that checks if the authenticated user has permission to access the requested resource.",
+        "priority": "critical",
+        "effort": "medium",
+        "impact": 9,
+        "relatedFindings": ["SEC-002", "SEC-006"],
+        "codeExample": "const authorizeOwner = (resourceType) => async (req, res, next) => {\n  const resource = await db[resourceType].findByPk(req.params.id);\n  if (!resource || resource.userId !== req.user.id) {\n    return res.status(403).json({ error: 'Forbidden' });\n  }\n  req.resource = resource;\n  next();\n};",
+        "resources": [
+          {
+            "title": "OWASP Authorization Cheat Sheet",
+            "url": "https://cheatsheetseries.owasp.org/cheatsheets/Authorization_Cheat_Sheet.html"
+          }
+        ]
+      },
+      {
+        "id": "REC-003",
+        "title": "Implement Output Encoding and Content Security Policy",
+        "description": "Sanitize all user input before rendering in HTML. Implement CSP headers to prevent XSS even if sanitization is bypassed.",
+        "priority": "critical",
+        "effort": "medium",
+        "impact": 8,
+        "relatedFindings": ["SEC-003"],
+        "codeExample": "// Use escaped output in EJS:\n<%= comment.text %>\n\n// Add CSP header:\napp.use(helmet.contentSecurityPolicy({\n  directives: {\n    defaultSrc: [\"'self'\"],\n    scriptSrc: [\"'self'\"]\n  }\n}));",
+        "resources": [
+          {
+            "title": "OWASP XSS Prevention Cheat Sheet",
+            "url": "https://cheatsheetseries.owasp.org/cheatsheets/Cross_Site_Scripting_Prevention_Cheat_Sheet.html"
+          }
+        ]
+      },
+      {
+        "id": "REC-004",
+        "title": "Hash Passwords with bcrypt",
+        "description": "Never store passwords in plaintext. Use bcrypt with a work factor of at least 12 for password hashing.",
+        "priority": "high",
+        "effort": "low",
+        "impact": 9,
+        "relatedFindings": ["SEC-004"],
+        "codeExample": "const bcrypt = require('bcrypt');\n\n// When creating user:\nuser.password = await bcrypt.hash(plainPassword, 12);\n\n// When verifying:\nconst match = await bcrypt.compare(plainPassword, user.password);",
+        "resources": [
+          {
+            "title": "OWASP Password Storage Cheat Sheet",
+            "url": "https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html"
+          }
+        ]
+      },
+      {
+        "id": "REC-005",
+        "title": "Implement Rate Limiting on Authentication Endpoints",
+        "description": "Add rate limiting to prevent brute force attacks on login, password reset, and registration endpoints.",
+        "priority": "high",
+        "effort": "low",
+        "impact": 7,
+        "relatedFindings": ["SEC-005"],
+        "codeExample": "const rateLimit = require('express-rate-limit');\n\nconst authLimiter = rateLimit({\n  windowMs: 60 * 1000, // 1 minute\n  max: 5,\n  message: { error: 'Too many attempts, please try again later' }\n});\n\napp.use('/api/auth', authLimiter);",
+        "resources": [
+          {
+            "title": "OWASP Brute Force Prevention",
+            "url": "https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html#prevent-brute-force-attacks"
+          }
+        ]
+      },
+      {
+        "id": "REC-006",
+        "title": "Update All npm Dependencies",
+        "description": "Run npm audit and update all packages with known vulnerabilities. Set up automated dependency scanning with Dependabot or Snyk.",
+        "priority": "high",
+        "effort": "medium",
+        "impact": 7,
+        "relatedFindings": ["SEC-008"],
+        "codeExample": "# Run security audit\nnpm audit\n\n# Auto-fix where possible\nnpm audit fix\n\n# Manual review for breaking changes\nnpm update lodash axios",
+        "resources": [
+          {
+            "title": "npm audit documentation",
+            "url": "https://docs.npmjs.com/cli/v8/commands/npm-audit"
+          }
+        ]
+      }
+    ],
+    "metrics": {
+      "total": 47,
+      "passed": 27,
+      "failed": 20,
+      "skipped": 0,
+      "coverage": 80,
+      "duration": 45230,
+      "custom": {
+        "owaspCategoriesTested": 8,
+        "criticalFindings": 3,
+        "highFindings": 5,
+        "mediumFindings": 12,
+        "lowFindings": 0,
+        "infoFindings": 0
+      }
+    },
+    "categories": {
+      "A01:2021-Broken-Access-Control": {
+        "score": 35,
+        "weight": 0.15,
+        "description": "Restrictions on authenticated users are not properly enforced",
+        "grade": "F",
+        "findingCount": 2
+      },
+      "A02:2021-Cryptographic-Failures": {
+        "score": 40,
+        "weight": 0.12,
+        "description": "Failures related to cryptography leading to sensitive data exposure",
+        "grade": "F",
+        "findingCount": 1
+      },
+      "A03:2021-Injection": {
+        "score": 25,
+        "weight": 0.15,
+        "description": "User-supplied data not validated, filtered, or sanitized",
+        "grade": "F",
+        "findingCount": 2
+      },
+      "A05:2021-Security-Misconfiguration": {
+        "score": 60,
+        "weight": 0.10,
+        "description": "Missing security hardening or improperly configured permissions",
+        "grade": "D",
+        "findingCount": 1
+      },
+      "A06:2021-Vulnerable-Components": {
+        "score": 45,
+        "weight": 0.10,
+        "description": "Using components with known vulnerabilities",
+        "grade": "F",
+        "findingCount": 1
+      },
+      "A07:2021-Identification-Authentication-Failures": {
+        "score": 50,
+        "weight": 0.12,
+        "description": "Confirmation of user identity, authentication, and session management",
+        "grade": "F",
+        "findingCount": 1
+      }
+    },
+    "artifacts": [
+      {
+        "type": "report",
+        "path": "tests/reports/security-scan-2026-02-02.html",
+        "format": "html",
+        "description": "Visual HTML report with OWASP Top 10 breakdown",
+        "sizeBytes": 245780,
+        "checksum": "sha256:a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2"
+      },
+      {
+        "type": "data",
+        "path": "tests/reports/security-findings-2026-02-02.json",
+        "format": "json",
+        "description": "Raw findings data for CI/CD integration",
+        "sizeBytes": 18432
+      },
+      {
+        "type": "log",
+        "path": "tests/reports/security-scan.log",
+        "format": "txt",
+        "description": "Detailed scan execution log",
+        "sizeBytes": 52100
+      }
+    ],
+    "timeline": [
+      {
+        "timestamp": "2026-02-02T14:30:00.000Z",
+        "event": "Security scan started",
+        "type": "start"
+      },
+      {
+        "timestamp": "2026-02-02T14:30:05.000Z",
+        "event": "SAST analysis completed",
+        "type": "checkpoint",
+        "durationMs": 5000
+      },
+      {
+        "timestamp": "2026-02-02T14:30:20.000Z",
+        "event": "Dependency audit completed",
+        "type": "checkpoint",
+        "durationMs": 15000
+      },
+      {
+        "timestamp": "2026-02-02T14:30:35.000Z",
+        "event": "DAST scanning completed",
+        "type": "checkpoint",
+        "durationMs": 15000
+      },
+      {
+        "timestamp": "2026-02-02T14:30:45.000Z",
+        "event": "Report generation completed",
+        "type": "complete",
+        "durationMs": 10000
+      }
+    ]
+  },
+  "metadata": {
+    "executionTimeMs": 45230,
+    "toolsUsed": ["semgrep", "npm-audit", "owasp-zap", "trivy"],
+    "agentId": "qe-security-scanner",
+    "modelUsed": "claude-3.5-sonnet",
+    "inputHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "targetUrl": "https://example.com",
+    "targetPath": "src/",
+    "environment": "ci",
+    "retryCount": 0
+  },
+  "validation": {
+    "schemaValid": true,
+    "contentValid": true,
+    "confidence": 0.95,
+    "warnings": [
+      "Some findings may require manual verification"
+    ],
+    "errors": [],
+    "validatorVersion": "1.0.0"
+  },
+  "learning": {
+    "patternsDetected": [
+      "sql-injection-string-concat",
+      "missing-authorization-check",
+      "xss-unescaped-output",
+      "plaintext-password-storage"
+    ],
+    "reward": 0.85,
+    "feedbackLoop": {
+      "previousRunId": "550e8400-e29b-41d4-a716-446655440000",
+      "improvement": 0.15
+    }
+  }
+}

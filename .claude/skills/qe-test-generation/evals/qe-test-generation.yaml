@@ -1,0 +1,148 @@
+skill: qe-test-generation
+version: 1.0.0
+description: >
+  Evaluation suite for AI-powered test generation.
+  Tests unit test generation, integration test creation, and edge case coverage.
+
+models_to_test:
+  - claude-3.5-sonnet
+  - claude-3-haiku
+
+mcp_integration:
+  enabled: true
+  namespace: skill-validation
+  query_patterns: true
+  track_outcomes: true
+  store_patterns: true
+  target_agents:
+    - qe-learning-coordinator
+
+learning:
+  store_success_patterns: true
+  pattern_ttl_days: 90
+
+result_format:
+  json_output: true
+  include_timing: true
+  include_token_usage: true
+
+setup:
+  required_tools:
+    - jq
+
+test_cases:
+
+  - id: tc001_unit_test_generation
+    description: "Generate unit tests for function"
+    category: test_generation
+    priority: critical
+
+    input:
+      code: |
+        function add(a, b) {
+          return a + b;
+        }
+      language: "javascript"
+      test_framework: "jest"
+
+    expected_output:
+      must_contain:
+        - "test"
+        - "describe"
+        - "expect"
+        - "add"
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+
+  - id: tc002_edge_case_detection
+    description: "Generate tests for edge cases"
+    category: edge_cases
+    priority: high
+
+    input:
+      code: |
+        function divide(a, b) {
+          return a / b;
+        }
+      language: "javascript"
+
+    expected_output:
+      must_contain:
+        - "zero"
+        - "edge"
+        - "negative"
+
+    validation:
+      schema_check: true
+
+  - id: tc003_integration_test_generation
+    description: "Generate integration tests"
+    category: integration
+    priority: high
+
+    input:
+      code: "API endpoint handler"
+      test_type: "integration"
+      framework: "jest"
+
+    expected_output:
+      must_contain:
+        - "integration"
+        - "test"
+        - "API"
+
+    validation:
+      schema_check: true
+
+  - id: tc004_test_coverage_analysis
+    description: "Analyze and improve test coverage"
+    category: coverage
+    priority: medium
+
+    input:
+      current_coverage_percent: 60
+      target_coverage_percent: 80
+      uncovered_lines: ["function error() {", "throw new Error()"]
+
+    expected_output:
+      must_contain:
+        - "coverage"
+        - "test"
+
+    validation:
+      schema_check: true
+
+  - id: tc005_test_quality_metrics
+    description: "Evaluate test quality metrics"
+    category: quality
+    priority: medium
+
+    input:
+      tests:
+        - "test_basic_flow"
+        - "test_error_handling"
+        - "test_edge_cases"
+
+    expected_output:
+      must_contain:
+        - "quality"
+        - "metric"
+
+    validation:
+      schema_check: true
+      allow_partial: true
+
+success_criteria:
+  pass_rate: 0.9
+  critical_pass_rate: 1.0
+  avg_reasoning_quality: 0.75
+  max_execution_time_ms: 300000
+
+metadata:
+  author: "qe-test-architect"
+  created: "2026-02-02"
+  coverage_target: >
+    Test generation with 5 test cases covering unit tests, edge cases,
+    integration tests, coverage analysis, and quality metrics.

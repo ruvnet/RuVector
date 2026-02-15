@@ -1,0 +1,719 @@
+# =============================================================================
+# AQE Accessibility Testing Skill Evaluation Suite v1.0.0
+# WCAG 2.2 compliance testing evaluation with POUR principle coverage
+# =============================================================================
+#
+# This evaluation suite validates accessibility testing skill behavior through:
+# 1. POUR principle coverage (Perceivable, Operable, Understandable, Robust)
+# 2. WCAG 2.2 Level A, AA, AAA conformance testing
+# 3. Multi-model consistency across Claude and GPT models
+# 4. Severity classification validation
+# 5. Remediation quality assessment
+#
+# Schema: .validation/schemas/skill-eval.schema.json
+# Runner: scripts/run-skill-eval.ts
+# =============================================================================
+
+skill: accessibility-testing
+version: 1.0.0
+description: >
+  Comprehensive evaluation suite for WCAG 2.2 accessibility testing skill.
+  Tests POUR principles (Perceivable, Operable, Understandable, Robust),
+  conformance levels, finding detection, and remediation quality across
+  multiple LLM models.
+
+# =============================================================================
+# Multi-Model Configuration
+# =============================================================================
+
+models_to_test:
+  - claude-3.5-sonnet    # Primary model (high accuracy expected)
+  - claude-3-haiku       # Fast model (ensure minimum quality)
+  - gpt-4o               # Cross-vendor validation
+
+# =============================================================================
+# MCP Integration Configuration
+# =============================================================================
+
+mcp_integration:
+  enabled: true
+  namespace: skill-validation
+
+  # Query existing accessibility patterns before running evals
+  query_patterns: true
+
+  # Track each test outcome for learning feedback
+  track_outcomes: true
+
+  # Store successful patterns (WCAG violations, remediation approaches)
+  store_patterns: true
+
+  # Share learning with fleet coordinator agents
+  share_learning: true
+
+  # Update quality gate with accessibility metrics
+  update_quality_gate: true
+
+  # Agents to share learning with
+  target_agents:
+    - qe-learning-coordinator
+    - qe-queen-coordinator
+    - qe-accessibility-auditor
+
+# =============================================================================
+# ReasoningBank Learning Configuration
+# =============================================================================
+
+learning:
+  store_success_patterns: true
+  store_failure_patterns: true
+  pattern_ttl_days: 90
+  min_confidence_to_store: 0.7
+  cross_model_comparison: true
+
+# =============================================================================
+# Result Format Configuration
+# =============================================================================
+
+result_format:
+  json_output: true
+  markdown_report: true
+  include_raw_output: false
+  include_timing: true
+  include_token_usage: true
+
+# =============================================================================
+# Environment Setup
+# =============================================================================
+
+setup:
+  required_tools:
+    - jq
+  environment_variables:
+    WCAG_VERSION: "2.2"
+    TARGET_LEVEL: "AA"
+  fixtures:
+    - name: accessible_page
+      content: |
+        <!DOCTYPE html>
+        <html lang="en">
+        <head><title>Accessible Page</title></head>
+        <body>
+          <header><nav aria-label="Main"><a href="/">Home</a></nav></header>
+          <main>
+            <h1>Welcome</h1>
+            <img src="hero.jpg" alt="Person using laptop">
+            <form>
+              <label for="email">Email:</label>
+              <input type="email" id="email" name="email" required>
+              <button type="submit">Subscribe</button>
+            </form>
+          </main>
+        </body>
+        </html>
+    - name: inaccessible_page
+      content: |
+        <!DOCTYPE html>
+        <html>
+        <head><title></title></head>
+        <body>
+          <div onclick="navigate()">Menu</div>
+          <img src="logo.png">
+          <input type="text" placeholder="Enter email">
+          <span style="color: #999; background: #fff;">Light gray text</span>
+        </body>
+        </html>
+
+# =============================================================================
+# Test Cases - POUR Principles Coverage
+# =============================================================================
+
+test_cases:
+  # -------------------------------------------------------------------------
+  # PERCEIVABLE (WCAG 1.x) - Content can be perceived
+  # -------------------------------------------------------------------------
+
+  - id: tc001_perceivable_alt_text
+    description: "Detect missing alt text on images (WCAG 1.1.1)"
+    category: perceivable
+    priority: critical
+
+    input:
+      code: |
+        <img src="product.jpg">
+        <img src="banner.png" alt="">
+        <img src="hero.jpg" alt="Team collaboration in modern office">
+      context:
+        language: html
+        wcagLevel: AA
+
+    expected_output:
+      must_contain:
+        - "alt"
+        - "1.1.1"
+        - "perceivable"
+      must_not_contain:
+        - "no issues"
+      finding_count:
+        min: 1
+        max: 2
+      severity_classification: serious
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.9
+      reasoning_quality_min: 0.7
+
+  - id: tc002_perceivable_color_contrast
+    description: "Detect insufficient color contrast (WCAG 1.4.3)"
+    category: perceivable
+    priority: critical
+
+    input:
+      code: |
+        <p style="color: #777; background-color: #fff;">Gray text on white</p>
+        <p style="color: #333; background-color: #fff;">Dark text on white</p>
+        <h1 style="color: #aaa; background-color: #eee;">Low contrast heading</h1>
+      context:
+        language: html
+        wcagLevel: AA
+
+    expected_output:
+      must_contain:
+        - "contrast"
+        - "1.4.3"
+        - "4.5:1"
+      finding_count:
+        min: 1
+        max: 3
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+
+  - id: tc003_perceivable_video_captions
+    description: "Detect videos without captions (WCAG 1.2.2)"
+    category: perceivable
+    priority: critical
+
+    input:
+      code: |
+        <video src="product-demo.mp4" controls>
+          <source src="product-demo.mp4" type="video/mp4">
+        </video>
+        <video controls>
+          <source src="interview.mp4" type="video/mp4">
+          <track kind="captions" src="captions.vtt" srclang="en">
+        </video>
+      context:
+        language: html
+        wcagLevel: AA
+
+    expected_output:
+      must_contain:
+        - "caption"
+        - "1.2.2"
+        - "track"
+      finding_count:
+        min: 1
+        max: 2
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+
+  # -------------------------------------------------------------------------
+  # OPERABLE (WCAG 2.x) - Interface is operable
+  # -------------------------------------------------------------------------
+
+  - id: tc004_operable_keyboard_access
+    description: "Detect elements not keyboard accessible (WCAG 2.1.1)"
+    category: operable
+    priority: critical
+
+    input:
+      code: |
+        <div onclick="handleClick()">Click me</div>
+        <span class="button" onclick="submit()">Submit</span>
+        <button onclick="save()">Save</button>
+        <a href="/next">Next Page</a>
+      context:
+        language: html
+        wcagLevel: A
+
+    expected_output:
+      must_contain:
+        - "keyboard"
+        - "2.1.1"
+        - "operable"
+        - "button"
+      must_not_contain:
+        - "all elements accessible"
+      finding_count:
+        min: 2
+        max: 3
+      severity_classification: critical
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.9
+      reasoning_quality_min: 0.8
+
+  - id: tc005_operable_focus_visible
+    description: "Detect missing focus indicators (WCAG 2.4.7)"
+    category: operable
+    priority: high
+
+    input:
+      code: |
+        <style>
+          button:focus { outline: none; }
+          a:focus { outline: 0; }
+          input:focus { outline: none; border-color: blue; }
+        </style>
+        <button>Submit</button>
+        <a href="/">Home</a>
+        <input type="text" placeholder="Search">
+      context:
+        language: html
+        wcagLevel: AA
+
+    expected_output:
+      must_contain:
+        - "focus"
+        - "2.4.7"
+        - "outline"
+      finding_count:
+        min: 2
+        max: 3
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+
+  - id: tc006_operable_keyboard_trap
+    description: "Detect keyboard traps (WCAG 2.1.2)"
+    category: operable
+    priority: critical
+
+    input:
+      code: |
+        <div id="modal" tabindex="0" onkeydown="if(event.key==='Tab'){event.preventDefault();}">
+          <h2>Modal Dialog</h2>
+          <input type="text" placeholder="Enter name">
+          <button>Close</button>
+        </div>
+      context:
+        language: html
+        wcagLevel: A
+        description: "Modal with keyboard trap"
+
+    expected_output:
+      must_contain:
+        - "keyboard trap"
+        - "2.1.2"
+        - "Tab"
+      severity_classification: critical
+
+    validation:
+      schema_check: true
+
+  # -------------------------------------------------------------------------
+  # UNDERSTANDABLE (WCAG 3.x) - Content is understandable
+  # -------------------------------------------------------------------------
+
+  - id: tc007_understandable_form_labels
+    description: "Detect form inputs without labels (WCAG 3.3.2)"
+    category: understandable
+    priority: high
+
+    input:
+      code: |
+        <form>
+          <input type="text" placeholder="Name">
+          <input type="email" placeholder="Email">
+          <label for="phone">Phone:</label>
+          <input type="tel" id="phone">
+          <button>Submit</button>
+        </form>
+      context:
+        language: html
+        wcagLevel: A
+
+    expected_output:
+      must_contain:
+        - "label"
+        - "3.3.2"
+        - "understandable"
+      finding_count:
+        min: 2
+        max: 3
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+
+  - id: tc008_understandable_error_messages
+    description: "Detect missing error identification (WCAG 3.3.1)"
+    category: understandable
+    priority: high
+
+    input:
+      code: |
+        <form>
+          <input type="email" required aria-invalid="true">
+          <span style="color: red;">*</span>
+          <input type="password" required aria-describedby="pwd-error">
+          <span id="pwd-error" role="alert">Password must be 8+ characters</span>
+        </form>
+      context:
+        language: html
+        wcagLevel: A
+
+    expected_output:
+      must_contain:
+        - "error"
+        - "3.3.1"
+      finding_count:
+        min: 1
+        max: 2
+
+    validation:
+      schema_check: true
+
+  - id: tc009_understandable_language
+    description: "Detect missing page language (WCAG 3.1.1)"
+    category: understandable
+    priority: high
+
+    input:
+      code: |
+        <!DOCTYPE html>
+        <html>
+        <head><title>My Page</title></head>
+        <body><h1>Welcome</h1></body>
+        </html>
+      context:
+        language: html
+        wcagLevel: A
+
+    expected_output:
+      must_contain:
+        - "lang"
+        - "3.1.1"
+        - "language"
+      finding_count:
+        min: 1
+        max: 1
+      severity_classification: serious
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.9
+
+  # -------------------------------------------------------------------------
+  # ROBUST (WCAG 4.x) - Compatible with assistive technologies
+  # -------------------------------------------------------------------------
+
+  - id: tc010_robust_aria_valid
+    description: "Detect invalid ARIA attributes (WCAG 4.1.2)"
+    category: robust
+    priority: high
+
+    input:
+      code: |
+        <button aria-label="">Submit</button>
+        <div role="button" aria-pressed="maybe">Toggle</div>
+        <input type="checkbox" aria-checked="true">
+        <nav aria-labelledby="nonexistent">Navigation</nav>
+      context:
+        language: html
+        wcagLevel: A
+
+    expected_output:
+      must_contain:
+        - "ARIA"
+        - "4.1.2"
+        - "robust"
+      finding_count:
+        min: 2
+        max: 4
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+
+  - id: tc011_robust_html_parsing
+    description: "Detect HTML parsing errors (WCAG 4.1.1)"
+    category: robust
+    priority: medium
+
+    input:
+      code: |
+        <html>
+        <head><title>Page</head>
+        <body>
+          <div id="main">
+            <p>Unclosed paragraph
+            <div id="main">Duplicate ID</div>
+          </div>
+        </body>
+        </html>
+      context:
+        language: html
+        wcagLevel: A
+
+    expected_output:
+      must_contain:
+        - "4.1.1"
+        - "parsing"
+      finding_count:
+        min: 1
+        max: 4
+
+    validation:
+      schema_check: true
+
+  # -------------------------------------------------------------------------
+  # Negative Tests (Should NOT find issues)
+  # -------------------------------------------------------------------------
+
+  - id: tc012_no_false_positives_accessible
+    description: "Fully accessible page should not flag critical issues"
+    category: negative
+    priority: critical
+
+    input:
+      code: |
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+          <title>Accessible Website</title>
+          <meta charset="UTF-8">
+        </head>
+        <body>
+          <a href="#main" class="skip-link">Skip to main content</a>
+          <header>
+            <nav aria-label="Main navigation">
+              <ul>
+                <li><a href="/">Home</a></li>
+                <li><a href="/about">About</a></li>
+              </ul>
+            </nav>
+          </header>
+          <main id="main">
+            <h1>Welcome to Our Site</h1>
+            <img src="hero.jpg" alt="Happy customers using our product">
+            <form>
+              <label for="email">Email address:</label>
+              <input type="email" id="email" name="email" required aria-describedby="email-hint">
+              <span id="email-hint">We'll never share your email.</span>
+              <button type="submit">Subscribe</button>
+            </form>
+          </main>
+          <footer>
+            <p>&copy; 2026 Accessible Company</p>
+          </footer>
+        </body>
+        </html>
+      context:
+        language: html
+        wcagLevel: AA
+
+    expected_output:
+      must_contain:
+        - "accessible"
+      must_not_contain:
+        - "critical"
+        - "serious"
+      finding_count:
+        max: 2  # Allow minor/informational findings only
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.7
+
+  # -------------------------------------------------------------------------
+  # Edge Cases
+  # -------------------------------------------------------------------------
+
+  - id: tc013_dynamic_content_aria_live
+    description: "Detect missing aria-live for dynamic content"
+    category: edge_cases
+    priority: medium
+
+    input:
+      code: |
+        <div id="notifications">
+          <!-- JavaScript updates this -->
+        </div>
+        <div id="status" aria-live="polite" role="status">
+          Loading...
+        </div>
+        <div id="alerts" role="alert">
+          Error occurred!
+        </div>
+      context:
+        language: html
+        wcagLevel: AA
+        description: "Dynamic content regions"
+
+    expected_output:
+      must_contain:
+        - "aria-live"
+        - "dynamic"
+
+    validation:
+      schema_check: true
+
+  - id: tc014_heading_hierarchy
+    description: "Detect broken heading hierarchy (WCAG 1.3.1)"
+    category: edge_cases
+    priority: medium
+
+    input:
+      code: |
+        <h1>Main Title</h1>
+        <h3>Skipped h2!</h3>
+        <h4>Another section</h4>
+        <h2>Back to h2</h2>
+        <h6>Way out of order</h6>
+      context:
+        language: html
+        wcagLevel: A
+
+    expected_output:
+      must_contain:
+        - "heading"
+        - "hierarchy"
+        - "1.3.1"
+      finding_count:
+        min: 1
+        max: 3
+
+    validation:
+      schema_check: true
+
+  # -------------------------------------------------------------------------
+  # Remediation Quality Tests
+  # -------------------------------------------------------------------------
+
+  - id: tc015_remediation_code_quality
+    description: "Verify remediation includes actionable code examples"
+    category: remediation
+    priority: high
+
+    input:
+      code: |
+        <img src="product.jpg">
+        <div onclick="buy()">Buy Now</div>
+      context:
+        language: html
+        wcagLevel: AA
+        options:
+          includeRemediation: true
+
+    expected_output:
+      must_contain:
+        - "alt="
+        - "button"
+        - "role"
+      must_match_regex:
+        - "<img.*alt=\".*\".*>"
+        - "<button.*>.*</button>"
+
+    validation:
+      schema_check: true
+      grading_rubric:
+        completeness: 0.3
+        accuracy: 0.4
+        actionability: 0.3
+
+  # -------------------------------------------------------------------------
+  # Multi-page / Complex Scenarios
+  # -------------------------------------------------------------------------
+
+  - id: tc016_complex_form_validation
+    description: "Complex form with multiple accessibility requirements"
+    category: integration
+    priority: high
+
+    input:
+      code: |
+        <form id="checkout">
+          <fieldset>
+            <legend>Shipping Address</legend>
+            <input type="text" name="street" placeholder="Street">
+            <input type="text" name="city" placeholder="City">
+            <select name="state">
+              <option value="">Select State</option>
+            </select>
+          </fieldset>
+          <fieldset>
+            <legend>Payment</legend>
+            <input type="text" name="card" maxlength="16">
+            <input type="text" name="cvv" maxlength="3">
+          </fieldset>
+          <div class="error" style="display:none;"></div>
+          <button type="submit">Place Order</button>
+        </form>
+      context:
+        language: html
+        wcagLevel: AA
+        environment: production
+
+    expected_output:
+      must_contain:
+        - "label"
+        - "form"
+        - "3.3"
+      finding_count:
+        min: 4
+        max: 10
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+
+# =============================================================================
+# Success Criteria
+# =============================================================================
+
+success_criteria:
+  # Minimum percentage of tests that must pass
+  pass_rate: 0.90
+
+  # Critical tests (POUR principle detection) must have 100% pass rate
+  critical_pass_rate: 1.0
+
+  # Average reasoning quality across all tests
+  avg_reasoning_quality: 0.75
+
+  # Maximum time for entire suite (5 minutes)
+  max_execution_time_ms: 300000
+
+  # Maximum variance between different models (15%)
+  cross_model_variance: 0.15
+
+# =============================================================================
+# Metadata
+# =============================================================================
+
+metadata:
+  author: "@aqe-team"
+  created: "2026-02-02"
+  last_updated: "2026-02-02"
+  coverage_target: "POUR principles, WCAG 2.2 A/AA criteria, remediation quality"
+  wcag_criteria_covered:
+    - "1.1.1 Non-text Content"
+    - "1.2.2 Captions (Prerecorded)"
+    - "1.3.1 Info and Relationships"
+    - "1.4.3 Contrast (Minimum)"
+    - "2.1.1 Keyboard"
+    - "2.1.2 No Keyboard Trap"
+    - "2.4.7 Focus Visible"
+    - "3.1.1 Language of Page"
+    - "3.3.1 Error Identification"
+    - "3.3.2 Labels or Instructions"
+    - "4.1.1 Parsing"
+    - "4.1.2 Name, Role, Value"

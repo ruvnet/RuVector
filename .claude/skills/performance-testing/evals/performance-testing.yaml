@@ -1,0 +1,772 @@
+# =============================================================================
+# AQE Skill Evaluation Test Suite: Performance Testing v1.0.0
+# =============================================================================
+#
+# Comprehensive evaluation suite for the performance-testing skill per ADR-056.
+# Tests load testing, stress testing, endurance testing, response time analysis,
+# throughput calculation, SLA validation, and bottleneck identification.
+#
+# Schema: .claude/skills/.validation/schemas/skill-eval.schema.json
+# Validator: .claude/skills/performance-testing/scripts/validate-config.json
+#
+# Coverage:
+# - Load Testing: k6, Artillery, JMeter scenarios
+# - Stress Testing: Breaking point identification
+# - Endurance Testing: Memory leak detection
+# - Response Time Analysis: Percentile calculations (p50, p95, p99)
+# - Throughput Analysis: Requests per second, transactions
+# - SLA Validation: Threshold compliance checking
+# - Bottleneck Identification: CPU, memory, DB, network
+#
+# =============================================================================
+
+skill: performance-testing
+version: 1.0.0
+description: >
+  Comprehensive evaluation suite for the performance-testing skill.
+  Tests load/stress/endurance testing capabilities, response time percentile
+  accuracy, throughput calculation, SLA compliance checking, and bottleneck
+  identification. Supports multi-model testing and integrates with ReasoningBank
+  for continuous improvement.
+
+# =============================================================================
+# Multi-Model Configuration
+# =============================================================================
+
+models_to_test:
+  - claude-3.5-sonnet    # Primary model (high accuracy expected)
+  - claude-3-haiku       # Fast model (minimum quality threshold)
+  - gpt-4o               # Cross-vendor validation
+
+# =============================================================================
+# MCP Integration Configuration
+# =============================================================================
+
+mcp_integration:
+  enabled: true
+  namespace: skill-validation
+
+  # Query existing performance patterns before running evals
+  query_patterns: true
+
+  # Track each test outcome for learning feedback loop
+  track_outcomes: true
+
+  # Store successful patterns after evals complete
+  store_patterns: true
+
+  # Share learning with fleet coordinator agents
+  share_learning: true
+
+  # Update quality gate with validation metrics
+  update_quality_gate: true
+
+  # Target agents for learning distribution
+  target_agents:
+    - qe-learning-coordinator
+    - qe-queen-coordinator
+    - qe-performance-tester
+    - qe-chaos-engineer
+
+# =============================================================================
+# ReasoningBank Learning Configuration
+# =============================================================================
+
+learning:
+  store_success_patterns: true
+  store_failure_patterns: true
+  pattern_ttl_days: 90
+  min_confidence_to_store: 0.7
+  cross_model_comparison: true
+
+# =============================================================================
+# Result Format Configuration
+# =============================================================================
+
+result_format:
+  json_output: true
+  markdown_report: true
+  include_raw_output: false
+  include_timing: true
+  include_token_usage: true
+
+# =============================================================================
+# Environment Setup
+# =============================================================================
+
+setup:
+  required_tools:
+    - jq       # JSON parsing (required)
+    - bc       # Math operations (optional)
+
+  environment_variables:
+    PERF_TEST_MODE: "evaluation"
+    SLA_STRICT: "true"
+    PERCENTILE_VALIDATION: "true"
+
+  fixtures:
+    - name: k6_load_test_script
+      path: fixtures/k6-load-test.js
+      content: |
+        import http from 'k6/http';
+        import { check, sleep } from 'k6';
+
+        export const options = {
+          stages: [
+            { duration: '1m', target: 50 },
+            { duration: '3m', target: 50 },
+            { duration: '1m', target: 0 },
+          ],
+          thresholds: {
+            http_req_duration: ['p(95)<200'],
+            http_req_failed: ['rate<0.01'],
+          },
+        };
+
+        export default function () {
+          const res = http.get('https://api.example.com/products');
+          check(res, {
+            'status is 200': (r) => r.status === 200,
+            'response time < 200ms': (r) => r.timings.duration < 200,
+          });
+          sleep(1);
+        }
+
+# =============================================================================
+# TEST CASES
+# =============================================================================
+
+test_cases:
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Load Testing
+  # ---------------------------------------------------------------------------
+
+  - id: tc001_load_test_basic_analysis
+    description: "Analyze basic load test results with response times and throughput"
+    category: load-testing
+    priority: critical
+
+    input:
+      scenario: |
+        A k6 load test was run against an e-commerce API with 100 virtual users
+        for 5 minutes. Analyze the results:
+
+        - Total Requests: 45,000
+        - Successful: 44,820
+        - Failed: 180
+        - Average Response Time: 145ms
+        - p50: 120ms
+        - p95: 280ms
+        - p99: 450ms
+        - Requests/second: 150
+
+        SLA Thresholds:
+        - p95 response time < 300ms
+        - Error rate < 1%
+      context:
+        tool: k6
+        testType: load
+        environment: staging
+
+    expected_output:
+      must_contain:
+        - "load test"
+        - "response time"
+        - "throughput"
+        - "150"
+        - "p95"
+      must_not_contain:
+        - "no data"
+        - "unable to analyze"
+      must_match_regex:
+        - "p95.*280|280.*p95"
+        - "error.*rate|rate.*error"
+      status: success
+      finding_count:
+        min: 1
+        max: 10
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+      reasoning_quality_min: 0.75
+
+    timeout_ms: 30000
+
+  - id: tc002_load_test_sla_failure
+    description: "Detect SLA failures in load test results"
+    category: load-testing
+    priority: critical
+
+    input:
+      scenario: |
+        Load test results show SLA violations:
+
+        - p95 Response Time: 450ms (threshold: 300ms) - FAILED
+        - Error Rate: 2.5% (threshold: 1%) - FAILED
+        - Throughput: 1200 req/s (threshold: 1000) - PASSED
+
+        Identify the failures and provide recommendations.
+      context:
+        tool: artillery
+        testType: load
+
+    expected_output:
+      must_contain:
+        - "SLA"
+        - "failed"
+        - "threshold"
+        - "p95"
+        - "error rate"
+      must_not_contain:
+        - "all thresholds met"
+        - "passed"
+      severity_classification: high
+      finding_count:
+        min: 2
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.7
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Stress Testing
+  # ---------------------------------------------------------------------------
+
+  - id: tc003_stress_test_breaking_point
+    description: "Identify system breaking point from stress test"
+    category: stress-testing
+    priority: critical
+
+    input:
+      scenario: |
+        Stress test ramped from 100 to 1000 VUs over 30 minutes:
+
+        100 VUs: p95=120ms, errors=0.1%
+        200 VUs: p95=150ms, errors=0.2%
+        400 VUs: p95=220ms, errors=0.5%
+        600 VUs: p95=380ms, errors=1.5%
+        800 VUs: p95=850ms, errors=8%
+        1000 VUs: p95=2500ms, errors=25%
+
+        Identify the breaking point and recommend max capacity.
+      context:
+        tool: k6
+        testType: stress
+
+    expected_output:
+      must_contain:
+        - "breaking point"
+        - "400"
+        - "600"
+        - "capacity"
+        - "degradation"
+      must_match_regex:
+        - "breaking.*point|point.*breaking"
+        - "recommend.*[0-9]+.*VU|[0-9]+.*VU.*recommend"
+      severity_classification: high
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.75
+      reasoning_quality_min: 0.8
+
+  - id: tc004_stress_test_gradual_degradation
+    description: "Analyze gradual performance degradation pattern"
+    category: stress-testing
+    priority: high
+
+    input:
+      scenario: |
+        Performance degrades gradually under increasing load:
+
+        Time 0m: 100 VUs, p95=100ms
+        Time 5m: 100 VUs, p95=105ms
+        Time 10m: 100 VUs, p95=120ms
+        Time 15m: 100 VUs, p95=150ms
+        Time 20m: 100 VUs, p95=200ms
+        Time 25m: 100 VUs, p95=280ms
+        Time 30m: 100 VUs, p95=400ms
+
+        Note: Load stayed constant but response time increased.
+      context:
+        tool: gatling
+        testType: stress
+
+    expected_output:
+      must_contain:
+        - "degradation"
+        - "memory"
+        - "leak"
+        - "resource"
+      must_not_contain:
+        - "stable"
+        - "healthy"
+      severity_classification: critical
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.7
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Endurance Testing
+  # ---------------------------------------------------------------------------
+
+  - id: tc005_endurance_test_memory_leak
+    description: "Detect memory leak in endurance test"
+    category: endurance-testing
+    priority: critical
+
+    input:
+      scenario: |
+        24-hour endurance test with 50 VUs:
+
+        Hour 0: Memory=2GB, p95=100ms
+        Hour 4: Memory=2.5GB, p95=105ms
+        Hour 8: Memory=3.2GB, p95=115ms
+        Hour 12: Memory=4.1GB, p95=130ms
+        Hour 16: Memory=5.2GB, p95=160ms
+        Hour 20: Memory=6.8GB, p95=220ms
+        Hour 24: Memory=8.5GB, p95=350ms
+
+        Server has 16GB RAM. Response time degraded as memory grew.
+      context:
+        tool: jmeter
+        testType: endurance
+
+    expected_output:
+      must_contain:
+        - "memory leak"
+        - "endurance"
+        - "24 hour"
+        - "growth"
+        - "fix"
+      must_match_regex:
+        - "memory.*leak|leak.*memory"
+        - "recommend|fix|solution"
+      severity_classification: critical
+      finding_count:
+        min: 1
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+      reasoning_quality_min: 0.85
+
+  - id: tc006_endurance_test_stable
+    description: "Verify stable system in endurance test"
+    category: endurance-testing
+    priority: high
+
+    input:
+      scenario: |
+        48-hour soak test with 100 VUs - System remained stable:
+
+        - Response time p95: 150ms +/- 10ms throughout
+        - Memory: 4GB +/- 200MB throughout
+        - CPU: 45% +/- 5% throughout
+        - Error rate: 0.05% constant
+        - No connection pool exhaustion
+        - No thread leaks detected
+
+        All metrics within acceptable variance.
+      context:
+        tool: k6
+        testType: soak
+
+    expected_output:
+      must_contain:
+        - "stable"
+        - "soak"
+        - "48 hour"
+        - "healthy"
+      must_not_contain:
+        - "memory leak"
+        - "degradation"
+        - "critical"
+      status: success
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.7
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Response Time Analysis
+  # ---------------------------------------------------------------------------
+
+  - id: tc007_percentile_analysis
+    description: "Analyze response time percentiles correctly"
+    category: response-time
+    priority: critical
+
+    input:
+      scenario: |
+        Analyze these response time percentiles:
+
+        min: 15ms
+        p50: 85ms
+        p75: 120ms
+        p90: 180ms
+        p95: 250ms
+        p99: 450ms
+        p999: 850ms
+        max: 2500ms
+        avg: 110ms
+        stdDev: 95ms
+
+        SLA: p95 < 300ms, p99 < 500ms
+      context:
+        testType: load
+
+    expected_output:
+      must_contain:
+        - "p95"
+        - "p99"
+        - "percentile"
+        - "SLA"
+        - "passed"
+      must_match_regex:
+        - "p95.*250|250.*p95"
+        - "p99.*450|450.*p99"
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+
+  - id: tc008_response_time_outliers
+    description: "Identify response time outliers"
+    category: response-time
+    priority: high
+
+    input:
+      scenario: |
+        Response time distribution shows outliers:
+
+        p50: 50ms
+        p95: 100ms
+        p99: 200ms
+        max: 15000ms
+
+        The max value is 75x the p99. This suggests occasional extreme outliers.
+        Investigate potential causes.
+      context:
+        testType: load
+
+    expected_output:
+      must_contain:
+        - "outlier"
+        - "spike"
+        - "max"
+        - "investigate"
+      must_match_regex:
+        - "15000|15,000|15s"
+        - "garbage.*collection|timeout|network"
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.7
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Throughput Analysis
+  # ---------------------------------------------------------------------------
+
+  - id: tc009_throughput_capacity
+    description: "Analyze throughput capacity"
+    category: throughput
+    priority: high
+
+    input:
+      scenario: |
+        Throughput analysis:
+
+        50 VUs: 500 req/s (10 req/VU/s)
+        100 VUs: 950 req/s (9.5 req/VU/s)
+        200 VUs: 1600 req/s (8 req/VU/s)
+        400 VUs: 2000 req/s (5 req/VU/s)
+        800 VUs: 2100 req/s (2.6 req/VU/s)
+
+        Throughput is plateauing. Calculate max capacity.
+      context:
+        tool: k6
+        testType: scalability
+
+    expected_output:
+      must_contain:
+        - "throughput"
+        - "plateau"
+        - "capacity"
+        - "bottleneck"
+      must_match_regex:
+        - "2[01]00.*req|req.*2[01]00"
+        - "max.*capacity|capacity.*limit"
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.75
+
+  - id: tc010_throughput_decline
+    description: "Detect throughput decline under load"
+    category: throughput
+    priority: critical
+
+    input:
+      scenario: |
+        Throughput declines as load increases:
+
+        100 VUs: 1500 req/s, p95=100ms
+        200 VUs: 1400 req/s, p95=180ms
+        300 VUs: 1200 req/s, p95=350ms
+        400 VUs: 900 req/s, p95=800ms
+
+        Throughput is dropping while response time increases.
+        This indicates severe resource contention.
+      context:
+        testType: stress
+
+    expected_output:
+      must_contain:
+        - "throughput"
+        - "decline"
+        - "contention"
+        - "resource"
+      severity_classification: critical
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.7
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Bottleneck Identification
+  # ---------------------------------------------------------------------------
+
+  - id: tc011_database_bottleneck
+    description: "Identify database connection pool bottleneck"
+    category: bottleneck
+    priority: critical
+
+    input:
+      scenario: |
+        Load test shows database issues:
+
+        - Response time spikes when VUs > 200
+        - Database connection pool: 20 max
+        - Active connections at spike: 20 (saturated)
+        - Connection wait time: 500ms avg
+        - Query execution time: 10ms avg
+
+        Application waits for connections, not query execution.
+      context:
+        tool: k6
+        testType: load
+
+    expected_output:
+      must_contain:
+        - "connection pool"
+        - "bottleneck"
+        - "database"
+        - "increase"
+        - "20"
+      must_match_regex:
+        - "connection.*pool|pool.*connection"
+        - "saturat|exhaust"
+      severity_classification: critical
+      finding_count:
+        min: 1
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+      reasoning_quality_min: 0.85
+
+  - id: tc012_cpu_bottleneck
+    description: "Identify CPU bottleneck"
+    category: bottleneck
+    priority: high
+
+    input:
+      scenario: |
+        Performance test with CPU saturation:
+
+        100 VUs:
+        - CPU: 45%
+        - Memory: 60%
+        - p95: 100ms
+
+        300 VUs:
+        - CPU: 85%
+        - Memory: 65%
+        - p95: 250ms
+
+        500 VUs:
+        - CPU: 98%
+        - Memory: 68%
+        - p95: 800ms
+
+        CPU is clearly the constraint.
+      context:
+        testType: stress
+
+    expected_output:
+      must_contain:
+        - "CPU"
+        - "bottleneck"
+        - "98%"
+        - "scale"
+      must_match_regex:
+        - "CPU.*bottleneck|bottleneck.*CPU"
+        - "horizontal|vertical|scale"
+      severity_classification: high
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.75
+
+  - id: tc013_network_bottleneck
+    description: "Identify network bandwidth bottleneck"
+    category: bottleneck
+    priority: high
+
+    input:
+      scenario: |
+        API returns large JSON responses. Network becomes limiting factor:
+
+        - Average response size: 500KB
+        - Network bandwidth: 1Gbps
+        - At 200 req/s: 800Mbps used, p95=150ms
+        - At 250 req/s: 1Gbps saturated, p95=500ms
+        - At 300 req/s: packet drops, p95=2000ms
+
+        Application servers have capacity but network is saturated.
+      context:
+        testType: load
+
+    expected_output:
+      must_contain:
+        - "network"
+        - "bandwidth"
+        - "bottleneck"
+        - "1Gbps"
+      must_match_regex:
+        - "network.*bottleneck|bottleneck.*network"
+        - "bandwidth|compress|reduce.*size"
+      severity_classification: high
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.7
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Negative Tests
+  # ---------------------------------------------------------------------------
+
+  - id: tc014_healthy_system_no_false_positives
+    description: "Verify healthy system is not flagged with false positives"
+    category: negative
+    priority: critical
+
+    input:
+      scenario: |
+        Production load test results - System is healthy:
+
+        - 500 VUs for 30 minutes
+        - p50: 45ms, p95: 85ms, p99: 120ms
+        - Throughput: 2,500 req/s (stable)
+        - Error rate: 0.02%
+        - CPU: 55%, Memory: 65%
+        - All SLAs passed
+        - No bottlenecks detected
+        - Response times stable throughout
+      context:
+        tool: k6
+        testType: load
+        environment: production
+
+    expected_output:
+      must_contain:
+        - "healthy"
+        - "passed"
+        - "stable"
+      must_not_contain:
+        - "critical"
+        - "bottleneck"
+        - "memory leak"
+        - "degradation"
+        - "failure"
+      status: success
+      finding_count:
+        max: 3  # Allow informational findings only
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.6
+      allow_partial: true
+
+  - id: tc015_incomplete_data_handling
+    description: "Handle incomplete performance data gracefully"
+    category: negative
+    priority: high
+
+    input:
+      scenario: |
+        Partial load test data (test interrupted after 5 minutes):
+
+        - Collected 5 minutes of 30 minute planned test
+        - p95: 200ms (limited sample)
+        - Total requests: 5,000
+        - Cannot determine steady-state behavior
+
+        Provide analysis with appropriate caveats.
+      context:
+        tool: artillery
+        testType: load
+
+    expected_output:
+      must_contain:
+        - "incomplete"
+        - "partial"
+        - "caveat"
+        - "limited"
+      must_not_contain:
+        - "definitive"
+        - "conclusive"
+      status: partial
+
+    validation:
+      schema_check: true
+      allow_partial: true
+
+# =============================================================================
+# SUCCESS CRITERIA
+# =============================================================================
+
+success_criteria:
+  # Overall pass rate (90% of tests must pass)
+  pass_rate: 0.9
+
+  # Critical tests must ALL pass (100%)
+  critical_pass_rate: 1.0
+
+  # Average reasoning quality score
+  avg_reasoning_quality: 0.75
+
+  # Maximum suite execution time (5 minutes)
+  max_execution_time_ms: 300000
+
+  # Maximum variance between model results (15%)
+  cross_model_variance: 0.15
+
+# =============================================================================
+# METADATA
+# =============================================================================
+
+metadata:
+  author: "qe-performance-tester"
+  created: "2026-02-02"
+  last_updated: "2026-02-02"
+  coverage_target: >
+    Performance Testing: Load testing (k6, Artillery, JMeter), Stress testing
+    (breaking point, gradual degradation), Endurance testing (memory leaks,
+    stability), Response time analysis (percentiles p50/p95/p99, outliers),
+    Throughput analysis (capacity, decline), Bottleneck identification
+    (database, CPU, network). 15 test cases with 90% pass rate requirement
+    and 100% critical pass rate.

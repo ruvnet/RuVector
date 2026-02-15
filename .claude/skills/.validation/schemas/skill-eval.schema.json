@@ -1,0 +1,452 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentic-qe.dev/schemas/skill-eval.json",
+  "title": "AQE Skill Evaluation Test Suite Schema",
+  "description": "Schema for skill evaluation YAML test suites used in Trust Tier 3 validation. Supports multi-model testing, AQE MCP integration, and ReasoningBank learning.",
+  "type": "object",
+  "required": ["skill", "version", "test_cases", "success_criteria"],
+  "properties": {
+    "skill": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*$",
+      "description": "Skill name being evaluated (must match .claude/skills/{skill}/SKILL.md)"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "description": "Evaluation suite version (semver)"
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 1000,
+      "description": "Description of evaluation suite purpose and coverage goals"
+    },
+    "models_to_test": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "claude-opus-4-5",
+          "claude-sonnet-4",
+          "claude-3.5-sonnet",
+          "claude-3-haiku",
+          "gpt-4o",
+          "gpt-4o-mini",
+          "gpt-4-turbo"
+        ]
+      },
+      "default": ["claude-3.5-sonnet"],
+      "minItems": 1,
+      "uniqueItems": true,
+      "description": "Models to run evaluation against for cross-model validation"
+    },
+    "mcp_integration": {
+      "$ref": "#/$defs/mcp_integration_config",
+      "description": "AQE MCP integration configuration for shared learning"
+    },
+    "learning": {
+      "$ref": "#/$defs/learning_config",
+      "description": "ReasoningBank learning configuration"
+    },
+    "result_format": {
+      "$ref": "#/$defs/result_format",
+      "description": "Output format configuration"
+    },
+    "setup": {
+      "type": "object",
+      "description": "Setup configuration for test environment",
+      "properties": {
+        "required_tools": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Tools that must be available"
+        },
+        "environment_variables": {
+          "type": "object",
+          "additionalProperties": { "type": "string" },
+          "description": "Environment variables to set"
+        },
+        "fixtures": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "path": { "type": "string" },
+              "content": { "type": "string" }
+            }
+          },
+          "description": "Test fixtures to create"
+        }
+      }
+    },
+    "test_cases": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/test_case"
+      },
+      "description": "Evaluation test cases"
+    },
+    "success_criteria": {
+      "type": "object",
+      "required": ["pass_rate"],
+      "properties": {
+        "pass_rate": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Minimum pass rate for suite to pass"
+        },
+        "critical_pass_rate": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 1.0,
+          "description": "Pass rate required for critical priority tests"
+        },
+        "avg_reasoning_quality": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Minimum average reasoning quality score"
+        },
+        "max_execution_time_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Maximum execution time for test suite"
+        },
+        "cross_model_variance": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Maximum allowed variance between models"
+        }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "author": { "type": "string" },
+        "created": { "type": "string", "format": "date" },
+        "last_updated": { "type": "string", "format": "date" },
+        "coverage_target": { "type": "string" }
+      }
+    }
+  },
+  "$defs": {
+    "test_case": {
+      "type": "object",
+      "required": ["id", "description", "input", "expected_output"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^tc\\d{3}_[a-z_]+$",
+          "description": "Test case ID (e.g., tc001_sql_injection)"
+        },
+        "description": {
+          "type": "string",
+          "description": "What this test case validates"
+        },
+        "category": {
+          "type": "string",
+          "description": "Test category for grouping"
+        },
+        "priority": {
+          "type": "string",
+          "enum": ["critical", "high", "medium", "low"],
+          "default": "medium",
+          "description": "Test priority"
+        },
+        "skip": {
+          "type": "boolean",
+          "default": false,
+          "description": "Skip this test case"
+        },
+        "skip_reason": {
+          "type": "string",
+          "description": "Reason for skipping"
+        },
+        "input": {
+          "$ref": "#/$defs/test_input"
+        },
+        "expected_output": {
+          "$ref": "#/$defs/expected_output"
+        },
+        "validation": {
+          "$ref": "#/$defs/validation_config"
+        },
+        "timeout_ms": {
+          "type": "integer",
+          "minimum": 1000,
+          "default": 30000,
+          "description": "Test timeout in milliseconds"
+        }
+      }
+    },
+    "test_input": {
+      "type": "object",
+      "description": "Input provided to the skill",
+      "properties": {
+        "code": {
+          "type": "string",
+          "description": "Code snippet to analyze"
+        },
+        "file_path": {
+          "type": "string",
+          "description": "Path to file to analyze"
+        },
+        "url": {
+          "type": "string",
+          "format": "uri",
+          "description": "URL to analyze"
+        },
+        "prompt": {
+          "type": "string",
+          "description": "Custom prompt for the skill"
+        },
+        "context": {
+          "type": "object",
+          "properties": {
+            "language": {
+              "type": "string",
+              "description": "Programming language"
+            },
+            "framework": {
+              "type": "string",
+              "description": "Framework in use"
+            },
+            "environment": {
+              "type": "string",
+              "enum": ["development", "staging", "production"],
+              "description": "Target environment"
+            }
+          }
+        },
+        "options": {
+          "type": "object",
+          "additionalProperties": true,
+          "description": "Skill-specific options"
+        }
+      }
+    },
+    "expected_output": {
+      "type": "object",
+      "description": "Expected characteristics of skill output",
+      "properties": {
+        "must_contain": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Strings that must appear in output"
+        },
+        "must_not_contain": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Strings that must not appear in output"
+        },
+        "must_match_regex": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Regex patterns output must match"
+        },
+        "severity_classification": {
+          "type": "string",
+          "enum": ["critical", "high", "medium", "low", "info"],
+          "description": "Expected severity classification"
+        },
+        "finding_count": {
+          "type": "object",
+          "properties": {
+            "min": { "type": "integer", "minimum": 0 },
+            "max": { "type": "integer", "minimum": 0 }
+          },
+          "description": "Expected range of findings"
+        },
+        "recommendation_count": {
+          "type": "object",
+          "properties": {
+            "min": { "type": "integer", "minimum": 0 },
+            "max": { "type": "integer", "minimum": 0 }
+          },
+          "description": "Expected range of recommendations"
+        },
+        "schema_path": {
+          "type": "string",
+          "description": "Path to JSON schema for output validation"
+        },
+        "custom_assertions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": ["jsonpath", "semantic", "function"]
+              },
+              "expression": { "type": "string" },
+              "expected": {}
+            }
+          },
+          "description": "Custom assertions for complex validation"
+        }
+      }
+    },
+    "validation_config": {
+      "type": "object",
+      "description": "Validation configuration for test case",
+      "properties": {
+        "schema_check": {
+          "type": "boolean",
+          "default": true,
+          "description": "Validate output against schema"
+        },
+        "keyword_match_threshold": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.8,
+          "description": "Minimum keyword match ratio for pass"
+        },
+        "reasoning_quality_min": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Minimum reasoning quality score"
+        },
+        "semantic_similarity_min": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Minimum semantic similarity to expected"
+        },
+        "allow_partial": {
+          "type": "boolean",
+          "default": false,
+          "description": "Allow partial matches"
+        },
+        "grading_rubric": {
+          "type": "object",
+          "properties": {
+            "completeness": { "type": "number", "minimum": 0, "maximum": 1 },
+            "accuracy": { "type": "number", "minimum": 0, "maximum": 1 },
+            "actionability": { "type": "number", "minimum": 0, "maximum": 1 }
+          },
+          "description": "Weighted grading rubric (weights should sum to 1.0)"
+        }
+      }
+    },
+    "mcp_integration_config": {
+      "type": "object",
+      "description": "Configuration for AQE MCP tool integration per MCP Integration Spec",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable MCP integration for this eval suite"
+        },
+        "namespace": {
+          "type": "string",
+          "default": "skill-validation",
+          "description": "Memory namespace for storing patterns and outcomes"
+        },
+        "store_patterns": {
+          "type": "boolean",
+          "default": true,
+          "description": "Store successful patterns via mcp__agentic-qe__memory_store"
+        },
+        "query_patterns": {
+          "type": "boolean",
+          "default": true,
+          "description": "Query existing patterns before running via mcp__agentic-qe__memory_query"
+        },
+        "track_outcomes": {
+          "type": "boolean",
+          "default": true,
+          "description": "Track test outcomes via mcp__agentic-qe__test_outcome_track"
+        },
+        "share_learning": {
+          "type": "boolean",
+          "default": true,
+          "description": "Share learning with fleet via mcp__agentic-qe__memory_share"
+        },
+        "update_quality_gate": {
+          "type": "boolean",
+          "default": true,
+          "description": "Update quality gate metrics via mcp__agentic-qe__quality_assess"
+        },
+        "target_agents": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": ["qe-learning-coordinator", "qe-queen-coordinator"],
+          "description": "Agent IDs to share learning with"
+        }
+      }
+    },
+    "learning_config": {
+      "type": "object",
+      "description": "Configuration for ReasoningBank learning integration",
+      "properties": {
+        "store_success_patterns": {
+          "type": "boolean",
+          "default": true,
+          "description": "Store patterns from successful test runs"
+        },
+        "store_failure_patterns": {
+          "type": "boolean",
+          "default": true,
+          "description": "Store patterns from failures for learning"
+        },
+        "pattern_ttl_days": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 365,
+          "default": 90,
+          "description": "Time-to-live for stored patterns in days"
+        },
+        "min_confidence_to_store": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.7,
+          "description": "Minimum confidence score to store pattern"
+        },
+        "cross_model_comparison": {
+          "type": "boolean",
+          "default": true,
+          "description": "Store cross-model behavior comparisons"
+        }
+      }
+    },
+    "result_format": {
+      "type": "object",
+      "description": "Output format configuration for evaluation results",
+      "properties": {
+        "json_output": {
+          "type": "boolean",
+          "default": true,
+          "description": "Output results as JSON"
+        },
+        "markdown_report": {
+          "type": "boolean",
+          "default": false,
+          "description": "Generate markdown report"
+        },
+        "include_raw_output": {
+          "type": "boolean",
+          "default": false,
+          "description": "Include raw LLM output in results"
+        },
+        "include_timing": {
+          "type": "boolean",
+          "default": true,
+          "description": "Include timing information"
+        },
+        "include_token_usage": {
+          "type": "boolean",
+          "default": true,
+          "description": "Include token usage statistics"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,610 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentic-qe.dev/schemas/skill-output-template.json",
+  "title": "AQE Skill Output Template Schema",
+  "description": "Template schema for skill output validation. Extend this for specific skills. All validated skills must conform to this base structure.",
+  "type": "object",
+  "required": ["skillName", "version", "timestamp", "status", "trustTier", "output"],
+  "properties": {
+    "skillName": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*$",
+      "minLength": 2,
+      "maxLength": 64,
+      "description": "Name of the skill that produced this output (lowercase, hyphenated)"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+(-[a-zA-Z0-9]+)?$",
+      "description": "Semantic version of the skill (MAJOR.MINOR.PATCH with optional prerelease)"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp of output generation"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["success", "partial", "failed", "skipped"],
+      "description": "Overall execution status: success=all checks passed, partial=some passed, failed=critical failure, skipped=not applicable"
+    },
+    "trustTier": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 3,
+      "description": "Trust tier: 0=declarative only, 1=has schema, 2=has validator, 3=has eval suite"
+    },
+    "output": {
+      "type": "object",
+      "description": "Skill-specific output data. Extend in skill-specific schema.",
+      "required": [],
+      "properties": {
+        "summary": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 2000,
+          "description": "Human-readable summary of findings (10-2000 chars)"
+        },
+        "score": {
+          "$ref": "#/$defs/score",
+          "description": "Overall score/grade if applicable"
+        },
+        "findings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/finding"
+          },
+          "maxItems": 500,
+          "description": "List of findings/issues discovered"
+        },
+        "recommendations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/recommendation"
+          },
+          "maxItems": 100,
+          "description": "Actionable recommendations for improvement"
+        },
+        "metrics": {
+          "$ref": "#/$defs/metrics",
+          "description": "Quantitative metrics from analysis"
+        },
+        "artifacts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/artifact"
+          },
+          "maxItems": 50,
+          "description": "Generated artifacts (reports, files, etc.)"
+        },
+        "categories": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/categoryScore"
+          },
+          "description": "Breakdown by category (e.g., OWASP categories, testability principles)"
+        },
+        "timeline": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/timelineEvent"
+          },
+          "description": "Execution timeline for debugging/auditing"
+        }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Execution metadata for debugging, caching, and auditing",
+      "properties": {
+        "executionTimeMs": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 3600000,
+          "description": "Execution time in milliseconds (max 1 hour)"
+        },
+        "toolsUsed": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-zA-Z][a-zA-Z0-9_-]*$"
+          },
+          "uniqueItems": true,
+          "maxItems": 50,
+          "description": "Tools/utilities invoked during execution"
+        },
+        "agentId": {
+          "type": "string",
+          "pattern": "^qe-[a-z][a-z0-9-]*$",
+          "description": "ID of the agent that executed the skill (e.g., qe-security-scanner)"
+        },
+        "modelUsed": {
+          "type": "string",
+          "description": "LLM model used for execution (e.g., claude-3.5-sonnet)"
+        },
+        "inputHash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$",
+          "description": "SHA-256 hash of input for caching/deduplication"
+        },
+        "parentTaskId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "UUID of parent task if part of swarm execution"
+        },
+        "targetUrl": {
+          "type": "string",
+          "format": "uri",
+          "description": "Target URL if applicable"
+        },
+        "targetPath": {
+          "type": "string",
+          "description": "Target file/directory path if applicable"
+        },
+        "environment": {
+          "type": "string",
+          "enum": ["development", "staging", "production", "ci"],
+          "description": "Environment where skill was executed"
+        },
+        "retryCount": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10,
+          "description": "Number of retries before success/failure"
+        }
+      }
+    },
+    "validation": {
+      "type": "object",
+      "description": "Self-reported validation status from skill validator",
+      "properties": {
+        "schemaValid": {
+          "type": "boolean",
+          "description": "Whether output passes JSON schema validation"
+        },
+        "contentValid": {
+          "type": "boolean",
+          "description": "Whether output passes content validation rules"
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Confidence score for output correctness (0.0-1.0)"
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "maxItems": 20,
+          "description": "Validation warnings (non-fatal issues)"
+        },
+        "errors": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "maxItems": 20,
+          "description": "Validation errors encountered"
+        },
+        "validatorVersion": {
+          "type": "string",
+          "pattern": "^\\d+\\.\\d+\\.\\d+$",
+          "description": "Version of validator used"
+        }
+      }
+    },
+    "learning": {
+      "type": "object",
+      "description": "Data for ReasoningBank learning integration",
+      "properties": {
+        "patternsDetected": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "maxItems": 20,
+          "description": "Pattern names detected during execution"
+        },
+        "reward": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Reward signal for reinforcement learning (0.0-1.0)"
+        },
+        "feedbackLoop": {
+          "type": "object",
+          "properties": {
+            "previousRunId": {
+              "type": "string",
+              "format": "uuid",
+              "description": "ID of previous run for comparison"
+            },
+            "improvement": {
+              "type": "number",
+              "minimum": -1,
+              "maximum": 1,
+              "description": "Improvement over previous run (-1.0 to 1.0)"
+            }
+          },
+          "description": "Quality feedback loop data"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "score": {
+      "type": "object",
+      "description": "Standardized score object",
+      "required": ["value", "max"],
+      "properties": {
+        "value": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Score value"
+        },
+        "max": {
+          "type": "number",
+          "minimum": 1,
+          "description": "Maximum possible score"
+        },
+        "grade": {
+          "type": "string",
+          "pattern": "^[A-F][+-]?$",
+          "description": "Letter grade (A, A-, B+, B, etc.)"
+        },
+        "percentile": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Percentile ranking if available"
+        },
+        "trend": {
+          "type": "string",
+          "enum": ["improving", "stable", "declining", "unknown"],
+          "description": "Trend compared to previous assessments"
+        }
+      }
+    },
+    "finding": {
+      "type": "object",
+      "description": "Individual finding/issue discovered",
+      "required": ["id", "title", "severity"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Z]{2,6}-\\d{3,6}$",
+          "description": "Unique finding identifier (e.g., SEC-001, A11Y-0042)"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 5,
+          "maxLength": 200,
+          "description": "Finding title (5-200 chars)"
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 2000,
+          "description": "Detailed description"
+        },
+        "severity": {
+          "type": "string",
+          "enum": ["critical", "high", "medium", "low", "info"],
+          "description": "Severity: critical=immediate fix, high=fix soon, medium=plan fix, low=nice to have, info=informational"
+        },
+        "category": {
+          "type": "string",
+          "maxLength": 100,
+          "description": "Finding category (e.g., A01-Broken-Access-Control, WCAG-1.1.1)"
+        },
+        "location": {
+          "$ref": "#/$defs/location",
+          "description": "Location of the finding"
+        },
+        "evidence": {
+          "type": "string",
+          "maxLength": 5000,
+          "description": "Evidence supporting the finding (code snippet, screenshot path, etc.)"
+        },
+        "cwe": {
+          "type": "string",
+          "pattern": "^CWE-\\d{1,4}$",
+          "description": "CWE identifier (e.g., CWE-79 for XSS)"
+        },
+        "cvss": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 10,
+          "description": "CVSS v3.1 score (0.0-10.0)"
+        },
+        "owasp": {
+          "type": "string",
+          "pattern": "^A\\d{2}:\\d{4}$",
+          "description": "OWASP Top 10 category (e.g., A01:2021)"
+        },
+        "wcag": {
+          "type": "string",
+          "pattern": "^\\d+\\.\\d+\\.\\d+$",
+          "description": "WCAG success criterion (e.g., 1.1.1)"
+        },
+        "remediation": {
+          "type": "string",
+          "maxLength": 2000,
+          "description": "How to fix this finding"
+        },
+        "falsePositive": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether this is a potential false positive"
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Confidence in this finding (0.0-1.0)"
+        }
+      }
+    },
+    "recommendation": {
+      "type": "object",
+      "description": "Actionable recommendation for improvement",
+      "required": ["id", "title", "priority"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^REC-\\d{3,6}$",
+          "description": "Unique recommendation identifier (e.g., REC-001)"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 5,
+          "maxLength": 200,
+          "description": "Recommendation title"
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 2000,
+          "description": "Detailed recommendation"
+        },
+        "priority": {
+          "type": "string",
+          "enum": ["critical", "high", "medium", "low"],
+          "description": "Priority level"
+        },
+        "effort": {
+          "type": "string",
+          "enum": ["trivial", "low", "medium", "high", "major"],
+          "description": "Estimated effort: trivial=<1hr, low=1-4hr, medium=1-3d, high=1-2wk, major=>2wk"
+        },
+        "impact": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10,
+          "description": "Expected impact score (1-10)"
+        },
+        "relatedFindings": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Z]{2,6}-\\d{3,6}$"
+          },
+          "description": "IDs of related findings"
+        },
+        "codeExample": {
+          "type": "string",
+          "maxLength": 5000,
+          "description": "Example code for remediation"
+        },
+        "resources": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["title", "url"],
+            "properties": {
+              "title": { "type": "string" },
+              "url": { "type": "string", "format": "uri" }
+            }
+          },
+          "maxItems": 10,
+          "description": "External resources for learning more"
+        }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "description": "Generated artifact (file, report, etc.)",
+      "required": ["type", "path"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["report", "test", "config", "data", "log", "screenshot", "video", "coverage"],
+          "description": "Artifact type"
+        },
+        "path": {
+          "type": "string",
+          "maxLength": 500,
+          "description": "Path to artifact (relative to project root)"
+        },
+        "format": {
+          "type": "string",
+          "enum": ["json", "html", "md", "txt", "csv", "xml", "yaml", "png", "jpg", "webm", "mp4"],
+          "description": "Artifact format"
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 500,
+          "description": "Artifact description"
+        },
+        "sizeBytes": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "File size in bytes"
+        },
+        "checksum": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "description": "SHA-256 checksum for integrity verification"
+        }
+      }
+    },
+    "location": {
+      "type": "object",
+      "description": "Location reference for findings",
+      "properties": {
+        "file": {
+          "type": "string",
+          "maxLength": 500,
+          "description": "File path"
+        },
+        "line": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Line number"
+        },
+        "column": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Column number"
+        },
+        "endLine": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "End line number for multi-line findings"
+        },
+        "endColumn": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "End column number"
+        },
+        "url": {
+          "type": "string",
+          "format": "uri",
+          "description": "URL if web-based finding"
+        },
+        "selector": {
+          "type": "string",
+          "maxLength": 500,
+          "description": "CSS selector for DOM element"
+        },
+        "xpath": {
+          "type": "string",
+          "maxLength": 500,
+          "description": "XPath for DOM element"
+        }
+      }
+    },
+    "metrics": {
+      "type": "object",
+      "description": "Quantitative metrics from analysis",
+      "properties": {
+        "total": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total items analyzed"
+        },
+        "passed": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Items that passed"
+        },
+        "failed": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Items that failed"
+        },
+        "skipped": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Items skipped"
+        },
+        "coverage": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Coverage percentage"
+        },
+        "duration": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Duration in milliseconds"
+        },
+        "custom": {
+          "type": "object",
+          "additionalProperties": {
+            "oneOf": [
+              { "type": "number" },
+              { "type": "string" },
+              { "type": "boolean" }
+            ]
+          },
+          "description": "Skill-specific custom metrics"
+        }
+      }
+    },
+    "categoryScore": {
+      "type": "object",
+      "description": "Score for a specific category",
+      "required": ["score"],
+      "properties": {
+        "score": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Category score (0-100)"
+        },
+        "weight": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Weight in overall score (0.0-1.0)"
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 500,
+          "description": "Category description"
+        },
+        "grade": {
+          "type": "string",
+          "pattern": "^[A-F][+-]?$",
+          "description": "Letter grade for this category"
+        },
+        "findingCount": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of findings in this category"
+        }
+      }
+    },
+    "timelineEvent": {
+      "type": "object",
+      "description": "Event in execution timeline",
+      "required": ["timestamp", "event"],
+      "properties": {
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When the event occurred"
+        },
+        "event": {
+          "type": "string",
+          "maxLength": 200,
+          "description": "Event description"
+        },
+        "type": {
+          "type": "string",
+          "enum": ["start", "checkpoint", "warning", "error", "complete"],
+          "description": "Event type"
+        },
+        "durationMs": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Duration since previous event"
+        }
+      }
+    }
+  }
+}

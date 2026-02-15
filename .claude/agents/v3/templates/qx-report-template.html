@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QX Analysis: {{SITE_NAME}}</title>
+    <style>
+        :root {
+            --primary: #1a5276;
+            --primary-light: #2e86ab;
+            --secondary: #16213e;
+            --accent: #10b981;
+            --critical: #dc2626;
+            --high: #ea580c;
+            --medium: #ca8a04;
+            --low: #16a34a;
+            --text: #333;
+            --text-light: #666;
+            --bg: #f8f9fa;
+            --border: #e0e0e0;
+            --white: #ffffff;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: var(--text);
+            background: linear-gradient(135deg, #1a5276 0%, #2e86ab 100%);
+            padding: 20px;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+
+        /* Header */
+        .header {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+            color: white;
+            padding: 40px;
+        }
+        .header h1 { font-size: 2.5em; margin-bottom: 10px; }
+        .header .subtitle { font-size: 1.2em; opacity: 0.9; }
+        .header .meta { margin-top: 20px; font-size: 0.9em; opacity: 0.85; }
+
+        /* SIGNATURE INTRO BOXES - MANDATORY */
+        .info-section {
+            background: rgba(255,255,255,0.1);
+            border-radius: 8px;
+            margin-top: 15px;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+        .info-header {
+            padding: 15px 20px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .info-header:hover { background: rgba(255,255,255,0.05); }
+        .info-header h3 { margin: 0; font-size: 1rem; opacity: 0.95; }
+        .collapse-icon { transition: transform 0.2s; font-size: 0.8rem; }
+        .info-content {
+            padding: 0 20px 20px 20px;
+            max-height: 1000px;
+            transition: max-height 0.3s ease-out;
+        }
+        .info-section.collapsed .info-content { max-height: 0; padding: 0 20px; overflow: hidden; }
+        .info-section.collapsed .collapse-icon { transform: rotate(-90deg); }
+        .info-content blockquote {
+            margin: 0 0 15px 0;
+            padding: 12px 15px;
+            border-left: 3px solid rgba(255,255,255,0.4);
+            font-style: italic;
+            opacity: 0.9;
+        }
+        .info-content p { margin: 0 0 12px 0; opacity: 0.9; line-height: 1.7; }
+        .checklist-item { margin-bottom: 8px; line-height: 1.8; }
+
+        /* Content */
+        .content { padding: 40px; }
+
+        /* Domain Banner */
+        .domain-banner {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            background: linear-gradient(135deg, #e8f4f8 0%, #d4e9f0 100%);
+            padding: 25px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+            border-left: 5px solid var(--primary);
+        }
+        .domain-icon { font-size: 3em; }
+        .domain-content h3 { color: var(--primary); margin-bottom: 8px; }
+
+        /* Table of Contents */
+        .toc {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e4e9f0 100%);
+            padding: 25px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+            border: 1px solid var(--border);
+        }
+        .toc h3 { color: var(--primary); margin-bottom: 15px; }
+        .toc ul { list-style: none; column-count: 2; column-gap: 30px; }
+        .toc li { margin: 8px 0; }
+        .toc a { color: var(--primary-light); text-decoration: none; }
+        .toc a:hover { color: var(--primary); text-decoration: underline; }
+
+        /* Score Cards */
+        .score-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 20px;
+            margin: 30px 0;
+        }
+        .score-card {
+            background: linear-gradient(135deg, #f5f7fa 0%, #e4e9f0 100%);
+            padding: 25px;
+            border-radius: 12px;
+            text-align: center;
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+        .score-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+        }
+        .score-card h4 { color: var(--primary); font-size: 0.9em; margin-bottom: 10px; }
+        .score-value { font-size: 2.8em; font-weight: bold; margin: 10px 0; }
+        .score-label { font-size: 0.85em; color: var(--text-light); }
+        .grade-a { color: #27ae60; }
+        .grade-b { color: #2980b9; }
+        .grade-c { color: #f39c12; }
+        .grade-d { color: #e74c3c; }
+
+        .overall-score {
+            text-align: center;
+            padding: 40px;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+            border-radius: 16px;
+            color: white;
+            margin: 30px 0;
+        }
+        .overall-score .score-value { font-size: 4em; color: white; }
+
+        /* Sections */
+        .section { margin-bottom: 50px; }
+        .section h2 {
+            color: var(--primary);
+            font-size: 1.8em;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 3px solid var(--primary);
+        }
+        .section h3 { color: var(--primary-light); font-size: 1.4em; margin: 25px 0 15px 0; }
+
+        /* Heuristic Items */
+        .heuristic-item {
+            background: #f8f9fa;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            border-left: 4px solid var(--primary);
+        }
+        .heuristic-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .heuristic-title { font-weight: bold; color: var(--text); font-size: 1.1em; }
+        .heuristic-score {
+            background: var(--primary);
+            color: white;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-weight: bold;
+        }
+
+        /* Boxes */
+        .strengths, .improvements, .recommendations, .oracle-box, .risk-box {
+            background: #f8f9fa;
+            padding: 25px;
+            border-radius: 12px;
+            margin: 20px 0;
+        }
+        .strengths { border-left: 5px solid #27ae60; }
+        .strengths h3 { color: #27ae60; margin-top: 0; }
+        .improvements { border-left: 5px solid #f39c12; }
+        .improvements h3 { color: #f39c12; margin-top: 0; }
+        .recommendations { border-left: 5px solid #3498db; }
+        .recommendations h3 { color: #3498db; margin-top: 0; }
+        .oracle-box { border-left: 5px solid #9b59b6; background: #f8f4fc; }
+        .oracle-box h3 { color: #9b59b6; margin-top: 0; }
+        .risk-box { border-left: 5px solid #e74c3c; background: #fdf2f2; }
+        .risk-box h3 { color: #e74c3c; margin-top: 0; }
+
+        /* Badges */
+        .badge {
+            display: inline-block;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            font-weight: 600;
+            margin-right: 8px;
+        }
+        .badge-critical { background: #dc2626; color: white; }
+        .badge-high { background: #ea580c; color: white; }
+        .badge-medium { background: #ca8a04; color: white; }
+        .badge-low { background: #16a34a; color: white; }
+
+        /* Creativity Domains */
+        .creativity-domain {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 15px 0;
+        }
+        .creativity-domain h4 { color: white; margin-top: 0; margin-bottom: 10px; }
+
+        /* Progress Bars */
+        .metric-bar {
+            display: flex;
+            align-items: center;
+            margin: 15px 0;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 6px;
+        }
+        .metric-label { flex: 1; font-weight: bold; }
+        .bar-container {
+            flex: 2;
+            height: 30px;
+            background: #e5e7eb;
+            border-radius: 15px;
+            overflow: hidden;
+        }
+        .bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary) 0%, var(--primary-light) 100%);
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            padding-right: 10px;
+            color: white;
+            font-weight: bold;
+        }
+
+        /* Tables */
+        table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid var(--border); }
+        th { background: #f8f9fa; font-weight: bold; color: var(--primary); }
+        tr:hover { background: #f8f9fa; }
+
+        /* Stakeholder Cards */
+        .stakeholder-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 25px;
+            margin: 25px 0;
+        }
+        .stakeholder-card {
+            background: white;
+            border: 2px solid var(--border);
+            border-radius: 12px;
+            padding: 25px;
+            transition: all 0.3s;
+        }
+        .stakeholder-card:hover {
+            border-color: var(--primary);
+            box-shadow: 0 8px 25px rgba(26, 82, 118, 0.15);
+            transform: translateY(-3px);
+        }
+        .stakeholder-card h4 { color: var(--primary); margin-bottom: 15px; }
+
+        /* Footer */
+        .footer {
+            background: #f8f9fa;
+            padding: 30px;
+            text-align: center;
+            color: var(--text-light);
+            border-top: 3px solid var(--primary);
+        }
+        .footer a { color: var(--primary); text-decoration: none; }
+
+        ul { margin-left: 20px; margin-top: 10px; }
+        li { margin-bottom: 10px; line-height: 1.8; }
+        .highlight { background: #fff3cd; padding: 2px 6px; border-radius: 3px; font-weight: 600; }
+
+        @media print {
+            body { background: white; padding: 0; }
+            .container { box-shadow: none; }
+            .info-section.collapsed .info-content { max-height: none; padding: 20px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎯 QX Analysis Report</h1>
+            <div class="subtitle">Comprehensive Quality Experience Analysis</div>
+            <div class="meta">
+                <strong>Website:</strong> {{URL}}<br>
+                <strong>Analysis Date:</strong> {{DATE}}<br>
+                <strong>Framework:</strong> QX Partner (Quality Advocacy + UX) | 23+ Heuristics<br>
+                <strong>Domain:</strong> {{DOMAIN}}
+            </div>
+
+            <!-- SIGNATURE INTRO BOX 1: How can this report help you? -->
+            <div class="info-section collapsed">
+                <div class="info-header" onclick="this.parentElement.classList.toggle('collapsed')">
+                    <h3>How can this report help you?</h3>
+                    <span class="collapse-icon">&#x25BC;</span>
+                </div>
+                <div class="info-content">
+                    <blockquote>
+                        "Quality Experience (QX) is the marriage of Quality Advocacy (QA) and User Experience (UX) - recognizing that quality is co-created by all stakeholders in a system." <span style="opacity: 0.7;">- Lalitkumar Bhamare</span>
+                    </blockquote>
+                    <p>In the <a href="https://talesoftesting.com/wp-content/uploads/2022/10/Lalitkumar-Bhamare-Quality-Conscious-Software-Delivery-eBook.pdf" style="color: #93c5fd; text-decoration: underline;">QCSD framework</a>, it is recommended to conduct Quality Experience (QX) Sessions on a regular basis. QX Sessions can be carried out when evaluating platforms, redesigns, or when serving vulnerable user populations. Testers in the team analyze the product experience using <strong>23+ QX heuristics</strong> across 6 categories (Problem Understanding, User Needs, Business Needs, Balance, Impact, and Creativity) and identify <strong>oracle problems</strong> - situations where quality criteria are unclear or conflicting between stakeholders.</p>
+                    <p>A guided discussion based on this analysis can help teams uncover hidden stakeholder conflicts, understand the true meaning of "quality" for each persona, identify where user needs compete with business goals, and most importantly - make informed decisions about tradeoffs rather than discovering conflicts post-release.</p>
+                    <p>If we want to deliver products that delight users while meeting business objectives, we must bridge the traditional divide between "does it work?" (QA) and "is it delightful?" (UX). The purpose of this report is to facilitate QX Sessions and help teams achieve exactly that: co-creating quality experience for everyone associated with the product.</p>
+                </div>
+            </div>
+
+            <!-- SIGNATURE INTRO BOX 2: When to perform a QX session? -->
+            <div class="info-section collapsed">
+                <div class="info-header" onclick="this.parentElement.classList.toggle('collapsed')">
+                    <h3>When to perform a QX session?</h3>
+                    <span class="collapse-icon">&#x25BC;</span>
+                </div>
+                <div class="info-content">
+                    <p>The sooner the better! As soon as testers can access wireframes, prototypes, or live platforms, this report should be generated. Generate this report and organize a "QX Session" discussion with relevant stakeholders such as Product Owners, UX Designers, Developers, Customer Support, and Accessibility Specialists.</p>
+                    <p style="margin-top: 12px;"><strong>Key trigger scenarios:</strong></p>
+                    <p><strong>Platform Redesign or Migration:</strong> When redesigning core user journeys or consolidating systems, QX analysis identifies where stakeholder needs conflict before costly rework.</p>
+                    <p><strong>Expansion to New Markets:</strong> When adding localization or new user personas, QX reveals hidden oracle problems around "correct" behavior that differs by cultural context.</p>
+                    <p><strong>Serving Vulnerable Populations:</strong> When your users include those with disabilities, elderly users, or mental health conditions, QX ensures accessibility isn't sacrificed for aesthetics.</p>
+                    <p><strong>Regulatory Compliance:</strong> For healthcare, finance, or regulated industries - QX ensures compliance requirements don't come at the expense of user experience.</p>
+                </div>
+            </div>
+
+            <!-- SIGNATURE INTRO BOX 3: How to use this report? -->
+            <div class="info-section collapsed">
+                <div class="info-header" onclick="this.parentElement.classList.toggle('collapsed')">
+                    <h3>How to use this report?</h3>
+                    <span class="collapse-icon">&#x25BC;</span>
+                </div>
+                <div class="info-content">
+                    <p style="margin-bottom: 12px;">In this report you will find:</p>
+                    <div style="margin-left: 5px; line-height: 1.8;">
+                        <div class="checklist-item">&#9744; <strong>Executive Summary</strong> - Key findings and overall QX score at a glance.</div>
+                        <div class="checklist-item">&#9744; <strong>Problem Understanding</strong> - Rule of Three analysis with minimum 3 failure modes per issue. Review these carefully to understand the scope of potential quality impacts.</div>
+                        <div class="checklist-item">&#9744; <strong>User Needs Analysis</strong> - Pain points, journey friction, accessibility concerns, and emotional design considerations.</div>
+                        <div class="checklist-item">&#9744; <strong>Business Needs Analysis</strong> - Goals alignment, stakeholder value, competitive positioning, and KPI impacts.</div>
+                        <div class="checklist-item">&#9744; <strong>Oracle Problems</strong> - Critical section identifying where quality criteria conflict between stakeholders. Use these to facilitate team discussions about tradeoffs.</div>
+                        <div class="checklist-item">&#9744; <strong>Impact Analysis</strong> - Visible and invisible effects on users, systems, and business metrics.</div>
+                        <div class="checklist-item">&#9744; <strong>Creativity & Innovation</strong> - Multi-domain analysis with novel testing approaches and exploratory session suggestions.</div>
+                        <div class="checklist-item">&#9744; <strong>Heuristic Analysis</strong> - Detailed scoring across 23+ QX heuristics organized by category.</div>
+                        <div class="checklist-item">&#9744; <strong>Prioritized Recommendations</strong> - Effort/impact matrix for strategic planning with clear ownership assignments.</div>
+                    </div>
+                    <p style="margin: 15px 0 0 0; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.2); opacity: 0.9; font-size: 0.95rem;">All in all, this report represents important stakeholder considerations for your test strategy. <strong>Rebuild this report if there are significant platform changes, new user personas, or updated business objectives.</strong></p>
+                    <p style="margin: 10px 0 0 0; opacity: 0.85; font-style: italic; font-size: 0.9rem;">Testers are advised to carefully evaluate all findings using critical thinking, context awareness, and domain expertise. This report complements - but does not replace - direct user research and stakeholder interviews.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="content">
+            <!-- Domain Context Banner -->
+            <div class="domain-banner">
+                <div class="domain-icon">{{DOMAIN_ICON}}</div>
+                <div class="domain-content">
+                    <h3>{{DOMAIN_TITLE}}</h3>
+                    <p>{{DOMAIN_DESCRIPTION}}</p>
+                </div>
+            </div>
+
+            <!-- Table of Contents -->
+            <div class="toc">
+                <h3>Table of Contents</h3>
+                <ul>
+                    <li><a href="#executive-summary">1. Executive Summary</a></li>
+                    <li><a href="#overall-score">2. Overall QX Score</a></li>
+                    <li><a href="#problem-understanding">3. Problem Understanding & Complexity</a></li>
+                    <li><a href="#user-needs">4. User Needs Analysis</a></li>
+                    <li><a href="#business-needs">5. Business Needs Analysis</a></li>
+                    <li><a href="#oracle-problems">6. Oracle Problems Detected</a></li>
+                    <li><a href="#impact-analysis">7. Impact Analysis</a></li>
+                    <li><a href="#creativity-analysis">8. Creativity & Innovation Analysis</a></li>
+                    <li><a href="#heuristics">9. Heuristic Analysis (23+ Heuristics)</a></li>
+                    <li><a href="#recommendations">10. Prioritized Recommendations</a></li>
+                    <li><a href="#methodology">11. QX Methodology</a></li>
+                </ul>
+            </div>
+
+            <!-- REST OF REPORT SECTIONS GO HERE -->
+            <!-- The agent MUST populate all sections with detailed analysis -->
+
+            {{REPORT_CONTENT}}
+
+        </div>
+
+        <div class="footer">
+            <p><strong>QX Analysis Report</strong></p>
+            <p>Generated by <a href="https://github.com/anthropics/agentic-qe">Agentic QE</a> - <strong>qe-qx-partner</strong> (Core QX Agent)</p>
+            <p>Analysis Method: AI Semantic Understanding | Framework: QX Partner (Quality Advocacy + UX) | 23+ Heuristics</p>
+            <p><strong>Heuristics Applied:</strong> 23+ (6 categories) | <strong>Oracle Problems:</strong> {{ORACLE_COUNT}} | <strong>Failure Modes:</strong> {{FAILURE_COUNT}}</p>
+            <p>Analysis Date: {{DATE}}</p>
+
+            <div class="footer-brand" style="margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--border);">
+                <p>Part of the <strong>Agentic QE Fleet</strong> - AI-powered quality engineering for shift-left testing</p>
+                <p style="margin-top: 15px; font-size: 0.9em; font-style: italic; opacity: 0.8;">
+                    This report uses the <a href="https://talesoftesting.com/quality-experienceqx-co-creating-quality-experience-for-everyone-associated-with-the-product/">QX (Quality Experience) methodology</a>
+                    from <a href="https://talesoftesting.com">Tales of Testing</a> by <strong>Lalitkumar Bhamare</strong>.
+                    QX is a core activity in the <a href="https://talesoftesting.com/wp-content/uploads/2022/10/Lalitkumar-Bhamare-Quality-Conscious-Software-Delivery-eBook.pdf">Quality Conscious Software Delivery (QCSD) framework</a>,
+                    combining Quality Advocacy with User Experience design and recognizing that quality is co-created by all stakeholders in a system.
+                </p>
+                <p style="margin-top: 10px; font-size: 0.85em; opacity: 0.7;">
+                    Recommendations require domain expert validation. Use this report to facilitate QX Session discussions with stakeholders, not replace them.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Auto-collapse all info sections on load
+        document.addEventListener('DOMContentLoaded', function() {
+            const infoSections = document.querySelectorAll('.info-section');
+            infoSections.forEach(section => {
+                if (!section.classList.contains('collapsed')) {
+                    section.classList.add('collapsed');
+                }
+            });
+        });
+    </script>
+</body>
+</html>

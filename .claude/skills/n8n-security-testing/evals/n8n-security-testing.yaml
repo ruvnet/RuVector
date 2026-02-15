@@ -1,0 +1,493 @@
+# =============================================================================
+# AQE Skill Evaluation Test Suite: n8n Security Testing v1.0.0
+# =============================================================================
+#
+# Comprehensive evaluation suite for n8n security testing skill.
+# Tests credential exposure detection, OAuth flow validation, API key
+# management, data sanitization, and sensitive data logging prevention.
+#
+# Schema: .claude/skills/.validation/schemas/skill-eval.schema.json
+# Validator: .claude/skills/n8n-security-testing/scripts/validate-config.json
+#
+# Coverage:
+# - Credential exposure detection
+# - OAuth token validation and handling
+# - API key management and rotation
+# - Sensitive data sanitization
+# - Encrypted credential verification
+# - Execution log security
+#
+# =============================================================================
+
+skill: n8n-security-testing
+version: 1.0.0
+description: >
+  Comprehensive evaluation suite for n8n security testing skill.
+  Tests credential exposure prevention, OAuth flow validation, API key
+  management, data encryption, sanitization verification, and prevention
+  of sensitive data logging in n8n workflows.
+
+# =============================================================================
+# Multi-Model Configuration
+# =============================================================================
+
+models_to_test:
+  - claude-3.5-sonnet
+  - claude-3-haiku
+
+# =============================================================================
+# MCP Integration Configuration
+# =============================================================================
+
+mcp_integration:
+  enabled: true
+  namespace: skill-validation
+
+  query_patterns: true
+  track_outcomes: true
+  store_patterns: true
+  share_learning: true
+  update_quality_gate: true
+
+  target_agents:
+    - qe-learning-coordinator
+    - qe-queen-coordinator
+    - qe-security-scanner
+
+# =============================================================================
+# ReasoningBank Learning Configuration
+# =============================================================================
+
+learning:
+  store_success_patterns: true
+  store_failure_patterns: true
+  pattern_ttl_days: 90
+  min_confidence_to_store: 0.7
+  cross_model_comparison: true
+
+# =============================================================================
+# Result Format Configuration
+# =============================================================================
+
+result_format:
+  json_output: true
+  markdown_report: true
+  include_raw_output: false
+  include_timing: true
+  include_token_usage: true
+
+# =============================================================================
+# Environment Setup
+# =============================================================================
+
+setup:
+  required_tools:
+    - jq
+
+  environment_variables:
+    SECURITY_SCANNING: "true"
+    CREDENTIAL_DETECTION: "strict"
+
+# =============================================================================
+# TEST CASES
+# =============================================================================
+
+test_cases:
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Credential Exposure Detection
+  # ---------------------------------------------------------------------------
+
+  - id: tc001_hardcoded_api_key_detection
+    description: "Detect hardcoded API keys in workflow JSON"
+    category: credentials
+    priority: critical
+
+    input:
+      workflow_json:
+        nodes:
+          - name: "HTTP Request"
+            parameters:
+              headers:
+                Authorization: "Bearer sk_live_51234567890abcdef"
+              url: "https://api.example.com/data"
+      scan_mode: strict
+      context:
+        check_headers: true
+        check_urls: true
+        check_parameters: true
+
+    expected_output:
+      must_contain:
+        - "credential"
+        - "exposed"
+        - "API key"
+        - "Bearer"
+      must_not_contain:
+        - "safe"
+      severity_classification: critical
+      finding_count:
+        min: 1
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.85
+      reasoning_quality_min: 0.8
+
+    timeout_ms: 30000
+
+  - id: tc002_password_in_workflow_detection
+    description: "Detect plaintext passwords in workflow nodes"
+    category: credentials
+    priority: critical
+
+    input:
+      workflow_json:
+        nodes:
+          - name: "Database"
+            type: "postgres"
+            parameters:
+              host: "db.example.com"
+              username: "admin"
+              password: "mySecretPassword123"
+          - name: "Email Service"
+            parameters:
+              auth_type: "basic"
+              username: "user@example.com"
+              password: "password456"
+      context:
+        database_types: ["postgres", "mysql", "mongodb"]
+
+    expected_output:
+      must_contain:
+        - "password"
+        - "plaintext"
+        - "credential"
+        - "exposed"
+      must_not_contain:
+        - "encrypted"
+      severity_classification: critical
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.85
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: OAuth and Token Handling
+  # ---------------------------------------------------------------------------
+
+  - id: tc003_oauth_token_validation
+    description: "Validate proper OAuth token handling"
+    category: oauth
+    priority: critical
+
+    input:
+      oauth_config:
+        - name: "Google OAuth"
+          has_token_storage: true
+          token_encrypted: true
+          token_refresh_enabled: true
+          token_expiry_checked: true
+          valid: true
+        - name: "GitHub OAuth"
+          has_token_storage: true
+          token_encrypted: true
+          token_refresh_enabled: false
+          token_expiry_checked: true
+          valid: true
+      context:
+        standard: OAuth2
+
+    expected_output:
+      must_contain:
+        - "OAuth"
+        - "token"
+        - "encrypted"
+        - "valid"
+      must_not_contain:
+        - "plaintext token"
+      severity_classification: info
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+
+  - id: tc004_insecure_token_transmission
+    description: "Detect insecure token transmission methods"
+    category: oauth
+    priority: critical
+
+    input:
+      issues:
+        - node: "HTTP Request"
+          token_location: "query_parameter"
+          secure: false
+          issue: "tokens in URL are logged and cached"
+        - node: "API Call"
+          token_location: "request_body"
+          secure: true
+          issue: "none"
+        - node: "Legacy Service"
+          token_location: "custom_header"
+          protocol: "http"
+          secure: false
+          issue: "HTTP not HTTPS"
+      context:
+        requirement: "HTTPS only"
+
+    expected_output:
+      must_contain:
+        - "insecure"
+        - "transmission"
+        - "token"
+        - "HTTP"
+      must_not_contain:
+        - "secure"
+      severity_classification: critical
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.85
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Credential Storage and Encryption
+  # ---------------------------------------------------------------------------
+
+  - id: tc005_credential_storage_verification
+    description: "Verify credentials stored with encryption"
+    category: encryption
+    priority: critical
+
+    input:
+      credentials:
+        - id: "slack_webhook"
+          storage_type: "encrypted"
+          encryption_algorithm: "AES-256"
+          key_rotation_policy: "90_days"
+          status: valid
+        - id: "database_password"
+          storage_type: "plaintext"
+          issue: "stored in plaintext"
+          status: invalid
+        - id: "api_key"
+          storage_type: "encrypted"
+          encryption_algorithm: "AES-256"
+          status: valid
+      context:
+        standard: industry_best_practices
+
+    expected_output:
+      must_contain:
+        - "encryption"
+        - "AES-256"
+        - "plaintext"
+      must_not_contain:
+        - "all secure"
+      severity_classification: critical
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.85
+
+  - id: tc006_key_rotation_policy
+    description: "Verify API key rotation policies are in place"
+    category: encryption
+    priority: high
+
+    input:
+      rotation_policies:
+        - credential: "api_key_prod"
+          rotation_days: 90
+          last_rotated: "2025-01-20"
+          overdue: false
+          status: compliant
+        - credential: "slack_token"
+          rotation_days: 180
+          last_rotated: "2024-08-15"
+          overdue: true
+          status: non_compliant
+      context:
+        requirement: "rotate every 90 days"
+
+    expected_output:
+      must_contain:
+        - "rotation"
+        - "policy"
+        - "overdue"
+      must_not_contain:
+        - "no rotation"
+      severity_classification: high
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.75
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Data Sanitization and Logging
+  # ---------------------------------------------------------------------------
+
+  - id: tc007_sensitive_data_in_logs
+    description: "Detect sensitive data exposure in execution logs"
+    category: logging
+    priority: critical
+
+    input:
+      log_samples:
+        - message: "Executing HTTP call to /api/data with headers: Authorization: Bearer sk_live_123"
+          contains_sensitive: true
+          issue: "API key exposed in logs"
+        - message: "Database query executed on user@example.com"
+          contains_sensitive: true
+          issue: "Credential exposed in logs"
+        - message: "Workflow execution started for batch processing"
+          contains_sensitive: false
+          issue: "none"
+      context:
+        log_level: DEBUG
+
+    expected_output:
+      must_contain:
+        - "sensitive"
+        - "exposed"
+        - "logs"
+        - "credential"
+      must_not_contain:
+        - "no exposure"
+      severity_classification: critical
+      finding_count:
+        min: 2
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.85
+
+  - id: tc008_data_masking_in_output
+    description: "Verify sensitive fields are masked in output"
+    category: logging
+    priority: critical
+
+    input:
+      output_nodes:
+        - node: "Set User Data"
+          fields:
+            - name: email
+              value: "user@example.com"
+              should_mask: false
+            - name: ssn
+              value: "123-45-6789"
+              should_mask: true
+              status: masked
+            - name: password_hash
+              value: "bcrypt_hash_..."
+              should_mask: true
+              status: not_masked
+      context:
+        requirement: "mask PII in outputs"
+
+    expected_output:
+      must_contain:
+        - "mask"
+        - "PII"
+        - "masked"
+      must_not_contain:
+        - "ssn"
+        - "password"
+      severity_classification: high
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Secure Configuration Validation
+  # ---------------------------------------------------------------------------
+
+  - id: tc009_https_enforcement
+    description: "Verify HTTPS is enforced for external APIs"
+    category: configuration
+    priority: critical
+
+    input:
+      api_calls:
+        - url: "https://api.example.com/data"
+          protocol: HTTPS
+          secure: true
+        - url: "http://legacy-service.local/api"
+          protocol: HTTP
+          secure: false
+          environment: production
+      context:
+        requirement: "HTTPS for production"
+
+    expected_output:
+      must_contain:
+        - "HTTPS"
+        - "insecure"
+        - "HTTP"
+      must_not_contain:
+        - "all HTTPS"
+      severity_classification: critical
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+
+  - id: tc010_credential_scope_validation
+    description: "Validate credentials have minimum necessary scope"
+    category: configuration
+    priority: high
+
+    input:
+      credentials:
+        - name: "Google API"
+          permissions: ["calendar.read"]
+          required_permissions: ["calendar.read"]
+          status: correct_scope
+        - name: "GitHub Token"
+          permissions: ["repo", "admin:org_hook", "admin:repo_hook"]
+          required_permissions: ["repo"]
+          status: over_scoped
+        - name: "Stripe API"
+          permissions: ["charges.read"]
+          required_permissions: ["charges.read", "customers.read"]
+          status: under_scoped
+      context:
+        principle: "least_privilege"
+
+    expected_output:
+      must_contain:
+        - "scope"
+        - "over-scoped"
+        - "permissions"
+      must_not_contain:
+        - "all correct"
+      severity_classification: medium
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.75
+
+# =============================================================================
+# SUCCESS CRITERIA
+# =============================================================================
+
+success_criteria:
+  pass_rate: 0.85
+  critical_pass_rate: 1.0
+  avg_reasoning_quality: 0.75
+  max_execution_time_ms: 300000
+  cross_model_variance: 0.15
+
+# =============================================================================
+# METADATA
+# =============================================================================
+
+metadata:
+  author: "n8n-integration-test"
+  created: "2026-02-02"
+  last_updated: "2026-02-02"
+  coverage_target: >
+    n8n security testing including credential exposure detection (hardcoded
+    API keys, passwords), OAuth token validation, credential encryption
+    verification, key rotation policies, sensitive data masking in logs,
+    HTTPS enforcement, and credential scope validation per least-privilege
+    principle. 10 test cases with 85% pass rate and 100% critical pass rate.

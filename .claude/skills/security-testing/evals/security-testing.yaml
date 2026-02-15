@@ -1,0 +1,789 @@
+# =============================================================================
+# AQE Skill Evaluation Test Suite: Security Testing v1.0.0
+# =============================================================================
+#
+# Comprehensive evaluation suite for the security-testing skill per ADR-056.
+# Tests OWASP Top 10 2021 detection, severity classification, remediation
+# quality, and cross-model consistency.
+#
+# Schema: .claude/skills/.validation/schemas/skill-eval.schema.json
+# Validator: .claude/skills/security-testing/scripts/validate-config.json
+#
+# Coverage:
+# - OWASP A01:2021 - Broken Access Control
+# - OWASP A02:2021 - Cryptographic Failures
+# - OWASP A03:2021 - Injection (SQL, XSS, Command)
+# - OWASP A07:2021 - Identification and Authentication Failures
+# - Negative tests (no false positives on secure code)
+#
+# =============================================================================
+
+skill: security-testing
+version: 1.0.0
+description: >
+  Comprehensive evaluation suite for the security-testing skill.
+  Tests OWASP Top 10 2021 detection capabilities, CWE classification accuracy,
+  CVSS scoring, severity classification, and remediation quality.
+  Supports multi-model testing and integrates with ReasoningBank for
+  continuous improvement.
+
+# =============================================================================
+# Multi-Model Configuration
+# =============================================================================
+
+models_to_test:
+  - claude-3.5-sonnet    # Primary model (high accuracy expected)
+  - claude-3-haiku       # Fast model (minimum quality threshold)
+  - gpt-4o               # Cross-vendor validation
+
+# =============================================================================
+# MCP Integration Configuration
+# =============================================================================
+
+mcp_integration:
+  enabled: true
+  namespace: skill-validation
+
+  # Query existing security patterns before running evals
+  query_patterns: true
+
+  # Track each test outcome for learning feedback loop
+  track_outcomes: true
+
+  # Store successful patterns after evals complete
+  store_patterns: true
+
+  # Share learning with fleet coordinator agents
+  share_learning: true
+
+  # Update quality gate with validation metrics
+  update_quality_gate: true
+
+  # Target agents for learning distribution
+  target_agents:
+    - qe-learning-coordinator
+    - qe-queen-coordinator
+    - qe-security-scanner
+    - qe-security-auditor
+
+# =============================================================================
+# ReasoningBank Learning Configuration
+# =============================================================================
+
+learning:
+  store_success_patterns: true
+  store_failure_patterns: true
+  pattern_ttl_days: 90
+  min_confidence_to_store: 0.7
+  cross_model_comparison: true
+
+# =============================================================================
+# Result Format Configuration
+# =============================================================================
+
+result_format:
+  json_output: true
+  markdown_report: true
+  include_raw_output: false
+  include_timing: true
+  include_token_usage: true
+
+# =============================================================================
+# Environment Setup
+# =============================================================================
+
+setup:
+  required_tools:
+    - jq       # JSON parsing (required)
+    - npm      # Dependency audit (optional but recommended)
+
+  environment_variables:
+    SECURITY_SCAN_DEPTH: "deep"
+    OWASP_ENABLED: "true"
+    SEVERITY_THRESHOLD: "medium"
+
+  fixtures:
+    - name: vulnerable_express_app
+      path: fixtures/vulnerable-express-app.js
+      content: |
+        const express = require('express');
+        const app = express();
+
+        // SQL Injection vulnerability
+        app.get('/user', (req, res) => {
+          const query = `SELECT * FROM users WHERE id = ${req.params.id}`;
+          db.query(query);
+        });
+
+        // XSS vulnerability
+        app.get('/profile', (req, res) => {
+          res.send(`<h1>Hello ${req.query.name}</h1>`);
+        });
+
+        // Path Traversal vulnerability
+        app.get('/file', (req, res) => {
+          const path = './uploads/' + req.query.filename;
+          res.sendFile(path);
+        });
+
+# =============================================================================
+# TEST CASES
+# =============================================================================
+
+test_cases:
+  # ---------------------------------------------------------------------------
+  # CATEGORY: SQL Injection (OWASP A03:2021)
+  # ---------------------------------------------------------------------------
+
+  - id: tc001_sql_injection_string_concat
+    description: "Detect SQL injection via string concatenation in Node.js"
+    category: injection
+    priority: critical
+
+    input:
+      code: |
+        const express = require('express');
+        const mysql = require('mysql');
+        const app = express();
+
+        app.get('/api/users', (req, res) => {
+          const userId = req.params.id;
+          const query = `SELECT * FROM users WHERE id = ${userId}`;
+          db.query(query, (err, results) => {
+            res.json(results);
+          });
+        });
+      context:
+        language: javascript
+        framework: express
+        environment: production
+
+    expected_output:
+      must_contain:
+        - "SQL injection"
+        - "parameterized"
+      must_not_contain:
+        - "no vulnerabilities"
+        - "secure"
+      must_match_regex:
+        - "CWE-89|CWE-564"
+        - "A03:20[21][0-9]"
+      severity_classification: critical
+      finding_count:
+        min: 1
+        max: 3
+      recommendation_count:
+        min: 1
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+      reasoning_quality_min: 0.7
+      grading_rubric:
+        completeness: 0.3
+        accuracy: 0.5
+        actionability: 0.2
+
+    timeout_ms: 30000
+
+  - id: tc002_sql_injection_parameterized_safe
+    description: "Verify parameterized queries are NOT flagged as vulnerable"
+    category: injection
+    priority: high
+
+    input:
+      code: |
+        app.get('/api/users', (req, res) => {
+          const userId = parseInt(req.params.id, 10);
+          db.query('SELECT * FROM users WHERE id = ?', [userId], (err, results) => {
+            res.json(results);
+          });
+        });
+      context:
+        language: javascript
+        framework: express
+
+    expected_output:
+      must_contain:
+        - "parameterized"
+        - "secure"
+      must_not_contain:
+        - "SQL injection"
+        - "critical"
+        - "vulnerable"
+      severity_classification: info
+      finding_count:
+        max: 1
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.7
+      allow_partial: true
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Cross-Site Scripting (OWASP A03:2021)
+  # ---------------------------------------------------------------------------
+
+  - id: tc003_xss_reflected_html_output
+    description: "Detect reflected XSS in unescaped HTML output"
+    category: injection
+    priority: critical
+
+    input:
+      code: |
+        app.get('/profile', (req, res) => {
+          const name = req.query.name;
+          res.send(`
+            <html>
+              <body>
+                <h1>Welcome, ${name}!</h1>
+                <p>Your profile has been loaded.</p>
+              </body>
+            </html>
+          `);
+        });
+      context:
+        language: javascript
+        framework: express
+
+    expected_output:
+      must_contain:
+        - "XSS"
+        - "cross-site scripting"
+        - "sanitize"
+        - "escape"
+      must_match_regex:
+        - "CWE-79"
+      severity_classification: high
+      finding_count:
+        min: 1
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+      reasoning_quality_min: 0.75
+
+  - id: tc004_xss_dom_based_innerhtml
+    description: "Detect DOM-based XSS via innerHTML assignment"
+    category: injection
+    priority: high
+
+    input:
+      code: |
+        // Client-side JavaScript
+        const params = new URLSearchParams(window.location.search);
+        const message = params.get('msg');
+        document.getElementById('output').innerHTML = message;
+      context:
+        language: javascript
+        framework: vanilla
+        environment: production
+
+    expected_output:
+      must_contain:
+        - "DOM"
+        - "XSS"
+        - "innerHTML"
+        - "textContent"
+      must_match_regex:
+        - "CWE-79"
+      severity_classification: high
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.7
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Authentication Failures (OWASP A07:2021)
+  # ---------------------------------------------------------------------------
+
+  - id: tc005_hardcoded_credentials
+    description: "Detect hardcoded credentials and API keys"
+    category: authentication
+    priority: critical
+
+    input:
+      code: |
+        const ADMIN_PASSWORD = 'admin123';
+        const API_KEY = 'sk-1234567890abcdef';
+        const DATABASE_URL = 'postgres://admin:password123@localhost/db';
+
+        app.post('/login', (req, res) => {
+          if (req.body.password === ADMIN_PASSWORD) {
+            req.session.isAdmin = true;
+            res.send('Login successful');
+          }
+        });
+      context:
+        language: javascript
+        framework: express
+
+    expected_output:
+      must_contain:
+        - "hardcoded"
+        - "credentials"
+        - "secret"
+        - "environment variable"
+      must_match_regex:
+        - "CWE-798|CWE-259"
+      severity_classification: critical
+      finding_count:
+        min: 2
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+      reasoning_quality_min: 0.8
+
+  - id: tc006_weak_password_hashing
+    description: "Detect weak password hashing algorithms (MD5, SHA1)"
+    category: authentication
+    priority: high
+
+    input:
+      code: |
+        const crypto = require('crypto');
+
+        function hashPassword(password) {
+          return crypto.createHash('md5').update(password).digest('hex');
+        }
+
+        function verifyPassword(password, hash) {
+          return hashPassword(password) === hash;
+        }
+      context:
+        language: javascript
+        framework: nodejs
+
+    expected_output:
+      must_contain:
+        - "MD5"
+        - "weak"
+        - "bcrypt"
+        - "argon2"
+      must_match_regex:
+        - "CWE-327|CWE-328|CWE-916"
+      severity_classification: high
+      finding_count:
+        min: 1
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Broken Access Control (OWASP A01:2021)
+  # ---------------------------------------------------------------------------
+
+  - id: tc007_idor_missing_authorization
+    description: "Detect IDOR vulnerability with missing authorization check"
+    category: authorization
+    priority: critical
+
+    input:
+      code: |
+        app.get('/api/users/:id/profile', (req, res) => {
+          // No authorization check - any user can access any profile
+          const userId = req.params.id;
+          db.query('SELECT * FROM profiles WHERE user_id = ?', [userId])
+            .then(profile => res.json(profile));
+        });
+
+        app.delete('/api/users/:id', (req, res) => {
+          // No check if requesting user owns this account
+          db.query('DELETE FROM users WHERE id = ?', [req.params.id]);
+          res.send('User deleted');
+        });
+      context:
+        language: javascript
+        framework: express
+
+    expected_output:
+      must_contain:
+        - "authorization"
+        - "access control"
+        - "IDOR"
+        - "ownership"
+      must_match_regex:
+        - "CWE-639|CWE-284|CWE-862"
+        - "A01:2021"
+      severity_classification: critical
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.7
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Cryptographic Failures (OWASP A02:2021)
+  # ---------------------------------------------------------------------------
+
+  - id: tc008_weak_encryption_des
+    description: "Detect use of weak encryption algorithms (DES, RC4)"
+    category: cryptography
+    priority: high
+
+    input:
+      code: |
+        const crypto = require('crypto');
+
+        function encryptData(data, key) {
+          const cipher = crypto.createCipher('des', key);
+          return cipher.update(data, 'utf8', 'hex') + cipher.final('hex');
+        }
+
+        function decryptData(data, key) {
+          const decipher = crypto.createDecipher('des', key);
+          return decipher.update(data, 'hex', 'utf8') + decipher.final('utf8');
+        }
+      context:
+        language: javascript
+        framework: nodejs
+
+    expected_output:
+      must_contain:
+        - "DES"
+        - "weak"
+        - "deprecated"
+        - "AES"
+      must_match_regex:
+        - "CWE-327|CWE-328"
+        - "A02:2021"
+      severity_classification: high
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.7
+
+  - id: tc009_plaintext_password_storage
+    description: "Detect plaintext password storage"
+    category: cryptography
+    priority: critical
+
+    input:
+      code: |
+        class User {
+          constructor(email, password) {
+            this.email = email;
+            this.password = password;  // Stored in plaintext!
+          }
+
+          save() {
+            db.query('INSERT INTO users (email, password) VALUES (?, ?)',
+                     [this.email, this.password]);
+          }
+        }
+      context:
+        language: javascript
+        framework: nodejs
+
+    expected_output:
+      must_contain:
+        - "plaintext"
+        - "password"
+        - "hash"
+        - "bcrypt"
+      must_match_regex:
+        - "CWE-256|CWE-312"
+        - "A02:2021"
+      severity_classification: critical
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Path Traversal (Related to A01:2021)
+  # ---------------------------------------------------------------------------
+
+  - id: tc010_path_traversal_file_access
+    description: "Detect path traversal vulnerability in file access"
+    category: injection
+    priority: critical
+
+    input:
+      code: |
+        const fs = require('fs');
+
+        app.get('/download', (req, res) => {
+          const filename = req.query.file;
+          const filepath = './uploads/' + filename;
+          res.sendFile(filepath);
+        });
+
+        app.get('/read', (req, res) => {
+          const content = fs.readFileSync('./data/' + req.params.name);
+          res.send(content);
+        });
+      context:
+        language: javascript
+        framework: express
+
+    expected_output:
+      must_contain:
+        - "path traversal"
+        - "directory traversal"
+        - "../"
+        - "sanitize"
+      must_match_regex:
+        - "CWE-22|CWE-23"
+      severity_classification: critical
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.7
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Negative Tests (No False Positives)
+  # ---------------------------------------------------------------------------
+
+  - id: tc011_secure_code_no_false_positives
+    description: "Verify secure code is NOT flagged as vulnerable"
+    category: negative
+    priority: critical
+
+    input:
+      code: |
+        const express = require('express');
+        const helmet = require('helmet');
+        const rateLimit = require('express-rate-limit');
+        const bcrypt = require('bcrypt');
+        const validator = require('validator');
+
+        const app = express();
+        app.use(helmet());
+        app.use(rateLimit({ windowMs: 15 * 60 * 1000, max: 100 }));
+
+        app.post('/api/users', async (req, res) => {
+          const { email, password } = req.body;
+
+          // Input validation
+          if (!validator.isEmail(email)) {
+            return res.status(400).json({ error: 'Invalid email' });
+          }
+
+          // Secure password hashing
+          const hashedPassword = await bcrypt.hash(password, 12);
+
+          // Parameterized query
+          await db.query(
+            'INSERT INTO users (email, password) VALUES ($1, $2)',
+            [email, hashedPassword]
+          );
+
+          res.status(201).json({ message: 'User created' });
+        });
+      context:
+        language: javascript
+        framework: express
+        environment: production
+
+    expected_output:
+      must_contain:
+        - "secure"
+        - "best practice"
+      must_not_contain:
+        - "SQL injection"
+        - "XSS"
+        - "critical vulnerability"
+        - "high severity"
+      finding_count:
+        max: 2  # Allow informational findings only
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.6
+      allow_partial: true
+
+  - id: tc012_secure_auth_implementation
+    description: "Verify secure authentication is recognized as safe"
+    category: negative
+    priority: high
+
+    input:
+      code: |
+        const bcrypt = require('bcrypt');
+        const jwt = require('jsonwebtoken');
+
+        async function login(email, password) {
+          const user = await User.findByEmail(email);
+          if (!user) {
+            return { error: 'Invalid credentials' };
+          }
+
+          const match = await bcrypt.compare(password, user.passwordHash);
+          if (!match) {
+            return { error: 'Invalid credentials' };
+          }
+
+          const token = jwt.sign(
+            { userId: user.id },
+            process.env.JWT_SECRET,
+            { expiresIn: '1h' }
+          );
+
+          return { token };
+        }
+      context:
+        language: javascript
+        framework: nodejs
+
+    expected_output:
+      must_contain:
+        - "bcrypt"
+        - "jwt"
+        - "secure"
+      must_not_contain:
+        - "vulnerable"
+        - "critical"
+        - "hardcoded"
+      severity_classification: info
+
+    validation:
+      schema_check: true
+      allow_partial: true
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Python Security (Multi-language Support)
+  # ---------------------------------------------------------------------------
+
+  - id: tc013_python_sql_injection
+    description: "Detect SQL injection in Python Flask application"
+    category: injection
+    priority: critical
+
+    input:
+      code: |
+        from flask import Flask, request
+        import sqlite3
+
+        app = Flask(__name__)
+
+        @app.route('/user')
+        def get_user():
+            user_id = request.args.get('id')
+            conn = sqlite3.connect('users.db')
+            cursor = conn.cursor()
+            cursor.execute(f"SELECT * FROM users WHERE id = {user_id}")
+            return str(cursor.fetchone())
+      context:
+        language: python
+        framework: flask
+
+    expected_output:
+      must_contain:
+        - "SQL injection"
+        - "parameterized"
+        - "f-string"
+      must_match_regex:
+        - "CWE-89"
+      severity_classification: critical
+      finding_count:
+        min: 1
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.7
+
+  - id: tc014_python_ssti_jinja
+    description: "Detect Server-Side Template Injection in Jinja2"
+    category: injection
+    priority: critical
+
+    input:
+      code: |
+        from flask import Flask, request, render_template_string
+
+        app = Flask(__name__)
+
+        @app.route('/render')
+        def render():
+            template = request.args.get('template')
+            return render_template_string(template)
+      context:
+        language: python
+        framework: flask
+
+    expected_output:
+      must_contain:
+        - "SSTI"
+        - "template injection"
+        - "render_template_string"
+        - "Jinja2"
+      must_match_regex:
+        - "CWE-94|CWE-1336"
+      severity_classification: critical
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.7
+
+  - id: tc015_python_pickle_deserialization
+    description: "Detect insecure deserialization with pickle"
+    category: injection
+    priority: critical
+
+    input:
+      code: |
+        import pickle
+        from flask import Flask, request
+
+        app = Flask(__name__)
+
+        @app.route('/load')
+        def load_data():
+            data = request.get_data()
+            obj = pickle.loads(data)
+            return str(obj)
+      context:
+        language: python
+        framework: flask
+
+    expected_output:
+      must_contain:
+        - "pickle"
+        - "deserialization"
+        - "untrusted"
+        - "RCE"
+      must_match_regex:
+        - "CWE-502"
+        - "A08:2021"
+      severity_classification: critical
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.7
+
+# =============================================================================
+# SUCCESS CRITERIA
+# =============================================================================
+
+success_criteria:
+  # Overall pass rate (90% of tests must pass)
+  pass_rate: 0.9
+
+  # Critical tests must ALL pass (100%)
+  critical_pass_rate: 1.0
+
+  # Average reasoning quality score
+  avg_reasoning_quality: 0.75
+
+  # Maximum suite execution time (5 minutes)
+  max_execution_time_ms: 300000
+
+  # Maximum variance between model results (15%)
+  cross_model_variance: 0.15
+
+# =============================================================================
+# METADATA
+# =============================================================================
+
+metadata:
+  author: "qe-security-auditor"
+  created: "2026-02-02"
+  last_updated: "2026-02-02"
+  coverage_target: >
+    OWASP Top 10 2021: A01 (Broken Access Control), A02 (Cryptographic Failures),
+    A03 (Injection - SQL, XSS, SSTI, Command), A07 (Authentication Failures),
+    A08 (Software Integrity - Deserialization). Covers JavaScript/Node.js
+    Express apps and Python Flask apps. 15 test cases with 90% pass rate
+    requirement and 100% critical pass rate.

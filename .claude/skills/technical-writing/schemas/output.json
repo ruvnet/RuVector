@@ -1,0 +1,268 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentic-qe.dev/schemas/skills/technical-writing/output.json",
+  "title": "Technical Writing Skill Output Schema",
+  "description": "Schema for technical-writing skill output. Clear, engaging technical documentation with structure and clarity assessment.",
+  "type": "object",
+  "required": ["skillName", "version", "timestamp", "status", "trustTier", "output"],
+  "properties": {
+    "skillName": {
+      "type": "string",
+      "const": "technical-writing"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+(-[a-zA-Z0-9]+)?$"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["success", "partial", "failed", "skipped"]
+    },
+    "trustTier": {
+      "type": "integer",
+      "const": 3
+    },
+    "output": {
+      "type": "object",
+      "required": ["summary", "documentStructure", "clarity", "completeness"],
+      "properties": {
+        "summary": {
+          "type": "string",
+          "minLength": 20,
+          "maxLength": 2000
+        },
+        "documentStructure": {
+          "$ref": "#/$defs/documentStructure"
+        },
+        "clarity": {
+          "$ref": "#/$defs/clarity"
+        },
+        "completeness": {
+          "$ref": "#/$defs/completeness"
+        },
+        "content": {
+          "type": "string",
+          "maxLength": 100000,
+          "description": "The generated documentation content"
+        },
+        "sections": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/section"
+          }
+        },
+        "styleAnalysis": {
+          "$ref": "#/$defs/styleAnalysis"
+        },
+        "recommendations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/recommendation"
+          },
+          "maxItems": 50
+        },
+        "readabilityMetrics": {
+          "$ref": "#/$defs/readabilityMetrics"
+        },
+        "qualityScore": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "grade": {
+          "type": "string",
+          "pattern": "^[A-F][+-]?$"
+        },
+        "metrics": {
+          "$ref": "#/$defs/metrics"
+        }
+      }
+    },
+    "metadata": {
+      "$ref": "#/$defs/metadata"
+    },
+    "validation": {
+      "$ref": "#/$defs/validationResult"
+    },
+    "learning": {
+      "$ref": "#/$defs/learningData"
+    }
+  },
+  "$defs": {
+    "documentStructure": {
+      "type": "object",
+      "required": ["type", "hasIntroduction", "hasConclusion"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["tutorial", "reference", "guide", "api-docs", "readme", "adr", "specification", "report", "proposal"]
+        },
+        "hasIntroduction": { "type": "boolean" },
+        "hasConclusion": { "type": "boolean" },
+        "hasTableOfContents": { "type": "boolean" },
+        "sectionCount": { "type": "integer", "minimum": 0 },
+        "headingDepth": { "type": "integer", "minimum": 1, "maximum": 6 },
+        "hasCodeExamples": { "type": "boolean" },
+        "hasDiagrams": { "type": "boolean" },
+        "structureScore": { "type": "number", "minimum": 0, "maximum": 100 },
+        "issues": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": { "type": "string" },
+              "message": { "type": "string" },
+              "severity": { "type": "string", "enum": ["error", "warning", "suggestion"] }
+            }
+          }
+        }
+      }
+    },
+    "clarity": {
+      "type": "object",
+      "required": ["score"],
+      "properties": {
+        "score": { "type": "number", "minimum": 0, "maximum": 100 },
+        "grade": { "type": "string", "pattern": "^[A-F][+-]?$" },
+        "dimensions": {
+          "type": "object",
+          "properties": {
+            "sentenceClarity": { "type": "number", "minimum": 0, "maximum": 100 },
+            "terminologyConsistency": { "type": "number", "minimum": 0, "maximum": 100 },
+            "ambiguityFree": { "type": "number", "minimum": 0, "maximum": 100 },
+            "logicalFlow": { "type": "number", "minimum": 0, "maximum": 100 }
+          }
+        },
+        "issues": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "text": { "type": "string" },
+              "issue": { "type": "string" },
+              "suggestion": { "type": "string" },
+              "location": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "completeness": {
+      "type": "object",
+      "required": ["score"],
+      "properties": {
+        "score": { "type": "number", "minimum": 0, "maximum": 100 },
+        "requiredSections": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "present": { "type": "boolean" },
+              "quality": { "type": "number", "minimum": 0, "maximum": 100 }
+            }
+          }
+        },
+        "missingTopics": { "type": "array", "items": { "type": "string" } },
+        "incompleteSections": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "section": {
+      "type": "object",
+      "required": ["title", "content"],
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "content": { "type": "string" },
+        "level": { "type": "integer", "minimum": 1, "maximum": 6 },
+        "wordCount": { "type": "integer", "minimum": 0 },
+        "subsections": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/section" }
+        }
+      }
+    },
+    "styleAnalysis": {
+      "type": "object",
+      "properties": {
+        "voice": { "type": "string", "enum": ["active", "passive", "mixed"] },
+        "tone": { "type": "string", "enum": ["formal", "informal", "technical", "conversational"] },
+        "audienceLevel": { "type": "string", "enum": ["beginner", "intermediate", "advanced", "expert"] },
+        "consistency": { "type": "number", "minimum": 0, "maximum": 100 },
+        "styleGuideCompliance": {
+          "type": "object",
+          "properties": {
+            "guide": { "type": "string" },
+            "compliance": { "type": "number", "minimum": 0, "maximum": 100 },
+            "violations": { "type": "array", "items": { "type": "string" } }
+          }
+        }
+      }
+    },
+    "readabilityMetrics": {
+      "type": "object",
+      "properties": {
+        "fleschKincaid": { "type": "number" },
+        "fleschReadingEase": { "type": "number" },
+        "gunningFog": { "type": "number" },
+        "smog": { "type": "number" },
+        "avgSentenceLength": { "type": "number" },
+        "avgWordLength": { "type": "number" },
+        "wordCount": { "type": "integer" },
+        "sentenceCount": { "type": "integer" },
+        "paragraphCount": { "type": "integer" }
+      }
+    },
+    "recommendation": {
+      "type": "object",
+      "required": ["id", "title", "priority"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^REC-\\d{3,6}$" },
+        "title": { "type": "string", "maxLength": 200 },
+        "description": { "type": "string", "maxLength": 2000 },
+        "priority": { "type": "string", "enum": ["critical", "high", "medium", "low"] },
+        "category": { "type": "string", "enum": ["structure", "clarity", "completeness", "style", "formatting"] },
+        "example": { "type": "string" }
+      }
+    },
+    "metrics": {
+      "type": "object",
+      "properties": {
+        "wordCount": { "type": "integer", "minimum": 0 },
+        "sectionCount": { "type": "integer", "minimum": 0 },
+        "codeExampleCount": { "type": "integer", "minimum": 0 },
+        "linkCount": { "type": "integer", "minimum": 0 },
+        "imageCount": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "executionTimeMs": { "type": "integer", "minimum": 0 },
+        "toolsUsed": { "type": "array", "items": { "type": "string" } },
+        "agentId": { "type": "string", "pattern": "^qe-[a-z][a-z0-9-]*$" },
+        "documentType": { "type": "string" },
+        "targetAudience": { "type": "string" }
+      }
+    },
+    "validationResult": {
+      "type": "object",
+      "properties": {
+        "schemaValid": { "type": "boolean" },
+        "contentValid": { "type": "boolean" },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "learningData": {
+      "type": "object",
+      "properties": {
+        "patternsDetected": { "type": "array", "items": { "type": "string" } },
+        "reward": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    }
+  }
+}

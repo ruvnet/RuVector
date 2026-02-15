@@ -1,0 +1,500 @@
+# =============================================================================
+# AQE Skill Evaluation Test Suite: n8n Trigger Testing Strategies v1.0.0
+# =============================================================================
+#
+# Comprehensive evaluation suite for n8n trigger testing strategies.
+# Tests webhook validation, schedule trigger testing, event-based triggers,
+# polling strategies, and trigger failure handling.
+#
+# Schema: .claude/skills/.validation/schemas/skill-eval.schema.json
+# Validator: .claude/skills/n8n-trigger-testing-strategies/scripts/validate-config.json
+#
+# Coverage:
+# - Webhook payload validation
+# - Schedule/cron trigger testing
+# - Event-based trigger validation
+# - Polling configuration
+# - Trigger failure scenarios
+# - Trigger execution reliability
+#
+# =============================================================================
+
+skill: n8n-trigger-testing-strategies
+version: 1.0.0
+description: >
+  Comprehensive evaluation suite for n8n trigger testing strategies.
+  Tests webhook triggers, schedule triggers with cron validation, event-based
+  triggers, polling mechanisms, and trigger reliability under failure conditions.
+
+# =============================================================================
+# Multi-Model Configuration
+# =============================================================================
+
+models_to_test:
+  - claude-3.5-sonnet
+  - claude-3-haiku
+
+# =============================================================================
+# MCP Integration Configuration
+# =============================================================================
+
+mcp_integration:
+  enabled: true
+  namespace: skill-validation
+
+  query_patterns: true
+  track_outcomes: true
+  store_patterns: true
+  share_learning: true
+  update_quality_gate: true
+
+  target_agents:
+    - qe-learning-coordinator
+    - qe-queen-coordinator
+    - n8n-trigger-test
+
+# =============================================================================
+# ReasoningBank Learning Configuration
+# =============================================================================
+
+learning:
+  store_success_patterns: true
+  store_failure_patterns: true
+  pattern_ttl_days: 90
+  min_confidence_to_store: 0.7
+  cross_model_comparison: true
+
+# =============================================================================
+# Result Format Configuration
+# =============================================================================
+
+result_format:
+  json_output: true
+  markdown_report: true
+  include_raw_output: false
+  include_timing: true
+  include_token_usage: true
+
+# =============================================================================
+# Environment Setup
+# =============================================================================
+
+setup:
+  required_tools:
+    - jq
+
+  environment_variables:
+    TRIGGER_TESTING: "true"
+    WEBHOOK_SIMULATION: "true"
+
+# =============================================================================
+# TEST CASES
+# =============================================================================
+
+test_cases:
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Webhook Trigger Testing
+  # ---------------------------------------------------------------------------
+
+  - id: tc001_webhook_endpoint_creation
+    description: "Validate webhook endpoint is created and accessible"
+    category: webhooks
+    priority: critical
+
+    input:
+      webhook_config:
+        method: POST
+        path: "/api/webhooks/user-events"
+        auth_required: false
+        response_code: 200
+      test_payload:
+        event: "user.created"
+        user_id: 123
+        timestamp: "2025-02-02T10:00:00Z"
+      validation:
+        - endpoint_created: true
+        - endpoint_accessible: true
+        - accepts_payload: true
+      context:
+        trigger_type: "webhook"
+
+    expected_output:
+      must_contain:
+        - "webhook"
+        - "created"
+        - "accessible"
+        - "endpoint"
+      must_not_contain:
+        - "failed"
+      severity_classification: critical
+      finding_count:
+        max: 1
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+      reasoning_quality_min: 0.75
+
+    timeout_ms: 30000
+
+  - id: tc002_webhook_payload_validation
+    description: "Validate webhook payload processing"
+    category: webhooks
+    priority: critical
+
+    input:
+      webhook_payload:
+        event: "order.completed"
+        order_id: 456
+        amount: 99.99
+        items:
+          - product_id: 1
+            quantity: 2
+      validation_schema:
+        required_fields: ["event", "order_id", "amount"]
+        type_checks:
+          order_id: integer
+          amount: number
+      test_results:
+        - valid_payload: true
+        - extra_fields_ignored: true
+        - required_fields_present: true
+      context:
+        validation_mode: strict
+
+    expected_output:
+      must_contain:
+        - "payload"
+        - "valid"
+        - "processed"
+      must_not_contain:
+        - "invalid"
+      severity_classification: critical
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.85
+
+  - id: tc003_webhook_authentication
+    description: "Test webhook authentication/authorization"
+    category: webhooks
+    priority: critical
+
+    input:
+      auth_config:
+        type: "signature"
+        algorithm: "HMAC-SHA256"
+        secret: "webhook_secret_key"
+      test_cases:
+        - request: "with valid signature"
+          signature_valid: true
+          status: 200
+        - request: "with invalid signature"
+          signature_valid: false
+          status: 403
+        - request: "without signature"
+          has_signature: false
+          status: 403
+      context:
+        security: "required"
+
+    expected_output:
+      must_contain:
+        - "authentication"
+        - "webhook"
+        - "validated"
+      must_not_contain:
+        - "unsigned"
+      severity_classification: critical
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.85
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Schedule/Cron Trigger Testing
+  # ---------------------------------------------------------------------------
+
+  - id: tc004_cron_expression_validation
+    description: "Validate cron expression syntax and scheduling"
+    category: schedules
+    priority: critical
+
+    input:
+      cron_expressions:
+        - expression: "0 9 * * MON-FRI"
+          description: "9 AM weekdays"
+          valid: true
+          next_run: "Monday 9:00 AM"
+        - expression: "*/15 * * * *"
+          description: "Every 15 minutes"
+          valid: true
+        - expression: "0 0 1 * *"
+          description: "First of month at midnight"
+          valid: true
+        - expression: "* * * * * *"
+          description: "Invalid - 6 fields"
+          valid: false
+      context:
+        timezone: "UTC"
+
+    expected_output:
+      must_contain:
+        - "cron"
+        - "valid"
+        - "expression"
+      must_not_contain:
+        - "all valid"
+      severity_classification: critical
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.85
+
+  - id: tc005_schedule_execution_timing
+    description: "Verify schedule trigger executes at correct times"
+    category: schedules
+    priority: critical
+
+    input:
+      schedule_config:
+        cron: "0 9 * * MON-FRI"
+        timezone: "America/New_York"
+      execution_history:
+        - date: "2025-02-03T14:00:00Z"
+          description: "Monday 9 AM ET"
+          executed: true
+        - date: "2025-02-04T14:00:00Z"
+          description: "Tuesday 9 AM ET"
+          executed: true
+        - date: "2025-02-08T14:00:00Z"
+          description: "Saturday (not scheduled)"
+          executed: false
+      context:
+        requirement: "execute_on_schedule"
+
+    expected_output:
+      must_contain:
+        - "schedule"
+        - "executed"
+        - "timing"
+        - "correct"
+      must_not_contain:
+        - "missed"
+      severity_classification: critical
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.85
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Event-Based Triggers
+  # ---------------------------------------------------------------------------
+
+  - id: tc006_event_trigger_configuration
+    description: "Validate event-based trigger configuration"
+    category: events
+    priority: high
+
+    input:
+      event_config:
+        type: "event"
+        events:
+          - event_type: "user.created"
+            filter: "country=US"
+          - event_type: "order.completed"
+            filter: "amount > 100"
+      validation:
+        - event_types_valid: true
+        - filters_parseable: true
+        - event_handlers_defined: true
+      context:
+        event_system: "kafka"
+
+    expected_output:
+      must_contain:
+        - "event"
+        - "trigger"
+        - "configured"
+      must_not_contain:
+        - "invalid"
+      severity_classification: info
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.75
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Polling Strategies
+  # ---------------------------------------------------------------------------
+
+  - id: tc007_polling_configuration
+    description: "Validate polling trigger configuration"
+    category: polling
+    priority: high
+
+    input:
+      polling_config:
+        type: "polling"
+        interval_seconds: 300  # 5 minutes
+        timeout_seconds: 30
+        max_results: 1000
+      polling_strategy:
+        method: "query_parameter"
+        query_param: "last_run"
+        increment_by: "updated_at"
+      context:
+        use_case: "monitor_external_api"
+
+    expected_output:
+      must_contain:
+        - "polling"
+        - "interval"
+        - "configured"
+      must_not_contain:
+        - "invalid"
+      severity_classification: info
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.75
+
+  - id: tc008_polling_performance_optimization
+    description: "Verify polling doesn't cause excessive API calls"
+    category: polling
+    priority: high
+
+    input:
+      scenario: "Poll API every 5 minutes"
+      monitoring:
+        - interval_seconds: 300
+          calls_per_day: 288
+          calls_expected: 288
+          status: "optimal"
+        - interval_seconds: 60
+          calls_per_day: 1440
+          calls_expected_max: 600
+          status: "too_frequent"
+      rate_limits:
+        api_quota: "1000 calls/hour"
+        current_usage: "480 calls/hour"
+      context:
+        optimization: "reduce_api_calls"
+
+    expected_output:
+      must_contain:
+        - "polling"
+        - "optimized"
+        - "interval"
+      must_not_contain:
+        - "excessive"
+      severity_classification: medium
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.75
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Trigger Failure and Recovery
+  # ---------------------------------------------------------------------------
+
+  - id: tc009_trigger_failure_handling
+    description: "Test trigger failure scenarios and recovery"
+    category: reliability
+    priority: critical
+
+    input:
+      failure_scenarios:
+        - scenario: "Webhook server temporarily down"
+          error: "Connection refused"
+          recovery_strategy: "retry"
+          max_retries: 3
+          status: "recovered"
+        - scenario: "Invalid payload received"
+          error: "Validation error"
+          recovery_strategy: "log and skip"
+          status: "handled"
+        - scenario: "Schedule missed due to maintenance"
+          error: "System unavailable"
+          recovery_strategy: "skip and continue"
+          status: "handled"
+      context:
+        resilience_required: true
+
+    expected_output:
+      must_contain:
+        - "failure"
+        - "handled"
+        - "recovery"
+      must_not_contain:
+        - "unhandled"
+      severity_classification: critical
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.85
+
+  - id: tc010_trigger_monitoring_alerts
+    description: "Verify trigger monitoring and alerting"
+    category: reliability
+    priority: high
+
+    input:
+      monitoring_checks:
+        - metric: "Webhook response time"
+          threshold: 5000
+          current: 3200
+          status: healthy
+        - metric: "Schedule execution rate"
+          threshold: 95
+          current: 100
+          status: healthy
+        - metric: "Event processing latency"
+          threshold: 1000
+          current: 1500
+          status: alert
+      alerting_configured:
+        - on_failures: true
+        - on_latency: true
+        - on_quota_exceeded: true
+      context:
+        monitoring: "enabled"
+
+    expected_output:
+      must_contain:
+        - "monitoring"
+        - "alert"
+        - "latency"
+      must_not_contain:
+        - "not monitored"
+      severity_classification: medium
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.75
+
+# =============================================================================
+# SUCCESS CRITERIA
+# =============================================================================
+
+success_criteria:
+  pass_rate: 0.85
+  critical_pass_rate: 1.0
+  avg_reasoning_quality: 0.75
+  max_execution_time_ms: 300000
+  cross_model_variance: 0.15
+
+# =============================================================================
+# METADATA
+# =============================================================================
+
+metadata:
+  author: "n8n-trigger-test"
+  created: "2026-02-02"
+  last_updated: "2026-02-02"
+  coverage_target: >
+    n8n trigger testing strategies including webhook endpoint creation and
+    authentication, payload validation, cron expression validation, schedule
+    execution timing, event-based triggers, polling configuration and
+    optimization, trigger failure handling and recovery, and monitoring/alerting.
+    10 test cases with 85% pass rate and 100% critical pass rate.

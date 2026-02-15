@@ -1,0 +1,226 @@
+{
+  "version": "1.1",
+  "projectRoot": "/Users/danielalberttis/Desktop/Projects/ruvector",
+  "integration": {
+    "enabled": true,
+    "features": {
+      "trajectories": true,
+      "modelRouting": true,
+      "pretrain": true,
+      "workers": true
+    }
+  },
+  "learning": {
+    "trajectoryStorage": "claude-flow",
+    "patternSearch": "claude-flow"
+  },
+  "routing": {
+    "modelRouting": "claude-flow",
+    "preferences": {
+      "simple": "haiku",
+      "standard": "sonnet",
+      "complex": "opus"
+    }
+  },
+  "pretrain": {
+    "enabled": true,
+    "depth": "medium",
+    "autoRun": true
+  },
+  "workers": {
+    "enabled": true,
+    "autoDispatch": [
+      "optimize",
+      "consolidate"
+    ]
+  },
+  "flowCoach": {
+    "topologyRules": [
+      {
+        "id": 1,
+        "condition": "research-only",
+        "keywords": ["research", "investigate", "explore", "analyze", "study", "survey"],
+        "excludeKeywords": ["implement", "build", "create", "code", "write"],
+        "topology": "mesh",
+        "agentRange": [3, 5]
+      },
+      {
+        "id": 2,
+        "condition": "sequential-stages",
+        "keywords": ["build then test", "build and deploy", "pipeline", "staged"],
+        "topology": "ring",
+        "agentRange": "stage-count"
+      },
+      {
+        "id": 3,
+        "condition": "centralized-control",
+        "keywords": ["coordinate", "orchestrate", "manage", "central"],
+        "topology": "star",
+        "agentRange": [4, 6]
+      },
+      {
+        "id": 4,
+        "condition": "multi-team",
+        "keywords": ["multiple modules", "multi-team", "independent", "parallel workstreams"],
+        "topology": "hierarchical-mesh",
+        "agentRange": [8, 15]
+      },
+      {
+        "id": 5,
+        "condition": "quick-fix",
+        "complexity": "low",
+        "keywords": ["fix", "patch", "tweak", "small change", "quick"],
+        "topology": "mesh",
+        "agentRange": [2, 3]
+      },
+      {
+        "id": 6,
+        "condition": "complex-multi-day",
+        "complexity": "high",
+        "keywords": ["complex", "multi-day", "large-scale", "overhaul"],
+        "topology": "hierarchical-mesh",
+        "agentRange": [8, 15]
+      },
+      {
+        "id": 7,
+        "condition": "standard",
+        "complexity": "medium",
+        "topology": "hierarchical",
+        "agentRange": [5, 8]
+      },
+      {
+        "id": 8,
+        "condition": "adaptive-learning",
+        "keywords": ["learning", "adaptive", "self-improving", "evolving"],
+        "topology": "adaptive",
+        "agentRange": [5, 8]
+      },
+      {
+        "id": 9,
+        "condition": "default",
+        "topology": "hierarchical",
+        "agentRange": [6, 6]
+      }
+    ],
+    "sparcMappings": {
+      "new-feature": {
+        "phases": ["Spec", "Pseudo", "Arch", "Refine", "Complete"],
+        "extraAgents": []
+      },
+      "bug-fix": {
+        "phases": ["Refine"],
+        "extraAgents": ["debugger", "tester"]
+      },
+      "refactoring": {
+        "phases": ["Arch", "Refine", "Complete"],
+        "extraAgents": ["analyzer", "reviewer"]
+      },
+      "prototype": {
+        "phases": ["Pseudo", "Refine"],
+        "extraAgents": ["researcher"]
+      },
+      "documentation": {
+        "phases": ["Complete"],
+        "extraAgents": ["documenter"]
+      },
+      "research": {
+        "phases": [],
+        "extraAgents": ["researcher", "analyzer"]
+      },
+      "deployment": {
+        "phases": ["Complete"],
+        "extraAgents": ["devops"]
+      },
+      "migration": {
+        "phases": ["Arch", "Refine", "Complete"],
+        "extraAgents": ["analyzer", "tester"]
+      },
+      "unknown": {
+        "phases": ["Spec", "Pseudo", "Arch", "Refine", "Complete"],
+        "extraAgents": []
+      }
+    },
+    "domainTriggers": [
+      {
+        "domain": "security",
+        "keywords": ["auth", "oauth", "jwt", "login", "session", "password", "credential"],
+        "addAgents": ["security-auditor"],
+        "forcePhases": ["Spec", "Pseudo", "Arch", "Refine", "Complete"]
+      },
+      {
+        "domain": "api",
+        "keywords": ["api", "rest", "graphql", "endpoint", "route", "controller"],
+        "addAgents": ["documenter", "tester"],
+        "forcePhases": ["Spec", "Pseudo", "Arch", "Refine", "Complete"]
+      },
+      {
+        "domain": "bugfix",
+        "keywords": ["fix", "bug", "error", "broken", "crash", "exception", "failure"],
+        "addAgents": ["tester"],
+        "ensurePhases": ["Refine"]
+      },
+      {
+        "domain": "refactor",
+        "keywords": ["refactor", "restructure", "clean up", "simplify", "reorganize"],
+        "addAgents": [],
+        "ensurePhases": ["Arch", "Refine", "Complete"]
+      },
+      {
+        "domain": "deployment",
+        "keywords": ["deploy", "release", "ship", "publish", "rollout"],
+        "addAgents": [],
+        "pattern": "pre-release-check"
+      },
+      {
+        "domain": "database",
+        "keywords": ["database", "migration", "schema", "sql", "table", "index"],
+        "addAgents": [],
+        "ensurePhases": ["Arch"]
+      }
+    ],
+    "shortcuts": {
+      "just recommend": {
+        "display": "silent",
+        "note": "Suppress verbose output, show assessment box + menu only"
+      },
+      "simpler setup": {
+        "topology": "mesh",
+        "agents": 3,
+        "clearSparc": true,
+        "clearTriggers": true
+      },
+      "full power": {
+        "topology": "hierarchical-mesh",
+        "agents": 15,
+        "forcePhases": ["Spec", "Pseudo", "Arch", "Refine", "Complete"],
+        "activateAllTriggers": true
+      },
+      "enable security": {
+        "addAgents": ["security-auditor", "security-scanner"],
+        "ensurePhases": ["Spec", "Arch"]
+      },
+      "enable testing": {
+        "addAgents": ["tester", "coverage-specialist"],
+        "ensurePhases": ["Refine"]
+      },
+      "enable sparc": {
+        "forcePhases": ["Spec", "Pseudo", "Arch", "Refine", "Complete"]
+      },
+      "sparc lite": {
+        "forcePhases": ["Pseudo", "Refine"]
+      },
+      "new project setup": {
+        "topology": "hierarchical-mesh",
+        "agents": 10,
+        "forcePhases": ["Spec", "Pseudo", "Arch", "Refine", "Complete"],
+        "addAgents": ["security-auditor", "security-scanner", "tester", "coverage-specialist", "documenter"]
+      },
+      "pre-release check": {
+        "topology": "star",
+        "agents": 5,
+        "clearSparc": true,
+        "setAgents": ["security-scanner", "perf-analyzer", "coverage-specialist", "tester", "reviewer"]
+      }
+    }
+  }
+}

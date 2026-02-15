@@ -1,0 +1,36 @@
+{
+  "skillName": "test-design-techniques",
+  "skillVersion": "1.0.0",
+  "requiredTools": [
+    "jq"
+  ],
+  "optionalTools": [
+    "ajv",
+    "jsonschema",
+    "python3"
+  ],
+  "schemaPath": "schemas/output.json",
+  "requiredFields": [
+    "skillName",
+    "status",
+    "output"
+  ],
+  "requiredNonEmptyFields": [],
+  "mustContainTerms": [
+    "test",
+    "design",
+    "technique"
+  ],
+  "mustNotContainTerms": [
+    "TODO",
+    "placeholder"
+  ],
+  "enumValidations": {
+    ".status": [
+      "success",
+      "partial",
+      "failed",
+      "skipped"
+    ]
+  }
+}

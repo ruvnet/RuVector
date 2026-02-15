@@ -1,0 +1,491 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentic-qe.dev/schemas/qe-visual-accessibility-output.json",
+  "title": "AQE Visual Accessibility Skill Output Schema",
+  "description": "Schema for visual accessibility skill output. Includes visual diffs, a11y issues, and responsiveness testing.",
+  "type": "object",
+  "required": ["skillName", "version", "timestamp", "status", "trustTier", "output"],
+  "properties": {
+    "skillName": {
+      "type": "string",
+      "const": "qe-visual-accessibility",
+      "description": "Must be 'qe-visual-accessibility'"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+(-[a-zA-Z0-9]+)?$"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["success", "partial", "failed", "skipped"]
+    },
+    "trustTier": {
+      "type": "integer",
+      "const": 3
+    },
+    "output": {
+      "type": "object",
+      "required": ["summary", "visualDiffs", "a11yIssues"],
+      "properties": {
+        "summary": {
+          "type": "string",
+          "minLength": 50,
+          "maxLength": 2000
+        },
+        "visualDiffs": {
+          "$ref": "#/$defs/visualDiffsReport"
+        },
+        "a11yIssues": {
+          "$ref": "#/$defs/a11yIssuesReport"
+        },
+        "responsiveness": {
+          "$ref": "#/$defs/responsivenessReport"
+        },
+        "wcagCompliance": {
+          "$ref": "#/$defs/wcagCompliance"
+        },
+        "colorContrast": {
+          "$ref": "#/$defs/colorContrastReport"
+        },
+        "crossBrowser": {
+          "$ref": "#/$defs/crossBrowserReport"
+        },
+        "recommendations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/recommendation"
+          },
+          "maxItems": 100
+        },
+        "artifacts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/artifact"
+          },
+          "maxItems": 100
+        }
+      }
+    },
+    "metadata": {
+      "$ref": "#/$defs/metadata"
+    },
+    "validation": {
+      "$ref": "#/$defs/validationResult"
+    },
+    "learning": {
+      "$ref": "#/$defs/learningData"
+    }
+  },
+  "$defs": {
+    "visualDiffsReport": {
+      "type": "object",
+      "required": ["total"],
+      "properties": {
+        "total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "significantChanges": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "passRate": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "comparisons": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/visualComparison"
+          },
+          "maxItems": 200
+        }
+      }
+    },
+    "visualComparison": {
+      "type": "object",
+      "required": ["page", "status"],
+      "properties": {
+        "page": {
+          "type": "string"
+        },
+        "viewport": {
+          "type": "string",
+          "description": "Viewport size (e.g., 1920x1080)"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["pass", "fail", "review"]
+        },
+        "diffPercentage": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "threshold": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "baseline": {
+          "type": "string",
+          "description": "Path to baseline image"
+        },
+        "current": {
+          "type": "string",
+          "description": "Path to current image"
+        },
+        "diff": {
+          "type": "string",
+          "description": "Path to diff image"
+        },
+        "regions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "x": { "type": "integer" },
+              "y": { "type": "integer" },
+              "width": { "type": "integer" },
+              "height": { "type": "integer" },
+              "description": { "type": "string" }
+            }
+          },
+          "description": "Changed regions"
+        }
+      }
+    },
+    "a11yIssuesReport": {
+      "type": "object",
+      "required": ["total"],
+      "properties": {
+        "total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "critical": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "serious": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "moderate": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "minor": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "score": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "issues": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/a11yIssue"
+          },
+          "maxItems": 500
+        }
+      }
+    },
+    "a11yIssue": {
+      "type": "object",
+      "required": ["id", "title", "severity", "wcagCriterion"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^A11Y-\\d{3,6}$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 5,
+          "maxLength": 200
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 2000
+        },
+        "severity": {
+          "type": "string",
+          "enum": ["critical", "serious", "moderate", "minor"]
+        },
+        "wcagCriterion": {
+          "type": "string",
+          "pattern": "^\\d+\\.\\d+\\.\\d+$"
+        },
+        "wcagLevel": {
+          "type": "string",
+          "enum": ["A", "AA", "AAA"]
+        },
+        "pourPrinciple": {
+          "type": "string",
+          "enum": ["perceivable", "operable", "understandable", "robust"]
+        },
+        "element": {
+          "type": "object",
+          "properties": {
+            "selector": { "type": "string" },
+            "html": { "type": "string", "maxLength": 1000 },
+            "tagName": { "type": "string" }
+          }
+        },
+        "impact": {
+          "type": "string"
+        },
+        "affectedUsers": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["blind", "low-vision", "color-blind", "deaf", "motor-impaired", "cognitive"]
+          }
+        },
+        "remediation": {
+          "type": "string",
+          "maxLength": 2000
+        },
+        "codeExample": {
+          "type": "object",
+          "properties": {
+            "before": { "type": "string" },
+            "after": { "type": "string" }
+          }
+        }
+      }
+    },
+    "responsivenessReport": {
+      "type": "object",
+      "properties": {
+        "viewportsTested": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/viewportResult"
+          }
+        },
+        "breakpointIssues": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/breakpointIssue"
+          }
+        },
+        "overallScore": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        }
+      }
+    },
+    "viewportResult": {
+      "type": "object",
+      "required": ["name", "width", "height", "status"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "enum": ["mobile-s", "mobile-m", "mobile-l", "tablet", "laptop", "desktop", "4k"]
+        },
+        "width": { "type": "integer", "minimum": 320 },
+        "height": { "type": "integer", "minimum": 480 },
+        "status": { "type": "string", "enum": ["pass", "fail", "warn"] },
+        "issues": { "type": "integer", "minimum": 0 },
+        "screenshot": { "type": "string" }
+      }
+    },
+    "breakpointIssue": {
+      "type": "object",
+      "required": ["breakpoint", "type"],
+      "properties": {
+        "breakpoint": { "type": "string" },
+        "type": {
+          "type": "string",
+          "enum": ["layout-shift", "overflow", "touch-target", "font-scaling", "content-hidden"]
+        },
+        "element": { "type": "string" },
+        "description": { "type": "string" }
+      }
+    },
+    "wcagCompliance": {
+      "type": "object",
+      "required": ["version", "level", "conformanceAchieved"],
+      "properties": {
+        "version": {
+          "type": "string",
+          "enum": ["2.0", "2.1", "2.2"]
+        },
+        "targetLevel": {
+          "type": "string",
+          "enum": ["A", "AA", "AAA"]
+        },
+        "conformanceAchieved": {
+          "type": "string",
+          "enum": ["A", "AA", "AAA", "none"]
+        },
+        "pourBreakdown": {
+          "type": "object",
+          "properties": {
+            "perceivable": { "$ref": "#/$defs/pourScore" },
+            "operable": { "$ref": "#/$defs/pourScore" },
+            "understandable": { "$ref": "#/$defs/pourScore" },
+            "robust": { "$ref": "#/$defs/pourScore" }
+          }
+        },
+        "criteriaResults": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "criterion": { "type": "string" },
+              "level": { "type": "string" },
+              "status": { "type": "string", "enum": ["pass", "fail", "na"] },
+              "issues": { "type": "integer" }
+            }
+          }
+        }
+      }
+    },
+    "pourScore": {
+      "type": "object",
+      "required": ["score"],
+      "properties": {
+        "score": { "type": "number", "minimum": 0, "maximum": 100 },
+        "violationCount": { "type": "integer", "minimum": 0 },
+        "criticalCount": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "colorContrastReport": {
+      "type": "object",
+      "properties": {
+        "total": { "type": "integer", "minimum": 0 },
+        "passing": { "type": "integer", "minimum": 0 },
+        "failing": { "type": "integer", "minimum": 0 },
+        "issues": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "element": { "type": "string" },
+              "foreground": { "type": "string" },
+              "background": { "type": "string" },
+              "ratio": { "type": "number" },
+              "requiredRatio": { "type": "number" },
+              "level": { "type": "string", "enum": ["AA", "AAA"] }
+            }
+          }
+        }
+      }
+    },
+    "crossBrowserReport": {
+      "type": "object",
+      "properties": {
+        "browsersTested": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "version": { "type": "string" },
+              "status": { "type": "string", "enum": ["pass", "fail", "warn"] },
+              "issues": { "type": "integer" }
+            }
+          }
+        },
+        "consistencyScore": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        }
+      }
+    },
+    "recommendation": {
+      "type": "object",
+      "required": ["id", "title", "priority"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^REC-\\d{3,6}$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 200
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 2000
+        },
+        "priority": {
+          "type": "string",
+          "enum": ["critical", "high", "medium", "low"]
+        },
+        "effort": {
+          "type": "string",
+          "enum": ["trivial", "low", "medium", "high", "major"]
+        },
+        "wcagCriteria": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "codeExample": {
+          "type": "string"
+        }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "required": ["type", "path"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["screenshot", "diff", "report", "video", "captions", "audio-description"]
+        },
+        "path": { "type": "string", "maxLength": 500 },
+        "format": {
+          "type": "string",
+          "enum": ["png", "jpg", "webp", "html", "json", "vtt", "mp4"]
+        },
+        "description": { "type": "string" }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "executionTimeMs": { "type": "integer", "minimum": 0 },
+        "toolsUsed": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["axe-core", "pa11y", "lighthouse", "claude-vision", "playwright", "percy"]
+          }
+        },
+        "agentId": { "type": "string", "pattern": "^qe-[a-z][a-z0-9-]*$" },
+        "targetUrl": { "type": "string" },
+        "pagesAudited": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "validationResult": {
+      "type": "object",
+      "properties": {
+        "schemaValid": { "type": "boolean" },
+        "contentValid": { "type": "boolean" },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "warnings": { "type": "array", "items": { "type": "string" } },
+        "errors": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "learningData": {
+      "type": "object",
+      "properties": {
+        "patternsDetected": { "type": "array", "items": { "type": "string" } },
+        "reward": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    }
+  }
+}

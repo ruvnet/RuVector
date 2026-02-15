@@ -1,0 +1,707 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://agentic-qe.dev/schemas/mutation-testing-output.json",
+  "title": "Mutation Testing Skill Output Schema",
+  "description": "Schema for mutation testing skill output validation. Validates mutation scores, mutant details, surviving mutants, and test improvement suggestions.",
+  "type": "object",
+  "required": ["skillName", "version", "timestamp", "status", "trustTier", "output"],
+  "properties": {
+    "skillName": {
+      "type": "string",
+      "const": "mutation-testing",
+      "description": "Skill name must be mutation-testing"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+(-[a-zA-Z0-9]+)?$",
+      "description": "Semantic version of the skill"
+    },
+    "timestamp": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}",
+      "description": "ISO 8601 timestamp of output generation"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["success", "partial", "failed", "skipped"],
+      "description": "Overall execution status"
+    },
+    "trustTier": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 3,
+      "description": "Trust tier (0-3)"
+    },
+    "output": {
+      "type": "object",
+      "required": ["summary", "mutationScore", "mutants"],
+      "properties": {
+        "summary": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 2000,
+          "description": "Human-readable summary of mutation testing results"
+        },
+        "mutationScore": {
+          "$ref": "#/$defs/mutationScore",
+          "description": "Overall mutation score and breakdown"
+        },
+        "mutants": {
+          "$ref": "#/$defs/mutantsSummary",
+          "description": "Summary of mutants generated and their statuses"
+        },
+        "survivors": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/survivingMutant"
+          },
+          "maxItems": 500,
+          "description": "List of surviving mutants requiring attention"
+        },
+        "operatorBreakdown": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/operatorStats"
+          },
+          "description": "Mutation score breakdown by operator type"
+        },
+        "fileBreakdown": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/fileStats"
+          },
+          "description": "Mutation score breakdown by source file"
+        },
+        "weakTests": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/weakTest"
+          },
+          "maxItems": 100,
+          "description": "Tests identified as weak based on mutation survival"
+        },
+        "recommendations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/recommendation"
+          },
+          "maxItems": 50,
+          "description": "Test improvement recommendations"
+        },
+        "metrics": {
+          "$ref": "#/$defs/metrics",
+          "description": "Additional quantitative metrics"
+        },
+        "artifacts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/artifact"
+          },
+          "maxItems": 20,
+          "description": "Generated artifacts (reports, logs)"
+        },
+        "testSuiteEffectiveness": {
+          "$ref": "#/$defs/testSuiteEffectiveness",
+          "description": "Test suite effectiveness metrics"
+        }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "executionTimeMs": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 3600000,
+          "description": "Execution time in milliseconds"
+        },
+        "toolsUsed": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["stryker", "pitest", "mutmut", "mull", "custom"]
+          },
+          "description": "Mutation testing tools used"
+        },
+        "agentId": {
+          "type": "string",
+          "pattern": "^qe-[a-z][a-z0-9-]*$",
+          "description": "ID of the agent that executed the skill"
+        },
+        "modelUsed": {
+          "type": "string",
+          "description": "LLM model used for analysis"
+        },
+        "inputHash": {
+          "type": "string",
+          "description": "Hash of input for caching"
+        },
+        "parentTaskId": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "description": "Parent task UUID if part of swarm"
+        },
+        "targetPath": {
+          "type": "string",
+          "description": "Path to source code under test"
+        },
+        "testPath": {
+          "type": "string",
+          "description": "Path to test suite"
+        },
+        "incremental": {
+          "type": "boolean",
+          "description": "Whether this was incremental mutation testing"
+        },
+        "changedLinesOnly": {
+          "type": "boolean",
+          "description": "Whether mutations were limited to changed lines"
+        }
+      }
+    },
+    "validation": {
+      "type": "object",
+      "properties": {
+        "schemaValid": {
+          "type": "boolean",
+          "description": "Whether output passes JSON schema validation"
+        },
+        "contentValid": {
+          "type": "boolean",
+          "description": "Whether output passes content validation"
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Confidence score for output correctness"
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "maxItems": 20,
+          "description": "Validation warnings"
+        },
+        "errors": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "maxItems": 20,
+          "description": "Validation errors"
+        }
+      }
+    },
+    "learning": {
+      "type": "object",
+      "properties": {
+        "patternsDetected": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Mutation patterns detected"
+        },
+        "reward": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Reward signal for learning"
+        },
+        "feedbackLoop": {
+          "type": "object",
+          "properties": {
+            "previousRunId": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+            },
+            "improvement": {
+              "type": "number",
+              "minimum": -1,
+              "maximum": 1
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "mutationScore": {
+      "type": "object",
+      "required": ["score", "killed", "survived", "total"],
+      "properties": {
+        "score": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Mutation score as percentage (0-100)"
+        },
+        "killed": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of mutants killed by tests"
+        },
+        "survived": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of mutants that survived"
+        },
+        "timeout": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of mutants that caused timeout"
+        },
+        "noCoverage": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of mutants with no test coverage"
+        },
+        "equivalent": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of equivalent mutants detected"
+        },
+        "total": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total number of mutants generated"
+        },
+        "grade": {
+          "type": "string",
+          "pattern": "^[A-F][+-]?$",
+          "description": "Letter grade based on score"
+        },
+        "threshold": {
+          "type": "object",
+          "properties": {
+            "target": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 100,
+              "description": "Target mutation score"
+            },
+            "met": {
+              "type": "boolean",
+              "description": "Whether target was met"
+            }
+          }
+        },
+        "trend": {
+          "type": "string",
+          "enum": ["improving", "stable", "declining", "unknown"],
+          "description": "Trend compared to previous runs"
+        }
+      }
+    },
+    "mutantsSummary": {
+      "type": "object",
+      "required": ["total"],
+      "properties": {
+        "total": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total mutants generated"
+        },
+        "byStatus": {
+          "type": "object",
+          "properties": {
+            "killed": { "type": "integer", "minimum": 0 },
+            "survived": { "type": "integer", "minimum": 0 },
+            "timeout": { "type": "integer", "minimum": 0 },
+            "noCoverage": { "type": "integer", "minimum": 0 },
+            "equivalent": { "type": "integer", "minimum": 0 },
+            "runtimeError": { "type": "integer", "minimum": 0 },
+            "compileError": { "type": "integer", "minimum": 0 }
+          }
+        },
+        "byOperator": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "description": "Count of mutants by operator type"
+        }
+      }
+    },
+    "survivingMutant": {
+      "type": "object",
+      "required": ["id", "operator", "location", "original", "mutated"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^MUT-\\d{3,6}$",
+          "description": "Unique mutant identifier"
+        },
+        "operator": {
+          "type": "string",
+          "enum": [
+            "AOR", "AOD", "ROR", "LCR", "LOD", "COR", "COD",
+            "LVR", "RVR", "SDR", "UOR", "EMR", "ICR", "BCR",
+            "arithmetic", "relational", "logical", "conditional",
+            "return", "statement", "literal", "boundary", "other"
+          ],
+          "description": "Mutation operator used"
+        },
+        "operatorDescription": {
+          "type": "string",
+          "maxLength": 200,
+          "description": "Human-readable description of operator"
+        },
+        "location": {
+          "$ref": "#/$defs/location",
+          "description": "Location of the mutation"
+        },
+        "original": {
+          "type": "string",
+          "maxLength": 1000,
+          "description": "Original code before mutation"
+        },
+        "mutated": {
+          "type": "string",
+          "maxLength": 1000,
+          "description": "Mutated code"
+        },
+        "impact": {
+          "type": "string",
+          "enum": ["critical", "high", "medium", "low"],
+          "description": "Potential impact of this mutation going undetected"
+        },
+        "impactDescription": {
+          "type": "string",
+          "maxLength": 500,
+          "description": "Description of potential impact"
+        },
+        "suggestedTest": {
+          "type": "string",
+          "maxLength": 2000,
+          "description": "Suggested test to kill this mutant"
+        },
+        "relatedTests": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Tests that cover but don't kill this mutant"
+        },
+        "equivalentSuspect": {
+          "type": "boolean",
+          "description": "Whether this might be an equivalent mutant"
+        }
+      }
+    },
+    "operatorStats": {
+      "type": "object",
+      "required": ["operator", "total", "killed", "score"],
+      "properties": {
+        "operator": {
+          "type": "string",
+          "description": "Mutation operator name"
+        },
+        "operatorCategory": {
+          "type": "string",
+          "enum": ["arithmetic", "relational", "logical", "conditional", "literal", "return", "statement", "other"],
+          "description": "Operator category"
+        },
+        "total": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total mutants for this operator"
+        },
+        "killed": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Mutants killed"
+        },
+        "survived": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Mutants survived"
+        },
+        "score": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Score for this operator"
+        }
+      }
+    },
+    "fileStats": {
+      "type": "object",
+      "required": ["file", "total", "killed", "score"],
+      "properties": {
+        "file": {
+          "type": "string",
+          "description": "Source file path"
+        },
+        "total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "killed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "survived": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "score": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "priority": {
+          "type": "string",
+          "enum": ["critical", "high", "medium", "low"],
+          "description": "Priority for improvement"
+        }
+      }
+    },
+    "weakTest": {
+      "type": "object",
+      "required": ["testFile", "mutantsNotKilled"],
+      "properties": {
+        "testFile": {
+          "type": "string",
+          "description": "Test file path"
+        },
+        "testName": {
+          "type": "string",
+          "description": "Specific test name if applicable"
+        },
+        "mutantsNotKilled": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Number of mutants this test fails to kill"
+        },
+        "priority": {
+          "type": "string",
+          "enum": ["critical", "high", "medium", "low"],
+          "description": "Priority for improvement"
+        },
+        "reason": {
+          "type": "string",
+          "maxLength": 500,
+          "description": "Reason why test is weak"
+        },
+        "suggestions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Suggestions to improve this test"
+        }
+      }
+    },
+    "recommendation": {
+      "type": "object",
+      "required": ["id", "title", "priority"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^REC-\\d{3,6}$",
+          "description": "Unique recommendation identifier"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 5,
+          "maxLength": 200,
+          "description": "Recommendation title"
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 2000,
+          "description": "Detailed recommendation"
+        },
+        "priority": {
+          "type": "string",
+          "enum": ["critical", "high", "medium", "low"],
+          "description": "Priority level"
+        },
+        "effort": {
+          "type": "string",
+          "enum": ["trivial", "low", "medium", "high", "major"],
+          "description": "Estimated effort"
+        },
+        "impact": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10,
+          "description": "Expected impact score"
+        },
+        "relatedMutants": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^MUT-\\d{3,6}$"
+          },
+          "description": "IDs of related surviving mutants"
+        },
+        "codeExample": {
+          "type": "string",
+          "maxLength": 5000,
+          "description": "Example test code"
+        },
+        "targetFile": {
+          "type": "string",
+          "description": "File to add/modify tests in"
+        }
+      }
+    },
+    "metrics": {
+      "type": "object",
+      "properties": {
+        "coverageCorrelation": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Correlation between coverage and mutation score"
+        },
+        "assertionDensity": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Average assertions per test"
+        },
+        "testEfficiency": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Percentage of tests that kill at least one mutant"
+        },
+        "avgMutantsPerFile": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Average mutants per source file"
+        },
+        "avgTimePerMutant": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Average time to test each mutant (ms)"
+        },
+        "parallelWorkers": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Number of parallel workers used"
+        },
+        "custom": {
+          "type": "object",
+          "additionalProperties": true,
+          "description": "Custom metrics"
+        }
+      }
+    },
+    "testSuiteEffectiveness": {
+      "type": "object",
+      "properties": {
+        "overallRating": {
+          "type": "string",
+          "enum": ["excellent", "good", "fair", "poor"],
+          "description": "Overall test suite effectiveness rating"
+        },
+        "strengthAreas": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Areas where tests are strong"
+        },
+        "weaknessAreas": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Areas needing improvement"
+        },
+        "boundaryTesting": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Score for boundary value testing"
+        },
+        "conditionCoverage": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Score for condition/decision coverage"
+        },
+        "errorHandling": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Score for error handling testing"
+        }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "required": ["type", "path"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["report", "data", "log", "coverage", "html", "json"],
+          "description": "Artifact type"
+        },
+        "path": {
+          "type": "string",
+          "maxLength": 500,
+          "description": "Path to artifact"
+        },
+        "format": {
+          "type": "string",
+          "enum": ["json", "html", "md", "txt", "xml", "csv"],
+          "description": "Artifact format"
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 500,
+          "description": "Artifact description"
+        },
+        "sizeBytes": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "File size in bytes"
+        }
+      }
+    },
+    "location": {
+      "type": "object",
+      "required": ["file", "line"],
+      "properties": {
+        "file": {
+          "type": "string",
+          "maxLength": 500,
+          "description": "File path"
+        },
+        "line": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Line number"
+        },
+        "column": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Column number"
+        },
+        "endLine": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "End line for multi-line mutations"
+        },
+        "endColumn": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "End column"
+        },
+        "function": {
+          "type": "string",
+          "description": "Function name containing the mutation"
+        }
+      }
+    }
+  }
+}

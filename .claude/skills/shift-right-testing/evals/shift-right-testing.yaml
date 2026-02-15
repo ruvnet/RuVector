@@ -1,0 +1,147 @@
+skill: shift-right-testing
+version: 1.0.0
+description: >
+  Evaluation suite for shift-right testing strategy.
+  Tests production monitoring, canary deployments, and runtime validation.
+
+models_to_test:
+  - claude-3.5-sonnet
+  - claude-3-haiku
+
+mcp_integration:
+  enabled: true
+  namespace: skill-validation
+  query_patterns: true
+  track_outcomes: true
+  store_patterns: true
+  target_agents:
+    - qe-learning-coordinator
+
+learning:
+  store_success_patterns: true
+  pattern_ttl_days: 90
+
+result_format:
+  json_output: true
+  include_timing: true
+  include_token_usage: true
+
+setup:
+  required_tools:
+    - jq
+
+test_cases:
+
+  - id: tc001_production_monitoring
+    description: "Monitor system health in production"
+    category: monitoring
+    priority: critical
+
+    input:
+      metrics:
+        error_rate: 0.5
+        response_time_p99_ms: 2500
+        cpu_usage: 85
+      threshold_error_rate: 1.0
+
+    expected_output:
+      must_contain:
+        - "production"
+        - "monitor"
+        - "metric"
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+
+  - id: tc002_canary_deployment_analysis
+    description: "Validate canary deployment metrics"
+    category: deployment
+    priority: high
+
+    input:
+      canary_traffic_percent: 10
+      canary_error_rate: 0.3
+      baseline_error_rate: 0.1
+      rollout_decision_required: true
+
+    expected_output:
+      must_contain:
+        - "canary"
+        - "deployment"
+        - "rollout"
+
+    validation:
+      schema_check: true
+
+  - id: tc003_runtime_issue_detection
+    description: "Detect runtime issues in production"
+    category: detection
+    priority: high
+
+    input:
+      logs:
+        - "OutOfMemoryError: heap size exceeded"
+        - "Connection timeout after 30s"
+      environment: "production"
+
+    expected_output:
+      must_contain:
+        - "runtime"
+        - "issue"
+        - "memory"
+
+    validation:
+      schema_check: true
+
+  - id: tc004_synthetic_monitoring
+    description: "Generate synthetic test scenarios for production"
+    category: synthetic
+    priority: medium
+
+    input:
+      endpoints:
+        - "/api/users"
+        - "/api/payments"
+        - "/api/search"
+      test_frequency_minutes: 5
+
+    expected_output:
+      must_contain:
+        - "synthetic"
+        - "test"
+
+    validation:
+      schema_check: true
+
+  - id: tc005_anomaly_detection
+    description: "Detect anomalies in production behavior"
+    category: anomaly
+    priority: medium
+
+    input:
+      baseline_request_rate: 1000
+      current_request_rate: 5000
+      time_window_minutes: 5
+
+    expected_output:
+      must_contain:
+        - "anomaly"
+        - "detect"
+
+    validation:
+      schema_check: true
+      allow_partial: true
+
+success_criteria:
+  pass_rate: 0.9
+  critical_pass_rate: 1.0
+  avg_reasoning_quality: 0.75
+  max_execution_time_ms: 300000
+
+metadata:
+  author: "qe-shift-right-coordinator"
+  created: "2026-02-02"
+  coverage_target: >
+    Shift-right testing with 5 test cases covering production monitoring,
+    canary deployments, runtime issue detection, synthetic monitoring, and anomaly detection.

@@ -1,0 +1,879 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentic-qe.dev/schemas/security-testing-output.json",
+  "title": "AQE Security Testing Skill Output Schema",
+  "description": "Schema for security-testing skill output validation. Extends the base skill-output template with OWASP Top 10 categories, CWE identifiers, and CVSS scoring.",
+  "type": "object",
+  "required": ["skillName", "version", "timestamp", "status", "trustTier", "output"],
+  "properties": {
+    "skillName": {
+      "type": "string",
+      "const": "security-testing",
+      "description": "Must be 'security-testing'"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+(-[a-zA-Z0-9]+)?$",
+      "description": "Semantic version of the skill"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp of output generation"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["success", "partial", "failed", "skipped"],
+      "description": "Overall execution status"
+    },
+    "trustTier": {
+      "type": "integer",
+      "const": 3,
+      "description": "Trust tier 3 indicates full validation with eval suite"
+    },
+    "output": {
+      "type": "object",
+      "required": ["summary", "findings", "owaspCategories"],
+      "properties": {
+        "summary": {
+          "type": "string",
+          "minLength": 50,
+          "maxLength": 2000,
+          "description": "Human-readable summary of security findings"
+        },
+        "score": {
+          "$ref": "#/$defs/securityScore",
+          "description": "Overall security score"
+        },
+        "findings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/securityFinding"
+          },
+          "maxItems": 500,
+          "description": "List of security vulnerabilities discovered"
+        },
+        "recommendations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/securityRecommendation"
+          },
+          "maxItems": 100,
+          "description": "Prioritized remediation recommendations with code examples"
+        },
+        "metrics": {
+          "$ref": "#/$defs/securityMetrics",
+          "description": "Security scan metrics and statistics"
+        },
+        "owaspCategories": {
+          "$ref": "#/$defs/owaspCategoryBreakdown",
+          "description": "OWASP Top 10 2021 category breakdown"
+        },
+        "artifacts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/artifact"
+          },
+          "maxItems": 50,
+          "description": "Generated security reports and scan artifacts"
+        },
+        "timeline": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/timelineEvent"
+          },
+          "description": "Scan execution timeline"
+        },
+        "scanConfiguration": {
+          "$ref": "#/$defs/scanConfiguration",
+          "description": "Configuration used for the security scan"
+        }
+      }
+    },
+    "metadata": {
+      "$ref": "#/$defs/metadata"
+    },
+    "validation": {
+      "$ref": "#/$defs/validationResult"
+    },
+    "learning": {
+      "$ref": "#/$defs/learningData"
+    }
+  },
+  "$defs": {
+    "securityScore": {
+      "type": "object",
+      "required": ["value", "max"],
+      "properties": {
+        "value": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Security score (0=critical issues, 100=no issues)"
+        },
+        "max": {
+          "type": "number",
+          "const": 100,
+          "description": "Maximum score is always 100"
+        },
+        "grade": {
+          "type": "string",
+          "pattern": "^[A-F][+-]?$",
+          "description": "Letter grade: A (90-100), B (80-89), C (70-79), D (60-69), F (<60)"
+        },
+        "trend": {
+          "type": "string",
+          "enum": ["improving", "stable", "declining", "unknown"],
+          "description": "Trend compared to previous scans"
+        },
+        "riskLevel": {
+          "type": "string",
+          "enum": ["critical", "high", "medium", "low", "minimal"],
+          "description": "Overall risk level assessment"
+        }
+      }
+    },
+    "securityFinding": {
+      "type": "object",
+      "required": ["id", "title", "severity", "owasp"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^SEC-\\d{3,6}$",
+          "description": "Unique finding identifier (e.g., SEC-001)"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 200,
+          "description": "Finding title describing the vulnerability"
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 2000,
+          "description": "Detailed description of the vulnerability"
+        },
+        "severity": {
+          "type": "string",
+          "enum": ["critical", "high", "medium", "low", "info"],
+          "description": "Severity: critical (CVSS 9.0-10.0), high (7.0-8.9), medium (4.0-6.9), low (0.1-3.9), info (0)"
+        },
+        "owasp": {
+          "type": "string",
+          "pattern": "^A(0[1-9]|10):20(21|25)$",
+          "description": "OWASP Top 10 category (e.g., A01:2021, A03:2025)"
+        },
+        "owaspCategory": {
+          "type": "string",
+          "enum": [
+            "A01:2021-Broken-Access-Control",
+            "A02:2021-Cryptographic-Failures",
+            "A03:2021-Injection",
+            "A04:2021-Insecure-Design",
+            "A05:2021-Security-Misconfiguration",
+            "A06:2021-Vulnerable-Components",
+            "A07:2021-Identification-Authentication-Failures",
+            "A08:2021-Software-Data-Integrity-Failures",
+            "A09:2021-Security-Logging-Monitoring-Failures",
+            "A10:2021-Server-Side-Request-Forgery"
+          ],
+          "description": "Full OWASP category name"
+        },
+        "cwe": {
+          "type": "string",
+          "pattern": "^CWE-\\d{1,4}$",
+          "description": "CWE identifier (e.g., CWE-79 for XSS, CWE-89 for SQLi)"
+        },
+        "cvss": {
+          "type": "object",
+          "properties": {
+            "score": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 10,
+              "description": "CVSS v3.1 base score"
+            },
+            "vector": {
+              "type": "string",
+              "pattern": "^CVSS:3\\.1/AV:[NALP]/AC:[LH]/PR:[NLH]/UI:[NR]/S:[UC]/C:[NLH]/I:[NLH]/A:[NLH]$",
+              "description": "CVSS v3.1 vector string"
+            },
+            "severity": {
+              "type": "string",
+              "enum": ["None", "Low", "Medium", "High", "Critical"],
+              "description": "CVSS severity rating"
+            }
+          }
+        },
+        "location": {
+          "$ref": "#/$defs/location",
+          "description": "Location of the vulnerability"
+        },
+        "evidence": {
+          "type": "string",
+          "maxLength": 5000,
+          "description": "Evidence: code snippet, request/response, or PoC"
+        },
+        "remediation": {
+          "type": "string",
+          "maxLength": 2000,
+          "description": "Specific fix instructions for this finding"
+        },
+        "references": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["title", "url"],
+            "properties": {
+              "title": { "type": "string" },
+              "url": { "type": "string", "format": "uri" }
+            }
+          },
+          "maxItems": 10,
+          "description": "External references (OWASP, CWE, CVE, etc.)"
+        },
+        "falsePositive": {
+          "type": "boolean",
+          "default": false,
+          "description": "Potential false positive flag"
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Confidence in finding accuracy (0.0-1.0)"
+        },
+        "exploitability": {
+          "type": "string",
+          "enum": ["trivial", "easy", "moderate", "difficult", "theoretical"],
+          "description": "How easy is it to exploit this vulnerability"
+        },
+        "affectedVersions": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Affected package/library versions for dependency vulnerabilities"
+        },
+        "cve": {
+          "type": "string",
+          "pattern": "^CVE-\\d{4}-\\d{4,}$",
+          "description": "CVE identifier if applicable"
+        }
+      }
+    },
+    "securityRecommendation": {
+      "type": "object",
+      "required": ["id", "title", "priority", "owaspCategories"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^REC-\\d{3,6}$",
+          "description": "Unique recommendation identifier"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 200,
+          "description": "Recommendation title"
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 2000,
+          "description": "Detailed recommendation description"
+        },
+        "priority": {
+          "type": "string",
+          "enum": ["critical", "high", "medium", "low"],
+          "description": "Remediation priority"
+        },
+        "effort": {
+          "type": "string",
+          "enum": ["trivial", "low", "medium", "high", "major"],
+          "description": "Estimated effort: trivial(<1hr), low(1-4hr), medium(1-3d), high(1-2wk), major(>2wk)"
+        },
+        "impact": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10,
+          "description": "Security impact if implemented (1-10)"
+        },
+        "relatedFindings": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^SEC-\\d{3,6}$"
+          },
+          "description": "IDs of findings this addresses"
+        },
+        "owaspCategories": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^A(0[1-9]|10):20(21|25)$"
+          },
+          "description": "OWASP categories this recommendation addresses"
+        },
+        "codeExample": {
+          "type": "object",
+          "properties": {
+            "before": {
+              "type": "string",
+              "maxLength": 2000,
+              "description": "Vulnerable code example"
+            },
+            "after": {
+              "type": "string",
+              "maxLength": 2000,
+              "description": "Secure code example"
+            },
+            "language": {
+              "type": "string",
+              "description": "Programming language"
+            }
+          },
+          "description": "Before/after code examples for remediation"
+        },
+        "resources": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["title", "url"],
+            "properties": {
+              "title": { "type": "string" },
+              "url": { "type": "string", "format": "uri" }
+            }
+          },
+          "maxItems": 10,
+          "description": "External resources and documentation"
+        },
+        "automatable": {
+          "type": "boolean",
+          "description": "Can this fix be automated?"
+        },
+        "fixCommand": {
+          "type": "string",
+          "description": "CLI command to apply fix if automatable"
+        }
+      }
+    },
+    "owaspCategoryBreakdown": {
+      "type": "object",
+      "description": "OWASP Top 10 2021 category scores and findings",
+      "properties": {
+        "A01:2021": {
+          "$ref": "#/$defs/owaspCategoryScore",
+          "description": "A01:2021 - Broken Access Control"
+        },
+        "A02:2021": {
+          "$ref": "#/$defs/owaspCategoryScore",
+          "description": "A02:2021 - Cryptographic Failures"
+        },
+        "A03:2021": {
+          "$ref": "#/$defs/owaspCategoryScore",
+          "description": "A03:2021 - Injection"
+        },
+        "A04:2021": {
+          "$ref": "#/$defs/owaspCategoryScore",
+          "description": "A04:2021 - Insecure Design"
+        },
+        "A05:2021": {
+          "$ref": "#/$defs/owaspCategoryScore",
+          "description": "A05:2021 - Security Misconfiguration"
+        },
+        "A06:2021": {
+          "$ref": "#/$defs/owaspCategoryScore",
+          "description": "A06:2021 - Vulnerable and Outdated Components"
+        },
+        "A07:2021": {
+          "$ref": "#/$defs/owaspCategoryScore",
+          "description": "A07:2021 - Identification and Authentication Failures"
+        },
+        "A08:2021": {
+          "$ref": "#/$defs/owaspCategoryScore",
+          "description": "A08:2021 - Software and Data Integrity Failures"
+        },
+        "A09:2021": {
+          "$ref": "#/$defs/owaspCategoryScore",
+          "description": "A09:2021 - Security Logging and Monitoring Failures"
+        },
+        "A10:2021": {
+          "$ref": "#/$defs/owaspCategoryScore",
+          "description": "A10:2021 - Server-Side Request Forgery (SSRF)"
+        }
+      },
+      "additionalProperties": false
+    },
+    "owaspCategoryScore": {
+      "type": "object",
+      "required": ["tested", "score"],
+      "properties": {
+        "tested": {
+          "type": "boolean",
+          "description": "Whether this category was tested"
+        },
+        "score": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Category score (100 = no issues, 0 = critical)"
+        },
+        "grade": {
+          "type": "string",
+          "pattern": "^[A-F][+-]?$",
+          "description": "Letter grade for this category"
+        },
+        "findingCount": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of findings in this category"
+        },
+        "criticalCount": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of critical findings"
+        },
+        "highCount": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of high severity findings"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["pass", "fail", "warn", "skip"],
+          "description": "Category status"
+        },
+        "description": {
+          "type": "string",
+          "description": "Category description and context"
+        },
+        "cwes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^CWE-\\d{1,4}$"
+          },
+          "description": "CWEs found in this category"
+        }
+      }
+    },
+    "securityMetrics": {
+      "type": "object",
+      "properties": {
+        "totalFindings": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total vulnerabilities found"
+        },
+        "criticalCount": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Critical severity findings"
+        },
+        "highCount": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "High severity findings"
+        },
+        "mediumCount": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Medium severity findings"
+        },
+        "lowCount": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Low severity findings"
+        },
+        "infoCount": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Informational findings"
+        },
+        "filesScanned": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of files analyzed"
+        },
+        "linesOfCode": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Lines of code scanned"
+        },
+        "dependenciesChecked": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of dependencies checked"
+        },
+        "owaspCategoriesTested": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10,
+          "description": "OWASP Top 10 categories tested"
+        },
+        "owaspCategoriesPassed": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10,
+          "description": "OWASP Top 10 categories with no findings"
+        },
+        "uniqueCwes": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Unique CWE identifiers found"
+        },
+        "falsePositiveRate": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Estimated false positive rate"
+        },
+        "scanDurationMs": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total scan duration in milliseconds"
+        },
+        "coverage": {
+          "type": "object",
+          "properties": {
+            "sast": {
+              "type": "boolean",
+              "description": "Static analysis performed"
+            },
+            "dast": {
+              "type": "boolean",
+              "description": "Dynamic analysis performed"
+            },
+            "dependencies": {
+              "type": "boolean",
+              "description": "Dependency scan performed"
+            },
+            "secrets": {
+              "type": "boolean",
+              "description": "Secret scanning performed"
+            },
+            "configuration": {
+              "type": "boolean",
+              "description": "Configuration review performed"
+            }
+          },
+          "description": "Scan coverage indicators"
+        }
+      }
+    },
+    "scanConfiguration": {
+      "type": "object",
+      "properties": {
+        "target": {
+          "type": "string",
+          "description": "Scan target (file path, URL, or package)"
+        },
+        "targetType": {
+          "type": "string",
+          "enum": ["source", "url", "package", "container", "infrastructure"],
+          "description": "Type of target being scanned"
+        },
+        "scanTypes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["sast", "dast", "dependency", "secret", "configuration", "container", "iac"]
+          },
+          "description": "Types of scans performed"
+        },
+        "severity": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["critical", "high", "medium", "low", "info"]
+          },
+          "description": "Severity levels included in scan"
+        },
+        "owaspCategories": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^A(0[1-9]|10):20(21|25)$"
+          },
+          "description": "OWASP categories tested"
+        },
+        "tools": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Security tools used"
+        },
+        "excludePatterns": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "File patterns excluded from scan"
+        },
+        "rulesets": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Security rulesets applied"
+        }
+      }
+    },
+    "location": {
+      "type": "object",
+      "properties": {
+        "file": {
+          "type": "string",
+          "maxLength": 500,
+          "description": "File path relative to project root"
+        },
+        "line": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Line number"
+        },
+        "column": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Column number"
+        },
+        "endLine": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "End line for multi-line findings"
+        },
+        "endColumn": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "End column"
+        },
+        "url": {
+          "type": "string",
+          "format": "uri",
+          "description": "URL for web-based findings"
+        },
+        "endpoint": {
+          "type": "string",
+          "description": "API endpoint path"
+        },
+        "method": {
+          "type": "string",
+          "enum": ["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"],
+          "description": "HTTP method for API findings"
+        },
+        "parameter": {
+          "type": "string",
+          "description": "Vulnerable parameter name"
+        },
+        "component": {
+          "type": "string",
+          "description": "Affected component or module"
+        }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "required": ["type", "path"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["report", "sarif", "data", "log", "evidence"],
+          "description": "Artifact type"
+        },
+        "path": {
+          "type": "string",
+          "maxLength": 500,
+          "description": "Path to artifact"
+        },
+        "format": {
+          "type": "string",
+          "enum": ["json", "sarif", "html", "md", "txt", "xml", "csv"],
+          "description": "Artifact format"
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 500,
+          "description": "Artifact description"
+        },
+        "sizeBytes": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "File size in bytes"
+        },
+        "checksum": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "description": "SHA-256 checksum"
+        }
+      }
+    },
+    "timelineEvent": {
+      "type": "object",
+      "required": ["timestamp", "event"],
+      "properties": {
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Event timestamp"
+        },
+        "event": {
+          "type": "string",
+          "maxLength": 200,
+          "description": "Event description"
+        },
+        "type": {
+          "type": "string",
+          "enum": ["start", "checkpoint", "warning", "error", "complete"],
+          "description": "Event type"
+        },
+        "durationMs": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Duration since previous event"
+        },
+        "phase": {
+          "type": "string",
+          "enum": ["initialization", "sast", "dast", "dependency", "secret", "reporting"],
+          "description": "Scan phase"
+        }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "executionTimeMs": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 3600000,
+          "description": "Execution time in milliseconds"
+        },
+        "toolsUsed": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["semgrep", "npm-audit", "trivy", "owasp-zap", "bandit", "gosec", "eslint-security", "snyk", "gitleaks", "trufflehog", "bearer"]
+          },
+          "uniqueItems": true,
+          "description": "Security tools used"
+        },
+        "agentId": {
+          "type": "string",
+          "pattern": "^qe-[a-z][a-z0-9-]*$",
+          "description": "Agent ID (e.g., qe-security-scanner)"
+        },
+        "modelUsed": {
+          "type": "string",
+          "description": "LLM model used for analysis"
+        },
+        "inputHash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$",
+          "description": "SHA-256 hash of input"
+        },
+        "targetUrl": {
+          "type": "string",
+          "format": "uri",
+          "description": "Target URL if applicable"
+        },
+        "targetPath": {
+          "type": "string",
+          "description": "Target path if applicable"
+        },
+        "environment": {
+          "type": "string",
+          "enum": ["development", "staging", "production", "ci"],
+          "description": "Execution environment"
+        },
+        "retryCount": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10,
+          "description": "Number of retries"
+        }
+      }
+    },
+    "validationResult": {
+      "type": "object",
+      "properties": {
+        "schemaValid": {
+          "type": "boolean",
+          "description": "Passes JSON schema validation"
+        },
+        "contentValid": {
+          "type": "boolean",
+          "description": "Passes content validation"
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Confidence score"
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "maxItems": 20,
+          "description": "Validation warnings"
+        },
+        "errors": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "maxItems": 20,
+          "description": "Validation errors"
+        },
+        "validatorVersion": {
+          "type": "string",
+          "pattern": "^\\d+\\.\\d+\\.\\d+$",
+          "description": "Validator version"
+        }
+      }
+    },
+    "learningData": {
+      "type": "object",
+      "properties": {
+        "patternsDetected": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "maxItems": 20,
+          "description": "Security patterns detected (e.g., sql-injection-string-concat)"
+        },
+        "reward": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Reward signal for learning (0.0-1.0)"
+        },
+        "feedbackLoop": {
+          "type": "object",
+          "properties": {
+            "previousRunId": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Previous run ID for comparison"
+            },
+            "improvement": {
+              "type": "number",
+              "minimum": -1,
+              "maximum": 1,
+              "description": "Improvement over previous run"
+            }
+          }
+        },
+        "newVulnerabilityPatterns": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "pattern": { "type": "string" },
+              "cwe": { "type": "string" },
+              "confidence": { "type": "number" }
+            }
+          },
+          "description": "New vulnerability patterns learned"
+        }
+      }
+    }
+  }
+}

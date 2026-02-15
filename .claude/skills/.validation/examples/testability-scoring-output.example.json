@@ -1,0 +1,350 @@
+{
+  "$schema": "https://agentic-qe.dev/schemas/skill-output-template.json",
+  "skillName": "testability-scoring",
+  "version": "2.2.0",
+  "timestamp": "2026-02-02T15:00:00.000Z",
+  "status": "success",
+  "trustTier": 3,
+  "output": {
+    "summary": "Testability assessment completed for https://example.com. Overall score: 72/100 (Grade C). Strengths in Observability (85) and Controllability (82). Improvement needed in Decomposability (55) and Smallness (58). 8 recommendations generated with estimated +18 points improvement potential.",
+    "score": {
+      "value": 72,
+      "max": 100,
+      "grade": "C",
+      "percentile": 45,
+      "trend": "improving"
+    },
+    "findings": [
+      {
+        "id": "TEST-001",
+        "title": "Poor Component Isolation - Tightly Coupled Modules",
+        "description": "The application architecture shows significant coupling between modules. Testing individual components requires loading the entire application context.",
+        "severity": "high",
+        "category": "decomposability",
+        "location": {
+          "url": "https://example.com",
+          "selector": "[data-testid]"
+        },
+        "evidence": "Only 12% of components have data-testid attributes. Global state management with 47 cross-component dependencies identified.",
+        "remediation": "Add data-testid attributes to all interactive elements. Refactor to use dependency injection for better isolation.",
+        "confidence": 0.88
+      },
+      {
+        "id": "TEST-002",
+        "title": "Excessive Page Complexity - High Element Count",
+        "description": "Landing page contains 2,847 DOM elements, significantly above the recommended 1,500 threshold for optimal testability.",
+        "severity": "medium",
+        "category": "smallness",
+        "location": {
+          "url": "https://example.com",
+          "selector": "body"
+        },
+        "evidence": "DOM element count: 2,847. Script bundles: 1.8MB. Third-party scripts: 23.",
+        "remediation": "Implement code splitting, lazy loading, and remove unused components. Target <1,500 DOM elements.",
+        "confidence": 0.95
+      },
+      {
+        "id": "TEST-003",
+        "title": "Console Errors Present During Load",
+        "description": "3 JavaScript errors detected during initial page load, indicating potential runtime issues that could cause flaky tests.",
+        "severity": "medium",
+        "category": "unbugginess",
+        "location": {
+          "url": "https://example.com"
+        },
+        "evidence": "TypeError: Cannot read property 'map' of undefined (analytics.js:42), NetworkError: Failed to load resource (tracking.js), Warning: React key prop missing (ProductList.jsx)",
+        "remediation": "Fix console errors before testing. Add error boundary components to isolate failures.",
+        "confidence": 0.99
+      },
+      {
+        "id": "TEST-004",
+        "title": "Limited Semantic HTML Structure",
+        "description": "Many interactive elements lack proper semantic HTML structure, making them harder to target with accessible selectors.",
+        "severity": "medium",
+        "category": "explainability",
+        "location": {
+          "url": "https://example.com"
+        },
+        "evidence": "32% of buttons use div/span instead of button element. 45% of links lack meaningful text. 18% of form inputs missing labels.",
+        "remediation": "Use semantic HTML elements (button, nav, main, article). Add aria-label for unlabeled interactive elements.",
+        "confidence": 0.92
+      },
+      {
+        "id": "TEST-005",
+        "title": "Non-deterministic Content Loading",
+        "description": "Page content loads asynchronously with variable timing, causing potential race conditions in automated tests.",
+        "severity": "low",
+        "category": "algorithmicStability",
+        "location": {
+          "url": "https://example.com"
+        },
+        "evidence": "5 API calls with varying response times (200ms - 3s). No loading indicators on 60% of async content. requestAnimationFrame used for layout.",
+        "remediation": "Add loading states with consistent indicators. Implement skeleton screens for predictable wait conditions.",
+        "confidence": 0.85
+      }
+    ],
+    "recommendations": [
+      {
+        "id": "REC-001",
+        "title": "Add data-testid Attributes to Interactive Elements",
+        "description": "Add unique data-testid attributes to all buttons, links, form inputs, and key UI components. This provides stable selectors that survive CSS and markup changes.",
+        "priority": "high",
+        "effort": "medium",
+        "impact": 8,
+        "relatedFindings": ["TEST-001"],
+        "codeExample": "// Before\n<button class=\"btn-primary\" onClick={submit}>Submit</button>\n\n// After\n<button data-testid=\"checkout-submit-btn\" class=\"btn-primary\" onClick={submit}>Submit</button>",
+        "resources": [
+          {
+            "title": "Testing Library - data-testid",
+            "url": "https://testing-library.com/docs/queries/bytestid/"
+          }
+        ]
+      },
+      {
+        "id": "REC-002",
+        "title": "Implement Code Splitting and Lazy Loading",
+        "description": "Split the application into smaller chunks that load on demand. This reduces initial bundle size and DOM complexity, improving both performance and testability.",
+        "priority": "high",
+        "effort": "high",
+        "impact": 7,
+        "relatedFindings": ["TEST-002"],
+        "codeExample": "// Use React.lazy for route-based splitting\nconst ProductList = React.lazy(() => import('./ProductList'));\n\n// Use dynamic imports for heavy components\nconst ChartLibrary = dynamic(() => import('chart-library'), {\n  loading: () => <Skeleton />,\n  ssr: false\n});",
+        "resources": [
+          {
+            "title": "React Code Splitting",
+            "url": "https://react.dev/reference/react/lazy"
+          }
+        ]
+      },
+      {
+        "id": "REC-003",
+        "title": "Fix Console Errors and Add Error Boundaries",
+        "description": "Resolve all JavaScript errors that appear during page load. Add error boundaries to prevent single component failures from breaking tests.",
+        "priority": "high",
+        "effort": "low",
+        "impact": 6,
+        "relatedFindings": ["TEST-003"],
+        "codeExample": "class ErrorBoundary extends React.Component {\n  state = { hasError: false };\n  static getDerivedStateFromError() {\n    return { hasError: true };\n  }\n  render() {\n    if (this.state.hasError) {\n      return <div data-testid=\"error-boundary\">Something went wrong</div>;\n    }\n    return this.props.children;\n  }\n}",
+        "resources": [
+          {
+            "title": "React Error Boundaries",
+            "url": "https://react.dev/reference/react/Component#catching-rendering-errors-with-an-error-boundary"
+          }
+        ]
+      },
+      {
+        "id": "REC-004",
+        "title": "Improve Semantic HTML Structure",
+        "description": "Replace div/span with semantic HTML elements. This improves accessibility and provides more reliable test selectors using role-based queries.",
+        "priority": "medium",
+        "effort": "medium",
+        "impact": 5,
+        "relatedFindings": ["TEST-004"],
+        "codeExample": "// Before\n<div class=\"nav\" onClick={...}>Menu</div>\n\n// After\n<nav role=\"navigation\" aria-label=\"Main\">\n  <button aria-expanded=\"false\" aria-controls=\"menu\">Menu</button>\n</nav>",
+        "resources": [
+          {
+            "title": "Testing Library - Queries Priority",
+            "url": "https://testing-library.com/docs/queries/about/#priority"
+          }
+        ]
+      },
+      {
+        "id": "REC-005",
+        "title": "Add Loading States and Wait Conditions",
+        "description": "Implement consistent loading indicators for all async operations. This provides reliable wait conditions for automated tests.",
+        "priority": "medium",
+        "effort": "low",
+        "impact": 4,
+        "relatedFindings": ["TEST-005"],
+        "codeExample": "// Add loading state\n{isLoading ? (\n  <div data-testid=\"loading-spinner\" role=\"status\">\n    <span>Loading...</span>\n  </div>\n) : (\n  <ProductList data-testid=\"product-list\" />\n)}",
+        "resources": [
+          {
+            "title": "Playwright Auto-Waiting",
+            "url": "https://playwright.dev/docs/actionability"
+          }
+        ]
+      }
+    ],
+    "metrics": {
+      "total": 10,
+      "passed": 7,
+      "failed": 3,
+      "skipped": 0,
+      "coverage": 100,
+      "duration": 12450,
+      "custom": {
+        "domElementCount": 2847,
+        "consoleErrorCount": 3,
+        "consoleWarningCount": 5,
+        "dataTestIdCoverage": 12,
+        "semanticHtmlScore": 58,
+        "loadTimeMs": 2340
+      }
+    },
+    "categories": {
+      "observability": {
+        "score": 85,
+        "weight": 0.15,
+        "description": "Transparency of product states and behavior - Can we see what's happening?",
+        "grade": "B",
+        "findingCount": 0
+      },
+      "controllability": {
+        "score": 82,
+        "weight": 0.15,
+        "description": "Capacity to provide any input and invoke any state - Can we control the application?",
+        "grade": "B",
+        "findingCount": 0
+      },
+      "algorithmicSimplicity": {
+        "score": 75,
+        "weight": 0.10,
+        "description": "Clear relationships between inputs and outputs - Are behaviors predictable?",
+        "grade": "C",
+        "findingCount": 0
+      },
+      "algorithmicTransparency": {
+        "score": 78,
+        "weight": 0.10,
+        "description": "Understanding how the product produces output - Can we understand what it does?",
+        "grade": "C",
+        "findingCount": 0
+      },
+      "algorithmicStability": {
+        "score": 70,
+        "weight": 0.10,
+        "description": "Changes do not disturb logic - Does behavior remain consistent?",
+        "grade": "C",
+        "findingCount": 1
+      },
+      "explainability": {
+        "score": 68,
+        "weight": 0.10,
+        "description": "Design understandable to outsiders - Is the interface understandable?",
+        "grade": "D",
+        "findingCount": 1
+      },
+      "unbugginess": {
+        "score": 65,
+        "weight": 0.10,
+        "description": "Minimal defects that slow testing - How error-free is it?",
+        "grade": "D",
+        "findingCount": 1
+      },
+      "smallness": {
+        "score": 58,
+        "weight": 0.10,
+        "description": "Less product means less to examine - Are components appropriately sized?",
+        "grade": "F",
+        "findingCount": 1
+      },
+      "decomposability": {
+        "score": 55,
+        "weight": 0.05,
+        "description": "Parts can be separated for testing - Can we test parts in isolation?",
+        "grade": "F",
+        "findingCount": 1
+      },
+      "similarity": {
+        "score": 80,
+        "weight": 0.05,
+        "description": "Resemblance to known technology - Is the tech stack familiar?",
+        "grade": "B",
+        "findingCount": 0
+      }
+    },
+    "artifacts": [
+      {
+        "type": "report",
+        "path": "tests/reports/testability-report-2026-02-02.html",
+        "format": "html",
+        "description": "Visual HTML report with radar chart and principle breakdown",
+        "sizeBytes": 185420
+      },
+      {
+        "type": "data",
+        "path": "tests/reports/testability-results-2026-02-02.json",
+        "format": "json",
+        "description": "Raw assessment data for programmatic analysis",
+        "sizeBytes": 24680
+      },
+      {
+        "type": "screenshot",
+        "path": "tests/reports/testability-screenshot-2026-02-02.png",
+        "format": "png",
+        "description": "Full page screenshot at time of assessment",
+        "sizeBytes": 542800
+      }
+    ],
+    "timeline": [
+      {
+        "timestamp": "2026-02-02T15:00:00.000Z",
+        "event": "Assessment started",
+        "type": "start"
+      },
+      {
+        "timestamp": "2026-02-02T15:00:02.340Z",
+        "event": "Page loaded and initial metrics collected",
+        "type": "checkpoint",
+        "durationMs": 2340
+      },
+      {
+        "timestamp": "2026-02-02T15:00:05.000Z",
+        "event": "Observability principle analysis completed",
+        "type": "checkpoint",
+        "durationMs": 2660
+      },
+      {
+        "timestamp": "2026-02-02T15:00:08.000Z",
+        "event": "Controllability principle analysis completed",
+        "type": "checkpoint",
+        "durationMs": 3000
+      },
+      {
+        "timestamp": "2026-02-02T15:00:10.500Z",
+        "event": "All 10 principles analyzed",
+        "type": "checkpoint",
+        "durationMs": 2500
+      },
+      {
+        "timestamp": "2026-02-02T15:00:12.450Z",
+        "event": "Report generation completed",
+        "type": "complete",
+        "durationMs": 1950
+      }
+    ]
+  },
+  "metadata": {
+    "executionTimeMs": 12450,
+    "toolsUsed": ["playwright", "chrome-devtools", "axe-core"],
+    "agentId": "qe-quality-analyzer",
+    "modelUsed": "claude-3.5-sonnet",
+    "inputHash": "7d865e959b2466918c9863afca942d0fb89d7c9ac0c99bafc3749504ded97730",
+    "targetUrl": "https://example.com",
+    "environment": "ci",
+    "retryCount": 0
+  },
+  "validation": {
+    "schemaValid": true,
+    "contentValid": true,
+    "confidence": 0.92,
+    "warnings": [
+      "Load time exceeded 2s threshold - results may vary under different network conditions"
+    ],
+    "errors": [],
+    "validatorVersion": "2.2.0"
+  },
+  "learning": {
+    "patternsDetected": [
+      "high-dom-complexity",
+      "missing-testid-attributes",
+      "console-errors-present",
+      "async-loading-without-indicators"
+    ],
+    "reward": 0.72,
+    "feedbackLoop": {
+      "previousRunId": "661f9511-f39c-52e5-b827-557766551111",
+      "improvement": 0.05
+    }
+  }
+}

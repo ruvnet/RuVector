@@ -1,0 +1,450 @@
+# =============================================================================
+# AQE Skill Evaluation Test Suite: n8n Expression Testing v1.0.0
+# =============================================================================
+#
+# Comprehensive evaluation suite for n8n expression testing skill.
+# Tests expression syntax validation, context-aware testing, null-safety,
+# type safety, performance optimization, and security vulnerability detection.
+#
+# Schema: .claude/skills/.validation/schemas/skill-eval.schema.json
+# Validator: .claude/skills/n8n-expression-testing/scripts/validate-config.json
+#
+# Coverage:
+# - JavaScript expression syntax validation
+# - n8n context variable testing ($json, $node)
+# - Null-safe access patterns (?., ??)
+# - Type safety validation
+# - Performance bottleneck detection
+# - Security vulnerability scanning
+#
+# =============================================================================
+
+skill: n8n-expression-testing
+version: 1.0.0
+description: >
+  Comprehensive evaluation suite for n8n expression testing skill.
+  Tests JavaScript expression validation in n8n context, context-aware
+  variable resolution, null-safety patterns, type handling, performance
+  optimization, and detection of security vulnerabilities in expressions.
+
+# =============================================================================
+# Multi-Model Configuration
+# =============================================================================
+
+models_to_test:
+  - claude-3.5-sonnet
+  - claude-3-haiku
+
+# =============================================================================
+# MCP Integration Configuration
+# =============================================================================
+
+mcp_integration:
+  enabled: true
+  namespace: skill-validation
+
+  query_patterns: true
+  track_outcomes: true
+  store_patterns: true
+  share_learning: true
+  update_quality_gate: true
+
+  target_agents:
+    - qe-learning-coordinator
+    - qe-queen-coordinator
+    - n8n-expression-validator
+
+# =============================================================================
+# ReasoningBank Learning Configuration
+# =============================================================================
+
+learning:
+  store_success_patterns: true
+  store_failure_patterns: true
+  pattern_ttl_days: 90
+  min_confidence_to_store: 0.7
+  cross_model_comparison: true
+
+# =============================================================================
+# Result Format Configuration
+# =============================================================================
+
+result_format:
+  json_output: true
+  markdown_report: true
+  include_raw_output: false
+  include_timing: true
+  include_token_usage: true
+
+# =============================================================================
+# Environment Setup
+# =============================================================================
+
+setup:
+  required_tools:
+    - jq
+
+  environment_variables:
+    N8N_EXPRESSION_VALIDATION: "true"
+    CONTEXT_VALIDATION: "strict"
+
+# =============================================================================
+# TEST CASES
+# =============================================================================
+
+test_cases:
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Expression Syntax Validation
+  # ---------------------------------------------------------------------------
+
+  - id: tc001_valid_expression_syntax
+    description: "Validate correct JavaScript expression syntax"
+    category: syntax
+    priority: critical
+
+    input:
+      expressions:
+        - code: "$json.user.name"
+          syntax_valid: true
+        - code: "$json.items.map(item => item.price * 1.1)"
+          syntax_valid: true
+        - code: "$node.HTTP Request.json.data[0].id"
+          syntax_valid: true
+      context:
+        language: javascript
+        engine: n8n
+
+    expected_output:
+      must_contain:
+        - "syntax"
+        - "valid"
+        - "correct"
+      must_not_contain:
+        - "syntax error"
+      severity_classification: info
+      finding_count:
+        max: 1
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+      reasoning_quality_min: 0.75
+
+    timeout_ms: 30000
+
+  - id: tc002_invalid_expression_detection
+    description: "Detect syntax errors in n8n expressions"
+    category: syntax
+    priority: critical
+
+    input:
+      expressions:
+        - code: "$json.user.name.map()"
+          has_error: true
+          error_type: "string_not_array"
+        - code: "$json[invalid bracket"
+          has_error: true
+          error_type: "syntax_error"
+        - code: "$node.Missing.output"
+          has_error: true
+          error_type: "undefined_reference"
+      context:
+        language: javascript
+
+    expected_output:
+      must_contain:
+        - "error"
+        - "detected"
+        - "syntax"
+      must_not_contain:
+        - "valid"
+      severity_classification: high
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Context Variable Resolution
+  # ---------------------------------------------------------------------------
+
+  - id: tc003_context_variable_json
+    description: "Validate $json context variable usage"
+    category: context
+    priority: critical
+
+    input:
+      expression: "$json.user.email"
+      context:
+        $json:
+          user:
+            email: "user@example.com"
+            name: "John Doe"
+      expected_result: "user@example.com"
+
+    expected_output:
+      must_contain:
+        - "context"
+        - "$json"
+        - "resolved"
+      must_not_contain:
+        - "undefined"
+      severity_classification: info
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+
+  - id: tc004_context_variable_node_reference
+    description: "Validate $node reference to other nodes"
+    category: context
+    priority: critical
+
+    input:
+      expression: "$node['HTTP Request'].json.status"
+      references:
+        - node_name: "HTTP Request"
+          output_available: true
+          has_json: true
+      context:
+        current_node: "Transform"
+        upstream_nodes: ["HTTP Request"]
+
+    expected_output:
+      must_contain:
+        - "$node"
+        - "reference"
+        - "valid"
+      must_not_contain:
+        - "not found"
+      severity_classification: info
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Null-Safety and Type Safety
+  # ---------------------------------------------------------------------------
+
+  - id: tc005_null_safe_access_pattern
+    description: "Validate null-safe optional chaining (?.) usage"
+    category: null_safety
+    priority: critical
+
+    input:
+      expressions:
+        - code: "$json.user?.name"
+          pattern: "optional_chaining"
+          safe: true
+        - code: "$json.user?.profile?.avatar?.url"
+          pattern: "chained_optional"
+          safe: true
+      context:
+        validation_mode: strict
+
+    expected_output:
+      must_contain:
+        - "null-safe"
+        - "optional chaining"
+        - "safe"
+      must_not_contain:
+        - "unsafe"
+      severity_classification: info
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+
+  - id: tc006_unsafe_null_access_detection
+    description: "Detect unsafe property access that could throw"
+    category: null_safety
+    priority: critical
+
+    input:
+      expressions:
+        - code: "$json.user.profile.avatar"
+          pattern: "unsafe_chaining"
+          risk: "throws if user/profile/avatar undefined"
+      context:
+        validation_mode: strict
+
+    expected_output:
+      must_contain:
+        - "unsafe"
+        - "could throw"
+        - "null"
+      must_not_contain:
+        - "safe"
+      severity_classification: high
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+
+  - id: tc007_type_handling_validation
+    description: "Validate type conversions in expressions"
+    category: type_safety
+    priority: high
+
+    input:
+      expressions:
+        - code: "$json.price * 1.1"
+          operands: ["number", "number"]
+          result_type: "number"
+          valid: true
+        - code: "$json.name + ' approved'"
+          operands: ["string", "string"]
+          result_type: "string"
+          valid: true
+        - code: "$json.items.length"
+          operands: ["array"]
+          result_type: "number"
+          valid: true
+      context:
+        type_checking: enabled
+
+    expected_output:
+      must_contain:
+        - "type"
+        - "valid"
+        - "conversion"
+      must_not_contain:
+        - "type error"
+      severity_classification: info
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.75
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Performance Optimization
+  # ---------------------------------------------------------------------------
+
+  - id: tc008_performance_bottleneck_detection
+    description: "Detect performance issues in expressions"
+    category: performance
+    priority: high
+
+    input:
+      expressions:
+        - code: "$json.items.map(x => x).filter(x => x).map(x => x.price).reduce((a,b) => a+b, 0)"
+          issue: "multiple chained array operations"
+          optimizable: true
+        - code: "JSON.parse(JSON.stringify($json))"
+          issue: "unnecessary deep clone"
+          optimizable: true
+      context:
+        optimization_check: enabled
+
+    expected_output:
+      must_contain:
+        - "performance"
+        - "optimize"
+        - "bottleneck"
+      must_not_contain:
+        - "efficient"
+      severity_classification: medium
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.75
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Common Pitfalls
+  # ---------------------------------------------------------------------------
+
+  - id: tc009_common_pitfall_detection
+    description: "Detect common n8n expression pitfalls"
+    category: pitfalls
+    priority: high
+
+    input:
+      pitfalls:
+        - code: "return $json"
+          issue: "n8n expressions don't use 'return', they evaluate to value"
+          severity: error
+        - code: "$json[0]"
+          issue: "$json is object not array, should use $json.items[0] or similar"
+          severity: warning
+        - code: "$env.PASSWORD"
+          issue: "avoid logging sensitive env vars"
+          severity: warning
+      context:
+        experience_level: beginner
+
+    expected_output:
+      must_contain:
+        - "pitfall"
+        - "common"
+        - "issue"
+      must_not_contain:
+        - "no issues"
+      severity_classification: medium
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.75
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Security Vulnerability Detection
+  # ---------------------------------------------------------------------------
+
+  - id: tc010_security_vulnerability_scanning
+    description: "Detect security vulnerabilities in expressions"
+    category: security
+    priority: critical
+
+    input:
+      expressions:
+        - code: "eval($json.userCode)"
+          vulnerability: "eval execution"
+          severity: critical
+        - code: "new Function($json.code)()"
+          vulnerability: "dynamic function execution"
+          severity: critical
+        - code: "require('os').system(cmd)"
+          vulnerability: "system command execution"
+          severity: critical
+      context:
+        security_scanning: enabled
+
+    expected_output:
+      must_contain:
+        - "vulnerability"
+        - "security"
+        - "eval"
+        - "critical"
+      must_not_contain:
+        - "safe"
+      severity_classification: critical
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.85
+
+# =============================================================================
+# SUCCESS CRITERIA
+# =============================================================================
+
+success_criteria:
+  pass_rate: 0.85
+  critical_pass_rate: 1.0
+  avg_reasoning_quality: 0.75
+  max_execution_time_ms: 300000
+  cross_model_variance: 0.15
+
+# =============================================================================
+# METADATA
+# =============================================================================
+
+metadata:
+  author: "n8n-expression-validator"
+  created: "2026-02-02"
+  last_updated: "2026-02-02"
+  coverage_target: >
+    n8n expression testing including syntax validation, context variable
+    resolution ($json, $node), null-safety patterns (?., ??), type safety,
+    performance optimization, common pitfalls detection, and security
+    vulnerability scanning (eval, Function, require). 10 test cases with
+    85% pass rate and 100% critical pass rate.

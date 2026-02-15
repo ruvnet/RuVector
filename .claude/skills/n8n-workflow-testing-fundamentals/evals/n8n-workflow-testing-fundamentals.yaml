@@ -1,0 +1,497 @@
+# =============================================================================
+# AQE Skill Evaluation Test Suite: n8n Workflow Testing Fundamentals v1.0.0
+# =============================================================================
+#
+# Comprehensive evaluation suite for n8n workflow testing fundamentals.
+# Tests workflow structure validation, node connection validation, data flow,
+# error handling, trigger configuration, and execution performance.
+#
+# Schema: .claude/skills/.validation/schemas/skill-eval.schema.json
+# Validator: .claude/skills/n8n-workflow-testing-fundamentals/scripts/validate-config.json
+#
+# Coverage:
+# - Workflow structure validation
+# - Node connectivity and orphan detection
+# - Data flow between nodes
+# - Trigger configuration validation
+# - Error handling paths
+# - Execution performance metrics
+#
+# =============================================================================
+
+skill: n8n-workflow-testing-fundamentals
+version: 1.0.0
+description: >
+  Comprehensive evaluation suite for n8n workflow testing fundamentals.
+  Tests workflow structure validation, node-to-node connectivity, data flow
+  validation, trigger configuration, error handling paths, and execution
+  performance measurement for n8n automation workflows.
+
+# =============================================================================
+# Multi-Model Configuration
+# =============================================================================
+
+models_to_test:
+  - claude-3.5-sonnet
+  - claude-3-haiku
+
+# =============================================================================
+# MCP Integration Configuration
+# =============================================================================
+
+mcp_integration:
+  enabled: true
+  namespace: skill-validation
+
+  query_patterns: true
+  track_outcomes: true
+  store_patterns: true
+  share_learning: true
+  update_quality_gate: true
+
+  target_agents:
+    - qe-learning-coordinator
+    - qe-queen-coordinator
+    - n8n-workflow-executor
+
+# =============================================================================
+# ReasoningBank Learning Configuration
+# =============================================================================
+
+learning:
+  store_success_patterns: true
+  store_failure_patterns: true
+  pattern_ttl_days: 90
+  min_confidence_to_store: 0.7
+  cross_model_comparison: true
+
+# =============================================================================
+# Result Format Configuration
+# =============================================================================
+
+result_format:
+  json_output: true
+  markdown_report: true
+  include_raw_output: false
+  include_timing: true
+  include_token_usage: true
+
+# =============================================================================
+# Environment Setup
+# =============================================================================
+
+setup:
+  required_tools:
+    - jq
+
+  environment_variables:
+    WORKFLOW_VALIDATION: "true"
+    DATA_FLOW_CHECKING: "strict"
+
+# =============================================================================
+# TEST CASES
+# =============================================================================
+
+test_cases:
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Workflow Structure Validation
+  # ---------------------------------------------------------------------------
+
+  - id: tc001_workflow_structure_validation
+    description: "Validate complete workflow structure"
+    category: structure
+    priority: critical
+
+    input:
+      workflow:
+        name: "User Data Processing"
+        version: 1
+        nodes:
+          - id: 1
+            name: "Webhook"
+            type: webhook
+            parameters:
+              method: POST
+        connections:
+          - from: 1
+            to: 2
+        required_fields:
+          - name
+          - trigger_node
+      validation_checks:
+        - has_trigger: true
+        - has_nodes: true
+        - properly_connected: true
+      context:
+        workflow_type: "automation"
+
+    expected_output:
+      must_contain:
+        - "valid"
+        - "structure"
+        - "complete"
+      must_not_contain:
+        - "invalid"
+      severity_classification: info
+      finding_count:
+        max: 1
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+      reasoning_quality_min: 0.75
+
+    timeout_ms: 30000
+
+  - id: tc002_orphan_node_detection
+    description: "Detect orphan nodes not connected to flow"
+    category: structure
+    priority: critical
+
+    input:
+      workflow_nodes:
+        - id: 1
+          name: "Webhook"
+          connections_out: [2]
+        - id: 2
+          name: "Transform"
+          connections_in: [1]
+          connections_out: [3]
+        - id: 3
+          name: "Send Email"
+          connections_in: [2]
+        - id: 4
+          name: "Log"
+          connections_in: []
+          connections_out: []
+      context:
+        issue: "node 4 is orphaned"
+
+    expected_output:
+      must_contain:
+        - "orphan"
+        - "node 4"
+        - "disconnected"
+      must_not_contain:
+        - "all connected"
+      severity_classification: high
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Trigger Configuration
+  # ---------------------------------------------------------------------------
+
+  - id: tc003_webhook_trigger_configuration
+    description: "Validate webhook trigger is properly configured"
+    category: triggers
+    priority: critical
+
+    input:
+      trigger_config:
+        type: "webhook"
+        method: POST
+        path: "/api/users"
+        authentication: "none"
+        body_validation: true
+      required_config:
+        - method_defined: true
+        - path_defined: true
+        - test_data_available: true
+      context:
+        workflow_start: true
+
+    expected_output:
+      must_contain:
+        - "webhook"
+        - "trigger"
+        - "configured"
+      must_not_contain:
+        - "missing"
+      severity_classification: critical
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.85
+
+  - id: tc004_schedule_trigger_validation
+    description: "Validate scheduled trigger (cron) configuration"
+    category: triggers
+    priority: high
+
+    input:
+      trigger_config:
+        type: "schedule"
+        cron_expression: "0 9 * * MON-FRI"
+        timezone: "UTC"
+        description: "Runs at 9 AM weekdays"
+      validation:
+        - cron_syntax_valid: true
+        - timezone_valid: true
+        - next_run_calculable: true
+      context:
+        workflow_start: true
+
+    expected_output:
+      must_contain:
+        - "schedule"
+        - "trigger"
+        - "valid"
+        - "cron"
+      must_not_contain:
+        - "invalid"
+      severity_classification: info
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Node-to-Node Data Flow
+  # ---------------------------------------------------------------------------
+
+  - id: tc005_data_flow_validation
+    description: "Validate data flows correctly between nodes"
+    category: data_flow
+    priority: critical
+
+    input:
+      nodes:
+        - name: "API Call"
+          output_schema:
+            type: object
+            properties:
+              user_id: integer
+              email: string
+              name: string
+        - name: "Transform"
+          input_mapping:
+            user_id: "{{ $node['API Call'].json.user_id }}"
+            email: "{{ $node['API Call'].json.email }}"
+            full_name: "{{ $node['API Call'].json.name }}"
+          input_valid: true
+        - name: "Database Insert"
+          input_valid: true
+      context:
+        data_flow: "validated"
+
+    expected_output:
+      must_contain:
+        - "data flow"
+        - "valid"
+        - "mapped"
+      must_not_contain:
+        - "mismatch"
+      severity_classification: info
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+
+  - id: tc006_missing_data_mapping_detection
+    description: "Detect missing or incorrect data mappings"
+    category: data_flow
+    priority: critical
+
+    input:
+      nodes:
+        - name: "API Call"
+          output:
+            user_id: 123
+            email: "user@example.com"
+        - name: "Transform"
+          input_mapping:
+            user_id: "{{ $node['API Call'].json.user_id }}"
+            email: "{{ $node['API Call'].json.user_email }}"  # Wrong key!
+        - name: "Database"
+          requires_email: true
+          issue: "email will be null"
+      context:
+        data_validation: strict
+
+    expected_output:
+      must_contain:
+        - "mapping"
+        - "incorrect"
+        - "user_email"
+        - "email"
+      must_not_contain:
+        - "all correct"
+      severity_classification: high
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.85
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Error Handling
+  # ---------------------------------------------------------------------------
+
+  - id: tc007_error_handling_paths
+    description: "Validate error handling paths are defined"
+    category: error_handling
+    priority: critical
+
+    input:
+      nodes:
+        - name: "HTTP Request"
+          error_handler_defined: true
+          error_output_connected: true
+        - name: "Database Operation"
+          error_handler_defined: false
+          error_output_connected: false
+          issue: "no error handling"
+        - name: "Send Notification"
+          error_handler_defined: true
+          error_output_connected: true
+      context:
+        requirement: "all critical nodes have error handlers"
+
+    expected_output:
+      must_contain:
+        - "error"
+        - "handling"
+        - "missing"
+        - "Database"
+      must_not_contain:
+        - "complete"
+      severity_classification: high
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.85
+
+  - id: tc008_error_recovery_validation
+    description: "Verify error recovery mechanisms work"
+    category: error_handling
+    priority: high
+
+    input:
+      error_scenarios:
+        - scenario: "API timeout"
+          recovery: "retry with exponential backoff"
+          max_retries: 3
+          working: true
+        - scenario: "Database connection failure"
+          recovery: "wait and retry"
+          wait_seconds: 30
+          max_retries: 2
+          working: true
+        - scenario: "Invalid data"
+          recovery: "send to error queue"
+          error_queue_configured: true
+          working: true
+      context:
+        testing: "error scenarios"
+
+    expected_output:
+      must_contain:
+        - "error"
+        - "recovery"
+        - "working"
+      must_not_contain:
+        - "failed"
+      severity_classification: info
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.75
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Execution Performance
+  # ---------------------------------------------------------------------------
+
+  - id: tc009_workflow_execution_time
+    description: "Measure and validate workflow execution time"
+    category: performance
+    priority: high
+
+    input:
+      execution_metrics:
+        - run_number: 1
+          duration_ms: 2450
+        - run_number: 2
+          duration_ms: 2380
+        - run_number: 3
+          duration_ms: 2520
+      performance_target:
+        max_ms: 5000
+        average_ms: 2500
+      context:
+        node_count: 5
+        api_calls: 2
+
+    expected_output:
+      must_contain:
+        - "execution"
+        - "time"
+        - "performance"
+        - "ms"
+      must_not_contain:
+        - "timeout"
+      severity_classification: info
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.75
+
+  - id: tc010_memory_usage_validation
+    description: "Monitor memory usage during workflow execution"
+    category: performance
+    priority: medium
+
+    input:
+      memory_metrics:
+        - operation: "Large array processing"
+          items_count: 50000
+          peak_memory_mb: 320
+          warning_threshold_mb: 500
+          status: "ok"
+        - operation: "JSON transformation"
+          items_count: 100000
+          peak_memory_mb: 680
+          warning_threshold_mb: 500
+          status: "warning"
+      context:
+        execution_environment: "cloud"
+
+    expected_output:
+      must_contain:
+        - "memory"
+        - "usage"
+        - "warning"
+      must_not_contain:
+        - "no issues"
+      severity_classification: medium
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.75
+
+# =============================================================================
+# SUCCESS CRITERIA
+# =============================================================================
+
+success_criteria:
+  pass_rate: 0.85
+  critical_pass_rate: 1.0
+  avg_reasoning_quality: 0.75
+  max_execution_time_ms: 300000
+  cross_model_variance: 0.15
+
+# =============================================================================
+# METADATA
+# =============================================================================
+
+metadata:
+  author: "n8n-workflow-executor"
+  created: "2026-02-02"
+  last_updated: "2026-02-02"
+  coverage_target: >
+    n8n workflow testing fundamentals including workflow structure validation,
+    orphan node detection, trigger configuration (webhook, schedule), node-to-node
+    data flow validation, error handling paths, error recovery mechanisms, and
+    execution performance monitoring (time, memory). 10 test cases with 85% pass
+    rate and 100% critical pass rate.

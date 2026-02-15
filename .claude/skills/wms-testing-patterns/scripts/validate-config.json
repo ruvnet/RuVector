@@ -1,0 +1,51 @@
+{
+  "skillName": "wms-testing-patterns",
+  "skillVersion": "1.0.0",
+  "requiredTools": [
+    "jq"
+  ],
+  "optionalTools": [
+    "node",
+    "python3"
+  ],
+  "schemaPath": "schemas/output.json",
+  "requiredFields": [
+    "skillName",
+    "status",
+    "output",
+    "output.testingDomain",
+    "output.workflowCoverage"
+  ],
+  "requiredNonEmptyFields": [
+    "output.summary",
+    "output.testingDomain"
+  ],
+  "mustContainTerms": [
+    "warehouse",
+    "inventory"
+  ],
+  "mustNotContainTerms": [
+    "TODO",
+    "FIXME",
+    "placeholder",
+    "example.com",
+    "lorem ipsum"
+  ],
+  "enumValidations": {
+    ".status": [
+      "success",
+      "partial",
+      "failed",
+      "skipped"
+    ],
+    ".output.testingDomain": [
+      "inventory",
+      "pick-pack-ship",
+      "edi",
+      "rf-scanning",
+      "allocation",
+      "integration",
+      "mixed"
+    ]
+  }
+}

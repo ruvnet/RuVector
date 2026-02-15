@@ -1,0 +1,444 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentic-qe.dev/schemas/test-automation-strategy-output.json",
+  "title": "AQE Test Automation Strategy Skill Output Schema",
+  "description": "Schema for test-automation-strategy skill output validation. Extends the base skill-output template with test pyramid compliance, F.I.R.S.T. principles, and CI/CD integration.",
+  "type": "object",
+  "required": ["skillName", "version", "timestamp", "status", "trustTier", "output"],
+  "properties": {
+    "skillName": {
+      "type": "string",
+      "const": "test-automation-strategy",
+      "description": "Must be 'test-automation-strategy'"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+(-[a-zA-Z0-9]+)?$"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["success", "partial", "failed", "skipped"]
+    },
+    "trustTier": {
+      "type": "integer",
+      "const": 3
+    },
+    "output": {
+      "type": "object",
+      "required": ["summary", "pyramidAnalysis", "firstPrinciples", "findings", "recommendations"],
+      "properties": {
+        "summary": {
+          "type": "string",
+          "minLength": 50,
+          "maxLength": 2000,
+          "description": "Human-readable summary of automation strategy assessment"
+        },
+        "score": {
+          "$ref": "#/$defs/automationScore"
+        },
+        "pyramidAnalysis": {
+          "$ref": "#/$defs/pyramidAnalysis",
+          "description": "Test pyramid compliance analysis"
+        },
+        "firstPrinciples": {
+          "$ref": "#/$defs/firstPrinciples",
+          "description": "F.I.R.S.T. principles assessment"
+        },
+        "patterns": {
+          "$ref": "#/$defs/automationPatterns",
+          "description": "Automation patterns analysis"
+        },
+        "antiPatterns": {
+          "$ref": "#/$defs/antiPatterns",
+          "description": "Detected anti-patterns"
+        },
+        "cicdIntegration": {
+          "$ref": "#/$defs/cicdIntegration",
+          "description": "CI/CD pipeline integration"
+        },
+        "flakyTests": {
+          "$ref": "#/$defs/flakyTestAnalysis",
+          "description": "Flaky test analysis"
+        },
+        "findings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/automationFinding"
+          },
+          "maxItems": 100
+        },
+        "recommendations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/automationRecommendation"
+          },
+          "maxItems": 50
+        },
+        "metrics": {
+          "$ref": "#/$defs/automationMetrics"
+        },
+        "artifacts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/artifact"
+          },
+          "maxItems": 50
+        }
+      }
+    },
+    "metadata": {
+      "$ref": "#/$defs/metadata"
+    },
+    "validation": {
+      "$ref": "#/$defs/validationResult"
+    },
+    "learning": {
+      "$ref": "#/$defs/learningData"
+    }
+  },
+  "$defs": {
+    "automationScore": {
+      "type": "object",
+      "required": ["value", "max"],
+      "properties": {
+        "value": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "max": {
+          "type": "number",
+          "const": 100
+        },
+        "grade": {
+          "type": "string",
+          "pattern": "^[A-F][+-]?$"
+        },
+        "maturityLevel": {
+          "type": "string",
+          "enum": ["initial", "managed", "defined", "quantitatively-managed", "optimizing"],
+          "description": "Automation maturity level"
+        }
+      }
+    },
+    "pyramidAnalysis": {
+      "type": "object",
+      "required": ["layers", "shape"],
+      "properties": {
+        "layers": {
+          "type": "object",
+          "properties": {
+            "unit": {
+              "type": "object",
+              "properties": {
+                "count": { "type": "integer" },
+                "percentage": { "type": "number" },
+                "targetPercentage": { "type": "number", "default": 70 },
+                "averageExecutionMs": { "type": "number" },
+                "isolation": { "type": "string", "enum": ["complete", "partial", "none"] }
+              }
+            },
+            "integration": {
+              "type": "object",
+              "properties": {
+                "count": { "type": "integer" },
+                "percentage": { "type": "number" },
+                "targetPercentage": { "type": "number", "default": 20 },
+                "averageExecutionMs": { "type": "number" },
+                "isolation": { "type": "string" }
+              }
+            },
+            "e2e": {
+              "type": "object",
+              "properties": {
+                "count": { "type": "integer" },
+                "percentage": { "type": "number" },
+                "targetPercentage": { "type": "number", "default": 10 },
+                "averageExecutionMs": { "type": "number" },
+                "isolation": { "type": "string" }
+              }
+            }
+          }
+        },
+        "shape": {
+          "type": "string",
+          "enum": ["healthy-pyramid", "ice-cream-cone", "hourglass", "cupcake", "diamond"],
+          "description": "Current test pyramid shape"
+        },
+        "pyramidHealthScore": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "How healthy is the pyramid"
+        },
+        "recommendations": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "firstPrinciples": {
+      "type": "object",
+      "required": ["fast", "isolated", "repeatable", "selfValidating", "timely"],
+      "properties": {
+        "fast": {
+          "type": "object",
+          "properties": {
+            "score": { "type": "number", "minimum": 0, "maximum": 100 },
+            "totalSuiteTime": { "type": "integer", "description": "Total suite execution time in seconds" },
+            "targetTime": { "type": "integer", "description": "Target time in seconds" },
+            "slowTests": { "type": "integer", "description": "Number of tests exceeding 1s" },
+            "issues": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "isolated": {
+          "type": "object",
+          "properties": {
+            "score": { "type": "number", "minimum": 0, "maximum": 100 },
+            "sharedState": { "type": "boolean" },
+            "orderDependencies": { "type": "boolean" },
+            "parallelizable": { "type": "boolean" },
+            "issues": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "repeatable": {
+          "type": "object",
+          "properties": {
+            "score": { "type": "number", "minimum": 0, "maximum": 100 },
+            "flakyTestCount": { "type": "integer" },
+            "randomData": { "type": "boolean" },
+            "timeDependencies": { "type": "boolean" },
+            "environmentDependencies": { "type": "boolean" },
+            "issues": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "selfValidating": {
+          "type": "object",
+          "properties": {
+            "score": { "type": "number", "minimum": 0, "maximum": 100 },
+            "manualVerification": { "type": "boolean" },
+            "clearAssertions": { "type": "boolean" },
+            "meaningfulFailures": { "type": "boolean" },
+            "issues": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "timely": {
+          "type": "object",
+          "properties": {
+            "score": { "type": "number", "minimum": 0, "maximum": 100 },
+            "testFirstRatio": { "type": "number" },
+            "testLag": { "type": "string", "description": "How long after code are tests written" },
+            "issues": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "overallScore": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        }
+      }
+    },
+    "automationPatterns": {
+      "type": "object",
+      "properties": {
+        "pageObjectModel": {
+          "type": "object",
+          "properties": {
+            "used": { "type": "boolean" },
+            "coverage": { "type": "number" },
+            "quality": { "type": "string", "enum": ["poor", "fair", "good", "excellent"] }
+          }
+        },
+        "builderPattern": { "type": "object" },
+        "factoryPattern": { "type": "object" },
+        "fixtureManagement": {
+          "type": "object",
+          "properties": {
+            "strategy": { "type": "string" },
+            "isolation": { "type": "boolean" },
+            "cleanup": { "type": "boolean" }
+          }
+        },
+        "dataTestIds": {
+          "type": "object",
+          "properties": {
+            "used": { "type": "boolean" },
+            "coverage": { "type": "number" }
+          }
+        }
+      }
+    },
+    "antiPatterns": {
+      "type": "object",
+      "properties": {
+        "detected": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "enum": ["ice-cream-cone", "slow-suite", "flaky-tests", "coupled-tests", "brittle-selectors", "test-duplication", "hardcoded-data", "sleep-statements", "no-assertions"]
+              },
+              "severity": { "type": "string", "enum": ["critical", "high", "medium", "low"] },
+              "occurrences": { "type": "integer" },
+              "examples": { "type": "array", "items": { "type": "string" } },
+              "remediation": { "type": "string" }
+            }
+          }
+        },
+        "totalCount": { "type": "integer" },
+        "criticalCount": { "type": "integer" }
+      }
+    },
+    "cicdIntegration": {
+      "type": "object",
+      "properties": {
+        "integrated": { "type": "boolean" },
+        "runsOnEveryCommit": { "type": "boolean" },
+        "parallelExecution": { "type": "boolean" },
+        "pipelineStages": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "tests": { "type": "string", "enum": ["unit", "integration", "e2e", "all"] },
+              "duration": { "type": "integer" },
+              "blocking": { "type": "boolean" }
+            }
+          }
+        },
+        "totalPipelineDuration": { "type": "integer" },
+        "fastFeedback": { "type": "boolean", "description": "< 10 minutes" }
+      }
+    },
+    "flakyTestAnalysis": {
+      "type": "object",
+      "properties": {
+        "flakyCount": { "type": "integer" },
+        "flakyRate": { "type": "number", "description": "Percentage of flaky tests" },
+        "quarantined": { "type": "integer" },
+        "rootCauses": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "cause": {
+                "type": "string",
+                "enum": ["timing", "data-isolation", "race-condition", "environment", "network", "unknown"]
+              },
+              "count": { "type": "integer" }
+            }
+          }
+        },
+        "recommendations": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "automationFinding": {
+      "type": "object",
+      "required": ["id", "title", "type", "severity"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^TAS-\\d{3,6}$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 200
+        },
+        "description": { "type": "string" },
+        "type": {
+          "type": "string",
+          "enum": ["pyramid-issue", "first-violation", "antipattern", "flaky-test", "ci-gap", "pattern-gap", "opportunity"]
+        },
+        "severity": {
+          "type": "string",
+          "enum": ["critical", "high", "medium", "low", "info"]
+        },
+        "firstPrinciple": {
+          "type": "string",
+          "enum": ["fast", "isolated", "repeatable", "self-validating", "timely"]
+        }
+      }
+    },
+    "automationRecommendation": {
+      "type": "object",
+      "required": ["id", "title", "priority"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^REC-\\d{3,6}$"
+        },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "priority": {
+          "type": "string",
+          "enum": ["critical", "high", "medium", "low"]
+        },
+        "impact": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["speed", "reliability", "maintainability", "coverage", "cost"]
+          }
+        },
+        "effort": {
+          "type": "string",
+          "enum": ["trivial", "low", "medium", "high", "major"]
+        }
+      }
+    },
+    "automationMetrics": {
+      "type": "object",
+      "properties": {
+        "totalTests": { "type": "integer" },
+        "passRate": { "type": "number", "minimum": 0, "maximum": 100 },
+        "flakyRate": { "type": "number", "minimum": 0, "maximum": 100 },
+        "coverage": { "type": "number", "minimum": 0, "maximum": 100 },
+        "averageExecutionTime": { "type": "integer" },
+        "pyramidScore": { "type": "number", "minimum": 0, "maximum": 100 },
+        "firstScore": { "type": "number", "minimum": 0, "maximum": 100 }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "required": ["type", "path"],
+      "properties": {
+        "type": { "type": "string" },
+        "path": { "type": "string" },
+        "format": { "type": "string" },
+        "description": { "type": "string" }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "executionTimeMs": { "type": "integer" },
+        "agentId": { "type": "string" },
+        "modelUsed": { "type": "string" },
+        "environment": { "type": "string" }
+      }
+    },
+    "validationResult": {
+      "type": "object",
+      "properties": {
+        "schemaValid": { "type": "boolean" },
+        "contentValid": { "type": "boolean" },
+        "confidence": { "type": "number" }
+      }
+    },
+    "learningData": {
+      "type": "object",
+      "properties": {
+        "patternsDetected": { "type": "array", "items": { "type": "string" } },
+        "reward": { "type": "number" }
+      }
+    }
+  }
+}

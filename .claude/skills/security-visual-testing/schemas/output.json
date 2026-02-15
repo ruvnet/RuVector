@@ -1,0 +1,486 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentic-qe.dev/schemas/security-visual-testing-output.json",
+  "title": "Security Visual Testing Skill Output Schema",
+  "description": "Schema for combined security and visual testing output with security findings, visual diffs, and unified quality score.",
+  "type": "object",
+  "required": ["skillName", "version", "timestamp", "status", "trustTier", "output"],
+  "properties": {
+    "skillName": {
+      "type": "string",
+      "const": "security-visual-testing",
+      "description": "Must be 'security-visual-testing'"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+(-[a-zA-Z0-9]+)?$"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["success", "partial", "failed", "skipped"]
+    },
+    "trustTier": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 3
+    },
+    "output": {
+      "type": "object",
+      "required": ["summary", "securityFindings", "visualDiffs"],
+      "properties": {
+        "summary": {
+          "type": "string",
+          "minLength": 50,
+          "maxLength": 2000
+        },
+        "securityFindings": {
+          "$ref": "#/$defs/securityFindings"
+        },
+        "visualDiffs": {
+          "$ref": "#/$defs/visualDiffs"
+        },
+        "combinedScore": {
+          "$ref": "#/$defs/combinedScore"
+        },
+        "crossDomainIssues": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/crossDomainIssue"
+          },
+          "description": "Issues that span both security and visual domains"
+        },
+        "findings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/finding"
+          },
+          "maxItems": 200
+        },
+        "recommendations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/recommendation"
+          },
+          "maxItems": 100
+        },
+        "artifacts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/artifact"
+          }
+        }
+      }
+    },
+    "metadata": {
+      "$ref": "#/$defs/metadata"
+    },
+    "validation": {
+      "$ref": "#/$defs/validationResult"
+    },
+    "learning": {
+      "$ref": "#/$defs/learningData"
+    }
+  },
+  "$defs": {
+    "securityFindings": {
+      "type": "object",
+      "required": ["totalFindings", "score"],
+      "properties": {
+        "totalFindings": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "criticalCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "highCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "mediumCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "lowCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "score": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Security score (100 = no issues)"
+        },
+        "owaspCategories": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "tested": {
+                "type": "boolean"
+              },
+              "findingCount": {
+                "type": "integer"
+              },
+              "score": {
+                "type": "number"
+              }
+            }
+          }
+        },
+        "vulnerabilities": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "title", "severity"],
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^SEC-\\d{3,6}$"
+              },
+              "title": {
+                "type": "string"
+              },
+              "severity": {
+                "type": "string",
+                "enum": ["critical", "high", "medium", "low", "info"]
+              },
+              "owasp": {
+                "type": "string"
+              },
+              "cwe": {
+                "type": "string"
+              },
+              "location": {
+                "type": "object",
+                "properties": {
+                  "url": {
+                    "type": "string"
+                  },
+                  "element": {
+                    "type": "string"
+                  }
+                }
+              },
+              "remediation": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "visualDiffs": {
+      "type": "object",
+      "required": ["totalComparisons", "diffsDetected"],
+      "properties": {
+        "totalComparisons": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "diffsDetected": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "passRate": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "score": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Visual consistency score"
+        },
+        "comparisons": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "status"],
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^VIS-\\d{3,6}$"
+              },
+              "page": {
+                "type": "string"
+              },
+              "viewport": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string",
+                "enum": ["passed", "failed", "warning", "skipped"]
+              },
+              "diffPercentage": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 100
+              },
+              "diffPixels": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "baselineImage": {
+                "type": "string"
+              },
+              "actualImage": {
+                "type": "string"
+              },
+              "diffImage": {
+                "type": "string"
+              },
+              "regions": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "x": {
+                      "type": "integer"
+                    },
+                    "y": {
+                      "type": "integer"
+                    },
+                    "width": {
+                      "type": "integer"
+                    },
+                    "height": {
+                      "type": "integer"
+                    },
+                    "type": {
+                      "type": "string",
+                      "enum": ["added", "removed", "changed"]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "combinedScore": {
+      "type": "object",
+      "required": ["value", "max"],
+      "properties": {
+        "value": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "max": {
+          "type": "number",
+          "const": 100
+        },
+        "grade": {
+          "type": "string",
+          "pattern": "^[A-F][+-]?$"
+        },
+        "securityWeight": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "visualWeight": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "breakdown": {
+          "type": "object",
+          "properties": {
+            "securityScore": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 100
+            },
+            "visualScore": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 100
+            }
+          }
+        }
+      }
+    },
+    "crossDomainIssue": {
+      "type": "object",
+      "required": ["id", "title", "domains"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^SVT-\\d{3,6}$"
+        },
+        "title": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "domains": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["security", "visual"]
+          },
+          "minItems": 2
+        },
+        "severity": {
+          "type": "string",
+          "enum": ["critical", "high", "medium", "low", "info"]
+        },
+        "examples": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "e.g., XSS that causes visual injection, CSP blocking images"
+        },
+        "remediation": {
+          "type": "string"
+        }
+      }
+    },
+    "finding": {
+      "type": "object",
+      "required": ["id", "title", "severity", "domain"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^(SEC|VIS|SVT)-\\d{3,6}$"
+        },
+        "title": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "severity": {
+          "type": "string",
+          "enum": ["critical", "high", "medium", "low", "info"]
+        },
+        "domain": {
+          "type": "string",
+          "enum": ["security", "visual", "both"]
+        },
+        "remediation": {
+          "type": "string"
+        }
+      }
+    },
+    "recommendation": {
+      "type": "object",
+      "required": ["id", "title", "priority"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^REC-\\d{3,6}$"
+        },
+        "title": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "priority": {
+          "type": "string",
+          "enum": ["critical", "high", "medium", "low"]
+        },
+        "effort": {
+          "type": "string",
+          "enum": ["trivial", "low", "medium", "high", "major"]
+        },
+        "domain": {
+          "type": "string",
+          "enum": ["security", "visual", "both"]
+        }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "required": ["type", "path"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["report", "screenshot", "diff", "sarif", "data"]
+        },
+        "path": {
+          "type": "string"
+        },
+        "format": {
+          "type": "string"
+        },
+        "domain": {
+          "type": "string",
+          "enum": ["security", "visual", "combined"]
+        }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "executionTimeMs": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "toolsUsed": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "agentId": {
+          "type": "string"
+        },
+        "targetUrl": {
+          "type": "string",
+          "format": "uri"
+        },
+        "viewports": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "validationResult": {
+      "type": "object",
+      "properties": {
+        "schemaValid": {
+          "type": "boolean"
+        },
+        "contentValid": {
+          "type": "boolean"
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    },
+    "learningData": {
+      "type": "object",
+      "properties": {
+        "patternsDetected": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "reward": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    }
+  }
+}

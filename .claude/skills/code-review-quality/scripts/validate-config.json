@@ -1,0 +1,34 @@
+{
+  "skillName": "code-review-quality",
+  "skillVersion": "1.0.0",
+  "requiredTools": [
+    "jq"
+  ],
+  "optionalTools": [],
+  "schemaPath": "schemas/output.json",
+  "requiredFields": [
+    "skillName",
+    "status",
+    "output",
+    "output.summary",
+    "output.reviewFindings",
+    "output.codeQuality"
+  ],
+  "requiredNonEmptyFields": [],
+  "mustContainTerms": [
+    "review",
+    "quality"
+  ],
+  "mustNotContainTerms": [
+    "TODO",
+    "FIXME"
+  ],
+  "enumValidations": {
+    ".status": [
+      "success",
+      "partial",
+      "failed",
+      "skipped"
+    ]
+  }
+}

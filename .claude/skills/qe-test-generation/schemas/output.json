@@ -1,0 +1,439 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentic-qe.dev/schemas/qe-test-generation-output.json",
+  "title": "AQE Test Generation Skill Output Schema",
+  "description": "Schema for AI-powered test generation skill output. Includes generated tests, coverage targets, and pattern matching.",
+  "type": "object",
+  "required": ["skillName", "version", "timestamp", "status", "trustTier", "output"],
+  "properties": {
+    "skillName": {
+      "type": "string",
+      "const": "qe-test-generation",
+      "description": "Must be 'qe-test-generation'"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+(-[a-zA-Z0-9]+)?$"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["success", "partial", "failed", "skipped"]
+    },
+    "trustTier": {
+      "type": "integer",
+      "const": 3
+    },
+    "output": {
+      "type": "object",
+      "required": ["summary", "generatedTests", "coverage"],
+      "properties": {
+        "summary": {
+          "type": "string",
+          "minLength": 50,
+          "maxLength": 2000
+        },
+        "generatedTests": {
+          "$ref": "#/$defs/generatedTestsReport"
+        },
+        "coverage": {
+          "$ref": "#/$defs/coverageTarget"
+        },
+        "patterns": {
+          "$ref": "#/$defs/patternAnalysis"
+        },
+        "qualityMetrics": {
+          "$ref": "#/$defs/testQualityMetrics"
+        },
+        "codeAnalysis": {
+          "$ref": "#/$defs/codeAnalysis"
+        },
+        "recommendations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/recommendation"
+          },
+          "maxItems": 50
+        },
+        "artifacts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/artifact"
+          },
+          "maxItems": 100
+        }
+      }
+    },
+    "metadata": {
+      "$ref": "#/$defs/metadata"
+    },
+    "validation": {
+      "$ref": "#/$defs/validationResult"
+    },
+    "learning": {
+      "$ref": "#/$defs/learningData"
+    }
+  },
+  "$defs": {
+    "generatedTestsReport": {
+      "type": "object",
+      "required": ["total"],
+      "properties": {
+        "total": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total tests generated"
+        },
+        "byType": {
+          "type": "object",
+          "properties": {
+            "unit": { "type": "integer", "minimum": 0 },
+            "integration": { "type": "integer", "minimum": 0 },
+            "e2e": { "type": "integer", "minimum": 0 },
+            "property": { "type": "integer", "minimum": 0 }
+          }
+        },
+        "byCategory": {
+          "type": "object",
+          "properties": {
+            "happyPath": { "type": "integer", "minimum": 0 },
+            "edgeCases": { "type": "integer", "minimum": 0 },
+            "errorCases": { "type": "integer", "minimum": 0 },
+            "boundary": { "type": "integer", "minimum": 0 },
+            "negative": { "type": "integer", "minimum": 0 }
+          }
+        },
+        "tests": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/generatedTest"
+          },
+          "maxItems": 500
+        }
+      }
+    },
+    "generatedTest": {
+      "type": "object",
+      "required": ["id", "name", "type"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^TEST-\\d{3,6}$"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 300
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 1000
+        },
+        "type": {
+          "type": "string",
+          "enum": ["unit", "integration", "e2e", "property", "snapshot"]
+        },
+        "category": {
+          "type": "string",
+          "enum": ["happy-path", "edge-case", "error-case", "boundary", "negative", "smoke"]
+        },
+        "sourceFile": {
+          "type": "string",
+          "description": "File being tested"
+        },
+        "testFile": {
+          "type": "string",
+          "description": "Generated test file path"
+        },
+        "code": {
+          "type": "string",
+          "maxLength": 10000,
+          "description": "Generated test code"
+        },
+        "framework": {
+          "type": "string",
+          "enum": ["jest", "vitest", "mocha", "pytest", "junit", "playwright", "cypress"]
+        },
+        "assertions": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Number of assertions"
+        },
+        "mocks": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Mocked dependencies"
+        },
+        "tags": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Generation confidence"
+        },
+        "pattern": {
+          "type": "string",
+          "description": "Pattern used for generation"
+        }
+      }
+    },
+    "coverageTarget": {
+      "type": "object",
+      "required": ["current", "projected"],
+      "properties": {
+        "current": {
+          "type": "object",
+          "properties": {
+            "statement": { "type": "number", "minimum": 0, "maximum": 100 },
+            "branch": { "type": "number", "minimum": 0, "maximum": 100 },
+            "function": { "type": "number", "minimum": 0, "maximum": 100 },
+            "line": { "type": "number", "minimum": 0, "maximum": 100 }
+          }
+        },
+        "projected": {
+          "type": "object",
+          "properties": {
+            "statement": { "type": "number", "minimum": 0, "maximum": 100 },
+            "branch": { "type": "number", "minimum": 0, "maximum": 100 },
+            "function": { "type": "number", "minimum": 0, "maximum": 100 },
+            "line": { "type": "number", "minimum": 0, "maximum": 100 }
+          },
+          "description": "Projected coverage after adding generated tests"
+        },
+        "target": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Target coverage percentage"
+        },
+        "improvement": {
+          "type": "object",
+          "properties": {
+            "statement": { "type": "number" },
+            "branch": { "type": "number" },
+            "function": { "type": "number" },
+            "line": { "type": "number" }
+          },
+          "description": "Expected improvement"
+        },
+        "uncoveredPaths": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "file": { "type": "string" },
+              "lines": { "type": "array", "items": { "type": "integer" } },
+              "functions": { "type": "array", "items": { "type": "string" } }
+            }
+          },
+          "maxItems": 100,
+          "description": "Paths not covered by new tests"
+        }
+      }
+    },
+    "patternAnalysis": {
+      "type": "object",
+      "properties": {
+        "patternsApplied": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/testPattern"
+          }
+        },
+        "patternsAvailable": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "patternMatches": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "testPattern": {
+      "type": "object",
+      "required": ["name", "applied"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Pattern name (e.g., service-layer, repository, controller)"
+        },
+        "applied": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "testsGenerated": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "description": {
+          "type": "string"
+        }
+      }
+    },
+    "testQualityMetrics": {
+      "type": "object",
+      "properties": {
+        "assertionsPerTest": {
+          "type": "number",
+          "minimum": 0
+        },
+        "isolationScore": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Test isolation score"
+        },
+        "namingQuality": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Descriptive naming score"
+        },
+        "maintainabilityScore": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "issues": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": { "type": "string" },
+              "test": { "type": "string" },
+              "message": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "codeAnalysis": {
+      "type": "object",
+      "properties": {
+        "filesAnalyzed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "functionsAnalyzed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "classesAnalyzed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "complexity": {
+          "type": "object",
+          "properties": {
+            "average": { "type": "number" },
+            "max": { "type": "number" }
+          }
+        },
+        "dependencies": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "mockCandidates": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Suggested items to mock"
+        }
+      }
+    },
+    "recommendation": {
+      "type": "object",
+      "required": ["id", "title", "priority"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^REC-\\d{3,6}$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 200
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 2000
+        },
+        "priority": {
+          "type": "string",
+          "enum": ["critical", "high", "medium", "low"]
+        },
+        "type": {
+          "type": "string",
+          "enum": ["coverage-gap", "missing-edge-case", "refactoring", "pattern-suggestion"]
+        },
+        "targetFiles": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "required": ["type", "path"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["test-file", "report", "coverage", "data"]
+        },
+        "path": { "type": "string", "maxLength": 500 },
+        "format": {
+          "type": "string",
+          "enum": ["ts", "js", "py", "java", "json", "html", "md"]
+        },
+        "description": { "type": "string" }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "executionTimeMs": { "type": "integer", "minimum": 0 },
+        "framework": {
+          "type": "string",
+          "enum": ["jest", "vitest", "mocha", "pytest", "junit", "playwright", "cypress"]
+        },
+        "agentId": { "type": "string", "pattern": "^qe-[a-z][a-z0-9-]*$" },
+        "modelUsed": { "type": "string" },
+        "sourceScope": { "type": "string" }
+      }
+    },
+    "validationResult": {
+      "type": "object",
+      "properties": {
+        "schemaValid": { "type": "boolean" },
+        "contentValid": { "type": "boolean" },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "warnings": { "type": "array", "items": { "type": "string" } },
+        "errors": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "learningData": {
+      "type": "object",
+      "properties": {
+        "patternsDetected": { "type": "array", "items": { "type": "string" } },
+        "reward": { "type": "number", "minimum": 0, "maximum": 1 },
+        "newPatterns": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "codeSignature": { "type": "string" },
+              "testTemplate": { "type": "string" }
+            }
+          }
+        }
+      }
+    }
+  }
+}

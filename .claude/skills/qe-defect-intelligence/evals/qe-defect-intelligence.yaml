@@ -1,0 +1,511 @@
+# =============================================================================
+# AQE Skill Evaluation Test Suite: QE Defect Intelligence v1.0.0
+# =============================================================================
+#
+# Comprehensive evaluation suite for the qe-defect-intelligence skill.
+# Tests ML-based defect prediction, pattern learning from historical data,
+# root cause analysis, and proactive quality management.
+#
+# Schema: .claude/skills/.validation/schemas/skill-eval.schema.json
+# Validator: .claude/skills/qe-defect-intelligence/scripts/validate-config.json
+#
+# Coverage:
+# - Change-based defect prediction
+# - Pattern learning from defect history
+# - Root cause analysis (5-whys, fishbone, fault tree)
+# - Failure pattern detection
+# - Risk scoring and prioritization
+#
+# =============================================================================
+
+skill: qe-defect-intelligence
+version: 1.0.0
+description: >
+  Comprehensive evaluation suite for the qe-defect-intelligence skill.
+  Tests AI-powered defect prediction, pattern learning from historical data,
+  root cause analysis using multiple methodologies, failure pattern detection,
+  and proactive quality management with risk scoring.
+
+# =============================================================================
+# Multi-Model Configuration
+# =============================================================================
+
+models_to_test:
+  - claude-3.5-sonnet
+  - claude-3-haiku
+
+# =============================================================================
+# MCP Integration Configuration
+# =============================================================================
+
+mcp_integration:
+  enabled: true
+  namespace: skill-validation
+
+  query_patterns: true
+  track_outcomes: true
+  store_patterns: true
+  share_learning: true
+  update_quality_gate: true
+
+  target_agents:
+    - qe-learning-coordinator
+    - qe-queen-coordinator
+    - qe-defect-predictor
+    - qe-root-cause-analyzer
+
+# =============================================================================
+# ReasoningBank Learning Configuration
+# =============================================================================
+
+learning:
+  store_success_patterns: true
+  store_failure_patterns: true
+  pattern_ttl_days: 90
+  min_confidence_to_store: 0.7
+  cross_model_comparison: true
+
+# =============================================================================
+# Result Format Configuration
+# =============================================================================
+
+result_format:
+  json_output: true
+  markdown_report: true
+  include_raw_output: false
+  include_timing: true
+  include_token_usage: true
+
+# =============================================================================
+# Environment Setup
+# =============================================================================
+
+setup:
+  required_tools:
+    - jq
+  environment_variables:
+    DEFECT_PREDICTION_MODEL: "ml"
+    PATTERN_LEARNING_ENABLED: "true"
+    RCA_DEPTH: "5"
+  fixtures: []
+
+# =============================================================================
+# TEST CASES
+# =============================================================================
+
+test_cases:
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Defect Prediction
+  # ---------------------------------------------------------------------------
+
+  - id: tc001_change_based_defect_prediction
+    description: "Predict defect likelihood from code changes"
+    category: prediction
+    priority: critical
+
+    input:
+      prompt: |
+        Predict defects in PR #456 changes using:
+        1. Code churn (weight: 0.2) - how much code changed
+        2. Complexity (weight: 0.25) - cyclomatic complexity
+        3. Author experience (weight: 0.15) - familiar with module?
+        4. File history (weight: 0.2) - past defects in file
+        5. Test coverage gaps (weight: 0.2) - uncovered changes
+
+        For each high-risk change, assign risk score 0-1.
+        Which would you flag for extra review?
+      context:
+        pr_number: 456
+        factors: "all"
+        threshold_high: 0.7
+        threshold_medium: 0.4
+
+    expected_output:
+      must_contain:
+        - "defect"
+        - "predict"
+        - "risk"
+        - "score"
+        - "churn"
+        - "complexity"
+      must_not_contain:
+        - "certain"
+        - "will fail"
+      severity_classification: critical
+      finding_count:
+        min: 1
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+      reasoning_quality_min: 0.75
+
+  - id: tc002_defect_risk_scoring
+    description: "Score defect risk across multiple factors"
+    category: prediction
+    priority: critical
+
+    input:
+      prompt: |
+        Score defect risk for modified PaymentService:
+        - Complexity: cyclomatic 18 (high: > 10)
+        - Change frequency: modified 8 times in 90 days (high)
+        - Bug history: 3 bugs in file past 180 days (concerning)
+        - Test coverage: 65% (below 85% target)
+        - Author experience: first-time modifier (unfamiliar)
+
+        Calculate overall risk score and recommend actions.
+      context:
+        factors_detailed: true
+        recommendations: true
+
+    expected_output:
+      must_contain:
+        - "risk"
+        - "score"
+        - "high"
+        - "complexity"
+        - "coverage"
+        - "recommend"
+      must_not_contain:
+        - "low risk"
+        - "unlikely"
+      severity_classification: critical
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Pattern Learning
+  # ---------------------------------------------------------------------------
+
+  - id: tc003_defect_pattern_learning
+    description: "Learn patterns from historical defect data"
+    category: patterns
+    priority: critical
+
+    input:
+      prompt: |
+        Learn patterns from past 6 months of defects:
+        1. Code-smell-to-defect correlation (e.g., long methods)
+        2. Change coupling patterns (e.g., changes to A, B, C together)
+        3. Test gap correlation (files with < 60% coverage)
+        4. Complexity defect density (high complexity -> more bugs)
+        5. File age patterns (older files more stable)
+
+        What patterns would reduce future defects?
+      context:
+        defects: "jira:past-6-months"
+        patterns: "all"
+        output: "rules_and_recommendations"
+
+    expected_output:
+      must_contain:
+        - "pattern"
+        - "learn"
+        - "correlation"
+        - "defect"
+        - "rule"
+      must_not_contain:
+        - "no patterns"
+        - "random"
+      severity_classification: critical
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+      reasoning_quality_min: 0.75
+
+  - id: tc004_similar_failure_detection
+    description: "Find similar failures in history to predict patterns"
+    category: patterns
+    priority: high
+
+    input:
+      prompt: |
+        Test failure: "AuthService.login() timeout in production"
+
+        Search history for:
+        1. Same module failures
+        2. Same error type (timeout)
+        3. Same time window (peak traffic hours)
+        4. Same root causes
+        5. Resolutions that worked
+
+        How would you help prevent recurrence?
+      context:
+        failure_analysis: true
+        history_window: "90d"
+
+    expected_output:
+      must_contain:
+        - "similar"
+        - "failure"
+        - "pattern"
+        - "history"
+        - "root cause"
+      finding_count:
+        min: 1
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.75
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Root Cause Analysis
+  # ---------------------------------------------------------------------------
+
+  - id: tc005_five_whys_analysis
+    description: "Perform 5-whys root cause analysis"
+    category: rca
+    priority: critical
+
+    input:
+      prompt: |
+        Apply 5-whys for test failure:
+        "UserService.getById() returns null for valid ID"
+
+        1. Why does it return null?
+           - Because query returns no rows
+        2. Why does query return no rows?
+           - Because ID was not saved to database
+        3. Why was ID not saved?
+           - Because transaction rolled back
+        4. Why did transaction rollback?
+           - Because timeout on DB connection
+        5. Why is timeout occurring?
+           - Because connection pool exhausted
+           ROOT CAUSE: Connection pool misconfiguration
+
+        What's the fix?
+      context:
+        method: "five-whys"
+        depth: 5
+
+    expected_output:
+      must_contain:
+        - "why"
+        - "root cause"
+        - "transaction"
+        - "fix"
+        - "connection"
+      must_not_contain:
+        - "unclear"
+        - "unknown"
+      severity_classification: critical
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+      reasoning_quality_min: 0.75
+
+  - id: tc006_fishbone_diagram_analysis
+    description: "Use fishbone (Ishikawa) analysis for RCA"
+    category: rca
+    priority: high
+
+    input:
+      prompt: |
+        Organize RCA using fishbone with categories:
+        - PEOPLE: Lack of training, new team member
+        - PROCESS: Missing validation, no error handling
+        - TOOLS: Outdated logger, missing monitoring
+        - ENVIRONMENT: Wrong config, insufficient resources
+        - MATERIALS: Bad test data, missing mocks
+        - MEASUREMENT: No metrics for this code path
+
+        For test failures in authentication, what causes in each category?
+      context:
+        categories: ["people", "process", "tools", "environment", "materials", "measurement"]
+        problem: "authentication_failures"
+
+    expected_output:
+      must_contain:
+        - "fishbone"
+        - "people"
+        - "process"
+        - "tools"
+        - "environment"
+      finding_count:
+        min: 1
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.75
+
+  - id: tc007_fault_tree_analysis
+    description: "Build fault tree for system failures"
+    category: rca
+    priority: high
+
+    input:
+      prompt: |
+        Build fault tree for "Login Service Unavailable":
+
+        Top Event: Login Service Unavailable
+
+        Intermediate Events:
+        - Database Down OR
+        - API Timeout OR
+        - Authentication Failed
+
+        Basic Events:
+        - DB connection lost, DB queries slow
+        - Network latency, service crashed
+        - Invalid credentials, expired token
+
+        How would you use this to prevent failures?
+      context:
+        top_event: "login_unavailable"
+        gate_types: ["AND", "OR", "NOT"]
+
+    expected_output:
+      must_contain:
+        - "fault tree"
+        - "event"
+        - "basic"
+        - "gate"
+        - "prevent"
+      severity_classification: high
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.75
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Failure Pattern Recognition
+  # ---------------------------------------------------------------------------
+
+  - id: tc008_flaky_test_pattern_detection
+    description: "Identify patterns in flaky test failures"
+    category: patterns
+    priority: high
+
+    input:
+      prompt: |
+        Analyze flaky test: "UserService.getById() flakes 15% of time"
+
+        Patterns to investigate:
+        1. Time-based: Fails at night? During peak load?
+        2. Data-based: Fails with certain test data?
+        3. Resource-based: Fails when CPU > 80%?
+        4. External service: Fails when API times out?
+        5. Concurrency: Fails in parallel execution?
+
+        How would you stabilize this test?
+      context:
+        flaky_test: "UserService.getById()"
+        failure_rate: 0.15
+
+    expected_output:
+      must_contain:
+        - "pattern"
+        - "flaky"
+        - "investigate"
+        - "stabilize"
+        - "correlation"
+      finding_count:
+        min: 1
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.75
+
+  - id: tc009_regression_pattern_analysis
+    description: "Identify patterns in regression failures"
+    category: patterns
+    priority: high
+
+    input:
+      prompt: |
+        Analyze regression: "Checkout flow broke after authentication refactor"
+
+        Questions:
+        1. Which checkout modules depend on auth?
+        2. What changed in auth API?
+        3. Are there version mismatches?
+        4. Were integration tests skipped?
+        5. Was there compatibility testing?
+
+        How would you have caught this earlier?
+      context:
+        regression_type: "integration"
+        trigger_change: "auth_refactor"
+
+    expected_output:
+      must_contain:
+        - "regression"
+        - "pattern"
+        - "dependencies"
+        - "integration"
+        - "compatibility"
+      severity_classification: high
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.75
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Negative Tests
+  # ---------------------------------------------------------------------------
+
+  - id: tc010_defect_prevention_strategy
+    description: "Design strategy to prevent predicted defects"
+    category: prevention
+    priority: high
+
+    input:
+      prompt: |
+        For high-risk changes, recommend:
+        1. Additional code review checkpoints
+        2. Extra testing (unit, integration, e2e)
+        3. Staging environment validation
+        4. Monitoring/alerting plan
+        5. Rollback strategy
+        6. Documentation updates
+
+        How would you implement this in CI/CD?
+      context:
+        high_risk_detected: true
+        prevention_focus: true
+
+    expected_output:
+      must_contain:
+        - "prevent"
+        - "review"
+        - "test"
+        - "monitor"
+        - "strategy"
+      finding_count:
+        min: 1
+
+    validation:
+      schema_check: true
+      allow_partial: true
+
+# =============================================================================
+# SUCCESS CRITERIA
+# =============================================================================
+
+success_criteria:
+  pass_rate: 0.8
+  critical_pass_rate: 1.0
+  avg_reasoning_quality: 0.75
+  max_execution_time_ms: 300000
+  cross_model_variance: 0.15
+
+# =============================================================================
+# METADATA
+# =============================================================================
+
+metadata:
+  author: "qe-defect-predictor"
+  created: "2026-02-02"
+  last_updated: "2026-02-02"
+  coverage_target: >
+    Change-based defect prediction with multi-factor risk scoring,
+    pattern learning from historical defect data, root cause analysis
+    using 5-whys/fishbone/fault-tree methods, failure pattern detection,
+    flaky test and regression analysis, and comprehensive defect prevention
+    strategies integrated into CI/CD.

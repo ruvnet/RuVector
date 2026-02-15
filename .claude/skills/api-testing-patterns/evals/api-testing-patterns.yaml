@@ -1,0 +1,696 @@
+# =============================================================================
+# AQE API Testing Patterns Skill Evaluation Test Suite v1.0.0
+# Per ADR-056 - Trust Tier 3 Validation
+# =============================================================================
+#
+# This evaluation suite validates the api-testing-patterns skill behavior:
+# - REST API testing patterns
+# - GraphQL API testing patterns
+# - Contract testing (Pact)
+# - Authentication/Authorization testing
+# - Error handling and validation
+# - Pagination and filtering
+# - Integration with QE agents
+#
+# Schema: .claude/skills/.validation/schemas/skill-eval.schema.json
+# Runner: scripts/run-skill-eval.ts
+#
+# =============================================================================
+
+skill: api-testing-patterns
+version: 1.0.0
+description: >
+  Comprehensive evaluation suite for the api-testing-patterns skill.
+  Tests core API testing patterns across REST, GraphQL, contract testing,
+  and various critical scenarios to ensure consistent, high-quality output
+  across multiple models.
+
+# =============================================================================
+# Multi-Model Configuration
+# =============================================================================
+
+models_to_test:
+  - claude-sonnet-4       # Primary model (high accuracy expected)
+  - claude-3-haiku        # Fast model (minimum quality bar)
+  - gpt-4o                # Cross-vendor validation
+
+# =============================================================================
+# MCP Integration Configuration
+# =============================================================================
+
+mcp_integration:
+  enabled: true
+  namespace: skill-validation
+
+  query_patterns: true
+  track_outcomes: true
+  store_patterns: true
+  share_learning: true
+  update_quality_gate: true
+
+  target_agents:
+    - qe-learning-coordinator
+    - qe-queen-coordinator
+    - qe-api-contract-validator
+
+# =============================================================================
+# ReasoningBank Learning Configuration
+# =============================================================================
+
+learning:
+  store_success_patterns: true
+  store_failure_patterns: true
+  pattern_ttl_days: 90
+  min_confidence_to_store: 0.7
+  cross_model_comparison: true
+
+# =============================================================================
+# Result Format Configuration
+# =============================================================================
+
+result_format:
+  json_output: true
+  markdown_report: true
+  include_raw_output: false
+  include_timing: true
+  include_token_usage: true
+
+# =============================================================================
+# Environment Setup
+# =============================================================================
+
+setup:
+  required_tools:
+    - jq
+  environment_variables:
+    AQE_VALIDATION_MODE: "eval"
+  fixtures:
+    - name: sample_openapi_spec
+      path: fixtures/openapi-sample.yaml
+      content: |
+        openapi: "3.0.3"
+        info:
+          title: Sample API
+          version: "1.0.0"
+        paths:
+          /users:
+            get:
+              operationId: getUsers
+              responses:
+                "200":
+                  description: List of users
+          /users/{id}:
+            get:
+              operationId: getUserById
+              parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+              responses:
+                "200":
+                  description: User found
+                "404":
+                  description: User not found
+    - name: sample_express_api
+      path: fixtures/express-api.js
+      content: |
+        const express = require('express');
+        const app = express();
+
+        app.get('/api/users', (req, res) => {
+          const users = db.query('SELECT * FROM users');
+          res.json(users);
+        });
+
+        app.post('/api/orders', (req, res) => {
+          const { productId, quantity } = req.body;
+          if (!productId) return res.status(400).json({ error: 'productId required' });
+          const order = orderService.create({ productId, quantity });
+          res.status(201).json(order);
+        });
+
+        app.get('/api/orders/:id', auth.required, (req, res) => {
+          const order = orderService.findById(req.params.id);
+          if (!order) return res.status(404).json({ error: 'Not found' });
+          if (order.userId !== req.user.id) return res.status(403).json({ error: 'Forbidden' });
+          res.json(order);
+        });
+
+# =============================================================================
+# Test Cases
+# =============================================================================
+
+test_cases:
+  # -------------------------------------------------------------------------
+  # Basic Functionality Tests
+  # -------------------------------------------------------------------------
+
+  - id: tc001_basic_rest_analysis
+    description: "Skill analyzes basic REST API and identifies test patterns"
+    category: basic
+    priority: critical
+
+    input:
+      prompt: |
+        Analyze this REST API endpoint and recommend API testing patterns:
+        ```javascript
+        app.get('/api/users', (req, res) => {
+          const users = db.query('SELECT * FROM users');
+          res.json(users);
+        });
+        ```
+      context:
+        language: javascript
+        framework: express
+        apiType: rest
+
+    expected_output:
+      must_contain:
+        - "GET"
+        - "test"
+        - "users"
+        - "response"
+      must_not_contain:
+        - "unable to analyze"
+        - "error"
+        - "TODO"
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+      reasoning_quality_min: 0.7
+
+  - id: tc002_contract_testing_recommendation
+    description: "Skill recommends consumer-driven contracts for microservices"
+    category: contract
+    priority: critical
+
+    input:
+      prompt: |
+        I have a checkout-service that calls orders-api and payments-api.
+        What API testing patterns should I use to ensure these services
+        work correctly together?
+      context:
+        architecture: microservices
+        services:
+          - checkout-service
+          - orders-api
+          - payments-api
+
+    expected_output:
+      must_contain:
+        - "contract"
+        - "consumer"
+        - "provider"
+      must_match_regex:
+        - "(?i)(pact|consumer-driven|contract test)"
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+      reasoning_quality_min: 0.8
+
+  - id: tc003_graphql_testing_patterns
+    description: "Skill provides GraphQL-specific testing patterns"
+    category: graphql
+    priority: high
+
+    input:
+      prompt: |
+        Analyze this GraphQL API for testing patterns:
+        ```graphql
+        type Query {
+          user(id: ID!): User
+          users(limit: Int, offset: Int): [User!]!
+        }
+
+        type Mutation {
+          createUser(input: CreateUserInput!): User!
+          updateUser(id: ID!, input: UpdateUserInput!): User
+        }
+        ```
+      context:
+        apiType: graphql
+
+    expected_output:
+      must_contain:
+        - "query"
+        - "mutation"
+        - "GraphQL"
+      must_not_contain:
+        - "REST"
+        - "HTTP method"
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.7
+
+  # -------------------------------------------------------------------------
+  # Authentication Testing
+  # -------------------------------------------------------------------------
+
+  - id: tc004_auth_testing_patterns
+    description: "Skill identifies authentication testing scenarios"
+    category: auth
+    priority: critical
+
+    input:
+      code: |
+        app.get('/api/orders/:id', auth.required, (req, res) => {
+          const order = orderService.findById(req.params.id);
+          if (!order) return res.status(404).json({ error: 'Not found' });
+          if (order.userId !== req.user.id) return res.status(403).json({ error: 'Forbidden' });
+          res.json(order);
+        });
+      context:
+        language: javascript
+        framework: express
+
+    expected_output:
+      must_contain:
+        - "401"
+        - "403"
+        - "auth"
+        - "token"
+      must_match_regex:
+        - "(?i)(unauthorized|forbidden|access)"
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+      grading_rubric:
+        completeness: 0.4
+        accuracy: 0.4
+        actionability: 0.2
+
+  - id: tc005_expired_token_scenario
+    description: "Skill identifies expired token testing scenario"
+    category: auth
+    priority: high
+
+    input:
+      prompt: |
+        For a JWT-authenticated API, what test scenarios should I cover
+        for authentication failures?
+      context:
+        authType: jwt
+
+    expected_output:
+      must_contain:
+        - "expired"
+        - "invalid"
+        - "token"
+      must_match_regex:
+        - "(?i)(expire|timeout|invalid.*token)"
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.7
+
+  # -------------------------------------------------------------------------
+  # Error Handling Tests
+  # -------------------------------------------------------------------------
+
+  - id: tc006_error_handling_patterns
+    description: "Skill recommends error handling test scenarios"
+    category: error_handling
+    priority: high
+
+    input:
+      prompt: |
+        What error handling scenarios should I test for this API endpoint?
+        ```javascript
+        app.post('/api/orders', async (req, res) => {
+          try {
+            const order = await orderService.create(req.body);
+            res.status(201).json(order);
+          } catch (error) {
+            if (error.code === 'VALIDATION_ERROR') {
+              return res.status(400).json({ error: error.message });
+            }
+            res.status(500).json({ error: 'Internal server error' });
+          }
+        });
+        ```
+      context:
+        language: javascript
+
+    expected_output:
+      must_contain:
+        - "400"
+        - "500"
+        - "error"
+        - "validation"
+      must_not_contain:
+        - "no errors"
+        - "perfect"
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+
+  - id: tc007_input_validation_testing
+    description: "Skill identifies input validation test cases"
+    category: validation
+    priority: high
+
+    input:
+      code: |
+        app.post('/api/users', (req, res) => {
+          const { email, password, age } = req.body;
+          if (!email) return res.status(400).json({ error: 'Email required' });
+          if (!password || password.length < 8) return res.status(400).json({ error: 'Password must be 8+ chars' });
+          if (age && (age < 0 || age > 150)) return res.status(400).json({ error: 'Invalid age' });
+          // Create user...
+        });
+      context:
+        language: javascript
+
+    expected_output:
+      must_contain:
+        - "required"
+        - "validation"
+        - "email"
+        - "password"
+      must_match_regex:
+        - "(?i)(boundary|range|length)"
+      finding_count:
+        min: 1
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.7
+
+  # -------------------------------------------------------------------------
+  # Pagination and Filtering Tests
+  # -------------------------------------------------------------------------
+
+  - id: tc008_pagination_testing
+    description: "Skill recommends pagination testing patterns"
+    category: pagination
+    priority: medium
+
+    input:
+      prompt: |
+        This API supports pagination. What test scenarios should I cover?
+        ```javascript
+        app.get('/api/products', (req, res) => {
+          const { page = 1, limit = 20, sort = 'name' } = req.query;
+          const products = productService.find({ page, limit, sort });
+          res.json({
+            data: products,
+            pagination: { page, limit, total: products.total }
+          });
+        });
+        ```
+      context:
+        language: javascript
+
+    expected_output:
+      must_contain:
+        - "page"
+        - "limit"
+        - "boundary"
+      must_match_regex:
+        - "(?i)(first.*page|last.*page|empty|zero)"
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.7
+
+  - id: tc009_filtering_testing
+    description: "Skill recommends filter/search testing patterns"
+    category: filtering
+    priority: medium
+
+    input:
+      prompt: |
+        How should I test filtering and search functionality?
+        ```javascript
+        app.get('/api/products', (req, res) => {
+          const { category, minPrice, maxPrice, search } = req.query;
+          const filters = { category, minPrice, maxPrice, search };
+          const products = productService.search(filters);
+          res.json(products);
+        });
+        ```
+
+    expected_output:
+      must_contain:
+        - "filter"
+        - "search"
+      must_match_regex:
+        - "(?i)(empty.*result|no.*match|invalid.*filter)"
+
+    validation:
+      schema_check: true
+
+  # -------------------------------------------------------------------------
+  # Idempotency and Concurrency Tests
+  # -------------------------------------------------------------------------
+
+  - id: tc010_idempotency_testing
+    description: "Skill identifies idempotency testing patterns"
+    category: idempotency
+    priority: high
+
+    input:
+      prompt: |
+        My payment API uses idempotency keys. What test scenarios should I cover?
+        ```javascript
+        app.post('/api/payments', async (req, res) => {
+          const idempotencyKey = req.headers['idempotency-key'];
+          if (idempotencyKey) {
+            const existing = await cache.get(idempotencyKey);
+            if (existing) return res.json(existing);
+          }
+          const payment = await paymentService.process(req.body);
+          if (idempotencyKey) await cache.set(idempotencyKey, payment);
+          res.status(201).json(payment);
+        });
+        ```
+
+    expected_output:
+      must_contain:
+        - "idempotency"
+        - "duplicate"
+        - "key"
+      must_match_regex:
+        - "(?i)(same.*result|repeat|retry)"
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+
+  - id: tc011_concurrency_testing
+    description: "Skill identifies race condition testing scenarios"
+    category: concurrency
+    priority: high
+
+    input:
+      prompt: |
+        How do I test for race conditions in this inventory API?
+        ```javascript
+        app.post('/api/orders', async (req, res) => {
+          const product = await productService.findById(req.body.productId);
+          if (product.stock < req.body.quantity) {
+            return res.status(400).json({ error: 'Insufficient stock' });
+          }
+          await productService.decrementStock(req.body.productId, req.body.quantity);
+          const order = await orderService.create(req.body);
+          res.status(201).json(order);
+        });
+        ```
+
+    expected_output:
+      must_contain:
+        - "race"
+        - "concurrent"
+        - "parallel"
+      must_match_regex:
+        - "(?i)(lock|atomic|transaction)"
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.7
+
+  # -------------------------------------------------------------------------
+  # Integration Testing Patterns
+  # -------------------------------------------------------------------------
+
+  - id: tc012_integration_test_structure
+    description: "Skill recommends proper integration test structure"
+    category: integration
+    priority: high
+
+    input:
+      prompt: |
+        I need to write integration tests for my Express API that connects
+        to PostgreSQL and Redis. What patterns should I follow?
+      context:
+        framework: express
+        database: postgresql
+        cache: redis
+
+    expected_output:
+      must_contain:
+        - "database"
+        - "setup"
+        - "teardown"
+      must_match_regex:
+        - "(?i)(before|after|cleanup|seed)"
+      recommendation_count:
+        min: 1
+
+    validation:
+      schema_check: true
+      grading_rubric:
+        completeness: 0.3
+        accuracy: 0.4
+        actionability: 0.3
+
+  - id: tc013_supertest_pattern
+    description: "Skill demonstrates supertest usage for Node.js APIs"
+    category: integration
+    priority: medium
+
+    input:
+      prompt: |
+        Show me how to use supertest for testing this Express API endpoint:
+        ```javascript
+        app.post('/api/users', (req, res) => {
+          const user = userService.create(req.body);
+          res.status(201).json(user);
+        });
+        ```
+      context:
+        framework: express
+        testFramework: jest
+
+    expected_output:
+      must_contain:
+        - "supertest"
+        - "expect"
+        - "201"
+      must_match_regex:
+        - "(?i)(request|post|send)"
+
+    validation:
+      schema_check: true
+
+  # -------------------------------------------------------------------------
+  # Negative Tests (Should NOT find issues)
+  # -------------------------------------------------------------------------
+
+  - id: tc014_well_tested_api
+    description: "Skill acknowledges well-tested API without false positives"
+    category: negative
+    priority: high
+
+    input:
+      prompt: |
+        This API already has comprehensive tests. What additional tests might be needed?
+        - Unit tests for all service methods
+        - Integration tests for all endpoints
+        - Contract tests with all consumers
+        - Load tests for high-traffic endpoints
+        - Security tests for auth flows
+      context:
+        testCoverage: "comprehensive"
+
+    expected_output:
+      must_contain:
+        - "comprehensive"
+      must_not_contain:
+        - "critical gap"
+        - "missing"
+        - "no tests"
+
+    validation:
+      schema_check: true
+      finding_count:
+        max: 3  # Allow minor suggestions only
+
+  # -------------------------------------------------------------------------
+  # Edge Cases
+  # -------------------------------------------------------------------------
+
+  - id: tc015_empty_api_spec
+    description: "Skill handles empty or minimal API gracefully"
+    category: edge_cases
+    priority: medium
+
+    input:
+      prompt: "Analyze this API for testing patterns:"
+      context:
+        apiSpec: null
+
+    expected_output:
+      must_contain:
+        - "provide"
+        - "API"
+      must_not_contain:
+        - "exception"
+        - "crash"
+
+    validation:
+      schema_check: true
+      allow_partial: true
+
+  - id: tc016_large_api_spec
+    description: "Skill handles large API specifications"
+    category: edge_cases
+    priority: medium
+    skip: false
+
+    input:
+      file_path: fixtures/openapi-sample.yaml
+      context:
+        apiType: rest
+
+    expected_output:
+      must_contain:
+        - "endpoint"
+        - "test"
+
+    validation:
+      schema_check: true
+
+    timeout_ms: 60000
+
+# =============================================================================
+# Success Criteria
+# =============================================================================
+
+success_criteria:
+  # Minimum percentage of tests that must pass
+  pass_rate: 0.90
+
+  # Critical tests must have 100% pass rate
+  critical_pass_rate: 1.0
+
+  # Average reasoning quality across all tests
+  avg_reasoning_quality: 0.7
+
+  # Maximum time for entire suite (5 minutes)
+  max_execution_time_ms: 300000
+
+  # Maximum variance between different models (15%)
+  cross_model_variance: 0.15
+
+# =============================================================================
+# Metadata
+# =============================================================================
+
+metadata:
+  author: "@agentic-qe"
+  created: "2026-02-02"
+  last_updated: "2026-02-02"
+  coverage_target: >
+    Core API testing patterns including REST, GraphQL, contract testing,
+    authentication, error handling, pagination, idempotency, and concurrency.
+    Tests 16 scenarios across 8 categories.
+  adr_reference: "ADR-056"
+  trust_tier: 3

@@ -1,0 +1,144 @@
+skill: qe-learning-optimization
+version: 1.0.0
+description: >
+  Evaluation suite for QE learning optimization.
+  Tests pattern learning, cross-model comparison, and ReasoningBank integration.
+
+models_to_test:
+  - claude-3.5-sonnet
+  - claude-3-haiku
+
+mcp_integration:
+  enabled: true
+  namespace: skill-validation
+  query_patterns: true
+  track_outcomes: true
+  store_patterns: true
+  target_agents:
+    - qe-learning-coordinator
+
+learning:
+  store_success_patterns: true
+  store_failure_patterns: true
+  pattern_ttl_days: 90
+
+result_format:
+  json_output: true
+  include_timing: true
+  include_token_usage: true
+
+setup:
+  required_tools:
+    - jq
+
+test_cases:
+
+  - id: tc001_pattern_learning
+    description: "Learn and store test patterns"
+    category: learning
+    priority: critical
+
+    input:
+      test_case:
+        name: "sql_injection_detection"
+        input: "SELECT * FROM users WHERE id = ${userId}"
+        output: "SQL injection vulnerability detected"
+        success: true
+
+    expected_output:
+      must_contain:
+        - "pattern"
+        - "learning"
+        - "store"
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+
+  - id: tc002_cross_model_comparison
+    description: "Compare outputs across different models"
+    category: comparison
+    priority: high
+
+    input:
+      models:
+        - "claude-3.5-sonnet"
+        - "claude-3-haiku"
+      test_case: "security_vulnerability"
+
+    expected_output:
+      must_contain:
+        - "comparison"
+        - "variance"
+
+    validation:
+      schema_check: true
+
+  - id: tc003_pattern_query
+    description: "Query and retrieve learned patterns"
+    category: retrieval
+    priority: high
+
+    input:
+      pattern_type: "security_finding"
+      domain: "sql_injection"
+
+    expected_output:
+      must_contain:
+        - "pattern"
+        - "retrieve"
+
+    validation:
+      schema_check: true
+
+  - id: tc004_confidence_scoring
+    description: "Score pattern confidence and reliability"
+    category: scoring
+    priority: medium
+
+    input:
+      pattern:
+        success_rate: 0.95
+        test_count: 20
+        domains: ["security", "api"]
+
+    expected_output:
+      must_contain:
+        - "confidence"
+        - "score"
+
+    validation:
+      schema_check: true
+
+  - id: tc005_learning_feedback
+    description: "Record learning feedback loop"
+    category: feedback
+    priority: medium
+
+    input:
+      test_outcome:
+        passed: true
+        pattern_used: "security_injection_detection"
+        confidence: 0.92
+
+    expected_output:
+      must_contain:
+        - "feedback"
+        - "learning"
+
+    validation:
+      schema_check: true
+      allow_partial: true
+
+success_criteria:
+  pass_rate: 0.9
+  critical_pass_rate: 1.0
+  avg_reasoning_quality: 0.75
+  max_execution_time_ms: 300000
+
+metadata:
+  author: "qe-learning-coordinator"
+  created: "2026-02-02"
+  coverage_target: >
+    QE learning optimization with 5 test cases covering pattern learning,
+    cross-model comparison, pattern retrieval, confidence scoring, and feedback loops.

@@ -1,0 +1,376 @@
+# =============================================================================
+# AQE Skill Evaluation Test Suite: a11y-ally v1.0.0
+# =============================================================================
+#
+# Comprehensive evaluation suite for a11y-ally accessibility auditing skill.
+# Tests WCAG 2.2 compliance detection, accessibility findings, video captions,
+# and audio descriptions across multiple accessibility standards.
+#
+# Schema: .claude/skills/.validation/schemas/skill-eval.schema.json
+# Validator: .claude/skills/a11y-ally/scripts/validate-config.json
+#
+# =============================================================================
+
+skill: a11y-ally
+version: 1.0.0
+description: >
+  Comprehensive evaluation suite for the a11y-ally accessibility auditing skill.
+  Tests WCAG 2.2 compliance detection, accessibility findings classification,
+  video caption generation, and audio description quality across multiple models.
+
+# =============================================================================
+# Multi-Model Configuration
+# =============================================================================
+
+models_to_test:
+  - claude-3.5-sonnet
+  - claude-3-haiku
+
+# =============================================================================
+# MCP Integration Configuration
+# =============================================================================
+
+mcp_integration:
+  enabled: true
+  namespace: skill-validation
+
+  query_patterns: true
+  track_outcomes: true
+  store_patterns: true
+  share_learning: true
+  update_quality_gate: true
+
+  target_agents:
+    - qe-learning-coordinator
+    - qe-accessibility-auditor
+
+# =============================================================================
+# ReasoningBank Learning Configuration
+# =============================================================================
+
+learning:
+  store_success_patterns: true
+  store_failure_patterns: true
+  pattern_ttl_days: 90
+  min_confidence_to_store: 0.7
+  cross_model_comparison: true
+
+# =============================================================================
+# Result Format Configuration
+# =============================================================================
+
+result_format:
+  json_output: true
+  markdown_report: true
+  include_raw_output: false
+  include_timing: true
+  include_token_usage: true
+
+# =============================================================================
+# Environment Setup
+# =============================================================================
+
+setup:
+  required_tools:
+    - jq
+  environment_variables:
+    WCAG_VERSION: "2.2"
+    AUDIT_DEPTH: "comprehensive"
+  fixtures: []
+
+# =============================================================================
+# TEST CASES
+# =============================================================================
+
+test_cases:
+
+  # -------------------------------------------------------------------------
+  # WCAG 2.2 Compliance Tests
+  # -------------------------------------------------------------------------
+
+  - id: tc001_wcag_color_contrast
+    description: "Detect insufficient color contrast violations (WCAG 1.4.3)"
+    category: wcag
+    priority: critical
+
+    input:
+      html: |
+        <div style="color: #999999; background-color: #ffffff;">
+          Low contrast text that fails WCAG AA standards
+        </div>
+      url: "https://example.com/test"
+      wcag_level: "AA"
+
+    expected_output:
+      must_contain:
+        - "contrast"
+        - "WCAG"
+        - "1.4.3"
+      must_not_contain:
+        - "accessible"
+        - "compliant"
+      severity_classification: high
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+
+  - id: tc002_wcag_alt_text_missing
+    description: "Detect missing alt text on images (WCAG 1.1.1)"
+    category: wcag
+    priority: critical
+
+    input:
+      html: |
+        <img src="example.jpg" />
+        <img src="logo.png" />
+      wcag_level: "A"
+
+    expected_output:
+      must_contain:
+        - "alt text"
+        - "1.1.1"
+        - "image"
+      severity_classification: critical
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+
+  - id: tc003_wcag_keyboard_navigation
+    description: "Identify keyboard navigation issues (WCAG 2.1.1)"
+    category: wcag
+    priority: high
+
+    input:
+      html: |
+        <div onclick="doSomething();">Click me</div>
+        <button onkeydown="event.key === 'Enter' && doSomething();">
+          Proper keyboard handling
+        </button>
+      wcag_level: "A"
+
+    expected_output:
+      must_contain:
+        - "keyboard"
+        - "2.1.1"
+      must_not_contain:
+        - "no issues"
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.7
+
+  # -------------------------------------------------------------------------
+  # ARIA Tests
+  # -------------------------------------------------------------------------
+
+  - id: tc004_aria_missing_roles
+    description: "Detect missing ARIA roles on custom components"
+    category: aria
+    priority: high
+
+    input:
+      html: |
+        <div class="custom-button">Click</div>
+        <div role="button" tabindex="0">Proper ARIA</div>
+      wcag_level: "AA"
+
+    expected_output:
+      must_contain:
+        - "ARIA"
+        - "role"
+        - "semantic"
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.7
+
+  - id: tc005_aria_proper_implementation
+    description: "Recognize proper ARIA implementation"
+    category: aria
+    priority: high
+
+    input:
+      html: |
+        <div role="navigation" aria-label="Main navigation">
+          <ul>
+            <li><a href="#home">Home</a></li>
+            <li><a href="#about">About</a></li>
+          </ul>
+        </div>
+      wcag_level: "AA"
+
+    expected_output:
+      must_contain:
+        - "correct"
+        - "proper"
+      must_not_contain:
+        - "critical"
+        - "error"
+
+    validation:
+      schema_check: true
+      finding_count:
+        max: 1
+
+  # -------------------------------------------------------------------------
+  # Video Caption Tests
+  # -------------------------------------------------------------------------
+
+  - id: tc006_video_caption_generation
+    description: "Generate captions for video content"
+    category: video
+    priority: high
+
+    input:
+      url: "https://example.com/video.html"
+      content_type: "video"
+      video_duration_seconds: 60
+
+    expected_output:
+      must_contain:
+        - "caption"
+        - "webvtt"
+        - "00:00:00"
+      severity_classification: high
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.7
+
+  - id: tc007_audio_description
+    description: "Generate audio descriptions for videos"
+    category: video
+    priority: medium
+
+    input:
+      url: "https://example.com/video.html"
+      content_type: "video"
+      include_audio_descriptions: true
+
+    expected_output:
+      must_contain:
+        - "description"
+        - "audio"
+
+    validation:
+      schema_check: true
+      allow_partial: true
+
+  # -------------------------------------------------------------------------
+  # Negative Tests
+  # -------------------------------------------------------------------------
+
+  - id: tc008_accessible_form
+    description: "Recognize accessible form as compliant"
+    category: negative
+    priority: high
+
+    input:
+      html: |
+        <form>
+          <label for="email">Email:</label>
+          <input id="email" type="email" required aria-required="true" />
+          <label for="password">Password:</label>
+          <input id="password" type="password" required />
+          <button type="submit">Submit</button>
+        </form>
+      wcag_level: "AA"
+
+    expected_output:
+      must_contain:
+        - "compliant"
+        - "accessible"
+      must_not_contain:
+        - "critical"
+        - "violation"
+      finding_count:
+        max: 1
+
+    validation:
+      schema_check: true
+      allow_partial: true
+
+  - id: tc009_semantic_html
+    description: "Recognize proper semantic HTML as accessible"
+    category: negative
+    priority: medium
+
+    input:
+      html: |
+        <nav>
+          <ul>
+            <li><a href="#home">Home</a></li>
+            <li><a href="#about">About</a></li>
+          </ul>
+        </nav>
+        <main>
+          <article>
+            <h1>Title</h1>
+            <p>Content</p>
+          </article>
+        </main>
+      wcag_level: "AA"
+
+    expected_output:
+      must_contain:
+        - "semantic"
+        - "proper"
+      must_not_contain:
+        - "error"
+
+    validation:
+      schema_check: true
+
+  # -------------------------------------------------------------------------
+  # Edge Cases
+  # -------------------------------------------------------------------------
+
+  - id: tc010_complex_interactive
+    description: "Handle complex interactive components correctly"
+    category: edge_cases
+    priority: medium
+
+    input:
+      html: |
+        <div role="tablist">
+          <button role="tab" aria-selected="true" aria-controls="panel1">Tab 1</button>
+          <button role="tab" aria-selected="false" aria-controls="panel2">Tab 2</button>
+          <div role="tabpanel" id="panel1">Content 1</div>
+          <div role="tabpanel" id="panel2">Content 2</div>
+        </div>
+      wcag_level: "AA"
+
+    expected_output:
+      must_contain:
+        - "tab"
+        - "role"
+
+    validation:
+      schema_check: true
+      timeout_ms: 30000
+
+# =============================================================================
+# SUCCESS CRITERIA
+# =============================================================================
+
+success_criteria:
+  pass_rate: 0.9
+  critical_pass_rate: 1.0
+  avg_reasoning_quality: 0.75
+  max_execution_time_ms: 300000
+  cross_model_variance: 0.15
+
+# =============================================================================
+# METADATA
+# =============================================================================
+
+metadata:
+  author: "qe-accessibility-auditor"
+  created: "2026-02-02"
+  last_updated: "2026-02-02"
+  coverage_target: >
+    WCAG 2.2 Level A and AA compliance testing across color contrast,
+    alt text, keyboard navigation, ARIA implementation, video captions,
+    and audio descriptions. 10 test cases with 90% pass rate requirement.

@@ -1,0 +1,595 @@
+# =============================================================================
+# AQE Skill Evaluation Test Suite: QE Security Compliance v1.0.0
+# =============================================================================
+#
+# Comprehensive evaluation suite for the qe-security-compliance skill.
+# Tests SAST scanning, dependency vulnerability checking, compliance auditing,
+# secret detection, and OWASP Top 10 validation.
+#
+# Schema: .claude/skills/.validation/schemas/skill-eval.schema.json
+# Validator: .claude/skills/qe-security-compliance/scripts/validate-config.json
+#
+# Coverage:
+# - SAST scanning for code vulnerabilities
+# - Dependency vulnerability analysis
+# - OWASP Top 10 coverage
+# - Compliance auditing (SOC2, GDPR, HIPAA, PCI-DSS)
+# - Secret detection and prevention
+#
+# =============================================================================
+
+skill: qe-security-compliance
+version: 1.0.0
+description: >
+  Comprehensive evaluation suite for the qe-security-compliance skill.
+  Tests SAST and DAST scanning, dependency vulnerability checking, OWASP
+  Top 10 validation, compliance auditing for multiple standards, and secret
+  detection across codebase and configuration.
+
+# =============================================================================
+# Multi-Model Configuration
+# =============================================================================
+
+models_to_test:
+  - claude-3.5-sonnet
+  - claude-3-haiku
+
+# =============================================================================
+# MCP Integration Configuration
+# =============================================================================
+
+mcp_integration:
+  enabled: true
+  namespace: skill-validation
+
+  query_patterns: true
+  track_outcomes: true
+  store_patterns: true
+  share_learning: true
+  update_quality_gate: true
+
+  target_agents:
+    - qe-learning-coordinator
+    - qe-queen-coordinator
+    - qe-security-auditor
+    - qe-security-scanner
+
+# =============================================================================
+# ReasoningBank Learning Configuration
+# =============================================================================
+
+learning:
+  store_success_patterns: true
+  store_failure_patterns: true
+  pattern_ttl_days: 90
+  min_confidence_to_store: 0.7
+  cross_model_comparison: true
+
+# =============================================================================
+# Result Format Configuration
+# =============================================================================
+
+result_format:
+  json_output: true
+  markdown_report: true
+  include_raw_output: false
+  include_timing: true
+  include_token_usage: true
+
+# =============================================================================
+# Environment Setup
+# =============================================================================
+
+setup:
+  required_tools:
+    - jq
+  environment_variables:
+    SECURITY_SCAN_LEVEL: "comprehensive"
+    OWASP_ENABLED: "true"
+    SECRET_DETECTION: "enabled"
+  fixtures: []
+
+# =============================================================================
+# TEST CASES
+# =============================================================================
+
+test_cases:
+  # ---------------------------------------------------------------------------
+  # CATEGORY: SAST Scanning
+  # ---------------------------------------------------------------------------
+
+  - id: tc001_sast_sql_injection_detection
+    description: "Detect SQL injection vulnerabilities in code"
+    category: sast
+    priority: critical
+
+    input:
+      prompt: |
+        Scan this code for SQL injection vulnerabilities:
+
+        ```javascript
+        app.get('/user/:id', (req, res) => {
+          const userId = req.params.id;
+          const query = `SELECT * FROM users WHERE id = ${userId}`;
+          db.query(query, (err, results) => {
+            res.json(results);
+          });
+        });
+        ```
+
+        VULNERABILITY:
+        - Type: SQL Injection
+        - Severity: CRITICAL
+        - CWE: CWE-89
+        - OWASP: A03:2021
+        - Fix: Use parameterized query
+
+        What are all the issues?
+      context:
+        scan_type: "sql_injection"
+        include_remediation: true
+
+    expected_output:
+      must_contain:
+        - "SQL injection"
+        - "parameterized"
+        - "CWE-89"
+        - "critical"
+      must_not_contain:
+        - "secure"
+        - "no vulnerability"
+      severity_classification: critical
+      finding_count:
+        min: 1
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+      reasoning_quality_min: 0.75
+
+  - id: tc002_sast_xss_detection
+    description: "Detect cross-site scripting (XSS) vulnerabilities"
+    category: sast
+    priority: critical
+
+    input:
+      prompt: |
+        Scan for XSS vulnerabilities:
+
+        ```javascript
+        app.get('/profile', (req, res) => {
+          const name = req.query.name;
+          res.send(`<h1>Welcome, ${name}!</h1>`);
+        });
+        ```
+
+        VULNERABILITY:
+        - Type: Reflected XSS
+        - Severity: HIGH
+        - CWE: CWE-79
+        - Attack: name=<script>alert('xss')</script>
+        - Fix: Escape output or use textContent
+
+        Identify all issues and fixes.
+      context:
+        scan_type: "xss"
+        include_examples: true
+
+    expected_output:
+      must_contain:
+        - "XSS"
+        - "escape"
+        - "sanitize"
+        - "CWE-79"
+      severity_classification: critical
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+
+  - id: tc003_sast_hardcoded_secrets
+    description: "Detect hardcoded credentials and secrets"
+    category: sast
+    priority: critical
+
+    input:
+      prompt: |
+        Scan for hardcoded secrets:
+
+        ```javascript
+        const API_KEY = 'sk-12345678901234567890';
+        const DB_PASSWORD = 'admin123';
+        const JWT_SECRET = 'my-secret-key-do-not-share';
+
+        const credentials = {
+          username: 'admin',
+          password: 'P@ssw0rd123'
+        };
+        ```
+
+        FINDINGS:
+        1. API_KEY: Hardcoded - CRITICAL
+        2. DB_PASSWORD: Hardcoded - CRITICAL
+        3. JWT_SECRET: Hardcoded - CRITICAL
+        4. Credentials object: Hardcoded password - CRITICAL
+
+        Fix: Move to environment variables, use vault
+      context:
+        scan_type: "secrets"
+        secret_patterns: "all"
+
+    expected_output:
+      must_contain:
+        - "secret"
+        - "hardcoded"
+        - "environment"
+        - "credentials"
+      must_not_contain:
+        - "ok"
+        - "no secrets"
+      severity_classification: critical
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+      reasoning_quality_min: 0.75
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Dependency Scanning
+  # ---------------------------------------------------------------------------
+
+  - id: tc004_dependency_vulnerability_check
+    description: "Detect known vulnerabilities in dependencies"
+    category: dependencies
+    priority: critical
+
+    input:
+      prompt: |
+        Scan dependencies for vulnerabilities:
+
+        package.json:
+        - lodash@4.17.15 (outdated)
+        - express@4.16.0 (vulnerable)
+        - moment@2.24.0 (has CVEs)
+        - axios@0.18.1 (vulnerable)
+
+        VULNERABLE PACKAGES:
+        1. express@4.16.0: CVE-2018-16487 (HIGH)
+        2. axios@0.18.1: CVE-2020-28168 (HIGH)
+        3. lodash@4.17.15: CVE-2021-23337 (MEDIUM)
+        4. moment@2.24.0: Regular Expression DoS (MEDIUM)
+
+        Action: Update to latest versions
+      context:
+        scan_scope: "package.json"
+        include_cves: true
+
+    expected_output:
+      must_contain:
+        - "vulnerable"
+        - "CVE"
+        - "dependency"
+        - "update"
+      must_not_contain:
+        - "no vulnerabilities"
+        - "all ok"
+      severity_classification: critical
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+
+  - id: tc005_outdated_package_detection
+    description: "Identify outdated packages needing updates"
+    category: dependencies
+    priority: high
+
+    input:
+      prompt: |
+        Analyze package freshness:
+        - lodash@4.17.15 (current: 4.17.21) - 6 minor versions behind
+        - express@4.16.0 (current: 4.18.2) - 2 major versions behind
+        - jest@24.0.0 (current: 29.0.0) - 5 major versions behind
+
+        RECOMMENDATIONS:
+        1. CRITICAL: Update express (major version)
+        2. HIGH: Update jest (major version, breaking changes)
+        3. MEDIUM: Update lodash (minor version, backward compatible)
+
+        How would you prioritize updates?
+      context:
+        package_analysis: true
+        prioritization: true
+
+    expected_output:
+      must_contain:
+        - "outdated"
+        - "update"
+        - "version"
+        - "prioritize"
+      finding_count:
+        min: 1
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.75
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: OWASP Top 10
+  # ---------------------------------------------------------------------------
+
+  - id: tc006_owasp_comprehensive_check
+    description: "Check code against full OWASP Top 10 2021"
+    category: owasp
+    priority: critical
+
+    input:
+      prompt: |
+        Scan code for OWASP Top 10 2021 compliance:
+
+        A01: Broken Access Control
+        - Check: Authorization on endpoints
+        - Status: FOUND - no authorization check on /admin
+
+        A02: Cryptographic Failures
+        - Check: Weak encryption, plaintext passwords
+        - Status: FOUND - passwords stored plaintext
+
+        A03: Injection (SQL, NoSQL, Command, XSS, LDAP)
+        - Check: SQL injection, XSS
+        - Status: FOUND - SQL injection vulnerability
+
+        A07: Authentication Failures
+        - Check: Weak passwords, session management
+        - Status: OK - using bcrypt and secure sessions
+
+        A06: Vulnerable Components
+        - Check: Known CVEs in dependencies
+        - Status: FOUND - 3 vulnerable packages
+
+        Other categories: OK
+
+        SUMMARY: 3 critical issues, 2 must fix immediately
+      context:
+        standard: "owasp-2021"
+        categories: "all"
+        include_status: true
+
+    expected_output:
+      must_contain:
+        - "OWASP"
+        - "A01"
+        - "A03"
+        - "critical"
+        - "vulnerability"
+      must_not_contain:
+        - "no issues"
+        - "compliant"
+      severity_classification: critical
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+      reasoning_quality_min: 0.75
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Compliance Auditing
+  # ---------------------------------------------------------------------------
+
+  - id: tc007_soc2_compliance_audit
+    description: "Audit code for SOC2 compliance"
+    category: compliance
+    priority: critical
+
+    input:
+      prompt: |
+        Audit SOC2 compliance requirements:
+
+        SECURITY:
+        - Access control: PARTIAL (missing admin endpoint protection)
+        - Encryption: OK (TLS in transit, AES at rest)
+        - Secret management: FAIL (hardcoded secrets)
+        - Monitoring: OK (logs captured)
+
+        AVAILABILITY:
+        - Error handling: OK
+        - Backup: OK
+        - Disaster recovery: PARTIAL (needs testing)
+
+        PROCESSING INTEGRITY:
+        - Input validation: FAIL (SQL injection found)
+        - Error handling: OK
+        - Audit logging: PARTIAL (some endpoints missing)
+
+        CONFIDENTIALITY:
+        - PII protection: FAIL (no encryption for user data)
+        - Access controls: PARTIAL
+
+        PRIVACY:
+        - Data retention: PARTIAL (no policy)
+        - User consent: OK
+
+        COMPLIANCE: 45% - FAIL (multiple critical gaps)
+      context:
+        standard: "SOC2"
+        categories: "all"
+        remediation: true
+
+    expected_output:
+      must_contain:
+        - "SOC2"
+        - "compliance"
+        - "fail"
+        - "gap"
+        - "remediation"
+      must_not_contain:
+        - "compliant"
+        - "pass"
+      severity_classification: critical
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+
+  - id: tc008_gdpr_compliance_check
+    description: "Verify GDPR compliance for user data handling"
+    category: compliance
+    priority: critical
+
+    input:
+      prompt: |
+        Check GDPR compliance:
+
+        REQUIREMENTS:
+        1. User consent documented: FAIL (no consent mechanism)
+        2. Privacy policy: OK (published)
+        3. Data retention policy: FAIL (no policy defined)
+        4. Right to deletion: PARTIAL (can delete but full audit trail)
+        5. Data portability: FAIL (no export functionality)
+        6. Breach notification: PARTIAL (process exists, 30-day compliance ok)
+        7. DPA in place: OK (processor agreements signed)
+        8. Privacy by design: FAIL (not implemented)
+
+        COMPLIANCE: 38% - FAIL
+
+        What are the top 3 fixes?
+      context:
+        standard: "GDPR"
+        user_data_handling: true
+
+    expected_output:
+      must_contain:
+        - "GDPR"
+        - "compliance"
+        - "consent"
+        - "deletion"
+        - "fail"
+      severity_classification: critical
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Security Gate
+  # ---------------------------------------------------------------------------
+
+  - id: tc009_security_gate_enforcement
+    description: "Enforce security gates in CI/CD pipeline"
+    category: gates
+    priority: critical
+
+    input:
+      prompt: |
+        Define security gates for merge:
+        1. Critical vulnerabilities: 0 required
+        2. High vulnerabilities: <= 2
+        3. Known CVEs in dependencies: 0
+        4. Hardcoded secrets: 0
+        5. OWASP blocking issues: 0
+
+        SCAN RESULTS:
+        - Critical: 0 ✓
+        - High: 1 (express vulnerability) ✗ BLOCK
+        - CVEs: 3 ✗ BLOCK
+        - Secrets: 1 hardcoded API key ✗ BLOCK
+        - OWASP: 2 issues ✗ BLOCK
+
+        VERDICT: BLOCK MERGE - fail security gates
+
+        How would you help fix violations?
+      context:
+        blocking: true
+        remediation_guidance: true
+
+    expected_output:
+      must_contain:
+        - "security"
+        - "gate"
+        - "block"
+        - "merge"
+      must_not_contain:
+        - "approve"
+        - "pass"
+      severity_classification: critical
+
+    validation:
+      schema_check: true
+      keyword_match_threshold: 0.8
+
+  # ---------------------------------------------------------------------------
+  # CATEGORY: Negative Tests
+  # ---------------------------------------------------------------------------
+
+  - id: tc010_security_remediation_guidance
+    description: "Provide actionable remediation for security findings"
+    category: negative
+    priority: high
+
+    input:
+      prompt: |
+        For each security issue, provide remediation:
+
+        ISSUE 1: SQL Injection in getUserById()
+        REMEDIATION:
+        ```javascript
+        // BEFORE (vulnerable)
+        const query = `SELECT * FROM users WHERE id = ${userId}`;
+
+        // AFTER (safe)
+        const query = 'SELECT * FROM users WHERE id = ?';
+        db.query(query, [userId], callback);
+        ```
+
+        ISSUE 2: Hardcoded API Key
+        REMEDIATION:
+        // BEFORE
+        const API_KEY = 'sk-123456789';
+
+        // AFTER
+        const API_KEY = process.env.STRIPE_API_KEY;
+        // Set in .env or secrets manager
+
+        Generate clear fix for each issue found.
+      context:
+        issue_remediation: true
+        code_examples: true
+
+    expected_output:
+      must_contain:
+        - "remediation"
+        - "before"
+        - "after"
+        - "fix"
+      finding_count:
+        min: 1
+
+    validation:
+      schema_check: true
+      allow_partial: true
+
+# =============================================================================
+# SUCCESS CRITERIA
+# =============================================================================
+
+success_criteria:
+  pass_rate: 0.8
+  critical_pass_rate: 1.0
+  avg_reasoning_quality: 0.75
+  max_execution_time_ms: 300000
+  cross_model_variance: 0.15
+
+# =============================================================================
+# METADATA
+# =============================================================================
+
+metadata:
+  author: "qe-security-auditor"
+  created: "2026-02-02"
+  last_updated: "2026-02-02"
+  coverage_target: >
+    SAST scanning for SQL injection, XSS, hardcoded secrets, path traversal,
+    insecure crypto, dependency vulnerability analysis with CVE detection,
+    OWASP Top 10 2021 comprehensive checking, compliance auditing for SOC2/GDPR,
+    security gate enforcement with blocking criteria, and detailed remediation
+    guidance with code examples for all identified vulnerabilities.

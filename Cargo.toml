@@ -87,6 +87,7 @@ members = [
     "crates/rvf/rvf-manifest",
     "crates/rvf/rvf-index",
     "crates/rvf/rvf-runtime",
+    "crates/rvf/rvf-node",
     "crates/rvf/rvf-kernel",
     "crates/rvf/rvf-ebpf",
     "crates/rvf/rvf-launch",
@@ -97,7 +98,6 @@ members = [
     "crates/rvf/benches",
     "crates/rvf/rvf-adapters/claude-flow",
     "crates/rvf/rvf-adapters/agentdb",
-    "crates/rvf/rvf-mcp",
 ]
 resolver = "2"
 

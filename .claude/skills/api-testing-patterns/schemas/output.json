@@ -1,0 +1,845 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentic-qe.dev/schemas/skills/api-testing-patterns/output.json",
+  "title": "API Testing Patterns Skill Output Schema",
+  "description": "Schema for API testing patterns skill output. Extends the base skill-output template with API-specific structures for contract, integration, component, and load testing.",
+  "allOf": [
+    {
+      "$comment": "Base schema structure from skill-output.template.json",
+      "type": "object",
+      "required": ["skillName", "version", "timestamp", "status", "trustTier", "output"],
+      "properties": {
+        "skillName": {
+          "type": "string",
+          "const": "api-testing-patterns"
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^\\d+\\.\\d+\\.\\d+(-[a-zA-Z0-9]+)?$"
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["success", "partial", "failed", "skipped"]
+        },
+        "trustTier": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 3
+        }
+      }
+    }
+  ],
+  "properties": {
+    "output": {
+      "type": "object",
+      "required": ["summary", "testingLevel", "endpointCoverage"],
+      "properties": {
+        "summary": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 2000,
+          "description": "Human-readable summary of API testing analysis"
+        },
+        "testingLevel": {
+          "type": "string",
+          "enum": ["contract", "component", "integration", "e2e", "load", "mixed"],
+          "description": "Primary API testing level recommended"
+        },
+        "apiType": {
+          "type": "string",
+          "enum": ["rest", "graphql", "grpc", "websocket", "mixed"],
+          "description": "Type of API being tested"
+        },
+        "endpointCoverage": {
+          "$ref": "#/$defs/endpointCoverage",
+          "description": "Coverage analysis for API endpoints"
+        },
+        "testRecommendations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/testRecommendation"
+          },
+          "maxItems": 50,
+          "description": "Recommended API tests to implement"
+        },
+        "contractTests": {
+          "$ref": "#/$defs/contractTestSuite",
+          "description": "Contract testing specifications"
+        },
+        "integrationTests": {
+          "$ref": "#/$defs/integrationTestSuite",
+          "description": "Integration testing specifications"
+        },
+        "componentTests": {
+          "$ref": "#/$defs/componentTestSuite",
+          "description": "Component testing specifications"
+        },
+        "loadTests": {
+          "$ref": "#/$defs/loadTestSuite",
+          "description": "Load/performance testing specifications"
+        },
+        "securityTests": {
+          "$ref": "#/$defs/securityTestSuite",
+          "description": "API security testing specifications"
+        },
+        "mockConfigurations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/mockConfiguration"
+          },
+          "maxItems": 100,
+          "description": "Mock/stub configurations for testing"
+        },
+        "findings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/apiFinding"
+          },
+          "maxItems": 200,
+          "description": "API testing gaps and issues found"
+        },
+        "recommendations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/recommendation"
+          },
+          "maxItems": 50,
+          "description": "Actionable recommendations for API testing improvement"
+        },
+        "metrics": {
+          "$ref": "#/$defs/apiMetrics",
+          "description": "Quantitative API testing metrics"
+        },
+        "categories": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/categoryScore"
+          },
+          "description": "Scores by API testing category"
+        }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "executionTimeMs": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "toolsUsed": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "agentId": {
+          "type": "string",
+          "pattern": "^qe-[a-z][a-z0-9-]*$"
+        },
+        "apiSpecPath": {
+          "type": "string",
+          "description": "Path to OpenAPI/GraphQL spec analyzed"
+        },
+        "consumers": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Consumer services for contract testing"
+        },
+        "providers": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Provider services for contract testing"
+        }
+      }
+    },
+    "validation": {
+      "type": "object",
+      "properties": {
+        "schemaValid": { "type": "boolean" },
+        "contentValid": { "type": "boolean" },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    },
+    "learning": {
+      "type": "object",
+      "properties": {
+        "patternsDetected": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "reward": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    }
+  },
+  "$defs": {
+    "endpointCoverage": {
+      "type": "object",
+      "description": "API endpoint coverage analysis",
+      "required": ["totalEndpoints", "coveredEndpoints"],
+      "properties": {
+        "totalEndpoints": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total number of API endpoints"
+        },
+        "coveredEndpoints": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of endpoints with test coverage"
+        },
+        "coveragePercentage": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Percentage of endpoints with coverage"
+        },
+        "byHttpMethod": {
+          "$ref": "#/$defs/httpMethodCoverage"
+        },
+        "byStatusCode": {
+          "$ref": "#/$defs/statusCodeCoverage"
+        },
+        "uncoveredEndpoints": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/endpoint"
+          },
+          "description": "List of endpoints without coverage"
+        },
+        "partiallyCoveredEndpoints": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/endpoint"
+          },
+          "description": "Endpoints with incomplete coverage"
+        }
+      }
+    },
+    "httpMethodCoverage": {
+      "type": "object",
+      "description": "Coverage breakdown by HTTP method",
+      "properties": {
+        "GET": { "$ref": "#/$defs/methodCoverageDetail" },
+        "POST": { "$ref": "#/$defs/methodCoverageDetail" },
+        "PUT": { "$ref": "#/$defs/methodCoverageDetail" },
+        "PATCH": { "$ref": "#/$defs/methodCoverageDetail" },
+        "DELETE": { "$ref": "#/$defs/methodCoverageDetail" },
+        "OPTIONS": { "$ref": "#/$defs/methodCoverageDetail" },
+        "HEAD": { "$ref": "#/$defs/methodCoverageDetail" }
+      }
+    },
+    "methodCoverageDetail": {
+      "type": "object",
+      "properties": {
+        "total": { "type": "integer", "minimum": 0 },
+        "covered": { "type": "integer", "minimum": 0 },
+        "percentage": { "type": "number", "minimum": 0, "maximum": 100 }
+      }
+    },
+    "statusCodeCoverage": {
+      "type": "object",
+      "description": "Coverage breakdown by HTTP status code category",
+      "properties": {
+        "2xx": { "$ref": "#/$defs/methodCoverageDetail" },
+        "3xx": { "$ref": "#/$defs/methodCoverageDetail" },
+        "4xx": { "$ref": "#/$defs/methodCoverageDetail" },
+        "5xx": { "$ref": "#/$defs/methodCoverageDetail" }
+      }
+    },
+    "endpoint": {
+      "type": "object",
+      "description": "API endpoint definition",
+      "required": ["method", "path"],
+      "properties": {
+        "method": {
+          "type": "string",
+          "enum": ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"]
+        },
+        "path": {
+          "type": "string",
+          "pattern": "^/.*$",
+          "description": "API endpoint path"
+        },
+        "operationId": {
+          "type": "string",
+          "description": "OpenAPI operationId"
+        },
+        "summary": {
+          "type": "string",
+          "description": "Endpoint description"
+        },
+        "tags": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "parameters": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/parameter"
+          }
+        },
+        "requestBody": {
+          "$ref": "#/$defs/requestBody"
+        },
+        "responses": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/response"
+          }
+        },
+        "security": {
+          "type": "array",
+          "items": { "type": "object" }
+        }
+      }
+    },
+    "parameter": {
+      "type": "object",
+      "required": ["name", "in"],
+      "properties": {
+        "name": { "type": "string" },
+        "in": {
+          "type": "string",
+          "enum": ["query", "path", "header", "cookie"]
+        },
+        "required": { "type": "boolean" },
+        "schema": { "type": "object" }
+      }
+    },
+    "requestBody": {
+      "type": "object",
+      "properties": {
+        "required": { "type": "boolean" },
+        "contentType": { "type": "string" },
+        "schema": { "type": "object" }
+      }
+    },
+    "response": {
+      "type": "object",
+      "properties": {
+        "statusCode": { "type": "integer" },
+        "description": { "type": "string" },
+        "contentType": { "type": "string" },
+        "schema": { "type": "object" }
+      }
+    },
+    "testRecommendation": {
+      "type": "object",
+      "description": "Recommended API test to implement",
+      "required": ["id", "testType", "endpoint", "description"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^API-\\d{3,6}$",
+          "description": "Recommendation ID"
+        },
+        "testType": {
+          "type": "string",
+          "enum": ["contract", "integration", "component", "load", "security", "e2e"],
+          "description": "Type of test recommended"
+        },
+        "endpoint": {
+          "$ref": "#/$defs/endpoint"
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "priority": {
+          "type": "string",
+          "enum": ["critical", "high", "medium", "low"]
+        },
+        "scenarios": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/testScenario"
+          },
+          "description": "Specific test scenarios to implement"
+        },
+        "codeExample": {
+          "type": "string",
+          "maxLength": 5000,
+          "description": "Example test code"
+        },
+        "framework": {
+          "type": "string",
+          "enum": ["supertest", "pact", "rest-assured", "playwright", "k6", "artillery", "jest", "mocha", "vitest"],
+          "description": "Recommended testing framework"
+        }
+      }
+    },
+    "testScenario": {
+      "type": "object",
+      "description": "Specific test scenario",
+      "required": ["name", "category"],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "category": {
+          "type": "string",
+          "enum": ["happy-path", "error-handling", "auth", "validation", "idempotency", "concurrency", "rate-limiting", "pagination", "filtering", "sorting"]
+        },
+        "description": {
+          "type": "string"
+        },
+        "expectedStatusCode": {
+          "type": "integer"
+        },
+        "input": {
+          "type": "object"
+        },
+        "assertions": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "contractTestSuite": {
+      "type": "object",
+      "description": "Contract testing specifications",
+      "properties": {
+        "framework": {
+          "type": "string",
+          "enum": ["pact", "spring-cloud-contract", "prism", "custom"]
+        },
+        "consumers": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/consumer"
+          }
+        },
+        "providers": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/provider"
+          }
+        },
+        "contracts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/contract"
+          }
+        },
+        "breakingChanges": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/breakingChange"
+          }
+        },
+        "canIDeploy": {
+          "type": "boolean",
+          "description": "Whether deployment is safe based on contract verification"
+        }
+      }
+    },
+    "consumer": {
+      "type": "object",
+      "required": ["name"],
+      "properties": {
+        "name": { "type": "string" },
+        "version": { "type": "string" },
+        "contractVersion": { "type": "string" }
+      }
+    },
+    "provider": {
+      "type": "object",
+      "required": ["name"],
+      "properties": {
+        "name": { "type": "string" },
+        "version": { "type": "string" },
+        "verificationStatus": {
+          "type": "string",
+          "enum": ["passed", "failed", "pending"]
+        }
+      }
+    },
+    "contract": {
+      "type": "object",
+      "description": "Consumer-provider contract",
+      "required": ["consumer", "provider"],
+      "properties": {
+        "consumer": { "type": "string" },
+        "provider": { "type": "string" },
+        "interactions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/interaction"
+          }
+        },
+        "status": {
+          "type": "string",
+          "enum": ["verified", "failed", "pending"]
+        }
+      }
+    },
+    "interaction": {
+      "type": "object",
+      "description": "Contract interaction",
+      "required": ["description", "request", "response"],
+      "properties": {
+        "description": { "type": "string" },
+        "request": {
+          "type": "object",
+          "properties": {
+            "method": { "type": "string" },
+            "path": { "type": "string" },
+            "headers": { "type": "object" },
+            "body": {}
+          }
+        },
+        "response": {
+          "type": "object",
+          "properties": {
+            "status": { "type": "integer" },
+            "headers": { "type": "object" },
+            "body": {}
+          }
+        }
+      }
+    },
+    "breakingChange": {
+      "type": "object",
+      "description": "Breaking change detected in API",
+      "required": ["type", "description", "severity"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["removed-endpoint", "removed-field", "type-change", "required-field-added", "response-change", "status-code-change"]
+        },
+        "description": { "type": "string" },
+        "severity": {
+          "type": "string",
+          "enum": ["critical", "high", "medium", "low"]
+        },
+        "affectedConsumers": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "migrationPath": {
+          "type": "string"
+        }
+      }
+    },
+    "integrationTestSuite": {
+      "type": "object",
+      "description": "Integration testing specifications",
+      "properties": {
+        "framework": {
+          "type": "string",
+          "enum": ["supertest", "rest-assured", "playwright", "jest", "mocha", "vitest"]
+        },
+        "tests": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/integrationTest"
+          }
+        },
+        "dependencies": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "External dependencies required (databases, services)"
+        }
+      }
+    },
+    "integrationTest": {
+      "type": "object",
+      "required": ["name", "endpoint"],
+      "properties": {
+        "name": { "type": "string" },
+        "endpoint": { "$ref": "#/$defs/endpoint" },
+        "setup": { "type": "string" },
+        "teardown": { "type": "string" },
+        "assertions": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "componentTestSuite": {
+      "type": "object",
+      "description": "Component testing specifications",
+      "properties": {
+        "framework": {
+          "type": "string"
+        },
+        "mocks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/mockConfiguration"
+          }
+        },
+        "tests": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/componentTest"
+          }
+        }
+      }
+    },
+    "componentTest": {
+      "type": "object",
+      "required": ["name"],
+      "properties": {
+        "name": { "type": "string" },
+        "component": { "type": "string" },
+        "isolatedDependencies": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "loadTestSuite": {
+      "type": "object",
+      "description": "Load/performance testing specifications",
+      "properties": {
+        "framework": {
+          "type": "string",
+          "enum": ["k6", "artillery", "jmeter", "locust", "gatling"]
+        },
+        "scenarios": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/loadScenario"
+          }
+        },
+        "thresholds": {
+          "$ref": "#/$defs/performanceThresholds"
+        }
+      }
+    },
+    "loadScenario": {
+      "type": "object",
+      "required": ["name", "endpoint"],
+      "properties": {
+        "name": { "type": "string" },
+        "endpoint": { "$ref": "#/$defs/endpoint" },
+        "vus": {
+          "type": "integer",
+          "description": "Virtual users"
+        },
+        "duration": {
+          "type": "string",
+          "description": "Test duration (e.g., '5m', '1h')"
+        },
+        "rps": {
+          "type": "integer",
+          "description": "Requests per second target"
+        }
+      }
+    },
+    "performanceThresholds": {
+      "type": "object",
+      "properties": {
+        "p95ResponseTime": {
+          "type": "integer",
+          "description": "95th percentile response time in ms"
+        },
+        "p99ResponseTime": {
+          "type": "integer",
+          "description": "99th percentile response time in ms"
+        },
+        "errorRate": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Maximum error rate percentage"
+        },
+        "throughput": {
+          "type": "integer",
+          "description": "Minimum throughput (requests/second)"
+        }
+      }
+    },
+    "securityTestSuite": {
+      "type": "object",
+      "description": "API security testing specifications",
+      "properties": {
+        "authTests": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/authTest"
+          }
+        },
+        "inputValidationTests": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/inputValidationTest"
+          }
+        },
+        "rateLimitingTests": {
+          "type": "array",
+          "items": { "type": "object" }
+        }
+      }
+    },
+    "authTest": {
+      "type": "object",
+      "required": ["name", "scenario"],
+      "properties": {
+        "name": { "type": "string" },
+        "scenario": {
+          "type": "string",
+          "enum": ["missing-token", "expired-token", "invalid-token", "wrong-scope", "cross-user-access"]
+        },
+        "expectedStatusCode": {
+          "type": "integer"
+        }
+      }
+    },
+    "inputValidationTest": {
+      "type": "object",
+      "required": ["name", "validationType"],
+      "properties": {
+        "name": { "type": "string" },
+        "validationType": {
+          "type": "string",
+          "enum": ["missing-required", "wrong-type", "out-of-range", "invalid-format", "sql-injection", "xss"]
+        },
+        "expectedStatusCode": {
+          "type": "integer"
+        }
+      }
+    },
+    "mockConfiguration": {
+      "type": "object",
+      "description": "Mock/stub configuration",
+      "required": ["name", "type"],
+      "properties": {
+        "name": { "type": "string" },
+        "type": {
+          "type": "string",
+          "enum": ["wiremock", "pact", "msw", "nock", "prism", "custom"]
+        },
+        "endpoint": { "$ref": "#/$defs/endpoint" },
+        "responses": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "statusCode": { "type": "integer" },
+              "body": {},
+              "headers": { "type": "object" }
+            }
+          }
+        }
+      }
+    },
+    "apiFinding": {
+      "type": "object",
+      "description": "API testing finding/issue",
+      "required": ["id", "title", "severity", "category"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^API-\\d{3,6}$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 5,
+          "maxLength": 200
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 2000
+        },
+        "severity": {
+          "type": "string",
+          "enum": ["critical", "high", "medium", "low", "info"]
+        },
+        "category": {
+          "type": "string",
+          "enum": ["coverage-gap", "contract-violation", "auth-issue", "validation-gap", "performance-risk", "documentation-mismatch"]
+        },
+        "endpoint": {
+          "$ref": "#/$defs/endpoint"
+        },
+        "remediation": {
+          "type": "string"
+        }
+      }
+    },
+    "recommendation": {
+      "type": "object",
+      "required": ["id", "title", "priority"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^REC-\\d{3,6}$"
+        },
+        "title": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 2000
+        },
+        "priority": {
+          "type": "string",
+          "enum": ["critical", "high", "medium", "low"]
+        },
+        "effort": {
+          "type": "string",
+          "enum": ["trivial", "low", "medium", "high", "major"]
+        },
+        "codeExample": {
+          "type": "string",
+          "maxLength": 5000
+        }
+      }
+    },
+    "apiMetrics": {
+      "type": "object",
+      "description": "API testing metrics",
+      "properties": {
+        "totalEndpoints": { "type": "integer", "minimum": 0 },
+        "coveredEndpoints": { "type": "integer", "minimum": 0 },
+        "contractsCovered": { "type": "integer", "minimum": 0 },
+        "integrationTestCount": { "type": "integer", "minimum": 0 },
+        "componentTestCount": { "type": "integer", "minimum": 0 },
+        "loadTestCount": { "type": "integer", "minimum": 0 },
+        "securityTestCount": { "type": "integer", "minimum": 0 },
+        "coveragePercentage": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "duration": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "categoryScore": {
+      "type": "object",
+      "required": ["score"],
+      "properties": {
+        "score": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "weight": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "description": {
+          "type": "string"
+        },
+        "grade": {
+          "type": "string",
+          "pattern": "^[A-F][+-]?$"
+        }
+      }
+    }
+  }
+}

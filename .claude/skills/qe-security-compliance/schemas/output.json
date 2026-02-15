@@ -1,0 +1,498 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentic-qe.dev/schemas/qe-security-compliance-output.json",
+  "title": "AQE Security Compliance Skill Output Schema",
+  "description": "Schema for security compliance skill output. Includes vulnerability scanning, compliance auditing, and remediation guidance.",
+  "type": "object",
+  "required": ["skillName", "version", "timestamp", "status", "trustTier", "output"],
+  "properties": {
+    "skillName": {
+      "type": "string",
+      "const": "qe-security-compliance",
+      "description": "Must be 'qe-security-compliance'"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+(-[a-zA-Z0-9]+)?$"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["success", "partial", "failed", "skipped"]
+    },
+    "trustTier": {
+      "type": "integer",
+      "const": 3
+    },
+    "output": {
+      "type": "object",
+      "required": ["summary", "vulnerabilities", "compliance"],
+      "properties": {
+        "summary": {
+          "type": "string",
+          "minLength": 50,
+          "maxLength": 2000
+        },
+        "securityScore": {
+          "$ref": "#/$defs/securityScore"
+        },
+        "vulnerabilities": {
+          "$ref": "#/$defs/vulnerabilityReport"
+        },
+        "compliance": {
+          "$ref": "#/$defs/complianceReport"
+        },
+        "remediations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/remediation"
+          },
+          "maxItems": 100
+        },
+        "owaspCategories": {
+          "$ref": "#/$defs/owaspBreakdown"
+        },
+        "threatModel": {
+          "$ref": "#/$defs/threatModel"
+        },
+        "dependencies": {
+          "$ref": "#/$defs/dependencyReport"
+        },
+        "secrets": {
+          "$ref": "#/$defs/secretsReport"
+        },
+        "artifacts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/artifact"
+          },
+          "maxItems": 30
+        }
+      }
+    },
+    "metadata": {
+      "$ref": "#/$defs/metadata"
+    },
+    "validation": {
+      "$ref": "#/$defs/validationResult"
+    },
+    "learning": {
+      "$ref": "#/$defs/learningData"
+    }
+  },
+  "$defs": {
+    "securityScore": {
+      "type": "object",
+      "required": ["value", "max"],
+      "properties": {
+        "value": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "max": {
+          "type": "number",
+          "const": 100
+        },
+        "grade": {
+          "type": "string",
+          "pattern": "^[A-F][+-]?$"
+        },
+        "riskLevel": {
+          "type": "string",
+          "enum": ["critical", "high", "medium", "low", "minimal"]
+        }
+      }
+    },
+    "vulnerabilityReport": {
+      "type": "object",
+      "required": ["total"],
+      "properties": {
+        "total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "critical": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "high": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "medium": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "low": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/vulnerability"
+          },
+          "maxItems": 500
+        }
+      }
+    },
+    "vulnerability": {
+      "type": "object",
+      "required": ["id", "title", "severity"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^VULN-\\d{3,6}$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 200
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 2000
+        },
+        "severity": {
+          "type": "string",
+          "enum": ["critical", "high", "medium", "low", "info"]
+        },
+        "cwe": {
+          "type": "string",
+          "pattern": "^CWE-\\d{1,4}$"
+        },
+        "cve": {
+          "type": "string",
+          "pattern": "^CVE-\\d{4}-\\d{4,}$"
+        },
+        "owasp": {
+          "type": "string",
+          "pattern": "^A(0[1-9]|10):20(21|25)$"
+        },
+        "cvss": {
+          "type": "object",
+          "properties": {
+            "score": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 10
+            },
+            "vector": {
+              "type": "string"
+            }
+          }
+        },
+        "location": {
+          "$ref": "#/$defs/location"
+        },
+        "evidence": {
+          "type": "string",
+          "maxLength": 5000
+        },
+        "remediation": {
+          "type": "string",
+          "maxLength": 2000
+        },
+        "exploitability": {
+          "type": "string",
+          "enum": ["trivial", "easy", "moderate", "difficult", "theoretical"]
+        }
+      }
+    },
+    "complianceReport": {
+      "type": "object",
+      "required": ["standards"],
+      "properties": {
+        "overallStatus": {
+          "type": "string",
+          "enum": ["compliant", "partially-compliant", "non-compliant"]
+        },
+        "standards": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/complianceStandard"
+          }
+        }
+      }
+    },
+    "complianceStandard": {
+      "type": "object",
+      "required": ["name", "status"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "enum": ["SOC2", "GDPR", "HIPAA", "PCI-DSS", "ISO-27001", "CCPA", "OWASP"]
+        },
+        "status": {
+          "type": "string",
+          "enum": ["compliant", "partially-compliant", "non-compliant", "not-tested"]
+        },
+        "score": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "controlsPassed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "controlsFailed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "controlsPartial": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "gaps": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/complianceGap"
+          }
+        },
+        "evidence": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "complianceGap": {
+      "type": "object",
+      "required": ["control", "status"],
+      "properties": {
+        "control": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["failed", "partial"]
+        },
+        "finding": {
+          "type": "string"
+        },
+        "remediation": {
+          "type": "string"
+        }
+      }
+    },
+    "remediation": {
+      "type": "object",
+      "required": ["id", "title", "priority"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^REM-\\d{3,6}$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 200
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 2000
+        },
+        "priority": {
+          "type": "string",
+          "enum": ["critical", "high", "medium", "low"]
+        },
+        "effort": {
+          "type": "string",
+          "enum": ["trivial", "low", "medium", "high", "major"]
+        },
+        "vulnerabilities": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "codeExample": {
+          "type": "object",
+          "properties": {
+            "before": { "type": "string" },
+            "after": { "type": "string" },
+            "language": { "type": "string" }
+          }
+        },
+        "automatable": {
+          "type": "boolean"
+        },
+        "fixCommand": {
+          "type": "string"
+        }
+      }
+    },
+    "owaspBreakdown": {
+      "type": "object",
+      "properties": {
+        "A01:2021": { "$ref": "#/$defs/owaspCategory" },
+        "A02:2021": { "$ref": "#/$defs/owaspCategory" },
+        "A03:2021": { "$ref": "#/$defs/owaspCategory" },
+        "A04:2021": { "$ref": "#/$defs/owaspCategory" },
+        "A05:2021": { "$ref": "#/$defs/owaspCategory" },
+        "A06:2021": { "$ref": "#/$defs/owaspCategory" },
+        "A07:2021": { "$ref": "#/$defs/owaspCategory" },
+        "A08:2021": { "$ref": "#/$defs/owaspCategory" },
+        "A09:2021": { "$ref": "#/$defs/owaspCategory" },
+        "A10:2021": { "$ref": "#/$defs/owaspCategory" }
+      }
+    },
+    "owaspCategory": {
+      "type": "object",
+      "properties": {
+        "tested": { "type": "boolean" },
+        "score": { "type": "number", "minimum": 0, "maximum": 100 },
+        "findingCount": { "type": "integer", "minimum": 0 },
+        "status": { "type": "string", "enum": ["pass", "fail", "warn", "skip"] }
+      }
+    },
+    "threatModel": {
+      "type": "object",
+      "properties": {
+        "methodology": {
+          "type": "string",
+          "enum": ["STRIDE", "PASTA", "DREAD", "custom"]
+        },
+        "threats": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/threat"
+          }
+        },
+        "attackSurface": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "threat": {
+      "type": "object",
+      "required": ["category", "description"],
+      "properties": {
+        "category": {
+          "type": "string",
+          "enum": ["spoofing", "tampering", "repudiation", "information-disclosure", "denial-of-service", "elevation-of-privilege"]
+        },
+        "description": { "type": "string" },
+        "likelihood": { "type": "integer", "minimum": 1, "maximum": 5 },
+        "impact": { "type": "integer", "minimum": 1, "maximum": 5 },
+        "mitigation": { "type": "string" }
+      }
+    },
+    "dependencyReport": {
+      "type": "object",
+      "properties": {
+        "total": { "type": "integer", "minimum": 0 },
+        "vulnerable": { "type": "integer", "minimum": 0 },
+        "outdated": { "type": "integer", "minimum": 0 },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "version": { "type": "string" },
+              "vulnerabilities": { "type": "integer" },
+              "severity": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "secretsReport": {
+      "type": "object",
+      "properties": {
+        "detected": { "type": "integer", "minimum": 0 },
+        "locations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "file": { "type": "string" },
+              "line": { "type": "integer" },
+              "type": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "location": {
+      "type": "object",
+      "properties": {
+        "file": { "type": "string", "maxLength": 500 },
+        "line": { "type": "integer", "minimum": 1 },
+        "column": { "type": "integer", "minimum": 1 },
+        "url": { "type": "string", "format": "uri" },
+        "endpoint": { "type": "string" }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "required": ["type", "path"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["report", "sarif", "sbom", "data", "log"]
+        },
+        "path": { "type": "string", "maxLength": 500 },
+        "format": {
+          "type": "string",
+          "enum": ["json", "sarif", "html", "md", "csv", "xml"]
+        },
+        "description": { "type": "string" }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "executionTimeMs": { "type": "integer", "minimum": 0 },
+        "toolsUsed": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["semgrep", "npm-audit", "trivy", "owasp-zap", "bandit", "gosec", "snyk", "gitleaks", "bearer", "trufflehog"]
+          }
+        },
+        "agentId": { "type": "string", "pattern": "^qe-[a-z][a-z0-9-]*$" },
+        "targetPath": { "type": "string" },
+        "scanTypes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["sast", "dast", "dependency", "secret", "configuration", "container", "iac"]
+          }
+        }
+      }
+    },
+    "validationResult": {
+      "type": "object",
+      "properties": {
+        "schemaValid": { "type": "boolean" },
+        "contentValid": { "type": "boolean" },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "warnings": { "type": "array", "items": { "type": "string" } },
+        "errors": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "learningData": {
+      "type": "object",
+      "properties": {
+        "patternsDetected": { "type": "array", "items": { "type": "string" } },
+        "reward": { "type": "number", "minimum": 0, "maximum": 1 },
+        "newVulnerabilityPatterns": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "pattern": { "type": "string" },
+              "cwe": { "type": "string" },
+              "confidence": { "type": "number" }
+            }
+          }
+        }
+      }
+    }
+  }
+}

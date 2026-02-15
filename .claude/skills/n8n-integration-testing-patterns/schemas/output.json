@@ -1,0 +1,291 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentic-qe.dev/schemas/skills/n8n-integration-testing-patterns/output.json",
+  "title": "N8N Integration Testing Patterns Skill Output Schema",
+  "description": "Schema for n8n-integration-testing-patterns skill output. Validates service integration, API connectivity, and workflow integration testing.",
+  "type": "object",
+  "required": ["skillName", "version", "timestamp", "status", "trustTier", "output"],
+  "properties": {
+    "skillName": {
+      "type": "string",
+      "const": "n8n-integration-testing-patterns"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+(-[a-zA-Z0-9]+)?$"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["success", "partial", "failed", "skipped"]
+    },
+    "trustTier": {
+      "type": "integer",
+      "const": 3
+    },
+    "output": {
+      "type": "object",
+      "required": ["summary", "integrationTests", "serviceConnections"],
+      "properties": {
+        "summary": {
+          "type": "string",
+          "minLength": 20,
+          "maxLength": 2000
+        },
+        "integrationTests": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/integrationTest"
+          },
+          "maxItems": 300
+        },
+        "serviceConnections": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/serviceConnection"
+          },
+          "maxItems": 100
+        },
+        "workflowValidation": {
+          "$ref": "#/$defs/workflowValidation"
+        },
+        "mockConfigurations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/mockConfig"
+          },
+          "description": "Mock service configurations for testing"
+        },
+        "contractTests": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/contractTest"
+          },
+          "description": "API contract tests"
+        },
+        "recommendations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/recommendation"
+          },
+          "maxItems": 50
+        },
+        "metrics": {
+          "$ref": "#/$defs/metrics"
+        }
+      }
+    },
+    "metadata": {
+      "$ref": "#/$defs/metadata"
+    },
+    "validation": {
+      "$ref": "#/$defs/validationResult"
+    },
+    "learning": {
+      "$ref": "#/$defs/learningData"
+    }
+  },
+  "$defs": {
+    "integrationTest": {
+      "type": "object",
+      "required": ["id", "name", "testType", "status"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^INT-\\d{3,6}$"
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 1000
+        },
+        "testType": {
+          "type": "string",
+          "enum": ["api", "webhook", "database", "file", "queue", "external-service", "e2e"]
+        },
+        "status": {
+          "type": "string",
+          "enum": ["passed", "failed", "skipped", "pending", "error"]
+        },
+        "priority": {
+          "type": "string",
+          "enum": ["critical", "high", "medium", "low"]
+        },
+        "nodes": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Nodes involved in this integration test"
+        },
+        "services": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "External services tested"
+        },
+        "assertions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/assertion"
+          }
+        },
+        "setup": {
+          "type": "string",
+          "description": "Test setup requirements"
+        },
+        "teardown": {
+          "type": "string",
+          "description": "Test teardown steps"
+        },
+        "executionTimeMs": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "serviceConnection": {
+      "type": "object",
+      "required": ["serviceName", "connectionStatus"],
+      "properties": {
+        "serviceName": {
+          "type": "string"
+        },
+        "serviceType": {
+          "type": "string",
+          "enum": ["api", "database", "storage", "email", "messaging", "payment", "crm", "other"]
+        },
+        "connectionStatus": {
+          "type": "string",
+          "enum": ["connected", "disconnected", "error", "timeout", "auth-failed"]
+        },
+        "credentialId": {
+          "type": "string"
+        },
+        "healthCheck": {
+          "type": "object",
+          "properties": {
+            "passed": { "type": "boolean" },
+            "responseTimeMs": { "type": "integer" },
+            "lastChecked": { "type": "string", "format": "date-time" }
+          }
+        },
+        "usedInNodes": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "workflowValidation": {
+      "type": "object",
+      "required": ["workflowId", "valid"],
+      "properties": {
+        "workflowId": { "type": "string" },
+        "workflowName": { "type": "string" },
+        "valid": { "type": "boolean" },
+        "integrationCoverage": { "type": "number", "minimum": 0, "maximum": 100 },
+        "externalDependencies": { "type": "integer", "minimum": 0 },
+        "mockedServices": { "type": "integer", "minimum": 0 },
+        "overallScore": { "type": "number", "minimum": 0, "maximum": 100 },
+        "grade": { "type": "string", "pattern": "^[A-F][+-]?$" }
+      }
+    },
+    "mockConfig": {
+      "type": "object",
+      "required": ["serviceName", "mockType"],
+      "properties": {
+        "serviceName": { "type": "string" },
+        "mockType": {
+          "type": "string",
+          "enum": ["stub", "spy", "mock", "fake", "fixture"]
+        },
+        "responses": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "request": { "type": "object" },
+              "response": { "type": "object" },
+              "statusCode": { "type": "integer" }
+            }
+          }
+        }
+      }
+    },
+    "contractTest": {
+      "type": "object",
+      "required": ["consumer", "provider"],
+      "properties": {
+        "consumer": { "type": "string" },
+        "provider": { "type": "string" },
+        "interactions": { "type": "integer", "minimum": 0 },
+        "verified": { "type": "boolean" },
+        "breakingChanges": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "assertion": {
+      "type": "object",
+      "required": ["type", "expected"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["status", "body", "headers", "timing", "count", "schema"]
+        },
+        "path": { "type": "string" },
+        "expected": {},
+        "actual": {},
+        "passed": { "type": "boolean" }
+      }
+    },
+    "recommendation": {
+      "type": "object",
+      "required": ["id", "title", "priority"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^REC-\\d{3,6}$" },
+        "title": { "type": "string", "maxLength": 200 },
+        "description": { "type": "string", "maxLength": 2000 },
+        "priority": { "type": "string", "enum": ["critical", "high", "medium", "low"] },
+        "category": { "type": "string", "enum": ["coverage", "reliability", "performance", "security", "maintainability"] }
+      }
+    },
+    "metrics": {
+      "type": "object",
+      "properties": {
+        "totalIntegrationTests": { "type": "integer", "minimum": 0 },
+        "passedTests": { "type": "integer", "minimum": 0 },
+        "failedTests": { "type": "integer", "minimum": 0 },
+        "skippedTests": { "type": "integer", "minimum": 0 },
+        "integrationCoverage": { "type": "number", "minimum": 0, "maximum": 100 },
+        "servicesConnected": { "type": "integer", "minimum": 0 },
+        "servicesFailed": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "executionTimeMs": { "type": "integer", "minimum": 0 },
+        "toolsUsed": { "type": "array", "items": { "type": "string" } },
+        "agentId": { "type": "string", "pattern": "^qe-[a-z][a-z0-9-]*$" },
+        "n8nVersion": { "type": "string" }
+      }
+    },
+    "validationResult": {
+      "type": "object",
+      "properties": {
+        "schemaValid": { "type": "boolean" },
+        "contentValid": { "type": "boolean" },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "learningData": {
+      "type": "object",
+      "properties": {
+        "patternsDetected": { "type": "array", "items": { "type": "string" } },
+        "reward": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    }
+  }
+}
