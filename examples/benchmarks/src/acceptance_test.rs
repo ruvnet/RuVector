@@ -23,10 +23,111 @@
 use crate::agi_contract::{ContractDelta, ContractHealth, ViabilityChecklist};
 use crate::intelligence_metrics::{DifficultyStats, RawMetrics};
 use crate::reasoning_bank::ReasoningBank;
-use crate::temporal::{AdaptiveSolver, TemporalConstraint, TemporalPuzzle};
+use crate::temporal::{AdaptiveSolver, KnowledgeCompiler, TemporalConstraint, TemporalPuzzle};
 use crate::timepuzzles::{PuzzleGenerator, PuzzleGeneratorConfig};
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Ablation Modes
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Ablation mode for controlled comparison.
+/// Every cycle runs the same seeded tasks in each mode.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub enum AblationMode {
+    /// Mode A: No compiler, fixed router (baseline)
+    Baseline,
+    /// Mode B: Compiler enabled, fixed router
+    CompilerOnly,
+    /// Mode C: Compiler enabled, adaptive router
+    Full,
+}
+
+impl std::fmt::Display for AblationMode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            AblationMode::Baseline => write!(f, "A (baseline)"),
+            AblationMode::CompilerOnly => write!(f, "B (compiler)"),
+            AblationMode::Full => write!(f, "C (compiler+router)"),
+        }
+    }
+}
+
+/// Results from a single ablation mode run.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct AblationResult {
+    pub mode: AblationMode,
+    pub result: AcceptanceResult,
+    /// Compiler stats
+    pub compiler_hits: usize,
+    pub compiler_misses: usize,
+    pub compiler_false_hits: usize,
+    pub cost_saved_by_compiler: f64,
+}
+
+/// Full ablation comparison across all three modes.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct AblationComparison {
+    pub mode_a: AblationResult,
+    pub mode_b: AblationResult,
+    pub mode_c: AblationResult,
+    /// B beats A on cost by >=15%
+    pub b_beats_a_cost: bool,
+    /// C beats B on robustness by >=10%
+    pub c_beats_b_robustness: bool,
+    /// Compiler false hit rate under 5%
+    pub compiler_safe: bool,
+    /// All modes passed
+    pub all_passed: bool,
+}
+
+impl AblationComparison {
+    pub fn print(&self) {
+        println!();
+        println!("╔══════════════════════════════════════════════════════════════╗");
+        println!("║             ABLATION COMPARISON (A / B / C)                  ║");
+        println!("╚══════════════════════════════════════════════════════════════╝");
+        println!();
+
+        println!("  {:<14} {:>8} {:>12} {:>10} {:>8}", "Mode", "Acc%", "Cost/Solve", "Noise%", "Viol");
+        println!("  {}", "-".repeat(56));
+
+        for (label, res) in [
+            ("A (baseline)", &self.mode_a),
+            ("B (compiler)", &self.mode_b),
+            ("C (full)", &self.mode_c),
+        ] {
+            if let Some(last) = res.result.cycles.last() {
+                println!("  {:<14} {:>6.1}% {:>11.2} {:>8.1}% {:>7}",
+                    label,
+                    last.holdout_accuracy * 100.0,
+                    last.holdout_cost_per_solve,
+                    last.holdout_noise_accuracy * 100.0,
+                    last.holdout_violations);
+            }
+        }
+
+        println!();
+        println!("  Compiler (Mode B): hits={}, misses={}, false_hits={}",
+            self.mode_b.compiler_hits, self.mode_b.compiler_misses, self.mode_b.compiler_false_hits);
+        println!("  Cost saved by compiler: {:.2}", self.mode_b.cost_saved_by_compiler);
+        println!();
+
+        println!("  Ablation Assertions:");
+        println!("    B beats A on cost (>=15%):        {}", if self.b_beats_a_cost { "PASS" } else { "FAIL" });
+        println!("    C beats B on robustness (>=10%):   {}", if self.c_beats_b_robustness { "PASS" } else { "FAIL" });
+        println!("    Compiler false-hit rate <5%:       {}", if self.compiler_safe { "PASS" } else { "FAIL" });
+        println!();
+
+        if self.all_passed {
+            println!("  ABLATION RESULT: ALL PASSED");
+        } else {
+            println!("  ABLATION RESULT: SOME CRITERIA NOT MET");
+        }
+        println!();
+    }
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Configuration
@@ -219,28 +320,44 @@ fn inject_noise(puzzle: &TemporalPuzzle, rng: &mut Rng64) -> TemporalPuzzle {
 // ═══════════════════════════════════════════════════════════════════════════
 
 /// Run the full acceptance test: 10K tasks over N cycles with frozen holdout.
+/// Uses AblationMode::Baseline by default (backward compatible).
 pub fn run_acceptance_test(config: &HoldoutConfig) -> Result<AcceptanceResult> {
+    let ablation = run_acceptance_test_mode(config, &AblationMode::Baseline)?;
+    Ok(ablation.result)
+}
+
+/// Run acceptance test in a specific ablation mode.
+pub fn run_acceptance_test_mode(config: &HoldoutConfig, mode: &AblationMode) -> Result<AblationResult> {
     // 1. Generate frozen holdout set
     let holdout = generate_holdout(config)?;
 
     // 2. Initialize persistent learning state
     let mut bank = ReasoningBank::new();
+    let mut compiler = KnowledgeCompiler::new();
     let mut cycle_metrics: Vec<CycleMetrics> = Vec::new();
     let mut health_history: Vec<ContractHealth> = Vec::new();
 
+    let compiler_enabled = *mode == AblationMode::CompilerOnly || *mode == AblationMode::Full;
+    let router_enabled = *mode == AblationMode::Full;
+
     for cycle in 0..config.cycles {
         if config.verbose {
-            println!("\n  === Cycle {}/{} ===", cycle + 1, config.cycles);
+            println!("\n  === Cycle {}/{} ({}) ===", cycle + 1, config.cycles, mode);
+        }
+
+        // Recompile knowledge from bank each cycle
+        if compiler_enabled {
+            compiler.compile_from_bank(&bank);
         }
 
         // Checkpoint before training so we can rollback bad learning
         let checkpoint_id = bank.checkpoint();
 
         // 3. Training phase: solve new tasks, update bank
-        let training_acc = train_cycle(&mut bank, config, cycle)?;
+        let training_acc = train_cycle_mode(&mut bank, &mut compiler, config, cycle, compiler_enabled, router_enabled)?;
 
         // 4. Holdout evaluation: clean pass (quick probe for rollback check)
-        let (_, probe_acc) = evaluate_holdout_clean(&holdout, &bank, config)?;
+        let (_, probe_acc) = evaluate_holdout_clean_mode(&holdout, &bank, &compiler, config, compiler_enabled, router_enabled)?;
 
         // Rollback if training made accuracy worse (viability check #3)
         if cycle > 0 {
@@ -254,11 +371,21 @@ pub fn run_acceptance_test(config: &HoldoutConfig) -> Result<AcceptanceResult> {
             }
         }
 
+        // Promote patterns gated on non-regression
+        if cycle > 0 {
+            let prev_acc = cycle_metrics[cycle - 1].holdout_accuracy;
+            if probe_acc >= prev_acc {
+                bank.promote_patterns();
+            }
+        } else {
+            bank.promote_patterns();
+        }
+
         // 5. Holdout evaluation: clean (definitive, with possibly rolled-back bank)
-        let (clean_raw, clean_acc) = evaluate_holdout_clean(&holdout, &bank, config)?;
+        let (clean_raw, clean_acc) = evaluate_holdout_clean_mode(&holdout, &bank, &compiler, config, compiler_enabled, router_enabled)?;
 
         // 6. Holdout evaluation: noisy pass
-        let (noisy_raw, noise_acc) = evaluate_holdout_noisy(&holdout, &bank, config, cycle)?;
+        let (noisy_raw, noise_acc) = evaluate_holdout_noisy_mode(&holdout, &bank, &compiler, config, cycle, compiler_enabled, router_enabled)?;
 
         // 6. Merge clean + noisy into combined contract raw
         let combined = merge_raw(&clean_raw, &noisy_raw);
@@ -356,7 +483,7 @@ pub fn run_acceptance_test(config: &HoldoutConfig) -> Result<AcceptanceResult> {
         && rollback_ok
         && dimensions_improved >= config.min_dimensions_improved;
 
-    Ok(AcceptanceResult {
+    let acceptance_result = AcceptanceResult {
         cycles: cycle_metrics,
         passed,
         accuracy_maintained,
@@ -366,6 +493,73 @@ pub fn run_acceptance_test(config: &HoldoutConfig) -> Result<AcceptanceResult> {
         dimensions_improved,
         overall_delta,
         viability,
+    };
+
+    // Compiler stats for ablation tracking
+    let first_cost = acceptance_result.cycles.first()
+        .map(|c| c.holdout_cost_per_solve).unwrap_or(0.0);
+    let last_cost = acceptance_result.cycles.last()
+        .map(|c| c.holdout_cost_per_solve).unwrap_or(0.0);
+    let cost_saved = if compiler_enabled && first_cost > 0.0 {
+        first_cost - last_cost
+    } else {
+        0.0
+    };
+
+    Ok(AblationResult {
+        mode: mode.clone(),
+        result: acceptance_result,
+        compiler_hits: compiler.hits,
+        compiler_misses: compiler.misses,
+        compiler_false_hits: compiler.false_hits,
+        cost_saved_by_compiler: cost_saved,
+    })
+}
+
+/// Run all three ablation modes and compare results.
+/// Mode A = baseline (no compiler, fixed router)
+/// Mode B = compiler only (Strategy Zero enabled)
+/// Mode C = full (compiler + adaptive router)
+pub fn run_ablation_comparison(config: &HoldoutConfig) -> Result<AblationComparison> {
+    let mode_a = run_acceptance_test_mode(config, &AblationMode::Baseline)?;
+    let mode_b = run_acceptance_test_mode(config, &AblationMode::CompilerOnly)?;
+    let mode_c = run_acceptance_test_mode(config, &AblationMode::Full)?;
+
+    let last_a = mode_a.result.cycles.last().expect("empty cycles in mode A");
+    let last_b = mode_b.result.cycles.last().expect("empty cycles in mode B");
+    let last_c = mode_c.result.cycles.last().expect("empty cycles in mode C");
+
+    // B beats A on cost: >=15% decrease
+    let cost_decrease = if last_a.holdout_cost_per_solve > 0.0 {
+        1.0 - (last_b.holdout_cost_per_solve / last_a.holdout_cost_per_solve)
+    } else {
+        0.0
+    };
+    let b_beats_a_cost = cost_decrease >= 0.15;
+
+    // C beats B on robustness: >=10% absolute improvement
+    let robustness_gain = last_c.holdout_noise_accuracy - last_b.holdout_noise_accuracy;
+    let c_beats_b_robustness = robustness_gain >= 0.10;
+
+    // Compiler safe: false hit rate < 5%
+    let total_compiler_attempts = mode_b.compiler_hits + mode_b.compiler_misses;
+    let compiler_safe = if total_compiler_attempts > 0 {
+        (mode_b.compiler_false_hits as f64 / total_compiler_attempts as f64) < 0.05
+    } else {
+        true
+    };
+
+    let all_passed = b_beats_a_cost && c_beats_b_robustness && compiler_safe
+        && mode_a.result.passed && mode_b.result.passed && mode_c.result.passed;
+
+    Ok(AblationComparison {
+        mode_a,
+        mode_b,
+        mode_c,
+        b_beats_a_cost,
+        c_beats_b_robustness,
+        compiler_safe,
+        all_passed,
     })
 }
 
@@ -385,8 +579,18 @@ fn generate_holdout(config: &HoldoutConfig) -> Result<Vec<TemporalPuzzle>> {
     gen.generate_batch(config.holdout_size)
 }
 
-fn train_cycle(bank: &mut ReasoningBank, config: &HoldoutConfig, cycle: usize) -> Result<f64> {
+fn train_cycle_mode(
+    bank: &mut ReasoningBank,
+    compiler: &mut KnowledgeCompiler,
+    config: &HoldoutConfig,
+    cycle: usize,
+    compiler_enabled: bool,
+    router_enabled: bool,
+) -> Result<f64> {
     let mut solver = AdaptiveSolver::with_reasoning_bank(bank.clone());
+    solver.compiler = compiler.clone();
+    solver.compiler_enabled = compiler_enabled;
+    solver.router_enabled = router_enabled;
     let pc = PuzzleGeneratorConfig {
         min_difficulty: 1,
         max_difficulty: 10,
@@ -449,16 +653,23 @@ fn train_cycle(bank: &mut ReasoningBank, config: &HoldoutConfig, cycle: usize) -
     }
 
     *bank = solver.reasoning_bank.clone();
+    *compiler = solver.compiler.clone();
     Ok(correct as f64 / puzzles.len() as f64)
 }
 
-fn evaluate_holdout_clean(
+fn evaluate_holdout_clean_mode(
     holdout: &[TemporalPuzzle],
     bank: &ReasoningBank,
+    compiler: &KnowledgeCompiler,
     config: &HoldoutConfig,
+    compiler_enabled: bool,
+    router_enabled: bool,
 ) -> Result<(RawMetrics, f64)> {
     let mut raw = RawMetrics::default();
     let mut solver = AdaptiveSolver::with_reasoning_bank(bank.clone());
+    solver.compiler = compiler.clone();
+    solver.compiler_enabled = compiler_enabled;
+    solver.router_enabled = router_enabled;
     solver.external_step_limit = Some(config.step_budget);
 
     for puzzle in holdout {
@@ -491,14 +702,20 @@ fn evaluate_holdout_clean(
     Ok((raw, accuracy))
 }
 
-fn evaluate_holdout_noisy(
+fn evaluate_holdout_noisy_mode(
     holdout: &[TemporalPuzzle],
     bank: &ReasoningBank,
+    compiler: &KnowledgeCompiler,
     config: &HoldoutConfig,
     cycle: usize,
+    compiler_enabled: bool,
+    router_enabled: bool,
 ) -> Result<(RawMetrics, f64)> {
     let mut raw = RawMetrics::default();
     let mut solver = AdaptiveSolver::with_reasoning_bank(bank.clone());
+    solver.compiler = compiler.clone();
+    solver.compiler_enabled = compiler_enabled;
+    solver.router_enabled = router_enabled;
     solver.external_step_limit = Some(config.step_budget);
     let mut rng = Rng64::new(config.holdout_seed.wrapping_add(cycle as u64 * 31337));
 
@@ -617,5 +834,35 @@ mod tests {
             assert!(cm.holdout_cost_per_solve >= 0.0);
             assert!(cm.holdout_noise_accuracy >= 0.0);
         }
+    }
+
+    #[test]
+    fn ablation_modes_run() {
+        let config = HoldoutConfig {
+            holdout_size: 10,
+            training_per_cycle: 10,
+            cycles: 2,
+            step_budget: 200,
+            min_accuracy: 0.30,
+            min_dimensions_improved: 0,
+            verbose: false,
+            ..Default::default()
+        };
+
+        // Mode A (baseline)
+        let a = run_acceptance_test_mode(&config, &AblationMode::Baseline).unwrap();
+        assert_eq!(a.mode, AblationMode::Baseline);
+        assert_eq!(a.result.cycles.len(), 2);
+        assert_eq!(a.compiler_hits, 0); // No compiler in baseline
+
+        // Mode B (compiler only)
+        let b = run_acceptance_test_mode(&config, &AblationMode::CompilerOnly).unwrap();
+        assert_eq!(b.mode, AblationMode::CompilerOnly);
+        assert_eq!(b.result.cycles.len(), 2);
+
+        // Mode C (full: compiler + router)
+        let c = run_acceptance_test_mode(&config, &AblationMode::Full).unwrap();
+        assert_eq!(c.mode, AblationMode::Full);
+        assert_eq!(c.result.cycles.len(), 2);
     }
 }
