@@ -256,32 +256,135 @@ fn derive_response_quality(results: &[SearchResult]) -> ResponseQuality {
 }
 ```
 
-**Wire format** — `ResponseQuality` is included in the query response header so it survives serialization across JSON, gRPC, and MCP boundaries:
+**Mandatory outer wrapper** — `QualityEnvelope` is the top-level return type for all
+query APIs. It is not a nested field. It is the outer wrapper. JSON flattening cannot
+discard it. gRPC serialization cannot drop it. MCP tool responses must include it.
 
 ```rust
-pub struct QueryResponse {
+/// The mandatory outer return type for all query APIs.
+/// This is not optional. This is not a nested field.
+/// Consumers that ignore this are misusing the API.
+pub struct QualityEnvelope {
+    /// The search results.
     pub results: Vec<SearchResult>,
-    pub response_quality: ResponseQuality,
-    pub degradation_reason: Option<DegradationReason>,
-    pub time_budget_exhausted: bool,
-    pub candidates_scanned: u64,
-    pub candidates_budget: u64,
+    /// Top-level quality signal. Consumers MUST inspect this.
+    pub quality: ResponseQuality,
+    /// Structured evidence for why the quality is what it is.
+    pub evidence: SearchEvidenceSummary,
+    /// Resource consumption report for this query.
+    pub budgets: BudgetReport,
+    /// If quality is degraded, the structured reason.
+    pub degradation: Option<DegradationReport>,
+}
+
+/// Evidence chain: what index state was actually used.
+pub struct SearchEvidenceSummary {
+    /// Which index layers were available and used.
+    pub layers_used: IndexLayersUsed,
+    /// Effective n_probe (after any adaptive widening).
+    pub n_probe_effective: u32,
+    /// Whether degenerate distribution was detected.
+    pub degenerate_detected: bool,
+    /// Coefficient of variation of top-K centroid distances.
+    pub centroid_distance_cv: f32,
+    /// Number of candidates found by HNSW before safety net.
+    pub hnsw_candidate_count: u32,
+    /// Number of candidates added by safety net scan.
+    pub safety_net_candidate_count: u32,
+    /// Content hashes of index segments actually touched.
+    pub index_segments_touched: Vec<[u8; 16]>,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct IndexLayersUsed {
+    pub layer_a: bool,
+    pub layer_b: bool,
+    pub layer_c: bool,
+    pub hot_cache: bool,
+}
+
+/// Resource consumption report.
+pub struct BudgetReport {
+    /// Wall-clock time per stage.
+    pub centroid_routing_us: u64,
+    pub hnsw_traversal_us: u64,
+    pub safety_net_scan_us: u64,
+    pub reranking_us: u64,
+    pub total_us: u64,
+    /// Distance evaluations performed.
+    pub distance_ops: u64,
+    pub distance_ops_budget: u64,
+    /// Bytes read from storage.
+    pub bytes_read: u64,
+    /// Candidates scanned in linear scan (safety net).
+    pub linear_scan_count: u64,
+    pub linear_scan_budget: u64,
+}
+
+/// Why quality is degraded.
+pub struct DegradationReport {
+    /// Which fallback path was chosen.
+    pub fallback_path: FallbackPath,
+    /// Why it was chosen (structured, not prose).
+    pub reason: DegradationReason,
+    /// What guarantee is lost relative to Full quality.
+    pub guarantee_lost: &'static str,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub enum FallbackPath {
+    /// Normal HNSW traversal, no fallback needed.
+    None,
+    /// Adaptive n_probe widening due to epoch drift.
+    NProbeWidened,
+    /// Adaptive n_probe widening due to degenerate distribution.
+    DegenerateWidened,
+    /// Selective safety net scan on hot cache.
+    SafetyNetSelective,
+    /// Safety net budget exhausted before completion.
+    SafetyNetBudgetExhausted,
 }
 
 #[derive(Clone, Copy, Debug)]
 pub enum DegradationReason {
     /// Centroid epoch drift exceeded threshold.
     CentroidDrift { epoch_drift: u32, max_drift: u32 },
-    /// Degenerate distance distribution detected (CV below threshold).
+    /// Degenerate distance distribution detected.
     DegenerateDistribution { cv: f32, threshold: f32 },
-    /// Brute-force budget exhausted before scanning all candidates.
-    BudgetExhausted { scanned: u64, total: u64 },
+    /// Brute-force budget exhausted.
+    BudgetExhausted { scanned: u64, total: u64, budget_type: &'static str },
     /// Index layer not yet loaded.
     IndexNotLoaded { available: &'static str, needed: &'static str },
 }
 ```
 
-The caller can then decide: wait for better index, accept approximate, or force brute-force. A RAG pipeline that ignores `ResponseQuality::Unreliable` gets garbage. That's the caller's fault, not ours.
+**Hard enforcement rule**: If `quality` is `Degraded` or `Unreliable`, the runtime MUST
+either:
+
+1. Return the `QualityEnvelope` with the structured warning (which cannot be dropped
+   because it is the outer type, not a nested field), OR
+2. Require an explicit caller override flag to proceed:
+
+```rust
+pub enum QualityPreference {
+    /// Runtime decides. Default. Fastest path that meets internal thresholds.
+    Auto,
+    /// Caller prefers quality over latency. Runtime may widen n_probe,
+    /// extend budgets up to 4x, and block until Layer B loads.
+    PreferQuality,
+    /// Caller prefers latency over quality. Runtime may skip safety net,
+    /// reduce n_probe. ResponseQuality honestly reports what it gets.
+    PreferLatency,
+    /// Caller explicitly accepts degraded results. Required to proceed
+    /// when ResponseQuality would be Degraded or Unreliable under Auto.
+    /// Without this flag, Degraded queries return an error, not results.
+    AcceptDegraded,
+}
+```
+
+Without `AcceptDegraded`, a `Degraded` result is returned as
+`Err(RvfError::QualityBelowThreshold(envelope))` — the caller gets the evidence
+but must explicitly opt in to use the results. This prevents silent misuse.
 
 #### 2.5 Distribution Assumption Declaration
 
@@ -327,114 +430,199 @@ When the candidate set from HNSW search is smaller than `2 * k`, the safety net
 activates. It is capped by **both** a time budget and a candidate budget to prevent
 unbounded work. An adversarial query cannot force O(N) compute.
 
-**Budget defaults:**
+**Three required caps** (all enforced, none optional):
 
 ```rust
-/// Maximum wall-clock time for the brute-force fallback scan.
-/// After this, the scan stops and returns whatever it has.
-const BRUTE_FORCE_TIME_BUDGET_US: u64 = 5_000; // 5 ms
+/// Budget caps for the brute-force safety net.
+/// All three are enforced simultaneously. The scan stops at whichever hits first.
+/// These are RUNTIME limits, not caller-adjustable above the defaults.
+/// Callers may reduce them but not exceed them (unless PreferQuality mode,
+/// which extends to 4x).
+pub struct SafetyNetBudget {
+    /// Maximum wall-clock time for the safety net scan.
+    /// Default: 2,000 us (2 ms) in Layer A mode, 5,000 us (5 ms) in partial mode.
+    pub max_scan_time_us: u64,
+    /// Maximum number of candidate vectors to scan.
+    /// Default: 10,000 in Layer A mode, 50,000 in partial mode.
+    pub max_scan_candidates: u64,
+    /// Maximum number of distance evaluations (the actual compute cost).
+    /// This is the hardest cap — it bounds CPU work directly.
+    /// Default: 10,000 in Layer A mode, 50,000 in partial mode.
+    pub max_distance_ops: u64,
+}
 
-/// Maximum number of vectors to scan during brute-force fallback.
-/// For a 10M vector file with a 5% hot cache (500K vectors),
-/// this caps the scan at 10% of the hot cache.
-const BRUTE_FORCE_CANDIDATE_BUDGET: u64 = 50_000;
+impl SafetyNetBudget {
+    /// Layer A only defaults: tight budget for instant first query.
+    pub const LAYER_A: Self = Self {
+        max_scan_time_us: 2_000,     // 2 ms
+        max_scan_candidates: 10_000,
+        max_distance_ops: 10_000,
+    };
+    /// Partial index defaults: moderate budget.
+    pub const PARTIAL: Self = Self {
+        max_scan_time_us: 5_000,     // 5 ms
+        max_scan_candidates: 50_000,
+        max_distance_ops: 50_000,
+    };
+    /// PreferQuality mode: 4x extension of the applicable default.
+    pub fn extended_4x(&self) -> Self {
+        Self {
+            max_scan_time_us: self.max_scan_time_us * 4,
+            max_scan_candidates: self.max_scan_candidates * 4,
+            max_distance_ops: self.max_distance_ops * 4,
+        }
+    }
+    /// Disabled: all zeros. Safety net will not scan anything.
+    pub const DISABLED: Self = Self {
+        max_scan_time_us: 0,
+        max_scan_candidates: 0,
+        max_distance_ops: 0,
+    };
+}
 ```
 
-Both budgets are configurable via `QueryOptions`:
+All three are in `QueryOptions`:
 
 ```rust
 pub struct QueryOptions {
     pub k: usize,
     pub ef_search: u32,
-    /// Maximum microseconds for brute-force fallback. 0 = disable fallback.
-    pub brute_force_time_budget_us: u64,
-    /// Maximum vectors to scan during fallback. 0 = disable fallback.
-    pub brute_force_candidate_budget: u64,
+    pub quality_preference: QualityPreference,
+    /// Safety net budget. Callers may tighten but not loosen beyond
+    /// the mode default (unless QualityPreference::PreferQuality).
+    pub safety_net_budget: SafetyNetBudget,
 }
 ```
 
-**Implementation:**
+**Policy response**: When any budget is exceeded, the scan stops immediately and returns:
+- `FallbackPath::SafetyNetBudgetExhausted`
+- `DegradationReason::BudgetExhausted` with which budget triggered and how far the scan got
+- A partial candidate set (whatever was found before the budget hit)
+- `ResponseQuality::Degraded`
+
+**Selective scan strategy** — the safety net does NOT scan the entire hot cache. It
+scans a targeted subset to stay sparse even under fallback:
 
 ```rust
-fn query_with_safety_net(
+fn selective_safety_net_scan(
     query: &[f32],
     k: usize,
     hnsw_candidates: &[Candidate],
+    centroid_distances: &[(u32, f32)], // (centroid_id, distance)
     store: &RvfStore,
-    opts: &QueryOptions,
-) -> QueryResponse {
-    if hnsw_candidates.len() >= 2 * k {
-        return QueryResponse {
-            results: top_k(hnsw_candidates, k),
-            response_quality: ResponseQuality::Verified,
-            degradation_reason: None,
-            time_budget_exhausted: false,
-            candidates_scanned: hnsw_candidates.len() as u64,
-            candidates_budget: 0,
-        };
-    }
-
-    // Insufficient candidates — activate budgeted brute-force
-    let deadline = Instant::now() + Duration::from_micros(opts.brute_force_time_budget_us);
-    let max_scan = opts.brute_force_candidate_budget;
+    budget: &SafetyNetBudget,
+) -> (Vec<Candidate>, BudgetReport) {
+    let deadline = Instant::now() + Duration::from_micros(budget.max_scan_time_us);
     let mut scanned: u64 = 0;
-    let mut hot_candidates = Vec::new();
-    let mut budget_exhausted = false;
+    let mut dist_ops: u64 = 0;
+    let mut candidates = Vec::new();
+    let mut budget_report = BudgetReport::default();
 
-    for block in store.hot_cache_blocks() {
-        if scanned >= max_scan {
-            budget_exhausted = true;
-            break;
-        }
-        if Instant::now() >= deadline {
-            budget_exhausted = true;
-            break;
-        }
+    // Phase 1: Multi-centroid union
+    // Scan hot cache entries whose centroid_id is in top-T centroids.
+    // T = min(adaptive_n_probe, sqrt(total_centroids))
+    let top_t = centroid_distances.len().min(
+        (centroid_distances.len() as f64).sqrt().ceil() as usize
+    );
+    let top_centroid_ids: Vec<u32> = centroid_distances[..top_t]
+        .iter().map(|(id, _)| *id).collect();
+
+    for block in store.hot_cache_blocks_by_centroid(&top_centroid_ids) {
+        if scanned >= budget.max_scan_candidates { break; }
+        if dist_ops >= budget.max_distance_ops { break; }
+        if Instant::now() >= deadline { break; }
 
         let block_results = scan_block(query, block);
         scanned += block.len() as u64;
-        hot_candidates.extend(block_results);
+        dist_ops += block.len() as u64;
+        candidates.extend(block_results);
     }
 
-    let merged = merge_candidates(hnsw_candidates, &hot_candidates);
+    // Phase 2: HNSW neighbor expansion
+    // For each existing HNSW candidate, scan their neighbors' vectors
+    // in the hot cache (1-hop expansion).
+    if scanned < budget.max_scan_candidates && dist_ops < budget.max_distance_ops {
+        for candidate in hnsw_candidates.iter().take(k) {
+            if scanned >= budget.max_scan_candidates { break; }
+            if dist_ops >= budget.max_distance_ops { break; }
+            if Instant::now() >= deadline { break; }
 
-    let (quality, reason) = if merged.len() >= 2 * k {
-        (ResponseQuality::Usable, None)
-    } else if budget_exhausted {
-        (ResponseQuality::Degraded, Some(DegradationReason::BudgetExhausted {
-            scanned,
-            total: store.hot_cache_vector_count(),
-        }))
-    } else {
-        (ResponseQuality::Unreliable, Some(DegradationReason::DegenerateDistribution {
-            cv: 0.0, // will be filled by caller
-            threshold: DEGENERATE_CV_THRESHOLD,
-        }))
-    };
-
-    QueryResponse {
-        results: top_k(&merged, k),
-        response_quality: quality,
-        degradation_reason: reason,
-        time_budget_exhausted: budget_exhausted,
-        candidates_scanned: scanned,
-        candidates_budget: max_scan,
+            if let Some(neighbors) = store.hot_cache_neighbors(candidate.id) {
+                for neighbor in neighbors {
+                    if dist_ops >= budget.max_distance_ops { break; }
+                    let d = distance(query, &neighbor.vector);
+                    dist_ops += 1;
+                    scanned += 1;
+                    candidates.push(Candidate { id: neighbor.id, distance: d });
+                }
+            }
+        }
     }
+
+    // Phase 3: Recency window (if budget remains)
+    // Scan the most recently ingested vectors in the hot cache,
+    // which are most likely to be missing from the HNSW index.
+    if scanned < budget.max_scan_candidates && dist_ops < budget.max_distance_ops {
+        let remaining_budget = budget.max_scan_candidates - scanned;
+        for vec in store.hot_cache_recent(remaining_budget as usize) {
+            if dist_ops >= budget.max_distance_ops { break; }
+            if Instant::now() >= deadline { break; }
+            let d = distance(query, &vec.vector);
+            dist_ops += 1;
+            scanned += 1;
+            candidates.push(Candidate { id: vec.id, distance: d });
+        }
+    }
+
+    budget_report.linear_scan_count = scanned;
+    budget_report.linear_scan_budget = budget.max_scan_candidates;
+    budget_report.distance_ops = dist_ops;
+    budget_report.distance_ops_budget = budget.max_distance_ops;
+
+    (candidates, budget_report)
 }
 ```
 
-**Why dual budget:**
+**Why selective, not exhaustive:**
 
-- **Time budget alone** is insufficient: on a fast machine, 5 ms scans millions of vectors.
-  An adversarial file with a massive hot cache becomes a CPU DoS.
-- **Candidate budget alone** is insufficient: on a slow machine, 50K scans may take 50 ms,
-  violating latency SLAs.
-- **Both together** bound work in both dimensions. The scan stops at whichever limit hits first.
+The safety net scans three targeted sets in priority order:
+1. **Multi-centroid union**: vectors near the best-matching centroids (spatial locality)
+2. **HNSW neighbor expansion**: 1-hop neighbors of existing candidates (graph locality)
+3. **Recency window**: recently ingested vectors not yet in any index (temporal locality)
 
-**Invariant**: The brute-force safety net is bounded. It will never scan more than
-`min(brute_force_candidate_budget, vectors_reachable_in_time_budget)` vectors. If both
-budgets are set to 0, the safety net is disabled entirely and the system returns
-`ResponseQuality::Unreliable` immediately when HNSW produces insufficient candidates.
+Each phase respects all three budget caps. Even under the safety net, the scan stays
+**sparse and deterministic**.
+
+**Why three budget caps:**
+
+- **Time alone** is insufficient: fast CPUs burn millions of ops in 5 ms.
+- **Candidates alone** is insufficient: slow storage makes 50K scans take 50 ms.
+- **Distance ops alone** is insufficient: a scan that reads but doesn't compute still
+  consumes I/O bandwidth.
+- **All three together** bound the work in every dimension. The scan stops at whichever
+  limit hits first.
+
+**Invariant**: The brute-force safety net is bounded in time, candidates, and compute.
+A fuzzed query generator cannot push p95 latency above the budgeted ceiling. If all
+three budgets are set to 0, the safety net is disabled entirely and the system returns
+`ResponseQuality::Degraded` immediately when HNSW produces insufficient candidates.
+
+#### 3.3.1 DoS Hardening
+
+Three additional protections for public-facing deployments:
+
+**Budget tokens**: Each query consumes a fixed budget of distance ops and bytes. The
+runtime tracks a per-connection token bucket. No tokens remaining = query rejected with
+`429 Too Many Requests` equivalent. Prevents sustained DoS via repeated adversarial queries.
+
+**Negative caching**: If a query signature (hash of the query vector's quantized form)
+triggers degenerate mode more than N times in a window, the runtime caches it and forces
+`SafetyNetBudget::DISABLED` for subsequent matches. The adversary cannot keep burning budget
+on the same attack vector.
+
+**Proof-of-work option**: For open-internet endpoints only. The caller must include a
+nonce proving O(work) computation before the query is accepted. This is opt-in, not
+default — only relevant for unauthenticated public endpoints.
 
 #### 3.4 Acceptance Test Update
 
@@ -524,6 +712,139 @@ Verification under Strict policy:
 Pass criteria:
   - The system distinguishes "no signature" from "wrong signer"
   - Both produce distinct, documented error codes
+```
+
+#### 3.6 Acceptance Tests: QualityEnvelope Enforcement (MANDATORY)
+
+**Test 1: Consumer Cannot Ignore QualityEnvelope**
+
+```
+Test: Schema Enforcement of QualityEnvelope
+============================================
+
+Setup:
+  1. Create RVF file with 10K vectors, full index
+  2. Issue a query that returns Degraded results (use degenerate query vector)
+
+Verification:
+  1. The query API returns QualityEnvelope, not Vec<SearchResult>
+  2. Attempt to deserialize the response as Vec<SearchResult> (without envelope)
+  3. MUST fail at schema validation — the envelope is the outer type
+  4. JSON response: top-level keys MUST include "quality", "evidence", "budgets"
+  5. gRPC response: QualityEnvelope is the response message type
+  6. MCP tool response: "quality" field is at top level, not nested
+
+Pass criteria:
+  - No API path exists that returns raw results without the envelope
+  - Schema validation rejects any consumer that skips the quality field
+  - The envelope cannot be flattened away by middleware or serialization
+```
+
+**Test 2: Adversarial Query Respects max_distance_ops Under Safety Net**
+
+```
+Test: Budget Cap Enforcement Under Adversarial Query
+=====================================================
+
+Setup:
+  1. Create RVF file with 1M vectors, Layer A only (no HNSW loaded)
+  2. Set SafetyNetBudget to LAYER_A defaults (10,000 distance ops)
+  3. Craft adversarial query that triggers degenerate detection
+     (uniform-random vector or equidistant from all centroids)
+
+Verification:
+  1. Issue query with quality_preference = Auto
+  2. Safety net activates (candidate set < 2*k from HNSW)
+  3. BudgetReport.distance_ops MUST be <= SafetyNetBudget.max_distance_ops
+  4. BudgetReport.distance_ops MUST be <= 10,000
+  5. Total query wall-clock MUST be <= SafetyNetBudget.max_scan_time_us
+  6. DegradationReport.reason MUST be BudgetExhausted if budget was hit
+  7. ResponseQuality MUST be Degraded (not Verified or Usable)
+
+Stress test:
+  1. Repeat with 10,000 adversarial queries in sequence
+  2. No single query may exceed max_distance_ops
+  3. Aggregate p95 latency MUST stay below max_scan_time_us ceiling
+  4. No OOM, no panic, no unbounded allocation
+
+Pass criteria:
+  - max_distance_ops is a hard cap, never exceeded by even 1 operation
+  - Budget enforcement works under all three safety net phases
+  - Each phase independently respects all three budget caps
+```
+
+**Test 3: Degenerate Conditions Produce Partial Results, Not Hangs**
+
+```
+Test: Graceful Degradation Under Degenerate Conditions
+=======================================================
+
+Setup:
+  1. Create RVF file with 1M uniform-random vectors (worst case)
+  2. Load with Layer A only (no HNSW, no Layer B/C)
+  3. All centroids equidistant from query (maximum degeneracy)
+
+Verification:
+  1. Issue query with quality_preference = Auto
+  2. Runtime MUST return within max_scan_time_us (not hang)
+  3. Return type MUST be Err(RvfError::QualityBelowThreshold(envelope))
+  4. The envelope MUST contain:
+     a. A partial result set (whatever was found before budget hit)
+     b. quality = ResponseQuality::Degraded or Unreliable
+     c. degradation.reason = BudgetExhausted or DegenerateDistribution
+     d. degradation.guarantee_lost describes what is missing
+     e. budgets.distance_ops <= budgets.distance_ops_budget
+  5. The caller can then choose:
+     a. Retry with PreferQuality (extends budget 4x)
+     b. Retry with AcceptDegraded (uses partial results as-is)
+     c. Wait for Layer B to load and retry
+
+  6. With AcceptDegraded:
+     a. Same partial results are returned as Ok(envelope)
+     b. ResponseQuality is still Degraded (honesty preserved)
+     c. No additional scanning beyond what was already done
+
+Pass criteria:
+  - No hang, no scan-to-completion, no unbounded work
+  - Partial results are always available (not empty unless truly zero candidates)
+  - Clear, structured reason for degradation (not a string, a typed enum)
+  - Caller can always recover by choosing a different QualityPreference
+```
+
+#### 3.7 Benchmark: Fuzzed Query Latency Ceiling (MANDATORY)
+
+```
+Benchmark: Fuzzed Query Generator vs Budget Ceiling
+=====================================================
+
+Setup:
+  1. Create RVF file with 10M vectors, 384 dimensions, fp16
+  2. Generate a fuzzed query corpus:
+     a. 1000 natural embedding queries (sentence-transformer outputs)
+     b. 1000 uniform-random queries
+     c. 1000 adversarial queries (equidistant from top-K centroids)
+     d. 1000 degenerate queries (zero vector, max-norm vector, NaN-adjacent)
+  3. Load file progressively: measure at Layer A, A+B, A+B+C
+
+Test:
+  1. Execute all 4000 queries at each progressive load stage
+  2. Measure p50, p95, p99, max latency per query class per stage
+
+Pass criteria:
+  - p95 latency MUST NOT exceed SafetyNetBudget.max_scan_time_us at any stage
+  - p99 latency MUST NOT exceed 2x SafetyNetBudget.max_scan_time_us at any stage
+    (allowing for OS scheduling jitter, not algorithmic overshoot)
+  - max_distance_ops is NEVER exceeded (hard invariant, no exceptions)
+  - Recall improves monotonically across stages for all query classes:
+    recall@10(Layer A) <= recall@10(A+B) <= recall@10(A+B+C)
+  - No query class achieves recall@10 = 0.0 at any stage
+    (even degenerate queries must return SOME results)
+
+Report:
+  JSON report per stage with:
+    stage, query_class, p50_us, p95_us, p99_us, max_us,
+    avg_recall_at_10, min_recall_at_10, avg_distance_ops,
+    max_distance_ops, safety_net_trigger_rate, budget_exhaustion_rate
 ```
 
 ---
