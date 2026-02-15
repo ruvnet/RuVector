@@ -17,7 +17,7 @@
 
 use anyhow::Result;
 use clap::Parser;
-use ruvector_benchmarks::acceptance_test::{run_acceptance_test, HoldoutConfig};
+use ruvector_benchmarks::acceptance_test::{run_ablation_comparison, run_acceptance_test, HoldoutConfig};
 use ruvector_benchmarks::agi_contract::{AutonomyEvaluator, ContractHealth, ViabilityChecklist};
 use ruvector_benchmarks::intelligence_metrics::IntelligenceCalculator;
 use ruvector_benchmarks::superintelligence::{run_pathway, SIConfig};
@@ -61,6 +61,10 @@ struct Args {
     /// Minimum accuracy threshold
     #[arg(long, default_value = "0.80")]
     min_accuracy: f64,
+
+    /// Run three-mode ablation comparison (A/B/C)
+    #[arg(long)]
+    ablation: bool,
 
     /// Also run the 5-level SI pathway
     #[arg(long)]
@@ -118,6 +122,13 @@ fn main() -> Result<()> {
     println!("  Running acceptance test...");
     let result = run_acceptance_test(&config)?;
     result.print();
+
+    // ─── Ablation Comparison ─────────────────────────────────────────
+    if args.ablation {
+        println!("  Running ablation comparison (A / B / C)...");
+        let comparison = run_ablation_comparison(&config)?;
+        comparison.print();
+    }
 
     // ─── Contract Health Summary ─────────────────────────────────────
     if let Some(last_cycle) = result.cycles.last() {

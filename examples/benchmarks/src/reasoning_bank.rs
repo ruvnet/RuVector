@@ -619,7 +619,7 @@ impl ReasoningBank {
         self.strategy_from_name(&strategy_name, difficulty)
     }
 
-    fn strategy_from_name(&self, name: &str, difficulty: u8) -> Strategy {
+    pub fn strategy_from_name(&self, name: &str, difficulty: u8) -> Strategy {
         match name {
             "aggressive" => Strategy {
                 name: "aggressive".to_string(),
