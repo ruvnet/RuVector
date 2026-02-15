@@ -97,8 +97,9 @@ impl std::fmt::Display for ConfigError {
 impl std::error::Error for ConfigError {}  
   
 #[cfg(test)]  
-mod tests {  
-    use super::*;  
+mod tests {
+    use super::*;
+    use std::path::Path;  
   
     #[test]  
     fn config_defaults() {  

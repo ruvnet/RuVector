@@ -276,7 +276,16 @@ fn is_pid_alive(pid: u32) -> bool {
 #[cfg(unix)]
 extern "C" {
     fn kill(pid: i32, sig: i32) -> i32;
+}
+
+#[cfg(target_os = "linux")]
+extern "C" {
     fn __errno_location() -> *mut i32;
+}
+
+#[cfg(target_os = "macos")]
+extern "C" {
+    fn __error() -> *mut i32;
 }
 
 /// Permission denied errno -- process exists but belongs to another user.
@@ -289,9 +298,15 @@ fn libc_kill(pid: i32, sig: i32) -> i32 {
 }
 
 /// Get a pointer to the thread-local errno value.
-#[cfg(unix)]
+#[cfg(target_os = "linux")]
 fn libc_errno() -> *mut i32 {
     unsafe { __errno_location() }
+}
+
+/// Get a pointer to the thread-local errno value (macOS).
+#[cfg(target_os = "macos")]
+fn libc_errno() -> *mut i32 {
+    unsafe { __error() }
 }
 
 /// Simple CRC32 (not CRC32C) for lock file checksumming.
