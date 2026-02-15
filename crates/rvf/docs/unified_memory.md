@@ -151,35 +151,25 @@ Gap D — AgenticMemory (ruvector: crates/ruvllm)
   Uses ruvector-core HNSW, not RVF files.
   Fix: swap HnswIndex for rvf-adapter-agentdb VectorStore.
 
-Gap E — No MCP server (ruvector: new crate)
-  No way for Claude Code agents to call RVF adapter ops as MCP tools.
-  Fix: build rvf-mcp-server composing both adapters.
-
 Closed:
   Gap C — FastAgentDB/IntelligenceEngine N-API bridge
     Closed. rvf-backend.ts (claude-flow) → RvfDatabase (rvf-node) → RvfStore → .rvf
     Binary deployed and verified (identical SHA-256 across repos).
 
+  Gap E — MCP server (ruvector: crates/rvf/rvf-mcp)
+    Closed. rvf-mcp exposes 11 tools over JSON-RPC 2.0 stdio.
+    Composes rvf-adapter-claude-flow + rvf-adapter-agentdb.
+    25 TDD tests passing. Binary: rvf-mcp.
 
-Recommended Path
-================
 
-Build an MCP server (Gap E) as a new crate in ruvector:
+Recommended Next Steps
+=====================
 
-  Claude Code agents
-      │ MCP tools (memory_store, memory_search, pattern_store,
-      │            pattern_search, witness_log, coordination_state)
-      ▼
-  rvf-mcp-server
-      │ composes both adapters:
-      │  rvf-adapter-claude-flow (memory + witness + coordination)
-      │  rvf-adapter-agentdb (patterns: rewards, critiques, success tracking)
-      ▼
-  .rvf files (persistent, with audit trails)
+1. Gap B — Replace ClaudeFlowMemoryBridge CLI shelling with direct
+   rvf-adapter-claude-flow calls. Pure Rust, no subprocess overhead.
 
-Why this is highest impact:
-  1. Claude Code agents already use MCP tools for everything
-  2. Bridges claude-flow and AgentDB simultaneously
-  3. Persists to .rvf files with witness chains
-  4. No modification needed to upstream claude-flow or ruvllm
-  5. Sidesteps Gap A entirely — agents bypass the CLI
+2. Gap D — Swap AgenticMemory's ruvector-core HnswIndex for
+   rvf-adapter-agentdb VectorStore. Unifies all 4 memory types to .rvf.
+
+3. Gap A — Set rvf-backend.ts as default in claude-flow config.
+   Lowest priority since Gap E now sidesteps the CLI entirely.
