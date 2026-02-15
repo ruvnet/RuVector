@@ -1,6 +1,6 @@
 [package]
 name = "rvf-server"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 description = "RuVector Format TCP/HTTP streaming server with REST API"
 license = "MIT OR Apache-2.0"
