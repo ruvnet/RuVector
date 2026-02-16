@@ -16,10 +16,10 @@
 </p>
 
 <p align="center">
-  <img alt="Tests" src="https://img.shields.io/badge/tests-795_passing-brightgreen?style=flat-square" />
-  <img alt="Examples" src="https://img.shields.io/badge/examples-45_runnable-brightgreen?style=flat-square" />
-  <img alt="Crates" src="https://img.shields.io/badge/crates-16-blue?style=flat-square" />
-  <img alt="Lines" src="https://img.shields.io/badge/rust-90.7k_lines-orange?style=flat-square" />
+  <img alt="Tests" src="https://img.shields.io/badge/tests-1156_passing-brightgreen?style=flat-square" />
+  <img alt="Examples" src="https://img.shields.io/badge/examples-46_runnable-brightgreen?style=flat-square" />
+  <img alt="Crates" src="https://img.shields.io/badge/crates-22-blue?style=flat-square" />
+  <img alt="Lines" src="https://img.shields.io/badge/rust-64k_lines-orange?style=flat-square" />
   <img alt="License" src="https://img.shields.io/badge/license-MIT%2FApache--2.0-blue?style=flat-square" />
   <img alt="MSRV" src="https://img.shields.io/badge/MSRV-1.87-purple?style=flat-square" />
   <img alt="no_std" src="https://img.shields.io/badge/no__std-compatible-green?style=flat-square" />
@@ -69,7 +69,7 @@ This is not a database format. It is an **executable knowledge unit**.
 | Capability | How | Segment |
 |------------|-----|---------|
 | 🤖 **Plug into AI agents** | An MCP server lets Claude Code, Cursor, and other AI tools create, query, and manage vector stores directly. | npm package |
-| 📦 **Use from any language** | Published as 13 Rust crates, 4 npm packages, a CLI tool, and an HTTP server. Works from Rust, Node.js, browsers, and the command line. | 13 crates + 4 npm |
+| 📦 **Use from any language** | Published as 14 Rust crates, 6 adapters, 4 npm packages, a CLI tool, and an HTTP server. Works from Rust, Node.js, browsers, and the command line. | 14 crates + 6 adapters + 4 npm |
 | ♻️ **Always backward-compatible** | Old tools skip new segment types they don't understand. A file with COW branching still works in a reader that only knows basic vectors. | Format rule |
 
 ```
@@ -150,19 +150,20 @@ A single `.rvf` file is crash-safe (no WAL needed), self-describing, and progres
 
 | Crate | Version | Description |
 |-------|---------|-------------|
-| [`rvf-types`](https://crates.io/crates/rvf-types) | 0.1.0 | Segment types, 20 headers, enums (`no_std`) |
+| [`rvf-types`](https://crates.io/crates/rvf-types) | 0.2.0 | Segment types, 24 headers, quality, security, AGI container types (`no_std`) |
 | [`rvf-wire`](https://crates.io/crates/rvf-wire) | 0.1.0 | Wire format read/write (`no_std`) |
 | [`rvf-manifest`](https://crates.io/crates/rvf-manifest) | 0.1.0 | Two-level manifest, FileIdentity, COW pointers |
 | [`rvf-quant`](https://crates.io/crates/rvf-quant) | 0.1.0 | Scalar, product, and binary quantization |
 | [`rvf-index`](https://crates.io/crates/rvf-index) | 0.1.0 | HNSW progressive indexing (Layer A/B/C) |
-| [`rvf-crypto`](https://crates.io/crates/rvf-crypto) | 0.1.0 | SHAKE-256, Ed25519, witness chains, attestation |
-| [`rvf-runtime`](https://crates.io/crates/rvf-runtime) | 0.1.0 | Full store API, COW engine, compaction |
+| [`rvf-crypto`](https://crates.io/crates/rvf-crypto) | 0.2.0 | SHAKE-256, Ed25519, witness chains, seed crypto |
+| [`rvf-runtime`](https://crates.io/crates/rvf-runtime) | 0.2.0 | Full store API, COW engine, AGI containers, QR seeds, safety net |
 | [`rvf-kernel`](https://crates.io/crates/rvf-kernel) | 0.1.0 | Linux kernel builder, initramfs, Docker pipeline |
 | [`rvf-ebpf`](https://crates.io/crates/rvf-ebpf) | 0.1.0 | BPF C compiler (XDP, socket filter, TC) |
 | [`rvf-launch`](https://crates.io/crates/rvf-launch) | 0.1.0 | QEMU microvm launcher, KVM/TCG, QMP |
 | [`rvf-server`](https://crates.io/crates/rvf-server) | 0.1.0 | HTTP REST + TCP streaming server |
 | [`rvf-import`](https://crates.io/crates/rvf-import) | 0.1.0 | JSON, CSV, NumPy importers |
 | [`rvf-cli`](https://crates.io/crates/rvf-cli) | 0.1.0 | Unified CLI with 17 subcommands |
+| [`rvf-solver-wasm`](https://crates.io/crates/rvf-solver-wasm) | 0.1.0 | Thompson Sampling temporal solver (WASM, `no_std`) |
 
 ### npm Packages (npmjs.org)
 
@@ -215,10 +216,10 @@ npx @ruvector/rvf-mcp-server --transport stdio
 ```toml
 # Cargo.toml
 [dependencies]
-rvf-runtime = "0.1"          # full store API
-rvf-types   = "0.1"          # types only (no_std)
+rvf-runtime = "0.2"          # full store API
+rvf-types   = "0.2"          # types only (no_std)
 rvf-wire    = "0.1"          # wire format (no_std)
-rvf-crypto  = "0.1"          # signatures + witness chains
+rvf-crypto  = "0.2"          # signatures + witness chains
 rvf-import  = "0.1"          # JSON/CSV/NumPy importers
 ```
 
@@ -325,7 +326,7 @@ rvf inspect output/linux_microkernel.rvf
 
 ## 📋 What RVF Contains
 
-An RVF file is a sequence of typed segments. Each segment is self-describing, 64-byte aligned, and independently integrity-checked. The format supports 20 segment types that together constitute a complete cognitive runtime:
+An RVF file is a sequence of typed segments. Each segment is self-describing, 64-byte aligned, and independently integrity-checked. The format supports 24 segment types that together constitute a complete cognitive runtime:
 
 ```
 .rvf file (Sealed Cognitive Engine)
@@ -350,6 +351,9 @@ An RVF file is a sequence of typed segments. Each segment is self-describing, 64
   +-- REFCOUNT_SEG .... Cluster reference counts, rebuildable (0x21)
   +-- MEMBERSHIP_SEG .. Vector visibility filter for branches (0x22)
   +-- DELTA_SEG ....... Sparse delta patches / LoRA overlays (0x23)
+  +-- TRANSFER_PRIOR .. Transfer learning priors (0x30)
+  +-- POLICY_KERNEL ... Thompson Sampling policy state (0x31)
+  +-- COST_CURVE ...... Cost/reward curves for solver (0x32)
 ```
 
 ---
@@ -407,7 +411,7 @@ This is not a database. It is a **sealed, auditable, self-booting domain expert*
 
 ## 🔌 RuVector Ecosystem Integration
 
-RVF is the canonical binary format across 75+ Rust crates in the RuVector ecosystem:
+RVF is the canonical binary format across 87+ Rust crates in the RuVector ecosystem:
 
 | Domain | Crates | RVF Segment |
 |--------|--------|-------------|
@@ -439,7 +443,7 @@ The same `.rvf` file format runs on cloud servers, Firecracker microVMs, TEE enc
 | **Temperature-tiered quantization** | Hot vectors stay fp16, warm use product quantization, cold use binary &mdash; automatically. |
 | **Metadata filtering** | Filtered k-NN with boolean expressions (AND/OR/NOT/IN/RANGE). |
 | **4 KB instant boot** | Root manifest fits in one page read. Cold boot < 5 ms. |
-| **20 segment types** | VEC, INDEX, MANIFEST, QUANT, WITNESS, CRYPTO, KERNEL, EBPF, COW_MAP, MEMBERSHIP, DELTA, and 9 more. |
+| **24 segment types** | VEC, INDEX, MANIFEST, QUANT, WITNESS, CRYPTO, KERNEL, EBPF, WASM, COW_MAP, MEMBERSHIP, DELTA, TRANSFER_PRIOR, POLICY_KERNEL, COST_CURVE, and 9 more. |
 
 ### COW Branching (RVCOW)
 
@@ -530,17 +534,18 @@ An `.rvf` file is a sequence of 64-byte-aligned segments. Each segment has a sel
 
 | Crate | Lines | Purpose |
 |-------|------:|---------|
-| `rvf-types` | 5,200+ | Segment types, 20 headers, COW/membership/delta/kernel-binding types, enums (`no_std`) |
+| `rvf-types` | 7,000+ | 24 segment types, AGI container, quality, security, WASM bootstrap, QR seed (`no_std`) |
 | `rvf-wire` | 2,011 | Wire format read/write (`no_std`) |
 | `rvf-manifest` | 1,700+ | Two-level manifest with 4 KB root, FileIdentity codec, COW pointers, double-root scheme |
 | `rvf-index` | 2,691 | HNSW progressive indexing (Layer A/B/C) |
 | `rvf-quant` | 1,443 | Scalar, product, and binary quantization |
-| `rvf-crypto` | 1,725 | SHAKE-256, Ed25519, witness chains, attestation, lineage witnesses |
-| `rvf-runtime` | 5,500+ | Full store API, COW engine, membership filters, compaction, branch/freeze |
+| `rvf-crypto` | 1,725 | SHAKE-256, Ed25519, witness chains, attestation, seed crypto |
+| `rvf-runtime` | 8,000+ | Full store API, COW engine, AGI containers, QR seeds, safety net, adversarial defense |
 | `rvf-kernel` | 2,400+ | Real Linux kernel builder, cpio/newc initramfs, Docker build, SHA3-256 verification |
 | `rvf-launch` | 1,200+ | QEMU microvm launcher, KVM/TCG detection, QMP shutdown protocol |
 | `rvf-ebpf` | 1,100+ | Real BPF C compiler (XDP, socket filter, TC), vmlinux.h generation |
 | `rvf-wasm` | 1,700+ | WASM control plane: in-memory store, query, segment inspection, witness chain verification (~46 KB) |
+| `rvf-solver-wasm` | 1,500+ | Thompson Sampling temporal solver, PolicyKernel, three-loop architecture (`no_std`) |
 | `rvf-node` | 852 | Node.js N-API bindings with lineage, kernel/eBPF, and inspection |
 | `rvf-cli` | 1,800+ | Unified CLI with 17 subcommands (create, ingest, query, delete, status, inspect, compact, derive, serve, launch, embed-kernel, embed-ebpf, filter, freeze, verify-witness, verify-attestation, rebuild-refcounts) |
 | `rvf-server` | 1,165 | HTTP REST + TCP streaming server |
@@ -791,6 +796,115 @@ if let Some((header, program_data)) = store.extract_ebpf()? {
 
 For the full specification including wire formats, attestation binding, and implementation phases, see [ADR-030: RVF Cognitive Container](docs/adr/ADR-030-rvf-computational-container.md).
 
+### End-to-End: Claude Code Appliance
+
+The `claude_code_appliance` example builds a complete self-booting AI development environment as a single `.rvf` file. It uses real infrastructure — a Docker-built Linux kernel, Ed25519 SSH keys, a BPF C socket filter, and a cryptographic witness chain.
+
+**Prerequisites:** Docker (for kernel build), Rust 1.87+
+
+```bash
+# Build and run the example
+cd examples/rvf
+cargo run --example claude_code_appliance
+```
+
+**What it produces** (5.1 MB file):
+
+```
+claude_code_appliance.rvf
+  ├── KERNEL_SEG    Linux 6.8.12 bzImage (5.2 MB, x86_64)
+  ├── EBPF_SEG      Socket filter — allows ports 2222, 8080 only
+  ├── VEC_SEG       20 package embeddings (128-dim)
+  ├── INDEX_SEG     HNSW graph for package search
+  ├── WITNESS_SEG   6-entry tamper-evident audit trail
+  ├── CRYPTO_SEG    3 Ed25519 SSH user keys (root, deploy, claude)
+  ├── MANIFEST_SEG  4 KB root with segment directory
+  └── Snapshot      v1 derived image with lineage tracking
+```
+
+**Boot sequence** (once launched on Firecracker/QEMU):
+
+```
+1. Firecracker loads KERNEL_SEG → Linux boots (<125 ms)
+2. SSH server starts on port 2222
+3. curl -fsSL https://claude.ai/install.sh | bash
+4. RVF query server starts on port 8080
+5. Claude Code ready for use
+```
+
+**Connect and use:**
+
+```bash
+# Boot the file (requires QEMU or Firecracker)
+rvf launch claude_code_appliance.rvf
+
+# SSH in
+ssh -p 2222 deploy@localhost
+
+# Query the package database
+curl -s localhost:8080/query -d '{"vector":[0.1,...], "k":5}'
+
+# Or use the CLI
+rvf query claude_code_appliance.rvf --vector "0.1,0.2,..." --k 5
+```
+
+**Verified output from the example run:**
+
+```
+=== Claude Code Appliance Summary ===
+  File size:       5,260,093 bytes (5.1 MB)
+  Segments:        8
+  Packages:        20 (203.1 MB manifest)
+  KERNEL_SEG:      MicroLinux x86_64 (5,243,904 bytes)
+  EBPF_SEG:        SocketFilter (3,805 bytes)
+  SSH users:       3 (Ed25519 signed, all verified)
+  Witness chain:   6 entries (tamper-evident, all verified)
+  Lineage:         base + v1 snapshot (parent hash matches)
+```
+
+Final file: **5.1 MB single `.rvf`** — boots Linux, serves queries, runs Claude Code.
+
+One file. Boots Linux. Runs SSH. Serves vectors. Installs Claude Code. Proves every step.
+
+### Launching with QEMU
+
+```bash
+# CLI launcher (auto-detects KVM or falls back to TCG)
+rvf launch vectors.rvf
+
+# Manual QEMU (if you want control)
+rvf launch vectors.rvf --memory 512M --cpus 2 --port-forward 2222:22,8080:8080
+
+# Extract kernel for external use
+rvf inspect vectors.rvf --segment kernel --output kernel.bin
+qemu-system-x86_64 -M microvm -kernel kernel.bin -append "console=ttyS0" -nographic
+```
+
+### Building Your Own Bootable RVF
+
+Step-by-step to create a self-booting `.rvf` from scratch:
+
+```bash
+# 1. Create a vector store
+rvf create myservice.rvf --dimension 384
+
+# 2. Ingest your data
+rvf ingest myservice.rvf --input embeddings.json --format json
+
+# 3. Build and embed a Linux kernel (uses Docker)
+rvf embed-kernel myservice.rvf --arch x86_64
+
+# 4. Optionally embed an eBPF filter
+rvf embed-ebpf myservice.rvf --program filter.c
+
+# 5. Verify the result
+rvf inspect myservice.rvf
+# MANIFEST_SEG, VEC_SEG, INDEX_SEG, KERNEL_SEG, EBPF_SEG, WITNESS_SEG
+
+# 6. Boot it
+rvf launch myservice.rvf
+```
+
 ---
 
 ## 🔗 Library Adapters
@@ -805,6 +919,143 @@ RVF provides drop-in adapters for 6 libraries in the RuVector ecosystem:
 | `rvf-adapter-agentic-flow` | Swarm coordination | Inter-agent memory sharing |
 | `rvf-adapter-rvlite` | Lightweight embedded store | Minimal API, edge-friendly |
 | `rvf-adapter-sona` | Neural architecture | Experience replay + trajectories |
+
+---
+
+## 🤖 AGI Cognitive Container (ADR-036)
+
+An AGI container packages a complete AI agent runtime into a single sealed `.rvf` file. Where the [Self-Booting RVF](#%EF%B8%8F-self-booting-rvf-cognitive-container) section covers the compute tiers (WASM/eBPF/Kernel), the AGI container adds the intelligence layer on top: model identity, orchestration config, tool registries, evaluation harnesses, authority controls, and coherence gates.
+
+```
+AGI Cognitive Container (.rvf)
+├── Identity ────── container UUID, build UUID, model ID hash
+├── Orchestrator ── Claude Code / Claude Flow config (JSON)
+├── Tools ──────── MCP tool adapter registry
+├── Agent Prompts ─ role definitions per agent type
+├── Eval Harness ── task suite + grading rules
+├── Skills ──────── promoted skill library
+├── Policy ──────── governance rules + authority config
+├── Coherence ───── min score, contradiction rate, rollback ratio
+├── Resources ───── time/token/cost budgets with clamping
+├── Replay ──────── automation script for deterministic re-execution
+├── Kernel Config ─ boot parameters, network, SSH
+├── Domain Profile ─ coding / research / ops specialization
+└── Signature ───── HMAC-SHA256 or Ed25519 tamper seal
+```
+
+### Execution Modes
+
+| Mode | Purpose | Requires |
+|------|---------|----------|
+| **Replay** | Deterministic re-execution from witness logs | Witness chain |
+| **Verify** | Validate container integrity and run eval harness | Kernel + world model, or WASM + vectors |
+| **Live** | Full autonomous operation with tool use | Kernel + world model |
+
+### Authority Levels
+
+Authority is hierarchical — each level permits everything below it:
+
+| Level | Allows |
+|-------|--------|
+| `ReadOnly` | Read vectors, run queries |
+| `WriteMemory` | + Write to vector store, update index |
+| `ExecuteTools` | + Invoke MCP tools, run commands |
+| `WriteExternal` | + Network access, file I/O, push to git |
+
+Default authority per mode: Replay → ReadOnly, Verify → ExecuteTools, Live → WriteMemory.
+
+### Resource Budgets
+
+Every container carries hard limits that are clamped to safety maximums:
+
+| Resource | Max | Default |
+|----------|-----|---------|
+| Time | 3,600 sec | 300 sec |
+| Tokens | 1,000,000 | 100,000 |
+| Cost | $10.00 | $1.00 |
+| Tool calls | 500 | 100 |
+| External writes | 50 | 10 |
+
+### Coherence Gates
+
+Coherence thresholds halt execution when the agent's world model drifts:
+
+- `min_coherence_score` (0.0–1.0) — minimum quality gate
+- `max_contradiction_rate` (0.0–1.0) — tolerable contradiction frequency
+- `max_rollback_ratio` (0.0–1.0) — ratio of rolled-back decisions
+
+### Building a Container
+
+```rust
+use rvf_runtime::agi_container::AgiContainerBuilder;
+use rvf_types::agi_container::*;
+
+let (payload, header) = AgiContainerBuilder::new(container_id, build_id)
+    .with_model_id("claude-opus-4-6")
+    .with_orchestrator(b"{\"max_turns\":100}")
+    .with_tool_registry(b"[{\"name\":\"search\",\"type\":\"rvf_query\"}]")
+    .with_eval_tasks(b"[{\"id\":1,\"spec\":\"fix bug\"}]")
+    .with_eval_graders(b"[{\"type\":\"test_pass\"}]")
+    .with_authority_config(b"{\"level\":\"WriteMemory\"}")
+    .with_coherence_config(b"{\"min_cut\":0.7,\"rollback\":true}")
+    .with_project_instructions(b"# CLAUDE.md\nFix bugs, run tests.")
+    .with_segments(ContainerSegments {
+        kernel_present: true, manifest_present: true,
+        world_model_present: true, ..Default::default()
+    })
+    .build_and_sign(signing_key)?;
+
+// Parse and validate
+let manifest = ParsedAgiManifest::parse(&payload)?;
+assert_eq!(manifest.model_id_str(), Some("claude-opus-4-6"));
+assert!(manifest.is_autonomous_capable());
+assert!(header.is_signed());
+```
+
+See [ADR-036](../../docs/adr/ADR-036-agi-cognitive-container.md) for the full specification.
+
+## 📱 QR Cognitive Seed (ADR-034)
+
+A QR Cognitive Seed (RVQS) encodes a portable intelligence capsule into a scannable QR code. It carries bootstrap hosts, layer hashes, and cryptographic signatures in a compact binary format.
+
+```rust
+use rvf_runtime::seed_crypto;
+
+let hash = seed_crypto::seed_content_hash(data);       // 8-byte SHAKE-256
+let sig  = seed_crypto::sign_seed(key, payload);        // 32-byte HMAC
+let ok   = seed_crypto::verify_seed(key, payload, &sig);
+```
+
+Types: `SeedHeader`, `HostEntry`, `LayerEntry` (rvf-types), plus `qr_encode` for QR matrix generation (rvf-runtime).
+
+## 🔒 Quality & Safety Net
+
+The quality system tracks retrieval fidelity across progressive index layers and enforces graceful degradation when budgets are exceeded.
+
+- `RetrievalQuality` — Full / Partial / Degraded / Failed
+- `ResponseQuality` — per-query quality metadata with evidence
+- `SafetyNetBudget` — time, token, and cost budgets with automatic clamping
+- `DegradationReport` — structured fallback path and reason tracking
+
+## 🛡️ Security Hardening
+
+Built-in defenses against adversarial inputs and resource exhaustion:
+
+- `SecurityPolicy` / `HardeningFields` — declarative security configuration (rvf-types)
+- `adversarial` module — input validation and tamper detection (rvf-runtime)
+- `dos` module — rate limiting and resource exhaustion guards (rvf-runtime)
+
+## 🧬 WASM Self-Bootstrapping (0x10)
+
+WASM_SEG enables an RVF file to carry its own WASM interpreter, creating a three-layer bootstrap stack:
+
+```
+Raw bytes → WASM interpreter → microkernel → vector data
+```
+
+Types: `WasmRole` (Interpreter/Microkernel/Solver), `WasmTarget` (Browser/Node/Edge/Embedded), `WasmHeader` (rvf-types/wasm_bootstrap).
+
+The `rvf-solver-wasm` crate implements a Thompson Sampling temporal solver as a `no_std` WASM module with `dlmalloc`, producing segment types `TRANSFER_PRIOR` (0x30), `POLICY_KERNEL` (0x31), and `COST_CURVE` (0x32).
 
 ---
 
@@ -906,12 +1157,13 @@ cargo run --example <name>
 | 42 | [`membership_filter`](../../examples/rvf/examples/membership_filter.rs) | Include/exclude bitmap filters for shared HNSW traversal |
 | 43 | [`snapshot_freeze`](../../examples/rvf/examples/snapshot_freeze.rs) | Generation snapshots, immutable freeze, generation tracking |
 
-#### Appliance & Generation (2)
+#### Appliance & Generation (3)
 
 | # | Example | What It Demonstrates |
 |---|---------|---------------------|
 | 44 | [`claude_code_appliance`](../../examples/rvf/examples/claude_code_appliance.rs) | Bootable AI dev environment: real kernel + eBPF + vectors + witness + crypto |
-| 45 | [`generate_all`](../../examples/rvf/examples/generate_all.rs) | Batch generation of all 45 example `.rvf` files |
+| 45 | [`live_boot_proof`](../../examples/rvf/examples/live_boot_proof.rs) | Docker-boot an `.rvf`, SSH in, verify segments are live and operational |
+| 46 | [`generate_all`](../../examples/rvf/examples/generate_all.rs) | Batch generation of all example `.rvf` files |
 
 See the [examples README](../../examples/rvf/README.md) for tutorials, usage patterns, and detailed walkthroughs.
 
@@ -1317,10 +1569,14 @@ let dist = hamming_distance(&bits_a, &bits_b);
 | `0x0D` | META_IDX | Metadata inverted indexes |
 | `0x0E` | KERNEL | Compressed unikernel image (self-booting) |
 | `0x0F` | EBPF | eBPF program for kernel-level acceleration |
+| `0x10` | WASM | WASM microkernel / self-bootstrapping bytecode |
 | `0x20` | COW_MAP | Cluster ownership map (local vs parent) |
 | `0x21` | REFCOUNT | Cluster reference counts (rebuildable) |
 | `0x22` | MEMBERSHIP | Vector visibility filter for branches |
 | `0x23` | DELTA | Sparse delta patches (LoRA overlays) |
+| `0x30` | TRANSFER_PRIOR | Transfer learning prior distributions |
+| `0x31` | POLICY_KERNEL | Thompson Sampling policy kernels |
+| `0x32` | COST_CURVE | Cost/reward curves for solver |
 
 ### Segment Flags
 
@@ -1700,10 +1956,14 @@ cargo run --example claude_code_appliance
 #   File size: 17 KB — sealed cognitive container
 ```
 
-### Integration Test Suite: 46/46 Passing
+### Test Suite: 1,156 Passing
 
 ```bash
 cargo test --workspace
+# agi_e2e .................. 12 passed
+# adr033_integration ....... 34 passed
+# qr_seed_e2e .............. 11 passed
+# witness_e2e .............. 10 passed
 # attestation .............. 6 passed
 # crypto ................... 10 passed
 # computational_container .. 8 passed
@@ -1711,10 +1971,11 @@ cargo test --workspace
 # cross_platform ........... 6 passed
 # lineage .................. 4 passed
 # smoke .................... 4 passed
-# Total: 46/46 integration tests passed
+# + unit tests across all crates
+# Total: 1,156 tests passed
 ```
 
-### Generate All 45 Example Files
+### Generate All 46 Example Files
 
 ```bash
 cd examples/rvf && cargo run --example generate_all
@@ -1731,7 +1992,21 @@ cd ruvector/crates/rvf
 cargo test --workspace
 ```
 
-All contributions must pass `cargo clippy --all-targets` with zero warnings and maintain the existing test count (currently 795+).
+All contributions must pass `cargo clippy --all-targets` with zero warnings and maintain the existing test count (currently 1,156+).
+
+### Architecture Decision Records
+
+| ADR | Title |
+|-----|-------|
+| [ADR-030](docs/adr/ADR-030-rvf-computational-container.md) | RVF Cognitive Container (Kernel, eBPF, WASM tiers) |
+| [ADR-031](docs/adr/ADR-031-rvcow-branching-and-real-cognitive-containers.md) | RVCOW Branching & Real Cognitive Containers |
+| [ADR-033](../../docs/adr/ADR-033-progressive-indexing-hardening.md) | Progressive Indexing Hardening |
+| [ADR-034](../../docs/adr/ADR-034-qr-cognitive-seed.md) | QR Cognitive Seed (RVQS) |
+| [ADR-035](../../docs/adr/ADR-035-capability-report.md) | Capability Report |
+| [ADR-036](../../docs/adr/ADR-036-agi-cognitive-container.md) | AGI Cognitive Container |
+| [ADR-037](../../docs/adr/ADR-037-publishable-rvf-acceptance-test.md) | Publishable RVF Acceptance Tests |
+| [ADR-038](../../docs/adr/ADR-038-npx-ruvector-rvlite-witness-integration.md) | npx ruvector rvlite Witness Integration |
+| [ADR-039](../../docs/adr/ADR-039-rvf-solver-wasm-agi-integration.md) | RVF Solver WASM AGI Integration |
 
 ## 📄 License
 

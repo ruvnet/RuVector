@@ -419,10 +419,12 @@ Build an AI development environment as a single sealed file:
 // - Ed25519 + ML-DSA-65 signatures
 let store = RvfStore::create("claude_code_appliance.rvf", options)?;
 // ... embed packages, kernel, eBPF, witness chain, signatures ...
-// Result: 17 KB sealed cognitive container
+// Result: 5.1 MB sealed cognitive container
 ```
 
 Run: `cd examples/rvf && cargo run --example claude_code_appliance`
+
+Final file: **5.1 MB single `.rvf`** — boots Linux, serves queries, runs Claude Code.
 
 ### CLI Proof-of-Operations
 

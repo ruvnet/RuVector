@@ -1,6 +1,6 @@
 {
   "name": "@ruvector/rvf-mcp-server",
-  "version": "0.1.1",
+  "version": "0.1.3",
   "description": "MCP server for RuVector Format (RVF) vector database — stdio and SSE transports",
   "type": "module",
   "main": "dist/index.js",
