@@ -12,5 +12,9 @@
   "license": "MIT",
   "os": [
     "win32"
-  ]
+  ],
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/",
+    "access": "public"
+  }
 }
