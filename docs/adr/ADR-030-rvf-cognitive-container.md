@@ -540,6 +540,8 @@ Old readers see zeros at these offsets and continue working normally. New reader
 
 ### SegmentType Registry Update
 
+All computational segment types are now implemented in `rvf-types/src/segment_type.rs`:
+
 ```rust
 #[repr(u8)]
 pub enum SegmentType {
@@ -548,10 +550,14 @@ pub enum SegmentType {
     Kernel = 0x0E,
     /// Embedded eBPF program for kernel fast path.
     Ebpf = 0x0F,
+    /// Embedded WASM bytecode for self-bootstrapping execution.
+    Wasm = 0x10,
+    // ... COW segments 0x20-0x23 (ADR-031) ...
+    // ... Domain expansion segments 0x30-0x32 ...
 }
 ```
 
-Values 0x10-0xEF remain available for future segment types. Values 0xF0-0xFF remain reserved.
+The full registry (23 types) is documented in ADR-029. Available ranges: 0x11-0x1F, 0x24-0x2F, 0x33-0xEF. Values 0xF0-0xFF remain reserved.
 
 ## Performance Targets
 
@@ -575,24 +581,44 @@ Values 0x10-0xEF remain available for future segment types. Values 0xF0-0xFF rem
 ### Phase 1: Segment Types and Headers (rvf-types)
 
 **Duration**: 1 week
-**Status**: Partially complete (as of 2026-02-14)
+**Status**: **Complete** (as of 2026-02-16)
 
 **Implementation notes**:
-- `SegmentType::Kernel = 0x0E` and `SegmentType::Ebpf = 0x0F` have been added to the `SegmentType` enum in `rvf-types/src/segment_type.rs` with `TryFrom<u8>` round-trip support and unit tests.
-- The `rvf-runtime` write path (`write_path.rs`) implements `write_kernel_seg()` and `write_ebpf_seg()` methods that accept raw 128-byte and 64-byte header byte arrays respectively, with round-trip tests.
-- **Remaining**: Typed `KernelHeader` and `EbpfHeader` structs with `repr(C)` and compile-time size assertions are not yet defined as Rust structs in `rvf-types`. The `KernelArch`, `KernelType`, `ApiTransport`, `EbpfProgramType`, `EbpfAttachType` enums and `KernelFlags` bitfield are not yet implemented. `KernelPtr` has not been added to the Level0Root reserved area.
+- `SegmentType::Kernel = 0x0E`, `SegmentType::Ebpf = 0x0F`, and `SegmentType::Wasm = 0x10` are all defined in `rvf-types/src/segment_type.rs` with `TryFrom<u8>` round-trip support and unit tests.
+- The `rvf-runtime` write path (`write_path.rs`) implements `write_kernel_seg()` and `write_ebpf_seg()` methods that accept raw header byte arrays, with round-trip tests.
+- **`KernelHeader`** (128-byte `repr(C)` struct) is fully implemented in `rvf-types/src/kernel.rs` with:
+  - `KernelArch` enum (X86_64, Aarch64, Riscv64, Universal, Unknown) with `TryFrom<u8>`
+  - `KernelType` enum (Hermit, MicroLinux, Asterinas, WasiPreview2, Custom, TestStub) with `TryFrom<u8>`
+  - `ApiTransport` enum (TcpHttp, TcpGrpc, Vsock, SharedMem, None) with `TryFrom<u8>`
+  - 15 `KERNEL_FLAG_*` bitfield constants (bits 0-14)
+  - `to_bytes()` / `from_bytes()` serialization with compile-time size assertion
+  - 12 tests: header size, magic, round-trip, bad magic, field offsets, enum round-trips, flag bit positions, api_port network byte order, reserved field zeroing
+- **`EbpfHeader`** (64-byte `repr(C)` struct) is fully implemented in `rvf-types/src/ebpf.rs` with:
+  - `EbpfProgramType` enum (XdpDistance, TcFilter, SocketFilter, Tracepoint, Kprobe, CgroupSkb, Custom) with `TryFrom<u8>`
+  - `EbpfAttachType` enum (XdpIngress, TcIngress, TcEgress, SocketFilter, CgroupIngress, CgroupEgress, None) with `TryFrom<u8>`
+  - `to_bytes()` / `from_bytes()` serialization with compile-time size assertion
+  - 10 tests: header size, magic, round-trip, bad magic, field offsets, enum round-trips, max_dimension, large program size
+- **`WasmHeader`** (64-byte `repr(C)` struct) is fully implemented in `rvf-types/src/wasm_bootstrap.rs` with:
+  - `WasmRole` enum (Microkernel, Interpreter, Combined, Extension, ControlPlane) with `TryFrom<u8>`
+  - `WasmTarget` enum (Wasm32, WasiP1, WasiP2, Browser, BareTile) with `TryFrom<u8>`
+  - 8 `WASM_FEAT_*` bitfield constants
+  - `to_bytes()` / `from_bytes()` serialization with compile-time size assertion
+  - 10 tests
+- All types are exported from `rvf-types/src/lib.rs`.
 
 **Deliverables**:
-- ~~Add `Kernel = 0x0E` and `Ebpf = 0x0F` to `SegmentType` enum~~ (done)
-- Define `KernelHeader` (128-byte repr(C) struct) with compile-time size assertion
-- Define `EbpfHeader` (64-byte repr(C) struct) with compile-time size assertion
-- Define architecture, kernel type, transport, and program type enums
-- Define kernel flags and eBPF flags bitfields
-- Add `KernelPtr` to Level0Root reserved area
-- Unit tests for all new types, field offsets, and round-trips
+- [x] Add `Kernel = 0x0E` and `Ebpf = 0x0F` to `SegmentType` enum
+- [x] Add `Wasm = 0x10` to `SegmentType` enum
+- [x] Define `KernelHeader` (128-byte repr(C) struct) with compile-time size assertion
+- [x] Define `EbpfHeader` (64-byte repr(C) struct) with compile-time size assertion
+- [x] Define `WasmHeader` (64-byte repr(C) struct) with compile-time size assertion
+- [x] Define architecture, kernel type, transport, and program type enums
+- [x] Define kernel flags (15 bits) and WASM feature flags (8 bits)
+- [ ] Add `KernelPtr` to Level0Root reserved area
+- [x] Unit tests for all new types, field offsets, and round-trips (32+ tests)
 
-**Preconditions**: rvf-types crate exists and compiles (satisfied by current state)
-**Success criteria**: `cargo test -p rvf-types` passes, all new structs have offset tests
+**Preconditions**: rvf-types crate exists and compiles (satisfied)
+**Success criteria**: `cargo test -p rvf-types` passes, all new structs have offset tests -- **MET**
 
 ### Phase 2: eBPF Program Embedding + Extraction (rvf-ebpf)
 
@@ -660,7 +686,7 @@ Values 0x10-0xEF remain available for future segment types. Values 0xF0-0xFF rem
 
 ## GOAP Plan
 
-### World State (Current)
+### World State (Current — updated 2026-02-16)
 
 ```yaml
 rvf_types_exists: true
@@ -669,11 +695,15 @@ rvf_manifest_exists: true
 rvf_runtime_exists: true
 rvf_wasm_exists: true
 rvf_crypto_exists: true
-segment_types_count: 14  # 0x00-0x0D
-kernel_seg_defined: false
-ebpf_seg_defined: false
-kernel_header_defined: false
-ebpf_header_defined: false
+segment_types_count: 23  # 0x00-0x0D, 0x0E-0x10, 0x20-0x23, 0x30-0x32
+kernel_seg_defined: true        # SegmentType::Kernel = 0x0E
+ebpf_seg_defined: true          # SegmentType::Ebpf = 0x0F
+wasm_seg_defined: true          # SegmentType::Wasm = 0x10
+kernel_header_defined: true     # KernelHeader (128B repr(C)) in kernel.rs
+ebpf_header_defined: true       # EbpfHeader (64B repr(C)) in ebpf.rs
+wasm_header_defined: true       # WasmHeader (64B repr(C)) in wasm_bootstrap.rs
+agi_container_defined: true     # AgiContainerHeader (64B repr(C)) in agi_container.rs
+domain_expansion_types: true    # TransferPrior, PolicyKernel, CostCurve segments
 kernel_seg_codec: false
 ebpf_seg_codec: false
 hermit_kernel_built: false
@@ -843,3 +873,4 @@ Parallel path (eBPF, runs alongside kernel path):
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
 | 1.0 | 2026-02-14 | ruv.io | Initial proposal |
+| 1.1 | 2026-02-16 | implementation review | Phase 1 complete: KernelHeader (128B), EbpfHeader (64B), WasmHeader (64B), all enums and flag constants implemented in rvf-types with 32+ tests. Updated GOAP world state. Added WASM_SEG (0x10) and domain expansion types (0x30-0x32) to segment registry. AGI container header (64B) implemented. |

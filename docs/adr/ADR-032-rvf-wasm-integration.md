@@ -395,6 +395,23 @@ Applied security hardening across all three integration surfaces after audit.
 
 ---
 
+## RVF Types Implementation (WASM Bootstrap)
+
+The WASM self-bootstrapping types are fully implemented in `rvf-types/src/wasm_bootstrap.rs` (402 lines, 10 tests):
+
+| Type | Size | Description |
+|------|------|-------------|
+| `WasmHeader` | 64 bytes (`repr(C)`) | Segment payload header with magic "RVWM" (0x5256574D), `to_bytes()`/`from_bytes()` serialization, compile-time size assertion |
+| `WasmRole` | `u8` enum | Microkernel (0x00), Interpreter (0x01), Combined (0x02), Extension (0x03), ControlPlane (0x04) |
+| `WasmTarget` | `u8` enum | Wasm32 (0x00), WasiP1 (0x01), WasiP2 (0x02), Browser (0x03), BareTile (0x04) |
+| `WASM_FEAT_*` | 8 constants | SIMD, bulk memory, multi-value, reference types, threads, tail call, GC, exception handling |
+
+Key fields in `WasmHeader`: `bytecode_size`, `compressed_size`, `bytecode_hash` (SHAKE-256-256), `bootstrap_priority`, `interpreter_type`, `min_memory_pages`, `max_memory_pages`.
+
+All types are exported from `rvf-types/src/lib.rs` and available to downstream crates. The `SegmentType::Wasm = 0x10` discriminant is registered in `segment_type.rs` with `TryFrom<u8>` round-trip tests.
+
+---
+
 ## Verification
 
 ```bash

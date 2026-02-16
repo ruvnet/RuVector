@@ -220,6 +220,39 @@ The canonical trust chain for public artifacts is:
 2. Kernel signing key → signs KERNEL_SEG → covers boot image (ADR-030)
 3. TEE measurement → binds both to hardware attestation quote
 
+### Segment Type Registry (Implemented)
+
+All segment types below are implemented in `rvf-types/src/segment_type.rs` with `TryFrom<u8>` round-trip support and unit tests (23 variants total):
+
+| Value | Name | Description | Source |
+|-------|------|-------------|--------|
+| 0x00 | Invalid | Uninitialized / zeroed region | Core |
+| 0x01 | Vec | Raw vector payloads (embeddings) | Core |
+| 0x02 | Index | HNSW adjacency lists, entry points, routing tables | Core |
+| 0x03 | Overlay | Graph overlay deltas, partition updates, min-cut witnesses | Core |
+| 0x04 | Journal | Metadata mutations (label changes, deletions, moves) | Core |
+| 0x05 | Manifest | Segment directory, hotset pointers, epoch state | Core |
+| 0x06 | Quant | Quantization dictionaries and codebooks | Core |
+| 0x07 | Meta | Arbitrary key-value metadata (tags, provenance, lineage) | Core |
+| 0x08 | Hot | Temperature-promoted hot data (vectors + neighbors) | Core |
+| 0x09 | Sketch | Access counter sketches for temperature decisions | Core |
+| 0x0A | Witness | Capability manifests, proof of computation, audit trails | Core |
+| 0x0B | Profile | Domain profile declarations (RVDNA, RVText, etc.) | Core |
+| 0x0C | Crypto | Key material, signature chains, certificate anchors | Core |
+| 0x0D | MetaIdx | Metadata inverted indexes for filtered search | Core |
+| 0x0E | Kernel | Embedded kernel / unikernel image for self-booting | ADR-030 |
+| 0x0F | Ebpf | Embedded eBPF program for kernel fast path | ADR-030 |
+| 0x10 | Wasm | Embedded WASM bytecode for self-bootstrapping | ADR-030/032 |
+| 0x20 | CowMap | COW cluster mapping | ADR-031 |
+| 0x21 | Refcount | Cluster reference counts | ADR-031 |
+| 0x22 | Membership | Vector membership filter | ADR-031 |
+| 0x23 | Delta | Sparse delta patches | ADR-031 |
+| 0x30 | TransferPrior | Cross-domain posterior summaries + cost EMAs | Domain expansion |
+| 0x31 | PolicyKernel | Policy kernel configuration and performance history | Domain expansion |
+| 0x32 | CostCurve | Cost curve convergence data for acceleration tracking | Domain expansion |
+
+Available ranges: 0x11-0x1F, 0x24-0x2F, 0x33-0xEF. Values 0xF0-0xFF are reserved.
+
 ## Consequences
 
 ### Benefits
@@ -399,3 +432,4 @@ Model) inference and fine-tuning pipelines:
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
 | 1.0 | 2026-02-13 | ruv.io | Initial adoption decision |
+| 1.1 | 2026-02-16 | implementation review | Added complete segment type registry documenting all 23 implemented variants including Wasm (0x10), COW segments (0x20-0x23), and domain expansion segments (0x30-0x32). All types have `TryFrom<u8>` round-trip tests in rvf-types. |

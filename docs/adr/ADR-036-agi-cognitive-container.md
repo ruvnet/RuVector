@@ -1,6 +1,6 @@
 # ADR-036: RuVector AGI Cognitive Container with Claude Code Orchestration
 
-**Status**: Proposed
+**Status**: Partially Implemented
 **Date**: 2026-02-15
 **Decision owners**: RuVector platform team, Claude Flow orchestration team, RVF runtime team
 **Depends on**: ADR-029 (RVF Canonical Format), ADR-030 (Cognitive Container), ADR-033 (Progressive Indexing Hardening), ADR-034 (QR Cognitive Seed), ADR-035 (Capability Report)
@@ -623,9 +623,33 @@ Unknown tags are ignored (forward-compatible).
 
 ### Implementation
 
-Types are defined in `rvf-types/src/agi_container.rs`. The `AgiContainerHeader`
-struct, `ExecutionMode`, `AuthorityLevel`, and `ContainerSegments` types provide
-compile-time-checked serialization with round-trip tests.
+Types are fully implemented in `rvf-types/src/agi_container.rs` (972 lines, 24 tests).
+
+**Implemented types:**
+
+| Type | Size / Kind | Description | Tests |
+|------|-------------|-------------|-------|
+| `AgiContainerHeader` | 64 bytes (`repr(C)`) | Wire-format header with magic "RVAG" (0x52564147), `to_bytes()`/`from_bytes()` serialization, compile-time size assertion | 4 |
+| `ExecutionMode` | `u8` enum | Replay (0), Verify (1), Live (2) with `TryFrom<u8>` | 1 |
+| `AuthorityLevel` | `u8` enum | ReadOnly (0), WriteMemory (1), ExecuteTools (2), WriteExternal (3) with `TryFrom<u8>`, `PartialOrd`/`Ord`, `permits()`, `default_for_mode()` | 4 |
+| `ResourceBudget` | struct | Per-task resource caps with `DEFAULT`, `EXTENDED`, `MAX` presets and `clamped()` method | 3 |
+| `CoherenceThresholds` | struct | Three configurable thresholds (`min_coherence_score`, `max_contradiction_rate`, `max_rollback_ratio`) with `DEFAULT`, `STRICT` presets and `validate()` method | 5 |
+| `ContainerSegments` | struct | Segment presence tracker with `validate(mode)` and `to_flags()` | 7 |
+| `ContainerError` | enum | 6 variants: MissingSegment, TooLarge, InvalidConfig, SignatureInvalid, InsufficientAuthority, BudgetExhausted with `Display` | 1 |
+
+**Constants defined:**
+- 13 flag constants (`AGI_HAS_KERNEL` through `AGI_HAS_DOMAIN_EXPANSION`, bits 0-12)
+- 22 TLV manifest tag constants (`AGI_TAG_CONTAINER_ID` 0x0100 through `AGI_TAG_COUNTEREXAMPLES` 0x0115)
+- Includes 4 domain expansion tags: `AGI_TAG_TRANSFER_PRIOR` (0x0112), `AGI_TAG_POLICY_KERNEL` (0x0113), `AGI_TAG_COST_CURVE` (0x0114), `AGI_TAG_COUNTEREXAMPLES` (0x0115)
+
+**Key design properties:**
+- `AuthorityLevel::permits()` enables level comparison: `WriteExternal` permits all lower levels
+- `AuthorityLevel::default_for_mode()` maps Replay->ReadOnly, Verify->ExecuteTools, Live->WriteMemory
+- `ResourceBudget::clamped()` enforces hard ceilings (`MAX` preset) that cannot be overridden
+- `CoherenceThresholds::validate()` rejects out-of-range values
+- `ContainerSegments::validate(mode)` enforces mode-specific segment requirements
+- `ContainerSegments::to_flags()` computes the bitfield from present segments
+- All types are `no_std` compatible and exported from `rvf-types/src/lib.rs`
 
 ## Acceptance Test
 
@@ -659,3 +683,4 @@ Run the same RVF artifact on two separate machines owned by two separate teams.
 |---------|------|--------|---------|
 | 1.0 | 2026-02-15 | ruv.io | Initial proposal |
 | 1.1 | 2026-02-15 | architecture review | Resolved open questions (domain, authority, resource budgets, coherence thresholds). Added wire format section. Added cross-references to ADR-029/030/031/033. Added AuthorityLevel enum and resource budget types. Tightened ContainerSegments validation. |
+| 1.2 | 2026-02-16 | implementation review | Status updated to Partially Implemented. Documented full wire-format implementation in rvf-types/src/agi_container.rs (972 lines, 24 tests). All header types, enums, constants, and validators are implemented and exported. Domain expansion TLV tags (0x0112-0x0115) integrated. |
