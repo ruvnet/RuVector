@@ -74,7 +74,7 @@ Most vector databases are static — they store embeddings and search them. That
 | 21 | **Witness chains** | Tamper-evident hash-linked audit trail for every operation |
 | 22 | **Post-quantum signatures** | ML-DSA-65 and SLH-DSA-128s alongside Ed25519 |
 | 23 | **DNA-style lineage** | Track parent/child derivation chains with cryptographic hashes |
-| 24 | **20 segment types** | VEC, INDEX, KERNEL, EBPF, COW_MAP, WITNESS, CRYPTO, and 13 more |
+| 24 | **24 segment types** | VEC, INDEX, KERNEL, EBPF, WASM, COW_MAP, WITNESS, CRYPTO, and 16 more |
 
 **Specialized Processing**
 | # | Capability | What It Does |
@@ -221,7 +221,7 @@ npx @ruvector/rvf-mcp-server --transport stdio # MCP server for AI agents
 | Tamper-evident audit | Hash-linked witness chain for every insert, query, and deletion |
 | Post-quantum signatures | ML-DSA-65 and Ed25519 signing on every segment |
 | DNA-style lineage | Parent/child derivation chains with cryptographic verification |
-| 20 segment types | VEC, INDEX, KERNEL, EBPF, WASM, COW_MAP, WITNESS, CRYPTO, and 12 more |
+| 24 segment types | VEC, INDEX, KERNEL, EBPF, WASM, COW_MAP, WITNESS, CRYPTO, and 16 more |
 
 **Rust crates** (13): [`rvf-types`](https://crates.io/crates/rvf-types) `rvf-wire` `rvf-manifest` `rvf-quant` `rvf-index` `rvf-crypto` [`rvf-runtime`](https://crates.io/crates/rvf-runtime) `rvf-kernel` `rvf-ebpf` `rvf-launch` `rvf-server` `rvf-import` [`rvf-cli`](https://crates.io/crates/rvf-cli)
 
@@ -230,7 +230,7 @@ npx @ruvector/rvf-mcp-server --transport stdio # MCP server for AI agents
 - **Full documentation**: [crates/rvf/README.md](./crates/rvf/README.md)
 - **ADR-030**: [Cognitive Container Architecture](./docs/adr/ADR-030-rvf-cognitive-container.md)
 - **ADR-031**: [COW Branching & Real Containers](./docs/adr/ADR-031-rvcow-branching-and-real-cognitive-containers.md)
-- **45 runnable examples**: [examples/rvf/examples/](./examples/rvf/examples/)
+- **46 runnable examples**: [examples/rvf/examples/](./examples/rvf/examples/)
 
 </details>
 
@@ -1431,7 +1431,15 @@ let syndrome = gate.assess_coherence(&quantum_state)?;
 | [rvf-import](./crates/rvf/rvf-import) | JSON, CSV, NumPy importers | [![crates.io](https://img.shields.io/crates/v/rvf-import.svg)](https://crates.io/crates/rvf-import) |
 | [rvf-cli](./crates/rvf/rvf-cli) | Unified CLI with 17 subcommands | [![crates.io](https://img.shields.io/crates/v/rvf-cli.svg)](https://crates.io/crates/rvf-cli) |
 
-**RVF Features:** Single-file cognitive containers that boot as Linux microservices, COW branching at cluster granularity, eBPF acceleration, witness chains, post-quantum signatures, 20 segment types. [Full README](./crates/rvf/README.md)
+**RVF Features:** Single-file cognitive containers that boot as Linux microservices, COW branching at cluster granularity, eBPF acceleration, witness chains, post-quantum signatures, 24 segment types. [Full README](./crates/rvf/README.md)
+
+**Self-booting example** — the `claude_code_appliance` builds a complete AI dev environment as one file:
+
+```bash
+cd examples/rvf && cargo run --example claude_code_appliance
+```
+
+Final file: **5.1 MB single `.rvf`** — boots Linux, serves queries, runs Claude Code. One file. Boots on QEMU/Firecracker. Runs SSH. Serves vectors. Installs Claude Code. Proves every step with a cryptographic witness chain.
 
 ### Personal AI Memory (OSpipe)
 

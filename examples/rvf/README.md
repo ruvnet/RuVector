@@ -353,11 +353,45 @@ cargo run --example network_interfaces   # Network OS telemetry (60 interfaces)
 |---------|---------|-------------|
 | DNA-Style Lineage | (API) | Every derived file records its parent's hash and derivation type |
 | Domain Profiles | (API) | `.rvdna`, `.rvtext`, `.rvgraph`, `.rvvis` &mdash; same format, domain-specific hints |
-| Computational Container | (API) | Embed a WASM microkernel, eBPF program, or bootable unikernel |
+| Computational Container | `claude_code_appliance` | Embed a WASM microkernel, eBPF program, or bootable unikernel |
+| Self-Booting Appliance | `claude_code_appliance` | 5.1 MB `.rvf` &mdash; boots Linux, serves queries, runs Claude Code |
 | Import (JSON/CSV/NumPy) | (API) | Load embeddings from `.json`, `.csv`, or `.npy` files via `rvf-import` or `rvf ingest` CLI |
 | Unified CLI | `rvf` | 9 subcommands: create, ingest, query, delete, status, inspect, compact, derive, serve |
 | Compaction | (API) | Garbage-collect tombstoned vectors and reclaim disk space |
 | Batch Delete | (API) | Delete vectors by ID with tombstone markers |
+
+### Self-Booting RVF &mdash; Claude Code Appliance
+
+The `claude_code_appliance` example builds a complete self-booting AI development environment as a single `.rvf` file. It uses real infrastructure &mdash; a Docker-built Linux kernel, Ed25519 SSH keys, a BPF C socket filter, and a cryptographic witness chain.
+
+```bash
+cd examples/rvf
+cargo run --example claude_code_appliance
+```
+
+**What it produces** (5.1 MB file):
+
+```
+claude_code_appliance.rvf
+  ├── KERNEL_SEG    Linux 6.8.12 bzImage (5.2 MB, x86_64)
+  ├── EBPF_SEG      Socket filter — allows ports 2222, 8080 only
+  ├── VEC_SEG       20 package embeddings (128-dim)
+  ├── INDEX_SEG     HNSW graph for package search
+  ├── WITNESS_SEG   6-entry tamper-evident audit trail
+  ├── CRYPTO_SEG    3 Ed25519 SSH user keys (root, deploy, claude)
+  ├── MANIFEST_SEG  4 KB root with segment directory
+  └── Snapshot      v1 derived image with lineage tracking
+```
+
+**Boot and connect:**
+
+```bash
+rvf launch claude_code_appliance.rvf        # Boot on QEMU/Firecracker
+ssh -p 2222 deploy@localhost                 # SSH in
+curl -s localhost:8080/query -d '{"vector":[0.1,...], "k":5}'
+```
+
+Final file: **5.1 MB single `.rvf`** &mdash; boots Linux, serves queries, runs Claude Code.
 
 </details>
 

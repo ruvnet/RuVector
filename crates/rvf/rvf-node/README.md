@@ -1,131 +1,277 @@
-# rvf-node
+# @ruvector/rvf-node
 
-Node.js N-API bindings for native RuVector Format operations.
+Native Node.js bindings for the [RuVector Format](https://github.com/ruvnet/ruvector/tree/main/crates/rvf) (RVF) vector database. Built with Rust via N-API for native speed with zero serialization overhead.
 
-## Overview
-
-`rvf-node` exposes the RVF runtime to Node.js via N-API for high-performance vector operations without leaving JavaScript:
-
-- **Async API** -- non-blocking vector store operations
-- **Native speed** -- Rust-compiled N-API addon, no serialization overhead
-- **Cross-platform** -- builds for Linux, macOS, and Windows
-- **Full feature parity** -- lineage, kernel/eBPF embedding, segment inspection
-
-## Build
+## Install
 
 ```bash
-cd crates/rvf/rvf-node
-npm run build
+npm install @ruvector/rvf-node
 ```
 
-## API
+## Features
+
+- **Native Rust performance** via N-API (napi-rs), no FFI marshaling
+- **Single-file vector database** — crash-safe, no WAL, append-only
+- **k-NN search** with HNSW progressive indexing (recall 0.70 → 0.95)
+- **Metadata filtering** — Eq, Ne, Lt, Gt, Range, In, And, Or, Not
+- **Lineage tracking** — DNA-style parent/child derivation chains
+- **Kernel & eBPF embedding** — embed compute alongside vector data
+- **Segment inspection** — enumerate all segments in the file
+- **Cross-platform** — Linux (x86_64, aarch64), macOS (x86_64, Apple Silicon), Windows (x86_64)
+
+## Quick Start
+
+```javascript
+const { RvfDatabase } = require('@ruvector/rvf-node');
+
+// Create a store
+const db = RvfDatabase.create('vectors.rvf', {
+  dimension: 384,
+  metric: 'cosine',
+});
+
+// Insert vectors
+const vectors = new Float32Array(384 * 2); // 2 vectors, 384 dims each
+vectors.fill(0.1);
+db.ingestBatch(vectors, [1, 2]);
+
+// Query nearest neighbors
+const query = new Float32Array(384);
+query.fill(0.15);
+const results = db.query(query, 5);
+// [{ id: 1, distance: 0.002 }, { id: 2, distance: 0.002 }]
+
+db.close();
+```
+
+## API Reference
 
 ### Store Lifecycle
 
 ```typescript
-import { RvfDatabase } from '@ruvector/rvf';
+// Create a new store
+const db = RvfDatabase.create(path: string, options: RvfOptions);
 
-// Create
-const db = RvfDatabase.create('/tmp/store.rvf', { dimension: 128, metric: 'cosine' });
+// Open existing store (read-write, acquires writer lock)
+const db = RvfDatabase.open(path: string);
 
-// Open for read-write
-const db = RvfDatabase.open('/tmp/store.rvf');
+// Open read-only (no lock, concurrent readers allowed)
+const db = RvfDatabase.openReadonly(path: string);
 
-// Open read-only (no lock)
-const db = RvfDatabase.openReadonly('/tmp/store.rvf');
-
-// Close
+// Close and flush
 db.close();
 ```
 
-### Vector Operations
+**RvfOptions:**
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `dimension` | `number` | required | Vector dimensionality |
+| `metric` | `string` | `"l2"` | `"l2"`, `"cosine"`, or `"inner_product"` |
+| `profile` | `number` | `0` | Hardware profile: 0=Generic, 1=Core, 2=Hot, 3=Full |
+| `signing` | `boolean` | `false` | Enable segment signing |
+| `m` | `number` | `16` | HNSW M parameter (neighbor count) |
+| `efConstruction` | `number` | `200` | HNSW index build quality |
+
+### Ingest Vectors
 
 ```typescript
-// Ingest vectors
-const vectors = new Float32Array([1,0,0,0, 0,1,0,0]);
-const result = db.ingestBatch(vectors, [0, 1]);
-// { accepted: 2, rejected: 0, epoch: 1 }
+const result = db.ingestBatch(
+  vectors: Float32Array,  // flat array of n * dimension floats
+  ids: number[],          // vector IDs
+  metadata?: RvfMetadataEntry[]  // optional metadata per vector
+);
+// Returns: { accepted: number, rejected: number, epoch: number }
+```
 
-// Query
-const results = db.query(new Float32Array([1,0,0,0]), 5);
-// [{ id: 0, distance: 0.0 }, { id: 1, distance: 1.414 }]
+**Metadata entry format:**
 
-// Query with filter
-const results = db.query(new Float32Array([1,0,0,0]), 5, {
-  filter: '{"op":"eq","fieldId":0,"valueType":"string","value":"cat_a"}'
+```typescript
+{ fieldId: 0, valueType: 'string', value: 'category_a' }
+{ fieldId: 1, valueType: 'f64',    value: '0.95' }
+{ fieldId: 2, valueType: 'u64',    value: '42' }
+```
+
+### Query
+
+```typescript
+const results = db.query(
+  vector: Float32Array,      // query vector
+  k: number,                 // number of neighbors
+  options?: RvfQueryOptions   // optional search parameters
+);
+// Returns: [{ id: number, distance: number }, ...]
+```
+
+**RvfQueryOptions:**
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `efSearch` | `number` | `100` | HNSW search quality (higher = better recall, slower) |
+| `filter` | `string` | — | Filter expression as JSON string |
+| `timeoutMs` | `number` | `0` | Query timeout in ms (0 = no timeout) |
+
+### Filter Expressions
+
+Filters are passed as JSON strings. All leaf filters require `fieldId`, `valueType`, and `value`:
+
+```javascript
+// Equality
+db.query(vec, 10, {
+  filter: '{"op":"eq","fieldId":0,"valueType":"string","value":"science"}'
 });
 
+// Range
+db.query(vec, 10, {
+  filter: '{"op":"range","fieldId":1,"valueType":"f64","low":"0.5","high":"1.0"}'
+});
+
+// In-set
+db.query(vec, 10, {
+  filter: '{"op":"in","fieldId":0,"valueType":"u64","values":["1","2","5"]}'
+});
+
+// Boolean combinations
+db.query(vec, 10, {
+  filter: JSON.stringify({
+    op: 'and',
+    children: [
+      { op: 'eq', fieldId: 0, valueType: 'string', value: 'science' },
+      { op: 'gt', fieldId: 1, valueType: 'f64', value: '0.8' }
+    ]
+  })
+});
+
+// Negation
+db.query(vec, 10, {
+  filter: '{"op":"not","child":{"op":"eq","fieldId":0,"valueType":"string","value":"spam"}}'
+});
+```
+
+**Supported operators:** `eq`, `ne`, `lt`, `le`, `gt`, `ge`, `in`, `range`, `and`, `or`, `not`
+
+**Supported value types:** `u64`, `i64`, `f64`, `string`, `bool`
+
+### Delete
+
+```typescript
 // Delete by ID
-db.delete([0, 1]);
+const result = db.delete([1, 2, 3]);
+// Returns: { deleted: number, epoch: number }
 
 // Delete by filter
-db.deleteByFilter('{"op":"gt","fieldId":1,"valueType":"f64","value":"0.5"}');
+const result = db.deleteByFilter(
+  '{"op":"gt","fieldId":1,"valueType":"f64","value":"0.9"}'
+);
+```
 
-// Compact
-const compaction = db.compact();
-// { segmentsCompacted: 2, bytesReclaimed: 4096, epoch: 3 }
+### Compact
 
-// Status
+Reclaims space from deleted vectors:
+
+```typescript
+const result = db.compact();
+// Returns: { segmentsCompacted: number, bytesReclaimed: number, epoch: number }
+```
+
+### Status
+
+```typescript
 const status = db.status();
-// { totalVectors, totalSegments, fileSize, currentEpoch, ... }
+// {
+//   totalVectors: number,
+//   totalSegments: number,
+//   fileSize: number,
+//   currentEpoch: number,
+//   profileId: number,
+//   compactionState: 'idle' | 'running' | 'emergency',
+//   deadSpaceRatio: number,
+//   readOnly: boolean
+// }
 ```
 
-### Lineage
+### Lineage & Derivation
+
+RVF tracks parent/child relationships with cryptographic hashes:
 
 ```typescript
-// Get file identity
-const fileId = db.fileId();       // "a1b2c3d4..."
-const parentId = db.parentId();   // "00000000..." for root
-const depth = db.lineageDepth();  // 0 for root
+db.fileId();        // hex string — unique file identifier
+db.parentId();      // hex string — parent's ID (zeros if root)
+db.lineageDepth();  // 0 for root files
 
-// Derive a child store
-const child = db.derive('/tmp/child.rvf', { dimension: 128 });
+// Derive a child store (inherits dimensions and options)
+const child = db.derive('/tmp/child.rvf');
 child.lineageDepth(); // 1
+child.parentId();     // matches parent's fileId()
 ```
 
-### Kernel / eBPF Embedding
+### Kernel & eBPF Embedding
+
+Embed compute segments alongside vector data:
 
 ```typescript
-// Embed a kernel image
-const kernelImage = Buffer.from(fs.readFileSync('kernel.bin'));
-const segId = db.embedKernel(
-  1,              // arch: x86_64
-  0,              // kernel_type
-  0,              // flags
-  kernelImage,    // image bytes
-  9000,           // api_port
-  'root=/dev/sda' // cmdline (optional)
+// Embed a Linux microkernel
+db.embedKernel(
+  1,                           // arch: 0=x86_64, 1=aarch64
+  0,                           // kernel type
+  0,                           // flags
+  Buffer.from(kernelImage),    // kernel binary
+  8080,                        // API port
+  'console=ttyS0 quiet'       // kernel cmdline (optional)
 );
 
 // Extract kernel
 const kernel = db.extractKernel();
 if (kernel) {
-  // kernel.header: Buffer (128-byte KernelHeader)
-  // kernel.image: Buffer (kernel image bytes)
+  console.log(kernel.header);  // Buffer: 128-byte KernelHeader
+  console.log(kernel.image);   // Buffer: kernel image bytes
 }
 
-// Embed an eBPF program
-const ebpfCode = Buffer.from(fs.readFileSync('program.o'));
-db.embedEbpf(1, 2, 128, ebpfCode);
+// Embed an eBPF XDP program
+db.embedEbpf(
+  1,                          // program type (XDP distance)
+  2,                          // attach type (XDP ingress)
+  384,                        // max vector dimension
+  Buffer.from(bytecode),      // BPF ELF object
+  Buffer.from(btf)            // optional BTF section
+);
 
 // Extract eBPF
 const ebpf = db.extractEbpf();
 if (ebpf) {
-  // ebpf.header: Buffer (64-byte EbpfHeader)
-  // ebpf.payload: Buffer (bytecode + optional BTF)
+  console.log(ebpf.header);   // Buffer: 64-byte EbpfHeader
+  console.log(ebpf.payload);  // Buffer: bytecode + BTF
 }
 ```
 
 ### Segment Inspection
 
 ```typescript
-// List all segments
 const segments = db.segments();
-// [{ id: 1, offset: 0, payloadLength: 4096, segType: "vec" }, ...]
+// [{ id: 1, offset: 0, payloadLength: 4096, segType: 'manifest' },
+//  { id: 2, offset: 4160, payloadLength: 51200, segType: 'vec' },
+//  { id: 3, offset: 55424, payloadLength: 12288, segType: 'index' }]
 
-// Get dimension
-const dim = db.dimension(); // 128
+db.dimension(); // 384
 ```
+
+## Build from Source
+
+```bash
+# Prerequisites: Rust 1.87+, Node.js 18+
+cd crates/rvf/rvf-node
+npm install
+npm run build
+```
+
+## Related Packages
+
+| Package | Description |
+|---------|-------------|
+| [`@ruvector/rvf`](https://www.npmjs.com/package/@ruvector/rvf) | Unified TypeScript SDK |
+| [`@ruvector/rvf-wasm`](https://www.npmjs.com/package/@ruvector/rvf-wasm) | Browser WASM package |
+| [`@ruvector/rvf-mcp-server`](https://www.npmjs.com/package/@ruvector/rvf-mcp-server) | MCP server for AI agents |
+| [`rvf-runtime`](https://crates.io/crates/rvf-runtime) | Rust runtime (powers this package) |
 
 ## License
 

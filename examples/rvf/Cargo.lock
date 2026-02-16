@@ -441,7 +441,7 @@ dependencies = [
 
 [[package]]
 name = "rvf-crypto"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "ed25519-dalek",
  "rvf-types",
@@ -517,14 +517,14 @@ dependencies = [
 
 [[package]]
 name = "rvf-runtime"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "rvf-types",
 ]
 
 [[package]]
 name = "rvf-types"
-version = "0.1.0"
+version = "0.2.0"
 
 [[package]]
 name = "rvf-wire"
