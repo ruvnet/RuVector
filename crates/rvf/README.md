@@ -77,7 +77,7 @@ RVF treats security as a structural property of the format, not an afterthought.
 | ♻️ **Always backward-compatible** | Old tools skip new segment types they don't understand. A file with COW branching still works in a reader that only knows basic vectors. | Format rule |
 
 ```
-         📦 Anatomy of a .rvf Cognitive Container (20 segment types)
+         📦 Anatomy of a .rvf Cognitive Container (24 segment types)
        ┌─────────────────────────────────────────────────────────────┐
        │                       .rvf file                             │
        ├──────────────────────────┬──────────────────────────────────┤
@@ -113,38 +113,7 @@ RVF treats security as a structural property of the format, not an afterthought.
        └─────────────────────────────────────────────────────────────┘
 ```
 
-### The Category Shift
-
-Most AI infrastructure separates model weights, vector data, graph state, and runtime into different systems. Migrating means re-indexing. Auditing means correlating logs across services. Air-gapping means losing capabilities. There's no standard way to version, seal, or attest an AI system as a single artifact.
-
-RVF merges these layers into one sealed object:
-
-| Layer | Traditional | RVF |
-|-------|------------|-----|
-| **Vector data** | Separate database | VEC_SEG + INDEX_SEG |
-| **Model deltas** | Separate model registry | OVERLAY_SEG (LoRA adapters) |
-| **Graph state** | Separate graph DB | GRAPH_SEG (GNN adjacency, edge weights) |
-| **Quantum state** | Not portable | SKETCH_SEG (VQE snapshots, syndrome tables) |
-| **Query runtime** | External service | WASM_SEG (5.5 KB) / KERNEL_SEG (unikernel) |
-| **Fast path** | External kernel module | EBPF_SEG (XDP/TC acceleration) |
-| **Trust chain** | External audit log | WITNESS_SEG (tamper-evident hash chains) |
-| **Attestation** | External TEE service | CRYPTO_SEG + WITNESS_SEG (sealed proofs) |
-
-### Where It Runs
-
-The same `.rvf` file boots a Linux microkernel on bare metal **and** runs queries in a browser &mdash; no conversion, no re-indexing, no external dependencies.
-
-| Environment | How | Latency |
-|-------------|-----|---------|
-| **Server** | Full HNSW index, millions of vectors | Sub-millisecond queries |
-| **Browser** | 5.5 KB WASM microkernel (WASM_SEG) | Same file, no backend |
-| **Edge / IoT** | Lightweight `rvlite` API | Tiny footprint |
-| **TEE enclave** | Confidential Core attestation | Cryptographic proof |
-| **Bare metal / VM** | KERNEL_SEG boots Linux microkernel as standalone service | < 125 ms cold start |
-| **Linux kernel** | EBPF_SEG hot-path acceleration | Sub-microsecond |
-| **Cognitum tiles** | 64 KB WASM tiles | Custom silicon |
-
-A single `.rvf` file is crash-safe (no WAL needed), self-describing, and progressively loadable. With KERNEL_SEG, the file embeds a complete Linux microkernel (packages, SSH keys, network config) and boots as a standalone service on Firecracker, QEMU, or bare metal. With WASM_SEG, the same file serves queries in a browser with zero backend. With EBPF_SEG, hot vectors get sub-microsecond lookups in the Linux kernel data path. All three can coexist in one file.
+The same `.rvf` file runs on servers, browsers (WASM), edge devices, TEE enclaves, Firecracker microVMs, and in the Linux kernel data path (eBPF) &mdash; no conversion, no re-indexing, no external dependencies.
 
 ---
 
@@ -364,20 +333,7 @@ An RVF file is a sequence of typed segments. Each segment is self-describing, 64
 
 ## 🧠 Sealed Cognitive Engines
 
-When an RVF file combines these segments, it stops being a database and becomes a **deployable intelligence capsule**:
-
-### What You Can Ship
-
-| Component | Segment | What It Enables |
-|-----------|---------|----------------|
-| Base embeddings | VEC_SEG | Domain knowledge stored as vectors |
-| LoRA deltas | OVERLAY_SEG | Fine-tuned model behavior without full weights |
-| GNN graph state | GRAPH_SEG | Relationship modeling, pathway analysis |
-| Quantum state | SKETCH_SEG | VQE snapshots, molecular similarity, Hilbert space indexing |
-| Browser runtime | WASM_SEG | 5.5 KB query microkernel for browsers and edge |
-| Linux service | KERNEL_SEG | Boots as standalone Linux microservice on VM or bare metal |
-| Fast path | EBPF_SEG | Kernel-level acceleration for hot vectors |
-| Trust chain | WITNESS_SEG + CRYPTO_SEG | Every query recorded, every operation attested |
+When an RVF file combines vectors, models, compute, and trust segments, it becomes a **deployable intelligence capsule**:
 
 ### Example: Domain Intelligence Unit
 
@@ -395,21 +351,7 @@ ClinicalOncologyEngine.rvdna           (one file, ~50 MB)
   -- Post-quantum signature             CRYPTO_SEG   ML-DSA-65
 ```
 
-This is not a database. It is a **sealed, auditable, self-booting domain expert**. Copy it to a Firecracker VM and it boots a Linux service. Open it in a browser and WASM serves queries locally. Ship it air-gapped and it produces identical results under audit. Every operation is cryptographically proven unmodified.
-
-### What This Enables
-
-1. **Deterministic AI appliances** &mdash; Kernel fixed, model deltas fixed, graph state fixed, witness chain records every query. Financial risk engines that produce identical results under audit. Pharma similarity engines where regulators verify the exact model version.
-
-2. **Sealed LoRA distribution** &mdash; Instead of shipping model weights + adapter + config, ship a signed bootable artifact. No one can swap LoRA weights without breaking the signature. Enterprise custom LLM per tenant, offline personal AI, industrial domain expert systems.
-
-3. **Portable graph intelligence** &mdash; Pre-trained GNN models, dynamic graph embeddings, min-cut coherence boundaries &mdash; all sealed in one file. Fraud detection engines, supply chain anomaly detection, molecular interaction modeling.
-
-4. **Quantum-hybrid bundles** &mdash; Vectors as Hilbert space objects, complex64/128 data types, VQE snapshots. Drug discovery, material search, quantum optimization artifacts, secure research exchange.
-
-5. **Agentic units** &mdash; Combine ruvLLM inference, MicroLoRA, vector search, GNN, quantum state, and witness chain into self-booting agent brains. Autonomous edge agents, air-gapped research agents, satellite-based anomaly detection.
-
-6. **Firmware-style AI versioning** &mdash; AI systems that can be legally sealed and audited, air-gapped but still queryable, cryptographically proven unmodified, and deployed anywhere without dependency chains.
+This is not a database. It is a **sealed, auditable, self-booting domain expert**. Copy it to a Firecracker VM and it boots a Linux service. Open it in a browser and WASM serves queries locally. Ship it air-gapped and it produces identical results under audit.
 
 ---
 
@@ -458,29 +400,6 @@ The same `.rvf` file format runs on cloud servers, Firecracker microVMs, TEE enc
 | **Snapshot freeze** | Immutable snapshot at any generation. Metadata-only operation, no data copy. |
 | **Delta segments** | Sparse patches for LoRA overlays. Hot-path guard upgrades to full slab. |
 | **Rebuildable refcounts** | No WAL. Refcounts derived from COW map chain during compaction. |
-
-### Cognitive Containers
-
-| Feature | Description |
-|---------|-------------|
-| **Real Linux microkernel** | Docker-built bzImage, cpio/newc initramfs, QEMU microvm launcher with KVM/TCG. |
-| **Real eBPF programs** | 3 production BPF C programs (XDP distance, socket filter, TC routing) compiled with clang. |
-| **KernelBinding** | 128-byte signed footer ties kernel to manifest hash. Prevents segment-swap attacks. |
-| **WASM microkernel** | 5.5 KB binary queries vectors in browsers and edge functions. |
-| **3-tier execution** | Same file: WASM in browser (Tier 1), eBPF in kernel (Tier 2), Linux microVM (Tier 3). |
-
-### Security & Trust
-
-Every layer of RVF is designed to answer: *"Can I verify this file hasn't been tampered with, and can I prove who produced it?"*
-
-| Feature | Description |
-|---------|-------------|
-| **Witness chains** | SHAKE-256 hash-linked audit trails. Every insert, query, deletion, and derivation is chained — one altered byte breaks the entire chain. |
-| **Dual-era signatures** | Ed25519 (classical) + ML-DSA-65/SLH-DSA-128s (post-quantum, FIPS 204). Files are signed for today and for the post-quantum era. |
-| **KernelBinding** | 128-byte signed footer binds each kernel to its manifest hash. Prevents cross-file segment-swap attacks. |
-| **TEE attestation** | Record hardware attestation quotes from SGX, SEV-SNP, TDX, and ARM CCA alongside vector data — proving operations ran inside a verified enclave. |
-| **DNA-style lineage** | `FileIdentity` records parent hash, derivation type, and generation depth. Verify chain of custody without accessing parent files. |
-| **Adversarial hardening** | `SecurityPolicy` + `HardeningFields` for input validation, rate limiting, and resource exhaustion guards at the format level. |
 
 ### Ecosystem & Tooling
 
@@ -725,30 +644,7 @@ RVF supports an optional three-tier execution model that allows a single `.rvf` 
 | **2: eBPF** | EBPF_SEG (`0x0F`) | 10-50 KB | Linux kernel (XDP, TC) | <20 ms | Sub-microsecond hot cache hits |
 | **3: Unikernel** | KERNEL_SEG (`0x0E`) | 200 KB - 2 MB | Firecracker, TEE, bare metal | <125 ms | Zero-dependency self-booting service |
 
-### File Structure with KERNEL_SEG
-
-```
-.rvf file
-  |
-  +-- [SegmentHeader] MANIFEST_SEG  (4 KB root, segment directory)
-  +-- [SegmentHeader] VEC_SEG       (vector embeddings)
-  +-- [SegmentHeader] INDEX_SEG     (HNSW adjacency graph)
-  +-- [SegmentHeader] QUANT_SEG     (quantization codebooks)
-  +-- [SegmentHeader] WITNESS_SEG   (audit trails, attestation)
-  +-- [SegmentHeader] CRYPTO_SEG    (signing keys)
-  +-- [SegmentHeader] KERNEL_SEG    (compressed unikernel image)
-  |       +-- KernelHeader (128 bytes)
-  |       +-- Kernel command line
-  |       +-- ZSTD-compressed kernel image
-  |       +-- Optional SignatureFooter (ML-DSA-65 / Ed25519)
-  +-- [SegmentHeader] EBPF_SEG      (eBPF fast-path program)
-          +-- EbpfHeader (64 bytes)
-          +-- BPF ELF object
-          +-- BTF section
-          +-- Map definitions
-```
-
-Files without KERNEL_SEG or EBPF_SEG work exactly as before. Readers that do not recognize these segment types skip them per the RVF forward-compatibility rule. The computational capability is purely additive.
+Readers that do not recognize KERNEL_SEG or EBPF_SEG skip them per the RVF forward-compatibility rule. The computational capability is purely additive.
 
 ### Embedding a Kernel
 
@@ -1045,17 +941,15 @@ The quality system tracks retrieval fidelity across progressive index layers and
 - `SafetyNetBudget` — time, token, and cost budgets with automatic clamping
 - `DegradationReport` — structured fallback path and reason tracking
 
-## 🛡️ Security Hardening
+## 🛡️ Security Modules
 
-RVF defends against adversarial inputs, resource exhaustion, and supply-chain attacks at the format level:
-
-| Defense | Module | What It Does |
-|---------|--------|-------------|
-| **Declarative policy** | `SecurityPolicy` / `HardeningFields` (rvf-types) | Define allowed operations, max segment sizes, and signing requirements per file. Policies travel with the file. |
-| **Input validation** | `adversarial` (rvf-runtime) | Validates vector dimensions, metadata sizes, and segment headers before any write. Rejects malformed inputs at the boundary. |
-| **Rate limiting** | `dos` (rvf-runtime) | Per-operation rate limits and resource budgets prevent query floods and memory exhaustion. |
-| **Kernel binding** | `KernelBinding` (rvf-types) | Ties signed kernels to specific manifest hashes. A kernel extracted from one file will not boot inside another. |
-| **Witness integrity** | `verify_witness_chain` (rvf-crypto) | Any modification to any recorded operation breaks the SHAKE-256 chain, making tampering immediately detectable. |
+| Module | Crate | Purpose |
+|--------|-------|---------|
+| `SecurityPolicy` / `HardeningFields` | rvf-types | Declarative per-file security configuration |
+| `adversarial` | rvf-runtime | Input validation, dimension/size checks at write boundary |
+| `dos` | rvf-runtime | Rate limiting, resource exhaustion guards |
+| `KernelBinding` | rvf-types | Binds signed kernels to specific manifest hashes |
+| `verify_witness_chain` | rvf-crypto | SHAKE-256 chain integrity verification |
 
 ## 🧬 WASM Self-Bootstrapping (0x10)
 
