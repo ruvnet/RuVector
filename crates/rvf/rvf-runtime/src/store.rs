@@ -1459,6 +1459,21 @@ impl RvfStore {
         &self.last_witness_hash
     }
 
+    /// Get a reference to the store's configuration options.
+    pub fn options(&self) -> &RvfOptions {
+        &self.options
+    }
+
+    /// Get the distance metric used by this store.
+    pub fn metric(&self) -> DistanceMetric {
+        self.options.metric
+    }
+
+    /// Get the current manifest epoch.
+    pub fn epoch(&self) -> u32 {
+        self.epoch
+    }
+
     // ── Internal methods ──────────────────────────────────────────────
 
     /// Append a witness segment to the file and update the witness chain.

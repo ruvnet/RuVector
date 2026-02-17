@@ -6,7 +6,7 @@
 | **Date** | 2026-02-16 |
 | **Deciders** | RuVector core team |
 | **Supersedes** | — |
-| **Related** | ADR-029 (RVF canonical format), ADR-032 (RVF WASM integration) |
+| **Related** | ADR-029 (RVF canonical format), ADR-032 (RVF WASM integration), ADR-039 (RVF Solver WASM AGI integration) |
 
 ## Context
 
@@ -76,7 +76,7 @@ All assertions, per-mode scorecards, and the witness chain root hash are include
 An external developer reproduces the test:
 
 ```bash
-# 1. Generate with default config
+# 1. Generate with default config (Rust)
 cargo run --bin acceptance-rvf -- generate -o manifest.json
 
 # 2. Compare chain root hash
@@ -87,6 +87,28 @@ cargo run --bin acceptance-rvf -- verify-rvf -i acceptance_manifest.rvf
 
 # 4. Or verify in-browser via WASM:
 #    const count = rvf_witness_verify(chainPtr, chainLen);
+```
+
+An npm-based verification path is also available via `@ruvector/rvf-solver`:
+
+```typescript
+import { RvfSolver } from '@ruvector/rvf-solver';
+
+// Run the same acceptance test from JavaScript/TypeScript
+const solver = await RvfSolver.create();
+const manifest = solver.acceptance({
+  holdoutSize: 100,
+  trainingPerCycle: 100,
+  cycles: 5,
+  stepBudget: 400,
+  seed: 42n,
+});
+
+// manifest.allPassed === true means Mode C (learned policy) passed
+// manifest.witnessEntries gives the chain entry count
+// solver.witnessChain() returns the raw SHAKE-256 bytes for verification
+
+solver.destroy();
 ```
 
 ## Consequences

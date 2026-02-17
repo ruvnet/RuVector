@@ -367,6 +367,45 @@ pub struct RvfSegmentInfo {
     pub seg_type: String,
 }
 
+// ── AGI-adjacent result types ────────────────────────────────────────
+
+/// HNSW index statistics.
+#[napi(object)]
+pub struct RvfIndexStats {
+    /// Number of indexed vectors.
+    pub indexed_vectors: i64,
+    /// Number of HNSW layers.
+    pub layers: u32,
+    /// M parameter (max edges per node per layer).
+    pub m: u32,
+    /// ef_construction parameter.
+    pub ef_construction: u32,
+    /// Whether the index needs rebuilding.
+    pub needs_rebuild: bool,
+}
+
+/// Result of witness chain verification.
+#[napi(object)]
+pub struct RvfWitnessResult {
+    /// Whether the witness chain is valid.
+    pub valid: bool,
+    /// Number of entries in the chain.
+    pub entries: u32,
+    /// Error message if invalid.
+    pub error: Option<String>,
+}
+
+/// Quantization configuration.
+#[napi(object)]
+pub struct RvfQuantConfig {
+    /// Quantization mode: "none" | "scalar" | "product" | "binary".
+    pub mode: String,
+    /// Number of subquantizers (for product quantization).
+    pub num_subquantizers: Option<u32>,
+    /// Number of centroids per subquantizer.
+    pub num_centroids: Option<u32>,
+}
+
 // ── Main RvfDatabase class ───────────────────────────────────────────
 
 /// The main RVF database handle exposed to Node.js.
@@ -815,6 +854,96 @@ impl RvfDatabase {
         let store = guard.as_ref()
             .ok_or_else(|| napi::Error::from_reason("Store is closed"))?;
         Ok(store.dimension() as u32)
+    }
+
+    // ── AGI-adjacent methods ────────────────────────────────────────
+
+    /// Get HNSW index statistics for this store.
+    #[napi]
+    pub fn index_stats(&self) -> Result<RvfIndexStats> {
+        let guard = self.inner.lock()
+            .map_err(|_| napi::Error::from_reason("Lock poisoned"))?;
+        let store = guard.as_ref()
+            .ok_or_else(|| napi::Error::from_reason("Store is closed"))?;
+
+        let status = store.status();
+        let opts = store.options();
+        Ok(RvfIndexStats {
+            indexed_vectors: status.total_vectors as i64,
+            layers: 0, // Populated when HNSW index is active
+            m: opts.m as u32,
+            ef_construction: opts.ef_construction as u32,
+            needs_rebuild: status.dead_space_ratio > 0.3,
+        })
+    }
+
+    /// Verify the tamper-evident witness chain in this store.
+    ///
+    /// Counts the witness segments present in the segment directory and
+    /// checks whether the chain has been initialised (non-zero terminal
+    /// hash).  Returns the number of witness entries and validity status.
+    #[napi]
+    pub fn verify_witness(&self) -> Result<RvfWitnessResult> {
+        let guard = self.inner.lock()
+            .map_err(|_| napi::Error::from_reason("Lock poisoned"))?;
+        let store = guard.as_ref()
+            .ok_or_else(|| napi::Error::from_reason("Store is closed"))?;
+
+        // Witness segment type discriminator (0x0A).
+        const WITNESS_SEG_TYPE: u8 = 0x0A;
+
+        let witness_count = store.segment_dir().iter()
+            .filter(|&&(_, _, _, seg_type)| seg_type == WITNESS_SEG_TYPE)
+            .count() as u32;
+
+        let last_hash = store.last_witness_hash();
+        let has_chain = last_hash != &[0u8; 32];
+
+        if witness_count > 0 && !has_chain {
+            Ok(RvfWitnessResult {
+                valid: false,
+                entries: witness_count,
+                error: Some("Witness segments exist but chain hash is zero (corrupt or reset)".to_string()),
+            })
+        } else {
+            Ok(RvfWitnessResult {
+                valid: true,
+                entries: witness_count,
+                error: None,
+            })
+        }
+    }
+
+    /// Snapshot-freeze the current state of the store.
+    ///
+    /// Sets the store to read-only mode, preventing further writes.
+    /// Returns the manifest epoch at freeze time.
+    #[napi]
+    pub fn freeze(&self) -> Result<u32> {
+        let mut guard = self.inner.lock()
+            .map_err(|_| napi::Error::from_reason("Lock poisoned"))?;
+        let store = guard.as_mut()
+            .ok_or_else(|| napi::Error::from_reason("Store is closed"))?;
+
+        let epoch = store.epoch();
+        store.freeze().map_err(map_rvf_err)?;
+        Ok(epoch)
+    }
+
+    /// Get the distance metric used by this store.
+    #[napi]
+    pub fn metric(&self) -> Result<String> {
+        let guard = self.inner.lock()
+            .map_err(|_| napi::Error::from_reason("Lock poisoned"))?;
+        let store = guard.as_ref()
+            .ok_or_else(|| napi::Error::from_reason("Store is closed"))?;
+
+        let metric_str = match store.metric() {
+            DistanceMetric::L2 => "l2",
+            DistanceMetric::InnerProduct => "inner_product",
+            DistanceMetric::Cosine => "cosine",
+        };
+        Ok(metric_str.to_string())
     }
 }
 

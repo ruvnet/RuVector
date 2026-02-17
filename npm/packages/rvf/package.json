@@ -1,6 +1,6 @@
 {
   "name": "@ruvector/rvf",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "description": "RuVector Format — unified TypeScript SDK for vector intelligence",
   "main": "dist/index.js",
   "module": "dist/index.js",
@@ -26,7 +26,8 @@
     "@ruvector/rvf-node": "^0.1.5"
   },
   "optionalDependencies": {
-    "@ruvector/rvf-wasm": "^0.1.5"
+    "@ruvector/rvf-wasm": "^0.1.5",
+    "@ruvector/rvf-solver": "^0.1.0"
   },
   "devDependencies": {
     "typescript": "^5.0.0",

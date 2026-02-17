@@ -1,10 +1,10 @@
 # ADR-036: RuVector AGI Cognitive Container with Claude Code Orchestration
 
 **Status**: Partially Implemented
-**Date**: 2026-02-15
+**Date**: 2026-02-15 (updated 2026-02-17)
 **Decision owners**: RuVector platform team, Claude Flow orchestration team, RVF runtime team
-**Depends on**: ADR-029 (RVF Canonical Format), ADR-030 (Cognitive Container), ADR-033 (Progressive Indexing Hardening), ADR-034 (QR Cognitive Seed), ADR-035 (Capability Report)
-**Affects**: `rvf-types/src/agi_container.rs`, `rvf-runtime`
+**Depends on**: ADR-029 (RVF Canonical Format), ADR-030 (Cognitive Container), ADR-033 (Progressive Indexing Hardening), ADR-034 (QR Cognitive Seed), ADR-035 (Capability Report), ADR-039 (RVF Solver WASM AGI Integration)
+**Affects**: `rvf-types/src/agi_container.rs`, `rvf-runtime`, `npm/packages/rvf-solver/`, `npm/packages/rvf/`
 
 ## Context
 
@@ -341,6 +341,66 @@ sequences across different infrastructure.
 5. Freeze external dependencies by snapshotting repos and data sources
 6. Record all tool outputs with hashes and schema versions
 
+## AGI npm Package Distribution
+
+The AGI capabilities of the cognitive container are distributed as npm packages,
+enabling JavaScript/TypeScript consumers to access the self-learning engine,
+witness chains, and HNSW index operations without a Rust toolchain.
+
+### Package Ecosystem
+
+| Package | Version | AGI Capabilities |
+|---------|---------|-----------------|
+| `@ruvector/rvf-solver` | 0.1.0 | Thompson Sampling PolicyKernel, KnowledgeCompiler, three-loop adaptive solver, SHAKE-256 witness chains, 18 context buckets, speculative dual-path execution |
+| `@ruvector/rvf-node` | 0.1.6 | HNSW index statistics, witness chain verification, store freeze (snapshot), distance metric introspection |
+| `@ruvector/rvf-wasm` | 0.1.5 | Witness chain verification (`rvf_witness_verify`), WASM microkernel for browser/edge |
+| `@ruvector/rvf` | 0.1.8 | Unified SDK re-exporting all of the above; single `npm install` for full AGI access |
+
+### Self-Learning Solver API
+
+```typescript
+import { RvfSolver } from '@ruvector/rvf';
+
+const solver = await RvfSolver.create();
+
+// Three-loop training: fast (solve) / medium (policy) / slow (compiler)
+const result = solver.train({ count: 1000, minDifficulty: 1, maxDifficulty: 10 });
+
+// Full acceptance test with A/B/C ablation modes
+const manifest = solver.acceptance({ cycles: 5, holdoutSize: 100 });
+
+// Inspect learned policy state
+const policy = solver.policy();
+
+// Export tamper-evident witness chain (73 bytes per entry)
+const chain = solver.witnessChain();
+
+solver.destroy();
+```
+
+### AGI NAPI Methods
+
+The native Node.js bindings expose AGI-relevant operations:
+
+| Method | Returns | AGI Purpose |
+|--------|---------|-------------|
+| `indexStats()` | `RvfIndexStats` | Introspect HNSW graph structure (layers, M, ef_construction) for coherence monitoring |
+| `verifyWitness()` | `RvfWitnessResult` | Validate witness chain integrity for replay/verify modes |
+| `freeze()` | `void` | Snapshot-freeze state for deterministic branching |
+| `metric()` | `string` | Distance metric introspection for coherence signal computation |
+
+### Integration with Cognitive Container
+
+The npm packages map to cognitive container components:
+
+| Container Component | npm Package | Segment |
+|--------------------|-------------|---------|
+| Self-learning engine | `@ruvector/rvf-solver` | SOLVER_SEG (computed in WASM) |
+| Witness chain attestation | `@ruvector/rvf-solver` + `@ruvector/rvf-wasm` | WITNESS_SEG (0x0A) |
+| Vector storage & retrieval | `@ruvector/rvf-node` | VEC_SEG, INDEX_SEG |
+| HNSW index inspection | `@ruvector/rvf-node` | INDEX_SEG |
+| Browser-side verification | `@ruvector/rvf-wasm` | WITNESS_SEG verification |
+
 ## MCP Tools
 
 Core MCP tools to implement:
@@ -352,6 +412,8 @@ Core MCP tools to implement:
 | `ruvector_commit_delta` | Propose and commit world model deltas behind coherence gates |
 | `rvf_snapshot` | Create a branchable snapshot for experiments |
 | `rvf_witness_export` | Export witness chain proofs for audit (ADR-035) |
+| `rvf_solver_train` | Run self-learning solver training via `@ruvector/rvf-solver` |
+| `rvf_solver_acceptance` | Execute full A/B/C ablation acceptance test |
 | `eval_run` | Run the container's benchmark suite and return graded results |
 
 ## Security Model

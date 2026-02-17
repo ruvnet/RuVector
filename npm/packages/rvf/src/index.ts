@@ -38,6 +38,8 @@ export type {
   RvfEbpfData,
   RvfSegmentInfo,
   BackendType,
+  RvfIndexStats,
+  RvfWitnessResult,
 } from './types';
 
 // Re-export error types
@@ -49,3 +51,18 @@ export { NodeBackend, WasmBackend, resolveBackend } from './backend';
 
 // Re-export the main database class
 export { RvfDatabase } from './database';
+
+// Re-export solver (AGI components)
+export { RvfSolver } from '@ruvector/rvf-solver';
+export type {
+  TrainOptions,
+  TrainResult,
+  AcceptanceOptions,
+  AcceptanceManifest,
+  AcceptanceModeResult,
+  CycleMetrics,
+  PolicyState,
+  SkipMode,
+  SkipModeStats,
+  CompiledConfig,
+} from '@ruvector/rvf-solver';

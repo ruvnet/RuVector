@@ -110,32 +110,86 @@ The solver produces a SHAKE-256 witness chain (via `rvf_crypto::create_witness_c
 
 ### npm Integration Path
 
-```javascript
-// Node.js usage via rvlite or npx ruvector
-const wasm = await WebAssembly.instantiate(solverModule);
+#### High-Level SDK (`@ruvector/rvf-solver`)
 
-// Create solver
-const handle = wasm.exports.rvf_solver_create();
+The `@ruvector/rvf-solver` npm package provides a typed TypeScript wrapper around the raw WASM C-ABI exports, with automatic WASM loading, memory management, and JSON deserialization.
+
+```typescript
+import { RvfSolver } from '@ruvector/rvf-solver';
+
+// Create solver (lazy-loads WASM on first call)
+const solver = await RvfSolver.create();
 
 // Train on 1000 puzzles (three-loop learning)
-const correct = wasm.exports.rvf_solver_train(handle, 1000, 1, 10, 42, 0);
+const result = solver.train({ count: 1000, minDifficulty: 1, maxDifficulty: 10, seed: 42n });
+console.log(`Accuracy: ${(result.accuracy * 100).toFixed(1)}%`);
 
 // Run full acceptance test (A/B/C ablation)
-const passed = wasm.exports.rvf_solver_acceptance(handle, 100, 100, 5, 400, 42, 0);
+const manifest = solver.acceptance({ holdoutSize: 100, trainingPerCycle: 100, cycles: 5, seed: 42n });
+console.log(`Mode C passed: ${manifest.allPassed}`);
 
-// Read manifest JSON
+// Inspect policy state (Thompson Sampling parameters, context buckets)
+const policy = solver.policy();
+console.log(`Context buckets: ${Object.keys(policy?.contextStats ?? {}).length}`);
+
+// Get tamper-evident witness chain (73 bytes per entry, SHAKE-256)
+const chain = solver.witnessChain();
+console.log(`Witness chain: ${chain?.length ?? 0} bytes`);
+
+solver.destroy();
+```
+
+The SDK also re-exports through the unified `@ruvector/rvf` package:
+
+```typescript
+// Unified import — solver + database in one package
+import { RvfDatabase, RvfSolver } from '@ruvector/rvf';
+```
+
+#### npm Package Structure
+
+```
+npm/packages/rvf-solver/
+├── package.json          # @ruvector/rvf-solver, CJS/ESM dual exports
+├── tsconfig.json         # ES2020 target, strict mode, declarations
+├── pkg/
+│   ├── rvf_solver.js     # WASM loader (singleton, Node CJS/ESM + browser)
+│   ├── rvf_solver.d.ts   # Low-level WASM C-ABI type declarations
+│   └── rvf_solver_bg.wasm  # Built from rvf-solver-wasm crate
+└── src/
+    ├── index.ts          # Barrel exports: RvfSolver + all types
+    ├── solver.ts         # RvfSolver class (create/train/acceptance/policy/witnessChain/destroy)
+    └── types.ts          # TrainOptions, AcceptanceManifest, PolicyState, etc.
+```
+
+| Type | Fields | Purpose |
+|------|--------|---------|
+| `TrainOptions` | `count`, `minDifficulty?`, `maxDifficulty?`, `seed?` | Configure training run |
+| `TrainResult` | `trained`, `correct`, `accuracy`, `patternsLearned` | Training outcome |
+| `AcceptanceOptions` | `holdoutSize?`, `trainingPerCycle?`, `cycles?`, `stepBudget?`, `seed?` | Configure acceptance test |
+| `AcceptanceManifest` | `modeA`, `modeB`, `modeC`, `allPassed`, `witnessEntries`, `witnessChainBytes` | Full ablation results |
+| `PolicyState` | `contextStats`, `earlyCommitPenalties`, `prepass`, `speculativeAttempts` | Thompson Sampling state |
+| `SkipModeStats` | `attempts`, `successes`, `alphaSafety`, `betaSafety`, `costEma` | Per-arm bandit stats |
+
+#### Low-Level WASM Usage (advanced)
+
+```javascript
+// Direct WASM C-ABI usage (without the SDK wrapper)
+const wasm = await WebAssembly.instantiate(solverModule);
+
+const handle = wasm.exports.rvf_solver_create();
+const correct = wasm.exports.rvf_solver_train(handle, 1000, 1, 10, 42, 0);
+
 const len = wasm.exports.rvf_solver_result_len(handle);
 const ptr = wasm.exports.rvf_solver_alloc(len);
 wasm.exports.rvf_solver_result_read(handle, ptr);
 const json = new TextDecoder().decode(new Uint8Array(wasm.memory.buffer, ptr, len));
 
-// Read witness chain (verifiable by rvf-wasm)
+// Witness chain verifiable by rvf-wasm
 const wLen = wasm.exports.rvf_solver_witness_len(handle);
 const wPtr = wasm.exports.rvf_solver_alloc(wLen);
 wasm.exports.rvf_solver_witness_read(handle, wPtr);
 const chain = new Uint8Array(wasm.memory.buffer, wPtr, wLen);
-
-// Verify with rvf-wasm
 const verified = rvfWasm.exports.rvf_witness_verify(chainPtr, wLen);
 
 wasm.exports.rvf_solver_destroy(handle);
@@ -168,6 +222,38 @@ crates/rvf/rvf-solver-wasm/
 | Release (wasm32-unknown-unknown) | ~160 KB |
 | After wasm-opt -Oz (estimated) | ~80-100 KB |
 
+## npm Package Ecosystem
+
+The AGI solver is exposed through a layered npm package architecture:
+
+| Package | Version | Role | Install |
+|---------|---------|------|---------|
+| `@ruvector/rvf-solver` | 0.1.0 | Typed TypeScript SDK for the self-learning solver | `npm i @ruvector/rvf-solver` |
+| `@ruvector/rvf` | 0.1.8 | Unified SDK re-exporting solver + database | `npm i @ruvector/rvf` |
+| `@ruvector/rvf-node` | 0.1.6 | Native NAPI bindings with AGI methods (`indexStats`, `verifyWitness`, `freeze`, `metric`) | `npm i @ruvector/rvf-node` |
+| `@ruvector/rvf-wasm` | 0.1.5 | WASM microkernel with witness verification | `npm i @ruvector/rvf-wasm` |
+
+### Dependency Graph
+
+```
+@ruvector/rvf (unified SDK)
+├── @ruvector/rvf-node (required, native NAPI)
+├── @ruvector/rvf-wasm (optional, browser fallback)
+└── @ruvector/rvf-solver (optional, AGI solver)
+    └── rvf-solver-wasm WASM binary (loaded at runtime)
+```
+
+### AGI NAPI Methods (rvf-node)
+
+The native NAPI bindings expose AGI-relevant methods beyond basic vector CRUD:
+
+| Method | Returns | Purpose |
+|--------|---------|---------|
+| `indexStats()` | `RvfIndexStats` | HNSW index statistics (layers, M, ef_construction, indexed count) |
+| `verifyWitness()` | `RvfWitnessResult` | Verify tamper-evident SHAKE-256 witness chain integrity |
+| `freeze()` | `void` | Snapshot-freeze current state for deterministic replay |
+| `metric()` | `string` | Get distance metric name (`l2`, `cosine`, `dotproduct`) |
+
 ## Consequences
 
 ### Positive
@@ -179,6 +265,9 @@ crates/rvf/rvf-solver-wasm/
 - PolicyKernel state is inspectable via `rvf_solver_policy_read` (JSON serializable)
 - Handle-based API supports up to 8 concurrent solver instances
 - 160 KB binary includes the complete solver, Thompson Sampling, and serde_json
+- TypeScript SDK (`@ruvector/rvf-solver`) provides ergonomic async API with automatic WASM memory management
+- Unified SDK (`@ruvector/rvf`) re-exports solver alongside database for single-import usage
+- Native NAPI bindings expose AGI methods (index stats, witness verification, freeze) for server-side usage
 
 ### Negative
 

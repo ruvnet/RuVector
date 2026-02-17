@@ -207,3 +207,31 @@ export interface RvfSegmentInfo {
 
 /** Identifies which backend implementation to use. */
 export type BackendType = 'node' | 'wasm' | 'auto';
+
+// ---------------------------------------------------------------------------
+// Solver / AGI types (re-exported from @ruvector/rvf-solver)
+// ---------------------------------------------------------------------------
+
+/** HNSW index statistics. */
+export interface RvfIndexStats {
+  /** Number of indexed vectors. */
+  indexedVectors: number;
+  /** Number of HNSW layers. */
+  layers: number;
+  /** M parameter (max edges per node per layer). */
+  m: number;
+  /** ef_construction parameter. */
+  efConstruction: number;
+  /** Whether the index needs rebuilding. */
+  needsRebuild: boolean;
+}
+
+/** Result of witness chain verification. */
+export interface RvfWitnessResult {
+  /** Whether the chain is valid. */
+  valid: boolean;
+  /** Number of entries in the chain. */
+  entries: number;
+  /** Error message if invalid. */
+  error?: string;
+}

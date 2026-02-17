@@ -15,8 +15,9 @@ The RuVector Format (RVF) ecosystem now ships four npm packages:
 | Package | Purpose | Size |
 |---------|---------|------|
 | `@ruvector/rvf` | Unified TypeScript SDK with auto backend selection | - |
-| `@ruvector/rvf-node` | Native N-API bindings (Rust via napi-rs) | - |
+| `@ruvector/rvf-node` | Native N-API bindings (Rust via napi-rs) with AGI methods | - |
 | `@ruvector/rvf-wasm` | Browser/edge WASM build | ~46 KB control plane, ~5.5 KB tile |
+| `@ruvector/rvf-solver` | Self-learning AGI solver (Thompson Sampling, ReasoningBank, witness chain) | ~160 KB WASM |
 | `@ruvector/rvf-mcp-server` | MCP server for AI agent integration | - |
 
 Two existing packages would benefit from RVF integration:
