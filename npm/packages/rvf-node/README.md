@@ -18,6 +18,56 @@ npm install @ruvector/rvf-node
 - **Kernel & eBPF embedding** — embed compute alongside vector data
 - **Segment inspection** — enumerate all segments in the file
 - **Cross-platform** — Linux (x86_64, aarch64), macOS (x86_64, Apple Silicon), Windows (x86_64)
+- **AGI methods** — HNSW index stats, witness chain verification, state freeze, metric introspection
+
+## AGI Methods
+
+Four introspection and integrity methods for advanced use cases.
+
+### `db.indexStats()` → `RvfIndexStats`
+
+Returns HNSW index statistics.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `indexedVectors` | `number` | Number of indexed vectors |
+| `layers` | `number` | Number of HNSW layers |
+| `m` | `number` | M parameter (max edges per node per layer) |
+| `efConstruction` | `number` | ef_construction parameter |
+| `needsRebuild` | `boolean` | Whether index needs rebuilding (dead_space_ratio > 0.3) |
+
+### `db.verifyWitness()` → `RvfWitnessResult`
+
+Verifies SHAKE-256 witness chain integrity.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `valid` | `boolean` | Whether the chain is valid |
+| `entries` | `number` | Number of entries in the chain |
+| `error` | `string?` | Error message if invalid |
+
+### `db.freeze()` → `number`
+
+Snapshot-freeze current state. Returns the epoch number.
+
+### `db.metric()` → `string`
+
+Returns the distance metric name (`"l2"`, `"cosine"`, or `"inner_product"`).
+
+### Usage Example
+
+```javascript
+const stats = db.indexStats();
+console.log(`Indexed: ${stats.indexedVectors}, HNSW layers: ${stats.layers}`);
+
+const witness = db.verifyWitness();
+console.log(`Witness chain: ${witness.entries} entries, valid: ${witness.valid}`);
+
+console.log(`Distance metric: ${db.metric()}`);
+
+const epoch = db.freeze();
+console.log(`State frozen at epoch ${epoch}`);
+```
 
 ## Quick Start
 
