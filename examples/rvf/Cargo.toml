@@ -20,6 +20,10 @@ rvf-ebpf = { path = "../../crates/rvf/rvf-ebpf" }
 rand = "0.8"
 tempfile = "3"
 ed25519-dalek = { version = "2", features = ["rand_core"] }
+rvf-server = { path = "../../crates/rvf/rvf-server" }
+tokio = { version = "1", features = ["full"] }
+serde_json = "1"
+axum = { version = "0.7", features = ["ws"] }
 
 [[example]]
 name = "basic_store"
@@ -204,3 +208,23 @@ path = "examples/snapshot_freeze.rs"
 [[example]]
 name = "live_boot_proof"
 path = "examples/live_boot_proof.rs"
+
+[[example]]
+name = "causal_atlas"
+path = "examples/causal_atlas.rs"
+
+[[example]]
+name = "planet_detection"
+path = "examples/planet_detection.rs"
+
+[[example]]
+name = "life_candidate"
+path = "examples/life_candidate.rs"
+
+[[example]]
+name = "causal_atlas_sealed"
+path = "examples/causal_atlas_sealed.rs"
+
+[[example]]
+name = "causal_atlas_dashboard"
+path = "examples/causal_atlas_dashboard.rs"

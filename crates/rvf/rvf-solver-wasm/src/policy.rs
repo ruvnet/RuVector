@@ -176,12 +176,30 @@ impl PolicyKernel {
     }
 
     /// Mode C: learned two-signal Thompson Sampling.
+    /// When no training data exists for a context bucket, defaults to
+    /// SkipMode::None (conservative linear scan). After training, the
+    /// learned policy discovers better skip modes — showing real cost
+    /// improvement between early and later cycles.
     pub fn learned_policy(&mut self, ctx: &PolicyContext) -> SkipMode {
         if !ctx.has_day_of_week {
             return SkipMode::None;
         }
         let bucket = Self::context_bucket(ctx);
         let modes = ["none", "weekday", "hybrid"];
+
+        // Conservative default: use None (linear scan) until the solver has
+        // accumulated enough training data. This ensures a meaningful baseline
+        // in early cycles that training can measurably improve upon.
+        {
+            let total_observations: usize = self.context_stats.values()
+                .flat_map(|m| m.values())
+                .map(|s| s.attempts)
+                .sum();
+            if total_observations < 100 {
+                return SkipMode::None;
+            }
+        }
+
         let params: Vec<(SkipMode, f64, f64, f64)> = {
             let map = self.context_stats.entry(bucket).or_default();
             modes

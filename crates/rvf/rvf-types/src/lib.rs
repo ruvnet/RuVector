@@ -18,6 +18,7 @@ pub mod checksum;
 pub mod compression;
 pub mod constants;
 pub mod cow_map;
+pub mod dashboard;
 pub mod data_type;
 pub mod delta;
 pub mod ebpf;
@@ -47,6 +48,7 @@ pub mod witness;
 pub mod agi_container;
 
 pub use attestation::{AttestationHeader, AttestationWitnessType, TeePlatform, KEY_TYPE_TEE_BOUND};
+pub use dashboard::{DashboardHeader, DASHBOARD_MAGIC, DASHBOARD_MAX_SIZE};
 pub use ebpf::{
     EbpfAttachType, EbpfHeader, EbpfProgramType, EBPF_MAGIC,
 };

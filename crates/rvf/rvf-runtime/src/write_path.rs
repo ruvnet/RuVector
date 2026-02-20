@@ -320,6 +320,46 @@ impl SegmentWriter {
         Ok((seg_id, offset))
     }
 
+    /// Maximum dashboard bundle size (64 MiB) to prevent DoS via oversized segments.
+    #[allow(dead_code)]
+    const MAX_DASHBOARD_BUNDLE_SIZE: usize = 64 * 1024 * 1024;
+
+    /// Write a DASHBOARD_SEG containing a pre-built web dashboard bundle.
+    ///
+    /// Payload layout: `dashboard_header_bytes` (64) + `bundle_data`.
+    /// Returns the segment ID and byte offset where it was written.
+    ///
+    /// Returns an error if the bundle exceeds 64 MiB.
+    #[allow(dead_code)]
+    pub(crate) fn write_dashboard_seg<W: Write + Seek>(
+        &mut self,
+        writer: &mut W,
+        dashboard_header_bytes: &[u8; 64],
+        bundle_data: &[u8],
+    ) -> io::Result<(u64, u64)> {
+        if bundle_data.len() > Self::MAX_DASHBOARD_BUNDLE_SIZE {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                format!(
+                    "dashboard bundle too large: {} bytes (max {})",
+                    bundle_data.len(),
+                    Self::MAX_DASHBOARD_BUNDLE_SIZE
+                ),
+            ));
+        }
+
+        let seg_id = self.alloc_seg_id();
+
+        let payload_size = 64 + bundle_data.len();
+        let mut payload = Vec::with_capacity(payload_size);
+
+        payload.extend_from_slice(dashboard_header_bytes);
+        payload.extend_from_slice(bundle_data);
+
+        let offset = self.write_segment(writer, SegmentType::Dashboard as u8, seg_id, &payload)?;
+        Ok((seg_id, offset))
+    }
+
     /// Write a WITNESS_SEG containing a serialized witness entry.
     ///
     /// Payload layout:

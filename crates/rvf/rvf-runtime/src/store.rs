@@ -14,6 +14,7 @@ use rvf_types::{
 };
 use rvf_types::kernel::{KernelHeader, KERNEL_MAGIC};
 use rvf_types::kernel_binding::KernelBinding;
+use rvf_types::dashboard::{DashboardHeader, DASHBOARD_MAGIC, DASHBOARD_MAX_SIZE};
 use rvf_types::ebpf::{EbpfHeader, EBPF_MAGIC};
 use rvf_types::wasm_bootstrap::{WasmHeader, WasmRole, WASM_MAGIC};
 
@@ -1081,6 +1082,99 @@ impl RvfStore {
         let ebpf_bytecode = payload[64..].to_vec();
 
         Ok(Some((ebpf_header, ebpf_bytecode)))
+    }
+
+    /// Embed a web dashboard bundle into this RVF file as a DASHBOARD_SEG.
+    ///
+    /// Builds a 64-byte DashboardHeader, serializes it, then delegates to
+    /// the write path. Returns the segment_id of the new DASHBOARD_SEG.
+    ///
+    /// The `bundle_data` should contain: `[entry_path_bytes | file_table | file_data...]`
+    /// as described in `DashboardHeader` documentation.
+    pub fn embed_dashboard(
+        &mut self,
+        ui_framework: u8,
+        bundle_data: &[u8],
+        entry_path: &str,
+    ) -> Result<u64, RvfError> {
+        if self.read_only {
+            return Err(err(ErrorCode::ReadOnly));
+        }
+
+        if bundle_data.len() as u64 > DASHBOARD_MAX_SIZE {
+            return Err(err(ErrorCode::InvalidManifest));
+        }
+
+        let content_hash = simple_shake256_256(bundle_data);
+        let header = DashboardHeader {
+            dashboard_magic: DASHBOARD_MAGIC,
+            header_version: 1,
+            ui_framework,
+            compression: 0,
+            bundle_size: bundle_data.len() as u64,
+            file_count: 0, // Caller encodes file count in bundle_data
+            entry_path_len: entry_path.len() as u16,
+            reserved: 0,
+            build_timestamp: std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_secs())
+                .unwrap_or(0),
+            content_hash,
+        };
+        let header_bytes = header.to_bytes();
+
+        let writer = self.seg_writer.as_mut()
+            .ok_or_else(|| err(ErrorCode::InvalidManifest))?;
+        let (seg_id, seg_offset) = {
+            let mut buf_writer = BufWriter::new(&self.file);
+            buf_writer.seek(SeekFrom::End(0))
+                .map_err(|_| err(ErrorCode::FsyncFailed))?;
+            writer.write_dashboard_seg(
+                &mut buf_writer, &header_bytes, bundle_data,
+            ).map_err(|_| err(ErrorCode::FsyncFailed))?
+        };
+
+        let payload_len = (64 + bundle_data.len()) as u64;
+        self.segment_dir.push((
+            seg_id, seg_offset, payload_len, SegmentType::Dashboard as u8,
+        ));
+
+        self.file.sync_all().map_err(|_| err(ErrorCode::FsyncFailed))?;
+        self.epoch += 1;
+        self.write_manifest()?;
+
+        Ok(seg_id)
+    }
+
+    /// Extract dashboard bundle from this RVF file.
+    ///
+    /// Scans the segment directory for a DASHBOARD_SEG (type 0x11) and returns
+    /// the first 64 bytes (serialized DashboardHeader) plus the remainder
+    /// (bundle data). Returns None if no DASHBOARD_SEG.
+    #[allow(clippy::type_complexity)]
+    pub fn extract_dashboard(&self) -> Result<Option<(Vec<u8>, Vec<u8>)>, RvfError> {
+        let entry = self.segment_dir.iter()
+            .find(|&&(_, _, _, stype)| stype == SegmentType::Dashboard as u8);
+
+        let entry = match entry {
+            Some(e) => e,
+            None => return Ok(None),
+        };
+
+        let (_header, payload) = {
+            let mut reader = BufReader::new(&self.file);
+            read_path::read_segment_payload(&mut reader, entry.1)
+                .map_err(|_| err(ErrorCode::InvalidChecksum))?
+        };
+
+        if payload.len() < 64 {
+            return Err(err(ErrorCode::TruncatedSegment));
+        }
+
+        let dashboard_header = payload[..64].to_vec();
+        let bundle_data = payload[64..].to_vec();
+
+        Ok(Some((dashboard_header, bundle_data)))
     }
 
     /// Embed a WASM module into this RVF file as a WASM_SEG.

@@ -48,6 +48,13 @@ pub enum SegmentType {
     /// the embedded interpreter, which in turn runs the microkernel, which
     /// processes the RVF data segments.
     Wasm = 0x10,
+    /// Embedded web dashboard bundle (HTML/JS/CSS assets).
+    ///
+    /// A DASHBOARD_SEG contains a pre-built web application (e.g. Vite +
+    /// Three.js) that can be served by the RVF HTTP server at `/`. The
+    /// payload is a 64-byte `DashboardHeader` followed by a file table
+    /// and concatenated file contents.
+    Dashboard = 0x11,
     /// COW cluster mapping.
     CowMap = 0x20,
     /// Cluster reference counts.
@@ -86,6 +93,7 @@ impl TryFrom<u8> for SegmentType {
             0x0E => Ok(Self::Kernel),
             0x0F => Ok(Self::Ebpf),
             0x10 => Ok(Self::Wasm),
+            0x11 => Ok(Self::Dashboard),
             0x20 => Ok(Self::CowMap),
             0x21 => Ok(Self::Refcount),
             0x22 => Ok(Self::Membership),
@@ -122,6 +130,7 @@ mod tests {
             SegmentType::Kernel,
             SegmentType::Ebpf,
             SegmentType::Wasm,
+            SegmentType::Dashboard,
             SegmentType::CowMap,
             SegmentType::Refcount,
             SegmentType::Membership,
@@ -138,7 +147,7 @@ mod tests {
 
     #[test]
     fn invalid_value_returns_err() {
-        assert_eq!(SegmentType::try_from(0x24), Err(0x24));
+        assert_eq!(SegmentType::try_from(0x12), Err(0x12));
         assert_eq!(SegmentType::try_from(0x33), Err(0x33));
         assert_eq!(SegmentType::try_from(0xF0), Err(0xF0));
         assert_eq!(SegmentType::try_from(0xFF), Err(0xFF));

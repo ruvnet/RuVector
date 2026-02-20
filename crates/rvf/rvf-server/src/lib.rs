@@ -7,6 +7,7 @@
 pub mod error;
 pub mod http;
 pub mod tcp;
+pub mod ws;
 
 use std::sync::Arc;
 
@@ -71,7 +72,8 @@ pub async fn run(config: ServerConfig) -> Result<(), Box<dyn std::error::Error>>
     let http_addr = format!("0.0.0.0:{}", config.http_port);
     let tcp_addr = format!("0.0.0.0:{}", config.tcp_port);
 
-    let app = http::router(store.clone());
+    let (event_tx, _rx) = ws::event_channel();
+    let app = http::router_with_static(store.clone(), event_tx, None);
     let listener = tokio::net::TcpListener::bind(&http_addr).await?;
     eprintln!("rvf-server HTTP listening on {http_addr}");
     eprintln!("rvf-server TCP  listening on {tcp_addr}");
