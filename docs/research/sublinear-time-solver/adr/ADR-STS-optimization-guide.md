@@ -3,12 +3,13 @@
 **Date**: 2026-02-20
 **Classification**: Engineering Reference
 **Scope**: Performance optimization strategies for solver integration
+**Version**: 2.0 (Deep Review)
 
 ---
 
 ## 1. Executive Summary
 
-This guide provides concrete optimization strategies for achieving maximum performance from the sublinear-time-solver integration into RuVector. Targets: 10-600x speedups across 6 critical subsystems while maintaining <2% accuracy loss. Organized by optimization tier: SIMD → Memory → Algorithm → Concurrency → Compilation → Platform.
+This guide provides concrete optimization strategies for achieving maximum performance from the sublinear-time-solver integration into RuVector. Targets: 10-600x speedups across 6 critical subsystems while maintaining <2% accuracy loss. Organized by optimization tier: SIMD → Memory → Algorithm → Numerical → Concurrency → WASM → Profiling → Compilation → Platform.
 
 ---
 
@@ -26,11 +27,10 @@ The solver's hot path is SpMV (sparse matrix-vector multiply). Each architecture
 | WASM SIMD128 | 128-bit | 4 | `f32x4_mul` + `f32x4_add` | ~80M nonzeros/s |
 | Scalar | 32-bit | 1 | `fmaf` | ~40M nonzeros/s |
 
-### 2.2 New SIMD Kernels Required
+### 2.2 SpMV Kernels
 
-**SpMV with gather** (primary bottleneck):
+**AVX2+FMA SpMV with gather** (primary kernel):
 ```
-// Pseudocode for AVX2+FMA SpMV row accumulation
 for each row i:
     acc = _mm256_setzero_ps()
     for j in row_ptrs[i]..row_ptrs[i+1] step 8:
@@ -41,30 +41,70 @@ for each row i:
     y[i] = horizontal_sum(acc) + scalar_remainder
 ```
 
+**AVX-512 SpMV with masking** (for variable-length rows):
+```
+for each row i:
+    acc = _mm512_setzero_ps()
+    len = row_ptrs[i+1] - row_ptrs[i]
+    full_chunks = len / 16
+    remainder = len % 16
+
+    for j in 0..full_chunks:
+        base = row_ptrs[i] + j * 16
+        idx = _mm512_loadu_si512(&col_indices[base])
+        v = _mm512_loadu_ps(&values[base])
+        x = _mm512_i32gather_ps(idx, x_ptr, 4)
+        acc = _mm512_fmadd_ps(v, x, acc)
+
+    if remainder > 0:
+        mask = (1 << remainder) - 1
+        base = row_ptrs[i] + full_chunks * 16
+        idx = _mm512_maskz_loadu_epi32(mask, &col_indices[base])
+        v = _mm512_maskz_loadu_ps(mask, &values[base])
+        x = _mm512_mask_i32gather_ps(zeros, mask, idx, x_ptr, 4)
+        acc = _mm512_fmadd_ps(v, x, acc)
+
+    y[i] = _mm512_reduce_add_ps(acc)
+```
+
+**WASM SIMD128 SpMV kernel**:
+```
+for each row i:
+    acc = f32x4_splat(0.0)
+    for j in row_ptrs[i]..row_ptrs[i+1] step 4:
+        x_vec = f32x4(x[col_indices[j]], x[col_indices[j+1]],
+                       x[col_indices[j+2]], x[col_indices[j+3]])
+        v = v128_load(&values[j])
+        acc = f32x4_add(acc, f32x4_mul(v, x_vec))
+    y[i] = horizontal_sum_f32x4(acc) + scalar_remainder
+```
+
 **Vectorized PRNG** (for Hybrid Random Walk):
 ```
-// 4 independent xoshiro256** streams for NEON
 state[4][4] = initialize_from_seed()
 for each walk:
     random = xoshiro256_simd(state)  // 4 random values per call
     next_node = random % degree[current_node]
 ```
 
-**SIMD reductions** (convergence checks):
-```
-// Max reduction for residual norm check
-max_residual = horizontal_max(_mm256_abs_ps(residual_vec))
-```
-
 ### 2.3 Auto-Vectorization Guidelines
-
-For code that doesn't warrant hand-written intrinsics:
 
 1. **Sequential access**: Iterate arrays in order (no random access in inner loop)
 2. **No branches**: Use `select`/`blend` instead of `if` in hot loops
 3. **Independent accumulators**: 4 separate sums, combine at end
 4. **Aligned data**: Use `#[repr(align(64))]` on hot data structures
 5. **Known bounds**: Use `get_unchecked()` after external bounds check
+6. **Compiler hints**: `#[inline(always)]` on hot functions, `#[cold]` on error paths
+
+### 2.4 Throughput Formulas
+
+SpMV throughput is bounded by memory bandwidth:
+```
+Throughput = min(BW_memory / 8, FLOPS_peak / 2) nonzeros/s
+```
+Where 8 = bytes/nonzero (4B value + 4B index), 2 = FLOPs/nonzero (mul + add).
+
+SpMV is almost always memory-bandwidth-bound. SIMD reduces instruction count but memory throughput is the fundamental limit.
 
 ---
 
@@ -82,47 +122,62 @@ For code that doesn't warrant hand-written intrinsics:
 
 **Tiling formula**: `TILE_ROWS = L3_SIZE / (avg_row_nnz × 12 bytes)`
 
-For L3=16MB, avg_row_nnz=100: TILE_ROWS = 16M / 1200 ≈ 13,000 rows per tile.
-
-### 3.2 Arena Allocator Integration
-
-Per-solve arena eliminates malloc overhead:
+### 3.2 Prefetch Strategy
 
 ```rust
-// Before: ~20μs overhead per solve from allocation
-let r = vec![0.0f32; n];     // malloc
-let p = vec![0.0f32; n];     // malloc
-let ap = vec![0.0f32; n];    // malloc
-// ... solve ...
-// implicit drops: 3 × free
+// Software prefetch for SpMV x-vector access
+for row in 0..n {
+    if row + 1 < n {
+        let next_start = row_ptrs[row + 1];
+        for j in next_start..(next_start + 8).min(row_ptrs[row + 2]) {
+            prefetch_read_l2(&x[col_indices[j] as usize]);
+        }
+    }
+    process_row(row);
+}
+```
+
+Prefetch distance: L1 = 64 bytes ahead, L2 = 256 bytes ahead.
+
+### 3.3 Arena Allocator Integration
+
+```rust
+// Before: ~20μs overhead per solve
+let r = vec![0.0f32; n]; let p = vec![0.0f32; n]; let ap = vec![0.0f32; n];
 
 // After: ~0.2μs overhead per solve
-let mut arena = SolverArena::with_capacity(n * 12);  // One malloc
+let mut arena = SolverArena::with_capacity(n * 12);
 let r = arena.alloc_slice::<f32>(n);
 let p = arena.alloc_slice::<f32>(n);
 let ap = arena.alloc_slice::<f32>(n);
-// ... solve ...
-arena.reset();  // One reset (no free)
+arena.reset();
 ```
 
-### 3.3 Memory-Mapped Large Matrices
+### 3.4 Cache Line Alignment
 
-For matrices > 100MB, use OS paging:
+```rust
+#[repr(C, align(64))]
+struct SolverScratch { r: [f32; N], p: [f32; N], ap: [f32; N] }
+
+#[repr(C, align(128))]  // Prevent false sharing in parallel stats
+struct ThreadStats { iterations: u64, residual: f64, _pad: [u8; 112] }
+```
+
+### 3.5 Memory-Mapped Large Matrices
 
 ```rust
 let mmap = unsafe { memmap2::Mmap::map(&file)? };
 let values: &[f32] = bytemuck::cast_slice(&mmap[header_size..]);
-// OS handles page faults, LRU eviction
 ```
 
-### 3.4 Zero-Copy Data Paths
+### 3.6 Zero-Copy Data Paths
 
 | Path | Mechanism | Overhead |
 |------|-----------|----------|
 | SoA → Solver | `&[f32]` borrow | 0 bytes |
 | HNSW → CSR | Direct construction | O(n×M) one-time |
-| Solver → WASM | `Float32Array::view()` | 0 bytes (shared linear memory) |
-| Solver → NAPI | `napi::Buffer` | 0 bytes (shared heap) |
+| Solver → WASM | `Float32Array::view()` | 0 bytes |
+| Solver → NAPI | `napi::Buffer` | 0 bytes |
 | Solver → REST | `serde_json::to_writer` | 1 serialization |
 
 ---
@@ -138,24 +193,20 @@ let values: &[f32] = bytemuck::cast_slice(&mmap[header_size..]);
 | Incomplete Cholesky | O(nnz) | O(nnz) | 10-100x | Moderately ill-conditioned |
 | Algebraic Multigrid | O(nnz·log n) | O(nnz) | Near-optimal for Laplacians | κ > 100 |
 
-**Recommendation**: Default to diagonal preconditioner (O(n) overhead, always helps). Escalate to AMG only when κ > 100 and n > 50K.
+**Default**: Diagonal preconditioner. Escalate to AMG when κ > 100 and n > 50K.
 
 ### 4.2 Sparsity Exploitation
-
-Auto-detect and exploit sparsity at runtime:
 
 ```rust
 fn select_path(matrix: &CsrMatrix<f32>) -> ComputePath {
     let density = matrix.density();
-    if density > 0.50 { ComputePath::Dense }       // Use BLAS
-    else if density > 0.05 { ComputePath::Sparse }  // CSR SpMV
-    else { ComputePath::Sublinear }                  // Solver algorithms
+    if density > 0.50 { ComputePath::Dense }
+    else if density > 0.05 { ComputePath::Sparse }
+    else { ComputePath::Sublinear }
 }
 ```
 
 ### 4.3 Batch Amortization
-
-TRUE preprocessing amortized over B solves:
 
 | Preprocessing Cost | Per-Solve Cost | Break-Even B |
 |-------------------|---------------|-------------|
@@ -163,192 +214,264 @@ TRUE preprocessing amortized over B solves:
 | 42 ms (n=10K, 1%) | 0.04 ms (ε=0.1) | 63 solves |
 | 4 ms (n=1K, 1%) | 0.004 ms (ε=0.1) | 6 solves |
 
-**Rule**: Amortize TRUE preprocessing when B > preprocessing_ms / cg_solve_ms.
-
 ### 4.4 Lazy Evaluation
 
-For single-entry queries, compute only needed entries:
-
 ```rust
-// Full solve: compute all n entries
-let x = solver.solve(A, b)?;  // O(nnz × iterations)
-
-// Lazy: compute only entry (i, j)
-let x_ij = solver.estimate_entry(A, i, j)?;  // O(√n / ε) via random walk
+let x_ij = solver.estimate_entry(A, i, j)?;  // O(√n/ε) via random walk
+// vs full solve O(nnz × iterations). Speedup = √n for n=1M → 1000x
 ```
-
-Speedup: n / √n = √n. For n=1M: 1000x speedup for single-entry queries.
 
 ---
 
-## 5. Concurrency Optimization
+## 5. Numerical Optimization
 
-### 5.1 Rayon Tuning
+### 5.1 Kahan Summation for SpMV
 
 ```rust
-// Optimal chunk size: balance parallelism overhead vs work per chunk
-let chunk_size = (n / rayon::current_num_threads()).max(1024);
-
-problems.par_chunks(chunk_size)
-    .map(|chunk| chunk.iter().map(|p| solve_single(p)).collect::<Vec<_>>())
-    .flatten()
-    .collect()
+fn spmv_row_kahan(vals: &[f32], cols: &[u32], x: &[f32]) -> f32 {
+    let mut sum: f64 = 0.0;
+    let mut comp: f64 = 0.0;
+    for i in 0..vals.len() {
+        let y = (vals[i] as f64) * (x[cols[i] as usize] as f64) - comp;
+        let t = sum + y;
+        comp = (t - sum) - y;
+        sum = t;
+    }
+    sum as f32
+}
 ```
 
-### 5.2 Thread Scaling Expectations
+Use when: rows > 1000 nonzeros or ε < 1e-6. Overhead: ~2x. Alternative: f64 accumulator.
+
+### 5.2 Mixed Precision Strategy
+
+| Precision Mode | Storage | Accumulation | Max ε | Memory | SpMV Speed |
+|---------------|---------|-------------|-------|--------|-----------|
+| Pure f32 | f32 | f32 | 1e-4 | 1x | 1x (fastest) |
+| **Default** (f32/f64) | f32 | f64 | 1e-7 | 1x | 0.95x |
+| Pure f64 | f64 | f64 | 1e-12 | 2x | 0.5x |
+
+### 5.3 Condition Number Estimation
+
+Fast κ estimation via power iteration (20 iterations × 2 SpMVs = O(40 × nnz)):
+
+```rust
+fn estimate_kappa(A: &CsrMatrix<f32>) -> f64 {
+    let lambda_max = power_iteration(A, 20);
+    let lambda_min = inverse_power_iteration_cg(A, 20);
+    lambda_max / lambda_min
+}
+```
+
+### 5.4 Spectral Radius for Neumann
+
+Estimate ρ(I-A) via 20-step power iteration. Rules:
+- ρ < 0.9: Neumann converges fast (< 50 iterations for ε=0.01)
+- 0.9 ≤ ρ < 0.99: Neumann slow, consider CG
+- ρ ≥ 0.99: Switch to CG (Neumann needs > 460 iterations)
+- ρ ≥ 1.0: Neumann diverges — CG/BMSSP mandatory
+
+---
+
+## 6. WASM-Specific Optimization
+
+### 6.1 Memory Growth Strategy
+
+Pre-allocate: `pages = ceil(n × avg_nnz × 12 / 65536) + 32`. Growth during solving costs ~1ms per grow.
+
+### 6.2 wasm-opt Configuration
+
+```bash
+wasm-opt -O3 --enable-simd --enable-bulk-memory \
+  --precompute-propagate --optimize-instructions \
+  --reorder-functions --coalesce-locals --vacuum \
+  pkg/solver_bg.wasm -o pkg/solver_bg_opt.wasm
+```
+
+Expected: 15-25% size reduction, 5-10% speed improvement.
+
+### 6.3 Worker Thread Optimization
+
+Use Transferable objects (zero-copy move) or SharedArrayBuffer (zero-copy share):
+
+```javascript
+worker.postMessage({ type: 'solve', matrix: values.buffer },
+    [values.buffer]);  // Transfer list — moves, doesn't copy
+```
+
+### 6.4 Bundle Size Budget
+
+| Component | Size (gzipped) | Budget |
+|-----------|---------------|--------|
+| Solver core (CG + Neumann + Push) | ~80 KB | 100 KB |
+| SIMD128 kernels | ~15 KB | 20 KB |
+| wasm-bindgen glue | ~10 KB | 15 KB |
+| serde-wasm-bindgen | ~20 KB | 25 KB |
+| **Total** | **~125 KB** | **160 KB** |
+
+---
+
+## 7. Profiling Methodology
+
+### 7.1 Performance Counter Analysis
+
+```bash
+perf stat -e cycles,instructions,cache-references,cache-misses,\
+  L1-dcache-load-misses,LLC-load-misses ./target/release/bench_spmv
+```
+
+Expected good SpMV profile: IPC 2.0-3.0, L1 miss 5-15%, LLC miss < 1%, branch miss < 1%.
+
+### 7.2 Hot Spot Identification
+
+```bash
+perf record -g --call-graph dwarf ./target/release/bench_solver
+perf script | stackcollapse-perf.pl | flamegraph.pl > solver_flame.svg
+```
+
+Expected: 60-80% in spmv_*, 10-15% in dot/norm, < 5% in allocation.
+
+### 7.3 Roofline Model
+
+SpMV arithmetic intensity = 0.167 FLOP/byte. On 80 GB/s server: achievable = 13.3 GFLOPS (1.3% of 1 TFLOPS peak). SpMV is deeply memory-bound — optimize for memory traffic reduction, not FLOPS.
+
+### 7.4 Criterion.rs Best Practices
+
+```rust
+group.warm_up_time(Duration::from_secs(5));  // Stabilize cache state
+group.sample_size(200);                       // Statistical significance
+group.throughput(Throughput::Elements(nnz));  // Report nonzeros/sec
+// Use black_box() to prevent dead code elimination
+b.iter(|| black_box(solver.solve(&csr, &rhs)))
+```
+
+---
+
+## 8. Concurrency Optimization
+
+### 8.1 Rayon Configuration
+
+```rust
+let chunk_size = (n / rayon::current_num_threads()).max(1024);
+problems.par_chunks(chunk_size).map(|chunk| ...).collect()
+```
+
+### 8.2 Thread Scaling
 
 | Threads | Efficiency | Bottleneck |
 |---------|-----------|-----------|
 | 1 | 100% | N/A |
-| 2 | 90-95% | Rayon overhead (~500ns/task) |
+| 2 | 90-95% | Rayon overhead |
 | 4 | 75-85% | Memory bandwidth |
-| 8 | 55-70% | L3 cache contention |
+| 8 | 55-70% | L3 contention |
 | 16 | 40-55% | NUMA effects |
 
-**Recommendation**: Use `num_cpus::get_physical()` threads (not logical/hyperthreaded).
-
-### 5.3 Avoid Nested Parallelism
-
-```rust
-// BAD: Rayon inside Rayon = thread pool exhaustion
-problems.par_iter().map(|p| {
-    p.data.par_iter()...  // Nested Rayon → deadlock risk
-});
-
-// GOOD: Outer parallel, inner SIMD
-problems.par_iter().map(|p| {
-    spmv_simd(&p.matrix, &p.x, &mut p.y)  // Inner: SIMD, single thread
-});
-```
+Use `num_cpus::get_physical()` threads. Avoid nested Rayon (deadlock risk).
 
 ---
 
-## 6. Compilation Optimization
+## 9. Compilation Optimization
 
-### 6.1 Profile-Guided Optimization (PGO)
+### 9.1 PGO Pipeline
 
 ```bash
-# Step 1: Build instrumented binary
-RUSTFLAGS="-Cprofile-generate=/tmp/pgo-data" cargo build --release -p ruvector-solver
-
-# Step 2: Run representative workload
+RUSTFLAGS="-Cprofile-generate=/tmp/pgo" cargo build --release -p ruvector-solver
 ./target/release/bench_solver --profile-workload
-
-# Step 3: Merge profiles
-llvm-profdata merge -o /tmp/pgo-data/merged.profdata /tmp/pgo-data/*.profraw
-
-# Step 4: Build optimized binary
-RUSTFLAGS="-Cprofile-use=/tmp/pgo-data/merged.profdata" cargo build --release -p ruvector-solver
+llvm-profdata merge -o /tmp/pgo/merged.profdata /tmp/pgo/*.profraw
+RUSTFLAGS="-Cprofile-use=/tmp/pgo/merged.profdata" cargo build --release
 ```
 
-Expected improvement: 5-15% for SpMV-heavy workloads (better branch prediction, improved inlining decisions).
+Expected: 5-15% improvement.
 
-### 6.2 Link-Time Optimization
-
-Already configured in Cargo.toml:
+### 9.2 Release Profile
 
 ```toml
 [profile.release]
 opt-level = 3
-lto = "fat"        # Cross-crate inlining (critical for nalgebra → solver)
-codegen-units = 1  # Maximum optimization scope
-strip = true       # Reduce binary size
+lto = "fat"
+codegen-units = 1
+strip = true
 ```
 
-### 6.3 WASM Optimization
+---
 
-```bash
-# Build with size optimization
-RUSTFLAGS="-C opt-level=s -C target-feature=+simd128" wasm-pack build --release
+## 10. Platform-Specific Optimization
 
-# Post-build optimization
-wasm-opt -O3 --enable-simd pkg/solver_bg.wasm -o pkg/solver_bg.wasm
-```
+### 10.1 Server (Linux x86_64)
 
-Expected: 10-20% size reduction, 5-10% speed improvement from wasm-opt.
+- Huge pages: `MADV_HUGEPAGE` for large matrices (10-30% TLB miss reduction)
+- NUMA-aware: Pin threads to same node as matrix memory
+- AVX-512: Prefer on Zen 4+/Ice Lake+
+
+### 10.2 Apple Silicon (macOS ARM64)
+
+- Unified memory: No NUMA concerns
+- NEON 4x unrolled with independent accumulators
+- M4 Pro: 192KB L1, 16MB L2, 48MB L3
+
+### 10.3 Browser (WASM)
+
+- Memory budget < 8MB, SIMD128 always enabled
+- Web Workers for batch, SharedArrayBuffer for zero-copy
+- IndexedDB caching for TRUE preprocessing
+
+### 10.4 Cloudflare Workers
+
+- 128MB memory, 50ms CPU limit
+- Reflex/Retrieval lanes only
+- Single-threaded, pre-warm with small solve
 
 ---
 
-## 7. Platform-Specific Optimization
+## 11. Optimization Checklist
 
-### 7.1 Server (Linux x86_64)
+### P0 (Critical)
 
-- **Huge pages**: `madvise(addr, len, MADV_HUGEPAGE)` for large matrix allocations (reduces TLB misses by 10-30%)
-- **NUMA-aware**: Pin solver threads to same NUMA node as matrix memory
-- **CPU affinity**: `taskset -c 0-7` for dedicated solver cores
-- **io_uring**: For memory-mapped matrix I/O (reduces syscall overhead)
-- **AVX-512**: Prefer when available (Zen 4, Ice Lake+). Check `is_x86_feature_detected!("avx512f")`
+| Item | Impact | Effort | Validation |
+|------|--------|--------|------------|
+| SIMD SpMV (AVX2+FMA, NEON) | 4-8x SpMV | L | Criterion vs scalar |
+| Arena allocator | 100x alloc reduction | S | dhat profiling |
+| Zero-copy SoA → solver | Eliminates copies | M | Memory profiling |
+| CSR with aligned storage | SIMD foundation | M | Cache miss rate |
+| Diagonal preconditioning | 2-10x CG speedup | S | Iteration count |
+| Feature-gated Rayon | Multi-core utilization | S | Thread scaling |
+| Input validation | Security baseline | S | Fuzz testing |
+| CI regression benchmarks | Prevents degradation | M | CI green |
 
-### 7.2 Apple Silicon (macOS ARM64)
+### P1 (High)
 
-- **Unified memory**: No NUMA concerns, matrix + solver share same memory pool
-- **NEON**: 4x unrolled with independent accumulators for 6-wide pipeline
-- **AMX**: Apple Matrix coprocessor for dense operations (via Accelerate framework, not directly accessible from Rust yet)
-- **M4 Pro specifics**: 192KB L1, 16MB L2, 48MB L3 — adjust tiling accordingly
+| Item | Impact | Effort | Validation |
+|------|--------|--------|------------|
+| AVX-512 SpMV | 1.5-2x over AVX2 | M | Zen 4 benchmark |
+| WASM SIMD128 SpMV | 2-3x over scalar | M | wasm-pack bench |
+| Cache-aware tiling | 30-50% for n>100K | M | perf cache misses |
+| Memory-mapped CSR | Removes memory ceiling | M | 1GB matrix load |
+| SONA adaptive routing | Auto-optimal selection | L | >90% routing accuracy |
+| TRUE batch amortization | 100-1000x repeated | M | Break-even validated |
+| Web Worker pool | 2-4x WASM throughput | M | Worker benchmark |
 
-### 7.3 Browser (WASM)
+### P2 (Medium)
 
-- **Memory budget**: Keep total solver allocation < 8MB
-- **Web Workers**: 4 workers for batch operations, SharedArrayBuffer for zero-copy
-- **SIMD128**: Always enable with `-C target-feature=+simd128` (universal support since 2021)
-- **Streaming**: For large problems, stream results via ReadableStream
-- **IndexedDB**: Cache TRUE preprocessing results for repeat queries
+| Item | Impact | Effort | Validation |
+|------|--------|--------|------------|
+| PGO in CI | 5-15% overall | M | PGO comparison |
+| Vectorized PRNG | 2-4x random walk | S | Walk throughput |
+| SIMD convergence checks | 4-8x check speed | S | Inline benchmark |
+| Mixed precision (f32/f64) | 2x memory savings | M | Accuracy suite |
+| Incomplete Cholesky | 10-100x condition | L | Iteration count |
 
-### 7.4 Cloudflare Workers (Edge WASM)
+### P3 (Long-term)
 
-- **128MB memory**: Larger than browser, can handle n up to ~500K
-- **50ms CPU limit**: Use Reflex/Retrieval lanes only; Heavy lane exceeds limit
-- **No Web Workers**: Single-threaded, no parallelism
-- **Cold start**: Minimize WASM initialization; pre-warm with small solve
-
----
-
-## 8. Optimization Checklist
-
-### P0 (Critical — Implement First)
-
-- [ ] SIMD SpMV kernels for AVX2+FMA and NEON
-- [ ] Arena allocator for solver temporaries
-- [ ] Zero-copy data path from SoA storage to solver
-- [ ] CSR matrix format with aligned storage
-- [ ] Diagonal preconditioning for CG
-- [ ] Feature-gated Rayon parallelism (disabled on WASM)
-- [ ] Input validation at system boundaries
-- [ ] Regression benchmarks in CI
-
-### P1 (High — Implement in Phase 2)
-
-- [ ] AVX-512 SpMV kernel
-- [ ] WASM SIMD128 SpMV kernel
-- [ ] Cache-aware tiling for large matrices
-- [ ] Memory-mapped CSR for matrices > 100MB
-- [ ] SONA adaptive routing with EWC
-- [ ] Batch amortization for TRUE preprocessing
-- [ ] Web Worker pool for WASM parallelism
-- [ ] SharedArrayBuffer zero-copy when available
-
-### P2 (Medium — Implement in Phase 3)
-
-- [ ] Profile-Guided Optimization in CI
-- [ ] Vectorized PRNG for random walk algorithms
-- [ ] SIMD max/min/argmax reductions for convergence checks
-- [ ] Mixed-precision (f32 storage, f64 accumulation) for ill-conditioned systems
-- [ ] IndexedDB caching for WASM preprocessing results
-- [ ] Incomplete Cholesky preconditioner
-- [ ] Streaming API for large solve results
-
-### P3 (Low — Long-term)
-
-- [ ] Algebraic multigrid preconditioner
-- [ ] Hardware-specific routing thresholds (per-ISA calibration)
-- [ ] NUMA-aware memory allocation
-- [ ] Huge pages for large matrix storage
-- [ ] GPU offload via Metal/CUDA for dense fallback
-- [ ] Distributed solver across ruvector-cluster shards
+| Item | Impact | Effort | Validation |
+|------|--------|--------|------------|
+| Algebraic multigrid | Near-optimal Laplacians | XL | V-cycle convergence |
+| NUMA-aware allocation | 10-20% multi-socket | M | NUMA profiling |
+| GPU offload (Metal/CUDA) | 10-100x dense | XL | GPU benchmark |
+| Distributed solver | n > 1M scaling | XL | Distributed bench |
 
 ---
 
-## 9. Performance Targets
+## 12. Performance Targets
 
 | Operation | Server (AVX2) | Edge (NEON) | Browser (WASM) | Cloudflare |
 |-----------|:---:|:---:|:---:|:---:|
@@ -358,21 +481,22 @@ Expected: 10-20% size reduction, 5-10% speed improvement from wasm-opt.
 | Neumann 10K (k=20) | < 600 μs | < 1 ms | < 5 ms | < 8 ms |
 | BMSSP 100K (ε=1e-4) | < 50 ms | < 100 ms | N/A | < 200 ms |
 | TRUE prep 100K (ε=0.1) | < 500 ms | < 1 s | N/A | < 2 s |
-| TRUE solve 100K (amortized) | < 1 ms | < 2 ms | N/A | < 5 ms |
+| TRUE solve 100K (amort.) | < 1 ms | < 2 ms | N/A | < 5 ms |
 | Batch pairwise 10K | < 15 s | < 30 s | < 120 s | N/A |
 | Scheduler tick | < 200 ns | < 300 ns | N/A | N/A |
 | Algorithm routing | < 1 μs | < 1 μs | < 5 μs | < 5 μs |
 
 ---
 
-## 10. Measurement Methodology
-
-All performance claims must be validated with:
+## 13. Measurement Methodology
 
 1. **Criterion.rs**: 200 samples, 5s warmup, p < 0.05 significance
-2. **Multi-platform**: Results on both x86_64 (AVX2) and aarch64 (NEON)
-3. **Deterministic seeds**: `random_vector(dim, seed=42)` for reproducibility
-4. **Equal accuracy**: Fix ε before comparing approximate algorithms
-5. **Cold + hot cache**: Report both first-run and steady-state latencies
-6. **Profile.bench**: Inherits release optimization with debug symbols for profiling
-7. **Regression CI**: 10% degradation threshold triggers build failure
+2. **Multi-platform**: x86_64 (AVX2) and aarch64 (NEON)
+3. **Deterministic seeds**: `random_vector(dim, seed=42)`
+4. **Equal accuracy**: Fix ε before comparing
+5. **Cold + hot cache**: Report both first-run and steady-state
+6. **Profile.bench**: Release optimization with debug symbols
+7. **Regression CI**: 10% degradation threshold triggers failure
+8. **Memory profiling**: Peak RSS and allocation count via dhat
+9. **Roofline analysis**: Verify memory-bound operation
+10. **Statistical rigor**: Report median, p5, p95, coefficient of variation
