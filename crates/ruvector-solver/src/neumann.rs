@@ -240,16 +240,20 @@ impl NeumannSolver {
         let d_inv = extract_diag_inv_f32(matrix);
 
         // ------------------------------------------------------------------
-        // Jacobi-preconditioned iteration
+        // Jacobi-preconditioned iteration (fused kernel)
         //
         //   x_0 = D^{-1} * b
         //   loop:
-        //       r = b - A * x_k
+        //       r = b - A * x_k            (fused with norm computation)
         //       if ||r|| < tolerance: break
-        //       x_{k+1} = x_k + D^{-1} * r
+        //       x_{k+1} = x_k + D^{-1} * r (fused with residual storage)
+        //
+        // Key optimization: uses fused_residual_norm_sq to compute
+        // r = b - Ax and ||r||^2 in a single pass, avoiding a separate
+        // spmv + subtraction + norm computation (3 memory traversals -> 1).
         // ------------------------------------------------------------------
         let mut x: Vec<f32> = (0..n).map(|i| d_inv[i] * rhs[i]).collect();
-        let mut ax = vec![0.0f32; n]; // scratch for A * x
+        let mut r = vec![0.0f32; n]; // residual buffer (reused each iteration)
 
         let mut convergence_history = Vec::with_capacity(self.max_iterations.min(256));
         let mut prev_residual_norm = f64::MAX;
@@ -257,14 +261,8 @@ impl NeumannSolver {
         let mut iterations_done: usize = 0;
 
         for k in 0..self.max_iterations {
-            // Compute residual: r = b - A*x
-            matrix.spmv(&x, &mut ax);
-
-            let mut residual_norm_sq = 0.0f64;
-            for j in 0..n {
-                let rj = rhs[j] - ax[j];
-                residual_norm_sq += (rj as f64) * (rj as f64);
-            }
+            // Fused: compute r = b - Ax and ||r||^2 in one pass.
+            let residual_norm_sq = matrix.fused_residual_norm_sq(&x, rhs, &mut r);
             let residual_norm = residual_norm_sq.sqrt();
             iterations_done = k + 1;
 
@@ -318,10 +316,18 @@ impl NeumannSolver {
                 });
             }
 
-            // Update: x += D^{-1} * r
-            for j in 0..n {
-                let rj = rhs[j] - ax[j];
-                x[j] += d_inv[j] * rj;
+            // Fused update: x[j] += d_inv[j] * r[j]
+            // 4-wide unrolled for ILP.
+            let chunks = n / 4;
+            for c in 0..chunks {
+                let j = c * 4;
+                x[j] += d_inv[j] * r[j];
+                x[j + 1] += d_inv[j + 1] * r[j + 1];
+                x[j + 2] += d_inv[j + 2] * r[j + 2];
+                x[j + 3] += d_inv[j + 3] * r[j + 3];
+            }
+            for j in (chunks * 4)..n {
+                x[j] += d_inv[j] * r[j];
             }
 
             prev_residual_norm = residual_norm;

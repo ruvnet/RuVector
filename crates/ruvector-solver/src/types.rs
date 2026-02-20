@@ -69,6 +69,120 @@ impl<T: Copy + Default + std::ops::Mul<Output = T> + std::ops::AddAssign> CsrMat
     }
 }
 
+impl CsrMatrix<f32> {
+    /// High-performance SpMV with bounds-check elimination.
+    ///
+    /// Identical to [`spmv`](Self::spmv) but uses `unsafe` indexing to
+    /// eliminate per-element bounds checks in the inner loop, which is the
+    /// single hottest path in all iterative solvers.
+    ///
+    /// # Safety contract
+    ///
+    /// The caller must ensure the CSR structure is valid (use
+    /// [`validate_csr_matrix`](crate::validation::validate_csr_matrix) once
+    /// before entering the solve loop). The `x` and `y` slices must have
+    /// lengths `>= cols` and `>= rows` respectively.
+    #[inline]
+    pub fn spmv_unchecked(&self, x: &[f32], y: &mut [f32]) {
+        debug_assert!(x.len() >= self.cols);
+        debug_assert!(y.len() >= self.rows);
+
+        let vals = self.values.as_ptr();
+        let cols = self.col_indices.as_ptr();
+        let rp = self.row_ptr.as_ptr();
+
+        for i in 0..self.rows {
+            // SAFETY: row_ptr has length rows+1, so i and i+1 are in bounds.
+            let start = unsafe { *rp.add(i) };
+            let end = unsafe { *rp.add(i + 1) };
+            let mut sum = 0.0f32;
+
+            for idx in start..end {
+                // SAFETY: idx < nnz (enforced by valid CSR structure),
+                // col_indices[idx] < cols <= x.len() (enforced by validation).
+                unsafe {
+                    let v = *vals.add(idx);
+                    let c = *cols.add(idx);
+                    sum += v * *x.get_unchecked(c);
+                }
+            }
+            // SAFETY: i < rows <= y.len()
+            unsafe { *y.get_unchecked_mut(i) = sum };
+        }
+    }
+
+    /// Fused SpMV + residual computation: computes `r[j] = rhs[j] - (A*x)[j]`
+    /// and returns `||r||^2` in a single pass, avoiding a separate allocation
+    /// for `Ax`.
+    ///
+    /// This eliminates one full memory traversal per iteration compared to
+    /// separate `spmv` + vector subtraction.
+    #[inline]
+    pub fn fused_residual_norm_sq(
+        &self,
+        x: &[f32],
+        rhs: &[f32],
+        residual: &mut [f32],
+    ) -> f64 {
+        debug_assert!(x.len() >= self.cols);
+        debug_assert!(rhs.len() >= self.rows);
+        debug_assert!(residual.len() >= self.rows);
+
+        let vals = self.values.as_ptr();
+        let cols = self.col_indices.as_ptr();
+        let rp = self.row_ptr.as_ptr();
+        let mut norm_sq = 0.0f64;
+
+        for i in 0..self.rows {
+            let start = unsafe { *rp.add(i) };
+            let end = unsafe { *rp.add(i + 1) };
+            let mut ax_i = 0.0f32;
+
+            for idx in start..end {
+                unsafe {
+                    let v = *vals.add(idx);
+                    let c = *cols.add(idx);
+                    ax_i += v * *x.get_unchecked(c);
+                }
+            }
+
+            let r_i = rhs[i] - ax_i;
+            residual[i] = r_i;
+            norm_sq += (r_i as f64) * (r_i as f64);
+        }
+
+        norm_sq
+    }
+}
+
+impl CsrMatrix<f64> {
+    /// High-performance SpMV for f64 with bounds-check elimination.
+    #[inline]
+    pub fn spmv_unchecked(&self, x: &[f64], y: &mut [f64]) {
+        debug_assert!(x.len() >= self.cols);
+        debug_assert!(y.len() >= self.rows);
+
+        let vals = self.values.as_ptr();
+        let cols = self.col_indices.as_ptr();
+        let rp = self.row_ptr.as_ptr();
+
+        for i in 0..self.rows {
+            let start = unsafe { *rp.add(i) };
+            let end = unsafe { *rp.add(i + 1) };
+            let mut sum = 0.0f64;
+
+            for idx in start..end {
+                unsafe {
+                    let v = *vals.add(idx);
+                    let c = *cols.add(idx);
+                    sum += v * *x.get_unchecked(c);
+                }
+            }
+            unsafe { *y.get_unchecked_mut(i) = sum };
+        }
+    }
+}
+
 impl<T> CsrMatrix<T> {
     /// Number of non-zero entries.
     #[inline]

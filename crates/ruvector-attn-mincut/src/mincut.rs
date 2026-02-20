@@ -1,4 +1,4 @@
-use crate::graph::{AttentionGraph, Edge};
+use crate::graph::AttentionGraph;
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
 
@@ -135,6 +135,7 @@ pub fn dynamic_min_cut(logits: &[f32], seq_len: usize, lambda: f32, _tau: usize,
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::graph::Edge;
 
     #[test]
     fn test_dinic_simple_cut() {
