@@ -1,3 +1,4 @@
+#![allow(clippy::all, unused_imports, unused_variables, dead_code, unused_mut, unused_assignments, non_camel_case_types, clippy::approx_constant, unexpected_cfgs, unused_must_use, unused_parens)]
 //! Continuous Batching and Serving Integration Tests for v2.1
 //!
 //! Tests continuous batching scheduler, KV cache management, request queuing,

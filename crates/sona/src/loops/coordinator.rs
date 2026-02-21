@@ -2,10 +2,9 @@
 
 use crate::ewc::{EwcConfig, EwcPlusPlus};
 use crate::loops::background::{BackgroundLoop, BackgroundLoopConfig, BackgroundResult};
-use crate::loops::instant::{InstantLoop, InstantLoopConfig};
+use crate::loops::instant::InstantLoop;
 use crate::lora::{BaseLoRA, MicroLoRA};
 use crate::reasoning_bank::{PatternConfig, ReasoningBank};
-use crate::time_compat::Instant;
 use crate::types::{QueryTrajectory, SonaConfig};
 use parking_lot::RwLock;
 use std::sync::Arc;
@@ -13,7 +12,7 @@ use std::sync::Arc;
 /// Loop coordinator managing all learning loops
 pub struct LoopCoordinator {
     /// Configuration
-    config: SonaConfig,
+    _config: SonaConfig,
     /// Instant loop (Loop A)
     instant: InstantLoop,
     /// Background loop (Loop B)
@@ -66,7 +65,7 @@ impl LoopCoordinator {
         );
 
         Self {
-            config,
+            _config: config,
             instant,
             background,
             reasoning_bank,

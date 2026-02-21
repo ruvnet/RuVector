@@ -247,10 +247,12 @@ pub struct NoOpCallback;
 impl TrainingCallback for NoOpCallback {}
 
 /// Logging callback implementation
+#[allow(dead_code)]
 pub struct LoggingCallback {
     prefix: String,
 }
 
+#[allow(dead_code)]
 impl LoggingCallback {
     /// Create with prefix
     pub fn new(prefix: impl Into<String>) -> Self {

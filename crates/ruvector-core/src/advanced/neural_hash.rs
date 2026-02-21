@@ -3,7 +3,6 @@
 //! Learn similarity-preserving binary projections for extreme compression.
 //! Achieves 32-128x compression with 90-95% recall preservation.
 
-use crate::error::{Result, RuvectorError};
 use crate::types::VectorId;
 use ndarray::{Array1, Array2};
 use rand::Rng;
@@ -151,13 +150,13 @@ impl DeepHashEmbedding {
 impl NeuralHash for DeepHashEmbedding {
     fn encode(&self, vector: &[f32]) -> Vec<u8> {
         if vector.len() != self.input_dims {
-            return vec![0; (self.output_bits + 7) / 8];
+            return vec![0; self.output_bits.div_ceil(8)];
         }
 
         let logits = self.forward(vector);
 
         // Threshold at 0 to get binary codes
-        let mut bits = vec![0u8; (self.output_bits + 7) / 8];
+        let mut bits = vec![0u8; self.output_bits.div_ceil(8)];
 
         for (i, &logit) in logits.iter().enumerate() {
             if logit > 0.0 {
@@ -215,7 +214,7 @@ impl NeuralHash for SimpleLSH {
         let input = Array1::from_vec(vector.to_vec());
         let projections = self.projections.dot(&input);
 
-        let mut bits = vec![0u8; (self.num_bits + 7) / 8];
+        let mut bits = vec![0u8; self.num_bits.div_ceil(8)];
 
         for (i, &val) in projections.iter().enumerate() {
             if val > 0.0 {
@@ -271,7 +270,7 @@ impl<H: NeuralHash + Clone> HashIndex<H> {
 
         self.tables
             .entry(code)
-            .or_insert_with(Vec::new)
+            .or_default()
             .push(id.clone());
 
         self.vectors.insert(id, vector);
@@ -315,7 +314,7 @@ impl<H: NeuralHash + Clone> HashIndex<H> {
             .map(|v| v.len() * std::mem::size_of::<f32>())
             .sum();
 
-        let compressed_size = self.tables.len() * ((self.code_bits + 7) / 8);
+        let compressed_size = self.tables.len() * self.code_bits.div_ceil(8);
 
         original_size as f32 / compressed_size as f32
     }

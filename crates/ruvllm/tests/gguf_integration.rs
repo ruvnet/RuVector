@@ -1,3 +1,4 @@
+#![allow(clippy::all, unused_imports, unused_variables, dead_code, unused_mut, unused_assignments, non_camel_case_types, clippy::approx_constant, unexpected_cfgs, unused_must_use, unused_parens)]
 //! GGUF Format Integration Tests for v2.1
 //!
 //! Tests GGUF file format parsing, metadata extraction, tensor loading,

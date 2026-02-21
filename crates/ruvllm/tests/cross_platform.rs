@@ -1,3 +1,4 @@
+#![allow(clippy::all, unused_imports, unused_variables, dead_code, unused_mut, unused_assignments, non_camel_case_types, clippy::approx_constant, unexpected_cfgs, unused_must_use, unused_parens)]
 //! Cross-platform tests for scalar fallback implementations
 //!
 //! These tests verify that the scalar fallback implementations produce

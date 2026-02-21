@@ -152,7 +152,7 @@ impl HypergraphIndex {
         self.entities.insert(id.clone(), embedding);
         self.entity_to_hyperedges
             .entry(id)
-            .or_insert_with(HashSet::new);
+            .or_default();
     }
 
     /// Add a hyperedge
@@ -173,7 +173,7 @@ impl HypergraphIndex {
         for node in &hyperedge.nodes {
             self.entity_to_hyperedges
                 .entry(node.clone())
-                .or_insert_with(HashSet::new)
+                .or_default()
                 .insert(edge_id.clone());
         }
 
@@ -194,7 +194,7 @@ impl HypergraphIndex {
 
         self.temporal_index
             .entry(bucket)
-            .or_insert_with(Vec::new)
+            .or_default()
             .push(edge_id);
 
         Ok(())

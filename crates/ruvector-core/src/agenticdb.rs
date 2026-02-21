@@ -24,7 +24,7 @@
 //! - causal_edges: Cause-effect relationships with hypergraphs
 //! - learning_sessions: RL training data
 
-use crate::embeddings::{BoxedEmbeddingProvider, EmbeddingProvider, HashEmbedding};
+use crate::embeddings::{BoxedEmbeddingProvider, HashEmbedding};
 use crate::error::{Result, RuvectorError};
 use crate::types::*;
 use crate::vector_db::VectorDB;
@@ -32,7 +32,6 @@ use parking_lot::RwLock;
 use redb::{Database, TableDefinition};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::path::Path;
 use std::sync::Arc;
 
 // Table definitions
@@ -130,7 +129,7 @@ pub struct UtilitySearchResult {
 pub struct AgenticDB {
     vector_db: Arc<VectorDB>,
     db: Arc<Database>,
-    dimensions: usize,
+    _dimensions: usize,
     embedding_provider: BoxedEmbeddingProvider,
 }
 
@@ -211,15 +210,17 @@ impl AgenticDB {
         Ok(Self {
             vector_db,
             db,
-            dimensions: options.dimensions,
+            _dimensions: options.dimensions,
             embedding_provider,
         })
     }
 
     /// Create with default options and hash-based embeddings
     pub fn with_dimensions(dimensions: usize) -> Result<Self> {
-        let mut options = DbOptions::default();
-        options.dimensions = dimensions;
+        let options = DbOptions {
+            dimensions,
+            ..DbOptions::default()
+        };
         Self::new(options)
     }
 
@@ -837,7 +838,7 @@ impl<'a> PolicyMemoryStore<'a> {
         let id = uuid::Uuid::new_v4().to_string();
         let timestamp = chrono::Utc::now().timestamp();
 
-        let entry = PolicyEntry {
+        let _entry = PolicyEntry {
             id: id.clone(),
             state_id: state_id.to_string(),
             action: PolicyAction {
@@ -940,7 +941,7 @@ impl<'a> PolicyMemoryStore<'a> {
     }
 
     /// Update Q-value for a state-action pair
-    pub fn update_q_value(&self, policy_id: &str, new_q_value: f64) -> Result<()> {
+    pub fn update_q_value(&self, policy_id: &str, _new_q_value: f64) -> Result<()> {
         // Delete old entry and create new one with updated Q-value
         // Note: In production, this should use an update mechanism
         let _ = self.db.vector_db.delete(&format!("policy_{}", policy_id));

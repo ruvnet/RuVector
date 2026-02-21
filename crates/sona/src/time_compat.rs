@@ -3,8 +3,6 @@
 //! Uses `std::time::Instant` on native platforms and `performance.now()` on WASM.
 //! Uses `std::time::SystemTime` on native platforms and `Date.now()` on WASM.
 
-use std::fmt;
-
 #[cfg(not(target_arch = "wasm32"))]
 mod native {
     use std::fmt;

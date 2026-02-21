@@ -297,9 +297,7 @@ impl VectorIndex for HnswIndex {
 
         let mut inner = self.inner.write();
 
-        // Prepare batch data for parallel insertion
-        use rayon::prelude::*;
-
+        // Prepare batch data for insertion
         // First, assign indices and collect vector data
         let data_with_ids: Vec<_> = entries
             .iter()
@@ -336,7 +334,7 @@ impl VectorIndex for HnswIndex {
     }
 
     fn remove(&mut self, id: &VectorId) -> Result<bool> {
-        let mut inner = self.inner.write();
+        let inner = self.inner.write();
 
         // Note: hnsw_rs doesn't support direct deletion
         // We remove from our mappings but the graph structure remains

@@ -264,7 +264,7 @@ impl AtomicVectorPool {
     }
 
     /// Acquire a vector from the pool (or allocate new one)
-    pub fn acquire(&self) -> PooledVector {
+    pub fn acquire(&self) -> PooledVector<'_> {
         self.total_allocations.fetch_add(1, Ordering::Relaxed);
 
         let vec = if let Some(mut v) = self.pool.pop() {

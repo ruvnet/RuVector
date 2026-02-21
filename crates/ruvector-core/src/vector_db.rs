@@ -130,8 +130,10 @@ impl VectorDB {
 
     /// Create with default options
     pub fn with_dimensions(dimensions: usize) -> Result<Self> {
-        let mut options = DbOptions::default();
-        options.dimensions = dimensions;
+        let options = DbOptions {
+            dimensions,
+            ..DbOptions::default()
+        };
         Self::new(options)
     }
 
@@ -182,7 +184,7 @@ impl VectorDB {
                 if let Some(metadata) = &r.metadata {
                     filter
                         .iter()
-                        .all(|(key, value)| metadata.get(key).map_or(false, |v| v == value))
+                        .all(|(key, value)| metadata.get(key).is_some_and(|v| v == value))
                 } else {
                     false
                 }

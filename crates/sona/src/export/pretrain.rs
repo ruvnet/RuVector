@@ -518,8 +518,7 @@ use_cpu: false
 
     /// Generate DPO training script for preference learning
     pub fn generate_dpo_script(&self) -> String {
-        format!(
-            r#"#!/usr/bin/env python3
+        r#"#!/usr/bin/env python3
 """
 SONA DPO (Direct Preference Optimization) Training Script
 
@@ -600,7 +599,7 @@ def main():
 if __name__ == "__main__":
     main()
 "#
-        )
+        .to_string()
     }
 }
 

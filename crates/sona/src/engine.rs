@@ -1,11 +1,8 @@
 //! SONA Engine - Main interface for self-optimizing neural architecture
 
 use crate::loops::coordinator::{CoordinatorStats, LoopCoordinator};
-use crate::lora::MicroLoRA;
 use crate::trajectory::TrajectoryBuilder;
 use crate::types::{QueryTrajectory, SonaConfig};
-use parking_lot::RwLock;
-use std::sync::Arc;
 
 /// Main SONA engine integrating all components
 pub struct SonaEngine {

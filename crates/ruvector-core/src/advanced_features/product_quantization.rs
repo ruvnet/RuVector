@@ -270,7 +270,6 @@ impl EnhancedPQ {
             )));
         }
 
-        let subspace_dim = self.dimensions / self.config.num_subspaces;
         let mut result = Vec::with_capacity(self.dimensions);
 
         for (subspace_idx, &code) in codes.iter().enumerate() {

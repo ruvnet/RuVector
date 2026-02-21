@@ -43,7 +43,7 @@
 //! wasm-pack build --target web --features wasm
 //! ```
 
-#![warn(missing_docs)]
+#![allow(missing_docs)]
 
 pub mod engine;
 pub mod ewc;

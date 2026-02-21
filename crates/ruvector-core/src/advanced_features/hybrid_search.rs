@@ -5,7 +5,7 @@
 //! - BM25 keyword matching (lexical)
 //! - Weighted combination of scores
 
-use crate::error::{Result, RuvectorError};
+use crate::error::Result;
 use crate::types::{SearchResult, VectorId};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
@@ -80,7 +80,7 @@ impl BM25 {
         for term in terms {
             self.inverted_index
                 .entry(term)
-                .or_insert_with(HashSet::new)
+                .or_default()
                 .insert(doc_id.clone());
         }
 

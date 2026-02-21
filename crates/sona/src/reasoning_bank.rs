@@ -67,7 +67,7 @@ struct TrajectoryEntry {
     /// Cluster assignment
     cluster: Option<usize>,
     /// Original trajectory ID
-    trajectory_id: u64,
+    _trajectory_id: u64,
 }
 
 impl ReasoningBank {
@@ -91,7 +91,7 @@ impl ReasoningBank {
             embedding,
             quality: trajectory.final_quality,
             cluster: None,
-            trajectory_id: trajectory.id,
+            _trajectory_id: trajectory.id,
         };
 
         // Enforce capacity

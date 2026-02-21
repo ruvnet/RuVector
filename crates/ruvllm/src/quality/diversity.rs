@@ -606,7 +606,7 @@ impl DiversityAnalyzer {
             for n in 3..=5 {
                 for i in 0..tokens.len().saturating_sub(n - 1) {
                     let ngram: String = tokens[i..i + n].join(" ");
-                    patterns.entry(ngram).or_insert_with(Vec::new).push(idx);
+                    patterns.entry(ngram).or_default().push(idx);
                 }
             }
         }

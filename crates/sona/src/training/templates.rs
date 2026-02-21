@@ -199,24 +199,19 @@ pub struct TrainingTemplate {
 }
 
 /// Hint about training data size
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub enum DataSizeHint {
     /// <100 examples (few-shot)
     Tiny,
     /// 100-1000 examples
     Small,
     /// 1000-10000 examples
+    #[default]
     Medium,
     /// 10000-100000 examples
     Large,
     /// >100000 examples
     Massive,
-}
-
-impl Default for DataSizeHint {
-    fn default() -> Self {
-        DataSizeHint::Medium
-    }
 }
 
 impl TrainingTemplate {

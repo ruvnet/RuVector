@@ -6,7 +6,6 @@
 use crate::error::{Result, RuvectorError};
 use crate::types::{SearchResult, VectorId};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
 /// Configuration for conformal prediction
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -271,7 +271,7 @@ impl LearnedIndex for RecursiveModelIndex {
 
         for (i, (key, _)) in self.data.iter().enumerate() {
             if let Ok(pred_pos) = self.predict(key) {
-                let error = (i as i32 - pred_pos as i32).abs() as usize;
+                let error = i.abs_diff(pred_pos);
                 total_error += error as f32;
                 max_error = max_error.max(error);
             }

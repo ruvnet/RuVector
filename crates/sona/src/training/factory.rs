@@ -103,6 +103,12 @@ pub struct AgentFactory {
     default_hidden_dim: usize,
 }
 
+impl Default for AgentFactory {
+    fn default() -> Self {
+        Self::new(SonaConfig::default())
+    }
+}
+
 impl AgentFactory {
     /// Create a new agent factory
     pub fn new(base_config: SonaConfig) -> Self {
@@ -114,16 +120,13 @@ impl AgentFactory {
         }
     }
 
-    /// Create factory with default configuration
-    pub fn default() -> Self {
-        Self::new(SonaConfig::default())
-    }
-
     /// Create factory with specific hidden dimension
     pub fn with_hidden_dim(hidden_dim: usize) -> Self {
-        let mut config = SonaConfig::default();
-        config.hidden_dim = hidden_dim;
-        config.embedding_dim = hidden_dim;
+        let config = SonaConfig {
+            hidden_dim,
+            embedding_dim: hidden_dim,
+            ..SonaConfig::default()
+        };
         Self::new(config)
     }
 

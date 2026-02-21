@@ -255,9 +255,14 @@ impl EwcPlusPlus {
         let mut loss = 0.0f32;
 
         for task in &self.task_memory {
-            for i in 0..self.config.param_count {
-                let diff = current_weights[i] - task.optimal_weights[i];
-                loss += task.fisher[i] * diff * diff * task.importance;
+            for ((&cw, &ow), &fi) in current_weights
+                .iter()
+                .zip(task.optimal_weights.iter())
+                .zip(task.fisher.iter())
+                .take(self.config.param_count)
+            {
+                let diff = cw - ow;
+                loss += fi * diff * diff * task.importance;
             }
         }
 

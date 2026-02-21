@@ -537,23 +537,18 @@ impl std::fmt::Display for CoordinatorStats {
 }
 
 /// Federated learning topology
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub enum FederatedTopology {
-    /// Agents → Central Coordinator (simple, single aggregation point)
+    /// Agents -> Central Coordinator (simple, single aggregation point)
+    #[default]
     Star,
-    /// Agents → Regional → Global (multi-datacenter)
+    /// Agents -> Regional -> Global (multi-datacenter)
     Hierarchical {
         /// Number of regional coordinators
         regions: usize,
     },
     /// Agents share directly (edge deployment)
     PeerToPeer,
-}
-
-impl Default for FederatedTopology {
-    fn default() -> Self {
-        FederatedTopology::Star
-    }
 }
 
 #[cfg(test)]

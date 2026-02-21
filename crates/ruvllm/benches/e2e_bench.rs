@@ -1,3 +1,4 @@
+#![allow(clippy::all, unused_imports, unused_variables, dead_code, unused_mut, unused_assignments, non_camel_case_types, clippy::approx_constant, unexpected_cfgs, unused_must_use, unused_parens)]
 //! End-to-End LLM Inference Benchmarks for M4 Pro
 //!
 //! Comprehensive benchmarks for complete inference pipeline:

@@ -5,7 +5,6 @@
 
 use super::{ExportConfig, ExportError, ExportResult, ExportType};
 use crate::engine::SonaEngine;
-use crate::lora::{BaseLoRA, MicroLoRA};
 use std::collections::HashMap;
 use std::path::Path;
 
@@ -14,13 +13,13 @@ use serde::{Deserialize, Serialize};
 
 /// SafeTensors exporter for LoRA weights
 pub struct SafeTensorsExporter<'a> {
-    config: &'a ExportConfig,
+    _config: &'a ExportConfig,
 }
 
 impl<'a> SafeTensorsExporter<'a> {
     /// Create new SafeTensors exporter
     pub fn new(config: &'a ExportConfig) -> Self {
-        Self { config }
+        Self { _config: config }
     }
 
     /// Export engine's LoRA weights to SafeTensors format
@@ -209,7 +208,6 @@ impl<'a> SafeTensorsExporter<'a> {
         // ... tensor data (aligned to 8 bytes)
 
         let mut header_data: HashMap<String, TensorMetadata> = HashMap::new();
-        let mut data_offset: usize = 0;
         let mut tensor_bytes: Vec<u8> = Vec::new();
 
         // Sort keys for deterministic output
@@ -218,7 +216,6 @@ impl<'a> SafeTensorsExporter<'a> {
 
         for key in keys {
             let tensor = &tensors[key];
-            let tensor_size = tensor.data.len() * 4; // f32 = 4 bytes
 
             // Align to 8 bytes
             let padding = (8 - (tensor_bytes.len() % 8)) % 8;

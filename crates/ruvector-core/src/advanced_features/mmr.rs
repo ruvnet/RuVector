@@ -63,7 +63,7 @@ impl MMRSearch {
     pub fn rerank(
         &self,
         query: &[f32],
-        mut candidates: Vec<SearchResult>,
+        candidates: Vec<SearchResult>,
         k: usize,
     ) -> Result<Vec<SearchResult>> {
         if candidates.is_empty() {
@@ -111,7 +111,7 @@ impl MMRSearch {
     /// Compute MMR score for a candidate
     fn compute_mmr_score(
         &self,
-        query: &[f32],
+        _query: &[f32],
         candidate: &SearchResult,
         selected: &[SearchResult],
     ) -> Result<f32> {

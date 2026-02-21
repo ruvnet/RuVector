@@ -101,9 +101,9 @@ impl SoAVectorStorage {
         assert!(index < self.count);
         assert_eq!(output.len(), self.dimensions);
 
-        for dim_idx in 0..self.dimensions {
+        for (dim_idx, out) in output.iter_mut().enumerate().take(self.dimensions) {
             let offset = dim_idx * self.capacity + index;
-            output[dim_idx] = unsafe { *self.data.add(offset) };
+            *out = unsafe { *self.data.add(offset) };
         }
     }
 
@@ -315,14 +315,14 @@ impl SoAVectorStorage {
             let idx = i * 8;
             _mm256_storeu_ps(output.as_mut_ptr().add(idx), zero);
         }
-        for i in (chunks * 8)..self.count {
-            output[i] = 0.0;
+        for out in output.iter_mut().take(self.count).skip(chunks * 8) {
+            *out = 0.0;
         }
 
         // Process dimension by dimension
-        for dim_idx in 0..self.dimensions {
+        for (dim_idx, &q_val) in query.iter().enumerate().take(self.dimensions) {
             let dim_slice = self.dimension_slice(dim_idx);
-            let query_val = _mm256_set1_ps(query[dim_idx]);
+            let query_val = _mm256_set1_ps(q_val);
 
             // SIMD processing of 8 vectors at a time
             for i in 0..chunks {
@@ -353,6 +353,7 @@ impl SoAVectorStorage {
 
 // Feature detection helper for x86_64
 #[cfg(target_arch = "x86_64")]
+#[allow(dead_code)]
 fn is_x86_feature_detected_helper(feature: &str) -> bool {
     match feature {
         "avx2" => is_x86_feature_detected!("avx2"),

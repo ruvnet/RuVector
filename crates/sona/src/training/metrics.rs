@@ -293,6 +293,7 @@ impl std::fmt::Display for TrainingResult {
 
 /// Comparison metrics between training runs
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[allow(dead_code)]
 pub struct TrainingComparison {
     /// Baseline result name
     pub baseline_name: String,
@@ -308,6 +309,7 @@ pub struct TrainingComparison {
     pub duration_diff: f64,
 }
 
+#[allow(dead_code)]
 impl TrainingComparison {
     /// Compare two training results
     pub fn compare(baseline: &TrainingResult, comparison: &TrainingResult) -> Self {

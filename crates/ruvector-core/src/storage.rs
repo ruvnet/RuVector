@@ -25,7 +25,6 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 #[cfg(feature = "storage")]
-
 const VECTORS_TABLE: TableDefinition<&str, &[u8]> = TableDefinition::new("vectors");
 const METADATA_TABLE: TableDefinition<&str, &str> = TableDefinition::new("metadata");
 const CONFIG_TABLE: TableDefinition<&str, &str> = TableDefinition::new("config");
@@ -242,7 +241,7 @@ impl VectorStorage {
     /// Delete a vector by ID
     pub fn delete(&self, id: &str) -> Result<bool> {
         let write_txn = self.db.begin_write()?;
-        let mut deleted = false;
+        let deleted;
 
         {
             let mut table = write_txn.open_table(VECTORS_TABLE)?;

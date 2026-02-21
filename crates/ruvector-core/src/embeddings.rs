@@ -24,7 +24,9 @@
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 
-use crate::error::{Result, RuvectorError};
+use crate::error::Result;
+#[cfg(any(feature = "real-embeddings", feature = "api-embeddings"))]
+use crate::error::RuvectorError;
 use std::sync::Arc;
 
 /// Trait for text embedding providers

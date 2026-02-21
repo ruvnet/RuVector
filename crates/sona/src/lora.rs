@@ -53,7 +53,7 @@ impl MicroLoRA {
     /// Panics if rank > 2
     pub fn new(hidden_dim: usize, rank: usize) -> Self {
         assert!(
-            rank >= 1 && rank <= 2,
+            (1..=2).contains(&rank),
             "MicroLoRA rank must be 1-2, got {}",
             rank
         );
@@ -61,7 +61,7 @@ impl MicroLoRA {
         // Initialize down with small random-like values (deterministic for reproducibility)
         let down_proj: Vec<f32> = (0..hidden_dim * rank)
             .map(|i| {
-                let x = (i as f32 * 0.618033988749895) % 1.0;
+                let x = (i as f32 * 0.618_034) % 1.0;
                 (x - 0.5) * 0.02
             })
             .collect();
@@ -88,22 +88,22 @@ impl MicroLoRA {
 
         // Down projection: hidden_dim -> rank
         let mut intermediate = vec![0.0f32; self.rank];
-        for r in 0..self.rank {
+        for (r, inter) in intermediate.iter_mut().enumerate() {
             let mut sum = 0.0f32;
             let offset = r * self.hidden_dim;
-            for i in 0..self.hidden_dim {
-                sum += input[i] * self.down_proj[offset + i];
+            for (i, &inp) in input.iter().enumerate() {
+                sum += inp * self.down_proj[offset + i];
             }
-            intermediate[r] = sum;
+            *inter = sum;
         }
 
         // Up projection: rank -> hidden_dim
-        for i in 0..self.hidden_dim {
+        for (i, out) in output.iter_mut().enumerate() {
             let mut sum = 0.0f32;
-            for r in 0..self.rank {
-                sum += intermediate[r] * self.up_proj[r * self.hidden_dim + i];
+            for (r, &inter) in intermediate.iter().enumerate() {
+                sum += inter * self.up_proj[r * self.hidden_dim + i];
             }
-            output[i] += sum * self.scale;
+            *out += sum * self.scale;
         }
     }
 
@@ -329,9 +329,9 @@ impl BaseLoRA {
 
         // Down projection
         let mut intermediate = vec![0.0f32; self.rank];
-        for r in 0..self.rank {
+        for (r, inter) in intermediate.iter_mut().enumerate() {
             let offset = r * self.hidden_dim;
-            intermediate[r] = input
+            *inter = input
                 .iter()
                 .zip(&layer.down_proj[offset..offset + self.hidden_dim])
                 .map(|(a, b)| a * b)
@@ -339,12 +339,12 @@ impl BaseLoRA {
         }
 
         // Up projection
-        for i in 0..self.hidden_dim {
+        for (i, out) in output.iter_mut().enumerate() {
             let mut sum = 0.0f32;
-            for r in 0..self.rank {
-                sum += intermediate[r] * layer.up_proj[r * self.hidden_dim + i];
+            for (r, &inter) in intermediate.iter().enumerate() {
+                sum += inter * layer.up_proj[r * self.hidden_dim + i];
             }
-            output[i] += sum * scale;
+            *out += sum * scale;
         }
     }
 

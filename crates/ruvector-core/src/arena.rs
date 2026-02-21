@@ -225,14 +225,14 @@ impl<T> std::ops::DerefMut for ArenaVec<T> {
     }
 }
 
-/// Thread-local arena for per-thread allocations
+// Thread-local arena for per-thread allocations
 thread_local! {
     static THREAD_ARENA: RefCell<Arena> = RefCell::new(Arena::with_default_chunk_size());
 }
 
-/// Get the thread-local arena
-/// Note: Commented out due to lifetime issues with RefCell::borrow() escaping closure
-/// Use THREAD_ARENA.with(|arena| { ... }) directly instead
+// Get the thread-local arena
+// Note: Commented out due to lifetime issues with RefCell::borrow() escaping closure
+// Use THREAD_ARENA.with(|arena| { ... }) directly instead
 /*
 pub fn thread_arena() -> impl std::ops::Deref<Target = Arena> {
     THREAD_ARENA.with(|arena| {

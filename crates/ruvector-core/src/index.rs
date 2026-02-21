@@ -5,7 +5,7 @@ pub mod flat;
 pub mod hnsw;
 
 use crate::error::Result;
-use crate::types::{DistanceMetric, SearchResult, VectorId};
+use crate::types::{SearchResult, VectorId};
 
 /// Trait for vector index implementations
 pub trait VectorIndex: Send + Sync {

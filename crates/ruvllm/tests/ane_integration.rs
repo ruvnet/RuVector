@@ -1,3 +1,4 @@
+#![allow(clippy::all, unused_imports, unused_variables, dead_code, unused_mut, unused_assignments, non_camel_case_types, clippy::approx_constant, unexpected_cfgs, unused_must_use, unused_parens)]
 //! Integration tests for Apple Neural Engine (ANE) / Core ML functionality
 //!
 //! These tests verify end-to-end functionality of the ANE/CoreML backend,

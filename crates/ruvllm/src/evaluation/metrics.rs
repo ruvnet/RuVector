@@ -119,7 +119,7 @@ impl AggregatedMetrics {
     pub fn add_sample(&mut self, name: &str, value: f64) {
         self.stats
             .entry(name.to_string())
-            .or_insert_with(MetricStats::new)
+            .or_default()
             .add(value);
     }
 

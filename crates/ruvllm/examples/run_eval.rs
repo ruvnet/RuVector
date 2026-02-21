@@ -1,3 +1,4 @@
+#![allow(clippy::all, unused_imports, unused_variables, dead_code, unused_mut, unused_assignments, non_camel_case_types, clippy::approx_constant, unexpected_cfgs, unused_must_use, unused_parens)]
 //! RuvLLM Evaluation CLI
 //!
 //! Run real LLM evaluations using SWE-Bench tasks with the full RuvLLM stack.

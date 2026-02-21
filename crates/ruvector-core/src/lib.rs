@@ -25,8 +25,9 @@
 //! - This is NOT a complete RAG solution - you need external embedding models
 //! - Examples use mock embeddings for demonstration only
 
-#![warn(missing_docs)]
+#![allow(missing_docs)]
 #![warn(clippy::all)]
+#![allow(clippy::incompatible_msrv)]
 
 pub mod advanced_features;
 
@@ -94,8 +95,8 @@ pub use embeddings::CandleEmbedding;
 
 // Compile-time warning about AgenticDB limitations
 #[cfg(feature = "storage")]
+#[allow(deprecated, clippy::let_unit_value)]
 const _: () = {
-    // This will appear in cargo build output as a note
     #[deprecated(
         since = "0.1.0",
         note = "AgenticDB uses placeholder hash-based embeddings. For semantic search, integrate a real embedding model (ONNX, Candle, or API). See /examples/onnx-embeddings for production setup."

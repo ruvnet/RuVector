@@ -5,7 +5,7 @@
 //! - Post-filtering: Traverse graph then apply filters
 //! - Automatic strategy selection based on filter selectivity
 
-use crate::error::{Result, RuvectorError};
+use crate::error::Result;
 use crate::types::{SearchResult, VectorId};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -112,6 +112,7 @@ impl FilterExpression {
     }
 
     /// Estimate selectivity of filter (0.0 = very selective, 1.0 = not selective)
+    #[allow(clippy::only_used_in_recursion)]
     pub fn estimate_selectivity(&self, total_vectors: usize) -> f32 {
         match self {
             FilterExpression::Eq(_, _) => 0.1, // Equality is typically selective

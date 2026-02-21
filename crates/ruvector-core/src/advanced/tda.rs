@@ -4,9 +4,8 @@
 //! Detects mode collapse, degeneracy, and topological structure.
 
 use crate::error::{Result, RuvectorError};
-use ndarray::{Array1, Array2};
+use ndarray::Array2;
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet};
 
 /// Topological analyzer for embeddings
 pub struct TopologicalAnalyzer {
@@ -118,6 +117,7 @@ impl TopologicalAnalyzer {
         components
     }
 
+    #[allow(clippy::only_used_in_recursion)]
     fn dfs(&self, node: usize, graph: &[Vec<usize>], visited: &mut [bool]) {
         visited[node] = true;
         for &neighbor in &graph[node] {

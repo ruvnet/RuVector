@@ -218,7 +218,7 @@ impl Int4Quantized {
         };
 
         let dimensions = vector.len();
-        let num_bytes = (dimensions + 1) / 2;
+        let num_bytes = dimensions.div_ceil(2);
         let mut data = vec![0u8; num_bytes];
 
         for (i, &v) in vector.iter().enumerate() {
@@ -247,7 +247,7 @@ impl Int4Quantized {
 
         // Use average scale for balanced comparison
         let avg_scale = (self.scale + other.scale) / 2.0;
-        let avg_min = (self.min + other.min) / 2.0;
+        let _avg_min = (self.min + other.min) / 2.0;
 
         let mut sum_sq = 0i32;
 
@@ -296,7 +296,7 @@ pub struct BinaryQuantized {
 impl QuantizedVector for BinaryQuantized {
     fn quantize(vector: &[f32]) -> Self {
         let dimensions = vector.len();
-        let num_bytes = (dimensions + 7) / 8;
+        let num_bytes = dimensions.div_ceil(8);
         let mut bits = vec![0u8; num_bytes];
 
         for (i, &v) in vector.iter().enumerate() {
