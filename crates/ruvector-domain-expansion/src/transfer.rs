@@ -98,8 +98,7 @@ impl BetaParams {
             x.clamp(0.001, 0.999)
         } else {
             // Fallback: simple power approximation
-            p.powf(1.0 / a) * (1.0 - (1.0 - p).powf(1.0 / b))
-                + p.powf(1.0 / a) * 0.5
+            p.powf(1.0 / a) * (1.0 - (1.0 - p).powf(1.0 / b)) + p.powf(1.0 / a) * 0.5
         }
     }
 
@@ -169,12 +168,7 @@ impl TransferPrior {
     }
 
     /// Update the posterior for a bucket/arm with a new observation.
-    pub fn update_posterior(
-        &mut self,
-        bucket: ContextBucket,
-        arm: ArmId,
-        reward: f32,
-    ) {
+    pub fn update_posterior(&mut self, bucket: ContextBucket, arm: ArmId, reward: f32) {
         let arms = self.bucket_priors.entry(bucket.clone()).or_default();
         let params = arms.entry(arm).or_insert_with(BetaParams::uniform);
         params.update(reward);
@@ -319,7 +313,9 @@ impl MetaThompsonEngine {
 
     /// Extract transfer prior from a domain (for shipping to another domain).
     pub fn extract_prior(&self, domain_id: &DomainId) -> Option<TransferPrior> {
-        self.domain_priors.get(domain_id).map(|p| p.extract_summary())
+        self.domain_priors
+            .get(domain_id)
+            .map(|p| p.extract_summary())
     }
 
     /// Get all domain IDs currently tracked.
@@ -518,7 +514,10 @@ mod tests {
         // Domain2 should now have informative priors
         let d2_prior = engine.domain_priors.get(&domain2).unwrap();
         let a_params = d2_prior.get_prior(&bucket, &ArmId("strategy_a".into()));
-        assert!(a_params.mean() > 0.5, "Transferred prior should favor strategy_a");
+        assert!(
+            a_params.mean() > 0.5,
+            "Transferred prior should favor strategy_a"
+        );
     }
 
     #[test]
@@ -545,10 +544,10 @@ mod tests {
         let v = TransferVerification::verify(
             DomainId("d1".into()),
             DomainId("d2".into()),
-            0.8,  // source before
-            0.5,  // source after (regression!)
-            0.3,  // target before
-            0.7,  // target after
+            0.8, // source before
+            0.5, // source after (regression!)
+            0.3, // target before
+            0.7, // target after
             100,
             40,
         );
@@ -560,10 +559,7 @@ mod tests {
 
     #[test]
     fn test_uncertainty_detection() {
-        let mut engine = MetaThompsonEngine::new(vec![
-            "a".into(),
-            "b".into(),
-        ]);
+        let mut engine = MetaThompsonEngine::new(vec!["a".into(), "b".into()]);
 
         let domain = DomainId("test".into());
         engine.init_domain_uniform(domain.clone());
@@ -578,20 +574,8 @@ mod tests {
 
         // After many observations favoring one arm, should be certain
         for _ in 0..100 {
-            engine.record_outcome(
-                &domain,
-                bucket.clone(),
-                ArmId("a".into()),
-                0.95,
-                1.0,
-            );
-            engine.record_outcome(
-                &domain,
-                bucket.clone(),
-                ArmId("b".into()),
-                0.1,
-                1.0,
-            );
+            engine.record_outcome(&domain, bucket.clone(), ArmId("a".into()), 0.95, 1.0);
+            engine.record_outcome(&domain, bucket.clone(), ArmId("b".into()), 0.1, 1.0);
         }
 
         assert!(!engine.is_uncertain(&domain, &bucket, 0.1));

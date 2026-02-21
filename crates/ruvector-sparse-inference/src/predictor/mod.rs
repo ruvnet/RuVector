@@ -21,11 +21,7 @@ pub trait Predictor: Send + Sync {
     /// # Arguments
     /// * `samples` - Input samples
     /// * `activations` - Corresponding activation patterns
-    fn calibrate(
-        &mut self,
-        samples: &[Vec<f32>],
-        activations: &[Vec<f32>],
-    ) -> Result<()>;
+    fn calibrate(&mut self, samples: &[Vec<f32>], activations: &[Vec<f32>]) -> Result<()>;
 
     /// Get predictor statistics.
     fn stats(&self) -> PredictorStats;
@@ -53,11 +49,7 @@ impl Predictor for DensePredictor {
         Ok((0..self.neuron_count).collect())
     }
 
-    fn calibrate(
-        &mut self,
-        _samples: &[Vec<f32>],
-        _activations: &[Vec<f32>],
-    ) -> Result<()> {
+    fn calibrate(&mut self, _samples: &[Vec<f32>], _activations: &[Vec<f32>]) -> Result<()> {
         Ok(())
     }
 

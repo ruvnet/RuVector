@@ -128,10 +128,7 @@ async fn send_error(
 
 /// Handle a QUERY message. Payload is a simplified JSON-encoded query
 /// for ease of inter-agent use (vector, k as little-endian).
-async fn handle_query(
-    payload: &[u8],
-    store: &SharedStore,
-) -> Result<(u8, Vec<u8>), TcpError> {
+async fn handle_query(payload: &[u8], store: &SharedStore) -> Result<(u8, Vec<u8>), TcpError> {
     // Simplified binary protocol:
     // [4 bytes: k (LE)] [4 bytes: dim (LE)] [dim * 4 bytes: vector f32s (LE)]
     if payload.len() < 8 {
@@ -186,10 +183,7 @@ async fn handle_query(
 
 /// Handle an INGEST message.
 /// Binary payload: [4 bytes: count (LE)] [2 bytes: dim (LE)] [per vector: 8 bytes id (LE) + dim*4 bytes data (LE)]
-async fn handle_ingest(
-    payload: &[u8],
-    store: &SharedStore,
-) -> Result<(u8, Vec<u8>), TcpError> {
+async fn handle_ingest(payload: &[u8], store: &SharedStore) -> Result<(u8, Vec<u8>), TcpError> {
     if payload.len() < 6 {
         return Err(TcpError {
             code: 0x0300,
@@ -264,10 +258,7 @@ async fn handle_ingest(
 
 /// Handle a DELETE message.
 /// Binary payload: [4 bytes: count (LE)] [per id: 8 bytes (LE)]
-async fn handle_delete(
-    payload: &[u8],
-    store: &SharedStore,
-) -> Result<(u8, Vec<u8>), TcpError> {
+async fn handle_delete(payload: &[u8], store: &SharedStore) -> Result<(u8, Vec<u8>), TcpError> {
     if payload.len() < 4 {
         return Err(TcpError {
             code: 0x0300,
@@ -420,7 +411,7 @@ mod tests {
         let mut ingest_payload = Vec::new();
         ingest_payload.extend_from_slice(&2u32.to_le_bytes()); // count
         ingest_payload.extend_from_slice(&4u16.to_le_bytes()); // dim
-        // Vector 1: id=1, data=[1,0,0,0]
+                                                               // Vector 1: id=1, data=[1,0,0,0]
         ingest_payload.extend_from_slice(&1u64.to_le_bytes());
         ingest_payload.extend_from_slice(&1.0f32.to_le_bytes());
         ingest_payload.extend_from_slice(&0.0f32.to_le_bytes());

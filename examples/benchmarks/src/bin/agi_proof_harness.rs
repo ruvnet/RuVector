@@ -17,7 +17,9 @@
 
 use anyhow::Result;
 use clap::Parser;
-use ruvector_benchmarks::acceptance_test::{run_ablation_comparison, run_acceptance_test, HoldoutConfig};
+use ruvector_benchmarks::acceptance_test::{
+    run_ablation_comparison, run_acceptance_test, HoldoutConfig,
+};
 use ruvector_benchmarks::agi_contract::{AutonomyEvaluator, ContractHealth, ViabilityChecklist};
 use ruvector_benchmarks::intelligence_metrics::IntelligenceCalculator;
 use ruvector_benchmarks::superintelligence::{run_pathway, SIConfig};
@@ -113,9 +115,17 @@ fn main() -> Result<()> {
         }
     };
 
-    println!("  Config: holdout={}, training/cycle={}, cycles={}, noise={:.0}%",
-        config.holdout_size, config.training_per_cycle, config.cycles, config.noise_rate * 100.0);
-    println!("  Seeds: holdout=0x{:X}, training={}", config.holdout_seed, config.training_seed);
+    println!(
+        "  Config: holdout={}, training/cycle={}, cycles={}, noise={:.0}%",
+        config.holdout_size,
+        config.training_per_cycle,
+        config.cycles,
+        config.noise_rate * 100.0
+    );
+    println!(
+        "  Seeds: holdout=0x{:X}, training={}",
+        config.holdout_seed, config.training_seed
+    );
     println!();
 
     // ─── Run Acceptance Test ─────────────────────────────────────────
@@ -136,7 +146,9 @@ fn main() -> Result<()> {
         last_cycle.contract_health.print();
 
         // ─── Autonomy Level ──────────────────────────────────────────
-        let health_history: Vec<ContractHealth> = result.cycles.iter()
+        let health_history: Vec<ContractHealth> = result
+            .cycles
+            .iter()
             .map(|c| c.contract_health.clone())
             .collect();
         let evaluator = AutonomyEvaluator::default();
@@ -164,7 +176,9 @@ fn main() -> Result<()> {
         pathway_result.print();
 
         // Show contract health for peak level
-        if let Some(peak) = pathway_result.levels.iter()
+        if let Some(peak) = pathway_result
+            .levels
+            .iter()
             .max_by(|a, b| a.iq_score.partial_cmp(&b.iq_score).unwrap())
         {
             let health = ContractHealth::from_raw(&peak.raw_metrics);
@@ -174,8 +188,14 @@ fn main() -> Result<()> {
             let calculator = IntelligenceCalculator::default();
             let assessment = calculator.calculate(&peak.raw_metrics);
             println!("  Multi-dimensional IQ: {:.1}", assessment.overall_score);
-            println!("    Cost efficiency:  {:.2}", assessment.cost.cost_efficiency);
-            println!("    Robustness score: {:.2}", assessment.robustness.robustness_score);
+            println!(
+                "    Cost efficiency:  {:.2}",
+                assessment.cost.cost_efficiency
+            );
+            println!(
+                "    Robustness score: {:.2}",
+                assessment.robustness.robustness_score
+            );
         }
     }
 

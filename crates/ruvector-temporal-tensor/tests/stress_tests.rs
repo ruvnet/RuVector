@@ -8,12 +8,8 @@
 //! cargo test --release -p ruvector-temporal-tensor --test stress_tests -- --nocapture
 //! ```
 
-use ruvector_temporal_tensor::store::{
-    BlockKey, Tier, TieredStore, ReconstructPolicy, StoreError,
-};
-use ruvector_temporal_tensor::delta::{
-    DeltaChain, compute_delta,
-};
+use ruvector_temporal_tensor::delta::{compute_delta, DeltaChain};
+use ruvector_temporal_tensor::store::{BlockKey, ReconstructPolicy, StoreError, Tier, TieredStore};
 
 // ---------------------------------------------------------------------------
 // Deterministic PRNG (LCG) -- same as other test files, no external deps
@@ -56,7 +52,6 @@ impl SimpleRng {
         }
         lo + (self.next_u64() % range) as usize
     }
-
 }
 
 // ---------------------------------------------------------------------------
@@ -64,7 +59,10 @@ impl SimpleRng {
 // ---------------------------------------------------------------------------
 
 fn make_key(tid: u128, idx: u32) -> BlockKey {
-    BlockKey { tensor_id: tid, block_index: idx }
+    BlockKey {
+        tensor_id: tid,
+        block_index: idx,
+    }
 }
 
 fn random_tier(rng: &mut SimpleRng) -> Tier {
@@ -157,8 +155,7 @@ fn test_random_put_get_evict_cycle() {
 
     // Final invariant: block_count = all unique keys ever put (including evicted ones,
     // since eviction keeps metadata).
-    let all_known: std::collections::HashSet<u32> =
-        inserted.union(&evicted).copied().collect();
+    let all_known: std::collections::HashSet<u32> = inserted.union(&evicted).copied().collect();
     assert_eq!(
         store.block_count(),
         all_known.len(),
@@ -312,11 +309,7 @@ fn test_large_block_stress() {
             .unwrap_or_else(|e| panic!("block {} unreadable: {:?}", i, e));
         assert_eq!(n, ELEM_COUNT);
         for (j, &v) in out.iter().enumerate() {
-            assert!(
-                v.is_finite(),
-                "block {} elem {} is non-finite: {}",
-                i, j, v
-            );
+            assert!(v.is_finite(), "block {} elem {} is non-finite: {}", i, j, v);
         }
     }
 
@@ -342,7 +335,10 @@ fn test_large_block_stress() {
         let n = store
             .get(key, &mut out, NUM_BLOCKS as u64 + 3)
             .unwrap_or_else(|e| {
-                panic!("block {} should still be readable after evicting first half: {:?}", i, e)
+                panic!(
+                    "block {} should still be readable after evicting first half: {:?}",
+                    i, e
+                )
             });
         assert_eq!(n, ELEM_COUNT);
     }
@@ -404,17 +400,17 @@ fn test_delta_chain_stress() {
         let delta = compute_delta(
             &truth,
             &modified,
-            42,                // tensor_id
-            0,                 // block_index
-            epoch as u64,      // base_epoch
-            1e-8,              // threshold (very small to capture all changes)
-            1.0,               // max_change_fraction (allow up to 100%)
+            42,           // tensor_id
+            0,            // block_index
+            epoch as u64, // base_epoch
+            1e-8,         // threshold (very small to capture all changes)
+            1.0,          // max_change_fraction (allow up to 100%)
         )
         .expect("compute_delta should succeed for small changes");
 
-        chain.append(delta).unwrap_or_else(|e| {
-            panic!("append should succeed at depth {}: {:?}", epoch, e)
-        });
+        chain
+            .append(delta)
+            .unwrap_or_else(|e| panic!("append should succeed at depth {}: {:?}", epoch, e));
 
         truth = modified;
     }
@@ -468,7 +464,8 @@ fn test_delta_chain_stress() {
         assert!(
             err < 0.01,
             "post-compaction error at elem {}: {:.6}",
-            i, err
+            i,
+            err
         );
     }
 
@@ -483,10 +480,8 @@ fn test_delta_chain_stress() {
             let idx = rng.next_usize_range(0, DIM);
             modified[idx] += rng.next_f32_range(-0.05, 0.05);
         }
-        let delta = compute_delta(
-            &truth2, &modified, 42, 0, epoch as u64, 1e-8, 1.0,
-        )
-        .expect("compute_delta should succeed");
+        let delta = compute_delta(&truth2, &modified, 42, 0, epoch as u64, 1e-8, 1.0)
+            .expect("compute_delta should succeed");
         chain2.append(delta).unwrap();
         truth2 = modified;
     }
@@ -496,7 +491,13 @@ fn test_delta_chain_stress() {
     let mut overflow_modified = truth2.clone();
     overflow_modified[0] += 0.01;
     let overflow_delta = compute_delta(
-        &truth2, &overflow_modified, 42, 0, MAX_DEPTH as u64, 1e-8, 1.0,
+        &truth2,
+        &overflow_modified,
+        42,
+        0,
+        MAX_DEPTH as u64,
+        1e-8,
+        1.0,
     )
     .expect("compute_delta for overflow");
     let result = chain2.append(overflow_delta);
@@ -514,7 +515,8 @@ fn test_delta_chain_stress() {
         assert!(
             err < 0.01,
             "reconstruction after failed append: elem {} error {:.6}",
-            i, err
+            i,
+            err
         );
     }
 
@@ -651,7 +653,11 @@ fn test_concurrent_simulation() {
                 assert!(
                     v.is_finite(),
                     "reader {} iter {} block {} elem {} non-finite: {}",
-                    reader_id, iter, key_idx, j, v
+                    reader_id,
+                    iter,
+                    key_idx,
+                    j,
+                    v
                 );
             }
         }
@@ -664,7 +670,8 @@ fn test_concurrent_simulation() {
         assert!(
             m.tier == Tier::Tier1 || m.tier == Tier::Tier2 || m.tier == Tier::Tier3,
             "block {} has invalid tier {:?}",
-            i, m.tier
+            i,
+            m.tier
         );
         assert!(
             m.access_count > 0,
@@ -699,7 +706,10 @@ fn test_extreme_tick_values() {
 
     let meta_a = store.meta(key_a).unwrap();
     assert_eq!(meta_a.last_access_at, u64::MAX - 1);
-    assert!(meta_a.access_count >= 2, "access_count should reflect put + touch");
+    assert!(
+        meta_a.access_count >= 2,
+        "access_count should reflect put + touch"
+    );
 
     // Read should still work.
     let mut out = vec![0.0f32; ELEM_COUNT];

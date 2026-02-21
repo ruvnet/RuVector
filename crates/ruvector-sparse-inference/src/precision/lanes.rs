@@ -40,9 +40,9 @@ impl PrecisionLane {
     /// Get the value range for this lane
     pub fn value_range(&self) -> (i32, i32) {
         match self {
-            Self::Bit3 => (-4, 3),      // 3-bit signed: -4 to 3
-            Self::Bit5 => (-16, 15),    // 5-bit signed: -16 to 15
-            Self::Bit7 => (-64, 63),    // 7-bit signed: -64 to 63
+            Self::Bit3 => (-4, 3),   // 3-bit signed: -4 to 3
+            Self::Bit5 => (-16, 15), // 5-bit signed: -16 to 15
+            Self::Bit7 => (-64, 63), // 7-bit signed: -64 to 63
             Self::Float32 => (i32::MIN, i32::MAX),
         }
     }
@@ -50,9 +50,9 @@ impl PrecisionLane {
     /// Get bytes per element (storage container)
     pub fn bytes_per_element(&self) -> f32 {
         match self {
-            Self::Bit3 => 0.5,   // Packed into int4
-            Self::Bit5 => 1.0,   // int8 container
-            Self::Bit7 => 1.0,   // int8 container
+            Self::Bit3 => 0.5, // Packed into int4
+            Self::Bit5 => 1.0, // int8 container
+            Self::Bit7 => 1.0, // int8 container
             Self::Float32 => 4.0,
         }
     }
@@ -60,8 +60,8 @@ impl PrecisionLane {
     /// Get the default scale factor for this lane
     pub fn default_scale(&self) -> f32 {
         match self {
-            Self::Bit3 => 0.25,   // Conservative for reflexes
-            Self::Bit5 => 0.0625, // 1/16 for streaming
+            Self::Bit3 => 0.25,     // Conservative for reflexes
+            Self::Bit5 => 0.0625,   // 1/16 for streaming
             Self::Bit7 => 0.015625, // 1/64 for reasoning
             Self::Float32 => 1.0,
         }
@@ -80,7 +80,7 @@ impl PrecisionLane {
 
 impl Default for PrecisionLane {
     fn default() -> Self {
-        Self::Bit7  // Default to reasoning lane
+        Self::Bit7 // Default to reasoning lane
     }
 }
 
@@ -123,9 +123,9 @@ impl Default for LaneConfig {
             bit5_max_updates: 10,              // Check graduation every 10 updates
             min_stability_steps: 5,            // 5 stable steps before demotion
             novelty_threshold: 0.3,            // 30% novelty triggers escalation
-            drift_persistence_threshold: 3,   // 3 steps of drift
-            confidence_threshold: 0.7,        // 70% confidence required
-            escalation_budget: 1.0,           // Normalized budget
+            drift_persistence_threshold: 3,    // 3 steps of drift
+            confidence_threshold: 0.7,         // 70% confidence required
+            escalation_budget: 1.0,            // Normalized budget
             auto_lane_selection: true,
         }
     }
@@ -149,8 +149,17 @@ impl HardwareTarget {
     pub fn supported_lanes(&self) -> Vec<PrecisionLane> {
         match self {
             Self::Esp32 => vec![PrecisionLane::Bit3],
-            Self::V0Appliance => vec![PrecisionLane::Bit3, PrecisionLane::Bit5, PrecisionLane::Bit7],
-            Self::Desktop => vec![PrecisionLane::Bit3, PrecisionLane::Bit5, PrecisionLane::Bit7, PrecisionLane::Float32],
+            Self::V0Appliance => vec![
+                PrecisionLane::Bit3,
+                PrecisionLane::Bit5,
+                PrecisionLane::Bit7,
+            ],
+            Self::Desktop => vec![
+                PrecisionLane::Bit3,
+                PrecisionLane::Bit5,
+                PrecisionLane::Bit7,
+                PrecisionLane::Float32,
+            ],
             Self::Fpga => vec![PrecisionLane::Bit7],
         }
     }
@@ -195,7 +204,12 @@ mod tests {
 
     #[test]
     fn test_hardware_targets() {
-        assert_eq!(HardwareTarget::Esp32.supported_lanes(), vec![PrecisionLane::Bit3]);
-        assert!(HardwareTarget::Desktop.supported_lanes().contains(&PrecisionLane::Float32));
+        assert_eq!(
+            HardwareTarget::Esp32.supported_lanes(),
+            vec![PrecisionLane::Bit3]
+        );
+        assert!(HardwareTarget::Desktop
+            .supported_lanes()
+            .contains(&PrecisionLane::Float32));
     }
 }

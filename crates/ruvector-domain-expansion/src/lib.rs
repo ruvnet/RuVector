@@ -64,14 +64,14 @@ pub use cost_curve::{
     ScoreboardSummary,
 };
 pub use domain::{Domain, DomainEmbedding, DomainId, Evaluation, Solution, Task};
+pub use meta_learning::{
+    CuriosityBonus, DecayingBeta, MetaLearningEngine, MetaLearningHealth, ParetoFront, ParetoPoint,
+    PlateauAction, PlateauDetector, RegretSummary, RegretTracker,
+};
 pub use planning::PlanningDomain;
 pub use policy_kernel::{PolicyKernel, PolicyKnobs, PopulationSearch, PopulationStats};
 pub use rust_synthesis::RustSynthesisDomain;
 pub use tool_orchestration::ToolOrchestrationDomain;
-pub use meta_learning::{
-    CuriosityBonus, DecayingBeta, MetaLearningEngine, MetaLearningHealth, ParetoFront,
-    ParetoPoint, PlateauAction, PlateauDetector, RegretSummary, RegretTracker,
-};
 pub use transfer::{
     ArmId, BetaParams, ContextBucket, DualPathResult, MetaThompsonEngine, TransferPrior,
     TransferVerification,
@@ -150,12 +150,7 @@ impl DomainExpansionEngine {
     }
 
     /// Generate training tasks for a specific domain.
-    pub fn generate_tasks(
-        &self,
-        domain_id: &DomainId,
-        count: usize,
-        difficulty: f32,
-    ) -> Vec<Task> {
+    pub fn generate_tasks(&self, domain_id: &DomainId, count: usize, difficulty: f32) -> Vec<Task> {
         self.domains
             .get(domain_id)
             .map(|d| d.generate_tasks(count, difficulty))
@@ -297,7 +292,8 @@ impl DomainExpansionEngine {
             } else {
                 accuracy
             };
-            self.meta.record_kernel(&kernel.id, accuracy, cost, robustness, gen);
+            self.meta
+                .record_kernel(&kernel.id, accuracy, cost, robustness, gen);
         }
 
         self.population.evolve();
@@ -324,10 +320,7 @@ impl DomainExpansionEngine {
     }
 
     /// Get counterexamples for a domain.
-    pub fn counterexamples(
-        &self,
-        domain_id: &DomainId,
-    ) -> &[(Task, Solution, Evaluation)] {
+    pub fn counterexamples(&self, domain_id: &DomainId) -> &[(Task, Solution, Evaluation)] {
         self.counterexamples
             .get(domain_id)
             .map(|v| v.as_slice())
@@ -335,21 +328,13 @@ impl DomainExpansionEngine {
     }
 
     /// Select best arm for a context using Thompson Sampling.
-    pub fn select_arm(
-        &self,
-        domain_id: &DomainId,
-        bucket: &ContextBucket,
-    ) -> Option<ArmId> {
+    pub fn select_arm(&self, domain_id: &DomainId, bucket: &ContextBucket) -> Option<ArmId> {
         let mut rng = rand::thread_rng();
         self.thompson.select_arm(domain_id, bucket, &mut rng)
     }
 
     /// Check if dual-path speculation should be triggered.
-    pub fn should_speculate(
-        &self,
-        domain_id: &DomainId,
-        bucket: &ContextBucket,
-    ) -> bool {
+    pub fn should_speculate(&self, domain_id: &DomainId, bucket: &ContextBucket) -> bool {
         self.thompson.is_uncertain(domain_id, bucket, 0.15)
     }
 
@@ -398,10 +383,7 @@ impl DomainExpansionEngine {
     }
 
     /// Check cost curve for plateau and get recommended action.
-    pub fn check_plateau(
-        &mut self,
-        domain_id: &DomainId,
-    ) -> PlateauAction {
+    pub fn check_plateau(&mut self, domain_id: &DomainId) -> PlateauAction {
         if let Some(curve) = self.scoreboard.curves.get(domain_id) {
             self.meta.check_plateau(&curve.points)
         } else {
@@ -468,7 +450,9 @@ mod tests {
 
         let solution = Solution {
             task_id: task.id.clone(),
-            content: "fn double(values: &[i64]) -> Vec<i64> { values.iter().map(|&x| x * 2).collect() }".into(),
+            content:
+                "fn double(values: &[i64]) -> Vec<i64> { values.iter().map(|&x| x * 2).collect() }"
+                    .into(),
             data: serde_json::Value::Null,
         };
 
@@ -540,9 +524,7 @@ mod tests {
 
         // Verify the transfer.
         let verification = engine.verify_transfer(
-            &source,
-            &target,
-            0.85,  // source before
+            &source, &target, 0.85,  // source before
             0.845, // source after (within tolerance)
             0.3,   // target before
             0.7,   // target after
@@ -577,10 +559,7 @@ mod tests {
         };
 
         // With uniform priors, should be uncertain.
-        assert!(engine.should_speculate(
-            &DomainId("rust_synthesis".into()),
-            &bucket,
-        ));
+        assert!(engine.should_speculate(&DomainId("rust_synthesis".into()), &bucket,));
     }
 
     #[test]

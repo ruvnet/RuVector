@@ -4,9 +4,8 @@
 //! using the `Level0Root` repr(C) struct from `rvf_types`.
 
 use rvf_types::{
-    CentroidPtr, EntrypointPtr, ErrorCode, FileIdentity, HotCachePtr, Level0Root,
-    PrefetchMapPtr, QuantDictPtr, RvfError, TopLayerPtr, ROOT_MANIFEST_MAGIC,
-    ROOT_MANIFEST_SIZE,
+    CentroidPtr, EntrypointPtr, ErrorCode, FileIdentity, HotCachePtr, Level0Root, PrefetchMapPtr,
+    QuantDictPtr, RvfError, TopLayerPtr, ROOT_MANIFEST_MAGIC, ROOT_MANIFEST_SIZE,
 };
 
 // ---------- helpers for little-endian read/write ----------
@@ -187,7 +186,8 @@ pub fn read_level0(data: &[u8; ROOT_MANIFEST_SIZE]) -> Result<Level0Root, RvfErr
     root.reserved[cow_off + 12..cow_off + 20].copy_from_slice(&membership_offset.to_le_bytes());
     root.reserved[cow_off + 20..cow_off + 24].copy_from_slice(&membership_generation.to_le_bytes());
     root.reserved[cow_off + 24..cow_off + 28].copy_from_slice(&snapshot_epoch.to_le_bytes());
-    root.reserved[cow_off + 28..cow_off + 32].copy_from_slice(&double_root_generation.to_le_bytes());
+    root.reserved[cow_off + 28..cow_off + 32]
+        .copy_from_slice(&double_root_generation.to_le_bytes());
     root.reserved[cow_off + 32..cow_off + 64].copy_from_slice(&double_root_hash);
 
     root.root_checksum = stored_crc;
@@ -247,8 +247,7 @@ pub fn write_level0(root: &Level0Root) -> [u8; ROOT_MANIFEST_SIZE] {
     write_u16_le(&mut buf, OFF_SIG_ALGO, root.sig_algo);
     let sig_len = (root.sig_length as usize).min(Level0Root::SIG_BUF_SIZE);
     write_u16_le(&mut buf, OFF_SIG_LEN, sig_len as u16);
-    buf[OFF_SIGNATURE..OFF_SIGNATURE + sig_len]
-        .copy_from_slice(&root.signature_buf[..sig_len]);
+    buf[OFF_SIGNATURE..OFF_SIGNATURE + sig_len].copy_from_slice(&root.signature_buf[..sig_len]);
 
     // Write FileIdentity from reserved area into the buffer
     if root.reserved.len() >= 68 {
@@ -372,8 +371,14 @@ mod tests {
         assert_eq!(decoded.created_ns, original.created_ns);
         assert_eq!(decoded.modified_ns, original.modified_ns);
 
-        assert_eq!(decoded.entrypoint.seg_offset, original.entrypoint.seg_offset);
-        assert_eq!(decoded.entrypoint.block_offset, original.entrypoint.block_offset);
+        assert_eq!(
+            decoded.entrypoint.seg_offset,
+            original.entrypoint.seg_offset
+        );
+        assert_eq!(
+            decoded.entrypoint.block_offset,
+            original.entrypoint.block_offset
+        );
         assert_eq!(decoded.entrypoint.count, original.entrypoint.count);
 
         assert_eq!(decoded.toplayer.seg_offset, original.toplayer.seg_offset);
@@ -386,7 +391,10 @@ mod tests {
         assert_eq!(decoded.quantdict.size, original.quantdict.size);
 
         assert_eq!(decoded.hot_cache.seg_offset, original.hot_cache.seg_offset);
-        assert_eq!(decoded.hot_cache.vector_count, original.hot_cache.vector_count);
+        assert_eq!(
+            decoded.hot_cache.vector_count,
+            original.hot_cache.vector_count
+        );
 
         assert_eq!(decoded.prefetch_map.offset, original.prefetch_map.offset);
         assert_eq!(decoded.prefetch_map.entries, original.prefetch_map.entries);
@@ -465,9 +473,11 @@ mod tests {
         root.reserved[cow_off..cow_off + 8].copy_from_slice(&cow_map_offset.to_le_bytes());
         root.reserved[cow_off + 8..cow_off + 12].copy_from_slice(&cow_map_generation.to_le_bytes());
         root.reserved[cow_off + 12..cow_off + 20].copy_from_slice(&membership_offset.to_le_bytes());
-        root.reserved[cow_off + 20..cow_off + 24].copy_from_slice(&membership_generation.to_le_bytes());
+        root.reserved[cow_off + 20..cow_off + 24]
+            .copy_from_slice(&membership_generation.to_le_bytes());
         root.reserved[cow_off + 24..cow_off + 28].copy_from_slice(&snapshot_epoch.to_le_bytes());
-        root.reserved[cow_off + 28..cow_off + 32].copy_from_slice(&double_root_generation.to_le_bytes());
+        root.reserved[cow_off + 28..cow_off + 32]
+            .copy_from_slice(&double_root_generation.to_le_bytes());
         root.reserved[cow_off + 32..cow_off + 64].copy_from_slice(&double_root_hash);
 
         let bytes = write_level0(&root);
@@ -476,22 +486,34 @@ mod tests {
         // Verify COW pointers survived round-trip
         let d_cow_off = 68;
         let d_cow_map_offset = u64::from_le_bytes(
-            decoded.reserved[d_cow_off..d_cow_off + 8].try_into().unwrap(),
+            decoded.reserved[d_cow_off..d_cow_off + 8]
+                .try_into()
+                .unwrap(),
         );
         let d_cow_map_generation = u32::from_le_bytes(
-            decoded.reserved[d_cow_off + 8..d_cow_off + 12].try_into().unwrap(),
+            decoded.reserved[d_cow_off + 8..d_cow_off + 12]
+                .try_into()
+                .unwrap(),
         );
         let d_membership_offset = u64::from_le_bytes(
-            decoded.reserved[d_cow_off + 12..d_cow_off + 20].try_into().unwrap(),
+            decoded.reserved[d_cow_off + 12..d_cow_off + 20]
+                .try_into()
+                .unwrap(),
         );
         let d_membership_generation = u32::from_le_bytes(
-            decoded.reserved[d_cow_off + 20..d_cow_off + 24].try_into().unwrap(),
+            decoded.reserved[d_cow_off + 20..d_cow_off + 24]
+                .try_into()
+                .unwrap(),
         );
         let d_snapshot_epoch = u32::from_le_bytes(
-            decoded.reserved[d_cow_off + 24..d_cow_off + 28].try_into().unwrap(),
+            decoded.reserved[d_cow_off + 24..d_cow_off + 28]
+                .try_into()
+                .unwrap(),
         );
         let d_double_root_generation = u32::from_le_bytes(
-            decoded.reserved[d_cow_off + 28..d_cow_off + 32].try_into().unwrap(),
+            decoded.reserved[d_cow_off + 28..d_cow_off + 32]
+                .try_into()
+                .unwrap(),
         );
         let d_double_root_hash = &decoded.reserved[d_cow_off + 32..d_cow_off + 64];
 
@@ -512,11 +534,12 @@ mod tests {
         let decoded = read_level0(&bytes).unwrap();
 
         let cow_off = 68;
-        let cow_map_offset = u64::from_le_bytes(
-            decoded.reserved[cow_off..cow_off + 8].try_into().unwrap(),
-        );
+        let cow_map_offset =
+            u64::from_le_bytes(decoded.reserved[cow_off..cow_off + 8].try_into().unwrap());
         let snapshot_epoch = u32::from_le_bytes(
-            decoded.reserved[cow_off + 24..cow_off + 28].try_into().unwrap(),
+            decoded.reserved[cow_off + 24..cow_off + 28]
+                .try_into()
+                .unwrap(),
         );
 
         assert_eq!(cow_map_offset, 0);

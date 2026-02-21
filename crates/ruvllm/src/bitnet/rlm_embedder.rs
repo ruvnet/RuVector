@@ -167,11 +167,7 @@ impl<E: BaseEmbedder, R: NeighborRetriever> RlmEmbedder<E, R> {
     ///
     /// For Variant A (query-conditioned), pass the query as `query_context`.
     /// For Variants B and C, `query_context` can be None.
-    pub fn embed(
-        &self,
-        text: &str,
-        query_context: Option<&str>,
-    ) -> Result<RlmEmbeddingResult> {
+    pub fn embed(&self, text: &str, query_context: Option<&str>) -> Result<RlmEmbeddingResult> {
         let dim = self.config.embed_dim;
 
         // Step 1: Base embedding
@@ -195,37 +191,49 @@ impl<E: BaseEmbedder, R: NeighborRetriever> RlmEmbedder<E, R> {
             iterations_used = iter + 1;
 
             // Step 2: Retrieve neighbors
-            let neighbors = self.retriever.retrieve(&current, self.config.num_neighbors)?;
+            let neighbors = self
+                .retriever
+                .retrieve(&current, self.config.num_neighbors)?;
 
             // Store neighbor info
             for n in &neighbors {
-                if !all_neighbors.iter().any(|existing| existing.chunk_id == n.chunk_id) {
+                if !all_neighbors
+                    .iter()
+                    .any(|existing| existing.chunk_id == n.chunk_id)
+                {
                     all_neighbors.push(n.clone());
                 }
             }
 
             // Step 3: Contextualize — compute context embedding from neighbors
-            let ctx_embedding = self.compute_context_embedding(&current, &neighbors, query_context)?;
+            let ctx_embedding =
+                self.compute_context_embedding(&current, &neighbors, query_context)?;
 
             // Step 4: Check for contradiction (Variant C)
             if self.config.variant == EmbeddingVariant::ContradictionAwareTwin {
-                let contradicting: Vec<&NeighborContext> = neighbors
-                    .iter()
-                    .filter(|n| n.is_contradicting)
-                    .collect();
+                let contradicting: Vec<&NeighborContext> =
+                    neighbors.iter().filter(|n| n.is_contradicting).collect();
 
                 if !contradicting.is_empty() {
                     // Produce twin embeddings
                     let anti_embedding = self.compute_anti_embedding(&contradicting)?;
-                    let twin_a = self.merge_embedding(&current, &ctx_embedding, &anti_embedding, 1.0);
-                    let twin_b = self.merge_embedding(&current, &ctx_embedding, &anti_embedding, -1.0);
+                    let twin_a =
+                        self.merge_embedding(&current, &ctx_embedding, &anti_embedding, 1.0);
+                    let twin_b =
+                        self.merge_embedding(&current, &ctx_embedding, &anti_embedding, -1.0);
 
                     return Ok(RlmEmbeddingResult {
                         embedding: twin_a,
                         twin_embedding: Some(twin_b),
                         confidence: cosine_similarity(&current, &prev),
-                        evidence_neighbor_ids: all_neighbors.iter().map(|n| n.chunk_id.clone()).collect(),
-                        contradiction_flags: all_neighbors.iter().map(|n| n.is_contradicting).collect(),
+                        evidence_neighbor_ids: all_neighbors
+                            .iter()
+                            .map(|n| n.chunk_id.clone())
+                            .collect(),
+                        contradiction_flags: all_neighbors
+                            .iter()
+                            .map(|n| n.is_contradicting)
+                            .collect(),
                         cluster_id: None,
                         stop_reason: EmbedStopReason::Contested,
                         iterations_used,
@@ -236,10 +244,8 @@ impl<E: BaseEmbedder, R: NeighborRetriever> RlmEmbedder<E, R> {
             // Step 5: Merge
             let zero_anti = vec![0.0f32; dim];
             let anti_embedding = if self.config.w_anti > 0.0 {
-                let contradicting: Vec<&NeighborContext> = neighbors
-                    .iter()
-                    .filter(|n| n.is_contradicting)
-                    .collect();
+                let contradicting: Vec<&NeighborContext> =
+                    neighbors.iter().filter(|n| n.is_contradicting).collect();
                 if contradicting.is_empty() {
                     zero_anti.clone()
                 } else {
@@ -357,13 +363,7 @@ impl<E: BaseEmbedder, R: NeighborRetriever> RlmEmbedder<E, R> {
     ///
     /// `anti_sign` controls whether anti pushes away (+1.0) or toward (-1.0).
     /// For twin embedding Variant C, the second twin uses anti_sign = -1.0.
-    fn merge_embedding(
-        &self,
-        base: &[f32],
-        ctx: &[f32],
-        anti: &[f32],
-        anti_sign: f32,
-    ) -> Vec<f32> {
+    fn merge_embedding(&self, base: &[f32], ctx: &[f32], anti: &[f32], anti_sign: f32) -> Vec<f32> {
         let dim = self.config.embed_dim;
         let mut merged = vec![0.0f32; dim];
 
@@ -508,9 +508,7 @@ pub struct NullStm32;
 impl Stm32Offload for NullStm32 {
     fn send_command(&self, command: Stm32Command) -> Result<Stm32Response> {
         match command {
-            Stm32Command::ComputeHash { data } => {
-                Ok(Stm32Response::Hash(simple_hash(&data)))
-            }
+            Stm32Command::ComputeHash { data } => Ok(Stm32Response::Hash(simple_hash(&data))),
             Stm32Command::FilterNeighbors {
                 candidate_hashes,
                 max_candidates,
@@ -620,7 +618,11 @@ impl<E: BaseEmbedder, R: NeighborRetriever> RlmEmbedder<E, R> {
         stm32: &dyn Stm32Offload,
     ) -> Result<BatchEmbeddingResult> {
         // Ask STM32 to determine optimal processing order
-        let priorities: Vec<(usize, u8)> = chunks.iter().enumerate().map(|(i, (_, p))| (i, *p)).collect();
+        let priorities: Vec<(usize, u8)> = chunks
+            .iter()
+            .enumerate()
+            .map(|(i, (_, p))| (i, *p))
+            .collect();
         let order_response = stm32.send_command(Stm32Command::ScheduleReorder {
             job_priorities: priorities,
         })?;
@@ -770,9 +772,10 @@ impl NeighborRetriever for FlatNeighborStore {
             .map(|(idx, sim)| {
                 let chunk = &self.chunks[idx];
                 // Detect contradiction: different cluster from most similar chunk
-                let is_contradicting = if let (Some(query_cluster), Some(chunk_cluster)) =
-                    (self.chunks.first().and_then(|c| c.cluster_id), chunk.cluster_id)
-                {
+                let is_contradicting = if let (Some(query_cluster), Some(chunk_cluster)) = (
+                    self.chunks.first().and_then(|c| c.cluster_id),
+                    chunk.cluster_id,
+                ) {
                     query_cluster != chunk_cluster
                 } else {
                     false
@@ -1182,16 +1185,18 @@ mod tests {
         // Twin embeddings should differ
         let twin = result.twin_embedding.as_ref().unwrap();
         let sim = cosine_similarity(&result.embedding, twin);
-        assert!(sim < 0.99, "Twin embeddings should differ, got cosine={}", sim);
+        assert!(
+            sim < 0.99,
+            "Twin embeddings should differ, got cosine={}",
+            sim
+        );
     }
 
     #[test]
     fn test_embed_no_neighbors() {
         let dim = 8;
         let embedder = MockEmbedder { dim };
-        let retriever = MockRetriever {
-            neighbors: vec![],
-        };
+        let retriever = MockRetriever { neighbors: vec![] };
         let config = RlmEmbedderConfig {
             embed_dim: dim,
             max_iterations: 2,
@@ -1315,7 +1320,11 @@ mod tests {
         assert!(cfg.convergence_threshold < 1.0);
         // Weight sum should be 1.0
         let sum = cfg.w_base + cfg.w_context + cfg.w_anti;
-        assert!((sum - 1.0).abs() < 1e-6, "Weights should sum to 1.0, got {}", sum);
+        assert!(
+            (sum - 1.0).abs() < 1e-6,
+            "Weights should sum to 1.0, got {}",
+            sum
+        );
     }
 
     #[test]
@@ -1353,11 +1362,21 @@ mod tests {
     #[test]
     fn test_null_stm32_hash_deterministic() {
         let stm32 = NullStm32;
-        let h1 = match stm32.send_command(Stm32Command::ComputeHash { data: b"test".to_vec() }).unwrap() {
+        let h1 = match stm32
+            .send_command(Stm32Command::ComputeHash {
+                data: b"test".to_vec(),
+            })
+            .unwrap()
+        {
             Stm32Response::Hash(h) => h,
             _ => panic!("Expected Hash"),
         };
-        let h2 = match stm32.send_command(Stm32Command::ComputeHash { data: b"test".to_vec() }).unwrap() {
+        let h2 = match stm32
+            .send_command(Stm32Command::ComputeHash {
+                data: b"test".to_vec(),
+            })
+            .unwrap()
+        {
             Stm32Response::Hash(h) => h,
             _ => panic!("Expected Hash"),
         };
@@ -1367,11 +1386,21 @@ mod tests {
     #[test]
     fn test_null_stm32_hash_distinct() {
         let stm32 = NullStm32;
-        let h1 = match stm32.send_command(Stm32Command::ComputeHash { data: b"alpha".to_vec() }).unwrap() {
+        let h1 = match stm32
+            .send_command(Stm32Command::ComputeHash {
+                data: b"alpha".to_vec(),
+            })
+            .unwrap()
+        {
             Stm32Response::Hash(h) => h,
             _ => panic!("Expected Hash"),
         };
-        let h2 = match stm32.send_command(Stm32Command::ComputeHash { data: b"beta".to_vec() }).unwrap() {
+        let h2 = match stm32
+            .send_command(Stm32Command::ComputeHash {
+                data: b"beta".to_vec(),
+            })
+            .unwrap()
+        {
             Stm32Response::Hash(h) => h,
             _ => panic!("Expected Hash"),
         };
@@ -1630,7 +1659,11 @@ mod tests {
         let rlm = RlmEmbedder::new(embedder, retriever, config);
 
         let texts: Vec<&str> = vec![
-            "text one", "text two", "text three", "text four", "text five",
+            "text one",
+            "text two",
+            "text three",
+            "text four",
+            "text five",
         ];
         let bench = EmbedderBenchmark::run(&rlm, &texts, 1).unwrap();
 

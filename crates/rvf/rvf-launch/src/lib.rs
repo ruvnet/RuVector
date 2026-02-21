@@ -100,13 +100,25 @@ pub struct RequirementsReport {
 impl std::fmt::Display for RequirementsReport {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if self.qemu_found {
-            writeln!(f, "QEMU: found at {}", self.qemu_path.as_ref().unwrap().display())?;
+            writeln!(
+                f,
+                "QEMU: found at {}",
+                self.qemu_path.as_ref().unwrap().display()
+            )?;
         } else {
             writeln!(f, "QEMU: NOT FOUND")?;
             writeln!(f, "  Install instructions:")?;
             writeln!(f, "  {}", self.install_hint)?;
         }
-        writeln!(f, "KVM:  {}", if self.kvm_available { "available" } else { "not available (will use TCG)" })
+        writeln!(
+            f,
+            "KVM:  {}",
+            if self.kvm_available {
+                "available"
+            } else {
+                "not available (will use TCG)"
+            }
+        )
     }
 }
 
@@ -141,7 +153,11 @@ impl std::fmt::Display for DryRunResult {
             writeln!(f, "  Initramfs: {}", initrd.display())?;
         }
         writeln!(f, "  Cmdline:   {}", self.cmdline)?;
-        writeln!(f, "  KVM:       {}", if self.use_kvm { "yes" } else { "no (TCG)" })?;
+        writeln!(
+            f,
+            "  KVM:       {}",
+            if self.use_kvm { "yes" } else { "no (TCG)" }
+        )?;
         writeln!(f, "  Memory:    {} MiB", self.memory_mb)?;
         writeln!(f, "  vCPUs:     {}", self.vcpus)?;
         writeln!(f, "  API port:  {}", self.api_port)
@@ -339,11 +355,8 @@ impl MicroVm {
             }
 
             // Try connecting to the API port
-            if TcpStream::connect_timeout(
-                &addr.parse().unwrap(),
-                Duration::from_millis(200),
-            )
-            .is_ok()
+            if TcpStream::connect_timeout(&addr.parse().unwrap(), Duration::from_millis(200))
+                .is_ok()
             {
                 return Ok(());
             }
@@ -371,17 +384,14 @@ impl MicroVm {
             "vector": vector,
             "k": k,
         });
-        let body = serde_json::to_vec(&payload)
-            .map_err(|e| LaunchError::Io(std::io::Error::other(e)))?;
+        let body =
+            serde_json::to_vec(&payload).map_err(|e| LaunchError::Io(std::io::Error::other(e)))?;
 
         // Use a raw TCP connection to send an HTTP POST (avoids depending
         // on a full HTTP client library).
         let addr = format!("127.0.0.1:{}", self.api_port);
-        let mut stream = TcpStream::connect_timeout(
-            &addr.parse().unwrap(),
-            Duration::from_secs(5),
-        )
-        .map_err(LaunchError::Io)?;
+        let mut stream = TcpStream::connect_timeout(&addr.parse().unwrap(), Duration::from_secs(5))
+            .map_err(LaunchError::Io)?;
 
         stream
             .set_read_timeout(Some(Duration::from_secs(30)))
@@ -398,17 +408,18 @@ impl MicroVm {
             self.api_port,
             body.len(),
         );
-        stream.write_all(request.as_bytes()).map_err(LaunchError::Io)?;
+        stream
+            .write_all(request.as_bytes())
+            .map_err(LaunchError::Io)?;
         stream.write_all(&body).map_err(LaunchError::Io)?;
 
         let mut response = String::new();
-        stream.read_to_string(&mut response).map_err(LaunchError::Io)?;
+        stream
+            .read_to_string(&mut response)
+            .map_err(LaunchError::Io)?;
 
         // Parse the HTTP response body (skip headers)
-        let body_start = response
-            .find("\r\n\r\n")
-            .map(|i| i + 4)
-            .unwrap_or(0);
+        let body_start = response.find("\r\n\r\n").map(|i| i + 4).unwrap_or(0);
         let resp_body = &response[body_start..];
 
         #[derive(serde::Deserialize)]
@@ -417,8 +428,9 @@ impl MicroVm {
             distance: f32,
         }
 
-        let results: Vec<QueryResult> = serde_json::from_str(resp_body)
-            .map_err(|e| LaunchError::Io(std::io::Error::new(std::io::ErrorKind::InvalidData, e)))?;
+        let results: Vec<QueryResult> = serde_json::from_str(resp_body).map_err(|e| {
+            LaunchError::Io(std::io::Error::new(std::io::ErrorKind::InvalidData, e))
+        })?;
 
         Ok(results
             .into_iter()

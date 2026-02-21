@@ -155,15 +155,9 @@ pub enum FallbackPath {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum DegradationReason {
     /// Centroid epoch drift exceeded threshold.
-    CentroidDrift {
-        epoch_drift: u32,
-        max_drift: u32,
-    },
+    CentroidDrift { epoch_drift: u32, max_drift: u32 },
     /// Degenerate distance distribution detected.
-    DegenerateDistribution {
-        cv: f32,
-        threshold: f32,
-    },
+    DegenerateDistribution { cv: f32, threshold: f32 },
     /// Budget exhausted during safety net scan.
     BudgetExhausted {
         scanned: u64,
@@ -171,9 +165,7 @@ pub enum DegradationReason {
         budget_type: BudgetType,
     },
     /// Index layer not yet loaded.
-    IndexNotLoaded {
-        available: IndexLayersUsed,
-    },
+    IndexNotLoaded { available: IndexLayersUsed },
 }
 
 /// Which budget cap was hit.
@@ -217,21 +209,21 @@ pub struct SafetyNetBudget {
 impl SafetyNetBudget {
     /// Layer A only defaults: tight budget for instant first query.
     pub const LAYER_A: Self = Self {
-        max_scan_time_us: 2_000,     // 2 ms
+        max_scan_time_us: 2_000, // 2 ms
         max_scan_candidates: 10_000,
         max_distance_ops: 10_000,
     };
 
     /// Partial index defaults: moderate budget.
     pub const PARTIAL: Self = Self {
-        max_scan_time_us: 5_000,     // 5 ms
+        max_scan_time_us: 5_000, // 5 ms
         max_scan_candidates: 50_000,
         max_distance_ops: 50_000,
     };
 
     /// Full index: generous budget.
     pub const FULL: Self = Self {
-        max_scan_time_us: 10_000,    // 10 ms
+        max_scan_time_us: 10_000, // 10 ms
         max_scan_candidates: 100_000,
         max_distance_ops: 100_000,
     };
@@ -255,9 +247,7 @@ impl SafetyNetBudget {
 
     /// Check if all budgets are zero (disabled).
     pub const fn is_disabled(&self) -> bool {
-        self.max_scan_time_us == 0
-            && self.max_scan_candidates == 0
-            && self.max_distance_ops == 0
+        self.max_scan_time_us == 0 && self.max_scan_candidates == 0 && self.max_distance_ops == 0
     }
 }
 

@@ -27,7 +27,9 @@ impl SegmentWriter {
     /// Uses checked arithmetic to detect overflow (would require 2^64 segments).
     pub(crate) fn alloc_seg_id(&mut self) -> u64 {
         let id = self.next_seg_id;
-        self.next_seg_id = self.next_seg_id.checked_add(1)
+        self.next_seg_id = self
+            .next_seg_id
+            .checked_add(1)
             .expect("segment ID counter overflow");
         id
     }
@@ -103,7 +105,8 @@ impl SegmentWriter {
         metadata_payload: &[u8],
     ) -> io::Result<(u64, u64)> {
         let seg_id = self.alloc_seg_id();
-        let offset = self.write_segment(writer, SegmentType::Meta as u8, seg_id, metadata_payload)?;
+        let offset =
+            self.write_segment(writer, SegmentType::Meta as u8, seg_id, metadata_payload)?;
         Ok((seg_id, offset))
     }
 
@@ -126,8 +129,14 @@ impl SegmentWriter {
         deleted_ids: &[u64],
     ) -> io::Result<(u64, u64)> {
         self.write_manifest_seg_with_identity(
-            writer, epoch, dimension, total_vectors, profile_id,
-            segment_dir, deleted_ids, None,
+            writer,
+            epoch,
+            dimension,
+            total_vectors,
+            profile_id,
+            segment_dir,
+            deleted_ids,
+            None,
         )
     }
 
@@ -530,7 +539,12 @@ mod tests {
         let kernel_image = b"fake-kernel-image-data";
 
         let (seg_id, offset) = writer
-            .write_kernel_seg(&mut buf, &kernel_header, kernel_image, Some(b"console=ttyS0"))
+            .write_kernel_seg(
+                &mut buf,
+                &kernel_header,
+                kernel_image,
+                Some(b"console=ttyS0"),
+            )
             .unwrap();
         assert_eq!(seg_id, 1);
         assert_eq!(offset, 0);
@@ -581,11 +595,15 @@ mod tests {
         assert_eq!(data[payload_start], witness_type);
 
         // Verify timestamp.
-        let ts_bytes: [u8; 8] = data[payload_start + 1..payload_start + 9].try_into().unwrap();
+        let ts_bytes: [u8; 8] = data[payload_start + 1..payload_start + 9]
+            .try_into()
+            .unwrap();
         assert_eq!(u64::from_le_bytes(ts_bytes), timestamp_ns);
 
         // Verify action length.
-        let action_len_bytes: [u8; 4] = data[payload_start + 9..payload_start + 13].try_into().unwrap();
+        let action_len_bytes: [u8; 4] = data[payload_start + 9..payload_start + 13]
+            .try_into()
+            .unwrap();
         assert_eq!(u32::from_le_bytes(action_len_bytes), action.len() as u32);
 
         // Verify action bytes.

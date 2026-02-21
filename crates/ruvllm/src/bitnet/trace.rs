@@ -548,7 +548,10 @@ mod tests {
         let json = entry.to_json();
         // The escaped prompt_id should not contain raw quotes or newlines
         assert!(!json.contains("test\"with"), "Raw quote should be escaped");
-        assert!(json.contains("test\\\"with"), "Quote should be escaped as \\\"");
+        assert!(
+            json.contains("test\\\"with"),
+            "Quote should be escaped as \\\""
+        );
         assert!(json.contains("\\n"), "Newline should be escaped as \\n");
     }
 }

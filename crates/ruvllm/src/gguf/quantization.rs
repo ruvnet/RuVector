@@ -28,8 +28,8 @@
 //! | IQ1_S | 1.56 | 256 | i-quant 1-bit |
 //! | IQ4_NL | 4.5 | 32 | i-quant 4-bit non-linear |
 
-use crate::error::{Result, RuvLLMError};
 use crate::bitnet::dequantize_bitnet_t158;
+use crate::error::{Result, RuvLLMError};
 
 // ============================================================================
 // Quantization Types

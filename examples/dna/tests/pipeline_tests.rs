@@ -109,18 +109,36 @@ fn test_variant_quality_filtering() {
 
     let mut calls = vec![
         VariantCall {
-            chromosome: 1, position: 1000, ref_allele: b'A', alt_allele: b'G',
-            quality: 35.0, genotype: Genotype::Het, depth: 20, allele_depth: 10,
+            chromosome: 1,
+            position: 1000,
+            ref_allele: b'A',
+            alt_allele: b'G',
+            quality: 35.0,
+            genotype: Genotype::Het,
+            depth: 20,
+            allele_depth: 10,
             filter_status: FilterStatus::Pass,
         },
         VariantCall {
-            chromosome: 1, position: 2000, ref_allele: b'C', alt_allele: b'T',
-            quality: 25.0, genotype: Genotype::Het, depth: 20, allele_depth: 10,
+            chromosome: 1,
+            position: 2000,
+            ref_allele: b'C',
+            alt_allele: b'T',
+            quality: 25.0,
+            genotype: Genotype::Het,
+            depth: 20,
+            allele_depth: 10,
             filter_status: FilterStatus::Pass,
         },
         VariantCall {
-            chromosome: 1, position: 3000, ref_allele: b'G', alt_allele: b'A',
-            quality: 40.0, genotype: Genotype::Het, depth: 5, allele_depth: 2,
+            chromosome: 1,
+            position: 3000,
+            ref_allele: b'G',
+            alt_allele: b'A',
+            quality: 40.0,
+            genotype: Genotype::Het,
+            depth: 5,
+            allele_depth: 2,
             filter_status: FilterStatus::Pass,
         },
     ];
@@ -187,7 +205,17 @@ fn test_methylation_profile_creation() {
 fn test_horvath_clock_prediction() {
     let clock = HorvathClock::default_clock();
     let positions: Vec<(u8, u64)> = (0..700).map(|i| (1, i * 1000)).collect();
-    let betas: Vec<f32> = (0..700).map(|i| if i < 100 { 0.3 } else if i < 200 { 0.7 } else { 0.5 }).collect();
+    let betas: Vec<f32> = (0..700)
+        .map(|i| {
+            if i < 100 {
+                0.3
+            } else if i < 200 {
+                0.7
+            } else {
+                0.5
+            }
+        })
+        .collect();
     let profile = MethylationProfile::from_beta_values(positions, betas);
     let predicted_age = clock.predict_age(&profile);
     assert!(predicted_age > 0.0);
@@ -201,15 +229,30 @@ fn test_horvath_clock_prediction() {
 #[test]
 fn test_pharma_star_allele_calling() {
     assert_eq!(call_star_allele(&[]), StarAllele::Star1);
-    assert_eq!(call_star_allele(&[(42130692, b'G', b'A')]), StarAllele::Star4);
-    assert_eq!(call_star_allele(&[(42126611, b'T', b'-')]), StarAllele::Star5);
+    assert_eq!(
+        call_star_allele(&[(42130692, b'G', b'A')]),
+        StarAllele::Star4
+    );
+    assert_eq!(
+        call_star_allele(&[(42126611, b'T', b'-')]),
+        StarAllele::Star5
+    );
 }
 
 #[test]
 fn test_pharma_metabolizer_phenotype() {
-    assert_eq!(predict_phenotype(&StarAllele::Star1, &StarAllele::Star1), MetabolizerPhenotype::Normal);
-    assert_eq!(predict_phenotype(&StarAllele::Star1, &StarAllele::Star4), MetabolizerPhenotype::Normal);
-    assert_eq!(predict_phenotype(&StarAllele::Star4, &StarAllele::Star4), MetabolizerPhenotype::Poor);
+    assert_eq!(
+        predict_phenotype(&StarAllele::Star1, &StarAllele::Star1),
+        MetabolizerPhenotype::Normal
+    );
+    assert_eq!(
+        predict_phenotype(&StarAllele::Star1, &StarAllele::Star4),
+        MetabolizerPhenotype::Normal
+    );
+    assert_eq!(
+        predict_phenotype(&StarAllele::Star4, &StarAllele::Star4),
+        MetabolizerPhenotype::Poor
+    );
 }
 
 // ============================================================================
@@ -261,7 +304,9 @@ fn test_full_pipeline_runs() {
     let caller = VariantCaller::new(VariantCallerConfig::default());
     let pileup = PileupColumn {
         bases: vec![b'A', b'A', b'G', b'G', b'G', b'G', b'G', b'G', b'G', b'G'],
-        qualities: vec![40; 10], position: 1000, chromosome: 1,
+        qualities: vec![40; 10],
+        position: 1000,
+        chromosome: 1,
     };
     assert!(caller.call_snp(&pileup, b'A').is_some());
 
@@ -270,7 +315,10 @@ fn test_full_pipeline_runs() {
     assert!(!proteins.is_empty());
 
     // 5. Methylation + Horvath
-    let profile = MethylationProfile::from_beta_values(vec![(1, 1000), (1, 2000), (1, 3000)], vec![0.3, 0.5, 0.7]);
+    let profile = MethylationProfile::from_beta_values(
+        vec![(1, 1000), (1, 2000), (1, 3000)],
+        vec![0.3, 0.5, 0.7],
+    );
     let age = HorvathClock::default_clock().predict_age(&profile);
     assert!(age > 0.0);
 
@@ -286,9 +334,18 @@ fn test_full_pipeline_runs() {
 
     // 8. Protein contact graph
     let protein = ProteinSequence::new(vec![
-        ProteinResidue::A, ProteinResidue::V, ProteinResidue::L, ProteinResidue::I,
-        ProteinResidue::F, ProteinResidue::G, ProteinResidue::K, ProteinResidue::D,
-        ProteinResidue::E, ProteinResidue::R, ProteinResidue::M, ProteinResidue::N,
+        ProteinResidue::A,
+        ProteinResidue::V,
+        ProteinResidue::L,
+        ProteinResidue::I,
+        ProteinResidue::F,
+        ProteinResidue::G,
+        ProteinResidue::K,
+        ProteinResidue::D,
+        ProteinResidue::E,
+        ProteinResidue::R,
+        ProteinResidue::M,
+        ProteinResidue::N,
     ]);
     let graph = protein.build_contact_graph(8.0).unwrap();
     let contacts = protein.predict_contacts(&graph).unwrap();

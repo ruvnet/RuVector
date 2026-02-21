@@ -3,10 +3,10 @@
 //! These tests chain multiple ruqu-exotic modules together to discover
 //! emergent behavior at module boundaries.
 
-use ruqu_exotic::quantum_decay::QuantumEmbedding;
+use ruqu_exotic::interference_search::{interference_search, ConceptSuperposition};
 use ruqu_exotic::quantum_collapse::QuantumCollapseSearch;
-use ruqu_exotic::interference_search::{ConceptSuperposition, interference_search};
-use ruqu_exotic::reasoning_qec::{ReasoningStep, ReasoningQecConfig, ReasoningTrace};
+use ruqu_exotic::quantum_decay::QuantumEmbedding;
+use ruqu_exotic::reasoning_qec::{ReasoningQecConfig, ReasoningStep, ReasoningTrace};
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -24,7 +24,11 @@ fn cosine_sim(a: &[f64], b: &[f64]) -> f64 {
         nb += b[i] * b[i];
     }
     let denom = na.sqrt() * nb.sqrt();
-    if denom < 1e-15 { 0.0 } else { dot / denom }
+    if denom < 1e-15 {
+        0.0
+    } else {
+        dot / denom
+    }
 }
 
 /// Total-variation distance between two discrete distributions represented as
@@ -49,7 +53,11 @@ fn distribution_divergence(
             pb[idx] = cnt as f64 / total_b as f64;
         }
     }
-    pa.iter().zip(pb.iter()).map(|(a, b)| (a - b).abs()).sum::<f64>() * 0.5
+    pa.iter()
+        .zip(pb.iter())
+        .map(|(a, b)| (a - b).abs())
+        .sum::<f64>()
+        * 0.5
 }
 
 /// Shannon entropy of a distribution (in nats). Higher = more uniform/diverse.
@@ -90,14 +98,14 @@ fn top_k_indices(dist: &[(usize, usize)], k: usize) -> Vec<usize> {
 fn test_discovery_9_decoherence_as_differential_privacy() {
     // --- Setup: 8 candidate embeddings in 4D ---
     let raw_candidates: Vec<Vec<f64>> = vec![
-        vec![1.0, 0.0, 0.0, 0.0],   // 0: strongly aligned with query
-        vec![0.8, 0.2, 0.0, 0.0],   // 1: mostly aligned
-        vec![0.5, 0.5, 0.0, 0.0],   // 2: partially aligned
-        vec![0.0, 1.0, 0.0, 0.0],   // 3: orthogonal
-        vec![0.0, 0.0, 1.0, 0.0],   // 4: orthogonal in another axis
-        vec![0.0, 0.0, 0.0, 1.0],   // 5: orthogonal in yet another
-        vec![-0.5, 0.5, 0.0, 0.0],  // 6: partially opposed
-        vec![-1.0, 0.0, 0.0, 0.0],  // 7: fully opposed
+        vec![1.0, 0.0, 0.0, 0.0],  // 0: strongly aligned with query
+        vec![0.8, 0.2, 0.0, 0.0],  // 1: mostly aligned
+        vec![0.5, 0.5, 0.0, 0.0],  // 2: partially aligned
+        vec![0.0, 1.0, 0.0, 0.0],  // 3: orthogonal
+        vec![0.0, 0.0, 1.0, 0.0],  // 4: orthogonal in another axis
+        vec![0.0, 0.0, 0.0, 1.0],  // 5: orthogonal in yet another
+        vec![-0.5, 0.5, 0.0, 0.0], // 6: partially opposed
+        vec![-1.0, 0.0, 0.0, 0.0], // 7: fully opposed
     ];
 
     let query = vec![1.0, 0.0, 0.0, 0.0];
@@ -117,7 +125,9 @@ fn test_discovery_9_decoherence_as_differential_privacy() {
     for &(idx, cnt) in fresh_dist.iter().take(5) {
         println!(
             "  candidate {}: {} / {} shots ({:.1}%)",
-            idx, cnt, num_shots,
+            idx,
+            cnt,
+            num_shots,
             cnt as f64 / num_shots as f64 * 100.0
         );
     }
@@ -156,8 +166,7 @@ fn test_discovery_9_decoherence_as_differential_privacy() {
 
         // Run collapse search on decohered candidates.
         let dec_search = QuantumCollapseSearch::new(decohered_candidates);
-        let dec_dist =
-            dec_search.search_distribution(&query, iterations, num_shots, base_seed);
+        let dec_dist = dec_search.search_distribution(&query, iterations, num_shots, base_seed);
         let dec_top2 = top_k_indices(&dec_dist, 2);
         let dec_entropy = distribution_entropy(&dec_dist, num_shots);
 
@@ -167,13 +176,20 @@ fn test_discovery_9_decoherence_as_differential_privacy() {
 
         println!("Noise rate {:.2}:", noise);
         println!("  Avg fidelity: {:.4}", avg_fidelity);
-        println!("  Top-2 indices: {:?} (fresh was {:?})", dec_top2, fresh_top2);
-        println!("  Entropy: {:.4} (fresh was {:.4})", dec_entropy, fresh_entropy);
+        println!(
+            "  Top-2 indices: {:?} (fresh was {:?})",
+            dec_top2, fresh_top2
+        );
+        println!(
+            "  Entropy: {:.4} (fresh was {:.4})",
+            dec_entropy, fresh_entropy
+        );
         println!("  Distribution divergence from fresh: {:.4}", div);
         for &(idx, cnt) in dec_dist.iter().take(5) {
             println!(
                 "    candidate {}: {} shots ({:.1}%)",
-                idx, cnt,
+                idx,
+                cnt,
                 cnt as f64 / num_shots as f64 * 100.0
             );
         }
@@ -250,22 +266,34 @@ fn test_discovery_10_full_pipeline_decohere_interfere_collapse_qec() {
 
     // --- Knowledge base: concept embeddings in 4D ---
     let concepts_raw: Vec<(&str, Vec<(String, Vec<f64>)>)> = vec![
-        ("rust", vec![
-            ("systems".into(), vec![1.0, 0.0, 0.2, 0.0]),
-            ("safety".into(), vec![0.8, 0.0, 0.0, 0.3]),
-        ]),
-        ("python", vec![
-            ("scripting".into(), vec![0.0, 1.0, 0.0, 0.2]),
-            ("ml".into(), vec![0.0, 0.8, 0.3, 0.0]),
-        ]),
-        ("javascript", vec![
-            ("web".into(), vec![0.0, 0.0, 1.0, 0.0]),
-            ("frontend".into(), vec![0.0, 0.2, 0.8, 0.0]),
-        ]),
-        ("haskell", vec![
-            ("functional".into(), vec![0.3, 0.0, 0.0, 1.0]),
-            ("types".into(), vec![0.5, 0.0, 0.0, 0.7]),
-        ]),
+        (
+            "rust",
+            vec![
+                ("systems".into(), vec![1.0, 0.0, 0.2, 0.0]),
+                ("safety".into(), vec![0.8, 0.0, 0.0, 0.3]),
+            ],
+        ),
+        (
+            "python",
+            vec![
+                ("scripting".into(), vec![0.0, 1.0, 0.0, 0.2]),
+                ("ml".into(), vec![0.0, 0.8, 0.3, 0.0]),
+            ],
+        ),
+        (
+            "javascript",
+            vec![
+                ("web".into(), vec![0.0, 0.0, 1.0, 0.0]),
+                ("frontend".into(), vec![0.0, 0.2, 0.8, 0.0]),
+            ],
+        ),
+        (
+            "haskell",
+            vec![
+                ("functional".into(), vec![0.3, 0.0, 0.0, 1.0]),
+                ("types".into(), vec![0.5, 0.0, 0.0, 0.7]),
+            ],
+        ),
     ];
 
     let query_context = vec![0.9, 0.0, 0.1, 0.1]; // query about systems programming
@@ -275,8 +303,8 @@ fn test_discovery_10_full_pipeline_decohere_interfere_collapse_qec() {
     // reliably degrades with decoherence is FIDELITY -- we feed it directly into
     // the QEC reasoning trace as the primary confidence metric.
     let scenarios: Vec<(&str, f64, f64)> = vec![
-        ("fresh", 0.01, 1.0),   // (label, noise_rate, decoherence_dt)
-        ("stale", 2.0, 15.0),   // very heavy decoherence
+        ("fresh", 0.01, 1.0), // (label, noise_rate, decoherence_dt)
+        ("stale", 2.0, 15.0), // very heavy decoherence
     ];
 
     struct PipelineOutcome {
@@ -293,7 +321,10 @@ fn test_discovery_10_full_pipeline_decohere_interfere_collapse_qec() {
     let mut outcomes: Vec<PipelineOutcome> = Vec::new();
 
     for (label, noise_rate, dt) in &scenarios {
-        println!("--- Pipeline run: {} (noise_rate={}, dt={}) ---\n", label, noise_rate, dt);
+        println!(
+            "--- Pipeline run: {} (noise_rate={}, dt={}) ---\n",
+            label, noise_rate, dt
+        );
 
         // ===============================================================
         // STEP 1: Decohere knowledge embeddings (quantum_decay)
@@ -324,9 +355,11 @@ fn test_discovery_10_full_pipeline_decohere_interfere_collapse_qec() {
             })
             .collect();
 
-        let avg_fidelity: f64 =
-            fidelities.iter().sum::<f64>() / fidelities.len() as f64;
-        println!("  Average fidelity across all meanings: {:.4}\n", avg_fidelity);
+        let avg_fidelity: f64 = fidelities.iter().sum::<f64>() / fidelities.len() as f64;
+        println!(
+            "  Average fidelity across all meanings: {:.4}\n",
+            avg_fidelity
+        );
 
         // ===============================================================
         // STEP 2: Interference search to disambiguate query (interference_search)
@@ -366,8 +399,7 @@ fn test_discovery_10_full_pipeline_decohere_interfere_collapse_qec() {
         // STEP 3: Collapse search on interference-ranked results (quantum_collapse)
         // ===============================================================
         let collapse_search = QuantumCollapseSearch::new(collapse_candidates.clone());
-        let collapse_dist =
-            collapse_search.search_distribution(&query_context, 2, 200, 42);
+        let collapse_dist = collapse_search.search_distribution(&query_context, 2, 200, 42);
 
         println!("\n  [Step 3] Collapse search distribution:");
         for &(idx, cnt) in &collapse_dist {
@@ -417,7 +449,11 @@ fn test_discovery_10_full_pipeline_decohere_interfere_collapse_qec() {
             },
             ReasoningStep {
                 label: "interference_result".into(),
-                confidence: concept_fidelities.get(0).copied().unwrap_or(0.5).clamp(0.05, 1.0),
+                confidence: concept_fidelities
+                    .get(0)
+                    .copied()
+                    .unwrap_or(0.5)
+                    .clamp(0.05, 1.0),
             },
             ReasoningStep {
                 label: "collapse_result".into(),
@@ -459,7 +495,10 @@ fn test_discovery_10_full_pipeline_decohere_interfere_collapse_qec() {
         println!("    Error steps:         {:?}", qec_result.error_steps);
         println!("    Syndromes fired:     {}", syndrome_count);
         println!("    Is decodable:        {}", qec_result.is_decodable);
-        println!("    Corrected fidelity:  {:.4}", qec_result.corrected_fidelity);
+        println!(
+            "    Corrected fidelity:  {:.4}",
+            qec_result.corrected_fidelity
+        );
         println!();
 
         outcomes.push(PipelineOutcome {
@@ -481,9 +520,14 @@ fn test_discovery_10_full_pipeline_decohere_interfere_collapse_qec() {
         println!(
             "  {}: fidelity={:.4}, top_concept='{}' ({}), collapse_idx={}, \
              QEC_syndromes={}, QEC_errors={:?}, decodable={}",
-            o.label, o.avg_fidelity, o.top_concept, o.top_meaning,
-            o.collapse_top_idx, o.qec_syndrome_count,
-            o.qec_error_steps, o.qec_is_decodable
+            o.label,
+            o.avg_fidelity,
+            o.top_concept,
+            o.top_meaning,
+            o.collapse_top_idx,
+            o.qec_syndrome_count,
+            o.qec_error_steps,
+            o.qec_is_decodable
         );
     }
     println!();
@@ -495,7 +539,8 @@ fn test_discovery_10_full_pipeline_decohere_interfere_collapse_qec() {
     assert!(
         fresh.avg_fidelity > stale.avg_fidelity,
         "Fresh pipeline should have higher fidelity than stale: {:.4} > {:.4}",
-        fresh.avg_fidelity, stale.avg_fidelity
+        fresh.avg_fidelity,
+        stale.avg_fidelity
     );
 
     // 2) The fresh pipeline should produce a meaningful result with high fidelity.
@@ -517,7 +562,8 @@ fn test_discovery_10_full_pipeline_decohere_interfere_collapse_qec() {
     assert!(
         stale.qec_syndrome_count >= fresh.qec_syndrome_count,
         "Stale pipeline should trigger at least as many QEC syndromes as fresh: {} >= {}",
-        stale.qec_syndrome_count, fresh.qec_syndrome_count
+        stale.qec_syndrome_count,
+        fresh.qec_syndrome_count
     );
 
     // 5) Both pipelines produce a result (the pipeline does not crash).
@@ -532,7 +578,6 @@ fn test_discovery_10_full_pipeline_decohere_interfere_collapse_qec() {
          Fresh knowledge (fidelity={:.4}) produces reliable results with {} QEC syndromes.\n\
          Stale knowledge (fidelity={:.4}) still produces results but QEC fires {} syndromes,\n\
          providing an automatic reliability signal that the knowledge base is corrupted.",
-        fresh.avg_fidelity, fresh.qec_syndrome_count,
-        stale.avg_fidelity, stale.qec_syndrome_count
+        fresh.avg_fidelity, fresh.qec_syndrome_count, stale.avg_fidelity, stale.qec_syndrome_count
     );
 }

@@ -49,6 +49,11 @@ COPY crates/ruvector-attention /build/../ruvector-attention/
 COPY crates/sona /build/../sona/
 COPY crates/ruvector-domain-expansion /build/../ruvector-domain-expansion/
 
+# Copy rvf crates (path deps of ruvector-domain-expansion)
+COPY crates/rvf/rvf-types /build/../rvf/rvf-types/
+COPY crates/rvf/rvf-wire /build/../rvf/rvf-wire/
+COPY crates/rvf/rvf-crypto /build/../rvf/rvf-crypto/
+
 # Use the workspace Cargo.lock to pin dependencies and avoid registry parsing issues
 COPY Cargo.lock ./
 
@@ -63,7 +68,7 @@ RUN cargo fetch
 ENV CARGO_REGISTRIES_CRATES_IO_PROTOCOL=git
 
 # Build the extension with all features including v0.3 modules
-RUN cargo pgrx package --features "pg17 index-all quant-all embeddings gated-transformer analytics-complete attention-extended"
+RUN cargo pgrx package --features "pg17 index-all quant-all embeddings gated-transformer analytics-complete attention-extended sona-learning domain-expansion"
 
 # Build the model downloader binary
 RUN cargo build --release --bin download-models --features "embeddings"

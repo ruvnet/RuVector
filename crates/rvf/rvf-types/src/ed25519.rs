@@ -3,9 +3,7 @@
 //! Provides keypair generation, signing, and verification using the
 //! `ed25519-dalek` crate. Feature-gated behind the `ed25519` feature.
 
-use ed25519_dalek::{
-    Signature as DalekSignature, Signer, SigningKey, Verifier, VerifyingKey,
-};
+use ed25519_dalek::{Signature as DalekSignature, Signer, SigningKey, Verifier, VerifyingKey};
 
 /// Ed25519 public key size in bytes.
 pub const PUBLIC_KEY_SIZE: usize = 32;

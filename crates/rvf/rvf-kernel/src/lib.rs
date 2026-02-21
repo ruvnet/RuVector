@@ -158,9 +158,7 @@ impl KernelBuilder {
 
         // Validate: must start with ELF magic, bzImage setup, or be a raw binary
         let is_elf = bzimage.len() >= 4 && &bzimage[..4] == b"\x7FELF";
-        let is_bzimage = bzimage.len() >= 514
-            && bzimage[510] == 0x55
-            && bzimage[511] == 0xAA;
+        let is_bzimage = bzimage.len() >= 514 && bzimage[510] == 0x55 && bzimage[511] == 0xAA;
         let is_pe = bzimage.len() >= 2 && &bzimage[..2] == b"MZ";
 
         if !is_elf && !is_bzimage && !is_pe && metadata.len() < 4096 {
@@ -237,7 +235,7 @@ impl KernelBuilder {
         // This is where the 32/64-bit kernel entry begins.
         // We write a minimal x86_64 stub: CLI; HLT; JMP $-1
         let pm_offset = 0x200 * (1 + 1); // setup_sects(1) + boot sector(1)
-        image[pm_offset] = 0xFA;     // CLI  - disable interrupts
+        image[pm_offset] = 0xFA; // CLI  - disable interrupts
         image[pm_offset + 1] = 0xF4; // HLT  - halt the CPU
         image[pm_offset + 2] = 0xEB; // JMP short
         image[pm_offset + 3] = 0xFD; // offset -3 (back to HLT)
@@ -286,10 +284,7 @@ impl KernelBuilder {
     ///
     /// Set `docker_context` to a directory where the Dockerfile and config
     /// will be written. If None, a temporary directory is used.
-    pub fn build_docker(
-        &self,
-        context_dir: &Path,
-    ) -> Result<BuiltKernel, KernelError> {
+    pub fn build_docker(&self, context_dir: &Path) -> Result<BuiltKernel, KernelError> {
         let version = self
             .config
             .kernel_version
@@ -385,12 +380,11 @@ impl KernelVerifier {
         header_bytes: &[u8; 128],
         image_bytes: &[u8],
     ) -> Result<VerifiedKernel, KernelError> {
-        let header = KernelHeader::from_bytes(header_bytes).map_err(|e| {
-            KernelError::InvalidImage {
+        let header =
+            KernelHeader::from_bytes(header_bytes).map_err(|e| KernelError::InvalidImage {
                 path: PathBuf::from("<embedded>"),
                 reason: format!("invalid kernel header: {e}"),
-            }
-        })?;
+            })?;
 
         let actual_hash = sha3_256(image_bytes);
 
@@ -461,7 +455,7 @@ pub fn build_kernel_header(
         arch: builder.arch_byte(),
         kernel_type: builder.kernel_type_byte(),
         kernel_flags: builder.kernel_flags(),
-        min_memory_mb: 64, // reasonable default for microVM
+        min_memory_mb: 64,        // reasonable default for microVM
         entry_point: 0x0020_0000, // standard Linux load address
         image_size: kernel.bzimage.len() as u64,
         compressed_size: kernel.compressed_size,
@@ -542,8 +536,8 @@ mod tests {
 
     #[test]
     fn kernel_flags_service_detection() {
-        let builder = KernelBuilder::new(KernelArch::X86_64)
-            .with_initramfs(&["sshd", "rvf-server"]);
+        let builder =
+            KernelBuilder::new(KernelArch::X86_64).with_initramfs(&["sshd", "rvf-server"]);
         let flags = builder.kernel_flags();
         assert!(flags & rvf_types::kernel::KERNEL_FLAG_HAS_QUERY_API != 0);
         assert!(flags & rvf_types::kernel::KERNEL_FLAG_HAS_ADMIN_API != 0);
@@ -752,8 +746,7 @@ mod tests {
             compressed_size: image_data.len() as u64,
         };
 
-        let builder = KernelBuilder::new(KernelArch::X86_64)
-            .with_initramfs(&["sshd"]);
+        let builder = KernelBuilder::new(KernelArch::X86_64).with_initramfs(&["sshd"]);
 
         let header = build_kernel_header(&kernel, &builder, 8080);
 

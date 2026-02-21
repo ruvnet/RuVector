@@ -19,7 +19,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 use crate::agi_contract::ContractHealth;
-use crate::reasoning_bank::{RollbackWitness, MemoryClass};
+use crate::reasoning_bank::{MemoryClass, RollbackWitness};
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Manifest
@@ -356,8 +356,12 @@ pub fn verify_witness_chain(artifact: &RvfArtifact) -> VerificationResult {
             chain_intact = false;
             mismatches += 1;
         }
-        if !input_ok { mismatches += 1; }
-        if !grade_ok { mismatches += 1; }
+        if !input_ok {
+            mismatches += 1;
+        }
+        if !grade_ok {
+            mismatches += 1;
+        }
 
         prev_memory_after = record.memory_root_after.clone();
 

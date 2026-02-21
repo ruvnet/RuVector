@@ -44,13 +44,21 @@ fn test_neumann_diagonal_dominant() {
     let solver = NeumannSolver::new(1e-8, 500);
     let result = solve_via_trait(&solver, &matrix, &rhs, &budget).unwrap();
 
-    assert!(result.residual_norm < 1e-6, "residual too large: {}", result.residual_norm);
+    assert!(
+        result.residual_norm < 1e-6,
+        "residual too large: {}",
+        result.residual_norm
+    );
 
     // Double-check by computing residual independently.
     let x = f32_to_f64(&result.solution);
     let residual = compute_residual(&matrix, &x, &rhs);
     let resid_norm = l2_norm(&residual);
-    assert!(resid_norm < 1e-4, "independent residual check failed: {}", resid_norm);
+    assert!(
+        resid_norm < 1e-4,
+        "independent residual check failed: {}",
+        resid_norm
+    );
 
     // Compare with dense solve.
     let exact = dense_solve(&matrix, &rhs);
@@ -74,7 +82,10 @@ fn test_neumann_convergence_rate() {
 
     // The convergence history should show monotonic decrease (geometric).
     let history = &result.convergence_history;
-    assert!(history.len() >= 3, "need at least 3 iterations for rate check");
+    assert!(
+        history.len() >= 3,
+        "need at least 3 iterations for rate check"
+    );
 
     // Check that residual decreases monotonically for at least the first
     // several iterations (allowing a small tolerance for floating point).
@@ -121,12 +132,7 @@ fn test_neumann_spectral_radius_check() {
     let matrix = CsrMatrix::<f64>::from_coo(
         2,
         2,
-        vec![
-            (0, 0, 1.0),
-            (0, 1, 2.0),
-            (1, 0, 2.0),
-            (1, 1, 1.0),
-        ],
+        vec![(0, 0, 1.0), (0, 1, 2.0), (1, 0, 2.0), (1, 1, 1.0)],
     );
     let rhs = vec![1.0, 1.0];
     let budget = ComputeBudget::default();

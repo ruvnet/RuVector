@@ -52,14 +52,11 @@ impl AngularEmbedding {
     /// Project Euclidean vector to angular space
     pub fn project(&self, values: &[f32]) -> Vec<f32> {
         // Compute magnitude for normalization
-        let magnitude = values.iter()
-            .map(|x| x * x)
-            .sum::<f32>()
-            .sqrt()
-            .max(1e-10);
+        let magnitude = values.iter().map(|x| x * x).sum::<f32>().sqrt().max(1e-10);
 
         // Project to unit hypersphere, then to angles
-        values.iter()
+        values
+            .iter()
             .map(|&x| {
                 let normalized = x / magnitude;
                 // Map [-1, 1] to [-π, π] with phase scale
@@ -70,7 +67,8 @@ impl AngularEmbedding {
 
     /// Unproject from angular space to Euclidean
     pub fn unproject(&self, angles: &[f32], target_magnitude: f32) -> Vec<f32> {
-        angles.iter()
+        angles
+            .iter()
             .map(|&angle| {
                 let normalized = angle / (PI * self.phase_scale);
                 normalized * target_magnitude
@@ -141,13 +139,18 @@ impl AngularEmbedding {
             return current.to_vec();
         }
 
-        let predicted_angles: Vec<f32> = angles.iter()
+        let predicted_angles: Vec<f32> = angles
+            .iter()
             .zip(self.velocity.iter())
             .map(|(&a, &v)| {
                 let mut next = a + v;
                 // Wrap to [-π, π]
-                while next > PI { next -= 2.0 * PI; }
-                while next < -PI { next += 2.0 * PI; }
+                while next > PI {
+                    next -= 2.0 * PI;
+                }
+                while next < -PI {
+                    next += 2.0 * PI;
+                }
                 next
             })
             .collect();
@@ -327,7 +330,8 @@ impl HypersphericalProjection {
         let norm_b: f32 = b.iter().map(|x| x * x).sum::<f32>().sqrt().max(1e-10);
 
         // Compute dot product of normalized vectors
-        let dot: f32 = a.iter()
+        let dot: f32 = a
+            .iter()
             .zip(b.iter())
             .map(|(&x, &y)| (x / norm_a) * (y / norm_b))
             .sum();
@@ -381,7 +385,7 @@ mod tests {
         let dist_ac = embedding.angular_distance(&a, &c);
 
         assert!(dist_ac < 0.001); // Same vectors
-        assert!(dist_ab > 0.0);   // Different vectors
+        assert!(dist_ab > 0.0); // Different vectors
     }
 
     #[test]

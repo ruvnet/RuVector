@@ -13,10 +13,10 @@
 //! ```
 
 use crate::{
-    config::{ActivationType, SparsityConfig, CacheConfig},
+    config::{ActivationType, CacheConfig, SparsityConfig},
     error::{Result, SparseInferenceError},
-    model::{GgufParser, GgufModel, InferenceConfig, ModelMetadata, ModelRunner},
     memory::NeuronCache,
+    model::{GgufModel, GgufParser, InferenceConfig, ModelMetadata, ModelRunner},
     predictor::{LowRankPredictor, Predictor},
     sparse::SparseFfn,
 };
@@ -233,19 +233,27 @@ impl SparseInferenceBackend {
         let gguf = GgufParser::parse(data)?;
 
         // Extract model configuration from GGUF metadata
-        let hidden_dim = gguf.metadata.get("llama.embedding_length")
+        let hidden_dim = gguf
+            .metadata
+            .get("llama.embedding_length")
             .and_then(|v| v.as_u32())
             .unwrap_or(4096) as usize;
 
-        let intermediate_dim = gguf.metadata.get("llama.feed_forward_length")
+        let intermediate_dim = gguf
+            .metadata
+            .get("llama.feed_forward_length")
             .and_then(|v| v.as_u32())
             .unwrap_or((hidden_dim * 4) as u32) as usize;
 
-        let num_layers = gguf.metadata.get("llama.block_count")
+        let num_layers = gguf
+            .metadata
+            .get("llama.block_count")
             .and_then(|v| v.as_u32())
             .unwrap_or(32) as usize;
 
-        let vocab_size = gguf.metadata.get("llama.vocab_size")
+        let vocab_size = gguf
+            .metadata
+            .get("llama.vocab_size")
             .and_then(|v| v.as_u32())
             .unwrap_or(32000) as usize;
 
@@ -264,13 +272,16 @@ impl SparseInferenceBackend {
         let hidden_dim = self.metadata.hidden_size;
 
         // Create mock hidden state from input
-        let mut hidden: Vec<f32> = input_ids.iter()
+        let mut hidden: Vec<f32> = input_ids
+            .iter()
             .map(|&t| (t as f32) / (self.vocab_size as f32))
             .collect();
         hidden.resize(hidden_dim, 0.0);
 
         // Process through sparse FFN layers
-        for (layer_idx, (predictor, ffn)) in self.predictors.iter().zip(self.ffns.iter()).enumerate() {
+        for (layer_idx, (predictor, ffn)) in
+            self.predictors.iter().zip(self.ffns.iter()).enumerate()
+        {
             // Predict active neurons
             let active = predictor.predict(&hidden)?;
 
@@ -291,11 +302,7 @@ impl SparseInferenceBackend {
     }
 
     /// Generate multiple tokens
-    pub fn generate(
-        &mut self,
-        input_ids: &[u32],
-        config: &GenerationConfig,
-    ) -> Result<Vec<u32>> {
+    pub fn generate(&mut self, input_ids: &[u32], config: &GenerationConfig) -> Result<Vec<u32>> {
         let mut output_ids = input_ids.to_vec();
         let mut kv_cache = KVCache::new(
             self.metadata.num_layers,
@@ -318,7 +325,8 @@ impl SparseInferenceBackend {
 
         let elapsed = start_time.elapsed();
         self.stats.total_time_ms = elapsed.as_secs_f64() * 1000.0;
-        self.stats.avg_token_time_ms = self.stats.total_time_ms / self.stats.tokens_generated as f64;
+        self.stats.avg_token_time_ms =
+            self.stats.total_time_ms / self.stats.tokens_generated as f64;
 
         Ok(output_ids)
     }
@@ -342,7 +350,8 @@ impl SparseInferenceBackend {
     pub fn calibrate(&mut self, samples: &[Vec<f32>]) -> Result<()> {
         for (predictor, ffn) in self.predictors.iter_mut().zip(self.ffns.iter()) {
             // Generate activations for each sample
-            let activations: Vec<Vec<f32>> = samples.iter()
+            let activations: Vec<Vec<f32>> = samples
+                .iter()
                 .map(|s| ffn.forward_dense(s))
                 .collect::<Result<Vec<_>>>()?;
 
@@ -377,7 +386,8 @@ impl InferenceBackend for SparseInferenceBackend {
     fn forward(&mut self, input_ids: &[u32]) -> Result<Vec<f32>> {
         // Return logits (simplified)
         let hidden_dim = self.metadata.hidden_size;
-        let mut hidden: Vec<f32> = input_ids.iter()
+        let mut hidden: Vec<f32> = input_ids
+            .iter()
             .map(|&t| (t as f32) / (self.vocab_size as f32))
             .collect();
         hidden.resize(hidden_dim, 0.0);

@@ -61,11 +61,7 @@ fn header_to_sign_bytes(h: &SegmentHeader) -> [u8; 64] {
 }
 
 /// Sign a segment with Ed25519, producing a `SignatureFooter`.
-pub fn sign_segment(
-    header: &SegmentHeader,
-    payload: &[u8],
-    key: &SigningKey,
-) -> SignatureFooter {
+pub fn sign_segment(header: &SegmentHeader, payload: &[u8], key: &SigningKey) -> SignatureFooter {
     let msg = build_signed_data(header, payload);
     let sig: Signature = key.sign(&msg);
     let sig_bytes = sig.to_bytes();
@@ -184,6 +180,9 @@ mod tests {
         let key = SigningKey::generate(&mut OsRng);
         let header = make_test_header();
         let footer = sign_segment(&header, b"data", &key);
-        assert_eq!(footer.footer_length, SignatureFooter::compute_footer_length(64));
+        assert_eq!(
+            footer.footer_length,
+            SignatureFooter::compute_footer_length(64)
+        );
     }
 }

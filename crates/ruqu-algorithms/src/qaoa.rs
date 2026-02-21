@@ -123,7 +123,11 @@ pub struct QaoaResult {
 ///
 /// `gammas` and `betas` must each have length `p`.
 pub fn build_qaoa_circuit(graph: &Graph, gammas: &[f64], betas: &[f64]) -> QuantumCircuit {
-    assert_eq!(gammas.len(), betas.len(), "gammas and betas must have equal length");
+    assert_eq!(
+        gammas.len(),
+        betas.len(),
+        "gammas and betas must have equal length"
+    );
     let n = graph.num_nodes;
     let p = gammas.len();
     let mut circuit = QuantumCircuit::new(n);

@@ -31,8 +31,8 @@ const MEMBERSHIP_MAGIC: u32 = 0x5256_4D42;
 
 pub fn run(args: FilterArgs) -> Result<(), Box<dyn std::error::Error>> {
     let (filter_mode, ids) = match (&args.include_ids, &args.exclude_ids) {
-        (Some(inc), None) => (0u8, inc.clone()),   // include mode
-        (None, Some(exc)) => (1u8, exc.clone()),    // exclude mode
+        (Some(inc), None) => (0u8, inc.clone()), // include mode
+        (None, Some(exc)) => (1u8, exc.clone()), // exclude mode
         (Some(_), Some(_)) => {
             return Err("Cannot specify both --include-ids and --exclude-ids".into());
         }
@@ -46,11 +46,13 @@ pub fn run(args: FilterArgs) -> Result<(), Box<dyn std::error::Error>> {
     // If output is different, derive first
     if target_path != args.file {
         let parent = RvfStore::open_readonly(Path::new(&args.file)).map_err(map_rvf_err)?;
-        let child = parent.derive(
-            Path::new(target_path),
-            rvf_types::DerivationType::Filter,
-            None,
-        ).map_err(map_rvf_err)?;
+        let child = parent
+            .derive(
+                Path::new(target_path),
+                rvf_types::DerivationType::Filter,
+                None,
+            )
+            .map_err(map_rvf_err)?;
         child.close().map_err(map_rvf_err)?;
     }
 
@@ -71,7 +73,7 @@ pub fn run(args: FilterArgs) -> Result<(), Box<dyn std::error::Error>> {
     // Build the 96-byte MembershipHeader
     let mut header = [0u8; 96];
     header[0..4].copy_from_slice(&MEMBERSHIP_MAGIC.to_le_bytes());
-    header[4..6].copy_from_slice(&1u16.to_le_bytes());      // version
+    header[4..6].copy_from_slice(&1u16.to_le_bytes()); // version
     header[6] = 0; // filter_type: bitmap
     header[7] = filter_mode;
     // vector_count: use max_id+1 as approximation
@@ -112,7 +114,11 @@ pub fn run(args: FilterArgs) -> Result<(), Box<dyn std::error::Error>> {
     drop(file);
     store.close().map_err(map_rvf_err)?;
 
-    let mode_str = if filter_mode == 0 { "include" } else { "exclude" };
+    let mode_str = if filter_mode == 0 {
+        "include"
+    } else {
+        "exclude"
+    };
     if args.json {
         crate::output::print_json(&serde_json::json!({
             "status": "filtered",

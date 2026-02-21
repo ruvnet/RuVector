@@ -29,10 +29,7 @@ impl fmt::Display for RvliteError {
             Self::Rvf(e) => write!(f, "rvf: {e}"),
             Self::Io(msg) => write!(f, "io: {msg}"),
             Self::DimensionMismatch { expected, got } => {
-                write!(
-                    f,
-                    "dimension mismatch: expected {expected}, got {got}"
-                )
+                write!(f, "dimension mismatch: expected {expected}, got {got}")
             }
         }
     }

@@ -131,11 +131,7 @@ impl AttentionReranker {
     // WASM fallback
     // ---------------------------------------------------------------
     #[cfg(target_arch = "wasm32")]
-    fn rerank_wasm(
-        &self,
-        results: &[(String, f32, Vec<f32>)],
-        top_k: usize,
-    ) -> Vec<(String, f32)> {
+    fn rerank_wasm(&self, results: &[(String, f32, Vec<f32>)], top_k: usize) -> Vec<(String, f32)> {
         let mut scored: Vec<(String, f32)> = results
             .iter()
             .map(|(id, cosine, _)| (id.clone(), *cosine))

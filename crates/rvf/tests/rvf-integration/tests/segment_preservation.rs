@@ -51,12 +51,9 @@ fn scan_segments_of_type(file_bytes: &[u8], seg_type: u8) -> Vec<(usize, u64, u6
         if file_bytes[i..i + 4] == magic_bytes {
             let found_type = file_bytes[i + 5];
             if found_type == seg_type {
-                let seg_id = u64::from_le_bytes(
-                    file_bytes[i + 0x08..i + 0x10].try_into().unwrap(),
-                );
-                let payload_len = u64::from_le_bytes(
-                    file_bytes[i + 0x10..i + 0x18].try_into().unwrap(),
-                );
+                let seg_id = u64::from_le_bytes(file_bytes[i + 0x08..i + 0x10].try_into().unwrap());
+                let payload_len =
+                    u64::from_le_bytes(file_bytes[i + 0x10..i + 0x18].try_into().unwrap());
                 results.push((i, seg_id, payload_len));
             }
         }
@@ -82,9 +79,7 @@ fn kernel_segment_survives_compaction() {
     let mut store = RvfStore::create(&path, make_options(dim)).unwrap();
 
     // Ingest vectors
-    let vectors: Vec<Vec<f32>> = (0..10)
-        .map(|i| vec![i as f32; dim as usize])
-        .collect();
+    let vectors: Vec<Vec<f32>> = (0..10).map(|i| vec![i as f32; dim as usize]).collect();
     let refs: Vec<&[f32]> = vectors.iter().map(|v| v.as_slice()).collect();
     let ids: Vec<u64> = (0..10).collect();
     store.ingest_batch(&refs, &ids, None).unwrap();
@@ -102,7 +97,10 @@ fn kernel_segment_survives_compaction() {
 
     // Verify vectors are correct
     let status = store.status();
-    assert_eq!(status.total_vectors, 5, "should have 5 vectors after compaction");
+    assert_eq!(
+        status.total_vectors, 5,
+        "should have 5 vectors after compaction"
+    );
 
     // Verify kernel segment is still present
     let bytes = read_file_bytes(&path);
@@ -144,9 +142,7 @@ fn ebpf_segment_survives_compaction() {
     let mut store = RvfStore::create(&path, make_options(dim)).unwrap();
 
     // Ingest and delete
-    let vectors: Vec<Vec<f32>> = (0..6)
-        .map(|i| vec![i as f32; dim as usize])
-        .collect();
+    let vectors: Vec<Vec<f32>> = (0..6).map(|i| vec![i as f32; dim as usize]).collect();
     let refs: Vec<&[f32]> = vectors.iter().map(|v| v.as_slice()).collect();
     let ids: Vec<u64> = (0..6).collect();
     store.ingest_batch(&refs, &ids, None).unwrap();
@@ -161,10 +157,7 @@ fn ebpf_segment_survives_compaction() {
     // Verify eBPF is still present
     let bytes = read_file_bytes(&path);
     let ebpf_segs = scan_segments_of_type(&bytes, SegmentType::Ebpf as u8);
-    assert!(
-        !ebpf_segs.is_empty(),
-        "EBPF_SEG should survive compaction"
-    );
+    assert!(!ebpf_segs.is_empty(), "EBPF_SEG should survive compaction");
 
     let extracted = store.extract_ebpf().unwrap();
     assert!(extracted.is_some(), "eBPF should still be extractable");
@@ -197,9 +190,7 @@ fn both_kernel_and_ebpf_survive_compaction() {
 
     let mut store = RvfStore::create(&path, make_options(dim)).unwrap();
 
-    let vectors: Vec<Vec<f32>> = (0..8)
-        .map(|i| vec![i as f32; dim as usize])
-        .collect();
+    let vectors: Vec<Vec<f32>> = (0..8).map(|i| vec![i as f32; dim as usize]).collect();
     let refs: Vec<&[f32]> = vectors.iter().map(|v| v.as_slice()).collect();
     let ids: Vec<u64> = (0..8).collect();
     store.ingest_batch(&refs, &ids, None).unwrap();
@@ -226,10 +217,7 @@ fn both_kernel_and_ebpf_survive_compaction() {
         !kernel_segs.is_empty(),
         "KERNEL_SEG should survive compaction"
     );
-    assert!(
-        !ebpf_segs.is_empty(),
-        "EBPF_SEG should survive compaction"
-    );
+    assert!(!ebpf_segs.is_empty(), "EBPF_SEG should survive compaction");
 
     assert!(store.extract_kernel().unwrap().is_some());
     assert!(store.extract_ebpf().unwrap().is_some());
@@ -270,8 +258,7 @@ fn unknown_segment_type_survives_compaction() {
         header[5] = unknown_seg_type;
         // flags at 6..8 stay zero
         header[0x08..0x10].copy_from_slice(&9999u64.to_le_bytes()); // seg_id
-        header[0x10..0x18]
-            .copy_from_slice(&(unknown_payload.len() as u64).to_le_bytes());
+        header[0x10..0x18].copy_from_slice(&(unknown_payload.len() as u64).to_le_bytes());
         file.write_all(&header).unwrap();
         file.write_all(unknown_payload).unwrap();
         file.sync_all().unwrap();
@@ -330,9 +317,7 @@ fn compaction_removes_dead_vectors_but_keeps_live() {
     let mut store = RvfStore::create(&path, make_options(dim)).unwrap();
 
     // Ingest 10 vectors
-    let vectors: Vec<Vec<f32>> = (0..10)
-        .map(|i| vec![i as f32, 0.0, 0.0, 0.0])
-        .collect();
+    let vectors: Vec<Vec<f32>> = (0..10).map(|i| vec![i as f32, 0.0, 0.0, 0.0]).collect();
     let refs: Vec<&[f32]> = vectors.iter().map(|v| v.as_slice()).collect();
     let ids: Vec<u64> = (0..10).collect();
     store.ingest_batch(&refs, &ids, None).unwrap();
@@ -381,9 +366,7 @@ fn compacted_store_can_be_reopened() {
 
     {
         let mut store = RvfStore::create(&path, make_options(dim)).unwrap();
-        let vectors: Vec<Vec<f32>> = (0..20)
-            .map(|i| vec![i as f32, 0.0, 0.0, 0.0])
-            .collect();
+        let vectors: Vec<Vec<f32>> = (0..20).map(|i| vec![i as f32, 0.0, 0.0, 0.0]).collect();
         let refs: Vec<&[f32]> = vectors.iter().map(|v| v.as_slice()).collect();
         let ids: Vec<u64> = (0..20).collect();
         store.ingest_batch(&refs, &ids, None).unwrap();

@@ -168,9 +168,7 @@ fn build_hierarchy(
         if num_aggregates == 0 || num_aggregates >= n {
             debug!(
                 level = lvl,
-                n,
-                num_aggregates,
-                "coarsening stalled, stopping hierarchy build"
+                n, num_aggregates, "coarsening stalled, stopping hierarchy build"
             );
             break;
         }
@@ -541,10 +539,16 @@ fn dense_direct_solve(matrix: &CsrMatrix<f64>, b: &[f64]) -> Vec<f64> {
         if max_row != col {
             let (first, second) = if col < max_row {
                 let (left, right) = aug.split_at_mut(max_row * stride);
-                (&mut left[col * stride..col * stride + stride], &mut right[..stride])
+                (
+                    &mut left[col * stride..col * stride + stride],
+                    &mut right[..stride],
+                )
             } else {
                 let (left, right) = aug.split_at_mut(col * stride);
-                (&mut right[..stride], &mut left[max_row * stride..max_row * stride + stride])
+                (
+                    &mut right[..stride],
+                    &mut left[max_row * stride..max_row * stride + stride],
+                )
             };
             first.swap_with_slice(second);
         }
@@ -678,16 +682,16 @@ fn validate_inputs(matrix: &CsrMatrix<f64>, rhs: &[f64]) -> Result<(), SolverErr
 
     for (idx, &v) in matrix.values.iter().enumerate() {
         if !v.is_finite() {
-            return Err(SolverError::InvalidInput(
-                ValidationError::NonFiniteValue(format!("matrix value at index {idx}")),
-            ));
+            return Err(SolverError::InvalidInput(ValidationError::NonFiniteValue(
+                format!("matrix value at index {idx}"),
+            )));
         }
     }
     for (idx, &v) in rhs.iter().enumerate() {
         if !v.is_finite() {
-            return Err(SolverError::InvalidInput(
-                ValidationError::NonFiniteValue(format!("RHS value at index {idx}")),
-            ));
+            return Err(SolverError::InvalidInput(ValidationError::NonFiniteValue(
+                format!("RHS value at index {idx}"),
+            )));
         }
     }
 
@@ -813,7 +817,13 @@ impl SolverEngine for BmsspSolver {
             v_cycle(&hierarchy, &mut x, rhs, 0);
 
             matrix.spmv(&x, &mut ax_buf);
-            let res = (0..n).map(|i| { let r = rhs[i] - ax_buf[i]; r * r }).sum::<f64>().sqrt();
+            let res = (0..n)
+                .map(|i| {
+                    let r = rhs[i] - ax_buf[i];
+                    r * r
+                })
+                .sum::<f64>()
+                .sqrt();
 
             convergence_history.push(ConvergenceInfo {
                 iteration: iter,
@@ -853,11 +863,7 @@ impl SolverEngine for BmsspSolver {
         })
     }
 
-    fn estimate_complexity(
-        &self,
-        profile: &SparsityProfile,
-        n: usize,
-    ) -> ComplexityEstimate {
+    fn estimate_complexity(&self, profile: &SparsityProfile, n: usize) -> ComplexityEstimate {
         // AMG V-cycle: O(nnz * log n) total work. Expected ~log(n) iterations,
         // each costing O(nnz) for smoothing + transfer.
         let log_n = ((n as f64).ln().max(1.0)) as u64;
@@ -1100,11 +1106,7 @@ mod tests {
 
     #[test]
     fn gauss_seidel_diagonal_system() {
-        let matrix = CsrMatrix::<f64>::from_coo(
-            2,
-            2,
-            vec![(0, 0, 4.0), (1, 1, 4.0)],
-        );
+        let matrix = CsrMatrix::<f64>::from_coo(2, 2, vec![(0, 0, 4.0), (1, 1, 4.0)]);
         let b = [8.0f64, 12.0];
         let mut x = [0.0f64; 2];
         gauss_seidel_sweep(&matrix, &mut x, &b);

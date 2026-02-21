@@ -1,9 +1,9 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use ruvector_domain_expansion::{
-    ArmId, ContextBucket, CostCurve, CostCurvePoint, ConvergenceThresholds,
-    AccelerationScoreboard, CuriosityBonus, DecayingBeta, DomainExpansionEngine, DomainId,
-    MetaLearningEngine, MetaThompsonEngine, ParetoFront, ParetoPoint, PlateauDetector,
-    PolicyKnobs, PopulationSearch, RegretTracker, Solution, TransferPrior,
+    AccelerationScoreboard, ArmId, ContextBucket, ConvergenceThresholds, CostCurve, CostCurvePoint,
+    CuriosityBonus, DecayingBeta, DomainExpansionEngine, DomainId, MetaLearningEngine,
+    MetaThompsonEngine, ParetoFront, ParetoPoint, PlateauDetector, PolicyKnobs, PopulationSearch,
+    RegretTracker, Solution, TransferPrior,
 };
 
 fn bench_task_generation(c: &mut Criterion) {
@@ -14,9 +14,7 @@ fn bench_task_generation(c: &mut Criterion) {
 
     for domain_id in &domains {
         group.bench_function(format!("{}", domain_id), |b| {
-            b.iter(|| {
-                engine.generate_tasks(black_box(domain_id), black_box(10), black_box(0.5))
-            })
+            b.iter(|| engine.generate_tasks(black_box(domain_id), black_box(10), black_box(0.5)))
         });
     }
     group.finish();
@@ -29,7 +27,9 @@ fn bench_evaluation(c: &mut Criterion) {
 
     let solution = Solution {
         task_id: tasks[0].id.clone(),
-        content: "fn sum_positives(values: &[i64]) -> i64 { values.iter().filter(|&&x| x > 0).sum() }".into(),
+        content:
+            "fn sum_positives(values: &[i64]) -> i64 { values.iter().filter(|&&x| x > 0).sum() }"
+                .into(),
         data: serde_json::Value::Null,
     };
 

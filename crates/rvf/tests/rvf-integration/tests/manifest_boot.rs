@@ -5,7 +5,7 @@
 //! - Level 0 / Level 1 manifest round-trips
 //! - Overlay chain progression
 
-use rvf_types::{SegmentFlags, SegmentType, SEGMENT_HEADER_SIZE, SEGMENT_ALIGNMENT};
+use rvf_types::{SegmentFlags, SegmentType, SEGMENT_ALIGNMENT, SEGMENT_HEADER_SIZE};
 use rvf_wire::{find_latest_manifest, write_segment};
 
 #[test]
@@ -79,12 +79,7 @@ fn tail_scan_finds_latest_manifest_when_multiple_exist() {
 fn tail_scan_fails_when_no_manifest() {
     let mut file = Vec::new();
     for i in 0..3 {
-        let seg = write_segment(
-            SegmentType::Vec as u8,
-            &[0u8; 50],
-            SegmentFlags::empty(),
-            i,
-        );
+        let seg = write_segment(SegmentType::Vec as u8, &[0u8; 50], SegmentFlags::empty(), i);
         file.extend_from_slice(&seg);
     }
 
@@ -164,8 +159,8 @@ fn all_segments_are_64_byte_aligned() {
             "segment {i} ({seg_type:?}) starts at non-aligned offset {offset}"
         );
         let payload_size = 10 + i * 17;
-        let seg_size = (SEGMENT_HEADER_SIZE + payload_size + SEGMENT_ALIGNMENT - 1)
-            & !(SEGMENT_ALIGNMENT - 1);
+        let seg_size =
+            (SEGMENT_HEADER_SIZE + payload_size + SEGMENT_ALIGNMENT - 1) & !(SEGMENT_ALIGNMENT - 1);
         offset += seg_size;
     }
 }

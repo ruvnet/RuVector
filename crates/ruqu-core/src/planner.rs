@@ -237,7 +237,11 @@ pub fn plan_execution(circuit: &QuantumCircuit, config: &PlannerConfig) -> Execu
     // Evaluate CliffordT backend.
     let t_count = analysis.non_clifford_gates;
     let ct_viable = t_count > 0 && t_count <= CT_MAX_T_COUNT && num_qubits > 32;
-    let ct_terms = if ct_viable { 1u64.checked_shl(t_count as u32).unwrap_or(u64::MAX) } else { u64::MAX };
+    let ct_terms = if ct_viable {
+        1u64.checked_shl(t_count as u32).unwrap_or(u64::MAX)
+    } else {
+        u64::MAX
+    };
     let ct_memory = predict_memory_clifford_t(num_qubits, ct_terms);
     let ct_runtime = predict_runtime_clifford_t(num_qubits, total_gates, ct_terms);
 
@@ -394,9 +398,7 @@ fn predict_memory_stabilizer(num_qubits: u32) -> u64 {
 fn predict_memory_tensor_network(num_qubits: u32, chi: u32) -> u64 {
     let n = num_qubits as u64;
     let c = chi as u64;
-    n.saturating_mul(c)
-        .saturating_mul(c)
-        .saturating_mul(16)
+    n.saturating_mul(c).saturating_mul(c).saturating_mul(16)
 }
 
 // ---------------------------------------------------------------------------
@@ -509,10 +511,7 @@ fn select_optimal_backend(
     }
 
     // Rule 2: Mostly Clifford with very few non-Clifford on large circuits.
-    if analysis.clifford_fraction >= 0.95
-        && n > 32
-        && analysis.non_clifford_gates <= 10
-    {
+    if analysis.clifford_fraction >= 0.95 && n > 32 && analysis.non_clifford_gates <= 10 {
         return (
             BackendType::Stabilizer,
             stab_memory,
@@ -647,9 +646,7 @@ fn select_verification_policy(
             // Small enough to cross-check with state vector.
             return VerificationPolicy::DownscaledStateVector(num_qubits);
         }
-        return VerificationPolicy::StatisticalSampling(
-            (num_qubits / 2).max(5).min(50),
-        );
+        return VerificationPolicy::StatisticalSampling((num_qubits / 2).max(5).min(50));
     }
 
     VerificationPolicy::None
@@ -737,12 +734,11 @@ fn compute_cost_breakdown(
         MitigationStrategy::None => 1.0,
         MitigationStrategy::MeasurementCorrectionOnly => 1.1, // slight overhead
         MitigationStrategy::ZneWithScales(scales) => scales.len() as f64,
-        MitigationStrategy::ZnePlusMeasurementCorrection(scales) => {
-            scales.len() as f64 * 1.1
-        }
-        MitigationStrategy::Full { zne_scales, cdr_circuits } => {
-            zne_scales.len() as f64 + *cdr_circuits as f64 * 0.5
-        }
+        MitigationStrategy::ZnePlusMeasurementCorrection(scales) => scales.len() as f64 * 1.1,
+        MitigationStrategy::Full {
+            zne_scales,
+            cdr_circuits,
+        } => zne_scales.len() as f64 + *cdr_circuits as f64 * 0.5,
     };
 
     // Verification overhead multiplier.
@@ -750,16 +746,13 @@ fn compute_cost_breakdown(
         VerificationPolicy::None => 1.0,
         VerificationPolicy::ExactCliffordCheck => 1.05, // cheap stabilizer check
         VerificationPolicy::DownscaledStateVector(_) => 1.1,
-        VerificationPolicy::StatisticalSampling(n) => {
-            1.0 + (*n as f64) * 0.01
-        }
+        VerificationPolicy::StatisticalSampling(n) => 1.0 + (*n as f64) * 0.01,
     };
 
     // Total shots: base shots * mitigation overhead.
     // Base shots from precision: 1 / precision^2 (Hoeffding bound).
     let base_shots = (1.0 / (target_precision * target_precision)).ceil() as u32;
-    let mitigated_shots =
-        (base_shots as f64 * mitigation_overhead).ceil() as u32;
+    let mitigated_shots = (base_shots as f64 * mitigation_overhead).ceil() as u32;
     let total_shots_needed = mitigated_shots.min(shot_budget);
 
     CostBreakdown {
@@ -976,10 +969,7 @@ mod tests {
                     "ZNE scales must include the baseline 1.0"
                 );
             }
-            other => panic!(
-                "Expected ZneWithScales for noise=0.05, got {:?}",
-                other
-            ),
+            other => panic!("Expected ZneWithScales for noise=0.05, got {:?}", other),
         }
 
         assert!(
@@ -1181,10 +1171,7 @@ mod tests {
                 assert!(zne_scales.len() >= 3);
                 assert!(*cdr_circuits >= 2);
             }
-            other => panic!(
-                "Expected Full mitigation for noise=0.7, got {:?}",
-                other
-            ),
+            other => panic!("Expected Full mitigation for noise=0.7, got {:?}", other),
         }
     }
 
@@ -1324,7 +1311,10 @@ mod tests {
         let analysis = make_analysis(5, 10, 0.5);
         let strat = select_mitigation_strategy(Some(0.7), 100_000, &analysis);
         match strat {
-            MitigationStrategy::Full { zne_scales, cdr_circuits } => {
+            MitigationStrategy::Full {
+                zne_scales,
+                cdr_circuits,
+            } => {
                 assert!(zne_scales.len() >= 3);
                 assert!(cdr_circuits >= 2);
             }
@@ -1339,41 +1329,26 @@ mod tests {
     #[test]
     fn test_verification_clifford_check() {
         let analysis = make_analysis(10, 50, 1.0);
-        let policy = select_verification_policy(
-            &analysis,
-            BackendType::Stabilizer,
-            10,
-        );
+        let policy = select_verification_policy(&analysis, BackendType::Stabilizer, 10);
         assert_eq!(policy, VerificationPolicy::ExactCliffordCheck);
     }
 
     #[test]
     fn test_verification_none_for_small_sv() {
         let analysis = make_analysis(5, 10, 0.5);
-        let policy = select_verification_policy(
-            &analysis,
-            BackendType::StateVector,
-            5,
-        );
+        let policy = select_verification_policy(&analysis, BackendType::StateVector, 5);
         assert_eq!(policy, VerificationPolicy::None);
     }
 
     #[test]
     fn test_verification_statistical_for_tn() {
         let analysis = make_analysis(50, 100, 0.5);
-        let policy = select_verification_policy(
-            &analysis,
-            BackendType::TensorNetwork,
-            50,
-        );
+        let policy = select_verification_policy(&analysis, BackendType::TensorNetwork, 50);
         match policy {
             VerificationPolicy::StatisticalSampling(n) => {
                 assert!(n >= 5, "Should sample at least 5 observables");
             }
-            other => panic!(
-                "Expected StatisticalSampling for TN, got {:?}",
-                other
-            ),
+            other => panic!("Expected StatisticalSampling for TN, got {:?}", other),
         }
     }
 
@@ -1426,8 +1401,7 @@ mod tests {
         total_gates: usize,
         clifford_fraction: f64,
     ) -> CircuitAnalysis {
-        let clifford_gates =
-            (total_gates as f64 * clifford_fraction).round() as usize;
+        let clifford_gates = (total_gates as f64 * clifford_fraction).round() as usize;
         let non_clifford_gates = total_gates - clifford_gates;
 
         CircuitAnalysis {

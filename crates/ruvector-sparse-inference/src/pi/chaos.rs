@@ -53,9 +53,7 @@ impl PiChaos {
 
     /// Get jitter vector for a range of indices
     pub fn jitter_vector(&self, start: usize, count: usize) -> Vec<f32> {
-        (start..(start + count))
-            .map(|i| self.jitter(i))
-            .collect()
+        (start..(start + count)).map(|i| self.jitter(i)).collect()
     }
 
     /// Get next π digit in sequence
@@ -146,7 +144,8 @@ impl DeterministicJitter {
 
     /// Add jitter to a vector
     pub fn apply_vector(&self, values: &[f32]) -> Vec<f32> {
-        values.iter()
+        values
+            .iter()
             .enumerate()
             .map(|(i, &v)| self.apply(v, i))
             .collect()
@@ -154,7 +153,8 @@ impl DeterministicJitter {
 
     /// Break tie between equal values using index-based jitter
     pub fn break_tie(&self, value: f32, indices: &[usize]) -> usize {
-        indices.iter()
+        indices
+            .iter()
             .copied()
             .max_by(|&a, &b| {
                 let ja = self.chaos.jitter(a);
@@ -235,10 +235,10 @@ impl PiScheduler {
 
         if let Some(ref weights) = self.weights {
             // Interleave high-weight and low-weight items
-            let mut sorted_by_weight: Vec<(usize, f32)> = base_order.iter()
-                .map(|&i| (i, weights[i]))
-                .collect();
-            sorted_by_weight.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+            let mut sorted_by_weight: Vec<(usize, f32)> =
+                base_order.iter().map(|&i| (i, weights[i])).collect();
+            sorted_by_weight
+                .sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
 
             let mut result = Vec::with_capacity(self.num_items);
             let high_priority = &sorted_by_weight[..self.num_items / 2];
@@ -347,9 +347,8 @@ mod tests {
         let jittered = jitter.apply_vector(&values);
 
         // All original values were same, but jittered should differ
-        let unique: std::collections::HashSet<_> = jittered.iter()
-            .map(|x| (x * 10000.0) as i32)
-            .collect();
+        let unique: std::collections::HashSet<_> =
+            jittered.iter().map(|x| (x * 10000.0) as i32).collect();
         assert!(unique.len() > 1);
     }
 

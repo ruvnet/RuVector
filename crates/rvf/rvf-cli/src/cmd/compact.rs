@@ -21,7 +21,9 @@ pub struct CompactArgs {
 
 pub fn run(args: CompactArgs) -> Result<(), Box<dyn std::error::Error>> {
     if args.strip_unknown {
-        eprintln!("Warning: --strip-unknown will remove segment types not recognized by this version.");
+        eprintln!(
+            "Warning: --strip-unknown will remove segment types not recognized by this version."
+        );
         eprintln!("         This may discard data written by newer tools.");
     }
 
@@ -46,7 +48,10 @@ pub fn run(args: CompactArgs) -> Result<(), Box<dyn std::error::Error>> {
         }));
     } else {
         println!("Compaction complete:");
-        crate::output::print_kv("Segments compacted:", &result.segments_compacted.to_string());
+        crate::output::print_kv(
+            "Segments compacted:",
+            &result.segments_compacted.to_string(),
+        );
         crate::output::print_kv("Bytes reclaimed:", &result.bytes_reclaimed.to_string());
         crate::output::print_kv("Epoch:", &result.epoch.to_string());
         crate::output::print_kv("Vectors before:", &status_before.total_vectors.to_string());

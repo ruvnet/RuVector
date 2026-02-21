@@ -31,11 +31,11 @@
 //! The graduation rules decide WHEN computation is allowed to become expensive.
 
 pub mod lanes;
-pub mod quantizers;
 pub mod policy;
+pub mod quantizers;
 pub mod telemetry;
 
-pub use lanes::{PrecisionLane, LaneConfig};
-pub use quantizers::{Quantizer3Bit, Quantizer5Bit, Quantizer7Bit, QuantizedBlock};
-pub use policy::{GraduationPolicy, GraduationDecision, GraduationMetrics};
-pub use telemetry::{LaneTelemetry, LaneStats};
+pub use lanes::{LaneConfig, PrecisionLane};
+pub use policy::{GraduationDecision, GraduationMetrics, GraduationPolicy};
+pub use quantizers::{QuantizedBlock, Quantizer3Bit, Quantizer5Bit, Quantizer7Bit};
+pub use telemetry::{LaneStats, LaneTelemetry};

@@ -28,12 +28,12 @@ pub fn run(args: FreezeArgs) -> Result<(), Box<dyn std::error::Error>> {
     // Build a 32-byte RefcountHeader with snapshot_epoch set
     let mut header = [0u8; 32];
     header[0..4].copy_from_slice(&REFCOUNT_MAGIC.to_le_bytes());
-    header[4..6].copy_from_slice(&1u16.to_le_bytes());      // version
-    header[6] = 1;  // refcount_width: 1 byte per entry
-    // cluster_count: 0 (no clusters tracked yet)
-    // max_refcount: 0
-    // array_offset: 0 (no array)
-    // snapshot_epoch
+    header[4..6].copy_from_slice(&1u16.to_le_bytes()); // version
+    header[6] = 1; // refcount_width: 1 byte per entry
+                   // cluster_count: 0 (no clusters tracked yet)
+                   // max_refcount: 0
+                   // array_offset: 0 (no array)
+                   // snapshot_epoch
     header[0x18..0x1C].copy_from_slice(&snapshot_epoch.to_le_bytes());
 
     // Write a REFCOUNT_SEG (0x21) with the frozen epoch

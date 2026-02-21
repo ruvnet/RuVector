@@ -12,8 +12,7 @@
 use std::time::Instant;
 
 use rvf_types::quality::{
-    BudgetReport, BudgetType, DegradationReason, DegradationReport,
-    FallbackPath, SafetyNetBudget,
+    BudgetReport, BudgetType, DegradationReason, DegradationReport, FallbackPath, SafetyNetBudget,
 };
 
 use crate::options::SearchResult;
@@ -115,10 +114,7 @@ impl BudgetTracker {
 /// Compute squared L2 distance between two vectors.
 fn l2_distance_sq(a: &[f32], b: &[f32]) -> f32 {
     debug_assert_eq!(a.len(), b.len());
-    a.iter()
-        .zip(b.iter())
-        .map(|(x, y)| (x - y) * (x - y))
-        .sum()
+    a.iter().zip(b.iter()).map(|(x, y)| (x - y) * (x - y)).sum()
 }
 
 /// Execute the selective safety net scan.
@@ -302,9 +298,8 @@ mod tests {
         let vecs = make_vectors(100, 4);
         let refs: Vec<(u64, &[f32])> = vecs.iter().map(|(id, v)| (*id, v.as_slice())).collect();
 
-        let result = selective_safety_net_scan(
-            &query, 10, &[], &refs, &SafetyNetBudget::DISABLED, 100,
-        );
+        let result =
+            selective_safety_net_scan(&query, 10, &[], &refs, &SafetyNetBudget::DISABLED, 100);
         assert!(result.candidates.is_empty());
         assert!(!result.budget_exhausted);
     }
@@ -315,9 +310,8 @@ mod tests {
         let vecs = make_vectors(100, 4);
         let refs: Vec<(u64, &[f32])> = vecs.iter().map(|(id, v)| (*id, v.as_slice())).collect();
 
-        let result = selective_safety_net_scan(
-            &query, 10, &[], &refs, &SafetyNetBudget::LAYER_A, 100,
-        );
+        let result =
+            selective_safety_net_scan(&query, 10, &[], &refs, &SafetyNetBudget::LAYER_A, 100);
         assert!(!result.candidates.is_empty());
         assert!(result.budget_report.distance_ops > 0);
     }
@@ -334,9 +328,7 @@ mod tests {
             max_distance_ops: 50,
         };
 
-        let result = selective_safety_net_scan(
-            &query, 10, &[], &refs, &tight_budget, 50_000,
-        );
+        let result = selective_safety_net_scan(&query, 10, &[], &refs, &tight_budget, 50_000);
         // Must not exceed budget.
         assert!(result.budget_report.distance_ops <= 51); // +1 for the op that triggers exhaustion
     }
@@ -353,9 +345,7 @@ mod tests {
             max_distance_ops: 5,
         };
 
-        let result = selective_safety_net_scan(
-            &query, 10, &[], &refs, &tiny_budget, 10_000,
-        );
+        let result = selective_safety_net_scan(&query, 10, &[], &refs, &tiny_budget, 10_000);
         assert!(result.budget_exhausted);
         assert!(result.degradation.is_some());
         let deg = result.degradation.unwrap();
@@ -369,13 +359,20 @@ mod tests {
         let refs: Vec<(u64, &[f32])> = vecs.iter().map(|(id, v)| (*id, v.as_slice())).collect();
 
         let existing = vec![
-            SearchResult { id: 0, distance: 0.1, retrieval_quality: rvf_types::quality::RetrievalQuality::Full },
-            SearchResult { id: 1, distance: 0.2, retrieval_quality: rvf_types::quality::RetrievalQuality::Full },
+            SearchResult {
+                id: 0,
+                distance: 0.1,
+                retrieval_quality: rvf_types::quality::RetrievalQuality::Full,
+            },
+            SearchResult {
+                id: 1,
+                distance: 0.2,
+                retrieval_quality: rvf_types::quality::RetrievalQuality::Full,
+            },
         ];
 
-        let result = selective_safety_net_scan(
-            &query, 5, &existing, &refs, &SafetyNetBudget::LAYER_A, 20,
-        );
+        let result =
+            selective_safety_net_scan(&query, 5, &existing, &refs, &SafetyNetBudget::LAYER_A, 20);
         // Should not contain ids 0 or 1.
         for c in &result.candidates {
             assert!(c.id != 0 && c.id != 1);
@@ -419,7 +416,7 @@ mod tests {
         let mut tracker = BudgetTracker::new(&budget);
         assert!(tracker.record_distance_op()); // 1 <= 3
         assert!(tracker.record_distance_op()); // 2 <= 3
-        // 3rd record hits the cap (3 >= 3), returns false — budget exhausted.
+                                               // 3rd record hits the cap (3 >= 3), returns false — budget exhausted.
         assert!(!tracker.record_distance_op());
         assert!(tracker.exhausted);
         assert_eq!(tracker.distance_ops, 3);

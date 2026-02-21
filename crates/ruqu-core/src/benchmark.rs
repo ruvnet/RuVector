@@ -13,8 +13,7 @@ use crate::backend::{analyze_circuit, BackendType};
 use crate::circuit::QuantumCircuit;
 use crate::confidence::total_variation_distance;
 use crate::decoder::{
-    PartitionedDecoder, StabilizerMeasurement, SurfaceCodeDecoder, SyndromeData,
-    UnionFindDecoder,
+    PartitionedDecoder, StabilizerMeasurement, SurfaceCodeDecoder, SyndromeData, UnionFindDecoder,
 };
 use crate::decomposition::{classify_segment, decompose, estimate_segment_cost};
 use crate::planner::{plan_execution, PlannerConfig};
@@ -267,10 +266,18 @@ fn gen_mixed_circuit(rng: &mut StdRng) -> QuantumCircuit {
     for _ in 0..layers {
         for q in 0..n {
             match rng.gen_range(0..4) {
-                0 => { circ.h(q); }
-                1 => { circ.t(q); }
-                2 => { circ.s(q); }
-                _ => { circ.x(q); }
+                0 => {
+                    circ.h(q);
+                }
+                1 => {
+                    circ.t(q);
+                }
+                2 => {
+                    circ.s(q);
+                }
+                _ => {
+                    circ.x(q);
+                }
             }
         }
         if n > 1 {
@@ -326,8 +333,7 @@ pub fn run_entanglement_benchmark(seed: u64, num_circuits: usize) -> Entanglemen
             if active <= max_segment_qubits {
                 segments_within += 1;
             } else {
-                let violation = (active - max_segment_qubits) as f64
-                    / max_segment_qubits as f64;
+                let violation = (active - max_segment_qubits) as f64 / max_segment_qubits as f64;
                 if violation > max_violation {
                     max_violation = violation;
                 }
@@ -402,8 +408,7 @@ pub fn run_decoder_benchmark(
     for &d in distances {
         let uf_decoder = UnionFindDecoder::new(0);
         let tile_size = (d / 2).max(2);
-        let part_decoder =
-            PartitionedDecoder::new(tile_size, Box::new(UnionFindDecoder::new(0)));
+        let part_decoder = PartitionedDecoder::new(tile_size, Box::new(UnionFindDecoder::new(0)));
 
         let mut uf_total_ns = 0u64;
         let mut part_total_ns = 0u64;
@@ -421,11 +426,7 @@ pub fn run_decoder_benchmark(
 
             // A simple accuracy check: count defects and compare logical
             // outcome expectation.
-            let defect_count = syndrome
-                .stabilizers
-                .iter()
-                .filter(|s| s.value)
-                .count();
+            let defect_count = syndrome.stabilizers.iter().filter(|s| s.value).count();
             let expected_logical = defect_count >= d as usize;
             if uf_corr.logical_outcome == expected_logical {
                 uf_correct += 1;
@@ -567,10 +568,18 @@ fn gen_certifiable_circuit(rng: &mut StdRng) -> QuantumCircuit {
     for _ in 0..extras {
         let q = rng.gen_range(0..n);
         match rng.gen_range(0..4) {
-            0 => { circ.h(q); }
-            1 => { circ.s(q); }
-            2 => { circ.x(q); }
-            _ => { circ.z(q); }
+            0 => {
+                circ.h(q);
+            }
+            1 => {
+                circ.s(q);
+            }
+            2 => {
+                circ.x(q);
+            }
+            _ => {
+                circ.z(q);
+            }
         }
     }
     // Add measurements for all qubits.
@@ -604,8 +613,7 @@ pub fn run_full_benchmark(seed: u64) -> FullBenchmarkReport {
         &[3, 5, 7, 9, 11, 13, 15, 17, 21, 25],
         100,
     );
-    let certification =
-        run_certification_benchmark(seed.wrapping_add(3), 100, 500);
+    let certification = run_certification_benchmark(seed.wrapping_add(3), 100, 500);
 
     let total_time_ms = start.elapsed().as_millis() as u64;
 

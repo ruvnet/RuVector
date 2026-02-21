@@ -58,14 +58,9 @@ pub fn find_qemu(arch: KernelArch) -> Result<PathBuf, LaunchError> {
     };
 
     for candidate in &candidates {
-        if let Ok(output) = std::process::Command::new("which")
-            .arg(candidate)
-            .output()
-        {
+        if let Ok(output) = std::process::Command::new("which").arg(candidate).output() {
             if output.status.success() {
-                let path = String::from_utf8_lossy(&output.stdout)
-                    .trim()
-                    .to_string();
+                let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
                 return Ok(PathBuf::from(path));
             }
         }
@@ -190,10 +185,7 @@ pub fn build_command(
     cmd.args(["-device", "virtio-blk-device,drive=rvf"]);
 
     // Network: forward API port and optional SSH port
-    let mut hostfwd = format!(
-        "user,id=net0,hostfwd=tcp::{}:-:8080",
-        config.api_port
-    );
+    let mut hostfwd = format!("user,id=net0,hostfwd=tcp::{}:-:8080", config.api_port);
     if let Some(ssh_port) = config.ssh_port {
         hostfwd.push_str(&format!(",hostfwd=tcp::{}:-:2222", ssh_port));
     }
@@ -205,10 +197,8 @@ pub fn build_command(
     cmd.args(["-serial", "chardev:char0"]);
 
     // QMP socket for management
-    cmd.arg("-qmp").arg(format!(
-        "unix:{},server,nowait",
-        qmp_socket.display()
-    ));
+    cmd.arg("-qmp")
+        .arg(format!("unix:{},server,nowait", qmp_socket.display()));
 
     // No graphics, no reboot on panic
     cmd.arg("-nographic");

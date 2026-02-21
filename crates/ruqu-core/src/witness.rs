@@ -4,7 +4,6 @@
 /// [`WitnessEntry`] includes a hash of its predecessor so that retroactive
 /// tampering with any field in any entry is detectable by
 /// [`WitnessLog::verify_chain`].
-
 use crate::replay::ExecutionRecord;
 use crate::types::MeasurementOutcome;
 
@@ -240,10 +239,7 @@ impl WitnessLog {
                         "      \"depolarizing_rate\": {},\n",
                         nc.depolarizing_rate
                     ));
-                    buf.push_str(&format!(
-                        "      \"bit_flip_rate\": {},\n",
-                        nc.bit_flip_rate
-                    ));
+                    buf.push_str(&format!("      \"bit_flip_rate\": {},\n", nc.bit_flip_rate));
                     buf.push_str(&format!(
                         "      \"phase_flip_rate\": {}\n",
                         nc.phase_flip_rate

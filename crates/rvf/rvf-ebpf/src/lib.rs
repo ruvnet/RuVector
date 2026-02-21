@@ -119,10 +119,7 @@ pub mod precompiled {
     ///   .text section (BPF instructions)
     ///   section name string table (.shstrtab)
     ///   3 section headers (null, .text, .shstrtab)
-    const fn build_minimal_bpf_elf(
-        section_name: &[u8],
-        insns: &[u8],
-    ) -> ([u8; 512], usize) {
+    const fn build_minimal_bpf_elf(section_name: &[u8], insns: &[u8]) -> ([u8; 512], usize) {
         let mut buf = [0u8; 512];
         #[allow(unused_assignments)]
         let mut off = 0;
@@ -133,11 +130,11 @@ pub mod precompiled {
         buf[1] = b'E';
         buf[2] = b'L';
         buf[3] = b'F';
-        buf[4] = 2;    // ELFCLASS64
-        buf[5] = 1;    // ELFDATA2LSB (little-endian)
-        buf[6] = 1;    // EV_CURRENT
-        buf[7] = 0;    // ELFOSABI_NONE
-        // e_ident[8..16] = padding (zeros)
+        buf[4] = 2; // ELFCLASS64
+        buf[5] = 1; // ELFDATA2LSB (little-endian)
+        buf[6] = 1; // EV_CURRENT
+        buf[7] = 0; // ELFOSABI_NONE
+                    // e_ident[8..16] = padding (zeros)
 
         // e_type = ET_REL (1) at offset 16
         buf[16] = 1;
@@ -201,16 +198,26 @@ pub mod precompiled {
         off += 1;
         let shstrtab_name_index = (off - shstrtab_offset) as u32;
         // ".shstrtab\0"
-        buf[off] = b'.'; off += 1;
-        buf[off] = b's'; off += 1;
-        buf[off] = b'h'; off += 1;
-        buf[off] = b's'; off += 1;
-        buf[off] = b't'; off += 1;
-        buf[off] = b'r'; off += 1;
-        buf[off] = b't'; off += 1;
-        buf[off] = b'a'; off += 1;
-        buf[off] = b'b'; off += 1;
-        buf[off] = 0; off += 1;
+        buf[off] = b'.';
+        off += 1;
+        buf[off] = b's';
+        off += 1;
+        buf[off] = b'h';
+        off += 1;
+        buf[off] = b's';
+        off += 1;
+        buf[off] = b't';
+        off += 1;
+        buf[off] = b'r';
+        off += 1;
+        buf[off] = b't';
+        off += 1;
+        buf[off] = b'a';
+        off += 1;
+        buf[off] = b'b';
+        off += 1;
+        buf[off] = 0;
+        off += 1;
         let shstrtab_size = off - shstrtab_offset;
 
         // Align to 8 bytes for section headers
@@ -393,11 +400,13 @@ impl EbpfCompiler {
         let output_path = output.path().to_path_buf();
 
         let mut cmd = Command::new(&self.clang_path);
-        cmd.arg("-target").arg(&self.target)
+        cmd.arg("-target")
+            .arg(&self.target)
             .arg(self.optimization.as_flag())
             .arg("-c")
             .arg(source)
-            .arg("-o").arg(&output_path)
+            .arg("-o")
+            .arg(&output_path)
             .arg("-D__BPF_TRACING__")
             .arg("-Wno-unused-value")
             .arg("-Wno-pointer-sign")
@@ -451,9 +460,7 @@ impl EbpfCompiler {
         source: &str,
         program_type: EbpfProgramType,
     ) -> Result<CompiledProgram, EbpfError> {
-        let src_file = tempfile::Builder::new()
-            .suffix(".c")
-            .tempfile()?;
+        let src_file = tempfile::Builder::new().suffix(".c").tempfile()?;
 
         // Write source to the temp file
         {
@@ -468,16 +475,19 @@ impl EbpfCompiler {
         let bpf_dir = bpf_source_dir();
 
         let mut cmd = Command::new(&self.clang_path);
-        cmd.arg("-target").arg(&self.target)
+        cmd.arg("-target")
+            .arg(&self.target)
             .arg(self.optimization.as_flag())
             .arg("-c")
             .arg(src_file.path())
-            .arg("-o").arg(&output_path)
+            .arg("-o")
+            .arg(&output_path)
             .arg("-D__BPF_TRACING__")
             .arg("-Wno-unused-value")
             .arg("-Wno-pointer-sign")
             .arg("-Wno-compare-distinct-pointer-types")
-            .arg("-I").arg(&bpf_dir);
+            .arg("-I")
+            .arg(&bpf_dir);
 
         if self.include_btf {
             cmd.arg("-g");
@@ -522,9 +532,7 @@ impl EbpfCompiler {
     ///
     /// This uses the embedded minimal BPF ELF bytecode from the
     /// `precompiled` module, requiring no external toolchain.
-    pub fn from_precompiled(
-        program_type: EbpfProgramType,
-    ) -> Result<CompiledProgram, EbpfError> {
+    pub fn from_precompiled(program_type: EbpfProgramType) -> Result<CompiledProgram, EbpfError> {
         let (elf_bytes, attach_type) = match program_type {
             EbpfProgramType::XdpDistance => {
                 (precompiled::xdp_distance(), EbpfAttachType::XdpIngress)
@@ -532,12 +540,13 @@ impl EbpfCompiler {
             EbpfProgramType::SocketFilter => {
                 (precompiled::socket_filter(), EbpfAttachType::SocketFilter)
             }
-            EbpfProgramType::TcFilter => {
-                (precompiled::tc_query_route(), EbpfAttachType::TcIngress)
+            EbpfProgramType::TcFilter => (precompiled::tc_query_route(), EbpfAttachType::TcIngress),
+            _ => {
+                return Err(EbpfError::CompilationFailed(format!(
+                    "no pre-compiled bytecode for program type {:?}",
+                    program_type
+                )))
             }
-            _ => return Err(EbpfError::CompilationFailed(
-                format!("no pre-compiled bytecode for program type {:?}", program_type),
-            )),
         };
 
         if elf_bytes.len() < 4 || &elf_bytes[..4] != b"\x7fELF" {
@@ -563,10 +572,7 @@ impl EbpfCompiler {
     /// This is the recommended entry point: it tries clang-based
     /// compilation first for full-featured programs, and degrades
     /// gracefully to minimal pre-compiled stubs when clang is absent.
-    pub fn compile_or_fallback(
-        &self,
-        source: &Path,
-    ) -> Result<CompiledProgram, EbpfError> {
+    pub fn compile_or_fallback(&self, source: &Path) -> Result<CompiledProgram, EbpfError> {
         match self.compile(source) {
             Ok(prog) => Ok(prog),
             Err(EbpfError::CompilationFailed(_)) | Err(EbpfError::ClangNotFound) => {
@@ -637,9 +643,7 @@ fn bpf_source_dir() -> PathBuf {
 
 /// Infer the BPF program type from the source file name.
 fn infer_program_type(path: &Path) -> EbpfProgramType {
-    let stem = path.file_stem()
-        .and_then(|s| s.to_str())
-        .unwrap_or("");
+    let stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or("");
 
     if stem.contains("xdp") {
         EbpfProgramType::XdpDistance
@@ -904,7 +908,10 @@ mod tests {
             // e_shnum = 3 (null + .text + .shstrtab)
             assert_eq!(elf[60], 3, "{name}: 3 section headers");
             // Size is reasonable
-            assert!(elf.len() > 64 && elf.len() < 1024, "{name}: reasonable size");
+            assert!(
+                elf.len() > 64 && elf.len() < 1024,
+                "{name}: reasonable size"
+            );
         }
     }
 
@@ -992,10 +999,8 @@ mod tests {
             Err(e) => panic!("unexpected error: {e}"),
         };
 
-        let result = compiler.compile_source(
-            programs::SOCKET_FILTER,
-            EbpfProgramType::SocketFilter,
-        );
+        let result =
+            compiler.compile_source(programs::SOCKET_FILTER, EbpfProgramType::SocketFilter);
 
         match result {
             Ok(program) => {
@@ -1054,7 +1059,11 @@ mod tests {
 
         let dir = tempfile::tempdir().unwrap();
         std::fs::write(dir.path().join("vmlinux.h"), programs::VMLINUX_H).unwrap();
-        std::fs::write(dir.path().join("tc_query_route.c"), programs::TC_QUERY_ROUTE).unwrap();
+        std::fs::write(
+            dir.path().join("tc_query_route.c"),
+            programs::TC_QUERY_ROUTE,
+        )
+        .unwrap();
 
         let result = compiler.compile(&dir.path().join("tc_query_route.c"));
         match result {

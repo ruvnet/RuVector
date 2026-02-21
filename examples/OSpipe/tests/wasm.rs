@@ -270,11 +270,7 @@ fn test_stats_json() {
 
     let stats = instance.stats();
     assert!(stats.contains("\"dimension\":16"), "Stats: {}", stats);
-    assert!(
-        stats.contains("\"total_embeddings\":1"),
-        "Stats: {}",
-        stats
-    );
+    assert!(stats.contains("\"total_embeddings\":1"), "Stats: {}", stats);
     assert!(
         stats.contains("\"memory_estimate_bytes\""),
         "Stats: {}",

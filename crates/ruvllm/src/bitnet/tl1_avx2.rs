@@ -245,7 +245,14 @@ mod tests {
     }
 
     /// Compute reference output using naive scalar loop.
-    fn reference_gemv(ternary: &[i8], scales: &[f32], x: &[f32], m: usize, n: usize, bs: usize) -> Vec<f32> {
+    fn reference_gemv(
+        ternary: &[i8],
+        scales: &[f32],
+        x: &[f32],
+        m: usize,
+        n: usize,
+        bs: usize,
+    ) -> Vec<f32> {
         let mut y = vec![0.0f32; m];
         for i in 0..m {
             for j in 0..n {
@@ -306,7 +313,10 @@ mod tests {
             assert!(
                 (a - b).abs() < tol,
                 "row {} dispatch mismatch: {} vs {} (tol={})",
-                i, a, b, tol,
+                i,
+                a,
+                b,
+                tol,
             );
         }
     }
@@ -389,7 +399,10 @@ mod tests {
         tl1_gemv(&packed, &scales, &x, &mut y, m, n, 256);
 
         for &val in &y {
-            assert!((val).abs() < 1e-4, "all-zero ternary should give zero output");
+            assert!(
+                (val).abs() < 1e-4,
+                "all-zero ternary should give zero output"
+            );
         }
     }
 

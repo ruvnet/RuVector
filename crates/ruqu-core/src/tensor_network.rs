@@ -235,10 +235,9 @@ impl MpsState {
         // Step 1: Contract over the shared bond index to form a 4-index tensor
         // theta(l, ia, ib, r) = Sum_m A_a(l, ia, m) * A_b(m, ib, r)
         let mut theta = vec![Complex::ZERO; left_dim * 2 * 2 * right_dim];
-        let theta_idx =
-            |l: usize, ia: usize, ib: usize, r: usize| -> usize {
-                l * (4 * right_dim) + ia * (2 * right_dim) + ib * right_dim + r
-            };
+        let theta_idx = |l: usize, ia: usize, ib: usize, r: usize| -> usize {
+            l * (4 * right_dim) + ia * (2 * right_dim) + ib * right_dim + r
+        };
 
         for l in 0..left_dim {
             for ia in 0..2 {
@@ -370,11 +369,7 @@ impl MpsState {
 
         // Move q1 adjacent to q2 via SWAP chain.
         // We swap q1 toward q2, keeping track of its current position.
-        let (mut pos1, target_pos) = if q1 < q2 {
-            (q1, q2 - 1)
-        } else {
-            (q1, q2 + 1)
-        };
+        let (mut pos1, target_pos) = if q1 < q2 { (q1, q2 - 1) } else { (q1, q2 + 1) };
 
         // Forward swaps: move pos1 toward target_pos
         let forward_steps: Vec<usize> = if pos1 < target_pos {
@@ -495,10 +490,7 @@ impl MpsState {
                 Ok(vec![])
             }
 
-            Gate::CNOT(q1, q2)
-            | Gate::CZ(q1, q2)
-            | Gate::SWAP(q1, q2)
-            | Gate::Rzz(q1, q2, _) => {
+            Gate::CNOT(q1, q2) | Gate::CZ(q1, q2) | Gate::SWAP(q1, q2) | Gate::Rzz(q1, q2, _) => {
                 if q1 == q2 {
                     return Err(QuantumError::CircuitError(format!(
                         "two-qubit gate requires distinct qubits, got {} and {}",
@@ -607,9 +599,7 @@ impl MpsState {
                                 continue;
                             }
                             for p in 0..2 {
-                                sum += e.conj()
-                                    * t.get(ro, p, ri).conj()
-                                    * t.get(co, p, ci);
+                                sum += e.conj() * t.get(ro, p, ri).conj() * t.get(co, p, ci);
                             }
                         }
                     }
@@ -636,10 +626,8 @@ impl MpsState {
                             if e_r.norm_sq() == 0.0 {
                                 continue;
                             }
-                            val += e_l.conj()
-                                * t.get(l1, phys, r1).conj()
-                                * t.get(l2, phys, r2)
-                                * e_r;
+                            val +=
+                                e_l.conj() * t.get(l1, phys, r1).conj() * t.get(l2, phys, r2) * e_r;
                         }
                     }
                 }

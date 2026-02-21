@@ -124,7 +124,11 @@ mod tests {
         let engine = EmbeddingEngine::new(384);
         let v = engine.embed("test normalization");
         let magnitude: f32 = v.iter().map(|x| x * x).sum::<f32>().sqrt();
-        assert!((magnitude - 1.0).abs() < 1e-5, "Expected unit vector, got magnitude {}", magnitude);
+        assert!(
+            (magnitude - 1.0).abs() < 1e-5,
+            "Expected unit vector, got magnitude {}",
+            magnitude
+        );
     }
 
     #[test]

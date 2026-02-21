@@ -7,9 +7,9 @@
 //! - Protein translation
 //! - Full pipeline integration
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use ::rvdna::prelude::*;
 use ::rvdna::types::KmerIndex as TypesKmerIndex;
+use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 
@@ -76,7 +76,8 @@ fn kmer_benchmarks(c: &mut Criterion) {
     group.bench_function("search_top10", |b| {
         let sequences = random_sequences(100, 100, 42);
         let temp = tempfile::TempDir::new().unwrap();
-        let index = TypesKmerIndex::new(11, 512, temp.path().join("idx").to_str().unwrap()).unwrap();
+        let index =
+            TypesKmerIndex::new(11, 512, temp.path().join("idx").to_str().unwrap()).unwrap();
 
         for (i, seq) in sequences.iter().enumerate() {
             let vec = seq.to_kmer_vector(11, 512).unwrap();
@@ -290,20 +291,36 @@ fn protein_extended_benchmarks(c: &mut Criterion) {
     let mut group = c.benchmark_group("protein_analysis");
 
     group.bench_function("molecular_weight_300aa", |b| {
-        let protein = rvdna::translate_dna(&random_dna(900, 42)
-            .bases().iter().map(|n| match n {
-                Nucleotide::A => b'A', Nucleotide::C => b'C',
-                Nucleotide::G => b'G', Nucleotide::T => b'T', _ => b'N',
-            }).collect::<Vec<u8>>());
+        let protein = rvdna::translate_dna(
+            &random_dna(900, 42)
+                .bases()
+                .iter()
+                .map(|n| match n {
+                    Nucleotide::A => b'A',
+                    Nucleotide::C => b'C',
+                    Nucleotide::G => b'G',
+                    Nucleotide::T => b'T',
+                    _ => b'N',
+                })
+                .collect::<Vec<u8>>(),
+        );
         b.iter(|| black_box(rvdna::molecular_weight(&protein)));
     });
 
     group.bench_function("isoelectric_point_300aa", |b| {
-        let protein = rvdna::translate_dna(&random_dna(900, 42)
-            .bases().iter().map(|n| match n {
-                Nucleotide::A => b'A', Nucleotide::C => b'C',
-                Nucleotide::G => b'G', Nucleotide::T => b'T', _ => b'N',
-            }).collect::<Vec<u8>>());
+        let protein = rvdna::translate_dna(
+            &random_dna(900, 42)
+                .bases()
+                .iter()
+                .map(|n| match n {
+                    Nucleotide::A => b'A',
+                    Nucleotide::C => b'C',
+                    Nucleotide::G => b'G',
+                    Nucleotide::T => b'T',
+                    _ => b'N',
+                })
+                .collect::<Vec<u8>>(),
+        );
         b.iter(|| black_box(rvdna::isoelectric_point(&protein)));
     });
 

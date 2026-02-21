@@ -55,20 +55,27 @@ impl Nucleotide {
             2 => Ok(Nucleotide::G),
             3 => Ok(Nucleotide::T),
             4 => Ok(Nucleotide::N),
-            _ => Err(DnaError::InvalidSequence(format!("Invalid nucleotide encoding: {}", val))),
+            _ => Err(DnaError::InvalidSequence(format!(
+                "Invalid nucleotide encoding: {}",
+                val
+            ))),
         }
     }
 }
 
 impl fmt::Display for Nucleotide {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", match self {
-            Nucleotide::A => 'A',
-            Nucleotide::C => 'C',
-            Nucleotide::G => 'G',
-            Nucleotide::T => 'T',
-            Nucleotide::N => 'N',
-        })
+        write!(
+            f,
+            "{}",
+            match self {
+                Nucleotide::A => 'A',
+                Nucleotide::C => 'C',
+                Nucleotide::G => 'G',
+                Nucleotide::T => 'T',
+                Nucleotide::N => 'N',
+            }
+        )
     }
 }
 
@@ -86,14 +93,18 @@ impl DnaSequence {
 
     /// Create from string (ACGTN)
     pub fn from_str(s: &str) -> Result<Self> {
-        let bases: Result<Vec<_>> = s.chars()
+        let bases: Result<Vec<_>> = s
+            .chars()
             .map(|c| match c.to_ascii_uppercase() {
                 'A' => Ok(Nucleotide::A),
                 'C' => Ok(Nucleotide::C),
                 'G' => Ok(Nucleotide::G),
                 'T' => Ok(Nucleotide::T),
                 'N' => Ok(Nucleotide::N),
-                _ => Err(DnaError::InvalidSequence(format!("Invalid character: {}", c))),
+                _ => Err(DnaError::InvalidSequence(format!(
+                    "Invalid character: {}",
+                    c
+                ))),
             })
             .collect();
 
@@ -127,7 +138,7 @@ impl DnaSequence {
         }
         if self.bases.len() < k {
             return Err(DnaError::InvalidSequence(
-                "Sequence shorter than k-mer size".to_string()
+                "Sequence shorter than k-mer size".to_string(),
             ));
         }
 
@@ -138,15 +149,17 @@ impl DnaSequence {
         let pow_k = base.pow(k as u32 - 1);
 
         // Compute initial hash for first k-mer
-        let mut hash = self.bases[..k].iter()
-            .fold(0u64, |acc, &b| acc.wrapping_mul(5).wrapping_add(b.to_u8() as u64));
+        let mut hash = self.bases[..k].iter().fold(0u64, |acc, &b| {
+            acc.wrapping_mul(5).wrapping_add(b.to_u8() as u64)
+        });
         vector[(hash as usize) % dims] += 1.0;
 
         // Rolling hash: remove leading nucleotide, add trailing
         for i in 1..=(self.bases.len() - k) {
             let old = self.bases[i - 1].to_u8() as u64;
             let new = self.bases[i + k - 1].to_u8() as u64;
-            hash = hash.wrapping_sub(old.wrapping_mul(pow_k))
+            hash = hash
+                .wrapping_sub(old.wrapping_mul(pow_k))
                 .wrapping_mul(5)
                 .wrapping_add(new);
             vector[(hash as usize) % dims] += 1.0;
@@ -225,13 +238,13 @@ impl DnaSequence {
                 (Nucleotide::A, Nucleotide::T, Nucleotide::T)
                 | (Nucleotide::A, Nucleotide::T, Nucleotide::C)
                 | (Nucleotide::A, Nucleotide::T, Nucleotide::A) => ProteinResidue::I, // Ile
-                (Nucleotide::G, Nucleotide::T, _) => ProteinResidue::V, // Val
+                (Nucleotide::G, Nucleotide::T, _) => ProteinResidue::V,             // Val
                 (Nucleotide::T, Nucleotide::C, _)
                 | (Nucleotide::A, Nucleotide::G, Nucleotide::T)
                 | (Nucleotide::A, Nucleotide::G, Nucleotide::C) => ProteinResidue::S, // Ser
-                (Nucleotide::C, Nucleotide::C, _) => ProteinResidue::P, // Pro
-                (Nucleotide::A, Nucleotide::C, _) => ProteinResidue::T, // Thr
-                (Nucleotide::G, Nucleotide::C, _) => ProteinResidue::A, // Ala
+                (Nucleotide::C, Nucleotide::C, _) => ProteinResidue::P,             // Pro
+                (Nucleotide::A, Nucleotide::C, _) => ProteinResidue::T,             // Thr
+                (Nucleotide::G, Nucleotide::C, _) => ProteinResidue::A,             // Ala
                 (Nucleotide::T, Nucleotide::A, Nucleotide::T)
                 | (Nucleotide::T, Nucleotide::A, Nucleotide::C) => ProteinResidue::Y, // Tyr
                 (Nucleotide::C, Nucleotide::A, Nucleotide::T)
@@ -251,7 +264,7 @@ impl DnaSequence {
                 (Nucleotide::C, Nucleotide::G, _)
                 | (Nucleotide::A, Nucleotide::G, Nucleotide::A)
                 | (Nucleotide::A, Nucleotide::G, Nucleotide::G) => ProteinResidue::R, // Arg
-                (Nucleotide::G, Nucleotide::G, _) => ProteinResidue::G, // Gly
+                (Nucleotide::G, Nucleotide::G, _) => ProteinResidue::G,             // Gly
                 // Stop codons
                 (Nucleotide::T, Nucleotide::A, Nucleotide::A)
                 | (Nucleotide::T, Nucleotide::A, Nucleotide::G)
@@ -326,7 +339,11 @@ impl DnaSequence {
             mapped_position: GenomicPosition {
                 chromosome: 1,
                 position: best_offset as u64,
-                reference_allele: reference.bases.get(best_offset).copied().unwrap_or(Nucleotide::N),
+                reference_allele: reference
+                    .bases
+                    .get(best_offset)
+                    .copied()
+                    .unwrap_or(Nucleotide::N),
                 alternate_allele: None,
             },
             mapping_quality: QualityScore::new(
@@ -444,8 +461,26 @@ pub struct AlignmentResult {
 /// Protein residue (amino acid)
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum ProteinResidue {
-    A, C, D, E, F, G, H, I, K, L,
-    M, N, P, Q, R, S, T, V, W, Y,
+    A,
+    C,
+    D,
+    E,
+    F,
+    G,
+    H,
+    I,
+    K,
+    L,
+    M,
+    N,
+    P,
+    Q,
+    R,
+    S,
+    T,
+    V,
+    W,
+    Y,
     /// Stop codon or unknown
     X,
 }
@@ -454,13 +489,27 @@ impl ProteinResidue {
     /// Get single-letter code
     pub fn to_char(&self) -> char {
         match self {
-            ProteinResidue::A => 'A', ProteinResidue::C => 'C', ProteinResidue::D => 'D',
-            ProteinResidue::E => 'E', ProteinResidue::F => 'F', ProteinResidue::G => 'G',
-            ProteinResidue::H => 'H', ProteinResidue::I => 'I', ProteinResidue::K => 'K',
-            ProteinResidue::L => 'L', ProteinResidue::M => 'M', ProteinResidue::N => 'N',
-            ProteinResidue::P => 'P', ProteinResidue::Q => 'Q', ProteinResidue::R => 'R',
-            ProteinResidue::S => 'S', ProteinResidue::T => 'T', ProteinResidue::V => 'V',
-            ProteinResidue::W => 'W', ProteinResidue::Y => 'Y', ProteinResidue::X => 'X',
+            ProteinResidue::A => 'A',
+            ProteinResidue::C => 'C',
+            ProteinResidue::D => 'D',
+            ProteinResidue::E => 'E',
+            ProteinResidue::F => 'F',
+            ProteinResidue::G => 'G',
+            ProteinResidue::H => 'H',
+            ProteinResidue::I => 'I',
+            ProteinResidue::K => 'K',
+            ProteinResidue::L => 'L',
+            ProteinResidue::M => 'M',
+            ProteinResidue::N => 'N',
+            ProteinResidue::P => 'P',
+            ProteinResidue::Q => 'Q',
+            ProteinResidue::R => 'R',
+            ProteinResidue::S => 'S',
+            ProteinResidue::T => 'T',
+            ProteinResidue::V => 'V',
+            ProteinResidue::W => 'W',
+            ProteinResidue::Y => 'Y',
+            ProteinResidue::X => 'X',
         }
     }
 }
@@ -530,10 +579,7 @@ impl ProteinSequence {
     /// Predict contacts from a contact graph using residue properties
     ///
     /// Returns (residue_i, residue_j, confidence_score) tuples
-    pub fn predict_contacts(
-        &self,
-        graph: &ContactGraph,
-    ) -> Result<Vec<(usize, usize, f32)>> {
+    pub fn predict_contacts(&self, graph: &ContactGraph) -> Result<Vec<(usize, usize, f32)>> {
         let mut predictions: Vec<(usize, usize, f32)> = graph
             .edges
             .iter()

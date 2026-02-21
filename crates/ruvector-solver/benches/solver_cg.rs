@@ -153,7 +153,11 @@ fn pcg_solve(
 
     let mut x = vec![0.0f32; n];
     let mut r = rhs.to_vec();
-    let mut z: Vec<f32> = r.iter().zip(diag_inv.iter()).map(|(&ri, &di)| ri * di).collect();
+    let mut z: Vec<f32> = r
+        .iter()
+        .zip(diag_inv.iter())
+        .map(|(&ri, &di)| ri * di)
+        .collect();
     let mut p = z.clone();
     let mut ap = vec![0.0f32; n];
 
@@ -186,7 +190,11 @@ fn pcg_solve(
             r[i] -= (alpha as f32) * ap[i];
         }
 
-        let residual_norm: f64 = r.iter().map(|&v| (v as f64) * (v as f64)).sum::<f64>().sqrt();
+        let residual_norm: f64 = r
+            .iter()
+            .map(|&v| (v as f64) * (v as f64))
+            .sum::<f64>()
+            .sqrt();
         iterations = k + 1;
 
         if residual_norm < tolerance {

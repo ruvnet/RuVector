@@ -162,8 +162,8 @@ impl EbpfHeader {
             insn_count: u16::from_le_bytes([data[0x0C], data[0x0D]]),
             max_dimension: u16::from_le_bytes([data[0x0E], data[0x0F]]),
             program_size: u64::from_le_bytes([
-                data[0x10], data[0x11], data[0x12], data[0x13],
-                data[0x14], data[0x15], data[0x16], data[0x17],
+                data[0x10], data[0x11], data[0x12], data[0x13], data[0x14], data[0x15], data[0x16],
+                data[0x17],
             ]),
             map_count: u32::from_le_bytes([data[0x18], data[0x19], data[0x1A], data[0x1B]]),
             btf_size: u32::from_le_bytes([data[0x1C], data[0x1D], data[0x1E], data[0x1F]]),
@@ -257,12 +257,27 @@ mod tests {
 
     #[test]
     fn ebpf_program_type_try_from() {
-        assert_eq!(EbpfProgramType::try_from(0x00), Ok(EbpfProgramType::XdpDistance));
-        assert_eq!(EbpfProgramType::try_from(0x01), Ok(EbpfProgramType::TcFilter));
-        assert_eq!(EbpfProgramType::try_from(0x02), Ok(EbpfProgramType::SocketFilter));
-        assert_eq!(EbpfProgramType::try_from(0x03), Ok(EbpfProgramType::Tracepoint));
+        assert_eq!(
+            EbpfProgramType::try_from(0x00),
+            Ok(EbpfProgramType::XdpDistance)
+        );
+        assert_eq!(
+            EbpfProgramType::try_from(0x01),
+            Ok(EbpfProgramType::TcFilter)
+        );
+        assert_eq!(
+            EbpfProgramType::try_from(0x02),
+            Ok(EbpfProgramType::SocketFilter)
+        );
+        assert_eq!(
+            EbpfProgramType::try_from(0x03),
+            Ok(EbpfProgramType::Tracepoint)
+        );
         assert_eq!(EbpfProgramType::try_from(0x04), Ok(EbpfProgramType::Kprobe));
-        assert_eq!(EbpfProgramType::try_from(0x05), Ok(EbpfProgramType::CgroupSkb));
+        assert_eq!(
+            EbpfProgramType::try_from(0x05),
+            Ok(EbpfProgramType::CgroupSkb)
+        );
         assert_eq!(EbpfProgramType::try_from(0xFF), Ok(EbpfProgramType::Custom));
         assert!(EbpfProgramType::try_from(0x06).is_err());
         assert!(EbpfProgramType::try_from(0x80).is_err());
@@ -270,12 +285,27 @@ mod tests {
 
     #[test]
     fn ebpf_attach_type_try_from() {
-        assert_eq!(EbpfAttachType::try_from(0x00), Ok(EbpfAttachType::XdpIngress));
-        assert_eq!(EbpfAttachType::try_from(0x01), Ok(EbpfAttachType::TcIngress));
+        assert_eq!(
+            EbpfAttachType::try_from(0x00),
+            Ok(EbpfAttachType::XdpIngress)
+        );
+        assert_eq!(
+            EbpfAttachType::try_from(0x01),
+            Ok(EbpfAttachType::TcIngress)
+        );
         assert_eq!(EbpfAttachType::try_from(0x02), Ok(EbpfAttachType::TcEgress));
-        assert_eq!(EbpfAttachType::try_from(0x03), Ok(EbpfAttachType::SocketFilter));
-        assert_eq!(EbpfAttachType::try_from(0x04), Ok(EbpfAttachType::CgroupIngress));
-        assert_eq!(EbpfAttachType::try_from(0x05), Ok(EbpfAttachType::CgroupEgress));
+        assert_eq!(
+            EbpfAttachType::try_from(0x03),
+            Ok(EbpfAttachType::SocketFilter)
+        );
+        assert_eq!(
+            EbpfAttachType::try_from(0x04),
+            Ok(EbpfAttachType::CgroupIngress)
+        );
+        assert_eq!(
+            EbpfAttachType::try_from(0x05),
+            Ok(EbpfAttachType::CgroupEgress)
+        );
         assert_eq!(EbpfAttachType::try_from(0xFF), Ok(EbpfAttachType::None));
         assert!(EbpfAttachType::try_from(0x06).is_err());
         assert!(EbpfAttachType::try_from(0x80).is_err());

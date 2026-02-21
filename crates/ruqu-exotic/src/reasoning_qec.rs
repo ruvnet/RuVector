@@ -156,10 +156,7 @@ impl ReasoningTrace {
 
     /// Decode syndrome and attempt correction.
     /// Simple decoder: if syndrome\[i\] fires, flip step i+1 (rightmost error assumption).
-    pub fn decode_and_correct(
-        &mut self,
-        syndrome: &[bool],
-    ) -> Result<Vec<usize>, QuantumError> {
+    pub fn decode_and_correct(&mut self, syndrome: &[bool]) -> Result<Vec<usize>, QuantumError> {
         let mut corrected = Vec::new();
         // Simple decoder: for each fired syndrome, the error is likely
         // between the two data qubits. Correct the right one.
@@ -177,8 +174,7 @@ impl ReasoningTrace {
     pub fn run_qec(&mut self) -> Result<ReasoningQecResult, QuantumError> {
         // Save state before noise for fidelity comparison
         let clean_sv: Vec<Complex> = self.state.state_vector().to_vec();
-        let clean_state =
-            QuantumState::from_amplitudes(clean_sv, self.state.num_qubits())?;
+        let clean_state = QuantumState::from_amplitudes(clean_sv, self.state.num_qubits())?;
 
         // Inject noise
         self.inject_noise()?;

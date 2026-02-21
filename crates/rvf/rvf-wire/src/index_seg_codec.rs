@@ -128,7 +128,13 @@ pub fn read_restart_index(data: &[u8]) -> Result<(RestartPointIndex, usize), &'s
         offsets.push(u32::from_le_bytes(data[base..base + 4].try_into().unwrap()));
     }
     let consumed = align_up(offsets_end);
-    Ok((RestartPointIndex { restart_interval, offsets }, consumed))
+    Ok((
+        RestartPointIndex {
+            restart_interval,
+            offsets,
+        },
+        consumed,
+    ))
 }
 
 /// Read adjacency data for `node_count` nodes from the payload.
@@ -139,8 +145,8 @@ pub fn read_adjacency(data: &[u8], node_count: u64) -> Result<Vec<NodeAdjacency>
     let mut nodes = Vec::with_capacity(node_count as usize);
     let mut pos = 0;
     for _ in 0..node_count {
-        let (layer_count, consumed) = decode_varint(&data[pos..])
-            .map_err(|_| "adjacency layer_count decode failed")?;
+        let (layer_count, consumed) =
+            decode_varint(&data[pos..]).map_err(|_| "adjacency layer_count decode failed")?;
         pos += consumed;
         let mut layers = Vec::with_capacity(layer_count as usize);
         for _ in 0..layer_count {
@@ -150,8 +156,8 @@ pub fn read_adjacency(data: &[u8], node_count: u64) -> Result<Vec<NodeAdjacency>
             let mut neighbors = Vec::with_capacity(neighbor_count as usize);
             let mut prev = 0u64;
             for _ in 0..neighbor_count {
-                let (delta, consumed) = decode_varint(&data[pos..])
-                    .map_err(|_| "adjacency delta decode failed")?;
+                let (delta, consumed) =
+                    decode_varint(&data[pos..]).map_err(|_| "adjacency delta decode failed")?;
                 pos += consumed;
                 prev += delta;
                 neighbors.push(prev);

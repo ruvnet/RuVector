@@ -20,7 +20,11 @@ pub fn contradiction_rate(predictions: &[Vec<f32>], references: &[Vec<f32>]) -> 
         .iter()
         .zip(&references[..n])
         .filter(|(p, r)| {
-            p.iter().zip(r.iter()).map(|(a, b)| *a as f64 * *b as f64).sum::<f64>() < 0.0
+            p.iter()
+                .zip(r.iter())
+                .map(|(a, b)| *a as f64 * *b as f64)
+                .sum::<f64>()
+                < 0.0
         })
         .count();
     contradictions as f64 / n as f64
@@ -32,7 +36,9 @@ pub fn entailment_consistency(outputs: &[Vec<f32>]) -> f64 {
         return 1.0;
     }
     let pairs = outputs.len() - 1;
-    let total: f64 = (0..pairs).map(|i| cosine(&outputs[i], &outputs[i + 1])).sum();
+    let total: f64 = (0..pairs)
+        .map(|i| cosine(&outputs[i], &outputs[i + 1]))
+        .sum();
     total / pairs as f64
 }
 
@@ -40,20 +46,40 @@ pub fn entailment_consistency(outputs: &[Vec<f32>]) -> f64 {
 pub fn delta_behavior(baseline_outputs: &[f32], gated_outputs: &[f32]) -> DeltaMetric {
     let n = baseline_outputs.len().min(gated_outputs.len());
     if n == 0 {
-        return DeltaMetric { coherence_delta: 0.0, decision_flips: 0, path_length_change: 0.0 };
+        return DeltaMetric {
+            coherence_delta: 0.0,
+            decision_flips: 0,
+            path_length_change: 0.0,
+        };
     }
     let (bl, gl) = (&baseline_outputs[..n], &gated_outputs[..n]);
     let coherence_delta = cosine(bl, gl) - 1.0;
-    let decision_flips = bl.iter().zip(gl).filter(|(b, g)| b.is_sign_positive() != g.is_sign_positive()).count();
+    let decision_flips = bl
+        .iter()
+        .zip(gl)
+        .filter(|(b, g)| b.is_sign_positive() != g.is_sign_positive())
+        .count();
     let bn = l2_norm(bl);
-    let path_length_change = if bn > f64::EPSILON { l2_norm(gl) / bn - 1.0 } else { 0.0 };
-    DeltaMetric { coherence_delta, decision_flips, path_length_change }
+    let path_length_change = if bn > f64::EPSILON {
+        l2_norm(gl) / bn - 1.0
+    } else {
+        0.0
+    };
+    DeltaMetric {
+        coherence_delta,
+        decision_flips,
+        path_length_change,
+    }
 }
 
 fn cosine(a: &[f32], b: &[f32]) -> f64 {
     let dot: f64 = a.iter().zip(b).map(|(x, y)| *x as f64 * *y as f64).sum();
     let denom = l2_norm(a) * l2_norm(b);
-    if denom < f64::EPSILON { 0.0 } else { dot / denom }
+    if denom < f64::EPSILON {
+        0.0
+    } else {
+        dot / denom
+    }
 }
 
 fn l2_norm(v: &[f32]) -> f64 {
@@ -67,8 +93,14 @@ mod tests {
     #[test]
     fn contradiction_rate_boundaries() {
         let preds = vec![vec![1.0, 2.0], vec![3.0, 4.0]];
-        assert_eq!(contradiction_rate(&preds, &[vec![1.0, 1.0], vec![1.0, 1.0]]), 0.0);
-        assert_eq!(contradiction_rate(&preds, &[vec![-1.0, -1.0], vec![-1.0, -1.0]]), 1.0);
+        assert_eq!(
+            contradiction_rate(&preds, &[vec![1.0, 1.0], vec![1.0, 1.0]]),
+            0.0
+        );
+        assert_eq!(
+            contradiction_rate(&preds, &[vec![-1.0, -1.0], vec![-1.0, -1.0]]),
+            1.0
+        );
         assert_eq!(contradiction_rate(&[], &[]), 0.0);
     }
 

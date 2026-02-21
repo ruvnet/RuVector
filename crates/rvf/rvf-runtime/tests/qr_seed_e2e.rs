@@ -115,7 +115,9 @@ fn full_round_trip_with_real_crypto() {
     parsed.verify_signature(SIGNING_KEY, &payload).unwrap();
 
     // 7. Wrong key must fail.
-    assert!(parsed.verify_signature(b"wrong-key-must-fail-immediately!", &payload).is_err());
+    assert!(parsed
+        .verify_signature(b"wrong-key-must-fail-immediately!", &payload)
+        .is_err());
 
     // 8. Decompress microkernel.
     let decompressed = parsed.decompress_microkernel().unwrap();
@@ -136,15 +138,17 @@ fn full_round_trip_with_real_crypto() {
 
     // 10. Tampered layer data must fail.
     let tampered = vec![0xFF; 4096];
-    assert!(!seed_crypto::verify_layer(&layers[0].0.content_hash, &tampered));
+    assert!(!seed_crypto::verify_layer(
+        &layers[0].0.content_hash,
+        &tampered
+    ));
 }
 
 #[test]
 fn compress_microkernel_method() {
     let wasm = fake_wasm(5500);
 
-    let builder = SeedBuilder::new([0x02; 8], 128, 1000)
-        .compress_microkernel(&wasm);
+    let builder = SeedBuilder::new([0x02; 8], 128, 1000).compress_microkernel(&wasm);
 
     let (payload, header) = builder.build_and_sign(SIGNING_KEY).unwrap();
     assert!(header.has_microkernel());
@@ -159,8 +163,7 @@ fn compress_microkernel_method() {
 #[test]
 fn unsigned_build_still_works() {
     // The original build() method must still work for backward compatibility.
-    let builder = SeedBuilder::new([0x03; 8], 128, 1000)
-        .with_content_hash([0xAA; 8]);
+    let builder = SeedBuilder::new([0x03; 8], 128, 1000).with_content_hash([0xAA; 8]);
     let (payload, header) = builder.build().unwrap();
     assert!(!header.is_signed());
     assert_eq!(header.content_hash, [0xAA; 8]);
@@ -171,8 +174,7 @@ fn unsigned_build_still_works() {
 
 #[test]
 fn tampered_payload_fails_signature() {
-    let builder = SeedBuilder::new([0x04; 8], 128, 1000)
-        .compress_microkernel(&fake_wasm(2000));
+    let builder = SeedBuilder::new([0x04; 8], 128, 1000).compress_microkernel(&fake_wasm(2000));
     let (mut payload, _) = builder.build_and_sign(SIGNING_KEY).unwrap();
 
     // Tamper with a byte in the microkernel area.
@@ -184,8 +186,7 @@ fn tampered_payload_fails_signature() {
 
 #[test]
 fn tampered_payload_fails_content_hash() {
-    let builder = SeedBuilder::new([0x05; 8], 128, 1000)
-        .compress_microkernel(&fake_wasm(2000));
+    let builder = SeedBuilder::new([0x05; 8], 128, 1000).compress_microkernel(&fake_wasm(2000));
     let (mut payload, _) = builder.build_and_sign(SIGNING_KEY).unwrap();
 
     // Tamper with a byte in the microkernel.
@@ -197,8 +198,7 @@ fn tampered_payload_fails_content_hash() {
 
 #[test]
 fn verify_all_catches_bad_signature() {
-    let builder = SeedBuilder::new([0x06; 8], 128, 1000)
-        .compress_microkernel(&fake_wasm(2000));
+    let builder = SeedBuilder::new([0x06; 8], 128, 1000).compress_microkernel(&fake_wasm(2000));
     let (payload, _) = builder.build_and_sign(SIGNING_KEY).unwrap();
 
     let parsed = ParsedSeed::parse(&payload).unwrap();

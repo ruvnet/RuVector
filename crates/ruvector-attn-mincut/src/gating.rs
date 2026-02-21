@@ -14,7 +14,9 @@ fn compute_logits(q: &[f32], k: &[f32], d: usize, seq_len: usize) -> Vec<f32> {
     for i in 0..seq_len {
         for j in 0..seq_len {
             let mut dot = 0.0f32;
-            for h in 0..d { dot += q[i * d + h] * k[j * d + h]; }
+            for h in 0..d {
+                dot += q[i * d + h] * k[j * d + h];
+            }
             logits[i * seq_len + j] = dot * scale;
         }
     }
@@ -27,8 +29,15 @@ fn row_softmax(mat: &mut [f32], rows: usize, cols: usize) {
         let row = &mut mat[i * cols..(i + 1) * cols];
         let mx = row.iter().copied().fold(f32::NEG_INFINITY, f32::max);
         let mut sum = 0.0f32;
-        for v in row.iter_mut() { *v = (*v - mx).exp(); sum += *v; }
-        if sum > 0.0 { for v in row.iter_mut() { *v /= sum; } }
+        for v in row.iter_mut() {
+            *v = (*v - mx).exp();
+            sum += *v;
+        }
+        if sum > 0.0 {
+            for v in row.iter_mut() {
+                *v /= sum;
+            }
+        }
     }
 }
 
@@ -39,7 +48,9 @@ fn matmul_wv(w: &[f32], v: &[f32], seq_len: usize, d: usize) -> Vec<f32> {
         for j in 0..seq_len {
             let wij = w[i * seq_len + j];
             if wij != 0.0 {
-                for h in 0..d { out[i * d + h] += wij * v[j * d + h]; }
+                for h in 0..d {
+                    out[i * d + h] += wij * v[j * d + h];
+                }
             }
         }
     }
@@ -57,8 +68,14 @@ pub fn attn_softmax(q: &[f32], k: &[f32], v: &[f32], d: usize, seq_len: usize) -
 /// Min-cut gated attention.
 /// 1. Compute logits  2. Min-cut gating  3. Mask with -INF  4. Row-softmax  5. Multiply V
 pub fn attn_mincut(
-    q: &[f32], k: &[f32], v: &[f32],
-    d: usize, seq_len: usize, lambda: f32, tau: usize, eps: f32,
+    q: &[f32],
+    k: &[f32],
+    v: &[f32],
+    d: usize,
+    seq_len: usize,
+    lambda: f32,
+    tau: usize,
+    eps: f32,
 ) -> AttentionOutput {
     assert!(q.len() == seq_len * d && k.len() == seq_len * d && v.len() == seq_len * d);
     let mut logits = compute_logits(q, k, d, seq_len);
@@ -66,13 +83,22 @@ pub fn attn_mincut(
 
     // Gate entries with -INF so softmax zeroes them
     for i in 0..logits.len() {
-        if !gating.keep_mask[i] { logits[i] = f32::NEG_INFINITY; }
+        if !gating.keep_mask[i] {
+            logits[i] = f32::NEG_INFINITY;
+        }
     }
     row_softmax(&mut logits, seq_len, seq_len);
     // Replace NaN (fully-gated rows) with 0
-    for v in logits.iter_mut() { if v.is_nan() { *v = 0.0; } }
+    for v in logits.iter_mut() {
+        if v.is_nan() {
+            *v = 0.0;
+        }
+    }
 
-    AttentionOutput { output: matmul_wv(&logits, v, seq_len, d), gating }
+    AttentionOutput {
+        output: matmul_wv(&logits, v, seq_len, d),
+        gating,
+    }
 }
 
 #[cfg(test)]
@@ -83,7 +109,10 @@ mod tests {
         let mut q = vec![0.0f32; seq * d];
         let mut k = vec![0.0f32; seq * d];
         let v: Vec<f32> = (0..seq * d).map(|i| i as f32).collect();
-        for i in 0..seq.min(d) { q[i * d + i] = 1.0; k[i * d + i] = 1.0; }
+        for i in 0..seq.min(d) {
+            q[i * d + i] = 1.0;
+            k[i * d + i] = 1.0;
+        }
         (q, k, v)
     }
 

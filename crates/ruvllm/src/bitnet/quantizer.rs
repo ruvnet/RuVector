@@ -3,8 +3,8 @@
 //! Core absmean ternary quantization algorithm for converting FP32 weights
 //! to BitNet b1.58 ternary format.
 
-use crate::error::{Result, RuvLLMError};
 use super::ternary_tensor::{pack_ternary, TernaryTensor};
+use crate::error::{Result, RuvLLMError};
 
 /// Configuration for PT-BitNet post-training quantization.
 ///
@@ -221,12 +221,9 @@ pub fn quantize_tensor(
     }
 
     // Use checked arithmetic to prevent overflow in block count
-    let num_blocks = total_elements
-        .checked_add(block_size - 1)
-        .ok_or_else(|| {
-            RuvLLMError::Model("Integer overflow in block count calculation".to_string())
-        })?
-        / block_size;
+    let num_blocks = total_elements.checked_add(block_size - 1).ok_or_else(|| {
+        RuvLLMError::Model("Integer overflow in block count calculation".to_string())
+    })? / block_size;
 
     let mut all_ternary = Vec::with_capacity(total_elements);
     let mut scales = Vec::with_capacity(num_blocks);

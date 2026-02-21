@@ -21,9 +21,9 @@ use crate::precision::PrecisionLane;
 use std::f32::consts::PI;
 
 /// Expected drift rate per lane (empirically calibrated)
-const DRIFT_RATE_3BIT: f32 = 0.15;  // High drift expected
-const DRIFT_RATE_5BIT: f32 = 0.05;  // Moderate drift
-const DRIFT_RATE_7BIT: f32 = 0.01;  // Low drift
+const DRIFT_RATE_3BIT: f32 = 0.15; // High drift expected
+const DRIFT_RATE_5BIT: f32 = 0.05; // Moderate drift
+const DRIFT_RATE_7BIT: f32 = 0.01; // Low drift
 const DRIFT_RATE_FLOAT: f32 = 0.0001; // Minimal drift
 
 /// Drift detector using π transforms
@@ -74,12 +74,8 @@ impl DriftDetector {
         assert_eq!(original.len(), quantized.len());
 
         // Apply π transform to both
-        let pi_original: Vec<f32> = original.iter()
-            .map(|&x| self.pi_transform(x))
-            .collect();
-        let pi_quantized: Vec<f32> = quantized.iter()
-            .map(|&x| self.pi_transform(x))
-            .collect();
+        let pi_original: Vec<f32> = original.iter().map(|&x| self.pi_transform(x)).collect();
+        let pi_quantized: Vec<f32> = quantized.iter().map(|&x| self.pi_transform(x)).collect();
 
         // Compute error after π projection
         let error = self.compute_error(&pi_original, &pi_quantized);
@@ -120,10 +116,12 @@ impl DriftDetector {
             return 0.0;
         }
 
-        let mse: f32 = a.iter()
+        let mse: f32 = a
+            .iter()
             .zip(b.iter())
             .map(|(&x, &y)| (x - y).powi(2))
-            .sum::<f32>() / a.len() as f32;
+            .sum::<f32>()
+            / a.len() as f32;
 
         mse.sqrt()
     }

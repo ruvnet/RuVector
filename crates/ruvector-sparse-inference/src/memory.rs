@@ -3,9 +3,9 @@
 //! This module provides weight quantization and neuron caching for efficient
 //! memory usage during inference.
 
-use serde::{Deserialize, Serialize};
 use crate::config::CacheConfig;
 use crate::error::Result;
+use serde::{Deserialize, Serialize};
 
 /// Quantized weight storage for reduced memory usage.
 ///
@@ -36,7 +36,10 @@ impl QuantizedWeights {
         bits: u8,
         group_size: usize,
     ) -> Result<Self> {
-        assert!(bits == 4 || bits == 8, "Only 4-bit and 8-bit quantization supported");
+        assert!(
+            bits == 4 || bits == 8,
+            "Only 4-bit and 8-bit quantization supported"
+        );
 
         let num_groups = (data.len() + group_size - 1) / group_size;
         let mut scales = Vec::with_capacity(num_groups);
@@ -60,20 +63,21 @@ impl QuantizedWeights {
             data.chunks(group_size)
                 .zip(scales.iter().zip(zero_points.iter()))
                 .flat_map(|(group, (&scale, &zp))| {
-                    group.iter().map(move |&v| {
-                        ((v - zp) / scale).round().clamp(0.0, 255.0) as u8
-                    })
+                    group
+                        .iter()
+                        .map(move |&v| ((v - zp) / scale).round().clamp(0.0, 255.0) as u8)
                 })
                 .collect()
         } else {
             // 4-bit: pack two values per byte
             let mut packed = Vec::with_capacity((data.len() + 1) / 2);
-            let quantized: Vec<u8> = data.chunks(group_size)
+            let quantized: Vec<u8> = data
+                .chunks(group_size)
                 .zip(scales.iter().zip(zero_points.iter()))
                 .flat_map(|(group, (&scale, &zp))| {
-                    group.iter().map(move |&v| {
-                        ((v - zp) / scale).round().clamp(0.0, 15.0) as u8
-                    })
+                    group
+                        .iter()
+                        .map(move |&v| ((v - zp) / scale).round().clamp(0.0, 15.0) as u8)
                 })
                 .collect();
 
@@ -282,7 +286,8 @@ mod tests {
         assert_eq!(restored.len(), 256);
 
         // Check reconstruction error
-        let max_error: f32 = data.iter()
+        let max_error: f32 = data
+            .iter()
             .zip(restored.iter())
             .map(|(a, b)| (a - b).abs())
             .fold(0.0, f32::max);
@@ -298,7 +303,8 @@ mod tests {
         assert_eq!(restored.len(), 256);
 
         // 4-bit has more error
-        let max_error: f32 = data.iter()
+        let max_error: f32 = data
+            .iter()
             .zip(restored.iter())
             .map(|(a, b)| (a - b).abs())
             .fold(0.0, f32::max);

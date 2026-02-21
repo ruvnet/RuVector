@@ -56,11 +56,9 @@ pub fn inverse_gate(gate: &Gate) -> Result<Gate, QuantumError> {
         }
 
         // Non-unitary: cannot invert
-        Gate::Measure(_) | Gate::Reset(_) | Gate::Barrier => Err(
-            QuantumError::CircuitError(
-                "cannot invert non-unitary gate (Measure/Reset/Barrier)".into(),
-            ),
-        ),
+        Gate::Measure(_) | Gate::Reset(_) | Gate::Barrier => Err(QuantumError::CircuitError(
+            "cannot invert non-unitary gate (Measure/Reset/Barrier)".into(),
+        )),
     }
 }
 
@@ -116,14 +114,24 @@ impl ReversibleMemory {
     pub fn new(num_qubits: u32) -> Result<Self, QuantumError> {
         let state = QuantumState::new(num_qubits)?;
         let initial_amps = state.state_vector().to_vec();
-        Ok(Self { state, history: Vec::new(), initial_amps, num_qubits })
+        Ok(Self {
+            state,
+            history: Vec::new(),
+            initial_amps,
+            num_qubits,
+        })
     }
 
     /// Create with a deterministic seed.
     pub fn new_with_seed(num_qubits: u32, seed: u64) -> Result<Self, QuantumError> {
         let state = QuantumState::new_with_seed(num_qubits, seed)?;
         let initial_amps = state.state_vector().to_vec();
-        Ok(Self { state, history: Vec::new(), initial_amps, num_qubits })
+        Ok(Self {
+            state,
+            history: Vec::new(),
+            initial_amps,
+            num_qubits,
+        })
     }
 
     /// Apply a gate and record it. Non-unitary gates are rejected.
@@ -238,7 +246,11 @@ impl ReversibleMemory {
             .map(|(i, _)| i)
             .unwrap_or(0);
 
-        Ok(SensitivityResult { sensitivities, most_sensitive, least_sensitive })
+        Ok(SensitivityResult {
+            sensitivities,
+            most_sensitive,
+            least_sensitive,
+        })
     }
 
     /// Current state vector.

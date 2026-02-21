@@ -3,8 +3,8 @@
 //! Exercises the full create -> ingest -> query -> delete -> compact -> reopen
 //! lifecycle through the rvf-runtime RvfStore API.
 
-use rvf_runtime::options::{DistanceMetric, QueryOptions, RvfOptions};
 use rvf_runtime::filter::{FilterExpr, FilterValue};
+use rvf_runtime::options::{DistanceMetric, QueryOptions, RvfOptions};
 use rvf_runtime::RvfStore;
 use tempfile::TempDir;
 
@@ -151,7 +151,11 @@ fn compact_reduces_file_size_after_deletion() {
     let results = store.query(&query, 5, &QueryOptions::default()).unwrap();
     assert!(!results.is_empty());
     for r in &results {
-        assert!(r.id > 25, "compacted store should only contain ids > 25, got {}", r.id);
+        assert!(
+            r.id > 25,
+            "compacted store should only contain ids > 25, got {}",
+            r.id
+        );
     }
 
     store.close().unwrap();
@@ -172,10 +176,13 @@ fn filter_query_integration() {
 
     // Ingest with metadata.
     use rvf_runtime::options::{MetadataEntry, MetadataValue};
-    let metadata: Vec<MetadataEntry> = ids.iter().map(|&id| MetadataEntry {
-        field_id: 0,
-        value: MetadataValue::U64(id % 3), // category: 0, 1, 2
-    }).collect();
+    let metadata: Vec<MetadataEntry> = ids
+        .iter()
+        .map(|&id| MetadataEntry {
+            field_id: 0,
+            value: MetadataValue::U64(id % 3), // category: 0, 1, 2
+        })
+        .collect();
     store.ingest_batch(&refs, &ids, Some(&metadata)).unwrap();
 
     // Query with filter: category == 1 (ids 1, 4, 7, 10, 13, 16, 19).
@@ -189,7 +196,12 @@ fn filter_query_integration() {
 
     // All results should have category == 1 (id % 3 == 1).
     for r in &results {
-        assert_eq!(r.id % 3, 1, "filter should only return category 1, got id={}", r.id);
+        assert_eq!(
+            r.id % 3,
+            1,
+            "filter should only return category 1, got id={}",
+            r.id
+        );
     }
     assert!(!results.is_empty());
 
@@ -244,7 +256,10 @@ fn concurrent_writer_lock() {
 
     // After close, opening should work.
     let store2 = RvfStore::open(&path);
-    assert!(store2.is_ok(), "should be able to open after first writer closed");
+    assert!(
+        store2.is_ok(),
+        "should be able to open after first writer closed"
+    );
     store2.unwrap().close().unwrap();
 }
 
@@ -292,10 +307,13 @@ fn delete_by_filter() {
     let ids: Vec<u64> = (1..=10).collect();
 
     use rvf_runtime::options::{MetadataEntry, MetadataValue};
-    let metadata: Vec<MetadataEntry> = ids.iter().map(|&id| MetadataEntry {
-        field_id: 0,
-        value: MetadataValue::U64(if id <= 5 { 0 } else { 1 }),
-    }).collect();
+    let metadata: Vec<MetadataEntry> = ids
+        .iter()
+        .map(|&id| MetadataEntry {
+            field_id: 0,
+            value: MetadataValue::U64(if id <= 5 { 0 } else { 1 }),
+        })
+        .collect();
     store.ingest_batch(&refs, &ids, Some(&metadata)).unwrap();
 
     // Delete all with field_0 == 0 (ids 1..=5).

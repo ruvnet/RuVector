@@ -8,19 +8,19 @@ use std::fs::{self, File, OpenOptions};
 use std::io::{BufReader, BufWriter, Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
 
-use rvf_types::{
-    DomainProfile, ErrorCode, FileIdentity, RvfError, SegmentType,
-    SEGMENT_HEADER_SIZE, SEGMENT_MAGIC,
-};
-use rvf_types::kernel::{KernelHeader, KERNEL_MAGIC};
-use rvf_types::kernel_binding::KernelBinding;
 use rvf_types::dashboard::{DashboardHeader, DASHBOARD_MAGIC, DASHBOARD_MAX_SIZE};
 use rvf_types::ebpf::{EbpfHeader, EBPF_MAGIC};
+use rvf_types::kernel::{KernelHeader, KERNEL_MAGIC};
+use rvf_types::kernel_binding::KernelBinding;
 use rvf_types::wasm_bootstrap::{WasmHeader, WasmRole, WASM_MAGIC};
+use rvf_types::{
+    DomainProfile, ErrorCode, FileIdentity, RvfError, SegmentType, SEGMENT_HEADER_SIZE,
+    SEGMENT_MAGIC,
+};
 
 use crate::cow::{CowEngine, CowStats};
 use crate::deletion::DeletionBitmap;
-use crate::filter::{self, FilterExpr, FilterValue, MetadataStore, metadata_value_to_filter};
+use crate::filter::{self, metadata_value_to_filter, FilterExpr, FilterValue, MetadataStore};
 use crate::locking::WriterLock;
 use crate::membership::MembershipFilter;
 use crate::options::*;
@@ -84,8 +84,7 @@ impl RvfStore {
             .open(path)
             .map_err(|_| err(ErrorCode::FsyncFailed))?;
 
-        let writer_lock = WriterLock::acquire(path)
-            .map_err(|_| err(ErrorCode::LockHeld))?;
+        let writer_lock = WriterLock::acquire(path).map_err(|_| err(ErrorCode::LockHeld))?;
 
         // Generate a random file_id from path hash + timestamp
         let file_id = generate_file_id(path);
@@ -130,8 +129,7 @@ impl RvfStore {
             return Err(err(ErrorCode::ManifestNotFound));
         }
 
-        let writer_lock = WriterLock::acquire(path)
-            .map_err(|_| err(ErrorCode::LockHeld))?;
+        let writer_lock = WriterLock::acquire(path).map_err(|_| err(ErrorCode::LockHeld))?;
 
         let file = OpenOptions::new()
             .read(true)
@@ -254,22 +252,42 @@ impl RvfStore {
 
         if valid_vectors.is_empty() {
             self.epoch += 1;
-            return Ok(IngestResult { accepted: 0, rejected, epoch: self.epoch });
+            return Ok(IngestResult {
+                accepted: 0,
+                rejected,
+                epoch: self.epoch,
+            });
         }
 
-        let writer = self.seg_writer.as_mut().ok_or_else(|| err(ErrorCode::InvalidManifest))?;
+        let writer = self
+            .seg_writer
+            .as_mut()
+            .ok_or_else(|| err(ErrorCode::InvalidManifest))?;
 
         let (vec_seg_id, vec_seg_offset) = {
             let mut buf_writer = BufWriter::with_capacity(256 * 1024, &self.file);
-            buf_writer.seek(SeekFrom::End(0)).map_err(|_| err(ErrorCode::FsyncFailed))?;
-            writer.write_vec_seg(&mut buf_writer, &valid_vectors, &valid_ids, self.options.dimension)
+            buf_writer
+                .seek(SeekFrom::End(0))
+                .map_err(|_| err(ErrorCode::FsyncFailed))?;
+            writer
+                .write_vec_seg(
+                    &mut buf_writer,
+                    &valid_vectors,
+                    &valid_ids,
+                    self.options.dimension,
+                )
                 .map_err(|_| err(ErrorCode::FsyncFailed))?
         };
 
         let bytes_per_vec = (self.options.dimension as usize) * 4;
         let vec_payload_len = (2 + 4 + valid_vectors.len() * (8 + bytes_per_vec)) as u64;
 
-        self.segment_dir.push((vec_seg_id, vec_seg_offset, vec_payload_len, SegmentType::Vec as u8));
+        self.segment_dir.push((
+            vec_seg_id,
+            vec_seg_offset,
+            vec_payload_len,
+            SegmentType::Vec as u8,
+        ));
 
         for (vec_data, &vec_id) in valid_vectors.iter().zip(valid_ids.iter()) {
             self.vectors.insert(vec_id, vec_data.to_vec());
@@ -290,25 +308,25 @@ impl RvfStore {
             }
         }
 
-        self.file.sync_all().map_err(|_| err(ErrorCode::FsyncFailed))?;
+        self.file
+            .sync_all()
+            .map_err(|_| err(ErrorCode::FsyncFailed))?;
 
         self.epoch += 1;
 
         // Append a witness entry recording this ingest operation.
         if self.options.witness.witness_ingest {
-            let action = format!(
-                "ingest:count={},epoch={}",
-                accepted, self.epoch
-            );
-            self.append_witness(
-                witness_types::COMPUTATION,
-                action.as_bytes(),
-            )?;
+            let action = format!("ingest:count={},epoch={}", accepted, self.epoch);
+            self.append_witness(witness_types::COMPUTATION, action.as_bytes())?;
         }
 
         self.write_manifest()?;
 
-        Ok(IngestResult { accepted, rejected, epoch: self.epoch })
+        Ok(IngestResult {
+            accepted,
+            rejected,
+            epoch: self.epoch,
+        })
     }
 
     /// Query the store for the k nearest neighbors of the given vector.
@@ -362,7 +380,11 @@ impl RvfStore {
                 retrieval_quality: rvf_types::quality::RetrievalQuality::Full,
             })
             .collect();
-        results.sort_by(|a, b| a.distance.partial_cmp(&b.distance).unwrap_or(std::cmp::Ordering::Equal));
+        results.sort_by(|a, b| {
+            a.distance
+                .partial_cmp(&b.distance)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
         Ok(results)
     }
 
@@ -408,7 +430,9 @@ impl RvfStore {
 
         if needs_safety_net && self.vectors.len() > 0 {
             // Build vector refs for safety net scan.
-            let vec_refs: Vec<(u64, &[f32])> = self.vectors.ids()
+            let vec_refs: Vec<(u64, &[f32])> = self
+                .vectors
+                .ids()
                 .filter_map(|&id| {
                     if self.deletion_bitmap.is_deleted(id) {
                         return None;
@@ -442,7 +466,9 @@ impl RvfStore {
 
             // Re-sort and take top-k.
             all_results.sort_by(|a, b| {
-                a.distance.partial_cmp(&b.distance).unwrap_or(std::cmp::Ordering::Equal)
+                a.distance
+                    .partial_cmp(&b.distance)
+                    .unwrap_or(std::cmp::Ordering::Equal)
             });
             all_results.truncate(k);
         }
@@ -451,10 +477,8 @@ impl RvfStore {
         budget_report.total_us = elapsed_us;
 
         // Derive response quality from all candidate qualities.
-        let retrieval_qualities: Vec<RetrievalQuality> = all_results
-            .iter()
-            .map(|r| r.retrieval_quality)
-            .collect();
+        let retrieval_qualities: Vec<RetrievalQuality> =
+            all_results.iter().map(|r| r.retrieval_quality).collect();
         let quality = derive_response_quality(&retrieval_qualities);
 
         let evidence = SearchEvidenceSummary {
@@ -480,9 +504,13 @@ impl RvfStore {
         };
 
         // Enforce quality threshold policy.
-        if matches!(quality, ResponseQuality::Degraded | ResponseQuality::Unreliable)
-            && !matches!(options.quality_preference, QualityPreference::AcceptDegraded)
-        {
+        if matches!(
+            quality,
+            ResponseQuality::Degraded | ResponseQuality::Unreliable
+        ) && !matches!(
+            options.quality_preference,
+            QualityPreference::AcceptDegraded
+        ) {
             return Err(RvfError::QualityBelowThreshold {
                 quality,
                 reason: "result quality below threshold; set AcceptDegraded to use partial results",
@@ -508,15 +536,16 @@ impl RvfStore {
         if self.options.witness.audit_queries && !self.read_only {
             let action = format!(
                 "query:k={},results={},epoch={}",
-                k, results.len(), self.epoch
+                k,
+                results.len(),
+                self.epoch
             );
-            self.append_witness(
-                witness_types::COMPUTATION,
-                action.as_bytes(),
-            )?;
+            self.append_witness(witness_types::COMPUTATION, action.as_bytes())?;
             // Flush the witness to disk but skip a full manifest rewrite
             // to keep query overhead minimal.
-            self.file.sync_all().map_err(|_| err(ErrorCode::FsyncFailed))?;
+            self.file
+                .sync_all()
+                .map_err(|_| err(ErrorCode::FsyncFailed))?;
         }
 
         Ok(results)
@@ -528,20 +557,33 @@ impl RvfStore {
             return Err(err(ErrorCode::ReadOnly));
         }
 
-        let writer = self.seg_writer.as_mut().ok_or_else(|| err(ErrorCode::InvalidManifest))?;
+        let writer = self
+            .seg_writer
+            .as_mut()
+            .ok_or_else(|| err(ErrorCode::InvalidManifest))?;
         let epoch = self.epoch + 1;
 
         let (journal_seg_id, journal_offset) = {
             let mut buf_writer = BufWriter::new(&self.file);
-            buf_writer.seek(SeekFrom::End(0)).map_err(|_| err(ErrorCode::FsyncFailed))?;
-            writer.write_journal_seg(&mut buf_writer, ids, epoch)
+            buf_writer
+                .seek(SeekFrom::End(0))
+                .map_err(|_| err(ErrorCode::FsyncFailed))?;
+            writer
+                .write_journal_seg(&mut buf_writer, ids, epoch)
                 .map_err(|_| err(ErrorCode::FsyncFailed))?
         };
 
         let journal_payload_len = (16 + ids.len() * 12) as u64;
-        self.segment_dir.push((journal_seg_id, journal_offset, journal_payload_len, SegmentType::Journal as u8));
+        self.segment_dir.push((
+            journal_seg_id,
+            journal_offset,
+            journal_payload_len,
+            SegmentType::Journal as u8,
+        ));
 
-        self.file.sync_all().map_err(|_| err(ErrorCode::FsyncFailed))?;
+        self.file
+            .sync_all()
+            .map_err(|_| err(ErrorCode::FsyncFailed))?;
 
         let mut deleted = 0u64;
         for &id in ids {
@@ -555,19 +597,16 @@ impl RvfStore {
 
         // Append a witness entry recording this delete operation.
         if self.options.witness.witness_delete {
-            let action = format!(
-                "delete:count={},epoch={}",
-                deleted, self.epoch
-            );
-            self.append_witness(
-                witness_types::DATA_PROVENANCE,
-                action.as_bytes(),
-            )?;
+            let action = format!("delete:count={},epoch={}", deleted, self.epoch);
+            self.append_witness(witness_types::DATA_PROVENANCE, action.as_bytes())?;
         }
 
         self.write_manifest()?;
 
-        Ok(DeleteResult { deleted, epoch: self.epoch })
+        Ok(DeleteResult {
+            deleted,
+            epoch: self.epoch,
+        })
     }
 
     /// Soft-delete vectors matching a filter expression.
@@ -576,7 +615,9 @@ impl RvfStore {
             return Err(err(ErrorCode::ReadOnly));
         }
 
-        let matching_ids: Vec<u64> = self.vectors.ids()
+        let matching_ids: Vec<u64> = self
+            .vectors
+            .ids()
             .filter(|&&id| {
                 !self.deletion_bitmap.is_deleted(id)
                     && filter::evaluate(filter_expr, id, &self.metadata)
@@ -585,7 +626,10 @@ impl RvfStore {
             .collect();
 
         if matching_ids.is_empty() {
-            return Ok(DeleteResult { deleted: 0, epoch: self.epoch });
+            return Ok(DeleteResult {
+                deleted: 0,
+                epoch: self.epoch,
+            });
         }
 
         self.delete(&matching_ids)
@@ -593,12 +637,17 @@ impl RvfStore {
 
     /// Get the current store status.
     pub fn status(&self) -> StoreStatus {
-        let total_vectors = (self.vectors.len() as u64).saturating_sub(self.deletion_bitmap.count() as u64);
+        let total_vectors =
+            (self.vectors.len() as u64).saturating_sub(self.deletion_bitmap.count() as u64);
         let file_size = self.file.metadata().map(|m| m.len()).unwrap_or(0);
         let dead_space_ratio = {
             let total = self.vectors.len() as f64;
             let deleted = self.deletion_bitmap.count() as f64;
-            if total > 0.0 { deleted / total } else { 0.0 }
+            if total > 0.0 {
+                deleted / total
+            } else {
+                0.0
+            }
         };
 
         StoreStatus {
@@ -638,9 +687,13 @@ impl RvfStore {
         // that may not be in the manifest (e.g., unknown types appended by newer tools).
         let original_bytes = {
             let mut reader = BufReader::new(&self.file);
-            reader.seek(SeekFrom::Start(0)).map_err(|_| err(ErrorCode::FsyncFailed))?;
+            reader
+                .seek(SeekFrom::Start(0))
+                .map_err(|_| err(ErrorCode::FsyncFailed))?;
             let mut buf = Vec::new();
-            reader.read_to_end(&mut buf).map_err(|_| err(ErrorCode::FsyncFailed))?;
+            reader
+                .read_to_end(&mut buf)
+                .map_err(|_| err(ErrorCode::FsyncFailed))?;
             buf
         };
 
@@ -659,15 +712,21 @@ impl RvfStore {
             let mut temp_writer = BufWriter::new(&temp_file);
 
             let live_ids: Vec<u64> = self.vectors.ids().copied().collect();
-            let live_vecs: Vec<Vec<f32>> = live_ids.iter()
+            let live_vecs: Vec<Vec<f32>> = live_ids
+                .iter()
                 .filter_map(|&id| self.vectors.get(id).map(|v| v.to_vec()))
                 .collect();
 
             if !live_ids.is_empty() {
                 let vec_refs: Vec<&[f32]> = live_vecs.iter().map(|v| v.as_slice()).collect();
-                let (seg_id, offset) = seg_writer.write_vec_seg(
-                    &mut temp_writer, &vec_refs, &live_ids, self.options.dimension,
-                ).map_err(|_| err(ErrorCode::FsyncFailed))?;
+                let (seg_id, offset) = seg_writer
+                    .write_vec_seg(
+                        &mut temp_writer,
+                        &vec_refs,
+                        &live_ids,
+                        self.options.dimension,
+                    )
+                    .map_err(|_| err(ErrorCode::FsyncFailed))?;
 
                 let bytes_per_vec = (self.options.dimension as usize) * 4;
                 let payload_len = (2 + 4 + live_ids.len() * (8 + bytes_per_vec)) as u64;
@@ -692,11 +751,16 @@ impl RvfStore {
                 let src = &original_bytes[*orig_offset..end];
 
                 // Flush the BufWriter so stream_position reflects the true offset.
-                temp_writer.flush().map_err(|_| err(ErrorCode::FsyncFailed))?;
-                let new_offset = temp_writer.stream_position()
+                temp_writer
+                    .flush()
+                    .map_err(|_| err(ErrorCode::FsyncFailed))?;
+                let new_offset = temp_writer
+                    .stream_position()
                     .map_err(|_| err(ErrorCode::FsyncFailed))?;
 
-                temp_writer.write_all(src).map_err(|_| err(ErrorCode::FsyncFailed))?;
+                temp_writer
+                    .write_all(src)
+                    .map_err(|_| err(ErrorCode::FsyncFailed))?;
 
                 // Ensure the seg_writer's next_seg_id stays above any preserved ID.
                 while seg_writer.next_id() <= *seg_id {
@@ -715,14 +779,28 @@ impl RvfStore {
                 None
             };
             // Flush before writing manifest so offsets are accurate.
-            temp_writer.flush().map_err(|_| err(ErrorCode::FsyncFailed))?;
-            seg_writer.write_manifest_seg_with_identity(
-                &mut temp_writer, self.epoch, self.options.dimension,
-                total_vectors, self.options.profile, &new_segment_dir, &empty_dels, fi,
-            ).map_err(|_| err(ErrorCode::FsyncFailed))?;
+            temp_writer
+                .flush()
+                .map_err(|_| err(ErrorCode::FsyncFailed))?;
+            seg_writer
+                .write_manifest_seg_with_identity(
+                    &mut temp_writer,
+                    self.epoch,
+                    self.options.dimension,
+                    total_vectors,
+                    self.options.profile,
+                    &new_segment_dir,
+                    &empty_dels,
+                    fi,
+                )
+                .map_err(|_| err(ErrorCode::FsyncFailed))?;
 
-            temp_writer.flush().map_err(|_| err(ErrorCode::FsyncFailed))?;
-            temp_file.sync_all().map_err(|_| err(ErrorCode::FsyncFailed))?;
+            temp_writer
+                .flush()
+                .map_err(|_| err(ErrorCode::FsyncFailed))?;
+            temp_file
+                .sync_all()
+                .map_err(|_| err(ErrorCode::FsyncFailed))?;
         }
 
         fs::rename(&temp_path, &self.path).map_err(|_| err(ErrorCode::FsyncFailed))?;
@@ -753,19 +831,24 @@ impl RvfStore {
                 "compact:segments_compacted={},bytes_reclaimed={},epoch={}",
                 segments_compacted, bytes_reclaimed, self.epoch
             );
-            self.append_witness(
-                witness_types::COMPUTATION,
-                action.as_bytes(),
-            )?;
-            self.file.sync_all().map_err(|_| err(ErrorCode::FsyncFailed))?;
+            self.append_witness(witness_types::COMPUTATION, action.as_bytes())?;
+            self.file
+                .sync_all()
+                .map_err(|_| err(ErrorCode::FsyncFailed))?;
         }
 
-        Ok(CompactionResult { segments_compacted, bytes_reclaimed, epoch: self.epoch })
+        Ok(CompactionResult {
+            segments_compacted,
+            bytes_reclaimed,
+            epoch: self.epoch,
+        })
     }
 
     /// Close the store, releasing the writer lock.
     pub fn close(self) -> Result<(), RvfError> {
-        self.file.sync_all().map_err(|_| err(ErrorCode::FsyncFailed))?;
+        self.file
+            .sync_all()
+            .map_err(|_| err(ErrorCode::FsyncFailed))?;
 
         if let Some(lock) = self.writer_lock {
             lock.release().map_err(|_| err(ErrorCode::LockHeld))?;
@@ -773,7 +856,6 @@ impl RvfStore {
 
         Ok(())
     }
-
 
     // -- Kernel / eBPF embedding API --
 
@@ -822,24 +904,28 @@ impl RvfStore {
 
         let cmdline_bytes = cmdline.map(|s| s.as_bytes());
 
-        let writer = self.seg_writer.as_mut()
+        let writer = self
+            .seg_writer
+            .as_mut()
             .ok_or_else(|| err(ErrorCode::InvalidManifest))?;
         let (seg_id, seg_offset) = {
             let mut buf_writer = BufWriter::new(&self.file);
-            buf_writer.seek(SeekFrom::End(0))
+            buf_writer
+                .seek(SeekFrom::End(0))
                 .map_err(|_| err(ErrorCode::FsyncFailed))?;
-            writer.write_kernel_seg(
-                &mut buf_writer, &header_bytes, kernel_image, cmdline_bytes,
-            ).map_err(|_| err(ErrorCode::FsyncFailed))?
+            writer
+                .write_kernel_seg(&mut buf_writer, &header_bytes, kernel_image, cmdline_bytes)
+                .map_err(|_| err(ErrorCode::FsyncFailed))?
         };
 
         let cmdline_len = cmdline_bytes.map_or(0, |c| c.len());
         let payload_len = (128 + kernel_image.len() + cmdline_len) as u64;
-        self.segment_dir.push((
-            seg_id, seg_offset, payload_len, SegmentType::Kernel as u8,
-        ));
+        self.segment_dir
+            .push((seg_id, seg_offset, payload_len, SegmentType::Kernel as u8));
 
-        self.file.sync_all().map_err(|_| err(ErrorCode::FsyncFailed))?;
+        self.file
+            .sync_all()
+            .map_err(|_| err(ErrorCode::FsyncFailed))?;
         self.epoch += 1;
         self.write_manifest()?;
 
@@ -906,31 +992,41 @@ impl RvfStore {
         payload.extend_from_slice(cmdline_slice);
         payload.extend_from_slice(kernel_image);
 
-        let writer = self.seg_writer.as_mut()
+        let writer = self
+            .seg_writer
+            .as_mut()
             .ok_or_else(|| err(ErrorCode::InvalidManifest))?;
 
         let (seg_id, seg_offset) = {
             let mut buf_writer = BufWriter::new(&self.file);
-            buf_writer.seek(SeekFrom::End(0))
+            buf_writer
+                .seek(SeekFrom::End(0))
                 .map_err(|_| err(ErrorCode::FsyncFailed))?;
             // Write as raw kernel segment: the write_kernel_seg expects
             // header_bytes separately, but we need to include binding in
             // the "image" portion to keep the wire format correct.
             // So we pass the full payload minus the header as "image".
-            writer.write_kernel_seg(
-                &mut buf_writer,
-                &header_bytes,
-                &payload[128..], // binding + cmdline + image
-                None,            // cmdline already included above
-            ).map_err(|_| err(ErrorCode::FsyncFailed))?
+            writer
+                .write_kernel_seg(
+                    &mut buf_writer,
+                    &header_bytes,
+                    &payload[128..], // binding + cmdline + image
+                    None,            // cmdline already included above
+                )
+                .map_err(|_| err(ErrorCode::FsyncFailed))?
         };
 
         let total_payload_len = payload.len() as u64;
         self.segment_dir.push((
-            seg_id, seg_offset, total_payload_len, SegmentType::Kernel as u8,
+            seg_id,
+            seg_offset,
+            total_payload_len,
+            SegmentType::Kernel as u8,
         ));
 
-        self.file.sync_all().map_err(|_| err(ErrorCode::FsyncFailed))?;
+        self.file
+            .sync_all()
+            .map_err(|_| err(ErrorCode::FsyncFailed))?;
         self.epoch += 1;
         self.write_manifest()?;
 
@@ -948,7 +1044,9 @@ impl RvfStore {
     /// Use `extract_kernel_binding` to parse the binding separately.
     #[allow(clippy::type_complexity)]
     pub fn extract_kernel(&self) -> Result<Option<(Vec<u8>, Vec<u8>)>, RvfError> {
-        let entry = self.segment_dir.iter()
+        let entry = self
+            .segment_dir
+            .iter()
             .find(|&&(_, _, _, stype)| stype == SegmentType::Kernel as u8);
 
         let entry = match entry {
@@ -1029,24 +1127,28 @@ impl RvfStore {
         };
         let header_bytes = header.to_bytes();
 
-        let writer = self.seg_writer.as_mut()
+        let writer = self
+            .seg_writer
+            .as_mut()
             .ok_or_else(|| err(ErrorCode::InvalidManifest))?;
         let (seg_id, seg_offset) = {
             let mut buf_writer = BufWriter::new(&self.file);
-            buf_writer.seek(SeekFrom::End(0))
+            buf_writer
+                .seek(SeekFrom::End(0))
                 .map_err(|_| err(ErrorCode::FsyncFailed))?;
-            writer.write_ebpf_seg(
-                &mut buf_writer, &header_bytes, program_bytecode, btf_data,
-            ).map_err(|_| err(ErrorCode::FsyncFailed))?
+            writer
+                .write_ebpf_seg(&mut buf_writer, &header_bytes, program_bytecode, btf_data)
+                .map_err(|_| err(ErrorCode::FsyncFailed))?
         };
 
         let btf_len = btf_data.map_or(0, |b| b.len());
         let payload_len = (64 + program_bytecode.len() + btf_len) as u64;
-        self.segment_dir.push((
-            seg_id, seg_offset, payload_len, SegmentType::Ebpf as u8,
-        ));
+        self.segment_dir
+            .push((seg_id, seg_offset, payload_len, SegmentType::Ebpf as u8));
 
-        self.file.sync_all().map_err(|_| err(ErrorCode::FsyncFailed))?;
+        self.file
+            .sync_all()
+            .map_err(|_| err(ErrorCode::FsyncFailed))?;
         self.epoch += 1;
         self.write_manifest()?;
 
@@ -1060,7 +1162,9 @@ impl RvfStore {
     /// (program bytecode + optional BTF). Returns None if no EBPF_SEG.
     #[allow(clippy::type_complexity)]
     pub fn extract_ebpf(&self) -> Result<Option<(Vec<u8>, Vec<u8>)>, RvfError> {
-        let entry = self.segment_dir.iter()
+        let entry = self
+            .segment_dir
+            .iter()
             .find(|&&(_, _, _, stype)| stype == SegmentType::Ebpf as u8);
 
         let entry = match entry {
@@ -1123,23 +1227,31 @@ impl RvfStore {
         };
         let header_bytes = header.to_bytes();
 
-        let writer = self.seg_writer.as_mut()
+        let writer = self
+            .seg_writer
+            .as_mut()
             .ok_or_else(|| err(ErrorCode::InvalidManifest))?;
         let (seg_id, seg_offset) = {
             let mut buf_writer = BufWriter::new(&self.file);
-            buf_writer.seek(SeekFrom::End(0))
+            buf_writer
+                .seek(SeekFrom::End(0))
                 .map_err(|_| err(ErrorCode::FsyncFailed))?;
-            writer.write_dashboard_seg(
-                &mut buf_writer, &header_bytes, bundle_data,
-            ).map_err(|_| err(ErrorCode::FsyncFailed))?
+            writer
+                .write_dashboard_seg(&mut buf_writer, &header_bytes, bundle_data)
+                .map_err(|_| err(ErrorCode::FsyncFailed))?
         };
 
         let payload_len = (64 + bundle_data.len()) as u64;
         self.segment_dir.push((
-            seg_id, seg_offset, payload_len, SegmentType::Dashboard as u8,
+            seg_id,
+            seg_offset,
+            payload_len,
+            SegmentType::Dashboard as u8,
         ));
 
-        self.file.sync_all().map_err(|_| err(ErrorCode::FsyncFailed))?;
+        self.file
+            .sync_all()
+            .map_err(|_| err(ErrorCode::FsyncFailed))?;
         self.epoch += 1;
         self.write_manifest()?;
 
@@ -1153,7 +1265,9 @@ impl RvfStore {
     /// (bundle data). Returns None if no DASHBOARD_SEG.
     #[allow(clippy::type_complexity)]
     pub fn extract_dashboard(&self) -> Result<Option<(Vec<u8>, Vec<u8>)>, RvfError> {
-        let entry = self.segment_dir.iter()
+        let entry = self
+            .segment_dir
+            .iter()
             .find(|&&(_, _, _, stype)| stype == SegmentType::Dashboard as u8);
 
         let entry = match entry {
@@ -1222,23 +1336,27 @@ impl RvfStore {
         };
         let header_bytes = header.to_bytes();
 
-        let writer = self.seg_writer.as_mut()
+        let writer = self
+            .seg_writer
+            .as_mut()
             .ok_or_else(|| err(ErrorCode::InvalidManifest))?;
         let (seg_id, seg_offset) = {
             let mut buf_writer = BufWriter::new(&self.file);
-            buf_writer.seek(SeekFrom::End(0))
+            buf_writer
+                .seek(SeekFrom::End(0))
                 .map_err(|_| err(ErrorCode::FsyncFailed))?;
-            writer.write_wasm_seg(
-                &mut buf_writer, &header_bytes, wasm_bytecode,
-            ).map_err(|_| err(ErrorCode::FsyncFailed))?
+            writer
+                .write_wasm_seg(&mut buf_writer, &header_bytes, wasm_bytecode)
+                .map_err(|_| err(ErrorCode::FsyncFailed))?
         };
 
         let payload_len = (64 + wasm_bytecode.len()) as u64;
-        self.segment_dir.push((
-            seg_id, seg_offset, payload_len, SegmentType::Wasm as u8,
-        ));
+        self.segment_dir
+            .push((seg_id, seg_offset, payload_len, SegmentType::Wasm as u8));
 
-        self.file.sync_all().map_err(|_| err(ErrorCode::FsyncFailed))?;
+        self.file
+            .sync_all()
+            .map_err(|_| err(ErrorCode::FsyncFailed))?;
         self.epoch += 1;
         self.write_manifest()?;
 
@@ -1252,7 +1370,9 @@ impl RvfStore {
     /// (WASM bytecode). Returns None if no WASM_SEG.
     #[allow(clippy::type_complexity)]
     pub fn extract_wasm(&self) -> Result<Option<(Vec<u8>, Vec<u8>)>, RvfError> {
-        let entry = self.segment_dir.iter()
+        let entry = self
+            .segment_dir
+            .iter()
             .find(|&&(_, _, _, stype)| stype == SegmentType::Wasm as u8);
 
         let entry = match entry {
@@ -1282,7 +1402,9 @@ impl RvfStore {
     /// sorted by the `bootstrap_priority` field (lowest first). This ordering
     /// determines the bootstrap chain: interpreter first, then microkernel.
     pub fn extract_wasm_all(&self) -> Result<Vec<(Vec<u8>, Vec<u8>)>, RvfError> {
-        let entries: Vec<_> = self.segment_dir.iter()
+        let entries: Vec<_> = self
+            .segment_dir
+            .iter()
             .filter(|&&(_, _, _, stype)| stype == SegmentType::Wasm as u8)
             .collect();
 
@@ -1475,7 +1597,10 @@ impl RvfStore {
         // Compute parent manifest hash from the file on disk
         let parent_hash = self.compute_own_manifest_hash()?;
 
-        let new_depth = self.file_identity.lineage_depth.checked_add(1)
+        let new_depth = self
+            .file_identity
+            .lineage_depth
+            .checked_add(1)
             .ok_or_else(|| err(ErrorCode::LineageBroken))?;
 
         let child_identity = FileIdentity {
@@ -1492,8 +1617,7 @@ impl RvfStore {
             .open(child_path)
             .map_err(|_| err(ErrorCode::FsyncFailed))?;
 
-        let writer_lock = WriterLock::acquire(child_path)
-            .map_err(|_| err(ErrorCode::LockHeld))?;
+        let writer_lock = WriterLock::acquire(child_path).map_err(|_| err(ErrorCode::LockHeld))?;
 
         // Detect domain profile from child extension
         let domain_profile = child_path
@@ -1532,7 +1656,9 @@ impl RvfStore {
     /// Compute a hash of this file's content for use as parent_hash in derivation.
     fn compute_own_manifest_hash(&self) -> Result<[u8; 32], RvfError> {
         use std::io::Read;
-        let file_len = self.file.metadata()
+        let file_len = self
+            .file
+            .metadata()
             .map_err(|_| err(ErrorCode::InvalidManifest))?
             .len();
         if file_len == 0 {
@@ -1541,10 +1667,13 @@ impl RvfStore {
         // Hash up to 64KB from the end of the file (covers manifest segments)
         let read_len = file_len.min(65536) as usize;
         let mut reader = BufReader::new(&self.file);
-        reader.seek(SeekFrom::End(-(read_len as i64)))
+        reader
+            .seek(SeekFrom::End(-(read_len as i64)))
             .map_err(|_| err(ErrorCode::InvalidManifest))?;
         let mut buf = vec![0u8; read_len];
-        reader.read_exact(&mut buf).map_err(|_| err(ErrorCode::InvalidManifest))?;
+        reader
+            .read_exact(&mut buf)
+            .map_err(|_| err(ErrorCode::InvalidManifest))?;
         Ok(simple_shake256_256(&buf))
     }
 
@@ -1577,12 +1706,10 @@ impl RvfStore {
     ///
     /// The witness entry is chain-linked to the previous witness via
     /// `last_witness_hash` using `simple_shake256_256`.
-    fn append_witness(
-        &mut self,
-        witness_type: u8,
-        action: &[u8],
-    ) -> Result<(), RvfError> {
-        let writer = self.seg_writer.as_mut()
+    fn append_witness(&mut self, witness_type: u8, action: &[u8]) -> Result<(), RvfError> {
+        let writer = self
+            .seg_writer
+            .as_mut()
             .ok_or_else(|| err(ErrorCode::InvalidManifest))?;
 
         let timestamp_ns = std::time::SystemTime::now()
@@ -1592,22 +1719,24 @@ impl RvfStore {
 
         let (seg_id, seg_offset) = {
             let mut buf_writer = BufWriter::new(&self.file);
-            buf_writer.seek(SeekFrom::End(0))
+            buf_writer
+                .seek(SeekFrom::End(0))
                 .map_err(|_| err(ErrorCode::FsyncFailed))?;
-            writer.write_witness_seg(
-                &mut buf_writer,
-                witness_type,
-                timestamp_ns,
-                action,
-                &self.last_witness_hash,
-            ).map_err(|_| err(ErrorCode::FsyncFailed))?
+            writer
+                .write_witness_seg(
+                    &mut buf_writer,
+                    witness_type,
+                    timestamp_ns,
+                    action,
+                    &self.last_witness_hash,
+                )
+                .map_err(|_| err(ErrorCode::FsyncFailed))?
         };
 
         // Compute the payload length for the segment directory.
         let payload_len = (1 + 8 + 4 + action.len() + 32) as u64;
-        self.segment_dir.push((
-            seg_id, seg_offset, payload_len, SegmentType::Witness as u8,
-        ));
+        self.segment_dir
+            .push((seg_id, seg_offset, payload_len, SegmentType::Witness as u8));
 
         // Build the serialized witness entry bytes and hash them to update
         // the chain. This mirrors the payload layout exactly so that
@@ -1641,11 +1770,15 @@ impl RvfStore {
         self.vectors = VectorData::new(manifest.dimension);
         self.deletion_bitmap = DeletionBitmap::from_ids(&manifest.deleted_ids);
 
-        self.segment_dir = manifest.segment_dir.iter()
+        self.segment_dir = manifest
+            .segment_dir
+            .iter()
             .map(|e| (e.seg_id, e.offset, e.payload_length, e.seg_type))
             .collect();
 
-        let vec_seg_entries: Vec<_> = manifest.segment_dir.iter()
+        let vec_seg_entries: Vec<_> = manifest
+            .segment_dir
+            .iter()
             .filter(|e| e.seg_type == SegmentType::Vec as u8)
             .collect();
 
@@ -1669,7 +1802,9 @@ impl RvfStore {
         }
 
         if !self.read_only {
-            let max_seg_id = self.segment_dir.iter()
+            let max_seg_id = self
+                .segment_dir
+                .iter()
                 .map(|&(id, _, _, _)| id)
                 .max()
                 .unwrap_or(0);
@@ -1680,7 +1815,10 @@ impl RvfStore {
     }
 
     fn write_manifest(&mut self) -> Result<(), RvfError> {
-        let writer = self.seg_writer.as_mut().ok_or_else(|| err(ErrorCode::InvalidManifest))?;
+        let writer = self
+            .seg_writer
+            .as_mut()
+            .ok_or_else(|| err(ErrorCode::InvalidManifest))?;
 
         let total_vectors = self.vectors.len() as u64;
         let deleted_ids = self.deletion_bitmap.to_sorted_ids();
@@ -1694,29 +1832,52 @@ impl RvfStore {
 
         let (manifest_seg_id, manifest_offset) = {
             let mut buf_writer = BufWriter::new(&self.file);
-            buf_writer.seek(SeekFrom::End(0)).map_err(|_| err(ErrorCode::FsyncFailed))?;
-            writer.write_manifest_seg_with_identity(
-                &mut buf_writer, self.epoch, self.options.dimension,
-                total_vectors, self.options.profile, &self.segment_dir, &deleted_ids, fi,
-            ).map_err(|_| err(ErrorCode::FsyncFailed))?
+            buf_writer
+                .seek(SeekFrom::End(0))
+                .map_err(|_| err(ErrorCode::FsyncFailed))?;
+            writer
+                .write_manifest_seg_with_identity(
+                    &mut buf_writer,
+                    self.epoch,
+                    self.options.dimension,
+                    total_vectors,
+                    self.options.profile,
+                    &self.segment_dir,
+                    &deleted_ids,
+                    fi,
+                )
+                .map_err(|_| err(ErrorCode::FsyncFailed))?
         };
 
-        let mut manifest_payload_len = (22 + self.segment_dir.len() * 25 + 4 + deleted_ids.len() * 8) as u64;
+        let mut manifest_payload_len =
+            (22 + self.segment_dir.len() * 25 + 4 + deleted_ids.len() * 8) as u64;
         if fi.is_some() {
             manifest_payload_len += 4 + 68; // FIDI marker + FileIdentity
         }
-        self.segment_dir.push((manifest_seg_id, manifest_offset, manifest_payload_len, SegmentType::Manifest as u8));
+        self.segment_dir.push((
+            manifest_seg_id,
+            manifest_offset,
+            manifest_payload_len,
+            SegmentType::Manifest as u8,
+        ));
 
-        self.file.sync_all().map_err(|_| err(ErrorCode::FsyncFailed))?;
+        self.file
+            .sync_all()
+            .map_err(|_| err(ErrorCode::FsyncFailed))?;
         Ok(())
     }
 }
 
 fn compute_distance(a: &[f32], b: &[f32], metric: &DistanceMetric) -> f32 {
     match metric {
-        DistanceMetric::L2 => {
-            a.iter().zip(b.iter()).map(|(x, y)| { let d = x - y; d * d }).sum()
-        }
+        DistanceMetric::L2 => a
+            .iter()
+            .zip(b.iter())
+            .map(|(x, y)| {
+                let d = x - y;
+                d * d
+            })
+            .sum(),
         DistanceMetric::InnerProduct => {
             let dot: f32 = a.iter().zip(b.iter()).map(|(x, y)| x * y).sum();
             -dot
@@ -1731,7 +1892,11 @@ fn compute_distance(a: &[f32], b: &[f32], metric: &DistanceMetric) -> f32 {
                 norm_b += y * y;
             }
             let denom = (norm_a * norm_b).sqrt();
-            if denom < f32::EPSILON { 1.0 } else { 1.0 - dot / denom }
+            if denom < f32::EPSILON {
+                1.0
+            } else {
+                1.0 - dot / denom
+            }
         }
     }
 }
@@ -1749,7 +1914,9 @@ impl PartialOrd for OrderedFloat {
 
 impl Ord for OrderedFloat {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.0.partial_cmp(&other.0).unwrap_or(std::cmp::Ordering::Equal)
+        self.0
+            .partial_cmp(&other.0)
+            .unwrap_or(std::cmp::Ordering::Equal)
     }
 }
 
@@ -1818,16 +1985,24 @@ fn scan_preservable_segments(file_bytes: &[u8]) -> Vec<(usize, u64, u64, u8)> {
         if file_bytes[i..i + 4] == magic_bytes {
             let seg_type = file_bytes[i + 5];
             let seg_id = u64::from_le_bytes([
-                file_bytes[i + 0x08], file_bytes[i + 0x09],
-                file_bytes[i + 0x0A], file_bytes[i + 0x0B],
-                file_bytes[i + 0x0C], file_bytes[i + 0x0D],
-                file_bytes[i + 0x0E], file_bytes[i + 0x0F],
+                file_bytes[i + 0x08],
+                file_bytes[i + 0x09],
+                file_bytes[i + 0x0A],
+                file_bytes[i + 0x0B],
+                file_bytes[i + 0x0C],
+                file_bytes[i + 0x0D],
+                file_bytes[i + 0x0E],
+                file_bytes[i + 0x0F],
             ]);
             let payload_len = u64::from_le_bytes([
-                file_bytes[i + 0x10], file_bytes[i + 0x11],
-                file_bytes[i + 0x12], file_bytes[i + 0x13],
-                file_bytes[i + 0x14], file_bytes[i + 0x15],
-                file_bytes[i + 0x16], file_bytes[i + 0x17],
+                file_bytes[i + 0x10],
+                file_bytes[i + 0x11],
+                file_bytes[i + 0x12],
+                file_bytes[i + 0x13],
+                file_bytes[i + 0x14],
+                file_bytes[i + 0x15],
+                file_bytes[i + 0x16],
+                file_bytes[i + 0x17],
             ]);
 
             // Use checked arithmetic to prevent overflow on crafted payload_len.
@@ -1847,7 +2022,9 @@ fn scan_preservable_segments(file_bytes: &[u8]) -> Vec<(usize, u64, u64, u8)> {
                 && seg_type != SegmentType::Journal as u8
             {
                 // Only include if the full segment fits in the file.
-                if i.checked_add(total).is_some_and(|end| end <= file_bytes.len()) {
+                if i.checked_add(total)
+                    .is_some_and(|end| end <= file_bytes.len())
+                {
                     results.push((i, seg_id, payload_len, seg_type));
                 }
             }
@@ -1887,7 +2064,9 @@ mod tests {
         let mut v = Vec::with_capacity(dim);
         let mut x = seed;
         for _ in 0..dim {
-            x = x.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+            x = x
+                .wrapping_mul(6364136223846793005)
+                .wrapping_add(1442695040888963407);
             v.push(((x >> 33) as f32) / (u32::MAX as f32) - 0.5);
         }
         v
@@ -1916,7 +2095,9 @@ mod tests {
         assert_eq!(result.rejected, 0);
 
         let query_vec = random_vector(dim, 42);
-        let results = store.query(&query_vec, 10, &QueryOptions::default()).unwrap();
+        let results = store
+            .query(&query_vec, 10, &QueryOptions::default())
+            .unwrap();
         assert_eq!(results.len(), 10);
 
         for i in 1..results.len() {
@@ -2011,9 +2192,18 @@ mod tests {
         let vecs: Vec<&[f32]> = vec![&v1, &v2, &v3];
         let ids = vec![1, 2, 3];
         let metadata = vec![
-            MetadataEntry { field_id: 0, value: MetadataValue::String("cat_a".into()) },
-            MetadataEntry { field_id: 0, value: MetadataValue::String("cat_b".into()) },
-            MetadataEntry { field_id: 0, value: MetadataValue::String("cat_a".into()) },
+            MetadataEntry {
+                field_id: 0,
+                value: MetadataValue::String("cat_a".into()),
+            },
+            MetadataEntry {
+                field_id: 0,
+                value: MetadataValue::String("cat_b".into()),
+            },
+            MetadataEntry {
+                field_id: 0,
+                value: MetadataValue::String("cat_a".into()),
+            },
         ];
         store.ingest_batch(&vecs, &ids, Some(&metadata)).unwrap();
 
@@ -2158,9 +2348,18 @@ mod tests {
         let vecs: Vec<&[f32]> = vec![&v1, &v2, &v3];
         let ids = vec![1, 2, 3];
         let metadata = vec![
-            MetadataEntry { field_id: 0, value: MetadataValue::U64(10) },
-            MetadataEntry { field_id: 0, value: MetadataValue::U64(20) },
-            MetadataEntry { field_id: 0, value: MetadataValue::U64(30) },
+            MetadataEntry {
+                field_id: 0,
+                value: MetadataValue::U64(10),
+            },
+            MetadataEntry {
+                field_id: 0,
+                value: MetadataValue::U64(20),
+            },
+            MetadataEntry {
+                field_id: 0,
+                value: MetadataValue::U64(30),
+            },
         ];
         store.ingest_batch(&vecs, &ids, Some(&metadata)).unwrap();
 
@@ -2190,14 +2389,16 @@ mod tests {
         let mut store = RvfStore::create(&path, options).unwrap();
 
         let kernel_image = b"fake-compressed-kernel-image-0123456789abcdef";
-        let seg_id = store.embed_kernel(
-            1,    // arch: x86_64
-            0,    // kernel_type: unikernel
-            0x01, // kernel_flags
-            kernel_image,
-            8080, // api_port
-            Some("console=ttyS0 quiet"),
-        ).unwrap();
+        let seg_id = store
+            .embed_kernel(
+                1,    // arch: x86_64
+                0,    // kernel_type: unikernel
+                0x01, // kernel_flags
+                kernel_image,
+                8080, // api_port
+                Some("console=ttyS0 quiet"),
+            )
+            .unwrap();
         assert!(seg_id > 0);
 
         let result = store.extract_kernel().unwrap();
@@ -2211,8 +2412,10 @@ mod tests {
 
         // Verify magic in the header
         let magic = u32::from_le_bytes([
-            header_bytes[0], header_bytes[1],
-            header_bytes[2], header_bytes[3],
+            header_bytes[0],
+            header_bytes[1],
+            header_bytes[2],
+            header_bytes[3],
         ]);
         assert_eq!(magic, KERNEL_MAGIC);
 
@@ -2241,13 +2444,15 @@ mod tests {
 
         let bytecode = b"ebpf-program-instructions-here";
         let btf = b"btf-type-information";
-        let seg_id = store.embed_ebpf(
-            2,     // program_type: XDP
-            1,     // attach_type
-            1024,  // max_dimension
-            bytecode,
-            Some(btf),
-        ).unwrap();
+        let seg_id = store
+            .embed_ebpf(
+                2,    // program_type: XDP
+                1,    // attach_type
+                1024, // max_dimension
+                bytecode,
+                Some(btf),
+            )
+            .unwrap();
         assert!(seg_id > 0);
 
         let result = store.extract_ebpf().unwrap();
@@ -2262,8 +2467,10 @@ mod tests {
 
         // Verify magic
         let magic = u32::from_le_bytes([
-            header_bytes[0], header_bytes[1],
-            header_bytes[2], header_bytes[3],
+            header_bytes[0],
+            header_bytes[1],
+            header_bytes[2],
+            header_bytes[3],
         ]);
         assert_eq!(magic, EBPF_MAGIC);
 
@@ -2292,14 +2499,16 @@ mod tests {
 
         {
             let mut store = RvfStore::create(&path, options).unwrap();
-            store.embed_kernel(
-                2,    // arch: aarch64
-                1,    // kernel_type
-                0,    // flags
-                kernel_image,
-                9090,
-                None,
-            ).unwrap();
+            store
+                .embed_kernel(
+                    2, // arch: aarch64
+                    1, // kernel_type
+                    0, // flags
+                    kernel_image,
+                    9090,
+                    None,
+                )
+                .unwrap();
             store.close().unwrap();
         }
 
@@ -2341,7 +2550,8 @@ mod tests {
 
     /// Helper: count how many WITNESS_SEG entries exist in the segment directory.
     fn count_witness_segments(store: &RvfStore) -> usize {
-        store.segment_dir()
+        store
+            .segment_dir()
             .iter()
             .filter(|&&(_, _, _, stype)| stype == SegmentType::Witness as u8)
             .count()
@@ -2393,7 +2603,9 @@ mod tests {
 
         let v1 = vec![1.0, 0.0, 0.0, 0.0];
         let v2 = vec![0.0, 1.0, 0.0, 0.0];
-        store.ingest_batch(&[&v1[..], &v2[..]], &[1, 2], None).unwrap();
+        store
+            .ingest_batch(&[&v1[..], &v2[..]], &[1, 2], None)
+            .unwrap();
 
         // 1 witness from ingest.
         assert_eq!(count_witness_segments(&store), 1);
@@ -2537,15 +2749,18 @@ mod tests {
         store.ingest_batch(&[&v1[..]], &[1], None).unwrap();
 
         // Regular query should NOT create a witness (immutable &self).
-        let _results = store.query(&[1.0, 0.0, 0.0, 0.0], 1, &QueryOptions::default()).unwrap();
+        let _results = store
+            .query(&[1.0, 0.0, 0.0, 0.0], 1, &QueryOptions::default())
+            .unwrap();
         assert_eq!(count_witness_segments(&store), 0);
 
         // Audited query SHOULD create a witness.
-        let _results = store.query_audited(&[1.0, 0.0, 0.0, 0.0], 1, &QueryOptions::default()).unwrap();
+        let _results = store
+            .query_audited(&[1.0, 0.0, 0.0, 0.0], 1, &QueryOptions::default())
+            .unwrap();
         assert_eq!(count_witness_segments(&store), 1);
         assert_ne!(store.last_witness_hash(), &[0u8; 32]);
 
         store.close().unwrap();
     }
-
 }

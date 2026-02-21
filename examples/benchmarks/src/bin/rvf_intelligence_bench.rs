@@ -128,8 +128,14 @@ fn main() -> Result<()> {
     println!("================================================================");
     println!("  Intelligence Score Comparison");
     println!("================================================================");
-    println!("  Baseline IQ Score:     {:.1}/100", base_assessment.overall_score);
-    println!("  RVF-Learning IQ Score: {:.1}/100", rvf_assessment.overall_score);
+    println!(
+        "  Baseline IQ Score:     {:.1}/100",
+        base_assessment.overall_score
+    );
+    println!(
+        "  RVF-Learning IQ Score: {:.1}/100",
+        rvf_assessment.overall_score
+    );
     let iq_delta = rvf_assessment.overall_score - base_assessment.overall_score;
     println!("  Delta:                 {:+.1}", iq_delta);
     println!();
@@ -150,9 +156,7 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-fn print_compact_assessment(
-    a: &ruvector_benchmarks::intelligence_metrics::IntelligenceAssessment,
-) {
+fn print_compact_assessment(a: &ruvector_benchmarks::intelligence_metrics::IntelligenceAssessment) {
     println!("  Overall Score: {:.1}/100", a.overall_score);
     println!(
         "  Reasoning:     coherence={:.2}, efficiency={:.2}, error_rate={:.2}",
@@ -160,8 +164,10 @@ fn print_compact_assessment(
     );
     println!(
         "  Learning:      sample_eff={:.2}, regret_sub={:.2}, rate={:.2}, gen={:.2}",
-        a.learning.sample_efficiency, a.learning.regret_sublinearity,
-        a.learning.learning_rate, a.learning.generalization,
+        a.learning.sample_efficiency,
+        a.learning.regret_sublinearity,
+        a.learning.learning_rate,
+        a.learning.generalization,
     );
     println!(
         "  Capabilities:  pattern={:.1}, planning={:.1}, adaptation={:.1}",

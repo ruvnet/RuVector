@@ -90,12 +90,7 @@ impl RegretTracker {
     }
 
     /// Record a choice and its reward, updating regret.
-    pub fn record(
-        &mut self,
-        bucket: &ContextBucket,
-        arm: &ArmId,
-        reward: f32,
-    ) {
+    pub fn record(&mut self, bucket: &ContextBucket, arm: &ArmId, reward: f32) {
         // Avoid cloning when entry already exists (hot path optimization).
         if !self.buckets.contains_key(bucket) {
             self.buckets.insert(bucket.clone(), BucketRegret::new());
@@ -341,10 +336,8 @@ impl PlateauDetector {
         let recent = &points[n - self.window_size..];
         let prior = &points[n - 2 * self.window_size..n - self.window_size];
 
-        let recent_mean = recent.iter().map(|p| p.accuracy).sum::<f32>()
-            / recent.len() as f32;
-        let prior_mean = prior.iter().map(|p| p.accuracy).sum::<f32>()
-            / prior.len() as f32;
+        let recent_mean = recent.iter().map(|p| p.accuracy).sum::<f32>() / recent.len() as f32;
+        let prior_mean = prior.iter().map(|p| p.accuracy).sum::<f32>() / prior.len() as f32;
 
         let improvement = recent_mean - prior_mean;
 
@@ -374,10 +367,9 @@ impl PlateauDetector {
         let recent = &points[n - self.window_size..];
         let prior = &points[n - 2 * self.window_size..n - self.window_size];
 
-        let recent_cost = recent.iter().map(|p| p.cost_per_solve).sum::<f32>()
-            / recent.len() as f32;
-        let prior_cost = prior.iter().map(|p| p.cost_per_solve).sum::<f32>()
-            / prior.len() as f32;
+        let recent_cost =
+            recent.iter().map(|p| p.cost_per_solve).sum::<f32>() / recent.len() as f32;
+        let prior_cost = prior.iter().map(|p| p.cost_per_solve).sum::<f32>() / prior.len() as f32;
 
         // Cost should be decreasing; if it's not, that's a plateau
         (prior_cost - recent_cost).abs() < self.improvement_threshold
@@ -561,13 +553,11 @@ impl ParetoFront {
 
     /// Get the front point that maximizes a specific objective.
     pub fn best_on(&self, objective_index: usize) -> Option<&ParetoPoint> {
-        self.front
-            .iter()
-            .max_by(|a, b| {
-                let va = a.objectives.get(objective_index).copied().unwrap_or(0.0);
-                let vb = b.objectives.get(objective_index).copied().unwrap_or(0.0);
-                va.partial_cmp(&vb).unwrap_or(std::cmp::Ordering::Equal)
-            })
+        self.front.iter().max_by(|a, b| {
+            let va = a.objectives.get(objective_index).copied().unwrap_or(0.0);
+            let vb = b.objectives.get(objective_index).copied().unwrap_or(0.0);
+            va.partial_cmp(&vb).unwrap_or(std::cmp::Ordering::Equal)
+        })
     }
 
     /// Spread: range on each objective dimension. Higher = more diverse front.
@@ -751,12 +741,7 @@ impl MetaLearningEngine {
     }
 
     /// Record a decision outcome. Call after every arm selection.
-    pub fn record_decision(
-        &mut self,
-        bucket: &ContextBucket,
-        arm: &ArmId,
-        reward: f32,
-    ) {
+    pub fn record_decision(&mut self, bucket: &ContextBucket, arm: &ArmId, reward: f32) {
         // 1. Track regret
         self.regret.record(bucket, arm, reward);
 
@@ -801,22 +786,13 @@ impl MetaLearningEngine {
     /// Get the curiosity-boosted score for an arm.
     ///
     /// Combines the Thompson Sampling estimate with an exploration bonus.
-    pub fn boosted_score(
-        &self,
-        bucket: &ContextBucket,
-        arm: &ArmId,
-        thompson_sample: f32,
-    ) -> f32 {
+    pub fn boosted_score(&self, bucket: &ContextBucket, arm: &ArmId, thompson_sample: f32) -> f32 {
         let bonus = self.curiosity.bonus(bucket, arm);
         thompson_sample + bonus
     }
 
     /// Get the decaying beta mean for a bucket/arm (if tracked).
-    pub fn decaying_mean(
-        &self,
-        bucket: &ContextBucket,
-        arm: &ArmId,
-    ) -> Option<f32> {
+    pub fn decaying_mean(&self, bucket: &ContextBucket, arm: &ArmId) -> Option<f32> {
         let key = (bucket.clone(), arm.clone());
         self.decaying_betas.get(&key).map(|db| db.mean())
     }
@@ -1112,7 +1088,10 @@ mod tests {
             })
             .collect();
 
-        assert_eq!(detector.check(&flat_points), PlateauAction::IncreaseExploration);
+        assert_eq!(
+            detector.check(&flat_points),
+            PlateauAction::IncreaseExploration
+        );
         assert_eq!(detector.check(&flat_points), PlateauAction::TriggerTransfer);
         assert_eq!(detector.check(&flat_points), PlateauAction::TriggerTransfer);
         assert_eq!(detector.check(&flat_points), PlateauAction::InjectDiversity);
@@ -1142,8 +1121,14 @@ mod tests {
     #[test]
     fn test_pareto_dominates() {
         assert!(ParetoFront::dominates(&[0.9, -0.1, 0.8], &[0.8, -0.2, 0.7]));
-        assert!(!ParetoFront::dominates(&[0.9, -0.3, 0.8], &[0.8, -0.1, 0.7]));
-        assert!(!ParetoFront::dominates(&[0.9, -0.1, 0.8], &[0.9, -0.1, 0.8])); // Equal
+        assert!(!ParetoFront::dominates(
+            &[0.9, -0.3, 0.8],
+            &[0.8, -0.1, 0.7]
+        ));
+        assert!(!ParetoFront::dominates(
+            &[0.9, -0.1, 0.8],
+            &[0.9, -0.1, 0.8]
+        )); // Equal
     }
 
     #[test]

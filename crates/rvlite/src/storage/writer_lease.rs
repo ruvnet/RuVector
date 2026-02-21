@@ -255,9 +255,8 @@ fn try_create_lock(lock_path: &Path, pid: u32) -> io::Result<()> {
         timestamp_secs: current_unix_secs(),
         hostname: get_hostname(),
     };
-    let content = serde_json::to_string(&meta).map_err(|e| {
-        io::Error::new(io::ErrorKind::Other, format!("serialize lease meta: {e}"))
-    })?;
+    let content = serde_json::to_string(&meta)
+        .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("serialize lease meta: {e}")))?;
 
     let mut file = fs::OpenOptions::new()
         .write(true)
@@ -275,9 +274,8 @@ fn write_lock_file(lock_path: &Path, pid: u32) -> io::Result<()> {
         timestamp_secs: current_unix_secs(),
         hostname: get_hostname(),
     };
-    let content = serde_json::to_string(&meta).map_err(|e| {
-        io::Error::new(io::ErrorKind::Other, format!("serialize lease meta: {e}"))
-    })?;
+    let content = serde_json::to_string(&meta)
+        .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("serialize lease meta: {e}")))?;
     fs::write(lock_path, content.as_bytes())
 }
 

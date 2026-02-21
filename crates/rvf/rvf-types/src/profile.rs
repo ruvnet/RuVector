@@ -55,7 +55,7 @@ impl DomainProfile {
     pub const fn magic(self) -> u32 {
         match self {
             Self::Generic => 0x0000_0000,
-            Self::Rvdna => 0x5244_4E41,   // "RDNA"
+            Self::Rvdna => 0x5244_4E41,    // "RDNA"
             Self::RvText => 0x5254_5854,   // "RTXT"
             Self::RvGraph => 0x5247_5248,  // "RGRH"
             Self::RvVision => 0x5256_4953, // "RVIS"
@@ -100,7 +100,9 @@ fn eq_ignore_ascii_case(a: &[u8], b: &[u8]) -> bool {
     if a.len() != b.len() {
         return false;
     }
-    a.iter().zip(b.iter()).all(|(x, y)| x.eq_ignore_ascii_case(y))
+    a.iter()
+        .zip(b.iter())
+        .all(|(x, y)| x.eq_ignore_ascii_case(y))
 }
 
 impl TryFrom<u8> for DomainProfile {
@@ -158,9 +160,18 @@ mod tests {
 
     #[test]
     fn domain_extension_case_insensitive() {
-        assert_eq!(DomainProfile::from_extension("RVDNA"), Some(DomainProfile::Rvdna));
-        assert_eq!(DomainProfile::from_extension("RvF"), Some(DomainProfile::Generic));
-        assert_eq!(DomainProfile::from_extension("RvText"), Some(DomainProfile::RvText));
+        assert_eq!(
+            DomainProfile::from_extension("RVDNA"),
+            Some(DomainProfile::Rvdna)
+        );
+        assert_eq!(
+            DomainProfile::from_extension("RvF"),
+            Some(DomainProfile::Generic)
+        );
+        assert_eq!(
+            DomainProfile::from_extension("RvText"),
+            Some(DomainProfile::RvText)
+        );
     }
 
     #[test]

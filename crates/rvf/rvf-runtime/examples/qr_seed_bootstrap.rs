@@ -13,9 +13,7 @@
 //!
 //! Run: cargo run --example qr_seed_bootstrap -p rvf-runtime
 
-use rvf_runtime::qr_seed::{
-    BootstrapProgress, ParsedSeed, SeedBuilder, make_host_entry,
-};
+use rvf_runtime::qr_seed::{make_host_entry, BootstrapProgress, ParsedSeed, SeedBuilder};
 use rvf_runtime::seed_crypto;
 use rvf_types::qr_seed::*;
 
@@ -148,7 +146,10 @@ fn main() {
     println!("  File ID:       {:02X?}", header.file_id);
     println!("  Vectors:       {}", header.total_vector_count);
     println!("  Dimension:     {}", header.dimension);
-    println!("  Microkernel:   {} bytes (LZ compressed)", header.microkernel_size);
+    println!(
+        "  Microkernel:   {} bytes (LZ compressed)",
+        header.microkernel_size
+    );
     println!("  Manifest:      {} bytes", header.download_manifest_size);
     println!(
         "  Signature:     {} bytes (HMAC-SHA256, algo={})",
@@ -172,33 +173,51 @@ fn main() {
     println!("  Header valid:  {}", parsed.header.is_valid_magic());
     println!(
         "  Microkernel:   {} ({} bytes compressed)",
-        if parsed.microkernel.is_some() { "present" } else { "absent" },
+        if parsed.microkernel.is_some() {
+            "present"
+        } else {
+            "absent"
+        },
         parsed.microkernel.map(|m| m.len()).unwrap_or(0)
     );
     println!(
         "  Manifest:      {} ({} bytes)",
-        if parsed.manifest_bytes.is_some() { "present" } else { "absent" },
+        if parsed.manifest_bytes.is_some() {
+            "present"
+        } else {
+            "absent"
+        },
         parsed.manifest_bytes.map(|m| m.len()).unwrap_or(0)
     );
     println!(
         "  Signature:     {} ({} bytes)",
-        if parsed.signature.is_some() { "present" } else { "absent" },
+        if parsed.signature.is_some() {
+            "present"
+        } else {
+            "absent"
+        },
         parsed.signature.map(|s| s.len()).unwrap_or(0)
     );
 
     // Full verification: magic + content hash + HMAC-SHA256 signature.
-    parsed.verify_all(SIGNING_KEY, &payload).expect("verify_all");
+    parsed
+        .verify_all(SIGNING_KEY, &payload)
+        .expect("verify_all");
     println!("  verify_all:    PASSED (magic + hash + HMAC-SHA256)");
 
     // Individual checks.
     assert!(parsed.verify_content_hash());
     println!("  content_hash:  PASSED");
 
-    parsed.verify_signature(SIGNING_KEY, &payload).expect("sig verify");
+    parsed
+        .verify_signature(SIGNING_KEY, &payload)
+        .expect("sig verify");
     println!("  signature:     PASSED (HMAC-SHA256)");
 
     // Wrong key must fail.
-    assert!(parsed.verify_signature(b"wrong-key-should-fail-immediatel", &payload).is_err());
+    assert!(parsed
+        .verify_signature(b"wrong-key-should-fail-immediatel", &payload)
+        .is_err());
     println!("  wrong key:     REJECTED (as expected)");
 
     // Decompress microkernel using built-in LZ.
@@ -288,9 +307,7 @@ fn main() {
         );
     }
 
-    println!(
-        "\n=== Seed bootstrapped to full intelligence ==="
-    );
+    println!("\n=== Seed bootstrapped to full intelligence ===");
     println!(
         "  The AI that lived in printed ink now spans {} bytes.",
         manifest.total_file_size.unwrap_or(0)

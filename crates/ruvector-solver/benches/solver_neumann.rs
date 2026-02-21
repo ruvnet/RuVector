@@ -304,5 +304,10 @@ fn neumann_vs_dense(c: &mut Criterion) {
     group.finish();
 }
 
-criterion_group!(neumann, neumann_convergence, neumann_scaling, neumann_vs_dense);
+criterion_group!(
+    neumann,
+    neumann_convergence,
+    neumann_scaling,
+    neumann_vs_dense
+);
 criterion_main!(neumann);

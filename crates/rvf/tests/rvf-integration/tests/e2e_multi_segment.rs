@@ -20,7 +20,9 @@ fn random_vector(dim: usize, seed: u64) -> Vec<f32> {
     let mut v = Vec::with_capacity(dim);
     let mut x = seed;
     for _ in 0..dim {
-        x = x.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        x = x
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
         v.push(((x >> 33) as f32) / (u32::MAX as f32) - 0.5);
     }
     v
@@ -56,7 +58,9 @@ fn multi_seg_twenty_batches_all_queryable() {
     for batch in 0..num_batches {
         let target_id = (batch * batch_size + 50 + 1) as u64; // mid-batch vector
         let target_vec = random_vector(dim as usize, target_id);
-        let results = store.query(&target_vec, 5, &QueryOptions::default()).unwrap();
+        let results = store
+            .query(&target_vec, 5, &QueryOptions::default())
+            .unwrap();
         assert!(
             !results.is_empty(),
             "batch {batch}: query should return results"
@@ -146,7 +150,9 @@ fn multi_seg_compact_merges_segments() {
 
     // Spot-check: query for a vector from the middle (batch 5, id 101).
     let target_vec = vec![101.0f32; dim as usize];
-    let results = store.query(&target_vec, 5, &QueryOptions::default()).unwrap();
+    let results = store
+        .query(&target_vec, 5, &QueryOptions::default())
+        .unwrap();
     assert!(!results.is_empty());
     assert_eq!(results[0].id, 101, "vector 101 should be first result");
 
@@ -187,12 +193,18 @@ fn multi_seg_delete_first_500_from_2000() {
     let target = random_vector(dim as usize, 250);
     let results = store.query(&target, 100, &QueryOptions::default()).unwrap();
     for r in &results {
-        assert!(r.id > 500, "deleted vector {} should not appear in results", r.id);
+        assert!(
+            r.id > 500,
+            "deleted vector {} should not appear in results",
+            r.id
+        );
     }
 
     // Query for a live vector (id=750): should appear.
     let live_target = random_vector(dim as usize, 750);
-    let results = store.query(&live_target, 5, &QueryOptions::default()).unwrap();
+    let results = store
+        .query(&live_target, 5, &QueryOptions::default())
+        .unwrap();
     assert!(!results.is_empty());
     assert_eq!(results[0].id, 750, "live vector 750 should be found");
 
@@ -232,12 +244,16 @@ fn multi_seg_compact_after_delete_verifies_remaining() {
 
     // Query: vector 300 should be findable.
     let target_vec = vec![300.0f32; dim as usize];
-    let results = store.query(&target_vec, 10, &QueryOptions::default()).unwrap();
+    let results = store
+        .query(&target_vec, 10, &QueryOptions::default())
+        .unwrap();
     assert!(!results.is_empty());
     assert_eq!(results[0].id, 300);
 
     // All remaining IDs should be in range [201, 500].
-    let all_results = store.query(&vec![0.0f32; dim as usize], 300, &QueryOptions::default()).unwrap();
+    let all_results = store
+        .query(&vec![0.0f32; dim as usize], 300, &QueryOptions::default())
+        .unwrap();
     assert_eq!(all_results.len(), 300);
     for r in &all_results {
         assert!(
@@ -261,9 +277,7 @@ fn multi_seg_double_compact() {
 
     let mut store = RvfStore::create(&path, make_options(dim)).unwrap();
 
-    let vectors: Vec<Vec<f32>> = (0..200)
-        .map(|i| vec![i as f32; dim as usize])
-        .collect();
+    let vectors: Vec<Vec<f32>> = (0..200).map(|i| vec![i as f32; dim as usize]).collect();
     let refs: Vec<&[f32]> = vectors.iter().map(|v| v.as_slice()).collect();
     let ids: Vec<u64> = (1..=200).collect();
     store.ingest_batch(&refs, &ids, None).unwrap();
@@ -327,7 +341,8 @@ fn multi_seg_reopen_preserves_all_batches() {
         let target = random_vector(dim as usize, target_id);
         let results = store.query(&target, 1, &QueryOptions::default()).unwrap();
         assert_eq!(
-            results.len(), 1,
+            results.len(),
+            1,
             "batch {batch}: should find exactly 1 result"
         );
         assert_eq!(

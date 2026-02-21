@@ -2,8 +2,8 @@
 
 use crate::filter::FilterExpr;
 use rvf_types::quality::{
-    BudgetReport, DegradationReport, QualityPreference, ResponseQuality,
-    SafetyNetBudget, SearchEvidenceSummary,
+    BudgetReport, DegradationReport, QualityPreference, ResponseQuality, SafetyNetBudget,
+    SearchEvidenceSummary,
 };
 use rvf_types::security::SecurityPolicy;
 

@@ -21,25 +21,30 @@ pub fn extract_entities(text: &str) -> Vec<(String, String)> {
 
     // --- URL detection ---
     for word in text.split_whitespace() {
-        let trimmed = word.trim_matches(|c: char| c == ',' || c == '.' || c == ')' || c == '(' || c == ';');
-        if (trimmed.starts_with("http://") || trimmed.starts_with("https://")) && trimmed.len() > 10
-            && seen.insert(("Url", trimmed.to_string())) {
-                entities.push(("Url".to_string(), trimmed.to_string()));
-            }
+        let trimmed =
+            word.trim_matches(|c: char| c == ',' || c == '.' || c == ')' || c == '(' || c == ';');
+        if (trimmed.starts_with("http://") || trimmed.starts_with("https://"))
+            && trimmed.len() > 10
+            && seen.insert(("Url", trimmed.to_string()))
+        {
+            entities.push(("Url".to_string(), trimmed.to_string()));
+        }
     }
 
     // --- Email detection ---
     for word in text.split_whitespace() {
-        let trimmed = word.trim_matches(|c: char| c == ',' || c == '.' || c == ')' || c == '(' || c == ';' || c == '<' || c == '>');
-        if is_email_like(trimmed)
-            && seen.insert(("Email", trimmed.to_string())) {
-                entities.push(("Email".to_string(), trimmed.to_string()));
-            }
+        let trimmed = word.trim_matches(|c: char| {
+            c == ',' || c == '.' || c == ')' || c == '(' || c == ';' || c == '<' || c == '>'
+        });
+        if is_email_like(trimmed) && seen.insert(("Email", trimmed.to_string())) {
+            entities.push(("Email".to_string(), trimmed.to_string()));
+        }
     }
 
     // --- @mention detection ---
     for word in text.split_whitespace() {
-        let trimmed = word.trim_matches(|c: char| c == ',' || c == '.' || c == ')' || c == '(' || c == ';');
+        let trimmed =
+            word.trim_matches(|c: char| c == ',' || c == '.' || c == ')' || c == '(' || c == ';');
         if trimmed.starts_with('@') && trimmed.len() > 1 {
             let handle = trimmed.to_string();
             if seen.insert(("Mention", handle.clone())) {
@@ -71,8 +76,12 @@ fn is_email_like(s: &str) -> bool {
             && domain.contains('.')
             && !domain.starts_with('.')
             && !domain.ends_with('.')
-            && local.chars().all(|c| c.is_alphanumeric() || c == '.' || c == '_' || c == '-' || c == '+')
-            && domain.chars().all(|c| c.is_alphanumeric() || c == '.' || c == '-')
+            && local
+                .chars()
+                .all(|c| c.is_alphanumeric() || c == '.' || c == '_' || c == '-' || c == '+')
+            && domain
+                .chars()
+                .all(|c| c.is_alphanumeric() || c == '.' || c == '-')
     } else {
         false
     }
@@ -130,16 +139,26 @@ fn extract_capitalized_phrases(text: &str) -> Vec<String> {
 
 /// Returns `true` if the first character of `word` is uppercase ASCII.
 fn is_capitalized(word: &str) -> bool {
-    word.chars()
-        .next()
-        .is_some_and(|c| c.is_uppercase())
+    word.chars().next().is_some_and(|c| c.is_uppercase())
 }
 
 /// Common sentence-starting words that are not proper nouns.
 fn is_common_starter(word: &str) -> bool {
     matches!(
         word.to_lowercase().as_str(),
-        "the" | "a" | "an" | "this" | "that" | "these" | "those" | "it" | "i" | "we" | "they" | "he" | "she"
+        "the"
+            | "a"
+            | "an"
+            | "this"
+            | "that"
+            | "these"
+            | "those"
+            | "it"
+            | "i"
+            | "we"
+            | "they"
+            | "he"
+            | "she"
     )
 }
 
@@ -149,7 +168,8 @@ mod tests {
 
     #[test]
     fn test_extract_urls() {
-        let entities = extract_entities("Visit https://example.com/page and http://foo.bar/baz for info.");
+        let entities =
+            extract_entities("Visit https://example.com/page and http://foo.bar/baz for info.");
         let urls: Vec<_> = entities.iter().filter(|(l, _)| l == "Url").collect();
         assert_eq!(urls.len(), 2);
         assert_eq!(urls[0].1, "https://example.com/page");

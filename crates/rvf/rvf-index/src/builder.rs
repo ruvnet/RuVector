@@ -90,10 +90,7 @@ pub fn build_layer_a(
 /// Build Layer B from an existing HNSW graph, keeping only hot nodes.
 ///
 /// `hot_node_ids`: the set of node IDs in the hot working set.
-pub fn build_layer_b(
-    graph: &HnswGraph,
-    hot_node_ids: &BTreeSet<u64>,
-) -> LayerB {
+pub fn build_layer_b(graph: &HnswGraph, hot_node_ids: &BTreeSet<u64>) -> LayerB {
     let mut partial_adjacency = BTreeMap::new();
 
     // For each hot node, include its layer 0 neighbors.

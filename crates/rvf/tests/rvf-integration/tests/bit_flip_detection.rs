@@ -76,7 +76,8 @@ fn corruption_in_one_segment_does_not_affect_another() {
 
     // Segment A should fail validation.
     let (hdr_a, _) = read_segment(&seg_a).unwrap();
-    let corrupted_payload_a = &corrupted[SEGMENT_HEADER_SIZE..SEGMENT_HEADER_SIZE + payload_a.len()];
+    let corrupted_payload_a =
+        &corrupted[SEGMENT_HEADER_SIZE..SEGMENT_HEADER_SIZE + payload_a.len()];
     assert!(
         validate_segment(&hdr_a, corrupted_payload_a).is_err(),
         "corrupted segment A should fail"

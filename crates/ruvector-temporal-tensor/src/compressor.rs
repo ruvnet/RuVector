@@ -91,11 +91,9 @@ impl TemporalTensorCompressor {
             return;
         }
 
-        let desired_bits = self.policy.select_bits(
-            self.access_count,
-            self.last_access_ts,
-            now_ts,
-        );
+        let desired_bits = self
+            .policy
+            .select_bits(self.access_count, self.last_access_ts, now_ts);
         let drift_factor = self.policy.drift_factor();
 
         // Use cached f32 scales for drift check (avoids f16 conversion per group)
@@ -113,11 +111,8 @@ impl TemporalTensorCompressor {
             self.flush(out_segment);
             self.active_bits = desired_bits;
             self.active_group_len = self.policy.group_len.max(1) as usize;
-            self.active_scales_f16 = quantizer::compute_scales(
-                frame,
-                self.active_group_len,
-                self.active_bits,
-            );
+            self.active_scales_f16 =
+                quantizer::compute_scales(frame, self.active_group_len, self.active_bits);
             self.active_scales_f32 = quantizer::scales_to_f32(&self.active_scales_f16);
         }
 
@@ -263,7 +258,12 @@ mod tests {
         let max_abs = frame.iter().map(|v| v.abs()).fold(0.0f32, f32::max);
         for i in 0..128 {
             let err = (decoded[i] - frame[i]).abs();
-            assert!(err < max_abs * 0.02, "i={i} orig={} dec={} err={err}", frame[i], decoded[i]);
+            assert!(
+                err < max_abs * 0.02,
+                "i={i} orig={} dec={} err={err}",
+                frame[i],
+                decoded[i]
+            );
         }
     }
 

@@ -5,7 +5,7 @@ use std::f32;
 /// Linear layer (fully connected)
 #[derive(Debug, Clone)]
 pub struct Linear {
-    pub weight: Vec<Vec<f32>>,  // [out_features, in_features]
+    pub weight: Vec<Vec<f32>>, // [out_features, in_features]
     pub bias: Option<Vec<f32>>,
     pub in_features: usize,
     pub out_features: usize,
@@ -46,7 +46,7 @@ impl Linear {
 /// Embedding layer
 #[derive(Debug, Clone)]
 pub struct Embedding {
-    pub weight: Vec<Vec<f32>>,  // [vocab_size, embedding_dim]
+    pub weight: Vec<Vec<f32>>, // [vocab_size, embedding_dim]
     pub vocab_size: usize,
     pub embedding_dim: usize,
 }

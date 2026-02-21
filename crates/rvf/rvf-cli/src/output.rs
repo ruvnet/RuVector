@@ -4,7 +4,10 @@ use serde::Serialize;
 
 /// Print a value as pretty-printed JSON.
 pub fn print_json<T: Serialize>(value: &T) {
-    println!("{}", serde_json::to_string_pretty(value).unwrap_or_default());
+    println!(
+        "{}",
+        serde_json::to_string_pretty(value).unwrap_or_default()
+    );
 }
 
 /// Print a key-value pair with aligned formatting.

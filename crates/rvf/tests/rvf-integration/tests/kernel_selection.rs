@@ -54,12 +54,9 @@ fn extract_kernel_segments(file_bytes: &[u8]) -> Vec<(u64, Vec<u8>)> {
         if file_bytes[i..i + 4] == magic_bytes {
             let seg_type = file_bytes[i + 5];
             if seg_type == SegmentType::Kernel as u8 {
-                let seg_id = u64::from_le_bytes(
-                    file_bytes[i + 0x08..i + 0x10].try_into().unwrap(),
-                );
-                let payload_len = u64::from_le_bytes(
-                    file_bytes[i + 0x10..i + 0x18].try_into().unwrap(),
-                ) as usize;
+                let seg_id = u64::from_le_bytes(file_bytes[i + 0x08..i + 0x10].try_into().unwrap());
+                let payload_len =
+                    u64::from_le_bytes(file_bytes[i + 0x10..i + 0x18].try_into().unwrap()) as usize;
 
                 let payload_start = i + SEGMENT_HEADER_SIZE;
                 let payload_end = payload_start + payload_len;
@@ -269,17 +266,20 @@ fn kernel_binding_round_trip() {
 
     // Extract the binding
     let extracted_binding = store.extract_kernel_binding().unwrap();
-    assert!(
-        extracted_binding.is_some(),
-        "binding should be extractable"
-    );
+    assert!(extracted_binding.is_some(), "binding should be extractable");
 
     let eb = extracted_binding.unwrap();
     assert_eq!(eb.binding_version, 1, "binding_version mismatch");
     assert_eq!(eb.min_runtime_version, 2, "min_runtime_version mismatch");
-    assert_eq!(eb.manifest_root_hash, [0xAA; 32], "manifest_root_hash mismatch");
+    assert_eq!(
+        eb.manifest_root_hash, [0xAA; 32],
+        "manifest_root_hash mismatch"
+    );
     assert_eq!(eb.policy_hash, [0xBB; 32], "policy_hash mismatch");
-    assert_eq!(eb.allowed_segment_mask, 0x00FF_FFFF, "segment_mask mismatch");
+    assert_eq!(
+        eb.allowed_segment_mask, 0x00FF_FFFF,
+        "segment_mask mismatch"
+    );
 
     store.close().unwrap();
 
@@ -436,7 +436,10 @@ fn kernel_binding_serialization() {
     let bytes = binding.to_bytes();
     let decoded = KernelBinding::from_bytes(&bytes);
 
-    assert_eq!(decoded, binding, "round-trip should produce identical binding");
+    assert_eq!(
+        decoded, binding,
+        "round-trip should produce identical binding"
+    );
 
     println!("PASS: kernel_binding_serialization");
 }

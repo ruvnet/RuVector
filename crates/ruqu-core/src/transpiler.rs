@@ -175,18 +175,12 @@ pub fn decompose_to_ibm(gate: &Gate) -> Vec<Gate> {
         }
 
         // SWAP = CNOT(a,b) CNOT(b,a) CNOT(a,b)
-        Gate::SWAP(a, b) => vec![
-            Gate::CNOT(*a, *b),
-            Gate::CNOT(*b, *a),
-            Gate::CNOT(*a, *b),
-        ],
+        Gate::SWAP(a, b) => vec![Gate::CNOT(*a, *b), Gate::CNOT(*b, *a), Gate::CNOT(*a, *b)],
 
         // Rzz(theta) = CNOT(a,b) Rz(b, theta) CNOT(a,b)
-        Gate::Rzz(a, b, theta) => vec![
-            Gate::CNOT(*a, *b),
-            Gate::Rz(*b, *theta),
-            Gate::CNOT(*a, *b),
-        ],
+        Gate::Rzz(a, b, theta) => {
+            vec![Gate::CNOT(*a, *b), Gate::Rz(*b, *theta), Gate::CNOT(*a, *b)]
+        }
 
         // --- non-unitary / pass-through ---
         Gate::Measure(q) => vec![Gate::Measure(*q)],
@@ -539,9 +533,7 @@ fn remap_gate(gate: &Gate, log2phys: &[u32]) -> Gate {
         Gate::CNOT(c, t) => Gate::CNOT(log2phys[*c as usize], log2phys[*t as usize]),
         Gate::CZ(a, b) => Gate::CZ(log2phys[*a as usize], log2phys[*b as usize]),
         Gate::SWAP(a, b) => Gate::SWAP(log2phys[*a as usize], log2phys[*b as usize]),
-        Gate::Rzz(a, b, theta) => {
-            Gate::Rzz(log2phys[*a as usize], log2phys[*b as usize], *theta)
-        }
+        Gate::Rzz(a, b, theta) => Gate::Rzz(log2phys[*a as usize], log2phys[*b as usize], *theta),
         Gate::Measure(q) => Gate::Measure(log2phys[*q as usize]),
         Gate::Reset(q) => Gate::Reset(log2phys[*q as usize]),
         Gate::Barrier => Gate::Barrier,
@@ -850,7 +842,11 @@ mod tests {
             .iter()
             .filter(|g| matches!(g, Gate::SWAP(_, _)))
             .count();
-        assert!(swap_count >= 1, "expected at least 1 SWAP, got {}", swap_count);
+        assert!(
+            swap_count >= 1,
+            "expected at least 1 SWAP, got {}",
+            swap_count
+        );
     }
 
     #[test]

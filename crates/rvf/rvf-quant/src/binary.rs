@@ -54,12 +54,24 @@ pub fn hamming_distance(a: &[u8], b: &[u8]) -> u32 {
     for i in 0..chunks {
         let offset = i * 8;
         let xa = u64::from_le_bytes([
-            a[offset], a[offset + 1], a[offset + 2], a[offset + 3],
-            a[offset + 4], a[offset + 5], a[offset + 6], a[offset + 7],
+            a[offset],
+            a[offset + 1],
+            a[offset + 2],
+            a[offset + 3],
+            a[offset + 4],
+            a[offset + 5],
+            a[offset + 6],
+            a[offset + 7],
         ]);
         let xb = u64::from_le_bytes([
-            b[offset], b[offset + 1], b[offset + 2], b[offset + 3],
-            b[offset + 4], b[offset + 5], b[offset + 6], b[offset + 7],
+            b[offset],
+            b[offset + 1],
+            b[offset + 2],
+            b[offset + 3],
+            b[offset + 4],
+            b[offset + 5],
+            b[offset + 6],
+            b[offset + 7],
         ]);
         dist += (xa ^ xb).count_ones();
     }
@@ -118,10 +130,12 @@ mod tests {
 
     #[test]
     fn hamming_matches_naive() {
-        let v1 = vec![1.0, -1.0, 0.5, -0.5, 0.1, -0.1, 0.9, -0.9,
-                      0.3, -0.3, 0.7, -0.7, 0.2, -0.2, 0.8, -0.8];
-        let v2 = vec![-1.0, 1.0, -0.5, 0.5, -0.1, 0.1, -0.9, 0.9,
-                      -0.3, 0.3, -0.7, 0.7, -0.2, 0.2, -0.8, 0.8];
+        let v1 = vec![
+            1.0, -1.0, 0.5, -0.5, 0.1, -0.1, 0.9, -0.9, 0.3, -0.3, 0.7, -0.7, 0.2, -0.2, 0.8, -0.8,
+        ];
+        let v2 = vec![
+            -1.0, 1.0, -0.5, 0.5, -0.1, 0.1, -0.9, 0.9, -0.3, 0.3, -0.7, 0.7, -0.2, 0.2, -0.8, 0.8,
+        ];
         let b1 = encode_binary(&v1);
         let b2 = encode_binary(&v2);
 

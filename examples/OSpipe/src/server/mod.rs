@@ -179,12 +179,15 @@ async fn search_handler(
     let results = if filter_is_empty(&filter) {
         pipeline.vector_store().search(&embedding, k)
     } else {
-        pipeline.vector_store().search_filtered(&embedding, k, &filter)
+        pipeline
+            .vector_store()
+            .search_filtered(&embedding, k, &filter)
     };
 
     match results {
         Ok(results) => {
-            let api_results: Vec<ApiSearchResult> = results.into_iter().map(to_api_result).collect();
+            let api_results: Vec<ApiSearchResult> =
+                results.into_iter().map(to_api_result).collect();
             (StatusCode::OK, Json(api_results)).into_response()
         }
         Err(e) => (
@@ -290,12 +293,15 @@ async fn legacy_search_handler(
     let results = if filter_is_empty(&filter) {
         pipeline.vector_store().search(&embedding, k)
     } else {
-        pipeline.vector_store().search_filtered(&embedding, k, &filter)
+        pipeline
+            .vector_store()
+            .search_filtered(&embedding, k, &filter)
     };
 
     match results {
         Ok(results) => {
-            let api_results: Vec<ApiSearchResult> = results.into_iter().map(to_api_result).collect();
+            let api_results: Vec<ApiSearchResult> =
+                results.into_iter().map(to_api_result).collect();
             (StatusCode::OK, Json(api_results)).into_response()
         }
         Err(e) => (
@@ -426,15 +432,15 @@ pub fn build_router(state: ServerState) -> Router {
 pub async fn start_server(state: ServerState, port: u16) -> crate::error::Result<()> {
     let app = build_router(state);
     let addr = format!("0.0.0.0:{}", port);
-    let listener = tokio::net::TcpListener::bind(&addr).await.map_err(|e| {
-        OsPipeError::Pipeline(format!("Failed to bind to {}: {}", addr, e))
-    })?;
+    let listener = tokio::net::TcpListener::bind(&addr)
+        .await
+        .map_err(|e| OsPipeError::Pipeline(format!("Failed to bind to {}: {}", addr, e)))?;
 
     tracing::info!("OSpipe server listening on {}", addr);
 
-    axum::serve(listener, app).await.map_err(|e| {
-        OsPipeError::Pipeline(format!("Server error: {}", e))
-    })?;
+    axum::serve(listener, app)
+        .await
+        .map_err(|e| OsPipeError::Pipeline(format!("Server error: {}", e)))?;
 
     Ok(())
 }
@@ -448,9 +454,9 @@ use crate::error::OsPipeError;
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::config::OsPipeConfig;
     use axum::body::Body;
     use axum::http::Request;
-    use crate::config::OsPipeConfig;
     use tower::ServiceExt; // for oneshot
 
     fn test_state() -> ServerState {

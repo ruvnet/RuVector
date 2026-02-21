@@ -3,8 +3,8 @@
 //! Tests rvf-quant scalar and binary quantization to verify
 //! compression ratios and error bounds.
 
-use rvf_quant::scalar::ScalarQuantizer;
 use rvf_quant::binary::{decode_binary, encode_binary, hamming_distance};
+use rvf_quant::scalar::ScalarQuantizer;
 use rvf_quant::traits::Quantizer;
 
 /// Generate pseudo-random unit vectors using a simple LCG.
@@ -128,7 +128,10 @@ fn hamming_distance_properties() {
 
     // Opposite vectors have maximum distance.
     let max_dist = hamming_distance(&enc_a, &enc_b);
-    assert_eq!(max_dist, 64, "opposite vectors should have hamming distance = dim");
+    assert_eq!(
+        max_dist, 64,
+        "opposite vectors should have hamming distance = dim"
+    );
 
     // Identical vectors have distance 0.
     assert_eq!(hamming_distance(&enc_a, &enc_c), 0);
@@ -155,7 +158,11 @@ fn scalar_quantizer_preserves_nearest_neighbor_ordering() {
         .enumerate()
         .skip(1)
         .map(|(i, v)| {
-            let d: f32 = query.iter().zip(v.iter()).map(|(a, b)| (a - b) * (a - b)).sum();
+            let d: f32 = query
+                .iter()
+                .zip(v.iter())
+                .map(|(a, b)| (a - b) * (a - b))
+                .sum();
             (i, d)
         })
         .collect();

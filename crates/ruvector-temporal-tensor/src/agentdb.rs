@@ -140,10 +140,7 @@ impl PatternIndex for InMemoryPatternIndex {
             .collect();
 
         // Sort by descending similarity.
-        scored.sort_by(|a, b| {
-            b.1.partial_cmp(&a.1)
-                .unwrap_or(core::cmp::Ordering::Equal)
-        });
+        scored.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(core::cmp::Ordering::Equal));
         scored.truncate(k);
         scored
     }
@@ -248,11 +245,7 @@ impl<I: PatternIndex> AdaptiveTiering<I> {
     /// - `neighbors` is empty,
     /// - no neighbors have known tiers, or
     /// - the consensus tier matches the block's current tier.
-    pub fn suggest_tier(
-        &self,
-        meta: &BlockMeta,
-        neighbors: &[(BlockKey, f32)],
-    ) -> Option<Tier> {
+    pub fn suggest_tier(&self, meta: &BlockMeta, neighbors: &[(BlockKey, f32)]) -> Option<Tier> {
         if neighbors.is_empty() {
             return None;
         }
@@ -398,7 +391,10 @@ mod tests {
         let b = vec![1.0, 0.0];
         let sim = cosine_similarity(&a, &b);
         let expected = 1.0 / 2.0f32.sqrt();
-        assert!((sim - expected).abs() < 1e-6, "sim={sim}, expected={expected}");
+        assert!(
+            (sim - expected).abs() < 1e-6,
+            "sim={sim}, expected={expected}"
+        );
     }
 
     // -- InMemoryPatternIndex ----------------------------------------------
@@ -602,17 +598,14 @@ mod tests {
         let meta = make_store_meta(
             make_key(1, 0),
             Tier::Tier1,
-            2.0,       // ema > 1, should be clamped
-            u64::MAX,  // all bits set
-            u32::MAX,  // max access count
-            u32::MAX,  // max tier age
+            2.0,      // ema > 1, should be clamped
+            u64::MAX, // all bits set
+            u32::MAX, // max access count
+            u32::MAX, // max tier age
         );
         let pat = pattern_from_meta(&meta);
         for (i, &v) in pat.iter().enumerate() {
-            assert!(
-                v >= 0.0 && v <= 1.0,
-                "dim {i} out of [0,1]: {v}"
-            );
+            assert!(v >= 0.0 && v <= 1.0, "dim {i} out of [0,1]: {v}");
         }
     }
 
@@ -731,9 +724,9 @@ mod tests {
 
         let meta = make_store_meta(make_key(1, 0), Tier::Tier2, 0.5, 0, 10, 5);
         let neighbors = vec![
-            (make_key(2, 0), 0.3),  // votes Tier1 with weight 0.3
-            (make_key(3, 0), 0.3),  // votes Tier1 with weight 0.3
-            (make_key(4, 0), 0.9),  // votes Tier3 with weight 0.9
+            (make_key(2, 0), 0.3), // votes Tier1 with weight 0.3
+            (make_key(3, 0), 0.3), // votes Tier1 with weight 0.3
+            (make_key(4, 0), 0.9), // votes Tier3 with weight 0.9
         ];
         // Tier1 total = 0.6, Tier3 total = 0.9. Tier3 wins.
         let result = at.suggest_tier(&meta, &neighbors);
@@ -787,12 +780,9 @@ mod tests {
         let warm_key = make_key(2, 0);
         let cold_key = make_key(3, 0);
 
-        let hot_meta =
-            make_store_meta(hot_key, Tier::Tier1, 0.9, u64::MAX, 1000, 2);
-        let warm_meta =
-            make_store_meta(warm_key, Tier::Tier2, 0.5, 0xFFFF_FFFF, 100, 10);
-        let cold_meta =
-            make_store_meta(cold_key, Tier::Tier3, 0.05, 0x0F, 5, 100);
+        let hot_meta = make_store_meta(hot_key, Tier::Tier1, 0.9, u64::MAX, 1000, 2);
+        let warm_meta = make_store_meta(warm_key, Tier::Tier2, 0.5, 0xFFFF_FFFF, 100, 10);
+        let cold_meta = make_store_meta(cold_key, Tier::Tier3, 0.05, 0x0F, 5, 100);
 
         // Build embeddings and insert into index.
         let hot_emb = pattern_from_meta(&hot_meta);
@@ -822,8 +812,7 @@ mod tests {
 
         // Query: a new block with a hot-like pattern.
         let new_key = make_key(4, 0);
-        let new_meta =
-            make_store_meta(new_key, Tier::Tier3, 0.85, u64::MAX, 800, 3);
+        let new_meta = make_store_meta(new_key, Tier::Tier3, 0.85, u64::MAX, 800, 3);
         let new_emb = pattern_from_meta(&new_meta);
 
         let neighbors = at.index.search_nearest(&new_emb, 3);

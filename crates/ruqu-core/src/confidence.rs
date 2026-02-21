@@ -67,7 +67,7 @@ pub fn z_score(confidence: f64) -> f64 {
     );
 
     let p = (1.0 + confidence) / 2.0; // upper tail probability
-    // 1 - p is the tail area; for p close to 1 this is small and positive.
+                                      // 1 - p is the tail area; for p close to 1 this is small and positive.
     let tail = 1.0 - p;
 
     // Rational approximation: for tail area `q`, set t = sqrt(-2 ln q).
@@ -323,10 +323,7 @@ pub fn expectation_confidence(
 ///
 /// Panics if `epsilon` or `delta` is not in (0, 1).
 pub fn required_shots(epsilon: f64, delta: f64) -> usize {
-    assert!(
-        epsilon > 0.0 && epsilon < 1.0,
-        "epsilon must be in (0, 1)"
-    );
+    assert!(epsilon > 0.0 && epsilon < 1.0, "epsilon must be in (0, 1)");
     assert!(delta > 0.0 && delta < 1.0, "delta must be in (0, 1)");
 
     let n = (2.0_f64 / delta).ln() / (2.0 * epsilon * epsilon);
@@ -493,8 +490,7 @@ fn normal_cdf(x: f64) -> f64 {
 
     let poly = t
         * (0.319381530
-            + t * (-0.356563782
-                + t * (1.781477937 + t * (-1.821255978 + t * 1.330274429))));
+            + t * (-0.356563782 + t * (1.781477937 + t * (-1.821255978 + t * 1.330274429))));
 
     if sign > 0.0 {
         1.0 - p * poly
@@ -533,14 +529,8 @@ impl ConvergenceMonitor {
         }
 
         let window = &self.estimates[self.estimates.len() - self.window_size..];
-        let min = window
-            .iter()
-            .copied()
-            .fold(f64::INFINITY, f64::min);
-        let max = window
-            .iter()
-            .copied()
-            .fold(f64::NEG_INFINITY, f64::max);
+        let min = window.iter().copied().fold(f64::INFINITY, f64::min);
+        let max = window.iter().copied().fold(f64::NEG_INFINITY, f64::max);
 
         (max - min) < epsilon
     }
@@ -599,7 +589,10 @@ mod tests {
     fn wilson_contains_true_proportion() {
         // 50 successes out of 100 trials, true p = 0.5
         let ci = wilson_interval(50, 100, 0.95);
-        assert!(ci.lower < 0.5 && ci.upper > 0.5, "Wilson CI should contain 0.5: {ci:?}");
+        assert!(
+            ci.lower < 0.5 && ci.upper > 0.5,
+            "Wilson CI should contain 0.5: {ci:?}"
+        );
         assert_eq!(ci.method, "wilson");
         assert!((ci.point_estimate - 0.5).abs() < 1e-12);
     }
@@ -750,7 +743,10 @@ mod tests {
         p.insert(vec![true, true], 250);
 
         let tvd = total_variation_distance(&p, &p);
-        assert!(tvd.abs() < 1e-12, "TVD of identical distributions should be 0, got {tvd}");
+        assert!(
+            tvd.abs() < 1e-12,
+            "TVD of identical distributions should be 0, got {tvd}"
+        );
     }
 
     #[test]
@@ -780,10 +776,7 @@ mod tests {
 
         let tvd = total_variation_distance(&p, &q);
         // |0.6 - 0.4| + |0.4 - 0.6| = 0.4, times 0.5 = 0.2
-        assert!(
-            (tvd - 0.2).abs() < 1e-12,
-            "expected 0.2, got {tvd}"
-        );
+        assert!((tvd - 0.2).abs() < 1e-12, "expected 0.2, got {tvd}");
     }
 
     #[test]
@@ -833,7 +826,11 @@ mod tests {
 
         let result = chi_squared_test(&obs, &exp);
         assert!(result.statistic > 100.0, "statistic should be large");
-        assert!(result.p_value < 0.05, "p-value should be small: {}", result.p_value);
+        assert!(
+            result.p_value < 0.05,
+            "p-value should be small: {}",
+            result.p_value
+        );
         assert!(result.significant);
     }
 
@@ -857,7 +854,9 @@ mod tests {
     fn convergence_detects_stable() {
         let mut monitor = ConvergenceMonitor::new(5);
         // Add a sequence that stabilises.
-        for &v in &[0.5, 0.52, 0.49, 0.501, 0.499, 0.5001, 0.4999, 0.5002, 0.4998, 0.5001] {
+        for &v in &[
+            0.5, 0.52, 0.49, 0.501, 0.499, 0.5001, 0.4999, 0.5002, 0.4998, 0.5001,
+        ] {
             monitor.add_estimate(v);
         }
         assert!(

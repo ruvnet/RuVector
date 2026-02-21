@@ -6,7 +6,10 @@ use std::path::PathBuf;
 use rvf_server::ServerConfig;
 
 #[derive(Parser)]
-#[command(name = "rvf-server", about = "RuVector Format TCP/HTTP streaming server")]
+#[command(
+    name = "rvf-server",
+    about = "RuVector Format TCP/HTTP streaming server"
+)]
 struct Cli {
     /// HTTP listen port
     #[arg(long, default_value_t = 8080)]

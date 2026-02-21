@@ -273,12 +273,9 @@ impl RlmRefiner {
             )));
         }
 
-        let lora = self
-            .lora_adapters
-            .get(&expert_idx)
-            .ok_or_else(|| {
-                RuvLLMError::InvalidOperation(format!("No LoRA adapter for expert {}", expert_idx))
-            })?;
+        let lora = self.lora_adapters.get(&expert_idx).ok_or_else(|| {
+            RuvLLMError::InvalidOperation(format!("No LoRA adapter for expert {}", expert_idx))
+        })?;
 
         // -- Step 2: Forward through MicroLoRA (SIMD path) --
         let mut lora_correction = vec![0.0f32; dim];
@@ -335,11 +332,7 @@ impl RlmRefiner {
         }
 
         // -- Correction norm --
-        let lora_correction_norm = lora_correction
-            .iter()
-            .map(|v| v * v)
-            .sum::<f32>()
-            .sqrt();
+        let lora_correction_norm = lora_correction.iter().map(|v| v * v).sum::<f32>().sqrt();
 
         // -- Build metrics --
         let metrics = RefinementStepMetrics {
@@ -409,9 +402,8 @@ impl RlmRefiner {
 
         // Save EWC states
         let ewc_export = self.ewc.export_states();
-        let ewc_bytes =
-            bincode::serde::encode_to_vec(&ewc_export, bincode::config::standard())
-                .map_err(|e| RuvLLMError::Serialization(e.to_string()))?;
+        let ewc_bytes = bincode::serde::encode_to_vec(&ewc_export, bincode::config::standard())
+            .map_err(|e| RuvLLMError::Serialization(e.to_string()))?;
         std::fs::write(dir.join("ewc_states.bin"), ewc_bytes)?;
 
         // Save metrics history
@@ -434,17 +426,18 @@ impl RlmRefiner {
         // Export each expert's LoRA state
         for (&layer_idx, lora) in &self.lora_adapters {
             let state = lora.export_state();
-            let bytes =
-                bincode::serde::encode_to_vec(&state, bincode::config::standard())
-                    .map_err(|e| RuvLLMError::Serialization(e.to_string()))?;
-            std::fs::write(dir.join(format!("expert_{}_lora_state.bin", layer_idx)), bytes)?;
+            let bytes = bincode::serde::encode_to_vec(&state, bincode::config::standard())
+                .map_err(|e| RuvLLMError::Serialization(e.to_string()))?;
+            std::fs::write(
+                dir.join(format!("expert_{}_lora_state.bin", layer_idx)),
+                bytes,
+            )?;
         }
 
         // Export EWC states for future phases
         let ewc_export = self.ewc.export_states();
-        let ewc_bytes =
-            bincode::serde::encode_to_vec(&ewc_export, bincode::config::standard())
-                .map_err(|e| RuvLLMError::Serialization(e.to_string()))?;
+        let ewc_bytes = bincode::serde::encode_to_vec(&ewc_export, bincode::config::standard())
+            .map_err(|e| RuvLLMError::Serialization(e.to_string()))?;
         std::fs::write(dir.join("ewc_states.bin"), ewc_bytes)?;
 
         // Export config for reproducibility

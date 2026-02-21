@@ -284,14 +284,13 @@ impl IntelligenceProvider for FileSignalProvider {
         // Use BufReader for streaming parse (P2: avoid double allocation)
         let file = std::fs::File::open(&self.path)?;
         let reader = std::io::BufReader::new(file);
-        let signals: Vec<QualitySignal> =
-            serde_json::from_reader(reader).map_err(|e| {
-                crate::error::RuvLLMError::Serialization(format!(
-                    "Failed to parse signal file {}: {}",
-                    self.path.display(),
-                    e
-                ))
-            })?;
+        let signals: Vec<QualitySignal> = serde_json::from_reader(reader).map_err(|e| {
+            crate::error::RuvLLMError::Serialization(format!(
+                "Failed to parse signal file {}: {}",
+                self.path.display(),
+                e
+            ))
+        })?;
 
         // Check signal count (S03: prevent resource exhaustion)
         if signals.len() > MAX_SIGNALS_PER_FILE {

@@ -60,7 +60,14 @@ pub fn run(args: LaunchArgs) -> Result<(), Box<dyn std::error::Error>> {
     if let Some(ssh) = config.ssh_port {
         eprintln!("  SSH port: {}", ssh);
     }
-    eprintln!("  KVM:      {}", if config.enable_kvm { "enabled (if available)" } else { "disabled" });
+    eprintln!(
+        "  KVM:      {}",
+        if config.enable_kvm {
+            "enabled (if available)"
+        } else {
+            "disabled"
+        }
+    );
 
     let mut vm = rvf_launch::Launcher::launch(&config)?;
     eprintln!("MicroVM started (PID {})", vm.pid());
@@ -86,7 +93,8 @@ pub fn run(args: LaunchArgs) -> Result<(), Box<dyn std::error::Error>> {
     })
     .map_err(|e| format!("failed to set Ctrl+C handler: {e}"))?;
 
-    rx.recv().map_err(|e| format!("signal channel error: {e}"))?;
+    rx.recv()
+        .map_err(|e| format!("signal channel error: {e}"))?;
 
     eprintln!("\nShutting down VM...");
     vm.shutdown()?;

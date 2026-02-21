@@ -260,11 +260,7 @@ impl ConjugateGradientSolver {
     // -------------------------------------------------------------------
 
     /// Validate inputs before entering the CG loop.
-    fn validate(
-        &self,
-        matrix: &CsrMatrix<f64>,
-        rhs: &[f64],
-    ) -> Result<(), SolverError> {
+    fn validate(&self, matrix: &CsrMatrix<f64>, rhs: &[f64]) -> Result<(), SolverError> {
         if matrix.rows != matrix.cols {
             return Err(SolverError::InvalidInput(
                 ValidationError::DimensionMismatch(format!(
@@ -450,8 +446,7 @@ impl ConjugateGradientSolver {
         // --- rz = r . z ---
         let mut rz = dot_f64(&r, &z);
 
-        let mut convergence_history =
-            Vec::with_capacity(effective_max_iter.min(256));
+        let mut convergence_history = Vec::with_capacity(effective_max_iter.min(256));
         let mut converged = false;
 
         debug!(
@@ -491,9 +486,7 @@ impl ConjugateGradientSolver {
                 warn!("CG: non-positive p.Ap = {p_dot_ap:.4e} at iteration {k}");
                 return Err(SolverError::NumericalInstability {
                     iteration: k,
-                    detail: format!(
-                        "p.Ap = {p_dot_ap:.6e} <= 0; matrix may not be SPD",
-                    ),
+                    detail: format!("p.Ap = {p_dot_ap:.6e} <= 0; matrix may not be SPD",),
                 });
             }
 
@@ -560,9 +553,7 @@ impl ConjugateGradientSolver {
                 warn!("CG: rz near zero at iteration {k}, stagnation");
                 return Err(SolverError::NumericalInstability {
                     iteration: k,
-                    detail: format!(
-                        "rz = {rz:.6e} is near zero; solver stagnated",
-                    ),
+                    detail: format!("rz = {rz:.6e} is near zero; solver stagnated",),
                 });
             }
 
@@ -634,11 +625,7 @@ impl SolverEngine for ConjugateGradientSolver {
     ///
     /// CG converges in `O(sqrt(kappa))` iterations, each costing `O(nnz)` for
     /// the SpMV plus `O(n)` for the vector updates.
-    fn estimate_complexity(
-        &self,
-        profile: &SparsityProfile,
-        n: usize,
-    ) -> ComplexityEstimate {
+    fn estimate_complexity(&self, profile: &SparsityProfile, n: usize) -> ComplexityEstimate {
         // Estimated iterations from condition number, clamped to max_iterations.
         let est_iters = (profile.estimated_condition.sqrt() as usize)
             .max(1)
@@ -650,7 +637,11 @@ impl SolverEngine for ConjugateGradientSolver {
 
         // Memory: 5 vectors of length n (x, r, z, p, Ap) plus preconditioner.
         let vec_bytes = n * std::mem::size_of::<f64>();
-        let precond_bytes = if self.use_preconditioner { vec_bytes } else { 0 };
+        let precond_bytes = if self.use_preconditioner {
+            vec_bytes
+        } else {
+            0
+        };
         let estimated_memory_bytes = 5 * vec_bytes + precond_bytes;
 
         ComplexityEstimate {
@@ -696,11 +687,7 @@ mod tests {
     /// Build a diagonal matrix from the given values.
     fn diagonal_matrix(diag: &[f64]) -> CsrMatrix<f64> {
         let n = diag.len();
-        let entries: Vec<_> = diag
-            .iter()
-            .enumerate()
-            .map(|(i, &v)| (i, i, v))
-            .collect();
+        let entries: Vec<_> = diag.iter().enumerate().map(|(i, &v)| (i, i, v)).collect();
         CsrMatrix::<f64>::from_coo(n, n, entries)
     }
 

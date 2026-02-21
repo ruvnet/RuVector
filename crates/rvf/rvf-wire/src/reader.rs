@@ -3,8 +3,10 @@
 //! Reads the fixed 64-byte segment header from a byte slice, validates
 //! magic and version fields, and optionally verifies the content hash.
 
-use rvf_types::{ErrorCode, RvfError, SegmentHeader, SEGMENT_HEADER_SIZE, SEGMENT_MAGIC, SEGMENT_VERSION};
 use crate::hash::verify_content_hash;
+use rvf_types::{
+    ErrorCode, RvfError, SegmentHeader, SEGMENT_HEADER_SIZE, SEGMENT_MAGIC, SEGMENT_VERSION,
+};
 
 /// Read and parse a segment header from the first 64 bytes of `data`.
 ///

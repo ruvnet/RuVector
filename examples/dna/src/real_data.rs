@@ -180,7 +180,11 @@ mod tests {
     #[test]
     fn test_hbb_sequence_valid() {
         let seq = DnaSequence::from_str(HBB_CODING_SEQUENCE).unwrap();
-        assert!(seq.len() > 400, "HBB CDS should be >400bp, got {}", seq.len());
+        assert!(
+            seq.len() > 400,
+            "HBB CDS should be >400bp, got {}",
+            seq.len()
+        );
         // Should start with ATG (start codon)
         assert_eq!(seq.get(0), Some(crate::types::Nucleotide::A));
         assert_eq!(seq.get(1), Some(crate::types::Nucleotide::T));
@@ -190,19 +194,31 @@ mod tests {
     #[test]
     fn test_tp53_sequence_valid() {
         let seq = DnaSequence::from_str(TP53_EXONS_5_8).unwrap();
-        assert!(seq.len() > 400, "TP53 exons 5-8 should be >400bp, got {}", seq.len());
+        assert!(
+            seq.len() > 400,
+            "TP53 exons 5-8 should be >400bp, got {}",
+            seq.len()
+        );
     }
 
     #[test]
     fn test_brca1_fragment_valid() {
         let seq = DnaSequence::from_str(BRCA1_EXON11_FRAGMENT).unwrap();
-        assert!(seq.len() > 400, "BRCA1 fragment should be >400bp, got {}", seq.len());
+        assert!(
+            seq.len() > 400,
+            "BRCA1 fragment should be >400bp, got {}",
+            seq.len()
+        );
     }
 
     #[test]
     fn test_cyp2d6_valid() {
         let seq = DnaSequence::from_str(CYP2D6_CODING).unwrap();
-        assert!(seq.len() > 400, "CYP2D6 should be >400bp, got {}", seq.len());
+        assert!(
+            seq.len() > 400,
+            "CYP2D6 should be >400bp, got {}",
+            seq.len()
+        );
         // Should start with ATG
         assert_eq!(seq.get(0), Some(crate::types::Nucleotide::A));
         assert_eq!(seq.get(1), Some(crate::types::Nucleotide::T));

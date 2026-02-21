@@ -1,10 +1,10 @@
 //! High-level simulator that executes quantum circuits
 
 use crate::circuit::QuantumCircuit;
+use crate::error::Result;
 use crate::gate::Gate;
 use crate::state::QuantumState;
 use crate::types::*;
-use crate::error::Result;
 
 use rand::Rng;
 use std::collections::HashMap;

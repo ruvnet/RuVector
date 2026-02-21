@@ -549,14 +549,12 @@ pub fn spatial_decomposition(
                         continue;
                     }
                     // Score = number of edges from this neighbor into group members.
-                    let score: usize = graph
-                        .adjacency[neighbor as usize]
+                    let score: usize = graph.adjacency[neighbor as usize]
                         .iter()
                         .filter(|&&adj| group.contains(&adj))
                         .count();
                     if score > best_score
-                        || (score == best_score
-                            && best_candidate.map_or(true, |bc| neighbor < bc))
+                        || (score == best_score && best_candidate.map_or(true, |bc| neighbor < bc))
                     {
                         best_score = score;
                         best_candidate = Some(neighbor);
@@ -770,7 +768,7 @@ pub fn estimate_segment_cost(segment: &QuantumCircuit, backend: BackendType) -> 
             // Memory: tableau of 2n rows x (2n+1) bits, stored as bools.
             let tableau_size = 2 * (n as u64) * (2 * (n as u64) + 1);
             let memory_bytes = tableau_size; // 1 byte per bool in practice
-            // FLOPs: O(n^2) per gate (row operations over 2n rows of width 2n+1).
+                                             // FLOPs: O(n^2) per gate (row operations over 2n rows of width 2n+1).
             let flops_per_gate = 4 * (n as u64) * (n as u64);
             let estimated_flops = gate_count.saturating_mul(flops_per_gate);
             SegmentCost {
@@ -837,9 +835,7 @@ pub fn estimate_segment_cost(segment: &QuantumCircuit, backend: BackendType) -> 
 /// Each input element is `(bitstring, probability)` from one segment's
 /// simulation. The output maps combined bitstrings to their joint
 /// probabilities.
-pub fn stitch_results(
-    partitions: &[(Vec<bool>, f64)],
-) -> HashMap<Vec<bool>, f64> {
+pub fn stitch_results(partitions: &[(Vec<bool>, f64)]) -> HashMap<Vec<bool>, f64> {
     if partitions.is_empty() {
         return HashMap::new();
     }
@@ -1101,10 +1097,7 @@ pub fn decompose(circuit: &QuantumCircuit, max_segment_qubits: u32) -> CircuitPa
         // Find the gate index range in the original circuit for this component.
         let gate_indices = gate_indices_for_component(circuit, &comp_set);
         let gate_range_start = gate_indices.first().copied().unwrap_or(0);
-        let _gate_range_end = gate_indices
-            .last()
-            .map(|&i| i + 1)
-            .unwrap_or(0);
+        let _gate_range_end = gate_indices.last().map(|&i| i + 1).unwrap_or(0);
 
         // Temporal decomposition within the component.
         let time_slices = temporal_decomposition(&comp_circuit);
@@ -1197,10 +1190,7 @@ fn active_qubit_count(circuit: &QuantumCircuit) -> u32 {
 /// Extract a subcircuit containing only the gates that act on qubits in the
 /// given component set. The subcircuit has `num_qubits` equal to the size of
 /// the component, with qubit indices remapped to `0..component.len()`.
-fn extract_component_circuit(
-    circuit: &QuantumCircuit,
-    component: &HashSet<u32>,
-) -> QuantumCircuit {
+fn extract_component_circuit(circuit: &QuantumCircuit, component: &HashSet<u32>) -> QuantumCircuit {
     // Build a sorted list for deterministic remapping.
     let mut sorted_qubits: Vec<u32> = component.iter().copied().collect();
     sorted_qubits.sort_unstable();
@@ -1366,18 +1356,12 @@ mod tests {
         assert_eq!(graph.edges.len(), 2, "should have 2 distinct edges");
 
         // Find the (0,1) edge and check its count.
-        let edge_01 = graph
-            .edges
-            .iter()
-            .find(|&&(a, b, _)| a == 0 && b == 1);
+        let edge_01 = graph.edges.iter().find(|&&(a, b, _)| a == 0 && b == 1);
         assert!(edge_01.is_some(), "edge (0,1) should exist");
         assert_eq!(edge_01.unwrap().2, 2, "edge (0,1) should have count 2");
 
         // Find the (1,2) edge.
-        let edge_12 = graph
-            .edges
-            .iter()
-            .find(|&&(a, b, _)| a == 1 && b == 2);
+        let edge_12 = graph.edges.iter().find(|&&(a, b, _)| a == 1 && b == 2);
         assert!(edge_12.is_some(), "edge (1,2) should exist");
         assert_eq!(edge_12.unwrap().2, 1, "edge (1,2) should have count 1");
 
@@ -1584,10 +1568,22 @@ mod tests {
         // (true, true, true)    = 0.5 * 0.75 = 0.375
         assert_eq!(combined.len(), 4);
 
-        let prob_fff = combined.get(&vec![false, false, false]).copied().unwrap_or(0.0);
-        let prob_ftt = combined.get(&vec![false, true, true]).copied().unwrap_or(0.0);
-        let prob_tff = combined.get(&vec![true, false, false]).copied().unwrap_or(0.0);
-        let prob_ttt = combined.get(&vec![true, true, true]).copied().unwrap_or(0.0);
+        let prob_fff = combined
+            .get(&vec![false, false, false])
+            .copied()
+            .unwrap_or(0.0);
+        let prob_ftt = combined
+            .get(&vec![false, true, true])
+            .copied()
+            .unwrap_or(0.0);
+        let prob_tff = combined
+            .get(&vec![true, false, false])
+            .copied()
+            .unwrap_or(0.0);
+        let prob_ttt = combined
+            .get(&vec![true, true, true])
+            .copied()
+            .unwrap_or(0.0);
 
         assert!((prob_fff - 0.125).abs() < 1e-10);
         assert!((prob_ftt - 0.375).abs() < 1e-10);
@@ -1823,7 +1819,10 @@ mod tests {
         let parts = spatial_decomposition_mincut(&circ, &graph, 3);
         assert!(parts.len() >= 2, "Should partition into at least 2 groups");
         for (qubits, _sub_circ) in &parts {
-            assert!(qubits.len() as u32 <= 3, "Each group should have at most 3 qubits");
+            assert!(
+                qubits.len() as u32 <= 3,
+                "Each group should have at most 3 qubits"
+            );
         }
     }
 
@@ -1860,7 +1859,7 @@ mod tests {
         let mut circ = QuantumCircuit::new(4);
         circ.h(0).cnot(0, 1); // Bell pair 0-1
         circ.h(2).cnot(2, 3); // Bell pair 2-3
-        circ.cnot(1, 2);       // Cross-partition gate
+        circ.cnot(1, 2); // Cross-partition gate
 
         let partition = CircuitPartition {
             segments: vec![
@@ -1873,7 +1872,11 @@ mod tests {
                     backend: BackendType::Stabilizer,
                     qubit_range: (0, 1),
                     gate_range: (0, 2),
-                    estimated_cost: SegmentCost { memory_bytes: 0, estimated_flops: 0, qubit_count: 2 },
+                    estimated_cost: SegmentCost {
+                        memory_bytes: 0,
+                        estimated_flops: 0,
+                        qubit_count: 2,
+                    },
                 },
                 CircuitSegment {
                     circuit: {
@@ -1884,7 +1887,11 @@ mod tests {
                     backend: BackendType::Stabilizer,
                     qubit_range: (2, 3),
                     gate_range: (2, 4),
-                    estimated_cost: SegmentCost { memory_bytes: 0, estimated_flops: 0, qubit_count: 2 },
+                    estimated_cost: SegmentCost {
+                        memory_bytes: 0,
+                        estimated_flops: 0,
+                        qubit_count: 2,
+                    },
                 },
             ],
             total_qubits: 4,
@@ -1898,7 +1905,10 @@ mod tests {
             (vec![true, true], 0.5),
         ];
         let (_dist, fidelity) = stitch_with_fidelity(&partitions, &partition, &circ);
-        assert!(fidelity.fidelity < 1.0, "Cut circuit should have fidelity < 1.0");
+        assert!(
+            fidelity.fidelity < 1.0,
+            "Cut circuit should have fidelity < 1.0"
+        );
         assert!(fidelity.cut_gates >= 1, "Should detect at least 1 cut gate");
     }
 }

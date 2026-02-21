@@ -13,9 +13,7 @@
 //! Run: cargo run --example capability_report -p rvf-runtime
 
 use rvf_runtime::seed_crypto;
-use rvf_runtime::witness::{
-    GovernancePolicy, ParsedWitness, ScorecardBuilder, WitnessBuilder,
-};
+use rvf_runtime::witness::{GovernancePolicy, ParsedWitness, ScorecardBuilder, WitnessBuilder};
 use rvf_types::witness::*;
 
 /// HMAC-SHA256 signing key (in production, load from secure storage).
@@ -105,10 +103,7 @@ fn main() {
 
     for (mode_name, policy) in &modes {
         println!("--- Governance Mode: {mode_name} ---");
-        println!(
-            "  Policy hash:  {:02x?}",
-            policy.hash()
-        );
+        println!("  Policy hash:  {:02x?}", policy.hash());
 
         let mut scorecard = ScorecardBuilder::new();
 
@@ -175,7 +170,11 @@ fn main() {
         println!();
         println!("  Scorecard:");
         println!("    Tasks:           {}", card.total_tasks);
-        println!("    Solved:          {} ({:.0}%)", card.solved, card.solve_rate * 100.0);
+        println!(
+            "    Solved:          {} ({:.0}%)",
+            card.solved,
+            card.solve_rate * 100.0
+        );
         println!("    Failed:          {}", card.failed);
         println!("    Errors:          {}", card.errors);
         println!("    Violations:      {}", card.policy_violations);

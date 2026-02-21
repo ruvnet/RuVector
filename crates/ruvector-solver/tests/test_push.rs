@@ -7,9 +7,9 @@
 mod helpers;
 
 use approx::assert_relative_eq;
-use ruvector_solver::forward_push::{forward_push_with_residuals, ForwardPushSolver};
 #[cfg(feature = "backward-push")]
 use ruvector_solver::backward_push::BackwardPushSolver;
+use ruvector_solver::forward_push::{forward_push_with_residuals, ForwardPushSolver};
 #[allow(unused_imports)]
 use ruvector_solver::traits::SublinearPageRank;
 use ruvector_solver::types::CsrMatrix;
@@ -22,10 +22,7 @@ use helpers::adjacency_from_edges;
 
 /// 4-node graph: 0--1--2--3, 0--2 (bidirectional).
 fn simple_graph_4() -> CsrMatrix<f64> {
-    adjacency_from_edges(
-        4,
-        &[(0, 1), (1, 2), (2, 3), (0, 2)],
-    )
+    adjacency_from_edges(4, &[(0, 1), (1, 2), (2, 3), (0, 2)])
 }
 
 /// Star graph centred at 0 with k leaves (bidirectional edges).
@@ -48,9 +45,7 @@ fn complete_graph(n: usize) -> CsrMatrix<f64> {
 
 /// Directed cycle: 0->1->2->...->n-1->0.
 fn directed_cycle(n: usize) -> CsrMatrix<f64> {
-    let entries: Vec<(usize, usize, f64)> = (0..n)
-        .map(|i| (i, (i + 1) % n, 1.0f64))
-        .collect();
+    let entries: Vec<(usize, usize, f64)> = (0..n).map(|i| (i, (i + 1) % n, 1.0f64)).collect();
     CsrMatrix::<f64>::from_coo(n, n, entries)
 }
 
@@ -118,7 +113,8 @@ fn test_forward_push_star_graph() {
     assert_eq!(result[0].0, 0);
 
     // All leaf scores should be approximately equal (by symmetry).
-    let leaf_scores: Vec<f64> = result.iter()
+    let leaf_scores: Vec<f64> = result
+        .iter()
         .filter(|(v, _)| *v != 0)
         .map(|(_, s)| *s)
         .collect();
@@ -151,7 +147,8 @@ fn test_forward_push_complete_graph() {
     assert_eq!(result.len(), n);
 
     // Non-source nodes should have approximately equal PPR.
-    let non_source: Vec<f64> = result.iter()
+    let non_source: Vec<f64> = result
+        .iter()
         .filter(|(v, _)| *v != 0)
         .map(|(_, s)| *s)
         .collect();
@@ -206,7 +203,8 @@ fn test_backward_push_simple() {
     assert!(!result.is_empty());
 
     // The target node itself should have the highest PPR.
-    let target_ppr = result.iter()
+    let target_ppr = result
+        .iter()
         .find(|&&(v, _)| v == 0)
         .map(|&(_, p)| p)
         .unwrap_or(0.0);
@@ -214,7 +212,11 @@ fn test_backward_push_simple() {
 
     // Total PPR should be <= 1.
     let total: f64 = result.iter().map(|(_, v)| v).sum();
-    assert!(total <= 1.0 + 1e-6, "total PPR should be <= 1, got {}", total);
+    assert!(
+        total <= 1.0 + 1e-6,
+        "total PPR should be <= 1, got {}",
+        total
+    );
 }
 
 // ---------------------------------------------------------------------------

@@ -172,7 +172,7 @@ pub fn isoelectric_point(protein: &[AminoAcid]) -> f64 {
         return 7.0;
     }
 
-    const PKA_NH2: f64 = 9.69;  // N-terminal amino group
+    const PKA_NH2: f64 = 9.69; // N-terminal amino group
     const PKA_COOH: f64 = 2.34; // C-terminal carboxyl group
 
     let charge_at_ph = |ph: f64| -> f64 {
@@ -256,7 +256,7 @@ pub fn translate_dna(dna: &[u8]) -> Vec<AminoAcid> {
             b"CGT" | b"CGC" | b"CGA" | b"CGG" | b"AGA" | b"AGG" => AminoAcid::Arg,
             b"GGT" | b"GGC" | b"GGA" | b"GGG" => AminoAcid::Gly,
             b"TAA" | b"TAG" | b"TGA" => break, // Stop codons
-            _ => continue, // Unknown codon, skip
+            _ => continue,                     // Unknown codon, skip
         };
 
         proteins.push(aa);
@@ -308,13 +308,31 @@ mod tests {
         assert!(pi > 4.0 && pi < 10.0, "pI should be reasonable: got {}", pi);
 
         // Lysine-rich peptide should have high pI
-        let basic = vec![AminoAcid::Lys, AminoAcid::Lys, AminoAcid::Lys, AminoAcid::Arg];
+        let basic = vec![
+            AminoAcid::Lys,
+            AminoAcid::Lys,
+            AminoAcid::Lys,
+            AminoAcid::Arg,
+        ];
         let pi_basic = isoelectric_point(&basic);
-        assert!(pi_basic > 9.0, "Basic peptide pI should be >9: got {}", pi_basic);
+        assert!(
+            pi_basic > 9.0,
+            "Basic peptide pI should be >9: got {}",
+            pi_basic
+        );
 
         // Aspartate-rich peptide should have low pI
-        let acidic = vec![AminoAcid::Asp, AminoAcid::Asp, AminoAcid::Glu, AminoAcid::Glu];
+        let acidic = vec![
+            AminoAcid::Asp,
+            AminoAcid::Asp,
+            AminoAcid::Glu,
+            AminoAcid::Glu,
+        ];
         let pi_acidic = isoelectric_point(&acidic);
-        assert!(pi_acidic < 5.0, "Acidic peptide pI should be <5: got {}", pi_acidic);
+        assert!(
+            pi_acidic < 5.0,
+            "Acidic peptide pI should be <5: got {}",
+            pi_acidic
+        );
     }
 }

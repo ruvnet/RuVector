@@ -1,7 +1,7 @@
 //! Common quantization trait shared by all quantizer types.
 
-use alloc::vec::Vec;
 use crate::tier::TemperatureTier;
+use alloc::vec::Vec;
 
 /// Trait for vector quantization codecs.
 ///

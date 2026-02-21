@@ -21,9 +21,7 @@ use std::collections::HashMap;
 
 use crate::backend::BackendType;
 use crate::circuit::QuantumCircuit;
-use crate::decomposition::{
-    decompose, stitch_results, CircuitPartition, DecompositionStrategy,
-};
+use crate::decomposition::{decompose, stitch_results, CircuitPartition, DecompositionStrategy};
 use crate::error::Result;
 use crate::planner::{plan_execution, ExecutionPlan, PlannerConfig};
 use crate::simulator::Simulator;
@@ -123,10 +121,7 @@ impl Pipeline {
     /// 3. Execute: run each segment on its assigned backend.
     /// 4. Stitch: combine segment results into a joint distribution.
     /// 5. Verify: optionally cross-check against a reference backend.
-    pub fn execute(
-        circuit: &QuantumCircuit,
-        config: &PipelineConfig,
-    ) -> Result<PipelineResult> {
+    pub fn execute(circuit: &QuantumCircuit, config: &PipelineConfig) -> Result<PipelineResult> {
         // Step 1: Plan
         let plan = plan_execution(circuit, &config.planner);
 
@@ -135,17 +130,12 @@ impl Pipeline {
         let decomposition = DecompositionSummary {
             num_segments: partition.segments.len(),
             strategy: partition.strategy,
-            backends: partition
-                .segments
-                .iter()
-                .map(|s| s.backend)
-                .collect(),
+            backends: partition.segments.iter().map(|s| s.backend).collect(),
         };
 
         // Step 3: Execute each segment
         let mut segment_results = Vec::new();
-        let mut all_segment_distributions: Vec<Vec<(Vec<bool>, f64)>> =
-            Vec::new();
+        let mut all_segment_distributions: Vec<Vec<(Vec<bool>, f64)>> = Vec::new();
 
         for (idx, segment) in partition.segments.iter().enumerate() {
             let shot_seed = config.seed.wrapping_add(idx as u64);
@@ -153,11 +143,8 @@ impl Pipeline {
             // Use the multi-shot simulator for each segment.
             // The simulator always uses the state-vector backend internally,
             // which is correct for segments that fit within max_segment_qubits.
-            let shot_result = Simulator::run_shots(
-                &segment.circuit,
-                config.shots,
-                Some(shot_seed),
-            )?;
+            let shot_result =
+                Simulator::run_shots(&segment.circuit, config.shots, Some(shot_seed))?;
 
             // Convert the histogram counts to a probability distribution.
             let dist = counts_to_distribution(&shot_result.counts);
@@ -177,24 +164,19 @@ impl Pipeline {
         // pairs, grouped by segment. Segments are distinguished by
         // consecutive runs of equal-length bitstrings (see decomposition.rs).
         let flat_partitions: Vec<(Vec<bool>, f64)> =
-            all_segment_distributions
-                .into_iter()
-                .flatten()
-                .collect();
+            all_segment_distributions.into_iter().flatten().collect();
         let distribution = stitch_results(&flat_partitions);
         let total_probability: f64 = distribution.values().sum();
 
         // Step 5: Estimate fidelity
-        let estimated_fidelity =
-            estimate_pipeline_fidelity(&segment_results, &partition);
+        let estimated_fidelity = estimate_pipeline_fidelity(&segment_results, &partition);
 
         // Step 6: Verify (optional)
-        let verification =
-            if config.verify && circuit.num_qubits() <= 25 {
-                Some(verify_circuit(circuit, config.shots, config.seed))
-            } else {
-                None
-            };
+        let verification = if config.verify && circuit.num_qubits() <= 25 {
+            Some(verify_circuit(circuit, config.shots, config.seed))
+        } else {
+            None
+        };
 
         Ok(PipelineResult {
             plan,
@@ -232,9 +214,7 @@ fn resolve_backend(backend: BackendType) -> BackendType {
 ///
 /// Each entry in the returned vector is `(bitstring, probability)`, sorted
 /// in descending order of probability.
-fn counts_to_distribution(
-    counts: &HashMap<Vec<bool>, usize>,
-) -> Vec<(Vec<bool>, f64)> {
+fn counts_to_distribution(counts: &HashMap<Vec<bool>, usize>) -> Vec<(Vec<bool>, f64)> {
     let total: usize = counts.values().sum();
     if total == 0 {
         return Vec::new();
@@ -247,9 +227,7 @@ fn counts_to_distribution(
         .collect();
 
     // Sort by probability descending for deterministic output.
-    dist.sort_by(|a, b| {
-        b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal)
-    });
+    dist.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
     dist
 }
 
@@ -258,10 +236,7 @@ fn counts_to_distribution(
 /// For a single segment (no decomposition), fidelity is 1.0.
 /// For multiple segments, fidelity degrades based on the number of
 /// cross-segment cuts and the entanglement that was severed.
-fn estimate_pipeline_fidelity(
-    segments: &[SegmentResult],
-    partition: &CircuitPartition,
-) -> f64 {
+fn estimate_pipeline_fidelity(segments: &[SegmentResult], partition: &CircuitPartition) -> f64 {
     if segments.len() <= 1 {
         return 1.0;
     }
@@ -381,16 +356,8 @@ mod tests {
         // GHZ state should have ~50% |00000> and ~50% |11111>.
         let all_false = vec![false; 5];
         let all_true = vec![true; 5];
-        let p_all_false = result
-            .distribution
-            .get(&all_false)
-            .copied()
-            .unwrap_or(0.0);
-        let p_all_true = result
-            .distribution
-            .get(&all_true)
-            .copied()
-            .unwrap_or(0.0);
+        let p_all_false = result.distribution.get(&all_false).copied().unwrap_or(0.0);
+        let p_all_true = result.distribution.get(&all_true).copied().unwrap_or(0.0);
         assert!(
             p_all_false > 0.3,
             "GHZ should have significant |00000>, got {}",
@@ -432,10 +399,7 @@ mod tests {
 
     #[test]
     fn test_resolve_backend() {
-        assert_eq!(
-            resolve_backend(BackendType::Auto),
-            BackendType::StateVector
-        );
+        assert_eq!(resolve_backend(BackendType::Auto), BackendType::StateVector);
         assert_eq!(
             resolve_backend(BackendType::StateVector),
             BackendType::StateVector
@@ -467,10 +431,7 @@ mod tests {
             total_qubits: 5,
             strategy: DecompositionStrategy::None,
         };
-        assert_eq!(
-            estimate_pipeline_fidelity(&segments, &partition),
-            1.0
-        );
+        assert_eq!(estimate_pipeline_fidelity(&segments, &partition), 1.0);
     }
 
     #[test]
@@ -480,19 +441,13 @@ mod tests {
                 index: 0,
                 backend: BackendType::StateVector,
                 num_qubits: 2,
-                distribution: vec![
-                    (vec![false, false], 0.5),
-                    (vec![true, true], 0.5),
-                ],
+                distribution: vec![(vec![false, false], 0.5), (vec![true, true], 0.5)],
             },
             SegmentResult {
                 index: 1,
                 backend: BackendType::StateVector,
                 num_qubits: 2,
-                distribution: vec![
-                    (vec![false, false], 0.5),
-                    (vec![true, true], 0.5),
-                ],
+                distribution: vec![(vec![false, false], 0.5), (vec![true, true], 0.5)],
             },
         ];
         let partition = CircuitPartition {

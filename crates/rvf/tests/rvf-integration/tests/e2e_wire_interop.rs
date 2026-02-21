@@ -200,10 +200,7 @@ fn interop_mixed_compression_flags() {
                 .with(SegmentFlags::COMPRESSED)
                 .with(SegmentFlags::SEALED),
         ),
-        (
-            b"hot data",
-            SegmentFlags::empty().with(SegmentFlags::HOT),
-        ),
+        (b"hot data", SegmentFlags::empty().with(SegmentFlags::HOT)),
     ];
 
     let mut file = Vec::new();
@@ -320,7 +317,10 @@ fn interop_runtime_write_wire_read() {
 
     assert!(vec_seg_found, "should find at least one VEC_SEG");
     assert!(manifest_found, "should find at least one MANIFEST_SEG");
-    assert!(segments_found >= 2, "should find at least 2 segments (got {segments_found})");
+    assert!(
+        segments_found >= 2,
+        "should find at least 2 segments (got {segments_found})"
+    );
 }
 
 // --------------------------------------------------------------------------
@@ -353,12 +353,7 @@ fn interop_flag_combinations_round_trip() {
 
     for (i, flags) in flag_combos.iter().enumerate() {
         let payload = format!("payload for flag combo {i}");
-        let encoded = write_segment(
-            SegmentType::Vec as u8,
-            payload.as_bytes(),
-            *flags,
-            i as u64,
-        );
+        let encoded = write_segment(SegmentType::Vec as u8, payload.as_bytes(), *flags, i as u64);
         let (header, decoded_payload) = read_segment(&encoded).unwrap();
 
         assert_eq!(
@@ -384,7 +379,11 @@ fn interop_large_payload_byte_exact() {
     let (header, decoded) = read_segment(&encoded).unwrap();
     assert_eq!(header.payload_length, size as u64);
     assert_eq!(decoded.len(), size);
-    assert_eq!(decoded, &payload[..], "large payload should be byte-identical");
+    assert_eq!(
+        decoded,
+        &payload[..],
+        "large payload should be byte-identical"
+    );
     validate_segment(&header, decoded).unwrap();
 
     // Verify 64-byte alignment.

@@ -204,9 +204,11 @@ pub fn decode_index_seg(data: &[u8]) -> Result<IndexSegData, CodecError> {
     if pos + 8 > data.len() {
         return Err(CodecError::TooShort);
     }
-    let restart_interval = u32::from_le_bytes([data[pos], data[pos + 1], data[pos + 2], data[pos + 3]]);
+    let restart_interval =
+        u32::from_le_bytes([data[pos], data[pos + 1], data[pos + 2], data[pos + 3]]);
     pos += 4;
-    let restart_count = u32::from_le_bytes([data[pos], data[pos + 1], data[pos + 2], data[pos + 3]]);
+    let restart_count =
+        u32::from_le_bytes([data[pos], data[pos + 1], data[pos + 2], data[pos + 3]]);
     pos += 4;
 
     let mut restart_offsets = Vec::with_capacity(restart_count as usize);
@@ -233,15 +235,15 @@ pub fn decode_index_seg(data: &[u8]) -> Result<IndexSegData, CodecError> {
         let is_restart = (node_idx as u32).is_multiple_of(restart_interval);
 
         // Decode layer count.
-        let (layer_count, consumed) = decode_varint(&adj_data[adj_pos..])
-            .ok_or(CodecError::InvalidVarint)?;
+        let (layer_count, consumed) =
+            decode_varint(&adj_data[adj_pos..]).ok_or(CodecError::InvalidVarint)?;
         adj_pos += consumed;
 
         let mut layers = Vec::with_capacity(layer_count as usize);
 
         for _ in 0..layer_count {
-            let (neighbor_count, consumed) = decode_varint(&adj_data[adj_pos..])
-                .ok_or(CodecError::InvalidVarint)?;
+            let (neighbor_count, consumed) =
+                decode_varint(&adj_data[adj_pos..]).ok_or(CodecError::InvalidVarint)?;
             adj_pos += consumed;
 
             let mut neighbor_ids = Vec::with_capacity(neighbor_count as usize);
@@ -249,8 +251,8 @@ pub fn decode_index_seg(data: &[u8]) -> Result<IndexSegData, CodecError> {
             if is_restart {
                 // Absolute IDs at restart points.
                 for _ in 0..neighbor_count {
-                    let (nid, consumed) = decode_varint(&adj_data[adj_pos..])
-                        .ok_or(CodecError::InvalidVarint)?;
+                    let (nid, consumed) =
+                        decode_varint(&adj_data[adj_pos..]).ok_or(CodecError::InvalidVarint)?;
                     adj_pos += consumed;
                     neighbor_ids.push(nid);
                 }
@@ -258,8 +260,8 @@ pub fn decode_index_seg(data: &[u8]) -> Result<IndexSegData, CodecError> {
                 // Delta-encoded IDs.
                 let mut deltas = Vec::with_capacity(neighbor_count as usize);
                 for _ in 0..neighbor_count {
-                    let (d, consumed) = decode_varint(&adj_data[adj_pos..])
-                        .ok_or(CodecError::InvalidVarint)?;
+                    let (d, consumed) =
+                        decode_varint(&adj_data[adj_pos..]).ok_or(CodecError::InvalidVarint)?;
                     adj_pos += consumed;
                     deltas.push(d);
                 }
@@ -382,7 +384,7 @@ mod tests {
     fn index_seg_round_trip() {
         let data = IndexSegData {
             header: IndexSegHeader {
-                index_type: 0, // HNSW
+                index_type: 0,  // HNSW
                 layer_level: 2, // Layer C
                 m: 16,
                 ef_construction: 200,
@@ -439,9 +441,8 @@ mod tests {
         let restart_interval = 64;
         let nodes: Vec<NodeAdjacency> = (0..num_nodes)
             .map(|i| {
-                let neighbors: Vec<u64> = (0..8)
-                    .map(|j| ((i + j + 1) % num_nodes) as u64)
-                    .collect();
+                let neighbors: Vec<u64> =
+                    (0..8).map(|j| ((i + j + 1) % num_nodes) as u64).collect();
                 NodeAdjacency {
                     node_id: i as u64,
                     layers: vec![neighbors],
@@ -484,7 +485,13 @@ mod tests {
             vec![0, 1, 2, 3, 4],
             vec![1000, 2000, 3000, 4000],
             vec![0, 100, 200, 300, 400, 500],
-            vec![u64::MAX - 4, u64::MAX - 3, u64::MAX - 2, u64::MAX - 1, u64::MAX],
+            vec![
+                u64::MAX - 4,
+                u64::MAX - 3,
+                u64::MAX - 2,
+                u64::MAX - 1,
+                u64::MAX,
+            ],
         ];
 
         for seq in sequences {

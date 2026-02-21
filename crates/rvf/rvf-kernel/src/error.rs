@@ -10,15 +10,9 @@ pub enum KernelError {
     /// I/O error reading or writing kernel artifacts.
     Io(io::Error),
     /// The file at the given path is not a valid kernel image.
-    InvalidImage {
-        path: PathBuf,
-        reason: String,
-    },
+    InvalidImage { path: PathBuf, reason: String },
     /// The kernel image is too small to contain required headers.
-    ImageTooSmall {
-        size: u64,
-        min_size: u64,
-    },
+    ImageTooSmall { size: u64, min_size: u64 },
     /// SHA3-256 hash of extracted kernel does not match the stored hash.
     HashMismatch {
         expected: [u8; 32],
@@ -46,7 +40,10 @@ impl fmt::Display for KernelError {
                 write!(f, "invalid kernel image at {}: {reason}", path.display())
             }
             Self::ImageTooSmall { size, min_size } => {
-                write!(f, "kernel image too small: {size} bytes (minimum {min_size})")
+                write!(
+                    f,
+                    "kernel image too small: {size} bytes (minimum {min_size})"
+                )
             }
             Self::HashMismatch { expected, actual } => {
                 write!(

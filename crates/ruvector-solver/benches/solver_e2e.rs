@@ -191,7 +191,11 @@ fn neumann_solve(
         for i in 0..n {
             r[i] = rhs[i] - r[i];
         }
-        residual_norm = r.iter().map(|&v| (v as f64) * (v as f64)).sum::<f64>().sqrt();
+        residual_norm = r
+            .iter()
+            .map(|&v| (v as f64) * (v as f64))
+            .sum::<f64>()
+            .sqrt();
         iterations = k + 1;
         if residual_norm < tolerance {
             break;

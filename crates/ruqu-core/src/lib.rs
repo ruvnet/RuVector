@@ -19,54 +19,54 @@
 //! ```
 
 // -- Core simulation layer --
-pub mod types;
+pub mod backend;
+pub mod circuit;
+pub mod circuit_analyzer;
 pub mod error;
 pub mod gate;
-pub mod state;
 pub mod mixed_precision;
-pub mod circuit;
-pub mod simulator;
 pub mod optimizer;
 pub mod simd;
-pub mod backend;
-pub mod circuit_analyzer;
+pub mod simulator;
 pub mod stabilizer;
+pub mod state;
 pub mod tensor_network;
+pub mod types;
 
 // -- Scientific instrument layer (ADR-QE-015) --
-pub mod qasm;
-pub mod noise;
-pub mod mitigation;
-pub mod hardware;
-pub mod transpiler;
-pub mod replay;
-pub mod witness;
 pub mod confidence;
+pub mod hardware;
+pub mod mitigation;
+pub mod noise;
+pub mod qasm;
+pub mod replay;
+pub mod transpiler;
 pub mod verification;
+pub mod witness;
 
 // -- SOTA differentiation layer --
-pub mod planner;
 pub mod clifford_t;
 pub mod decomposition;
 pub mod pipeline;
+pub mod planner;
 
 // -- QEC control plane --
-pub mod decoder;
-pub mod subpoly_decoder;
-pub mod qec_scheduler;
 pub mod control_theory;
+pub mod decoder;
+pub mod qec_scheduler;
+pub mod subpoly_decoder;
 
 // -- Benchmark & proof suite --
 pub mod benchmark;
 
 /// Re-exports of the most commonly used items.
 pub mod prelude {
-    pub use crate::types::*;
+    pub use crate::backend::BackendType;
+    pub use crate::circuit::QuantumCircuit;
     pub use crate::error::{QuantumError, Result};
     pub use crate::gate::Gate;
-    pub use crate::state::QuantumState;
-    pub use crate::circuit::QuantumCircuit;
-    pub use crate::simulator::{SimConfig, SimulationResult, Simulator, ShotResult};
     pub use crate::qasm::to_qasm3;
-    pub use crate::backend::BackendType;
+    pub use crate::simulator::{ShotResult, SimConfig, SimulationResult, Simulator};
+    pub use crate::state::QuantumState;
+    pub use crate::types::*;
 }

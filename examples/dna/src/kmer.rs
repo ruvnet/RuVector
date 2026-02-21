@@ -5,8 +5,8 @@
 //! vectors and MinHash sketching (Mash/sourmash algorithm).
 
 use ruvector_core::{
+    types::{DbOptions, DistanceMetric, HnswConfig, QuantizationConfig, SearchQuery},
     VectorDB, VectorEntry,
-    types::{DbOptions, HnswConfig, DistanceMetric, QuantizationConfig, SearchQuery},
 };
 use std::collections::HashMap;
 use thiserror::Error;
@@ -270,8 +270,11 @@ impl MinHashSketch {
         let mut h = 0u64;
         for &byte in kmer.iter().rev() {
             let comp = match byte.to_ascii_uppercase() {
-                b'A' => b'T', b'T' | b'U' => b'A',
-                b'C' => b'G', b'G' => b'C', n => n,
+                b'A' => b'T',
+                b'T' | b'U' => b'A',
+                b'C' => b'G',
+                b'G' => b'C',
+                n => n,
             };
             let mut k = comp as u64;
             k = k.wrapping_mul(C1);

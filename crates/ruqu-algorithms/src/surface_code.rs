@@ -320,9 +320,7 @@ fn most_common_data_qubit(
 /// # Errors
 ///
 /// Returns a [`ruqu_core::error::QuantumError`] on simulator failures.
-pub fn run_surface_code(
-    config: &SurfaceCodeConfig,
-) -> ruqu_core::error::Result<SurfaceCodeResult> {
+pub fn run_surface_code(config: &SurfaceCodeConfig) -> ruqu_core::error::Result<SurfaceCodeResult> {
     assert_eq!(
         config.distance, 3,
         "Only distance-3 surface codes are currently supported"
@@ -370,11 +368,9 @@ pub fn run_surface_code(
         //    row has odd parity -> logical error.
         let mut row_parity = 1.0_f64;
         for &q in &logical_row {
-            let z_exp = state.expectation_value(
-                &ruqu_core::types::PauliString {
-                    ops: vec![(q, ruqu_core::types::PauliOp::Z)],
-                },
-            );
+            let z_exp = state.expectation_value(&ruqu_core::types::PauliString {
+                ops: vec![(q, ruqu_core::types::PauliOp::Z)],
+            });
             // Each Z expectation is in [-1, 1]. For a computational basis
             // state, it is exactly +1 (|0>) or -1 (|1>). For superpositions
             // we approximate: sign of the product captures parity.
@@ -428,7 +424,11 @@ mod tests {
         }
         // All 9 data qubits should be covered by X stabilizers.
         for q in 0..9u32 {
-            assert!(covered.contains(&q), "data qubit {} not covered by X stabilizers", q);
+            assert!(
+                covered.contains(&q),
+                "data qubit {} not covered by X stabilizers",
+                q
+            );
         }
     }
 
@@ -446,7 +446,10 @@ mod tests {
         let layout = SurfaceCodeLayout::distance_3();
         let syndrome = vec![false; 8];
         let corrections = decode_syndrome(&syndrome, &layout);
-        assert!(corrections.is_empty(), "no corrections when syndrome is trivial");
+        assert!(
+            corrections.is_empty(),
+            "no corrections when syndrome is trivial"
+        );
     }
 
     #[test]
@@ -471,10 +474,7 @@ mod tests {
 
     #[test]
     fn test_most_common_data_qubit() {
-        let stabilizers = vec![
-            vec![0, 1, 3, 4],
-            vec![1, 2, 4, 5],
-        ];
+        let stabilizers = vec![vec![0, 1, 3, 4], vec![1, 2, 4, 5]];
         // Both stabilizers 0 and 1 triggered: qubit 1 and 4 appear in both.
         let result = most_common_data_qubit(&stabilizers, &[0, 1]);
         assert!(result == Some(1) || result == Some(4));

@@ -21,8 +21,7 @@ pub trait TensorStore {
     /// Quantize `data` at the bit width for `tier` and store the block.
     ///
     /// Replaces any existing block with the same `key`.
-    fn put(&mut self, key: BlockKey, data: &[f32], tier: Tier, now: u64)
-        -> Result<(), StoreError>;
+    fn put(&mut self, key: BlockKey, data: &[f32], tier: Tier, now: u64) -> Result<(), StoreError>;
 
     /// Dequantize the block identified by `key` into `out`.
     ///
@@ -59,13 +58,7 @@ pub trait TensorStore {
 // ---------------------------------------------------------------------------
 
 impl TensorStore for TieredStore {
-    fn put(
-        &mut self,
-        key: BlockKey,
-        data: &[f32],
-        tier: Tier,
-        now: u64,
-    ) -> Result<(), StoreError> {
+    fn put(&mut self, key: BlockKey, data: &[f32], tier: Tier, now: u64) -> Result<(), StoreError> {
         TieredStore::put(self, key, data, tier, now)
     }
 
@@ -398,7 +391,7 @@ mod tests {
         assert_eq!(snap.tier_counts[2], 1); // tier2 still has one
         assert_eq!(snap.tier_bytes[0], 0); // evicted holds no data
         assert_eq!(snap.tier_bytes[1], 0); // tier1 bytes gone
-        assert!(snap.tier_bytes[2] > 0);   // tier2 bytes remain
+        assert!(snap.tier_bytes[2] > 0); // tier2 bytes remain
     }
 
     // -- TensorStoreExt convenience methods ----------------------------------

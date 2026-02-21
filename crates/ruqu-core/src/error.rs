@@ -10,10 +10,7 @@ pub enum QuantumError {
     QubitLimitExceeded { requested: u32, maximum: u32 },
 
     #[error("invalid qubit index {index} for {num_qubits}-qubit system")]
-    InvalidQubitIndex {
-        index: QubitIndex,
-        num_qubits: u32,
-    },
+    InvalidQubitIndex { index: QubitIndex, num_qubits: u32 },
 
     #[error("memory allocation failed: need {required_bytes} bytes")]
     MemoryAllocationFailed { required_bytes: usize },

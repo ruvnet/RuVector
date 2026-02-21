@@ -276,7 +276,13 @@ impl ToolOrchestrationDomain {
 
     fn gen_parallel_coordination(&self, difficulty: f32) -> OrchestrationTaskSpec {
         let tools = Self::base_tools();
-        let parallelism = if difficulty < 0.3 { 2 } else if difficulty < 0.7 { 4 } else { 8 };
+        let parallelism = if difficulty < 0.3 {
+            2
+        } else if difficulty < 0.7 {
+            4
+        } else {
+            8
+        };
 
         OrchestrationTaskSpec {
             category: OrchestrationCategory::ParallelCoordination,
@@ -311,7 +317,11 @@ impl ToolOrchestrationDomain {
             plan.calls.iter().map(|c| c.tool_name.as_str()).collect();
         features[1] = unique_tools.len() as f32 / 10.0;
         // Parallelism ratio
-        let parallel_calls = plan.calls.iter().filter(|c| c.parallel_group.is_some()).count();
+        let parallel_calls = plan
+            .calls
+            .iter()
+            .filter(|c| c.parallel_group.is_some())
+            .count();
         features[2] = parallel_calls as f32 / plan.calls.len().max(1) as f32;
         // Fallback coverage
         let fallback_calls = plan.calls.iter().filter(|c| c.fallback.is_some()).count();
@@ -322,8 +332,14 @@ impl ToolOrchestrationDomain {
 
         // Feature 8-15: Tool type usage
         let tool_names = [
-            "extract", "embed", "search", "generate", "transform",
-            "execute", "fetch", "cache",
+            "extract",
+            "embed",
+            "search",
+            "generate",
+            "transform",
+            "execute",
+            "fetch",
+            "cache",
         ];
         for (i, name) in tool_names.iter().enumerate() {
             features[8 + i] = plan
@@ -375,11 +391,7 @@ impl ToolOrchestrationDomain {
         features
     }
 
-    fn score_orchestration(
-        &self,
-        spec: &OrchestrationTaskSpec,
-        solution: &Solution,
-    ) -> Evaluation {
+    fn score_orchestration(&self, spec: &OrchestrationTaskSpec, solution: &Solution) -> Evaluation {
         let content = &solution.content;
         let mut correctness = 0.0f32;
         let mut efficiency = 0.5f32;
@@ -457,8 +469,12 @@ impl ToolOrchestrationDomain {
                 .error_scenarios
                 .iter()
                 .filter(|scenario| {
-                    plan.calls.iter().any(|c| c.fallback.is_some() || c.retries > 0)
-                        || plan.error_strategy.contains(&scenario.as_str()[..scenario.len().min(10)])
+                    plan.calls
+                        .iter()
+                        .any(|c| c.fallback.is_some() || c.retries > 0)
+                        || plan
+                            .error_strategy
+                            .contains(&scenario.as_str()[..scenario.len().min(10)])
                 })
                 .count() as f32
                 / spec.error_scenarios.len() as f32;
@@ -527,10 +543,7 @@ impl ToolOrchestrationDomain {
             elegance += 0.1;
         }
 
-        let validation_used = plan
-            .calls
-            .iter()
-            .any(|c| c.tool_name.contains("validat"));
+        let validation_used = plan.calls.iter().any(|c| c.tool_name.contains("validat"));
         if validation_used {
             elegance += 0.1;
         }
@@ -706,6 +719,9 @@ mod tests {
             let spec: OrchestrationTaskSpec = serde_json::from_value(t.spec.clone()).unwrap();
             !spec.error_scenarios.is_empty()
         });
-        assert!(has_error_tasks, "High difficulty should produce error scenarios");
+        assert!(
+            has_error_tasks,
+            "High difficulty should produce error scenarios"
+        );
     }
 }

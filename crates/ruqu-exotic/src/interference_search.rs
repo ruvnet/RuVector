@@ -60,11 +60,7 @@ impl ConceptSuperposition {
     /// with zero phase.
     pub fn uniform(concept_id: &str, meanings: Vec<(String, Vec<f64>)>) -> Self {
         let n = meanings.len();
-        let amp = if n > 0 {
-            1.0 / (n as f64).sqrt()
-        } else {
-            0.0
-        };
+        let amp = if n > 0 { 1.0 / (n as f64).sqrt() } else { 0.0 };
         let meanings = meanings
             .into_iter()
             .map(|(label, embedding)| Meaning {
@@ -80,10 +76,7 @@ impl ConceptSuperposition {
     }
 
     /// Create a superposition with explicit complex amplitudes.
-    pub fn with_amplitudes(
-        concept_id: &str,
-        meanings: Vec<(String, Vec<f64>, Complex)>,
-    ) -> Self {
+    pub fn with_amplitudes(concept_id: &str, meanings: Vec<(String, Vec<f64>, Complex)>) -> Self {
         let meanings = meanings
             .into_iter()
             .map(|(label, embedding, amplitude)| Meaning {
@@ -140,10 +133,7 @@ impl ConceptSuperposition {
         let total: f64 = scores.iter().map(|s| s.probability).sum();
         if total < 1e-15 {
             // Degenerate case: return first meaning if available
-            return scores
-                .first()
-                .map(|s| s.label.clone())
-                .unwrap_or_default();
+            return scores.first().map(|s| s.label.clone()).unwrap_or_default();
         }
 
         let mut rng = StdRng::seed_from_u64(seed);
@@ -161,14 +151,12 @@ impl ConceptSuperposition {
     /// Return the dominant meaning: the one with the largest |amplitude|^2
     /// (before any context is applied).
     pub fn dominant(&self) -> Option<&Meaning> {
-        self.meanings
-            .iter()
-            .max_by(|a, b| {
-                a.amplitude
-                    .norm_sq()
-                    .partial_cmp(&b.amplitude.norm_sq())
-                    .unwrap_or(std::cmp::Ordering::Equal)
-            })
+        self.meanings.iter().max_by(|a, b| {
+            a.amplitude
+                .norm_sq()
+                .partial_cmp(&b.amplitude.norm_sq())
+                .unwrap_or(std::cmp::Ordering::Equal)
+        })
     }
 }
 
@@ -185,10 +173,7 @@ pub fn interference_search(
         .map(|concept| {
             let scores = concept.interfere(context);
             let relevance: f64 = scores.iter().map(|s| s.probability).sum();
-            let dominant_meaning = scores
-                .first()
-                .map(|s| s.label.clone())
-                .unwrap_or_default();
+            let dominant_meaning = scores.first().map(|s| s.label.clone()).unwrap_or_default();
             ConceptScore {
                 concept_id: concept.concept_id.clone(),
                 relevance,

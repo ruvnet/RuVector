@@ -185,7 +185,8 @@ pub fn build_attestation_witness_payload(
     let mut cumulative: u64 = 0;
     for rec in records {
         offsets.push(cumulative);
-        cumulative = cumulative.checked_add(rec.len() as u64)
+        cumulative = cumulative
+            .checked_add(rec.len() as u64)
             .ok_or(RvfError::Code(ErrorCode::SegmentTooLarge))?;
     }
 
@@ -319,16 +320,16 @@ pub fn encode_tee_bound_key(record: &TeeBoundKeyRecord) -> Vec<u8> {
     let total = TEE_KEY_HEADER_SIZE + record.sealed_key.len();
     let mut buf = Vec::with_capacity(total);
 
-    buf.push(record.key_type);                                    // 0x00
-    buf.push(record.algorithm);                                   // 0x01
+    buf.push(record.key_type); // 0x00
+    buf.push(record.algorithm); // 0x01
     buf.extend_from_slice(&record.sealed_key_length.to_le_bytes()); // 0x02..0x04
-    buf.extend_from_slice(&record.key_id);                        // 0x04..0x14
-    buf.extend_from_slice(&record.measurement);                   // 0x14..0x34
-    buf.push(record.platform);                                    // 0x34
-    buf.extend_from_slice(&record.reserved);                      // 0x35..0x38
-    buf.extend_from_slice(&record.valid_from.to_le_bytes());      // 0x38..0x40
-    buf.extend_from_slice(&record.valid_until.to_le_bytes());     // 0x40..0x48
-    buf.extend_from_slice(&record.sealed_key);                    // 0x48..
+    buf.extend_from_slice(&record.key_id); // 0x04..0x14
+    buf.extend_from_slice(&record.measurement); // 0x14..0x34
+    buf.push(record.platform); // 0x34
+    buf.extend_from_slice(&record.reserved); // 0x35..0x38
+    buf.extend_from_slice(&record.valid_from.to_le_bytes()); // 0x38..0x40
+    buf.extend_from_slice(&record.valid_until.to_le_bytes()); // 0x40..0x48
+    buf.extend_from_slice(&record.sealed_key); // 0x48..
 
     buf
 }
@@ -440,15 +441,12 @@ pub trait QuoteVerifier {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use alloc::vec;
     use crate::hash::shake256_128;
+    use alloc::vec;
     use rvf_types::KEY_TYPE_TEE_BOUND;
 
     /// Helper: build a fully-populated AttestationHeader.
-    fn make_test_header(
-        report_data_len: u64,
-        quote_length: u16,
-    ) -> AttestationHeader {
+    fn make_test_header(report_data_len: u64, quote_length: u16) -> AttestationHeader {
         let mut measurement = [0u8; 32];
         measurement[0] = 0xAA;
         measurement[31] = 0xBB;
@@ -636,7 +634,8 @@ mod tests {
             AttestationWitnessType::ComputationProof,
         ];
 
-        let payload = build_attestation_witness_payload(&records, &timestamps, &witness_types).unwrap();
+        let payload =
+            build_attestation_witness_payload(&records, &timestamps, &witness_types).unwrap();
         let results = verify_attestation_witness_payload(&payload).unwrap();
 
         assert_eq!(results.len(), 3);
@@ -660,13 +659,17 @@ mod tests {
         let timestamps = vec![42];
         let witness_types = vec![AttestationWitnessType::DataProvenance];
 
-        let payload = build_attestation_witness_payload(&records, &timestamps, &witness_types).unwrap();
+        let payload =
+            build_attestation_witness_payload(&records, &timestamps, &witness_types).unwrap();
         let results = verify_attestation_witness_payload(&payload).unwrap();
 
         assert_eq!(results.len(), 1);
         let (entry, header, dec_rd, dec_q) = &results[0];
         assert_eq!(entry.timestamp_ns, 42);
-        assert_eq!(entry.witness_type, AttestationWitnessType::DataProvenance as u8);
+        assert_eq!(
+            entry.witness_type,
+            AttestationWitnessType::DataProvenance as u8
+        );
         assert_eq!(*dec_rd, rd);
         assert_eq!(*dec_q, q);
         assert_eq!(header.platform, h.platform);

@@ -44,10 +44,14 @@ pub fn run(args: RebuildRefcountsArgs) -> Result<(), Box<dyn std::error::Error>>
     while i + SEGMENT_HEADER_SIZE <= raw_bytes.len() {
         if raw_bytes[i..i + 4] == magic_bytes && raw_bytes[i + 5] == COW_MAP_TYPE {
             let payload_len = u64::from_le_bytes([
-                raw_bytes[i + 0x10], raw_bytes[i + 0x11],
-                raw_bytes[i + 0x12], raw_bytes[i + 0x13],
-                raw_bytes[i + 0x14], raw_bytes[i + 0x15],
-                raw_bytes[i + 0x16], raw_bytes[i + 0x17],
+                raw_bytes[i + 0x10],
+                raw_bytes[i + 0x11],
+                raw_bytes[i + 0x12],
+                raw_bytes[i + 0x13],
+                raw_bytes[i + 0x14],
+                raw_bytes[i + 0x15],
+                raw_bytes[i + 0x16],
+                raw_bytes[i + 0x17],
             ]);
 
             let payload_start = i + SEGMENT_HEADER_SIZE;
@@ -108,13 +112,13 @@ pub fn run(args: RebuildRefcountsArgs) -> Result<(), Box<dyn std::error::Error>>
     // Build 32-byte RefcountHeader
     let mut header = [0u8; 32];
     header[0..4].copy_from_slice(&REFCOUNT_MAGIC.to_le_bytes());
-    header[4..6].copy_from_slice(&1u16.to_le_bytes());      // version
-    header[6] = 1;  // refcount_width: 1 byte
+    header[4..6].copy_from_slice(&1u16.to_le_bytes()); // version
+    header[6] = 1; // refcount_width: 1 byte
     header[8..12].copy_from_slice(&cluster_count.to_le_bytes());
-    header[12..16].copy_from_slice(&1u32.to_le_bytes());     // max_refcount
-    header[16..24].copy_from_slice(&32u64.to_le_bytes());    // array_offset (after header)
-    // snapshot_epoch: 0 (mutable)
-    // reserved: 0
+    header[12..16].copy_from_slice(&1u32.to_le_bytes()); // max_refcount
+    header[16..24].copy_from_slice(&32u64.to_le_bytes()); // array_offset (after header)
+                                                          // snapshot_epoch: 0 (mutable)
+                                                          // reserved: 0
 
     let payload = [header.as_slice(), refcount_array.as_slice()].concat();
 

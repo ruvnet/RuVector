@@ -3,10 +3,10 @@
 //! Each dimension is independently mapped from [min, max] to [0, 255].
 //! This is the quantization used for the **Hot** (Tier 0) tier.
 
-use alloc::vec;
-use alloc::vec::Vec;
 use crate::tier::TemperatureTier;
 use crate::traits::Quantizer;
+use alloc::vec;
+use alloc::vec::Vec;
 
 /// Scalar quantizer parameters: per-dimension min/max ranges.
 #[derive(Clone, Debug)]
@@ -53,7 +53,11 @@ impl ScalarQuantizer {
             }
         }
 
-        Self { min_vals, max_vals, dim }
+        Self {
+            min_vals,
+            max_vals,
+            dim,
+        }
     }
 
     /// Quantize a float vector to u8 codes.
@@ -165,9 +169,13 @@ mod tests {
 
             // Check reconstruction error per dimension
             for (orig, recon) in v.iter().zip(reconstructed.iter()) {
-                let max_error = (sq.max_vals.iter().zip(sq.min_vals.iter())
+                let max_error = (sq
+                    .max_vals
+                    .iter()
+                    .zip(sq.min_vals.iter())
                     .map(|(mx, mn)| mx - mn)
-                    .fold(0.0f32, f32::max)) / 255.0;
+                    .fold(0.0f32, f32::max))
+                    / 255.0;
                 assert!(
                     (orig - recon).abs() <= max_error + f32::EPSILON,
                     "reconstruction error too large: orig={orig}, recon={recon}"

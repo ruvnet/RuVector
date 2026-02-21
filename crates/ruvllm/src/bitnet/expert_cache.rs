@@ -415,9 +415,7 @@ impl MoeBatchScheduler {
     ///
     /// A vector of `ExpertBatch` structs, one per unique expert referenced in
     /// the routing decisions, sorted by expert_id for deterministic ordering.
-    pub fn schedule(
-        routing_decisions: &[(usize, Vec<(usize, f32)>)],
-    ) -> Vec<ExpertBatch> {
+    pub fn schedule(routing_decisions: &[(usize, Vec<(usize, f32)>)]) -> Vec<ExpertBatch> {
         // Collect all (expert_id -> Vec<(token_idx, weight)>)
         let mut expert_map: HashMap<usize, Vec<(usize, f32)>> = HashMap::new();
 
@@ -434,8 +432,7 @@ impl MoeBatchScheduler {
         let mut batches: Vec<ExpertBatch> = expert_map
             .into_iter()
             .map(|(expert_id, entries)| {
-                let (token_indices, weights): (Vec<usize>, Vec<f32>) =
-                    entries.into_iter().unzip();
+                let (token_indices, weights): (Vec<usize>, Vec<f32>) = entries.into_iter().unzip();
                 ExpertBatch {
                     expert_id,
                     token_indices,
@@ -588,9 +585,15 @@ mod tests {
         // Now admit expert 3 -> should evict expert 1 (oldest unrefresfreshed)
         cache.access(3);
 
-        assert!(cache.is_hot(0), "Expert 0 was refreshed, should still be hot");
+        assert!(
+            cache.is_hot(0),
+            "Expert 0 was refreshed, should still be hot"
+        );
         assert!(!cache.is_hot(1), "Expert 1 should have been evicted (LRU)");
-        assert!(cache.is_hot(2), "Expert 2 was accessed after 1, should survive");
+        assert!(
+            cache.is_hot(2),
+            "Expert 2 was accessed after 1, should survive"
+        );
         assert!(cache.is_hot(3), "Expert 3 was just admitted");
     }
 
@@ -623,7 +626,10 @@ mod tests {
         cache.access(3);
 
         assert!(cache.is_hot(0), "Expert 0 (freq=3) should survive");
-        assert!(!cache.is_hot(1), "Expert 1 (freq=1) should be evicted by LFU");
+        assert!(
+            !cache.is_hot(1),
+            "Expert 1 (freq=1) should be evicted by LFU"
+        );
         assert!(cache.is_hot(2), "Expert 2 (freq=2) should survive");
         assert!(cache.is_hot(3), "Expert 3 was just admitted");
     }
@@ -955,9 +961,18 @@ mod tests {
         // LFU evicts expert 2 (frequency=1)
         cache.access(3);
 
-        assert!(cache.is_hot(0), "Expert 0 (freq=9) should survive adaptive LFU");
-        assert!(cache.is_hot(1), "Expert 1 (freq=3) should survive adaptive LFU");
-        assert!(!cache.is_hot(2), "Expert 2 (freq=1) should be evicted by adaptive LFU");
+        assert!(
+            cache.is_hot(0),
+            "Expert 0 (freq=9) should survive adaptive LFU"
+        );
+        assert!(
+            cache.is_hot(1),
+            "Expert 1 (freq=3) should survive adaptive LFU"
+        );
+        assert!(
+            !cache.is_hot(2),
+            "Expert 2 (freq=1) should be evicted by adaptive LFU"
+        );
         assert!(cache.is_hot(3), "Expert 3 was just admitted");
     }
 

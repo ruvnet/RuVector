@@ -6,10 +6,10 @@
 //!
 //! Used for the **Warm** (Tier 1) tier.
 
-use alloc::vec;
-use alloc::vec::Vec;
 use crate::tier::TemperatureTier;
 use crate::traits::Quantizer;
+use alloc::vec;
+use alloc::vec::Vec;
 
 /// Product quantizer parameters and codebooks.
 #[derive(Clone, Debug)]
@@ -42,7 +42,10 @@ impl ProductQuantizer {
         assert!(!vectors.is_empty(), "need training data");
         assert!(m > 0 && k > 0, "m and k must be > 0");
         let dim = vectors[0].len();
-        assert!(dim.is_multiple_of(m), "dim ({dim}) must be divisible by m ({m})");
+        assert!(
+            dim.is_multiple_of(m),
+            "dim ({dim}) must be divisible by m ({m})"
+        );
         let sub_dim = dim / m;
 
         let mut codebooks = Vec::with_capacity(m);
@@ -52,16 +55,18 @@ impl ProductQuantizer {
             let end = start + sub_dim;
 
             // Extract sub-vectors for this subspace.
-            let sub_vecs: Vec<&[f32]> = vectors
-                .iter()
-                .map(|v| &v[start..end])
-                .collect();
+            let sub_vecs: Vec<&[f32]> = vectors.iter().map(|v| &v[start..end]).collect();
 
             let centroids = kmeans(&sub_vecs, k, sub_dim, iterations);
             codebooks.push(centroids);
         }
 
-        Self { m, k, sub_dim, codebooks }
+        Self {
+            m,
+            k,
+            sub_dim,
+            codebooks,
+        }
     }
 
     /// Encode a vector: for each subspace, find the nearest centroid index.
@@ -182,9 +187,7 @@ fn kmeans(data: &[&[f32]], k: usize, sub_dim: usize, iterations: usize) -> Vec<V
     let actual_k = k.min(n); // can't have more centroids than data points
 
     // Initialize centroids from data.
-    let mut centroids: Vec<Vec<f32>> = (0..actual_k)
-        .map(|i| data[i % n].to_vec())
-        .collect();
+    let mut centroids: Vec<Vec<f32>> = (0..actual_k).map(|i| data[i % n].to_vec()).collect();
 
     let mut assignments = vec![0usize; n];
     let mut counts = vec![0usize; actual_k];
@@ -295,17 +298,23 @@ mod tests {
         let pq_1 = ProductQuantizer::train(&refs, 4, 8, 1);
         let pq_20 = ProductQuantizer::train(&refs, 4, 8, 20);
 
-        let error_1: f32 = data.iter().map(|v| {
-            let codes = pq_1.encode_vec(v);
-            let recon = pq_1.decode_vec(&codes);
-            l2_squared(v, &recon)
-        }).sum();
+        let error_1: f32 = data
+            .iter()
+            .map(|v| {
+                let codes = pq_1.encode_vec(v);
+                let recon = pq_1.decode_vec(&codes);
+                l2_squared(v, &recon)
+            })
+            .sum();
 
-        let error_20: f32 = data.iter().map(|v| {
-            let codes = pq_20.encode_vec(v);
-            let recon = pq_20.decode_vec(&codes);
-            l2_squared(v, &recon)
-        }).sum();
+        let error_20: f32 = data
+            .iter()
+            .map(|v| {
+                let codes = pq_20.encode_vec(v);
+                let recon = pq_20.decode_vec(&codes);
+                l2_squared(v, &recon)
+            })
+            .sum();
 
         assert!(
             error_20 <= error_1 + f32::EPSILON,

@@ -91,7 +91,8 @@ impl CowMap {
             return Err(RvfError::Code(ErrorCode::CowMapCorrupt));
         }
         let count = u32::from_le_bytes([data[1], data[2], data[3], data[4]]) as usize;
-        let expected_len = count.checked_mul(9)
+        let expected_len = count
+            .checked_mul(9)
             .and_then(|v| v.checked_add(5))
             .ok_or(RvfError::Code(ErrorCode::CowMapCorrupt))?;
         if data.len() < expected_len {

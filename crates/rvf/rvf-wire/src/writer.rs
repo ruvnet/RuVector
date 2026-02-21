@@ -3,11 +3,11 @@
 //! The writer computes the content hash (XXH3-128 by default), sets the
 //! timestamp, and pads the output to a 64-byte boundary.
 
+use crate::hash::compute_content_hash;
 use rvf_types::{
     SegmentFlags, SegmentHeader, SEGMENT_ALIGNMENT, SEGMENT_HEADER_SIZE, SEGMENT_MAGIC,
     SEGMENT_VERSION,
 };
-use crate::hash::compute_content_hash;
 
 /// Default checksum algorithm: XXH3-128.
 const DEFAULT_CHECKSUM_ALGO: u8 = 1;
@@ -119,7 +119,12 @@ mod tests {
 
     #[test]
     fn segment_id_is_stored() {
-        let seg = write_segment(SegmentType::Index as u8, b"idx", SegmentFlags::empty(), 12345);
+        let seg = write_segment(
+            SegmentType::Index as u8,
+            b"idx",
+            SegmentFlags::empty(),
+            12345,
+        );
         let id = u64::from_le_bytes(seg[0x08..0x10].try_into().unwrap());
         assert_eq!(id, 12345);
     }

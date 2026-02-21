@@ -116,7 +116,10 @@ fn sealed_segment_flag_preserved() {
     let flags = SegmentFlags::empty().with(SegmentFlags::SEALED);
     let encoded = write_segment(SegmentType::Vec as u8, b"sealed data", flags, 1);
     let (header, _) = read_segment(&encoded).unwrap();
-    assert!(header.flags & SegmentFlags::SEALED != 0, "SEALED flag should be preserved");
+    assert!(
+        header.flags & SegmentFlags::SEALED != 0,
+        "SEALED flag should be preserved"
+    );
 }
 
 #[test]

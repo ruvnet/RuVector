@@ -4,8 +4,8 @@
 //! Phase 2: Read Level 1 at l1_manifest_offset -> full directory.
 
 use rvf_types::{
-    CentroidPtr, EntrypointPtr, ErrorCode, HotCachePtr, Level0Root, PrefetchMapPtr,
-    QuantDictPtr, RvfError, TopLayerPtr, ROOT_MANIFEST_SIZE,
+    CentroidPtr, EntrypointPtr, ErrorCode, HotCachePtr, Level0Root, PrefetchMapPtr, QuantDictPtr,
+    RvfError, TopLayerPtr, ROOT_MANIFEST_SIZE,
 };
 
 use crate::directory::SegmentDirectory;
@@ -55,9 +55,10 @@ pub fn boot_phase1(file_data: &[u8]) -> Result<Level0Root, RvfError> {
     }
 
     let start = file_data.len() - ROOT_MANIFEST_SIZE;
-    let tail: &[u8; ROOT_MANIFEST_SIZE] = file_data[start..start + ROOT_MANIFEST_SIZE]
-        .try_into()
-        .map_err(|_| RvfError::Code(ErrorCode::TruncatedSegment))?;
+    let tail: &[u8; ROOT_MANIFEST_SIZE] =
+        file_data[start..start + ROOT_MANIFEST_SIZE]
+            .try_into()
+            .map_err(|_| RvfError::Code(ErrorCode::TruncatedSegment))?;
 
     level0::read_level0(tail)
 }
@@ -65,10 +66,7 @@ pub fn boot_phase1(file_data: &[u8]) -> Result<Level0Root, RvfError> {
 /// Boot phase 2: using the Level 0 root, read and parse Level 1 (TLV records).
 ///
 /// After this call the system has the full segment directory.
-pub fn boot_phase2(
-    file_data: &[u8],
-    root: &Level0Root,
-) -> Result<Level1Manifest, RvfError> {
+pub fn boot_phase2(file_data: &[u8], root: &Level0Root) -> Result<Level1Manifest, RvfError> {
     let offset = root.l1_manifest_offset as usize;
     let length = root.l1_manifest_length as usize;
 

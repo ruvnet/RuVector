@@ -68,8 +68,7 @@ impl RvliteCollection {
     /// Add a single vector with the given ID. Errors on dimension mismatch.
     pub fn add(&mut self, id: u64, vector: &[f32]) -> Result<()> {
         self.check_dimension(vector.len())?;
-        self.store
-            .ingest_batch(&[vector], &[id], None)?;
+        self.store.ingest_batch(&[vector], &[id], None)?;
         Ok(())
     }
 
@@ -207,8 +206,8 @@ mod tests {
     #[test]
     fn create_add_search() {
         let dir = TempDir::new().unwrap();
-        let config = RvliteConfig::new(temp_path(&dir, "basic.rvf"), 4)
-            .with_metric(RvliteMetric::L2);
+        let config =
+            RvliteConfig::new(temp_path(&dir, "basic.rvf"), 4).with_metric(RvliteMetric::L2);
 
         let mut col = RvliteCollection::create(config).unwrap();
         assert!(col.is_empty());
@@ -232,8 +231,8 @@ mod tests {
     #[test]
     fn batch_add_and_search() {
         let dir = TempDir::new().unwrap();
-        let config = RvliteConfig::new(temp_path(&dir, "batch.rvf"), 3)
-            .with_metric(RvliteMetric::L2);
+        let config =
+            RvliteConfig::new(temp_path(&dir, "batch.rvf"), 3).with_metric(RvliteMetric::L2);
 
         let mut col = RvliteCollection::create(config).unwrap();
 
@@ -257,8 +256,8 @@ mod tests {
     #[test]
     fn remove_and_verify() {
         let dir = TempDir::new().unwrap();
-        let config = RvliteConfig::new(temp_path(&dir, "remove.rvf"), 4)
-            .with_metric(RvliteMetric::L2);
+        let config =
+            RvliteConfig::new(temp_path(&dir, "remove.rvf"), 4).with_metric(RvliteMetric::L2);
 
         let mut col = RvliteCollection::create(config).unwrap();
 
@@ -284,8 +283,8 @@ mod tests {
     #[test]
     fn remove_batch_and_verify() {
         let dir = TempDir::new().unwrap();
-        let config = RvliteConfig::new(temp_path(&dir, "rm_batch.rvf"), 4)
-            .with_metric(RvliteMetric::L2);
+        let config =
+            RvliteConfig::new(temp_path(&dir, "rm_batch.rvf"), 4).with_metric(RvliteMetric::L2);
 
         let mut col = RvliteCollection::create(config).unwrap();
 
@@ -304,8 +303,7 @@ mod tests {
     #[test]
     fn dimension_mismatch_error() {
         let dir = TempDir::new().unwrap();
-        let config = RvliteConfig::new(temp_path(&dir, "dim.rvf"), 4)
-            .with_metric(RvliteMetric::L2);
+        let config = RvliteConfig::new(temp_path(&dir, "dim.rvf"), 4).with_metric(RvliteMetric::L2);
 
         let mut col = RvliteCollection::create(config).unwrap();
 
@@ -326,8 +324,8 @@ mod tests {
     #[test]
     fn empty_collection_edge_cases() {
         let dir = TempDir::new().unwrap();
-        let config = RvliteConfig::new(temp_path(&dir, "empty.rvf"), 4)
-            .with_metric(RvliteMetric::L2);
+        let config =
+            RvliteConfig::new(temp_path(&dir, "empty.rvf"), 4).with_metric(RvliteMetric::L2);
 
         let col = RvliteCollection::create(config).unwrap();
 
@@ -344,8 +342,8 @@ mod tests {
     #[test]
     fn search_returns_empty_on_wrong_dimension() {
         let dir = TempDir::new().unwrap();
-        let config = RvliteConfig::new(temp_path(&dir, "dim_search.rvf"), 4)
-            .with_metric(RvliteMetric::L2);
+        let config =
+            RvliteConfig::new(temp_path(&dir, "dim_search.rvf"), 4).with_metric(RvliteMetric::L2);
 
         let mut col = RvliteCollection::create(config).unwrap();
         col.add(1, &[1.0, 0.0, 0.0, 0.0]).unwrap();
@@ -361,8 +359,7 @@ mod tests {
     fn open_existing_collection() {
         let dir = TempDir::new().unwrap();
         let path = temp_path(&dir, "reopen.rvf");
-        let config = RvliteConfig::new(path.clone(), 4)
-            .with_metric(RvliteMetric::L2);
+        let config = RvliteConfig::new(path.clone(), 4).with_metric(RvliteMetric::L2);
 
         {
             let mut col = RvliteCollection::create(config).unwrap();
@@ -387,8 +384,8 @@ mod tests {
     #[test]
     fn compact_and_verify() {
         let dir = TempDir::new().unwrap();
-        let config = RvliteConfig::new(temp_path(&dir, "compact.rvf"), 4)
-            .with_metric(RvliteMetric::L2);
+        let config =
+            RvliteConfig::new(temp_path(&dir, "compact.rvf"), 4).with_metric(RvliteMetric::L2);
 
         let mut col = RvliteCollection::create(config).unwrap();
 
@@ -415,8 +412,8 @@ mod tests {
     #[test]
     fn len_is_empty_contains() {
         let dir = TempDir::new().unwrap();
-        let config = RvliteConfig::new(temp_path(&dir, "accessors.rvf"), 2)
-            .with_metric(RvliteMetric::L2);
+        let config =
+            RvliteConfig::new(temp_path(&dir, "accessors.rvf"), 2).with_metric(RvliteMetric::L2);
 
         let mut col = RvliteCollection::create(config).unwrap();
 
@@ -437,8 +434,8 @@ mod tests {
     #[test]
     fn cosine_metric() {
         let dir = TempDir::new().unwrap();
-        let config = RvliteConfig::new(temp_path(&dir, "cosine.rvf"), 3)
-            .with_metric(RvliteMetric::Cosine);
+        let config =
+            RvliteConfig::new(temp_path(&dir, "cosine.rvf"), 3).with_metric(RvliteMetric::Cosine);
 
         let mut col = RvliteCollection::create(config).unwrap();
 
@@ -458,8 +455,8 @@ mod tests {
     #[test]
     fn dimension_accessor() {
         let dir = TempDir::new().unwrap();
-        let config = RvliteConfig::new(temp_path(&dir, "dim_acc.rvf"), 256)
-            .with_metric(RvliteMetric::L2);
+        let config =
+            RvliteConfig::new(temp_path(&dir, "dim_acc.rvf"), 256).with_metric(RvliteMetric::L2);
 
         let col = RvliteCollection::create(config).unwrap();
         assert_eq!(col.dimension(), 256);
@@ -469,8 +466,8 @@ mod tests {
     #[test]
     fn batch_length_mismatch() {
         let dir = TempDir::new().unwrap();
-        let config = RvliteConfig::new(temp_path(&dir, "mismatch.rvf"), 2)
-            .with_metric(RvliteMetric::L2);
+        let config =
+            RvliteConfig::new(temp_path(&dir, "mismatch.rvf"), 2).with_metric(RvliteMetric::L2);
 
         let mut col = RvliteCollection::create(config).unwrap();
 

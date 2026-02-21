@@ -218,9 +218,7 @@ impl WasmHeader {
             required_features: u16::from_le_bytes([data[0x08], data[0x09]]),
             export_count: u16::from_le_bytes([data[0x0A], data[0x0B]]),
             bytecode_size: u32::from_le_bytes([data[0x0C], data[0x0D], data[0x0E], data[0x0F]]),
-            compressed_size: u32::from_le_bytes([
-                data[0x10], data[0x11], data[0x12], data[0x13],
-            ]),
+            compressed_size: u32::from_le_bytes([data[0x10], data[0x11], data[0x12], data[0x13]]),
             compression: data[0x14],
             min_memory_pages: data[0x15],
             max_memory_pages: data[0x16],
@@ -256,8 +254,8 @@ mod tests {
             bytecode_size: 5500,
             compressed_size: 0,
             compression: 0,
-            min_memory_pages: 2,  // 128 KB
-            max_memory_pages: 4,  // 256 KB
+            min_memory_pages: 2, // 128 KB
+            max_memory_pages: 4, // 256 KB
             table_count: 0,
             bytecode_hash: [0xAB; 32],
             bootstrap_priority: 0,
@@ -287,7 +285,10 @@ mod tests {
         assert_eq!(decoded.header_version, 1);
         assert_eq!(decoded.role, WasmRole::Microkernel as u8);
         assert_eq!(decoded.target, WasmTarget::BareTile as u8);
-        assert_eq!(decoded.required_features, WASM_FEAT_SIMD | WASM_FEAT_BULK_MEMORY);
+        assert_eq!(
+            decoded.required_features,
+            WASM_FEAT_SIMD | WASM_FEAT_BULK_MEMORY
+        );
         assert_eq!(decoded.export_count, 14);
         assert_eq!(decoded.bytecode_size, 5500);
         assert_eq!(decoded.compressed_size, 0);
@@ -323,12 +324,12 @@ mod tests {
             export_count: 3,
             bytecode_size: 51_200, // ~50 KB interpreter
             compressed_size: 22_000,
-            compression: 2, // ZSTD
+            compression: 2,       // ZSTD
             min_memory_pages: 16, // 1 MB
             max_memory_pages: 64, // 4 MB
             table_count: 1,
             bytecode_hash: [0xCD; 32],
-            bootstrap_priority: 0, // highest priority
+            bootstrap_priority: 0,  // highest priority
             interpreter_type: 0x03, // wasmi-compatible
             reserved: [0; 6],
         };

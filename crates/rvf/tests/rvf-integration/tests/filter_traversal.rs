@@ -70,7 +70,10 @@ fn exclude_mode_basics() {
 
     // Initially everything is visible
     for id in 0..100 {
-        assert!(filter.contains(id), "exclude filter should contain {id} initially");
+        assert!(
+            filter.contains(id),
+            "exclude filter should contain {id} initially"
+        );
     }
 
     // Exclude some vectors
@@ -158,10 +161,7 @@ fn bitmap_word_boundaries() {
     }
 
     for &id in &boundary_ids {
-        assert!(
-            filter.contains(id),
-            "boundary ID {id} should be in filter"
-        );
+        assert!(filter.contains(id), "boundary ID {id} should be in filter");
     }
 
     // Verify IDs adjacent to boundaries are NOT in filter

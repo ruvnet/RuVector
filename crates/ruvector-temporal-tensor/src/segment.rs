@@ -47,7 +47,6 @@ pub fn encode(
         out.extend_from_slice(&s.to_le_bytes());
     }
 
-
     // Data
     let data_len = data.len() as u32;
     out.extend_from_slice(&data_len.to_le_bytes());
@@ -260,7 +259,15 @@ mod tests {
         quantizer::quantize_and_pack(&frame, &scales, group_len, bits, &mut packed);
 
         let mut seg = Vec::new();
-        encode(bits, group_len as u32, frame.len() as u32, 1, &scales, &packed, &mut seg);
+        encode(
+            bits,
+            group_len as u32,
+            frame.len() as u32,
+            1,
+            &scales,
+            &packed,
+            &mut seg,
+        );
 
         let mut decoded = Vec::new();
         decode(&seg, &mut decoded);
@@ -311,7 +318,15 @@ mod tests {
         quantizer::quantize_and_pack(&frame2, &scales, group_len, bits, &mut packed);
 
         let mut seg = Vec::new();
-        encode(bits, group_len as u32, tensor_len as u32, 2, &scales, &packed, &mut seg);
+        encode(
+            bits,
+            group_len as u32,
+            tensor_len as u32,
+            2,
+            &scales,
+            &packed,
+            &mut seg,
+        );
 
         let mut decoded = Vec::new();
         decode(&seg, &mut decoded);

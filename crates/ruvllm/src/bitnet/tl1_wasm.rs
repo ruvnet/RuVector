@@ -111,9 +111,7 @@ fn hsum_i16x8(v: v128) -> i32 {
 #[inline]
 fn build_sign_lut() -> v128 {
     // i8x16 with pattern: [-1, 0, 1, 0, -1, 0, 1, 0, ...]
-    i8x16(
-        -1, 0, 1, 0, -1, 0, 1, 0, -1, 0, 1, 0, -1, 0, 1, 0,
-    )
+    i8x16(-1, 0, 1, 0, -1, 0, 1, 0, -1, 0, 1, 0, -1, 0, 1, 0)
 }
 
 /// WASM SIMD128-accelerated TL1 GEMV.

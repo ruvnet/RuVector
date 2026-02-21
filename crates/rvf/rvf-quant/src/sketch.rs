@@ -174,7 +174,10 @@ mod tests {
 
         // After aging, counts should be approximately halved.
         assert!(after <= before, "aging should not increase count");
-        assert!(after >= before / 2 - 1, "aging should halve: before={before}, after={after}");
+        assert!(
+            after >= before / 2 - 1,
+            "aging should halve: before={before}, after={after}"
+        );
     }
 
     #[test]

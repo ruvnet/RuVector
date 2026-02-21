@@ -301,10 +301,7 @@ impl QuantumStateF32 {
     /// Probabilities are returned as f64 for downstream accuracy: the f32
     /// norm-squared values are widened before being returned.
     pub fn probabilities(&self) -> Vec<f64> {
-        self.amplitudes
-            .iter()
-            .map(|a| a.norm_sq() as f64)
-            .collect()
+        self.amplitudes.iter().map(|a| a.norm_sq() as f64).collect()
     }
 
     /// Estimated memory in bytes for an f32 state of `num_qubits` qubits.
@@ -356,10 +353,7 @@ impl QuantumStateF32 {
             }
 
             // Two-qubit gates
-            Gate::CNOT(q1, q2)
-            | Gate::CZ(q1, q2)
-            | Gate::SWAP(q1, q2)
-            | Gate::Rzz(q1, q2, _) => {
+            Gate::CNOT(q1, q2) | Gate::CZ(q1, q2) | Gate::SWAP(q1, q2) | Gate::Rzz(q1, q2, _) => {
                 if q1 == q2 {
                     return Err(QuantumError::CircuitError(format!(
                         "two-qubit gate requires distinct qubits, got {} and {}",
@@ -399,11 +393,7 @@ impl QuantumStateF32 {
     ///
     /// For each pair of amplitudes where the qubit bit is 0 (index `i`)
     /// versus 1 (index `j = i + step`), the matrix transformation is applied.
-    pub fn apply_single_qubit_gate(
-        &mut self,
-        qubit: QubitIndex,
-        matrix: &[[Complex32; 2]; 2],
-    ) {
+    pub fn apply_single_qubit_gate(&mut self, qubit: QubitIndex, matrix: &[[Complex32; 2]; 2]) {
         let step = 1usize << qubit;
         let n = self.amplitudes.len();
 

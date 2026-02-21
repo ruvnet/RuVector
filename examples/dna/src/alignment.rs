@@ -4,7 +4,9 @@
 //! scoring derived from RuVector's attention primitives.
 
 use crate::error::{DnaError, Result};
-use crate::types::{AlignmentResult, CigarOp, DnaSequence, GenomicPosition, Nucleotide, QualityScore};
+use crate::types::{
+    AlignmentResult, CigarOp, DnaSequence, GenomicPosition, Nucleotide, QualityScore,
+};
 
 /// Alignment configuration
 #[derive(Debug, Clone)]
@@ -82,7 +84,11 @@ impl SmithWaterman {
             let mut f_val = neg_inf; // F[i][0], reset per row
 
             for j in 1..=r_len {
-                let mm = if q_base == r_bases[j - 1] { match_sc } else { mismatch_sc };
+                let mm = if q_base == r_bases[j - 1] {
+                    match_sc
+                } else {
+                    mismatch_sc
+                };
 
                 // E: gap in reference (insertion in query) — extend or open
                 let e_v = (e_prev[j] + gap_ext).max(h_prev[j] + gap_open);
@@ -95,10 +101,15 @@ impl SmithWaterman {
                 let best = 0.max(diag).max(e_v).max(f_val);
                 h_curr[j] = best;
 
-                tb[i * cols + j] = if best == 0 { 0 }
-                    else if best == diag { 1 }
-                    else if best == e_v { 2 }
-                    else { 3 };
+                tb[i * cols + j] = if best == 0 {
+                    0
+                } else if best == diag {
+                    1
+                } else if best == e_v {
+                    2
+                } else {
+                    3
+                };
 
                 if best > max_score {
                     max_score = best;
@@ -155,9 +166,7 @@ impl SmithWaterman {
             mapped_position: GenomicPosition {
                 chromosome: 1,
                 position: align_start as u64,
-                reference_allele: reference
-                    .get(align_start)
-                    .unwrap_or(Nucleotide::N),
+                reference_allele: reference.get(align_start).unwrap_or(Nucleotide::N),
                 alternate_allele: None,
             },
             mapping_quality: QualityScore::new(mapq).unwrap_or(QualityScore::new(0).unwrap()),

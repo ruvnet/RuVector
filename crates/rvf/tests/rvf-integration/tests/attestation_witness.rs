@@ -71,8 +71,14 @@ fn attestation_record_round_trip() {
 fn attestation_witness_chain_integrity() {
     // Create 3 attestation records with different platforms and witness types.
     let configs: &[(TeePlatform, AttestationWitnessType)] = &[
-        (TeePlatform::Sgx, AttestationWitnessType::PlatformAttestation),
-        (TeePlatform::SevSnp, AttestationWitnessType::ComputationProof),
+        (
+            TeePlatform::Sgx,
+            AttestationWitnessType::PlatformAttestation,
+        ),
+        (
+            TeePlatform::SevSnp,
+            AttestationWitnessType::ComputationProof,
+        ),
         (TeePlatform::Tdx, AttestationWitnessType::DataProvenance),
     ];
 
@@ -97,8 +103,7 @@ fn attestation_witness_chain_integrity() {
     }
 
     // Build witness payload.
-    let payload =
-        build_attestation_witness_payload(&records, &timestamps, &witness_types).unwrap();
+    let payload = build_attestation_witness_payload(&records, &timestamps, &witness_types).unwrap();
 
     // Verify.
     let verified = verify_attestation_witness_payload(&payload).unwrap();
@@ -112,13 +117,11 @@ fn attestation_witness_chain_integrity() {
             "entry {i}: action_hash should match SHAKE-256 of record"
         );
         assert_eq!(
-            entry.witness_type,
-            witness_types[i] as u8,
+            entry.witness_type, witness_types[i] as u8,
             "entry {i}: witness_type mismatch"
         );
         assert_eq!(
-            header.platform,
-            configs[i].0 as u8,
+            header.platform, configs[i].0 as u8,
             "entry {i}: platform mismatch"
         );
         assert_eq!(rd.len(), 16, "entry {i}: report_data length");
@@ -210,12 +213,7 @@ fn tee_bound_key_lifecycle() {
     assert_eq!(decoded.sealed_key_length, 32);
 
     // Verify key binding with matching platform and measurement -> Ok.
-    let result = verify_key_binding(
-        &decoded,
-        TeePlatform::SoftwareTee,
-        &measurement,
-        1_000_000,
-    );
+    let result = verify_key_binding(&decoded, TeePlatform::SoftwareTee, &measurement, 1_000_000);
     assert!(result.is_ok(), "matching binding should succeed");
 
     // Wrong platform -> KeyNotBound.
@@ -341,24 +339,15 @@ fn mixed_witness_types_in_chain() {
         "entry 1: PLATFORM_ATTESTATION"
     );
     assert_eq!(verified[2].witness_type, 0x02, "entry 2: COMPUTATION");
-    assert_eq!(
-        verified[3].witness_type, 0x07,
-        "entry 3: COMPUTATION_PROOF"
-    );
+    assert_eq!(verified[3].witness_type, 0x07, "entry 3: COMPUTATION_PROOF");
 
     // Verify action hashes are preserved.
-    assert_eq!(
-        verified[0].action_hash,
-        shake256_256(b"provenance-data")
-    );
+    assert_eq!(verified[0].action_hash, shake256_256(b"provenance-data"));
     assert_eq!(
         verified[1].action_hash,
         shake256_256(b"platform-attestation-data")
     );
-    assert_eq!(
-        verified[2].action_hash,
-        shake256_256(b"computation-data")
-    );
+    assert_eq!(verified[2].action_hash, shake256_256(b"computation-data"));
     assert_eq!(
         verified[3].action_hash,
         shake256_256(b"computation-proof-data")
@@ -366,13 +355,11 @@ fn mixed_witness_types_in_chain() {
 
     // First entry has zero prev_hash, subsequent are chained.
     assert_eq!(
-        verified[0].prev_hash,
-        [0u8; 32],
+        verified[0].prev_hash, [0u8; 32],
         "first entry should have zero prev_hash"
     );
     assert_ne!(
-        verified[1].prev_hash,
-        [0u8; 32],
+        verified[1].prev_hash, [0u8; 32],
         "second entry should have non-zero prev_hash"
     );
 }

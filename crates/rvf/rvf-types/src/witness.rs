@@ -245,26 +245,17 @@ impl WitnessHeader {
             task_id,
             policy_hash,
             created_ns: u64::from_le_bytes([
-                data[32], data[33], data[34], data[35],
-                data[36], data[37], data[38], data[39],
+                data[32], data[33], data[34], data[35], data[36], data[37], data[38], data[39],
             ]),
             outcome: data[40],
             governance_mode: data[41],
             tool_call_count: u16::from_le_bytes([data[42], data[43]]),
-            total_cost_microdollars: u32::from_le_bytes([
-                data[44], data[45], data[46], data[47],
-            ]),
-            total_latency_ms: u32::from_le_bytes([
-                data[48], data[49], data[50], data[51],
-            ]),
-            total_tokens: u32::from_le_bytes([
-                data[52], data[53], data[54], data[55],
-            ]),
+            total_cost_microdollars: u32::from_le_bytes([data[44], data[45], data[46], data[47]]),
+            total_latency_ms: u32::from_le_bytes([data[48], data[49], data[50], data[51]]),
+            total_tokens: u32::from_le_bytes([data[52], data[53], data[54], data[55]]),
             retry_count: u16::from_le_bytes([data[56], data[57]]),
             section_count: u16::from_le_bytes([data[58], data[59]]),
-            total_bundle_size: u32::from_le_bytes([
-                data[60], data[61], data[62], data[63],
-            ]),
+            total_bundle_size: u32::from_le_bytes([data[60], data[61], data[62], data[63]]),
         })
     }
 }

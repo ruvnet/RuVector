@@ -97,10 +97,10 @@ fn prop_roundtrip_error_bounded() {
     //   5-bit: qmax=15,  ~6.7% + margin -> 7%
     //   3-bit: qmax=3,  ~33%  + margin -> 35%
     let bit_configs: &[(u8, f32)] = &[
-        (8, 0.01),  // 8-bit: < 1% of group max
-        (7, 0.02),  // 7-bit: < 2% of group max
-        (5, 0.07),  // 5-bit: < 7% of group max
-        (3, 0.35),  // 3-bit: < 35% of group max
+        (8, 0.01), // 8-bit: < 1% of group max
+        (7, 0.02), // 7-bit: < 2% of group max
+        (5, 0.07), // 5-bit: < 7% of group max
+        (3, 0.35), // 3-bit: < 35% of group max
     ];
 
     for trial in 0..1000 {
@@ -137,7 +137,11 @@ fn prop_roundtrip_error_bounded() {
             for (i, (&orig, &dec)) in frame.iter().zip(decoded.iter()).enumerate() {
                 let abs_err = (orig - dec).abs();
                 let group_idx = i / GROUP_LEN;
-                let group_m = if group_idx < gmax.len() { gmax[group_idx] } else { 1.0 };
+                let group_m = if group_idx < gmax.len() {
+                    gmax[group_idx]
+                } else {
+                    1.0
+                };
                 // Bound: max_err_frac * group_max + small absolute floor for near-zero groups.
                 let bound = max_err_frac * group_m + 1e-6;
                 assert!(
@@ -207,23 +211,11 @@ fn prop_segment_roundtrip() {
 
         // Quantize all frames with the same scales.
         let mut packed = Vec::new();
-        quantizer::quantize_and_pack_f32(
-            &first_frame,
-            &scales_f32,
-            GROUP_LEN,
-            bits,
-            &mut packed,
-        );
+        quantizer::quantize_and_pack_f32(&first_frame, &scales_f32, GROUP_LEN, bits, &mut packed);
         for _ in 1..frame_count {
             // Subsequent frames use values within the first frame's range to fit scales.
             let frame = random_vec(&mut rng, tensor_len, -4.0, 4.0);
-            quantizer::quantize_and_pack_f32(
-                &frame,
-                &scales_f32,
-                GROUP_LEN,
-                bits,
-                &mut packed,
-            );
+            quantizer::quantize_and_pack_f32(&frame, &scales_f32, GROUP_LEN, bits, &mut packed);
         }
 
         // Encode into segment format.
@@ -306,15 +298,8 @@ fn prop_delta_apply_recovers_new() {
 
         let threshold = 0.001;
         let max_change_frac = 0.8;
-        let result = delta::compute_delta(
-            &old,
-            &new,
-            trial as u128,
-            0,
-            0,
-            threshold,
-            max_change_frac,
-        );
+        let result =
+            delta::compute_delta(&old, &new, trial as u128, 0, 0, threshold, max_change_frac);
 
         match result {
             Some(d) => {
@@ -364,12 +349,7 @@ fn prop_delta_apply_recovers_new() {
 fn prop_compression_ratio_matches_theory() {
     let mut rng = SimpleRng::new(0xCAFE_D00D_BEEF_FEED);
 
-    let expected: &[(u8, f32)] = &[
-        (8, 3.5),
-        (7, 4.0),
-        (5, 5.5),
-        (3, 8.5),
-    ];
+    let expected: &[(u8, f32)] = &[(8, 3.5), (7, 4.0), (5, 5.5), (3, 8.5)];
 
     for &(bits, min_ratio) in expected {
         // Use a 512-element tensor with group_len=64 for consistent measurement.
@@ -453,24 +433,10 @@ fn prop_zero_vector_roundtrip() {
             }
 
             let mut packed = Vec::new();
-            quantizer::quantize_and_pack_f32(
-                &frame,
-                &scales_f32,
-                GROUP_LEN,
-                bits,
-                &mut packed,
-            );
+            quantizer::quantize_and_pack_f32(&frame, &scales_f32, GROUP_LEN, bits, &mut packed);
 
             let mut decoded = Vec::new();
-            quantizer::dequantize_f32(
-                &packed,
-                &scales_f32,
-                GROUP_LEN,
-                bits,
-                len,
-                1,
-                &mut decoded,
-            );
+            quantizer::dequantize_f32(&packed, &scales_f32, GROUP_LEN, bits, len, 1, &mut decoded);
 
             assert_eq!(decoded.len(), len);
             for (i, &v) in decoded.iter().enumerate() {
@@ -507,24 +473,10 @@ fn prop_uniform_vector_roundtrip() {
             let scales_f32 = quantizer::scales_to_f32(&scales);
 
             let mut packed = Vec::new();
-            quantizer::quantize_and_pack_f32(
-                &frame,
-                &scales_f32,
-                GROUP_LEN,
-                bits,
-                &mut packed,
-            );
+            quantizer::quantize_and_pack_f32(&frame, &scales_f32, GROUP_LEN, bits, &mut packed);
 
             let mut decoded = Vec::new();
-            quantizer::dequantize_f32(
-                &packed,
-                &scales_f32,
-                GROUP_LEN,
-                bits,
-                len,
-                1,
-                &mut decoded,
-            );
+            quantizer::dequantize_f32(&packed, &scales_f32, GROUP_LEN, bits, len, 1, &mut decoded);
 
             assert_eq!(decoded.len(), len);
 
@@ -613,13 +565,7 @@ fn prop_extreme_values_dont_panic() {
             let scales_f32 = quantizer::scales_to_f32(&scales);
 
             let mut packed = Vec::new();
-            quantizer::quantize_and_pack_f32(
-                frame,
-                &scales_f32,
-                GROUP_LEN,
-                bits,
-                &mut packed,
-            );
+            quantizer::quantize_and_pack_f32(frame, &scales_f32, GROUP_LEN, bits, &mut packed);
 
             let mut decoded = Vec::new();
             quantizer::dequantize_f32(
@@ -655,13 +601,7 @@ fn prop_extreme_values_dont_panic() {
             let scales_f32 = quantizer::scales_to_f32(&scales);
 
             let mut packed = Vec::new();
-            quantizer::quantize_and_pack_f32(
-                frame,
-                &scales_f32,
-                GROUP_LEN,
-                bits,
-                &mut packed,
-            );
+            quantizer::quantize_and_pack_f32(frame, &scales_f32, GROUP_LEN, bits, &mut packed);
 
             let mut decoded = Vec::new();
             quantizer::dequantize_f32(
@@ -751,22 +691,10 @@ fn prop_single_frame_decode_consistency() {
         let scales_f32 = quantizer::scales_to_f32(&scales);
 
         let mut packed = Vec::new();
-        quantizer::quantize_and_pack_f32(
-            &first_frame,
-            &scales_f32,
-            GROUP_LEN,
-            bits,
-            &mut packed,
-        );
+        quantizer::quantize_and_pack_f32(&first_frame, &scales_f32, GROUP_LEN, bits, &mut packed);
         for _ in 1..frame_count {
             let frame = random_vec(&mut rng, tensor_len, -2.5, 2.5);
-            quantizer::quantize_and_pack_f32(
-                &frame,
-                &scales_f32,
-                GROUP_LEN,
-                bits,
-                &mut packed,
-            );
+            quantizer::quantize_and_pack_f32(&frame, &scales_f32, GROUP_LEN, bits, &mut packed);
         }
 
         let mut seg = Vec::new();

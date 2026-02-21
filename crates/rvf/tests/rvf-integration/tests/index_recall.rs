@@ -35,7 +35,10 @@ fn brute_force_knn(query: &[f32], vectors: &[Vec<f32>], k: usize) -> Vec<u64> {
 /// Calculate recall@K.
 fn recall_at_k(approx: &[(u64, f32)], exact: &[u64]) -> f64 {
     let exact_set: std::collections::HashSet<u64> = exact.iter().copied().collect();
-    let hits = approx.iter().filter(|(id, _)| exact_set.contains(id)).count();
+    let hits = approx
+        .iter()
+        .filter(|(id, _)| exact_set.contains(id))
+        .count();
     hits as f64 / exact.len() as f64
 }
 
@@ -59,8 +62,7 @@ fn hnsw_build_and_query_recall() {
     let mut rng_seed: u64 = 123;
     for i in 0..n as u64 {
         rng_seed = rng_seed.wrapping_mul(6364136223846793005).wrapping_add(1);
-        let rng_val = ((rng_seed >> 33) as f64 / (1u64 << 31) as f64)
-            .clamp(0.001, 0.999);
+        let rng_val = ((rng_seed >> 33) as f64 / (1u64 << 31) as f64).clamp(0.001, 0.999);
         graph.insert(i, rng_val, &store, &l2_distance);
     }
 
@@ -99,8 +101,7 @@ fn hnsw_recall_improves_with_ef_search() {
     let mut rng_seed: u64 = 77;
     for i in 0..n as u64 {
         rng_seed = rng_seed.wrapping_mul(6364136223846793005).wrapping_add(1);
-        let rng_val = ((rng_seed >> 33) as f64 / (1u64 << 31) as f64)
-            .clamp(0.001, 0.999);
+        let rng_val = ((rng_seed >> 33) as f64 / (1u64 << 31) as f64).clamp(0.001, 0.999);
         graph.insert(i, rng_val, &store, &l2_distance);
     }
 
@@ -135,14 +136,23 @@ fn distance_functions_are_consistent() {
     // l2_distance returns squared L2 (no sqrt).
     let l2 = l2_distance(&a, &b);
     let expected_sq = 4.0 * 4.0 + 4.0 * 4.0 + 4.0 * 4.0 + 4.0 * 4.0;
-    assert!((l2 - expected_sq).abs() < 1e-5, "L2 squared distance mismatch: {l2} != {expected_sq}");
+    assert!(
+        (l2 - expected_sq).abs() < 1e-5,
+        "L2 squared distance mismatch: {l2} != {expected_sq}"
+    );
 
     // dot_product returns -dot(a,b).
     let dp = dot_product(&a, &b);
     let expected_dot = -(1.0 * 5.0 + 2.0 * 6.0 + 3.0 * 7.0 + 4.0 * 8.0);
-    assert!((dp - expected_dot).abs() < 1e-5, "dot product mismatch: {dp} != {expected_dot}");
+    assert!(
+        (dp - expected_dot).abs() < 1e-5,
+        "dot product mismatch: {dp} != {expected_dot}"
+    );
 
     // cosine_distance returns 1 - cosine_similarity.
     let cos = cosine_distance(&a, &b);
-    assert!((0.0..=2.0).contains(&cos), "cosine distance out of range: {cos}");
+    assert!(
+        (0.0..=2.0).contains(&cos),
+        "cosine distance out of range: {cos}"
+    );
 }

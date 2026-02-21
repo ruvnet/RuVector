@@ -9,8 +9,8 @@
 
 use anyhow::Result;
 use clap::Parser;
-use ruvector_benchmarks::superintelligence::{run_pathway, SIConfig};
 use ruvector_benchmarks::intelligence_metrics::IntelligenceCalculator;
+use ruvector_benchmarks::superintelligence::{run_pathway, SIConfig};
 
 #[derive(Parser, Debug)]
 #[command(name = "superintelligence")]
@@ -66,10 +66,17 @@ fn main() -> Result<()> {
     println!("║   5-Level Recursive Intelligence Amplification               ║");
     println!("╚══════════════════════════════════════════════════════════════╝");
     println!();
-    println!("  Config: {} eps/level x {} tasks, noise={:.0}%, target IQ={:.0}",
-        args.episodes, args.tasks, args.noise * 100.0, args.target);
-    println!("  Ensemble={}, Cycles={}, Pressure={:.1}",
-        args.ensemble, args.cycles, args.pressure);
+    println!(
+        "  Config: {} eps/level x {} tasks, noise={:.0}%, target IQ={:.0}",
+        args.episodes,
+        args.tasks,
+        args.noise * 100.0,
+        args.target
+    );
+    println!(
+        "  Ensemble={}, Cycles={}, Pressure={:.1}",
+        args.ensemble, args.cycles, args.pressure
+    );
     println!();
 
     let config = SIConfig {
@@ -91,24 +98,36 @@ fn main() -> Result<()> {
 
     // Detailed assessment for peak level
     let calculator = IntelligenceCalculator::default();
-    if let Some(peak) = result.levels.iter().max_by(|a, b| a.iq_score.partial_cmp(&b.iq_score).unwrap()) {
+    if let Some(peak) = result
+        .levels
+        .iter()
+        .max_by(|a, b| a.iq_score.partial_cmp(&b.iq_score).unwrap())
+    {
         println!("  Peak Level ({}) Assessment:", peak.name);
         let assessment = calculator.calculate(&peak.raw_metrics);
-        println!("    Reasoning:     coherence={:.2}, efficiency={:.2}, error_rate={:.2}",
+        println!(
+            "    Reasoning:     coherence={:.2}, efficiency={:.2}, error_rate={:.2}",
             assessment.reasoning.logical_coherence,
             assessment.reasoning.reasoning_efficiency,
-            assessment.reasoning.error_rate);
-        println!("    Learning:      sample_eff={:.2}, regret_sub={:.2}, rate={:.2}",
+            assessment.reasoning.error_rate
+        );
+        println!(
+            "    Learning:      sample_eff={:.2}, regret_sub={:.2}, rate={:.2}",
             assessment.learning.sample_efficiency,
             assessment.learning.regret_sublinearity,
-            assessment.learning.learning_rate);
-        println!("    Capabilities:  pattern={:.1}, planning={:.1}, adaptation={:.1}",
+            assessment.learning.learning_rate
+        );
+        println!(
+            "    Capabilities:  pattern={:.1}, planning={:.1}, adaptation={:.1}",
             assessment.capabilities.pattern_recognition,
             assessment.capabilities.planning,
-            assessment.capabilities.adaptation);
-        println!("    Meta-cog:      self_correct={:.2}, strategy_adapt={:.2}",
+            assessment.capabilities.adaptation
+        );
+        println!(
+            "    Meta-cog:      self_correct={:.2}, strategy_adapt={:.2}",
             assessment.meta_cognition.self_correction_rate,
-            assessment.meta_cognition.strategy_adaptation);
+            assessment.meta_cognition.strategy_adaptation
+        );
         println!();
     }
 

@@ -3,9 +3,7 @@
 //! These tests use real VectorDB instances to validate k-mer encoding,
 //! indexing, and similarity search functionality.
 
-use ::rvdna::kmer::{
-    canonical_kmer, KmerEncoder, KmerIndex, MinHashSketch,
-};
+use ::rvdna::kmer::{canonical_kmer, KmerEncoder, KmerIndex, MinHashSketch};
 use tempfile::TempDir;
 
 /// Helper to create a test directory that will be automatically cleaned up
@@ -18,7 +16,8 @@ fn test_kmer_encoding_basic() {
     let encoder = KmerEncoder::new(4).expect("Failed to create encoder");
     let sequence = b"ACGTACGT";
 
-    let vector = encoder.encode_sequence(sequence)
+    let vector = encoder
+        .encode_sequence(sequence)
         .expect("Failed to encode sequence");
 
     // Verify vector has correct dimensions
@@ -38,10 +37,7 @@ fn test_kmer_encoding_basic() {
 
     // Verify non-zero elements exist (sequence has k-mers)
     let non_zero_count = vector.iter().filter(|&&x| x != 0.0).count();
-    assert!(
-        non_zero_count > 0,
-        "Vector should have non-zero elements"
-    );
+    assert!(non_zero_count > 0, "Vector should have non-zero elements");
 }
 
 #[test]
@@ -49,9 +45,11 @@ fn test_kmer_encoding_deterministic() {
     let encoder = KmerEncoder::new(11).expect("Failed to create encoder");
     let sequence = b"ACGTACGTACGTACGTACGT";
 
-    let vector1 = encoder.encode_sequence(sequence)
+    let vector1 = encoder
+        .encode_sequence(sequence)
         .expect("Failed to encode sequence first time");
-    let vector2 = encoder.encode_sequence(sequence)
+    let vector2 = encoder
+        .encode_sequence(sequence)
         .expect("Failed to encode sequence second time");
 
     // Verify same sequence produces identical vectors
@@ -65,7 +63,9 @@ fn test_kmer_encoding_deterministic() {
         assert!(
             (v1 - v2).abs() < 1e-6,
             "Vector element {} should be identical: {} vs {}",
-            i, v1, v2
+            i,
+            v1,
+            v2
         );
     }
 }
@@ -78,10 +78,7 @@ fn test_kmer_complement_symmetry() {
     let canon1 = canonical_kmer(kmer1);
     let canon2 = canonical_kmer(kmer2);
 
-    assert_eq!(
-        canon1, canon2,
-        "Canonical k-mers should be equal"
-    );
+    assert_eq!(canon1, canon2, "Canonical k-mers should be equal");
 
     // Test with non-palindrome
     let kmer3 = b"AAAA";
@@ -102,35 +99,30 @@ fn test_kmer_index_insert_and_search() {
 
     // Create index with k=11
     let encoder = KmerEncoder::new(11).expect("Failed to create encoder");
-    let index = KmerIndex::new(11, encoder.dimensions())
-        .expect("Failed to create index");
+    let index = KmerIndex::new(11, encoder.dimensions()).expect("Failed to create index");
 
     // Insert 3 sequences
     let seq1 = b"ACGTACGTACGTACGTACGT";
     let seq2 = b"ACGTACGTACGTACGTACGG"; // Similar to seq1
     let seq3 = b"TTTTTTTTTTTTTTTTTTTT"; // Very different
 
-    index.index_sequence("seq1", seq1)
+    index
+        .index_sequence("seq1", seq1)
         .expect("Failed to index seq1");
-    index.index_sequence("seq2", seq2)
+    index
+        .index_sequence("seq2", seq2)
         .expect("Failed to index seq2");
-    index.index_sequence("seq3", seq3)
+    index
+        .index_sequence("seq3", seq3)
         .expect("Failed to index seq3");
 
     // Search for similar sequences to seq1
-    let results = index.search_similar(seq1, 3)
-        .expect("Failed to search");
+    let results = index.search_similar(seq1, 3).expect("Failed to search");
 
-    assert!(
-        results.len() > 0,
-        "Should find at least one result"
-    );
+    assert!(results.len() > 0, "Should find at least one result");
 
     // First result should be seq1 itself (exact match)
-    assert_eq!(
-        results[0].id, "seq1",
-        "First result should be exact match"
-    );
+    assert_eq!(results[0].id, "seq1", "First result should be exact match");
     assert!(
         results[0].distance < 0.01,
         "Exact match should have very low distance: {}",
@@ -154,8 +146,7 @@ fn test_kmer_index_batch_insert() {
     let _temp_dir = create_test_db();
 
     let encoder = KmerEncoder::new(11).expect("Failed to create encoder");
-    let index = KmerIndex::new(11, encoder.dimensions())
-        .expect("Failed to create index");
+    let index = KmerIndex::new(11, encoder.dimensions()).expect("Failed to create index");
 
     // Generate 100 random sequences
     let mut sequences = Vec::new();
@@ -171,18 +162,15 @@ fn test_kmer_index_batch_insert() {
         .collect();
 
     // Batch insert
-    index.index_batch(batch)
+    index
+        .index_batch(batch)
         .expect("Failed to batch insert sequences");
 
     // Verify we can search and get results
     let query = b"ACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGT";
-    let results = index.search_similar(query, 10)
-        .expect("Failed to search");
+    let results = index.search_similar(query, 10).expect("Failed to search");
 
-    assert!(
-        results.len() > 0,
-        "Should find results after batch insert"
-    );
+    assert!(results.len() > 0, "Should find results after batch insert");
 }
 
 #[test]
@@ -190,29 +178,29 @@ fn test_kmer_similar_sequences_score_higher() {
     let _temp_dir = create_test_db();
 
     let encoder = KmerEncoder::new(11).expect("Failed to create encoder");
-    let index = KmerIndex::new(11, encoder.dimensions())
-        .expect("Failed to create index");
+    let index = KmerIndex::new(11, encoder.dimensions()).expect("Failed to create index");
 
     // Create two similar sequences (90% identical)
     let base_seq = b"ACGTACGTACGTACGTACGTACGTACGTACGTACGTACGT"; // 40 bases
     let similar_seq = b"ACGTACGTACGTACGTACGTACGTACGTACGTACGTACGG"; // 1 base different
     let random_seq = generate_random_sequence(40, 12345);
 
-    index.index_sequence("base", base_seq)
+    index
+        .index_sequence("base", base_seq)
         .expect("Failed to index base");
-    index.index_sequence("similar", similar_seq)
+    index
+        .index_sequence("similar", similar_seq)
         .expect("Failed to index similar");
-    index.index_sequence("random", &random_seq)
+    index
+        .index_sequence("random", &random_seq)
         .expect("Failed to index random");
 
     // Search with base sequence
-    let results = index.search_similar(base_seq, 10)
+    let results = index
+        .search_similar(base_seq, 10)
         .expect("Failed to search");
 
-    assert!(
-        results.len() > 0,
-        "Should find at least one result"
-    );
+    assert!(results.len() > 0, "Should find at least one result");
 
     // Find positions in results
     let base_pos = results.iter().position(|r| r.id == "base");
@@ -230,7 +218,8 @@ fn test_kmer_similar_sequences_score_higher() {
 
     // Base should be first (exact match has distance 0)
     assert_eq!(
-        base_pos.unwrap(), 0,
+        base_pos.unwrap(),
+        0,
         "Base sequence should be the top result (exact match)"
     );
 
@@ -247,21 +236,24 @@ fn test_kmer_different_k_values() {
     // Test k=11
     let encoder11 = KmerEncoder::new(11).expect("Failed to create k=11 encoder");
     let seq = b"ACGTACGTACGTACGTACGTACGTACGT";
-    let vec11 = encoder11.encode_sequence(seq)
+    let vec11 = encoder11
+        .encode_sequence(seq)
         .expect("Failed to encode with k=11");
     assert_eq!(vec11.len(), encoder11.dimensions());
 
     // Test k=21
     let encoder21 = KmerEncoder::new(21).expect("Failed to create k=21 encoder");
     let seq_long = b"ACGTACGTACGTACGTACGTACGTACGTACGTACGTACGT";
-    let vec21 = encoder21.encode_sequence(seq_long)
+    let vec21 = encoder21
+        .encode_sequence(seq_long)
         .expect("Failed to encode with k=21");
     assert_eq!(vec21.len(), encoder21.dimensions());
 
     // Test k=31
     let encoder31 = KmerEncoder::new(31).expect("Failed to create k=31 encoder");
     let seq_longer = b"ACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGT";
-    let vec31 = encoder31.encode_sequence(seq_longer)
+    let vec31 = encoder31
+        .encode_sequence(seq_longer)
         .expect("Failed to encode with k=31");
     assert_eq!(vec31.len(), encoder31.dimensions());
 
@@ -282,7 +274,8 @@ fn test_minhash_sketch_basic() {
     let mut sketch = MinHashSketch::new(num_hashes);
     let sequence = b"ACGTACGTACGTACGTACGTACGTACGTACGT";
 
-    let hashes = sketch.sketch(sequence, 11)
+    let hashes = sketch
+        .sketch(sequence, 11)
         .expect("Failed to sketch sequence");
 
     assert!(
@@ -291,17 +284,11 @@ fn test_minhash_sketch_basic() {
         num_hashes,
         hashes.len()
     );
-    assert!(
-        hashes.len() > 0,
-        "Sketch should have at least one hash"
-    );
+    assert!(hashes.len() > 0, "Sketch should have at least one hash");
 
     // Verify hashes are sorted (implementation detail)
     for i in 1..hashes.len() {
-        assert!(
-            hashes[i] >= hashes[i-1],
-            "Hashes should be sorted"
-        );
+        assert!(hashes[i] >= hashes[i - 1], "Hashes should be sorted");
     }
 }
 
@@ -312,9 +299,11 @@ fn test_minhash_jaccard_identical() {
 
     let sequence = b"ACGTACGTACGTACGTACGTACGTACGTACGT";
 
-    sketch1.sketch(sequence, 11)
+    sketch1
+        .sketch(sequence, 11)
         .expect("Failed to sketch sequence 1");
-    sketch2.sketch(sequence, 11)
+    sketch2
+        .sketch(sequence, 11)
         .expect("Failed to sketch sequence 2");
 
     let distance = sketch1.jaccard_distance(&sketch2);
@@ -334,9 +323,11 @@ fn test_minhash_jaccard_different() {
     let seq1 = b"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
     let seq2 = b"CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC";
 
-    sketch1.sketch(seq1, 11)
+    sketch1
+        .sketch(seq1, 11)
         .expect("Failed to sketch sequence 1");
-    sketch2.sketch(seq2, 11)
+    sketch2
+        .sketch(seq2, 11)
         .expect("Failed to sketch sequence 2");
 
     let distance = sketch1.jaccard_distance(&sketch2);
@@ -356,10 +347,7 @@ fn test_kmer_index_empty_sequence() {
     let empty_seq = b"";
     let result = encoder.encode_sequence(empty_seq);
 
-    assert!(
-        result.is_err(),
-        "Empty sequence should return error"
-    );
+    assert!(result.is_err(), "Empty sequence should return error");
 
     // Test sequence shorter than k
     let short_seq = b"ACGT"; // k=11 but only 4 bases

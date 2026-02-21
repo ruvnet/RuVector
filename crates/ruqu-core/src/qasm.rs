@@ -537,7 +537,11 @@ mod tests {
 
         // Extract the three angles from U(theta, phi, lambda)
         let (theta, phi, lambda) = extract_u_angles(&lines[0]);
-        assert!(theta.abs() < 1e-10, "Identity theta should be ~0, got {}", theta);
+        assert!(
+            theta.abs() < 1e-10,
+            "Identity theta should be ~0, got {}",
+            theta
+        );
         // For identity, phi + lambda should be ~0 (mod 2*pi)
         let sum = phi + lambda;
         let sum_mod = ((sum % (2.0 * PI)) + 2.0 * PI) % (2.0 * PI);
@@ -606,7 +610,11 @@ mod tests {
         let (theta, phi, lambda) = extract_u_angles(&lines[0]);
 
         // S is diagonal, so theta should be ~0
-        assert!(theta.abs() < 1e-10, "S gate theta should be ~0, got {}", theta);
+        assert!(
+            theta.abs() < 1e-10,
+            "S gate theta should be ~0, got {}",
+            theta
+        );
 
         let reconstructed = reconstruct_zyz(theta, phi, lambda);
         assert_unitaries_equal_up_to_phase(&s_matrix, &reconstructed);
@@ -619,14 +627,8 @@ mod tests {
         let cos_h = half.cos();
         let sin_h = half.sin();
         let arb_matrix = [
-            [
-                Complex::new(cos_h, 0.0),
-                Complex::new(0.0, -sin_h),
-            ],
-            [
-                Complex::new(0.0, -sin_h),
-                Complex::new(cos_h, 0.0),
-            ],
+            [Complex::new(cos_h, 0.0), Complex::new(0.0, -sin_h)],
+            [Complex::new(0.0, -sin_h), Complex::new(cos_h, 0.0)],
         ];
 
         let mut circuit = QuantumCircuit::new(1);
@@ -704,10 +706,8 @@ mod tests {
             );
             // Check it uses valid gate/operation keywords
             let valid_starts = [
-                "h ", "x ", "y ", "z ", "s ", "sdg ", "t ", "tdg ",
-                "rx(", "ry(", "rz(", "p(", "rzz(",
-                "cx ", "cz ", "swap ",
-                "c[", "reset ", "barrier ", "U(",
+                "h ", "x ", "y ", "z ", "s ", "sdg ", "t ", "tdg ", "rx(", "ry(", "rz(", "p(",
+                "rzz(", "cx ", "cz ", "swap ", "c[", "reset ", "barrier ", "U(",
             ];
             assert!(
                 valid_starts.iter().any(|prefix| line.starts_with(prefix)),
@@ -828,10 +828,7 @@ mod tests {
         // Verify it has at least the H gates and measurements
         let lines = gate_lines(&qasm);
         let h_count = lines.iter().filter(|l| l.starts_with("h ")).count();
-        let measure_count = lines
-            .iter()
-            .filter(|l| l.contains("measure"))
-            .count();
+        let measure_count = lines.iter().filter(|l| l.contains("measure")).count();
         assert_eq!(h_count, 4);
         assert_eq!(measure_count, 4);
     }
@@ -845,9 +842,9 @@ mod tests {
         let angle_str = &line[open + 1..close];
         // Handle the case where there are multiple comma-separated angles (take the first)
         let first = angle_str.split(',').next().unwrap().trim();
-        first.parse::<f64>().unwrap_or_else(|e| {
-            panic!("Failed to parse angle '{}': {}", first, e)
-        })
+        first
+            .parse::<f64>()
+            .unwrap_or_else(|e| panic!("Failed to parse angle '{}': {}", first, e))
     }
 
     /// Extract (theta, phi, lambda) from a U gate line like `U(t, p, l) q[0];`
@@ -856,7 +853,12 @@ mod tests {
         let close = line.find(')').expect("No closing parenthesis");
         let inside = &line[open + 1..close];
         let parts: Vec<&str> = inside.split(',').map(|s| s.trim()).collect();
-        assert_eq!(parts.len(), 3, "U gate should have 3 angles, got: {:?}", parts);
+        assert_eq!(
+            parts.len(),
+            3,
+            "U gate should have 3 angles, got: {:?}",
+            parts
+        );
         let theta: f64 = parts[0].parse().unwrap();
         let phi: f64 = parts[1].parse().unwrap();
         let lambda: f64 = parts[2].parse().unwrap();

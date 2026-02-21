@@ -15,9 +15,7 @@ impl ProgressReporter for StderrProgress {
     fn report(&self, imported: u64, rejected: u64, total: u64) {
         if total > 0 {
             let pct = (imported + rejected) as f64 / total as f64 * 100.0;
-            eprint!(
-                "\r  imported: {imported}, rejected: {rejected}, total: {total} ({pct:.1}%)"
-            );
+            eprint!("\r  imported: {imported}, rejected: {rejected}, total: {total} ({pct:.1}%)");
             let _ = std::io::stderr().flush();
         }
     }
@@ -48,6 +46,9 @@ impl CollectingProgress {
 
 impl ProgressReporter for CollectingProgress {
     fn report(&self, imported: u64, rejected: u64, total: u64) {
-        self.reports.lock().unwrap().push((imported, rejected, total));
+        self.reports
+            .lock()
+            .unwrap()
+            .push((imported, rejected, total));
     }
 }

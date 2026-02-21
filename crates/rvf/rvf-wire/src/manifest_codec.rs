@@ -4,8 +4,8 @@
 //! file (or at the tail of a MANIFEST_SEG payload). It contains hotset
 //! pointers for instant boot and a CRC32C checksum at the last 4 bytes.
 
-use rvf_types::{ErrorCode, RvfError, ROOT_MANIFEST_MAGIC, ROOT_MANIFEST_SIZE};
 use crate::hash::compute_crc32c;
+use rvf_types::{ErrorCode, RvfError, ROOT_MANIFEST_MAGIC, ROOT_MANIFEST_SIZE};
 
 /// Parsed Level 0 root manifest.
 #[derive(Clone, Debug)]

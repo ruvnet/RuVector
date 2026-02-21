@@ -81,7 +81,10 @@ impl SparsityConfig {
 
         if let Some(sparsity) = self.target_sparsity {
             if !(0.0..=1.0).contains(&sparsity) {
-                return Err(format!("target_sparsity must be in [0, 1], got {}", sparsity));
+                return Err(format!(
+                    "target_sparsity must be in [0, 1], got {}",
+                    sparsity
+                ));
             }
         }
 
@@ -116,12 +119,7 @@ pub struct ModelConfig {
 
 impl ModelConfig {
     /// Create a new model configuration.
-    pub fn new(
-        input_dim: usize,
-        hidden_dim: usize,
-        output_dim: usize,
-        rank: usize,
-    ) -> Self {
+    pub fn new(input_dim: usize, hidden_dim: usize, output_dim: usize, rank: usize) -> Self {
         Self {
             input_dim,
             hidden_dim,

@@ -31,9 +31,16 @@ pub enum ActionClass {
 impl ActionClass {
     /// All variants in discriminant order.
     pub const ALL: [ActionClass; ACTION_CLASS_COUNT] = [
-        Self::ReadMemory, Self::WriteMemory, Self::ReadFile, Self::WriteFile,
-        Self::RunTest, Self::RunCommand, Self::GitPush, Self::CreatePR,
-        Self::SendMessage, Self::ModifyInfra,
+        Self::ReadMemory,
+        Self::WriteMemory,
+        Self::ReadFile,
+        Self::WriteFile,
+        Self::RunTest,
+        Self::RunCommand,
+        Self::GitPush,
+        Self::CreatePR,
+        Self::SendMessage,
+        Self::ModifyInfra,
     ];
 }
 
@@ -60,14 +67,22 @@ impl AuthorityGuard {
 
     /// Create a guard with an explicit maximum authority level.
     pub fn with_max_authority(mode: ExecutionMode, max: AuthorityLevel) -> Self {
-        Self { max_authority: max, mode, class_overrides: [None; ACTION_CLASS_COUNT] }
+        Self {
+            max_authority: max,
+            mode,
+            class_overrides: [None; ACTION_CLASS_COUNT],
+        }
     }
 
     /// The execution mode this guard was created for.
-    pub fn mode(&self) -> ExecutionMode { self.mode }
+    pub fn mode(&self) -> ExecutionMode {
+        self.mode
+    }
 
     /// The global maximum authority level.
-    pub fn max_authority(&self) -> AuthorityLevel { self.max_authority }
+    pub fn max_authority(&self) -> AuthorityLevel {
+        self.max_authority
+    }
 
     /// Check whether the guard permits the `required` level.
     pub fn check(&self, required: AuthorityLevel) -> Result<(), ContainerError> {
@@ -85,7 +100,9 @@ impl AuthorityGuard {
     ///
     /// Per-class overrides are capped by the global maximum to prevent escalation.
     pub fn check_action_class(
-        &self, class: ActionClass, required: AuthorityLevel,
+        &self,
+        class: ActionClass,
+        required: AuthorityLevel,
     ) -> Result<(), ContainerError> {
         let effective = match self.class_overrides[class as usize] {
             Some(o) if (o as u8) <= (self.max_authority as u8) => o,
@@ -148,18 +165,25 @@ impl BudgetTracker {
     pub fn new(budget: ResourceBudget) -> Self {
         Self {
             budget: budget.clamped(),
-            used_time_secs: 0, used_tokens: 0, used_cost_microdollars: 0,
-            used_tool_calls: 0, used_external_writes: 0,
+            used_time_secs: 0,
+            used_tokens: 0,
+            used_cost_microdollars: 0,
+            used_tool_calls: 0,
+            used_external_writes: 0,
         }
     }
 
     /// The clamped budget this tracker enforces.
-    pub fn budget(&self) -> &ResourceBudget { &self.budget }
+    pub fn budget(&self) -> &ResourceBudget {
+        &self.budget
+    }
 
     /// Charge token usage.
     pub fn charge_tokens(&mut self, tokens: u32) -> Result<(), ContainerError> {
         let t = self.used_tokens.saturating_add(tokens);
-        if t > self.budget.max_tokens { return Err(ContainerError::BudgetExhausted("tokens")); }
+        if t > self.budget.max_tokens {
+            return Err(ContainerError::BudgetExhausted("tokens"));
+        }
         self.used_tokens = t;
         Ok(())
     }
@@ -167,7 +191,9 @@ impl BudgetTracker {
     /// Charge cost in microdollars.
     pub fn charge_cost(&mut self, microdollars: u32) -> Result<(), ContainerError> {
         let t = self.used_cost_microdollars.saturating_add(microdollars);
-        if t > self.budget.max_cost_microdollars { return Err(ContainerError::BudgetExhausted("cost")); }
+        if t > self.budget.max_cost_microdollars {
+            return Err(ContainerError::BudgetExhausted("cost"));
+        }
         self.used_cost_microdollars = t;
         Ok(())
     }
@@ -175,7 +201,9 @@ impl BudgetTracker {
     /// Charge one tool call.
     pub fn charge_tool_call(&mut self) -> Result<(), ContainerError> {
         let t = self.used_tool_calls.saturating_add(1);
-        if t > self.budget.max_tool_calls { return Err(ContainerError::BudgetExhausted("tool_calls")); }
+        if t > self.budget.max_tool_calls {
+            return Err(ContainerError::BudgetExhausted("tool_calls"));
+        }
         self.used_tool_calls = t;
         Ok(())
     }
@@ -183,7 +211,9 @@ impl BudgetTracker {
     /// Charge one external write.
     pub fn charge_external_write(&mut self) -> Result<(), ContainerError> {
         let t = self.used_external_writes.saturating_add(1);
-        if t > self.budget.max_external_writes { return Err(ContainerError::BudgetExhausted("external_writes")); }
+        if t > self.budget.max_external_writes {
+            return Err(ContainerError::BudgetExhausted("external_writes"));
+        }
         self.used_external_writes = t;
         Ok(())
     }
@@ -191,30 +221,49 @@ impl BudgetTracker {
     /// Charge wall-clock time in seconds.
     pub fn charge_time(&mut self, secs: u32) -> Result<(), ContainerError> {
         let t = self.used_time_secs.saturating_add(secs);
-        if t > self.budget.max_time_secs { return Err(ContainerError::BudgetExhausted("time")); }
+        if t > self.budget.max_time_secs {
+            return Err(ContainerError::BudgetExhausted("time"));
+        }
         self.used_time_secs = t;
         Ok(())
     }
 
     /// Remaining tokens before exhaustion.
-    pub fn remaining_tokens(&self) -> u32 { self.budget.max_tokens.saturating_sub(self.used_tokens) }
+    pub fn remaining_tokens(&self) -> u32 {
+        self.budget.max_tokens.saturating_sub(self.used_tokens)
+    }
 
     /// Remaining cost budget in microdollars.
     pub fn remaining_cost(&self) -> u32 {
-        self.budget.max_cost_microdollars.saturating_sub(self.used_cost_microdollars)
+        self.budget
+            .max_cost_microdollars
+            .saturating_sub(self.used_cost_microdollars)
     }
 
     /// Remaining wall-clock time in seconds.
-    pub fn remaining_time(&self) -> u32 { self.budget.max_time_secs.saturating_sub(self.used_time_secs) }
+    pub fn remaining_time(&self) -> u32 {
+        self.budget
+            .max_time_secs
+            .saturating_sub(self.used_time_secs)
+    }
 
     /// Compute utilization percentages for each resource dimension.
     pub fn utilization(&self) -> BudgetUtilization {
         BudgetUtilization {
             time_pct: pct(self.used_time_secs as f32, self.budget.max_time_secs as f32),
             tokens_pct: pct(self.used_tokens as f32, self.budget.max_tokens as f32),
-            cost_pct: pct(self.used_cost_microdollars as f32, self.budget.max_cost_microdollars as f32),
-            tool_calls_pct: pct(self.used_tool_calls as f32, self.budget.max_tool_calls as f32),
-            external_writes_pct: pct(self.used_external_writes as f32, self.budget.max_external_writes as f32),
+            cost_pct: pct(
+                self.used_cost_microdollars as f32,
+                self.budget.max_cost_microdollars as f32,
+            ),
+            tool_calls_pct: pct(
+                self.used_tool_calls as f32,
+                self.budget.max_tool_calls as f32,
+            ),
+            external_writes_pct: pct(
+                self.used_external_writes as f32,
+                self.budget.max_external_writes as f32,
+            ),
         }
     }
 
@@ -223,9 +272,12 @@ impl BudgetTracker {
     pub fn is_exhausted(&self) -> bool {
         (self.budget.max_time_secs > 0 && self.used_time_secs >= self.budget.max_time_secs)
             || (self.budget.max_tokens > 0 && self.used_tokens >= self.budget.max_tokens)
-            || (self.budget.max_cost_microdollars > 0 && self.used_cost_microdollars >= self.budget.max_cost_microdollars)
-            || (self.budget.max_tool_calls > 0 && self.used_tool_calls >= self.budget.max_tool_calls)
-            || (self.budget.max_external_writes > 0 && self.used_external_writes >= self.budget.max_external_writes)
+            || (self.budget.max_cost_microdollars > 0
+                && self.used_cost_microdollars >= self.budget.max_cost_microdollars)
+            || (self.budget.max_tool_calls > 0
+                && self.used_tool_calls >= self.budget.max_tool_calls)
+            || (self.budget.max_external_writes > 0
+                && self.used_external_writes >= self.budget.max_external_writes)
     }
 
     /// Capture a point-in-time snapshot of the tracker state.
@@ -242,8 +294,15 @@ impl BudgetTracker {
 }
 
 fn pct(used: f32, max: f32) -> f32 {
-    if max == 0.0 { if used > 0.0 { 100.0 } else { 0.0 } }
-    else { (used / max * 100.0).min(100.0) }
+    if max == 0.0 {
+        if used > 0.0 {
+            100.0
+        } else {
+            0.0
+        }
+    } else {
+        (used / max * 100.0).min(100.0)
+    }
 }
 
 #[cfg(test)]
@@ -255,8 +314,14 @@ mod tests {
         let r = AuthorityGuard::new(ExecutionMode::Replay);
         assert_eq!(r.max_authority(), AuthorityLevel::ReadOnly);
         assert_eq!(r.mode(), ExecutionMode::Replay);
-        assert_eq!(AuthorityGuard::new(ExecutionMode::Verify).max_authority(), AuthorityLevel::ExecuteTools);
-        assert_eq!(AuthorityGuard::new(ExecutionMode::Live).max_authority(), AuthorityLevel::WriteMemory);
+        assert_eq!(
+            AuthorityGuard::new(ExecutionMode::Verify).max_authority(),
+            AuthorityLevel::ExecuteTools
+        );
+        assert_eq!(
+            AuthorityGuard::new(ExecutionMode::Live).max_authority(),
+            AuthorityLevel::WriteMemory
+        );
     }
 
     #[test]
@@ -264,49 +329,82 @@ mod tests {
         let g = AuthorityGuard::new(ExecutionMode::Verify);
         assert!(g.check(AuthorityLevel::ReadOnly).is_ok());
         assert!(g.check(AuthorityLevel::ExecuteTools).is_ok());
-        assert_eq!(g.check(AuthorityLevel::WriteExternal).unwrap_err(),
-            ContainerError::InsufficientAuthority { required: 3, granted: 2 });
+        assert_eq!(
+            g.check(AuthorityLevel::WriteExternal).unwrap_err(),
+            ContainerError::InsufficientAuthority {
+                required: 3,
+                granted: 2
+            }
+        );
         let ro = AuthorityGuard::new(ExecutionMode::Replay);
-        assert_eq!(ro.check(AuthorityLevel::WriteMemory).unwrap_err(),
-            ContainerError::InsufficientAuthority { required: 1, granted: 0 });
+        assert_eq!(
+            ro.check(AuthorityLevel::WriteMemory).unwrap_err(),
+            ContainerError::InsufficientAuthority {
+                required: 1,
+                granted: 0
+            }
+        );
     }
 
     #[test]
     fn with_max_authority_overrides_default() {
-        let g = AuthorityGuard::with_max_authority(ExecutionMode::Replay, AuthorityLevel::WriteExternal);
+        let g = AuthorityGuard::with_max_authority(
+            ExecutionMode::Replay,
+            AuthorityLevel::WriteExternal,
+        );
         assert_eq!(g.mode(), ExecutionMode::Replay);
         assert!(g.check(AuthorityLevel::WriteExternal).is_ok());
     }
 
     #[test]
     fn action_class_grant_restrict_and_inherit() {
-        let mut g = AuthorityGuard::with_max_authority(ExecutionMode::Live, AuthorityLevel::WriteExternal);
-        assert!(g.check_action_class(ActionClass::GitPush, AuthorityLevel::WriteExternal).is_ok());
+        let mut g =
+            AuthorityGuard::with_max_authority(ExecutionMode::Live, AuthorityLevel::WriteExternal);
+        assert!(g
+            .check_action_class(ActionClass::GitPush, AuthorityLevel::WriteExternal)
+            .is_ok());
         g.grant_action_class(ActionClass::GitPush, AuthorityLevel::ReadOnly);
-        assert_eq!(g.check_action_class(ActionClass::GitPush, AuthorityLevel::WriteMemory).unwrap_err(),
-            ContainerError::InsufficientAuthority { required: 1, granted: 0 });
-        assert!(g.check_action_class(ActionClass::ReadMemory, AuthorityLevel::WriteExternal).is_ok());
+        assert_eq!(
+            g.check_action_class(ActionClass::GitPush, AuthorityLevel::WriteMemory)
+                .unwrap_err(),
+            ContainerError::InsufficientAuthority {
+                required: 1,
+                granted: 0
+            }
+        );
+        assert!(g
+            .check_action_class(ActionClass::ReadMemory, AuthorityLevel::WriteExternal)
+            .is_ok());
     }
 
     #[test]
     fn action_class_override_capped_by_global() {
         let mut g = AuthorityGuard::new(ExecutionMode::Replay);
         g.grant_action_class(ActionClass::RunCommand, AuthorityLevel::WriteExternal);
-        assert!(g.check_action_class(ActionClass::RunCommand, AuthorityLevel::WriteMemory).is_err());
+        assert!(g
+            .check_action_class(ActionClass::RunCommand, AuthorityLevel::WriteMemory)
+            .is_err());
     }
 
     #[test]
     fn action_class_override_within_global() {
-        let mut g = AuthorityGuard::with_max_authority(ExecutionMode::Live, AuthorityLevel::ExecuteTools);
+        let mut g =
+            AuthorityGuard::with_max_authority(ExecutionMode::Live, AuthorityLevel::ExecuteTools);
         g.grant_action_class(ActionClass::WriteFile, AuthorityLevel::WriteMemory);
-        assert!(g.check_action_class(ActionClass::WriteFile, AuthorityLevel::WriteMemory).is_ok());
-        assert!(g.check_action_class(ActionClass::WriteFile, AuthorityLevel::ExecuteTools).is_err());
+        assert!(g
+            .check_action_class(ActionClass::WriteFile, AuthorityLevel::WriteMemory)
+            .is_ok());
+        assert!(g
+            .check_action_class(ActionClass::WriteFile, AuthorityLevel::ExecuteTools)
+            .is_err());
     }
 
     #[test]
     fn action_class_all_variants() {
         assert_eq!(ActionClass::ALL.len(), ACTION_CLASS_COUNT);
-        for (i, c) in ActionClass::ALL.iter().enumerate() { assert_eq!(*c as usize, i); }
+        for (i, c) in ActionClass::ALL.iter().enumerate() {
+            assert_eq!(*c as usize, i);
+        }
     }
 
     #[test]
@@ -322,14 +420,22 @@ mod tests {
     fn charge_and_exhaust_each_resource() {
         let mut t = BudgetTracker::new(ResourceBudget::DEFAULT);
         assert!(t.charge_tokens(200_000).is_ok());
-        assert_eq!(t.charge_tokens(1), Err(ContainerError::BudgetExhausted("tokens")));
+        assert_eq!(
+            t.charge_tokens(1),
+            Err(ContainerError::BudgetExhausted("tokens"))
+        );
 
         let mut t = BudgetTracker::new(ResourceBudget::DEFAULT);
         assert!(t.charge_cost(1_000_000).is_ok());
-        assert_eq!(t.charge_cost(1), Err(ContainerError::BudgetExhausted("cost")));
+        assert_eq!(
+            t.charge_cost(1),
+            Err(ContainerError::BudgetExhausted("cost"))
+        );
 
         let mut t = BudgetTracker::new(ResourceBudget::DEFAULT);
-        for _ in 0..50 { t.charge_tool_call().unwrap(); }
+        for _ in 0..50 {
+            t.charge_tool_call().unwrap();
+        }
         assert!(t.charge_tool_call().is_err());
 
         let mut t = BudgetTracker::new(ResourceBudget::DEFAULT);
@@ -340,7 +446,9 @@ mod tests {
         assert!(t.charge_external_write().is_err()); // zero budget
 
         let mut t = BudgetTracker::new(ResourceBudget::EXTENDED);
-        for _ in 0..10 { t.charge_external_write().unwrap(); }
+        for _ in 0..10 {
+            t.charge_external_write().unwrap();
+        }
         assert!(t.charge_external_write().is_err());
     }
 
@@ -368,8 +476,11 @@ mod tests {
         assert!((u2.tokens_pct - 100.0).abs() < 0.01);
 
         let z = BudgetTracker::new(ResourceBudget {
-            max_time_secs: 0, max_tokens: 0, max_cost_microdollars: 0,
-            max_tool_calls: 0, max_external_writes: 0,
+            max_time_secs: 0,
+            max_tokens: 0,
+            max_cost_microdollars: 0,
+            max_tool_calls: 0,
+            max_external_writes: 0,
         });
         assert!((z.utilization().time_pct).abs() < 0.01);
     }
@@ -394,26 +505,39 @@ mod tests {
     #[test]
     fn budget_clamped_on_creation() {
         let t = BudgetTracker::new(ResourceBudget {
-            max_time_secs: 999_999, max_tokens: 999_999_999,
-            max_cost_microdollars: 999_999_999, max_tool_calls: 60_000, max_external_writes: 60_000,
+            max_time_secs: 999_999,
+            max_tokens: 999_999_999,
+            max_cost_microdollars: 999_999_999,
+            max_tool_calls: 60_000,
+            max_external_writes: 60_000,
         });
         let b = t.budget();
         assert_eq!(b.max_time_secs, ResourceBudget::MAX.max_time_secs);
         assert_eq!(b.max_tokens, ResourceBudget::MAX.max_tokens);
-        assert_eq!(b.max_external_writes, ResourceBudget::MAX.max_external_writes);
+        assert_eq!(
+            b.max_external_writes,
+            ResourceBudget::MAX.max_external_writes
+        );
     }
 
     #[test]
     fn charge_exactly_at_limit() {
         let mut t = BudgetTracker::new(ResourceBudget {
-            max_time_secs: 10, max_tokens: 100, max_cost_microdollars: 500,
-            max_tool_calls: 3, max_external_writes: 2,
+            max_time_secs: 10,
+            max_tokens: 100,
+            max_cost_microdollars: 500,
+            max_tool_calls: 3,
+            max_external_writes: 2,
         });
         assert!(t.charge_tokens(100).is_ok());
         assert!(t.charge_time(10).is_ok());
         assert!(t.charge_cost(500).is_ok());
-        for _ in 0..3 { t.charge_tool_call().unwrap(); }
-        for _ in 0..2 { t.charge_external_write().unwrap(); }
+        for _ in 0..3 {
+            t.charge_tool_call().unwrap();
+        }
+        for _ in 0..2 {
+            t.charge_external_write().unwrap();
+        }
         assert_eq!(t.remaining_tokens(), 0);
         assert_eq!(t.remaining_cost(), 0);
         assert_eq!(t.remaining_time(), 0);
@@ -431,8 +555,12 @@ mod tests {
         assert!(t.charge_tokens(1_000_000).is_ok());
         assert!(t.charge_time(3600).is_ok());
         assert!(t.charge_cost(10_000_000).is_ok());
-        for _ in 0..500 { t.charge_tool_call().unwrap(); }
-        for _ in 0..50 { t.charge_external_write().unwrap(); }
+        for _ in 0..500 {
+            t.charge_tool_call().unwrap();
+        }
+        for _ in 0..50 {
+            t.charge_external_write().unwrap();
+        }
         assert!(t.is_exhausted());
     }
 }

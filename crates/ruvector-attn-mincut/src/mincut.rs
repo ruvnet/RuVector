@@ -20,7 +20,11 @@ pub struct GatingResult {
 }
 
 #[derive(Debug, Clone)]
-struct FlowEdge { to: usize, rev: usize, cap: f32 }
+struct FlowEdge {
+    to: usize,
+    rev: usize,
+    cap: f32,
+}
 
 /// Dinic's max-flow solver for s-t min-cut on an attention graph.
 pub struct DinicSolver {
@@ -31,13 +35,21 @@ pub struct DinicSolver {
 
 impl DinicSolver {
     fn new(n: usize) -> Self {
-        Self { adj: vec![Vec::new(); n], level: vec![0; n], iter: vec![0; n] }
+        Self {
+            adj: vec![Vec::new(); n],
+            level: vec![0; n],
+            iter: vec![0; n],
+        }
     }
 
     fn add_edge(&mut self, from: usize, to: usize, cap: f32) {
         let (rf, rt) = (self.adj[to].len(), self.adj[from].len());
         self.adj[from].push(FlowEdge { to, rev: rf, cap });
-        self.adj[to].push(FlowEdge { to: from, rev: rt, cap: 0.0 });
+        self.adj[to].push(FlowEdge {
+            to: from,
+            rev: rt,
+            cap: 0.0,
+        });
     }
 
     fn bfs(&mut self, s: usize) {
@@ -56,7 +68,9 @@ impl DinicSolver {
     }
 
     fn dfs(&mut self, v: usize, t: usize, f: f32) -> f32 {
-        if v == t { return f; }
+        if v == t {
+            return f;
+        }
         while self.iter[v] < self.adj[v].len() {
             let i = self.iter[v];
             let (to, cap) = (self.adj[v][i].to, self.adj[v][i].cap);
@@ -78,12 +92,16 @@ impl DinicSolver {
     pub fn min_cut(&mut self, graph: &AttentionGraph, s: usize, t: usize) -> CutResult {
         assert!(s < graph.nodes && t < graph.nodes && s != t);
         *self = Self::new(graph.nodes);
-        for edge in &graph.edges { self.add_edge(edge.src, edge.dst, edge.weight); }
+        for edge in &graph.edges {
+            self.add_edge(edge.src, edge.dst, edge.weight);
+        }
 
         let inf = f32::MAX / 2.0;
         loop {
             self.bfs(s);
-            if self.level[t] < 0 { break; }
+            if self.level[t] < 0 {
+                break;
+            }
             self.iter.fill(0);
             while self.dfs(s, t, inf) > 0.0 {}
         }
@@ -100,19 +118,37 @@ impl DinicSolver {
                 keep_mask[idx] = false;
             }
         }
-        CutResult { cut_edges, cut_cost, keep_mask }
+        CutResult {
+            cut_edges,
+            cut_cost,
+            keep_mask,
+        }
     }
 }
 
 /// Compute dynamic min-cut gating over a flattened `seq_len x seq_len` logit matrix.
-pub fn dynamic_min_cut(logits: &[f32], seq_len: usize, lambda: f32, _tau: usize, eps: f32) -> GatingResult {
+pub fn dynamic_min_cut(
+    logits: &[f32],
+    seq_len: usize,
+    lambda: f32,
+    _tau: usize,
+    eps: f32,
+) -> GatingResult {
     assert_eq!(logits.len(), seq_len * seq_len);
     let n = seq_len * seq_len;
-    let clamped: Vec<f32> = logits.iter().map(|&v| if v > eps { v } else { 0.0 }).collect();
+    let clamped: Vec<f32> = logits
+        .iter()
+        .map(|&v| if v > eps { v } else { 0.0 })
+        .collect();
     let graph = crate::graph::graph_from_logits(&clamped, seq_len);
 
     if graph.edges.is_empty() || seq_len < 2 {
-        return GatingResult { keep_mask: vec![false; n], cut_cost: 0.0, edges_kept: 0, edges_total: n };
+        return GatingResult {
+            keep_mask: vec![false; n],
+            cut_cost: 0.0,
+            edges_kept: 0,
+            edges_total: n,
+        };
     }
 
     let mean_w: f32 = graph.edges.iter().map(|e| e.weight).sum::<f32>() / graph.edges.len() as f32;
@@ -124,12 +160,23 @@ pub fn dynamic_min_cut(logits: &[f32], seq_len: usize, lambda: f32, _tau: usize,
     let result = solver.min_cut(&graph, 0, seq_len - 1);
     if result.cut_cost <= threshold {
         total_cut_cost += result.cut_cost;
-        for &(s, d) in &result.cut_edges { flat_keep[s * seq_len + d] = false; }
+        for &(s, d) in &result.cut_edges {
+            flat_keep[s * seq_len + d] = false;
+        }
     }
 
-    for i in 0..n { if clamped[i] <= 0.0 { flat_keep[i] = false; } }
+    for i in 0..n {
+        if clamped[i] <= 0.0 {
+            flat_keep[i] = false;
+        }
+    }
     let edges_kept = flat_keep.iter().filter(|&&k| k).count();
-    GatingResult { keep_mask: flat_keep, cut_cost: total_cut_cost, edges_kept, edges_total: n }
+    GatingResult {
+        keep_mask: flat_keep,
+        cut_cost: total_cut_cost,
+        edges_kept,
+        edges_total: n,
+    }
 }
 
 #[cfg(test)]
@@ -142,9 +189,31 @@ mod tests {
         let graph = AttentionGraph {
             nodes: 4,
             edges: vec![
-                Edge { src: 0, dst: 1, weight: 5.0 }, Edge { src: 0, dst: 2, weight: 4.0 },
-                Edge { src: 1, dst: 3, weight: 3.0 }, Edge { src: 2, dst: 3, weight: 6.0 },
-                Edge { src: 1, dst: 2, weight: 2.0 },
+                Edge {
+                    src: 0,
+                    dst: 1,
+                    weight: 5.0,
+                },
+                Edge {
+                    src: 0,
+                    dst: 2,
+                    weight: 4.0,
+                },
+                Edge {
+                    src: 1,
+                    dst: 3,
+                    weight: 3.0,
+                },
+                Edge {
+                    src: 2,
+                    dst: 3,
+                    weight: 6.0,
+                },
+                Edge {
+                    src: 1,
+                    dst: 2,
+                    weight: 2.0,
+                },
             ],
         };
         let mut solver = DinicSolver::new(4);
@@ -154,7 +223,14 @@ mod tests {
 
     #[test]
     fn test_dinic_two_node() {
-        let graph = AttentionGraph { nodes: 2, edges: vec![Edge { src: 0, dst: 1, weight: 3.5 }] };
+        let graph = AttentionGraph {
+            nodes: 2,
+            edges: vec![Edge {
+                src: 0,
+                dst: 1,
+                weight: 3.5,
+            }],
+        };
         let mut solver = DinicSolver::new(2);
         let r = solver.min_cut(&graph, 0, 1);
         assert!((r.cut_cost - 3.5).abs() < 0.01);

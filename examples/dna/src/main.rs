@@ -14,11 +14,12 @@ use ::rvdna::prelude::*;
 use ::rvdna::{
     alignment::{AlignmentConfig, SmithWaterman},
     epigenomics::{HorvathClock, MethylationProfile},
-    genotyping,
-    pharma,
+    genotyping, pharma,
     protein::translate_dna,
     real_data,
-    rvdna::{self, Codec, KmerVectorBlock, RvdnaReader, RvdnaWriter, SparseAttention, VariantTensor},
+    rvdna::{
+        self, Codec, KmerVectorBlock, RvdnaReader, RvdnaWriter, SparseAttention, VariantTensor,
+    },
     variant::{PileupColumn, VariantCaller, VariantCallerConfig},
 };
 use rand::Rng;
@@ -53,11 +54,26 @@ fn main() -> anyhow::Result<()> {
     let cyp2d6 = DnaSequence::from_str(real_data::CYP2D6_CODING)?;
     let insulin = DnaSequence::from_str(real_data::INS_CODING)?;
 
-    info!("  HBB (hemoglobin beta):     {} bp  [chr11, sickle cell gene]", hbb.len());
-    info!("  TP53 (tumor suppressor):   {} bp  [chr17, exons 5-8]", tp53.len());
-    info!("  BRCA1 (DNA repair):        {} bp  [chr17, exon 11 fragment]", brca1.len());
-    info!("  CYP2D6 (drug metabolism):  {} bp  [chr22, pharmacogenomic]", cyp2d6.len());
-    info!("  INS (insulin):             {} bp  [chr11, preproinsulin]", insulin.len());
+    info!(
+        "  HBB (hemoglobin beta):     {} bp  [chr11, sickle cell gene]",
+        hbb.len()
+    );
+    info!(
+        "  TP53 (tumor suppressor):   {} bp  [chr17, exons 5-8]",
+        tp53.len()
+    );
+    info!(
+        "  BRCA1 (DNA repair):        {} bp  [chr17, exon 11 fragment]",
+        brca1.len()
+    );
+    info!(
+        "  CYP2D6 (drug metabolism):  {} bp  [chr22, pharmacogenomic]",
+        cyp2d6.len()
+    );
+    info!(
+        "  INS (insulin):             {} bp  [chr11, preproinsulin]",
+        insulin.len()
+    );
 
     let gc_hbb = calculate_gc_content(&hbb);
     let gc_tp53 = calculate_gc_content(&tp53);
@@ -103,9 +119,17 @@ fn main() -> anyhow::Result<()> {
     let aligner = SmithWaterman::new(AlignmentConfig::default());
     let alignment = aligner.align(&query_fragment, &hbb)?;
 
-    info!("  Query: HBB[{}..{}] ({} bp read)", fragment_start, fragment_end, query_fragment.len());
+    info!(
+        "  Query: HBB[{}..{}] ({} bp read)",
+        fragment_start,
+        fragment_end,
+        query_fragment.len()
+    );
     info!("  Alignment score: {}", alignment.score);
-    info!("  Mapped position: {} (expected: {})", alignment.mapped_position.position, fragment_start);
+    info!(
+        "  Mapped position: {} (expected: {})",
+        alignment.mapped_position.position, fragment_start
+    );
     info!("  Mapping quality: {}", alignment.mapping_quality.value());
     info!("  CIGAR: {} ops", alignment.cigar.len());
     info!("  Alignment time: {:?}", align_start.elapsed());
@@ -150,11 +174,7 @@ fn main() -> anyhow::Result<()> {
             if i == sickle_pos {
                 info!(
                     "  ** Sickle cell variant at pos {}: ref={} alt={} depth={} qual={}",
-                    i,
-                    call.ref_allele as char,
-                    call.alt_allele as char,
-                    call.depth,
-                    call.quality
+                    i, call.ref_allele as char, call.alt_allele as char, call.depth, call.quality
                 );
             }
         }
@@ -182,25 +202,33 @@ fn main() -> anyhow::Result<()> {
             &protein_str
         }
     );
-    info!(
-        "  Expected:     MVHLTPEEKSAVTALWGKVN (hemoglobin beta N-terminus)"
-    );
+    info!("  Expected:     MVHLTPEEKSAVTALWGKVN (hemoglobin beta N-terminus)");
 
     // Build contact graph for the hemoglobin protein
     if amino_acids.len() >= 10 {
         let residues: Vec<ProteinResidue> = amino_acids
             .iter()
             .map(|aa| match aa.to_char() {
-                'A' => ProteinResidue::A, 'R' => ProteinResidue::R,
-                'N' => ProteinResidue::N, 'D' => ProteinResidue::D,
-                'C' => ProteinResidue::C, 'E' => ProteinResidue::E,
-                'Q' => ProteinResidue::Q, 'G' => ProteinResidue::G,
-                'H' => ProteinResidue::H, 'I' => ProteinResidue::I,
-                'L' => ProteinResidue::L, 'K' => ProteinResidue::K,
-                'M' => ProteinResidue::M, 'F' => ProteinResidue::F,
-                'P' => ProteinResidue::P, 'S' => ProteinResidue::S,
-                'T' => ProteinResidue::T, 'W' => ProteinResidue::W,
-                'Y' => ProteinResidue::Y, 'V' => ProteinResidue::V,
+                'A' => ProteinResidue::A,
+                'R' => ProteinResidue::R,
+                'N' => ProteinResidue::N,
+                'D' => ProteinResidue::D,
+                'C' => ProteinResidue::C,
+                'E' => ProteinResidue::E,
+                'Q' => ProteinResidue::Q,
+                'G' => ProteinResidue::G,
+                'H' => ProteinResidue::H,
+                'I' => ProteinResidue::I,
+                'L' => ProteinResidue::L,
+                'K' => ProteinResidue::K,
+                'M' => ProteinResidue::M,
+                'F' => ProteinResidue::F,
+                'P' => ProteinResidue::P,
+                'S' => ProteinResidue::S,
+                'T' => ProteinResidue::T,
+                'W' => ProteinResidue::W,
+                'Y' => ProteinResidue::Y,
+                'V' => ProteinResidue::V,
                 _ => ProteinResidue::X,
             })
             .collect();
@@ -211,7 +239,13 @@ fn main() -> anyhow::Result<()> {
         info!("  Contact graph: {} edges", graph.edges.len());
         info!("  Top 3 predicted contacts:");
         for (i, (r1, r2, score)) in contacts.iter().take(3).enumerate() {
-            info!("    {}. Residues {} <-> {} (score: {:.3})", i + 1, r1, r2, score);
+            info!(
+                "    {}. Residues {} <-> {} (score: {:.3})",
+                i + 1,
+                r1,
+                r2,
+                score
+            );
         }
     }
     info!("  Protein analysis time: {:?}", protein_start.elapsed());
@@ -247,11 +281,13 @@ fn main() -> anyhow::Result<()> {
     info!("  CYP2D6 sequence: {} bp analyzed", cyp2d6.len());
     info!(
         "  Allele 1: {:?} (activity: {:.1})",
-        allele1, allele1.activity_score()
+        allele1,
+        allele1.activity_score()
     );
     info!(
         "  Allele 2: {:?} (activity: {:.1})",
-        allele2, allele2.activity_score()
+        allele2,
+        allele2.activity_score()
     );
     info!("  Metabolizer phenotype: {:?}", phenotype);
 
@@ -290,15 +326,27 @@ fn main() -> anyhow::Result<()> {
 
     info!("  RVDNA file stats:");
     info!("    Format version: {}", reader.header.version);
-    info!("    Sequence section: {} bytes ({:.1} bits/base)", stats.section_sizes[0], stats.bits_per_base);
-    info!("    K-mer vectors: {} blocks pre-computed", kmer_blocks.len());
+    info!(
+        "    Sequence section: {} bytes ({:.1} bits/base)",
+        stats.section_sizes[0], stats.bits_per_base
+    );
+    info!(
+        "    K-mer vectors: {} blocks pre-computed",
+        kmer_blocks.len()
+    );
 
     if !kmer_blocks.is_empty() {
-        info!("    Vector dims: {}, k={}", kmer_blocks[0].dimensions, kmer_blocks[0].k);
+        info!(
+            "    Vector dims: {}, k={}",
+            kmer_blocks[0].dimensions, kmer_blocks[0].k
+        );
         // Demonstrate instant similarity search from pre-computed vectors
         let tp53_query = tp53.to_kmer_vector(11, 512)?;
         let sim = kmer_blocks[0].cosine_similarity(&tp53_query);
-        info!("    Instant HBB vs TP53 similarity: {:.4} (from pre-indexed)", sim);
+        info!(
+            "    Instant HBB vs TP53 similarity: {:.4} (from pre-indexed)",
+            sim
+        );
     }
 
     info!("  RVDNA format time: {:?}", rvdna_start.elapsed());
@@ -306,8 +354,14 @@ fn main() -> anyhow::Result<()> {
     // Compare format sizes
     info!("\n  Format Comparison (HBB gene, {} bp):", hbb.len());
     info!("    FASTA (ASCII):    {} bytes (8 bits/base)", hbb.len());
-    info!("    RVDNA (2-bit):    {} bytes (seq section)", stats.section_sizes[0]);
-    info!("    RVDNA (total):    {} bytes (seq + k-mer vectors + metadata)", stats.total_size);
+    info!(
+        "    RVDNA (2-bit):    {} bytes (seq section)",
+        stats.section_sizes[0]
+    );
+    info!(
+        "    RVDNA (total):    {} bytes (seq + k-mer vectors + metadata)",
+        stats.total_size
+    );
     info!("    Pre-computed:     k-mer vectors, ready for HNSW search");
 
     // -----------------------------------------------------------------------
@@ -317,12 +371,22 @@ fn main() -> anyhow::Result<()> {
     info!("\nPipeline Summary");
     info!("==================");
     info!("  Genes analyzed: 5 (HBB, TP53, BRCA1, CYP2D6, INS)");
-    info!("  Total bases: {} bp", hbb.len() + tp53.len() + brca1.len() + cyp2d6.len() + insulin.len());
-    info!("  Variants called: {} (in HBB sickle cell region)", variant_count);
+    info!(
+        "  Total bases: {} bp",
+        hbb.len() + tp53.len() + brca1.len() + cyp2d6.len() + insulin.len()
+    );
+    info!(
+        "  Variants called: {} (in HBB sickle cell region)",
+        variant_count
+    );
     info!("  Hemoglobin protein: {} amino acids", amino_acids.len());
     info!("  Predicted age: {:.1} years", predicted_age);
     info!("  CYP2D6 phenotype: {:?}", phenotype);
-    info!("  RVDNA format: {} bytes ({} sections)", stats.total_size, stats.section_sizes.iter().filter(|&&s| s > 0).count());
+    info!(
+        "  RVDNA format: {} bytes ({} sections)",
+        stats.total_size,
+        stats.section_sizes.iter().filter(|&&s| s > 0).count()
+    );
     info!("  Total pipeline time: {:?}", total_time);
 
     info!("\nAnalysis complete!");
@@ -354,10 +418,10 @@ fn calculate_gc_content(sequence: &DnaSequence) -> f64 {
 
 /// Run 23andMe genotyping analysis pipeline
 fn run_23andme(path: &str) -> anyhow::Result<()> {
-    let file = std::fs::File::open(path)
-        .map_err(|e| anyhow::anyhow!("Cannot open {}: {}", path, e))?;
-    let analysis = genotyping::analyze(file)
-        .map_err(|e| anyhow::anyhow!("Analysis failed: {}", e))?;
+    let file =
+        std::fs::File::open(path).map_err(|e| anyhow::anyhow!("Cannot open {}: {}", path, e))?;
+    let analysis =
+        genotyping::analyze(file).map_err(|e| anyhow::anyhow!("Analysis failed: {}", e))?;
     print!("{}", genotyping::format_report(&analysis));
     Ok(())
 }

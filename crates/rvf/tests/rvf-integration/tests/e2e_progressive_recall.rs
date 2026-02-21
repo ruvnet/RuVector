@@ -19,7 +19,9 @@ fn random_vectors(n: usize, dim: usize, seed: u64) -> Vec<Vec<f32>> {
         .map(|_| {
             (0..dim)
                 .map(|_| {
-                    s = s.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+                    s = s
+                        .wrapping_mul(6364136223846793005)
+                        .wrapping_add(1442695040888963407);
                     ((s >> 33) as f32) / (u32::MAX as f32) - 0.5
                 })
                 .collect()
@@ -42,7 +44,10 @@ fn brute_force_knn(query: &[f32], vectors: &[Vec<f32>], k: usize) -> Vec<u64> {
 /// approximate results.
 fn recall_at_k(approx: &[(u64, f32)], exact: &[u64]) -> f64 {
     let exact_set: HashSet<u64> = exact.iter().copied().collect();
-    let hits = approx.iter().filter(|(id, _)| exact_set.contains(id)).count();
+    let hits = approx
+        .iter()
+        .filter(|(id, _)| exact_set.contains(id))
+        .count();
     hits as f64 / exact.len() as f64
 }
 
@@ -52,8 +57,7 @@ fn rng_values(n: usize, seed: u64) -> Vec<f64> {
     (0..n)
         .map(|_| {
             s = s.wrapping_mul(6364136223846793005).wrapping_add(1);
-            ((s >> 33) as f64 / (1u64 << 31) as f64)
-                .clamp(0.001, 0.999)
+            ((s >> 33) as f64 / (1u64 << 31) as f64).clamp(0.001, 0.999)
         })
         .collect()
 }
@@ -137,7 +141,11 @@ fn progressive_layer_a_only_returns_results() {
 
     for c in 0..n_centroids {
         let start = c * partition_size;
-        let end = if c == n_centroids - 1 { n } else { (c + 1) * partition_size };
+        let end = if c == n_centroids - 1 {
+            n
+        } else {
+            (c + 1) * partition_size
+        };
         // Compute centroid as the mean of vectors in this partition.
         let mut centroid = vec![0.0f32; dim];
         for i in start..end {
@@ -218,7 +226,11 @@ fn progressive_recall_improves_with_more_layers() {
     let mut assignments = vec![0u32; n];
     for c in 0..n_centroids {
         let start = c * partition_size;
-        let end = if c == n_centroids - 1 { n } else { (c + 1) * partition_size };
+        let end = if c == n_centroids - 1 {
+            n
+        } else {
+            (c + 1) * partition_size
+        };
         let mut centroid = vec![0.0f32; dim];
         for i in start..end {
             for d in 0..dim {

@@ -347,7 +347,11 @@ impl CliffordTState {
             let probe_meas = probe.measure(qubit)?;
 
             let p0_k = if (probe_meas.probability - 1.0).abs() < 1e-10 {
-                if !probe_meas.result { 1.0 } else { 0.0 }
+                if !probe_meas.result {
+                    1.0
+                } else {
+                    0.0
+                }
             } else {
                 0.5
             };
@@ -460,7 +464,11 @@ impl CliffordTState {
             if let Ok(mut probe) = state.clone_with_seed(probe_seed) {
                 if let Ok(meas) = probe.measure(qubit) {
                     let z_k = if (meas.probability - 1.0).abs() < 1e-10 {
-                        if !meas.result { 1.0 } else { -1.0 }
+                        if !meas.result {
+                            1.0
+                        } else {
+                            -1.0
+                        }
                     } else {
                         0.0
                     };

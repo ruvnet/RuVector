@@ -330,10 +330,7 @@ fn compute_quantum_depth(rounds: &[QecRound], distance: u32) -> u32 {
                 if scheduled[i] {
                     continue;
                 }
-                let conflicts = ext
-                    .data_qubits
-                    .iter()
-                    .any(|q| used_qubits.contains(q))
+                let conflicts = ext.data_qubits.iter().any(|q| used_qubits.contains(q))
                     || used_qubits.contains(&ext.ancilla_qubit);
 
                 if !conflicts {
@@ -490,9 +487,7 @@ fn merge_rounds(rounds: &[QecRound]) -> Vec<QecRound> {
             current
                 .syndrome_extractions
                 .extend(next.syndrome_extractions.iter().cloned());
-            current
-                .corrections
-                .extend(next.corrections.iter().cloned());
+            current.corrections.extend(next.corrections.iter().cloned());
             current.is_feed_forward = current.is_feed_forward || next.is_feed_forward;
         } else {
             merged.push(current);
@@ -507,17 +502,17 @@ fn merge_rounds(rounds: &[QecRound]) -> Vec<QecRound> {
 /// Check whether two rounds can be safely merged.
 fn can_merge_rounds(first: &QecRound, second: &QecRound) -> bool {
     // Cannot merge if second round has feed-forward dependencies.
-    if second.corrections.iter().any(|c| c.depends_on_round.is_some()) {
+    if second
+        .corrections
+        .iter()
+        .any(|c| c.depends_on_round.is_some())
+    {
         return false;
     }
 
     // Check for data qubit conflicts between first's corrections
     // and second's syndrome extractions.
-    let corrected_qubits: Vec<u32> = first
-        .corrections
-        .iter()
-        .map(|c| c.target_qubit)
-        .collect();
+    let corrected_qubits: Vec<u32> = first.corrections.iter().map(|c| c.target_qubit).collect();
 
     let extraction_qubits: Vec<u32> = second
         .syndrome_extractions
@@ -568,11 +563,7 @@ fn minimize_feed_forward(rounds: &[QecRound]) -> (Vec<QecRound>, Vec<usize>) {
 /// The total latency is:
 ///   sum over rounds of (extraction_depth * gate_time + correction_time)
 ///   + feed_forward_points * classical_time
-pub fn schedule_latency(
-    schedule: &QecSchedule,
-    gate_time_ns: u64,
-    classical_time_ns: u64,
-) -> u64 {
+pub fn schedule_latency(schedule: &QecSchedule, gate_time_ns: u64, classical_time_ns: u64) -> u64 {
     let quantum_latency = schedule.total_quantum_depth as u64 * gate_time_ns;
     let classical_latency = schedule.feed_forward_points.len() as u64 * classical_time_ns;
 
@@ -1222,7 +1213,7 @@ mod tests {
         let schedule = generate_surface_code_schedule(3, 2);
         let graph = build_dependency_graph(&schedule);
         assert_eq!(graph.nodes.len(), 6); // 2 rounds * 3 nodes
-        // Cross-round edge: round 0 Correct -> round 1 Extract.
+                                          // Cross-round edge: round 0 Correct -> round 1 Extract.
         assert!(graph.edges.contains(&(2, 3)));
     }
 

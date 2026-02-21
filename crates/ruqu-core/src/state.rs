@@ -175,10 +175,7 @@ impl QuantumState {
             }
 
             // Two-qubit gates
-            Gate::CNOT(q1, q2)
-            | Gate::CZ(q1, q2)
-            | Gate::SWAP(q1, q2)
-            | Gate::Rzz(q1, q2, _) => {
+            Gate::CNOT(q1, q2) | Gate::CZ(q1, q2) | Gate::SWAP(q1, q2) | Gate::Rzz(q1, q2, _) => {
                 if q1 == q2 {
                     return Err(QuantumError::CircuitError(format!(
                         "two-qubit gate requires distinct qubits, got {} and {}",

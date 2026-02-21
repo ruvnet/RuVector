@@ -4,9 +4,9 @@ use ndarray::{Array1, Array2, Axis};
 use serde::{Deserialize, Serialize};
 use tracing::{debug, trace};
 
+use super::{Predictor, PredictorStats};
 use crate::config::SparsityConfig;
 use crate::error::{PredictorError, Result};
-use super::{Predictor, PredictorStats};
 
 /// Low-rank activation predictor using P·Q factorization.
 ///
@@ -47,13 +47,14 @@ impl LowRankPredictor {
             return Err(PredictorError::InvalidRank(rank).into());
         }
 
-        config.validate()
+        config
+            .validate()
             .map_err(|e| PredictorError::InvalidConfig(e))?;
 
         // Random initialization with small values
-        use rand::Rng;
-        use rand::distributions::Uniform;
         use rand::distributions::Distribution;
+        use rand::distributions::Uniform;
+        use rand::Rng;
 
         let dist = Uniform::new(-0.01f32, 0.01f32);
         let mut rng = rand::thread_rng();
@@ -91,12 +92,15 @@ impl LowRankPredictor {
         let (hidden_dim, q_rank) = q_matrix.dim();
 
         if rank != q_rank {
-            return Err(PredictorError::InvalidConfig(
-                format!("Rank mismatch: P has rank {}, Q has rank {}", rank, q_rank)
-            ).into());
+            return Err(PredictorError::InvalidConfig(format!(
+                "Rank mismatch: P has rank {}, Q has rank {}",
+                rank, q_rank
+            ))
+            .into());
         }
 
-        config.validate()
+        config
+            .validate()
             .map_err(|e| PredictorError::InvalidConfig(e))?;
 
         Ok(Self {
@@ -131,14 +135,19 @@ impl LowRankPredictor {
             return Err(PredictorError::DimensionMismatch {
                 expected: self.input_dim(),
                 actual: input.len(),
-            }.into());
+            }
+            .into());
         }
 
         // Convert input to ndarray
         let input_vec = Array1::from_vec(input.to_vec());
 
         // 1. Compress input: z = P · x
-        trace!("Compressing input from {} to {} dimensions", input.len(), self.rank());
+        trace!(
+            "Compressing input from {} to {} dimensions",
+            input.len(),
+            self.rank()
+        );
         let compressed = self.p_matrix.dot(&input_vec);
 
         // 2. Score neurons: scores = Q · z
@@ -164,11 +173,8 @@ impl LowRankPredictor {
 
     /// Select top-K neurons by score.
     fn select_top_k(&self, scores: &Array1<f32>, k: usize) -> Vec<usize> {
-        let mut indexed_scores: Vec<(usize, f32)> = scores
-            .iter()
-            .enumerate()
-            .map(|(i, &s)| (i, s))
-            .collect();
+        let mut indexed_scores: Vec<(usize, f32)> =
+            scores.iter().enumerate().map(|(i, &s)| (i, s)).collect();
 
         // Compute length before mutable borrow
         let len = indexed_scores.len();
@@ -177,10 +183,9 @@ impl LowRankPredictor {
         }
 
         // Partial sort to get top-K
-        indexed_scores.select_nth_unstable_by(
-            k.min(len - 1),
-            |a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal)
-        );
+        indexed_scores.select_nth_unstable_by(k.min(len - 1), |a, b| {
+            b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal)
+        });
 
         indexed_scores.truncate(k);
         indexed_scores.sort_by_key(|(i, _)| *i);
@@ -203,13 +208,11 @@ impl LowRankPredictor {
 
         let n = self.stats.predictions as f32;
         let prev_avg = self.stats.avg_active_neurons;
-        self.stats.avg_active_neurons =
-            (prev_avg * (n - 1.0) + active_count as f32) / n;
+        self.stats.avg_active_neurons = (prev_avg * (n - 1.0) + active_count as f32) / n;
 
         let sparsity = 1.0 - (active_count as f32 / self.hidden_dim() as f32);
         let prev_sparsity = self.stats.avg_sparsity;
-        self.stats.avg_sparsity =
-            (prev_sparsity * (n - 1.0) + sparsity) / n;
+        self.stats.avg_sparsity = (prev_sparsity * (n - 1.0) + sparsity) / n;
     }
 }
 
@@ -218,7 +221,8 @@ impl Predictor for LowRankPredictor {
         let scores = self.compute_scores(input)?;
         let active = self.select_active_neurons(&scores);
 
-        trace!("Predicted {} active neurons (sparsity: {:.2}%)",
+        trace!(
+            "Predicted {} active neurons (sparsity: {:.2}%)",
             active.len(),
             100.0 * (1.0 - active.len() as f32 / self.hidden_dim() as f32)
         );
@@ -226,22 +230,21 @@ impl Predictor for LowRankPredictor {
         Ok(active)
     }
 
-    fn calibrate(
-        &mut self,
-        samples: &[Vec<f32>],
-        activations: &[Vec<f32>],
-    ) -> Result<()> {
+    fn calibrate(&mut self, samples: &[Vec<f32>], activations: &[Vec<f32>]) -> Result<()> {
         if samples.is_empty() || activations.is_empty() {
             return Err(PredictorError::CalibrationFailed(
-                "Empty samples or activations".to_string()
-            ).into());
+                "Empty samples or activations".to_string(),
+            )
+            .into());
         }
 
         if samples.len() != activations.len() {
-            return Err(PredictorError::CalibrationFailed(
-                format!("Sample count ({}) != activation count ({})",
-                    samples.len(), activations.len())
-            ).into());
+            return Err(PredictorError::CalibrationFailed(format!(
+                "Sample count ({}) != activation count ({})",
+                samples.len(),
+                activations.len()
+            ))
+            .into());
         }
 
         debug!("Calibrating predictor with {} samples", samples.len());
@@ -258,7 +261,8 @@ impl Predictor for LowRankPredictor {
                 return Err(PredictorError::DimensionMismatch {
                     expected: input_dim,
                     actual: sample.len(),
-                }.into());
+                }
+                .into());
             }
             x_data.extend_from_slice(sample);
         }
@@ -272,7 +276,8 @@ impl Predictor for LowRankPredictor {
                 return Err(PredictorError::DimensionMismatch {
                     expected: hidden_dim,
                     actual: activation.len(),
-                }.into());
+                }
+                .into());
             }
             y_data.extend_from_slice(activation);
         }
@@ -330,7 +335,7 @@ mod tests {
 
         // Check that indices are sorted and unique
         for i in 1..active.len() {
-            assert!(active[i] > active[i-1]);
+            assert!(active[i] > active[i - 1]);
         }
     }
 

@@ -13,7 +13,9 @@
 //! L5  Adversarial Grow  IQ ~98+  Self-generated hard tasks + cascade reasoning
 //! ```
 
-use crate::intelligence_metrics::{DifficultyStats, EpisodeMetrics, IntelligenceCalculator, RawMetrics};
+use crate::intelligence_metrics::{
+    DifficultyStats, EpisodeMetrics, IntelligenceCalculator, RawMetrics,
+};
 use crate::reasoning_bank::ReasoningBank;
 use crate::temporal::{AdaptiveSolver, SolverResult, TemporalConstraint, TemporalPuzzle};
 use crate::timepuzzles::{PuzzleGenerator, PuzzleGeneratorConfig};
@@ -75,10 +77,14 @@ impl Default for SIConfig {
 
 struct Rng64(u64);
 impl Rng64 {
-    fn new(seed: u64) -> Self { Self(seed.max(1)) }
+    fn new(seed: u64) -> Self {
+        Self(seed.max(1))
+    }
     fn next_f64(&mut self) -> f64 {
         let mut x = self.0;
-        x ^= x << 13; x ^= x >> 7; x ^= x << 17;
+        x ^= x << 13;
+        x ^= x >> 7;
+        x ^= x << 17;
         self.0 = x;
         (x as f64) / (u64::MAX as f64)
     }
@@ -142,8 +148,10 @@ impl PathwayResult {
             "L5 Adversarial Growth",
         ];
 
-        println!("  {:<24} {:>6} {:>10} {:>10} {:>10}",
-            "Level", "IQ", "Accuracy", "Correct", "Patterns");
+        println!(
+            "  {:<24} {:>6} {:>10} {:>10} {:>10}",
+            "Level", "IQ", "Accuracy", "Correct", "Patterns"
+        );
         println!("  {}", "-".repeat(62));
 
         for (i, level) in self.levels.iter().enumerate() {
@@ -170,22 +178,36 @@ impl PathwayResult {
         let max_iq = self.iq_progression.iter().cloned().fold(0.0_f64, f64::max);
         for (i, &iq) in self.iq_progression.iter().enumerate() {
             let filled = ((iq / max_iq.max(1.0)) * 40.0) as usize;
-            println!("  L{} {:>5.1} |{}{}|",
-                i + 1, iq, "#".repeat(filled), " ".repeat(40 - filled));
+            println!(
+                "  L{} {:>5.1} |{}{}|",
+                i + 1,
+                iq,
+                "#".repeat(filled),
+                " ".repeat(40 - filled)
+            );
         }
 
         println!();
         if self.reached_target {
-            println!("  TARGET REACHED: IQ {:.1} >= {:.1}", self.peak_iq, self.target_iq);
+            println!(
+                "  TARGET REACHED: IQ {:.1} >= {:.1}",
+                self.peak_iq, self.target_iq
+            );
         } else {
-            println!("  Peak IQ: {:.1} (target: {:.1}, gap: {:.1})",
-                self.peak_iq, self.target_iq, self.target_iq - self.peak_iq);
+            println!(
+                "  Peak IQ: {:.1} (target: {:.1}, gap: {:.1})",
+                self.peak_iq,
+                self.target_iq,
+                self.target_iq - self.peak_iq
+            );
         }
 
         println!();
-        println!("  Total IQ gain:  {:+.1} across {} levels",
+        println!(
+            "  Total IQ gain:  {:+.1} across {} levels",
             self.peak_iq - self.levels.first().map(|l| l.iq_score).unwrap_or(0.0),
-            self.levels.len());
+            self.levels.len()
+        );
         println!();
     }
 }
@@ -272,7 +294,12 @@ impl MetaParams {
         }
     }
 
-    fn optimal_steps(&self, difficulty: u8, budget_remaining: usize, tasks_remaining: usize) -> usize {
+    fn optimal_steps(
+        &self,
+        difficulty: u8,
+        budget_remaining: usize,
+        tasks_remaining: usize,
+    ) -> usize {
         let learned = self.step_budgets.get(&difficulty).copied().unwrap_or(20.0);
         let adaptive = (learned * 1.5) as usize;
         let even = budget_remaining / tasks_remaining.max(1);
@@ -290,7 +317,7 @@ impl MetaParams {
 
 struct StrategyEnsemble {
     solvers: Vec<AdaptiveSolver>,
-    votes: Vec<f64>,  // confidence-weighted voting history
+    votes: Vec<f64>, // confidence-weighted voting history
 }
 
 impl StrategyEnsemble {
@@ -301,14 +328,23 @@ impl StrategyEnsemble {
             // Diversify: give each solver a different step/beam profile
             match i % 4 {
                 0 => { /* default — balanced */ }
-                1 => { s.solver_mut().max_steps = 30; }   // aggressive
-                2 => { s.solver_mut().max_steps = 120; }  // conservative
-                3 => { s.solver_mut().calendar_tool = false; } // no-rewrite
+                1 => {
+                    s.solver_mut().max_steps = 30;
+                } // aggressive
+                2 => {
+                    s.solver_mut().max_steps = 120;
+                } // conservative
+                3 => {
+                    s.solver_mut().calendar_tool = false;
+                } // no-rewrite
                 _ => {}
             }
             solvers.push(s);
         }
-        Self { solvers, votes: Vec::new() }
+        Self {
+            solvers,
+            votes: Vec::new(),
+        }
     }
 
     fn solve_ensemble(&mut self, puzzle: &TemporalPuzzle) -> Result<SolverResult> {
@@ -324,7 +360,8 @@ impl StrategyEnsemble {
 
         if let Some(best) = any_correct {
             // Return the correct result with fewest steps
-            let best_correct = results.iter()
+            let best_correct = results
+                .iter()
                 .filter(|r| r.correct)
                 .min_by_key(|r| r.steps)
                 .unwrap_or(best);
@@ -332,7 +369,8 @@ impl StrategyEnsemble {
             Ok(best_correct.clone())
         } else {
             // All failed — return result with most solutions found
-            let best_effort = results.iter()
+            let best_effort = results
+                .iter()
                 .max_by_key(|r| r.solutions.len())
                 .unwrap_or(&results[0]);
             self.votes.push(0.0);
@@ -341,7 +379,9 @@ impl StrategyEnsemble {
     }
 
     fn consensus_strength(&self) -> f64 {
-        if self.votes.is_empty() { return 0.0; }
+        if self.votes.is_empty() {
+            return 0.0;
+        }
         self.votes.iter().sum::<f64>() / self.votes.len() as f64
     }
 
@@ -380,12 +420,18 @@ struct CompiledConfig {
 }
 
 impl KnowledgeCompiler {
-    fn new() -> Self { Self::default() }
+    fn new() -> Self {
+        Self::default()
+    }
 
     fn compile_from_bank(&mut self, bank: &ReasoningBank) {
         for traj in &bank.trajectories {
             // Cache puzzle outcomes
-            let correct = traj.verdict.as_ref().map(|v| v.is_success()).unwrap_or(false);
+            let correct = traj
+                .verdict
+                .as_ref()
+                .map(|v| v.is_success())
+                .unwrap_or(false);
             self.answer_cache.insert(traj.puzzle_id.clone(), correct);
 
             // Build constraint signature
@@ -408,8 +454,16 @@ impl KnowledgeCompiler {
     }
 
     fn lookup_config(&mut self, puzzle: &TemporalPuzzle) -> Option<&CompiledConfig> {
-        let mut sig_parts: Vec<String> = puzzle.constraints.iter()
-            .map(|c| format!("{:?}", c).split('(').next().unwrap_or("?").to_string())
+        let mut sig_parts: Vec<String> = puzzle
+            .constraints
+            .iter()
+            .map(|c| {
+                format!("{:?}", c)
+                    .split('(')
+                    .next()
+                    .unwrap_or("?")
+                    .to_string()
+            })
             .collect();
         sig_parts.sort();
         let sig = format!("{}:{}", puzzle.difficulty, sig_parts.join(","));
@@ -425,7 +479,11 @@ impl KnowledgeCompiler {
 
     fn hit_rate(&self) -> f64 {
         let total = self.hits + self.misses;
-        if total == 0 { 0.0 } else { self.hits as f64 / total as f64 }
+        if total == 0 {
+            0.0
+        } else {
+            self.hits as f64 / total as f64
+        }
     }
 }
 
@@ -436,20 +494,26 @@ impl KnowledgeCompiler {
 /// Generates harder puzzles targeting known weaknesses.
 struct AdversarialGenerator {
     /// Failure signatures: constraint patterns that fail most
-    weak_signatures: Vec<(Vec<String>, u8, usize)>,  // (constraints, difficulty, fail_count)
+    weak_signatures: Vec<(Vec<String>, u8, usize)>, // (constraints, difficulty, fail_count)
     pressure: f64,
 }
 
 impl AdversarialGenerator {
     fn new(pressure: f64) -> Self {
-        Self { weak_signatures: Vec::new(), pressure }
+        Self {
+            weak_signatures: Vec::new(),
+            pressure,
+        }
     }
 
     fn learn_weakness(&mut self, constraint_types: &[String], difficulty: u8, correct: bool) {
         if !correct {
             let key_types: Vec<String> = constraint_types.to_vec();
-            if let Some(entry) = self.weak_signatures.iter_mut()
-                .find(|(ct, d, _)| ct == &key_types && *d == difficulty) {
+            if let Some(entry) = self
+                .weak_signatures
+                .iter_mut()
+                .find(|(ct, d, _)| ct == &key_types && *d == difficulty)
+            {
                 entry.2 += 1;
             } else {
                 self.weak_signatures.push((key_types, difficulty, 1));
@@ -479,7 +543,9 @@ struct CascadeReasoner {
 }
 
 impl CascadeReasoner {
-    fn new() -> Self { Self { passes: 0 } }
+    fn new() -> Self {
+        Self { passes: 0 }
+    }
 
     fn cascade_solve(
         &mut self,
@@ -531,48 +597,82 @@ pub fn run_pathway(config: &SIConfig) -> Result<PathwayResult> {
     let mut adversary = AdversarialGenerator::new(config.adversarial_pressure);
 
     // ─── LEVEL 1: Foundation ─────────────────────────────────────────
-    if config.verbose { println!("\n  ═══ Level 1: Foundation ═══"); }
+    if config.verbose {
+        println!("\n  ═══ Level 1: Foundation ═══");
+    }
     let l1 = run_level_1(config, &mut reasoning_bank)?;
     let l1_iq = calculator.calculate(&l1.raw_metrics).overall_score;
     levels.push(make_level_result(1, "Foundation", &l1, l1_iq));
     iq_progression.push(l1_iq);
-    if config.verbose { println!("  L1 IQ: {:.1}", l1_iq); }
-    if l1_iq >= config.target_iq { return Ok(build_pathway(levels, iq_progression, config)); }
+    if config.verbose {
+        println!("  L1 IQ: {:.1}", l1_iq);
+    }
+    if l1_iq >= config.target_iq {
+        return Ok(build_pathway(levels, iq_progression, config));
+    }
 
     // ─── LEVEL 2: Meta-Learning ──────────────────────────────────────
-    if config.verbose { println!("\n  ═══ Level 2: Meta-Learning ═══"); }
+    if config.verbose {
+        println!("\n  ═══ Level 2: Meta-Learning ═══");
+    }
     let l2 = run_level_2(config, &mut reasoning_bank, &mut meta_params)?;
     let l2_iq = calculator.calculate(&l2.raw_metrics).overall_score;
     levels.push(make_level_result(2, "Meta-Learning", &l2, l2_iq));
     iq_progression.push(l2_iq);
-    if config.verbose { println!("  L2 IQ: {:.1} ({:+.1})", l2_iq, l2_iq - l1_iq); }
-    if l2_iq >= config.target_iq { return Ok(build_pathway(levels, iq_progression, config)); }
+    if config.verbose {
+        println!("  L2 IQ: {:.1} ({:+.1})", l2_iq, l2_iq - l1_iq);
+    }
+    if l2_iq >= config.target_iq {
+        return Ok(build_pathway(levels, iq_progression, config));
+    }
 
     // ─── LEVEL 3: Ensemble Arbiter ───────────────────────────────────
-    if config.verbose { println!("\n  ═══ Level 3: Ensemble Arbiter ═══"); }
+    if config.verbose {
+        println!("\n  ═══ Level 3: Ensemble Arbiter ═══");
+    }
     let l3 = run_level_3(config, &mut reasoning_bank, &meta_params)?;
     let l3_iq = calculator.calculate(&l3.raw_metrics).overall_score;
     levels.push(make_level_result(3, "Ensemble Arbiter", &l3, l3_iq));
     iq_progression.push(l3_iq);
-    if config.verbose { println!("  L3 IQ: {:.1} ({:+.1})", l3_iq, l3_iq - l2_iq); }
-    if l3_iq >= config.target_iq { return Ok(build_pathway(levels, iq_progression, config)); }
+    if config.verbose {
+        println!("  L3 IQ: {:.1} ({:+.1})", l3_iq, l3_iq - l2_iq);
+    }
+    if l3_iq >= config.target_iq {
+        return Ok(build_pathway(levels, iq_progression, config));
+    }
 
     // ─── LEVEL 4: Recursive Self-Improvement ─────────────────────────
-    if config.verbose { println!("\n  ═══ Level 4: Recursive Improvement ═══"); }
+    if config.verbose {
+        println!("\n  ═══ Level 4: Recursive Improvement ═══");
+    }
     let l4 = run_level_4(config, &mut reasoning_bank, &mut meta_params, &mut compiler)?;
     let l4_iq = calculator.calculate(&l4.raw_metrics).overall_score;
     levels.push(make_level_result(4, "Recursive Improve", &l4, l4_iq));
     iq_progression.push(l4_iq);
-    if config.verbose { println!("  L4 IQ: {:.1} ({:+.1})", l4_iq, l4_iq - l3_iq); }
-    if l4_iq >= config.target_iq { return Ok(build_pathway(levels, iq_progression, config)); }
+    if config.verbose {
+        println!("  L4 IQ: {:.1} ({:+.1})", l4_iq, l4_iq - l3_iq);
+    }
+    if l4_iq >= config.target_iq {
+        return Ok(build_pathway(levels, iq_progression, config));
+    }
 
     // ─── LEVEL 5: Adversarial Growth + Cascade ───────────────────────
-    if config.verbose { println!("\n  ═══ Level 5: Adversarial Growth ═══"); }
-    let l5 = run_level_5(config, &mut reasoning_bank, &mut meta_params, &mut compiler, &mut adversary)?;
+    if config.verbose {
+        println!("\n  ═══ Level 5: Adversarial Growth ═══");
+    }
+    let l5 = run_level_5(
+        config,
+        &mut reasoning_bank,
+        &mut meta_params,
+        &mut compiler,
+        &mut adversary,
+    )?;
     let l5_iq = calculator.calculate(&l5.raw_metrics).overall_score;
     levels.push(make_level_result(5, "Adversarial Growth", &l5, l5_iq));
     iq_progression.push(l5_iq);
-    if config.verbose { println!("  L5 IQ: {:.1} ({:+.1})", l5_iq, l5_iq - l4_iq); }
+    if config.verbose {
+        println!("  L5 IQ: {:.1} ({:+.1})", l5_iq, l5_iq - l4_iq);
+    }
 
     Ok(build_pathway(levels, iq_progression, config))
 }
@@ -631,17 +731,24 @@ fn run_level_1(config: &SIConfig, bank: &mut ReasoningBank) -> Result<LevelRaw> 
                 for _ in 0..config.max_retries {
                     let retry = solver.solve(puzzle)?;
                     ep_retries += 1;
-                    if retry.correct { result = retry; break; }
+                    if retry.correct {
+                        result = retry;
+                        break;
+                    }
                 }
             }
 
             // Track noise, contradictions, rollbacks, policy violations
             if is_noisy {
                 raw.noise_tasks_attempted += 1;
-                if result.correct { raw.noise_tasks_correct += 1; }
+                if result.correct {
+                    raw.noise_tasks_correct += 1;
+                }
                 if !initial_correct {
                     raw.rollback_attempts += 1;
-                    if result.correct { raw.rollback_successes += 1; }
+                    if result.correct {
+                        raw.rollback_successes += 1;
+                    }
                 }
             }
             if result.solved && !result.correct {
@@ -649,8 +756,14 @@ fn run_level_1(config: &SIConfig, bank: &mut ReasoningBank) -> Result<LevelRaw> 
                 raw.policy_violations += 1;
             }
 
-            if result.solved { raw.tasks_completed += 1; }
-            if result.correct { raw.tasks_correct += 1; ep_correct += 1; total_correct += 1; }
+            if result.solved {
+                raw.tasks_completed += 1;
+            }
+            if result.correct {
+                raw.tasks_correct += 1;
+                ep_correct += 1;
+                total_correct += 1;
+            }
             raw.total_steps += result.steps;
             raw.total_tool_calls += result.tool_calls;
             ep_steps += result.steps;
@@ -661,9 +774,18 @@ fn run_level_1(config: &SIConfig, bank: &mut ReasoningBank) -> Result<LevelRaw> 
         let regret = 100.0 - accuracy * 100.0;
         cumulative_regret += regret;
         raw.episodes.push(EpisodeMetrics {
-            episode: ep + 1, accuracy, reward: accuracy * 100.0, regret, cumulative_regret,
+            episode: ep + 1,
+            accuracy,
+            reward: accuracy * 100.0,
+            regret,
+            cumulative_regret,
         });
-        snapshots.push(EpisodeSnapshot { episode: ep + 1, accuracy, steps: ep_steps, retries: ep_retries });
+        snapshots.push(EpisodeSnapshot {
+            episode: ep + 1,
+            accuracy,
+            steps: ep_steps,
+            retries: ep_retries,
+        });
 
         if config.verbose {
             println!("    L1 Ep {:2}: acc={:.1}%", ep + 1, accuracy * 100.0);
@@ -674,11 +796,21 @@ fn run_level_1(config: &SIConfig, bank: &mut ReasoningBank) -> Result<LevelRaw> 
     *bank = solver.reasoning_bank.clone();
     let patterns = bank.learning_progress().patterns_learned;
 
-    Ok(LevelRaw { raw_metrics: raw, episodes: snapshots, total_correct, total_attempted, patterns })
+    Ok(LevelRaw {
+        raw_metrics: raw,
+        episodes: snapshots,
+        total_correct,
+        total_attempted,
+        patterns,
+    })
 }
 
 /// Level 2: Meta-Learning — learns optimal hyperparameters per problem class.
-fn run_level_2(config: &SIConfig, bank: &mut ReasoningBank, meta: &mut MetaParams) -> Result<LevelRaw> {
+fn run_level_2(
+    config: &SIConfig,
+    bank: &mut ReasoningBank,
+    meta: &mut MetaParams,
+) -> Result<LevelRaw> {
     let mut raw = RawMetrics::default();
     let mut snapshots = Vec::new();
     let mut solver = AdaptiveSolver::with_reasoning_bank(bank.clone());
@@ -715,7 +847,8 @@ fn run_level_2(config: &SIConfig, bank: &mut ReasoningBank, meta: &mut MetaParam
 
             // Meta-learned step allocation
             let remaining_tasks = (config.tasks_per_episode - ti).max(1);
-            let per_task = meta.optimal_steps(puzzle.difficulty, step_budget_remaining, remaining_tasks);
+            let per_task =
+                meta.optimal_steps(puzzle.difficulty, step_budget_remaining, remaining_tasks);
             solver.external_step_limit = Some(per_task);
             step_budget_remaining = step_budget_remaining.saturating_sub(per_task);
 
@@ -728,7 +861,9 @@ fn run_level_2(config: &SIConfig, bank: &mut ReasoningBank, meta: &mut MetaParam
                     let retry = solver.solve(puzzle)?;
                     ep_retries += 1;
                     retried = true;
-                    if retry.correct { result = retry; }
+                    if retry.correct {
+                        result = retry;
+                    }
                 } else {
                     // Retry with doubled steps
                     solver.external_step_limit = Some(per_task * 2);
@@ -736,7 +871,9 @@ fn run_level_2(config: &SIConfig, bank: &mut ReasoningBank, meta: &mut MetaParam
                     solver.external_step_limit = Some(per_task);
                     ep_retries += 1;
                     retried = true;
-                    if retry.correct { result = retry; }
+                    if retry.correct {
+                        result = retry;
+                    }
                 }
             }
 
@@ -745,10 +882,14 @@ fn run_level_2(config: &SIConfig, bank: &mut ReasoningBank, meta: &mut MetaParam
             // Track noise, contradictions, rollbacks
             if is_noisy {
                 raw.noise_tasks_attempted += 1;
-                if result.correct { raw.noise_tasks_correct += 1; }
+                if result.correct {
+                    raw.noise_tasks_correct += 1;
+                }
                 if retried {
                     raw.rollback_attempts += 1;
-                    if result.correct { raw.rollback_successes += 1; }
+                    if result.correct {
+                        raw.rollback_successes += 1;
+                    }
                 }
             }
             if result.solved && !result.correct {
@@ -756,8 +897,14 @@ fn run_level_2(config: &SIConfig, bank: &mut ReasoningBank, meta: &mut MetaParam
                 raw.policy_violations += 1;
             }
 
-            if result.solved { raw.tasks_completed += 1; }
-            if result.correct { raw.tasks_correct += 1; ep_correct += 1; total_correct += 1; }
+            if result.solved {
+                raw.tasks_completed += 1;
+            }
+            if result.correct {
+                raw.tasks_correct += 1;
+                ep_correct += 1;
+                total_correct += 1;
+            }
             raw.total_steps += result.steps;
             raw.total_tool_calls += result.tool_calls;
             ep_steps += result.steps;
@@ -768,18 +915,38 @@ fn run_level_2(config: &SIConfig, bank: &mut ReasoningBank, meta: &mut MetaParam
         let regret = 100.0 - accuracy * 100.0;
         cumulative_regret += regret;
         raw.episodes.push(EpisodeMetrics {
-            episode: ep + 1, accuracy, reward: accuracy * 100.0, regret, cumulative_regret,
+            episode: ep + 1,
+            accuracy,
+            reward: accuracy * 100.0,
+            regret,
+            cumulative_regret,
         });
-        snapshots.push(EpisodeSnapshot { episode: ep + 1, accuracy, steps: ep_steps, retries: ep_retries });
+        snapshots.push(EpisodeSnapshot {
+            episode: ep + 1,
+            accuracy,
+            steps: ep_steps,
+            retries: ep_retries,
+        });
 
         if config.verbose {
-            println!("    L2 Ep {:2}: acc={:.1}%, retry_ben={:.2}", ep + 1, accuracy * 100.0, meta.retry_benefit);
+            println!(
+                "    L2 Ep {:2}: acc={:.1}%, retry_ben={:.2}",
+                ep + 1,
+                accuracy * 100.0,
+                meta.retry_benefit
+            );
         }
     }
 
     *bank = solver.reasoning_bank.clone();
     let patterns = bank.learning_progress().patterns_learned;
-    Ok(LevelRaw { raw_metrics: raw, episodes: snapshots, total_correct, total_attempted, patterns })
+    Ok(LevelRaw {
+        raw_metrics: raw,
+        episodes: snapshots,
+        total_correct,
+        total_attempted,
+        patterns,
+    })
 }
 
 /// Level 3: Ensemble Arbiter — multiple strategies vote on each puzzle.
@@ -794,7 +961,8 @@ fn run_level_3(config: &SIConfig, bank: &mut ReasoningBank, meta: &MetaParams) -
 
     for ep in 0..config.episodes_per_level {
         let pc = PuzzleGeneratorConfig {
-            min_difficulty: 3, max_difficulty: 10,
+            min_difficulty: 3,
+            max_difficulty: 10,
             constraint_density: 3,
             seed: Some(config.seed + 2000 + ep as u64),
             ..Default::default()
@@ -829,15 +997,23 @@ fn run_level_3(config: &SIConfig, bank: &mut ReasoningBank, meta: &MetaParams) -
             // Track noise, contradictions, policy
             if is_noisy {
                 raw.noise_tasks_attempted += 1;
-                if result.correct { raw.noise_tasks_correct += 1; }
+                if result.correct {
+                    raw.noise_tasks_correct += 1;
+                }
             }
             if result.solved && !result.correct {
                 raw.contradictions += 1;
                 raw.policy_violations += 1;
             }
 
-            if result.solved { raw.tasks_completed += 1; }
-            if result.correct { raw.tasks_correct += 1; ep_correct += 1; total_correct += 1; }
+            if result.solved {
+                raw.tasks_completed += 1;
+            }
+            if result.correct {
+                raw.tasks_correct += 1;
+                ep_correct += 1;
+                total_correct += 1;
+            }
             raw.total_steps += result.steps;
             raw.total_tool_calls += result.tool_calls;
             ep_steps += result.steps;
@@ -848,25 +1024,47 @@ fn run_level_3(config: &SIConfig, bank: &mut ReasoningBank, meta: &MetaParams) -
         let regret = 100.0 - accuracy * 100.0;
         cumulative_regret += regret;
         raw.episodes.push(EpisodeMetrics {
-            episode: ep + 1, accuracy, reward: accuracy * 100.0, regret, cumulative_regret,
+            episode: ep + 1,
+            accuracy,
+            reward: accuracy * 100.0,
+            regret,
+            cumulative_regret,
         });
-        snapshots.push(EpisodeSnapshot { episode: ep + 1, accuracy, steps: ep_steps, retries: 0 });
+        snapshots.push(EpisodeSnapshot {
+            episode: ep + 1,
+            accuracy,
+            steps: ep_steps,
+            retries: 0,
+        });
 
         if config.verbose {
-            println!("    L3 Ep {:2}: acc={:.1}%, consensus={:.2}", ep + 1, accuracy * 100.0, ensemble.consensus_strength());
+            println!(
+                "    L3 Ep {:2}: acc={:.1}%, consensus={:.2}",
+                ep + 1,
+                accuracy * 100.0,
+                ensemble.consensus_strength()
+            );
         }
     }
 
     // Merge ensemble knowledge back
     *bank = ensemble.merge_knowledge();
     let patterns = bank.learning_progress().patterns_learned;
-    Ok(LevelRaw { raw_metrics: raw, episodes: snapshots, total_correct, total_attempted, patterns })
+    Ok(LevelRaw {
+        raw_metrics: raw,
+        episodes: snapshots,
+        total_correct,
+        total_attempted,
+        patterns,
+    })
 }
 
 /// Level 4: Recursive Self-Improvement — bootstrap from compiled knowledge.
 fn run_level_4(
-    config: &SIConfig, bank: &mut ReasoningBank,
-    meta: &mut MetaParams, compiler: &mut KnowledgeCompiler,
+    config: &SIConfig,
+    bank: &mut ReasoningBank,
+    meta: &mut MetaParams,
+    compiler: &mut KnowledgeCompiler,
 ) -> Result<LevelRaw> {
     let mut raw = RawMetrics::default();
     let mut snapshots = Vec::new();
@@ -884,7 +1082,8 @@ fn run_level_4(
 
         for ep in 0..eps {
             let pc = PuzzleGeneratorConfig {
-                min_difficulty: 4, max_difficulty: 10,
+                min_difficulty: 4,
+                max_difficulty: 10,
                 constraint_density: 4,
                 seed: Some(config.seed + 3000 + (cycle * 100 + ep) as u64),
                 ..Default::default()
@@ -906,7 +1105,8 @@ fn run_level_4(
                     solver.external_step_limit = Some(compiled.max_steps.max(5));
                 } else {
                     let remaining = (config.tasks_per_episode - ti).max(1);
-                    let steps = meta.optimal_steps(puzzle.difficulty, step_budget_remaining, remaining);
+                    let steps =
+                        meta.optimal_steps(puzzle.difficulty, step_budget_remaining, remaining);
                     solver.external_step_limit = Some(steps);
                     step_budget_remaining = step_budget_remaining.saturating_sub(steps);
                 }
@@ -935,24 +1135,39 @@ fn run_level_4(
                         let retry = solver.solve(puzzle)?;
                         solver.external_step_limit = saved;
                         ep_retries += 1;
-                        if retry.correct { result = retry; }
+                        if retry.correct {
+                            result = retry;
+                        }
                     }
                 }
 
-                meta.learn_from_result(puzzle.difficulty, result.steps, result.correct, ep_retries > 0);
+                meta.learn_from_result(
+                    puzzle.difficulty,
+                    result.steps,
+                    result.correct,
+                    ep_retries > 0,
+                );
 
                 // Track noise, contradictions, policy
                 if is_noisy {
                     raw.noise_tasks_attempted += 1;
-                    if result.correct { raw.noise_tasks_correct += 1; }
+                    if result.correct {
+                        raw.noise_tasks_correct += 1;
+                    }
                 }
                 if result.solved && !result.correct {
                     raw.contradictions += 1;
                     raw.policy_violations += 1;
                 }
 
-                if result.solved { raw.tasks_completed += 1; }
-                if result.correct { raw.tasks_correct += 1; ep_correct += 1; total_correct += 1; }
+                if result.solved {
+                    raw.tasks_completed += 1;
+                }
+                if result.correct {
+                    raw.tasks_correct += 1;
+                    ep_correct += 1;
+                    total_correct += 1;
+                }
                 raw.total_steps += result.steps;
                 raw.total_tool_calls += result.tool_calls;
                 ep_steps += result.steps;
@@ -963,13 +1178,27 @@ fn run_level_4(
             let regret = 100.0 - accuracy * 100.0;
             cumulative_regret += regret;
             raw.episodes.push(EpisodeMetrics {
-                episode: raw.episodes.len() + 1, accuracy, reward: accuracy * 100.0, regret, cumulative_regret,
+                episode: raw.episodes.len() + 1,
+                accuracy,
+                reward: accuracy * 100.0,
+                regret,
+                cumulative_regret,
             });
-            snapshots.push(EpisodeSnapshot { episode: snapshots.len() + 1, accuracy, steps: ep_steps, retries: ep_retries });
+            snapshots.push(EpisodeSnapshot {
+                episode: snapshots.len() + 1,
+                accuracy,
+                steps: ep_steps,
+                retries: ep_retries,
+            });
 
             if config.verbose {
-                println!("    L4 C{} Ep {:2}: acc={:.1}%, compiled_hit={:.0}%",
-                    cycle + 1, ep + 1, accuracy * 100.0, compiler.hit_rate() * 100.0);
+                println!(
+                    "    L4 C{} Ep {:2}: acc={:.1}%, compiled_hit={:.0}%",
+                    cycle + 1,
+                    ep + 1,
+                    accuracy * 100.0,
+                    compiler.hit_rate() * 100.0
+                );
             }
         }
 
@@ -978,13 +1207,21 @@ fn run_level_4(
     }
 
     let patterns = bank.learning_progress().patterns_learned;
-    Ok(LevelRaw { raw_metrics: raw, episodes: snapshots, total_correct, total_attempted, patterns })
+    Ok(LevelRaw {
+        raw_metrics: raw,
+        episodes: snapshots,
+        total_correct,
+        total_attempted,
+        patterns,
+    })
 }
 
 /// Level 5: Adversarial Growth + Cascade Reasoning.
 fn run_level_5(
-    config: &SIConfig, bank: &mut ReasoningBank,
-    meta: &mut MetaParams, compiler: &mut KnowledgeCompiler,
+    config: &SIConfig,
+    bank: &mut ReasoningBank,
+    meta: &mut MetaParams,
+    compiler: &mut KnowledgeCompiler,
     adversary: &mut AdversarialGenerator,
 ) -> Result<LevelRaw> {
     let mut raw = RawMetrics::default();
@@ -1026,16 +1263,19 @@ fn run_level_5(
                 solver.solver_mut().calendar_tool = compiled.use_rewriting;
                 solver.external_step_limit = Some(compiled.max_steps.max(10));
             } else {
-                solver.external_step_limit = Some(
-                    meta.optimal_steps(puzzle.difficulty, config.step_budget, config.tasks_per_episode - ti)
-                );
+                solver.external_step_limit = Some(meta.optimal_steps(
+                    puzzle.difficulty,
+                    config.step_budget,
+                    config.tasks_per_episode - ti,
+                ));
             }
 
-            let (solve_p, is_noisy) = if rng.next_f64() < config.noise_rate * config.adversarial_pressure {
-                inject_noise(puzzle, &mut rng)
-            } else {
-                (puzzle.clone(), false)
-            };
+            let (solve_p, is_noisy) =
+                if rng.next_f64() < config.noise_rate * config.adversarial_pressure {
+                    inject_noise(puzzle, &mut rng)
+                } else {
+                    (puzzle.clone(), false)
+                };
 
             // Cascade reasoning: multi-pass solve
             let mut result = cascade.cascade_solve(&mut solver, &solve_p, 3)?;
@@ -1052,24 +1292,45 @@ fn run_level_5(
             }
 
             // Track weaknesses for adversarial learning
-            let ctypes: Vec<String> = puzzle.constraints.iter()
-                .map(|c| format!("{:?}", c).split('(').next().unwrap_or("?").to_string())
+            let ctypes: Vec<String> = puzzle
+                .constraints
+                .iter()
+                .map(|c| {
+                    format!("{:?}", c)
+                        .split('(')
+                        .next()
+                        .unwrap_or("?")
+                        .to_string()
+                })
                 .collect();
             adversary.learn_weakness(&ctypes, puzzle.difficulty, result.correct);
-            meta.learn_from_result(puzzle.difficulty, result.steps, result.correct, ep_retries > 0);
+            meta.learn_from_result(
+                puzzle.difficulty,
+                result.steps,
+                result.correct,
+                ep_retries > 0,
+            );
 
             // Track noise, contradictions, policy
             if is_noisy {
                 raw.noise_tasks_attempted += 1;
-                if result.correct { raw.noise_tasks_correct += 1; }
+                if result.correct {
+                    raw.noise_tasks_correct += 1;
+                }
             }
             if result.solved && !result.correct {
                 raw.contradictions += 1;
                 raw.policy_violations += 1;
             }
 
-            if result.solved { raw.tasks_completed += 1; }
-            if result.correct { raw.tasks_correct += 1; ep_correct += 1; total_correct += 1; }
+            if result.solved {
+                raw.tasks_completed += 1;
+            }
+            if result.correct {
+                raw.tasks_correct += 1;
+                ep_correct += 1;
+                total_correct += 1;
+            }
             raw.total_steps += result.steps;
             raw.total_tool_calls += result.tool_calls;
             ep_steps += result.steps;
@@ -1080,21 +1341,45 @@ fn run_level_5(
         let regret = 100.0 - accuracy * 100.0;
         cumulative_regret += regret;
         raw.episodes.push(EpisodeMetrics {
-            episode: ep + 1, accuracy, reward: accuracy * 100.0, regret, cumulative_regret,
+            episode: ep + 1,
+            accuracy,
+            reward: accuracy * 100.0,
+            regret,
+            cumulative_regret,
         });
-        snapshots.push(EpisodeSnapshot { episode: ep + 1, accuracy, steps: ep_steps, retries: ep_retries });
+        snapshots.push(EpisodeSnapshot {
+            episode: ep + 1,
+            accuracy,
+            steps: ep_steps,
+            retries: ep_retries,
+        });
 
         if config.verbose {
             let weaks = adversary.top_weaknesses(1);
-            let weak_str = weaks.first().map(|(ct, d, n)| format!("{:?}@d{} ({}x)", ct, d, n)).unwrap_or_default();
-            println!("    L5 Ep {:2}: acc={:.1}%, adv_diff={}, cascade={}, weak={}",
-                ep + 1, accuracy * 100.0, adv_diff, cascade.passes, weak_str);
+            let weak_str = weaks
+                .first()
+                .map(|(ct, d, n)| format!("{:?}@d{} ({}x)", ct, d, n))
+                .unwrap_or_default();
+            println!(
+                "    L5 Ep {:2}: acc={:.1}%, adv_diff={}, cascade={}, weak={}",
+                ep + 1,
+                accuracy * 100.0,
+                adv_diff,
+                cascade.passes,
+                weak_str
+            );
         }
     }
 
     *bank = solver.reasoning_bank.clone();
     let patterns = bank.learning_progress().patterns_learned;
-    Ok(LevelRaw { raw_metrics: raw, episodes: snapshots, total_correct, total_attempted, patterns })
+    Ok(LevelRaw {
+        raw_metrics: raw,
+        episodes: snapshots,
+        total_correct,
+        total_attempted,
+        patterns,
+    })
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1102,34 +1387,60 @@ fn run_level_5(
 // ═══════════════════════════════════════════════════════════════════════════
 
 fn track_difficulty(raw: &mut RawMetrics, difficulty: u8, result: &SolverResult) {
-    let entry = raw.by_difficulty.entry(difficulty).or_insert(DifficultyStats {
-        attempted: 0, completed: 0, correct: 0, avg_steps: 0.0,
-    });
+    let entry = raw
+        .by_difficulty
+        .entry(difficulty)
+        .or_insert(DifficultyStats {
+            attempted: 0,
+            completed: 0,
+            correct: 0,
+            avg_steps: 0.0,
+        });
     entry.attempted += 1;
-    if result.solved { entry.completed += 1; }
-    if result.correct { entry.correct += 1; }
+    if result.solved {
+        entry.completed += 1;
+    }
+    if result.correct {
+        entry.correct += 1;
+    }
 }
 
 fn make_level_result(level: usize, name: &str, raw: &LevelRaw, iq: f64) -> LevelResult {
     LevelResult {
-        level, name: name.to_string(), iq_score: iq,
-        accuracy: if raw.total_attempted > 0 { raw.total_correct as f64 / raw.total_attempted as f64 } else { 0.0 },
-        total_correct: raw.total_correct, total_attempted: raw.total_attempted,
-        patterns_learned: raw.patterns, episodes: raw.episodes.clone(),
+        level,
+        name: name.to_string(),
+        iq_score: iq,
+        accuracy: if raw.total_attempted > 0 {
+            raw.total_correct as f64 / raw.total_attempted as f64
+        } else {
+            0.0
+        },
+        total_correct: raw.total_correct,
+        total_attempted: raw.total_attempted,
+        patterns_learned: raw.patterns,
+        episodes: raw.episodes.clone(),
         raw_metrics: raw.raw_metrics.clone(),
     }
 }
 
-fn build_pathway(levels: Vec<LevelResult>, iq_progression: Vec<f64>, config: &SIConfig) -> PathwayResult {
+fn build_pathway(
+    levels: Vec<LevelResult>,
+    iq_progression: Vec<f64>,
+    config: &SIConfig,
+) -> PathwayResult {
     let peak_iq = iq_progression.iter().cloned().fold(0.0_f64, f64::max);
-    let peak_level = iq_progression.iter()
+    let peak_level = iq_progression
+        .iter()
         .enumerate()
         .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
         .map(|(i, _)| i + 1)
         .unwrap_or(1);
 
     PathwayResult {
-        levels, peak_iq, peak_level, iq_progression,
+        levels,
+        peak_iq,
+        peak_level,
+        iq_progression,
         reached_target: peak_iq >= config.target_iq,
         target_iq: config.target_iq,
     }

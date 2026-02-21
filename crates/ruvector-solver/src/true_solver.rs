@@ -112,12 +112,7 @@ impl TrueSolver {
     /// - 0           with probability 2/3
     ///
     /// Returns a list of (row, col, value) triples.
-    fn generate_jl_matrix(
-        &self,
-        k: usize,
-        n: usize,
-        rng: &mut StdRng,
-    ) -> Vec<(usize, usize, f32)> {
+    fn generate_jl_matrix(&self, k: usize, n: usize, rng: &mut StdRng) -> Vec<(usize, usize, f32)> {
         let scale = 1.0 / (k as f64).sqrt();
         let scale_f32 = scale as f32;
         let mut entries = Vec::with_capacity(((k * n) as f64 / 3.0).ceil() as usize);
@@ -544,12 +539,9 @@ impl TrueSolver {
 
         for (i, &v) in matrix.values.iter().enumerate() {
             if v.is_nan() || v.is_infinite() {
-                return Err(SolverError::InvalidInput(
-                    ValidationError::NonFiniteValue(format!(
-                        "matrix value at index {} is {}",
-                        i, v
-                    )),
-                ));
+                return Err(SolverError::InvalidInput(ValidationError::NonFiniteValue(
+                    format!("matrix value at index {} is {}", i, v),
+                )));
             }
         }
 
@@ -571,20 +563,16 @@ impl SolverEngine for TrueSolver {
         // Validate that f64 values fit in f32 range.
         for (i, &v) in matrix.values.iter().enumerate() {
             if v.is_finite() && v.abs() > f32::MAX as f64 {
-                return Err(SolverError::InvalidInput(
-                    ValidationError::NonFiniteValue(format!(
-                        "matrix value at index {i} ({v:.6e}) overflows f32"
-                    )),
-                ));
+                return Err(SolverError::InvalidInput(ValidationError::NonFiniteValue(
+                    format!("matrix value at index {i} ({v:.6e}) overflows f32"),
+                )));
             }
         }
         for (i, &v) in rhs.iter().enumerate() {
             if v.is_finite() && v.abs() > f32::MAX as f64 {
-                return Err(SolverError::InvalidInput(
-                    ValidationError::NonFiniteValue(format!(
-                        "rhs value at index {i} ({v:.6e}) overflows f32"
-                    )),
-                ));
+                return Err(SolverError::InvalidInput(ValidationError::NonFiniteValue(
+                    format!("rhs value at index {i} ({v:.6e}) overflows f32"),
+                )));
             }
         }
 
@@ -711,8 +699,7 @@ mod tests {
             assert!(row < 5);
             assert!(col < 20);
             assert!(
-                (val - scale_f32).abs() < f32::EPSILON
-                    || (val + scale_f32).abs() < f32::EPSILON,
+                (val - scale_f32).abs() < f32::EPSILON || (val + scale_f32).abs() < f32::EPSILON,
                 "unexpected JL value: {}",
                 val
             );
@@ -865,7 +852,8 @@ mod tests {
 
     #[test]
     fn test_non_square_matrix_rejected() {
-        let matrix = CsrMatrix::<f32>::from_coo(3, 5, vec![(0, 0, 1.0f32), (1, 1, 1.0), (2, 2, 1.0)]);
+        let matrix =
+            CsrMatrix::<f32>::from_coo(3, 5, vec![(0, 0, 1.0f32), (1, 1, 1.0), (2, 2, 1.0)]);
 
         let solver = TrueSolver::new(0.1, 2, 0.1);
         let err = solver.preprocess(&matrix);
@@ -910,8 +898,12 @@ mod tests {
         let solver = TrueSolver::new(0.3, 3, 0.3).with_seed(777);
         let preprocessing = solver.preprocess(&matrix).unwrap();
 
-        let r1 = solver.solve_with_preprocessing(&preprocessing, &rhs).unwrap();
-        let r2 = solver.solve_with_preprocessing(&preprocessing, &rhs).unwrap();
+        let r1 = solver
+            .solve_with_preprocessing(&preprocessing, &rhs)
+            .unwrap();
+        let r2 = solver
+            .solve_with_preprocessing(&preprocessing, &rhs)
+            .unwrap();
 
         assert_eq!(r1.solution, r2.solution);
         assert_eq!(r1.iterations, r2.iterations);

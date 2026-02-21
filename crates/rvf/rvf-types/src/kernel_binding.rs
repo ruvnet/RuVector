@@ -77,8 +77,8 @@ impl KernelBinding {
             min_runtime_version: u16::from_le_bytes([data[0x42], data[0x43]]),
             _pad0: u32::from_le_bytes([data[0x44], data[0x45], data[0x46], data[0x47]]),
             allowed_segment_mask: u64::from_le_bytes([
-                data[0x48], data[0x49], data[0x4A], data[0x4B],
-                data[0x4C], data[0x4D], data[0x4E], data[0x4F],
+                data[0x48], data[0x49], data[0x4A], data[0x4B], data[0x4C], data[0x4D], data[0x4E],
+                data[0x4F],
             ]),
             _reserved: {
                 let mut r = [0u8; 48];

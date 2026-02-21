@@ -298,9 +298,27 @@ pub fn build_initramfs(
 
     // Create directory structure
     let dirs = [
-        ".", "bin", "sbin", "etc", "etc/udhcpc", "dev", "proc", "sys",
-        "tmp", "var", "var/log", "var/run", "run", "root", "lib",
-        "usr", "usr/bin", "usr/sbin", "usr/lib", "mnt", "opt",
+        ".",
+        "bin",
+        "sbin",
+        "etc",
+        "etc/udhcpc",
+        "dev",
+        "proc",
+        "sys",
+        "tmp",
+        "var",
+        "var/log",
+        "var/run",
+        "run",
+        "root",
+        "lib",
+        "usr",
+        "usr/bin",
+        "usr/sbin",
+        "usr/lib",
+        "mnt",
+        "opt",
     ];
     for dir in &dirs {
         cpio.add_dir(dir);
@@ -423,8 +441,9 @@ pub fn parse_cpio_entries(data: &[u8]) -> Result<Vec<(String, u32, u32)>, Kernel
         }
 
         let header = &data[offset..offset + 110];
-        let header_str = std::str::from_utf8(header)
-            .map_err(|_| KernelError::InitramfsBuildFailed("invalid cpio header encoding".into()))?;
+        let header_str = std::str::from_utf8(header).map_err(|_| {
+            KernelError::InitramfsBuildFailed("invalid cpio header encoding".into())
+        })?;
 
         // Verify magic
         if &header_str[..6] != CPIO_NEWC_MAGIC {
@@ -543,7 +562,11 @@ mod tests {
         let entries = parse_cpio_entries(&decompressed).expect("parse should succeed");
 
         // Should have directories + devices + init + udhcpc script
-        assert!(entries.len() >= 20, "expected at least 20 entries, got {}", entries.len());
+        assert!(
+            entries.len() >= 20,
+            "expected at least 20 entries, got {}",
+            entries.len()
+        );
 
         // Check that /init exists
         let init_entry = entries.iter().find(|(name, _, _)| name == "init");
@@ -565,11 +588,8 @@ mod tests {
     #[test]
     fn build_initramfs_with_extra_binaries() {
         let fake_binary = b"\x7FELF fake binary content";
-        let result = build_initramfs(
-            &["rvf-server"],
-            &[("bin/rvf-server", fake_binary)],
-        )
-        .expect("build should succeed");
+        let result = build_initramfs(&["rvf-server"], &[("bin/rvf-server", fake_binary)])
+            .expect("build should succeed");
 
         // Decompress
         use flate2::read::GzDecoder;
@@ -615,8 +635,12 @@ mod tests {
         let fast = build_fast_initramfs(&["sshd", "rvf-server"], &[]).unwrap();
 
         // Fast initramfs should be smaller (fewer dirs, shorter init script)
-        assert!(fast.len() < normal.len(),
-            "fast ({}) should be smaller than normal ({})", fast.len(), normal.len());
+        assert!(
+            fast.len() < normal.len(),
+            "fast ({}) should be smaller than normal ({})",
+            fast.len(),
+            normal.len()
+        );
 
         // Both should be valid gzip
         assert_eq!(fast[0], 0x1F);

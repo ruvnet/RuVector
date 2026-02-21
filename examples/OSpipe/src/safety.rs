@@ -352,8 +352,8 @@ mod tests {
 
     #[test]
     fn test_wasm_routing_matches_native_temporal() {
-        use crate::search::router::QueryRouter;
         use crate::search::router::QueryRoute;
+        use crate::search::router::QueryRouter;
         use crate::wasm::helpers::route_query;
 
         let router = QueryRouter::new();
@@ -366,20 +366,17 @@ mod tests {
             assert_eq!(
                 router.route(q),
                 QueryRoute::Temporal,
-                "Native router failed for: {}", q
+                "Native router failed for: {}",
+                q
             );
-            assert_eq!(
-                route_query(q),
-                "Temporal",
-                "WASM router failed for: {}", q
-            );
+            assert_eq!(route_query(q), "Temporal", "WASM router failed for: {}", q);
         }
     }
 
     #[test]
     fn test_wasm_routing_matches_native_graph() {
-        use crate::search::router::QueryRouter;
         use crate::search::router::QueryRoute;
+        use crate::search::router::QueryRouter;
         use crate::wasm::helpers::route_query;
 
         let router = QueryRouter::new();
@@ -391,45 +388,36 @@ mod tests {
             assert_eq!(
                 router.route(q),
                 QueryRoute::Graph,
-                "Native router failed for: {}", q
+                "Native router failed for: {}",
+                q
             );
-            assert_eq!(
-                route_query(q),
-                "Graph",
-                "WASM router failed for: {}", q
-            );
+            assert_eq!(route_query(q), "Graph", "WASM router failed for: {}", q);
         }
     }
 
     #[test]
     fn test_wasm_routing_matches_native_keyword_short() {
-        use crate::search::router::QueryRouter;
         use crate::search::router::QueryRoute;
+        use crate::search::router::QueryRouter;
         use crate::wasm::helpers::route_query;
 
         let router = QueryRouter::new();
-        let queries = [
-            "hello",
-            "rust programming",
-        ];
+        let queries = ["hello", "rust programming"];
         for q in &queries {
             assert_eq!(
                 router.route(q),
                 QueryRoute::Keyword,
-                "Native router failed for: {}", q
+                "Native router failed for: {}",
+                q
             );
-            assert_eq!(
-                route_query(q),
-                "Keyword",
-                "WASM router failed for: {}", q
-            );
+            assert_eq!(route_query(q), "Keyword", "WASM router failed for: {}", q);
         }
     }
 
     #[test]
     fn test_wasm_routing_matches_native_keyword_quoted() {
-        use crate::search::router::QueryRouter;
         use crate::search::router::QueryRoute;
+        use crate::search::router::QueryRouter;
         use crate::wasm::helpers::route_query;
 
         let router = QueryRouter::new();
@@ -440,8 +428,8 @@ mod tests {
 
     #[test]
     fn test_wasm_routing_matches_native_hybrid() {
-        use crate::search::router::QueryRouter;
         use crate::search::router::QueryRoute;
+        use crate::search::router::QueryRouter;
         use crate::wasm::helpers::route_query;
 
         let router = QueryRouter::new();
@@ -454,13 +442,10 @@ mod tests {
             assert_eq!(
                 router.route(q),
                 QueryRoute::Hybrid,
-                "Native router failed for: {}", q
+                "Native router failed for: {}",
+                q
             );
-            assert_eq!(
-                route_query(q),
-                "Hybrid",
-                "WASM router failed for: {}", q
-            );
+            assert_eq!(route_query(q), "Hybrid", "WASM router failed for: {}", q);
         }
     }
 
@@ -476,7 +461,10 @@ mod tests {
         let config = SafetyConfig::default();
         let gate = SafetyGate::new(config);
         let content = "pay with 4111-1111-1111-1111";
-        assert!(matches!(gate.check(content), SafetyDecision::AllowRedacted(_)));
+        assert!(matches!(
+            gate.check(content),
+            SafetyDecision::AllowRedacted(_)
+        ));
         assert_eq!(safety_classify(content), "redact");
     }
 
@@ -487,7 +475,10 @@ mod tests {
         let config = SafetyConfig::default();
         let gate = SafetyGate::new(config);
         let content = "my ssn 123-45-6789";
-        assert!(matches!(gate.check(content), SafetyDecision::AllowRedacted(_)));
+        assert!(matches!(
+            gate.check(content),
+            SafetyDecision::AllowRedacted(_)
+        ));
         assert_eq!(safety_classify(content), "redact");
     }
 
@@ -498,7 +489,10 @@ mod tests {
         let config = SafetyConfig::default();
         let gate = SafetyGate::new(config);
         let content = "email user@example.com here";
-        assert!(matches!(gate.check(content), SafetyDecision::AllowRedacted(_)));
+        assert!(matches!(
+            gate.check(content),
+            SafetyDecision::AllowRedacted(_)
+        ));
         assert_eq!(safety_classify(content), "redact");
     }
 

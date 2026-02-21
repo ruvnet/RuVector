@@ -120,7 +120,10 @@ fn parse_shape(header: &str) -> Result<NpyHeader, String> {
                 .map_err(|e| format!("bad shape col: {e}"))?;
             Ok(NpyHeader { rows, cols })
         }
-        _ => Err(format!("unsupported shape rank {}: {shape_content}", parts.len())),
+        _ => Err(format!(
+            "unsupported shape rank {}: {shape_content}",
+            parts.len()
+        )),
     }
 }
 
@@ -173,9 +176,8 @@ mod tests {
 
     /// Build a minimal valid .npy file in memory with the given shape and f32 data.
     fn build_npy(rows: usize, cols: usize, data: &[f32]) -> Vec<u8> {
-        let header_dict = format!(
-            "{{'descr': '<f4', 'fortran_order': False, 'shape': ({rows}, {cols}), }}"
-        );
+        let header_dict =
+            format!("{{'descr': '<f4', 'fortran_order': False, 'shape': ({rows}, {cols}), }}");
         // Pad header to 64-byte alignment (magic=6 + version=2 + header_len=2 + dict)
         let preamble_len = 6 + 2 + 2;
         let total_header = preamble_len + header_dict.len();

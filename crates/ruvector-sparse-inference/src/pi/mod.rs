@@ -26,15 +26,15 @@
 //! - Agents as reflexes
 //! - Precision as policy
 
-pub mod constants;
-pub mod drift;
 pub mod angular;
 pub mod chaos;
+pub mod constants;
+pub mod drift;
 
+pub use angular::{AngularEmbedding, HypersphericalProjection, PhaseEncoder};
+pub use chaos::{DeterministicJitter, PiChaos, PiScheduler};
 pub use constants::{PiCalibration, PI_SCALE_3BIT, PI_SCALE_5BIT, PI_SCALE_7BIT};
 pub use drift::{DriftDetector, DriftReport, QuantizationHonesty};
-pub use angular::{AngularEmbedding, PhaseEncoder, HypersphericalProjection};
-pub use chaos::{PiChaos, DeterministicJitter, PiScheduler};
 
 use crate::precision::PrecisionLane;
 

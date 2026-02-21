@@ -186,9 +186,8 @@ impl NegativeCache {
     }
 
     fn evict_expired(&mut self, now: Instant) {
-        self.entries.retain(|_, entry| {
-            now.duration_since(entry.first_seen) <= self.window
-        });
+        self.entries
+            .retain(|_, entry| now.duration_since(entry.first_seen) <= self.window);
     }
 
     fn evict_oldest(&mut self) {

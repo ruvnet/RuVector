@@ -4,11 +4,11 @@
 //! always the last 4096 bytes. If that's invalid, we scan backward at
 //! 64-byte boundaries looking for a MANIFEST_SEG header.
 
-use rvf_types::{
-    ErrorCode, RvfError, SegmentHeader, SegmentType, SEGMENT_ALIGNMENT, SEGMENT_HEADER_SIZE,
-    SEGMENT_MAGIC, SEGMENT_VERSION, ROOT_MANIFEST_MAGIC, ROOT_MANIFEST_SIZE,
-};
 use crate::reader::read_segment_header;
+use rvf_types::{
+    ErrorCode, RvfError, SegmentHeader, SegmentType, ROOT_MANIFEST_MAGIC, ROOT_MANIFEST_SIZE,
+    SEGMENT_ALIGNMENT, SEGMENT_HEADER_SIZE, SEGMENT_MAGIC, SEGMENT_VERSION,
+};
 
 /// Find the latest manifest segment in `data` by scanning from the tail.
 ///
@@ -36,12 +36,8 @@ pub fn find_latest_manifest(data: &[u8]) -> Result<(usize, SegmentHeader), RvfEr
         let root_start = data.len() - ROOT_MANIFEST_SIZE;
         let root_slice = &data[root_start..];
         if root_slice.len() >= 4 {
-            let root_magic = u32::from_le_bytes([
-                root_slice[0],
-                root_slice[1],
-                root_slice[2],
-                root_slice[3],
-            ]);
+            let root_magic =
+                u32::from_le_bytes([root_slice[0], root_slice[1], root_slice[2], root_slice[3]]);
             if root_magic == ROOT_MANIFEST_MAGIC {
                 // Scan backward from root_start for the enclosing MANIFEST_SEG header
                 let scan_limit = root_start.saturating_sub(64 * 1024);
@@ -50,9 +46,8 @@ pub fn find_latest_manifest(data: &[u8]) -> Result<(usize, SegmentHeader), RvfEr
                     if scan_pos + SEGMENT_HEADER_SIZE <= data.len() {
                         if let Ok(header) = read_segment_header(&data[scan_pos..]) {
                             if header.seg_type == SegmentType::Manifest as u8 {
-                                let seg_end = scan_pos
-                                    + SEGMENT_HEADER_SIZE
-                                    + header.payload_length as usize;
+                                let seg_end =
+                                    scan_pos + SEGMENT_HEADER_SIZE + header.payload_length as usize;
                                 if seg_end >= root_start + ROOT_MANIFEST_SIZE
                                     || seg_end >= data.len()
                                 {
@@ -144,12 +139,7 @@ mod tests {
 
     #[test]
     fn find_latest_of_multiple_manifests() {
-        let vec_seg = write_segment(
-            SegmentType::Vec as u8,
-            &[0u8; 32],
-            SegmentFlags::empty(),
-            0,
-        );
+        let vec_seg = write_segment(SegmentType::Vec as u8, &[0u8; 32], SegmentFlags::empty(), 0);
         let m1 = make_manifest_segment(1, &[0u8; 32]);
         let m2 = make_manifest_segment(2, &[0u8; 32]);
         let mut file = vec_seg;

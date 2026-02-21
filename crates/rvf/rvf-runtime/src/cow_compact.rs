@@ -168,8 +168,7 @@ mod tests {
         local_data.insert(0, vec![0xAA; 256]);
         local_data.insert(2, vec![0xBB; 256]);
 
-        let result =
-            CowCompactor::compact_read_optimize(&mut map, &local_data, 256).unwrap();
+        let result = CowCompactor::compact_read_optimize(&mut map, &local_data, 256).unwrap();
 
         assert_eq!(result.clusters_affected, 2);
 
@@ -190,15 +189,14 @@ mod tests {
 
         let mut local_data = HashMap::new();
         local_data.insert(0, shared_data.clone()); // same as parent
-        local_data.insert(1, different_data);       // different from parent
+        local_data.insert(1, different_data); // different from parent
 
         let mut parent_data = HashMap::new();
         parent_data.insert(0, shared_data); // matches local
         parent_data.insert(1, vec![0xCC; 128]); // does not match local
 
         let result =
-            CowCompactor::compact_space_reclaim(&mut map, &local_data, &parent_data, 128)
-                .unwrap();
+            CowCompactor::compact_space_reclaim(&mut map, &local_data, &parent_data, 128).unwrap();
 
         assert_eq!(result.clusters_deduplicated, 1);
         assert_eq!(result.bytes_reclaimed, 128);

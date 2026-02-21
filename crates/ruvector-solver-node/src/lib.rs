@@ -566,21 +566,53 @@ fn dispatch_solver(
     max_iterations: usize,
 ) -> (Vec<f64>, usize, f64, bool, Vec<(usize, f64)>) {
     match algo {
-        Algorithm::Jacobi => {
-            solve_jacobi(row_ptrs, col_indices, values, rhs, rows, tolerance, max_iterations)
-        }
-        Algorithm::GaussSeidel => {
-            solve_gauss_seidel(row_ptrs, col_indices, values, rhs, rows, tolerance, max_iterations)
-        }
-        Algorithm::Neumann => {
-            solve_neumann(row_ptrs, col_indices, values, rhs, rows, tolerance, max_iterations)
-        }
-        Algorithm::CG => {
-            solve_cg(row_ptrs, col_indices, values, rhs, rows, tolerance, max_iterations)
-        }
+        Algorithm::Jacobi => solve_jacobi(
+            row_ptrs,
+            col_indices,
+            values,
+            rhs,
+            rows,
+            tolerance,
+            max_iterations,
+        ),
+        Algorithm::GaussSeidel => solve_gauss_seidel(
+            row_ptrs,
+            col_indices,
+            values,
+            rhs,
+            rows,
+            tolerance,
+            max_iterations,
+        ),
+        Algorithm::Neumann => solve_neumann(
+            row_ptrs,
+            col_indices,
+            values,
+            rhs,
+            rows,
+            tolerance,
+            max_iterations,
+        ),
+        Algorithm::CG => solve_cg(
+            row_ptrs,
+            col_indices,
+            values,
+            rhs,
+            rows,
+            tolerance,
+            max_iterations,
+        ),
         // Forward/backward push are graph algorithms, not general linear solvers.
         // Fall back to Jacobi.
-        _ => solve_jacobi(row_ptrs, col_indices, values, rhs, rows, tolerance, max_iterations),
+        _ => solve_jacobi(
+            row_ptrs,
+            col_indices,
+            values,
+            rhs,
+            rows,
+            tolerance,
+            max_iterations,
+        ),
     }
 }
 
@@ -663,12 +695,22 @@ impl NapiSolver {
 
         let rows = config.rows as usize;
         let cols = config.cols as usize;
-        validate_csr_input(&config.values, &config.col_indices, &config.row_ptrs, rows, cols)?;
+        validate_csr_input(
+            &config.values,
+            &config.col_indices,
+            &config.row_ptrs,
+            rows,
+            cols,
+        )?;
 
         if config.rhs.len() != rows {
             return Err(Error::new(
                 Status::InvalidArg,
-                format!("rhs length {} does not match rows = {}", config.rhs.len(), rows),
+                format!(
+                    "rhs length {} does not match rows = {}",
+                    config.rhs.len(),
+                    rows
+                ),
             ));
         }
 
@@ -680,8 +722,16 @@ impl NapiSolver {
         let result = tokio::task::spawn_blocking(move || {
             let start = Instant::now();
 
-            let (solution, iterations, residual, converged, _history) =
-                dispatch_solver(algo, &row_ptrs, &col_indices, &values, &rhs, rows, tolerance, max_iterations);
+            let (solution, iterations, residual, converged, _history) = dispatch_solver(
+                algo,
+                &row_ptrs,
+                &col_indices,
+                &values,
+                &rhs,
+                rows,
+                tolerance,
+                max_iterations,
+            );
 
             let elapsed_us = start.elapsed().as_micros().min(u32::MAX as u128) as u32;
 
@@ -719,9 +769,8 @@ impl NapiSolver {
     /// ```
     #[napi]
     pub async fn solve_json(&self, json: String) -> Result<String> {
-        let input: SolveJsonInput = serde_json::from_str(&json).map_err(|e| {
-            Error::new(Status::InvalidArg, format!("Invalid JSON input: {}", e))
-        })?;
+        let input: SolveJsonInput = serde_json::from_str(&json)
+            .map_err(|e| Error::new(Status::InvalidArg, format!("Invalid JSON input: {}", e)))?;
 
         let config = SolveConfig {
             values: input.values,
@@ -747,7 +796,10 @@ impl NapiSolver {
         };
 
         serde_json::to_string(&output).map_err(|e| {
-            Error::new(Status::GenericFailure, format!("Serialization error: {}", e))
+            Error::new(
+                Status::GenericFailure,
+                format!("Serialization error: {}", e),
+            )
         })
     }
 
@@ -813,8 +865,7 @@ impl NapiSolver {
         let result = tokio::task::spawn_blocking(move || {
             let start = Instant::now();
 
-            let p = personalization
-                .unwrap_or_else(|| vec![1.0 / num_nodes as f64; num_nodes]);
+            let p = personalization.unwrap_or_else(|| vec![1.0 / num_nodes as f64; num_nodes]);
 
             // Compute out-degrees for row-stochastic normalization.
             let mut out_degree = vec![0.0f64; num_nodes];
@@ -984,12 +1035,22 @@ impl NapiSolver {
 
         let rows = config.rows as usize;
         let cols = config.cols as usize;
-        validate_csr_input(&config.values, &config.col_indices, &config.row_ptrs, rows, cols)?;
+        validate_csr_input(
+            &config.values,
+            &config.col_indices,
+            &config.row_ptrs,
+            rows,
+            cols,
+        )?;
 
         if config.rhs.len() != rows {
             return Err(Error::new(
                 Status::InvalidArg,
-                format!("rhs length {} does not match rows = {}", config.rhs.len(), rows),
+                format!(
+                    "rhs length {} does not match rows = {}",
+                    config.rhs.len(),
+                    rows
+                ),
             ));
         }
 
@@ -1001,8 +1062,16 @@ impl NapiSolver {
         let result = tokio::task::spawn_blocking(move || {
             let start = Instant::now();
 
-            let (solution, iterations, residual, converged, history) =
-                dispatch_solver(algo, &row_ptrs, &col_indices, &values, &rhs, rows, tolerance, max_iterations);
+            let (solution, iterations, residual, converged, history) = dispatch_solver(
+                algo,
+                &row_ptrs,
+                &col_indices,
+                &values,
+                &rhs,
+                rows,
+                tolerance,
+                max_iterations,
+            );
 
             let elapsed_us = start.elapsed().as_micros().min(u32::MAX as u128) as u32;
 

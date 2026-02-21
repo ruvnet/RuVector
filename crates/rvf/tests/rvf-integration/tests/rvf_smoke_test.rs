@@ -94,13 +94,19 @@ fn rvf_smoke_full_lifecycle() {
     // -----------------------------------------------------------------------
     // Step 1: Create a new RVF store with dimension 128 and cosine metric
     // -----------------------------------------------------------------------
-    let mut store = RvfStore::create(&store_path, options.clone())
-        .expect("step 1: failed to create store");
+    let mut store =
+        RvfStore::create(&store_path, options.clone()).expect("step 1: failed to create store");
 
     // Verify initial state.
     let initial_status = store.status();
-    assert_eq!(initial_status.total_vectors, 0, "step 1: new store should be empty");
-    assert!(!initial_status.read_only, "step 1: new store should not be read-only");
+    assert_eq!(
+        initial_status.total_vectors, 0,
+        "step 1: new store should be empty"
+    );
+    assert!(
+        !initial_status.read_only,
+        "step 1: new store should not be read-only"
+    );
 
     // -----------------------------------------------------------------------
     // Step 2: Ingest 100 random vectors with metadata
@@ -129,8 +135,14 @@ fn rvf_smoke_full_lifecycle() {
         "step 2: all {} vectors should be accepted",
         vector_count,
     );
-    assert_eq!(ingest_result.rejected, 0, "step 2: no vectors should be rejected");
-    assert!(ingest_result.epoch > 0, "step 2: epoch should advance after ingest");
+    assert_eq!(
+        ingest_result.rejected, 0,
+        "step 2: no vectors should be rejected"
+    );
+    assert!(
+        ingest_result.epoch > 0,
+        "step 2: epoch should advance after ingest"
+    );
 
     // -----------------------------------------------------------------------
     // Step 3: Query for 10 nearest neighbors of a known vector
@@ -226,14 +238,10 @@ fn rvf_smoke_full_lifecycle() {
     );
 
     // Build a map of id -> distance for comparison.
-    let first_map: std::collections::HashMap<u64, f32> = results_first
-        .iter()
-        .map(|r| (r.id, r.distance))
-        .collect();
-    let second_map: std::collections::HashMap<u64, f32> = results_second
-        .iter()
-        .map(|r| (r.id, r.distance))
-        .collect();
+    let first_map: std::collections::HashMap<u64, f32> =
+        results_first.iter().map(|r| (r.id, r.distance)).collect();
+    let second_map: std::collections::HashMap<u64, f32> =
+        results_second.iter().map(|r| (r.id, r.distance)).collect();
 
     // Verify the exact same IDs appear in both result sets.
     let mut first_ids: Vec<u64> = first_map.keys().copied().collect();
@@ -252,22 +260,24 @@ fn rvf_smoke_full_lifecycle() {
         assert!(
             (d1 - d2).abs() < 1e-5,
             "step 8: distance mismatch for id={}: {} vs {} (pre vs post restart)",
-            id, d1, d2,
+            id,
+            d1,
+            d2,
         );
     }
 
     // Need a mutable store for delete/compact. Drop the read-write handle and
     // reopen it mutably.
-    store.close().expect("step 8: close for mutable reopen failed");
+    store
+        .close()
+        .expect("step 8: close for mutable reopen failed");
     let mut store = RvfStore::open(&store_path).expect("step 8: mutable reopen failed");
 
     // -----------------------------------------------------------------------
     // Step 9: Delete some vectors (ids 1..=10)
     // -----------------------------------------------------------------------
     let delete_ids: Vec<u64> = (1..=10).collect();
-    let del_result = store
-        .delete(&delete_ids)
-        .expect("step 9: delete failed");
+    let del_result = store.delete(&delete_ids).expect("step 9: delete failed");
 
     assert_eq!(
         del_result.deleted, 10,
@@ -499,9 +509,7 @@ fn smoke_multi_restart_persistence() {
     // Cycle 1: create and ingest 50 vectors.
     {
         let mut store = RvfStore::create(&path, options.clone()).unwrap();
-        let vectors: Vec<Vec<f32>> = (0..50)
-            .map(|i| random_vector(dim as usize, i))
-            .collect();
+        let vectors: Vec<Vec<f32>> = (0..50).map(|i| random_vector(dim as usize, i)).collect();
         let refs: Vec<&[f32]> = vectors.iter().map(|v| v.as_slice()).collect();
         let ids: Vec<u64> = (1..=50).collect();
         store.ingest_batch(&refs, &ids, None).unwrap();
@@ -514,15 +522,15 @@ fn smoke_multi_restart_persistence() {
         let mut store = RvfStore::open(&path).unwrap();
         assert_eq!(store.status().total_vectors, 50);
 
-        let vectors: Vec<Vec<f32>> = (50..100)
-            .map(|i| random_vector(dim as usize, i))
-            .collect();
+        let vectors: Vec<Vec<f32>> = (50..100).map(|i| random_vector(dim as usize, i)).collect();
         let refs: Vec<&[f32]> = vectors.iter().map(|v| v.as_slice()).collect();
         let ids: Vec<u64> = (51..=100).collect();
         store.ingest_batch(&refs, &ids, None).unwrap();
         assert_eq!(store.status().total_vectors, 100);
 
-        store.delete(&[5, 10, 15, 20, 25, 55, 60, 65, 70, 75]).unwrap();
+        store
+            .delete(&[5, 10, 15, 20, 25, 55, 60, 65, 70, 75])
+            .unwrap();
         assert_eq!(store.status().total_vectors, 90);
 
         store.close().unwrap();
@@ -532,7 +540,8 @@ fn smoke_multi_restart_persistence() {
     {
         let mut store = RvfStore::open(&path).unwrap();
         assert_eq!(
-            store.status().total_vectors, 90,
+            store.status().total_vectors,
+            90,
             "cycle 3: 90 vectors should survive two restarts",
         );
 
@@ -558,7 +567,8 @@ fn smoke_multi_restart_persistence() {
     {
         let store = RvfStore::open_readonly(&path).unwrap();
         assert_eq!(
-            store.status().total_vectors, 90,
+            store.status().total_vectors,
+            90,
             "cycle 4: 90 vectors should survive compact + restart",
         );
         assert!(store.status().read_only);

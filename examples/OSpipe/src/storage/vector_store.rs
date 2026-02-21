@@ -292,10 +292,8 @@ mod native {
                 max_elements: 10_000_000,
             };
 
-            let index =
-                HnswIndex::new(dimension, DistanceMetric::Cosine, hnsw_config).map_err(|e| {
-                    OsPipeError::Storage(format!("Failed to create HNSW index: {}", e))
-                })?;
+            let index = HnswIndex::new(dimension, DistanceMetric::Cosine, hnsw_config)
+                .map_err(|e| OsPipeError::Storage(format!("Failed to create HNSW index: {}", e)))?;
 
             let ef_search = config.hnsw_ef_search;
 

@@ -181,7 +181,9 @@ fn dot_product_scalar(a: &[f32], b: &[f32]) -> f32 {
 
 #[cfg(not(target_arch = "wasm32"))]
 fn relu_scalar(data: &mut [f32]) {
-    for x in data.iter_mut() { *x = x.max(0.0); }
+    for x in data.iter_mut() {
+        *x = x.max(0.0);
+    }
 }
 
 fn gelu_scalar(data: &mut [f32]) {

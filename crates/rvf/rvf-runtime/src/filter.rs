@@ -87,7 +87,11 @@ impl MetadataStore {
     /// Get a field value for a vector.
     pub(crate) fn get_field(&self, vector_id: u64, field_id: u16) -> Option<&FilterValue> {
         let pos = self.id_to_pos.get(&vector_id)?;
-        self.entries.get(*pos)?.iter().find(|(fid, _)| *fid == field_id).map(|(_, v)| v)
+        self.entries
+            .get(*pos)?
+            .iter()
+            .find(|(fid, _)| *fid == field_id)
+            .map(|(_, v)| v)
     }
 
     /// Remove all metadata for the given vector IDs.
@@ -107,56 +111,50 @@ impl MetadataStore {
 /// Evaluate a filter expression against a single vector's metadata.
 pub(crate) fn evaluate(expr: &FilterExpr, vector_id: u64, meta: &MetadataStore) -> bool {
     match expr {
-        FilterExpr::Eq(field_id, val) => {
-            meta.get_field(vector_id, *field_id)
-                .map(|v| v == val)
-                .unwrap_or(false)
-        }
-        FilterExpr::Ne(field_id, val) => {
-            meta.get_field(vector_id, *field_id)
-                .map(|v| v != val)
-                .unwrap_or(true)
-        }
-        FilterExpr::Lt(field_id, val) => {
-            meta.get_field(vector_id, *field_id)
-                .and_then(|v| v.partial_cmp_value(val))
-                .map(|ord| ord == std::cmp::Ordering::Less)
-                .unwrap_or(false)
-        }
-        FilterExpr::Le(field_id, val) => {
-            meta.get_field(vector_id, *field_id)
-                .and_then(|v| v.partial_cmp_value(val))
-                .map(|ord| ord != std::cmp::Ordering::Greater)
-                .unwrap_or(false)
-        }
-        FilterExpr::Gt(field_id, val) => {
-            meta.get_field(vector_id, *field_id)
-                .and_then(|v| v.partial_cmp_value(val))
-                .map(|ord| ord == std::cmp::Ordering::Greater)
-                .unwrap_or(false)
-        }
-        FilterExpr::Ge(field_id, val) => {
-            meta.get_field(vector_id, *field_id)
-                .and_then(|v| v.partial_cmp_value(val))
-                .map(|ord| ord != std::cmp::Ordering::Less)
-                .unwrap_or(false)
-        }
-        FilterExpr::In(field_id, vals) => {
-            meta.get_field(vector_id, *field_id)
-                .map(|v| vals.contains(v))
-                .unwrap_or(false)
-        }
-        FilterExpr::Range(field_id, low, high) => {
-            meta.get_field(vector_id, *field_id)
-                .and_then(|v| {
-                    let ge_low = v.partial_cmp_value(low)
-                        .map(|o| o != std::cmp::Ordering::Less)?;
-                    let lt_high = v.partial_cmp_value(high)
-                        .map(|o| o == std::cmp::Ordering::Less)?;
-                    Some(ge_low && lt_high)
-                })
-                .unwrap_or(false)
-        }
+        FilterExpr::Eq(field_id, val) => meta
+            .get_field(vector_id, *field_id)
+            .map(|v| v == val)
+            .unwrap_or(false),
+        FilterExpr::Ne(field_id, val) => meta
+            .get_field(vector_id, *field_id)
+            .map(|v| v != val)
+            .unwrap_or(true),
+        FilterExpr::Lt(field_id, val) => meta
+            .get_field(vector_id, *field_id)
+            .and_then(|v| v.partial_cmp_value(val))
+            .map(|ord| ord == std::cmp::Ordering::Less)
+            .unwrap_or(false),
+        FilterExpr::Le(field_id, val) => meta
+            .get_field(vector_id, *field_id)
+            .and_then(|v| v.partial_cmp_value(val))
+            .map(|ord| ord != std::cmp::Ordering::Greater)
+            .unwrap_or(false),
+        FilterExpr::Gt(field_id, val) => meta
+            .get_field(vector_id, *field_id)
+            .and_then(|v| v.partial_cmp_value(val))
+            .map(|ord| ord == std::cmp::Ordering::Greater)
+            .unwrap_or(false),
+        FilterExpr::Ge(field_id, val) => meta
+            .get_field(vector_id, *field_id)
+            .and_then(|v| v.partial_cmp_value(val))
+            .map(|ord| ord != std::cmp::Ordering::Less)
+            .unwrap_or(false),
+        FilterExpr::In(field_id, vals) => meta
+            .get_field(vector_id, *field_id)
+            .map(|v| vals.contains(v))
+            .unwrap_or(false),
+        FilterExpr::Range(field_id, low, high) => meta
+            .get_field(vector_id, *field_id)
+            .and_then(|v| {
+                let ge_low = v
+                    .partial_cmp_value(low)
+                    .map(|o| o != std::cmp::Ordering::Less)?;
+                let lt_high = v
+                    .partial_cmp_value(high)
+                    .map(|o| o == std::cmp::Ordering::Less)?;
+                Some(ge_low && lt_high)
+            })
+            .unwrap_or(false),
         FilterExpr::And(exprs) => exprs.iter().all(|e| evaluate(e, vector_id, meta)),
         FilterExpr::Or(exprs) => exprs.iter().any(|e| evaluate(e, vector_id, meta)),
         FilterExpr::Not(expr) => !evaluate(expr, vector_id, meta),
@@ -180,18 +178,27 @@ mod tests {
 
     fn make_store() -> MetadataStore {
         let mut store = MetadataStore::new();
-        store.insert(0, vec![
-            (0, FilterValue::String("apple".into())),
-            (1, FilterValue::U64(100)),
-        ]);
-        store.insert(1, vec![
-            (0, FilterValue::String("banana".into())),
-            (1, FilterValue::U64(200)),
-        ]);
-        store.insert(2, vec![
-            (0, FilterValue::String("apple".into())),
-            (1, FilterValue::U64(300)),
-        ]);
+        store.insert(
+            0,
+            vec![
+                (0, FilterValue::String("apple".into())),
+                (1, FilterValue::U64(100)),
+            ],
+        );
+        store.insert(
+            1,
+            vec![
+                (0, FilterValue::String("banana".into())),
+                (1, FilterValue::U64(200)),
+            ],
+        );
+        store.insert(
+            2,
+            vec![
+                (0, FilterValue::String("apple".into())),
+                (1, FilterValue::U64(300)),
+            ],
+        );
         store
     }
 
@@ -217,7 +224,7 @@ mod tests {
         let store = make_store();
         let expr = FilterExpr::Range(1, FilterValue::U64(150), FilterValue::U64(250));
         assert!(!evaluate(&expr, 0, &store)); // 100 < 150
-        assert!(evaluate(&expr, 1, &store));  // 200 in [150, 250)
+        assert!(evaluate(&expr, 1, &store)); // 200 in [150, 250)
         assert!(!evaluate(&expr, 2, &store)); // 300 >= 250
     }
 
@@ -230,15 +237,16 @@ mod tests {
         ]);
         assert!(!evaluate(&expr, 0, &store)); // apple but 100 <= 150
         assert!(!evaluate(&expr, 1, &store)); // banana
-        assert!(evaluate(&expr, 2, &store));  // apple and 300 > 150
+        assert!(evaluate(&expr, 2, &store)); // apple and 300 > 150
     }
 
     #[test]
     fn filter_not() {
         let store = make_store();
-        let expr = FilterExpr::Not(Box::new(
-            FilterExpr::Eq(0, FilterValue::String("apple".into())),
-        ));
+        let expr = FilterExpr::Not(Box::new(FilterExpr::Eq(
+            0,
+            FilterValue::String("apple".into()),
+        )));
         assert!(!evaluate(&expr, 0, &store));
         assert!(evaluate(&expr, 1, &store));
     }

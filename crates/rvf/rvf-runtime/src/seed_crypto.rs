@@ -83,10 +83,7 @@ pub fn verify_content_hash(expected: &[u8; 8], data: &[u8]) -> bool {
 /// This is asymmetric: only the holder of the secret key can sign,
 /// but anyone with the corresponding public key can verify.
 #[cfg(feature = "ed25519")]
-pub fn sign_seed_ed25519(
-    secret_key: &[u8; 32],
-    payload: &[u8],
-) -> [u8; 64] {
+pub fn sign_seed_ed25519(secret_key: &[u8; 32], payload: &[u8]) -> [u8; 64] {
     rvf_types::ed25519::ed25519_sign(secret_key, payload)
 }
 
@@ -95,11 +92,7 @@ pub fn sign_seed_ed25519(
 /// Takes a 32-byte public key and a 64-byte signature.
 /// Returns `true` if the signature is valid for the given payload.
 #[cfg(feature = "ed25519")]
-pub fn verify_seed_ed25519(
-    public_key: &[u8; 32],
-    payload: &[u8],
-    signature: &[u8],
-) -> bool {
+pub fn verify_seed_ed25519(public_key: &[u8; 32], payload: &[u8], signature: &[u8]) -> bool {
     if signature.len() != 64 {
         return false;
     }

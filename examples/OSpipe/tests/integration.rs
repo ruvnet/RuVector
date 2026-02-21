@@ -3,12 +3,12 @@
 use ospipe::capture::{CaptureSource, CapturedFrame};
 use ospipe::config::{OsPipeConfig, SafetyConfig, StorageConfig};
 use ospipe::graph::KnowledgeGraph;
-use ospipe::pipeline::{IngestionPipeline, IngestResult};
+use ospipe::pipeline::{IngestResult, IngestionPipeline};
 use ospipe::safety::{SafetyDecision, SafetyGate};
 use ospipe::search::enhanced::EnhancedSearch;
+use ospipe::search::hybrid::HybridSearch;
 use ospipe::search::reranker::AttentionReranker;
 use ospipe::search::router::{QueryRoute, QueryRouter};
-use ospipe::search::hybrid::HybridSearch;
 use ospipe::storage::embedding::{cosine_similarity, EmbeddingEngine};
 use ospipe::storage::vector_store::{SearchFilter, VectorStore};
 
@@ -39,7 +39,10 @@ fn test_config_serialization_roundtrip() {
     let config = OsPipeConfig::default();
     let json = serde_json::to_string(&config).expect("serialize");
     let deserialized: OsPipeConfig = serde_json::from_str(&json).expect("deserialize");
-    assert_eq!(deserialized.storage.embedding_dim, config.storage.embedding_dim);
+    assert_eq!(
+        deserialized.storage.embedding_dim,
+        config.storage.embedding_dim
+    );
     assert_eq!(deserialized.capture.fps, config.capture.fps);
 }
 
@@ -52,9 +55,15 @@ fn test_captured_frame_screen() {
     let frame = CapturedFrame::new_screen("Firefox", "GitHub - main", "hello world", 0);
     assert_eq!(frame.text_content(), "hello world");
     assert_eq!(frame.content_type(), "ocr");
-    assert!(matches!(frame.source, CaptureSource::Screen { monitor: 0, .. }));
+    assert!(matches!(
+        frame.source,
+        CaptureSource::Screen { monitor: 0, .. }
+    ));
     assert_eq!(frame.metadata.app_name.as_deref(), Some("Firefox"));
-    assert_eq!(frame.metadata.window_title.as_deref(), Some("GitHub - main"));
+    assert_eq!(
+        frame.metadata.window_title.as_deref(),
+        Some("GitHub - main")
+    );
 }
 
 #[test]
@@ -106,7 +115,12 @@ fn test_vector_store_insert_and_search() {
 
     // Insert some frames
     let frames = vec![
-        CapturedFrame::new_screen("VS Code", "main.rs", "fn main() { println!(\"hello\"); }", 0),
+        CapturedFrame::new_screen(
+            "VS Code",
+            "main.rs",
+            "fn main() { println!(\"hello\"); }",
+            0,
+        ),
         CapturedFrame::new_screen("Firefox", "Rust docs", "The Rust Programming Language", 0),
         CapturedFrame::new_audio("Mic", "discussing the project architecture", None),
     ];
@@ -127,7 +141,10 @@ fn test_vector_store_insert_and_search() {
 
     // The top result should be the exact match
     assert_eq!(results[0].id, frames[0].id);
-    assert!((results[0].score - 1.0).abs() < 1e-5, "Exact match should have score ~1.0");
+    assert!(
+        (results[0].score - 1.0).abs() < 1e-5,
+        "Exact match should have score ~1.0"
+    );
 }
 
 #[test]
@@ -195,7 +212,10 @@ fn test_frame_deduplication() {
     // Identical text should be detected as duplicate
     let emb2 = engine.embed("hello world");
     let result = dedup.is_duplicate(&emb2);
-    assert!(result.is_some(), "Identical text should be detected as duplicate");
+    assert!(
+        result.is_some(),
+        "Identical text should be detected as duplicate"
+    );
     let (dup_id, sim) = result.unwrap();
     assert_eq!(dup_id, id1);
     assert!((sim - 1.0).abs() < 1e-5);
@@ -334,7 +354,10 @@ fn test_safety_redact_method() {
 #[test]
 fn test_query_router_temporal() {
     let router = QueryRouter::new();
-    assert_eq!(router.route("what did I see yesterday"), QueryRoute::Temporal);
+    assert_eq!(
+        router.route("what did I see yesterday"),
+        QueryRoute::Temporal
+    );
     assert_eq!(router.route("show me last week"), QueryRoute::Temporal);
     assert_eq!(router.route("results from today"), QueryRoute::Temporal);
 }
@@ -763,14 +786,31 @@ use std::collections::HashMap;
 
 #[test]
 fn test_graph_entity_extraction_from_text() {
-    let text = "Meeting with John Smith at https://meet.example.com. Contact @alice or bob@company.org.";
+    let text =
+        "Meeting with John Smith at https://meet.example.com. Contact @alice or bob@company.org.";
     let entities = KnowledgeGraph::extract_entities(text);
 
     let labels: Vec<&str> = entities.iter().map(|(l, _)| l.as_str()).collect();
-    assert!(labels.contains(&"Url"), "Expected a Url entity, got: {:?}", entities);
-    assert!(labels.contains(&"Mention"), "Expected a Mention entity, got: {:?}", entities);
-    assert!(labels.contains(&"Email"), "Expected an Email entity, got: {:?}", entities);
-    assert!(labels.contains(&"Person"), "Expected a Person entity, got: {:?}", entities);
+    assert!(
+        labels.contains(&"Url"),
+        "Expected a Url entity, got: {:?}",
+        entities
+    );
+    assert!(
+        labels.contains(&"Mention"),
+        "Expected a Mention entity, got: {:?}",
+        entities
+    );
+    assert!(
+        labels.contains(&"Email"),
+        "Expected an Email entity, got: {:?}",
+        entities
+    );
+    assert!(
+        labels.contains(&"Person"),
+        "Expected a Person entity, got: {:?}",
+        entities
+    );
 
     let url_entity = entities.iter().find(|(l, _)| l == "Url").unwrap();
     assert_eq!(url_entity.1, "https://meet.example.com");
@@ -791,12 +831,19 @@ fn test_graph_add_entity_and_find_by_label() {
     props.insert("role".to_string(), "engineer".to_string());
     let id1 = kg.add_entity("Person", "Alice", props).unwrap();
     let id2 = kg.add_entity("Person", "Bob", HashMap::new()).unwrap();
-    let _id3 = kg.add_entity("Url", "https://example.com", HashMap::new()).unwrap();
+    let _id3 = kg
+        .add_entity("Url", "https://example.com", HashMap::new())
+        .unwrap();
 
     assert_ne!(id1, id2, "Entity IDs must be unique");
 
     let people = kg.find_by_label("Person");
-    assert_eq!(people.len(), 2, "Expected 2 Person entities, got: {:?}", people);
+    assert_eq!(
+        people.len(),
+        2,
+        "Expected 2 Person entities, got: {:?}",
+        people
+    );
 
     let urls = kg.find_by_label("Url");
     assert_eq!(urls.len(), 1);
@@ -812,7 +859,9 @@ fn test_graph_add_relationship_and_neighbors() {
     let project_id = kg.add_entity("Topic", "RuVector", HashMap::new()).unwrap();
 
     let edge1 = kg.add_relationship(&alice_id, &bob_id, "KNOWS").unwrap();
-    let edge2 = kg.add_relationship(&alice_id, &project_id, "WORKS_ON").unwrap();
+    let edge2 = kg
+        .add_relationship(&alice_id, &project_id, "WORKS_ON")
+        .unwrap();
     assert_ne!(edge1, edge2);
 
     // Alice should have 2 neighbours (Bob and RuVector).
@@ -836,10 +885,7 @@ fn test_graph_ingest_frame_entities() {
     let text = "John Smith visited https://docs.rs and contacted @rustlang";
 
     let entity_ids = kg.ingest_frame_entities("frame-42", text).unwrap();
-    assert!(
-        !entity_ids.is_empty(),
-        "Should extract at least one entity"
-    );
+    assert!(!entity_ids.is_empty(), "Should extract at least one entity");
 
     // The frame node should exist.
     let frames = kg.find_by_label("Frame");
@@ -860,7 +906,9 @@ fn test_graph_ingest_idempotent_frame_node() {
     let kg = KnowledgeGraph::new();
 
     let _ids1 = kg.ingest_frame_entities("frame-99", "Hello World").unwrap();
-    let _ids2 = kg.ingest_frame_entities("frame-99", "Visit https://example.com/test").unwrap();
+    let _ids2 = kg
+        .ingest_frame_entities("frame-99", "Visit https://example.com/test")
+        .unwrap();
 
     // Should still have only 1 frame node.
     let frames = kg.find_by_label("Frame");
@@ -943,10 +991,7 @@ fn test_quantum_diversity_select_basic() {
 #[test]
 fn test_quantum_diversity_select_k_exceeds_input() {
     let qs = QuantumSearch::new();
-    let scores = vec![
-        ("a".to_string(), 0.9),
-        ("b".to_string(), 0.5),
-    ];
+    let scores = vec![("a".to_string(), 0.9), ("b".to_string(), 0.5)];
 
     let selected = qs.diversity_select(&scores, 10);
     assert_eq!(selected.len(), 2, "Should return at most input length");
@@ -956,7 +1001,10 @@ fn test_quantum_diversity_select_k_exceeds_input() {
 fn test_quantum_diversity_select_empty() {
     let qs = QuantumSearch::new();
     let selected = qs.diversity_select(&[], 3);
-    assert!(selected.is_empty(), "Empty input should produce empty output");
+    assert!(
+        selected.is_empty(),
+        "Empty input should produce empty output"
+    );
 }
 
 #[test]
@@ -1058,9 +1106,7 @@ fn test_quantum_amplitude_boost_all_same_side() {
 fn test_pipeline_with_graph_extracts_entities() {
     let config = OsPipeConfig::default();
     let kg = KnowledgeGraph::new();
-    let mut pipeline = IngestionPipeline::new(config)
-        .unwrap()
-        .with_graph(kg);
+    let mut pipeline = IngestionPipeline::new(config).unwrap().with_graph(kg);
 
     // Ingest a frame whose text contains extractable entities.
     let frame = CapturedFrame::new_screen(
@@ -1075,7 +1121,9 @@ fn test_pipeline_with_graph_extracts_entities() {
     assert!(matches!(result, IngestResult::Stored { .. }));
 
     // The knowledge graph should have extracted entities.
-    let kg = pipeline.knowledge_graph().expect("graph should be attached");
+    let kg = pipeline
+        .knowledge_graph()
+        .expect("graph should be attached");
     let frames = kg.find_by_label("Frame");
     assert_eq!(frames.len(), 1, "Should have created a Frame node");
 
@@ -1116,9 +1164,7 @@ fn test_pipeline_without_graph_still_works() {
 fn test_pipeline_graph_multiple_frames() {
     let config = OsPipeConfig::default();
     let kg = KnowledgeGraph::new();
-    let mut pipeline = IngestionPipeline::new(config)
-        .unwrap()
-        .with_graph(kg);
+    let mut pipeline = IngestionPipeline::new(config).unwrap().with_graph(kg);
 
     let frames = vec![
         CapturedFrame::new_screen("App", "Win1", "Alice Smith works at https://company.com", 0),
@@ -1171,7 +1217,10 @@ fn test_enhanced_search_empty_store() {
     let es = EnhancedSearch::new(384);
     let query_emb = engine.embed("test query");
     let results = es.search("test query", &query_emb, &store, 5).unwrap();
-    assert!(results.is_empty(), "Search on empty store should return no results");
+    assert!(
+        results.is_empty(),
+        "Search on empty store should return no results"
+    );
 }
 
 #[test]
@@ -1186,7 +1235,9 @@ fn test_enhanced_search_single_result() {
 
     let es = EnhancedSearch::new(384);
     let query_emb = engine.embed("unique single content");
-    let results = es.search("unique single content", &query_emb, &store, 5).unwrap();
+    let results = es
+        .search("unique single content", &query_emb, &store, 5)
+        .unwrap();
 
     assert_eq!(results.len(), 1, "Should find the single stored frame");
     assert_eq!(results[0].id, frame.id, "Should match the stored frame ID");
@@ -1234,7 +1285,10 @@ fn test_end_to_end_ingest_and_enhanced_search() {
     ];
 
     let results = pipeline.ingest_batch(frames).unwrap();
-    let stored_count = results.iter().filter(|r| matches!(r, IngestResult::Stored { .. })).count();
+    let stored_count = results
+        .iter()
+        .filter(|r| matches!(r, IngestResult::Stored { .. }))
+        .count();
     assert!(stored_count >= 3, "Most frames should be stored");
 
     // Search using the pipeline's convenience method (uses enhanced search).
@@ -1275,7 +1329,10 @@ fn test_pipeline_search_without_enhanced() {
     // Without enhanced search, the pipeline falls back to basic vector search.
     let results = pipeline.search("basic search content", 5).unwrap();
     assert!(!results.is_empty(), "Basic search should still work");
-    assert_eq!(results[0].score, 1.0, "Exact match should have score 1.0 (within tolerance)");
+    assert_eq!(
+        results[0].score, 1.0,
+        "Exact match should have score 1.0 (within tolerance)"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -1298,7 +1355,10 @@ fn test_vector_store_delete() {
     let removed = store.delete(&id).unwrap();
     assert!(removed, "delete should return true for existing id");
     assert_eq!(store.len(), 0);
-    assert!(store.get(&id).is_none(), "get should return None after delete");
+    assert!(
+        store.get(&id).is_none(),
+        "get should return None after delete"
+    );
 
     // Deleting again should return false
     let removed_again = store.delete(&id).unwrap();
@@ -1431,8 +1491,8 @@ fn test_embedding_engine_implements_trait() {
 mod hnsw_tests {
     use ospipe::capture::CapturedFrame;
     use ospipe::config::StorageConfig;
-    use ospipe::storage::vector_store::HnswVectorStore;
     use ospipe::storage::embedding::EmbeddingEngine;
+    use ospipe::storage::vector_store::HnswVectorStore;
     use ospipe::storage::vector_store::SearchFilter;
 
     #[test]
@@ -1442,7 +1502,12 @@ mod hnsw_tests {
         let engine = EmbeddingEngine::new(384);
 
         let frames = vec![
-            CapturedFrame::new_screen("VS Code", "main.rs", "fn main() { println!(\"hello\"); }", 0),
+            CapturedFrame::new_screen(
+                "VS Code",
+                "main.rs",
+                "fn main() { println!(\"hello\"); }",
+                0,
+            ),
             CapturedFrame::new_screen("Firefox", "Docs", "Rust programming language", 0),
             CapturedFrame::new_audio("Mic", "discussing architecture", None),
         ];
@@ -1560,8 +1625,8 @@ mod hnsw_tests {
 
     // --- RuvectorEmbeddingModel tests ---
 
-    use ospipe::storage::traits::RuvectorEmbeddingModel;
     use ospipe::storage::traits::EmbeddingModel;
+    use ospipe::storage::traits::RuvectorEmbeddingModel;
 
     #[test]
     fn test_ruvector_embedding_model_basic() {

@@ -70,7 +70,9 @@ impl Default for CoherenceCheck {
 impl CoherenceCheck {
     /// Create a `CoherenceCheck` with custom per-tier error bounds.
     pub fn new(max_relative_errors: [f32; 4]) -> Self {
-        Self { max_relative_errors }
+        Self {
+            max_relative_errors,
+        }
     }
 
     /// Validate read-after-write coherence for a block that was just written.
@@ -92,10 +94,7 @@ impl CoherenceCheck {
         now: u64,
     ) -> Result<CoherenceResult, StoreError> {
         // Look up the tier before reading (needed for the error bound).
-        let tier = store
-            .meta(key)
-            .ok_or(StoreError::BlockNotFound)?
-            .tier;
+        let tier = store.meta(key).ok_or(StoreError::BlockNotFound)?.tier;
 
         // Read back the block.
         let mut buf = vec![0.0f32; original_data.len()];
@@ -284,8 +283,7 @@ mod tests {
         assert!(
             result.passed,
             "Tier1 coherence should pass; max_error={}, bound={}",
-            result.max_error,
-            cc.max_relative_errors[1],
+            result.max_error, cc.max_relative_errors[1],
         );
         assert!(
             result.max_error < cc.max_relative_errors[1],
@@ -375,7 +373,9 @@ mod tests {
         let data: Vec<f32> = (0..64).map(|i| (i as f32 + 1.0) * 0.1).collect();
 
         let cc = CoherenceCheck::default();
-        let result = cc.verify_put(&mut store, key, &data, Tier::Tier1, 0).unwrap();
+        let result = cc
+            .verify_put(&mut store, key, &data, Tier::Tier1, 0)
+            .unwrap();
 
         assert_eq!(result.tier, Tier::Tier1);
         assert!(result.passed, "verify_put Tier1 should pass");
@@ -400,10 +400,16 @@ mod tests {
         let data: Vec<f32> = (0..64).map(|i| (i as f32 + 1.0) * 0.3).collect();
 
         let cc = CoherenceCheck::default();
-        let result = cc.verify_put(&mut store, key, &data, Tier::Tier2, 0).unwrap();
+        let result = cc
+            .verify_put(&mut store, key, &data, Tier::Tier2, 0)
+            .unwrap();
 
         assert_eq!(result.tier, Tier::Tier2);
-        assert!(result.passed, "verify_put Tier2 should pass; max_error={}", result.max_error);
+        assert!(
+            result.passed,
+            "verify_put Tier2 should pass; max_error={}",
+            result.max_error
+        );
     }
 
     // -- compute_max_relative_error -----------------------------------------
@@ -500,8 +506,14 @@ mod tests {
         let key = make_key(1, 0);
 
         let epoch = tracker.record_write(key);
-        assert!(!tracker.is_stale(key, epoch), "same epoch should not be stale");
-        assert!(!tracker.is_stale(key, epoch + 1), "future epoch should not be stale");
+        assert!(
+            !tracker.is_stale(key, epoch),
+            "same epoch should not be stale"
+        );
+        assert!(
+            !tracker.is_stale(key, epoch + 1),
+            "future epoch should not be stale"
+        );
 
         // Write again -> epoch advances.
         let _e2 = tracker.record_write(key);

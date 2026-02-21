@@ -84,8 +84,7 @@ pub fn compress(input: &[u8]) -> Vec<u8> {
             if candidate < pos && pos - candidate <= 4096 {
                 let max_len = core::cmp::min(10, input.len() - pos);
                 let mut match_len = 0;
-                while match_len < max_len
-                    && input[candidate + match_len] == input[pos + match_len]
+                while match_len < max_len && input[candidate + match_len] == input[pos + match_len]
                 {
                     match_len += 1;
                 }
@@ -137,12 +136,8 @@ pub fn decompress(compressed: &[u8]) -> Result<Vec<u8>, CompressError> {
         return Err(CompressError::TooShort);
     }
 
-    let original_size = u32::from_le_bytes([
-        compressed[0],
-        compressed[1],
-        compressed[2],
-        compressed[3],
-    ]) as usize;
+    let original_size =
+        u32::from_le_bytes([compressed[0], compressed[1], compressed[2], compressed[3]]) as usize;
 
     let mut output = Vec::with_capacity(original_size);
     let mut pos = 4;
@@ -262,7 +257,9 @@ mod tests {
 
     #[test]
     fn large_data_round_trip() {
-        let input: Vec<u8> = (0..8000).map(|i| ((i * 37 + i / 100) % 256) as u8).collect();
+        let input: Vec<u8> = (0..8000)
+            .map(|i| ((i * 37 + i / 100) % 256) as u8)
+            .collect();
         let compressed = compress(&input);
         let decompressed = decompress(&compressed).unwrap();
         assert_eq!(decompressed, input);

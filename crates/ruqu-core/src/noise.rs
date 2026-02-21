@@ -94,18 +94,10 @@ impl EnhancedNoiseModel {
         let idx = qubit as usize;
 
         // Gate error rate becomes the depolarizing rate.
-        let depolarizing_rate = cal
-            .gate_errors
-            .get(gate_name)
-            .copied()
-            .unwrap_or(0.0);
+        let depolarizing_rate = cal.gate_errors.get(gate_name).copied().unwrap_or(0.0);
 
         // Gate duration (needed for thermal relaxation conversion).
-        let gate_time = cal
-            .gate_times
-            .get(gate_name)
-            .copied()
-            .unwrap_or(0.0);
+        let gate_time = cal.gate_times.get(gate_name).copied().unwrap_or(0.0);
 
         // T1 and T2 values for this qubit.
         let t1 = cal.qubit_t1.get(idx).copied().unwrap_or(f64::INFINITY);
@@ -138,11 +130,7 @@ impl EnhancedNoiseModel {
         // Thermal relaxation if we have valid T1, T2, gate_time.
         let thermal_relaxation =
             if t1.is_finite() && t2.is_finite() && t1 > 0.0 && t2 > 0.0 && gate_time > 0.0 {
-                Some(ThermalRelaxation {
-                    t1,
-                    t2,
-                    gate_time,
-                })
+                Some(ThermalRelaxation { t1, t2, gate_time })
             } else {
                 None
             };
@@ -164,10 +152,7 @@ impl EnhancedNoiseModel {
 // ---------------------------------------------------------------------------
 
 /// Identity matrix as a 2x2 complex array.
-const IDENTITY: [[Complex; 2]; 2] = [
-    [Complex::ONE, Complex::ZERO],
-    [Complex::ZERO, Complex::ONE],
-];
+const IDENTITY: [[Complex; 2]; 2] = [[Complex::ONE, Complex::ZERO], [Complex::ZERO, Complex::ONE]];
 
 /// Depolarizing channel Kraus operators.
 ///
@@ -185,16 +170,10 @@ pub fn depolarizing_kraus(p: f64) -> Vec<[[Complex; 2]; 2]> {
     let c = |v: f64| Complex::new(v, 0.0);
 
     // K0 = sqrt(1-p) * I
-    let k0 = [
-        [c(s0), Complex::ZERO],
-        [Complex::ZERO, c(s0)],
-    ];
+    let k0 = [[c(s0), Complex::ZERO], [Complex::ZERO, c(s0)]];
 
     // K1 = sqrt(p/3) * X
-    let k1 = [
-        [Complex::ZERO, c(sp)],
-        [c(sp), Complex::ZERO],
-    ];
+    let k1 = [[Complex::ZERO, c(sp)], [c(sp), Complex::ZERO]];
 
     // K2 = sqrt(p/3) * Y = sqrt(p/3) * [[0, -i],[i, 0]]
     let k2 = [
@@ -203,10 +182,7 @@ pub fn depolarizing_kraus(p: f64) -> Vec<[[Complex; 2]; 2]> {
     ];
 
     // K3 = sqrt(p/3) * Z
-    let k3 = [
-        [c(sp), Complex::ZERO],
-        [Complex::ZERO, c(-sp)],
-    ];
+    let k3 = [[c(sp), Complex::ZERO], [Complex::ZERO, c(-sp)]];
 
     vec![k0, k1, k2, k3]
 }
@@ -224,15 +200,9 @@ pub fn amplitude_damping_kraus(gamma: f64) -> Vec<[[Complex; 2]; 2]> {
 
     let c = |v: f64| Complex::new(v, 0.0);
 
-    let k0 = [
-        [Complex::ONE, Complex::ZERO],
-        [Complex::ZERO, c(s1g)],
-    ];
+    let k0 = [[Complex::ONE, Complex::ZERO], [Complex::ZERO, c(s1g)]];
 
-    let k1 = [
-        [Complex::ZERO, c(sg)],
-        [Complex::ZERO, Complex::ZERO],
-    ];
+    let k1 = [[Complex::ZERO, c(sg)], [Complex::ZERO, Complex::ZERO]];
 
     vec![k0, k1]
 }
@@ -250,15 +220,9 @@ pub fn phase_damping_kraus(lambda: f64) -> Vec<[[Complex; 2]; 2]> {
 
     let c = |v: f64| Complex::new(v, 0.0);
 
-    let k0 = [
-        [Complex::ONE, Complex::ZERO],
-        [Complex::ZERO, c(s1l)],
-    ];
+    let k0 = [[Complex::ONE, Complex::ZERO], [Complex::ZERO, c(s1l)]];
 
-    let k1 = [
-        [Complex::ZERO, Complex::ZERO],
-        [Complex::ZERO, c(sl)],
-    ];
+    let k1 = [[Complex::ZERO, Complex::ZERO], [Complex::ZERO, c(sl)]];
 
     vec![k0, k1]
 }
@@ -377,15 +341,9 @@ impl ReadoutCorrector {
     ///
     /// Returns floating-point corrected counts (may be non-integer due to the
     /// linear algebra involved). Negative corrected values are clamped to zero.
-    pub fn correct_counts(
-        &self,
-        counts: &HashMap<Vec<bool>, usize>,
-    ) -> HashMap<Vec<bool>, f64> {
+    pub fn correct_counts(&self, counts: &HashMap<Vec<bool>, usize>) -> HashMap<Vec<bool>, f64> {
         if self.num_qubits == 0 {
-            return counts
-                .iter()
-                .map(|(k, &v)| (k.clone(), v as f64))
-                .collect();
+            return counts.iter().map(|(k, &v)| (k.clone(), v as f64)).collect();
         }
 
         if self.num_qubits <= 12 {
@@ -396,10 +354,7 @@ impl ReadoutCorrector {
     }
 
     /// Full confusion-matrix inversion for small qubit counts.
-    fn correct_full_matrix(
-        &self,
-        counts: &HashMap<Vec<bool>, usize>,
-    ) -> HashMap<Vec<bool>, f64> {
+    fn correct_full_matrix(&self, counts: &HashMap<Vec<bool>, usize>) -> HashMap<Vec<bool>, f64> {
         let n = self.num_qubits;
         let dim = 1usize << n;
 
@@ -447,10 +402,8 @@ impl ReadoutCorrector {
             .collect();
 
         // Start with raw counts as floats.
-        let mut corrected: HashMap<Vec<bool>, f64> = counts
-            .iter()
-            .map(|(k, &v)| (k.clone(), v as f64))
-            .collect();
+        let mut corrected: HashMap<Vec<bool>, f64> =
+            counts.iter().map(|(k, &v)| (k.clone(), v as f64)).collect();
 
         // Apply each qubit's inverse confusion matrix independently.
         // For each qubit q, we group bitstrings by all bits except q,
@@ -461,7 +414,8 @@ impl ReadoutCorrector {
 
             // Collect all unique bitstrings that appear, paired by qubit q.
             let keys: Vec<Vec<bool>> = corrected.keys().cloned().collect();
-            let mut processed: std::collections::HashSet<Vec<bool>> = std::collections::HashSet::new();
+            let mut processed: std::collections::HashSet<Vec<bool>> =
+                std::collections::HashSet::new();
 
             for bits in &keys {
                 if processed.contains(bits) {
@@ -538,10 +492,7 @@ impl ReadoutCorrector {
 // ---------------------------------------------------------------------------
 
 /// Multiply two 2x2 complex matrices.
-fn mat_mul_2x2(
-    a: &[[Complex; 2]; 2],
-    b: &[[Complex; 2]; 2],
-) -> [[Complex; 2]; 2] {
+fn mat_mul_2x2(a: &[[Complex; 2]; 2], b: &[[Complex; 2]; 2]) -> [[Complex; 2]; 2] {
     [
         [
             a[0][0] * b[0][0] + a[0][1] * b[1][0],
@@ -606,10 +557,7 @@ fn invert_2x2_confusion(p01: f64, p10: f64) -> [[f64; 2]; 2] {
     }
 
     let inv_det = 1.0 / det;
-    [
-        [d * inv_det, -b * inv_det],
-        [-c * inv_det, a * inv_det],
-    ]
+    [[d * inv_det, -b * inv_det], [-c * inv_det, a * inv_det]]
 }
 
 // ---------------------------------------------------------------------------
@@ -812,8 +760,14 @@ mod tests {
             ops[1][0][0] * state_one[0] + ops[1][0][1] * state_one[1],
             ops[1][1][0] * state_one[0] + ops[1][1][1] * state_one[1],
         ];
-        assert!((k1_on_one[0].re - 1.0).abs() < 1e-14, "Expected |0> component = 1.0");
-        assert!(k1_on_one[1].norm_sq() < 1e-28, "Expected |1> component = 0.0");
+        assert!(
+            (k1_on_one[0].re - 1.0).abs() < 1e-14,
+            "Expected |0> component = 1.0"
+        );
+        assert!(
+            k1_on_one[1].norm_sq() < 1e-28,
+            "Expected |1> component = 0.0"
+        );
     }
 
     // -------------------------------------------------------------------
@@ -850,11 +804,11 @@ mod tests {
     #[test]
     fn thermal_relaxation_kraus_trace_preserving() {
         let test_cases = [
-            (50.0, 30.0, 0.05),   // typical: T2 < T1
-            (50.0, 50.0, 0.05),   // T2 == T1
-            (50.0, 100.0, 0.05),  // T2 > T1 (clamped to 2*T1)
-            (100.0, 80.0, 1.0),   // longer gate time
-            (50.0, 30.0, 0.001),  // very short gate
+            (50.0, 30.0, 0.05),  // typical: T2 < T1
+            (50.0, 50.0, 0.05),  // T2 == T1
+            (50.0, 100.0, 0.05), // T2 > T1 (clamped to 2*T1)
+            (100.0, 80.0, 1.0),  // longer gate time
+            (50.0, 30.0, 0.001), // very short gate
         ];
         for &(t1, t2, gt) in &test_cases {
             let ops = thermal_relaxation_kraus(t1, t2, gt);
@@ -970,16 +924,8 @@ mod tests {
         let c0 = corrected.get(&vec![false]).copied().unwrap_or(0.0);
         let c1 = corrected.get(&vec![true]).copied().unwrap_or(0.0);
 
-        assert!(
-            (c0 - 700.0).abs() < 1.0,
-            "Expected ~700, got {}",
-            c0
-        );
-        assert!(
-            (c1 - 300.0).abs() < 1.0,
-            "Expected ~300, got {}",
-            c1
-        );
+        assert!((c0 - 700.0).abs() < 1.0, "Expected ~700, got {}", c0);
+        assert!((c1 - 300.0).abs() < 1.0, "Expected ~300, got {}", c1);
     }
 
     #[test]
@@ -1001,11 +947,7 @@ mod tests {
 
         let c00 = corrected.get(&vec![false, false]).copied().unwrap_or(0.0);
         // The corrected count for |00> should be close to 1000.
-        assert!(
-            (c00 - 1000.0).abs() < 10.0,
-            "Expected ~1000, got {}",
-            c00
-        );
+        assert!((c00 - 1000.0).abs() < 10.0, "Expected ~1000, got {}", c00);
     }
 
     // -------------------------------------------------------------------

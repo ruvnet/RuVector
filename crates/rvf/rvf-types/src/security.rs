@@ -111,24 +111,36 @@ impl core::fmt::Display for SecurityError {
             Self::UnsignedManifest { manifest_offset } => {
                 write!(f, "unsigned manifest at offset 0x{manifest_offset:X}")
             }
-            Self::InvalidSignature { manifest_offset, rejection_phase } => {
+            Self::InvalidSignature {
+                manifest_offset,
+                rejection_phase,
+            } => {
                 write!(
                     f,
                     "invalid signature at offset 0x{manifest_offset:X} \
                      (phase: {rejection_phase})"
                 )
             }
-            Self::UnknownSigner { manifest_offset, .. } => {
+            Self::UnknownSigner {
+                manifest_offset, ..
+            } => {
                 write!(f, "unknown signer at offset 0x{manifest_offset:X}")
             }
-            Self::ContentHashMismatch { pointer_name, seg_offset, .. } => {
+            Self::ContentHashMismatch {
+                pointer_name,
+                seg_offset,
+                ..
+            } => {
                 write!(
                     f,
                     "content hash mismatch for {pointer_name} \
                      at offset 0x{seg_offset:X}"
                 )
             }
-            Self::EpochDriftExceeded { epoch_drift, max_epoch_drift } => {
+            Self::EpochDriftExceeded {
+                epoch_drift,
+                max_epoch_drift,
+            } => {
                 write!(
                     f,
                     "centroid epoch drift {epoch_drift} exceeds max {max_epoch_drift}"
@@ -360,7 +372,9 @@ mod tests {
 
     #[test]
     fn security_error_display() {
-        let err = SecurityError::UnsignedManifest { manifest_offset: 0x1000 };
+        let err = SecurityError::UnsignedManifest {
+            manifest_offset: 0x1000,
+        };
         let s = alloc::format!("{err}");
         assert!(s.contains("unsigned manifest"));
 

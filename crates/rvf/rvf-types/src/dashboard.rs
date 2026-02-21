@@ -83,15 +83,15 @@ impl DashboardHeader {
             ui_framework: data[0x06],
             compression: data[0x07],
             bundle_size: u64::from_le_bytes([
-                data[0x08], data[0x09], data[0x0A], data[0x0B],
-                data[0x0C], data[0x0D], data[0x0E], data[0x0F],
+                data[0x08], data[0x09], data[0x0A], data[0x0B], data[0x0C], data[0x0D], data[0x0E],
+                data[0x0F],
             ]),
             file_count: u32::from_le_bytes([data[0x10], data[0x11], data[0x12], data[0x13]]),
             entry_path_len: u16::from_le_bytes([data[0x14], data[0x15]]),
             reserved: u16::from_le_bytes([data[0x16], data[0x17]]),
             build_timestamp: u64::from_le_bytes([
-                data[0x18], data[0x19], data[0x1A], data[0x1B],
-                data[0x1C], data[0x1D], data[0x1E], data[0x1F],
+                data[0x18], data[0x19], data[0x1A], data[0x1B], data[0x1C], data[0x1D], data[0x1E],
+                data[0x1F],
             ]),
             content_hash: {
                 let mut h = [0u8; 32];

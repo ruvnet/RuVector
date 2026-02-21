@@ -140,9 +140,7 @@ impl StabilizerState {
         // Combine phases: new_r = (2*r_target + 2*r_source + phase_sum) mod 4
         // r=1 means phase -1 (i.e. factor of i^2 = -1), so we work mod 4 in
         // units of i.  r_bit maps to 0 or 2.
-        let total = 2 * (self.r(target) as i32)
-            + 2 * (self.r(source) as i32)
-            + phase_sum;
+        let total = 2 * (self.r(target) as i32) + 2 * (self.r(source) as i32) + phase_sum;
         // Result phase bit: total mod 4 == 2 => r=1, else r=0
         let new_r = ((total % 4) + 4) % 4 == 2;
         self.set_r(target, new_r);
@@ -393,9 +391,7 @@ impl StabilizerState {
                     }
                     let scratch_r = scratch[2 * n];
                     let stab_r = self.r(stab_row);
-                    let total = 2 * (scratch_r as i32)
-                        + 2 * (stab_r as i32)
-                        + phase_sum;
+                    let total = 2 * (scratch_r as i32) + 2 * (stab_r as i32) + phase_sum;
                     scratch[2 * n] = ((total % 4) + 4) % 4 == 2;
 
                     for j in 0..n {
@@ -550,13 +546,35 @@ fn g(x1: bool, z1: bool, x2: bool, z2: bool) -> i32 {
     }
     if x1 && z1 {
         // Y * ...
-        if x2 && z2 { 0 } else if x2 { 1 } else if z2 { -1 } else { 0 }
+        if x2 && z2 {
+            0
+        } else if x2 {
+            1
+        } else if z2 {
+            -1
+        } else {
+            0
+        }
     } else if x1 && !z1 {
         // X * ...
-        if x2 && z2 { -1 } else if x2 { 0 } else if z2 { 1 } else { 0 }
+        if x2 && z2 {
+            -1
+        } else if x2 {
+            0
+        } else if z2 {
+            1
+        } else {
+            0
+        }
     } else {
         // Z * ...  (z1 && !x1)
-        if x2 && z2 { 1 } else if x2 { -1 } else { 0 }
+        if x2 && z2 {
+            1
+        } else if x2 {
+            -1
+        } else {
+            0
+        }
     }
 }
 
@@ -601,10 +619,7 @@ mod tests {
         state.cnot(0, 1);
         let o0 = state.measure(0).unwrap();
         let o1 = state.measure(1).unwrap();
-        assert_eq!(
-            o0.result, o1.result,
-            "Bell state qubits must be correlated"
-        );
+        assert_eq!(o0.result, o1.result, "Bell state qubits must be correlated");
     }
 
     #[test]
@@ -729,7 +744,7 @@ mod tests {
         state.hadamard(0);
         state.phase_gate(0); // S
         state.apply_gate(&Gate::Sdg(0)).unwrap(); // Sdg
-        // Should be back to H|0> = |+>
+                                                  // Should be back to H|0> = |+>
         state.hadamard(0);
         let outcome = state.measure(0).unwrap();
         assert!(!outcome.result, "S.Sdg should be identity");

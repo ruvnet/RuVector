@@ -118,12 +118,7 @@ impl CsrMatrix<f32> {
     /// This eliminates one full memory traversal per iteration compared to
     /// separate `spmv` + vector subtraction.
     #[inline]
-    pub fn fused_residual_norm_sq(
-        &self,
-        x: &[f32],
-        rhs: &[f32],
-        residual: &mut [f32],
-    ) -> f64 {
+    pub fn fused_residual_norm_sq(&self, x: &[f32], rhs: &[f32], residual: &mut [f32]) -> f64 {
         debug_assert!(x.len() >= self.cols);
         debug_assert!(rhs.len() >= self.rows);
         debug_assert!(residual.len() >= self.rows);

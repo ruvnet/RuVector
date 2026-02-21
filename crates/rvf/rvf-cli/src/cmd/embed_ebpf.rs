@@ -39,13 +39,15 @@ pub fn run(args: EmbedEbpfArgs) -> Result<(), Box<dyn std::error::Error>> {
 
     let mut store = RvfStore::open(Path::new(&args.file)).map_err(map_rvf_err)?;
 
-    let seg_id = store.embed_ebpf(
-        program_type,
-        0,    // attach_type
-        0,    // max_dimension (auto)
-        &bytecode,
-        None, // no BTF
-    ).map_err(map_rvf_err)?;
+    let seg_id = store
+        .embed_ebpf(
+            program_type,
+            0, // attach_type
+            0, // max_dimension (auto)
+            &bytecode,
+            None, // no BTF
+        )
+        .map_err(map_rvf_err)?;
 
     store.close().map_err(map_rvf_err)?;
 

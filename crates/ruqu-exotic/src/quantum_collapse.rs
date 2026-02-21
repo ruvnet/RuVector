@@ -273,11 +273,7 @@ mod tests {
     #[test]
     fn new_pads_to_power_of_two() {
         // 3 candidates should pad to 4 (2 qubits)
-        let search = QuantumCollapseSearch::new(vec![
-            vec![1.0],
-            vec![2.0],
-            vec![3.0],
-        ]);
+        let search = QuantumCollapseSearch::new(vec![vec![1.0], vec![2.0], vec![3.0]]);
         assert_eq!(search.num_qubits, 2);
         assert_eq!(search.candidates.len(), 4);
         assert_eq!(search.num_real, 3);
@@ -345,9 +341,12 @@ mod tests {
         // We just verify the distribution has variation.
         let max_count = dist.iter().map(|&(_, c)| c).max().unwrap_or(0);
         let min_count = dist.iter().map(|&(_, c)| c).min().unwrap_or(0);
-        assert!(max_count > min_count,
+        assert!(
+            max_count > min_count,
             "distribution should be non-uniform: max {} vs min {}",
-            max_count, min_count);
+            max_count,
+            min_count
+        );
     }
 
     #[test]
@@ -364,11 +363,8 @@ mod tests {
     #[test]
     fn collapse_result_flags_padding() {
         // 3 real candidates -> padded to 4
-        let search = QuantumCollapseSearch::new(vec![
-            vec![0.0, 1.0],
-            vec![1.0, 0.0],
-            vec![0.5, 0.5],
-        ]);
+        let search =
+            QuantumCollapseSearch::new(vec![vec![0.0, 1.0], vec![1.0, 0.0], vec![0.5, 0.5]]);
 
         // Run many shots; any hit on index 3 should have is_padding = true.
         for seed in 0..50 {

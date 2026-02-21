@@ -5,8 +5,8 @@
 
 use rvf_runtime::options::{DistanceMetric, RvfOptions};
 use rvf_runtime::RvfStore;
-use rvf_types::{DerivationType, FileIdentity};
 use rvf_types::lineage::{LineageRecord, WITNESS_DERIVATION};
+use rvf_types::{DerivationType, FileIdentity};
 use tempfile::TempDir;
 
 // ---------------------------------------------------------------------------
@@ -157,8 +157,7 @@ fn parent_hash_is_nonzero_for_derived() {
 
     let parent_hash = child.file_identity().parent_hash;
     assert_ne!(
-        parent_hash,
-        [0u8; 32],
+        parent_hash, [0u8; 32],
         "derived file's parent_hash should be non-zero"
     );
 

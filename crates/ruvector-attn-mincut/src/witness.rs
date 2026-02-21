@@ -22,7 +22,9 @@ pub fn witness_log(entry: &WitnessEntry) -> String {
 /// SHA-256 hash of a float tensor (little-endian bytes), returned as hex.
 pub fn hash_tensor(data: &[f32]) -> String {
     let mut h = Sha256::new();
-    for &v in data { h.update(v.to_le_bytes()); }
+    for &v in data {
+        h.update(v.to_le_bytes());
+    }
     h.finalize().iter().map(|b| format!("{:02x}", b)).collect()
 }
 
@@ -45,9 +47,14 @@ mod tests {
     #[test]
     fn test_witness_roundtrip() {
         let e = WitnessEntry {
-            q_hash: "a".into(), k_hash: "b".into(),
-            keep_mask: vec![true, false], cut_cost: 1.5,
-            lambda: 0.5, tau: 2, eps: 0.01, timestamp: 1000,
+            q_hash: "a".into(),
+            k_hash: "b".into(),
+            keep_mask: vec![true, false],
+            cut_cost: 1.5,
+            lambda: 0.5,
+            tau: 2,
+            eps: 0.01,
+            timestamp: 1000,
         };
         let json = witness_log(&e);
         let r: WitnessEntry = serde_json::from_str(&json).unwrap();

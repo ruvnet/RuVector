@@ -36,7 +36,11 @@ fn make_options(dim: u16) -> RvfOptions {
 }
 
 /// Build a raw 64-byte segment header for an unknown segment type.
-fn build_raw_segment_header(seg_type: u8, seg_id: u64, payload_len: u64) -> [u8; SEGMENT_HEADER_SIZE] {
+fn build_raw_segment_header(
+    seg_type: u8,
+    seg_id: u64,
+    payload_len: u64,
+) -> [u8; SEGMENT_HEADER_SIZE] {
     let mut buf = [0u8; SEGMENT_HEADER_SIZE];
     // magic (offset 0x00): RVFS
     buf[0x00..0x04].copy_from_slice(&SEGMENT_MAGIC.to_le_bytes());
@@ -68,16 +72,24 @@ fn scan_segments(file_bytes: &[u8]) -> Vec<(usize, u8, u64, u64)> {
         if file_bytes[i..i + 4] == magic_bytes {
             let seg_type = file_bytes[i + 5];
             let seg_id = u64::from_le_bytes([
-                file_bytes[i + 0x08], file_bytes[i + 0x09],
-                file_bytes[i + 0x0A], file_bytes[i + 0x0B],
-                file_bytes[i + 0x0C], file_bytes[i + 0x0D],
-                file_bytes[i + 0x0E], file_bytes[i + 0x0F],
+                file_bytes[i + 0x08],
+                file_bytes[i + 0x09],
+                file_bytes[i + 0x0A],
+                file_bytes[i + 0x0B],
+                file_bytes[i + 0x0C],
+                file_bytes[i + 0x0D],
+                file_bytes[i + 0x0E],
+                file_bytes[i + 0x0F],
             ]);
             let payload_len = u64::from_le_bytes([
-                file_bytes[i + 0x10], file_bytes[i + 0x11],
-                file_bytes[i + 0x12], file_bytes[i + 0x13],
-                file_bytes[i + 0x14], file_bytes[i + 0x15],
-                file_bytes[i + 0x16], file_bytes[i + 0x17],
+                file_bytes[i + 0x10],
+                file_bytes[i + 0x11],
+                file_bytes[i + 0x12],
+                file_bytes[i + 0x13],
+                file_bytes[i + 0x14],
+                file_bytes[i + 0x15],
+                file_bytes[i + 0x16],
+                file_bytes[i + 0x17],
             ]);
             segments.push((i, seg_type, seg_id, payload_len));
         }
@@ -120,9 +132,7 @@ fn unknown_segment_preserved_after_compaction() {
     // --- Step 1: Create a store and ingest some vectors -----------------------
     {
         let mut store = RvfStore::create(&path, make_options(dim)).unwrap();
-        let vectors: Vec<Vec<f32>> = (0..20)
-            .map(|i| vec![i as f32; dim as usize])
-            .collect();
+        let vectors: Vec<Vec<f32>> = (0..20).map(|i| vec![i as f32; dim as usize]).collect();
         let refs: Vec<&[f32]> = vectors.iter().map(|v| v.as_slice()).collect();
         let ids: Vec<u64> = (1..=20).collect();
         store.ingest_batch(&refs, &ids, None).unwrap();
@@ -136,10 +146,7 @@ fn unknown_segment_preserved_after_compaction() {
     let unknown_payload: Vec<u8> = (0..128u8).collect(); // 128 bytes of 0x00..0x7F
     let unknown_seg_id: u64 = 9999;
     {
-        let mut file = OpenOptions::new()
-            .append(true)
-            .open(&path)
-            .unwrap();
+        let mut file = OpenOptions::new().append(true).open(&path).unwrap();
         let header = build_raw_segment_header(
             UNKNOWN_SEG_TYPE_KERNEL,
             unknown_seg_id,
@@ -190,8 +197,7 @@ fn unknown_segment_preserved_after_compaction() {
         let compact_result = store.compact().unwrap();
         println!(
             "Compaction: segments_compacted={}, bytes_reclaimed={}",
-            compact_result.segments_compacted,
-            compact_result.bytes_reclaimed
+            compact_result.segments_compacted, compact_result.bytes_reclaimed
         );
         store.close().unwrap();
     }
@@ -234,7 +240,8 @@ fn unknown_segment_preserved_after_compaction() {
     let seg_bytes_after = extract_segment_bytes(&bytes_after, off_after, plen_after).to_vec();
 
     assert_eq!(
-        seg_bytes_before, seg_bytes_after,
+        seg_bytes_before,
+        seg_bytes_after,
         "Unknown segment was NOT preserved byte-for-byte. \
          Before: {} bytes at offset {}, After: {} bytes at offset {}",
         seg_bytes_before.len(),
@@ -243,8 +250,10 @@ fn unknown_segment_preserved_after_compaction() {
         off_after
     );
 
-    println!("PASS: unknown segment type 0x{:02X} preserved byte-for-byte after compaction",
-             UNKNOWN_SEG_TYPE_KERNEL);
+    println!(
+        "PASS: unknown segment type 0x{:02X} preserved byte-for-byte after compaction",
+        UNKNOWN_SEG_TYPE_KERNEL
+    );
 }
 
 // --------------------------------------------------------------------------
@@ -262,9 +271,7 @@ fn multiple_unknown_segment_types_preserved() {
     // Create store with some vectors.
     {
         let mut store = RvfStore::create(&path, make_options(dim)).unwrap();
-        let vectors: Vec<Vec<f32>> = (0..10)
-            .map(|i| vec![i as f32; dim as usize])
-            .collect();
+        let vectors: Vec<Vec<f32>> = (0..10).map(|i| vec![i as f32; dim as usize]).collect();
         let refs: Vec<&[f32]> = vectors.iter().map(|v| v.as_slice()).collect();
         let ids: Vec<u64> = (1..=10).collect();
         store.ingest_batch(&refs, &ids, None).unwrap();
@@ -278,12 +285,14 @@ fn multiple_unknown_segment_types_preserved() {
         let mut file = OpenOptions::new().append(true).open(&path).unwrap();
 
         // KERNEL_SEG 0x0E
-        let h1 = build_raw_segment_header(UNKNOWN_SEG_TYPE_KERNEL, 8001, kernel_payload.len() as u64);
+        let h1 =
+            build_raw_segment_header(UNKNOWN_SEG_TYPE_KERNEL, 8001, kernel_payload.len() as u64);
         file.write_all(&h1).unwrap();
         file.write_all(&kernel_payload).unwrap();
 
         // VENDOR_SEG 0xFE
-        let h2 = build_raw_segment_header(UNKNOWN_SEG_TYPE_VENDOR, 8002, vendor_payload.len() as u64);
+        let h2 =
+            build_raw_segment_header(UNKNOWN_SEG_TYPE_VENDOR, 8002, vendor_payload.len() as u64);
         file.write_all(&h2).unwrap();
         file.write_all(&vendor_payload).unwrap();
 
@@ -294,10 +303,22 @@ fn multiple_unknown_segment_types_preserved() {
     let bytes_before = read_file_bytes(&path);
     let segs_before = scan_segments(&bytes_before);
 
-    let kernel_before = segs_before.iter().filter(|s| s.1 == UNKNOWN_SEG_TYPE_KERNEL).count();
-    let vendor_before = segs_before.iter().filter(|s| s.1 == UNKNOWN_SEG_TYPE_VENDOR).count();
-    assert_eq!(kernel_before, 1, "KERNEL_SEG should exist before compaction");
-    assert_eq!(vendor_before, 1, "VENDOR_SEG should exist before compaction");
+    let kernel_before = segs_before
+        .iter()
+        .filter(|s| s.1 == UNKNOWN_SEG_TYPE_KERNEL)
+        .count();
+    let vendor_before = segs_before
+        .iter()
+        .filter(|s| s.1 == UNKNOWN_SEG_TYPE_VENDOR)
+        .count();
+    assert_eq!(
+        kernel_before, 1,
+        "KERNEL_SEG should exist before compaction"
+    );
+    assert_eq!(
+        vendor_before, 1,
+        "VENDOR_SEG should exist before compaction"
+    );
 
     // Compact.
     {
@@ -311,8 +332,14 @@ fn multiple_unknown_segment_types_preserved() {
     let bytes_after = read_file_bytes(&path);
     let segs_after = scan_segments(&bytes_after);
 
-    let kernel_after = segs_after.iter().filter(|s| s.1 == UNKNOWN_SEG_TYPE_KERNEL).count();
-    let vendor_after = segs_after.iter().filter(|s| s.1 == UNKNOWN_SEG_TYPE_VENDOR).count();
+    let kernel_after = segs_after
+        .iter()
+        .filter(|s| s.1 == UNKNOWN_SEG_TYPE_KERNEL)
+        .count();
+    let vendor_after = segs_after
+        .iter()
+        .filter(|s| s.1 == UNKNOWN_SEG_TYPE_VENDOR)
+        .count();
 
     println!(
         "After compaction: KERNEL_SEG(0x0E) count={}, VENDOR_SEG(0xFE) count={}",
@@ -347,9 +374,7 @@ fn unknown_segment_does_not_break_read_path() {
     // Create and populate.
     {
         let mut store = RvfStore::create(&path, make_options(dim)).unwrap();
-        let vectors: Vec<Vec<f32>> = (0..10)
-            .map(|i| vec![i as f32; dim as usize])
-            .collect();
+        let vectors: Vec<Vec<f32>> = (0..10).map(|i| vec![i as f32; dim as usize]).collect();
         let refs: Vec<&[f32]> = vectors.iter().map(|v| v.as_slice()).collect();
         let ids: Vec<u64> = (1..=10).collect();
         store.ingest_batch(&refs, &ids, None).unwrap();
@@ -381,10 +406,14 @@ fn unknown_segment_does_not_break_read_path() {
     // Query should still work.
     let query = vec![5.0f32; dim as usize];
     let results = store.query(&query, 5, &QueryOptions::default()).unwrap();
-    assert!(!results.is_empty(), "query should return results despite unknown segment in file");
-    assert_eq!(results[0].id, 6, "closest vector to [5,5,5,5] should be id=6 (value [5,5,5,5])");
-
-    println!(
-        "PASS: store opens and queries correctly with unknown segment type 0x0F in file"
+    assert!(
+        !results.is_empty(),
+        "query should return results despite unknown segment in file"
     );
+    assert_eq!(
+        results[0].id, 6,
+        "closest vector to [5,5,5,5] should be id=6 (value [5,5,5,5])"
+    );
+
+    println!("PASS: store opens and queries correctly with unknown segment type 0x0F in file");
 }

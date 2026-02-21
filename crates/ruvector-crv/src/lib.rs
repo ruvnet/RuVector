@@ -85,10 +85,10 @@ pub use stage_iv::StageIVEncoder;
 pub use stage_v::StageVEngine;
 pub use stage_vi::StageVIModeler;
 pub use types::{
-    AOLDetection, ConvergenceResult, CrossReference, CrvConfig, CrvSessionEntry,
-    GeometricKind, GestaltType, SensoryModality, SignalLineProbe, SketchElement,
-    SpatialRelationType, SpatialRelationship, StageIData, StageIIData, StageIIIData,
-    StageIVData, StageVData, StageVIData, TargetPartition,
+    AOLDetection, ConvergenceResult, CrossReference, CrvConfig, CrvSessionEntry, GeometricKind,
+    GestaltType, SensoryModality, SignalLineProbe, SketchElement, SpatialRelationType,
+    SpatialRelationship, StageIData, StageIIData, StageIIIData, StageIVData, StageVData,
+    StageVIData, TargetPartition,
 };
 
 /// Library version.

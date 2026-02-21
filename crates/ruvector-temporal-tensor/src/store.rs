@@ -525,13 +525,29 @@ impl TieredStore {
     pub fn metrics(&self) -> crate::metrics::StoreMetrics {
         let mut m = crate::metrics::StoreMetrics::new();
         m.total_blocks = self.index.len() as u64;
-        m.tier0_blocks = self.index.values().filter(|b| b.tier == Tier::Tier0).count() as u64;
+        m.tier0_blocks = self
+            .index
+            .values()
+            .filter(|b| b.tier == Tier::Tier0)
+            .count() as u64;
         m.tier1_blocks = self.tier1_keys.len() as u64;
         m.tier2_blocks = self.tier2_keys.len() as u64;
         m.tier3_blocks = self.tier3_keys.len() as u64;
-        m.tier1_bytes = self.tier1_data.values().map(|d| d.packed.len() as u64).sum();
-        m.tier2_bytes = self.tier2_data.values().map(|d| d.packed.len() as u64).sum();
-        m.tier3_bytes = self.tier3_data.values().map(|d| d.packed.len() as u64).sum();
+        m.tier1_bytes = self
+            .tier1_data
+            .values()
+            .map(|d| d.packed.len() as u64)
+            .sum();
+        m.tier2_bytes = self
+            .tier2_data
+            .values()
+            .map(|d| d.packed.len() as u64)
+            .sum();
+        m.tier3_bytes = self
+            .tier3_data
+            .values()
+            .map(|d| d.packed.len() as u64)
+            .sum();
         m.total_evictions = self.witness_log.count_evictions() as u64;
         m.tier_flips_last_minute = self.witness_log.tier_flip_rate(60, self.index.len() as u64);
         m
@@ -573,9 +589,15 @@ impl TieredStore {
         };
 
         match tier {
-            Tier::Tier1 => { self.tier1_data.insert(key, block); }
-            Tier::Tier2 => { self.tier2_data.insert(key, block); }
-            Tier::Tier3 => { self.tier3_data.insert(key, block); }
+            Tier::Tier1 => {
+                self.tier1_data.insert(key, block);
+            }
+            Tier::Tier2 => {
+                self.tier2_data.insert(key, block);
+            }
+            Tier::Tier3 => {
+                self.tier3_data.insert(key, block);
+            }
             Tier::Tier0 => unreachable!(),
         }
         self.add_to_bucket(tier, key);
@@ -601,11 +623,14 @@ impl TieredStore {
         self.index.insert(key, meta);
 
         // Record witness event for the write.
-        self.witness_log.record(now, crate::metrics::WitnessEvent::Access {
-            key,
-            score: 0.0,
-            tier,
-        });
+        self.witness_log.record(
+            now,
+            crate::metrics::WitnessEvent::Access {
+                key,
+                score: 0.0,
+                tier,
+            },
+        );
 
         // Record write epoch for staleness detection.
         self.epoch_tracker.record_write(key);
@@ -661,11 +686,14 @@ impl TieredStore {
         self.touch(key, now);
 
         // Record witness event.
-        self.witness_log.record(now, crate::metrics::WitnessEvent::Access {
-            key,
-            score: 0.0, // score not computed during basic get
-            tier,
-        });
+        self.witness_log.record(
+            now,
+            crate::metrics::WitnessEvent::Access {
+                key,
+                score: 0.0, // score not computed during basic get
+                tier,
+            },
+        );
 
         Ok(n)
     }
@@ -749,11 +777,7 @@ impl TieredStore {
     /// (or whether) to reconstruct the data on future reads.
     ///
     /// Returns [`StoreError::BlockNotFound`] if the key does not exist.
-    pub fn evict(
-        &mut self,
-        key: BlockKey,
-        policy: ReconstructPolicy,
-    ) -> Result<(), StoreError> {
+    pub fn evict(&mut self, key: BlockKey, policy: ReconstructPolicy) -> Result<(), StoreError> {
         let meta = self.index.get_mut(&key).ok_or(StoreError::BlockNotFound)?;
         let old_tier = meta.tier;
 
@@ -779,11 +803,14 @@ impl TieredStore {
         self.remove_from_bucket(old_tier, key);
 
         // Record witness event for the eviction.
-        self.witness_log.record(evict_ts, crate::metrics::WitnessEvent::Eviction {
-            key,
-            score: 0.0,
-            bytes_freed,
-        });
+        self.witness_log.record(
+            evict_ts,
+            crate::metrics::WitnessEvent::Eviction {
+                key,
+                score: 0.0,
+                bytes_freed,
+            },
+        );
 
         Ok(())
     }
@@ -803,9 +830,15 @@ impl TieredStore {
     /// Remove raw data for `key` from the given tier's map.
     fn remove_data(&mut self, tier: Tier, key: BlockKey) {
         match tier {
-            Tier::Tier1 => { self.tier1_data.remove(&key); }
-            Tier::Tier2 => { self.tier2_data.remove(&key); }
-            Tier::Tier3 => { self.tier3_data.remove(&key); }
+            Tier::Tier1 => {
+                self.tier1_data.remove(&key);
+            }
+            Tier::Tier2 => {
+                self.tier2_data.remove(&key);
+            }
+            Tier::Tier3 => {
+                self.tier3_data.remove(&key);
+            }
             Tier::Tier0 => {}
         }
     }
@@ -856,18 +889,17 @@ impl TieredStore {
             return result;
         }
 
-        let tiering_blocks: Vec<(crate::tiering::BlockKey, crate::tiering::BlockMeta)> =
-            store_keys
-                .iter()
-                .enumerate()
-                .map(|(idx, key)| {
-                    let meta = &self.index[key];
-                    (
-                        crate::tiering::BlockKey(idx as u64),
-                        to_tiering_meta(meta, now),
-                    )
-                })
-                .collect();
+        let tiering_blocks: Vec<(crate::tiering::BlockKey, crate::tiering::BlockMeta)> = store_keys
+            .iter()
+            .enumerate()
+            .map(|(idx, key)| {
+                let meta = &self.index[key];
+                (
+                    crate::tiering::BlockKey(idx as u64),
+                    to_tiering_meta(meta, now),
+                )
+            })
+            .collect();
 
         let blocks_ref: Vec<(crate::tiering::BlockKey, &crate::tiering::BlockMeta)> =
             tiering_blocks.iter().map(|(k, m)| (*k, m)).collect();
@@ -914,18 +946,17 @@ impl TieredStore {
                 }
             } else {
                 // Tier migration.
-                let warm_bytes: usize =
-                    self.tier2_data.values().map(|b| b.packed.len()).sum();
-                let target_bits = crate::tiering::bits_for_tier(
-                    config,
-                    to_tiering_tier(target_tier),
-                    warm_bytes,
-                );
+                let warm_bytes: usize = self.tier2_data.values().map(|b| b.packed.len()).sum();
+                let target_bits =
+                    crate::tiering::bits_for_tier(config, to_tiering_tier(target_tier), warm_bytes);
 
                 let old_tier_u8 = current_tier as u8;
                 let new_tier_u8 = target_tier as u8;
 
-                if self.migrate_block(store_key, target_tier, target_bits).is_ok() {
+                if self
+                    .migrate_block(store_key, target_tier, target_bits)
+                    .is_ok()
+                {
                     let new_bytes = self
                         .index
                         .get(&store_key)
@@ -1061,9 +1092,15 @@ impl TieredStore {
 
         // Insert into target tier.
         match target_tier {
-            Tier::Tier1 => { self.tier1_data.insert(key, new_block); }
-            Tier::Tier2 => { self.tier2_data.insert(key, new_block); }
-            Tier::Tier3 => { self.tier3_data.insert(key, new_block); }
+            Tier::Tier1 => {
+                self.tier1_data.insert(key, new_block);
+            }
+            Tier::Tier2 => {
+                self.tier2_data.insert(key, new_block);
+            }
+            Tier::Tier3 => {
+                self.tier3_data.insert(key, new_block);
+            }
             Tier::Tier0 => unreachable!(),
         }
         self.add_to_bucket(target_tier, key);
@@ -1100,12 +1137,7 @@ impl TieredStore {
     /// Updates `ema_rate`, `access_window`, `last_access_at`, and
     /// `access_count` using the configurable alpha from [`TierConfig`].
     /// Does nothing if the key is not present.
-    pub fn touch_block(
-        &mut self,
-        key: BlockKey,
-        config: &crate::tiering::TierConfig,
-        now: u64,
-    ) {
+    pub fn touch_block(&mut self, key: BlockKey, config: &crate::tiering::TierConfig, now: u64) {
         if let Some(meta) = self.index.get_mut(&key) {
             let mut tm = crate::tiering::BlockMeta {
                 ema_rate: meta.ema_rate,
@@ -1146,9 +1178,15 @@ impl BlockIO for TieredStore {
             packed: src.to_vec(),
         };
         match tier {
-            Tier::Tier1 => { self.tier1_data.insert(key, block); }
-            Tier::Tier2 => { self.tier2_data.insert(key, block); }
-            Tier::Tier3 => { self.tier3_data.insert(key, block); }
+            Tier::Tier1 => {
+                self.tier1_data.insert(key, block);
+            }
+            Tier::Tier2 => {
+                self.tier2_data.insert(key, block);
+            }
+            Tier::Tier3 => {
+                self.tier3_data.insert(key, block);
+            }
             Tier::Tier0 => unreachable!(),
         }
         Ok(())
@@ -1283,7 +1321,11 @@ mod tests {
         assert_eq!(n, 128);
         for (i, (&orig, &dec)) in data.iter().zip(out.iter()).enumerate() {
             let err = (orig - dec).abs();
-            let tol = if orig.abs() > 0.01 { orig.abs() * 0.02 } else { 0.1 };
+            let tol = if orig.abs() > 0.01 {
+                orig.abs() * 0.02
+            } else {
+                0.1
+            };
             assert!(err < tol, "i={i} orig={orig} dec={dec} err={err}");
         }
     }
@@ -1331,7 +1373,11 @@ mod tests {
 
         for (i, (&orig, &dec)) in data.iter().zip(out.iter()).enumerate() {
             let err = (orig - dec).abs();
-            let tol = if orig.abs() > 0.01 { orig.abs() * 0.02 } else { 0.15 };
+            let tol = if orig.abs() > 0.01 {
+                orig.abs() * 0.02
+            } else {
+                0.15
+            };
             assert!(err < tol, "i={i} orig={orig} dec={dec} err={err}");
         }
     }
@@ -1365,7 +1411,10 @@ mod tests {
         let mut store = TieredStore::new(4096);
         let key = make_key(99, 0);
         let mut out = vec![0.0f32; 8];
-        assert_eq!(TieredStore::get(&mut store, key, &mut out, 0), Err(StoreError::BlockNotFound));
+        assert_eq!(
+            TieredStore::get(&mut store, key, &mut out, 0),
+            Err(StoreError::BlockNotFound)
+        );
     }
 
     #[test]
@@ -1402,7 +1451,10 @@ mod tests {
 
         // Data is gone; read should fail with TensorEvicted.
         let mut out = vec![0.0f32; 64];
-        assert_eq!(TieredStore::get(&mut store, key, &mut out, 1), Err(StoreError::TensorEvicted));
+        assert_eq!(
+            TieredStore::get(&mut store, key, &mut out, 1),
+            Err(StoreError::TensorEvicted)
+        );
 
         // Tier1 should be empty; Tier0 count should be 1.
         assert_eq!(store.tier_count(Tier::Tier1), 0);
@@ -1727,7 +1779,9 @@ mod tests {
         store.touch(make_key(1, 5), 25);
 
         // Evict a cold block.
-        store.evict(make_key(1, 8), ReconstructPolicy::Delta).unwrap();
+        store
+            .evict(make_key(1, 8), ReconstructPolicy::Delta)
+            .unwrap();
         assert_eq!(store.tier_count(Tier::Tier3), 2);
         assert_eq!(store.tier_count(Tier::Tier0), 1);
         assert_eq!(store.block_count(), 10); // metadata preserved
@@ -1776,12 +1830,20 @@ mod tests {
         let config = crate::tiering::TierConfig::default();
         let result = store.tick(&config, 100, 1_000_000, 100);
 
-        assert!(result.upgrades > 0, "expected at least one upgrade, got {}", result.upgrades);
+        assert!(
+            result.upgrades > 0,
+            "expected at least one upgrade, got {}",
+            result.upgrades
+        );
         assert_eq!(result.downgrades, 0);
         assert!(result.candidates_found > 0);
 
         let meta = store.meta(key).unwrap();
-        assert_eq!(meta.tier, Tier::Tier1, "block should be in Tier1 after upgrade");
+        assert_eq!(
+            meta.tier,
+            Tier::Tier1,
+            "block should be in Tier1 after upgrade"
+        );
         assert_eq!(meta.bits, 8, "Tier1 should use 8-bit quantization");
         assert_eq!(meta.tier_age, 0, "tier_age should reset after migration");
 
@@ -1865,7 +1927,10 @@ mod tests {
     #[test]
     fn test_epoch_tracker_wired_into_put() {
         let mut store = TieredStore::new(4096);
-        let key = BlockKey { tensor_id: 1, block_index: 0 };
+        let key = BlockKey {
+            tensor_id: 1,
+            block_index: 0,
+        };
         let data = vec![1.0f32; 64];
 
         assert_eq!(store.epoch_tracker().check_epoch(key), None);
@@ -1882,7 +1947,10 @@ mod tests {
     #[test]
     fn test_coherence_disabled_by_default() {
         let mut store = TieredStore::new(4096);
-        let key = BlockKey { tensor_id: 1, block_index: 0 };
+        let key = BlockKey {
+            tensor_id: 1,
+            block_index: 0,
+        };
         let data = vec![1.0f32; 64];
         store.put(key, &data, Tier::Tier1, 0).unwrap();
 
@@ -1894,12 +1962,19 @@ mod tests {
         let mut store = TieredStore::new(4096);
         store.enable_coherence(crate::coherence::CoherenceCheck::default());
 
-        let key = BlockKey { tensor_id: 1, block_index: 0 };
+        let key = BlockKey {
+            tensor_id: 1,
+            block_index: 0,
+        };
         let data: Vec<f32> = (0..64).map(|i| (i as f32 + 1.0) * 0.25).collect();
         store.put(key, &data, Tier::Tier1, 0).unwrap();
 
         let result = store.coherence_check(key, &data, 1).unwrap().unwrap();
-        assert!(result.passed, "Tier1 coherence should pass; err={}", result.max_error);
+        assert!(
+            result.passed,
+            "Tier1 coherence should pass; err={}",
+            result.max_error
+        );
     }
 
     // -----------------------------------------------------------------------
@@ -1915,7 +1990,10 @@ mod tests {
 
         // Put a few blocks.
         for i in 0..5u128 {
-            let key = BlockKey { tensor_id: i, block_index: 0 };
+            let key = BlockKey {
+                tensor_id: i,
+                block_index: 0,
+            };
             store.put(key, &vec![1.0f32; 64], Tier::Tier1, 0).unwrap();
         }
 
@@ -1944,23 +2022,22 @@ mod tests {
 
     #[test]
     fn bench_batch_scoring_10k() {
-        use std::time::Instant;
         use crate::tiering::{
-            TierConfig, BlockMeta as TBlockMeta, Tier as TTier,
-            compute_scores_batch, compute_score,
+            compute_score, compute_scores_batch, BlockMeta as TBlockMeta, Tier as TTier, TierConfig,
         };
+        use std::time::Instant;
 
         let cfg = TierConfig::default();
-        let metas: Vec<TBlockMeta> = (0..10_000).map(|i| {
-            TBlockMeta {
+        let metas: Vec<TBlockMeta> = (0..10_000)
+            .map(|i| TBlockMeta {
                 ema_rate: (i as f32) * 0.0001,
                 access_window: 0x5555_5555_5555_5555,
                 last_access: 50 + (i as u64 % 100),
                 access_count: i as u64,
                 current_tier: TTier::Tier1,
                 tier_since: 0,
-            }
-        }).collect();
+            })
+            .collect();
 
         let iters = 1000;
 
@@ -1980,10 +2057,16 @@ mod tests {
         }
         let batch = start.elapsed();
 
-        eprintln!("Individual scoring 10k x {iters}: {:?} ({:.0} ns/block)",
-            individual, individual.as_nanos() as f64 / (iters * 10_000) as f64);
-        eprintln!("Batch scoring 10k x {iters}: {:?} ({:.0} ns/block)",
-            batch, batch.as_nanos() as f64 / (iters * 10_000) as f64);
+        eprintln!(
+            "Individual scoring 10k x {iters}: {:?} ({:.0} ns/block)",
+            individual,
+            individual.as_nanos() as f64 / (iters * 10_000) as f64
+        );
+        eprintln!(
+            "Batch scoring 10k x {iters}: {:?} ({:.0} ns/block)",
+            batch,
+            batch.as_nanos() as f64 / (iters * 10_000) as f64
+        );
     }
 
     #[test]
@@ -2003,8 +2086,10 @@ mod tests {
 
         let total_bytes = 4096u64 * 4 * iters as u64;
         let gbs = total_bytes as f64 / elapsed.as_secs_f64() / 1e9;
-        eprintln!("Dequant 5-bit 4096 x {iters}: {:?} ({:.2} GB/s output throughput)",
-            elapsed, gbs);
+        eprintln!(
+            "Dequant 5-bit 4096 x {iters}: {:?} ({:.2} GB/s output throughput)",
+            elapsed, gbs
+        );
     }
 
     #[test]
@@ -2024,8 +2109,10 @@ mod tests {
 
         let total_bytes = 4096u64 * 4 * iters as u64;
         let gbs = total_bytes as f64 / elapsed.as_secs_f64() / 1e9;
-        eprintln!("Dequant 7-bit 4096 x {iters}: {:?} ({:.2} GB/s output throughput)",
-            elapsed, gbs);
+        eprintln!(
+            "Dequant 7-bit 4096 x {iters}: {:?} ({:.2} GB/s output throughput)",
+            elapsed, gbs
+        );
     }
 
     #[test]
@@ -2043,14 +2130,16 @@ mod tests {
 
         let total_bytes = 4096u64 * 4 * iters as u64;
         let gbs = total_bytes as f64 / elapsed.as_secs_f64() / 1e9;
-        eprintln!("Quant 5-bit 4096 x {iters}: {:?} ({:.2} GB/s input throughput)",
-            elapsed, gbs);
+        eprintln!(
+            "Quant 5-bit 4096 x {iters}: {:?} ({:.2} GB/s input throughput)",
+            elapsed, gbs
+        );
     }
 
     #[test]
     fn bench_svd_adaptive_64x64() {
-        use std::time::Instant;
         use crate::delta::FactorSet;
+        use std::time::Instant;
 
         let (rows, cols) = (64, 64);
         let data: Vec<f32> = (0..rows * cols)
@@ -2060,20 +2149,21 @@ mod tests {
         let iters = 100;
         let start = Instant::now();
         for _ in 0..iters {
-            std::hint::black_box(
-                FactorSet::from_data_adaptive(&data, rows, cols, 16, 0.05)
-            );
+            std::hint::black_box(FactorSet::from_data_adaptive(&data, rows, cols, 16, 0.05));
         }
         let elapsed = start.elapsed();
 
-        eprintln!("SVD adaptive 64x64 (max_rank=16, target=0.05) x {iters}: {:?} ({:.2} ms/iter)",
-            elapsed, elapsed.as_secs_f64() * 1000.0 / iters as f64);
+        eprintln!(
+            "SVD adaptive 64x64 (max_rank=16, target=0.05) x {iters}: {:?} ({:.2} ms/iter)",
+            elapsed,
+            elapsed.as_secs_f64() * 1000.0 / iters as f64
+        );
     }
 
     #[test]
     fn bench_format_report() {
-        use std::time::Instant;
         use crate::metrics::StoreMetrics;
+        use std::time::Instant;
 
         let m = StoreMetrics {
             total_blocks: 10_000,
@@ -2105,14 +2195,17 @@ mod tests {
         }
         let elapsed = start.elapsed();
 
-        eprintln!("format_report x {iters}: {:?} ({:.0} ns/call)",
-            elapsed, elapsed.as_nanos() as f64 / iters as f64);
+        eprintln!(
+            "format_report x {iters}: {:?} ({:.0} ns/call)",
+            elapsed,
+            elapsed.as_nanos() as f64 / iters as f64
+        );
     }
 
     #[test]
     fn bench_format_json() {
-        use std::time::Instant;
         use crate::metrics::StoreMetrics;
+        use std::time::Instant;
 
         let m = StoreMetrics {
             total_blocks: 10_000,
@@ -2144,28 +2237,34 @@ mod tests {
         }
         let elapsed = start.elapsed();
 
-        eprintln!("format_json x {iters}: {:?} ({:.0} ns/call)",
-            elapsed, elapsed.as_nanos() as f64 / iters as f64);
+        eprintln!(
+            "format_json x {iters}: {:?} ({:.0} ns/call)",
+            elapsed,
+            elapsed.as_nanos() as f64 / iters as f64
+        );
     }
 
     #[test]
     fn bench_metrics_series_trend_100() {
+        use crate::metrics::{MetricsSeries, StoreMetrics};
         use std::time::Instant;
-        use crate::metrics::{StoreMetrics, MetricsSeries};
 
         let mut series = MetricsSeries::new(256);
         for i in 0..100u64 {
-            series.record(i, StoreMetrics {
-                total_blocks: 1000 + i,
-                tier1_blocks: 400 + i % 50,
-                tier2_blocks: 350,
-                tier3_blocks: 250,
-                tier1_bytes: 400_000 + i * 100,
-                tier2_bytes: 250_000,
-                tier3_bytes: 75_000,
-                total_evictions: i * 3,
-                ..Default::default()
-            });
+            series.record(
+                i,
+                StoreMetrics {
+                    total_blocks: 1000 + i,
+                    tier1_blocks: 400 + i % 50,
+                    tier2_blocks: 350,
+                    tier3_blocks: 250,
+                    tier1_bytes: 400_000 + i * 100,
+                    tier2_bytes: 250_000,
+                    tier3_bytes: 75_000,
+                    total_evictions: i * 3,
+                    ..Default::default()
+                },
+            );
         }
 
         let iters = 10_000;
@@ -2175,7 +2274,10 @@ mod tests {
         }
         let elapsed = start.elapsed();
 
-        eprintln!("MetricsSeries trend (100 snapshots) x {iters}: {:?} ({:.0} ns/call)",
-            elapsed, elapsed.as_nanos() as f64 / iters as f64);
+        eprintln!(
+            "MetricsSeries trend (100 snapshots) x {iters}: {:?} ({:.0} ns/call)",
+            elapsed,
+            elapsed.as_nanos() as f64 / iters as f64
+        );
     }
 }

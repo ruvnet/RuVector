@@ -185,9 +185,7 @@ impl SystemDiagnostics {
             .components
             .iter()
             .enumerate()
-            .filter(|(i, _)| {
-                syndrome_counts[*i] > fault_counts[*i] + config.num_rounds / 4
-            })
+            .filter(|(i, _)| syndrome_counts[*i] > fault_counts[*i] + config.num_rounds / 4)
             .map(|(_, c)| c.id.clone())
             .collect();
 

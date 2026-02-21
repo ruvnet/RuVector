@@ -1,6 +1,6 @@
 //! Universal model loader trait and metadata
 
-use crate::error::{SparseInferenceError, ModelError};
+use crate::error::{ModelError, SparseInferenceError};
 use crate::model::gguf::{GgufModel, GgufParser, GgufValue};
 
 type Result<T> = std::result::Result<T, SparseInferenceError>;
@@ -19,7 +19,10 @@ pub trait ModelLoader {
     #[cfg(not(target_arch = "wasm32"))]
     fn load_file(path: &Path) -> Result<Self::Model> {
         let data = std::fs::read(path).map_err(|e| {
-            SparseInferenceError::Model(ModelError::LoadFailed(format!("Failed to read file: {}", e)))
+            SparseInferenceError::Model(ModelError::LoadFailed(format!(
+                "Failed to read file: {}",
+                e
+            )))
         })?;
         Self::load(&data)
     }
@@ -56,33 +59,51 @@ impl ModelMetadata {
 
         Ok(Self {
             architecture,
-            hidden_size: Self::get_u32(&model.metadata, &format!("{}.embedding_length", prefix))? as usize,
-            intermediate_size: Self::get_u32(&model.metadata, &format!("{}.feed_forward_length", prefix))
-                .unwrap_or(0) as usize,
-            num_layers: Self::get_u32(&model.metadata, &format!("{}.block_count", prefix))? as usize,
-            num_heads: Self::get_u32(&model.metadata, &format!("{}.attention.head_count", prefix))? as usize,
-            num_key_value_heads: Self::get_u32(&model.metadata, &format!("{}.attention.head_count_kv", prefix))
-                .ok()
-                .map(|v| v as usize),
+            hidden_size: Self::get_u32(&model.metadata, &format!("{}.embedding_length", prefix))?
+                as usize,
+            intermediate_size: Self::get_u32(
+                &model.metadata,
+                &format!("{}.feed_forward_length", prefix),
+            )
+            .unwrap_or(0) as usize,
+            num_layers: Self::get_u32(&model.metadata, &format!("{}.block_count", prefix))?
+                as usize,
+            num_heads: Self::get_u32(&model.metadata, &format!("{}.attention.head_count", prefix))?
+                as usize,
+            num_key_value_heads: Self::get_u32(
+                &model.metadata,
+                &format!("{}.attention.head_count_kv", prefix),
+            )
+            .ok()
+            .map(|v| v as usize),
             vocab_size: Self::get_u32(&model.metadata, "tokenizer.ggml.tokens")
                 .or_else(|_| Self::get_array_len(&model.metadata, "tokenizer.ggml.tokens"))
                 .unwrap_or(32000) as usize,
-            max_position_embeddings: Self::get_u32(&model.metadata, &format!("{}.context_length", prefix))
-                .unwrap_or(2048) as usize,
+            max_position_embeddings: Self::get_u32(
+                &model.metadata,
+                &format!("{}.context_length", prefix),
+            )
+            .unwrap_or(2048) as usize,
             quantization: None, // Determined from tensor types
             rope_theta: Self::get_f32(&model.metadata, &format!("{}.rope.freq_base", prefix)).ok(),
             rope_scaling: None,
         })
     }
 
-    fn get_string(metadata: &HashMap<String, GgufValue>, key: &str) -> std::result::Result<String, String> {
+    fn get_string(
+        metadata: &HashMap<String, GgufValue>,
+        key: &str,
+    ) -> std::result::Result<String, String> {
         match metadata.get(key) {
             Some(GgufValue::String(s)) => Ok(s.clone()),
             _ => Err(format!("Missing metadata: {}", key)),
         }
     }
 
-    fn get_u32(metadata: &HashMap<String, GgufValue>, key: &str) -> std::result::Result<u32, String> {
+    fn get_u32(
+        metadata: &HashMap<String, GgufValue>,
+        key: &str,
+    ) -> std::result::Result<u32, String> {
         match metadata.get(key) {
             Some(GgufValue::Uint32(v)) => Ok(*v),
             Some(GgufValue::Uint64(v)) => Ok(*v as u32),
@@ -91,7 +112,10 @@ impl ModelMetadata {
         }
     }
 
-    fn get_f32(metadata: &HashMap<String, GgufValue>, key: &str) -> std::result::Result<f32, String> {
+    fn get_f32(
+        metadata: &HashMap<String, GgufValue>,
+        key: &str,
+    ) -> std::result::Result<f32, String> {
         match metadata.get(key) {
             Some(GgufValue::Float32(v)) => Ok(*v),
             Some(GgufValue::Float64(v)) => Ok(*v as f32),
@@ -99,7 +123,10 @@ impl ModelMetadata {
         }
     }
 
-    fn get_array_len(metadata: &HashMap<String, GgufValue>, key: &str) -> std::result::Result<u32, String> {
+    fn get_array_len(
+        metadata: &HashMap<String, GgufValue>,
+        key: &str,
+    ) -> std::result::Result<u32, String> {
         match metadata.get(key) {
             Some(GgufValue::Array(arr)) => Ok(arr.len() as u32),
             _ => Err(format!("Missing metadata: {}", key)),

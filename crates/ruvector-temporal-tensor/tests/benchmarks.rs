@@ -11,9 +11,7 @@ use ruvector_temporal_tensor::bitpack;
 use ruvector_temporal_tensor::quantizer;
 use ruvector_temporal_tensor::segment;
 use ruvector_temporal_tensor::tier_policy::TierPolicy;
-use ruvector_temporal_tensor::tiering::{
-    self, BlockKey, BlockMeta, Tier, TierConfig,
-};
+use ruvector_temporal_tensor::tiering::{self, BlockKey, BlockMeta, Tier, TierConfig};
 use ruvector_temporal_tensor::TemporalTensorCompressor;
 
 // ---------------------------------------------------------------------------
@@ -101,7 +99,9 @@ impl ZipfSampler {
 
 /// Generate deterministic pseudo-random f32 data in [-1, 1].
 fn generate_f32_data(rng: &mut SimpleRng, len: usize) -> Vec<f32> {
-    (0..len).map(|_| rng.next_f64() as f32 * 2.0 - 1.0).collect()
+    (0..len)
+        .map(|_| rng.next_f64() as f32 * 2.0 - 1.0)
+        .collect()
 }
 
 /// Generate f32 data with guaranteed minimum magnitude (for quality tests).
@@ -110,7 +110,11 @@ fn generate_f32_data_no_near_zero(rng: &mut SimpleRng, len: usize, min_mag: f32)
     let range = 1.0 - min_mag;
     (0..len)
         .map(|_| {
-            let sign = if rng.next_u64() & 1 == 0 { 1.0f32 } else { -1.0 };
+            let sign = if rng.next_u64() & 1 == 0 {
+                1.0f32
+            } else {
+                -1.0
+            };
             let mag = min_mag + rng.next_f64() as f32 * range;
             sign * mag
         })
@@ -210,7 +214,9 @@ fn zipf_acceptance_test() {
             let ts32 = now as u32;
             block.compressor.touch(ts32);
             let mut seg_out = Vec::new();
-            block.compressor.push_frame(&block_frames[block_idx], ts32, &mut seg_out);
+            block
+                .compressor
+                .push_frame(&block_frames[block_idx], ts32, &mut seg_out);
             if !seg_out.is_empty() {
                 block.segments.push(seg_out);
             }
@@ -241,9 +247,18 @@ fn zipf_acceptance_test() {
     // --- Evaluate criteria ---
 
     // 1. Tier distribution
-    let tier1_count = blocks.iter().filter(|b| b.meta.current_tier == Tier::Tier1).count();
-    let tier2_count = blocks.iter().filter(|b| b.meta.current_tier == Tier::Tier2).count();
-    let tier3_count = blocks.iter().filter(|b| b.meta.current_tier == Tier::Tier3).count();
+    let tier1_count = blocks
+        .iter()
+        .filter(|b| b.meta.current_tier == Tier::Tier1)
+        .count();
+    let tier2_count = blocks
+        .iter()
+        .filter(|b| b.meta.current_tier == Tier::Tier2)
+        .count();
+    let tier3_count = blocks
+        .iter()
+        .filter(|b| b.meta.current_tier == Tier::Tier3)
+        .count();
 
     // Under Zipf(1.1), ~20% of blocks receive ~80% of accesses. The hot set
     // should be bounded. Use 40% as a generous cap (Zipf head + warm zone).
@@ -278,7 +293,11 @@ fn zipf_acceptance_test() {
         "  Tier1 blocks: {}  (cap: {})  {}",
         tier1_count,
         tier1_cap,
-        if tier1_count <= tier1_cap { "PASS" } else { "FAIL" }
+        if tier1_count <= tier1_cap {
+            "PASS"
+        } else {
+            "FAIL"
+        }
     );
     eprintln!(
         "  Tier flip rate: {:.4}/block/min  (threshold: 0.1)  {}",
@@ -288,7 +307,11 @@ fn zipf_acceptance_test() {
     eprintln!(
         "  P95 read latency: {} ns  {}",
         p95_latency_ns,
-        if p95_latency_ns < 50_000 { "PASS" } else { "WARN" }
+        if p95_latency_ns < 50_000 {
+            "PASS"
+        } else {
+            "WARN"
+        }
     );
     eprintln!();
 
@@ -338,7 +361,10 @@ fn bench_quantize_all_widths() {
 
         let ns = per_iter.as_nanos();
         let throughput_gbs = RAW_BYTES / (ns as f64);
-        eprintln!("  {}-bit:  {:>7} ns/iter  ({:.2} GB/s)", bits, ns, throughput_gbs);
+        eprintln!(
+            "  {}-bit:  {:>7} ns/iter  ({:.2} GB/s)",
+            bits, ns, throughput_gbs
+        );
     }
     eprintln!();
 }
@@ -371,14 +397,23 @@ fn bench_dequantize_all_widths() {
         let (_total, per_iter) = bench_loop(ITERS, || {
             decoded.clear();
             quantizer::dequantize_f32(
-                &packed, &scales_f32, GROUP_LEN, bits, ELEM_COUNT, 1, &mut decoded,
+                &packed,
+                &scales_f32,
+                GROUP_LEN,
+                bits,
+                ELEM_COUNT,
+                1,
+                &mut decoded,
             );
             std::hint::black_box(&decoded);
         });
 
         let ns = per_iter.as_nanos();
         let throughput_gbs = RAW_BYTES / (ns as f64);
-        eprintln!("  {}-bit:  {:>7} ns/iter  ({:.2} GB/s)", bits, ns, throughput_gbs);
+        eprintln!(
+            "  {}-bit:  {:>7} ns/iter  ({:.2} GB/s)",
+            bits, ns, throughput_gbs
+        );
     }
     eprintln!();
 }
@@ -475,7 +510,9 @@ fn bench_score_computation() {
     // Also benchmark the legacy TierPolicy::select_bits for comparison
     let policy = TierPolicy::default();
     let access_counts: Vec<u32> = (0..1000).map(|_| (rng.next_u64() % 1000) as u32).collect();
-    let timestamps: Vec<u32> = (0..1000).map(|_| (rng.next_u64() % 100_000) as u32).collect();
+    let timestamps: Vec<u32> = (0..1000)
+        .map(|_| (rng.next_u64() % 100_000) as u32)
+        .collect();
 
     let start = Instant::now();
     let mut bits_sink = 0u32;
@@ -518,10 +555,10 @@ fn quality_metrics_test() {
     // ADR-023 max relative error bounds per tier.
     // These bounds apply to values with |v| >= MIN_MAG.
     let configs: &[(u8, f64, &str)] = &[
-        (8, 0.008, "0.80"),  // 8-bit: <0.8%
-        (7, 0.016, "1.60"),  // 7-bit: <1.6%
-        (5, 0.065, "6.50"),  // 5-bit: <6.5%
-        (3, 0.30, "30.0"),   // 3-bit: <30%
+        (8, 0.008, "0.80"), // 8-bit: <0.8%
+        (7, 0.016, "1.60"), // 7-bit: <1.6%
+        (5, 0.065, "6.50"), // 5-bit: <6.5%
+        (3, 0.30, "30.0"),  // 3-bit: <30%
     ];
 
     eprintln!("Quality:");
@@ -537,7 +574,13 @@ fn quality_metrics_test() {
 
         let mut decoded = Vec::new();
         quantizer::dequantize_f32(
-            &packed, &scales_f32, GROUP_LEN, bits, ELEM_COUNT, 1, &mut decoded,
+            &packed,
+            &scales_f32,
+            GROUP_LEN,
+            bits,
+            ELEM_COUNT,
+            1,
+            &mut decoded,
         );
 
         // Compute MSE and per-group max relative error.
@@ -589,7 +632,10 @@ fn quality_metrics_test() {
     }
     eprintln!();
 
-    assert!(all_pass, "One or more quality checks failed -- see output above");
+    assert!(
+        all_pass,
+        "One or more quality checks failed -- see output above"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -704,9 +750,18 @@ fn adversarial_access_test() {
     );
 
     // Also report tier distribution at end
-    let tier1 = blocks.iter().filter(|b| b.meta.current_tier == Tier::Tier1).count();
-    let tier2 = blocks.iter().filter(|b| b.meta.current_tier == Tier::Tier2).count();
-    let tier3 = blocks.iter().filter(|b| b.meta.current_tier == Tier::Tier3).count();
+    let tier1 = blocks
+        .iter()
+        .filter(|b| b.meta.current_tier == Tier::Tier1)
+        .count();
+    let tier2 = blocks
+        .iter()
+        .filter(|b| b.meta.current_tier == Tier::Tier2)
+        .count();
+    let tier3 = blocks
+        .iter()
+        .filter(|b| b.meta.current_tier == Tier::Tier3)
+        .count();
     eprintln!("  Final tiers: T1={} T2={} T3={}", tier1, tier2, tier3);
     eprintln!();
 
@@ -750,7 +805,10 @@ fn bench_segment_roundtrip() {
         } else if bits == 7 {
             comp.set_access(10, 0);
         } else if bits == 5 {
-            let p5 = TierPolicy { warm_bits: 5, ..policy };
+            let p5 = TierPolicy {
+                warm_bits: 5,
+                ..policy
+            };
             comp = TemporalTensorCompressor::new(p5, TENSOR_LEN, 0);
             comp.set_access(10, 0);
         }
@@ -802,7 +860,10 @@ fn bench_compressor_throughput() {
     let mut rng = SimpleRng::new(0xBEEF);
     let frame = generate_f32_data(&mut rng, TENSOR_LEN as usize);
 
-    eprintln!("Compressor throughput ({} elements x {} frames):", TENSOR_LEN, FRAMES);
+    eprintln!(
+        "Compressor throughput ({} elements x {} frames):",
+        TENSOR_LEN, FRAMES
+    );
 
     for &(label, access_count) in &[("hot/8-bit", 1000u32), ("cold/3-bit", 0)] {
         let mut comp = TemporalTensorCompressor::new(policy, TENSOR_LEN, 0);
@@ -930,11 +991,11 @@ fn bench_tiering_candidate_selection() {
     let ns = per_iter.as_nanos();
     let avg_candidates = total_candidates / ITERS as usize;
 
-    eprintln!("Tiering candidate selection ({} blocks, {} iters):", NUM_BLOCKS, ITERS);
     eprintln!(
-        "  {} ns/iter  ({} avg candidates)",
-        ns, avg_candidates
+        "Tiering candidate selection ({} blocks, {} iters):",
+        NUM_BLOCKS, ITERS
     );
+    eprintln!("  {} ns/iter  ({} avg candidates)", ns, avg_candidates);
     eprintln!();
 }
 

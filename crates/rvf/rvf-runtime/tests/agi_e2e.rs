@@ -35,12 +35,19 @@ fn build_full_container() -> (Vec<u8>, AgiContainerHeader) {
         .with_domain_profile(b"coding")
         .offline_capable()
         .with_segments(ContainerSegments {
-            kernel_present: true, kernel_size: 5_000_000,
-            wasm_count: 2, wasm_total_size: 60_000,
-            vec_segment_count: 4, index_segment_count: 2,
-            witness_count: 100, crypto_present: false,
-            manifest_present: true, orchestrator_present: true,
-            world_model_present: true, domain_expansion_present: false, total_size: 0,
+            kernel_present: true,
+            kernel_size: 5_000_000,
+            wasm_count: 2,
+            wasm_total_size: 60_000,
+            vec_segment_count: 4,
+            index_segment_count: 2,
+            witness_count: 100,
+            crypto_present: false,
+            manifest_present: true,
+            orchestrator_present: true,
+            world_model_present: true,
+            domain_expansion_present: false,
+            total_size: 0,
         })
         .build()
         .unwrap()
@@ -59,7 +66,10 @@ fn full_container_lifecycle() {
     assert!(header.has_world_model());
     assert!(header.is_replay_capable());
     assert!(header.is_offline_capable());
-    assert!(header.created_ns > 0, "created_ns should be a real timestamp");
+    assert!(
+        header.created_ns > 0,
+        "created_ns should be a real timestamp"
+    );
 
     // Header round-trip.
     let header_rt = AgiContainerHeader::from_bytes(&header.to_bytes()).unwrap();
@@ -87,10 +97,14 @@ fn full_container_lifecycle() {
 
     // Segment-derived flags should all be present in the header.
     let seg_flags = ContainerSegments {
-        kernel_present: true, wasm_count: 2, witness_count: 100,
-        orchestrator_present: true, world_model_present: true,
+        kernel_present: true,
+        wasm_count: 2,
+        witness_count: 100,
+        orchestrator_present: true,
+        world_model_present: true,
         ..Default::default()
-    }.to_flags();
+    }
+    .to_flags();
     assert_eq!(header.flags & seg_flags, seg_flags);
 }
 
@@ -104,8 +118,10 @@ fn signed_container_tamper_detection() {
         .with_eval_tasks(TASKS_JSON)
         .with_eval_graders(GRADERS_JSON)
         .with_segments(ContainerSegments {
-            kernel_present: true, manifest_present: true,
-            world_model_present: true, ..Default::default()
+            kernel_present: true,
+            manifest_present: true,
+            world_model_present: true,
+            ..Default::default()
         });
 
     let (payload, header) = builder.build_and_sign(SIGNING_KEY).unwrap();
@@ -113,19 +129,27 @@ fn signed_container_tamper_detection() {
 
     let unsigned_len = payload.len() - 32;
     let sig = &payload[unsigned_len..];
-    assert!(seed_crypto::verify_seed(SIGNING_KEY, &payload[..unsigned_len], sig));
+    assert!(seed_crypto::verify_seed(
+        SIGNING_KEY,
+        &payload[..unsigned_len],
+        sig
+    ));
 
     // Tamper with one byte in the TLV payload area.
     let mut tampered = payload.clone();
     tampered[AGI_HEADER_SIZE + 10] ^= 0xFF;
-    assert!(!seed_crypto::verify_seed(SIGNING_KEY, &tampered[..unsigned_len], sig),
-        "tampered payload must fail verification");
+    assert!(
+        !seed_crypto::verify_seed(SIGNING_KEY, &tampered[..unsigned_len], sig),
+        "tampered payload must fail verification"
+    );
 
     // Tamper with header byte.
     let mut tampered_hdr = payload.clone();
     tampered_hdr[7] ^= 0x01;
-    assert!(!seed_crypto::verify_seed(SIGNING_KEY, &tampered_hdr[..unsigned_len], sig),
-        "tampered header must fail verification");
+    assert!(
+        !seed_crypto::verify_seed(SIGNING_KEY, &tampered_hdr[..unsigned_len], sig),
+        "tampered header must fail verification"
+    );
 }
 
 // -- 3. Execution Mode Validation Matrix --
@@ -133,35 +157,62 @@ fn signed_container_tamper_detection() {
 #[test]
 fn execution_mode_validation_matrix() {
     let m = |mp, kp, wc, wmc, vsc, isc, wnc| ContainerSegments {
-        manifest_present: mp, kernel_present: kp, wasm_count: wc,
-        world_model_present: wmc, vec_segment_count: vsc,
-        index_segment_count: isc, witness_count: wnc,
+        manifest_present: mp,
+        kernel_present: kp,
+        wasm_count: wc,
+        world_model_present: wmc,
+        vec_segment_count: vsc,
+        index_segment_count: isc,
+        witness_count: wnc,
         ..Default::default()
     };
 
     // Replay + no witness -> fail
-    assert!(m(true, false, 0, false, 0, 0, 0).validate(ExecutionMode::Replay).is_err());
+    assert!(m(true, false, 0, false, 0, 0, 0)
+        .validate(ExecutionMode::Replay)
+        .is_err());
     // Replay + witness -> pass
-    assert!(m(true, false, 0, false, 0, 0, 10).validate(ExecutionMode::Replay).is_ok());
+    assert!(m(true, false, 0, false, 0, 0, 10)
+        .validate(ExecutionMode::Replay)
+        .is_ok());
     // Verify + no runtime -> fail
-    assert!(m(true, false, 0, false, 0, 0, 0).validate(ExecutionMode::Verify).is_err());
+    assert!(m(true, false, 0, false, 0, 0, 0)
+        .validate(ExecutionMode::Verify)
+        .is_err());
     // Verify + kernel + world_model -> pass
-    assert!(m(true, true, 0, true, 0, 0, 0).validate(ExecutionMode::Verify).is_ok());
+    assert!(m(true, true, 0, true, 0, 0, 0)
+        .validate(ExecutionMode::Verify)
+        .is_ok());
     // Verify + wasm + vec -> pass
-    assert!(m(true, false, 1, false, 2, 0, 0).validate(ExecutionMode::Verify).is_ok());
+    assert!(m(true, false, 1, false, 2, 0, 0)
+        .validate(ExecutionMode::Verify)
+        .is_ok());
     // Live + kernel only (no world model) -> fail
-    assert!(m(true, true, 0, false, 0, 0, 0).validate(ExecutionMode::Live).is_err());
+    assert!(m(true, true, 0, false, 0, 0, 0)
+        .validate(ExecutionMode::Live)
+        .is_err());
     // Live + kernel + world model -> pass
-    assert!(m(true, true, 0, true, 0, 0, 0).validate(ExecutionMode::Live).is_ok());
+    assert!(m(true, true, 0, true, 0, 0, 0)
+        .validate(ExecutionMode::Live)
+        .is_ok());
 }
 
 // -- 4. Authority Level Tests --
 
 #[test]
 fn authority_level_defaults_per_mode() {
-    assert_eq!(AuthorityLevel::default_for_mode(ExecutionMode::Replay), AuthorityLevel::ReadOnly);
-    assert_eq!(AuthorityLevel::default_for_mode(ExecutionMode::Verify), AuthorityLevel::ExecuteTools);
-    assert_eq!(AuthorityLevel::default_for_mode(ExecutionMode::Live), AuthorityLevel::WriteMemory);
+    assert_eq!(
+        AuthorityLevel::default_for_mode(ExecutionMode::Replay),
+        AuthorityLevel::ReadOnly
+    );
+    assert_eq!(
+        AuthorityLevel::default_for_mode(ExecutionMode::Verify),
+        AuthorityLevel::ExecuteTools
+    );
+    assert_eq!(
+        AuthorityLevel::default_for_mode(ExecutionMode::Live),
+        AuthorityLevel::WriteMemory
+    );
 }
 
 #[test]
@@ -188,10 +239,13 @@ fn authority_level_hierarchy() {
 #[test]
 fn resource_budget_clamping() {
     let clamped = ResourceBudget {
-        max_time_secs: 99999, max_tokens: 99999999,
+        max_time_secs: 99999,
+        max_tokens: 99999999,
         max_cost_microdollars: 99999999,
-        max_tool_calls: 65535, max_external_writes: 65535,
-    }.clamped();
+        max_tool_calls: 65535,
+        max_external_writes: 65535,
+    }
+    .clamped();
     assert_eq!(clamped.max_time_secs, 3600);
     assert_eq!(clamped.max_tokens, 1_000_000);
     assert_eq!(clamped.max_cost_microdollars, 10_000_000);
@@ -212,17 +266,28 @@ fn coherence_threshold_validation() {
     assert!(CoherenceThresholds::STRICT.validate().is_ok());
 
     // Invalid: score > 1.0
-    let bad = CoherenceThresholds { min_coherence_score: 1.5, ..CoherenceThresholds::DEFAULT };
+    let bad = CoherenceThresholds {
+        min_coherence_score: 1.5,
+        ..CoherenceThresholds::DEFAULT
+    };
     assert!(bad.validate().is_err());
     // Invalid: negative rate
-    let bad2 = CoherenceThresholds { max_contradiction_rate: -1.0, ..CoherenceThresholds::DEFAULT };
+    let bad2 = CoherenceThresholds {
+        max_contradiction_rate: -1.0,
+        ..CoherenceThresholds::DEFAULT
+    };
     assert!(bad2.validate().is_err());
     // Invalid: rollback ratio > 1.0
-    let bad3 = CoherenceThresholds { max_rollback_ratio: 2.0, ..CoherenceThresholds::DEFAULT };
+    let bad3 = CoherenceThresholds {
+        max_rollback_ratio: 2.0,
+        ..CoherenceThresholds::DEFAULT
+    };
     assert!(bad3.validate().is_err());
     // Edge: zero values are valid
     let edge = CoherenceThresholds {
-        min_coherence_score: 0.0, max_contradiction_rate: 0.0, max_rollback_ratio: 0.0,
+        min_coherence_score: 0.0,
+        max_contradiction_rate: 0.0,
+        max_rollback_ratio: 0.0,
     };
     assert!(edge.validate().is_ok());
 }
@@ -232,12 +297,15 @@ fn coherence_threshold_validation() {
 #[test]
 fn container_size_limit_enforced() {
     let oversized = ContainerSegments {
-        manifest_present: true, total_size: AGI_MAX_CONTAINER_SIZE + 1,
+        manifest_present: true,
+        total_size: AGI_MAX_CONTAINER_SIZE + 1,
         ..Default::default()
     };
     assert_eq!(
         oversized.validate(ExecutionMode::Replay),
-        Err(ContainerError::TooLarge { size: AGI_MAX_CONTAINER_SIZE + 1 })
+        Err(ContainerError::TooLarge {
+            size: AGI_MAX_CONTAINER_SIZE + 1
+        })
     );
 }
 
@@ -247,21 +315,28 @@ fn container_size_limit_enforced() {
 fn bench_header_serialize_deserialize() {
     use std::time::Instant;
     let header = AgiContainerHeader {
-        magic: AGI_MAGIC, version: 1,
+        magic: AGI_MAGIC,
+        version: 1,
         flags: AGI_HAS_KERNEL | AGI_HAS_WASM | AGI_HAS_ORCHESTRATOR | AGI_SIGNED,
-        container_id: [0x42; 16], build_id: [0x43; 16],
+        container_id: [0x42; 16],
+        build_id: [0x43; 16],
         created_ns: 1_700_000_000_000_000_000,
-        model_id_hash: [0xAA; 8], policy_hash: [0xBB; 8],
+        model_id_hash: [0xAA; 8],
+        policy_hash: [0xBB; 8],
     };
     let n: u128 = 100_000;
 
     let start = Instant::now();
-    for _ in 0..n { let _ = std::hint::black_box(header.to_bytes()); }
+    for _ in 0..n {
+        let _ = std::hint::black_box(header.to_bytes());
+    }
     let ser = start.elapsed();
 
     let bytes = header.to_bytes();
     let start = Instant::now();
-    for _ in 0..n { let _ = std::hint::black_box(AgiContainerHeader::from_bytes(&bytes).unwrap()); }
+    for _ in 0..n {
+        let _ = std::hint::black_box(AgiContainerHeader::from_bytes(&bytes).unwrap());
+    }
     let deser = start.elapsed();
 
     let ser_ns = ser.as_nanos() / n;
@@ -277,8 +352,10 @@ fn bench_container_build_parse() {
     use std::time::Instant;
     let n: u128 = 10_000;
     let segs = || ContainerSegments {
-        kernel_present: true, manifest_present: true,
-        world_model_present: true, ..Default::default()
+        kernel_present: true,
+        manifest_present: true,
+        world_model_present: true,
+        ..Default::default()
     };
 
     let start = Instant::now();
@@ -300,10 +377,13 @@ fn bench_container_build_parse() {
         .with_eval_tasks(TASKS_JSON)
         .with_eval_graders(GRADERS_JSON)
         .with_segments(segs())
-        .build().unwrap();
+        .build()
+        .unwrap();
 
     let start = Instant::now();
-    for _ in 0..n { let _ = std::hint::black_box(ParsedAgiManifest::parse(&payload).unwrap()); }
+    for _ in 0..n {
+        let _ = std::hint::black_box(ParsedAgiManifest::parse(&payload).unwrap());
+    }
     let parse_elapsed = start.elapsed();
 
     let build_ns = build_elapsed.as_nanos() / n;
@@ -319,14 +399,21 @@ fn bench_flags_computation() {
     use std::time::Instant;
     let n: u128 = 1_000_000;
     let segs = ContainerSegments {
-        kernel_present: true, wasm_count: 2, witness_count: 100,
-        crypto_present: true, orchestrator_present: true,
-        world_model_present: true, vec_segment_count: 4,
-        index_segment_count: 2, ..Default::default()
+        kernel_present: true,
+        wasm_count: 2,
+        witness_count: 100,
+        crypto_present: true,
+        orchestrator_present: true,
+        world_model_present: true,
+        vec_segment_count: 4,
+        index_segment_count: 2,
+        ..Default::default()
     };
 
     let start = Instant::now();
-    for _ in 0..n { let _ = std::hint::black_box(segs.to_flags()); }
+    for _ in 0..n {
+        let _ = std::hint::black_box(segs.to_flags());
+    }
     let elapsed = start.elapsed();
 
     let ns = elapsed.as_nanos() / n;

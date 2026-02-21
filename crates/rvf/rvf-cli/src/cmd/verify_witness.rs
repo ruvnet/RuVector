@@ -44,18 +44,20 @@ fn extract_witness_payloads(raw: &[u8]) -> Vec<(usize, Vec<u8>)> {
         if raw[i..i + 4] == magic_bytes {
             let seg_type = raw[i + 5];
             let payload_len = u64::from_le_bytes([
-                raw[i + 0x10], raw[i + 0x11],
-                raw[i + 0x12], raw[i + 0x13],
-                raw[i + 0x14], raw[i + 0x15],
-                raw[i + 0x16], raw[i + 0x17],
+                raw[i + 0x10],
+                raw[i + 0x11],
+                raw[i + 0x12],
+                raw[i + 0x13],
+                raw[i + 0x14],
+                raw[i + 0x15],
+                raw[i + 0x16],
+                raw[i + 0x17],
             ]) as usize;
 
             let payload_start = i + SEGMENT_HEADER_SIZE;
             let payload_end = payload_start + payload_len;
 
-            if seg_type == SegmentType::Witness as u8
-                && payload_end <= raw.len()
-            {
+            if seg_type == SegmentType::Witness as u8 && payload_end <= raw.len() {
                 let payload = raw[payload_start..payload_end].to_vec();
                 results.push((i, payload));
             }
@@ -208,7 +210,10 @@ pub fn run(args: VerifyWitnessArgs) -> Result<(), Box<dyn std::error::Error>> {
         println!("Witness chain verification (cryptographic):");
         println!();
         crate::output::print_kv("Witness segments:", &payloads.len().to_string());
-        crate::output::print_kv("Valid chains:", &format!("{}/{}", total_valid_chains, payloads.len()));
+        crate::output::print_kv(
+            "Valid chains:",
+            &format!("{}/{}", total_valid_chains, payloads.len()),
+        );
         crate::output::print_kv("Total entries:", &total_entries.to_string());
 
         if !all_entries.is_empty() {
@@ -226,7 +231,12 @@ pub fn run(args: VerifyWitnessArgs) -> Result<(), Box<dyn std::error::Error>> {
             let mut types: Vec<_> = type_counts.iter().collect();
             types.sort_by_key(|(k, _)| **k);
             for (wt, count) in types {
-                println!("    0x{:02X} ({:20}): {}", wt, witness_type_name(*wt), count);
+                println!(
+                    "    0x{:02X} ({:20}): {}",
+                    wt,
+                    witness_type_name(*wt),
+                    count
+                );
             }
         }
 
@@ -234,7 +244,10 @@ pub fn run(args: VerifyWitnessArgs) -> Result<(), Box<dyn std::error::Error>> {
         if all_valid {
             println!("  All witness hash chains verified successfully.");
         } else {
-            println!("  WARNING: {} chain(s) failed verification:", chain_breaks.len());
+            println!(
+                "  WARNING: {} chain(s) failed verification:",
+                chain_breaks.len()
+            );
             for brk in &chain_breaks {
                 println!("    - {}", brk);
             }

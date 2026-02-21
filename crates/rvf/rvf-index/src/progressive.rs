@@ -56,9 +56,7 @@ impl ProgressiveIndex {
     ) -> Vec<(u64, f32)> {
         match (&self.layer_a, &self.layer_b, &self.layer_c) {
             (None, _, _) => Vec::new(),
-            (Some(a), None, None) => {
-                self.search_layer_a_only(query, k, a, vectors, distance_fn)
-            }
+            (Some(a), None, None) => self.search_layer_a_only(query, k, a, vectors, distance_fn),
             (Some(a), Some(b), None) => {
                 self.search_a_plus_b(query, k, ef_search, a, b, vectors, distance_fn)
             }
@@ -87,8 +85,7 @@ impl ProgressiveIndex {
             .enumerate()
             .map(|(i, c)| (i, distance_fn(query, c)))
             .collect();
-        centroid_dists
-            .sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(core::cmp::Ordering::Equal));
+        centroid_dists.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(core::cmp::Ordering::Equal));
         centroid_dists.truncate(n_probe);
 
         // Step 2: HNSW search through top layers using Layer A entry points.
@@ -147,11 +144,7 @@ impl ProgressiveIndex {
         let mut results: Vec<(u64, f32)> = Vec::new();
 
         // Start with Layer A routing to find the best entry into hot region.
-        let entry = layer_a
-            .entry_points
-            .first()
-            .map(|&(ep, _)| ep)
-            .unwrap_or(0);
+        let entry = layer_a.entry_points.first().map(|&(ep, _)| ep).unwrap_or(0);
 
         let mut current = entry;
         for tl in &layer_a.top_layers {
@@ -248,11 +241,7 @@ impl ProgressiveIndex {
         };
 
         // Find the entry point: any node at the highest layer.
-        let entry = match layer_c.full_adjacency[max_layer]
-            .adjacency
-            .keys()
-            .next()
-        {
+        let entry = match layer_c.full_adjacency[max_layer].adjacency.keys().next() {
             Some(&ep) => ep,
             None => return Vec::new(),
         };

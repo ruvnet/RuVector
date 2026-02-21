@@ -101,9 +101,7 @@ mod native {
 
             // Sample gradients -- we approximate them as the difference between
             // query and result portions of each stored entry.
-            let samples = self.replay_buffer.sample(
-                self.replay_buffer.len().min(64),
-            );
+            let samples = self.replay_buffer.sample(self.replay_buffer.len().min(64));
 
             let dim = self.weights.len();
             let gradients: Vec<Vec<f32>> = samples
@@ -243,10 +241,10 @@ mod native {
         /// Map an age in hours to an access-frequency proxy in [0, 1].
         fn age_to_freq(age_hours: u64) -> f32 {
             match age_hours {
-                0 => 1.0,              // Fresh -- full precision
-                1..=24 => 0.5,         // Warm  -- half precision
-                25..=168 => 0.2,       // Cool  -- PQ8
-                _ => 0.005,            // Cold  -- binary
+                0 => 1.0,        // Fresh -- full precision
+                1..=24 => 0.5,   // Warm  -- half precision
+                25..=168 => 0.2, // Cool  -- PQ8
+                _ => 0.005,      // Cold  -- binary
             }
         }
     }

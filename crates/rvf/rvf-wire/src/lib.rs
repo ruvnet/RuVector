@@ -4,17 +4,17 @@
 //! Format (RVF): segment headers, varint encoding, delta coding, hash
 //! computation, tail scanning, and per-segment-type codecs.
 
-pub mod varint;
 pub mod delta;
 pub mod hash;
-pub mod reader;
-pub mod writer;
-pub mod tail_scan;
-pub mod manifest_codec;
-pub mod vec_seg_codec;
 pub mod hot_seg_codec;
 pub mod index_seg_codec;
+pub mod manifest_codec;
+pub mod reader;
+pub mod tail_scan;
+pub mod varint;
+pub mod vec_seg_codec;
+pub mod writer;
 
 pub use reader::{read_segment, read_segment_header, validate_segment};
-pub use writer::{write_segment, calculate_padded_size};
 pub use tail_scan::find_latest_manifest;
+pub use writer::{calculate_padded_size, write_segment};

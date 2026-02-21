@@ -42,9 +42,7 @@ impl QmpClient {
         client.send_command(r#"{"execute":"qmp_capabilities"}"#)?;
         let resp = client.read_line()?;
         if !resp.contains("\"return\"") {
-            return Err(LaunchError::Qmp(format!(
-                "qmp_capabilities failed: {resp}"
-            )));
+            return Err(LaunchError::Qmp(format!("qmp_capabilities failed: {resp}")));
         }
 
         Ok(client)
@@ -78,9 +76,7 @@ impl QmpClient {
         self.stream
             .write_all(cmd.as_bytes())
             .map_err(LaunchError::QmpIo)?;
-        self.stream
-            .write_all(b"\n")
-            .map_err(LaunchError::QmpIo)?;
+        self.stream.write_all(b"\n").map_err(LaunchError::QmpIo)?;
         self.stream.flush().map_err(LaunchError::QmpIo)?;
         Ok(())
     }
@@ -101,8 +97,10 @@ mod tests {
     #[test]
     fn connect_to_nonexistent_socket_fails() {
         use super::*;
-        let result =
-            QmpClient::connect(Path::new("/tmp/nonexistent_qmp.sock"), Duration::from_secs(1));
+        let result = QmpClient::connect(
+            Path::new("/tmp/nonexistent_qmp.sock"),
+            Duration::from_secs(1),
+        );
         assert!(result.is_err());
     }
 }

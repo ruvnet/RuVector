@@ -682,8 +682,8 @@ impl IntelligenceCalculator {
         // Cost trend: compare early vs late episode accuracy per step
         let cost_trend = if raw.episodes.len() >= 4 {
             let half = raw.episodes.len() / 2;
-            let early_acc: f64 = raw.episodes[..half].iter().map(|e| e.accuracy).sum::<f64>()
-                / half as f64;
+            let early_acc: f64 =
+                raw.episodes[..half].iter().map(|e| e.accuracy).sum::<f64>() / half as f64;
             let late_acc: f64 = raw.episodes[half..].iter().map(|e| e.accuracy).sum::<f64>()
                 / (raw.episodes.len() - half) as f64;
             // If accuracy improves, effective cost per solve drops
@@ -696,7 +696,12 @@ impl IntelligenceCalculator {
             0.0
         };
 
-        CostMetrics { steps_per_solve, tools_per_solve, cost_efficiency, cost_trend }
+        CostMetrics {
+            steps_per_solve,
+            tools_per_solve,
+            cost_efficiency,
+            cost_trend,
+        }
     }
 
     fn calculate_robustness(&self, raw: &RawMetrics) -> RobustnessMetrics {
@@ -706,7 +711,9 @@ impl IntelligenceCalculator {
             0.5 // no noise data -> neutral prior
         };
 
-        let clean_attempted = raw.tasks_attempted.saturating_sub(raw.noise_tasks_attempted);
+        let clean_attempted = raw
+            .tasks_attempted
+            .saturating_sub(raw.noise_tasks_attempted);
         let clean_correct = raw.tasks_correct.saturating_sub(raw.noise_tasks_correct);
         let clean_accuracy = if clean_attempted > 0 {
             clean_correct as f64 / clean_attempted as f64
@@ -717,22 +724,28 @@ impl IntelligenceCalculator {
         let noise_degradation = (clean_accuracy - noise_accuracy).max(0.0);
 
         let consistency = if raw.episodes.len() >= 2 {
-            let mean = raw.episodes.iter().map(|e| e.accuracy).sum::<f64>()
-                / raw.episodes.len() as f64;
-            let variance = raw.episodes.iter()
+            let mean =
+                raw.episodes.iter().map(|e| e.accuracy).sum::<f64>() / raw.episodes.len() as f64;
+            let variance = raw
+                .episodes
+                .iter()
                 .map(|e| (e.accuracy - mean).powi(2))
-                .sum::<f64>() / raw.episodes.len() as f64;
+                .sum::<f64>()
+                / raw.episodes.len() as f64;
             (1.0 - variance.sqrt()).max(0.0)
         } else {
             0.5
         };
 
         let robustness_score =
-            noise_accuracy * 0.4
-            + (1.0 - noise_degradation.min(1.0)) * 0.3
-            + consistency * 0.3;
+            noise_accuracy * 0.4 + (1.0 - noise_degradation.min(1.0)) * 0.3 + consistency * 0.3;
 
-        RobustnessMetrics { noise_accuracy, noise_degradation, consistency, robustness_score }
+        RobustnessMetrics {
+            noise_accuracy,
+            noise_degradation,
+            consistency,
+            robustness_score,
+        }
     }
 
     fn calculate_overall_score(

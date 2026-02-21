@@ -97,11 +97,7 @@ pub struct Discrepancy {
 /// * `circuit` - The quantum circuit to verify.
 /// * `shots` - Number of measurement shots per backend.
 /// * `seed` - Deterministic seed for reproducibility.
-pub fn verify_circuit(
-    circuit: &QuantumCircuit,
-    shots: u32,
-    seed: u64,
-) -> VerificationResult {
+pub fn verify_circuit(circuit: &QuantumCircuit, shots: u32, seed: u64) -> VerificationResult {
     let analysis = analyze_circuit(circuit);
     let num_qubits = circuit.num_qubits();
     let is_clifford = is_clifford_circuit(circuit);
@@ -121,10 +117,7 @@ pub fn verify_circuit(
                     total_variation_distance: None,
                     chi_squared_p_value: None,
                     correlation: None,
-                    explanation: format!(
-                        "State-vector simulation failed: {}",
-                        e
-                    ),
+                    explanation: format!("State-vector simulation failed: {}", e),
                     discrepancies: vec![],
                 };
             }
@@ -144,11 +137,7 @@ pub fn verify_circuit(
         result.reference_backend = Some(BackendType::Stabilizer);
 
         // Upgrade to Exact level if the distributions match perfectly.
-        if result.passed
-            && result
-                .total_variation_distance
-                .map_or(false, |d| d == 0.0)
-        {
+        if result.passed && result.total_variation_distance.map_or(false, |d| d == 0.0) {
             result.level = VerificationLevel::Exact;
             result.explanation = format!(
                 "Exact match: {}-qubit Clifford circuit verified across \
@@ -160,11 +149,8 @@ pub fn verify_circuit(
             // Even for Clifford circuits, sampling noise may cause small
             // differences. Use statistical comparison with a tight tolerance.
             let tight_tolerance = 0.05;
-            let mut stat_result = verify_against_reference(
-                &sv_counts,
-                &stab_counts,
-                tight_tolerance,
-            );
+            let mut stat_result =
+                verify_against_reference(&sv_counts, &stab_counts, tight_tolerance);
             stat_result.primary_backend = BackendType::StateVector;
             stat_result.reference_backend = Some(BackendType::Stabilizer);
             stat_result.explanation = format!(
@@ -172,9 +158,7 @@ pub fn verify_circuit(
                  state-vector and stabilizer backends ({} shots, TVD={:.6})",
                 num_qubits,
                 shots,
-                stat_result
-                    .total_variation_distance
-                    .unwrap_or(0.0)
+                stat_result.total_variation_distance.unwrap_or(0.0)
             );
             return stat_result;
         }
@@ -196,9 +180,7 @@ pub fn verify_circuit(
                 "Verification skipped: {}-qubit circuit contains non-Clifford \
                  gates (clifford_fraction={:.2}, {} non-Clifford gates). \
                  No reference backend available for cross-validation.",
-                num_qubits,
-                analysis.clifford_fraction,
-                analysis.non_clifford_gates
+                num_qubits, analysis.clifford_fraction, analysis.non_clifford_gates
             ),
             discrepancies: vec![],
         };
@@ -249,8 +231,7 @@ pub fn verify_against_reference(
     let distance = tvd(&p_norm, &q_norm);
 
     let total_ref: usize = reference.values().sum();
-    let (chi2_stat, dof) =
-        chi_squared_statistic(primary, &q_norm, total_ref);
+    let (chi2_stat, dof) = chi_squared_statistic(primary, &q_norm, total_ref);
     let p_value = if dof > 0 {
         chi_squared_p_value(chi2_stat, dof)
     } else {
@@ -260,8 +241,7 @@ pub fn verify_against_reference(
     let corr = pearson_correlation(&p_norm, &q_norm);
 
     // Build sorted discrepancy list.
-    let mut all_keys: Vec<&Vec<bool>> =
-        p_norm.keys().chain(q_norm.keys()).collect();
+    let mut all_keys: Vec<&Vec<bool>> = p_norm.keys().chain(q_norm.keys()).collect();
     all_keys.sort();
     all_keys.dedup();
 
@@ -281,8 +261,11 @@ pub fn verify_against_reference(
         .collect();
 
     // Sort by absolute difference, descending.
-    discrepancies
-        .sort_by(|a, b| b.absolute_difference.partial_cmp(&a.absolute_difference).unwrap());
+    discrepancies.sort_by(|a, b| {
+        b.absolute_difference
+            .partial_cmp(&a.absolute_difference)
+            .unwrap()
+    });
 
     let passed = distance <= tolerance;
 
@@ -398,9 +381,7 @@ pub fn run_stabilizer_shots(
                 Gate::Reset(q) => {
                     // Implement reset: measure, then conditionally flip.
                     let qubit = *q as usize;
-                    let outcome = state
-                        .measure(qubit)
-                        .expect("stabilizer measurement failed");
+                    let outcome = state.measure(qubit).expect("stabilizer measurement failed");
                     if outcome.result {
                         state.x_gate(qubit);
                     }
@@ -426,18 +407,13 @@ pub fn run_stabilizer_shots(
         // If no explicit measurements, measure all qubits.
         if !has_measurements {
             for q in 0..n {
-                let outcome = state
-                    .measure(q)
-                    .expect("stabilizer measurement failed");
+                let outcome = state.measure(q).expect("stabilizer measurement failed");
                 measured_bits[q] = Some(outcome.result);
             }
         }
 
         // Build the bit-vector for this shot.
-        let bits: Vec<bool> = measured_bits
-            .iter()
-            .map(|mb| mb.unwrap_or(false))
-            .collect();
+        let bits: Vec<bool> = measured_bits.iter().map(|mb| mb.unwrap_or(false)).collect();
 
         *counts.entry(bits).or_insert(0) += 1;
     }
@@ -453,9 +429,7 @@ pub fn run_stabilizer_shots(
 ///
 /// Each count is divided by the total number of shots to produce a
 /// probability in [0, 1].
-pub fn normalize_counts(
-    counts: &HashMap<Vec<bool>, usize>,
-) -> HashMap<Vec<bool>, f64> {
+pub fn normalize_counts(counts: &HashMap<Vec<bool>, usize>) -> HashMap<Vec<bool>, f64> {
     let total: usize = counts.values().sum();
     if total == 0 {
         return HashMap::new();
@@ -473,12 +447,8 @@ pub fn normalize_counts(
 ///
 /// Returns a value in [0, 1] where 0 means identical distributions and 1
 /// means completely disjoint support.
-pub fn tvd(
-    p: &HashMap<Vec<bool>, f64>,
-    q: &HashMap<Vec<bool>, f64>,
-) -> f64 {
-    let mut all_keys: Vec<&Vec<bool>> =
-        p.keys().chain(q.keys()).collect();
+pub fn tvd(p: &HashMap<Vec<bool>, f64>, q: &HashMap<Vec<bool>, f64>) -> f64 {
+    let mut all_keys: Vec<&Vec<bool>> = p.keys().chain(q.keys()).collect();
     all_keys.sort();
     all_keys.dedup();
 
@@ -520,10 +490,7 @@ pub fn chi_squared_statistic(
     }
     let obs_total_f = obs_total as f64;
 
-    let mut all_keys: Vec<&Vec<bool>> = observed
-        .keys()
-        .chain(expected_probs.keys())
-        .collect();
+    let mut all_keys: Vec<&Vec<bool>> = observed.keys().chain(expected_probs.keys()).collect();
     all_keys.sort();
     all_keys.dedup();
 
@@ -606,12 +573,8 @@ pub fn chi_squared_p_value(statistic: f64, dof: usize) -> f64 {
 ///
 /// Returns a value in [-1, 1]. Returns 0.0 if either distribution has zero
 /// variance (constant).
-fn pearson_correlation(
-    p: &HashMap<Vec<bool>, f64>,
-    q: &HashMap<Vec<bool>, f64>,
-) -> f64 {
-    let mut all_keys: Vec<&Vec<bool>> =
-        p.keys().chain(q.keys()).collect();
+fn pearson_correlation(p: &HashMap<Vec<bool>, f64>, q: &HashMap<Vec<bool>, f64>) -> f64 {
+    let mut all_keys: Vec<&Vec<bool>> = p.keys().chain(q.keys()).collect();
     all_keys.sort();
     all_keys.dedup();
 
@@ -686,8 +649,7 @@ fn standard_normal_cdf(x: f64) -> f64 {
     let t5 = t4 * t;
 
     let erf_approx =
-        1.0 - (a1 * t + a2 * t2 + a3 * t3 + a4 * t4 + a5 * t5)
-            * (-abs_x * abs_x).exp();
+        1.0 - (a1 * t + a2 * t2 + a3 * t3 + a4 * t4 + a5 * t5) * (-abs_x * abs_x).exp();
 
     0.5 * (1.0 + sign * erf_approx)
 }
@@ -703,9 +665,7 @@ mod tests {
 
     // -- Helper to build a count map from a list of (bitstring, count) pairs --
 
-    fn make_counts(
-        entries: &[(&[bool], usize)],
-    ) -> HashMap<Vec<bool>, usize> {
+    fn make_counts(entries: &[(&[bool], usize)]) -> HashMap<Vec<bool>, usize> {
         entries
             .iter()
             .map(|(bits, count)| (bits.to_vec(), *count))
@@ -761,10 +721,7 @@ mod tests {
 
     #[test]
     fn normalize_counts_produces_probabilities() {
-        let counts = make_counts(&[
-            (&[false, false], 50),
-            (&[true, true], 50),
-        ]);
+        let counts = make_counts(&[(&[false, false], 50), (&[true, true], 50)]);
         let probs = normalize_counts(&counts);
         assert!((probs[&vec![false, false]] - 0.5).abs() < 1e-10);
         assert!((probs[&vec![true, true]] - 0.5).abs() < 1e-10);
@@ -783,12 +740,9 @@ mod tests {
 
     #[test]
     fn identical_distributions_have_zero_tvd() {
-        let p: HashMap<Vec<bool>, f64> = [
-            (vec![false, false], 0.5),
-            (vec![true, true], 0.5),
-        ]
-        .into_iter()
-        .collect();
+        let p: HashMap<Vec<bool>, f64> = [(vec![false, false], 0.5), (vec![true, true], 0.5)]
+            .into_iter()
+            .collect();
 
         let distance = tvd(&p, &p);
         assert!(
@@ -800,10 +754,8 @@ mod tests {
 
     #[test]
     fn completely_different_distributions_have_tvd_near_one() {
-        let p: HashMap<Vec<bool>, f64> =
-            [(vec![false], 1.0)].into_iter().collect();
-        let q: HashMap<Vec<bool>, f64> =
-            [(vec![true], 1.0)].into_iter().collect();
+        let p: HashMap<Vec<bool>, f64> = [(vec![false], 1.0)].into_iter().collect();
+        let q: HashMap<Vec<bool>, f64> = [(vec![true], 1.0)].into_iter().collect();
 
         let distance = tvd(&p, &q);
         assert!(
@@ -815,19 +767,13 @@ mod tests {
 
     #[test]
     fn tvd_partial_overlap() {
-        let p: HashMap<Vec<bool>, f64> = [
-            (vec![false], 0.7),
-            (vec![true], 0.3),
-        ]
-        .into_iter()
-        .collect();
+        let p: HashMap<Vec<bool>, f64> = [(vec![false], 0.7), (vec![true], 0.3)]
+            .into_iter()
+            .collect();
 
-        let q: HashMap<Vec<bool>, f64> = [
-            (vec![false], 0.3),
-            (vec![true], 0.7),
-        ]
-        .into_iter()
-        .collect();
+        let q: HashMap<Vec<bool>, f64> = [(vec![false], 0.3), (vec![true], 0.7)]
+            .into_iter()
+            .collect();
 
         let distance = tvd(&p, &q);
         // TVD = 0.5 * (|0.7-0.3| + |0.3-0.7|) = 0.5 * (0.4 + 0.4) = 0.4
@@ -844,19 +790,12 @@ mod tests {
 
     #[test]
     fn chi_squared_perfect_fit_has_low_statistic() {
-        let observed = make_counts(&[
-            (&[false], 500),
-            (&[true], 500),
-        ]);
-        let expected: HashMap<Vec<bool>, f64> = [
-            (vec![false], 0.5),
-            (vec![true], 0.5),
-        ]
-        .into_iter()
-        .collect();
+        let observed = make_counts(&[(&[false], 500), (&[true], 500)]);
+        let expected: HashMap<Vec<bool>, f64> = [(vec![false], 0.5), (vec![true], 0.5)]
+            .into_iter()
+            .collect();
 
-        let (stat, dof) =
-            chi_squared_statistic(&observed, &expected, 1000);
+        let (stat, dof) = chi_squared_statistic(&observed, &expected, 1000);
         assert!(
             stat < 1.0,
             "Perfect fit should have near-zero chi2, got {}",
@@ -875,24 +814,13 @@ mod tests {
     #[test]
     fn chi_squared_bad_fit_has_high_statistic() {
         // Observed is heavily biased; expected is uniform.
-        let observed = make_counts(&[
-            (&[false], 900),
-            (&[true], 100),
-        ]);
-        let expected: HashMap<Vec<bool>, f64> = [
-            (vec![false], 0.5),
-            (vec![true], 0.5),
-        ]
-        .into_iter()
-        .collect();
+        let observed = make_counts(&[(&[false], 900), (&[true], 100)]);
+        let expected: HashMap<Vec<bool>, f64> = [(vec![false], 0.5), (vec![true], 0.5)]
+            .into_iter()
+            .collect();
 
-        let (stat, dof) =
-            chi_squared_statistic(&observed, &expected, 1000);
-        assert!(
-            stat > 10.0,
-            "Bad fit should have large chi2, got {}",
-            stat
-        );
+        let (stat, dof) = chi_squared_statistic(&observed, &expected, 1000);
+        assert!(stat > 10.0, "Bad fit should have large chi2, got {}", stat);
         assert_eq!(dof, 1);
 
         let pval = chi_squared_p_value(stat, dof);
@@ -921,10 +849,7 @@ mod tests {
 
     #[test]
     fn identical_distributions_pass_verification() {
-        let counts = make_counts(&[
-            (&[false, false], 500),
-            (&[true, true], 500),
-        ]);
+        let counts = make_counts(&[(&[false, false], 500), (&[true, true], 500)]);
         let result = verify_against_reference(&counts, &counts, 0.01);
         assert!(result.passed);
         assert!(
@@ -938,12 +863,10 @@ mod tests {
         let primary = make_counts(&[(&[false], 1000)]);
         let reference = make_counts(&[(&[true], 1000)]);
 
-        let result =
-            verify_against_reference(&primary, &reference, 0.1);
+        let result = verify_against_reference(&primary, &reference, 0.1);
         assert!(!result.passed);
         assert!(
-            (result.total_variation_distance.unwrap() - 1.0).abs()
-                < 1e-10,
+            (result.total_variation_distance.unwrap() - 1.0).abs() < 1e-10,
             "TVD should be 1 for disjoint distributions"
         );
     }
@@ -963,8 +886,7 @@ mod tests {
             (&[true, true], 250),
         ]);
 
-        let result =
-            verify_against_reference(&primary, &reference, 0.5);
+        let result = verify_against_reference(&primary, &reference, 0.5);
 
         // Verify discrepancies are sorted descending by absolute_difference.
         for i in 1..result.discrepancies.len() {
@@ -1038,10 +960,8 @@ mod tests {
         );
 
         // Check roughly 50/50 split (within a generous margin).
-        let count_00 =
-            counts.get(&vec![false, false]).copied().unwrap_or(0);
-        let count_11 =
-            counts.get(&vec![true, true]).copied().unwrap_or(0);
+        let count_00 = counts.get(&vec![false, false]).copied().unwrap_or(0);
+        let count_11 = counts.get(&vec![true, true]).copied().unwrap_or(0);
         assert_eq!(count_00 + count_11, 1000);
         assert!(
             count_00 > 350 && count_00 < 650,
@@ -1077,10 +997,7 @@ mod tests {
         let result = verify_circuit(&circ, 2000, 42);
 
         assert_eq!(result.primary_backend, BackendType::StateVector);
-        assert_eq!(
-            result.reference_backend,
-            Some(BackendType::Stabilizer)
-        );
+        assert_eq!(result.reference_backend, Some(BackendType::Stabilizer));
         assert!(
             result.passed,
             "Bell state should pass verification: {}",
@@ -1140,20 +1057,14 @@ mod tests {
 
         assert!(result.passed);
         // Pure Clifford (only measurements), should do cross-backend check.
-        assert_eq!(
-            result.reference_backend,
-            Some(BackendType::Stabilizer)
-        );
+        assert_eq!(result.reference_backend, Some(BackendType::Stabilizer));
     }
 
     #[test]
     fn pearson_correlation_identical_distributions() {
-        let p: HashMap<Vec<bool>, f64> = [
-            (vec![false], 0.3),
-            (vec![true], 0.7),
-        ]
-        .into_iter()
-        .collect();
+        let p: HashMap<Vec<bool>, f64> = [(vec![false], 0.3), (vec![true], 0.7)]
+            .into_iter()
+            .collect();
 
         let corr = pearson_correlation(&p, &p);
         assert!(

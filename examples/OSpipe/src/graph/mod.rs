@@ -50,9 +50,7 @@ mod inner {
     impl KnowledgeGraph {
         /// Create a new, empty knowledge graph.
         pub fn new() -> Self {
-            Self {
-                db: GraphDB::new(),
-            }
+            Self { db: GraphDB::new() }
         }
 
         /// Add an entity node to the graph.
@@ -64,9 +62,7 @@ mod inner {
             name: &str,
             properties: HashMap<String, String>,
         ) -> Result<String> {
-            let mut builder = NodeBuilder::new()
-                .label(label)
-                .property("name", name);
+            let mut builder = NodeBuilder::new().label(label).property("name", name);
 
             for (k, v) in &properties {
                 builder = builder.property(k.as_str(), v.as_str());
@@ -144,11 +140,7 @@ mod inner {
         /// Extract entities from `text`, create nodes for each, link them to the
         /// given `frame_id` node (creating the frame node if it does not yet exist),
         /// and return the IDs of all newly created entity nodes.
-        pub fn ingest_frame_entities(
-            &self,
-            frame_id: &str,
-            text: &str,
-        ) -> Result<Vec<String>> {
+        pub fn ingest_frame_entities(&self, frame_id: &str, text: &str) -> Result<Vec<String>> {
             // Ensure frame node exists.
             let frame_node_id = if self.db.get_node(frame_id).is_some() {
                 frame_id.to_string()
@@ -329,11 +321,7 @@ mod inner {
             entity_extractor::extract_entities(text)
         }
 
-        pub fn ingest_frame_entities(
-            &mut self,
-            frame_id: &str,
-            text: &str,
-        ) -> Result<Vec<String>> {
+        pub fn ingest_frame_entities(&mut self, frame_id: &str, text: &str) -> Result<Vec<String>> {
             // Ensure frame node.
             let frame_exists = self.nodes.iter().any(|n| n.id == frame_id);
             let frame_node_id = if frame_exists {

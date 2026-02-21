@@ -35,7 +35,9 @@ use ruqu_exotic::syndrome_diagnosis::{Component, Connection, DiagnosisConfig, Sy
 fn discovery_7_counterfactual_search_explanation() {
     println!("DISCOVERY 7: Counterfactual Search Explanation");
     println!("  Combining: quantum_collapse + reversible_memory");
-    println!("  Question: Can counterfactual analysis explain WHY a search returned a specific result?");
+    println!(
+        "  Question: Can counterfactual analysis explain WHY a search returned a specific result?"
+    );
     println!();
 
     // -----------------------------------------------------------------------
@@ -93,7 +95,12 @@ fn discovery_7_counterfactual_search_explanation() {
     let dist = search.search_distribution(&query, 2, 200, 42);
     println!("  Search distribution (200 shots):");
     for &(idx, count) in &dist {
-        println!("    index {} : {} hits ({:.1}%)", idx, count, count as f64 / 2.0);
+        println!(
+            "    index {} : {} hits ({:.1}%)",
+            idx,
+            count,
+            count as f64 / 2.0
+        );
     }
     println!();
 
@@ -121,12 +128,20 @@ fn discovery_7_counterfactual_search_explanation() {
 
         println!("    Gate {} removed:", step);
         println!("      Divergence: {:.6}", cf.divergence);
-        println!("      Counterfactual probs: {:?}",
-            cf.counterfactual_probs.iter().map(|p| format!("{:.4}", p)).collect::<Vec<_>>()
+        println!(
+            "      Counterfactual probs: {:?}",
+            cf.counterfactual_probs
+                .iter()
+                .map(|p| format!("{:.4}", p))
+                .collect::<Vec<_>>()
         );
         println!("      New search result: index={}", cf_result.index);
-        println!("      New distribution: {:?}",
-            cf_dist.iter().map(|&(i, c)| format!("idx{}:{}hits", i, c)).collect::<Vec<_>>()
+        println!(
+            "      New distribution: {:?}",
+            cf_dist
+                .iter()
+                .map(|&(i, c)| format!("idx{}:{}hits", i, c))
+                .collect::<Vec<_>>()
         );
 
         divergences.push(cf.divergence);
@@ -155,8 +170,14 @@ fn discovery_7_counterfactual_search_explanation() {
         .unwrap();
 
     println!("  RESULTS:");
-    println!("    Most impactful gate: step {} (divergence={:.6})", max_div_step, divergences[max_div_step]);
-    println!("    Least impactful gate: step {} (divergence={:.6})", min_div_step, divergences[min_div_step]);
+    println!(
+        "    Most impactful gate: step {} (divergence={:.6})",
+        max_div_step, divergences[max_div_step]
+    );
+    println!(
+        "    Least impactful gate: step {} (divergence={:.6})",
+        min_div_step, divergences[min_div_step]
+    );
 
     // The large Ry rotation (step 0) should have the highest divergence.
     assert_eq!(
@@ -177,7 +198,8 @@ fn discovery_7_counterfactual_search_explanation() {
     assert!(
         divergences[max_div_step] > divergences[min_div_step] + 1e-6,
         "DISCOVERY 7: Max divergence ({:.6}) should significantly exceed min divergence ({:.6})",
-        divergences[max_div_step], divergences[min_div_step]
+        divergences[max_div_step],
+        divergences[min_div_step]
     );
 
     println!();
@@ -237,11 +259,19 @@ fn discovery_8_syndrome_diagnosed_swarm_health() {
 
     let mut swarm = SwarmInterference::new();
     for &(name, confidence, support) in &agent_configs {
-        swarm.contribute(AgentContribution::new(name, deploy.clone(), confidence, support));
+        swarm.contribute(AgentContribution::new(
+            name,
+            deploy.clone(),
+            confidence,
+            support,
+        ));
     }
 
     let decisions = swarm.decide();
-    assert!(!decisions.is_empty(), "Swarm should produce at least one decision");
+    assert!(
+        !decisions.is_empty(),
+        "Swarm should produce at least one decision"
+    );
     let decision = &decisions[0];
 
     println!("  Swarm Decision:");
@@ -358,9 +388,18 @@ fn discovery_8_syndrome_diagnosed_swarm_health() {
     };
 
     println!("  ANALYSIS:");
-    println!("    Disruptor (agent_4) fragility: {:.4}", disruptor_fragility);
-    println!("    Neighbor (agent_3) fragility: {:.4}", neighbor_fragility);
-    println!("    Healthy agents avg fragility: {:.4}", healthy_avg_fragility);
+    println!(
+        "    Disruptor (agent_4) fragility: {:.4}",
+        disruptor_fragility
+    );
+    println!(
+        "    Neighbor (agent_3) fragility: {:.4}",
+        neighbor_fragility
+    );
+    println!(
+        "    Healthy agents avg fragility: {:.4}",
+        healthy_avg_fragility
+    );
     println!("    Most fragile component: {:?}", most_fragile);
     println!();
 
@@ -417,7 +456,8 @@ fn discovery_8_syndrome_diagnosed_swarm_health() {
             diagnosis.weakest_component
         );
         println!("    The fault injection randomness may have overwhelmed the health signal.");
-        println!("    But disruptor/neighbor fragility ({:.4}/{:.4}) still >= healthy avg ({:.4}).",
+        println!(
+            "    But disruptor/neighbor fragility ({:.4}/{:.4}) still >= healthy avg ({:.4}).",
             disruptor_fragility, neighbor_fragility, healthy_avg_fragility
         );
     }

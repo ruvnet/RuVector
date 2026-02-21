@@ -48,8 +48,8 @@ pub fn decode_delta(buf: &[u8], count: usize, restart_interval: u32) -> Vec<u64>
     let mut offset = 0;
     let mut prev = 0u64;
     for i in 0..count {
-        let (val, consumed) = decode_varint(&buf[offset..])
-            .expect("delta decode: unexpected end of data");
+        let (val, consumed) =
+            decode_varint(&buf[offset..]).expect("delta decode: unexpected end of data");
         offset += consumed;
         if (i as u32).is_multiple_of(restart_interval) {
             prev = val;

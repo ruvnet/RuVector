@@ -65,7 +65,12 @@ pub fn compute_delta(
     let n = old.len();
     if n == 0 {
         return Some(DeltaRecord {
-            header: DeltaHeader { tensor_id, block_index, base_epoch, nnz: 0 },
+            header: DeltaHeader {
+                tensor_id,
+                block_index,
+                base_epoch,
+                nnz: 0,
+            },
             delta_scale: 0.0,
             entries: Vec::new(),
         });
@@ -77,7 +82,9 @@ pub fn compute_delta(
         let diff = new[i] - old[i];
         if diff.abs() >= threshold {
             changed.push((i as u16, diff));
-            if diff.abs() > max_abs { max_abs = diff.abs(); }
+            if diff.abs() > max_abs {
+                max_abs = diff.abs();
+            }
         }
     }
 
@@ -85,18 +92,30 @@ pub fn compute_delta(
         return None;
     }
 
-    let delta_scale = if max_abs == 0.0 { 1.0 } else { max_abs / i16::MAX as f32 };
+    let delta_scale = if max_abs == 0.0 {
+        1.0
+    } else {
+        max_abs / i16::MAX as f32
+    };
     let inv_scale = 1.0 / delta_scale;
     let entries: Vec<SparseEntry> = changed
         .iter()
         .map(|&(idx, diff)| {
             let q = (diff * inv_scale).round() as i32;
-            SparseEntry { index: idx, value: q.clamp(i16::MIN as i32, i16::MAX as i32) as i16 }
+            SparseEntry {
+                index: idx,
+                value: q.clamp(i16::MIN as i32, i16::MAX as i32) as i16,
+            }
         })
         .collect();
 
     Some(DeltaRecord {
-        header: DeltaHeader { tensor_id, block_index, base_epoch, nnz: entries.len() as u16 },
+        header: DeltaHeader {
+            tensor_id,
+            block_index,
+            base_epoch,
+            nnz: entries.len() as u16,
+        },
         delta_scale,
         entries,
     })
@@ -127,7 +146,11 @@ pub struct DeltaChain {
 impl DeltaChain {
     /// Create a new chain with a base block.
     pub fn new(base_data: Vec<f32>, max_chain_len: u8) -> Self {
-        Self { base_data, deltas: Vec::new(), max_chain_len }
+        Self {
+            base_data,
+            deltas: Vec::new(),
+            max_chain_len,
+        }
     }
 
     /// Append a delta. Returns `Err(StoreError::DeltaChainTooLong)` at max length.
@@ -150,7 +173,9 @@ impl DeltaChain {
 
     /// Compact the chain: apply all deltas to base, clear delta list.
     pub fn compact(&mut self) {
-        if self.deltas.is_empty() { return; }
+        if self.deltas.is_empty() {
+            return;
+        }
         for delta in &self.deltas {
             apply_delta(&mut self.base_data, delta);
         }
@@ -159,7 +184,9 @@ impl DeltaChain {
 
     /// Number of deltas in the chain.
     #[inline]
-    pub fn chain_len(&self) -> usize { self.deltas.len() }
+    pub fn chain_len(&self) -> usize {
+        self.deltas.len()
+    }
 
     /// Whether the chain needs compaction (at max length).
     #[inline]
@@ -170,7 +197,9 @@ impl DeltaChain {
     /// Total storage bytes: base + serialized size of all deltas.
     pub fn total_bytes(&self) -> usize {
         let base_bytes = self.base_data.len() * 4;
-        let delta_bytes: usize = self.deltas.iter()
+        let delta_bytes: usize = self
+            .deltas
+            .iter()
             .map(|d| DELTA_HEADER_BYTES + d.entries.len() * DELTA_ENTRY_BYTES)
             .sum();
         base_bytes + delta_bytes
@@ -186,9 +215,9 @@ pub struct FactorSet {
     pub m: usize,
     pub n: usize,
     pub k: usize,
-    pub u_data: Vec<f32>,  // m * k elements
-    pub s_data: Vec<f32>,  // k elements
-    pub v_data: Vec<f32>,  // k * n elements
+    pub u_data: Vec<f32>, // m * k elements
+    pub s_data: Vec<f32>, // k elements
+    pub v_data: Vec<f32>, // k * n elements
 }
 
 impl FactorSet {
@@ -223,7 +252,11 @@ impl FactorSet {
     ///
     /// Panics if `data.len() != rows * cols`.
     pub fn from_data(data: &[f32], rows: usize, cols: usize, rank: usize) -> Self {
-        assert_eq!(data.len(), rows * cols, "data length must equal rows * cols");
+        assert_eq!(
+            data.len(),
+            rows * cols,
+            "data length must equal rows * cols"
+        );
         let (m, n) = (rows, cols);
         let k = rank.min(m).min(n);
         let mut work = data.to_vec();
@@ -236,9 +269,14 @@ impl FactorSet {
             let inv_sqrt_n = 1.0 / (n as f32).sqrt();
             let mut v = vec![0.0f32; n];
             for j in 0..n {
-                let seed = (j as u32).wrapping_mul(2_654_435_761)
+                let seed = (j as u32)
+                    .wrapping_mul(2_654_435_761)
                     .wrapping_add((r as u32).wrapping_mul(0x9E37_79B9));
-                v[j] = if seed & 1 == 0 { inv_sqrt_n } else { -inv_sqrt_n };
+                v[j] = if seed & 1 == 0 {
+                    inv_sqrt_n
+                } else {
+                    -inv_sqrt_n
+                };
             }
             let mut u = vec![0.0f32; m];
             let mut sigma = 0.0f32;
@@ -248,41 +286,68 @@ impl FactorSet {
                 for i in 0..m {
                     let mut acc = 0.0f32;
                     let row = i * n;
-                    for j in 0..n { acc += work[row + j] * v[j]; }
+                    for j in 0..n {
+                        acc += work[row + j] * v[j];
+                    }
                     u[i] = acc;
                 }
                 let su: f32 = u.iter().map(|x| x * x).sum::<f32>().sqrt();
-                if su < POWER_ITER_EPS { sigma = 0.0; break; }
+                if su < POWER_ITER_EPS {
+                    sigma = 0.0;
+                    break;
+                }
                 let inv = 1.0 / su;
-                for x in u.iter_mut() { *x *= inv; }
+                for x in u.iter_mut() {
+                    *x *= inv;
+                }
 
                 // v = work^T * u
                 for j in 0..n {
                     let mut acc = 0.0f32;
-                    for i in 0..m { acc += work[i * n + j] * u[i]; }
+                    for i in 0..m {
+                        acc += work[i * n + j] * u[i];
+                    }
                     v[j] = acc;
                 }
                 let sv: f32 = v.iter().map(|x| x * x).sum::<f32>().sqrt();
-                if sv < POWER_ITER_EPS { sigma = su; break; }
+                if sv < POWER_ITER_EPS {
+                    sigma = su;
+                    break;
+                }
                 sigma = sv;
                 let inv = 1.0 / sv;
-                for x in v.iter_mut() { *x *= inv; }
+                for x in v.iter_mut() {
+                    *x *= inv;
+                }
             }
 
             s_data[r] = sigma;
-            for i in 0..m { u_data[i * k + r] = u[i]; }
-            for j in 0..n { v_data[r * n + j] = v[j]; }
+            for i in 0..m {
+                u_data[i * k + r] = u[i];
+            }
+            for j in 0..n {
+                v_data[r * n + j] = v[j];
+            }
 
             // Deflate: work -= sigma * u * v^T
             if sigma > POWER_ITER_EPS {
                 for i in 0..m {
                     let us = u[i] * sigma;
                     let row = i * n;
-                    for j in 0..n { work[row + j] -= us * v[j]; }
+                    for j in 0..n {
+                        work[row + j] -= us * v[j];
+                    }
                 }
             }
         }
-        Self { m, n, k, u_data, s_data, v_data }
+        Self {
+            m,
+            n,
+            k,
+            u_data,
+            s_data,
+            v_data,
+        }
     }
 
     /// Compute the relative reconstruction error (Frobenius norm).
@@ -294,7 +359,11 @@ impl FactorSet {
         let mut diff_sq = 0.0f32;
         let mut orig_sq = 0.0f32;
         for (i, &o) in original.iter().enumerate() {
-            let r = if i < reconstructed.len() { reconstructed[i] } else { 0.0 };
+            let r = if i < reconstructed.len() {
+                reconstructed[i]
+            } else {
+                0.0
+            };
             diff_sq += (o - r) * (o - r);
             orig_sq += o * o;
         }
@@ -372,12 +441,34 @@ pub fn encode_delta(delta: &DeltaRecord) -> Vec<u8> {
 ///
 /// Returns `Err(StoreError::InvalidBlock)` on truncated or malformed input.
 pub fn decode_delta(data: &[u8]) -> Result<DeltaRecord, StoreError> {
-    if data.len() < DELTA_HEADER_BYTES { return Err(StoreError::InvalidBlock); }
-    let tensor_id = u128::from_le_bytes(data[0..16].try_into().map_err(|_| StoreError::InvalidBlock)?);
-    let block_index = u32::from_le_bytes(data[16..20].try_into().map_err(|_| StoreError::InvalidBlock)?);
-    let base_epoch = u64::from_le_bytes(data[20..28].try_into().map_err(|_| StoreError::InvalidBlock)?);
-    let nnz = u16::from_le_bytes(data[28..30].try_into().map_err(|_| StoreError::InvalidBlock)?);
-    let delta_scale = f32::from_le_bytes(data[30..34].try_into().map_err(|_| StoreError::InvalidBlock)?);
+    if data.len() < DELTA_HEADER_BYTES {
+        return Err(StoreError::InvalidBlock);
+    }
+    let tensor_id = u128::from_le_bytes(
+        data[0..16]
+            .try_into()
+            .map_err(|_| StoreError::InvalidBlock)?,
+    );
+    let block_index = u32::from_le_bytes(
+        data[16..20]
+            .try_into()
+            .map_err(|_| StoreError::InvalidBlock)?,
+    );
+    let base_epoch = u64::from_le_bytes(
+        data[20..28]
+            .try_into()
+            .map_err(|_| StoreError::InvalidBlock)?,
+    );
+    let nnz = u16::from_le_bytes(
+        data[28..30]
+            .try_into()
+            .map_err(|_| StoreError::InvalidBlock)?,
+    );
+    let delta_scale = f32::from_le_bytes(
+        data[30..34]
+            .try_into()
+            .map_err(|_| StoreError::InvalidBlock)?,
+    );
 
     if data.len() < DELTA_HEADER_BYTES + (nnz as usize) * DELTA_ENTRY_BYTES {
         return Err(StoreError::InvalidBlock);
@@ -385,14 +476,27 @@ pub fn decode_delta(data: &[u8]) -> Result<DeltaRecord, StoreError> {
     let mut entries = Vec::with_capacity(nnz as usize);
     let mut off = DELTA_HEADER_BYTES;
     for _ in 0..nnz {
-        let index = u16::from_le_bytes(data[off..off + 2].try_into().map_err(|_| StoreError::InvalidBlock)?);
-        let value = i16::from_le_bytes(data[off + 2..off + 4].try_into().map_err(|_| StoreError::InvalidBlock)?);
+        let index = u16::from_le_bytes(
+            data[off..off + 2]
+                .try_into()
+                .map_err(|_| StoreError::InvalidBlock)?,
+        );
+        let value = i16::from_le_bytes(
+            data[off + 2..off + 4]
+                .try_into()
+                .map_err(|_| StoreError::InvalidBlock)?,
+        );
         entries.push(SparseEntry { index, value });
         off += DELTA_ENTRY_BYTES;
     }
 
     Ok(DeltaRecord {
-        header: DeltaHeader { tensor_id, block_index, base_epoch, nnz },
+        header: DeltaHeader {
+            tensor_id,
+            block_index,
+            base_epoch,
+            nnz,
+        },
         delta_scale,
         entries,
     })
@@ -403,10 +507,17 @@ mod tests {
     use super::*;
 
     fn make_delta(entries: Vec<(u16, i16)>, scale: f32) -> DeltaRecord {
-        let sparse: Vec<SparseEntry> = entries.iter()
-            .map(|&(i, v)| SparseEntry { index: i, value: v }).collect();
+        let sparse: Vec<SparseEntry> = entries
+            .iter()
+            .map(|&(i, v)| SparseEntry { index: i, value: v })
+            .collect();
         DeltaRecord {
-            header: DeltaHeader { tensor_id: 42, block_index: 0, base_epoch: 1, nnz: sparse.len() as u16 },
+            header: DeltaHeader {
+                tensor_id: 42,
+                block_index: 0,
+                base_epoch: 1,
+                nnz: sparse.len() as u16,
+            },
             delta_scale: scale,
             entries: sparse,
         }
@@ -459,7 +570,9 @@ mod tests {
         chain.compact();
         assert_eq!(chain.chain_len(), 0);
         let after = chain.reconstruct();
-        for (a, b) in before.iter().zip(after.iter()) { assert!((a - b).abs() < 1e-6); }
+        for (a, b) in before.iter().zip(after.iter()) {
+            assert!((a - b).abs() < 1e-6);
+        }
     }
 
     #[test]
@@ -483,7 +596,14 @@ mod tests {
     #[test]
     fn test_factor_reconstruct() {
         let (u, v, s) = (vec![1.0, 2.0, 3.0], vec![4.0, 5.0], 2.0);
-        let f = FactorSet { m: 3, n: 2, k: 1, u_data: u.clone(), s_data: vec![s], v_data: v.clone() };
+        let f = FactorSet {
+            m: 3,
+            n: 2,
+            k: 1,
+            u_data: u.clone(),
+            s_data: vec![s],
+            v_data: v.clone(),
+        };
         let r = f.reconstruct();
         assert_eq!(r.len(), 6);
         for i in 0..3 {
@@ -496,25 +616,47 @@ mod tests {
     #[test]
     fn test_factor_from_data_approximation() {
         let (m, n) = (8, 6);
-        let data: Vec<f32> = (0..m * n).map(|idx| {
-            let (i, j) = (idx / n, idx % n);
-            (i as f32 + 1.0) * (j as f32 + 1.0)
-        }).collect();
+        let data: Vec<f32> = (0..m * n)
+            .map(|idx| {
+                let (i, j) = (idx / n, idx % n);
+                (i as f32 + 1.0) * (j as f32 + 1.0)
+            })
+            .collect();
         let reconstructed = FactorSet::from_data(&data, m, n, 1).reconstruct();
-        let max_err = data.iter().zip(reconstructed.iter())
-            .map(|(a, b)| (a - b).abs()).fold(0.0f32, f32::max);
-        assert!(max_err < 0.5, "max error {max_err} too large for rank-1 input");
+        let max_err = data
+            .iter()
+            .zip(reconstructed.iter())
+            .map(|(a, b)| (a - b).abs())
+            .fold(0.0f32, f32::max);
+        assert!(
+            max_err < 0.5,
+            "max error {max_err} too large for rank-1 input"
+        );
     }
 
     #[test]
     fn test_encode_decode_roundtrip() {
         let orig = DeltaRecord {
-            header: DeltaHeader { tensor_id: 0xDEADBEEFCAFEBABE, block_index: 42, base_epoch: 100, nnz: 3 },
+            header: DeltaHeader {
+                tensor_id: 0xDEADBEEFCAFEBABE,
+                block_index: 42,
+                base_epoch: 100,
+                nnz: 3,
+            },
             delta_scale: 0.001,
             entries: vec![
-                SparseEntry { index: 10, value: 500 },
-                SparseEntry { index: 20, value: -300 },
-                SparseEntry { index: 30, value: 1 },
+                SparseEntry {
+                    index: 10,
+                    value: 500,
+                },
+                SparseEntry {
+                    index: 20,
+                    value: -300,
+                },
+                SparseEntry {
+                    index: 30,
+                    value: 1,
+                },
             ],
         };
         let bytes = encode_delta(&orig);
@@ -531,20 +673,29 @@ mod tests {
     }
 
     #[test]
-    fn test_decode_truncated_header() { assert!(decode_delta(&vec![0u8; 20]).is_err()); }
+    fn test_decode_truncated_header() {
+        assert!(decode_delta(&vec![0u8; 20]).is_err());
+    }
 
     #[test]
     fn test_decode_truncated_entries() {
         let mut bytes = encode_delta(&make_delta(vec![(0, 1), (1, 2)], 1.0));
-        bytes[28] = 5; bytes[29] = 0; // claim 5 entries, only 2 present
+        bytes[28] = 5;
+        bytes[29] = 0; // claim 5 entries, only 2 present
         assert!(decode_delta(&bytes).is_err());
     }
 
     #[test]
     fn test_empty_delta_roundtrip() {
         let d = DeltaRecord {
-            header: DeltaHeader { tensor_id: 99, block_index: 7, base_epoch: 50, nnz: 0 },
-            delta_scale: 0.0, entries: Vec::new(),
+            header: DeltaHeader {
+                tensor_id: 99,
+                block_index: 7,
+                base_epoch: 50,
+                nnz: 0,
+            },
+            delta_scale: 0.0,
+            entries: Vec::new(),
         };
         let dec = decode_delta(&encode_delta(&d)).unwrap();
         assert_eq!(dec.entries.len(), 0);
@@ -571,28 +722,36 @@ mod tests {
         assert_eq!(d.entries.len(), 4);
         let mut base = old.clone();
         apply_delta(&mut base, &d);
-        for i in 0..4 { assert!((base[i] - new[i]).abs() < 0.01, "index {i}"); }
+        for i in 0..4 {
+            assert!((base[i] - new[i]).abs() < 0.01, "index {i}");
+        }
     }
 
     #[test]
     fn test_compute_apply_roundtrip_64() {
         let old: Vec<f32> = (0..64).map(|i| i as f32 * 0.1).collect();
         let mut new = old.clone();
-        new[5] += 0.5; new[10] -= 0.3; new[60] += 1.0;
+        new[5] += 0.5;
+        new[10] -= 0.3;
+        new[60] += 1.0;
         let d = compute_delta(&old, &new, 1, 0, 0, 0.01, 0.5).unwrap();
         let mut recon = old.clone();
         apply_delta(&mut recon, &d);
-        for i in 0..64 { assert!((recon[i] - new[i]).abs() < 0.01, "index {i}"); }
+        for i in 0..64 {
+            assert!((recon[i] - new[i]).abs() < 0.01, "index {i}");
+        }
     }
 
     #[test]
     fn test_reconstruction_error_zero_for_exact() {
         // Rank-1 data should be exactly reconstructed with rank-1 factors
         let (m, n) = (4, 3);
-        let data: Vec<f32> = (0..m * n).map(|idx| {
-            let (i, j) = (idx / n, idx % n);
-            (i as f32 + 1.0) * (j as f32 + 1.0)
-        }).collect();
+        let data: Vec<f32> = (0..m * n)
+            .map(|idx| {
+                let (i, j) = (idx / n, idx % n);
+                (i as f32 + 1.0) * (j as f32 + 1.0)
+            })
+            .collect();
         let factors = FactorSet::from_data(&data, m, n, 1);
         let err = factors.reconstruction_error(&data);
         assert!(err < 0.01, "err={err} too large for rank-1 data");
@@ -610,10 +769,12 @@ mod tests {
     #[test]
     fn test_energy_captured_rank1_data() {
         let (m, n) = (4, 3);
-        let data: Vec<f32> = (0..m * n).map(|idx| {
-            let (i, j) = (idx / n, idx % n);
-            (i as f32 + 1.0) * (j as f32 + 1.0)
-        }).collect();
+        let data: Vec<f32> = (0..m * n)
+            .map(|idx| {
+                let (i, j) = (idx / n, idx % n);
+                (i as f32 + 1.0) * (j as f32 + 1.0)
+            })
+            .collect();
         let factors = FactorSet::from_data(&data, m, n, 1);
         let energy = factors.energy_captured(&data);
         assert!(energy > 0.95, "energy={energy} too low for rank-1 data");
@@ -633,20 +794,28 @@ mod tests {
     fn test_from_data_adaptive_stops_early() {
         let (m, n) = (4, 3);
         // Rank-1 data: adaptive should stop at rank 1
-        let data: Vec<f32> = (0..m * n).map(|idx| {
-            let (i, j) = (idx / n, idx % n);
-            (i as f32 + 1.0) * (j as f32 + 1.0)
-        }).collect();
+        let data: Vec<f32> = (0..m * n)
+            .map(|idx| {
+                let (i, j) = (idx / n, idx % n);
+                (i as f32 + 1.0) * (j as f32 + 1.0)
+            })
+            .collect();
         let factors = FactorSet::from_data_adaptive(&data, m, n, 5, 0.05);
         // Should use rank 1 since data is rank 1
-        assert!(factors.k <= 2, "k={} should be small for rank-1 data", factors.k);
+        assert!(
+            factors.k <= 2,
+            "k={} should be small for rank-1 data",
+            factors.k
+        );
     }
 
     #[test]
     fn test_from_data_adaptive_increases_rank() {
         let (m, n) = (8, 6);
         // Multi-rank data
-        let data: Vec<f32> = (0..m * n).map(|i| (i as f32 * 0.3).sin() + (i as f32 * 0.7).cos()).collect();
+        let data: Vec<f32> = (0..m * n)
+            .map(|i| (i as f32 * 0.3).sin() + (i as f32 * 0.7).cos())
+            .collect();
         let factors = FactorSet::from_data_adaptive(&data, m, n, 6, 0.01);
         let err = factors.reconstruction_error(&data);
         // Should achieve close to target error or use max rank

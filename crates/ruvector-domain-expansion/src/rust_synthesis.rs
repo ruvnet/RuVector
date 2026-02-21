@@ -170,14 +170,16 @@ impl RustSynthesisDomain {
             RustTaskSpec {
                 category: RustTaskCategory::DataStructure,
                 signature: "struct LRUCache<K: Hash + Eq, V>".into(),
-                description:
-                    "Implement an LRU cache with get, put, and capacity eviction.".into(),
+                description: "Implement an LRU cache with get, put, and capacity eviction.".into(),
                 test_cases: vec![
                     (
                         "cap=2; put(1,'a'); put(2,'b'); get(1); put(3,'c'); get(2)".into(),
                         "None".into(),
                     ),
-                    ("cap=1; put(1,'a'); put(2,'b'); get(1)".into(), "None".into()),
+                    (
+                        "cap=1; put(1,'a'); put(2,'b'); get(1)".into(),
+                        "None".into(),
+                    ),
                 ],
                 required_traits: Vec::new(),
                 banned_patterns: vec!["unsafe".into()],

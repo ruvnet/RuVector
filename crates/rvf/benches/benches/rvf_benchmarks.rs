@@ -4,9 +4,7 @@
 //! computation, quantization, manifest, runtime, and crypto operations
 //! against the acceptance targets in docs/research/rvf/benchmarks/.
 
-use criterion::{
-    black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput,
-};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 
 // ---------------------------------------------------------------------------
 // Deterministic pseudo-random number generator (LCG)
@@ -91,12 +89,7 @@ fn wire_benchmarks(c: &mut Criterion) {
     });
 
     // -- segment_read: parse a VEC_SEG --
-    let segment_bytes = write_segment(
-        SegmentType::Vec as u8,
-        &payload,
-        SegmentFlags::empty(),
-        1,
-    );
+    let segment_bytes = write_segment(SegmentType::Vec as u8, &payload, SegmentFlags::empty(), 1);
     group.throughput(Throughput::Bytes(segment_bytes.len() as u64));
     group.bench_function("segment_read_1k_384d_fp16", |b| {
         b.iter(|| {
@@ -268,9 +261,7 @@ fn index_benchmarks(c: &mut Criterion) {
     // -- progressive_search_layer_a: search with only Layer A --
     let centroids_count = 32usize;
     let centroids: Vec<Vec<f32>> = make_random_vectors(centroids_count, dim, 333);
-    let assignments: Vec<u32> = (0..1000)
-        .map(|i| (i % centroids_count) as u32)
-        .collect();
+    let assignments: Vec<u32> = (0..1000).map(|i| (i % centroids_count) as u32).collect();
     let layer_a = build_layer_a(&graph_1k, &centroids, &assignments, 1000);
 
     let prog_a = ProgressiveIndex {
@@ -291,9 +282,7 @@ fn index_benchmarks(c: &mut Criterion) {
     // -- progressive_search_full: search with all layers (Layer C) --
     let layer_c = build_layer_c(&graph_1k);
     let centroids_full: Vec<Vec<f32>> = make_random_vectors(centroids_count, dim, 444);
-    let assignments_full: Vec<u32> = (0..1000)
-        .map(|i| (i % centroids_count) as u32)
-        .collect();
+    let assignments_full: Vec<u32> = (0..1000).map(|i| (i % centroids_count) as u32).collect();
     let layer_a_full = build_layer_a(&graph_1k, &centroids_full, &assignments_full, 1000);
 
     let prog_full = ProgressiveIndex {
@@ -333,9 +322,7 @@ fn distance_benchmarks(c: &mut Criterion) {
         group.bench_with_input(
             BenchmarkId::new("l2", dim),
             &(a.clone(), b.clone()),
-            |bench, (a, b)| {
-                bench.iter(|| black_box(l2_distance(black_box(a), black_box(b))))
-            },
+            |bench, (a, b)| bench.iter(|| black_box(l2_distance(black_box(a), black_box(b)))),
         );
 
         if dim == 384 {
@@ -350,9 +337,7 @@ fn distance_benchmarks(c: &mut Criterion) {
             group.bench_with_input(
                 BenchmarkId::new("dot_product", dim),
                 &(a.clone(), b.clone()),
-                |bench, (a, b)| {
-                    bench.iter(|| black_box(dot_product(black_box(a), black_box(b))))
-                },
+                |bench, (a, b)| bench.iter(|| black_box(dot_product(black_box(a), black_box(b)))),
             );
         }
     }
@@ -395,10 +380,7 @@ fn quantization_benchmarks(c: &mut Criterion) {
         b.iter(|| {
             for i in 0..1000 {
                 let j = (i + 1) % 1000;
-                black_box(sq.distance_l2_quantized(
-                    black_box(&encoded[i]),
-                    black_box(&encoded[j]),
-                ));
+                black_box(sq.distance_l2_quantized(black_box(&encoded[i]), black_box(&encoded[j])));
             }
         })
     });

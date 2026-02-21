@@ -105,8 +105,10 @@ impl CowMapHeader {
 
         let version = u16::from_le_bytes([data[0x04], data[0x05]]);
         let map_format = data[0x06];
-        let cluster_size_bytes = u32::from_le_bytes([data[0x08], data[0x09], data[0x0A], data[0x0B]]);
-        let vectors_per_cluster = u32::from_le_bytes([data[0x0C], data[0x0D], data[0x0E], data[0x0F]]);
+        let cluster_size_bytes =
+            u32::from_le_bytes([data[0x08], data[0x09], data[0x0A], data[0x0B]]);
+        let vectors_per_cluster =
+            u32::from_le_bytes([data[0x0C], data[0x0D], data[0x0E], data[0x0F]]);
 
         // Validate map_format is a known enum value
         let _ = MapFormat::try_from(map_format)?;

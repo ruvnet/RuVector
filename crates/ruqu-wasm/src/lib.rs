@@ -34,8 +34,8 @@
 //! (complex f64 amplitudes). At 25 qubits this is ~512MB, which is
 //! a practical upper bound for browser environments.
 
+use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
-use serde::{Serialize, Deserialize};
 
 /// Maximum qubits allowed in WASM environment.
 ///
@@ -272,8 +272,7 @@ pub fn simulate(circuit: &WasmQuantumCircuit) -> Result<JsValue, JsValue> {
         execution_time_ms: result.metrics.execution_time_ns as f64 / 1_000_000.0,
     };
 
-    serde_wasm_bindgen::to_value(&wasm_result)
-        .map_err(|e| JsValue::from_str(&e.to_string()))
+    serde_wasm_bindgen::to_value(&wasm_result).map_err(|e| JsValue::from_str(&e.to_string()))
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -349,10 +348,7 @@ pub fn grover_search(
     };
 
     // Convert Vec<u32> -> Vec<usize> for the core API.
-    let target_states_usize: Vec<usize> = target_states
-        .into_iter()
-        .map(|s| s as usize)
-        .collect();
+    let target_states_usize: Vec<usize> = target_states.into_iter().map(|s| s as usize).collect();
 
     let config = ruqu_algorithms::grover::GroverConfig {
         num_qubits,
@@ -481,12 +477,14 @@ pub fn qaoa_maxcut(
     let mut expected_cut = 0.0;
     for chunk in edges_flat.chunks(2) {
         if chunk.len() == 2 {
-            let zz = result.state.expectation_value(&ruqu_core::types::PauliString {
-                ops: vec![
-                    (chunk[0], ruqu_core::types::PauliOp::Z),
-                    (chunk[1], ruqu_core::types::PauliOp::Z),
-                ],
-            });
+            let zz = result
+                .state
+                .expectation_value(&ruqu_core::types::PauliString {
+                    ops: vec![
+                        (chunk[0], ruqu_core::types::PauliOp::Z),
+                        (chunk[1], ruqu_core::types::PauliOp::Z),
+                    ],
+                });
             expected_cut += 0.5 * (1.0 - zz);
         }
     }

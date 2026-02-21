@@ -17,7 +17,7 @@
 
 use crate::intelligence_metrics::{DifficultyStats, EpisodeMetrics, RawMetrics};
 use crate::reasoning_bank::{ReasoningBank, Trajectory, Verdict};
-use crate::temporal::{AdaptiveSolver, SolverResult, TemporalSolver, TemporalPuzzle};
+use crate::temporal::{AdaptiveSolver, SolverResult, TemporalPuzzle, TemporalSolver};
 use crate::timepuzzles::{PuzzleGenerator, PuzzleGeneratorConfig};
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
@@ -364,21 +364,69 @@ impl ComparisonReport {
         );
         println!("  {}", "-".repeat(66));
 
-        row("Overall Accuracy", self.baseline.overall_accuracy, self.rvf_learning.overall_accuracy, true);
-        row("Final Episode Accuracy", self.baseline.final_accuracy, self.rvf_learning.final_accuracy, true);
-        row("Learning Curve Slope", self.baseline.learning_curve_slope, self.rvf_learning.learning_curve_slope, true);
-        row_usize("Patterns Learned", self.baseline.patterns_learned, self.rvf_learning.patterns_learned);
-        row_usize("Strategies Used", self.baseline.strategies_used, self.rvf_learning.strategies_used);
-        row_usize("Total Correct", self.baseline.total_correct, self.rvf_learning.total_correct);
-        row_usize("Retries Used", self.baseline.retries_used, self.rvf_learning.retries_used);
-        row_usize("Witness Entries", self.baseline.witness_entries, self.rvf_learning.witness_entries);
-        row_usize("Coherence Violations", self.baseline.coherence_violations, self.rvf_learning.coherence_violations);
+        row(
+            "Overall Accuracy",
+            self.baseline.overall_accuracy,
+            self.rvf_learning.overall_accuracy,
+            true,
+        );
+        row(
+            "Final Episode Accuracy",
+            self.baseline.final_accuracy,
+            self.rvf_learning.final_accuracy,
+            true,
+        );
+        row(
+            "Learning Curve Slope",
+            self.baseline.learning_curve_slope,
+            self.rvf_learning.learning_curve_slope,
+            true,
+        );
+        row_usize(
+            "Patterns Learned",
+            self.baseline.patterns_learned,
+            self.rvf_learning.patterns_learned,
+        );
+        row_usize(
+            "Strategies Used",
+            self.baseline.strategies_used,
+            self.rvf_learning.strategies_used,
+        );
+        row_usize(
+            "Total Correct",
+            self.baseline.total_correct,
+            self.rvf_learning.total_correct,
+        );
+        row_usize(
+            "Retries Used",
+            self.baseline.retries_used,
+            self.rvf_learning.retries_used,
+        );
+        row_usize(
+            "Witness Entries",
+            self.baseline.witness_entries,
+            self.rvf_learning.witness_entries,
+        );
+        row_usize(
+            "Coherence Violations",
+            self.baseline.coherence_violations,
+            self.rvf_learning.coherence_violations,
+        );
 
         println!();
         println!("  {}", "-".repeat(66));
-        println!("  Accuracy Delta (RVF - Base):  {:+.2}%", self.accuracy_delta * 100.0);
-        println!("  Learning Rate Delta:          {:+.4}", self.learning_rate_delta);
-        println!("  Final Accuracy Delta:         {:+.2}%", self.final_accuracy_delta * 100.0);
+        println!(
+            "  Accuracy Delta (RVF - Base):  {:+.2}%",
+            self.accuracy_delta * 100.0
+        );
+        println!(
+            "  Learning Rate Delta:          {:+.4}",
+            self.learning_rate_delta
+        );
+        println!(
+            "  Final Accuracy Delta:         {:+.2}%",
+            self.final_accuracy_delta * 100.0
+        );
         println!();
 
         // Per-vertical breakdown
@@ -388,28 +436,71 @@ impl ComparisonReport {
             "Vertical", "Baseline", "RVF-Learn", "Delta"
         );
         println!("  {}", "-".repeat(54));
-        vert_row("Step-Limited", &self.baseline.verticals.step_limited, &self.rvf_learning.verticals.step_limited);
-        vert_row("Noisy Constraints", &self.baseline.verticals.noisy, &self.rvf_learning.verticals.noisy);
-        vert_row("Transfer Learning", &self.baseline.verticals.transfer, &self.rvf_learning.verticals.transfer);
-        vert_row("Error Recovery", &self.baseline.verticals.error_recovery, &self.rvf_learning.verticals.error_recovery);
-        vert_row("Compositional", &self.baseline.verticals.compositional, &self.rvf_learning.verticals.compositional);
-        vert_row("Knowledge Retention", &self.baseline.verticals.retention, &self.rvf_learning.verticals.retention);
+        vert_row(
+            "Step-Limited",
+            &self.baseline.verticals.step_limited,
+            &self.rvf_learning.verticals.step_limited,
+        );
+        vert_row(
+            "Noisy Constraints",
+            &self.baseline.verticals.noisy,
+            &self.rvf_learning.verticals.noisy,
+        );
+        vert_row(
+            "Transfer Learning",
+            &self.baseline.verticals.transfer,
+            &self.rvf_learning.verticals.transfer,
+        );
+        vert_row(
+            "Error Recovery",
+            &self.baseline.verticals.error_recovery,
+            &self.rvf_learning.verticals.error_recovery,
+        );
+        vert_row(
+            "Compositional",
+            &self.baseline.verticals.compositional,
+            &self.rvf_learning.verticals.compositional,
+        );
+        vert_row(
+            "Knowledge Retention",
+            &self.baseline.verticals.retention,
+            &self.rvf_learning.verticals.retention,
+        );
         println!();
 
         // Learning curves
         println!("  Episode Accuracy Progression:");
-        let max_eps = self.baseline.episodes.len().max(self.rvf_learning.episodes.len());
+        let max_eps = self
+            .baseline
+            .episodes
+            .len()
+            .max(self.rvf_learning.episodes.len());
         println!(
             "  {:>4}  {:>10}  {:>10}  {:>8}",
             "Ep", "Baseline", "RVF-Learn", "Delta"
         );
         for i in 0..max_eps {
-            let b = self.baseline.episodes.get(i).map(|e| e.accuracy).unwrap_or(0.0);
-            let r = self.rvf_learning.episodes.get(i).map(|e| e.accuracy).unwrap_or(0.0);
+            let b = self
+                .baseline
+                .episodes
+                .get(i)
+                .map(|e| e.accuracy)
+                .unwrap_or(0.0);
+            let r = self
+                .rvf_learning
+                .episodes
+                .get(i)
+                .map(|e| e.accuracy)
+                .unwrap_or(0.0);
             let d = r - b;
             println!(
                 "  {:>4}  {:>5.1}% {}  {:>5.1}% {}  {:>+5.1}%",
-                i + 1, b * 100.0, bar(b, 8), r * 100.0, bar(r, 8), d * 100.0,
+                i + 1,
+                b * 100.0,
+                bar(b, 8),
+                r * 100.0,
+                bar(r, 8),
+                d * 100.0,
             );
         }
 
@@ -424,14 +515,29 @@ impl ComparisonReport {
 fn row(label: &str, baseline: f64, rvf: f64, as_pct: bool) {
     let delta = rvf - baseline;
     if as_pct {
-        println!("  {:<30} {:>10.2}% {:>10.2}% {:>+8.2}%", label, baseline * 100.0, rvf * 100.0, delta * 100.0);
+        println!(
+            "  {:<30} {:>10.2}% {:>10.2}% {:>+8.2}%",
+            label,
+            baseline * 100.0,
+            rvf * 100.0,
+            delta * 100.0
+        );
     } else {
-        println!("  {:<30} {:>12.4} {:>12.4} {:>+10.4}", label, baseline, rvf, delta);
+        println!(
+            "  {:<30} {:>12.4} {:>12.4} {:>+10.4}",
+            label, baseline, rvf, delta
+        );
     }
 }
 
 fn row_usize(label: &str, baseline: usize, rvf: usize) {
-    println!("  {:<30} {:>12} {:>12} {:>+10}", label, baseline, rvf, rvf as i64 - baseline as i64);
+    println!(
+        "  {:<30} {:>12} {:>12} {:>+10}",
+        label,
+        baseline,
+        rvf,
+        rvf as i64 - baseline as i64
+    );
 }
 
 fn vert_row(label: &str, base: &VerticalScore, rvf: &VerticalScore) {
@@ -442,7 +548,10 @@ fn vert_row(label: &str, base: &VerticalScore, rvf: &VerticalScore) {
     let d = rvf.accuracy - base.accuracy;
     println!(
         "  {:<24} {:>8.1}% {:>8.1}% {:>+6.1}%",
-        label, base.accuracy * 100.0, rvf.accuracy * 100.0, d * 100.0,
+        label,
+        base.accuracy * 100.0,
+        rvf.accuracy * 100.0,
+        d * 100.0,
     );
 }
 
@@ -464,10 +573,17 @@ fn learning_curve_slope(episodes: &[EpisodeResult]) -> f64 {
     for (i, ep) in episodes.iter().enumerate() {
         let x = (i + 1) as f64;
         let y = ep.accuracy;
-        sx += x; sy += y; sxy += x * y; sxx += x * x;
+        sx += x;
+        sy += y;
+        sxy += x * y;
+        sxx += x * x;
     }
     let d = n * sxx - sx * sx;
-    if d.abs() < 1e-12 { 0.0 } else { (n * sxy - sx * sy) / d }
+    if d.abs() < 1e-12 {
+        0.0
+    } else {
+        (n * sxy - sx * sy) / d
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -530,7 +646,9 @@ pub fn run_baseline(config: &BenchmarkConfig) -> Result<ModeResult> {
         let puzzle_config = PuzzleGeneratorConfig {
             min_difficulty: if config.enable_compositional {
                 // Ramp difficulty: floor rises with episode
-                config.min_difficulty + (ep as u8 * (config.max_difficulty - config.min_difficulty) / config.episodes.max(1) as u8)
+                config.min_difficulty
+                    + (ep as u8 * (config.max_difficulty - config.min_difficulty)
+                        / config.episodes.max(1) as u8)
             } else {
                 config.min_difficulty
             },
@@ -544,9 +662,11 @@ pub fn run_baseline(config: &BenchmarkConfig) -> Result<ModeResult> {
 
         // Retention: replace some tasks with earlier puzzles (baseline has no memory advantage)
         if config.enable_retention && !solved_archive.is_empty() {
-            let n_retain = ((config.tasks_per_episode as f64 * config.retention_fraction) as usize).max(1);
+            let n_retain =
+                ((config.tasks_per_episode as f64 * config.retention_fraction) as usize).max(1);
             for i in 0..n_retain.min(puzzles.len()) {
-                let arch_idx = (rng.next_f64() * solved_archive.len() as f64) as usize % solved_archive.len();
+                let arch_idx =
+                    (rng.next_f64() * solved_archive.len() as f64) as usize % solved_archive.len();
                 puzzles[i] = solved_archive[arch_idx].clone();
             }
         }
@@ -563,12 +683,13 @@ pub fn run_baseline(config: &BenchmarkConfig) -> Result<ModeResult> {
             raw.tasks_attempted += 1;
 
             // Decide which puzzle version to solve
-            let (solve_puzzle, is_noisy) = if config.enable_noise && rng.next_f64() < config.noise_probability {
-                let (noisy, corrupted) = inject_noise(puzzle, &mut rng);
-                (noisy, corrupted)
-            } else {
-                (puzzle.clone(), false)
-            };
+            let (solve_puzzle, is_noisy) =
+                if config.enable_noise && rng.next_f64() < config.noise_probability {
+                    let (noisy, corrupted) = inject_noise(puzzle, &mut rng);
+                    (noisy, corrupted)
+                } else {
+                    (puzzle.clone(), false)
+                };
 
             // Step-limited: baseline gets fixed per-task budget
             if config.enable_step_limit {
@@ -584,31 +705,48 @@ pub fn run_baseline(config: &BenchmarkConfig) -> Result<ModeResult> {
             // Track verticals
             if config.enable_step_limit {
                 verticals.step_limited.attempted += 1;
-                if result.correct { verticals.step_limited.correct += 1; }
+                if result.correct {
+                    verticals.step_limited.correct += 1;
+                }
             }
             if is_noisy {
                 verticals.noisy.attempted += 1;
                 // Baseline has no retry — noisy result is final
-                if result.correct { verticals.noisy.correct += 1; }
+                if result.correct {
+                    verticals.noisy.correct += 1;
+                }
             }
             if config.enable_compositional && puzzle.difficulty >= 7 {
                 verticals.compositional.attempted += 1;
-                if result.correct { verticals.compositional.correct += 1; }
+                if result.correct {
+                    verticals.compositional.correct += 1;
+                }
             }
-            if config.enable_retention && task_idx < ((config.tasks_per_episode as f64 * config.retention_fraction) as usize).max(1) && !solved_archive.is_empty() {
+            if config.enable_retention
+                && task_idx
+                    < ((config.tasks_per_episode as f64 * config.retention_fraction) as usize)
+                        .max(1)
+                && !solved_archive.is_empty()
+            {
                 verticals.retention.attempted += 1;
-                if result.correct { verticals.retention.correct += 1; }
+                if result.correct {
+                    verticals.retention.correct += 1;
+                }
             }
             // Transfer: baseline has no cross-episode learning to measure differently
             verticals.transfer.attempted += 1;
-            if result.correct { verticals.transfer.correct += 1; }
+            if result.correct {
+                verticals.transfer.correct += 1;
+            }
             // Error recovery: baseline never retries
             if !result.correct {
                 verticals.error_recovery.attempted += 1;
                 // no recovery
             }
 
-            if result.solved { raw.tasks_completed += 1; }
+            if result.solved {
+                raw.tasks_completed += 1;
+            }
             if result.correct {
                 raw.tasks_correct += 1;
                 ep_correct += 1;
@@ -629,24 +767,44 @@ pub fn run_baseline(config: &BenchmarkConfig) -> Result<ModeResult> {
         cumulative_regret += regret;
 
         raw.episodes.push(EpisodeMetrics {
-            episode: ep + 1, accuracy, reward, regret, cumulative_regret,
+            episode: ep + 1,
+            accuracy,
+            reward,
+            regret,
+            cumulative_regret,
         });
         episodes.push(EpisodeResult {
-            episode: ep + 1, tasks_attempted: config.tasks_per_episode,
-            tasks_correct: ep_correct, total_steps: ep_steps,
-            total_tool_calls: ep_tools, latency_ms: elapsed,
-            accuracy, reward, regret, cumulative_regret,
+            episode: ep + 1,
+            tasks_attempted: config.tasks_per_episode,
+            tasks_correct: ep_correct,
+            total_steps: ep_steps,
+            total_tool_calls: ep_tools,
+            latency_ms: elapsed,
+            accuracy,
+            reward,
+            regret,
+            cumulative_regret,
         });
 
         if config.verbose {
-            println!("  [Baseline] Ep {:2}: acc={:.1}%, regret={:.2}, steps_left={}", ep + 1, accuracy * 100.0, regret, step_budget_remaining);
+            println!(
+                "  [Baseline] Ep {:2}: acc={:.1}%, regret={:.2}, steps_left={}",
+                ep + 1,
+                accuracy * 100.0,
+                regret,
+                step_budget_remaining
+            );
         }
     }
 
     finalize_verticals(&mut verticals);
     let total_attempted = raw.tasks_attempted;
     let total_correct = raw.tasks_correct;
-    let overall_acc = if total_attempted > 0 { total_correct as f64 / total_attempted as f64 } else { 0.0 };
+    let overall_acc = if total_attempted > 0 {
+        total_correct as f64 / total_attempted as f64
+    } else {
+        0.0
+    };
     let final_acc = episodes.last().map(|e| e.accuracy).unwrap_or(0.0);
 
     Ok(ModeResult {
@@ -657,10 +815,14 @@ pub fn run_baseline(config: &BenchmarkConfig) -> Result<ModeResult> {
         final_accuracy: final_acc,
         learning_curve_slope: learning_curve_slope(&episodes),
         total_latency_ms: 0,
-        total_correct, total_attempted,
-        patterns_learned: 0, strategies_used: 1,
-        coherence_violations: 0, budget_exhaustions: 0,
-        witness_entries: 0, retries_used: 0,
+        total_correct,
+        total_attempted,
+        patterns_learned: 0,
+        strategies_used: 1,
+        coherence_violations: 0,
+        budget_exhaustions: 0,
+        witness_entries: 0,
+        retries_used: 0,
         verticals,
     })
 }
@@ -680,7 +842,9 @@ pub fn run_rvf_learning(config: &BenchmarkConfig) -> Result<ModeResult> {
 
     // RVF subsystems
     let mut coherence = CoherenceTracker::new(
-        config.min_coherence_score, config.max_contradiction_rate, config.max_rollback_ratio,
+        config.min_coherence_score,
+        config.max_contradiction_rate,
+        config.max_rollback_ratio,
     );
     let mut budget = BudgetState::new(config.token_budget, config.tool_call_budget);
     let mut witness_chain: Vec<WitnessRecord> = Vec::new();
@@ -699,7 +863,9 @@ pub fn run_rvf_learning(config: &BenchmarkConfig) -> Result<ModeResult> {
     for ep in 0..config.episodes {
         let puzzle_config = PuzzleGeneratorConfig {
             min_difficulty: if config.enable_compositional {
-                config.min_difficulty + (ep as u8 * (config.max_difficulty - config.min_difficulty) / config.episodes.max(1) as u8)
+                config.min_difficulty
+                    + (ep as u8 * (config.max_difficulty - config.min_difficulty)
+                        / config.episodes.max(1) as u8)
             } else {
                 config.min_difficulty
             },
@@ -718,7 +884,8 @@ pub fn run_rvf_learning(config: &BenchmarkConfig) -> Result<ModeResult> {
             0
         };
         for i in 0..n_retain.min(puzzles.len()) {
-            let arch_idx = (rng.next_f64() * solved_archive.len() as f64) as usize % solved_archive.len();
+            let arch_idx =
+                (rng.next_f64() * solved_archive.len() as f64) as usize % solved_archive.len();
             puzzles[i] = solved_archive[arch_idx].clone();
         }
 
@@ -734,16 +901,20 @@ pub fn run_rvf_learning(config: &BenchmarkConfig) -> Result<ModeResult> {
             let is_retained = task_idx < n_retain && !solved_archive.is_empty();
 
             // Decide noise injection (same RNG as baseline for fairness)
-            let (solve_puzzle, is_noisy) = if config.enable_noise && rng.next_f64() < config.noise_probability {
-                let (noisy, corrupted) = inject_noise(puzzle, &mut rng);
-                (noisy, corrupted)
-            } else {
-                (puzzle.clone(), false)
-            };
+            let (solve_puzzle, is_noisy) =
+                if config.enable_noise && rng.next_f64() < config.noise_probability {
+                    let (noisy, corrupted) = inject_noise(puzzle, &mut rng);
+                    (noisy, corrupted)
+                } else {
+                    (puzzle.clone(), false)
+                };
 
             // Step-limited: RVF uses learned step budgets to allocate smarter
             if config.enable_step_limit {
-                let learned_avg = learned_step_budget.get(&puzzle.difficulty).copied().unwrap_or(0.0);
+                let learned_avg = learned_step_budget
+                    .get(&puzzle.difficulty)
+                    .copied()
+                    .unwrap_or(0.0);
                 let remaining_tasks = (config.tasks_per_episode - task_idx).max(1);
                 let per_task = if learned_avg > 1.0 && ep > 1 {
                     // Allocate based on learned difficulty: easy puzzles get fewer steps,
@@ -833,28 +1004,42 @@ pub fn run_rvf_learning(config: &BenchmarkConfig) -> Result<ModeResult> {
             // Track verticals
             if config.enable_step_limit {
                 verticals.step_limited.attempted += 1;
-                if result.correct { verticals.step_limited.correct += 1; }
+                if result.correct {
+                    verticals.step_limited.correct += 1;
+                }
             }
             if is_noisy {
                 verticals.noisy.attempted += 1;
-                if result.correct { verticals.noisy.correct += 1; }
+                if result.correct {
+                    verticals.noisy.correct += 1;
+                }
             }
             if config.enable_compositional && puzzle.difficulty >= 7 {
                 verticals.compositional.attempted += 1;
-                if result.correct { verticals.compositional.correct += 1; }
+                if result.correct {
+                    verticals.compositional.correct += 1;
+                }
             }
             if is_retained {
                 verticals.retention.attempted += 1;
-                if result.correct { verticals.retention.correct += 1; }
+                if result.correct {
+                    verticals.retention.correct += 1;
+                }
             }
             verticals.transfer.attempted += 1;
-            if result.correct { verticals.transfer.correct += 1; }
+            if result.correct {
+                verticals.transfer.correct += 1;
+            }
             if retry_count > 0 {
                 verticals.error_recovery.attempted += 1;
-                if result.correct { verticals.error_recovery.correct += 1; }
+                if result.correct {
+                    verticals.error_recovery.correct += 1;
+                }
             }
 
-            if result.solved { raw.tasks_completed += 1; }
+            if result.solved {
+                raw.tasks_completed += 1;
+            }
             if result.correct {
                 raw.tasks_correct += 1;
                 ep_correct += 1;
@@ -877,13 +1062,23 @@ pub fn run_rvf_learning(config: &BenchmarkConfig) -> Result<ModeResult> {
         cumulative_regret += regret;
 
         raw.episodes.push(EpisodeMetrics {
-            episode: ep + 1, accuracy, reward, regret, cumulative_regret,
+            episode: ep + 1,
+            accuracy,
+            reward,
+            regret,
+            cumulative_regret,
         });
         episodes.push(EpisodeResult {
-            episode: ep + 1, tasks_attempted: config.tasks_per_episode,
-            tasks_correct: ep_correct, total_steps: ep_steps,
-            total_tool_calls: ep_tools, latency_ms: elapsed,
-            accuracy, reward, regret, cumulative_regret,
+            episode: ep + 1,
+            tasks_attempted: config.tasks_per_episode,
+            tasks_correct: ep_correct,
+            total_steps: ep_steps,
+            total_tool_calls: ep_tools,
+            latency_ms: elapsed,
+            accuracy,
+            reward,
+            regret,
+            cumulative_regret,
         });
 
         if config.verbose {
@@ -898,7 +1093,11 @@ pub fn run_rvf_learning(config: &BenchmarkConfig) -> Result<ModeResult> {
     finalize_verticals(&mut verticals);
     let total_attempted = raw.tasks_attempted;
     let total_correct = raw.tasks_correct;
-    let overall_acc = if total_attempted > 0 { total_correct as f64 / total_attempted as f64 } else { 0.0 };
+    let overall_acc = if total_attempted > 0 {
+        total_correct as f64 / total_attempted as f64
+    } else {
+        0.0
+    };
     let final_acc = episodes.last().map(|e| e.accuracy).unwrap_or(0.0);
     let progress = solver.learning_progress();
 
@@ -910,10 +1109,12 @@ pub fn run_rvf_learning(config: &BenchmarkConfig) -> Result<ModeResult> {
         final_accuracy: final_acc,
         learning_curve_slope: learning_curve_slope(&episodes),
         total_latency_ms: 0,
-        total_correct, total_attempted,
+        total_correct,
+        total_attempted,
         patterns_learned: progress.patterns_learned,
         strategies_used: progress.strategies_tried,
-        coherence_violations, budget_exhaustions,
+        coherence_violations,
+        budget_exhaustions,
         witness_entries: witness_chain.len(),
         retries_used: total_retries,
         verticals,
@@ -943,7 +1144,11 @@ pub fn run_comparison(config: &BenchmarkConfig) -> Result<ComparisonReport> {
     let final_accuracy_delta = rvf.final_accuracy - baseline.final_accuracy;
     let efficiency_delta = if baseline.total_correct > 0 {
         (rvf.total_correct as f64 / baseline.total_correct as f64) - 1.0
-    } else if rvf.total_correct > 0 { 1.0 } else { 0.0 };
+    } else if rvf.total_correct > 0 {
+        1.0
+    } else {
+        0.0
+    };
 
     let verdict = if final_accuracy_delta > 0.10 && learning_rate_delta > 0.0 {
         format!(
@@ -977,14 +1182,24 @@ pub fn run_comparison(config: &BenchmarkConfig) -> Result<ComparisonReport> {
 
     let config_summary = format!(
         "{} episodes x {} tasks/ep, difficulty {}-{}, seed {:?}, noise={:.0}%, steps/ep={}",
-        config.episodes, config.tasks_per_episode,
-        config.min_difficulty, config.max_difficulty, config.seed,
-        config.noise_probability * 100.0, config.step_budget_per_episode,
+        config.episodes,
+        config.tasks_per_episode,
+        config.min_difficulty,
+        config.max_difficulty,
+        config.seed,
+        config.noise_probability * 100.0,
+        config.step_budget_per_episode,
     );
 
     Ok(ComparisonReport {
-        config_summary, baseline, rvf_learning: rvf,
-        accuracy_delta, learning_rate_delta, final_accuracy_delta, efficiency_delta, verdict,
+        config_summary,
+        baseline,
+        rvf_learning: rvf,
+        accuracy_delta,
+        learning_rate_delta,
+        final_accuracy_delta,
+        efficiency_delta,
+        verdict,
     })
 }
 
@@ -993,12 +1208,22 @@ pub fn run_comparison(config: &BenchmarkConfig) -> Result<ComparisonReport> {
 // ---------------------------------------------------------------------------
 
 fn track_difficulty(raw: &mut RawMetrics, difficulty: u8, result: &SolverResult) {
-    let entry = raw.by_difficulty.entry(difficulty).or_insert(DifficultyStats {
-        attempted: 0, completed: 0, correct: 0, avg_steps: 0.0,
-    });
+    let entry = raw
+        .by_difficulty
+        .entry(difficulty)
+        .or_insert(DifficultyStats {
+            attempted: 0,
+            completed: 0,
+            correct: 0,
+            avg_steps: 0.0,
+        });
     entry.attempted += 1;
-    if result.solved { entry.completed += 1; }
-    if result.correct { entry.correct += 1; }
+    if result.solved {
+        entry.completed += 1;
+    }
+    if result.correct {
+        entry.correct += 1;
+    }
 }
 
 // AdaptiveSolver now exposes solver_mut() and external_step_limit natively.
@@ -1016,7 +1241,9 @@ mod tests {
         let mut ct = CoherenceTracker::new(0.70, 5.0, 0.20);
         assert!(ct.is_healthy());
         assert!(ct.can_commit());
-        for _ in 0..10 { ct.record_task(true, false); }
+        for _ in 0..10 {
+            ct.record_task(true, false);
+        }
         assert!(ct.is_healthy());
         assert!(ct.contradiction_rate() < 1.0);
     }
@@ -1024,7 +1251,9 @@ mod tests {
     #[test]
     fn coherence_tracker_degradation() {
         let mut ct = CoherenceTracker::new(0.70, 5.0, 0.20);
-        for _ in 0..100 { ct.record_task(false, false); }
+        for _ in 0..100 {
+            ct.record_task(false, false);
+        }
         assert!(ct.score < 0.95);
         assert!(ct.contradiction_rate() > 5.0);
     }
@@ -1050,8 +1279,12 @@ mod tests {
     fn learning_curve_slope_positive() {
         let episodes: Vec<EpisodeResult> = (0..5)
             .map(|i| EpisodeResult {
-                episode: i + 1, tasks_attempted: 10, tasks_correct: 5 + i,
-                total_steps: 50, total_tool_calls: 10, latency_ms: 100,
+                episode: i + 1,
+                tasks_attempted: 10,
+                tasks_correct: 5 + i,
+                total_steps: 50,
+                total_tool_calls: 10,
+                latency_ms: 100,
                 accuracy: (5 + i) as f64 / 10.0,
                 reward: (5 + i) as f64 * 10.0,
                 regret: (5 - i as i64).max(0) as f64 * 10.0,
@@ -1072,10 +1305,16 @@ mod tests {
     #[test]
     fn witness_record_creation() {
         let w = WitnessRecord {
-            task_id: "test-1".into(), episode: 1,
-            strategy_used: "adaptive".into(), confidence: 0.85,
-            steps: 12, correct: true, latency_us: 5000,
-            retry_count: 0, was_noisy: false, was_retained: false,
+            task_id: "test-1".into(),
+            episode: 1,
+            strategy_used: "adaptive".into(),
+            confidence: 0.85,
+            steps: 12,
+            correct: true,
+            latency_us: 5000,
+            retry_count: 0,
+            was_noisy: false,
+            was_retained: false,
         };
         assert!(w.correct);
     }
@@ -1091,7 +1330,11 @@ mod tests {
 
     #[test]
     fn vertical_score_finalize() {
-        let mut v = VerticalScore { attempted: 10, correct: 7, accuracy: 0.0 };
+        let mut v = VerticalScore {
+            attempted: 10,
+            correct: 7,
+            accuracy: 0.0,
+        };
         v.finalize();
         assert!((v.accuracy - 0.7).abs() < 1e-10);
     }
@@ -1099,7 +1342,10 @@ mod tests {
     #[test]
     fn comparison_report_runs() {
         let config = BenchmarkConfig {
-            episodes: 2, tasks_per_episode: 5, seed: Some(123), verbose: false,
+            episodes: 2,
+            tasks_per_episode: 5,
+            seed: Some(123),
+            verbose: false,
             ..Default::default()
         };
         let report = run_comparison(&config);

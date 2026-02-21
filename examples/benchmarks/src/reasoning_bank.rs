@@ -551,7 +551,9 @@ impl ReasoningBank {
     /// Excludes strategies whose primary patterns are quarantined.
     fn update_best_strategies(&mut self) {
         // Collect quarantined strategy names
-        let quarantined_strategies: std::collections::HashSet<String> = self.patterns.values()
+        let quarantined_strategies: std::collections::HashSet<String> = self
+            .patterns
+            .values()
             .flat_map(|ps| ps.iter())
             .filter(|p| p.memory_class == MemoryClass::Quarantined)
             .map(|p| p.best_strategy.clone())
@@ -815,7 +817,8 @@ impl ReasoningBank {
     /// If counterexamples for a constraint type exceed the threshold, the pattern
     /// is demoted (success_rate reduced, observations reset).
     pub fn record_counterexample(&mut self, constraint_type: &str, trajectory: Trajectory) {
-        let examples = self.counterexamples
+        let examples = self
+            .counterexamples
             .entry(constraint_type.to_string())
             .or_default();
         examples.push(trajectory);
@@ -839,7 +842,8 @@ impl ReasoningBank {
     /// Requires: >= evidence_threshold observations, at least 1 counterexample linked,
     /// more observations than counterexamples, success_rate > 0.7.
     pub fn is_pattern_promoted(&self, constraint_type: &str, difficulty: u8) -> bool {
-        let counter_count = self.counterexamples
+        let counter_count = self
+            .counterexamples
             .get(constraint_type)
             .map(|v| v.len())
             .unwrap_or(0);
@@ -867,10 +871,7 @@ impl ReasoningBank {
         let threshold = self.evidence_threshold;
 
         for (ct, patterns) in self.patterns.iter_mut() {
-            let counter_count = self.counterexamples
-                .get(ct)
-                .map(|v| v.len())
-                .unwrap_or(0);
+            let counter_count = self.counterexamples.get(ct).map(|v| v.len()).unwrap_or(0);
             // Counterexample-first: must have at least 1 counterexample
             let has_counterexample = counter_count > 0;
 
@@ -965,7 +966,8 @@ impl ReasoningBank {
 
     /// Count of Volatile patterns.
     pub fn volatile_count(&self) -> usize {
-        self.patterns.values()
+        self.patterns
+            .values()
             .flat_map(|ps| ps.iter())
             .filter(|p| p.memory_class == MemoryClass::Volatile)
             .count()
@@ -973,7 +975,8 @@ impl ReasoningBank {
 
     /// Count of Trusted patterns.
     pub fn trusted_count(&self) -> usize {
-        self.patterns.values()
+        self.patterns
+            .values()
             .flat_map(|ps| ps.iter())
             .filter(|p| p.memory_class == MemoryClass::Trusted)
             .count()
@@ -981,7 +984,8 @@ impl ReasoningBank {
 
     /// Count of Quarantined patterns.
     pub fn quarantined_pattern_count(&self) -> usize {
-        self.patterns.values()
+        self.patterns
+            .values()
             .flat_map(|ps| ps.iter())
             .filter(|p| p.memory_class == MemoryClass::Quarantined)
             .count()
@@ -991,10 +995,15 @@ impl ReasoningBank {
     /// solved-but-wrong (contradiction), quarantine it instead of learning.
     /// Otherwise, record normally.
     pub fn record_trajectory_gated(&mut self, trajectory: Trajectory) {
-        let is_contradiction = trajectory.verdict.as_ref()
+        let is_contradiction = trajectory
+            .verdict
+            .as_ref()
             .map(|v| !v.is_success())
             .unwrap_or(true)
-            && trajectory.attempts.iter().any(|a| !a.solution.is_empty() && a.solution != "none");
+            && trajectory
+                .attempts
+                .iter()
+                .any(|a| !a.solution.is_empty() && a.solution != "none");
 
         if is_contradiction {
             // Quarantine: record as counterexample but don't learn from it
@@ -1106,7 +1115,10 @@ mod tests {
         assert!(bank.rollback_to(cp_id));
         assert_eq!(bank.trajectories.len(), 5);
         // Bad learning should be gone
-        assert!(bank.trajectories.iter().all(|t| t.puzzle_id.starts_with("good_")));
+        assert!(bank
+            .trajectories
+            .iter()
+            .all(|t| t.puzzle_id.starts_with("good_")));
     }
 
     #[test]
@@ -1170,7 +1182,9 @@ mod tests {
             bank.record_trajectory(traj);
         }
 
-        let orig_rate = bank.patterns.get("Between")
+        let orig_rate = bank
+            .patterns
+            .get("Between")
             .and_then(|ps| ps.first())
             .map(|p| p.success_rate)
             .unwrap_or(0.0);
@@ -1186,7 +1200,9 @@ mod tests {
         }
 
         // Pattern should be demoted
-        let new_rate = bank.patterns.get("Between")
+        let new_rate = bank
+            .patterns
+            .get("Between")
             .and_then(|ps| ps.first())
             .map(|p| p.success_rate)
             .unwrap_or(1.0);

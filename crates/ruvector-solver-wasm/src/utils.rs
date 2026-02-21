@@ -57,7 +57,10 @@ pub fn set_panic_hook() {
                 .map(|loc| format!(" at {}:{}:{}", loc.file(), loc.line(), loc.column()))
                 .unwrap_or_default();
 
-            error(&format!("[ruvector-solver-wasm] panic{}: {}", location, msg));
+            error(&format!(
+                "[ruvector-solver-wasm] panic{}: {}",
+                location, msg
+            ));
         }));
     });
 }

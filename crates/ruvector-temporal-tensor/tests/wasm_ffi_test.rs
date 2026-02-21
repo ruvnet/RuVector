@@ -111,15 +111,24 @@ fn test_ffi_multi_tensor() {
     let n_a = tts_get(0, 1, 0, out.as_mut_ptr(), out.len());
     assert_eq!(n_a, 64);
     // Spot-check first element of tensor A.
-    assert!((out[0] - data_a[0]).abs() < 0.5, "tensor A readback mismatch");
+    assert!(
+        (out[0] - data_a[0]).abs() < 0.5,
+        "tensor A readback mismatch"
+    );
 
     let n_b = tts_get(0, 2, 0, out.as_mut_ptr(), out.len());
     assert_eq!(n_b, 64);
-    assert!((out[0] - data_b[0]).abs() < 0.5, "tensor B readback mismatch");
+    assert!(
+        (out[0] - data_b[0]).abs() < 0.5,
+        "tensor B readback mismatch"
+    );
 
     let n_c = tts_get(1, 0, 0, out.as_mut_ptr(), out.len());
     assert_eq!(n_c, 64);
-    assert!((out[0] - data_c[0]).abs() < 0.5, "tensor C readback mismatch");
+    assert!(
+        (out[0] - data_c[0]).abs() < 0.5,
+        "tensor C readback mismatch"
+    );
 }
 
 #[test]
@@ -163,11 +172,7 @@ fn test_ffi_touch_updates_access() {
     }
 
     // Block count should remain unchanged (touch does not add/remove blocks).
-    assert_eq!(
-        tts_block_count(),
-        1,
-        "touch should not change block count"
-    );
+    assert_eq!(tts_block_count(), 1, "touch should not change block count");
 
     // The block should still be readable.
     let mut out = vec![0.0f32; 64];

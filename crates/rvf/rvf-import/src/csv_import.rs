@@ -57,7 +57,13 @@ pub fn parse_csv<R: Read>(reader: R, config: &CsvConfig) -> Result<Vec<VectorRec
 
         let id: u64 = record
             .get(config.id_column)
-            .ok_or_else(|| format!("row {}: missing id column {}", row_idx + 1, config.id_column))?
+            .ok_or_else(|| {
+                format!(
+                    "row {}: missing id column {}",
+                    row_idx + 1,
+                    config.id_column
+                )
+            })?
             .trim()
             .parse()
             .map_err(|e| format!("row {}: bad id: {e}", row_idx + 1))?;

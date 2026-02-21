@@ -73,7 +73,9 @@ impl VectorData {
 ///
 /// Reads a tail chunk and scans byte-by-byte for the magic + manifest-type
 /// pattern, since segment headers are NOT necessarily 64-byte aligned from EOF.
-pub(crate) fn find_latest_manifest<R: Read + Seek>(reader: &mut R) -> io::Result<Option<ParsedManifest>> {
+pub(crate) fn find_latest_manifest<R: Read + Seek>(
+    reader: &mut R,
+) -> io::Result<Option<ParsedManifest>> {
     let file_size = reader.seek(SeekFrom::End(0))?;
     if file_size < SEGMENT_HEADER_SIZE as u64 {
         return Ok(None);
@@ -102,8 +104,14 @@ pub(crate) fn find_latest_manifest<R: Read + Seek>(reader: &mut R) -> io::Result
             // Found a candidate manifest header at offset `i` within the buffer.
             let hdr_buf = &buf[i..i + SEGMENT_HEADER_SIZE];
             let payload_length_u64 = u64::from_le_bytes([
-                hdr_buf[0x10], hdr_buf[0x11], hdr_buf[0x12], hdr_buf[0x13],
-                hdr_buf[0x14], hdr_buf[0x15], hdr_buf[0x16], hdr_buf[0x17],
+                hdr_buf[0x10],
+                hdr_buf[0x11],
+                hdr_buf[0x12],
+                hdr_buf[0x13],
+                hdr_buf[0x14],
+                hdr_buf[0x15],
+                hdr_buf[0x16],
+                hdr_buf[0x17],
             ]);
 
             // Reject implausible payload lengths to prevent OOM.
@@ -150,8 +158,14 @@ fn parse_manifest_payload(payload: &[u8]) -> Option<ParsedManifest> {
     let epoch = u32::from_le_bytes([payload[0], payload[1], payload[2], payload[3]]);
     let dimension = u16::from_le_bytes([payload[4], payload[5]]);
     let total_vectors = u64::from_le_bytes([
-        payload[6], payload[7], payload[8], payload[9],
-        payload[10], payload[11], payload[12], payload[13],
+        payload[6],
+        payload[7],
+        payload[8],
+        payload[9],
+        payload[10],
+        payload[11],
+        payload[12],
+        payload[13],
     ]);
     let seg_count = u32::from_le_bytes([payload[14], payload[15], payload[16], payload[17]]);
     let profile_id = payload[18];
@@ -172,16 +186,34 @@ fn parse_manifest_payload(payload: &[u8]) -> Option<ParsedManifest> {
             return None;
         }
         let seg_id = u64::from_le_bytes([
-            payload[offset], payload[offset + 1], payload[offset + 2], payload[offset + 3],
-            payload[offset + 4], payload[offset + 5], payload[offset + 6], payload[offset + 7],
+            payload[offset],
+            payload[offset + 1],
+            payload[offset + 2],
+            payload[offset + 3],
+            payload[offset + 4],
+            payload[offset + 5],
+            payload[offset + 6],
+            payload[offset + 7],
         ]);
         let seg_offset = u64::from_le_bytes([
-            payload[offset + 8], payload[offset + 9], payload[offset + 10], payload[offset + 11],
-            payload[offset + 12], payload[offset + 13], payload[offset + 14], payload[offset + 15],
+            payload[offset + 8],
+            payload[offset + 9],
+            payload[offset + 10],
+            payload[offset + 11],
+            payload[offset + 12],
+            payload[offset + 13],
+            payload[offset + 14],
+            payload[offset + 15],
         ]);
         let plen = u64::from_le_bytes([
-            payload[offset + 16], payload[offset + 17], payload[offset + 18], payload[offset + 19],
-            payload[offset + 20], payload[offset + 21], payload[offset + 22], payload[offset + 23],
+            payload[offset + 16],
+            payload[offset + 17],
+            payload[offset + 18],
+            payload[offset + 19],
+            payload[offset + 20],
+            payload[offset + 21],
+            payload[offset + 22],
+            payload[offset + 23],
         ]);
         let stype = payload[offset + 24];
         segment_dir.push(SegDirEntry {
@@ -197,7 +229,10 @@ fn parse_manifest_payload(payload: &[u8]) -> Option<ParsedManifest> {
     let mut deleted_ids = Vec::new();
     if offset + 4 <= payload.len() {
         let del_count = u32::from_le_bytes([
-            payload[offset], payload[offset + 1], payload[offset + 2], payload[offset + 3],
+            payload[offset],
+            payload[offset + 1],
+            payload[offset + 2],
+            payload[offset + 3],
         ]);
         offset += 4;
         for _ in 0..del_count {
@@ -205,8 +240,14 @@ fn parse_manifest_payload(payload: &[u8]) -> Option<ParsedManifest> {
                 break;
             }
             let did = u64::from_le_bytes([
-                payload[offset], payload[offset + 1], payload[offset + 2], payload[offset + 3],
-                payload[offset + 4], payload[offset + 5], payload[offset + 6], payload[offset + 7],
+                payload[offset],
+                payload[offset + 1],
+                payload[offset + 2],
+                payload[offset + 3],
+                payload[offset + 4],
+                payload[offset + 5],
+                payload[offset + 6],
+                payload[offset + 7],
             ]);
             deleted_ids.push(did);
             offset += 8;
@@ -217,8 +258,10 @@ fn parse_manifest_payload(payload: &[u8]) -> Option<ParsedManifest> {
     // Look for magic marker 0x46494449 ("FIDI") followed by 68 bytes.
     let file_identity = if offset + 4 + 68 <= payload.len() {
         let marker = u32::from_le_bytes([
-            payload[offset], payload[offset + 1],
-            payload[offset + 2], payload[offset + 3],
+            payload[offset],
+            payload[offset + 1],
+            payload[offset + 2],
+            payload[offset + 3],
         ]);
         if marker == 0x4649_4449 {
             offset += 4;
@@ -249,7 +292,8 @@ pub(crate) fn read_vec_seg_payload(payload: &[u8]) -> Option<Vec<(u64, Vec<f32>)
     }
 
     let dimension = u16::from_le_bytes([payload[0], payload[1]]) as usize;
-    let vector_count = u32::from_le_bytes([payload[2], payload[3], payload[4], payload[5]]) as usize;
+    let vector_count =
+        u32::from_le_bytes([payload[2], payload[3], payload[4], payload[5]]) as usize;
 
     let bytes_per_vec = dimension * 4;
     let expected_size = 6 + vector_count * (8 + bytes_per_vec);
@@ -262,15 +306,24 @@ pub(crate) fn read_vec_seg_payload(payload: &[u8]) -> Option<Vec<(u64, Vec<f32>)
 
     for _ in 0..vector_count {
         let vec_id = u64::from_le_bytes([
-            payload[offset], payload[offset + 1], payload[offset + 2], payload[offset + 3],
-            payload[offset + 4], payload[offset + 5], payload[offset + 6], payload[offset + 7],
+            payload[offset],
+            payload[offset + 1],
+            payload[offset + 2],
+            payload[offset + 3],
+            payload[offset + 4],
+            payload[offset + 5],
+            payload[offset + 6],
+            payload[offset + 7],
         ]);
         offset += 8;
 
         let mut vec_data = Vec::with_capacity(dimension);
         for _ in 0..dimension {
             let val = f32::from_le_bytes([
-                payload[offset], payload[offset + 1], payload[offset + 2], payload[offset + 3],
+                payload[offset],
+                payload[offset + 1],
+                payload[offset + 2],
+                payload[offset + 3],
             ]);
             vec_data.push(val);
             offset += 4;
@@ -301,19 +354,31 @@ pub(crate) fn read_segment_payload<R: Read + Seek>(
 
     let magic = u32::from_le_bytes([hdr_buf[0], hdr_buf[1], hdr_buf[2], hdr_buf[3]]);
     if magic != SEGMENT_MAGIC {
-        return Err(io::Error::new(io::ErrorKind::InvalidData, "invalid segment magic"));
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            "invalid segment magic",
+        ));
     }
 
     let payload_length = u64::from_le_bytes([
-        hdr_buf[0x10], hdr_buf[0x11], hdr_buf[0x12], hdr_buf[0x13],
-        hdr_buf[0x14], hdr_buf[0x15], hdr_buf[0x16], hdr_buf[0x17],
+        hdr_buf[0x10],
+        hdr_buf[0x11],
+        hdr_buf[0x12],
+        hdr_buf[0x13],
+        hdr_buf[0x14],
+        hdr_buf[0x15],
+        hdr_buf[0x16],
+        hdr_buf[0x17],
     ]);
 
     // Enforce maximum payload size to prevent OOM from crafted files.
     if payload_length > MAX_READ_PAYLOAD {
         return Err(io::Error::new(
             io::ErrorKind::InvalidData,
-            format!("segment payload too large: {} bytes (max {})", payload_length, MAX_READ_PAYLOAD),
+            format!(
+                "segment payload too large: {} bytes (max {})",
+                payload_length, MAX_READ_PAYLOAD
+            ),
         ));
     }
 
@@ -323,25 +388,52 @@ pub(crate) fn read_segment_payload<R: Read + Seek>(
         seg_type: hdr_buf[0x05],
         flags: u16::from_le_bytes([hdr_buf[0x06], hdr_buf[0x07]]),
         segment_id: u64::from_le_bytes([
-            hdr_buf[0x08], hdr_buf[0x09], hdr_buf[0x0A], hdr_buf[0x0B],
-            hdr_buf[0x0C], hdr_buf[0x0D], hdr_buf[0x0E], hdr_buf[0x0F],
+            hdr_buf[0x08],
+            hdr_buf[0x09],
+            hdr_buf[0x0A],
+            hdr_buf[0x0B],
+            hdr_buf[0x0C],
+            hdr_buf[0x0D],
+            hdr_buf[0x0E],
+            hdr_buf[0x0F],
         ]),
         payload_length,
         timestamp_ns: u64::from_le_bytes([
-            hdr_buf[0x18], hdr_buf[0x19], hdr_buf[0x1A], hdr_buf[0x1B],
-            hdr_buf[0x1C], hdr_buf[0x1D], hdr_buf[0x1E], hdr_buf[0x1F],
+            hdr_buf[0x18],
+            hdr_buf[0x19],
+            hdr_buf[0x1A],
+            hdr_buf[0x1B],
+            hdr_buf[0x1C],
+            hdr_buf[0x1D],
+            hdr_buf[0x1E],
+            hdr_buf[0x1F],
         ]),
         checksum_algo: hdr_buf[0x20],
         compression: hdr_buf[0x21],
         reserved_0: u16::from_le_bytes([hdr_buf[0x22], hdr_buf[0x23]]),
-        reserved_1: u32::from_le_bytes([hdr_buf[0x24], hdr_buf[0x25], hdr_buf[0x26], hdr_buf[0x27]]),
+        reserved_1: u32::from_le_bytes([
+            hdr_buf[0x24],
+            hdr_buf[0x25],
+            hdr_buf[0x26],
+            hdr_buf[0x27],
+        ]),
         content_hash: {
             let mut h = [0u8; 16];
             h.copy_from_slice(&hdr_buf[0x28..0x38]);
             h
         },
-        uncompressed_len: u32::from_le_bytes([hdr_buf[0x38], hdr_buf[0x39], hdr_buf[0x3A], hdr_buf[0x3B]]),
-        alignment_pad: u32::from_le_bytes([hdr_buf[0x3C], hdr_buf[0x3D], hdr_buf[0x3E], hdr_buf[0x3F]]),
+        uncompressed_len: u32::from_le_bytes([
+            hdr_buf[0x38],
+            hdr_buf[0x39],
+            hdr_buf[0x3A],
+            hdr_buf[0x3B],
+        ]),
+        alignment_pad: u32::from_le_bytes([
+            hdr_buf[0x3C],
+            hdr_buf[0x3D],
+            hdr_buf[0x3E],
+            hdr_buf[0x3F],
+        ]),
     };
 
     // payload_length is guaranteed <= MAX_READ_PAYLOAD (256 MiB) which fits in usize.

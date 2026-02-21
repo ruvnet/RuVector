@@ -34,9 +34,7 @@
 //! cargo run --bin acceptance-rvf -- verify --input manifest.json
 //! ```
 
-use crate::acceptance_test::{
-    AblationMode, HoldoutConfig, run_acceptance_test_mode,
-};
+use crate::acceptance_test::{run_acceptance_test_mode, AblationMode, HoldoutConfig};
 use crate::temporal::PolicyKernel;
 use rvf_crypto::shake256_256;
 use serde::{Deserialize, Serialize};
@@ -268,7 +266,7 @@ impl WitnessChainBuilder {
             prev_hash: [0u8; 32], // overwritten by create_witness_chain
             action_hash,
             timestamp_ns: self.seq as u64, // deterministic pseudo-timestamp
-            witness_type: 0x02, // COMPUTATION witness type
+            witness_type: 0x02,            // COMPUTATION witness type
         });
 
         self.prev_hash = hash;
@@ -472,11 +470,23 @@ impl VerifyResult {
     pub fn print(&self) {
         println!();
         println!("  Witness Chain Verification:");
-        println!("    Chain integrity:  {}", if self.chain_integrity { "PASS" } else { "FAIL" });
-        println!("    Outcomes match:   {}", if self.outcomes_match { "PASS" } else { "FAIL" });
-        println!("    Root hash match:  {}", if self.root_hash_match { "PASS" } else { "FAIL" });
+        println!(
+            "    Chain integrity:  {}",
+            if self.chain_integrity { "PASS" } else { "FAIL" }
+        );
+        println!(
+            "    Outcomes match:   {}",
+            if self.outcomes_match { "PASS" } else { "FAIL" }
+        );
+        println!(
+            "    Root hash match:  {}",
+            if self.root_hash_match { "PASS" } else { "FAIL" }
+        );
         println!("    Expected root:    {}", &self.expected_root[..16]);
-        println!("    Recomputed root:  {}", &self.recomputed_root[..self.recomputed_root.len().min(16)]);
+        println!(
+            "    Recomputed root:  {}",
+            &self.recomputed_root[..self.recomputed_root.len().min(16)]
+        );
         if !self.mismatched_records.is_empty() {
             println!("    Mismatched at:    {:?}", self.mismatched_records);
         }
@@ -572,7 +582,9 @@ pub fn verify_rvf_binary(path: &str) -> anyhow::Result<usize> {
     }
 
     let payload_len = u64::from_le_bytes(
-        data[0x10..0x18].try_into().map_err(|_| anyhow::anyhow!("Bad header"))?
+        data[0x10..0x18]
+            .try_into()
+            .map_err(|_| anyhow::anyhow!("Bad header"))?,
     ) as usize;
 
     let payload_start = SEGMENT_HEADER_SIZE;
@@ -659,15 +671,14 @@ fn collect_witnesses(
     });
 }
 
-fn build_scorecard(
-    label: &str,
-    result: &crate::acceptance_test::AblationResult,
-) -> ModeScorecard {
+fn build_scorecard(label: &str, result: &crate::acceptance_test::AblationResult) -> ModeScorecard {
     let last = result.result.cycles.last();
     ModeScorecard {
         mode: label.to_string(),
         total_puzzles: result.result.cycles.len(),
-        correct: last.map(|c| (c.holdout_accuracy * 100.0) as usize).unwrap_or(0),
+        correct: last
+            .map(|c| (c.holdout_accuracy * 100.0) as usize)
+            .unwrap_or(0),
         accuracy: last.map(|c| c.holdout_accuracy).unwrap_or(0.0),
         total_steps: last.map(|c| c.holdout_cost_per_solve as usize).unwrap_or(0),
         cost_per_solve: last.map(|c| c.holdout_cost_per_solve).unwrap_or(0.0),
@@ -768,12 +779,16 @@ fn compute_assertions(
 
 fn holdout_config_from_manifest(mc: &ManifestConfig) -> HoldoutConfig {
     let holdout_seed = u64::from_str_radix(
-        mc.holdout_seed.trim_start_matches("0x").trim_start_matches("0X"),
+        mc.holdout_seed
+            .trim_start_matches("0x")
+            .trim_start_matches("0X"),
         16,
     )
     .unwrap_or(0xDEAD_BEEF);
     let training_seed = u64::from_str_radix(
-        mc.training_seed.trim_start_matches("0x").trim_start_matches("0X"),
+        mc.training_seed
+            .trim_start_matches("0x")
+            .trim_start_matches("0X"),
         16,
     )
     .unwrap_or(42);
@@ -804,12 +819,25 @@ impl RvfManifest {
         println!("╚══════════════════════════════════════════════════════════════╝");
         println!();
         println!("  Config:");
-        println!("    Holdout:  {} puzzles (seed {})", self.config.holdout_size, self.config.holdout_seed);
-        println!("    Training: {} per cycle x {} cycles", self.config.training_per_cycle, self.config.cycles);
-        println!("    Budget:   {} steps, noise rate {:.0}%", self.config.step_budget, self.config.noise_rate * 100.0);
+        println!(
+            "    Holdout:  {} puzzles (seed {})",
+            self.config.holdout_size, self.config.holdout_seed
+        );
+        println!(
+            "    Training: {} per cycle x {} cycles",
+            self.config.training_per_cycle, self.config.cycles
+        );
+        println!(
+            "    Budget:   {} steps, noise rate {:.0}%",
+            self.config.step_budget,
+            self.config.noise_rate * 100.0
+        );
         println!();
 
-        println!("  {:<22} {:>8} {:>12} {:>10} {:>6}", "Mode", "Acc%", "Cost/Solve", "Noise%", "Viol");
+        println!(
+            "  {:<22} {:>8} {:>12} {:>10} {:>6}",
+            "Mode", "Acc%", "Cost/Solve", "Noise%", "Viol"
+        );
         println!("  {}", "-".repeat(62));
         for sc in &self.scorecards {
             println!(
@@ -843,7 +871,10 @@ impl RvfManifest {
 
         println!("  Witness Chain:");
         println!("    Records:   {}", self.chain_length);
-        println!("    Root hash: {}", &self.chain_root_hash[..32.min(self.chain_root_hash.len())]);
+        println!(
+            "    Root hash: {}",
+            &self.chain_root_hash[..32.min(self.chain_root_hash.len())]
+        );
         println!();
 
         if self.all_passed {

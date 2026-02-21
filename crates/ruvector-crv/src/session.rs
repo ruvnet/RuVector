@@ -116,44 +116,28 @@ impl CrvSessionManager {
     }
 
     /// Add Stage I data to a session.
-    pub fn add_stage_i(
-        &mut self,
-        session_id: &str,
-        data: &StageIData,
-    ) -> CrvResult<Vec<f32>> {
+    pub fn add_stage_i(&mut self, session_id: &str, data: &StageIData) -> CrvResult<Vec<f32>> {
         let embedding = self.stage_i.encode(data)?;
         self.add_entry(session_id, 1, embedding.clone(), HashMap::new())?;
         Ok(embedding)
     }
 
     /// Add Stage II data to a session.
-    pub fn add_stage_ii(
-        &mut self,
-        session_id: &str,
-        data: &StageIIData,
-    ) -> CrvResult<Vec<f32>> {
+    pub fn add_stage_ii(&mut self, session_id: &str, data: &StageIIData) -> CrvResult<Vec<f32>> {
         let embedding = self.stage_ii.encode(data)?;
         self.add_entry(session_id, 2, embedding.clone(), HashMap::new())?;
         Ok(embedding)
     }
 
     /// Add Stage III data to a session.
-    pub fn add_stage_iii(
-        &mut self,
-        session_id: &str,
-        data: &StageIIIData,
-    ) -> CrvResult<Vec<f32>> {
+    pub fn add_stage_iii(&mut self, session_id: &str, data: &StageIIIData) -> CrvResult<Vec<f32>> {
         let embedding = self.stage_iii.encode(data)?;
         self.add_entry(session_id, 3, embedding.clone(), HashMap::new())?;
         Ok(embedding)
     }
 
     /// Add Stage IV data to a session.
-    pub fn add_stage_iv(
-        &mut self,
-        session_id: &str,
-        data: &StageIVData,
-    ) -> CrvResult<Vec<f32>> {
+    pub fn add_stage_iv(&mut self, session_id: &str, data: &StageIVData) -> CrvResult<Vec<f32>> {
         let embedding = self.stage_iv.encode(data)?;
         self.add_entry(session_id, 4, embedding.clone(), HashMap::new())?;
         Ok(embedding)
@@ -173,8 +157,11 @@ impl CrvSessionManager {
             .get(session_id)
             .ok_or_else(|| CrvError::SessionNotFound(session_id.to_string()))?;
 
-        let all_embeddings: Vec<Vec<f32>> =
-            session.entries.iter().map(|e| e.embedding.clone()).collect();
+        let all_embeddings: Vec<Vec<f32>> = session
+            .entries
+            .iter()
+            .map(|e| e.embedding.clone())
+            .collect();
 
         let mut probes = Vec::new();
         let mut cross_refs = Vec::new();
@@ -248,8 +235,11 @@ impl CrvSessionManager {
             .get(session_id)
             .ok_or_else(|| CrvError::SessionNotFound(session_id.to_string()))?;
 
-        let embeddings: Vec<Vec<f32>> =
-            session.entries.iter().map(|e| e.embedding.clone()).collect();
+        let embeddings: Vec<Vec<f32>> = session
+            .entries
+            .iter()
+            .map(|e| e.embedding.clone())
+            .collect();
         let labels: Vec<(u8, usize)> = session
             .entries
             .iter()
@@ -323,8 +313,7 @@ impl CrvSessionManager {
                             if emb_a.len() == emb_b.len() && !emb_a.is_empty() {
                                 let sim = cosine_similarity(emb_a, emb_b);
                                 if sim >= min_similarity {
-                                    session_pairs
-                                        .push((sess_a.id.clone(), sess_b.id.clone()));
+                                    session_pairs.push((sess_a.id.clone(), sess_b.id.clone()));
                                     scores.push(sim);
                                     if !convergent_stages.contains(&stage) {
                                         convergent_stages.push(stage);

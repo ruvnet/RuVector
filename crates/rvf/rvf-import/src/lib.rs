@@ -63,11 +63,7 @@ pub fn ingest_records(
             None
         };
 
-        let result = store.ingest_batch(
-            &vec_refs,
-            &ids,
-            metadata.as_deref(),
-        )?;
+        let result = store.ingest_batch(&vec_refs, &ids, metadata.as_deref())?;
 
         total_imported += result.accepted;
         total_rejected += result.rejected;

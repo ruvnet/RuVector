@@ -36,10 +36,14 @@ fn find_attestation_witness_payloads(raw: &[u8]) -> Vec<Vec<u8>> {
         if raw[i..i + 4] == magic_bytes {
             let seg_type = raw[i + 5];
             let payload_len = u64::from_le_bytes([
-                raw[i + 0x10], raw[i + 0x11],
-                raw[i + 0x12], raw[i + 0x13],
-                raw[i + 0x14], raw[i + 0x15],
-                raw[i + 0x16], raw[i + 0x17],
+                raw[i + 0x10],
+                raw[i + 0x11],
+                raw[i + 0x12],
+                raw[i + 0x13],
+                raw[i + 0x14],
+                raw[i + 0x15],
+                raw[i + 0x16],
+                raw[i + 0x17],
             ]) as usize;
 
             let payload_start = i + SEGMENT_HEADER_SIZE;
@@ -54,9 +58,8 @@ fn find_attestation_witness_payloads(raw: &[u8]) -> Vec<Vec<u8>> {
                 // table.  A plain witness chain (raw entries) would have bytes
                 // that decode to a much larger count value, so this heuristic
                 // is reasonable.  We attempt full verification below anyway.
-                let count = u32::from_le_bytes([
-                    payload[0], payload[1], payload[2], payload[3],
-                ]) as usize;
+                let count =
+                    u32::from_le_bytes([payload[0], payload[1], payload[2], payload[3]]) as usize;
                 // A plausible attestation payload: count fits in the payload
                 // with offset table + chain entries + at least some records.
                 let min_size = 4 + count * 8 + count * 73;
@@ -106,15 +109,20 @@ pub fn run(args: VerifyAttestationArgs) -> Result<(), Box<dyn std::error::Error>
                 println!("No KERNEL_SEG found in file.");
                 if !att_payloads.is_empty() {
                     println!();
-                    println!("  Found {} attestation witness payload(s) -- see verify-witness.", att_payloads.len());
+                    println!(
+                        "  Found {} attestation witness payload(s) -- see verify-witness.",
+                        att_payloads.len()
+                    );
                 }
             }
         }
         Some((header_bytes, image_bytes)) => {
             // -- 1. Verify kernel header magic -----------------------------------
             let magic = u32::from_le_bytes([
-                header_bytes[0], header_bytes[1],
-                header_bytes[2], header_bytes[3],
+                header_bytes[0],
+                header_bytes[1],
+                header_bytes[2],
+                header_bytes[3],
             ]);
             let magic_valid = magic == KERNEL_MAGIC;
 
@@ -140,9 +148,7 @@ pub fn run(args: VerifyAttestationArgs) -> Result<(), Box<dyn std::error::Error>
                 manifest_hash_hex = crate::output::hex(&binding_bytes[0..32]);
                 policy_hash_hex = crate::output::hex(&binding_bytes[32..64]);
 
-                let binding_version = u16::from_le_bytes([
-                    binding_bytes[64], binding_bytes[65],
-                ]);
+                let binding_version = u16::from_le_bytes([binding_bytes[64], binding_bytes[65]]);
 
                 binding_valid = binding_version > 0;
             }
@@ -174,8 +180,7 @@ pub fn run(args: VerifyAttestationArgs) -> Result<(), Box<dyn std::error::Error>
             }
 
             // -- 6. Overall status -----------------------------------------------
-            let overall_valid = magic_valid && image_hash_valid
-                && att_errors.is_empty();
+            let overall_valid = magic_valid && image_hash_valid && att_errors.is_empty();
 
             if args.json {
                 crate::output::print_json(&serde_json::json!({
@@ -224,8 +229,12 @@ pub fn run(args: VerifyAttestationArgs) -> Result<(), Box<dyn std::error::Error>
                     println!();
                     crate::output::print_kv(
                         "Attestation witnesses:",
-                        &format!("{} payload(s), {} verified, {} entries",
-                                 att_payloads.len(), att_verified, att_entries_total),
+                        &format!(
+                            "{} payload(s), {} verified, {} entries",
+                            att_payloads.len(),
+                            att_verified,
+                            att_entries_total
+                        ),
                     );
                     if !att_errors.is_empty() {
                         println!("  WARNING: attestation witness errors:");
@@ -240,9 +249,15 @@ pub fn run(args: VerifyAttestationArgs) -> Result<(), Box<dyn std::error::Error>
                     println!("  Attestation verification PASSED.");
                 } else {
                     let mut reasons = Vec::new();
-                    if !magic_valid { reasons.push("invalid magic"); }
-                    if !image_hash_valid { reasons.push("image hash mismatch"); }
-                    if !att_errors.is_empty() { reasons.push("attestation witness error(s)"); }
+                    if !magic_valid {
+                        reasons.push("invalid magic");
+                    }
+                    if !image_hash_valid {
+                        reasons.push("image hash mismatch");
+                    }
+                    if !att_errors.is_empty() {
+                        reasons.push("attestation witness error(s)");
+                    }
                     println!("  Attestation verification FAILED: {}", reasons.join(", "));
                 }
             }

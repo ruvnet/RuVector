@@ -13,7 +13,9 @@ fn random_vector(dim: usize, seed: u64) -> Vec<f32> {
     let mut v = Vec::with_capacity(dim);
     let mut x = seed;
     for _ in 0..dim {
-        x = x.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        x = x
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
         v.push(((x >> 33) as f32) / (u32::MAX as f32) - 0.5);
     }
     v
@@ -104,14 +106,20 @@ fn lifecycle_close_reopen_data_persists() {
     {
         let store = RvfStore::open(&path).unwrap();
         let status = store.status();
-        assert_eq!(status.total_vectors, 500, "all 500 vectors should persist after reopen");
+        assert_eq!(
+            status.total_vectors, 500,
+            "all 500 vectors should persist after reopen"
+        );
 
         // Query immediately after reopen.
         let query = random_vector(dim as usize, 13 + 7); // same as vector id=1
         let results = store.query(&query, 10, &QueryOptions::default()).unwrap();
         assert_eq!(results.len(), 10);
         // The closest result should be the matching vector.
-        assert_eq!(results[0].id, 1, "exact match vector should be first result");
+        assert_eq!(
+            results[0].id, 1,
+            "exact match vector should be first result"
+        );
         assert!(
             results[0].distance < 1e-6,
             "exact match should have near-zero distance, got {}",
@@ -132,9 +140,7 @@ fn lifecycle_first_query_after_reopen_returns_results() {
 
     {
         let mut store = RvfStore::create(&path, make_options(dim)).unwrap();
-        let vectors: Vec<Vec<f32>> = (0..200)
-            .map(|i| random_vector(dim as usize, i))
-            .collect();
+        let vectors: Vec<Vec<f32>> = (0..200).map(|i| random_vector(dim as usize, i)).collect();
         let refs: Vec<&[f32]> = vectors.iter().map(|v| v.as_slice()).collect();
         let ids: Vec<u64> = (1..=200).collect();
         store.ingest_batch(&refs, &ids, None).unwrap();
@@ -144,7 +150,10 @@ fn lifecycle_first_query_after_reopen_returns_results() {
     let store = RvfStore::open_readonly(&path).unwrap();
     let query = random_vector(dim as usize, 50); // matches vector 51
     let results = store.query(&query, 5, &QueryOptions::default()).unwrap();
-    assert!(!results.is_empty(), "first query after reopen should return results");
+    assert!(
+        !results.is_empty(),
+        "first query after reopen should return results"
+    );
     // Verify sorting.
     for i in 1..results.len() {
         assert!(
@@ -166,9 +175,7 @@ fn lifecycle_delete_vectors_excluded_from_query() {
     let dim: u16 = 8;
 
     let mut store = RvfStore::create(&path, make_options(dim)).unwrap();
-    let vectors: Vec<Vec<f32>> = (0..100)
-        .map(|i| random_vector(dim as usize, i))
-        .collect();
+    let vectors: Vec<Vec<f32>> = (0..100).map(|i| random_vector(dim as usize, i)).collect();
     let refs: Vec<&[f32]> = vectors.iter().map(|v| v.as_slice()).collect();
     let ids: Vec<u64> = (1..=100).collect();
     store.ingest_batch(&refs, &ids, None).unwrap();
@@ -188,7 +195,11 @@ fn lifecycle_delete_vectors_excluded_from_query() {
             r.id
         );
     }
-    assert_eq!(results.len(), 90, "should have 90 results after deleting 10");
+    assert_eq!(
+        results.len(),
+        90,
+        "should have 90 results after deleting 10"
+    );
 
     store.close().unwrap();
 }
@@ -215,7 +226,10 @@ fn lifecycle_delete_persists_after_reopen() {
     {
         let store = RvfStore::open_readonly(&path).unwrap();
         let status = store.status();
-        assert_eq!(status.total_vectors, 17, "17 vectors should remain after deleting 3");
+        assert_eq!(
+            status.total_vectors, 17,
+            "17 vectors should remain after deleting 3"
+        );
 
         let query = vec![5.0f32; dim as usize];
         let results = store.query(&query, 20, &QueryOptions::default()).unwrap();
@@ -239,9 +253,7 @@ fn lifecycle_compact_preserves_query_results() {
     let dim: u16 = 8;
 
     let mut store = RvfStore::create(&path, make_options(dim)).unwrap();
-    let vectors: Vec<Vec<f32>> = (0..50)
-        .map(|i| random_vector(dim as usize, i))
-        .collect();
+    let vectors: Vec<Vec<f32>> = (0..50).map(|i| random_vector(dim as usize, i)).collect();
     let refs: Vec<&[f32]> = vectors.iter().map(|v| v.as_slice()).collect();
     let ids: Vec<u64> = (1..=50).collect();
     store.ingest_batch(&refs, &ids, None).unwrap();
@@ -269,7 +281,10 @@ fn lifecycle_compact_preserves_query_results() {
         "result count should be the same before and after compaction"
     );
     for (b, a) in before.iter().zip(after.iter()) {
-        assert_eq!(b.id, a.id, "result IDs should match before/after compaction");
+        assert_eq!(
+            b.id, a.id,
+            "result IDs should match before/after compaction"
+        );
         assert!(
             (b.distance - a.distance).abs() < 1e-6,
             "distances should match before/after compaction"
@@ -305,7 +320,10 @@ fn lifecycle_status_reports_correct_counts() {
     // After delete.
     store.delete(&[50, 51, 52]).unwrap();
     assert_eq!(store.status().total_vectors, 97);
-    assert!(store.status().dead_space_ratio > 0.0, "dead space should be > 0 after delete");
+    assert!(
+        store.status().dead_space_ratio > 0.0,
+        "dead space should be > 0 after delete"
+    );
 
     // After compact.
     store.compact().unwrap();
@@ -344,14 +362,18 @@ fn lifecycle_multiple_ingest_delete_cycles() {
         total_live -= 10;
 
         assert_eq!(
-            store.status().total_vectors, total_live,
+            store.status().total_vectors,
+            total_live,
             "cycle {cycle}: expected {total_live} live vectors"
         );
 
         // Query should return results.
         let query = random_vector(dim as usize, base_id + 25);
         let results = store.query(&query, 5, &QueryOptions::default()).unwrap();
-        assert!(!results.is_empty(), "cycle {cycle}: query should return results");
+        assert!(
+            !results.is_empty(),
+            "cycle {cycle}: query should return results"
+        );
     }
 
     assert_eq!(store.status().total_vectors, 200); // 5 * 40
@@ -407,9 +429,7 @@ fn lifecycle_compact_then_reopen() {
     {
         let mut store = RvfStore::create(&path, make_options(dim)).unwrap();
 
-        let vectors: Vec<Vec<f32>> = (0..100)
-            .map(|i| random_vector(dim as usize, i))
-            .collect();
+        let vectors: Vec<Vec<f32>> = (0..100).map(|i| random_vector(dim as usize, i)).collect();
         let refs: Vec<&[f32]> = vectors.iter().map(|v| v.as_slice()).collect();
         let ids: Vec<u64> = (1..=100).collect();
         store.ingest_batch(&refs, &ids, None).unwrap();
@@ -435,11 +455,7 @@ fn lifecycle_compact_then_reopen() {
         assert!(!results.is_empty());
         // All results should have id > 50.
         for r in &results {
-            assert!(
-                r.id > 50,
-                "post-compact reopen: id {} should be > 50",
-                r.id
-            );
+            assert!(r.id > 50, "post-compact reopen: id {} should be > 50", r.id);
         }
     }
 }
@@ -500,13 +516,18 @@ fn lifecycle_dimension_mismatch_rejected() {
     // Wrong dimension: should be rejected.
     let bad = vec![1.0f32; 4]; // dim=4 when store expects dim=8
     let result = store.ingest_batch(&[bad.as_slice()], &[2], None).unwrap();
-    assert_eq!(result.accepted, 0, "wrong-dimension vector should be rejected");
+    assert_eq!(
+        result.accepted, 0,
+        "wrong-dimension vector should be rejected"
+    );
     assert_eq!(result.rejected, 1);
 
     // Query with wrong dimension should fail.
     let bad_query = vec![1.0f32; 4];
     assert!(
-        store.query(&bad_query, 5, &QueryOptions::default()).is_err(),
+        store
+            .query(&bad_query, 5, &QueryOptions::default())
+            .is_err(),
         "query with wrong dimension should fail"
     );
 

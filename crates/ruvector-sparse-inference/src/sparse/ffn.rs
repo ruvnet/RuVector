@@ -85,15 +85,11 @@ impl SparseFfn {
         let mut rng = rand::thread_rng();
 
         // Initialize with small random values
-        let w1 = Array2::from_shape_fn((hidden_dim, input_dim), |_| {
-            rng.gen::<f32>() * 0.01
-        });
+        let w1 = Array2::from_shape_fn((hidden_dim, input_dim), |_| rng.gen::<f32>() * 0.01);
 
         // Store W2 transposed: [hidden_dim, output_dim] instead of [output_dim, hidden_dim]
         // This allows contiguous row access when iterating by neuron index
-        let w2_t = Array2::from_shape_fn((hidden_dim, output_dim), |_| {
-            rng.gen::<f32>() * 0.01
-        });
+        let w2_t = Array2::from_shape_fn((hidden_dim, output_dim), |_| rng.gen::<f32>() * 0.01);
 
         let b1 = Array1::zeros(hidden_dim);
         let b2 = Array1::zeros(output_dim);
@@ -120,24 +116,29 @@ impl SparseFfn {
         let (output_dim, w2_hidden) = w2.dim();
 
         if hidden_dim != w2_hidden {
-            return Err(InferenceError::Failed(
-                format!("Hidden dimension mismatch: W1 has {}, W2 has {}",
-                    hidden_dim, w2_hidden)
-            ).into());
+            return Err(InferenceError::Failed(format!(
+                "Hidden dimension mismatch: W1 has {}, W2 has {}",
+                hidden_dim, w2_hidden
+            ))
+            .into());
         }
 
         if b1.len() != hidden_dim {
-            return Err(InferenceError::Failed(
-                format!("b1 dimension mismatch: expected {}, got {}",
-                    hidden_dim, b1.len())
-            ).into());
+            return Err(InferenceError::Failed(format!(
+                "b1 dimension mismatch: expected {}, got {}",
+                hidden_dim,
+                b1.len()
+            ))
+            .into());
         }
 
         if b2.len() != output_dim {
-            return Err(InferenceError::Failed(
-                format!("b2 dimension mismatch: expected {}, got {}",
-                    output_dim, b2.len())
-            ).into());
+            return Err(InferenceError::Failed(format!(
+                "b2 dimension mismatch: expected {}, got {}",
+                output_dim,
+                b2.len()
+            ))
+            .into());
         }
 
         // Transpose W2 for optimized storage
@@ -176,14 +177,16 @@ impl SparseFfn {
             return Err(InferenceError::InputDimensionMismatch {
                 expected: self.input_dim(),
                 actual: input.len(),
-            }.into());
+            }
+            .into());
         }
 
         if active_neurons.is_empty() {
             return Err(InferenceError::NoActiveNeurons.into());
         }
 
-        trace!("Sparse forward: {} active neurons ({:.1}% sparsity)",
+        trace!(
+            "Sparse forward: {} active neurons ({:.1}% sparsity)",
             active_neurons.len(),
             100.0 * (1.0 - active_neurons.len() as f32 / self.hidden_dim() as f32)
         );
@@ -194,9 +197,11 @@ impl SparseFfn {
         let mut hidden = Vec::with_capacity(active_neurons.len());
         for &neuron_idx in active_neurons {
             if neuron_idx >= self.hidden_dim() {
-                return Err(InferenceError::Failed(
-                    format!("Invalid neuron index: {}", neuron_idx)
-                ).into());
+                return Err(InferenceError::Failed(format!(
+                    "Invalid neuron index: {}",
+                    neuron_idx
+                ))
+                .into());
             }
 
             let row = self.w1.row(neuron_idx);
@@ -232,7 +237,8 @@ impl SparseFfn {
             return Err(InferenceError::InputDimensionMismatch {
                 expected: self.input_dim(),
                 actual: input.len(),
-            }.into());
+            }
+            .into());
         }
 
         let backend = get_backend();
@@ -257,10 +263,12 @@ impl SparseFfn {
         let dense_output = self.forward_dense(input)?;
 
         // Compute mean absolute error
-        let mae: f32 = sparse_output.iter()
+        let mae: f32 = sparse_output
+            .iter()
             .zip(dense_output.iter())
             .map(|(s, d)| (s - d).abs())
-            .sum::<f32>() / sparse_output.len() as f32;
+            .sum::<f32>()
+            / sparse_output.len() as f32;
 
         Ok(mae)
     }

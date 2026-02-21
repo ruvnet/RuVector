@@ -9,8 +9,8 @@
 //! Requires the `rvf` feature to be enabled.
 
 use rvf_types::{SegmentFlags, SegmentType};
-use rvf_wire::writer::write_segment;
 use rvf_wire::reader::{read_segment, validate_segment};
+use rvf_wire::writer::write_segment;
 
 use crate::cost_curve::{AccelerationScoreboard, CostCurve};
 use crate::domain::DomainId;
@@ -60,8 +60,7 @@ impl From<WireTransferPrior> for TransferPrior {
     fn from(w: WireTransferPrior) -> Self {
         let mut bucket_priors = std::collections::HashMap::new();
         for (bucket, arms) in w.bucket_priors {
-            let arm_map: std::collections::HashMap<ArmId, BetaParams> =
-                arms.into_iter().collect();
+            let arm_map: std::collections::HashMap<ArmId, BetaParams> = arms.into_iter().collect();
             bucket_priors.insert(bucket, arm_map);
         }
         let cost_ema_priors: std::collections::HashMap<ContextBucket, f32> =
@@ -153,8 +152,7 @@ pub fn transfer_prior_from_segment(data: &[u8]) -> Result<TransferPrior, RvfBrid
         });
     }
     validate_segment(&header, payload).map_err(RvfBridgeError::Rvf)?;
-    let wire: WireTransferPrior =
-        serde_json::from_slice(payload).map_err(RvfBridgeError::Json)?;
+    let wire: WireTransferPrior = serde_json::from_slice(payload).map_err(RvfBridgeError::Json)?;
     Ok(wire.into())
 }
 
@@ -180,8 +178,7 @@ pub fn policy_kernel_from_segment(data: &[u8]) -> Result<PolicyKernel, RvfBridge
         });
     }
     validate_segment(&header, payload).map_err(RvfBridgeError::Rvf)?;
-    let wire: WirePolicyKernel =
-        serde_json::from_slice(payload).map_err(RvfBridgeError::Json)?;
+    let wire: WirePolicyKernel = serde_json::from_slice(payload).map_err(RvfBridgeError::Json)?;
     Ok(wire.into())
 }
 
@@ -224,8 +221,7 @@ pub const WITNESS_CONVERGENCE: u8 = 0x12;
 /// bucket priors. This replaces the old string-based `witness_hash` field.
 pub fn compute_transfer_witness_hash(prior: &TransferPrior) -> [u8; 32] {
     let wire: WireTransferPrior = prior.into();
-    let payload =
-        serde_json::to_vec(&wire).expect("WireTransferPrior serialization cannot fail");
+    let payload = serde_json::to_vec(&wire).expect("WireTransferPrior serialization cannot fail");
     rvf_crypto::shake256_256(&payload)
 }
 
@@ -401,11 +397,7 @@ pub fn extract_solver_priors(
                 .iter()
                 .map(|(arm, params)| (arm.0.clone(), params.alpha, params.beta))
                 .collect();
-            let cost_ema = prior
-                .cost_ema_priors
-                .get(bucket)
-                .copied()
-                .unwrap_or(1.0);
+            let cost_ema = prior.cost_ema_priors.get(bucket).copied().unwrap_or(1.0);
 
             SolverPriorExchange {
                 bucket_key,
@@ -514,7 +506,10 @@ impl std::fmt::Display for RvfBridgeError {
             Self::Rvf(e) => write!(f, "RVF error: {e}"),
             Self::Json(e) => write!(f, "JSON error: {e}"),
             Self::WrongSegmentType { expected, got } => {
-                write!(f, "wrong segment type: expected 0x{expected:02X}, got 0x{got:02X}")
+                write!(
+                    f,
+                    "wrong segment type: expected 0x{expected:02X}, got 0x{got:02X}"
+                )
             }
             Self::TruncatedTlv => write!(f, "TLV payload truncated"),
         }
@@ -533,7 +528,7 @@ impl std::error::Error for RvfBridgeError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::cost_curve::{CostCurvePoint, ConvergenceThresholds};
+    use crate::cost_curve::{ConvergenceThresholds, CostCurvePoint};
 
     #[test]
     fn transfer_prior_round_trip() {
@@ -542,11 +537,7 @@ mod tests {
             difficulty_tier: "medium".into(),
             category: "algo".into(),
         };
-        prior.update_posterior(
-            bucket,
-            crate::transfer::ArmId("greedy".into()),
-            0.85,
-        );
+        prior.update_posterior(bucket, crate::transfer::ArmId("greedy".into()), 0.85);
 
         let segment = transfer_prior_to_segment(&prior, 1);
         let decoded = transfer_prior_from_segment(&segment).unwrap();
@@ -567,10 +558,7 @@ mod tests {
 
     #[test]
     fn cost_curve_round_trip() {
-        let mut curve = CostCurve::new(
-            DomainId("test".into()),
-            ConvergenceThresholds::default(),
-        );
+        let mut curve = CostCurve::new(DomainId("test".into()), ConvergenceThresholds::default());
         curve.record(CostCurvePoint {
             cycle: 0,
             accuracy: 0.3,
@@ -592,7 +580,10 @@ mod tests {
         let kernel = PolicyKernel::new("k".into());
         let segment = policy_kernel_to_segment(&kernel, 1);
         let result = transfer_prior_from_segment(&segment);
-        assert!(matches!(result, Err(RvfBridgeError::WrongSegmentType { .. })));
+        assert!(matches!(
+            result,
+            Err(RvfBridgeError::WrongSegmentType { .. })
+        ));
     }
 
     #[test]
@@ -701,10 +692,7 @@ mod tests {
     fn multi_segment_assembly() {
         let prior = TransferPrior::uniform(DomainId("d1".into()));
         let kernel = PolicyKernel::new("k0".into());
-        let mut curve = CostCurve::new(
-            DomainId("d1".into()),
-            ConvergenceThresholds::default(),
-        );
+        let mut curve = CostCurve::new(DomainId("d1".into()), ConvergenceThresholds::default());
         curve.record(CostCurvePoint {
             cycle: 0,
             accuracy: 0.5,
@@ -714,24 +702,14 @@ mod tests {
             timestamp: 0.0,
         });
 
-        let assembled = assemble_domain_expansion_segments(
-            &[prior],
-            &[kernel],
-            &[curve],
-            100,
-        );
+        let assembled = assemble_domain_expansion_segments(&[prior], &[kernel], &[curve], 100);
 
         // Should contain 3 segments, each 64-byte aligned
         assert!(assembled.len() >= 3 * 64);
         assert_eq!(assembled.len() % 64, 0);
 
         // Verify first segment header magic
-        let magic = u32::from_le_bytes([
-            assembled[0],
-            assembled[1],
-            assembled[2],
-            assembled[3],
-        ]);
+        let magic = u32::from_le_bytes([assembled[0], assembled[1], assembled[2], assembled[3]]);
         assert_eq!(magic, rvf_types::SEGMENT_MAGIC);
     }
 }

@@ -66,8 +66,7 @@ pub fn open_or_create_store(config: &ServerConfig) -> Result<SharedStore, rvf_ty
 
 /// Start both HTTP and TCP servers. Blocks until shutdown.
 pub async fn run(config: ServerConfig) -> Result<(), Box<dyn std::error::Error>> {
-    let store = open_or_create_store(&config)
-        .map_err(|e| format!("failed to open store: {e}"))?;
+    let store = open_or_create_store(&config).map_err(|e| format!("failed to open store: {e}"))?;
 
     let http_addr = format!("0.0.0.0:{}", config.http_port);
     let tcp_addr = format!("0.0.0.0:{}", config.tcp_port);

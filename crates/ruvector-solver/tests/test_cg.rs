@@ -61,11 +61,7 @@ fn test_cg_spd_system() {
     // Compare with dense solve.
     let exact = dense_solve(&matrix, &rhs);
     let rel_err = relative_error(&x, &exact);
-    assert!(
-        rel_err < 1e-2,
-        "relative error vs dense solve: {}",
-        rel_err
-    );
+    assert!(rel_err < 1e-2, "relative error vs dense solve: {}", rel_err);
 }
 
 // ---------------------------------------------------------------------------

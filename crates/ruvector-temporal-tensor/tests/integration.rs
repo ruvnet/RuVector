@@ -6,18 +6,14 @@
 //!
 //! Run via: `cargo test -p ruvector-temporal-tensor --test integration`
 
-use ruvector_temporal_tensor::store::{
-    BlockKey, Tier, TieredStore, ReconstructPolicy, StoreError,
-};
-use ruvector_temporal_tensor::tiering::{self, TierConfig};
 use ruvector_temporal_tensor::delta::{
-    DeltaChain, FactorSet, compute_delta, encode_delta, decode_delta,
+    compute_delta, decode_delta, encode_delta, DeltaChain, FactorSet,
 };
-use ruvector_temporal_tensor::metrics::{
-    WitnessLog, WitnessEvent, TierChangeReason,
-};
+use ruvector_temporal_tensor::metrics::{TierChangeReason, WitnessEvent, WitnessLog};
 use ruvector_temporal_tensor::quantizer;
 use ruvector_temporal_tensor::segment;
+use ruvector_temporal_tensor::store::{BlockKey, ReconstructPolicy, StoreError, Tier, TieredStore};
+use ruvector_temporal_tensor::tiering::{self, TierConfig};
 use ruvector_temporal_tensor::{TemporalTensorCompressor, TierPolicy};
 
 // ---------------------------------------------------------------------------
@@ -56,7 +52,10 @@ impl SimpleRng {
 // ---------------------------------------------------------------------------
 
 fn make_key(tid: u128, idx: u32) -> BlockKey {
-    BlockKey { tensor_id: tid, block_index: idx }
+    BlockKey {
+        tensor_id: tid,
+        block_index: idx,
+    }
 }
 
 /// Map tiering module Tier to store module Tier.
@@ -88,7 +87,9 @@ fn test_full_lifecycle() {
 
     // Put 100 blocks as Tier1 (hot).
     for i in 0..100u32 {
-        store.put(make_key(1, i), &block_data[i as usize], Tier::Tier1, 0).unwrap();
+        store
+            .put(make_key(1, i), &block_data[i as usize], Tier::Tier1, 0)
+            .unwrap();
     }
     assert_eq!(store.tier_count(Tier::Tier1), 100);
     assert_eq!(store.block_count(), 100);
@@ -114,7 +115,9 @@ fn test_full_lifecycle() {
         if let Some(target) = tiering::choose_tier(&tier_config, 1000, &tiering_metas[i as usize]) {
             let st = tiering_to_store_tier(target);
             if st != Tier::Tier0 {
-                store.put(make_key(1, i), &block_data[i as usize], st, 1000).unwrap();
+                store
+                    .put(make_key(1, i), &block_data[i as usize], st, 1000)
+                    .unwrap();
                 migrated += 1;
             }
         }
@@ -125,9 +128,18 @@ fn test_full_lifecycle() {
     let tier3 = store.tier_count(Tier::Tier3);
 
     assert!(migrated > 0, "expected migrations, got none");
-    assert!(tier1 < 100, "expected fewer Tier1 blocks after migration, got {}", tier1);
+    assert!(
+        tier1 < 100,
+        "expected fewer Tier1 blocks after migration, got {}",
+        tier1
+    );
     assert!(tier1 <= 20, "hot blocks should be ~10, got {}", tier1);
-    assert!(tier2 + tier3 >= 80, "expected >=80 in lower tiers, got {} + {}", tier2, tier3);
+    assert!(
+        tier2 + tier3 >= 80,
+        "expected >=80 in lower tiers, got {} + {}",
+        tier2,
+        tier3
+    );
     assert_eq!(store.block_count(), 100);
 }
 
@@ -165,7 +177,14 @@ fn test_delta_chain_lifecycle() {
     assert_eq!(reconstructed.len(), n);
     for i in 0..n {
         let err = (reconstructed[i] - current[i]).abs();
-        assert!(err < 0.01, "recon err at {}: {} vs {} (err={})", i, reconstructed[i], current[i], err);
+        assert!(
+            err < 0.01,
+            "recon err at {}: {} vs {} (err={})",
+            i,
+            reconstructed[i],
+            current[i],
+            err
+        );
     }
 
     // Encode/decode the last delta and verify roundtrip.
@@ -183,7 +202,13 @@ fn test_delta_chain_lifecycle() {
     let after_compact = chain.reconstruct();
     for i in 0..n {
         let err = (after_compact[i] - before_compact[i]).abs();
-        assert!(err < 1e-6, "compact mismatch at {}: {} vs {}", i, after_compact[i], before_compact[i]);
+        assert!(
+            err < 1e-6,
+            "compact mismatch at {}: {} vs {}",
+            i,
+            after_compact[i],
+            before_compact[i]
+        );
     }
 }
 
@@ -205,7 +230,11 @@ fn test_quality_sweep_all_tiers() {
             let noise = (rng.next_f32() - 0.5) * 0.1;
             let val = base + noise;
             if val.abs() < 0.05 {
-                if val >= 0.0 { 0.05 + rng.next_f32() * 0.1 } else { -0.05 - rng.next_f32() * 0.1 }
+                if val >= 0.0 {
+                    0.05 + rng.next_f32() * 0.1
+                } else {
+                    -0.05 - rng.next_f32() * 0.1
+                }
             } else {
                 val
             }
@@ -236,11 +265,20 @@ fn test_quality_sweep_all_tiers() {
             let err = (data[i] - out[i]) as f64;
             mse += err * err;
             let rel = err.abs() / max_abs as f64;
-            if rel > max_rel { max_rel = rel; }
+            if rel > max_rel {
+                max_rel = rel;
+            }
         }
         mse /= n_elems as f64;
 
-        assert!(max_rel < bound, "{}: max_rel {:.4} >= bound {:.4} (MSE={:.8})", label, max_rel, bound, mse);
+        assert!(
+            max_rel < bound,
+            "{}: max_rel {:.4} >= bound {:.4} (MSE={:.8})",
+            label,
+            max_rel,
+            bound,
+            mse
+        );
     }
 
     // 5-bit via groupwise quantizer directly (no store tier for 5-bit).
@@ -255,7 +293,9 @@ fn test_quality_sweep_all_tiers() {
         for i in 0..n_elems {
             let err = (data[i] - decoded[i]) as f64;
             let rel = err.abs() / max_abs as f64;
-            if rel > max_rel { max_rel = rel; }
+            if rel > max_rel {
+                max_rel = rel;
+            }
         }
         assert!(max_rel < 0.07, "5-bit: max_rel {:.4} >= 0.07", max_rel);
     }
@@ -296,7 +336,10 @@ fn test_store_put_get_roundtrip() {
         assert_eq!(meta.tier, block_tiers[i as usize]);
         assert_eq!(meta.created_at, i as u64);
 
-        let max_abs: f32 = block_data[i as usize].iter().map(|v| v.abs()).fold(0.0f32, f32::max);
+        let max_abs: f32 = block_data[i as usize]
+            .iter()
+            .map(|v| v.abs())
+            .fold(0.0f32, f32::max);
         let tol = match block_tiers[i as usize] {
             Tier::Tier1 => max_abs * 0.01,
             Tier::Tier2 => max_abs * 0.02,
@@ -360,7 +403,10 @@ fn test_checksum_integrity() {
     let key1 = make_key(1, 0);
     store.put(key1, &data, Tier::Tier1, 0).unwrap();
     let cksum1 = store.meta(key1).unwrap().checksum;
-    assert_ne!(cksum1, 0, "checksum should be non-zero for non-trivial data");
+    assert_ne!(
+        cksum1, 0,
+        "checksum should be non-zero for non-trivial data"
+    );
 
     // Same data under a different key produces the same checksum.
     let key2 = make_key(1, 1);
@@ -475,7 +521,11 @@ fn test_compressor_to_store() {
     let n_frames = 10usize;
 
     let frames: Vec<Vec<f32>> = (0..n_frames)
-        .map(|_| (0..tensor_len as usize).map(|_| rng.next_f32() * 2.0 - 1.0).collect())
+        .map(|_| {
+            (0..tensor_len as usize)
+                .map(|_| rng.next_f32() * 2.0 - 1.0)
+                .collect()
+        })
         .collect();
 
     let mut seg = Vec::new();
@@ -494,14 +544,23 @@ fn test_compressor_to_store() {
     for i in 0..n_frames {
         let start = i * tensor_len as usize;
         let end = start + tensor_len as usize;
-        store.put(make_key(50, i as u32), &decoded[start..end], Tier::Tier1, i as u64).unwrap();
+        store
+            .put(
+                make_key(50, i as u32),
+                &decoded[start..end],
+                Tier::Tier1,
+                i as u64,
+            )
+            .unwrap();
     }
     assert_eq!(store.block_count(), n_frames);
 
     // Read back and verify against the decoded data (double quantization).
     for i in 0..n_frames {
         let mut out = vec![0.0f32; tensor_len as usize];
-        let n = store.get(make_key(50, i as u32), &mut out, n_frames as u64).unwrap();
+        let n = store
+            .get(make_key(50, i as u32), &mut out, n_frames as u64)
+            .unwrap();
         assert_eq!(n, tensor_len as usize);
 
         let start = i * tensor_len as usize;
@@ -509,8 +568,20 @@ fn test_compressor_to_store() {
             let expected = decoded[start + j];
             let err = (expected - out[j]).abs();
             // Double quantization (compressor + store) compounds error.
-            let tol = if expected.abs() > 0.01 { expected.abs() * 0.04 } else { 0.05 };
-            assert!(err < tol, "frame {} elem {}: exp={} got={} err={}", i, j, expected, out[j], err);
+            let tol = if expected.abs() > 0.01 {
+                expected.abs() * 0.04
+            } else {
+                0.05
+            };
+            assert!(
+                err < tol,
+                "frame {} elem {}: exp={} got={} err={}",
+                i,
+                j,
+                expected,
+                out[j],
+                err
+            );
         }
     }
 }
@@ -545,13 +616,16 @@ fn test_factor_reconstruction_quality() {
     let mut max_err = 0.0f32;
     for i in 0..m * n {
         let err = (data[i] - reconstructed[i]).abs();
-        if err > max_err { max_err = err; }
+        if err > max_err {
+            max_err = err;
+        }
     }
 
     assert!(
         max_err < max_abs * 0.01,
         "factor reconstruction error too high: max_err={} (max_abs={})",
-        max_err, max_abs
+        max_err,
+        max_abs
     );
 
     // Factor storage should be smaller than the full matrix.
@@ -559,7 +633,8 @@ fn test_factor_reconstruction_quality() {
     assert!(
         factors.storage_bytes() < m * n * 4,
         "factor storage {} should be < original {}",
-        factors.storage_bytes(), m * n * 4
+        factors.storage_bytes(),
+        m * n * 4
     );
 }
 
@@ -577,17 +652,34 @@ fn test_witness_logging() {
     let key = make_key(1, 0);
     store.put(key, &vec![1.0f32; 64], Tier::Tier1, 0).unwrap();
 
-    log.record(0, WitnessEvent::Access { key, score: 0.95, tier: Tier::Tier1 });
-    log.record(100, WitnessEvent::TierChange {
-        key,
-        from_tier: Tier::Tier1,
-        to_tier: Tier::Tier2,
-        score: 0.45,
-        reason: TierChangeReason::ScoreDowngrade,
-    });
+    log.record(
+        0,
+        WitnessEvent::Access {
+            key,
+            score: 0.95,
+            tier: Tier::Tier1,
+        },
+    );
+    log.record(
+        100,
+        WitnessEvent::TierChange {
+            key,
+            from_tier: Tier::Tier1,
+            to_tier: Tier::Tier2,
+            score: 0.45,
+            reason: TierChangeReason::ScoreDowngrade,
+        },
+    );
 
     store.evict(key, ReconstructPolicy::None).unwrap();
-    log.record(200, WitnessEvent::Eviction { key, score: 0.05, bytes_freed: 64 });
+    log.record(
+        200,
+        WitnessEvent::Eviction {
+            key,
+            score: 0.05,
+            bytes_freed: 64,
+        },
+    );
 
     assert_eq!(log.len(), 3);
     assert_eq!(log.count_tier_changes(), 1);
@@ -601,5 +693,9 @@ fn test_witness_logging() {
 
     // One tier change across 1 block in the window = flip rate 1.0.
     let rate = log.tier_flip_rate(300, 1);
-    assert!((rate - 1.0).abs() < 1e-6, "expected flip rate 1.0, got {}", rate);
+    assert!(
+        (rate - 1.0).abs() < 1e-6,
+        "expected flip rate 1.0, got {}",
+        rate
+    );
 }

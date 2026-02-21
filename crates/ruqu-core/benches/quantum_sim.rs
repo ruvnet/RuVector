@@ -1,4 +1,4 @@
-use criterion::{criterion_group, criterion_main, Criterion, BenchmarkId};
+use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use ruqu_core::prelude::*;
 
 fn bench_single_qubit_gates(c: &mut Criterion) {
@@ -45,16 +45,12 @@ fn bench_two_qubit_gates(c: &mut Criterion) {
             },
         );
 
-        group.bench_with_input(
-            BenchmarkId::new("rzz", num_qubits),
-            &num_qubits,
-            |b, &n| {
-                b.iter(|| {
-                    let mut state = QuantumState::new(n).unwrap();
-                    state.apply_gate(&Gate::Rzz(0, 1, 0.5)).unwrap();
-                });
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("rzz", num_qubits), &num_qubits, |b, &n| {
+            b.iter(|| {
+                let mut state = QuantumState::new(n).unwrap();
+                state.apply_gate(&Gate::Rzz(0, 1, 0.5)).unwrap();
+            });
+        });
     }
     group.finish();
 }
@@ -93,7 +89,8 @@ fn bench_grover_circuit(c: &mut Criterion) {
                         state.apply_gate(&Gate::H(q)).unwrap();
                     }
                     let target = 0usize;
-                    let iterations = (std::f64::consts::FRAC_PI_4 * ((1u64 << n) as f64).sqrt()) as u32;
+                    let iterations =
+                        (std::f64::consts::FRAC_PI_4 * ((1u64 << n) as f64).sqrt()) as u32;
                     for _ in 0..iterations {
                         // Oracle (simplified)
                         state.apply_gate(&Gate::Z(0)).unwrap();
@@ -129,10 +126,12 @@ fn bench_qaoa_layer(c: &mut Criterion) {
             |b, &n| {
                 b.iter(|| {
                     let mut state = QuantumState::new(n).unwrap();
-                    for q in 0..n { state.apply_gate(&Gate::H(q)).unwrap(); }
+                    for q in 0..n {
+                        state.apply_gate(&Gate::H(q)).unwrap();
+                    }
                     // Phase separation: linear chain
                     for q in 0..n.saturating_sub(1) {
-                        state.apply_gate(&Gate::Rzz(q, q+1, 0.5)).unwrap();
+                        state.apply_gate(&Gate::Rzz(q, q + 1, 0.5)).unwrap();
                     }
                     // Mixing
                     for q in 0..n {
@@ -155,7 +154,9 @@ fn bench_expectation_value(c: &mut Criterion) {
             |b, &n| {
                 let mut state = QuantumState::new(n).unwrap();
                 state.apply_gate(&Gate::H(0)).unwrap();
-                let z = PauliString { ops: vec![(0, PauliOp::Z)] };
+                let z = PauliString {
+                    ops: vec![(0, PauliOp::Z)],
+                };
                 b.iter(|| {
                     state.expectation_value(&z);
                 });
@@ -169,7 +170,9 @@ fn bench_expectation_value(c: &mut Criterion) {
                 let mut state = QuantumState::new(n).unwrap();
                 state.apply_gate(&Gate::H(0)).unwrap();
                 state.apply_gate(&Gate::CNOT(0, 1)).unwrap();
-                let zz = PauliString { ops: vec![(0, PauliOp::Z), (1, PauliOp::Z)] };
+                let zz = PauliString {
+                    ops: vec![(0, PauliOp::Z), (1, PauliOp::Z)],
+                };
                 b.iter(|| {
                     state.expectation_value(&zz);
                 });

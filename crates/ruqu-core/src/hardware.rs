@@ -246,7 +246,11 @@ fn parse_qubit_count(qasm: &str, default: u32) -> u32 {
             }
         }
     }
-    if total == 0 { default } else { total }
+    if total == 0 {
+        default
+    } else {
+        total
+    }
 }
 
 /// Count gate operations in a QASM string (lines that look like gate
@@ -525,12 +529,9 @@ impl HardwareProvider for LocalSimulatorProvider {
             ));
         }
         COMPLETED_JOBS.with(|jobs| {
-            jobs.borrow()
-                .get(&handle.job_id)
-                .cloned()
-                .ok_or_else(|| {
-                    HardwareError::JobFailed(format!("unknown job id: {}", handle.job_id))
-                })
+            jobs.borrow().get(&handle.job_id).cloned().ok_or_else(|| {
+                HardwareError::JobFailed(format!("unknown job id: {}", handle.job_id))
+            })
         })
     }
 }
@@ -633,7 +634,11 @@ impl HardwareProvider for IbmQuantumProvider {
             .available_devices()
             .into_iter()
             .find(|d| d.name == device)?;
-        Some(synthetic_calibration(device, dev.num_qubits, &dev.coupling_map))
+        Some(synthetic_calibration(
+            device,
+            dev.num_qubits,
+            &dev.coupling_map,
+        ))
     }
 
     fn submit_circuit(
@@ -749,8 +754,7 @@ impl HardwareProvider for IonQProvider {
             "ionq_aria" => Some(Self::aria_calibration()),
             "ionq_forte" => {
                 let dev = Self::forte_device();
-                let mut cal =
-                    synthetic_calibration(&dev.name, dev.num_qubits, &dev.coupling_map);
+                let mut cal = synthetic_calibration(&dev.name, dev.num_qubits, &dev.coupling_map);
                 for t1 in &mut cal.qubit_t1 {
                     *t1 = 10_000_000.0;
                 }
@@ -805,12 +809,7 @@ impl RigettiProvider {
             name: "rigetti_ankaa_2".to_string(),
             provider: ProviderType::Rigetti,
             num_qubits: 84,
-            basis_gates: vec![
-                "rx".into(),
-                "rz".into(),
-                "cz".into(),
-                "measure".into(),
-            ],
+            basis_gates: vec!["rx".into(), "rz".into(), "cz".into(), "measure".into()],
             coupling_map: linear_coupling_map(84),
             max_shots: 100_000,
             status: DeviceStatus::Online,
@@ -836,7 +835,11 @@ impl HardwareProvider for RigettiProvider {
             return None;
         }
         let dev = Self::ankaa_device();
-        Some(synthetic_calibration(device, dev.num_qubits, &dev.coupling_map))
+        Some(synthetic_calibration(
+            device,
+            dev.num_qubits,
+            &dev.coupling_map,
+        ))
     }
 
     fn submit_circuit(
@@ -901,12 +904,7 @@ impl AmazonBraketProvider {
             name: "braket_rigetti_aspen_m3".to_string(),
             provider: ProviderType::AmazonBraket,
             num_qubits: 79,
-            basis_gates: vec![
-                "rx".into(),
-                "rz".into(),
-                "cz".into(),
-                "measure".into(),
-            ],
+            basis_gates: vec!["rx".into(), "rz".into(), "cz".into(), "measure".into()],
             coupling_map: linear_coupling_map(79),
             max_shots: 100_000,
             status: DeviceStatus::Online,
@@ -932,7 +930,11 @@ impl HardwareProvider for AmazonBraketProvider {
             .available_devices()
             .into_iter()
             .find(|d| d.name == device)?;
-        Some(synthetic_calibration(device, dev.num_qubits, &dev.coupling_map))
+        Some(synthetic_calibration(
+            device,
+            dev.num_qubits,
+            &dev.coupling_map,
+        ))
     }
 
     fn submit_circuit(
@@ -1104,8 +1106,7 @@ mod tests {
 
     #[test]
     fn hardware_error_is_error_trait() {
-        let e: Box<dyn std::error::Error> =
-            Box::new(HardwareError::NetworkError("test".into()));
+        let e: Box<dyn std::error::Error> = Box::new(HardwareError::NetworkError("test".into()));
         assert!(e.to_string().contains("network error"));
     }
 

@@ -8,15 +8,11 @@ use std::path::PathBuf;
 #[derive(Debug)]
 pub enum LaunchError {
     /// QEMU binary not found on the system.
-    QemuNotFound {
-        searched: Vec<String>,
-    },
+    QemuNotFound { searched: Vec<String> },
     /// KVM is required but not available.
     KvmRequired,
     /// The RVF file does not contain a KERNEL_SEG.
-    NoKernelSegment {
-        path: PathBuf,
-    },
+    NoKernelSegment { path: PathBuf },
     /// Failed to extract kernel from the RVF file.
     KernelExtraction(String),
     /// Failed to create a temporary file for the extracted kernel.
@@ -24,22 +20,15 @@ pub enum LaunchError {
     /// QEMU process failed to start.
     QemuSpawn(io::Error),
     /// QEMU process exited with a non-zero code.
-    QemuExited {
-        code: Option<i32>,
-        stderr: String,
-    },
+    QemuExited { code: Option<i32>, stderr: String },
     /// Timeout waiting for the VM to become ready.
-    Timeout {
-        seconds: u64,
-    },
+    Timeout { seconds: u64 },
     /// QMP protocol error.
     Qmp(String),
     /// I/O error communicating with QMP socket.
     QmpIo(io::Error),
     /// Port is already in use.
-    PortInUse {
-        port: u16,
-    },
+    PortInUse { port: u16 },
     /// The VM process has already exited.
     VmNotRunning,
     /// Generic I/O error.
@@ -53,7 +42,10 @@ impl fmt::Display for LaunchError {
                 write!(f, "QEMU not found; searched: {}", searched.join(", "))
             }
             Self::KvmRequired => {
-                write!(f, "KVM is required by kernel flags but /dev/kvm is not accessible")
+                write!(
+                    f,
+                    "KVM is required by kernel flags but /dev/kvm is not accessible"
+                )
             }
             Self::NoKernelSegment { path } => {
                 write!(f, "no KERNEL_SEG found in {}", path.display())

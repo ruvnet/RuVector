@@ -22,14 +22,13 @@
 //!   -> Expert FFN (TL1 GEMV on ternary) -> Weighted Sum -> Residual
 //! ```
 
-use std::sync::Mutex;
 use std::path::Path;
+use std::sync::Mutex;
 
 use crate::backends::{
-    GenerateParams, GeneratedToken, LlmBackend, ModelArchitecture, ModelConfig,
-    ModelInfo, Quantization, StreamEvent, TokenStream,
+    GenerateParams, GeneratedToken, LlmBackend, ModelArchitecture, ModelConfig, ModelInfo,
+    Quantization, SpecialTokens as BackendSpecialTokens, StreamEvent, TokenStream,
     Tokenizer as BackendTokenizer,
-    SpecialTokens as BackendSpecialTokens,
 };
 use crate::error::{Result, RuvLLMError};
 use crate::gguf::{GgufFile, GgufQuantType};
@@ -188,17 +187,11 @@ impl TensorNameMapper {
     }
 
     fn output() -> Vec<String> {
-        vec![
-            "output.weight".into(),
-            "lm_head.weight".into(),
-        ]
+        vec!["output.weight".into(), "lm_head.weight".into()]
     }
 
     fn final_norm() -> Vec<String> {
-        vec![
-            "output_norm.weight".into(),
-            "model.norm.weight".into(),
-        ]
+        vec!["output_norm.weight".into(), "model.norm.weight".into()]
     }
 
     // -- Per-layer norms --
@@ -574,14 +567,24 @@ impl ScratchPool {
 
     /// Total memory used by scratch buffers.
     fn memory_bytes(&self) -> usize {
-        (self.buf_hidden_a.len() + self.buf_hidden_b.len() + self.buf_hidden_c.len()
-            + self.buf_attn_q.len() + self.buf_attn_k.len() + self.buf_attn_v.len()
+        (self.buf_hidden_a.len()
+            + self.buf_hidden_b.len()
+            + self.buf_hidden_c.len()
+            + self.buf_attn_q.len()
+            + self.buf_attn_k.len()
+            + self.buf_attn_v.len()
             + self.buf_attn_out.len()
-            + self.buf_ffn_gate.len() + self.buf_ffn_up.len() + self.buf_ffn_fused.len()
-            + self.buf_ffn_down.len() + self.buf_expert_out.len()
+            + self.buf_ffn_gate.len()
+            + self.buf_ffn_up.len()
+            + self.buf_ffn_fused.len()
+            + self.buf_ffn_down.len()
+            + self.buf_expert_out.len()
             + self.buf_logits.len()
-            + self.buf_mla_cq.len() + self.buf_mla_qfull.len() + self.buf_mla_kv.len()
-            + self.buf_gemv.len()) * 4
+            + self.buf_mla_cq.len()
+            + self.buf_mla_qfull.len()
+            + self.buf_mla_kv.len()
+            + self.buf_gemv.len())
+            * 4
     }
 }
 
@@ -729,17 +732,21 @@ impl BitNetBackend {
         self.embedding = self.load_fp_tensor(&gguf, &emb_name, &config)?;
 
         // Load LM head / output via name mapper (fallback to tied embeddings)
-        self.lm_head = if let Some(out_name) = TensorNameMapper::resolve(&gguf, &TensorNameMapper::output()) {
-            self.load_fp_tensor(&gguf, &out_name, &config)?
-        } else {
-            self.embedding.clone()
-        };
+        self.lm_head =
+            if let Some(out_name) = TensorNameMapper::resolve(&gguf, &TensorNameMapper::output()) {
+                self.load_fp_tensor(&gguf, &out_name, &config)?
+            } else {
+                self.embedding.clone()
+            };
 
         // Load final norm via name mapper
         let norm_name = TensorNameMapper::resolve(&gguf, &TensorNameMapper::final_norm())
-            .ok_or_else(|| RuvLLMError::NotFound(
-                "Final norm tensor not found (tried: output_norm.weight, model.norm.weight)".into()
-            ))?;
+            .ok_or_else(|| {
+                RuvLLMError::NotFound(
+                    "Final norm tensor not found (tried: output_norm.weight, model.norm.weight)"
+                        .into(),
+                )
+            })?;
         self.final_norm_weight = self.load_fp_tensor(&gguf, &norm_name, &config)?;
 
         // Load transformer layers
@@ -751,17 +758,19 @@ impl BitNetBackend {
 
         // Initialize KV caches (one per layer, pre-allocated for 512 positions)
         let pre_alloc_seq = 512.min(config.max_context);
-        self.kv_caches = (0..config.num_layers).map(|_| {
-            let mut cache = LayerKvCache::new();
-            cache.keys.reserve(pre_alloc_seq);
-            cache.values.reserve(pre_alloc_seq);
-            cache
-        }).collect();
+        self.kv_caches = (0..config.num_layers)
+            .map(|_| {
+                let mut cache = LayerKvCache::new();
+                cache.keys.reserve(pre_alloc_seq);
+                cache.values.reserve(pre_alloc_seq);
+                cache
+            })
+            .collect();
 
         // Initialize compressed MLA caches (one per layer for MLA layers)
-        self.mla_caches = (0..config.num_layers).map(|_| {
-            CompressedMlaCache::new()
-        }).collect();
+        self.mla_caches = (0..config.num_layers)
+            .map(|_| CompressedMlaCache::new())
+            .collect();
 
         // Build RoPE cos/sin tables
         // For MLA, rope applies only to qk_rope_head_dim portion
@@ -817,22 +826,21 @@ impl BitNetBackend {
                 .filter_map(|v| v.as_str().map(|s| s.to_string()))
                 .collect();
 
-            let merges: Vec<(String, String)> = if let Some(merges_arr) =
-                merges_meta.and_then(|v| v.as_array())
-            {
-                merges_arr
-                    .iter()
-                    .filter_map(|v| {
-                        let s = v.as_str()?;
-                        let mut parts = s.splitn(2, ' ');
-                        let left = parts.next()?.to_string();
-                        let right = parts.next()?.to_string();
-                        Some((left, right))
-                    })
-                    .collect()
-            } else {
-                Vec::new()
-            };
+            let merges: Vec<(String, String)> =
+                if let Some(merges_arr) = merges_meta.and_then(|v| v.as_array()) {
+                    merges_arr
+                        .iter()
+                        .filter_map(|v| {
+                            let s = v.as_str()?;
+                            let mut parts = s.splitn(2, ' ');
+                            let left = parts.next()?.to_string();
+                            let right = parts.next()?.to_string();
+                            Some((left, right))
+                        })
+                        .collect()
+                } else {
+                    Vec::new()
+                };
 
             if !vocab.is_empty() {
                 return Some(BpeTokenizer::from_vocab(
@@ -871,10 +879,13 @@ impl BitNetBackend {
         let vocab_size = gguf.vocab_size().unwrap_or(defaults.vocab_size);
         let max_context = gguf.context_length().unwrap_or(defaults.max_context);
         let rope_theta = gguf.rope_freq_base().unwrap_or(defaults.rope_theta);
-        let intermediate_size = gguf.feed_forward_length().unwrap_or(defaults.intermediate_size);
+        let intermediate_size = gguf
+            .feed_forward_length()
+            .unwrap_or(defaults.intermediate_size);
 
         // Detect expert count from tensor names or metadata
-        let num_experts = self.detect_expert_count(gguf)
+        let num_experts = self
+            .detect_expert_count(gguf)
             .or_else(|| Self::meta_usize(gguf, "llm.expert_count"))
             .unwrap_or(defaults.num_experts);
 
@@ -888,24 +899,28 @@ impl BitNetBackend {
             .unwrap_or(defaults.moe_intermediate_size);
 
         // MLA parameters
-        let q_lora_rank = Self::meta_usize(gguf, "llm.attention.q_lora_rank")
-            .unwrap_or(defaults.q_lora_rank);
-        let kv_lora_rank = Self::meta_usize(gguf, "llm.attention.kv_lora_rank")
-            .unwrap_or(defaults.kv_lora_rank);
+        let q_lora_rank =
+            Self::meta_usize(gguf, "llm.attention.q_lora_rank").unwrap_or(defaults.q_lora_rank);
+        let kv_lora_rank =
+            Self::meta_usize(gguf, "llm.attention.kv_lora_rank").unwrap_or(defaults.kv_lora_rank);
         let qk_nope_head_dim = Self::meta_usize(gguf, "llm.attention.key_length_nope")
             .unwrap_or(defaults.qk_nope_head_dim);
         let qk_rope_head_dim = Self::meta_usize(gguf, "llm.attention.key_length_rope")
             .or_else(|| gguf.rope_dimension_count())
             .unwrap_or(defaults.qk_rope_head_dim);
-        let v_head_dim = Self::meta_usize(gguf, "llm.attention.value_length")
-            .unwrap_or(defaults.v_head_dim);
+        let v_head_dim =
+            Self::meta_usize(gguf, "llm.attention.value_length").unwrap_or(defaults.v_head_dim);
 
         // Detect MLA by checking for q_a tensor in first layer
         let use_mla = TensorNameMapper::has_mla(gguf, 0);
 
         // Shared experts
-        let n_shared_experts = Self::meta_usize(gguf, "llm.expert_shared_count")
-            .unwrap_or(if num_experts > 1 { defaults.n_shared_experts } else { 0 });
+        let n_shared_experts =
+            Self::meta_usize(gguf, "llm.expert_shared_count").unwrap_or(if num_experts > 1 {
+                defaults.n_shared_experts
+            } else {
+                0
+            });
 
         // First K dense layers
         let first_k_dense_replace = Self::meta_usize(gguf, "llm.expert_first_dense_layers")
@@ -941,7 +956,10 @@ impl BitNetBackend {
 
     /// Helper: extract a usize from GGUF metadata.
     fn meta_usize(gguf: &GgufFile, key: &str) -> Option<usize> {
-        gguf.metadata.get(key).and_then(|v| v.as_u64()).map(|v| v as usize)
+        gguf.metadata
+            .get(key)
+            .and_then(|v| v.as_u64())
+            .map(|v| v as usize)
     }
 
     /// Helper: extract an f32 from GGUF metadata.
@@ -991,11 +1009,7 @@ impl BitNetBackend {
     }
 
     /// Load a ternary tensor from GGUF (BitnetT158 or dequant + re-quantize).
-    fn load_ternary_tensor(
-        &self,
-        gguf: &GgufFile,
-        name: &str,
-    ) -> Result<TernaryTensor> {
+    fn load_ternary_tensor(&self, gguf: &GgufFile, name: &str) -> Result<TernaryTensor> {
         let info = gguf
             .get_tensor(name)
             .ok_or_else(|| RuvLLMError::NotFound(format!("Tensor not found: {}", name)))?;
@@ -1017,8 +1031,7 @@ impl BitNetBackend {
                     break;
                 }
                 packed_data.extend_from_slice(&raw.data[offset..offset + 64]);
-                let scale_bits =
-                    u16::from_le_bytes([raw.data[offset + 64], raw.data[offset + 65]]);
+                let scale_bits = u16::from_le_bytes([raw.data[offset + 64], raw.data[offset + 65]]);
                 scales.push(f16_to_f32(scale_bits));
             }
 
@@ -1064,8 +1077,10 @@ impl BitNetBackend {
             .ok_or_else(|| RuvLLMError::NotFound(format!("Layer {} input norm not found", idx)))?;
         let input_norm_weight = self.load_fp_tensor(gguf, &in_norm_name, config)?;
 
-        let post_norm_name = TensorNameMapper::resolve(gguf, &TensorNameMapper::post_attn_norm(idx))
-            .ok_or_else(|| RuvLLMError::NotFound(format!("Layer {} post-attn norm not found", idx)))?;
+        let post_norm_name =
+            TensorNameMapper::resolve(gguf, &TensorNameMapper::post_attn_norm(idx)).ok_or_else(
+                || RuvLLMError::NotFound(format!("Layer {} post-attn norm not found", idx)),
+            )?;
         let post_attn_norm_weight = self.load_fp_tensor(gguf, &post_norm_name, config)?;
 
         // === Attention weights ===
@@ -1076,8 +1091,8 @@ impl BitNetBackend {
         };
 
         // === FFN weights ===
-        let is_dense_layer = idx < config.first_k_dense_replace
-            || TensorNameMapper::has_dense_ffn(gguf, idx);
+        let is_dense_layer =
+            idx < config.first_k_dense_replace || TensorNameMapper::has_dense_ffn(gguf, idx);
 
         if is_dense_layer {
             // Dense FFN layer (no MoE routing)
@@ -1095,7 +1110,9 @@ impl BitNetBackend {
         } else {
             // MoE layer: load router gate + experts
             let gate_name = TensorNameMapper::resolve(gguf, &TensorNameMapper::moe_gate(idx))
-                .ok_or_else(|| RuvLLMError::NotFound(format!("Layer {} MoE gate not found", idx)))?;
+                .ok_or_else(|| {
+                    RuvLLMError::NotFound(format!("Layer {} MoE gate not found", idx))
+                })?;
             let gate_weight = self.load_fp_tensor(gguf, &gate_name, config)?;
 
             let experts = self.load_experts(gguf, idx, config)?;
@@ -1139,7 +1156,9 @@ impl BitNetBackend {
         let q_b = self.load_ternary_tensor(gguf, &q_b_name)?;
 
         let kv_a_name = TensorNameMapper::resolve(gguf, &TensorNameMapper::attn_kv_a_mqa(idx))
-            .ok_or_else(|| RuvLLMError::NotFound(format!("Layer {} attn_kv_a_mqa not found", idx)))?;
+            .ok_or_else(|| {
+                RuvLLMError::NotFound(format!("Layer {} attn_kv_a_mqa not found", idx))
+            })?;
         let kv_a_mqa = self.load_ternary_tensor(gguf, &kv_a_name)?;
 
         let k_b_name = TensorNameMapper::resolve(gguf, &TensorNameMapper::attn_k_b(idx))
@@ -1192,19 +1211,27 @@ impl BitNetBackend {
         _config: &BitNetModelConfig,
     ) -> Result<AttentionWeights> {
         let q_name = TensorNameMapper::resolve(gguf, &TensorNameMapper::attn_q_proj(idx))
-            .ok_or_else(|| RuvLLMError::NotFound(format!("Layer {} Q projection not found", idx)))?;
+            .ok_or_else(|| {
+                RuvLLMError::NotFound(format!("Layer {} Q projection not found", idx))
+            })?;
         let q_proj = self.load_ternary_tensor(gguf, &q_name)?;
 
         let k_name = TensorNameMapper::resolve(gguf, &TensorNameMapper::attn_k_proj(idx))
-            .ok_or_else(|| RuvLLMError::NotFound(format!("Layer {} K projection not found", idx)))?;
+            .ok_or_else(|| {
+                RuvLLMError::NotFound(format!("Layer {} K projection not found", idx))
+            })?;
         let k_proj = self.load_ternary_tensor(gguf, &k_name)?;
 
         let v_name = TensorNameMapper::resolve(gguf, &TensorNameMapper::attn_v_proj(idx))
-            .ok_or_else(|| RuvLLMError::NotFound(format!("Layer {} V projection not found", idx)))?;
+            .ok_or_else(|| {
+                RuvLLMError::NotFound(format!("Layer {} V projection not found", idx))
+            })?;
         let v_proj = self.load_ternary_tensor(gguf, &v_name)?;
 
         let o_name = TensorNameMapper::resolve(gguf, &TensorNameMapper::attn_output(idx))
-            .ok_or_else(|| RuvLLMError::NotFound(format!("Layer {} O projection not found", idx)))?;
+            .ok_or_else(|| {
+                RuvLLMError::NotFound(format!("Layer {} O projection not found", idx))
+            })?;
         let o_proj = self.load_ternary_tensor(gguf, &o_name)?;
 
         Ok(AttentionWeights {
@@ -1231,11 +1258,17 @@ impl BitNetBackend {
         _config: &BitNetModelConfig,
     ) -> Result<ExpertWeights> {
         let gate_name = TensorNameMapper::resolve(gguf, &TensorNameMapper::ffn_gate(idx))
-            .ok_or_else(|| RuvLLMError::NotFound(format!("Layer {} dense ffn_gate not found", idx)))?;
-        let up_name = TensorNameMapper::resolve(gguf, &TensorNameMapper::ffn_up(idx))
-            .ok_or_else(|| RuvLLMError::NotFound(format!("Layer {} dense ffn_up not found", idx)))?;
+            .ok_or_else(|| {
+                RuvLLMError::NotFound(format!("Layer {} dense ffn_gate not found", idx))
+            })?;
+        let up_name =
+            TensorNameMapper::resolve(gguf, &TensorNameMapper::ffn_up(idx)).ok_or_else(|| {
+                RuvLLMError::NotFound(format!("Layer {} dense ffn_up not found", idx))
+            })?;
         let down_name = TensorNameMapper::resolve(gguf, &TensorNameMapper::ffn_down(idx))
-            .ok_or_else(|| RuvLLMError::NotFound(format!("Layer {} dense ffn_down not found", idx)))?;
+            .ok_or_else(|| {
+                RuvLLMError::NotFound(format!("Layer {} dense ffn_down not found", idx))
+            })?;
 
         Ok(ExpertWeights {
             gate_proj: self.load_ternary_tensor(gguf, &gate_name)?,
@@ -1252,11 +1285,17 @@ impl BitNetBackend {
         _config: &BitNetModelConfig,
     ) -> Result<ExpertWeights> {
         let gate_name = TensorNameMapper::resolve(gguf, &TensorNameMapper::ffn_gate_shexp(idx))
-            .ok_or_else(|| RuvLLMError::NotFound(format!("Layer {} shared expert gate not found", idx)))?;
+            .ok_or_else(|| {
+                RuvLLMError::NotFound(format!("Layer {} shared expert gate not found", idx))
+            })?;
         let up_name = TensorNameMapper::resolve(gguf, &TensorNameMapper::ffn_up_shexp(idx))
-            .ok_or_else(|| RuvLLMError::NotFound(format!("Layer {} shared expert up not found", idx)))?;
+            .ok_or_else(|| {
+                RuvLLMError::NotFound(format!("Layer {} shared expert up not found", idx))
+            })?;
         let down_name = TensorNameMapper::resolve(gguf, &TensorNameMapper::ffn_down_shexp(idx))
-            .ok_or_else(|| RuvLLMError::NotFound(format!("Layer {} shared expert down not found", idx)))?;
+            .ok_or_else(|| {
+                RuvLLMError::NotFound(format!("Layer {} shared expert down not found", idx))
+            })?;
 
         Ok(ExpertWeights {
             gate_proj: self.load_ternary_tensor(gguf, &gate_name)?,
@@ -1288,11 +1327,17 @@ impl BitNetBackend {
         config: &BitNetModelConfig,
     ) -> Result<Vec<ExpertWeights>> {
         let gate_name = TensorNameMapper::resolve(gguf, &TensorNameMapper::ffn_gate_exps(idx))
-            .ok_or_else(|| RuvLLMError::NotFound(format!("Layer {} stacked gate_exps not found", idx)))?;
+            .ok_or_else(|| {
+                RuvLLMError::NotFound(format!("Layer {} stacked gate_exps not found", idx))
+            })?;
         let up_name = TensorNameMapper::resolve(gguf, &TensorNameMapper::ffn_up_exps(idx))
-            .ok_or_else(|| RuvLLMError::NotFound(format!("Layer {} stacked up_exps not found", idx)))?;
+            .ok_or_else(|| {
+                RuvLLMError::NotFound(format!("Layer {} stacked up_exps not found", idx))
+            })?;
         let down_name = TensorNameMapper::resolve(gguf, &TensorNameMapper::ffn_down_exps(idx))
-            .ok_or_else(|| RuvLLMError::NotFound(format!("Layer {} stacked down_exps not found", idx)))?;
+            .ok_or_else(|| {
+                RuvLLMError::NotFound(format!("Layer {} stacked down_exps not found", idx))
+            })?;
 
         // Load stacked tensors as FP32 and split per expert
         let gate_all = gguf.load_tensor_f32(&gate_name)?;
@@ -1338,22 +1383,41 @@ impl BitNetBackend {
             };
 
             let gate_proj = if gate_slice.is_empty() {
-                TernaryTensor { packed_data: vec![], scales: vec![], shape: (intermediate, hidden), block_size: 256 }
+                TernaryTensor {
+                    packed_data: vec![],
+                    scales: vec![],
+                    shape: (intermediate, hidden),
+                    block_size: 256,
+                }
             } else {
                 super::quantizer::quantize_tensor(gate_slice, (intermediate, hidden), &ptconfig)?
             };
             let up_proj = if up_slice.is_empty() {
-                TernaryTensor { packed_data: vec![], scales: vec![], shape: (intermediate, hidden), block_size: 256 }
+                TernaryTensor {
+                    packed_data: vec![],
+                    scales: vec![],
+                    shape: (intermediate, hidden),
+                    block_size: 256,
+                }
             } else {
                 super::quantizer::quantize_tensor(up_slice, (intermediate, hidden), &ptconfig)?
             };
             let down_proj = if down_slice.is_empty() {
-                TernaryTensor { packed_data: vec![], scales: vec![], shape: (hidden, intermediate), block_size: 256 }
+                TernaryTensor {
+                    packed_data: vec![],
+                    scales: vec![],
+                    shape: (hidden, intermediate),
+                    block_size: 256,
+                }
             } else {
                 super::quantizer::quantize_tensor(down_slice, (hidden, intermediate), &ptconfig)?
             };
 
-            experts.push(ExpertWeights { gate_proj, up_proj, down_proj });
+            experts.push(ExpertWeights {
+                gate_proj,
+                up_proj,
+                down_proj,
+            });
         }
 
         Ok(experts)
@@ -1369,17 +1433,17 @@ impl BitNetBackend {
         let mut experts = Vec::with_capacity(config.num_experts);
         for e in 0..config.num_experts {
             let gate_name = TensorNameMapper::resolve(gguf, &TensorNameMapper::expert_gate(idx, e))
-                .ok_or_else(|| RuvLLMError::NotFound(format!(
-                    "Layer {} expert {} gate_proj not found", idx, e
-                )))?;
+                .ok_or_else(|| {
+                    RuvLLMError::NotFound(format!("Layer {} expert {} gate_proj not found", idx, e))
+                })?;
             let up_name = TensorNameMapper::resolve(gguf, &TensorNameMapper::expert_up(idx, e))
-                .ok_or_else(|| RuvLLMError::NotFound(format!(
-                    "Layer {} expert {} up_proj not found", idx, e
-                )))?;
+                .ok_or_else(|| {
+                    RuvLLMError::NotFound(format!("Layer {} expert {} up_proj not found", idx, e))
+                })?;
             let down_name = TensorNameMapper::resolve(gguf, &TensorNameMapper::expert_down(idx, e))
-                .ok_or_else(|| RuvLLMError::NotFound(format!(
-                    "Layer {} expert {} down_proj not found", idx, e
-                )))?;
+                .ok_or_else(|| {
+                    RuvLLMError::NotFound(format!("Layer {} expert {} down_proj not found", idx, e))
+                })?;
 
             experts.push(ExpertWeights {
                 gate_proj: self.load_ternary_tensor(gguf, &gate_name)?,
@@ -1406,9 +1470,11 @@ impl BitNetBackend {
     /// * `token_id` - Single token to process
     /// * `position` - Position index in the sequence (0-based)
     pub fn forward_token(&mut self, token_id: u32, position: usize) -> Result<Vec<f32>> {
-        let config = self.config.as_ref().ok_or_else(|| {
-            RuvLLMError::Model("No model loaded".to_string())
-        })?.clone();
+        let config = self
+            .config
+            .as_ref()
+            .ok_or_else(|| RuvLLMError::Model("No model loaded".to_string()))?
+            .clone();
 
         let hidden = config.hidden_size;
 
@@ -1425,9 +1491,8 @@ impl BitNetBackend {
         if self.predictor_stale_count >= 16 {
             let hist = self.routing_history.lock().unwrap();
             if hist.len() >= 2 {
-                self.expert_predictor = Some(
-                    ExpertPredictor::from_history(config.num_experts, &hist),
-                );
+                self.expert_predictor =
+                    Some(ExpertPredictor::from_history(config.num_experts, &hist));
             }
             self.predictor_stale_count = 0;
         }
@@ -1438,24 +1503,16 @@ impl BitNetBackend {
 
         // Transformer layers
         for layer_idx in 0..self.layers.len() {
-            hidden_states = self.forward_layer_cached(
-                &hidden_states,
-                layer_idx,
-                position,
-                &config,
-            )?;
+            hidden_states =
+                self.forward_layer_cached(&hidden_states, layer_idx, position, &config)?;
         }
 
         // Final RMSNorm
         rms_norm_inplace(&mut hidden_states, &self.final_norm_weight, 1e-6);
 
         // LM head: logits = hidden_states @ lm_head^T
-        let logits = fp32_matvec_transposed(
-            &self.lm_head,
-            &hidden_states,
-            config.vocab_size,
-            hidden,
-        );
+        let logits =
+            fp32_matvec_transposed(&self.lm_head, &hidden_states, config.vocab_size, hidden);
 
         Ok(logits)
     }
@@ -1463,9 +1520,10 @@ impl BitNetBackend {
     /// Legacy forward: process full token sequence without KV cache.
     /// Kept for backwards compatibility with tests.
     pub fn forward(&self, token_ids: &[u32]) -> Result<Vec<f32>> {
-        let config = self.config.as_ref().ok_or_else(|| {
-            RuvLLMError::Model("No model loaded".to_string())
-        })?;
+        let config = self
+            .config
+            .as_ref()
+            .ok_or_else(|| RuvLLMError::Model("No model loaded".to_string()))?;
 
         if token_ids.is_empty() {
             return Err(RuvLLMError::Model("Empty token sequence".to_string()));
@@ -1483,21 +1541,13 @@ impl BitNetBackend {
             self.embedding[last_token * hidden..(last_token + 1) * hidden].to_vec();
 
         for layer_idx in 0..self.layers.len() {
-            hidden_states = self.forward_layer_nocache(
-                &hidden_states,
-                layer_idx,
-                config,
-            )?;
+            hidden_states = self.forward_layer_nocache(&hidden_states, layer_idx, config)?;
         }
 
         rms_norm_inplace(&mut hidden_states, &self.final_norm_weight, 1e-6);
 
-        let logits = fp32_matvec_transposed(
-            &self.lm_head,
-            &hidden_states,
-            config.vocab_size,
-            hidden,
-        );
+        let logits =
+            fp32_matvec_transposed(&self.lm_head, &hidden_states, config.vocab_size, hidden);
 
         Ok(logits)
     }
@@ -1568,9 +1618,24 @@ impl BitNetBackend {
         let kv_dim = num_kv_heads * head_dim;
 
         // Q/K/V projections via TL1 GEMV (SIMD-dispatched)
-        let q = self.tl1_gemv(&self.layers[layer_idx].attention.q_proj, normed, hidden, hidden);
-        let k = self.tl1_gemv(&self.layers[layer_idx].attention.k_proj, normed, kv_dim, hidden);
-        let v = self.tl1_gemv(&self.layers[layer_idx].attention.v_proj, normed, kv_dim, hidden);
+        let q = self.tl1_gemv(
+            &self.layers[layer_idx].attention.q_proj,
+            normed,
+            hidden,
+            hidden,
+        );
+        let k = self.tl1_gemv(
+            &self.layers[layer_idx].attention.k_proj,
+            normed,
+            kv_dim,
+            hidden,
+        );
+        let v = self.tl1_gemv(
+            &self.layers[layer_idx].attention.v_proj,
+            normed,
+            kv_dim,
+            hidden,
+        );
 
         // Apply RoPE to Q and K
         let mut q_rope = q;
@@ -1584,7 +1649,11 @@ impl BitNetBackend {
         let seq_len = self.kv_caches[layer_idx].len();
 
         // GQA attention scores with 4-wide dot product
-        let gqa_groups = if num_kv_heads > 0 { num_heads / num_kv_heads } else { 1 };
+        let gqa_groups = if num_kv_heads > 0 {
+            num_heads / num_kv_heads
+        } else {
+            1
+        };
         let inv_sqrt_d = 1.0 / (head_dim as f32).sqrt();
         let mut attn_out = vec![0.0f32; hidden];
         let dim_chunks = head_dim / 4;
@@ -1606,10 +1675,14 @@ impl BitNetBackend {
                 for c in 0..dim_chunks {
                     let d = c * 4;
                     unsafe {
-                        d0 += *q_rope.get_unchecked(q_offset + d) * *k_vec.get_unchecked(k_offset + d);
-                        d1 += *q_rope.get_unchecked(q_offset + d + 1) * *k_vec.get_unchecked(k_offset + d + 1);
-                        d2 += *q_rope.get_unchecked(q_offset + d + 2) * *k_vec.get_unchecked(k_offset + d + 2);
-                        d3 += *q_rope.get_unchecked(q_offset + d + 3) * *k_vec.get_unchecked(k_offset + d + 3);
+                        d0 += *q_rope.get_unchecked(q_offset + d)
+                            * *k_vec.get_unchecked(k_offset + d);
+                        d1 += *q_rope.get_unchecked(q_offset + d + 1)
+                            * *k_vec.get_unchecked(k_offset + d + 1);
+                        d2 += *q_rope.get_unchecked(q_offset + d + 2)
+                            * *k_vec.get_unchecked(k_offset + d + 2);
+                        d3 += *q_rope.get_unchecked(q_offset + d + 3)
+                            * *k_vec.get_unchecked(k_offset + d + 3);
                     }
                 }
                 let mut dot = d0 + d1 + d2 + d3;
@@ -1626,7 +1699,9 @@ impl BitNetBackend {
             for pos in 0..seq_len {
                 let v_vec = &self.kv_caches[layer_idx].values[pos];
                 let w = scores[pos];
-                if w < 1e-10 { continue; } // Skip negligible weights
+                if w < 1e-10 {
+                    continue;
+                } // Skip negligible weights
                 for d in 0..head_dim {
                     unsafe {
                         *attn_out.get_unchecked_mut(q_offset + d) +=
@@ -1671,18 +1746,20 @@ impl BitNetBackend {
         let attn = &self.layers[layer_idx].attention;
 
         // --- Q path ---
-        let q_a = attn.q_a.as_ref().ok_or_else(|| {
-            RuvLLMError::Model("MLA q_a missing".into())
-        })?;
+        let q_a = attn
+            .q_a
+            .as_ref()
+            .ok_or_else(|| RuvLLMError::Model("MLA q_a missing".into()))?;
         let mut c_q = self.tl1_gemv(q_a, normed, q_lora_rank, hidden);
 
         if let Some(ref norm_w) = attn.q_a_norm {
             rms_norm_inplace(&mut c_q, norm_w, 1e-6);
         }
 
-        let q_b = attn.q_b.as_ref().ok_or_else(|| {
-            RuvLLMError::Model("MLA q_b missing".into())
-        })?;
+        let q_b = attn
+            .q_b
+            .as_ref()
+            .ok_or_else(|| RuvLLMError::Model("MLA q_b missing".into()))?;
         let q_full = self.tl1_gemv(q_b, &c_q, num_heads * q_head_dim, q_lora_rank);
 
         // Split Q into nope and rope parts, apply RoPE
@@ -1714,9 +1791,10 @@ impl BitNetBackend {
         }
 
         // --- KV path ---
-        let kv_a = attn.kv_a_mqa.as_ref().ok_or_else(|| {
-            RuvLLMError::Model("MLA kv_a_mqa missing".into())
-        })?;
+        let kv_a = attn
+            .kv_a_mqa
+            .as_ref()
+            .ok_or_else(|| RuvLLMError::Model("MLA kv_a_mqa missing".into()))?;
         let kv_combined = self.tl1_gemv(kv_a, normed, kv_a_out, hidden);
 
         let c_kv_raw = kv_combined[..kv_lora_rank].to_vec();
@@ -1730,12 +1808,16 @@ impl BitNetBackend {
             self.mla_caches[layer_idx].push(c_kv_raw.clone(), k_pe.clone());
             let seq_len = self.mla_caches[layer_idx].len();
 
-            let k_b = self.layers[layer_idx].attention.k_b.as_ref().ok_or_else(|| {
-                RuvLLMError::Model("MLA k_b missing".into())
-            })?;
-            let v_b = self.layers[layer_idx].attention.v_b.as_ref().ok_or_else(|| {
-                RuvLLMError::Model("MLA v_b missing".into())
-            })?;
+            let k_b = self.layers[layer_idx]
+                .attention
+                .k_b
+                .as_ref()
+                .ok_or_else(|| RuvLLMError::Model("MLA k_b missing".into()))?;
+            let v_b = self.layers[layer_idx]
+                .attention
+                .v_b
+                .as_ref()
+                .ok_or_else(|| RuvLLMError::Model("MLA v_b missing".into()))?;
 
             let inv_sqrt_d = 1.0 / (q_head_dim as f32).sqrt();
             let mut attn_out = vec![0.0f32; num_heads * v_dim];
@@ -1754,7 +1836,8 @@ impl BitNetBackend {
                         rms_norm_inplace(&mut ckv_normed, norm_w, 1e-6);
                     }
 
-                    let k_nope = self.tl1_gemv(k_b, &ckv_normed, num_heads * qk_nope_dim, kv_lora_rank);
+                    let k_nope =
+                        self.tl1_gemv(k_b, &ckv_normed, num_heads * qk_nope_dim, kv_lora_rank);
 
                     // Build K for this head: [K_nope_h | K_rope]
                     let nope_off = h * qk_nope_dim;
@@ -1776,7 +1859,9 @@ impl BitNetBackend {
                 let v_off = h * v_dim;
                 for pos in 0..seq_len {
                     let w = scores[pos];
-                    if w < 1e-10 { continue; }
+                    if w < 1e-10 {
+                        continue;
+                    }
 
                     let cached_ckv = &self.mla_caches[layer_idx].c_kv[pos];
                     let v_full = self.tl1_gemv(v_b, cached_ckv, num_heads * v_dim, kv_lora_rank);
@@ -1794,14 +1879,18 @@ impl BitNetBackend {
                 rms_norm_inplace(&mut c_kv_normed, norm_w, 1e-6);
             }
 
-            let k_b = self.layers[layer_idx].attention.k_b.as_ref().ok_or_else(|| {
-                RuvLLMError::Model("MLA k_b missing".into())
-            })?;
+            let k_b = self.layers[layer_idx]
+                .attention
+                .k_b
+                .as_ref()
+                .ok_or_else(|| RuvLLMError::Model("MLA k_b missing".into()))?;
             let k_nope = self.tl1_gemv(k_b, &c_kv_normed, num_heads * qk_nope_dim, kv_lora_rank);
 
-            let v_b = self.layers[layer_idx].attention.v_b.as_ref().ok_or_else(|| {
-                RuvLLMError::Model("MLA v_b missing".into())
-            })?;
+            let v_b = self.layers[layer_idx]
+                .attention
+                .v_b
+                .as_ref()
+                .ok_or_else(|| RuvLLMError::Model("MLA v_b missing".into()))?;
             let c_kv_for_v = &kv_combined[..kv_lora_rank];
             let v_full = self.tl1_gemv(v_b, c_kv_for_v, num_heads * v_dim, kv_lora_rank);
 
@@ -1812,8 +1901,7 @@ impl BitNetBackend {
                 let nope_src = h * qk_nope_dim;
                 k_full[dst..dst + qk_nope_dim]
                     .copy_from_slice(&k_nope[nope_src..nope_src + qk_nope_dim]);
-                k_full[dst + qk_nope_dim..dst + q_head_dim]
-                    .copy_from_slice(&k_pe[..qk_rope_dim]);
+                k_full[dst + qk_nope_dim..dst + q_head_dim].copy_from_slice(&k_pe[..qk_rope_dim]);
             }
 
             // Update KV cache
@@ -1891,7 +1979,9 @@ impl BitNetBackend {
                                 let data = &experts[eidx].gate_proj.packed_data;
                                 if !data.is_empty() {
                                     // Volatile read forces the load, acting as software prefetch
-                                    unsafe { std::ptr::read_volatile(data.as_ptr()); }
+                                    unsafe {
+                                        std::ptr::read_volatile(data.as_ptr());
+                                    }
                                 }
                             }
                         }
@@ -1899,9 +1989,8 @@ impl BitNetBackend {
                 }
 
                 // Route to top-K experts
-                let (indices, weights) = self.route_experts(
-                    normed_ffn, &self.layers[layer_idx].gate_weight, config,
-                )?;
+                let (indices, weights) =
+                    self.route_experts(normed_ffn, &self.layers[layer_idx].gate_weight, config)?;
 
                 // Track routing decisions from the first MoE layer for expert prediction.
                 // For GLM-4.7-Flash, layer 0 is Dense (first_k_dense_replace=1), so
@@ -1919,7 +2008,9 @@ impl BitNetBackend {
                 // Routed experts
                 let experts = &self.layers[layer_idx].experts;
                 for (&eidx, &ew) in indices.iter().zip(weights.iter()) {
-                    if eidx >= experts.len() { continue; }
+                    if eidx >= experts.len() {
+                        continue;
+                    }
                     let e_out = self.expert_forward(normed_ffn, &experts[eidx], config)?;
                     for (o, &e) in output.iter_mut().zip(e_out.iter()) {
                         *o += ew * e;
@@ -1962,11 +2053,30 @@ impl BitNetBackend {
             let num_heads = config.num_attention_heads;
             let head_dim = hidden / num_heads;
             let kv_dim = config.num_kv_heads * head_dim;
-            let gqa_groups = if config.num_kv_heads > 0 { num_heads / config.num_kv_heads } else { 1 };
+            let gqa_groups = if config.num_kv_heads > 0 {
+                num_heads / config.num_kv_heads
+            } else {
+                1
+            };
 
-            let q = self.tl1_gemv(&self.layers[layer_idx].attention.q_proj, &normed, hidden, hidden);
-            let k = self.tl1_gemv(&self.layers[layer_idx].attention.k_proj, &normed, kv_dim, hidden);
-            let v = self.tl1_gemv(&self.layers[layer_idx].attention.v_proj, &normed, kv_dim, hidden);
+            let q = self.tl1_gemv(
+                &self.layers[layer_idx].attention.q_proj,
+                &normed,
+                hidden,
+                hidden,
+            );
+            let k = self.tl1_gemv(
+                &self.layers[layer_idx].attention.k_proj,
+                &normed,
+                kv_dim,
+                hidden,
+            );
+            let v = self.tl1_gemv(
+                &self.layers[layer_idx].attention.v_proj,
+                &normed,
+                kv_dim,
+                hidden,
+            );
             let _ = (q, k); // Exercise projections
 
             let mut concat = vec![0.0f32; hidden];
@@ -1979,11 +2089,20 @@ impl BitNetBackend {
             concat
         };
 
-        let o_out = self.tl1_gemv(&self.layers[layer_idx].attention.o_proj, &attn_concat, hidden, hidden);
+        let o_out = self.tl1_gemv(
+            &self.layers[layer_idx].attention.o_proj,
+            &attn_concat,
+            hidden,
+            hidden,
+        );
         let mut residual: Vec<f32> = input.iter().zip(o_out.iter()).map(|(r, a)| r + a).collect();
 
         let mut normed_ffn = residual.clone();
-        rms_norm_inplace(&mut normed_ffn, &self.layers[layer_idx].post_attn_norm_weight, 1e-6);
+        rms_norm_inplace(
+            &mut normed_ffn,
+            &self.layers[layer_idx].post_attn_norm_weight,
+            1e-6,
+        );
 
         let ffn_out = self.forward_ffn(&normed_ffn, layer_idx, config)?;
 
@@ -2017,21 +2136,30 @@ impl BitNetBackend {
                 rms_norm_inplace(&mut c_q, norm_w, 1e-6);
             }
             if let Some(ref q_b) = attn.q_b {
-                let _q = self.tl1_gemv(q_b, &c_q, num_heads * (config.qk_nope_head_dim + config.qk_rope_head_dim), q_lora_rank);
+                let _q = self.tl1_gemv(
+                    q_b,
+                    &c_q,
+                    num_heads * (config.qk_nope_head_dim + config.qk_rope_head_dim),
+                    q_lora_rank,
+                );
             }
         }
 
         // KV path
-        let kv_a = self.layers[layer_idx].attention.kv_a_mqa.as_ref().ok_or_else(|| {
-            RuvLLMError::Model("MLA kv_a_mqa missing in nocache path".into())
-        })?;
+        let kv_a = self.layers[layer_idx]
+            .attention
+            .kv_a_mqa
+            .as_ref()
+            .ok_or_else(|| RuvLLMError::Model("MLA kv_a_mqa missing in nocache path".into()))?;
         let kv_combined = self.tl1_gemv(kv_a, normed, kv_a_out, hidden);
         let c_kv = &kv_combined[..kv_lora_rank];
 
         // V = c_kv @ W_v_b
-        let v_b = self.layers[layer_idx].attention.v_b.as_ref().ok_or_else(|| {
-            RuvLLMError::Model("MLA v_b missing".into())
-        })?;
+        let v_b = self.layers[layer_idx]
+            .attention
+            .v_b
+            .as_ref()
+            .ok_or_else(|| RuvLLMError::Model("MLA v_b missing".into()))?;
         let v_full = self.tl1_gemv(v_b, c_kv, num_heads * v_dim, kv_lora_rank);
 
         // Single position: attention is identity, output = V directly
@@ -2106,19 +2234,21 @@ impl BitNetBackend {
         softmax_inplace(&mut scores);
 
         // Top-K selection
-        let mut indexed: Vec<(usize, f32)> =
-            scores.iter().copied().enumerate().collect();
+        let mut indexed: Vec<(usize, f32)> = scores.iter().copied().enumerate().collect();
         indexed.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
 
         let selected: Vec<(usize, f32)> = indexed.into_iter().take(top_k).collect();
 
         // Renormalize selected weights so they sum to 1
         let weight_sum: f32 = selected.iter().map(|(_, w)| w).sum();
-        let norm_factor = if weight_sum > 1e-12 { 1.0 / weight_sum } else { 1.0 };
+        let norm_factor = if weight_sum > 1e-12 {
+            1.0 / weight_sum
+        } else {
+            1.0
+        };
 
         let expert_indices: Vec<usize> = selected.iter().map(|(i, _)| *i).collect();
-        let expert_weights: Vec<f32> =
-            selected.iter().map(|(_, w)| w * norm_factor).collect();
+        let expert_weights: Vec<f32> = selected.iter().map(|(_, w)| w * norm_factor).collect();
 
         Ok((expert_indices, expert_weights))
     }
@@ -2264,7 +2394,13 @@ impl BitNetBackend {
         #[cfg(all(target_arch = "x86_64", target_feature = "avx2"))]
         {
             super::tl1_avx2::tl1_gemv(
-                packed_data, scales, input, output, out_rows, in_cols, block_size,
+                packed_data,
+                scales,
+                input,
+                output,
+                out_rows,
+                in_cols,
+                block_size,
             );
             return;
         }
@@ -2281,10 +2417,7 @@ impl BitNetBackend {
                 let mut accum = 0.0f32;
 
                 for blk in 0..blocks_per_row {
-                    let scale = scales
-                        .get(row_scale_offset + blk)
-                        .copied()
-                        .unwrap_or(1.0);
+                    let scale = scales.get(row_scale_offset + blk).copied().unwrap_or(1.0);
 
                     let blk_start = blk * block_size;
                     let blk_end = (blk_start + block_size).min(in_cols);
@@ -2294,7 +2427,9 @@ impl BitNetBackend {
                     // Process 4 elements at a time via LUT
                     while c + 4 <= blk_end {
                         let byte_idx = row_byte_offset + c / 4;
-                        if byte_idx >= packed_data.len() { break; }
+                        if byte_idx >= packed_data.len() {
+                            break;
+                        }
                         let ternary = &lut[packed_data[byte_idx] as usize];
                         for k in 0..4 {
                             let t = ternary[k];
@@ -2367,7 +2502,8 @@ impl BitNetBackend {
                 embedding.push(info);
             } else if t.name.contains("attn") || t.name.contains("self_attn") {
                 attention.push(info);
-            } else if t.name.contains("ffn") || t.name.contains("mlp") || t.name.contains("expert") {
+            } else if t.name.contains("ffn") || t.name.contains("mlp") || t.name.contains("expert")
+            {
                 ffn.push(info);
             } else if t.name.contains("norm") {
                 norm.push(info);
@@ -2377,38 +2513,59 @@ impl BitNetBackend {
         }
 
         if !embedding.is_empty() {
-            report.tensor_groups.push(TensorGroup { name: "Embedding/Output".into(), tensors: embedding });
+            report.tensor_groups.push(TensorGroup {
+                name: "Embedding/Output".into(),
+                tensors: embedding,
+            });
         }
         if !norm.is_empty() {
-            report.tensor_groups.push(TensorGroup { name: "Normalization".into(), tensors: norm });
+            report.tensor_groups.push(TensorGroup {
+                name: "Normalization".into(),
+                tensors: norm,
+            });
         }
         if !attention.is_empty() {
-            report.tensor_groups.push(TensorGroup { name: "Attention".into(), tensors: attention });
+            report.tensor_groups.push(TensorGroup {
+                name: "Attention".into(),
+                tensors: attention,
+            });
         }
         if !ffn.is_empty() {
-            report.tensor_groups.push(TensorGroup { name: "FFN/Expert".into(), tensors: ffn });
+            report.tensor_groups.push(TensorGroup {
+                name: "FFN/Expert".into(),
+                tensors: ffn,
+            });
         }
         if !other.is_empty() {
-            report.tensor_groups.push(TensorGroup { name: "Other".into(), tensors: other });
+            report.tensor_groups.push(TensorGroup {
+                name: "Other".into(),
+                tensors: other,
+            });
         }
 
         // Detect naming convention
         let has_blk = gguf.tensors.iter().any(|t| t.name.starts_with("blk."));
         let has_model = gguf.tensors.iter().any(|t| t.name.starts_with("model."));
         if has_blk && has_model {
-            report.warnings.push("Mixed naming conventions detected (blk.* and model.*)".into());
+            report
+                .warnings
+                .push("Mixed naming conventions detected (blk.* and model.*)".into());
         }
 
         // Detect MLA
         let has_mla = gguf.tensors.iter().any(|t| t.name.contains("attn_q_a"));
         if has_mla {
-            report.warnings.push("MLA (Multi-Head Latent Attention) tensors detected".into());
+            report
+                .warnings
+                .push("MLA (Multi-Head Latent Attention) tensors detected".into());
         }
 
         // Detect stacked experts
         let has_exps = gguf.tensors.iter().any(|t| t.name.contains("_exps"));
         if has_exps {
-            report.warnings.push("Stacked expert tensors detected (3D format)".into());
+            report
+                .warnings
+                .push("Stacked expert tensors detected (3D format)".into());
         }
 
         Ok(report)
@@ -2442,7 +2599,10 @@ impl BitNetBackend {
         let idx = 0;
         for (label, candidates) in [
             ("Layer 0 Input Norm", TensorNameMapper::input_norm(idx)),
-            ("Layer 0 Post-Attn Norm", TensorNameMapper::post_attn_norm(idx)),
+            (
+                "Layer 0 Post-Attn Norm",
+                TensorNameMapper::post_attn_norm(idx),
+            ),
         ] {
             if let Some(name) = TensorNameMapper::resolve(&gguf, &candidates) {
                 found.push(format!("{}: {}", label, name));
@@ -2485,7 +2645,9 @@ impl BitNetBackend {
             let moe_layer = config.first_k_dense_replace;
             if TensorNameMapper::has_stacked_experts(&gguf, moe_layer) {
                 found.push(format!("Layer {}: Stacked MoE experts", moe_layer));
-            } else if TensorNameMapper::resolve(&gguf, &TensorNameMapper::expert_gate(moe_layer, 0)).is_some() {
+            } else if TensorNameMapper::resolve(&gguf, &TensorNameMapper::expert_gate(moe_layer, 0))
+                .is_some()
+            {
                 found.push(format!("Layer {}: Individual MoE experts", moe_layer));
             } else {
                 missing.push(format!("Layer {} MoE expert tensors", moe_layer));
@@ -2497,8 +2659,12 @@ impl BitNetBackend {
             can_load,
             config_summary: format!(
                 "layers={}, hidden={}, heads={}, experts={}, vocab={}, mla={}",
-                config.num_layers, config.hidden_size, config.num_attention_heads,
-                config.num_experts, config.vocab_size, config.use_mla
+                config.num_layers,
+                config.hidden_size,
+                config.num_attention_heads,
+                config.num_experts,
+                config.vocab_size,
+                config.use_mla
             ),
             found,
             missing,
@@ -2638,9 +2804,13 @@ impl ExpertPredictor {
             let prev = &window[0];
             let next = &window[1];
             for &from in prev {
-                if from >= num_experts { continue; }
+                if from >= num_experts {
+                    continue;
+                }
                 for &to in next {
-                    if to >= num_experts { continue; }
+                    if to >= num_experts {
+                        continue;
+                    }
                     transition_counts[from][to] += 1;
                     row_totals[from] += 1;
                 }
@@ -2662,7 +2832,9 @@ impl ExpertPredictor {
         let mut scores = vec![0.0f32; self.num_experts];
 
         for &from in current_experts {
-            if from >= self.num_experts { continue; }
+            if from >= self.num_experts {
+                continue;
+            }
             let total = self.row_totals[from] as f32 + self.num_experts as f32; // Laplace denom
             for to in 0..self.num_experts {
                 // Laplace-smoothed probability
@@ -2841,9 +3013,10 @@ impl LlmBackend for BitNetBackend {
             return Err(RuvLLMError::Model("No model loaded".to_string()));
         }
 
-        let tokenizer = self.tok.as_ref().ok_or_else(|| {
-            RuvLLMError::Model("No tokenizer loaded".to_string())
-        })?;
+        let tokenizer = self
+            .tok
+            .as_ref()
+            .ok_or_else(|| RuvLLMError::Model("No tokenizer loaded".to_string()))?;
 
         // Encode prompt via tokenizer
         let prompt_tokens = tokenizer.encode(prompt);
@@ -2921,12 +3094,14 @@ impl LlmBackend for BitNetBackend {
     }
 
     fn get_embeddings(&self, text: &str) -> Result<Vec<f32>> {
-        let config = self.config.as_ref().ok_or_else(|| {
-            RuvLLMError::Model("No model loaded".to_string())
-        })?;
-        let tokenizer = self.tok.as_ref().ok_or_else(|| {
-            RuvLLMError::Model("No tokenizer loaded".to_string())
-        })?;
+        let config = self
+            .config
+            .as_ref()
+            .ok_or_else(|| RuvLLMError::Model("No model loaded".to_string()))?;
+        let tokenizer = self
+            .tok
+            .as_ref()
+            .ok_or_else(|| RuvLLMError::Model("No tokenizer loaded".to_string()))?;
 
         let ids = tokenizer.encode(text);
         if ids.is_empty() {
@@ -2943,18 +3118,21 @@ impl LlmBackend for BitNetBackend {
     }
 
     fn tokenizer(&self) -> Option<&dyn BackendTokenizer> {
-        self.tok.as_ref().map(|t| {
-            // Safety: we return a reference with the same lifetime as &self.
-            // The TokenizerBridge is a thin wrapper — we use a raw pointer trick
-            // to avoid the borrow checker issue with returning a trait object
-            // that borrows from self.
-            //
-            // Alternative: store a Box<dyn BackendTokenizer> directly. For now,
-            // return None and callers should use `self.tok` directly.
-            let _ = t;
-            // Return None for the trait-object path; callers can use tok() accessor
-            None::<&dyn BackendTokenizer>
-        }).flatten()
+        self.tok
+            .as_ref()
+            .map(|t| {
+                // Safety: we return a reference with the same lifetime as &self.
+                // The TokenizerBridge is a thin wrapper — we use a raw pointer trick
+                // to avoid the borrow checker issue with returning a trait object
+                // that borrows from self.
+                //
+                // Alternative: store a Box<dyn BackendTokenizer> directly. For now,
+                // return None and callers should use `self.tok` directly.
+                let _ = t;
+                // Return None for the trait-object path; callers can use tok() accessor
+                None::<&dyn BackendTokenizer>
+            })
+            .flatten()
     }
 
     fn is_model_loaded(&self) -> bool {
@@ -2990,7 +3168,11 @@ impl LlmBackend for BitNetBackend {
                         if l.attention.is_mla {
                             bytes += l.attention.q_a.as_ref().map_or(0, |t| t.memory_bytes());
                             bytes += l.attention.q_b.as_ref().map_or(0, |t| t.memory_bytes());
-                            bytes += l.attention.kv_a_mqa.as_ref().map_or(0, |t| t.memory_bytes());
+                            bytes += l
+                                .attention
+                                .kv_a_mqa
+                                .as_ref()
+                                .map_or(0, |t| t.memory_bytes());
                             bytes += l.attention.k_b.as_ref().map_or(0, |t| t.memory_bytes());
                             bytes += l.attention.v_b.as_ref().map_or(0, |t| t.memory_bytes());
                             bytes += l.attention.q_a_norm.as_ref().map_or(0, |v| v.len() * 4);
@@ -3001,11 +3183,15 @@ impl LlmBackend for BitNetBackend {
                             bytes += l.attention.v_proj.memory_bytes();
                         }
                         // FFN: routed experts
-                        bytes += l.experts.iter().map(|e| {
-                            e.gate_proj.memory_bytes()
-                                + e.up_proj.memory_bytes()
-                                + e.down_proj.memory_bytes()
-                        }).sum::<usize>();
+                        bytes += l
+                            .experts
+                            .iter()
+                            .map(|e| {
+                                e.gate_proj.memory_bytes()
+                                    + e.up_proj.memory_bytes()
+                                    + e.down_proj.memory_bytes()
+                            })
+                            .sum::<usize>();
                         // FFN: shared expert
                         if let Some(ref se) = l.shared_expert {
                             bytes += se.gate_proj.memory_bytes()
@@ -3049,9 +3235,10 @@ impl BitNetBackend {
         if !self.loaded {
             return Err(RuvLLMError::Model("No model loaded".to_string()));
         }
-        let tokenizer = self.tok.as_ref().ok_or_else(|| {
-            RuvLLMError::Model("No tokenizer loaded".to_string())
-        })?;
+        let tokenizer = self
+            .tok
+            .as_ref()
+            .ok_or_else(|| RuvLLMError::Model("No tokenizer loaded".to_string()))?;
 
         let prompt_tokens = tokenizer.encode(prompt);
         let eos_id = 2u32;
@@ -3117,9 +3304,10 @@ impl BitNetBackend {
         if !self.loaded {
             return Err(RuvLLMError::Model("No model loaded".to_string()));
         }
-        let tokenizer = self.tok.as_ref().ok_or_else(|| {
-            RuvLLMError::Model("No tokenizer loaded".to_string())
-        })?;
+        let tokenizer = self
+            .tok
+            .as_ref()
+            .ok_or_else(|| RuvLLMError::Model("No tokenizer loaded".to_string()))?;
 
         let prompt_tokens = tokenizer.encode(prompt);
         let eos_id = 2u32;
@@ -3185,13 +3373,8 @@ impl BitNetBackend {
     /// Analyzes past routing decisions to build a co-occurrence matrix:
     /// if expert A is selected at position t, which experts are likely at t+1?
     /// Uses this to predict and warm up likely-next experts before they're needed.
-    pub fn build_expert_predictor(
-        &self,
-        routing_history: &[Vec<usize>],
-    ) -> ExpertPredictor {
-        let num_experts = self.config.as_ref()
-            .map(|c| c.num_experts)
-            .unwrap_or(64);
+    pub fn build_expert_predictor(&self, routing_history: &[Vec<usize>]) -> ExpertPredictor {
+        let num_experts = self.config.as_ref().map(|c| c.num_experts).unwrap_or(64);
 
         ExpertPredictor::from_history(num_experts, routing_history)
     }
@@ -3207,7 +3390,9 @@ impl BitNetBackend {
 #[inline]
 fn rms_norm_inplace(x: &mut [f32], weight: &[f32], eps: f32) {
     let n = x.len();
-    if n == 0 { return; }
+    if n == 0 {
+        return;
+    }
 
     // 4-way parallel accumulation for sum of squares
     let mut s0 = 0.0f32;
@@ -3274,7 +3459,9 @@ fn softmax_inplace(x: &mut [f32]) {
     // Streaming max with 4-wide reduction
     let mut max_val = f32::NEG_INFINITY;
     for &v in x.iter() {
-        if v > max_val { max_val = v; }
+        if v > max_val {
+            max_val = v;
+        }
     }
 
     // Guard: if max_val is -inf or NaN, fall back to uniform
@@ -3429,10 +3616,7 @@ mod tests {
 
         // RMS of [1,2,3,4] = sqrt((1+4+9+16)/4) = sqrt(7.5) ≈ 2.7386
         let rms = (30.0f32 / 4.0).sqrt();
-        let expected: Vec<f32> = [1.0, 2.0, 3.0, 4.0]
-            .iter()
-            .map(|v| v / rms)
-            .collect();
+        let expected: Vec<f32> = [1.0, 2.0, 3.0, 4.0].iter().map(|v| v / rms).collect();
 
         for (a, b) in x.iter().zip(expected.iter()) {
             assert!((a - b).abs() < 1e-4, "got {} expected {}", a, b);
@@ -3463,11 +3647,7 @@ mod tests {
     #[test]
     fn test_fp32_matvec_transposed() {
         // Identity matrix 3x3
-        let mat = vec![
-            1.0, 0.0, 0.0,
-            0.0, 1.0, 0.0,
-            0.0, 0.0, 1.0,
-        ];
+        let mat = vec![1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0];
         let vec_in = vec![2.0, 3.0, 4.0];
         let out = fp32_matvec_transposed(&mat, &vec_in, 3, 3);
         assert_eq!(out, vec![2.0, 3.0, 4.0]);
@@ -3593,10 +3773,20 @@ mod tests {
         backend.build_rope_tables(16, 8, 10000.0);
 
         let half = 4; // head_dim / 2
-        // Position 0: all angles are 0 → cos=1, sin=0
+                      // Position 0: all angles are 0 → cos=1, sin=0
         for i in 0..half {
-            assert!((backend.rope_cos[i] - 1.0).abs() < 1e-5, "cos[0][{}]={}", i, backend.rope_cos[i]);
-            assert!(backend.rope_sin[i].abs() < 1e-5, "sin[0][{}]={}", i, backend.rope_sin[i]);
+            assert!(
+                (backend.rope_cos[i] - 1.0).abs() < 1e-5,
+                "cos[0][{}]={}",
+                i,
+                backend.rope_cos[i]
+            );
+            assert!(
+                backend.rope_sin[i].abs() < 1e-5,
+                "sin[0][{}]={}",
+                i,
+                backend.rope_sin[i]
+            );
         }
 
         // Table size should be max_seq * half
@@ -3615,7 +3805,12 @@ mod tests {
 
         // At position 0, all angles are 0, so cos=1, sin=0 → identity
         for (a, b) in x.iter().zip(original.iter()) {
-            assert!((a - b).abs() < 1e-5, "RoPE at pos 0 should be identity: got {} vs {}", a, b);
+            assert!(
+                (a - b).abs() < 1e-5,
+                "RoPE at pos 0 should be identity: got {} vs {}",
+                a,
+                b
+            );
         }
     }
 
@@ -3629,13 +3824,19 @@ mod tests {
         backend.apply_rope(&mut x, 1, 4, 1);
 
         // At position 1, some rotation should happen
-        let changed = x.iter().zip(original.iter()).any(|(a, b)| (a - b).abs() > 1e-6);
+        let changed = x
+            .iter()
+            .zip(original.iter())
+            .any(|(a, b)| (a - b).abs() > 1e-6);
         assert!(changed, "RoPE at pos 1 should rotate the vector");
 
         // Norm should be preserved (RoPE is an orthogonal rotation)
         let orig_norm: f32 = original.iter().map(|v| v * v).sum::<f32>().sqrt();
         let new_norm: f32 = x.iter().map(|v| v * v).sum::<f32>().sqrt();
-        assert!((orig_norm - new_norm).abs() < 1e-4, "RoPE should preserve norm");
+        assert!(
+            (orig_norm - new_norm).abs() < 1e-4,
+            "RoPE should preserve norm"
+        );
     }
 
     #[test]
@@ -3707,8 +3908,13 @@ mod tests {
             k_proj: tensor.clone(),
             v_proj: tensor.clone(),
             o_proj: tensor,
-            q_a: None, q_b: None, q_a_norm: None,
-            kv_a_mqa: None, kv_a_norm: None, k_b: None, v_b: None,
+            q_a: None,
+            q_b: None,
+            q_a_norm: None,
+            kv_a_mqa: None,
+            kv_a_norm: None,
+            k_b: None,
+            v_b: None,
         };
         assert!(!attn.is_mla);
         assert_eq!(attn.q_proj.shape, (1, 4));
@@ -3725,7 +3931,10 @@ mod tests {
             block_size: 256,
         };
         let placeholder = TernaryTensor {
-            packed_data: vec![], scales: vec![], shape: (0, 0), block_size: 256,
+            packed_data: vec![],
+            scales: vec![],
+            shape: (0, 0),
+            block_size: 256,
         };
         let attn = AttentionWeights {
             is_mla: true,
@@ -3824,7 +4033,10 @@ mod tests {
     #[test]
     fn test_tensor_name_mapper_individual_experts() {
         let gate = TensorNameMapper::expert_gate(1, 3);
-        assert_eq!(gate, vec!["model.layers.1.mlp.experts.3.gate_proj.weight".to_string()]);
+        assert_eq!(
+            gate,
+            vec!["model.layers.1.mlp.experts.3.gate_proj.weight".to_string()]
+        );
     }
 
     #[test]
@@ -3854,10 +4066,17 @@ mod tests {
         };
         let attn = AttentionWeights {
             is_mla: false,
-            q_proj: tensor.clone(), k_proj: tensor.clone(),
-            v_proj: tensor.clone(), o_proj: tensor.clone(),
-            q_a: None, q_b: None, q_a_norm: None,
-            kv_a_mqa: None, kv_a_norm: None, k_b: None, v_b: None,
+            q_proj: tensor.clone(),
+            k_proj: tensor.clone(),
+            v_proj: tensor.clone(),
+            o_proj: tensor.clone(),
+            q_a: None,
+            q_b: None,
+            q_a_norm: None,
+            kv_a_mqa: None,
+            kv_a_norm: None,
+            k_b: None,
+            v_b: None,
         };
         let layer = TransformerLayer {
             input_norm_weight: vec![1.0; 4],
@@ -3889,10 +4108,17 @@ mod tests {
         };
         let attn = AttentionWeights {
             is_mla: false,
-            q_proj: tensor.clone(), k_proj: tensor.clone(),
-            v_proj: tensor.clone(), o_proj: tensor.clone(),
-            q_a: None, q_b: None, q_a_norm: None,
-            kv_a_mqa: None, kv_a_norm: None, k_b: None, v_b: None,
+            q_proj: tensor.clone(),
+            k_proj: tensor.clone(),
+            v_proj: tensor.clone(),
+            o_proj: tensor.clone(),
+            q_a: None,
+            q_b: None,
+            q_a_norm: None,
+            kv_a_mqa: None,
+            kv_a_norm: None,
+            k_b: None,
+            v_b: None,
         };
         let expert = ExpertWeights {
             gate_proj: tensor.clone(),
@@ -3920,17 +4146,15 @@ mod tests {
             total_tensors: 10,
             total_bytes: 1024,
             architecture: Some("deepseek2".into()),
-            tensor_groups: vec![
-                TensorGroup {
-                    name: "Embedding".into(),
-                    tensors: vec![TensorEntry {
-                        name: "token_embd.weight".into(),
-                        shape: vec![154880, 2048],
-                        dtype: "Q8_0".into(),
-                        bytes: 512,
-                    }],
-                },
-            ],
+            tensor_groups: vec![TensorGroup {
+                name: "Embedding".into(),
+                tensors: vec![TensorEntry {
+                    name: "token_embd.weight".into(),
+                    shape: vec![154880, 2048],
+                    dtype: "Q8_0".into(),
+                    bytes: 512,
+                }],
+            }],
             warnings: vec!["MLA detected".into()],
         };
         assert_eq!(report.total_tensors, 10);
@@ -4038,10 +4262,14 @@ mod tests {
     fn test_expert_predictor_predict_next() {
         // Build a history where expert 2 always transitions to expert 5
         let history = vec![
-            vec![2], vec![5],
-            vec![2], vec![5],
-            vec![2], vec![5],
-            vec![2], vec![5],
+            vec![2],
+            vec![5],
+            vec![2],
+            vec![5],
+            vec![2],
+            vec![5],
+            vec![2],
+            vec![5],
         ];
         let predictor = ExpertPredictor::from_history(8, &history);
 
@@ -4056,15 +4284,15 @@ mod tests {
     #[test]
     fn test_expert_predictor_excludes_current() {
         // Build a history where expert 2 transitions to itself often
-        let history = vec![
-            vec![2], vec![2],
-            vec![2], vec![2],
-        ];
+        let history = vec![vec![2], vec![2], vec![2], vec![2]];
         let predictor = ExpertPredictor::from_history(8, &history);
 
         // Predict next given current=[2]; expert 2 should be excluded
         let predicted = predictor.predict_next(&[2], 3);
-        assert!(!predicted.contains(&2), "Current experts should be excluded");
+        assert!(
+            !predicted.contains(&2),
+            "Current experts should be excluded"
+        );
     }
 
     #[test]
@@ -4101,8 +4329,8 @@ mod tests {
     #[test]
     fn test_compressed_mla_cache_push() {
         let mut cache = CompressedMlaCache::new();
-        let c_kv = vec![1.0f32; 512];  // kv_lora_rank
-        let k_pe = vec![0.5f32; 64];   // qk_rope_head_dim
+        let c_kv = vec![1.0f32; 512]; // kv_lora_rank
+        let k_pe = vec![0.5f32; 64]; // qk_rope_head_dim
 
         cache.push(c_kv, k_pe);
         assert_eq!(cache.len(), 1);
@@ -4129,11 +4357,11 @@ mod tests {
     fn test_compressed_mla_cache_savings_ratio() {
         // GLM-4.7-Flash dimensions
         let ratio = CompressedMlaCache::savings_ratio(
-            20,   // num_heads
-            192,  // qk_nope_head_dim
-            64,   // qk_rope_head_dim
-            256,  // v_head_dim
-            512,  // kv_lora_rank
+            20,  // num_heads
+            192, // qk_nope_head_dim
+            64,  // qk_rope_head_dim
+            256, // v_head_dim
+            512, // kv_lora_rank
         );
         // Full K: 20 * 256 = 5120, Full V: 20 * 256 = 5120, total = 10240
         // Compressed: 512 + 64 = 576
@@ -4160,7 +4388,8 @@ mod tests {
         let config = BitNetModelConfig::default();
 
         // Full KV cache per position:
-        let full_k_dim = config.num_attention_heads * (config.qk_nope_head_dim + config.qk_rope_head_dim);
+        let full_k_dim =
+            config.num_attention_heads * (config.qk_nope_head_dim + config.qk_rope_head_dim);
         let full_v_dim = config.num_attention_heads * config.v_head_dim;
         let full_per_pos = (full_k_dim + full_v_dim) * 4; // FP32
         let full_total = full_per_pos * positions;
@@ -4170,9 +4399,12 @@ mod tests {
         let compressed_total = compressed_per_pos * positions;
 
         // For 1024 positions, full = ~40 MB vs compressed = ~2.3 MB
-        assert!(full_total > compressed_total * 10,
+        assert!(
+            full_total > compressed_total * 10,
             "Full ({} bytes) should be >10x compressed ({} bytes)",
-            full_total, compressed_total);
+            full_total,
+            compressed_total
+        );
     }
 
     // =========================================================================
@@ -4195,7 +4427,11 @@ mod tests {
         // Helper: create a ternary tensor of given shape filled with +1
         let make_ternary = |rows: usize, cols: usize| -> TernaryTensor {
             let ternary_vals: Vec<i8> = (0..rows * cols)
-                .map(|i| match i % 3 { 0 => 1, 1 => -1, _ => 0 })
+                .map(|i| match i % 3 {
+                    0 => 1,
+                    1 => -1,
+                    _ => 0,
+                })
                 .collect();
             let packed = pack_ternary(&ternary_vals);
             let block_size = 256;
@@ -4220,8 +4456,13 @@ mod tests {
             k_proj: make_ternary(num_kv_heads * head_dim, hidden),
             v_proj: make_ternary(num_kv_heads * head_dim, hidden),
             o_proj: make_ternary(hidden, hidden),
-            q_a: None, q_b: None, q_a_norm: None,
-            kv_a_mqa: None, kv_a_norm: None, k_b: None, v_b: None,
+            q_a: None,
+            q_b: None,
+            q_a_norm: None,
+            kv_a_mqa: None,
+            kv_a_norm: None,
+            k_b: None,
+            v_b: None,
         };
 
         // Layer 0: Dense FFN
@@ -4353,7 +4594,12 @@ mod tests {
 
         // Same input should produce same output (no randomness)
         for (a, b) in logits_a.iter().zip(logits_b.iter()) {
-            assert!((a - b).abs() < 1e-6, "Forward should be deterministic: {} vs {}", a, b);
+            assert!(
+                (a - b).abs() < 1e-6,
+                "Forward should be deterministic: {} vs {}",
+                a,
+                b
+            );
         }
     }
 
@@ -4364,10 +4610,16 @@ mod tests {
         let logits_b = backend.forward(&[1]).unwrap();
 
         // Different tokens should produce different logits
-        let diff: f32 = logits_a.iter().zip(logits_b.iter())
+        let diff: f32 = logits_a
+            .iter()
+            .zip(logits_b.iter())
             .map(|(a, b)| (a - b).abs())
             .sum();
-        assert!(diff > 1e-6, "Different tokens should produce different logits, diff={}", diff);
+        assert!(
+            diff > 1e-6,
+            "Different tokens should produce different logits, diff={}",
+            diff
+        );
     }
 
     #[test]
@@ -4381,12 +4633,16 @@ mod tests {
         }
 
         // Predictor should have been built (rebuilds every 16 tokens)
-        assert!(backend.expert_predictor.is_some(),
-            "Expert predictor should be built after 16+ tokens");
+        assert!(
+            backend.expert_predictor.is_some(),
+            "Expert predictor should be built after 16+ tokens"
+        );
 
         let predictor = backend.expert_predictor.as_ref().unwrap();
-        assert!(predictor.total_observations() > 0,
-            "Predictor should have observations from routing history");
+        assert!(
+            predictor.total_observations() > 0,
+            "Predictor should have observations from routing history"
+        );
     }
 
     #[test]
@@ -4426,8 +4682,10 @@ mod tests {
         let backend = build_tiny_model();
 
         // Scratch pool should be allocated after build
-        assert!(backend.scratch.memory_bytes() > 0,
-            "Scratch pool should be allocated");
+        assert!(
+            backend.scratch.memory_bytes() > 0,
+            "Scratch pool should be allocated"
+        );
 
         // Should have buffers for at least hidden_size (8)
         assert!(backend.scratch.buf_hidden_a.len() >= 8);
@@ -4452,8 +4710,11 @@ mod tests {
 
         let tokens_per_sec = num_tokens as f64 / elapsed.as_secs_f64();
         // Just verify it runs and is reasonably fast (should be >100 tok/s on any machine)
-        assert!(tokens_per_sec > 10.0,
-            "Expected >10 tok/s for tiny model, got {:.1}", tokens_per_sec);
+        assert!(
+            tokens_per_sec > 10.0,
+            "Expected >10 tok/s for tiny model, got {:.1}",
+            tokens_per_sec
+        );
     }
 
     #[test]
@@ -4461,7 +4722,13 @@ mod tests {
         let backend = BitNetBackend::new();
 
         // Create a 64x64 ternary weight matrix
-        let vals: Vec<i8> = (0..64 * 64).map(|i| match i % 3 { 0 => 1, 1 => -1, _ => 0 }).collect();
+        let vals: Vec<i8> = (0..64 * 64)
+            .map(|i| match i % 3 {
+                0 => 1,
+                1 => -1,
+                _ => 0,
+            })
+            .collect();
         let packed = pack_ternary(&vals);
         let weight = TernaryTensor {
             packed_data: packed,
@@ -4480,8 +4747,11 @@ mod tests {
 
         let gemvs_per_sec = iters as f64 / elapsed.as_secs_f64();
         // Verify GEMV performance: should manage >10K/s for 64x64 on any machine
-        assert!(gemvs_per_sec > 1000.0,
-            "Expected >1K GEMV/s for 64x64, got {:.1}", gemvs_per_sec);
+        assert!(
+            gemvs_per_sec > 1000.0,
+            "Expected >1K GEMV/s for 64x64, got {:.1}",
+            gemvs_per_sec
+        );
     }
 
     #[test]
@@ -4497,8 +4767,11 @@ mod tests {
         let elapsed = start.elapsed();
 
         let norms_per_sec = iters as f64 / elapsed.as_secs_f64();
-        assert!(norms_per_sec > 10000.0,
-            "Expected >10K norms/s for dim=2048, got {:.1}", norms_per_sec);
+        assert!(
+            norms_per_sec > 10000.0,
+            "Expected >10K norms/s for dim=2048, got {:.1}",
+            norms_per_sec
+        );
     }
 
     #[test]
@@ -4513,8 +4786,11 @@ mod tests {
         let elapsed = start.elapsed();
 
         let ops_per_sec = iters as f64 / elapsed.as_secs_f64();
-        assert!(ops_per_sec > 10000.0,
-            "Expected >10K softmax/s for dim=1024, got {:.1}", ops_per_sec);
+        assert!(
+            ops_per_sec > 10000.0,
+            "Expected >10K softmax/s for dim=1024, got {:.1}",
+            ops_per_sec
+        );
     }
 
     #[test]
@@ -4527,7 +4803,13 @@ mod tests {
             ..Default::default()
         };
 
-        let vals: Vec<i8> = (0..32 * 64).map(|i| match i % 3 { 0 => 1, 1 => -1, _ => 0 }).collect();
+        let vals: Vec<i8> = (0..32 * 64)
+            .map(|i| match i % 3 {
+                0 => 1,
+                1 => -1,
+                _ => 0,
+            })
+            .collect();
         let packed = pack_ternary(&vals);
         let make_t = |rows, cols| TernaryTensor {
             packed_data: packed.clone(),
@@ -4552,7 +4834,10 @@ mod tests {
         let elapsed = start.elapsed();
 
         let experts_per_sec = iters as f64 / elapsed.as_secs_f64();
-        assert!(experts_per_sec > 100.0,
-            "Expected >100 expert_forward/s for 64→32→64, got {:.1}", experts_per_sec);
+        assert!(
+            experts_per_sec > 100.0,
+            "Expected >100 expert_forward/s for 64→32→64, got {:.1}",
+            experts_per_sec
+        );
     }
 }

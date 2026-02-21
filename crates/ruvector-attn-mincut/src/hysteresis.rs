@@ -10,7 +10,12 @@ pub struct HysteresisTracker {
 
 impl HysteresisTracker {
     pub fn new(tau: usize) -> Self {
-        Self { prev_mask: None, counts: Vec::new(), tau, step: 0 }
+        Self {
+            prev_mask: None,
+            counts: Vec::new(),
+            tau,
+            step: 0,
+        }
     }
 
     /// Apply hysteresis to a raw gating mask, returning the stabilised mask.
@@ -45,8 +50,12 @@ impl HysteresisTracker {
         result
     }
 
-    pub fn step(&self) -> usize { self.step }
-    pub fn current_mask(&self) -> Option<&[bool]> { self.prev_mask.as_deref() }
+    pub fn step(&self) -> usize {
+        self.step
+    }
+    pub fn current_mask(&self) -> Option<&[bool]> {
+        self.prev_mask.as_deref()
+    }
 }
 
 #[cfg(test)]
@@ -83,7 +92,7 @@ mod tests {
         let mut t = HysteresisTracker::new(3);
         t.apply(&[true]);
         t.apply(&[false]); // count=1
-        t.apply(&[true]);  // reset
+        t.apply(&[true]); // reset
         t.apply(&[false]); // count=1
         assert_eq!(t.apply(&[false]), vec![true]); // count=2 < 3
     }

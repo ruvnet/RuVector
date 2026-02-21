@@ -3,12 +3,12 @@
 //! Tests rvf-crypto segment signing and verification, SHAKE-256 hashing,
 //! and witness chain integrity.
 
+use ed25519_dalek::SigningKey;
+use rand::rngs::OsRng;
 use rvf_crypto::hash::{shake256_128, shake256_256};
 use rvf_crypto::sign::{sign_segment, verify_segment};
 use rvf_crypto::witness::{create_witness_chain, verify_witness_chain, WitnessEntry};
 use rvf_types::SegmentHeader;
-use ed25519_dalek::SigningKey;
-use rand::rngs::OsRng;
 
 fn make_test_header(seg_id: u64) -> SegmentHeader {
     let mut h = SegmentHeader::new(0x01, seg_id);
@@ -40,7 +40,11 @@ fn shake256_128_is_prefix_of_256() {
 
     assert_eq!(h128.len(), 16, "SHAKE-256-128 should produce 16 bytes");
     assert_eq!(h256.len(), 32, "SHAKE-256-256 should produce 32 bytes");
-    assert_eq!(&h128[..], &h256[..16], "128-bit should be prefix of 256-bit");
+    assert_eq!(
+        &h128[..],
+        &h256[..16],
+        "128-bit should be prefix of 256-bit"
+    );
 }
 
 #[test]

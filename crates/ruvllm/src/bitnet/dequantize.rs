@@ -194,9 +194,7 @@ mod tests {
         assert!(result[..256].iter().all(|&v| (v - 1.0).abs() < 1e-6));
 
         // Next 256 should be -1.0 * 2.0 = -2.0
-        assert!(result[256..512]
-            .iter()
-            .all(|&v| (v - (-2.0)).abs() < 1e-6));
+        assert!(result[256..512].iter().all(|&v| (v - (-2.0)).abs() < 1e-6));
     }
 
     #[test]

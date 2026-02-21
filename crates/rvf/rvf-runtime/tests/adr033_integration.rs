@@ -10,12 +10,10 @@
 //! 7. DoS hardening mechanisms
 
 use rvf_runtime::{
-    QueryOptions, RvfOptions, RvfStore,
-    is_degenerate_distribution, adaptive_n_probe, effective_n_probe_with_drift,
-    combined_effective_n_probe, centroid_distance_cv,
-    selective_safety_net_scan, should_activate_safety_net,
-    BudgetTokenBucket, NegativeCache, ProofOfWork, QuerySignature,
-    DEGENERATE_CV_THRESHOLD,
+    adaptive_n_probe, centroid_distance_cv, combined_effective_n_probe,
+    effective_n_probe_with_drift, is_degenerate_distribution, selective_safety_net_scan,
+    should_activate_safety_net, BudgetTokenBucket, NegativeCache, ProofOfWork, QueryOptions,
+    QuerySignature, RvfOptions, RvfStore, DEGENERATE_CV_THRESHOLD,
 };
 use rvf_types::quality::*;
 use rvf_types::security::*;
@@ -191,14 +189,10 @@ fn budget_caps_are_hard_limits() {
 #[test]
 fn disabled_budget_produces_no_scan() {
     let query = vec![0.0; 4];
-    let vecs: Vec<(u64, Vec<f32>)> = (0..100)
-        .map(|i| (i as u64, vec![i as f32; 4]))
-        .collect();
+    let vecs: Vec<(u64, Vec<f32>)> = (0..100).map(|i| (i as u64, vec![i as f32; 4])).collect();
     let refs: Vec<(u64, &[f32])> = vecs.iter().map(|(id, v)| (*id, v.as_slice())).collect();
 
-    let result = selective_safety_net_scan(
-        &query, 10, &[], &refs, &SafetyNetBudget::DISABLED, 100,
-    );
+    let result = selective_safety_net_scan(&query, 10, &[], &refs, &SafetyNetBudget::DISABLED, 100);
     assert!(result.candidates.is_empty());
     assert!(!result.budget_exhausted);
     assert_eq!(result.budget_report.distance_ops, 0);
@@ -296,7 +290,9 @@ fn security_policy_methods() {
 
 #[test]
 fn security_error_stable_display() {
-    let err = SecurityError::UnsignedManifest { manifest_offset: 0x1000 };
+    let err = SecurityError::UnsignedManifest {
+        manifest_offset: 0x1000,
+    };
     let s = format!("{err}");
     assert!(s.contains("unsigned manifest"));
     assert!(s.contains("1000"));
@@ -405,7 +401,10 @@ fn proof_of_work_solve_and_verify() {
 #[test]
 fn query_signature_deterministic() {
     let q = vec![0.1, 0.2, 0.3];
-    assert_eq!(QuerySignature::from_query(&q), QuerySignature::from_query(&q));
+    assert_eq!(
+        QuerySignature::from_query(&q),
+        QuerySignature::from_query(&q)
+    );
 }
 
 // ========================================================================
@@ -477,10 +476,8 @@ fn prefer_latency_disables_safety_net() {
 
 #[test]
 fn derive_quality_from_mixed() {
-    let q = derive_response_quality(&[
-        RetrievalQuality::Full,
-        RetrievalQuality::BruteForceBudgeted,
-    ]);
+    let q =
+        derive_response_quality(&[RetrievalQuality::Full, RetrievalQuality::BruteForceBudgeted]);
     assert_eq!(q, ResponseQuality::Degraded);
 }
 

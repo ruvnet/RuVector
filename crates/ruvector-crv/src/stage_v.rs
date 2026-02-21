@@ -54,7 +54,7 @@ impl StageVEngine {
 
         Ok(SignalLineProbe {
             query: String::new(), // Caller sets the text
-            target_stage: 0,     // Caller sets the stage
+            target_stage: 0,      // Caller sets the stage
             attention_weights,
             top_candidates,
         })
@@ -109,7 +109,9 @@ impl StageVEngine {
     /// responsive to interrogation.
     pub fn encode(&self, data: &StageVData, all_embeddings: &[Vec<f32>]) -> CrvResult<Vec<f32>> {
         if data.probes.is_empty() {
-            return Err(CrvError::EmptyInput("No probes in Stage V data".to_string()));
+            return Err(CrvError::EmptyInput(
+                "No probes in Stage V data".to_string(),
+            ));
         }
 
         let mut embedding = vec![0.0f32; self.dim];

@@ -177,7 +177,12 @@ impl LaneTelemetry {
     }
 
     /// Record a lane transition
-    pub fn record_transition(&mut self, from: PrecisionLane, to: PrecisionLane, reason: TransitionReason) {
+    pub fn record_transition(
+        &mut self,
+        from: PrecisionLane,
+        to: PrecisionLane,
+        reason: TransitionReason,
+    ) {
         self.transitions += 1;
         self.current_lane = to;
 
@@ -193,7 +198,8 @@ impl LaneTelemetry {
         }
 
         // Add to history
-        let timestamp_secs = self.start_time
+        let timestamp_secs = self
+            .start_time
             .map(|s| s.elapsed().as_secs_f64())
             .unwrap_or(0.0);
 

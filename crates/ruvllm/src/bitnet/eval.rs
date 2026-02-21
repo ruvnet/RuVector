@@ -27,8 +27,8 @@
 //! }
 //! ```
 
-use crate::error::{Result, RuvLLMError};
 use super::trace::TraceEntry;
+use crate::error::{Result, RuvLLMError};
 
 // ============================================================================
 // Gate Thresholds
@@ -278,7 +278,11 @@ impl EvalSuite {
         } else {
             // No positive predictions: precision is undefined.
             // If there are no positives in ground truth either, treat as 1.0
-            if false_negative == 0 { 1.0 } else { 0.0 }
+            if false_negative == 0 {
+                1.0
+            } else {
+                0.0
+            }
         };
 
         let recall = if true_positive + false_negative > 0 {
@@ -334,9 +338,7 @@ impl EvalSuite {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::bitnet::trace::{
-        CitationTrace, RefusalTrace, RoutingTrace, StopReason,
-    };
+    use crate::bitnet::trace::{CitationTrace, RefusalTrace, RoutingTrace, StopReason};
 
     /// Create a trace entry with configurable routing agreement.
     fn make_routing_entry(agreement: bool) -> TraceEntry {
@@ -514,7 +516,10 @@ mod tests {
             "Perfect refusal should pass. Details: {}",
             result.details
         );
-        assert!((result.score - 1.0).abs() < 1e-4, "Perfect F1 should be 1.0");
+        assert!(
+            (result.score - 1.0).abs() < 1e-4,
+            "Perfect F1 should be 1.0"
+        );
     }
 
     #[test]

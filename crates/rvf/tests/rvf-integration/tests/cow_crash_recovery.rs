@@ -51,9 +51,7 @@ fn find_manifest_offsets(file_bytes: &[u8]) -> Vec<(usize, u64)> {
             let seg_type = file_bytes[i + 5];
             if seg_type == 0x05 {
                 // Manifest
-                let seg_id = u64::from_le_bytes(
-                    file_bytes[i + 0x08..i + 0x10].try_into().unwrap(),
-                );
+                let seg_id = u64::from_le_bytes(file_bytes[i + 0x08..i + 0x10].try_into().unwrap());
                 manifests.push((i, seg_id));
             }
         }
@@ -96,7 +94,8 @@ fn store_survives_garbage_appended() {
     // Reopen should succeed — the manifest scanner finds the latest valid manifest
     let store = RvfStore::open_readonly(&path).unwrap();
     assert_eq!(
-        store.status().total_vectors, 2,
+        store.status().total_vectors,
+        2,
         "store should still report 2 vectors despite garbage appended"
     );
 
@@ -186,7 +185,8 @@ fn multiple_manifests_last_wins() {
     // Reopen and verify the latest state is used (2 vectors)
     let store = RvfStore::open_readonly(&path).unwrap();
     assert_eq!(
-        store.status().total_vectors, 2,
+        store.status().total_vectors,
+        2,
         "latest manifest should reflect both batches"
     );
 
@@ -226,7 +226,8 @@ fn corrupted_trailing_bytes_dont_break_store() {
     // Reopen should still work
     let store = RvfStore::open_readonly(&path).unwrap();
     assert_eq!(
-        store.status().total_vectors, 1,
+        store.status().total_vectors,
+        1,
         "store should still have 1 vector despite partial segment appended"
     );
 
@@ -281,8 +282,15 @@ fn reopened_store_preserves_all_data() {
             let results = store
                 .query(&vectors[i as usize], 1, &QueryOptions::default())
                 .unwrap();
-            assert_eq!(results.len(), 1, "query for vector {i} should return 1 result");
-            assert_eq!(results[0].id, i, "nearest neighbor for vector {i} should be itself");
+            assert_eq!(
+                results.len(),
+                1,
+                "query for vector {i} should return 1 result"
+            );
+            assert_eq!(
+                results[0].id, i,
+                "nearest neighbor for vector {i} should be itself"
+            );
             assert!(
                 results[0].distance < f32::EPSILON,
                 "self-distance for vector {i} should be ~0"
@@ -310,7 +318,11 @@ fn deletion_persists_through_reopen() {
         let v2 = vec![0.0, 1.0, 0.0, 0.0];
         let v3 = vec![0.0, 0.0, 1.0, 0.0];
         store
-            .ingest_batch(&[v1.as_slice(), v2.as_slice(), v3.as_slice()], &[1, 2, 3], None)
+            .ingest_batch(
+                &[v1.as_slice(), v2.as_slice(), v3.as_slice()],
+                &[1, 2, 3],
+                None,
+            )
             .unwrap();
         store.delete(&[2]).unwrap();
         store.close().unwrap();
@@ -319,7 +331,8 @@ fn deletion_persists_through_reopen() {
     {
         let store = RvfStore::open_readonly(&path).unwrap();
         assert_eq!(
-            store.status().total_vectors, 2,
+            store.status().total_vectors,
+            2,
             "should have 2 vectors after deletion and reopen"
         );
 

@@ -138,16 +138,16 @@ impl MembershipHeader {
             filter_type: data[0x06],
             filter_mode: data[0x07],
             vector_count: u64::from_le_bytes([
-                data[0x08], data[0x09], data[0x0A], data[0x0B],
-                data[0x0C], data[0x0D], data[0x0E], data[0x0F],
+                data[0x08], data[0x09], data[0x0A], data[0x0B], data[0x0C], data[0x0D], data[0x0E],
+                data[0x0F],
             ]),
             member_count: u64::from_le_bytes([
-                data[0x10], data[0x11], data[0x12], data[0x13],
-                data[0x14], data[0x15], data[0x16], data[0x17],
+                data[0x10], data[0x11], data[0x12], data[0x13], data[0x14], data[0x15], data[0x16],
+                data[0x17],
             ]),
             filter_offset: u64::from_le_bytes([
-                data[0x18], data[0x19], data[0x1A], data[0x1B],
-                data[0x1C], data[0x1D], data[0x1E], data[0x1F],
+                data[0x18], data[0x19], data[0x1A], data[0x1B], data[0x1C], data[0x1D], data[0x1E],
+                data[0x1F],
             ]),
             filter_size: u32::from_le_bytes([data[0x20], data[0x21], data[0x22], data[0x23]]),
             generation_id: u32::from_le_bytes([data[0x24], data[0x25], data[0x26], data[0x27]]),
@@ -157,8 +157,8 @@ impl MembershipHeader {
                 h
             },
             bloom_offset: u64::from_le_bytes([
-                data[0x48], data[0x49], data[0x4A], data[0x4B],
-                data[0x4C], data[0x4D], data[0x4E], data[0x4F],
+                data[0x48], data[0x49], data[0x4A], data[0x4B], data[0x4C], data[0x4D], data[0x4E],
+                data[0x4F],
             ]),
             bloom_size: u32::from_le_bytes([data[0x50], data[0x51], data[0x52], data[0x53]]),
             _reserved: u32::from_le_bytes([data[0x54], data[0x55], data[0x56], data[0x57]]),

@@ -129,10 +129,7 @@ impl HnswGraph {
 
         // Add the node to each layer from 0 to `level`.
         for l in 0..=level {
-            self.layers[l]
-                .adjacency
-                .entry(id)
-                .or_default();
+            self.layers[l].adjacency.entry(id).or_default();
         }
 
         let query_vec = match vectors.get_vector(id) {
@@ -154,13 +151,7 @@ impl HnswGraph {
         let top = self.max_layer;
         if top > level {
             for l in (level + 1..=top).rev() {
-                current_ep = self.greedy_closest(
-                    query_vec,
-                    current_ep,
-                    l,
-                    vectors,
-                    distance_fn,
-                );
+                current_ep = self.greedy_closest(query_vec, current_ep, l, vectors, distance_fn);
             }
         }
 
@@ -182,25 +173,17 @@ impl HnswGraph {
             );
 
             // Select the closest `max_neighbors` candidates.
-            let selected: Vec<(u64, f32)> = candidates
-                .iter()
-                .take(max_neighbors)
-                .cloned()
-                .collect();
+            let selected: Vec<(u64, f32)> =
+                candidates.iter().take(max_neighbors).cloned().collect();
 
             // Connect the new node to selected neighbors.
             let neighbor_ids: Vec<u64> = selected.iter().map(|&(nid, _)| nid).collect();
-            self.layers[l]
-                .adjacency
-                .insert(id, neighbor_ids.clone());
+            self.layers[l].adjacency.insert(id, neighbor_ids.clone());
 
             // Bidirectional: add the new node as a neighbor of each selected node,
             // then prune if over the limit.
             for &nid in &neighbor_ids {
-                let nlist = self.layers[l]
-                    .adjacency
-                    .entry(nid)
-                    .or_default();
+                let nlist = self.layers[l].adjacency.entry(nid).or_default();
                 if !nlist.contains(&id) {
                     nlist.push(id);
                 }
@@ -266,10 +249,10 @@ impl HnswGraph {
         vectors: &dyn VectorStore,
         distance_fn: &dyn Fn(&[f32], &[f32]) -> f32,
     ) -> Vec<(u64, f32)> {
-        #[cfg(feature = "std")]
-        use std::collections::HashSet;
         #[cfg(not(feature = "std"))]
         use alloc::collections::BTreeSet as HashSet;
+        #[cfg(feature = "std")]
+        use std::collections::HashSet;
 
         let mut visited = HashSet::new();
         // candidates sorted by (distance, id) — acts as a min-heap.
@@ -321,7 +304,10 @@ impl HnswGraph {
                         // Insert into candidates (sorted).
                         let pos = candidates[candidate_idx..]
                             .binary_search_by(|probe| {
-                                probe.1.partial_cmp(&d).unwrap_or(core::cmp::Ordering::Equal)
+                                probe
+                                    .1
+                                    .partial_cmp(&d)
+                                    .unwrap_or(core::cmp::Ordering::Equal)
                             })
                             .unwrap_or_else(|e| e);
                         candidates.insert(candidate_idx + pos, (nid, d));
@@ -329,7 +315,10 @@ impl HnswGraph {
                         // Insert into results (sorted).
                         let rpos = results
                             .binary_search_by(|probe| {
-                                probe.1.partial_cmp(&d).unwrap_or(core::cmp::Ordering::Equal)
+                                probe
+                                    .1
+                                    .partial_cmp(&d)
+                                    .unwrap_or(core::cmp::Ordering::Equal)
                             })
                             .unwrap_or_else(|e| e);
                         results.insert(rpos, (nid, d));
@@ -366,7 +355,9 @@ impl HnswGraph {
         let mut scored: Vec<(u64, f32)> = neighbors
             .iter()
             .filter_map(|&nid| {
-                vectors.get_vector(nid).map(|nv| (nid, distance_fn(node_vec, nv)))
+                vectors
+                    .get_vector(nid)
+                    .map(|nv| (nid, distance_fn(node_vec, nv)))
             })
             .collect();
         scored.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(core::cmp::Ordering::Equal));
@@ -409,9 +400,7 @@ impl HnswGraph {
 
     /// Returns the total number of nodes across all layers.
     pub fn node_count(&self) -> usize {
-        self.layers
-            .first()
-            .map_or(0, |l| l.adjacency.len())
+        self.layers.first().map_or(0, |l| l.adjacency.len())
     }
 }
 

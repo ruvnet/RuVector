@@ -88,11 +88,10 @@ impl ContractHealth {
                 100.0
             };
             (sps - 5.0) / 95.0
-        }).clamp(0.0, 1.0);
+        })
+        .clamp(0.0, 1.0);
 
-        let compliant = raw.policy_violations == 0
-            && contradiction_rate < 0.01
-            && accuracy >= 0.90;
+        let compliant = raw.policy_violations == 0 && contradiction_rate < 0.01 && accuracy >= 0.90;
 
         ContractHealth {
             solved_per_cost,
@@ -115,13 +114,28 @@ impl ContractHealth {
     pub fn print(&self) {
         println!("  Contract Health:");
         println!("    Solved/Cost:        {:.4}", self.solved_per_cost);
-        println!("    Noise Stability:    {:.2}%", self.noise_stability * 100.0);
-        println!("    Contradiction Rate: {:.4}%", self.contradiction_rate * 100.0);
-        println!("    Rollback Correct:   {:.2}%", self.rollback_correctness * 100.0);
+        println!(
+            "    Noise Stability:    {:.2}%",
+            self.noise_stability * 100.0
+        );
+        println!(
+            "    Contradiction Rate: {:.4}%",
+            self.contradiction_rate * 100.0
+        );
+        println!(
+            "    Rollback Correct:   {:.2}%",
+            self.rollback_correctness * 100.0
+        );
         println!("    Policy Violations:  {}", self.policy_violations);
         println!("    Accuracy:           {:.2}%", self.accuracy * 100.0);
-        println!("    Cost Efficiency:    {:.2}%", self.cost_efficiency * 100.0);
-        println!("    Compliant:          {}", if self.compliant { "YES" } else { "NO" });
+        println!(
+            "    Cost Efficiency:    {:.2}%",
+            self.cost_efficiency * 100.0
+        );
+        println!(
+            "    Compliant:          {}",
+            if self.compliant { "YES" } else { "NO" }
+        );
     }
 }
 
@@ -193,15 +207,45 @@ impl ContractDelta {
     pub fn print(&self) {
         let arrow = |v: f64, invert: bool| {
             let positive = if invert { v < 0.0 } else { v > 0.0 };
-            if positive { "+" } else if v == 0.0 { "=" } else { "-" }
+            if positive {
+                "+"
+            } else if v == 0.0 {
+                "="
+            } else {
+                "-"
+            }
         };
         println!("  Contract Delta:");
-        println!("    Solved/Cost:     {:>+.4} [{}]", self.solved_per_cost_delta, arrow(self.solved_per_cost_delta, false));
-        println!("    Noise Stability: {:>+.4} [{}]", self.noise_stability_delta, arrow(self.noise_stability_delta, false));
-        println!("    Contradiction:   {:>+.4} [{}]", self.contradiction_rate_delta, arrow(self.contradiction_rate_delta, true));
-        println!("    Rollback:        {:>+.4} [{}]", self.rollback_delta, arrow(self.rollback_delta, false));
-        println!("    Accuracy:        {:>+.4} [{}]", self.accuracy_delta, arrow(self.accuracy_delta, false));
-        println!("    Cost Efficiency: {:>+.4} [{}]", self.cost_efficiency_delta, arrow(self.cost_efficiency_delta, false));
+        println!(
+            "    Solved/Cost:     {:>+.4} [{}]",
+            self.solved_per_cost_delta,
+            arrow(self.solved_per_cost_delta, false)
+        );
+        println!(
+            "    Noise Stability: {:>+.4} [{}]",
+            self.noise_stability_delta,
+            arrow(self.noise_stability_delta, false)
+        );
+        println!(
+            "    Contradiction:   {:>+.4} [{}]",
+            self.contradiction_rate_delta,
+            arrow(self.contradiction_rate_delta, true)
+        );
+        println!(
+            "    Rollback:        {:>+.4} [{}]",
+            self.rollback_delta,
+            arrow(self.rollback_delta, false)
+        );
+        println!(
+            "    Accuracy:        {:>+.4} [{}]",
+            self.accuracy_delta,
+            arrow(self.accuracy_delta, false)
+        );
+        println!(
+            "    Cost Efficiency: {:>+.4} [{}]",
+            self.cost_efficiency_delta,
+            arrow(self.cost_efficiency_delta, false)
+        );
         println!("    Dimensions improved:  {}/6", self.dimensions_improved);
         println!("    Dimensions regressed: {}/6", self.dimensions_regressed);
     }
@@ -248,11 +292,11 @@ impl Default for AutonomyGates {
         Self {
             min_compliant_cycles: 3,
             //                          L0    L1    L2    L3    L4
-            max_contradiction_rate: [1.0,  0.05, 0.02, 0.01, 0.005],
-            min_accuracy:           [0.0,  0.70, 0.85, 0.92, 0.96],
-            min_cost_efficiency:    [0.0,  0.20, 0.40, 0.60, 0.75],
-            min_noise_stability:    [0.0,  0.50, 0.65, 0.80, 0.90],
-            zero_violations_above:  AutonomyLevel::ExecuteTools,
+            max_contradiction_rate: [1.0, 0.05, 0.02, 0.01, 0.005],
+            min_accuracy: [0.0, 0.70, 0.85, 0.92, 0.96],
+            min_cost_efficiency: [0.0, 0.20, 0.40, 0.60, 0.75],
+            min_noise_stability: [0.0, 0.50, 0.65, 0.80, 0.90],
+            zero_violations_above: AutonomyLevel::ExecuteTools,
         }
     }
 }
@@ -264,7 +308,9 @@ pub struct AutonomyEvaluator {
 
 impl Default for AutonomyEvaluator {
     fn default() -> Self {
-        Self { gates: AutonomyGates::default() }
+        Self {
+            gates: AutonomyGates::default(),
+        }
     }
 }
 
@@ -313,14 +359,39 @@ impl AutonomyEvaluator {
     }
 
     pub fn print_status(&self, level: AutonomyLevel, health: &ContractHealth) {
-        let labels = ["Read-Only", "Write Memory", "Execute Tools", "Write External", "Deploy & Operate"];
-        println!("  Autonomy Level: {} ({})", level as usize, labels[level as usize]);
+        let labels = [
+            "Read-Only",
+            "Write Memory",
+            "Execute Tools",
+            "Write External",
+            "Deploy & Operate",
+        ];
+        println!(
+            "  Autonomy Level: {} ({})",
+            level as usize, labels[level as usize]
+        );
         println!("  Gates for next level:");
         let next = (level as usize + 1).min(4);
-        println!("    Accuracy:       {:.0}% (need {:.0}%)", health.accuracy * 100.0, self.gates.min_accuracy[next] * 100.0);
-        println!("    Contradiction:  {:.3}% (need <{:.3}%)", health.contradiction_rate * 100.0, self.gates.max_contradiction_rate[next] * 100.0);
-        println!("    Cost Eff:       {:.0}% (need {:.0}%)", health.cost_efficiency * 100.0, self.gates.min_cost_efficiency[next] * 100.0);
-        println!("    Noise Stab:     {:.0}% (need {:.0}%)", health.noise_stability * 100.0, self.gates.min_noise_stability[next] * 100.0);
+        println!(
+            "    Accuracy:       {:.0}% (need {:.0}%)",
+            health.accuracy * 100.0,
+            self.gates.min_accuracy[next] * 100.0
+        );
+        println!(
+            "    Contradiction:  {:.3}% (need <{:.3}%)",
+            health.contradiction_rate * 100.0,
+            self.gates.max_contradiction_rate[next] * 100.0
+        );
+        println!(
+            "    Cost Eff:       {:.0}% (need {:.0}%)",
+            health.cost_efficiency * 100.0,
+            self.gates.min_cost_efficiency[next] * 100.0
+        );
+        println!(
+            "    Noise Stab:     {:.0}% (need {:.0}%)",
+            health.noise_stability * 100.0,
+            self.gates.min_noise_stability[next] * 100.0
+        );
     }
 }
 
@@ -368,10 +439,15 @@ impl ViabilityChecklist {
 
         // Cost trending down: solved_per_cost increases over time
         let cost_trending_down = if history.len() >= 3 {
-            let first_third: f64 = history[..history.len() / 3].iter()
-                .map(|h| h.solved_per_cost).sum::<f64>() / (history.len() / 3) as f64;
-            let last_third: f64 = history[history.len() * 2 / 3..].iter()
-                .map(|h| h.solved_per_cost).sum::<f64>()
+            let first_third: f64 = history[..history.len() / 3]
+                .iter()
+                .map(|h| h.solved_per_cost)
+                .sum::<f64>()
+                / (history.len() / 3) as f64;
+            let last_third: f64 = history[history.len() * 2 / 3..]
+                .iter()
+                .map(|h| h.solved_per_cost)
+                .sum::<f64>()
                 / (history.len() - history.len() * 2 / 3) as f64;
             last_third > first_third
         } else {
@@ -398,12 +474,34 @@ impl ViabilityChecklist {
     pub fn print(&self) {
         let check = |b: bool| if b { "PASS" } else { "FAIL" };
         println!("  Viability Checklist:");
-        println!("    1. Deterministic replay:       {}", check(self.deterministic_replay));
-        println!("    2. Improving w/o violations:    {}", check(self.improving_without_violations));
-        println!("    3. Reliable rollback:           {}", check(self.reliable_rollback));
-        println!("    4. Infinite gradeable tasks:    {}", check(self.infinite_gradeable_tasks));
-        println!("    5. Cost trending down:          {}", check(self.cost_trending_down));
-        println!("    Overall: {}", if self.all_pass() { "VIABLE AGI TRAJECTORY" } else { "NOT YET VIABLE" });
+        println!(
+            "    1. Deterministic replay:       {}",
+            check(self.deterministic_replay)
+        );
+        println!(
+            "    2. Improving w/o violations:    {}",
+            check(self.improving_without_violations)
+        );
+        println!(
+            "    3. Reliable rollback:           {}",
+            check(self.reliable_rollback)
+        );
+        println!(
+            "    4. Infinite gradeable tasks:    {}",
+            check(self.infinite_gradeable_tasks)
+        );
+        println!(
+            "    5. Cost trending down:          {}",
+            check(self.cost_trending_down)
+        );
+        println!(
+            "    Overall: {}",
+            if self.all_pass() {
+                "VIABLE AGI TRAJECTORY"
+            } else {
+                "NOT YET VIABLE"
+            }
+        );
     }
 }
 

@@ -49,11 +49,7 @@ impl QuantumSearch {
     ///
     /// Returns up to `k` items from `scores`, preserving their original
     /// `(id, score)` tuples.
-    pub fn diversity_select(
-        &self,
-        scores: &[(String, f32)],
-        k: usize,
-    ) -> Vec<(String, f32)> {
+    pub fn diversity_select(&self, scores: &[(String, f32)], k: usize) -> Vec<(String, f32)> {
         if scores.is_empty() || k == 0 {
             return Vec::new();
         }
@@ -82,16 +78,15 @@ impl QuantumSearch {
     ///
     /// The boost factor is derived from the ratio of items above vs
     /// below the threshold, clamped so that results stay meaningful.
-    pub fn amplitude_boost(
-        &self,
-        scores: &mut [(String, f32)],
-        target_threshold: f32,
-    ) {
+    pub fn amplitude_boost(&self, scores: &mut [(String, f32)], target_threshold: f32) {
         if scores.is_empty() {
             return;
         }
 
-        let above_count = scores.iter().filter(|(_, s)| *s >= target_threshold).count();
+        let above_count = scores
+            .iter()
+            .filter(|(_, s)| *s >= target_threshold)
+            .count();
         let below_count = scores.len() - above_count;
 
         if above_count == 0 || below_count == 0 {
@@ -101,8 +96,7 @@ impl QuantumSearch {
 
         // Boost factor: ratio of total to above (analogous to Grover's
         // N/M amplification), clamped to [1.5, 4.0] to avoid extremes.
-        let boost_factor = (scores.len() as f64 / above_count as f64)
-            .clamp(1.5, 4.0);
+        let boost_factor = (scores.len() as f64 / above_count as f64).clamp(1.5, 4.0);
         let sqrt_boost = (boost_factor).sqrt() as f32;
         let inv_sqrt_boost = 1.0 / sqrt_boost;
 
@@ -119,10 +113,7 @@ impl QuantumSearch {
             .iter()
             .map(|(_, s)| *s)
             .fold(f32::NEG_INFINITY, f32::max);
-        let min_score = scores
-            .iter()
-            .map(|(_, s)| *s)
-            .fold(f32::INFINITY, f32::min);
+        let min_score = scores.iter().map(|(_, s)| *s).fold(f32::INFINITY, f32::min);
 
         let range = max_score - min_score;
         if range > f32::EPSILON {
@@ -147,7 +138,7 @@ impl QuantumSearch {
         scores: &[(String, f32)],
         k: usize,
     ) -> Option<Vec<(String, f32)>> {
-        use ruqu_algorithms::{Graph, QaoaConfig, run_qaoa};
+        use ruqu_algorithms::{run_qaoa, Graph, QaoaConfig};
 
         let n = scores.len();
         if n < 2 {
@@ -209,10 +200,7 @@ impl QuantumSearch {
             return None;
         }
 
-        let mut selected: Vec<(String, f32)> = chosen
-            .iter()
-            .map(|&i| scores[i].clone())
-            .collect();
+        let mut selected: Vec<(String, f32)> = chosen.iter().map(|&i| scores[i].clone()).collect();
         selected.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
         selected.truncate(k);
 
@@ -223,16 +211,15 @@ impl QuantumSearch {
     // Classical greedy diversity selection (WASM + large-k fallback)
     // ------------------------------------------------------------------
 
-    fn greedy_diversity_select(
-        &self,
-        scores: &[(String, f32)],
-        k: usize,
-    ) -> Vec<(String, f32)> {
-        let mut remaining: Vec<(usize, &(String, f32))> =
-            scores.iter().enumerate().collect();
+    fn greedy_diversity_select(&self, scores: &[(String, f32)], k: usize) -> Vec<(String, f32)> {
+        let mut remaining: Vec<(usize, &(String, f32))> = scores.iter().enumerate().collect();
 
         // Sort by score descending to seed with the best item.
-        remaining.sort_by(|a, b| b.1 .1.partial_cmp(&a.1 .1).unwrap_or(std::cmp::Ordering::Equal));
+        remaining.sort_by(|a, b| {
+            b.1 .1
+                .partial_cmp(&a.1 .1)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
 
         let mut selected: Vec<(String, f32)> = Vec::with_capacity(k);
 
@@ -326,10 +313,7 @@ mod tests {
     #[test]
     fn test_amplitude_boost_all_above() {
         let qs = QuantumSearch::new();
-        let mut scores = vec![
-            ("a".to_string(), 0.8),
-            ("b".to_string(), 0.9),
-        ];
+        let mut scores = vec![("a".to_string(), 0.8), ("b".to_string(), 0.9)];
         let orig = scores.clone();
         qs.amplitude_boost(&mut scores, 0.5);
         // All above threshold -> no change in relative ordering,

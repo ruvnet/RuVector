@@ -98,11 +98,7 @@ pub fn adaptive_n_probe(
 ///
 /// When centroid epoch drift is detected, widen n_probe to compensate
 /// for stale centroids. Linear widening up to 2x at max_drift.
-pub fn effective_n_probe_with_drift(
-    base_n_probe: u32,
-    epoch_drift: u32,
-    max_drift: u32,
-) -> u32 {
+pub fn effective_n_probe_with_drift(base_n_probe: u32, epoch_drift: u32, max_drift: u32) -> u32 {
     if max_drift == 0 {
         return base_n_probe;
     }
@@ -138,7 +134,9 @@ pub fn combined_effective_n_probe(
     let degenerate = is_degenerate_distribution(centroid_distances, base_n_probe as usize);
 
     // Cap at 4x base to prevent drift+adversarial from stacking unboundedly.
-    let combined = drift_adjusted.max(adversarial_adjusted).min(base_n_probe.saturating_mul(4));
+    let combined = drift_adjusted
+        .max(adversarial_adjusted)
+        .min(base_n_probe.saturating_mul(4));
 
     (combined, degenerate)
 }

@@ -17,7 +17,9 @@ fn random_vector(dim: usize, seed: u64) -> Vec<f32> {
     let mut v = Vec::with_capacity(dim);
     let mut x = seed;
     for _ in 0..dim {
-        x = x.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        x = x
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
         v.push(((x >> 33) as f32) / (u32::MAX as f32) - 0.5);
     }
     v
@@ -52,12 +54,9 @@ fn scan_segment_headers(file_bytes: &[u8]) -> Vec<(usize, u8, u64, u64)> {
     for i in 0..=last_possible {
         if file_bytes[i..i + 4] == magic_bytes {
             let seg_type = file_bytes[i + 5];
-            let seg_id = u64::from_le_bytes(
-                file_bytes[i + 0x08..i + 0x10].try_into().unwrap(),
-            );
-            let payload_len = u64::from_le_bytes(
-                file_bytes[i + 0x10..i + 0x18].try_into().unwrap(),
-            );
+            let seg_id = u64::from_le_bytes(file_bytes[i + 0x08..i + 0x10].try_into().unwrap());
+            let payload_len =
+                u64::from_le_bytes(file_bytes[i + 0x10..i + 0x18].try_into().unwrap());
             results.push((i, seg_type, seg_id, payload_len));
         }
     }
@@ -96,13 +95,19 @@ fn cross_platform_cosine_round_trip() {
     {
         let store = RvfStore::open_readonly(&original_path).unwrap();
         original_results = store.query(&query, 10, &QueryOptions::default()).unwrap();
-        assert!(!original_results.is_empty(), "original query should return results");
+        assert!(
+            !original_results.is_empty(),
+            "original query should return results"
+        );
         store.close().unwrap();
     }
 
     // Phase 2: Export to bytes.
     let exported_bytes = read_file_bytes(&original_path);
-    assert!(!exported_bytes.is_empty(), "exported bytes should not be empty");
+    assert!(
+        !exported_bytes.is_empty(),
+        "exported bytes should not be empty"
+    );
 
     // Phase 3: Re-import from bytes at a new location.
     let reimported_path = dir.path().join("reimported_cosine.rvf");
@@ -336,7 +341,11 @@ fn cross_platform_segment_headers_preserved() {
 
         let query = random_vector(dim as usize, 25);
         let results = store.query(&query, 5, &QueryOptions::default()).unwrap();
-        assert_eq!(results.len(), 5, "re-imported store should return query results");
+        assert_eq!(
+            results.len(),
+            5,
+            "re-imported store should return query results"
+        );
         store.close().unwrap();
     }
 }
@@ -362,8 +371,7 @@ fn cross_platform_all_metrics_consistent() {
 
         // Create and populate.
         {
-            let mut store =
-                RvfStore::create(&original_path, make_options(dim, *metric)).unwrap();
+            let mut store = RvfStore::create(&original_path, make_options(dim, *metric)).unwrap();
 
             let vectors: Vec<Vec<f32>> = (0..num_vectors)
                 .map(|i| random_vector(dim as usize, i as u64 * 17 + 2))
@@ -390,8 +398,7 @@ fn cross_platform_all_metrics_consistent() {
         // Verify results match within tolerance.
         {
             let store = RvfStore::open_readonly(&reimported_path).unwrap();
-            let reimported_results =
-                store.query(&query, 10, &QueryOptions::default()).unwrap();
+            let reimported_results = store.query(&query, 10, &QueryOptions::default()).unwrap();
 
             assert_eq!(
                 original_results.len(),
@@ -429,9 +436,7 @@ fn cross_platform_byte_identical_transfer() {
         let mut store =
             RvfStore::create(&original_path, make_options(dim, DistanceMetric::L2)).unwrap();
 
-        let vectors: Vec<Vec<f32>> = (0..10)
-            .map(|i| vec![i as f32; dim as usize])
-            .collect();
+        let vectors: Vec<Vec<f32>> = (0..10).map(|i| vec![i as f32; dim as usize]).collect();
         let refs: Vec<&[f32]> = vectors.iter().map(|v| v.as_slice()).collect();
         let ids: Vec<u64> = (1..=10).collect();
         store.ingest_batch(&refs, &ids, None).unwrap();

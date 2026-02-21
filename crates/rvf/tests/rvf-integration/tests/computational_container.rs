@@ -14,10 +14,10 @@
 //! - KernelHeader payload:    128 bytes (magic 0x52564B4E = "RVKN")
 //! - EbpfHeader payload:      64 bytes  (magic 0x52564250 = "RVBP")
 
-use rvf_types::{SegmentFlags, SegmentType, SEGMENT_HEADER_SIZE, SEGMENT_MAGIC, SEGMENT_VERSION};
-use rvf_wire::{read_segment, validate_segment, write_segment};
 use rvf_runtime::options::{DistanceMetric, RvfOptions};
 use rvf_runtime::RvfStore;
+use rvf_types::{SegmentFlags, SegmentType, SEGMENT_HEADER_SIZE, SEGMENT_MAGIC, SEGMENT_VERSION};
+use rvf_wire::{read_segment, validate_segment, write_segment};
 use std::fs::OpenOptions;
 use std::io::{Read, Write};
 use tempfile::TempDir;
@@ -170,7 +170,11 @@ fn make_ebpf_header(
 // Helper: build a raw 64-byte RVF segment header
 // ---------------------------------------------------------------------------
 
-fn build_raw_segment_header(seg_type: u8, seg_id: u64, payload_len: u64) -> [u8; SEGMENT_HEADER_SIZE] {
+fn build_raw_segment_header(
+    seg_type: u8,
+    seg_id: u64,
+    payload_len: u64,
+) -> [u8; SEGMENT_HEADER_SIZE] {
     let mut buf = [0u8; SEGMENT_HEADER_SIZE];
     buf[0x00..0x04].copy_from_slice(&SEGMENT_MAGIC.to_le_bytes());
     buf[0x04] = SEGMENT_VERSION;
@@ -223,12 +227,9 @@ fn scan_segments(file_bytes: &[u8]) -> Vec<(usize, u8, u64, u64)> {
     for i in 0..=last_possible {
         if file_bytes[i..i + 4] == magic_bytes {
             let seg_type = file_bytes[i + 5];
-            let seg_id = u64::from_le_bytes(
-                file_bytes[i + 0x08..i + 0x10].try_into().unwrap(),
-            );
-            let payload_len = u64::from_le_bytes(
-                file_bytes[i + 0x10..i + 0x18].try_into().unwrap(),
-            );
+            let seg_id = u64::from_le_bytes(file_bytes[i + 0x08..i + 0x10].try_into().unwrap());
+            let payload_len =
+                u64::from_le_bytes(file_bytes[i + 0x10..i + 0x18].try_into().unwrap());
             segments.push((i, seg_type, seg_id, payload_len));
         }
     }
@@ -258,14 +259,14 @@ fn make_options(dim: u16) -> RvfOptions {
 fn kernel_header_round_trip() {
     let image_hash = simple_test_hash(b"test kernel image bytes");
     let kernel_hdr = make_kernel_header(
-        ARCH_X86_64,     // arch
-        KERNEL_TYPE_UNIKERNEL, // kernel_type
+        ARCH_X86_64,                                // arch
+        KERNEL_TYPE_UNIKERNEL,                      // kernel_type
         KERNEL_FLAG_SIGNED | KERNEL_FLAG_READ_ONLY, // flags
-        0x0000_1000,     // entry_point
-        4096,            // image_size
-        512,             // bss_size
-        4,               // stack_pages
-        256,             // max_dimension
+        0x0000_1000,                                // entry_point
+        4096,                                       // image_size
+        512,                                        // bss_size
+        4,                                          // stack_pages
+        256,                                        // max_dimension
         image_hash,
     );
 
@@ -284,15 +285,26 @@ fn kernel_header_round_trip() {
     // Verify outer segment header
     assert_eq!(header.magic, SEGMENT_MAGIC, "segment magic mismatch");
     assert_eq!(header.version, SEGMENT_VERSION, "segment version mismatch");
-    assert_eq!(header.seg_type, SegmentType::Kernel as u8, "segment type should be Kernel (0x0E)");
+    assert_eq!(
+        header.seg_type,
+        SegmentType::Kernel as u8,
+        "segment type should be Kernel (0x0E)"
+    );
     assert_eq!(header.segment_id, 100, "segment_id mismatch");
-    assert_eq!(header.payload_length, KERNEL_HEADER_SIZE as u64, "payload length mismatch");
+    assert_eq!(
+        header.payload_length, KERNEL_HEADER_SIZE as u64,
+        "payload length mismatch"
+    );
 
     // Validate content hash
     validate_segment(&header, payload).expect("content hash validation should pass");
 
     // Verify inner KernelHeader fields
-    assert_eq!(payload.len(), KERNEL_HEADER_SIZE, "kernel header payload size");
+    assert_eq!(
+        payload.len(),
+        KERNEL_HEADER_SIZE,
+        "kernel header payload size"
+    );
 
     let magic = u32::from_le_bytes(payload[0..4].try_into().unwrap());
     assert_eq!(magic, KERNEL_MAGIC, "kernel magic mismatch");
@@ -304,7 +316,11 @@ fn kernel_header_round_trip() {
     assert_eq!(payload[7], KERNEL_TYPE_UNIKERNEL, "kernel_type mismatch");
 
     let flags = u32::from_le_bytes(payload[8..12].try_into().unwrap());
-    assert_eq!(flags, KERNEL_FLAG_SIGNED | KERNEL_FLAG_READ_ONLY, "kernel flags mismatch");
+    assert_eq!(
+        flags,
+        KERNEL_FLAG_SIGNED | KERNEL_FLAG_READ_ONLY,
+        "kernel flags mismatch"
+    );
 
     let entry_point = u32::from_le_bytes(payload[12..16].try_into().unwrap());
     assert_eq!(entry_point, 0x0000_1000, "entry_point mismatch");
@@ -359,7 +375,11 @@ fn ebpf_header_round_trip() {
     let (header, payload) = read_segment(&encoded).unwrap();
 
     // Verify outer segment header
-    assert_eq!(header.seg_type, SegmentType::Ebpf as u8, "segment type should be Ebpf (0x0F)");
+    assert_eq!(
+        header.seg_type,
+        SegmentType::Ebpf as u8,
+        "segment type should be Ebpf (0x0F)"
+    );
     assert_eq!(header.segment_id, 200);
     assert_eq!(header.payload_length, EBPF_HEADER_SIZE as u64);
 
@@ -413,9 +433,7 @@ fn kernel_segment_survives_store_reopen() {
     // Step 1: Create a store with some vectors
     {
         let mut store = RvfStore::create(&path, make_options(dim)).unwrap();
-        let vectors: Vec<Vec<f32>> = (0..10)
-            .map(|i| vec![i as f32; dim as usize])
-            .collect();
+        let vectors: Vec<Vec<f32>> = (0..10).map(|i| vec![i as f32; dim as usize]).collect();
         let refs: Vec<&[f32]> = vectors.iter().map(|v| v.as_slice()).collect();
         let ids: Vec<u64> = (1..=10).collect();
         store.ingest_batch(&refs, &ids, None).unwrap();
@@ -455,16 +473,21 @@ fn kernel_segment_survives_store_reopen() {
         .filter(|s| s.1 == SegmentType::Kernel as u8)
         .collect();
     assert_eq!(
-        kernel_segs_before.len(), 1,
+        kernel_segs_before.len(),
+        1,
         "expected 1 KERNEL_SEG before reopen, found {}",
         kernel_segs_before.len()
     );
-    assert_eq!(kernel_segs_before[0].2, kernel_seg_id, "segment ID mismatch before reopen");
+    assert_eq!(
+        kernel_segs_before[0].2, kernel_seg_id,
+        "segment ID mismatch before reopen"
+    );
 
     // Step 4: Reopen the store (readonly) -- should not panic
     let store = RvfStore::open_readonly(&path).unwrap();
     assert_eq!(
-        store.status().total_vectors, 10,
+        store.status().total_vectors,
+        10,
         "store should still report 10 vectors after reopen with kernel segment"
     );
 
@@ -476,11 +499,15 @@ fn kernel_segment_survives_store_reopen() {
         .filter(|s| s.1 == SegmentType::Kernel as u8)
         .collect();
     assert_eq!(
-        kernel_segs_after.len(), 1,
+        kernel_segs_after.len(),
+        1,
         "KERNEL_SEG should still be present after store reopen, found {}",
         kernel_segs_after.len()
     );
-    assert_eq!(kernel_segs_after[0].2, kernel_seg_id, "segment ID mismatch after reopen");
+    assert_eq!(
+        kernel_segs_after[0].2, kernel_seg_id,
+        "segment ID mismatch after reopen"
+    );
 
     // Verify the payload is intact
     let offset = kernel_segs_after[0].0;
@@ -514,9 +541,7 @@ fn multi_arch_kernel_segments() {
     // Create a store with some vectors
     {
         let mut store = RvfStore::create(&path, make_options(dim)).unwrap();
-        let vectors: Vec<Vec<f32>> = (0..5)
-            .map(|i| vec![i as f32; dim as usize])
-            .collect();
+        let vectors: Vec<Vec<f32>> = (0..5).map(|i| vec![i as f32; dim as usize]).collect();
         let refs: Vec<&[f32]> = vectors.iter().map(|v| v.as_slice()).collect();
         let ids: Vec<u64> = (1..=5).collect();
         store.ingest_batch(&refs, &ids, None).unwrap();
@@ -525,28 +550,38 @@ fn multi_arch_kernel_segments() {
 
     // Append two KERNEL_SEGs with different architectures
     let x86_kernel = make_kernel_header(
-        ARCH_X86_64, KERNEL_TYPE_UNIKERNEL, 0,
-        0x1000, 4096, 256, 2, 128, [0x11; 32],
+        ARCH_X86_64,
+        KERNEL_TYPE_UNIKERNEL,
+        0,
+        0x1000,
+        4096,
+        256,
+        2,
+        128,
+        [0x11; 32],
     );
     let arm_kernel = make_kernel_header(
-        ARCH_AARCH64, KERNEL_TYPE_UNIKERNEL, 0,
-        0x2000, 8192, 512, 4, 256, [0x22; 32],
+        ARCH_AARCH64,
+        KERNEL_TYPE_UNIKERNEL,
+        0,
+        0x2000,
+        8192,
+        512,
+        4,
+        256,
+        [0x22; 32],
     );
 
     {
         let mut file = OpenOptions::new().append(true).open(&path).unwrap();
 
         // x86_64 kernel
-        let h1 = build_raw_segment_header(
-            SegmentType::Kernel as u8, 6001, x86_kernel.len() as u64,
-        );
+        let h1 = build_raw_segment_header(SegmentType::Kernel as u8, 6001, x86_kernel.len() as u64);
         file.write_all(&h1).unwrap();
         file.write_all(&x86_kernel).unwrap();
 
         // aarch64 kernel
-        let h2 = build_raw_segment_header(
-            SegmentType::Kernel as u8, 6002, arm_kernel.len() as u64,
-        );
+        let h2 = build_raw_segment_header(SegmentType::Kernel as u8, 6002, arm_kernel.len() as u64);
         file.write_all(&h2).unwrap();
         file.write_all(&arm_kernel).unwrap();
 
@@ -562,7 +597,8 @@ fn multi_arch_kernel_segments() {
         .collect();
 
     assert_eq!(
-        kernel_segs.len(), 2,
+        kernel_segs.len(),
+        2,
         "expected 2 KERNEL_SEGs (x86_64 + aarch64), found {}",
         kernel_segs.len()
     );
@@ -573,10 +609,7 @@ fn multi_arch_kernel_segments() {
         let payload_start = offset + SEGMENT_HEADER_SIZE;
         let arch_byte = bytes[payload_start + 6]; // arch is at offset 6 in KernelHeader
         archs.push((seg_id, arch_byte));
-        println!(
-            "  KERNEL_SEG id={} arch=0x{:02X}",
-            seg_id, arch_byte
-        );
+        println!("  KERNEL_SEG id={} arch=0x{:02X}", seg_id, arch_byte);
     }
 
     // One should be x86_64 (0x00), the other aarch64 (0x01)
@@ -587,16 +620,26 @@ fn multi_arch_kernel_segments() {
 
     // Verify entry points are different
     let x86_entry = {
-        let &(off, _, _, _) = kernel_segs.iter().find(|s| {
-            bytes[s.0 + SEGMENT_HEADER_SIZE + 6] == ARCH_X86_64
-        }).unwrap();
-        u32::from_le_bytes(bytes[off + SEGMENT_HEADER_SIZE + 12..off + SEGMENT_HEADER_SIZE + 16].try_into().unwrap())
+        let &(off, _, _, _) = kernel_segs
+            .iter()
+            .find(|s| bytes[s.0 + SEGMENT_HEADER_SIZE + 6] == ARCH_X86_64)
+            .unwrap();
+        u32::from_le_bytes(
+            bytes[off + SEGMENT_HEADER_SIZE + 12..off + SEGMENT_HEADER_SIZE + 16]
+                .try_into()
+                .unwrap(),
+        )
     };
     let arm_entry = {
-        let &(off, _, _, _) = kernel_segs.iter().find(|s| {
-            bytes[s.0 + SEGMENT_HEADER_SIZE + 6] == ARCH_AARCH64
-        }).unwrap();
-        u32::from_le_bytes(bytes[off + SEGMENT_HEADER_SIZE + 12..off + SEGMENT_HEADER_SIZE + 16].try_into().unwrap())
+        let &(off, _, _, _) = kernel_segs
+            .iter()
+            .find(|s| bytes[s.0 + SEGMENT_HEADER_SIZE + 6] == ARCH_AARCH64)
+            .unwrap();
+        u32::from_le_bytes(
+            bytes[off + SEGMENT_HEADER_SIZE + 12..off + SEGMENT_HEADER_SIZE + 16]
+                .try_into()
+                .unwrap(),
+        )
     };
     assert_eq!(x86_entry, 0x1000, "x86_64 entry_point mismatch");
     assert_eq!(arm_entry, 0x2000, "aarch64 entry_point mismatch");
@@ -655,7 +698,11 @@ fn kernel_image_hash_verification() {
 
     // Read image_size from offset 16..24
     let stored_image_size = u64::from_le_bytes(payload[16..24].try_into().unwrap());
-    assert_eq!(stored_image_size, image_data.len() as u64, "image_size should match");
+    assert_eq!(
+        stored_image_size,
+        image_data.len() as u64,
+        "image_size should match"
+    );
 
     // Extract image bytes from after the KernelHeader
     let image_start = KERNEL_HEADER_SIZE;
@@ -696,8 +743,15 @@ fn kernel_flags_validation() {
 
     for (flag, name) in &flag_tests {
         let kernel_hdr = make_kernel_header(
-            ARCH_X86_64, KERNEL_TYPE_UNIKERNEL, *flag,
-            0, 0, 0, 0, 0, [0u8; 32],
+            ARCH_X86_64,
+            KERNEL_TYPE_UNIKERNEL,
+            *flag,
+            0,
+            0,
+            0,
+            0,
+            0,
+            [0u8; 32],
         );
 
         let encoded = write_segment(
@@ -714,10 +768,7 @@ fn kernel_flags_validation() {
             read_flags, *flag,
             "flag {name} (0x{flag:08X}) not preserved: got 0x{read_flags:08X}"
         );
-        assert!(
-            read_flags & *flag != 0,
-            "flag {name} bit should be set"
-        );
+        assert!(read_flags & *flag != 0, "flag {name} bit should be set");
 
         println!("  flag {name} (0x{flag:08X}): OK");
     }
@@ -729,8 +780,15 @@ fn kernel_flags_validation() {
         | KERNEL_FLAG_INGEST_ENABLED;
 
     let kernel_hdr = make_kernel_header(
-        ARCH_X86_64, KERNEL_TYPE_UNIKERNEL, all_flags,
-        0, 0, 0, 0, 0, [0u8; 32],
+        ARCH_X86_64,
+        KERNEL_TYPE_UNIKERNEL,
+        all_flags,
+        0,
+        0,
+        0,
+        0,
+        0,
+        [0u8; 32],
     );
 
     let encoded = write_segment(
@@ -747,10 +805,22 @@ fn kernel_flags_validation() {
         read_flags, all_flags,
         "all kernel flags combined (0x{all_flags:08X}) not preserved: got 0x{read_flags:08X}"
     );
-    assert!(read_flags & KERNEL_FLAG_SIGNED != 0, "SIGNED bit missing from combined");
-    assert!(read_flags & KERNEL_FLAG_REQUIRES_TEE != 0, "REQUIRES_TEE bit missing from combined");
-    assert!(read_flags & KERNEL_FLAG_READ_ONLY != 0, "READ_ONLY bit missing from combined");
-    assert!(read_flags & KERNEL_FLAG_INGEST_ENABLED != 0, "INGEST_ENABLED bit missing from combined");
+    assert!(
+        read_flags & KERNEL_FLAG_SIGNED != 0,
+        "SIGNED bit missing from combined"
+    );
+    assert!(
+        read_flags & KERNEL_FLAG_REQUIRES_TEE != 0,
+        "REQUIRES_TEE bit missing from combined"
+    );
+    assert!(
+        read_flags & KERNEL_FLAG_READ_ONLY != 0,
+        "READ_ONLY bit missing from combined"
+    );
+    assert!(
+        read_flags & KERNEL_FLAG_INGEST_ENABLED != 0,
+        "INGEST_ENABLED bit missing from combined"
+    );
 
     println!("PASS: kernel_flags_validation -- all flag bits preserved");
 }
@@ -773,9 +843,7 @@ fn ebpf_max_dimension_check() {
     ];
 
     for &(max_dim, label) in test_cases {
-        let ebpf_hdr = make_ebpf_header(
-            0x01, 0x00, 0, 100, 2, max_dim, [0u8; 8],
-        );
+        let ebpf_hdr = make_ebpf_header(0x01, 0x00, 0, 100, 2, max_dim, [0u8; 8]);
 
         let encoded = write_segment(
             SegmentType::Ebpf as u8,
@@ -812,13 +880,13 @@ fn test_stub_kernel_type() {
 
     let kernel_hdr = make_kernel_header(
         ARCH_X86_64,
-        KERNEL_TYPE_TEST_STUB,   // 0xFD
+        KERNEL_TYPE_TEST_STUB, // 0xFD
         KERNEL_FLAG_INGEST_ENABLED,
-        0x0000_0000,             // entry_point: 0 for test stubs
+        0x0000_0000, // entry_point: 0 for test stubs
         test_stub_image.len() as u64,
-        0,                       // bss_size: none
-        1,                       // stack_pages: minimal
-        64,                      // max_dimension
+        0,  // bss_size: none
+        1,  // stack_pages: minimal
+        64, // max_dimension
         image_hash,
     );
 
@@ -844,8 +912,11 @@ fn test_stub_kernel_type() {
     validate_segment(&header, payload).expect("test stub content hash should validate");
 
     // Verify kernel_type is TestStub (0xFD)
-    assert_eq!(payload[7], KERNEL_TYPE_TEST_STUB,
-        "kernel_type should be TestStub (0xFD), got 0x{:02X}", payload[7]);
+    assert_eq!(
+        payload[7], KERNEL_TYPE_TEST_STUB,
+        "kernel_type should be TestStub (0xFD), got 0x{:02X}",
+        payload[7]
+    );
 
     // Verify the test stub image is intact
     let image_start = KERNEL_HEADER_SIZE;
@@ -875,11 +946,8 @@ fn test_stub_kernel_type() {
     // Append the test stub segment
     {
         let mut file = OpenOptions::new().append(true).open(&path).unwrap();
-        let seg_header = build_raw_segment_header(
-            SegmentType::Kernel as u8,
-            600,
-            full_payload.len() as u64,
-        );
+        let seg_header =
+            build_raw_segment_header(SegmentType::Kernel as u8, 600, full_payload.len() as u64);
         file.write_all(&seg_header).unwrap();
         file.write_all(&full_payload).unwrap();
         file.sync_all().unwrap();
@@ -887,18 +955,32 @@ fn test_stub_kernel_type() {
 
     // Reopen and verify store is not broken
     let store = RvfStore::open_readonly(&path).unwrap();
-    assert_eq!(store.status().total_vectors, 1, "store should still work with test stub segment");
+    assert_eq!(
+        store.status().total_vectors,
+        1,
+        "store should still work with test stub segment"
+    );
 
     // Verify test stub is in the file
     let bytes = read_file_bytes(&path);
     let segs = scan_segments(&bytes);
-    let kernel_segs: Vec<_> = segs.iter().filter(|s| s.1 == SegmentType::Kernel as u8).collect();
-    assert_eq!(kernel_segs.len(), 1, "should find one KERNEL_SEG (TestStub)");
+    let kernel_segs: Vec<_> = segs
+        .iter()
+        .filter(|s| s.1 == SegmentType::Kernel as u8)
+        .collect();
+    assert_eq!(
+        kernel_segs.len(),
+        1,
+        "should find one KERNEL_SEG (TestStub)"
+    );
 
     let kernel_offset = kernel_segs[0].0;
     let kt = bytes[kernel_offset + SEGMENT_HEADER_SIZE + 7];
-    assert_eq!(kt, KERNEL_TYPE_TEST_STUB,
-        "kernel_type in file should be TestStub (0xFD), got 0x{:02X}", kt);
+    assert_eq!(
+        kt, KERNEL_TYPE_TEST_STUB,
+        "kernel_type in file should be TestStub (0xFD), got 0x{:02X}",
+        kt
+    );
 
     println!("PASS: test_stub_kernel_type -- TestStub (0xFD) end-to-end verified");
 }

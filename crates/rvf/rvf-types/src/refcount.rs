@@ -99,8 +99,8 @@ impl RefcountHeader {
             cluster_count: u32::from_le_bytes([data[0x08], data[0x09], data[0x0A], data[0x0B]]),
             max_refcount: u32::from_le_bytes([data[0x0C], data[0x0D], data[0x0E], data[0x0F]]),
             array_offset: u64::from_le_bytes([
-                data[0x10], data[0x11], data[0x12], data[0x13],
-                data[0x14], data[0x15], data[0x16], data[0x17],
+                data[0x10], data[0x11], data[0x12], data[0x13], data[0x14], data[0x15], data[0x16],
+                data[0x17],
             ]),
             snapshot_epoch: u32::from_le_bytes([data[0x18], data[0x19], data[0x1A], data[0x1B]]),
             _reserved: reserved,

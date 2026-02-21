@@ -135,12 +135,12 @@ impl GgufTensorType {
         match self {
             Self::F32 => 4,
             Self::F16 => 2,
-            Self::Q4_0 => 18,  // 2 (scale) + 16 (quants)
-            Self::Q4_1 => 20,  // 2 (scale) + 2 (min) + 16 (quants)
-            Self::Q5_0 => 22,  // 2 (scale) + 4 (high bits) + 16 (quants)
-            Self::Q5_1 => 24,  // 2 (scale) + 2 (min) + 4 (high bits) + 16 (quants)
-            Self::Q8_0 => 34,  // 2 (scale) + 32 (quants)
-            Self::Q8_1 => 36,  // 4 (scale) + 32 (quants)
+            Self::Q4_0 => 18, // 2 (scale) + 16 (quants)
+            Self::Q4_1 => 20, // 2 (scale) + 2 (min) + 16 (quants)
+            Self::Q5_0 => 22, // 2 (scale) + 4 (high bits) + 16 (quants)
+            Self::Q5_1 => 24, // 2 (scale) + 2 (min) + 4 (high bits) + 16 (quants)
+            Self::Q8_0 => 34, // 2 (scale) + 32 (quants)
+            Self::Q8_1 => 36, // 4 (scale) + 32 (quants)
             Self::Q2_K => 84,
             Self::Q3_K => 110,
             Self::Q4_K => 144,
@@ -292,7 +292,10 @@ impl GgufParser {
         Self::read_value_of_type(cursor, value_type)
     }
 
-    fn read_value_of_type(cursor: &mut Cursor<&[u8]>, value_type: u32) -> Result<GgufValue, GgufError> {
+    fn read_value_of_type(
+        cursor: &mut Cursor<&[u8]>,
+        value_type: u32,
+    ) -> Result<GgufValue, GgufError> {
         match value_type {
             0 => Ok(GgufValue::Uint8(cursor.read_u8()?)),
             1 => Ok(GgufValue::Int8(cursor.read_i8()?)),
@@ -573,7 +576,6 @@ fn dequantize_q5_k(data: &[u8], n_elements: usize) -> Vec<f32> {
 fn dequantize_q6_k(data: &[u8], n_elements: usize) -> Vec<f32> {
     dequantize_q5_0(data, n_elements)
 }
-
 
 #[cfg(test)]
 mod tests {

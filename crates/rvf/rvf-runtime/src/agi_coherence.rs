@@ -125,7 +125,10 @@ impl CoherenceMonitor {
     /// Whether the system may commit world-model deltas. True when
     /// [`CoherenceState::Healthy`] or [`CoherenceState::SkillFreeze`].
     pub fn can_commit(&self) -> bool {
-        matches!(self.state, CoherenceState::Healthy | CoherenceState::SkillFreeze)
+        matches!(
+            self.state,
+            CoherenceState::Healthy | CoherenceState::SkillFreeze
+        )
     }
 
     /// Whether new skills may be promoted. True only when
@@ -207,10 +210,7 @@ impl ContainerValidator {
     }
 
     /// Validate container segments against mode requirements.
-    pub fn validate_segments(
-        &self,
-        segments: &ContainerSegments,
-    ) -> Result<(), ContainerError> {
+    pub fn validate_segments(&self, segments: &ContainerSegments) -> Result<(), ContainerError> {
         segments.validate(self.mode)
     }
 
@@ -219,23 +219,16 @@ impl ContainerValidator {
     /// Checks: magic bytes, version (must be 1), and flag consistency --
     /// replay-capable containers must not claim Live-only features without
     /// the kernel flag.
-    pub fn validate_header(
-        &self,
-        header: &AgiContainerHeader,
-    ) -> Result<(), ContainerError> {
+    pub fn validate_header(&self, header: &AgiContainerHeader) -> Result<(), ContainerError> {
         if !header.is_valid_magic() {
             return Err(ContainerError::InvalidConfig("bad magic bytes"));
         }
         if header.version == 0 || header.version > 1 {
-            return Err(ContainerError::InvalidConfig(
-                "unsupported header version",
-            ));
+            return Err(ContainerError::InvalidConfig("unsupported header version"));
         }
         // Flag consistency: if REPLAY_CAPABLE is set the container should
         // also have the witness flag, since replays depend on witness chains.
-        if header.is_replay_capable()
-            && (header.flags & AGI_HAS_WITNESS == 0)
-        {
+        if header.is_replay_capable() && (header.flags & AGI_HAS_WITNESS == 0) {
             return Err(ContainerError::InvalidConfig(
                 "replay-capable flag requires witness flag",
             ));
@@ -679,11 +672,7 @@ mod tests {
             ..Default::default()
         };
 
-        let errs = v.validate_full(
-            &valid_header(),
-            &segs,
-            &CoherenceThresholds::DEFAULT,
-        );
+        let errs = v.validate_full(&valid_header(), &segs, &CoherenceThresholds::DEFAULT);
         assert_eq!(errs.len(), 1);
     }
 }

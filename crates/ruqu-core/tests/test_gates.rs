@@ -90,9 +90,9 @@ fn test_hadamard_matrix() {
     let matrix = Gate::H(0).matrix_1q().expect("H should have a 2x2 matrix");
     let s = std::f64::consts::FRAC_1_SQRT_2;
 
-    assert!(complex_approx_eq(&matrix[0][0], &c(s, 0.0)));  // [0,0]
-    assert!(complex_approx_eq(&matrix[0][1], &c(s, 0.0)));  // [0,1]
-    assert!(complex_approx_eq(&matrix[1][0], &c(s, 0.0)));  // [1,0]
+    assert!(complex_approx_eq(&matrix[0][0], &c(s, 0.0))); // [0,0]
+    assert!(complex_approx_eq(&matrix[0][1], &c(s, 0.0))); // [0,1]
+    assert!(complex_approx_eq(&matrix[1][0], &c(s, 0.0))); // [1,0]
     assert!(complex_approx_eq(&matrix[1][1], &c(-s, 0.0))); // [1,1]
 }
 
@@ -227,8 +227,14 @@ fn test_pauli_xy_equals_iz() {
 
     // X * Y (2x2 matrix multiply)
     let xy = [
-        [x[0][0] * y[0][0] + x[0][1] * y[1][0], x[0][0] * y[0][1] + x[0][1] * y[1][1]],
-        [x[1][0] * y[0][0] + x[1][1] * y[1][0], x[1][0] * y[0][1] + x[1][1] * y[1][1]],
+        [
+            x[0][0] * y[0][0] + x[0][1] * y[1][0],
+            x[0][0] * y[0][1] + x[0][1] * y[1][1],
+        ],
+        [
+            x[1][0] * y[0][0] + x[1][1] * y[1][0],
+            x[1][0] * y[0][1] + x[1][1] * y[1][1],
+        ],
     ];
     // i * Z
     let iz = [
@@ -240,7 +246,14 @@ fn test_pauli_xy_equals_iz() {
             assert!(
                 complex_approx_eq(&xy[i][j], &iz[i][j]),
                 "XY[{},{}] = ({}, {}), iZ[{},{}] = ({}, {})",
-                i, j, xy[i][j].re, xy[i][j].im, i, j, iz[i][j].re, iz[i][j].im
+                i,
+                j,
+                xy[i][j].re,
+                xy[i][j].im,
+                i,
+                j,
+                iz[i][j].re,
+                iz[i][j].im
             );
         }
     }
@@ -271,15 +284,24 @@ fn test_s_squared_is_z() {
     let s = Gate::S(0).matrix_1q().unwrap();
     let z = Gate::Z(0).matrix_1q().unwrap();
     let s2 = [
-        [s[0][0] * s[0][0] + s[0][1] * s[1][0], s[0][0] * s[0][1] + s[0][1] * s[1][1]],
-        [s[1][0] * s[0][0] + s[1][1] * s[1][0], s[1][0] * s[0][1] + s[1][1] * s[1][1]],
+        [
+            s[0][0] * s[0][0] + s[0][1] * s[1][0],
+            s[0][0] * s[0][1] + s[0][1] * s[1][1],
+        ],
+        [
+            s[1][0] * s[0][0] + s[1][1] * s[1][0],
+            s[1][0] * s[0][1] + s[1][1] * s[1][1],
+        ],
     ];
     for i in 0..2 {
         for j in 0..2 {
             assert!(
                 complex_approx_eq(&s2[i][j], &z[i][j]),
                 "S^2[{},{}] != Z[{},{}]",
-                i, j, i, j
+                i,
+                j,
+                i,
+                j
             );
         }
     }
@@ -311,15 +333,24 @@ fn test_t_squared_is_s() {
     let t = Gate::T(0).matrix_1q().unwrap();
     let s = Gate::S(0).matrix_1q().unwrap();
     let t2 = [
-        [t[0][0] * t[0][0] + t[0][1] * t[1][0], t[0][0] * t[0][1] + t[0][1] * t[1][1]],
-        [t[1][0] * t[0][0] + t[1][1] * t[1][0], t[1][0] * t[0][1] + t[1][1] * t[1][1]],
+        [
+            t[0][0] * t[0][0] + t[0][1] * t[1][0],
+            t[0][0] * t[0][1] + t[0][1] * t[1][1],
+        ],
+        [
+            t[1][0] * t[0][0] + t[1][1] * t[1][0],
+            t[1][0] * t[0][1] + t[1][1] * t[1][1],
+        ],
     ];
     for i in 0..2 {
         for j in 0..2 {
             assert!(
                 complex_approx_eq(&t2[i][j], &s[i][j]),
                 "T^2[{},{}] != S[{},{}]",
-                i, j, i, j
+                i,
+                j,
+                i,
+                j
             );
         }
     }
@@ -404,7 +435,15 @@ fn test_rz_unitarity() {
 
 #[test]
 fn test_rotation_gates_various_angles_unitary() {
-    let angles = [0.0, 0.1, 0.5, 1.0, std::f64::consts::PI, 2.0 * std::f64::consts::PI, -0.7];
+    let angles = [
+        0.0,
+        0.1,
+        0.5,
+        1.0,
+        std::f64::consts::PI,
+        2.0 * std::f64::consts::PI,
+        -0.7,
+    ];
     for &theta in &angles {
         let rx = Gate::Rx(0, theta).matrix_1q().unwrap();
         assert_unitary_2x2(&rx);
@@ -440,9 +479,12 @@ fn test_cnot_matrix() {
             assert!(
                 complex_approx_eq(&m[i][j], &expected[i][j]),
                 "CNOT matrix[{}][{}]: got ({}, {}), expected ({}, {})",
-                i, j,
-                m[i][j].re, m[i][j].im,
-                expected[i][j].re, expected[i][j].im
+                i,
+                j,
+                m[i][j].re,
+                m[i][j].im,
+                expected[i][j].re,
+                expected[i][j].im
             );
         }
     }
@@ -468,9 +510,12 @@ fn test_cnot_is_self_inverse() {
             assert!(
                 complex_approx_eq(&sum, &expected),
                 "CNOT^2 [{},{}] = ({}, {}), expected ({}, {})",
-                i, j,
-                sum.re, sum.im,
-                expected.re, expected.im
+                i,
+                j,
+                sum.re,
+                sum.im,
+                expected.re,
+                expected.im
             );
         }
     }
@@ -501,7 +546,8 @@ fn test_cz_matrix() {
             assert!(
                 complex_approx_eq(&m[i][j], &expected),
                 "CZ[{},{}] mismatch",
-                i, j
+                i,
+                j
             );
         }
     }
@@ -523,7 +569,8 @@ fn test_cz_is_symmetric() {
             assert!(
                 complex_approx_eq(&m01[i][j], &m10[i][j]),
                 "CZ symmetry mismatch at [{},{}]",
-                i, j
+                i,
+                j
             );
         }
     }
@@ -552,7 +599,8 @@ fn test_swap_matrix() {
             assert!(
                 complex_approx_eq(&m[i][j], &expected[i][j]),
                 "SWAP matrix[{}][{}] mismatch",
-                i, j
+                i,
+                j
             );
         }
     }
@@ -578,7 +626,8 @@ fn test_swap_is_self_inverse() {
             assert!(
                 complex_approx_eq(&sum, &expected),
                 "SWAP^2 [{},{}] mismatch",
-                i, j
+                i,
+                j
             );
         }
     }

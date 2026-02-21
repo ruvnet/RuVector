@@ -146,9 +146,8 @@ impl StageVIModeler {
             Ok(mc) => mc,
             Err(_) => {
                 // Fallback: single partition
-                let centroid = self.compute_centroid(
-                    &embeddings.iter().map(|e| e.as_slice()).collect::<Vec<_>>(),
-                );
+                let centroid = self
+                    .compute_centroid(&embeddings.iter().map(|e| e.as_slice()).collect::<Vec<_>>());
                 return Ok(StageVIData {
                     partitions: vec![TargetPartition {
                         label: "composite".to_string(),
@@ -173,10 +172,16 @@ impl StageVIModeler {
         let (group_a, group_b) = self.bisect_by_similarity(embeddings);
 
         let centroid_a = self.compute_centroid(
-            &group_a.iter().map(|&i| embeddings[i].as_slice()).collect::<Vec<_>>(),
+            &group_a
+                .iter()
+                .map(|&i| embeddings[i].as_slice())
+                .collect::<Vec<_>>(),
         );
         let centroid_b = self.compute_centroid(
-            &group_b.iter().map(|&i| embeddings[i].as_slice()).collect::<Vec<_>>(),
+            &group_b
+                .iter()
+                .map(|&i| embeddings[i].as_slice())
+                .collect::<Vec<_>>(),
         );
 
         let members_a: Vec<(u8, usize)> = group_a
@@ -289,7 +294,8 @@ impl StageVIModeler {
         let mut embedding = vec![0.0f32; self.dim];
         let mut total_weight = 0.0f32;
 
-        for (partition, &confidence) in data.partitions.iter().zip(data.partition_confidence.iter()) {
+        for (partition, &confidence) in data.partitions.iter().zip(data.partition_confidence.iter())
+        {
             let weight = confidence * partition.member_entries.len() as f32;
             for (i, &v) in partition.centroid.iter().enumerate() {
                 if i < self.dim {

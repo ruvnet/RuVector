@@ -16,22 +16,36 @@
 #![warn(missing_docs)]
 #![allow(clippy::all)]
 
-pub mod error;
-pub mod types;
-pub mod kmer;
 pub mod alignment;
-pub mod variant;
-pub mod protein;
 pub mod epigenomics;
+pub mod error;
+pub mod genotyping;
+pub mod health;
+pub mod kmer;
+pub mod kmer_pagerank;
 pub mod pharma;
 pub mod pipeline;
-pub mod rvdna;
+pub mod protein;
 pub mod real_data;
-pub mod kmer_pagerank;
-pub mod health;
-pub mod genotyping;
+pub mod rvdna;
+pub mod types;
+pub mod variant;
 
+pub use alignment::{AlignmentConfig, SmithWaterman};
+pub use epigenomics::{
+    CancerSignalDetector, CancerSignalResult, CpGSite, HorvathClock, MethylationProfile,
+};
 pub use error::{DnaError, Result};
+pub use pharma::{
+    call_cyp2c19_allele, call_star_allele, get_recommendations, predict_cyp2c19_phenotype,
+    predict_phenotype, Cyp2c19Allele, DrugRecommendation, MetabolizerPhenotype, PharmaVariant,
+    StarAllele,
+};
+pub use protein::{isoelectric_point, molecular_weight, translate_dna, AminoAcid};
+pub use rvdna::{
+    decode_2bit, encode_2bit, fasta_to_rvdna, Codec, KmerVectorBlock, RvdnaHeader, RvdnaReader,
+    RvdnaStats, RvdnaWriter, SparseAttention, VariantTensor,
+};
 pub use types::{
     AlignmentResult, AnalysisConfig, CigarOp, ContactGraph, DnaSequence, GenomicPosition,
     KmerIndex, Nucleotide, ProteinResidue, ProteinSequence, QualityScore, Variant,
@@ -39,28 +53,17 @@ pub use types::{
 pub use variant::{
     FilterStatus, Genotype, PileupColumn, VariantCall, VariantCaller, VariantCallerConfig,
 };
-pub use protein::{AminoAcid, translate_dna, molecular_weight, isoelectric_point};
-pub use epigenomics::{CpGSite, HorvathClock, MethylationProfile, CancerSignalDetector, CancerSignalResult};
-pub use alignment::{AlignmentConfig, SmithWaterman};
-pub use pharma::{
-    call_star_allele, get_recommendations, predict_phenotype, DrugRecommendation,
-    MetabolizerPhenotype, PharmaVariant, StarAllele,
-    Cyp2c19Allele, call_cyp2c19_allele, predict_cyp2c19_phenotype,
-};
-pub use rvdna::{
-    Codec, RvdnaHeader, RvdnaReader, RvdnaWriter, RvdnaStats,
-    SparseAttention, VariantTensor, KmerVectorBlock,
-    encode_2bit, decode_2bit, fasta_to_rvdna,
-};
 
 pub use ruvector_core::{
     types::{DbOptions, DistanceMetric, HnswConfig, SearchQuery, SearchResult, VectorEntry},
     VectorDB,
 };
 
+pub use genotyping::{
+    CallConfidence, CypDiplotype, GenomeBuild, GenotypeAnalysis, GenotypeData, Snp,
+};
+pub use health::{ApoeResult, HealthVariantResult, MthfrResult, PainProfile};
 pub use kmer_pagerank::{KmerGraphRanker, SequenceRank};
-pub use genotyping::{GenotypeData, GenotypeAnalysis, Snp, CypDiplotype, CallConfidence, GenomeBuild};
-pub use health::{HealthVariantResult, ApoeResult, MthfrResult, PainProfile};
 
 /// Prelude module for common imports
 pub mod prelude {

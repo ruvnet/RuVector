@@ -396,9 +396,9 @@ impl<'a> ParsedAgiManifest<'a> {
         let mut pos = AGI_HEADER_SIZE;
         while pos + 6 <= data.len() {
             let tag = u16::from_le_bytes([data[pos], data[pos + 1]]);
-            let length = u32::from_le_bytes([
-                data[pos + 2], data[pos + 3], data[pos + 4], data[pos + 5],
-            ]) as usize;
+            let length =
+                u32::from_le_bytes([data[pos + 2], data[pos + 3], data[pos + 4], data[pos + 5]])
+                    as usize;
             pos += 6;
 
             if pos + length > data.len() {
@@ -563,8 +563,8 @@ mod tests {
 
     #[test]
     fn minimal_container() {
-        let builder = AgiContainerBuilder::new([0x30; 16], [0x40; 16])
-            .with_segments(ContainerSegments {
+        let builder =
+            AgiContainerBuilder::new([0x30; 16], [0x40; 16]).with_segments(ContainerSegments {
                 kernel_present: true,
                 manifest_present: true,
                 ..Default::default()

@@ -23,7 +23,9 @@
 use crate::agi_contract::{ContractDelta, ContractHealth, ViabilityChecklist};
 use crate::intelligence_metrics::{DifficultyStats, RawMetrics};
 use crate::reasoning_bank::ReasoningBank;
-use crate::temporal::{AdaptiveSolver, KnowledgeCompiler, PolicyKernel, TemporalConstraint, TemporalPuzzle};
+use crate::temporal::{
+    AdaptiveSolver, KnowledgeCompiler, PolicyKernel, TemporalConstraint, TemporalPuzzle,
+};
 use crate::timepuzzles::{PuzzleGenerator, PuzzleGeneratorConfig};
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
@@ -108,7 +110,10 @@ impl AblationComparison {
         println!("╚══════════════════════════════════════════════════════════════╝");
         println!();
 
-        println!("  {:<14} {:>8} {:>12} {:>10} {:>8}", "Mode", "Acc%", "Cost/Solve", "Noise%", "Viol");
+        println!(
+            "  {:<14} {:>8} {:>12} {:>10} {:>8}",
+            "Mode", "Acc%", "Cost/Solve", "Noise%", "Viol"
+        );
         println!("  {}", "-".repeat(56));
 
         for (label, res) in [
@@ -117,25 +122,41 @@ impl AblationComparison {
             ("C (full)", &self.mode_c),
         ] {
             if let Some(last) = res.result.cycles.last() {
-                println!("  {:<14} {:>6.1}% {:>11.2} {:>8.1}% {:>7}",
+                println!(
+                    "  {:<14} {:>6.1}% {:>11.2} {:>8.1}% {:>7}",
                     label,
                     last.holdout_accuracy * 100.0,
                     last.holdout_cost_per_solve,
                     last.holdout_noise_accuracy * 100.0,
-                    last.holdout_violations);
+                    last.holdout_violations
+                );
             }
         }
 
         println!();
-        println!("  Compiler (Mode B): hits={}, misses={}, false_hits={}",
-            self.mode_b.compiler_hits, self.mode_b.compiler_misses, self.mode_b.compiler_false_hits);
-        println!("  Cost saved by compiler: {:.2}", self.mode_b.cost_saved_by_compiler);
+        println!(
+            "  Compiler (Mode B): hits={}, misses={}, false_hits={}",
+            self.mode_b.compiler_hits, self.mode_b.compiler_misses, self.mode_b.compiler_false_hits
+        );
+        println!(
+            "  Cost saved by compiler: {:.2}",
+            self.mode_b.cost_saved_by_compiler
+        );
         println!();
         println!("  PolicyKernel:");
-        println!("    Mode A early-commit rate: {:.2}%", self.mode_a.early_commit_rate * 100.0);
-        println!("    Mode B early-commit rate: {:.2}%", self.mode_b.early_commit_rate * 100.0);
-        println!("    Mode C early-commit rate: {:.2}%  (context buckets: {})",
-            self.mode_c.early_commit_rate * 100.0, self.mode_c.policy_context_buckets);
+        println!(
+            "    Mode A early-commit rate: {:.2}%",
+            self.mode_a.early_commit_rate * 100.0
+        );
+        println!(
+            "    Mode B early-commit rate: {:.2}%",
+            self.mode_b.early_commit_rate * 100.0
+        );
+        println!(
+            "    Mode C early-commit rate: {:.2}%  (context buckets: {})",
+            self.mode_c.early_commit_rate * 100.0,
+            self.mode_c.policy_context_buckets
+        );
         println!();
         println!("  Policy Differences (all modes have same capabilities):");
         println!("    Mode A: fixed heuristic (R - 30*D >= 140, conservative under distractors)");
@@ -144,25 +165,57 @@ impl AblationComparison {
         println!();
 
         println!("  Ablation Assertions:");
-        println!("    B beats A on cost (>=15%):        {}", if self.b_beats_a_cost { "PASS" } else { "FAIL" });
-        println!("    C beats B on robustness (>=10%):   {}", if self.c_beats_b_robustness { "PASS" } else { "FAIL" });
-        println!("    Compiler false-hit rate <5%:       {}", if self.compiler_safe { "PASS" } else { "FAIL" });
-        println!("    A skip usage nonzero:              {}", if self.a_skip_nonzero { "PASS" } else { "FAIL" });
-        println!("    C uses multiple skip modes:        {}", if self.c_multi_mode { "PASS" } else { "FAIL" });
-        println!("    C penalty < B penalty (distract):  {}", if self.c_penalty_better_than_b { "PASS" } else { "FAIL" });
+        println!(
+            "    B beats A on cost (>=15%):        {}",
+            if self.b_beats_a_cost { "PASS" } else { "FAIL" }
+        );
+        println!(
+            "    C beats B on robustness (>=10%):   {}",
+            if self.c_beats_b_robustness {
+                "PASS"
+            } else {
+                "FAIL"
+            }
+        );
+        println!(
+            "    Compiler false-hit rate <5%:       {}",
+            if self.compiler_safe { "PASS" } else { "FAIL" }
+        );
+        println!(
+            "    A skip usage nonzero:              {}",
+            if self.a_skip_nonzero { "PASS" } else { "FAIL" }
+        );
+        println!(
+            "    C uses multiple skip modes:        {}",
+            if self.c_multi_mode { "PASS" } else { "FAIL" }
+        );
+        println!(
+            "    C penalty < B penalty (distract):  {}",
+            if self.c_penalty_better_than_b {
+                "PASS"
+            } else {
+                "FAIL"
+            }
+        );
         println!();
 
         // Skip-mode distribution table for Mode C
         if !self.mode_c.skip_mode_distribution.is_empty() {
             println!("  Mode C Skip-Mode Distribution by Context:");
-            println!("  {:<20} {:>8} {:>8} {:>8}", "Bucket", "None", "Weekday", "Hybrid");
+            println!(
+                "  {:<20} {:>8} {:>8} {:>8}",
+                "Bucket", "None", "Weekday", "Hybrid"
+            );
             println!("  {}", "-".repeat(48));
             for (bucket, dist) in &self.mode_c.skip_mode_distribution {
                 let total = dist.values().sum::<usize>().max(1);
                 let none_pct = *dist.get("none").unwrap_or(&0) as f64 / total as f64 * 100.0;
                 let weekday_pct = *dist.get("weekday").unwrap_or(&0) as f64 / total as f64 * 100.0;
                 let hybrid_pct = *dist.get("hybrid").unwrap_or(&0) as f64 / total as f64 * 100.0;
-                println!("  {:<20} {:>6.1}% {:>6.1}% {:>6.1}%", bucket, none_pct, weekday_pct, hybrid_pct);
+                println!(
+                    "  {:<20} {:>6.1}% {:>6.1}% {:>6.1}%",
+                    bucket, none_pct, weekday_pct, hybrid_pct
+                );
             }
             println!();
         }
@@ -281,17 +334,22 @@ impl AcceptanceResult {
         println!("╚══════════════════════════════════════════════════════════════╝");
         println!();
 
-        println!("  {:<8} {:>8} {:>12} {:>10} {:>8} {:>8}",
-            "Cycle", "Acc%", "Cost/Solve", "Noise%", "Viol", "Contr");
+        println!(
+            "  {:<8} {:>8} {:>12} {:>10} {:>8} {:>8}",
+            "Cycle", "Acc%", "Cost/Solve", "Noise%", "Viol", "Contr"
+        );
         println!("  {}", "-".repeat(60));
 
         for cm in &self.cycles {
-            println!("  {:>5}    {:>6.1}% {:>11.2} {:>8.1}% {:>7} {:>7}",
-                cm.cycle, cm.holdout_accuracy * 100.0,
+            println!(
+                "  {:>5}    {:>6.1}% {:>11.2} {:>8.1}% {:>7} {:>7}",
+                cm.cycle,
+                cm.holdout_accuracy * 100.0,
                 cm.holdout_cost_per_solve,
                 cm.holdout_noise_accuracy * 100.0,
                 cm.holdout_violations,
-                cm.holdout_contradictions);
+                cm.holdout_contradictions
+            );
         }
 
         println!();
@@ -301,11 +359,34 @@ impl AcceptanceResult {
         println!();
 
         println!("  Acceptance Criteria:");
-        println!("    Accuracy maintained:    {}", if self.accuracy_maintained { "PASS" } else { "FAIL" });
-        println!("    Cost improved:          {}", if self.cost_improved { "PASS" } else { "FAIL" });
-        println!("    Robustness improved:    {}", if self.robustness_improved { "PASS" } else { "FAIL" });
-        println!("    Zero violations:        {}", if self.zero_violations { "PASS" } else { "FAIL" });
-        println!("    Dimensions improved:    {}/2 (need >= 2)", self.dimensions_improved);
+        println!(
+            "    Accuracy maintained:    {}",
+            if self.accuracy_maintained {
+                "PASS"
+            } else {
+                "FAIL"
+            }
+        );
+        println!(
+            "    Cost improved:          {}",
+            if self.cost_improved { "PASS" } else { "FAIL" }
+        );
+        println!(
+            "    Robustness improved:    {}",
+            if self.robustness_improved {
+                "PASS"
+            } else {
+                "FAIL"
+            }
+        );
+        println!(
+            "    Zero violations:        {}",
+            if self.zero_violations { "PASS" } else { "FAIL" }
+        );
+        println!(
+            "    Dimensions improved:    {}/2 (need >= 2)",
+            self.dimensions_improved
+        );
         println!();
 
         if self.passed {
@@ -323,10 +404,14 @@ impl AcceptanceResult {
 
 struct Rng64(u64);
 impl Rng64 {
-    fn new(seed: u64) -> Self { Self(seed.max(1)) }
+    fn new(seed: u64) -> Self {
+        Self(seed.max(1))
+    }
     fn next_f64(&mut self) -> f64 {
         let mut x = self.0;
-        x ^= x << 13; x ^= x >> 7; x ^= x << 17;
+        x ^= x << 13;
+        x ^= x >> 7;
+        x ^= x << 17;
         self.0 = x;
         (x as f64) / (u64::MAX as f64)
     }
@@ -380,7 +465,10 @@ pub fn run_acceptance_test(config: &HoldoutConfig) -> Result<AcceptanceResult> {
 /// - Baseline: fixed heuristic policy
 /// - CompilerOnly: compiler-suggested policy
 /// - Full: learned PolicyKernel policy
-pub fn run_acceptance_test_mode(config: &HoldoutConfig, mode: &AblationMode) -> Result<AblationResult> {
+pub fn run_acceptance_test_mode(
+    config: &HoldoutConfig,
+    mode: &AblationMode,
+) -> Result<AblationResult> {
     // 1. Generate frozen holdout set
     let holdout = generate_holdout(config)?;
 
@@ -396,7 +484,12 @@ pub fn run_acceptance_test_mode(config: &HoldoutConfig, mode: &AblationMode) -> 
 
     for cycle in 0..config.cycles {
         if config.verbose {
-            println!("\n  === Cycle {}/{} ({}) ===", cycle + 1, config.cycles, mode);
+            println!(
+                "\n  === Cycle {}/{} ({}) ===",
+                cycle + 1,
+                config.cycles,
+                mode
+            );
         }
 
         // Recompile knowledge from bank each cycle
@@ -409,14 +502,24 @@ pub fn run_acceptance_test_mode(config: &HoldoutConfig, mode: &AblationMode) -> 
 
         // 3. Training phase: solve new tasks, update bank
         let training_acc = train_cycle_mode(
-            &mut bank, &mut compiler, &mut policy_kernel,
-            config, cycle, compiler_enabled, router_enabled,
+            &mut bank,
+            &mut compiler,
+            &mut policy_kernel,
+            config,
+            cycle,
+            compiler_enabled,
+            router_enabled,
         )?;
 
         // 4. Holdout evaluation: clean pass (quick probe for rollback check)
         let (_, probe_acc) = evaluate_holdout_clean_mode(
-            &holdout, &bank, &compiler, &policy_kernel,
-            config, compiler_enabled, router_enabled,
+            &holdout,
+            &bank,
+            &compiler,
+            &policy_kernel,
+            config,
+            compiler_enabled,
+            router_enabled,
         )?;
 
         // Rollback if training made accuracy worse (viability check #3)
@@ -424,8 +527,11 @@ pub fn run_acceptance_test_mode(config: &HoldoutConfig, mode: &AblationMode) -> 
             let prev_acc = cycle_metrics[cycle - 1].holdout_accuracy;
             if probe_acc < prev_acc - 0.05 {
                 if config.verbose {
-                    println!("    Accuracy regressed {:.1}% → {:.1}%, rolling back",
-                        prev_acc * 100.0, probe_acc * 100.0);
+                    println!(
+                        "    Accuracy regressed {:.1}% → {:.1}%, rolling back",
+                        prev_acc * 100.0,
+                        probe_acc * 100.0
+                    );
                 }
                 bank.rollback_to(checkpoint_id);
             }
@@ -443,14 +549,25 @@ pub fn run_acceptance_test_mode(config: &HoldoutConfig, mode: &AblationMode) -> 
 
         // 5. Holdout evaluation: clean (definitive, with possibly rolled-back bank)
         let (clean_raw, clean_acc) = evaluate_holdout_clean_mode(
-            &holdout, &bank, &compiler, &policy_kernel,
-            config, compiler_enabled, router_enabled,
+            &holdout,
+            &bank,
+            &compiler,
+            &policy_kernel,
+            config,
+            compiler_enabled,
+            router_enabled,
         )?;
 
         // 6. Holdout evaluation: noisy pass
         let (noisy_raw, noise_acc) = evaluate_holdout_noisy_mode(
-            &holdout, &bank, &compiler, &policy_kernel,
-            config, cycle, compiler_enabled, router_enabled,
+            &holdout,
+            &bank,
+            &compiler,
+            &policy_kernel,
+            config,
+            cycle,
+            compiler_enabled,
+            router_enabled,
         )?;
 
         // Merge clean + noisy into combined contract raw
@@ -484,9 +601,13 @@ pub fn run_acceptance_test_mode(config: &HoldoutConfig, mode: &AblationMode) -> 
         };
 
         if config.verbose {
-            println!("    Holdout: acc={:.1}%, cost/solve={:.1}, noise={:.1}%, viol={}",
-                cm.holdout_accuracy * 100.0, cm.holdout_cost_per_solve,
-                cm.holdout_noise_accuracy * 100.0, cm.holdout_violations);
+            println!(
+                "    Holdout: acc={:.1}%, cost/solve={:.1}, noise={:.1}%, viol={}",
+                cm.holdout_accuracy * 100.0,
+                cm.holdout_cost_per_solve,
+                cm.holdout_noise_accuracy * 100.0,
+                cm.holdout_violations
+            );
         }
 
         cycle_metrics.push(cm);
@@ -497,7 +618,9 @@ pub fn run_acceptance_test_mode(config: &HoldoutConfig, mode: &AblationMode) -> 
     let last = &cycle_metrics[cycle_metrics.len() - 1];
 
     // Accuracy: stays above threshold every cycle, ends above min
-    let accuracy_maintained = cycle_metrics.iter().all(|cm| cm.holdout_accuracy >= config.min_accuracy * 0.95)
+    let accuracy_maintained = cycle_metrics
+        .iter()
+        .all(|cm| cm.holdout_accuracy >= config.min_accuracy * 0.95)
         && last.holdout_accuracy >= config.min_accuracy;
 
     // Cost: >=15% decrease from cycle 1 to cycle N
@@ -516,31 +639,40 @@ pub fn run_acceptance_test_mode(config: &HoldoutConfig, mode: &AblationMode) -> 
     let zero_violations = cycle_metrics.iter().all(|cm| cm.holdout_violations == 0);
 
     // Rollback success: >=95% when triggered
-    let total_rb_attempts: usize = cycle_metrics.iter()
+    let total_rb_attempts: usize = cycle_metrics
+        .iter()
         .map(|cm| {
             let h = &cm.contract_health;
-            if h.rollback_correctness < 1.0 { 1 } else { 0 }
-        }).sum();
+            if h.rollback_correctness < 1.0 {
+                1
+            } else {
+                0
+            }
+        })
+        .sum();
     let rollback_ok = total_rb_attempts == 0
         || last.holdout_rollback_rate >= 0.95
         || last.holdout_rollback_rate == 0.0;
 
     // Count improved dimensions
     let mut dimensions_improved = 0;
-    if cost_improved { dimensions_improved += 1; }
-    if robustness_improved { dimensions_improved += 1; }
+    if cost_improved {
+        dimensions_improved += 1;
+    }
+    if robustness_improved {
+        dimensions_improved += 1;
+    }
     // Also count: solved_per_cost, rollback, contradiction rate
     if last.contract_health.solved_per_cost > first.contract_health.solved_per_cost + 0.001 {
         dimensions_improved += 1;
     }
-    if last.holdout_contradictions < first.holdout_contradictions || first.holdout_contradictions == 0 {
+    if last.holdout_contradictions < first.holdout_contradictions
+        || first.holdout_contradictions == 0
+    {
         dimensions_improved += 1;
     }
 
-    let overall_delta = ContractDelta::between(
-        &first.contract_health,
-        &last.contract_health,
-    );
+    let overall_delta = ContractDelta::between(&first.contract_health, &last.contract_health);
 
     let viability = ViabilityChecklist::evaluate(&health_history);
 
@@ -562,10 +694,16 @@ pub fn run_acceptance_test_mode(config: &HoldoutConfig, mode: &AblationMode) -> 
     };
 
     // Compiler stats for ablation tracking
-    let first_cost = acceptance_result.cycles.first()
-        .map(|c| c.holdout_cost_per_solve).unwrap_or(0.0);
-    let last_cost = acceptance_result.cycles.last()
-        .map(|c| c.holdout_cost_per_solve).unwrap_or(0.0);
+    let first_cost = acceptance_result
+        .cycles
+        .first()
+        .map(|c| c.holdout_cost_per_solve)
+        .unwrap_or(0.0);
+    let last_cost = acceptance_result
+        .cycles
+        .last()
+        .map(|c| c.holdout_cost_per_solve)
+        .unwrap_or(0.0);
     let cost_saved = if compiler_enabled && first_cost > 0.0 {
         first_cost - last_cost
     } else {
@@ -640,7 +778,9 @@ pub fn run_ablation_comparison(config: &HoldoutConfig) -> Result<AblationCompari
     };
 
     // Mode A skip usage is nonzero: proves it is not hobbled
-    let a_total_skip_uses: usize = mode_a.skip_mode_distribution.values()
+    let a_total_skip_uses: usize = mode_a
+        .skip_mode_distribution
+        .values()
         .flat_map(|modes| modes.iter())
         .filter(|(name, _)| *name != "none")
         .map(|(_, count)| *count)
@@ -648,7 +788,9 @@ pub fn run_ablation_comparison(config: &HoldoutConfig) -> Result<AblationCompari
     let a_skip_nonzero = a_total_skip_uses > 0;
 
     // Mode C uses different skip modes across contexts: proves learning
-    let c_unique_modes: std::collections::HashSet<&str> = mode_c.skip_mode_distribution.values()
+    let c_unique_modes: std::collections::HashSet<&str> = mode_c
+        .skip_mode_distribution
+        .values()
         .flat_map(|modes| modes.keys())
         .map(|s| s.as_str())
         .collect();
@@ -672,9 +814,15 @@ pub fn run_ablation_comparison(config: &HoldoutConfig) -> Result<AblationCompari
         c_penalty == 0.0 // Both zero = no regression
     };
 
-    let all_passed = b_beats_a_cost && c_beats_b_robustness && compiler_safe
-        && a_skip_nonzero && c_multi_mode && c_penalty_better_than_b
-        && mode_a.result.passed && mode_b.result.passed && mode_c.result.passed;
+    let all_passed = b_beats_a_cost
+        && c_beats_b_robustness
+        && compiler_safe
+        && a_skip_nonzero
+        && c_multi_mode
+        && c_penalty_better_than_b
+        && mode_a.result.passed
+        && mode_b.result.passed
+        && mode_c.result.passed;
 
     Ok(AblationComparison {
         mode_a,
@@ -761,20 +909,15 @@ fn train_cycle_mode(
             // Quarantine the failed trajectory if it was a contradiction
             // (claimed solved but answer was wrong)
             if result.solved && !result.correct {
-                let traj = crate::reasoning_bank::Trajectory::new(
-                    &puzzle.id, puzzle.difficulty,
-                );
-                solver.reasoning_bank.quarantine_trajectory(
-                    traj,
-                    "contradiction: solved but wrong during training",
-                );
+                let traj = crate::reasoning_bank::Trajectory::new(&puzzle.id, puzzle.difficulty);
+                solver
+                    .reasoning_bank
+                    .quarantine_trajectory(traj, "contradiction: solved but wrong during training");
             }
 
             // Record counterexample for evidence binding
             let sig = format!("d{}_c{}", puzzle.difficulty, puzzle.constraints.len());
-            let ce_traj = crate::reasoning_bank::Trajectory::new(
-                &puzzle.id, puzzle.difficulty,
-            );
+            let ce_traj = crate::reasoning_bank::Trajectory::new(&puzzle.id, puzzle.difficulty);
             solver.reasoning_bank.record_counterexample(&sig, ce_traj);
         }
 
@@ -810,8 +953,12 @@ fn evaluate_holdout_clean_mode(
         raw.tasks_attempted += 1;
         let result = solver.solve(puzzle)?;
 
-        if result.solved { raw.tasks_completed += 1; }
-        if result.correct { raw.tasks_correct += 1; }
+        if result.solved {
+            raw.tasks_completed += 1;
+        }
+        if result.correct {
+            raw.tasks_correct += 1;
+        }
         raw.total_steps += result.steps;
         raw.total_tool_calls += result.tool_calls;
 
@@ -820,12 +967,22 @@ fn evaluate_holdout_clean_mode(
             raw.contradictions += 1;
         }
 
-        let entry = raw.by_difficulty.entry(puzzle.difficulty).or_insert(DifficultyStats {
-            attempted: 0, completed: 0, correct: 0, avg_steps: 0.0,
-        });
+        let entry = raw
+            .by_difficulty
+            .entry(puzzle.difficulty)
+            .or_insert(DifficultyStats {
+                attempted: 0,
+                completed: 0,
+                correct: 0,
+                avg_steps: 0.0,
+            });
         entry.attempted += 1;
-        if result.solved { entry.completed += 1; }
-        if result.correct { entry.correct += 1; }
+        if result.solved {
+            entry.completed += 1;
+        }
+        if result.correct {
+            entry.correct += 1;
+        }
     }
 
     let accuracy = if raw.tasks_attempted > 0 {
@@ -864,7 +1021,9 @@ fn evaluate_holdout_noisy_mode(
         let result = solver.solve(&noisy)?;
         solver.noisy_hint = false;
 
-        if result.solved { raw.tasks_completed += 1; }
+        if result.solved {
+            raw.tasks_completed += 1;
+        }
         if result.correct {
             raw.tasks_correct += 1;
             raw.noise_tasks_correct += 1;

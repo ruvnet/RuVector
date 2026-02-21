@@ -63,12 +63,7 @@ impl SparseEmbeddingProvider {
             sparsity_config,
         )?;
 
-        let ffn = SparseFfn::new(
-            input_dim,
-            hidden_dim,
-            embed_dim,
-            ActivationType::Gelu,
-        )?;
+        let ffn = SparseFfn::new(input_dim, hidden_dim, embed_dim, ActivationType::Gelu)?;
 
         Ok(Self {
             ffn,
@@ -100,11 +95,15 @@ impl SparseEmbeddingProvider {
         let gguf = GgufParser::parse(data)?;
 
         // Extract dimensions from model metadata
-        let hidden_dim = gguf.metadata.get("llama.embedding_length")
+        let hidden_dim = gguf
+            .metadata
+            .get("llama.embedding_length")
             .and_then(|v| v.as_u32())
             .unwrap_or(4096) as usize;
 
-        let intermediate_dim = gguf.metadata.get("llama.feed_forward_length")
+        let intermediate_dim = gguf
+            .metadata
+            .get("llama.feed_forward_length")
             .and_then(|v| v.as_u32())
             .unwrap_or((hidden_dim * 4) as u32) as usize;
 
@@ -132,9 +131,7 @@ impl SparseEmbeddingProvider {
 
     /// Batch embed multiple inputs
     pub fn embed_batch(&self, inputs: &[Vec<f32>]) -> Result<Vec<Vec<f32>>> {
-        inputs.iter()
-            .map(|input| self.embed(input))
-            .collect()
+        inputs.iter().map(|input| self.embed(input)).collect()
     }
 
     /// Get embedding dimension
@@ -155,7 +152,8 @@ impl SparseEmbeddingProvider {
     /// Calibrate the predictor with sample data
     pub fn calibrate(&mut self, samples: &[Vec<f32>]) -> Result<()> {
         // Generate activations for calibration
-        let activations: Vec<Vec<f32>> = samples.iter()
+        let activations: Vec<Vec<f32>> = samples
+            .iter()
             .map(|s| self.ffn.forward_dense(s))
             .collect::<Result<Vec<_>>>()?;
 
@@ -187,14 +185,15 @@ impl EmbeddingProvider for SparseEmbeddingProvider {
         // In production, integrate with a tokenizer (e.g., tiktoken, sentencepiece)
         Err(SparseInferenceError::Inference(
             crate::error::InferenceError::InvalidInput(
-                "Text embedding requires tokenizer integration".to_string()
-            )
+                "Text embedding requires tokenizer integration".to_string(),
+            ),
         ))
     }
 
     fn embed_tokens(&self, tokens: &[u32]) -> Result<Vec<f32>> {
         // Convert tokens to embeddings (simplified - real implementation needs token embedding lookup)
-        let input: Vec<f32> = tokens.iter()
+        let input: Vec<f32> = tokens
+            .iter()
             .map(|&t| (t as f32) / 50000.0) // Normalize token ids
             .collect();
 
@@ -261,7 +260,11 @@ mod tests {
         ];
 
         let embeddings = provider.embed_batch(&inputs);
-        assert!(embeddings.is_ok(), "Batch embed failed: {:?}", embeddings.err());
+        assert!(
+            embeddings.is_ok(),
+            "Batch embed failed: {:?}",
+            embeddings.err()
+        );
 
         let embeddings = embeddings.unwrap();
         assert_eq!(embeddings.len(), 3);

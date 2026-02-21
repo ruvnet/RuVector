@@ -123,10 +123,7 @@ impl GenomicPipeline {
     }
 
     /// Run k-mer analysis on sequences
-    pub fn run_kmer_analysis(
-        &self,
-        sequences: &[(&str, &[u8])],
-    ) -> Result<KmerAnalysisResult> {
+    pub fn run_kmer_analysis(&self, sequences: &[(&str, &[u8])]) -> Result<KmerAnalysisResult> {
         let mut total_kmers = 0;
         let mut kmer_set = std::collections::HashSet::new();
         let mut gc_count = 0;
@@ -156,9 +153,7 @@ impl GenomicPipeline {
             }
 
             // Convert sequence to vector and index
-            let dna_seq = DnaSequence::from_str(
-                &String::from_utf8_lossy(seq)
-            )?;
+            let dna_seq = DnaSequence::from_str(&String::from_utf8_lossy(seq))?;
 
             if let Ok(vector) = dna_seq.to_kmer_vector(self.config.k, 384) {
                 let entry = VectorEntry {
@@ -180,9 +175,7 @@ impl GenomicPipeline {
         let mut top_similar = Vec::new();
         if !sequences.is_empty() {
             if let Some((query_id, query_seq)) = sequences.first() {
-                let dna_seq = DnaSequence::from_str(
-                    &String::from_utf8_lossy(query_seq)
-                )?;
+                let dna_seq = DnaSequence::from_str(&String::from_utf8_lossy(query_seq))?;
 
                 if let Ok(query_vector) = dna_seq.to_kmer_vector(self.config.k, 384) {
                     let search_query = SearchQuery {
@@ -246,7 +239,9 @@ impl GenomicPipeline {
                 // Call variant if alternate allele frequency is significant
                 if allele_freq > 0.2 && count >= 3 {
                     // Calculate quality score from supporting reads
-                    let quality = pileup.qualities.iter()
+                    let quality = pileup
+                        .qualities
+                        .iter()
                         .take(count)
                         .map(|&q| q as u16)
                         .sum::<u16>()
@@ -297,10 +292,8 @@ impl GenomicPipeline {
         let start = Instant::now();
 
         // Stage 1: K-mer analysis
-        let kmer_stats = self.run_kmer_analysis(&[
-            ("query", sequence),
-            ("reference", reference),
-        ])?;
+        let kmer_stats =
+            self.run_kmer_analysis(&[("query", sequence), ("reference", reference)])?;
 
         // Stage 2: Variant calling - generate pileups from sequence
         let pileups = self.generate_pileups(sequence, reference)?;
@@ -368,7 +361,10 @@ impl GenomicPipeline {
     }
 
     /// Predict protein contacts using residue property heuristics
-    fn predict_protein_contacts(&self, protein: &ProteinSequence) -> Result<Vec<(usize, usize, f32)>> {
+    fn predict_protein_contacts(
+        &self,
+        protein: &ProteinSequence,
+    ) -> Result<Vec<(usize, usize, f32)>> {
         let residues = protein.residues();
         let n = residues.len();
 
@@ -377,7 +373,8 @@ impl GenomicPipeline {
         }
 
         // Compute residue feature scores
-        let features: Vec<f32> = residues.iter()
+        let features: Vec<f32> = residues
+            .iter()
             .map(|r| r.to_char() as u8 as f32 / 255.0)
             .collect();
 
@@ -399,13 +396,19 @@ impl GenomicPipeline {
 
     /// Simple secondary structure prediction
     fn predict_secondary_structure(&self, protein: &ProteinSequence) -> Vec<char> {
-        protein.residues().iter().map(|r| {
-            match r {
-                ProteinResidue::A | ProteinResidue::E | ProteinResidue::L | ProteinResidue::M => 'H',
-                ProteinResidue::V | ProteinResidue::I | ProteinResidue::Y | ProteinResidue::F => 'E',
+        protein
+            .residues()
+            .iter()
+            .map(|r| match r {
+                ProteinResidue::A | ProteinResidue::E | ProteinResidue::L | ProteinResidue::M => {
+                    'H'
+                }
+                ProteinResidue::V | ProteinResidue::I | ProteinResidue::Y | ProteinResidue::F => {
+                    'E'
+                }
                 _ => 'C',
-            }
-        }).collect()
+            })
+            .collect()
     }
 
     /// Generate pileups from sequence alignment
@@ -485,9 +488,7 @@ mod tests {
         let config = PipelineConfig::default();
         let pipeline = GenomicPipeline::new(config);
 
-        let sequences = vec![
-            ("seq1", b"ACGTACGTACGTACGTACGTACGT".as_ref()),
-        ];
+        let sequences = vec![("seq1", b"ACGTACGTACGTACGTACGTACGT".as_ref())];
 
         let result = pipeline.run_kmer_analysis(&sequences);
         assert!(result.is_ok());

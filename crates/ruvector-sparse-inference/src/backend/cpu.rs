@@ -165,8 +165,12 @@ impl Backend for CpuBackend {
         #[cfg(target_arch = "x86_64")]
         {
             let features = get_simd_features();
-            if features.has_avx2 { return 8; }
-            if features.has_sse41 { return 4; }
+            if features.has_avx2 {
+                return 8;
+            }
+            if features.has_sse41 {
+                return 4;
+            }
             return 1;
         }
         #[cfg(target_arch = "aarch64")]
@@ -194,10 +198,7 @@ unsafe fn dot_product_avx2(a: &[f32], b: &[f32]) -> f32 {
     }
 
     // Horizontal sum
-    let sum128 = _mm_add_ps(
-        _mm256_extractf128_ps(sum, 0),
-        _mm256_extractf128_ps(sum, 1),
-    );
+    let sum128 = _mm_add_ps(_mm256_extractf128_ps(sum, 0), _mm256_extractf128_ps(sum, 1));
     let sum64 = _mm_add_ps(sum128, _mm_movehl_ps(sum128, sum128));
     let sum32 = _mm_add_ss(sum64, _mm_shuffle_ps(sum64, sum64, 1));
     let mut result = _mm_cvtss_f32(sum32);

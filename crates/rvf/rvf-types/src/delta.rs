@@ -102,8 +102,8 @@ impl DeltaHeader {
             base_cluster_id: u32::from_le_bytes([data[0x08], data[0x09], data[0x0A], data[0x0B]]),
             affected_count: u32::from_le_bytes([data[0x0C], data[0x0D], data[0x0E], data[0x0F]]),
             delta_size: u64::from_le_bytes([
-                data[0x10], data[0x11], data[0x12], data[0x13],
-                data[0x14], data[0x15], data[0x16], data[0x17],
+                data[0x10], data[0x11], data[0x12], data[0x13], data[0x14], data[0x15], data[0x16],
+                data[0x17],
             ]),
             delta_hash: {
                 let mut h = [0u8; 32];

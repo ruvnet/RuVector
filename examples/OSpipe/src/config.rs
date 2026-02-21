@@ -114,10 +114,7 @@ impl Default for CaptureConfig {
         Self {
             fps: 1.0,
             audio_chunk_secs: 30,
-            excluded_apps: vec![
-                "1Password".to_string(),
-                "Keychain Access".to_string(),
-            ],
+            excluded_apps: vec!["1Password".to_string(), "Keychain Access".to_string()],
             skip_private_windows: true,
         }
     }

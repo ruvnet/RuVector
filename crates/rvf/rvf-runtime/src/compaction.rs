@@ -134,7 +134,9 @@ pub(crate) fn select_segments(
     // Phase 2: small VEC_SEGs (< 1MB).
     let small_threshold = 1024 * 1024;
     for &(seg_id, payload_len, seg_type, _) in segment_dir {
-        if seg_type == 0x01 && payload_len < small_threshold && selected.len() < max_segments
+        if seg_type == 0x01
+            && payload_len < small_threshold
+            && selected.len() < max_segments
             && !selected.contains(&seg_id)
         {
             selected.push(seg_id);
@@ -194,9 +196,9 @@ mod tests {
     fn select_tombstoned_first() {
         let segments = vec![
             (1, 500_000, 0x01, false),
-            (2, 100_000, 0x01, true),  // tombstoned
+            (2, 100_000, 0x01, true), // tombstoned
             (3, 200_000, 0x01, false),
-            (4, 50_000, 0x01, true),   // tombstoned
+            (4, 50_000, 0x01, true), // tombstoned
         ];
         let selected = select_segments(&segments, 3);
         // Tombstoned segments (2, 4) should come first.

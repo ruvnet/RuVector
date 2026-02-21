@@ -343,11 +343,7 @@ fn encode_data(data: &[u8], vi: &VersionInfo, ec: EcLevel) -> Result<Vec<u8>, Qr
 // ---------------------------------------------------------------------------
 
 /// Generate the final codeword sequence (data + EC, interleaved).
-fn generate_codewords(
-    data_codewords: &[u8],
-    vi: &VersionInfo,
-    ec: EcLevel,
-) -> Vec<u8> {
+fn generate_codewords(data_codewords: &[u8], vi: &VersionInfo, ec: EcLevel) -> Vec<u8> {
     let eci = ec_index(ec);
     let num_blocks = vi.blocks[eci];
     let ec_per_block = vi.ec_per_block[eci];
@@ -715,7 +711,10 @@ fn evaluate_penalty(matrix: &[Vec<bool>]) -> u32 {
     let percent = (dark_count * 100) / total;
     let prev5 = (percent / 5) * 5;
     let next5 = prev5 + 5;
-    let deviation = ((prev5 as i32 - 50).unsigned_abs().min((next5 as i32 - 50).unsigned_abs())) / 5;
+    let deviation = ((prev5 as i32 - 50)
+        .unsigned_abs()
+        .min((next5 as i32 - 50).unsigned_abs()))
+        / 5;
     penalty += deviation * 10;
 
     penalty
@@ -898,9 +897,8 @@ impl QrEncoder {
             }
         }
 
-        let modules = best_modules.ok_or_else(|| {
-            QrError::EncodingFailed("no valid mask found".into())
-        })?;
+        let modules =
+            best_modules.ok_or_else(|| QrError::EncodingFailed("no valid mask found".into()))?;
 
         // Apply format info to chosen mask result (already done in the loop).
         let _ = best_mask; // Used during format info placement.
@@ -981,9 +979,9 @@ impl QrEncoder {
 
                 let ch = match (top, bot) {
                     (false, false) => ' ',
-                    (true, false) => '\u{2580}',  // Upper half block.
-                    (false, true) => '\u{2584}',   // Lower half block.
-                    (true, true) => '\u{2588}',    // Full block.
+                    (true, false) => '\u{2580}', // Upper half block.
+                    (false, true) => '\u{2584}', // Lower half block.
+                    (true, true) => '\u{2588}',  // Full block.
                 };
                 line.push(ch);
             }
@@ -1112,8 +1110,10 @@ mod tests {
     fn rs_encode_known_vector() {
         // Verify RS encoding produces non-zero EC codewords.
         let gf = build_gf_tables();
-        let data = vec![0x40, 0x11, 0x20, 0xEC, 0x11, 0xEC, 0x11, 0xEC,
-                        0x11, 0xEC, 0x11, 0xEC, 0x11, 0xEC, 0x11, 0xEC];
+        let data = vec![
+            0x40, 0x11, 0x20, 0xEC, 0x11, 0xEC, 0x11, 0xEC, 0x11, 0xEC, 0x11, 0xEC, 0x11, 0xEC,
+            0x11, 0xEC,
+        ];
         let ec = rs_encode(&gf, &data, 10);
         assert_eq!(ec.len(), 10);
         // EC codewords should not all be zero for non-trivial data.

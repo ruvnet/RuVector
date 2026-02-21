@@ -36,10 +36,7 @@ impl StarAllele {
         match self {
             StarAllele::Star1 | StarAllele::Star2 => 1.0,
             StarAllele::Star10 | StarAllele::Star17 | StarAllele::Star41 => 0.5,
-            StarAllele::Star3
-            | StarAllele::Star4
-            | StarAllele::Star5
-            | StarAllele::Star6 => 0.0,
+            StarAllele::Star3 | StarAllele::Star4 | StarAllele::Star5 | StarAllele::Star6 => 0.0,
             StarAllele::Unknown => 0.5,
         }
     }
@@ -194,19 +191,23 @@ pub fn get_recommendations(
             DrugRecommendation {
                 drug: "Codeine".to_string(),
                 gene: gene.to_string(),
-                recommendation: "AVOID codeine; no conversion to morphine. Use alternative analgesic.".to_string(),
+                recommendation:
+                    "AVOID codeine; no conversion to morphine. Use alternative analgesic."
+                        .to_string(),
                 dose_factor: 0.0,
             },
             DrugRecommendation {
                 drug: "Tramadol".to_string(),
                 gene: gene.to_string(),
-                recommendation: "AVOID tramadol; reduced efficacy. Use alternative analgesic.".to_string(),
+                recommendation: "AVOID tramadol; reduced efficacy. Use alternative analgesic."
+                    .to_string(),
                 dose_factor: 0.0,
             },
             DrugRecommendation {
                 drug: "Tamoxifen".to_string(),
                 gene: gene.to_string(),
-                recommendation: "Consider alternative endocrine therapy (aromatase inhibitor).".to_string(),
+                recommendation: "Consider alternative endocrine therapy (aromatase inhibitor)."
+                    .to_string(),
                 dose_factor: 0.0,
             },
             DrugRecommendation {
@@ -220,7 +221,9 @@ pub fn get_recommendations(
             DrugRecommendation {
                 drug: "Codeine".to_string(),
                 gene: gene.to_string(),
-                recommendation: "AVOID codeine; risk of fatal toxicity from ultra-rapid morphine conversion.".to_string(),
+                recommendation:
+                    "AVOID codeine; risk of fatal toxicity from ultra-rapid morphine conversion."
+                        .to_string(),
                 dose_factor: 0.0,
             },
             DrugRecommendation {
@@ -248,7 +251,8 @@ pub fn get_recommendations(
             DrugRecommendation {
                 drug: "Clopidogrel (Plavix)".to_string(),
                 gene: gene.to_string(),
-                recommendation: "AVOID clopidogrel; use prasugrel or ticagrelor instead.".to_string(),
+                recommendation: "AVOID clopidogrel; use prasugrel or ticagrelor instead."
+                    .to_string(),
                 dose_factor: 0.0,
             },
             DrugRecommendation {
@@ -300,7 +304,9 @@ pub fn get_recommendations(
             DrugRecommendation {
                 drug: "PPIs (omeprazole)".to_string(),
                 gene: gene.to_string(),
-                recommendation: "Standard dose likely adequate; may have slightly increased exposure.".to_string(),
+                recommendation:
+                    "Standard dose likely adequate; may have slightly increased exposure."
+                        .to_string(),
                 dose_factor: 1.0,
             },
             DrugRecommendation {

@@ -3,8 +3,8 @@
 //! Verifies file_id, parent_id, parent_hash, lineage_depth at each level,
 //! and that HAS_LINEAGE flag + DERIVATION witness semantics work end-to-end.
 
-use rvf_runtime::{RvfStore, RvfOptions};
 use rvf_runtime::options::DistanceMetric;
+use rvf_runtime::{RvfOptions, RvfStore};
 use rvf_types::DerivationType;
 use tempfile::TempDir;
 
@@ -30,7 +30,9 @@ fn parent_child_grandchild_derivation() {
     assert_ne!(parent_file_id, [0u8; 16]); // should have a real ID
 
     // Derive child from parent
-    let child = parent.derive(&child_path, DerivationType::Filter, None).unwrap();
+    let child = parent
+        .derive(&child_path, DerivationType::Filter, None)
+        .unwrap();
     let child_file_id = *child.file_id();
     assert_eq!(child.lineage_depth(), 1);
     assert_eq!(child.parent_id(), &parent_file_id);
@@ -39,7 +41,9 @@ fn parent_child_grandchild_derivation() {
     assert_ne!(child.file_identity().parent_hash, [0u8; 32]); // non-zero parent hash
 
     // Derive grandchild from child
-    let grandchild = child.derive(&grandchild_path, DerivationType::Transform, None).unwrap();
+    let grandchild = child
+        .derive(&grandchild_path, DerivationType::Transform, None)
+        .unwrap();
     assert_eq!(grandchild.lineage_depth(), 2);
     assert_eq!(grandchild.parent_id(), &child_file_id);
     assert!(!grandchild.file_identity().is_root());
@@ -67,11 +71,15 @@ fn derived_store_inherits_dimension() {
     };
 
     let parent = RvfStore::create(&parent_path, options).unwrap();
-    let child = parent.derive(&child_path, DerivationType::Clone, None).unwrap();
+    let child = parent
+        .derive(&child_path, DerivationType::Clone, None)
+        .unwrap();
 
     // Child should be queryable with same dimension
     let query = vec![0.0f32; 128];
-    let results = child.query(&query, 10, &rvf_runtime::QueryOptions::default()).unwrap();
+    let results = child
+        .query(&query, 10, &rvf_runtime::QueryOptions::default())
+        .unwrap();
     assert!(results.is_empty()); // no vectors ingested yet
 
     child.close().unwrap();
@@ -93,7 +101,9 @@ fn file_identity_persists_through_reopen() {
     let parent = RvfStore::create(&parent_path, options).unwrap();
     let parent_file_id = *parent.file_id();
 
-    let child = parent.derive(&child_path, DerivationType::Snapshot, None).unwrap();
+    let child = parent
+        .derive(&child_path, DerivationType::Snapshot, None)
+        .unwrap();
     let child_file_id = *child.file_id();
     let child_depth = child.lineage_depth();
     let child_parent_id = *child.parent_id();

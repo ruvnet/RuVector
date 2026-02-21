@@ -209,7 +209,8 @@ impl BpeTokenizer {
             }
         }
 
-        String::from_utf8(bytes).unwrap_or_else(|e| String::from_utf8_lossy(e.as_bytes()).into_owned())
+        String::from_utf8(bytes)
+            .unwrap_or_else(|e| String::from_utf8_lossy(e.as_bytes()).into_owned())
     }
 
     /// Get the vocabulary size.
@@ -295,10 +296,10 @@ mod tests {
     fn test_tokenizer(merges: Vec<(String, String)>, extra_tokens: Vec<String>) -> BpeTokenizer {
         // Base vocabulary: special tokens + 256 byte tokens
         let mut vocab = vec![
-            "<PAD>".to_string(),  // 0 = PAD
-            "<BOS>".to_string(),  // 1 = BOS
-            "<EOS>".to_string(),  // 2 = EOS
-            "<UNK>".to_string(),  // 3 = UNK
+            "<PAD>".to_string(), // 0 = PAD
+            "<BOS>".to_string(), // 1 = BOS
+            "<EOS>".to_string(), // 2 = EOS
+            "<UNK>".to_string(), // 3 = UNK
         ];
         for b in 0..=255u8 {
             vocab.push(format!("<{:02X}>", b));
@@ -386,7 +387,11 @@ mod tests {
         // BOS + merged token. The merged token should be one ID.
         // Without merge: BOS, <48>, <65> = 3 tokens
         // With merge: BOS, <48><65> = 2 tokens
-        assert_eq!(ids.len(), 2, "Merge should reduce 'He' to BOS + 1 merged token");
+        assert_eq!(
+            ids.len(),
+            2,
+            "Merge should reduce 'He' to BOS + 1 merged token"
+        );
     }
 
     #[test]
@@ -405,7 +410,11 @@ mod tests {
     #[test]
     fn test_vocab_size() {
         let tok = test_tokenizer(vec![], vec![]);
-        assert_eq!(tok.vocab_size(), 4 + 256, "Should have 4 special + 256 byte tokens");
+        assert_eq!(
+            tok.vocab_size(),
+            4 + 256,
+            "Should have 4 special + 256 byte tokens"
+        );
     }
 
     #[test]

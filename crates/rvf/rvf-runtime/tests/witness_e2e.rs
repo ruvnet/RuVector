@@ -115,8 +115,7 @@ fn governance_restricted_mode_blocks_writes() {
 #[test]
 fn governance_approved_mode_gates_all() {
     let policy = GovernancePolicy::approved();
-    let mut builder = WitnessBuilder::new([0x20; 16], policy)
-        .with_outcome(TaskOutcome::Solved);
+    let mut builder = WitnessBuilder::new([0x20; 16], policy).with_outcome(TaskOutcome::Solved);
 
     let check = builder.record_tool_call(make_entry("Read", 50, 100, 500));
     assert_eq!(check, PolicyCheck::Confirmed);
@@ -133,8 +132,7 @@ fn governance_autonomous_with_cost_cap() {
     let mut policy = GovernancePolicy::autonomous();
     policy.max_cost_microdollars = 500;
 
-    let mut builder = WitnessBuilder::new([0x30; 16], policy)
-        .with_outcome(TaskOutcome::Solved);
+    let mut builder = WitnessBuilder::new([0x30; 16], policy).with_outcome(TaskOutcome::Solved);
 
     builder.record_tool_call(make_entry("Read", 50, 400, 500));
     assert!(builder.policy_violations.is_empty());
@@ -278,8 +276,8 @@ fn zero_policy_violations_in_autonomous() {
     let mut total_violations = 0u32;
 
     for i in 0..100u8 {
-        let mut builder = WitnessBuilder::new([i; 16], policy.clone())
-            .with_outcome(TaskOutcome::Solved);
+        let mut builder =
+            WitnessBuilder::new([i; 16], policy.clone()).with_outcome(TaskOutcome::Solved);
         builder.record_tool_call(make_entry("Read", 10, 10, 10));
         builder.record_tool_call(make_entry("Edit", 10, 10, 10));
         builder.record_tool_call(make_entry("Bash", 10, 10, 10));

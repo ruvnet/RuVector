@@ -82,10 +82,7 @@ impl DockerBuildContext {
     /// Creates:
     /// - `<context_dir>/Dockerfile`
     /// - `<context_dir>/kernel.config`
-    pub fn prepare(
-        context_dir: &Path,
-        kernel_version: Option<&str>,
-    ) -> Result<Self, KernelError> {
+    pub fn prepare(context_dir: &Path, kernel_version: Option<&str>) -> Result<Self, KernelError> {
         let version = kernel_version.unwrap_or(DEFAULT_KERNEL_VERSION);
 
         std::fs::create_dir_all(context_dir)?;
@@ -124,9 +121,7 @@ impl DockerBuildContext {
             ])
             .current_dir(&self.context_dir)
             .status()
-            .map_err(|e| {
-                KernelError::DockerBuildFailed(format!("failed to run docker: {e}"))
-            })?;
+            .map_err(|e| KernelError::DockerBuildFailed(format!("failed to run docker: {e}")))?;
 
         if !build_status.success() {
             return Err(KernelError::DockerBuildFailed(format!(
@@ -146,20 +141,22 @@ impl DockerBuildContext {
         // creates the container filesystem, it doesn't run anything.
         let create_output = Command::new("docker")
             .args([
-                "create", "--name", "rvf-kernel-extract",
-                "--entrypoint", "",
-                &image_tag, "/bzImage",
+                "create",
+                "--name",
+                "rvf-kernel-extract",
+                "--entrypoint",
+                "",
+                &image_tag,
+                "/bzImage",
             ])
             .output()
-            .map_err(|e| {
-                KernelError::DockerBuildFailed(format!("docker create failed: {e}"))
-            })?;
+            .map_err(|e| KernelError::DockerBuildFailed(format!("docker create failed: {e}")))?;
 
         if !create_output.status.success() {
             let stderr = String::from_utf8_lossy(&create_output.stderr);
-            return Err(KernelError::DockerBuildFailed(
-                format!("docker create failed: {stderr}"),
-            ));
+            return Err(KernelError::DockerBuildFailed(format!(
+                "docker create failed: {stderr}"
+            )));
         }
 
         let bzimage_path = self.context_dir.join("bzImage");
@@ -170,9 +167,7 @@ impl DockerBuildContext {
                 &bzimage_path.to_string_lossy(),
             ])
             .status()
-            .map_err(|e| {
-                KernelError::DockerBuildFailed(format!("docker cp failed: {e}"))
-            })?;
+            .map_err(|e| KernelError::DockerBuildFailed(format!("docker cp failed: {e}")))?;
 
         // Clean up the temporary container (best-effort)
         let _ = Command::new("docker")

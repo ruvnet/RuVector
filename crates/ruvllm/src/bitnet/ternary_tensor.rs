@@ -88,9 +88,7 @@ impl TernaryTensor {
             return 0;
         }
         let total_elements = self.shape.0.saturating_mul(self.shape.1);
-        total_elements
-            .saturating_add(self.block_size - 1)
-            / self.block_size
+        total_elements.saturating_add(self.block_size - 1) / self.block_size
     }
 }
 
@@ -245,8 +243,8 @@ mod tests {
         let unpacked = unpack_ternary(&packed, 4);
         assert_eq!(unpacked[0], -1); // -5 clamped to -1
         assert_eq!(unpacked[1], 0);
-        assert_eq!(unpacked[2], 1);  // 2 clamped to +1
-        assert_eq!(unpacked[3], 1);  // 3 clamped to +1
+        assert_eq!(unpacked[2], 1); // 2 clamped to +1
+        assert_eq!(unpacked[3], 1); // 3 clamped to +1
     }
 
     #[test]

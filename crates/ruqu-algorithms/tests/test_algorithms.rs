@@ -64,25 +64,37 @@ fn deutsch_algorithm(oracle: &str) -> bool {
 #[test]
 fn test_deutsch_f0_constant() {
     // f(0) = 0, f(1) = 0 → constant → measure |0⟩
-    assert!(!deutsch_algorithm("f0"), "f0 should be classified as constant");
+    assert!(
+        !deutsch_algorithm("f0"),
+        "f0 should be classified as constant"
+    );
 }
 
 #[test]
 fn test_deutsch_f1_constant() {
     // f(0) = 1, f(1) = 1 → constant → measure |0⟩
-    assert!(!deutsch_algorithm("f1"), "f1 should be classified as constant");
+    assert!(
+        !deutsch_algorithm("f1"),
+        "f1 should be classified as constant"
+    );
 }
 
 #[test]
 fn test_deutsch_f2_balanced() {
     // f(0) = 0, f(1) = 1 → balanced → measure |1⟩
-    assert!(deutsch_algorithm("f2"), "f2 should be classified as balanced");
+    assert!(
+        deutsch_algorithm("f2"),
+        "f2 should be classified as balanced"
+    );
 }
 
 #[test]
 fn test_deutsch_f3_balanced() {
     // f(0) = 1, f(1) = 0 → balanced → measure |1⟩
-    assert!(deutsch_algorithm("f3"), "f3 should be classified as balanced");
+    assert!(
+        deutsch_algorithm("f3"),
+        "f3 should be classified as balanced"
+    );
 }
 
 #[test]
@@ -96,8 +108,12 @@ fn test_deutsch_deterministic_probabilities() {
 
         match *oracle {
             "f0" => {}
-            "f1" => { state.apply_gate(&Gate::X(1)).unwrap(); }
-            "f2" => { state.apply_gate(&Gate::CNOT(0, 1)).unwrap(); }
+            "f1" => {
+                state.apply_gate(&Gate::X(1)).unwrap();
+            }
+            "f2" => {
+                state.apply_gate(&Gate::CNOT(0, 1)).unwrap();
+            }
             "f3" => {
                 state.apply_gate(&Gate::X(0)).unwrap();
                 state.apply_gate(&Gate::CNOT(0, 1)).unwrap();
@@ -151,7 +167,8 @@ fn test_deutsch_phase_kickback() {
         assert!(
             (amps[i].re - exp).abs() < EPSILON && amps[i].im.abs() < EPSILON,
             "Amplitude mismatch at index {i}: got ({}, {}), expected ({exp}, 0)",
-            amps[i].re, amps[i].im
+            amps[i].re,
+            amps[i].im
         );
     }
 }
@@ -363,8 +380,7 @@ fn test_vqe_simple_z_hamiltonian() {
         result.optimal_energy
     );
     assert!(
-        result.optimal_energy >= -1.0 - ALGO_EPSILON
-            && result.optimal_energy <= 1.0 + ALGO_EPSILON,
+        result.optimal_energy >= -1.0 - ALGO_EPSILON && result.optimal_energy <= 1.0 + ALGO_EPSILON,
         "VQE energy should be in [-1, 1]; got {}",
         result.optimal_energy
     );
@@ -439,10 +455,7 @@ fn test_vqe_returns_optimal_params() {
 fn test_h2_hamiltonian_structure() {
     let h = vqe::h2_hamiltonian();
     assert_eq!(h.num_qubits, 2);
-    assert!(
-        !h.terms.is_empty(),
-        "H2 Hamiltonian should have terms"
-    );
+    assert!(!h.terms.is_empty(), "H2 Hamiltonian should have terms");
 }
 
 // ===========================================================================
@@ -537,10 +550,7 @@ fn test_qaoa_build_circuit() {
     let betas = vec![0.4, 0.2];
     let circuit = qaoa::build_qaoa_circuit(&graph, &gammas, &betas);
     assert_eq!(circuit.num_qubits(), 4);
-    assert!(
-        circuit.gate_count() > 0,
-        "QAOA circuit should have gates"
-    );
+    assert!(circuit.gate_count() > 0, "QAOA circuit should have gates");
 }
 
 #[test]
@@ -633,11 +643,7 @@ fn test_cut_value_triangle_bipartition() {
     let graph = qaoa::Graph::unweighted(3, vec![(0, 1), (1, 2), (0, 2)]);
     // Partition {0} vs {1, 2}: edges (0,1) and (0,2) are cut = 2
     let cv = qaoa::cut_value(&graph, &[true, false, false]);
-    assert!(
-        approx_eq(cv, 2.0),
-        "Expected cut value 2; got {}",
-        cv
-    );
+    assert!(approx_eq(cv, 2.0), "Expected cut value 2; got {}", cv);
 }
 
 #[test]

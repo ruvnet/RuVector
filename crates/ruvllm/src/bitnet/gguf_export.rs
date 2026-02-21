@@ -13,10 +13,10 @@ use std::collections::HashMap;
 use std::io::{self, Cursor, Seek, Write};
 use std::path::Path;
 
+use super::ternary_tensor::TernaryTensor;
 use crate::error::{Result, RuvLLMError};
 use crate::gguf::quantization::GgufQuantType;
 use crate::gguf::{self, DEFAULT_ALIGNMENT, GGUF_MAGIC, GGUF_VERSION};
-use super::ternary_tensor::TernaryTensor;
 
 // ============================================================================
 // FP16 Conversion
@@ -296,10 +296,7 @@ impl<W: Write + Seek> GgufBitnetWriter<W> {
 /// # Security
 ///
 /// Validates the output path to reject path traversal components (`..`).
-pub fn export_craftsman_model(
-    path: &Path,
-    tensors: HashMap<String, ExportTensor>,
-) -> Result<()> {
+pub fn export_craftsman_model(path: &Path, tensors: HashMap<String, ExportTensor>) -> Result<()> {
     // Security: reject paths containing ".." components to prevent path traversal
     for component in path.components() {
         if let std::path::Component::ParentDir = component {
@@ -315,11 +312,20 @@ pub fn export_craftsman_model(
     let mut gguf = GgufBitnetWriter::new(file);
 
     let metadata: Vec<(&str, MetadataValue)> = vec![
-        ("general.architecture", MetadataValue::String("craftsman".into())),
+        (
+            "general.architecture",
+            MetadataValue::String("craftsman".into()),
+        ),
         ("craftsman.bitnet.version", MetadataValue::U32(1)),
-        ("craftsman.bitnet.weight_encoding", MetadataValue::String("absmean_ternary".into())),
+        (
+            "craftsman.bitnet.weight_encoding",
+            MetadataValue::String("absmean_ternary".into()),
+        ),
         ("craftsman.bitnet.activation_bits", MetadataValue::U32(8)),
-        ("craftsman.bitnet.router_precision", MetadataValue::String("f16".into())),
+        (
+            "craftsman.bitnet.router_precision",
+            MetadataValue::String("f16".into()),
+        ),
         ("craftsman.bitnet.block_size", MetadataValue::U32(256)),
     ];
 
@@ -509,9 +515,15 @@ mod tests {
         let tensor = ExportTensor::Ternary(ternary);
 
         let metadata = vec![
-            ("general.architecture", MetadataValue::String("craftsman".into())),
+            (
+                "general.architecture",
+                MetadataValue::String("craftsman".into()),
+            ),
             ("craftsman.bitnet.version", MetadataValue::U32(1)),
-            ("craftsman.bitnet.weight_encoding", MetadataValue::String("absmean_ternary".into())),
+            (
+                "craftsman.bitnet.weight_encoding",
+                MetadataValue::String("absmean_ternary".into()),
+            ),
         ];
         let tensors = vec![("test.weight", &tensor)];
 
@@ -538,9 +550,15 @@ mod tests {
         };
 
         let metadata = vec![
-            ("general.architecture", MetadataValue::String("craftsman".into())),
+            (
+                "general.architecture",
+                MetadataValue::String("craftsman".into()),
+            ),
             ("craftsman.bitnet.version", MetadataValue::U32(1)),
-            ("craftsman.bitnet.weight_encoding", MetadataValue::String("absmean_ternary".into())),
+            (
+                "craftsman.bitnet.weight_encoding",
+                MetadataValue::String("absmean_ternary".into()),
+            ),
         ];
         let tensors = vec![("expert.weight", &t_export), ("router.weight", &f_export)];
 
@@ -591,7 +609,10 @@ mod tests {
         let metadata = vec![
             ("general.architecture", MetadataValue::String("test".into())),
             ("craftsman.bitnet.version", MetadataValue::U32(1)),
-            ("craftsman.bitnet.weight_encoding", MetadataValue::String("absmean_ternary".into())),
+            (
+                "craftsman.bitnet.weight_encoding",
+                MetadataValue::String("absmean_ternary".into()),
+            ),
         ];
         let tensors = vec![("a.weight", &e1), ("b.weight", &e2)];
 
@@ -624,9 +645,15 @@ mod tests {
         let tensor = ExportTensor::Ternary(ternary);
 
         let metadata = vec![
-            ("general.architecture", MetadataValue::String("craftsman".into())),
+            (
+                "general.architecture",
+                MetadataValue::String("craftsman".into()),
+            ),
             ("craftsman.bitnet.version", MetadataValue::U32(1)),
-            ("craftsman.bitnet.weight_encoding", MetadataValue::String("absmean_ternary".into())),
+            (
+                "craftsman.bitnet.weight_encoding",
+                MetadataValue::String("absmean_ternary".into()),
+            ),
         ];
         let tensors = vec![("test.weight", &tensor)];
 
@@ -665,12 +692,7 @@ mod tests {
         let dequant_read = dequantize_bitnet_t158(packed_read, &[scale_read], 256);
 
         for (a, b) in dequant_orig.iter().zip(dequant_read.iter()) {
-            assert!(
-                (a - b).abs() < 0.01,
-                "Dequantized mismatch: {} vs {}",
-                a,
-                b
-            );
+            assert!((a - b).abs() < 0.01, "Dequantized mismatch: {} vs {}", a, b);
         }
     }
 }

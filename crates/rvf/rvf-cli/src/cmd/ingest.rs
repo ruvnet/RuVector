@@ -59,7 +59,9 @@ pub fn run(args: IngestArgs) -> Result<(), Box<dyn std::error::Error>> {
         let vec_refs: Vec<&[f32]> = vec_data.iter().map(|v| v.as_slice()).collect();
         let ids: Vec<u64> = chunk.iter().map(|r| r.id).collect();
 
-        let result = store.ingest_batch(&vec_refs, &ids, None).map_err(map_rvf_err)?;
+        let result = store
+            .ingest_batch(&vec_refs, &ids, None)
+            .map_err(map_rvf_err)?;
         total_accepted += result.accepted;
         total_rejected += result.rejected;
         last_epoch = result.epoch;

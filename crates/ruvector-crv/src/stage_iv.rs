@@ -96,11 +96,7 @@ impl StageIVEncoder {
     ///
     /// High spike rate in a short window indicates the analytical mind
     /// is overriding the signal line (AOL contamination).
-    fn detect_aol(
-        &self,
-        spike_rates: &[f64],
-        window_ms: f64,
-    ) -> Vec<AOLDetection> {
+    fn detect_aol(&self, spike_rates: &[f64], window_ms: f64) -> Vec<AOLDetection> {
         let mut detections = Vec::new();
         let threshold = self.aol_threshold as f64;
 

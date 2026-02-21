@@ -13,6 +13,9 @@
 //! - **Background compaction**: Dead space is reclaimed without blocking queries.
 
 pub mod adversarial;
+pub mod agi_authority;
+pub mod agi_coherence;
+pub mod agi_container;
 pub mod compaction;
 pub mod compress;
 pub mod cow;
@@ -35,14 +38,13 @@ pub mod status;
 pub mod store;
 pub mod witness;
 pub mod write_path;
-pub mod agi_authority;
-pub mod agi_coherence;
-pub mod agi_container;
 
 pub use adversarial::{
     adaptive_n_probe, centroid_distance_cv, combined_effective_n_probe,
     effective_n_probe_with_drift, is_degenerate_distribution, DEGENERATE_CV_THRESHOLD,
 };
+pub use agi_container::{AgiContainerBuilder, ParsedAgiManifest};
+pub use compress::{compress, decompress, CompressError};
 pub use cow::{CowEngine, CowStats, WitnessEvent};
 pub use cow_compact::CowCompactor;
 pub use cow_map::CowMap;
@@ -50,32 +52,25 @@ pub use dos::{BudgetTokenBucket, NegativeCache, ProofOfWork, QuerySignature};
 pub use filter::FilterExpr;
 pub use membership::MembershipFilter;
 pub use options::{
-    CompactionResult, DeleteResult, IngestResult, MetadataEntry, MetadataValue, QueryOptions,
-    QualityEnvelope, RvfOptions, SearchResult, WitnessConfig,
-};
-pub use compress::{compress, decompress, CompressError};
-pub use qr_seed::{
-    BootstrapProgress, DownloadManifest, ParsedSeed, SeedBuilder, SeedError,
-    make_host_entry,
-};
-pub use seed_crypto::{
-    seed_content_hash, layer_content_hash, full_content_hash,
-    sign_seed, verify_seed, verify_layer, SIG_ALGO_HMAC_SHA256,
-};
-#[cfg(feature = "ed25519")]
-pub use seed_crypto::{
-    sign_seed_ed25519, verify_seed_ed25519, SIG_ALGO_ED25519,
+    CompactionResult, DeleteResult, IngestResult, MetadataEntry, MetadataValue, QualityEnvelope,
+    QueryOptions, RvfOptions, SearchResult, WitnessConfig,
 };
 #[cfg(feature = "qr")]
-pub use qr_encode::{QrEncoder, QrCode, QrError, EcLevel};
+pub use qr_encode::{EcLevel, QrCode, QrEncoder, QrError};
+pub use qr_seed::{
+    make_host_entry, BootstrapProgress, DownloadManifest, ParsedSeed, SeedBuilder, SeedError,
+};
 pub use safety_net::{
     selective_safety_net_scan, should_activate_safety_net, Candidate, SafetyNetResult,
 };
+pub use seed_crypto::{
+    full_content_hash, layer_content_hash, seed_content_hash, sign_seed, verify_layer, verify_seed,
+    SIG_ALGO_HMAC_SHA256,
+};
+#[cfg(feature = "ed25519")]
+pub use seed_crypto::{sign_seed_ed25519, verify_seed_ed25519, SIG_ALGO_ED25519};
 pub use status::StoreStatus;
 pub use store::RvfStore;
 pub use witness::{
     GovernancePolicy, ParsedWitness, ScorecardBuilder, WitnessBuilder, WitnessError,
-};
-pub use agi_container::{
-    AgiContainerBuilder, ParsedAgiManifest,
 };

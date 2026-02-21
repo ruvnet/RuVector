@@ -17,14 +17,20 @@ use ruqu_exotic::quantum_decay::*;
 #[test]
 fn test_fresh_embedding_full_fidelity() {
     let emb = QuantumEmbedding::from_embedding(&[1.0, 0.0, 0.5, 0.3], 0.1);
-    assert!((emb.fidelity() - 1.0).abs() < EPSILON, "Fresh embedding must have fidelity 1.0");
+    assert!(
+        (emb.fidelity() - 1.0).abs() < EPSILON,
+        "Fresh embedding must have fidelity 1.0"
+    );
 }
 
 #[test]
 fn test_decoherence_reduces_fidelity() {
     let mut emb = QuantumEmbedding::from_embedding(&[1.0, 0.0, 0.5, 0.3], 0.1);
     emb.decohere(10.0, 42);
-    assert!(emb.fidelity() < 1.0 - EPSILON, "Decohered embedding fidelity must drop below 1.0");
+    assert!(
+        emb.fidelity() < 1.0 - EPSILON,
+        "Decohered embedding fidelity must drop below 1.0"
+    );
 }
 
 #[test]
@@ -36,7 +42,8 @@ fn test_more_decoherence_lower_fidelity() {
     assert!(
         emb_b.fidelity() < emb_a.fidelity(),
         "More decoherence (dt=20) must produce lower fidelity than less (dt=1): {} vs {}",
-        emb_b.fidelity(), emb_a.fidelity()
+        emb_b.fidelity(),
+        emb_a.fidelity()
     );
 }
 
@@ -60,7 +67,8 @@ fn test_similarity_decreases_with_decay() {
     assert!(
         sim_decayed < sim_fresh,
         "Similarity must decrease after decoherence: {} -> {}",
-        sim_fresh, sim_decayed
+        sim_fresh,
+        sim_decayed
     );
 }
 
@@ -83,7 +91,11 @@ fn test_roundtrip_embedding() {
     let emb = QuantumEmbedding::from_embedding(&original, 0.1);
     let recovered = emb.to_embedding();
     // Recovered should be normalized version of original
-    assert_eq!(recovered.len(), 4, "Recovered embedding should have original length");
+    assert_eq!(
+        recovered.len(),
+        4,
+        "Recovered embedding should have original length"
+    );
 }
 
 // ===========================================================================
@@ -95,10 +107,13 @@ use ruqu_exotic::interference_search::*;
 #[test]
 fn test_constructive_interference() {
     // "bank" has two meanings: financial and river
-    let concept = ConceptSuperposition::uniform("bank", vec![
-        ("financial".into(), vec![1.0, 0.0, 0.0]),
-        ("river".into(), vec![0.0, 1.0, 0.0]),
-    ]);
+    let concept = ConceptSuperposition::uniform(
+        "bank",
+        vec![
+            ("financial".into(), vec![1.0, 0.0, 0.0]),
+            ("river".into(), vec![0.0, 1.0, 0.0]),
+        ],
+    );
     // Context about money → should boost financial meaning
     let context = vec![0.9, 0.1, 0.0];
     let scores = concept.interfere(&context);
@@ -107,17 +122,21 @@ fn test_constructive_interference() {
     assert!(
         financial.probability > river.probability,
         "Financial context should boost financial meaning: {} > {}",
-        financial.probability, river.probability
+        financial.probability,
+        river.probability
     );
 }
 
 #[test]
 fn test_destructive_interference_with_opposite_phases() {
     // Two meanings with OPPOSITE phases but same embedding direction
-    let concept = ConceptSuperposition::with_amplitudes("ambiguous", vec![
-        ("positive".into(), vec![1.0, 0.0], Complex::new(1.0, 0.0)),
-        ("negative".into(), vec![0.8, 0.2], Complex::new(-1.0, 0.0)),
-    ]);
+    let concept = ConceptSuperposition::with_amplitudes(
+        "ambiguous",
+        vec![
+            ("positive".into(), vec![1.0, 0.0], Complex::new(1.0, 0.0)),
+            ("negative".into(), vec![0.8, 0.2], Complex::new(-1.0, 0.0)),
+        ],
+    );
     // Context aligned with both embeddings
     let context = vec![1.0, 0.0];
     let scores = concept.interfere(&context);
@@ -128,43 +147,52 @@ fn test_destructive_interference_with_opposite_phases() {
 
 #[test]
 fn test_collapse_returns_valid_label() {
-    let concept = ConceptSuperposition::uniform("test", vec![
-        ("alpha".into(), vec![1.0, 0.0]),
-        ("beta".into(), vec![0.0, 1.0]),
-    ]);
+    let concept = ConceptSuperposition::uniform(
+        "test",
+        vec![
+            ("alpha".into(), vec![1.0, 0.0]),
+            ("beta".into(), vec![0.0, 1.0]),
+        ],
+    );
     let context = vec![1.0, 0.0];
     let label = concept.collapse(&context, 42);
     assert!(
         label == "alpha" || label == "beta",
-        "Collapse must return a valid label, got: {}", label
+        "Collapse must return a valid label, got: {}",
+        label
     );
 }
 
 #[test]
 fn test_dominant_returns_highest() {
-    let concept = ConceptSuperposition::with_amplitudes("test", vec![
-        ("small".into(), vec![1.0], Complex::new(0.1, 0.0)),
-        ("big".into(), vec![1.0], Complex::new(0.9, 0.0)),
-    ]);
+    let concept = ConceptSuperposition::with_amplitudes(
+        "test",
+        vec![
+            ("small".into(), vec![1.0], Complex::new(0.1, 0.0)),
+            ("big".into(), vec![1.0], Complex::new(0.9, 0.0)),
+        ],
+    );
     let dom = concept.dominant().unwrap();
-    assert_eq!(dom.label, "big", "Dominant should be the highest amplitude meaning");
+    assert_eq!(
+        dom.label, "big",
+        "Dominant should be the highest amplitude meaning"
+    );
 }
 
 #[test]
 fn test_interference_search_ranking() {
     let concepts = vec![
-        ConceptSuperposition::uniform("relevant", vec![
-            ("match".into(), vec![1.0, 0.0, 0.0]),
-        ]),
-        ConceptSuperposition::uniform("irrelevant", vec![
-            ("miss".into(), vec![0.0, 0.0, 1.0]),
-        ]),
+        ConceptSuperposition::uniform("relevant", vec![("match".into(), vec![1.0, 0.0, 0.0])]),
+        ConceptSuperposition::uniform("irrelevant", vec![("miss".into(), vec![0.0, 0.0, 1.0])]),
     ];
     let query = vec![1.0, 0.0, 0.0];
     let results = interference_search(&concepts, &query);
     assert!(!results.is_empty(), "Search should return results");
     // First result should be the relevant concept
-    assert_eq!(results[0].concept_id, "relevant", "Most relevant concept should rank first");
+    assert_eq!(
+        results[0].concept_id, "relevant",
+        "Most relevant concept should rank first"
+    );
 }
 
 // ===========================================================================
@@ -175,17 +203,14 @@ use ruqu_exotic::quantum_collapse::*;
 
 #[test]
 fn test_collapse_valid_index() {
-    let candidates = vec![
-        vec![1.0, 0.0],
-        vec![0.0, 1.0],
-        vec![0.5, 0.5],
-    ];
+    let candidates = vec![vec![1.0, 0.0], vec![0.0, 1.0], vec![0.5, 0.5]];
     let search = QuantumCollapseSearch::new(candidates);
     let result = search.search(&[1.0, 0.0], 3, 42);
     assert!(
         result.index < search.num_real(),
         "Collapse index {} should be < num_real {}",
-        result.index, search.num_real()
+        result.index,
+        search.num_real()
     );
 }
 
@@ -203,7 +228,8 @@ fn test_distribution_stability() {
     assert!(
         top.1 > 30,
         "Top candidate should appear in >15% of 200 shots, got {} at index {}",
-        top.1, top.0
+        top.1,
+        top.0
     );
 }
 
@@ -229,14 +255,31 @@ use ruqu_exotic::reasoning_qec::*;
 #[test]
 fn test_no_noise_clean_syndrome() {
     let steps = vec![
-        ReasoningStep { label: "premise".into(), confidence: 1.0 },
-        ReasoningStep { label: "inference".into(), confidence: 1.0 },
-        ReasoningStep { label: "conclusion".into(), confidence: 1.0 },
+        ReasoningStep {
+            label: "premise".into(),
+            confidence: 1.0,
+        },
+        ReasoningStep {
+            label: "inference".into(),
+            confidence: 1.0,
+        },
+        ReasoningStep {
+            label: "conclusion".into(),
+            confidence: 1.0,
+        },
     ];
-    let config = ReasoningQecConfig { num_steps: 3, noise_rate: 0.0, seed: Some(42) };
+    let config = ReasoningQecConfig {
+        num_steps: 3,
+        noise_rate: 0.0,
+        seed: Some(42),
+    };
     let mut trace = ReasoningTrace::new(steps, config).unwrap();
     let result = trace.run_qec().unwrap();
-    assert_eq!(result.syndrome.len(), 2, "3 steps should produce 2 syndrome bits");
+    assert_eq!(
+        result.syndrome.len(),
+        2,
+        "3 steps should produce 2 syndrome bits"
+    );
     assert!(result.is_decodable, "Zero-noise trace must be decodable");
 }
 
@@ -245,31 +288,64 @@ fn test_high_noise_triggers_syndrome() {
     // Use noise_rate=0.5 with seed that flips some but not all steps.
     // This creates non-uniform flips so adjacent steps disagree, triggering syndromes.
     let steps = vec![
-        ReasoningStep { label: "a".into(), confidence: 1.0 },
-        ReasoningStep { label: "b".into(), confidence: 1.0 },
-        ReasoningStep { label: "c".into(), confidence: 1.0 },
-        ReasoningStep { label: "d".into(), confidence: 1.0 },
-        ReasoningStep { label: "e".into(), confidence: 1.0 },
+        ReasoningStep {
+            label: "a".into(),
+            confidence: 1.0,
+        },
+        ReasoningStep {
+            label: "b".into(),
+            confidence: 1.0,
+        },
+        ReasoningStep {
+            label: "c".into(),
+            confidence: 1.0,
+        },
+        ReasoningStep {
+            label: "d".into(),
+            confidence: 1.0,
+        },
+        ReasoningStep {
+            label: "e".into(),
+            confidence: 1.0,
+        },
     ];
     // With noise_rate=0.5, about half the steps get flipped, creating parity mismatches
-    let config = ReasoningQecConfig { num_steps: 5, noise_rate: 0.5, seed: Some(42) };
+    let config = ReasoningQecConfig {
+        num_steps: 5,
+        noise_rate: 0.5,
+        seed: Some(42),
+    };
     let mut trace = ReasoningTrace::new(steps, config).unwrap();
     let result = trace.run_qec().unwrap();
-    assert_eq!(result.syndrome.len(), 4, "5 steps should produce 4 syndrome bits");
+    assert_eq!(
+        result.syndrome.len(),
+        4,
+        "5 steps should produce 4 syndrome bits"
+    );
     assert_eq!(result.num_steps, 5);
 }
 
 #[test]
 fn test_syndrome_length() {
     let n = 6;
-    let steps: Vec<_> = (0..n).map(|i| ReasoningStep {
-        label: format!("step_{}", i),
-        confidence: 0.9,
-    }).collect();
-    let config = ReasoningQecConfig { num_steps: n, noise_rate: 0.0, seed: Some(42) };
+    let steps: Vec<_> = (0..n)
+        .map(|i| ReasoningStep {
+            label: format!("step_{}", i),
+            confidence: 0.9,
+        })
+        .collect();
+    let config = ReasoningQecConfig {
+        num_steps: n,
+        noise_rate: 0.0,
+        seed: Some(42),
+    };
     let mut trace = ReasoningTrace::new(steps, config).unwrap();
     let result = trace.run_qec().unwrap();
-    assert_eq!(result.syndrome.len(), n - 1, "N steps should give N-1 syndrome bits");
+    assert_eq!(
+        result.syndrome.len(),
+        n - 1,
+        "N steps should give N-1 syndrome bits"
+    );
 }
 
 // ===========================================================================
@@ -281,31 +357,49 @@ use ruqu_exotic::swarm_interference::*;
 #[test]
 fn test_unanimous_support() {
     let mut swarm = SwarmInterference::new();
-    let action = Action { id: "deploy".into(), description: "Deploy to prod".into() };
+    let action = Action {
+        id: "deploy".into(),
+        description: "Deploy to prod".into(),
+    };
     for i in 0..5 {
         swarm.contribute(AgentContribution::new(
-            &format!("agent_{}", i), action.clone(), 1.0, true,
+            &format!("agent_{}", i),
+            action.clone(),
+            1.0,
+            true,
         ));
     }
     let decisions = swarm.decide();
     assert!(!decisions.is_empty());
     // 5 agents at amplitude 1.0, phase 0: total amplitude = 5, prob = 25
-    assert!(decisions[0].probability > 20.0, "Unanimous support: prob should be high");
+    assert!(
+        decisions[0].probability > 20.0,
+        "Unanimous support: prob should be high"
+    );
 }
 
 #[test]
 fn test_opposition_cancels() {
     let mut swarm = SwarmInterference::new();
-    let action = Action { id: "risky".into(), description: "Risky action".into() };
+    let action = Action {
+        id: "risky".into(),
+        description: "Risky action".into(),
+    };
     // 3 support, 3 oppose → should nearly cancel
     for i in 0..3 {
         swarm.contribute(AgentContribution::new(
-            &format!("pro_{}", i), action.clone(), 1.0, true,
+            &format!("pro_{}", i),
+            action.clone(),
+            1.0,
+            true,
         ));
     }
     for i in 0..3 {
         swarm.contribute(AgentContribution::new(
-            &format!("con_{}", i), action.clone(), 1.0, false,
+            &format!("con_{}", i),
+            action.clone(),
+            1.0,
+            false,
         ));
     }
     let decisions = swarm.decide();
@@ -320,13 +414,19 @@ fn test_opposition_cancels() {
 
 #[test]
 fn test_partial_opposition_reduces() {
-    let action = Action { id: "a".into(), description: "".into() };
+    let action = Action {
+        id: "a".into(),
+        description: "".into(),
+    };
 
     // Pure support
     let mut pure = SwarmInterference::new();
     for i in 0..3 {
         pure.contribute(AgentContribution::new(
-            &format!("p{}", i), action.clone(), 1.0, true,
+            &format!("p{}", i),
+            action.clone(),
+            1.0,
+            true,
         ));
     }
     let pure_prob = pure.decide()[0].probability;
@@ -335,7 +435,10 @@ fn test_partial_opposition_reduces() {
     let mut mixed = SwarmInterference::new();
     for i in 0..3 {
         mixed.contribute(AgentContribution::new(
-            &format!("p{}", i), action.clone(), 1.0, true,
+            &format!("p{}", i),
+            action.clone(),
+            1.0,
+            true,
         ));
     }
     mixed.contribute(AgentContribution::new("opp", action.clone(), 1.0, false));
@@ -344,29 +447,50 @@ fn test_partial_opposition_reduces() {
     assert!(
         mixed_prob < pure_prob,
         "Opposition should reduce probability: {} < {}",
-        mixed_prob, pure_prob
+        mixed_prob,
+        pure_prob
     );
 }
 
 #[test]
 fn test_deadlock_detection() {
     let mut swarm = SwarmInterference::new();
-    let a = Action { id: "a".into(), description: "".into() };
-    let b = Action { id: "b".into(), description: "".into() };
+    let a = Action {
+        id: "a".into(),
+        description: "".into(),
+    };
+    let b = Action {
+        id: "b".into(),
+        description: "".into(),
+    };
     // Two different actions with identical support → deadlock
     swarm.contribute(AgentContribution::new("pro_a", a.clone(), 1.0, true));
     swarm.contribute(AgentContribution::new("pro_b", b.clone(), 1.0, true));
-    assert!(swarm.is_deadlocked(0.01), "Equal support for two actions should deadlock");
+    assert!(
+        swarm.is_deadlocked(0.01),
+        "Equal support for two actions should deadlock"
+    );
 }
 
 #[test]
 fn test_winner_picks_highest() {
     let mut swarm = SwarmInterference::new();
-    let a = Action { id: "a".into(), description: "".into() };
-    let b = Action { id: "b".into(), description: "".into() };
+    let a = Action {
+        id: "a".into(),
+        description: "".into(),
+    };
+    let b = Action {
+        id: "b".into(),
+        description: "".into(),
+    };
     // 3 agents support A, 1 supports B
     for i in 0..3 {
-        swarm.contribute(AgentContribution::new(&format!("a{}", i), a.clone(), 1.0, true));
+        swarm.contribute(AgentContribution::new(
+            &format!("a{}", i),
+            a.clone(),
+            1.0,
+            true,
+        ));
     }
     swarm.contribute(AgentContribution::new("b0", b.clone(), 1.0, true));
     let winner = swarm.winner().unwrap();
@@ -382,32 +506,70 @@ use ruqu_exotic::syndrome_diagnosis::*;
 #[test]
 fn test_healthy_system() {
     let components = vec![
-        Component { id: "A".into(), health: 1.0 },
-        Component { id: "B".into(), health: 1.0 },
-        Component { id: "C".into(), health: 1.0 },
+        Component {
+            id: "A".into(),
+            health: 1.0,
+        },
+        Component {
+            id: "B".into(),
+            health: 1.0,
+        },
+        Component {
+            id: "C".into(),
+            health: 1.0,
+        },
     ];
     let connections = vec![
-        Connection { from: 0, to: 1, strength: 1.0 },
-        Connection { from: 1, to: 2, strength: 1.0 },
+        Connection {
+            from: 0,
+            to: 1,
+            strength: 1.0,
+        },
+        Connection {
+            from: 1,
+            to: 2,
+            strength: 1.0,
+        },
     ];
     let diag = SystemDiagnostics::new(components, connections);
-    let config = DiagnosisConfig { fault_injection_rate: 0.0, num_rounds: 10, seed: 42 };
+    let config = DiagnosisConfig {
+        fault_injection_rate: 0.0,
+        num_rounds: 10,
+        seed: 42,
+    };
     let result = diag.diagnose(&config).unwrap();
     // No faults injected → no syndromes should fire
     for round in &result.rounds {
-        assert!(round.injected_faults.is_empty(), "No faults should be injected at rate 0");
+        assert!(
+            round.injected_faults.is_empty(),
+            "No faults should be injected at rate 0"
+        );
     }
 }
 
 #[test]
 fn test_fault_injection_triggers() {
     let components = vec![
-        Component { id: "A".into(), health: 1.0 },
-        Component { id: "B".into(), health: 1.0 },
+        Component {
+            id: "A".into(),
+            health: 1.0,
+        },
+        Component {
+            id: "B".into(),
+            health: 1.0,
+        },
     ];
-    let connections = vec![Connection { from: 0, to: 1, strength: 1.0 }];
+    let connections = vec![Connection {
+        from: 0,
+        to: 1,
+        strength: 1.0,
+    }];
     let diag = SystemDiagnostics::new(components, connections);
-    let config = DiagnosisConfig { fault_injection_rate: 1.0, num_rounds: 10, seed: 42 };
+    let config = DiagnosisConfig {
+        fault_injection_rate: 1.0,
+        num_rounds: 10,
+        seed: 42,
+    };
     let result = diag.diagnose(&config).unwrap();
     let any_fault = result.rounds.iter().any(|r| !r.injected_faults.is_empty());
     assert!(any_fault, "100% fault rate should inject faults");
@@ -416,12 +578,26 @@ fn test_fault_injection_triggers() {
 #[test]
 fn test_diagnosis_round_count() {
     let components = vec![
-        Component { id: "X".into(), health: 1.0 },
-        Component { id: "Y".into(), health: 1.0 },
+        Component {
+            id: "X".into(),
+            health: 1.0,
+        },
+        Component {
+            id: "Y".into(),
+            health: 1.0,
+        },
     ];
-    let connections = vec![Connection { from: 0, to: 1, strength: 1.0 }];
+    let connections = vec![Connection {
+        from: 0,
+        to: 1,
+        strength: 1.0,
+    }];
     let diag = SystemDiagnostics::new(components, connections);
-    let config = DiagnosisConfig { fault_injection_rate: 0.5, num_rounds: 20, seed: 99 };
+    let config = DiagnosisConfig {
+        fault_injection_rate: 0.5,
+        num_rounds: 20,
+        seed: 99,
+    };
     let result = diag.diagnose(&config).unwrap();
     assert_eq!(result.rounds.len(), 20, "Should have exactly 20 rounds");
 }
@@ -429,19 +605,48 @@ fn test_diagnosis_round_count() {
 #[test]
 fn test_fragility_scores_produced() {
     let components = vec![
-        Component { id: "A".into(), health: 1.0 },
-        Component { id: "B".into(), health: 1.0 },
-        Component { id: "C".into(), health: 1.0 },
+        Component {
+            id: "A".into(),
+            health: 1.0,
+        },
+        Component {
+            id: "B".into(),
+            health: 1.0,
+        },
+        Component {
+            id: "C".into(),
+            health: 1.0,
+        },
     ];
     let connections = vec![
-        Connection { from: 0, to: 1, strength: 1.0 },
-        Connection { from: 0, to: 2, strength: 1.0 },
-        Connection { from: 1, to: 2, strength: 1.0 },
+        Connection {
+            from: 0,
+            to: 1,
+            strength: 1.0,
+        },
+        Connection {
+            from: 0,
+            to: 2,
+            strength: 1.0,
+        },
+        Connection {
+            from: 1,
+            to: 2,
+            strength: 1.0,
+        },
     ];
     let diag = SystemDiagnostics::new(components, connections);
-    let config = DiagnosisConfig { fault_injection_rate: 0.5, num_rounds: 50, seed: 42 };
+    let config = DiagnosisConfig {
+        fault_injection_rate: 0.5,
+        num_rounds: 50,
+        seed: 42,
+    };
     let result = diag.diagnose(&config).unwrap();
-    assert_eq!(result.fragility_scores.len(), 3, "Should have score per component");
+    assert_eq!(
+        result.fragility_scores.len(),
+        3,
+        "Should have score per component"
+    );
 }
 
 // ===========================================================================
@@ -462,13 +667,17 @@ fn test_rewind_restores_state() {
     mem.rewind(2).unwrap();
     // Should be back to |00⟩
     let restored = mem.probabilities();
-    assert!((restored[0] - 1.0).abs() < EPSILON, "Rewind should restore |00>: {:?}", restored);
+    assert!(
+        (restored[0] - 1.0).abs() < EPSILON,
+        "Rewind should restore |00>: {:?}",
+        restored
+    );
 }
 
 #[test]
 fn test_counterfactual_divergence() {
     let mut mem = ReversibleMemory::new(2).unwrap();
-    mem.apply(Gate::H(0)).unwrap();   // step 0: creates superposition
+    mem.apply(Gate::H(0)).unwrap(); // step 0: creates superposition
     mem.apply(Gate::CNOT(0, 1)).unwrap(); // step 1: entangles
 
     // Counterfactual: what if we skip the H gate?
@@ -499,9 +708,9 @@ fn test_counterfactual_identity_step() {
 #[test]
 fn test_sensitivity_identifies_important_gate() {
     let mut mem = ReversibleMemory::new(2).unwrap();
-    mem.apply(Gate::Rz(0, 0.001)).unwrap();  // step 0: tiny rotation (unimportant)
-    mem.apply(Gate::H(0)).unwrap();           // step 1: creates superposition (important)
-    mem.apply(Gate::CNOT(0, 1)).unwrap();     // step 2: entangles (important)
+    mem.apply(Gate::Rz(0, 0.001)).unwrap(); // step 0: tiny rotation (unimportant)
+    mem.apply(Gate::H(0)).unwrap(); // step 1: creates superposition (important)
+    mem.apply(Gate::CNOT(0, 1)).unwrap(); // step 2: entangles (important)
 
     let sens = mem.sensitivity_analysis(0.5).unwrap();
     // The tiny Rz should be less sensitive than the H or CNOT
@@ -583,9 +792,12 @@ fn test_discovery_decoherence_trajectory_fingerprint() {
     let emb_b = QuantumEmbedding::from_embedding(&[0.0, 0.0, 1.0, 0.5], 0.1);
 
     // Decohere all with same seed
-    let mut emb_a1 = emb_a1; emb_a1.decohere(5.0, 100);
-    let mut emb_a2 = emb_a2; emb_a2.decohere(5.0, 100);
-    let mut emb_b = emb_b; emb_b.decohere(5.0, 100);
+    let mut emb_a1 = emb_a1;
+    emb_a1.decohere(5.0, 100);
+    let mut emb_a2 = emb_a2;
+    emb_a2.decohere(5.0, 100);
+    let mut emb_b = emb_b;
+    emb_b.decohere(5.0, 100);
 
     let fid_a1 = emb_a1.fidelity();
     let fid_a2 = emb_a2.fidelity();
@@ -600,8 +812,10 @@ fn test_discovery_decoherence_trajectory_fingerprint() {
     println!("DISCOVERY: Decoherence fingerprint");
     println!("  Similar pair fidelity diff: {:.6}", diff_similar);
     println!("  Different pair fidelity diff: {:.6}", diff_different);
-    println!("  A1 fidelity: {:.6}, A2 fidelity: {:.6}, B fidelity: {:.6}",
-        fid_a1, fid_a2, fid_b);
+    println!(
+        "  A1 fidelity: {:.6}, A2 fidelity: {:.6}, B fidelity: {:.6}",
+        fid_a1, fid_a2, fid_b
+    );
 }
 
 /// DISCOVERY 2: Interference creates NEW vectors not in original space.
@@ -611,11 +825,14 @@ fn test_discovery_decoherence_trajectory_fingerprint() {
 #[test]
 fn test_discovery_interference_creates_novel_representations() {
     // "spring" — three meanings
-    let concept = ConceptSuperposition::uniform("spring", vec![
-        ("season".into(), vec![1.0, 0.0, 0.0, 0.0]),
-        ("water_source".into(), vec![0.0, 1.0, 0.0, 0.0]),
-        ("mechanical".into(), vec![0.0, 0.0, 1.0, 0.0]),
-    ]);
+    let concept = ConceptSuperposition::uniform(
+        "spring",
+        vec![
+            ("season".into(), vec![1.0, 0.0, 0.0, 0.0]),
+            ("water_source".into(), vec![0.0, 1.0, 0.0, 0.0]),
+            ("mechanical".into(), vec![0.0, 0.0, 1.0, 0.0]),
+        ],
+    );
 
     // Three different contexts
     let ctx_weather = vec![0.9, 0.0, 0.0, 0.1];
@@ -632,14 +849,29 @@ fn test_discovery_interference_creates_novel_representations() {
         ("geology", &scores_geology),
         ("engineering", &scores_engineering),
     ] {
-        let top = scores.iter().max_by(|a, b| a.probability.partial_cmp(&b.probability).unwrap()).unwrap();
-        println!("  Context '{}' → top meaning: '{}' (prob: {:.4})", ctx_name, top.label, top.probability);
+        let top = scores
+            .iter()
+            .max_by(|a, b| a.probability.partial_cmp(&b.probability).unwrap())
+            .unwrap();
+        println!(
+            "  Context '{}' → top meaning: '{}' (prob: {:.4})",
+            ctx_name, top.label, top.probability
+        );
     }
 
     // Verify each context surfaces the right meaning
-    let top_weather = scores_weather.iter().max_by(|a, b| a.probability.partial_cmp(&b.probability).unwrap()).unwrap();
-    let top_geology = scores_geology.iter().max_by(|a, b| a.probability.partial_cmp(&b.probability).unwrap()).unwrap();
-    let top_engineering = scores_engineering.iter().max_by(|a, b| a.probability.partial_cmp(&b.probability).unwrap()).unwrap();
+    let top_weather = scores_weather
+        .iter()
+        .max_by(|a, b| a.probability.partial_cmp(&b.probability).unwrap())
+        .unwrap();
+    let top_geology = scores_geology
+        .iter()
+        .max_by(|a, b| a.probability.partial_cmp(&b.probability).unwrap())
+        .unwrap();
+    let top_engineering = scores_engineering
+        .iter()
+        .max_by(|a, b| a.probability.partial_cmp(&b.probability).unwrap())
+        .unwrap();
 
     assert_eq!(top_weather.label, "season");
     assert_eq!(top_geology.label, "water_source");
@@ -655,11 +887,11 @@ fn test_discovery_counterfactual_dependency_map() {
     let mut mem = ReversibleMemory::new(3).unwrap();
 
     // Build an entangled state through a sequence
-    mem.apply(Gate::H(0)).unwrap();          // step 0: superposition on q0
-    mem.apply(Gate::CNOT(0, 1)).unwrap();    // step 1: entangle q0-q1
-    mem.apply(Gate::Rz(2, 0.001)).unwrap();  // step 2: tiny rotation on q2 (nearly no-op)
-    mem.apply(Gate::CNOT(1, 2)).unwrap();    // step 3: propagate entanglement to q2
-    mem.apply(Gate::H(2)).unwrap();          // step 4: mix q2
+    mem.apply(Gate::H(0)).unwrap(); // step 0: superposition on q0
+    mem.apply(Gate::CNOT(0, 1)).unwrap(); // step 1: entangle q0-q1
+    mem.apply(Gate::Rz(2, 0.001)).unwrap(); // step 2: tiny rotation on q2 (nearly no-op)
+    mem.apply(Gate::CNOT(1, 2)).unwrap(); // step 3: propagate entanglement to q2
+    mem.apply(Gate::H(2)).unwrap(); // step 4: mix q2
 
     println!("DISCOVERY: Counterfactual dependency map");
     for i in 0..5 {
@@ -675,7 +907,8 @@ fn test_discovery_counterfactual_dependency_map() {
     assert!(
         cf0.divergence > cf2.divergence,
         "H gate (step 0) should be more critical than tiny Rz (step 2): {} > {}",
-        cf0.divergence, cf2.divergence
+        cf0.divergence,
+        cf2.divergence
     );
 }
 
@@ -685,13 +918,19 @@ fn test_discovery_counterfactual_dependency_map() {
 /// Confident agreement amplifies exponentially. Uncertain agents barely contribute.
 #[test]
 fn test_discovery_swarm_phase_matters() {
-    let action = Action { id: "x".into(), description: "".into() };
+    let action = Action {
+        id: "x".into(),
+        description: "".into(),
+    };
 
     // Scenario 1: 3 confident agents, all aligned (phase 0)
     let mut aligned = SwarmInterference::new();
     for i in 0..3 {
         aligned.contribute(AgentContribution::new(
-            &format!("a{}", i), action.clone(), 1.0, true,
+            &format!("a{}", i),
+            action.clone(),
+            1.0,
+            true,
         ));
     }
 
@@ -700,16 +939,25 @@ fn test_discovery_swarm_phase_matters() {
     misaligned.contribute(AgentContribution::new("b0", action.clone(), 1.0, true));
     misaligned.contribute(AgentContribution::new("b1", action.clone(), 1.0, true));
     // Third agent contributes with 90-degree phase offset (uncertain)
-    misaligned.contribute(AgentContribution::multi("b2", vec![
-        (action.clone(), Complex::new(0.0, 1.0)), // phase π/2
-    ]));
+    misaligned.contribute(AgentContribution::multi(
+        "b2",
+        vec![
+            (action.clone(), Complex::new(0.0, 1.0)), // phase π/2
+        ],
+    ));
 
     let prob_aligned = aligned.decide()[0].probability;
     let prob_misaligned = misaligned.decide()[0].probability;
 
     println!("DISCOVERY: Phase alignment matters for swarm decisions");
-    println!("  Aligned (3 agents, same phase): prob = {:.4}", prob_aligned);
-    println!("  Misaligned (2 same, 1 orthogonal): prob = {:.4}", prob_misaligned);
+    println!(
+        "  Aligned (3 agents, same phase): prob = {:.4}",
+        prob_aligned
+    );
+    println!(
+        "  Misaligned (2 same, 1 orthogonal): prob = {:.4}",
+        prob_misaligned
+    );
 
     assert!(
         prob_aligned > prob_misaligned,

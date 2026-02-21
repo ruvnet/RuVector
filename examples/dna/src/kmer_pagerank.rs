@@ -86,9 +86,8 @@ impl KmerGraphRanker {
     /// normalized to form a stochastic matrix (columns sum to 1).
     fn build_transition_matrix(&self, sequences: &[&[u8]], threshold: f64) -> CsrMatrix<f64> {
         let n = sequences.len();
-        let fingerprints: Vec<Vec<f64>> = sequences.iter()
-            .map(|seq| self.fingerprint(seq))
-            .collect();
+        let fingerprints: Vec<Vec<f64>> =
+            sequences.iter().map(|seq| self.fingerprint(seq)).collect();
 
         // Build weighted adjacency with thresholding
         let mut col_sums = vec![0.0f64; n];
@@ -109,9 +108,14 @@ impl KmerGraphRanker {
 
         // Normalize columns to make stochastic
         // Also add self-loops for isolated nodes
-        let mut normalized: Vec<(usize, usize, f64)> = entries.into_iter()
+        let mut normalized: Vec<(usize, usize, f64)> = entries
+            .into_iter()
             .map(|(i, j, w)| {
-                let norm = if col_sums[j] > 1e-15 { col_sums[j] } else { 1.0 };
+                let norm = if col_sums[j] > 1e-15 {
+                    col_sums[j]
+                } else {
+                    1.0
+                };
                 (i, j, w / norm)
             })
             .collect();
@@ -151,7 +155,10 @@ impl KmerGraphRanker {
             return vec![];
         }
         if n == 1 {
-            return vec![SequenceRank { index: 0, score: 1.0 }];
+            return vec![SequenceRank {
+                index: 0,
+                score: 1.0,
+            }];
         }
 
         let matrix = self.build_transition_matrix(sequences, similarity_threshold);
@@ -190,13 +197,18 @@ impl KmerGraphRanker {
         }
 
         // Build ranked results
-        let mut results: Vec<SequenceRank> = global_rank.into_iter()
+        let mut results: Vec<SequenceRank> = global_rank
+            .into_iter()
             .enumerate()
             .map(|(index, score)| SequenceRank { index, score })
             .collect();
 
         // Sort by score descending
-        results.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
+        results.sort_by(|a, b| {
+            b.score
+                .partial_cmp(&a.score)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
 
         results
     }
@@ -223,12 +235,11 @@ impl KmerGraphRanker {
         let solver = ForwardPushSolver::new(alpha, epsilon);
 
         match solver.ppr_from_source(&matrix, source) {
-            Ok(ppr_result) => {
-                ppr_result.into_iter()
-                    .find(|(node, _)| *node == target)
-                    .map(|(_, score)| score)
-                    .unwrap_or(0.0)
-            }
+            Ok(ppr_result) => ppr_result
+                .into_iter()
+                .find(|(node, _)| *node == target)
+                .map(|(_, score)| score)
+                .unwrap_or(0.0),
             Err(_) => 0.0,
         }
     }

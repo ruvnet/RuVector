@@ -50,9 +50,7 @@ fn basic_branch_creation() {
 
     // Create base store with vectors
     let mut base = RvfStore::create(&base_path, make_options(dim)).unwrap();
-    let vectors: Vec<Vec<f32>> = (0..20)
-        .map(|i| vec![i as f32; dim as usize])
-        .collect();
+    let vectors: Vec<Vec<f32>> = (0..20).map(|i| vec![i as f32; dim as usize]).collect();
     let refs: Vec<&[f32]> = vectors.iter().map(|v| v.as_slice()).collect();
     let ids: Vec<u64> = (1..=20).collect();
     base.ingest_batch(&refs, &ids, None).unwrap();
@@ -149,9 +147,7 @@ fn cow_stats_reflect_local_and_inherited() {
 
     // Create base with enough vectors to create multiple clusters
     let mut base = RvfStore::create(&base_path, make_options(dim)).unwrap();
-    let vectors: Vec<Vec<f32>> = (0..50)
-        .map(|i| vec![i as f32; dim as usize])
-        .collect();
+    let vectors: Vec<Vec<f32>> = (0..50).map(|i| vec![i as f32; dim as usize]).collect();
     let refs: Vec<&[f32]> = vectors.iter().map(|v| v.as_slice()).collect();
     let ids: Vec<u64> = (1..=50).collect();
     base.ingest_batch(&refs, &ids, None).unwrap();
@@ -211,10 +207,7 @@ fn parent_unmodified_after_branch() {
     );
 
     // Parent should still not be a COW child
-    assert!(
-        !base.is_cow_child(),
-        "parent should not become a COW child"
-    );
+    assert!(!base.is_cow_child(), "parent should not become a COW child");
 
     base.close().unwrap();
 
@@ -236,9 +229,7 @@ fn child_size_smaller_than_parent() {
 
     // Create base with many vectors to make a reasonably large file
     let mut base = RvfStore::create(&base_path, make_options(dim)).unwrap();
-    let vectors: Vec<Vec<f32>> = (0..200)
-        .map(|i| random_vector(dim as usize, i))
-        .collect();
+    let vectors: Vec<Vec<f32>> = (0..200).map(|i| random_vector(dim as usize, i)).collect();
     let refs: Vec<&[f32]> = vectors.iter().map(|v| v.as_slice()).collect();
     let ids: Vec<u64> = (1..=200).collect();
     base.ingest_batch(&refs, &ids, None).unwrap();
@@ -305,15 +296,20 @@ fn derive_creates_lineage() {
     assert_ne!(base_file_id, [0u8; 16], "base should have non-zero file_id");
     assert_eq!(base.lineage_depth(), 0, "base should have lineage_depth 0");
 
-    let child = base.derive(
-        &child_path,
-        rvf_types::DerivationType::Clone,
-        Some(make_options(dim)),
-    )
-    .unwrap();
+    let child = base
+        .derive(
+            &child_path,
+            rvf_types::DerivationType::Clone,
+            Some(make_options(dim)),
+        )
+        .unwrap();
 
     // Verify child lineage
-    assert_ne!(*child.file_id(), [0u8; 16], "child should have non-zero file_id");
+    assert_ne!(
+        *child.file_id(),
+        [0u8; 16],
+        "child should have non-zero file_id"
+    );
     assert_ne!(
         child.file_id(),
         base.file_id(),
@@ -333,8 +329,7 @@ fn derive_creates_lineage() {
     // parent_hash should be non-zero (it's a hash of the parent's manifest)
     let parent_hash = child.file_identity().parent_hash;
     assert_ne!(
-        parent_hash,
-        [0u8; 32],
+        parent_hash, [0u8; 32],
         "child's parent_hash should be non-zero"
     );
 
@@ -361,9 +356,7 @@ fn branch_membership_filter_excludes_deleted() {
     let dim: u16 = 4;
 
     let mut base = RvfStore::create(&base_path, make_options(dim)).unwrap();
-    let vectors: Vec<Vec<f32>> = (0..5)
-        .map(|i| vec![i as f32; dim as usize])
-        .collect();
+    let vectors: Vec<Vec<f32>> = (0..5).map(|i| vec![i as f32; dim as usize]).collect();
     let refs: Vec<&[f32]> = vectors.iter().map(|v| v.as_slice()).collect();
     let ids: Vec<u64> = (0..5).collect();
     base.ingest_batch(&refs, &ids, None).unwrap();

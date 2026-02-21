@@ -83,152 +83,359 @@ struct VDef {
 static HEALTH_VARIANTS: &[VDef] = &[
     // ── APOE (Alzheimer's) ──
     VDef {
-        rsid: "rs429358", gene: "APOE", name: "APOE e4 determinant", risk_allele: 'C',
+        rsid: "rs429358",
+        gene: "APOE",
+        name: "APOE e4 determinant",
+        risk_allele: 'C',
         interps: &[
-            ("TT", "APOE e3/e3 or e2/e3 (depends on rs7412)", "Protective/Normal"),
-            ("CT", "One e4 allele present", "Increased Alzheimer's risk (~3x)"),
-            ("CC", "Two e4 alleles present", "Significantly increased Alzheimer's risk (~12x)"),
+            (
+                "TT",
+                "APOE e3/e3 or e2/e3 (depends on rs7412)",
+                "Protective/Normal",
+            ),
+            (
+                "CT",
+                "One e4 allele present",
+                "Increased Alzheimer's risk (~3x)",
+            ),
+            (
+                "CC",
+                "Two e4 alleles present",
+                "Significantly increased Alzheimer's risk (~12x)",
+            ),
         ],
     },
     VDef {
-        rsid: "rs7412", gene: "APOE", name: "APOE e2 determinant", risk_allele: 'T',
+        rsid: "rs7412",
+        gene: "APOE",
+        name: "APOE e2 determinant",
+        risk_allele: 'T',
         interps: &[
             ("CC", "No e2 allele", "Normal"),
-            ("CT", "One e2 allele present", "Protective - reduced Alzheimer's risk"),
+            (
+                "CT",
+                "One e2 allele present",
+                "Protective - reduced Alzheimer's risk",
+            ),
             ("TT", "Two e2 alleles (e2/e2)", "Protective; monitor lipids"),
         ],
     },
     // ── TP53 (cancer) ──
     VDef {
-        rsid: "rs1042522", gene: "TP53", name: "p53 Pro72Arg (R72P)", risk_allele: 'G',
+        rsid: "rs1042522",
+        gene: "TP53",
+        name: "p53 Pro72Arg (R72P)",
+        risk_allele: 'G',
         interps: &[
-            ("CC", "Pro/Pro homozygous", "Normal apoptosis; slightly increased cancer survival"),
-            ("CG", "Pro/Arg heterozygous", "Mixed - Arg allele has stronger apoptotic activity"),
-            ("GG", "Arg/Arg homozygous", "Stronger apoptotic response; variable cancer risk"),
+            (
+                "CC",
+                "Pro/Pro homozygous",
+                "Normal apoptosis; slightly increased cancer survival",
+            ),
+            (
+                "CG",
+                "Pro/Arg heterozygous",
+                "Mixed - Arg allele has stronger apoptotic activity",
+            ),
+            (
+                "GG",
+                "Arg/Arg homozygous",
+                "Stronger apoptotic response; variable cancer risk",
+            ),
         ],
     },
     // ── BRCA1 ──
     VDef {
-        rsid: "rs80357906", gene: "BRCA1", name: "BRCA1 5382insC (Ashkenazi founder)", risk_allele: 'I',
+        rsid: "rs80357906",
+        gene: "BRCA1",
+        name: "BRCA1 5382insC (Ashkenazi founder)",
+        risk_allele: 'I',
         interps: &[
-            ("DD", "No insertion detected", "Normal - no BRCA1 5382insC mutation"),
-            ("DI", "Heterozygous carrier", "INCREASED breast/ovarian cancer risk - genetic counseling recommended"),
-            ("II", "Homozygous insertion", "HIGH breast/ovarian cancer risk - urgent genetic counseling"),
+            (
+                "DD",
+                "No insertion detected",
+                "Normal - no BRCA1 5382insC mutation",
+            ),
+            (
+                "DI",
+                "Heterozygous carrier",
+                "INCREASED breast/ovarian cancer risk - genetic counseling recommended",
+            ),
+            (
+                "II",
+                "Homozygous insertion",
+                "HIGH breast/ovarian cancer risk - urgent genetic counseling",
+            ),
         ],
     },
     VDef {
-        rsid: "rs28897696", gene: "BRCA1", name: "BRCA1 missense variant", risk_allele: 'A',
+        rsid: "rs28897696",
+        gene: "BRCA1",
+        name: "BRCA1 missense variant",
+        risk_allele: 'A',
         interps: &[
             ("GG", "Reference genotype", "Normal"),
-            ("AG", "Heterozygous", "Variant of uncertain significance - consult genetic counselor"),
+            (
+                "AG",
+                "Heterozygous",
+                "Variant of uncertain significance - consult genetic counselor",
+            ),
             ("AA", "Homozygous variant", "Consult genetic counselor"),
         ],
     },
     // ── BRCA2 ──
     VDef {
-        rsid: "rs11571833", gene: "BRCA2", name: "BRCA2 K3326X", risk_allele: 'T',
+        rsid: "rs11571833",
+        gene: "BRCA2",
+        name: "BRCA2 K3326X",
+        risk_allele: 'T',
         interps: &[
             ("AA", "Reference genotype", "Normal"),
-            ("AT", "Heterozygous", "Modestly increased cancer risk (OR ~1.3)"),
-            ("TT", "Homozygous variant", "Increased cancer risk - genetic counseling recommended"),
+            (
+                "AT",
+                "Heterozygous",
+                "Modestly increased cancer risk (OR ~1.3)",
+            ),
+            (
+                "TT",
+                "Homozygous variant",
+                "Increased cancer risk - genetic counseling recommended",
+            ),
         ],
     },
     // ── MTHFR (folate metabolism) ──
     VDef {
-        rsid: "rs1801133", gene: "MTHFR", name: "C677T", risk_allele: 'A',
+        rsid: "rs1801133",
+        gene: "MTHFR",
+        name: "C677T",
+        risk_allele: 'A',
         interps: &[
-            ("GG", "CC genotype (normal)", "Normal MTHFR enzyme activity (100%)"),
-            ("AG", "CT heterozygous", "Reduced enzyme activity (~65%). Consider methylfolate."),
-            ("AA", "TT homozygous", "Significantly reduced activity (~30%). Methylfolate recommended."),
+            (
+                "GG",
+                "CC genotype (normal)",
+                "Normal MTHFR enzyme activity (100%)",
+            ),
+            (
+                "AG",
+                "CT heterozygous",
+                "Reduced enzyme activity (~65%). Consider methylfolate.",
+            ),
+            (
+                "AA",
+                "TT homozygous",
+                "Significantly reduced activity (~30%). Methylfolate recommended.",
+            ),
         ],
     },
     VDef {
-        rsid: "rs1801131", gene: "MTHFR", name: "A1298C", risk_allele: 'T',
+        rsid: "rs1801131",
+        gene: "MTHFR",
+        name: "A1298C",
+        risk_allele: 'T',
         interps: &[
             ("GG", "CC homozygous variant", "Reduced enzyme activity"),
             ("GT", "AC heterozygous", "Mildly reduced enzyme activity"),
-            ("TT", "AA reference", "Normal MTHFR activity at this position"),
+            (
+                "TT",
+                "AA reference",
+                "Normal MTHFR activity at this position",
+            ),
         ],
     },
     // ── COMT (dopamine/pain) ──
     VDef {
-        rsid: "rs4680", gene: "COMT", name: "Val158Met", risk_allele: 'A',
+        rsid: "rs4680",
+        gene: "COMT",
+        name: "Val158Met",
+        risk_allele: 'A',
         interps: &[
-            ("GG", "Val/Val", "Higher COMT activity, lower dopamine. Better stress resilience."),
-            ("AG", "Val/Met heterozygous", "Intermediate COMT activity. Balanced dopamine."),
-            ("AA", "Met/Met", "Lower COMT activity, higher dopamine. Higher pain sensitivity."),
+            (
+                "GG",
+                "Val/Val",
+                "Higher COMT activity, lower dopamine. Better stress resilience.",
+            ),
+            (
+                "AG",
+                "Val/Met heterozygous",
+                "Intermediate COMT activity. Balanced dopamine.",
+            ),
+            (
+                "AA",
+                "Met/Met",
+                "Lower COMT activity, higher dopamine. Higher pain sensitivity.",
+            ),
         ],
     },
     // ── OPRM1 (opioid receptor) ──
     VDef {
-        rsid: "rs1799971", gene: "OPRM1", name: "A118G (Asn40Asp)", risk_allele: 'G',
+        rsid: "rs1799971",
+        gene: "OPRM1",
+        name: "A118G (Asn40Asp)",
+        risk_allele: 'G',
         interps: &[
             ("AA", "Asn/Asn", "Normal opioid sensitivity"),
-            ("AG", "Asn/Asp heterozygous", "Reduced opioid sensitivity; may need higher doses."),
+            (
+                "AG",
+                "Asn/Asp heterozygous",
+                "Reduced opioid sensitivity; may need higher doses.",
+            ),
             ("GG", "Asp/Asp", "Significantly reduced opioid sensitivity."),
         ],
     },
     // ── CYP1A2 (caffeine) ──
     VDef {
-        rsid: "rs762551", gene: "CYP1A2", name: "Caffeine metabolism", risk_allele: 'C',
+        rsid: "rs762551",
+        gene: "CYP1A2",
+        name: "Caffeine metabolism",
+        risk_allele: 'C',
         interps: &[
-            ("AA", "Fast metabolizer", "Rapid caffeine clearance. Coffee may REDUCE heart disease risk."),
-            ("AC", "Intermediate", "Moderate caffeine clearance. Moderate coffee intake recommended."),
-            ("CC", "Slow metabolizer", "Slow caffeine clearance. Excess coffee may INCREASE heart risk."),
+            (
+                "AA",
+                "Fast metabolizer",
+                "Rapid caffeine clearance. Coffee may REDUCE heart disease risk.",
+            ),
+            (
+                "AC",
+                "Intermediate",
+                "Moderate caffeine clearance. Moderate coffee intake recommended.",
+            ),
+            (
+                "CC",
+                "Slow metabolizer",
+                "Slow caffeine clearance. Excess coffee may INCREASE heart risk.",
+            ),
         ],
     },
     // ── Lactose ──
     VDef {
-        rsid: "rs4988235", gene: "MCM6/LCT", name: "Lactase persistence (European)", risk_allele: 'G',
+        rsid: "rs4988235",
+        gene: "MCM6/LCT",
+        name: "Lactase persistence (European)",
+        risk_allele: 'G',
         interps: &[
-            ("AA", "Lactase persistent", "Likely lactose TOLERANT into adulthood"),
-            ("AG", "Heterozygous", "Likely lactose tolerant (persistence is dominant)"),
-            ("GG", "Lactase non-persistent", "Likely lactose INTOLERANT in adulthood"),
+            (
+                "AA",
+                "Lactase persistent",
+                "Likely lactose TOLERANT into adulthood",
+            ),
+            (
+                "AG",
+                "Heterozygous",
+                "Likely lactose tolerant (persistence is dominant)",
+            ),
+            (
+                "GG",
+                "Lactase non-persistent",
+                "Likely lactose INTOLERANT in adulthood",
+            ),
         ],
     },
     // ── OXTR (oxytocin receptor) ──
     VDef {
-        rsid: "rs53576", gene: "OXTR", name: "Oxytocin receptor", risk_allele: 'A',
+        rsid: "rs53576",
+        gene: "OXTR",
+        name: "Oxytocin receptor",
+        risk_allele: 'A',
         interps: &[
-            ("GG", "GG genotype", "Higher empathy scores; better social cognition."),
-            ("AG", "AG heterozygous", "Intermediate empathy and social cognition."),
-            ("AA", "AA genotype", "May have lower empathy; potentially more resilient to social stress."),
+            (
+                "GG",
+                "GG genotype",
+                "Higher empathy scores; better social cognition.",
+            ),
+            (
+                "AG",
+                "AG heterozygous",
+                "Intermediate empathy and social cognition.",
+            ),
+            (
+                "AA",
+                "AA genotype",
+                "May have lower empathy; potentially more resilient to social stress.",
+            ),
         ],
     },
     // ── HTR2A (serotonin) ──
     VDef {
-        rsid: "rs6311", gene: "HTR2A", name: "Serotonin 2A receptor (-1438G/A)", risk_allele: 'T',
+        rsid: "rs6311",
+        gene: "HTR2A",
+        name: "Serotonin 2A receptor (-1438G/A)",
+        risk_allele: 'T',
         interps: &[
             ("CC", "GG genotype", "Normal serotonin receptor expression"),
-            ("CT", "GA heterozygous", "Slightly altered serotonin signaling"),
-            ("TT", "AA genotype", "Altered serotonin receptor density; may affect SSRI response"),
+            (
+                "CT",
+                "GA heterozygous",
+                "Slightly altered serotonin signaling",
+            ),
+            (
+                "TT",
+                "AA genotype",
+                "Altered serotonin receptor density; may affect SSRI response",
+            ),
         ],
     },
     // ── ANKK1/DRD2 (dopamine) ──
     VDef {
-        rsid: "rs1800497", gene: "ANKK1/DRD2", name: "Taq1A (dopamine receptor)", risk_allele: 'A',
+        rsid: "rs1800497",
+        gene: "ANKK1/DRD2",
+        name: "Taq1A (dopamine receptor)",
+        risk_allele: 'A',
         interps: &[
             ("GG", "A2/A2", "Normal dopamine receptor density"),
-            ("AG", "A1/A2 heterozygous", "Reduced D2 receptor density (~30% less). Reward-seeking."),
-            ("AA", "A1/A1", "Significantly reduced D2 receptor density. Higher addiction risk."),
+            (
+                "AG",
+                "A1/A2 heterozygous",
+                "Reduced D2 receptor density (~30% less). Reward-seeking.",
+            ),
+            (
+                "AA",
+                "A1/A1",
+                "Significantly reduced D2 receptor density. Higher addiction risk.",
+            ),
         ],
     },
     // ── SLCO1B1 (statin metabolism) ──
     VDef {
-        rsid: "rs4363657", gene: "SLCO1B1", name: "Statin transporter", risk_allele: 'C',
+        rsid: "rs4363657",
+        gene: "SLCO1B1",
+        name: "Statin transporter",
+        risk_allele: 'C',
         interps: &[
-            ("TT", "Reference", "Normal statin metabolism. Standard dosing."),
-            ("CT", "Heterozygous", "Increased statin myopathy risk (~4.5x). Consider lower dose."),
-            ("CC", "Homozygous variant", "High statin myopathy risk (~17x). Use lowest effective dose."),
+            (
+                "TT",
+                "Reference",
+                "Normal statin metabolism. Standard dosing.",
+            ),
+            (
+                "CT",
+                "Heterozygous",
+                "Increased statin myopathy risk (~4.5x). Consider lower dose.",
+            ),
+            (
+                "CC",
+                "Homozygous variant",
+                "High statin myopathy risk (~17x). Use lowest effective dose.",
+            ),
         ],
     },
     // ── NQO1 (oxidative stress) ──
     VDef {
-        rsid: "rs1800566", gene: "NQO1", name: "Pro187Ser (oxidative stress)", risk_allele: 'T',
+        rsid: "rs1800566",
+        gene: "NQO1",
+        name: "Pro187Ser (oxidative stress)",
+        risk_allele: 'T',
         interps: &[
             ("CC", "Pro/Pro (reference)", "Normal NQO1 enzyme activity"),
-            ("CT", "Pro/Ser heterozygous", "Reduced NQO1 activity (~3x lower). Impaired detox."),
-            ("TT", "Ser/Ser", "No NQO1 activity. Significantly impaired quinone detoxification."),
+            (
+                "CT",
+                "Pro/Ser heterozygous",
+                "Reduced NQO1 activity (~3x lower). Impaired detox.",
+            ),
+            (
+                "TT",
+                "Ser/Ser",
+                "No NQO1 activity. Significantly impaired quinone detoxification.",
+            ),
         ],
     },
 ];
@@ -239,13 +446,17 @@ pub fn analyze_health_variants(genotypes: &HashMap<String, String>) -> Vec<Healt
 
     for def in HEALTH_VARIANTS {
         if let Some(gt) = genotypes.get(def.rsid) {
-            let (desc, sig) = def.interps.iter()
+            let (desc, sig) = def
+                .interps
+                .iter()
                 .find(|(g, _, _)| *g == gt.as_str())
                 .map(|(_, d, s)| (d.to_string(), s.to_string()))
-                .unwrap_or_else(|| (
-                    format!("Genotype {} - not in standard table", gt),
-                    "Consult genetic counselor".to_string(),
-                ));
+                .unwrap_or_else(|| {
+                    (
+                        format!("Genotype {} - not in standard table", gt),
+                        "Consult genetic counselor".to_string(),
+                    )
+                });
 
             results.push(HealthVariantResult {
                 rsid: def.rsid.to_string(),
@@ -290,7 +501,11 @@ pub fn determine_apoe(genotypes: &HashMap<String, String>) -> ApoeResult {
         _ => format!("Unusual combination: rs429358={}, rs7412={}", gt1, gt2),
     };
 
-    ApoeResult { genotype, rs429358: gt1, rs7412: gt2 }
+    ApoeResult {
+        genotype,
+        rs429358: gt1,
+        rs7412: gt2,
+    }
 }
 
 /// Analyze MTHFR compound status from C677T + A1298C.
@@ -300,16 +515,24 @@ pub fn analyze_mthfr(genotypes: &HashMap<String, String>) -> MthfrResult {
 
     if c677t.is_empty() || a1298c.is_empty() {
         return MthfrResult {
-            c677t, a1298c, score: 0,
+            c677t,
+            a1298c,
+            score: 0,
             assessment: "Incomplete MTHFR data".into(),
         };
     }
 
     let c_risk = match c677t.as_str() {
-        "GG" => 0u8, "AG" => 1, "AA" => 2, _ => 0,
+        "GG" => 0u8,
+        "AG" => 1,
+        "AA" => 2,
+        _ => 0,
     };
     let a_risk = match a1298c.as_str() {
-        "TT" => 0u8, "GT" => 1, "GG" => 2, _ => 0,
+        "TT" => 0u8,
+        "GT" => 1,
+        "GG" => 2,
+        _ => 0,
     };
     let score = c_risk + a_risk;
 
@@ -321,7 +544,12 @@ pub fn analyze_mthfr(genotypes: &HashMap<String, String>) -> MthfrResult {
         _ => "Severely reduced MTHFR. Methylfolate essential. Regular homocysteine monitoring.",
     };
 
-    MthfrResult { c677t, a1298c, score, assessment: assessment.into() }
+    MthfrResult {
+        c677t,
+        a1298c,
+        score,
+        assessment: assessment.into(),
+    }
 }
 
 /// Analyze pain sensitivity profile from COMT + OPRM1.
@@ -330,12 +558,23 @@ pub fn analyze_pain(genotypes: &HashMap<String, String>) -> Option<PainProfile> 
     let oprm1 = genotypes.get("rs1799971")?;
 
     let mut score = 0u8;
-    if comt == "AA" { score += 2; } else if comt == "AG" { score += 1; }
-    if oprm1 == "GG" { score += 2; } else if oprm1 == "AG" { score += 1; }
+    if comt == "AA" {
+        score += 2;
+    } else if comt == "AG" {
+        score += 1;
+    }
+    if oprm1 == "GG" {
+        score += 2;
+    } else if oprm1 == "AG" {
+        score += 1;
+    }
 
     let label = match score {
-        0 => "Low", 1 => "Low-Moderate", 2 => "Moderate",
-        3 => "Moderate-High", _ => "High",
+        0 => "Low",
+        1 => "Low-Moderate",
+        2 => "Moderate",
+        3 => "Moderate-High",
+        _ => "High",
     };
 
     let comt_note = if comt.contains('A') {
@@ -364,7 +603,10 @@ pub fn variant_categories() -> Vec<(&'static str, Vec<&'static str>)> {
     vec![
         ("Cancer Risk", vec!["TP53", "BRCA1", "BRCA2", "NQO1"]),
         ("Cardiovascular", vec!["SLCO1B1"]),
-        ("Neurological", vec!["APOE", "COMT", "OPRM1", "OXTR", "HTR2A", "ANKK1/DRD2"]),
+        (
+            "Neurological",
+            vec!["APOE", "COMT", "OPRM1", "OXTR", "HTR2A", "ANKK1/DRD2"],
+        ),
         ("Metabolism", vec!["MTHFR", "CYP1A2", "MCM6/LCT"]),
     ]
 }
@@ -374,7 +616,10 @@ mod tests {
     use super::*;
 
     fn make_map(pairs: &[(&str, &str)]) -> HashMap<String, String> {
-        pairs.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect()
+        pairs
+            .iter()
+            .map(|(k, v)| (k.to_string(), v.to_string()))
+            .collect()
     }
 
     #[test]

@@ -64,9 +64,7 @@ pub fn absmax_quantize_activations(input: &[f32]) -> (Vec<i8>, f32) {
     }
 
     // Find absolute maximum
-    let abs_max = input
-        .iter()
-        .fold(0.0f32, |acc, &x| acc.max(x.abs()));
+    let abs_max = input.iter().fold(0.0f32, |acc, &x| acc.max(x.abs()));
 
     // Guard against all-zero input
     if abs_max < 1e-10 {
@@ -319,19 +317,19 @@ unsafe fn tl1_gemv_neon(
             let a_vec = vld1q_s8(act_i8.as_ptr().add(col));
 
             // Widen to i16 and multiply: low 8 and high 8 elements
-            let w_lo = vmovl_s8(vget_low_s8(w_vec));   // i16x8
-            let w_hi = vmovl_s8(vget_high_s8(w_vec));   // i16x8
-            let a_lo = vmovl_s8(vget_low_s8(a_vec));    // i16x8
-            let a_hi = vmovl_s8(vget_high_s8(a_vec));    // i16x8
+            let w_lo = vmovl_s8(vget_low_s8(w_vec)); // i16x8
+            let w_hi = vmovl_s8(vget_high_s8(w_vec)); // i16x8
+            let a_lo = vmovl_s8(vget_low_s8(a_vec)); // i16x8
+            let a_hi = vmovl_s8(vget_high_s8(a_vec)); // i16x8
 
             // Multiply i16 * i16 -> i16 (no overflow: max |127*1| = 127)
             let prod_lo = vmulq_s16(w_lo, a_lo); // i16x8
             let prod_hi = vmulq_s16(w_hi, a_hi); // i16x8
 
             // Widen products to i32 and accumulate (prevents overflow for large N)
-            let prod_lo_lo = vmovl_s16(vget_low_s16(prod_lo));  // i32x4
+            let prod_lo_lo = vmovl_s16(vget_low_s16(prod_lo)); // i32x4
             let prod_lo_hi = vmovl_s16(vget_high_s16(prod_lo)); // i32x4
-            let prod_hi_lo = vmovl_s16(vget_low_s16(prod_hi));  // i32x4
+            let prod_hi_lo = vmovl_s16(vget_low_s16(prod_hi)); // i32x4
             let prod_hi_hi = vmovl_s16(vget_high_s16(prod_hi)); // i32x4
 
             acc0 = vaddq_s32(acc0, prod_lo_lo);
@@ -541,8 +539,16 @@ mod tests {
 
         // 1.0 should map to 127, 0.5 to ~64, 0.25 to ~32
         assert_eq!(q[0], 127);
-        assert!((q[1] as i32 - 64).abs() <= 1, "0.5 should map to ~64, got {}", q[1]);
-        assert!((q[2] as i32 - 32).abs() <= 1, "0.25 should map to ~32, got {}", q[2]);
+        assert!(
+            (q[1] as i32 - 64).abs() <= 1,
+            "0.5 should map to ~64, got {}",
+            q[1]
+        );
+        assert!(
+            (q[2] as i32 - 32).abs() <= 1,
+            "0.25 should map to ~32, got {}",
+            q[2]
+        );
     }
 
     #[test]
@@ -550,7 +556,10 @@ mod tests {
         let input = vec![0.0; 16];
         let (q, scale) = absmax_quantize_activations(&input);
 
-        assert!(q.iter().all(|&x| x == 0), "All-zero input should give all-zero output");
+        assert!(
+            q.iter().all(|&x| x == 0),
+            "All-zero input should give all-zero output"
+        );
         assert_eq!(scale, 1.0, "Scale for all-zero should be 1.0");
     }
 
@@ -759,7 +768,7 @@ mod tests {
             1i8, 0, -1, 1, 0, 1, -1, 0, // row 0
             -1, 1, 0, -1, 1, 0, 1, -1, // row 1
             0, 0, 1, 1, -1, -1, 0, 0, // row 2
-            1, 1, 1, 1, 1, 1, 1, 1,   // row 3
+            1, 1, 1, 1, 1, 1, 1, 1, // row 3
         ];
         let packed = pack_ternary(&ternary_vals);
         let weight_scale = 0.5f32;

@@ -7,27 +7,26 @@
 
 extern crate alloc;
 
+pub mod attestation;
 pub mod footer;
 pub mod hash;
+pub mod lineage;
 #[cfg(feature = "ed25519")]
 pub mod sign;
 pub mod witness;
-pub mod attestation;
-pub mod lineage;
 
+pub use attestation::{
+    attestation_witness_entry, build_attestation_witness_payload, decode_attestation_header,
+    decode_attestation_record, decode_tee_bound_key, encode_attestation_header,
+    encode_attestation_record, encode_tee_bound_key, verify_attestation_witness_payload,
+    verify_key_binding, QuoteVerifier, TeeBoundKeyRecord, VerifiedAttestationEntry,
+};
 pub use footer::{decode_signature_footer, encode_signature_footer};
 pub use hash::{shake256_128, shake256_256, shake256_hash};
-#[cfg(feature = "ed25519")]
-pub use sign::{sign_segment, verify_segment};
-pub use witness::{create_witness_chain, verify_witness_chain, WitnessEntry};
 pub use lineage::{
     compute_manifest_hash, lineage_record_from_bytes, lineage_record_to_bytes,
     lineage_witness_entry, verify_lineage_chain,
 };
-pub use attestation::{
-    attestation_witness_entry, build_attestation_witness_payload,
-    decode_attestation_header, decode_attestation_record,
-    decode_tee_bound_key, encode_attestation_header, encode_attestation_record,
-    encode_tee_bound_key, verify_attestation_witness_payload, verify_key_binding,
-    QuoteVerifier, TeeBoundKeyRecord, VerifiedAttestationEntry,
-};
+#[cfg(feature = "ed25519")]
+pub use sign::{sign_segment, verify_segment};
+pub use witness::{create_witness_chain, verify_witness_chain, WitnessEntry};

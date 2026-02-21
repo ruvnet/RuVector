@@ -174,12 +174,20 @@ fn dense_vs_sparse_crossover(c: &mut Criterion) {
 
         group.bench_with_input(BenchmarkId::new("sparse_5pct", size), &size, |b, _| {
             b.iter(|| {
-                csr.spmv(criterion::black_box(&x), criterion::black_box(&mut y_sparse));
+                csr.spmv(
+                    criterion::black_box(&x),
+                    criterion::black_box(&mut y_sparse),
+                );
             });
         });
     }
     group.finish();
 }
 
-criterion_group!(baselines, dense_matvec_baseline, sparse_spmv_baseline, dense_vs_sparse_crossover);
+criterion_group!(
+    baselines,
+    dense_matvec_baseline,
+    sparse_spmv_baseline,
+    dense_vs_sparse_crossover
+);
 criterion_main!(baselines);

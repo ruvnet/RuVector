@@ -265,7 +265,12 @@ fn test_reject_oversized_input() {
     );
 
     // Verify the reported dimensions.
-    if let ValidationError::MatrixTooLarge { rows, cols, max_dim } = err {
+    if let ValidationError::MatrixTooLarge {
+        rows,
+        cols,
+        max_dim,
+    } = err
+    {
         assert_eq!(rows, MAX_NODES + 1);
         assert_eq!(cols, 1);
         assert_eq!(max_dim, MAX_NODES);

@@ -231,8 +231,7 @@ impl UnionFindDecoder {
 
                     // Compare with previous round (or implicit all-false for round 0).
                     let prev = if r > 0 {
-                        let prev_idx =
-                            ((r - 1) * grid_w * grid_h + y * grid_w + x) as usize;
+                        let prev_idx = ((r - 1) * grid_w * grid_h + y * grid_w + x) as usize;
                         grid[prev_idx]
                     } else {
                         false
@@ -275,8 +274,12 @@ impl UnionFindDecoder {
         } else {
             1
         };
-        let dx_min = defect.x.min(grid_w.saturating_sub(1).saturating_sub(defect.x));
-        let dy_min = defect.y.min(grid_h.saturating_sub(1).saturating_sub(defect.y));
+        let dx_min = defect
+            .x
+            .min(grid_w.saturating_sub(1).saturating_sub(defect.x));
+        let dy_min = defect
+            .y
+            .min(grid_h.saturating_sub(1).saturating_sub(defect.y));
         dx_min.min(dy_min)
     }
 
@@ -326,9 +329,7 @@ impl UnionFindDecoder {
                 break;
             }
             // Check if all clusters are even-parity.
-            let all_even = defects
-                .iter()
-                .all(|d| !uf.cluster_parity(d.node_index));
+            let all_even = defects.iter().all(|d| !uf.cluster_parity(d.node_index));
             if all_even {
                 break;
             }
@@ -424,12 +425,7 @@ impl UnionFindDecoder {
 
     /// Generate Pauli corrections along the shortest path between two
     /// paired defects.
-    fn path_between(
-        &self,
-        a: &Defect,
-        b: &Defect,
-        code_distance: u32,
-    ) -> Vec<(u32, PauliType)> {
+    fn path_between(&self, a: &Defect, b: &Defect, code_distance: u32) -> Vec<(u32, PauliType)> {
         let mut corrections = Vec::new();
 
         let (mut cx, mut cy) = (a.x as i64, a.y as i64);
@@ -616,8 +612,7 @@ impl PartitionedDecoder {
                 // Remap tile-local qubit to global qubit coordinate.
                 let local_y = qubit / (d.max(1));
                 let local_x = qubit % (d.max(1));
-                let global_qubit =
-                    (local_y + y_offset) * d + (local_x + x_offset);
+                let global_qubit = (local_y + y_offset) * d + (local_x + x_offset);
                 all_corrections.push((global_qubit, pauli));
             }
 
@@ -633,7 +628,10 @@ impl PartitionedDecoder {
 
         // Deduplicate corrections: two corrections on the same qubit
         // with the same Pauli type cancel out.
-        all_corrections.sort_by(|a, b| a.0.cmp(&b.0).then(format!("{:?}", a.1).cmp(&format!("{:?}", b.1))));
+        all_corrections.sort_by(|a, b| {
+            a.0.cmp(&b.0)
+                .then(format!("{:?}", a.1).cmp(&format!("{:?}", b.1)))
+        });
         let mut deduped: Vec<(u32, PauliType)> = Vec::new();
         let mut i = 0;
         while i < all_corrections.len() {
@@ -799,10 +797,7 @@ impl AdaptiveCodeDistance {
         if self.error_history.is_empty() {
             return f64::NAN;
         }
-        let window_start = self
-            .error_history
-            .len()
-            .saturating_sub(self.window_size);
+        let window_start = self.error_history.len().saturating_sub(self.window_size);
         let window = &self.error_history[window_start..];
         let sum: f64 = window.iter().sum();
         sum / window.len() as f64
@@ -891,8 +886,7 @@ impl LogicalQubitAllocator {
         // Enumerate physical qubits in this patch.
         let qubits_per_logical = 2 * d * d - 2 * d + 1;
         let start_qubit = patch_idx * qubits_per_logical;
-        let physical_qubits: Vec<u32> =
-            (start_qubit..start_qubit + qubits_per_logical).collect();
+        let physical_qubits: Vec<u32> = (start_qubit..start_qubit + qubits_per_logical).collect();
 
         let logical_id = self.next_logical_id;
         self.next_logical_id += 1;
@@ -1177,10 +1171,30 @@ mod tests {
         let decoder = UnionFindDecoder::new(0);
         let syndrome = SyndromeData {
             stabilizers: vec![
-                StabilizerMeasurement { x: 0, y: 0, round: 0, value: false },
-                StabilizerMeasurement { x: 1, y: 0, round: 0, value: false },
-                StabilizerMeasurement { x: 0, y: 1, round: 0, value: false },
-                StabilizerMeasurement { x: 1, y: 1, round: 0, value: false },
+                StabilizerMeasurement {
+                    x: 0,
+                    y: 0,
+                    round: 0,
+                    value: false,
+                },
+                StabilizerMeasurement {
+                    x: 1,
+                    y: 0,
+                    round: 0,
+                    value: false,
+                },
+                StabilizerMeasurement {
+                    x: 0,
+                    y: 1,
+                    round: 0,
+                    value: false,
+                },
+                StabilizerMeasurement {
+                    x: 1,
+                    y: 1,
+                    round: 0,
+                    value: false,
+                },
             ],
             code_distance: 3,
             num_rounds: 1,
@@ -1200,10 +1214,30 @@ mod tests {
         let decoder = UnionFindDecoder::new(0);
         let syndrome = SyndromeData {
             stabilizers: vec![
-                StabilizerMeasurement { x: 0, y: 0, round: 0, value: true },
-                StabilizerMeasurement { x: 1, y: 0, round: 0, value: false },
-                StabilizerMeasurement { x: 0, y: 1, round: 0, value: false },
-                StabilizerMeasurement { x: 1, y: 1, round: 0, value: false },
+                StabilizerMeasurement {
+                    x: 0,
+                    y: 0,
+                    round: 0,
+                    value: true,
+                },
+                StabilizerMeasurement {
+                    x: 1,
+                    y: 0,
+                    round: 0,
+                    value: false,
+                },
+                StabilizerMeasurement {
+                    x: 0,
+                    y: 1,
+                    round: 0,
+                    value: false,
+                },
+                StabilizerMeasurement {
+                    x: 1,
+                    y: 1,
+                    round: 0,
+                    value: false,
+                },
             ],
             code_distance: 3,
             num_rounds: 1,
@@ -1223,10 +1257,30 @@ mod tests {
         // Two adjacent defects should pair and produce corrections between them.
         let syndrome = SyndromeData {
             stabilizers: vec![
-                StabilizerMeasurement { x: 0, y: 0, round: 0, value: true },
-                StabilizerMeasurement { x: 1, y: 0, round: 0, value: true },
-                StabilizerMeasurement { x: 0, y: 1, round: 0, value: false },
-                StabilizerMeasurement { x: 1, y: 1, round: 0, value: false },
+                StabilizerMeasurement {
+                    x: 0,
+                    y: 0,
+                    round: 0,
+                    value: true,
+                },
+                StabilizerMeasurement {
+                    x: 1,
+                    y: 0,
+                    round: 0,
+                    value: true,
+                },
+                StabilizerMeasurement {
+                    x: 0,
+                    y: 1,
+                    round: 0,
+                    value: false,
+                },
+                StabilizerMeasurement {
+                    x: 1,
+                    y: 1,
+                    round: 0,
+                    value: false,
+                },
             ],
             code_distance: 3,
             num_rounds: 1,
@@ -1278,7 +1332,10 @@ mod tests {
             num_rounds: 1,
         };
         let defects = decoder.extract_defects(&syndrome);
-        assert!(defects.is_empty(), "All-false syndrome should have no defects");
+        assert!(
+            defects.is_empty(),
+            "All-false syndrome should have no defects"
+        );
     }
 
     #[test]
@@ -1287,8 +1344,18 @@ mod tests {
         let syndrome = SyndromeData {
             stabilizers: vec![
                 // Round 0: (0,0)=false, (1,0)=true
-                StabilizerMeasurement { x: 0, y: 0, round: 0, value: false },
-                StabilizerMeasurement { x: 1, y: 0, round: 0, value: true },
+                StabilizerMeasurement {
+                    x: 0,
+                    y: 0,
+                    round: 0,
+                    value: false,
+                },
+                StabilizerMeasurement {
+                    x: 1,
+                    y: 0,
+                    round: 0,
+                    value: true,
+                },
             ],
             code_distance: 3,
             num_rounds: 1,
@@ -1303,17 +1370,37 @@ mod tests {
 
     #[test]
     fn test_uf_decoder_manhattan_distance() {
-        let a = Defect { x: 0, y: 0, round: 0, node_index: 0 };
-        let b = Defect { x: 3, y: 4, round: 1, node_index: 1 };
+        let a = Defect {
+            x: 0,
+            y: 0,
+            round: 0,
+            node_index: 0,
+        };
+        let b = Defect {
+            x: 3,
+            y: 4,
+            round: 1,
+            node_index: 1,
+        };
         assert_eq!(UnionFindDecoder::manhattan_distance(&a, &b), 8);
     }
 
     #[test]
     fn test_uf_decoder_boundary_distance() {
-        let d = Defect { x: 0, y: 0, round: 0, node_index: 0 };
+        let d = Defect {
+            x: 0,
+            y: 0,
+            round: 0,
+            node_index: 0,
+        };
         assert_eq!(UnionFindDecoder::boundary_distance(&d, 5), 0);
 
-        let d2 = Defect { x: 2, y: 2, round: 0, node_index: 0 };
+        let d2 = Defect {
+            x: 2,
+            y: 2,
+            round: 0,
+            node_index: 0,
+        };
         assert_eq!(UnionFindDecoder::boundary_distance(&d2, 5), 1);
     }
 
@@ -1322,8 +1409,18 @@ mod tests {
         let decoder = UnionFindDecoder::new(0);
         let syndrome = SyndromeData {
             stabilizers: vec![
-                StabilizerMeasurement { x: 0, y: 0, round: 0, value: true },
-                StabilizerMeasurement { x: 0, y: 0, round: 1, value: false },
+                StabilizerMeasurement {
+                    x: 0,
+                    y: 0,
+                    round: 0,
+                    value: true,
+                },
+                StabilizerMeasurement {
+                    x: 0,
+                    y: 0,
+                    round: 1,
+                    value: false,
+                },
             ],
             code_distance: 3,
             num_rounds: 2,
@@ -1341,10 +1438,30 @@ mod tests {
         // Few defects -> high confidence.
         let syndrome_low = SyndromeData {
             stabilizers: vec![
-                StabilizerMeasurement { x: 0, y: 0, round: 0, value: true },
-                StabilizerMeasurement { x: 1, y: 0, round: 0, value: false },
-                StabilizerMeasurement { x: 0, y: 1, round: 0, value: false },
-                StabilizerMeasurement { x: 1, y: 1, round: 0, value: false },
+                StabilizerMeasurement {
+                    x: 0,
+                    y: 0,
+                    round: 0,
+                    value: true,
+                },
+                StabilizerMeasurement {
+                    x: 1,
+                    y: 0,
+                    round: 0,
+                    value: false,
+                },
+                StabilizerMeasurement {
+                    x: 0,
+                    y: 1,
+                    round: 0,
+                    value: false,
+                },
+                StabilizerMeasurement {
+                    x: 1,
+                    y: 1,
+                    round: 0,
+                    value: false,
+                },
             ],
             code_distance: 3,
             num_rounds: 1,
@@ -1354,10 +1471,30 @@ mod tests {
         // Many defects -> lower confidence.
         let syndrome_high = SyndromeData {
             stabilizers: vec![
-                StabilizerMeasurement { x: 0, y: 0, round: 0, value: true },
-                StabilizerMeasurement { x: 1, y: 0, round: 0, value: true },
-                StabilizerMeasurement { x: 0, y: 1, round: 0, value: true },
-                StabilizerMeasurement { x: 1, y: 1, round: 0, value: true },
+                StabilizerMeasurement {
+                    x: 0,
+                    y: 0,
+                    round: 0,
+                    value: true,
+                },
+                StabilizerMeasurement {
+                    x: 1,
+                    y: 0,
+                    round: 0,
+                    value: true,
+                },
+                StabilizerMeasurement {
+                    x: 0,
+                    y: 1,
+                    round: 0,
+                    value: true,
+                },
+                StabilizerMeasurement {
+                    x: 1,
+                    y: 1,
+                    round: 0,
+                    value: true,
+                },
             ],
             code_distance: 3,
             num_rounds: 1,
@@ -1376,9 +1513,12 @@ mod tests {
     fn test_uf_decoder_decode_time_recorded() {
         let decoder = UnionFindDecoder::new(0);
         let syndrome = SyndromeData {
-            stabilizers: vec![
-                StabilizerMeasurement { x: 0, y: 0, round: 0, value: true },
-            ],
+            stabilizers: vec![StabilizerMeasurement {
+                x: 0,
+                y: 0,
+                round: 0,
+                value: true,
+            }],
             code_distance: 3,
             num_rounds: 1,
         };
@@ -1432,8 +1572,18 @@ mod tests {
 
         let syndrome = SyndromeData {
             stabilizers: vec![
-                StabilizerMeasurement { x: 0, y: 0, round: 0, value: true },
-                StabilizerMeasurement { x: 1, y: 0, round: 0, value: false },
+                StabilizerMeasurement {
+                    x: 0,
+                    y: 0,
+                    round: 0,
+                    value: true,
+                },
+                StabilizerMeasurement {
+                    x: 1,
+                    y: 0,
+                    round: 0,
+                    value: false,
+                },
             ],
             code_distance: 3,
             num_rounds: 1,
@@ -1813,10 +1963,30 @@ mod tests {
         // results to the inner decoder.
         let syndrome = SyndromeData {
             stabilizers: vec![
-                StabilizerMeasurement { x: 0, y: 0, round: 0, value: true },
-                StabilizerMeasurement { x: 1, y: 0, round: 0, value: false },
-                StabilizerMeasurement { x: 0, y: 1, round: 0, value: false },
-                StabilizerMeasurement { x: 1, y: 1, round: 0, value: false },
+                StabilizerMeasurement {
+                    x: 0,
+                    y: 0,
+                    round: 0,
+                    value: true,
+                },
+                StabilizerMeasurement {
+                    x: 1,
+                    y: 0,
+                    round: 0,
+                    value: false,
+                },
+                StabilizerMeasurement {
+                    x: 0,
+                    y: 1,
+                    round: 0,
+                    value: false,
+                },
+                StabilizerMeasurement {
+                    x: 1,
+                    y: 1,
+                    round: 0,
+                    value: false,
+                },
             ],
             code_distance: 3,
             num_rounds: 1,
@@ -1840,13 +2010,19 @@ mod tests {
         // Verify trait object usage compiles and works.
         let decoders: Vec<Box<dyn SurfaceCodeDecoder>> = vec![
             Box::new(UnionFindDecoder::new(0)),
-            Box::new(PartitionedDecoder::new(4, Box::new(UnionFindDecoder::new(0)))),
+            Box::new(PartitionedDecoder::new(
+                4,
+                Box::new(UnionFindDecoder::new(0)),
+            )),
         ];
 
         let syndrome = SyndromeData {
-            stabilizers: vec![
-                StabilizerMeasurement { x: 0, y: 0, round: 0, value: false },
-            ],
+            stabilizers: vec![StabilizerMeasurement {
+                x: 0,
+                y: 0,
+                round: 0,
+                value: false,
+            }],
             code_distance: 3,
             num_rounds: 1,
         };
@@ -1866,9 +2042,10 @@ mod tests {
             (1, PauliType::X),
         ]));
         // Odd number of X corrections -> logical_outcome = true.
-        assert!(UnionFindDecoder::infer_logical_outcome(&[
-            (0, PauliType::X),
-        ]));
+        assert!(UnionFindDecoder::infer_logical_outcome(&[(
+            0,
+            PauliType::X
+        ),]));
         // Z corrections don't affect X logical outcome.
         assert!(!UnionFindDecoder::infer_logical_outcome(&[
             (0, PauliType::Z),
@@ -1882,9 +2059,12 @@ mod tests {
         // Distance-1 code is degenerate but should not panic.
         let decoder = UnionFindDecoder::new(0);
         let syndrome = SyndromeData {
-            stabilizers: vec![
-                StabilizerMeasurement { x: 0, y: 0, round: 0, value: true },
-            ],
+            stabilizers: vec![StabilizerMeasurement {
+                x: 0,
+                y: 0,
+                round: 0,
+                value: true,
+            }],
             code_distance: 1,
             num_rounds: 1,
         };

@@ -12,7 +12,13 @@ pub struct MinCutConfig {
 
 impl Default for MinCutConfig {
     fn default() -> Self {
-        Self { lambda: 0.5, tau: 2, eps: 0.01, seed: 42, witness_enabled: true }
+        Self {
+            lambda: 0.5,
+            tau: 2,
+            eps: 0.01,
+            seed: 42,
+            witness_enabled: true,
+        }
     }
 }
 
@@ -32,7 +38,13 @@ mod tests {
 
     #[test]
     fn test_serde_roundtrip() {
-        let c = MinCutConfig { lambda: 0.3, tau: 5, eps: 0.001, seed: 99, witness_enabled: false };
+        let c = MinCutConfig {
+            lambda: 0.3,
+            tau: 5,
+            eps: 0.001,
+            seed: 99,
+            witness_enabled: false,
+        };
         let json = serde_json::to_string(&c).unwrap();
         let r: MinCutConfig = serde_json::from_str(&json).unwrap();
         assert!((r.lambda - 0.3).abs() < f32::EPSILON);

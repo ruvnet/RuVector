@@ -66,11 +66,19 @@ pub mod tl1_avx2;
 #[cfg(target_arch = "wasm32")]
 pub mod tl1_wasm;
 
+pub use backend::{
+    BitNetBackend, BitNetModelConfig, CompressedMlaCache, ExpertPredictor, GenerationStats,
+    ModelValidation, TensorDiscoveryReport, TensorEntry, TensorGroup,
+};
 pub use dequantize::dequantize_bitnet_t158;
 pub use eval::{EvalReport, EvalSuite, GateResult};
+pub use expert_cache::{
+    EvictionPolicy, ExpertBatch, ExpertCache, ExpertCacheConfig, ExpertCacheStats,
+    MoeBatchScheduler, NullPrefetcher, Prefetcher,
+};
 pub use gguf_export::{
-    export_craftsman_model, f32_to_f16_bytes, serialize_bitnet_t158, validate_export,
-    ExportTensor, GgufBitnetWriter, MetadataValue,
+    export_craftsman_model, f32_to_f16_bytes, serialize_bitnet_t158, validate_export, ExportTensor,
+    GgufBitnetWriter, MetadataValue,
 };
 pub use quantizer::{
     absmean_ternary, quantize_tensor, LayerMask, Precision, PtBitnetConfig, TernaryFormat,
@@ -80,14 +88,6 @@ pub use rlm_embedder::{
     RlmEmbeddingResult,
 };
 pub use rlm_refiner::{RefinementResult, RefinementStepMetrics, RlmRefiner, RlmRefinerConfig};
-pub use backend::{
-    BitNetBackend, BitNetModelConfig, CompressedMlaCache, ExpertPredictor, GenerationStats,
-    ModelValidation, TensorDiscoveryReport, TensorEntry, TensorGroup,
-};
-pub use expert_cache::{
-    ExpertBatch, ExpertCache, ExpertCacheConfig, ExpertCacheStats, EvictionPolicy,
-    MoeBatchScheduler, NullPrefetcher, Prefetcher,
-};
 pub use ternary_tensor::{pack_ternary, unpack_ternary, TernaryTensor};
 pub use tl1_kernel::{absmax_quantize_activations, generate_tl1_lut, tl1_gemv};
 pub use tokenizer::{BpeTokenizer, SpecialTokens as BitNetSpecialTokens};

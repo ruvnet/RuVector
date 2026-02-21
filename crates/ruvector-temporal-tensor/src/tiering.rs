@@ -424,9 +424,17 @@ pub fn select_candidates(
     }
 
     // Upgrades: highest score first.
-    upgrades.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(core::cmp::Ordering::Equal));
+    upgrades.sort_by(|a, b| {
+        b.score
+            .partial_cmp(&a.score)
+            .unwrap_or(core::cmp::Ordering::Equal)
+    });
     // Downgrades: lowest score first.
-    downgrades.sort_by(|a, b| a.score.partial_cmp(&b.score).unwrap_or(core::cmp::Ordering::Equal));
+    downgrades.sort_by(|a, b| {
+        a.score
+            .partial_cmp(&b.score)
+            .unwrap_or(core::cmp::Ordering::Equal)
+    });
 
     upgrades.extend(downgrades);
     upgrades
@@ -456,7 +464,10 @@ pub struct ScoredPartition {
 /// Returns a `Vec<f32>` parallel to `metas`, where each entry is
 /// `compute_score(config, now, &metas[i])`.
 pub fn compute_scores_batch(config: &TierConfig, now: u64, metas: &[BlockMeta]) -> Vec<f32> {
-    metas.iter().map(|m| compute_score(config, now, m)).collect()
+    metas
+        .iter()
+        .map(|m| compute_score(config, now, m))
+        .collect()
 }
 
 /// Compute tier decisions for many blocks at once.
@@ -490,7 +501,13 @@ pub fn score_and_partition(config: &TierConfig, now: u64, metas: &[BlockMeta]) -
             evict.push(i);
         }
     }
-    ScoredPartition { hot, warm, cold, evict, scores }
+    ScoredPartition {
+        hot,
+        warm,
+        cold,
+        evict,
+        scores,
+    }
 }
 
 /// Find the `k` blocks with the lowest scores (useful for eviction).
@@ -498,12 +515,19 @@ pub fn score_and_partition(config: &TierConfig, now: u64, metas: &[BlockMeta]) -
 /// Returns up to `k` `(index, score)` pairs sorted in ascending score order.
 /// Uses a partial sort (`select_nth_unstable_by`) for efficiency when
 /// `k << metas.len()`.
-pub fn top_k_coldest(config: &TierConfig, now: u64, metas: &[BlockMeta], k: usize) -> Vec<(usize, f32)> {
+pub fn top_k_coldest(
+    config: &TierConfig,
+    now: u64,
+    metas: &[BlockMeta],
+    k: usize,
+) -> Vec<(usize, f32)> {
     let scores = compute_scores_batch(config, now, metas);
     let mut indexed: Vec<(usize, f32)> = scores.into_iter().enumerate().collect();
     // Partial sort: we only need the k smallest
     if k < indexed.len() {
-        indexed.select_nth_unstable_by(k, |a, b| a.1.partial_cmp(&b.1).unwrap_or(core::cmp::Ordering::Equal));
+        indexed.select_nth_unstable_by(k, |a, b| {
+            a.1.partial_cmp(&b.1).unwrap_or(core::cmp::Ordering::Equal)
+        });
         indexed.truncate(k);
     }
     indexed.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(core::cmp::Ordering::Equal));
@@ -616,7 +640,10 @@ mod tests {
         let meta = make_meta(0.0, 0x0000_FFFF_FFFF_0000, 0, Tier::Tier2, 0);
         let pop = 0x0000_FFFF_FFFF_0000u64.count_ones() as f32 / 64.0;
         let score = compute_score(&cfg, 1000, &meta);
-        assert!((score - pop).abs() < 1e-6, "score={score}, expected pop={pop}");
+        assert!(
+            (score - pop).abs() < 1e-6,
+            "score={score}, expected pop={pop}"
+        );
     }
 
     // -----------------------------------------------------------------------
@@ -749,7 +776,10 @@ mod tests {
         assert!(score < cfg.t1 + cfg.hysteresis, "score={score}");
         let target = choose_tier(&cfg, 50, &meta);
         // Hysteresis should prevent the upgrade.
-        assert_eq!(target, None, "score={score} should be within hysteresis band");
+        assert_eq!(
+            target, None,
+            "score={score} should be within hysteresis band"
+        );
     }
 
     #[test]
@@ -772,7 +802,10 @@ mod tests {
             cfg.t1
         );
         let target = choose_tier(&cfg, 100, &meta);
-        assert_eq!(target, None, "hysteresis should prevent downgrade, score={score}");
+        assert_eq!(
+            target, None,
+            "hysteresis should prevent downgrade, score={score}"
+        );
     }
 
     // -----------------------------------------------------------------------
@@ -874,10 +907,7 @@ mod tests {
         let hot_meta = make_meta(1.0, u64::MAX, 50, Tier::Tier3, 0);
         let cold_meta = make_meta(0.0, 0, 0, Tier::Tier1, 0);
 
-        let blocks = vec![
-            (BlockKey(1), &cold_meta),
-            (BlockKey(2), &hot_meta),
-        ];
+        let blocks = vec![(BlockKey(1), &cold_meta), (BlockKey(2), &hot_meta)];
 
         let candidates = select_candidates(&cfg, 50, &blocks);
         assert!(candidates.len() >= 2, "expected at least 2 candidates");
@@ -896,10 +926,7 @@ mod tests {
         let meta_a = make_meta(0.9, u64::MAX, 50, Tier::Tier3, 0);
         let meta_b = make_meta(1.0, u64::MAX, 50, Tier::Tier3, 0);
 
-        let blocks = vec![
-            (BlockKey(1), &meta_a),
-            (BlockKey(2), &meta_b),
-        ];
+        let blocks = vec![(BlockKey(1), &meta_a), (BlockKey(2), &meta_b)];
 
         let candidates = select_candidates(&cfg, 50, &blocks);
         // Block 2 has higher ema_rate, so higher score, should come first.
@@ -1082,9 +1109,9 @@ mod tests {
     fn score_and_partition_distributes_correctly() {
         let cfg = default_config();
         let metas: Vec<BlockMeta> = vec![
-            make_meta(1.0, u64::MAX, 100, Tier::Tier1, 0),   // hot
-            make_meta(0.5, 0x0000_0000_FFFF_FFFF, 90, Tier::Tier2, 0),  // warm
-            make_meta(0.0, 0, 0, Tier::Tier3, 0),             // cold/evict
+            make_meta(1.0, u64::MAX, 100, Tier::Tier1, 0), // hot
+            make_meta(0.5, 0x0000_0000_FFFF_FFFF, 90, Tier::Tier2, 0), // warm
+            make_meta(0.0, 0, 0, Tier::Tier3, 0),          // cold/evict
         ];
         let part = score_and_partition(&cfg, 100, &metas);
         assert!(!part.hot.is_empty(), "should have hot blocks");
@@ -1109,9 +1136,7 @@ mod tests {
     #[test]
     fn top_k_coldest_k_exceeds_len() {
         let cfg = default_config();
-        let metas: Vec<BlockMeta> = vec![
-            make_meta(1.0, u64::MAX, 100, Tier::Tier1, 0),
-        ];
+        let metas: Vec<BlockMeta> = vec![make_meta(1.0, u64::MAX, 100, Tier::Tier1, 0)];
         let coldest = top_k_coldest(&cfg, 100, &metas, 10);
         assert_eq!(coldest.len(), 1);
     }
@@ -1123,7 +1148,12 @@ mod tests {
         assert!(compute_scores_batch(&cfg, 100, &empty).is_empty());
         assert!(choose_tiers_batch(&cfg, 100, &empty).is_empty());
         let part = score_and_partition(&cfg, 100, &empty);
-        assert!(part.hot.is_empty() && part.warm.is_empty() && part.cold.is_empty() && part.evict.is_empty());
+        assert!(
+            part.hot.is_empty()
+                && part.warm.is_empty()
+                && part.cold.is_empty()
+                && part.evict.is_empty()
+        );
         assert!(top_k_coldest(&cfg, 100, &empty, 5).is_empty());
     }
 }

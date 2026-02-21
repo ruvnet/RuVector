@@ -95,12 +95,10 @@ pub fn commit_manifest(
     file: &mut impl std::io::Write,
     manifest_bytes: &[u8],
 ) -> Result<(), rvf_types::RvfError> {
-    file.write_all(manifest_bytes).map_err(|_| {
-        rvf_types::RvfError::Code(rvf_types::ErrorCode::FsyncFailed)
-    })?;
-    file.flush().map_err(|_| {
-        rvf_types::RvfError::Code(rvf_types::ErrorCode::FsyncFailed)
-    })?;
+    file.write_all(manifest_bytes)
+        .map_err(|_| rvf_types::RvfError::Code(rvf_types::ErrorCode::FsyncFailed))?;
+    file.flush()
+        .map_err(|_| rvf_types::RvfError::Code(rvf_types::ErrorCode::FsyncFailed))?;
     Ok(())
 }
 
@@ -168,8 +166,7 @@ mod tests {
             checkpoint_hash: [0xAB; 16],
         };
 
-        let manifest =
-            build_manifest(&sample_dir(), &sample_hotset(), 2, Some(&chain));
+        let manifest = build_manifest(&sample_dir(), &sample_hotset(), 2, Some(&chain));
         assert!(manifest.len() > ROOT_MANIFEST_SIZE);
 
         let l0_start = manifest.len() - ROOT_MANIFEST_SIZE;
@@ -181,8 +178,7 @@ mod tests {
     #[test]
     fn build_manifest_at_with_offset() {
         let offset = 0x1_0000u64;
-        let manifest =
-            build_manifest_at(&sample_dir(), &sample_hotset(), 3, None, offset);
+        let manifest = build_manifest_at(&sample_dir(), &sample_hotset(), 3, None, offset);
 
         let l0_start = manifest.len() - ROOT_MANIFEST_SIZE;
         let l0_data: &[u8; 4096] = manifest[l0_start..].try_into().unwrap();

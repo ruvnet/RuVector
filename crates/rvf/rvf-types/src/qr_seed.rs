@@ -164,13 +164,17 @@ impl SeedHeader {
             base_dtype: buf[0x16],
             profile_id: buf[0x17],
             created_ns: u64::from_le_bytes([
-                buf[0x18], buf[0x19], buf[0x1A], buf[0x1B],
-                buf[0x1C], buf[0x1D], buf[0x1E], buf[0x1F],
+                buf[0x18], buf[0x19], buf[0x1A], buf[0x1B], buf[0x1C], buf[0x1D], buf[0x1E],
+                buf[0x1F],
             ]),
             microkernel_offset: u32::from_le_bytes([buf[0x20], buf[0x21], buf[0x22], buf[0x23]]),
             microkernel_size: u32::from_le_bytes([buf[0x24], buf[0x25], buf[0x26], buf[0x27]]),
-            download_manifest_offset: u32::from_le_bytes([buf[0x28], buf[0x29], buf[0x2A], buf[0x2B]]),
-            download_manifest_size: u32::from_le_bytes([buf[0x2C], buf[0x2D], buf[0x2E], buf[0x2F]]),
+            download_manifest_offset: u32::from_le_bytes([
+                buf[0x28], buf[0x29], buf[0x2A], buf[0x2B],
+            ]),
+            download_manifest_size: u32::from_le_bytes([
+                buf[0x2C], buf[0x2D], buf[0x2E], buf[0x2F],
+            ]),
             sig_algo: u16::from_le_bytes([buf[0x30], buf[0x31]]),
             sig_length: u16::from_le_bytes([buf[0x32], buf[0x33]]),
             total_seed_size: u32::from_le_bytes([buf[0x34], buf[0x35], buf[0x36], buf[0x37]]),
@@ -282,7 +286,11 @@ mod tests {
         SeedHeader {
             seed_magic: SEED_MAGIC,
             seed_version: 1,
-            flags: SEED_HAS_MICROKERNEL | SEED_HAS_DOWNLOAD | SEED_SIGNED | SEED_COMPRESSED | SEED_STREAM_UPGRADE,
+            flags: SEED_HAS_MICROKERNEL
+                | SEED_HAS_DOWNLOAD
+                | SEED_SIGNED
+                | SEED_COMPRESSED
+                | SEED_STREAM_UPGRADE,
             file_id: [0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08],
             total_vector_count: 100_000,
             dimension: 384,

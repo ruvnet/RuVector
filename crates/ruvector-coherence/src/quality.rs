@@ -21,7 +21,11 @@ pub fn cosine_similarity(a: &[f32], b: &[f32]) -> f64 {
         nb += bi * bi;
     }
     let denom = na.sqrt() * nb.sqrt();
-    if denom < f64::EPSILON { 0.0 } else { dot / denom }
+    if denom < f64::EPSILON {
+        0.0
+    } else {
+        dot / denom
+    }
 }
 
 /// Euclidean (L2) distance between two vectors.
@@ -32,16 +36,28 @@ pub fn l2_distance(a: &[f32], b: &[f32]) -> f64 {
         let d = a[i] as f64 - b[i] as f64;
         s += d * d;
     }
-    if a.len() > n { s += a[n..].iter().map(|v| (*v as f64).powi(2)).sum::<f64>(); }
-    if b.len() > n { s += b[n..].iter().map(|v| (*v as f64).powi(2)).sum::<f64>(); }
+    if a.len() > n {
+        s += a[n..].iter().map(|v| (*v as f64).powi(2)).sum::<f64>();
+    }
+    if b.len() > n {
+        s += b[n..].iter().map(|v| (*v as f64).powi(2)).sum::<f64>();
+    }
     s.sqrt()
 }
 
 /// Quality gate: passes when `cosine_similarity >= threshold`.
-pub fn quality_check(baseline_output: &[f32], gated_output: &[f32], threshold: f64) -> QualityResult {
+pub fn quality_check(
+    baseline_output: &[f32],
+    gated_output: &[f32],
+    threshold: f64,
+) -> QualityResult {
     let cosine_sim = cosine_similarity(baseline_output, gated_output);
     let l2_dist = l2_distance(baseline_output, gated_output);
-    QualityResult { cosine_sim, l2_dist, passes_threshold: cosine_sim >= threshold }
+    QualityResult {
+        cosine_sim,
+        l2_dist,
+        passes_threshold: cosine_sim >= threshold,
+    }
 }
 
 #[cfg(test)]
@@ -73,7 +89,11 @@ mod tests {
 
     #[test]
     fn quality_result_serializable() {
-        let r = QualityResult { cosine_sim: 0.95, l2_dist: 0.32, passes_threshold: true };
+        let r = QualityResult {
+            cosine_sim: 0.95,
+            l2_dist: 0.32,
+            passes_threshold: true,
+        };
         let j = serde_json::to_string(&r).unwrap();
         let d: QualityResult = serde_json::from_str(&j).unwrap();
         assert!((d.cosine_sim - 0.95).abs() < 1e-10);

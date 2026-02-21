@@ -209,11 +209,7 @@ async fn ingest(
 
     let result = {
         let mut s = state.store.lock().await;
-        s.ingest_batch(
-            &vec_refs,
-            &req.ids,
-            metadata.as_deref(),
-        )?
+        s.ingest_batch(&vec_refs, &req.ids, metadata.as_deref())?
     };
 
     Ok(Json(IngestResponse {
@@ -271,9 +267,7 @@ async fn delete(
     }))
 }
 
-async fn status(
-    State(state): State<AppState>,
-) -> Result<Json<StatusResponse>, ServerError> {
+async fn status(State(state): State<AppState>) -> Result<Json<StatusResponse>, ServerError> {
     let s = state.store.lock().await;
     let st = s.status();
 
@@ -336,10 +330,7 @@ async fn serve_index(State(state): State<AppState>) -> Response {
     }
 }
 
-async fn serve_asset(
-    Path(path): Path<String>,
-    State(state): State<AppState>,
-) -> Response {
+async fn serve_asset(Path(path): Path<String>, State(state): State<AppState>) -> Response {
     // Serve from static_dir if configured
     if let Some(ref dir) = state.static_dir {
         let file_path = dir.join("assets").join(&path);
@@ -369,10 +360,7 @@ async fn serve_asset(
 
 /// Fallback handler: serves root-level static files from static_dir, or
 /// falls back to index.html for SPA hash-routing.
-async fn serve_static_file(
-    uri: axum::http::Uri,
-    State(state): State<AppState>,
-) -> Response {
+async fn serve_static_file(uri: axum::http::Uri, State(state): State<AppState>) -> Response {
     let path = uri.path().trim_start_matches('/');
 
     // Try to serve the file from static_dir
@@ -445,9 +433,7 @@ async fn atlas_trace(
     }))
 }
 
-async fn coherence(
-    State(_state): State<AppState>,
-) -> Json<serde_json::Value> {
+async fn coherence(State(_state): State<AppState>) -> Json<serde_json::Value> {
     Json(serde_json::json!({
         "grid_size": [16, 16],
         "values": [
@@ -461,9 +447,7 @@ async fn coherence(
     }))
 }
 
-async fn boundary_timeline(
-    State(_state): State<AppState>,
-) -> Json<serde_json::Value> {
+async fn boundary_timeline(State(_state): State<AppState>) -> Json<serde_json::Value> {
     Json(serde_json::json!({
         "points": [
             { "epoch": 0, "boundary_radius": 1.00, "coherence": 0.99, "event_count": 0 },
@@ -480,9 +464,7 @@ async fn boundary_timeline(
     }))
 }
 
-async fn boundary_alerts(
-    State(_state): State<AppState>,
-) -> Json<serde_json::Value> {
+async fn boundary_alerts(State(_state): State<AppState>) -> Json<serde_json::Value> {
     Json(serde_json::json!({
         "alerts": [
             {
@@ -515,9 +497,7 @@ async fn boundary_alerts(
     }))
 }
 
-async fn candidates_planet(
-    State(_state): State<AppState>,
-) -> Json<serde_json::Value> {
+async fn candidates_planet(State(_state): State<AppState>) -> Json<serde_json::Value> {
     // Real confirmed exoplanets from NASA Exoplanet Archive & peer-reviewed publications.
     // Scores are Earth Similarity Index (ESI) values computed from radius + equilibrium temperature.
     // The RVF pipeline independently derives these scores from raw transit/RV parameters (blind test).
@@ -548,9 +528,7 @@ async fn candidates_planet(
     }))
 }
 
-async fn candidates_life(
-    State(_state): State<AppState>,
-) -> Json<serde_json::Value> {
+async fn candidates_life(State(_state): State<AppState>) -> Json<serde_json::Value> {
     // Real biosignature data from JWST, Hubble, and ground-based spectroscopy.
     // Only molecules with published peer-reviewed detections are marked as confirmed.
     // Biosig_confidence reflects actual observational evidence; habitability_index is from physical parameters.
@@ -583,9 +561,7 @@ async fn candidates_life(
 /// scores, and reveal data for comparison against known confirmed exoplanets.
 /// The pipeline processes raw parameters (transit depth, period, stellar properties)
 /// without knowing which real planet the data belongs to.
-async fn blind_test(
-    State(_state): State<AppState>,
-) -> Json<serde_json::Value> {
+async fn blind_test(State(_state): State<AppState>) -> Json<serde_json::Value> {
     // Each target uses real observational parameters from published transit/RV surveys.
     // The pipeline derives planet properties and ESI scores from these raw inputs alone.
     Json(serde_json::json!({
@@ -624,9 +600,7 @@ async fn blind_test(
 /// catalogs through the RVF pipeline to identify the most promising new world.
 /// These are real KOI (Kepler Objects of Interest) that have transit signals but
 /// lack sufficient follow-up data for official confirmation.
-async fn discover(
-    State(_state): State<AppState>,
-) -> Json<serde_json::Value> {
+async fn discover(State(_state): State<AppState>) -> Json<serde_json::Value> {
     Json(serde_json::json!({
         "mission": "Process unconfirmed exoplanet candidates from Kepler/TESS archives to identify the most Earth-like world awaiting confirmation.",
         "pipeline_stages": [
@@ -852,9 +826,7 @@ async fn discover(
     }))
 }
 
-async fn discover_dyson(
-    State(_state): State<AppState>,
-) -> Json<serde_json::Value> {
+async fn discover_dyson(State(_state): State<AppState>) -> Json<serde_json::Value> {
     Json(serde_json::json!({
         "mission": "Dyson Sphere Search — Project Hephaistos Methodology",
         "methodology": "Following Suazo et al. 2024 (MNRAS 531, 695), we cross-match Gaia DR3 photometry with 2MASS (J/H/K) and WISE (W1-W4) catalogs. A partial Dyson sphere absorbs optical starlight and re-radiates it as mid-infrared waste heat, producing anomalous excess in WISE W3 (12 micron) and W4 (22 micron) bands relative to the stellar photosphere predicted by optical/near-IR colors. Candidates must pass: (1) good astrometric solution (RUWE < 1.4), (2) no known nebulosity or galaxy contamination, (3) infrared excess inconsistent with known circumstellar disk models. NOTE: Follow-up high-resolution radio imaging by Ren, Garrett & Siemion (2025, MNRAS Letters 538, L56) has shown that at least Candidate G is contaminated by a background AGN (VLASS J233532.86-000424.9, T_b > 10^8 K). Hot Dust-Obscured Galaxies (Hot DOGs, sky density ~9e-6 per sq arcsec) may account for contamination in all 7 candidates.",
@@ -1032,9 +1004,7 @@ async fn discover_dyson(
     }))
 }
 
-async fn discover_dyson_blind(
-    State(_state): State<AppState>,
-) -> Json<serde_json::Value> {
+async fn discover_dyson_blind(State(_state): State<AppState>) -> Json<serde_json::Value> {
     Json(serde_json::json!({
         "methodology": "Blind Dyson sphere detection test. The pipeline receives only photometric measurements (optical magnitudes, J/H/K near-IR, W1-W4 mid-IR) and stellar parameters (T_eff, distance) for each target. From these it independently computes: expected photospheric flux in each band (using BT-Settl model atmospheres), fractional excess above the photosphere, and best-fit warm blackbody component (temperature + coverage fraction). No target names, prior Dyson classifications, or published scores are provided.",
         "scoring_formula": "pipeline_score = 0.3 * excess_significance + 0.25 * sed_fit_quality + 0.2 * contamination_isolation + 0.15 * spectral_type_rarity + 0.1 * distance_reliability",
@@ -1128,9 +1098,7 @@ async fn candidate_trace_query(
     candidate_trace(Path(id), State(state)).await
 }
 
-async fn api_status(
-    State(state): State<AppState>,
-) -> Json<serde_json::Value> {
+async fn api_status(State(state): State<AppState>) -> Json<serde_json::Value> {
     let s = state.store.lock().await;
     let st = s.status();
     Json(serde_json::json!({
@@ -1149,9 +1117,7 @@ async fn api_status(
     }))
 }
 
-async fn memory_tiers(
-    State(_state): State<AppState>,
-) -> Json<serde_json::Value> {
+async fn memory_tiers(State(_state): State<AppState>) -> Json<serde_json::Value> {
     Json(serde_json::json!({
         "tiers": [
             {
@@ -1190,9 +1156,7 @@ async fn memory_tiers(
 
 // ── Witness Log ─────────────────────────────────────────────────────
 
-async fn witness_log(
-    State(_state): State<AppState>,
-) -> Json<serde_json::Value> {
+async fn witness_log(State(_state): State<AppState>) -> Json<serde_json::Value> {
     // Returns a realistic witness chain log representing the full RVF pipeline execution.
     // Each entry traces a specific measurement through its verifying witness, with
     // SHAKE-256 hash linking (simulated here with deterministic hex strings).

@@ -614,9 +614,7 @@ mod tests {
             Err(ValidationError::ParameterOutOfRange { ref name, .. }) => {
                 assert_eq!(name, "max_iterations");
             }
-            other => panic!(
-                "expected ParameterOutOfRange for max_iterations, got {other:?}"
-            ),
+            other => panic!("expected ParameterOutOfRange for max_iterations, got {other:?}"),
         }
     }
 
@@ -626,9 +624,7 @@ mod tests {
             Err(ValidationError::ParameterOutOfRange { ref name, .. }) => {
                 assert_eq!(name, "max_iterations");
             }
-            other => panic!(
-                "expected ParameterOutOfRange for max_iterations, got {other:?}"
-            ),
+            other => panic!("expected ParameterOutOfRange for max_iterations, got {other:?}"),
         }
     }
 

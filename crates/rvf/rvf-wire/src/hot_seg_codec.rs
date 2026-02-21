@@ -103,10 +103,7 @@ pub fn read_hot_header(data: &[u8]) -> Result<(HotHeader, usize), &'static str> 
 /// Read all hot entries from the payload (after the header).
 ///
 /// `data` should start at the first entry (after the aligned header).
-pub fn read_hot_entries(
-    data: &[u8],
-    header: &HotHeader,
-) -> Result<Vec<HotEntry>, &'static str> {
+pub fn read_hot_entries(data: &[u8], header: &HotHeader) -> Result<Vec<HotEntry>, &'static str> {
     let elem_size = dtype_element_size(header.dtype);
     let vector_byte_len = header.dim as usize * elem_size;
     let mut entries = Vec::with_capacity(header.vector_count as usize);
@@ -123,17 +120,14 @@ pub fn read_hot_entries(
         pos += 8;
         let vector_data = data[pos..pos + vector_byte_len].to_vec();
         pos += vector_byte_len;
-        let neighbor_count =
-            u16::from_le_bytes([data[pos], data[pos + 1]]) as usize;
+        let neighbor_count = u16::from_le_bytes([data[pos], data[pos + 1]]) as usize;
         pos += 2;
         if data.len() < pos + neighbor_count * 8 {
             return Err("neighbor IDs truncated");
         }
         let mut neighbor_ids = Vec::with_capacity(neighbor_count);
         for _ in 0..neighbor_count {
-            neighbor_ids.push(u64::from_le_bytes(
-                data[pos..pos + 8].try_into().unwrap(),
-            ));
+            neighbor_ids.push(u64::from_le_bytes(data[pos..pos + 8].try_into().unwrap()));
             pos += 8;
         }
         entries.push(HotEntry {

@@ -27,8 +27,8 @@ use tracing::debug;
 use crate::error::{SolverError, ValidationError};
 use crate::traits::{SolverEngine, SublinearPageRank};
 use crate::types::{
-    Algorithm, ComplexityClass, ComplexityEstimate, ComputeBudget,
-    ConvergenceInfo, CsrMatrix, SolverResult, SparsityProfile,
+    Algorithm, ComplexityClass, ComplexityEstimate, ComputeBudget, ConvergenceInfo, CsrMatrix,
+    SolverResult, SparsityProfile,
 };
 
 // ---------------------------------------------------------------------------
@@ -228,12 +228,7 @@ impl HybridRandomWalkSolver {
 
     /// Simulate a single random walk from `start`. Returns the endpoint.
     #[inline]
-    fn single_walk(
-        graph: &CsrMatrix<f64>,
-        start: usize,
-        alpha: f64,
-        rng: &mut StdRng,
-    ) -> usize {
+    fn single_walk(graph: &CsrMatrix<f64>, start: usize, alpha: f64, rng: &mut StdRng) -> usize {
         let mut current = start;
         loop {
             if rng.gen::<f64>() < alpha {
@@ -311,8 +306,7 @@ impl HybridRandomWalkSolver {
             let mut completed = self.num_walks;
 
             for w in 0..self.num_walks {
-                let endpoint =
-                    Self::single_walk(graph, source, self.alpha, &mut rng);
+                let endpoint = Self::single_walk(graph, source, self.alpha, &mut rng);
                 welford.update(if endpoint == target { 1.0 } else { 0.0 });
                 if endpoint == target {
                     hit_count += 1;
@@ -369,9 +363,7 @@ impl HybridRandomWalkSolver {
                 .filter(|(_, c)| *c > 0)
                 .map(|(v, c)| (v, c as f64 * inv))
                 .collect();
-            result.sort_by(|a, b| {
-                b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal)
-            });
+            result.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
 
             Ok(result)
         }
@@ -405,13 +397,11 @@ impl HybridRandomWalkSolver {
                 };
                 let mut rng = StdRng::seed_from_u64(chunk_seed);
 
-                let chunk_walks =
-                    walks_per_chunk + if chunk_idx < remainder { 1 } else { 0 };
+                let chunk_walks = walks_per_chunk + if chunk_idx < remainder { 1 } else { 0 };
                 let mut local_counts = vec![0u64; n];
 
                 for _ in 0..chunk_walks {
-                    let endpoint =
-                        Self::single_walk(graph, source, alpha, &mut rng);
+                    let endpoint = Self::single_walk(graph, source, alpha, &mut rng);
                     local_counts[endpoint] += 1;
                 }
 
@@ -434,9 +424,7 @@ impl HybridRandomWalkSolver {
             .filter(|(_, c)| *c > 0)
             .map(|(v, c)| (v, c as f64 * inv))
             .collect();
-        result.sort_by(|a, b| {
-            b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal)
-        });
+        result.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
 
         Ok(result)
     }
@@ -519,17 +507,13 @@ impl SolverEngine for HybridRandomWalkSolver {
                         self.seed.wrapping_add(chunk_idx as u64 * 1000003)
                     };
                     let mut rng = StdRng::seed_from_u64(chunk_seed);
-                    let chunk_walks =
-                        walks_per_chunk + if chunk_idx < remainder { 1 } else { 0 };
+                    let chunk_walks = walks_per_chunk + if chunk_idx < remainder { 1 } else { 0 };
                     let mut local_counts = vec![0.0f64; n];
 
                     for _ in 0..chunk_walks {
                         let r: f64 = rng.gen();
-                        let start_node =
-                            cdf.partition_point(|&c| c < r).min(n - 1);
-                        let endpoint = Self::single_walk(
-                            matrix, start_node, self.alpha, &mut rng,
-                        );
+                        let start_node = cdf.partition_point(|&c| c < r).min(n - 1);
+                        let endpoint = Self::single_walk(matrix, start_node, self.alpha, &mut rng);
                         local_counts[endpoint] += 1.0;
                     }
                     local_counts
@@ -559,16 +543,14 @@ impl SolverEngine for HybridRandomWalkSolver {
 
                 let r: f64 = rng.gen();
                 let start_node = cdf.partition_point(|&c| c < r).min(n - 1);
-                let endpoint =
-                    Self::single_walk(matrix, start_node, self.alpha, &mut rng);
+                let endpoint = Self::single_walk(matrix, start_node, self.alpha, &mut rng);
                 counts[endpoint] += 1.0;
             }
             counts
         };
 
         let scale = rhs_sum / (walks as f64);
-        let solution: Vec<f32> =
-            counts.iter().map(|&c| (c * scale) as f32).collect();
+        let solution: Vec<f32> = counts.iter().map(|&c| (c * scale) as f32).collect();
 
         // Compute residual: r = b - Ax.
         let sol_f64: Vec<f64> = solution.iter().map(|&v| v as f64).collect();
@@ -594,11 +576,7 @@ impl SolverEngine for HybridRandomWalkSolver {
         })
     }
 
-    fn estimate_complexity(
-        &self,
-        _profile: &SparsityProfile,
-        _n: usize,
-    ) -> ComplexityEstimate {
+    fn estimate_complexity(&self, _profile: &SparsityProfile, _n: usize) -> ComplexityEstimate {
         let avg_walk_len = (1.0 / self.alpha).ceil() as u64;
         ComplexityEstimate {
             algorithm: Algorithm::HybridRandomWalk,
@@ -628,8 +606,7 @@ impl SublinearPageRank for HybridRandomWalkSolver {
     ) -> Result<Vec<(usize, f64)>, SolverError> {
         Self::validate_graph_node(matrix, source, "source")?;
 
-        let num_walks =
-            Self::walks_for_epsilon(epsilon, DEFAULT_DELTA).max(self.num_walks);
+        let num_walks = Self::walks_for_epsilon(epsilon, DEFAULT_DELTA).max(self.num_walks);
         let solver = HybridRandomWalkSolver {
             alpha,
             num_walks,
@@ -650,8 +627,7 @@ impl SublinearPageRank for HybridRandomWalkSolver {
         }
 
         let n = matrix.rows;
-        let num_walks =
-            Self::walks_for_epsilon(epsilon, DEFAULT_DELTA).max(self.num_walks);
+        let num_walks = Self::walks_for_epsilon(epsilon, DEFAULT_DELTA).max(self.num_walks);
 
         // Build CDF over seed weights.
         let weight_sum: f64 = seeds.iter().map(|(_, w)| w.abs()).sum();
@@ -685,9 +661,7 @@ impl SublinearPageRank for HybridRandomWalkSolver {
             .filter(|(_, c)| *c > 0)
             .map(|(v, c)| (v, c as f64 * inv))
             .collect();
-        result.sort_by(|a, b| {
-            b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal)
-        });
+        result.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
 
         Ok(result)
     }
@@ -702,9 +676,7 @@ mod tests {
     use super::*;
 
     fn directed_cycle(n: usize) -> CsrMatrix<f64> {
-        let entries: Vec<_> = (0..n)
-            .map(|i| (i, (i + 1) % n, 1.0f64))
-            .collect();
+        let entries: Vec<_> = (0..n).map(|i| (i, (i + 1) % n, 1.0f64)).collect();
         CsrMatrix::<f64>::from_coo(n, n, entries)
     }
 
@@ -759,7 +731,10 @@ mod tests {
     fn walk_single_node() {
         let g = CsrMatrix::<f64>::from_coo(1, 1, Vec::<(usize, usize, f64)>::new());
         let mut rng = StdRng::seed_from_u64(42);
-        assert_eq!(HybridRandomWalkSolver::single_walk(&g, 0, 0.15, &mut rng), 0);
+        assert_eq!(
+            HybridRandomWalkSolver::single_walk(&g, 0, 0.15, &mut rng),
+            0
+        );
     }
 
     #[test]
@@ -848,14 +823,20 @@ mod tests {
     #[test]
     fn rejects_bad_alpha() {
         let g = CsrMatrix::<f64>::from_coo(3, 3, vec![(0, 1, 1.0f64)]);
-        assert!(HybridRandomWalkSolver::new(0.0, 100).estimate_entry(&g, 0, 0).is_err());
-        assert!(HybridRandomWalkSolver::new(1.0, 100).estimate_entry(&g, 0, 0).is_err());
+        assert!(HybridRandomWalkSolver::new(0.0, 100)
+            .estimate_entry(&g, 0, 0)
+            .is_err());
+        assert!(HybridRandomWalkSolver::new(1.0, 100)
+            .estimate_entry(&g, 0, 0)
+            .is_err());
     }
 
     #[test]
     fn rejects_zero_walks() {
         let g = CsrMatrix::<f64>::from_coo(3, 3, vec![(0, 1, 1.0f64)]);
-        assert!(HybridRandomWalkSolver::new(0.15, 0).estimate_entry(&g, 0, 0).is_err());
+        assert!(HybridRandomWalkSolver::new(0.15, 0)
+            .estimate_entry(&g, 0, 0)
+            .is_err());
     }
 
     // ---- SolverEngine ----

@@ -376,10 +376,8 @@ impl SeedBuilder {
         let microkernel_size = microkernel_data.len() as u32;
         let download_manifest_offset = microkernel_offset + microkernel_size;
         let download_manifest_size = manifest.len() as u32;
-        let total_seed_size = SEED_HEADER_SIZE as u32
-            + microkernel_size
-            + download_manifest_size
-            + sig_length as u32;
+        let total_seed_size =
+            SEED_HEADER_SIZE as u32 + microkernel_size + download_manifest_size + sig_length as u32;
 
         if total_seed_size as usize > QR_MAX_BYTES {
             return Err(SeedError::TooLarge {
@@ -450,26 +448,32 @@ impl<'a> ParsedSeed<'a> {
     /// Parse a QR seed payload into its components.
     pub fn parse(data: &'a [u8]) -> Result<Self, SeedError> {
         if data.len() < SEED_HEADER_SIZE {
-            return Err(SeedError::InvalidHeader(rvf_types::RvfError::SizeMismatch {
-                expected: SEED_HEADER_SIZE,
-                got: data.len(),
-            }));
+            return Err(SeedError::InvalidHeader(
+                rvf_types::RvfError::SizeMismatch {
+                    expected: SEED_HEADER_SIZE,
+                    got: data.len(),
+                },
+            ));
         }
 
         let header = SeedHeader::from_bytes(data)?;
 
         if (header.total_seed_size as usize) > data.len() {
-            return Err(SeedError::InvalidHeader(rvf_types::RvfError::SizeMismatch {
-                expected: header.total_seed_size as usize,
-                got: data.len(),
-            }));
+            return Err(SeedError::InvalidHeader(
+                rvf_types::RvfError::SizeMismatch {
+                    expected: header.total_seed_size as usize,
+                    got: data.len(),
+                },
+            ));
         }
 
         let microkernel = if header.has_microkernel() && header.microkernel_size > 0 {
             let start = header.microkernel_offset as usize;
             let end = start + header.microkernel_size as usize;
             if end > data.len() {
-                return Err(SeedError::MissingComponent("microkernel extends beyond payload"));
+                return Err(SeedError::MissingComponent(
+                    "microkernel extends beyond payload",
+                ));
             }
             Some(&data[start..end])
         } else {
@@ -481,7 +485,9 @@ impl<'a> ParsedSeed<'a> {
             let start = header.download_manifest_offset as usize;
             let end = start + header.download_manifest_size as usize;
             if end > data.len() {
-                return Err(SeedError::MissingComponent("manifest extends beyond payload"));
+                return Err(SeedError::MissingComponent(
+                    "manifest extends beyond payload",
+                ));
             }
             Some(&data[start..end])
         } else {
@@ -489,11 +495,12 @@ impl<'a> ParsedSeed<'a> {
         };
 
         let signature = if header.is_signed() && header.sig_length > 0 {
-            let sig_start =
-                header.total_seed_size as usize - header.sig_length as usize;
+            let sig_start = header.total_seed_size as usize - header.sig_length as usize;
             let sig_end = header.total_seed_size as usize;
             if sig_end > data.len() {
-                return Err(SeedError::MissingComponent("signature extends beyond payload"));
+                return Err(SeedError::MissingComponent(
+                    "signature extends beyond payload",
+                ));
             }
             Some(&data[sig_start..sig_end])
         } else {
@@ -560,8 +567,8 @@ impl<'a> ParsedSeed<'a> {
                 DL_TAG_TOTAL_SIZE => {
                     if length >= 8 {
                         manifest.total_file_size = Some(u64::from_le_bytes([
-                            value[0], value[1], value[2], value[3], value[4], value[5],
-                            value[6], value[7],
+                            value[0], value[1], value[2], value[3], value[4], value[5], value[6],
+                            value[7],
                         ]));
                     }
                 }
@@ -612,9 +619,8 @@ impl<'a> ParsedSeed<'a> {
                 }
                 DL_TAG_TTL => {
                     if length >= 4 {
-                        manifest.token_ttl = Some(u32::from_le_bytes([
-                            value[0], value[1], value[2], value[3],
-                        ]));
+                        manifest.token_ttl =
+                            Some(u32::from_le_bytes([value[0], value[1], value[2], value[3]]));
                     }
                 }
                 DL_TAG_CERT_PIN => {
@@ -638,8 +644,7 @@ impl<'a> ParsedSeed<'a> {
     /// Get the signed payload (everything before the signature).
     pub fn signed_payload<'b>(&self, full_data: &'b [u8]) -> Option<&'b [u8]> {
         if self.header.is_signed() && self.header.sig_length > 0 {
-            let sig_start =
-                self.header.total_seed_size as usize - self.header.sig_length as usize;
+            let sig_start = self.header.total_seed_size as usize - self.header.sig_length as usize;
             Some(&full_data[..sig_start])
         } else {
             None
@@ -648,7 +653,9 @@ impl<'a> ParsedSeed<'a> {
 
     /// Verify the HMAC-SHA256 signature against the unsigned payload.
     pub fn verify_signature(&self, key: &[u8], full_data: &[u8]) -> Result<(), SeedError> {
-        let signature = self.signature.ok_or(SeedError::MissingComponent("signature"))?;
+        let signature = self
+            .signature
+            .ok_or(SeedError::MissingComponent("signature"))?;
         let signed_payload = self
             .signed_payload(full_data)
             .ok_or(SeedError::MissingComponent("signed payload"))?;
@@ -793,9 +800,7 @@ pub fn make_host_entry(
 ) -> Result<HostEntry, SeedError> {
     let url_bytes = url.as_bytes();
     if url_bytes.len() > 128 {
-        return Err(SeedError::InvalidManifest(
-            "URL exceeds 128 bytes".into(),
-        ));
+        return Err(SeedError::InvalidManifest("URL exceeds 128 bytes".into()));
     }
     let mut url_buf = [0u8; 128];
     url_buf[..url_bytes.len()].copy_from_slice(url_bytes);
@@ -856,8 +861,8 @@ mod tests {
     #[test]
     fn build_seed_with_microkernel() {
         let microkernel = vec![0xAA; 2100]; // Simulated compressed WASM.
-        let builder = SeedBuilder::new([0x02; 8], 384, 100_000)
-            .with_microkernel(microkernel.clone());
+        let builder =
+            SeedBuilder::new([0x02; 8], 384, 100_000).with_microkernel(microkernel.clone());
         let (payload, header) = builder.build().unwrap();
         assert!(header.has_microkernel());
         assert_eq!(header.microkernel_size, 2100);
@@ -870,13 +875,8 @@ mod tests {
 
     #[test]
     fn build_seed_with_hosts_and_layers() {
-        let host = make_host_entry(
-            "https://cdn.example.com/rvf/brain.rvf",
-            0,
-            1,
-            [0xBB; 16],
-        )
-        .unwrap();
+        let host =
+            make_host_entry("https://cdn.example.com/rvf/brain.rvf", 0, 1, [0xBB; 16]).unwrap();
 
         let mut builder = SeedBuilder::new([0x03; 8], 384, 100_000)
             .add_host(host)
@@ -898,27 +898,18 @@ mod tests {
     #[test]
     fn build_seed_with_signature() {
         let sig = vec![0xEE; 64]; // Ed25519 sig.
-        let builder = SeedBuilder::new([0x04; 8], 384, 100_000)
-            .with_signature(0, sig.clone());
+        let builder = SeedBuilder::new([0x04; 8], 384, 100_000).with_signature(0, sig.clone());
         let (payload, header) = builder.build().unwrap();
         assert!(header.is_signed());
         assert_eq!(header.sig_length, 64);
-        assert_eq!(
-            &payload[payload.len() - 64..],
-            &sig[..]
-        );
+        assert_eq!(&payload[payload.len() - 64..], &sig[..]);
     }
 
     #[test]
     fn build_full_seed_fits_in_qr() {
         let microkernel = vec![0xAA; 2100];
-        let host = make_host_entry(
-            "https://cdn.example.com/rvf/brain.rvf",
-            0,
-            1,
-            [0xBB; 16],
-        )
-        .unwrap();
+        let host =
+            make_host_entry("https://cdn.example.com/rvf/brain.rvf", 0, 1, [0xBB; 16]).unwrap();
         let sig = vec![0xEE; 64];
 
         let mut builder = SeedBuilder::new([0x05; 8], 384, 100_000)
@@ -946,8 +937,7 @@ mod tests {
     #[test]
     fn seed_too_large_rejected() {
         let microkernel = vec![0xAA; 2900]; // Too large.
-        let builder = SeedBuilder::new([0x06; 8], 384, 100_000)
-            .with_microkernel(microkernel);
+        let builder = SeedBuilder::new([0x06; 8], 384, 100_000).with_microkernel(microkernel);
         let result = builder.build();
         assert!(result.is_err());
         match result {
@@ -959,13 +949,8 @@ mod tests {
     #[test]
     fn parse_round_trip() {
         let microkernel = vec![0xAA; 512];
-        let host = make_host_entry(
-            "https://cdn.example.com/rvf/brain.rvf",
-            0,
-            1,
-            [0xBB; 16],
-        )
-        .unwrap();
+        let host =
+            make_host_entry("https://cdn.example.com/rvf/brain.rvf", 0, 1, [0xBB; 16]).unwrap();
         let sig = vec![0xEE; 64];
 
         let mut builder = SeedBuilder::new([0x07; 8], 384, 100_000)
@@ -1004,8 +989,7 @@ mod tests {
     #[test]
     fn signed_payload_extraction() {
         let sig = vec![0xEE; 64];
-        let builder = SeedBuilder::new([0x08; 8], 384, 100_000)
-            .with_signature(0, sig.clone());
+        let builder = SeedBuilder::new([0x08; 8], 384, 100_000).with_signature(0, sig.clone());
         let (payload, _) = builder.build().unwrap();
 
         let parsed = ParsedSeed::parse(&payload).unwrap();

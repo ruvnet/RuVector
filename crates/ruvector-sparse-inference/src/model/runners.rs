@@ -3,7 +3,7 @@
 use crate::error::SparseInferenceError;
 use crate::model::loader::{ModelLoader, ModelMetadata};
 use crate::model::types::{CalibrationStats, InferenceConfig, ModelInput, ModelOutput, Tensor};
-use crate::ops::{Linear, Embedding, RMSNorm, LayerNorm, silu};
+use crate::ops::{silu, Embedding, LayerNorm, Linear, RMSNorm};
 use std::collections::HashMap;
 
 type Result<T> = std::result::Result<T, SparseInferenceError>;
@@ -107,9 +107,9 @@ pub struct LlamaAttention {
 }
 
 pub struct LlamaMLP {
-    pub gate_proj: Linear,  // W1 for SwiGLU gate
-    pub up_proj: Linear,    // W3 for SwiGLU up
-    pub down_proj: Linear,  // W2 for down projection
+    pub gate_proj: Linear, // W1 for SwiGLU gate
+    pub up_proj: Linear,   // W3 for SwiGLU up
+    pub down_proj: Linear, // W2 for down projection
 }
 
 impl LlamaMLP {
@@ -129,11 +129,7 @@ impl LlamaMLP {
     }
 
     /// Sparse forward pass using predictor
-    pub fn forward_sparse(
-        &self,
-        x: &[f32],
-        active_neurons: &[usize],
-    ) -> Vec<f32> {
+    pub fn forward_sparse(&self, x: &[f32], active_neurons: &[usize]) -> Vec<f32> {
         // Only compute for active neurons in intermediate layer
         let gate = sparse_matmul(&self.gate_proj, x, active_neurons);
         let up = sparse_matmul(&self.up_proj, x, active_neurons);

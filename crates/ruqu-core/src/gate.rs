@@ -55,10 +55,9 @@ impl Gate {
             | Gate::Reset(q)
             | Gate::Unitary1Q(q, _) => vec![*q],
 
-            Gate::CNOT(q1, q2)
-            | Gate::CZ(q1, q2)
-            | Gate::SWAP(q1, q2)
-            | Gate::Rzz(q1, q2, _) => vec![*q1, *q2],
+            Gate::CNOT(q1, q2) | Gate::CZ(q1, q2) | Gate::SWAP(q1, q2) | Gate::Rzz(q1, q2, _) => {
+                vec![*q1, *q2]
+            }
 
             Gate::Barrier => vec![],
         }
@@ -138,10 +137,7 @@ impl Gate {
             }
 
             // Phase(theta) = [[1, 0], [0, e^(i*theta)]]
-            Gate::Phase(_, theta) => Some([
-                [c1, c0],
-                [c0, Complex::from_polar(1.0, *theta)],
-            ]),
+            Gate::Phase(_, theta) => Some([[c1, c0], [c0, Complex::from_polar(1.0, *theta)]]),
 
             // Custom fused unitary
             Gate::Unitary1Q(_, m) => Some(*m),

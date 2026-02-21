@@ -135,8 +135,8 @@ impl EnhancedSearch {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::StorageConfig;
     use crate::capture::CapturedFrame;
+    use crate::config::StorageConfig;
     use crate::storage::embedding::EmbeddingEngine;
 
     #[test]
@@ -170,7 +170,9 @@ mod tests {
 
         let es = EnhancedSearch::new(384);
         let query_emb = engine.embed("vector search Rust");
-        let results = es.search("vector search Rust", &query_emb, &store, 2).unwrap();
+        let results = es
+            .search("vector search Rust", &query_emb, &store, 2)
+            .unwrap();
 
         assert!(!results.is_empty());
         assert!(results.len() <= 2);
@@ -209,6 +211,10 @@ mod tests {
         let query_emb = engine.embed("content");
         let results = es.search("content", &query_emb, &store, 3).unwrap();
 
-        assert!(results.len() <= 3, "Should return at most k=3 results, got {}", results.len());
+        assert!(
+            results.len() <= 3,
+            "Should return at most k=3 results, got {}",
+            results.len()
+        );
     }
 }

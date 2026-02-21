@@ -8,15 +8,15 @@
 //! Uses real human gene sequences from NCBI RefSeq (HBB, TP53, BRCA1, CYP2D6, INS).
 
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
-use rvdna::kmer_pagerank::KmerGraphRanker;
-use rvdna::real_data;
-use ruvector_solver::forward_push::ForwardPushSolver;
-use ruvector_solver::neumann::NeumannSolver;
-use ruvector_solver::cg::ConjugateGradientSolver;
-use ruvector_solver::traits::SolverEngine;
-use ruvector_solver::types::{ComputeBudget, CsrMatrix};
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
+use ruvector_solver::cg::ConjugateGradientSolver;
+use ruvector_solver::forward_push::ForwardPushSolver;
+use ruvector_solver::neumann::NeumannSolver;
+use ruvector_solver::traits::SolverEngine;
+use ruvector_solver::types::{ComputeBudget, CsrMatrix};
+use rvdna::kmer_pagerank::KmerGraphRanker;
+use rvdna::real_data;
 
 // ============================================================================
 // Helpers
@@ -185,13 +185,9 @@ fn localized_relevance_benchmarks(c: &mut Criterion) {
 
         let solver = ForwardPushSolver::new(0.15, 1e-4);
 
-        group.bench_with_input(
-            BenchmarkId::new("ppr_single_source", n),
-            &n,
-            |b, _| {
-                b.iter(|| black_box(solver.ppr_from_source(&matrix, 0)));
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("ppr_single_source", n), &n, |b, _| {
+            b.iter(|| black_box(solver.ppr_from_source(&matrix, 0)));
+        });
     }
 
     group.finish();
@@ -227,32 +223,20 @@ fn laplacian_solve_benchmarks(c: &mut Criterion) {
         // Neumann solver (via SolverEngine trait, f64 -> f32 conversion)
         let neumann = NeumannSolver::new(1e-6, 200);
 
-        group.bench_with_input(
-            BenchmarkId::new("neumann_denoise", n),
-            &n,
-            |b, _| {
-                b.iter(|| {
-                    // Neumann may fail on non-diag-dominant Laplacians;
-                    // the benchmark measures attempt latency regardless.
-                    let _ = black_box(
-                        SolverEngine::solve(&neumann, &laplacian, &rhs, &budget),
-                    );
-                });
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("neumann_denoise", n), &n, |b, _| {
+            b.iter(|| {
+                // Neumann may fail on non-diag-dominant Laplacians;
+                // the benchmark measures attempt latency regardless.
+                let _ = black_box(SolverEngine::solve(&neumann, &laplacian, &rhs, &budget));
+            });
+        });
 
         // CG solver (preconditioned, well-suited for SPD Laplacians)
         let cg = ConjugateGradientSolver::new(1e-6, 500, true);
 
-        group.bench_with_input(
-            BenchmarkId::new("cg_denoise", n),
-            &n,
-            |b, _| {
-                b.iter(|| {
-                    black_box(SolverEngine::solve(&cg, &laplacian, &rhs, &budget))
-                });
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("cg_denoise", n), &n, |b, _| {
+            b.iter(|| black_box(SolverEngine::solve(&cg, &laplacian, &rhs, &budget)));
+        });
     }
 
     group.finish();
@@ -307,15 +291,9 @@ fn cohort_propagation_benchmarks(c: &mut Criterion) {
         let cg = ConjugateGradientSolver::new(1e-6, 1000, true);
         let budget = ComputeBudget::default();
 
-        group.bench_with_input(
-            BenchmarkId::new("label_propagation", n),
-            &n,
-            |b, _| {
-                b.iter(|| {
-                    black_box(SolverEngine::solve(&cg, &laplacian, &labels, &budget))
-                });
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("label_propagation", n), &n, |b, _| {
+            b.iter(|| black_box(SolverEngine::solve(&cg, &laplacian, &labels, &budget)));
+        });
     }
 
     group.finish();

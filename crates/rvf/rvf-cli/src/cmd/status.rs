@@ -37,7 +37,10 @@ pub fn run(args: StatusArgs) -> Result<(), Box<dyn std::error::Error>> {
         crate::output::print_kv("File size:", &format!("{} bytes", status.file_size));
         crate::output::print_kv("Epoch:", &status.current_epoch.to_string());
         crate::output::print_kv("Profile:", &status.profile_id.to_string());
-        crate::output::print_kv("Dead space:", &format!("{:.1}%", status.dead_space_ratio * 100.0));
+        crate::output::print_kv(
+            "Dead space:",
+            &format!("{:.1}%", status.dead_space_ratio * 100.0),
+        );
     }
     Ok(())
 }

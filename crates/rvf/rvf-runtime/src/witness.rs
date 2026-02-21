@@ -74,13 +74,14 @@ impl GovernancePolicy {
         Self {
             mode: GovernanceMode::Restricted,
             allowed_tools: vec![
-                "Read".into(), "Glob".into(), "Grep".into(),
-                "WebFetch".into(), "WebSearch".into(),
+                "Read".into(),
+                "Glob".into(),
+                "Grep".into(),
+                "WebFetch".into(),
+                "WebSearch".into(),
             ],
-            denied_tools: vec![
-                "Bash".into(), "Write".into(), "Edit".into(),
-            ],
-            max_cost_microdollars: 10_000,   // $0.01
+            denied_tools: vec!["Bash".into(), "Write".into(), "Edit".into()],
+            max_cost_microdollars: 10_000, // $0.01
             max_tool_calls: 50,
         }
     }
@@ -91,7 +92,7 @@ impl GovernancePolicy {
             mode: GovernanceMode::Approved,
             allowed_tools: Vec::new(), // all allowed but gated
             denied_tools: Vec::new(),
-            max_cost_microdollars: 100_000,  // $0.10
+            max_cost_microdollars: 100_000, // $0.10
             max_tool_calls: 200,
         }
     }
@@ -248,9 +249,8 @@ impl WitnessBuilder {
         let check = self.policy.check_tool(tool_name);
 
         if check == PolicyCheck::Denied {
-            self.policy_violations.push(format!(
-                "denied tool: {tool_name}"
-            ));
+            self.policy_violations
+                .push(format!("denied tool: {tool_name}"));
         }
 
         self.total_cost_microdollars = self
@@ -479,9 +479,9 @@ impl<'a> ParsedWitness<'a> {
         let mut pos = WITNESS_HEADER_SIZE;
         while pos + 6 <= sections_end {
             let tag = u16::from_le_bytes([data[pos], data[pos + 1]]);
-            let length = u32::from_le_bytes([
-                data[pos + 2], data[pos + 3], data[pos + 4], data[pos + 5],
-            ]) as usize;
+            let length =
+                u32::from_le_bytes([data[pos + 2], data[pos + 3], data[pos + 4], data[pos + 5]])
+                    as usize;
             pos += 6;
 
             if pos + length > sections_end {
@@ -552,12 +552,10 @@ impl<'a> ParsedWitness<'a> {
     }
 
     /// Verify the HMAC-SHA256 signature.
-    pub fn verify_signature(
-        &self,
-        key: &[u8],
-        full_data: &[u8],
-    ) -> Result<(), WitnessError> {
-        let sig = self.signature.ok_or(WitnessError::MissingSection("signature"))?;
+    pub fn verify_signature(&self, key: &[u8], full_data: &[u8]) -> Result<(), WitnessError> {
+        let sig = self
+            .signature
+            .ok_or(WitnessError::MissingSection("signature"))?;
         let unsigned = self
             .unsigned_payload(full_data)
             .ok_or(WitnessError::MissingSection("unsigned payload"))?;
@@ -569,18 +567,12 @@ impl<'a> ParsedWitness<'a> {
     }
 
     /// Full verification: magic + signature.
-    pub fn verify_all(
-        &self,
-        key: &[u8],
-        full_data: &[u8],
-    ) -> Result<(), WitnessError> {
+    pub fn verify_all(&self, key: &[u8], full_data: &[u8]) -> Result<(), WitnessError> {
         if !self.header.is_valid_magic() {
-            return Err(WitnessError::InvalidHeader(
-                rvf_types::RvfError::BadMagic {
-                    expected: WITNESS_MAGIC,
-                    got: self.header.magic,
-                },
-            ));
+            return Err(WitnessError::InvalidHeader(rvf_types::RvfError::BadMagic {
+                expected: WITNESS_MAGIC,
+                got: self.header.magic,
+            }));
         }
         if self.header.is_signed() {
             self.verify_signature(key, full_data)?;
@@ -634,12 +626,7 @@ impl ScorecardBuilder {
     }
 
     /// Add a parsed witness bundle to the scorecard.
-    pub fn add_witness(
-        &mut self,
-        parsed: &ParsedWitness<'_>,
-        violations: u32,
-        rollbacks: u32,
-    ) {
+    pub fn add_witness(&mut self, parsed: &ParsedWitness<'_>, violations: u32, rollbacks: u32) {
         self.latencies.push(parsed.header.total_latency_ms);
         self.total_cost += parsed.header.total_cost_microdollars as u64;
         self.total_tokens += parsed.header.total_tokens as u64;
@@ -750,8 +737,8 @@ mod tests {
 
     #[test]
     fn build_minimal_witness() {
-        let builder = WitnessBuilder::new([0x01; 16], make_policy())
-            .with_outcome(TaskOutcome::Solved);
+        let builder =
+            WitnessBuilder::new([0x01; 16], make_policy()).with_outcome(TaskOutcome::Solved);
         let (payload, header) = builder.build().unwrap();
         assert_eq!(header.magic, WITNESS_MAGIC);
         assert_eq!(payload.len(), WITNESS_HEADER_SIZE);
@@ -778,8 +765,8 @@ mod tests {
 
     #[test]
     fn build_with_trace() {
-        let mut builder = WitnessBuilder::new([0x03; 16], make_policy())
-            .with_outcome(TaskOutcome::Solved);
+        let mut builder =
+            WitnessBuilder::new([0x03; 16], make_policy()).with_outcome(TaskOutcome::Solved);
 
         builder.record_tool_call(make_entry("Read", 50, 100, 500));
         builder.record_tool_call(make_entry("Edit", 100, 200, 1000));
@@ -870,8 +857,7 @@ mod tests {
     #[test]
     fn policy_violation_recorded() {
         let policy = GovernancePolicy::restricted();
-        let mut builder = WitnessBuilder::new([0x07; 16], policy)
-            .with_outcome(TaskOutcome::Failed);
+        let mut builder = WitnessBuilder::new([0x07; 16], policy).with_outcome(TaskOutcome::Failed);
 
         let check = builder.record_tool_call(make_entry("Bash", 100, 0, 0));
         assert_eq!(check, PolicyCheck::Denied);
@@ -883,8 +869,7 @@ mod tests {
     fn cost_budget_violation() {
         let mut policy = GovernancePolicy::autonomous();
         policy.max_cost_microdollars = 500;
-        let mut builder = WitnessBuilder::new([0x08; 16], policy)
-            .with_outcome(TaskOutcome::Solved);
+        let mut builder = WitnessBuilder::new([0x08; 16], policy).with_outcome(TaskOutcome::Solved);
 
         builder.record_tool_call(make_entry("Read", 50, 300, 100));
         assert!(builder.policy_violations.is_empty());

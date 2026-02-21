@@ -249,16 +249,16 @@ impl KernelHeader {
             kernel_flags: u32::from_le_bytes([data[0x08], data[0x09], data[0x0A], data[0x0B]]),
             min_memory_mb: u32::from_le_bytes([data[0x0C], data[0x0D], data[0x0E], data[0x0F]]),
             entry_point: u64::from_le_bytes([
-                data[0x10], data[0x11], data[0x12], data[0x13],
-                data[0x14], data[0x15], data[0x16], data[0x17],
+                data[0x10], data[0x11], data[0x12], data[0x13], data[0x14], data[0x15], data[0x16],
+                data[0x17],
             ]),
             image_size: u64::from_le_bytes([
-                data[0x18], data[0x19], data[0x1A], data[0x1B],
-                data[0x1C], data[0x1D], data[0x1E], data[0x1F],
+                data[0x18], data[0x19], data[0x1A], data[0x1B], data[0x1C], data[0x1D], data[0x1E],
+                data[0x1F],
             ]),
             compressed_size: u64::from_le_bytes([
-                data[0x20], data[0x21], data[0x22], data[0x23],
-                data[0x24], data[0x25], data[0x26], data[0x27],
+                data[0x20], data[0x21], data[0x22], data[0x23], data[0x24], data[0x25], data[0x26],
+                data[0x27],
             ]),
             compression: data[0x28],
             api_transport: data[0x29],
@@ -275,14 +275,14 @@ impl KernelHeader {
                 id
             },
             build_timestamp: u64::from_le_bytes([
-                data[0x60], data[0x61], data[0x62], data[0x63],
-                data[0x64], data[0x65], data[0x66], data[0x67],
+                data[0x60], data[0x61], data[0x62], data[0x63], data[0x64], data[0x65], data[0x66],
+                data[0x67],
             ]),
             vcpu_count: u32::from_le_bytes([data[0x68], data[0x69], data[0x6A], data[0x6B]]),
             reserved_0: u32::from_le_bytes([data[0x6C], data[0x6D], data[0x6E], data[0x6F]]),
             cmdline_offset: u64::from_le_bytes([
-                data[0x70], data[0x71], data[0x72], data[0x73],
-                data[0x74], data[0x75], data[0x76], data[0x77],
+                data[0x70], data[0x71], data[0x72], data[0x73], data[0x74], data[0x75], data[0x76],
+                data[0x77],
             ]),
             cmdline_length: u32::from_le_bytes([data[0x78], data[0x79], data[0x7A], data[0x7B]]),
             reserved_1: u32::from_le_bytes([data[0x7C], data[0x7D], data[0x7E], data[0x7F]]),
@@ -341,7 +341,10 @@ mod tests {
         assert_eq!(decoded.header_version, 1);
         assert_eq!(decoded.arch, KernelArch::X86_64 as u8);
         assert_eq!(decoded.kernel_type, KernelType::Hermit as u8);
-        assert_eq!(decoded.kernel_flags, KERNEL_FLAG_HAS_QUERY_API | KERNEL_FLAG_COMPRESSED);
+        assert_eq!(
+            decoded.kernel_flags,
+            KERNEL_FLAG_HAS_QUERY_API | KERNEL_FLAG_COMPRESSED
+        );
         assert_eq!(decoded.min_memory_mb, 32);
         assert_eq!(decoded.entry_point, 0x0020_0000);
         assert_eq!(decoded.image_size, 400_000);

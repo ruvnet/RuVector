@@ -29,7 +29,9 @@
 
 use std::time::Instant;
 
-use crate::decoder::{Correction, PauliType, StabilizerMeasurement, SurfaceCodeDecoder, SyndromeData};
+use crate::decoder::{
+    Correction, PauliType, StabilizerMeasurement, SurfaceCodeDecoder, SyndromeData,
+};
 
 // ---------------------------------------------------------------------------
 // Internal defect representation
@@ -178,7 +180,12 @@ fn path_to_boundary(defect: &Defect, d: u32) -> Vec<(u32, PauliType)> {
 }
 
 fn infer_logical(corrections: &[(u32, PauliType)]) -> bool {
-    corrections.iter().filter(|(_, p)| *p == PauliType::X).count() % 2 == 1
+    corrections
+        .iter()
+        .filter(|(_, p)| *p == PauliType::X)
+        .count()
+        % 2
+        == 1
 }
 
 // ---------------------------------------------------------------------------
@@ -251,7 +258,11 @@ impl HierarchicalTiledDecoder {
     }
 
     /// Provable complexity bound for a given code distance and error rate.
-    pub fn complexity_bound(&self, code_distance: u32, physical_error_rate: f64) -> ComplexityBound {
+    pub fn complexity_bound(
+        &self,
+        code_distance: u32,
+        physical_error_rate: f64,
+    ) -> ComplexityBound {
         let d = code_distance as f64;
         let s = self.tile_size as f64;
         let p = physical_error_rate;
@@ -663,11 +674,7 @@ impl ComplexityAnalyzer {
         let avg_ns = total_ns as f64 / trials as f64;
         let d = distance as f64;
         // Estimate scaling exponent from a single distance (rough).
-        let alpha = if d > 1.0 {
-            avg_ns.ln() / d.ln()
-        } else {
-            2.0
-        };
+        let alpha = if d > 1.0 { avg_ns.ln() / d.ln() } else { 2.0 };
 
         ComplexityBound {
             expected_ops: avg_ns,
@@ -679,10 +686,7 @@ impl ComplexityAnalyzer {
     }
 
     /// Estimate threshold and logical error suppression from Monte-Carlo runs.
-    pub fn threshold_analysis(
-        error_rates: &[f64],
-        distances: &[u32],
-    ) -> ThresholdTheorem {
+    pub fn threshold_analysis(error_rates: &[f64], distances: &[u32]) -> ThresholdTheorem {
         // Standard surface code threshold estimate: ~1% for depolarizing noise.
         let p_th = 0.01;
 
@@ -735,7 +739,9 @@ impl ComplexityAnalyzer {
         for y in 0..grid_w {
             for x in 0..grid_w {
                 // Simple hash-based PRNG.
-                hash = hash.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+                hash = hash
+                    .wrapping_mul(6364136223846793005)
+                    .wrapping_add(1442695040888963407);
                 let r = (hash >> 33) as f64 / (u32::MAX as f64);
                 stabs.push(StabilizerMeasurement {
                     x,
@@ -880,10 +886,7 @@ pub struct SubpolyVerification {
 }
 
 /// Measure empirical decode time scaling across code distances.
-pub fn benchmark_scaling(
-    distances: &[u32],
-    error_rate: f64,
-) -> Vec<ScalingDataPoint> {
+pub fn benchmark_scaling(distances: &[u32], error_rate: f64) -> Vec<ScalingDataPoint> {
     let samples_per_d = 20u32;
     let decoder = HierarchicalTiledDecoder::new(4, 3);
     let mut data = Vec::with_capacity(distances.len());
@@ -1044,8 +1047,7 @@ mod tests {
 
     #[test]
     fn hierarchical_trait_object() {
-        let dec: Box<dyn SurfaceCodeDecoder> =
-            Box::new(HierarchicalTiledDecoder::new(2, 2));
+        let dec: Box<dyn SurfaceCodeDecoder> = Box::new(HierarchicalTiledDecoder::new(2, 2));
         let syn = simple_syndrome(3, &[(0, 0)]);
         let _ = dec.decode(&syn);
         assert_eq!(dec.name(), "HierarchicalTiledDecoder");
@@ -1105,9 +1107,24 @@ mod tests {
     fn sliding_multi_round() {
         let dec = SlidingWindowDecoder::new(2);
         let stabs = vec![
-            StabilizerMeasurement { x: 0, y: 0, round: 0, value: true },
-            StabilizerMeasurement { x: 0, y: 0, round: 1, value: false },
-            StabilizerMeasurement { x: 0, y: 0, round: 2, value: true },
+            StabilizerMeasurement {
+                x: 0,
+                y: 0,
+                round: 0,
+                value: true,
+            },
+            StabilizerMeasurement {
+                x: 0,
+                y: 0,
+                round: 1,
+                value: false,
+            },
+            StabilizerMeasurement {
+                x: 0,
+                y: 0,
+                round: 2,
+                value: true,
+            },
         ];
         let syn = SyndromeData {
             stabilizers: stabs,

@@ -35,7 +35,8 @@ impl QuantizedBlock {
 
     /// Dequantize to f32 values
     pub fn dequantize(&self) -> Vec<f32> {
-        self.data.iter()
+        self.data
+            .iter()
             .map(|&q| ((q as i32 - self.zero_point as i32) as f32) * self.scale)
             .collect()
     }
@@ -229,19 +230,23 @@ impl Quantizer5Bit {
     fn quantize_per_channel(&mut self, values: &[f32]) -> Vec<i8> {
         self.scales = Vec::with_capacity(values.len());
 
-        values.iter().map(|&value| {
-            let max_abs = value.abs();
-            let scale = if max_abs > 0.0 { max_abs / 15.0 } else { 1.0 };
-            self.scales.push(scale);
-            let q = (value / scale).round() as i8;
-            q.clamp(-16, 15)
-        }).collect()
+        values
+            .iter()
+            .map(|&value| {
+                let max_abs = value.abs();
+                let scale = if max_abs > 0.0 { max_abs / 15.0 } else { 1.0 };
+                self.scales.push(scale);
+                let q = (value / scale).round() as i8;
+                q.clamp(-16, 15)
+            })
+            .collect()
     }
 
     /// Dequantize 5-bit values to f32
     pub fn dequantize(&self, data: &[i8]) -> Vec<f32> {
         if self.per_channel {
-            data.iter().zip(self.scales.iter())
+            data.iter()
+                .zip(self.scales.iter())
                 .map(|(&q, &scale)| (q as f32) * scale)
                 .collect()
         } else {
@@ -323,10 +328,13 @@ impl Quantizer7Bit {
 
     /// Apply micro-LoRA delta (in 7-bit precision)
     pub fn apply_lora_delta(&mut self, base: &[i8], delta: &[i8], alpha: f32) -> Vec<i8> {
-        base.iter().zip(delta.iter()).map(|(&b, &d)| {
-            let result = (b as f32) + (d as f32) * alpha;
-            (result.round() as i8).clamp(-64, 63)
-        }).collect()
+        base.iter()
+            .zip(delta.iter())
+            .map(|(&b, &d)| {
+                let result = (b as f32) + (d as f32) * alpha;
+                (result.round() as i8).clamp(-64, 63)
+            })
+            .collect()
     }
 }
 

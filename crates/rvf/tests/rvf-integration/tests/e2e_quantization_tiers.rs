@@ -21,7 +21,9 @@ fn random_unit_vectors(n: usize, dim: usize, seed: u64) -> Vec<Vec<f32>> {
         .map(|_| {
             let v: Vec<f32> = (0..dim)
                 .map(|_| {
-                    s = s.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+                    s = s
+                        .wrapping_mul(6364136223846793005)
+                        .wrapping_add(1442695040888963407);
                     ((s >> 33) as f32) / (u32::MAX as f32) - 0.5
                 })
                 .collect();
@@ -202,7 +204,11 @@ fn quant_binary_screening_rerank_improves_recall() {
         ham_dists.sort_by_key(|&(_, d)| d);
 
         // Take top candidates by hamming distance, then re-rank by exact L2.
-        let candidates: Vec<usize> = ham_dists.iter().take(rerank_factor).map(|(i, _)| *i).collect();
+        let candidates: Vec<usize> = ham_dists
+            .iter()
+            .take(rerank_factor)
+            .map(|(i, _)| *i)
+            .collect();
         let mut exact_dists: Vec<(usize, f32)> = candidates
             .iter()
             .map(|&i| (i, l2_distance(query, &vectors[i])))
@@ -254,18 +260,9 @@ fn quant_sketch_tier_assignment_stable() {
     // Cold blocks (40-99) are never accessed.
 
     // Check that hot blocks have higher access counts than cold blocks.
-    let hot_avg: f64 = (0..10u64)
-        .map(|b| sketch.estimate(b) as f64)
-        .sum::<f64>()
-        / 10.0;
-    let warm_avg: f64 = (10..40u64)
-        .map(|b| sketch.estimate(b) as f64)
-        .sum::<f64>()
-        / 30.0;
-    let cold_avg: f64 = (40..100u64)
-        .map(|b| sketch.estimate(b) as f64)
-        .sum::<f64>()
-        / 60.0;
+    let hot_avg: f64 = (0..10u64).map(|b| sketch.estimate(b) as f64).sum::<f64>() / 10.0;
+    let warm_avg: f64 = (10..40u64).map(|b| sketch.estimate(b) as f64).sum::<f64>() / 30.0;
+    let cold_avg: f64 = (40..100u64).map(|b| sketch.estimate(b) as f64).sum::<f64>() / 60.0;
 
     assert!(
         hot_avg > warm_avg,

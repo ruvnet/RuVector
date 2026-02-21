@@ -119,10 +119,7 @@ pub fn build_ansatz(num_qubits: u32, depth: u32, params: &[f64]) -> QuantumCircu
 /// ansatz parameters.
 ///
 /// Builds the ansatz, simulates it, and returns `<psi|H|psi>`.
-pub fn evaluate_energy(
-    config: &VqeConfig,
-    params: &[f64],
-) -> ruqu_core::error::Result<f64> {
+pub fn evaluate_energy(config: &VqeConfig, params: &[f64]) -> ruqu_core::error::Result<f64> {
     let circuit = build_ansatz(config.num_qubits, config.ansatz_depth, params);
     let sim_config = SimConfig {
         seed: config.seed,

@@ -74,8 +74,7 @@ impl HybridSearch {
         let mut combined: Vec<SearchResult> = scores
             .into_iter()
             .map(|(id, (sem_score, kw_score, metadata))| {
-                let combined_score =
-                    self.semantic_weight * sem_score + keyword_weight * kw_score;
+                let combined_score = self.semantic_weight * sem_score + keyword_weight * kw_score;
                 SearchResult {
                     id,
                     score: combined_score,

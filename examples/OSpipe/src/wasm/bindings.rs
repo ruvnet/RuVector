@@ -100,11 +100,7 @@ impl OsPipeWasm {
 
     /// Semantic search by embedding vector.  Returns the top-k results as a
     /// JSON-serialized `JsValue` array of `{ id, score, metadata, timestamp }`.
-    pub fn search(
-        &self,
-        query_embedding: &[f32],
-        k: usize,
-    ) -> Result<JsValue, JsValue> {
+    pub fn search(&self, query_embedding: &[f32], k: usize) -> Result<JsValue, JsValue> {
         if query_embedding.len() != self.dimension {
             return Err(JsValue::from_str(&format!(
                 "Query dimension mismatch: expected {}, got {}",
@@ -240,8 +236,7 @@ impl OsPipeWasm {
             .map(|t| helpers::hash_embed(t, self.dimension))
             .collect();
 
-        serde_wasm_bindgen::to_value(&results)
-            .map_err(|e| JsValue::from_str(&e.to_string()))
+        serde_wasm_bindgen::to_value(&results).map_err(|e| JsValue::from_str(&e.to_string()))
     }
 
     // -- safety ------------------------------------------------------------

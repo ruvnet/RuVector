@@ -37,8 +37,8 @@ use tracing::debug;
 use crate::error::{SolverError, ValidationError};
 use crate::traits::{SolverEngine, SublinearPageRank};
 use crate::types::{
-    Algorithm, ComplexityClass, ComplexityEstimate, ComputeBudget, CsrMatrix,
-    SolverResult, SparsityProfile,
+    Algorithm, ComplexityClass, ComplexityEstimate, ComputeBudget, CsrMatrix, SolverResult,
+    SparsityProfile,
 };
 
 /// Maximum number of graph nodes to prevent OOM denial-of-service.
@@ -183,13 +183,11 @@ impl BackwardPushSolver {
         let n = graph.rows;
 
         if n > MAX_GRAPH_NODES {
-            return Err(SolverError::InvalidInput(
-                ValidationError::MatrixTooLarge {
-                    rows: n,
-                    cols: n,
-                    max_dim: MAX_GRAPH_NODES,
-                },
-            ));
+            return Err(SolverError::InvalidInput(ValidationError::MatrixTooLarge {
+                rows: n,
+                cols: n,
+                max_dim: MAX_GRAPH_NODES,
+            }));
         }
 
         // Build the transposed adjacency so row_entries(v) in `graph_t`
@@ -229,10 +227,7 @@ impl BackwardPushSolver {
             pushes += 1;
             if pushes > max_pushes {
                 return Err(SolverError::BudgetExhausted {
-                    reason: format!(
-                        "backward push exceeded {} push budget",
-                        max_pushes,
-                    ),
+                    reason: format!("backward push exceeded {} push budget", max_pushes,),
                     elapsed: start.elapsed(),
                 });
             }
@@ -264,8 +259,7 @@ impl BackwardPushSolver {
                 // Enqueue u if it exceeds the push threshold and is not
                 // already queued.
                 let u_in_deg = graph_t.row_degree(u).max(1);
-                if residual[u].abs() / u_in_deg as f64 > epsilon && !in_queue[u]
-                {
+                if residual[u].abs() / u_in_deg as f64 > epsilon && !in_queue[u] {
                     queue.push_back(u);
                     in_queue[u] = true;
                 }
@@ -288,9 +282,7 @@ impl BackwardPushSolver {
             .enumerate()
             .filter(|(_, val)| *val > 1e-15)
             .collect();
-        result.sort_by(|a, b| {
-            b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal)
-        });
+        result.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
 
         Ok(result)
     }
@@ -312,9 +304,7 @@ impl SolverEngine for BackwardPushSolver {
         let target = rhs
             .iter()
             .enumerate()
-            .max_by(|(_, a), (_, b)| {
-                a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal)
-            })
+            .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
             .map(|(i, _)| i)
             .unwrap_or(0);
 
@@ -336,11 +326,7 @@ impl SolverEngine for BackwardPushSolver {
         })
     }
 
-    fn estimate_complexity(
-        &self,
-        _profile: &SparsityProfile,
-        n: usize,
-    ) -> ComplexityEstimate {
+    fn estimate_complexity(&self, _profile: &SparsityProfile, n: usize) -> ComplexityEstimate {
         let est_pushes = (1.0 / (self.alpha * self.epsilon)) as usize;
         ComplexityEstimate {
             algorithm: Algorithm::BackwardPush,
@@ -368,13 +354,7 @@ impl SublinearPageRank for BackwardPushSolver {
         alpha: f64,
         epsilon: f64,
     ) -> Result<Vec<(usize, f64)>, SolverError> {
-        Self::backward_push_core(
-            matrix,
-            target,
-            alpha,
-            epsilon,
-            &ComputeBudget::default(),
-        )
+        Self::backward_push_core(matrix, target, alpha, epsilon, &ComputeBudget::default())
     }
 
     fn ppr_multi_seed(
@@ -398,7 +378,11 @@ impl SublinearPageRank for BackwardPushSolver {
             // Run backward push for each seed target. We inline the core
             // logic with the shared transpose to avoid rebuilding it.
             let ppr = backward_push_with_transpose(
-                matrix, &graph_t, seed, alpha, epsilon,
+                matrix,
+                &graph_t,
+                seed,
+                alpha,
+                epsilon,
                 &ComputeBudget::default(),
             )?;
             for &(node, val) in &ppr {
@@ -411,9 +395,7 @@ impl SublinearPageRank for BackwardPushSolver {
             .enumerate()
             .filter(|(_, val)| *val > 1e-15)
             .collect();
-        result.sort_by(|a, b| {
-            b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal)
-        });
+        result.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
 
         Ok(result)
     }
@@ -461,10 +443,7 @@ fn backward_push_with_transpose(
         pushes += 1;
         if pushes > max_pushes {
             return Err(SolverError::BudgetExhausted {
-                reason: format!(
-                    "backward push exceeded {} push budget",
-                    max_pushes,
-                ),
+                reason: format!("backward push exceeded {} push budget", max_pushes,),
                 elapsed: start.elapsed(),
             });
         }
@@ -502,9 +481,7 @@ fn backward_push_with_transpose(
         .enumerate()
         .filter(|(_, val)| *val > 1e-15)
         .collect();
-    result.sort_by(|a, b| {
-        b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal)
-    });
+    result.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
 
     Ok(result)
 }
@@ -519,9 +496,7 @@ mod tests {
 
     /// Build a directed cycle 0->1->2->...->n-1->0.
     fn directed_cycle(n: usize) -> CsrMatrix<f64> {
-        let entries: Vec<_> = (0..n)
-            .map(|i| (i, (i + 1) % n, 1.0f64))
-            .collect();
+        let entries: Vec<_> = (0..n).map(|i| (i, (i + 1) % n, 1.0f64)).collect();
         CsrMatrix::<f64>::from_coo(n, n, entries)
     }
 
@@ -580,11 +555,7 @@ mod tests {
             .unwrap_or(0.0);
         for &(v, p) in &result {
             if v != 0 {
-                assert!(
-                    ppr_0 >= p,
-                    "expected ppr[0]={} >= ppr[{}]={}",
-                    ppr_0, v, p,
-                );
+                assert!(ppr_0 >= p, "expected ppr[0]={} >= ppr[{}]={}", ppr_0, v, p,);
             }
         }
     }
@@ -672,9 +643,7 @@ mod tests {
         let graph = directed_cycle(4);
         let solver = BackwardPushSolver::new(0.15, 1e-6);
         let seeds = vec![(0, 0.5), (2, 0.5)];
-        let result = solver
-            .ppr_multi_seed(&graph, &seeds, 0.15, 1e-6)
-            .unwrap();
+        let result = solver.ppr_multi_seed(&graph, &seeds, 0.15, 1e-6).unwrap();
         assert!(!result.is_empty());
     }
 
@@ -690,11 +659,8 @@ mod tests {
 
     #[test]
     fn transpose_correctness() {
-        let graph = CsrMatrix::<f64>::from_coo(3, 3, vec![
-            (0, 1, 1.0f64),
-            (1, 2, 1.0f64),
-            (2, 0, 1.0f64),
-        ]);
+        let graph =
+            CsrMatrix::<f64>::from_coo(3, 3, vec![(0, 1, 1.0f64), (1, 2, 1.0f64), (2, 0, 1.0f64)]);
         let gt = graph.transpose();
 
         // Transposed row 1 should contain (0, 1.0) because 0->1 in original.

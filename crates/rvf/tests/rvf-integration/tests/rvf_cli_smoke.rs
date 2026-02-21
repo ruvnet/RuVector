@@ -94,7 +94,8 @@ fn smoke_rvf_persistence_across_restart() {
 
         // Status should reflect the same count.
         assert_eq!(
-            store.status().total_vectors, 200,
+            store.status().total_vectors,
+            200,
             "vector count must survive restart"
         );
 
@@ -104,10 +105,7 @@ fn smoke_rvf_persistence_across_restart() {
         assert_eq!(results_after.len(), results_before.len());
 
         for (before, after) in results_before.iter().zip(results_after.iter()) {
-            assert_eq!(
-                before.id, after.id,
-                "result IDs must match across restart"
-            );
+            assert_eq!(before.id, after.id, "result IDs must match across restart");
             assert!(
                 (before.distance - after.distance).abs() < 1e-6,
                 "distances must match across restart: {} vs {}",
@@ -132,15 +130,19 @@ fn smoke_rvlite_adapter_persistence() {
     // -- Phase 1: create via adapter, add vectors, search, close ----------
     let results_before;
     {
-        let config =
-            RvliteConfig::new(path.clone(), dim).with_metric(RvliteMetric::L2);
+        let config = RvliteConfig::new(path.clone(), dim).with_metric(RvliteMetric::L2);
         let mut col = RvliteCollection::create(config).unwrap();
 
-        col.add(1, &[1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]).unwrap();
-        col.add(2, &[0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]).unwrap();
-        col.add(3, &[0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0]).unwrap();
-        col.add(4, &[1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]).unwrap();
-        col.add(5, &[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0]).unwrap();
+        col.add(1, &[1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+            .unwrap();
+        col.add(2, &[0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+            .unwrap();
+        col.add(3, &[0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+            .unwrap();
+        col.add(4, &[1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+            .unwrap();
+        col.add(5, &[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0])
+            .unwrap();
 
         assert_eq!(col.len(), 5);
 
@@ -158,8 +160,7 @@ fn smoke_rvlite_adapter_persistence() {
         assert_eq!(col.len(), 5, "vector count must survive adapter restart");
         assert_eq!(col.dimension(), dim);
 
-        let results_after =
-            col.search(&[1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], 3);
+        let results_after = col.search(&[1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], 3);
         assert_eq!(results_after.len(), results_before.len());
 
         for (before, after) in results_before.iter().zip(results_after.iter()) {
@@ -189,8 +190,7 @@ fn smoke_deletions_persist_across_restart() {
     // Phase 1: create, populate, delete some, close.
     {
         let mut store = RvfStore::create(&path, make_options(dim)).unwrap();
-        let vectors: Vec<Vec<f32>> =
-            (0..20).map(|i| vec![i as f32; dim as usize]).collect();
+        let vectors: Vec<Vec<f32>> = (0..20).map(|i| vec![i as f32; dim as usize]).collect();
         let refs: Vec<&[f32]> = vectors.iter().map(|v| v.as_slice()).collect();
         let ids: Vec<u64> = (1..=20).collect();
         store.ingest_batch(&refs, &ids, None).unwrap();
@@ -204,7 +204,8 @@ fn smoke_deletions_persist_across_restart() {
     {
         let store = RvfStore::open(&path).unwrap();
         assert_eq!(
-            store.status().total_vectors, 17,
+            store.status().total_vectors,
+            17,
             "17 vectors should remain after restart"
         );
 
@@ -235,9 +236,7 @@ fn smoke_compact_then_restart() {
     let results_before;
     {
         let mut store = RvfStore::create(&path, make_options(dim)).unwrap();
-        let vectors: Vec<Vec<f32>> = (0..100)
-            .map(|i| random_vector(dim as usize, i))
-            .collect();
+        let vectors: Vec<Vec<f32>> = (0..100).map(|i| random_vector(dim as usize, i)).collect();
         let refs: Vec<&[f32]> = vectors.iter().map(|v| v.as_slice()).collect();
         let ids: Vec<u64> = (1..=100).collect();
         store.ingest_batch(&refs, &ids, None).unwrap();
@@ -299,8 +298,5 @@ fn smoke_nonexistent_store_gives_clear_error() {
         Ok(_) => panic!("expected error, got Ok"),
     };
     // The error message should be informative (not empty or cryptic).
-    assert!(
-        !err_msg.is_empty(),
-        "error message should not be empty"
-    );
+    assert!(!err_msg.is_empty(), "error message should not be empty");
 }

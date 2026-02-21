@@ -43,7 +43,9 @@ pub fn hash_embed(text: &str, dimension: usize) -> Vec<f32> {
         // Mix byte values into the slot.
         let mut h: u64 = 0xcbf29ce484222325; // FNV-1a offset basis
         for (j, &b) in bytes.iter().enumerate() {
-            h ^= (b as u64).wrapping_add((i as u64).wrapping_mul(31)).wrapping_add(j as u64);
+            h ^= (b as u64)
+                .wrapping_add((i as u64).wrapping_mul(31))
+                .wrapping_add(j as u64);
             h = h.wrapping_mul(0x100000001b3); // FNV-1a prime
         }
         // Map to [-1, 1].
@@ -110,10 +112,9 @@ fn try_parse_cc_at(chars: &[char], start: usize) -> Option<usize> {
             pos += 1;
         }
         // After the first 3 groups, allow an optional separator.
-        if group < 3
-            && pos < chars.len() && (chars[pos] == '-' || chars[pos] == ' ') {
-                pos += 1;
-            }
+        if group < 3 && pos < chars.len() && (chars[pos] == '-' || chars[pos] == ' ') {
+            pos += 1;
+        }
     }
     Some(pos)
 }
@@ -359,7 +360,10 @@ mod tests {
     fn test_hash_embed_normalized() {
         let v = hash_embed("test text", 64);
         let mag: f32 = v.iter().map(|x| x * x).sum::<f32>().sqrt();
-        assert!((mag - 1.0).abs() < 1e-4, "magnitude should be ~1.0, got {mag}");
+        assert!(
+            (mag - 1.0).abs() < 1e-4,
+            "magnitude should be ~1.0, got {mag}"
+        );
     }
 
     #[test]

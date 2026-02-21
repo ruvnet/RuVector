@@ -232,8 +232,11 @@ impl RvdnaHeader {
         }
 
         let checksum_offset = table_start + NUM_SECTIONS * 16;
-        let header_checksum =
-            u32::from_le_bytes(data[checksum_offset..checksum_offset + 4].try_into().unwrap());
+        let header_checksum = u32::from_le_bytes(
+            data[checksum_offset..checksum_offset + 4]
+                .try_into()
+                .unwrap(),
+        );
 
         // Verify checksum
         let computed = crc32_simple(&data[..checksum_offset]);
@@ -593,16 +596,13 @@ impl VariantTensor {
 
     /// Get genotype likelihoods at a position (binary search)
     pub fn get_likelihoods(&self, position: u64) -> Option<[f32; 3]> {
-        self.positions
-            .binary_search(&position)
-            .ok()
-            .map(|idx| {
-                [
-                    f16_to_f32(self.likelihoods[idx][0]),
-                    f16_to_f32(self.likelihoods[idx][1]),
-                    f16_to_f32(self.likelihoods[idx][2]),
-                ]
-            })
+        self.positions.binary_search(&position).ok().map(|idx| {
+            [
+                f16_to_f32(self.likelihoods[idx][0]),
+                f16_to_f32(self.likelihoods[idx][1]),
+                f16_to_f32(self.likelihoods[idx][2]),
+            ]
+        })
     }
 
     /// Serialize to bytes
@@ -811,8 +811,7 @@ impl RvdnaWriter {
         while pos < seq_len {
             let len = block_size.min(seq_len - pos);
             if len >= k as u64 {
-                let block =
-                    KmerVectorBlock::from_sequence(sequence, pos, len, k, dimensions)?;
+                let block = KmerVectorBlock::from_sequence(sequence, pos, len, k, dimensions)?;
                 self.kmer_blocks.push(block);
             }
             pos += block_size;
@@ -886,8 +885,8 @@ impl RvdnaWriter {
 
         // Section 6: Metadata
         if let Some(ref meta) = self.metadata {
-            let meta_bytes = serde_json::to_vec(meta)
-                .map_err(|e| DnaError::PipelineError(e.to_string()))?;
+            let meta_bytes =
+                serde_json::to_vec(meta).map_err(|e| DnaError::PipelineError(e.to_string()))?;
             sections_data[6] = meta_bytes;
         }
 
@@ -910,12 +909,11 @@ impl RvdnaWriter {
 
         // Write header
         let header_bytes = self.header.to_bytes();
-        writer
-            .write_all(&header_bytes)
-            .map_err(DnaError::IoError)?;
+        writer.write_all(&header_bytes).map_err(DnaError::IoError)?;
 
         // Pad to first section
-        let pad_len = align_up(header_bytes.len() as u64, SECTION_ALIGN) - header_bytes.len() as u64;
+        let pad_len =
+            align_up(header_bytes.len() as u64, SECTION_ALIGN) - header_bytes.len() as u64;
         writer
             .write_all(&vec![0u8; pad_len as usize])
             .map_err(DnaError::IoError)?;
@@ -998,8 +996,7 @@ impl RvdnaReader {
         }
 
         let start = section.offset as usize;
-        let count =
-            u32::from_le_bytes(self.data[start..start + 4].try_into().unwrap()) as usize;
+        let count = u32::from_le_bytes(self.data[start..start + 4].try_into().unwrap()) as usize;
 
         let mut blocks = Vec::with_capacity(count);
         let mut offset = start + 4;
@@ -1008,8 +1005,9 @@ impl RvdnaReader {
             let block_len =
                 u32::from_le_bytes(self.data[offset..offset + 4].try_into().unwrap()) as usize;
             offset += 4;
-            let block: KmerVectorBlock = serde_json::from_slice(&self.data[offset..offset + block_len])
-                .map_err(|e| DnaError::PipelineError(e.to_string()))?;
+            let block: KmerVectorBlock =
+                serde_json::from_slice(&self.data[offset..offset + block_len])
+                    .map_err(|e| DnaError::PipelineError(e.to_string()))?;
             blocks.push(block);
             offset += block_len;
         }
@@ -1283,16 +1281,17 @@ mod tests {
         // 6-bit encoding: 100 values = 75 bytes (vs 100 bytes raw)
         let qualities: Vec<u8> = vec![30; 100];
         let encoded = encode_quality(&qualities);
-        assert!(encoded.len() <= 75, "6-bit should compress: {} bytes", encoded.len());
+        assert!(
+            encoded.len() <= 75,
+            "6-bit should compress: {} bytes",
+            encoded.len()
+        );
     }
 
     #[test]
     fn test_sparse_attention_roundtrip() {
         let dense = vec![
-            0.0, 0.5, 0.0, 0.0,
-            0.3, 0.0, 0.0, 0.7,
-            0.0, 0.0, 0.9, 0.0,
-            0.0, 0.1, 0.0, 0.0,
+            0.0, 0.5, 0.0, 0.0, 0.3, 0.0, 0.0, 0.7, 0.0, 0.0, 0.9, 0.0, 0.0, 0.1, 0.0, 0.0,
         ];
         let sparse = SparseAttention::from_dense(&dense, 4, 4, 0.05);
         assert_eq!(sparse.nnz(), 5); // 5 values > 0.05
@@ -1333,7 +1332,12 @@ mod tests {
             } else {
                 back.abs()
             };
-            assert!(rel_err < 0.01, "f16 roundtrip failed for {}: got {}", val, back);
+            assert!(
+                rel_err < 0.01,
+                "f16 roundtrip failed for {}: got {}",
+                val,
+                back
+            );
         }
     }
 
@@ -1397,7 +1401,10 @@ mod tests {
 
         // Check stats
         let stats = reader.stats();
-        assert!(stats.bits_per_base < 8.0, "Should compress below 1 byte/base");
+        assert!(
+            stats.bits_per_base < 8.0,
+            "Should compress below 1 byte/base"
+        );
     }
 
     #[test]

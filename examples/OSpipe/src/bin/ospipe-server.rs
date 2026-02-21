@@ -83,8 +83,8 @@ fn main() {
     }
 
     // Create the pipeline
-    let pipeline = ospipe::pipeline::ingestion::IngestionPipeline::new(config)
-        .unwrap_or_else(|e| {
+    let pipeline =
+        ospipe::pipeline::ingestion::IngestionPipeline::new(config).unwrap_or_else(|e| {
             eprintln!("Failed to initialize pipeline: {}", e);
             std::process::exit(1);
         });

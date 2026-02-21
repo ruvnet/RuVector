@@ -48,7 +48,9 @@ pub fn run(args: QueryArgs) -> Result<(), Box<dyn std::error::Error>> {
     };
 
     let store = RvfStore::open_readonly(Path::new(&args.path)).map_err(map_rvf_err)?;
-    let results = store.query(&vector, args.k, &query_opts).map_err(map_rvf_err)?;
+    let results = store
+        .query(&vector, args.k, &query_opts)
+        .map_err(map_rvf_err)?;
 
     if args.json {
         let json_results: Vec<serde_json::Value> = results

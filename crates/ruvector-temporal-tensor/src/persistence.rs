@@ -102,10 +102,14 @@ pub fn decode_meta(bytes: &[u8]) -> Result<BlockMeta, StoreError> {
     }
 
     let tensor_id = u128::from_le_bytes(
-        bytes[0..16].try_into().map_err(|_| StoreError::InvalidData)?,
+        bytes[0..16]
+            .try_into()
+            .map_err(|_| StoreError::InvalidData)?,
     );
     let block_index = u32::from_le_bytes(
-        bytes[16..20].try_into().map_err(|_| StoreError::InvalidData)?,
+        bytes[16..20]
+            .try_into()
+            .map_err(|_| StoreError::InvalidData)?,
     );
 
     let dtype = match bytes[20] {
@@ -124,28 +128,44 @@ pub fn decode_meta(bytes: &[u8]) -> Result<BlockMeta, StoreError> {
     let bits = bytes[22];
 
     let scale = f32::from_le_bytes(
-        bytes[23..27].try_into().map_err(|_| StoreError::InvalidData)?,
+        bytes[23..27]
+            .try_into()
+            .map_err(|_| StoreError::InvalidData)?,
     );
     let zero_point = i16::from_le_bytes(
-        bytes[27..29].try_into().map_err(|_| StoreError::InvalidData)?,
+        bytes[27..29]
+            .try_into()
+            .map_err(|_| StoreError::InvalidData)?,
     );
     let created_at = u64::from_le_bytes(
-        bytes[29..37].try_into().map_err(|_| StoreError::InvalidData)?,
+        bytes[29..37]
+            .try_into()
+            .map_err(|_| StoreError::InvalidData)?,
     );
     let last_access_at = u64::from_le_bytes(
-        bytes[37..45].try_into().map_err(|_| StoreError::InvalidData)?,
+        bytes[37..45]
+            .try_into()
+            .map_err(|_| StoreError::InvalidData)?,
     );
     let access_count = u32::from_le_bytes(
-        bytes[45..49].try_into().map_err(|_| StoreError::InvalidData)?,
+        bytes[45..49]
+            .try_into()
+            .map_err(|_| StoreError::InvalidData)?,
     );
     let ema_rate = f32::from_le_bytes(
-        bytes[49..53].try_into().map_err(|_| StoreError::InvalidData)?,
+        bytes[49..53]
+            .try_into()
+            .map_err(|_| StoreError::InvalidData)?,
     );
     let window = u64::from_le_bytes(
-        bytes[53..61].try_into().map_err(|_| StoreError::InvalidData)?,
+        bytes[53..61]
+            .try_into()
+            .map_err(|_| StoreError::InvalidData)?,
     );
     let checksum = u32::from_le_bytes(
-        bytes[61..65].try_into().map_err(|_| StoreError::InvalidData)?,
+        bytes[61..65]
+            .try_into()
+            .map_err(|_| StoreError::InvalidData)?,
     );
 
     let reconstruct = match bytes[65] {
@@ -155,12 +175,16 @@ pub fn decode_meta(bytes: &[u8]) -> Result<BlockMeta, StoreError> {
         _ => return Err(StoreError::InvalidData),
     };
     let tier_age = u32::from_le_bytes(
-        bytes[66..70].try_into().map_err(|_| StoreError::InvalidData)?,
+        bytes[66..70]
+            .try_into()
+            .map_err(|_| StoreError::InvalidData)?,
     );
 
     let has_lineage = bytes[70];
     let lineage_value = u128::from_le_bytes(
-        bytes[71..87].try_into().map_err(|_| StoreError::InvalidData)?,
+        bytes[71..87]
+            .try_into()
+            .map_err(|_| StoreError::InvalidData)?,
     );
     let lineage_parent = if has_lineage != 0 {
         Some(lineage_value)
@@ -169,7 +193,9 @@ pub fn decode_meta(bytes: &[u8]) -> Result<BlockMeta, StoreError> {
     };
 
     let block_bytes = u32::from_le_bytes(
-        bytes[87..91].try_into().map_err(|_| StoreError::InvalidData)?,
+        bytes[87..91]
+            .try_into()
+            .map_err(|_| StoreError::InvalidData)?,
     );
 
     Ok(BlockMeta {
@@ -362,10 +388,8 @@ mod tests {
     fn test_dir(prefix: &str) -> PathBuf {
         let id = TEST_ID.fetch_add(1, Ordering::SeqCst);
         let pid = std::process::id();
-        let dir = std::env::temp_dir().join(format!(
-            "ruvector_persistence_{}_{}_{}",
-            prefix, pid, id
-        ));
+        let dir =
+            std::env::temp_dir().join(format!("ruvector_persistence_{}_{}_{}", prefix, pid, id));
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
         dir
@@ -653,7 +677,9 @@ mod tests {
         let io = FileBlockIO::new(&dir).unwrap();
         let key = make_key(0xFF, 42);
         let path = io.block_path(Tier::Tier1, key);
-        let expected = dir.join("tier1").join("000000000000000000000000000000ff_42.bin");
+        let expected = dir
+            .join("tier1")
+            .join("000000000000000000000000000000ff_42.bin");
         assert_eq!(path, expected);
         cleanup(&dir);
     }

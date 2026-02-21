@@ -218,9 +218,7 @@ impl PlanningDomain {
             }],
             dependencies,
             initial_state: Vec::new(),
-            goal_state: (0..num_tasks)
-                .map(|i| format!("job_{}_done", i))
-                .collect(),
+            goal_state: (0..num_tasks).map(|i| format!("job_{}_done", i)).collect(),
             max_cost: None,
             max_steps: Some(num_tasks + 5),
         }
@@ -316,10 +314,12 @@ impl PlanningDomain {
 
         // Feature 8-15: Action type distribution
         let action_counts: std::collections::HashMap<&str, usize> =
-            plan.steps.iter().fold(std::collections::HashMap::new(), |mut acc, s| {
-                *acc.entry(s.action.as_str()).or_insert(0) += 1;
-                acc
-            });
+            plan.steps
+                .iter()
+                .fold(std::collections::HashMap::new(), |mut acc, s| {
+                    *acc.entry(s.action.as_str()).or_insert(0) += 1;
+                    acc
+                });
         let max_count = action_counts.values().max().copied().unwrap_or(0);
         features[8] = action_counts.len() as f32 / 10.0;
         features[9] = max_count as f32 / plan.steps.len().max(1) as f32;
@@ -436,8 +436,7 @@ impl PlanningDomain {
             }
         }
         if !spec.dependencies.is_empty() {
-            let dep_score =
-                1.0 - (dep_violations as f32 / spec.dependencies.len() as f32);
+            let dep_score = 1.0 - (dep_violations as f32 / spec.dependencies.len() as f32);
             correctness = correctness * 0.5 + dep_score * 0.5;
         }
 
@@ -478,7 +477,11 @@ impl PlanningDomain {
         elegance = 1.0 - redundancy * 0.5;
 
         // Bonus for parallel scheduling
-        if plan.steps.windows(2).any(|w| w[0].start_time == w[1].start_time) {
+        if plan
+            .steps
+            .windows(2)
+            .any(|w| w[0].start_time == w[1].start_time)
+        {
             elegance += 0.1;
         }
         elegance = elegance.clamp(0.0, 1.0);
@@ -633,10 +636,8 @@ mod tests {
         let easy = domain.generate_tasks(1, 0.1);
         let hard = domain.generate_tasks(1, 0.9);
 
-        let easy_spec: PlanningTaskSpec =
-            serde_json::from_value(easy[0].spec.clone()).unwrap();
-        let hard_spec: PlanningTaskSpec =
-            serde_json::from_value(hard[0].spec.clone()).unwrap();
+        let easy_spec: PlanningTaskSpec = serde_json::from_value(easy[0].spec.clone()).unwrap();
+        let hard_spec: PlanningTaskSpec = serde_json::from_value(hard[0].spec.clone()).unwrap();
 
         assert!(
             hard_spec.available_actions.len() >= easy_spec.available_actions.len(),

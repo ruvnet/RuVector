@@ -194,20 +194,19 @@ impl SwarmInterference {
                     let noise = Complex::from_polar(noise_r, noise_theta);
                     let noisy_amp = *amp + noise;
 
-                    let entry = amplitude_map.entry(action.id.clone()).or_insert(Complex::ZERO);
+                    let entry = amplitude_map
+                        .entry(action.id.clone())
+                        .or_insert(Complex::ZERO);
                     *entry = *entry + noisy_amp;
                 }
             }
 
             // Find winner for this trial.
-            if let Some((winner_id, _)) = amplitude_map
-                .iter()
-                .max_by(|a, b| {
-                    a.1.norm_sq()
-                        .partial_cmp(&b.1.norm_sq())
-                        .unwrap_or(std::cmp::Ordering::Equal)
-                })
-            {
+            if let Some((winner_id, _)) = amplitude_map.iter().max_by(|a, b| {
+                a.1.norm_sq()
+                    .partial_cmp(&b.1.norm_sq())
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            }) {
                 let entry = win_counts
                     .entry(winner_id.clone())
                     .or_insert_with(|| (action_map[winner_id].clone(), 0));

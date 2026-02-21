@@ -113,19 +113,29 @@ fn decode_scalar(body: &[u8], dim: usize) -> ScalarQuantizer {
     for d in 0..dim {
         let offset = d * 4;
         let v = f32::from_le_bytes([
-            body[offset], body[offset + 1], body[offset + 2], body[offset + 3],
+            body[offset],
+            body[offset + 1],
+            body[offset + 2],
+            body[offset + 3],
         ]);
         min_vals.push(v);
     }
     for d in 0..dim {
         let offset = (dim + d) * 4;
         let v = f32::from_le_bytes([
-            body[offset], body[offset + 1], body[offset + 2], body[offset + 3],
+            body[offset],
+            body[offset + 1],
+            body[offset + 2],
+            body[offset + 3],
         ]);
         max_vals.push(v);
     }
 
-    ScalarQuantizer { min_vals, max_vals, dim }
+    ScalarQuantizer {
+        min_vals,
+        max_vals,
+        dim,
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -175,7 +185,10 @@ fn decode_product(body: &[u8], _dim: usize) -> ProductQuantizer {
 
     let codebook_floats = m * k * sub_dim;
     let codebook_bytes = codebook_floats * 4;
-    assert!(body.len() >= 6 + codebook_bytes, "PQ codebook data too short");
+    assert!(
+        body.len() >= 6 + codebook_bytes,
+        "PQ codebook data too short"
+    );
 
     let mut codebooks = Vec::with_capacity(m);
     let mut offset = 6;
@@ -185,7 +198,10 @@ fn decode_product(body: &[u8], _dim: usize) -> ProductQuantizer {
             let mut centroid = Vec::with_capacity(sub_dim);
             for _ in 0..sub_dim {
                 let v = f32::from_le_bytes([
-                    body[offset], body[offset + 1], body[offset + 2], body[offset + 3],
+                    body[offset],
+                    body[offset + 1],
+                    body[offset + 2],
+                    body[offset + 3],
                 ]);
                 centroid.push(v);
                 offset += 4;
@@ -195,7 +211,12 @@ fn decode_product(body: &[u8], _dim: usize) -> ProductQuantizer {
         codebooks.push(sub_book);
     }
 
-    ProductQuantizer { m, k, sub_dim, codebooks }
+    ProductQuantizer {
+        m,
+        k,
+        sub_dim,
+        codebooks,
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -267,8 +288,7 @@ pub fn decode_sketch_seg(data: &[u8]) -> CountMinSketch {
     let width = u32::from_le_bytes([data[0], data[1], data[2], data[3]]) as usize;
     let depth = u32::from_le_bytes([data[4], data[5], data[6], data[7]]) as usize;
     let total_accesses = u64::from_le_bytes([
-        data[8], data[9], data[10], data[11],
-        data[12], data[13], data[14], data[15],
+        data[8], data[9], data[10], data[11], data[12], data[13], data[14], data[15],
     ]);
 
     let body = &data[64..];
@@ -323,10 +343,16 @@ mod tests {
             sub_dim: 2,
             codebooks: vec![
                 vec![
-                    vec![0.0, 0.1], vec![0.2, 0.3], vec![0.4, 0.5], vec![0.6, 0.7],
+                    vec![0.0, 0.1],
+                    vec![0.2, 0.3],
+                    vec![0.4, 0.5],
+                    vec![0.6, 0.7],
                 ],
                 vec![
-                    vec![0.8, 0.9], vec![1.0, 1.1], vec![1.2, 1.3], vec![1.4, 1.5],
+                    vec![0.8, 0.9],
+                    vec![1.0, 1.1],
+                    vec![1.2, 1.3],
+                    vec![1.4, 1.5],
                 ],
             ],
         };
@@ -352,7 +378,9 @@ mod tests {
         assert_eq!(decoded.dim(), 16);
         assert_eq!(decoded.tier(), crate::tier::TemperatureTier::Cold);
 
-        let test_vec: Vec<f32> = (0..16).map(|i| if i % 2 == 0 { 1.0 } else { -1.0 }).collect();
+        let test_vec: Vec<f32> = (0..16)
+            .map(|i| if i % 2 == 0 { 1.0 } else { -1.0 })
+            .collect();
         let codes = decoded.encode(&test_vec);
         let recon = decoded.decode(&codes);
         assert_eq!(recon.len(), 16);

@@ -33,7 +33,11 @@ pub fn compute_scales(frame: &[f32], group_len: usize, bits: u8) -> Vec<u16> {
             }
         }
 
-        let scale = if max_abs == 0.0 { 0.0 } else { max_abs / qmax_f };
+        let scale = if max_abs == 0.0 {
+            0.0
+        } else {
+            max_abs / qmax_f
+        };
         scales.push(f16::f32_to_f16_bits(scale));
     }
 
@@ -43,7 +47,10 @@ pub fn compute_scales(frame: &[f32], group_len: usize, bits: u8) -> Vec<u16> {
 /// Pre-convert f16 scales to f32 for hot-path use.
 #[inline]
 pub fn scales_to_f32(scales_f16: &[u16]) -> Vec<f32> {
-    scales_f16.iter().map(|&s| f16::f16_bits_to_f32(s)).collect()
+    scales_f16
+        .iter()
+        .map(|&s| f16::f16_bits_to_f32(s))
+        .collect()
 }
 
 /// Check if a frame fits within existing scales (within drift tolerance).
@@ -114,7 +121,11 @@ pub fn quantize_and_pack_f32(
                 let mut q: i32 = 0;
                 if v.is_finite() {
                     let scaled = v * inv_scale;
-                    q = if scaled >= 0.0 { (scaled + 0.5) as i32 } else { (scaled - 0.5) as i32 };
+                    q = if scaled >= 0.0 {
+                        (scaled + 0.5) as i32
+                    } else {
+                        (scaled - 0.5) as i32
+                    };
                     q = q.clamp(-127, 127);
                 }
                 out.push((q + 127) as u8);
@@ -235,7 +246,11 @@ pub fn quantize_and_pack_f32(
             let mut q: i32 = 0;
             if v.is_finite() {
                 let scaled = v * inv_scale;
-                q = if scaled >= 0.0 { (scaled + 0.5) as i32 } else { (scaled - 0.5) as i32 };
+                q = if scaled >= 0.0 {
+                    (scaled + 0.5) as i32
+                } else {
+                    (scaled - 0.5) as i32
+                };
                 q = q.clamp(-qmax_i, qmax_i);
             }
 
@@ -335,12 +350,14 @@ pub fn dequantize_f32(
                     let b2 = data[byte_idx + 2] as u32;
                     byte_idx += 3;
 
-                    out[out_idx]     = ((b0 & 0x7) as i32 - bias) as f32 * scale;
+                    out[out_idx] = ((b0 & 0x7) as i32 - bias) as f32 * scale;
                     out[out_idx + 1] = (((b0 >> 3) & 0x7) as i32 - bias) as f32 * scale;
-                    out[out_idx + 2] = ((((b0 >> 6) | (b1 << 2)) & 0x7) as i32 - bias) as f32 * scale;
+                    out[out_idx + 2] =
+                        ((((b0 >> 6) | (b1 << 2)) & 0x7) as i32 - bias) as f32 * scale;
                     out[out_idx + 3] = (((b1 >> 1) & 0x7) as i32 - bias) as f32 * scale;
                     out[out_idx + 4] = (((b1 >> 4) & 0x7) as i32 - bias) as f32 * scale;
-                    out[out_idx + 5] = ((((b1 >> 7) | (b2 << 1)) & 0x7) as i32 - bias) as f32 * scale;
+                    out[out_idx + 5] =
+                        ((((b1 >> 7) | (b2 << 1)) & 0x7) as i32 - bias) as f32 * scale;
                     out[out_idx + 6] = (((b2 >> 2) & 0x7) as i32 - bias) as f32 * scale;
                     out[out_idx + 7] = (((b2 >> 5) & 0x7) as i32 - bias) as f32 * scale;
                     out_idx += 8;
@@ -401,7 +418,14 @@ pub fn dequantize_f32(
                 };
                 // Process 8 values at a time from 7 bytes
                 #[inline]
-                fn unpack_7bit(out: &mut [f32], out_idx: usize, data: &[u8], byte_idx: usize, bias: i32, scale: f32) {
+                fn unpack_7bit(
+                    out: &mut [f32],
+                    out_idx: usize,
+                    data: &[u8],
+                    byte_idx: usize,
+                    bias: i32,
+                    scale: f32,
+                ) {
                     let b0 = data[byte_idx] as u32;
                     let b1 = data[byte_idx + 1] as u32;
                     let b2 = data[byte_idx + 2] as u32;
@@ -410,13 +434,19 @@ pub fn dequantize_f32(
                     let b5 = data[byte_idx + 5] as u32;
                     let b6 = data[byte_idx + 6] as u32;
 
-                    out[out_idx]     = ((b0 & 0x7F) as i32 - bias) as f32 * scale;
-                    out[out_idx + 1] = ((((b0 >> 7) | (b1 << 1)) & 0x7F) as i32 - bias) as f32 * scale;
-                    out[out_idx + 2] = ((((b1 >> 6) | (b2 << 2)) & 0x7F) as i32 - bias) as f32 * scale;
-                    out[out_idx + 3] = ((((b2 >> 5) | (b3 << 3)) & 0x7F) as i32 - bias) as f32 * scale;
-                    out[out_idx + 4] = ((((b3 >> 4) | (b4 << 4)) & 0x7F) as i32 - bias) as f32 * scale;
-                    out[out_idx + 5] = ((((b4 >> 3) | (b5 << 5)) & 0x7F) as i32 - bias) as f32 * scale;
-                    out[out_idx + 6] = ((((b5 >> 2) | (b6 << 6)) & 0x7F) as i32 - bias) as f32 * scale;
+                    out[out_idx] = ((b0 & 0x7F) as i32 - bias) as f32 * scale;
+                    out[out_idx + 1] =
+                        ((((b0 >> 7) | (b1 << 1)) & 0x7F) as i32 - bias) as f32 * scale;
+                    out[out_idx + 2] =
+                        ((((b1 >> 6) | (b2 << 2)) & 0x7F) as i32 - bias) as f32 * scale;
+                    out[out_idx + 3] =
+                        ((((b2 >> 5) | (b3 << 3)) & 0x7F) as i32 - bias) as f32 * scale;
+                    out[out_idx + 4] =
+                        ((((b3 >> 4) | (b4 << 4)) & 0x7F) as i32 - bias) as f32 * scale;
+                    out[out_idx + 5] =
+                        ((((b4 >> 3) | (b5 << 5)) & 0x7F) as i32 - bias) as f32 * scale;
+                    out[out_idx + 6] =
+                        ((((b5 >> 2) | (b6 << 6)) & 0x7F) as i32 - bias) as f32 * scale;
                     out[out_idx + 7] = (((b6 >> 1) & 0x7F) as i32 - bias) as f32 * scale;
                 }
                 while pos + 8 <= group_end && byte_idx + 7 <= data.len() {
@@ -480,20 +510,31 @@ pub fn dequantize_f32(
                 };
                 // Process 8 values at a time from 5 bytes
                 #[inline]
-                fn unpack_5bit(out: &mut [f32], out_idx: usize, data: &[u8], byte_idx: usize, bias: i32, scale: f32) {
+                fn unpack_5bit(
+                    out: &mut [f32],
+                    out_idx: usize,
+                    data: &[u8],
+                    byte_idx: usize,
+                    bias: i32,
+                    scale: f32,
+                ) {
                     let b0 = data[byte_idx] as u32;
                     let b1 = data[byte_idx + 1] as u32;
                     let b2 = data[byte_idx + 2] as u32;
                     let b3 = data[byte_idx + 3] as u32;
                     let b4 = data[byte_idx + 4] as u32;
 
-                    out[out_idx]     = ((b0 & 0x1F) as i32 - bias) as f32 * scale;
-                    out[out_idx + 1] = ((((b0 >> 5) | (b1 << 3)) & 0x1F) as i32 - bias) as f32 * scale;
+                    out[out_idx] = ((b0 & 0x1F) as i32 - bias) as f32 * scale;
+                    out[out_idx + 1] =
+                        ((((b0 >> 5) | (b1 << 3)) & 0x1F) as i32 - bias) as f32 * scale;
                     out[out_idx + 2] = (((b1 >> 2) & 0x1F) as i32 - bias) as f32 * scale;
-                    out[out_idx + 3] = ((((b1 >> 7) | (b2 << 1)) & 0x1F) as i32 - bias) as f32 * scale;
-                    out[out_idx + 4] = ((((b2 >> 4) | (b3 << 4)) & 0x1F) as i32 - bias) as f32 * scale;
+                    out[out_idx + 3] =
+                        ((((b1 >> 7) | (b2 << 1)) & 0x1F) as i32 - bias) as f32 * scale;
+                    out[out_idx + 4] =
+                        ((((b2 >> 4) | (b3 << 4)) & 0x1F) as i32 - bias) as f32 * scale;
                     out[out_idx + 5] = (((b3 >> 1) & 0x1F) as i32 - bias) as f32 * scale;
-                    out[out_idx + 6] = ((((b3 >> 6) | (b4 << 2)) & 0x1F) as i32 - bias) as f32 * scale;
+                    out[out_idx + 6] =
+                        ((((b3 >> 6) | (b4 << 2)) & 0x1F) as i32 - bias) as f32 * scale;
                     out[out_idx + 7] = (((b4 >> 3) & 0x1F) as i32 - bias) as f32 * scale;
                 }
                 while pos + 8 <= group_end && byte_idx + 5 <= data.len() {
@@ -614,7 +655,15 @@ pub fn dequantize(
     out: &mut Vec<f32>,
 ) {
     let scales_f32 = scales_to_f32(scales);
-    dequantize_f32(data, &scales_f32, group_len, bits, tensor_len, frame_count, out)
+    dequantize_f32(
+        data,
+        &scales_f32,
+        group_len,
+        bits,
+        tensor_len,
+        frame_count,
+        out,
+    )
 }
 
 #[cfg(test)]
@@ -634,7 +683,11 @@ mod tests {
         assert_eq!(decoded.len(), frame.len());
         for (i, (&orig, &dec)) in frame.iter().zip(decoded.iter()).enumerate() {
             let err = (orig - dec).abs();
-            let max_err = if orig.abs() > 0.01 { orig.abs() * 0.02 } else { 0.1 };
+            let max_err = if orig.abs() > 0.01 {
+                orig.abs() * 0.02
+            } else {
+                0.1
+            };
             assert!(err < max_err, "i={i}, orig={orig}, dec={dec}, err={err}");
         }
     }
@@ -685,7 +738,11 @@ mod tests {
 
         for (i, (&orig, &dec)) in frame.iter().zip(decoded.iter()).enumerate() {
             let err = (orig - dec).abs();
-            let max_err = if orig.abs() > 0.01 { orig.abs() * 0.02 } else { 0.1 };
+            let max_err = if orig.abs() > 0.01 {
+                orig.abs() * 0.02
+            } else {
+                0.1
+            };
             assert!(err < max_err, "i={i}, orig={orig}, dec={dec}, err={err}");
         }
     }

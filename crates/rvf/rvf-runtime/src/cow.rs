@@ -157,11 +157,7 @@ impl CowEngine {
     /// Write a vector. Handles COW: copies parent slab if inherited.
     ///
     /// Writes are buffered for coalescing. Call `flush_writes` to commit.
-    pub fn write_vector(
-        &mut self,
-        vector_id: u64,
-        data: &[u8],
-    ) -> Result<(), RvfError> {
+    pub fn write_vector(&mut self, vector_id: u64, data: &[u8]) -> Result<(), RvfError> {
         if self.frozen {
             return Err(RvfError::Code(ErrorCode::SnapshotFrozen));
         }
@@ -195,8 +191,7 @@ impl CowEngine {
             return Err(RvfError::Code(ErrorCode::SnapshotFrozen));
         }
 
-        let pending: Vec<(u32, Vec<PendingWrite>)> =
-            self.write_buffer.drain().collect();
+        let pending: Vec<(u32, Vec<PendingWrite>)> = self.write_buffer.drain().collect();
 
         let mut witness_events = Vec::new();
 
@@ -211,8 +206,7 @@ impl CowEngine {
                 }
                 CowMapEntry::ParentRef => {
                     // COW: copy parent slab to local
-                    let parent_file =
-                        parent.ok_or(RvfError::Code(ErrorCode::ParentChainBroken))?;
+                    let parent_file = parent.ok_or(RvfError::Code(ErrorCode::ParentChainBroken))?;
                     let parent_offset = cluster_id as u64 * self.cluster_size as u64;
                     let parent_data =
                         read_bytes_at(parent_file, parent_offset, self.cluster_size as usize)?;
@@ -406,11 +400,7 @@ mod tests {
 
         // Read cluster 2 from parent
         let data = engine
-            .read_cluster(
-                2,
-                child_file.as_file(),
-                Some(parent_file.as_file()),
-            )
+            .read_cluster(2, child_file.as_file(), Some(parent_file.as_file()))
             .unwrap();
         assert_eq!(data.len(), cluster_size as usize);
         assert!(data.iter().all(|&b| b == 2));
@@ -425,8 +415,7 @@ mod tests {
         let parent_file = create_parent_file(cluster_size, 2);
         let child_file = NamedTempFile::new().unwrap();
 
-        let mut engine =
-            CowEngine::from_parent(2, cluster_size, vecs_per_cluster, bytes_per_vec);
+        let mut engine = CowEngine::from_parent(2, cluster_size, vecs_per_cluster, bytes_per_vec);
 
         // Write vector 0 (cluster 0)
         let new_data = vec![0xAA; bytes_per_vec as usize];
@@ -457,8 +446,7 @@ mod tests {
         let parent_file = create_parent_file(cluster_size, 2);
         let child_file = NamedTempFile::new().unwrap();
 
-        let mut engine =
-            CowEngine::from_parent(2, cluster_size, vecs_per_cluster, bytes_per_vec);
+        let mut engine = CowEngine::from_parent(2, cluster_size, vecs_per_cluster, bytes_per_vec);
 
         // Write both vectors in cluster 0
         let data_a = vec![0xAA; bytes_per_vec as usize];
@@ -493,9 +481,7 @@ mod tests {
         let engine = CowEngine::new(128, 2, 64);
         let child_file = NamedTempFile::new().unwrap();
 
-        let data = engine
-            .read_cluster(0, child_file.as_file(), None)
-            .unwrap();
+        let data = engine.read_cluster(0, child_file.as_file(), None).unwrap();
         assert_eq!(data.len(), 128);
         assert!(data.iter().all(|&b| b == 0));
     }

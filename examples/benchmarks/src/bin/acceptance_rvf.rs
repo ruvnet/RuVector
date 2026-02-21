@@ -102,8 +102,10 @@ fn main() -> anyhow::Result<()> {
             let rvf_path = output.replace(".json", ".rvf");
 
             println!("Generating acceptance test manifest...");
-            println!("  holdout={}, training={}, cycles={}, budget={}",
-                holdout, training, cycles, budget);
+            println!(
+                "  holdout={}, training={}, cycles={}, budget={}",
+                holdout, training, cycles, budget
+            );
             println!();
 
             let manifest = generate_manifest_with_rvf(&config, Some(&rvf_path))?;
@@ -129,7 +131,10 @@ fn main() -> anyhow::Result<()> {
                 serde_json::from_str(&json)?;
 
             println!("  Chain length: {}", manifest.chain_length);
-            println!("  Expected root: {}", &manifest.chain_root_hash[..32.min(manifest.chain_root_hash.len())]);
+            println!(
+                "  Expected root: {}",
+                &manifest.chain_root_hash[..32.min(manifest.chain_root_hash.len())]
+            );
             println!();
             println!("Re-running acceptance test with same config...");
 

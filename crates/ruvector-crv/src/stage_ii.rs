@@ -100,9 +100,7 @@ impl StageIIEncoder {
     /// attends over all impressions to produce the fused output.
     pub fn encode(&self, data: &StageIIData) -> CrvResult<Vec<f32>> {
         if data.impressions.is_empty() {
-            return Err(CrvError::EmptyInput(
-                "No sensory impressions".to_string(),
-            ));
+            return Err(CrvError::EmptyInput("No sensory impressions".to_string()));
         }
 
         // If a pre-computed feature vector exists, use it

@@ -161,11 +161,7 @@ impl SolverRouter {
     ///
     /// This is a pure function with no side effects -- it does not touch the
     /// matrix data, only the precomputed profile.
-    pub fn select_algorithm(
-        &self,
-        profile: &SparsityProfile,
-        query: &QueryType,
-    ) -> Algorithm {
+    pub fn select_algorithm(&self, profile: &SparsityProfile, query: &QueryType) -> Algorithm {
         match query {
             // ----------------------------------------------------------
             // Linear system: Neumann > CG > BMSSP
@@ -231,8 +227,7 @@ impl SolverRouter {
     fn route_linear_system(&self, profile: &SparsityProfile) -> Algorithm {
         if profile.is_diag_dominant
             && profile.density < self.config.sparsity_sublinear_threshold
-            && profile.estimated_spectral_radius
-                < self.config.neumann_spectral_radius_threshold
+            && profile.estimated_spectral_radius < self.config.neumann_spectral_radius_threshold
         {
             debug!(
                 density = profile.density,
@@ -397,9 +392,8 @@ impl SolverOrchestrator {
             }
         }
 
-        Err(last_err.unwrap_or_else(|| {
-            SolverError::BackendError("fallback chain was empty".into())
-        }))
+        Err(last_err
+            .unwrap_or_else(|| SolverError::BackendError("fallback chain was empty".into())))
     }
 
     /// Estimate the computational complexity of solving with the routed
@@ -422,8 +416,7 @@ impl SolverOrchestrator {
                     && profile.estimated_spectral_radius < 1.0
                 {
                     let log_inv_eps = (1.0 / 1e-8_f64).ln();
-                    let log_inv_rho =
-                        (1.0 / profile.estimated_spectral_radius).ln();
+                    let log_inv_rho = (1.0 / profile.estimated_spectral_radius).ln();
                     (log_inv_eps / log_inv_rho).ceil() as usize
                 } else {
                     1000
@@ -438,22 +431,17 @@ impl SolverOrchestrator {
                 let iters = ((n as f64).sqrt()).ceil() as usize;
                 (iters, ComplexityClass::SublinearNnz)
             }
-            Algorithm::HybridRandomWalk => {
-                (n.min(1000), ComplexityClass::Linear)
-            }
+            Algorithm::HybridRandomWalk => (n.min(1000), ComplexityClass::Linear),
             Algorithm::TRUE => {
                 let iters = (profile.estimated_condition.sqrt()).ceil() as usize;
                 (iters.min(1000), ComplexityClass::SqrtCondition)
             }
             Algorithm::BMSSP => {
-                let iters = (profile.estimated_condition.sqrt().ln())
-                    .ceil() as usize;
+                let iters = (profile.estimated_condition.sqrt().ln()).ceil() as usize;
                 (iters.max(1).min(1000), ComplexityClass::Linear)
             }
             Algorithm::Dense => (1, ComplexityClass::Cubic),
-            Algorithm::Jacobi | Algorithm::GaussSeidel => {
-                (1000, ComplexityClass::Linear)
-            }
+            Algorithm::Jacobi | Algorithm::GaussSeidel => (1000, ComplexityClass::Linear),
         };
 
         let estimated_flops = match algorithm {
@@ -461,20 +449,14 @@ impl SolverOrchestrator {
                 let dim = n as u64;
                 (2 * dim * dim * dim) / 3
             }
-            _ => {
-                (estimated_iterations as u64)
-                    * (2 * profile.nnz as u64 + n as u64)
-            }
+            _ => (estimated_iterations as u64) * (2 * profile.nnz as u64 + n as u64),
         };
 
         let estimated_memory_bytes = match algorithm {
-            Algorithm::Dense => {
-                n * profile.cols * std::mem::size_of::<f64>()
-            }
+            Algorithm::Dense => n * profile.cols * std::mem::size_of::<f64>(),
             _ => {
                 // CSR storage + 3 work vectors.
-                let csr = profile.nnz
-                    * (std::mem::size_of::<f64>() + std::mem::size_of::<usize>())
+                let csr = profile.nnz * (std::mem::size_of::<f64>() + std::mem::size_of::<usize>())
                     + (n + 1) * std::mem::size_of::<usize>();
                 let work = 3 * n * std::mem::size_of::<f64>();
                 csr + work
@@ -563,11 +545,7 @@ impl SolverOrchestrator {
             }
         }
 
-        let avg_nnz_per_row = if n > 0 {
-            nnz as f64 / n as f64
-        } else {
-            0.0
-        };
+        let avg_nnz_per_row = if n > 0 { nnz as f64 / n as f64 } else { 0.0 };
 
         // Spectral radius of Jacobi iteration matrix D^{-1}(L+U).
         let estimated_spectral_radius = if n > 0 {
@@ -638,10 +616,8 @@ impl SolverOrchestrator {
             Algorithm::Neumann => {
                 #[cfg(feature = "neumann")]
                 {
-                    let solver = crate::neumann::NeumannSolver::new(
-                        budget.tolerance,
-                        budget.max_iterations,
-                    );
+                    let solver =
+                        crate::neumann::NeumannSolver::new(budget.tolerance, budget.max_iterations);
                     SolverEngine::solve(&solver, matrix, rhs, budget)
                 }
                 #[cfg(not(feature = "neumann"))]
@@ -656,8 +632,11 @@ impl SolverOrchestrator {
             Algorithm::CG => {
                 #[cfg(feature = "cg")]
                 {
-                    let solver =
-                        crate::cg::ConjugateGradientSolver::new(budget.tolerance, budget.max_iterations, false);
+                    let solver = crate::cg::ConjugateGradientSolver::new(
+                        budget.tolerance,
+                        budget.max_iterations,
+                        false,
+                    );
                     solver.solve(matrix, rhs, budget)
                 }
                 #[cfg(not(feature = "cg"))]
@@ -671,12 +650,7 @@ impl SolverOrchestrator {
             Algorithm::ForwardPush => {
                 #[cfg(feature = "forward-push")]
                 {
-                    self.solve_jacobi_fallback(
-                        Algorithm::ForwardPush,
-                        matrix,
-                        rhs,
-                        budget,
-                    )
+                    self.solve_jacobi_fallback(Algorithm::ForwardPush, matrix, rhs, budget)
                 }
                 #[cfg(not(feature = "forward-push"))]
                 {
@@ -690,12 +664,7 @@ impl SolverOrchestrator {
             Algorithm::BackwardPush => {
                 #[cfg(feature = "backward-push")]
                 {
-                    self.solve_jacobi_fallback(
-                        Algorithm::BackwardPush,
-                        matrix,
-                        rhs,
-                        budget,
-                    )
+                    self.solve_jacobi_fallback(Algorithm::BackwardPush, matrix, rhs, budget)
                 }
                 #[cfg(not(feature = "backward-push"))]
                 {
@@ -709,12 +678,7 @@ impl SolverOrchestrator {
             Algorithm::HybridRandomWalk => {
                 #[cfg(feature = "hybrid-random-walk")]
                 {
-                    self.solve_jacobi_fallback(
-                        Algorithm::HybridRandomWalk,
-                        matrix,
-                        rhs,
-                        budget,
-                    )
+                    self.solve_jacobi_fallback(Algorithm::HybridRandomWalk, matrix, rhs, budget)
                 }
                 #[cfg(not(feature = "hybrid-random-walk"))]
                 {
@@ -729,10 +693,8 @@ impl SolverOrchestrator {
                 #[cfg(feature = "true-solver")]
                 {
                     // TRUE for a single RHS degrades to Neumann.
-                    let solver = crate::neumann::NeumannSolver::new(
-                        budget.tolerance,
-                        budget.max_iterations,
-                    );
+                    let solver =
+                        crate::neumann::NeumannSolver::new(budget.tolerance, budget.max_iterations);
                     let mut result = SolverEngine::solve(&solver, matrix, rhs, budget)?;
                     result.algorithm = Algorithm::TRUE;
                     Ok(result)
@@ -749,12 +711,7 @@ impl SolverOrchestrator {
             Algorithm::BMSSP => {
                 #[cfg(feature = "bmssp")]
                 {
-                    self.solve_jacobi_fallback(
-                        Algorithm::BMSSP,
-                        matrix,
-                        rhs,
-                        budget,
-                    )
+                    self.solve_jacobi_fallback(Algorithm::BMSSP, matrix, rhs, budget)
                 }
                 #[cfg(not(feature = "bmssp"))]
                 {
@@ -768,16 +725,9 @@ impl SolverOrchestrator {
             Algorithm::Dense => self.solve_dense(matrix, rhs, budget),
 
             // ----- Legacy iterative solvers --------------------------------
-            Algorithm::Jacobi => {
-                self.solve_jacobi_fallback(Algorithm::Jacobi, matrix, rhs, budget)
-            }
+            Algorithm::Jacobi => self.solve_jacobi_fallback(Algorithm::Jacobi, matrix, rhs, budget),
             Algorithm::GaussSeidel => {
-                self.solve_jacobi_fallback(
-                    Algorithm::GaussSeidel,
-                    matrix,
-                    rhs,
-                    budget,
-                )
+                self.solve_jacobi_fallback(Algorithm::GaussSeidel, matrix, rhs, budget)
             }
         }
     }
@@ -842,8 +792,7 @@ impl SolverOrchestrator {
             if p_dot_ap.abs() < 1e-30 {
                 return Err(SolverError::NumericalInstability {
                     iteration: iter,
-                    detail: "CG: p^T A p near zero (matrix may not be SPD)"
-                        .into(),
+                    detail: "CG: p^T A p near zero (matrix may not be SPD)".into(),
                 });
             }
 
@@ -1034,10 +983,7 @@ impl SolverOrchestrator {
             if d.abs() < 1e-30 {
                 return Err(SolverError::NumericalInstability {
                     iteration: 0,
-                    detail: format!(
-                        "zero or near-zero diagonal at row {} (val={:.2e})",
-                        i, d
-                    ),
+                    detail: format!("zero or near-zero diagonal at row {} (val={:.2e})", i, d),
                 });
             }
         }
@@ -1130,11 +1076,14 @@ impl Default for SolverOrchestrator {
 #[inline]
 #[allow(dead_code)]
 fn dot(a: &[f64], b: &[f64]) -> f64 {
-    assert_eq!(a.len(), b.len(), "dot: length mismatch {} vs {}", a.len(), b.len());
-    a.iter()
-        .zip(b.iter())
-        .map(|(&ai, &bi)| ai * bi)
-        .sum()
+    assert_eq!(
+        a.len(),
+        b.len(),
+        "dot: length mismatch {} vs {}",
+        a.len(),
+        b.len()
+    );
+    a.iter().zip(b.iter()).map(|(&ai, &bi)| ai * bi).sum()
 }
 
 /// Validate that a matrix is square.
@@ -1151,10 +1100,7 @@ fn validate_square(matrix: &CsrMatrix<f64>) -> Result<(), SolverError> {
 }
 
 /// Validate that the RHS vector length matches the matrix dimension.
-fn validate_rhs_len(
-    matrix: &CsrMatrix<f64>,
-    rhs: &[f64],
-) -> Result<(), SolverError> {
+fn validate_rhs_len(matrix: &CsrMatrix<f64>, rhs: &[f64]) -> Result<(), SolverError> {
     if rhs.len() != matrix.rows {
         return Err(SolverError::InvalidInput(
             crate::error::ValidationError::DimensionMismatch(format!(
@@ -1286,10 +1232,7 @@ mod tests {
         };
 
         assert_eq!(
-            router.select_algorithm(
-                &profile,
-                &QueryType::PageRankSingle { source: 0 }
-            ),
+            router.select_algorithm(&profile, &QueryType::PageRankSingle { source: 0 }),
             Algorithm::ForwardPush
         );
     }
@@ -1394,10 +1337,7 @@ mod tests {
         };
 
         assert_eq!(
-            router.select_algorithm(
-                &profile,
-                &QueryType::BatchLinearSystem { batch_size: 200 }
-            ),
+            router.select_algorithm(&profile, &QueryType::BatchLinearSystem { batch_size: 200 }),
             Algorithm::TRUE
         );
     }
@@ -1419,10 +1359,7 @@ mod tests {
         };
 
         assert_eq!(
-            router.select_algorithm(
-                &profile,
-                &QueryType::BatchLinearSystem { batch_size: 50 }
-            ),
+            router.select_algorithm(&profile, &QueryType::BatchLinearSystem { batch_size: 50 }),
             Algorithm::CG
         );
     }
@@ -1539,12 +1476,7 @@ mod tests {
             .unwrap();
 
         for (x, b) in result.solution.iter().zip(rhs.iter()) {
-            assert!(
-                (*x as f64 - b).abs() < 1e-4,
-                "expected {}, got {}",
-                b,
-                x
-            );
+            assert!((*x as f64 - b).abs() < 1e-4, "expected {}, got {}", b, x);
         }
     }
 
@@ -1570,12 +1502,7 @@ mod tests {
         let budget = default_budget();
 
         let result = orchestrator
-            .solve_with_fallback(
-                &matrix,
-                &rhs,
-                QueryType::LinearSystem,
-                &budget,
-            )
+            .solve_with_fallback(&matrix, &rhs, QueryType::LinearSystem, &budget)
             .unwrap();
 
         assert!(result.residual_norm < 1e-6);
@@ -1588,12 +1515,7 @@ mod tests {
         let rhs = vec![1.0_f64, 2.0]; // wrong length
         let budget = default_budget();
 
-        let result = orchestrator.solve(
-            &matrix,
-            &rhs,
-            QueryType::LinearSystem,
-            &budget,
-        );
+        let result = orchestrator.solve(&matrix, &rhs, QueryType::LinearSystem, &budget);
         assert!(result.is_err());
     }
 
@@ -1602,8 +1524,7 @@ mod tests {
         let orchestrator = SolverOrchestrator::new(RouterConfig::default());
         let matrix = diag_dominant_3x3();
 
-        let estimate =
-            orchestrator.estimate_complexity(&matrix, &QueryType::LinearSystem);
+        let estimate = orchestrator.estimate_complexity(&matrix, &QueryType::LinearSystem);
 
         assert!(estimate.estimated_flops > 0);
         assert!(estimate.estimated_memory_bytes > 0);
@@ -1618,8 +1539,7 @@ mod tests {
         let chain = SolverOrchestrator::build_fallback_chain(Algorithm::Dense);
         assert_eq!(chain, vec![Algorithm::Dense, Algorithm::CG]);
 
-        let chain =
-            SolverOrchestrator::build_fallback_chain(Algorithm::Neumann);
+        let chain = SolverOrchestrator::build_fallback_chain(Algorithm::Neumann);
         assert_eq!(
             chain,
             vec![Algorithm::Neumann, Algorithm::CG, Algorithm::Dense]
@@ -1648,9 +1568,7 @@ mod tests {
         let rhs = vec![1.0_f64, 2.0, 3.0];
         let budget = default_budget();
 
-        let result = orchestrator
-            .solve_dense(&matrix, &rhs, &budget)
-            .unwrap();
+        let result = orchestrator.solve_dense(&matrix, &rhs, &budget).unwrap();
 
         assert!(result.residual_norm < 1e-4);
         assert_eq!(result.algorithm, Algorithm::Dense);
@@ -1682,15 +1600,9 @@ mod tests {
         let cg_result = orchestrator
             .solve_cg_inline(&matrix, &rhs, &budget)
             .unwrap();
-        let dense_result = orchestrator
-            .solve_dense(&matrix, &rhs, &budget)
-            .unwrap();
+        let dense_result = orchestrator.solve_dense(&matrix, &rhs, &budget).unwrap();
 
-        for (cg_x, dense_x) in cg_result
-            .solution
-            .iter()
-            .zip(dense_result.solution.iter())
-        {
+        for (cg_x, dense_x) in cg_result.solution.iter().zip(dense_result.solution.iter()) {
             assert!(
                 (cg_x - dense_x).abs() < 1e-3,
                 "CG={} vs Dense={}",

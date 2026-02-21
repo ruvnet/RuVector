@@ -4,8 +4,8 @@
 //! that track file derivation history through witness chain entries.
 
 use rvf_types::{
-    DerivationType, ErrorCode, FileIdentity, LineageRecord, RvfError,
-    LINEAGE_RECORD_SIZE, WITNESS_DERIVATION,
+    DerivationType, ErrorCode, FileIdentity, LineageRecord, RvfError, LINEAGE_RECORD_SIZE,
+    WITNESS_DERIVATION,
 };
 
 use crate::hash::shake256_256;
@@ -28,7 +28,9 @@ pub fn lineage_record_to_bytes(record: &LineageRecord) -> [u8; LINEAGE_RECORD_SI
 }
 
 /// Deserialize a `LineageRecord` from a 128-byte slice.
-pub fn lineage_record_from_bytes(data: &[u8; LINEAGE_RECORD_SIZE]) -> Result<LineageRecord, RvfError> {
+pub fn lineage_record_from_bytes(
+    data: &[u8; LINEAGE_RECORD_SIZE],
+) -> Result<LineageRecord, RvfError> {
     let mut file_id = [0u8; 16];
     file_id.copy_from_slice(&data[0x00..0x10]);
     let mut parent_id = [0u8; 16];
@@ -36,8 +38,8 @@ pub fn lineage_record_from_bytes(data: &[u8; LINEAGE_RECORD_SIZE]) -> Result<Lin
     let mut parent_hash = [0u8; 32];
     parent_hash.copy_from_slice(&data[0x20..0x40]);
 
-    let derivation_type = DerivationType::try_from(data[0x40])
-        .map_err(|v| RvfError::InvalidEnumValue {
+    let derivation_type =
+        DerivationType::try_from(data[0x40]).map_err(|v| RvfError::InvalidEnumValue {
             type_name: "DerivationType",
             value: v as u64,
         })?;
@@ -85,9 +87,7 @@ pub fn compute_manifest_hash(manifest: &[u8; 4096]) -> [u8; 32] {
 /// hash of the corresponding parent's manifest bytes.
 ///
 /// Takes pairs of (FileIdentity, manifest_hash) in order from root to leaf.
-pub fn verify_lineage_chain(
-    entries: &[(FileIdentity, [u8; 32])],
-) -> Result<(), RvfError> {
+pub fn verify_lineage_chain(entries: &[(FileIdentity, [u8; 32])]) -> Result<(), RvfError> {
     if entries.is_empty() {
         return Ok(());
     }
@@ -237,7 +237,10 @@ mod tests {
             lineage_depth: 1,
         };
         let result = verify_lineage_chain(&[(root, root_hash), (child, [0xBBu8; 32])]);
-        assert!(matches!(result, Err(RvfError::Code(ErrorCode::ParentHashMismatch))));
+        assert!(matches!(
+            result,
+            Err(RvfError::Code(ErrorCode::ParentHashMismatch))
+        ));
     }
 
     #[test]

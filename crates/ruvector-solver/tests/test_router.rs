@@ -132,10 +132,7 @@ fn test_router_selects_push_for_pagerank() {
     };
 
     // Single-source PageRank always routes to ForwardPush.
-    let algo_single = router.select_algorithm(
-        &profile,
-        &QueryType::PageRankSingle { source: 0 },
-    );
+    let algo_single = router.select_algorithm(&profile, &QueryType::PageRankSingle { source: 0 });
     assert_eq!(
         algo_single,
         Algorithm::ForwardPush,
@@ -146,7 +143,10 @@ fn test_router_selects_push_for_pagerank() {
     // routes to HybridRandomWalk.
     let algo_pairwise_large = router.select_algorithm(
         &profile,
-        &QueryType::PageRankPairwise { source: 0, target: 100 },
+        &QueryType::PageRankPairwise {
+            source: 0,
+            target: 100,
+        },
     );
     assert_eq!(
         algo_pairwise_large,
@@ -164,7 +164,10 @@ fn test_router_selects_push_for_pagerank() {
     };
     let algo_pairwise_small = router.select_algorithm(
         &small_profile,
-        &QueryType::PageRankPairwise { source: 0, target: 10 },
+        &QueryType::PageRankPairwise {
+            source: 0,
+            target: 10,
+        },
     );
     assert_eq!(
         algo_pairwise_small,
@@ -217,15 +220,14 @@ fn test_router_fallback_chain() {
     // Verify the fallback chain deduplication: CG primary should give [CG, Dense].
     // Neumann primary should give [Neumann, CG, Dense].
     let profile = SolverOrchestrator::analyze_sparsity(&matrix);
-    let selected = orchestrator.router().select_algorithm(&profile, &QueryType::LinearSystem);
+    let selected = orchestrator
+        .router()
+        .select_algorithm(&profile, &QueryType::LinearSystem);
 
     // The selected algorithm for a diag-dominant sparse low-rho matrix should
     // be Neumann, and the fallback chain should include CG and Dense.
     // Just verify the solve succeeded, which proves fallback works end-to-end.
-    assert!(
-        result.solution.len() == 4,
-        "solution should have 4 entries"
-    );
+    assert!(result.solution.len() == 4, "solution should have 4 entries");
 
     // Test that solve_with_fallback also works on an SPD system that routes
     // to CG. The fallback chain [CG, Dense] should handle it.

@@ -18,15 +18,30 @@ use ruqu_core::state::QuantumState;
 #[derive(Debug, Clone)]
 pub enum ExpectedProperty {
     /// P(qubit = 0) ≈ expected ± tolerance
-    ProbabilityZero { qubit: u32, expected: f64, tolerance: f64 },
+    ProbabilityZero {
+        qubit: u32,
+        expected: f64,
+        tolerance: f64,
+    },
     /// P(qubit = 1) ≈ expected ± tolerance
-    ProbabilityOne { qubit: u32, expected: f64, tolerance: f64 },
+    ProbabilityOne {
+        qubit: u32,
+        expected: f64,
+        tolerance: f64,
+    },
     /// Two qubits are entangled: P(same outcome) > min_correlation
-    Entangled { qubit_a: u32, qubit_b: u32, min_correlation: f64 },
+    Entangled {
+        qubit_a: u32,
+        qubit_b: u32,
+        min_correlation: f64,
+    },
     /// Qubit is in equal superposition: P(1) ≈ 0.5 ± tolerance
     EqualSuperposition { qubit: u32, tolerance: f64 },
     /// Full probability distribution matches ± tolerance
-    InterferencePattern { probabilities: Vec<f64>, tolerance: f64 },
+    InterferencePattern {
+        probabilities: Vec<f64>,
+        tolerance: f64,
+    },
 }
 
 /// A quantum reality check: a named verification experiment.
@@ -62,7 +77,11 @@ where
     let probs = state.probabilities();
 
     match &check.expected {
-        ExpectedProperty::ProbabilityZero { qubit, expected, tolerance } => {
+        ExpectedProperty::ProbabilityZero {
+            qubit,
+            expected,
+            tolerance,
+        } => {
             let p0 = 1.0 - state.probability_of_qubit(*qubit);
             let pass = (p0 - expected).abs() <= *tolerance;
             Ok(CheckResult {
@@ -70,10 +89,17 @@ where
                 passed: pass,
                 measured_value: p0,
                 expected_value: *expected,
-                detail: format!("P(q{}=0) = {:.6}, expected {:.6} +/- {:.6}", qubit, p0, expected, tolerance),
+                detail: format!(
+                    "P(q{}=0) = {:.6}, expected {:.6} +/- {:.6}",
+                    qubit, p0, expected, tolerance
+                ),
             })
         }
-        ExpectedProperty::ProbabilityOne { qubit, expected, tolerance } => {
+        ExpectedProperty::ProbabilityOne {
+            qubit,
+            expected,
+            tolerance,
+        } => {
             let p1 = state.probability_of_qubit(*qubit);
             let pass = (p1 - expected).abs() <= *tolerance;
             Ok(CheckResult {
@@ -81,10 +107,17 @@ where
                 passed: pass,
                 measured_value: p1,
                 expected_value: *expected,
-                detail: format!("P(q{}=1) = {:.6}, expected {:.6} +/- {:.6}", qubit, p1, expected, tolerance),
+                detail: format!(
+                    "P(q{}=1) = {:.6}, expected {:.6} +/- {:.6}",
+                    qubit, p1, expected, tolerance
+                ),
             })
         }
-        ExpectedProperty::Entangled { qubit_a, qubit_b, min_correlation } => {
+        ExpectedProperty::Entangled {
+            qubit_a,
+            qubit_b,
+            min_correlation,
+        } => {
             // Correlation = P(same outcome) = P(00) + P(11)
             let bit_a = 1usize << qubit_a;
             let bit_b = 1usize << qubit_b;
@@ -102,7 +135,10 @@ where
                 passed: pass,
                 measured_value: p_same,
                 expected_value: *min_correlation,
-                detail: format!("P(q{}==q{}) = {:.6}, min {:.6}", qubit_a, qubit_b, p_same, min_correlation),
+                detail: format!(
+                    "P(q{}==q{}) = {:.6}, min {:.6}",
+                    qubit_a, qubit_b, p_same, min_correlation
+                ),
             })
         }
         ExpectedProperty::EqualSuperposition { qubit, tolerance } => {
@@ -113,10 +149,16 @@ where
                 passed: pass,
                 measured_value: p1,
                 expected_value: 0.5,
-                detail: format!("P(q{}=1) = {:.6}, expected 0.5 +/- {:.6}", qubit, p1, tolerance),
+                detail: format!(
+                    "P(q{}=1) = {:.6}, expected 0.5 +/- {:.6}",
+                    qubit, p1, tolerance
+                ),
             })
         }
-        ExpectedProperty::InterferencePattern { probabilities: expected_probs, tolerance } => {
+        ExpectedProperty::InterferencePattern {
+            probabilities: expected_probs,
+            tolerance,
+        } => {
             let max_diff: f64 = probs
                 .iter()
                 .zip(expected_probs.iter())
@@ -128,7 +170,10 @@ where
                 passed: pass,
                 measured_value: max_diff,
                 expected_value: 0.0,
-                detail: format!("max |p_measured - p_expected| = {:.6}, tolerance {:.6}", max_diff, tolerance),
+                detail: format!(
+                    "max |p_measured - p_expected| = {:.6}, tolerance {:.6}",
+                    max_diff, tolerance
+                ),
             })
         }
     }
@@ -144,7 +189,10 @@ pub fn check_superposition() -> CheckResult {
         name: "Superposition".into(),
         description: "H|0> produces equal superposition".into(),
         num_qubits: 1,
-        expected: ExpectedProperty::EqualSuperposition { qubit: 0, tolerance: 1e-10 },
+        expected: ExpectedProperty::EqualSuperposition {
+            qubit: 0,
+            tolerance: 1e-10,
+        },
     };
     run_check(&check, |state| {
         state.apply_gate(&Gate::H(0))?;
@@ -159,7 +207,11 @@ pub fn check_entanglement() -> CheckResult {
         name: "Entanglement".into(),
         description: "Bell state has perfectly correlated measurements".into(),
         num_qubits: 2,
-        expected: ExpectedProperty::Entangled { qubit_a: 0, qubit_b: 1, min_correlation: 0.99 },
+        expected: ExpectedProperty::Entangled {
+            qubit_a: 0,
+            qubit_b: 1,
+            min_correlation: 0.99,
+        },
     };
     run_check(&check, |state| {
         state.apply_gate(&Gate::H(0))?;
@@ -176,7 +228,11 @@ pub fn check_interference() -> CheckResult {
         name: "Interference".into(),
         description: "H-Z-H = X: destructive interference eliminates |0>".into(),
         num_qubits: 1,
-        expected: ExpectedProperty::ProbabilityOne { qubit: 0, expected: 1.0, tolerance: 1e-10 },
+        expected: ExpectedProperty::ProbabilityOne {
+            qubit: 0,
+            expected: 1.0,
+            tolerance: 1e-10,
+        },
     };
     run_check(&check, |state| {
         state.apply_gate(&Gate::H(0))?;
@@ -194,7 +250,11 @@ pub fn check_phase_kickback() -> CheckResult {
         name: "Phase Kickback".into(),
         description: "Deutsch oracle for f(x)=x: phase kickback produces |1> on query qubit".into(),
         num_qubits: 2,
-        expected: ExpectedProperty::ProbabilityOne { qubit: 0, expected: 1.0, tolerance: 1e-10 },
+        expected: ExpectedProperty::ProbabilityOne {
+            qubit: 0,
+            expected: 1.0,
+            tolerance: 1e-10,
+        },
     };
     run_check(&check, |state| {
         // Prepare |01⟩
@@ -220,7 +280,8 @@ pub fn check_phase_kickback() -> CheckResult {
 pub fn check_no_cloning() -> CheckResult {
     let check = RealityCheck {
         name: "No-Cloning".into(),
-        description: "CNOT cannot independently copy a superposition (produces entanglement instead)".into(),
+        description:
+            "CNOT cannot independently copy a superposition (produces entanglement instead)".into(),
         num_qubits: 2,
         expected: ExpectedProperty::InterferencePattern {
             // Bell state: P(00) = 0.5, P(01) = 0, P(10) = 0, P(11) = 0.5

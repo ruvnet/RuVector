@@ -39,11 +39,7 @@ pub trait SolverEngine: Send + Sync {
     ///
     /// Implementations should use the [`SparsityProfile`] to make a fast,
     /// heuristic prediction.
-    fn estimate_complexity(
-        &self,
-        profile: &SparsityProfile,
-        n: usize,
-    ) -> ComplexityEstimate;
+    fn estimate_complexity(&self, profile: &SparsityProfile, n: usize) -> ComplexityEstimate;
 
     /// Return the algorithm identifier for this engine.
     fn algorithm(&self) -> Algorithm;

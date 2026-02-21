@@ -297,13 +297,11 @@ impl PuzzleGenerator {
         let year_end = NaiveDate::from_ymd_opt(year, 12, 31).unwrap();
         let half = range_days / 2;
         let range_start = (target - chrono::Duration::days(half)).max(year_start);
-        let range_end =
-            (range_start + chrono::Duration::days(range_days - 1)).min(year_end);
+        let range_end = (range_start + chrono::Duration::days(range_days - 1)).min(year_end);
 
-        let mut puzzle =
-            TemporalPuzzle::new(id.clone(), format!("Find the date (puzzle {})", id))
-                .with_difficulty(difficulty)
-                .with_solutions(vec![target]);
+        let mut puzzle = TemporalPuzzle::new(id.clone(), format!("Find the date (puzzle {})", id))
+            .with_difficulty(difficulty)
+            .with_solutions(vec![target]);
 
         // Attach difficulty vector
         puzzle.difficulty_vector = Some(dv.clone());
@@ -368,7 +366,9 @@ impl PuzzleGenerator {
                 // the DayOfWeek is valid but the wider range means skip saves less
                 let wider_start = range_start - chrono::Duration::days(self.rng.gen_range(14..60));
                 let wider_end = range_end + chrono::Duration::days(self.rng.gen_range(14..60));
-                puzzle.constraints.push(TemporalConstraint::Between(wider_start, wider_end));
+                puzzle
+                    .constraints
+                    .push(TemporalConstraint::Between(wider_start, wider_end));
             }
         }
 
@@ -409,10 +409,8 @@ impl PuzzleGenerator {
         match self.rng.gen_range(0u8..3) {
             0 => {
                 // Wider Between (superset of existing range → no shrink)
-                let wider_start =
-                    range_start - chrono::Duration::days(self.rng.gen_range(10..60));
-                let wider_end =
-                    range_end + chrono::Duration::days(self.rng.gen_range(10..60));
+                let wider_start = range_start - chrono::Duration::days(self.rng.gen_range(10..60));
+                let wider_end = range_end + chrono::Duration::days(self.rng.gen_range(10..60));
                 TemporalConstraint::Between(wider_start, wider_end)
             }
             1 => {
@@ -464,8 +462,8 @@ fn difficulty_to_range_size(difficulty: u8) -> usize {
     match difficulty {
         1 => 14,
         2 => 30,
-        3 => 56,     // 8 weeks
-        4 => 84,     // 12 weeks
+        3 => 56, // 8 weeks
+        4 => 84, // 12 weeks
         5 => 120,
         6 => 150,
         7 => 200,

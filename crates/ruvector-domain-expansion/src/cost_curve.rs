@@ -285,7 +285,11 @@ impl AccelerationScoreboard {
                 domain_id: id.clone(),
                 total_cycles: curve.points.last().map(|p| p.cycle).unwrap_or(0),
                 final_accuracy: curve.points.last().map(|p| p.accuracy).unwrap_or(0.0),
-                final_cost: curve.points.last().map(|p| p.cost_per_solve).unwrap_or(f32::MAX),
+                final_cost: curve
+                    .points
+                    .last()
+                    .map(|p| p.cost_per_solve)
+                    .unwrap_or(f32::MAX),
                 converged: curve.has_converged(),
                 cycles_to_convergence: curve.cycles_to_convergence(),
                 compression_ratio: curve.compression_ratio(),
@@ -296,7 +300,10 @@ impl AccelerationScoreboard {
         let overall_acceleration = if self.accelerations.is_empty() {
             1.0
         } else {
-            self.accelerations.iter().map(|a| a.acceleration).sum::<f32>()
+            self.accelerations
+                .iter()
+                .map(|a| a.acceleration)
+                .sum::<f32>()
                 / self.accelerations.len() as f32
         };
 
@@ -342,11 +349,7 @@ pub struct ScoreboardSummary {
 mod tests {
     use super::*;
 
-    fn make_curve(
-        domain: &str,
-        transfer: bool,
-        accuracy_steps: &[(u64, f32, f32)],
-    ) -> CostCurve {
+    fn make_curve(domain: &str, transfer: bool, accuracy_steps: &[(u64, f32, f32)]) -> CostCurve {
         let mut curve = if transfer {
             CostCurve::with_transfer(
                 DomainId(domain.into()),
@@ -398,8 +401,11 @@ mod tests {
 
     #[test]
     fn test_compression_ratio() {
-        let curve =
-            make_curve("test", false, &[(0, 0.3, 1.0), (10, 0.6, 0.5), (20, 0.9, 0.1)]);
+        let curve = make_curve(
+            "test",
+            false,
+            &[(0, 0.3, 1.0), (10, 0.6, 0.5), (20, 0.9, 0.1)],
+        );
 
         let ratio = curve.compression_ratio();
         assert!((ratio - 10.0).abs() < 1e-4); // 1.0 / 0.1 = 10x

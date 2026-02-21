@@ -246,10 +246,18 @@ impl TemporalSolver {
 
         for c in &puzzle.constraints {
             match c {
-                TemporalConstraint::InMonth(m) => { target_month = Some(*m); }
-                TemporalConstraint::DayOfMonth(d) => { target_dom = Some(*d); }
-                TemporalConstraint::DayOfWeek(w) => { target_dow = Some(*w); }
-                TemporalConstraint::InYear(y) => { target_year = Some(*y); }
+                TemporalConstraint::InMonth(m) => {
+                    target_month = Some(*m);
+                }
+                TemporalConstraint::DayOfMonth(d) => {
+                    target_dom = Some(*d);
+                }
+                TemporalConstraint::DayOfWeek(w) => {
+                    target_dow = Some(*w);
+                }
+                TemporalConstraint::InYear(y) => {
+                    target_year = Some(*y);
+                }
                 _ => {}
             }
         }
@@ -260,12 +268,15 @@ impl TemporalSolver {
             let month_end = if m == 12 {
                 NaiveDate::from_ymd_opt(y, 12, 31)
             } else {
-                NaiveDate::from_ymd_opt(y, m + 1, 1)
-                    .and_then(|d| d.pred_opt())
+                NaiveDate::from_ymd_opt(y, m + 1, 1).and_then(|d| d.pred_opt())
             };
             if let (Some(ms), Some(me)) = (month_start, month_end) {
-                if ms > start { start = ms; }
-                if me < end { end = me; }
+                if ms > start {
+                    start = ms;
+                }
+                if me < end {
+                    end = me;
+                }
             }
         } else if let Some(m) = target_month {
             // Month without year: tighten to first occurrence in range
@@ -277,11 +288,12 @@ impl TemporalSolver {
                     let me = if m == 12 {
                         NaiveDate::from_ymd_opt(year, 12, 31)
                     } else {
-                        NaiveDate::from_ymd_opt(year, m + 1, 1)
-                            .and_then(|d| d.pred_opt())
+                        NaiveDate::from_ymd_opt(year, m + 1, 1).and_then(|d| d.pred_opt())
                     };
                     if let Some(me) = me {
-                        if me < end { end = me; }
+                        if me < end {
+                            end = me;
+                        }
                     }
                 }
             }
@@ -301,14 +313,22 @@ impl TemporalSolver {
                                 candidates.push(d);
                             }
                         }
-                        if d > end { break; }
+                        if d > end {
+                            break;
+                        }
                     }
                     // Next month
                     m += 1;
-                    if m > 12 { m = 1; y += 1; }
+                    if m > 12 {
+                        m = 1;
+                        y += 1;
+                    }
                     if NaiveDate::from_ymd_opt(y, m, 1)
                         .map(|d| d > end)
-                        .unwrap_or(true) { break; }
+                        .unwrap_or(true)
+                    {
+                        break;
+                    }
                 }
                 if !candidates.is_empty() {
                     return (start, end, candidates);
@@ -383,8 +403,10 @@ impl TemporalSolver {
             let correct = if puzzle.solutions.is_empty() {
                 true
             } else {
-                puzzle.solutions.iter().all(|s|
-                    direct_candidates.contains(s) || *s < prop_start || *s > prop_end)
+                puzzle
+                    .solutions
+                    .iter()
+                    .all(|s| direct_candidates.contains(s) || *s < prop_start || *s > prop_end)
             };
 
             return Ok(SolverResult {
@@ -774,9 +796,12 @@ const COST_EMA_ALPHA: f64 = 0.1;
 impl SkipModeStats {
     /// Composite reward for backward compatibility and diagnostics.
     pub fn reward(&self) -> f64 {
-        if self.attempts == 0 { return 0.5; }
+        if self.attempts == 0 {
+            return 0.5;
+        }
         let accuracy = self.successes as f64 / self.attempts as f64;
-        let cost_bonus = 0.3 * (1.0 - (self.total_steps as f64 / self.attempts as f64) / 200.0).max(0.0);
+        let cost_bonus =
+            0.3 * (1.0 - (self.total_steps as f64 / self.attempts as f64) / 200.0).max(0.0);
         let avg_penalty = self.early_commit_penalty_sum / self.attempts as f64;
         let robustness_penalty = 0.2 * avg_penalty.min(1.0);
         (accuracy * 0.5 + cost_bonus - robustness_penalty).max(0.0)
@@ -816,8 +841,8 @@ impl SkipModeStats {
         if self.attempts <= 1 {
             self.cost_ema = normalized_steps;
         } else {
-            self.cost_ema = COST_EMA_ALPHA * normalized_steps
-                + (1.0 - COST_EMA_ALPHA) * self.cost_ema;
+            self.cost_ema =
+                COST_EMA_ALPHA * normalized_steps + (1.0 - COST_EMA_ALPHA) * self.cost_ema;
         }
     }
 }
@@ -839,7 +864,9 @@ pub enum PrepassMode {
 }
 
 impl Default for PrepassMode {
-    fn default() -> Self { PrepassMode::Off }
+    fn default() -> Self {
+        PrepassMode::Off
+    }
 }
 
 impl std::fmt::Display for PrepassMode {
@@ -930,7 +957,8 @@ impl PolicyKernel {
         if !ctx.has_day_of_week {
             return SkipMode::None;
         }
-        let effective_range = ctx.posterior_range
+        let effective_range = ctx
+            .posterior_range
             .saturating_sub(Self::BASELINE_K * ctx.distractor_count);
         if effective_range >= Self::BASELINE_T {
             SkipMode::Weekday
@@ -973,27 +1001,36 @@ impl PolicyKernel {
         // Collect sampling params before borrowing self for sampling
         let params: Vec<(SkipMode, f64, f64, f64)> = {
             let stats_map = self.context_stats.entry(bucket).or_default();
-            modes.iter().map(|mode_name| {
-                let stats = stats_map.get(*mode_name).cloned().unwrap_or_default();
-                let (alpha, beta) = stats.safety_beta();
-                let mode = match *mode_name {
-                    "weekday" => SkipMode::Weekday,
-                    "hybrid" => SkipMode::Hybrid,
-                    _ => SkipMode::None,
-                };
-                (mode, alpha, beta, stats.cost_ema)
-            }).collect()
+            modes
+                .iter()
+                .map(|mode_name| {
+                    let stats = stats_map.get(*mode_name).cloned().unwrap_or_default();
+                    let (alpha, beta) = stats.safety_beta();
+                    let mode = match *mode_name {
+                        "weekday" => SkipMode::Weekday,
+                        "hybrid" => SkipMode::Hybrid,
+                        _ => SkipMode::None,
+                    };
+                    (mode, alpha, beta, stats.cost_ema)
+                })
+                .collect()
         };
 
         // Sample and score (now safe to borrow self mutably for RNG)
-        let mut scored: Vec<(SkipMode, f64)> = params.into_iter().map(|(mode, alpha, beta, cost_ema)| {
-            let safety_sample = self.sample_beta(alpha, beta);
-            let score = safety_sample - THOMPSON_LAMBDA * cost_ema;
-            (mode, score)
-        }).collect();
+        let mut scored: Vec<(SkipMode, f64)> = params
+            .into_iter()
+            .map(|(mode, alpha, beta, cost_ema)| {
+                let safety_sample = self.sample_beta(alpha, beta);
+                let score = safety_sample - THOMPSON_LAMBDA * cost_ema;
+                (mode, score)
+            })
+            .collect();
 
         scored.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
-        scored.first().map(|(m, _)| m.clone()).unwrap_or(SkipMode::None)
+        scored
+            .first()
+            .map(|(m, _)| m.clone())
+            .unwrap_or(SkipMode::None)
     }
 
     /// Check if speculation is warranted for Mode C.
@@ -1019,25 +1056,31 @@ impl PolicyKernel {
         // Collect params first to avoid double mutable borrow
         let params: Vec<(SkipMode, f64, f64, f64, f64)> = {
             let stats_map = self.context_stats.entry(bucket).or_default();
-            modes.iter().map(|mode_name| {
-                let stats = stats_map.get(*mode_name).cloned().unwrap_or_default();
-                let (alpha, beta) = stats.safety_beta();
-                let variance = stats.safety_variance();
-                let mode = match *mode_name {
-                    "weekday" => SkipMode::Weekday,
-                    "hybrid" => SkipMode::Hybrid,
-                    _ => SkipMode::None,
-                };
-                (mode, alpha, beta, stats.cost_ema, variance)
-            }).collect()
+            modes
+                .iter()
+                .map(|mode_name| {
+                    let stats = stats_map.get(*mode_name).cloned().unwrap_or_default();
+                    let (alpha, beta) = stats.safety_beta();
+                    let variance = stats.safety_variance();
+                    let mode = match *mode_name {
+                        "weekday" => SkipMode::Weekday,
+                        "hybrid" => SkipMode::Hybrid,
+                        _ => SkipMode::None,
+                    };
+                    (mode, alpha, beta, stats.cost_ema, variance)
+                })
+                .collect()
         };
 
         // Now sample with self.sample_beta() — no conflicting borrow
-        let mut scored: Vec<(SkipMode, f64, f64)> = params.into_iter().map(|(mode, alpha, beta, cost_ema, variance)| {
-            let safety_sample = self.sample_beta(alpha, beta);
-            let score = safety_sample - THOMPSON_LAMBDA * cost_ema;
-            (mode, score, variance)
-        }).collect();
+        let mut scored: Vec<(SkipMode, f64, f64)> = params
+            .into_iter()
+            .map(|(mode, alpha, beta, cost_ema, variance)| {
+                let safety_sample = self.sample_beta(alpha, beta);
+                let score = safety_sample - THOMPSON_LAMBDA * cost_ema;
+                (mode, score, variance)
+            })
+            .collect();
 
         scored.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
 
@@ -1065,7 +1108,9 @@ impl PolicyKernel {
         // Use the gamma ratio method: Beta(a,b) = X/(X+Y) where X~Gamma(a), Y~Gamma(b)
         let x = self.sample_gamma(alpha);
         let y = self.sample_gamma(beta);
-        if x + y == 0.0 { return 0.5; }
+        if x + y == 0.0 {
+            return 0.5;
+        }
         x / (x + y)
     }
 
@@ -1083,7 +1128,9 @@ impl PolicyKernel {
         loop {
             let x = self.next_standard_normal();
             let v = (1.0 + c * x).powi(3);
-            if v <= 0.0 { continue; }
+            if v <= 0.0 {
+                continue;
+            }
 
             let u = self.next_f64().max(1e-10);
 
@@ -1122,7 +1169,9 @@ impl PolicyKernel {
         let stats = stats_map.entry(mode_name).or_default();
         stats.attempts += 1;
         stats.total_steps += outcome.steps;
-        if outcome.correct { stats.successes += 1; }
+        if outcome.correct {
+            stats.successes += 1;
+        }
 
         // Update two-signal model
         // Signal 1: safety posterior
@@ -1149,7 +1198,9 @@ impl PolicyKernel {
 
     /// Early commit penalty rate.
     pub fn early_commit_rate(&self) -> f64 {
-        if self.early_commits_total == 0 { return 0.0; }
+        if self.early_commits_total == 0 {
+            return 0.0;
+        }
         self.early_commits_wrong as f64 / self.early_commits_total as f64
     }
 
@@ -1180,7 +1231,9 @@ impl PolicyKernel {
 
     fn next_f64(&mut self) -> f64 {
         let mut x = self.rng_state.max(1);
-        x ^= x << 13; x ^= x >> 7; x ^= x << 17;
+        x ^= x << 13;
+        x ^= x >> 7;
+        x ^= x << 17;
         self.rng_state = x;
         (x as f64) / (u64::MAX as f64)
     }
@@ -1189,9 +1242,12 @@ impl PolicyKernel {
     pub fn print_diagnostics(&self) {
         println!();
         println!("  PolicyKernel Diagnostics (Thompson Sampling, two-signal)");
-        println!("  Early commits: {}/{} wrong ({:.1}%)",
-            self.early_commits_wrong, self.early_commits_total,
-            self.early_commit_rate() * 100.0);
+        println!(
+            "  Early commits: {}/{} wrong ({:.1}%)",
+            self.early_commits_wrong,
+            self.early_commits_total,
+            self.early_commit_rate() * 100.0
+        );
         println!("  Accumulated penalty: {:.2}", self.early_commit_penalties);
         println!("  Prepass mode: {}", self.prepass);
         if self.prepass_metrics.invocations > 0 {
@@ -1200,9 +1256,12 @@ impl PolicyKernel {
                 self.prepass_metrics.pruned_candidates, self.prepass_metrics.scan_steps_saved);
         }
         if self.speculative_attempts > 0 {
-            println!("  Speculation: {} attempts, {} arm2 wins ({:.0}%)",
-                self.speculative_attempts, self.speculative_arm2_wins,
-                self.speculative_arm2_wins as f64 / self.speculative_attempts as f64 * 100.0);
+            println!(
+                "  Speculation: {} attempts, {} arm2 wins ({:.0}%)",
+                self.speculative_attempts,
+                self.speculative_arm2_wins,
+                self.speculative_arm2_wins as f64 / self.speculative_attempts as f64 * 100.0
+            );
         }
         println!("  Context buckets: {}", self.context_stats.len());
 
@@ -1210,8 +1269,15 @@ impl PolicyKernel {
             println!("    {}", bucket);
             for (mode, stats) in modes {
                 let (a, b) = stats.safety_beta();
-                println!("      {:<8} n={:<4} safe=Beta({:.1},{:.1}) cost_ema={:.3} reward={:.3}",
-                    mode, stats.attempts, a, b, stats.cost_ema, stats.reward());
+                println!(
+                    "      {:<8} n={:<4} safe=Beta({:.1},{:.1}) cost_ema={:.3} reward={:.3}",
+                    mode,
+                    stats.attempts,
+                    a,
+                    b,
+                    stats.cost_ema,
+                    stats.reward()
+                );
             }
         }
     }
@@ -1256,7 +1322,9 @@ impl CompiledSolveConfig {
     /// Confidence: Laplace-smoothed success rate.
     pub fn confidence(&self) -> f64 {
         let total = self.hit_count + self.counterexample_count;
-        if total == 0 { return 0.5; }
+        if total == 0 {
+            return 0.5;
+        }
         (self.hit_count as f64 + 1.0) / (total as f64 + 2.0)
     }
 
@@ -1309,40 +1377,65 @@ impl KnowledgeCompiler {
     /// Build constraint signature from puzzle features.
     /// Includes version prefix for cache safety across refactors.
     pub fn signature(puzzle: &TemporalPuzzle) -> String {
-        let mut sig_parts: Vec<String> = puzzle.constraints.iter()
+        let mut sig_parts: Vec<String> = puzzle
+            .constraints
+            .iter()
             .map(|c| constraint_type_name(c))
             .collect();
         sig_parts.sort();
-        format!("{}:{}:{}", COMPILER_SIG_VERSION, puzzle.difficulty, sig_parts.join(","))
+        format!(
+            "{}:{}:{}",
+            COMPILER_SIG_VERSION,
+            puzzle.difficulty,
+            sig_parts.join(",")
+        )
     }
 
     /// Compile knowledge from a ReasoningBank's trajectories.
     pub fn compile_from_bank(&mut self, bank: &ReasoningBank) {
         for traj in &bank.trajectories {
-            let correct = traj.verdict.as_ref().map(|v| v.is_success()).unwrap_or(false);
-            if !correct { continue; }
+            let correct = traj
+                .verdict
+                .as_ref()
+                .map(|v| v.is_success())
+                .unwrap_or(false);
+            if !correct {
+                continue;
+            }
 
             // Build signature from constraint types (versioned)
             let mut sig_parts = traj.constraint_types.clone();
             sig_parts.sort();
-            let sig = format!("{}:{}:{}", COMPILER_SIG_VERSION, traj.difficulty, sig_parts.join(","));
+            let sig = format!(
+                "{}:{}:{}",
+                COMPILER_SIG_VERSION,
+                traj.difficulty,
+                sig_parts.join(",")
+            );
 
             if let Some(attempt) = traj.attempts.first() {
                 // Determine compiled skip mode from constraint types
                 let has_dow = traj.constraint_types.iter().any(|c| c == "DayOfWeek");
-                let compiled_skip = if has_dow { SkipMode::Weekday } else { SkipMode::None };
+                let compiled_skip = if has_dow {
+                    SkipMode::Weekday
+                } else {
+                    SkipMode::None
+                };
 
-                let entry = self.signature_cache.entry(sig).or_insert(CompiledSolveConfig {
-                    use_rewriting: true,
-                    max_steps: attempt.steps,
-                    avg_steps: 0.0,
-                    observations: 0,
-                    expected_correct: true,
-                    stop_after_first: true,
-                    hit_count: 0,
-                    counterexample_count: 0,
-                    compiled_skip_mode: compiled_skip,
-                });
+                let entry = self
+                    .signature_cache
+                    .entry(sig)
+                    .or_insert(CompiledSolveConfig {
+                        use_rewriting: true,
+                        max_steps: attempt.steps,
+                        avg_steps: 0.0,
+                        observations: 0,
+                        expected_correct: true,
+                        stop_after_first: true,
+                        hit_count: 0,
+                        counterexample_count: 0,
+                        compiled_skip_mode: compiled_skip,
+                    });
                 // Keep minimum steps that succeeded
                 entry.max_steps = entry.max_steps.min(attempt.steps);
                 // Running average of steps
@@ -1400,17 +1493,25 @@ impl KnowledgeCompiler {
 
     pub fn hit_rate(&self) -> f64 {
         let total = self.hits + self.misses;
-        if total == 0 { 0.0 } else { self.hits as f64 / total as f64 }
+        if total == 0 {
+            0.0
+        } else {
+            self.hits as f64 / total as f64
+        }
     }
 
-    pub fn cache_size(&self) -> usize { self.signature_cache.len() }
+    pub fn cache_size(&self) -> usize {
+        self.signature_cache.len()
+    }
 
     /// Print diagnostic summary: per-signature stats, false hit distribution.
     pub fn print_diagnostics(&self) {
         println!();
         println!("  Compiler Diagnostics (cache_size={})", self.cache_size());
-        println!("  {:<40} {:>5} {:>5} {:>6} {:>8} {:>6}",
-            "Signature", "Obs", "Hits", "Fails", "AvgStep", "Conf");
+        println!(
+            "  {:<40} {:>5} {:>5} {:>6} {:>8} {:>6}",
+            "Signature", "Obs", "Hits", "Fails", "AvgStep", "Conf"
+        );
         println!("  {}", "-".repeat(72));
 
         let mut entries: Vec<_> = self.signature_cache.iter().collect();
@@ -1418,23 +1519,50 @@ impl KnowledgeCompiler {
 
         for (sig, config) in entries.iter().take(15) {
             let short_sig = if sig.len() > 38 { &sig[..38] } else { sig };
-            println!("  {:<40} {:>5} {:>5} {:>6} {:>7.1} {:>.3}",
-                short_sig, config.observations, config.hit_count,
-                config.counterexample_count, config.avg_steps,
-                config.confidence());
+            println!(
+                "  {:<40} {:>5} {:>5} {:>6} {:>7.1} {:>.3}",
+                short_sig,
+                config.observations,
+                config.hit_count,
+                config.counterexample_count,
+                config.avg_steps,
+                config.confidence()
+            );
         }
 
         // Summary
         let total_configs = self.signature_cache.len();
-        let disabled = self.signature_cache.values().filter(|c| !c.expected_correct).count();
-        let total_false_hits: usize = self.signature_cache.values().map(|c| c.counterexample_count).sum();
-        let false_hit_sigs = self.signature_cache.values().filter(|c| c.counterexample_count > 0).count();
+        let disabled = self
+            .signature_cache
+            .values()
+            .filter(|c| !c.expected_correct)
+            .count();
+        let total_false_hits: usize = self
+            .signature_cache
+            .values()
+            .map(|c| c.counterexample_count)
+            .sum();
+        let false_hit_sigs = self
+            .signature_cache
+            .values()
+            .filter(|c| c.counterexample_count > 0)
+            .count();
 
         println!();
-        println!("  Total signatures: {}, disabled: {}", total_configs, disabled);
-        println!("  False hits: {} across {} signatures ({:.1}% of sigs)",
-            total_false_hits, false_hit_sigs,
-            if total_configs > 0 { false_hit_sigs as f64 / total_configs as f64 * 100.0 } else { 0.0 });
+        println!(
+            "  Total signatures: {}, disabled: {}",
+            total_configs, disabled
+        );
+        println!(
+            "  False hits: {} across {} signatures ({:.1}% of sigs)",
+            total_false_hits,
+            false_hit_sigs,
+            if total_configs > 0 {
+                false_hit_sigs as f64 / total_configs as f64 * 100.0
+            } else {
+                0.0
+            }
+        );
         println!("  Steps saved by compiler: {}", self.steps_saved);
     }
 }
@@ -1466,7 +1594,9 @@ pub struct ArmStats {
 
 impl ArmStats {
     pub fn reward(&self) -> f64 {
-        if self.pulls == 0 { return 0.5; } // Optimistic prior
+        if self.pulls == 0 {
+            return 0.5;
+        } // Optimistic prior
         let success_rate = self.successes as f64 / self.pulls as f64;
         let cost_bonus = if self.total_steps > 0 {
             // Lower steps = higher reward. Normalize to ~0..0.3
@@ -1509,7 +1639,9 @@ impl StrategyRouter {
 
     /// Build routing context from puzzle features.
     pub fn context(puzzle: &TemporalPuzzle, noisy: bool) -> RoutingContext {
-        let mut families: Vec<String> = puzzle.constraints.iter()
+        let mut families: Vec<String> = puzzle
+            .constraints
+            .iter()
             .map(|c| constraint_type_name(c))
             .collect();
         families.sort();
@@ -1540,26 +1672,29 @@ impl StrategyRouter {
                 let j = (self.next_f64() * (i + 1) as f64) as usize;
                 shuffled.swap(i, j.min(i));
             }
-            return shuffled.into_iter()
+            return shuffled
+                .into_iter()
                 .map(|s| (s, 1.0 / available.len() as f64))
                 .collect();
         }
 
         // Exploit: rank by reward, filter out strategies with zero success after min_observations
         let arm_map = self.arms.entry(ctx.clone()).or_default();
-        let mut ranked: Vec<(String, f64)> = available.iter().map(|s| {
-            let stats = arm_map.get(s).cloned().unwrap_or_default();
-            let should_drop = stats.pulls >= self.min_observations && stats.successes == 0;
-            let reward = if should_drop { -1.0 } else { stats.reward() };
-            (s.clone(), reward)
-        }).collect();
+        let mut ranked: Vec<(String, f64)> = available
+            .iter()
+            .map(|s| {
+                let stats = arm_map.get(s).cloned().unwrap_or_default();
+                let should_drop = stats.pulls >= self.min_observations && stats.successes == 0;
+                let reward = if should_drop { -1.0 } else { stats.reward() };
+                (s.clone(), reward)
+            })
+            .collect();
 
         ranked.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
 
         // Filter out dropped strategies (reward < 0), keep at least one
-        let mut result: Vec<(String, f64)> = ranked.into_iter()
-            .filter(|(_, r)| *r >= 0.0)
-            .collect();
+        let mut result: Vec<(String, f64)> =
+            ranked.into_iter().filter(|(_, r)| *r >= 0.0).collect();
         if result.is_empty() {
             result = vec![(available[0].clone(), 1.0)];
         }
@@ -1567,7 +1702,11 @@ impl StrategyRouter {
         // Allocate budget: best gets 60%, rest split remainder
         let n = result.len();
         result.iter_mut().enumerate().for_each(|(i, (_, budget))| {
-            *budget = if i == 0 { 0.6 } else { 0.4 / (n - 1).max(1) as f64 };
+            *budget = if i == 0 {
+                0.6
+            } else {
+                0.4 / (n - 1).max(1) as f64
+            };
         });
 
         result
@@ -1586,16 +1725,22 @@ impl StrategyRouter {
         let stats = arm_map.entry(strategy.to_string()).or_default();
         stats.pulls += 1;
         stats.total_steps += steps;
-        if correct { stats.successes += 1; }
+        if correct {
+            stats.successes += 1;
+        }
         if noisy {
             stats.noise_pulls += 1;
-            if correct { stats.noise_successes += 1; }
+            if correct {
+                stats.noise_successes += 1;
+            }
         }
     }
 
     fn next_f64(&mut self) -> f64 {
         let mut x = self.rng_state.max(1);
-        x ^= x << 13; x ^= x >> 7; x ^= x << 17;
+        x ^= x << 13;
+        x ^= x >> 7;
+        x ^= x << 17;
         self.rng_state = x;
         (x as f64) / (u64::MAX as f64)
     }
@@ -1683,23 +1828,31 @@ impl AdaptiveSolver {
 
     /// Build a PolicyContext from puzzle features.
     fn build_policy_context(&self, puzzle: &TemporalPuzzle) -> PolicyContext {
-        let has_dow = puzzle.constraints.iter().any(|c| matches!(c, TemporalConstraint::DayOfWeek(_)));
+        let has_dow = puzzle
+            .constraints
+            .iter()
+            .any(|c| matches!(c, TemporalConstraint::DayOfWeek(_)));
 
         // Estimate posterior range from Between constraint
-        let posterior_range = puzzle.constraints.iter().find_map(|c| match c {
-            TemporalConstraint::Between(start, end) => {
-                Some((*end - *start).num_days().max(0) as usize)
-            }
-            _ => None,
-        }).unwrap_or(365);
+        let posterior_range = puzzle
+            .constraints
+            .iter()
+            .find_map(|c| match c {
+                TemporalConstraint::Between(start, end) => {
+                    Some((*end - *start).num_days().max(0) as usize)
+                }
+                _ => None,
+            })
+            .unwrap_or(365);
 
         // Count distractors: redundant constraints that don't narrow the search
         // (wider Between, redundant InYear, After well before range)
         let distractor_count = count_distractors(puzzle);
 
-        let dv = puzzle.difficulty_vector.clone().unwrap_or_else(|| {
-            DifficultyVector::from_scalar(puzzle.difficulty)
-        });
+        let dv = puzzle
+            .difficulty_vector
+            .clone()
+            .unwrap_or_else(|| DifficultyVector::from_scalar(puzzle.difficulty));
 
         PolicyContext {
             posterior_range,
@@ -1738,7 +1891,9 @@ impl AdaptiveSolver {
             self.policy_kernel.learned_policy(&policy_ctx)
         } else if self.compiler_enabled {
             // Mode B: compiler-suggested policy
-            let compiled_skip = self.compiler.lookup(puzzle)
+            let compiled_skip = self
+                .compiler
+                .lookup(puzzle)
                 .map(|config| config.compiled_skip_mode.clone());
             PolicyKernel::compiled_policy(&policy_ctx, compiled_skip)
         } else {
@@ -1788,7 +1943,9 @@ impl AdaptiveSolver {
                 )
             });
 
-            if let Some((expected_correct, confidence, trial_budget, use_rewriting, stop_first)) = compiled {
+            if let Some((expected_correct, confidence, trial_budget, use_rewriting, stop_first)) =
+                compiled
+            {
                 if expected_correct && confidence >= conf_threshold {
                     self.solver.calendar_tool = use_rewriting;
                     self.solver.stop_after_first = stop_first;
@@ -1805,12 +1962,20 @@ impl AdaptiveSolver {
                         let mut trajectory = Trajectory::new(&puzzle.id, puzzle.difficulty);
                         trajectory.constraint_types = constraint_types;
                         trajectory.latency_ms = latency;
-                        let sol_str = result.solutions.first()
-                            .map(|d| d.to_string()).unwrap_or_else(|| "none".to_string());
+                        let sol_str = result
+                            .solutions
+                            .first()
+                            .map(|d| d.to_string())
+                            .unwrap_or_else(|| "none".to_string());
                         let bucket_key = PolicyKernel::context_bucket_static(&policy_ctx);
                         trajectory.record_attempt_witnessed(
-                            sol_str, 0.95, result.steps, result.tool_calls, "compiler",
-                            &skip_mode.to_string(), &bucket_key,
+                            sol_str,
+                            0.95,
+                            result.steps,
+                            result.tool_calls,
+                            "compiler",
+                            &skip_mode.to_string(),
+                            &bucket_key,
                         );
                         trajectory.set_verdict(
                             Verdict::Success,
@@ -1832,7 +1997,8 @@ impl AdaptiveSolver {
 
                         if self.router_enabled {
                             let ctx = StrategyRouter::context(puzzle, false);
-                            self.router.update(&ctx, "compiler", true, result.steps, false);
+                            self.router
+                                .update(&ctx, "compiler", true, result.steps, false);
                         }
 
                         return Ok(result);
@@ -1871,7 +2037,8 @@ impl AdaptiveSolver {
             ];
             let ranked = self.router.select(&ctx, &available);
             if let Some((top_strategy, _)) = ranked.first() {
-                self.current_strategy = self.reasoning_bank
+                self.current_strategy = self
+                    .reasoning_bank
                     .strategy_from_name(top_strategy, puzzle.difficulty);
             }
         } else {
@@ -1882,7 +2049,8 @@ impl AdaptiveSolver {
 
         // Configure solver based on strategy (external limit overrides strategy)
         self.solver.calendar_tool = self.current_strategy.use_rewriting;
-        self.solver.max_steps = self.external_step_limit
+        self.solver.max_steps = self
+            .external_step_limit
             .unwrap_or(self.current_strategy.max_steps);
         self.solver.stop_after_first = false;
         // Wire prepass mode from PolicyKernel
@@ -1943,7 +2111,10 @@ impl AdaptiveSolver {
                             refined_solutions.push(cur);
                         }
                     }
-                    cur = match cur.succ_opt() { Some(d) => d, None => break };
+                    cur = match cur.succ_opt() {
+                        Some(d) => d,
+                        None => break,
+                    };
                     result.steps += 1;
                 }
             }
@@ -1953,7 +2124,10 @@ impl AdaptiveSolver {
             result.correct = if puzzle.solutions.is_empty() {
                 true
             } else {
-                puzzle.solutions.iter().all(|s| result.solutions.contains(s))
+                puzzle
+                    .solutions
+                    .iter()
+                    .all(|s| result.solutions.contains(s))
             };
         }
 
@@ -2018,8 +2192,11 @@ impl AdaptiveSolver {
         if self.router_enabled {
             let ctx = StrategyRouter::context(puzzle, false);
             self.router.update(
-                &ctx, &self.current_strategy.name,
-                result.correct, result.steps, false,
+                &ctx,
+                &self.current_strategy.name,
+                result.correct,
+                result.steps,
+                false,
             );
         }
 

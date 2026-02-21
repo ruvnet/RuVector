@@ -97,8 +97,7 @@ pub fn extract_kernel(rvf_path: &Path) -> Result<ExtractedKernel, LaunchError> {
 
     let kernel_file_path = tempdir.path().join("vmlinuz");
     {
-        let mut f =
-            std::fs::File::create(&kernel_file_path).map_err(LaunchError::TempFile)?;
+        let mut f = std::fs::File::create(&kernel_file_path).map_err(LaunchError::TempFile)?;
         f.write_all(kernel_image).map_err(LaunchError::TempFile)?;
         f.sync_all().map_err(LaunchError::TempFile)?;
     }
@@ -169,14 +168,7 @@ mod tests {
 
         let image = b"fake-kernel";
         store
-            .embed_kernel(
-                KernelArch::X86_64 as u8,
-                0x01,
-                0,
-                image,
-                9090,
-                None,
-            )
+            .embed_kernel(KernelArch::X86_64 as u8, 0x01, 0, image, 9090, None)
             .unwrap();
         store.close().unwrap();
 

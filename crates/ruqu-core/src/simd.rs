@@ -72,12 +72,7 @@ pub fn apply_two_qubit_gate_scalar(
             continue;
         }
 
-        let idxs = [
-            base,
-            base | q2_bit,
-            base | q1_bit,
-            base | q1_bit | q2_bit,
-        ];
+        let idxs = [base, base | q2_bit, base | q1_bit, base | q1_bit | q2_bit];
 
         let vals = [
             amplitudes[idxs[0]],
@@ -149,31 +144,19 @@ pub unsafe fn apply_single_qubit_gate_simd(
                 let j = i + step;
 
                 // Load two complex values from position i: [re0, im0, re1, im1]
-                let a_vec = _mm256_loadu_pd(
-                    &amplitudes[i] as *const Complex as *const f64,
-                );
+                let a_vec = _mm256_loadu_pd(&amplitudes[i] as *const Complex as *const f64);
                 // Load two complex values from position j
-                let b_vec = _mm256_loadu_pd(
-                    &amplitudes[j] as *const Complex as *const f64,
-                );
+                let b_vec = _mm256_loadu_pd(&amplitudes[j] as *const Complex as *const f64);
 
                 // Compute matrix[0][0] * a + matrix[0][1] * b for the i-slot
-                let out_i = complex_mul_add_avx2(
-                    a_vec, m00_re, m00_im, b_vec, m01_re, m01_im, neg_mask,
-                );
+                let out_i =
+                    complex_mul_add_avx2(a_vec, m00_re, m00_im, b_vec, m01_re, m01_im, neg_mask);
                 // Compute matrix[1][0] * a + matrix[1][1] * b for the j-slot
-                let out_j = complex_mul_add_avx2(
-                    a_vec, m10_re, m10_im, b_vec, m11_re, m11_im, neg_mask,
-                );
+                let out_j =
+                    complex_mul_add_avx2(a_vec, m10_re, m10_im, b_vec, m11_re, m11_im, neg_mask);
 
-                _mm256_storeu_pd(
-                    &mut amplitudes[i] as *mut Complex as *mut f64,
-                    out_i,
-                );
-                _mm256_storeu_pd(
-                    &mut amplitudes[j] as *mut Complex as *mut f64,
-                    out_j,
-                );
+                _mm256_storeu_pd(&mut amplitudes[i] as *mut Complex as *mut f64, out_i);
+                _mm256_storeu_pd(&mut amplitudes[j] as *mut Complex as *mut f64, out_j);
 
                 i += 2;
             }
@@ -376,12 +359,7 @@ pub fn apply_two_qubit_gate_parallel(
         unsafe {
             let ptr = amp_addr as *mut Complex;
 
-            let idxs = [
-                base,
-                base | q2_bit,
-                base | q1_bit,
-                base | q1_bit | q2_bit,
-            ];
+            let idxs = [base, base | q2_bit, base | q1_bit, base | q1_bit | q2_bit];
 
             let vals = [
                 *ptr.add(idxs[0]),
@@ -391,10 +369,8 @@ pub fn apply_two_qubit_gate_parallel(
             ];
 
             for r in 0..4 {
-                *ptr.add(idxs[r]) = m[r][0] * vals[0]
-                    + m[r][1] * vals[1]
-                    + m[r][2] * vals[2]
-                    + m[r][3] * vals[3];
+                *ptr.add(idxs[r]) =
+                    m[r][0] * vals[0] + m[r][1] * vals[1] + m[r][2] * vals[2] + m[r][3] * vals[3];
             }
         }
     });

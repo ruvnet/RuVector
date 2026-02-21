@@ -23,14 +23,18 @@ fn round_trip_all_segment_types() {
         let payload = format!("payload for {name}");
         let encoded = write_segment(seg_type, payload.as_bytes(), SegmentFlags::empty(), 42);
 
-        let (header, decoded_payload) = read_segment(&encoded)
-            .unwrap_or_else(|e| panic!("failed to read {name}: {e:?}"));
+        let (header, decoded_payload) =
+            read_segment(&encoded).unwrap_or_else(|e| panic!("failed to read {name}: {e:?}"));
 
         assert_eq!(header.magic, SEGMENT_MAGIC, "{name}: bad magic");
         assert_eq!(header.version, SEGMENT_VERSION, "{name}: bad version");
         assert_eq!(header.seg_type, seg_type, "{name}: bad seg_type");
         assert_eq!(header.segment_id, 42, "{name}: bad segment_id");
-        assert_eq!(decoded_payload, payload.as_bytes(), "{name}: payload mismatch");
+        assert_eq!(
+            decoded_payload,
+            payload.as_bytes(),
+            "{name}: payload mismatch"
+        );
     }
 }
 
@@ -101,7 +105,12 @@ fn multi_segment_file() {
     for i in 0..5 {
         let payload = format!("segment {i} data");
         offsets.push(file.len());
-        let seg = write_segment(SegmentType::Vec as u8, payload.as_bytes(), SegmentFlags::empty(), i);
+        let seg = write_segment(
+            SegmentType::Vec as u8,
+            payload.as_bytes(),
+            SegmentFlags::empty(),
+            i,
+        );
         file.extend_from_slice(&seg);
     }
 

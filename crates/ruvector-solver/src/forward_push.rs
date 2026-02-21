@@ -169,9 +169,7 @@ impl ForwardPushSolver {
         // Initialise residuals from seed distribution.
         for &(v, mass) in seeds {
             residual[v] += mass;
-            if !in_queue[v]
-                && should_push(residual[v], graph.row_degree(v), self.epsilon)
-            {
+            if !in_queue[v] && should_push(residual[v], graph.row_degree(v), self.epsilon) {
                 queue.push_back(v);
                 in_queue[v] = true;
             }
@@ -204,13 +202,7 @@ impl ForwardPushSolver {
                 for (v, _weight) in graph.row_entries(u) {
                     residual[v] += push_amount;
 
-                    if !in_queue[v]
-                        && should_push(
-                            residual[v],
-                            graph.row_degree(v),
-                            self.epsilon,
-                        )
-                    {
+                    if !in_queue[v] && should_push(residual[v], graph.row_degree(v), self.epsilon) {
                         queue.push_back(v);
                         in_queue[v] = true;
                     }
@@ -245,9 +237,7 @@ impl ForwardPushSolver {
             .map(|(i, val)| (i, *val))
             .collect();
 
-        result.sort_by(|a, b| {
-            b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal)
-        });
+        result.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
 
         Ok(result)
     }
@@ -296,9 +286,7 @@ pub fn forward_push_with_residuals(
             residual[u] = 0.0;
             for (v, _) in matrix.row_entries(u) {
                 residual[v] += push_amount;
-                if !in_queue[v]
-                    && should_push(residual[v], matrix.row_degree(v), epsilon)
-                {
+                if !in_queue[v] && should_push(residual[v], matrix.row_degree(v), epsilon) {
                     queue.push_back(v);
                     in_queue[v] = true;
                 }
@@ -335,11 +323,7 @@ fn should_push(residual: f64, degree: usize, epsilon: f64) -> bool {
 }
 
 /// Validate that a vertex index is within bounds.
-fn validate_vertex(
-    graph: &CsrMatrix<f64>,
-    vertex: usize,
-    name: &str,
-) -> Result<(), SolverError> {
+fn validate_vertex(graph: &CsrMatrix<f64>, vertex: usize, name: &str) -> Result<(), SolverError> {
     if vertex >= graph.rows {
         return Err(SolverError::InvalidInput(
             crate::error::ValidationError::ParameterOutOfRange {
@@ -409,11 +393,7 @@ impl SolverEngine for ForwardPushSolver {
         })
     }
 
-    fn estimate_complexity(
-        &self,
-        _profile: &SparsityProfile,
-        _n: usize,
-    ) -> ComplexityEstimate {
+    fn estimate_complexity(&self, _profile: &SparsityProfile, _n: usize) -> ComplexityEstimate {
         let est_ops = (1.0 / self.epsilon).min(usize::MAX as f64) as usize;
         ComplexityEstimate {
             algorithm: Algorithm::ForwardPush,
@@ -478,7 +458,10 @@ mod tests {
     impl KahanAccumulator {
         #[inline]
         const fn new() -> Self {
-            Self { sum: 0.0, compensation: 0.0 }
+            Self {
+                sum: 0.0,
+                compensation: 0.0,
+            }
         }
 
         #[inline]
@@ -516,11 +499,7 @@ mod tests {
 
     /// Directed path: 0 -> 1 -> 2 -> 3
     fn path_graph() -> CsrMatrix<f64> {
-        CsrMatrix::<f64>::from_coo(
-            4,
-            4,
-            vec![(0, 1, 1.0f64), (1, 2, 1.0f64), (2, 3, 1.0f64)],
-        )
+        CsrMatrix::<f64>::from_coo(4, 4, vec![(0, 1, 1.0f64), (1, 2, 1.0f64), (2, 3, 1.0f64)])
     }
 
     /// Star graph centred at vertex 0 with 5 leaves, bidirectional.
@@ -668,8 +647,7 @@ mod tests {
 
     #[test]
     fn single_vertex_graph() {
-        let graph =
-            CsrMatrix::<f64>::from_coo(1, 1, Vec::<(usize, usize, f64)>::new());
+        let graph = CsrMatrix::<f64>::from_coo(1, 1, Vec::<(usize, usize, f64)>::new());
         let solver = ForwardPushSolver::default_params();
         let result = solver.ppr_from_source(&graph, 0).unwrap();
 
@@ -723,9 +701,7 @@ mod tests {
         let solver = ForwardPushSolver::default_params();
 
         let seeds = vec![(0, 0.5), (1, 0.5)];
-        let result = solver
-            .ppr_multi_seed(&graph, &seeds, 0.85, 1e-6)
-            .unwrap();
+        let result = solver.ppr_multi_seed(&graph, &seeds, 0.85, 1e-6).unwrap();
 
         assert!(!result.is_empty());
         let has_0 = result.iter().any(|(v, _)| *v == 0);

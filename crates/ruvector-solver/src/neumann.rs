@@ -129,10 +129,7 @@ impl NeumannSolver {
     /// This avoids recomputing the diagonal inverse when the caller already
     /// has it (e.g. `solve()` needs `d_inv` for both the spectral check and
     /// the Jacobi iteration).
-    fn estimate_spectral_radius_with_diag(
-        matrix: &CsrMatrix<f32>,
-        d_inv: &[f32],
-    ) -> f64 {
+    fn estimate_spectral_radius_with_diag(matrix: &CsrMatrix<f32>, d_inv: &[f32]) -> f64 {
         let n = matrix.rows;
         if n == 0 {
             return 0.0;
@@ -195,11 +192,7 @@ impl NeumannSolver {
     ///   than 2x in a single step.
     /// - [`SolverError::NonConvergence`] if the iteration budget is exhausted.
     #[instrument(skip(self, matrix, rhs), fields(n = matrix.rows, nnz = matrix.nnz()))]
-    pub fn solve(
-        &self,
-        matrix: &CsrMatrix<f32>,
-        rhs: &[f32],
-    ) -> Result<SolverResult, SolverError> {
+    pub fn solve(&self, matrix: &CsrMatrix<f32>, rhs: &[f32]) -> Result<SolverResult, SolverError> {
         let start = Instant::now();
         let n = matrix.rows;
 
@@ -380,20 +373,16 @@ impl SolverEngine for NeumannSolver {
         // Validate that f64 values fit in f32 range.
         for (i, &v) in matrix.values.iter().enumerate() {
             if v.is_finite() && v.abs() > f32::MAX as f64 {
-                return Err(SolverError::InvalidInput(
-                    ValidationError::NonFiniteValue(format!(
-                        "matrix value at index {i} ({v:.6e}) overflows f32"
-                    )),
-                ));
+                return Err(SolverError::InvalidInput(ValidationError::NonFiniteValue(
+                    format!("matrix value at index {i} ({v:.6e}) overflows f32"),
+                )));
             }
         }
         for (i, &v) in rhs.iter().enumerate() {
             if v.is_finite() && v.abs() > f32::MAX as f64 {
-                return Err(SolverError::InvalidInput(
-                    ValidationError::NonFiniteValue(format!(
-                        "rhs value at index {i} ({v:.6e}) overflows f32"
-                    )),
-                ));
+                return Err(SolverError::InvalidInput(ValidationError::NonFiniteValue(
+                    format!("rhs value at index {i} ({v:.6e}) overflows f32"),
+                )));
             }
         }
 
@@ -433,15 +422,10 @@ impl SolverEngine for NeumannSolver {
         Ok(result)
     }
 
-    fn estimate_complexity(
-        &self,
-        profile: &SparsityProfile,
-        n: usize,
-    ) -> ComplexityEstimate {
+    fn estimate_complexity(&self, profile: &SparsityProfile, n: usize) -> ComplexityEstimate {
         // Estimated iterations: ceil( ln(1/tol) / |ln(rho)| )
         let rho = profile.estimated_spectral_radius.max(0.01).min(0.999);
-        let est_iters = ((1.0 / self.tolerance).ln() / (1.0 - rho).ln().abs())
-            .ceil() as usize;
+        let est_iters = ((1.0 / self.tolerance).ln() / (1.0 - rho).ln().abs()).ceil() as usize;
         let est_iters = est_iters.min(self.max_iterations).max(1);
 
         ComplexityEstimate {
@@ -571,10 +555,7 @@ mod tests {
     fn test_spectral_radius_pure_diagonal() {
         // For a pure diagonal matrix D, D^{-1}A = I, so M = I - I = 0.
         // The spectral radius should be ~0.
-        let a = CsrMatrix::<f32>::from_coo(
-            3, 3,
-            vec![(0, 0, 0.5_f32), (1, 1, 0.5), (2, 2, 0.5)],
-        );
+        let a = CsrMatrix::<f32>::from_coo(3, 3, vec![(0, 0, 0.5_f32), (1, 1, 0.5), (2, 2, 0.5)]);
         let rho = NeumannSolver::estimate_spectral_radius(&a);
         assert!(rho < 0.1, "expected rho ~ 0 for diagonal matrix, got {rho}");
     }
@@ -582,8 +563,11 @@ mod tests {
     #[test]
     fn test_spectral_radius_empty() {
         let empty = CsrMatrix::<f32> {
-            row_ptr: vec![0], col_indices: vec![], values: vec![],
-            rows: 0, cols: 0,
+            row_ptr: vec![0],
+            col_indices: vec![],
+            values: vec![],
+            rows: 0,
+            cols: 0,
         };
         assert_eq!(NeumannSolver::estimate_spectral_radius(&empty), 0.0);
     }
@@ -596,11 +580,15 @@ mod tests {
         // D^{-1}A = [[1, 2], [2, 1]], so M = I - D^{-1}A = [[0, -2], [-2, 0]].
         // Eigenvalues of M are +2 and -2, so rho(M) = 2 > 1.
         let a = CsrMatrix::<f32>::from_coo(
-            2, 2,
+            2,
+            2,
             vec![(0, 0, 1.0_f32), (0, 1, 2.0), (1, 0, 2.0), (1, 1, 1.0)],
         );
         let rho = NeumannSolver::estimate_spectral_radius(&a);
-        assert!(rho > 1.0, "expected rho > 1 for non-diag-dominant matrix, got {rho}");
+        assert!(
+            rho > 1.0,
+            "expected rho > 1 for non-diag-dominant matrix, got {rho}"
+        );
     }
 
     #[test]
@@ -617,15 +605,15 @@ mod tests {
 
     #[test]
     fn test_solve_diagonal() {
-        let a = CsrMatrix::<f32>::from_coo(
-            3, 3,
-            vec![(0, 0, 0.5_f32), (1, 1, 0.5), (2, 2, 0.5)],
-        );
+        let a = CsrMatrix::<f32>::from_coo(3, 3, vec![(0, 0, 0.5_f32), (1, 1, 0.5), (2, 2, 0.5)]);
         let rhs = vec![1.0_f32, 1.0, 1.0];
         let solver = NeumannSolver::new(1e-6, 200);
         let result = solver.solve(&a, &rhs).unwrap();
         for (i, &val) in result.solution.iter().enumerate() {
-            assert!((val - 2.0).abs() < 0.01, "index {i}: expected ~2.0, got {val}");
+            assert!(
+                (val - 2.0).abs() < 0.01,
+                "index {i}: expected ~2.0, got {val}"
+            );
         }
     }
 
@@ -645,8 +633,11 @@ mod tests {
     #[test]
     fn test_solve_empty_system() {
         let a = CsrMatrix::<f32> {
-            row_ptr: vec![0], col_indices: vec![], values: vec![],
-            rows: 0, cols: 0,
+            row_ptr: vec![0],
+            col_indices: vec![],
+            values: vec![],
+            rows: 0,
+            cols: 0,
         };
         let result = NeumannSolver::new(1e-6, 10).solve(&a, &[]).unwrap();
         assert_eq!(result.iterations, 0);
@@ -659,7 +650,10 @@ mod tests {
         let rhs = vec![1.0_f32, 2.0];
         let err = NeumannSolver::new(1e-6, 100).solve(&a, &rhs).unwrap_err();
         let msg = err.to_string();
-        assert!(msg.contains("dimension") || msg.contains("mismatch"), "got: {msg}");
+        assert!(
+            msg.contains("dimension") || msg.contains("mismatch"),
+            "got: {msg}"
+        );
     }
 
     #[test]
@@ -668,14 +662,18 @@ mod tests {
         let rhs = vec![1.0_f32, 1.0];
         let err = NeumannSolver::new(1e-6, 100).solve(&a, &rhs).unwrap_err();
         let msg = err.to_string();
-        assert!(msg.contains("square") || msg.contains("dimension"), "got: {msg}");
+        assert!(
+            msg.contains("square") || msg.contains("dimension"),
+            "got: {msg}"
+        );
     }
 
     #[test]
     fn test_solve_divergent_matrix() {
         // Non-diag-dominant: off-diagonal entries larger than diagonal.
         let a = CsrMatrix::<f32>::from_coo(
-            2, 2,
+            2,
+            2,
             vec![(0, 0, 1.0_f32), (0, 1, 2.0), (1, 0, 2.0), (1, 1, 1.0)],
         );
         let rhs = vec![1.0_f32, 1.0];
@@ -693,7 +691,8 @@ mod tests {
             assert!(
                 window[1].residual_norm <= window[0].residual_norm + 1e-12,
                 "residual not decreasing: {} -> {}",
-                window[0].residual_norm, window[1].residual_norm,
+                window[0].residual_norm,
+                window[1].residual_norm,
             );
         }
     }
@@ -726,11 +725,20 @@ mod tests {
         let a = tridiag_f32(n, 1.0, -0.1);
         let rhs: Vec<f32> = (0..n).map(|i| (i as f32 + 1.0) / n as f32).collect();
         let result = NeumannSolver::new(1e-6, 2000).solve(&a, &rhs).unwrap();
-        assert!(result.residual_norm < 1e-6, "residual too large: {}", result.residual_norm);
+        assert!(
+            result.residual_norm < 1e-6,
+            "residual too large: {}",
+            result.residual_norm
+        );
         let mut ax = vec![0.0f32; n];
         a.spmv(&result.solution, &mut ax);
         for i in 0..n {
-            assert!((ax[i] - rhs[i]).abs() < 1e-4, "A*x[{i}]={} but b[{i}]={}", ax[i], rhs[i]);
+            assert!(
+                (ax[i] - rhs[i]).abs() < 1e-4,
+                "A*x[{i}]={} but b[{i}]={}",
+                ax[i],
+                rhs[i]
+            );
         }
     }
 
@@ -739,17 +747,27 @@ mod tests {
         let a = CsrMatrix::<f32>::from_coo(1, 1, vec![(0, 0, 0.5_f32)]);
         let rhs = vec![4.0_f32];
         let result = NeumannSolver::new(1e-8, 200).solve(&a, &rhs).unwrap();
-        assert!((result.solution[0] - 8.0).abs() < 0.01, "expected ~8.0, got {}", result.solution[0]);
+        assert!(
+            (result.solution[0] - 8.0).abs() < 0.01,
+            "expected ~8.0, got {}",
+            result.solution[0]
+        );
     }
 
     #[test]
     fn test_estimate_complexity() {
         let solver = NeumannSolver::new(1e-6, 1000);
         let profile = SparsityProfile {
-            rows: 100, cols: 100, nnz: 500, density: 0.05,
-            is_diag_dominant: true, estimated_spectral_radius: 0.5,
-            estimated_condition: 3.0, is_symmetric_structure: true,
-            avg_nnz_per_row: 5.0, max_nnz_per_row: 8,
+            rows: 100,
+            cols: 100,
+            nnz: 500,
+            density: 0.05,
+            is_diag_dominant: true,
+            estimated_spectral_radius: 0.5,
+            estimated_condition: 3.0,
+            is_symmetric_structure: true,
+            avg_nnz_per_row: 5.0,
+            max_nnz_per_row: 8,
         };
         let estimate = solver.estimate_complexity(&profile, 100);
         assert_eq!(estimate.algorithm, Algorithm::Neumann);

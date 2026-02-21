@@ -75,10 +75,7 @@ pub enum WitnessEvent {
         budget_remaining_ops: u32,
     },
     /// A delta chain was compacted.
-    Compaction {
-        key: BlockKey,
-        chain_len_before: u8,
-    },
+    Compaction { key: BlockKey, chain_len_before: u8 },
     /// A checksum mismatch was detected.
     ChecksumFailure {
         key: BlockKey,
@@ -210,7 +207,10 @@ impl StoreMetrics {
         s.push_str(&format_line("Tier2 bytes", self.tier2_bytes));
         s.push_str(&format_line("Tier3 bytes", self.tier3_bytes));
         s.push_str(&format_line("Total stored", self.total_stored_bytes()));
-        s.push_str(&format!("Compression ratio: {:.2}x\n", self.compression_ratio()));
+        s.push_str(&format!(
+            "Compression ratio: {:.2}x\n",
+            self.compression_ratio()
+        ));
         s.push_str("--- Operations ---\n");
         s.push_str(&format_line("Reads", self.total_reads));
         s.push_str(&format_line("Writes", self.total_writes));
@@ -219,8 +219,14 @@ impl StoreMetrics {
         s.push_str(&format_line("Downgrades", self.total_downgrades));
         s.push_str(&format_line("Reconstructions", self.total_reconstructions));
         s.push_str(&format_line("Compactions", self.total_compactions));
-        s.push_str(&format_line("Checksum failures", self.total_checksum_failures));
-        s.push_str(&format!("Tier flip rate: {:.4}/block/min\n", self.tier_flips_last_minute));
+        s.push_str(&format_line(
+            "Checksum failures",
+            self.total_checksum_failures,
+        ));
+        s.push_str(&format!(
+            "Tier flip rate: {:.4}/block/min\n",
+            self.tier_flips_last_minute
+        ));
         s
     }
 
@@ -280,23 +286,27 @@ impl StoreMetrics {
     pub fn health_check(&self) -> StoreHealthStatus {
         // Critical: checksum failures
         if self.total_checksum_failures > 0 {
-            return StoreHealthStatus::Critical(
-                format!("{} checksum failures detected", self.total_checksum_failures)
-            );
+            return StoreHealthStatus::Critical(format!(
+                "{} checksum failures detected",
+                self.total_checksum_failures
+            ));
         }
         // Warning: high tier flip rate
         if self.tier_flips_last_minute > 0.5 {
-            return StoreHealthStatus::Warning(
-                format!("High tier flip rate: {:.3}/block/min", self.tier_flips_last_minute)
-            );
+            return StoreHealthStatus::Warning(format!(
+                "High tier flip rate: {:.3}/block/min",
+                self.tier_flips_last_minute
+            ));
         }
         // Warning: mostly evictions
         if self.total_evictions > 0 && self.total_blocks > 0 {
-            let eviction_ratio = self.total_evictions as f32 / (self.total_reads + self.total_writes).max(1) as f32;
+            let eviction_ratio =
+                self.total_evictions as f32 / (self.total_reads + self.total_writes).max(1) as f32;
             if eviction_ratio > 0.3 {
-                return StoreHealthStatus::Warning(
-                    format!("High eviction ratio: {:.1}%", eviction_ratio * 100.0)
-                );
+                return StoreHealthStatus::Warning(format!(
+                    "High eviction ratio: {:.1}%",
+                    eviction_ratio * 100.0
+                ));
             }
         }
         StoreHealthStatus::Healthy
@@ -416,12 +426,7 @@ impl WitnessLog {
             return 0.0;
         }
 
-        let max_ts = self
-            .records
-            .iter()
-            .map(|r| r.timestamp)
-            .max()
-            .unwrap_or(0);
+        let max_ts = self.records.iter().map(|r| r.timestamp).max().unwrap_or(0);
         let min_ts = max_ts.saturating_sub(window_ticks);
 
         let flips = self
@@ -489,7 +494,11 @@ impl StoreSnapshot {
             "total_checksum_failures",
             self.metrics.total_checksum_failures,
         );
-        push_kv(&mut buf, "total_compactions", self.metrics.total_compactions);
+        push_kv(
+            &mut buf,
+            "total_compactions",
+            self.metrics.total_compactions,
+        );
         push_kv_f32(
             &mut buf,
             "tier_flips_last_minute",
@@ -721,7 +730,10 @@ mod tests {
     // -----------------------------------------------------------------------
 
     fn bk(id: u64) -> BlockKey {
-        BlockKey { tensor_id: id as u128, block_index: 0 }
+        BlockKey {
+            tensor_id: id as u128,
+            block_index: 0,
+        }
     }
 
     fn make_access(key: u64, score: f32, tier: Tier) -> WitnessEvent {
@@ -1181,8 +1193,20 @@ mod tests {
     fn test_metrics_series_record_and_latest() {
         let mut series = MetricsSeries::new(10);
         assert!(series.is_empty());
-        series.record(1, StoreMetrics { total_blocks: 10, ..Default::default() });
-        series.record(2, StoreMetrics { total_blocks: 20, ..Default::default() });
+        series.record(
+            1,
+            StoreMetrics {
+                total_blocks: 10,
+                ..Default::default()
+            },
+        );
+        series.record(
+            2,
+            StoreMetrics {
+                total_blocks: 20,
+                ..Default::default()
+            },
+        );
         assert_eq!(series.len(), 2);
         assert_eq!(series.latest().unwrap().1.total_blocks, 20);
     }
@@ -1191,7 +1215,13 @@ mod tests {
     fn test_metrics_series_capacity() {
         let mut series = MetricsSeries::new(3);
         for i in 0..5 {
-            series.record(i as u64, StoreMetrics { total_blocks: i, ..Default::default() });
+            series.record(
+                i as u64,
+                StoreMetrics {
+                    total_blocks: i,
+                    ..Default::default()
+                },
+            );
         }
         assert_eq!(series.len(), 3);
         assert_eq!(series.latest().unwrap().1.total_blocks, 4);
@@ -1209,15 +1239,18 @@ mod tests {
     fn test_metrics_trend_with_data() {
         let mut series = MetricsSeries::new(10);
         for i in 0..6u64 {
-            series.record(i, StoreMetrics {
-                total_blocks: 100,
-                tier1_blocks: 50,
-                total_evictions: i * 2,
-                tier1_bytes: 5000 + i * 100,
-                tier2_bytes: 3000,
-                tier3_bytes: 1000,
-                ..Default::default()
-            });
+            series.record(
+                i,
+                StoreMetrics {
+                    total_blocks: 100,
+                    tier1_blocks: 50,
+                    total_evictions: i * 2,
+                    tier1_bytes: 5000 + i * 100,
+                    tier2_bytes: 3000,
+                    tier3_bytes: 1000,
+                    ..Default::default()
+                },
+            );
         }
         let trend = series.trend();
         assert!(trend.eviction_rate > 0.0);

@@ -201,7 +201,10 @@ pub fn polynomial_extrapolate(noise_factors: &[f64], values: &[f64], degree: usi
     );
     let n = noise_factors.len();
     let p = degree + 1; // number of coefficients
-    assert!(n >= p, "need at least degree+1 data points for a degree-{degree} polynomial");
+    assert!(
+        n >= p,
+        "need at least degree+1 data points for a degree-{degree} polynomial"
+    );
 
     // Build the Vandermonde matrix A (n x p) where A[i][j] = x_i^j.
     // Then solve A^T A c = A^T y via normal equations.
@@ -332,12 +335,7 @@ impl MeasurementCorrector {
         // Build per-qubit 2x2 matrices.
         let qubit_matrices: Vec<[[f64; 2]; 2]> = readout_errors
             .iter()
-            .map(|&(p01, p10)| {
-                [
-                    [1.0 - p01, p10],
-                    [p01, 1.0 - p10],
-                ]
-            })
+            .map(|&(p01, p10)| [[1.0 - p01, p10], [p01, 1.0 - p10]])
             .collect();
 
         // Tensor product to build the full dim x dim matrix.
@@ -369,10 +367,7 @@ impl MeasurementCorrector {
     ///
     /// Returns corrected counts as floating-point values since the inverse
     /// may produce non-integer results.
-    pub fn correct_counts(
-        &self,
-        counts: &HashMap<Vec<bool>, usize>,
-    ) -> HashMap<Vec<bool>, f64> {
+    pub fn correct_counts(&self, counts: &HashMap<Vec<bool>, usize>) -> HashMap<Vec<bool>, f64> {
         let dim = 1usize << self.num_qubits;
 
         // Build the probability vector from counts.
@@ -458,8 +453,14 @@ impl MeasurementCorrector {
         let i1 = 1usize << qubit;
 
         [
-            [self.calibration_matrix[i0][i0], self.calibration_matrix[i0][i1]],
-            [self.calibration_matrix[i1][i0], self.calibration_matrix[i1][i1]],
+            [
+                self.calibration_matrix[i0][i0],
+                self.calibration_matrix[i0][i1],
+            ],
+            [
+                self.calibration_matrix[i1][i0],
+                self.calibration_matrix[i1][i1],
+            ],
         ]
     }
 }
@@ -545,9 +546,7 @@ fn invert_matrix(mat: &[Vec<f64>]) -> Vec<Vec<f64>> {
     }
 
     // Extract the right half as the inverse.
-    aug.iter()
-        .map(|row| row[n..].to_vec())
-        .collect()
+    aug.iter().map(|row| row[n..].to_vec()).collect()
 }
 
 /// Multiply a matrix by a vector.
@@ -671,7 +670,11 @@ pub fn cdr_correct(noisy_values: &[f64], ideal_values: &[f64], target_noisy: f64
 
     let sum_x: f64 = noisy_values.iter().sum();
     let sum_y: f64 = ideal_values.iter().sum();
-    let sum_xy: f64 = noisy_values.iter().zip(ideal_values.iter()).map(|(x, y)| x * y).sum();
+    let sum_xy: f64 = noisy_values
+        .iter()
+        .zip(ideal_values.iter())
+        .map(|(x, y)| x * y)
+        .sum();
     let sum_x2: f64 = noisy_values.iter().map(|x| x * x).sum();
 
     let n_f64 = n as f64;
@@ -761,10 +764,7 @@ mod tests {
     fn test_richardson_cubic() {
         // f(x) = x^3 - x + 1 => f(0) = 1
         let noise_factors = vec![1.0, 1.5, 2.0, 3.0];
-        let values: Vec<f64> = noise_factors
-            .iter()
-            .map(|&x| x * x * x - x + 1.0)
-            .collect();
+        let values: Vec<f64> = noise_factors.iter().map(|&x| x * x * x - x + 1.0).collect();
         let result = richardson_extrapolate(&noise_factors, &values);
         assert!(
             (result - 1.0).abs() < 1e-9,
@@ -843,7 +843,11 @@ mod tests {
         let folded = fold_circuit(&circuit, 3.0);
 
         // 2 unitary gates * factor 3 = 6 gate slots.
-        let unitary_count = folded.gates().iter().filter(|g| !g.is_non_unitary()).count();
+        let unitary_count = folded
+            .gates()
+            .iter()
+            .filter(|g| !g.is_non_unitary())
+            .count();
         assert_eq!(
             unitary_count, 6,
             "fold factor=3 on 2-gate circuit: expected 6 unitary gates, got {unitary_count}"
@@ -864,12 +868,13 @@ mod tests {
             .iter()
             .filter(|g| matches!(g, Gate::Measure(_)))
             .count();
-        assert_eq!(
-            measure_count, 1,
-            "measurements should not be folded"
-        );
+        assert_eq!(measure_count, 1, "measurements should not be folded");
 
-        let unitary_count = folded.gates().iter().filter(|g| !g.is_non_unitary()).count();
+        let unitary_count = folded
+            .gates()
+            .iter()
+            .filter(|g| !g.is_non_unitary())
+            .count();
         assert_eq!(
             unitary_count, 3,
             "1 H gate folded at factor 3 => 3 unitary gates"
@@ -888,7 +893,11 @@ mod tests {
         circuit.z(0);
 
         let folded = fold_circuit(&circuit, 1.5);
-        let unitary_count = folded.gates().iter().filter(|g| !g.is_non_unitary()).count();
+        let unitary_count = folded
+            .gates()
+            .iter()
+            .filter(|g| !g.is_non_unitary())
+            .count();
         assert_eq!(
             unitary_count, 6,
             "fold factor=1.5 on 4-gate circuit: expected 6 unitary gates, got {unitary_count}"
@@ -1172,20 +1181,14 @@ mod tests {
             (exp0 - (-0.2)).abs() < 1e-12,
             "qubit 0: expected -0.2, got {exp0}"
         );
-        assert!(
-            exp1.abs() < 1e-12,
-            "qubit 1: expected 0.0, got {exp1}"
-        );
+        assert!(exp1.abs() < 1e-12, "qubit 1: expected 0.0, got {exp1}");
     }
 
     #[test]
     fn test_expectation_empty_counts() {
         let counts: HashMap<Vec<bool>, usize> = HashMap::new();
         let exp = expectation_from_counts(&counts, 0);
-        assert!(
-            exp.abs() < 1e-12,
-            "empty counts should give 0.0, got {exp}"
-        );
+        assert!(exp.abs() < 1e-12, "empty counts should give 0.0, got {exp}");
     }
 
     // ---- Gate dagger correctness ----------------------------------------
@@ -1243,11 +1246,7 @@ mod tests {
         let product = mat_mul_2x2(&m, &m_dag);
         for i in 0..2 {
             for j in 0..2 {
-                let expected = if i == j {
-                    Complex::ONE
-                } else {
-                    Complex::ZERO
-                };
+                let expected = if i == j { Complex::ONE } else { Complex::ZERO };
                 let diff = (product[i][j] - expected).norm();
                 assert!(
                     diff < 1e-12,
@@ -1258,10 +1257,7 @@ mod tests {
     }
 
     /// Helper: multiply two 2x2 complex matrices.
-    fn mat_mul_2x2(
-        a: &[[Complex; 2]; 2],
-        b: &[[Complex; 2]; 2],
-    ) -> [[Complex; 2]; 2] {
+    fn mat_mul_2x2(a: &[[Complex; 2]; 2], b: &[[Complex; 2]; 2]) -> [[Complex; 2]; 2] {
         let mut result = [[Complex::ZERO; 2]; 2];
         for i in 0..2 {
             for j in 0..2 {

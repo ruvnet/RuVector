@@ -245,9 +245,7 @@ impl ResourceBudget {
             } else {
                 self.max_tokens
             },
-            max_cost_microdollars: if self.max_cost_microdollars
-                > Self::MAX.max_cost_microdollars
-            {
+            max_cost_microdollars: if self.max_cost_microdollars > Self::MAX.max_cost_microdollars {
                 Self::MAX.max_cost_microdollars
             } else {
                 self.max_cost_microdollars
@@ -257,9 +255,7 @@ impl ResourceBudget {
             } else {
                 self.max_tool_calls
             },
-            max_external_writes: if self.max_external_writes
-                > Self::MAX.max_external_writes
-            {
+            max_external_writes: if self.max_external_writes > Self::MAX.max_external_writes {
                 Self::MAX.max_external_writes
             } else {
                 self.max_external_writes
@@ -458,8 +454,7 @@ impl AgiContainerHeader {
             container_id,
             build_id,
             created_ns: u64::from_le_bytes([
-                data[40], data[41], data[42], data[43],
-                data[44], data[45], data[46], data[47],
+                data[40], data[41], data[42], data[43], data[44], data[45], data[46], data[47],
             ]),
             model_id_hash,
             policy_hash,
@@ -526,9 +521,7 @@ impl ContainerSegments {
             ExecutionMode::Verify | ExecutionMode::Live => {
                 // Verify/Live need at least kernel or WASM.
                 if !self.kernel_present && self.wasm_count == 0 {
-                    return Err(ContainerError::MissingSegment(
-                        "kernel or WASM runtime",
-                    ));
+                    return Err(ContainerError::MissingSegment("kernel or WASM runtime"));
                 }
                 // Verify/Live need world model data for meaningful operation.
                 if !self.world_model_present
@@ -563,10 +556,7 @@ impl ContainerSegments {
         if self.orchestrator_present {
             flags |= AGI_HAS_ORCHESTRATOR;
         }
-        if self.world_model_present
-            || self.vec_segment_count > 0
-            || self.index_segment_count > 0
-        {
+        if self.world_model_present || self.vec_segment_count > 0 || self.index_segment_count > 0 {
             flags |= AGI_HAS_WORLD_MODEL;
         }
         if self.domain_expansion_present {
@@ -588,10 +578,7 @@ pub enum ContainerError {
     /// Signature verification failed.
     SignatureInvalid,
     /// Authority level insufficient for the requested action.
-    InsufficientAuthority {
-        required: u8,
-        granted: u8,
-    },
+    InsufficientAuthority { required: u8, granted: u8 },
     /// Resource budget exceeded.
     BudgetExhausted(&'static str),
 }
@@ -635,8 +622,12 @@ mod tests {
         let hdr = AgiContainerHeader {
             magic: AGI_MAGIC,
             version: 1,
-            flags: AGI_HAS_KERNEL | AGI_HAS_ORCHESTRATOR | AGI_HAS_WORLD_MODEL
-                | AGI_HAS_EVAL | AGI_SIGNED | AGI_REPLAY_CAPABLE,
+            flags: AGI_HAS_KERNEL
+                | AGI_HAS_ORCHESTRATOR
+                | AGI_HAS_WORLD_MODEL
+                | AGI_HAS_EVAL
+                | AGI_SIGNED
+                | AGI_REPLAY_CAPABLE,
             container_id: [0x42; 16],
             build_id: [0x43; 16],
             created_ns: 1_700_000_000_000_000_000,

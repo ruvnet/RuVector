@@ -39,7 +39,7 @@ pub mod qaoa;
 pub mod surface_code;
 pub mod vqe;
 
-pub use grover::{GroverConfig, GroverResult, run_grover};
-pub use qaoa::{Graph, QaoaConfig, QaoaResult, run_qaoa};
-pub use surface_code::{SurfaceCodeConfig, SurfaceCodeResult, run_surface_code};
-pub use vqe::{VqeConfig, VqeResult, run_vqe};
+pub use grover::{run_grover, GroverConfig, GroverResult};
+pub use qaoa::{run_qaoa, Graph, QaoaConfig, QaoaResult};
+pub use surface_code::{run_surface_code, SurfaceCodeConfig, SurfaceCodeResult};
+pub use vqe::{run_vqe, VqeConfig, VqeResult};

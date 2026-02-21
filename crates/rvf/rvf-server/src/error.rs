@@ -30,12 +30,12 @@ impl IntoResponse for ServerError {
                 let status = status_for_error(e);
                 (status, format!("{e:?}"), code)
             }
-            ServerError::BadRequest(msg) => {
-                (StatusCode::BAD_REQUEST, msg.clone(), 400)
-            }
-            ServerError::NotReady => {
-                (StatusCode::SERVICE_UNAVAILABLE, "Store not ready".into(), 503)
-            }
+            ServerError::BadRequest(msg) => (StatusCode::BAD_REQUEST, msg.clone(), 400),
+            ServerError::NotReady => (
+                StatusCode::SERVICE_UNAVAILABLE,
+                "Store not ready".into(),
+                503,
+            ),
         };
 
         let body = ErrorBody {

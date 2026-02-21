@@ -88,9 +88,7 @@ fn bench_cow_branch_creation() {
 
         let (min_us, avg_us, max_us) = bench_iterations(
             || {
-                let child_path = dir
-                    .path()
-                    .join(format!("child_{}.rvf", rand_u64()));
+                let child_path = dir.path().join(format!("child_{}.rvf", rand_u64()));
                 let start = Instant::now();
                 let child = base.branch(&child_path).unwrap();
                 let elapsed = start.elapsed().as_micros();
@@ -148,12 +146,8 @@ fn bench_cow_read_latency() {
     let child_tmp = tempfile::NamedTempFile::new().unwrap();
 
     // Engine with all clusters inherited from parent
-    let mut engine = CowEngine::from_parent(
-        cluster_count,
-        cluster_size,
-        vecs_per_cluster,
-        bytes_per_vec,
-    );
+    let mut engine =
+        CowEngine::from_parent(cluster_count, cluster_size, vecs_per_cluster, bytes_per_vec);
 
     // Write some vectors to make a few clusters local
     let local_data = vec![0xAAu8; bytes_per_vec as usize];
@@ -195,9 +189,7 @@ fn bench_cow_read_latency() {
         },
         3,
     );
-    println!(
-        "BENCH: cow_read_inherited: min={min_ns}ns avg={avg_ns}ns max={max_ns}ns per vector"
-    );
+    println!("BENCH: cow_read_inherited: min={min_ns}ns avg={avg_ns}ns max={max_ns}ns per vector");
 }
 
 // =============================================================================
@@ -521,8 +513,10 @@ fn bench_adr031_acceptance() {
 
     let child_size_before = std::fs::metadata(&child_path).unwrap().len();
     println!("BENCH: adr031: branch_time: {branch_us}us");
-    println!("BENCH: adr031: child_before_writes: {child_size_before} bytes ({:.1}% of parent)",
-        child_size_before as f64 / base_size as f64 * 100.0);
+    println!(
+        "BENCH: adr031: child_before_writes: {child_size_before} bytes ({:.1}% of parent)",
+        child_size_before as f64 / base_size as f64 * 100.0
+    );
 
     // Step 3: Verify COW stats
     let stats = child.cow_stats().unwrap();

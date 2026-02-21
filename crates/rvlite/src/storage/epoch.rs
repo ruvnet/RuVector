@@ -62,9 +62,15 @@ pub enum ReconciliationAction {
     /// Both stores are in sync -- no action needed.
     InSync,
     /// RVF is ahead -- rebuild metadata from RVF vectors.
-    RebuildMetadata { rvf_epoch: Epoch, metadata_epoch: Epoch },
+    RebuildMetadata {
+        rvf_epoch: Epoch,
+        metadata_epoch: Epoch,
+    },
     /// Metadata is ahead (should not happen) -- log warning, trust RVF.
-    TrustRvf { rvf_epoch: Epoch, metadata_epoch: Epoch },
+    TrustRvf {
+        rvf_epoch: Epoch,
+        metadata_epoch: Epoch,
+    },
 }
 
 /// Compare raw epoch values and return the relationship state.
@@ -164,7 +170,10 @@ impl EpochTracker {
     /// This does NOT advance the tracker. The caller must call `commit`
     /// after both RVF and metadata writes succeed.
     pub fn begin_write(&self) -> u64 {
-        self.current.load(Ordering::Acquire).checked_add(1).expect("epoch overflow")
+        self.current
+            .load(Ordering::Acquire)
+            .checked_add(1)
+            .expect("epoch overflow")
     }
 
     /// Commit the given epoch, advancing the tracker.

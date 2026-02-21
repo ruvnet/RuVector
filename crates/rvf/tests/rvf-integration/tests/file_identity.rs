@@ -3,8 +3,8 @@
 //! Tests the Level0Root codec's FileIdentity read/write in the reserved area,
 //! backward compatibility (zeros parse as valid root), and the type itself.
 
-use rvf_types::{FileIdentity, Level0Root};
 use rvf_manifest::{read_level0, write_level0};
+use rvf_types::{FileIdentity, Level0Root};
 
 #[test]
 fn file_identity_write_read_round_trip() {
@@ -67,7 +67,10 @@ fn backward_compat_old_files_still_work() {
 fn file_identity_type_assertions() {
     // Compile-time verified, but test runtime too
     assert_eq!(core::mem::size_of::<FileIdentity>(), 68);
-    assert!(68 <= 252, "FileIdentity must fit in Level0Root reserved area");
+    assert!(
+        68 <= 252,
+        "FileIdentity must fit in Level0Root reserved area"
+    );
 }
 
 #[test]

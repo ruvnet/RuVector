@@ -48,35 +48,36 @@
 //! let output = engine.infer(&input)?;
 //! ```
 
+pub mod backend;
 pub mod config;
 pub mod error;
-pub mod predictor;
-pub mod sparse;
+pub mod integration;
 pub mod memory;
 pub mod model;
-pub mod backend;
 pub mod ops;
-pub mod integration;
-pub mod precision;
 pub mod pi;
+pub mod precision;
+pub mod predictor;
+pub mod sparse;
 
-pub use config::{SparsityConfig, ActivationType, CacheConfig, ModelConfig, CacheStrategy};
-pub use error::{SparseInferenceError, Result};
-pub use predictor::{Predictor, LowRankPredictor};
-pub use sparse::{SparseFfn, FeedForward};
-pub use memory::{QuantizedWeights, NeuronCache};
-pub use model::{GgufParser, ModelInput, ModelOutput, InferenceConfig, ModelRunner, LlamaModel, ModelMetadata};
+pub use config::{ActivationType, CacheConfig, CacheStrategy, ModelConfig, SparsityConfig};
+pub use error::{Result, SparseInferenceError};
 pub use integration::{SparseEmbeddingProvider, SparseInferenceBackend};
-pub use precision::{
-    PrecisionLane, LaneConfig, GraduationPolicy, GraduationDecision,
-    Quantizer3Bit, Quantizer5Bit, Quantizer7Bit, LaneTelemetry,
+pub use memory::{NeuronCache, QuantizedWeights};
+pub use model::{
+    GgufParser, InferenceConfig, LlamaModel, ModelInput, ModelMetadata, ModelOutput, ModelRunner,
 };
 pub use pi::{
-    PiContext, PiCalibration, DriftDetector, DriftReport, QuantizationHonesty,
-    AngularEmbedding, PhaseEncoder, HypersphericalProjection,
-    PiChaos, DeterministicJitter, PiScheduler,
+    AngularEmbedding, DeterministicJitter, DriftDetector, DriftReport, HypersphericalProjection,
+    PhaseEncoder, PiCalibration, PiChaos, PiContext, PiScheduler, QuantizationHonesty,
     PI_SCALE_3BIT, PI_SCALE_5BIT, PI_SCALE_7BIT,
 };
+pub use precision::{
+    GraduationDecision, GraduationPolicy, LaneConfig, LaneTelemetry, PrecisionLane, Quantizer3Bit,
+    Quantizer5Bit, Quantizer7Bit,
+};
+pub use predictor::{LowRankPredictor, Predictor};
+pub use sparse::{FeedForward, SparseFfn};
 
 /// Sparse inference engine that coordinates prediction and computation
 pub struct SparseInferenceEngine {
@@ -90,11 +91,7 @@ impl SparseInferenceEngine {
     ///
     /// The sparsity_ratio determines what fraction of neurons are kept active (0.0-1.0)
     /// e.g., sparsity_ratio=0.3 means 30% of neurons are active (70% sparsity)
-    pub fn new_sparse(
-        input_dim: usize,
-        hidden_dim: usize,
-        sparsity_ratio: f32,
-    ) -> Result<Self> {
+    pub fn new_sparse(input_dim: usize, hidden_dim: usize, sparsity_ratio: f32) -> Result<Self> {
         // Use top-K selection based on sparsity ratio for reliable activation
         let target_active = ((sparsity_ratio) * hidden_dim as f32).max(1.0) as usize;
         let sparsity_config = SparsityConfig {
@@ -111,12 +108,7 @@ impl SparseInferenceEngine {
             sparsity_config,
         )?);
 
-        let ffn = SparseFfn::new(
-            input_dim,
-            hidden_dim,
-            input_dim,
-            ActivationType::Silu,
-        )?;
+        let ffn = SparseFfn::new(input_dim, hidden_dim, input_dim, ActivationType::Silu)?;
 
         Ok(Self {
             predictor,
@@ -126,10 +118,7 @@ impl SparseInferenceEngine {
     }
 
     /// Create a dense (non-sparse) inference engine for comparison
-    pub fn new_dense(
-        input_dim: usize,
-        hidden_dim: usize,
-    ) -> Result<Self> {
+    pub fn new_dense(input_dim: usize, hidden_dim: usize) -> Result<Self> {
         // Use top-k with all neurons (no sparsity)
         let sparsity_config = SparsityConfig {
             threshold: None,
@@ -145,12 +134,7 @@ impl SparseInferenceEngine {
             sparsity_config,
         )?);
 
-        let ffn = SparseFfn::new(
-            input_dim,
-            hidden_dim,
-            input_dim,
-            ActivationType::Silu,
-        )?;
+        let ffn = SparseFfn::new(input_dim, hidden_dim, input_dim, ActivationType::Silu)?;
 
         Ok(Self {
             predictor,
@@ -160,10 +144,7 @@ impl SparseInferenceEngine {
     }
 
     /// Calibrate the predictor with sample data
-    pub fn calibrate(
-        &mut self,
-        samples: &[Vec<f32>],
-    ) -> Result<()> {
+    pub fn calibrate(&mut self, samples: &[Vec<f32>]) -> Result<()> {
         // Calibration logic would go here
         Ok(())
     }

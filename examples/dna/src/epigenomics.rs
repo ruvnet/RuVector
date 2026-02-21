@@ -83,7 +83,9 @@ impl MethylationProfile {
         if self.sites.is_empty() {
             return 0.0;
         }
-        let extreme_count = self.sites.iter()
+        let extreme_count = self
+            .sites
+            .iter()
             .filter(|s| s.methylation_level < 0.1 || s.methylation_level > 0.9)
             .count();
         extreme_count as f32 / self.sites.len() as f32
@@ -277,14 +279,22 @@ mod tests {
         let betas = vec![0.5; 100];
         let profile = MethylationProfile::from_beta_values(positions, betas);
         let entropy = profile.methylation_entropy();
-        assert!(entropy < 0.1, "Uniform should have low entropy: {}", entropy);
+        assert!(
+            entropy < 0.1,
+            "Uniform should have low entropy: {}",
+            entropy
+        );
 
         // Spread methylation = high entropy
         let positions2: Vec<(u8, u64)> = (0..100).map(|i| (1u8, i as u64)).collect();
         let betas2: Vec<f32> = (0..100).map(|i| i as f32 / 100.0).collect();
         let profile2 = MethylationProfile::from_beta_values(positions2, betas2);
         let entropy2 = profile2.methylation_entropy();
-        assert!(entropy2 > 1.0, "Spread should have high entropy: {}", entropy2);
+        assert!(
+            entropy2 > 1.0,
+            "Spread should have high entropy: {}",
+            entropy2
+        );
     }
 
     #[test]

@@ -6,8 +6,8 @@
 //! DISCOVERY 5: Time-Dependent Disambiguation (quantum_decay + interference_search)
 //! DISCOVERY 6: QEC on Swarm Reasoning Chain (reasoning_qec + swarm_interference)
 
-use ruqu_exotic::quantum_decay::QuantumEmbedding;
 use ruqu_exotic::interference_search::ConceptSuperposition;
+use ruqu_exotic::quantum_decay::QuantumEmbedding;
 use ruqu_exotic::reasoning_qec::{ReasoningQecConfig, ReasoningStep, ReasoningTrace};
 use ruqu_exotic::swarm_interference::{Action, AgentContribution, SwarmInterference};
 
@@ -75,10 +75,7 @@ fn discovery_5_time_dependent_disambiguation() {
         // at each time step, seeing whatever structure remains.
         let concept = ConceptSuperposition::uniform(
             "bank",
-            vec![
-                ("financial".into(), fin_vec),
-                ("river".into(), riv_vec),
-            ],
+            vec![("financial".into(), fin_vec), ("river".into(), riv_vec)],
         );
 
         // Run interference with the context to see which meaning wins.
@@ -162,14 +159,8 @@ fn discovery_5_time_dependent_disambiguation() {
     let initial_gap = (first_fin - first_riv).abs();
     let final_gap = (last_fin - last_riv).abs();
 
-    println!(
-        "DISCOVERY 5: Initial probability gap: {:.6}",
-        initial_gap
-    );
-    println!(
-        "DISCOVERY 5: Final probability gap:   {:.6}",
-        final_gap
-    );
+    println!("DISCOVERY 5: Initial probability gap: {:.6}", initial_gap);
+    println!("DISCOVERY 5: Final probability gap:   {:.6}", final_gap);
     println!(
         "DISCOVERY 5: Gap change:              {:.6}",
         (initial_gap - final_gap).abs()
@@ -261,14 +252,8 @@ fn discovery_6_qec_on_swarm_reasoning_chain() {
 
     println!("DISCOVERY 6: QEC on Swarm Reasoning Chain");
     println!("DISCOVERY 6: ================================================");
-    println!(
-        "DISCOVERY 6: Agent confidences: {:?}",
-        agent_confidences
-    );
-    println!(
-        "DISCOVERY 6: Swarm decision probability: {:.4}",
-        swarm_prob
-    );
+    println!("DISCOVERY 6: Agent confidences: {:?}", agent_confidences);
+    println!("DISCOVERY 6: Swarm decision probability: {:.4}", swarm_prob);
     println!("DISCOVERY 6: (Agent 2 is deliberately unreliable at 0.20)");
     println!("DISCOVERY 6: ------------------------------------------------");
 
@@ -295,18 +280,9 @@ fn discovery_6_qec_on_swarm_reasoning_chain() {
     let mut trace = ReasoningTrace::new(steps, config).unwrap();
     let result = trace.run_qec().unwrap();
 
-    println!(
-        "DISCOVERY 6: Syndrome pattern: {:?}",
-        result.syndrome
-    );
-    println!(
-        "DISCOVERY 6: Error steps flagged: {:?}",
-        result.error_steps
-    );
-    println!(
-        "DISCOVERY 6: Is decodable: {}",
-        result.is_decodable
-    );
+    println!("DISCOVERY 6: Syndrome pattern: {:?}", result.syndrome);
+    println!("DISCOVERY 6: Error steps flagged: {:?}", result.error_steps);
+    println!("DISCOVERY 6: Is decodable: {}", result.is_decodable);
     println!(
         "DISCOVERY 6: Corrected fidelity: {:.6}",
         result.corrected_fidelity
@@ -356,8 +332,7 @@ fn discovery_6_qec_on_swarm_reasoning_chain() {
         seed: Some(42), // same seed for fair comparison
     };
 
-    let mut baseline_trace =
-        ReasoningTrace::new(baseline_steps, baseline_config).unwrap();
+    let mut baseline_trace = ReasoningTrace::new(baseline_steps, baseline_config).unwrap();
     let baseline_result = baseline_trace.run_qec().unwrap();
 
     println!(

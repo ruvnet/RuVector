@@ -29,8 +29,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::agi_contract::ContractHealth;
 use crate::reasoning_bank::{
-    Counterexample, MemoryClass, MemoryCheckpoint, ReasoningBank, RollbackWitness,
-    Trajectory, Verdict,
+    Counterexample, MemoryCheckpoint, MemoryClass, ReasoningBank, RollbackWitness, Trajectory,
+    Verdict,
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -47,7 +47,10 @@ pub enum GateDecision {
     /// Quarantine: result is suspicious, hold for review
     Quarantine { reason: String },
     /// Rollback: regression detected, revert to checkpoint
-    Rollback { checkpoint_id: usize, reason: String },
+    Rollback {
+        checkpoint_id: usize,
+        reason: String,
+    },
 }
 
 /// Health delta tracked per step.
@@ -131,7 +134,10 @@ impl FastGate {
                 ProposedWrite::RecordTrajectory(traj) => {
                     bank.record_trajectory_gated(traj);
                 }
-                ProposedWrite::RecordCounterexample { constraint_type, trajectory } => {
+                ProposedWrite::RecordCounterexample {
+                    constraint_type,
+                    trajectory,
+                } => {
                     bank.record_counterexample(&constraint_type, trajectory);
                 }
                 ProposedWrite::QuarantineTrajectory { trajectory, reason } => {
@@ -222,14 +228,22 @@ impl MediumLoop {
         let mut traj = Trajectory::new(puzzle_id, difficulty);
         traj.constraint_types = constraint_types.to_vec();
         traj.record_attempt(
-            if correct { "correct".to_string() } else { "incorrect".to_string() },
+            if correct {
+                "correct".to_string()
+            } else {
+                "incorrect".to_string()
+            },
             if correct { 0.9 } else { 0.2 },
             steps,
             1,
             strategy,
         );
         traj.set_verdict(
-            if correct { Verdict::Success } else { Verdict::Failed },
+            if correct {
+                Verdict::Success
+            } else {
+                Verdict::Failed
+            },
             None,
         );
 
@@ -432,7 +446,8 @@ mod tests {
         traj.record_attempt("answer".into(), 0.9, 10, 1, "default");
         traj.set_verdict(Verdict::Success, None);
 
-        gate.pending_writes.push(ProposedWrite::RecordTrajectory(traj));
+        gate.pending_writes
+            .push(ProposedWrite::RecordTrajectory(traj));
         let committed = gate.commit_writes(&mut bank);
         assert_eq!(committed, 1);
         assert_eq!(bank.trajectories.len(), 1);
@@ -443,13 +458,21 @@ mod tests {
         let mut medium = MediumLoop::new(100);
 
         let trace = medium.process_result(
-            "puzzle_1", 5, "adaptive", 15, true, true,
+            "puzzle_1",
+            5,
+            "adaptive",
+            15,
+            true,
+            true,
             &["Before".to_string()],
         );
 
         assert!(trace.correct);
         assert_eq!(trace.proposed_writes.len(), 1);
-        assert!(matches!(trace.proposed_writes[0], ProposedWrite::RecordTrajectory(_)));
+        assert!(matches!(
+            trace.proposed_writes[0],
+            ProposedWrite::RecordTrajectory(_)
+        ));
     }
 
     #[test]
@@ -459,14 +482,22 @@ mod tests {
 
         // Solved but wrong → quarantine (threshold 1)
         let trace = medium.process_result(
-            "puzzle_1", 5, "default", 15, true, false,
+            "puzzle_1",
+            5,
+            "default",
+            15,
+            true,
+            false,
             &["Month".to_string()],
         );
 
         assert!(!trace.correct);
         // Should have quarantine + counterexample writes
         assert!(trace.proposed_writes.len() >= 2);
-        assert!(trace.proposed_writes.iter().any(|w| matches!(w, ProposedWrite::QuarantineTrajectory { .. })));
+        assert!(trace
+            .proposed_writes
+            .iter()
+            .any(|w| matches!(w, ProposedWrite::QuarantineTrajectory { .. })));
     }
 
     #[test]
@@ -542,7 +573,12 @@ mod tests {
 
         for i in 0..5 {
             let trace = medium.process_result(
-                &format!("p_{}", i), 5, "adaptive", 10, true, true,
+                &format!("p_{}", i),
+                5,
+                "adaptive",
+                10,
+                true,
+                true,
                 &["Before".to_string()],
             );
             medium.finalize(&trace);

@@ -45,13 +45,19 @@ impl WriterLock {
 
         // Attempt atomic creation.
         match atomic_create_file(&lock_path, &content) {
-            Ok(()) => Ok(WriterLock { lock_path, writer_id }),
+            Ok(()) => Ok(WriterLock {
+                lock_path,
+                writer_id,
+            }),
             Err(e) if e.kind() == io::ErrorKind::AlreadyExists => {
                 // Check for stale lock.
                 if try_break_stale_lock(&lock_path)? {
                     // Retry after breaking stale lock.
                     atomic_create_file(&lock_path, &content)?;
-                    Ok(WriterLock { lock_path, writer_id })
+                    Ok(WriterLock {
+                        lock_path,
+                        writer_id,
+                    })
                 } else {
                     Err(io::Error::new(
                         io::ErrorKind::WouldBlock,
@@ -138,8 +144,14 @@ fn try_break_stale_lock(lock_path: &Path) -> io::Result<bool> {
     // Read PID and timestamp.
     let lock_pid = u32::from_le_bytes([content[4], content[5], content[6], content[7]]);
     let lock_timestamp = u64::from_le_bytes([
-        content[0x48], content[0x49], content[0x4A], content[0x4B],
-        content[0x4C], content[0x4D], content[0x4E], content[0x4F],
+        content[0x48],
+        content[0x49],
+        content[0x4A],
+        content[0x4B],
+        content[0x4C],
+        content[0x4D],
+        content[0x4E],
+        content[0x4F],
     ]);
 
     let current_time = now_ns();
@@ -161,7 +173,11 @@ fn try_break_stale_lock(lock_path: &Path) -> io::Result<bool> {
     // Stale conditions:
     // - PID is dead AND age > threshold (same host)
     // - Age > extended threshold (cross-host)
-    let threshold = if same_host { STALE_AGE_NS } else { 300_000_000_000 };
+    let threshold = if same_host {
+        STALE_AGE_NS
+    } else {
+        300_000_000_000
+    };
 
     if !pid_alive && age > threshold {
         let _ = fs::remove_file(lock_path);
@@ -176,7 +192,12 @@ fn try_break_stale_lock(lock_path: &Path) -> io::Result<bool> {
     Ok(false)
 }
 
-fn build_lock_content(pid: u32, hostname: &str, timestamp_ns: u64, writer_id: &[u8; 16]) -> Vec<u8> {
+fn build_lock_content(
+    pid: u32,
+    hostname: &str,
+    timestamp_ns: u64,
+    writer_id: &[u8; 16],
+) -> Vec<u8> {
     let mut buf = vec![0u8; LOCK_FILE_SIZE];
 
     // Magic (0x00).
@@ -188,7 +209,7 @@ fn build_lock_content(pid: u32, hostname: &str, timestamp_ns: u64, writer_id: &[
     let copy_len = host_bytes.len().min(62); // Reserve byte for null terminator
     buf[0x08..0x08 + copy_len].copy_from_slice(&host_bytes[..copy_len]);
     buf[0x08 + copy_len] = 0; // Explicit null terminator
-    // Timestamp (0x48).
+                              // Timestamp (0x48).
     buf[0x48..0x50].copy_from_slice(&timestamp_ns.to_le_bytes());
     // Writer ID (0x50).
     buf[0x50..0x60].copy_from_slice(writer_id);

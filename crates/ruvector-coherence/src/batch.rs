@@ -25,8 +25,12 @@ pub fn evaluate_batch(
     let n = baseline_outputs.len().min(gated_outputs.len());
     if n == 0 {
         return BatchResult {
-            mean_coherence_delta: 0.0, std_coherence_delta: 0.0,
-            ci_95_lower: 0.0, ci_95_upper: 0.0, n_samples: 0, pass_rate: 0.0,
+            mean_coherence_delta: 0.0,
+            std_coherence_delta: 0.0,
+            ci_95_lower: 0.0,
+            ci_95_upper: 0.0,
+            n_samples: 0,
+            pass_rate: 0.0,
         };
     }
 
@@ -42,14 +46,19 @@ pub fn evaluate_batch(
     let mean = deltas.iter().sum::<f64>() / n as f64;
     let var = if n > 1 {
         deltas.iter().map(|d| (d - mean).powi(2)).sum::<f64>() / (n - 1) as f64
-    } else { 0.0 };
+    } else {
+        0.0
+    };
     let std_dev = var.sqrt();
     let margin = 1.96 * std_dev / (n as f64).sqrt();
 
     BatchResult {
-        mean_coherence_delta: mean, std_coherence_delta: std_dev,
-        ci_95_lower: mean - margin, ci_95_upper: mean + margin,
-        n_samples: n, pass_rate: passes as f64 / n as f64,
+        mean_coherence_delta: mean,
+        std_coherence_delta: std_dev,
+        ci_95_lower: mean - margin,
+        ci_95_upper: mean + margin,
+        n_samples: n,
+        pass_rate: passes as f64 / n as f64,
     }
 }
 
@@ -74,8 +83,18 @@ mod tests {
 
     #[test]
     fn batch_ci_contains_mean() {
-        let bl = vec![vec![1.0, 0.0], vec![0.0, 1.0], vec![1.0, 1.0], vec![2.0, 3.0]];
-        let gt = vec![vec![1.1, 0.1], vec![0.1, 1.1], vec![1.2, 0.9], vec![2.1, 2.9]];
+        let bl = vec![
+            vec![1.0, 0.0],
+            vec![0.0, 1.0],
+            vec![1.0, 1.0],
+            vec![2.0, 3.0],
+        ];
+        let gt = vec![
+            vec![1.1, 0.1],
+            vec![0.1, 1.1],
+            vec![1.2, 0.9],
+            vec![2.1, 2.9],
+        ];
         let r = evaluate_batch(&bl, &gt, 0.9);
         assert!(r.ci_95_lower <= r.mean_coherence_delta);
         assert!(r.ci_95_upper >= r.mean_coherence_delta);
@@ -92,8 +111,12 @@ mod tests {
     #[test]
     fn batch_result_serializable() {
         let r = BatchResult {
-            mean_coherence_delta: -0.05, std_coherence_delta: 0.02,
-            ci_95_lower: -0.07, ci_95_upper: -0.03, n_samples: 100, pass_rate: 0.95,
+            mean_coherence_delta: -0.05,
+            std_coherence_delta: 0.02,
+            ci_95_lower: -0.07,
+            ci_95_upper: -0.03,
+            n_samples: 100,
+            pass_rate: 0.95,
         };
         let d: BatchResult = serde_json::from_str(&serde_json::to_string(&r).unwrap()).unwrap();
         assert_eq!(d.n_samples, 100);

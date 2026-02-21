@@ -90,7 +90,11 @@ impl PolicyKnobs {
     /// Crossover two parent knobs to produce a child.
     pub fn crossover(&self, other: &PolicyKnobs, rng: &mut impl Rng) -> Self {
         Self {
-            skip_mode: if rng.gen() { self.skip_mode } else { other.skip_mode },
+            skip_mode: if rng.gen() {
+                self.skip_mode
+            } else {
+                other.skip_mode
+            },
             prepass_enabled: if rng.gen() {
                 self.prepass_enabled
             } else {
@@ -254,12 +258,11 @@ impl PopulationSearch {
         self.generation += 1;
 
         // Sort by cost-adjusted fitness (descending)
-        self.population
-            .sort_by(|a, b| {
-                b.cost_adjusted_fitness()
-                    .partial_cmp(&a.cost_adjusted_fitness())
-                    .unwrap_or(std::cmp::Ordering::Equal)
-            });
+        self.population.sort_by(|a, b| {
+            b.cost_adjusted_fitness()
+                .partial_cmp(&a.cost_adjusted_fitness())
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
 
         // Track best
         if let Some(best) = self.population.first() {
@@ -296,7 +299,8 @@ impl PopulationSearch {
 
             let child = if rng.gen::<f32>() < 0.3 && elites.len() > 1 {
                 // Crossover
-                let other_idx = (parent_idx + 1 + rng.gen_range(0..elites.len() - 1)) % elites.len();
+                let other_idx =
+                    (parent_idx + 1 + rng.gen_range(0..elites.len() - 1)) % elites.len();
                 let mut child = PolicyKernel::new(child_id);
                 child.knobs = elites[parent_idx]
                     .knobs
@@ -329,10 +333,7 @@ impl PopulationSearch {
     pub fn stats(&self) -> PopulationStats {
         let fitnesses: Vec<f32> = self.population.iter().map(|k| k.fitness()).collect();
         let mean = fitnesses.iter().sum::<f32>() / fitnesses.len().max(1) as f32;
-        let max = fitnesses
-            .iter()
-            .cloned()
-            .fold(f32::NEG_INFINITY, f32::max);
+        let max = fitnesses.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
         let min = fitnesses.iter().cloned().fold(f32::INFINITY, f32::min);
         let variance = fitnesses.iter().map(|f| (f - mean).powi(2)).sum::<f32>()
             / fitnesses.len().max(1) as f32;
@@ -344,7 +345,11 @@ impl PopulationSearch {
             max_fitness: max,
             min_fitness: min,
             fitness_variance: variance,
-            best_ever_fitness: self.best_kernel.as_ref().map(|k| k.fitness()).unwrap_or(0.0),
+            best_ever_fitness: self
+                .best_kernel
+                .as_ref()
+                .map(|k| k.fitness())
+                .unwrap_or(0.0),
         }
     }
 }
@@ -378,8 +383,8 @@ mod tests {
         let knobs = PolicyKnobs::default_knobs();
         let mut rng = rand::thread_rng();
         let mutated = knobs.mutate(&mut rng, 1.0); // high mutation rate
-        // At least something should differ (probabilistically)
-        // Can't guarantee due to randomness, but bounds should hold
+                                                   // At least something should differ (probabilistically)
+                                                   // Can't guarantee due to randomness, but bounds should hold
         assert!(mutated.speculation_threshold >= 0.01 && mutated.speculation_threshold <= 0.5);
         assert!(mutated.exploration_budget >= 0.01 && mutated.exploration_budget <= 0.5);
     }

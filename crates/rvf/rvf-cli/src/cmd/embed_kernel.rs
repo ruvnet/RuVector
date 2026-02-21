@@ -37,23 +37,26 @@ fn parse_arch(s: &str) -> Result<u8, Box<dyn std::error::Error>> {
 pub fn run(args: EmbedKernelArgs) -> Result<(), Box<dyn std::error::Error>> {
     let arch = parse_arch(&args.arch)?;
 
-    let image_path = args.image_path.as_deref().ok_or(
-        "No kernel image path provided. Use --image-path <path> or --prebuilt"
-    )?;
+    let image_path = args
+        .image_path
+        .as_deref()
+        .ok_or("No kernel image path provided. Use --image-path <path> or --prebuilt")?;
 
     let kernel_image = std::fs::read(image_path)
         .map_err(|e| format!("Failed to read kernel image '{}': {}", image_path, e))?;
 
     let mut store = RvfStore::open(Path::new(&args.file)).map_err(map_rvf_err)?;
 
-    let seg_id = store.embed_kernel(
-        arch,
-        0,    // kernel_type: unikernel
-        0x01, // kernel_flags: KERNEL_FLAG_SIGNED placeholder
-        &kernel_image,
-        8080,
-        None,
-    ).map_err(map_rvf_err)?;
+    let seg_id = store
+        .embed_kernel(
+            arch,
+            0,    // kernel_type: unikernel
+            0x01, // kernel_flags: KERNEL_FLAG_SIGNED placeholder
+            &kernel_image,
+            8080,
+            None,
+        )
+        .map_err(map_rvf_err)?;
 
     store.close().map_err(map_rvf_err)?;
 

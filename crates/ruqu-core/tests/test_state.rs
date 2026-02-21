@@ -282,7 +282,12 @@ fn test_ghz_state() {
     assert!(approx_eq(probs[0], 0.5)); // |000>
     assert!(approx_eq(probs[7], 0.5)); // |111>
     for i in 1..7 {
-        assert!(approx_eq(probs[i], 0.0), "probs[{}] = {} should be 0", i, probs[i]);
+        assert!(
+            approx_eq(probs[i], 0.0),
+            "probs[{}] = {} should be 0",
+            i,
+            probs[i]
+        );
     }
 }
 
@@ -294,7 +299,7 @@ fn test_ghz_4_qubits() {
     state.apply_gate(&Gate::CNOT(1, 2)).unwrap();
     state.apply_gate(&Gate::CNOT(2, 3)).unwrap();
     let probs = state.probabilities();
-    assert!(approx_eq(probs[0], 0.5));  // |0000>
+    assert!(approx_eq(probs[0], 0.5)); // |0000>
     assert!(approx_eq(probs[15], 0.5)); // |1111>
     for i in 1..15 {
         assert!(approx_eq(probs[i], 0.0));
@@ -355,7 +360,9 @@ fn test_rotation_identity() {
 fn test_rx_pi_is_x() {
     // Rx(pi)|0> = -i|1> (probability of |1> should be 1)
     let mut state = QuantumState::new(1).unwrap();
-    state.apply_gate(&Gate::Rx(0, std::f64::consts::PI)).unwrap();
+    state
+        .apply_gate(&Gate::Rx(0, std::f64::consts::PI))
+        .unwrap();
     assert!(approx_eq(state.probabilities()[0], 0.0));
     assert!(approx_eq(state.probabilities()[1], 1.0));
 }
@@ -364,7 +371,9 @@ fn test_rx_pi_is_x() {
 fn test_ry_pi_flips() {
     // Ry(pi)|0> = |1>
     let mut state = QuantumState::new(1).unwrap();
-    state.apply_gate(&Gate::Ry(0, std::f64::consts::PI)).unwrap();
+    state
+        .apply_gate(&Gate::Ry(0, std::f64::consts::PI))
+        .unwrap();
     assert!(approx_eq(state.probabilities()[1], 1.0));
 }
 
@@ -380,7 +389,9 @@ fn test_rz_preserves_probability() {
 fn test_rx_half_pi_creates_superposition() {
     // Rx(pi/2)|0> should give 50-50 superposition
     let mut state = QuantumState::new(1).unwrap();
-    state.apply_gate(&Gate::Rx(0, std::f64::consts::FRAC_PI_2)).unwrap();
+    state
+        .apply_gate(&Gate::Rx(0, std::f64::consts::FRAC_PI_2))
+        .unwrap();
     let probs = state.probabilities();
     assert!(approx_eq(probs[0], 0.5));
     assert!(approx_eq(probs[1], 0.5));
@@ -389,7 +400,9 @@ fn test_rx_half_pi_creates_superposition() {
 #[test]
 fn test_ry_half_pi_creates_superposition() {
     let mut state = QuantumState::new(1).unwrap();
-    state.apply_gate(&Gate::Ry(0, std::f64::consts::FRAC_PI_2)).unwrap();
+    state
+        .apply_gate(&Gate::Ry(0, std::f64::consts::FRAC_PI_2))
+        .unwrap();
     let probs = state.probabilities();
     assert!(approx_eq(probs[0], 0.5));
     assert!(approx_eq(probs[1], 0.5));
@@ -408,7 +421,7 @@ fn test_cz_on_11() {
     state.apply_gate(&Gate::CZ(0, 1)).unwrap();
     let sv = state.state_vector();
     assert!(approx_eq(sv[3].re, -1.0)); // -|11>
-    // Probability unchanged
+                                        // Probability unchanged
     assert!(approx_eq(state.probabilities()[3], 1.0));
 }
 
@@ -800,7 +813,7 @@ fn test_fidelity_partial_overlap() {
     let state0 = QuantumState::new(1).unwrap(); // |0>
     let mut state_plus = QuantumState::new(1).unwrap();
     state_plus.apply_gate(&Gate::H(0)).unwrap(); // |+>
-    // |<0|+>|^2 = (1/sqrt(2))^2 = 0.5
+                                                 // |<0|+>|^2 = (1/sqrt(2))^2 = 0.5
     assert!(approx_eq(state0.fidelity(&state_plus), 0.5));
 }
 

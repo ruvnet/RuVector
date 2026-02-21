@@ -504,11 +504,7 @@ pub extern "C" fn tts_stats(out_ptr: *mut u8, out_len: usize) -> i32 {
 /// Record an access event for a block (increments count, updates timestamp).
 /// Returns 0 on success, negative on error.
 #[no_mangle]
-pub extern "C" fn tts_touch(
-    tensor_id_hi: u64,
-    tensor_id_lo: u64,
-    block_index: u32,
-) -> i32 {
+pub extern "C" fn tts_touch(tensor_id_hi: u64, tensor_id_lo: u64, block_index: u32) -> i32 {
     let key = BlockKey {
         tensor_id: make_tensor_id(tensor_id_hi, tensor_id_lo),
         block_index,
@@ -527,11 +523,7 @@ pub extern "C" fn tts_touch(
 /// Evict a block, removing it from the store entirely.
 /// Returns 0 on success, negative on error.
 #[no_mangle]
-pub extern "C" fn tts_evict(
-    tensor_id_hi: u64,
-    tensor_id_lo: u64,
-    block_index: u32,
-) -> i32 {
+pub extern "C" fn tts_evict(tensor_id_hi: u64, tensor_id_lo: u64, block_index: u32) -> i32 {
     let key = BlockKey {
         tensor_id: make_tensor_id(tensor_id_hi, tensor_id_lo),
         block_index,
@@ -839,10 +831,7 @@ mod tests {
         assert_eq!(make_tensor_id(0, 0), 0u128);
         assert_eq!(make_tensor_id(0, 1), 1u128);
         assert_eq!(make_tensor_id(1, 0), 1u128 << 64);
-        assert_eq!(
-            make_tensor_id(u64::MAX, u64::MAX),
-            u128::MAX,
-        );
+        assert_eq!(make_tensor_id(u64::MAX, u64::MAX), u128::MAX,);
     }
 
     #[test]

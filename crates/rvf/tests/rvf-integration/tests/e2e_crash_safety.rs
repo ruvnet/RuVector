@@ -24,7 +24,9 @@ fn random_vector(dim: usize, seed: u64) -> Vec<f32> {
     let mut v = Vec::with_capacity(dim);
     let mut x = seed;
     for _ in 0..dim {
-        x = x.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        x = x
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
         v.push(((x >> 33) as f32) / (u32::MAX as f32) - 0.5);
     }
     v
@@ -42,9 +44,7 @@ fn crash_truncate_after_valid_state_recovers() {
     // Create store with 100 vectors.
     {
         let mut store = RvfStore::create(&path, make_options(dim)).unwrap();
-        let vectors: Vec<Vec<f32>> = (0..100)
-            .map(|i| random_vector(dim as usize, i))
-            .collect();
+        let vectors: Vec<Vec<f32>> = (0..100).map(|i| random_vector(dim as usize, i)).collect();
         let refs: Vec<&[f32]> = vectors.iter().map(|v| v.as_slice()).collect();
         let ids: Vec<u64> = (1..=100).collect();
         store.ingest_batch(&refs, &ids, None).unwrap();
@@ -90,9 +90,7 @@ fn crash_partial_segment_at_tail_is_harmless() {
     // Create and close a valid store.
     {
         let mut store = RvfStore::create(&path, make_options(dim)).unwrap();
-        let vectors: Vec<Vec<f32>> = (0..50)
-            .map(|i| vec![i as f32; dim as usize])
-            .collect();
+        let vectors: Vec<Vec<f32>> = (0..50).map(|i| vec![i as f32; dim as usize]).collect();
         let refs: Vec<&[f32]> = vectors.iter().map(|v| v.as_slice()).collect();
         let ids: Vec<u64> = (1..=50).collect();
         store.ingest_batch(&refs, &ids, None).unwrap();
@@ -145,7 +143,12 @@ fn crash_corrupted_manifest_checksum_fallback() {
     file_bytes.extend_from_slice(&m1);
 
     // More VEC data.
-    let vec_seg2 = write_segment(SegmentType::Vec as u8, &[0u8; 100], SegmentFlags::empty(), 2);
+    let vec_seg2 = write_segment(
+        SegmentType::Vec as u8,
+        &[0u8; 100],
+        SegmentFlags::empty(),
+        2,
+    );
     file_bytes.extend_from_slice(&vec_seg2);
 
     // Second (latest) manifest -- we will corrupt this one.
@@ -176,7 +179,10 @@ fn crash_corrupted_manifest_checksum_fallback() {
     // the structural offset). The key behavior is that the format supports
     // fallback via the scan mechanism.
     let scan_result = find_latest_manifest(&file_bytes);
-    assert!(scan_result.is_ok(), "tail scan should still find a manifest segment");
+    assert!(
+        scan_result.is_ok(),
+        "tail scan should still find a manifest segment"
+    );
 }
 
 // --------------------------------------------------------------------------
@@ -217,10 +223,7 @@ fn crash_zero_fill_tail_detected() {
 
     // But the manifest before it should still be found.
     let result = find_latest_manifest(&file_bytes);
-    assert!(
-        result.is_ok(),
-        "should find manifest before zero-fill tail"
-    );
+    assert!(result.is_ok(), "should find manifest before zero-fill tail");
 }
 
 // --------------------------------------------------------------------------
@@ -235,9 +238,7 @@ fn crash_random_noise_appended_no_data_loss() {
     // Create a valid store.
     {
         let mut store = RvfStore::create(&path, make_options(dim)).unwrap();
-        let vectors: Vec<Vec<f32>> = (0..30)
-            .map(|i| vec![i as f32; dim as usize])
-            .collect();
+        let vectors: Vec<Vec<f32>> = (0..30).map(|i| vec![i as f32; dim as usize]).collect();
         let refs: Vec<&[f32]> = vectors.iter().map(|v| v.as_slice()).collect();
         let ids: Vec<u64> = (1..=30).collect();
         store.ingest_batch(&refs, &ids, None).unwrap();
@@ -266,12 +267,7 @@ fn crash_random_noise_appended_no_data_loss() {
 #[test]
 fn crash_segment_hash_catches_corruption() {
     let payload = b"critical vector data for recovery testing";
-    let encoded = write_segment(
-        SegmentType::Vec as u8,
-        payload,
-        SegmentFlags::empty(),
-        42,
-    );
+    let encoded = write_segment(SegmentType::Vec as u8, payload, SegmentFlags::empty(), 42);
 
     let (header, _) = read_segment(&encoded).unwrap();
 
@@ -317,13 +313,22 @@ fn crash_corruption_isolated_to_single_segment() {
 
     // Segment A should still validate.
     let (hdr_a, pay_a) = read_segment(&file[0..]).unwrap();
-    assert!(validate_segment(&hdr_a, pay_a).is_ok(), "segment A should be intact");
+    assert!(
+        validate_segment(&hdr_a, pay_a).is_ok(),
+        "segment A should be intact"
+    );
 
     // Segment B should fail validation.
     let (hdr_b, pay_b) = read_segment(&file[b_offset..]).unwrap();
-    assert!(validate_segment(&hdr_b, pay_b).is_err(), "segment B should be corrupted");
+    assert!(
+        validate_segment(&hdr_b, pay_b).is_err(),
+        "segment B should be corrupted"
+    );
 
     // Segment C should still validate.
     let (hdr_c, pay_c) = read_segment(&file[c_offset..]).unwrap();
-    assert!(validate_segment(&hdr_c, pay_c).is_ok(), "segment C should be intact");
+    assert!(
+        validate_segment(&hdr_c, pay_c).is_ok(),
+        "segment C should be intact"
+    );
 }

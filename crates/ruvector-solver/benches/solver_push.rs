@@ -141,7 +141,13 @@ fn forward_push_scaling(c: &mut Criterion) {
         let avg_degree = 10;
         let graph = random_graph_csr(n, avg_degree, 42);
 
-        let sample_count = if n >= 100_000 { 10 } else if n >= 10_000 { 20 } else { 100 };
+        let sample_count = if n >= 100_000 {
+            10
+        } else if n >= 10_000 {
+            20
+        } else {
+            100
+        };
         group.sample_size(sample_count);
         group.throughput(Throughput::Elements(n as u64));
 
@@ -176,14 +182,7 @@ fn forward_push_tolerance(c: &mut Criterion) {
     for &tol in &[1e-2f32, 1e-4, 1e-6] {
         let label = format!("eps_{:.0e}", tol);
         group.bench_with_input(BenchmarkId::new(&label, n), &tol, |b, &eps| {
-            b.iter(|| {
-                forward_push(
-                    criterion::black_box(&graph),
-                    0,
-                    alpha,
-                    eps,
-                )
-            });
+            b.iter(|| forward_push(criterion::black_box(&graph), 0, alpha, eps));
         });
     }
     group.finish();
@@ -208,14 +207,7 @@ fn forward_push_density(c: &mut Criterion) {
         let label = format!("deg_{}", avg_degree);
         group.throughput(Throughput::Elements(graph.nnz() as u64));
         group.bench_with_input(BenchmarkId::new(&label, n), &avg_degree, |b, _| {
-            b.iter(|| {
-                forward_push(
-                    criterion::black_box(&graph),
-                    0,
-                    alpha,
-                    tolerance,
-                )
-            });
+            b.iter(|| forward_push(criterion::black_box(&graph), 0, alpha, tolerance));
         });
     }
     group.finish();

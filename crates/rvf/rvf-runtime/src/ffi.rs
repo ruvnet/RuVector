@@ -152,10 +152,7 @@ pub unsafe extern "C" fn rvqs_verify_signature(
 /// # Safety
 /// `data` must point to `data_len` valid bytes.
 #[no_mangle]
-pub unsafe extern "C" fn rvqs_verify_content_hash(
-    data: *const u8,
-    data_len: usize,
-) -> i32 {
+pub unsafe extern "C" fn rvqs_verify_content_hash(data: *const u8, data_len: usize) -> i32 {
     if data.is_null() {
         return RVQS_ERR_NULL_PTR;
     }
@@ -280,7 +277,7 @@ pub unsafe extern "C" fn rvqs_get_primary_host_url(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::qr_seed::{SeedBuilder, make_host_entry};
+    use crate::qr_seed::{make_host_entry, SeedBuilder};
     use rvf_types::qr_seed::*;
 
     fn build_signed_seed() -> Vec<u8> {
@@ -299,9 +296,7 @@ mod tests {
     fn ffi_parse_header() {
         let payload = build_signed_seed();
         let mut header = core::mem::MaybeUninit::<RvqsHeaderC>::uninit();
-        let rc = unsafe {
-            rvqs_parse_header(payload.as_ptr(), payload.len(), header.as_mut_ptr())
-        };
+        let rc = unsafe { rvqs_parse_header(payload.as_ptr(), payload.len(), header.as_mut_ptr()) };
         assert_eq!(rc, RVQS_OK);
         let header = unsafe { header.assume_init() };
         assert_eq!(header.seed_magic, SEED_MAGIC);
@@ -323,7 +318,12 @@ mod tests {
         let payload = build_signed_seed();
         let bad_key = b"wrong-key-should-fail-verificatn";
         let rc = unsafe {
-            rvqs_verify_signature(payload.as_ptr(), payload.len(), bad_key.as_ptr(), bad_key.len())
+            rvqs_verify_signature(
+                payload.as_ptr(),
+                payload.len(),
+                bad_key.as_ptr(),
+                bad_key.len(),
+            )
         };
         assert_eq!(rc, RVQS_ERR_SIGNATURE_INVALID);
     }
@@ -331,9 +331,7 @@ mod tests {
     #[test]
     fn ffi_verify_content_hash() {
         let payload = build_signed_seed();
-        let rc = unsafe {
-            rvqs_verify_content_hash(payload.as_ptr(), payload.len())
-        };
+        let rc = unsafe { rvqs_verify_content_hash(payload.as_ptr(), payload.len()) };
         assert_eq!(rc, RVQS_OK);
     }
 
@@ -378,9 +376,7 @@ mod tests {
     #[test]
     fn ffi_null_ptr_returns_error() {
         let mut header = core::mem::MaybeUninit::<RvqsHeaderC>::uninit();
-        let rc = unsafe {
-            rvqs_parse_header(core::ptr::null(), 0, header.as_mut_ptr())
-        };
+        let rc = unsafe { rvqs_parse_header(core::ptr::null(), 0, header.as_mut_ptr()) };
         assert_eq!(rc, RVQS_ERR_NULL_PTR);
     }
 }

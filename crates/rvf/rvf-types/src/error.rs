@@ -266,10 +266,7 @@ pub enum RvfError {
     /// A struct size assertion failed.
     SizeMismatch { expected: usize, got: usize },
     /// A value was outside the valid enum range.
-    InvalidEnumValue {
-        type_name: &'static str,
-        value: u64,
-    },
+    InvalidEnumValue { type_name: &'static str, value: u64 },
     /// Security policy violation during file open (ADR-033 §4).
     Security(crate::security::SecurityError),
     /// Query result quality is below threshold (ADR-033 §2.4).

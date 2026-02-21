@@ -2,7 +2,7 @@
 //!
 //! Implements the control theory for when signals should move between precision lanes.
 
-use super::lanes::{PrecisionLane, LaneConfig};
+use super::lanes::{LaneConfig, PrecisionLane};
 use serde::{Deserialize, Serialize};
 
 /// Metrics used for graduation decisions
@@ -56,7 +56,8 @@ impl GraduationMetrics {
         self.confidence = ema_alpha * observation.confidence + (1.0 - ema_alpha) * self.confidence;
         self.stability = ema_alpha * observation.stability + (1.0 - ema_alpha) * self.stability;
         self.velocity = ema_alpha * observation.velocity + (1.0 - ema_alpha) * self.velocity;
-        self.uncertainty = ema_alpha * observation.uncertainty + (1.0 - ema_alpha) * self.uncertainty;
+        self.uncertainty =
+            ema_alpha * observation.uncertainty + (1.0 - ema_alpha) * self.uncertainty;
 
         self.active_set_size = observation.active_set_size;
         self.action_needed = observation.action_needed;
@@ -293,7 +294,11 @@ impl LanedEventProcessor {
         }
     }
 
-    fn compute_observation(&self, _reflex: &ReflexResult, _embed: &EmbedResult) -> ObservationMetrics {
+    fn compute_observation(
+        &self,
+        _reflex: &ReflexResult,
+        _embed: &EmbedResult,
+    ) -> ObservationMetrics {
         ObservationMetrics::default()
     }
 
@@ -373,7 +378,10 @@ mod tests {
         };
 
         let decision = policy.evaluate(&observation);
-        assert!(matches!(decision, GraduationDecision::Escalate(PrecisionLane::Bit7)));
+        assert!(matches!(
+            decision,
+            GraduationDecision::Escalate(PrecisionLane::Bit7)
+        ));
     }
 
     #[test]
@@ -402,6 +410,9 @@ mod tests {
         };
 
         let decision = policy.evaluate(&observation);
-        assert!(matches!(decision, GraduationDecision::Demote(PrecisionLane::Bit5)));
+        assert!(matches!(
+            decision,
+            GraduationDecision::Demote(PrecisionLane::Bit5)
+        ));
     }
 }

@@ -4,7 +4,6 @@
 /// seed, noise model, shots) into an [`ExecutionRecord`] so that any run can
 /// be replayed bit-for-bit. Also provides [`StateCheckpoint`] for snapshotting
 /// the raw amplitude vector mid-simulation.
-
 use crate::circuit::QuantumCircuit;
 use crate::gate::Gate;
 use crate::simulator::{SimConfig, Simulator};
@@ -135,7 +134,10 @@ impl ReplayEngine {
             return false;
         }
 
-        let noise = record.noise_config.as_ref().map(NoiseConfig::to_noise_model);
+        let noise = record
+            .noise_config
+            .as_ref()
+            .map(NoiseConfig::to_noise_model);
 
         let config = SimConfig {
             seed: Some(record.seed),
@@ -332,8 +334,8 @@ fn gate_components(gate: &Gate) -> (u8, Vec<u32>, Vec<f64>) {
         Gate::Unitary1Q(q, m) => {
             // Encode the 4 complex entries (8 f64 values).
             let params = vec![
-                m[0][0].re, m[0][0].im, m[0][1].re, m[0][1].im,
-                m[1][0].re, m[1][0].im, m[1][1].re, m[1][1].im,
+                m[0][0].re, m[0][0].im, m[0][1].re, m[0][1].im, m[1][0].re, m[1][0].im, m[1][1].re,
+                m[1][1].im,
             ];
             (19, vec![*q], params)
         }
@@ -397,13 +399,20 @@ mod tests {
             };
             let r1 = Simulator::run_with_config(&circuit, &c1).unwrap();
             let r2 = Simulator::run_with_config(&circuit, &c2).unwrap();
-            if r1.measurements.iter().zip(r2.measurements.iter()).any(|(a, b)| a.result != b.result)
+            if r1
+                .measurements
+                .iter()
+                .zip(r2.measurements.iter())
+                .any(|(a, b)| a.result != b.result)
             {
                 any_differ = true;
                 break;
             }
         }
-        assert!(any_differ, "expected at least one pair of seeds to disagree");
+        assert!(
+            any_differ,
+            "expected at least one pair of seeds to disagree"
+        );
     }
 
     /// Record + replay round-trip succeeds.
