@@ -98,8 +98,8 @@ fn test_profile_vector_normalized() {
 fn test_biomarker_references_exist() {
     let refs = biomarker_references();
     assert!(
-        refs.len() >= 12,
-        "Should have at least 12 biomarker references, got {}",
+        refs.len() >= 13,
+        "Should have at least 13 biomarker references, got {}",
         refs.len()
     );
 }

@@ -44,6 +44,7 @@ static REFERENCES: &[BiomarkerReference] = &[
     BiomarkerReference { name: "TSH", unit: "mIU/L", normal_low: 0.4, normal_high: 4.0, critical_low: Some(0.1), critical_high: Some(10.0), category: "Thyroid" },
     BiomarkerReference { name: "Ferritin", unit: "ng/mL", normal_low: 20.0, normal_high: 250.0, critical_low: Some(10.0), critical_high: Some(1000.0), category: "Iron" },
     BiomarkerReference { name: "Vitamin B12", unit: "pg/mL", normal_low: 200.0, normal_high: 900.0, critical_low: Some(150.0), critical_high: None, category: "Nutritional" },
+    BiomarkerReference { name: "Lp(a)", unit: "nmol/L", normal_low: 0.0, normal_high: 75.0, critical_low: None, critical_high: Some(200.0), category: "Lipid" },
 ];
 
 /// Return the static biomarker reference table.
@@ -131,9 +132,15 @@ static SNPS: &[SnpDef] = &[
     SnpDef { rsid: "rs1800497",  category: "Neurological",   w_ref: 0.0, w_het: 0.25,  w_alt: 0.5,  hom_ref: "GG", het: "AG", hom_alt: "AA", maf: 0.20 },
     SnpDef { rsid: "rs4363657",  category: "Cardiovascular", w_ref: 0.0, w_het: 0.35,  w_alt: 0.7,  hom_ref: "TT", het: "CT", hom_alt: "CC", maf: 0.15 },
     SnpDef { rsid: "rs1800566",  category: "Cancer Risk",    w_ref: 0.0, w_het: 0.15,  w_alt: 0.30, hom_ref: "CC", het: "CT", hom_alt: "TT", maf: 0.22 },
+    // LPA — Lp(a) cardiovascular risk (2024 meta-analysis: OR 1.6-1.75/allele CHD)
+    SnpDef { rsid: "rs10455872", category: "Cardiovascular", w_ref: 0.0, w_het: 0.40,  w_alt: 0.75, hom_ref: "AA", het: "AG", hom_alt: "GG", maf: 0.07 },
+    SnpDef { rsid: "rs3798220",  category: "Cardiovascular", w_ref: 0.0, w_het: 0.35,  w_alt: 0.65, hom_ref: "TT", het: "CT", hom_alt: "CC", maf: 0.02 },
 ];
 
-const NUM_SNPS: usize = 17;
+/// Number of SNPs with one-hot encoding in profile vector (first 17 for 64-dim SIMD alignment).
+/// Additional SNPs (LPA) contribute to risk scores but use summary dims in the vector.
+const NUM_ONEHOT_SNPS: usize = 17;
+const NUM_SNPS: usize = 19;
 
 fn genotype_code(snp: &SnpDef, gt: &str) -> u8 {
     if gt == snp.hom_ref { 0 }
@@ -251,13 +258,10 @@ pub fn encode_profile_vector(profile: &BiomarkerProfile) -> Vec<f32> {
 
 fn encode_profile_vector_with_genotypes(profile: &BiomarkerProfile, genotypes: &HashMap<String, String>) -> Vec<f32> {
     let mut v = vec![0.0f32; 64];
-    // Dims 0..50: one-hot genotype encoding (17 SNPs x 3 = 51 dims)
-    for (i, snp) in SNPS.iter().enumerate() {
+    // Dims 0..50: one-hot genotype encoding (first 17 SNPs x 3 = 51 dims)
+    for (i, snp) in SNPS.iter().take(NUM_ONEHOT_SNPS).enumerate() {
         let code = genotypes.get(snp.rsid).map(|gt| genotype_code(snp, gt)).unwrap_or(0);
-        let base = i * 3;
-        if base + 2 < NUM_SNPS * 3 {
-            v[base + code as usize] = 1.0;
-        }
+        v[i * 3 + code as usize] = 1.0;
     }
     // Dims 51..54: category scores
     for (j, cat) in CAT_ORDER.iter().enumerate() {
@@ -273,7 +277,11 @@ fn encode_profile_vector_with_genotypes(profile: &BiomarkerProfile, genotypes: &
     v[60] = analyze_mthfr(genotypes).score as f32 / 4.0;
     v[61] = analyze_pain(genotypes).map(|p| p.score as f32 / 4.0).unwrap_or(0.0);
     v[62] = genotypes.get("rs429358").map(|g| genotype_code(&SNPS[0], g) as f32 / 2.0).unwrap_or(0.0);
-    v[63] = genotypes.get("rs1800566").map(|g| genotype_code(&SNPS[NUM_SNPS - 1], g) as f32 / 2.0).unwrap_or(0.0);
+    // LPA composite: average of rs10455872 + rs3798220 genotype codes
+    let lpa = SNPS.iter().filter(|s| s.rsid == "rs10455872" || s.rsid == "rs3798220")
+        .filter_map(|s| genotypes.get(s.rsid).map(|g| genotype_code(s, g) as f32 / 2.0))
+        .sum::<f32>() / 2.0;
+    v[63] = lpa;
 
     let norm: f32 = v.iter().map(|x| x * x).sum::<f32>().sqrt();
     if norm > 0.0 { v.iter_mut().for_each(|x| *x /= norm); }
@@ -304,7 +312,11 @@ pub fn generate_synthetic_population(count: usize, seed: u64) -> Vec<BiomarkerPr
 
         let mthfr_score = analyze_mthfr(&genotypes).score;
         let apoe_code = genotypes.get("rs429358").map(|g| genotype_code(&SNPS[0], g)).unwrap_or(0);
-        let nqo1_code = genotypes.get("rs1800566").map(|g| genotype_code(&SNPS[NUM_SNPS - 1], g)).unwrap_or(0);
+        let nqo1_idx = SNPS.iter().position(|s| s.rsid == "rs1800566").unwrap();
+        let nqo1_code = genotypes.get("rs1800566").map(|g| genotype_code(&SNPS[nqo1_idx], g)).unwrap_or(0);
+        let lpa_risk: u8 = SNPS.iter().filter(|s| s.rsid == "rs10455872" || s.rsid == "rs3798220")
+            .filter_map(|s| genotypes.get(s.rsid).map(|g| genotype_code(s, g)))
+            .sum();
         profile.biomarker_values.reserve(REFERENCES.len());
 
         for bref in REFERENCES {
@@ -319,6 +331,7 @@ pub fn generate_synthetic_population(count: usize, seed: u64) -> Vec<BiomarkerPr
                 "Triglycerides" if apoe_code > 0 => val += sd * 0.4 * apoe_code as f64, // APOE e4 raises TG
                 "Vitamin B12" if mthfr_score >= 2 => val -= sd * 0.4, // MTHFR impairs B12 utilization
                 "CRP" if nqo1_code == 2 => val += sd * 0.3, // NQO1 null→oxidative stress→inflammation
+                "Lp(a)" if lpa_risk > 0 => val += sd * 1.5 * lpa_risk as f64, // LPA variants→elevated Lp(a)
                 _ => {}
             }
             val = val.max(bref.critical_low.unwrap_or(0.0)).max(0.0);
@@ -477,6 +490,6 @@ mod tests {
 
     #[test]
     fn test_biomarker_references_count() {
-        assert_eq!(biomarker_references().len(), 12);
+        assert_eq!(biomarker_references().len(), 13);
     }
 }
