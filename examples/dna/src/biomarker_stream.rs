@@ -153,6 +153,12 @@ pub struct StreamStats {
     pub anomaly_rate: f64,
     pub trend_slope: f64,
     pub ema: f64,
+    /// CUSUM statistic for changepoint detection (positive direction).
+    pub cusum_pos: f64,
+    /// CUSUM statistic for changepoint detection (negative direction).
+    pub cusum_neg: f64,
+    /// Whether a changepoint has been detected in the current window.
+    pub changepoint_detected: bool,
 }
 
 impl Default for StreamStats {
@@ -160,6 +166,7 @@ impl Default for StreamStats {
         Self {
             mean: 0.0, variance: 0.0, min: f64::MAX, max: f64::MIN,
             count: 0, anomaly_rate: 0.0, trend_slope: 0.0, ema: 0.0,
+            cusum_pos: 0.0, cusum_neg: 0.0, changepoint_detected: false,
         }
     }
 }
@@ -186,6 +193,8 @@ pub struct StreamSummary {
 const EMA_ALPHA: f64 = 0.1;
 const Z_SCORE_THRESHOLD: f64 = 2.5;
 const REF_OVERSHOOT: f64 = 0.20;
+const CUSUM_THRESHOLD: f64 = 4.0; // Cumulative sum threshold for changepoint detection
+const CUSUM_DRIFT: f64 = 0.5;     // Allowable drift before CUSUM accumulates
 
 /// Processes biomarker readings with per-stream ring buffers, z-score anomaly
 /// detection, and trend analysis via simple linear regression.
@@ -250,6 +259,14 @@ impl StreamProcessor {
         } else {
             EMA_ALPHA * reading.value + (1.0 - EMA_ALPHA) * st.ema
         };
+        // CUSUM changepoint detection: accumulate deviations from the mean
+        if wstd > 1e-12 {
+            let norm_dev = (reading.value - wmean) / wstd;
+            st.cusum_pos = (st.cusum_pos + norm_dev - CUSUM_DRIFT).max(0.0);
+            st.cusum_neg = (st.cusum_neg - norm_dev - CUSUM_DRIFT).max(0.0);
+            st.changepoint_detected = st.cusum_pos > CUSUM_THRESHOLD || st.cusum_neg > CUSUM_THRESHOLD;
+            if st.changepoint_detected { st.cusum_pos = 0.0; st.cusum_neg = 0.0; }
+        }
 
         ProcessingResult { accepted: true, z_score: z, is_anomaly: is_anom, current_trend: slope }
     }
@@ -259,16 +276,10 @@ impl StreamProcessor {
     }
 
     pub fn summary(&self) -> StreamSummary {
-        let elapsed = match (self.start_ts, self.last_ts) {
-            (Some(s), Some(e)) if e > s => (e - s) as f64,
-            _ => 1.0,
-        };
+        let elapsed = match (self.start_ts, self.last_ts) { (Some(s), Some(e)) if e > s => (e - s) as f64, _ => 1.0 };
+        let ar = if self.total_readings > 0 { self.anomaly_count as f64 / self.total_readings as f64 } else { 0.0 };
         StreamSummary {
-            total_readings: self.total_readings,
-            anomaly_count: self.anomaly_count,
-            anomaly_rate: if self.total_readings > 0 {
-                self.anomaly_count as f64 / self.total_readings as f64
-            } else { 0.0 },
+            total_readings: self.total_readings, anomaly_count: self.anomaly_count, anomaly_rate: ar,
             biomarker_stats: self.stats.clone(),
             throughput_readings_per_sec: self.total_readings as f64 / (elapsed / 1000.0),
         }

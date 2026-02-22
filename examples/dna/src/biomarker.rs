@@ -7,7 +7,7 @@ use rand::{Rng, SeedableRng};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-use crate::health::{analyze_mthfr, analyze_pain, variant_categories};
+use crate::health::{analyze_mthfr, analyze_pain};
 
 /// Clinical reference range for a single biomarker.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -292,15 +292,8 @@ static HET: &[&str] = &[
 fn random_genotype(rng: &mut StdRng, idx: usize) -> String {
     let p = ALLELE_FREQS[idx];
     let r: f64 = rng.gen();
-    let p_hom_ref = (1.0 - p) * (1.0 - p);
-    let p_het = 2.0 * p * (1.0 - p);
-    if r < p_hom_ref {
-        HOM_REF[idx].to_string()
-    } else if r < p_hom_ref + p_het {
-        HET[idx].to_string()
-    } else {
-        HOM_ALT[idx].to_string()
-    }
+    let q = 1.0 - p;
+    if r < q * q { HOM_REF[idx] } else if r < q * q + 2.0 * p * q { HET[idx] } else { HOM_ALT[idx] }.to_string()
 }
 
 /// Generate a deterministic synthetic population of biomarker profiles.
@@ -320,24 +313,26 @@ pub fn generate_synthetic_population(count: usize, seed: u64) -> Vec<BiomarkerPr
         profile.timestamp = 1700000000 + i as i64;
 
         let mthfr_score = analyze_mthfr(&genotypes).score;
-        let apoe_has_c = genotypes.get("rs429358").map_or(false, |g| g.contains('C'));
+        let apoe_code = genotypes.get("rs429358").map(|g| genotype_code(0, g)).unwrap_or(0);
+        let nqo1_code = genotypes.get("rs1800566").map(|g| genotype_code(16, g)).unwrap_or(0);
         profile.biomarker_values.reserve(REFERENCES.len());
 
         for bref in REFERENCES {
             let mid = (bref.normal_low + bref.normal_high) / 2.0;
             let sd = (bref.normal_high - bref.normal_low) / 4.0;
             let mut val = mid + rng.gen_range(-1.5..1.5) * sd;
-
-            if bref.name == "Homocysteine" && mthfr_score >= 2 {
-                val += sd * (mthfr_score as f64 - 1.0);
-            }
-            if apoe_has_c && (bref.name == "Total Cholesterol" || bref.name == "LDL") {
-                val += sd * 0.5;
+            // Gene→biomarker correlations from SOTA clinical evidence
+            match bref.name {
+                "Homocysteine" if mthfr_score >= 2 => val += sd * (mthfr_score as f64 - 1.0),
+                "Total Cholesterol" | "LDL" if apoe_code > 0 => val += sd * 0.5 * apoe_code as f64,
+                "HDL" if apoe_code > 0 => val -= sd * 0.3 * apoe_code as f64,  // APOE e4 lowers HDL
+                "Triglycerides" if apoe_code > 0 => val += sd * 0.4 * apoe_code as f64, // APOE e4 raises TG
+                "Vitamin B12" if mthfr_score >= 2 => val -= sd * 0.4, // MTHFR impairs B12 utilization
+                "CRP" if nqo1_code == 2 => val += sd * 0.3, // NQO1 null→oxidative stress→inflammation
+                _ => {}
             }
             val = val.max(bref.critical_low.unwrap_or(0.0)).max(0.0);
-            if let Some(ch) = bref.critical_high {
-                val = val.min(ch * 1.2);
-            }
+            if let Some(ch) = bref.critical_high { val = val.min(ch * 1.2); }
             profile.biomarker_values.insert(bref.name.to_string(), (val * 10.0).round() / 10.0);
         }
         pop.push(profile);
