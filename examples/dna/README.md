@@ -39,7 +39,7 @@ Give it a DNA sequence, and it will:
 4. **Translate DNA to protein** — full codon table with contact graph prediction
 5. **Predict biological age** from methylation data (Horvath clock, 353 CpG sites)
 6. **Recommend drug doses** based on CYP2D6 star alleles and CPIC guidelines
-7. **Score health risks** — composite polygenic risk scoring across 17 SNPs with gene-gene interactions
+7. **Score health risks** — composite polygenic risk scoring across 20 SNPs with gene-gene interactions
 8. **Stream biomarker data** — real-time anomaly detection, trend analysis, and CUSUM changepoint detection
 9. **Save everything to `.rvdna`** — a single file with all results pre-computed
 
@@ -156,7 +156,7 @@ Measured with Criterion on real human gene data (HBB, TP53, BRCA1, CYP2D6, INS):
 | 1000-position variant scan | **336 us** | Full pileup across a gene region |
 | Full pipeline (1 kb) | **591 us** | K-mer + alignment + variants + protein |
 | Complete 8-stage demo (5 genes) | **12 ms** | Everything including .rvdna output |
-| Composite risk score (17 SNPs) | **2.0 us** | Polygenic scoring with gene-gene interactions |
+| Composite risk score (20 SNPs) | **2.0 us** | Polygenic scoring with gene-gene interactions |
 | Profile vector encoding (64-dim) | **209 ns** | One-hot genotype + category scores, L2-normalized |
 | Synthetic population (1,000) | **6.4 ms** | Full population with Hardy-Weinberg equilibrium |
 | Stream processing (per reading) | **< 10 us** | Ring buffer + running stats + CUSUM |
@@ -280,7 +280,7 @@ The biomarker engine extends rvDNA's SNP analysis with composite risk scoring, s
 
 ### Composite Risk Scoring
 
-Aggregates 17 clinically-relevant SNPs across 4 categories (Cancer Risk, Cardiovascular, Neurological, Metabolism) into a single global risk score with gene-gene interaction modifiers. Weights are calibrated against published GWAS odds ratios and clinical meta-analyses.
+Aggregates 20 clinically-relevant SNPs across 4 categories (Cancer Risk, Cardiovascular, Neurological, Metabolism) into a single global risk score with gene-gene interaction modifiers. Includes LPA Lp(a) risk variants (rs10455872, rs3798220) and PCSK9 R46L protective variant (rs11591147). Weights are calibrated against published GWAS odds ratios, clinical meta-analyses, and 2024-2025 SOTA evidence.
 
 ```rust
 use rvdna::biomarker::*;
@@ -330,7 +330,7 @@ println!("Biomarkers tracked: {}", summary.biomarker_stats.len());
 
 ### Synthetic Population Generation
 
-Generates populations with Hardy-Weinberg equilibrium genotype frequencies and gene-correlated biomarker values (APOE e4 lowers HDL, MTHFR reduces B12, NQO1 null raises CRP).
+Generates populations with Hardy-Weinberg equilibrium genotype frequencies and gene-correlated biomarker values (APOE e4 raises LDL/TC and lowers HDL, MTHFR elevates homocysteine and reduces B12, NQO1 null raises CRP, LPA variants elevate Lp(a), PCSK9 R46L lowers LDL/TC).
 
 ```rust
 use rvdna::biomarker::*;
@@ -532,7 +532,7 @@ flowchart TB
 | `rvdna.rs` | 1,447 | Complete `.rvdna` format: reader, writer, 2-bit codec, sparse tensors |
 | `health.rs` | 686 | 17 clinically-relevant SNPs, APOE genotyping, MTHFR compound status, COMT/OPRM1 pain profiling |
 | `genotyping.rs` | 1,124 | End-to-end 23andMe genotyping pipeline with 7-stage processing |
-| `biomarker.rs` | 494 | Composite polygenic risk scoring, 64-dim profile vectors, gene-gene interactions, synthetic populations |
+| `biomarker.rs` | 498 | 20-SNP composite polygenic risk scoring (incl. LPA, PCSK9), 64-dim profile vectors, gene-gene interactions, additive gene→biomarker correlations, synthetic populations |
 | `biomarker_stream.rs` | 499 | Streaming biomarker simulator with ring buffer, CUSUM changepoint detection, trend analysis |
 | `kmer_pagerank.rs` | 230 | K-mer graph PageRank via solver Forward Push PPR |
 | `real_data.rs` | 237 | 5 real human gene sequences from NCBI RefSeq |
