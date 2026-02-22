@@ -52,6 +52,11 @@ class NodeBackend {
         this.native = null;
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         this.handle = null;
+        // String ID <-> Numeric Label mappings (N-API layer requires i64 labels)
+        this.idToLabel = new Map();
+        this.labelToId = new Map();
+        this.nextLabel = 1; // RVF uses 1-based labels
+        this.storePath = '';
     }
     async loadNative() {
         if (this.native)
@@ -76,6 +81,10 @@ class NodeBackend {
         await this.loadNative();
         try {
             this.handle = await this.native.create(path, mapOptionsToNative(options));
+            this.storePath = path;
+            this.idToLabel.clear();
+            this.labelToId.clear();
+            this.nextLabel = 1;
         }
         catch (err) {
             throw errors_1.RvfError.fromNative(err);
@@ -85,6 +94,8 @@ class NodeBackend {
         await this.loadNative();
         try {
             this.handle = await this.native.open(path);
+            this.storePath = path;
+            await this.loadMappings();
         }
         catch (err) {
             throw errors_1.RvfError.fromNative(err);
@@ -94,6 +105,8 @@ class NodeBackend {
         await this.loadNative();
         try {
             this.handle = await this.native.openReadonly(path);
+            this.storePath = path;
+            await this.loadMappings();
         }
         catch (err) {
             throw errors_1.RvfError.fromNative(err);
@@ -115,8 +128,14 @@ class NodeBackend {
                 const f32 = v instanceof Float32Array ? v : new Float32Array(v);
                 flat.set(f32, i * dim);
             }
-            const ids = entries.map((e) => Number(e.id));
+            // Map string IDs to numeric labels for the N-API layer.
+            // The native Rust HNSW expects i64 labels — non-numeric strings cause
+            // silent data loss (NaN → dropped).  We maintain a bidirectional
+            // string↔label mapping and persist it as a sidecar JSON file.
+            const ids = entries.map((e) => this.resolveLabel(e.id));
             const result = this.handle.ingestBatch(flat, ids);
+            // Persist mappings after every ingest so they survive crashes.
+            await this.saveMappings();
             return {
                 accepted: Number(result.accepted),
                 rejected: Number(result.rejected),
@@ -132,8 +151,9 @@ class NodeBackend {
         try {
             const nativeOpts = options ? mapQueryOptionsToNative(options) : undefined;
             const results = this.handle.query(vector, k, nativeOpts);
+            // Map numeric labels back to original string IDs.
             return results.map((r) => ({
-                id: String(r.id),
+                id: this.labelToId.get(Number(r.id)) ?? String(r.id),
                 distance: r.distance,
             }));
         }
@@ -144,8 +164,23 @@ class NodeBackend {
     async delete(ids) {
         this.ensureHandle();
         try {
-            const numIds = ids.map((id) => Number(id));
+            // Resolve string IDs to numeric labels for the N-API layer.
+            const numIds = ids
+                .map((id) => this.idToLabel.get(id))
+                .filter((label) => label !== undefined);
+            if (numIds.length === 0) {
+                return { deleted: 0, epoch: 0 };
+            }
             const result = this.handle.delete(numIds);
+            // Remove deleted entries from the mapping.
+            for (const id of ids) {
+                const label = this.idToLabel.get(id);
+                if (label !== undefined) {
+                    this.idToLabel.delete(id);
+                    this.labelToId.delete(label);
+                }
+            }
+            await this.saveMappings();
             return { deleted: Number(result.deleted), epoch: result.epoch };
         }
         catch (err) {
@@ -191,6 +226,7 @@ class NodeBackend {
         if (!this.handle)
             return;
         try {
+            await this.saveMappings();
             this.handle.close();
         }
         catch (err) {
@@ -198,6 +234,10 @@ class NodeBackend {
         }
         finally {
             this.handle = null;
+            this.idToLabel.clear();
+            this.labelToId.clear();
+            this.nextLabel = 1;
+            this.storePath = '';
         }
     }
     async fileId() {
@@ -235,6 +275,12 @@ class NodeBackend {
             const child = new NodeBackend();
             child.native = this.native;
             child.handle = childHandle;
+            child.storePath = childPath;
+            // Copy parent mappings to child (COW semantics)
+            child.idToLabel = new Map(this.idToLabel);
+            child.labelToId = new Map(this.labelToId);
+            child.nextLabel = this.nextLabel;
+            await child.saveMappings();
             return child;
         }
         catch (err) {
@@ -311,6 +357,60 @@ class NodeBackend {
         }
         catch (err) {
             throw errors_1.RvfError.fromNative(err);
+        }
+    }
+    // ─── String ID ↔ Numeric Label mapping helpers ───
+    /**
+     * Get or allocate a numeric label for a string ID.
+     * If the ID was already seen, returns the existing label.
+     */
+    resolveLabel(id) {
+        let label = this.idToLabel.get(id);
+        if (label !== undefined)
+            return label;
+        label = this.nextLabel++;
+        this.idToLabel.set(id, label);
+        this.labelToId.set(label, id);
+        return label;
+    }
+    /** Path to the sidecar mappings file. */
+    mappingsPath() {
+        return this.storePath ? this.storePath + '.idmap.json' : '';
+    }
+    /** Persist the string↔label mapping to a sidecar JSON file. */
+    async saveMappings() {
+        const mp = this.mappingsPath();
+        if (!mp)
+            return;
+        try {
+            const fs = await Promise.resolve().then(() => __importStar(require('fs')));
+            const data = JSON.stringify({
+                idToLabel: Object.fromEntries(this.idToLabel),
+                labelToId: Object.fromEntries(Array.from(this.labelToId.entries()).map(([k, v]) => [String(k), v])),
+                nextLabel: this.nextLabel,
+            });
+            fs.writeFileSync(mp, data, 'utf-8');
+        }
+        catch {
+            // Non-fatal: mapping persistence is best-effort (e.g. read-only FS).
+        }
+    }
+    /** Load the string↔label mapping from the sidecar JSON file if it exists. */
+    async loadMappings() {
+        const mp = this.mappingsPath();
+        if (!mp)
+            return;
+        try {
+            const fs = await Promise.resolve().then(() => __importStar(require('fs')));
+            if (!fs.existsSync(mp))
+                return;
+            const raw = JSON.parse(fs.readFileSync(mp, 'utf-8'));
+            this.idToLabel = new Map(Object.entries(raw.idToLabel ?? {}).map(([k, v]) => [k, Number(v)]));
+            this.labelToId = new Map(Object.entries(raw.labelToId ?? {}).map(([k, v]) => [Number(k), v]));
+            this.nextLabel = raw.nextLabel ?? this.idToLabel.size + 1;
+        }
+        catch {
+            // Non-fatal: start with empty mappings.
         }
     }
 }

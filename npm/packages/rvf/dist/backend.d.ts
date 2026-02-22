@@ -46,6 +46,10 @@ export interface RvfBackend {
 export declare class NodeBackend implements RvfBackend {
     private native;
     private handle;
+    private idToLabel;
+    private labelToId;
+    private nextLabel;
+    private storePath;
     private loadNative;
     private ensureHandle;
     create(path: string, options: RvfOptions): Promise<void>;
@@ -68,6 +72,17 @@ export declare class NodeBackend implements RvfBackend {
     extractEbpf(): Promise<RvfEbpfData | null>;
     segments(): Promise<RvfSegmentInfo[]>;
     dimension(): Promise<number>;
+    /**
+     * Get or allocate a numeric label for a string ID.
+     * If the ID was already seen, returns the existing label.
+     */
+    private resolveLabel;
+    /** Path to the sidecar mappings file. */
+    private mappingsPath;
+    /** Persist the string↔label mapping to a sidecar JSON file. */
+    private saveMappings;
+    /** Load the string↔label mapping from the sidecar JSON file if it exists. */
+    private loadMappings;
 }
 /**
  * Backend that delegates to the `@ruvector/rvf-wasm` WASM build.
