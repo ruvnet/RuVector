@@ -343,6 +343,13 @@ function analyze23andMe(text) {
   };
 }
 
+// -------------------------------------------------------------------
+// Biomarker Analysis Engine (v0.3.0 — mirrors biomarker.rs + biomarker_stream.rs)
+// -------------------------------------------------------------------
+
+const biomarkerModule = require('./src/biomarker');
+const streamModule = require('./src/stream');
+
 module.exports = {
   // Original API
   encode2bit,
@@ -360,6 +367,25 @@ module.exports = {
   callCyp2c19,
   determineApoe,
   analyze23andMe,
+
+  // Biomarker Risk Scoring Engine (v0.3.0)
+  biomarkerReferences: biomarkerModule.biomarkerReferences,
+  zScore: biomarkerModule.zScore,
+  classifyBiomarker: biomarkerModule.classifyBiomarker,
+  computeRiskScores: biomarkerModule.computeRiskScores,
+  encodeProfileVector: biomarkerModule.encodeProfileVector,
+  generateSyntheticPopulation: biomarkerModule.generateSyntheticPopulation,
+  BIOMARKER_REFERENCES: biomarkerModule.BIOMARKER_REFERENCES,
+  SNPS: biomarkerModule.SNPS,
+  INTERACTIONS: biomarkerModule.INTERACTIONS,
+  CAT_ORDER: biomarkerModule.CAT_ORDER,
+
+  // Streaming Biomarker Processor (v0.3.0)
+  RingBuffer: streamModule.RingBuffer,
+  StreamProcessor: streamModule.StreamProcessor,
+  generateReadings: streamModule.generateReadings,
+  defaultStreamConfig: streamModule.defaultStreamConfig,
+  BIOMARKER_DEFS: streamModule.BIOMARKER_DEFS,
 
   // Re-export native module for advanced use
   native: nativeModule,

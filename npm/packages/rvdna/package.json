@@ -1,7 +1,7 @@
 {
   "name": "@ruvector/rvdna",
-  "version": "0.2.0",
-  "description": "rvDNA — AI-native genomic analysis. Native 23andMe genotyping, CYP2D6/CYP2C19 pharmacogenomics, 17 health variants, variant calling, protein prediction, and HNSW vector search powered by Rust via NAPI-RS.",
+  "version": "0.3.0",
+  "description": "rvDNA — AI-native genomic analysis. 20-SNP biomarker risk scoring, streaming anomaly detection, 64-dim profile vectors, 23andMe genotyping, CYP2D6/CYP2C19 pharmacogenomics, variant calling, protein prediction, and HNSW vector search.",
   "main": "index.js",
   "types": "index.d.ts",
   "author": "rUv <info@ruv.io> (https://ruv.io)",
@@ -21,11 +21,12 @@
   "files": [
     "index.js",
     "index.d.ts",
+    "src/",
     "README.md"
   ],
   "scripts": {
     "build:napi": "napi build --platform --release --cargo-cwd ../../../examples/dna",
-    "test": "node test.js"
+    "test": "node tests/test-biomarker.js"
   },
   "devDependencies": {
     "@napi-rs/cli": "^2.18.0"
@@ -45,6 +46,11 @@
     "bioinformatics",
     "dna",
     "rvdna",
+    "biomarker",
+    "health",
+    "risk-score",
+    "streaming",
+    "anomaly-detection",
     "23andme",
     "pharmacogenomics",
     "variant-calling",
@@ -53,6 +59,7 @@
     "vector-search",
     "napi",
     "rust",
-    "ai"
+    "ai",
+    "wasm"
   ]
 }
