@@ -14,7 +14,7 @@ readme = "README.md"
 crate-type = ["cdylib"]
 
 [dependencies]
-ruvector-mincut = { path = "../ruvector-mincut", features = ["monitoring"] }
+ruvector-mincut = { version = "2.0", path = "../ruvector-mincut", features = ["monitoring"] }
 napi = { workspace = true }
 napi-derive = { workspace = true }
 serde = { workspace = true }

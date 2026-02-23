@@ -7,6 +7,9 @@ license.workspace = true
 authors.workspace = true
 repository.workspace = true
 description = "Verifiable WASM cognitive container with canonical witness chains"
+readme = "README.md"
+homepage = "https://ruv.io"
+documentation = "https://docs.rs/ruvector-cognitive-container"
 keywords = ["wasm", "cognitive", "container", "witness-chain", "deterministic"]
 categories = ["algorithms", "wasm", "cryptography"]
 

@@ -459,6 +459,7 @@ impl CactusGraph {
         let mut merged: Vec<Vec<usize>> = node_ids.iter().map(|&v| vec![v]).collect();
         // Compact active-list (only iterate active nodes)
         let mut active_list: Vec<usize> = (0..n).collect();
+        let mut active_pos: Vec<usize> = (0..n).collect();
         let mut n_active = n;
 
         let mut global_min = f64::INFINITY;

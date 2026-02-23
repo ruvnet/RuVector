@@ -1,6 +1,6 @@
 [package]
 name = "cognitum-gate-kernel"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 rust-version = "1.75"
 license = "MIT OR Apache-2.0"
@@ -16,7 +16,7 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 # Path dependency to ruvector-mincut for shared types (only for std builds)
-ruvector-mincut = { version = "0.1.30", default-features = false, features = ["wasm"], optional = true }
+ruvector-mincut = { version = "2.0", path = "../ruvector-mincut", default-features = false, features = ["wasm"], optional = true }
 
 # no_std compatible math
 libm = "0.2"

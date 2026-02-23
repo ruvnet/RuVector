@@ -14,7 +14,7 @@ readme = "README.md"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-ruvector-mincut = { path = "../ruvector-mincut", default-features = false, features = ["wasm"] }
+ruvector-mincut = { version = "2.0", path = "../ruvector-mincut", default-features = false, features = ["wasm"] }
 wasm-bindgen = { workspace = true }
 wasm-bindgen-futures = { workspace = true }
 js-sys = { workspace = true }

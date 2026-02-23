@@ -1221,21 +1221,21 @@ dependencies = [
 [[package]]
 name = "cognitum-gate-kernel"
 version = "0.1.0"
-dependencies = [
- "criterion 0.5.1",
- "libm",
- "proptest",
- "ruvector-mincut 0.1.30",
-]
-
-[[package]]
-name = "cognitum-gate-kernel"
-version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ad608b706e3ffa448744047059858875c8cea5cebbec7fa3dc50ca79e7b0a4ba"
 dependencies = [
  "libm",
  "ruvector-mincut 0.1.30",
+]
+
+[[package]]
+name = "cognitum-gate-kernel"
+version = "0.1.1"
+dependencies = [
+ "criterion 0.5.1",
+ "libm",
+ "proptest",
+ "ruvector-mincut 2.0.4",
 ]
 
 [[package]]
@@ -5763,7 +5763,7 @@ version = "0.1.0"
 dependencies = [
  "axum",
  "chrono",
- "cognitum-gate-kernel 0.1.0",
+ "cognitum-gate-kernel 0.1.1",
  "console_error_panic_hook",
  "getrandom 0.2.16",
  "js-sys",
@@ -6516,7 +6516,7 @@ dependencies = [
  "blake3",
  "bytemuck",
  "chrono",
- "cognitum-gate-kernel 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "cognitum-gate-kernel 0.1.0",
  "criterion 0.5.1",
  "crossbeam",
  "dashmap 6.1.0",
@@ -7899,7 +7899,7 @@ dependencies = [
  "byteorder",
  "chrono",
  "clap",
- "cognitum-gate-kernel 0.1.0",
+ "cognitum-gate-kernel 0.1.1",
  "console",
  "criterion 0.5.1",
  "hdf5",
