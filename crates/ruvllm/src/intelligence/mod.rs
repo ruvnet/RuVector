@@ -439,7 +439,7 @@ impl IntelligenceProvider for FileSignalProvider {
 /// Aggregates quality signals from multiple registered providers.
 ///
 /// The loader maintains a list of [`IntelligenceProvider`] implementations
-/// and calls them in registration order during [`load_all_signals`].
+/// and calls them in registration order during [`IntelligenceLoader::load_all_signals`].
 ///
 /// # Zero Overhead
 ///
