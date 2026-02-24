@@ -114,6 +114,14 @@ pub enum RuvLLMError {
     /// Core ML errors (macOS only)
     #[error("Core ML error: {0}")]
     CoreML(String),
+
+    /// HTTP request errors (Ollama/Claude API)
+    #[error("HTTP error: {0}")]
+    Http(String),
+
+    /// Request timeout errors
+    #[error("Timeout: {0}")]
+    Timeout(String),
 }
 
 impl From<ruvector_core::RuvectorError> for RuvLLMError {
@@ -125,5 +133,18 @@ impl From<ruvector_core::RuvectorError> for RuvLLMError {
 impl From<serde_json::Error> for RuvLLMError {
     fn from(err: serde_json::Error) -> Self {
         RuvLLMError::Serialization(err.to_string())
+    }
+}
+
+#[cfg(feature = "ollama")]
+impl From<reqwest::Error> for RuvLLMError {
+    fn from(err: reqwest::Error) -> Self {
+        if err.is_timeout() {
+            RuvLLMError::Timeout(err.to_string())
+        } else if err.is_connect() {
+            RuvLLMError::Http(format!("Connection failed: {}", err))
+        } else {
+            RuvLLMError::Http(err.to_string())
+        }
     }
 }

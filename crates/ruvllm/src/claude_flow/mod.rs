@@ -191,6 +191,10 @@ mod reasoning_bank;
 mod task_classifier;
 mod task_generator;
 
+// Tiered router for multi-backend inference (Ollama feature)
+#[cfg(feature = "ollama")]
+pub mod tiered_router;
+
 pub use agent_router::{AgentRouter, AgentType, RoutingDecision};
 pub use flow_optimizer::{FlowOptimizer, OptimizationConfig, OptimizationResult};
 pub use hnsw_router::{
@@ -257,6 +261,8 @@ pub use model_router::{
     ComplexityFactors,
     ComplexityScore,
     ComplexityWeights,
+    // Inference tier routing
+    InferenceTier,
     // Integrated router
     ModelRouter,
     ModelRoutingDecision,
@@ -265,6 +271,13 @@ pub use model_router::{
     SelectionCriteria,
     SelectorStats,
     TaskComplexityAnalyzer,
+};
+
+// Tiered Router exports (feature-gated)
+#[cfg(feature = "ollama")]
+pub use tiered_router::{
+    BufferedDistillationSink, DistillationEvent, DistillationSink, LoggingDistillationSink,
+    RoutingRecord, StreamDistillationContext, TieredRouter, TieredRouterConfig, TieredRouterStats,
 };
 
 /// Claude Flow agent types supported by RuvLTRA routing

@@ -86,6 +86,31 @@ pub use hybrid_pipeline::{
     HybridPipelineConfig, HybridTensor, OperationType, RoutingDecision,
 };
 
+// Ollama REST API backend (feature-gated)
+#[cfg(feature = "ollama")]
+pub mod ollama_backend;
+
+// Unified inference backend trait and adapters (feature-gated)
+#[cfg(feature = "ollama")]
+pub mod unified_backend;
+
+#[cfg(feature = "ollama")]
+pub use ollama_backend::{
+    OllamaBackend, OllamaChatMessage, OllamaChatRequest, OllamaChatResponse, OllamaConfig,
+    OllamaGenerateRequest, OllamaGenerateResponse, OllamaOptions, OllamaStreamChunk,
+};
+
+#[cfg(feature = "ollama")]
+pub use unified_backend::{
+    UnifiedInferenceBackend, UnifiedRequest, UnifiedResponse, UnifiedStreamToken,
+};
+
+#[cfg(all(feature = "ollama", feature = "candle"))]
+pub use unified_backend::LocalCandleAdapter;
+
+#[cfg(feature = "ollama")]
+pub use unified_backend::{ClaudeAdapter, OllamaAdapter};
+
 // Model architecture implementations
 pub mod gemma2;
 pub mod phi3;

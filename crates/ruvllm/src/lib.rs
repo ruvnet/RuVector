@@ -201,6 +201,8 @@ pub use claude_flow::{
     // Hooks Integration (NEW v2.3) - Unified Claude Flow hooks interface
     HooksIntegration,
     HybridRouter,
+    // Inference tier routing (NEW) - Local/Ollama/Claude tiered dispatch
+    InferenceTier,
     LatencySample,
     LatencyStats as ClaudeLatencyStats,
     LatencyTracker,
@@ -241,6 +243,19 @@ pub use claude_flow::{
     UsageStats,
     WorkflowResult,
     WorkflowStep,
+};
+// Tiered router and backend types (requires ollama feature)
+#[cfg(feature = "ollama")]
+pub use backends::{
+    ClaudeAdapter, OllamaAdapter, OllamaBackend, OllamaConfig, UnifiedInferenceBackend,
+    UnifiedRequest, UnifiedResponse, UnifiedStreamToken,
+};
+#[cfg(all(feature = "ollama", feature = "candle"))]
+pub use backends::LocalCandleAdapter;
+#[cfg(feature = "ollama")]
+pub use claude_flow::{
+    BufferedDistillationSink, DistillationEvent, DistillationSink, LoggingDistillationSink,
+    RoutingRecord, StreamDistillationContext, TieredRouter, TieredRouterConfig, TieredRouterStats,
 };
 pub use error::{Result, RuvLLMError};
 pub use gguf::{

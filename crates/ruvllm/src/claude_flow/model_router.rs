@@ -37,6 +37,68 @@ use super::claude_integration::ClaudeModel;
 use super::{AgentType, ClaudeFlowAgent, ClaudeFlowTask};
 use crate::error::Result;
 
+// ============================================================================
+// Inference Tier (additive — does not replace ClaudeModel)
+// ============================================================================
+
+/// Inference tier for tiered model routing.
+///
+/// Maps complexity scores to distinct backends rather than just Claude model variants.
+/// This enum exists alongside `ClaudeModel` and does not replace it.
+///
+/// | Tier | Backend | Cost | Typical TTFT |
+/// |------|---------|------|-------------|
+/// | Local | Candle (RuvLTRA) | Free | ~50ms |
+/// | Ollama | Ollama REST API | Free | ~200ms |
+/// | CloudClaude | Claude API | $$$ | ~1500ms |
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum InferenceTier {
+    /// Local on-device inference via Candle/RuvLTRA (free, fastest)
+    Local,
+    /// Local Ollama server (free, moderate latency)
+    Ollama,
+    /// Cloud Claude API (paid, highest quality)
+    CloudClaude,
+}
+
+impl InferenceTier {
+    /// Get human-readable name
+    pub fn name(&self) -> &'static str {
+        match self {
+            Self::Local => "local",
+            Self::Ollama => "ollama",
+            Self::CloudClaude => "claude",
+        }
+    }
+
+    /// Estimated cost per 1K tokens (combined input+output)
+    pub fn cost_per_1k_tokens(&self) -> f64 {
+        match self {
+            Self::Local => 0.0,
+            Self::Ollama => 0.0,
+            Self::CloudClaude => 0.090, // Opus avg of input+output
+        }
+    }
+
+    /// Typical time to first token in milliseconds
+    pub fn typical_ttft_ms(&self) -> u64 {
+        match self {
+            Self::Local => 50,
+            Self::Ollama => 200,
+            Self::CloudClaude => 1500,
+        }
+    }
+
+    /// Get the fallback tier (for fallback chain: Local → Ollama → Claude)
+    pub fn fallback(&self) -> Option<InferenceTier> {
+        match self {
+            Self::Local => Some(Self::Ollama),
+            Self::Ollama => Some(Self::CloudClaude),
+            Self::CloudClaude => None,
+        }
+    }
+}
+
 /// Fast case-insensitive substring search without allocation
 /// Searches for `needle` (lowercase) in `haystack` (any case)
 #[inline]
@@ -196,6 +258,24 @@ impl ComplexityScore {
             || self.factors.token_estimate > 2000
             || self.factors.security_sensitivity > 0.8
             || self.factors.reasoning_depth > 0.8
+    }
+
+    /// Get recommended inference tier based on complexity score.
+    ///
+    /// Uses the same thresholds as Claude model routing but maps to
+    /// backend tiers instead:
+    /// - Simple (< 0.35, < 500 tokens) → Local candle inference
+    /// - Moderate (0.35-0.70, < 2000 tokens) → Ollama
+    /// - Complex (> 0.70 or > 2000 tokens) → Claude API
+    #[inline]
+    pub fn recommended_inference_tier(&self) -> InferenceTier {
+        if self.is_simple() {
+            InferenceTier::Local
+        } else if self.requires_opus() {
+            InferenceTier::CloudClaude
+        } else {
+            InferenceTier::Ollama
+        }
     }
 }
 
@@ -770,6 +850,8 @@ impl Default for SelectionCriteria {
 pub struct ModelRoutingDecision {
     /// Selected model
     pub model: ClaudeModel,
+    /// Recommended inference tier (Local/Ollama/CloudClaude)
+    pub inference_tier: InferenceTier,
     /// Complexity score
     pub complexity_score: ComplexityScore,
     /// Estimated cost (USD)
@@ -854,8 +936,11 @@ impl ModelSelector {
             self.selection_history.remove(0);
         }
 
+        let inference_tier = complexity_score.recommended_inference_tier();
+
         ModelRoutingDecision {
             model,
+            inference_tier,
             complexity_score: complexity_score.clone(),
             estimated_cost,
             estimated_latency,
@@ -1317,5 +1402,78 @@ mod tests {
 
         assert!(haiku_latency < sonnet_latency);
         assert!(sonnet_latency < opus_latency);
+    }
+
+    #[test]
+    fn test_inference_tier_simple_task() {
+        let mut analyzer = TaskComplexityAnalyzer::new();
+        let score = analyzer.analyze("fix typo in readme");
+        assert_eq!(score.recommended_inference_tier(), InferenceTier::Local);
+    }
+
+    #[test]
+    fn test_inference_tier_moderate_task() {
+        let mut analyzer = TaskComplexityAnalyzer::new();
+        // Use a task that triggers moderate complexity keywords and needs 500+ estimated tokens.
+        // The analyzer estimates tokens based on task length and keyword multipliers,
+        // so we need both keywords (implement, create, api, database, test) and enough
+        // text to push the token estimate past 500.
+        let score = analyzer.analyze(
+            "Implement and create a full REST API endpoint for user authentication with database \
+             query layer, implement comprehensive integration test suite with debugging support, \
+             add error handling and input validation for all edge cases, then refactor the \
+             existing middleware to support the new authentication flow with proper logging",
+        );
+        // Should land in the moderate range (tier 2 = Sonnet/Ollama)
+        assert_eq!(
+            score.recommended_tier, 2,
+            "Score {:.3} with {} tokens should be tier 2 (moderate)",
+            score.overall, score.factors.token_estimate
+        );
+        assert_eq!(score.recommended_inference_tier(), InferenceTier::Ollama);
+    }
+
+    #[test]
+    fn test_inference_tier_complex_task() {
+        let mut analyzer = TaskComplexityAnalyzer::new();
+        // Use a task with many high-complexity signals to ensure it crosses 0.7
+        let score = analyzer.analyze(
+            "Design a distributed architecture for a concurrent microservices system with \
+             comprehensive security audit for vulnerabilities, cryptography review, \
+             performance optimization, machine learning pipeline, and scalability planning",
+        );
+        assert!(
+            score.requires_opus(),
+            "Score {:.3} should require Opus for complex task",
+            score.overall
+        );
+        assert_eq!(
+            score.recommended_inference_tier(),
+            InferenceTier::CloudClaude
+        );
+    }
+
+    #[test]
+    fn test_inference_tier_fallback_chain() {
+        assert_eq!(InferenceTier::Local.fallback(), Some(InferenceTier::Ollama));
+        assert_eq!(
+            InferenceTier::Ollama.fallback(),
+            Some(InferenceTier::CloudClaude)
+        );
+        assert_eq!(InferenceTier::CloudClaude.fallback(), None);
+    }
+
+    #[test]
+    fn test_inference_tier_costs() {
+        assert_eq!(InferenceTier::Local.cost_per_1k_tokens(), 0.0);
+        assert_eq!(InferenceTier::Ollama.cost_per_1k_tokens(), 0.0);
+        assert!(InferenceTier::CloudClaude.cost_per_1k_tokens() > 0.0);
+    }
+
+    #[test]
+    fn test_routing_decision_has_inference_tier() {
+        let mut selector = ModelSelector::default();
+        let decision = selector.select_model("rename variable x to count");
+        assert_eq!(decision.inference_tier, InferenceTier::Local);
     }
 }

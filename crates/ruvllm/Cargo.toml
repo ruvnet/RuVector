@@ -79,6 +79,9 @@ hf-hub = { version = "0.3", optional = true, features = ["tokio"] }
 # mistralrs = { version = "0.4", optional = true, default-features = false }
 # mistralrs-core = { version = "0.4", optional = true }
 
+# HTTP client for Ollama and Claude API backends (optional)
+reqwest = { version = "0.12", features = ["json", "stream", "rustls-tls"], optional = true }
+
 # Directories for cache
 dirs = "5.0"
 
@@ -167,6 +170,9 @@ coreml = ["dep:objc2", "dep:objc2-foundation", "dep:objc2-core-ml", "dep:block2"
 
 # Hybrid GPU+ANE pipeline (use ANE for MLP, GPU for attention)
 hybrid-ane = ["metal-compute", "coreml"]
+
+# Ollama REST API backend for local LLM inference via Ollama server
+ollama = ["dep:reqwest", "async-runtime"]
 
 # mistral-rs backend feature (enables full mistral-rs integration)
 # NOTE: Uncomment when mistralrs crate is available
