@@ -9366,6 +9366,7 @@ version = "2.0.4"
 dependencies = [
  "anyhow",
  "async-trait",
+ "axum",
  "bincode 2.0.1",
  "block2",
  "candle-core",

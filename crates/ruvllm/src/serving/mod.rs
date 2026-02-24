@@ -126,6 +126,8 @@
 pub mod batch;
 pub mod engine;
 pub mod kv_cache_manager;
+#[cfg(feature = "openai-compat")]
+pub mod openai_compat;
 pub mod request;
 pub mod scheduler;
 
@@ -145,6 +147,8 @@ pub use scheduler::{
     ContinuousBatchScheduler, IterationScheduler, PreemptionMode, PriorityPolicy, RequestQueue,
     SchedulerConfig, SchedulerStats,
 };
+#[cfg(feature = "openai-compat")]
+pub use openai_compat::{CompatServer, CompatServerConfig};
 
 #[cfg(test)]
 mod tests {

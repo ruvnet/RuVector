@@ -82,6 +82,9 @@ hf-hub = { version = "0.3", optional = true, features = ["tokio"] }
 # HTTP client for Ollama and Claude API backends (optional)
 reqwest = { version = "0.12", features = ["json", "stream", "rustls-tls"], optional = true }
 
+# HTTP serving (optional — OpenAI/Ollama compat layer)
+axum = { version = "0.7", optional = true, features = ["json"] }
+
 # Directories for cache
 dirs = "5.0"
 
@@ -173,6 +176,9 @@ hybrid-ane = ["metal-compute", "coreml"]
 
 # Ollama REST API backend for local LLM inference via Ollama server
 ollama = ["dep:reqwest", "async-runtime"]
+
+# OpenAI + Ollama compatible HTTP serving layer
+openai-compat = ["dep:axum", "async-runtime"]
 
 # mistral-rs backend feature (enables full mistral-rs integration)
 # NOTE: Uncomment when mistralrs crate is available

@@ -404,6 +404,8 @@ pub use serving::{
     TokenBudget,
     TokenOutput,
 };
+#[cfg(feature = "openai-compat")]
+pub use serving::{CompatServer, CompatServerConfig};
 pub use session::{Session, SessionConfig, SessionManager};
 pub use session_index::{KvCacheReference, SessionIndex, SessionState};
 pub use sona::{LearningLoop, SonaConfig, SonaIntegration};
