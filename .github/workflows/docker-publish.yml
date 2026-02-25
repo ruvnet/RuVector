@@ -106,7 +106,7 @@ jobs:
             ruvector.features=attention,gnn,hybrid,tenancy,healing,learning,hyperbolic,graph,gated-transformer,integrity
 
       - name: Build and push Docker image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: .
           file: crates/ruvector-postgres/docker/Dockerfile
@@ -154,7 +154,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Update Docker Hub description
-        uses: peter-evans/dockerhub-description@v4
+        uses: peter-evans/dockerhub-description@v5
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
