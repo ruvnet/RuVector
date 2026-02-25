@@ -42,7 +42,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -50,7 +50,7 @@ jobs:
           targets: aarch64-apple-darwin
 
       - name: Cache cargo registry
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.cargo/registry
           key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
@@ -58,7 +58,7 @@ jobs:
             ${{ runner.os }}-cargo-registry-
 
       - name: Cache cargo build
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: target
           key: ${{ runner.os }}-cargo-build-ruvllm-bench-${{ hashFiles('**/Cargo.lock') }}
@@ -154,7 +154,7 @@ jobs:
           echo '```' >> benchmark_summary.md
 
       - name: Upload benchmark results
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: ruvllm-macos-arm64-benchmarks
           path: |
@@ -167,7 +167,7 @@ jobs:
       - name: Comment PR with results
         if: github.event_name == 'pull_request'
         continue-on-error: true
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const fs = require('fs');
@@ -188,13 +188,13 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
       - name: Cache cargo
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/.cargo/registry
@@ -212,7 +212,7 @@ jobs:
           cargo bench --bench attention_bench -- --output-format bencher 2>&1 | tee ../../linux_attention_bench.txt
 
       - name: Upload Linux benchmark results
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: ruvllm-linux-benchmarks
           path: |
@@ -229,13 +229,13 @@ jobs:
 
     steps:
       - name: Download macOS results
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: ruvllm-macos-arm64-benchmarks
           path: macos-results
 
       - name: Download Linux results
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: ruvllm-linux-benchmarks
           path: linux-results
@@ -261,7 +261,7 @@ jobs:
           echo '```' >> comparison.md
 
       - name: Upload comparison
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: benchmark-comparison
           path: comparison.md
