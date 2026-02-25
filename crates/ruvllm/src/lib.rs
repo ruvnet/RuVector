@@ -49,6 +49,7 @@ pub mod capabilities;
 pub mod claude_flow;
 pub mod context;
 pub mod error;
+pub mod intelligence;
 pub mod evaluation;
 pub mod gguf;
 pub mod hub;
@@ -96,6 +97,10 @@ pub use backends::{
 };
 #[cfg(feature = "async-runtime")]
 pub use backends::{AsyncTokenStream, LlmBackendAsync};
+pub use intelligence::{
+    FileSignalProvider, IntelligenceProvider, IntelligenceProviderLoader, ProviderLoadStats,
+    QualityFactors, QualitySignal, QualityWeights as SignalQualityWeights,
+};
 pub use claude_flow::{
     AgentContext,
     AgentCoordinator,

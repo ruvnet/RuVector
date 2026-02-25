@@ -657,6 +657,26 @@ impl TaskComplexityAnalyzer {
         }
     }
 
+    /// Compute the signed calibration bias from feedback history.
+    ///
+    /// Returns `0.0` when fewer than 10 feedback records exist.
+    /// A positive value means the analyzer consistently over-predicts
+    /// complexity; negative means under-predicting.
+    pub fn calibration_bias(&self) -> f32 {
+        let with_feedback: Vec<_> = self
+            .accuracy_history
+            .iter()
+            .filter_map(|r| r.actual.map(|a| (r.predicted, a)))
+            .collect();
+
+        if with_feedback.len() < 10 {
+            return 0.0;
+        }
+
+        let signed_error: f32 = with_feedback.iter().map(|(p, a)| p - a).sum();
+        signed_error / with_feedback.len() as f32
+    }
+
     /// Get accuracy statistics
     pub fn accuracy_stats(&self) -> AnalyzerStats {
         let with_feedback: Vec<_> = self

@@ -1,6 +1,6 @@
 # ADR-029: External Intelligence Providers for SONA Learning
 
-**Status:** Proposal (Draft)
+**Status:** Accepted (Implemented)
 **Date:** 2026-02-20
 **Authors:** @grparry
 **Technical Area:** LLM Serving Runtime / External Signal Ingestion
