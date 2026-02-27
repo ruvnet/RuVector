@@ -10,7 +10,7 @@
 
 ### **The self-learning, self-optimizing vector database — with graph intelligence, local AI, and PostgreSQL built in.**
 
-> Created by [rUv](https://ruv.io) and powers [Cognitum](https://cognitum.one), a 🏅 **CES 2026 Innovation Awards Honoree** — the world's first Agentic Chip designed always running for AI agents.
+> Created by [rUv](https://ruv.io) and powers [Cognitum](https://cognitum.one), a 🏅 **CES 2026 Innovation Awards Honoree** — the world's first Agentic Chip designed to be always running for AI agents. Tens of thousands of agents, near-zero power, learns from every signal. [Learn more →](https://cognitum.one)
 
 
 ```bash
