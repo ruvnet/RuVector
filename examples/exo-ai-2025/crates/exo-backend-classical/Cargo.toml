@@ -23,7 +23,7 @@ exo-exotic = { path = "../exo-exotic" }
 # Ruvector dependencies
 ruvector-core = { version = "0.1", features = ["simd"] }
 ruvector-graph = "0.1"
-ruvector-domain-expansion = { path = "../../../../crates/ruvector-domain-expansion" }
+ruvector-domain-expansion = { path = "../../../../crates/ruvector-domain-expansion", features = ["rvf"] }
 
 # Utility dependencies
 serde = { version = "1.0", features = ["derive"] }

@@ -69,7 +69,8 @@ impl SubstrateInstance {
             .map(|r| SearchResult {
                 id: r.id,
                 score: r.score,
-                pattern: None, // TODO: Retrieve full pattern if needed
+                // Construct a Pattern from the returned embedding vector if present
+                pattern: r.vector.map(Pattern::new),
             })
             .collect())
     }

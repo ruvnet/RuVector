@@ -174,6 +174,42 @@ impl ExoTransferOrchestrator {
     pub fn best_prior(&self) -> Option<&TransferPriorSummary> {
         self.crdt.best_prior_for(&self.src_id, &self.dst_id)
     }
+
+    /// Serialize the current engine state as an RVF byte stream.
+    ///
+    /// Packages three artifact types into concatenated RVF segments:
+    /// - `TransferPrior` segments (one per registered domain that has priors)
+    /// - `PolicyKernel` segments (the current population of policy variants)
+    /// - `CostCurve` segments (convergence tracking per domain)
+    ///
+    /// The returned bytes can be written to a `.rvf` file or streamed over the
+    /// network for federated transfer.
+    pub fn package_as_rvf(&self) -> Vec<u8> {
+        use ruvector_domain_expansion::rvf_bridge;
+
+        // Collect TransferPriors for both registered domains.
+        let priors: Vec<_> = [&self.src_id, &self.dst_id]
+            .iter()
+            .filter_map(|id| self.engine.thompson.extract_prior(id))
+            .collect();
+
+        // All PolicyKernels from the current population.
+        let kernels: Vec<_> = self.engine.population.population().to_vec();
+
+        // CostCurves tracked by the acceleration scoreboard.
+        let curves: Vec<_> = [&self.src_id, &self.dst_id]
+            .iter()
+            .filter_map(|id| self.engine.scoreboard.curves.get(id))
+            .cloned()
+            .collect();
+
+        rvf_bridge::assemble_domain_expansion_segments(&priors, &kernels, &curves, 1)
+    }
+
+    /// Write the current engine state to a `.rvf` file at `path`.
+    pub fn save_rvf(&self, path: impl AsRef<std::path::Path>) -> std::io::Result<()> {
+        std::fs::write(path, self.package_as_rvf())
+    }
 }
 
 impl Default for ExoTransferOrchestrator {
@@ -219,5 +255,56 @@ mod tests {
         }
 
         assert_eq!(orchestrator.cycle(), 5);
+    }
+
+    #[test]
+    fn test_package_as_rvf_empty() {
+        // Before any cycle the population has kernels but no domain-specific
+        // priors or curves, so we should still get a valid (possibly short) RVF stream.
+        let orchestrator = ExoTransferOrchestrator::new("rvf_node");
+        let bytes = orchestrator.package_as_rvf();
+
+        // A valid RVF stream from the population must be a multiple of 64 bytes
+        // and at least contain population kernel segments.
+        assert_eq!(bytes.len() % 64, 0, "RVF output must be 64-byte aligned");
+    }
+
+    #[test]
+    fn test_package_as_rvf_after_cycles() {
+        // RVF segment magic: "RVFS" in little-endian = 0x5256_4653
+        const SEGMENT_MAGIC: u32 = 0x5256_4653;
+
+        let mut orchestrator = ExoTransferOrchestrator::new("rvf_cycle_node");
+
+        // Warm up to generate priors and curves.
+        for _ in 0..3 {
+            orchestrator.run_cycle();
+        }
+
+        let bytes = orchestrator.package_as_rvf();
+
+        // Must be 64-byte aligned and contain at least one segment.
+        assert!(!bytes.is_empty(), "RVF output must not be empty after cycles");
+        assert_eq!(bytes.len() % 64, 0, "RVF output must be 64-byte aligned");
+
+        // Verify the first segment's magic bytes.
+        let magic = u32::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]);
+        assert_eq!(magic, SEGMENT_MAGIC, "First segment must have valid RVF magic");
+    }
+
+    #[test]
+    fn test_save_rvf_to_file() {
+        let mut orchestrator = ExoTransferOrchestrator::new("rvf_file_node");
+        orchestrator.run_cycle();
+
+        let path = std::env::temp_dir().join("exo_test.rvf");
+        orchestrator.save_rvf(&path).expect("save_rvf should succeed");
+
+        let written = std::fs::read(&path).expect("file should exist after save_rvf");
+        assert!(!written.is_empty());
+        assert_eq!(written.len() % 64, 0);
+
+        // Clean up
+        let _ = std::fs::remove_file(&path);
     }
 }
