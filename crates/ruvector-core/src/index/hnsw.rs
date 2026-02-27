@@ -353,6 +353,10 @@ impl VectorIndex for HnswIndex {
     fn len(&self) -> usize {
         self.inner.read().vectors.len()
     }
+
+    fn dump(&self) -> Result<Option<Vec<u8>>> {
+        Ok(Some(self.serialize()?))
+    }
 }
 
 #[cfg(test)]

@@ -33,4 +33,9 @@ pub trait VectorIndex: Send + Sync {
     fn is_empty(&self) -> bool {
         self.len() == 0
     }
+
+    /// Dump the index to a byte buffer for O(1) fast persistence
+    fn dump(&self) -> Result<Option<Vec<u8>>> {
+        Ok(None)
+    }
 }

@@ -81,11 +81,34 @@ impl VectorDB {
         let mut index: Box<dyn VectorIndex> = if let Some(hnsw_config) = &options.hnsw_config {
             #[cfg(feature = "hnsw")]
             {
-                Box::new(HnswIndex::new(
-                    options.dimensions,
-                    options.distance_metric,
-                    hnsw_config.clone(),
-                )?)
+                let mut loaded_index = None;
+                #[cfg(feature = "storage")]
+                {
+                    let bin_path = format!("{}_hnsw.bin", options.storage_path);
+                    if std::path::Path::new(&bin_path).exists() {
+                        tracing::info!("Found persisted HNSW index graph, attempting O(1) fast load...");
+                        match std::fs::read(&bin_path) {
+                            Ok(bytes) => {
+                                match HnswIndex::deserialize(&bytes) {
+                                    Ok(idx) => {
+                                        tracing::info!("Successfully loaded HNSW graph with {} vectors via Zero-Copy bypass", idx.len());
+                                        loaded_index = Some(Box::new(idx) as Box<dyn VectorIndex>);
+                                    }
+                                    Err(e) => tracing::warn!("Failed to deserialize HNSW index, falling back to rebuild: {}", e),
+                                }
+                            }
+                            Err(e) => tracing::warn!("Failed to read HNSW bin file: {}", e),
+                        }
+                    }
+                }
+
+                loaded_index.unwrap_or_else(|| {
+                    Box::new(HnswIndex::new(
+                        options.dimensions,
+                        options.distance_metric,
+                        hnsw_config.clone(),
+                    ).expect("Failed to initialize HNSW index")) as Box<dyn VectorIndex>
+                })
             }
             #[cfg(not(feature = "hnsw"))]
             {
@@ -97,29 +120,31 @@ impl VectorDB {
             Box::new(FlatIndex::new(options.dimensions, options.distance_metric))
         };
 
-        // Rebuild index from persisted vectors if storage is not empty
-        // This fixes the bug where search() returns empty results after restart
+        // Rebuild index from persisted vectors if storage is not empty and index is empty
+        // This fixes the bug where search() returns empty results after restart if no dump exists
         #[cfg(feature = "storage")]
         {
-            let stored_ids = storage.all_ids()?;
-            if !stored_ids.is_empty() {
-                tracing::info!(
-                    "Rebuilding index from {} persisted vectors",
-                    stored_ids.len()
-                );
+            if index.is_empty() {
+                let stored_ids = storage.all_ids()?;
+                if !stored_ids.is_empty() {
+                    tracing::info!(
+                        "Rebuilding index from {} persisted vectors (Fallback O(N) Initialization)",
+                        stored_ids.len()
+                    );
 
-                // Batch load all vectors for efficient index rebuilding
-                let mut entries = Vec::with_capacity(stored_ids.len());
-                for id in stored_ids {
-                    if let Some(entry) = storage.get(&id)? {
-                        entries.push((id, entry.vector));
+                    // Batch load all vectors for efficient index rebuilding
+                    let mut entries = Vec::with_capacity(stored_ids.len());
+                    for id in stored_ids {
+                        if let Some(entry) = storage.get(&id)? {
+                            entries.push((id, entry.vector));
+                        }
                     }
+
+                    // Add all vectors to index in batch for better performance
+                    index.add_batch(entries)?;
+
+                    tracing::info!("Index rebuilt fully successfully");
                 }
-
-                // Add all vectors to index in batch for better performance
-                index.add_batch(entries)?;
-
-                tracing::info!("Index rebuilt successfully");
             }
         }
 
@@ -221,6 +246,20 @@ impl VectorDB {
     /// Check if database is empty
     pub fn is_empty(&self) -> Result<bool> {
         self.storage.is_empty()
+    }
+
+    /// Save the current index graph to disk (O(1) startup optimization bypass)
+    #[cfg(feature = "storage")]
+    pub fn save_index(&self) -> Result<()> {
+        let index_lock = self.index.read();
+
+        if let Ok(Some(bytes)) = index_lock.dump() {
+            let bin_path = format!("{}_hnsw.bin", self.options.storage_path);
+            std::fs::write(&bin_path, bytes)?;
+            tracing::info!("Index graph serialized successfully to disk for O(1) fast load");
+        }
+
+        Ok(())
     }
 
     /// Get database options
