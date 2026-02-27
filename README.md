@@ -273,10 +273,11 @@ npx ruvector
 
 RuVector powers two major AI orchestration platforms:
 
-| Platform | Purpose | Install |
-|----------|---------|---------|
-| [**Claude-Flow**](https://github.com/ruvnet/claude-flow) | Enterprise multi-agent orchestration for Claude Code | `npx @claude-flow/cli@latest` |
-| [**Agentic-Flow**](https://github.com/ruvnet/agentic-flow) | Standalone AI agent framework (any LLM provider) | `npx agentic-flow@latest` |
+| Platform | Purpose | Install | Downloads |
+|----------|---------|---------|-----------|
+| [**Claude-Flow**](https://github.com/ruvnet/claude-flow) | Enterprise multi-agent orchestration for Claude Code | `npx ruvflo@latest` | [![npm downloads](https://img.shields.io/npm/dt/claude-flow.svg)](https://www.npmjs.com/package/claude-flow) |
+| [**Agentic-Flow**](https://github.com/ruvnet/agentic-flow) | Run AI agents on any cloud with any model — Claude, GPT, Gemini, or local | `npx agentic-flow@latest` | [![npm downloads](https://img.shields.io/npm/dt/agentic-flow.svg)](https://www.npmjs.com/package/agentic-flow) |
+| [**AgentDB**](https://github.com/ruvnet/agentdb) | Give AI agents long-term memory that gets smarter over time | `npm install agentdb@alpha` | [![npm downloads](https://img.shields.io/npm/dt/agentdb.svg)](https://www.npmjs.com/package/agentdb) |
 
 <details>
 <summary><strong>Claude-Flow v3</strong> — Turn Claude Code into a collaborative AI team</summary>
@@ -285,10 +286,10 @@ RuVector powers two major AI orchestration platforms:
 
 ```bash
 # Install
-npx @claude-flow/cli@latest init --wizard
+npx ruvflo@latest init --wizard
 
 # Spawn a swarm
-npx @claude-flow/cli@latest swarm init --topology hierarchical --max-agents 8
+npx ruvflo@latest swarm init --topology hierarchical --max-agents 8
 ```
 
 **Key Features:**
