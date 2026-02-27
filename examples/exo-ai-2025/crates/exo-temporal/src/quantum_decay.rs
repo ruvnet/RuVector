@@ -135,7 +135,7 @@ impl QuantumDecayPool {
     fn evict_weakest(&mut self) {
         if let Some(idx) = self.patterns.iter()
             .enumerate()
-            .min_by(|a, b| a.1.decoherence_score().partial_cmp(&b.1.decoherence_score()).unwrap())
+            .min_by(|a, b| a.1.decoherence_score().partial_cmp(&b.1.decoherence_score()).unwrap_or(std::cmp::Ordering::Equal))
             .map(|(i, _)| i)
         {
             self.patterns.remove(idx);

@@ -260,7 +260,7 @@ impl SubstrateBackend for NeuromorphicBackend {
                 SearchResult { id, score, embedding: vec![] }
             })
             .collect();
-        results.sort_unstable_by(|a, b| b.score.partial_cmp(&a.score).unwrap());
+        results.sort_unstable_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
         results.truncate(k);
         let _elapsed = t0.elapsed();
         results

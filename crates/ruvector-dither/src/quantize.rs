@@ -21,7 +21,7 @@ use crate::DitherSource;
 /// ```
 #[inline]
 pub fn quantize_dithered(x: f32, bits: u32, eps: f32, source: &mut impl DitherSource) -> f32 {
-    debug_assert!(bits >= 1 && bits <= 31, "bits must be in [1, 31]");
+    assert!(bits >= 2 && bits <= 31, "bits must be in [2, 31]");
     let qmax = ((1u32 << (bits - 1)) - 1) as f32;
     let lsb = 1.0 / qmax;
     let dither = source.next(eps * lsb);
@@ -50,6 +50,7 @@ pub fn quantize_slice_dithered(
     eps: f32,
     source: &mut impl DitherSource,
 ) {
+    assert!(bits >= 2 && bits <= 31, "bits must be in [2, 31]");
     let qmax = ((1u32 << (bits - 1)) - 1) as f32;
     let lsb = 1.0 / qmax;
     for x in xs.iter_mut() {
@@ -64,7 +65,7 @@ pub fn quantize_slice_dithered(
 /// Useful when you need the integer representation rather than a re-scaled float.
 #[inline]
 pub fn quantize_to_code(x: f32, bits: u32, eps: f32, source: &mut impl DitherSource) -> i32 {
-    debug_assert!(bits >= 1 && bits <= 31);
+    assert!(bits >= 2 && bits <= 31, "bits must be in [2, 31]");
     let qmax = ((1u32 << (bits - 1)) - 1) as f32;
     let lsb = 1.0 / qmax;
     let dither = source.next(eps * lsb);

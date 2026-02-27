@@ -60,8 +60,8 @@ fn test_full_transfer_pipeline_multi_cycle() {
 
     // - CRDT should know both domain IDs.
     let prior = orch.best_prior().expect("CRDT must hold a prior");
-    assert_eq!(prior.src_domain, "exo_retrieval");
-    assert_eq!(prior.dst_domain, "exo_graph");
+    assert_eq!(prior.src_domain, "exo-retrieval");
+    assert_eq!(prior.dst_domain, "exo-graph");
     assert!(prior.improvement >= 0.0 && prior.improvement <= 1.0);
     assert!(prior.confidence >= 0.0 && prior.confidence <= 1.0);
     assert!(prior.cycle >= 1);
@@ -111,7 +111,7 @@ fn test_crdt_prior_consistency() {
     }
 
     let prior = orch.best_prior().expect("prior must exist after 3 cycles");
-    assert_eq!(prior.src_domain, "exo_retrieval");
-    assert_eq!(prior.dst_domain, "exo_graph");
+    assert_eq!(prior.src_domain, "exo-retrieval");
+    assert_eq!(prior.dst_domain, "exo-graph");
     assert!(prior.cycle >= 1 && prior.cycle <= 3);
 }

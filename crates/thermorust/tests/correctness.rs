@@ -138,7 +138,6 @@ fn cold_system_stays_near_ground_state() {
 
 #[test]
 fn langevin_lowers_energy_on_average() {
-    use thermorust::energy::SoftSpin;
     use thermorust::motifs::SoftSpinMotif;
     let n = 8;
     let mut motif = SoftSpinMotif::random(n, 1.0, 0.5, 13);

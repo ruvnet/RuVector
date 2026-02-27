@@ -214,7 +214,7 @@ impl SparseRipsComplex {
         // Sort edges by weight (filtration order)
         let mut sorted_edges: Vec<&SimplexEdge> = edges.iter().collect();
         sorted_edges
-            .sort_unstable_by(|a, b| a.weight.partial_cmp(&b.weight).unwrap());
+            .sort_unstable_by(|a, b| a.weight.partial_cmp(&b.weight).unwrap_or(std::cmp::Ordering::Equal));
 
         for edge in sorted_edges {
             let pu = find(&mut parent, edge.u as usize);

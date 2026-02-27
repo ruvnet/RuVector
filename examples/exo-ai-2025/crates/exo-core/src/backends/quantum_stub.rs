@@ -112,7 +112,7 @@ impl InterferenceState {
                 amplitude_im: im,
             })
             .collect();
-        measurements.sort_unstable_by(|a, b| b.probability.partial_cmp(&a.probability).unwrap());
+        measurements.sort_unstable_by(|a, b| b.probability.partial_cmp(&a.probability).unwrap_or(std::cmp::Ordering::Equal));
         measurements.truncate(k);
         measurements
     }
@@ -180,7 +180,7 @@ impl SubstrateBackend for QuantumStubBackend {
                 SearchResult { id: *id, score: score.max(0.0), embedding: pattern.clone() }
             })
             .collect();
-        results.sort_unstable_by(|a, b| b.score.partial_cmp(&a.score).unwrap());
+        results.sort_unstable_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
         results.truncate(k);
         let _elapsed = t0.elapsed();
         results

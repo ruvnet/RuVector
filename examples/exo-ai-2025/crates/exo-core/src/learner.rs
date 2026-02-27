@@ -149,7 +149,7 @@ impl ReasoningBank {
                 (t, sim)
             })
             .collect();
-        scored.sort_unstable_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+        scored.sort_unstable_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
         scored.truncate(k);
         scored.into_iter().map(|(t, _)| t).collect()
     }

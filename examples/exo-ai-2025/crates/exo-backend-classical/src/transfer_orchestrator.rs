@@ -62,8 +62,8 @@ pub struct ExoTransferOrchestrator {
 impl ExoTransferOrchestrator {
     /// Create a new orchestrator.
     pub fn new(_node_id: impl Into<String>) -> Self {
-        let src_id = DomainId("exo_retrieval".to_string());
-        let dst_id = DomainId("exo_graph".to_string());
+        let src_id = DomainId("exo-retrieval".to_string());
+        let dst_id = DomainId("exo-graph".to_string());
 
         let mut engine = DomainExpansionEngine::new();
         engine.register_domain(Box::new(ExoRetrievalDomain::new()));

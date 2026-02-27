@@ -32,6 +32,8 @@ impl ChannelDither {
     /// If the slice is not a multiple of `n_channels`, the remainder is
     /// processed using channel 0.
     pub fn quantize_batch(&mut self, activations: &mut [f32]) {
+        assert!(!self.channels.is_empty(), "ChannelDither must have >= 1 channel");
+        assert!(self.bits >= 2 && self.bits <= 31, "bits must be in [2, 31]");
         let nc = self.channels.len();
         let qmax = ((1u32 << (self.bits - 1)) - 1) as f32;
         let lsb = 1.0 / qmax;

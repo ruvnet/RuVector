@@ -15,7 +15,6 @@ readme = "README.md"
 [dependencies]
 rand = { version = "0.8", features = ["small_rng"] }
 rand_distr = "0.4"
-itertools = "0.12"
 
 [dev-dependencies]
 criterion = { version = "0.5", features = ["html_reports"] }

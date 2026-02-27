@@ -219,7 +219,7 @@ impl GenomicPatternStore {
         results.sort_unstable_by(|a, b| {
             b.weighted_score
                 .partial_cmp(&a.weighted_score)
-                .unwrap()
+                .unwrap_or(std::cmp::Ordering::Equal)
         });
         results.truncate(k);
         results
