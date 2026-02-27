@@ -224,6 +224,7 @@ RuVector isn't a database you add to your stack — it's the entire stack. Self-
 |---|-------|----------|--------------|
 | 🤖 | **AI Runtime** | llama.cpp, vLLM, Ollama | ruvllm — GGUF models, MicroLoRA (<1 ms), speculative decoding, continuous batching, WASM |
 | 🧠 | **ML Framework** | PyTorch, TensorFlow | 46 attention types, 8 graph transformers, spiking networks, sparse inference, sublinear solvers |
+| 🔬 | **Coherence** | Manual testing, guardrails | Min-cut finds the weakest links in any network — detects AI drift, prunes wasted compute (50% reduction), keeps agents in sync |
 | 🧬 | **Domain Models** | Custom ML pipelines | Genomics (DNA variant calling), physics simulation, economic modeling, biological networks |
 
 **Infrastructure**
