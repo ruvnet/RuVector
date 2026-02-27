@@ -707,8 +707,10 @@ name = "exo-backend-classical"
 version = "0.1.0"
 dependencies = [
  "exo-core 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "exo-federation 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "exo-temporal 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "exo-exotic",
+ "exo-federation",
+ "exo-manifold",
+ "exo-temporal 0.1.0",
  "parking_lot",
  "ruvector-core",
  "ruvector-domain-expansion",
@@ -809,30 +811,6 @@ dependencies = [
  "thiserror 1.0.69",
  "tokio",
  "tokio-test",
- "zeroize",
-]
-
-[[package]]
-name = "exo-federation"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "702e83b5538f5abbc2b1ce7266856fe409ef160ca39ea136f5aae488c8302437"
-dependencies = [
- "anyhow",
- "chacha20poly1305",
- "dashmap",
- "exo-core 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "hex",
- "hmac",
- "pqcrypto-kyber",
- "pqcrypto-traits",
- "rand 0.8.5",
- "serde",
- "serde_json",
- "sha2",
- "subtle",
- "thiserror 1.0.69",
- "tokio",
  "zeroize",
 ]
 

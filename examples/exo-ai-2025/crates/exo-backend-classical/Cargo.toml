@@ -15,6 +15,10 @@ readme = "README.md"
 [dependencies]
 # EXO dependencies
 exo-core = "0.1"
+exo-manifold = { path = "../exo-manifold" }
+exo-temporal = { path = "../exo-temporal" }
+exo-federation = { path = "../exo-federation" }
+exo-exotic = { path = "../exo-exotic" }
 
 # Ruvector dependencies
 ruvector-core = { version = "0.1", features = ["simd"] }
@@ -29,5 +33,3 @@ parking_lot = "0.12"
 uuid = { version = "1.0", features = ["v4"] }
 
 [dev-dependencies]
-exo-temporal = "0.1"
-exo-federation = "0.1"

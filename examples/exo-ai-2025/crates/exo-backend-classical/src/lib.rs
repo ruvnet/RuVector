@@ -8,6 +8,7 @@
 
 pub mod domain_bridge;
 pub mod graph;
+pub mod transfer_orchestrator;
 pub mod vector;
 
 use exo_core::{
