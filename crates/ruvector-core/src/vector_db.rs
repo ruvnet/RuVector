@@ -102,13 +102,14 @@ impl VectorDB {
                     }
                 }
 
-                loaded_index.unwrap_or_else(|| {
-                    Box::new(HnswIndex::new(
+                match loaded_index {
+                    Some(idx) => idx,
+                    None => Box::new(HnswIndex::new(
                         options.dimensions,
                         options.distance_metric,
                         hnsw_config.clone(),
-                    ).expect("Failed to initialize HNSW index")) as Box<dyn VectorIndex>
-                })
+                    )?) as Box<dyn VectorIndex>,
+                }
             }
             #[cfg(not(feature = "hnsw"))]
             {
