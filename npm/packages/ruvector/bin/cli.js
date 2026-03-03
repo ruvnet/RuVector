@@ -159,7 +159,7 @@ async function proxyFetch(url, opts) {
 
   // Fallback: shell out to curl (which natively respects proxy env vars)
   const { execFileSync } = require('child_process');
-  const args = ['-sS', '-L', '--max-time', '30'];
+  const args = ['-sS', '-L', '--max-time', '30', '-w', '\n%{http_code}'];
   if (opts && opts.method) { args.push('-X', opts.method); }
   if (opts && opts.headers) {
     for (const [k, v] of Object.entries(opts.headers)) {
@@ -170,13 +170,16 @@ async function proxyFetch(url, opts) {
   args.push(target);
   try {
     const stdout = execFileSync('curl', args, { encoding: 'utf8', timeout: 35000 });
-    const body = stdout.trim();
+    const lines = stdout.trimEnd().split('\n');
+    const statusCode = parseInt(lines.pop(), 10) || 200;
+    const body = lines.join('\n').trim();
+    const ok = statusCode >= 200 && statusCode < 300;
     return {
-      ok: true,
-      status: 200,
-      statusText: 'OK',
+      ok,
+      status: statusCode,
+      statusText: ok ? 'OK' : `HTTP ${statusCode}`,
       text: async () => body,
-      json: async () => JSON.parse(body),
+      json: async () => body ? JSON.parse(body) : {},
       headers: new Map(),
     };
   } catch (e) {
@@ -7952,6 +7955,7 @@ async function brainFetch(config, endpoint, opts = {}) {
     const errText = await resp.text().catch(() => resp.statusText);
     throw new Error(`${resp.status} ${errText}`);
   }
+  if (resp.status === 204 || resp.headers.get('content-length') === '0') return {};
   return resp.json();
 }
 
@@ -7997,10 +8001,12 @@ brainCmd.command('share <title>')
   .option('--code <snippet>', 'Code snippet')
   .option('--url <url>', 'Brain server URL')
   .option('--key <key>', 'Pi key')
+  .option('--json', 'Output as JSON')
   .action(async (title, opts) => {
     const config = getBrainConfig(opts);
     try {
       const result = await brainFetch(config, '/v1/memories', { body: { title, content: opts.content || title, category: opts.category, tags: opts.tags ? opts.tags.split(',').map(t => t.trim()) : [], code_snippet: opts.code } });
+      if (opts.json || !process.stdout.isTTY) { console.log(JSON.stringify(result, null, 2)); return; }
       console.log(chalk.green(`Shared: ${result.id || 'OK'}`));
     } catch (e) { console.error(chalk.red(`Error: ${e.message}`)); process.exit(1); }
   });
@@ -8027,10 +8033,12 @@ brainCmd.command('vote <id> <direction>')
   .description('Quality vote on a memory (up or down)')
   .option('--url <url>', 'Brain server URL')
   .option('--key <key>', 'Pi key')
+  .option('--json', 'Output as JSON')
   .action(async (id, direction, opts) => {
     const config = getBrainConfig(opts);
     try {
-      await brainFetch(config, `/v1/memories/${id}/vote`, { body: { direction } });
+      const result = await brainFetch(config, `/v1/memories/${id}/vote`, { body: { direction } });
+      if (opts.json || !process.stdout.isTTY) { console.log(JSON.stringify(result, null, 2)); return; }
       console.log(chalk.green(`Voted ${direction} on ${id}`));
     } catch (e) { console.error(chalk.red(`Error: ${e.message}`)); process.exit(1); }
   });
@@ -8067,10 +8075,12 @@ brainCmd.command('delete <id>')
   .description('Delete your own contribution')
   .option('--url <url>', 'Brain server URL')
   .option('--key <key>', 'Pi key')
+  .option('--json', 'Output as JSON')
   .action(async (id, opts) => {
     const config = getBrainConfig(opts);
     try {
-      await brainFetch(config, `/v1/memories/${id}`, { method: 'DELETE' });
+      const result = await brainFetch(config, `/v1/memories/${id}`, { method: 'DELETE' });
+      if (opts.json || !process.stdout.isTTY) { console.log(JSON.stringify({ deleted: true, id }, null, 2)); return; }
       console.log(chalk.green(`Deleted: ${id}`));
     } catch (e) { console.error(chalk.red(`Error: ${e.message}`)); process.exit(1); }
   });
@@ -8165,10 +8175,12 @@ brainCmd.command('sync [direction]')
   .description('Synchronize LoRA weights (pull, push, or both)')
   .option('--url <url>', 'Brain server URL')
   .option('--key <key>', 'Pi key')
+  .option('--json', 'Output as JSON')
   .action(async (direction, opts) => {
     const config = getBrainConfig(opts);
     try {
       const result = await brainFetch(config, '/v1/lora/latest', { params: { direction: direction || 'both' } });
+      if (opts.json || !process.stdout.isTTY) { console.log(JSON.stringify(result, null, 2)); return; }
       console.log(chalk.green(`Sync ${direction || 'both'}: ${result.status || 'OK'}`));
     } catch (e) { console.error(chalk.red(`Error: ${e.message}`)); process.exit(1); }
   });
@@ -8209,7 +8221,24 @@ brainCmd.command('page <action> [args...]')
       if (opts.json || !process.stdout.isTTY) { console.log(JSON.stringify(result, null, 2)); return; }
       if (result.pages) {
         console.log(chalk.bold.cyan('\nBrainpedia Pages\n'));
-        result.pages.forEach((p, i) => console.log(`  ${chalk.yellow(i + 1 + '.')} ${chalk.bold(p.title || p.slug)} ${chalk.dim(p.updated || '')}`));
+        if (result.total_count !== undefined) console.log(chalk.dim(`  ${result.total_count} total pages\n`));
+        result.pages.forEach((p, i) => {
+          const score = p.quality_score !== undefined ? chalk.dim(` (${(p.quality_score * 100).toFixed(0)}%)`) : '';
+          const status = p.status ? chalk.dim(` [${p.status}]`) : '';
+          console.log(`  ${chalk.yellow(i + 1 + '.')} ${chalk.bold(p.title || p.slug || p.id)}${status}${score}`);
+          if (p.category) console.log(`     ${chalk.dim(p.category)}`);
+        });
+      } else if (result.memory && result.memory.title) {
+        // Unwrap .memory wrapper from page detail response
+        const page = result.memory;
+        console.log(chalk.bold.cyan(`\n${page.title}\n`));
+        if (result.status) console.log(`  ${chalk.bold('Status:')} ${result.status}`);
+        if (page.category) console.log(`  ${chalk.bold('Category:')} ${page.category}`);
+        if (page.quality_score !== undefined) console.log(`  ${chalk.bold('Quality:')} ${(page.quality_score * 100).toFixed(0)}%`);
+        if (result.delta_count !== undefined) console.log(`  ${chalk.bold('Deltas:')} ${result.delta_count}`);
+        if (result.evidence_count !== undefined) console.log(`  ${chalk.bold('Evidence:')} ${result.evidence_count}`);
+        if (page.tags && page.tags.length) console.log(`  ${chalk.bold('Tags:')} ${page.tags.join(', ')}`);
+        if (page.content) { console.log(); console.log(page.content); }
       } else if (result.title) {
         console.log(chalk.bold.cyan(`\n${result.title}\n`));
         if (result.content) console.log(result.content);
@@ -8270,6 +8299,7 @@ async function fetchBrainEndpoint(config, endpoint) {
   if (config.key) headers['Authorization'] = `Bearer ${config.key}`;
   const resp = await proxyFetch(url, { headers, signal: AbortSignal.timeout(30000) });
   if (!resp.ok) throw new Error(`${resp.status} ${resp.statusText}`);
+  if (resp.status === 204 || resp.headers.get('content-length') === '0') return {};
   return resp.json();
 }
 

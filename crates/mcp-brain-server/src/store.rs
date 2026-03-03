@@ -1016,6 +1016,14 @@ impl FirestoreClient {
         Ok(())
     }
 
+    /// List all pages with summary info
+    pub fn list_pages(&self, limit: usize, offset: usize) -> (Vec<Uuid>, usize) {
+        let all_ids: Vec<Uuid> = self.page_status.iter().map(|e| *e.key()).collect();
+        let total = all_ids.len();
+        let page_ids: Vec<Uuid> = all_ids.into_iter().skip(offset).take(limit).collect();
+        (page_ids, total)
+    }
+
     /// Get page status
     pub fn get_page_status(&self, id: &Uuid) -> Option<PageStatus> {
         self.page_status.get(id).map(|s| s.clone())

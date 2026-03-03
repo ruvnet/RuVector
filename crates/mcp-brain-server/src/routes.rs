@@ -5,9 +5,10 @@ use crate::graph::cosine_similarity;
 use crate::types::{
     AddEvidenceRequest, AppState, BetaParams, BrainMemory, ChallengeResponse,
     ConsensusLoraWeights, CreatePageRequest, DriftQuery, DriftReport, HealthResponse,
-    ListQuery, ListResponse, ListSort, LoraLatestResponse, LoraSubmission, LoraSubmitResponse,
-    PageDelta, PageDetailResponse, PageResponse, PageStatus, PartitionQuery, PartitionResult,
-    PublishNodeRequest, ScoredBrainMemory, SearchQuery, ShareRequest, ShareResponse,
+    ListPagesResponse, ListQuery, ListResponse, ListSort, LoraLatestResponse, LoraSubmission,
+    LoraSubmitResponse, PageDelta, PageDetailResponse, PageResponse, PageStatus, PageSummary,
+    PartitionQuery, PartitionResult, PublishNodeRequest, ScoredBrainMemory, SearchQuery,
+    ShareRequest, ShareResponse,
     StatusResponse, SubmitDeltaRequest, TemporalResponse, TrainingPreferencesResponse,
     TrainingQuery, TransferRequest, TransferResponse, VerifyRequest, VerifyResponse,
     VoteDirection, VoteRequest, WasmNode, WasmNodeSummary,
@@ -237,7 +238,7 @@ pub async fn create_router() -> Router {
         .route("/v1/lora/submit", post(lora_submit))
         .route("/v1/training/preferences", get(training_preferences))
         // Brainpedia (ADR-062)
-        .route("/v1/pages", post(create_page))
+        .route("/v1/pages", get(list_pages).post(create_page))
         .route("/v1/pages/:id", get(get_page))
         .route("/v1/pages/:id/deltas", post(submit_delta))
         .route("/v1/pages/:id/deltas", get(list_deltas))
@@ -1720,6 +1721,68 @@ async fn training_preferences(
 // ──────────────────────────────────────────────────────────────────────
 // Brainpedia endpoints (ADR-062)
 // ──────────────────────────────────────────────────────────────────────
+
+/// GET /v1/pages — list Brainpedia pages with pagination
+#[derive(Debug, serde::Deserialize)]
+struct ListPagesQuery {
+    limit: Option<usize>,
+    offset: Option<usize>,
+    status: Option<String>,
+}
+
+async fn list_pages(
+    State(state): State<AppState>,
+    _contributor: AuthenticatedContributor,
+    Query(query): Query<ListPagesQuery>,
+) -> Json<ListPagesResponse> {
+    let limit = query.limit.unwrap_or(20).min(100);
+    let offset = query.offset.unwrap_or(0);
+
+    let (page_ids, total_count) = state.store.list_pages(limit + offset, 0);
+    let status_filter = query.status.as_deref();
+
+    let mut summaries: Vec<PageSummary> = Vec::new();
+    for id in &page_ids {
+        let page_status = match state.store.get_page_status(id) {
+            Some(s) => s,
+            None => continue,
+        };
+        // Apply status filter if provided
+        if let Some(filter) = status_filter {
+            let status_str = page_status.to_string();
+            if status_str != filter {
+                continue;
+            }
+        }
+        if let Ok(Some(mem)) = state.store.get_memory(id).await {
+            let deltas = state.store.get_deltas(id);
+            let evidence = state.store.get_evidence(id);
+            summaries.push(PageSummary {
+                id: *id,
+                title: mem.title,
+                category: mem.category,
+                status: page_status,
+                quality_score: mem.quality_score.mean(),
+                delta_count: deltas.len() as u32,
+                evidence_count: evidence.len() as u32,
+                updated_at: mem.updated_at,
+            });
+        }
+    }
+
+    // Sort by updated_at descending
+    summaries.sort_by(|a, b| b.updated_at.cmp(&a.updated_at));
+
+    let total_filtered = summaries.len();
+    let paginated: Vec<PageSummary> = summaries.into_iter().skip(offset).take(limit).collect();
+
+    Json(ListPagesResponse {
+        pages: paginated,
+        total_count: total_filtered,
+        offset,
+        limit,
+    })
+}
 
 /// POST /v1/pages — create a new Brainpedia page (Draft)
 /// Requires reputation >= 0.5 and contribution_count >= 10 (unless system)

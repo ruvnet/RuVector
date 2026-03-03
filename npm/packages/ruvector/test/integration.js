@@ -147,8 +147,8 @@ try {
   const fs = require('fs');
   const mcpSrc = fs.readFileSync(path.join(__dirname, '../bin/mcp-server.js'), 'utf8');
   const toolCount = (mcpSrc.match(/inputSchema/g) || []).length;
-  assert(toolCount >= 103, `Expected at least 103 MCP tools (91 base + 12 AGI/midstream), found ${toolCount}`);
-  console.log(`   ✓ MCP tool count: ${toolCount} tools (>= 103)`);
+  assert(toolCount >= 112, `Expected at least 112 MCP tools (91 base + 12 AGI/midstream + 9 page/node), found ${toolCount}`);
+  console.log(`   ✓ MCP tool count: ${toolCount} tools (>= 112)`);
 } catch (error) {
   if (error.code === 'ERR_ASSERTION') {
     console.error(`   ✗ MCP tool count test failed: ${error.message}`);

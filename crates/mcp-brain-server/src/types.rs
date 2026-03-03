@@ -595,6 +595,28 @@ pub struct PageDetailResponse {
     pub evidence_links: Vec<EvidenceLink>,
 }
 
+/// Summary for page listing (lighter than PageDetailResponse)
+#[derive(Debug, Serialize)]
+pub struct PageSummary {
+    pub id: Uuid,
+    pub title: String,
+    pub category: BrainCategory,
+    pub status: PageStatus,
+    pub quality_score: f64,
+    pub delta_count: u32,
+    pub evidence_count: u32,
+    pub updated_at: DateTime<Utc>,
+}
+
+/// Response envelope for paginated page listing
+#[derive(Debug, Serialize)]
+pub struct ListPagesResponse {
+    pub pages: Vec<PageSummary>,
+    pub total_count: usize,
+    pub offset: usize,
+    pub limit: usize,
+}
+
 // ──────────────────────────────────────────────────────────────────────
 // WASM Executable Nodes (ADR-063)
 // ──────────────────────────────────────────────────────────────────────
