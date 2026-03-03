@@ -5,11 +5,12 @@ use crate::graph::cosine_similarity;
 use crate::types::{
     AddEvidenceRequest, AppState, BetaParams, BrainMemory, ChallengeResponse,
     ConsensusLoraWeights, CreatePageRequest, DriftQuery, DriftReport, HealthResponse,
-    LoraLatestResponse, LoraSubmission, LoraSubmitResponse, PageDelta, PageDetailResponse,
-    PageResponse, PageStatus, PartitionQuery, PartitionResult, PublishNodeRequest,
-    SearchQuery, ShareRequest, ShareResponse, StatusResponse, SubmitDeltaRequest,
-    TemporalResponse, TrainingPreferencesResponse, TrainingQuery, TransferRequest,
-    TransferResponse, VoteDirection, VoteRequest, WasmNode, WasmNodeSummary,
+    ListQuery, ListResponse, ListSort, LoraLatestResponse, LoraSubmission, LoraSubmitResponse,
+    PageDelta, PageDetailResponse, PageResponse, PageStatus, PartitionQuery, PartitionResult,
+    PublishNodeRequest, ScoredBrainMemory, SearchQuery, ShareRequest, ShareResponse,
+    StatusResponse, SubmitDeltaRequest, TemporalResponse, TrainingPreferencesResponse,
+    TrainingQuery, TransferRequest, TransferResponse, VerifyRequest, VerifyResponse,
+    VoteDirection, VoteRequest, WasmNode, WasmNodeSummary,
 };
 use axum::{
     extract::{Path, Query, State},
@@ -224,6 +225,7 @@ pub async fn create_router() -> Router {
         .route("/v1/memories/:id/vote", post(vote_memory))
         .route("/v1/memories/:id", delete(delete_memory))
         .route("/v1/transfer", post(transfer))
+        .route("/v1/verify", post(verify_endpoint))
         .route("/v1/drift", get(drift_report))
         .route("/v1/partition", get(partition))
         .route("/v1/status", get(status))
@@ -622,7 +624,7 @@ async fn search_memories(
     State(state): State<AppState>,
     contributor: AuthenticatedContributor,
     Query(query): Query<SearchQuery>,
-) -> Result<Json<Vec<BrainMemory>>, (StatusCode, String)> {
+) -> Result<Json<Vec<ScoredBrainMemory>>, (StatusCode, String)> {
     if !state.rate_limiter.check_read(&contributor.pseudonym) {
         return Err((StatusCode::TOO_MANY_REQUESTS, "Read rate limit exceeded".into()));
     }
@@ -767,7 +769,7 @@ async fn search_memories(
     // Build scored list: keyword-dominant with embedding + graph + vote signals
     let mut scored: Vec<(f64, BrainMemory)> = raw
         .into_iter()
-        .map(|m| {
+        .map(|(_, m)| {
             let rep = state
                 .store
                 .get_contributor_reputation(&m.contributor_id)
@@ -977,16 +979,16 @@ async fn search_memories(
     // Single final sort after all AGI + midstream scoring layers
     scored.sort_unstable_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
     scored.truncate(limit);
-    let results: Vec<BrainMemory> = scored.into_iter().map(|(_, m)| m).collect();
+    let results: Vec<ScoredBrainMemory> = scored.into_iter().map(|(score, memory)| ScoredBrainMemory { memory, score }).collect();
 
     // ── SONA: Record search trajectory for learning ──
     if state.rvf_flags.sona_enabled && !results.is_empty() {
         let sona = state.sona.read();
         let mut builder = sona.begin_trajectory(query_embedding.clone());
         builder.add_step(
-            results[0].embedding.clone(),
+            results[0].memory.embedding.clone(),
             vec![],
-            results[0].quality_score.mean() as f32,
+            results[0].memory.quality_score.mean() as f32,
         );
         sona.end_trajectory(builder, 0.5);
     }
@@ -997,21 +999,29 @@ async fn search_memories(
 async fn list_memories(
     State(state): State<AppState>,
     contributor: AuthenticatedContributor,
-    Query(query): Query<SearchQuery>,
-) -> Result<Json<Vec<BrainMemory>>, (StatusCode, String)> {
+    Query(query): Query<ListQuery>,
+) -> Result<Json<ListResponse>, (StatusCode, String)> {
     if !state.rate_limiter.check_read(&contributor.pseudonym) {
         return Err((StatusCode::TOO_MANY_REQUESTS, "Read rate limit exceeded".into()));
     }
 
     let limit = query.limit.unwrap_or(20).min(100);
+    let offset = query.offset.unwrap_or(0);
+    let sort = query.sort.unwrap_or_default();
+    let tags: Option<Vec<String>> = query.tags.map(|t| t.split(',').map(|s| s.trim().to_string()).collect());
 
-    let results = state
+    let (memories, total_count) = state
         .store
-        .list_memories(query.category.as_ref(), limit)
+        .list_memories(query.category.as_ref(), tags.as_deref(), limit, offset, &sort)
         .await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
-    Ok(Json(results))
+    Ok(Json(ListResponse {
+        memories,
+        total_count,
+        offset,
+        limit,
+    }))
 }
 
 async fn get_memory(
@@ -1205,6 +1215,14 @@ async fn transfer(
         )
     };
 
+    let mut warnings = Vec::new();
+    if source_memories.is_empty() {
+        warnings.push(format!("No memories found matching source domain '{}'", req.source_domain));
+    }
+    if target_memories.is_empty() {
+        warnings.push(format!("No memories found matching target domain '{}'", req.target_domain));
+    }
+
     Ok(Json(TransferResponse {
         source_domain: req.source_domain,
         target_domain: req.target_domain,
@@ -1214,7 +1232,122 @@ async fn transfer(
             "Transfer initiated by {} (acceleration: {:.2}x, promotable: {})",
             contributor.pseudonym, verification.acceleration_factor, verification.promotable
         ),
+        source_memory_count: source_memories.len(),
+        target_memory_count: target_memories.len(),
+        warnings,
     }))
+}
+
+async fn verify_endpoint(
+    State(state): State<AppState>,
+    contributor: AuthenticatedContributor,
+    Json(req): Json<VerifyRequest>,
+) -> Result<Json<VerifyResponse>, (StatusCode, String)> {
+    if !state.rate_limiter.check_read(&contributor.pseudonym) {
+        return Err((StatusCode::TOO_MANY_REQUESTS, "Read rate limit exceeded".into()));
+    }
+
+    // Method 1: Witness chain steps + hash
+    if let (Some(steps), Some(hash)) = (&req.witness_steps, &req.witness_hash) {
+        let verifier = state.verifier.read();
+        let step_refs: Vec<&str> = steps.iter().map(|s| s.as_str()).collect();
+        return match verifier.verify_witness_chain(&step_refs, hash) {
+            Ok(()) => Ok(Json(VerifyResponse {
+                valid: true,
+                method: "witness_chain".into(),
+                message: "Witness chain verification passed".into(),
+            })),
+            Err(e) => Ok(Json(VerifyResponse {
+                valid: false,
+                method: "witness_chain".into(),
+                message: format!("Witness chain verification failed: {e}"),
+            })),
+        };
+    }
+
+    // Method 2: Memory ID lookup
+    if let Some(memory_id) = req.memory_id {
+        return match state.store.get_memory(&memory_id).await {
+            Ok(Some(mem)) => {
+                // If witness_hash provided, verify it matches
+                if let Some(ref hash) = req.witness_hash {
+                    let equal = subtle::ConstantTimeEq::ct_eq(
+                        mem.witness_hash.as_bytes(),
+                        hash.as_bytes(),
+                    );
+                    if bool::from(equal) {
+                        Ok(Json(VerifyResponse {
+                            valid: true,
+                            method: "memory_id".into(),
+                            message: format!("Memory {} witness hash verified", memory_id),
+                        }))
+                    } else {
+                        Ok(Json(VerifyResponse {
+                            valid: false,
+                            method: "memory_id".into(),
+                            message: format!("Memory {} witness hash mismatch", memory_id),
+                        }))
+                    }
+                } else {
+                    Ok(Json(VerifyResponse {
+                        valid: true,
+                        method: "memory_id".into(),
+                        message: format!("Memory {} exists and is valid", memory_id),
+                    }))
+                }
+            }
+            Ok(None) => Ok(Json(VerifyResponse {
+                valid: false,
+                method: "memory_id".into(),
+                message: format!("Memory {} not found", memory_id),
+            })),
+            Err(e) => Err((StatusCode::INTERNAL_SERVER_ERROR, e.to_string())),
+        };
+    }
+
+    // Method 3: Content hash verification
+    if let (Some(hash), Some(data)) = (&req.content_hash, &req.content_data) {
+        let verifier = state.verifier.read();
+        return match verifier.verify_content_hash(data.as_bytes(), hash) {
+            Ok(()) => Ok(Json(VerifyResponse {
+                valid: true,
+                method: "content_hash".into(),
+                message: "Content hash verification passed".into(),
+            })),
+            Err(e) => Ok(Json(VerifyResponse {
+                valid: false,
+                method: "content_hash".into(),
+                message: format!("Content hash verification failed: {e}"),
+            })),
+        };
+    }
+
+    // Method 4: Binary witness chain bytes (base64)
+    if let Some(ref b64) = req.witness_chain_bytes {
+        use base64::Engine as _;
+        let verifier = state.verifier.read();
+        return match base64::engine::general_purpose::STANDARD.decode(b64) {
+            Ok(bytes) => match verifier.verify_rvf_witness_chain(&bytes) {
+                Ok(entries) => Ok(Json(VerifyResponse {
+                    valid: true,
+                    method: "witness_chain_bytes".into(),
+                    message: format!("Binary witness chain valid ({} entries)", entries.len()),
+                })),
+                Err(e) => Ok(Json(VerifyResponse {
+                    valid: false,
+                    method: "witness_chain_bytes".into(),
+                    message: format!("Binary witness chain invalid: {e}"),
+                })),
+            },
+            Err(e) => Ok(Json(VerifyResponse {
+                valid: false,
+                method: "witness_chain_bytes".into(),
+                message: format!("Invalid base64 encoding: {e}"),
+            })),
+        };
+    }
+
+    Err((StatusCode::BAD_REQUEST, "No verification method specified. Provide witness_steps+witness_hash, memory_id, content_hash+content_data, or witness_chain_bytes".into()))
 }
 
 async fn drift_report(

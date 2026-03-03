@@ -329,6 +329,52 @@ pub struct TransferResponse {
     pub acceleration_factor: f64,
     pub transfer_success: bool,
     pub message: String,
+    pub source_memory_count: usize,
+    pub target_memory_count: usize,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub warnings: Vec<String>,
+}
+
+/// A brain memory with its search relevance score
+#[derive(Debug, Clone, Serialize)]
+pub struct ScoredBrainMemory {
+    #[serde(flatten)]
+    pub memory: BrainMemory,
+    pub score: f64,
+}
+
+/// Query parameters for paginated list endpoint
+#[derive(Debug, Deserialize)]
+pub struct ListQuery {
+    pub category: Option<BrainCategory>,
+    pub tags: Option<String>,
+    pub limit: Option<usize>,
+    pub offset: Option<usize>,
+    pub sort: Option<ListSort>,
+}
+
+/// Sort options for list endpoint
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ListSort {
+    UpdatedAt,
+    Quality,
+    Votes,
+}
+
+impl Default for ListSort {
+    fn default() -> Self {
+        Self::UpdatedAt
+    }
+}
+
+/// Paginated list response envelope
+#[derive(Debug, Serialize)]
+pub struct ListResponse {
+    pub memories: Vec<BrainMemory>,
+    pub total_count: usize,
+    pub offset: usize,
+    pub limit: usize,
 }
 
 /// Challenge nonce for replay protection
@@ -336,6 +382,31 @@ pub struct TransferResponse {
 pub struct ChallengeResponse {
     pub nonce: String,
     pub expires_at: DateTime<Utc>,
+}
+
+/// Request for POST /v1/verify — verify integrity of memories and witness chains
+#[derive(Debug, Deserialize)]
+pub struct VerifyRequest {
+    /// Witness chain step labels for hash verification
+    pub witness_steps: Option<Vec<String>>,
+    /// Expected SHAKE-256 hash of the witness chain
+    pub witness_hash: Option<String>,
+    /// Memory ID for lookup-based verification
+    pub memory_id: Option<uuid::Uuid>,
+    /// Expected content hash (SHAKE-256 hex)
+    pub content_hash: Option<String>,
+    /// Raw content data to hash-verify (UTF-8 string)
+    pub content_data: Option<String>,
+    /// Base64-encoded binary witness chain bytes
+    pub witness_chain_bytes: Option<String>,
+}
+
+/// Response for POST /v1/verify
+#[derive(Debug, Serialize)]
+pub struct VerifyResponse {
+    pub valid: bool,
+    pub method: String,
+    pub message: String,
 }
 
 /// LoRA weights submitted by a session for federation

@@ -115,6 +115,76 @@ function loadGnn() {
   }
 }
 
+// ── Proxy-aware fetch wrapper ───────────────────────────────────────────────
+// Detects HTTP_PROXY / HTTPS_PROXY / ALL_PROXY env vars and routes traffic
+// through the proxy when configured.  Falls back to native fetch() when no
+// proxy is set or the target matches NO_PROXY.
+let _proxyDispatcherSet = false;
+
+function getProxyUrl(targetUrl) {
+  const NO_PROXY = process.env.NO_PROXY || process.env.no_proxy || '';
+  if (NO_PROXY === '*') return null;
+  if (NO_PROXY) {
+    try {
+      const host = new URL(targetUrl).hostname.toLowerCase();
+      const patterns = NO_PROXY.split(',').map(p => p.trim().toLowerCase());
+      for (const p of patterns) {
+        if (!p) continue;
+        if (host === p || host.endsWith(p.startsWith('.') ? p : '.' + p)) return null;
+      }
+    } catch {}
+  }
+  return process.env.HTTPS_PROXY || process.env.https_proxy
+      || process.env.HTTP_PROXY  || process.env.http_proxy
+      || process.env.ALL_PROXY   || process.env.all_proxy
+      || null;
+}
+
+async function proxyFetch(url, opts) {
+  const target = typeof url === 'string' ? url : url.toString();
+  const proxy = getProxyUrl(target);
+  if (!proxy) return fetch(url, opts);
+
+  // Try undici ProxyAgent (bundled in Node 18+)
+  if (!_proxyDispatcherSet) {
+    try {
+      const undici = require('undici');
+      if (undici.ProxyAgent && undici.setGlobalDispatcher) {
+        undici.setGlobalDispatcher(new undici.ProxyAgent(proxy));
+        _proxyDispatcherSet = true;
+      }
+    } catch {}
+  }
+  if (_proxyDispatcherSet) return fetch(url, opts);
+
+  // Fallback: shell out to curl (which natively respects proxy env vars)
+  const { execFileSync } = require('child_process');
+  const args = ['-sS', '-L', '--max-time', '30'];
+  if (opts && opts.method) { args.push('-X', opts.method); }
+  if (opts && opts.headers) {
+    for (const [k, v] of Object.entries(opts.headers)) {
+      args.push('-H', `${k}: ${v}`);
+    }
+  }
+  if (opts && opts.body) { args.push('-d', typeof opts.body === 'string' ? opts.body : JSON.stringify(opts.body)); }
+  args.push(target);
+  try {
+    const stdout = execFileSync('curl', args, { encoding: 'utf8', timeout: 35000 });
+    const body = stdout.trim();
+    return {
+      ok: true,
+      status: 200,
+      statusText: 'OK',
+      text: async () => body,
+      json: async () => JSON.parse(body),
+      headers: new Map(),
+    };
+  } catch (e) {
+    const msg = e.stderr ? e.stderr.toString().trim() : e.message;
+    throw new Error(`Proxy curl failed: ${msg}`);
+  }
+}
+
 // Lazy load Attention (optional - loaded on first use, not at startup)
 let _attentionModule = undefined;
 let DotProductAttention, MultiHeadAttention, HyperbolicAttention, FlashAttention, LinearAttention, MoEAttention;
@@ -7250,7 +7320,7 @@ async function getRvfManifest(opts = {}) {
 
   // Try GCS
   try {
-    const resp = await fetch(GCS_MANIFEST_URL);
+    const resp = await proxyFetch(GCS_MANIFEST_URL, { signal: AbortSignal.timeout(15000) });
     if (resp.ok) {
       const manifest = await resp.json();
       fs.mkdirSync(cacheDir, { recursive: true });
@@ -7877,7 +7947,7 @@ async function brainFetch(config, endpoint, opts = {}) {
   const fetchOpts = { headers: brainHeaders(config), signal: AbortSignal.timeout(30000) };
   if (opts.method) fetchOpts.method = opts.method;
   if (opts.body) { fetchOpts.method = opts.method || 'POST'; fetchOpts.body = JSON.stringify(opts.body); }
-  const resp = await fetch(url.toString(), fetchOpts);
+  const resp = await proxyFetch(url.toString(), fetchOpts);
   if (!resp.ok) {
     const errText = await resp.text().catch(() => resp.statusText);
     throw new Error(`${resp.status} ${errText}`);
@@ -7972,14 +8042,21 @@ brainCmd.command('list')
   .option('--url <url>', 'Brain server URL')
   .option('--key <key>', 'Pi key')
   .option('--json', 'Output as JSON')
+  .option('--offset <n>', 'Skip first N results (pagination)', '0')
+  .option('--sort <field>', 'Sort by: updated_at, quality, votes', 'updated_at')
+  .option('--tags <tags>', 'Filter by tags (comma-separated)')
   .action(async (opts) => {
     const config = getBrainConfig(opts);
     try {
-      const results = await brainFetch(config, '/v1/memories/list', { params: { category: opts.category, limit: opts.limit } });
-      if (opts.json || !process.stdout.isTTY) { console.log(JSON.stringify(results, null, 2)); return; }
+      const data = await brainFetch(config, '/v1/memories/list', { params: { category: opts.category, limit: opts.limit, offset: opts.offset, sort: opts.sort, tags: opts.tags } });
+      if (opts.json || !process.stdout.isTTY) { console.log(JSON.stringify(data, null, 2)); return; }
       console.log(chalk.bold.cyan('\nShared Brain Memories\n'));
-      if (!results.length) { console.log(chalk.dim('  No memories found.\n')); return; }
-      results.forEach((r, i) => {
+      const memories = Array.isArray(data) ? data : data.memories || [];
+      if (data.total_count !== undefined) {
+        console.log(chalk.dim(`  Showing ${memories.length} of ${data.total_count} (offset ${data.offset || 0})\n`));
+      }
+      if (!memories.length) { console.log(chalk.dim('  No memories found.\n')); return; }
+      memories.forEach((r, i) => {
         console.log(`  ${chalk.yellow(i + 1 + '.')} ${chalk.bold(r.title || r.id)} ${chalk.dim(`[${r.category || 'unknown'}]`)}`);
       });
       console.log();
@@ -8191,7 +8268,7 @@ async function fetchBrainEndpoint(config, endpoint) {
   const url = (config.url || 'https://pi.ruv.io') + endpoint;
   const headers = {};
   if (config.key) headers['Authorization'] = `Bearer ${config.key}`;
-  const resp = await fetch(url, { headers });
+  const resp = await proxyFetch(url, { headers, signal: AbortSignal.timeout(30000) });
   if (!resp.ok) throw new Error(`${resp.status} ${resp.statusText}`);
   return resp.json();
 }
@@ -8420,7 +8497,7 @@ midstreamCmd.command('benchmark')
 
     async function timeRequest(url, label) {
       const start = performance.now();
-      const resp = await fetch(url, { headers });
+      const resp = await proxyFetch(url, { headers, signal: AbortSignal.timeout(30000) });
       const elapsed = performance.now() - start;
       return { label, status: resp.status, elapsed };
     }
@@ -8490,7 +8567,7 @@ edgeCmd.command('status')
   .option('--json', 'Output as JSON')
   .action(async (opts) => {
     try {
-      const resp = await fetch(`${EDGE_GENESIS}/status`);
+      const resp = await proxyFetch(`${EDGE_GENESIS}/status`, { signal: AbortSignal.timeout(30000) });
       const data = await resp.json();
       if (opts.json || !process.stdout.isTTY) { console.log(JSON.stringify(data, null, 2)); return; }
       console.log(chalk.bold.cyan('\nEdge Network Status\n'));
@@ -8506,10 +8583,11 @@ edgeCmd.command('join')
     const piKey = process.env.PI;
     if (!piKey) { console.error(chalk.red('Set PI environment variable first. Run: npx ruvector identity generate')); process.exit(1); }
     try {
-      const resp = await fetch(`${EDGE_GENESIS}/join`, {
+      const resp = await proxyFetch(`${EDGE_GENESIS}/join`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${piKey}` },
-        body: JSON.stringify({ contribution: parseFloat(opts.contribution), pi_key: piKey })
+        body: JSON.stringify({ contribution: parseFloat(opts.contribution), pi_key: piKey }),
+        signal: AbortSignal.timeout(30000)
       });
       const data = await resp.json();
       console.log(chalk.green(`Joined edge network: ${data.node_id || 'OK'}`));
@@ -8524,7 +8602,7 @@ edgeCmd.command('balance')
     if (!piKey) { console.error(chalk.red('Set PI environment variable first.')); process.exit(1); }
     try {
       const pseudonym = require('crypto').createHash('shake256', { outputLength: 16 }).update(piKey).digest('hex');
-      const resp = await fetch(`${EDGE_GENESIS}/balance/${pseudonym}`, { headers: { 'Authorization': `Bearer ${piKey}` } });
+      const resp = await proxyFetch(`${EDGE_GENESIS}/balance/${pseudonym}`, { headers: { 'Authorization': `Bearer ${piKey}` }, signal: AbortSignal.timeout(30000) });
       if (!resp.ok) { console.error(chalk.red(`Edge network returned ${resp.status} ${resp.statusText}`)); process.exit(1); }
       const data = await resp.json();
       if (opts.json || !process.stdout.isTTY) { console.log(JSON.stringify(data, null, 2)); return; }
@@ -8540,7 +8618,7 @@ edgeCmd.command('tasks')
   .option('--json', 'Output as JSON')
   .action(async (opts) => {
     try {
-      const resp = await fetch(`${EDGE_GENESIS}/tasks?limit=${opts.limit}`);
+      const resp = await proxyFetch(`${EDGE_GENESIS}/tasks?limit=${opts.limit}`, { signal: AbortSignal.timeout(30000) });
       const data = await resp.json();
       if (opts.json || !process.stdout.isTTY) { console.log(JSON.stringify(data, null, 2)); return; }
       console.log(chalk.bold.cyan('\nEdge Compute Tasks\n'));

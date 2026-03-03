@@ -544,7 +544,7 @@ impl FirestoreClient {
         }
     }
 
-    /// Search memories by embedding similarity
+    /// Search memories by embedding similarity, returning (score, memory) pairs
     pub async fn search_memories(
         &self,
         query_embedding: &[f32],
@@ -552,7 +552,7 @@ impl FirestoreClient {
         tags: Option<&[String]>,
         limit: usize,
         min_quality: f64,
-    ) -> Result<Vec<BrainMemory>, StoreError> {
+    ) -> Result<Vec<(f64, BrainMemory)>, StoreError> {
         let mut scored: Vec<(f64, BrainMemory)> = self
             .memories
             .iter()
@@ -577,7 +577,7 @@ impl FirestoreClient {
             scored.truncate(limit);
         }
         // limit=0 means return all (for full-corpus keyword re-ranking)
-        Ok(scored.into_iter().map(|(_, m)| m).collect())
+        Ok(scored)
     }
 
     /// Keyword-based search fallback when no embedding is provided.
@@ -661,22 +661,60 @@ impl FirestoreClient {
         Ok(scored.into_iter().map(|(_, m)| m).collect())
     }
 
-    /// List recent memories
+    /// List memories with pagination, tag filtering, and sorting
     pub async fn list_memories(
         &self,
         category: Option<&BrainCategory>,
+        tags: Option<&[String]>,
         limit: usize,
-    ) -> Result<Vec<BrainMemory>, StoreError> {
+        offset: usize,
+        sort: &crate::types::ListSort,
+    ) -> Result<(Vec<BrainMemory>, usize), StoreError> {
         let mut memories: Vec<BrainMemory> = self
             .memories
             .iter()
-            .filter(|entry| category.map_or(true, |c| &entry.value().category == c))
+            .filter(|entry| {
+                let m = entry.value();
+                let category_ok = category.map_or(true, |c| &m.category == c);
+                let tags_ok = tags.map_or(true, |t| {
+                    t.iter().any(|tag| m.tags.contains(tag))
+                });
+                category_ok && tags_ok
+            })
             .map(|entry| entry.value().clone())
             .collect();
 
-        memories.sort_by(|a, b| b.updated_at.cmp(&a.updated_at));
-        memories.truncate(limit);
-        Ok(memories)
+        let total_count = memories.len();
+
+        match sort {
+            ListSort::UpdatedAt => {
+                memories.sort_by(|a, b| b.updated_at.cmp(&a.updated_at));
+            }
+            ListSort::Quality => {
+                memories.sort_by(|a, b| {
+                    b.quality_score
+                        .mean()
+                        .partial_cmp(&a.quality_score.mean())
+                        .unwrap_or(std::cmp::Ordering::Equal)
+                });
+            }
+            ListSort::Votes => {
+                memories.sort_by(|a, b| {
+                    b.quality_score
+                        .observations()
+                        .partial_cmp(&a.quality_score.observations())
+                        .unwrap_or(std::cmp::Ordering::Equal)
+                });
+            }
+        }
+
+        let paginated: Vec<BrainMemory> = memories
+            .into_iter()
+            .skip(offset)
+            .take(limit)
+            .collect();
+
+        Ok((paginated, total_count))
     }
 
     /// Update quality score for a memory and log the preference pair
