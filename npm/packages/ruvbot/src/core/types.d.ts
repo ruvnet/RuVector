@@ -174,7 +174,7 @@ export interface LLMConfig {
     maxTokens?: number;
     streaming?: boolean;
 }
-export type LLMProvider = 'anthropic' | 'openai' | 'google' | 'local' | 'ruvllm';
+export type LLMProvider = 'anthropic' | 'openai' | 'google' | 'novita' | 'local' | 'ruvllm';
 export interface LLMRequest {
     messages: LLMMessage[];
     systemPrompt?: string;

@@ -223,6 +223,10 @@ export OPENROUTER_API_KEY=sk-or-xxx
 # Option 2: Anthropic Direct
 export ANTHROPIC_API_KEY=sk-ant-xxx
 
+# Option 3: Novita (OpenAI-compatible)
+export NOVITA_API_KEY=nv-xxx
+export NOVITA_MODEL=deepseek/deepseek-v3.2
+
 # Slack Integration (optional)
 export SLACK_BOT_TOKEN=xoxb-xxx
 export SLACK_SIGNING_SECRET=xxx
@@ -1364,7 +1368,7 @@ All 52 Clawdbot skills are compatible with RuvBot. Simply copy your `skills/` di
 ```
 [RuvBot] LLM not configured. Received: "..."
 ```
-Solution: Set `OPENROUTER_API_KEY` or `ANTHROPIC_API_KEY` environment variable.
+Solution: Set `NOVITA_API_KEY`, `OPENROUTER_API_KEY`, or `ANTHROPIC_API_KEY` environment variable.
 
 **Agent not found**
 ```

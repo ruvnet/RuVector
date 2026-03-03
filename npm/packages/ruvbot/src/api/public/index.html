@@ -918,7 +918,7 @@
         if (status.llm?.configured) {
           console.log('[RuvBot] LLM configured:', status.llm.provider, status.llm.model);
         } else {
-          console.warn('[RuvBot] LLM not configured! Check ANTHROPIC_API_KEY or OPENROUTER_API_KEY');
+          console.warn('[RuvBot] LLM not configured! Check NOVITA_API_KEY, ANTHROPIC_API_KEY, or OPENROUTER_API_KEY');
         }
       } catch (err) {
         console.warn('[RuvBot] Health check failed:', err);

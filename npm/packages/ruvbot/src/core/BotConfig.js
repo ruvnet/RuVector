@@ -18,7 +18,7 @@ exports.MemoryConfigSchema = zod_1.z.object({
     m: zod_1.z.number().int().min(4).max(64).default(16),
 });
 exports.LLMConfigSchema = zod_1.z.object({
-    provider: zod_1.z.enum(['anthropic', 'openai', 'google', 'local', 'ruvllm']).default('anthropic'),
+    provider: zod_1.z.enum(['anthropic', 'openai', 'google', 'novita', 'local', 'ruvllm']).default('anthropic'),
     model: zod_1.z.string().default('claude-sonnet-4-20250514'),
     apiKey: zod_1.z.string().optional(),
     baseUrl: zod_1.z.string().url().optional(),
@@ -161,7 +161,13 @@ class ConfigManager {
         const storageConfig = {};
         const loggingConfig = {};
         // LLM configuration
-        if (process.env.ANTHROPIC_API_KEY) {
+        if (process.env.NOVITA_API_KEY) {
+            llmConfig.provider = 'novita';
+            llmConfig.apiKey = process.env.NOVITA_API_KEY;
+            llmConfig.baseUrl = 'https://api.novita.ai/openai';
+            llmConfig.model = process.env.NOVITA_MODEL || 'deepseek/deepseek-v3.2';
+        }
+        else if (process.env.ANTHROPIC_API_KEY) {
             llmConfig.provider = 'anthropic';
             llmConfig.apiKey = process.env.ANTHROPIC_API_KEY;
         }
