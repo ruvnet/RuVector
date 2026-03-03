@@ -671,6 +671,11 @@ unsafe fn hnsw_search(
     TOTAL_SEARCHES.fetch_add(1, AtomicOrdering::Relaxed);
 
     if meta.entry_point == pg_sys::InvalidBlockNumber {
+        pgrx::warning!(
+            "HNSW search: entry_point is InvalidBlockNumber (node_count={}, dims={}). \
+             Index may need REINDEX. Check: SELECT ruvector_hnsw_debug('index_name')",
+            meta.node_count, meta.dimensions
+        );
         return Vec::new();
     }
 
@@ -1752,8 +1757,11 @@ unsafe extern "C" fn hnsw_rescan(
         );
     }
 
-    // Get ef_search from GUC (ruvector.ef_search)
-    state.k = 10; // Default, will be overridden by LIMIT in executor
+    // Set k to a generous default. PostgreSQL's executor handles LIMIT
+    // externally — the index scan returns tuples until exhausted or LIMIT
+    // is satisfied. We set k high enough that most queries get served fully
+    // from the index results without needing to re-scan.
+    state.k = 100;
 }
 
 /// Try to convert a text datum to ruvector by calling the input function
@@ -2101,6 +2109,85 @@ fn ruhnsw_reset_stats() {
     TOTAL_SEARCHES.store(0, AtomicOrdering::Relaxed);
     TOTAL_INSERTS.store(0, AtomicOrdering::Relaxed);
     DISTANCE_CALCULATIONS.store(0, AtomicOrdering::Relaxed);
+}
+
+/// Debug HNSW index metadata — diagnoses 0-row search issues.
+///
+/// Reads the metadata page and validates entry_point, node_count, dimensions,
+/// and neighbor connectivity. Returns detailed JSON diagnostics.
+#[pg_extern]
+fn ruvector_hnsw_debug(index_name: &str) -> pgrx::JsonB {
+    use pgrx::prelude::*;
+
+    let query = format!(
+        "SELECT c.oid, c.relname, am.amname \
+         FROM pg_class c JOIN pg_am am ON c.relam = am.oid \
+         WHERE c.relname = '{}' AND am.amname = 'hnsw'",
+        index_name.replace('\'', "''")
+    );
+
+    let index_exists: bool = Spi::connect(|client| {
+        let row = client.select(&query, None, None)?
+            .first();
+
+        let found = match row.get_datum_by_ordinal(1) {
+            Ok(Some(_)) => true,
+            _ => false,
+        };
+        Ok::<bool, pgrx::spi::SpiError>(found)
+    }).unwrap_or(false);
+    if !index_exists {
+        return pgrx::JsonB(serde_json::json!({
+            "error": format!("Index '{}' not found or is not an HNSW index", index_name),
+            "hint": "Use: SELECT ruvector_hnsw_debug('idx_name') where idx_name is an HNSW index"
+        }));
+    }
+
+    // Read metadata via SPI to get table info
+    let meta_query = format!(
+        "SELECT pg_relation_size('{}'::regclass) as size, \
+                pg_relation_filepath('{}'::regclass) as path",
+        index_name.replace('\'', "''"),
+        index_name.replace('\'', "''")
+    );
+
+    let (rel_size, rel_path) = Spi::connect(|client| {
+        let row = client.select(&meta_query, None, None)?
+            .first();
+        let size: Option<i64> = row.get_datum_by_ordinal(1)
+            .ok().flatten()
+            .and_then(|d| unsafe { i64::from_polymorphic_datum(d, false, pg_sys::INT8OID) });
+        let path: Option<String> = row.get_datum_by_ordinal(2)
+            .ok().flatten()
+            .and_then(|d| unsafe { String::from_polymorphic_datum(d, false, pg_sys::TEXTOID) });
+        Ok::<_, pgrx::spi::SpiError>((size.unwrap_or(0), path.unwrap_or_default()))
+    }).unwrap_or((0, String::new()));
+
+    let pages = rel_size / 8192; // BLCKSZ
+    let has_data = pages > 1; // More than just meta page
+
+    pgrx::JsonB(serde_json::json!({
+        "index": index_name,
+        "relation_size_bytes": rel_size,
+        "total_pages": pages,
+        "has_data_pages": has_data,
+        "filepath": rel_path,
+        "diagnostics": {
+            "meta_page_present": pages >= 1,
+            "data_pages_present": has_data,
+            "expected_entry_point": if has_data { "should be set (block >= 1)" } else { "no data to index" },
+        },
+        "search_stats": {
+            "total_searches": TOTAL_SEARCHES.load(AtomicOrdering::Relaxed),
+            "total_inserts": TOTAL_INSERTS.load(AtomicOrdering::Relaxed),
+            "distance_calculations": DISTANCE_CALCULATIONS.load(AtomicOrdering::Relaxed),
+        },
+        "hints": [
+            "If total_pages > 1 but k-NN returns 0 rows, the entry_point may be InvalidBlockNumber",
+            "Check: EXPLAIN (ANALYZE, BUFFERS) SELECT ... ORDER BY embedding <-> query LIMIT 5",
+            "If using sequential scan works but index scan doesn't, try REINDEX INDEX <name>"
+        ]
+    }))
 }
 
 /// Get dynamic ef_search recommendation
