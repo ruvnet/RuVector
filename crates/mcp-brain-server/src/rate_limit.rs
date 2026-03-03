@@ -28,8 +28,9 @@ pub struct RateLimiter {
     ops_counter: AtomicU64,
     /// Cleanup every N operations
     cleanup_interval: u64,
-    /// Per-IP vote tracking: maps "ip:memory_id" -> vote count (anti-Sybil)
-    ip_votes: DashMap<String, u32>,
+    /// Per-IP vote tracking: maps "ip:memory_id" -> (vote_count, first_vote_time)
+    /// Entries older than 24h are evicted during periodic cleanup.
+    ip_votes: DashMap<String, (u32, Instant)>,
 }
 
 struct TokenBucket {
@@ -134,14 +135,21 @@ impl RateLimiter {
     }
 
     /// Check if an IP has already voted on a memory (anti-Sybil vote dedup).
-    /// Returns false if the IP already voted on this memory.
+    /// Returns false if the IP already voted on this memory within the last 24h.
     pub fn check_ip_vote(&self, ip: &str, memory_id: &str) -> bool {
         let key = format!("{ip}:{memory_id}");
-        let mut count = self.ip_votes.entry(key).or_insert(0);
-        if *count >= 1 {
+        let now = Instant::now();
+        let mut entry = self.ip_votes.entry(key).or_insert((0, now));
+        // Allow re-vote if previous vote is older than 24h
+        if entry.0 >= 1 && now.duration_since(entry.1) < Duration::from_secs(86400) {
             return false;
         }
-        *count += 1;
+        if entry.0 >= 1 {
+            // Reset after 24h window
+            entry.0 = 0;
+        }
+        entry.0 += 1;
+        entry.1 = now;
         true
     }
 
@@ -159,13 +167,17 @@ impl RateLimiter {
         self.read_buckets.retain(|_, bucket| !bucket.is_stale());
         self.ip_write_buckets.retain(|_, bucket| !bucket.is_stale());
         self.ip_read_buckets.retain(|_, bucket| !bucket.is_stale());
+        // Evict vote entries older than 24h
+        let vote_before = self.ip_votes.len();
+        self.ip_votes.retain(|_, (_, timestamp)| timestamp.elapsed() < Duration::from_secs(86400));
+        let vote_evicted = vote_before - self.ip_votes.len();
 
         let write_evicted = write_before - self.write_buckets.len();
         let read_evicted = read_before - self.read_buckets.len();
 
-        if write_evicted > 0 || read_evicted > 0 {
+        if write_evicted > 0 || read_evicted > 0 || vote_evicted > 0 {
             tracing::debug!(
-                "Rate limiter cleanup: evicted {write_evicted} write + {read_evicted} read stale buckets"
+                "Rate limiter cleanup: evicted {write_evicted} write + {read_evicted} read stale buckets + {vote_evicted} stale votes"
             );
         }
     }

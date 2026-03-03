@@ -716,6 +716,17 @@ pub struct TrainingPreferencesResponse {
     pub total_votes: u64,
 }
 
+/// Result of an explicit or background training cycle.
+#[derive(Debug, Clone, Serialize)]
+pub struct TrainingCycleResult {
+    pub sona_message: String,
+    pub sona_patterns: usize,
+    pub pareto_before: usize,
+    pub pareto_after: usize,
+    pub memory_count: usize,
+    pub vote_count: u64,
+}
+
 /// Federated LoRA store for accumulating submissions and producing consensus
 pub struct LoraFederationStore {
     /// Pending submissions waiting for next aggregation round

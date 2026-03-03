@@ -68,10 +68,12 @@ Both per-key AND per-IP limits must pass for a write to succeed.
 
 Added `check_ip_vote(ip, memory_id)` to `RateLimiter`:
 
-- Tracks `"ip:memory_id"` pairs in a `DashMap`
-- One vote per IP per memory, regardless of how many API keys are used
+- Tracks `"ip:memory_id"` pairs in a `DashMap<String, (u32, Instant)>`
+- One vote per IP per memory within a 24-hour window
 - Returns 403 "Already voted on this memory from this network" on duplicates
 - Prevents Sybil vote inflation/deflation of quality scores
+- **24h TTL**: Vote entries expire after 24 hours and are evicted during periodic cleanup
+- **Author exemption**: Content authors are exempt from IP vote dedup (their votes are already gated by store-level self-vote prevention and per-key dedup)
 
 ## 3. Security Model Summary
 
@@ -84,7 +86,7 @@ The brain server operates as an **open knowledge commons with pseudonymous contr
 | PII leakage | 15-rule PiiStripper + redaction logging + pre-redaction hash |
 | Write flooding (single key) | 500 writes/hr per contributor pseudonym |
 | Write flooding (key rotation) | 1500 writes/hr per IP (ADR-082) |
-| Vote manipulation (Sybil) | One vote per IP per memory (ADR-082) |
+| Vote manipulation (Sybil) | One vote per IP per memory per 24h (ADR-082), author exemption |
 | Replay attacks | Nonce validation on share requests |
 | Tamper detection | SHAKE-256 witness chains per memory |
 | Container forgery | Ed25519 signature verification |
@@ -112,8 +114,8 @@ The brain server operates as an **open knowledge commons with pseudonymous contr
 | File | Changes |
 |------|---------|
 | `crates/rvf/rvf-federation/src/pii_strip.rs` | Add phone, SSN, credit card rules (12→15); add 7 new tests |
-| `crates/mcp-brain-server/src/rate_limit.rs` | Add IP-based write/read buckets, IP vote dedup map |
-| `crates/mcp-brain-server/src/routes.rs` | Add `extract_client_ip()`, wire IP rate limit to share, IP vote dedup to vote |
+| `crates/mcp-brain-server/src/rate_limit.rs` | Add IP-based write/read buckets, IP vote dedup with 24h TTL, periodic cleanup |
+| `crates/mcp-brain-server/src/routes.rs` | Add `extract_client_ip()`, wire IP rate limit to share, IP vote dedup with author exemption |
 | `crates/mcp-brain-server/src/verify.rs` | Update comments (12→15 rules), add phone/SSN/CC detection tests |
 
 ## 5. Verification

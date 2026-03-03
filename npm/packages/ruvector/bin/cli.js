@@ -8171,6 +8171,25 @@ brainCmd.command('transfer <source> <target>')
     } catch (e) { console.error(chalk.red(`Error: ${e.message}`)); process.exit(1); }
   });
 
+brainCmd.command('train')
+  .description('Trigger a training cycle (SONA pattern learning + domain evolution)')
+  .option('--url <url>', 'Brain server URL')
+  .option('--key <key>', 'Pi key')
+  .option('--json', 'Output as JSON')
+  .action(async (opts) => {
+    const config = getBrainConfig(opts);
+    try {
+      const result = await brainFetch(config, '/v1/train', { method: 'POST', body: {} });
+      if (opts.json || !process.stdout.isTTY) { console.log(JSON.stringify(result, null, 2)); return; }
+      console.log(chalk.bold.cyan('\nTraining Cycle Complete\n'));
+      console.log(`  ${chalk.bold('SONA:')} ${result.sona_message}`);
+      console.log(`  ${chalk.bold('Patterns:')} ${result.sona_patterns}`);
+      console.log(`  ${chalk.bold('Pareto:')} ${result.pareto_before} → ${result.pareto_after}`);
+      console.log(`  ${chalk.bold('Memories:')} ${result.memory_count}`);
+      console.log(`  ${chalk.bold('Votes:')} ${result.vote_count}`);
+    } catch (e) { console.error(chalk.red(`Error: ${e.message}`)); process.exit(1); }
+  });
+
 brainCmd.command('sync [direction]')
   .description('Synchronize LoRA weights (pull, push, or both)')
   .option('--url <url>', 'Brain server URL')

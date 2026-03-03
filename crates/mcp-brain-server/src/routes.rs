@@ -9,7 +9,8 @@ use crate::types::{
     LoraSubmitResponse, PageDelta, PageDetailResponse, PageResponse, PageStatus, PageSummary,
     PartitionQuery, PartitionResult, PublishNodeRequest, ScoredBrainMemory, SearchQuery,
     ShareRequest, ShareResponse,
-    StatusResponse, SubmitDeltaRequest, TemporalResponse, TrainingPreferencesResponse,
+    StatusResponse, SubmitDeltaRequest, TemporalResponse, TrainingCycleResult,
+    TrainingPreferencesResponse,
     TrainingQuery, TransferRequest, TransferResponse, VerifyRequest, VerifyResponse,
     VoteDirection, VoteRequest, WasmNode, WasmNodeSummary,
 };
@@ -37,8 +38,9 @@ fn extract_client_ip(headers: &HeaderMap) -> String {
         .unwrap_or_else(|| "unknown".to_string())
 }
 
-/// Create the router with all routes
-pub async fn create_router() -> Router {
+/// Create the router with all routes. Returns (Router, AppState) so callers
+/// can spawn background tasks with access to shared state.
+pub async fn create_router() -> (Router, AppState) {
     let store = Arc::new(crate::store::FirestoreClient::new());
     // Hydrate cache from Firestore on startup (no-op if FIRESTORE_URL not set)
     store.load_from_firestore().await;
@@ -220,7 +222,7 @@ pub async fn create_router() -> Router {
         sessions,
     };
 
-    Router::new()
+    let router = Router::new()
         .route("/", get(landing_page))
         .route("/robots.txt", get(robots_txt))
         .route("/sitemap.xml", get(sitemap_xml))
@@ -248,6 +250,7 @@ pub async fn create_router() -> Router {
         .route("/v1/lora/latest", get(lora_latest))
         .route("/v1/lora/submit", post(lora_submit))
         .route("/v1/training/preferences", get(training_preferences))
+        .route("/v1/train", post(train_endpoint))
         // Brainpedia (ADR-062)
         .route("/v1/pages", get(list_pages).post(create_page))
         .route("/v1/pages/:id", get(get_page))
@@ -297,7 +300,30 @@ pub async fn create_router() -> Router {
             axum::http::header::HeaderName::from_static("x-frame-options"),
             axum::http::header::HeaderValue::from_static("DENY"),
         ))
-        .with_state(state)
+        .with_state(state.clone());
+
+    (router, state)
+}
+
+/// Run a training cycle: SONA force_learn + domain evolve_population.
+/// Returns a summary of what happened.
+pub fn run_training_cycle(state: &AppState) -> TrainingCycleResult {
+    let sona_result = state.sona.write().force_learn();
+    let mut domain = state.domain_engine.write();
+    let pareto_before = domain.meta.pareto.len();
+    domain.evolve_population();
+    let pareto_after = domain.meta.pareto.len();
+
+    let sona_stats = state.sona.read().stats();
+
+    TrainingCycleResult {
+        sona_message: sona_result,
+        sona_patterns: sona_stats.patterns_stored,
+        pareto_before,
+        pareto_after,
+        memory_count: state.store.memory_count(),
+        vote_count: state.store.vote_count(),
+    }
 }
 
 async fn health(State(state): State<AppState>) -> Json<HealthResponse> {
@@ -1073,12 +1099,6 @@ async fn vote_memory(
         return Err((StatusCode::TOO_MANY_REQUESTS, "Write rate limit exceeded".into()));
     }
 
-    // Anti-Sybil: one vote per IP per memory (ADR-082)
-    let client_ip = extract_client_ip(&headers);
-    if !state.rate_limiter.check_ip_vote(&client_ip, &id.to_string()) {
-        return Err((StatusCode::FORBIDDEN, "Already voted on this memory from this network".into()));
-    }
-
     // Look up the content author before voting
     let content_author = state
         .store
@@ -1086,6 +1106,17 @@ async fn vote_memory(
         .await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
         .map(|m| m.contributor_id.clone());
+
+    // Anti-Sybil: one vote per IP per memory (ADR-082)
+    // Skip IP dedup for the content author — self-votes are legitimate and
+    // already gated by the per-key "one vote per contributor per memory" check.
+    let is_author = content_author.as_deref() == Some(&contributor.pseudonym);
+    if !is_author {
+        let client_ip = extract_client_ip(&headers);
+        if !state.rate_limiter.check_ip_vote(&client_ip, &id.to_string()) {
+            return Err((StatusCode::FORBIDDEN, "Already voted on this memory from this network".into()));
+        }
+    }
 
     let was_upvoted = matches!(vote.direction, VoteDirection::Up);
 
@@ -1739,6 +1770,20 @@ async fn training_preferences(
         next_index,
         total_votes: state.store.vote_count(),
     })
+}
+
+/// POST /v1/train — trigger an explicit training cycle (SONA + domain evolution)
+async fn train_endpoint(
+    State(state): State<AppState>,
+    _contributor: AuthenticatedContributor,
+) -> Result<Json<TrainingCycleResult>, (StatusCode, String)> {
+    check_read_only(&state)?;
+    let result = run_training_cycle(&state);
+    tracing::info!(
+        "Training cycle (explicit): sona_patterns={}, pareto={}→{}, memories={}",
+        result.sona_patterns, result.pareto_before, result.pareto_after, result.memory_count
+    );
+    Ok(Json(result))
 }
 
 // ──────────────────────────────────────────────────────────────────────

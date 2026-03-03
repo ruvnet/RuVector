@@ -428,7 +428,7 @@ class Intelligence {
 const server = new Server(
   {
     name: 'ruvector',
-    version: '0.2.10',
+    version: '0.2.11',
   },
   {
     capabilities: {
@@ -1463,6 +1463,11 @@ const TOOLS = [
         direction: { type: 'string', description: 'Sync direction: pull, push, or both (default both)' }
       }
     }
+  },
+  {
+    name: 'brain_train',
+    description: 'Trigger a training cycle — runs SONA pattern learning and domain evolution on accumulated data',
+    inputSchema: { type: 'object', properties: {} }
   },
   // ── Brain AGI Tools (6) ── AGI subsystem diagnostics via direct fetch ──
   {
@@ -3466,7 +3471,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       case 'brain_drift':
       case 'brain_partition':
       case 'brain_transfer':
-      case 'brain_sync': {
+      case 'brain_sync':
+      case 'brain_train': {
         try {
           const brainUrl = process.env.BRAIN_URL || 'https://pi.ruv.io';
           const brainKey = process.env.PI;
@@ -3534,6 +3540,12 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
               const p = new URLSearchParams();
               if (args.direction) p.set('direction', args.direction);
               url = `${brainUrl}/v1/lora/latest${p.toString() ? '?' + p : ''}`;
+              break;
+            }
+            case 'train': {
+              url = `${brainUrl}/v1/train`;
+              fetchOpts.method = 'POST';
+              fetchOpts.body = JSON.stringify({});
               break;
             }
           }
@@ -4120,7 +4132,7 @@ async function main() {
           transport: 'sse',
           sessions: sessions.size,
           tools: 91,
-          version: '0.2.10'
+          version: '0.2.11'
         }));
 
       } else {
