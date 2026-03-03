@@ -570,6 +570,90 @@ impl ComputeAMM {
         history.iter().rev().take(limit).cloned().collect()
     }
 
+    // ========== Accessibility Helpers ==========
+
+    /// Estimate the rUv cost for a given number of compute-seconds.
+    ///
+    /// Returns a human-readable cost estimate without executing a swap.
+    /// This helps newcomers understand pricing before committing.
+    pub fn estimate_compute_cost(&self, seconds: u64) -> u64 {
+        if seconds == 0 {
+            return 0;
+        }
+        let reserve_ruv = *self.reserve_ruv.read().unwrap();
+        let reserve_compute = *self.reserve_compute.read().unwrap();
+        let k = *self.k_invariant.read().unwrap();
+
+        if seconds as u128 >= reserve_compute as u128 {
+            return u64::MAX;
+        }
+
+        // From constant product: new_compute = reserve_compute - seconds
+        // new_ruv = k / new_compute
+        // ruv_needed = new_ruv - reserve_ruv (before fees)
+        let new_compute = (reserve_compute as u128).saturating_sub(seconds as u128);
+        if new_compute == 0 {
+            return u64::MAX;
+        }
+        let new_ruv = k / new_compute;
+        let ruv_before_fee = (new_ruv as u64).saturating_sub(reserve_ruv);
+
+        // Account for fee: actual_in = ruv_before_fee / (1 - fee_rate)
+        let fee_rate = self.dynamic_fee() as f64;
+        if fee_rate >= 1.0 {
+            return u64::MAX;
+        }
+        (ruv_before_fee as f64 / (1.0 - fee_rate)).ceil() as u64
+    }
+
+    /// Get price history from swap events.
+    ///
+    /// Returns a list of (timestamp, price_at_that_time) tuples for the
+    /// last `last_n` swaps. Useful for price transparency dashboards.
+    pub fn get_price_history(&self, last_n: usize) -> Vec<(u64, f64)> {
+        let history = self.swap_history.read().unwrap();
+        history.iter()
+            .rev()
+            .take(last_n)
+            .map(|event| {
+                let price = if event.amount_out > 0 {
+                    match event.input_type {
+                        SwapType::RuvForCompute => event.amount_in as f64 / event.amount_out as f64,
+                        SwapType::ComputeForRuv => event.amount_out as f64 / event.amount_in as f64,
+                    }
+                } else {
+                    0.0
+                };
+                (event.timestamp, price)
+            })
+            .collect()
+    }
+
+    /// Get a human-readable pool status summary.
+    ///
+    /// Returns a formatted string suitable for display to end users
+    /// who may not understand AMM mechanics.
+    pub fn get_readable_status(&self) -> String {
+        let price = self.get_price();
+        let utilization = self.get_utilization();
+        let fee = self.dynamic_fee();
+
+        let status = if utilization < 0.3 {
+            "Low demand - prices are low"
+        } else if utilization < 0.7 {
+            "Moderate demand - normal pricing"
+        } else {
+            "High demand - prices are elevated"
+        };
+
+        format!(
+            "Current price: {:.4} rUv per compute-second | Fee: {:.1}% | Status: {}",
+            price,
+            fee * 100.0,
+            status,
+        )
+    }
+
     /// Calculate price impact for a swap
     pub fn calculate_price_impact(&self, ruv_in: u64) -> f64 {
         let current_price = self.get_price();
@@ -660,5 +744,48 @@ mod tests {
         let (ruv, compute) = amm.remove_liquidity(lp_tokens / 2, "provider1").unwrap();
         assert!(ruv > 0);
         assert!(compute > 0);
+    }
+
+    #[test]
+    fn test_estimate_compute_cost() {
+        let amm = ComputeAMM::new(1_000_000, 1_000_000).unwrap();
+
+        // Cost for 0 seconds should be 0
+        assert_eq!(amm.estimate_compute_cost(0), 0);
+
+        // Cost for small amount should be reasonable (close to 1:1 at balanced pool)
+        let cost = amm.estimate_compute_cost(1000);
+        assert!(cost > 0);
+        assert!(cost > 1000);
+        assert!(cost < 1100);
+
+        // Cost for too much compute should return MAX
+        let cost = amm.estimate_compute_cost(2_000_000);
+        assert_eq!(cost, u64::MAX);
+    }
+
+    #[test]
+    fn test_get_price_history_empty() {
+        let amm = ComputeAMM::new(1_000_000, 1_000_000).unwrap();
+        let history = amm.get_price_history(10);
+        assert!(history.is_empty());
+    }
+
+    #[test]
+    fn test_get_price_history_after_swap() {
+        let amm = ComputeAMM::new(1_000_000, 1_000_000).unwrap();
+        let _ = amm.swap_ruv_for_compute(10_000, "test");
+        let history = amm.get_price_history(10);
+        assert_eq!(history.len(), 1);
+        assert!(history[0].1 > 0.0);
+    }
+
+    #[test]
+    fn test_get_readable_status() {
+        let amm = ComputeAMM::new(1_000_000, 1_000_000).unwrap();
+        let status = amm.get_readable_status();
+        assert!(status.contains("rUv per compute-second"));
+        assert!(status.contains("Fee:"));
+        assert!(status.contains("Low demand"));
     }
 }

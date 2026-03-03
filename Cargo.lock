@@ -244,16 +244,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "assert-json-diff"
-version = "2.0.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "47e4f2b81832e72834d7518d8487a0396a28cc408186a2e8854c0f98011faf12"
-dependencies = [
- "serde",
- "serde_json",
-]
-
-[[package]]
 name = "assert_cmd"
 version = "2.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -520,36 +510,6 @@ dependencies = [
  "auto-future",
  "axum",
  "bytes",
- "cookie",
- "http 1.4.0",
- "http-body-util",
- "hyper 1.8.1",
- "hyper-util",
- "mime",
- "pretty_assertions",
- "reserve-port",
- "rust-multipart-rfc7578_2",
- "serde",
- "serde_json",
- "serde_urlencoded",
- "smallvec",
- "tokio",
- "tower 0.5.3",
- "url",
-]
-
-[[package]]
-name = "axum-test"
-version = "16.4.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "63e3a443d2608936a02a222da7b746eb412fede7225b3030b64fe9be99eab8dc"
-dependencies = [
- "anyhow",
- "assert-json-diff",
- "auto-future",
- "axum",
- "bytes",
- "bytesize",
  "cookie",
  "http 1.4.0",
  "http-body-util",
@@ -9134,7 +9094,7 @@ dependencies = [
  "async-trait",
  "axum",
  "axum-streams",
- "axum-test 15.7.4",
+ "axum-test",
  "base64 0.22.1",
  "chrono",
  "clap",
@@ -9641,55 +9601,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "rvf-adapter-rvlite"
-version = "0.1.0"
-dependencies = [
- "rvf-runtime",
- "rvf-types",
- "tempfile",
-]
-
-[[package]]
-name = "rvf-benches"
-version = "0.1.0"
-dependencies = [
- "criterion 0.5.1",
- "ed25519-dalek",
- "rand 0.8.5",
- "rvf-crypto",
- "rvf-index",
- "rvf-manifest",
- "rvf-quant",
- "rvf-runtime",
- "rvf-types",
- "rvf-wire",
- "tempfile",
-]
-
-[[package]]
-name = "rvf-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "ctrlc",
- "rvf-crypto",
- "rvf-launch",
- "rvf-manifest",
- "rvf-runtime",
- "rvf-server",
- "rvf-types",
- "rvf-wire",
- "serde",
- "serde_json",
- "tokio",
-]
-
-[[package]]
 name = "rvf-crypto"
 version = "0.2.0"
 dependencies = [
  "ed25519-dalek",
- "rand 0.8.5",
  "rvf-types",
  "sha3",
 ]
@@ -9704,63 +9619,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "rvf-federation"
-version = "0.1.0"
-dependencies = [
- "criterion 0.5.1",
- "rand 0.8.5",
- "rand_distr 0.4.3",
- "regex",
- "serde",
- "sha3",
- "thiserror 2.0.18",
-]
-
-[[package]]
-name = "rvf-import"
-version = "0.1.0"
-dependencies = [
- "clap",
- "csv",
- "rvf-runtime",
- "rvf-types",
- "serde",
- "serde_json",
- "tempfile",
-]
-
-[[package]]
-name = "rvf-index"
-version = "0.1.0"
-dependencies = [
- "rand 0.8.5",
-]
-
-[[package]]
-name = "rvf-integration-tests"
-version = "0.1.0"
-dependencies = [
- "ed25519-dalek",
- "rand 0.8.5",
- "rvf-adapter-rvlite",
- "rvf-crypto",
- "rvf-index",
- "rvf-manifest",
- "rvf-quant",
- "rvf-runtime",
- "rvf-types",
- "rvf-wire",
- "tempfile",
-]
-
-[[package]]
 name = "rvf-kernel"
 version = "0.1.0"
 dependencies = [
  "flate2",
  "rvf-types",
  "sha3",
- "tempfile",
 ]
 
 [[package]]
@@ -9782,31 +9646,9 @@ dependencies = [
 ]
 
 [[package]]
-name = "rvf-launch"
-version = "0.1.0"
-dependencies = [
- "rvf-runtime",
- "rvf-types",
- "serde",
- "serde_json",
- "tempfile",
-]
-
-[[package]]
-name = "rvf-manifest"
-version = "0.1.0"
-dependencies = [
- "crc32c",
- "rvf-types",
- "tempfile",
-]
-
-[[package]]
 name = "rvf-quant"
 version = "0.1.0"
 dependencies = [
- "approx",
- "rand 0.8.5",
  "rvf-types",
 ]
 
@@ -9814,38 +9656,12 @@ dependencies = [
 name = "rvf-runtime"
 version = "0.2.0"
 dependencies = [
- "rand 0.8.5",
  "rvf-types",
- "tempfile",
-]
-
-[[package]]
-name = "rvf-server"
-version = "0.1.0"
-dependencies = [
- "axum",
- "axum-test 16.4.1",
- "clap",
- "http-body-util",
- "mime_guess",
- "rvf-runtime",
- "rvf-types",
- "serde",
- "serde_json",
- "tempfile",
- "tokio",
- "tower 0.5.3",
- "tower-http 0.6.8",
 ]
 
 [[package]]
 name = "rvf-types"
 version = "0.2.0"
-dependencies = [
- "ed25519-dalek",
- "rand_core 0.6.4",
- "serde",
-]
 
 [[package]]
 name = "rvf-wire"
@@ -9853,7 +9669,6 @@ version = "0.1.0"
 dependencies = [
  "crc32c",
  "rvf-types",
- "tempfile",
  "xxhash-rust",
 ]
 

@@ -1,0 +1,120 @@
+//! Rate limiting using BudgetTokenBucket pattern
+//!
+//! Includes periodic cleanup of stale buckets to prevent unbounded memory growth.
+
+use dashmap::DashMap;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::time::{Duration, Instant};
+
+/// Rate limiter with per-contributor token buckets
+pub struct RateLimiter {
+    write_buckets: DashMap<String, TokenBucket>,
+    read_buckets: DashMap<String, TokenBucket>,
+    write_limit: u32,
+    read_limit: u32,
+    window: Duration,
+    /// Counter for triggering periodic cleanup
+    ops_counter: AtomicU64,
+    /// Cleanup every N operations
+    cleanup_interval: u64,
+}
+
+struct TokenBucket {
+    tokens: u32,
+    max_tokens: u32,
+    last_refill: Instant,
+    window: Duration,
+}
+
+impl TokenBucket {
+    fn new(max_tokens: u32, window: Duration) -> Self {
+        Self {
+            tokens: max_tokens,
+            max_tokens,
+            last_refill: Instant::now(),
+            window,
+        }
+    }
+
+    fn try_consume(&mut self) -> bool {
+        self.refill();
+        if self.tokens > 0 {
+            self.tokens -= 1;
+            true
+        } else {
+            false
+        }
+    }
+
+    fn refill(&mut self) {
+        let elapsed = self.last_refill.elapsed();
+        if elapsed >= self.window {
+            self.tokens = self.max_tokens;
+            self.last_refill = Instant::now();
+        }
+    }
+
+    /// Whether this bucket is stale (unused for more than 2 windows)
+    fn is_stale(&self) -> bool {
+        self.last_refill.elapsed() > self.window * 2
+    }
+}
+
+impl RateLimiter {
+    pub fn new(write_limit: u32, read_limit: u32) -> Self {
+        Self {
+            write_buckets: DashMap::new(),
+            read_buckets: DashMap::new(),
+            write_limit,
+            read_limit,
+            window: Duration::from_secs(3600),
+            ops_counter: AtomicU64::new(0),
+            cleanup_interval: 1000,
+        }
+    }
+
+    pub fn default_limits() -> Self {
+        Self::new(500, 5000)
+    }
+
+    pub fn check_write(&self, contributor: &str) -> bool {
+        self.maybe_cleanup();
+        let mut entry = self
+            .write_buckets
+            .entry(contributor.to_string())
+            .or_insert_with(|| TokenBucket::new(self.write_limit, self.window));
+        entry.try_consume()
+    }
+
+    pub fn check_read(&self, contributor: &str) -> bool {
+        self.maybe_cleanup();
+        let mut entry = self
+            .read_buckets
+            .entry(contributor.to_string())
+            .or_insert_with(|| TokenBucket::new(self.read_limit, self.window));
+        entry.try_consume()
+    }
+
+    /// Periodically clean up stale buckets to prevent unbounded memory growth
+    fn maybe_cleanup(&self) {
+        let count = self.ops_counter.fetch_add(1, Ordering::Relaxed);
+        if count % self.cleanup_interval != 0 {
+            return;
+        }
+
+        let write_before = self.write_buckets.len();
+        let read_before = self.read_buckets.len();
+
+        self.write_buckets.retain(|_, bucket| !bucket.is_stale());
+        self.read_buckets.retain(|_, bucket| !bucket.is_stale());
+
+        let write_evicted = write_before - self.write_buckets.len();
+        let read_evicted = read_before - self.read_buckets.len();
+
+        if write_evicted > 0 || read_evicted > 0 {
+            tracing::debug!(
+                "Rate limiter cleanup: evicted {write_evicted} write + {read_evicted} read stale buckets"
+            );
+        }
+    }
+}

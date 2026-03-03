@@ -1,6 +1,6 @@
 {
   "name": "ruvector",
-  "version": "0.1.100",
+  "version": "0.2.3",
   "description": "High-performance vector database for Node.js with automatic native/WASM fallback",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -10,7 +10,7 @@
   "scripts": {
     "build": "tsc && cp src/core/onnx/pkg/package.json dist/core/onnx/pkg/",
     "prepublishOnly": "npm run build",
-    "test": "node test/integration.js"
+    "test": "node test/integration.js && node test/cli-commands.js"
   },
   "keywords": [
     "vector",
@@ -41,7 +41,15 @@
     "continual-learning",
     "onnx",
     "semantic-embeddings",
-    "minilm"
+    "minilm",
+    "brain",
+    "shared-intelligence",
+    "mcp",
+    "edge-computing",
+    "pi-brain",
+    "identity",
+    "pi-key",
+    "distributed-compute"
   ],
   "author": "ruv.io Team <info@ruv.io> (https://ruv.io)",
   "homepage": "https://ruv.io",
@@ -71,7 +79,23 @@
     "@types/node": "^20.10.5",
     "typescript": "^5.3.3"
   },
+  "peerDependencies": {
+    "@ruvector/pi-brain": ">=0.1.0",
+    "@ruvector/ruvllm": ">=2.0.0",
+    "@ruvector/router": ">=0.1.0"
+  },
+  "peerDependenciesMeta": {
+    "@ruvector/pi-brain": { "optional": true },
+    "@ruvector/ruvllm": { "optional": true },
+    "@ruvector/router": { "optional": true }
+  },
+  "files": [
+    "bin/",
+    "dist/",
+    "README.md",
+    "LICENSE"
+  ],
   "engines": {
-    "node": ">=14.0.0"
+    "node": ">=18.0.0"
   }
 }

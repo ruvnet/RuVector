@@ -363,7 +363,7 @@ class Intelligence {
 const server = new Server(
   {
     name: 'ruvector',
-    version: '0.1.58',
+    version: '0.2.3',
   },
   {
     capabilities: {
@@ -1224,11 +1224,12 @@ const TOOLS = [
   },
   {
     name: 'rvf_examples',
-    description: 'List available example .rvf files with download URLs from the ruvector repository',
+    description: 'List available example .rvf files with download URLs. Supports filtering by name, description, or category.',
     inputSchema: {
       type: 'object',
       properties: {
-        filter: { type: 'string', description: 'Filter examples by name or description substring' }
+        filter: { type: 'string', description: 'Filter examples by name or description substring' },
+        category: { type: 'string', description: 'Filter by category (core, ai, security, compute, lineage, industry, network, integration)' }
       },
       required: []
     }
@@ -1268,6 +1269,185 @@ const TOOLS = [
         db_path: { type: 'string', description: 'Path to database file (optional)' }
       },
       required: ['query']
+    }
+  },
+  // ── Brain Tools (11) ── Shared intelligence via @ruvector/pi-brain ──
+  {
+    name: 'brain_search',
+    description: 'Semantic search across shared brain knowledge',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        query: { type: 'string', description: 'Search query' },
+        category: { type: 'string', description: 'Filter by category (pattern, solution, architecture, convention, security, performance, tooling)' },
+        limit: { type: 'number', description: 'Max results (default 10)' }
+      },
+      required: ['query']
+    }
+  },
+  {
+    name: 'brain_share',
+    description: 'Share a learning or pattern with the collective brain',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        title: { type: 'string', description: 'Title of the knowledge entry' },
+        content: { type: 'string', description: 'Content/description of the knowledge' },
+        category: { type: 'string', description: 'Category (pattern, solution, architecture, convention, security, performance, tooling)' },
+        tags: { type: 'string', description: 'Comma-separated tags' },
+        code_snippet: { type: 'string', description: 'Optional code snippet' }
+      },
+      required: ['title', 'content', 'category']
+    }
+  },
+  {
+    name: 'brain_get',
+    description: 'Retrieve a specific memory by ID with full provenance',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', description: 'Memory ID' }
+      },
+      required: ['id']
+    }
+  },
+  {
+    name: 'brain_vote',
+    description: 'Quality-gate a memory with an up or down vote',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', description: 'Memory ID' },
+        direction: { type: 'string', description: 'Vote direction: up or down' }
+      },
+      required: ['id', 'direction']
+    }
+  },
+  {
+    name: 'brain_list',
+    description: 'List recent shared memories filtered by category or quality',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        category: { type: 'string', description: 'Filter by category' },
+        limit: { type: 'number', description: 'Max results (default 20)' }
+      }
+    }
+  },
+  {
+    name: 'brain_delete',
+    description: 'Delete your own contribution from the shared brain',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', description: 'Memory ID to delete' }
+      },
+      required: ['id']
+    }
+  },
+  {
+    name: 'brain_status',
+    description: 'Get shared brain system health: counts, drift, quality, graph topology',
+    inputSchema: {
+      type: 'object',
+      properties: {}
+    }
+  },
+  {
+    name: 'brain_drift',
+    description: 'Check if shared knowledge has drifted from local state',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        domain: { type: 'string', description: 'Domain to check drift for' }
+      }
+    }
+  },
+  {
+    name: 'brain_partition',
+    description: 'Get knowledge partitioned by mincut topology into clusters',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        domain: { type: 'string', description: 'Domain to partition' },
+        min_cluster_size: { type: 'number', description: 'Minimum cluster size (default 3)' }
+      }
+    }
+  },
+  {
+    name: 'brain_transfer',
+    description: 'Apply learned priors from one knowledge domain to another',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        source_domain: { type: 'string', description: 'Source domain to transfer from' },
+        target_domain: { type: 'string', description: 'Target domain to transfer to' }
+      },
+      required: ['source_domain', 'target_domain']
+    }
+  },
+  {
+    name: 'brain_sync',
+    description: 'Synchronize LoRA weights between local and shared brain',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        direction: { type: 'string', description: 'Sync direction: pull, push, or both (default both)' }
+      }
+    }
+  },
+  // ── Edge Tools (4) ── Distributed compute via @ruvector/edge-net ──
+  {
+    name: 'edge_status',
+    description: 'Get edge compute network status (genesis, relay, nodes, rUv supply)',
+    inputSchema: {
+      type: 'object',
+      properties: {}
+    }
+  },
+  {
+    name: 'edge_join',
+    description: 'Join the edge compute network as a compute node',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        contribution: { type: 'number', description: 'Contribution level 0.0-1.0 (default 0.3)' }
+      }
+    }
+  },
+  {
+    name: 'edge_balance',
+    description: 'Check rUv credit balance for current identity',
+    inputSchema: {
+      type: 'object',
+      properties: {}
+    }
+  },
+  {
+    name: 'edge_tasks',
+    description: 'List available distributed compute tasks on the edge network',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        limit: { type: 'number', description: 'Max tasks to return (default 20)' }
+      }
+    }
+  },
+  // ── Identity Tools (2) ── Pi key management ──
+  {
+    name: 'identity_generate',
+    description: 'Generate a new pi key and derive pseudonym',
+    inputSchema: {
+      type: 'object',
+      properties: {}
+    }
+  },
+  {
+    name: 'identity_show',
+    description: 'Show current pi key pseudonym and derived identities',
+    inputSchema: {
+      type: 'object',
+      properties: {}
     }
   }
 ];
@@ -2843,31 +3023,85 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case 'rvf_examples': {
-        const BASE_URL = 'https://raw.githubusercontent.com/ruvnet/ruvector/main/examples/rvf/output';
-        const examples = [
-          { name: 'basic_store', size: '152 KB', desc: '1,000 vectors, dim 128' },
-          { name: 'semantic_search', size: '755 KB', desc: 'Semantic search with HNSW' },
-          { name: 'rag_pipeline', size: '303 KB', desc: 'RAG pipeline embeddings' },
-          { name: 'agent_memory', size: '32 KB', desc: 'AI agent episodic memory' },
-          { name: 'swarm_knowledge', size: '86 KB', desc: 'Multi-agent knowledge base' },
-          { name: 'self_booting', size: '31 KB', desc: 'Self-booting with kernel' },
-          { name: 'ebpf_accelerator', size: '153 KB', desc: 'eBPF distance accelerator' },
-          { name: 'tee_attestation', size: '102 KB', desc: 'TEE attestation + witnesses' },
-          { name: 'lineage_parent', size: '52 KB', desc: 'COW parent file' },
-          { name: 'lineage_child', size: '26 KB', desc: 'COW child (derived)' },
-          { name: 'claude_code_appliance', size: '17 KB', desc: 'Claude Code appliance' },
-          { name: 'progressive_index', size: '2.5 MB', desc: 'Large-scale HNSW index' },
-        ];
-        let filtered = examples;
+        const os = require('os');
+        const GCS_MANIFEST = 'https://storage.googleapis.com/ruvector-examples/manifest.json';
+        const GITHUB_RAW = 'https://raw.githubusercontent.com/ruvnet/ruvector/main/examples/rvf/output';
+        const cacheDir = path.join(os.homedir(), '.ruvector', 'examples');
+        const manifestPath = path.join(cacheDir, 'manifest.json');
+
+        let manifest;
+        // Try cache first
+        if (fs.existsSync(manifestPath)) {
+          try {
+            const stat = fs.statSync(manifestPath);
+            if (Date.now() - stat.mtimeMs < 3600000) {
+              manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+            }
+          } catch {}
+        }
+
+        // Fetch from GCS if no fresh cache
+        if (!manifest) {
+          try {
+            const resp = await fetch(GCS_MANIFEST);
+            if (resp.ok) {
+              manifest = await resp.json();
+              try {
+                fs.mkdirSync(cacheDir, { recursive: true });
+                fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
+              } catch {}
+            }
+          } catch {}
+        }
+
+        // Fallback to hardcoded
+        if (!manifest) {
+          manifest = {
+            version: 'builtin',
+            base_url: GITHUB_RAW,
+            examples: [
+              { name: 'basic_store', size_human: '152 KB', description: '1,000 vectors, dim 128', category: 'core' },
+              { name: 'semantic_search', size_human: '755 KB', description: 'Semantic search with HNSW', category: 'core' },
+              { name: 'rag_pipeline', size_human: '303 KB', description: 'RAG pipeline embeddings', category: 'core' },
+              { name: 'agent_memory', size_human: '32 KB', description: 'AI agent episodic memory', category: 'ai' },
+              { name: 'swarm_knowledge', size_human: '86 KB', description: 'Multi-agent knowledge base', category: 'ai' },
+              { name: 'self_booting', size_human: '31 KB', description: 'Self-booting with kernel', category: 'compute' },
+              { name: 'ebpf_accelerator', size_human: '153 KB', description: 'eBPF distance accelerator', category: 'compute' },
+              { name: 'tee_attestation', size_human: '102 KB', description: 'TEE attestation + witnesses', category: 'security' },
+              { name: 'claude_code_appliance', size_human: '17 KB', description: 'Claude Code appliance', category: 'integration' },
+              { name: 'lineage_parent', size_human: '52 KB', description: 'COW parent file', category: 'lineage' },
+              { name: 'financial_signals', size_human: '202 KB', description: 'Financial signals', category: 'industry' },
+              { name: 'progressive_index', size_human: '2.5 MB', description: 'Large-scale HNSW index', category: 'core' },
+            ]
+          };
+        }
+
+        let examples = manifest.examples || [];
+        const baseUrl = manifest.base_url || GITHUB_RAW;
+
         if (args.filter) {
           const f = args.filter.toLowerCase();
-          filtered = examples.filter(e => e.name.includes(f) || e.desc.toLowerCase().includes(f));
+          examples = examples.filter(e =>
+            e.name.includes(f) ||
+            (e.description || '').toLowerCase().includes(f) ||
+            (e.category || '').includes(f)
+          );
         }
+
+        if (args.category) {
+          examples = examples.filter(e => e.category === args.category);
+        }
+
         return { content: [{ type: 'text', text: JSON.stringify({
           success: true,
-          total: 45,
-          shown: filtered.length,
-          examples: filtered.map(e => ({ ...e, url: `${BASE_URL}/${e.name}.rvf` })),
+          version: manifest.version,
+          total: (manifest.examples || []).length,
+          shown: examples.length,
+          examples: examples.map(e => ({
+            ...e,
+            url: `${baseUrl}/${e.name}.rvf`
+          })),
+          categories: manifest.categories || {},
           catalog: 'https://github.com/ruvnet/ruvector/tree/main/examples/rvf/output'
         }, null, 2) }] };
       }
@@ -2963,6 +3197,102 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         }
       }
 
+      // ── Brain Tool Handlers ──────────────────────────────────────────────
+      case 'brain_search':
+      case 'brain_share':
+      case 'brain_get':
+      case 'brain_vote':
+      case 'brain_list':
+      case 'brain_delete':
+      case 'brain_status':
+      case 'brain_drift':
+      case 'brain_partition':
+      case 'brain_transfer':
+      case 'brain_sync': {
+        try {
+          const { PiBrainClient } = require('@ruvector/pi-brain');
+          const client = new PiBrainClient({
+            url: process.env.BRAIN_URL || 'https://pi.ruv.io',
+            key: process.env.PI
+          });
+          const subCmd = name.replace('brain_', '');
+          let result;
+          switch (subCmd) {
+            case 'search': result = await client.search(args.query, { category: args.category, limit: args.limit || 10 }); break;
+            case 'share': result = await client.share({ title: args.title, content: args.content, category: args.category, tags: args.tags ? args.tags.split(',').map(t => t.trim()) : [], code_snippet: args.code_snippet }); break;
+            case 'get': result = await client.get(args.id); break;
+            case 'vote': result = await client.vote(args.id, args.direction); break;
+            case 'list': result = await client.list({ category: args.category, limit: args.limit || 20 }); break;
+            case 'delete': result = await client.delete(args.id); break;
+            case 'status': result = await client.status(); break;
+            case 'drift': result = await client.drift({ domain: args.domain }); break;
+            case 'partition': result = await client.partition({ domain: args.domain, min_cluster_size: args.min_cluster_size }); break;
+            case 'transfer': result = await client.transfer(args.source_domain, args.target_domain); break;
+            case 'sync': result = await client.sync(args.direction || 'both'); break;
+          }
+          return { content: [{ type: 'text', text: JSON.stringify({ success: true, ...result }, null, 2) }] };
+        } catch (e) {
+          if (e.code === 'MODULE_NOT_FOUND') {
+            return { content: [{ type: 'text', text: JSON.stringify({ success: false, error: 'Brain tools require @ruvector/pi-brain. Install with: npm install @ruvector/pi-brain' }, null, 2) }], isError: true };
+          }
+          return { content: [{ type: 'text', text: JSON.stringify({ success: false, error: e.message }, null, 2) }], isError: true };
+        }
+      }
+
+      // ── Edge Tool Handlers ───────────────────────────────────────────────
+      case 'edge_status':
+      case 'edge_join':
+      case 'edge_balance':
+      case 'edge_tasks': {
+        try {
+          const genesisUrl = process.env.EDGE_GENESIS_URL || 'https://edge-net-genesis-875130704813.us-central1.run.app';
+          const subCmd = name.replace('edge_', '');
+          let endpoint, method = 'GET', body;
+          switch (subCmd) {
+            case 'status': endpoint = '/status'; break;
+            case 'join': endpoint = '/join'; method = 'POST'; body = JSON.stringify({ contribution: args.contribution || 0.3, pi_key: process.env.PI }); break;
+            case 'balance': { const ps = process.env.PI ? require('crypto').createHash('shake256', { outputLength: 16 }).update(process.env.PI).digest('hex') : 'anonymous'; endpoint = `/balance/${ps}`; break; }
+            case 'tasks': endpoint = `/tasks?limit=${args.limit || 20}`; break;
+          }
+          const resp = await fetch(`${genesisUrl}${endpoint}`, {
+            method,
+            headers: { 'Content-Type': 'application/json', ...(process.env.PI ? { 'Authorization': `Bearer ${process.env.PI}` } : {}) },
+            ...(body ? { body } : {})
+          });
+          if (!resp.ok) {
+            const errText = await resp.text().catch(() => resp.statusText);
+            return { content: [{ type: 'text', text: JSON.stringify({ success: false, error: `${resp.status} ${errText}` }, null, 2) }], isError: true };
+          }
+          const data = await resp.json();
+          return { content: [{ type: 'text', text: JSON.stringify({ success: true, ...data }, null, 2) }] };
+        } catch (e) {
+          return { content: [{ type: 'text', text: JSON.stringify({ success: false, error: e.message }, null, 2) }], isError: true };
+        }
+      }
+
+      // ── Identity Tool Handlers ───────────────────────────────────────────
+      case 'identity_generate': {
+        const crypto = require('crypto');
+        const key = crypto.randomBytes(32).toString('hex');
+        const hash = crypto.createHash('shake256', { outputLength: 16 });
+        hash.update(key);
+        const pseudonym = hash.digest('hex');
+        return { content: [{ type: 'text', text: JSON.stringify({ success: true, pi_key: key, pseudonym, warning: 'Store this key securely. Set PI env var to use it.' }, null, 2) }] };
+      }
+
+      case 'identity_show': {
+        const piKey = process.env.PI;
+        if (!piKey) {
+          return { content: [{ type: 'text', text: JSON.stringify({ success: false, error: 'No PI environment variable set. Run identity_generate first.' }, null, 2) }], isError: true };
+        }
+        const crypto = require('crypto');
+        const hash = crypto.createHash('shake256', { outputLength: 16 });
+        hash.update(piKey);
+        const pseudonym = hash.digest('hex');
+        const mcpToken = crypto.createHmac('sha256', piKey).update('mcp').digest('hex').slice(0, 32);
+        return { content: [{ type: 'text', text: JSON.stringify({ success: true, pseudonym, mcp_token: mcpToken, key_prefix: piKey.slice(0, 8) + '...' }, null, 2) }] };
+      }
+
       default:
         return {
           content: [{
@@ -3051,9 +3381,173 @@ server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
 
 // Start server
 async function main() {
-  const transport = new StdioServerTransport();
-  await server.connect(transport);
-  console.error('RuVector MCP server running on stdio');
+  const transportType = process.env.MCP_TRANSPORT || 'stdio';
+
+  if (transportType === 'sse') {
+    const http = require('http');
+    const crypto = require('crypto');
+    const port = parseInt(process.env.MCP_PORT || '8080', 10);
+    const host = process.env.MCP_HOST || '0.0.0.0';
+
+    // SSE MCP Transport Implementation
+    // MCP over SSE uses:
+    //   GET /sse - SSE stream for server->client messages
+    //   POST /message - client->server JSON-RPC messages
+
+    const sessions = new Map();
+
+    const httpServer = http.createServer(async (req, res) => {
+      // CORS headers
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+      if (req.method === 'OPTIONS') {
+        res.writeHead(204);
+        res.end();
+        return;
+      }
+
+      const url = new URL(req.url, `http://${req.headers.host}`);
+
+      if (req.method === 'GET' && url.pathname === '/sse') {
+        // SSE endpoint - establish persistent connection
+        const sessionId = crypto.randomUUID();
+
+        res.writeHead(200, {
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+          'Connection': 'keep-alive',
+        });
+
+        // Send endpoint event so client knows where to POST
+        const displayHost = host === '0.0.0.0' ? 'localhost' : host;
+        const messageUrl = `http://${displayHost}:${port}/message?sessionId=${sessionId}`;
+        res.write(`event: endpoint\ndata: ${messageUrl}\n\n`);
+
+        // Store session
+        sessions.set(sessionId, {
+          res,
+          messageQueue: [],
+        });
+
+        // Create a custom transport for this session
+        const sessionTransport = {
+          _onMessage: null,
+          _onClose: null,
+          _onError: null,
+          _started: false,
+
+          async start() {
+            this._started = true;
+          },
+
+          async close() {
+            sessions.delete(sessionId);
+            if (!res.writableEnded) {
+              res.end();
+            }
+          },
+
+          async send(message) {
+            if (!res.writableEnded) {
+              res.write(`event: message\ndata: ${JSON.stringify(message)}\n\n`);
+            }
+          },
+
+          set onmessage(handler) { this._onMessage = handler; },
+          get onmessage() { return this._onMessage; },
+          set onclose(handler) { this._onClose = handler; },
+          get onclose() { return this._onClose; },
+          set onerror(handler) { this._onError = handler; },
+          get onerror() { return this._onError; },
+        };
+
+        sessions.get(sessionId).transport = sessionTransport;
+
+        // Connect server to this transport
+        await server.connect(sessionTransport);
+
+        // Process any queued messages
+        const session = sessions.get(sessionId);
+        if (session) {
+          for (const msg of session.messageQueue) {
+            if (sessionTransport._onMessage) {
+              sessionTransport._onMessage(msg);
+            }
+          }
+          session.messageQueue = [];
+        }
+
+        // Handle disconnect
+        req.on('close', () => {
+          sessions.delete(sessionId);
+          if (sessionTransport._onClose) {
+            sessionTransport._onClose();
+          }
+        });
+
+      } else if (req.method === 'POST' && url.pathname === '/message') {
+        // Message endpoint - receive client JSON-RPC messages
+        const sessionId = url.searchParams.get('sessionId');
+        const session = sessions.get(sessionId);
+
+        if (!session) {
+          res.writeHead(404, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Session not found' }));
+          return;
+        }
+
+        let body = '';
+        req.on('data', chunk => { body += chunk; });
+        req.on('end', () => {
+          try {
+            const message = JSON.parse(body);
+
+            if (session.transport && session.transport._onMessage) {
+              session.transport._onMessage(message);
+            } else {
+              session.messageQueue.push(message);
+            }
+
+            res.writeHead(202, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ status: 'accepted' }));
+          } catch (e) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Invalid JSON' }));
+          }
+        });
+
+      } else if (req.method === 'GET' && url.pathname === '/health') {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          status: 'ok',
+          transport: 'sse',
+          sessions: sessions.size,
+          tools: 91,
+          version: '0.2.3'
+        }));
+
+      } else {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Not found. Use GET /sse for SSE stream, POST /message for JSON-RPC, GET /health for status.' }));
+      }
+    });
+
+    httpServer.listen(port, host, () => {
+      const displayHost = host === '0.0.0.0' ? 'localhost' : host;
+      console.error(`RuVector MCP server running on SSE at http://${host}:${port}`);
+      console.error(`  SSE endpoint:     http://${displayHost}:${port}/sse`);
+      console.error(`  Message endpoint: http://${displayHost}:${port}/message`);
+      console.error(`  Health check:     http://${displayHost}:${port}/health`);
+    });
+
+  } else {
+    // Default: stdio transport
+    const transport = new StdioServerTransport();
+    await server.connect(transport);
+    console.error('RuVector MCP server running on stdio');
+  }
 }
 
 main().catch(console.error);

@@ -7,6 +7,7 @@
 
 const assert = require('assert');
 const path = require('path');
+const EXPECTED_VERSION = require('../package.json').version;
 
 console.log('ruvector Integration Test\n');
 console.log('='.repeat(50));
@@ -43,7 +44,7 @@ try {
   const version = getVersion();
   console.log(`   Version: ${version.version}`);
   console.log(`   Using: ${version.implementation}`);
-  assert(version.version === '0.1.1', 'Version should be 0.1.1');
+  assert(version.version === EXPECTED_VERSION, `Version should be ${EXPECTED_VERSION}`);
   console.log('   ✓ Version info correct');
 
   assert(isNative() !== isWasm(), 'Should be either native OR wasm, not both');
@@ -87,7 +88,7 @@ try {
 
   const packageJson = require('../package.json');
   assert(packageJson.name === 'ruvector', 'Package name should be ruvector');
-  assert(packageJson.version === '0.1.1', 'Version should be 0.1.1');
+  assert(packageJson.version === EXPECTED_VERSION, `Version should be ${EXPECTED_VERSION}`);
   assert(packageJson.main === 'dist/index.js', 'Main entry should be dist/index.js');
   assert(packageJson.types === 'dist/index.d.ts', 'Types entry should be dist/index.d.ts');
   assert(packageJson.bin.ruvector === './bin/cli.js', 'CLI bin should be ./bin/cli.js');
@@ -131,7 +132,7 @@ try {
       cwd: path.join(__dirname, '..'),
       encoding: 'utf8'
     });
-    assert(output.includes('0.1.1'), 'Info should show version');
+    assert(output.includes(EXPECTED_VERSION), `Info should show version ${EXPECTED_VERSION}`);
     console.log('   ✓ CLI info command works');
   } catch (error) {
     console.log('   ⚠ CLI info test skipped (dependencies not available)');

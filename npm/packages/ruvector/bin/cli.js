@@ -4,10 +4,66 @@
 process.env.RUVECTOR_CLI = '1';
 
 const { Command } = require('commander');
-const chalk = require('chalk');
-const ora = require('ora');
+const _chalk = require('chalk');
+const chalk = _chalk.default || _chalk;
 const fs = require('fs');
 const path = require('path');
+
+// Load .env from current directory (if exists)
+try {
+  const envPath = path.join(process.cwd(), '.env');
+  if (fs.existsSync(envPath)) {
+    const envContent = fs.readFileSync(envPath, 'utf8');
+    for (const line of envContent.split('\n')) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith('#')) continue;
+      const eqIdx = trimmed.indexOf('=');
+      if (eqIdx > 0) {
+        const key = trimmed.slice(0, eqIdx).trim();
+        let value = trimmed.slice(eqIdx + 1).trim();
+        // Strip surrounding quotes
+        if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+          value = value.slice(1, -1);
+        }
+        // Don't override existing env vars
+        if (!process.env[key]) {
+          process.env[key] = value;
+        }
+      }
+    }
+  }
+} catch {}
+
+// Load global config from ~/.ruvector/config.json (if exists)
+try {
+  const os = require('os');
+  const configPath = path.join(os.homedir(), '.ruvector', 'config.json');
+  if (fs.existsSync(configPath)) {
+    const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    // Map config keys to env vars (don't override existing)
+    const configMap = {
+      brain_url: 'BRAIN_URL',
+      pi_key: 'PI',
+      edge_genesis_url: 'EDGE_GENESIS_URL',
+      edge_relay_url: 'EDGE_RELAY_URL',
+    };
+    for (const [configKey, envKey] of Object.entries(configMap)) {
+      if (config[configKey] && !process.env[envKey]) {
+        process.env[envKey] = config[configKey];
+      }
+    }
+  }
+} catch {}
+
+// Lazy load ora (spinner) - only needed for commands with progress indicators
+let _oraModule = null;
+function ora(text) {
+  if (_oraModule === null) {
+    const _ora = require('ora');
+    _oraModule = _ora.default || _ora;
+  }
+  return _oraModule(text);
+}
 
 // Lazy load ruvector (only when needed, not for install/help commands)
 let VectorDB, getVersion, getImplementationType;
@@ -35,59 +91,72 @@ function requireRuvector() {
   }
 }
 
-// Import GNN (optional - graceful fallback if not available)
+// Lazy load GNN (optional - loaded on first use, not at startup)
+let _gnnModule = undefined;
 let RuvectorLayer, TensorCompress, differentiableSearch, getCompressionLevel, hierarchicalForward;
 let gnnAvailable = false;
-try {
-  const gnn = require('@ruvector/gnn');
-  RuvectorLayer = gnn.RuvectorLayer;
-  TensorCompress = gnn.TensorCompress;
-  differentiableSearch = gnn.differentiableSearch;
-  getCompressionLevel = gnn.getCompressionLevel;
-  hierarchicalForward = gnn.hierarchicalForward;
-  gnnAvailable = true;
-} catch (e) {
-  // GNN not available - commands will show helpful message
+
+function loadGnn() {
+  if (_gnnModule !== undefined) return _gnnModule;
+  try {
+    const gnn = require('@ruvector/gnn');
+    RuvectorLayer = gnn.RuvectorLayer;
+    TensorCompress = gnn.TensorCompress;
+    differentiableSearch = gnn.differentiableSearch;
+    getCompressionLevel = gnn.getCompressionLevel;
+    hierarchicalForward = gnn.hierarchicalForward;
+    _gnnModule = gnn;
+    gnnAvailable = true;
+    return gnn;
+  } catch {
+    _gnnModule = null;
+    gnnAvailable = false;
+    return null;
+  }
 }
 
-// Import Attention (optional - graceful fallback if not available)
+// Lazy load Attention (optional - loaded on first use, not at startup)
+let _attentionModule = undefined;
 let DotProductAttention, MultiHeadAttention, HyperbolicAttention, FlashAttention, LinearAttention, MoEAttention;
 let GraphRoPeAttention, EdgeFeaturedAttention, DualSpaceAttention, LocalGlobalAttention;
 let benchmarkAttention, computeAttentionAsync, batchAttentionCompute, parallelAttentionCompute;
 let expMap, logMap, mobiusAddition, poincareDistance, projectToPoincareBall;
 let attentionInfo, attentionVersion;
 let attentionAvailable = false;
-try {
-  const attention = require('@ruvector/attention');
-  // Core mechanisms
-  DotProductAttention = attention.DotProductAttention;
-  MultiHeadAttention = attention.MultiHeadAttention;
-  HyperbolicAttention = attention.HyperbolicAttention;
-  FlashAttention = attention.FlashAttention;
-  LinearAttention = attention.LinearAttention;
-  MoEAttention = attention.MoEAttention;
-  // Graph attention
-  GraphRoPeAttention = attention.GraphRoPeAttention;
-  EdgeFeaturedAttention = attention.EdgeFeaturedAttention;
-  DualSpaceAttention = attention.DualSpaceAttention;
-  LocalGlobalAttention = attention.LocalGlobalAttention;
-  // Utilities
-  benchmarkAttention = attention.benchmarkAttention;
-  computeAttentionAsync = attention.computeAttentionAsync;
-  batchAttentionCompute = attention.batchAttentionCompute;
-  parallelAttentionCompute = attention.parallelAttentionCompute;
-  // Hyperbolic math
-  expMap = attention.expMap;
-  logMap = attention.logMap;
-  mobiusAddition = attention.mobiusAddition;
-  poincareDistance = attention.poincareDistance;
-  projectToPoincareBall = attention.projectToPoincareBall;
-  // Meta
-  attentionInfo = attention.info;
-  attentionVersion = attention.version;
-  attentionAvailable = true;
-} catch (e) {
-  // Attention not available - commands will show helpful message
+
+function loadAttention() {
+  if (_attentionModule !== undefined) return _attentionModule;
+  try {
+    const attention = require('@ruvector/attention');
+    DotProductAttention = attention.DotProductAttention;
+    MultiHeadAttention = attention.MultiHeadAttention;
+    HyperbolicAttention = attention.HyperbolicAttention;
+    FlashAttention = attention.FlashAttention;
+    LinearAttention = attention.LinearAttention;
+    MoEAttention = attention.MoEAttention;
+    GraphRoPeAttention = attention.GraphRoPeAttention;
+    EdgeFeaturedAttention = attention.EdgeFeaturedAttention;
+    DualSpaceAttention = attention.DualSpaceAttention;
+    LocalGlobalAttention = attention.LocalGlobalAttention;
+    benchmarkAttention = attention.benchmarkAttention;
+    computeAttentionAsync = attention.computeAttentionAsync;
+    batchAttentionCompute = attention.batchAttentionCompute;
+    parallelAttentionCompute = attention.parallelAttentionCompute;
+    expMap = attention.expMap;
+    logMap = attention.logMap;
+    mobiusAddition = attention.mobiusAddition;
+    poincareDistance = attention.poincareDistance;
+    projectToPoincareBall = attention.projectToPoincareBall;
+    attentionInfo = attention.attentionInfo;
+    attentionVersion = attention.attentionVersion;
+    _attentionModule = attention;
+    attentionAvailable = true;
+    return attention;
+  } catch {
+    _attentionModule = null;
+    attentionAvailable = false;
+    return null;
+  }
 }
 
 const program = new Command();
@@ -359,7 +428,8 @@ program
 
     // Try to load ruvector for implementation info
     if (loadRuvector()) {
-      const version = typeof getVersion === 'function' ? getVersion() : 'unknown';
+      const versionInfo = typeof getVersion === 'function' ? getVersion() : null;
+      const version = versionInfo && versionInfo.version ? versionInfo.version : 'unknown';
       const impl = typeof getImplementationType === 'function' ? getImplementationType() : 'native';
       console.log(chalk.white(`  Core Version: ${chalk.yellow(version)}`));
       console.log(chalk.white(`  Implementation: ${chalk.yellow(impl)}`));
@@ -367,6 +437,7 @@ program
       console.log(chalk.white(`  Core: ${chalk.gray('Not loaded (install @ruvector/core)')}`));
     }
 
+    loadGnn();
     console.log(chalk.white(`  GNN Module: ${gnnAvailable ? chalk.green('Available') : chalk.gray('Not installed')}`));
     console.log(chalk.white(`  Node Version: ${chalk.yellow(process.version)}`));
     console.log(chalk.white(`  Platform: ${chalk.yellow(process.platform)}`));
@@ -391,6 +462,7 @@ program
     const { execSync } = require('child_process');
 
     // Available optional packages - all ruvector npm packages
+    loadGnn();
     const availablePackages = {
       // Core packages
       core: {
@@ -679,6 +751,7 @@ program
 
 // Helper to check GNN availability
 function requireGnn() {
+  loadGnn();
   if (!gnnAvailable) {
     console.error(chalk.red('Error: GNN module not available.'));
     console.error(chalk.yellow('Install it with: npm install @ruvector/gnn'));
@@ -874,6 +947,7 @@ gnnCmd
   .command('info')
   .description('Show GNN module information')
   .action(() => {
+    loadGnn();
     if (!gnnAvailable) {
       console.log(chalk.yellow('\nGNN Module: Not installed'));
       console.log(chalk.white('Install with: npm install @ruvector/gnn'));
@@ -905,6 +979,7 @@ gnnCmd
 
 // Helper to require attention module
 function requireAttention() {
+  loadAttention();
   if (!attentionAvailable) {
     console.error(chalk.red('Error: @ruvector/attention is not installed'));
     console.error(chalk.yellow('Install it with: npm install @ruvector/attention'));
@@ -1232,6 +1307,7 @@ attentionCmd
   .command('info')
   .description('Show attention module information')
   .action(() => {
+    loadAttention();
     if (!attentionAvailable) {
       console.log(chalk.yellow('\nAttention Module: Not installed'));
       console.log(chalk.white('Install with: npm install @ruvector/attention'));
@@ -1277,6 +1353,7 @@ attentionCmd
   .description('List all available attention mechanisms')
   .option('-v, --verbose', 'Show detailed information')
   .action((options) => {
+    loadAttention();
     console.log(chalk.cyan('\n═══════════════════════════════════════════════════════════════'));
     console.log(chalk.cyan('              Available Attention Mechanisms'));
     console.log(chalk.cyan('═══════════════════════════════════════════════════════════════\n'));
@@ -1419,6 +1496,7 @@ program
     }
 
     // Check @ruvector/gnn
+    loadGnn();
     if (gnnAvailable) {
       console.log(chalk.green(`  ✓ @ruvector/gnn installed`));
     } else {
@@ -1426,6 +1504,7 @@ program
     }
 
     // Check @ruvector/attention
+    loadAttention();
     if (attentionAvailable) {
       console.log(chalk.green(`  ✓ @ruvector/attention installed`));
     } else {
@@ -2521,6 +2600,7 @@ program
     }
 
     if (options.gnn) {
+      loadGnn();
       if (!gnnAvailable) {
         console.log(chalk.yellow('  @ruvector/gnn not installed.'));
         console.log(chalk.white('  Install with: npm install @ruvector/gnn'));
@@ -4026,7 +4106,7 @@ hooksCmd.command('suggest-context').description('Suggest relevant context').acti
   console.log(`RuVector Intelligence: ${stats.total_patterns} learned patterns, ${stats.total_errors} error fixes available. Use 'ruvector hooks route' for agent suggestions.`);
 });
 
-hooksCmd.command('remember').description('Store in memory').requiredOption('-t, --type <type>', 'Memory type').option('--silent', 'Suppress output').option('--semantic', 'Use ONNX semantic embeddings (slower, better quality)').argument('<content...>', 'Content').action(async (content, opts) => {
+hooksCmd.command('remember').description('Store in memory').option('-t, --type <type>', 'Memory type', 'general').option('--silent', 'Suppress output').option('--semantic', 'Use ONNX semantic embeddings (slower, better quality)').argument('<content...>', 'Content').action(async (content, opts) => {
   const intel = new Intelligence();
   let id;
   if (opts.semantic) {
@@ -7120,165 +7200,356 @@ rvfCmd.command('export <path>')
     } catch (e) { console.error(chalk.red(e.message)); process.exit(1); }
   });
 
-// RVF example download/list commands
-const RVF_EXAMPLES = [
-  { name: 'basic_store', size: '152 KB', desc: '1,000 vectors, dim 128, cosine metric' },
-  { name: 'semantic_search', size: '755 KB', desc: 'Semantic search with HNSW index' },
-  { name: 'rag_pipeline', size: '303 KB', desc: 'RAG pipeline with embeddings' },
-  { name: 'embedding_cache', size: '755 KB', desc: 'Cached embedding store' },
-  { name: 'quantization', size: '1.5 MB', desc: 'PQ-compressed vectors' },
-  { name: 'progressive_index', size: '2.5 MB', desc: 'Large-scale progressive HNSW index' },
-  { name: 'filtered_search', size: '255 KB', desc: 'Metadata-filtered vector search' },
-  { name: 'recommendation', size: '102 KB', desc: 'Recommendation engine vectors' },
-  { name: 'agent_memory', size: '32 KB', desc: 'AI agent episodic memory' },
-  { name: 'swarm_knowledge', size: '86 KB', desc: 'Multi-agent shared knowledge base' },
-  { name: 'experience_replay', size: '27 KB', desc: 'RL experience replay buffer' },
-  { name: 'tool_cache', size: '26 KB', desc: 'MCP tool call cache' },
-  { name: 'mcp_in_rvf', size: '32 KB', desc: 'MCP server embedded in RVF' },
-  { name: 'ruvbot', size: '51 KB', desc: 'Chatbot knowledge store' },
-  { name: 'claude_code_appliance', size: '17 KB', desc: 'Claude Code cognitive appliance' },
-  { name: 'lineage_parent', size: '52 KB', desc: 'COW parent file' },
-  { name: 'lineage_child', size: '26 KB', desc: 'COW child (derived) file' },
-  { name: 'self_booting', size: '31 KB', desc: 'Self-booting with KERNEL_SEG' },
-  { name: 'linux_microkernel', size: '15 KB', desc: 'Embedded Linux microkernel' },
-  { name: 'ebpf_accelerator', size: '153 KB', desc: 'eBPF distance accelerator' },
-  { name: 'browser_wasm', size: '14 KB', desc: 'Browser WASM module embedded' },
-  { name: 'tee_attestation', size: '102 KB', desc: 'TEE attestation with witnesses' },
-  { name: 'zero_knowledge', size: '52 KB', desc: 'ZK-proof witness chain' },
-  { name: 'sealed_engine', size: '208 KB', desc: 'Sealed inference engine' },
-  { name: 'access_control', size: '77 KB', desc: 'Permission-gated vectors' },
-  { name: 'financial_signals', size: '202 KB', desc: 'Financial signal vectors' },
-  { name: 'medical_imaging', size: '302 KB', desc: 'Medical imaging embeddings' },
-  { name: 'legal_discovery', size: '903 KB', desc: 'Legal document discovery' },
-  { name: 'multimodal_fusion', size: '804 KB', desc: 'Multi-modal embedding fusion' },
-  { name: 'hyperbolic_taxonomy', size: '23 KB', desc: 'Hyperbolic space taxonomy' },
-  { name: 'network_telemetry', size: '16 KB', desc: 'Network telemetry vectors' },
-  { name: 'postgres_bridge', size: '152 KB', desc: 'PostgreSQL bridge vectors' },
-  { name: 'ruvllm_inference', size: '133 KB', desc: 'RuvLLM inference cache' },
-  { name: 'serverless', size: '509 KB', desc: 'Serverless deployment bundle' },
-  { name: 'edge_iot', size: '27 KB', desc: 'Edge/IoT lightweight store' },
-  { name: 'dedup_detector', size: '153 KB', desc: 'Deduplication detector' },
-  { name: 'compacted', size: '77 KB', desc: 'Post-compaction example' },
-  { name: 'posix_fileops', size: '52 KB', desc: 'POSIX file operations test' },
-  { name: 'network_sync_a', size: '52 KB', desc: 'Network sync peer A' },
-  { name: 'network_sync_b', size: '52 KB', desc: 'Network sync peer B' },
-  { name: 'agent_handoff_a', size: '31 KB', desc: 'Agent handoff source' },
-  { name: 'agent_handoff_b', size: '11 KB', desc: 'Agent handoff target' },
-  { name: 'reasoning_parent', size: '5.6 KB', desc: 'Reasoning chain parent' },
-  { name: 'reasoning_child', size: '8.1 KB', desc: 'Reasoning chain child' },
-  { name: 'reasoning_grandchild', size: '162 B', desc: 'Minimal derived file' },
+// RVF example catalog - manifest-based with local cache + SHA-256 verification
+const BUILTIN_RVF_CATALOG = [
+  // Minimal fallback if GCS and cache are both unavailable
+  { name: 'basic_store', size_human: '152 KB', description: '1,000 vectors, dim 128, cosine metric', category: 'core' },
+  { name: 'semantic_search', size_human: '755 KB', description: 'Semantic search with HNSW index', category: 'core' },
+  { name: 'rag_pipeline', size_human: '303 KB', description: 'RAG pipeline with embeddings', category: 'core' },
+  { name: 'agent_memory', size_human: '32 KB', description: 'AI agent episodic memory', category: 'ai' },
+  { name: 'swarm_knowledge', size_human: '86 KB', description: 'Multi-agent shared knowledge base', category: 'ai' },
+  { name: 'self_booting', size_human: '31 KB', description: 'Self-booting with KERNEL_SEG', category: 'compute' },
+  { name: 'ebpf_accelerator', size_human: '153 KB', description: 'eBPF distance accelerator', category: 'compute' },
+  { name: 'tee_attestation', size_human: '102 KB', description: 'TEE attestation with witnesses', category: 'security' },
+  { name: 'claude_code_appliance', size_human: '17 KB', description: 'Claude Code cognitive appliance', category: 'integration' },
+  { name: 'lineage_parent', size_human: '52 KB', description: 'COW parent file', category: 'lineage' },
+  { name: 'financial_signals', size_human: '202 KB', description: 'Financial signal vectors', category: 'industry' },
+  { name: 'mcp_in_rvf', size_human: '32 KB', description: 'MCP server embedded in RVF', category: 'integration' },
 ];
 
-const RVF_BASE_URL = 'https://raw.githubusercontent.com/ruvnet/ruvector/main/examples/rvf/output';
+const GCS_MANIFEST_URL = 'https://storage.googleapis.com/ruvector-examples/manifest.json';
+const GITHUB_RAW_BASE = 'https://raw.githubusercontent.com/ruvnet/ruvector/main/examples/rvf/output';
+
+function getRvfCacheDir() {
+  const os = require('os');
+  return path.join(os.homedir(), '.ruvector', 'examples');
+}
+
+async function getRvfManifest(opts = {}) {
+  const cacheDir = getRvfCacheDir();
+  const manifestPath = path.join(cacheDir, 'manifest.json');
+
+  // Check cache (1 hour TTL)
+  if (!opts.refresh && fs.existsSync(manifestPath)) {
+    try {
+      const stat = fs.statSync(manifestPath);
+      const age = Date.now() - stat.mtimeMs;
+      if (age < 3600000) {
+        return JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+      }
+    } catch {}
+  }
+
+  if (opts.offline) {
+    // Offline mode - use cache even if stale
+    if (fs.existsSync(manifestPath)) {
+      return JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+    }
+    return { examples: BUILTIN_RVF_CATALOG, base_url: GITHUB_RAW_BASE, version: 'builtin', offline: true };
+  }
+
+  // Try GCS
+  try {
+    const resp = await fetch(GCS_MANIFEST_URL);
+    if (resp.ok) {
+      const manifest = await resp.json();
+      fs.mkdirSync(cacheDir, { recursive: true });
+      fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
+      return manifest;
+    }
+  } catch {}
+
+  // Fallback: stale cache
+  if (fs.existsSync(manifestPath)) {
+    try {
+      const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+      manifest._stale = true;
+      return manifest;
+    } catch {}
+  }
+
+  // Final fallback: builtin catalog with GitHub URLs
+  return { examples: BUILTIN_RVF_CATALOG, base_url: GITHUB_RAW_BASE, version: 'builtin' };
+}
+
+function verifyRvfFile(filePath, expectedSha256) {
+  if (!expectedSha256) return { verified: false, reason: 'No checksum available' };
+  const crypto = require('crypto');
+  const hash = crypto.createHash('sha256');
+  const data = fs.readFileSync(filePath);
+  hash.update(data);
+  const actual = hash.digest('hex');
+  return { verified: actual === expectedSha256, actual, expected: expectedSha256 };
+}
 
 rvfCmd.command('examples')
-  .description('List available example .rvf files')
+  .description('List available example .rvf files from the catalog')
+  .option('--category <cat>', 'Filter by category (core, ai, security, compute, lineage, industry, network, integration)')
+  .option('--refresh', 'Force refresh manifest from server')
+  .option('--offline', 'Use only cached data')
   .option('--json', 'Output as JSON')
-  .action((opts) => {
+  .action(async (opts) => {
+    const manifest = await getRvfManifest({ refresh: opts.refresh, offline: opts.offline });
+    let examples = manifest.examples || [];
+
+    if (opts.category) {
+      examples = examples.filter(e => e.category === opts.category);
+    }
+
     if (opts.json) {
-      console.log(JSON.stringify(RVF_EXAMPLES, null, 2));
+      console.log(JSON.stringify({ version: manifest.version, count: examples.length, examples }, null, 2));
       return;
     }
-    console.log(chalk.bold.cyan('\nAvailable RVF Example Files (45 total)\n'));
-    console.log(chalk.dim(`Download: npx ruvector rvf download <name>\n`));
-    const maxName = Math.max(...RVF_EXAMPLES.map(e => e.name.length));
-    const maxSize = Math.max(...RVF_EXAMPLES.map(e => e.size.length));
-    for (const ex of RVF_EXAMPLES) {
-      const name = chalk.green(ex.name.padEnd(maxName));
-      const size = chalk.yellow(ex.size.padStart(maxSize));
-      console.log(`  ${name}  ${size}  ${chalk.dim(ex.desc)}`);
+
+    console.log(chalk.bold.cyan(`\nRVF Example Files (${examples.length} of ${(manifest.examples || []).length} total)\n`));
+    if (manifest._stale) console.log(chalk.yellow('  (Using stale cached manifest)\n'));
+    if (manifest.version === 'builtin') console.log(chalk.yellow('  (Using built-in catalog -- run without --offline for full list)\n'));
+    console.log(chalk.dim(`  Download: npx ruvector rvf download <name>`));
+    console.log(chalk.dim(`  Filter:   npx ruvector rvf examples --category ai\n`));
+
+    // Group by category
+    const grouped = {};
+    for (const ex of examples) {
+      const cat = ex.category || 'other';
+      if (!grouped[cat]) grouped[cat] = [];
+      grouped[cat].push(ex);
     }
-    console.log(chalk.dim(`\nFull catalog: https://github.com/ruvnet/ruvector/tree/main/examples/rvf/output\n`));
+
+    for (const [cat, items] of Object.entries(grouped).sort()) {
+      const catDesc = manifest.categories ? manifest.categories[cat] || '' : '';
+      console.log(chalk.bold.yellow(`  ${cat} ${catDesc ? chalk.dim(`-- ${catDesc}`) : ''}`));
+      for (const ex of items) {
+        const name = chalk.green(ex.name.padEnd(28));
+        const size = chalk.yellow((ex.size_human || '').padStart(8));
+        console.log(`    ${name} ${size}  ${chalk.dim(ex.description || '')}`);
+      }
+      console.log();
+    }
+
+    if (manifest.categories && !opts.category) {
+      console.log(chalk.dim(`  Categories: ${Object.keys(manifest.categories).join(', ')}\n`));
+    }
   });
 
 rvfCmd.command('download [names...]')
-  .description('Download example .rvf files from GitHub')
-  .option('-a, --all', 'Download all 45 examples (~11 MB)')
+  .description('Download example .rvf files with integrity verification')
+  .option('-a, --all', 'Download all examples')
+  .option('-c, --category <cat>', 'Download all examples in a category')
   .option('-o, --output <dir>', 'Output directory', '.')
+  .option('--verify', 'Re-verify cached files')
+  .option('--no-cache', 'Skip cache, always download fresh')
+  .option('--offline', 'Use only cached files')
+  .option('--refresh', 'Refresh manifest before download')
   .action(async (names, opts) => {
-    const https = require('https');
-    const ALLOWED_REDIRECT_HOSTS = ['raw.githubusercontent.com', 'objects.githubusercontent.com', 'github.com'];
-    const sanitizeFileName = (name) => {
-      // Strip path separators and parent directory references
-      const base = path.basename(name);
-      // Only allow alphanumeric, underscores, hyphens, dots
-      if (!/^[\w\-.]+$/.test(base)) throw new Error(`Invalid filename: ${base}`);
-      return base;
-    };
-    const downloadFile = (url, dest) => new Promise((resolve, reject) => {
-      const file = fs.createWriteStream(dest);
-      https.get(url, (res) => {
-        if (res.statusCode === 302 || res.statusCode === 301) {
-          const redirectUrl = res.headers.location;
-          try {
-            const redirectHost = new URL(redirectUrl).hostname;
-            if (!ALLOWED_REDIRECT_HOSTS.includes(redirectHost)) {
-              file.close();
-              reject(new Error(`Redirect to untrusted host: ${redirectHost}`));
-              return;
-            }
-          } catch { file.close(); reject(new Error('Invalid redirect URL')); return; }
-          https.get(redirectUrl, (res2) => { res2.pipe(file); file.on('finish', () => { file.close(); resolve(); }); }).on('error', reject);
-          return;
-        }
-        if (res.statusCode !== 200) { file.close(); fs.unlinkSync(dest); reject(new Error(`HTTP ${res.statusCode}`)); return; }
-        res.pipe(file);
-        file.on('finish', () => { file.close(); resolve(); });
-      }).on('error', reject);
-    });
+    const manifest = await getRvfManifest({ refresh: opts.refresh, offline: opts.offline });
+    const examples = manifest.examples || [];
+    const baseUrl = manifest.base_url || GITHUB_RAW_BASE;
 
     let toDownload = [];
     if (opts.all) {
-      toDownload = RVF_EXAMPLES.map(e => e.name);
+      toDownload = examples;
+    } else if (opts.category) {
+      toDownload = examples.filter(e => e.category === opts.category);
+      if (!toDownload.length) {
+        console.error(chalk.red(`No examples in category '${opts.category}'`));
+        process.exit(1);
+      }
     } else if (names && names.length > 0) {
-      toDownload = names;
+      for (const name of names) {
+        const cleanName = name.replace(/\.rvf$/, '');
+        const found = examples.find(e => e.name === cleanName);
+        if (found) {
+          toDownload.push(found);
+        } else {
+          console.error(chalk.red(`Unknown example: ${cleanName}. Run 'npx ruvector rvf examples' to list.`));
+        }
+      }
+      if (!toDownload.length) process.exit(1);
     } else {
-      console.error(chalk.red('Specify example names or use --all. Run `npx ruvector rvf examples` to list.'));
+      console.error(chalk.red('Specify example names, --all, or --category. Run `npx ruvector rvf examples` to list.'));
       process.exit(1);
     }
 
     const outDir = path.resolve(opts.output);
     if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });
+    const cacheDir = getRvfCacheDir();
+    fs.mkdirSync(cacheDir, { recursive: true });
 
     console.log(chalk.bold.cyan(`\nDownloading ${toDownload.length} .rvf file(s) to ${outDir}\n`));
-    let ok = 0, fail = 0;
-    for (const name of toDownload) {
-      const rawName = name.endsWith('.rvf') ? name : `${name}.rvf`;
-      let fileName;
-      try { fileName = sanitizeFileName(rawName); } catch (e) {
-        console.log(chalk.red(`SKIPPED: ${e.message}`));
+
+    const https = require('https');
+    const crypto = require('crypto');
+    const ALLOWED_REDIRECT_HOSTS = ['raw.githubusercontent.com', 'objects.githubusercontent.com', 'github.com', 'storage.googleapis.com'];
+
+    const downloadFile = (url, dest) => new Promise((resolve, reject) => {
+      const doGet = (getUrl) => {
+        const mod = getUrl.startsWith('https') ? https : require('http');
+        mod.get(getUrl, (res) => {
+          if (res.statusCode === 301 || res.statusCode === 302) {
+            const loc = res.headers.location;
+            try {
+              const host = new URL(loc).hostname;
+              if (!ALLOWED_REDIRECT_HOSTS.includes(host)) {
+                reject(new Error(`Redirect to untrusted host: ${host}`));
+                return;
+              }
+            } catch { reject(new Error('Invalid redirect URL')); return; }
+            doGet(loc);
+            return;
+          }
+          if (res.statusCode !== 200) {
+            reject(new Error(`HTTP ${res.statusCode}`));
+            return;
+          }
+          const file = fs.createWriteStream(dest);
+          res.pipe(file);
+          file.on('finish', () => { file.close(); resolve(); });
+          file.on('error', reject);
+        }).on('error', reject);
+      };
+      doGet(url);
+    });
+
+    let ok = 0, cached = 0, fail = 0, verified = 0;
+
+    for (const ex of toDownload) {
+      const fileName = `${ex.name}.rvf`;
+      // Sanitize filename
+      if (!/^[\w\-.]+$/.test(fileName)) {
+        console.log(`  ${chalk.red('SKIP')} ${fileName} (invalid filename)`);
         fail++;
         continue;
       }
-      // Validate against known examples when not using --all
-      if (!opts.all) {
-        const baseName = fileName.replace(/\.rvf$/, '');
-        if (!RVF_EXAMPLES.some(e => e.name === baseName)) {
-          console.log(chalk.red(`SKIPPED: Unknown example '${baseName}'. Run 'npx ruvector rvf examples' to list.`));
-          fail++;
+
+      const destPath = path.join(outDir, fileName);
+      const cachePath = path.join(cacheDir, fileName);
+
+      // Path containment check
+      if (!path.resolve(destPath).startsWith(path.resolve(outDir))) {
+        console.log(`  ${chalk.red('SKIP')} ${fileName} (path traversal)`);
+        fail++;
+        continue;
+      }
+
+      // Check cache first
+      if (opts.cache !== false && fs.existsSync(cachePath) && !opts.verify) {
+        // Verify if checksum available
+        if (ex.sha256) {
+          const check = verifyRvfFile(cachePath, ex.sha256);
+          if (check.verified) {
+            // Copy from cache
+            if (path.resolve(destPath) !== path.resolve(cachePath)) {
+              fs.copyFileSync(cachePath, destPath);
+            }
+            console.log(`  ${chalk.green('CACHED')} ${chalk.cyan(fileName)} ${chalk.dim(ex.size_human || '')}`);
+            cached++;
+            continue;
+          } else {
+            // Cache corrupted, re-download
+            console.log(`  ${chalk.yellow('STALE')} ${fileName} -- re-downloading`);
+          }
+        } else {
+          // Copy from cache (no checksum to verify)
+          if (path.resolve(destPath) !== path.resolve(cachePath)) {
+            fs.copyFileSync(cachePath, destPath);
+          }
+          console.log(`  ${chalk.green('CACHED')} ${chalk.cyan(fileName)} ${chalk.dim(ex.size_human || '')}`);
+          cached++;
           continue;
         }
       }
-      const url = `${RVF_BASE_URL}/${encodeURIComponent(fileName)}`;
-      const dest = path.join(outDir, fileName);
-      // Path containment check
-      if (!path.resolve(dest).startsWith(path.resolve(outDir) + path.sep) && path.resolve(dest) !== path.resolve(outDir)) {
-        console.log(chalk.red(`SKIPPED: Path traversal detected for '${fileName}'`));
+
+      if (opts.offline) {
+        console.log(`  ${chalk.yellow('SKIP')} ${fileName} (offline mode, not cached)`);
         fail++;
         continue;
       }
+
+      // Download
+      const url = `${baseUrl}/${encodeURIComponent(fileName)}`;
       try {
-        process.stdout.write(chalk.dim(`  ${fileName} ... `));
-        await downloadFile(url, dest);
-        const stat = fs.statSync(dest);
-        console.log(chalk.green(`OK (${(stat.size / 1024).toFixed(0)} KB)`));
+        await downloadFile(url, cachePath);
+
+        // SHA-256 verify
+        if (ex.sha256) {
+          const check = verifyRvfFile(cachePath, ex.sha256);
+          if (check.verified) {
+            verified++;
+            console.log(`  ${chalk.green('OK')} ${chalk.cyan(fileName)} ${chalk.dim(ex.size_human || '')} ${chalk.green('SHA-256 verified')}`);
+          } else {
+            console.log(`  ${chalk.red('FAIL')} ${fileName} -- SHA-256 mismatch! Expected ${ex.sha256.slice(0, 12)}... got ${check.actual.slice(0, 12)}...`);
+            fs.unlinkSync(cachePath);
+            fail++;
+            continue;
+          }
+        } else {
+          console.log(`  ${chalk.green('OK')} ${chalk.cyan(fileName)} ${chalk.dim(ex.size_human || '')} ${chalk.yellow('(no checksum)')}`);
+        }
+
+        // Copy to output dir if different from cache
+        if (path.resolve(destPath) !== path.resolve(cachePath)) {
+          fs.copyFileSync(cachePath, destPath);
+        }
         ok++;
       } catch (e) {
-        console.log(chalk.red(`FAILED: ${e.message}`));
+        console.log(`  ${chalk.red('FAIL')} ${fileName}: ${e.message}`);
         fail++;
       }
     }
-    console.log(chalk.bold(`\nDone: ${ok} downloaded, ${fail} failed\n`));
+
+    console.log(chalk.bold(`\n  Downloaded: ${ok}, Cached: ${cached}, Failed: ${fail}${verified ? `, Verified: ${verified}` : ''}\n`));
+  });
+
+// RVF cache management
+rvfCmd.command('cache <action>')
+  .description('Manage local .rvf example cache (status, clear)')
+  .action((action) => {
+    const cacheDir = getRvfCacheDir();
+
+    switch (action) {
+      case 'status': {
+        if (!fs.existsSync(cacheDir)) {
+          console.log(chalk.dim('\n  No cache directory found.\n'));
+          return;
+        }
+        const files = fs.readdirSync(cacheDir).filter(f => f.endsWith('.rvf'));
+        const manifestExists = fs.existsSync(path.join(cacheDir, 'manifest.json'));
+        let totalSize = 0;
+        for (const f of files) {
+          totalSize += fs.statSync(path.join(cacheDir, f)).size;
+        }
+        console.log(chalk.bold.cyan('\nRVF Cache Status\n'));
+        console.log(`  ${chalk.bold('Location:')}  ${cacheDir}`);
+        console.log(`  ${chalk.bold('Files:')}     ${files.length} .rvf files`);
+        console.log(`  ${chalk.bold('Size:')}      ${(totalSize / (1024 * 1024)).toFixed(1)} MB`);
+        console.log(`  ${chalk.bold('Manifest:')} ${manifestExists ? chalk.green('cached') : chalk.dim('not cached')}`);
+        if (manifestExists) {
+          const stat = fs.statSync(path.join(cacheDir, 'manifest.json'));
+          const age = Date.now() - stat.mtimeMs;
+          const fresh = age < 3600000;
+          console.log(`  ${chalk.bold('Age:')}       ${Math.floor(age / 60000)} min ${fresh ? chalk.green('(fresh)') : chalk.yellow('(stale)')}`);
+        }
+        console.log();
+        break;
+      }
+      case 'clear': {
+        if (!fs.existsSync(cacheDir)) {
+          console.log(chalk.dim('\n  No cache to clear.\n'));
+          return;
+        }
+        const files = fs.readdirSync(cacheDir);
+        let cleared = 0;
+        for (const f of files) {
+          fs.unlinkSync(path.join(cacheDir, f));
+          cleared++;
+        }
+        console.log(chalk.green(`\n  Cleared ${cleared} cached files from ${cacheDir}\n`));
+        break;
+      }
+      default:
+        console.error(chalk.red(`Unknown cache action: ${action}. Use: status, clear`));
+        process.exit(1);
+    }
   });
 
 // MCP Server command
@@ -7286,8 +7557,15 @@ const mcpCmd = program.command('mcp').description('MCP (Model Context Protocol) 
 
 mcpCmd.command('start')
   .description('Start the RuVector MCP server')
-  .action(() => {
-    // Execute the mcp-server.js directly
+  .option('-t, --transport <type>', 'Transport type: stdio or sse', 'stdio')
+  .option('-p, --port <number>', 'Port for SSE transport', '8080')
+  .option('--host <host>', 'Host to bind for SSE', '0.0.0.0')
+  .action((opts) => {
+    if (opts.transport === 'sse') {
+      process.env.MCP_TRANSPORT = 'sse';
+      process.env.MCP_PORT = opts.port;
+      process.env.MCP_HOST = opts.host;
+    }
     const mcpServerPath = path.join(__dirname, 'mcp-server.js');
     if (!fs.existsSync(mcpServerPath)) {
       console.error(chalk.red('Error: MCP server not found at'), mcpServerPath);
@@ -7350,6 +7628,956 @@ mcpCmd.command('info')
       }
     }
   }`));
+    console.log();
+  });
+
+// ============================================================================
+// MCP tools subcommand
+// ============================================================================
+
+mcpCmd.command('tools')
+  .description('List all MCP tools organized by group')
+  .option('--group <name>', 'Filter by group (hooks, workers, rvf, rvlite, brain, edge, identity)')
+  .option('--json', 'Output as JSON')
+  .action((opts) => {
+    const toolGroups = {
+      'hooks-core': [
+        { name: 'hooks_stats', args: '(none)', desc: 'Get intelligence statistics' },
+        { name: 'hooks_route', args: 'task, file?', desc: 'Route task to best agent' },
+        { name: 'hooks_remember', args: 'content, type?', desc: 'Store context in vector memory' },
+        { name: 'hooks_recall', args: 'query, limit?', desc: 'Search vector memory' },
+        { name: 'hooks_init', args: 'project_path?, force?', desc: 'Initialize hooks in project' },
+        { name: 'hooks_pretrain', args: 'scan_path?, patterns?', desc: 'Pretrain from repository' },
+        { name: 'hooks_build_agents', args: 'project_path?', desc: 'Generate agent configs' },
+        { name: 'hooks_verify', args: '(none)', desc: 'Verify hooks configuration' },
+        { name: 'hooks_doctor', args: 'fix?', desc: 'Diagnose setup issues' },
+        { name: 'hooks_export', args: 'format?', desc: 'Export intelligence data' },
+      ],
+      'hooks-trajectory': [
+        { name: 'hooks_trajectory_start', args: 'task, context?', desc: 'Start learning trajectory' },
+        { name: 'hooks_trajectory_step', args: 'trajectory_id, action, result', desc: 'Record trajectory step' },
+        { name: 'hooks_trajectory_end', args: 'trajectory_id, outcome, score?', desc: 'End trajectory with outcome' },
+      ],
+      'hooks-coedit': [
+        { name: 'hooks_pre_edit', args: 'file, changes', desc: 'Pre-edit analysis' },
+        { name: 'hooks_post_edit', args: 'file, changes, result', desc: 'Post-edit learning' },
+        { name: 'hooks_pre_command', args: 'command, args?', desc: 'Pre-command analysis' },
+        { name: 'hooks_post_command', args: 'command, exit_code, output?', desc: 'Post-command learning' },
+        { name: 'hooks_pre_task', args: 'task, context?', desc: 'Pre-task routing' },
+        { name: 'hooks_post_task', args: 'task, result, duration?', desc: 'Post-task learning' },
+      ],
+      'hooks-errors': [
+        { name: 'hooks_error_learn', args: 'error, context?', desc: 'Learn from errors' },
+        { name: 'hooks_error_patterns', args: 'limit?', desc: 'Get learned error patterns' },
+        { name: 'hooks_error_suggest', args: 'error', desc: 'Suggest fix for error' },
+      ],
+      'hooks-analysis': [
+        { name: 'hooks_complexity', args: 'file', desc: 'Analyze code complexity' },
+        { name: 'hooks_dependencies', args: 'file', desc: 'Analyze dependencies' },
+        { name: 'hooks_security_scan', args: 'file', desc: 'Security vulnerability scan' },
+        { name: 'hooks_test_coverage', args: 'file', desc: 'Estimate test coverage' },
+        { name: 'hooks_dead_code', args: 'file', desc: 'Detect dead code' },
+        { name: 'hooks_duplicate_code', args: 'file', desc: 'Find duplicate code' },
+      ],
+      'hooks-learning': [
+        { name: 'hooks_pattern_store', args: 'pattern, category, confidence?', desc: 'Store a learned pattern' },
+        { name: 'hooks_pattern_search', args: 'query, category?, limit?', desc: 'Search patterns' },
+        { name: 'hooks_attention', args: 'query, context', desc: 'Attention-weighted relevance' },
+      ],
+      'hooks-compress': [
+        { name: 'hooks_compress_context', args: 'content, max_tokens?', desc: 'Compress context' },
+        { name: 'hooks_compress_code', args: 'code, language?', desc: 'Compress code representation' },
+        { name: 'hooks_compress_diff', args: 'diff', desc: 'Compress diff' },
+      ],
+      'hooks-events': [
+        { name: 'hooks_session_start', args: '(none)', desc: 'Signal session start' },
+        { name: 'hooks_session_end', args: 'summary?', desc: 'Signal session end' },
+        { name: 'hooks_notify', args: 'message, level?', desc: 'Send notification' },
+        { name: 'hooks_transfer', args: 'target, data', desc: 'Transfer context' },
+      ],
+      'hooks-model': [
+        { name: 'hooks_model_route', args: 'task, complexity?', desc: 'Route to optimal model tier' },
+        { name: 'hooks_model_outcome', args: 'model, task, success, tokens?', desc: 'Record model outcome' },
+        { name: 'hooks_model_stats', args: '(none)', desc: 'Get model routing stats' },
+      ],
+      'workers': [
+        { name: 'workers_list', args: '(none)', desc: 'List available workers' },
+        { name: 'workers_status', args: 'worker_id?', desc: 'Get worker status' },
+        { name: 'workers_dispatch', args: 'worker, task, args?', desc: 'Dispatch task to worker' },
+        { name: 'workers_cancel', args: 'job_id', desc: 'Cancel running job' },
+        { name: 'workers_detect', args: 'file', desc: 'Auto-detect applicable workers' },
+        { name: 'workers_complexity', args: 'file', desc: 'Worker: complexity analysis' },
+        { name: 'workers_dependencies', args: 'file', desc: 'Worker: dependency analysis' },
+        { name: 'workers_security', args: 'file', desc: 'Worker: security scan' },
+        { name: 'workers_coverage', args: 'file', desc: 'Worker: test coverage' },
+        { name: 'workers_dead_code', args: 'file', desc: 'Worker: dead code detection' },
+        { name: 'workers_duplicates', args: 'file', desc: 'Worker: duplicate detection' },
+        { name: 'workers_performance', args: 'file', desc: 'Worker: performance analysis' },
+      ],
+      'rvf': [
+        { name: 'rvf_create', args: 'path, dimension?, metric?', desc: 'Create new .rvf vector store' },
+        { name: 'rvf_open', args: 'path', desc: 'Open existing .rvf store' },
+        { name: 'rvf_ingest', args: 'path, vectors, ids?, metadata?', desc: 'Insert vectors' },
+        { name: 'rvf_query', args: 'path, vector, k?, filter?', desc: 'Query nearest neighbors' },
+        { name: 'rvf_delete', args: 'path, ids', desc: 'Delete vectors by ID' },
+        { name: 'rvf_status', args: 'path', desc: 'Get store status' },
+        { name: 'rvf_compact', args: 'path', desc: 'Compact store' },
+        { name: 'rvf_derive', args: 'parent_path, child_path', desc: 'COW-branch to child store' },
+        { name: 'rvf_segments', args: 'path', desc: 'List file segments' },
+        { name: 'rvf_examples', args: '(none)', desc: 'List example .rvf files' },
+      ],
+      'rvlite': [
+        { name: 'rvlite_sql', args: 'query, db_path?', desc: 'Execute SQL query' },
+        { name: 'rvlite_cypher', args: 'query, db_path?', desc: 'Execute Cypher graph query' },
+        { name: 'rvlite_sparql', args: 'query, db_path?', desc: 'Execute SPARQL RDF query' },
+      ],
+      'brain': [
+        { name: 'brain_search', args: 'query, category?, limit?', desc: 'Semantic search shared brain' },
+        { name: 'brain_share', args: 'title, content, category, tags?, code_snippet?', desc: 'Share knowledge' },
+        { name: 'brain_get', args: 'id', desc: 'Retrieve memory by ID' },
+        { name: 'brain_vote', args: 'id, direction', desc: 'Quality vote (up/down)' },
+        { name: 'brain_list', args: 'category?, limit?', desc: 'List recent memories' },
+        { name: 'brain_delete', args: 'id', desc: 'Delete own contribution' },
+        { name: 'brain_status', args: '(none)', desc: 'System health' },
+        { name: 'brain_drift', args: 'domain?', desc: 'Check knowledge drift' },
+        { name: 'brain_partition', args: 'domain?, min_cluster_size?', desc: 'Knowledge topology' },
+        { name: 'brain_transfer', args: 'source_domain, target_domain', desc: 'Cross-domain transfer' },
+        { name: 'brain_sync', args: 'direction?', desc: 'LoRA weight sync' },
+      ],
+      'edge': [
+        { name: 'edge_status', args: '(none)', desc: 'Network status' },
+        { name: 'edge_join', args: 'contribution?', desc: 'Join compute network' },
+        { name: 'edge_balance', args: '(none)', desc: 'Check rUv balance' },
+        { name: 'edge_tasks', args: 'limit?', desc: 'List compute tasks' },
+      ],
+      'identity': [
+        { name: 'identity_generate', args: '(none)', desc: 'Generate new pi key' },
+        { name: 'identity_show', args: '(none)', desc: 'Show current identity' },
+      ],
+    };
+
+    if (opts.json) {
+      const output = {};
+      Object.entries(toolGroups).forEach(([group, tools]) => {
+        if (!opts.group || group === opts.group || group.startsWith(opts.group)) {
+          output[group] = tools;
+        }
+      });
+      console.log(JSON.stringify(output, null, 2));
+      return;
+    }
+
+    console.log(chalk.bold.cyan('\nRuVector MCP Tools\n'));
+    let total = 0;
+    Object.entries(toolGroups).forEach(([group, tools]) => {
+      if (opts.group && group !== opts.group && !group.startsWith(opts.group)) return;
+      console.log(chalk.bold.yellow(`  ${group} (${tools.length}):`));
+      tools.forEach(t => {
+        console.log(`    ${chalk.green(t.name.padEnd(28))} ${chalk.dim(t.args.padEnd(40))} ${t.desc}`);
+      });
+      console.log();
+      total += tools.length;
+    });
+    console.log(chalk.bold(`Total: ${total} MCP tools\n`));
+  });
+
+// ============================================================================
+// MCP test subcommand
+// ============================================================================
+
+mcpCmd.command('test')
+  .description('Test MCP server setup and tool registration')
+  .action(() => {
+    console.log(chalk.bold.cyan('\nMCP Server Test Results'));
+    console.log(chalk.dim('-'.repeat(40)));
+
+    const mcpServerPath = path.join(__dirname, 'mcp-server.js');
+    if (fs.existsSync(mcpServerPath)) {
+      console.log(`  ${chalk.green('PASS')} mcp-server.js exists`);
+    } else {
+      console.log(`  ${chalk.red('FAIL')} mcp-server.js not found`);
+      process.exit(1);
+    }
+
+    try {
+      const { execSync } = require('child_process');
+      execSync(`node -c ${mcpServerPath}`, { stdio: 'pipe' });
+      console.log(`  ${chalk.green('PASS')} mcp-server.js syntax valid`);
+    } catch {
+      console.log(`  ${chalk.red('FAIL')} mcp-server.js has syntax errors`);
+      process.exit(1);
+    }
+
+    try {
+      require('@modelcontextprotocol/sdk/server/index.js');
+      console.log(`  ${chalk.green('PASS')} @modelcontextprotocol/sdk installed`);
+    } catch {
+      console.log(`  ${chalk.red('FAIL')} @modelcontextprotocol/sdk not installed`);
+      process.exit(1);
+    }
+
+    try {
+      const src = fs.readFileSync(mcpServerPath, 'utf8');
+      const toolsStart = src.indexOf('const TOOLS = [');
+      const toolsSection = toolsStart >= 0 ? src.slice(toolsStart) : src;
+      const toolDefs = toolsSection.match(/name:\s*'([a-z][a-z0-9_]*)'\s*,\s*\n\s*description:/g) || [];
+      const toolNames = toolDefs.map(m => m.match(/name:\s*'([a-z][a-z0-9_]*)'/)[1]);
+      const groups = {};
+      toolNames.forEach(n => {
+        const g = n.split('_')[0];
+        groups[g] = (groups[g] || 0) + 1;
+      });
+
+      Object.entries(groups).sort((a, b) => b[1] - a[1]).forEach(([group, count]) => {
+        console.log(`  ${chalk.green('PASS')} ${group}: ${count} tools`);
+      });
+      console.log(chalk.bold(`\n  Total: ${toolNames.length} tools registered`));
+    } catch (e) {
+      console.log(`  ${chalk.yellow('WARN')} Could not parse tool count: ${e.message}`);
+    }
+
+    try {
+      const src = fs.readFileSync(mcpServerPath, 'utf8');
+      const verMatch = src.match(/version:\s*'([^']+)'/);
+      if (verMatch) {
+        const pkg = require(path.join(__dirname, '..', 'package.json'));
+        const match = verMatch[1] === pkg.version;
+        console.log(`  ${match ? chalk.green('PASS') : chalk.yellow('WARN')} Server version: ${verMatch[1]}${match ? '' : ` (package: ${pkg.version})`}`);
+      }
+    } catch {}
+
+    console.log(chalk.bold.green('\n  All checks passed.\n'));
+    console.log(chalk.dim('  Setup: claude mcp add ruvector npx ruvector mcp start\n'));
+  });
+
+// ============================================================================
+// Brain Commands — Shared intelligence via @ruvector/pi-brain (lazy-loaded)
+// ============================================================================
+
+async function requirePiBrain() {
+  try {
+    return require('@ruvector/pi-brain');
+  } catch {
+    console.error(chalk.red('Brain commands require @ruvector/pi-brain'));
+    console.error(chalk.yellow('  npm install @ruvector/pi-brain'));
+    process.exit(1);
+  }
+}
+
+function getBrainConfig(opts) {
+  return {
+    url: opts.url || process.env.BRAIN_URL || 'https://pi.ruv.io',
+    key: opts.key || process.env.PI
+  };
+}
+
+const brainCmd = program.command('brain').description('Shared intelligence — search, share, and manage collective knowledge');
+
+brainCmd.command('search <query>')
+  .description('Semantic search across shared brain knowledge')
+  .option('-c, --category <cat>', 'Filter by category')
+  .option('-l, --limit <n>', 'Max results', '10')
+  .option('--url <url>', 'Brain server URL')
+  .option('--key <key>', 'Pi key')
+  .option('--json', 'Output as JSON')
+  .action(async (query, opts) => {
+    const piBrain = await requirePiBrain();
+    const config = getBrainConfig(opts);
+    try {
+      const client = new piBrain.PiBrainClient(config);
+      const results = await client.search(query, { category: opts.category, limit: parseInt(opts.limit) });
+      if (opts.json || !process.stdout.isTTY) { console.log(JSON.stringify(results, null, 2)); return; }
+      console.log(chalk.bold.cyan(`\nBrain Search: "${query}"\n`));
+      if (!results.length) { console.log(chalk.dim('  No results found.\n')); return; }
+      results.forEach((r, i) => {
+        console.log(`  ${chalk.yellow(i + 1 + '.')} ${chalk.bold(r.title || r.id)}`);
+        if (r.category) console.log(`     ${chalk.dim('Category:')} ${r.category}`);
+        if (r.score) console.log(`     ${chalk.dim('Score:')} ${r.score.toFixed(3)}`);
+        console.log();
+      });
+    } catch (e) { console.error(chalk.red(`Error: ${e.message}`)); process.exit(1); }
+  });
+
+brainCmd.command('share <title>')
+  .description('Share knowledge with the collective brain')
+  .requiredOption('-c, --category <cat>', 'Category (pattern, solution, architecture, convention, security, performance, tooling)')
+  .option('-t, --tags <tags>', 'Comma-separated tags')
+  .option('--content <text>', 'Content body')
+  .option('--code <snippet>', 'Code snippet')
+  .option('--url <url>', 'Brain server URL')
+  .option('--key <key>', 'Pi key')
+  .action(async (title, opts) => {
+    const piBrain = await requirePiBrain();
+    const config = getBrainConfig(opts);
+    try {
+      const client = new piBrain.PiBrainClient(config);
+      const result = await client.share({ title, content: opts.content || title, category: opts.category, tags: opts.tags ? opts.tags.split(',').map(t => t.trim()) : [], code_snippet: opts.code });
+      console.log(chalk.green(`Shared: ${result.id || 'OK'}`));
+    } catch (e) { console.error(chalk.red(`Error: ${e.message}`)); process.exit(1); }
+  });
+
+brainCmd.command('get <id>')
+  .description('Retrieve a specific memory by ID')
+  .option('--url <url>', 'Brain server URL')
+  .option('--key <key>', 'Pi key')
+  .option('--json', 'Output as JSON')
+  .action(async (id, opts) => {
+    const piBrain = await requirePiBrain();
+    const config = getBrainConfig(opts);
+    try {
+      const client = new piBrain.PiBrainClient(config);
+      const result = await client.get(id);
+      if (opts.json || !process.stdout.isTTY) { console.log(JSON.stringify(result, null, 2)); return; }
+      console.log(chalk.bold.cyan(`\nMemory: ${id}\n`));
+      if (result.title) console.log(`  ${chalk.bold('Title:')} ${result.title}`);
+      if (result.content) console.log(`  ${chalk.bold('Content:')} ${result.content}`);
+      if (result.category) console.log(`  ${chalk.bold('Category:')} ${result.category}`);
+      console.log();
+    } catch (e) { console.error(chalk.red(`Error: ${e.message}`)); process.exit(1); }
+  });
+
+brainCmd.command('vote <id> <direction>')
+  .description('Quality vote on a memory (up or down)')
+  .option('--url <url>', 'Brain server URL')
+  .option('--key <key>', 'Pi key')
+  .action(async (id, direction, opts) => {
+    const piBrain = await requirePiBrain();
+    const config = getBrainConfig(opts);
+    try {
+      const client = new piBrain.PiBrainClient(config);
+      await client.vote(id, direction);
+      console.log(chalk.green(`Voted ${direction} on ${id}`));
+    } catch (e) { console.error(chalk.red(`Error: ${e.message}`)); process.exit(1); }
+  });
+
+brainCmd.command('list')
+  .description('List recent shared memories')
+  .option('-c, --category <cat>', 'Filter by category')
+  .option('-l, --limit <n>', 'Max results', '20')
+  .option('--url <url>', 'Brain server URL')
+  .option('--key <key>', 'Pi key')
+  .option('--json', 'Output as JSON')
+  .action(async (opts) => {
+    const piBrain = await requirePiBrain();
+    const config = getBrainConfig(opts);
+    try {
+      const client = new piBrain.PiBrainClient(config);
+      const results = await client.list({ category: opts.category, limit: parseInt(opts.limit) });
+      if (opts.json || !process.stdout.isTTY) { console.log(JSON.stringify(results, null, 2)); return; }
+      console.log(chalk.bold.cyan('\nShared Brain Memories\n'));
+      if (!results.length) { console.log(chalk.dim('  No memories found.\n')); return; }
+      results.forEach((r, i) => {
+        console.log(`  ${chalk.yellow(i + 1 + '.')} ${chalk.bold(r.title || r.id)} ${chalk.dim(`[${r.category || 'unknown'}]`)}`);
+      });
+      console.log();
+    } catch (e) { console.error(chalk.red(`Error: ${e.message}`)); process.exit(1); }
+  });
+
+brainCmd.command('delete <id>')
+  .description('Delete your own contribution')
+  .option('--url <url>', 'Brain server URL')
+  .option('--key <key>', 'Pi key')
+  .action(async (id, opts) => {
+    const piBrain = await requirePiBrain();
+    const config = getBrainConfig(opts);
+    try {
+      const client = new piBrain.PiBrainClient(config);
+      await client.delete(id);
+      console.log(chalk.green(`Deleted: ${id}`));
+    } catch (e) { console.error(chalk.red(`Error: ${e.message}`)); process.exit(1); }
+  });
+
+brainCmd.command('status')
+  .description('Show shared brain system health')
+  .option('--url <url>', 'Brain server URL')
+  .option('--key <key>', 'Pi key')
+  .option('--json', 'Output as JSON')
+  .action(async (opts) => {
+    const piBrain = await requirePiBrain();
+    const config = getBrainConfig(opts);
+    try {
+      const client = new piBrain.PiBrainClient(config);
+      const status = await client.status();
+      if (opts.json || !process.stdout.isTTY) { console.log(JSON.stringify(status, null, 2)); return; }
+      console.log(chalk.bold.cyan('\nBrain Status\n'));
+      Object.entries(status).forEach(([k, v]) => {
+        console.log(`  ${chalk.bold(k + ':')} ${v}`);
+      });
+      console.log();
+    } catch (e) { console.error(chalk.red(`Error: ${e.message}`)); process.exit(1); }
+  });
+
+brainCmd.command('drift')
+  .description('Check if shared knowledge has drifted')
+  .option('-d, --domain <domain>', 'Domain to check')
+  .option('--url <url>', 'Brain server URL')
+  .option('--key <key>', 'Pi key')
+  .option('--json', 'Output as JSON')
+  .action(async (opts) => {
+    const piBrain = await requirePiBrain();
+    const config = getBrainConfig(opts);
+    try {
+      const client = new piBrain.PiBrainClient(config);
+      const report = await client.drift({ domain: opts.domain });
+      if (opts.json || !process.stdout.isTTY) { console.log(JSON.stringify(report, null, 2)); return; }
+      console.log(chalk.bold.cyan('\nDrift Report\n'));
+      console.log(`  ${chalk.bold('Drifting:')} ${report.is_drifting ? chalk.red('Yes') : chalk.green('No')}`);
+      if (report.cv) console.log(`  ${chalk.bold('CV:')} ${report.cv}`);
+      console.log();
+    } catch (e) { console.error(chalk.red(`Error: ${e.message}`)); process.exit(1); }
+  });
+
+brainCmd.command('partition')
+  .description('Get knowledge partitioned by mincut topology')
+  .option('-d, --domain <domain>', 'Domain to partition')
+  .option('--min-size <n>', 'Minimum cluster size', '3')
+  .option('--url <url>', 'Brain server URL')
+  .option('--key <key>', 'Pi key')
+  .option('--json', 'Output as JSON')
+  .action(async (opts) => {
+    const piBrain = await requirePiBrain();
+    const config = getBrainConfig(opts);
+    try {
+      const client = new piBrain.PiBrainClient(config);
+      const result = await client.partition({ domain: opts.domain, min_cluster_size: parseInt(opts.minSize) });
+      if (opts.json || !process.stdout.isTTY) { console.log(JSON.stringify(result, null, 2)); return; }
+      console.log(chalk.bold.cyan('\nKnowledge Partitions\n'));
+      if (result.clusters) {
+        result.clusters.forEach((c, i) => {
+          console.log(`  ${chalk.yellow('Cluster ' + (i + 1) + ':')} ${c.size || 'unknown'} entries`);
+        });
+      }
+      console.log();
+    } catch (e) { console.error(chalk.red(`Error: ${e.message}`)); process.exit(1); }
+  });
+
+brainCmd.command('transfer <source> <target>')
+  .description('Apply learned priors from one domain to another')
+  .option('--url <url>', 'Brain server URL')
+  .option('--key <key>', 'Pi key')
+  .option('--json', 'Output as JSON')
+  .action(async (source, target, opts) => {
+    const piBrain = await requirePiBrain();
+    const config = getBrainConfig(opts);
+    try {
+      const client = new piBrain.PiBrainClient(config);
+      const result = await client.transfer(source, target);
+      if (opts.json || !process.stdout.isTTY) { console.log(JSON.stringify(result, null, 2)); return; }
+      console.log(chalk.green(`Transfer ${source} -> ${target}: ${result.status || 'OK'}`));
+    } catch (e) { console.error(chalk.red(`Error: ${e.message}`)); process.exit(1); }
+  });
+
+brainCmd.command('sync [direction]')
+  .description('Synchronize LoRA weights (pull, push, or both)')
+  .option('--url <url>', 'Brain server URL')
+  .option('--key <key>', 'Pi key')
+  .action(async (direction, opts) => {
+    const piBrain = await requirePiBrain();
+    const config = getBrainConfig(opts);
+    try {
+      const client = new piBrain.PiBrainClient(config);
+      const result = await client.sync(direction || 'both');
+      console.log(chalk.green(`Sync ${direction || 'both'}: ${result.status || 'OK'}`));
+    } catch (e) { console.error(chalk.red(`Error: ${e.message}`)); process.exit(1); }
+  });
+
+brainCmd.command('page <action> [args...]')
+  .description('Brainpedia page management (list, get, create, update, delete)')
+  .option('--url <url>', 'Brain server URL')
+  .option('--key <key>', 'Pi key')
+  .option('--json', 'Output as JSON')
+  .action(async (action, args, opts) => {
+    const piBrain = await requirePiBrain();
+    const config = getBrainConfig(opts);
+    try {
+      const client = new piBrain.PiBrainClient(config);
+      let result;
+      switch (action) {
+        case 'list':
+          result = await client.listPages ? client.listPages({ limit: 20 }) : { pages: [], message: 'Brainpedia not yet available on this server' };
+          break;
+        case 'get':
+          if (!args[0]) { console.error(chalk.red('Usage: brain page get <slug>')); process.exit(1); }
+          result = await client.getPage ? client.getPage(args[0]) : { error: 'Brainpedia not yet available' };
+          break;
+        case 'create':
+          if (!args[0]) { console.error(chalk.red('Usage: brain page create <title> [--content <text>]')); process.exit(1); }
+          result = await client.createPage ? client.createPage({ title: args[0], content: opts.content || '' }) : { error: 'Brainpedia not yet available' };
+          break;
+        case 'update':
+          if (!args[0]) { console.error(chalk.red('Usage: brain page update <slug> [--content <text>]')); process.exit(1); }
+          result = await client.updatePage ? client.updatePage(args[0], { content: opts.content || '' }) : { error: 'Brainpedia not yet available' };
+          break;
+        case 'delete':
+          if (!args[0]) { console.error(chalk.red('Usage: brain page delete <slug>')); process.exit(1); }
+          result = await client.deletePage ? client.deletePage(args[0]) : { error: 'Brainpedia not yet available' };
+          break;
+        default:
+          console.error(chalk.red(`Unknown page action: ${action}. Use: list, get, create, update, delete`));
+          process.exit(1);
+      }
+      if (opts.json || !process.stdout.isTTY) { console.log(JSON.stringify(result, null, 2)); return; }
+      if (result.pages) {
+        console.log(chalk.bold.cyan('\nBrainpedia Pages\n'));
+        result.pages.forEach((p, i) => console.log(`  ${chalk.yellow(i + 1 + '.')} ${chalk.bold(p.title || p.slug)} ${chalk.dim(p.updated || '')}`));
+      } else if (result.title) {
+        console.log(chalk.bold.cyan(`\n${result.title}\n`));
+        if (result.content) console.log(result.content);
+      } else {
+        console.log(JSON.stringify(result, null, 2));
+      }
+      console.log();
+    } catch (e) { console.error(chalk.red(`Error: ${e.message}`)); process.exit(1); }
+  });
+
+brainCmd.command('node <action> [args...]')
+  .description('WASM compute node management (publish, list, status)')
+  .option('--url <url>', 'Brain server URL')
+  .option('--key <key>', 'Pi key')
+  .option('--json', 'Output as JSON')
+  .action(async (action, args, opts) => {
+    const piBrain = await requirePiBrain();
+    const config = getBrainConfig(opts);
+    try {
+      const client = new piBrain.PiBrainClient(config);
+      let result;
+      switch (action) {
+        case 'publish':
+          if (!args[0]) { console.error(chalk.red('Usage: brain node publish <wasm-file>')); process.exit(1); }
+          const wasmPath = path.resolve(args[0]);
+          if (!fs.existsSync(wasmPath)) { console.error(chalk.red(`File not found: ${wasmPath}`)); process.exit(1); }
+          const wasmBytes = fs.readFileSync(wasmPath);
+          result = await client.publishNode ? client.publishNode({ wasm: wasmBytes, name: path.basename(wasmPath, '.wasm') }) : { error: 'WASM node publish not yet available on this server' };
+          break;
+        case 'list':
+          result = await client.listNodes ? client.listNodes({ limit: 20 }) : { nodes: [], message: 'WASM node listing not yet available' };
+          break;
+        case 'status':
+          if (!args[0]) { console.error(chalk.red('Usage: brain node status <node-id>')); process.exit(1); }
+          result = await client.nodeStatus ? client.nodeStatus(args[0]) : { error: 'WASM node status not yet available' };
+          break;
+        default:
+          console.error(chalk.red(`Unknown node action: ${action}. Use: publish, list, status`));
+          process.exit(1);
+      }
+      if (opts.json || !process.stdout.isTTY) { console.log(JSON.stringify(result, null, 2)); return; }
+      if (result.nodes) {
+        console.log(chalk.bold.cyan('\nWASM Compute Nodes\n'));
+        result.nodes.forEach((n, i) => console.log(`  ${chalk.yellow(i + 1 + '.')} ${chalk.bold(n.name || n.id)} ${chalk.dim(n.status || '')}`));
+      } else if (result.id) {
+        console.log(chalk.green(`Published node: ${result.id}`));
+      } else {
+        console.log(JSON.stringify(result, null, 2));
+      }
+      console.log();
+    } catch (e) { console.error(chalk.red(`Error: ${e.message}`)); process.exit(1); }
+  });
+
+// ============================================================================
+// Edge Commands — Distributed compute via @ruvector/edge-net
+// ============================================================================
+
+const edgeCmd = program.command('edge').description('Distributed P2P compute network — status, join, balance, tasks');
+
+const EDGE_GENESIS = 'https://edge-net-genesis-875130704813.us-central1.run.app';
+
+edgeCmd.command('status')
+  .description('Show edge compute network status')
+  .option('--json', 'Output as JSON')
+  .action(async (opts) => {
+    try {
+      const resp = await fetch(`${EDGE_GENESIS}/status`);
+      const data = await resp.json();
+      if (opts.json || !process.stdout.isTTY) { console.log(JSON.stringify(data, null, 2)); return; }
+      console.log(chalk.bold.cyan('\nEdge Network Status\n'));
+      Object.entries(data).forEach(([k, v]) => console.log(`  ${chalk.bold(k + ':')} ${v}`));
+      console.log();
+    } catch (e) { console.error(chalk.red(`Error: ${e.message}`)); }
+  });
+
+edgeCmd.command('join')
+  .description('Join the edge compute network as a compute node')
+  .option('--contribution <level>', 'Contribution level 0.0-1.0', '0.3')
+  .action(async (opts) => {
+    const piKey = process.env.PI;
+    if (!piKey) { console.error(chalk.red('Set PI environment variable first. Run: npx ruvector identity generate')); process.exit(1); }
+    try {
+      const resp = await fetch(`${EDGE_GENESIS}/join`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${piKey}` },
+        body: JSON.stringify({ contribution: parseFloat(opts.contribution), pi_key: piKey })
+      });
+      const data = await resp.json();
+      console.log(chalk.green(`Joined edge network: ${data.node_id || 'OK'}`));
+    } catch (e) { console.error(chalk.red(`Error: ${e.message}`)); }
+  });
+
+edgeCmd.command('balance')
+  .description('Check rUv credit balance')
+  .option('--json', 'Output as JSON')
+  .action(async (opts) => {
+    const piKey = process.env.PI;
+    if (!piKey) { console.error(chalk.red('Set PI environment variable first.')); process.exit(1); }
+    try {
+      const pseudonym = require('crypto').createHash('shake256', { outputLength: 16 }).update(piKey).digest('hex');
+      const resp = await fetch(`${EDGE_GENESIS}/balance/${pseudonym}`, { headers: { 'Authorization': `Bearer ${piKey}` } });
+      if (!resp.ok) { console.error(chalk.red(`Edge network returned ${resp.status} ${resp.statusText}`)); process.exit(1); }
+      const data = await resp.json();
+      if (opts.json || !process.stdout.isTTY) { console.log(JSON.stringify(data, null, 2)); return; }
+      console.log(chalk.bold.cyan('\nrUv Balance\n'));
+      console.log(`  ${chalk.bold('Balance:')} ${data.balance || 0} rUv`);
+      console.log();
+    } catch (e) { console.error(chalk.red(`Error: ${e.message}`)); }
+  });
+
+edgeCmd.command('tasks')
+  .description('List available distributed compute tasks')
+  .option('-l, --limit <n>', 'Max tasks', '20')
+  .option('--json', 'Output as JSON')
+  .action(async (opts) => {
+    try {
+      const resp = await fetch(`${EDGE_GENESIS}/tasks?limit=${opts.limit}`);
+      const data = await resp.json();
+      if (opts.json || !process.stdout.isTTY) { console.log(JSON.stringify(data, null, 2)); return; }
+      console.log(chalk.bold.cyan('\nEdge Compute Tasks\n'));
+      const tasks = Array.isArray(data) ? data : data.tasks || [];
+      if (!tasks.length) { console.log(chalk.dim('  No tasks available.\n')); return; }
+      tasks.forEach((t, i) => console.log(`  ${chalk.yellow(i + 1 + '.')} ${t.name || t.id} ${chalk.dim(`[${t.status || 'pending'}]`)}`));
+      console.log();
+    } catch (e) { console.error(chalk.red(`Error: ${e.message}`)); }
+  });
+
+edgeCmd.command('dashboard')
+  .description('Open edge-net dashboard in browser')
+  .action(() => {
+    const url = 'https://edge-net-dashboard-875130704813.us-central1.run.app';
+    console.log(chalk.cyan(`Dashboard: ${url}`));
+    try {
+      const { execSync } = require('child_process');
+      const cmd = process.platform === 'darwin' ? 'open' : process.platform === 'win32' ? 'start' : 'xdg-open';
+      execSync(`${cmd} ${url}`, { stdio: 'ignore' });
+    } catch { console.log(chalk.dim('  Open the URL above in your browser.')); }
+  });
+
+// ============================================================================
+// Identity Commands — Pi key management
+// ============================================================================
+
+const identityCmd = program.command('identity').description('Pi key identity management — generate, show, export, import');
+
+identityCmd.command('generate')
+  .description('Generate a new pi key')
+  .action(() => {
+    const crypto = require('crypto');
+    const key = crypto.randomBytes(32).toString('hex');
+    const hash = crypto.createHash('shake256', { outputLength: 16 });
+    hash.update(key);
+    const pseudonym = hash.digest('hex');
+    console.log(chalk.bold.cyan('\nNew Pi Identity Generated\n'));
+    console.log(`  ${chalk.bold('Pi Key:')}     ${chalk.yellow(key)}`);
+    console.log(`  ${chalk.bold('Pseudonym:')}  ${chalk.green(pseudonym)}`);
+    console.log();
+    console.log(chalk.dim('  Store securely. Set PI env var to use:'));
+    console.log(chalk.cyan(`  export PI=${key}\n`));
+  });
+
+identityCmd.command('show')
+  .description('Show current pi key pseudonym and derived identities')
+  .option('--json', 'Output as JSON')
+  .action((opts) => {
+    const piKey = process.env.PI;
+    if (!piKey) {
+      console.error(chalk.red('No PI environment variable set.'));
+      console.error(chalk.yellow('  Run: npx ruvector identity generate'));
+      process.exit(1);
+    }
+    const crypto = require('crypto');
+    const hash = crypto.createHash('shake256', { outputLength: 16 });
+    hash.update(piKey);
+    const pseudonym = hash.digest('hex');
+    const mcpToken = crypto.createHmac('sha256', piKey).update('mcp').digest('hex').slice(0, 32);
+    const edgeKeyBuf = crypto.createHash('sha512').update(piKey).update('edge-net').digest().slice(0, 32);
+    const edgeKey = edgeKeyBuf.toString('hex');
+    if (opts.json || !process.stdout.isTTY) {
+      console.log(JSON.stringify({ pseudonym, mcp_token: mcpToken, edge_key: edgeKey, key_prefix: piKey.slice(0, 8) + '...' }, null, 2));
+      return;
+    }
+    console.log(chalk.bold.cyan('\nPi Identity\n'));
+    console.log(`  ${chalk.bold('Key:')}        ${piKey.slice(0, 8)}...${piKey.slice(-8)}`);
+    console.log(`  ${chalk.bold('Pseudonym:')}  ${chalk.green(pseudonym)}`);
+    console.log(`  ${chalk.bold('MCP Token:')} ${chalk.dim(mcpToken)}`);
+    console.log(`  ${chalk.bold('Edge Key:')}  ${chalk.dim(edgeKey)}`);
+    console.log();
+  });
+
+identityCmd.command('export <file>')
+  .description('Export pi key to encrypted file')
+  .action((file) => {
+    const piKey = process.env.PI;
+    if (!piKey) { console.error(chalk.red('No PI environment variable set.')); process.exit(1); }
+    const crypto = require('crypto');
+    const passphrase = crypto.randomBytes(16).toString('hex');
+    const key = crypto.scryptSync(passphrase, 'ruvector-pi', 32);
+    const iv = crypto.randomBytes(16);
+    const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
+    let encrypted = cipher.update(piKey, 'utf8', 'hex');
+    encrypted += cipher.final('hex');
+    const tag = cipher.getAuthTag();
+    const data = { iv: iv.toString('hex'), tag: tag.toString('hex'), data: encrypted };
+    fs.writeFileSync(file, JSON.stringify(data));
+    console.log(chalk.green(`Exported to ${file}`));
+    console.log(chalk.bold(`Passphrase: ${chalk.yellow(passphrase)}`));
+    console.log(chalk.dim('  Store passphrase separately from the export file.\n'));
+  });
+
+identityCmd.command('import <file>')
+  .description('Import pi key from encrypted backup')
+  .requiredOption('-p, --passphrase <pass>', 'Decryption passphrase')
+  .action((file, opts) => {
+    try {
+      const crypto = require('crypto');
+      const raw = JSON.parse(fs.readFileSync(file, 'utf8'));
+      const key = crypto.scryptSync(opts.passphrase, 'ruvector-pi', 32);
+      const decipher = crypto.createDecipheriv('aes-256-gcm', key, Buffer.from(raw.iv, 'hex'));
+      decipher.setAuthTag(Buffer.from(raw.tag, 'hex'));
+      let decrypted = decipher.update(raw.data, 'hex', 'utf8');
+      decrypted += decipher.final('utf8');
+      console.log(chalk.green('Key imported successfully.'));
+      console.log(chalk.cyan(`  export PI=${decrypted}\n`));
+    } catch (e) { console.error(chalk.red(`Error: ${e.message}`)); process.exit(1); }
+  });
+
+// ============================================================================
+// LLM Commands — Text embeddings via @ruvector/ruvllm (lazy-loaded)
+// ============================================================================
+
+const llmCmd = program.command('llm').description('LLM embeddings and inference via @ruvector/ruvllm');
+
+function requireRuvllm() {
+  try { return require('@ruvector/ruvllm'); } catch {
+    console.error(chalk.red('LLM commands require @ruvector/ruvllm'));
+    console.error(chalk.yellow('  npm install @ruvector/ruvllm'));
+    process.exit(1);
+  }
+}
+
+llmCmd.command('embed <text>')
+  .description('Generate text embeddings')
+  .option('-m, --model <model>', 'Model name')
+  .option('--json', 'Output as JSON')
+  .action((text, opts) => {
+    const ruvllm = requireRuvllm();
+    try {
+      const embedding = ruvllm.embed ? ruvllm.embed(text, opts.model) : ruvllm.generateEmbedding(text);
+      if (opts.json || !process.stdout.isTTY) { console.log(JSON.stringify({ embedding, dimension: embedding.length })); return; }
+      console.log(chalk.bold.cyan('\nEmbedding Generated\n'));
+      console.log(`  ${chalk.bold('Dimension:')} ${embedding.length}`);
+      console.log(`  ${chalk.bold('Preview:')} [${embedding.slice(0, 5).map(v => v.toFixed(4)).join(', ')}...]`);
+      console.log();
+    } catch (e) { console.error(chalk.red(`Error: ${e.message}`)); process.exit(1); }
+  });
+
+llmCmd.command('models')
+  .description('List available LLM models')
+  .action(() => {
+    const ruvllm = requireRuvllm();
+    try {
+      if (typeof ruvllm.listModels === 'function') {
+        const models = ruvllm.listModels();
+        models.forEach(m => console.log(`  ${chalk.green(m.name || m)} ${chalk.dim(m.description || '')}`));
+      } else {
+        console.log(chalk.dim('  Model listing requires @ruvector/ruvllm >=2.1.0'));
+        console.log(chalk.dim('  Available: MiniLM-L6 (default embedding model)'));
+      }
+    } catch (e) { console.error(chalk.red(`Error: ${e.message}`)); }
+  });
+
+llmCmd.command('benchmark')
+  .description('Benchmark LLM inference performance')
+  .option('-n, --iterations <n>', 'Number of iterations', '100')
+  .action((opts) => {
+    const ruvllm = requireRuvllm();
+    const n = parseInt(opts.iterations);
+    const text = 'The quick brown fox jumps over the lazy dog';
+    const times = [];
+    for (let i = 0; i < n; i++) {
+      const start = performance.now();
+      ruvllm.embed ? ruvllm.embed(text) : ruvllm.generateEmbedding(text);
+      times.push(performance.now() - start);
+    }
+    times.sort((a, b) => a - b);
+    console.log(chalk.bold.cyan('\nLLM Benchmark\n'));
+    console.log(`  ${chalk.bold('Iterations:')} ${n}`);
+    console.log(`  ${chalk.bold('P50:')} ${times[Math.floor(n * 0.5)].toFixed(2)}ms`);
+    console.log(`  ${chalk.bold('P95:')} ${times[Math.floor(n * 0.95)].toFixed(2)}ms`);
+    console.log(`  ${chalk.bold('P99:')} ${times[Math.floor(n * 0.99)].toFixed(2)}ms`);
+    console.log(`  ${chalk.bold('Mean:')} ${(times.reduce((a, b) => a + b, 0) / n).toFixed(2)}ms`);
+    console.log();
+  });
+
+llmCmd.command('info')
+  .description('Show RuvLLM module information')
+  .action(() => {
+    const ruvllm = requireRuvllm();
+    console.log(chalk.bold.cyan('\nRuvLLM Info\n'));
+    console.log(`  ${chalk.bold('Version:')} ${typeof ruvllm.version === 'function' ? ruvllm.version() : ruvllm.version || 'unknown'}`);
+    console.log(`  ${chalk.bold('SIMD:')} ${ruvllm.simdEnabled ? 'enabled' : 'not detected'}`);
+    console.log();
+  });
+
+// ============================================================================
+// SONA Commands — Self-Optimizing Neural Architecture (lazy-loaded)
+// ============================================================================
+
+const sonaCmd = program.command('sona').description('SONA adaptive learning — status, patterns, train, export');
+
+function loadSona() {
+  try { return require('@ruvector/sona'); } catch {
+    console.error(chalk.red('SONA commands require @ruvector/sona'));
+    console.error(chalk.yellow('  npm install @ruvector/sona'));
+    process.exit(1);
+  }
+}
+
+sonaCmd.command('status')
+  .description('Show SONA learning engine status')
+  .option('--json', 'Output as JSON')
+  .action((opts) => {
+    const sona = loadSona();
+    try {
+      const engine = sona.SonaEngine ? new sona.SonaEngine() : new sona.SonaCoordinator();
+      const status = engine.getStatus ? engine.getStatus() : { ready: true };
+      if (opts.json || !process.stdout.isTTY) { console.log(JSON.stringify(status, null, 2)); return; }
+      console.log(chalk.bold.cyan('\nSONA Status\n'));
+      Object.entries(status).forEach(([k, v]) => console.log(`  ${chalk.bold(k + ':')} ${v}`));
+      console.log();
+    } catch (e) { console.error(chalk.red(`Error: ${e.message}`)); }
+  });
+
+sonaCmd.command('patterns <query>')
+  .description('Search learned patterns')
+  .option('-t, --threshold <n>', 'Similarity threshold', '0.5')
+  .option('--json', 'Output as JSON')
+  .action((query, opts) => {
+    const sona = loadSona();
+    try {
+      const engine = sona.SonaEngine ? new sona.SonaEngine() : new sona.SonaCoordinator();
+      const patterns = engine.findPatterns ? engine.findPatterns(query, { threshold: parseFloat(opts.threshold) }) : [];
+      if (opts.json || !process.stdout.isTTY) { console.log(JSON.stringify(patterns, null, 2)); return; }
+      console.log(chalk.bold.cyan('\nLearned Patterns\n'));
+      if (!patterns.length) { console.log(chalk.dim('  No patterns found.\n')); return; }
+      patterns.forEach((p, i) => console.log(`  ${chalk.yellow(i + 1 + '.')} ${p.name || p.pattern || JSON.stringify(p).slice(0, 80)}`));
+      console.log();
+    } catch (e) { console.error(chalk.red(`Error: ${e.message}`)); }
+  });
+
+sonaCmd.command('train <data>')
+  .description('Record a training trajectory')
+  .option('--outcome <outcome>', 'Outcome (success/failure)', 'success')
+  .action((data, opts) => {
+    const sona = loadSona();
+    try {
+      const engine = sona.SonaEngine ? new sona.SonaEngine() : new sona.SonaCoordinator();
+      if (engine.recordTrajectory) { engine.recordTrajectory(data, opts.outcome); }
+      else if (engine.train) { engine.train(data); }
+      console.log(chalk.green('Training trajectory recorded.'));
+    } catch (e) { console.error(chalk.red(`Error: ${e.message}`)); }
+  });
+
+sonaCmd.command('export')
+  .description('Export SONA learned weights to JSON')
+  .option('-o, --output <file>', 'Output file', 'sona-weights.json')
+  .action((opts) => {
+    const sona = loadSona();
+    try {
+      const engine = sona.SonaEngine ? new sona.SonaEngine() : new sona.SonaCoordinator();
+      const weights = engine.exportWeights ? engine.exportWeights() : engine.export ? engine.export() : {};
+      fs.writeFileSync(opts.output, JSON.stringify(weights, null, 2));
+      console.log(chalk.green(`Exported to ${opts.output}`));
+    } catch (e) { console.error(chalk.red(`Error: ${e.message}`)); }
+  });
+
+sonaCmd.command('stats')
+  .description('Show detailed SONA learning statistics')
+  .option('--json', 'Output as JSON')
+  .action((opts) => {
+    const sona = loadSona();
+    try {
+      const engine = sona.SonaEngine ? new sona.SonaEngine() : new sona.SonaCoordinator();
+      const stats = engine.getStats ? engine.getStats() : engine.stats ? engine.stats() : {};
+      if (opts.json || !process.stdout.isTTY) { console.log(JSON.stringify(stats, null, 2)); return; }
+      console.log(chalk.bold.cyan('\nSONA Statistics\n'));
+      Object.entries(stats).forEach(([k, v]) => console.log(`  ${chalk.bold(k + ':')} ${v}`));
+      console.log();
+    } catch (e) { console.error(chalk.red(`Error: ${e.message}`)); }
+  });
+
+sonaCmd.command('info')
+  .description('Show SONA module availability')
+  .action(() => {
+    const sona = loadSona();
+    console.log(chalk.bold.cyan('\nSONA Info\n'));
+    console.log(`  ${chalk.bold('Version:')} ${typeof sona.version === 'function' ? sona.version() : sona.version || 'unknown'}`);
+    console.log(`  ${chalk.bold('Engine:')} ${sona.SonaEngine ? 'Native' : 'JS Fallback'}`);
+    console.log();
+  });
+
+// ============================================================================
+// Route Commands — Semantic routing via @ruvector/router (lazy-loaded)
+// ============================================================================
+
+const routeCmd = program.command('route').description('Semantic routing — classify inputs to routes via HNSW + SIMD');
+
+function requireRouter() {
+  try { return require('@ruvector/router'); } catch {
+    console.error(chalk.red('Route commands require @ruvector/router'));
+    console.error(chalk.yellow('  npm install @ruvector/router'));
+    process.exit(1);
+  }
+}
+
+routeCmd.command('classify <input>')
+  .description('Classify input to a semantic route')
+  .option('--json', 'Output as JSON')
+  .action((input, opts) => {
+    const router = requireRouter();
+    try {
+      const result = router.classify ? router.classify(input) : { route: 'default', confidence: 1.0 };
+      if (opts.json || !process.stdout.isTTY) { console.log(JSON.stringify(result)); return; }
+      console.log(chalk.bold.cyan('\nRoute Classification\n'));
+      console.log(`  ${chalk.bold('Input:')} ${input}`);
+      console.log(`  ${chalk.bold('Route:')} ${chalk.green(result.route)}`);
+      console.log(`  ${chalk.bold('Confidence:')} ${result.confidence}`);
+      console.log();
+    } catch (e) { console.error(chalk.red(`Error: ${e.message}`)); }
+  });
+
+routeCmd.command('benchmark')
+  .description('Benchmark routing throughput')
+  .option('-n, --iterations <n>', 'Number of iterations', '1000')
+  .action((opts) => {
+    const router = requireRouter();
+    const n = parseInt(opts.iterations);
+    const input = 'test input for routing benchmark';
+    const start = performance.now();
+    for (let i = 0; i < n; i++) {
+      router.classify ? router.classify(input) : null;
+    }
+    const elapsed = performance.now() - start;
+    console.log(chalk.bold.cyan('\nRoute Benchmark\n'));
+    console.log(`  ${chalk.bold('Iterations:')} ${n}`);
+    console.log(`  ${chalk.bold('Total:')} ${elapsed.toFixed(2)}ms`);
+    console.log(`  ${chalk.bold('Per-route:')} ${(elapsed / n).toFixed(3)}ms`);
+    console.log(`  ${chalk.bold('Throughput:')} ${Math.floor(n / (elapsed / 1000))}/sec`);
+    console.log();
+  });
+
+routeCmd.command('info')
+  .description('Show router module information')
+  .action(() => {
+    const router = requireRouter();
+    console.log(chalk.bold.cyan('\nRouter Info\n'));
+    console.log(`  ${chalk.bold('Version:')} ${typeof router.version === 'function' ? router.version() : router.version || 'unknown'}`);
     console.log();
   });
 

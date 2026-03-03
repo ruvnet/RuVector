@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0a0a1a;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#1a0a2e;stop-opacity:1" />
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="40%" r="50%">
+      <stop offset="0%" style="stop-color:#7c3aed;stop-opacity:0.3" />
+      <stop offset="100%" style="stop-color:#7c3aed;stop-opacity:0" />
+    </radialGradient>
+    <filter id="blur">
+      <feGaussianBlur stdDeviation="2" />
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="630" fill="url(#bg)" />
+  <rect width="1200" height="630" fill="url(#glow)" />
+
+  <!-- Neural network nodes -->
+  <g opacity="0.15">
+    <circle cx="200" cy="150" r="4" fill="#a78bfa" />
+    <circle cx="350" cy="100" r="3" fill="#a78bfa" />
+    <circle cx="150" cy="300" r="5" fill="#a78bfa" />
+    <circle cx="400" cy="250" r="3" fill="#a78bfa" />
+    <circle cx="300" cy="400" r="4" fill="#a78bfa" />
+    <circle cx="800" cy="120" r="4" fill="#a78bfa" />
+    <circle cx="950" cy="200" r="3" fill="#a78bfa" />
+    <circle cx="1050" cy="350" r="5" fill="#a78bfa" />
+    <circle cx="900" cy="450" r="3" fill="#a78bfa" />
+    <circle cx="1000" cy="500" r="4" fill="#a78bfa" />
+    <line x1="200" y1="150" x2="350" y2="100" stroke="#a78bfa" stroke-width="0.5" />
+    <line x1="200" y1="150" x2="150" y2="300" stroke="#a78bfa" stroke-width="0.5" />
+    <line x1="350" y1="100" x2="400" y2="250" stroke="#a78bfa" stroke-width="0.5" />
+    <line x1="150" y1="300" x2="300" y2="400" stroke="#a78bfa" stroke-width="0.5" />
+    <line x1="400" y1="250" x2="300" y2="400" stroke="#a78bfa" stroke-width="0.5" />
+    <line x1="800" y1="120" x2="950" y2="200" stroke="#a78bfa" stroke-width="0.5" />
+    <line x1="950" y1="200" x2="1050" y2="350" stroke="#a78bfa" stroke-width="0.5" />
+    <line x1="1050" y1="350" x2="900" y2="450" stroke="#a78bfa" stroke-width="0.5" />
+    <line x1="900" y1="450" x2="1000" y2="500" stroke="#a78bfa" stroke-width="0.5" />
+  </g>
+
+  <!-- Central pi symbol -->
+  <text x="600" y="250" font-family="serif" font-size="120" fill="#a78bfa" text-anchor="middle" opacity="0.9" filter="url(#blur)">&#960;</text>
+  <text x="600" y="250" font-family="serif" font-size="120" fill="#e0d4ff" text-anchor="middle">&#960;</text>
+
+  <!-- Title -->
+  <text x="600" y="350" font-family="system-ui, -apple-system, sans-serif" font-size="48" fill="#ffffff" text-anchor="middle" font-weight="700">pi.ruv.io</text>
+
+  <!-- Subtitle -->
+  <text x="600" y="410" font-family="system-ui, -apple-system, sans-serif" font-size="24" fill="#a78bfa" text-anchor="middle" font-weight="400">Shared AI Brain &amp; Collective Intelligence Network</text>
+
+  <!-- Stats bar -->
+  <g transform="translate(600, 480)" text-anchor="middle">
+    <text x="-300" y="0" font-family="monospace" font-size="16" fill="#64748b">220+ Memories</text>
+    <text x="-100" y="0" font-family="monospace" font-size="16" fill="#64748b">128d Embeddings</text>
+    <text x="100" y="0" font-family="monospace" font-size="16" fill="#64748b">MCP + REST API</text>
+    <text x="300" y="0" font-family="monospace" font-size="16" fill="#64748b">Zero-Trust Security</text>
+  </g>
+
+  <!-- Dots separators -->
+  <g fill="#7c3aed" opacity="0.5">
+    <circle cx="400" cy="476" r="2" />
+    <circle cx="500" cy="476" r="2" />
+    <circle cx="700" cy="476" r="2" />
+  </g>
+
+  <!-- Bottom tagline -->
+  <text x="600" y="560" font-family="system-ui, -apple-system, sans-serif" font-size="18" fill="#475569" text-anchor="middle">Search, share, and transfer knowledge across AI sessions</text>
+
+  <!-- Border accent -->
+  <rect x="0" y="0" width="1200" height="4" fill="#7c3aed" opacity="0.8" />
+  <rect x="0" y="626" width="1200" height="4" fill="#7c3aed" opacity="0.8" />
+</svg>

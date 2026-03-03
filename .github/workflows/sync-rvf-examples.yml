@@ -1,0 +1,82 @@
+name: Sync RVF Examples to GCS
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'examples/rvf/output/**'
+      - 'examples/rvf/generate_examples.rs'
+      - 'scripts/generate-rvf-manifest.py'
+  workflow_dispatch:
+    inputs:
+      force_sync:
+        description: 'Force sync even without changes'
+        type: boolean
+        default: false
+
+env:
+  GCS_BUCKET: ruvector-examples
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set version
+        run: |
+          VERSION=$(jq -r .version npm/packages/ruvector/package.json)
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          echo "Syncing version: $VERSION"
+
+      - name: Generate manifest
+        run: |
+          python3 scripts/generate-rvf-manifest.py \
+            --input examples/rvf/output/ \
+            --version ${{ env.VERSION }} \
+            --output examples/rvf/manifest.json
+
+      - name: Generate checksums
+        run: |
+          cd examples/rvf/output
+          sha256sum *.rvf > checksums.sha256
+
+      - name: Authenticate to Google Cloud
+        if: github.ref == 'refs/heads/main'
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCS_SERVICE_ACCOUNT }}
+
+      - name: Upload examples to GCS
+        if: github.ref == 'refs/heads/main'
+        uses: google-github-actions/upload-cloud-storage@v2
+        with:
+          path: examples/rvf/output/
+          destination: ${{ env.GCS_BUCKET }}/v${{ env.VERSION }}/
+          glob: '*.rvf'
+
+      - name: Upload manifest and checksums
+        if: github.ref == 'refs/heads/main'
+        run: |
+          gsutil cp examples/rvf/manifest.json gs://${{ env.GCS_BUCKET }}/v${{ env.VERSION }}/manifest.json
+          gsutil cp examples/rvf/output/checksums.sha256 gs://${{ env.GCS_BUCKET }}/v${{ env.VERSION }}/checksums.sha256
+          # Update root manifest (latest)
+          gsutil cp examples/rvf/manifest.json gs://${{ env.GCS_BUCKET }}/manifest.json
+
+      - name: Verify upload
+        if: github.ref == 'refs/heads/main'
+        run: |
+          echo "Verifying GCS upload..."
+          REMOTE_COUNT=$(gsutil ls gs://${{ env.GCS_BUCKET }}/v${{ env.VERSION }}/*.rvf | wc -l)
+          LOCAL_COUNT=$(ls examples/rvf/output/*.rvf | wc -l)
+          echo "Remote: $REMOTE_COUNT files, Local: $LOCAL_COUNT files"
+          if [ "$REMOTE_COUNT" -ne "$LOCAL_COUNT" ]; then
+            echo "ERROR: File count mismatch!"
+            exit 1
+          fi
+          echo "Upload verified successfully"

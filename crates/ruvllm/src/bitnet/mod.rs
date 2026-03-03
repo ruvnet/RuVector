@@ -84,8 +84,8 @@ pub use quantizer::{
     absmean_ternary, quantize_tensor, LayerMask, Precision, PtBitnetConfig, TernaryFormat,
 };
 pub use rlm_embedder::{
-    BaseEmbedder, EmbeddingVariant, NeighborRetriever, RlmEmbedder, RlmEmbedderConfig,
-    RlmEmbeddingResult,
+    BaseEmbedder, EmbeddingVariant, FlatNeighborStore, HashEmbedder, NeighborRetriever,
+    RlmEmbedder, RlmEmbedderConfig, RlmEmbeddingResult,
 };
 pub use rlm_refiner::{RefinementResult, RefinementStepMetrics, RlmRefiner, RlmRefinerConfig};
 pub use ternary_tensor::{pack_ternary, unpack_ternary, TernaryTensor};

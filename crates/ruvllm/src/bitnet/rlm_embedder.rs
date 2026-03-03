@@ -650,6 +650,7 @@ impl<E: BaseEmbedder, R: NeighborRetriever> RlmEmbedder<E, R> {
 /// this is for testing, benchmarking, and as a baseline.
 ///
 /// On Pi 5: ~0.1ms per embedding (just hashing + normalize).
+#[derive(Clone)]
 pub struct HashEmbedder {
     dim: usize,
 }
@@ -702,6 +703,7 @@ impl BaseEmbedder for HashEmbedder {
 /// Suitable for small corpora (< 100K chunks) on Pi 5.
 ///
 /// For larger corpora, use RuVector's HNSW index as the retriever.
+#[derive(Clone)]
 pub struct FlatNeighborStore {
     chunks: Vec<StoredChunk>,
     dim: usize,
