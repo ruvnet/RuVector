@@ -56,7 +56,7 @@ npx ruvector hooks init --pretrain --build-agents quality
 
 ### MCP Server Integration
 
-RuVector includes an MCP server for Claude Code with 30+ tools:
+RuVector includes an MCP server for Claude Code with 103 tools:
 
 ```bash
 # Add to Claude Code
@@ -72,6 +72,35 @@ claude mcp add ruvector -- npx ruvector mcp start
 - `hooks_security_scan` — Vulnerability detection
 - `hooks_rag_context` — Semantic context retrieval
 - `hooks_attention_info`, `hooks_gnn_info` — Neural capabilities
+- `brain_search`, `brain_share`, `brain_status` — Shared brain knowledge
+- `brain_agi_status`, `brain_sona_stats`, `brain_temporal`, `brain_explore` — AGI diagnostics
+- `brain_midstream`, `brain_flags` — Midstream platform + feature flags
+- `midstream_status`, `midstream_attractor`, `midstream_scheduler` — Streaming analysis
+- `midstream_benchmark`, `midstream_search`, `midstream_health` — Latency benchmarks + health
+
+### Brain AGI Commands
+
+Access all 8 AGI subsystems deployed at π.ruv.io:
+
+```bash
+npx ruvector brain agi status          # Combined AGI + midstream diagnostics
+npx ruvector brain agi sona            # SONA patterns, trajectories, ticks
+npx ruvector brain agi temporal        # Knowledge evolution velocity
+npx ruvector brain agi explore         # Meta-learning curiosity & regret
+npx ruvector brain agi midstream       # Scheduler, attractor, solver, strange-loop
+npx ruvector brain agi flags           # Feature flag state
+```
+
+### Midstream Commands
+
+Real-time streaming analysis platform:
+
+```bash
+npx ruvector midstream status          # Platform overview
+npx ruvector midstream attractor       # Lyapunov attractor analysis
+npx ruvector midstream scheduler       # Nanosecond scheduler metrics
+npx ruvector midstream benchmark       # Latency benchmark (p50/p90/p99)
+```
 
 ---
 

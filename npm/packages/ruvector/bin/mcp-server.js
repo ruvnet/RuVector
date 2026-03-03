@@ -363,7 +363,7 @@ class Intelligence {
 const server = new Server(
   {
     name: 'ruvector',
-    version: '0.2.3',
+    version: '0.2.5',
   },
   {
     capabilities: {
@@ -1395,6 +1395,85 @@ const TOOLS = [
         direction: { type: 'string', description: 'Sync direction: pull, push, or both (default both)' }
       }
     }
+  },
+  // ── Brain AGI Tools (6) ── AGI subsystem diagnostics via direct fetch ──
+  {
+    name: 'brain_agi_status',
+    description: 'Combined AGI subsystem diagnostics — SONA, GWT, temporal, meta-learning, midstream',
+    inputSchema: { type: 'object', properties: {} }
+  },
+  {
+    name: 'brain_sona_stats',
+    description: 'SONA learning engine stats — patterns, trajectories, background ticks',
+    inputSchema: { type: 'object', properties: {} }
+  },
+  {
+    name: 'brain_temporal',
+    description: 'Temporal delta tracking — velocity, trend, total deltas',
+    inputSchema: { type: 'object', properties: {} }
+  },
+  {
+    name: 'brain_explore',
+    description: 'Meta-learning exploration — curiosity, regret, plateau status, Pareto frontier',
+    inputSchema: { type: 'object', properties: {} }
+  },
+  {
+    name: 'brain_midstream',
+    description: 'Midstream platform diagnostics — scheduler, attractor, solver, strange-loop',
+    inputSchema: { type: 'object', properties: {} }
+  },
+  {
+    name: 'brain_flags',
+    description: 'Show backend feature flag state (RVF, AGI, midstream flags)',
+    inputSchema: { type: 'object', properties: {} }
+  },
+  // ── Midstream Tools (6) ── Real-time streaming analysis platform ──
+  {
+    name: 'midstream_status',
+    description: 'Full midstream platform diagnostics — scheduler, attractor, solver, strange-loop',
+    inputSchema: { type: 'object', properties: {} }
+  },
+  {
+    name: 'midstream_attractor',
+    description: 'Attractor categories with Lyapunov exponent analysis',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        category: { type: 'string', description: 'Optional category to filter (e.g., pattern, solution)' }
+      }
+    }
+  },
+  {
+    name: 'midstream_scheduler',
+    description: 'Nanosecond scheduler performance metrics — ticks, tasks/sec',
+    inputSchema: { type: 'object', properties: {} }
+  },
+  {
+    name: 'midstream_benchmark',
+    description: 'Run sequential + concurrent latency benchmark against brain backend',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        concurrent_count: { type: 'number', description: 'Number of concurrent search requests (default 20, max 100)' }
+      }
+    }
+  },
+  {
+    name: 'midstream_search',
+    description: 'Semantic search with midstream scoring metadata in response',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        query: { type: 'string', description: 'Search query' },
+        limit: { type: 'number', description: 'Max results (default 10)' }
+      },
+      required: ['query']
+    }
+  },
+  {
+    name: 'midstream_health',
+    description: 'Combined health + midstream subsystem check',
+    inputSchema: { type: 'object', properties: {} }
   },
   // ── Edge Tools (4) ── Distributed compute via @ruvector/edge-net ──
   {
@@ -3239,6 +3318,189 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         }
       }
 
+      // ── Brain AGI Tool Handlers ────────────────────────────────────────────
+      case 'brain_agi_status':
+      case 'brain_sona_stats':
+      case 'brain_temporal':
+      case 'brain_explore':
+      case 'brain_midstream':
+      case 'brain_flags': {
+        try {
+          const brainUrl = process.env.BRAIN_URL || 'https://pi.ruv.io';
+          const brainKey = process.env.PI;
+          const hdrs = { 'Content-Type': 'application/json' };
+          if (brainKey) hdrs['Authorization'] = `Bearer ${brainKey}`;
+
+          const endpointMap = {
+            brain_agi_status: '/v1/status',
+            brain_sona_stats: '/v1/sona/stats',
+            brain_temporal: '/v1/temporal',
+            brain_explore: '/v1/explore',
+            brain_midstream: '/v1/midstream',
+            brain_flags: '/v1/status',
+          };
+          const endpoint = endpointMap[name];
+          const resp = await fetch(`${brainUrl}${endpoint}`, { headers: hdrs });
+          if (!resp.ok) {
+            const errText = await resp.text().catch(() => resp.statusText);
+            return { content: [{ type: 'text', text: JSON.stringify({ success: false, error: `${resp.status} ${errText}` }, null, 2) }], isError: true };
+          }
+          let data = await resp.json();
+
+          // For brain_flags, extract only flag-related fields
+          if (name === 'brain_flags') {
+            const flags = {};
+            for (const [k, v] of Object.entries(data)) {
+              if (typeof v === 'boolean' || k.startsWith('rvf_') || k.endsWith('_enabled') || (k.startsWith('midstream_') && typeof v === 'boolean')) {
+                flags[k] = v;
+              }
+            }
+            data = flags;
+          }
+
+          // For brain_agi_status, extract AGI-specific fields
+          if (name === 'brain_agi_status') {
+            const agiFields = {};
+            const agiKeys = ['sona_patterns', 'sona_trajectories', 'sona_background_ticks', 'gwt_workspace_load', 'gwt_avg_salience', 'knowledge_velocity', 'temporal_deltas', 'temporal_trend', 'meta_avg_regret', 'meta_plateau_status', 'midstream_scheduler_ticks', 'midstream_attractor_categories', 'midstream_strange_loop_version'];
+            for (const k of agiKeys) {
+              if (data[k] !== undefined) agiFields[k] = data[k];
+            }
+            data = Object.keys(agiFields).length > 0 ? agiFields : data;
+          }
+
+          return { content: [{ type: 'text', text: JSON.stringify({ success: true, ...data }, null, 2) }] };
+        } catch (e) {
+          return { content: [{ type: 'text', text: JSON.stringify({ success: false, error: e.message }, null, 2) }], isError: true };
+        }
+      }
+
+      // ── Midstream Tool Handlers ────────────────────────────────────────────
+      case 'midstream_status':
+      case 'midstream_attractor':
+      case 'midstream_scheduler': {
+        try {
+          const brainUrl = process.env.BRAIN_URL || 'https://pi.ruv.io';
+          const brainKey = process.env.PI;
+          const hdrs = { 'Content-Type': 'application/json' };
+          if (brainKey) hdrs['Authorization'] = `Bearer ${brainKey}`;
+
+          const resp = await fetch(`${brainUrl}/v1/midstream`, { headers: hdrs });
+          if (!resp.ok) {
+            const errText = await resp.text().catch(() => resp.statusText);
+            return { content: [{ type: 'text', text: JSON.stringify({ success: false, error: `${resp.status} ${errText}` }, null, 2) }], isError: true };
+          }
+          let data = await resp.json();
+
+          if (name === 'midstream_attractor') {
+            data = data.attractor_categories || data.attractors || data;
+            if (args.category && typeof data === 'object') data = data[args.category] || { error: `Category '${args.category}' not found` };
+          } else if (name === 'midstream_scheduler') {
+            data = data.scheduler || { ticks: data.scheduler_ticks || 0 };
+          }
+
+          return { content: [{ type: 'text', text: JSON.stringify({ success: true, ...data }, null, 2) }] };
+        } catch (e) {
+          return { content: [{ type: 'text', text: JSON.stringify({ success: false, error: e.message }, null, 2) }], isError: true };
+        }
+      }
+
+      case 'midstream_benchmark': {
+        try {
+          const brainUrl = process.env.BRAIN_URL || 'https://pi.ruv.io';
+          const brainKey = process.env.PI;
+          const hdrs = { 'Content-Type': 'application/json' };
+          if (brainKey) hdrs['Authorization'] = `Bearer ${brainKey}`;
+          const concurrentN = Math.min(args.concurrent_count || 20, 100);
+
+          async function timeFetch(url) {
+            const start = performance.now();
+            const resp = await fetch(url, { headers: hdrs });
+            return { status: resp.status, elapsed: performance.now() - start };
+          }
+
+          // Sequential tests
+          const endpoints = [
+            { path: '/v1/health', label: 'health' },
+            { path: '/v1/status', label: 'status' },
+            { path: '/v1/memories/search?q=test&limit=3', label: 'search' },
+            { path: '/v1/midstream', label: 'midstream' },
+          ];
+
+          const sequential = {};
+          for (const ep of endpoints) {
+            const times = [];
+            for (let i = 0; i < 3; i++) {
+              const r = await timeFetch(brainUrl + ep.path);
+              times.push(r.elapsed);
+            }
+            sequential[ep.label] = {
+              avg_ms: +(times.reduce((a, b) => a + b, 0) / times.length).toFixed(1),
+              min_ms: +Math.min(...times).toFixed(1),
+              max_ms: +Math.max(...times).toFixed(1)
+            };
+          }
+
+          // Concurrent search
+          const promises = [];
+          for (let i = 0; i < concurrentN; i++) {
+            promises.push(timeFetch(brainUrl + '/v1/memories/search?q=test&limit=3'));
+          }
+          const results = await Promise.all(promises);
+          const sorted = results.map(r => r.elapsed).sort((a, b) => a - b);
+          const pct = (p) => +(sorted[Math.max(0, Math.ceil(sorted.length * p / 100) - 1)]).toFixed(1);
+
+          return { content: [{ type: 'text', text: JSON.stringify({
+            success: true,
+            sequential,
+            concurrent: { count: concurrentN, p50_ms: pct(50), p90_ms: pct(90), p99_ms: pct(99) }
+          }, null, 2) }] };
+        } catch (e) {
+          return { content: [{ type: 'text', text: JSON.stringify({ success: false, error: e.message }, null, 2) }], isError: true };
+        }
+      }
+
+      case 'midstream_search': {
+        try {
+          const brainUrl = process.env.BRAIN_URL || 'https://pi.ruv.io';
+          const brainKey = process.env.PI;
+          const hdrs = { 'Content-Type': 'application/json' };
+          if (brainKey) hdrs['Authorization'] = `Bearer ${brainKey}`;
+          const limit = Math.min(Math.max(parseInt(args.limit) || 10, 1), 100);
+          const q = encodeURIComponent(args.query);
+          const resp = await fetch(`${brainUrl}/v1/memories/search?q=${q}&limit=${limit}`, { headers: hdrs });
+          if (!resp.ok) {
+            const errText = await resp.text().catch(() => resp.statusText);
+            return { content: [{ type: 'text', text: JSON.stringify({ success: false, error: `${resp.status} ${errText}` }, null, 2) }], isError: true };
+          }
+          const data = await resp.json();
+          return { content: [{ type: 'text', text: JSON.stringify({ success: true, results: data, count: Array.isArray(data) ? data.length : 0 }, null, 2) }] };
+        } catch (e) {
+          return { content: [{ type: 'text', text: JSON.stringify({ success: false, error: e.message }, null, 2) }], isError: true };
+        }
+      }
+
+      case 'midstream_health': {
+        try {
+          const brainUrl = process.env.BRAIN_URL || 'https://pi.ruv.io';
+          const brainKey = process.env.PI;
+          const hdrs = { 'Content-Type': 'application/json' };
+          if (brainKey) hdrs['Authorization'] = `Bearer ${brainKey}`;
+
+          const [healthResp, midResp] = await Promise.all([
+            fetch(`${brainUrl}/v1/health`, { headers: hdrs }).then(r => r.json()).catch(e => ({ error: e.message })),
+            fetch(`${brainUrl}/v1/midstream`, { headers: hdrs }).then(r => r.json()).catch(e => ({ error: e.message })),
+          ]);
+
+          return { content: [{ type: 'text', text: JSON.stringify({
+            success: true,
+            health: healthResp,
+            midstream: midResp
+          }, null, 2) }] };
+        } catch (e) {
+          return { content: [{ type: 'text', text: JSON.stringify({ success: false, error: e.message }, null, 2) }], isError: true };
+        }
+      }
+
       // ── Edge Tool Handlers ───────────────────────────────────────────────
       case 'edge_status':
       case 'edge_join':
@@ -3525,7 +3787,7 @@ async function main() {
           transport: 'sse',
           sessions: sessions.size,
           tools: 91,
-          version: '0.2.3'
+          version: '0.2.5'
         }));
 
       } else {

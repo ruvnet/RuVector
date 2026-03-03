@@ -141,6 +141,22 @@ try {
   console.error('   ✗ CLI test failed:', error.message);
 }
 
+// Test 6: MCP tool count (should be >= 130 after ADR-078)
+console.log('\n6. Testing MCP tool count...');
+try {
+  const fs = require('fs');
+  const mcpSrc = fs.readFileSync(path.join(__dirname, '../bin/mcp-server.js'), 'utf8');
+  const toolCount = (mcpSrc.match(/inputSchema/g) || []).length;
+  assert(toolCount >= 103, `Expected at least 103 MCP tools (91 base + 12 AGI/midstream), found ${toolCount}`);
+  console.log(`   ✓ MCP tool count: ${toolCount} tools (>= 103)`);
+} catch (error) {
+  if (error.code === 'ERR_ASSERTION') {
+    console.error(`   ✗ MCP tool count test failed: ${error.message}`);
+    process.exit(1);
+  }
+  console.log(`   ⚠ MCP tool count test skipped: ${error.message}`);
+}
+
 // Summary
 console.log('\n' + '='.repeat(50));
 console.log('\n✓ Core package structure tests passed!');

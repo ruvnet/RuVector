@@ -324,8 +324,95 @@ for (const cmd of newCommands) {
   }
 }
 
-// ---- Section 14: Error handling ------------------------------------------
-console.log('\n--- 14. Error handling ---\n');
+// ---- Section 14: Brain AGI commands --------------------------------------
+console.log('\n--- 14. Brain AGI commands ---\n');
+
+test('brain agi --help lists subcommands', () => {
+  const out = run('brain agi --help');
+  assert(out.includes('status'), 'Should list status subcommand');
+  assert(out.includes('sona'), 'Should list sona subcommand');
+  assert(out.includes('temporal'), 'Should list temporal subcommand');
+  assert(out.includes('explore'), 'Should list explore subcommand');
+  assert(out.includes('midstream'), 'Should list midstream subcommand');
+  assert(out.includes('flags'), 'Should list flags subcommand');
+});
+
+test('brain agi status --help shows usage', () => {
+  const out = run('brain agi status --help');
+  assert(out.includes('AGI') || out.includes('diagnostics'), 'Should describe AGI diagnostics');
+});
+
+test('brain agi sona --help shows usage', () => {
+  const out = run('brain agi sona --help');
+  assert(out.includes('SONA') || out.includes('sona'), 'Should mention SONA');
+});
+
+test('brain agi temporal --help shows usage', () => {
+  const out = run('brain agi temporal --help');
+  assert(out.includes('temporal') || out.includes('Temporal'), 'Should mention temporal');
+});
+
+test('brain agi explore --help shows usage', () => {
+  const out = run('brain agi explore --help');
+  assert(out.includes('explore') || out.includes('Meta'), 'Should mention explore/meta');
+});
+
+test('brain agi midstream --help shows usage', () => {
+  const out = run('brain agi midstream --help');
+  assert(out.includes('midstream') || out.includes('Midstream'), 'Should mention midstream');
+});
+
+test('brain agi flags --help shows usage', () => {
+  const out = run('brain agi flags --help');
+  assert(out.includes('flag') || out.includes('Flag'), 'Should mention flags');
+});
+
+// ---- Section 15: Midstream commands --------------------------------------
+console.log('\n--- 15. Midstream commands ---\n');
+
+test('midstream --help lists subcommands', () => {
+  const out = run('midstream --help');
+  assert(out.includes('status'), 'Should list status');
+  assert(out.includes('attractor'), 'Should list attractor');
+  assert(out.includes('scheduler'), 'Should list scheduler');
+  assert(out.includes('benchmark'), 'Should list benchmark');
+});
+
+test('midstream status --help shows usage', () => {
+  const out = run('midstream status --help');
+  assert(out.includes('Midstream') || out.includes('midstream'), 'Should mention midstream');
+});
+
+test('midstream attractor --help shows usage', () => {
+  const out = run('midstream attractor --help');
+  assert(out.includes('attractor') || out.includes('Lyapunov'), 'Should mention attractor');
+});
+
+test('midstream scheduler --help shows usage', () => {
+  const out = run('midstream scheduler --help');
+  assert(out.includes('scheduler') || out.includes('Nanosecond'), 'Should mention scheduler');
+});
+
+test('midstream benchmark --help shows usage', () => {
+  const out = run('midstream benchmark --help');
+  assert(out.includes('benchmark') || out.includes('latency'), 'Should mention benchmark');
+});
+
+// ---- Section 16: Enhanced brain commands ---------------------------------
+console.log('\n--- 16. Enhanced brain commands ---\n');
+
+test('brain search --help includes --verbose flag', () => {
+  const out = run('brain search --help');
+  assert(out.includes('--verbose'), 'Should have --verbose flag');
+});
+
+test('brain status --help works', () => {
+  const out = run('brain status --help');
+  assert(out.includes('status') || out.includes('health'), 'Should show status info');
+});
+
+// ---- Section 17: Error handling ------------------------------------------
+console.log('\n--- 17. Error handling ---\n');
 
 test('unknown command returns error', () => {
   const { stderr, code } = runSafe('totallyFakeCommand12345');
@@ -344,8 +431,8 @@ test('search without database shows error', () => {
   assert(code !== 0, 'Should exit with non-zero code for missing arg');
 });
 
-// ---- Section 15: CLI file integrity --------------------------------------
-console.log('\n--- 15. CLI file integrity ---\n');
+// ---- Section 18: CLI file integrity --------------------------------------
+console.log('\n--- 18. CLI file integrity ---\n');
 
 test('cli.js has correct shebang', () => {
   const content = fs.readFileSync(path.join(CLI_DIR, 'bin', 'cli.js'), 'utf8');
@@ -381,8 +468,8 @@ test('dist/types.d.ts exists', () => {
     'dist/types.d.ts should exist');
 });
 
-// ---- Section 16: Command completeness ------------------------------------
-console.log('\n--- 16. Command completeness ---\n');
+// ---- Section 19: Command completeness ------------------------------------
+console.log('\n--- 19. Command completeness ---\n');
 
 test('--help lists all expected top-level command groups', () => {
   const out = run('--help');
@@ -390,7 +477,7 @@ test('--help lists all expected top-level command groups', () => {
     'create', 'insert', 'search', 'stats', 'benchmark',
     'info', 'install', 'gnn', 'attention', 'doctor',
     'setup', 'embed', 'hooks', 'workers', 'native',
-    'rvf', 'mcp', 'export', 'import',
+    'rvf', 'mcp', 'export', 'import', 'midstream',
   ];
   for (const cmd of expected) {
     assert(out.includes(cmd),
@@ -406,8 +493,8 @@ test('hooks has many subcommands (at least 15)', () => {
     `Expected at least 15 hooks subcommands, found ${cmdLines.length}`);
 });
 
-// ---- Section 17: Hooks advanced commands ---------------------------------
-console.log('\n--- 17. Hooks advanced commands ---\n');
+// ---- Section 20: Hooks advanced commands ---------------------------------
+console.log('\n--- 20. Hooks advanced commands ---\n');
 
 test('hooks remember stores a memory', () => {
   const { stdout, code } = runSafe('hooks remember -t test "test memory entry from CLI test"');
@@ -440,8 +527,8 @@ test('hooks build-agents --help shows options', () => {
   assert(out.includes('build-agents'), 'Should show build-agents info');
 });
 
-// ---- Section 18: Benchmark command ---------------------------------------
-console.log('\n--- 18. Benchmark command ---\n');
+// ---- Section 21: Benchmark command ---------------------------------------
+console.log('\n--- 21. Benchmark command ---\n');
 
 test('benchmark --help shows options', () => {
   const out = run('benchmark --help');
@@ -449,16 +536,16 @@ test('benchmark --help shows options', () => {
     'Should show benchmark options');
 });
 
-// ---- Section 19: Install command -----------------------------------------
-console.log('\n--- 19. Install command ---\n');
+// ---- Section 22: Install command -----------------------------------------
+console.log('\n--- 22. Install command ---\n');
 
 test('install --help shows options', () => {
   const out = run('install --help');
   assert(out.includes('install'), 'Should show install info');
 });
 
-// ---- Section 20: Demo command --------------------------------------------
-console.log('\n--- 20. Demo command ---\n');
+// ---- Section 23: Demo command --------------------------------------------
+console.log('\n--- 23. Demo command ---\n');
 
 test('demo --help shows options', () => {
   const out = run('demo --help');

@@ -575,7 +575,7 @@ impl Default for TripleStore {
 }
 
 /// Convert an RDF term to a string key for indexing
-fn term_to_key(term: &RdfTerm) -> String {
+pub fn term_to_key(term: &RdfTerm) -> String {
     match term {
         RdfTerm::Iri(iri) => format!("<{}>", iri.as_str()),
         RdfTerm::Literal(lit) => {

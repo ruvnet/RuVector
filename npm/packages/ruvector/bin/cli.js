@@ -7880,6 +7880,7 @@ brainCmd.command('search <query>')
   .option('--url <url>', 'Brain server URL')
   .option('--key <key>', 'Pi key')
   .option('--json', 'Output as JSON')
+  .option('--verbose', 'Show detailed scoring and metadata per result')
   .action(async (query, opts) => {
     const piBrain = await requirePiBrain();
     const config = getBrainConfig(opts);
@@ -7893,6 +7894,14 @@ brainCmd.command('search <query>')
         console.log(`  ${chalk.yellow(i + 1 + '.')} ${chalk.bold(r.title || r.id)}`);
         if (r.category) console.log(`     ${chalk.dim('Category:')} ${r.category}`);
         if (r.score) console.log(`     ${chalk.dim('Score:')} ${r.score.toFixed(3)}`);
+        if (opts.verbose) {
+          if (r.quality_score !== undefined) console.log(`     ${chalk.dim('Quality:')} ${typeof r.quality_score === 'number' ? r.quality_score.toFixed(3) : r.quality_score}`);
+          if (r.votes_up !== undefined || r.votes_down !== undefined) console.log(`     ${chalk.dim('Votes:')} ${r.votes_up || 0}↑ ${r.votes_down || 0}↓`);
+          if (r.witness_hash) console.log(`     ${chalk.dim('Witness:')} ${r.witness_hash.slice(0, 12)}...`);
+          if (r.contributor_id) console.log(`     ${chalk.dim('Contributor:')} ${r.contributor_id}`);
+          if (r.created_at) console.log(`     ${chalk.dim('Created:')} ${r.created_at}`);
+          if (r.tags && r.tags.length) console.log(`     ${chalk.dim('Tags:')} ${r.tags.join(', ')}`);
+        }
         console.log();
       });
     } catch (e) { console.error(chalk.red(`Error: ${e.message}`)); process.exit(1); }
@@ -8003,6 +8012,20 @@ brainCmd.command('status')
       Object.entries(status).forEach(([k, v]) => {
         console.log(`  ${chalk.bold(k + ':')} ${v}`);
       });
+      // AGI subsystem fields
+      if (status.sona_patterns !== undefined) {
+        console.log(chalk.bold('\n  AGI Subsystems'));
+        if (status.sona_patterns !== undefined) console.log(`  ${chalk.dim('SONA Patterns:')} ${status.sona_patterns}  ${chalk.dim('Trajectories:')} ${status.sona_trajectories || 0}`);
+        if (status.gwt_workspace_load !== undefined) console.log(`  ${chalk.dim('GWT Load:')} ${status.gwt_workspace_load}  ${chalk.dim('Avg Salience:')} ${status.gwt_avg_salience || 0}`);
+        if (status.knowledge_velocity !== undefined) console.log(`  ${chalk.dim('Temporal Velocity:')} ${status.knowledge_velocity}/hr  ${chalk.dim('Deltas:')} ${status.temporal_deltas || 0}`);
+        if (status.meta_avg_regret !== undefined) console.log(`  ${chalk.dim('Meta Regret:')} ${status.meta_avg_regret}  ${chalk.dim('Plateau:')} ${status.meta_plateau_status || 'unknown'}`);
+      }
+      if (status.midstream_scheduler_ticks !== undefined) {
+        console.log(chalk.bold('\n  Midstream'));
+        console.log(`  ${chalk.dim('Scheduler Ticks:')} ${status.midstream_scheduler_ticks}`);
+        console.log(`  ${chalk.dim('Attractor Categories:')} ${status.midstream_attractor_categories || 0}`);
+        console.log(`  ${chalk.dim('Strange-Loop:')} v${status.midstream_strange_loop_version || '?'}`);
+      }
       console.log();
     } catch (e) { console.error(chalk.red(`Error: ${e.message}`)); process.exit(1); }
   });
@@ -8169,6 +8192,299 @@ brainCmd.command('node <action> [args...]')
       } else {
         console.log(JSON.stringify(result, null, 2));
       }
+      console.log();
+    } catch (e) { console.error(chalk.red(`Error: ${e.message}`)); process.exit(1); }
+  });
+
+// ── Brain AGI Subcommands ── AGI subsystem diagnostics ──────────────────
+const agiCmd = brainCmd.command('agi').description('AGI subsystem diagnostics — SONA, GWT, temporal, meta-learning, midstream');
+
+async function fetchBrainEndpoint(config, endpoint) {
+  const url = (config.url || 'https://pi.ruv.io') + endpoint;
+  const headers = {};
+  if (config.key) headers['Authorization'] = `Bearer ${config.key}`;
+  const resp = await fetch(url, { headers });
+  if (!resp.ok) throw new Error(`${resp.status} ${resp.statusText}`);
+  return resp.json();
+}
+
+agiCmd.command('status')
+  .description('Combined AGI + midstream diagnostics from π.ruv.io')
+  .option('--url <url>', 'Brain server URL')
+  .option('--key <key>', 'Pi key')
+  .option('--json', 'Output as JSON')
+  .action(async (opts) => {
+    const config = getBrainConfig(opts);
+    try {
+      const status = await fetchBrainEndpoint(config, '/v1/status');
+      if (opts.json || !process.stdout.isTTY) { console.log(JSON.stringify(status, null, 2)); return; }
+      console.log(chalk.bold.cyan('\n  π.ruv.io AGI Diagnostics\n'));
+      console.log(chalk.bold('  SONA'));
+      console.log(`    Patterns: ${status.sona_patterns || 0}  Trajectories: ${status.sona_trajectories || 0}`);
+      console.log(`    Background ticks: ${status.sona_background_ticks || 0}`);
+      console.log(chalk.bold('\n  GWT Attention'));
+      console.log(`    Workspace load: ${status.gwt_workspace_load || 0}`);
+      console.log(`    Avg salience: ${status.gwt_avg_salience || 0}`);
+      console.log(chalk.bold('\n  Temporal'));
+      console.log(`    Total deltas: ${status.temporal_deltas || 0}`);
+      console.log(`    Velocity: ${status.knowledge_velocity || 0}/hr`);
+      console.log(`    Trend: ${status.temporal_trend || 'unknown'}`);
+      console.log(chalk.bold('\n  Meta-Learning'));
+      console.log(`    Avg regret: ${status.meta_avg_regret || 0}`);
+      console.log(`    Plateau: ${status.meta_plateau_status || 'unknown'}`);
+      console.log(chalk.bold('\n  Midstream'));
+      console.log(`    Scheduler ticks: ${status.midstream_scheduler_ticks || 0}`);
+      console.log(`    Attractor categories: ${status.midstream_attractor_categories || 0}`);
+      console.log(`    Strange-loop: v${status.midstream_strange_loop_version || '?'}`);
+      console.log();
+    } catch (e) { console.error(chalk.red(`Error: ${e.message}`)); process.exit(1); }
+  });
+
+agiCmd.command('sona')
+  .description('SONA learning engine — patterns, trajectories, background ticks')
+  .option('--url <url>', 'Brain server URL')
+  .option('--key <key>', 'Pi key')
+  .option('--json', 'Output as JSON')
+  .action(async (opts) => {
+    const config = getBrainConfig(opts);
+    try {
+      const data = await fetchBrainEndpoint(config, '/v1/sona/stats');
+      if (opts.json || !process.stdout.isTTY) { console.log(JSON.stringify(data, null, 2)); return; }
+      console.log(chalk.bold.cyan('\n  SONA Learning Engine\n'));
+      Object.entries(data).forEach(([k, v]) => console.log(`  ${chalk.bold(k + ':')} ${v}`));
+      console.log();
+    } catch (e) { console.error(chalk.red(`Error: ${e.message}`)); process.exit(1); }
+  });
+
+agiCmd.command('temporal')
+  .description('Temporal delta tracking — velocity, trend, total deltas')
+  .option('--url <url>', 'Brain server URL')
+  .option('--key <key>', 'Pi key')
+  .option('--json', 'Output as JSON')
+  .action(async (opts) => {
+    const config = getBrainConfig(opts);
+    try {
+      const data = await fetchBrainEndpoint(config, '/v1/temporal');
+      if (opts.json || !process.stdout.isTTY) { console.log(JSON.stringify(data, null, 2)); return; }
+      console.log(chalk.bold.cyan('\n  Temporal Delta Tracking\n'));
+      Object.entries(data).forEach(([k, v]) => console.log(`  ${chalk.bold(k + ':')} ${v}`));
+      console.log();
+    } catch (e) { console.error(chalk.red(`Error: ${e.message}`)); process.exit(1); }
+  });
+
+agiCmd.command('explore')
+  .description('Meta-learning exploration — curiosity, regret, plateau, Pareto')
+  .option('--url <url>', 'Brain server URL')
+  .option('--key <key>', 'Pi key')
+  .option('--json', 'Output as JSON')
+  .action(async (opts) => {
+    const config = getBrainConfig(opts);
+    try {
+      const data = await fetchBrainEndpoint(config, '/v1/explore');
+      if (opts.json || !process.stdout.isTTY) { console.log(JSON.stringify(data, null, 2)); return; }
+      console.log(chalk.bold.cyan('\n  Meta-Learning Exploration\n'));
+      Object.entries(data).forEach(([k, v]) => console.log(`  ${chalk.bold(k + ':')} ${v}`));
+      console.log();
+    } catch (e) { console.error(chalk.red(`Error: ${e.message}`)); process.exit(1); }
+  });
+
+agiCmd.command('midstream')
+  .description('Midstream platform — scheduler, attractor, solver, strange-loop')
+  .option('--url <url>', 'Brain server URL')
+  .option('--key <key>', 'Pi key')
+  .option('--json', 'Output as JSON')
+  .action(async (opts) => {
+    const config = getBrainConfig(opts);
+    try {
+      const data = await fetchBrainEndpoint(config, '/v1/midstream');
+      if (opts.json || !process.stdout.isTTY) { console.log(JSON.stringify(data, null, 2)); return; }
+      console.log(chalk.bold.cyan('\n  Midstream Platform\n'));
+      Object.entries(data).forEach(([k, v]) => {
+        if (typeof v === 'object' && v !== null) {
+          console.log(`  ${chalk.bold(k + ':')}`);
+          Object.entries(v).forEach(([sk, sv]) => console.log(`    ${chalk.dim(sk + ':')} ${sv}`));
+        } else {
+          console.log(`  ${chalk.bold(k + ':')} ${v}`);
+        }
+      });
+      console.log();
+    } catch (e) { console.error(chalk.red(`Error: ${e.message}`)); process.exit(1); }
+  });
+
+agiCmd.command('flags')
+  .description('Show feature flag state from backend')
+  .option('--url <url>', 'Brain server URL')
+  .option('--key <key>', 'Pi key')
+  .option('--json', 'Output as JSON')
+  .action(async (opts) => {
+    const config = getBrainConfig(opts);
+    try {
+      const status = await fetchBrainEndpoint(config, '/v1/status');
+      const flags = {};
+      for (const [k, v] of Object.entries(status)) {
+        if (typeof v === 'boolean' || k.startsWith('rvf_') || k.endsWith('_enabled')) {
+          flags[k] = v;
+        }
+      }
+      if (opts.json || !process.stdout.isTTY) { console.log(JSON.stringify(flags, null, 2)); return; }
+      console.log(chalk.bold.cyan('\n  Feature Flags\n'));
+      Object.entries(flags).forEach(([k, v]) => {
+        const icon = v ? chalk.green('●') : chalk.red('○');
+        console.log(`  ${icon} ${chalk.bold(k)}: ${v}`);
+      });
+      console.log();
+    } catch (e) { console.error(chalk.red(`Error: ${e.message}`)); process.exit(1); }
+  });
+
+// ============================================================================
+// Midstream Commands — Real-time streaming analysis platform
+// ============================================================================
+
+const midstreamCmd = program.command('midstream').description('Real-time streaming analysis — attractor, scheduler, benchmark');
+
+midstreamCmd.command('status')
+  .description('Midstream platform overview')
+  .option('--url <url>', 'Brain server URL')
+  .option('--key <key>', 'Pi key')
+  .option('--json', 'Output as JSON')
+  .action(async (opts) => {
+    const config = getBrainConfig(opts);
+    try {
+      const data = await fetchBrainEndpoint(config, '/v1/midstream');
+      if (opts.json || !process.stdout.isTTY) { console.log(JSON.stringify(data, null, 2)); return; }
+      console.log(chalk.bold.cyan('\n  Midstream Platform Status\n'));
+      Object.entries(data).forEach(([k, v]) => {
+        if (typeof v === 'object' && v !== null) {
+          console.log(`  ${chalk.bold(k + ':')}`);
+          Object.entries(v).forEach(([sk, sv]) => console.log(`    ${chalk.dim(sk + ':')} ${sv}`));
+        } else {
+          console.log(`  ${chalk.bold(k + ':')} ${v}`);
+        }
+      });
+      console.log();
+    } catch (e) { console.error(chalk.red(`Error: ${e.message}`)); process.exit(1); }
+  });
+
+midstreamCmd.command('attractor [category]')
+  .description('Lyapunov attractor analysis per category')
+  .option('--url <url>', 'Brain server URL')
+  .option('--key <key>', 'Pi key')
+  .option('--json', 'Output as JSON')
+  .action(async (category, opts) => {
+    const config = getBrainConfig(opts);
+    try {
+      const data = await fetchBrainEndpoint(config, '/v1/midstream');
+      const attractors = data.attractor_categories || data.attractors || {};
+      if (category) {
+        const entry = typeof attractors === 'object' ? attractors[category] : null;
+        if (opts.json || !process.stdout.isTTY) { console.log(JSON.stringify(entry || { error: 'Category not found' }, null, 2)); return; }
+        if (!entry) { console.log(chalk.yellow(`  No attractor data for category: ${category}`)); return; }
+        console.log(chalk.bold.cyan(`\n  Attractor: ${category}\n`));
+        Object.entries(entry).forEach(([k, v]) => console.log(`  ${chalk.bold(k + ':')} ${v}`));
+      } else {
+        if (opts.json || !process.stdout.isTTY) { console.log(JSON.stringify(attractors, null, 2)); return; }
+        console.log(chalk.bold.cyan('\n  Attractor Categories\n'));
+        if (typeof attractors === 'object' && Object.keys(attractors).length > 0) {
+          Object.entries(attractors).forEach(([cat, info]) => {
+            console.log(`  ${chalk.yellow(cat + ':')} ${typeof info === 'object' ? JSON.stringify(info) : info}`);
+          });
+        } else {
+          console.log(chalk.dim(`  ${typeof attractors === 'number' ? attractors + ' categories tracked' : 'No attractor data available'}`));
+        }
+      }
+      console.log();
+    } catch (e) { console.error(chalk.red(`Error: ${e.message}`)); process.exit(1); }
+  });
+
+midstreamCmd.command('scheduler')
+  .description('Nanosecond scheduler performance metrics')
+  .option('--url <url>', 'Brain server URL')
+  .option('--key <key>', 'Pi key')
+  .option('--json', 'Output as JSON')
+  .action(async (opts) => {
+    const config = getBrainConfig(opts);
+    try {
+      const data = await fetchBrainEndpoint(config, '/v1/midstream');
+      const sched = data.scheduler || { ticks: data.scheduler_ticks || 0 };
+      if (opts.json || !process.stdout.isTTY) { console.log(JSON.stringify(sched, null, 2)); return; }
+      console.log(chalk.bold.cyan('\n  Nanosecond Scheduler\n'));
+      if (typeof sched === 'object') {
+        Object.entries(sched).forEach(([k, v]) => console.log(`  ${chalk.bold(k + ':')} ${v}`));
+      } else {
+        console.log(`  ${chalk.bold('Ticks:')} ${sched}`);
+      }
+      console.log();
+    } catch (e) { console.error(chalk.red(`Error: ${e.message}`)); process.exit(1); }
+  });
+
+midstreamCmd.command('benchmark')
+  .description('Run latency benchmark against brain backend')
+  .option('--url <url>', 'Brain server URL')
+  .option('--key <key>', 'Pi key')
+  .option('-n, --concurrent <n>', 'Concurrent search requests', '20')
+  .option('--json', 'Output as JSON')
+  .action(async (opts) => {
+    const config = getBrainConfig(opts);
+    const baseUrl = config.url || 'https://pi.ruv.io';
+    const headers = {};
+    if (config.key) headers['Authorization'] = `Bearer ${config.key}`;
+    const concurrentN = Math.min(parseInt(opts.concurrent) || 20, 100);
+
+    async function timeRequest(url, label) {
+      const start = performance.now();
+      const resp = await fetch(url, { headers });
+      const elapsed = performance.now() - start;
+      return { label, status: resp.status, elapsed };
+    }
+
+    function percentile(sorted, p) {
+      const idx = Math.ceil(sorted.length * p / 100) - 1;
+      return sorted[Math.max(0, idx)];
+    }
+
+    try {
+      if (!opts.json && process.stdout.isTTY) console.log(chalk.bold.cyan('\n  Midstream Benchmark\n'));
+
+      // Sequential tests (3 each)
+      const endpoints = [
+        { path: '/v1/health', label: 'health' },
+        { path: '/v1/status', label: 'status' },
+        { path: '/v1/memories/search?q=test&limit=3', label: 'search' },
+        { path: '/v1/midstream', label: 'midstream' },
+      ];
+
+      const sequential = {};
+      for (const ep of endpoints) {
+        const times = [];
+        for (let i = 0; i < 3; i++) {
+          const r = await timeRequest(baseUrl + ep.path, ep.label);
+          times.push(r.elapsed);
+        }
+        sequential[ep.label] = { avg: times.reduce((a, b) => a + b, 0) / times.length, min: Math.min(...times), max: Math.max(...times) };
+      }
+
+      // Concurrent search test
+      const concurrentTimes = [];
+      const promises = [];
+      for (let i = 0; i < concurrentN; i++) {
+        promises.push(timeRequest(baseUrl + '/v1/memories/search?q=test&limit=3', 'concurrent'));
+      }
+      const results = await Promise.all(promises);
+      const sorted = results.map(r => r.elapsed).sort((a, b) => a - b);
+      const p50 = percentile(sorted, 50);
+      const p90 = percentile(sorted, 90);
+      const p99 = percentile(sorted, 99);
+
+      const benchResult = { sequential, concurrent: { count: concurrentN, p50, p90, p99 } };
+
+      if (opts.json || !process.stdout.isTTY) { console.log(JSON.stringify(benchResult, null, 2)); return; }
+
+      console.log(chalk.bold('  Sequential (3 rounds each):'));
+      for (const [label, data] of Object.entries(sequential)) {
+        console.log(`    ${chalk.yellow(label.padEnd(12))} avg: ${data.avg.toFixed(1)}ms  min: ${data.min.toFixed(1)}ms  max: ${data.max.toFixed(1)}ms`);
+      }
+      console.log(chalk.bold(`\n  Concurrent (${concurrentN}x search):`));
+      console.log(`    p50: ${p50.toFixed(1)}ms  p90: ${p90.toFixed(1)}ms  p99: ${p99.toFixed(1)}ms`);
       console.log();
     } catch (e) { console.error(chalk.red(`Error: ${e.message}`)); process.exit(1); }
   });
@@ -8439,14 +8755,25 @@ function loadSona() {
   }
 }
 
+const SONA_DEFAULT_DIM = 128;
+function createSonaEngine(sona) {
+  if (sona.SonaEngine) return new sona.SonaEngine(SONA_DEFAULT_DIM);
+  if (sona.SonaCoordinator) return new sona.SonaCoordinator(SONA_DEFAULT_DIM);
+  throw new Error('No SONA engine class found');
+}
+function parseSonaResult(val) {
+  if (typeof val === 'string') { try { return JSON.parse(val); } catch { return val; } }
+  return val;
+}
+
 sonaCmd.command('status')
   .description('Show SONA learning engine status')
   .option('--json', 'Output as JSON')
   .action((opts) => {
     const sona = loadSona();
     try {
-      const engine = sona.SonaEngine ? new sona.SonaEngine() : new sona.SonaCoordinator();
-      const status = engine.getStatus ? engine.getStatus() : { ready: true };
+      const engine = createSonaEngine(sona);
+      const status = engine.getStatus ? parseSonaResult(engine.getStatus()) : { enabled: engine.isEnabled ? engine.isEnabled() : true, ...parseSonaResult(engine.getStats ? engine.getStats() : {}) };
       if (opts.json || !process.stdout.isTTY) { console.log(JSON.stringify(status, null, 2)); return; }
       console.log(chalk.bold.cyan('\nSONA Status\n'));
       Object.entries(status).forEach(([k, v]) => console.log(`  ${chalk.bold(k + ':')} ${v}`));
@@ -8461,7 +8788,7 @@ sonaCmd.command('patterns <query>')
   .action((query, opts) => {
     const sona = loadSona();
     try {
-      const engine = sona.SonaEngine ? new sona.SonaEngine() : new sona.SonaCoordinator();
+      const engine = createSonaEngine(sona);
       const patterns = engine.findPatterns ? engine.findPatterns(query, { threshold: parseFloat(opts.threshold) }) : [];
       if (opts.json || !process.stdout.isTTY) { console.log(JSON.stringify(patterns, null, 2)); return; }
       console.log(chalk.bold.cyan('\nLearned Patterns\n'));
@@ -8477,7 +8804,7 @@ sonaCmd.command('train <data>')
   .action((data, opts) => {
     const sona = loadSona();
     try {
-      const engine = sona.SonaEngine ? new sona.SonaEngine() : new sona.SonaCoordinator();
+      const engine = createSonaEngine(sona);
       if (engine.recordTrajectory) { engine.recordTrajectory(data, opts.outcome); }
       else if (engine.train) { engine.train(data); }
       console.log(chalk.green('Training trajectory recorded.'));
@@ -8490,8 +8817,8 @@ sonaCmd.command('export')
   .action((opts) => {
     const sona = loadSona();
     try {
-      const engine = sona.SonaEngine ? new sona.SonaEngine() : new sona.SonaCoordinator();
-      const weights = engine.exportWeights ? engine.exportWeights() : engine.export ? engine.export() : {};
+      const engine = createSonaEngine(sona);
+      const weights = parseSonaResult(engine.exportWeights ? engine.exportWeights() : engine.getStats ? engine.getStats() : {});
       fs.writeFileSync(opts.output, JSON.stringify(weights, null, 2));
       console.log(chalk.green(`Exported to ${opts.output}`));
     } catch (e) { console.error(chalk.red(`Error: ${e.message}`)); }
@@ -8503,8 +8830,8 @@ sonaCmd.command('stats')
   .action((opts) => {
     const sona = loadSona();
     try {
-      const engine = sona.SonaEngine ? new sona.SonaEngine() : new sona.SonaCoordinator();
-      const stats = engine.getStats ? engine.getStats() : engine.stats ? engine.stats() : {};
+      const engine = createSonaEngine(sona);
+      const stats = parseSonaResult(engine.getStats ? engine.getStats() : engine.stats ? engine.stats() : {});
       if (opts.json || !process.stdout.isTTY) { console.log(JSON.stringify(stats, null, 2)); return; }
       console.log(chalk.bold.cyan('\nSONA Statistics\n'));
       Object.entries(stats).forEach(([k, v]) => console.log(`  ${chalk.bold(k + ':')} ${v}`));

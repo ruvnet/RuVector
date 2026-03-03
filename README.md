@@ -1168,6 +1168,18 @@ const response = await llm.generate('Explain quantum computing', { max_tokens: 2
 | **Genomics** | DNA sequence similarity, variant calling, population analysis | [examples/dna](./examples/dna) |
 | **Graph Transformers** | 8 verified modules — physics, bio, manifold, temporal, economic, and more | [crates/ruvector-graph-transformer](./crates/ruvector-graph-transformer) |
 
+### Shared Brain at π.ruv.io
+
+| Feature | What It Does | Access |
+|---------|-------------|--------|
+| **Semantic Search** | Hybrid ranking — keyword + cosine + graph + AGI scoring layers | `npx ruvector brain search "query"` |
+| **SONA Learning** | 3-tier hierarchical pattern learning across sessions | `npx ruvector brain agi sona` |
+| **GWT Attention** | Global Workspace Theory competition for search ranking | `npx ruvector brain agi status` |
+| **Temporal Delta** | Knowledge evolution velocity and trend tracking | `npx ruvector brain agi temporal` |
+| **Meta-Learning** | Thompson Sampling with curiosity/regret exploration | `npx ruvector brain agi explore` |
+| **Midstream Platform** | Nanosecond scheduler, Lyapunov attractors, strange-loop meta-cognition | `npx ruvector midstream status` |
+| **103 MCP Tools** | Full brain + AGI + midstream diagnostics for Claude Code agents | `npx ruvector mcp start` |
+
 ### Distributed & Enterprise
 
 | Use Case | What RuVector Does | Example |
