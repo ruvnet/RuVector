@@ -1,4 +1,4 @@
-# ADR-029: EXO-AI Multi-Paradigm Integration Architecture
+# ADR-025: EXO-AI Multi-Paradigm Integration Architecture
 
 **Status**: Proposed
 **Date**: 2026-02-27

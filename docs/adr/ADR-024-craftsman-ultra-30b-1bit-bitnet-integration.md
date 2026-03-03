@@ -1,4 +1,4 @@
-# ADR-017: Craftsman Ultra 30b 1bit — BitNet Integration with RuvLLM
+# ADR-024: Craftsman Ultra 30b 1bit — BitNet Integration with RuvLLM
 
 **Status:** Proposed
 **Date:** 2026-02-03

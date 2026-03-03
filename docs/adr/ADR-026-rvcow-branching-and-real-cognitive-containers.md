@@ -1,4 +1,4 @@
-# ADR-031: Vector-Native COW Branching (RVCOW) and Real Cognitive Containers
+# ADR-026: Vector-Native COW Branching (RVCOW) and Real Cognitive Containers
 
 | Field | Value |
 |-------|-------|
