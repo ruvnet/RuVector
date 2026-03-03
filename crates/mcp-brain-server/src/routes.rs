@@ -14,17 +14,28 @@ use crate::types::{
     VoteDirection, VoteRequest, WasmNode, WasmNodeSummary,
 };
 use axum::{
-    extract::{Path, Query, State},
-    http::StatusCode,
+    extract::{ConnectInfo, Path, Query, State},
+    http::{HeaderMap, StatusCode},
     response::sse::{Event, KeepAlive, Sse},
     routing::{delete, get, post},
     Json, Router,
 };
+use std::net::SocketAddr;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use tower_http::cors::CorsLayer;
 use tower_http::trace::TraceLayer;
 use uuid::Uuid;
+
+/// Extract client IP from X-Forwarded-For (Cloud Run) or ConnectInfo fallback.
+fn extract_client_ip(headers: &HeaderMap) -> String {
+    headers
+        .get("x-forwarded-for")
+        .and_then(|v| v.to_str().ok())
+        .and_then(|v| v.split(',').next())
+        .map(|s| s.trim().to_string())
+        .unwrap_or_else(|| "unknown".to_string())
+}
 
 /// Create the router with all routes
 pub async fn create_router() -> Router {
@@ -132,7 +143,7 @@ pub async fn create_router() -> Router {
     // RVF feature flags — read once at startup (ADR-075)
     let rvf_flags = crate::types::RvfFeatureFlags::from_env();
 
-    // Cached Verifier with compiled PiiStripper (12 regexes compiled once, not per request)
+    // Cached Verifier with compiled PiiStripper (15 regexes compiled once, not per request)
     let verifier = Arc::new(parking_lot::RwLock::new(crate::verify::Verifier::new()));
 
     // Differential privacy engine (ADR-075 Phase 3)
@@ -342,6 +353,7 @@ fn check_read_only(state: &AppState) -> Result<(), (StatusCode, String)> {
 
 async fn share_memory(
     State(state): State<AppState>,
+    headers: HeaderMap,
     contributor: AuthenticatedContributor,
     Json(req): Json<ShareRequest>,
 ) -> Result<(StatusCode, Json<ShareResponse>), (StatusCode, String)> {
@@ -351,9 +363,13 @@ async fn share_memory(
     // Nonce validation (replay protection)
     validate_nonce(&state, &req.nonce)?;
 
-    // Rate limit check
+    // Rate limit check (per-key + per-IP anti-Sybil)
     if !state.rate_limiter.check_write(&contributor.pseudonym) {
         return Err((StatusCode::TOO_MANY_REQUESTS, "Write rate limit exceeded".into()));
+    }
+    let client_ip = extract_client_ip(&headers);
+    if !state.rate_limiter.check_ip_write(&client_ip) {
+        return Err((StatusCode::TOO_MANY_REQUESTS, "IP write rate limit exceeded".into()));
     }
 
     // ── Phase 2 (ADR-075): PII stripping ──
@@ -1046,6 +1062,7 @@ async fn get_memory(
 
 async fn vote_memory(
     State(state): State<AppState>,
+    headers: HeaderMap,
     contributor: AuthenticatedContributor,
     Path(id): Path<Uuid>,
     Json(vote): Json<VoteRequest>,
@@ -1054,6 +1071,12 @@ async fn vote_memory(
 
     if !state.rate_limiter.check_write(&contributor.pseudonym) {
         return Err((StatusCode::TOO_MANY_REQUESTS, "Write rate limit exceeded".into()));
+    }
+
+    // Anti-Sybil: one vote per IP per memory (ADR-082)
+    let client_ip = extract_client_ip(&headers);
+    if !state.rate_limiter.check_ip_vote(&client_ip, &id.to_string()) {
+        return Err((StatusCode::FORBIDDEN, "Already voted on this memory from this network".into()));
     }
 
     // Look up the content author before voting

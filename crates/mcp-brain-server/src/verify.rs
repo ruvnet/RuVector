@@ -124,9 +124,9 @@ impl Verifier {
         Ok(())
     }
 
-    /// Check whether text contains PII using the cached PiiStripper (12 regex rules).
+    /// Check whether text contains PII using the cached PiiStripper (15 regex rules).
     /// Covers: Unix/Windows paths, IPv4/IPv6, emails, API keys, GitHub tokens,
-    /// Bearer tokens, AWS keys, env vars, @usernames.
+    /// Bearer tokens, AWS keys, env vars, @usernames, phone numbers, SSNs, credit cards.
     pub fn contains_pii(&self, text: &str) -> bool {
         self.pii_stripper.contains_pii(text)
     }
@@ -415,6 +415,34 @@ mod tests {
         let (stripped, log) = v.strip_pii_fields(&fields);
         assert!(!stripped[0].1.contains("user@example.com"));
         assert!(log.total_redactions > 0);
+    }
+
+    #[test]
+    fn test_pii_detects_phone_number() {
+        let v = Verifier::new();
+        assert!(v.contains_pii("Call 555-867-5309 for info"));
+    }
+
+    #[test]
+    fn test_pii_detects_ssn() {
+        let v = Verifier::new();
+        assert!(v.contains_pii("SSN: 078-05-1120"));
+    }
+
+    #[test]
+    fn test_pii_detects_credit_card() {
+        let v = Verifier::new();
+        assert!(v.contains_pii("Card: 4111-1111-1111-1111"));
+    }
+
+    #[test]
+    fn test_pii_strip_redacts_phone_ssn() {
+        let mut v = Verifier::new();
+        let fields = [("content", "phone 555-867-5309, ssn 078-05-1120")];
+        let (stripped, log) = v.strip_pii_fields(&fields);
+        assert!(!stripped[0].1.contains("555-867-5309"));
+        assert!(!stripped[0].1.contains("078-05-1120"));
+        assert!(log.total_redactions >= 2);
     }
 
     #[test]

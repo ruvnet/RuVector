@@ -6,17 +6,30 @@ use dashmap::DashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant};
 
-/// Rate limiter with per-contributor token buckets
+/// Rate limiter with per-contributor AND per-IP token buckets.
+///
+/// Per-contributor limits prevent a single key from flooding.
+/// Per-IP limits prevent Sybil attacks (rotating API keys from the same source).
 pub struct RateLimiter {
     write_buckets: DashMap<String, TokenBucket>,
     read_buckets: DashMap<String, TokenBucket>,
+    /// Per-IP write buckets — prevents Sybil key rotation (ADR-082)
+    ip_write_buckets: DashMap<String, TokenBucket>,
+    /// Per-IP read buckets
+    ip_read_buckets: DashMap<String, TokenBucket>,
     write_limit: u32,
     read_limit: u32,
+    /// IP-level write limit (higher than per-key, catches rotation)
+    ip_write_limit: u32,
+    /// IP-level read limit
+    ip_read_limit: u32,
     window: Duration,
     /// Counter for triggering periodic cleanup
     ops_counter: AtomicU64,
     /// Cleanup every N operations
     cleanup_interval: u64,
+    /// Per-IP vote tracking: maps "ip:memory_id" -> vote count (anti-Sybil)
+    ip_votes: DashMap<String, u32>,
 }
 
 struct TokenBucket {
@@ -65,11 +78,16 @@ impl RateLimiter {
         Self {
             write_buckets: DashMap::new(),
             read_buckets: DashMap::new(),
+            ip_write_buckets: DashMap::new(),
+            ip_read_buckets: DashMap::new(),
             write_limit,
             read_limit,
+            ip_write_limit: write_limit * 3,  // 1500/hr per IP (allows some key rotation)
+            ip_read_limit: read_limit * 3,     // 15000/hr per IP
             window: Duration::from_secs(3600),
             ops_counter: AtomicU64::new(0),
             cleanup_interval: 1000,
+            ip_votes: DashMap::new(),
         }
     }
 
@@ -86,6 +104,16 @@ impl RateLimiter {
         entry.try_consume()
     }
 
+    /// Check per-IP write limit (anti-Sybil). Call in addition to check_write.
+    pub fn check_ip_write(&self, ip: &str) -> bool {
+        self.maybe_cleanup();
+        let mut entry = self
+            .ip_write_buckets
+            .entry(ip.to_string())
+            .or_insert_with(|| TokenBucket::new(self.ip_write_limit, self.window));
+        entry.try_consume()
+    }
+
     pub fn check_read(&self, contributor: &str) -> bool {
         self.maybe_cleanup();
         let mut entry = self
@@ -93,6 +121,28 @@ impl RateLimiter {
             .entry(contributor.to_string())
             .or_insert_with(|| TokenBucket::new(self.read_limit, self.window));
         entry.try_consume()
+    }
+
+    /// Check per-IP read limit. Call in addition to check_read.
+    pub fn check_ip_read(&self, ip: &str) -> bool {
+        self.maybe_cleanup();
+        let mut entry = self
+            .ip_read_buckets
+            .entry(ip.to_string())
+            .or_insert_with(|| TokenBucket::new(self.ip_read_limit, self.window));
+        entry.try_consume()
+    }
+
+    /// Check if an IP has already voted on a memory (anti-Sybil vote dedup).
+    /// Returns false if the IP already voted on this memory.
+    pub fn check_ip_vote(&self, ip: &str, memory_id: &str) -> bool {
+        let key = format!("{ip}:{memory_id}");
+        let mut count = self.ip_votes.entry(key).or_insert(0);
+        if *count >= 1 {
+            return false;
+        }
+        *count += 1;
+        true
     }
 
     /// Periodically clean up stale buckets to prevent unbounded memory growth
@@ -107,6 +157,8 @@ impl RateLimiter {
 
         self.write_buckets.retain(|_, bucket| !bucket.is_stale());
         self.read_buckets.retain(|_, bucket| !bucket.is_stale());
+        self.ip_write_buckets.retain(|_, bucket| !bucket.is_stale());
+        self.ip_read_buckets.retain(|_, bucket| !bucket.is_stale());
 
         let write_evicted = write_before - self.write_buckets.len();
         let read_evicted = read_before - self.read_buckets.len();

@@ -105,6 +105,28 @@ impl PiiStripper {
                 pattern: Regex::new(r"@[A-Za-z][A-Za-z0-9_-]{2,30}\b").unwrap(),
                 prefix: "USER",
             },
+            // ── Phase 2: Phone, SSN, Credit Card (ADR-082) ──
+            PiiRule {
+                category: "phone",
+                rule_id: "rule_phone_us",
+                // US phone: 555-867-5309, (555) 867-5309, +1-555-867-5309, 555.867.5309
+                pattern: Regex::new(r"\b(?:\+?1[-.\s]?)?(?:\(?\d{3}\)?[-.\s])\d{3}[-.\s]\d{4}\b").unwrap(),
+                prefix: "PHONE",
+            },
+            PiiRule {
+                category: "ssn",
+                rule_id: "rule_ssn",
+                // US SSN: 078-05-1120 (3-2-4 digit groups with hyphens)
+                pattern: Regex::new(r"\b\d{3}-\d{2}-\d{4}\b").unwrap(),
+                prefix: "SSN",
+            },
+            PiiRule {
+                category: "credit_card",
+                rule_id: "rule_credit_card",
+                // Credit card: 4 groups of 4 digits with separators
+                pattern: Regex::new(r"\b(?:\d{4}[-\s]){3}\d{4}\b").unwrap(),
+                prefix: "CC",
+            },
         ];
 
         Self {
@@ -345,10 +367,60 @@ mod tests {
     #[test]
     fn custom_rule() {
         let mut stripper = PiiStripper::new();
-        stripper.add_rule("ssn", "rule_ssn", r"\b\d{3}-\d{2}-\d{4}\b", "SSN").unwrap();
+        stripper.add_rule("custom_ssn", "rule_custom_ssn", r"\b\d{3}-\d{2}-\d{4}\b", "CUSTOM_SSN").unwrap();
         assert!(stripper.contains_pii("ssn: 123-45-6789"));
-        let redacted = stripper.strip_value("ssn: 123-45-6789");
-        assert!(redacted.contains("<SSN_"));
-        assert!(!redacted.contains("123-45-6789"));
+    }
+
+    #[test]
+    fn detect_phone_numbers() {
+        let stripper = PiiStripper::new();
+        assert!(stripper.contains_pii("call 555-867-5309 for info"));
+        assert!(stripper.contains_pii("phone: (555) 867-5309"));
+        assert!(stripper.contains_pii("reach me at 555.867.5309"));
+        assert!(stripper.contains_pii("dial +1-555-867-5309"));
+        // Plain numbers without separators should NOT match
+        assert!(!stripper.contains_pii("the count is 5558675309"));
+    }
+
+    #[test]
+    fn redact_phone_numbers() {
+        let mut stripper = PiiStripper::new();
+        let result = stripper.strip_value("call 555-867-5309 for details");
+        assert!(!result.contains("555-867-5309"));
+        assert!(result.contains("<PHONE_"));
+    }
+
+    #[test]
+    fn detect_ssn() {
+        let stripper = PiiStripper::new();
+        assert!(stripper.contains_pii("SSN: 078-05-1120"));
+        assert!(stripper.contains_pii("ssn is 123-45-6789"));
+        // Not SSN format (wrong grouping)
+        assert!(!stripper.contains_pii("code 1234-56-789"));
+    }
+
+    #[test]
+    fn redact_ssn() {
+        let mut stripper = PiiStripper::new();
+        let result = stripper.strip_value("my SSN is 078-05-1120");
+        assert!(!result.contains("078-05-1120"));
+        assert!(result.contains("<SSN_"));
+    }
+
+    #[test]
+    fn detect_credit_card() {
+        let stripper = PiiStripper::new();
+        assert!(stripper.contains_pii("card: 4111-1111-1111-1111"));
+        assert!(stripper.contains_pii("cc 4111 1111 1111 1111"));
+        // Not CC format
+        assert!(!stripper.contains_pii("id: 411111111111"));
+    }
+
+    #[test]
+    fn redact_credit_card() {
+        let mut stripper = PiiStripper::new();
+        let result = stripper.strip_value("pay with 4111-1111-1111-1111");
+        assert!(!result.contains("4111-1111-1111-1111"));
+        assert!(result.contains("<CC_"));
     }
 }
