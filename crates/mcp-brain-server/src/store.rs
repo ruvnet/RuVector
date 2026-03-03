@@ -225,53 +225,54 @@ impl FirestoreClient {
     /// Uses PATCH to create or update documents.
     async fn firestore_put(&self, collection: &str, doc_id: &str, body: &serde_json::Value) {
         let Some(ref base) = self.base_url else { return };
-        // Firestore REST requires PATCH with ?documentId= for creates, or PATCH on existing doc path
         let url = format!("{base}/{collection}/{doc_id}");
-        // Wrap the entire JSON as a single "data" stringValue field
         let json_str = serde_json::to_string(body).unwrap_or_default();
         let firestore_doc = serde_json::json!({
             "fields": {
                 "data": { "stringValue": json_str }
             }
         });
-        let result = self.authenticated_request(reqwest::Method::PATCH, &url)
-            .await
-            .json(&firestore_doc)
-            .send()
-            .await;
-        match result {
-            Ok(resp) if resp.status().as_u16() == 401 => {
-                tracing::info!("Firestore PATCH token expired, refreshing...");
-                if let Some(new_token) = self.refresh_token().await {
-                    let retry = self.http
-                        .patch(&url)
-                        .bearer_auth(new_token)
-                        .json(&firestore_doc)
-                        .send()
-                        .await;
-                    match retry {
-                        Ok(resp) if !resp.status().is_success() => {
-                            let status = resp.status();
-                            let body = resp.text().await.unwrap_or_default();
-                            tracing::warn!("Firestore PATCH {collection}/{doc_id} retry: {status} {body}");
-                        }
-                        Err(e) => {
-                            tracing::warn!("Firestore PATCH {collection}/{doc_id} retry failed: {e}");
-                        }
-                        _ => {}
-                    }
+
+        // Retry loop: up to 2 attempts (initial + 1 retry) with token refresh on 401.
+        for attempt in 0..2u8 {
+            let result = self.authenticated_request(reqwest::Method::PATCH, &url)
+                .await
+                .json(&firestore_doc)
+                .send()
+                .await;
+            match result {
+                Ok(resp) if resp.status().is_success() => {
+                    tracing::debug!("Firestore PATCH {collection}/{doc_id} ok");
+                    return;
                 }
-            }
-            Ok(resp) if !resp.status().is_success() => {
-                let status = resp.status();
-                let body = resp.text().await.unwrap_or_default();
-                tracing::warn!("Firestore PATCH {collection}/{doc_id}: {status} {body}");
-            }
-            Err(e) => {
-                tracing::warn!("Firestore PATCH {collection}/{doc_id} failed: {e}");
-            }
-            _ => {
-                tracing::debug!("Firestore PATCH {collection}/{doc_id} ok");
+                Ok(resp) if resp.status().as_u16() == 401 && attempt == 0 => {
+                    tracing::info!("Firestore PATCH token expired, refreshing for retry...");
+                    if self.refresh_token().await.is_none() {
+                        tracing::warn!("Firestore PATCH {collection}/{doc_id}: token refresh failed");
+                        return;
+                    }
+                    // Loop will retry with fresh token
+                }
+                Ok(resp) if resp.status().is_server_error() && attempt == 0 => {
+                    let status = resp.status();
+                    tracing::warn!("Firestore PATCH {collection}/{doc_id}: {status}, retrying...");
+                    tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+                    // Loop will retry
+                }
+                Ok(resp) => {
+                    let status = resp.status();
+                    let body = resp.text().await.unwrap_or_default();
+                    tracing::warn!("Firestore PATCH {collection}/{doc_id}: {status} {body}");
+                    return;
+                }
+                Err(e) if attempt == 0 => {
+                    tracing::warn!("Firestore PATCH {collection}/{doc_id} failed: {e}, retrying...");
+                    tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+                }
+                Err(e) => {
+                    tracing::warn!("Firestore PATCH {collection}/{doc_id} failed after retry: {e}");
+                    return;
+                }
             }
         }
     }
@@ -305,15 +306,19 @@ impl FirestoreClient {
     /// `{"fields": {"data": {"stringValue": "<json>"}}}`.
     /// We unwrap the `data` field and parse the inner JSON.
     /// Paginates with `pageToken` to fetch all documents.
+    /// Maximum number of consecutive page-level errors before aborting pagination.
+    const MAX_PAGE_ERRORS: usize = 3;
+
     async fn firestore_list(&self, collection: &str) -> Vec<serde_json::Value> {
         let Some(ref base) = self.base_url else { return Vec::new() };
         let mut all_docs = Vec::new();
         let mut page_token: Option<String> = None;
+        let mut consecutive_errors: usize = 0;
 
         loop {
             let mut url = format!("{base}/{collection}?pageSize=300");
             if let Some(ref token) = page_token {
-                url.push_str(&format!("&pageToken={token}"));
+                url.push_str(&format!("&pageToken={}", urlencoding::encode(token)));
             }
 
             let result = self.authenticated_request(reqwest::Method::GET, &url)
@@ -322,33 +327,75 @@ impl FirestoreClient {
                 .await;
 
             let resp = match result {
-                Ok(resp) if resp.status().is_success() => resp,
+                Ok(resp) if resp.status().is_success() => {
+                    consecutive_errors = 0;
+                    resp
+                }
                 Ok(resp) if resp.status().as_u16() == 401 => {
                     tracing::info!("Firestore LIST token expired, refreshing...");
                     if let Some(new_token) = self.refresh_token().await {
                         match self.http.get(&url).bearer_auth(new_token).send().await {
-                            Ok(resp) if resp.status().is_success() => resp,
-                            _ => break,
+                            Ok(resp) if resp.status().is_success() => {
+                                consecutive_errors = 0;
+                                resp
+                            }
+                            Ok(resp) => {
+                                consecutive_errors += 1;
+                                tracing::warn!(
+                                    "Firestore LIST {collection} retry returned {} (error {}/{})",
+                                    resp.status(), consecutive_errors, Self::MAX_PAGE_ERRORS
+                                );
+                                if consecutive_errors >= Self::MAX_PAGE_ERRORS { break; }
+                                continue;
+                            }
+                            Err(e) => {
+                                consecutive_errors += 1;
+                                tracing::warn!(
+                                    "Firestore LIST {collection} retry failed: {e} (error {}/{})",
+                                    consecutive_errors, Self::MAX_PAGE_ERRORS
+                                );
+                                if consecutive_errors >= Self::MAX_PAGE_ERRORS { break; }
+                                continue;
+                            }
                         }
                     } else {
-                        break;
+                        consecutive_errors += 1;
+                        tracing::warn!("Firestore LIST {collection}: token refresh failed (error {}/{})",
+                            consecutive_errors, Self::MAX_PAGE_ERRORS);
+                        if consecutive_errors >= Self::MAX_PAGE_ERRORS { break; }
+                        continue;
                     }
                 }
                 Ok(resp) => {
-                    tracing::warn!("Firestore LIST {collection} returned {}", resp.status());
-                    break;
+                    consecutive_errors += 1;
+                    tracing::warn!(
+                        "Firestore LIST {collection} returned {} (error {}/{})",
+                        resp.status(), consecutive_errors, Self::MAX_PAGE_ERRORS
+                    );
+                    if consecutive_errors >= Self::MAX_PAGE_ERRORS { break; }
+                    continue;
                 }
                 Err(e) => {
-                    tracing::warn!("Firestore LIST {collection} failed: {e}");
-                    break;
+                    consecutive_errors += 1;
+                    tracing::warn!(
+                        "Firestore LIST {collection} failed: {e} (error {}/{})",
+                        consecutive_errors, Self::MAX_PAGE_ERRORS
+                    );
+                    if consecutive_errors >= Self::MAX_PAGE_ERRORS { break; }
+                    continue;
                 }
             };
 
             let body: serde_json::Value = match resp.json().await {
                 Ok(v) => v,
                 Err(e) => {
-                    tracing::warn!("Firestore LIST {collection} parse error: {e}");
-                    break;
+                    consecutive_errors += 1;
+                    tracing::warn!(
+                        "Firestore LIST {collection} parse error: {e} (error {}/{})",
+                        consecutive_errors, Self::MAX_PAGE_ERRORS
+                    );
+                    if consecutive_errors >= Self::MAX_PAGE_ERRORS { break; }
+                    continue;
                 }
             };
 
@@ -376,7 +423,14 @@ impl FirestoreClient {
             }
         }
 
-        tracing::info!("Firestore LIST {collection}: loaded {} documents", all_docs.len());
+        if consecutive_errors > 0 {
+            tracing::warn!(
+                "Firestore LIST {collection}: loaded {} documents with {} error(s)",
+                all_docs.len(), consecutive_errors
+            );
+        } else {
+            tracing::info!("Firestore LIST {collection}: loaded {} documents", all_docs.len());
+        }
         all_docs
     }
 
@@ -646,9 +700,9 @@ impl FirestoreClient {
             return Err(StoreError::NotFound(id.to_string()));
         }
 
-        // Block duplicate votes: same voter on same memory
+        // Block duplicate votes: same voter on same memory (single lookup via entry API)
         let vote_key = (*id, voter.to_string());
-        if self.vote_tracker.contains_key(&vote_key) {
+        if let dashmap::mapref::entry::Entry::Occupied(_) = self.vote_tracker.entry(vote_key.clone()) {
             return Err(StoreError::Forbidden(
                 "Already voted on this memory".into(),
             ));

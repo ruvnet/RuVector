@@ -429,4 +429,118 @@ mod tests {
             }
         }
     }
+
+    // -----------------------------------------------------------------------
+    // 12. End-to-end: verify → strip PII → build witness chain → RVF container
+    // -----------------------------------------------------------------------
+    #[test]
+    fn test_end_to_end_share_pipeline() {
+        use crate::pipeline::{RvfPipelineInput, build_rvf_container, count_segments};
+        use crate::verify::Verifier;
+        use rvf_crypto::WitnessEntry;
+
+        let mut verifier = Verifier::new();
+        let title = "Secure Architecture Guide";
+        let content = "Contact admin@example.com or see /home/deploy/config.yaml for setup";
+        let tags = vec!["security".to_string(), "architecture".to_string()];
+        let embedding = vec![0.1f32; 128];
+
+        // Step 1: Verify input (should reject due to PII)
+        let result = verifier.verify_share(title, content, &tags, &embedding);
+        assert!(result.is_err(), "PII content should be rejected by verify_share");
+
+        // Step 2: Strip PII instead of rejecting
+        let fields = [("title", title), ("content", content)];
+        let (stripped, log) = verifier.strip_pii_fields(&fields);
+        assert!(log.total_redactions >= 2, "should redact email + path");
+        assert!(!stripped[1].1.contains("admin@example.com"), "email should be redacted");
+        assert!(!stripped[1].1.contains("/home/"), "path should be redacted");
+
+        // Step 3: Stripped content should pass verification
+        let clean_title = &stripped[0].1;
+        let clean_content = &stripped[1].1;
+        assert!(verifier.verify_share(clean_title, clean_content, &tags, &embedding).is_ok());
+
+        // Step 4: Build witness chain
+        let now_ns = 1_000_000_000u64;
+        let stripped_hash = rvf_crypto::shake256_256(clean_content.as_bytes());
+        let mut emb_bytes = Vec::with_capacity(embedding.len() * 4);
+        for v in &embedding { emb_bytes.extend_from_slice(&v.to_le_bytes()); }
+        let emb_hash = rvf_crypto::shake256_256(&emb_bytes);
+        let entries = vec![
+            WitnessEntry { prev_hash: [0u8; 32], action_hash: stripped_hash, timestamp_ns: now_ns, witness_type: 0x01 },
+            WitnessEntry { prev_hash: [0u8; 32], action_hash: emb_hash, timestamp_ns: now_ns, witness_type: 0x02 },
+            WitnessEntry { prev_hash: [0u8; 32], action_hash: rvf_crypto::shake256_256(b"final"), timestamp_ns: now_ns, witness_type: 0x01 },
+        ];
+        let chain = rvf_crypto::create_witness_chain(&entries);
+        assert_eq!(chain.len(), 73 * 3);
+
+        // Step 5: Verify chain integrity
+        let decoded = verifier.verify_rvf_witness_chain(&chain).unwrap();
+        assert_eq!(decoded.len(), 3);
+
+        // Step 6: Build RVF container
+        let redaction_json = serde_json::to_string(&serde_json::json!({
+            "entries": [], "total_redactions": log.total_redactions
+        })).unwrap();
+        let input = RvfPipelineInput {
+            memory_id: "e2e-test-id",
+            embedding: &embedding,
+            title: clean_title,
+            content: clean_content,
+            tags: &tags,
+            category: "security",
+            contributor_id: "e2e-tester",
+            witness_chain: Some(&chain),
+            dp_proof_json: None,
+            redaction_log_json: Some(&redaction_json),
+        };
+        let container = build_rvf_container(&input).expect("container build should succeed");
+        let seg_count = count_segments(&container);
+        // VEC + META + WITNESS + REDACTION_LOG = 4 segments
+        assert_eq!(seg_count, 4, "expected 4 segments, got {seg_count}");
+    }
+
+    // -----------------------------------------------------------------------
+    // 13. Auth: API key validation and pseudonym derivation
+    // -----------------------------------------------------------------------
+    #[test]
+    fn test_auth_pseudonym_derivation() {
+        use crate::auth::AuthenticatedContributor;
+
+        // Same key should always produce the same pseudonym (deterministic)
+        let a = AuthenticatedContributor::from_api_key("test-key-12345678");
+        let b = AuthenticatedContributor::from_api_key("test-key-12345678");
+        assert_eq!(a.pseudonym, b.pseudonym);
+        assert_eq!(a.api_key_prefix, "test-key");
+        assert!(!a.is_system);
+
+        // Different keys should produce different pseudonyms
+        let c = AuthenticatedContributor::from_api_key("different-key-9999");
+        assert_ne!(a.pseudonym, c.pseudonym);
+
+        // System seed should have known values
+        let sys = AuthenticatedContributor::system_seed();
+        assert_eq!(sys.pseudonym, "ruvector-seed");
+        assert!(sys.is_system);
+    }
+
+    // -----------------------------------------------------------------------
+    // 14. RVF feature flags: verify default values
+    // -----------------------------------------------------------------------
+    #[test]
+    fn test_rvf_feature_flags_defaults() {
+        use crate::types::RvfFeatureFlags;
+        // Clear any env overrides for this test
+        let flags = RvfFeatureFlags::from_env();
+        // Defaults: pii_strip=true, witness=true, container=true
+        // dp_enabled=false, adversarial=false, neg_cache=false
+        assert!(flags.pii_strip, "pii_strip should default to true");
+        assert!(flags.witness, "witness should default to true");
+        assert!(flags.container, "container should default to true");
+        assert!(!flags.dp_enabled, "dp_enabled should default to false");
+        assert!(!flags.adversarial, "adversarial should default to false");
+        assert!(!flags.neg_cache, "neg_cache should default to false");
+        assert!((flags.dp_epsilon - 1.0).abs() < f64::EPSILON, "dp_epsilon should default to 1.0");
+    }
 }

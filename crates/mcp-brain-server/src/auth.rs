@@ -5,6 +5,7 @@ use axum::{
     http::{request::Parts, StatusCode},
 };
 use sha3::{Shake256, digest::{Update, ExtendableOutput, XofReader}};
+use subtle::ConstantTimeEq;
 
 /// Authenticated contributor extracted from request
 #[derive(Debug, Clone)]
@@ -45,10 +46,14 @@ impl AuthenticatedContributor {
     }
 }
 
+/// Minimum API key length to prevent trivially weak keys.
+const MIN_API_KEY_LEN: usize = 8;
+
 /// Cached system key — read from env once, avoids per-request env::var lookup.
-static SYSTEM_KEY: std::sync::LazyLock<String> = std::sync::LazyLock::new(|| {
-    std::env::var("BRAIN_SYSTEM_KEY")
-        .unwrap_or_else(|_| "brainpedia-author-key".to_string())
+/// If BRAIN_SYSTEM_KEY is unset, system key authentication is disabled entirely
+/// (no hardcoded fallback).
+static SYSTEM_KEY: std::sync::LazyLock<Option<String>> = std::sync::LazyLock::new(|| {
+    std::env::var("BRAIN_SYSTEM_KEY").ok().filter(|k| !k.is_empty())
 });
 
 #[axum::async_trait]
@@ -69,17 +74,20 @@ where
             .strip_prefix("Bearer ")
             .ok_or((StatusCode::UNAUTHORIZED, "Invalid Authorization format"))?;
 
-        if api_key.is_empty() || api_key.len() > 256 {
+        if api_key.len() < MIN_API_KEY_LEN || api_key.len() > 256 {
             return Err((StatusCode::UNAUTHORIZED, "Invalid API key"));
         }
 
-        // Recognise system-level API keys (cached from BRAIN_SYSTEM_KEY env)
-        if api_key == SYSTEM_KEY.as_str() {
-            return Ok(Self {
-                pseudonym: "ruvector-seed".to_string(),
-                api_key_prefix: "system".to_string(),
-                is_system: true,
-            });
+        // Recognise system-level API keys (cached from BRAIN_SYSTEM_KEY env).
+        // If BRAIN_SYSTEM_KEY is not set, system key auth is disabled — no hardcoded fallback.
+        if let Some(ref system_key) = *SYSTEM_KEY {
+            if api_key.as_bytes().ct_eq(system_key.as_bytes()).into() {
+                return Ok(Self {
+                    pseudonym: "ruvector-seed".to_string(),
+                    api_key_prefix: "system".to_string(),
+                    is_system: true,
+                });
+            }
         }
 
         Ok(Self::from_api_key(api_key))

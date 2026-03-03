@@ -210,14 +210,15 @@ pub async fn create_router() -> Router {
         .route("/sse", get(sse_handler))
         .route("/messages", post(messages_handler))
         .layer({
-            let cors = CorsLayer::new()
-                .allow_origin([
-                    "https://brain.ruv.io".parse::<axum::http::HeaderValue>().unwrap(),
-                    "https://pi.ruv.io".parse::<axum::http::HeaderValue>().unwrap(),
-                    "https://ruvbrain-875130704813.us-central1.run.app".parse::<axum::http::HeaderValue>().unwrap(),
-                    "http://localhost:8080".parse::<axum::http::HeaderValue>().unwrap(),
-                    "http://127.0.0.1:8080".parse::<axum::http::HeaderValue>().unwrap(),
-                ])
+            // CORS origins: configurable via CORS_ORIGINS env var (comma-separated).
+            // Falls back to safe defaults if unset.
+            let origins: Vec<axum::http::HeaderValue> = std::env::var("CORS_ORIGINS")
+                .unwrap_or_else(|_| "https://brain.ruv.io,https://pi.ruv.io,http://localhost:8080,http://127.0.0.1:8080".to_string())
+                .split(',')
+                .filter_map(|s| s.trim().parse::<axum::http::HeaderValue>().ok())
+                .collect();
+            CorsLayer::new()
+                .allow_origin(origins)
                 .allow_methods([
                     axum::http::Method::GET,
                     axum::http::Method::POST,
@@ -228,8 +229,7 @@ pub async fn create_router() -> Router {
                     axum::http::header::AUTHORIZATION,
                     axum::http::header::CONTENT_TYPE,
                     axum::http::header::ACCEPT,
-                ]);
-            cors
+                ])
         })
         .layer(TraceLayer::new_for_http())
         .layer(tower_http::limit::RequestBodyLimitLayer::new(1_048_576)) // 1MB
@@ -444,7 +444,8 @@ async fn share_memory(
             dp_proof_json: dp_proof_json.as_deref(),
             redaction_log_json: redaction_log_json.as_deref(),
         };
-        let container = crate::pipeline::build_rvf_container(&input);
+        let container = crate::pipeline::build_rvf_container(&input)
+            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e))?;
         let seg_count = crate::pipeline::count_segments(&container) as u32;
         // Upload to GCS
         let path = state

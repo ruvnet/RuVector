@@ -22,7 +22,8 @@ pub struct RvfPipelineInput<'a> {
 
 /// Build an RVF container from pipeline input.
 /// Returns the serialized container bytes (concatenated 64-byte-aligned segments).
-pub fn build_rvf_container(input: &RvfPipelineInput<'_>) -> Vec<u8> {
+/// Returns an error if metadata serialization fails (prevents silent data loss).
+pub fn build_rvf_container(input: &RvfPipelineInput<'_>) -> Result<Vec<u8>, String> {
     let flags = SegmentFlags::empty();
     let mut container = Vec::new();
     let mut seg_id: u64 = 1;
@@ -48,7 +49,8 @@ pub fn build_rvf_container(input: &RvfPipelineInput<'_>) -> Vec<u8> {
             "category": input.category,
             "contributor_id": input.contributor_id,
         });
-        let payload = serde_json::to_vec(&meta).unwrap_or_default();
+        let payload = serde_json::to_vec(&meta)
+            .map_err(|e| format!("Failed to serialize RVF metadata: {e}"))?;
         let seg = rvf_wire::write_segment(0x07, &payload, flags, seg_id);
         container.extend_from_slice(&seg);
         seg_id += 1;
@@ -75,7 +77,7 @@ pub fn build_rvf_container(input: &RvfPipelineInput<'_>) -> Vec<u8> {
         let _ = seg_id; // suppress unused warning on last increment
     }
 
-    container
+    Ok(container)
 }
 
 /// Count the number of segments in a serialized RVF container.
@@ -129,7 +131,7 @@ mod tests {
             redaction_log_json: Some(redaction_log),
         };
 
-        let container = build_rvf_container(&input);
+        let container = build_rvf_container(&input).expect("build should succeed");
         let seg_count = count_segments(&container);
         // VEC + META + WITNESS + DP_PROOF + REDACTION_LOG = 5 segments
         assert!(seg_count >= 3, "expected >= 3 segments, got {seg_count}");
@@ -152,7 +154,7 @@ mod tests {
             dp_proof_json: None,
             redaction_log_json: None,
         };
-        let container = build_rvf_container(&input);
+        let container = build_rvf_container(&input).expect("build should succeed");
         let seg_count = count_segments(&container);
         // VEC + META = 2 segments (no witness, no DP, no redaction)
         assert_eq!(seg_count, 2);
