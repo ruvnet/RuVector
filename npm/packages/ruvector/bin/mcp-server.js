@@ -3276,7 +3276,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         }
       }
 
-      // ── Brain Tool Handlers ──────────────────────────────────────────────
+      // ── Brain Tool Handlers (direct fetch to pi.ruv.io) ─────────────────
       case 'brain_search':
       case 'brain_share':
       case 'brain_get':
@@ -3289,31 +3289,75 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       case 'brain_transfer':
       case 'brain_sync': {
         try {
-          const { PiBrainClient } = require('@ruvector/pi-brain');
-          const client = new PiBrainClient({
-            url: process.env.BRAIN_URL || 'https://pi.ruv.io',
-            key: process.env.PI
-          });
+          const brainUrl = process.env.BRAIN_URL || 'https://pi.ruv.io';
+          const brainKey = process.env.PI;
+          const hdrs = { 'Content-Type': 'application/json' };
+          if (brainKey) hdrs['Authorization'] = `Bearer ${brainKey}`;
           const subCmd = name.replace('brain_', '');
-          let result;
+          let url, fetchOpts = { headers: hdrs, signal: AbortSignal.timeout(30000) };
           switch (subCmd) {
-            case 'search': result = await client.search(args.query, { category: args.category, limit: args.limit || 10 }); break;
-            case 'share': result = await client.share({ title: args.title, content: args.content, category: args.category, tags: args.tags ? args.tags.split(',').map(t => t.trim()) : [], code_snippet: args.code_snippet }); break;
-            case 'get': result = await client.get(args.id); break;
-            case 'vote': result = await client.vote(args.id, args.direction); break;
-            case 'list': result = await client.list({ category: args.category, limit: args.limit || 20 }); break;
-            case 'delete': result = await client.delete(args.id); break;
-            case 'status': result = await client.status(); break;
-            case 'drift': result = await client.drift({ domain: args.domain }); break;
-            case 'partition': result = await client.partition({ domain: args.domain, min_cluster_size: args.min_cluster_size }); break;
-            case 'transfer': result = await client.transfer(args.source_domain, args.target_domain); break;
-            case 'sync': result = await client.sync(args.direction || 'both'); break;
+            case 'search': {
+              const p = new URLSearchParams({ q: args.query || '' });
+              if (args.category) p.set('category', args.category);
+              if (args.limit) p.set('limit', String(args.limit));
+              url = `${brainUrl}/v1/memories/search?${p}`;
+              break;
+            }
+            case 'share': {
+              url = `${brainUrl}/v1/memories`;
+              fetchOpts.method = 'POST';
+              fetchOpts.body = JSON.stringify({ title: args.title, content: args.content, category: args.category, tags: args.tags ? args.tags.split(',').map(t => t.trim()) : [], code_snippet: args.code_snippet });
+              break;
+            }
+            case 'get': url = `${brainUrl}/v1/memories/${args.id}`; break;
+            case 'vote': {
+              url = `${brainUrl}/v1/memories/${args.id}/vote`;
+              fetchOpts.method = 'POST';
+              fetchOpts.body = JSON.stringify({ direction: args.direction });
+              break;
+            }
+            case 'list': {
+              const p = new URLSearchParams();
+              if (args.category) p.set('category', args.category);
+              p.set('limit', String(args.limit || 20));
+              url = `${brainUrl}/v1/memories/list?${p}`;
+              break;
+            }
+            case 'delete': {
+              url = `${brainUrl}/v1/memories/${args.id}`;
+              fetchOpts.method = 'DELETE';
+              break;
+            }
+            case 'status': url = `${brainUrl}/v1/status`; break;
+            case 'drift': {
+              const p = new URLSearchParams();
+              if (args.domain) p.set('domain', args.domain);
+              url = `${brainUrl}/v1/drift?${p}`;
+              break;
+            }
+            case 'partition': {
+              const p = new URLSearchParams();
+              if (args.domain) p.set('domain', args.domain);
+              if (args.min_cluster_size) p.set('min_cluster_size', String(args.min_cluster_size));
+              url = `${brainUrl}/v1/partition?${p}`;
+              break;
+            }
+            case 'transfer': {
+              url = `${brainUrl}/v1/transfer`;
+              fetchOpts.method = 'POST';
+              fetchOpts.body = JSON.stringify({ source_domain: args.source_domain, target_domain: args.target_domain });
+              break;
+            }
+            case 'sync': url = `${brainUrl}/v1/lora/latest`; break;
           }
+          const resp = await fetch(url, fetchOpts);
+          if (!resp.ok) {
+            const errText = await resp.text().catch(() => resp.statusText);
+            return { content: [{ type: 'text', text: JSON.stringify({ success: false, error: `${resp.status} ${errText}` }, null, 2) }], isError: true };
+          }
+          const result = await resp.json();
           return { content: [{ type: 'text', text: JSON.stringify({ success: true, ...result }, null, 2) }] };
         } catch (e) {
-          if (e.code === 'MODULE_NOT_FOUND') {
-            return { content: [{ type: 'text', text: JSON.stringify({ success: false, error: 'Brain tools require @ruvector/pi-brain. Install with: npm install @ruvector/pi-brain' }, null, 2) }], isError: true };
-          }
           return { content: [{ type: 'text', text: JSON.stringify({ success: false, error: e.message }, null, 2) }], isError: true };
         }
       }

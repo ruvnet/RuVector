@@ -7851,24 +7851,38 @@ mcpCmd.command('test')
   });
 
 // ============================================================================
-// Brain Commands — Shared intelligence via @ruvector/pi-brain (lazy-loaded)
+// Brain Commands — Shared intelligence via pi.ruv.io REST API (direct fetch)
 // ============================================================================
-
-async function requirePiBrain() {
-  try {
-    return require('@ruvector/pi-brain');
-  } catch {
-    console.error(chalk.red('Brain commands require @ruvector/pi-brain'));
-    console.error(chalk.yellow('  npm install @ruvector/pi-brain'));
-    process.exit(1);
-  }
-}
 
 function getBrainConfig(opts) {
   return {
     url: opts.url || process.env.BRAIN_URL || 'https://pi.ruv.io',
     key: opts.key || process.env.PI
   };
+}
+
+function brainHeaders(config) {
+  const h = { 'Content-Type': 'application/json' };
+  if (config.key) h['Authorization'] = `Bearer ${config.key}`;
+  return h;
+}
+
+async function brainFetch(config, endpoint, opts = {}) {
+  const url = new URL(endpoint, config.url);
+  if (opts.params) {
+    for (const [k, v] of Object.entries(opts.params)) {
+      if (v !== undefined && v !== null) url.searchParams.set(k, String(v));
+    }
+  }
+  const fetchOpts = { headers: brainHeaders(config), signal: AbortSignal.timeout(30000) };
+  if (opts.method) fetchOpts.method = opts.method;
+  if (opts.body) { fetchOpts.method = opts.method || 'POST'; fetchOpts.body = JSON.stringify(opts.body); }
+  const resp = await fetch(url.toString(), fetchOpts);
+  if (!resp.ok) {
+    const errText = await resp.text().catch(() => resp.statusText);
+    throw new Error(`${resp.status} ${errText}`);
+  }
+  return resp.json();
 }
 
 const brainCmd = program.command('brain').description('Shared intelligence — search, share, and manage collective knowledge');
@@ -7882,11 +7896,9 @@ brainCmd.command('search <query>')
   .option('--json', 'Output as JSON')
   .option('--verbose', 'Show detailed scoring and metadata per result')
   .action(async (query, opts) => {
-    const piBrain = await requirePiBrain();
     const config = getBrainConfig(opts);
     try {
-      const client = new piBrain.PiBrainClient(config);
-      const results = await client.search(query, { category: opts.category, limit: parseInt(opts.limit) });
+      const results = await brainFetch(config, '/v1/memories/search', { params: { q: query, category: opts.category, limit: opts.limit } });
       if (opts.json || !process.stdout.isTTY) { console.log(JSON.stringify(results, null, 2)); return; }
       console.log(chalk.bold.cyan(`\nBrain Search: "${query}"\n`));
       if (!results.length) { console.log(chalk.dim('  No results found.\n')); return; }
@@ -7916,11 +7928,9 @@ brainCmd.command('share <title>')
   .option('--url <url>', 'Brain server URL')
   .option('--key <key>', 'Pi key')
   .action(async (title, opts) => {
-    const piBrain = await requirePiBrain();
     const config = getBrainConfig(opts);
     try {
-      const client = new piBrain.PiBrainClient(config);
-      const result = await client.share({ title, content: opts.content || title, category: opts.category, tags: opts.tags ? opts.tags.split(',').map(t => t.trim()) : [], code_snippet: opts.code });
+      const result = await brainFetch(config, '/v1/memories', { body: { title, content: opts.content || title, category: opts.category, tags: opts.tags ? opts.tags.split(',').map(t => t.trim()) : [], code_snippet: opts.code } });
       console.log(chalk.green(`Shared: ${result.id || 'OK'}`));
     } catch (e) { console.error(chalk.red(`Error: ${e.message}`)); process.exit(1); }
   });
@@ -7931,11 +7941,9 @@ brainCmd.command('get <id>')
   .option('--key <key>', 'Pi key')
   .option('--json', 'Output as JSON')
   .action(async (id, opts) => {
-    const piBrain = await requirePiBrain();
     const config = getBrainConfig(opts);
     try {
-      const client = new piBrain.PiBrainClient(config);
-      const result = await client.get(id);
+      const result = await brainFetch(config, `/v1/memories/${id}`);
       if (opts.json || !process.stdout.isTTY) { console.log(JSON.stringify(result, null, 2)); return; }
       console.log(chalk.bold.cyan(`\nMemory: ${id}\n`));
       if (result.title) console.log(`  ${chalk.bold('Title:')} ${result.title}`);
@@ -7950,11 +7958,9 @@ brainCmd.command('vote <id> <direction>')
   .option('--url <url>', 'Brain server URL')
   .option('--key <key>', 'Pi key')
   .action(async (id, direction, opts) => {
-    const piBrain = await requirePiBrain();
     const config = getBrainConfig(opts);
     try {
-      const client = new piBrain.PiBrainClient(config);
-      await client.vote(id, direction);
+      await brainFetch(config, `/v1/memories/${id}/vote`, { body: { direction } });
       console.log(chalk.green(`Voted ${direction} on ${id}`));
     } catch (e) { console.error(chalk.red(`Error: ${e.message}`)); process.exit(1); }
   });
@@ -7967,11 +7973,9 @@ brainCmd.command('list')
   .option('--key <key>', 'Pi key')
   .option('--json', 'Output as JSON')
   .action(async (opts) => {
-    const piBrain = await requirePiBrain();
     const config = getBrainConfig(opts);
     try {
-      const client = new piBrain.PiBrainClient(config);
-      const results = await client.list({ category: opts.category, limit: parseInt(opts.limit) });
+      const results = await brainFetch(config, '/v1/memories/list', { params: { category: opts.category, limit: opts.limit } });
       if (opts.json || !process.stdout.isTTY) { console.log(JSON.stringify(results, null, 2)); return; }
       console.log(chalk.bold.cyan('\nShared Brain Memories\n'));
       if (!results.length) { console.log(chalk.dim('  No memories found.\n')); return; }
@@ -7987,11 +7991,9 @@ brainCmd.command('delete <id>')
   .option('--url <url>', 'Brain server URL')
   .option('--key <key>', 'Pi key')
   .action(async (id, opts) => {
-    const piBrain = await requirePiBrain();
     const config = getBrainConfig(opts);
     try {
-      const client = new piBrain.PiBrainClient(config);
-      await client.delete(id);
+      await brainFetch(config, `/v1/memories/${id}`, { method: 'DELETE' });
       console.log(chalk.green(`Deleted: ${id}`));
     } catch (e) { console.error(chalk.red(`Error: ${e.message}`)); process.exit(1); }
   });
@@ -8002,11 +8004,9 @@ brainCmd.command('status')
   .option('--key <key>', 'Pi key')
   .option('--json', 'Output as JSON')
   .action(async (opts) => {
-    const piBrain = await requirePiBrain();
     const config = getBrainConfig(opts);
     try {
-      const client = new piBrain.PiBrainClient(config);
-      const status = await client.status();
+      const status = await brainFetch(config, '/v1/status');
       if (opts.json || !process.stdout.isTTY) { console.log(JSON.stringify(status, null, 2)); return; }
       console.log(chalk.bold.cyan('\nBrain Status\n'));
       Object.entries(status).forEach(([k, v]) => {
@@ -8037,11 +8037,9 @@ brainCmd.command('drift')
   .option('--key <key>', 'Pi key')
   .option('--json', 'Output as JSON')
   .action(async (opts) => {
-    const piBrain = await requirePiBrain();
     const config = getBrainConfig(opts);
     try {
-      const client = new piBrain.PiBrainClient(config);
-      const report = await client.drift({ domain: opts.domain });
+      const report = await brainFetch(config, '/v1/drift', { params: { domain: opts.domain } });
       if (opts.json || !process.stdout.isTTY) { console.log(JSON.stringify(report, null, 2)); return; }
       console.log(chalk.bold.cyan('\nDrift Report\n'));
       console.log(`  ${chalk.bold('Drifting:')} ${report.is_drifting ? chalk.red('Yes') : chalk.green('No')}`);
@@ -8058,11 +8056,9 @@ brainCmd.command('partition')
   .option('--key <key>', 'Pi key')
   .option('--json', 'Output as JSON')
   .action(async (opts) => {
-    const piBrain = await requirePiBrain();
     const config = getBrainConfig(opts);
     try {
-      const client = new piBrain.PiBrainClient(config);
-      const result = await client.partition({ domain: opts.domain, min_cluster_size: parseInt(opts.minSize) });
+      const result = await brainFetch(config, '/v1/partition', { params: { domain: opts.domain, min_cluster_size: opts.minSize } });
       if (opts.json || !process.stdout.isTTY) { console.log(JSON.stringify(result, null, 2)); return; }
       console.log(chalk.bold.cyan('\nKnowledge Partitions\n'));
       if (result.clusters) {
@@ -8080,11 +8076,9 @@ brainCmd.command('transfer <source> <target>')
   .option('--key <key>', 'Pi key')
   .option('--json', 'Output as JSON')
   .action(async (source, target, opts) => {
-    const piBrain = await requirePiBrain();
     const config = getBrainConfig(opts);
     try {
-      const client = new piBrain.PiBrainClient(config);
-      const result = await client.transfer(source, target);
+      const result = await brainFetch(config, '/v1/transfer', { body: { source_domain: source, target_domain: target } });
       if (opts.json || !process.stdout.isTTY) { console.log(JSON.stringify(result, null, 2)); return; }
       console.log(chalk.green(`Transfer ${source} -> ${target}: ${result.status || 'OK'}`));
     } catch (e) { console.error(chalk.red(`Error: ${e.message}`)); process.exit(1); }
@@ -8095,11 +8089,9 @@ brainCmd.command('sync [direction]')
   .option('--url <url>', 'Brain server URL')
   .option('--key <key>', 'Pi key')
   .action(async (direction, opts) => {
-    const piBrain = await requirePiBrain();
     const config = getBrainConfig(opts);
     try {
-      const client = new piBrain.PiBrainClient(config);
-      const result = await client.sync(direction || 'both');
+      const result = await brainFetch(config, '/v1/lora/latest', { params: { direction: direction || 'both' } });
       console.log(chalk.green(`Sync ${direction || 'both'}: ${result.status || 'OK'}`));
     } catch (e) { console.error(chalk.red(`Error: ${e.message}`)); process.exit(1); }
   });
@@ -8110,30 +8102,28 @@ brainCmd.command('page <action> [args...]')
   .option('--key <key>', 'Pi key')
   .option('--json', 'Output as JSON')
   .action(async (action, args, opts) => {
-    const piBrain = await requirePiBrain();
     const config = getBrainConfig(opts);
     try {
-      const client = new piBrain.PiBrainClient(config);
       let result;
       switch (action) {
         case 'list':
-          result = await client.listPages ? client.listPages({ limit: 20 }) : { pages: [], message: 'Brainpedia not yet available on this server' };
+          result = await brainFetch(config, '/v1/pages', { params: { limit: 20 } }).catch(() => ({ pages: [], message: 'Brainpedia endpoint not available' }));
           break;
         case 'get':
           if (!args[0]) { console.error(chalk.red('Usage: brain page get <slug>')); process.exit(1); }
-          result = await client.getPage ? client.getPage(args[0]) : { error: 'Brainpedia not yet available' };
+          result = await brainFetch(config, `/v1/pages/${args[0]}`);
           break;
         case 'create':
           if (!args[0]) { console.error(chalk.red('Usage: brain page create <title> [--content <text>]')); process.exit(1); }
-          result = await client.createPage ? client.createPage({ title: args[0], content: opts.content || '' }) : { error: 'Brainpedia not yet available' };
+          result = await brainFetch(config, '/v1/pages', { body: { title: args[0], content: opts.content || '' } });
           break;
         case 'update':
           if (!args[0]) { console.error(chalk.red('Usage: brain page update <slug> [--content <text>]')); process.exit(1); }
-          result = await client.updatePage ? client.updatePage(args[0], { content: opts.content || '' }) : { error: 'Brainpedia not yet available' };
+          result = await brainFetch(config, `/v1/pages/${args[0]}/deltas`, { body: { content: opts.content || '' } });
           break;
         case 'delete':
           if (!args[0]) { console.error(chalk.red('Usage: brain page delete <slug>')); process.exit(1); }
-          result = await client.deletePage ? client.deletePage(args[0]) : { error: 'Brainpedia not yet available' };
+          result = await brainFetch(config, `/v1/pages/${args[0]}`, { method: 'DELETE' }).catch(() => ({ error: 'Delete not available' }));
           break;
         default:
           console.error(chalk.red(`Unknown page action: ${action}. Use: list, get, create, update, delete`));
@@ -8159,10 +8149,8 @@ brainCmd.command('node <action> [args...]')
   .option('--key <key>', 'Pi key')
   .option('--json', 'Output as JSON')
   .action(async (action, args, opts) => {
-    const piBrain = await requirePiBrain();
     const config = getBrainConfig(opts);
     try {
-      const client = new piBrain.PiBrainClient(config);
       let result;
       switch (action) {
         case 'publish':
@@ -8170,14 +8158,14 @@ brainCmd.command('node <action> [args...]')
           const wasmPath = path.resolve(args[0]);
           if (!fs.existsSync(wasmPath)) { console.error(chalk.red(`File not found: ${wasmPath}`)); process.exit(1); }
           const wasmBytes = fs.readFileSync(wasmPath);
-          result = await client.publishNode ? client.publishNode({ wasm: wasmBytes, name: path.basename(wasmPath, '.wasm') }) : { error: 'WASM node publish not yet available on this server' };
+          result = await brainFetch(config, '/v1/nodes', { body: { name: path.basename(wasmPath, '.wasm'), wasm_base64: wasmBytes.toString('base64') } });
           break;
         case 'list':
-          result = await client.listNodes ? client.listNodes({ limit: 20 }) : { nodes: [], message: 'WASM node listing not yet available' };
+          result = await brainFetch(config, '/v1/nodes', { params: { limit: 20 } }).catch(() => ({ nodes: [], message: 'WASM node listing not available' }));
           break;
         case 'status':
           if (!args[0]) { console.error(chalk.red('Usage: brain node status <node-id>')); process.exit(1); }
-          result = await client.nodeStatus ? client.nodeStatus(args[0]) : { error: 'WASM node status not yet available' };
+          result = await brainFetch(config, `/v1/nodes/${args[0]}`);
           break;
         default:
           console.error(chalk.red(`Unknown node action: ${action}. Use: publish, list, status`));
