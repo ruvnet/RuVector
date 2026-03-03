@@ -58,15 +58,43 @@ Create v3 (`scripts/sql-audit-v3.sql`) with all 12 fixes applied:
 - Results are machine-parseable (grep for `PASS:` / `FAIL:` / `ERROR:`)
 - Session state is clean after script completes
 
+## v0.3.1 Audit Scorecard
+
+**190 functions | PG 17.9 | SIMD avx2+fma+sse4.2**
+
+**15 PASS / 1 PARTIAL / 1 FAIL → 88% pass rate (up from 47% in v0.3.0)**
+
+| # | Feature | v0.3.0 | v0.3.1 | Status |
+|---|---------|--------|--------|--------|
+| 1-4 | Core vectors, HNSW, SIMD | PASS | PASS | Same |
+| 5-6 | Attention (basic + advanced) | PASS | PASS | 12 functions |
+| 7-8 | GNN | FAIL (removed) | **PASS** (5 funcs) | Restored with jsonb sigs |
+| 9 | Graph CRUD | PASS | PASS | Same |
+| 10 | Cypher MATCH | FAIL (self-ref) | **PASS** (4 results) | Alice→Bob, Bob→Alice, Bob→Charlie, Charlie→Bob |
+| 11-12 | Shortest path, SPARQL | PASS | PASS | Same |
+| 13 | Persistence | FAIL | **PASS** | Graph + RDF survive dblink test |
+| 14 | Self-healing | FAIL | **PASS** (16 funcs) | Full health monitoring |
+| 15 | Multi-tenancy | FAIL | **PASS** (15 funcs) | Tenant isolation + RLS |
+| 16 | Hybrid search | FAIL | **PARTIAL** (7 funcs) | Registered but needs collection setup |
+| 17 | SONA | PARTIAL | **PASS** | sona_apply handles any dim |
+
+### Function Count Notes
+
+The audit script detects functions via `pg_proc` pattern matching, which may undercount vs. the 46 `CREATE FUNCTION` statements in the SQL schema:
+- Self-healing: 16 detected by audit / 17 registered (1 utility function not matched by audit pattern)
+- Multi-tenancy: 15 detected by audit / 17 registered (2 SQL-generation helpers not matched)
+- All 46 functions confirmed present via direct `\df ruvector_*` in Docker container
+
 ## Known ruvector Issues Discovered by Audit
 
 | # | Issue | Status | Fix |
 |---|-------|--------|-----|
 | 1 | Cypher MATCH self-reference bug (`a.id == b.id`) | **Fixed (v0.3.1)** | Rewrote `match_pattern()` in `executor.rs` to properly traverse edges, reject self-references when variables differ, and generate per-edge binding rows |
 | 2 | Graph/RDF persistence failure (in-memory only) | **Fixed (v0.3.1)** | Added PostgreSQL backing tables (`_ruvector_graphs`, `_ruvector_nodes`, `_ruvector_edges`, `_ruvector_rdf_stores`, `_ruvector_triples`) with auto-load on cache miss |
-| 3 | HNSW index scan returns 0 rows despite correct query planning | Open | v0.1.0 SQL schema issue — requires investigation of index AM registration |
+| 3 | HNSW index scan returns 0 rows despite correct query planning | **Open** | v0.1.0 SQL schema issue — requires investigation of index AM registration |
 | 4 | Self-healing, multi-tenancy, hybrid search "not registered" | **Fixed (v0.3.1)** | 46 missing `CREATE FUNCTION` statements added to `ruvector--0.3.0.sql`: GNN (5), healing (17), tenancy (17), hybrid (7). Modules were always compiled but SQL schema lacked function registrations. All 46 verified in Docker container. |
 | 5 | SONA apply panics on non-256-dim input | **Fixed (v0.3.1)** | Dynamic dimension detection with per-dim engine caching and `catch_unwind` panic guard |
+| 6 | Hybrid search needs collection setup before use | **Open** | Functions registered but require `ruvector_register_hybrid()` call with valid collection — needs convenience wrapper or better error message |
 
 ## Related Changes (v0.3.1)
 
