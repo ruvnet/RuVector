@@ -15,7 +15,7 @@ The `ruvector` npm package (v0.2.5) is the primary CLI and MCP entry point for t
 | **Package** | `ruvector` on npm |
 | **Version** | 0.2.5 |
 | **CLI entry** | `bin/cli.js` (8,911 lines) |
-| **MCP entry** | `bin/mcp-server.js` (~3,816 lines) |
+| **MCP entry** | `bin/mcp-server.js` (3,815 lines) |
 | **Node.js** | >=18.0.0 |
 | **Dependencies** | 8 required, 1 optional, 3 peer (optional) |
 | **Published files** | `bin/`, `dist/`, `README.md`, `LICENSE` |
@@ -25,11 +25,11 @@ The `ruvector` npm package (v0.2.5) is the primary CLI and MCP entry point for t
 ### Summary
 
 - **Total commands**: ~179 registered, ~145 unique
-- **Command groups**: 14 main groups + standalone commands
+- **Command groups**: 15 main groups + standalone commands
 - **Lazy-loaded modules**: GNN, Attention, ora, ruvector core, pi-brain, ruvllm
 - **Startup time**: ~55ms (lazy loading optimization)
 
-### Command Groups (14)
+### Command Groups (15)
 
 | Group | Subcommands | Description |
 |-------|-------------|-------------|
@@ -135,7 +135,7 @@ All hooks intelligence, RVF CRUD, brain services, edge network, identity crypto,
 
 | File | Tests | Quality |
 |------|-------|---------|
-| `test/cli-commands.js` | 63 active + 6 dynamic | Mixed — many help-only |
+| `test/cli-commands.js` | 64 active + 6 dynamic | Mixed — many help-only |
 | `test/integration.js` | 6 test groups | Good — module, types, structure |
 | `test/benchmark-cli.js` | 7 benchmark commands | Good — latency + lazy loading |
 
@@ -177,7 +177,7 @@ All hooks intelligence, RVF CRUD, brain services, edge network, identity crypto,
 
 | # | Issue | Severity | Location |
 |---|-------|----------|----------|
-| 1 | Dead code in router command (unreachable block) | Low | cli.js line 1807 |
+| 1 | Conditionally unreachable code in router command (only runs when unpublished `@ruvector/router` is installed) | Low | cli.js line 1807 |
 | 2 | brain page/node actions return "not yet available" | Low | cli.js lines 8120-8180 |
 | 3 | Uninitialized variables in conditional blocks | Low | cli.js lines 4757, 4769 |
 | 4 | Error suppression in brain/edge catch blocks | Low | cli.js lines 7907-7908 |
