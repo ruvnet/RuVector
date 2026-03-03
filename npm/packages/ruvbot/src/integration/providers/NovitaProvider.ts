@@ -28,8 +28,8 @@ export interface NovitaConfig {
 
 export type NovitaModel =
   | 'deepseek/deepseek-v3.2'
-  | 'minimax-minimax-m2.5'
-  | 'zai-org-glm-5'
+  | 'minimax/minimax-m2.5'
+  | 'zai-org/glm-5'
   | string;
 
 type NovitaMessage = {
@@ -44,14 +44,14 @@ const MODEL_INFO: Record<string, ModelInfo> = {
     maxTokens: 8192,
     contextWindow: 64000,
   },
-  'minimax-minimax-m2.5': {
-    id: 'minimax-minimax-m2.5',
+  'minimax/minimax-m2.5': {
+    id: 'minimax/minimax-m2.5',
     name: 'MiniMax M2.5',
     maxTokens: 8192,
     contextWindow: 128000,
   },
-  'zai-org-glm-5': {
-    id: 'zai-org-glm-5',
+  'zai-org/glm-5': {
+    id: 'zai-org/glm-5',
     name: 'GLM-5',
     maxTokens: 8192,
     contextWindow: 128000,
