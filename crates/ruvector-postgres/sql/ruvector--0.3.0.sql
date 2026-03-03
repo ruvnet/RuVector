@@ -1,7 +1,7 @@
 -- RuVector PostgreSQL Extension v0.3.1
 -- Version: 0.3.0
 -- High-performance vector similarity search with SIMD optimizations
--- Features: 190 SQL functions — Solver, Math, TDA, Attention, GNN, Self-Healing,
+-- Features: 191 SQL functions — Solver, Math, TDA, Attention, GNN, Self-Healing,
 --           Multi-Tenancy, Hybrid Search, Graph/Cypher/SPARQL, Sona, Domain Expansion
 
 -- Complain if script is sourced in psql, rather than via CREATE EXTENSION
@@ -1083,6 +1083,15 @@ LANGUAGE C STRICT;
 
 -- Create HNSW Access Method
 CREATE ACCESS METHOD hnsw TYPE INDEX HANDLER hnsw_handler;
+
+-- HNSW Debug/Diagnostics
+CREATE OR REPLACE FUNCTION ruvector_hnsw_debug(index_name text)
+RETURNS jsonb
+AS 'MODULE_PATHNAME', 'ruvector_hnsw_debug_wrapper'
+LANGUAGE C VOLATILE PARALLEL SAFE;
+
+COMMENT ON FUNCTION ruvector_hnsw_debug(text) IS
+'Diagnose HNSW index issues — reads metadata page and reports entry_point, node_count, search stats';
 
 -- ============================================================================
 -- Operator Classes for HNSW

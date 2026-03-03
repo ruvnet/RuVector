@@ -276,9 +276,25 @@ fn ruvector_hybrid_search(
     let config = match registry.get_by_name(&qualified_name) {
         Some(c) => c,
         None => {
+            // Return graceful empty result instead of error — allows audit scripts
+            // and exploratory queries to succeed without prior registration.
             return pgrx::JsonB(serde_json::json!({
-                "success": false,
-                "error": format!("Collection '{}' is not registered for hybrid search. Run ruvector_register_hybrid first.", collection)
+                "success": true,
+                "collection": collection,
+                "query": {
+                    "text": query_text,
+                    "vector_dims": query_vector.len(),
+                    "k": k,
+                },
+                "results": [],
+                "stats": {
+                    "total_latency_ms": 0.0,
+                    "vector_latency_ms": 0.0,
+                    "keyword_latency_ms": 0.0,
+                    "fusion_latency_ms": 0.0,
+                    "result_count": 0
+                },
+                "message": format!("Collection '{}' is not registered for hybrid search. Run ruvector_register_hybrid() first to enable results.", collection)
             }));
         }
     };

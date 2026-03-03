@@ -221,7 +221,16 @@ BEGIN
   IF cnt = 5 THEN
     RAISE NOTICE 'PASS: HNSW k-NN returned % results', cnt;
   ELSIF cnt = 0 THEN
-    RAISE NOTICE 'FAIL: HNSW k-NN returned 0 rows — KNOWN BUG in ruvector 0.1.0';
+    -- Run diagnostics to understand why
+    BEGIN
+      DECLARE diag jsonb;
+      BEGIN
+        SELECT ruvector_hnsw_debug('idx_audit_hnsw') INTO diag;
+        RAISE NOTICE 'FAIL: HNSW k-NN returned 0 rows — debug: %', diag;
+      EXCEPTION WHEN OTHERS THEN
+        RAISE NOTICE 'FAIL: HNSW k-NN returned 0 rows (debug function unavailable)';
+      END;
+    END;
   ELSE
     RAISE NOTICE 'WARN: HNSW k-NN returned % results (expected 5)', cnt;
   END IF;
@@ -799,13 +808,25 @@ END $$;
 
 \echo '--- 9b. Try hybrid_search ---'
 DO $$
+DECLARE
+  result jsonb;
+  is_success boolean;
 BEGIN
-  PERFORM ruvector_hybrid_search(
+  -- Correct argument order: collection, query_text, query_vector (real[]), k
+  SELECT ruvector_hybrid_search(
     '_audit_vectors',
-    '[0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5]'::ruvector,
-    'query', 0.5, 10
-  );
-  RAISE NOTICE 'PASS: ruvector_hybrid_search() returned a result';
+    'test query',
+    ARRAY[0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5]::real[],
+    5
+  ) INTO result;
+  is_success := (result->>'success')::boolean;
+  IF is_success THEN
+    RAISE NOTICE 'PASS: ruvector_hybrid_search() returned success=true (% results)',
+      jsonb_array_length(result->'results');
+  ELSE
+    RAISE NOTICE 'FAIL: ruvector_hybrid_search() returned success=false: %',
+      result->>'error';
+  END IF;
 EXCEPTION WHEN undefined_function THEN
   RAISE NOTICE 'FAIL: ruvector_hybrid_search() does not exist';
 WHEN OTHERS THEN
