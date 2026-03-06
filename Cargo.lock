@@ -9541,7 +9541,6 @@ dependencies = [
 name = "ruvllm-wasm"
 version = "2.0.0"
 dependencies = [
- "bytemuck",
  "console_error_panic_hook",
  "js-sys",
  "serde",
