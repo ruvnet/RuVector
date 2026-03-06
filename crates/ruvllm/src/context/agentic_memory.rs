@@ -7,7 +7,7 @@ use chrono::{DateTime, Utc};
 use parking_lot::RwLock;
 use ruvector_core::index::hnsw::HnswIndex;
 use ruvector_core::index::VectorIndex;
-use ruvector_core::types::{DistanceMetric, HnswConfig};
+use ruvector_core::types::{DistanceMetric, HnswConfig, QuantumVector};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -81,7 +81,7 @@ pub struct SemanticFact {
     /// Fact content
     pub content: String,
     /// Fact embedding
-    pub embedding: Vec<f32>,
+    pub embedding: QuantumVector,
     /// Confidence score
     pub confidence: f32,
     /// Source (where this fact came from)
@@ -112,7 +112,7 @@ pub struct ProceduralSkill {
     /// Trigger conditions (when to use this skill)
     pub triggers: Vec<String>,
     /// Skill embedding
-    pub embedding: Vec<f32>,
+    pub embedding: QuantumVector,
     /// Success rate
     pub success_rate: f32,
     /// Execution count
@@ -219,7 +219,7 @@ impl AgenticMemory {
         &self,
         key: &str,
         content: &str,
-        embedding: Vec<f32>,
+        embedding: QuantumVector,
         memory_type: MemoryType,
     ) -> Result<String> {
         self.stats.stores.fetch_add(1, Ordering::SeqCst);
@@ -259,7 +259,7 @@ impl AgenticMemory {
         &self,
         id: &str,
         content: &str,
-        embedding: Vec<f32>,
+        embedding: QuantumVector,
         confidence: f32,
         source: &str,
         tags: Vec<String>,
@@ -328,7 +328,7 @@ impl AgenticMemory {
     /// Retrieve from memory by query
     pub fn retrieve(
         &self,
-        query_embedding: &[f32],
+        query_embedding: &QuantumVector,
         memory_type: MemoryType,
         k: usize,
     ) -> Result<Vec<RetrievedMemory>> {
@@ -430,7 +430,11 @@ impl AgenticMemory {
     }
 
     /// Get relevant memories across all types
-    pub fn get_relevant(&self, query_embedding: &[f32], k: usize) -> Result<Vec<RetrievedMemory>> {
+    pub fn get_relevant(
+        &self,
+        query_embedding: &QuantumVector,
+        k: usize,
+    ) -> Result<Vec<RetrievedMemory>> {
         let mut all_results = Vec::new();
 
         // Get from each memory type
@@ -701,8 +705,8 @@ pub struct AgenticMemoryStats {
 mod tests {
     use super::*;
 
-    fn test_embedding(dim: usize) -> Vec<f32> {
-        vec![0.1; dim]
+    fn test_embedding(dim: usize) -> QuantumVector {
+        QuantumVector::F32(vec![0.1; dim])
     }
 
     #[test]

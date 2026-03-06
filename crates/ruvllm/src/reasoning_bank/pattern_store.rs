@@ -115,8 +115,8 @@ pub struct Pattern {
     pub id: u64,
     /// UUID for external reference
     pub uuid: Uuid,
-    /// Pattern embedding (centroid)
-    pub embedding: Vec<f32>,
+    /// Pattern embedding (centroid) (Quantum)
+    pub embedding: ruvector_core::types::QuantumVector,
     /// Category
     pub category: PatternCategory,
     /// Confidence score (0.0 - 1.0)
@@ -156,7 +156,11 @@ pub struct PatternMetadata {
 
 impl Pattern {
     /// Create a new pattern
-    pub fn new(embedding: Vec<f32>, category: PatternCategory, confidence: f32) -> Self {
+    pub fn new(
+        embedding: ruvector_core::types::QuantumVector,
+        category: PatternCategory,
+        confidence: f32,
+    ) -> Self {
         let now = Utc::now();
         Self {
             id: PATTERN_COUNTER.fetch_add(1, Ordering::SeqCst),
@@ -341,11 +345,16 @@ impl Pattern {
         let w1 = self.usage_count as f32 / total_count as f32;
         let w2 = other.usage_count as f32 / total_count as f32;
 
-        for (i, e) in self.embedding.iter_mut().enumerate() {
-            if i < other.embedding.len() {
-                *e = *e * w1 + other.embedding[i] * w2;
+        let v1 = self.embedding.reconstruct();
+        let v2 = other.embedding.reconstruct();
+        let mut merged_v = vec![0.0; v1.len()];
+
+        for (i, e) in merged_v.iter_mut().enumerate() {
+            if i < v2.len() {
+                *e = v1[i] * w1 + v2[i] * w2;
             }
         }
+        self.embedding = ruvector_core::types::QuantumVector::F32(merged_v);
 
         // Merge statistics
         self.usage_count = total_count;
@@ -370,15 +379,18 @@ impl Pattern {
         self.last_accessed = Utc::now();
     }
 
-    /// Compute cosine similarity with a query
-    pub fn similarity(&self, query: &[f32]) -> f32 {
-        if self.embedding.len() != query.len() {
+    /// Compute similarity with a query
+    pub fn similarity(&self, query: &ruvector_core::types::QuantumVector) -> f32 {
+        let v_p = self.embedding.reconstruct();
+        let v_q = query.reconstruct();
+
+        if v_p.len() != v_q.len() {
             return 0.0;
         }
 
-        let dot: f32 = self.embedding.iter().zip(query).map(|(a, b)| a * b).sum();
-        let norm_a: f32 = self.embedding.iter().map(|x| x * x).sum::<f32>().sqrt();
-        let norm_b: f32 = query.iter().map(|x| x * x).sum::<f32>().sqrt();
+        let dot: f32 = v_p.iter().zip(&v_q).map(|(a, b)| a * b).sum();
+        let norm_a: f32 = v_p.iter().map(|x| x * x).sum::<f32>().sqrt();
+        let norm_b: f32 = v_q.iter().map(|x| x * x).sum::<f32>().sqrt();
 
         if norm_a > 1e-8 && norm_b > 1e-8 {
             dot / (norm_a * norm_b)
@@ -540,13 +552,17 @@ impl PatternStore {
     }
 
     /// Search for similar patterns
-    pub fn search_similar(&self, query: &[f32], limit: usize) -> Result<Vec<PatternSearchResult>> {
+    pub fn search_similar(
+        &self,
+        query_embedding: &ruvector_core::types::QuantumVector,
+        limit: usize,
+    ) -> Result<Vec<PatternSearchResult>> {
         let start = std::time::Instant::now();
 
         // Search HNSW index
         let results = {
             let search_query = SearchQuery {
-                vector: query.to_vec(),
+                vector: query_embedding.clone(),
                 k: limit,
                 filter: None,
                 ef_search: Some(self.config.ef_search),
@@ -794,10 +810,15 @@ impl PatternStore {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ruvector_core::types::QuantumVector;
 
     #[test]
     fn test_pattern_creation() {
-        let pattern = Pattern::new(vec![0.1; 768], PatternCategory::Reasoning, 0.9);
+        let pattern = Pattern::new(
+            QuantumVector::F32(vec![0.1; 768]),
+            PatternCategory::Reasoning,
+            0.9,
+        );
 
         assert!(pattern.id > 0 || pattern.id == 0); // First pattern might be 0
         assert_eq!(pattern.category, PatternCategory::Reasoning);
@@ -806,25 +827,43 @@ mod tests {
 
     #[test]
     fn test_pattern_similarity() {
-        let pattern = Pattern::new(vec![1.0, 0.0, 0.0], PatternCategory::General, 0.9);
+        let pattern = Pattern::new(
+            QuantumVector::F32(vec![1.0, 0.0, 0.0]),
+            PatternCategory::General,
+            0.9,
+        );
 
-        assert!((pattern.similarity(&[1.0, 0.0, 0.0]) - 1.0).abs() < 1e-6);
-        assert!(pattern.similarity(&[0.0, 1.0, 0.0]).abs() < 1e-6);
+        assert!((pattern.similarity(&QuantumVector::F32(vec![1.0, 0.0, 0.0])) - 1.0).abs() < 1e-6);
+        assert!(
+            pattern
+                .similarity(&QuantumVector::F32(vec![0.0, 1.0, 0.0]))
+                .abs()
+                < 1e-6
+        );
     }
 
     #[test]
     fn test_pattern_merge() {
-        let mut p1 = Pattern::new(vec![1.0, 0.0], PatternCategory::General, 0.8);
+        let mut p1 = Pattern::new(
+            QuantumVector::F32(vec![1.0, 0.0]),
+            PatternCategory::General,
+            0.8,
+        );
         p1.usage_count = 10;
 
-        let mut p2 = Pattern::new(vec![0.0, 1.0], PatternCategory::General, 0.9);
+        let mut p2 = Pattern::new(
+            QuantumVector::F32(vec![0.0, 1.0]),
+            PatternCategory::General,
+            0.9,
+        );
         p2.usage_count = 10;
 
         p1.merge(&p2);
 
         assert_eq!(p1.usage_count, 20);
-        assert!((p1.embedding[0] - 0.5).abs() < 1e-6);
-        assert!((p1.embedding[1] - 0.5).abs() < 1e-6);
+        let v = p1.embedding.reconstruct();
+        assert!((v[0] - 0.5).abs() < 1e-6);
+        assert!((v[1] - 0.5).abs() < 1e-6);
     }
 
     #[test]
@@ -855,11 +894,17 @@ mod tests {
         let mut store = PatternStore::new(config).unwrap();
 
         // Store pattern
-        let pattern = Pattern::new(vec![1.0, 0.0, 0.0, 0.0], PatternCategory::Reasoning, 0.9);
+        let pattern = Pattern::new(
+            QuantumVector::F32(vec![1.0, 0.0, 0.0, 0.0]),
+            PatternCategory::Reasoning,
+            0.9,
+        );
         let id = store.store_pattern(pattern).unwrap();
 
         // Search
-        let results = store.search_similar(&[1.0, 0.0, 0.0, 0.0], 1).unwrap();
+        let results = store
+            .search_similar(&QuantumVector::F32(vec![1.0, 0.0, 0.0, 0.0]), 1)
+            .unwrap();
         assert!(!results.is_empty());
         assert_eq!(results[0].pattern.id, id);
 

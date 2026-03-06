@@ -31,6 +31,8 @@ pub struct ConsolidationConfig {
     pub max_unused_age_secs: u64,
     /// Enable automatic lambda adaptation
     pub auto_adapt_lambda: bool,
+    /// Minimum importance score to keep a pattern
+    pub min_importance_threshold: f32,
 }
 
 impl Default for ConsolidationConfig {
@@ -45,34 +47,42 @@ impl Default for ConsolidationConfig {
             merge_similarity_threshold: 0.85,
             max_unused_age_secs: 86400 * 7, // 7 days
             auto_adapt_lambda: true,
+            min_importance_threshold: 0.2,
         }
     }
 }
+
+use ruvector_core::types::QuantumVector;
 
 /// Fisher information for a pattern dimension
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FisherInformation {
     /// Diagonal of the Fisher information matrix
-    pub diagonal: Vec<f32>,
+    pub diagonal: QuantumVector,
     /// Number of samples used to estimate
     pub sample_count: u64,
     /// Running EMA of squared gradients
-    pub ema_grad_squared: Vec<f32>,
+    pub ema_grad_squared: QuantumVector,
 }
 
 impl FisherInformation {
     /// Create new Fisher information
     pub fn new(dim: usize) -> Self {
         Self {
-            diagonal: vec![1.0; dim],
+            diagonal: QuantumVector::F32(vec![1.0; dim]),
             sample_count: 0,
-            ema_grad_squared: vec![0.0; dim],
+            ema_grad_squared: QuantumVector::F32(vec![0.0; dim]),
         }
     }
 
     /// Update with new gradient observation
     pub fn update(&mut self, gradient: &[f32], decay: f32) {
-        if gradient.len() != self.diagonal.len() {
+        let (mut diag, mut ema) = match (&mut self.diagonal, &mut self.ema_grad_squared) {
+            (QuantumVector::F32(d), QuantumVector::F32(e)) => (d, e),
+            _ => return, // Unsupported for now
+        };
+
+        if gradient.len() != diag.len() {
             return;
         }
 
@@ -80,36 +90,53 @@ impl FisherInformation {
 
         for (i, &g) in gradient.iter().enumerate() {
             // EMA update: F_t = decay * F_{t-1} + (1 - decay) * g^2
-            self.ema_grad_squared[i] = decay * self.ema_grad_squared[i] + (1.0 - decay) * g * g;
-            self.diagonal[i] = self.ema_grad_squared[i];
+            ema[i] = decay * ema[i] + (1.0 - decay) * g * g;
+            diag[i] = ema[i];
         }
     }
 
     /// Get importance score for a dimension
     pub fn importance(&self, dim: usize) -> f32 {
-        if dim < self.diagonal.len() {
-            self.diagonal[dim]
-        } else {
-            0.0
+        match &self.diagonal {
+            QuantumVector::F32(d) => {
+                if dim < d.len() {
+                    d[dim]
+                } else {
+                    0.0
+                }
+            }
+            _ => 0.0,
         }
     }
 
     /// Get total importance
     pub fn total_importance(&self) -> f32 {
-        self.diagonal.iter().sum()
+        match &self.diagonal {
+            QuantumVector::F32(d) => d.iter().sum(),
+            _ => 0.0,
+        }
     }
 
     /// Merge with another Fisher information (weighted average)
     pub fn merge(&mut self, other: &FisherInformation, self_weight: f32) {
-        if self.diagonal.len() != other.diagonal.len() {
+        let (diag_self, ema_self) = match (&mut self.diagonal, &mut self.ema_grad_squared) {
+            (QuantumVector::F32(d), QuantumVector::F32(e)) => (d, e),
+            _ => return,
+        };
+
+        let (diag_other, ema_other) = match (&other.diagonal, &other.ema_grad_squared) {
+            (QuantumVector::F32(d), QuantumVector::F32(e)) => (d, e),
+            _ => return,
+        };
+
+        if diag_self.len() != diag_other.len() {
             return;
         }
 
         let other_weight = 1.0 - self_weight;
-        for i in 0..self.diagonal.len() {
-            self.diagonal[i] = self.diagonal[i] * self_weight + other.diagonal[i] * other_weight;
-            self.ema_grad_squared[i] =
-                self.ema_grad_squared[i] * self_weight + other.ema_grad_squared[i] * other_weight;
+        for i in 0..diag_self.len() {
+            diag_self[i] = diag_self[i] * self_weight + diag_other[i] * other_weight;
+            ema_self[i] = ema_self[i] * self_weight + ema_other[i] * other_weight;
         }
 
         self.sample_count = ((self.sample_count as f32 * self_weight)
@@ -169,7 +196,7 @@ impl ImportanceScore {
 
         // Fisher information factor
         if let Some(fi) = fisher {
-            factors.fisher_factor = (fi.total_importance() / fi.diagonal.len() as f32).min(1.0);
+            factors.fisher_factor = (fi.total_importance() / fi.dimension() as f32).min(1.0);
         } else {
             factors.fisher_factor = 0.5; // Default if no Fisher info
         }
@@ -275,7 +302,8 @@ impl PatternConsolidator {
             .filter(|s| {
                 let pattern = patterns.iter().find(|p| p.id == s.pattern_id);
                 if let Some(p) = pattern {
-                    s.score < 0.2 && p.avg_quality < self.config.min_quality_threshold
+                    s.score < self.config.min_importance_threshold
+                        && p.avg_quality < self.config.min_quality_threshold
                 } else {
                     false
                 }
@@ -446,9 +474,14 @@ impl PatternConsolidator {
 
         if let Some(fisher) = self.fisher_info.get(&pattern_id) {
             let mut loss = 0.0f32;
-            for i in 0..current_weights.len().min(fisher.diagonal.len()) {
+            let diag = match &fisher.diagonal {
+                QuantumVector::F32(d) => d,
+                _ => return 0.0,
+            };
+
+            for i in 0..current_weights.len().min(diag.len()) {
                 let diff = current_weights[i] - optimal_weights[i];
-                loss += fisher.diagonal[i] * diff * diff;
+                loss += diag[i] * diff * diff;
             }
             self.lambda * loss / 2.0
         } else {
@@ -484,7 +517,7 @@ impl PatternConsolidator {
             .fisher_info
             .values()
             .next()
-            .map(|f| f.diagonal.len())
+            .map(|f| f.dimension())
             .unwrap_or(0);
         if dim == 0 {
             return;
@@ -493,15 +526,32 @@ impl PatternConsolidator {
         let mut consolidated = FisherInformation::new(dim);
         let count = self.fisher_info.len() as f32;
 
+        let (mut diag_cons, mut ema_cons) = match (
+            &mut consolidated.diagonal,
+            &mut consolidated.ema_grad_squared,
+        ) {
+            (QuantumVector::F32(d), QuantumVector::F32(e)) => (d, e),
+            _ => return,
+        };
+
         for fisher in self.fisher_info.values() {
-            for (i, &val) in fisher.diagonal.iter().enumerate() {
-                if i < consolidated.diagonal.len() {
-                    consolidated.diagonal[i] += val / count;
+            let diag = match &fisher.diagonal {
+                QuantumVector::F32(d) => d,
+                _ => continue,
+            };
+            let ema = match &fisher.ema_grad_squared {
+                QuantumVector::F32(e) => e,
+                _ => continue,
+            };
+
+            for (i, &val) in diag.iter().enumerate() {
+                if i < diag_cons.len() {
+                    diag_cons[i] += val / count;
                 }
             }
-            for (i, &val) in fisher.ema_grad_squared.iter().enumerate() {
-                if i < consolidated.ema_grad_squared.len() {
-                    consolidated.ema_grad_squared[i] += val / count;
+            for (i, &val) in ema.iter().enumerate() {
+                if i < ema_cons.len() {
+                    ema_cons[i] += val / count;
                 }
             }
             consolidated.sample_count += fisher.sample_count;
@@ -546,12 +596,22 @@ pub struct ConsolidatorStats {
     pub total_consolidated: u64,
 }
 
+impl FisherInformation {
+    pub fn dimension(&self) -> usize {
+        match &self.diagonal {
+            QuantumVector::F32(d) => d.len(),
+            _ => 0,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::reasoning_bank::pattern_store::PatternCategory;
+    use ruvector_core::types::QuantumVector;
 
-    fn make_pattern(id: u64, embedding: Vec<f32>, quality: f32, usage: u32) -> Pattern {
+    fn make_pattern(id: u64, embedding: QuantumVector, quality: f32, usage: u32) -> Pattern {
         let mut p = Pattern::new(embedding, PatternCategory::General, quality);
         p.id = id;
         p.usage_count = usage;
@@ -580,7 +640,7 @@ mod tests {
 
     #[test]
     fn test_importance_score() {
-        let pattern = make_pattern(1, vec![0.1; 4], 0.8, 10);
+        let pattern = make_pattern(1, QuantumVector::F32(vec![0.1; 4]), 0.8, 10);
         let score = ImportanceScore::compute(&pattern, None, 86400);
 
         assert!(score.score > 0.0);
@@ -605,9 +665,9 @@ mod tests {
         let consolidator = PatternConsolidator::new(config);
 
         let patterns = vec![
-            make_pattern(1, vec![0.1; 4], 0.8, 10), // Keep (high quality)
-            make_pattern(2, vec![0.2; 4], 0.3, 2),  // Prune (low quality, low usage)
-            make_pattern(3, vec![0.3; 4], 0.4, 8),  // Keep (high usage)
+            make_pattern(1, QuantumVector::F32(vec![0.1; 4]), 0.8, 10), // Keep (high quality)
+            make_pattern(2, QuantumVector::F32(vec![0.2; 4]), 0.3, 2), // Prune (low quality, low usage)
+            make_pattern(3, QuantumVector::F32(vec![0.3; 4]), 0.4, 8), // Keep (high usage)
         ];
 
         let pruned = consolidator.prune_low_quality(&patterns);
@@ -621,9 +681,9 @@ mod tests {
         let consolidator = PatternConsolidator::new(config);
 
         let patterns = vec![
-            make_pattern(1, vec![0.1; 4], 0.8, 10),
-            make_pattern(2, vec![0.2; 4], 0.1, 1), // Low quality
-            make_pattern(3, vec![0.3; 4], 0.7, 5),
+            make_pattern(1, QuantumVector::F32(vec![0.1; 4]), 0.8, 10),
+            make_pattern(2, QuantumVector::F32(vec![0.2; 4]), 0.1, 1), // Low quality
+            make_pattern(3, QuantumVector::F32(vec![0.3; 4]), 0.7, 5),
         ];
 
         let result = consolidator.consolidate_patterns(&patterns).unwrap();
@@ -642,9 +702,9 @@ mod tests {
 
         // Very similar embeddings
         let patterns = vec![
-            make_pattern(1, vec![1.0, 0.0, 0.0, 0.0], 0.8, 5),
-            make_pattern(2, vec![0.99, 0.01, 0.0, 0.0], 0.7, 3), // Very similar to 1
-            make_pattern(3, vec![0.0, 1.0, 0.0, 0.0], 0.9, 10),  // Different
+            make_pattern(1, QuantumVector::F32(vec![1.0, 0.0, 0.0, 0.0]), 0.8, 5),
+            make_pattern(2, QuantumVector::F32(vec![0.99, 0.01, 0.0, 0.0]), 0.7, 3), // Very similar to 1
+            make_pattern(3, QuantumVector::F32(vec![0.0, 1.0, 0.0, 0.0]), 0.9, 10),  // Different
         ];
 
         let merged = consolidator
@@ -706,9 +766,9 @@ mod tests {
 
         // Add patterns with high usage
         let patterns = vec![
-            make_pattern(1, vec![0.1; 4], 0.8, 10),
-            make_pattern(2, vec![0.2; 4], 0.7, 8),
-            make_pattern(3, vec![0.3; 4], 0.9, 15),
+            make_pattern(1, QuantumVector::F32(vec![0.1; 4]), 0.8, 10),
+            make_pattern(2, QuantumVector::F32(vec![0.2; 4]), 0.7, 8),
+            make_pattern(3, QuantumVector::F32(vec![0.3; 4]), 0.9, 15),
         ];
 
         consolidator.adapt_lambda(&patterns);

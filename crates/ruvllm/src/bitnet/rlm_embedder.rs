@@ -14,6 +14,7 @@
 //! - **C: Contradiction-Aware Twin** — bimodal for disputed claims
 
 use crate::error::{Result, RuvLLMError};
+use crate::utils::{cosine_similarity, l2_normalize};
 
 // ============================================================================
 // Configuration
@@ -902,82 +903,6 @@ impl EmbedderBenchmark {
 // ============================================================================
 // Math Helpers (NEON-optimizable hot paths)
 // ============================================================================
-
-/// Cosine similarity between two vectors.
-///
-/// This is the #1 hot path in the embedder. On aarch64, the compiler
-/// auto-vectorizes this loop to NEON instructions with `-C target-feature=+neon`.
-#[inline]
-pub fn cosine_similarity(a: &[f32], b: &[f32]) -> f32 {
-    let len = a.len().min(b.len());
-    if len == 0 {
-        return 0.0;
-    }
-
-    let mut dot = 0.0f32;
-    let mut norm_a = 0.0f32;
-    let mut norm_b = 0.0f32;
-
-    // Process 4 elements at a time for auto-vectorization
-    let chunks = len / 4;
-    let remainder = len % 4;
-
-    for i in 0..chunks {
-        let base = i * 4;
-        let a0 = a[base];
-        let a1 = a[base + 1];
-        let a2 = a[base + 2];
-        let a3 = a[base + 3];
-        let b0 = b[base];
-        let b1 = b[base + 1];
-        let b2 = b[base + 2];
-        let b3 = b[base + 3];
-
-        dot += a0 * b0 + a1 * b1 + a2 * b2 + a3 * b3;
-        norm_a += a0 * a0 + a1 * a1 + a2 * a2 + a3 * a3;
-        norm_b += b0 * b0 + b1 * b1 + b2 * b2 + b3 * b3;
-    }
-
-    let tail_start = chunks * 4;
-    for i in 0..remainder {
-        let idx = tail_start + i;
-        dot += a[idx] * b[idx];
-        norm_a += a[idx] * a[idx];
-        norm_b += b[idx] * b[idx];
-    }
-
-    let denom = (norm_a.sqrt() * norm_b.sqrt()).max(1e-10);
-    dot / denom
-}
-
-/// L2 normalize a vector in-place.
-///
-/// Auto-vectorizes on aarch64 with NEON.
-#[inline]
-pub fn l2_normalize(v: &mut [f32]) {
-    let mut norm = 0.0f32;
-
-    // Unrolled accumulation for auto-vectorization
-    let chunks = v.len() / 4;
-    let remainder = v.len() % 4;
-
-    for i in 0..chunks {
-        let base = i * 4;
-        norm += v[base] * v[base]
-            + v[base + 1] * v[base + 1]
-            + v[base + 2] * v[base + 2]
-            + v[base + 3] * v[base + 3];
-    }
-    for i in 0..remainder {
-        let idx = chunks * 4 + i;
-        norm += v[idx] * v[idx];
-    }
-
-    let inv_norm = 1.0 / norm.sqrt().max(1e-10);
-    for x in v.iter_mut() {
-        *x *= inv_norm;
-    }
-}
 
 /// Weighted vector accumulate: dst[i] += src[i] * weight.
 ///

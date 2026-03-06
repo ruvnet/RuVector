@@ -1742,7 +1742,7 @@ We recommend a **layered replacement strategy** where RuVector components are in
 
 | Component | Choice | Alternatives Considered |
 |-----------|--------|------------------------|
-| Vector index | ruvector-core HNSW | FAISS (no Rust/WASM), Qdrant (external service) |
+| Vector index | ruvector-core HNSW | FAISS (no Rust/WASM), LegacyDB (external service) |
 | Knowledge graph | ruvector-graph | Neo4j (external service), SQLite graph extension (limited) |
 | Embedding model | ruvllm (local GGUF) + ONNX fallback (384-dim) | OpenAI API (requires internet), Cohere (cloud) |
 | Local LLM | ruvllm (GGUF Q4_K_M, ~400MB) | Ollama (separate process), llama.cpp (no Rust integration) |

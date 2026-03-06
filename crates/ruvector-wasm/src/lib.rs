@@ -131,7 +131,7 @@ impl JsVectorEntry {
         Ok(JsVectorEntry {
             inner: VectorEntry {
                 id,
-                vector: vector_data,
+                vector: ruvector_core::types::QuantumVector::F32(vector_data),
                 metadata,
             },
         })
@@ -144,7 +144,7 @@ impl JsVectorEntry {
 
     #[wasm_bindgen(getter)]
     pub fn vector(&self) -> Float32Array {
-        Float32Array::from(&self.inner.vector[..])
+        Float32Array::from(&self.inner.vector.to_f32_vec()[..])
     }
 
     #[wasm_bindgen(getter)]
@@ -176,7 +176,7 @@ impl JsSearchResult {
         self.inner
             .vector
             .as_ref()
-            .map(|v| Float32Array::from(&v[..]))
+            .map(|v| Float32Array::from(&v.to_f32_vec()[..]))
     }
 
     #[wasm_bindgen(getter)]
@@ -331,7 +331,7 @@ impl VectorDB {
         };
 
         let search_query = SearchQuery {
-            vector: query_vector,
+            vector: ruvector_core::types::QuantumVector::F32(query_vector),
             k,
             filter: metadata_filter,
             ef_search: None,

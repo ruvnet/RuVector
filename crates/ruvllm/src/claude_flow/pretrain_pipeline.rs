@@ -34,7 +34,7 @@ use super::task_generator::{GeneratedTask, TaskCategory, TaskComplexity, TaskGen
 use super::{ClaudeFlowAgent, ClaudeFlowTask};
 use crate::sona::{
     PretrainSample, RoutingPretrainResult, RuvLtraPretrainConfig, RuvLtraPretrainer, SeedingResult,
-    SonaConfig, SonaIntegration, Trajectory,
+    SonaConfig, SonaIntegration, SonaTrajectory,
 };
 use parking_lot::RwLock;
 use ruvector_sona::{

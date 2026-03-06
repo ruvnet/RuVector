@@ -65,6 +65,7 @@ use crate::{
 use chrono::{DateTime, Utc};
 use dashmap::DashMap;
 use parking_lot::RwLock;
+use ruvector_core::types::QuantumVector;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -492,7 +493,6 @@ impl HooksIntegration {
         let (agent_booster_available, agent_booster_intent) =
             self.check_agent_booster(&input.description);
 
-        // Get agent recommendation from HNSW if available
         let (recommended_agent, confidence, similar_patterns, suggested_approach) =
             if let Some(ref router) = self.hnsw_router {
                 // Create a simple embedding from description
@@ -730,7 +730,7 @@ impl HooksIntegration {
 
                 if let Some(ref mut store) = self.pattern_store {
                     let pattern = Pattern::new(
-                        embedding,
+                        QuantumVector::F32(embedding),
                         PatternCategory::CodeGeneration,
                         1.0, // Success quality
                     )
@@ -842,7 +842,7 @@ impl HooksIntegration {
 
     /// Route a task to optimal agent (convenience method)
     pub fn route_task(&self, task: &str, context: Option<&str>) -> Result<PreTaskResult> {
-        let mut input = PreTaskInput {
+        let input = PreTaskInput {
             task_id: Uuid::new_v4().to_string(),
             description: task.to_string(),
             context: context.map(String::from),
@@ -930,28 +930,9 @@ impl HooksIntegration {
         (agent.to_string(), confidence, Vec::new(), None)
     }
 
-    fn create_simple_embedding(&self, text: &str) -> Vec<f32> {
-        // Simple hash-based embedding for now
-        // In production, use a proper embedding model
-        let mut embedding = vec![0.0f32; self.config.embedding_dim];
-
-        for (i, word) in text.split_whitespace().enumerate() {
-            let hash = word
-                .bytes()
-                .fold(0u64, |acc, b| acc.wrapping_mul(31).wrapping_add(b as u64));
-            let idx = (hash % self.config.embedding_dim as u64) as usize;
-            embedding[idx] += 1.0 / (i + 1) as f32;
-        }
-
-        // Normalize
-        let norm: f32 = embedding.iter().map(|x| x * x).sum::<f32>().sqrt();
-        if norm > 0.0 {
-            for x in &mut embedding {
-                *x /= norm;
-            }
-        }
-
-        embedding
+    fn create_simple_embedding(&self, text: &str) -> QuantumVector {
+        let dim = self.config.embedding_dim;
+        QuantumVector::F32(create_simple_embedding_static(text, dim))
     }
 
     fn parse_agent_type(&self, agent: &str) -> AgentType {
@@ -1004,9 +985,13 @@ impl HooksIntegration {
                     create_simple_embedding_static(&traj.description, self.config.embedding_dim);
 
                 if let Some(ref mut store) = self.pattern_store {
-                    let pattern = Pattern::new(embedding, PatternCategory::General, quality)
-                        .with_lesson(traj.description.clone())
-                        .with_action(format!("Task completed by {}", agent));
+                    let pattern = Pattern::new(
+                        ruvector_core::types::QuantumVector::F32(embedding),
+                        PatternCategory::General,
+                        quality,
+                    )
+                    .with_lesson(traj.description.clone())
+                    .with_action(format!("Task completed by {}", agent));
 
                     if store.store_pattern(pattern).is_ok() {
                         *self.patterns_added.write() += 1;

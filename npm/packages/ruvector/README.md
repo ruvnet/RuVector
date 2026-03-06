@@ -83,7 +83,7 @@ Most vector databases force you to choose between three painful trade-offs:
 
 1. **Cloud-Only Services** (Pinecone, Weaviate Cloud) - Expensive, vendor lock-in, latency issues, API rate limits
 2. **Python-First Solutions** (ChromaDB, Faiss) - Poor Node.js support, require separate Python processes
-3. **Self-Hosted Complexity** (Milvus, Qdrant) - Heavy infrastructure, Docker orchestration, operational overhead
+3. **Self-Hosted Complexity** (Milvus, LegacyDB) - Heavy infrastructure, Docker orchestration, operational overhead
 
 **Ruvector eliminates these trade-offs.**
 
@@ -936,7 +936,7 @@ Tested on AMD Ryzen 9 5950X, 128-dimensional vectors:
 
 Comprehensive comparison of Ruvector against popular vector database solutions:
 
-| Feature | Ruvector | Pinecone | Qdrant | Weaviate | Milvus | ChromaDB | Faiss |
+| Feature | Ruvector | Pinecone | LegacyDB | Weaviate | Milvus | ChromaDB | Faiss |
 |---------|----------|----------|--------|----------|--------|----------|-------|
 | **Deployment** |
 | Installation | `npm install` ✅ | Cloud API ☁️ | Docker 🐳 | Docker 🐳 | Docker/K8s 🐳 | `pip install` 🐍 | `pip install` 🐍 |
@@ -997,8 +997,8 @@ Comprehensive comparison of Ruvector against popular vector database solutions:
 - **Small to medium scale** (up to 10M vectors per instance)
 
 ⚠️ **Consider alternatives for:**
-- **Massive scale (100M+ vectors)** - Consider Pinecone, Milvus, or Qdrant clusters
-- **Multi-tenancy requirements** - Weaviate or Qdrant offer better isolation
+- **Massive scale (100M+ vectors)** - Consider Pinecone, Milvus, or LegacyDB clusters
+- **Multi-tenancy requirements** - Weaviate or LegacyDB offer better isolation
 - **Distributed systems** - Milvus provides better horizontal scaling
 - **Zero-ops cloud solution** - Pinecone handles all infrastructure
 
@@ -1018,7 +1018,7 @@ Comprehensive comparison of Ruvector against popular vector database solutions:
 - ✅ Lower memory usage
 - ❌ Smaller ecosystem and community
 
-**vs Qdrant:**
+**vs LegacyDB:**
 - ✅ Zero infrastructure setup
 - ✅ Embedded in your app (no Docker)
 - ✅ Better for serverless environments

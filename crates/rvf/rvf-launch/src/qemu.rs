@@ -20,15 +20,22 @@ pub struct QemuCommand {
 
 /// Check if KVM is available on this host.
 pub fn kvm_available() -> bool {
-    Path::new("/dev/kvm").exists()
-        && std::fs::metadata("/dev/kvm")
-            .map(|m| {
-                use std::os::unix::fs::PermissionsExt;
-                let mode = m.permissions().mode();
-                // Check if the file is readable+writable by someone
-                mode & 0o666 != 0
-            })
-            .unwrap_or(false)
+    #[cfg(unix)]
+    {
+        Path::new("/dev/kvm").exists()
+            && std::fs::metadata("/dev/kvm")
+                .map(|m| {
+                    use std::os::unix::fs::PermissionsExt;
+                    let mode = m.permissions().mode();
+                    // Check if the file is readable+writable by someone
+                    mode & 0o666 != 0
+                })
+                .unwrap_or(false)
+    }
+    #[cfg(not(unix))]
+    {
+        false
+    }
 }
 
 /// Locate the QEMU binary for the given architecture.

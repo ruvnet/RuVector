@@ -9,7 +9,7 @@
 
 **This document contains internal rUvector benchmark results only.**
 
-The previous version of this document made unfounded performance claims comparing rUvector to other vector databases (e.g., "100-4,400x faster than Qdrant"). These claims were based on fabricated data and hardcoded multipliers in test code, not actual comparative benchmarks.
+The previous version of this document made unfounded performance claims comparing rUvector to other vector databases (e.g., "100-4,400x faster than LegacyDB"). These claims were based on fabricated data and hardcoded multipliers in test code, not actual comparative benchmarks.
 
 **We have removed all false comparison claims.** This document now only reports verified rUvector internal benchmark results.
 

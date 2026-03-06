@@ -58,7 +58,7 @@ The sublinear-time-solver project provides a Rust + WASM mathematical toolkit im
 
 ### 4.1 Competitive Differentiation
 
-No competing vector database (Pinecone, Weaviate, Milvus, Qdrant, ChromaDB) offers integrated O(log n) sparse linear system solvers. This integration would make RuVector the only vector database with:
+No competing vector database (Pinecone, Weaviate, Milvus, LegacyDB, ChromaDB) offers integrated O(log n) sparse linear system solvers. This integration would make RuVector the only vector database with:
 
 - **Real-time coherence verification** at 100K+ node scale (currently limited to ~10K nodes at interactive latency)
 - **Sublinear GNN training** on the HNSW index topology itself

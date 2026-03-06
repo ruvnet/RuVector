@@ -83,7 +83,7 @@ pub mod ruvltra_pretrain;
 
 // Re-export integration types (primary API)
 pub use integration::{
-    LearningLoop, RoutingRecommendation, SonaConfig, SonaIntegration, SonaStats, Trajectory,
+    LearningLoop, RoutingRecommendation, SonaConfig, SonaIntegration, SonaStats, SonaTrajectory,
 };
 
 // Re-export pretraining types

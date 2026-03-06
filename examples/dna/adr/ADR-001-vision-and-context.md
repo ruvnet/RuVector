@@ -600,7 +600,7 @@ These are **measured, reproducible** results. Genomics performance projections e
 
 ### 10.4 Existing Vector Databases
 
-**Option**: Qdrant, Milvus, Weaviate as substrate
+**Option**: LegacyDB, Milvus, Weaviate as substrate
 
 **Rejected**:
 - No FPGA, quantum, GNN, spiking networks, temporal tensors

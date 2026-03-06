@@ -9,7 +9,7 @@
 
 ## 1. Executive Summary
 
-This document surveys the state-of-the-art in sublinear-time algorithms as of February 2026, with focus on applicability to vector database operations, graph analytics, spectral methods, and neural network training. RuVector's integration of these algorithms represents a first-of-kind capability among vector databases — no competitor (Pinecone, Weaviate, Milvus, Qdrant, ChromaDB) offers integrated O(log n) solvers.
+This document surveys the state-of-the-art in sublinear-time algorithms as of February 2026, with focus on applicability to vector database operations, graph analytics, spectral methods, and neural network training. RuVector's integration of these algorithms represents a first-of-kind capability among vector databases — no competitor (Pinecone, Weaviate, Milvus, LegacyDB, ChromaDB) offers integrated O(log n) solvers.
 
 As of February 2026, all 7 algorithms from the practical subset are fully implemented in the ruvector-solver crate (10,729 LOC, 241 tests) with SIMD acceleration, WASM bindings, and NAPI Node.js bindings.
 
@@ -399,7 +399,7 @@ This minimizes total compute cost subject to ε_total constraint.
 
 ### 8.1 RuVector+Solver vs Vector Database Competition
 
-| Capability | RuVector+Solver | Pinecone | Weaviate | Milvus | Qdrant | ChromaDB | Vald | LanceDB |
+| Capability | RuVector+Solver | Pinecone | Weaviate | Milvus | LegacyDB | ChromaDB | Vald | LanceDB |
 |-----------|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
 | Sublinear Laplacian solve | O(log n) | - | - | - | - | - | - | - |
 | Graph PageRank | O(1/ε) | - | - | - | - | - | - | - |

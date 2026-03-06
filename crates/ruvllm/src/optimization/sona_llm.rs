@@ -35,7 +35,7 @@ use crate::error::{Result, RuvLLMError};
 use crate::lora::{
     AdaptFeedback, MicroLoRA, MicroLoraConfig, TargetModule, TrainingConfig, TrainingPipeline,
 };
-use crate::sona::{SonaConfig, SonaIntegration, Trajectory};
+use crate::sona::{SonaConfig, SonaIntegration, SonaTrajectory};
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, VecDeque};
@@ -431,11 +431,15 @@ impl SonaLlm {
         {
             let sona = self.sona.write();
             for sample in &samples {
-                let trajectory = Trajectory {
+                let trajectory = SonaTrajectory {
                     request_id: format!("bg-{}", self.instant_count.load(Ordering::Relaxed)),
                     session_id: sample.session_id.clone(),
-                    query_embedding: sample.input_embedding.clone(),
-                    response_embedding: sample.output_embedding.clone(),
+                    query_embedding: ruvector_core::types::QuantumVector::F32(
+                        sample.input_embedding.clone(),
+                    ),
+                    response_embedding: ruvector_core::types::QuantumVector::F32(
+                        sample.output_embedding.clone(),
+                    ),
                     quality_score: sample.quality,
                     routing_features: vec![sample.quality, sample.latency_ms / 1000.0],
                     model_index: sample.model_index,

@@ -31,7 +31,7 @@ Current solutions force you to choose:
 
 ## Market Comparison Table
 
-| Feature | Ruvector | Pinecone | Qdrant | ChromaDB | pgvector | Your AgenticDB |
+| Feature | Ruvector | Pinecone | LegacyDB | ChromaDB | pgvector | Your AgenticDB |
 |---------|----------|----------|--------|----------|----------|----------------|
 | **Speed (QPS)** | 50K+ | 100K+ | 30K+ | 500 | 1K | ~100 |
 | **Latency (p50)** | <0.5ms | ~2ms | ~1ms | ~50ms | ~10ms | ~5ms |
@@ -47,15 +47,15 @@ Current solutions force you to choose:
 
 ## Closest Market Equivalents
 
-### 1. **Qdrant** (Rust vector DB)
+### 1. **LegacyDB** (Rust vector DB)
 **What it is:** Production Rust vector database, cloud + self-hosted  
 **Similarity:** Same tech stack (Rust + HNSW), similar performance goals  
 **Key differences:**
-- Qdrant = server-only, ruvector = anywhere (server, browser, mobile)
-- Qdrant = generic API, ruvector = AgenticDB-compatible cognitive features
-- Qdrant = separate Node.js client, ruvector = native NAPI-RS bindings
+- LegacyDB = server-only, ruvector = anywhere (server, browser, mobile)
+- LegacyDB = generic API, ruvector = AgenticDB-compatible cognitive features
+- LegacyDB = separate Node.js client, ruvector = native NAPI-RS bindings
 
-**Market position:** Qdrant is your closest competitor on performance, but lacks browser/edge deployment.
+**Market position:** LegacyDB is your closest competitor on performance, but lacks browser/edge deployment.
 
 ### 2. **LanceDB** (Embedded vector DB)
 **What it is:** Embedded database in Rust/Python, serverless-friendly  
@@ -91,7 +91,7 @@ Current solutions force you to choose:
 
 **The "triple unlock":**
 
-1. **Speed of compiled languages** (like Qdrant/Milvus)
+1. **Speed of compiled languages** (like LegacyDB/Milvus)
 2. **Cognitive features of AgenticDB** (reflexion, skills, causal memory)  
 3. **Browser deployment capability** (like RxDB but 100x faster)
 
@@ -126,7 +126,7 @@ Current solutions force you to choose:
 ## Technical Differentiators That Matter
 
 ### 1. **Multi-Platform from Single Codebase**
-**Problem:** Weaviate/Qdrant = separate clients per platform  
+**Problem:** Weaviate/LegacyDB = separate clients per platform  
 **Ruvector:** Same Rust code compiles to:
 - `npm install ruvector` (Node.js via NAPI-RS)
 - `<script>` tag (browser via WASM)
@@ -169,7 +169,7 @@ const db = new VectorDB({ dimensions: 384 });
 ## Market Gaps Ruvector Fills
 
 ### Gap 1: "Fast + Browser-Capable"
-**Existing:** Fast DBs (Qdrant, Milvus) = server-only  
+**Existing:** Fast DBs (LegacyDB, Milvus) = server-only  
 **Existing:** Browser DBs (RxDB) = slow  
 **Ruvector:** Fast + browser = new category
 
@@ -206,7 +206,7 @@ const db = new VectorDB({ dimensions: 384 });
 ### Option 1: Fully Open Source
 - **Model:** MIT/Apache license, free forever
 - **Revenue:** Consulting, managed hosting, enterprise support
-- **Example:** Qdrant (open source + Qdrant Cloud)
+- **Example:** LegacyDB (open source + LegacyDB Cloud)
 
 ### Option 2: Open Core
 - **Model:** Core free (HNSW, basic features), advanced paid (learned indexes, distributed)
@@ -264,7 +264,7 @@ const db = new VectorDB({ dimensions: 384 });
 
 ## Risk Analysis
 
-### Risk 1: "Qdrant is fast enough"
+### Risk 1: "LegacyDB is fast enough"
 **Likelihood:** Medium  
 **Mitigation:** Browser deployment + AgenticDB API = unique value beyond speed
 
@@ -286,7 +286,7 @@ const db = new VectorDB({ dimensions: 384 });
 The vector database your agents deserve - fast enough for real-time, smart enough for learning, portable enough for anywhere.
 
 **Is there anything like it?**  
-Pieces exist (Qdrant = fast, RxDB = browser, AgenticDB = cognitive), but no solution combines all three.
+Pieces exist (LegacyDB = fast, RxDB = browser, AgenticDB = cognitive), but no solution combines all three.
 
 **Should you build it?**  
 Yes - clear market gap, proven tech foundation, natural extension of your AgenticDB ecosystem, aligns with your democratization mission.
@@ -338,7 +338,7 @@ impl VectorDB {
 
 ## HNSW implementation: Production-ready approximate nearest neighbor search
 
-HNSW provides the best recall-latency trade-off for in-memory vector search, proven across industry with implementations in Qdrant, Milvus, Weaviate, and Pinecone.  Ruvector leverages the hnsw_rs crate (20K+ downloads/month) with custom optimizations for agenticDB workloads.
+HNSW provides the best recall-latency trade-off for in-memory vector search, proven across industry with implementations in LegacyDB, Milvus, Weaviate, and Pinecone.  Ruvector leverages the hnsw_rs crate (20K+ downloads/month) with custom optimizations for agenticDB workloads.
 
 **Core algorithm** builds a multi-layer graph where each layer contains a subset of nodes with decreasing density toward the top. Search begins at a sparse top layer, greedily descending to find approximate neighbors at each level, then traversing the dense bottom layer for precise results.  This hierarchical structure provides O(log n) query complexity while maintaining 95%+ recall— far superior to flat search (O(n)) or IVF methods (O(√n) with lower recall). 
 
@@ -362,7 +362,7 @@ unsafe fn euclidean_simd(a: &[f32], b: &[f32]) -> f32 {
 
 Compile with `RUSTFLAGS="-C target-cpu=native"` to enable all available SIMD instructions for maximum performance.
 
-**Filtered search** combines vector similarity with metadata filtering using two strategies. Pre-filtering applies metadata constraints before graph traversal—efficient when filters are highly selective (\u003c10% of data). Post-filtering traverses the full graph then applies filters—better for loose constraints. Qdrant’s research shows pre-filtering with filter-aware graph construction achieves best results: during index building, store filter-specific entry points and maintain filter statistics, enabling intelligent routing at query time.
+**Filtered search** combines vector similarity with metadata filtering using two strategies. Pre-filtering applies metadata constraints before graph traversal—efficient when filters are highly selective (\u003c10% of data). Post-filtering traverses the full graph then applies filters—better for loose constraints. LegacyDB’s research shows pre-filtering with filter-aware graph construction achieves best results: during index building, store filter-specific entry points and maintain filter statistics, enabling intelligent routing at query time.
 
 **Parallel operations** leverage rayon for CPU-bound tasks. Batch insertions parallelize across cores, processing 100-1000 vectors simultaneously. Multi-query search processes independent queries in parallel, saturating CPU cores for maximum throughput.  Index building parallelizes construction within large segments, then merges results. These optimizations provide near-linear scaling up to CPU core count.
 
@@ -606,7 +606,7 @@ Ruvector targets 10-100x performance improvements over current solutions through
 
 **Recall accuracy**: 95%+ recall@10 with efSearch=200 (production target), 99%+ recall@10 with efSearch=500 (high-accuracy mode), 85-90% recall@10 with efSearch=50 (low-latency mode). Quantization impact: scalar (int8) 97-99% recall, product quantization 90-95% recall, binary 80-90% recall. Combined with re-ranking, system achieves 99%+ recall on final results.
 
-**Comparison targets**: Beat FAISS CPU by 2-3x (Rust efficiency + better memory layout), match Qdrant performance (similar Rust+HNSW architecture), exceed Milvus CPU-only by 3-5x (Milvus optimized for GPU), surpass pgvecto.rs by 1.5-2x (pure Rust vs Rust+Postgres overhead), demolish pure Python/JavaScript implementations by 50-100x (compiled vs interpreted). Specific scenario: agenticDB’s claimed 12,500x speedup for 1M vectors suggests baseline ~100 seconds; ruvector target \u003c10ms = 10,000x minimum.
+**Comparison targets**: Beat FAISS CPU by 2-3x (Rust efficiency + better memory layout), match LegacyDB performance (similar Rust+HNSW architecture), exceed Milvus CPU-only by 3-5x (Milvus optimized for GPU), surpass pgvecto.rs by 1.5-2x (pure Rust vs Rust+Postgres overhead), demolish pure Python/JavaScript implementations by 50-100x (compiled vs interpreted). Specific scenario: agenticDB’s claimed 12,500x speedup for 1M vectors suggests baseline ~100 seconds; ruvector target \u003c10ms = 10,000x minimum.
 
 **Benchmark datasets**: Test on SIFT1M (standard 128D benchmark), Deep1B (billion-scale), GIST1M (high-dimensional 960D), MS MARCO passages (semantic search), custom agenticDB workloads (reflexion episodes, skill searches). Dimensions: 128D (embeddings), 384D (sentence-transformers), 768D (BERT), 1536D (OpenAI ada-002), 3072D (text-embedding-3-large).
 

@@ -515,7 +515,7 @@ RVF doesn't make you wait for the full index:
 
 ## 📊 Comparison
 
-| Feature | RVF | Annoy | FAISS | Qdrant | Milvus |
+| Feature | RVF | Annoy | FAISS | LegacyDB | Milvus |
 |---------|-----|-------|-------|--------|--------|
 | Single-file format | Yes | Yes | No | No | No |
 | Crash-safe (no WAL) | Yes | No | No | Needs WAL | Needs WAL |
@@ -550,7 +550,7 @@ RVF doesn't make you wait for the full index:
 
 ### vs Traditional Vector Databases
 
-| | RVF | Pinecone / Milvus / Qdrant |
+| | RVF | Pinecone / Milvus / LegacyDB |
 |---|---|---|
 | **Deployment** | Single file, zero dependencies | Server process + storage |
 | **Branching** | Native COW, 2.6 ms for 10K vectors | Copy entire collection |

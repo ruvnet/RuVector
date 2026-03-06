@@ -175,24 +175,15 @@ impl HybridSearch {
     }
 
     /// Perform hybrid search
-    ///
-    /// # Arguments
-    /// * `query_vector` - Query vector for semantic search
-    /// * `query_text` - Query text for keyword matching
-    /// * `k` - Number of results to return
-    /// * `vector_search_fn` - Function to perform vector similarity search
-    ///
-    /// # Returns
-    /// Combined and reranked search results
     pub fn search<F>(
         &self,
-        query_vector: &[f32],
+        query_vector: &crate::types::QuantumVector,
         query_text: &str,
         k: usize,
         vector_search_fn: F,
     ) -> Result<Vec<SearchResult>>
     where
-        F: Fn(&[f32], usize) -> Result<Vec<SearchResult>>,
+        F: Fn(&crate::types::QuantumVector, usize) -> Result<Vec<SearchResult>>,
     {
         // Get vector similarity results
         let vector_results = vector_search_fn(query_vector, k * 2)?;
@@ -302,10 +293,10 @@ impl HybridSearch {
 /// Combined score holder
 #[derive(Debug, Clone)]
 struct CombinedScore {
-    id: VectorId,
+    id: crate::types::VectorId,
     vector_score: Option<f32>,
     keyword_score: Option<f32>,
-    vector: Option<Vec<f32>>,
+    vector: Option<crate::types::QuantumVector>,
     metadata: Option<HashMap<String, serde_json::Value>>,
 }
 

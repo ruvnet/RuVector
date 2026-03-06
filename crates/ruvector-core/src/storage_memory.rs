@@ -4,14 +4,14 @@
 //! making it suitable for WebAssembly environments.
 
 use crate::error::{Result, RuvectorError};
-use crate::types::{VectorEntry, VectorId};
+use crate::types::{QuantumVector, VectorEntry, VectorId};
 use dashmap::DashMap;
 use serde_json::Value as JsonValue;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 /// In-memory storage backend using DashMap for thread-safe concurrent access
 pub struct MemoryStorage {
-    vectors: DashMap<String, Vec<f32>>,
+    vectors: DashMap<String, QuantumVector>,
     metadata: DashMap<String, JsonValue>,
     dimensions: usize,
     counter: AtomicU64,
@@ -169,8 +169,15 @@ mod tests {
 
         let entry = VectorEntry {
             id: Some("test_1".to_string()),
-            vector: vec![0.1; 128],
-            metadata: Some(json!({"key": "value"})),
+            vector: QuantumVector::F32(vec![0.1; 128]),
+            metadata: Some(
+                json!({"key": "value"})
+                    .as_object()
+                    .unwrap()
+                    .iter()
+                    .map(|(k, v)| (k.clone(), v.clone()))
+                    .collect(),
+            ),
         };
 
         let id = storage.insert(&entry).unwrap();
@@ -188,7 +195,7 @@ mod tests {
         let entries: Vec<_> = (0..10)
             .map(|i| VectorEntry {
                 id: Some(format!("vec_{}", i)),
-                vector: vec![i as f32; 64],
+                vector: QuantumVector::F32(vec![i as f32; 64]),
                 metadata: None,
             })
             .collect();
@@ -204,7 +211,7 @@ mod tests {
 
         let entry = VectorEntry {
             id: Some("delete_me".to_string()),
-            vector: vec![1.0; 32],
+            vector: QuantumVector::F32(vec![1.0; 32]),
             metadata: None,
         };
 
@@ -222,7 +229,7 @@ mod tests {
 
         let entry = VectorEntry {
             id: None,
-            vector: vec![0.5; 16],
+            vector: QuantumVector::F32(vec![0.5; 16]),
             metadata: None,
         };
 
@@ -240,7 +247,7 @@ mod tests {
 
         let entry = VectorEntry {
             id: Some("bad".to_string()),
-            vector: vec![0.1; 64], // Wrong dimension
+            vector: QuantumVector::F32(vec![0.1; 64]), // Wrong dimension
             metadata: None,
         };
 

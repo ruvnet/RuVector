@@ -57,7 +57,7 @@ ndarray = { version = "0.15", features = ["serde"] }
 ort = "2.0.0-rc.11"
 
 # Vector database
-qdrant-client = "1.10"
+weaviate-client = "1.10"
 
 # API framework
 axum = { version = "0.8", features = ["macros"] }

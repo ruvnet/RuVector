@@ -52,11 +52,11 @@ use crate::capabilities::{
 };
 use crate::claude_flow::{AgentRouter, AgentType};
 use crate::error::{Result, RuvLLMError};
-use crate::sona::{RoutingRecommendation, SonaConfig, SonaIntegration, SonaStats, Trajectory};
+use crate::sona::{SonaConfig, SonaIntegration, SonaStats, SonaTrajectory};
 use parking_lot::RwLock;
 use ruvector_core::index::hnsw::HnswIndex;
 use ruvector_core::index::VectorIndex;
-use ruvector_core::types::{DistanceMetric, HnswConfig, VectorId};
+use ruvector_core::types::{DistanceMetric, HnswConfig, QuantumVector, VectorId};
 use ruvector_sona::{LearnedPattern, PatternConfig, ReasoningBank};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -229,7 +229,7 @@ impl UnifiedIndex {
     }
 
     /// Add a vector to the index
-    pub fn add(&self, id: VectorId, vector: Vec<f32>, metadata: VectorMetadata) -> Result<()> {
+    pub fn add(&self, id: VectorId, vector: QuantumVector, metadata: VectorMetadata) -> Result<()> {
         // Add to HNSW index
         {
             let mut hnsw = self.hnsw.write();
@@ -246,9 +246,8 @@ impl UnifiedIndex {
         Ok(())
     }
 
-    /// Add a batch of vectors
-    pub fn add_batch(&self, entries: Vec<(VectorId, Vec<f32>, VectorMetadata)>) -> Result<()> {
-        let vectors: Vec<(VectorId, Vec<f32>)> = entries
+    pub fn add_batch(&self, entries: Vec<(VectorId, QuantumVector, VectorMetadata)>) -> Result<()> {
+        let vectors: Vec<(VectorId, QuantumVector)> = entries
             .iter()
             .map(|(id, vec, _)| (id.clone(), vec.clone()))
             .collect();
@@ -274,7 +273,7 @@ impl UnifiedIndex {
     }
 
     /// Search for similar vectors
-    pub fn search(&self, query: &[f32], k: usize) -> Result<Vec<SearchResultWithMetadata>> {
+    pub fn search(&self, query: &QuantumVector, k: usize) -> Result<Vec<SearchResultWithMetadata>> {
         let start = std::time::Instant::now();
 
         let results = {
@@ -313,39 +312,29 @@ impl UnifiedIndex {
         Ok(enriched)
     }
 
-    /// Search with attention-weighted similarity (if available)
-    #[cfg(feature = "attention")]
     pub fn search_with_attention(
         &self,
-        query: &[f32],
+        query: &QuantumVector,
         k: usize,
-        attention_context: Option<&[f32]>,
+        attention_context: Option<&QuantumVector>,
     ) -> Result<Vec<SearchResultWithMetadata>> {
         // Apply attention-weighted transformation if context provided
         let effective_query = if let Some(ctx) = attention_context {
             // Simplified attention: weighted combination
             let alpha = 0.7; // Query weight
-            query
+            let q_vec = query.reconstruct();
+            let c_vec = ctx.reconstruct();
+            let combined = q_vec
                 .iter()
-                .zip(ctx.iter())
+                .zip(c_vec.iter())
                 .map(|(q, c)| alpha * q + (1.0 - alpha) * c)
-                .collect::<Vec<_>>()
+                .collect::<Vec<_>>();
+            QuantumVector::F32(combined)
         } else {
-            query.to_vec()
+            query.clone()
         };
 
         self.search(&effective_query, k)
-    }
-
-    /// Search without attention (fallback)
-    #[cfg(not(feature = "attention"))]
-    pub fn search_with_attention(
-        &self,
-        query: &[f32],
-        k: usize,
-        _attention_context: Option<&[f32]>,
-    ) -> Result<Vec<SearchResultWithMetadata>> {
-        self.search(query, k)
     }
 
     /// Get index statistics
@@ -476,7 +465,11 @@ impl IntelligenceLayer {
     }
 
     /// Route a task to the optimal agent with full reasoning
-    pub fn route(&self, task_description: &str, embedding: &[f32]) -> IntelligentRoutingDecision {
+    pub fn route(
+        &self,
+        task_description: &str,
+        embedding: &QuantumVector,
+    ) -> IntelligentRoutingDecision {
         self.stats.routing_decisions.fetch_add(1, Ordering::SeqCst);
 
         let mut reasoning = Vec::new();
@@ -503,7 +496,8 @@ impl IntelligenceLayer {
         let mut influencing_patterns: Vec<LearnedPattern> = Vec::new();
         {
             let rb = self.index.reasoning_bank().read();
-            let patterns = rb.find_similar(embedding, 5);
+            let q_vec = embedding.reconstruct();
+            let patterns = rb.find_similar(&q_vec, 5);
             influencing_patterns = patterns.into_iter().cloned().collect();
         }
 
@@ -588,11 +582,10 @@ impl IntelligenceLayer {
         }
     }
 
-    /// Learn from task outcome
     pub fn learn_from_outcome(
         &self,
         task_description: &str,
-        embedding: &[f32],
+        embedding: &QuantumVector,
         agent_used: AgentType,
         success: bool,
         quality_score: f32,
@@ -600,11 +593,11 @@ impl IntelligenceLayer {
         self.stats.learning_updates.fetch_add(1, Ordering::SeqCst);
 
         // Record trajectory for SONA learning
-        let trajectory = Trajectory {
+        let trajectory = SonaTrajectory {
             request_id: uuid::Uuid::new_v4().to_string(),
             session_id: "ruvector-integration".to_string(),
-            query_embedding: embedding.to_vec(),
-            response_embedding: embedding.to_vec(),
+            query_embedding: embedding.clone(),
+            response_embedding: embedding.clone(),
             quality_score,
             routing_features: vec![
                 agent_used as u8 as f32 / 10.0,
@@ -637,7 +630,7 @@ impl IntelligenceLayer {
             };
 
             let id = format!("pattern-{}", uuid::Uuid::new_v4());
-            self.index.add(id, embedding.to_vec(), metadata)?;
+            self.index.add(id, embedding.clone(), metadata)?;
 
             self.stats
                 .successful_routings
@@ -832,7 +825,7 @@ impl RuvectorIntegration {
     pub fn route_with_intelligence(
         &self,
         task: &str,
-        embedding: &[f32],
+        embedding: &QuantumVector,
     ) -> IntelligentRoutingDecision {
         self.intelligence.route(task, embedding)
     }
@@ -854,7 +847,7 @@ impl RuvectorIntegration {
     pub fn learn_from_outcome(
         &self,
         task: &str,
-        embedding: &[f32],
+        embedding: &QuantumVector,
         agent: AgentType,
         success: bool,
         quality: f32,
@@ -887,7 +880,7 @@ impl RuvectorIntegration {
     }
 
     /// Search unified index
-    pub fn search(&self, query: &[f32], k: usize) -> Result<Vec<SearchResultWithMetadata>> {
+    pub fn search(&self, query: &QuantumVector, k: usize) -> Result<Vec<SearchResultWithMetadata>> {
         self.unified_index.search(query, k)
     }
 
@@ -895,7 +888,7 @@ impl RuvectorIntegration {
     pub fn add_vector(
         &self,
         id: VectorId,
-        vector: Vec<f32>,
+        vector: QuantumVector,
         metadata: VectorMetadata,
     ) -> Result<()> {
         self.unified_index.add(id, vector, metadata)
@@ -917,29 +910,42 @@ impl RuvectorIntegration {
 
     /// Get feature-gated attention computation
     #[cfg(feature = "attention")]
-    pub fn compute_attention(&self, query: &[f32], keys: &[&[f32]], values: &[&[f32]]) -> Vec<f32> {
+    pub fn compute_attention(
+        &self,
+        query: &QuantumVector,
+        keys: &[&QuantumVector],
+        values: &[&QuantumVector],
+    ) -> Vec<f32> {
         use ruvector_attention::{traits::Attention, ScaledDotProductAttention};
 
-        let attention = ScaledDotProductAttention::new(query.len());
-        attention.compute(query, keys, values).unwrap_or_default()
+        let q_vec = query.reconstruct();
+        let k_vecs: Vec<&[f32]> = keys.iter().map(|k| k.reconstruct_ref()).collect();
+        let v_vecs: Vec<&[f32]> = values.iter().map(|v| v.reconstruct_ref()).collect();
+
+        let attention = ScaledDotProductAttention::new(q_vec.len());
+        attention
+            .compute(&q_vec, &k_vecs, &v_vecs)
+            .unwrap_or_default()
     }
 
     #[cfg(not(feature = "attention"))]
     pub fn compute_attention(
         &self,
-        query: &[f32],
-        _keys: &[&[f32]],
-        values: &[&[f32]],
+        query: &QuantumVector,
+        _keys: &[&QuantumVector],
+        values: &[&QuantumVector],
     ) -> Vec<f32> {
         // Fallback: average of values
         if values.is_empty() {
-            return query.to_vec();
+            return query.reconstruct();
         }
 
-        let dim = query.len();
+        let q_vec = query.reconstruct();
+        let dim = q_vec.len();
         let mut result = vec![0.0; dim];
         for v in values {
-            for (i, val) in v.iter().take(dim).enumerate() {
+            let v_vec = v.reconstruct();
+            for (i, val) in v_vec.iter().take(dim).enumerate() {
                 result[i] += val;
             }
         }
@@ -964,9 +970,10 @@ pub struct IntegrationStats {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ruvector_core::types::QuantumVector;
 
-    fn test_embedding() -> Vec<f32> {
-        vec![0.1; 768]
+    fn test_embedding() -> QuantumVector {
+        QuantumVector::F32(vec![0.1; 768])
     }
 
     #[test]
@@ -991,7 +998,7 @@ mod tests {
         };
         let index = UnifiedIndex::new(config).unwrap();
 
-        let embedding = vec![0.1; 128];
+        let embedding = QuantumVector::F32(vec![0.1; 128]);
         let metadata = VectorMetadata {
             source: "test".to_string(),
             ..Default::default()
@@ -1014,7 +1021,7 @@ mod tests {
         };
         let intelligence = IntelligenceLayer::new(config).unwrap();
 
-        let embedding = vec![0.1; 128];
+        let embedding = QuantumVector::F32(vec![0.1; 128]);
         let decision = intelligence.route("implement a REST API", &embedding);
 
         assert!(decision.confidence > 0.0);
@@ -1045,7 +1052,7 @@ mod tests {
         };
         let integration = RuvectorIntegration::new(config).unwrap();
 
-        let embedding = vec![0.1; 128];
+        let embedding = QuantumVector::F32(vec![0.1; 128]);
         let decision = integration.route_with_intelligence("write unit tests", &embedding);
 
         assert!(decision.confidence > 0.0);
@@ -1060,7 +1067,7 @@ mod tests {
         };
         let integration = RuvectorIntegration::new(config).unwrap();
 
-        let embedding = vec![0.1; 128];
+        let embedding = QuantumVector::F32(vec![0.1; 128]);
         integration
             .learn_from_outcome("test task", &embedding, AgentType::Tester, true, 0.9)
             .unwrap();

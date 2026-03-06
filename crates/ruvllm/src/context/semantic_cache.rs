@@ -61,7 +61,7 @@ pub struct CachedToolResult {
     /// Input hash for exact matching
     pub input_hash: String,
     /// Input embedding for similarity matching
-    pub embedding: Vec<f32>,
+    pub embedding: ruvector_core::types::QuantumVector,
     /// Tool result
     pub result: String,
     /// Success status
@@ -157,7 +157,7 @@ impl SemanticToolCache {
         tool_name: &str,
         input: &str,
         result: &str,
-        embedding: Vec<f32>,
+        embedding: ruvector_core::types::QuantumVector,
     ) -> Result<()> {
         self.store_with_options(
             tool_name,
@@ -176,7 +176,7 @@ impl SemanticToolCache {
         tool_name: &str,
         input: &str,
         result: &str,
-        embedding: Vec<f32>,
+        embedding: ruvector_core::types::QuantumVector,
         success: bool,
         ttl: Duration,
         metadata: HashMap<String, String>,
@@ -225,7 +225,10 @@ impl SemanticToolCache {
     }
 
     /// Get cached result by embedding similarity
-    pub fn get(&self, query_embedding: &[f32]) -> Result<Option<CachedToolResult>> {
+    pub fn get(
+        &self,
+        query_embedding: &ruvector_core::types::QuantumVector,
+    ) -> Result<Option<CachedToolResult>> {
         self.stats.lookups.fetch_add(1, Ordering::SeqCst);
 
         // Search for similar entries
@@ -331,7 +334,7 @@ impl SemanticToolCache {
         &self,
         tool_name: &str,
         input: &str,
-        embedding: Vec<f32>,
+        embedding: ruvector_core::types::QuantumVector,
         execute: F,
     ) -> std::result::Result<String, E>
     where
@@ -519,9 +522,10 @@ impl SemanticToolCache {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ruvector_core::types::QuantumVector;
 
-    fn test_embedding(dim: usize) -> Vec<f32> {
-        vec![0.1; dim]
+    fn test_embedding(dim: usize) -> QuantumVector {
+        QuantumVector::F32(vec![0.1; dim])
     }
 
     #[test]

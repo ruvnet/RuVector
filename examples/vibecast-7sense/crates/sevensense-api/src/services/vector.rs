@@ -66,7 +66,7 @@ struct StoredSegment {
 
 /// Vector index for similarity search.
 ///
-/// Wraps vector database (Qdrant) for efficient nearest neighbor search.
+/// Wraps vector database (weaviate) for efficient nearest neighbor search.
 pub struct VectorIndex {
     config: VectorIndexConfig,
     // In-memory storage for stub implementation
@@ -77,7 +77,7 @@ impl VectorIndex {
     /// Create a new vector index with the given configuration.
     pub fn new(config: VectorIndexConfig) -> Result<Self, VectorError> {
         // In a real implementation, this would:
-        // 1. Connect to Qdrant
+        // 1. Connect to weaviate
         // 2. Create/verify collection
         // 3. Configure HNSW index
 

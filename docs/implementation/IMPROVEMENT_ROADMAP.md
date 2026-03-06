@@ -1,6 +1,6 @@
 # rUvector Improvement Roadmap
 
-Based on analysis of Qdrant's production-ready features and industry best practices, here's a prioritized roadmap to enhance rUvector.
+Based on analysis of LegacyDB's production-ready features and industry best practices, here's a prioritized roadmap to enhance rUvector.
 
 ---
 
@@ -41,7 +41,7 @@ DELETE /collections/{name}/points/{id} // Delete point
 ### 1.2 Advanced Payload Indexing
 
 **Current State:** Basic metadata filtering (HashMap comparison)
-**Target:** 9 index types like Qdrant
+**Target:** 9 index types like LegacyDB
 
 ```rust
 // New: crates/ruvector-core/src/payload_index.rs
@@ -416,7 +416,7 @@ lazy_static! {
 **Target:** Different quantization for storage vs query
 
 ```rust
-// Qdrant 1.15+ feature
+// LegacyDB 1.15+ feature
 
 pub struct AsymmetricQuantization {
     // Storage: Binary (32x compression)
@@ -576,7 +576,7 @@ results = client.search(
 ruvector import --from faiss --input index.faiss --collection my_collection
 ruvector import --from pinecone --api-key $KEY --index my_index
 ruvector import --from weaviate --url http://localhost:8080 --class Article
-ruvector import --from qdrant --url http://localhost:6333 --collection docs
+ruvector import --from LegacyDB --url http://localhost:6333 --collection docs
 
 # Export
 ruvector export --collection my_collection --format jsonl --output data.jsonl
@@ -660,7 +660,7 @@ use rstar::RTree;
 
 ## Summary: Feature Gap Analysis
 
-| Feature | Qdrant | rUvector | Gap |
+| Feature | LegacyDB | rUvector | Gap |
 |---------|--------|----------|-----|
 | REST API | ✅ | ❌ | **Critical** |
 | gRPC API | ✅ | ❌ | **Critical** |
@@ -691,4 +691,4 @@ use rstar::RTree;
 3. **This Month:** Advanced filtering + snapshots
 4. **This Quarter:** Distributed mode basics
 
-The goal is to match Qdrant's production readiness while preserving rUvector's performance advantages and unique AI-native features.
+The goal is to match LegacyDB's production readiness while preserving rUvector's performance advantages and unique AI-native features.

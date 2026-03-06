@@ -144,8 +144,8 @@ pub struct WitnessEntry {
     pub request_id: Uuid,
     /// Associated session ID
     pub session_id: String,
-    /// Query embedding for semantic search (768-D)
-    pub query_embedding: Vec<f32>,
+    /// Query embedding for semantic search (Quantum)
+    pub query_embedding: ruvector_core::types::QuantumVector,
     /// Routing decision made
     pub routing_decision: RoutingDecision,
     /// Model used for generation
@@ -156,8 +156,8 @@ pub struct WitnessEntry {
     pub latency: LatencyBreakdown,
     /// Context documents retrieved
     pub context_doc_ids: Vec<Uuid>,
-    /// Response embedding for clustering
-    pub response_embedding: Vec<f32>,
+    /// Response embedding for clustering (Quantum)
+    pub response_embedding: ruvector_core::types::QuantumVector,
     /// Timestamp
     pub timestamp: DateTime<Utc>,
     /// Error details if failed
@@ -172,7 +172,7 @@ impl WitnessEntry {
     /// Create a new witness entry
     pub fn new(
         session_id: String,
-        query_embedding: Vec<f32>,
+        query_embedding: ruvector_core::types::QuantumVector,
         routing_decision: RoutingDecision,
     ) -> Self {
         Self {
@@ -184,7 +184,7 @@ impl WitnessEntry {
             quality_score: 0.0,
             latency: LatencyBreakdown::default(),
             context_doc_ids: Vec::new(),
-            response_embedding: Vec::new(),
+            response_embedding: ruvector_core::types::QuantumVector::F32(Vec::new()),
             timestamp: Utc::now(),
             error: None,
             quality_metrics: None,
@@ -501,7 +501,7 @@ impl WitnessLog {
 
             let vector_entry = VectorEntry {
                 id: Some(entry.request_id.to_string()),
-                vector: entry.query_embedding,
+                vector: entry.query_embedding.clone(),
                 metadata: Some(metadata),
             };
 
@@ -525,9 +525,9 @@ impl WitnessLog {
     }
 
     /// Search witness logs by semantic similarity
-    pub fn search(&self, query_embedding: &[f32], limit: usize) -> Result<Vec<WitnessEntry>> {
+    pub fn search(&self, query_embedding: &ruvector_core::types::QuantumVector, limit: usize) -> Result<Vec<WitnessEntry>> {
         let query = SearchQuery {
-            vector: query_embedding.to_vec(),
+            vector: query_embedding.clone(),
             k: limit,
             filter: None,
             ef_search: None,
@@ -539,9 +539,10 @@ impl WitnessLog {
             .map_err(|e| RuvLLMError::Storage(e.to_string()))?;
 
         let mut entries = Vec::with_capacity(results.len());
+        let query_reconstructed = query_embedding.reconstruct();
         for result in results {
             if let Some(metadata) = &result.metadata {
-                if let Some(entry) = self.entry_from_metadata(&result.id, query_embedding, metadata)
+                if let Some(entry) = self.entry_from_metadata(&result.id, &query_reconstructed, metadata)
                 {
                     entries.push(entry);
                 }
@@ -648,13 +649,13 @@ impl WitnessLog {
         Some(WitnessEntry {
             request_id,
             session_id,
-            query_embedding: embedding.to_vec(),
+            query_embedding: ruvector_core::types::QuantumVector::F32(embedding.to_vec()),
             routing_decision,
             model_used,
             quality_score,
             latency,
             context_doc_ids: Vec::new(),
-            response_embedding: Vec::new(),
+            response_embedding: ruvector_core::types::QuantumVector::F32(Vec::new()),
             timestamp,
             error,
             quality_metrics,
@@ -849,6 +850,7 @@ impl WitnessLog {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ruvector_core::types::QuantumVector;
 
     #[test]
     fn test_latency_breakdown() {
@@ -872,7 +874,7 @@ mod tests {
     fn test_witness_entry() {
         let entry = WitnessEntry::new(
             "session-1".to_string(),
-            vec![0.1; 768],
+            QuantumVector::F32(vec![0.1; 768]),
             RoutingDecision::default(),
         );
 
@@ -919,7 +921,7 @@ mod tests {
         for i in 0..4 {
             let entry = WitnessEntry::new(
                 format!("session-{}", i),
-                vec![0.1; 768],
+                QuantumVector::F32(vec![0.1; 768]),
                 RoutingDecision::default(),
             );
             assert!(queue.push(entry));
@@ -932,7 +934,7 @@ mod tests {
         // Add one more to trigger batch size
         let entry = WitnessEntry::new(
             "session-4".to_string(),
-            vec![0.1; 768],
+            QuantumVector::F32(vec![0.1; 768]),
             RoutingDecision::default(),
         );
         assert!(queue.push(entry));
@@ -961,7 +963,7 @@ mod tests {
         for i in 0..10 {
             let entry = WitnessEntry::new(
                 format!("session-{}", i),
-                vec![0.1; 768],
+                QuantumVector::F32(vec![0.1; 768]),
                 RoutingDecision::default(),
             );
             assert!(queue.push(entry), "Entry {} should be accepted", i);
@@ -970,7 +972,7 @@ mod tests {
         // Next entry should be dropped
         let entry = WitnessEntry::new(
             "session-overflow".to_string(),
-            vec![0.1; 768],
+            QuantumVector::F32(vec![0.1; 768]),
             RoutingDecision::default(),
         );
         assert!(
@@ -982,7 +984,7 @@ mod tests {
         // Another dropped entry
         let entry2 = WitnessEntry::new(
             "session-overflow-2".to_string(),
-            vec![0.1; 768],
+            QuantumVector::F32(vec![0.1; 768]),
             RoutingDecision::default(),
         );
         assert!(!queue.push(entry2));
@@ -1007,7 +1009,7 @@ mod tests {
         for i in 0..3 {
             let entry = WitnessEntry::new(
                 format!("session-{}", i),
-                vec![0.1; 64],
+                QuantumVector::F32(vec![0.1; 64]),
                 RoutingDecision::default(),
             );
             log.record(entry).unwrap();
@@ -1052,7 +1054,7 @@ mod tests {
             for i in 0..10 {
                 let entry = WitnessEntry::new(
                     format!("async-session-{}", i),
-                    vec![0.1; 64],
+                    QuantumVector::F32(vec![0.1; 64]),
                     RoutingDecision::default(),
                 );
                 log.record_async(entry).await.unwrap();
@@ -1086,7 +1088,7 @@ mod tests {
                 .map(|i| {
                     WitnessEntry::new(
                         format!("batch-session-{}", i),
-                        vec![0.1; 64],
+                        QuantumVector::F32(vec![0.1; 64]),
                         RoutingDecision::default(),
                     )
                 })
@@ -1113,7 +1115,7 @@ mod tests {
             for i in 0..5 {
                 let entry = WitnessEntry::new(
                     format!("flush-session-{}", i),
-                    vec![0.1; 64],
+                    QuantumVector::F32(vec![0.1; 64]),
                     RoutingDecision::default(),
                 );
                 log.record(entry).unwrap();

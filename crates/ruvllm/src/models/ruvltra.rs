@@ -54,12 +54,13 @@
 use crate::error::{Result, RuvLLMError};
 use crate::kernels::rope::{precompute_rope_tables_with_config, RopeConfig, RopeTables};
 use crate::kernels::{apply_rope_neon, flash_attention_neon, rms_norm_neon, AttentionConfig};
-use crate::sona::{SonaConfig, SonaIntegration, Trajectory};
+use crate::sona::{SonaConfig, SonaIntegration, SonaTrajectory};
 
 #[cfg(target_arch = "aarch64")]
 use std::arch::aarch64::*;
 
 use parking_lot::RwLock;
+use ruvector_core::types::QuantumVector;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
@@ -1101,7 +1102,7 @@ impl RuvLtraModel {
     }
 
     /// Record a trajectory for SONA learning
-    pub fn record_trajectory(&self, trajectory: Trajectory) -> Result<()> {
+    pub fn record_trajectory(&self, trajectory: SonaTrajectory) -> Result<()> {
         if let Some(sona) = &self.sona {
             sona.write().record_trajectory(trajectory)?;
         }
@@ -1113,9 +1114,10 @@ impl RuvLtraModel {
         &self,
         query_embedding: &[f32],
     ) -> Option<crate::sona::RoutingRecommendation> {
-        self.sona
-            .as_ref()
-            .map(|sona| sona.read().get_routing_recommendation(query_embedding))
+        self.sona.as_ref().map(|sona| {
+            let q_vec = QuantumVector::F32(query_embedding.to_vec());
+            sona.read().get_routing_recommendation(&q_vec)
+        })
     }
 
     /// Get model info

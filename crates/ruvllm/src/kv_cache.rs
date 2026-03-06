@@ -797,7 +797,7 @@ impl TwoTierKvCache {
             ));
         }
 
-        let current_tokens = self.total_tokens.load(Ordering::SeqCst);
+        let current_tokens = self.total_tokens.fetch_add(num_tokens, Ordering::SeqCst);
 
         // Add to tail
         let mut tail = self.tail.write();
@@ -825,9 +825,6 @@ impl TwoTierKvCache {
                 store.push(quantized);
             }
         }
-
-        self.total_tokens.fetch_add(num_tokens, Ordering::SeqCst);
-
         // Enforce max tokens limit
         self.enforce_max_tokens()?;
 

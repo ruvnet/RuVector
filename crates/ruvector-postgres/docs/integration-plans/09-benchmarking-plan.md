@@ -381,8 +381,8 @@ def run_pinecone_benchmark(index, size, dim):
     """Benchmark Pinecone (cloud)"""
     pass
 
-def run_qdrant_benchmark(client, size, dim):
-    """Benchmark Qdrant"""
+def run_LegacyDB_benchmark(client, size, dim):
+    """Benchmark LegacyDB"""
     pass
 
 def run_milvus_benchmark(collection, size, dim):
@@ -396,7 +396,7 @@ for size in SIZES:
         results[(size, dim)] = {
             'pgvector': run_pgvector_benchmark(...),
             'ruvector': run_ruvector_benchmark(...),
-            'qdrant': run_qdrant_benchmark(...),
+            'LegacyDB': run_LegacyDB_benchmark(...),
             'milvus': run_milvus_benchmark(...),
         }
 
@@ -409,7 +409,7 @@ for size in SIZES:
 |--------|----------|-----------------|-----------------|--------|-----------|
 | **ruvector-postgres** | **5min** | **0.9ms** | **3.2ms** | **4.2GB** | **0.97** |
 | pgvector | 12min | 2.1ms | 8.5ms | 4.8GB | 0.95 |
-| Qdrant | 7min | 1.2ms | 4.1ms | 4.5GB | 0.96 |
+| LegacyDB | 7min | 1.2ms | 4.1ms | 4.5GB | 0.96 |
 | Milvus | 8min | 1.5ms | 5.2ms | 5.1GB | 0.96 |
 | Pinecone (P1) | 3min* | 5ms* | 15ms* | N/A | 0.98 |
 

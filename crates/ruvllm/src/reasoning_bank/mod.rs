@@ -211,7 +211,10 @@ impl ReasoningBank {
     }
 
     /// Start recording a new trajectory
-    pub fn start_trajectory(&self, query_embedding: Vec<f32>) -> TrajectoryRecorder {
+    pub fn start_trajectory(
+        &self,
+        query_embedding: ruvector_core::types::QuantumVector,
+    ) -> TrajectoryRecorder {
         TrajectoryRecorder::new(query_embedding)
     }
 
@@ -267,7 +270,7 @@ impl ReasoningBank {
     /// Search for similar patterns by embedding
     pub fn search_similar(
         &self,
-        query_embedding: &[f32],
+        query_embedding: &ruvector_core::types::QuantumVector,
         limit: usize,
     ) -> Result<Vec<PatternSearchResult>> {
         let store = self.pattern_store.read();
@@ -408,6 +411,7 @@ impl ReasoningBank {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ruvector_core::types::QuantumVector;
 
     #[test]
     fn test_reasoning_bank_config_default() {
@@ -433,7 +437,7 @@ mod tests {
         let config = ReasoningBankConfig::default();
         let bank = ReasoningBank::new(config).unwrap();
 
-        let mut recorder = bank.start_trajectory(vec![0.1; 768]);
+        let mut recorder = bank.start_trajectory(QuantumVector::F32(vec![0.1; 768]));
         recorder.add_step(
             "analyze".to_string(),
             "Need to understand the problem".to_string(),

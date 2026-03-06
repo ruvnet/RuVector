@@ -213,7 +213,7 @@ RuVector isn't a database you add to your stack — it's the entire stack. Self-
 
 | | Layer | Replaces | What It Does |
 |---|-------|----------|--------------|
-| 🔍 | [**Search**](./crates/ruvector-core/README.md) | Pinecone, Weaviate, Qdrant | Self-learning HNSW — GNN improves results from every query |
+| 🔍 | [**Search**](./crates/ruvector-core/README.md) | Pinecone, Weaviate, LegacyDB | Self-learning HNSW — GNN improves results from every query |
 | 🗄️ | [**Storage**](./crates/ruvector-core/README.md) | Separate database + cache | Vector store, graph DB, key-value cache — unified engine |
 | 🐘 | [**PostgreSQL**](./crates/ruvector-postgres/README.md) | pgvector, pg_embedding | Drop-in replacement — 230+ SQL functions, same interface but search gets smarter over time |
 | 🔗 | [**Graph**](./crates/ruvector-graph/README.md) | Neo4j, Amazon Neptune | Cypher, W3C SPARQL 1.1, hyperedges — all built in |
@@ -557,7 +557,7 @@ See how RuVector stacks up against popular vector databases across 40+ features 
 Grouped comparison across 10 categories. RuVector is the only vector database that learns from usage, runs AI locally, and ships as a single self-booting file.
 
 **Performance & Storage**
-| Feature | RuVector | Pinecone | Qdrant | Milvus | ChromaDB | Weaviate |
+| Feature | RuVector | Pinecone | LegacyDB | Milvus | ChromaDB | Weaviate |
 |---------|----------|----------|--------|--------|----------|----------|
 | Latency (p50) | **61 us** | ~2 ms | ~1 ms | ~5 ms | ~50 ms | ~5 ms |
 | Memory (1M vectors) | **200 MB*** | 2 GB | 1.5 GB | 1 GB | 3 GB | 1.5 GB |
@@ -567,7 +567,7 @@ Grouped comparison across 10 categories. RuVector is the only vector database th
 | Sparse vectors (BM25/TF-IDF) | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ |
 
 **Search & Query**
-| Feature | RuVector | Pinecone | Qdrant | Milvus | ChromaDB | Weaviate |
+| Feature | RuVector | Pinecone | LegacyDB | Milvus | ChromaDB | Weaviate |
 |---------|----------|----------|--------|--------|----------|----------|
 | Vector similarity search | ✅ HNSW | ✅ | ✅ HNSW | ✅ HNSW | ✅ | ✅ HNSW |
 | Metadata filtering | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
@@ -590,7 +590,7 @@ Grouped comparison across 10 categories. RuVector is the only vector database th
 | ReasoningBank | Trajectory learning with verdict judgment | ❌ |
 
 **Local AI — no cloud APIs needed**
-| Feature | RuVector | Pinecone | Qdrant | Milvus | ChromaDB | Weaviate |
+| Feature | RuVector | Pinecone | LegacyDB | Milvus | ChromaDB | Weaviate |
 |---------|----------|----------|--------|--------|----------|----------|
 | Built-in LLM runtime | ✅ ruvllm (GGUF) | ❌ | ❌ | ❌ | ❌ | ❌ |
 | Hardware acceleration | Metal, CUDA, ANE, WebGPU | N/A | N/A | GPU indexing | N/A | N/A |
@@ -611,7 +611,7 @@ Grouped comparison across 10 categories. RuVector is the only vector database th
 | Verified training | Certificates, delta-apply rollback, fail-closed | ❌ |
 
 **Math & Solvers**
-| Feature | RuVector | Pinecone | Qdrant | Milvus | ChromaDB | Weaviate |
+| Feature | RuVector | Pinecone | LegacyDB | Milvus | ChromaDB | Weaviate |
 |---------|----------|----------|--------|--------|----------|----------|
 | Sublinear solvers (8 algorithms) | O(log n) to O(sqrt(n)) | ❌ | ❌ | ❌ | ❌ | ❌ |
 | Dynamic min-cut | n^0.12 complexity | ❌ | ❌ | ❌ | ❌ | ❌ |
@@ -621,7 +621,7 @@ Grouped comparison across 10 categories. RuVector is the only vector database th
 | Quantum error correction | ruQu dynamic min-cut | ❌ | ❌ | ❌ | ❌ | ❌ |
 
 **Distributed Systems**
-| Feature | RuVector | Pinecone | Qdrant | Milvus | ChromaDB | Weaviate |
+| Feature | RuVector | Pinecone | LegacyDB | Milvus | ChromaDB | Weaviate |
 |---------|----------|----------|--------|--------|----------|----------|
 | Raft consensus | ✅ | ❌ managed | ✅ | ❌ | ❌ | ✅ |
 | Multi-master replication | ✅ vector clocks | ❌ | ❌ | ✅ | ❌ | ✅ |
@@ -642,7 +642,7 @@ Grouped comparison across 10 categories. RuVector is the only vector database th
 | 25 segment types | VEC, INDEX, KERNEL, EBPF, WASM, COW_MAP, and 19 more | ❌ |
 
 **Platform & Deployment**
-| Feature | RuVector | Pinecone | Qdrant | Milvus | ChromaDB | Weaviate |
+| Feature | RuVector | Pinecone | LegacyDB | Milvus | ChromaDB | Weaviate |
 |---------|----------|----------|--------|--------|----------|----------|
 | Browser / WASM | ✅ WebGPU, 58 KB | ❌ | ❌ | ❌ | ❌ | ❌ |
 | Edge standalone | ✅ rvLite | ❌ | ❌ | ❌ | ❌ | ❌ |
@@ -665,7 +665,7 @@ Grouped comparison across 10 categories. RuVector is the only vector database th
 | Cognitum Gate | Cognitive AI gateway with TileZero acceleration | ❌ |
 
 **Licensing & Cost**
-| | RuVector | Pinecone | Qdrant | Milvus | ChromaDB | Weaviate |
+| | RuVector | Pinecone | LegacyDB | Milvus | ChromaDB | Weaviate |
 |---|----------|----------|--------|--------|----------|----------|
 | License | MIT (free forever) | Proprietary | Apache 2.0 | Apache 2.0 | Apache 2.0 | BSD-3 |
 | Self-hosted | ✅ | ❌ managed only | ✅ | ✅ | ✅ | ✅ |

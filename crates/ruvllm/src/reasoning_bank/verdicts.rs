@@ -787,6 +787,7 @@ pub struct VerdictAnalyzerStats {
 mod tests {
     use super::super::trajectory::{StepOutcome, TrajectoryRecorder};
     use super::*;
+    use ruvector_core::types::QuantumVector;
 
     #[test]
     fn test_verdict_creation() {
@@ -830,7 +831,7 @@ mod tests {
     fn test_verdict_analysis() {
         let analyzer = VerdictAnalyzer::new();
 
-        let mut recorder = TrajectoryRecorder::new(vec![0.1; 768]);
+        let mut recorder = TrajectoryRecorder::new(QuantumVector::F32(vec![0.1; 768]));
         recorder.add_step(
             "analyze".to_string(),
             "analyzing".to_string(),

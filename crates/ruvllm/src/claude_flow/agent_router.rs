@@ -3,8 +3,9 @@
 //! Routes tasks to optimal agent types using RuvLTRA embeddings and SONA learning.
 
 use super::{ClaudeFlowAgent, ClaudeFlowTask};
-use crate::sona::{RoutingRecommendation, SonaConfig, SonaIntegration, Trajectory};
+use crate::sona::{RoutingRecommendation, SonaConfig, SonaIntegration, SonaTrajectory};
 use parking_lot::RwLock;
+use ruvector_core::types::QuantumVector;
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -102,7 +103,11 @@ impl AgentRouter {
     }
 
     /// Route a task to the optimal agent
-    pub fn route(&mut self, task_description: &str, embedding: Option<&[f32]>) -> RoutingDecision {
+    pub fn route(
+        &mut self,
+        task_description: &str,
+        embedding: Option<&QuantumVector>,
+    ) -> RoutingDecision {
         self.total_decisions += 1;
 
         // Try SONA-based routing first if we have an embedding
@@ -231,7 +236,7 @@ impl AgentRouter {
     pub fn record_feedback(
         &mut self,
         task: &str,
-        embedding: &[f32],
+        embedding: &QuantumVector,
         agent_used: AgentType,
         success: bool,
     ) {
@@ -240,11 +245,11 @@ impl AgentRouter {
         }
 
         // Record trajectory for SONA learning
-        let trajectory = Trajectory {
+        let trajectory = SonaTrajectory {
             request_id: uuid::Uuid::new_v4().to_string(),
             session_id: "claude-flow".to_string(),
-            query_embedding: embedding.to_vec(),
-            response_embedding: embedding.to_vec(), // Simplified
+            query_embedding: embedding.clone(),
+            response_embedding: embedding.clone(), // Simplified
             quality_score: if success { 0.9 } else { 0.3 },
             routing_features: vec![
                 agent_used as u8 as f32 / 10.0,

@@ -746,7 +746,7 @@ Enables offline-first coherence verification in RVF cognitive containers.
    "gets smarter the more you use it" strategic pillar.
 
 3. **Unique competitive position**: No competing vector database (Pinecone, Weaviate,
-   Milvus, Qdrant, ChromaDB) offers integrated O(log n) sparse solvers. This is a
+   Milvus, LegacyDB, ChromaDB) offers integrated O(log n) sparse solvers. This is a
    defensible technical moat.
 
 4. **Browser-native graph analytics**: WASM solver eliminates server roundtrips for

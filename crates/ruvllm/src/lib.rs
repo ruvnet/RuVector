@@ -146,6 +146,7 @@ pub mod speculative;
 pub mod tokenizer;
 pub mod training;
 pub mod types;
+pub mod utils;
 pub mod witness_log;
 
 // Test modules
@@ -902,7 +903,10 @@ impl RuvLLMEngine {
         context_embedding: &[f32],
         limit: usize,
     ) -> Result<Vec<PolicyEntry>> {
-        self.policy_store.search(context_embedding, limit)
+        self.policy_store.search(
+            &ruvector_core::types::QuantumVector::F32(context_embedding.to_vec()),
+            limit,
+        )
     }
 
     /// Record a witness entry for audit logging.
@@ -944,7 +948,10 @@ impl RuvLLMEngine {
         query_embedding: &[f32],
         limit: usize,
     ) -> Result<Vec<WitnessEntry>> {
-        self.witness_log.search(query_embedding, limit)
+        self.witness_log.search(
+            &ruvector_core::types::QuantumVector::F32(query_embedding.to_vec()),
+            limit,
+        )
     }
 
     /// Get the SONA integration for learning

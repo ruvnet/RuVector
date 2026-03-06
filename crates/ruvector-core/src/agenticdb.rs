@@ -49,7 +49,7 @@ pub struct ReflexionEpisode {
     pub actions: Vec<String>,
     pub observations: Vec<String>,
     pub critique: String,
-    pub embedding: Vec<f32>,
+    pub embedding: QuantumVector,
     pub timestamp: i64,
     pub metadata: Option<HashMap<String, serde_json::Value>>,
 }
@@ -62,7 +62,7 @@ pub struct Skill {
     pub description: String,
     pub parameters: HashMap<String, String>,
     pub examples: Vec<String>,
-    pub embedding: Vec<f32>,
+    pub embedding: QuantumVector,
     pub usage_count: usize,
     pub success_rate: f64,
     pub created_at: i64,
@@ -77,7 +77,7 @@ pub struct CausalEdge {
     pub effects: Vec<String>, // Hypergraph: multiple effects
     pub confidence: f64,
     pub context: String,
-    pub embedding: Vec<f32>,
+    pub embedding: QuantumVector,
     pub observations: usize,
     pub timestamp: i64,
 }
@@ -98,10 +98,10 @@ pub struct LearningSession {
 /// Single RL experience
 #[derive(Debug, Clone, Serialize, Deserialize, bincode::Encode, bincode::Decode)]
 pub struct Experience {
-    pub state: Vec<f32>,
-    pub action: Vec<f32>,
+    pub state: QuantumVector,
+    pub action: QuantumVector,
     pub reward: f64,
-    pub next_state: Vec<f32>,
+    pub next_state: QuantumVector,
     pub done: bool,
     pub timestamp: i64,
 }
@@ -109,7 +109,7 @@ pub struct Experience {
 /// Prediction with confidence interval
 #[derive(Debug, Clone, Serialize, Deserialize, bincode::Encode, bincode::Decode)]
 pub struct Prediction {
-    pub action: Vec<f32>,
+    pub action: QuantumVector,
     pub confidence_lower: f64,
     pub confidence_upper: f64,
     pub mean_confidence: f64,
@@ -616,10 +616,10 @@ impl AgenticDB {
     pub fn add_experience(
         &self,
         session_id: &str,
-        state: Vec<f32>,
-        action: Vec<f32>,
+        state: QuantumVector,
+        action: QuantumVector,
         reward: f64,
-        next_state: Vec<f32>,
+        next_state: QuantumVector,
         done: bool,
     ) -> Result<()> {
         let read_txn = self.db.begin_read()?;
@@ -661,7 +661,11 @@ impl AgenticDB {
     }
 
     /// Predict action with confidence interval
-    pub fn predict_with_confidence(&self, session_id: &str, state: Vec<f32>) -> Result<Prediction> {
+    pub fn predict_with_confidence(
+        &self,
+        session_id: &str,
+        state: QuantumVector,
+    ) -> Result<Prediction> {
         let read_txn = self.db.begin_read()?;
         let table = read_txn.open_table(LEARNING_TABLE)?;
 
@@ -677,8 +681,11 @@ impl AgenticDB {
         let mut similar_actions = Vec::new();
         let mut rewards = Vec::new();
 
+        let state_f32 = state.reconstruct();
+
         for exp in &session.experiences {
-            let distance = euclidean_distance(&state, &exp.state);
+            let exp_state_f32 = exp.state.reconstruct();
+            let distance = euclidean_distance(&state_f32, &exp_state_f32);
             if distance < 1.0 {
                 // Similarity threshold
                 similar_actions.push(exp.action.clone());
@@ -689,7 +696,7 @@ impl AgenticDB {
         if similar_actions.is_empty() {
             // Return random action if no similar states
             return Ok(Prediction {
-                action: vec![0.0; session.action_dim],
+                action: QuantumVector::F32(vec![0.0; session.action_dim]),
                 confidence_lower: 0.0,
                 confidence_upper: 0.0,
                 mean_confidence: 0.0,
@@ -698,12 +705,13 @@ impl AgenticDB {
 
         // Average actions weighted by rewards
         let total_reward: f64 = rewards.iter().sum();
-        let mut action = vec![0.0; session.action_dim];
+        let mut action_f32 = vec![0.0; session.action_dim];
 
         for (act, reward) in similar_actions.iter().zip(rewards.iter()) {
             let weight = reward / total_reward;
-            for (i, val) in act.iter().enumerate() {
-                action[i] += val * weight as f32;
+            let act_f32 = act.reconstruct();
+            for (i, val) in act_f32.iter().enumerate() {
+                action_f32[i] += val * weight as f32;
             }
         }
 
@@ -712,7 +720,7 @@ impl AgenticDB {
         let std_dev = calculate_std_dev(&rewards, mean_reward);
 
         Ok(Prediction {
-            action,
+            action: QuantumVector::F32(action_f32),
             confidence_lower: mean_reward - 1.96 * std_dev,
             confidence_upper: mean_reward + 1.96 * std_dev,
             mean_confidence: mean_reward,
@@ -756,7 +764,7 @@ impl AgenticDB {
     /// let embedding = db.generate_text_embedding("hello world")?;
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
-    fn generate_text_embedding(&self, text: &str) -> Result<Vec<f32>> {
+    fn generate_text_embedding(&self, text: &str) -> Result<QuantumVector> {
         self.embedding_provider.embed(text)
     }
 }
@@ -802,7 +810,7 @@ pub struct PolicyAction {
     /// Q-value estimate
     pub q_value: f64,
     /// State embedding
-    pub state_embedding: Vec<f32>,
+    pub state_embedding: QuantumVector,
     /// Timestamp
     pub timestamp: i64,
 }
@@ -830,7 +838,7 @@ impl<'a> PolicyMemoryStore<'a> {
     pub fn store_policy(
         &self,
         state_id: &str,
-        state_embedding: Vec<f32>,
+        state_embedding: QuantumVector,
         action: &str,
         reward: f64,
         q_value: f64,
@@ -873,11 +881,11 @@ impl<'a> PolicyMemoryStore<'a> {
     /// Retrieve similar states for policy lookup
     pub fn retrieve_similar_states(
         &self,
-        state_embedding: &[f32],
+        state_embedding: QuantumVector,
         k: usize,
     ) -> Result<Vec<PolicyEntry>> {
         let results = self.db.vector_db.search(SearchQuery {
-            vector: state_embedding.to_vec(),
+            vector: state_embedding,
             k,
             filter: Some({
                 let mut filter = HashMap::new();
@@ -930,7 +938,11 @@ impl<'a> PolicyMemoryStore<'a> {
     }
 
     /// Get the best action for a state based on Q-values
-    pub fn get_best_action(&self, state_embedding: &[f32], k: usize) -> Result<Option<String>> {
+    pub fn get_best_action(
+        &self,
+        state_embedding: QuantumVector,
+        k: usize,
+    ) -> Result<Option<String>> {
         let similar = self.retrieve_similar_states(state_embedding, k)?;
 
         similar
@@ -973,7 +985,7 @@ pub struct SessionTurn {
     /// Content
     pub content: String,
     /// Embedding
-    pub embedding: Vec<f32>,
+    pub embedding: QuantumVector,
     /// Timestamp
     pub timestamp: i64,
     /// TTL expiry
@@ -1145,7 +1157,7 @@ pub struct WitnessEntry {
     /// Action details
     pub details: String,
     /// Action embedding for semantic search
-    pub embedding: Vec<f32>,
+    pub embedding: QuantumVector,
     /// Timestamp
     pub timestamp: i64,
     /// Additional metadata
@@ -1371,7 +1383,7 @@ mod tests {
         let mut params = HashMap::new();
         params.insert("input".to_string(), "string".to_string());
 
-        let skill_id = db.create_skill(
+        let _skill_id = db.create_skill(
             "Parse JSON".to_string(),
             "Parse JSON from string".to_string(),
             params,
@@ -1388,7 +1400,7 @@ mod tests {
     fn test_causal_edge() -> Result<()> {
         let db = create_test_db()?;
 
-        let edge_id = db.add_causal_edge(
+        let _edge_id = db.add_causal_edge(
             vec!["rain".to_string()],
             vec!["wet ground".to_string()],
             0.95,
@@ -1409,14 +1421,15 @@ mod tests {
 
         db.add_experience(
             &session_id,
-            vec![1.0, 0.0, 0.0, 0.0],
-            vec![1.0, 0.0],
+            QuantumVector::F32(vec![1.0, 0.0, 0.0, 0.0]),
+            QuantumVector::F32(vec![1.0, 0.0]),
             1.0,
-            vec![0.0, 1.0, 0.0, 0.0],
+            QuantumVector::F32(vec![0.0, 1.0, 0.0, 0.0]),
             false,
         )?;
 
-        let prediction = db.predict_with_confidence(&session_id, vec![1.0, 0.0, 0.0, 0.0])?;
+        let prediction =
+            db.predict_with_confidence(&session_id, QuantumVector::F32(vec![1.0, 0.0, 0.0, 0.0]))?;
         assert_eq!(prediction.action.len(), 2);
 
         Ok(())

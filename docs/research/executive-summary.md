@@ -5,7 +5,7 @@
 
 ## Key Findings
 
-After analyzing 40+ state-of-the-art research papers from 2024-2025, I've identified **9 breakthrough GNN innovations** that could give RuVector significant competitive advantages over Pinecone, Qdrant, and other vector databases.
+After analyzing 40+ state-of-the-art research papers from 2024-2025, I've identified **9 breakthrough GNN innovations** that could give RuVector significant competitive advantages over Pinecone, LegacyDB, and other vector databases.
 
 ---
 
@@ -101,7 +101,7 @@ Based on research papers, implementing Tier 1 + Tier 2 features would give RuVec
 **Unique Features vs Competitors:**
 - ✅ Real-time streaming updates (vs Pinecone's batch)
 - ✅ Hyperbolic embeddings (no competitor has this)
-- ✅ Neuro-symbolic queries (beyond Qdrant's filters)
+- ✅ Neuro-symbolic queries (beyond LegacyDB's filters)
 - ✅ Self-improving index (learns from queries)
 - ✅ Temporal reasoning (concept drift detection)
 
@@ -135,7 +135,7 @@ Based on research papers, implementing Tier 1 + Tier 2 features would give RuVec
 
 ### Current Vector DB Landscape (2024)
 - **Pinecone:** Fast but no advanced GNN features, batch updates only
-- **Qdrant:** Good filtering but limited to metadata equality checks
+- **LegacyDB:** Good filtering but limited to metadata equality checks
 - **Milvus:** Scalable but no self-learning capabilities
 - **ChromaDB:** Simple but slow (<50ms latency)
 

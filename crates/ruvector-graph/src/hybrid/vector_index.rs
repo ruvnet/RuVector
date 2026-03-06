@@ -12,7 +12,7 @@ use ruvector_core::index::hnsw::HnswIndex;
 use ruvector_core::index::VectorIndex;
 #[cfg(feature = "hnsw_rs")]
 use ruvector_core::types::HnswConfig;
-use ruvector_core::types::{DistanceMetric, SearchResult};
+use ruvector_core::types::{DistanceMetric, QuantumVector, SearchResult};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
@@ -155,7 +155,7 @@ impl HybridIndex {
 
         let vector_id = format!("node_{}", node_id);
         index
-            .add(vector_id.clone(), embedding)
+            .add(vector_id.clone(), QuantumVector::F32(embedding))
             .map_err(|e| GraphError::IndexError(format!("Failed to add node embedding: {}", e)))?;
 
         self.node_id_map.insert(node_id, vector_id);
@@ -179,7 +179,7 @@ impl HybridIndex {
 
         let vector_id = format!("edge_{}", edge_id);
         index
-            .add(vector_id.clone(), embedding)
+            .add(vector_id.clone(), QuantumVector::F32(embedding))
             .map_err(|e| GraphError::IndexError(format!("Failed to add edge embedding: {}", e)))?;
 
         self.edge_id_map.insert(edge_id, vector_id);
@@ -202,9 +202,11 @@ impl HybridIndex {
             .ok_or_else(|| GraphError::IndexError("Hyperedge index not initialized".to_string()))?;
 
         let vector_id = format!("hyperedge_{}", hyperedge_id);
-        index.add(vector_id.clone(), embedding).map_err(|e| {
-            GraphError::IndexError(format!("Failed to add hyperedge embedding: {}", e))
-        })?;
+        index
+            .add(vector_id.clone(), QuantumVector::F32(embedding))
+            .map_err(|e| {
+                GraphError::IndexError(format!("Failed to add hyperedge embedding: {}", e))
+            })?;
 
         self.hyperedge_id_map.insert(hyperedge_id, vector_id);
         Ok(())
@@ -218,7 +220,7 @@ impl HybridIndex {
             .ok_or_else(|| GraphError::IndexError("Node index not initialized".to_string()))?;
 
         let results = index
-            .search(query, k)
+            .search(&QuantumVector::F32(query.to_vec()), k)
             .map_err(|e| GraphError::IndexError(format!("Search failed: {}", e)))?;
 
         Ok(results
@@ -239,7 +241,7 @@ impl HybridIndex {
             .ok_or_else(|| GraphError::IndexError("Edge index not initialized".to_string()))?;
 
         let results = index
-            .search(query, k)
+            .search(&QuantumVector::F32(query.to_vec()), k)
             .map_err(|e| GraphError::IndexError(format!("Search failed: {}", e)))?;
 
         Ok(results
@@ -259,7 +261,7 @@ impl HybridIndex {
             .ok_or_else(|| GraphError::IndexError("Hyperedge index not initialized".to_string()))?;
 
         let results = index
-            .search(query, k)
+            .search(&QuantumVector::F32(query.to_vec()), k)
             .map_err(|e| GraphError::IndexError(format!("Search failed: {}", e)))?;
 
         Ok(results

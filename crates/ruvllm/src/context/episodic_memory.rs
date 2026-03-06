@@ -7,7 +7,7 @@ use chrono::{DateTime, Duration, Utc};
 use parking_lot::RwLock;
 use ruvector_core::index::hnsw::HnswIndex;
 use ruvector_core::index::VectorIndex;
-use ruvector_core::types::{DistanceMetric, HnswConfig};
+use ruvector_core::types::{DistanceMetric, HnswConfig, QuantumVector};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -82,7 +82,7 @@ pub struct TrajectoryStep {
     /// Result of action
     pub result: Option<String>,
     /// Step embedding
-    pub embedding: Option<Vec<f32>>,
+    pub embedding: Option<QuantumVector>,
     /// Reward signal
     pub reward: f32,
     /// Timestamp
@@ -122,7 +122,7 @@ pub struct Episode {
     /// Episode ID
     pub id: String,
     /// Episode embedding (summary)
-    pub embedding: Vec<f32>,
+    pub embedding: QuantumVector,
     /// Episode metadata
     pub metadata: EpisodeMetadata,
     /// Full trajectory (may be compressed)
@@ -135,7 +135,7 @@ pub struct Episode {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CompressedEpisode {
     /// Compressed embedding (may be lower dimension)
-    pub embedding: Vec<f32>,
+    pub embedding: QuantumVector,
     /// Summary text
     pub summary: String,
     /// Key observations
@@ -237,22 +237,26 @@ impl MemoryCompressor {
     }
 
     /// Compress embedding (average or reduce dimensions)
-    fn compress_embedding(&self, steps: &[&TrajectoryStep]) -> Vec<f32> {
-        let embeddings: Vec<&Vec<f32>> =
+    fn compress_embedding(&self, steps: &[&TrajectoryStep]) -> QuantumVector {
+        let embeddings: Vec<&QuantumVector> =
             steps.iter().filter_map(|s| s.embedding.as_ref()).collect();
 
         if embeddings.is_empty() {
-            return Vec::new();
+            return QuantumVector::F32(vec![]);
         }
 
-        let dim = embeddings[0].len();
+        let v0 = embeddings[0].reconstruct();
+        let dim = v0.len();
         let target_dim = self.target_dim.unwrap_or(dim);
 
         // Average embeddings
         let mut avg = vec![0.0f32; dim];
         for emb in &embeddings {
-            for (i, v) in emb.iter().enumerate() {
-                avg[i] += v;
+            let v = emb.reconstruct();
+            for (i, &val) in v.iter().enumerate() {
+                if i < dim {
+                    avg[i] += val;
+                }
             }
         }
         let n = embeddings.len() as f32;
@@ -260,12 +264,12 @@ impl MemoryCompressor {
             *v /= n;
         }
 
-        // Simple dimensionality reduction if needed (truncation - in production use PCA)
+        // Simple dimensionality reduction if needed
         if target_dim < dim {
             avg.truncate(target_dim);
         }
 
-        avg
+        QuantumVector::F32(avg)
     }
 }
 
@@ -335,7 +339,7 @@ impl EpisodicMemory {
     pub fn store_episode(
         &self,
         trajectory: Trajectory,
-        summary_embedding: Vec<f32>,
+        summary_embedding: QuantumVector,
         tags: Vec<String>,
     ) -> Result<String> {
         let episode_id = trajectory.id.clone();
@@ -386,7 +390,11 @@ impl EpisodicMemory {
     }
 
     /// Search for similar episodes
-    pub fn search_similar(&self, query_embedding: &[f32], k: usize) -> Result<Vec<Episode>> {
+    pub fn search_similar(
+        &self,
+        query_embedding: &QuantumVector,
+        k: usize,
+    ) -> Result<Vec<Episode>> {
         let start = std::time::Instant::now();
 
         let results = {
@@ -418,7 +426,7 @@ impl EpisodicMemory {
     /// Search with filtering
     pub fn search_with_filter<F>(
         &self,
-        query_embedding: &[f32],
+        query_embedding: &QuantumVector,
         k: usize,
         filter: F,
     ) -> Result<Vec<Episode>>
@@ -441,7 +449,7 @@ impl EpisodicMemory {
     /// Search by task type
     pub fn search_by_task_type(
         &self,
-        query_embedding: &[f32],
+        query_embedding: &QuantumVector,
         task_type: &str,
         k: usize,
     ) -> Result<Vec<Episode>> {
@@ -451,7 +459,7 @@ impl EpisodicMemory {
     /// Search successful episodes only
     pub fn search_successful(
         &self,
-        query_embedding: &[f32],
+        query_embedding: &QuantumVector,
         min_quality: f32,
         k: usize,
     ) -> Result<Vec<Episode>> {
@@ -600,8 +608,8 @@ impl EpisodicMemory {
 mod tests {
     use super::*;
 
-    fn test_embedding(dim: usize) -> Vec<f32> {
-        vec![0.1; dim]
+    fn test_embedding(dim: usize) -> QuantumVector {
+        QuantumVector::F32(vec![0.1; dim])
     }
 
     fn test_trajectory() -> Trajectory {
@@ -612,7 +620,7 @@ mod tests {
                     state: "Initial state".to_string(),
                     action: "read_file /src/main.rs".to_string(),
                     result: Some("file contents".to_string()),
-                    embedding: Some(vec![0.1; 128]),
+                    embedding: Some(QuantumVector::F32(vec![0.1; 128])),
                     reward: 0.5,
                     timestamp: Utc::now(),
                 },
@@ -620,7 +628,7 @@ mod tests {
                     state: "After reading".to_string(),
                     action: "edit_file /src/main.rs".to_string(),
                     result: Some("edited".to_string()),
-                    embedding: Some(vec![0.2; 128]),
+                    embedding: Some(QuantumVector::F32(vec![0.2; 128])),
                     reward: 0.8,
                     timestamp: Utc::now(),
                 },

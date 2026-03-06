@@ -17,7 +17,68 @@
 //! - Separate accumulator strategy to reduce data dependencies
 
 use crate::error::Result;
+use crate::types::QuantumVector;
 use serde::{Deserialize, Serialize};
+
+impl QuantumVector {
+    /// Create a QuantumVector from a raw f32 vector using the specified config
+    pub fn from_f32(vector: &[f32], config: &crate::types::QuantizationConfig) -> Self {
+        match config {
+            crate::types::QuantizationConfig::None => QuantumVector::F32(vector.to_vec()),
+            crate::types::QuantizationConfig::Scalar => {
+                let q = ScalarQuantized::quantize(vector);
+                // Note: Types.rs and Quantization.rs might have slight drift in naming for v2
+                // We'll map to Q8 for the unified QuantumVector
+                QuantumVector::Q8(
+                    q.data.into_iter().map(|v| (v as i16 - 128) as i8).collect(),
+                    q.scale,
+                )
+            }
+            crate::types::QuantizationConfig::NF4 => {
+                let q = NF4Quantized::quantize(vector);
+                QuantumVector::NF4 {
+                    data: q.data,
+                    scale: q.scale,
+                    orig_len: q.dimensions,
+                }
+            }
+            _ => QuantumVector::F32(vector.to_vec()),
+        }
+    }
+
+    /// Reconstruct back to f32 (for evaluation or legacy support)
+    pub fn reconstruct(&self) -> Vec<f32> {
+        match self {
+            QuantumVector::F32(v) => v.clone(),
+            QuantumVector::Q8(data, scale) => data.iter().map(|&v| v as f32 * scale).collect(),
+            QuantumVector::NF4 {
+                data,
+                scale,
+                orig_len,
+            } => {
+                let q = NF4Quantized {
+                    data: data.clone(),
+                    scale: *scale,
+                    dimensions: *orig_len,
+                };
+                q.reconstruct()
+            }
+            QuantumVector::Binary(data) => {
+                let mut v = Vec::with_capacity(data.len() * 8);
+                for &byte in data {
+                    for i in 0..8 {
+                        v.push(if (byte >> (7 - i)) & 1 == 1 {
+                            1.0
+                        } else {
+                            -1.0
+                        });
+                    }
+                }
+                v
+            }
+        }
+    }
+}
 
 /// Trait for quantized vector representations
 pub trait QuantizedVector: Send + Sync {
@@ -281,6 +342,96 @@ impl Int4Quantized {
     /// Get compression ratio (8x for Int4)
     pub fn compression_ratio() -> f32 {
         8.0 // f32 (4 bytes) -> 4 bits (0.5 bytes)
+    }
+}
+
+/// Normal Float 4 (NF4) quantization (8x compression)
+/// Based on standard normal distribution quantiles.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NF4Quantized {
+    pub data: Vec<u8>,
+    pub scale: f32,
+    pub dimensions: usize,
+}
+
+const NF4_VALUES: [f32; 16] = [
+    -1.0,
+    -0.6961928,
+    -0.52507305,
+    -0.3949174,
+    -0.28444138,
+    -0.18477343,
+    -0.091050036,
+    0.0,
+    0.0795803,
+    0.16093205,
+    0.2461123,
+    0.33791524,
+    0.43546617,
+    0.54850423,
+    0.6858564,
+    1.0,
+];
+
+impl NF4Quantized {
+    pub fn quantize(vector: &[f32]) -> Self {
+        let mut amax = 0.0f32;
+        for &v in vector {
+            amax = amax.max(v.abs());
+        }
+        let scale = amax;
+        let inv_scale = if scale > 0.0 { 1.0 / scale } else { 1.0 };
+        let dimensions = vector.len();
+        let mut data = vec![0u8; dimensions.div_ceil(2)];
+
+        for (i, &v) in vector.iter().enumerate() {
+            let q = Self::nearest_nf4(v * inv_scale);
+            let byte_idx = i / 2;
+            if i % 2 == 0 {
+                data[byte_idx] |= q;
+            } else {
+                data[byte_idx] |= q << 4;
+            }
+        }
+        Self {
+            data,
+            scale,
+            dimensions,
+        }
+    }
+
+    fn nearest_nf4(val: f32) -> u8 {
+        NF4_VALUES
+            .iter()
+            .enumerate()
+            .min_by(|(_, &a), (_, &b)| (val - a).abs().partial_cmp(&(val - b).abs()).unwrap())
+            .map(|(idx, _)| idx as u8)
+            .unwrap_or(0)
+    }
+
+    pub fn distance(&self, other: &Self) -> f32 {
+        let avg_scale = (self.scale + other.scale) / 2.0;
+        let mut sum_sq = 0.0f32;
+        for i in 0..self.dimensions {
+            let b_idx = i / 2;
+            let shift = if i % 2 == 0 { 0 } else { 4 };
+            let q_a = (self.data[b_idx] >> shift) & 0x0F;
+            let q_b = (other.data[b_idx] >> shift) & 0x0F;
+            let diff = NF4_VALUES[q_a as usize] - NF4_VALUES[q_b as usize];
+            sum_sq += diff * diff;
+        }
+        sum_sq.sqrt() * avg_scale
+    }
+
+    pub fn reconstruct(&self) -> Vec<f32> {
+        let mut res = Vec::with_capacity(self.dimensions);
+        for i in 0..self.dimensions {
+            let b_idx = i / 2;
+            let shift = if i % 2 == 0 { 0 } else { 4 };
+            let q = (self.data[b_idx] >> shift) & 0x0F;
+            res.push(NF4_VALUES[q as usize] * self.scale);
+        }
+        res
     }
 }
 

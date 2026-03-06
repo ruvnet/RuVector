@@ -25,7 +25,7 @@ use ruvllm::{
     paged_attention::{PagedAttention, PagedAttentionConfig},
     policy_store::{PolicyEntry, PolicySource, PolicyStore, PolicyType, QuantizationPolicy},
     session::{SessionConfig, SessionManager},
-    sona::{LearningLoop, SonaConfig, SonaIntegration, Trajectory},
+    sona::{LearningLoop, SonaConfig, SonaIntegration, SonaTrajectory},
     types::ModelSize,
     witness_log::{LatencyBreakdown, RoutingDecision, WitnessEntry, WitnessLog},
     RuvLLMConfig, RuvLLMEngine,
@@ -330,7 +330,7 @@ fn test_policy_store() {
     let policy = PolicyEntry {
         id: Uuid::new_v4(),
         policy_type: PolicyType::Quantization,
-        embedding: vec![0.1; 64],
+        embedding: ruvector_core::types::QuantumVector::F32(vec![0.1; 64]),
         parameters: serde_json::json!({
             "precision": "q4_k",
             "quality_threshold": 0.9,
@@ -346,7 +346,7 @@ fn test_policy_store() {
     store.store(policy).unwrap();
 
     // Search
-    let query = vec![0.1; 64];
+    let query = ruvector_core::types::QuantumVector::F32(vec![0.1; 64]);
     let results = store.search(&query, 5).unwrap();
 
     assert!(!results.is_empty());
@@ -372,7 +372,7 @@ fn test_witness_log() {
 
         let entry = WitnessEntry::new(
             format!("session-{}", i % 2),
-            vec![i as f32 * 0.1; 64],
+            ruvector_core::types::QuantumVector::F32(vec![i as f32 * 0.1; 64]),
             routing_decision,
         )
         .with_quality(0.85)
@@ -392,7 +392,7 @@ fn test_witness_log() {
     log.flush().unwrap();
 
     // Search
-    let query = vec![0.2; 64];
+    let query = ruvector_core::types::QuantumVector::F32(vec![0.2; 64]);
     let results = log.search(&query, 3).unwrap();
 
     // Results may be empty if flush didn't complete vector indexing
@@ -675,11 +675,11 @@ fn test_sona_integration_basic() {
     let sona = SonaIntegration::new(config);
 
     // Record a trajectory
-    let trajectory = Trajectory {
+    let trajectory = SonaTrajectory {
         request_id: "req-1".to_string(),
         session_id: "test-session".to_string(),
-        query_embedding: vec![0.1; 256],
-        response_embedding: vec![0.2; 256],
+        query_embedding: ruvector_core::types::QuantumVector::F32(vec![0.1; 256]),
+        response_embedding: ruvector_core::types::QuantumVector::F32(vec![0.2; 256]),
         quality_score: 0.8,
         routing_features: vec![0.7, 0.9, 0.5, 0.5],
         model_index: 1,

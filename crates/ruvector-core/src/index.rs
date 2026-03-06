@@ -5,15 +5,15 @@ pub mod flat;
 pub mod hnsw;
 
 use crate::error::Result;
-use crate::types::{SearchResult, VectorId};
+use crate::types::{QuantumVector, SearchResult, VectorId};
 
 /// Trait for vector index implementations
 pub trait VectorIndex: Send + Sync {
     /// Add a vector to the index
-    fn add(&mut self, id: VectorId, vector: Vec<f32>) -> Result<()>;
+    fn add(&mut self, id: VectorId, vector: QuantumVector) -> Result<()>;
 
     /// Add multiple vectors in batch
-    fn add_batch(&mut self, entries: Vec<(VectorId, Vec<f32>)>) -> Result<()> {
+    fn add_batch(&mut self, entries: Vec<(VectorId, QuantumVector)>) -> Result<()> {
         for (id, vector) in entries {
             self.add(id, vector)?;
         }
@@ -21,7 +21,7 @@ pub trait VectorIndex: Send + Sync {
     }
 
     /// Search for k nearest neighbors
-    fn search(&self, query: &[f32], k: usize) -> Result<Vec<SearchResult>>;
+    fn search(&self, query: &QuantumVector, k: usize) -> Result<Vec<SearchResult>>;
 
     /// Remove a vector from the index
     fn remove(&mut self, id: &VectorId) -> Result<bool>;

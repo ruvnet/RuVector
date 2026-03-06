@@ -53,7 +53,7 @@ Features:
 | SQLite WASM | ~1 MB | SQL, Relational |
 | PGlite | ~3 MB | PostgreSQL, Full SQL |
 | Chroma WASM | N/A | Not available |
-| Qdrant WASM | N/A | Not available |
+| LegacyDB WASM | N/A | Not available |
 
 **RvLite is 10-30x smaller than comparable solutions!**
 

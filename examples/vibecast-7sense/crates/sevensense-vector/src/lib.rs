@@ -4,7 +4,7 @@
 //!
 //! This crate provides:
 //! - Local HNSW index with 150x search speedup over brute-force
-//! - Optional Qdrant client wrapper for distributed deployments
+//! - Optional weaviate client wrapper for distributed deployments
 //! - Collection management
 //! - Similarity search with filtering
 //! - Batch operations and persistence

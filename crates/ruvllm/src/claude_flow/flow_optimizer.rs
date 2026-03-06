@@ -5,6 +5,7 @@
 use super::{AgentRouter, ClaudeFlowAgent, ClaudeFlowTask, TaskClassifier};
 use crate::models::RuvLtraConfig;
 use crate::sona::{SonaConfig, SonaStats};
+use ruvector_core::types::QuantumVector;
 use std::collections::HashMap;
 
 /// Optimization configuration
@@ -119,7 +120,7 @@ impl FlowOptimizer {
     pub fn train_sample(
         &mut self,
         task: &str,
-        embedding: &[f32],
+        embedding: &QuantumVector,
         correct_agent: ClaudeFlowAgent,
         success: bool,
     ) {
@@ -130,12 +131,14 @@ impl FlowOptimizer {
 
         // Record feedback
         let agent_type = correct_agent.into();
-        self.router
-            .record_feedback(task, embedding, agent_type, success);
+        self.router.record_feedback(
+            task, embedding, // Pass embedding directly
+            agent_type, success,
+        );
     }
 
     /// Train on batch of samples
-    pub fn train_batch(&mut self, samples: &[(String, Vec<f32>, ClaudeFlowAgent, bool)]) {
+    pub fn train_batch(&mut self, samples: &[(String, QuantumVector, ClaudeFlowAgent, bool)]) {
         for (task, embedding, agent, success) in samples {
             self.train_sample(task, embedding, *agent, *success);
         }
@@ -199,7 +202,7 @@ impl FlowOptimizer {
     fn generate_use_case_samples(
         &self,
         use_case: ClaudeFlowTask,
-    ) -> Vec<(String, Vec<f32>, ClaudeFlowAgent, bool)> {
+    ) -> Vec<(String, QuantumVector, ClaudeFlowAgent, bool)> {
         let mut samples = Vec::new();
 
         let (tasks, agent) = match use_case {
@@ -244,7 +247,8 @@ impl FlowOptimizer {
 
         for task in tasks {
             // Generate pseudo-embedding (in production, use real embeddings)
-            let embedding: Vec<f32> = (0..384).map(|i| (i as f32 / 384.0).sin()).collect();
+            let embedding_vec: Vec<f32> = (0..384).map(|i| (i as f32 / 384.0).sin()).collect();
+            let embedding = QuantumVector::F32(embedding_vec);
             samples.push((task.to_string(), embedding, agent, true));
         }
 
@@ -275,7 +279,7 @@ impl FlowOptimizer {
     pub fn route_task(
         &mut self,
         description: &str,
-        embedding: Option<&[f32]>,
+        embedding: Option<&QuantumVector>,
     ) -> super::agent_router::RoutingDecision {
         self.router.route(description, embedding)
     }

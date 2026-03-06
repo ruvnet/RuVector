@@ -12,7 +12,7 @@ use crate::EmbeddingError;
 ///
 /// Implementations may use various storage backends:
 /// - In-memory (for testing)
-/// - Vector databases (Qdrant, Milvus)
+/// - Vector databases (weaviate, Milvus)
 /// - Relational databases (PostgreSQL with pgvector)
 /// - File-based storage
 #[async_trait]

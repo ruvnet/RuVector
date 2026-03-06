@@ -48,8 +48,8 @@ impl Default for DistillationConfig {
 pub struct CompressedTrajectory {
     /// Original trajectory ID
     pub original_id: u64,
-    /// Key embedding (compressed representation)
-    pub key_embedding: Vec<f32>,
+    /// Key embedding (compressed representation) (Quantum)
+    pub key_embedding: ruvector_core::types::QuantumVector,
     /// Verdict
     pub verdict: Verdict,
     /// Quality score
@@ -111,8 +111,8 @@ impl CompressedTrajectory {
 pub struct KeyLesson {
     /// Lesson content
     pub content: String,
-    /// Embedding for semantic search
-    pub embedding: Vec<f32>,
+    /// Embedding for semantic search (Quantum)
+    pub embedding: ruvector_core::types::QuantumVector,
     /// Source trajectory IDs
     pub source_trajectory_ids: Vec<u64>,
     /// Observation count (how many times seen)
@@ -137,7 +137,11 @@ pub struct KeyLesson {
 
 impl KeyLesson {
     /// Create a new key lesson
-    pub fn new(content: String, embedding: Vec<f32>, category: PatternCategory) -> Self {
+    pub fn new(
+        content: String,
+        embedding: ruvector_core::types::QuantumVector,
+        category: PatternCategory,
+    ) -> Self {
         let now = Utc::now();
         Self {
             content,
@@ -207,24 +211,10 @@ impl KeyLesson {
 
     /// Compute embedding similarity
     pub fn embedding_similarity(&self, other: &KeyLesson) -> f32 {
-        if self.embedding.len() != other.embedding.len() || self.embedding.is_empty() {
-            return 0.0;
-        }
-
-        let dot: f32 = self
-            .embedding
-            .iter()
-            .zip(&other.embedding)
-            .map(|(a, b)| a * b)
-            .sum();
-        let norm_a: f32 = self.embedding.iter().map(|x| x * x).sum::<f32>().sqrt();
-        let norm_b: f32 = other.embedding.iter().map(|x| x * x).sum::<f32>().sqrt();
-
-        if norm_a > 1e-8 && norm_b > 1e-8 {
-            dot / (norm_a * norm_b)
-        } else {
-            0.0
-        }
+        let a = self.embedding.reconstruct();
+        let b = other.embedding.reconstruct();
+        let dist = ruvector_core::distance::cosine_distance(&a, &b);
+        1.0 - dist
     }
 }
 
@@ -621,11 +611,12 @@ fn infer_category(trajectory: &Trajectory) -> PatternCategory {
 /// Estimate trajectory memory size
 fn estimate_trajectory_size(trajectory: &Trajectory) -> usize {
     let base_size = std::mem::size_of::<Trajectory>();
-    let embedding_size = trajectory.query_embedding.len() * std::mem::size_of::<f32>();
+    let embedding_size =
+        trajectory.query_embedding.reconstruct().len() * std::mem::size_of::<f32>();
     let response_embedding_size = trajectory
         .response_embedding
         .as_ref()
-        .map(|e| e.len() * std::mem::size_of::<f32>())
+        .map(|e| e.reconstruct().len() * std::mem::size_of::<f32>())
         .unwrap_or(0);
     let steps_size: usize = trajectory
         .steps
@@ -649,9 +640,10 @@ fn estimate_trajectory_size(trajectory: &Trajectory) -> usize {
 mod tests {
     use super::super::trajectory::{StepOutcome, TrajectoryRecorder};
     use super::*;
+    use ruvector_core::types::QuantumVector;
 
     fn make_trajectory(id: u64, quality: f32) -> Trajectory {
-        let mut recorder = TrajectoryRecorder::new(vec![0.1; 64]);
+        let mut recorder = TrajectoryRecorder::new(QuantumVector::F32(vec![0.1; 64]));
         recorder.add_step(
             "action1".to_string(),
             "rationale1".to_string(),
@@ -699,7 +691,7 @@ mod tests {
     fn test_key_lesson_creation() {
         let lesson = KeyLesson::new(
             "Test lesson".to_string(),
-            vec![0.1; 64],
+            QuantumVector::F32(vec![0.1; 64]),
             PatternCategory::General,
         );
 
@@ -711,7 +703,7 @@ mod tests {
     fn test_key_lesson_merge() {
         let mut lesson1 = KeyLesson::new(
             "Test lesson".to_string(),
-            vec![0.1; 4],
+            QuantumVector::F32(vec![0.1; 4]),
             PatternCategory::General,
         );
         lesson1.importance = 0.5;
@@ -719,7 +711,7 @@ mod tests {
 
         let mut lesson2 = KeyLesson::new(
             "Test lesson".to_string(),
-            vec![0.2; 4],
+            QuantumVector::F32(vec![0.2; 4]),
             PatternCategory::General,
         );
         lesson2.importance = 0.7;
@@ -735,17 +727,17 @@ mod tests {
     fn test_lesson_similarity() {
         let lesson1 = KeyLesson::new(
             "Test lesson about code generation".to_string(),
-            vec![1.0, 0.0, 0.0, 0.0],
+            QuantumVector::F32(vec![1.0, 0.0, 0.0, 0.0]),
             PatternCategory::General,
         );
         let lesson2 = KeyLesson::new(
             "Test lesson about code generation".to_string(),
-            vec![1.0, 0.0, 0.0, 0.0],
+            QuantumVector::F32(vec![1.0, 0.0, 0.0, 0.0]),
             PatternCategory::General,
         );
         let lesson3 = KeyLesson::new(
             "Different topic entirely".to_string(),
-            vec![0.0, 1.0, 0.0, 0.0],
+            QuantumVector::F32(vec![0.0, 1.0, 0.0, 0.0]),
             PatternCategory::General,
         );
 
@@ -825,17 +817,17 @@ mod tests {
         let lessons = vec![
             KeyLesson::new(
                 "Test lesson one".to_string(),
-                vec![1.0, 0.0],
+                QuantumVector::F32(vec![1.0, 0.0]),
                 PatternCategory::General,
             ),
             KeyLesson::new(
                 "Test lesson one".to_string(),
-                vec![1.0, 0.0],
+                QuantumVector::F32(vec![1.0, 0.0]),
                 PatternCategory::General,
             ),
             KeyLesson::new(
                 "Different lesson".to_string(),
-                vec![0.0, 1.0],
+                QuantumVector::F32(vec![0.0, 1.0]),
                 PatternCategory::General,
             ),
         ];

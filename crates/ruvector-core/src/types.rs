@@ -7,7 +7,9 @@ use std::collections::HashMap;
 pub type VectorId = String;
 
 /// Distance metric for similarity calculation
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, bincode::Encode, bincode::Decode,
+)]
 pub enum DistanceMetric {
     /// Euclidean (L2) distance
     Euclidean,
@@ -19,13 +21,61 @@ pub enum DistanceMetric {
     Manhattan,
 }
 
+/// Unified Quantum Vector type to replace raw f32 vectors
+#[derive(Debug, Clone, Serialize, Deserialize, bincode::Encode, bincode::Decode)]
+pub enum QuantumVector {
+    /// Full precision (only for in-flight/transfer, will be purged in storage)
+    F32(Vec<f32>),
+    /// 8-bit Quantized (Q8_0)
+    Q8(Vec<i8>, f32), // data, scale
+    /// 4-bit Normal Float (NF4)
+    NF4 {
+        data: Vec<u8>,
+        scale: f32,
+        orig_len: usize,
+    },
+    /// Binary (1-bit)
+    Binary(Vec<u8>),
+}
+
+impl Default for QuantumVector {
+    fn default() -> Self {
+        QuantumVector::F32(Vec::new())
+    }
+}
+
+impl QuantumVector {
+    pub fn len(&self) -> usize {
+        match self {
+            QuantumVector::F32(v) => v.len(),
+            QuantumVector::Q8(v, _) => v.len(),
+            QuantumVector::NF4 { orig_len, .. } => *orig_len,
+            QuantumVector::Binary(v) => v.len() * 8,
+        }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    pub fn to_f32_vec(&self) -> Vec<f32> {
+        match self {
+            QuantumVector::F32(v) => v.clone(),
+            // Provide a dummy zero vector or panic if quantized
+            QuantumVector::Q8(v, _) => vec![0.0; v.len()],
+            QuantumVector::NF4 { orig_len, .. } => vec![0.0; *orig_len],
+            QuantumVector::Binary(v) => vec![0.0; v.len() * 8],
+        }
+    }
+}
+
 /// Vector entry with metadata
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VectorEntry {
     /// Optional ID (auto-generated if not provided)
     pub id: Option<VectorId>,
-    /// Vector data
-    pub vector: Vec<f32>,
+    /// Quantum compressed vector data
+    pub vector: QuantumVector,
     /// Optional metadata
     pub metadata: Option<HashMap<String, serde_json::Value>>,
 }
@@ -33,8 +83,8 @@ pub struct VectorEntry {
 /// Search query parameters
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SearchQuery {
-    /// Query vector
-    pub vector: Vec<f32>,
+    /// Query vector (can be F32 or Q8 for search)
+    pub vector: QuantumVector,
     /// Number of results to return (top-k)
     pub k: usize,
     /// Optional metadata filters
@@ -50,14 +100,14 @@ pub struct SearchResult {
     pub id: VectorId,
     /// Distance/similarity score (lower is better for distance metrics)
     pub score: f32,
-    /// Vector data (optional)
-    pub vector: Option<Vec<f32>>,
+    /// Vector data (optional, returned in Quantum format)
+    pub vector: Option<QuantumVector>,
     /// Metadata (optional)
     pub metadata: Option<HashMap<String, serde_json::Value>>,
 }
 
 /// Database configuration options
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, bincode::Encode, bincode::Decode)]
 pub struct DbOptions {
     /// Vector dimensions
     pub dimensions: usize,
@@ -72,7 +122,7 @@ pub struct DbOptions {
 }
 
 /// HNSW index configuration
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, bincode::Encode, bincode::Decode)]
 pub struct HnswConfig {
     /// Number of connections per layer (M)
     pub m: usize,
@@ -96,7 +146,7 @@ impl Default for HnswConfig {
 }
 
 /// Quantization configuration
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, bincode::Encode, bincode::Decode)]
 pub enum QuantizationConfig {
     /// No quantization (full precision)
     None,
@@ -111,6 +161,8 @@ pub enum QuantizationConfig {
     },
     /// Binary quantization (32x compression)
     Binary,
+    /// Normal Float 4-bit (8x compression)
+    NF4,
 }
 
 impl Default for DbOptions {

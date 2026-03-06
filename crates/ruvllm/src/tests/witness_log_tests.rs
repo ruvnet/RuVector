@@ -7,6 +7,7 @@ use crate::types::ModelSize;
 use crate::witness_log::{
     AsyncWriteConfig, LatencyBreakdown, RoutingDecision, WitnessEntry, WitnessLog,
 };
+use ruvector_core::types::QuantumVector;
 use std::time::Instant;
 
 // ============================================================================
@@ -159,7 +160,7 @@ fn test_routing_decision_serialization() {
 fn test_witness_entry_new() {
     let entry = WitnessEntry::new(
         "session-123".to_string(),
-        vec![0.1; 768],
+        QuantumVector::F32(vec![0.1; 768]),
         RoutingDecision::default(),
     );
 
@@ -176,7 +177,7 @@ fn test_witness_entry_new() {
 fn test_witness_entry_with_quality() {
     let entry = WitnessEntry::new(
         "session-456".to_string(),
-        vec![0.5; 768],
+        QuantumVector::F32(vec![0.5; 768]),
         RoutingDecision::default(),
     )
     .with_quality(0.85);
@@ -199,7 +200,7 @@ fn test_witness_entry_with_latency() {
 
     let entry = WitnessEntry::new(
         "session-789".to_string(),
-        vec![0.0; 768],
+        QuantumVector::F32(vec![0.0; 768]),
         RoutingDecision::default(),
     )
     .with_latency(latency);
@@ -221,7 +222,7 @@ fn test_witness_entry_with_error() {
 
     let entry = WitnessEntry::new(
         "session-error".to_string(),
-        vec![0.0; 768],
+        QuantumVector::F32(vec![0.0; 768]),
         RoutingDecision::default(),
     )
     .with_error(error);
@@ -235,7 +236,7 @@ fn test_witness_entry_with_error() {
 fn test_witness_entry_quality_threshold_edge_cases() {
     let entry_zero = WitnessEntry::new(
         "session".to_string(),
-        vec![0.0; 768],
+        QuantumVector::F32(vec![0.0; 768]),
         RoutingDecision::default(),
     )
     .with_quality(0.0);
@@ -245,7 +246,7 @@ fn test_witness_entry_quality_threshold_edge_cases() {
 
     let entry_one = WitnessEntry::new(
         "session".to_string(),
-        vec![0.0; 768],
+        QuantumVector::F32(vec![0.0; 768]),
         RoutingDecision::default(),
     )
     .with_quality(1.0);
@@ -259,7 +260,7 @@ fn test_witness_entry_timestamp() {
     let before = chrono::Utc::now();
     let entry = WitnessEntry::new(
         "session".to_string(),
-        vec![0.0; 768],
+        QuantumVector::F32(vec![0.0; 768]),
         RoutingDecision::default(),
     );
     let after = chrono::Utc::now();
@@ -270,8 +271,16 @@ fn test_witness_entry_timestamp() {
 
 #[test]
 fn test_witness_entry_unique_ids() {
-    let entry1 = WitnessEntry::new("s1".to_string(), vec![0.0; 768], RoutingDecision::default());
-    let entry2 = WitnessEntry::new("s1".to_string(), vec![0.0; 768], RoutingDecision::default());
+    let entry1 = WitnessEntry::new(
+        "s1".to_string(),
+        QuantumVector::F32(vec![0.0; 768]),
+        RoutingDecision::default(),
+    );
+    let entry2 = WitnessEntry::new(
+        "s1".to_string(),
+        QuantumVector::F32(vec![0.0; 768]),
+        RoutingDecision::default(),
+    );
 
     // Each entry should have unique request_id
     assert_ne!(entry1.request_id, entry2.request_id);
@@ -320,7 +329,7 @@ fn test_writeback_batching_behavior() {
     for i in 0..15 {
         let entry = WitnessEntry::new(
             format!("session-{}", i),
-            vec![i as f32 / 100.0; 768],
+            QuantumVector::F32(vec![i as f32 / 100.0; 768]),
             RoutingDecision::default(),
         );
         batch.push(entry);
@@ -451,7 +460,7 @@ fn test_concurrent_entry_creation() {
             for _ in 0..100 {
                 let _ = WitnessEntry::new(
                     "session".to_string(),
-                    vec![0.0; 768],
+                    QuantumVector::F32(vec![0.0; 768]),
                     RoutingDecision::default(),
                 );
                 counter_clone.fetch_add(1, Ordering::Relaxed);
@@ -481,7 +490,7 @@ fn test_unique_ids_concurrent() {
             for _ in 0..100 {
                 let entry = WitnessEntry::new(
                     "session".to_string(),
-                    vec![0.0; 768],
+                    QuantumVector::F32(vec![0.0; 768]),
                     RoutingDecision::default(),
                 );
                 ids_clone.lock().unwrap().insert(entry.request_id);
@@ -507,7 +516,7 @@ fn test_witness_entry_error_chain() {
 
     let entry = WitnessEntry::new(
         "session".to_string(),
-        vec![0.0; 768],
+        QuantumVector::F32(vec![0.0; 768]),
         RoutingDecision::default(),
     )
     .with_quality(0.5)
@@ -541,7 +550,7 @@ fn test_witness_entry_error_chain() {
 fn test_witness_entry_tags() {
     let mut entry = WitnessEntry::new(
         "session".to_string(),
-        vec![0.0; 768],
+        QuantumVector::F32(vec![0.0; 768]),
         RoutingDecision::default(),
     );
 
@@ -559,7 +568,7 @@ fn test_witness_entry_filter_by_tag() {
         .map(|i| {
             let mut entry = WitnessEntry::new(
                 format!("session-{}", i),
-                vec![0.0; 768],
+                QuantumVector::F32(vec![0.0; 768]),
                 RoutingDecision::default(),
             );
             if i % 2 == 0 {
@@ -591,7 +600,7 @@ fn test_entry_creation_performance() {
     for _ in 0..iterations {
         let _ = WitnessEntry::new(
             "session".to_string(),
-            vec![0.0; 768],
+            QuantumVector::F32(vec![0.0; 768]),
             RoutingDecision::default(),
         );
     }
@@ -640,7 +649,7 @@ fn test_latency_breakdown_performance() {
 fn test_empty_embedding() {
     let entry = WitnessEntry::new(
         "session".to_string(),
-        vec![], // Empty embedding
+        QuantumVector::F32(vec![]), // Empty embedding
         RoutingDecision::default(),
     );
 
@@ -649,11 +658,11 @@ fn test_empty_embedding() {
 
 #[test]
 fn test_large_embedding() {
-    let large_embedding = vec![0.1; 4096]; // 4K dimension embedding
+    let large_embedding = QuantumVector::F32(vec![0.1; 4096]); // 4K dimension embedding
 
     let entry = WitnessEntry::new(
         "session".to_string(),
-        large_embedding.clone(),
+        large_embedding,
         RoutingDecision::default(),
     );
 
@@ -662,7 +671,11 @@ fn test_large_embedding() {
 
 #[test]
 fn test_empty_session_id() {
-    let entry = WitnessEntry::new("".to_string(), vec![0.0; 768], RoutingDecision::default());
+    let entry = WitnessEntry::new(
+        "".to_string(),
+        QuantumVector::F32(vec![0.0; 768]),
+        RoutingDecision::default(),
+    );
 
     assert!(entry.session_id.is_empty());
 }
@@ -671,7 +684,11 @@ fn test_empty_session_id() {
 fn test_long_session_id() {
     let long_id = "x".repeat(1000);
 
-    let entry = WitnessEntry::new(long_id.clone(), vec![0.0; 768], RoutingDecision::default());
+    let entry = WitnessEntry::new(
+        long_id.clone(),
+        QuantumVector::F32(vec![0.0; 768]),
+        RoutingDecision::default(),
+    );
 
     assert_eq!(entry.session_id.len(), 1000);
 }

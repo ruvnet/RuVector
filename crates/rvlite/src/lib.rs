@@ -337,7 +337,7 @@ impl RvLite {
 
         let entry = VectorEntry {
             id: None,
-            vector,
+            vector: ruvector_core::types::QuantumVector::F32(vector),
             metadata: metadata_map,
         };
 
@@ -367,7 +367,7 @@ impl RvLite {
 
         let entry = VectorEntry {
             id: Some(id),
-            vector,
+            vector: ruvector_core::types::QuantumVector::F32(vector),
             metadata: metadata_map,
         };
 
@@ -379,7 +379,7 @@ impl RvLite {
     /// Search for similar vectors
     pub fn search(&self, query_vector: Vec<f32>, k: usize) -> Result<JsValue, JsValue> {
         let query = SearchQuery {
-            vector: query_vector,
+            vector: ruvector_core::types::QuantumVector::F32(query_vector),
             k,
             filter: None,
             ef_search: None,
@@ -412,7 +412,7 @@ impl RvLite {
         })?;
 
         let query = SearchQuery {
-            vector: query_vector,
+            vector: ruvector_core::types::QuantumVector::F32(query_vector),
             k,
             filter: Some(filter_map),
             ef_search: None,
@@ -621,7 +621,7 @@ impl RvLite {
                     .flatten()
                     .map(|entry| storage::state::VectorEntry {
                         id: entry.id.unwrap_or_default(),
-                        vector: entry.vector,
+                        vector: entry.vector.to_f32_vec(),
                         metadata: entry.metadata,
                     })
             })
@@ -659,7 +659,7 @@ impl RvLite {
         for entry in &state.vectors.entries {
             let vector_entry = VectorEntry {
                 id: Some(entry.id.clone()),
-                vector: entry.vector.clone(),
+                vector: ruvector_core::types::QuantumVector::F32(entry.vector.clone()),
                 metadata: entry.metadata.clone(),
             };
             self.db

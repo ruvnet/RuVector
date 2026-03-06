@@ -386,7 +386,7 @@ Library            Search Latency   Memory (1M vectors)   Language
 -------------------------------------------------------------------
 router-ffi         0.2ms           ~600MB                Rust → Node.js
 Pinecone           ~2ms            Cloud only            Hosted
-Qdrant             ~1ms            ~1.5GB                Rust
+LegacyDB             ~1ms            ~1.5GB                Rust
 ChromaDB           ~50ms           ~3GB                  Python
 FAISS              ~0.5ms          ~1GB                  C++ → Python
 ```

@@ -29,10 +29,12 @@ use crate::error::Result;
 use crate::error::RuvectorError;
 use std::sync::Arc;
 
+use crate::types::QuantumVector;
+
 /// Trait for text embedding providers
 pub trait EmbeddingProvider: Send + Sync {
     /// Generate embedding vector for the given text
-    fn embed(&self, text: &str) -> Result<Vec<f32>>;
+    fn embed(&self, text: &str) -> Result<QuantumVector>;
 
     /// Get the dimensionality of embeddings produced by this provider
     fn dimensions(&self) -> usize;
@@ -64,7 +66,7 @@ impl HashEmbedding {
 }
 
 impl EmbeddingProvider for HashEmbedding {
-    fn embed(&self, text: &str) -> Result<Vec<f32>> {
+    fn embed(&self, text: &str) -> Result<QuantumVector> {
         let mut embedding = vec![0.0; self.dimensions];
         let bytes = text.as_bytes();
 
@@ -80,7 +82,7 @@ impl EmbeddingProvider for HashEmbedding {
             }
         }
 
-        Ok(embedding)
+        Ok(QuantumVector::F32(embedding))
     }
 
     fn dimensions(&self) -> usize {
@@ -161,7 +163,7 @@ pub mod candle {
     }
 
     impl EmbeddingProvider for CandleEmbedding {
-        fn embed(&self, _text: &str) -> Result<Vec<f32>> {
+        fn embed(&self, _text: &str) -> Result<QuantumVector> {
             Err(RuvectorError::ModelInferenceError(
                 "Candle embedding not implemented - use ApiEmbedding instead".to_string(),
             ))
@@ -274,7 +276,7 @@ impl ApiEmbedding {
 
 #[cfg(feature = "api-embeddings")]
 impl EmbeddingProvider for ApiEmbedding {
-    fn embed(&self, text: &str) -> Result<Vec<f32>> {
+    fn embed(&self, text: &str) -> Result<QuantumVector> {
         let request_body = serde_json::json!({
             "input": text,
             "model": self.model,
@@ -331,16 +333,16 @@ impl EmbeddingProvider for ApiEmbedding {
             ));
         };
 
-        let embedding_vec: Result<Vec<f32>> = embedding
+        let embedding_vec: Vec<f32> = embedding
             .iter()
             .map(|v| {
                 v.as_f64().map(|f| f as f32).ok_or_else(|| {
                     RuvectorError::ModelInferenceError("Invalid embedding value".to_string())
                 })
             })
-            .collect();
+            .collect::<Result<Vec<f32>>>()?;
 
-        embedding_vec
+        Ok(QuantumVector::F32(embedding_vec))
     }
 
     fn dimensions(&self) -> usize {
@@ -367,10 +369,15 @@ mod tests {
         let emb2 = provider.embed("hello world").unwrap();
 
         assert_eq!(emb1.len(), 128);
-        assert_eq!(emb1, emb2, "Same text should produce same embedding");
+        assert_eq!(
+            emb1.to_vec(),
+            emb2.to_vec(),
+            "Same text should produce same embedding"
+        );
 
         // Check normalization
-        let norm: f32 = emb1.iter().map(|x| x * x).sum::<f32>().sqrt();
+        let v1 = emb1.to_vec();
+        let norm: f32 = v1.iter().map(|x| x * x).sum::<f32>().sqrt();
         assert!((norm - 1.0).abs() < 1e-5, "Embedding should be normalized");
     }
 
@@ -382,7 +389,8 @@ mod tests {
         let emb2 = provider.embed("world").unwrap();
 
         assert_ne!(
-            emb1, emb2,
+            emb1.to_vec(),
+            emb2.to_vec(),
             "Different text should produce different embeddings"
         );
     }

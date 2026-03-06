@@ -140,7 +140,7 @@ impl TemporalNodeMemory {
 - ✅ Memory-efficient: store only state changes, not full snapshots
 
 **Competitive Advantage:**
-⭐⭐⭐⭐⭐ (Pinecone/Qdrant don't support temporal reasoning in their indices)
+⭐⭐⭐⭐⭐ (Pinecone/LegacyDB don't support temporal reasoning in their indices)
 
 ---
 
@@ -853,7 +853,7 @@ pub enum LogicalOp {
 - ✅ Prevents "hallucinations" by enforcing hard constraints
 
 **Competitive Advantage:**
-⭐⭐⭐⭐⭐ (Qdrant/Pinecone only support basic metadata filtering, not full symbolic reasoning)
+⭐⭐⭐⭐⭐ (LegacyDB/Pinecone only support basic metadata filtering, not full symbolic reasoning)
 
 ---
 
@@ -2221,7 +2221,7 @@ fn compute_percentiles(data: &[usize], percentiles: &[f32]) -> Vec<usize> {
    - Enables real-time updates
 
 3. **Neuro-Symbolic Query Execution** (⭐⭐⭐⭐⭐)
-   - Unique differentiator vs Pinecone/Qdrant
+   - Unique differentiator vs Pinecone/LegacyDB
    - Synergizes with existing Cypher support
    - High customer demand for hybrid search
 
@@ -2304,7 +2304,7 @@ Based on research papers, expected gains for RuVector:
 | Temporal GNN | -20% (caching) | +20% (streaming) | +5% (drift) |
 
 **Overall System Impact:**
-- 🚀 3-5x better QPS than Pinecone/Qdrant
+- 🚀 3-5x better QPS than Pinecone/LegacyDB
 - 🚀 2-4x memory efficiency
 - 🚀 Real-time updates (vs batch reindexing)
 - 🚀 Unique features (hyperbolic, neuro-symbolic, temporal)

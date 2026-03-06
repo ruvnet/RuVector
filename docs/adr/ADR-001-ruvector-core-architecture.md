@@ -35,7 +35,7 @@ Existing solutions fall into several categories:
 | Category | Examples | Limitations |
 |----------|----------|-------------|
 | **Cloud-only** | Pinecone | No edge deployment, vendor lock-in |
-| **Heavy native** | Milvus, Qdrant | Complex deployment, high memory |
+| **Heavy native** | Milvus, LegacyDB | Complex deployment, high memory |
 | **Python-first** | ChromaDB, FAISS | Performance overhead, no WASM |
 | **Learning-capable** | None | No existing solutions learn from usage |
 
@@ -457,7 +457,7 @@ Cryptographically-linked audit trail:
 - Complex cross-compilation
 - Build system complexity (CMake)
 
-### Alternative 3: Qdrant/Milvus Integration
+### Alternative 3: LegacyDB/Milvus Integration
 
 **Rejected because:**
 - External service dependency

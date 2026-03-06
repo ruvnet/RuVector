@@ -13,7 +13,7 @@
 
 use crate::error::{Result, RuvLLMError};
 use chrono::{DateTime, Utc};
-use ruvector_core::types::DbOptions;
+use ruvector_core::types::{DbOptions, QuantumVector};
 use ruvector_core::{AgenticDB, SearchQuery, VectorEntry};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -63,7 +63,7 @@ pub struct PolicyEntry {
     /// Policy type
     pub policy_type: PolicyType,
     /// Embedding vector for semantic search (768-D)
-    pub embedding: Vec<f32>,
+    pub embedding: QuantumVector,
     /// Policy parameters as JSON
     pub parameters: serde_json::Value,
     /// Confidence score from learning (0.0 - 1.0)
@@ -247,9 +247,13 @@ impl PolicyStore {
     }
 
     /// Search for policies by semantic similarity
-    pub fn search(&self, query_embedding: &[f32], limit: usize) -> Result<Vec<PolicyEntry>> {
+    pub fn search(
+        &self,
+        query_embedding: &QuantumVector,
+        limit: usize,
+    ) -> Result<Vec<PolicyEntry>> {
         let query = SearchQuery {
-            vector: query_embedding.to_vec(),
+            vector: query_embedding.clone(),
             k: limit,
             filter: None,
             ef_search: None,
@@ -301,7 +305,7 @@ impl PolicyStore {
     /// Store a quantization policy
     pub fn store_quantization_policy(
         &self,
-        embedding: Vec<f32>,
+        embedding: QuantumVector,
         policy: QuantizationPolicy,
         confidence: f32,
         source: PolicySource,
@@ -325,7 +329,7 @@ impl PolicyStore {
     /// Store a router policy
     pub fn store_router_policy(
         &self,
-        embedding: Vec<f32>,
+        embedding: QuantumVector,
         policy: RouterPolicy,
         confidence: f32,
         source: PolicySource,
@@ -377,7 +381,7 @@ impl PolicyStore {
     fn entry_from_metadata(
         &self,
         id: &str,
-        embedding: &[f32],
+        embedding: &QuantumVector,
         metadata: &HashMap<String, serde_json::Value>,
     ) -> Option<PolicyEntry> {
         let uuid = Uuid::parse_str(id).ok()?;
@@ -416,7 +420,7 @@ impl PolicyStore {
         Some(PolicyEntry {
             id: uuid,
             policy_type,
-            embedding: embedding.to_vec(),
+            embedding: embedding.clone(),
             parameters,
             confidence,
             fisher_diagonal,

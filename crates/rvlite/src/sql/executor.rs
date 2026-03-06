@@ -2,7 +2,7 @@
 use super::ast::*;
 use crate::{ErrorKind, RvLiteError};
 use parking_lot::RwLock;
-use ruvector_core::{SearchQuery, VectorDB, VectorEntry};
+use ruvector_core::{types::QuantumVector, SearchQuery, VectorDB, VectorEntry};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -228,7 +228,7 @@ impl SqlEngine {
         // Insert into vector database
         let entry = VectorEntry {
             id,
-            vector,
+            vector: QuantumVector::F32(vector),
             metadata: Some(metadata),
         };
 
@@ -287,7 +287,7 @@ impl SqlEngine {
                 };
 
                 let query = SearchQuery {
-                    vector,
+                    vector: QuantumVector::F32(vector),
                     k,
                     filter,
                     ef_search: None,
@@ -307,7 +307,7 @@ impl SqlEngine {
                         // Add vector if present
                         if let Some(vec_col) = &schema.vector_column {
                             if let Some(vector) = result.vector {
-                                row.insert(vec_col.clone(), Value::Vector(vector));
+                                row.insert(vec_col.clone(), Value::Vector(vector.to_f32_vec()));
                             }
                         }
 
@@ -348,7 +348,7 @@ impl SqlEngine {
         };
 
         let query = SearchQuery {
-            vector: query_vector,
+            vector: QuantumVector::F32(query_vector),
             k,
             filter,
             ef_search: None,
@@ -368,7 +368,7 @@ impl SqlEngine {
                 // Add vector if present
                 if let Some(vec_col) = &schema.vector_column {
                     if let Some(vector) = result.vector {
-                        row.insert(vec_col.clone(), Value::Vector(vector));
+                        row.insert(vec_col.clone(), Value::Vector(vector.to_f32_vec()));
                     }
                 }
 

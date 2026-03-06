@@ -66,7 +66,7 @@ use crate::error::{Result, RuvLLMError};
 use crate::kernels::rope::{precompute_rope_tables_with_config, RopeConfig, RopeTables};
 use crate::kernels::{apply_rope_neon, flash_attention_neon, rms_norm_neon, AttentionConfig};
 use crate::paged_attention::{PageTable, PagedAttention, PagedAttentionConfig};
-use crate::sona::{SonaConfig, SonaIntegration, Trajectory};
+use crate::sona::{SonaConfig, SonaIntegration, SonaTrajectory};
 
 /// Type alias for PagedAttention used as KV cache
 pub type PagedKVCache = PagedAttention;

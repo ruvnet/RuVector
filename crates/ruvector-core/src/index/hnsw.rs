@@ -1,9 +1,9 @@
 //! HNSW (Hierarchical Navigable Small World) index implementation
 
-use crate::distance::distance;
+// use crate::distance::distance;
 use crate::error::{Result, RuvectorError};
 use crate::index::VectorIndex;
-use crate::types::{DistanceMetric, HnswConfig, SearchResult, VectorId};
+use crate::types::{DistanceMetric, HnswConfig, QuantumVector, SearchResult, VectorId};
 use bincode::{Decode, Encode};
 use dashmap::DashMap;
 use hnsw_rs::prelude::*;
@@ -21,9 +21,12 @@ impl DistanceFn {
     }
 }
 
-impl Distance<f32> for DistanceFn {
-    fn eval(&self, a: &[f32], b: &[f32]) -> f32 {
-        distance(a, b, self.metric).unwrap_or(f32::MAX)
+impl Distance<QuantumVector> for DistanceFn {
+    fn eval(&self, a: &[QuantumVector], b: &[QuantumVector]) -> f32 {
+        // Direct distance on QuantumVectors
+        let a_f32 = a[0].reconstruct();
+        let b_f32 = b[0].reconstruct();
+        crate::distance::distance(&a_f32, &b_f32, self.metric).unwrap_or(f32::MAX)
     }
 }
 
@@ -36,8 +39,8 @@ pub struct HnswIndex {
 }
 
 struct HnswInner {
-    hnsw: Hnsw<'static, f32, DistanceFn>,
-    vectors: DashMap<VectorId, Vec<f32>>,
+    hnsw: Hnsw<'static, QuantumVector, DistanceFn>,
+    vectors: DashMap<VectorId, QuantumVector>,
     id_to_idx: DashMap<VectorId, usize>,
     idx_to_id: DashMap<usize, VectorId>,
     next_idx: usize,
@@ -46,60 +49,24 @@ struct HnswInner {
 /// Serializable HNSW index state
 #[derive(Encode, Decode, Clone)]
 pub struct HnswState {
-    vectors: Vec<(String, Vec<f32>)>,
+    vectors: Vec<(String, QuantumVector)>,
     id_to_idx: Vec<(String, usize)>,
     idx_to_id: Vec<(usize, String)>,
     next_idx: usize,
-    config: SerializableHnswConfig,
+    config: HnswConfig,
     dimensions: usize,
-    metric: SerializableDistanceMetric,
+    metric: DistanceMetric,
 }
 
-#[derive(Encode, Decode, Clone)]
-struct SerializableHnswConfig {
-    m: usize,
-    ef_construction: usize,
-    ef_search: usize,
-    max_elements: usize,
-}
-
-#[derive(Encode, Decode, Clone, Copy)]
-enum SerializableDistanceMetric {
-    Euclidean,
-    Cosine,
-    DotProduct,
-    Manhattan,
-}
-
-impl From<DistanceMetric> for SerializableDistanceMetric {
-    fn from(metric: DistanceMetric) -> Self {
-        match metric {
-            DistanceMetric::Euclidean => SerializableDistanceMetric::Euclidean,
-            DistanceMetric::Cosine => SerializableDistanceMetric::Cosine,
-            DistanceMetric::DotProduct => SerializableDistanceMetric::DotProduct,
-            DistanceMetric::Manhattan => SerializableDistanceMetric::Manhattan,
-        }
-    }
-}
-
-impl From<SerializableDistanceMetric> for DistanceMetric {
-    fn from(metric: SerializableDistanceMetric) -> Self {
-        match metric {
-            SerializableDistanceMetric::Euclidean => DistanceMetric::Euclidean,
-            SerializableDistanceMetric::Cosine => DistanceMetric::Cosine,
-            SerializableDistanceMetric::DotProduct => DistanceMetric::DotProduct,
-            SerializableDistanceMetric::Manhattan => DistanceMetric::Manhattan,
-        }
-    }
-}
+// Redundant serializable structs removed as they are now in types.rs
 
 impl HnswIndex {
     /// Create a new HNSW index
     pub fn new(dimensions: usize, metric: DistanceMetric, config: HnswConfig) -> Result<Self> {
         let distance_fn = DistanceFn::new(metric);
 
-        // Create HNSW with configured parameters
-        let hnsw = Hnsw::<f32, DistanceFn>::new(
+        // Create HNSW with configured parameters (QuantumVector native)
+        let hnsw = Hnsw::<QuantumVector, DistanceFn>::new(
             config.m,
             config.max_elements,
             dimensions,
@@ -153,14 +120,9 @@ impl HnswIndex {
                 .map(|entry| (*entry.key(), entry.value().clone()))
                 .collect(),
             next_idx: inner.next_idx,
-            config: SerializableHnswConfig {
-                m: self.config.m,
-                ef_construction: self.config.ef_construction,
-                ef_search: self.config.ef_search,
-                max_elements: self.config.max_elements,
-            },
+            config: self.config.clone(),
             dimensions: self.dimensions,
-            metric: self.metric.into(),
+            metric: self.metric,
         };
 
         bincode::encode_to_vec(&state, bincode::config::standard()).map_err(|e| {
@@ -189,7 +151,7 @@ impl HnswIndex {
         let metric: DistanceMetric = state.metric.into();
 
         let distance_fn = DistanceFn::new(metric);
-        let mut hnsw = Hnsw::<'static, f32, DistanceFn>::new(
+        let mut hnsw = Hnsw::<QuantumVector, DistanceFn>::new(
             config.m,
             config.max_elements,
             dimensions,
@@ -206,12 +168,12 @@ impl HnswIndex {
             let idx = *entry.key();
             let id = entry.value();
             if let Some(vector) = state.vectors.iter().find(|(vid, _)| vid == id) {
-                // Use insert_data method with slice and idx
-                hnsw.insert_data(&vector.1, idx);
+                // Use insert_data method with QuantumVector
+                hnsw.insert_data(std::slice::from_ref(&vector.1), idx);
             }
         }
 
-        let vectors_map: DashMap<VectorId, Vec<f32>> = state.vectors.into_iter().collect();
+        let vectors_map: DashMap<VectorId, QuantumVector> = state.vectors.into_iter().collect();
 
         Ok(Self {
             inner: Arc::new(RwLock::new(HnswInner {
@@ -230,21 +192,21 @@ impl HnswIndex {
     /// Search with custom efSearch parameter
     pub fn search_with_ef(
         &self,
-        query: &[f32],
+        query: &QuantumVector,
         k: usize,
         ef_search: usize,
     ) -> Result<Vec<SearchResult>> {
-        if query.len() != self.dimensions {
+        if query.reconstruct().len() != self.dimensions {
             return Err(RuvectorError::DimensionMismatch {
                 expected: self.dimensions,
-                actual: query.len(),
+                actual: query.reconstruct().len(),
             });
         }
 
         let inner = self.inner.read();
 
         // Use HNSW search with custom ef parameter (knbn)
-        let neighbors = inner.hnsw.search(query, k, ef_search);
+        let neighbors = inner.hnsw.search(std::slice::from_ref(query), k, ef_search);
 
         Ok(neighbors
             .into_iter()
@@ -261,11 +223,11 @@ impl HnswIndex {
 }
 
 impl VectorIndex for HnswIndex {
-    fn add(&mut self, id: VectorId, vector: Vec<f32>) -> Result<()> {
-        if vector.len() != self.dimensions {
+    fn add(&mut self, id: VectorId, vector: QuantumVector) -> Result<()> {
+        if vector.reconstruct().len() != self.dimensions {
             return Err(RuvectorError::DimensionMismatch {
                 expected: self.dimensions,
-                actual: vector.len(),
+                actual: vector.reconstruct().len(),
             });
         }
 
@@ -273,8 +235,8 @@ impl VectorIndex for HnswIndex {
         let idx = inner.next_idx;
         inner.next_idx += 1;
 
-        // Insert into HNSW graph using insert_data
-        inner.hnsw.insert_data(&vector, idx);
+        // Insert into HNSW graph using insert_data (QuantumVector native)
+        inner.hnsw.insert_data(std::slice::from_ref(&vector), idx);
 
         // Store mappings
         inner.vectors.insert(id.clone(), vector);
@@ -284,13 +246,13 @@ impl VectorIndex for HnswIndex {
         Ok(())
     }
 
-    fn add_batch(&mut self, entries: Vec<(VectorId, Vec<f32>)>) -> Result<()> {
+    fn add_batch(&mut self, entries: Vec<(VectorId, QuantumVector)>) -> Result<()> {
         // Validate all dimensions first
         for (_, vector) in &entries {
-            if vector.len() != self.dimensions {
+            if vector.reconstruct().len() != self.dimensions {
                 return Err(RuvectorError::DimensionMismatch {
                     expected: self.dimensions,
-                    actual: vector.len(),
+                    actual: vector.reconstruct().len(),
                 });
             }
         }
@@ -300,22 +262,20 @@ impl VectorIndex for HnswIndex {
         // Prepare batch data for insertion
         // First, assign indices and collect vector data
         let data_with_ids: Vec<_> = entries
-            .iter()
+            .into_iter()
             .enumerate()
             .map(|(i, (id, vector))| {
                 let idx = inner.next_idx + i;
-                (id.clone(), idx, vector.clone())
+                (id, idx, vector)
             })
             .collect();
 
         // Update next_idx
-        inner.next_idx += entries.len();
+        inner.next_idx += data_with_ids.len();
 
-        // Insert into HNSW sequentially
-        // Note: Using sequential insertion to avoid Send requirements with RwLock guard
-        // For large batches, consider restructuring to use hnsw_rs parallel_insert
+        // Insert into HNSW sequentially (Hnsw-rs native optimized)
         for (_id, idx, vector) in &data_with_ids {
-            inner.hnsw.insert_data(vector, *idx);
+            inner.hnsw.insert_data(std::slice::from_ref(vector), *idx);
         }
 
         // Store mappings
@@ -328,7 +288,7 @@ impl VectorIndex for HnswIndex {
         Ok(())
     }
 
-    fn search(&self, query: &[f32], k: usize) -> Result<Vec<SearchResult>> {
+    fn search(&self, query: &QuantumVector, k: usize) -> Result<Vec<SearchResult>> {
         // Use configured ef_search
         self.search_with_ef(query, k, self.config.ef_search)
     }
@@ -363,21 +323,25 @@ impl VectorIndex for HnswIndex {
 mod tests {
     use super::*;
 
-    fn generate_random_vectors(count: usize, dimensions: usize) -> Vec<Vec<f32>> {
+    fn generate_random_vectors(count: usize, dimensions: usize) -> Vec<QuantumVector> {
         use rand::Rng;
         let mut rng = rand::thread_rng();
 
         (0..count)
-            .map(|_| (0..dimensions).map(|_| rng.gen::<f32>()).collect())
+            .map(|_| {
+                let v: Vec<f32> = (0..dimensions).map(|_| rng.gen::<f32>()).collect();
+                QuantumVector::F32(v)
+            })
             .collect()
     }
 
-    fn normalize_vector(v: &[f32]) -> Vec<f32> {
-        let norm = v.iter().map(|x| x * x).sum::<f32>().sqrt();
+    fn normalize_quantum(v: &QuantumVector) -> QuantumVector {
+        let vec = v.reconstruct();
+        let norm = vec.iter().map(|x| x * x).sum::<f32>().sqrt();
         if norm > 0.0 {
-            v.iter().map(|x| x / norm).collect()
+            QuantumVector::F32(vec.iter().map(|x| x / norm).collect())
         } else {
-            v.to_vec()
+            QuantumVector::F32(vec)
         }
     }
 
@@ -403,14 +367,14 @@ mod tests {
         // Insert a few vectors
         let vectors = generate_random_vectors(100, 128);
         for (i, vector) in vectors.iter().enumerate() {
-            let normalized = normalize_vector(vector);
+            let normalized = normalize_quantum(vector);
             index.add(format!("vec_{}", i), normalized)?;
         }
 
         assert_eq!(index.len(), 100);
 
         // Search for the first vector
-        let query = normalize_vector(&vectors[0]);
+        let query = normalize_quantum(&vectors[0]);
         let results = index.search(&query, 10)?;
 
         assert!(!results.is_empty());
@@ -428,7 +392,7 @@ mod tests {
         let entries: Vec<_> = vectors
             .iter()
             .enumerate()
-            .map(|(i, v)| (format!("vec_{}", i), normalize_vector(v)))
+            .map(|(i, v)| (format!("vec_{}", i), normalize_quantum(v)))
             .collect();
 
         index.add_batch(entries)?;
@@ -451,7 +415,7 @@ mod tests {
         // Insert vectors
         let vectors = generate_random_vectors(50, 128);
         for (i, vector) in vectors.iter().enumerate() {
-            let normalized = normalize_vector(vector);
+            let normalized = normalize_quantum(vector);
             index.add(format!("vec_{}", i), normalized)?;
         }
 
@@ -464,7 +428,7 @@ mod tests {
         assert_eq!(restored_index.len(), 50);
 
         // Test search on restored index
-        let query = normalize_vector(&vectors[0]);
+        let query = normalize_quantum(&vectors[0]);
         let results = restored_index.search(&query, 5)?;
 
         assert!(!results.is_empty());
@@ -477,7 +441,7 @@ mod tests {
         let config = HnswConfig::default();
         let mut index = HnswIndex::new(128, DistanceMetric::Cosine, config)?;
 
-        let result = index.add("test".to_string(), vec![1.0; 64]);
+        let result = index.add("test".to_string(), QuantumVector::F32(vec![1.0; 64]));
         assert!(result.is_err());
 
         Ok(())

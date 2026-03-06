@@ -181,7 +181,7 @@ impl SessionIndex {
         // Create vector entry
         let vector_entry = VectorEntry {
             id: Some(state.session_id.clone()),
-            vector: state.context_embedding.clone(),
+            vector: ruvector_core::types::QuantumVector::F32(state.context_embedding.clone()),
             metadata: Some(metadata),
         };
 
@@ -200,7 +200,7 @@ impl SessionIndex {
         limit: usize,
     ) -> Result<Vec<SessionState>> {
         let query = SearchQuery {
-            vector: context_embedding.to_vec(),
+            vector: ruvector_core::types::QuantumVector::F32(context_embedding.to_vec()),
             k: limit,
             filter: None,
             ef_search: None,

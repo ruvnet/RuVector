@@ -5,6 +5,7 @@
 //! graceful or forced VM shutdown.
 
 use std::io::{BufRead, BufReader, Write};
+#[cfg(unix)]
 use std::os::unix::net::UnixStream;
 use std::path::Path;
 use std::time::Duration;
@@ -12,10 +13,15 @@ use std::time::Duration;
 use crate::error::LaunchError;
 
 /// A minimal QMP client connected via a Unix socket.
+#[cfg(unix)]
 pub struct QmpClient {
     stream: UnixStream,
 }
 
+#[cfg(not(unix))]
+pub struct QmpClient {}
+
+#[cfg(unix)]
 impl QmpClient {
     /// Connect to the QMP Unix socket and perform the capability
     /// negotiation handshake.
@@ -86,6 +92,27 @@ impl QmpClient {
         let mut line = String::new();
         reader.read_line(&mut line).map_err(LaunchError::QmpIo)?;
         Ok(line)
+    }
+}
+
+#[cfg(not(unix))]
+impl QmpClient {
+    pub fn connect(_socket_path: &Path, _timeout: Duration) -> Result<Self, LaunchError> {
+        Err(LaunchError::Qmp(
+            "QMP over Unix sockets is not supported on Windows".to_string(),
+        ))
+    }
+
+    pub fn system_powerdown(&mut self) -> Result<(), LaunchError> {
+        Ok(())
+    }
+
+    pub fn quit(&mut self) -> Result<(), LaunchError> {
+        Ok(())
+    }
+
+    pub fn query_status(&mut self) -> Result<String, LaunchError> {
+        Ok("unknown".to_string())
     }
 }
 

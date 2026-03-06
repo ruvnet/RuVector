@@ -14,6 +14,7 @@ use crate::error::{Result, RuvLLMError};
 
 use super::agentic_memory::{AgenticMemory, AgenticMemoryConfig, MemoryType, RetrievedMemory};
 use super::semantic_cache::{SemanticCacheConfig, SemanticToolCache};
+use ruvector_core::types::QuantumVector;
 
 /// Model token limits
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -408,7 +409,7 @@ impl IntelligentContextManager {
     pub fn prepare_context(
         &self,
         messages: &[Message],
-        query_embedding: Option<&[f32]>,
+        query_embedding: Option<&QuantumVector>,
         model: Option<ModelTokenLimit>,
     ) -> Result<PreparedContext> {
         let start = std::time::Instant::now();
@@ -597,7 +598,7 @@ impl IntelligentContextManager {
         &self,
         key: &str,
         content: &str,
-        embedding: Vec<f32>,
+        embedding: QuantumVector,
         memory_type: MemoryType,
     ) -> Result<String> {
         self.memory.store(key, content, embedding, memory_type)
@@ -609,7 +610,7 @@ impl IntelligentContextManager {
         tool_name: &str,
         input: &str,
         result: &str,
-        embedding: Vec<f32>,
+        embedding: QuantumVector,
     ) -> Result<()> {
         self.cache.store(tool_name, input, result, embedding)
     }
@@ -718,7 +719,7 @@ mod tests {
         let manager = IntelligentContextManager::new(config).unwrap();
 
         // Store some memory
-        let embedding = vec![0.1; 128];
+        let embedding = QuantumVector::F32(vec![0.1; 128]);
         manager
             .store_memory(
                 "fact-1",

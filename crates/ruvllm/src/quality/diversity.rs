@@ -3,6 +3,8 @@
 //! This module provides tools for analyzing diversity in generated content,
 //! detecting mode collapse, and suggesting diversification strategies.
 
+use crate::error::Result;
+use crate::utils::cosine_similarity;
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
@@ -732,23 +734,6 @@ struct SemanticDiversityResult {
     diversity_score: f32,
     variance: f32,
     average_distance: f32,
-}
-
-/// Compute cosine similarity between two vectors
-fn cosine_similarity(a: &[f32], b: &[f32]) -> f32 {
-    if a.len() != b.len() || a.is_empty() {
-        return 0.0;
-    }
-
-    let dot: f32 = a.iter().zip(b.iter()).map(|(x, y)| x * y).sum();
-    let norm_a: f32 = a.iter().map(|x| x * x).sum::<f32>().sqrt();
-    let norm_b: f32 = b.iter().map(|x| x * x).sum::<f32>().sqrt();
-
-    if norm_a == 0.0 || norm_b == 0.0 {
-        return 0.0;
-    }
-
-    dot / (norm_a * norm_b)
 }
 
 #[cfg(test)]

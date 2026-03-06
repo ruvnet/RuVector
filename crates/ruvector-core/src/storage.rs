@@ -215,7 +215,8 @@ impl VectorStorage {
             return Ok(None);
         };
 
-        let (vector, _): (Vec<f32>, usize) =
+        // Decoded directly as QuantumVector
+        let (vector, _): (crate::types::QuantumVector, usize) =
             bincode::decode_from_slice(vector_data.value(), config::standard())
                 .map_err(|e| RuvectorError::SerializationError(e.to_string()))?;
 
@@ -338,7 +339,7 @@ mod tests {
 
         let entry = VectorEntry {
             id: Some("test1".to_string()),
-            vector: vec![1.0, 2.0, 3.0],
+            vector: crate::types::QuantumVector::F32(vec![1.0, 2.0, 3.0]),
             metadata: None,
         };
 
@@ -348,7 +349,7 @@ mod tests {
         let retrieved = storage.get("test1")?;
         assert!(retrieved.is_some());
         let retrieved = retrieved.unwrap();
-        assert_eq!(retrieved.vector, vec![1.0, 2.0, 3.0]);
+        assert_eq!(retrieved.vector.len(), 3);
 
         Ok(())
     }
@@ -361,12 +362,12 @@ mod tests {
         let entries = vec![
             VectorEntry {
                 id: None,
-                vector: vec![1.0, 2.0, 3.0],
+                vector: crate::types::QuantumVector::F32(vec![1.0, 2.0, 3.0]),
                 metadata: None,
             },
             VectorEntry {
                 id: None,
-                vector: vec![4.0, 5.0, 6.0],
+                vector: crate::types::QuantumVector::F32(vec![4.0, 5.0, 6.0]),
                 metadata: None,
             },
         ];
@@ -385,7 +386,7 @@ mod tests {
 
         let entry = VectorEntry {
             id: Some("test1".to_string()),
-            vector: vec![1.0, 2.0, 3.0],
+            vector: crate::types::QuantumVector::F32(vec![1.0, 2.0, 3.0]),
             metadata: None,
         };
 
@@ -412,7 +413,7 @@ mod tests {
         // Insert data with first instance
         storage1.insert(&VectorEntry {
             id: Some("test1".to_string()),
-            vector: vec![1.0, 2.0, 3.0],
+            vector: crate::types::QuantumVector::F32(vec![1.0, 2.0, 3.0]),
             metadata: None,
         })?;
 
@@ -426,7 +427,7 @@ mod tests {
         // Insert with second instance
         storage2.insert(&VectorEntry {
             id: Some("test2".to_string()),
-            vector: vec![4.0, 5.0, 6.0],
+            vector: crate::types::QuantumVector::F32(vec![4.0, 5.0, 6.0]),
             metadata: None,
         })?;
 

@@ -38,6 +38,7 @@ use crate::error::{Result, RuvLLMError};
 use crate::policy_store::{PolicyEntry, PolicySource, PolicyStore, PolicyType};
 use crate::witness_log::WitnessEntry;
 use parking_lot::RwLock;
+use ruvector_core::types::QuantumVector;
 use ruvector_sona::{
     EwcConfig, EwcPlusPlus, LearnedPattern, PatternConfig, ReasoningBank,
     SonaConfig as SonaCoreConfig, SonaEngine,
@@ -104,15 +105,15 @@ pub enum LearningLoop {
 
 /// Learning trajectory for SONA
 #[derive(Debug, Clone)]
-pub struct Trajectory {
+pub struct SonaTrajectory {
     /// Request ID
     pub request_id: String,
     /// Session ID
     pub session_id: String,
     /// Query embedding
-    pub query_embedding: Vec<f32>,
+    pub query_embedding: QuantumVector,
     /// Response embedding
-    pub response_embedding: Vec<f32>,
+    pub response_embedding: QuantumVector,
     /// Quality score
     pub quality_score: f32,
     /// Routing decision features
@@ -135,7 +136,7 @@ pub struct SonaIntegration {
     /// ReasoningBank for pattern storage
     reasoning_bank: Arc<RwLock<ReasoningBank>>,
     /// Trajectory buffer for instant loop
-    trajectory_buffer: Arc<RwLock<Vec<Trajectory>>>,
+    trajectory_buffer: Arc<RwLock<Vec<SonaTrajectory>>>,
     /// Total trajectories processed
     total_trajectories: AtomicU64,
     /// Instant loop updates
@@ -153,6 +154,7 @@ pub struct SonaIntegration {
 impl SonaIntegration {
     /// Create a new SONA integration
     pub fn new(config: SonaConfig) -> Self {
+        println!("[DEBUG] SonaIntegration::new: Start");
         let core_config = SonaCoreConfig {
             hidden_dim: config.hidden_dim,
             embedding_dim: config.embedding_dim,
@@ -165,7 +167,11 @@ impl SonaIntegration {
             ..Default::default()
         };
 
+        println!("[DEBUG] SonaIntegration::new: Creating SonaEngine");
+
         let engine = SonaEngine::with_config(core_config);
+
+        println!("[DEBUG] SonaIntegration::new: Creating EwcPlusPlus");
 
         let ewc_config = EwcConfig {
             param_count: config.hidden_dim,
@@ -173,6 +179,8 @@ impl SonaIntegration {
             ..Default::default()
         };
         let ewc = EwcPlusPlus::new(ewc_config);
+
+        println!("[DEBUG] SonaIntegration::new: Creating ReasoningBank");
 
         let pattern_config = PatternConfig {
             k_clusters: 100,
@@ -182,6 +190,8 @@ impl SonaIntegration {
             ..Default::default()
         };
         let reasoning_bank = ReasoningBank::new(pattern_config);
+
+        println!("[DEBUG] SonaIntegration::new: Finalizing struct");
 
         Self {
             config,
@@ -199,7 +209,7 @@ impl SonaIntegration {
     }
 
     /// Record a trajectory for learning
-    pub fn record_trajectory(&self, trajectory: Trajectory) -> Result<()> {
+    pub fn record_trajectory(&self, trajectory: SonaTrajectory) -> Result<()> {
         self.total_trajectories.fetch_add(1, Ordering::SeqCst);
 
         // Add to buffer
@@ -230,15 +240,15 @@ impl SonaIntegration {
     }
 
     /// Run instant loop (per-request, <1ms target)
-    fn run_instant_loop(&self, trajectory: &Trajectory) -> Result<()> {
+    fn run_instant_loop(&self, trajectory: &SonaTrajectory) -> Result<()> {
         let mut engine = self.engine.write();
 
         // Begin trajectory in SONA engine
-        let mut builder = engine.begin_trajectory(trajectory.query_embedding.clone());
+        let mut builder = engine.begin_trajectory(trajectory.query_embedding.reconstruct());
 
         // Add step with routing features
         builder.add_step(
-            trajectory.response_embedding.clone(),
+            trajectory.response_embedding.reconstruct(),
             trajectory.routing_features.clone(),
             trajectory.quality_score,
         );
@@ -287,7 +297,7 @@ impl SonaIntegration {
                 // Create a QueryTrajectory from our Trajectory
                 let query_traj = ruvector_sona::QueryTrajectory::new(
                     traj.request_id.parse().unwrap_or(0),
-                    traj.query_embedding.clone(),
+                    traj.query_embedding.reconstruct(),
                 );
                 rb.add_trajectory(&query_traj);
             }
@@ -334,14 +344,15 @@ impl SonaIntegration {
     }
 
     /// Compute pseudo-gradients for EWC++ (simplified)
-    fn compute_pseudo_gradients(&self, trajectory: &Trajectory) -> Vec<f32> {
+    fn compute_pseudo_gradients(&self, trajectory: &SonaTrajectory) -> Vec<f32> {
         // In production, this would compute actual gradients from the model
         // Here we use a simplified version based on embedding differences
         let mut gradients = vec![0.0; self.config.hidden_dim];
 
         if trajectory.query_embedding.len() >= self.config.hidden_dim {
             for (i, g) in gradients.iter_mut().enumerate() {
-                *g = trajectory.query_embedding[i] * trajectory.quality_score;
+                let query = trajectory.query_embedding.reconstruct();
+                *g = query[i] * trajectory.quality_score;
             }
         }
 
@@ -349,9 +360,13 @@ impl SonaIntegration {
     }
 
     /// Search for similar patterns in ReasoningBank
-    pub fn search_patterns(&self, query: &[f32], limit: usize) -> Vec<LearnedPattern> {
+    pub fn search_patterns(&self, query: &QuantumVector, limit: usize) -> Vec<LearnedPattern> {
         let rb = self.reasoning_bank.read();
-        rb.find_similar(query, limit).into_iter().cloned().collect()
+        let q_vec = query.reconstruct();
+        rb.find_similar(&q_vec, limit)
+            .into_iter()
+            .cloned()
+            .collect()
     }
 
     /// Apply learned transformations to input
@@ -363,7 +378,10 @@ impl SonaIntegration {
     }
 
     /// Get router recommendations based on learned patterns
-    pub fn get_routing_recommendation(&self, query_embedding: &[f32]) -> RoutingRecommendation {
+    pub fn get_routing_recommendation(
+        &self,
+        query_embedding: &QuantumVector,
+    ) -> RoutingRecommendation {
         let patterns = self.search_patterns(query_embedding, 5);
 
         if patterns.is_empty() {
@@ -375,9 +393,10 @@ impl SonaIntegration {
             patterns.iter().map(|p| p.avg_quality).sum::<f32>() / patterns.len() as f32;
 
         // Calculate confidence from pattern similarity
+        let q_vec = query_embedding.reconstruct();
         let confidence = patterns
             .first()
-            .map(|p| p.similarity(query_embedding))
+            .map(|p| p.similarity(&q_vec))
             .unwrap_or(0.5);
 
         RoutingRecommendation {
@@ -396,7 +415,7 @@ impl SonaIntegration {
 
     /// Record a witness entry and extract trajectory
     pub fn record_from_witness(&self, entry: &WitnessEntry) -> Result<()> {
-        let trajectory = Trajectory {
+        let trajectory = SonaTrajectory {
             request_id: entry.request_id.to_string(),
             session_id: entry.session_id.clone(),
             query_embedding: entry.query_embedding.clone(),
@@ -430,7 +449,7 @@ impl SonaIntegration {
             let entry = PolicyEntry {
                 id: uuid::Uuid::new_v4(),
                 policy_type: PolicyType::Pattern,
-                embedding: pattern.centroid.clone(),
+                embedding: ruvector_core::types::QuantumVector::F32(pattern.centroid.clone()),
                 parameters: serde_json::json!({
                     "avg_quality": pattern.avg_quality,
                     "cluster_size": pattern.cluster_size,
@@ -510,6 +529,7 @@ pub struct SonaStats {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ruvector_core::types::QuantumVector;
 
     #[test]
     fn test_sona_config_default() {
@@ -534,7 +554,7 @@ mod tests {
         let config = SonaConfig::default();
         let sona = SonaIntegration::new(config);
 
-        let query = vec![0.1; 256]; // Use smaller embedding for pattern config
+        let query = QuantumVector::F32(vec![0.1; 256]); // Use smaller embedding for pattern config
         let rec = sona.get_routing_recommendation(&query);
 
         // With no patterns, should return defaults
@@ -550,11 +570,11 @@ mod tests {
         };
         let sona = SonaIntegration::new(config);
 
-        let trajectory = Trajectory {
+        let trajectory = SonaTrajectory {
             request_id: "req-1".to_string(),
             session_id: "sess-1".to_string(),
-            query_embedding: vec![0.1; 256],
-            response_embedding: vec![0.2; 256],
+            query_embedding: QuantumVector::F32(vec![0.1; 256]),
+            response_embedding: QuantumVector::F32(vec![0.2; 256]),
             quality_score: 0.8,
             routing_features: vec![0.7, 0.9, 0.5, 0.5],
             model_index: 1,

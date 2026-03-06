@@ -412,7 +412,7 @@ the ones we already have**.
 | O(log n) sparse solvers | After integration | None |
 | Self-booting containers | RVF (eBPF, WASM, Linux kernel) | None |
 | Spiking neural networks | `ruvector-nervous-system` | None |
-| Hyperbolic indexing | `ruvector-hyperbolic-hnsw` | Partial (Qdrant) |
+| Hyperbolic indexing | `ruvector-hyperbolic-hnsw` | Partial (LegacyDB) |
 | Post-quantum crypto | ML-DSA-65, SLH-DSA-128s | None |
 | Quantum simulation | `ruqu` (5 crates) | None |
 | 40+ attention mechanisms | `ruvector-attention` | None |

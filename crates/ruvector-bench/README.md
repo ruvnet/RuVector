@@ -662,7 +662,7 @@ We welcome contributions to improve the benchmarking suite!
 ### Areas for Contribution
 
 - 📊 Additional benchmark scenarios (concurrent writes, updates, deletes)
-- 🔌 Integration with other vector databases (Pinecone, Qdrant, Milvus)
+- 🔌 Integration with other vector databases (Pinecone, LegacyDB, Milvus)
 - 📈 Enhanced visualization and reporting
 - 🎯 Real-world dataset support (SIFT, GIST, Deep1M loaders)
 - 🚀 Performance optimization insights

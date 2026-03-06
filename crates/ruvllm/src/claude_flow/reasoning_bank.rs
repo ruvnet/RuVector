@@ -63,8 +63,9 @@
 
 use super::AgentType;
 use crate::error::{Result, RuvLLMError};
-use crate::sona::{SonaConfig, SonaIntegration, Trajectory as SonaTrajectory};
+use crate::sona::{SonaConfig, SonaIntegration, SonaTrajectory};
 use parking_lot::RwLock;
+use ruvector_core::types::QuantumVector;
 use ruvector_sona::{
     EwcConfig, EwcPlusPlus, LearnedPattern, PatternConfig, PatternType, ReasoningBank,
 };
@@ -233,7 +234,7 @@ pub struct Trajectory {
     /// Unique task identifier
     pub task_id: String,
     /// Task embedding vector
-    pub embedding: Vec<f32>,
+    pub embedding: QuantumVector,
     /// Execution steps
     pub steps: Vec<TrajectoryStep>,
     /// Final verdict
@@ -254,7 +255,7 @@ impl Trajectory {
     /// Create a new trajectory
     pub fn new(
         task_id: impl Into<String>,
-        embedding: Vec<f32>,
+        embedding: QuantumVector,
         steps: Vec<TrajectoryStep>,
         verdict: Verdict,
     ) -> Self {
@@ -454,7 +455,7 @@ pub struct DistilledPattern {
     /// Pattern identifier
     pub id: u64,
     /// Centroid embedding
-    pub centroid: Vec<f32>,
+    pub centroid: QuantumVector,
     /// Primary agent association
     pub primary_agent: AgentType,
     /// Agent score distribution
@@ -476,33 +477,13 @@ pub struct DistilledPattern {
 impl DistilledPattern {
     /// Compute similarity with embedding using optimized dot product
     #[inline]
-    pub fn similarity(&self, embedding: &[f32]) -> f32 {
-        let len = self.centroid.len();
-        if len != embedding.len() {
-            return 0.0;
-        }
-
-        // Compute all in single pass for cache efficiency
-        let mut dot: f32 = 0.0;
-        let mut norm_a_sq: f32 = 0.0;
-        let mut norm_b_sq: f32 = 0.0;
-
-        for i in 0..len {
-            let a = self.centroid[i];
-            let b = embedding[i];
-            dot += a * b;
-            norm_a_sq += a * a;
-            norm_b_sq += b * b;
-        }
-
-        let norm_a = norm_a_sq.sqrt();
-        let norm_b = norm_b_sq.sqrt();
-
-        if norm_a > 1e-8 && norm_b > 1e-8 {
-            dot / (norm_a * norm_b)
-        } else {
-            0.0
-        }
+    pub fn similarity(&self, embedding: &QuantumVector) -> f32 {
+        1.0 - ruvector_core::distance::distance(
+            &self.centroid.reconstruct(),
+            &embedding.reconstruct(),
+            ruvector_core::types::DistanceMetric::Cosine,
+        )
+        .unwrap_or(1.0)
     }
 
     /// Get best agent from this pattern
@@ -593,11 +574,11 @@ impl ReasoningBankIntegration {
     pub fn record_trajectory(
         &self,
         task_id: impl Into<String>,
-        embedding: &[f32],
+        embedding: &QuantumVector,
         steps: Vec<TrajectoryStep>,
         verdict: Verdict,
     ) -> Result<()> {
-        let trajectory = Trajectory::new(task_id, embedding.to_vec(), steps, verdict.clone());
+        let trajectory = Trajectory::new(task_id, embedding.clone(), steps, verdict.clone());
 
         // Update statistics
         {
@@ -634,8 +615,8 @@ impl ReasoningBankIntegration {
             let sona_trajectory = SonaTrajectory {
                 request_id: trajectory.task_id.clone(),
                 session_id: "reasoning-bank".to_string(),
-                query_embedding: embedding.to_vec(),
-                response_embedding: embedding.to_vec(),
+                query_embedding: embedding.clone(),
+                response_embedding: embedding.clone(),
                 quality_score: trajectory.quality_score,
                 routing_features: vec![
                     trajectory.quality_score,
@@ -654,7 +635,7 @@ impl ReasoningBankIntegration {
         {
             let mut core = self.core_bank.write();
             let query_traj =
-                ruvector_sona::QueryTrajectory::new(trajectory.timestamp, embedding.to_vec());
+                ruvector_sona::QueryTrajectory::new(trajectory.timestamp, embedding.reconstruct());
             core.add_trajectory(&query_traj);
         }
 
@@ -706,34 +687,22 @@ impl ReasoningBankIntegration {
                 continue;
             }
 
-            // Compute centroid
-            let dim = cluster[0].embedding.len();
-            let mut centroid = vec![0.0f32; dim];
-            for traj in &cluster {
-                for (i, &e) in traj.embedding.iter().enumerate() {
-                    if i < dim {
-                        centroid[i] += e;
-                    }
-                }
-            }
-            for c in &mut centroid {
-                *c /= cluster.len() as f32;
-            }
-
-            // Normalize centroid
-            let norm: f32 = centroid.iter().map(|x| x * x).sum::<f32>().sqrt();
-            if norm > 1e-8 {
-                for c in &mut centroid {
-                    *c /= norm;
-                }
-            }
-
             // Compute agent scores
             let mut agent_scores: HashMap<AgentType, f32> = HashMap::new();
             let mut total_quality = 0.0f32;
             let mut task_type: Option<String> = None;
 
+            // Compute mean embedding for cluster
+            let first_t = &cluster[0];
+            let dim = first_t.embedding.reconstruct().len();
+            let mut centroid_raw = vec![0.0f32; dim];
             for traj in &cluster {
+                let v = traj.embedding.reconstruct();
+                for (i, &val) in v.iter().enumerate() {
+                    if i < dim {
+                        centroid_raw[i] += val;
+                    }
+                }
                 if let Some(agent) = traj.primary_agent {
                     *agent_scores.entry(agent).or_insert(0.0) += traj.quality_score;
                 }
@@ -742,6 +711,11 @@ impl ReasoningBankIntegration {
                     task_type = traj.task_type.clone();
                 }
             }
+
+            for val in centroid_raw.iter_mut() {
+                *val /= cluster.len() as f32;
+            }
+            let centroid = QuantumVector::F32(centroid_raw);
 
             // Normalize agent scores
             let total_agent_score: f32 = agent_scores.values().sum();
@@ -803,10 +777,11 @@ impl ReasoningBankIntegration {
 
         // Simple K-means style clustering
         let k = self.config.num_clusters.min(trajectories.len() / 3).max(1);
-        let dim = trajectories[0].embedding.len();
+        let first_t = &trajectories[0];
+        let dim = first_t.embedding.reconstruct().len();
 
         // Initialize centroids with first k trajectories
-        let mut centroids: Vec<Vec<f32>> = trajectories
+        let mut centroids: Vec<QuantumVector> = trajectories
             .iter()
             .take(k)
             .map(|t| t.embedding.clone())
@@ -822,7 +797,17 @@ impl ReasoningBankIntegration {
                 let nearest = centroids
                     .iter()
                     .enumerate()
-                    .map(|(j, c)| (j, self.cosine_similarity(&traj.embedding, c)))
+                    .map(|(j, c)| {
+                        (
+                            j,
+                            1.0 - ruvector_core::distance::distance(
+                                &traj.embedding.reconstruct(),
+                                &c.reconstruct(),
+                                ruvector_core::types::DistanceMetric::Cosine,
+                            )
+                            .unwrap_or(1.0),
+                        )
+                    })
                     .max_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal))
                     .map(|(j, _)| j)
                     .unwrap_or(0);
@@ -838,28 +823,32 @@ impl ReasoningBankIntegration {
             }
 
             // Recompute centroids
-            let mut new_centroids = vec![vec![0.0f32; dim]; k];
+            let mut new_centroids_raw = vec![vec![0.0f32; dim]; k];
             let mut counts = vec![0usize; k];
 
             for (i, traj) in trajectories.iter().enumerate() {
-                let cluster = assignments[i];
-                counts[cluster] += 1;
-                for (j, &e) in traj.embedding.iter().enumerate() {
+                let cluster_idx = assignments[i];
+                counts[cluster_idx] += 1;
+                let v = traj.embedding.reconstruct();
+                for (j, &val) in v.iter().enumerate() {
                     if j < dim {
-                        new_centroids[cluster][j] += e;
+                        new_centroids_raw[cluster_idx][j] += val;
                     }
                 }
             }
 
-            for (i, centroid) in new_centroids.iter_mut().enumerate() {
-                if counts[i] > 0 {
-                    for c in centroid.iter_mut() {
-                        *c /= counts[i] as f32;
+            centroids = new_centroids_raw
+                .into_iter()
+                .enumerate()
+                .map(|(i, mut v)| {
+                    if counts[i] > 0 {
+                        for val in v.iter_mut() {
+                            *val /= counts[i] as f32;
+                        }
                     }
-                }
-            }
-
-            centroids = new_centroids;
+                    QuantumVector::F32(v)
+                })
+                .collect();
         }
 
         // Group trajectories by assignment
@@ -872,36 +861,13 @@ impl ReasoningBankIntegration {
         clusters.into_iter().filter(|c| c.len() >= 2).collect()
     }
 
-    /// Cosine similarity between two vectors
-    /// Optimized to compute all norms in a single pass
-    #[inline]
-    fn cosine_similarity(&self, a: &[f32], b: &[f32]) -> f32 {
-        let len = a.len();
-        if len != b.len() {
-            return 0.0;
-        }
-
-        // Single-pass computation for cache efficiency
-        let mut dot: f32 = 0.0;
-        let mut norm_a_sq: f32 = 0.0;
-        let mut norm_b_sq: f32 = 0.0;
-
-        for i in 0..len {
-            let x = a[i];
-            let y = b[i];
-            dot += x * y;
-            norm_a_sq += x * x;
-            norm_b_sq += y * y;
-        }
-
-        let norm_a = norm_a_sq.sqrt();
-        let norm_b = norm_b_sq.sqrt();
-
-        if norm_a > 1e-8 && norm_b > 1e-8 {
-            dot / (norm_a * norm_b)
-        } else {
-            0.0
-        }
+    fn cosine_similarity(&self, a: &QuantumVector, b: &QuantumVector) -> f32 {
+        1.0 - ruvector_core::distance::distance(
+            &a.reconstruct(),
+            &b.reconstruct(),
+            ruvector_core::types::DistanceMetric::Cosine,
+        )
+        .unwrap_or(1.0)
     }
 
     /// Update EWC from new patterns
@@ -910,8 +876,8 @@ impl ReasoningBankIntegration {
 
         for pattern in patterns {
             // Use centroid as pseudo-gradients
-            let gradients: Vec<f32> = pattern
-                .centroid
+            let v = pattern.centroid.reconstruct();
+            let gradients: Vec<f32> = v
                 .iter()
                 .take(self.config.embedding_dim)
                 .copied()
@@ -929,7 +895,7 @@ impl ReasoningBankIntegration {
     }
 
     /// Get routing recommendation for an embedding
-    pub fn get_recommendation(&self, embedding: &[f32]) -> RoutingRecommendation {
+    pub fn get_recommendation(&self, embedding: &QuantumVector) -> RoutingRecommendation {
         let patterns = self.patterns.read();
 
         if patterns.is_empty() {
@@ -1114,12 +1080,15 @@ impl ReasoningBankIntegration {
         let w2 = p2.trajectory_count as f32 / total_count as f32;
 
         // Merge centroids
-        let centroid: Vec<f32> = p1
+        // Merge centroids
+        let centroid_vec: Vec<f32> = p1
             .centroid
+            .reconstruct()
             .iter()
-            .zip(&p2.centroid)
+            .zip(p2.centroid.reconstruct().iter())
             .map(|(&a, &b)| a * w1 + b * w2)
             .collect();
+        let centroid = QuantumVector::F32(centroid_vec);
 
         // Merge agent scores
         let mut agent_scores: HashMap<AgentType, f32> = p1.agent_scores.clone();
@@ -1275,7 +1244,7 @@ mod tests {
 
         let traj = Trajectory::new(
             "task-1",
-            vec![0.1, 0.2, 0.3],
+            ruvector_core::types::QuantumVector::F32(vec![0.1, 0.2, 0.3]),
             steps,
             Verdict::Success {
                 reason: "done".into(),
@@ -1309,7 +1278,7 @@ mod tests {
 
         bank.record_trajectory(
             "task-1",
-            &vec![0.1; 384],
+            &ruvector_core::types::QuantumVector::F32(vec![0.1; 384]),
             steps,
             Verdict::Success {
                 reason: "done".into(),
@@ -1355,7 +1324,7 @@ mod tests {
 
             bank.record_trajectory(
                 format!("task-{}", i),
-                &embedding,
+                &ruvector_core::types::QuantumVector::F32(embedding),
                 steps,
                 Verdict::Success {
                     reason: "done".into(),
@@ -1391,7 +1360,7 @@ mod tests {
 
             bank.record_trajectory(
                 format!("task-{}", i),
-                &embedding,
+                &ruvector_core::types::QuantumVector::F32(embedding),
                 steps,
                 Verdict::Success {
                     reason: "done".into(),
@@ -1408,8 +1377,9 @@ mod tests {
             .chain(std::iter::repeat(0.0))
             .take(384)
             .collect();
+        let query_vec = ruvector_core::types::QuantumVector::F32(query);
 
-        let rec = bank.get_recommendation(&query);
+        let rec = bank.get_recommendation(&query_vec);
         assert!(rec.patterns_used > 0);
         assert!(rec.confidence > 0.0);
     }
@@ -1438,7 +1408,7 @@ mod tests {
 
             bank.record_trajectory(
                 format!("task-{}", i),
-                &embedding,
+                &QuantumVector::F32(embedding),
                 steps,
                 Verdict::Success {
                     reason: "done".into(),
@@ -1460,7 +1430,7 @@ mod tests {
     fn test_distilled_pattern_similarity() {
         let pattern = DistilledPattern {
             id: 1,
-            centroid: vec![1.0, 0.0, 0.0, 0.0],
+            centroid: QuantumVector::F32(vec![1.0, 0.0, 0.0, 0.0]),
             primary_agent: AgentType::Coder,
             agent_scores: HashMap::new(),
             avg_quality: 0.9,
@@ -1471,8 +1441,8 @@ mod tests {
             access_count: 0,
         };
 
-        let same = vec![1.0, 0.0, 0.0, 0.0];
-        let orthogonal = vec![0.0, 1.0, 0.0, 0.0];
+        let same = QuantumVector::F32(vec![1.0, 0.0, 0.0, 0.0]);
+        let orthogonal = QuantumVector::F32(vec![0.0, 1.0, 0.0, 0.0]);
 
         assert!((pattern.similarity(&same) - 1.0).abs() < 0.01);
         assert!(pattern.similarity(&orthogonal).abs() < 0.01);
@@ -1486,7 +1456,7 @@ mod tests {
         // Create some patterns manually
         let pattern = DistilledPattern {
             id: 42,
-            centroid: vec![0.5; 384],
+            centroid: QuantumVector::F32(vec![0.5; 384]),
             primary_agent: AgentType::Researcher,
             agent_scores: HashMap::from([(AgentType::Researcher, 0.8), (AgentType::Coder, 0.2)]),
             avg_quality: 0.85,

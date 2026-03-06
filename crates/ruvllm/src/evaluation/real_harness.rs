@@ -11,7 +11,7 @@ use super::harness::{
 };
 use crate::backends::{create_backend, GenerateParams, LlmBackend, ModelConfig};
 use crate::claude_flow::{AgentType, ClaudeFlowTask, HnswRouter, HnswRouterConfig, TaskPattern};
-use crate::sona::integration::{SonaConfig, SonaIntegration, Trajectory};
+use crate::sona::integration::{SonaConfig, SonaIntegration, SonaTrajectory};
 use crate::Result;
 
 use parking_lot::RwLock;
@@ -278,7 +278,7 @@ impl RealEvaluationHarness {
             let embedding = Self::create_seed_embedding(description, dim, i);
 
             let mut pattern =
-                TaskPattern::new(embedding, *agent_type, *task_type, description.to_string());
+                TaskPattern::new(ruvector_core::types::QuantumVector::F32(embedding), *agent_type, *task_type, description.to_string());
             // Give seed patterns initial trust
             pattern.usage_count = 10;
             pattern.success_count = 8;
@@ -448,7 +448,7 @@ impl RealEvaluationHarness {
                 .unwrap_or_else(|_| Self::create_seed_embedding(task_description, 384, 0));
 
             // Use full routing with confidence scores
-            let hnsw_result = router.route_by_similarity(&embedding)?;
+            let hnsw_result = router.route_by_similarity(&ruvector_core::types::QuantumVector::F32(embedding.clone()))?;
 
             Ok(RoutingResult {
                 primary_agent: hnsw_result.primary_agent,
@@ -485,7 +485,7 @@ impl RealEvaluationHarness {
             let task_type = Self::classify_task_type(&task.description);
 
             router.learn_pattern(
-                embedding,
+                ruvector_core::types::QuantumVector::F32(embedding),
                 AgentType::Coder, // Default for code tasks
                 task_type,
                 task.description.clone(),
@@ -503,11 +503,11 @@ impl RealEvaluationHarness {
                 .and_then(|p| self.get_embedding(p).ok())
                 .unwrap_or_default();
 
-            let trajectory = Trajectory {
+            let trajectory = SonaTrajectory {
                 request_id: task.id.clone(),
                 session_id: "eval".to_string(),
-                query_embedding,
-                response_embedding,
+                query_embedding: ruvector_core::types::QuantumVector::F32(query_embedding),
+                response_embedding: ruvector_core::types::QuantumVector::F32(response_embedding),
                 quality_score: if success { 0.9 } else { 0.3 },
                 routing_features: vec![],
                 model_index: 0,

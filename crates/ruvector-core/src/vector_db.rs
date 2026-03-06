@@ -86,17 +86,20 @@ impl VectorDB {
                 {
                     let bin_path = format!("{}_hnsw.bin", options.storage_path);
                     if std::path::Path::new(&bin_path).exists() {
-                        tracing::info!("Found persisted HNSW index graph, attempting O(1) fast load...");
+                        tracing::info!(
+                            "Found persisted HNSW index graph, attempting O(1) fast load..."
+                        );
                         match std::fs::read(&bin_path) {
-                            Ok(bytes) => {
-                                match HnswIndex::deserialize(&bytes) {
-                                    Ok(idx) => {
-                                        tracing::info!("Successfully loaded HNSW graph with {} vectors via Zero-Copy bypass", idx.len());
-                                        loaded_index = Some(Box::new(idx) as Box<dyn VectorIndex>);
-                                    }
-                                    Err(e) => tracing::warn!("Failed to deserialize HNSW index, falling back to rebuild: {}", e),
+                            Ok(bytes) => match HnswIndex::deserialize(&bytes) {
+                                Ok(idx) => {
+                                    tracing::info!("Successfully loaded HNSW graph with {} vectors via Zero-Copy bypass", idx.len());
+                                    loaded_index = Some(Box::new(idx) as Box<dyn VectorIndex>);
                                 }
-                            }
+                                Err(e) => tracing::warn!(
+                                    "Failed to deserialize HNSW index, falling back to rebuild: {}",
+                                    e
+                                ),
+                            },
                             Err(e) => tracing::warn!("Failed to read HNSW bin file: {}", e),
                         }
                     }
@@ -361,19 +364,19 @@ mod tests {
 
             db.insert(VectorEntry {
                 id: Some("v1".to_string()),
-                vector: vec![1.0, 0.0, 0.0],
+                vector: QuantumVector::F32(vec![1.0, 0.0, 0.0]),
                 metadata: None,
             })?;
 
             db.insert(VectorEntry {
                 id: Some("v2".to_string()),
-                vector: vec![0.0, 1.0, 0.0],
+                vector: QuantumVector::F32(vec![0.0, 1.0, 0.0]),
                 metadata: None,
             })?;
 
             db.insert(VectorEntry {
                 id: Some("v3".to_string()),
-                vector: vec![0.7, 0.7, 0.0],
+                vector: QuantumVector::F32(vec![0.7, 0.7, 0.0]),
                 metadata: None,
             })?;
 

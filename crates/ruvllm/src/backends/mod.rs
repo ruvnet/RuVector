@@ -367,9 +367,10 @@ impl Default for ModelConfig {
 )]
 pub enum DeviceType {
     /// CPU inference
+    #[cfg_attr(not(target_os = "macos"), default)]
     Cpu,
     /// Metal (Apple Silicon) - default on macOS
-    #[default]
+    #[cfg_attr(target_os = "macos", default)]
     Metal,
     /// CUDA (NVIDIA GPUs)
     Cuda(usize),

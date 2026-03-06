@@ -358,7 +358,7 @@ fn test_conformal_prediction_128d() {
             .map(|i| SearchResult {
                 id: format!("vec_{}", i),
                 score: i as f32 * 0.1,
-                vector: Some(vec![0.0; dimensions]),
+                vector: Some(QuantumVector::F32(vec![0.0; dimensions])),
                 metadata: None,
             })
             .collect())

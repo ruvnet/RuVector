@@ -4,20 +4,20 @@
 //! MMR = λ × Similarity(query, doc) - (1-λ) × max Similarity(doc, selected_docs)
 
 use crate::error::{Result, RuvectorError};
-use crate::types::{DistanceMetric, SearchResult};
-use serde::{Deserialize, Serialize};
+use crate::types::{DistanceMetric, QuantumVector, SearchResult};
+
+// ... (MMRConfig stays same for now, lambda is f32)
 
 /// Configuration for MMR search
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct MMRConfig {
-    /// Lambda parameter: balance between relevance (1.0) and diversity (0.0)
-    /// - λ = 1.0: Pure relevance (standard similarity search)
-    /// - λ = 0.5: Equal balance
-    /// - λ = 0.0: Pure diversity
+    /// Diversity weight (0.0 to 1.0)
+    /// Higher lambda = more weight on relevance
+    /// Lower lambda = more weight on diversity
     pub lambda: f32,
-    /// Distance metric for similarity computation
+    /// Distance metric to use for diversity calculation
     pub metric: DistanceMetric,
-    /// Fetch multiplier for initial candidates (fetch k * multiplier results)
+    /// Fetch multiplier: fetch (k * fetch_multiplier) candidates before reranking
     pub fetch_multiplier: f32,
 }
 
@@ -31,38 +31,26 @@ impl Default for MMRConfig {
     }
 }
 
-/// MMR search implementation
-#[derive(Debug, Clone)]
+/// MMR Reranker
 pub struct MMRSearch {
-    /// Configuration
-    pub config: MMRConfig,
+    config: MMRConfig,
 }
 
 impl MMRSearch {
-    /// Create a new MMR search instance
     pub fn new(config: MMRConfig) -> Result<Self> {
-        if !(0.0..=1.0).contains(&config.lambda) {
-            return Err(RuvectorError::InvalidParameter(format!(
-                "Lambda must be in [0, 1], got {}",
-                config.lambda
-            )));
+        if config.lambda < 0.0 || config.lambda > 1.0 {
+            return Err(RuvectorError::InvalidParameter(
+                "MMR lambda must be between 0.0 and 1.0".to_string(),
+            ));
         }
-
         Ok(Self { config })
     }
+    // ... (new stays same)
 
     /// Perform MMR-based reranking of search results
-    ///
-    /// # Arguments
-    /// * `query` - Query vector
-    /// * `candidates` - Initial search results (sorted by relevance)
-    /// * `k` - Number of diverse results to return
-    ///
-    /// # Returns
-    /// Reranked results optimizing for both relevance and diversity
     pub fn rerank(
         &self,
-        query: &[f32],
+        query: &QuantumVector,
         candidates: Vec<SearchResult>,
         k: usize,
     ) -> Result<Vec<SearchResult>> {
@@ -111,7 +99,7 @@ impl MMRSearch {
     /// Compute MMR score for a candidate
     fn compute_mmr_score(
         &self,
-        _query: &[f32],
+        _query: &QuantumVector,
         candidate: &SearchResult,
         selected: &[SearchResult],
     ) -> Result<f32> {
@@ -130,7 +118,9 @@ impl MMRSearch {
                 .iter()
                 .filter_map(|s| s.vector.as_ref())
                 .map(|selected_vec| {
-                    let dist = compute_distance(candidate_vec, selected_vec, self.config.metric);
+                    let a_f32 = candidate_vec.reconstruct();
+                    let b_f32 = selected_vec.reconstruct();
+                    let dist = compute_distance(&a_f32, &b_f32, self.config.metric);
                     self.distance_to_similarity(dist)
                 })
                 .max_by(|a, b| a.partial_cmp(b).unwrap())
@@ -154,17 +144,14 @@ impl MMRSearch {
     }
 
     /// Perform end-to-end MMR search
-    ///
-    /// # Arguments
-    /// * `query` - Query vector
-    /// * `k` - Number of diverse results to return
-    /// * `search_fn` - Function to perform initial similarity search
-    ///
-    /// # Returns
-    /// Diverse search results
-    pub fn search<F>(&self, query: &[f32], k: usize, search_fn: F) -> Result<Vec<SearchResult>>
+    pub fn search<F>(
+        &self,
+        query: &QuantumVector,
+        k: usize,
+        search_fn: F,
+    ) -> Result<Vec<SearchResult>>
     where
-        F: Fn(&[f32], usize) -> Result<Vec<SearchResult>>,
+        F: Fn(&QuantumVector, usize) -> Result<Vec<SearchResult>>,
     {
         // Fetch more candidates than needed
         let fetch_k = (k as f32 * self.config.fetch_multiplier).ceil() as usize;
@@ -225,7 +212,7 @@ mod tests {
         SearchResult {
             id: id.to_string(),
             score,
-            vector: Some(vector),
+            vector: Some(QuantumVector::F32(vector)),
             metadata: None,
         }
     }
@@ -254,7 +241,7 @@ mod tests {
         };
 
         let mmr = MMRSearch::new(config).unwrap();
-        let query = vec![1.0, 0.0, 0.0];
+        let query = QuantumVector::F32(vec![1.0, 0.0, 0.0]);
 
         // Create candidates with varying similarity
         let candidates = vec![
@@ -282,7 +269,7 @@ mod tests {
         };
 
         let mmr = MMRSearch::new(config).unwrap();
-        let query = vec![1.0, 0.0, 0.0];
+        let query = QuantumVector::F32(vec![1.0, 0.0, 0.0]);
 
         let candidates = vec![
             create_search_result("doc1", 0.1, vec![0.9, 0.1, 0.0]),
@@ -306,7 +293,7 @@ mod tests {
         };
 
         let mmr = MMRSearch::new(config).unwrap();
-        let query = vec![1.0, 0.0, 0.0];
+        let query = QuantumVector::F32(vec![1.0, 0.0, 0.0]);
 
         let candidates = vec![
             create_search_result("doc1", 0.1, vec![0.9, 0.1, 0.0]),
@@ -328,7 +315,7 @@ mod tests {
     fn test_mmr_empty_candidates() {
         let config = MMRConfig::default();
         let mmr = MMRSearch::new(config).unwrap();
-        let query = vec![1.0, 0.0, 0.0];
+        let query = QuantumVector::F32(vec![1.0, 0.0, 0.0]);
 
         let results = mmr.rerank(&query, Vec::new(), 5).unwrap();
         assert!(results.is_empty());

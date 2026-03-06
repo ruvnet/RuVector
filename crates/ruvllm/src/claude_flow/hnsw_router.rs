@@ -46,12 +46,12 @@
 
 use super::{AgentType, ClaudeFlowTask, RoutingDecision};
 use crate::error::{Result, RuvLLMError};
-use crate::sona::{SonaIntegration, Trajectory};
+use crate::sona::{SonaIntegration, SonaTrajectory};
 use dashmap::DashMap;
 use parking_lot::RwLock;
 use ruvector_core::index::hnsw::HnswIndex;
 use ruvector_core::index::VectorIndex;
-use ruvector_core::types::{DistanceMetric, HnswConfig, SearchResult};
+use ruvector_core::types::{DistanceMetric, HnswConfig, QuantumVector, SearchResult};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -187,7 +187,7 @@ pub struct TaskPattern {
     pub id: String,
 
     /// Task embedding vector
-    pub embedding: Vec<f32>,
+    pub embedding: QuantumVector,
 
     /// Agent type that successfully handled this pattern
     pub agent_type: AgentType,
@@ -220,7 +220,7 @@ pub struct TaskPattern {
 impl TaskPattern {
     /// Create a new task pattern
     pub fn new(
-        embedding: Vec<f32>,
+        embedding: QuantumVector,
         agent_type: AgentType,
         task_type: ClaudeFlowTask,
         task_description: String,
@@ -394,22 +394,21 @@ impl HnswRouter {
     /// Add a new pattern to the index
     pub fn add_pattern(&self, pattern: TaskPattern) -> Result<()> {
         // Validate embedding dimension
-        if pattern.embedding.len() != self.config.embedding_dim {
+        if pattern.embedding.reconstruct().len() != self.config.embedding_dim {
             return Err(RuvLLMError::Config(format!(
                 "Embedding dimension mismatch: expected {}, got {}",
                 self.config.embedding_dim,
-                pattern.embedding.len()
+                pattern.embedding.reconstruct().len()
             )));
         }
 
-        // Normalize embedding for cosine similarity
-        let embedding = self.normalize_embedding(&pattern.embedding);
+        let normalized = pattern.embedding.clone();
 
         // Add to HNSW index
         {
             let mut index = self.index.write();
             index
-                .add(pattern.id.clone(), embedding)
+                .add(pattern.id.clone(), normalized)
                 .map_err(|e| RuvLLMError::Ruvector(e.to_string()))?;
         }
 
@@ -429,12 +428,12 @@ impl HnswRouter {
         let mut entries = Vec::with_capacity(patterns.len());
 
         for pattern in patterns {
-            if pattern.embedding.len() != self.config.embedding_dim {
+            if pattern.embedding.reconstruct().len() != self.config.embedding_dim {
                 continue; // Skip invalid patterns
             }
 
-            let embedding = self.normalize_embedding(&pattern.embedding);
-            entries.push((pattern.id.clone(), embedding));
+            let normalized = pattern.embedding.clone();
+            entries.push((pattern.id.clone(), normalized));
 
             self.index_to_pattern
                 .insert(pattern.id.clone(), pattern.id.clone());
@@ -456,19 +455,15 @@ impl HnswRouter {
     }
 
     /// Search for similar patterns
-    pub fn search_similar(&self, query: &[f32], k: usize) -> Result<Vec<(TaskPattern, f32)>> {
+    pub fn search_similar(
+        &self,
+        query: &QuantumVector,
+        k: usize,
+    ) -> Result<Vec<(TaskPattern, f32)>> {
         let start = std::time::Instant::now();
 
         // Validate and normalize query
-        if query.len() != self.config.embedding_dim {
-            return Err(RuvLLMError::Config(format!(
-                "Query dimension mismatch: expected {}, got {}",
-                self.config.embedding_dim,
-                query.len()
-            )));
-        }
-
-        let normalized_query = self.normalize_embedding(query);
+        let normalized_query = query.clone();
 
         // Search HNSW index
         let results: Vec<SearchResult> = {
@@ -500,7 +495,10 @@ impl HnswRouter {
     }
 
     /// Route a task to the optimal agent based on semantic similarity
-    pub fn route_by_similarity(&self, query_embedding: &[f32]) -> Result<HnswRoutingResult> {
+    pub fn route_by_similarity(
+        &self,
+        query_embedding: &QuantumVector,
+    ) -> Result<HnswRoutingResult> {
         let start = std::time::Instant::now();
 
         // Search for similar patterns
@@ -594,7 +592,7 @@ impl HnswRouter {
 
             // Record trajectory for SONA if available
             if let Some(sona) = &self.sona {
-                let trajectory = Trajectory {
+                let trajectory = SonaTrajectory {
                     request_id: uuid::Uuid::new_v4().to_string(),
                     session_id: "hnsw-router".to_string(),
                     query_embedding: pattern.embedding.clone(),
@@ -619,7 +617,11 @@ impl HnswRouter {
     }
 
     /// Update success rate by finding the nearest pattern to a query
-    pub fn update_nearest_success(&self, query_embedding: &[f32], success: bool) -> Result<bool> {
+    pub fn update_nearest_success(
+        &self,
+        query_embedding: &QuantumVector,
+        success: bool,
+    ) -> Result<bool> {
         let similar = self.search_similar(query_embedding, 1)?;
 
         if let Some((pattern, similarity)) = similar.first() {
@@ -635,7 +637,7 @@ impl HnswRouter {
     /// Learn a new pattern from a successful task
     pub fn learn_pattern(
         &self,
-        embedding: Vec<f32>,
+        embedding: QuantumVector,
         agent_type: AgentType,
         task_type: ClaudeFlowTask,
         task_description: String,
@@ -947,7 +949,7 @@ impl HybridRouter {
     pub fn route(
         &self,
         task_description: &str,
-        embedding: &[f32],
+        embedding: &QuantumVector,
         keyword_decision: Option<RoutingDecision>,
     ) -> Result<RoutingDecision> {
         // Get HNSW semantic routing
@@ -1043,7 +1045,7 @@ mod tests {
         // Add a pattern
         let embedding = create_test_embedding(42, 128);
         let pattern = TaskPattern::new(
-            embedding.clone(),
+            ruvector_core::types::QuantumVector::F32(embedding.clone()),
             AgentType::Coder,
             ClaudeFlowTask::CodeGeneration,
             "implement a function".to_string(),
@@ -1052,7 +1054,8 @@ mod tests {
         router.add_pattern(pattern).unwrap();
 
         // Search for similar
-        let results = router.search_similar(&embedding, 5).unwrap();
+        let query = ruvector_core::types::QuantumVector::F32(embedding);
+        let results = router.search_similar(&query, 5).unwrap();
 
         assert!(!results.is_empty());
         assert_eq!(results[0].0.agent_type, AgentType::Coder);
@@ -1082,8 +1085,12 @@ mod tests {
                 ClaudeFlowTask::Testing
             };
 
-            let mut pattern =
-                TaskPattern::new(embedding, agent_type, task_type, format!("task {}", i));
+            let mut pattern = TaskPattern::new(
+                ruvector_core::types::QuantumVector::F32(embedding),
+                agent_type,
+                task_type,
+                format!("task {}", i),
+            );
             pattern.usage_count = 10;
             pattern.success_count = 8;
             pattern.success_rate = 0.8;
@@ -1092,7 +1099,7 @@ mod tests {
         }
 
         // Query similar to coder patterns
-        let query = create_test_embedding(150, 128); // Between coder embeddings
+        let query = ruvector_core::types::QuantumVector::F32(create_test_embedding(150, 128)); // Between coder embeddings
         let result = router.route_by_similarity(&query).unwrap();
 
         assert!(result.confidence > 0.0);
@@ -1110,7 +1117,7 @@ mod tests {
 
         let embedding = create_test_embedding(42, 128);
         let pattern = TaskPattern::new(
-            embedding,
+            ruvector_core::types::QuantumVector::F32(embedding),
             AgentType::Coder,
             ClaudeFlowTask::CodeGeneration,
             "test task".to_string(),
@@ -1142,7 +1149,7 @@ mod tests {
         let embedding = create_test_embedding(42, 128);
         let pattern_id = router
             .learn_pattern(
-                embedding.clone(),
+                ruvector_core::types::QuantumVector::F32(embedding.clone()),
                 AgentType::Researcher,
                 ClaudeFlowTask::Research,
                 "research best practices".to_string(),
@@ -1171,7 +1178,7 @@ mod tests {
         // Add low-quality pattern
         let embedding = create_test_embedding(42, 128);
         let mut pattern = TaskPattern::new(
-            embedding,
+            ruvector_core::types::QuantumVector::F32(embedding),
             AgentType::Coder,
             ClaudeFlowTask::CodeGeneration,
             "bad task".to_string(),
@@ -1185,7 +1192,7 @@ mod tests {
         // Add good pattern
         let embedding2 = create_test_embedding(100, 128);
         let mut pattern2 = TaskPattern::new(
-            embedding2,
+            ruvector_core::types::QuantumVector::F32(embedding2),
             AgentType::Coder,
             ClaudeFlowTask::CodeGeneration,
             "good task".to_string(),
@@ -1215,7 +1222,7 @@ mod tests {
         for i in 0..5 {
             let embedding = create_test_embedding(i * 10, 128);
             let pattern = TaskPattern::new(
-                embedding,
+                ruvector_core::types::QuantumVector::F32(embedding),
                 AgentType::Coder,
                 ClaudeFlowTask::CodeGeneration,
                 format!("task {}", i),
@@ -1255,7 +1262,7 @@ mod tests {
         for i in 0..5 {
             let embedding = create_test_embedding(i * 10, 128);
             let pattern = TaskPattern::new(
-                embedding,
+                ruvector_core::types::QuantumVector::F32(embedding),
                 AgentType::Coder,
                 ClaudeFlowTask::CodeGeneration,
                 format!("coding task {}", i),
@@ -1264,7 +1271,7 @@ mod tests {
         }
 
         // Route with keyword decision
-        let query = create_test_embedding(25, 128);
+        let query = ruvector_core::types::QuantumVector::F32(create_test_embedding(25, 128));
         let keyword_decision = RoutingDecision {
             primary_agent: AgentType::Coder,
             confidence: 0.8,

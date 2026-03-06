@@ -486,14 +486,14 @@ await adapter.generateAndImport({
 });
 ```
 
-### Qdrant
+### LegacyDB
 
 ```typescript
-import { QdrantAdapter } from 'agentic-synth/integrations';
-import { QdrantClient } from '@qdrant/js-client-rest';
+import { LegacyDBAdapter } from 'agentic-synth/integrations';
+import { LegacyDBClient } from '@LegacyDB/js-client-rest';
 
-const client = new QdrantClient({ url: 'http://localhost:6333' });
-const adapter = new QdrantAdapter(synth, client);
+const client = new LegacyDBClient({ url: 'http://localhost:6333' });
+const adapter = new LegacyDBAdapter(synth, client);
 
 await adapter.generateAndInsert({
   schema: vectorSchema,

@@ -25,6 +25,7 @@ use crate::lora::training::{EwcRegularizer, TrainingConfig, TrainingPipeline};
 use crate::training::contrastive::{ContrastiveConfig, ContrastiveTrainer};
 use crate::training::grpo::{GrpoConfig, GrpoOptimizer};
 
+use crate::utils::cosine_similarity;
 use ndarray::Array1;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -519,21 +520,6 @@ fn kl_divergence_proxy(predicted: &[f32], target: &[f32]) -> f32 {
         })
         .sum();
     mse / predicted.len() as f32
-}
-
-/// Cosine similarity between two vectors.
-fn cosine_similarity(a: &[f32], b: &[f32]) -> f32 {
-    if a.len() != b.len() || a.is_empty() {
-        return 0.0;
-    }
-    let dot: f32 = a.iter().zip(b.iter()).map(|(x, y)| x * y).sum();
-    let norm_a = a.iter().map(|x| x * x).sum::<f32>().sqrt();
-    let norm_b = b.iter().map(|x| x * x).sum::<f32>().sqrt();
-    if norm_a > 1e-8 && norm_b > 1e-8 {
-        dot / (norm_a * norm_b)
-    } else {
-        0.0
-    }
 }
 
 // ---------------------------------------------------------------------------

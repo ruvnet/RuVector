@@ -19,7 +19,7 @@
 use ruvllm::{
     error::Result,
     sona::{
-        LearningLoop, RoutingRecommendation, SonaConfig, SonaIntegration, SonaStats, Trajectory,
+        LearningLoop, RoutingRecommendation, SonaConfig, SonaIntegration, SonaStats, SonaTrajectory,
     },
 };
 use std::time::Duration;
@@ -42,12 +42,12 @@ fn create_test_sona_config() -> SonaConfig {
 }
 
 /// Create a test trajectory
-fn create_test_trajectory(request_id: &str, quality: f32) -> Trajectory {
-    Trajectory {
+fn create_test_trajectory(request_id: &str, quality: f32) -> SonaTrajectory {
+    SonaTrajectory {
         request_id: request_id.to_string(),
         session_id: "test-session".to_string(),
-        query_embedding: vec![0.1; 128],
-        response_embedding: vec![0.2; 128],
+        query_embedding: ruvector_core::types::QuantumVector::F32(vec![0.1; 128]),
+        response_embedding: ruvector_core::types::QuantumVector::F32(vec![0.2; 128]),
         quality_score: quality,
         routing_features: vec![0.7, 0.9, 0.5, 0.5],
         model_index: 1,
@@ -163,7 +163,7 @@ fn test_sona_routing_recommendation_no_patterns() {
     let config = create_test_sona_config();
     let sona = SonaIntegration::new(config);
 
-    let query = vec![0.1; 128];
+    let query = ruvector_core::types::QuantumVector::F32(vec![0.1; 128]);
     let rec = sona.get_routing_recommendation(&query);
 
     // With no patterns, should return defaults
@@ -185,7 +185,7 @@ fn test_sona_search_patterns_empty() {
     let config = create_test_sona_config();
     let sona = SonaIntegration::new(config);
 
-    let query = vec![0.1; 128];
+    let query = ruvector_core::types::QuantumVector::F32(vec![0.1; 128]);
     let patterns = sona.search_patterns(&query, 5);
 
     assert!(patterns.is_empty());
@@ -365,11 +365,11 @@ fn test_sona_large_embedding() {
     };
     let sona = SonaIntegration::new(config);
 
-    let trajectory = Trajectory {
+    let trajectory = SonaTrajectory {
         request_id: "large-001".to_string(),
         session_id: "test".to_string(),
-        query_embedding: vec![0.1; 768],
-        response_embedding: vec![0.2; 768],
+        query_embedding: ruvector_core::types::QuantumVector::F32(vec![0.1; 768]),
+        response_embedding: ruvector_core::types::QuantumVector::F32(vec![0.2; 768]),
         quality_score: 0.9,
         routing_features: vec![0.5; 4],
         model_index: 0,
@@ -392,11 +392,11 @@ fn test_sona_model_index_mapping() {
 
     // Test different model indices
     for model_idx in 0..4 {
-        let trajectory = Trajectory {
+        let trajectory = SonaTrajectory {
             request_id: format!("model-{}", model_idx),
             session_id: "test".to_string(),
-            query_embedding: vec![0.1; 128],
-            response_embedding: vec![0.2; 128],
+            query_embedding: ruvector_core::types::QuantumVector::F32(vec![0.1; 128]),
+            response_embedding: ruvector_core::types::QuantumVector::F32(vec![0.2; 128]),
             quality_score: 0.8,
             routing_features: vec![0.5; 4],
             model_index: model_idx,
@@ -428,11 +428,11 @@ fn test_sona_concurrent_safe() {
         let sona_clone = Arc::clone(&sona);
         let handle = thread::spawn(move || {
             for i in 0..10 {
-                let trajectory = Trajectory {
+                let trajectory = SonaTrajectory {
                     request_id: format!("thread-{}-req-{}", thread_id, i),
                     session_id: format!("thread-{}", thread_id),
-                    query_embedding: vec![0.1; 128],
-                    response_embedding: vec![0.2; 128],
+                    query_embedding: ruvector_core::types::QuantumVector::F32(vec![0.1; 128]),
+                    response_embedding: ruvector_core::types::QuantumVector::F32(vec![0.2; 128]),
                     quality_score: 0.8,
                     routing_features: vec![0.5; 4],
                     model_index: 0,
@@ -475,11 +475,11 @@ fn test_sona_stats_struct() {
 
 #[test]
 fn test_sona_routing_features() {
-    let trajectory = Trajectory {
+    let trajectory = SonaTrajectory {
         request_id: "routing-test".to_string(),
         session_id: "test".to_string(),
-        query_embedding: vec![0.1; 128],
-        response_embedding: vec![0.2; 128],
+        query_embedding: ruvector_core::types::QuantumVector::F32(vec![0.1; 128]),
+        response_embedding: ruvector_core::types::QuantumVector::F32(vec![0.2; 128]),
         quality_score: 0.9,
         routing_features: vec![0.7, 0.9, 0.8, 0.5], // temperature, top_p, confidence, context_ratio
         model_index: 1,
@@ -530,11 +530,11 @@ fn test_sona_negative_quality_handling() {
     let sona = SonaIntegration::new(config);
 
     // Negative quality should still be recorded but not trigger learning
-    let trajectory = Trajectory {
+    let trajectory = SonaTrajectory {
         request_id: "negative".to_string(),
         session_id: "test".to_string(),
-        query_embedding: vec![0.1; 128],
-        response_embedding: vec![0.2; 128],
+        query_embedding: ruvector_core::types::QuantumVector::F32(vec![0.1; 128]),
+        response_embedding: ruvector_core::types::QuantumVector::F32(vec![0.2; 128]),
         quality_score: -0.5, // Negative
         routing_features: vec![0.5; 4],
         model_index: 0,

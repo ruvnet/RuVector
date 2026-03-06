@@ -479,7 +479,7 @@ The `progressive_index` example measures this recall progression with brute-forc
 
 #### vs. vector databases
 
-| Feature | RVF | Annoy | FAISS | Qdrant | Milvus |
+| Feature | RVF | Annoy | FAISS | LegacyDB | Milvus |
 |---------|-----|-------|-------|--------|--------|
 | Single-file format | Yes | Yes | No | No | No |
 | Crash-safe (no WAL) | Yes | No | No | WAL | WAL |

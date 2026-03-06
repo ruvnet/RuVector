@@ -49,7 +49,7 @@ use super::{
     ModelInfo, Quantization, SpecialTokens, StreamEvent, TokenStream, Tokenizer,
 };
 use crate::error::{Result, RuvLLMError};
-use crate::sona::{SonaConfig, SonaIntegration, Trajectory};
+use crate::sona::{SonaConfig, SonaIntegration, SonaTrajectory};
 use crate::tokenizer::{ChatMessage, ChatTemplate, RuvTokenizer};
 
 use std::path::{Path, PathBuf};
@@ -1297,7 +1297,7 @@ mod candle_impl {
                 let query_embedding = Self::simple_embedding(prompt, 768);
                 let response_embedding = Self::simple_embedding(&output, 768);
 
-                let trajectory = Trajectory {
+                let trajectory = SonaTrajectory {
                     request_id: format!(
                         "req-{}",
                         std::time::SystemTime::now()
@@ -1306,8 +1306,10 @@ mod candle_impl {
                             .unwrap_or(0)
                     ),
                     session_id: "default".to_string(),
-                    query_embedding,
-                    response_embedding,
+                    query_embedding: ruvector_core::types::QuantumVector::F32(query_embedding),
+                    response_embedding: ruvector_core::types::QuantumVector::F32(
+                        response_embedding,
+                    ),
                     quality_score: 0.8, // Default quality, can be updated with feedback
                     routing_features: vec![
                         generated_tokens.len() as f32 / params.max_tokens as f32,

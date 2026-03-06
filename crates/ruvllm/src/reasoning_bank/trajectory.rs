@@ -117,8 +117,8 @@ pub struct TrajectoryStep {
     pub latency_ms: u64,
     /// Timestamp when step was executed
     pub timestamp: DateTime<Utc>,
-    /// Optional embedding of the action context
-    pub context_embedding: Option<Vec<f32>>,
+    /// Optional embedding of the action context (Quantum)
+    pub context_embedding: Option<ruvector_core::types::QuantumVector>,
     /// Optional metadata
     pub metadata: Option<StepMetadata>,
 }
@@ -169,7 +169,7 @@ impl TrajectoryStep {
     }
 
     /// Set context embedding
-    pub fn with_embedding(mut self, embedding: Vec<f32>) -> Self {
+    pub fn with_embedding(mut self, embedding: ruvector_core::types::QuantumVector) -> Self {
         self.context_embedding = Some(embedding);
         self
     }
@@ -216,10 +216,10 @@ pub struct Trajectory {
     pub id: TrajectoryId,
     /// UUID for external reference
     pub uuid: Uuid,
-    /// Query embedding (input representation)
-    pub query_embedding: Vec<f32>,
-    /// Response embedding (output representation)
-    pub response_embedding: Option<Vec<f32>>,
+    /// Query embedding (input representation) (Quantum)
+    pub query_embedding: ruvector_core::types::QuantumVector,
+    /// Response embedding (output representation) (Quantum)
+    pub response_embedding: Option<ruvector_core::types::QuantumVector>,
     /// Execution steps
     pub steps: Vec<TrajectoryStep>,
     /// Final verdict
@@ -240,7 +240,7 @@ pub struct Trajectory {
 
 impl Trajectory {
     /// Create a new trajectory
-    pub fn new(query_embedding: Vec<f32>) -> Self {
+    pub fn new(query_embedding: ruvector_core::types::QuantumVector) -> Self {
         let now = Utc::now();
         Self {
             id: TrajectoryId::new(),
@@ -365,7 +365,7 @@ impl Trajectory {
     }
 
     /// Set response embedding
-    pub fn set_response_embedding(&mut self, embedding: Vec<f32>) {
+    pub fn set_response_embedding(&mut self, embedding: ruvector_core::types::QuantumVector) {
         self.response_embedding = Some(embedding);
     }
 }
@@ -382,7 +382,7 @@ pub struct TrajectoryRecorder {
 
 impl TrajectoryRecorder {
     /// Create a new trajectory recorder
-    pub fn new(query_embedding: Vec<f32>) -> Self {
+    pub fn new(query_embedding: ruvector_core::types::QuantumVector) -> Self {
         Self {
             trajectory: Trajectory::new(query_embedding),
             current_step: 0,
@@ -469,7 +469,7 @@ impl TrajectoryRecorder {
     }
 
     /// Set response embedding
-    pub fn set_response_embedding(&mut self, embedding: Vec<f32>) {
+    pub fn set_response_embedding(&mut self, embedding: ruvector_core::types::QuantumVector) {
         self.trajectory.set_response_embedding(embedding);
     }
 
@@ -493,6 +493,7 @@ impl TrajectoryRecorder {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ruvector_core::types::QuantumVector;
 
     #[test]
     fn test_trajectory_id_generation() {
@@ -530,14 +531,14 @@ mod tests {
 
     #[test]
     fn test_trajectory_creation() {
-        let trajectory = Trajectory::new(vec![0.1; 768]);
+        let trajectory = Trajectory::new(QuantumVector::F32(vec![0.1; 768]));
         assert_eq!(trajectory.steps.len(), 0);
         assert!(!trajectory.is_success());
     }
 
     #[test]
     fn test_trajectory_recorder() {
-        let mut recorder = TrajectoryRecorder::new(vec![0.1; 768]);
+        let mut recorder = TrajectoryRecorder::new(QuantumVector::F32(vec![0.1; 768]));
         recorder.set_session_id("session-1".to_string());
         recorder.set_user_id("user-1".to_string());
 
@@ -564,7 +565,7 @@ mod tests {
 
     #[test]
     fn test_trajectory_quality_computation() {
-        let mut trajectory = Trajectory::new(vec![0.1; 768]);
+        let mut trajectory = Trajectory::new(QuantumVector::F32(vec![0.1; 768]));
 
         trajectory.add_step(TrajectoryStep::new(
             0,
@@ -595,7 +596,7 @@ mod tests {
 
     #[test]
     fn test_trajectory_stats() {
-        let mut recorder = TrajectoryRecorder::new(vec![0.1; 768]);
+        let mut recorder = TrajectoryRecorder::new(QuantumVector::F32(vec![0.1; 768]));
 
         recorder.add_step(
             "step1".to_string(),

@@ -4,6 +4,7 @@
 //! detecting contradictions, and checking logical flow in generated content.
 
 use crate::error::Result;
+use crate::utils::{compute_std_dev, cosine_similarity};
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -650,35 +651,6 @@ impl CoherenceValidator {
         let mut cache = self.embedding_cache.write();
         cache.clear();
     }
-}
-
-/// Compute cosine similarity between two vectors
-fn cosine_similarity(a: &[f32], b: &[f32]) -> f32 {
-    if a.len() != b.len() || a.is_empty() {
-        return 0.0;
-    }
-
-    let dot: f32 = a.iter().zip(b.iter()).map(|(x, y)| x * y).sum();
-    let norm_a: f32 = a.iter().map(|x| x * x).sum::<f32>().sqrt();
-    let norm_b: f32 = b.iter().map(|x| x * x).sum::<f32>().sqrt();
-
-    if norm_a == 0.0 || norm_b == 0.0 {
-        return 0.0;
-    }
-
-    dot / (norm_a * norm_b)
-}
-
-/// Compute standard deviation
-fn compute_std_dev(values: &[f32], mean: f32) -> f32 {
-    if values.len() < 2 {
-        return 0.0;
-    }
-
-    let variance: f32 =
-        values.iter().map(|v| (v - mean).powi(2)).sum::<f32>() / (values.len() - 1) as f32;
-
-    variance.sqrt()
 }
 
 /// Extract numbers from text

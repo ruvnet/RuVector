@@ -1,9 +1,8 @@
 //! Flat (brute-force) index for baseline and small datasets
 
-use crate::distance::distance;
 use crate::error::Result;
 use crate::index::VectorIndex;
-use crate::types::{DistanceMetric, SearchResult, VectorId};
+use crate::types::{DistanceMetric, QuantumVector, SearchResult, VectorId};
 use dashmap::DashMap;
 
 #[cfg(all(feature = "parallel", not(target_arch = "wasm32")))]
@@ -11,7 +10,7 @@ use rayon::prelude::*;
 
 /// Flat index using brute-force search
 pub struct FlatIndex {
-    vectors: DashMap<VectorId, Vec<f32>>,
+    vectors: DashMap<VectorId, QuantumVector>,
     metric: DistanceMetric,
     _dimensions: usize,
 }
@@ -28,12 +27,14 @@ impl FlatIndex {
 }
 
 impl VectorIndex for FlatIndex {
-    fn add(&mut self, id: VectorId, vector: Vec<f32>) -> Result<()> {
+    fn add(&mut self, id: VectorId, vector: QuantumVector) -> Result<()> {
         self.vectors.insert(id, vector);
         Ok(())
     }
 
-    fn search(&self, query: &[f32], k: usize) -> Result<Vec<SearchResult>> {
+    fn search(&self, query: &QuantumVector, k: usize) -> Result<Vec<SearchResult>> {
+        let query_f32 = query.reconstruct();
+
         // Distance calculation - parallel on native, sequential on WASM
         #[cfg(all(feature = "parallel", not(target_arch = "wasm32")))]
         let mut results: Vec<_> = self
@@ -42,8 +43,8 @@ impl VectorIndex for FlatIndex {
             .par_bridge()
             .map(|entry| {
                 let id = entry.key().clone();
-                let vector = entry.value();
-                let dist = distance(query, vector, self.metric)?;
+                let vector_f32 = entry.value().reconstruct();
+                let dist = crate::distance::distance(&query_f32, &vector_f32, self.metric)?;
                 Ok((id, dist))
             })
             .collect::<Result<Vec<_>>>()?;
@@ -54,8 +55,8 @@ impl VectorIndex for FlatIndex {
             .iter()
             .map(|entry| {
                 let id = entry.key().clone();
-                let vector = entry.value();
-                let dist = distance(query, vector, self.metric)?;
+                let vector_f32 = entry.value().reconstruct();
+                let dist = crate::distance::distance(&query_f32, &vector_f32, self.metric)?;
                 Ok((id, dist))
             })
             .collect::<Result<Vec<_>>>()?;
@@ -92,11 +93,11 @@ mod tests {
     fn test_flat_index() -> Result<()> {
         let mut index = FlatIndex::new(3, DistanceMetric::Euclidean);
 
-        index.add("v1".to_string(), vec![1.0, 0.0, 0.0])?;
-        index.add("v2".to_string(), vec![0.0, 1.0, 0.0])?;
-        index.add("v3".to_string(), vec![0.0, 0.0, 1.0])?;
+        index.add("v1".to_string(), QuantumVector::F32(vec![1.0, 0.0, 0.0]))?;
+        index.add("v2".to_string(), QuantumVector::F32(vec![0.0, 1.0, 0.0]))?;
+        index.add("v3".to_string(), QuantumVector::F32(vec![0.0, 0.0, 1.0]))?;
 
-        let query = vec![1.0, 0.0, 0.0];
+        let query = QuantumVector::F32(vec![1.0, 0.0, 0.0]);
         let results = index.search(&query, 2)?;
 
         assert_eq!(results.len(), 2);

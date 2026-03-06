@@ -3,8 +3,11 @@
 //! Provides fast access to current task state, tool results, and reasoning steps
 //! with time-decaying attention weights.
 
+use crate::error::Result;
+use crate::utils::cosine_similarity;
 use chrono::{DateTime, Duration, Utc};
 use parking_lot::RwLock;
+use ruvector_core::types::QuantumVector;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, VecDeque};
 use std::sync::Arc;
@@ -48,7 +51,7 @@ pub struct TaskContext {
     /// Current status
     pub status: TaskStatus,
     /// Task embedding (for similarity search)
-    pub embedding: Option<Vec<f32>>,
+    pub embedding: Option<QuantumVector>,
     /// Files being worked on
     pub active_files: Vec<String>,
     /// Current step index in multi-step tasks
@@ -109,7 +112,7 @@ pub struct ScratchpadEntry {
     /// Timestamp
     pub timestamp: DateTime<Utc>,
     /// Optional embedding for semantic search
-    pub embedding: Option<Vec<f32>>,
+    pub embedding: Option<QuantumVector>,
     /// Reference to related entries
     pub related_entries: Vec<usize>,
 }
@@ -317,7 +320,7 @@ impl WorkingMemory {
         &self,
         content: String,
         entry_type: ScratchpadEntryType,
-        embedding: Option<Vec<f32>>,
+        embedding: Option<QuantumVector>,
     ) {
         let mut scratchpad = self.scratchpad.write();
 
@@ -355,14 +358,24 @@ impl WorkingMemory {
     }
 
     /// Search scratchpad by similarity (requires embeddings)
-    pub fn search_scratchpad(&self, query_embedding: &[f32], k: usize) -> Vec<ScratchpadEntry> {
+    pub fn search_scratchpad(
+        &self,
+        query_embedding: &QuantumVector,
+        k: usize,
+    ) -> Vec<ScratchpadEntry> {
         let scratchpad = self.scratchpad.read();
 
         let mut with_scores: Vec<(f32, &ScratchpadEntry)> = scratchpad
             .iter()
             .filter_map(|entry| {
                 entry.embedding.as_ref().map(|emb| {
-                    let score = cosine_similarity(query_embedding, emb);
+                    let score = 1.0
+                        - ruvector_core::distance::distance(
+                            &query_embedding.reconstruct(),
+                            &emb.reconstruct(),
+                            ruvector_core::types::DistanceMetric::Cosine,
+                        )
+                        .unwrap_or(1.0);
                     (score, entry)
                 })
             })
@@ -555,22 +568,7 @@ pub struct WorkingMemoryStats {
     pub attention_entries: usize,
 }
 
-/// Calculate cosine similarity between two vectors
-fn cosine_similarity(a: &[f32], b: &[f32]) -> f32 {
-    if a.len() != b.len() {
-        return 0.0;
-    }
-
-    let dot: f32 = a.iter().zip(b.iter()).map(|(x, y)| x * y).sum();
-    let norm_a: f32 = a.iter().map(|x| x * x).sum::<f32>().sqrt();
-    let norm_b: f32 = b.iter().map(|x| x * x).sum::<f32>().sqrt();
-
-    if norm_a > 0.0 && norm_b > 0.0 {
-        dot / (norm_a * norm_b)
-    } else {
-        0.0
-    }
-}
+// Helper removed: use QuantumVector::cosine_similarity
 
 #[cfg(test)]
 mod tests {
