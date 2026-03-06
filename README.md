@@ -1440,7 +1440,7 @@ RuVector runs on Node.js, Rust, browsers, PostgreSQL, and Docker. Pick the packa
 </details>
 
 <details>
-<summary>🦀 Rust Crates (83 Packages)</summary>
+<summary>🦀 Rust Crates (86 Packages)</summary>
 
 All crates are published to [crates.io](https://crates.io) under the `ruvector-*` and `rvf-*` namespaces.
 
@@ -1534,6 +1534,16 @@ wget https://huggingface.co/ruv/ruvltra/resolve/main/ruvltra-small-0.5b-q4_k_m.g
 | [ruvector-router-wasm](./crates/ruvector-router-wasm) | WASM bindings for browser routing | [![crates.io](https://img.shields.io/crates/v/ruvector-router-wasm.svg)](https://crates.io/crates/ruvector-router-wasm) |
 
 **Hybrid Routing** achieves **90% accuracy** for agent routing using keyword-first strategy with embedding fallback. See [Issue #122](https://github.com/ruvnet/ruvector/issues/122) for benchmarks and the [training tutorials](#-ruvllm-training--fine-tuning-tutorials) for fine-tuning guides.
+
+### Neural Trader
+
+| Crate | Description | crates.io |
+|-------|-------------|-----------|
+| [neural-trader-core](./crates/neural-trader-core) | Market event types, ingest pipeline, graph schema | `publish = false` |
+| [neural-trader-coherence](./crates/neural-trader-coherence) | MinCut coherence gate with CUSUM drift detection | `publish = false` |
+| [neural-trader-replay](./crates/neural-trader-replay) | Reservoir replay store with proof-gated writes | `publish = false` |
+
+Six-layer pipeline treating the limit order book as a dynamic heterogeneous typed graph. See [ADR-085](./docs/adr/ADR-085-neural-trader-ruvector.md) for architecture.
 
 ### Dynamic Min-Cut (December 2025 Breakthrough)
 
