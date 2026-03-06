@@ -305,27 +305,79 @@ fn load_phase_diagram(sweep_id: &SweepId) -> PhaseDiagram;
 
 ---
 
-## 7. Honest Assessment
+## 7. RVF Cognitive Container Layer
+
+The architecture gains a deployment and verification layer through RVF phase capsules.
+
+### 7.1 Phase Capsule Packaging
+
+The entire module — solver WASM, phase diagram, HNSW index, receipt chain — packages into a single RVF container:
+
+```
+┌─────────────────────────────────────────────────────────┐
+│               RVF Phase Capsule                          │
+├─────────────────────────────────────────────────────────┤
+│  Layer 5: Phase Intelligence (this module)              │
+│  Layer 4: Cognitive Container (RVF + WIT + handles)     │
+│  Layer 3: Structural Memory (RuVector + HNSW)           │
+│  Layer 2: Deterministic Runtime (WASM canonical ABI)    │
+│  Layer 1: Verification (Ed25519 receipts + witnesses)   │
+└─────────────────────────────────────────────────────────┘
+```
+
+### 7.2 WIT Interface
+
+The module exports a WIT world (`ruqu:rydberg-cavity@0.1.0`) with typed resource handles:
+
+- `graph-fragment` — the Hamiltonian as a capability-gated sparse matrix
+- `receipt` — composable computation proof
+- `budget-token` — deterministic compute governance
+
+### 7.3 Deployment Model
+
+| Target | Runtime | Budget Policy | Verification |
+|--------|---------|---------------|--------------|
+| Server sweep | Wasmtime | 5s/point | Full re-execution |
+| Browser explorer | Browser WASM | 200ms/point | Signature only |
+| Edge sensor | Embedded Wasmtime | 10ms/point | Signature + HNSW lookup |
+| Agent swarm | Orchestration layer | Fair-share | Hub coherence check |
+| Cognitum tile | WASM microkernel | Budget-governed | Split (tile sig + hub structure) |
+
+### 7.4 Immutable Kernel + COW State
+
+The solver bytecode and configuration are immutable (provenance anchor). The phase diagram, embeddings, and index evolve via COW snapshots (ADR-026). Each snapshot produces a receipt linking back to the immutable kernel.
+
+See [04-rvf-wit-cognitive-runtime.md](04-rvf-wit-cognitive-runtime.md) and [05-portable-phase-capsules.md](05-portable-phase-capsules.md) for full design.
+
+---
+
+## 8. Honest Assessment
 
 ### Strengths
 - Strong fit for ruQu as a simulation and optimization engine
 - Natural integration with RuVector for structural memory over phase space
 - Variational and hybrid methods are well-suited to the problem
 - The SRC phase has clear, measurable order parameters
+- RVF capsule packaging enables deterministic reproducibility and federated collaboration
+- WIT typed handles provide capability-based security for phase computation
 
 ### Weak Points
 - Hilbert space blows up fast with atoms + photons
 - Exact results limited to ~18-24 sites
 - No experimental data to validate against (theory only)
 - Clock order detection requires careful finite-size analysis
+- WASM deterministic float handling requires careful validation for edge cases
 
 ### Mitigation
 - Truncated cavity, symmetry pruning, tensor methods
 - RuVector caching to avoid redundant exploration
 - Benchmark against published QMC results at available system sizes
 - Use multiple system sizes for finite-size scaling
+- RVF receipt chains provide cryptographic proof of computational correctness
+- Budget tokens prevent runaway solvers on resource-constrained targets
 
 ---
 
 *This document defines the ruQu integration architecture for the Rydberg-cavity superradiant clock phase.*
 *Next: [02-ruvector-phase-memory.md](02-ruvector-phase-memory.md) — RuVector phase memory integration details.*
+*See also: [04-rvf-wit-cognitive-runtime.md](04-rvf-wit-cognitive-runtime.md) — RVF WIT cognitive runtime integration.*

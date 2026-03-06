@@ -256,6 +256,30 @@ Witnesses enable:
 - Regression detection when solver code changes
 - Provenance tracking for published results
 
+### 4.4 Receipt Chain Integration
+
+When phase capsules use the RVF WIT cognitive runtime (doc 04), witnesses upgrade to full receipt chains:
+
+```
+Receipt = Witness + typed handle binding + budget consumption + signature
+
+PointReceipt {
+    witness: Witness,                    // input/output hashes
+    graph_handle: HandleId,              // which graph_fragment was used
+    budget_consumed: BudgetReport,       // wall_clock, memory, iterations
+    solver_receipt: SolverReceipt,       // solver-specific proof
+    signature: Ed25519Signature,         // signer's attestation
+    predecessor: Option<ReceiptHash>,    // chain link
+}
+```
+
+Receipts compose: a sweep receipt is the Merkle root of all point receipts. This enables:
+- **Spot verification:** re-execute any single point and check against its receipt
+- **Federated trust:** participants exchange receipts, not raw data
+- **Capsule integrity:** the receipt chain is the proof that the phase diagram was correctly computed
+
+See [04-rvf-wit-cognitive-runtime.md](04-rvf-wit-cognitive-runtime.md) for the full receipt architecture.
+
 ---
 
 ## 5. Caching Strategy
@@ -352,3 +376,4 @@ fn compute_or_fetch(point: &ParamPoint) -> PhaseResult {
 *This document details the RuVector phase memory integration for the Rydberg-cavity ruQu module.*
 *Previous: [01-ruqu-integration-architecture.md](01-ruqu-integration-architecture.md)*
 *Next: [03-adr-rydberg-cavity-ruqu.md](03-adr-rydberg-cavity-ruqu.md)*
+*See also: [04-rvf-wit-cognitive-runtime.md](04-rvf-wit-cognitive-runtime.md) — Receipt chain and capsule verification.*

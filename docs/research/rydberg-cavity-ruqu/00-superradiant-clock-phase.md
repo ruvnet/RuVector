@@ -174,5 +174,20 @@ RuVector provides structural memory for phase exploration:
 
 ---
 
+---
+
+## 7. Document Series
+
+| Doc | Title | Content |
+|-----|-------|---------|
+| **00** | Superradiant Clock Phase (this document) | Physics, concepts, applications |
+| [01](01-ruqu-integration-architecture.md) | ruQu Integration Architecture | Modules, API, acceptance test |
+| [02](02-ruvector-phase-memory.md) | RuVector Phase Memory | HNSW indexing, coherence, caching |
+| [03](03-adr-rydberg-cavity-ruqu.md) | ADR: Rydberg-Cavity ruQu Module | Architectural decisions |
+| [04](04-rvf-wit-cognitive-runtime.md) | RVF WIT Cognitive Runtime | Portable containers, WIT types, receipts |
+| [05](05-portable-phase-capsules.md) | Portable Phase Capsules | Verifiable artifacts, federated discovery |
+
+---
+
 *This document is part of the ruQu research series within the RuVector project.*
 *Status: Theory and simulation integration target. Not yet an experimental hardware component.*

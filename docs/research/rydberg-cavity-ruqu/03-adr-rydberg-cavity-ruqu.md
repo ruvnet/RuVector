@@ -115,15 +115,49 @@ ruqu/
 5. All computed points carry witness hashes for reproducibility
 6. RuVector queries correctly retrieve phase points, boundaries, and metastable states
 
+## 5. RVF Cognitive Container Integration
+
+The ruQu Rydberg-cavity module gains a fifth integration point through the RVF WIT cognitive runtime architecture.
+
+### 5. Portable Phase Capsules
+
+Package phase discovery results as self-verifying RVF containers with WIT-typed handles, deterministic WASM execution, budget-governed computation, and portable proof chains.
+
+**Rationale:** Phase exploration produces results that must be reproducible, portable, and verifiable across institutions and hardware. The RVF cognitive container (ADR-030) provides exactly this: an immutable kernel carrying the WASM solver, plus COW state for evolving phase diagrams, plus receipt chains for cryptographic provenance.
+
+**Scope:**
+- WASM compilation of the ruQu Rydberg-cavity solver via WIT component model
+- Phase capsule format: immutable kernel + COW phase diagram state
+- Split verification: tile-level signature checks + hub-level coherence analysis
+- Budget tokens for compute governance across heterogeneous hardware
+- Federated phase discovery protocol for multi-institution collaboration
+- Receipt chain integration with proof-gated mutation (ADR-047)
+
+**Additional acceptance criteria:**
+- A phase capsule produces identical results on Wasmtime, browser WASM, and embedded runtimes
+- Receipt verification passes on any host without re-executing the full computation
+- COW extensions preserve provenance chain back to the immutable kernel
+- Budget exhaustion produces a deterministic error, not undefined behavior
+
+See [04-rvf-wit-cognitive-runtime.md](04-rvf-wit-cognitive-runtime.md) and [05-portable-phase-capsules.md](05-portable-phase-capsules.md) for full design.
+
 ## Related ADRs
 
 - ADR-001: RuVector core architecture (HNSW indexing)
 - ADR-014: Coherence engine (phase boundary detection)
+- ADR-026: RVCOW branching (COW state for phase diagrams)
+- ADR-029: RVF canonical format (capsule container format)
+- ADR-030: RVF cognitive container (self-booting phase solver)
+- ADR-032: RVF WASM integration (solver bytecode embedding)
+- ADR-039: RVF solver WASM (handle-based API pattern)
+- ADR-047: Proof-gated mutation (receipt-gated Hamiltonian access)
+- ADR-063: WASM executable nodes (deterministic cross-host execution)
 - ADR-CE-001: Sheaf Laplacian coherence (transition characterization)
 - ADR-CE-004: Signed event log (witness logs)
+- ADR-CE-012: Gate refusal witness (budget exhaustion logging)
 - ADR-048: Sublinear graph attention (GNN-guided sampling)
 - ADR-051: Physics-informed graph layers (Hamiltonian structure)
 
 ---
 
-*This ADR defines the architectural decision to implement the Rydberg-cavity superradiant clock phase as a ruQu simulation module with RuVector phase memory integration.*
+*This ADR defines the architectural decision to implement the Rydberg-cavity superradiant clock phase as a ruQu simulation module with RuVector phase memory and RVF cognitive container integration.*
