@@ -1,4 +1,4 @@
-# ADR-084: RuVector Neural Trader — Dynamic Market Graphs, MinCut Coherence Gating, and Proof-Gated Mutation
+# ADR-085: RuVector Neural Trader — Dynamic Market Graphs, MinCut Coherence Gating, and Proof-Gated Mutation
 
 ## Status
 

@@ -5146,7 +5146,6 @@ name = "neural-trader-coherence"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "neural-trader-core",
  "serde",
 ]
 
