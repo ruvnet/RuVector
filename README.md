@@ -502,7 +502,7 @@ npx @ruvector/rvf-mcp-server --transport stdio # MCP server for AI agents
 
 **Rust crates** (23): [`rvf-types`](https://crates.io/crates/rvf-types) `rvf-wire` `rvf-manifest` `rvf-quant` `rvf-index` `rvf-crypto` [`rvf-runtime`](https://crates.io/crates/rvf-runtime) `rvf-kernel` `rvf-ebpf` [`rvf-federation`](./crates/rvf/rvf-federation) `rvf-launch` `rvf-server` `rvf-import` [`rvf-cli`](https://crates.io/crates/rvf-cli) `rvf-wasm` `rvf-solver-wasm` `rvf-node` + 6 adapters (claude-flow, agentdb, ospipe, agentic-flow, rvlite, sona)
 
-**npm packages** (4): [`@ruvector/rvf`](https://www.npmjs.com/package/@ruvector/rvf) [`@ruvector/rvf-node`](https://www.npmjs.com/package/@ruvector/rvf-node) [`@ruvector/rvf-wasm`](https://www.npmjs.com/package/@ruvector/rvf-wasm) [`@ruvector/rvf-mcp-server`](https://www.npmjs.com/package/@ruvector/rvf-mcp-server)
+**npm packages** (5): [`@ruvector/rvf`](https://www.npmjs.com/package/@ruvector/rvf) [`@ruvector/rvf-node`](https://www.npmjs.com/package/@ruvector/rvf-node) [`@ruvector/rvf-wasm`](https://www.npmjs.com/package/@ruvector/rvf-wasm) [`@ruvector/rvf-mcp-server`](https://www.npmjs.com/package/@ruvector/rvf-mcp-server) [`@ruvector/ruvllm-wasm`](https://www.npmjs.com/package/@ruvector/ruvllm-wasm)
 
 - **Security Hardened RVF** ([`examples/security_hardened.rvf`](./examples/security_hardened.rvf)) — 2.1 MB sealed artifact with 22 verified capabilities: TEE attestation (SGX/SEV-SNP/TDX/ARM CCA), AIDefence (injection/jailbreak/PII/exfil), hardened Linux microkernel, eBPF firewall, Ed25519 signing, 6-role RBAC, Coherence Gate, 30-entry witness chain, Paranoid policy, COW branching, audited k-NN. See [ADR-042](./docs/adr/ADR-042-Security-RVF-AIDefence-TEE.md).
 - **Full documentation**: [crates/rvf/README.md](./crates/rvf/README.md)
@@ -701,13 +701,14 @@ Everything RuVector can do — organized by category. Vector search, graph queri
 |---------|--------------|----------------|
 | **ruvllm** | Local LLM inference with GGUF models | Run AI without cloud APIs |
 | **Metal/CUDA/ANE** | Hardware acceleration on Mac/NVIDIA/Apple | 10-50x faster inference |
-| **ruvllm-wasm** | Browser LLM with WebGPU acceleration | Client-side AI, zero latency |
+| **[ruvllm-wasm](./crates/ruvllm-wasm)** | Browser WASM runtime: KV cache, HNSW router, MicroLoRA, SONA, chat templates (435 KB) | [`npm`](https://www.npmjs.com/package/@ruvector/ruvllm-wasm) |
 | **RuvLTRA Models** | Pre-trained GGUF for routing & embeddings | <10ms inference → [HuggingFace](https://huggingface.co/ruv/ruvltra) |
 | **Streaming Tokens** | Real-time token generation | Responsive chat UX |
 | **Quantization** | Q4, Q5, Q8 model support | Run 7B models in 4GB RAM |
 
 ```bash
 npm install @ruvector/ruvllm        # Node.js
+npm install @ruvector/ruvllm-wasm   # Browser (WASM)
 cargo add ruvllm                    # Rust
 ```
 
@@ -1126,10 +1127,22 @@ RETURN rec ORDER BY rec.gnn_score DESC LIMIT 10
 
 ```javascript
 // Full AI in the browser — no server required
-import init, { RuvLLMWasm } from '@ruvector/ruvllm-wasm';
+import init, { ChatTemplateWasm, ChatMessageWasm, HnswRouterWasm, healthCheck } from '@ruvector/ruvllm-wasm';
 await init();
-const llm = await RuvLLMWasm.new(true); // WebGPU enabled
-const response = await llm.generate('Explain quantum computing', { max_tokens: 200 });
+console.log(healthCheck()); // true
+
+// Format prompts for any model
+const template = ChatTemplateWasm.detectFromModelId("meta-llama/Llama-3-8B");
+const prompt = template.format([
+  ChatMessageWasm.system("You are a helpful assistant."),
+  ChatMessageWasm.user("Explain quantum computing"),
+]);
+
+// Route queries to the best agent in <1ms
+const router = new HnswRouterWasm(384, 1000);
+router.addPattern(embedding, "quantum-expert", "physics queries");
+const result = router.route(queryEmbedding);
+console.log(result.name, result.score); // "quantum-expert" 0.95
 ```
 
 ### Self-Learning & Fine-Tuning
@@ -3873,7 +3886,7 @@ npm install @ruvector/ruvllm-wasm
 | **AI/Neural** | gnn, attention, sona | ~300KB |
 | **Graph** | graph, mincut, hyperbolic-hnsw | ~250KB |
 | **Exotic** | economy, exotic, nervous-system | ~350KB |
-| **LLM** | ruvllm-wasm | ~500KB |
+| **LLM** | ruvllm-wasm | ~435KB (178KB gzipped) |
 
 ### Installation
 
