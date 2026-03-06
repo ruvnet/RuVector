@@ -3,9 +3,9 @@
 //! Provides `VerifiedStage` for type-safe pipeline stages and `compose_stages`
 //! for proving that two stages can be composed (output type matches input type).
 
-use std::marker::PhantomData;
 use crate::error::{Result, VerificationError};
 use crate::ProofEnvironment;
+use std::marker::PhantomData;
 
 /// A verified pipeline stage with proven input/output type compatibility.
 ///
@@ -94,7 +94,7 @@ pub fn compose_chain(
 ) -> Result<(u32, u32, u32)> {
     if stages.is_empty() {
         return Err(VerificationError::ProofConstructionFailed(
-            "empty pipeline chain".into()
+            "empty pipeline chain".into(),
         ));
     }
 
@@ -145,8 +145,7 @@ mod tests {
     fn test_compose_stages_matching() {
         let mut env = ProofEnvironment::new();
 
-        let f: VerifiedStage<KmerInput, EmbeddingOutput> =
-            VerifiedStage::new("embed", 0, 1, 2);
+        let f: VerifiedStage<KmerInput, EmbeddingOutput> = VerifiedStage::new("embed", 0, 1, 2);
         let g: VerifiedStage<EmbeddingOutput, AlignmentOutput> =
             VerifiedStage::new("align", 1, 2, 3);
 
@@ -162,8 +161,7 @@ mod tests {
     fn test_compose_stages_mismatch() {
         let mut env = ProofEnvironment::new();
 
-        let f: VerifiedStage<KmerInput, EmbeddingOutput> =
-            VerifiedStage::new("embed", 0, 1, 2);
+        let f: VerifiedStage<KmerInput, EmbeddingOutput> = VerifiedStage::new("embed", 0, 1, 2);
         let g: VerifiedStage<EmbeddingOutput, AlignmentOutput> =
             VerifiedStage::new("align", 1, 99, 3); // 99 != 2
 
@@ -177,12 +175,10 @@ mod tests {
     fn test_compose_three_stages() {
         let mut env = ProofEnvironment::new();
 
-        let f: VerifiedStage<KmerInput, EmbeddingOutput> =
-            VerifiedStage::new("embed", 0, 1, 2);
+        let f: VerifiedStage<KmerInput, EmbeddingOutput> = VerifiedStage::new("embed", 0, 1, 2);
         let g: VerifiedStage<EmbeddingOutput, AlignmentOutput> =
             VerifiedStage::new("align", 1, 2, 3);
-        let h: VerifiedStage<AlignmentOutput, VariantOutput> =
-            VerifiedStage::new("call", 2, 3, 4);
+        let h: VerifiedStage<AlignmentOutput, VariantOutput> = VerifiedStage::new("call", 2, 3, 4);
 
         let fg = compose_stages(&f, &g, &mut env).unwrap();
         let fgh = compose_stages(&fg, &h, &mut env).unwrap();

@@ -10,10 +10,9 @@
 //! Result: mathematical evidence, not just logs.
 
 use ruvector_verified::{
-    ProofEnvironment, ProofStats,
     pipeline::compose_chain,
     proof_store::{self, ProofAttestation},
-    vector_types,
+    vector_types, ProofEnvironment, ProofStats,
 };
 
 /// A forensic evidence bundle for court submission.
@@ -119,12 +118,19 @@ mod tests {
         let v2 = vec![0.3f32; 256];
         let vecs: Vec<&[f32]> = vec![&v1, &v2];
         let bundle = build_forensic_bundle(
-            "CASE-001", &vecs, 256, "Cosine", &["embed", "search", "classify"],
+            "CASE-001",
+            &vecs,
+            256,
+            "Cosine",
+            &["embed", "search", "classify"],
         );
         assert!(bundle.replay_passed);
         assert_eq!(bundle.witness_chain.len(), 2);
         assert!(bundle.invariants.pipeline_verified);
-        assert_eq!(bundle.invariants.total_proof_terms, bundle.stats.proofs_constructed as u32);
+        assert_eq!(
+            bundle.invariants.total_proof_terms,
+            bundle.stats.proofs_constructed as u32
+        );
     }
 
     #[test]
@@ -132,9 +138,7 @@ mod tests {
         let v1 = vec![0.5f32; 256];
         let v2 = vec![0.3f32; 128]; // wrong dimension
         let vecs: Vec<&[f32]> = vec![&v1, &v2];
-        let bundle = build_forensic_bundle(
-            "CASE-002", &vecs, 256, "L2", &["embed", "classify"],
-        );
+        let bundle = build_forensic_bundle("CASE-002", &vecs, 256, "L2", &["embed", "classify"]);
         assert!(!bundle.replay_passed);
     }
 

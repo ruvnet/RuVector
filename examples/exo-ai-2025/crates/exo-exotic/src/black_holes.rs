@@ -19,7 +19,6 @@
 //! - Physics of black holes as metaphor
 
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use uuid::Uuid;
 
 /// Cognitive black hole representing an attractor state
@@ -93,14 +92,17 @@ pub enum TrapType {
 #[derive(Debug)]
 pub struct EscapeDynamics {
     /// Current position in thought space
+    #[allow(dead_code)]
     position: Vec<f64>,
     /// Current velocity (rate of change)
+    #[allow(dead_code)]
     velocity: Vec<f64>,
     /// Escape energy accumulated
     escape_energy: f64,
     /// Required escape velocity
     escape_velocity: f64,
     /// Distance to event horizon
+    #[allow(dead_code)]
     horizon_distance: f64,
 }
 

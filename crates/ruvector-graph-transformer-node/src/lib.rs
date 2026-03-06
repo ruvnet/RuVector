@@ -14,9 +14,7 @@ mod transformer;
 
 use napi::bindgen_prelude::*;
 use napi_derive::napi;
-use transformer::{
-    CoreGraphTransformer, Edge as CoreEdge, PipelineStage as CorePipelineStage,
-};
+use transformer::{CoreGraphTransformer, Edge as CoreEdge, PipelineStage as CorePipelineStage};
 
 /// Graph Transformer with proof-gated operations for Node.js.
 ///
@@ -107,9 +105,10 @@ impl GraphTransformer {
     /// ```
     #[napi]
     pub fn prove_dimension(&mut self, expected: u32, actual: u32) -> Result<serde_json::Value> {
-        let result = self.inner.prove_dimension(expected, actual).map_err(|e| {
-            Error::new(Status::GenericFailure, format!("{}", e))
-        })?;
+        let result = self
+            .inner
+            .prove_dimension(expected, actual)
+            .map_err(|e| Error::new(Status::GenericFailure, format!("{}", e)))?;
         serde_json::to_value(&result).map_err(|e| {
             Error::new(
                 Status::GenericFailure,
@@ -156,10 +155,7 @@ impl GraphTransformer {
     /// console.log(composed.chain_name); // "embed >> align"
     /// ```
     #[napi]
-    pub fn compose_proofs(
-        &mut self,
-        stages: Vec<serde_json::Value>,
-    ) -> Result<serde_json::Value> {
+    pub fn compose_proofs(&mut self, stages: Vec<serde_json::Value>) -> Result<serde_json::Value> {
         let rust_stages: Vec<CorePipelineStage> = stages
             .into_iter()
             .map(|v| {
@@ -337,9 +333,8 @@ impl GraphTransformer {
         let rust_edges: Vec<CoreEdge> = edges
             .into_iter()
             .map(|v| {
-                serde_json::from_value(v).map_err(|e| {
-                    Error::new(Status::InvalidArg, format!("Invalid edge: {}", e))
-                })
+                serde_json::from_value(v)
+                    .map_err(|e| Error::new(Status::InvalidArg, format!("Invalid edge: {}", e)))
             })
             .collect::<Result<Vec<_>>>()?;
 
@@ -546,12 +541,7 @@ impl GraphTransformer {
     /// const d = gt.productManifoldDistance([1, 0, 0, 1], [0, 1, 1, 0], [0.0, -1.0]);
     /// ```
     #[napi]
-    pub fn product_manifold_distance(
-        &self,
-        a: Vec<f64>,
-        b: Vec<f64>,
-        curvatures: Vec<f64>,
-    ) -> f64 {
+    pub fn product_manifold_distance(&self, a: Vec<f64>, b: Vec<f64>, curvatures: Vec<f64>) -> f64 {
         self.inner.product_manifold_distance(&a, &b, &curvatures)
     }
 
@@ -583,16 +573,15 @@ impl GraphTransformer {
         let rust_edges: Vec<CoreEdge> = edges
             .into_iter()
             .map(|v| {
-                serde_json::from_value(v).map_err(|e| {
-                    Error::new(Status::InvalidArg, format!("Invalid edge: {}", e))
-                })
+                serde_json::from_value(v)
+                    .map_err(|e| Error::new(Status::InvalidArg, format!("Invalid edge: {}", e)))
             })
             .collect::<Result<Vec<_>>>()?;
 
         let curvatures = vec![0.0, -1.0]; // default mixed curvatures
-        let result =
-            self.inner
-                .product_manifold_attention(&features, &rust_edges, &curvatures);
+        let result = self
+            .inner
+            .product_manifold_attention(&features, &rust_edges, &curvatures);
 
         serde_json::to_value(&result).map_err(|e| {
             Error::new(
@@ -669,9 +658,8 @@ impl GraphTransformer {
         let rust_edges: Vec<CoreEdge> = edges
             .into_iter()
             .map(|v| {
-                serde_json::from_value(v).map_err(|e| {
-                    Error::new(Status::InvalidArg, format!("Invalid edge: {}", e))
-                })
+                serde_json::from_value(v)
+                    .map_err(|e| Error::new(Status::InvalidArg, format!("Invalid edge: {}", e)))
             })
             .collect::<Result<Vec<_>>>()?;
 
@@ -751,15 +739,12 @@ impl GraphTransformer {
         let rust_edges: Vec<CoreEdge> = edges
             .into_iter()
             .map(|v| {
-                serde_json::from_value(v).map_err(|e| {
-                    Error::new(Status::InvalidArg, format!("Invalid edge: {}", e))
-                })
+                serde_json::from_value(v)
+                    .map_err(|e| Error::new(Status::InvalidArg, format!("Invalid edge: {}", e)))
             })
             .collect::<Result<Vec<_>>>()?;
 
-        let result = self
-            .inner
-            .game_theoretic_attention(&features, &rust_edges);
+        let result = self.inner.game_theoretic_attention(&features, &rust_edges);
 
         serde_json::to_value(&result).map_err(|e| {
             Error::new(

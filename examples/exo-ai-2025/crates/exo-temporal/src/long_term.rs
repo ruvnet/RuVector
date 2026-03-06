@@ -380,6 +380,7 @@ fn cosine_similarity_simd(a: &[f32], b: &[f32]) -> f32 {
 }
 
 /// Standard cosine similarity (alias for compatibility)
+#[allow(dead_code)]
 #[inline]
 fn cosine_similarity(a: &[f32], b: &[f32]) -> f32 {
     cosine_similarity_simd(a, b)

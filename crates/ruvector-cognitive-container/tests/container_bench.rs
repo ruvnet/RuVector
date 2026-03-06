@@ -55,7 +55,10 @@ fn bench_container_100_ticks() {
     println!("\n=== Cognitive Container (100 ticks) ===");
     println!("  Average tick:       {:.1} µs  (target: < 200 µs)", avg);
     println!("  Min / Max tick:     {} / {} µs", min, max);
-    println!("  Total 100 ticks:    {:.2} ms", total_time.as_micros() as f64 / 1000.0);
+    println!(
+        "  Total 100 ticks:    {:.2} ms",
+        total_time.as_micros() as f64 / 1000.0
+    );
     println!("  Chain verify:       {} µs", verify_us);
     println!("  Chain length:       {}", container.receipt_chain().len());
     println!(
@@ -65,5 +68,9 @@ fn bench_container_100_ticks() {
 
     // 2000µs target accounts for CI/container/debug-mode variability;
     // on dedicated hardware in release mode this typically runs under 200µs.
-    assert!(avg < 2000.0, "Container tick exceeded 2000µs target: {:.1} µs", avg);
+    assert!(
+        avg < 2000.0,
+        "Container tick exceeded 2000µs target: {:.1} µs",
+        avg
+    );
 }

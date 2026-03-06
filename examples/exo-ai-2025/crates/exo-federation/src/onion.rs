@@ -5,8 +5,8 @@
 //! - Routing header management
 //! - Response unwrapping
 
+use crate::{FederationError, PeerId, Result};
 use serde::{Deserialize, Serialize};
-use crate::{Result, FederationError, PeerId};
 
 /// Onion routing header
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -141,7 +141,7 @@ fn unwrap_onion(response: Vec<u8>, num_layers: usize) -> Result<Vec<u8>> {
 /// Real implementation would use the peer's public key for
 /// asymmetric encryption (e.g., using their Kyber public key).
 fn encrypt_layer(data: &[u8], peer_id: &PeerId) -> Result<Vec<u8>> {
-    use sha2::{Sha256, Digest};
+    use sha2::{Digest, Sha256};
 
     // Derive a key from peer ID (placeholder)
     let mut hasher = Sha256::new();
@@ -149,7 +149,8 @@ fn encrypt_layer(data: &[u8], peer_id: &PeerId) -> Result<Vec<u8>> {
     let key = hasher.finalize();
 
     // XOR encryption (placeholder)
-    let encrypted: Vec<u8> = data.iter()
+    let encrypted: Vec<u8> = data
+        .iter()
         .zip(key.iter().cycle())
         .map(|(d, k)| d ^ k)
         .collect();
@@ -161,13 +162,14 @@ fn encrypt_layer(data: &[u8], peer_id: &PeerId) -> Result<Vec<u8>> {
 fn decrypt_layer(data: &[u8]) -> Result<Vec<u8>> {
     // Placeholder: would use local secret key
     // For XOR cipher, decrypt is same as encrypt
-    use sha2::{Sha256, Digest};
+    use sha2::{Digest, Sha256};
 
     let mut hasher = Sha256::new();
     hasher.update(b"local_key");
     let key = hasher.finalize();
 
-    let decrypted: Vec<u8> = data.iter()
+    let decrypted: Vec<u8> = data
+        .iter()
         .zip(key.iter().cycle())
         .map(|(d, k)| d ^ k)
         .collect();
@@ -177,14 +179,12 @@ fn decrypt_layer(data: &[u8]) -> Result<Vec<u8>> {
 
 /// Serialize an onion message
 fn serialize_message(msg: &OnionMessage) -> Result<Vec<u8>> {
-    serde_json::to_vec(msg)
-        .map_err(|e| FederationError::NetworkError(e.to_string()))
+    serde_json::to_vec(msg).map_err(|e| FederationError::NetworkError(e.to_string()))
 }
 
 /// Deserialize an onion message
 fn deserialize_message(data: &[u8]) -> Result<OnionMessage> {
-    serde_json::from_slice(data)
-        .map_err(|e| FederationError::NetworkError(e.to_string()))
+    serde_json::from_slice(data).map_err(|e| FederationError::NetworkError(e.to_string()))
 }
 
 /// Simulate routing through the onion network
@@ -195,10 +195,7 @@ fn deserialize_message(data: &[u8]) -> Result<OnionMessage> {
 /// 3. Each relay forwards to next hop
 /// 4. Destination processes query
 /// 5. Response routes back through same path
-async fn simulate_routing(
-    _message: OnionMessage,
-    _route: &[PeerId],
-) -> Result<Vec<u8>> {
+async fn simulate_routing(_message: OnionMessage, _route: &[PeerId]) -> Result<Vec<u8>> {
     // Placeholder: return simulated response
     Ok(vec![42, 43, 44]) // Dummy response data
 }

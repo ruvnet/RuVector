@@ -39,7 +39,11 @@ impl FastArenaStats {
     /// Cache hit rate as a fraction (0.0 to 1.0).
     pub fn cache_hit_rate(&self) -> f64 {
         let total = self.cache_hits + self.cache_misses;
-        if total == 0 { 0.0 } else { self.cache_hits as f64 / total as f64 }
+        if total == 0 {
+            0.0
+        } else {
+            self.cache_hits as f64 / total as f64
+        }
     }
 }
 

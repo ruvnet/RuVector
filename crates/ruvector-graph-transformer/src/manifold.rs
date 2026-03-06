@@ -19,16 +19,14 @@
 
 #[cfg(feature = "manifold")]
 use ruvector_attention::{
-    ScaledDotProductAttention, HyperbolicAttention, HyperbolicAttentionConfig,
-    Attention,
+    Attention, HyperbolicAttention, HyperbolicAttentionConfig, ScaledDotProductAttention,
 };
 
 #[cfg(feature = "manifold")]
 use ruvector_verified::{
-    ProofEnvironment, ProofAttestation,
-    prove_dim_eq,
-    proof_store::create_attestation,
     gated::{route_proof, ProofKind},
+    proof_store::create_attestation,
+    prove_dim_eq, ProofAttestation, ProofEnvironment,
 };
 
 #[cfg(feature = "manifold")]
@@ -262,15 +260,21 @@ impl ProductManifoldAttention {
         let q_s_proj = project_to_sphere(q_s);
         let k_s_proj: Vec<Vec<f32>> = k_s.iter().map(|k| project_to_sphere(k)).collect();
         let k_s_refs: Vec<&[f32]> = k_s_proj.iter().map(|k| k.as_slice()).collect();
-        let out_s = self.spherical_attention.compute(&q_s_proj, &k_s_refs, &v_s)
+        let out_s = self
+            .spherical_attention
+            .compute(&q_s_proj, &k_s_refs, &v_s)
             .map_err(GraphTransformerError::Attention)?;
 
         // Hyperbolic attention
-        let out_h = self.hyperbolic_attention.compute(q_h, &k_h, &v_h)
+        let out_h = self
+            .hyperbolic_attention
+            .compute(q_h, &k_h, &v_h)
             .map_err(GraphTransformerError::Attention)?;
 
         // Euclidean attention
-        let out_e = self.euclidean_attention.compute(q_e, &k_e, &v_e)
+        let out_e = self
+            .euclidean_attention
+            .compute(q_e, &k_e, &v_e)
             .map_err(GraphTransformerError::Attention)?;
 
         // Apply learned mixing weights and normalize
@@ -291,7 +295,11 @@ impl ProductManifoldAttention {
             euclidean: 0.0,
         };
 
-        Ok(ManifoldAttentionResult { output, curvatures, attestation })
+        Ok(ManifoldAttentionResult {
+            output,
+            curvatures,
+            attestation,
+        })
     }
 
     /// Get the total embedding dimension.
@@ -308,7 +316,9 @@ impl ProductManifoldAttention {
     pub fn manifold_type(&self) -> ManifoldType {
         ManifoldType::Product(vec![
             ManifoldType::Sphere,
-            ManifoldType::PoincareBall { curvature: self.config.curvature.abs() },
+            ManifoldType::PoincareBall {
+                curvature: self.config.curvature.abs(),
+            },
             ManifoldType::PoincareBall { curvature: 0.0 }, // flat = Euclidean
         ])
     }
@@ -490,11 +500,7 @@ impl GeodesicMessagePassing {
     }
 
     /// Create with custom Frechet mean parameters.
-    pub fn with_frechet_params(
-        manifold: ManifoldType,
-        max_iter: usize,
-        tol: f32,
-    ) -> Self {
+    pub fn with_frechet_params(manifold: ManifoldType, max_iter: usize, tol: f32) -> Self {
         Self {
             manifold,
             frechet_max_iter: max_iter,
@@ -537,12 +543,7 @@ impl GeodesicMessagePassing {
 
     /// Parallel transport for spherical manifold.
     /// Uses the standard formula for S^n.
-    pub fn parallel_transport_sphere(
-        &self,
-        v: &[f32],
-        from: &[f32],
-        to: &[f32],
-    ) -> Vec<f32> {
+    pub fn parallel_transport_sphere(&self, v: &[f32], from: &[f32], to: &[f32]) -> Vec<f32> {
         let d = dot(from, to).clamp(-1.0, 1.0);
         let angle = d.acos();
         if angle.abs() < EPS {
@@ -554,7 +555,10 @@ impl GeodesicMessagePassing {
         let sum: Vec<f32> = from.iter().zip(to.iter()).map(|(&a, &b)| a + b).collect();
         let dot_sv = dot(&sum, v);
         let coeff = dot_sv / (1.0 + d).max(EPS);
-        v.iter().zip(sum.iter()).map(|(&vi, &si)| vi - coeff * si).collect()
+        v.iter()
+            .zip(sum.iter())
+            .map(|(&vi, &si)| vi - coeff * si)
+            .collect()
     }
 
     /// Perform one round of geodesic message passing.
@@ -591,22 +595,16 @@ impl GeodesicMessagePassing {
             let mut transported: Vec<Vec<f32>> = Vec::with_capacity(adj[i].len());
             for &j in &adj[i] {
                 let msg = match &self.manifold {
-                    ManifoldType::PoincareBall { curvature } => {
-                        self.parallel_transport_poincare(
-                            &node_features[j],
-                            &node_features[j],
-                            &node_features[i],
-                            *curvature,
-                        )
-                    }
+                    ManifoldType::PoincareBall { curvature } => self.parallel_transport_poincare(
+                        &node_features[j],
+                        &node_features[j],
+                        &node_features[i],
+                        *curvature,
+                    ),
                     ManifoldType::Sphere => {
                         let from_proj = project_to_sphere(&node_features[j]);
                         let to_proj = project_to_sphere(&node_features[i]);
-                        self.parallel_transport_sphere(
-                            &node_features[j],
-                            &from_proj,
-                            &to_proj,
-                        )
+                        self.parallel_transport_sphere(&node_features[j], &from_proj, &to_proj)
                     }
                     _ => {
                         // Euclidean or other: no transport needed.
@@ -760,11 +758,7 @@ impl RiemannianAdamOptimizer {
     /// 4. Apply via exponential map.
     /// 5. Project back to manifold.
     /// 6. Proof gate: verify manifold membership.
-    pub fn step(
-        &mut self,
-        params: &[f32],
-        euclidean_grad: &[f32],
-    ) -> Result<OptimizerStepResult> {
+    pub fn step(&mut self, params: &[f32], euclidean_grad: &[f32]) -> Result<OptimizerStepResult> {
         if params.len() != euclidean_grad.len() || params.len() != self.m.len() {
             return Err(GraphTransformerError::DimensionMismatch {
                 expected: self.m.len(),
@@ -784,12 +778,17 @@ impl RiemannianAdamOptimizer {
                 // Riemannian gradient = (1 - c||x||^2)^2 / 4 * euclidean_grad
                 let factor = (1.0 - c * norm_sq_p).max(EPS);
                 let scale = factor * factor / 4.0;
-                euclidean_grad.iter().map(|&g| scale * g).collect::<Vec<f32>>()
+                euclidean_grad
+                    .iter()
+                    .map(|&g| scale * g)
+                    .collect::<Vec<f32>>()
             }
             ManifoldType::Sphere => {
                 // Project gradient to tangent space: g_tan = g - <g, x>x
                 let dp = dot(euclidean_grad, params);
-                euclidean_grad.iter().zip(params.iter())
+                euclidean_grad
+                    .iter()
+                    .zip(params.iter())
                     .map(|(&g, &p)| g - dp * p)
                     .collect::<Vec<f32>>()
             }
@@ -799,7 +798,8 @@ impl RiemannianAdamOptimizer {
         // Update biased first and second moment estimates.
         for i in 0..dim {
             self.m[i] = self.beta1 * self.m[i] + (1.0 - self.beta1) * riemannian_grad[i];
-            self.v[i] = self.beta2 * self.v[i] + (1.0 - self.beta2) * riemannian_grad[i] * riemannian_grad[i];
+            self.v[i] = self.beta2 * self.v[i]
+                + (1.0 - self.beta2) * riemannian_grad[i] * riemannian_grad[i];
         }
 
         // Bias correction.
@@ -828,7 +828,11 @@ impl RiemannianAdamOptimizer {
             }
             _ => {
                 // Euclidean: just add.
-                params.iter().zip(update.iter()).map(|(&p, &u)| p + u).collect()
+                params
+                    .iter()
+                    .zip(update.iter())
+                    .map(|(&p, &u)| p + u)
+                    .collect()
             }
         };
 
@@ -856,9 +860,7 @@ impl RiemannianAdamOptimizer {
                 let c = curvature.abs().max(EPS);
                 norm_sq(params) < 1.0 / c
             }
-            ManifoldType::Sphere => {
-                (norm(params) - 1.0).abs() < 0.01
-            }
+            ManifoldType::Sphere => (norm(params) - 1.0).abs() < 0.01,
             _ => true,
         }
     }
@@ -989,9 +991,7 @@ impl LieGroupEquivariantAttention {
         }
 
         let scale = (self.scalar_dim as f32).sqrt();
-        let scores: Vec<f32> = keys.iter()
-            .map(|k| dot(query, k) / scale)
-            .collect();
+        let scores: Vec<f32> = keys.iter().map(|k| dot(query, k) / scale).collect();
 
         softmax(&scores)
     }
@@ -1035,7 +1035,11 @@ fn sigmoid(x: f32) -> f32 {
 /// Euclidean distance between two vectors.
 #[cfg(feature = "manifold")]
 fn euclidean_distance(a: &[f32], b: &[f32]) -> f32 {
-    a.iter().zip(b.iter()).map(|(&x, &y)| (x - y).powi(2)).sum::<f32>().sqrt()
+    a.iter()
+        .zip(b.iter())
+        .map(|(&x, &y)| (x - y).powi(2))
+        .sum::<f32>()
+        .sqrt()
 }
 
 /// Compute the centroid (Euclidean mean) of a set of vectors.
@@ -1128,7 +1132,11 @@ fn sphere_log_map(q: &[f32], p: &[f32]) -> Vec<f32> {
     }
 
     // v = (q - d*p) normalized, scaled by angle
-    let mut v: Vec<f32> = q.iter().zip(p.iter()).map(|(&qi, &pi)| qi - d * pi).collect();
+    let mut v: Vec<f32> = q
+        .iter()
+        .zip(p.iter())
+        .map(|(&qi, &pi)| qi - d * pi)
+        .collect();
     let v_norm = norm(&v);
     if v_norm < EPS {
         return vec![0.0; p.len()];
@@ -1148,7 +1156,8 @@ fn sphere_exp_map(v: &[f32], p: &[f32]) -> Vec<f32> {
     }
     let cos_t = v_norm.cos();
     let sin_t = v_norm.sin();
-    p.iter().zip(v.iter())
+    p.iter()
+        .zip(v.iter())
         .map(|(&pi, &vi)| cos_t * pi + sin_t * vi / v_norm)
         .collect()
 }
@@ -1166,7 +1175,9 @@ fn mobius_add_internal(u: &[f32], v: &[f32], c: f32) -> Vec<f32> {
     let coef_v = 1.0 - c * norm_u_sq;
     let denom = 1.0 + 2.0 * c * dot_uv + c * c * norm_u_sq * norm_v_sq;
 
-    let result: Vec<f32> = u.iter().zip(v.iter())
+    let result: Vec<f32> = u
+        .iter()
+        .zip(v.iter())
         .map(|(&ui, &vi)| (coef_u * ui + coef_v * vi) / denom.max(EPS))
         .collect();
 
@@ -1293,16 +1304,8 @@ mod tests {
 
         // 4-node graph: query is node 0, keys/values are neighbors 1..3.
         let query = vec![0.5; 12];
-        let keys = vec![
-            vec![0.3; 12],
-            vec![0.7; 12],
-            vec![0.1; 12],
-        ];
-        let values = vec![
-            vec![1.0; 12],
-            vec![2.0; 12],
-            vec![0.5; 12],
-        ];
+        let keys = vec![vec![0.3; 12], vec![0.7; 12], vec![0.1; 12]];
+        let values = vec![vec![1.0; 12], vec![2.0; 12], vec![0.5; 12]];
 
         let result = attn.compute(&query, &keys, &values);
         assert!(result.is_ok(), "compute failed: {:?}", result.err());
@@ -1473,11 +1476,7 @@ mod tests {
         let mut gmp = GeodesicMessagePassing::new(manifold);
 
         // Small features that lie inside the Poincare ball (||x|| < 1).
-        let features = vec![
-            vec![0.1, 0.2],
-            vec![0.3, 0.1],
-            vec![-0.1, 0.3],
-        ];
+        let features = vec![vec![0.1, 0.2], vec![0.3, 0.1], vec![-0.1, 0.3]];
         let edges = vec![(0, 1), (1, 2), (0, 2)];
 
         let result = gmp.propagate(&features, &edges);
@@ -1534,10 +1533,7 @@ mod tests {
         let manifold = ManifoldType::Lorentz { curvature: 1.0 }; // falls to Euclidean branch
         let mut gmp = GeodesicMessagePassing::new(manifold);
 
-        let features = vec![
-            vec![1.0, 2.0],
-            vec![3.0, 4.0],
-        ];
+        let features = vec![vec![1.0, 2.0], vec![3.0, 4.0]];
         let edges = vec![(0, 1)];
 
         let result = gmp.propagate(&features, &edges).unwrap();

@@ -6,9 +6,8 @@
 //! - Commit phase
 //! - Proof generation
 
+use crate::{FederationError, PeerId, Result, StateUpdate};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use crate::{Result, FederationError, PeerId, StateUpdate};
 
 /// Consensus message types
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -110,10 +109,7 @@ fn byzantine_threshold(n: usize) -> usize {
 ///     ELSE:
 ///         RETURN InsufficientCommits
 /// ```
-pub async fn byzantine_commit(
-    update: StateUpdate,
-    peer_count: usize,
-) -> Result<CommitProof> {
+pub async fn byzantine_commit(update: StateUpdate, peer_count: usize) -> Result<CommitProof> {
     let n = peer_count;
     let f = if n > 0 { (n - 1) / 3 } else { 0 };
     let threshold = 2 * f + 1;
@@ -134,7 +130,7 @@ pub async fn byzantine_commit(
     };
 
     // Broadcast pre-prepare (simulated)
-    let pre_prepare = ConsensusMessage::PrePrepare {
+    let _pre_prepare = ConsensusMessage::PrePrepare {
         proposal: proposal.clone(),
     };
 
@@ -145,18 +141,22 @@ pub async fn byzantine_commit(
     let prepares = simulate_prepare_phase(&digest, threshold)?;
 
     if prepares.len() < threshold {
-        return Err(FederationError::ConsensusError(
-            format!("Insufficient prepares: got {}, needed {}", prepares.len(), threshold)
-        ));
+        return Err(FederationError::ConsensusError(format!(
+            "Insufficient prepares: got {}, needed {}",
+            prepares.len(),
+            threshold
+        )));
     }
 
     // Phase 3: Commit (nodes commit)
     let commit_messages = simulate_commit_phase(&digest, threshold)?;
 
     if commit_messages.len() < threshold {
-        return Err(FederationError::ConsensusError(
-            format!("Insufficient commits: got {}, needed {}", commit_messages.len(), threshold)
-        ));
+        return Err(FederationError::ConsensusError(format!(
+            "Insufficient commits: got {}, needed {}",
+            commit_messages.len(),
+            threshold
+        )));
     }
 
     // Create proof
@@ -169,7 +169,7 @@ pub async fn byzantine_commit(
     // Verify proof
     if !proof.verify(n) {
         return Err(FederationError::ConsensusError(
-            "Proof verification failed".to_string()
+            "Proof verification failed".to_string(),
         ));
     }
 
@@ -178,7 +178,7 @@ pub async fn byzantine_commit(
 
 /// Compute digest of a state update
 fn compute_digest(update: &StateUpdate) -> Vec<u8> {
-    use sha2::{Sha256, Digest};
+    use sha2::{Digest, Sha256};
     let mut hasher = Sha256::new();
     hasher.update(&update.update_id);
     hasher.update(&update.data);
@@ -188,7 +188,7 @@ fn compute_digest(update: &StateUpdate) -> Vec<u8> {
 
 /// Sign a proposal (placeholder)
 fn sign_proposal(update: &StateUpdate) -> Vec<u8> {
-    use sha2::{Sha256, Digest};
+    use sha2::{Digest, Sha256};
     let mut hasher = Sha256::new();
     hasher.update(b"signature:");
     hasher.update(&update.update_id);
@@ -203,10 +203,7 @@ fn get_next_sequence_number() -> u64 {
 }
 
 /// Simulate prepare phase (placeholder for network communication)
-fn simulate_prepare_phase(
-    digest: &[u8],
-    threshold: usize,
-) -> Result<Vec<(PeerId, Vec<u8>)>> {
+fn simulate_prepare_phase(digest: &[u8], threshold: usize) -> Result<Vec<(PeerId, Vec<u8>)>> {
     let mut prepares = Vec::new();
 
     // Simulate receiving prepare messages from peers
@@ -219,10 +216,7 @@ fn simulate_prepare_phase(
 }
 
 /// Simulate commit phase (placeholder for network communication)
-fn simulate_commit_phase(
-    digest: &[u8],
-    threshold: usize,
-) -> Result<Vec<CommitMessage>> {
+fn simulate_commit_phase(digest: &[u8], threshold: usize) -> Result<Vec<CommitMessage>> {
     let mut commits = Vec::new();
 
     // Simulate receiving commit messages from peers
@@ -242,7 +236,7 @@ fn simulate_commit_phase(
 
 /// Sign a commit message (placeholder)
 fn sign_commit(digest: &[u8], peer_id: &PeerId) -> Vec<u8> {
-    use sha2::{Sha256, Digest};
+    use sha2::{Digest, Sha256};
     let mut hasher = Sha256::new();
     hasher.update(b"commit:");
     hasher.update(digest);
@@ -302,9 +296,9 @@ mod tests {
     #[test]
     fn test_byzantine_threshold() {
         // n = 3f + 1, threshold = 2f + 1
-        assert_eq!(byzantine_threshold(4), 3);   // f=1, 2f+1=3
-        assert_eq!(byzantine_threshold(7), 5);   // f=2, 2f+1=5
-        assert_eq!(byzantine_threshold(10), 7);  // f=3, 2f+1=7
+        assert_eq!(byzantine_threshold(4), 3); // f=1, 2f+1=3
+        assert_eq!(byzantine_threshold(7), 5); // f=2, 2f+1=5
+        assert_eq!(byzantine_threshold(10), 7); // f=3, 2f+1=7
     }
 
     #[test]

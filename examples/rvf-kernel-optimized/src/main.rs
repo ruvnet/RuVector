@@ -69,7 +69,9 @@ fn main() -> Result<()> {
 
     // Stage 3: Query
     info!("--- Stage 3: Query ---");
-    let query_vec: Vec<f32> = (0..config.dim as usize).map(|i| (i as f32) * 0.001).collect();
+    let query_vec: Vec<f32> = (0..config.dim as usize)
+        .map(|i| (i as f32) * 0.001)
+        .collect();
     let results = store
         .query(&query_vec, 5, &QueryOptions::default())
         .map_err(|e| anyhow::anyhow!("query: {e:?}"))?;
@@ -88,9 +90,7 @@ fn main() -> Result<()> {
         kernel_result.kernel_hash[3]
     );
 
-    store
-        .close()
-        .map_err(|e| anyhow::anyhow!("close: {e:?}"))?;
+    store.close().map_err(|e| anyhow::anyhow!("close: {e:?}"))?;
     info!("done");
 
     Ok(())

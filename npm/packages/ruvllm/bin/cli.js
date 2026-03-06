@@ -72,6 +72,8 @@ async function runQuery(llm, text, flags) {
 }
 
 async function runGenerate(llm, prompt, flags) {
+  console.error('Warning: Built-in SIMD inference is experimental. For production use, configure an external LLM provider (Ollama, OpenAI, etc.).');
+
   const config = {};
   if (flags.temperature) config.temperature = parseFloat(flags.temperature);
   if (flags['max-tokens']) config.maxTokens = parseInt(flags['max-tokens']);
@@ -106,19 +108,33 @@ async function runMemorySearch(llm, query, flags) {
 }
 
 async function runStats(llm, flags) {
-  const stats = llm.stats();
+  let stats;
+  try {
+    stats = llm.stats();
+  } catch (e) {
+    stats = null;
+  }
+
+  if (!stats) {
+    if (flags.json) {
+      console.log(formatJson({ error: 'No inference data available' }));
+    } else {
+      console.log('\nNo inference data available. Run some queries first.');
+    }
+    return;
+  }
 
   if (flags.json) {
     console.log(formatJson(stats));
   } else {
     console.log('\nRuvLLM Statistics:');
     console.log(formatTable({
-      'Total Queries': stats.totalQueries,
-      'Memory Nodes': stats.memoryNodes,
-      'Patterns Learned': stats.patternsLearned,
-      'Avg Latency': `${stats.avgLatencyMs.toFixed(2)}ms`,
-      'Cache Hit Rate': `${(stats.cacheHitRate * 100).toFixed(1)}%`,
-      'Router Accuracy': `${(stats.routerAccuracy * 100).toFixed(1)}%`,
+      'Total Queries': stats.totalQueries ?? 0,
+      'Memory Nodes': stats.memoryNodes ?? 0,
+      'Patterns Learned': stats.patternsLearned ?? 0,
+      'Avg Latency': `${(stats.avgLatencyMs ?? 0).toFixed(2)}ms`,
+      'Cache Hit Rate': `${((stats.cacheHitRate ?? 0) * 100).toFixed(1)}%`,
+      'Router Accuracy': `${((stats.routerAccuracy ?? 0) * 100).toFixed(1)}%`,
     }));
   }
 }

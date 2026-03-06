@@ -1,0 +1,54 @@
+# Slim Dockerfile for ruvector-postgres — uses pre-compiled extension artifacts
+# Build time: ~30 seconds (no Rust compilation)
+#
+# Pre-requisite: Run locally first:
+#   cargo pgrx package -p ruvector-postgres --pg-config /usr/lib/postgresql/17/bin/pg_config \
+#     --features "pg17,index-all,quant-all,graph-complete,gated-transformer,analytics-complete,attention-extended,sona-learning,domain-expansion"
+#
+# Then build:
+#   docker build -t ruvnet/ruvector-postgres:0.3.1 -f crates/ruvector-postgres/Dockerfile.prebuilt .
+
+FROM postgres:17-bookworm
+
+# Labels
+LABEL maintainer="ruvector team <info@ruv.io>"
+LABEL description="PostgreSQL with ruvector extension — 270+ SQL functions, Graph/Cypher/SPARQL, GNN, hybrid search, multi-tenancy, self-healing, SONA self-learning"
+LABEL version="0.3.1"
+LABEL org.opencontainers.image.title="ruvector-postgres"
+LABEL org.opencontainers.image.version="0.3.1"
+LABEL org.opencontainers.image.vendor="ruv.io"
+LABEL org.opencontainers.image.source="https://github.com/ruvnet/ruvector"
+LABEL org.opencontainers.image.description="Drop-in pgvector replacement with SIMD, Flash Attention, GNN, Cypher, SPARQL, hybrid search, multi-tenancy, self-healing, and SONA"
+
+# Install runtime dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libssl3 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy pre-built extension shared library
+COPY target/release/ruvector-pg17/usr/lib/postgresql/17/lib/* \
+    /usr/lib/postgresql/17/lib/
+
+# Copy extension control and SQL files
+COPY target/release/ruvector-pg17/usr/share/postgresql/17/extension/ruvector.control \
+    /usr/share/postgresql/17/extension/
+COPY crates/ruvector-postgres/sql/ruvector--0.1.0.sql \
+    crates/ruvector-postgres/sql/ruvector--0.3.0.sql \
+    crates/ruvector-postgres/sql/ruvector--2.0.0.sql \
+    crates/ruvector-postgres/sql/ruvector--2.0.0--0.3.0.sql \
+    /usr/share/postgresql/17/extension/
+
+# Copy initialization script
+COPY crates/ruvector-postgres/docker/init.sql /docker-entrypoint-initdb.d/01-init.sql
+
+# Environment
+ENV POSTGRES_USER=ruvector
+ENV POSTGRES_PASSWORD=ruvector
+ENV POSTGRES_DB=ruvector
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD pg_isready -U $POSTGRES_USER -d $POSTGRES_DB || exit 1
+
+EXPOSE 5432
+CMD ["postgres"]

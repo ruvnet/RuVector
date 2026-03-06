@@ -14,7 +14,7 @@ version: '3.8'
 # Build arguments shared across services
 x-build-args: &build-args
   PG_VERSION: ${PG_VERSION:-17}
-  RUST_VERSION: ${RUST_VERSION:-1.83}
+  RUST_VERSION: ${RUST_VERSION:-1.85}
 
 # Common environment for test containers
 x-test-env: &test-env
@@ -179,7 +179,7 @@ services:
       dockerfile: crates/ruvector-postgres/docker/Dockerfile
       args:
         PG_VERSION: 14
-        RUST_VERSION: ${RUST_VERSION:-1.83}
+        RUST_VERSION: ${RUST_VERSION:-1.85}
     container_name: ruvector-postgres-pg14
     ports:
       - "5414:5432"
@@ -205,7 +205,7 @@ services:
       dockerfile: crates/ruvector-postgres/docker/Dockerfile
       args:
         PG_VERSION: 15
-        RUST_VERSION: ${RUST_VERSION:-1.83}
+        RUST_VERSION: ${RUST_VERSION:-1.85}
     container_name: ruvector-postgres-pg15
     ports:
       - "5415:5432"
@@ -231,7 +231,7 @@ services:
       dockerfile: crates/ruvector-postgres/docker/Dockerfile
       args:
         PG_VERSION: 16
-        RUST_VERSION: ${RUST_VERSION:-1.83}
+        RUST_VERSION: ${RUST_VERSION:-1.85}
     container_name: ruvector-postgres-pg16
     ports:
       - "5416:5432"

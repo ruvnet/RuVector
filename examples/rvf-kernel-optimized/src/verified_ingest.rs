@@ -10,13 +10,12 @@
 
 use anyhow::{anyhow, Result};
 use ruvector_verified::{
-    ProofAttestation, ProofEnvironment,
     cache::ConversionCache,
     fast_arena::FastTermArena,
     gated::{self, ProofKind},
     pools,
     proof_store::create_attestation,
-    vector_types,
+    vector_types, ProofAttestation, ProofEnvironment,
 };
 use rvf_runtime::RvfStore;
 use tracing::{debug, info};
@@ -111,8 +110,7 @@ impl VerifiedIngestPipeline {
 
         // Verify all vectors in the batch have correct dimensions
         let refs: Vec<&[f32]> = vectors.iter().map(|v| v.as_slice()).collect();
-        let _verified =
-            vector_types::verify_batch_dimensions(&mut self.env, self.dim, &refs)?;
+        let _verified = vector_types::verify_batch_dimensions(&mut self.env, self.dim, &refs)?;
 
         debug!(count = vectors.len(), proof_id, "batch verified");
 
@@ -218,9 +216,7 @@ pub fn run_verified_ingest(
     );
 
     // Get store file size
-    let store_size = std::fs::metadata(store_path)
-        .map(|m| m.len())
-        .unwrap_or(0);
+    let store_size = std::fs::metadata(store_path).map(|m| m.len()).unwrap_or(0);
 
     Ok((stats, store_size))
 }

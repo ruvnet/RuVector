@@ -8,8 +8,8 @@
 //! - Thread-local pools — zero-contention resource reuse
 //! - `ProofAttestation` — 82-byte formal proof witness (type 0x0E)
 
-pub mod verified_ingest;
 pub mod kernel_embed;
+pub mod verified_ingest;
 
 /// Default vector dimension (384 = 48x8 AVX2 / 96x4 NEON aligned).
 pub const DEFAULT_DIM: u32 = 384;

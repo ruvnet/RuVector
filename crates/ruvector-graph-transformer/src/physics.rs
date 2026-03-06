@@ -13,10 +13,9 @@
 
 #[cfg(feature = "physics")]
 use ruvector_verified::{
-    ProofEnvironment, ProofAttestation,
-    prove_dim_eq,
-    proof_store::create_attestation,
     gated::{route_proof, ProofKind, ProofTier},
+    proof_store::create_attestation,
+    prove_dim_eq, ProofAttestation, ProofEnvironment,
 };
 
 #[cfg(feature = "physics")]
@@ -111,9 +110,10 @@ impl HamiltonianGraphNet {
             // Reject NaN / Inf in input
             for &v in feat {
                 if !v.is_finite() {
-                    return Err(GraphTransformerError::NumericalError(
-                        format!("non-finite value in node_features[{}]", i),
-                    ));
+                    return Err(GraphTransformerError::NumericalError(format!(
+                        "non-finite value in node_features[{}]",
+                        i
+                    )));
                 }
             }
         }
@@ -247,11 +247,7 @@ impl HamiltonianGraphNet {
     }
 
     /// Compute gradient of H with respect to q (= dV/dq).
-    fn compute_grad_q(
-        &self,
-        q: &[Vec<f32>],
-        adjacency: &[(usize, usize, f32)],
-    ) -> Vec<Vec<f32>> {
+    fn compute_grad_q(&self, q: &[Vec<f32>], adjacency: &[(usize, usize, f32)]) -> Vec<Vec<f32>> {
         let n = q.len();
         let mut grad = vec![vec![0.0f32; self.dim]; n];
 
@@ -366,9 +362,10 @@ impl GaugeEquivariantMP {
 
         for (idx, (src, dst, conn)) in edges.iter().enumerate() {
             if *src >= n || *dst >= n {
-                return Err(GraphTransformerError::InvariantViolation(
-                    format!("edge {} references out-of-bounds node ({}, {})", idx, src, dst),
-                ));
+                return Err(GraphTransformerError::InvariantViolation(format!(
+                    "edge {} references out-of-bounds node ({}, {})",
+                    idx, src, dst
+                )));
             }
             if conn.len() != d * d {
                 return Err(GraphTransformerError::DimensionMismatch {
@@ -706,10 +703,7 @@ impl ConservativePdeAttention {
         let d = node_features[0].len();
 
         // Compute mass before diffusion
-        let mass_before: f32 = node_features
-            .iter()
-            .flat_map(|f| f.iter())
-            .sum();
+        let mass_before: f32 = node_features.iter().flat_map(|f| f.iter()).sum();
 
         // Perform diffusion step: f_new = f + dt * alpha * L * f
         // where L is the graph Laplacian (symmetric, row-sum-zero).
@@ -727,10 +721,7 @@ impl ConservativePdeAttention {
         }
 
         // Compute mass after diffusion
-        let mass_after: f32 = output
-            .iter()
-            .flat_map(|f| f.iter())
-            .sum();
+        let mass_after: f32 = output.iter().flat_map(|f| f.iter()).sum();
 
         let mass_diff = (mass_after - mass_before).abs();
         let mass_conserved = mass_diff < self.mass_tolerance;
@@ -781,10 +772,7 @@ mod tests {
         };
         let hgn = HamiltonianGraphNet::new(4, config);
 
-        let features = vec![
-            vec![1.0, 0.0, 0.0, 0.0],
-            vec![0.0, 1.0, 0.0, 0.0],
-        ];
+        let features = vec![vec![1.0, 0.0, 0.0, 0.0], vec![0.0, 1.0, 0.0, 0.0]];
         let state = hgn.init_state(&features).unwrap();
         assert_eq!(state.q.len(), 2);
         assert_eq!(state.p.len(), 2);
@@ -810,19 +798,16 @@ mod tests {
         let state = hgn.init_state(&features).unwrap();
 
         // Ring edges: 0-1, 1-2, 2-3, 3-0
-        let edges = vec![
-            (0, 1, 0.5),
-            (1, 2, 0.5),
-            (2, 3, 0.5),
-            (3, 0, 0.5),
-        ];
+        let edges = vec![(0, 1, 0.5), (1, 2, 0.5), (2, 3, 0.5), (3, 0, 0.5)];
 
         let output = hgn.forward(&state, &edges).unwrap();
         let drift = output.drift_ratio;
         assert!(
             drift < 0.05,
             "energy drift ratio too large: {} (initial={}, final={})",
-            drift, output.initial_energy, output.final_energy,
+            drift,
+            output.initial_energy,
+            output.final_energy,
         );
         assert!(
             output.attestation.is_some(),
@@ -895,11 +880,7 @@ mod tests {
             vec![7.0, 8.0, 9.0],
         ];
         // Triangle graph
-        let edges = vec![
-            (0, 1, 1.0),
-            (1, 2, 1.0),
-            (0, 2, 1.0),
-        ];
+        let edges = vec![(0, 1, 1.0), (1, 2, 1.0), (0, 2, 1.0)];
 
         let output = pde.forward(&features, &edges).unwrap();
         assert!(
@@ -917,7 +898,10 @@ mod tests {
             .iter()
             .zip(features.iter())
             .any(|(new_f, old_f)| {
-                new_f.iter().zip(old_f.iter()).any(|(a, b)| (a - b).abs() > 1e-8)
+                new_f
+                    .iter()
+                    .zip(old_f.iter())
+                    .any(|(a, b)| (a - b).abs() > 1e-8)
             });
         assert!(features_changed, "diffusion should modify features");
     }
@@ -944,10 +928,7 @@ mod tests {
     #[test]
     fn test_pde_mass_values() {
         let mut pde = ConservativePdeAttention::new(0.5, 0.1, 1e-3);
-        let features = vec![
-            vec![10.0, 0.0],
-            vec![0.0, 10.0],
-        ];
+        let features = vec![vec![10.0, 0.0], vec![0.0, 10.0]];
         let edges = vec![(0, 1, 1.0)];
         let output = pde.forward(&features, &edges).unwrap();
 
@@ -974,11 +955,7 @@ mod tests {
         ];
 
         // Identity connections (parallel transport is trivial)
-        let identity: Vec<f32> = vec![
-            1.0, 0.0, 0.0,
-            0.0, 1.0, 0.0,
-            0.0, 0.0, 1.0,
-        ];
+        let identity: Vec<f32> = vec![1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0];
 
         let edges = vec![
             (0, 1, identity.clone()),
@@ -1041,11 +1018,7 @@ mod tests {
     #[test]
     fn test_lagrangian_basic() {
         let mut lagr = LagrangianAttention::new(1.0, 0.1, 100.0);
-        let features = vec![
-            vec![1.0, 0.0],
-            vec![0.0, 1.0],
-            vec![1.0, 1.0],
-        ];
+        let features = vec![vec![1.0, 0.0], vec![0.0, 1.0], vec![1.0, 1.0]];
         let edges = vec![(0, 1, 1.0), (1, 2, 1.0), (0, 2, 1.0)];
 
         let output = lagr.forward(&features, &edges).unwrap();

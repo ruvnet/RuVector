@@ -7,21 +7,40 @@
 
 **A graph neural network where every operation is mathematically proven correct before it runs.**
 
-Most graph neural networks let you modify data freely — add nodes, change weights, update edges — with no safety guarantees. If a bug corrupts your graph, you find out later (or never). This crate takes a different approach: every mutation to graph state requires a formal proof that the operation is valid. No proof, no access. Think of it like a lock on every piece of data that can only be opened with the right mathematical key.
+```toml
+[dependencies]
+ruvector-graph-transformer = "2.0"
+```
+
+Most graph neural networks let you modify data freely -- add nodes, change weights, update edges -- with no safety guarantees. If a bug corrupts your graph, you find out later (or never). This crate takes a different approach: every mutation to graph state requires a formal proof that the operation is valid. No proof, no access. Think of it like a lock on every piece of data that can only be opened with the right mathematical key.
 
 On top of that safety layer, 8 specialized modules bring cutting-edge graph intelligence: attention that scales to millions of nodes without checking every pair, physics simulations that conserve energy by construction, neurons that only fire when they should, training that automatically rolls back bad gradient steps, and geometry that works in curved spaces instead of assuming everything is flat.
 
-The result is a graph transformer you can trust: if it produces an answer, that answer was computed correctly.
+The result is a graph transformer you can trust: if it produces an answer, that answer was computed correctly. Part of the [RuVector](https://github.com/ruvnet/ruvector) ecosystem.
 
 | | Standard GNN | ruvector-graph-transformer |
 |---|---|---|
-| **Mutation safety** | Unchecked | Proof-gated: no mutation without formal witness |
-| **Attention complexity** | O(n^2) | O(n log n) sublinear via LSH/PPR/spectral |
+| **Mutation safety** | Unchecked -- bugs corrupt silently | Proof-gated: no mutation without formal witness |
+| **Attention complexity** | O(n^2) -- slows down on large graphs | O(n log n) sublinear via LSH/PPR/spectral |
 | **Training guarantees** | Hope for the best | Verified: certificates, delta-apply rollback, fail-closed |
-| **Geometry** | Euclidean only | Product manifolds S^n x H^m x R^k |
+| **Geometry** | Euclidean only -- assumes flat space | Product manifolds S^n x H^m x R^k |
 | **Causality** | No enforcement | Temporal masking + Granger causality extraction |
 | **Incentive alignment** | Not considered | Nash equilibrium + Shapley attribution |
 | **Platforms** | Python only | Rust + WASM + Node.js (NAPI-RS) |
+
+## Key Features
+
+| Feature | What It Does | Why It Matters |
+|---------|-------------|----------------|
+| **Proof-Gated Mutation** | Every write to graph state requires a formal proof | Bugs cannot silently corrupt your data -- invalid operations are rejected before they happen |
+| **Sublinear Attention** | LSH-bucketed, PPR-sampled, and spectral sparsification | Scales to millions of nodes where O(n^2) attention would be unusable |
+| **Verified Training** | Delta-apply rollback with BLAKE3-hashed certificates | Bad gradient steps are automatically rolled back; every training step is auditable |
+| **Physics-Informed** | Hamiltonian dynamics, gauge equivariant message passing | Simulations conserve energy by construction -- no drift over long runs |
+| **Biological** | Spiking attention, Hebbian/STDP learning, dendritic branching | Model brain-like dynamics where neurons only fire when they should |
+| **Self-Organizing** | Morphogenetic fields, developmental programs, graph coarsening | Graphs that grow, adapt, and restructure themselves |
+| **Manifold Geometry** | Product manifolds S^n x H^m x R^k, Riemannian Adam | Work in curved spaces where Euclidean assumptions break down |
+| **Temporal-Causal** | Causal masking, continuous-time ODE, Granger causality | Enforce cause-before-effect and extract causal relationships from time series |
+| **Economic** | Nash equilibrium attention, Shapley attribution | Align incentives in multi-agent graphs and attribute value fairly |
 
 ## Modules
 
@@ -33,7 +52,7 @@ The result is a graph transformer you can trust: if it produces an answer, that 
 | **Sublinear Attention** | `sublinear` | [ADR-048](../../docs/adr/ADR-048-sublinear-graph-attention.md) | LSH-bucket, PPR-sampled, spectral sparsification |
 | **Physics-Informed** | `physics` | [ADR-051](../../docs/adr/ADR-051-physics-informed-graph-layers.md) | Hamiltonian dynamics, gauge equivariant MP, Lagrangian attention, conservative PDE |
 | **Biological** | `biological` | [ADR-052](../../docs/adr/ADR-052-biological-graph-layers.md) | Spiking attention, Hebbian/STDP learning, dendritic branching, inhibition strategies |
-| **Self-Organizing** | `self-organizing` | — | Morphogenetic fields, developmental programs, graph coarsening |
+| **Self-Organizing** | `self-organizing` | -- | Morphogenetic fields, developmental programs, graph coarsening |
 | **Verified Training** | `verified-training` | [ADR-049](../../docs/adr/ADR-049-verified-training-pipeline.md) | Training certificates, delta-apply rollback, LossStabilityBound, EnergyGate |
 | **Manifold** | `manifold` | [ADR-055](../../docs/adr/ADR-055-manifold-graph-layers.md) | Product manifolds, Riemannian Adam, geodesic MP, Lie group equivariance |
 | **Temporal-Causal** | `temporal` | [ADR-053](../../docs/adr/ADR-053-temporal-causal-graph-layers.md) | Causal masking, retrocausal attention, continuous-time ODE, Granger causality |
@@ -64,7 +83,7 @@ let gt = GraphTransformer::with_defaults();
 // Gate a value behind a proof
 let gate: ProofGate<Vec<f32>> = gt.create_gate(vec![1.0; 128]);
 
-// Mutation requires proof — no proof, no access
+// Mutation requires proof -- no proof, no access
 let proof_id = ruvector_verified::prove_dim_eq(&mut env, 128, 128).unwrap();
 let mutated = gate.mutate_with_proof(&env, proof_id, |v| {
     v.iter_mut().for_each(|x| *x *= 2.0);
@@ -168,30 +187,30 @@ full = ["sublinear", "physics", "biological", "self-organizing",
 
 ```
 ruvector-graph-transformer
-├── proof_gated.rs          ← ProofGate<T>, MutationLedger, attestation chains
-├── sublinear_attention.rs  ← O(n log n) attention via LSH/PPR/spectral
-├── physics.rs              ← Energy-conserving Hamiltonian/Lagrangian dynamics
-├── biological.rs           ← Spiking networks, Hebbian plasticity, STDP
-├── self_organizing.rs      ← Morphogenetic fields, reaction-diffusion growth
-├── verified_training.rs    ← Certified training with delta-apply rollback
-├── manifold.rs             ← Product manifold S^n × H^m × R^k geometry
-├── temporal.rs             ← Causal masking, Granger causality, ODE integration
-├── economic.rs             ← Nash equilibrium, Shapley values, mechanism design
-├── config.rs               ← Per-module configuration with sensible defaults
-├── error.rs                ← Unified error composing 4 sub-crate errors
-└── lib.rs                  ← Unified entry point with feature-gated re-exports
+├── proof_gated.rs          <- ProofGate<T>, MutationLedger, attestation chains
+├── sublinear_attention.rs  <- O(n log n) attention via LSH/PPR/spectral
+├── physics.rs              <- Energy-conserving Hamiltonian/Lagrangian dynamics
+├── biological.rs           <- Spiking networks, Hebbian plasticity, STDP
+├── self_organizing.rs      <- Morphogenetic fields, reaction-diffusion growth
+├── verified_training.rs    <- Certified training with delta-apply rollback
+├── manifold.rs             <- Product manifold S^n x H^m x R^k geometry
+├── temporal.rs             <- Causal masking, Granger causality, ODE integration
+├── economic.rs             <- Nash equilibrium, Shapley values, mechanism design
+├── config.rs               <- Per-module configuration with sensible defaults
+├── error.rs                <- Unified error composing 4 sub-crate errors
+└── lib.rs                  <- Unified entry point with feature-gated re-exports
 ```
 
 ### Dependencies
 
 ```
 ruvector-graph-transformer
-├── ruvector-verified    ← formal proofs, attestations, gated routing
-├── ruvector-gnn         ← base GNN message passing
-├── ruvector-attention   ← scaled dot-product attention
-├── ruvector-mincut      ← graph structure operations
-├── ruvector-solver      ← sparse linear systems
-└── ruvector-coherence   ← coherence measurement
+├── ruvector-verified    <- formal proofs, attestations, gated routing
+├── ruvector-gnn         <- base GNN message passing
+├── ruvector-attention   <- scaled dot-product attention
+├── ruvector-mincut      <- graph structure operations
+├── ruvector-solver      <- sparse linear systems
+└── ruvector-coherence   <- coherence measurement
 ```
 
 ## Bindings
@@ -233,4 +252,16 @@ cargo test -p ruvector-graph-transformer --features physics
 
 ## License
 
-MIT
+**MIT License** - see [LICENSE](../../LICENSE) for details.
+
+---
+
+<div align="center">
+
+**Part of [RuVector](https://github.com/ruvnet/ruvector) - Built by [rUv](https://ruv.io)**
+
+[![Star on GitHub](https://img.shields.io/github/stars/ruvnet/ruvector?style=social)](https://github.com/ruvnet/ruvector)
+
+[Documentation](https://docs.rs/ruvector-graph-transformer) | [Crates.io](https://crates.io/crates/ruvector-graph-transformer) | [GitHub](https://github.com/ruvnet/ruvector)
+
+</div>

@@ -185,9 +185,11 @@ impl OnnxModel {
         let inputs: Vec<String> = session.inputs.iter().map(|i| i.name.clone()).collect();
         let outputs: Vec<String> = session.outputs.iter().map(|o| o.name.clone()).collect();
 
-        // Default embedding dimension (will be determined at runtime from actual output)
-        // Most sentence-transformers models output 384 dimensions
-        let dimension = 384;
+        // Try to detect embedding dimension from the ONNX output tensor metadata.
+        // The last dimension of the first output is typically the hidden/embedding size.
+        let dimension = Self::detect_dimension_from_outputs(session)
+            .or_else(|| Self::detect_dimension_from_path(path))
+            .unwrap_or(384);
 
         let name = path
             .file_stem()
@@ -202,6 +204,51 @@ impl OnnxModel {
             input_names: inputs,
             output_names: outputs,
         })
+    }
+
+    /// Try to read the embedding dimension from the ONNX output tensor shape metadata.
+    /// Returns `None` if the dimension is dynamic or unavailable.
+    fn detect_dimension_from_outputs(session: &Session) -> Option<usize> {
+        if let Some(output) = session.outputs.first() {
+            // In ort 2.0, tensor_shape() returns Option<&Shape> where Shape contains i64 dims.
+            // Dynamic dimensions are -1; we want the last fixed (positive) dimension,
+            // which is typically the embedding/hidden size.
+            if let Some(shape) = output.output_type.tensor_shape() {
+                for &d in shape.iter().rev() {
+                    if d > 0 {
+                        debug!("Detected embedding dimension from ONNX output metadata: {}", d);
+                        return Some(d as usize);
+                    }
+                }
+            }
+        }
+        None
+    }
+
+    /// Heuristic: infer dimension from known model names in the file path.
+    fn detect_dimension_from_path(path: &Path) -> Option<usize> {
+        let path_str = path.to_string_lossy().to_lowercase();
+        let mappings: &[(&str, usize)] = &[
+            ("mpnet-base", 768),
+            ("all-mpnet", 768),
+            ("bge-large", 1024),
+            ("bge-base", 768),
+            ("bge-small", 384),
+            ("e5-large", 1024),
+            ("e5-base", 768),
+            ("e5-small", 384),
+            ("gte-large", 1024),
+            ("gte-base", 768),
+            ("gte-small", 384),
+            ("minilm", 384),
+        ];
+        for &(pattern, dim) in mappings {
+            if path_str.contains(pattern) {
+                debug!("Inferred embedding dimension {} from path pattern '{}'", dim, pattern);
+                return Some(dim);
+            }
+        }
+        None
     }
 
     /// Run inference on encoded inputs
@@ -236,18 +283,22 @@ impl OnnxModel {
         ))
         .map_err(|e| EmbeddingError::invalid_model(e.to_string()))?;
 
-        let token_type_ids_tensor = Tensor::from_array((
-            vec![batch_size, seq_length],
-            token_type_ids.to_vec().into_boxed_slice(),
-        ))
-        .map_err(|e| EmbeddingError::invalid_model(e.to_string()))?;
-
-        // Build inputs vector
-        let inputs = vec![
+        // Build inputs vector — only include token_type_ids if the model expects it.
+        // Models like DistilBERT and many newer transformers do not use token_type_ids
+        // and will crash if it is provided.
+        let mut inputs = vec![
             ("input_ids", input_ids_tensor.into_dyn()),
             ("attention_mask", attention_mask_tensor.into_dyn()),
-            ("token_type_ids", token_type_ids_tensor.into_dyn()),
         ];
+
+        if self.info.input_names.iter().any(|n| n == "token_type_ids") {
+            let token_type_ids_tensor = Tensor::from_array((
+                vec![batch_size, seq_length],
+                token_type_ids.to_vec().into_boxed_slice(),
+            ))
+            .map_err(|e| EmbeddingError::invalid_model(e.to_string()))?;
+            inputs.push(("token_type_ids", token_type_ids_tensor.into_dyn()));
+        }
 
         // Run inference
         let outputs = self.session.run(inputs)

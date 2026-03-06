@@ -19,7 +19,6 @@
 //! - Anderson's "More is Different"
 
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use uuid::Uuid;
 
 /// System for detecting emergent properties

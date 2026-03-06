@@ -13,12 +13,52 @@
 
 ## Publishing (crates.io & npm)
 
-- Credentials are stored in `.env` at the project root — source it before publishing
-- Cargo token is in `~/.cargo/credentials.toml` (auto-loaded by cargo)
+- Credentials are in `.env` (project root) and `~/.cargo/credentials.toml` — NEVER commit or log these
 - npm is authenticated as `ruvnet` — verify with `npm whoami`
+- **NEVER** echo, cat, or print credential files. Source `.env` only via `source .env`
 - **Publish order for solver crates**: `ruvector-solver` first (no deps), then `ruvector-solver-wasm` and `ruvector-solver-node` (depend on solver)
 - Always run `cargo publish --dry-run --allow-dirty` before real publish
 - `ruvector-profiler` has `publish = false` — intentionally not publishable
+
+### npx ruvector (npm)
+
+- **Package**: `ruvector` on npm, published as `ruvnet`
+- **Location**: `npm/packages/ruvector/`
+- **Current version**: check `npm/packages/ruvector/package.json`
+- **Pre-publish checklist**:
+  1. `cd npm/packages/ruvector`
+  2. Update version in `package.json` AND `bin/mcp-server.js` (2 occurrences of version string)
+  3. `node -c bin/cli.js && node -c bin/mcp-server.js` (syntax check)
+  4. `npm test` (55 CLI + integration tests must pass)
+  5. `npm publish --access public`
+- **Key files**:
+  - `bin/cli.js` (~8500 lines) — 48 commands, 12 groups (brain, edge, identity, mcp, rvf, hooks, llm, sona, route, gnn, attention, embed)
+  - `bin/mcp-server.js` (~3500 lines) — 91 MCP tools, stdio + SSE transports
+  - `test/integration.js` — module loading, type defs, package structure
+  - `test/cli-commands.js` — 55 CLI command tests
+- **chalk ESM fix**: chalk v5 is ESM-only, we use CJS. Always use: `const _chalk = require('chalk'); const chalk = _chalk.default || _chalk;`
+- **Lazy loading**: GNN, attention, ora are lazy-loaded for ~55ms startup. Do NOT convert to eager imports.
+- **Peer deps** (optional): `@ruvector/pi-brain`, `@ruvector/ruvllm`, `@ruvector/router`
+
+### π.ruv.io (Cloud Run)
+
+- **Service**: `ruvbrain` in `us-central1` on project `ruv-dev`
+- **Source**: `crates/mcp-brain-server/` — axum Rust server
+- **Landing page**: `crates/mcp-brain-server/static/index.html` (embedded via `include_str!`)
+- **Origin slideshow**: `crates/mcp-brain-server/static/origin.html`
+- **Deploy**:
+  1. Edit HTML in `crates/mcp-brain-server/static/`
+  2. `gcloud builds submit --config=crates/mcp-brain-server/cloudbuild.yaml --project=ruv-dev .`
+  3. `gcloud run deploy ruvbrain --image gcr.io/ruv-dev/ruvbrain:latest --region us-central1 --project ruv-dev`
+- **Dockerfile**: `crates/mcp-brain-server/Dockerfile` — strips `examples/` from workspace before build
+- **Domain**: `π.ruv.io` (also `pi.ruv.io`) → Cloud Run custom domain mapping
+
+### Rust Crates (crates.io)
+
+- **Publish order**: Check inter-crate `path =` dependencies. Publish leaf crates first.
+- **Version deps**: Before publishing, convert `path = "../foo"` to `version = "x.y"` in Cargo.toml
+- **Dry run**: `cargo publish --dry-run --allow-dirty -p <crate-name>`
+- **EXO-AI crates**: Published as v0.1.1 (ruvector-exo-core, ruvector-exo-vision, etc.)
 
 ## File Organization
 

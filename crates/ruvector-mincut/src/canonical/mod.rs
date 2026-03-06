@@ -204,16 +204,10 @@ impl CactusGraph {
         // Run Stoer-Wagner to find global min-cut value and all min-cut
         // partitions (simplified: we find the min-cut value and one
         // partition, then enumerate by vertex removal).
-        let (min_cut_value, min_cut_partitions) =
-            Self::stoer_wagner_all_cuts(&adj);
+        let (min_cut_value, min_cut_partitions) = Self::stoer_wagner_all_cuts(&adj);
 
         // Build cactus from discovered min-cuts
-        Self::build_cactus_from_cuts(
-            &vertices_ids,
-            &adj,
-            min_cut_value,
-            &min_cut_partitions,
-        )
+        Self::build_cactus_from_cuts(&vertices_ids, &adj, min_cut_value, &min_cut_partitions)
     }
 
     /// Root the cactus at the vertex containing the lexicographically
@@ -733,10 +727,7 @@ impl CactusGraph {
     }
 
     /// Simple cycle detection in the cactus graph.
-    fn detect_cycles(
-        vertices: &[CactusVertex],
-        edges: &mut [CactusEdge],
-    ) -> Vec<CactusCycle> {
+    fn detect_cycles(vertices: &[CactusVertex], edges: &mut [CactusEdge]) -> Vec<CactusCycle> {
         if vertices.is_empty() || edges.is_empty() {
             return Vec::new();
         }
@@ -880,16 +871,32 @@ impl CactusGraph {
     fn compute_cut_value_from_partition(&self, part_s: &[usize]) -> f64 {
         let s_set: HashSet<usize> = part_s.iter().copied().collect();
         // Build id -> index map for O(1) lookup
-        let id_map: HashMap<u16, usize> = self.vertices.iter().enumerate()
-            .map(|(i, cv)| (cv.id, i)).collect();
+        let id_map: HashMap<u16, usize> = self
+            .vertices
+            .iter()
+            .enumerate()
+            .map(|(i, cv)| (cv.id, i))
+            .collect();
         let mut total = 0.0f64;
 
         for e in &self.edges {
-            let src_in_s = id_map.get(&e.source)
-                .map(|&i| self.vertices[i].original_vertices.iter().any(|v| s_set.contains(v)))
+            let src_in_s = id_map
+                .get(&e.source)
+                .map(|&i| {
+                    self.vertices[i]
+                        .original_vertices
+                        .iter()
+                        .any(|v| s_set.contains(v))
+                })
                 .unwrap_or(false);
-            let tgt_in_s = id_map.get(&e.target)
-                .map(|&i| self.vertices[i].original_vertices.iter().any(|v| s_set.contains(v)))
+            let tgt_in_s = id_map
+                .get(&e.target)
+                .map(|&i| {
+                    self.vertices[i]
+                        .original_vertices
+                        .iter()
+                        .any(|v| s_set.contains(v))
+                })
                 .unwrap_or(false);
 
             if src_in_s != tgt_in_s {
@@ -904,8 +911,12 @@ impl CactusGraph {
     fn compute_cut_edges(&self, part_s: &[usize]) -> Vec<(usize, usize, f64)> {
         let s_set: HashSet<usize> = part_s.iter().copied().collect();
         // Build id -> index map for O(1) lookup
-        let id_map: HashMap<u16, usize> = self.vertices.iter().enumerate()
-            .map(|(i, cv)| (cv.id, i)).collect();
+        let id_map: HashMap<u16, usize> = self
+            .vertices
+            .iter()
+            .enumerate()
+            .map(|(i, cv)| (cv.id, i))
+            .collect();
         let mut cut_edges = Vec::new();
 
         for e in &self.edges {
@@ -913,10 +924,20 @@ impl CactusGraph {
             let tgt_idx = id_map.get(&e.target).copied();
 
             let src_in_s = src_idx
-                .map(|i| self.vertices[i].original_vertices.iter().any(|v| s_set.contains(v)))
+                .map(|i| {
+                    self.vertices[i]
+                        .original_vertices
+                        .iter()
+                        .any(|v| s_set.contains(v))
+                })
                 .unwrap_or(false);
             let tgt_in_s = tgt_idx
-                .map(|i| self.vertices[i].original_vertices.iter().any(|v| s_set.contains(v)))
+                .map(|i| {
+                    self.vertices[i]
+                        .original_vertices
+                        .iter()
+                        .any(|v| s_set.contains(v))
+                })
                 .unwrap_or(false);
 
             if src_in_s != tgt_in_s {

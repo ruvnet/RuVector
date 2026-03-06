@@ -25,6 +25,7 @@ members = [
     "rvf-cli",
     "tests/rvf-integration",
     "benches",
+    "rvf-federation",
 ]
 
 [workspace.package]

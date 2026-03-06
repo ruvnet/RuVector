@@ -3,11 +3,12 @@
 //! Tests the composition of all modules through proof-gated operations.
 
 use ruvector_graph_transformer::{
-    GraphTransformer, GraphTransformerConfig, ProofGate, AttestationChain,
+    AttestationChain, GraphTransformer, GraphTransformerConfig, ProofGate,
 };
 use ruvector_verified::{
-    ProofEnvironment, proof_store::create_attestation,
     gated::{ProofKind, ProofTier},
+    proof_store::create_attestation,
+    ProofEnvironment,
 };
 
 // ---- Proof-gated tests ----
@@ -49,12 +50,7 @@ fn test_proof_gate_dim_mutation_fails_on_mismatch() {
 #[test]
 fn test_proof_gate_routed_mutation() {
     let mut gate = ProofGate::new(100i32);
-    let result = gate.mutate_with_routed_proof(
-        ProofKind::Reflexivity,
-        5,
-        5,
-        |v| *v += 50,
-    );
+    let result = gate.mutate_with_routed_proof(ProofKind::Reflexivity, 5, 5, |v| *v += 50);
     assert!(result.is_ok());
     let (decision, attestation) = result.unwrap();
     assert_eq!(decision.tier, ProofTier::Reflex);
@@ -95,8 +91,8 @@ fn test_attestation_chain_integrity() {
 
 #[cfg(feature = "sublinear")]
 mod sublinear_tests {
-    use ruvector_graph_transformer::SublinearGraphAttention;
     use ruvector_graph_transformer::config::SublinearConfig;
+    use ruvector_graph_transformer::SublinearGraphAttention;
 
     #[test]
     fn test_lsh_attention_basic() {
@@ -107,9 +103,7 @@ mod sublinear_tests {
         };
         let attn = SublinearGraphAttention::new(8, config);
 
-        let features: Vec<Vec<f32>> = (0..10)
-            .map(|i| vec![i as f32 * 0.1; 8])
-            .collect();
+        let features: Vec<Vec<f32>> = (0..10).map(|i| vec![i as f32 * 0.1; 8]).collect();
 
         let result = attn.lsh_attention(&features);
         assert!(result.is_ok());
@@ -163,11 +157,7 @@ mod sublinear_tests {
             vec![0.5, 1.0, 0.4, 0.2],
             vec![0.3, 0.4, 1.0, 0.5],
         ];
-        let edges = vec![
-            (0, 1, 2.0),
-            (1, 2, 1.0),
-            (0, 2, 0.5),
-        ];
+        let edges = vec![(0, 1, 2.0), (1, 2, 1.0), (0, 2, 0.5)];
 
         let result = attn.spectral_attention(&features, &edges);
         assert!(result.is_ok());
@@ -178,8 +168,8 @@ mod sublinear_tests {
 
 #[cfg(feature = "physics")]
 mod physics_tests {
-    use ruvector_graph_transformer::HamiltonianGraphNet;
     use ruvector_graph_transformer::config::PhysicsConfig;
+    use ruvector_graph_transformer::HamiltonianGraphNet;
 
     #[test]
     fn test_hamiltonian_step_energy_conservation() {
@@ -190,10 +180,7 @@ mod physics_tests {
         };
         let mut hgn = HamiltonianGraphNet::new(4, config);
 
-        let features = vec![
-            vec![0.1, 0.2, 0.3, 0.4],
-            vec![0.4, 0.3, 0.2, 0.1],
-        ];
+        let features = vec![vec![0.1, 0.2, 0.3, 0.4], vec![0.4, 0.3, 0.2, 0.1]];
         let state = hgn.init_state(&features).unwrap();
         let edges = vec![(0, 1, 0.1)];
 
@@ -201,7 +188,8 @@ mod physics_tests {
         let energy_diff = (result.energy_after - result.energy_before).abs();
         assert!(
             energy_diff < 0.1,
-            "energy not conserved: diff={}", energy_diff
+            "energy not conserved: diff={}",
+            energy_diff
         );
         assert!(result.energy_conserved);
         assert!(result.attestation.is_some());
@@ -212,8 +200,8 @@ mod physics_tests {
 
 #[cfg(feature = "biological")]
 mod biological_tests {
-    use ruvector_graph_transformer::{SpikingGraphAttention, HebbianLayer};
     use ruvector_graph_transformer::config::BiologicalConfig;
+    use ruvector_graph_transformer::{HebbianLayer, SpikingGraphAttention};
 
     #[test]
     fn test_spiking_attention_update() {
@@ -266,9 +254,9 @@ mod biological_tests {
 
 #[cfg(feature = "self-organizing")]
 mod self_organizing_tests {
-    use ruvector_graph_transformer::{MorphogeneticField, DevelopmentalProgram};
     use ruvector_graph_transformer::config::SelfOrganizingConfig;
     use ruvector_graph_transformer::self_organizing::{GrowthRule, GrowthRuleKind};
+    use ruvector_graph_transformer::{DevelopmentalProgram, MorphogeneticField};
 
     #[test]
     fn test_morphogenetic_step_topology_invariants() {
@@ -320,11 +308,9 @@ mod self_organizing_tests {
 
 #[cfg(feature = "verified-training")]
 mod verified_training_tests {
-    use ruvector_graph_transformer::{
-        VerifiedTrainer, TrainingInvariant, RollbackStrategy,
-    };
-    use ruvector_graph_transformer::config::VerifiedTrainingConfig;
     use ruvector_gnn::RuvectorLayer;
+    use ruvector_graph_transformer::config::VerifiedTrainingConfig;
+    use ruvector_graph_transformer::{RollbackStrategy, TrainingInvariant, VerifiedTrainer};
 
     #[test]
     fn test_verified_training_single_step_certificate() {
@@ -334,12 +320,10 @@ mod verified_training_tests {
             learning_rate: 0.001,
             ..Default::default()
         };
-        let invariants = vec![
-            TrainingInvariant::WeightNormBound {
-                max_norm: 1000.0,
-                rollback_strategy: RollbackStrategy::DeltaApply,
-            },
-        ];
+        let invariants = vec![TrainingInvariant::WeightNormBound {
+            max_norm: 1000.0,
+            rollback_strategy: RollbackStrategy::DeltaApply,
+        }];
         let mut trainer = VerifiedTrainer::new(4, 8, config, invariants);
 
         let layer = RuvectorLayer::new(4, 8, 2, 0.0).unwrap();
@@ -365,20 +349,24 @@ mod verified_training_tests {
             learning_rate: 0.001,
             ..Default::default()
         };
-        let invariants = vec![
-            TrainingInvariant::WeightNormBound {
-                max_norm: 1000.0,
-                rollback_strategy: RollbackStrategy::DeltaApply,
-            },
-        ];
+        let invariants = vec![TrainingInvariant::WeightNormBound {
+            max_norm: 1000.0,
+            rollback_strategy: RollbackStrategy::DeltaApply,
+        }];
         let mut trainer = VerifiedTrainer::new(4, 8, config, invariants);
 
         let layer = RuvectorLayer::new(4, 8, 2, 0.0).unwrap();
 
         for _ in 0..3 {
-            let result = trainer.train_step(
-                &[vec![1.0; 4]], &[vec![]], &[vec![]], &[vec![0.0; 8]], &layer,
-            ).unwrap();
+            let result = trainer
+                .train_step(
+                    &[vec![1.0; 4]],
+                    &[vec![]],
+                    &[vec![]],
+                    &[vec![0.0; 8]],
+                    &layer,
+                )
+                .unwrap();
             assert!(result.weights_committed);
         }
 
@@ -391,9 +379,9 @@ mod verified_training_tests {
 
 #[cfg(feature = "manifold")]
 mod manifold_tests {
-    use ruvector_graph_transformer::ProductManifoldAttention;
     use ruvector_graph_transformer::config::ManifoldConfig;
-    use ruvector_graph_transformer::manifold::{spherical_geodesic, hyperbolic_geodesic};
+    use ruvector_graph_transformer::manifold::{hyperbolic_geodesic, spherical_geodesic};
+    use ruvector_graph_transformer::ProductManifoldAttention;
 
     #[test]
     fn test_product_manifold_attention_curvature() {
@@ -441,8 +429,8 @@ mod manifold_tests {
 
 #[cfg(feature = "temporal")]
 mod temporal_tests {
-    use ruvector_graph_transformer::CausalGraphTransformer;
     use ruvector_graph_transformer::config::TemporalConfig;
+    use ruvector_graph_transformer::CausalGraphTransformer;
 
     #[test]
     fn test_causal_attention_ordering() {

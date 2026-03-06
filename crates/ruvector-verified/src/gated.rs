@@ -56,10 +56,7 @@ pub enum ProofKind {
 /// - Single binder (lambda/pi): Standard(500)
 /// - Nested binders or unknown: Deep
 #[cfg(feature = "gated-proofs")]
-pub fn route_proof(
-    proof_kind: ProofKind,
-    _env: &ProofEnvironment,
-) -> TierDecision {
+pub fn route_proof(proof_kind: ProofKind, _env: &ProofEnvironment) -> TierDecision {
     match proof_kind {
         ProofKind::Reflexivity => TierDecision {
             tier: ProofTier::Reflex,
@@ -77,14 +74,18 @@ pub fn route_proof(
             estimated_steps: depth * 10,
         },
         ProofKind::TypeApplication { depth } => TierDecision {
-            tier: ProofTier::Standard { max_fuel: depth * 100 },
+            tier: ProofTier::Standard {
+                max_fuel: depth * 100,
+            },
             reason: "deep type application",
             estimated_steps: depth * 50,
         },
         ProofKind::PipelineComposition { stages } => {
             if stages <= 3 {
                 TierDecision {
-                    tier: ProofTier::Standard { max_fuel: stages * 200 },
+                    tier: ProofTier::Standard {
+                        max_fuel: stages * 200,
+                    },
                     reason: "short pipeline composition",
                     estimated_steps: stages * 100,
                 }
@@ -96,7 +97,9 @@ pub fn route_proof(
                 }
             }
         }
-        ProofKind::Custom { estimated_complexity } => {
+        ProofKind::Custom {
+            estimated_complexity,
+        } => {
             if estimated_complexity < 10 {
                 TierDecision {
                     tier: ProofTier::Standard { max_fuel: 100 },
@@ -129,8 +132,12 @@ pub fn verify_tiered(
                 return Ok(env.alloc_term());
             }
             // Escalate to Standard
-            verify_tiered(env, expected_id, actual_id,
-                ProofTier::Standard { max_fuel: 100 })
+            verify_tiered(
+                env,
+                expected_id,
+                actual_id,
+                ProofTier::Standard { max_fuel: 100 },
+            )
         }
         ProofTier::Standard { max_fuel } => {
             // Simulate bounded verification
@@ -179,7 +186,10 @@ mod tests {
     fn test_route_dimension_equality() {
         let env = ProofEnvironment::new();
         let decision = route_proof(
-            ProofKind::DimensionEquality { expected: 128, actual: 128 },
+            ProofKind::DimensionEquality {
+                expected: 128,
+                actual: 128,
+            },
             &env,
         );
         assert_eq!(decision.tier, ProofTier::Reflex);
@@ -188,20 +198,14 @@ mod tests {
     #[test]
     fn test_route_shallow_application() {
         let env = ProofEnvironment::new();
-        let decision = route_proof(
-            ProofKind::TypeApplication { depth: 1 },
-            &env,
-        );
+        let decision = route_proof(ProofKind::TypeApplication { depth: 1 }, &env);
         assert!(matches!(decision.tier, ProofTier::Standard { .. }));
     }
 
     #[test]
     fn test_route_long_pipeline() {
         let env = ProofEnvironment::new();
-        let decision = route_proof(
-            ProofKind::PipelineComposition { stages: 10 },
-            &env,
-        );
+        let decision = route_proof(ProofKind::PipelineComposition { stages: 10 }, &env);
         assert_eq!(decision.tier, ProofTier::Deep);
     }
 

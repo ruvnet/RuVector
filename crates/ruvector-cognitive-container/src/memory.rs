@@ -25,12 +25,12 @@ pub struct MemoryConfig {
 impl Default for MemoryConfig {
     fn default() -> Self {
         Self {
-            slab_size: 4 * 1024 * 1024,     // 4 MB total
-            graph_budget: 1024 * 1024,       // 1 MB
-            feature_budget: 1024 * 1024,     // 1 MB
-            solver_budget: 512 * 1024,       // 512 KB
-            witness_budget: 512 * 1024,      // 512 KB
-            evidence_budget: 1024 * 1024,    // 1 MB
+            slab_size: 4 * 1024 * 1024,   // 4 MB total
+            graph_budget: 1024 * 1024,    // 1 MB
+            feature_budget: 1024 * 1024,  // 1 MB
+            solver_budget: 512 * 1024,    // 512 KB
+            witness_budget: 512 * 1024,   // 512 KB
+            evidence_budget: 1024 * 1024, // 1 MB
         }
     }
 }

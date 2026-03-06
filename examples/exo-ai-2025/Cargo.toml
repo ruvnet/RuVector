@@ -60,3 +60,16 @@ codegen-units = 1
 [profile.test]
 opt-level = 1
 debug = true
+
+# Patch crates.io deps with local paths for development
+[patch.crates-io]
+exo-core = { path = "crates/exo-core" }
+exo-temporal = { path = "crates/exo-temporal" }
+exo-hypergraph = { path = "crates/exo-hypergraph" }
+exo-manifold = { path = "crates/exo-manifold" }
+exo-federation = { path = "crates/exo-federation" }
+exo-exotic = { path = "crates/exo-exotic" }
+exo-backend-classical = { path = "crates/exo-backend-classical" }
+ruvector-domain-expansion = { path = "../../crates/ruvector-domain-expansion" }
+thermorust = { path = "../../crates/thermorust" }
+ruvector-dither = { path = "../../crates/ruvector-dither" }

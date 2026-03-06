@@ -51,8 +51,7 @@ fn test_ebpf_embed_all_three() {
 fn test_verified_ingest_small_batch() {
     let (_dir, _path, mut store) = temp_store(384);
 
-    let mut pipeline =
-        rvf_kernel_optimized::verified_ingest::VerifiedIngestPipeline::new(384);
+    let mut pipeline = rvf_kernel_optimized::verified_ingest::VerifiedIngestPipeline::new(384);
 
     let vectors: Vec<Vec<f32>> = (0..10).map(|_| vec![0.5f32; 384]).collect();
     let ids: Vec<u64> = (0..10).collect();
@@ -72,8 +71,7 @@ fn test_verified_ingest_small_batch() {
 fn test_verified_ingest_dim_mismatch() {
     let (_dir, _path, mut store) = temp_store(384);
 
-    let mut pipeline =
-        rvf_kernel_optimized::verified_ingest::VerifiedIngestPipeline::new(384);
+    let mut pipeline = rvf_kernel_optimized::verified_ingest::VerifiedIngestPipeline::new(384);
 
     // Wrong dimension: 128 instead of 384
     let vectors: Vec<Vec<f32>> = vec![vec![0.5f32; 128]];
@@ -89,10 +87,7 @@ fn test_gated_routing_reflex() {
     use ruvector_verified::gated::{self, ProofKind, ProofTier};
 
     let env = ruvector_verified::ProofEnvironment::new();
-    let decision = gated::route_proof(
-        ProofKind::Reflexivity,
-        &env,
-    );
+    let decision = gated::route_proof(ProofKind::Reflexivity, &env);
     assert!(matches!(decision.tier, ProofTier::Reflex));
 }
 
@@ -141,10 +136,8 @@ fn test_full_pipeline() {
 
     // Verified ingest with 100 vectors
     let (stats, store_size) =
-        rvf_kernel_optimized::verified_ingest::run_verified_ingest(
-            &mut store, &path, 384, 100, 42,
-        )
-        .unwrap();
+        rvf_kernel_optimized::verified_ingest::run_verified_ingest(&mut store, &path, 384, 100, 42)
+            .unwrap();
 
     assert_eq!(stats.vectors_verified, 100);
     assert!(stats.proofs_generated > 0);
@@ -153,9 +146,7 @@ fn test_full_pipeline() {
 
     // Query
     let query = vec![0.5f32; 384];
-    let results = store
-        .query(&query, 5, &QueryOptions::default())
-        .unwrap();
+    let results = store.query(&query, 5, &QueryOptions::default()).unwrap();
     assert!(!results.is_empty());
 
     store.close().unwrap();

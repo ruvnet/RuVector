@@ -31,7 +31,11 @@ pub struct CacheStats {
 impl CacheStats {
     pub fn hit_rate(&self) -> f64 {
         let total = self.hits + self.misses;
-        if total == 0 { 0.0 } else { self.hits as f64 / total as f64 }
+        if total == 0 {
+            0.0
+        } else {
+            self.hits as f64 / total as f64
+        }
     }
 }
 
@@ -62,7 +66,9 @@ impl ConversionCache {
         if entry.key_hash == hash && entry.key_hash != 0 {
             self.stats.hits += 1;
             self.history.push_back(hash);
-            if self.history.len() > 64 { self.history.pop_front(); }
+            if self.history.len() > 64 {
+                self.history.pop_front();
+            }
             Some(entry.result_id)
         } else {
             self.stats.misses += 1;
@@ -103,7 +109,9 @@ impl ConversionCache {
         h = h.wrapping_mul(0x517cc1b727220a95);
         h ^= ctx_len as u64;
         h = h.wrapping_mul(0x6c62272e07bb0142);
-        if h == 0 { h = 1; } // Reserve 0 for empty
+        if h == 0 {
+            h = 1;
+        } // Reserve 0 for empty
         h
     }
 }
@@ -162,7 +170,9 @@ mod tests {
         }
         let mut hits = 0u32;
         for i in 0..1000u32 {
-            if cache.get(i, 0).is_some() { hits += 1; }
+            if cache.get(i, 0).is_some() {
+                hits += 1;
+            }
         }
         // Due to collisions, not all will be found, but most should
         assert!(hits > 500, "expected >50% hit rate, got {hits}/1000");

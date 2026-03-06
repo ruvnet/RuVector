@@ -485,7 +485,8 @@ impl MmapGradientAccumulator {
             "Gradient length must match d_embed"
         );
 
-        let offset = self.grad_offset(node_id)
+        let offset = self
+            .grad_offset(node_id)
             .expect("node_id out of bounds or offset overflow");
 
         let lock_idx = (node_id as usize) / self.lock_granularity;
@@ -495,8 +496,10 @@ impl MmapGradientAccumulator {
         // Safety: We validated node_id bounds and offset above, and hold the write lock
         unsafe {
             let mmap = &mut *self.grad_mmap.get();
-            assert!(offset + self.d_embed * std::mem::size_of::<f32>() <= mmap.len(),
-                "gradient write would exceed mmap bounds");
+            assert!(
+                offset + self.d_embed * std::mem::size_of::<f32>() <= mmap.len(),
+                "gradient write would exceed mmap bounds"
+            );
             let ptr = mmap.as_mut_ptr().add(offset) as *mut f32;
             let grad_slice = std::slice::from_raw_parts_mut(ptr, self.d_embed);
 
@@ -555,7 +558,8 @@ impl MmapGradientAccumulator {
     /// # Returns
     /// Slice containing the gradient vector
     pub fn get_grad(&self, node_id: u64) -> &[f32] {
-        let offset = self.grad_offset(node_id)
+        let offset = self
+            .grad_offset(node_id)
             .expect("node_id out of bounds or offset overflow");
 
         let lock_idx = (node_id as usize) / self.lock_granularity;
@@ -565,8 +569,10 @@ impl MmapGradientAccumulator {
         // Safety: We validated node_id bounds and offset above, and hold the read lock
         unsafe {
             let mmap = &*self.grad_mmap.get();
-            assert!(offset + self.d_embed * std::mem::size_of::<f32>() <= mmap.len(),
-                "gradient read would exceed mmap bounds");
+            assert!(
+                offset + self.d_embed * std::mem::size_of::<f32>() <= mmap.len(),
+                "gradient read would exceed mmap bounds"
+            );
             let ptr = mmap.as_ptr().add(offset) as *const f32;
             std::slice::from_raw_parts(ptr, self.d_embed)
         }

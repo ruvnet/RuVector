@@ -1,5 +1,6 @@
 # Multi-stage Dockerfile for ruvector-postgres extension
 # Builds the extension and creates a PostgreSQL image with it installed
+# v0.3.1: Fixes — Cypher self-reference, graph/RDF persistence, SONA dimension panic
 
 # Build stage
 # Using nightly Rust to support edition2024 crates in the registry
@@ -101,8 +102,8 @@ COPY crates/rvf/rvf-types /workspace/crates/rvf/rvf-types/
 COPY crates/rvf/rvf-wire /workspace/crates/rvf/rvf-wire/
 COPY crates/rvf/rvf-crypto /workspace/crates/rvf/rvf-crypto/
 
-# Use the workspace Cargo.lock to pin dependencies and avoid registry parsing issues
-COPY Cargo.lock /workspace/crates/ruvector-postgres/
+# Copy the workspace Cargo.lock to pin dependency versions
+COPY Cargo.lock /workspace/Cargo.lock
 
 WORKDIR /workspace/crates/ruvector-postgres
 
@@ -117,7 +118,8 @@ RUN cargo fetch
 ENV CARGO_REGISTRIES_CRATES_IO_PROTOCOL=git
 
 # Build the extension with all features including v0.3 modules
-RUN cargo pgrx package --features "pg17 index-all quant-all embeddings gated-transformer analytics-complete attention-extended sona-learning domain-expansion"
+# graph-complete includes: graph, hyperbolic, sparse
+RUN cargo pgrx package --features "pg17 index-all quant-all graph-complete embeddings gated-transformer analytics-complete attention-extended sona-learning domain-expansion"
 
 # Build the model downloader binary
 RUN cargo build --release --bin download-models --features "embeddings"
@@ -130,25 +132,31 @@ RUN mkdir -p /opt/ruvector/models && \
     echo "Model cache size: $(du -sh /opt/ruvector/models)" && \
     ls -la /opt/ruvector/models/
 
-# Copy the pre-built SQL schema file (with sparse functions removed)
-# cargo pgrx schema doesn't work reliably in Docker, so we use the hand-crafted file
-RUN cp /workspace/crates/ruvector-postgres/sql/ruvector--0.1.0.sql /workspace/target/release/ruvector-pg17/usr/share/postgresql/17/extension/ruvector--0.1.0.sql && \
-    echo "SQL schema copied with $(grep -c 'CREATE FUNCTION\|CREATE OR REPLACE FUNCTION' /workspace/target/release/ruvector-pg17/usr/share/postgresql/17/extension/ruvector--0.1.0.sql) functions"
+# Copy all SQL schema files (control file default_version=0.3.0 selects the right one)
+RUN for f in /workspace/crates/ruvector-postgres/sql/ruvector--*.sql; do \
+        cp "$f" /workspace/target/release/ruvector-pg17/usr/share/postgresql/17/extension/ ; \
+    done && \
+    echo "SQL schemas copied:" && \
+    ls -1 /workspace/target/release/ruvector-pg17/usr/share/postgresql/17/extension/ruvector--*.sql && \
+    echo "v0.3.0 function count: $(grep -c 'CREATE FUNCTION\|CREATE OR REPLACE FUNCTION' /workspace/target/release/ruvector-pg17/usr/share/postgresql/17/extension/ruvector--0.3.0.sql)"
 
 # Verify the extension files are complete
 RUN ls -la /workspace/target/release/ruvector-pg17/usr/share/postgresql/17/extension/ && \
-    echo "=== First 20 lines of SQL ===" && \
-    head -20 /workspace/target/release/ruvector-pg17/usr/share/postgresql/17/extension/ruvector--0.1.0.sql && \
-    echo "=== CREATE FUNCTION count ===" && \
-    grep -c "CREATE FUNCTION\|CREATE OR REPLACE FUNCTION" /workspace/target/release/ruvector-pg17/usr/share/postgresql/17/extension/ruvector--0.1.0.sql
+    echo "=== Extension control ===" && \
+    cat /workspace/target/release/ruvector-pg17/usr/share/postgresql/17/extension/ruvector.control
 
 # Runtime stage
 FROM postgres:17-bookworm
 
 # Labels
-LABEL maintainer="ruvector team"
-LABEL description="PostgreSQL with ruvector extension - high-performance vector similarity search with local embeddings"
-LABEL version="0.3.0"
+LABEL maintainer="ruvector team <info@ruv.io>"
+LABEL description="PostgreSQL with ruvector extension - high-performance vector database with 270+ SQL functions, Graph/Cypher/SPARQL, GNN, hybrid search, multi-tenancy, self-healing, SONA self-learning, and local embeddings"
+LABEL version="0.3.1"
+LABEL org.opencontainers.image.title="ruvector-postgres"
+LABEL org.opencontainers.image.version="0.3.1"
+LABEL org.opencontainers.image.vendor="ruv.io"
+LABEL org.opencontainers.image.source="https://github.com/ruvnet/ruvector"
+LABEL org.opencontainers.image.description="Drop-in pgvector replacement with SIMD, Flash Attention, GNN, Cypher, SPARQL, hybrid search, multi-tenancy, self-healing, and SONA"
 
 # Set embedding model cache path - models are pre-downloaded during build
 # FASTEMBED_CACHE_DIR is the correct env var for fastembed-rs

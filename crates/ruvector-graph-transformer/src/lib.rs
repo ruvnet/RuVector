@@ -28,8 +28,8 @@
 //! - `economic`: Game-theoretic and incentive-aligned attention
 //! - `full`: All features enabled
 
-pub mod error;
 pub mod config;
+pub mod error;
 pub mod proof_gated;
 
 #[cfg(feature = "sublinear")]
@@ -57,60 +57,51 @@ pub mod temporal;
 pub mod economic;
 
 // Re-exports
-pub use error::{GraphTransformerError, Result};
 pub use config::GraphTransformerConfig;
-pub use proof_gated::{ProofGate, ProofGatedMutation, AttestationChain};
+pub use error::{GraphTransformerError, Result};
+pub use proof_gated::{AttestationChain, ProofGate, ProofGatedMutation};
 
 #[cfg(feature = "sublinear")]
 pub use sublinear_attention::SublinearGraphAttention;
 
 #[cfg(feature = "physics")]
 pub use physics::{
-    HamiltonianGraphNet, HamiltonianState, HamiltonianOutput,
-    GaugeEquivariantMP, GaugeOutput,
-    LagrangianAttention, LagrangianOutput,
-    ConservativePdeAttention, PdeOutput,
+    ConservativePdeAttention, GaugeEquivariantMP, GaugeOutput, HamiltonianGraphNet,
+    HamiltonianOutput, HamiltonianState, LagrangianAttention, LagrangianOutput, PdeOutput,
 };
 
 #[cfg(feature = "biological")]
 pub use biological::{
-    SpikingGraphAttention, HebbianLayer,
-    EffectiveOperator, InhibitionStrategy, HebbianNormBound,
-    HebbianRule, StdpEdgeUpdater, DendriticAttention, BranchAssignment,
-    ScopeTransitionAttestation,
+    BranchAssignment, DendriticAttention, EffectiveOperator, HebbianLayer, HebbianNormBound,
+    HebbianRule, InhibitionStrategy, ScopeTransitionAttestation, SpikingGraphAttention,
+    StdpEdgeUpdater,
 };
 
 #[cfg(feature = "self-organizing")]
-pub use self_organizing::{MorphogeneticField, DevelopmentalProgram, GraphCoarsener};
+pub use self_organizing::{DevelopmentalProgram, GraphCoarsener, MorphogeneticField};
 
 #[cfg(feature = "verified-training")]
 pub use verified_training::{
-    VerifiedTrainer, TrainingCertificate, TrainingInvariant,
-    RollbackStrategy, InvariantStats, ProofClass, TrainingStepResult,
-    EnergyGateResult,
+    EnergyGateResult, InvariantStats, ProofClass, RollbackStrategy, TrainingCertificate,
+    TrainingInvariant, TrainingStepResult, VerifiedTrainer,
 };
 
 #[cfg(feature = "manifold")]
 pub use manifold::{
-    ProductManifoldAttention, ManifoldType, CurvatureAdaptiveRouter,
-    GeodesicMessagePassing, RiemannianAdamOptimizer,
-    LieGroupEquivariantAttention, LieGroupType,
+    CurvatureAdaptiveRouter, GeodesicMessagePassing, LieGroupEquivariantAttention, LieGroupType,
+    ManifoldType, ProductManifoldAttention, RiemannianAdamOptimizer,
 };
 
 #[cfg(feature = "temporal")]
 pub use temporal::{
-    CausalGraphTransformer, MaskStrategy,
-    RetrocausalAttention, BatchModeToken, SmoothedOutput,
-    ContinuousTimeODE, OdeOutput,
-    GrangerCausalityExtractor, GrangerGraph, GrangerEdge, GrangerCausalityResult,
-    AttentionSnapshot,
-    TemporalEdgeEvent, EdgeEventType,
-    TemporalEmbeddingStore, StorageTier,
-    TemporalAttentionResult,
+    AttentionSnapshot, BatchModeToken, CausalGraphTransformer, ContinuousTimeODE, EdgeEventType,
+    GrangerCausalityExtractor, GrangerCausalityResult, GrangerEdge, GrangerGraph, MaskStrategy,
+    OdeOutput, RetrocausalAttention, SmoothedOutput, StorageTier, TemporalAttentionResult,
+    TemporalEdgeEvent, TemporalEmbeddingStore,
 };
 
 #[cfg(feature = "economic")]
-pub use economic::{GameTheoreticAttention, ShapleyAttention, IncentiveAlignedMPNN};
+pub use economic::{GameTheoreticAttention, IncentiveAlignedMPNN, ShapleyAttention};
 
 /// Unified graph transformer entry point.
 ///

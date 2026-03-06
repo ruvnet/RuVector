@@ -13,24 +13,33 @@ use uuid::Uuid;
 
 pub mod qdag;
 
-/// Contribution curve for reward calculation
+/// Contribution curve for reward calculation.
+///
+/// The curve provides a multiplier for early adopters that decays
+/// toward the floor as the network grows. The genesis multiplier
+/// is capped at 5x (reduced from 10x for sustainability), and
+/// a floor of 0.5x ensures contributors always earn something
+/// even when the network is mature.
 pub struct ContributionCurve;
 
 impl ContributionCurve {
-    /// Maximum multiplier for genesis contributors
-    const MAX_BONUS: f32 = 10.0;
+    /// Maximum multiplier for genesis contributors (reduced from 10.0 for sustainability)
+    const MAX_BONUS: f32 = 5.0;
+
+    /// Floor multiplier -- even at massive scale, you still earn 0.5x
+    const FLOOR_MULTIPLIER: f32 = 0.5;
 
     /// Decay constant in CPU-hours (half-life of bonus)
     const DECAY_CONSTANT: f64 = 1_000_000.0;
 
-    /// Calculate current multiplier based on network compute
+    /// Calculate current multiplier based on network compute.
     ///
-    /// Formula: multiplier = 1 + (MAX_BONUS - 1) * e^(-network_compute / DECAY_CONSTANT)
+    /// Formula: multiplier = FLOOR + (MAX_BONUS - FLOOR) * e^(-network_compute / DECAY_CONSTANT)
     ///
-    /// Returns a value between 1.0 (baseline) and MAX_BONUS (genesis)
+    /// Returns a value between FLOOR_MULTIPLIER (mature network) and MAX_BONUS (genesis).
     pub fn current_multiplier(network_compute_hours: f64) -> f32 {
         let decay = (-network_compute_hours / Self::DECAY_CONSTANT).exp();
-        1.0 + (Self::MAX_BONUS - 1.0) * decay as f32
+        Self::FLOOR_MULTIPLIER + (Self::MAX_BONUS - Self::FLOOR_MULTIPLIER) * decay as f32
     }
 
     /// Calculate rewards with multiplier applied
@@ -39,15 +48,32 @@ impl ContributionCurve {
         (base_reward as f32 * multiplier) as u64
     }
 
-    /// Get multiplier tiers for display
+    /// Calculate brain-specific reward with the contribution curve applied.
+    ///
+    /// Brain rewards use the same decay curve but are further scaled by
+    /// a reputation multiplier. This bridges the brain_rewards module
+    /// with the contribution curve.
+    pub fn calculate_brain_reward(
+        base_reward: u64,
+        network_compute_hours: f64,
+        reputation_multiplier: f32,
+    ) -> u64 {
+        let curve_multiplier = Self::current_multiplier(network_compute_hours);
+        let combined = curve_multiplier * reputation_multiplier;
+        (base_reward as f32 * combined) as u64
+    }
+
+    /// Get multiplier tiers for display.
+    ///
+    /// Updated to reflect the reduced MAX_BONUS of 5.0 and floor of 0.5.
     pub fn get_tiers() -> Vec<(f64, f32)> {
         vec![
-            (0.0, 10.0),
-            (100_000.0, 9.1),
-            (500_000.0, 6.1),
-            (1_000_000.0, 4.0),
-            (5_000_000.0, 1.4),
-            (10_000_000.0, 1.0),
+            (0.0, 5.0),
+            (100_000.0, 4.59),
+            (500_000.0, 3.28),
+            (1_000_000.0, 2.16),
+            (5_000_000.0, 0.53),
+            (10_000_000.0, 0.50),
         ]
     }
 }
@@ -286,17 +312,41 @@ mod tests {
 
     #[test]
     fn test_contribution_curve() {
-        // Genesis (0 hours) should give max multiplier
+        // Genesis (0 hours) should give max multiplier (5.0)
         let mult = ContributionCurve::current_multiplier(0.0);
-        assert!((mult - 10.0).abs() < 0.01);
+        assert!((mult - 5.0).abs() < 0.01);
 
-        // At decay constant, should be around 4.3x
+        // At decay constant, should be around 2.16
+        // FLOOR + (MAX - FLOOR) * e^(-1) = 0.5 + 4.5 * 0.368 = 2.16
         let mult = ContributionCurve::current_multiplier(1_000_000.0);
-        assert!(mult > 3.5 && mult < 4.5);
+        assert!(mult > 1.8 && mult < 2.5);
 
-        // At high compute, should approach 1.0
+        // At high compute, should approach FLOOR_MULTIPLIER (0.5)
         let mult = ContributionCurve::current_multiplier(10_000_000.0);
-        assert!(mult < 1.1);
+        assert!(mult >= 0.5);
+        assert!(mult < 0.6);
+    }
+
+    #[test]
+    fn test_contribution_curve_floor() {
+        // Even at extremely high compute, multiplier never goes below 0.5
+        let mult = ContributionCurve::current_multiplier(100_000_000.0);
+        assert!(mult >= 0.5);
+    }
+
+    #[test]
+    fn test_brain_reward_calculation() {
+        // At genesis with Bronze (1.0x rep): 100 * 5.0 * 1.0 = 500
+        let reward = ContributionCurve::calculate_brain_reward(100, 0.0, 1.0);
+        assert_eq!(reward, 500);
+
+        // At genesis with Newcomer (0.5x rep): 100 * 5.0 * 0.5 = 250
+        let reward = ContributionCurve::calculate_brain_reward(100, 0.0, 0.5);
+        assert_eq!(reward, 250);
+
+        // At high compute with Platinum (1.5x rep): 100 * 0.5 * 1.5 = 75
+        let reward = ContributionCurve::calculate_brain_reward(100, 100_000_000.0, 1.5);
+        assert_eq!(reward, 75);
     }
 
     // Tests requiring WASM environment (UUID with js feature)

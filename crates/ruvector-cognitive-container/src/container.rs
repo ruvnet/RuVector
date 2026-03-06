@@ -3,7 +3,9 @@ use serde::{Deserialize, Serialize};
 use crate::epoch::{ContainerEpochBudget, EpochController, Phase};
 use crate::error::{ContainerError, Result};
 use crate::memory::{MemoryConfig, MemorySlab};
-use crate::witness::{CoherenceDecision, ContainerWitnessReceipt, VerificationResult, WitnessChain};
+use crate::witness::{
+    CoherenceDecision, ContainerWitnessReceipt, VerificationResult, WitnessChain,
+};
 
 /// Top-level container configuration.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -209,7 +211,8 @@ impl CognitiveContainer {
         // Phase 4: Evidence
         if self.epoch.try_budget(Phase::Evidence) {
             self.accumulate_evidence();
-            self.epoch.consume(self.evidence.observations.len().max(1) as u64);
+            self.epoch
+                .consume(self.evidence.observations.len().max(1) as u64);
             completed.insert(ComponentMask::EVIDENCE);
         }
 
@@ -362,8 +365,8 @@ impl CognitiveContainer {
         if self.evidence.observations.is_empty() {
             return;
         }
-        let mean: f64 =
-            self.evidence.observations.iter().sum::<f64>() / self.evidence.observations.len() as f64;
+        let mean: f64 = self.evidence.observations.iter().sum::<f64>()
+            / self.evidence.observations.len() as f64;
         self.evidence.accumulated_evidence += mean.abs();
     }
 
@@ -372,7 +375,8 @@ impl CognitiveContainer {
         if self.graph.edges.is_empty() {
             return CoherenceDecision::Inconclusive;
         }
-        if self.spectral.scs >= 0.5 && self.evidence.accumulated_evidence < self.evidence.threshold {
+        if self.spectral.scs >= 0.5 && self.evidence.accumulated_evidence < self.evidence.threshold
+        {
             return CoherenceDecision::Pass;
         }
         if self.spectral.scs < 0.2 {
@@ -417,10 +421,25 @@ mod tests {
         let mut container = default_container();
 
         let deltas = vec![
-            Delta::EdgeAdd { u: 0, v: 1, weight: 1.0 },
-            Delta::EdgeAdd { u: 1, v: 2, weight: 2.0 },
-            Delta::EdgeAdd { u: 2, v: 0, weight: 1.5 },
-            Delta::Observation { node: 0, value: 0.8 },
+            Delta::EdgeAdd {
+                u: 0,
+                v: 1,
+                weight: 1.0,
+            },
+            Delta::EdgeAdd {
+                u: 1,
+                v: 2,
+                weight: 2.0,
+            },
+            Delta::EdgeAdd {
+                u: 2,
+                v: 0,
+                weight: 1.5,
+            },
+            Delta::Observation {
+                node: 0,
+                value: 0.8,
+            },
         ];
 
         let result = container.tick(&deltas).unwrap();
@@ -436,9 +455,13 @@ mod tests {
     #[test]
     fn test_container_snapshot_restore() {
         let mut container = default_container();
-        container.tick(&[
-            Delta::EdgeAdd { u: 0, v: 1, weight: 3.0 },
-        ]).unwrap();
+        container
+            .tick(&[Delta::EdgeAdd {
+                u: 0,
+                v: 1,
+                weight: 3.0,
+            }])
+            .unwrap();
 
         let snap = container.snapshot();
         let json = serde_json::to_string(&snap).expect("serialize snapshot");
@@ -459,9 +482,13 @@ mod tests {
         assert_eq!(r.receipt.decision, CoherenceDecision::Inconclusive);
 
         // Single edge: min-cut/total = 1.0 (high scs), no evidence => Pass
-        let r = container.tick(&[
-            Delta::EdgeAdd { u: 0, v: 1, weight: 5.0 },
-        ]).unwrap();
+        let r = container
+            .tick(&[Delta::EdgeAdd {
+                u: 0,
+                v: 1,
+                weight: 5.0,
+            }])
+            .unwrap();
         assert_eq!(r.receipt.decision, CoherenceDecision::Pass);
     }
 
@@ -469,9 +496,13 @@ mod tests {
     fn test_container_multiple_epochs() {
         let mut container = default_container();
         for i in 0..10 {
-            container.tick(&[
-                Delta::EdgeAdd { u: i, v: i + 1, weight: 1.0 },
-            ]).unwrap();
+            container
+                .tick(&[Delta::EdgeAdd {
+                    u: i,
+                    v: i + 1,
+                    weight: 1.0,
+                }])
+                .unwrap();
         }
         assert_eq!(container.current_epoch(), 10);
 
@@ -492,14 +523,22 @@ mod tests {
     #[test]
     fn test_container_edge_remove() {
         let mut container = default_container();
-        container.tick(&[
-            Delta::EdgeAdd { u: 0, v: 1, weight: 1.0 },
-            Delta::EdgeAdd { u: 1, v: 2, weight: 2.0 },
-        ]).unwrap();
+        container
+            .tick(&[
+                Delta::EdgeAdd {
+                    u: 0,
+                    v: 1,
+                    weight: 1.0,
+                },
+                Delta::EdgeAdd {
+                    u: 1,
+                    v: 2,
+                    weight: 2.0,
+                },
+            ])
+            .unwrap();
 
-        container.tick(&[
-            Delta::EdgeRemove { u: 0, v: 1 },
-        ]).unwrap();
+        container.tick(&[Delta::EdgeRemove { u: 0, v: 1 }]).unwrap();
 
         let snap = container.snapshot();
         assert_eq!(snap.graph_edges.len(), 1);
@@ -509,13 +548,21 @@ mod tests {
     #[test]
     fn test_container_weight_update() {
         let mut container = default_container();
-        container.tick(&[
-            Delta::EdgeAdd { u: 0, v: 1, weight: 1.0 },
-        ]).unwrap();
+        container
+            .tick(&[Delta::EdgeAdd {
+                u: 0,
+                v: 1,
+                weight: 1.0,
+            }])
+            .unwrap();
 
-        container.tick(&[
-            Delta::WeightUpdate { u: 0, v: 1, new_weight: 5.0 },
-        ]).unwrap();
+        container
+            .tick(&[Delta::WeightUpdate {
+                u: 0,
+                v: 1,
+                new_weight: 5.0,
+            }])
+            .unwrap();
 
         let snap = container.snapshot();
         assert_eq!(snap.graph_edges[0].2, 5.0);

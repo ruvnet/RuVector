@@ -5,11 +5,11 @@
 //! 2. Channel establishment
 //! 3. Capability negotiation
 
-use serde::{Deserialize, Serialize};
 use crate::{
-    Result, FederationError, PeerAddress,
-    crypto::{PostQuantumKeypair, EncryptedChannel, SharedSecret},
+    crypto::{EncryptedChannel, PostQuantumKeypair},
+    FederationError, PeerAddress, Result,
 };
+use serde::{Deserialize, Serialize};
 
 /// Capabilities supported by a federation node
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -95,11 +95,11 @@ impl FederationToken {
 ///     RETURN token
 /// ```
 pub async fn join_federation(
-    local_keys: &PostQuantumKeypair,
+    _local_keys: &PostQuantumKeypair,
     peer: &PeerAddress,
 ) -> Result<FederationToken> {
     // Step 1: Post-quantum key exchange
-    let (shared_secret, ciphertext) = PostQuantumKeypair::encapsulate(&peer.public_key)?;
+    let (shared_secret, _ciphertext) = PostQuantumKeypair::encapsulate(&peer.public_key)?;
 
     // Step 2: Establish encrypted channel
     // In real implementation, we would:
@@ -134,26 +134,19 @@ pub async fn join_federation(
 /// Get capabilities supported by this node
 fn get_local_capabilities() -> Vec<Capability> {
     vec![
-        Capability::new("query", "1.0")
-            .with_param("max_results", "1000"),
-        Capability::new("consensus", "1.0")
-            .with_param("algorithm", "pbft"),
-        Capability::new("crdt", "1.0")
-            .with_param("types", "gset,lww"),
-        Capability::new("onion", "1.0")
-            .with_param("max_hops", "5"),
+        Capability::new("query", "1.0").with_param("max_results", "1000"),
+        Capability::new("consensus", "1.0").with_param("algorithm", "pbft"),
+        Capability::new("crdt", "1.0").with_param("types", "gset,lww"),
+        Capability::new("onion", "1.0").with_param("max_hops", "5"),
     ]
 }
 
 /// Simulate peer capabilities (placeholder)
 fn simulate_peer_capabilities() -> Vec<Capability> {
     vec![
-        Capability::new("query", "1.0")
-            .with_param("max_results", "500"),
-        Capability::new("consensus", "1.0")
-            .with_param("algorithm", "pbft"),
-        Capability::new("crdt", "1.0")
-            .with_param("types", "gset,lww,orset"),
+        Capability::new("query", "1.0").with_param("max_results", "500"),
+        Capability::new("consensus", "1.0").with_param("algorithm", "pbft"),
+        Capability::new("crdt", "1.0").with_param("types", "gset,lww,orset"),
     ]
 }
 
@@ -175,14 +168,12 @@ fn negotiate_capabilities(
                 for (key, local_val) in &local_cap.params {
                     if let Some(peer_val) = peer_cap.params.get(key) {
                         // Take minimum value (more conservative)
-                        if let (Ok(local_num), Ok(peer_num)) = (
-                            local_val.parse::<u64>(),
-                            peer_val.parse::<u64>()
-                        ) {
-                            merged.params.insert(
-                                key.clone(),
-                                local_num.min(peer_num).to_string()
-                            );
+                        if let (Ok(local_num), Ok(peer_num)) =
+                            (local_val.parse::<u64>(), peer_val.parse::<u64>())
+                        {
+                            merged
+                                .params
+                                .insert(key.clone(), local_num.min(peer_num).to_string());
                         }
                     }
                 }
@@ -194,7 +185,7 @@ fn negotiate_capabilities(
 
     if negotiated.is_empty() {
         return Err(FederationError::ConsensusError(
-            "No compatible capabilities".to_string()
+            "No compatible capabilities".to_string(),
         ));
     }
 
@@ -211,7 +202,7 @@ fn is_compatible(v1: &str, v2: &str) -> bool {
 
 /// Generate a peer ID from address
 fn generate_peer_id(host: &str, port: u16) -> String {
-    use sha2::{Sha256, Digest};
+    use sha2::{Digest, Sha256};
     let mut hasher = Sha256::new();
     hasher.update(host.as_bytes());
     hasher.update(&port.to_le_bytes());
@@ -242,7 +233,7 @@ mod tests {
         let peer = PeerAddress::new(
             "localhost".to_string(),
             8080,
-            peer_keys.public_key().to_vec()
+            peer_keys.public_key().to_vec(),
         );
 
         let token = join_federation(&local_keys, &peer).await.unwrap();
@@ -254,15 +245,9 @@ mod tests {
 
     #[test]
     fn test_capability_negotiation() {
-        let local = vec![
-            Capability::new("test", "1.0")
-                .with_param("limit", "100"),
-        ];
+        let local = vec![Capability::new("test", "1.0").with_param("limit", "100")];
 
-        let peer = vec![
-            Capability::new("test", "1.0")
-                .with_param("limit", "50"),
-        ];
+        let peer = vec![Capability::new("test", "1.0").with_param("limit", "50")];
 
         let result = negotiate_capabilities(local, peer).unwrap();
 

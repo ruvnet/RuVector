@@ -5,42 +5,41 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![Rust](https://img.shields.io/badge/rust-1.77%2B-orange.svg)](https://www.rust-lang.org)
 
-**Distributed Neo4j-compatible hypergraph database with SIMD optimization and Cypher query support.**
+**A graph database with Cypher queries, hyperedges, and vector search -- all in one crate.**
 
-`ruvector-graph` is a high-performance graph database engine that combines the power of hypergraphs with vector embeddings, enabling semantic graph queries and AI-powered graph analytics. Part of the [Ruvector](https://github.com/ruvnet/ruvector) ecosystem.
+```toml
+[dependencies]
+ruvector-graph = "0.1.1"
+```
 
-## Why Ruvector Graph?
+Most graph databases make you choose: you can have relationships *or* vector search, a query language *or* raw traversals, pairwise edges *or* nothing. `ruvector-graph` gives you all of them together. Write familiar Cypher queries like Neo4j, attach vector embeddings to any node for semantic search, and model complex group relationships with hyperedges that connect three or more nodes at once. It runs on servers, in browsers via WASM, and across clusters with built-in RAFT consensus. Part of the [RuVector](https://github.com/ruvnet/ruvector) ecosystem.
 
-- **Neo4j Compatible**: Cypher query language support for familiar graph queries
-- **Hypergraph Support**: Model complex relationships with edges connecting multiple nodes
-- **Vector-Enhanced**: Combine graph structure with semantic vector search
-- **SIMD Optimized**: Hardware-accelerated operations via SimSIMD
-- **Distributed Ready**: Built-in support for RAFT consensus and federation
-- **WASM Compatible**: Run in browsers with WebAssembly support
+| | ruvector-graph | Neo4j / Typical Graph DB | Vector DB + Custom Glue |
+|---|---|---|---|
+| **Query language** | Full Cypher parser built-in | Cypher (Neo4j) or proprietary | No graph queries |
+| **Hyperedges** | Native -- one edge connects N nodes | Pairwise only -- workarounds needed | Not applicable |
+| **Vector search** | HNSW on every node, semantic similarity | Separate plugin or not available | Vectors only, no graph structure |
+| **SIMD acceleration** | SimSIMD hardware-optimized ops | JVM-based | Varies |
+| **Browser / WASM** | `default-features = false, features = ["wasm"]` | Server only | Server only |
+| **Distributed** | Built-in RAFT consensus + federation | Enterprise tier (paid) | Varies |
+| **Cost** | Free, open source (MIT) | Community or paid license | Varies |
 
-## Features
+## Key Features
 
-### Core Capabilities
-
-- **Hypergraph Model**: Edges can connect any number of nodes
-- **Property Graph**: Rich properties on nodes and edges
-- **Cypher Parser**: Full Cypher query language support
-- **Vector Embeddings**: Semantic similarity on graph elements
-- **HNSW Indexing**: Fast approximate nearest neighbor search
-- **Label Indexes**: Roaring bitmap indexes for efficient label lookups
-
-### Advanced Features
-
-- **Distributed Mode**: RAFT consensus for distributed deployments
-- **Federation**: Cross-cluster graph queries
-- **Compression**: ZSTD and LZ4 support for storage optimization
-- **Metrics**: Prometheus integration for monitoring
-- **Temporal Graphs**: Time-varying graph support (planned)
-- **Full-Text Search**: Text search on properties (planned)
+| Feature | What It Does | Why It Matters |
+|---------|-------------|----------------|
+| **Cypher Engine** | Parse and execute Cypher queries -- `MATCH (a)-[:KNOWS]->(b)` | Use a query language you already know instead of raw traversal code |
+| **Hypergraph Model** | Edges connect any number of nodes, not just pairs | Model meetings, co-authorships, reactions -- any group relationship -- natively |
+| **Vector Embeddings** | Attach embeddings to nodes, run HNSW similarity search | Combine "who is connected to whom" with "what is semantically similar" |
+| **Property Graph** | Rich JSON properties on every node and edge | Store real data on your graph elements, not just IDs |
+| **Label Indexes** | Roaring bitmap indexes for fast label lookups | Filter millions of nodes by label in microseconds |
+| **SIMD Optimized** | Hardware-accelerated distance calculations via SimSIMD | Faster vector operations without changing your code |
+| **Distributed Mode** | RAFT consensus for multi-node deployments | Scale out without bolting on a separate coordination layer |
+| **Federation** | Cross-cluster graph queries | Query across data centers as if they were one graph |
+| **Compression** | ZSTD and LZ4 for storage | Smaller on disk without sacrificing read speed |
+| **WASM Compatible** | Run in browsers with WebAssembly | Same graph engine on server and client |
 
 ## Installation
-
-Add `ruvector-graph` to your `Cargo.toml`:
 
 ```toml
 [dependencies]
@@ -247,7 +246,7 @@ impl Graph {
 
 ```
 Operation               Latency (p50)    Throughput
-─────────────────────────────────────────────────────
+-----------------------------------------------------
 Node lookup             ~0.1ms           100K ops/s
 Edge traversal          ~0.5ms           50K ops/s
 1-hop neighbors         ~1ms             20K ops/s
@@ -265,7 +264,7 @@ Vector similarity       ~2ms             10K ops/s
 
 ## Documentation
 
-- **[Main README](../../README.md)** - Complete project overview
+- **[RuVector README](../../README.md)** - Complete project overview
 - **[API Documentation](https://docs.rs/ruvector-graph)** - Full API reference
 - **[GitHub Repository](https://github.com/ruvnet/ruvector)** - Source code
 
@@ -277,7 +276,7 @@ Vector similarity       ~2ms             10K ops/s
 
 <div align="center">
 
-**Part of [Ruvector](https://github.com/ruvnet/ruvector) - Built by [rUv](https://ruv.io)**
+**Part of [RuVector](https://github.com/ruvnet/ruvector) - Built by [rUv](https://ruv.io)**
 
 [![Star on GitHub](https://img.shields.io/github/stars/ruvnet/ruvector?style=social)](https://github.com/ruvnet/ruvector)
 

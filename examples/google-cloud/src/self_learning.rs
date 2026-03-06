@@ -268,7 +268,8 @@ pub struct AutonomousModel {
 
 impl AutonomousModel {
     pub fn new(input_dim: usize, hidden_dim: usize, _output_dim: usize) -> Self {
-        let gnn_layer = RuvectorLayer::new(input_dim, hidden_dim, 8, 0.1);
+        let gnn_layer = RuvectorLayer::new(input_dim, hidden_dim, 8, 0.1)
+            .expect("Failed to create GNN layer");
 
         let optimizer = Optimizer::new(OptimizerType::Adam {
             learning_rate: 0.001,

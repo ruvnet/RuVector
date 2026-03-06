@@ -1,49 +1,38 @@
 # SONA - Self-Optimizing Neural Architecture
 
-<div align="center">
-
-**Runtime-adaptive learning for LLM routers and AI systems without expensive retraining.**
-
 [![Crates.io](https://img.shields.io/crates/v/ruvector-sona.svg)](https://crates.io/crates/ruvector-sona)
 [![npm](https://img.shields.io/npm/v/@ruvector/sona.svg)](https://www.npmjs.com/package/@ruvector/sona)
 [![Documentation](https://docs.rs/ruvector-sona/badge.svg)](https://docs.rs/ruvector-sona)
 [![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg)](LICENSE)
 
-[Quick Start](#quick-start) | [Tutorials](#tutorials) | [API Reference](#api-reference) | [Benchmarks](#benchmarks)
+**Runtime-adaptive learning for LLM routers and AI systems -- without expensive retraining.**
 
-</div>
-
----
-
-## What is SONA?
-
-SONA (Self-Optimizing Neural Architecture) is a **real-time learning system** that makes your AI applications smarter with every interaction. Instead of expensive model retraining that takes days and costs thousands of dollars, SONA learns from user feedback in **sub-millisecond time**.
-
-### The Problem SONA Solves
-
-Traditional AI systems have a critical limitation: they don't learn from their mistakes in production. When a user gives negative feedback, that information is typically lost or requires manual intervention to address.
-
-| Traditional Approach | Time | Cost | Downtime |
-|---------------------|------|------|----------|
-| Fine-tune model | Days-Weeks | $1,000-$100,000+ | Yes |
-| Retrain from scratch | Weeks-Months | $10,000-$1M+ | Yes |
-| Manual prompt tuning | Hours-Days | Engineering time | No |
-| **SONA** | **<1 millisecond** | **$0** | **No** |
-
-### How It Works
-
-```
-User Query → [SONA Engine] → Model Response → User Feedback
-                  ↑                                 │
-                  └─────── Learning Signal ─────────┘
-                         (< 1ms adaptation)
+```bash
+cargo add ruvector-sona
 ```
 
-SONA uses three key innovations:
+Most AI systems stop learning the moment they leave training. When a user gives bad feedback, that signal is lost -- or fixing it means days of fine-tuning and thousands of dollars. SONA is different. It watches every interaction, learns from feedback in sub-millisecond time, and continuously improves routing, ranking, and responses while your application is running. No retraining, no downtime, no cloud bills. It works in Rust, Node.js, and browsers (WASM).
 
-1. **Two-Tier LoRA**: Fast (MicroLoRA) and deep (BaseLoRA) adaptation layers
-2. **EWC++**: Prevents forgetting previously learned patterns
-3. **ReasoningBank**: Stores and retrieves successful interaction patterns
+| | SONA | Fine-Tuning | Prompt Tuning | RAG Alone |
+|---|---|---|---|---|
+| **Adaptation speed** | <1 ms (real-time) | Days to weeks | Hours to days | No adaptation |
+| **Cost per update** | $0 (local compute) | $1,000-$100,000+ | Engineering time | N/A |
+| **Downtime required** | None | Yes | No | No |
+| **Learns from feedback** | Automatic | Manual pipeline | Manual | No |
+| **Prevents forgetting** | EWC++ built in | Risk of regression | N/A | N/A |
+| **Runs in browser** | Yes (WASM) | No | No | No |
+| **Works offline** | Yes | No (needs GPU cluster) | Yes | Depends |
+
+| Feature | What It Does | Why It Matters |
+|---------|-------------|----------------|
+| **Two-Tier LoRA** | Fast MicroLoRA layer for instant fixes, deeper BaseLoRA for long-term learning | Adapts immediately without sacrificing stability |
+| **EWC++ (Elastic Weight Consolidation)** | Protects important learned weights when absorbing new feedback | Your system never forgets what it already learned |
+| **ReasoningBank** | Stores and retrieves successful interaction patterns | Past successes inform future decisions automatically |
+| **Trajectory Tracking** | Records the full path of each interaction (query, model choice, outcome) | Turns every user session into training data |
+| **WASM Support** | Runs the full learning engine in browsers at near-native speed | On-device personalization with zero server costs |
+| **Node.js Bindings** | Native N-API bindings -- no child processes or HTTP calls | Drop into any JavaScript backend with one `npm install` |
+
+> Part of the [RuVector](https://github.com/ruvnet/ruvector) ecosystem -- the self-learning vector database with graph intelligence.
 
 ---
 

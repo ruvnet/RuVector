@@ -61,6 +61,7 @@ impl From<String> for ExoError {
     }
 }
 
+#[allow(dead_code)]
 type ExoResult<T> = Result<T, ExoError>;
 
 /// Configuration for EXO substrate
@@ -240,8 +241,8 @@ impl ExoSubstrate {
     /// ```
     #[wasm_bindgen(constructor)]
     pub fn new(config: JsValue) -> Result<ExoSubstrate, JsValue> {
-        let config: SubstrateConfig = from_value(config)
-            .map_err(|e| JsValue::from_str(&format!("Invalid config: {}", e)))?;
+        let config: SubstrateConfig =
+            from_value(config).map_err(|e| JsValue::from_str(&format!("Invalid config: {}", e)))?;
 
         // Validate configuration
         if config.dimensions == 0 {
@@ -254,7 +255,12 @@ impl ExoSubstrate {
             "cosine" => ruvector_core::types::DistanceMetric::Cosine,
             "dotproduct" => ruvector_core::types::DistanceMetric::DotProduct,
             "manhattan" => ruvector_core::types::DistanceMetric::Manhattan,
-            _ => return Err(JsValue::from_str(&format!("Unknown distance metric: {}", config.distance_metric))),
+            _ => {
+                return Err(JsValue::from_str(&format!(
+                    "Unknown distance metric: {}",
+                    config.distance_metric
+                )))
+            }
         };
 
         let hnsw_config = if config.use_hnsw {
@@ -274,7 +280,13 @@ impl ExoSubstrate {
         let db = ruvector_core::vector_db::VectorDB::new(db_options)
             .map_err(|e| JsValue::from_str(&format!("Failed to create substrate: {}", e)))?;
 
-        console::log_1(&format!("EXO substrate initialized with {} dimensions", config.dimensions).into());
+        console::log_1(
+            &format!(
+                "EXO substrate initialized with {} dimensions",
+                config.dimensions
+            )
+            .into(),
+        );
 
         Ok(ExoSubstrate {
             db: Arc::new(Mutex::new(db)),
@@ -307,7 +319,8 @@ impl ExoSubstrate {
         };
 
         let db = self.db.lock();
-        let id = db.insert(entry)
+        let id = db
+            .insert(entry)
             .map_err(|e| JsValue::from_str(&format!("Failed to store pattern: {}", e)))?;
 
         console::log_1(&format!("Pattern stored with ID: {}", id).into());
@@ -345,7 +358,8 @@ impl ExoSubstrate {
             };
 
             let db_guard = db.lock();
-            let results = db_guard.search(search_query)
+            let results = db_guard
+                .search(search_query)
                 .map_err(|e| JsValue::from_str(&format!("Search failed: {}", e)))?;
             drop(db_guard);
 
@@ -376,7 +390,8 @@ impl ExoSubstrate {
     #[wasm_bindgen]
     pub fn stats(&self) -> Result<JsValue, JsValue> {
         let db = self.db.lock();
-        let count = db.len()
+        let count = db
+            .len()
             .map_err(|e| JsValue::from_str(&format!("Failed to get stats: {}", e)))?;
 
         let stats = serde_json::json!({
@@ -387,7 +402,8 @@ impl ExoSubstrate {
             "causal_enabled": self.config.enable_causal,
         });
 
-        to_value(&stats).map_err(|e| JsValue::from_str(&format!("Failed to serialize stats: {}", e)))
+        to_value(&stats)
+            .map_err(|e| JsValue::from_str(&format!("Failed to serialize stats: {}", e)))
     }
 
     /// Get a pattern by ID
@@ -400,7 +416,8 @@ impl ExoSubstrate {
     #[wasm_bindgen]
     pub fn get(&self, id: &str) -> Result<Option<Pattern>, JsValue> {
         let db = self.db.lock();
-        let entry = db.get(id)
+        let entry = db
+            .get(id)
             .map_err(|e| JsValue::from_str(&format!("Failed to get pattern: {}", e)))?;
 
         Ok(entry.map(|e| Pattern {

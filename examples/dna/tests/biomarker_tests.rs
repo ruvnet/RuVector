@@ -272,16 +272,19 @@ fn test_mthfr_comt_interaction() {
     // MTHFR A1298C hom + COMT Met/Met should amplify neurological score
     let mut gts_both = HashMap::new();
     gts_both.insert("rs1801131".to_string(), "GG".to_string()); // A1298C hom_alt
-    gts_both.insert("rs4680".to_string(), "AA".to_string());    // COMT Met/Met
+    gts_both.insert("rs4680".to_string(), "AA".to_string()); // COMT Met/Met
     let both = compute_risk_scores(&gts_both);
 
     let mut gts_one = HashMap::new();
-    gts_one.insert("rs4680".to_string(), "AA".to_string());     // COMT Met/Met only
+    gts_one.insert("rs4680".to_string(), "AA".to_string()); // COMT Met/Met only
     let one = compute_risk_scores(&gts_one);
 
     let n_both = both.category_scores.get("Neurological").unwrap().score;
     let n_one = one.category_scores.get("Neurological").unwrap().score;
-    assert!(n_both > n_one, "MTHFR×COMT interaction should amplify: {n_both} > {n_one}");
+    assert!(
+        n_both > n_one,
+        "MTHFR×COMT interaction should amplify: {n_both} > {n_one}"
+    );
 }
 
 #[test]
@@ -289,7 +292,7 @@ fn test_drd2_comt_interaction() {
     // DRD2 Taq1A + COMT variant should amplify neurological score
     let mut gts = HashMap::new();
     gts.insert("rs1800497".to_string(), "AA".to_string()); // DRD2 hom_alt
-    gts.insert("rs4680".to_string(), "AA".to_string());    // COMT Met/Met
+    gts.insert("rs4680".to_string(), "AA".to_string()); // COMT Met/Met
     let with = compute_risk_scores(&gts);
 
     let mut gts2 = HashMap::new();
@@ -298,7 +301,10 @@ fn test_drd2_comt_interaction() {
 
     let n_with = with.category_scores.get("Neurological").unwrap().score;
     let n_without = without.category_scores.get("Neurological").unwrap().score;
-    assert!(n_with > n_without, "DRD2×COMT interaction should amplify: {n_with} > {n_without}");
+    assert!(
+        n_with > n_without,
+        "DRD2×COMT interaction should amplify: {n_with} > {n_without}"
+    );
 }
 
 // ============================================================================
@@ -312,40 +318,66 @@ fn test_apoe_lowers_hdl_in_population() {
     for p in &pop {
         let hdl = p.biomarker_values.get("HDL").copied().unwrap_or(0.0);
         // APOE carriers have elevated neurological scores from rs429358
-        let neuro = p.category_scores.get("Neurological").map(|c| c.score).unwrap_or(0.0);
-        if neuro > 0.3 { apoe_hdl.push(hdl); } else { ref_hdl.push(hdl); }
+        let neuro = p
+            .category_scores
+            .get("Neurological")
+            .map(|c| c.score)
+            .unwrap_or(0.0);
+        if neuro > 0.3 {
+            apoe_hdl.push(hdl);
+        } else {
+            ref_hdl.push(hdl);
+        }
     }
     if !apoe_hdl.is_empty() && !ref_hdl.is_empty() {
         let avg_apoe = apoe_hdl.iter().sum::<f64>() / apoe_hdl.len() as f64;
         let avg_ref = ref_hdl.iter().sum::<f64>() / ref_hdl.len() as f64;
-        assert!(avg_apoe < avg_ref, "APOE e4 should lower HDL: {avg_apoe} < {avg_ref}");
+        assert!(
+            avg_apoe < avg_ref,
+            "APOE e4 should lower HDL: {avg_apoe} < {avg_ref}"
+        );
     }
 }
 
 #[test]
 fn test_cusum_changepoint_detection() {
-    let mut p = StreamProcessor::new(StreamConfig { window_size: 20, ..Default::default() });
+    let mut p = StreamProcessor::new(StreamConfig {
+        window_size: 20,
+        ..Default::default()
+    });
     // Establish baseline
     for i in 0..30 {
         p.process_reading(&BiomarkerReading {
-            timestamp_ms: i * 1000, biomarker_id: "glucose".into(),
-            value: 85.0, reference_low: 70.0, reference_high: 100.0,
-            is_anomaly: false, z_score: 0.0,
+            timestamp_ms: i * 1000,
+            biomarker_id: "glucose".into(),
+            value: 85.0,
+            reference_low: 70.0,
+            reference_high: 100.0,
+            is_anomaly: false,
+            z_score: 0.0,
         });
     }
     // Inject a sustained shift (changepoint)
     for i in 30..50 {
         p.process_reading(&BiomarkerReading {
-            timestamp_ms: i * 1000, biomarker_id: "glucose".into(),
-            value: 120.0, reference_low: 70.0, reference_high: 100.0,
-            is_anomaly: false, z_score: 0.0,
+            timestamp_ms: i * 1000,
+            biomarker_id: "glucose".into(),
+            value: 120.0,
+            reference_low: 70.0,
+            reference_high: 100.0,
+            is_anomaly: false,
+            z_score: 0.0,
         });
     }
     let stats = p.get_stats("glucose").unwrap();
     // After sustained shift, CUSUM should have triggered at least once
     // (changepoint_detected resets after trigger, but the sustained shift
     // will keep re-triggering, so the final state may or may not be true)
-    assert!(stats.mean > 90.0, "Mean should shift upward after changepoint: {}", stats.mean);
+    assert!(
+        stats.mean > 90.0,
+        "Mean should shift upward after changepoint: {}",
+        stats.mean
+    );
 }
 
 #[test]

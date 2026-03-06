@@ -430,7 +430,7 @@ impl CognitiveEmbryogenesis {
 
         // Anterior-posterior gradient
         let ap_gradient: Vec<f64> = (0..gradient_length)
-            .map(|i| (i as f64 / gradient_length as f64))
+            .map(|i| i as f64 / gradient_length as f64)
             .collect();
         self.gradients
             .insert("anterior_posterior".to_string(), ap_gradient);

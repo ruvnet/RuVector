@@ -7,10 +7,7 @@
 //!
 //! Result: quantization goes from heuristic to certified transform.
 
-use ruvector_verified::{
-    ProofEnvironment,
-    proof_store, vector_types,
-};
+use ruvector_verified::{proof_store, vector_types, ProofEnvironment};
 
 /// Proof that quantization preserved dimensional and metric invariants.
 #[derive(Debug)]
@@ -71,13 +68,11 @@ pub fn certify_quantization(
     };
 
     // 3. Prove dimension equality between original and quantized
-    let _eq_proof = vector_types::prove_dim_eq(
-        &mut env, original.len() as u32, quantized.len() as u32,
-    );
+    let _eq_proof =
+        vector_types::prove_dim_eq(&mut env, original.len() as u32, quantized.len() as u32);
 
     // 4. Prove metric type is valid
-    let metric_id = vector_types::mk_distance_metric(&mut env, metric)
-        .unwrap_or(0);
+    let metric_id = vector_types::mk_distance_metric(&mut env, metric).unwrap_or(0);
 
     // 5. Compute reconstruction error (L2 norm of difference)
     let error: f32 = original

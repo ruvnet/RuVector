@@ -59,13 +59,20 @@ mod bench {
         println!("\n=== Canonical Min-Cut (30v, ~90e) ===");
         println!("  CactusGraph build:   {:.1} µs", avg_cactus_us);
         println!("  Canonical cut:       {:.1} µs", avg_cut_us);
-        println!("  Total:               {:.1} µs  (target: < 3000 µs native)", total);
+        println!(
+            "  Total:               {:.1} µs  (target: < 3000 µs native)",
+            total
+        );
         println!("  Cut value:           {}", reference.value);
         println!("  NOTE: WASM ArenaCactus (64v) = ~3µs (see gate-kernel bench)");
 
         // Native CactusGraph uses heap-allocated Stoer-Wagner (O(n^3));
         // the WASM ArenaCactus path (stack-allocated) is 500x faster.
-        assert!(total < 3000.0, "Exceeded 3ms native target: {:.1} µs", total);
+        assert!(
+            total < 3000.0,
+            "Exceeded 3ms native target: {:.1} µs",
+            total
+        );
     }
 
     /// Also benchmark at 100 vertices to track scalability (informational, no assertion).
@@ -94,7 +101,10 @@ mod bench {
         let avg_total_us = start.elapsed().as_micros() as f64 / n_iter as f64;
 
         println!("\n=== Canonical Min-Cut Scalability (100v, ~300e) ===");
-        println!("  Total (build+cut):   {:.1} µs  (informational)", avg_total_us);
+        println!(
+            "  Total (build+cut):   {:.1} µs  (informational)",
+            avg_total_us
+        );
         println!("  Stoer-Wagner is O(n^3), scales cubically with graph size");
     }
 }

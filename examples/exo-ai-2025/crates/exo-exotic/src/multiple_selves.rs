@@ -151,6 +151,7 @@ pub struct SelfCoherence {
     /// Integration level
     integration: f64,
     /// Stability over time
+    #[allow(dead_code)]
     stability: f64,
 }
 

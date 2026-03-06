@@ -16,7 +16,9 @@
 //! - [`DendriticAttention`]: Multi-compartment dendritic attention model
 
 #[cfg(feature = "biological")]
-use ruvector_verified::{ProofEnvironment, prove_dim_eq, proof_store::create_attestation, ProofAttestation};
+use ruvector_verified::{
+    proof_store::create_attestation, prove_dim_eq, ProofAttestation, ProofEnvironment,
+};
 
 #[cfg(feature = "biological")]
 use crate::config::BiologicalConfig;
@@ -65,7 +67,9 @@ impl EffectiveOperator {
         }
 
         // Initialize random-ish vector (deterministic for reproducibility)
-        let mut v: Vec<f32> = (0..n).map(|i| ((i as f32 + 1.0).sin()).abs() + 0.1).collect();
+        let mut v: Vec<f32> = (0..n)
+            .map(|i| ((i as f32 + 1.0).sin()).abs() + 0.1)
+            .collect();
         let mut eigenvalue_estimates = Vec::with_capacity(self.num_iterations);
 
         for _ in 0..self.num_iterations {
@@ -102,8 +106,8 @@ impl EffectiveOperator {
         }
 
         let estimated = *eigenvalue_estimates.last().unwrap();
-        let mean: f32 = eigenvalue_estimates.iter().sum::<f32>()
-            / eigenvalue_estimates.len() as f32;
+        let mean: f32 =
+            eigenvalue_estimates.iter().sum::<f32>() / eigenvalue_estimates.len() as f32;
         let variance: f32 = eigenvalue_estimates
             .iter()
             .map(|x| (x - mean).powi(2))
@@ -388,7 +392,11 @@ impl HebbianRule {
                 // theta slides toward mean post^2 but we use theta_init as fixed approx
                 lr * pre * post * (post - theta_init)
             }
-            HebbianRule::STDP { a_plus, a_minus, tau } => {
+            HebbianRule::STDP {
+                a_plus,
+                a_minus,
+                tau,
+            } => {
                 if let Some(dt) = dt_spike {
                     if dt > 0.0 {
                         a_plus * (-dt / tau).exp() * lr
@@ -563,18 +571,15 @@ impl StdpEdgeUpdater {
             }
         }
 
-        let new_edges_list: Vec<(usize, usize)> =
-            keep_indices.iter().map(|&i| edges[i]).collect();
-        let new_weights_list: Vec<f32> =
-            keep_indices.iter().map(|&i| weights[i]).collect();
+        let new_edges_list: Vec<(usize, usize)> = keep_indices.iter().map(|&i| edges[i]).collect();
+        let new_weights_list: Vec<f32> = keep_indices.iter().map(|&i| weights[i]).collect();
 
         *edges = new_edges_list;
         *weights = new_weights_list;
 
         // Phase 2: Grow new edges between highly active but unconnected nodes
         let mut grown = Vec::new();
-        let existing: std::collections::HashSet<(usize, usize)> =
-            edges.iter().cloned().collect();
+        let existing: std::collections::HashSet<(usize, usize)> = edges.iter().cloned().collect();
 
         // Find highly active nodes
         let mut active_nodes: Vec<(usize, f32)> = node_activity
@@ -593,7 +598,8 @@ impl StdpEdgeUpdater {
                 }
                 let (ni, _) = active_nodes[i];
                 let (nj, _) = active_nodes[j];
-                if ni < num_nodes && nj < num_nodes
+                if ni < num_nodes
+                    && nj < num_nodes
                     && !existing.contains(&(ni, nj))
                     && !existing.contains(&(nj, ni))
                 {
@@ -699,10 +705,7 @@ impl DendriticAttention {
     /// Each neuron's input features are split across dendritic branches according
     /// to the assignment strategy. Branch activations are computed as weighted sums,
     /// then integrated non-linearly at the soma.
-    pub fn forward(
-        &mut self,
-        node_features: &[Vec<f32>],
-    ) -> Result<DendriticResult> {
+    pub fn forward(&mut self, node_features: &[Vec<f32>]) -> Result<DendriticResult> {
         let n = node_features.len();
         if n == 0 {
             return Ok(DendriticResult {
@@ -752,9 +755,7 @@ impl DendriticAttention {
             } else {
                 // Subthreshold: linear weighted sum
                 let total_activation: f32 = branch_activations.iter().sum();
-                let scale = (total_activation / self.num_branches as f32)
-                    .abs()
-                    .min(1.0);
+                let scale = (total_activation / self.num_branches as f32).abs().min(1.0);
                 features.iter().map(|&x| x * scale).collect()
             };
 
@@ -946,8 +947,11 @@ impl SpikingGraphAttention {
         }
 
         // Apply inhibition strategy
-        self.inhibition
-            .apply(&mut self.membrane_potentials, &mut spikes, self.config.threshold);
+        self.inhibition.apply(
+            &mut self.membrane_potentials,
+            &mut spikes,
+            self.config.threshold,
+        );
 
         // Update weights via STDP
         let mut new_weights = weights.to_vec();
@@ -985,9 +989,9 @@ impl SpikingGraphAttention {
         }
 
         // Verify weight bounds
-        let all_bounded = new_weights.iter().all(|row| {
-            row.iter().all(|&w| w.abs() <= self.config.max_weight)
-        });
+        let all_bounded = new_weights
+            .iter()
+            .all(|row| row.iter().all(|&w| w.abs() <= self.config.max_weight));
 
         let attestation = if all_bounded {
             let dim_u32 = self.dim as u32;
@@ -1070,8 +1074,8 @@ impl HebbianLayer {
 
         let decay = 0.01;
         for i in 0..weights.len().min(self.dim) {
-            let hebb = pre_activity[i % pre_activity.len()]
-                * post_activity[i % post_activity.len()];
+            let hebb =
+                pre_activity[i % pre_activity.len()] * post_activity[i % post_activity.len()];
             weights[i] += self.learning_rate * (hebb - decay * weights[i]);
             weights[i] = weights[i].clamp(-self.max_weight, self.max_weight);
         }
@@ -1211,16 +1215,15 @@ mod tests {
             max_weight: 5.0,
         };
         let mut sga = SpikingGraphAttention::with_inhibition(
-            10, 4, config, InhibitionStrategy::WinnerTakeAll { k: 3 },
+            10,
+            4,
+            config,
+            InhibitionStrategy::WinnerTakeAll { k: 3 },
         );
 
         // Create features that will cause many spikes
-        let features: Vec<Vec<f32>> = (0..10)
-            .map(|i| vec![0.5 + 0.1 * i as f32; 4])
-            .collect();
-        let weights: Vec<Vec<f32>> = (0..10)
-            .map(|_| vec![0.1; 10])
-            .collect();
+        let features: Vec<Vec<f32>> = (0..10).map(|i| vec![0.5 + 0.1 * i as f32; 4]).collect();
+        let weights: Vec<Vec<f32>> = (0..10).map(|_| vec![0.1; 10]).collect();
         let adjacency: Vec<(usize, usize)> = (0..10)
             .flat_map(|i| (0..10).filter(move |&j| i != j).map(move |j| (i, j)))
             .collect();
@@ -1255,12 +1258,13 @@ mod tests {
             max_weight: 5.0,
         };
         let mut sga = SpikingGraphAttention::with_inhibition(
-            5, 4, config, InhibitionStrategy::Lateral { strength: 0.8 },
+            5,
+            4,
+            config,
+            InhibitionStrategy::Lateral { strength: 0.8 },
         );
 
-        let features: Vec<Vec<f32>> = (0..5)
-            .map(|_| vec![0.6; 4])
-            .collect();
+        let features: Vec<Vec<f32>> = (0..5).map(|_| vec![0.6; 4]).collect();
         let weights = vec![vec![0.1; 5]; 5];
         let adjacency = vec![(0, 1), (1, 2), (2, 3), (3, 4)];
 
@@ -1284,13 +1288,16 @@ mod tests {
             max_weight: 5.0,
         };
         let mut sga = SpikingGraphAttention::with_inhibition(
-            8, 4, config,
-            InhibitionStrategy::BalancedEI { ei_ratio: 0.5, dale_law: true },
+            8,
+            4,
+            config,
+            InhibitionStrategy::BalancedEI {
+                ei_ratio: 0.5,
+                dale_law: true,
+            },
         );
 
-        let features: Vec<Vec<f32>> = (0..8)
-            .map(|i| vec![0.4 + 0.05 * i as f32; 4])
-            .collect();
+        let features: Vec<Vec<f32>> = (0..8).map(|i| vec![0.4 + 0.05 * i as f32; 4]).collect();
         let weights = vec![vec![0.1; 8]; 8];
         let adjacency: Vec<(usize, usize)> = (0..8)
             .flat_map(|i| (0..8).filter(move |&j| i != j).map(move |j| (i, j)))
@@ -1316,17 +1323,19 @@ mod tests {
     #[test]
     fn test_stdp_edge_updater_weight_update() {
         let mut updater = StdpEdgeUpdater::new(
-            0.001,  // prune_threshold
-            0.5,    // growth_threshold
+            0.001,       // prune_threshold
+            0.5,         // growth_threshold
             (-1.0, 1.0), // weight_bounds
-            5,      // max_new_edges_per_epoch
+            5,           // max_new_edges_per_epoch
         );
 
         let edges = vec![(0, 1), (1, 2), (0, 2)];
         let mut weights = vec![0.5, 0.3, 0.1];
         let spike_times = vec![1.0, 2.0, 1.5]; // node 0 spikes at t=1, node 1 at t=2, etc.
 
-        let att = updater.update_weights(&edges, &mut weights, &spike_times).unwrap();
+        let att = updater
+            .update_weights(&edges, &mut weights, &spike_times)
+            .unwrap();
 
         // Weights should have been modified by STDP
         assert!(weights[0] != 0.5 || weights[1] != 0.3 || weights[2] != 0.1);
@@ -1341,10 +1350,10 @@ mod tests {
     #[test]
     fn test_stdp_edge_updater_rewire_topology() {
         let mut updater = StdpEdgeUpdater::new(
-            0.05,   // prune_threshold: prune edges with |w| < 0.05
-            0.3,    // growth_threshold: nodes with activity > 0.3 can grow edges
+            0.05, // prune_threshold: prune edges with |w| < 0.05
+            0.3,  // growth_threshold: nodes with activity > 0.3 can grow edges
             (-1.0, 1.0),
-            3,      // max 3 new edges per epoch
+            3, // max 3 new edges per epoch
         );
 
         let mut edges = vec![(0, 1), (1, 2), (2, 3), (0, 3)];
@@ -1358,11 +1367,22 @@ mod tests {
         assert!(scope_att.is_valid());
 
         let (pruned, grown, att) = updater
-            .rewire_topology(&mut edges, &mut weights, num_nodes, &node_activity, &scope_att)
+            .rewire_topology(
+                &mut edges,
+                &mut weights,
+                num_nodes,
+                &node_activity,
+                &scope_att,
+            )
             .unwrap();
 
         // Should have pruned edges with weight < 0.05
-        assert_eq!(pruned.len(), 2, "expected 2 pruned edges, got {}", pruned.len());
+        assert_eq!(
+            pruned.len(),
+            2,
+            "expected 2 pruned edges, got {}",
+            pruned.len()
+        );
         assert!(pruned.contains(&(1, 2)));
         assert!(pruned.contains(&(0, 3)));
 
@@ -1394,9 +1414,8 @@ mod tests {
         // happy path works correctly.
         let mut env = ProofEnvironment::new();
         let scope_att = ScopeTransitionAttestation::create(&mut env, "test_scope").unwrap();
-        let result = updater.rewire_topology(
-            &mut edges, &mut weights, 2, &node_activity, &scope_att,
-        );
+        let result =
+            updater.rewire_topology(&mut edges, &mut weights, 2, &node_activity, &scope_att);
         assert!(result.is_ok());
     }
 
@@ -1417,11 +1436,14 @@ mod tests {
         // Run many updates with Oja's rule
         for _ in 0..100 {
             hebb.update_with_rule(
-                &pre, &post, &mut weights,
+                &pre,
+                &post,
+                &mut weights,
                 &HebbianRule::Oja,
                 Some(&norm_bound),
                 None,
-            ).unwrap();
+            )
+            .unwrap();
         }
 
         // Norm should be within the bound
@@ -1453,11 +1475,14 @@ mod tests {
 
         for _ in 0..200 {
             hebb.update_with_rule(
-                &pre, &post, &mut weights,
+                &pre,
+                &post,
+                &mut weights,
                 &HebbianRule::BCM { theta_init: 0.5 },
                 Some(&norm_bound),
                 Some(&fisher),
-            ).unwrap();
+            )
+            .unwrap();
         }
 
         // Fisher-weighted norm should be within bound
@@ -1467,10 +1492,10 @@ mod tests {
     #[test]
     fn test_dendritic_attention_basic_forward() {
         let mut da = DendriticAttention::new(
-            3,    // 3 dendritic branches
-            6,    // feature dim
+            3, // 3 dendritic branches
+            6, // feature dim
             BranchAssignment::RoundRobin,
-            0.5,  // plateau threshold
+            0.5, // plateau threshold
         );
 
         let features = vec![
@@ -1494,37 +1519,25 @@ mod tests {
 
     #[test]
     fn test_dendritic_attention_feature_clustered() {
-        let mut da = DendriticAttention::new(
-            2,
-            4,
-            BranchAssignment::FeatureClustered,
-            0.3,
-        );
+        let mut da = DendriticAttention::new(2, 4, BranchAssignment::FeatureClustered, 0.3);
 
-        let features = vec![
-            vec![1.0, 0.9, 0.1, 0.05],
-        ];
+        let features = vec![vec![1.0, 0.9, 0.1, 0.05]];
 
         let result = da.forward(&features).unwrap();
         assert_eq!(result.output.len(), 1);
         assert_eq!(result.output[0].len(), 4);
         // High values in first branch should trigger plateau
-        assert!(result.plateaus[0], "expected plateau from high-valued features");
+        assert!(
+            result.plateaus[0],
+            "expected plateau from high-valued features"
+        );
     }
 
     #[test]
     fn test_dendritic_attention_learned_assignment() {
-        let mut da = DendriticAttention::new(
-            4,
-            8,
-            BranchAssignment::Learned,
-            0.4,
-        );
+        let mut da = DendriticAttention::new(4, 8, BranchAssignment::Learned, 0.4);
 
-        let features = vec![
-            vec![0.5; 8],
-            vec![0.1; 8],
-        ];
+        let features = vec![vec![0.5; 8], vec![0.1; 8]];
 
         let result = da.forward(&features).unwrap();
         assert_eq!(result.output.len(), 2);

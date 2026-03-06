@@ -23,9 +23,7 @@ fn test_proof_gate_roundtrip() {
 
     // Prove with some data
     let data: Vec<f32> = vec![0.5; 64];
-    let att = gt
-        .prove_and_mutate(gate, &data)
-        .expect("prove_and_mutate");
+    let att = gt.prove_and_mutate(gate, &data).expect("prove_and_mutate");
 
     assert!(!att.is_undefined());
     assert!(!att.is_null());

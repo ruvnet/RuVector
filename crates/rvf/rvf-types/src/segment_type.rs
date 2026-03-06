@@ -69,6 +69,18 @@ pub enum SegmentType {
     PolicyKernel = 0x31,
     /// Cost curve convergence data for acceleration tracking.
     CostCurve = 0x32,
+    /// Federated learning export manifest: contributor pseudonym, export timestamp,
+    /// included segment IDs, privacy budget spent, format version.
+    FederatedManifest = 0x33,
+    /// Differential privacy attestation: epsilon/delta values, noise mechanism,
+    /// sensitivity bounds, clipping parameters.
+    DiffPrivacyProof = 0x34,
+    /// PII stripping attestation: redacted fields, rules fired,
+    /// hash of pre-redaction content.
+    RedactionLog = 0x35,
+    /// Federated-averaged SONA weights: aggregated LoRA deltas,
+    /// participation count, round number, convergence metrics.
+    AggregateWeights = 0x36,
 }
 
 impl TryFrom<u8> for SegmentType {
@@ -101,6 +113,10 @@ impl TryFrom<u8> for SegmentType {
             0x30 => Ok(Self::TransferPrior),
             0x31 => Ok(Self::PolicyKernel),
             0x32 => Ok(Self::CostCurve),
+            0x33 => Ok(Self::FederatedManifest),
+            0x34 => Ok(Self::DiffPrivacyProof),
+            0x35 => Ok(Self::RedactionLog),
+            0x36 => Ok(Self::AggregateWeights),
             other => Err(other),
         }
     }
@@ -138,6 +154,10 @@ mod tests {
             SegmentType::TransferPrior,
             SegmentType::PolicyKernel,
             SegmentType::CostCurve,
+            SegmentType::FederatedManifest,
+            SegmentType::DiffPrivacyProof,
+            SegmentType::RedactionLog,
+            SegmentType::AggregateWeights,
         ];
         for v in variants {
             let raw = v as u8;
@@ -148,7 +168,7 @@ mod tests {
     #[test]
     fn invalid_value_returns_err() {
         assert_eq!(SegmentType::try_from(0x12), Err(0x12));
-        assert_eq!(SegmentType::try_from(0x33), Err(0x33));
+        assert_eq!(SegmentType::try_from(0x37), Err(0x37));
         assert_eq!(SegmentType::try_from(0xF0), Err(0xF0));
         assert_eq!(SegmentType::try_from(0xFF), Err(0xFF));
     }
@@ -158,6 +178,14 @@ mod tests {
         assert_eq!(SegmentType::TransferPrior as u8, 0x30);
         assert_eq!(SegmentType::PolicyKernel as u8, 0x31);
         assert_eq!(SegmentType::CostCurve as u8, 0x32);
+    }
+
+    #[test]
+    fn federation_discriminants() {
+        assert_eq!(SegmentType::FederatedManifest as u8, 0x33);
+        assert_eq!(SegmentType::DiffPrivacyProof as u8, 0x34);
+        assert_eq!(SegmentType::RedactionLog as u8, 0x35);
+        assert_eq!(SegmentType::AggregateWeights as u8, 0x36);
     }
 
     #[test]

@@ -7,11 +7,7 @@
 //!
 //! Result: reproducible physics at the embedding layer.
 
-use ruvector_verified::{
-    ProofEnvironment,
-    pipeline::compose_chain,
-    proof_store, vector_types,
-};
+use ruvector_verified::{pipeline::compose_chain, proof_store, vector_types, ProofEnvironment};
 
 /// A simulation step with its proof.
 #[derive(Debug)]
@@ -62,8 +58,8 @@ pub fn run_verified_simulation(
         .map(|(i, name)| (name.to_string(), i as u32 + 1, i as u32 + 2))
         .collect();
 
-    let (_in_ty, _out_ty, pipeline_proof) = compose_chain(&chain, &mut env)
-        .map_err(|e| format!("pipeline: {e}"))?;
+    let (_in_ty, _out_ty, pipeline_proof) =
+        compose_chain(&chain, &mut env).map_err(|e| format!("pipeline: {e}"))?;
     let att = proof_store::create_attestation(&env, pipeline_proof);
 
     Ok(VerifiedSimulation {
@@ -106,6 +102,10 @@ mod tests {
         let tensors: Vec<Vec<f32>> = (0..100).map(|_| vec![0.1f32; 16]).collect();
         let stages = &["encode", "transform", "decode"];
         let sim = run_verified_simulation("sim-003", &tensors, 16, stages).unwrap();
-        assert!(sim.total_proofs >= 4, "expected >=4 proofs, got {}", sim.total_proofs);
+        assert!(
+            sim.total_proofs >= 4,
+            "expected >=4 proofs, got {}",
+            sim.total_proofs
+        );
     }
 }

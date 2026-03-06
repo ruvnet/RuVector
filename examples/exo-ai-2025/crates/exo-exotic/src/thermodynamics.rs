@@ -21,7 +21,6 @@
 
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, VecDeque};
-use uuid::Uuid;
 
 /// Cognitive thermodynamics system
 #[derive(Debug)]

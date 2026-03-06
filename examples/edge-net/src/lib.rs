@@ -56,6 +56,7 @@ pub mod swarm;
 pub mod capabilities;
 pub mod compute;
 pub mod ai;
+pub mod economics;
 
 use identity::WasmNodeIdentity;
 use learning::NetworkLearning;

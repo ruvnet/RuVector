@@ -106,10 +106,7 @@ impl CactusNode {
 // Compile-time size check: repr(C) layout is 12 bytes
 // (u16 + u16 + u8 + u8 + 2-pad + u32 = 12, aligned to 4)
 // 256 nodes * 12 = 3072 bytes (~3KB), fits in 14.5KB headroom.
-const _: () = assert!(
-    size_of::<CactusNode>() == 12,
-    "CactusNode must be 12 bytes"
-);
+const _: () = assert!(size_of::<CactusNode>() == 12, "CactusNode must be 12 bytes");
 
 /// Arena-allocated cactus tree for a single tile (up to 256 vertices).
 ///
@@ -329,7 +326,8 @@ impl ArenaCactus {
                 let node_v = comp_to_node[cv];
                 let node_p = comp_to_node[cp];
 
-                if node_v < 256 && node_p < 256
+                if node_v < 256
+                    && node_p < 256
                     && cactus.nodes[node_v as usize].parent == CactusNode::NO_PARENT
                     && node_v != cactus.root
                 {
@@ -390,10 +388,8 @@ impl ArenaCactus {
             for adj in neighbors {
                 let eid = adj.edge_id as usize;
                 if eid < graph.edges.len() && graph.edges[eid].is_active() {
-                    weight_sum =
-                        weight_sum.saturating_add(FixedPointWeight::from_u16_weight(
-                            graph.edges[eid].weight,
-                        ));
+                    weight_sum = weight_sum
+                        .saturating_add(FixedPointWeight::from_u16_weight(graph.edges[eid].weight));
                 }
             }
             if weight_sum < min_weight {
@@ -902,7 +898,10 @@ mod tests {
         g.recompute_components();
 
         let cactus = ArenaCactus::build_from_compact_graph(&g);
-        assert!(cactus.n_nodes >= 2, "Single edge should have 2 cactus nodes");
+        assert!(
+            cactus.n_nodes >= 2,
+            "Single edge should have 2 cactus nodes"
+        );
 
         let partition = cactus.canonical_partition();
         // One vertex on each side

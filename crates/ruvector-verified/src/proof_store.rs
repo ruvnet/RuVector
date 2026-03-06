@@ -5,8 +5,8 @@
 //! computed using SipHash-2-4 keyed MAC over actual proof content,
 //! not placeholder values.
 
-use std::hash::{Hash, Hasher};
 use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
 
 /// Witness type code for formal verification proofs.
 /// Extends existing codes: 0x01=PROVENANCE, 0x02=COMPUTATION.
@@ -79,18 +79,13 @@ impl ProofAttestation {
         let mut environment_hash = [0u8; 32];
         environment_hash.copy_from_slice(&data[32..64]);
 
-        let verification_timestamp_ns = u64::from_le_bytes(
-            data[64..72].try_into().map_err(|_| "bad timestamp")?
-        );
-        let verifier_version = u32::from_le_bytes(
-            data[72..76].try_into().map_err(|_| "bad version")?
-        );
-        let reduction_steps = u32::from_le_bytes(
-            data[76..80].try_into().map_err(|_| "bad steps")?
-        );
-        let cache_hit_rate_bps = u16::from_le_bytes(
-            data[80..82].try_into().map_err(|_| "bad rate")?
-        );
+        let verification_timestamp_ns =
+            u64::from_le_bytes(data[64..72].try_into().map_err(|_| "bad timestamp")?);
+        let verifier_version =
+            u32::from_le_bytes(data[72..76].try_into().map_err(|_| "bad version")?);
+        let reduction_steps = u32::from_le_bytes(data[76..80].try_into().map_err(|_| "bad steps")?);
+        let cache_hit_rate_bps =
+            u16::from_le_bytes(data[80..82].try_into().map_err(|_| "bad rate")?);
 
         Ok(Self {
             proof_term_hash,
@@ -129,10 +124,7 @@ fn siphash_256(data: &[u8]) -> [u8; 32] {
 ///
 /// Hashes are computed over actual proof and environment state, not placeholder
 /// values, providing tamper detection for proof attestations (SEC-002 fix).
-pub fn create_attestation(
-    env: &crate::ProofEnvironment,
-    proof_id: u32,
-) -> ProofAttestation {
+pub fn create_attestation(env: &crate::ProofEnvironment, proof_id: u32) -> ProofAttestation {
     // Build proof content buffer: proof_id + terms_allocated + all stats
     let stats = env.stats();
     let mut proof_content = Vec::with_capacity(64);
@@ -249,10 +241,16 @@ mod tests {
         let env_nonzero = att.environment_hash.iter().filter(|&&b| b != 0).count();
 
         // At least half the bytes should be non-zero for a proper hash
-        assert!(proof_nonzero >= 16,
-            "proof_term_hash has too many zero bytes: {}/32 non-zero", proof_nonzero);
-        assert!(env_nonzero >= 16,
-            "environment_hash has too many zero bytes: {}/32 non-zero", env_nonzero);
+        assert!(
+            proof_nonzero >= 16,
+            "proof_term_hash has too many zero bytes: {}/32 non-zero",
+            proof_nonzero
+        );
+        assert!(
+            env_nonzero >= 16,
+            "environment_hash has too many zero bytes: {}/32 non-zero",
+            env_nonzero
+        );
     }
 
     #[test]

@@ -98,3 +98,10 @@ data/
 # Large model files
 *.gguf
 test_models/*.gguf
+
+# Compiled server binaries (built for Cloud Run deploy)
+/mcp-brain-server
+crates/mcp-brain-server/mcp-brain-server
+
+# Backup files
+*.bak

@@ -9,10 +9,7 @@ use thiserror::Error;
 pub enum VerificationError {
     /// Vector dimension does not match the index dimension.
     #[error("dimension mismatch: expected {expected}, got {actual}")]
-    DimensionMismatch {
-        expected: u32,
-        actual: u32,
-    },
+    DimensionMismatch { expected: u32, actual: u32 },
 
     /// The lean-agentic type checker rejected the proof term.
     #[error("type check failed: {0}")]
@@ -24,9 +21,7 @@ pub enum VerificationError {
 
     /// The conversion engine exhausted its fuel budget.
     #[error("conversion timeout: exceeded {max_reductions} reduction steps")]
-    ConversionTimeout {
-        max_reductions: u32,
-    },
+    ConversionTimeout { max_reductions: u32 },
 
     /// Unification of proof constraints failed.
     #[error("unification failed: {0}")]
@@ -34,15 +29,11 @@ pub enum VerificationError {
 
     /// The arena ran out of term slots.
     #[error("arena exhausted: {allocated} terms allocated")]
-    ArenaExhausted {
-        allocated: u32,
-    },
+    ArenaExhausted { allocated: u32 },
 
     /// A required declaration was not found in the proof environment.
     #[error("declaration not found: {name}")]
-    DeclarationNotFound {
-        name: String,
-    },
+    DeclarationNotFound { name: String },
 
     /// Ed25519 proof signing or verification failed.
     #[error("attestation error: {0}")]
@@ -58,7 +49,10 @@ mod tests {
 
     #[test]
     fn error_display_dimension_mismatch() {
-        let e = VerificationError::DimensionMismatch { expected: 128, actual: 256 };
+        let e = VerificationError::DimensionMismatch {
+            expected: 128,
+            actual: 256,
+        };
         assert_eq!(e.to_string(), "dimension mismatch: expected 128, got 256");
     }
 
@@ -70,8 +64,13 @@ mod tests {
 
     #[test]
     fn error_display_timeout() {
-        let e = VerificationError::ConversionTimeout { max_reductions: 10000 };
-        assert_eq!(e.to_string(), "conversion timeout: exceeded 10000 reduction steps");
+        let e = VerificationError::ConversionTimeout {
+            max_reductions: 10000,
+        };
+        assert_eq!(
+            e.to_string(),
+            "conversion timeout: exceeded 10000 reduction steps"
+        );
     }
 
     #[test]

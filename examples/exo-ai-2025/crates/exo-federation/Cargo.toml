@@ -1,6 +1,6 @@
 [package]
 name = "exo-federation"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 authors = ["rUv <ruv@ruv.io>"]
@@ -15,6 +15,7 @@ readme = "README.md"
 [dependencies]
 # Internal dependencies
 exo-core = "0.1"
+ruvector-domain-expansion = "2.0"
 
 # Async runtime
 tokio = { version = "1.41", features = ["full"] }

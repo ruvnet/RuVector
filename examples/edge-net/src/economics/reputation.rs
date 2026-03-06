@@ -57,7 +57,9 @@ pub const MAX_DISCOUNT: f32 = 0.20;
 /// Reputation tier thresholds
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub enum ReputationTier {
-    /// New or low reputation (0-25)
+    /// Brand new participant (0-10) -- free reads, low-barrier entry
+    Newcomer,
+    /// Low reputation (10-25)
     Bronze,
     /// Moderate reputation (25-50)
     Silver,
@@ -68,19 +70,26 @@ pub enum ReputationTier {
 }
 
 impl ReputationTier {
-    /// Get tier from reputation score
+    /// Get tier from reputation score.
+    ///
+    /// The Newcomer tier (0-10) provides zero-barrier onboarding:
+    /// - Free read access (no stake required for searches)
+    /// - 0 minimum stake for read-only operations
+    /// - 10 rUv minimum stake only for write operations
     pub fn from_score(reputation: f32) -> Self {
         match reputation {
             r if r >= 75.0 => ReputationTier::Platinum,
             r if r >= 50.0 => ReputationTier::Gold,
             r if r >= 25.0 => ReputationTier::Silver,
-            _ => ReputationTier::Bronze,
+            r if r >= 10.0 => ReputationTier::Bronze,
+            _ => ReputationTier::Newcomer,
         }
     }
 
     /// Get tier name
     pub fn name(&self) -> &str {
         match self {
+            ReputationTier::Newcomer => "Newcomer",
             ReputationTier::Bronze => "Bronze",
             ReputationTier::Silver => "Silver",
             ReputationTier::Gold => "Gold",
@@ -88,14 +97,96 @@ impl ReputationTier {
         }
     }
 
-    /// Get tier multiplier for rewards
+    /// Get tier multiplier for rewards.
+    ///
+    /// Newcomers earn at 0.5x -- still earning, just less than established nodes.
+    /// This solves the cold-start problem: you can earn from day one.
     pub fn reward_multiplier(&self) -> f32 {
         match self {
+            ReputationTier::Newcomer => 0.5,
             ReputationTier::Bronze => 1.0,
             ReputationTier::Silver => 1.1,
             ReputationTier::Gold => 1.25,
             ReputationTier::Platinum => 1.5,
         }
+    }
+
+    /// Get minimum stake required for this tier (in rUv).
+    ///
+    /// Newcomers need 0 stake for reads, 10 for writes.
+    /// Higher tiers require more stake to maintain.
+    pub fn min_stake(&self) -> u64 {
+        match self {
+            ReputationTier::Newcomer => 0,
+            ReputationTier::Bronze => 10,
+            ReputationTier::Silver => 50,
+            ReputationTier::Gold => 200,
+            ReputationTier::Platinum => 500,
+        }
+    }
+
+    /// Get a JSON description of what each tier provides.
+    ///
+    /// Useful for onboarding UIs and transparency dashboards.
+    pub fn get_tier_requirements() -> String {
+        let tiers = serde_json::json!({
+            "Newcomer": {
+                "reputation_range": "0-10",
+                "min_stake": 0,
+                "reward_multiplier": 0.5,
+                "benefits": [
+                    "Free read access (search, status, list)",
+                    "Earn rUv by contributing (at 0.5x rate)",
+                    "No stake required for read operations",
+                    "10 rUv stake required for write operations"
+                ]
+            },
+            "Bronze": {
+                "reputation_range": "10-25",
+                "min_stake": 10,
+                "reward_multiplier": 1.0,
+                "benefits": [
+                    "Full read access",
+                    "Standard reward rate (1.0x)",
+                    "Basic task allocation priority"
+                ]
+            },
+            "Silver": {
+                "reputation_range": "25-50",
+                "min_stake": 50,
+                "reward_multiplier": 1.1,
+                "benefits": [
+                    "Full read/write access",
+                    "10% reward bonus",
+                    "Moderate task allocation priority",
+                    "5% compute discount"
+                ]
+            },
+            "Gold": {
+                "reputation_range": "50-75",
+                "min_stake": 200,
+                "reward_multiplier": 1.25,
+                "benefits": [
+                    "Full access",
+                    "25% reward bonus",
+                    "High task allocation priority",
+                    "10% compute discount"
+                ]
+            },
+            "Platinum": {
+                "reputation_range": "75-100",
+                "min_stake": 500,
+                "reward_multiplier": 1.5,
+                "benefits": [
+                    "Full access",
+                    "50% reward bonus",
+                    "Maximum task allocation priority",
+                    "20% compute discount",
+                    "Governance voting weight"
+                ]
+            }
+        });
+        serde_json::to_string_pretty(&tiers).unwrap_or_else(|_| "{}".to_string())
     }
 }
 
@@ -297,6 +388,7 @@ impl ReputationCurve {
     #[wasm_bindgen(js_name = getTierDistribution)]
     pub fn get_tier_distribution(&self) -> String {
         let reps = self.reputations.read().unwrap();
+        let mut newcomer = 0;
         let mut bronze = 0;
         let mut silver = 0;
         let mut gold = 0;
@@ -304,6 +396,7 @@ impl ReputationCurve {
 
         for rep in reps.values() {
             match rep.tier {
+                ReputationTier::Newcomer => newcomer += 1,
                 ReputationTier::Bronze => bronze += 1,
                 ReputationTier::Silver => silver += 1,
                 ReputationTier::Gold => gold += 1,
@@ -312,6 +405,7 @@ impl ReputationCurve {
         }
 
         let dist = serde_json::json!({
+            "newcomer": newcomer,
             "bronze": bronze,
             "silver": silver,
             "gold": gold,
@@ -565,6 +659,7 @@ mod tests {
 
     #[test]
     fn test_reputation_tiers() {
+        assert_eq!(ReputationTier::from_score(5.0), ReputationTier::Newcomer);
         assert_eq!(ReputationTier::from_score(10.0), ReputationTier::Bronze);
         assert_eq!(ReputationTier::from_score(30.0), ReputationTier::Silver);
         assert_eq!(ReputationTier::from_score(60.0), ReputationTier::Gold);
@@ -588,9 +683,31 @@ mod tests {
     fn test_reward_multiplier() {
         let curve = ReputationCurve::new();
 
+        assert_eq!(curve.get_reward_multiplier(5.0), 0.5);    // Newcomer
         assert_eq!(curve.get_reward_multiplier(10.0), 1.0);   // Bronze
         assert_eq!(curve.get_reward_multiplier(30.0), 1.1);   // Silver
         assert_eq!(curve.get_reward_multiplier(60.0), 1.25);  // Gold
         assert_eq!(curve.get_reward_multiplier(90.0), 1.5);   // Platinum
+    }
+
+    #[test]
+    fn test_newcomer_tier() {
+        // Newcomers (0-10 rep) get 0.5x rewards and 0 min stake
+        let tier = ReputationTier::from_score(0.0);
+        assert_eq!(tier, ReputationTier::Newcomer);
+        assert_eq!(tier.reward_multiplier(), 0.5);
+        assert_eq!(tier.min_stake(), 0);
+        assert_eq!(tier.name(), "Newcomer");
+    }
+
+    #[test]
+    fn test_tier_requirements_is_valid_json() {
+        let json = ReputationTier::get_tier_requirements();
+        let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
+        assert!(parsed["Newcomer"].is_object());
+        assert!(parsed["Bronze"].is_object());
+        assert!(parsed["Silver"].is_object());
+        assert!(parsed["Gold"].is_object());
+        assert!(parsed["Platinum"].is_object());
     }
 }

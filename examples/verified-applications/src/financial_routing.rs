@@ -10,10 +10,9 @@
 
 use crate::ProofReceipt;
 use ruvector_verified::{
-    ProofEnvironment,
     gated::{self, ProofKind, ProofTier},
     pipeline::compose_chain,
-    proof_store, vector_types,
+    proof_store, vector_types, ProofEnvironment,
 };
 
 /// A trade order with its verified proof chain.
@@ -56,13 +55,11 @@ pub fn verify_trade_order(
         ("risk_score".into(), 11, 12),
         ("order_route".into(), 12, 13),
     ];
-    let (_in_ty, _out_ty, pipeline_proof) = compose_chain(&chain, &mut env)
-        .map_err(|e| format!("pipeline: {e}"))?;
+    let (_in_ty, _out_ty, pipeline_proof) =
+        compose_chain(&chain, &mut env).map_err(|e| format!("pipeline: {e}"))?;
 
     // 5. Route proof to appropriate tier
-    let _decision = gated::route_proof(
-        ProofKind::PipelineComposition { stages: 3 }, &env,
-    );
+    let _decision = gated::route_proof(ProofKind::PipelineComposition { stages: 3 }, &env);
 
     // 6. Create attestation and compute hash for storage
     let attestation = proof_store::create_attestation(&env, pipeline_proof);
@@ -119,11 +116,8 @@ mod tests {
     fn batch_mixed_results() {
         let good = vec![0.5f32; 128];
         let bad = vec![0.5f32; 64];
-        let orders: Vec<(&str, &[f32], u32)> = vec![
-            ("T1", &good, 128),
-            ("T2", &bad, 128),
-            ("T3", &good, 128),
-        ];
+        let orders: Vec<(&str, &[f32], u32)> =
+            vec![("T1", &good, 128), ("T2", &bad, 128), ("T3", &good, 128)];
         let (pass, fail) = verify_trade_batch(&orders);
         assert_eq!(pass, 2);
         assert_eq!(fail, 1);

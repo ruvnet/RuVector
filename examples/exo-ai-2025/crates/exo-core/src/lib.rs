@@ -11,8 +11,23 @@
 //! - [`thermodynamics`]: Landauer's Principle tracking for measuring
 //!   computational efficiency relative to fundamental physics limits
 
+pub mod backends;
+pub mod coherence_router;
 pub mod consciousness;
+pub mod genomic;
+pub mod plasticity_engine;
 pub mod thermodynamics;
+pub mod witness;
+
+pub use genomic::{GenomicPatternStore, HorvathClock, NeurotransmitterProfile, RvDnaPattern};
+
+pub use backends::{
+    NeuromorphicBackend, QuantumStubBackend, SubstrateBackend as ComputeSubstrateBackend,
+};
+pub use coherence_router::{ActionContext, CoherenceBackend, CoherenceRouter, GateDecision};
+pub use plasticity_engine::{PlasticityDelta, PlasticityEngine, PlasticityMode};
+pub use witness::WitnessDecision as CoherenceDecision;
+pub use witness::{CrossParadigmWitness, WitnessChain, WitnessDecision};
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

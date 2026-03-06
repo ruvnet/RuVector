@@ -10,10 +10,9 @@
 
 use crate::ProofReceipt;
 use ruvector_verified::{
-    ProofEnvironment, VerifiedStage,
     gated::{self, ProofKind, ProofTier},
     pipeline::compose_stages,
-    proof_store, vector_types,
+    proof_store, vector_types, ProofEnvironment, VerifiedStage,
 };
 
 /// Certified pipeline configuration loaded from tamper-evident config.
@@ -49,35 +48,28 @@ pub fn verify_targeting_pipeline(
     let mut env = ProofEnvironment::new();
 
     // 1. Prove sensor vector matches declared dimension
-    let dim_proof = vector_types::verified_dim_check(
-        &mut env, config.sensor_dim, sensor_data,
-    ).ok()?;
+    let dim_proof =
+        vector_types::verified_dim_check(&mut env, config.sensor_dim, sensor_data).ok()?;
 
     // 2. Prove metric matches certified config
     let _metric = vector_types::mk_distance_metric(&mut env, &config.metric).ok()?;
 
     // 3. Prove HNSW index type is well-formed
-    let _index_type = vector_types::mk_hnsw_index_type(
-        &mut env, config.model_dim, &config.metric,
-    ).ok()?;
+    let _index_type =
+        vector_types::mk_hnsw_index_type(&mut env, config.model_dim, &config.metric).ok()?;
 
     // 4. Prove pipeline stages compose in approved order
-    let stage1: VerifiedStage<(), ()> = VerifiedStage::new(
-        &config.approved_stages[0], env.alloc_term(), 1, 2,
-    );
-    let stage2: VerifiedStage<(), ()> = VerifiedStage::new(
-        &config.approved_stages[1], env.alloc_term(), 2, 3,
-    );
-    let stage3: VerifiedStage<(), ()> = VerifiedStage::new(
-        &config.approved_stages[2], env.alloc_term(), 3, 4,
-    );
+    let stage1: VerifiedStage<(), ()> =
+        VerifiedStage::new(&config.approved_stages[0], env.alloc_term(), 1, 2);
+    let stage2: VerifiedStage<(), ()> =
+        VerifiedStage::new(&config.approved_stages[1], env.alloc_term(), 2, 3);
+    let stage3: VerifiedStage<(), ()> =
+        VerifiedStage::new(&config.approved_stages[2], env.alloc_term(), 3, 4);
     let composed12 = compose_stages(&stage1, &stage2, &mut env).ok()?;
     let full_pipeline = compose_stages(&composed12, &stage3, &mut env).ok()?;
 
     // 5. Route to determine proof complexity
-    let decision = gated::route_proof(
-        ProofKind::PipelineComposition { stages: 3 }, &env,
-    );
+    let decision = gated::route_proof(ProofKind::PipelineComposition { stages: 3 }, &env);
 
     // 6. Create attestation
     let attestation = proof_store::create_attestation(&env, dim_proof.proof_id);
@@ -86,7 +78,9 @@ pub fn verify_targeting_pipeline(
         domain: "weapons_filter".into(),
         claim: format!(
             "pipeline '{}' verified: dim={}, metric={}, 3 stages composed",
-            full_pipeline.name(), config.sensor_dim, config.metric,
+            full_pipeline.name(),
+            config.sensor_dim,
+            config.metric,
         ),
         proof_id: dim_proof.proof_id,
         attestation_bytes: attestation.to_bytes(),
@@ -94,7 +88,8 @@ pub fn verify_targeting_pipeline(
             ProofTier::Reflex => "reflex",
             ProofTier::Standard { .. } => "standard",
             ProofTier::Deep => "deep",
-        }.into(),
+        }
+        .into(),
         gate_passed: true,
     })
 }

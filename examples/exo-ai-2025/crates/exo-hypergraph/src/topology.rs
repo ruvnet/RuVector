@@ -3,7 +3,7 @@
 //! Implements simplicial complexes, persistent homology computation,
 //! and Betti number calculations.
 
-use exo_core::{EntityId, Error};
+use exo_core::EntityId;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 

@@ -5,6 +5,8 @@ use crate::graph::storage::GraphStore;
 use serde_json::{json, Value as JsonValue};
 use std::collections::HashMap;
 
+// Direction is re-exported from ast::*
+
 /// Execute a parsed Cypher query
 pub fn execute_cypher(
     graph: &GraphStore,
@@ -94,41 +96,183 @@ fn match_pattern(
     pattern: &Pattern,
     context: &mut ExecutionContext,
 ) -> Result<(), String> {
-    // Simple implementation: match nodes by label and properties
+    // Collect the pattern as alternating nodes and relationships:
+    // (a:Person)-[:KNOWS]->(b:Person) = [Node(a), Rel(KNOWS), Node(b)]
+    let mut node_patterns: Vec<&NodePattern> = Vec::new();
+    let mut rel_patterns: Vec<&RelationshipPattern> = Vec::new();
+
     for element in &pattern.elements {
         match element {
-            PatternElement::Node(node_pattern) => {
-                match_node(graph, node_pattern, context)?;
+            PatternElement::Node(np) => node_patterns.push(np),
+            PatternElement::Relationship(rp) => rel_patterns.push(rp),
+        }
+    }
+
+    // Case 1: Single node pattern — find all matching nodes
+    if rel_patterns.is_empty() {
+        if let Some(np) = node_patterns.first() {
+            let candidates = find_matching_nodes(graph, np);
+            if candidates.is_empty() {
+                return Ok(());
             }
-            PatternElement::Relationship(rel_pattern) => {
-                match_relationship(graph, rel_pattern, context)?;
+            // Create a binding row per matching node
+            let mut rows: Vec<HashMap<String, Binding>> = Vec::new();
+            for node in &candidates {
+                let mut row = HashMap::new();
+                if let Some(var) = &np.variable {
+                    row.insert(var.clone(), Binding::Node(node.id));
+                }
+                rows.push(row);
+            }
+            context.bindings = rows;
+            return Ok(());
+        }
+        return Ok(());
+    }
+
+    // Case 2: Pattern with relationships — traverse edges
+    // For each relationship pattern, we need pairs of (source_node, target_node)
+    // Pattern: (a)-[r:TYPE]->(b) means: find all edges of TYPE,
+    // check source matches a's pattern and target matches b's pattern
+    let mut result_rows: Vec<HashMap<String, Binding>> = Vec::new();
+
+    // We process node-rel-node triples
+    for i in 0..rel_patterns.len() {
+        let src_pattern = node_patterns.get(i);
+        let dst_pattern = node_patterns.get(i + 1);
+        let rel_pattern = rel_patterns[i];
+
+        // Get candidate edges by type
+        let edges = if let Some(ref rel_type) = rel_pattern.rel_type {
+            graph.edges.find_by_type(rel_type)
+        } else {
+            graph.edges.all_edges()
+        };
+
+        for edge in &edges {
+            let (src_id, dst_id) = match rel_pattern.direction {
+                Direction::Outgoing | Direction::Both => (edge.source, edge.target),
+                Direction::Incoming => (edge.target, edge.source),
+            };
+
+            // Check source node matches pattern
+            if let Some(sp) = src_pattern {
+                if !node_matches_pattern(graph, src_id, sp) {
+                    continue;
+                }
+            }
+
+            // Check target node matches pattern
+            if let Some(dp) = dst_pattern {
+                if !node_matches_pattern(graph, dst_id, dp) {
+                    continue;
+                }
+            }
+
+            // Reject self-references when variables are different
+            if let (Some(sp), Some(dp)) = (src_pattern, dst_pattern) {
+                if let (Some(sv), Some(dv)) = (&sp.variable, &dp.variable) {
+                    if sv != dv && src_id == dst_id {
+                        continue;
+                    }
+                }
+            }
+
+            // Build binding row
+            let mut row = HashMap::new();
+            if let Some(sp) = src_pattern {
+                if let Some(var) = &sp.variable {
+                    row.insert(var.clone(), Binding::Node(src_id));
+                }
+            }
+            if let Some(dp) = dst_pattern {
+                if let Some(var) = &dp.variable {
+                    row.insert(var.clone(), Binding::Node(dst_id));
+                }
+            }
+            if let Some(var) = &rel_pattern.variable {
+                row.insert(var.clone(), Binding::Edge(edge.id));
+            }
+
+            result_rows.push(row);
+
+            // Also match the reverse direction for Both
+            if rel_pattern.direction == Direction::Both && edge.source != edge.target {
+                let mut rev_row = HashMap::new();
+                if let Some(sp) = src_pattern {
+                    if let Some(var) = &sp.variable {
+                        rev_row.insert(var.clone(), Binding::Node(edge.target));
+                    }
+                }
+                if let Some(dp) = dst_pattern {
+                    if let Some(var) = &dp.variable {
+                        rev_row.insert(var.clone(), Binding::Node(edge.source));
+                    }
+                }
+                if let Some(var) = &rel_pattern.variable {
+                    rev_row.insert(var.clone(), Binding::Edge(edge.id));
+                }
+                if let (Some(sp), Some(dp)) = (src_pattern, dst_pattern) {
+                    if node_matches_pattern(graph, edge.target, sp)
+                        && node_matches_pattern(graph, edge.source, dp)
+                    {
+                        result_rows.push(rev_row);
+                    }
+                }
             }
         }
     }
+
+    if !result_rows.is_empty() {
+        context.bindings = result_rows;
+    }
+
     Ok(())
 }
 
-fn match_node(
+/// Find all nodes matching a node pattern (labels + properties)
+fn find_matching_nodes(
     graph: &GraphStore,
     pattern: &NodePattern,
-    context: &mut ExecutionContext,
-) -> Result<(), String> {
-    // Find nodes matching labels and properties
+) -> Vec<crate::graph::storage::Node> {
     let candidates = if pattern.labels.is_empty() {
         graph.nodes.all_nodes()
     } else {
-        // Find by first label
         graph.nodes.find_by_label(&pattern.labels[0])
     };
 
-    for node in candidates {
-        // Check additional labels
-        if !pattern.labels.iter().all(|l| node.has_label(l)) {
-            continue;
-        }
+    candidates
+        .into_iter()
+        .filter(|node| {
+            // Check all labels
+            if !pattern.labels.iter().all(|l| node.has_label(l)) {
+                return false;
+            }
+            // Check properties
+            pattern.properties.iter().all(|(key, expr)| {
+                if let Some(node_value) = node.get_property(key) {
+                    if let Expression::Literal(expected) = expr {
+                        node_value == expected
+                    } else {
+                        false
+                    }
+                } else {
+                    false
+                }
+            })
+        })
+        .collect()
+}
 
+/// Check if a specific node ID matches a node pattern
+fn node_matches_pattern(graph: &GraphStore, node_id: u64, pattern: &NodePattern) -> bool {
+    if let Some(node) = graph.nodes.get(node_id) {
+        // Check labels
+        if !pattern.labels.iter().all(|l| node.has_label(l)) {
+            return false;
+        }
         // Check properties
-        let matches_props = pattern.properties.iter().all(|(key, expr)| {
+        pattern.properties.iter().all(|(key, expr)| {
             if let Some(node_value) = node.get_property(key) {
                 if let Expression::Literal(expected) = expr {
                     node_value == expected
@@ -138,27 +282,10 @@ fn match_node(
             } else {
                 false
             }
-        });
-
-        if matches_props {
-            if let Some(var) = &pattern.variable {
-                context.bind(var, Binding::Node(node.id));
-            }
-            return Ok(());
-        }
+        })
+    } else {
+        false
     }
-
-    Ok(())
-}
-
-fn match_relationship(
-    _graph: &GraphStore,
-    _pattern: &RelationshipPattern,
-    _context: &mut ExecutionContext,
-) -> Result<(), String> {
-    // Simplified relationship matching
-    // Production code would traverse the graph based on relationship pattern
-    Ok(())
 }
 
 fn execute_create(
@@ -228,9 +355,6 @@ fn create_relationship(
     source_id: u64,
     context: &ExecutionContext,
 ) -> Result<u64, String> {
-    // Simplified: assumes target node is bound in context
-    // Production code would handle more complex patterns
-
     let mut properties = HashMap::new();
 
     for (key, expr) in &pattern.properties {
@@ -243,8 +367,18 @@ fn create_relationship(
         .clone()
         .unwrap_or_else(|| "RELATED".to_string());
 
-    // For now, create a self-loop. Production code would get target from pattern
-    let target_id = source_id;
+    // Resolve target from the next node in the pattern (bound in context)
+    // Look through bindings for any node binding that isn't the source
+    let target_id = context
+        .bindings
+        .iter()
+        .rev()
+        .flat_map(|b| b.values())
+        .find_map(|binding| match binding {
+            Binding::Node(id) if *id != source_id => Some(*id),
+            _ => None,
+        })
+        .unwrap_or(source_id);
 
     graph.add_edge(source_id, target_id, edge_type, properties)
 }

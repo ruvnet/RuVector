@@ -18,7 +18,7 @@
 
 use rand::prelude::*;
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, VecDeque};
+use std::collections::VecDeque;
 use uuid::Uuid;
 
 /// Engine for generating and processing artificial dreams

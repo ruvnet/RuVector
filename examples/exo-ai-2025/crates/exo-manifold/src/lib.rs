@@ -29,6 +29,7 @@ mod forgetting;
 mod network;
 mod retrieval;
 pub mod simd_ops;
+pub mod transfer_store;
 
 pub use deformation::ManifoldDeformer;
 pub use forgetting::StrategicForgetting;

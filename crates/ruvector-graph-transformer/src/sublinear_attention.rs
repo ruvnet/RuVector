@@ -9,7 +9,7 @@
 //! `ruvector-mincut` for graph structure operations.
 
 #[cfg(feature = "sublinear")]
-use ruvector_attention::{ScaledDotProductAttention, Attention};
+use ruvector_attention::{Attention, ScaledDotProductAttention};
 // ruvector_mincut is available for advanced sparsification strategies.
 
 #[cfg(feature = "sublinear")]
@@ -45,10 +45,7 @@ impl SublinearGraphAttention {
     /// Hashes node features into buckets and computes attention only
     /// within each bucket, reducing complexity from O(n^2) to O(n * B)
     /// where B is the bucket size.
-    pub fn lsh_attention(
-        &self,
-        node_features: &[Vec<f32>],
-    ) -> Result<Vec<Vec<f32>>> {
+    pub fn lsh_attention(&self, node_features: &[Vec<f32>]) -> Result<Vec<Vec<f32>>> {
         if node_features.is_empty() {
             return Ok(Vec::new());
         }
@@ -95,7 +92,9 @@ impl SublinearGraphAttention {
                     continue;
                 }
 
-                let result = self.attention.compute(query, &keys, &values)
+                let result = self
+                    .attention
+                    .compute(query, &keys, &values)
                     .map_err(GraphTransformerError::Attention)?;
                 outputs[query_idx] = result;
             }
@@ -149,7 +148,9 @@ impl SublinearGraphAttention {
                 .collect();
             let values: Vec<&[f32]> = keys.clone();
 
-            let result = self.attention.compute(query, &keys, &values)
+            let result = self
+                .attention
+                .compute(query, &keys, &values)
                 .map_err(GraphTransformerError::Attention)?;
             outputs[i] = result;
         }
@@ -205,7 +206,9 @@ impl SublinearGraphAttention {
                 .collect();
             let values: Vec<&[f32]> = keys.clone();
 
-            let result = self.attention.compute(query, &keys, &values)
+            let result = self
+                .attention
+                .compute(query, &keys, &values)
                 .map_err(GraphTransformerError::Attention)?;
             outputs[i] = result;
         }
@@ -233,12 +236,7 @@ fn lsh_hash(features: &[f32], num_buckets: usize) -> usize {
 
 /// Sample neighbors via short random walks (PPR approximation).
 #[cfg(feature = "sublinear")]
-fn ppr_sample(
-    adj: &[Vec<usize>],
-    source: usize,
-    k: usize,
-    rng: &mut impl rand::Rng,
-) -> Vec<usize> {
+fn ppr_sample(adj: &[Vec<usize>], source: usize, k: usize, rng: &mut impl rand::Rng) -> Vec<usize> {
     use std::collections::HashSet;
 
     let alpha = 0.15; // teleportation probability
@@ -284,12 +282,7 @@ mod tests {
         };
         let attn = SublinearGraphAttention::new(8, config);
 
-        let features = vec![
-            vec![1.0; 8],
-            vec![0.5; 8],
-            vec![0.3; 8],
-            vec![0.8; 8],
-        ];
+        let features = vec![vec![1.0; 8], vec![0.5; 8], vec![0.3; 8], vec![0.8; 8]];
 
         let result = attn.lsh_attention(&features);
         assert!(result.is_ok());
@@ -324,12 +317,7 @@ mod tests {
             vec![0.0, 0.0, 1.0, 0.0],
             vec![0.0, 0.0, 0.0, 1.0],
         ];
-        let edges = vec![
-            (0, 1, 1.0),
-            (1, 2, 1.0),
-            (2, 3, 1.0),
-            (3, 0, 1.0),
-        ];
+        let edges = vec![(0, 1, 1.0), (1, 2, 1.0), (2, 3, 1.0), (3, 0, 1.0)];
 
         let result = attn.ppr_attention(&features, &edges);
         assert!(result.is_ok());
@@ -351,11 +339,7 @@ mod tests {
             vec![0.0, 1.0, 0.0, 0.0],
             vec![0.0, 0.0, 1.0, 0.0],
         ];
-        let edges = vec![
-            (0, 1, 2.0),
-            (1, 2, 1.0),
-            (0, 2, 0.5),
-        ];
+        let edges = vec![(0, 1, 2.0), (1, 2, 1.0), (0, 2, 0.5)];
 
         let result = attn.spectral_attention(&features, &edges);
         assert!(result.is_ok());

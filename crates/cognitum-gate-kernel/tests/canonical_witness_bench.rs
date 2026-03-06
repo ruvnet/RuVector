@@ -67,10 +67,20 @@ mod bench {
         println!("\n=== Canonical Witness Fragment (64 vertices) ===");
         println!("  ArenaCactus build:    {:.1} µs", avg_cactus_us);
         println!("  Partition extract:    {:.1} µs", avg_partition_us);
-        println!("  Full witness:         {:.1} µs  (target: < 50 µs)", avg_witness_us);
-        println!("  Fragment size:        {} bytes", std::mem::size_of::<CanonicalWitnessFragment>());
+        println!(
+            "  Full witness:         {:.1} µs  (target: < 50 µs)",
+            avg_witness_us
+        );
+        println!(
+            "  Fragment size:        {} bytes",
+            std::mem::size_of::<CanonicalWitnessFragment>()
+        );
         println!("  Cut value:            {}", ref_f.cut_value);
 
-        assert!(avg_witness_us < 50.0, "Witness exceeded 50µs target: {:.1} µs", avg_witness_us);
+        assert!(
+            avg_witness_us < 50.0,
+            "Witness exceeded 50µs target: {:.1} µs",
+            avg_witness_us
+        );
     }
 }

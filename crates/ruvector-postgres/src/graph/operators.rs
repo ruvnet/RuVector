@@ -156,6 +156,11 @@ fn ruvector_add_node(
 
     let node_id = graph.add_node(labels, props);
 
+    // Persist to backing table
+    if let Some(node) = graph.nodes.get(node_id) {
+        super::persist_node(graph_name, &node);
+    }
+
     Ok(node_id as i64)
 }
 
@@ -188,6 +193,11 @@ fn ruvector_add_edge(
         edge_type.to_string(),
         props,
     )?;
+
+    // Persist to backing table
+    if let Some(edge) = graph.edges.get(edge_id) {
+        super::persist_edge(graph_name, &edge);
+    }
 
     Ok(edge_id as i64)
 }
@@ -407,7 +417,10 @@ fn ruvector_insert_triple(
     let store = get_or_create_store(store_name);
 
     let triple = Triple::from_strings(subject, predicate, object);
-    let id = store.insert(triple);
+    let id = store.insert(triple.clone());
+
+    // Persist to backing table
+    super::sparql::persist_triple(store_name, id, &triple, None);
 
     Ok(id as i64)
 }
@@ -435,7 +448,10 @@ fn ruvector_insert_triple_graph(
     let store = get_or_create_store(store_name);
 
     let triple = Triple::from_strings(subject, predicate, object);
-    let id = store.insert_into_graph(triple, Some(graph));
+    let id = store.insert_into_graph(triple.clone(), Some(graph));
+
+    // Persist to backing table
+    super::sparql::persist_triple(store_name, id, &triple, Some(graph));
 
     Ok(id as i64)
 }
@@ -479,7 +495,8 @@ fn ruvector_load_ntriples(store_name: &str, ntriples: &str) -> Result<i64, Strin
             };
 
             let triple = Triple::from_strings(subject, predicate, object);
-            store.insert(triple);
+            let id = store.insert(triple.clone());
+            super::sparql::persist_triple(store_name, id, &triple, None);
             count += 1;
         }
     }

@@ -30,8 +30,8 @@ pub fn embed_optimized_kernel(
     max_dim: u16,
 ) -> Result<KernelEmbedResult> {
     // Stage 1: Build minimal kernel (4KB stub, always works)
-    let kernel = KernelBuilder::from_builtin_minimal()
-        .map_err(|e| anyhow!("kernel build: {e:?}"))?;
+    let kernel =
+        KernelBuilder::from_builtin_minimal().map_err(|e| anyhow!("kernel build: {e:?}"))?;
     let kernel_size = kernel.bzimage.len();
     let kernel_hash = kernel.image_hash;
 

@@ -1,19 +1,15 @@
 //! Proof generation benchmarks.
-use criterion::{criterion_group, criterion_main, Criterion, BenchmarkId};
+use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 
 fn bench_prove_dim_eq(c: &mut Criterion) {
     let mut group = c.benchmark_group("prove_dim_eq");
     for dim in [32, 128, 384, 512, 1024, 4096] {
-        group.bench_with_input(
-            BenchmarkId::from_parameter(dim),
-            &dim,
-            |b, &dim| {
-                b.iter(|| {
-                    let mut env = ruvector_verified::ProofEnvironment::new();
-                    ruvector_verified::prove_dim_eq(&mut env, dim, dim).unwrap();
-                });
-            },
-        );
+        group.bench_with_input(BenchmarkId::from_parameter(dim), &dim, |b, &dim| {
+            b.iter(|| {
+                let mut env = ruvector_verified::ProofEnvironment::new();
+                ruvector_verified::prove_dim_eq(&mut env, dim, dim).unwrap();
+            });
+        });
     }
     group.finish();
 }
@@ -32,47 +28,34 @@ fn bench_prove_dim_eq_cached(c: &mut Criterion) {
 fn bench_mk_vector_type(c: &mut Criterion) {
     let mut group = c.benchmark_group("mk_vector_type");
     for dim in [128, 384, 768, 1536] {
-        group.bench_with_input(
-            BenchmarkId::from_parameter(dim),
-            &dim,
-            |b, &dim| {
-                b.iter(|| {
-                    let mut env = ruvector_verified::ProofEnvironment::new();
-                    ruvector_verified::mk_vector_type(&mut env, dim).unwrap();
-                });
-            },
-        );
+        group.bench_with_input(BenchmarkId::from_parameter(dim), &dim, |b, &dim| {
+            b.iter(|| {
+                let mut env = ruvector_verified::ProofEnvironment::new();
+                ruvector_verified::mk_vector_type(&mut env, dim).unwrap();
+            });
+        });
     }
     group.finish();
 }
 
 fn bench_proof_env_creation(c: &mut Criterion) {
     c.bench_function("ProofEnvironment::new", |b| {
-        b.iter(|| {
-            ruvector_verified::ProofEnvironment::new()
-        });
+        b.iter(|| ruvector_verified::ProofEnvironment::new());
     });
 }
 
 fn bench_batch_verify(c: &mut Criterion) {
     let mut group = c.benchmark_group("batch_verify");
     for count in [10, 100, 1000] {
-        group.bench_with_input(
-            BenchmarkId::from_parameter(count),
-            &count,
-            |b, &count| {
-                let vecs: Vec<Vec<f32>> = (0..count)
-                    .map(|_| vec![0.0f32; 128])
-                    .collect();
-                let refs: Vec<&[f32]> = vecs.iter().map(|v| v.as_slice()).collect();
-                b.iter(|| {
-                    let mut env = ruvector_verified::ProofEnvironment::new();
-                    ruvector_verified::vector_types::verify_batch_dimensions(
-                        &mut env, 128, &refs
-                    ).unwrap();
-                });
-            },
-        );
+        group.bench_with_input(BenchmarkId::from_parameter(count), &count, |b, &count| {
+            let vecs: Vec<Vec<f32>> = (0..count).map(|_| vec![0.0f32; 128]).collect();
+            let refs: Vec<&[f32]> = vecs.iter().map(|v| v.as_slice()).collect();
+            b.iter(|| {
+                let mut env = ruvector_verified::ProofEnvironment::new();
+                ruvector_verified::vector_types::verify_batch_dimensions(&mut env, 128, &refs)
+                    .unwrap();
+            });
+        });
     }
     group.finish();
 }

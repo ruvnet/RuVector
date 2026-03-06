@@ -54,6 +54,8 @@ pub struct RvfOptions {
     pub metric: Option<String>,
     /// Hardware profile: 0=Generic, 1=Core, 2=Hot, 3=Full. Defaults to 0.
     pub profile: Option<u32>,
+    /// Compression profile: "None" | "Scalar" | "Product". Defaults to "None".
+    pub compression: Option<String>,
     /// Whether segment signing is enabled. Defaults to false.
     pub signing: Option<bool>,
     /// HNSW M parameter. Defaults to 16.
@@ -166,16 +168,34 @@ fn parse_metric(s: &str) -> Result<DistanceMetric> {
     }
 }
 
+fn parse_compression(s: &str) -> Result<rvf_runtime::options::CompressionProfile> {
+    use rvf_runtime::options::CompressionProfile;
+    match s {
+        "None" | "none" => Ok(CompressionProfile::None),
+        "Scalar" | "scalar" => Ok(CompressionProfile::Scalar),
+        "Product" | "product" => Ok(CompressionProfile::Product),
+        _ => Err(napi::Error::from_reason(format!(
+            "Invalid compression '{s}'. Expected 'None', 'Scalar', or 'Product'."
+        ))),
+    }
+}
+
 fn js_options_to_rust(opts: &RvfOptions) -> Result<RustRvfOptions> {
     let metric = match &opts.metric {
         Some(m) => parse_metric(m)?,
         None => DistanceMetric::L2,
     };
 
+    let compression = match &opts.compression {
+        Some(c) => parse_compression(c)?,
+        None => rvf_runtime::options::CompressionProfile::None,
+    };
+
     Ok(RustRvfOptions {
         dimension: opts.dimension as u16,
         metric,
         profile: opts.profile.unwrap_or(0) as u8,
+        compression,
         signing: opts.signing.unwrap_or(false),
         m: opts.m.unwrap_or(16) as u16,
         ef_construction: opts.ef_construction.unwrap_or(200) as u16,

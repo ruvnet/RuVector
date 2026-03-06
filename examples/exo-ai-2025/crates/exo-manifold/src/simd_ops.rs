@@ -4,7 +4,8 @@
 //!
 //! Based on techniques from ultra-low-latency-sim.
 
-/// Cache line size for alignment
+/// Cache line size for alignment (used by prefetch intrinsics in AVX2 path)
+#[allow(dead_code)]
 const CACHE_LINE: usize = 64;
 
 /// SIMD-optimized cosine similarity

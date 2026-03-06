@@ -6,8 +6,9 @@
 
 #[cfg(feature = "economic")]
 use ruvector_verified::{
-    ProofEnvironment, prove_dim_eq, proof_store::create_attestation, ProofAttestation,
     gated::{route_proof, ProofKind, TierDecision},
+    proof_store::create_attestation,
+    prove_dim_eq, ProofAttestation, ProofEnvironment,
 };
 
 #[cfg(feature = "economic")]
@@ -141,10 +142,13 @@ impl GameTheoreticAttention {
                 }
 
                 // Compute utility-weighted logits
-                let logits: Vec<f32> = neighbors.iter().map(|&j| {
-                    let util = self.config.utility_weight * similarities[i][j];
-                    util / temperature
-                }).collect();
+                let logits: Vec<f32> = neighbors
+                    .iter()
+                    .map(|&j| {
+                        let util = self.config.utility_weight * similarities[i][j];
+                        util / temperature
+                    })
+                    .collect();
 
                 // Softmax
                 let max_logit = logits.iter().copied().fold(f32::NEG_INFINITY, f32::max);
@@ -152,7 +156,11 @@ impl GameTheoreticAttention {
                 let sum_exp: f32 = exp_logits.iter().sum();
 
                 for (idx, &j) in neighbors.iter().enumerate() {
-                    let new_w = if sum_exp > 1e-10 { exp_logits[idx] / sum_exp } else { 1.0 / neighbors.len() as f32 };
+                    let new_w = if sum_exp > 1e-10 {
+                        exp_logits[idx] / sum_exp
+                    } else {
+                        1.0 / neighbors.len() as f32
+                    };
                     let delta = (new_w - weights[i][j]).abs();
                     max_delta = max_delta.max(delta);
                     new_weights[i][j] = new_w;
@@ -195,11 +203,24 @@ impl GameTheoreticAttention {
     fn compute_similarities(&self, features: &[Vec<f32>], n: usize) -> Vec<Vec<f32>> {
         let mut sims = vec![vec![0.0f32; n]; n];
         for i in 0..n {
-            let norm_i: f32 = features[i].iter().map(|x| x * x).sum::<f32>().sqrt().max(1e-8);
+            let norm_i: f32 = features[i]
+                .iter()
+                .map(|x| x * x)
+                .sum::<f32>()
+                .sqrt()
+                .max(1e-8);
             for j in (i + 1)..n {
-                let norm_j: f32 = features[j].iter().map(|x| x * x).sum::<f32>().sqrt().max(1e-8);
-                let dot: f32 = features[i].iter().zip(features[j].iter())
-                    .map(|(a, b)| a * b).sum();
+                let norm_j: f32 = features[j]
+                    .iter()
+                    .map(|x| x * x)
+                    .sum::<f32>()
+                    .sqrt()
+                    .max(1e-8);
+                let dot: f32 = features[i]
+                    .iter()
+                    .zip(features[j].iter())
+                    .map(|(a, b)| a * b)
+                    .sum();
                 let sim = dot / (norm_i * norm_j);
                 sims[i][j] = sim;
                 sims[j][i] = sim;
@@ -357,7 +378,11 @@ impl ShapleyAttention {
         };
 
         // Compute output features weighted by normalized Shapley values
-        let total_sv: f32 = shapley_values.iter().map(|v| v.abs()).sum::<f32>().max(1e-8);
+        let total_sv: f32 = shapley_values
+            .iter()
+            .map(|v| v.abs())
+            .sum::<f32>()
+            .max(1e-8);
         let mut output = vec![vec![0.0f32; self.dim]; n];
         for i in 0..n {
             let weight = shapley_values[i].abs() / total_sv;
@@ -469,7 +494,8 @@ impl IncentiveAlignedMPNN {
         if n != stakes.len() {
             return Err(GraphTransformerError::Config(format!(
                 "stakes length mismatch: features={}, stakes={}",
-                n, stakes.len(),
+                n,
+                stakes.len(),
             )));
         }
 
@@ -487,9 +513,7 @@ impl IncentiveAlignedMPNN {
         let mut output = features.to_vec();
 
         // Determine which nodes can participate
-        let participating: Vec<bool> = stakes.iter()
-            .map(|&s| s >= self.min_stake)
-            .collect();
+        let participating: Vec<bool> = stakes.iter().map(|&s| s >= self.min_stake).collect();
 
         // Compute messages along edges
         for &(u, v) in adjacency {
@@ -506,12 +530,8 @@ impl IncentiveAlignedMPNN {
             let stake_weight_u = stakes[u] / (stakes[u] + stakes[v]).max(1e-8);
             let stake_weight_v = stakes[v] / (stakes[u] + stakes[v]).max(1e-8);
 
-            let msg_u_to_v: Vec<f32> = features[u].iter()
-                .map(|&x| x * stake_weight_u)
-                .collect();
-            let msg_v_to_u: Vec<f32> = features[v].iter()
-                .map(|&x| x * stake_weight_v)
-                .collect();
+            let msg_u_to_v: Vec<f32> = features[u].iter().map(|&x| x * stake_weight_u).collect();
+            let msg_v_to_u: Vec<f32> = features[v].iter().map(|&x| x * stake_weight_v).collect();
 
             // Validate messages
             let u_valid = msg_u_to_v.iter().all(|x| x.is_finite());
@@ -644,16 +664,16 @@ mod tests {
         };
         let mut gta = GameTheoreticAttention::new(2, config);
 
-        let features = vec![
-            vec![1.0, 0.0],
-            vec![0.0, 1.0],
-            vec![0.5, 0.5],
-        ];
+        let features = vec![vec![1.0, 0.0], vec![0.0, 1.0], vec![0.5, 0.5]];
         let edges = vec![(0, 1), (1, 2), (0, 2)];
 
         let result = gta.compute(&features, &edges).unwrap();
         // With sufficient iterations, should converge
-        assert!(result.converged, "did not converge: max_delta={}", result.max_delta);
+        assert!(
+            result.converged,
+            "did not converge: max_delta={}",
+            result.max_delta
+        );
         assert!(result.attestation.is_some());
     }
 
@@ -697,10 +717,7 @@ mod tests {
     #[test]
     fn test_shapley_efficiency_axiom() {
         let mut shapley = ShapleyAttention::new(2, 500);
-        let features = vec![
-            vec![1.0, 2.0],
-            vec![3.0, 4.0],
-        ];
+        let features = vec![vec![1.0, 2.0], vec![3.0, 4.0]];
         let mut rng = rand::thread_rng();
 
         let result = shapley.compute(&features, &mut rng).unwrap();
@@ -709,7 +726,8 @@ mod tests {
         assert!(
             (result.value_sum - result.coalition_value).abs() < tolerance,
             "efficiency violated: sum={}, coalition={}",
-            result.value_sum, result.coalition_value,
+            result.value_sum,
+            result.coalition_value,
         );
         assert!(result.efficiency_satisfied);
         assert!(result.attestation.is_some());
@@ -737,7 +755,8 @@ mod tests {
         assert!(
             (result.shapley_values[0] - expected_value).abs() < 1.0,
             "single node Shapley: {}, expected ~{}",
-            result.shapley_values[0], expected_value,
+            result.shapley_values[0],
+            expected_value,
         );
     }
 
@@ -777,10 +796,7 @@ mod tests {
     fn test_incentive_mpnn_insufficient_stake() {
         let mut mpnn = IncentiveAlignedMPNN::new(2, 5.0, 0.2);
 
-        let features = vec![
-            vec![1.0, 2.0],
-            vec![3.0, 4.0],
-        ];
+        let features = vec![vec![1.0, 2.0], vec![3.0, 4.0]];
         let stakes = vec![10.0, 1.0]; // node 1 below min_stake
 
         let edges = vec![(0, 1)];
@@ -809,10 +825,7 @@ mod tests {
     fn test_incentive_mpnn_stake_weighted() {
         let mut mpnn = IncentiveAlignedMPNN::new(2, 0.1, 0.1);
 
-        let features = vec![
-            vec![1.0, 0.0],
-            vec![0.0, 1.0],
-        ];
+        let features = vec![vec![1.0, 0.0], vec![0.0, 1.0]];
         let stakes = vec![9.0, 1.0]; // node 0 has much higher stake
 
         let edges = vec![(0, 1)];
@@ -824,7 +837,11 @@ mod tests {
         let node1_d0 = result.output[1][0];
         // Node 0 has stake_weight 0.9, so msg_0_to_1 = [0.9, 0.0]
         // Node 1 output = [0.0, 1.0] + [0.9, 0.0] = [0.9, 1.0]
-        assert!(node1_d0 > 0.5, "node 1 should receive strong message from node 0: {}", node1_d0);
+        assert!(
+            node1_d0 > 0.5,
+            "node 1 should receive strong message from node 0: {}",
+            node1_d0
+        );
     }
 
     #[test]

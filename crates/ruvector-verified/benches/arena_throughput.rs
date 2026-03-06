@@ -1,21 +1,17 @@
 //! Arena throughput benchmarks.
-use criterion::{criterion_group, criterion_main, Criterion, BenchmarkId};
+use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 
 fn bench_env_alloc_sequential(c: &mut Criterion) {
     let mut group = c.benchmark_group("env_alloc_sequential");
     for count in [100, 1000, 10_000] {
-        group.bench_with_input(
-            BenchmarkId::from_parameter(count),
-            &count,
-            |b, &count| {
-                b.iter(|| {
-                    let mut env = ruvector_verified::ProofEnvironment::new();
-                    for _ in 0..count {
-                        env.alloc_term();
-                    }
-                });
-            },
-        );
+        group.bench_with_input(BenchmarkId::from_parameter(count), &count, |b, &count| {
+            b.iter(|| {
+                let mut env = ruvector_verified::ProofEnvironment::new();
+                for _ in 0..count {
+                    env.alloc_term();
+                }
+            });
+        });
     }
     group.finish();
 }
@@ -69,9 +65,7 @@ fn bench_pool_acquire_release(c: &mut Criterion) {
 
 fn bench_attestation_roundtrip(c: &mut Criterion) {
     c.bench_function("attestation_roundtrip", |b| {
-        let att = ruvector_verified::ProofAttestation::new(
-            [1u8; 32], [2u8; 32], 42, 9500,
-        );
+        let att = ruvector_verified::ProofAttestation::new([1u8; 32], [2u8; 32], 42, 9500);
         b.iter(|| {
             let bytes = att.to_bytes();
             ruvector_verified::proof_store::ProofAttestation::from_bytes(&bytes).unwrap();

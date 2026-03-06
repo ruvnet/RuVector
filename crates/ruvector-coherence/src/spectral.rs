@@ -17,10 +17,19 @@ pub struct CsrMatrixView {
 
 impl CsrMatrixView {
     pub fn new(
-        row_ptr: Vec<usize>, col_indices: Vec<usize>, values: Vec<f64>,
-        rows: usize, cols: usize,
+        row_ptr: Vec<usize>,
+        col_indices: Vec<usize>,
+        values: Vec<f64>,
+        rows: usize,
+        cols: usize,
     ) -> Self {
-        Self { row_ptr, col_indices, values, rows, cols }
+        Self {
+            row_ptr,
+            col_indices,
+            values,
+            rows,
+            cols,
+        }
     }
 
     /// Build a symmetric adjacency CSR matrix from edges `(u, v, weight)`.
@@ -28,7 +37,9 @@ impl CsrMatrixView {
         let mut entries: Vec<(usize, usize, f64)> = Vec::with_capacity(edges.len() * 2);
         for &(u, v, w) in edges {
             entries.push((u, v, w));
-            if u != v { entries.push((v, u, w)); }
+            if u != v {
+                entries.push((v, u, w));
+            }
         }
         entries.sort_by(|a, b| a.0.cmp(&b.0).then(a.1.cmp(&b.1)));
         Self::from_sorted_entries(n, &entries)
@@ -39,7 +50,9 @@ impl CsrMatrixView {
         let mut y = vec![0.0; self.rows];
         for i in 0..self.rows {
             let (start, end) = (self.row_ptr[i], self.row_ptr[i + 1]);
-            y[i] = (start..end).map(|j| self.values[j] * x[self.col_indices[j]]).sum();
+            y[i] = (start..end)
+                .map(|j| self.values[j] * x[self.col_indices[j]])
+                .sum();
         }
         y
     }
@@ -56,7 +69,9 @@ impl CsrMatrixView {
                 entries.push((v, u, -w));
             }
         }
-        for i in 0..n { entries.push((i, i, degree[i])); }
+        for i in 0..n {
+            entries.push((i, i, degree[i]));
+        }
         entries.sort_by(|a, b| a.0.cmp(&b.0).then(a.1.cmp(&b.1)));
         Self::from_sorted_entries(n, &entries)
     }
@@ -70,28 +85,41 @@ impl CsrMatrixView {
             col_indices.push(c);
             values.push(v);
         }
-        for i in 0..n { row_ptr[i + 1] += row_ptr[i]; }
-        Self { row_ptr, col_indices, values, rows: n, cols: n }
+        for i in 0..n {
+            row_ptr[i + 1] += row_ptr[i];
+        }
+        Self {
+            row_ptr,
+            col_indices,
+            values,
+            rows: n,
+            cols: n,
+        }
     }
 }
 
 /// Configuration for spectral coherence computation.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SpectralConfig {
-    pub alpha: f64,            // Fiedler weight (default 0.3)
-    pub beta: f64,             // Spectral gap weight (default 0.3)
-    pub gamma: f64,            // Effective resistance weight (default 0.2)
-    pub delta: f64,            // Degree regularity weight (default 0.2)
-    pub max_iterations: usize, // Power iteration max (default 50)
-    pub tolerance: f64,        // Convergence tolerance (default 1e-6)
+    pub alpha: f64,               // Fiedler weight (default 0.3)
+    pub beta: f64,                // Spectral gap weight (default 0.3)
+    pub gamma: f64,               // Effective resistance weight (default 0.2)
+    pub delta: f64,               // Degree regularity weight (default 0.2)
+    pub max_iterations: usize,    // Power iteration max (default 50)
+    pub tolerance: f64,           // Convergence tolerance (default 1e-6)
     pub refresh_threshold: usize, // Updates before full recompute (default 100)
 }
 
 impl Default for SpectralConfig {
     fn default() -> Self {
         Self {
-            alpha: 0.3, beta: 0.3, gamma: 0.2, delta: 0.2,
-            max_iterations: 50, tolerance: 1e-6, refresh_threshold: 100,
+            alpha: 0.3,
+            beta: 0.3,
+            gamma: 0.2,
+            delta: 0.2,
+            max_iterations: 50,
+            tolerance: 1e-6,
+            refresh_threshold: 100,
         }
     }
 }
@@ -112,7 +140,9 @@ fn dot(a: &[f64], b: &[f64]) -> f64 {
     a.iter().zip(b).map(|(x, y)| x * y).sum()
 }
 
-fn norm(v: &[f64]) -> f64 { dot(v, v).sqrt() }
+fn norm(v: &[f64]) -> f64 {
+    dot(v, v).sqrt()
+}
 
 /// CG solve for L*x = b with null-space deflation (L is graph Laplacian).
 fn cg_solve(lap: &CsrMatrixView, b: &[f64], max_iter: usize, tol: f64) -> Vec<f64> {
@@ -124,19 +154,30 @@ fn cg_solve(lap: &CsrMatrixView, b: &[f64], max_iter: usize, tol: f64) -> Vec<f6
     let mut r = b_def.clone();
     let mut p = r.clone();
     let mut rs_old = dot(&r, &r);
-    if rs_old < tol * tol { return x; }
+    if rs_old < tol * tol {
+        return x;
+    }
     for _ in 0..max_iter {
         let mut ap = lap.spmv(&p);
         let ap_mean: f64 = ap.iter().sum::<f64>() * inv_n;
         ap.iter_mut().for_each(|v| *v -= ap_mean);
         let pap = dot(&p, &ap);
-        if pap.abs() < 1e-30 { break; }
+        if pap.abs() < 1e-30 {
+            break;
+        }
         let alpha = rs_old / pap;
-        for i in 0..n { x[i] += alpha * p[i]; r[i] -= alpha * ap[i]; }
+        for i in 0..n {
+            x[i] += alpha * p[i];
+            r[i] -= alpha * ap[i];
+        }
         let rs_new = dot(&r, &r);
-        if rs_new.sqrt() < tol { break; }
+        if rs_new.sqrt() < tol {
+            break;
+        }
         let beta = rs_new / rs_old;
-        for i in 0..n { p[i] = r[i] + beta * p[i]; }
+        for i in 0..n {
+            p[i] = r[i] + beta * p[i];
+        }
         rs_old = rs_new;
     }
     x
@@ -149,14 +190,18 @@ fn deflate_and_normalize(v: &mut Vec<f64>) {
     let proj: f64 = v.iter().sum::<f64>() * inv_sqrt_n;
     v.iter_mut().for_each(|x| *x -= proj * inv_sqrt_n);
     let n2 = norm(v);
-    if n2 > 1e-30 { v.iter_mut().for_each(|x| *x /= n2); }
+    if n2 > 1e-30 {
+        v.iter_mut().for_each(|x| *x /= n2);
+    }
 }
 
 /// Estimate the Fiedler value (second smallest eigenvalue) and eigenvector
 /// using inverse iteration with null-space deflation.
 pub fn estimate_fiedler(lap: &CsrMatrixView, max_iter: usize, tol: f64) -> (f64, Vec<f64>) {
     let n = lap.rows;
-    if n <= 1 { return (0.0, vec![0.0; n]); }
+    if n <= 1 {
+        return (0.0, vec![0.0; n]);
+    }
     // Initial vector orthogonal to all-ones.
     let mut v: Vec<f64> = (0..n).map(|i| i as f64 - (n as f64 - 1.0) / 2.0).collect();
     deflate_and_normalize(&mut v);
@@ -168,13 +213,21 @@ pub fn estimate_fiedler(lap: &CsrMatrixView, max_iter: usize, tol: f64) -> (f64,
     for _ in 0..outer {
         let mut w = cg_solve(lap, &v, inner, tol * 0.1);
         deflate_and_normalize(&mut w);
-        if norm(&w) < 1e-30 { break; }
+        if norm(&w) < 1e-30 {
+            break;
+        }
         let lv = lap.spmv(&w);
         eigenvalue = dot(&w, &lv);
-        let residual: f64 = lv.iter().zip(w.iter())
-            .map(|(li, wi)| (li - eigenvalue * wi).powi(2)).sum::<f64>().sqrt();
+        let residual: f64 = lv
+            .iter()
+            .zip(w.iter())
+            .map(|(li, wi)| (li - eigenvalue * wi).powi(2))
+            .sum::<f64>()
+            .sqrt();
         v = w;
-        if residual < tol { break; }
+        if residual < tol {
+            break;
+        }
     }
     (eigenvalue.max(0.0), v)
 }
@@ -182,7 +235,9 @@ pub fn estimate_fiedler(lap: &CsrMatrixView, max_iter: usize, tol: f64) -> (f64,
 /// Estimate the largest eigenvalue of the Laplacian via power iteration.
 pub fn estimate_largest_eigenvalue(lap: &CsrMatrixView, max_iter: usize) -> f64 {
     let n = lap.rows;
-    if n == 0 { return 0.0; }
+    if n == 0 {
+        return 0.0;
+    }
     let mut v = vec![1.0 / (n as f64).sqrt(); n];
     let mut ev = 0.0;
     // Power iteration converges fast for the largest eigenvalue
@@ -190,28 +245,44 @@ pub fn estimate_largest_eigenvalue(lap: &CsrMatrixView, max_iter: usize) -> f64 
     for _ in 0..iters {
         let w = lap.spmv(&v);
         let wn = norm(&w);
-        if wn < 1e-30 { return 0.0; }
+        if wn < 1e-30 {
+            return 0.0;
+        }
         ev = dot(&v, &w);
-        v.iter_mut().zip(w.iter()).for_each(|(vi, wi)| *vi = wi / wn);
+        v.iter_mut()
+            .zip(w.iter())
+            .for_each(|(vi, wi)| *vi = wi / wn);
     }
     ev.max(0.0)
 }
 
 /// Spectral gap ratio: fiedler / largest eigenvalue.
 pub fn estimate_spectral_gap(fiedler: f64, largest: f64) -> f64 {
-    if largest < 1e-30 { 0.0 } else { (fiedler / largest).clamp(0.0, 1.0) }
+    if largest < 1e-30 {
+        0.0
+    } else {
+        (fiedler / largest).clamp(0.0, 1.0)
+    }
 }
 
 /// Degree regularity: 1 - (std_dev / mean) of vertex degrees. 1.0 = perfectly regular.
 pub fn compute_degree_regularity(lap: &CsrMatrixView) -> f64 {
     let n = lap.rows;
-    if n == 0 { return 1.0; }
-    let degrees: Vec<f64> = (0..n).map(|i| {
-        let (s, e) = (lap.row_ptr[i], lap.row_ptr[i + 1]);
-        (s..e).find(|&j| lap.col_indices[j] == i).map_or(0.0, |j| lap.values[j])
-    }).collect();
+    if n == 0 {
+        return 1.0;
+    }
+    let degrees: Vec<f64> = (0..n)
+        .map(|i| {
+            let (s, e) = (lap.row_ptr[i], lap.row_ptr[i + 1]);
+            (s..e)
+                .find(|&j| lap.col_indices[j] == i)
+                .map_or(0.0, |j| lap.values[j])
+        })
+        .collect();
     let mean = degrees.iter().sum::<f64>() / n as f64;
-    if mean < 1e-30 { return 1.0; }
+    if mean < 1e-30 {
+        return 1.0;
+    }
     let std = (degrees.iter().map(|d| (d - mean).powi(2)).sum::<f64>() / n as f64).sqrt();
     (1.0 - std / mean).clamp(0.0, 1.0)
 }
@@ -219,9 +290,15 @@ pub fn compute_degree_regularity(lap: &CsrMatrixView) -> f64 {
 /// Estimate average effective resistance by deterministic sampling of vertex pairs.
 pub fn estimate_effective_resistance_sampled(lap: &CsrMatrixView, n_samples: usize) -> f64 {
     let n = lap.rows;
-    if n < 2 { return 0.0; }
+    if n < 2 {
+        return 0.0;
+    }
     let total_pairs = n * (n - 1) / 2;
-    let step = if total_pairs <= n_samples { 1 } else { total_pairs / n_samples };
+    let step = if total_pairs <= n_samples {
+        1
+    } else {
+        total_pairs / n_samples
+    };
     let max_s = n_samples.min(total_pairs);
     // Fewer CG iterations for resistance estimation (approximate is fine)
     let cg_iters = 10;
@@ -235,12 +312,18 @@ pub fn estimate_effective_resistance_sampled(lap: &CsrMatrixView, n_samples: usi
                 let x = cg_solve(lap, &rhs, cg_iters, 1e-6);
                 total += (x[u] - x[v]).abs();
                 sampled += 1;
-                if sampled >= max_s { break 'outer; }
+                if sampled >= max_s {
+                    break 'outer;
+                }
             }
             idx += 1;
         }
     }
-    if sampled == 0 { 0.0 } else { total / sampled as f64 }
+    if sampled == 0 {
+        0.0
+    } else {
+        total / sampled as f64
+    }
 }
 
 /// Tracks spectral coherence incrementally, recomputing fully when needed.
@@ -257,9 +340,13 @@ pub struct SpectralTracker {
 impl SpectralTracker {
     pub fn new(config: SpectralConfig) -> Self {
         Self {
-            config, fiedler_estimate: 0.0, gap_estimate: 0.0,
-            resistance_estimate: 0.0, regularity: 1.0,
-            updates_since_refresh: 0, fiedler_vector: None,
+            config,
+            fiedler_estimate: 0.0,
+            gap_estimate: 0.0,
+            resistance_estimate: 0.0,
+            regularity: 1.0,
+            updates_since_refresh: 0,
+            fiedler_vector: None,
         }
     }
 
@@ -279,7 +366,8 @@ impl SpectralTracker {
         if let Some(ref fv) = self.fiedler_vector {
             if u < fv.len() && v < fv.len() {
                 let diff = fv[u] - fv[v];
-                self.fiedler_estimate = (self.fiedler_estimate + weight_delta * diff * diff).max(0.0);
+                self.fiedler_estimate =
+                    (self.fiedler_estimate + weight_delta * diff * diff).max(0.0);
                 let largest = estimate_largest_eigenvalue(lap, self.config.max_iterations);
                 self.gap_estimate = estimate_spectral_gap(self.fiedler_estimate, largest);
             }
@@ -287,13 +375,20 @@ impl SpectralTracker {
         self.regularity = compute_degree_regularity(lap);
     }
 
-    pub fn score(&self) -> f64 { self.build_score().composite }
+    pub fn score(&self) -> f64 {
+        self.build_score().composite
+    }
 
     pub fn full_recompute(&mut self, lap: &CsrMatrixView) {
-        let (fiedler_raw, fv) = estimate_fiedler(lap, self.config.max_iterations, self.config.tolerance);
+        let (fiedler_raw, fv) =
+            estimate_fiedler(lap, self.config.max_iterations, self.config.tolerance);
         let largest = estimate_largest_eigenvalue(lap, self.config.max_iterations);
         let n = lap.rows;
-        self.fiedler_estimate = if n > 0 { (fiedler_raw / n as f64).clamp(0.0, 1.0) } else { 0.0 };
+        self.fiedler_estimate = if n > 0 {
+            (fiedler_raw / n as f64).clamp(0.0, 1.0)
+        } else {
+            0.0
+        };
         self.gap_estimate = estimate_spectral_gap(fiedler_raw, largest);
         let r_raw = estimate_effective_resistance_sampled(lap, 3.min(n * (n - 1) / 2));
         self.resistance_estimate = 1.0 / (1.0 + r_raw);
@@ -312,8 +407,10 @@ impl SpectralTracker {
             + self.config.gamma * self.resistance_estimate
             + self.config.delta * self.regularity;
         SpectralCoherenceScore {
-            fiedler: self.fiedler_estimate, spectral_gap: self.gap_estimate,
-            effective_resistance: self.resistance_estimate, degree_regularity: self.regularity,
+            fiedler: self.fiedler_estimate,
+            spectral_gap: self.gap_estimate,
+            effective_resistance: self.resistance_estimate,
+            degree_regularity: self.regularity,
             composite: c.clamp(0.0, 1.0),
         }
     }
@@ -342,8 +439,10 @@ impl HnswHealthMonitor {
     pub fn new(config: SpectralConfig) -> Self {
         Self {
             tracker: SpectralTracker::new(config),
-            min_fiedler: 0.05, min_spectral_gap: 0.01,
-            max_resistance: 0.95, min_composite_scs: 0.3,
+            min_fiedler: 0.05,
+            min_spectral_gap: 0.01,
+            max_resistance: 0.95,
+            min_composite_scs: 0.3,
         }
     }
 
@@ -361,32 +460,47 @@ impl HnswHealthMonitor {
             alerts.push(HealthAlert::FragileIndex { fiedler: s.fiedler });
         }
         if s.spectral_gap < self.min_spectral_gap {
-            alerts.push(HealthAlert::PoorExpansion { gap: s.spectral_gap });
+            alerts.push(HealthAlert::PoorExpansion {
+                gap: s.spectral_gap,
+            });
         }
         if s.effective_resistance > self.max_resistance {
-            alerts.push(HealthAlert::HighResistance { resistance: s.effective_resistance });
+            alerts.push(HealthAlert::HighResistance {
+                resistance: s.effective_resistance,
+            });
         }
         if s.composite < self.min_composite_scs {
             alerts.push(HealthAlert::LowCoherence { scs: s.composite });
         }
         if alerts.len() >= 2 {
             alerts.push(HealthAlert::RebuildRecommended {
-                reason: format!("{} health issues detected. Full rebuild recommended.", alerts.len()),
+                reason: format!(
+                    "{} health issues detected. Full rebuild recommended.",
+                    alerts.len()
+                ),
             });
         }
         alerts
     }
 
-    pub fn score(&self) -> SpectralCoherenceScore { self.tracker.build_score() }
+    pub fn score(&self) -> SpectralCoherenceScore {
+        self.tracker.build_score()
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    fn triangle() -> Vec<(usize, usize, f64)> { vec![(0,1,1.0),(1,2,1.0),(0,2,1.0)] }
-    fn path4() -> Vec<(usize, usize, f64)> { vec![(0,1,1.0),(1,2,1.0),(2,3,1.0)] }
-    fn cycle4() -> Vec<(usize, usize, f64)> { vec![(0,1,1.0),(1,2,1.0),(2,3,1.0),(3,0,1.0)] }
+    fn triangle() -> Vec<(usize, usize, f64)> {
+        vec![(0, 1, 1.0), (1, 2, 1.0), (0, 2, 1.0)]
+    }
+    fn path4() -> Vec<(usize, usize, f64)> {
+        vec![(0, 1, 1.0), (1, 2, 1.0), (2, 3, 1.0)]
+    }
+    fn cycle4() -> Vec<(usize, usize, f64)> {
+        vec![(0, 1, 1.0), (1, 2, 1.0), (2, 3, 1.0), (3, 0, 1.0)]
+    }
 
     #[test]
     fn test_laplacian_construction() {
@@ -396,7 +510,10 @@ mod tests {
             let (s, e) = (lap.row_ptr[i], lap.row_ptr[i + 1]);
             let row_sum: f64 = lap.values[s..e].iter().sum();
             assert!(row_sum.abs() < 1e-10, "Row {} sum = {}", i, row_sum);
-            let diag = (s..e).find(|&j| lap.col_indices[j] == i).map(|j| lap.values[j]).unwrap();
+            let diag = (s..e)
+                .find(|&j| lap.col_indices[j] == i)
+                .map(|j| lap.values[j])
+                .unwrap();
             assert!((diag - 2.0).abs() < 1e-10, "Diag[{}] = {}", i, diag);
         }
     }
@@ -406,7 +523,11 @@ mod tests {
         // K3 eigenvalues: 0, 3, 3. Fiedler = 3.0.
         let lap = CsrMatrixView::build_laplacian(3, &triangle());
         let (f, _) = estimate_fiedler(&lap, 200, 1e-8);
-        assert!((f - 3.0).abs() < 0.15, "Triangle Fiedler = {} (expected ~3.0)", f);
+        assert!(
+            (f - 3.0).abs() < 0.15,
+            "Triangle Fiedler = {} (expected ~3.0)",
+            f
+        );
     }
 
     #[test]
@@ -415,7 +536,12 @@ mod tests {
         let lap = CsrMatrixView::build_laplacian(4, &path4());
         let (f, _) = estimate_fiedler(&lap, 200, 1e-8);
         let expected = 2.0 - std::f64::consts::SQRT_2;
-        assert!((f - expected).abs() < 0.15, "Path Fiedler = {} (expected ~{})", f, expected);
+        assert!(
+            (f - expected).abs() < 0.15,
+            "Path Fiedler = {} (expected ~{})",
+            f,
+            expected
+        );
     }
 
     #[test]
@@ -437,26 +563,53 @@ mod tests {
 
     #[test]
     fn test_scs_monotonicity() {
-        let full = vec![(0,1,1.0),(0,2,1.0),(0,3,1.0),(1,2,1.0),(1,3,1.0),(2,3,1.0)];
-        let sparse = vec![(0,1,1.0),(1,2,1.0),(2,3,1.0)];
+        let full = vec![
+            (0, 1, 1.0),
+            (0, 2, 1.0),
+            (0, 3, 1.0),
+            (1, 2, 1.0),
+            (1, 3, 1.0),
+            (2, 3, 1.0),
+        ];
+        let sparse = vec![(0, 1, 1.0), (1, 2, 1.0), (2, 3, 1.0)];
         let mut tf = SpectralTracker::new(SpectralConfig::default());
         let mut ts = SpectralTracker::new(SpectralConfig::default());
         let sf = tf.compute(&CsrMatrixView::build_laplacian(4, &full));
         let ss = ts.compute(&CsrMatrixView::build_laplacian(4, &sparse));
-        assert!(sf.composite >= ss.composite, "Full {} < sparse {}", sf.composite, ss.composite);
+        assert!(
+            sf.composite >= ss.composite,
+            "Full {} < sparse {}",
+            sf.composite,
+            ss.composite
+        );
     }
 
     #[test]
     fn test_tracker_incremental() {
-        let edges = vec![(0,1,1.0),(1,2,1.0),(2,3,1.0),(3,0,1.0),(0,2,1.0),(1,3,1.0)];
+        let edges = vec![
+            (0, 1, 1.0),
+            (1, 2, 1.0),
+            (2, 3, 1.0),
+            (3, 0, 1.0),
+            (0, 2, 1.0),
+            (1, 3, 1.0),
+        ];
         let mut tracker = SpectralTracker::new(SpectralConfig::default());
         let lap = CsrMatrixView::build_laplacian(4, &edges);
         tracker.compute(&lap);
 
         // Small perturbation for accurate first-order approximation.
         let delta = 0.05;
-        let updated: Vec<_> = edges.iter()
-            .map(|&(u,v,w)| if u == 1 && v == 3 { (u,v,w+delta) } else { (u,v,w) }).collect();
+        let updated: Vec<_> = edges
+            .iter()
+            .map(|&(u, v, w)| {
+                if u == 1 && v == 3 {
+                    (u, v, w + delta)
+                } else {
+                    (u, v, w)
+                }
+            })
+            .collect();
         let lap_u = CsrMatrixView::build_laplacian(4, &updated);
         tracker.update_edge(&lap_u, 1, 3, delta);
         let si = tracker.score();
@@ -464,25 +617,43 @@ mod tests {
         let mut tf = SpectralTracker::new(SpectralConfig::default());
         let sf = tf.compute(&lap_u).composite;
         let diff = (si - sf).abs();
-        assert!(diff < 0.5 * sf.max(0.01), "Incremental {} vs full {} (diff {})", si, sf, diff);
+        assert!(
+            diff < 0.5 * sf.max(0.01),
+            "Incremental {} vs full {} (diff {})",
+            si,
+            sf,
+            diff
+        );
 
         // Verify forced refresh matches full recompute closely.
-        let mut tr = SpectralTracker::new(SpectralConfig { refresh_threshold: 1, ..Default::default() });
+        let mut tr = SpectralTracker::new(SpectralConfig {
+            refresh_threshold: 1,
+            ..Default::default()
+        });
         tr.compute(&lap);
         tr.updates_since_refresh = 1;
         tr.update_edge(&lap_u, 1, 3, delta);
-        assert!((tr.score() - sf).abs() < 0.05, "Refreshed {} vs full {}", tr.score(), sf);
+        assert!(
+            (tr.score() - sf).abs() < 0.05,
+            "Refreshed {} vs full {}",
+            tr.score(),
+            sf
+        );
     }
 
     #[test]
     fn test_health_alerts() {
-        let weak = vec![(0,1,0.01),(1,2,0.01)];
+        let weak = vec![(0, 1, 0.01), (1, 2, 0.01)];
         let mut m = HnswHealthMonitor::new(SpectralConfig::default());
         m.update(&CsrMatrixView::build_laplacian(3, &weak), None);
         let alerts = m.check_health();
         assert!(
-            alerts.iter().any(|a| matches!(a, HealthAlert::FragileIndex { .. } | HealthAlert::LowCoherence { .. })),
-            "Weak graph should trigger alerts. Got: {:?}", alerts
+            alerts.iter().any(|a| matches!(
+                a,
+                HealthAlert::FragileIndex { .. } | HealthAlert::LowCoherence { .. }
+            )),
+            "Weak graph should trigger alerts. Got: {:?}",
+            alerts
         );
         let mut ms = HnswHealthMonitor::new(SpectralConfig::default());
         ms.update(&CsrMatrixView::build_laplacian(3, &triangle()), None);

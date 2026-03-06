@@ -80,8 +80,7 @@ impl Attestation {
             u64::from_le_bytes(data[64..72].try_into().map_err(|_| "bad timestamp")?);
         let verifier_version =
             u32::from_le_bytes(data[72..76].try_into().map_err(|_| "bad version")?);
-        let reduction_steps =
-            u32::from_le_bytes(data[76..80].try_into().map_err(|_| "bad steps")?);
+        let reduction_steps = u32::from_le_bytes(data[76..80].try_into().map_err(|_| "bad steps")?);
         let cache_hit_rate_bps =
             u16::from_le_bytes(data[80..82].try_into().map_err(|_| "bad rate")?);
 
@@ -414,7 +413,11 @@ impl CoreGraphTransformer {
         let normalized: Vec<f64> = exps.iter().map(|e| e / sum_exp).collect();
 
         let indices: Vec<u32> = top_k.iter().map(|(i, _)| *i as u32).collect();
-        let sparsity = if n > 0 { 1.0 - (k as f64 / n as f64) } else { 0.0 };
+        let sparsity = if n > 0 {
+            1.0 - (k as f64 / n as f64)
+        } else {
+            0.0
+        };
 
         self.stats.attention_ops += 1;
         Ok(AttentionResult {
@@ -452,8 +455,7 @@ impl CoreGraphTransformer {
                 }
             }
             for i in 0..n {
-                scores[i] =
-                    alpha * (if i == src { 1.0 } else { 0.0 }) + (1.0 - alpha) * next[i];
+                scores[i] = alpha * (if i == src { 1.0 } else { 0.0 }) + (1.0 - alpha) * next[i];
             }
         }
         scores
@@ -612,7 +614,11 @@ impl CoreGraphTransformer {
         for i in 0..n {
             for j in 0..n {
                 let idx = i * n + j;
-                let w = if idx < adjacency.len() { adjacency[idx] } else { 0.0 };
+                let w = if idx < adjacency.len() {
+                    adjacency[idx]
+                } else {
+                    0.0
+                };
                 let dw = if spikes[i] && spikes[j] {
                     0.01
                 } else if spikes[i] && !spikes[j] {
@@ -980,7 +986,11 @@ impl CoreGraphTransformer {
 
                 let f_stat = if rss_u > 1e-10 && df_denom > 0.0 && df_diff > 0.0 {
                     let raw = ((rss_r - rss_u) / df_diff) / (rss_u / df_denom);
-                    if raw.is_finite() { raw.max(0.0) } else { 0.0 }
+                    if raw.is_finite() {
+                        raw.max(0.0)
+                    } else {
+                        0.0
+                    }
                 } else {
                     0.0
                 };
@@ -1185,8 +1195,16 @@ mod tests {
     fn test_compose() {
         let mut gt = CoreGraphTransformer::new();
         let stages = vec![
-            PipelineStage { name: "a".into(), input_type_id: 1, output_type_id: 2 },
-            PipelineStage { name: "b".into(), input_type_id: 2, output_type_id: 3 },
+            PipelineStage {
+                name: "a".into(),
+                input_type_id: 1,
+                output_type_id: 2,
+            },
+            PipelineStage {
+                name: "b".into(),
+                input_type_id: 2,
+                output_type_id: 3,
+            },
         ];
         let r = gt.compose_proofs(&stages).unwrap();
         assert_eq!(r.stages_verified, 2);
@@ -1195,7 +1213,9 @@ mod tests {
     #[test]
     fn test_sublinear() {
         let mut gt = CoreGraphTransformer::new();
-        let r = gt.sublinear_attention(&[1.0, 0.5], &[vec![1], vec![0]], 2, 1).unwrap();
+        let r = gt
+            .sublinear_attention(&[1.0, 0.5], &[vec![1], vec![0]], 2, 1)
+            .unwrap();
         assert_eq!(r.scores.len(), 1);
     }
 
@@ -1290,10 +1310,7 @@ mod tests {
         let mut gt = CoreGraphTransformer::new();
         let features = vec![1.0, 0.5, 0.8];
         let timestamps = vec![1.0, 2.0, 3.0];
-        let edges = vec![
-            Edge { src: 0, tgt: 1 },
-            Edge { src: 1, tgt: 2 },
-        ];
+        let edges = vec![Edge { src: 0, tgt: 1 }, Edge { src: 1, tgt: 2 }];
         let out = gt.causal_attention_graph(&features, &timestamps, &edges);
         assert_eq!(out.len(), 3);
     }
@@ -1304,7 +1321,11 @@ mod tests {
         let mut history = Vec::new();
         for t in 0..10 {
             let x = (t as f64 * 0.5).sin();
-            let y = if t > 0 { ((t - 1) as f64 * 0.5).sin() * 0.8 } else { 0.0 };
+            let y = if t > 0 {
+                ((t - 1) as f64 * 0.5).sin() * 0.8
+            } else {
+                0.0
+            };
             history.push(x);
             history.push(y);
         }
@@ -1316,10 +1337,7 @@ mod tests {
     fn test_game_theoretic_attention() {
         let mut gt = CoreGraphTransformer::new();
         let features = vec![1.0, 0.5, 0.8];
-        let edges = vec![
-            Edge { src: 0, tgt: 1 },
-            Edge { src: 1, tgt: 2 },
-        ];
+        let edges = vec![Edge { src: 0, tgt: 1 }, Edge { src: 1, tgt: 2 }];
         let result = gt.game_theoretic_attention(&features, &edges);
         assert_eq!(result.allocations.len(), 3);
         assert_eq!(result.utilities.len(), 3);

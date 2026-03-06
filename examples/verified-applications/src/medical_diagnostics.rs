@@ -10,9 +10,8 @@
 
 use crate::ProofReceipt;
 use ruvector_verified::{
-    ProofEnvironment, VerifiedStage,
     pipeline::{compose_chain, compose_stages},
-    proof_store, vector_types,
+    proof_store, vector_types, ProofEnvironment, VerifiedStage,
 };
 
 /// A diagnostic pipeline stage with its proof.
@@ -80,8 +79,8 @@ pub fn run_diagnostic(
         ("similarity_search".into(), 2, 3),
         ("risk_classify".into(), 3, 4),
     ];
-    let (input_ty, output_ty, chain_proof) = compose_chain(&chain, &mut env)
-        .map_err(|e| format!("pipeline composition: {e}"))?;
+    let (input_ty, output_ty, chain_proof) =
+        compose_chain(&chain, &mut env).map_err(|e| format!("pipeline composition: {e}"))?;
     let att4 = proof_store::create_attestation(&env, chain_proof);
 
     Ok(DiagnosticBundle {
@@ -92,7 +91,9 @@ pub fn run_diagnostic(
         pipeline_attestation: att4.to_bytes(),
         verdict: format!(
             "Pipeline type#{} -> type#{} verified with {} proof steps",
-            input_ty, output_ty, env.stats().proofs_constructed,
+            input_ty,
+            output_ty,
+            env.stats().proofs_constructed,
         ),
     })
 }

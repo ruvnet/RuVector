@@ -1,59 +1,34 @@
-# Ruvector Replication
+# ruvector-replication
 
 [![Crates.io](https://img.shields.io/crates/v/ruvector-replication.svg)](https://crates.io/crates/ruvector-replication)
-[![Documentation](https://docs.rs/ruvector-replication/badge.svg)](https://docs.rs/ruvector-replication)
+[![docs.rs](https://docs.rs/ruvector-replication/badge.svg)](https://docs.rs/ruvector-replication)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![Rust](https://img.shields.io/badge/rust-1.77%2B-orange.svg)](https://www.rust-lang.org)
 
-**Data replication and synchronization for Ruvector distributed deployments.**
-
-`ruvector-replication` provides vector data replication across nodes with configurable consistency levels, conflict resolution, and synchronization strategies. Part of the [Ruvector](https://github.com/ruvnet/ruvector) ecosystem.
-
-## Why Ruvector Replication?
-
-- **High Availability**: Replicate data across multiple nodes
-- **Configurable Consistency**: Tune consistency vs availability
-- **Async Replication**: Non-blocking replication for performance
-- **Conflict Resolution**: Automatic conflict handling strategies
-- **Incremental Sync**: Efficient delta synchronization
-
-## Features
-
-### Core Capabilities
-
-- **Multi-Master Replication**: Write to any node
-- **Replica Sets**: Configurable replication factor
-- **Change Streams**: Real-time replication events
-- **Checkpointing**: Track replication progress
-- **Recovery**: Automatic replica recovery
-
-### Advanced Features
-
-- **Quorum Writes**: Configurable write acknowledgment
-- **Read Replicas**: Scale read throughput
-- **Conflict Resolution**: Last-write-wins, vector clocks, CRDTs
-- **Bandwidth Throttling**: Control replication bandwidth
-- **Compression**: Reduce network transfer size
-
-## Installation
-
-Add `ruvector-replication` to your `Cargo.toml`:
+**Multi-master vector replication with quorum writes, vector clocks, and automatic conflict resolution.**
 
 ```toml
-[dependencies]
 ruvector-replication = "0.1.1"
 ```
 
-## Quick Start
+When your vector database runs on more than one node, you need a way to keep data in sync without losing writes or slowing down queries. ruvector-replication handles that: it replicates vectors across nodes, resolves conflicts automatically, and lets you trade off consistency versus speed per-write. It plugs into the [RuVector](https://github.com/ruvnet/ruvector) ecosystem alongside Raft consensus and auto-sharding.
 
-### Setup Replication
+| | Single-node vector DB | ruvector-replication |
+|---|---|---|
+| **Availability** | One node goes down, everything stops | Replicas serve reads and accept writes |
+| **Write scaling** | One writer | Multi-master -- write to any node |
+| **Conflict handling** | N/A | Vector clocks, last-write-wins, or CRDTs |
+| **Consistency control** | N/A | Per-write: One, Quorum, or All |
+| **Sync efficiency** | N/A | Incremental deltas with compression |
+| **Recovery** | Manual restore from backup | Automatic replica recovery |
+
+## Quick Start
 
 ```rust
 use ruvector_replication::{Replicator, ReplicationConfig, ConsistencyLevel};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Configure replication
     let config = ReplicationConfig {
         replication_factor: 3,
         consistency_level: ConsistencyLevel::Quorum,
@@ -63,15 +38,25 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         ..Default::default()
     };
 
-    // Create replicator
     let replicator = Replicator::new(config).await?;
-
-    // Start replication
     replicator.start().await?;
 
     Ok(())
 }
 ```
+
+## Key Features
+
+| Feature | What It Does | Why It Matters |
+|---------|-------------|----------------|
+| **Multi-master replication** | Write to any node in the cluster | No single point of failure for writes |
+| **Configurable consistency** | Choose One, Quorum, or All per write | Trade latency for safety on a per-operation basis |
+| **Vector clock conflict resolution** | Track causal ordering across nodes | Detect and resolve concurrent writes correctly |
+| **CRDT support** | Conflict-free replicated data types | Guaranteed convergence without coordination |
+| **Change streams** | Real-time replication event stream | Monitor sync status and react to changes |
+| **Incremental sync with compression** | Only send deltas, compressed on the wire | Minimize bandwidth between nodes |
+| **Automatic recovery** | Replicas catch up after failures | No manual intervention on node restart |
+| **Bandwidth throttling** | Cap replication throughput | Protect production traffic from replication storms |
 
 ### Write with Replication
 

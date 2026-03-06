@@ -268,10 +268,35 @@ pub fn anticipate(
                 }
             }
 
-            AnticipationHint::TemporalCycle { phase: _ } => {
-                // TODO: Implement temporal cycle prediction
-                // Would track queries by time-of-day/day-of-week
-                // and pre-fetch commonly accessed patterns for current phase
+            AnticipationHint::TemporalCycle { phase } => {
+                // Encode the temporal phase as a sinusoidal query vector and
+                // pre-fetch high-salience patterns for this recurring time slot.
+                let phase_ratio = match phase {
+                    TemporalPhase::HourOfDay(h) => *h as f64 / 24.0,
+                    TemporalPhase::DayOfWeek(d) => *d as f64 / 7.0,
+                    TemporalPhase::Custom(c) => (*c as f64 % 1000.0) / 1000.0,
+                };
+
+                // Build a 32-dim sinusoidal embedding for the phase
+                let dim = 32usize;
+                let query_vec: Vec<f32> = (0..dim)
+                    .map(|i| {
+                        let angle =
+                            2.0 * std::f64::consts::PI * phase_ratio * (i + 1) as f64 / dim as f64;
+                        angle.sin() as f32
+                    })
+                    .collect();
+
+                let query = Query::from_embedding(query_vec);
+                let query_hash = query.hash();
+
+                if prefetch_cache.get(query_hash).is_none() {
+                    let results = long_term.search(&query);
+                    if !results.is_empty() {
+                        prefetch_cache.insert(query_hash, results);
+                        num_prefetched += 1;
+                    }
+                }
             }
 
             AnticipationHint::CausalChain { context } => {

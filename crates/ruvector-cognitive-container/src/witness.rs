@@ -295,8 +295,7 @@ mod tests {
         }
 
         // Tamper with the second receipt's input_hash.
-        let mut tampered: Vec<ContainerWitnessReceipt> =
-            chain.receipt_chain().to_vec();
+        let mut tampered: Vec<ContainerWitnessReceipt> = chain.receipt_chain().to_vec();
         tampered[1].input_hash[0] ^= 0xFF;
 
         match WitnessChain::verify_chain(&tampered) {
@@ -320,13 +319,7 @@ mod tests {
     fn test_ring_buffer_eviction() {
         let mut chain = WitnessChain::new(3);
         for _ in 0..5 {
-            chain.generate_receipt(
-                b"data",
-                b"mc",
-                0.1,
-                b"ev",
-                CoherenceDecision::Pass,
-            );
+            chain.generate_receipt(b"data", b"mc", 0.1, b"ev", CoherenceDecision::Pass);
         }
         assert_eq!(chain.receipt_chain().len(), 3);
         assert_eq!(chain.receipt_chain()[0].epoch, 2);

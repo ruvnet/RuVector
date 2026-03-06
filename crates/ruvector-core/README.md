@@ -5,42 +5,23 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![Rust](https://img.shields.io/badge/rust-1.77%2B-orange.svg)](https://www.rust-lang.org)
 
-**High-performance Rust vector database engine with HNSW indexing, quantization, and SIMD optimizations.**
+**The pure-Rust vector database engine behind RuVector -- HNSW indexing, quantization, and SIMD acceleration in a single crate.**
 
-`ruvector-core` is the foundational Rust library powering [Ruvector](https://github.com/ruvnet/ruvector)—a next-generation vector database built for extreme performance and universal deployment. This crate provides the core vector database engine with state-of-the-art algorithms optimized for modern hardware.
+`ruvector-core` is the foundational library that powers the entire [RuVector](https://github.com/ruvnet/ruvector) ecosystem. It gives you a production-grade vector database you can embed directly into any Rust application: insert vectors, search them in under a millisecond, filter by metadata, and compress storage up to 32x -- all without external services. If you need vector search as a library instead of a server, this is the crate.
 
-## 🌟 Why Ruvector Core?
+| | ruvector-core | Typical Vector Database |
+|---|---|---|
+| **Deployment** | Embed as a Rust dependency -- no server, no network calls | Run a separate service, manage connections |
+| **Query latency** | <0.5 ms p50 at 1M vectors with HNSW | ~1-5 ms depending on network and index |
+| **Memory compression** | Scalar (4x), Product (8-32x), Binary (32x) quantization built in | Often requires paid tiers or external tools |
+| **SIMD acceleration** | SimSIMD hardware-optimized distance calculations, automatic | Manual tuning or not available |
+| **Search modes** | Dense vectors, sparse BM25, hybrid, MMR diversity, filtered -- all in one API | Typically dense-only; hybrid and filtering are add-ons |
+| **Storage** | Zero-copy mmap with `redb` -- instant loading, no deserialization | Load time scales with dataset size |
+| **Concurrency** | Lock-free indexing with parallel batch processing via Rayon | Varies; many require single-writer locks |
+| **Dependencies** | Minimal -- pure Rust, compiles anywhere `rustc` runs | Often depends on C/C++ libraries (BLAS, LAPACK) |
+| **Cost** | Free forever -- open source (MIT) | Per-vector or per-query pricing on managed tiers |
 
-- ⚡ **Blazing Fast**: <0.5ms p50 query latency with HNSW indexing
-- 🧠 **Memory Efficient**: 4-32x compression via quantization techniques
-- 🎯 **High Accuracy**: 95%+ recall with HNSW + Product Quantization
-- 🚀 **SIMD Accelerated**: Hardware-optimized distance calculations using SimSIMD
-- 🔧 **Zero Dependencies**: Minimal external dependencies, pure Rust implementation
-- 📦 **Production Ready**: Battle-tested algorithms with comprehensive benchmarks
-
-## 🚀 Features
-
-### Core Capabilities
-
-- **HNSW Indexing**: Hierarchical Navigable Small World graphs for O(log n) approximate nearest neighbor search
-- **Multiple Distance Metrics**: Euclidean, Cosine, Dot Product, Manhattan
-- **Advanced Quantization**: Scalar (4x), Product (8-32x), and Binary (32x) quantization
-- **SIMD Optimizations**: Hardware-accelerated distance calculations via `simsimd`
-- **Zero-Copy I/O**: Memory-mapped storage for instant loading
-- **Concurrent Operations**: Lock-free data structures and parallel batch processing
-- **Flexible Storage**: Persistent storage with `redb` and memory-mapped files
-
-### Advanced Features
-
-- **Hybrid Search**: Combine dense vector search with sparse BM25 text search
-- **Filtered Search**: Apply metadata filters during vector search
-- **MMR Diversification**: Maximal Marginal Relevance for diverse result sets
-- **Conformal Prediction**: Uncertainty quantification for search results
-- **Product Quantization**: Memory-efficient vector compression with high accuracy
-- **Cache Optimization**: Multi-level caching for improved performance
-- **Lock-Free Indexing**: High-concurrency operations without blocking
-
-## 📦 Installation
+## Installation
 
 Add `ruvector-core` to your `Cargo.toml`:
 
@@ -60,7 +41,25 @@ Available features:
 - `simd` (default): Enable SIMD-optimized distance calculations
 - `uuid-support` (default): Enable UUID generation for vector IDs
 
-## ⚡ Quick Start
+## Key Features
+
+| Feature | What It Does | Why It Matters |
+|---------|-------------|----------------|
+| **HNSW Indexing** | Hierarchical Navigable Small World graphs for O(log n) approximate nearest neighbor search | Sub-millisecond queries at million-vector scale |
+| **Multiple Distance Metrics** | Euclidean, Cosine, Dot Product, Manhattan | Match the metric to your embedding model without conversion |
+| **Scalar Quantization** | Compress vectors to 8-bit integers (4x reduction) | Cut memory by 75% with 98% recall preserved |
+| **Product Quantization** | Split vectors into subspaces with codebooks (8-32x reduction) | Store millions of vectors on a single machine |
+| **Binary Quantization** | 1-bit representation (32x reduction) | Ultra-fast screening pass for massive datasets |
+| **SIMD Distance** | Hardware-accelerated distance via SimSIMD | Up to 80K QPS on 8 cores without code changes |
+| **Zero-Copy I/O** | Memory-mapped storage loads instantly | No deserialization step -- open a file and search immediately |
+| **Hybrid Search** | Combine dense vector similarity with sparse BM25 text scoring | One query handles both semantic and keyword matching |
+| **Metadata Filtering** | Apply key-value filters during search | No post-filtering needed -- results are already filtered |
+| **MMR Diversification** | Maximal Marginal Relevance re-ranking | Avoid redundant results when top-K are too similar |
+| **Conformal Prediction** | Uncertainty quantification on search results | Know when to trust (or distrust) a match |
+| **Lock-Free Indexing** | Concurrent reads and writes without blocking | High-throughput ingestion while serving queries |
+| **Batch Processing** | Parallel insert and search via Rayon | Saturate all cores for bulk operations |
+
+## Quick Start
 
 ### Basic Usage
 
@@ -195,7 +194,7 @@ options.quantization = Some(QuantizationConfig::Product {
 let db = VectorDB::new(options)?;
 ```
 
-## 📊 API Overview
+## API Overview
 
 ### Core Types
 
@@ -300,13 +299,13 @@ let mmr = MMRSearch::new(MMRConfig {
 });
 ```
 
-## 🎯 Performance Characteristics
+## Performance
 
 ### Latency (Single Query)
 
 ```
 Operation           Flat Index    HNSW Index
-─────────────────────────────────────────────
+---------------------------------------------
 Search (1K vecs)    ~0.1ms       ~0.2ms
 Search (100K vecs)  ~10ms        ~0.5ms
 Search (1M vecs)    ~100ms       <1ms
@@ -318,7 +317,7 @@ Batch (1000)        ~50ms        ~500ms
 
 ```
 Configuration              Memory      Recall
-─────────────────────────────────────────────
+---------------------------------------------
 Full Precision (f32)       ~1.5GB      100%
 Scalar Quantization        ~400MB      98%
 Product Quantization       ~200MB      95%
@@ -329,14 +328,14 @@ Binary Quantization        ~50MB       85%
 
 ```
 Configuration              QPS         Latency (p50)
-─────────────────────────────────────────────────
+-----------------------------------------------------
 Single Thread             ~2,000      ~0.5ms
 Multi-Thread (8 cores)    ~50,000     <0.5ms
 With SIMD                 ~80,000     <0.3ms
 With Quantization         ~100,000    <0.2ms
 ```
 
-## 🔧 Configuration Guide
+## Configuration Guide
 
 ### For Maximum Accuracy
 
@@ -378,7 +377,7 @@ let options = DbOptions {
 let options = DbOptions::default(); // Recommended defaults
 ```
 
-## 🔨 Building and Testing
+## Building and Testing
 
 ### Build
 
@@ -426,68 +425,26 @@ Available benchmarks:
 - `batch_operations` - Batch insert/search operations
 - `comprehensive_bench` - Full system benchmarks
 
-## 📚 Documentation
+## Related Crates
 
-### Complete Ruvector Documentation
+`ruvector-core` is the foundation for platform-specific bindings:
 
-This crate is part of the larger Ruvector project:
+- **[ruvector-node](../ruvector-node/)** - Node.js bindings via NAPI-RS
+- **[ruvector-wasm](../ruvector-wasm/)** - WebAssembly bindings for browsers
+- **[ruvector-gnn](../ruvector-gnn/)** - Graph Neural Network layer for learned search
+- **[ruvector-cli](../ruvector-cli/)** - Command-line interface
+- **[ruvector-bench](../ruvector-bench/)** - Performance benchmarks
+
+## Documentation
 
 - **[Main README](../../README.md)** - Complete project overview
 - **[Getting Started Guide](../../docs/guide/GETTING_STARTED.md)** - Quick start tutorial
 - **[Rust API Reference](../../docs/api/RUST_API.md)** - Detailed API documentation
 - **[Advanced Features Guide](../../docs/guide/ADVANCED_FEATURES.md)** - Quantization, indexing, tuning
 - **[Performance Tuning](../../docs/optimization/PERFORMANCE_TUNING_GUIDE.md)** - Optimization strategies
-- **[Benchmarking Guide](../../docs/benchmarks/BENCHMARKING_GUIDE.md)** - Running benchmarks
+- **[API Documentation](https://docs.rs/ruvector-core)** - Full API reference on docs.rs
 
-### API Documentation
-
-Generate and view the full API documentation:
-
-```bash
-cargo doc --open --no-deps
-```
-
-## 🌐 Related Crates
-
-`ruvector-core` is the foundation for platform-specific bindings:
-
-- **[ruvector-node](../ruvector-node/)** - Node.js bindings via NAPI-RS
-- **[ruvector-wasm](../ruvector-wasm/)** - WebAssembly bindings for browsers
-- **[ruvector-cli](../ruvector-cli/)** - Command-line interface
-- **[ruvector-bench](../ruvector-bench/)** - Performance benchmarks
-
-## 🤝 Contributing
-
-We welcome contributions! See the main [Contributing Guidelines](../../docs/development/CONTRIBUTING.md) for details.
-
-### Areas for Contribution
-
-- 🐛 Bug fixes and stability improvements
-- ✨ New distance metrics or quantization techniques
-- 📈 Performance optimizations
-- 🧪 Additional test coverage
-- 📝 Documentation and examples
-
-## 📊 Comparison
-
-**Why Ruvector Core vs. Alternatives?**
-
-| Feature | Ruvector Core | hnswlib-rs | faiss-rs | qdrant |
-|---------|---------------|------------|----------|--------|
-| **Pure Rust** | ✅ | ✅ | ❌ (C++) | ✅ |
-| **SIMD** | ✅ SimSIMD | ❌ | ✅ | ✅ |
-| **Quantization** | ✅ Multiple | ❌ | ✅ | ✅ |
-| **Zero-Copy I/O** | ✅ | ❌ | ✅ | ✅ |
-| **Metadata Filter** | ✅ | ❌ | ❌ | ✅ |
-| **Hybrid Search** | ✅ | ❌ | ❌ | ✅ |
-| **P50 Latency** | <0.5ms | ~1ms | ~0.5ms | ~1ms |
-| **Dependencies** | Minimal | Minimal | Heavy | Heavy |
-
-## 📜 License
-
-**MIT License** - see [LICENSE](../../LICENSE) for details.
-
-## 🙏 Acknowledgments
+## Acknowledgments
 
 Built with state-of-the-art algorithms and libraries:
 
@@ -497,15 +454,18 @@ Built with state-of-the-art algorithms and libraries:
 - **[rayon](https://crates.io/crates/rayon)** - Data parallelism
 - **[memmap2](https://crates.io/crates/memmap2)** - Memory-mapped files
 
+## License
+
+**MIT License** - see [LICENSE](../../LICENSE) for details.
+
 ---
 
 <div align="center">
 
-**Part of [Ruvector](https://github.com/ruvnet/ruvector) • Built by [rUv](https://ruv.io)**
+**Part of [RuVector](https://github.com/ruvnet/ruvector) - Built by [rUv](https://ruv.io)**
 
 [![Star on GitHub](https://img.shields.io/github/stars/ruvnet/ruvector?style=social)](https://github.com/ruvnet/ruvector)
-[![Follow @ruvnet](https://img.shields.io/twitter/follow/ruvnet?style=social)](https://twitter.com/ruvnet)
 
-[Documentation](https://docs.rs/ruvector-core) • [Crates.io](https://crates.io/crates/ruvector-core) • [GitHub](https://github.com/ruvnet/ruvector)
+[Documentation](https://docs.rs/ruvector-core) | [Crates.io](https://crates.io/crates/ruvector-core) | [GitHub](https://github.com/ruvnet/ruvector)
 
 </div>

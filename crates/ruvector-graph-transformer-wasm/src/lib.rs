@@ -45,9 +45,7 @@
 mod transformer;
 mod utils;
 
-use transformer::{
-    CoreGraphTransformer, Edge, PipelineStage as CorePipelineStage,
-};
+use transformer::{CoreGraphTransformer, Edge, PipelineStage as CorePipelineStage};
 use wasm_bindgen::prelude::*;
 
 // ---------------------------------------------------------------------------
@@ -108,18 +106,18 @@ impl JsGraphTransformer {
     /// Returns a serialized `ProofGate` object.
     pub fn create_proof_gate(&mut self, dim: u32) -> Result<JsValue, JsError> {
         let gate = self.inner.create_proof_gate(dim);
-        serde_wasm_bindgen::to_value(&gate)
-            .map_err(|e| JsError::new(&e.to_string()))
+        serde_wasm_bindgen::to_value(&gate).map_err(|e| JsError::new(&e.to_string()))
     }
 
     /// Prove that two dimensions are equal.
     ///
     /// Returns `{ proof_id, expected, actual, verified }`.
     pub fn prove_dimension(&mut self, expected: u32, actual: u32) -> Result<JsValue, JsError> {
-        let result = self.inner.prove_dimension(expected, actual)
+        let result = self
+            .inner
+            .prove_dimension(expected, actual)
             .map_err(|e| JsError::new(&format!("{e}")))?;
-        serde_wasm_bindgen::to_value(&result)
-            .map_err(|e| JsError::new(&e.to_string()))
+        serde_wasm_bindgen::to_value(&result).map_err(|e| JsError::new(&e.to_string()))
     }
 
     /// Create a proof attestation for a given proof ID.
@@ -142,13 +140,13 @@ impl JsGraphTransformer {
     /// `stages` is a JS array of `{ name, input_type_id, output_type_id }`.
     /// Returns a composed proof with the overall input/output types.
     pub fn compose_proofs(&mut self, stages: JsValue) -> Result<JsValue, JsError> {
-        let rust_stages: Vec<CorePipelineStage> =
-            serde_wasm_bindgen::from_value(stages)
-                .map_err(|e| JsError::new(&format!("invalid stages: {e}")))?;
-        let result = self.inner.compose_proofs(&rust_stages)
+        let rust_stages: Vec<CorePipelineStage> = serde_wasm_bindgen::from_value(stages)
+            .map_err(|e| JsError::new(&format!("invalid stages: {e}")))?;
+        let result = self
+            .inner
+            .compose_proofs(&rust_stages)
             .map_err(|e| JsError::new(&format!("{e}")))?;
-        serde_wasm_bindgen::to_value(&result)
-            .map_err(|e| JsError::new(&e.to_string()))
+        serde_wasm_bindgen::to_value(&result).map_err(|e| JsError::new(&e.to_string()))
     }
 
     // ===================================================================
@@ -170,10 +168,11 @@ impl JsGraphTransformer {
             .map_err(|e| JsError::new(&format!("invalid query: {e}")))?;
         let ed: Vec<Vec<u32>> = serde_wasm_bindgen::from_value(edges)
             .map_err(|e| JsError::new(&format!("invalid edges: {e}")))?;
-        let result = self.inner.sublinear_attention(&q, &ed, dim, k)
+        let result = self
+            .inner
+            .sublinear_attention(&q, &ed, dim, k)
             .map_err(|e| JsError::new(&format!("{e}")))?;
-        serde_wasm_bindgen::to_value(&result)
-            .map_err(|e| JsError::new(&e.to_string()))
+        serde_wasm_bindgen::to_value(&result).map_err(|e| JsError::new(&e.to_string()))
     }
 
     /// Compute personalized PageRank scores from a source node.
@@ -188,8 +187,7 @@ impl JsGraphTransformer {
         let adj: Vec<Vec<u32>> = serde_wasm_bindgen::from_value(adjacency)
             .map_err(|e| JsError::new(&format!("invalid adjacency: {e}")))?;
         let scores = self.inner.ppr_scores(source, &adj, alpha);
-        serde_wasm_bindgen::to_value(&scores)
-            .map_err(|e| JsError::new(&e.to_string()))
+        serde_wasm_bindgen::to_value(&scores).map_err(|e| JsError::new(&e.to_string()))
     }
 
     // ===================================================================
@@ -213,10 +211,11 @@ impl JsGraphTransformer {
             .map_err(|e| JsError::new(&format!("invalid momenta: {e}")))?;
         let ed: Vec<Edge> = serde_wasm_bindgen::from_value(edges)
             .map_err(|e| JsError::new(&format!("invalid edges: {e}")))?;
-        let result = self.inner.hamiltonian_step_graph(&pos, &mom, &ed, 0.01)
+        let result = self
+            .inner
+            .hamiltonian_step_graph(&pos, &mom, &ed, 0.01)
             .map_err(|e| JsError::new(&format!("{e}")))?;
-        serde_wasm_bindgen::to_value(&result)
-            .map_err(|e| JsError::new(&e.to_string()))
+        serde_wasm_bindgen::to_value(&result).map_err(|e| JsError::new(&e.to_string()))
     }
 
     /// Verify energy conservation between two states.
@@ -228,9 +227,10 @@ impl JsGraphTransformer {
         after: f64,
         tolerance: f64,
     ) -> Result<JsValue, JsError> {
-        let v = self.inner.verify_energy_conservation(before, after, tolerance);
-        serde_wasm_bindgen::to_value(&v)
-            .map_err(|e| JsError::new(&e.to_string()))
+        let v = self
+            .inner
+            .verify_energy_conservation(before, after, tolerance);
+        serde_wasm_bindgen::to_value(&v).map_err(|e| JsError::new(&e.to_string()))
     }
 
     // ===================================================================
@@ -251,8 +251,7 @@ impl JsGraphTransformer {
         let adj: Vec<f64> = serde_wasm_bindgen::from_value(adjacency)
             .map_err(|e| JsError::new(&format!("invalid adjacency: {e}")))?;
         let result = self.inner.spiking_step(&feats, &adj, 1.0);
-        serde_wasm_bindgen::to_value(&result)
-            .map_err(|e| JsError::new(&e.to_string()))
+        serde_wasm_bindgen::to_value(&result).map_err(|e| JsError::new(&e.to_string()))
     }
 
     /// Hebbian weight update.
@@ -271,8 +270,7 @@ impl JsGraphTransformer {
         let w: Vec<f64> = serde_wasm_bindgen::from_value(weights)
             .map_err(|e| JsError::new(&format!("invalid weights: {e}")))?;
         let result = self.inner.hebbian_update(&pre_v, &post_v, &w, 0.01);
-        serde_wasm_bindgen::to_value(&result)
-            .map_err(|e| JsError::new(&e.to_string()))
+        serde_wasm_bindgen::to_value(&result).map_err(|e| JsError::new(&e.to_string()))
     }
 
     // ===================================================================
@@ -297,8 +295,7 @@ impl JsGraphTransformer {
         let ed: Vec<Edge> = serde_wasm_bindgen::from_value(edges)
             .map_err(|e| JsError::new(&format!("invalid edges: {e}")))?;
         let result = self.inner.causal_attention_graph(&feats, &ts, &ed);
-        serde_wasm_bindgen::to_value(&result)
-            .map_err(|e| JsError::new(&e.to_string()))
+        serde_wasm_bindgen::to_value(&result).map_err(|e| JsError::new(&e.to_string()))
     }
 
     /// Extract Granger causality DAG from attention history.
@@ -314,8 +311,7 @@ impl JsGraphTransformer {
         let hist: Vec<f64> = serde_wasm_bindgen::from_value(attention_history)
             .map_err(|e| JsError::new(&format!("invalid attention_history: {e}")))?;
         let dag = self.inner.granger_extract(&hist, num_nodes, num_steps);
-        serde_wasm_bindgen::to_value(&dag)
-            .map_err(|e| JsError::new(&e.to_string()))
+        serde_wasm_bindgen::to_value(&dag).map_err(|e| JsError::new(&e.to_string()))
     }
 
     // ===================================================================
@@ -337,9 +333,10 @@ impl JsGraphTransformer {
         let ed: Vec<Edge> = serde_wasm_bindgen::from_value(edges)
             .map_err(|e| JsError::new(&format!("invalid edges: {e}")))?;
         let curvatures = vec![0.0, -1.0]; // default mixed curvatures
-        let result = self.inner.product_manifold_attention(&feats, &ed, &curvatures);
-        serde_wasm_bindgen::to_value(&result)
-            .map_err(|e| JsError::new(&e.to_string()))
+        let result = self
+            .inner
+            .product_manifold_attention(&feats, &ed, &curvatures);
+        serde_wasm_bindgen::to_value(&result).map_err(|e| JsError::new(&e.to_string()))
     }
 
     /// Product manifold distance between two points.
@@ -381,10 +378,11 @@ impl JsGraphTransformer {
             .map_err(|e| JsError::new(&format!("invalid targets: {e}")))?;
         let w: Vec<f64> = serde_wasm_bindgen::from_value(weights)
             .map_err(|e| JsError::new(&format!("invalid weights: {e}")))?;
-        let result = self.inner.verified_training_step(&f, &t, &w, 0.001)
+        let result = self
+            .inner
+            .verified_training_step(&f, &t, &w, 0.001)
             .map_err(|e| JsError::new(&format!("{e}")))?;
-        serde_wasm_bindgen::to_value(&result)
-            .map_err(|e| JsError::new(&e.to_string()))
+        serde_wasm_bindgen::to_value(&result).map_err(|e| JsError::new(&e.to_string()))
     }
 
     /// A single verified SGD step (raw weights + gradients).
@@ -400,10 +398,11 @@ impl JsGraphTransformer {
             .map_err(|e| JsError::new(&format!("invalid weights: {e}")))?;
         let g: Vec<f64> = serde_wasm_bindgen::from_value(gradients)
             .map_err(|e| JsError::new(&format!("invalid gradients: {e}")))?;
-        let result = self.inner.verified_step(&w, &g, lr)
+        let result = self
+            .inner
+            .verified_step(&w, &g, lr)
             .map_err(|e| JsError::new(&format!("{e}")))?;
-        serde_wasm_bindgen::to_value(&result)
-            .map_err(|e| JsError::new(&e.to_string()))
+        serde_wasm_bindgen::to_value(&result).map_err(|e| JsError::new(&e.to_string()))
     }
 
     // ===================================================================
@@ -424,8 +423,7 @@ impl JsGraphTransformer {
         let ed: Vec<Edge> = serde_wasm_bindgen::from_value(edges)
             .map_err(|e| JsError::new(&format!("invalid edges: {e}")))?;
         let result = self.inner.game_theoretic_attention(&feats, &ed);
-        serde_wasm_bindgen::to_value(&result)
-            .map_err(|e| JsError::new(&e.to_string()))
+        serde_wasm_bindgen::to_value(&result).map_err(|e| JsError::new(&e.to_string()))
     }
 
     // ===================================================================
@@ -438,8 +436,7 @@ impl JsGraphTransformer {
     /// cache_misses, attention_ops, physics_ops, bio_ops, training_steps }`.
     pub fn stats(&self) -> Result<JsValue, JsError> {
         let s = self.inner.stats();
-        serde_wasm_bindgen::to_value(&s)
-            .map_err(|e| JsError::new(&e.to_string()))
+        serde_wasm_bindgen::to_value(&s).map_err(|e| JsError::new(&e.to_string()))
     }
 
     /// Reset all internal state (caches, counters, gates).

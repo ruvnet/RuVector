@@ -10,13 +10,13 @@
 //! See ADR-053: Temporal and Causal Graph Transformer Layers.
 
 #[cfg(feature = "temporal")]
-use ruvector_attention::{ScaledDotProductAttention, Attention};
+use ruvector_attention::{Attention, ScaledDotProductAttention};
 
 #[cfg(feature = "temporal")]
 use ruvector_verified::{
-    ProofEnvironment,
-    proof_store::create_attestation,
     gated::{route_proof, ProofKind},
+    proof_store::create_attestation,
+    ProofEnvironment,
 };
 
 #[cfg(feature = "temporal")]
@@ -233,20 +233,26 @@ impl CausalGraphTransformer {
             let keys: Vec<&[f32]> = candidates.iter().map(|&j| features[j].as_slice()).collect();
 
             // Compute decay weights.
-            let decay: Vec<f32> = candidates.iter().map(|&j| {
-                let dt = (t_i - timestamps[j]) as f32;
-                self.discount.powf(dt.max(0.0))
-            }).collect();
+            let decay: Vec<f32> = candidates
+                .iter()
+                .map(|&j| {
+                    let dt = (t_i - timestamps[j]) as f32;
+                    self.discount.powf(dt.max(0.0))
+                })
+                .collect();
 
             // Scale keys by decay.
-            let scaled_keys: Vec<Vec<f32>> = keys.iter()
+            let scaled_keys: Vec<Vec<f32>> = keys
+                .iter()
                 .zip(decay.iter())
                 .map(|(k, &w)| k.iter().map(|&x| x * w).collect())
                 .collect();
             let scaled_refs: Vec<&[f32]> = scaled_keys.iter().map(|k| k.as_slice()).collect();
 
             let values: Vec<&[f32]> = keys.clone();
-            let out = self.attention.compute(query, &scaled_refs, &values)
+            let out = self
+                .attention
+                .compute(query, &scaled_refs, &values)
                 .map_err(GraphTransformerError::Attention)?;
 
             // Record weights.
@@ -310,10 +316,7 @@ impl CausalGraphTransformer {
     /// Each time step can only attend to itself and previous time steps.
     /// Attention weights decay exponentially with temporal distance.
     /// (Legacy API preserved for backward compatibility.)
-    pub fn temporal_attention(
-        &self,
-        sequence: &[Vec<f32>],
-    ) -> Result<TemporalAttentionResult> {
+    pub fn temporal_attention(&self, sequence: &[Vec<f32>]) -> Result<TemporalAttentionResult> {
         let t = sequence.len();
         if t == 0 {
             return Ok(TemporalAttentionResult {
@@ -339,9 +342,7 @@ impl CausalGraphTransformer {
             let start = if i >= max_lag { i - max_lag + 1 } else { 0 };
 
             let query = &sequence[i];
-            let keys: Vec<&[f32]> = (start..=i)
-                .map(|j| sequence[j].as_slice())
-                .collect();
+            let keys: Vec<&[f32]> = (start..=i).map(|j| sequence[j].as_slice()).collect();
             let values: Vec<&[f32]> = keys.clone();
 
             // Apply exponential decay masking
@@ -353,15 +354,16 @@ impl CausalGraphTransformer {
                 .collect();
 
             // Scale keys by decay weights
-            let scaled_keys: Vec<Vec<f32>> = keys.iter()
+            let scaled_keys: Vec<Vec<f32>> = keys
+                .iter()
                 .zip(decay_weights.iter())
                 .map(|(k, &w)| k.iter().map(|&x| x * w).collect())
                 .collect();
-            let scaled_refs: Vec<&[f32]> = scaled_keys.iter()
-                .map(|k| k.as_slice())
-                .collect();
+            let scaled_refs: Vec<&[f32]> = scaled_keys.iter().map(|k| k.as_slice()).collect();
 
-            let out = self.attention.compute(query, &scaled_refs, &values)
+            let out = self
+                .attention
+                .compute(query, &scaled_refs, &values)
                 .map_err(GraphTransformerError::Attention)?;
 
             // Record attention weights for this time step
@@ -406,7 +408,9 @@ impl CausalGraphTransformer {
         if source >= time_series[0].len() || target >= time_series[0].len() {
             return Err(GraphTransformerError::Config(format!(
                 "node index out of bounds: source={}, target={}, dim={}",
-                source, target, time_series[0].len(),
+                source,
+                target,
+                time_series[0].len(),
             )));
         }
 
@@ -424,9 +428,13 @@ impl CausalGraphTransformer {
         let df_denom = n - p_unrestricted;
 
         let f_stat = if rss_unrestricted > 1e-10 && df_denom > 0.0 && df_diff > 0.0 {
-            let raw = ((rss_restricted - rss_unrestricted) / df_diff)
-                / (rss_unrestricted / df_denom);
-            if raw.is_finite() { raw.max(0.0) } else { 0.0 }
+            let raw =
+                ((rss_restricted - rss_unrestricted) / df_diff) / (rss_unrestricted / df_denom);
+            if raw.is_finite() {
+                raw.max(0.0)
+            } else {
+                0.0
+            }
         } else {
             0.0
         };
@@ -805,7 +813,8 @@ impl ContinuousTimeODE {
         // Standard ODE error check: error <= atol + rtol * |y_max|.
         // We use max_error as the local truncation error estimate and
         // compute a reference scale from the state norms.
-        let y_scale: f64 = state.iter()
+        let y_scale: f64 = state
+            .iter()
             .flat_map(|row| row.iter())
             .map(|&v| (v as f64).abs())
             .fold(0.0f64, f64::max)
@@ -1223,7 +1232,11 @@ impl TemporalEmbeddingStore {
             let is_base = delta.len() > self.dim / 2;
             self.chains[node].push(DeltaEntry {
                 timestamp: time,
-                base: if is_base { Some(embedding.to_vec()) } else { None },
+                base: if is_base {
+                    Some(embedding.to_vec())
+                } else {
+                    None
+                },
                 delta: if is_base { Vec::new() } else { delta },
                 tier: StorageTier::Hot,
             });
@@ -1244,14 +1257,10 @@ impl TemporalEmbeddingStore {
         }
 
         // Find the last entry at or before time t.
-        let target_idx = chain
-            .iter()
-            .rposition(|e| e.timestamp <= time)?;
+        let target_idx = chain.iter().rposition(|e| e.timestamp <= time)?;
 
         // Find the most recent base at or before target_idx.
-        let base_idx = (0..=target_idx)
-            .rev()
-            .find(|&i| chain[i].base.is_some())?;
+        let base_idx = (0..=target_idx).rev().find(|&i| chain[i].base.is_some())?;
 
         // Start from base and apply deltas forward.
         let mut embedding = chain[base_idx].base.as_ref().unwrap().clone();
@@ -1422,7 +1431,11 @@ mod tests {
         let mut series = Vec::new();
         for t in 0..20 {
             let x = (t as f32 * 0.1).sin();
-            let y = if t > 0 { (((t - 1) as f32) * 0.1).sin() * 0.8 } else { 0.0 };
+            let y = if t > 0 {
+                (((t - 1) as f32) * 0.1).sin() * 0.8
+            } else {
+                0.0
+            };
             series.push(vec![x, y, 0.0, 0.0]);
         }
 
@@ -1462,12 +1475,8 @@ mod tests {
             max_lag: 10,
             granger_lags: 3,
         };
-        let mut transformer = CausalGraphTransformer::with_strategy(
-            4,
-            config,
-            MaskStrategy::Strict,
-            0.9,
-        );
+        let mut transformer =
+            CausalGraphTransformer::with_strategy(4, config, MaskStrategy::Strict, 0.9);
 
         let features = vec![
             vec![1.0, 0.0, 0.0, 0.0], // node 0, t=0
@@ -1478,10 +1487,18 @@ mod tests {
         let timestamps = vec![0.0, 1.0, 2.0, 3.0];
         // Fully connected edges.
         let edges: Vec<(usize, usize)> = vec![
-            (0, 1), (0, 2), (0, 3),
-            (1, 0), (1, 2), (1, 3),
-            (2, 0), (2, 1), (2, 3),
-            (3, 0), (3, 1), (3, 2),
+            (0, 1),
+            (0, 2),
+            (0, 3),
+            (1, 0),
+            (1, 2),
+            (1, 3),
+            (2, 0),
+            (2, 1),
+            (2, 3),
+            (3, 0),
+            (3, 1),
+            (3, 2),
         ];
 
         let result = transformer.forward(&features, &timestamps, &edges).unwrap();
@@ -1500,9 +1517,18 @@ mod tests {
         );
 
         // Node at t=0 must NOT see any future nodes.
-        assert!(weights[0][1].abs() < 1e-8, "node 0 (t=0) leaked to node 1 (t=1)");
-        assert!(weights[0][2].abs() < 1e-8, "node 0 (t=0) leaked to node 2 (t=2)");
-        assert!(weights[0][3].abs() < 1e-8, "node 0 (t=0) leaked to node 3 (t=3)");
+        assert!(
+            weights[0][1].abs() < 1e-8,
+            "node 0 (t=0) leaked to node 1 (t=1)"
+        );
+        assert!(
+            weights[0][2].abs() < 1e-8,
+            "node 0 (t=0) leaked to node 2 (t=2)"
+        );
+        assert!(
+            weights[0][3].abs() < 1e-8,
+            "node 0 (t=0) leaked to node 3 (t=3)"
+        );
 
         // But node at t=3 CAN see nodes at t=0,1,2.
         // At least the self-weight must be non-zero.
@@ -1531,11 +1557,7 @@ mod tests {
             vec![0.5, 0.5], // t=3
         ];
         let timestamps = vec![0.0, 1.0, 2.0, 3.0];
-        let edges: Vec<(usize, usize)> = vec![
-            (0, 1), (0, 2), (0, 3),
-            (1, 2), (1, 3),
-            (2, 3),
-        ];
+        let edges: Vec<(usize, usize)> = vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)];
 
         let result = transformer.forward(&features, &timestamps, &edges).unwrap();
         let weights = &result.read().attention_weights;
@@ -1543,8 +1565,14 @@ mod tests {
         // Node at t=3 with window_size=1.5 can see t=2 and t=3 (self), but NOT t=0 or t=1.
         // t=3 - t=0 = 3.0 > 1.5 => cannot see.
         // t=3 - t=1 = 2.0 > 1.5 => cannot see.
-        assert!(weights[3][0].abs() < 1e-8, "node 3 should not see node 0 (outside window)");
-        assert!(weights[3][1].abs() < 1e-8, "node 3 should not see node 1 (outside window)");
+        assert!(
+            weights[3][0].abs() < 1e-8,
+            "node 3 should not see node 0 (outside window)"
+        );
+        assert!(
+            weights[3][1].abs() < 1e-8,
+            "node 3 should not see node 1 (outside window)"
+        );
     }
 
     /// RetrocausalAttention: requires BatchModeToken.
@@ -1608,11 +1636,7 @@ mod tests {
         // Use reasonable tolerances for graph diffusion (O(1) state changes).
         let mut ode = ContinuousTimeODE::new(2, 1.0, 0.5, 100);
 
-        let features = vec![
-            vec![1.0, 0.0],
-            vec![0.0, 1.0],
-            vec![0.5, 0.5],
-        ];
+        let features = vec![vec![1.0, 0.0], vec![0.0, 1.0], vec![0.5, 0.5]];
 
         let events = vec![
             TemporalEdgeEvent {
@@ -1792,7 +1816,9 @@ mod tests {
         // Entry at t=25 (age=5) -> Warm.
         // (Tier is internal; we just verify no crash and retrieval still works.)
 
-        let emb = store.retrieve(0, 25.0).expect("should still retrieve after compaction");
+        let emb = store
+            .retrieve(0, 25.0)
+            .expect("should still retrieve after compaction");
         assert!((emb[0] - 0.5).abs() < 1e-6);
     }
 

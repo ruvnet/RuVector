@@ -533,10 +533,9 @@ impl ConsciousnessCalculator {
     }
 }
 
-/// XorShift64 PRNG - 10x faster than SystemTime-based random
-///
-/// Thread-local for thread safety without locking overhead.
-/// Period: 2^64 - 1
+// XorShift64 PRNG - 10x faster than SystemTime-based random
+// Thread-local for thread safety without locking overhead.
+// Period: 2^64 - 1
 thread_local! {
     static XORSHIFT_STATE: RefCell<u64> = RefCell::new(0x853c_49e6_748f_ea9b);
 }

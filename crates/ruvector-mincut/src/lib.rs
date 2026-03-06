@@ -386,7 +386,7 @@ pub use integration::AgenticAnalyzer;
 
 #[cfg(feature = "canonical")]
 pub use canonical::{
-    CactusGraph, CactusCycle, CactusEdge, CactusVertex, CanonicalCutResult, CanonicalMinCut,
+    CactusCycle, CactusEdge, CactusGraph, CactusVertex, CanonicalCutResult, CanonicalMinCut,
     CanonicalMinCutImpl, FixedWeight, WitnessReceipt,
 };
 
@@ -508,7 +508,7 @@ pub mod prelude {
 
     #[cfg(feature = "canonical")]
     pub use crate::{
-        CactusGraph, CactusCycle, CactusEdge, CactusVertex, CanonicalCutResult, CanonicalMinCut,
+        CactusCycle, CactusEdge, CactusGraph, CactusVertex, CanonicalCutResult, CanonicalMinCut,
         CanonicalMinCutImpl, FixedWeight, WitnessReceipt,
     };
 

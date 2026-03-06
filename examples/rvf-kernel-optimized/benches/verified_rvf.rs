@@ -57,12 +57,7 @@ fn bench_gated_routing(c: &mut Criterion) {
         });
     });
     group.bench_function("pipeline_composition", |b| {
-        b.iter(|| {
-            gated::route_proof(
-                ProofKind::PipelineComposition { stages: 5 },
-                &env,
-            )
-        });
+        b.iter(|| gated::route_proof(ProofKind::PipelineComposition { stages: 5 }, &env));
     });
     group.finish();
 }

@@ -24,24 +24,23 @@
 //! Protocol          Router      Reconciliation
 //! ```
 
-use std::sync::Arc;
-use tokio::sync::RwLock;
 use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
+use tokio::sync::RwLock;
 
+pub mod consensus;
+pub mod crdt;
 pub mod crypto;
 pub mod handshake;
 pub mod onion;
-pub mod crdt;
-pub mod consensus;
+pub mod transfer_crdt;
 
-pub use crypto::{PostQuantumKeypair, EncryptedChannel};
-pub use handshake::{join_federation, FederationToken, Capability};
-pub use onion::{onion_query, OnionHeader};
-pub use crdt::{GSet, LWWRegister, reconcile_crdt};
 pub use consensus::{byzantine_commit, CommitProof};
-
-use crate::crypto::SharedSecret;
+pub use crdt::{reconcile_crdt, GSet, LWWRegister};
+pub use crypto::{EncryptedChannel, PostQuantumKeypair};
+pub use handshake::{join_federation, Capability, FederationToken};
+pub use onion::{onion_query, OnionHeader};
 
 /// Errors that can occur in federation operations
 #[derive(Debug, thiserror::Error)]
@@ -80,7 +79,7 @@ impl PeerId {
     }
 
     pub fn generate() -> Self {
-        use sha2::{Sha256, Digest};
+        use sha2::{Digest, Sha256};
         let mut hasher = Sha256::new();
         hasher.update(rand::random::<[u8; 32]>());
         let hash = hasher.finalize();
@@ -98,7 +97,11 @@ pub struct PeerAddress {
 
 impl PeerAddress {
     pub fn new(host: String, port: u16, public_key: Vec<u8>) -> Self {
-        Self { host, port, public_key }
+        Self {
+            host,
+            port,
+            public_key,
+        }
     }
 }
 
@@ -173,10 +176,7 @@ impl FederatedMesh {
     }
 
     /// Join a federation by connecting to a peer
-    pub async fn join_federation(
-        &mut self,
-        peer: &PeerAddress,
-    ) -> Result<FederationToken> {
+    pub async fn join_federation(&mut self, peer: &PeerAddress) -> Result<FederationToken> {
         let token = join_federation(&self.pq_keys, peer).await?;
 
         // Store the peer and token
@@ -222,7 +222,9 @@ impl FederatedMesh {
             }
             FederationScope::Global { max_hops } => {
                 // Use onion routing for privacy
-                let relay_nodes: Vec<_> = self.peers.iter()
+                let _relay_nodes: Vec<_> = self
+                    .peers
+                    .iter()
                     .take(max_hops)
                     .map(|e| e.key().clone())
                     .collect();
@@ -234,10 +236,7 @@ impl FederatedMesh {
     }
 
     /// Commit a state update with Byzantine consensus
-    pub async fn byzantine_commit(
-        &self,
-        update: StateUpdate,
-    ) -> Result<CommitProof> {
+    pub async fn byzantine_commit(&self, update: StateUpdate) -> Result<CommitProof> {
         let peer_count = self.peers.len() + 1; // +1 for local
         byzantine_commit(update, peer_count).await
     }
@@ -276,10 +275,10 @@ mod tests {
         let substrate = SubstrateInstance {};
         let mesh = FederatedMesh::new(substrate).unwrap();
 
-        let results = mesh.federated_query(
-            vec![1, 2, 3],
-            FederationScope::Local
-        ).await.unwrap();
+        let results = mesh
+            .federated_query(vec![1, 2, 3], FederationScope::Local)
+            .await
+            .unwrap();
 
         assert_eq!(results.len(), 1);
     }

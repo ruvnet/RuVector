@@ -6,10 +6,7 @@
 //!
 //! Result: cross-organization trust fabric for vector operations.
 
-use ruvector_verified::{
-    ProofEnvironment,
-    proof_store, vector_types,
-};
+use ruvector_verified::{proof_store, vector_types, ProofEnvironment};
 
 /// A signed vector with dimensional and metric proof.
 #[derive(Debug, Clone)]
@@ -26,7 +23,9 @@ impl SignedVector {
     /// Compute a combined signature over all three hashes.
     pub fn combined_hash(&self) -> u64 {
         let mut h: u64 = 0xcbf29ce484222325;
-        for &b in self.content_hash.iter()
+        for &b in self
+            .content_hash
+            .iter()
             .chain(self.model_hash.iter())
             .chain(self.proof_hash.iter())
         {
@@ -47,12 +46,11 @@ pub fn sign_vector(
     let mut env = ProofEnvironment::new();
 
     // Prove dimension
-    let check = vector_types::verified_dim_check(&mut env, dim, embedding)
-        .map_err(|e| format!("{e}"))?;
+    let check =
+        vector_types::verified_dim_check(&mut env, dim, embedding).map_err(|e| format!("{e}"))?;
 
     // Prove metric
-    vector_types::mk_distance_metric(&mut env, metric)
-        .map_err(|e| format!("{e}"))?;
+    vector_types::mk_distance_metric(&mut env, metric).map_err(|e| format!("{e}"))?;
 
     // Create attestation
     let att = proof_store::create_attestation(&env, check.proof_id);

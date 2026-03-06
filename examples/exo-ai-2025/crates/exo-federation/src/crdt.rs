@@ -5,7 +5,7 @@
 //! - LWW-Register (Last-Writer-Wins Register)
 //! - Reconciliation algorithms
 
-use crate::{FederationError, Result};
+use crate::Result;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 
@@ -201,7 +201,7 @@ pub struct FederatedResponse<T: Clone> {
 /// ```
 pub fn reconcile_crdt<T>(responses: Vec<FederatedResponse<T>>) -> Result<Vec<(T, f32)>>
 where
-    T: Clone + Eq + std::hash::Hash,
+    T: Clone + Eq + std::hash::Hash + std::fmt::Display,
 {
     // Step 1: Merge all results using G-Set
     let mut merged_results = GSet::new();
@@ -219,13 +219,12 @@ where
         }
     }
 
-    // Step 3: Combine results with their scores
+    // Step 3: Combine results with their scores (look up by Display representation)
     let mut final_results: Vec<(T, f32)> = merged_results
         .elements()
         .map(|result| {
-            // Try to get score from ranking map
-            // For demo, we use a hash of the result as ID
-            let score = 0.5; // Placeholder
+            let key = format!("{}", result);
+            let score = ranking_map.get(&key).copied().unwrap_or(0.5);
             (result.clone(), score)
         })
         .collect();

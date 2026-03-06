@@ -1,4 +1,4 @@
-# ADR-0027: Fix HNSW Index Segmentation Fault with Parameterized Queries
+# ADR-027: Fix HNSW Index Segmentation Fault with Parameterized Queries
 
 ## Status
 

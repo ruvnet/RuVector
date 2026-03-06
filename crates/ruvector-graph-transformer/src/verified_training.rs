@@ -17,13 +17,12 @@
 //! | `EnergyGate` | Standard | Yes -- threshold comparison |
 
 #[cfg(feature = "verified-training")]
-use ruvector_verified::{
-    ProofEnvironment, ProofAttestation,
-    prove_dim_eq, proof_store::create_attestation,
-    gated::ProofTier,
-};
-#[cfg(feature = "verified-training")]
 use ruvector_gnn::RuvectorLayer;
+#[cfg(feature = "verified-training")]
+use ruvector_verified::{
+    gated::ProofTier, proof_store::create_attestation, prove_dim_eq, ProofAttestation,
+    ProofEnvironment,
+};
 
 #[cfg(feature = "verified-training")]
 use crate::config::VerifiedTrainingConfig;
@@ -276,12 +275,12 @@ pub struct TrainingCertificate {
 fn blake3_hash(data: &[u8]) -> [u8; 32] {
     // BLAKE3 IV constants (first 8 primes, fractional parts of square roots)
     const IV: [u32; 8] = [
-        0x6A09E667, 0xBB67AE85, 0x3C6EF372, 0xA54FF53A,
-        0x510E527F, 0x9B05688C, 0x1F83D9AB, 0x5BE0CD19,
+        0x6A09E667, 0xBB67AE85, 0x3C6EF372, 0xA54FF53A, 0x510E527F, 0x9B05688C, 0x1F83D9AB,
+        0x5BE0CD19,
     ];
     const MSG_SCHEDULE: [u32; 8] = [
-        0x243F6A88, 0x85A308D3, 0x13198A2E, 0x03707344,
-        0xA4093822, 0x299F31D0, 0x082EFA98, 0xEC4E6C89,
+        0x243F6A88, 0x85A308D3, 0x13198A2E, 0x03707344, 0xA4093822, 0x299F31D0, 0x082EFA98,
+        0xEC4E6C89,
     ];
 
     let mut state = IV;
@@ -299,15 +298,12 @@ fn blake3_hash(data: &[u8]) -> [u8; 32] {
                 .wrapping_add(*byte as u32)
                 .wrapping_add(MSG_SCHEDULE[idx]);
             // Quarter-round mixing
-            state[idx] = state[idx].rotate_right(7)
-                ^ state[(idx + 1) % 8].wrapping_mul(0x9E3779B9);
+            state[idx] = state[idx].rotate_right(7) ^ state[(idx + 1) % 8].wrapping_mul(0x9E3779B9);
         }
 
         // Additional diffusion
         for i in 0..8 {
-            state[i] = state[i]
-                .wrapping_add(state[(i + 3) % 8])
-                .rotate_right(11);
+            state[i] = state[i].wrapping_add(state[(i + 3) % 8]).rotate_right(11);
         }
 
         offset = end;
@@ -321,10 +317,7 @@ fn blake3_hash(data: &[u8]) -> [u8; 32] {
     // Final mixing rounds
     for _ in 0..4 {
         for i in 0..8 {
-            state[i] = state[i]
-                .wrapping_mul(0x85EBCA6B)
-                .rotate_right(13)
-                ^ state[(i + 5) % 8];
+            state[i] = state[i].wrapping_mul(0x85EBCA6B).rotate_right(13) ^ state[(i + 5) % 8];
         }
     }
 
@@ -480,7 +473,11 @@ impl VerifiedTrainer {
                 .map(|&v| (v as f64).abs())
                 .sum();
             let count = proposed_weights.iter().map(|w| w.len()).sum::<usize>();
-            if count > 0 { total / count as f64 } else { 0.0 }
+            if count > 0 {
+                total / count as f64
+            } else {
+                0.0
+            }
         };
 
         // Compute weight norm (L2)
@@ -590,10 +587,7 @@ impl VerifiedTrainer {
         let attestation = create_attestation(&self.env, proof_id);
 
         // Compute hashes
-        let weights_bytes: Vec<u8> = final_weights
-            .iter()
-            .flat_map(|f| f.to_le_bytes())
-            .collect();
+        let weights_bytes: Vec<u8> = final_weights.iter().flat_map(|f| f.to_le_bytes()).collect();
         let weights_hash = blake3_hash(&weights_bytes);
 
         let config_bytes = format!("{:?}", self.config).into_bytes();
@@ -799,9 +793,7 @@ fn check_invariant(
 fn invariant_name(inv: &TrainingInvariant) -> String {
     match inv {
         TrainingInvariant::LossStabilityBound { .. } => "LossStabilityBound".to_string(),
-        TrainingInvariant::PermutationEquivariance { .. } => {
-            "PermutationEquivariance".to_string()
-        }
+        TrainingInvariant::PermutationEquivariance { .. } => "PermutationEquivariance".to_string(),
         TrainingInvariant::LipschitzBound { .. } => "LipschitzBound".to_string(),
         TrainingInvariant::WeightNormBound { .. } => "WeightNormBound".to_string(),
         TrainingInvariant::EnergyGate { .. } => "EnergyGate".to_string(),
@@ -813,13 +805,14 @@ fn invariant_name(inv: &TrainingInvariant) -> String {
 fn invariant_proof_class(inv: &TrainingInvariant) -> ProofClass {
     match inv {
         TrainingInvariant::LossStabilityBound { .. } => ProofClass::Formal,
-        TrainingInvariant::PermutationEquivariance { rng_seed, tolerance } => {
-            ProofClass::Statistical {
-                rng_seed: Some(*rng_seed),
-                iterations: 1,
-                tolerance: *tolerance,
-            }
-        }
+        TrainingInvariant::PermutationEquivariance {
+            rng_seed,
+            tolerance,
+        } => ProofClass::Statistical {
+            rng_seed: Some(*rng_seed),
+            iterations: 1,
+            tolerance: *tolerance,
+        },
         TrainingInvariant::LipschitzBound {
             tolerance,
             max_power_iterations,
@@ -855,7 +848,11 @@ fn max_tier(a: ProofTier, b: ProofTier) -> ProofTier {
             ProofTier::Deep => 2,
         }
     }
-    if tier_rank(&b) > tier_rank(&a) { b } else { a }
+    if tier_rank(&b) > tier_rank(&a) {
+        b
+    } else {
+        a
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -933,7 +930,12 @@ mod tests {
     }
 
     /// Helper: create simple test data.
-    fn test_data() -> (Vec<Vec<f32>>, Vec<Vec<Vec<f32>>>, Vec<Vec<f32>>, Vec<Vec<f32>>) {
+    fn test_data() -> (
+        Vec<Vec<f32>>,
+        Vec<Vec<Vec<f32>>>,
+        Vec<Vec<f32>>,
+        Vec<Vec<f32>>,
+    ) {
         let features = vec![vec![1.0, 0.5, 0.0, 0.0]];
         let neighbors = vec![vec![vec![0.0, 1.0, 0.5, 0.0]]];
         let weights = vec![vec![1.0]];
@@ -1132,8 +1134,14 @@ mod tests {
         assert!(cert.attestation.verification_timestamp_ns > 0);
 
         // Verify hash binding
-        assert_ne!(cert.weights_hash, [0u8; 32], "weights hash should be non-zero");
-        assert_ne!(cert.config_hash, [0u8; 32], "config hash should be non-zero");
+        assert_ne!(
+            cert.weights_hash, [0u8; 32],
+            "weights hash should be non-zero"
+        );
+        assert_ne!(
+            cert.config_hash, [0u8; 32],
+            "config hash should be non-zero"
+        );
         assert_eq!(
             cert.dataset_manifest_hash,
             Some([0xABu8; 32]),
@@ -1146,10 +1154,7 @@ mod tests {
         );
 
         // Verify deterministic hash: same weights => same hash
-        let weights_bytes: Vec<u8> = final_weights
-            .iter()
-            .flat_map(|f| f.to_le_bytes())
-            .collect();
+        let weights_bytes: Vec<u8> = final_weights.iter().flat_map(|f| f.to_le_bytes()).collect();
         let expected_hash = blake3_hash(&weights_bytes);
         assert_eq!(
             cert.weights_hash, expected_hash,

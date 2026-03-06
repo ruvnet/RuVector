@@ -58,11 +58,7 @@ pub fn mk_distance_metric(env: &mut ProofEnvironment, metric: &str) -> Result<u3
 }
 
 /// Construct the type `HnswIndex n metric` for a typed HNSW index.
-pub fn mk_hnsw_index_type(
-    env: &mut ProofEnvironment,
-    dim: u32,
-    metric: &str,
-) -> Result<u32> {
+pub fn mk_hnsw_index_type(env: &mut ProofEnvironment, dim: u32, metric: &str) -> Result<u32> {
     let _idx_sym = env.require_symbol(symbols::HNSW_INDEX)?;
     let _dim_term = mk_nat_literal(env, dim)?;
     let _metric_term = mk_distance_metric(env, metric)?;
@@ -73,11 +69,7 @@ pub fn mk_hnsw_index_type(
 ///
 /// If `expected != actual`, returns `DimensionMismatch` error.
 /// If equal, constructs a `refl` proof term: `Eq.refl : expected = actual`.
-pub fn prove_dim_eq(
-    env: &mut ProofEnvironment,
-    expected: u32,
-    actual: u32,
-) -> Result<u32> {
+pub fn prove_dim_eq(env: &mut ProofEnvironment, expected: u32, actual: u32) -> Result<u32> {
     if expected != actual {
         return Err(VerificationError::DimensionMismatch { expected, actual });
     }

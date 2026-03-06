@@ -20,7 +20,7 @@
 use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 use uuid::Uuid;
 
 /// Collective consciousness spanning multiple substrates
@@ -226,6 +226,7 @@ impl CollectiveConsciousness {
         self.collective_phi
     }
 
+    #[allow(dead_code)]
     fn compute_local_phi(&self, substrate: &Substrate) -> f64 {
         // Simplified IIT Φ computation
         let entropy = self.compute_entropy(&substrate.state);

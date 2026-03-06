@@ -166,11 +166,7 @@ fn test_canonical_determinism() {
     // All keys must be identical
     let first = keys[0];
     for (i, key) in keys.iter().enumerate() {
-        assert_eq!(
-            *key, first,
-            "Run {} produced different canonical key",
-            i
-        );
+        assert_eq!(*key, first, "Run {} produced different canonical key", i);
     }
 }
 
@@ -294,12 +290,7 @@ fn test_canonical_value_correctness_bridge() {
 fn test_canonical_partition_covers_all_vertices() {
     let mc = crate::MinCutBuilder::new()
         .exact()
-        .with_edges(vec![
-            (1, 2, 1.0),
-            (2, 3, 1.0),
-            (3, 4, 1.0),
-            (4, 1, 1.0),
-        ])
+        .with_edges(vec![(1, 2, 1.0), (2, 3, 1.0), (3, 4, 1.0), (4, 1, 1.0)])
         .build()
         .unwrap();
 
@@ -338,11 +329,7 @@ fn test_witness_receipt() {
 
 #[test]
 fn test_witness_receipt_epoch_increments() {
-    let mut canonical = CanonicalMinCutImpl::with_edges(vec![
-        (1, 2, 1.0),
-        (2, 3, 1.0),
-    ])
-    .unwrap();
+    let mut canonical = CanonicalMinCutImpl::with_edges(vec![(1, 2, 1.0), (2, 3, 1.0)]).unwrap();
 
     let r1 = canonical.witness_receipt();
     assert_eq!(r1.epoch, 0);
@@ -378,12 +365,8 @@ fn test_dynamic_canonical_insert() {
 
 #[test]
 fn test_dynamic_canonical_delete_preserves_property() {
-    let mut canonical = CanonicalMinCutImpl::with_edges(vec![
-        (1, 2, 1.0),
-        (2, 3, 1.0),
-        (3, 1, 1.0),
-    ])
-    .unwrap();
+    let mut canonical =
+        CanonicalMinCutImpl::with_edges(vec![(1, 2, 1.0), (2, 3, 1.0), (3, 1, 1.0)]).unwrap();
 
     assert_eq!(canonical.min_cut_value(), 2.0);
 
@@ -400,11 +383,7 @@ fn test_dynamic_canonical_delete_preserves_property() {
 
 #[test]
 fn test_dynamic_canonical_insert_delete_cycle() {
-    let mut canonical = CanonicalMinCutImpl::with_edges(vec![
-        (1, 2, 1.0),
-        (2, 3, 1.0),
-    ])
-    .unwrap();
+    let mut canonical = CanonicalMinCutImpl::with_edges(vec![(1, 2, 1.0), (2, 3, 1.0)]).unwrap();
 
     let key_before = canonical.canonical_cut().canonical_key;
 
@@ -413,7 +392,10 @@ fn test_dynamic_canonical_insert_delete_cycle() {
     canonical.delete_edge(3, 4).unwrap();
 
     let key_after = canonical.canonical_cut().canonical_key;
-    assert_eq!(key_before, key_after, "Insert+delete should restore canonical state");
+    assert_eq!(
+        key_before, key_after,
+        "Insert+delete should restore canonical state"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -436,11 +418,7 @@ fn test_canonical_impl_default() {
 
 #[test]
 fn test_canonical_impl_with_edges() {
-    let c = CanonicalMinCutImpl::with_edges(vec![
-        (1, 2, 1.0),
-        (2, 3, 1.0),
-    ])
-    .unwrap();
+    let c = CanonicalMinCutImpl::with_edges(vec![(1, 2, 1.0), (2, 3, 1.0)]).unwrap();
 
     assert_eq!(c.num_vertices(), 3);
     assert_eq!(c.num_edges(), 2);
@@ -450,12 +428,7 @@ fn test_canonical_impl_with_edges() {
 
 #[test]
 fn test_canonical_impl_cactus_graph() {
-    let c = CanonicalMinCutImpl::with_edges(vec![
-        (1, 2, 1.0),
-        (2, 3, 1.0),
-        (3, 1, 1.0),
-    ])
-    .unwrap();
+    let c = CanonicalMinCutImpl::with_edges(vec![(1, 2, 1.0), (2, 3, 1.0), (3, 1, 1.0)]).unwrap();
 
     let cactus = c.cactus_graph();
     assert!(cactus.n_vertices >= 1);
@@ -544,5 +517,8 @@ fn test_canonical_complete_k4() {
     let result = canonical.canonical_cut();
     // K4 min-cut = 3 (isolate one vertex)
     let (ref s, ref t) = result.partition;
-    assert!(s.len() == 1 || t.len() == 1, "K4 min-cut isolates one vertex");
+    assert!(
+        s.len() == 1 || t.len() == 1,
+        "K4 min-cut isolates one vertex"
+    );
 }

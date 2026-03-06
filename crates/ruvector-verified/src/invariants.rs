@@ -32,17 +32,61 @@ pub mod symbols {
 /// - `PipelineStage` : Type -> Type -> Type
 pub fn builtin_declarations() -> Vec<BuiltinDecl> {
     vec![
-        BuiltinDecl { name: symbols::NAT, arity: 0, doc: "Natural numbers" },
-        BuiltinDecl { name: symbols::RUVEC, arity: 1, doc: "Dimension-indexed vector" },
-        BuiltinDecl { name: symbols::EQ, arity: 2, doc: "Propositional equality" },
-        BuiltinDecl { name: symbols::EQ_REFL, arity: 1, doc: "Reflexivity proof" },
-        BuiltinDecl { name: symbols::DISTANCE_METRIC, arity: 0, doc: "Distance metric enum" },
-        BuiltinDecl { name: symbols::L2, arity: 0, doc: "L2 Euclidean distance" },
-        BuiltinDecl { name: symbols::COSINE, arity: 0, doc: "Cosine distance" },
-        BuiltinDecl { name: symbols::DOT, arity: 0, doc: "Dot product distance" },
-        BuiltinDecl { name: symbols::HNSW_INDEX, arity: 2, doc: "HNSW index type" },
-        BuiltinDecl { name: symbols::INSERT_RESULT, arity: 0, doc: "Insert result type" },
-        BuiltinDecl { name: symbols::PIPELINE_STAGE, arity: 2, doc: "Typed pipeline stage" },
+        BuiltinDecl {
+            name: symbols::NAT,
+            arity: 0,
+            doc: "Natural numbers",
+        },
+        BuiltinDecl {
+            name: symbols::RUVEC,
+            arity: 1,
+            doc: "Dimension-indexed vector",
+        },
+        BuiltinDecl {
+            name: symbols::EQ,
+            arity: 2,
+            doc: "Propositional equality",
+        },
+        BuiltinDecl {
+            name: symbols::EQ_REFL,
+            arity: 1,
+            doc: "Reflexivity proof",
+        },
+        BuiltinDecl {
+            name: symbols::DISTANCE_METRIC,
+            arity: 0,
+            doc: "Distance metric enum",
+        },
+        BuiltinDecl {
+            name: symbols::L2,
+            arity: 0,
+            doc: "L2 Euclidean distance",
+        },
+        BuiltinDecl {
+            name: symbols::COSINE,
+            arity: 0,
+            doc: "Cosine distance",
+        },
+        BuiltinDecl {
+            name: symbols::DOT,
+            arity: 0,
+            doc: "Dot product distance",
+        },
+        BuiltinDecl {
+            name: symbols::HNSW_INDEX,
+            arity: 2,
+            doc: "HNSW index type",
+        },
+        BuiltinDecl {
+            name: symbols::INSERT_RESULT,
+            arity: 0,
+            doc: "Insert result type",
+        },
+        BuiltinDecl {
+            name: symbols::PIPELINE_STAGE,
+            arity: 2,
+            doc: "Typed pipeline stage",
+        },
     ]
 }
 
@@ -76,7 +120,11 @@ mod tests {
     #[test]
     fn builtin_declarations_complete() {
         let decls = builtin_declarations();
-        assert!(decls.len() >= 11, "expected at least 11 builtins, got {}", decls.len());
+        assert!(
+            decls.len() >= 11,
+            "expected at least 11 builtins, got {}",
+            decls.len()
+        );
     }
 
     #[test]

@@ -10,9 +10,8 @@
 
 use crate::ProofReceipt;
 use ruvector_verified::{
-    ProofEnvironment,
     gated::{self, ProofKind, ProofTier},
-    proof_store, vector_types,
+    proof_store, vector_types, ProofEnvironment,
 };
 
 /// An agent contract specifying required embedding properties.
@@ -34,16 +33,12 @@ pub struct GateResult {
 }
 
 /// Check whether an agent message embedding passes its contract gate.
-pub fn enforce_contract(
-    contract: &AgentContract,
-    message_embedding: &[f32],
-) -> GateResult {
+pub fn enforce_contract(contract: &AgentContract, message_embedding: &[f32]) -> GateResult {
     let mut env = ProofEnvironment::new();
 
     // Gate 1: Dimension match
-    let dim_result = vector_types::verified_dim_check(
-        &mut env, contract.required_dim, message_embedding,
-    );
+    let dim_result =
+        vector_types::verified_dim_check(&mut env, contract.required_dim, message_embedding);
     let dim_proof = match dim_result {
         Ok(op) => op.proof_id,
         Err(e) => {
@@ -57,9 +52,7 @@ pub fn enforce_contract(
     };
 
     // Gate 2: Metric schema match
-    let metric_result = vector_types::mk_distance_metric(
-        &mut env, &contract.required_metric,
-    );
+    let metric_result = vector_types::mk_distance_metric(&mut env, &contract.required_metric);
     if let Err(e) = metric_result {
         return GateResult {
             agent_id: contract.agent_id.clone(),
@@ -71,7 +64,9 @@ pub fn enforce_contract(
 
     // Gate 3: Pipeline depth check via gated routing
     let decision = gated::route_proof(
-        ProofKind::PipelineComposition { stages: contract.max_pipeline_depth },
+        ProofKind::PipelineComposition {
+            stages: contract.max_pipeline_depth,
+        },
         &env,
     );
 
@@ -99,17 +94,19 @@ pub fn enforce_contract(
                 ProofTier::Reflex => "reflex",
                 ProofTier::Standard { .. } => "standard",
                 ProofTier::Deep => "deep",
-            }.into(),
+            }
+            .into(),
             gate_passed: true,
         }),
     }
 }
 
 /// Run a multi-agent scenario: N agents, each with a contract, each sending messages.
-pub fn run_multi_agent_scenario(
-    agents: &[(AgentContract, Vec<f32>)],
-) -> Vec<GateResult> {
-    agents.iter().map(|(c, emb)| enforce_contract(c, emb)).collect()
+pub fn run_multi_agent_scenario(agents: &[(AgentContract, Vec<f32>)]) -> Vec<GateResult> {
+    agents
+        .iter()
+        .map(|(c, emb)| enforce_contract(c, emb))
+        .collect()
 }
 
 #[cfg(test)]
@@ -146,9 +143,9 @@ mod tests {
     #[test]
     fn multi_agent_mixed() {
         let agents = vec![
-            (test_contract(128), vec![0.5f32; 128]),  // pass
-            (test_contract(128), vec![0.5f32; 64]),   // fail
-            (test_contract(256), vec![0.5f32; 256]),  // pass
+            (test_contract(128), vec![0.5f32; 128]), // pass
+            (test_contract(128), vec![0.5f32; 64]),  // fail
+            (test_contract(256), vec![0.5f32; 256]), // pass
         ];
         let results = run_multi_agent_scenario(&agents);
         assert_eq!(results.iter().filter(|r| r.allowed).count(), 2);

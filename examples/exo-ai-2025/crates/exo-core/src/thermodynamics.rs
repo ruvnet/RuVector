@@ -21,7 +21,7 @@
 //!
 //! # Usage
 //!
-//! ```rust,ignore
+//! ```rust,no_run
 //! use exo_core::thermodynamics::{ThermodynamicTracker, Operation};
 //!
 //! let tracker = ThermodynamicTracker::new(300.0); // Room temperature

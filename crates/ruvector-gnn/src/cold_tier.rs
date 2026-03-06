@@ -113,7 +113,10 @@ impl FeatureStorage {
                 features.len().to_string(),
             ));
         }
-        let file = self.file.as_mut().ok_or_else(|| GnnError::other("file not open"))?;
+        let file = self
+            .file
+            .as_mut()
+            .ok_or_else(|| GnnError::other("file not open"))?;
         let offset = HEADER_SIZE + (node_id as u64) * (self.block_size as u64);
         file.seek(SeekFrom::Start(offset))?;
         let bytes: &[u8] = unsafe {
@@ -131,7 +134,10 @@ impl FeatureStorage {
                 node_id, self.num_nodes
             )));
         }
-        let file = self.file.as_mut().ok_or_else(|| GnnError::other("file not open"))?;
+        let file = self
+            .file
+            .as_mut()
+            .ok_or_else(|| GnnError::other("file not open"))?;
         let offset = HEADER_SIZE + (node_id as u64) * (self.block_size as u64);
         file.seek(SeekFrom::Start(offset))?;
         let mut buf = vec![0u8; self.dim * F32_SIZE];
@@ -521,8 +527,11 @@ impl ColdTierTrainer {
                     let features = &batch.features[i];
 
                     // Simple L2 loss for demonstration
-                    let loss: f64 =
-                        features.iter().map(|&x| (x as f64) * (x as f64)).sum::<f64>() * 0.5;
+                    let loss: f64 = features
+                        .iter()
+                        .map(|&x| (x as f64) * (x as f64))
+                        .sum::<f64>()
+                        * 0.5;
                     epoch_loss += loss;
 
                     // Gradient: d(0.5 * x^2)/dx = x; step: x' = x - lr * x
@@ -680,11 +689,7 @@ impl ColdTierEwc {
     /// Compute Fisher information diagonal from gradient samples.
     ///
     /// Each entry in `gradients` is one sample's gradient for one parameter row.
-    pub fn compute_fisher(
-        &mut self,
-        gradients: &[Vec<f32>],
-        sample_count: usize,
-    ) -> Result<()> {
+    pub fn compute_fisher(&mut self, gradients: &[Vec<f32>], sample_count: usize) -> Result<()> {
         if gradients.is_empty() {
             return Ok(());
         }
@@ -749,11 +754,7 @@ impl ColdTierEwc {
     }
 
     /// Compute the EWC gradient for a specific parameter row.
-    pub fn gradient(
-        &mut self,
-        current_weights: &[Vec<f32>],
-        param_idx: usize,
-    ) -> Result<Vec<f32>> {
+    pub fn gradient(&mut self, current_weights: &[Vec<f32>], param_idx: usize) -> Result<Vec<f32>> {
         if !self.active || param_idx >= self.num_params {
             return Ok(vec![0.0; self.dim]);
         }
@@ -868,8 +869,7 @@ mod tests {
             ..Default::default()
         };
 
-        let mut trainer =
-            ColdTierTrainer::new(&storage_path, dim, num_nodes, config).unwrap();
+        let mut trainer = ColdTierTrainer::new(&storage_path, dim, num_nodes, config).unwrap();
 
         // Write initial features
         for nid in 0..num_nodes {
@@ -879,8 +879,9 @@ mod tests {
         trainer.storage.flush().unwrap();
 
         // Build a simple chain adjacency
-        let adjacency: Vec<(usize, usize)> =
-            (0..num_nodes.saturating_sub(1)).map(|i| (i, i + 1)).collect();
+        let adjacency: Vec<(usize, usize)> = (0..num_nodes.saturating_sub(1))
+            .map(|i| (i, i + 1))
+            .collect();
 
         let result = trainer.train_epoch(&adjacency, 0.1);
 

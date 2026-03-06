@@ -1,0 +1,24 @@
+# Cloud Build ignores — keep context under 50 MiB
+target/
+node_modules/
+.git/
+examples/
+benchmarks/
+docs/
+scripts/
+bindings/
+npm/
+test_models/
+*.wasm
+*.so
+*.o
+*.a
+*.d
+*.rlib
+*.rmeta
+*.dwo
+*.dwp
+*.node
+*.db
+.claude/
+package-lock.json

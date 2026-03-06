@@ -78,8 +78,9 @@ impl McpHandler {
             // Canonicalize the parent directory (must exist), then append filename
             let parent = resolved.parent().unwrap_or(Path::new("/"));
             let parent_canonical = if parent.exists() {
-                std::fs::canonicalize(parent)
-                    .with_context(|| format!("Parent directory does not exist: {}", parent.display()))?
+                std::fs::canonicalize(parent).with_context(|| {
+                    format!("Parent directory does not exist: {}", parent.display())
+                })?
             } else {
                 // Create the parent directory within allowed_data_dir if it doesn't exist
                 anyhow::bail!(
@@ -543,10 +544,7 @@ impl McpHandler {
         std::fs::copy(&validated_db_path, &validated_backup_path)
             .context("Failed to backup database")?;
 
-        Ok(format!(
-            "Backed up to: {}",
-            validated_backup_path.display()
-        ))
+        Ok(format!("Backed up to: {}", validated_backup_path.display()))
     }
 
     async fn get_or_open_db(&self, path: &str) -> Result<Arc<VectorDB>> {
@@ -565,10 +563,7 @@ impl McpHandler {
         db_options.storage_path = path_str.clone();
 
         let db = Arc::new(VectorDB::new(db_options)?);
-        self.databases
-            .write()
-            .await
-            .insert(path_str, db.clone());
+        self.databases.write().await.insert(path_str, db.clone());
 
         Ok(db)
     }
@@ -870,11 +865,7 @@ mod tests {
         let handler = handler_with_data_dir(&subdir);
 
         let result = handler.validate_path("../../../etc/passwd");
-        assert!(
-            result.is_err(),
-            "Should block ../ traversal: {:?}",
-            result
-        );
+        assert!(result.is_err(), "Should block ../ traversal: {:?}", result);
     }
 
     #[test]
@@ -886,10 +877,7 @@ mod tests {
         std::fs::create_dir_all(dir.path().join("a")).unwrap();
 
         let result = handler.validate_path("a/../../etc/passwd");
-        assert!(
-            result.is_err(),
-            "Should block ../  in the middle of path"
-        );
+        assert!(result.is_err(), "Should block ../  in the middle of path");
     }
 
     #[test]

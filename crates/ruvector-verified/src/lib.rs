@@ -17,23 +17,23 @@
 
 pub mod error;
 pub mod invariants;
-pub mod vector_types;
-pub mod proof_store;
 pub mod pipeline;
+pub mod proof_store;
+pub mod vector_types;
 
+pub mod cache;
 #[cfg(feature = "fast-arena")]
 pub mod fast_arena;
-pub mod pools;
-pub mod cache;
 #[cfg(feature = "gated-proofs")]
 pub mod gated;
+pub mod pools;
 
 // Re-exports
-pub use error::{VerificationError, Result};
-pub use vector_types::{mk_vector_type, mk_nat_literal, prove_dim_eq};
-pub use proof_store::ProofAttestation;
-pub use pipeline::VerifiedStage;
+pub use error::{Result, VerificationError};
 pub use invariants::BuiltinDecl;
+pub use pipeline::VerifiedStage;
+pub use proof_store::ProofAttestation;
+pub use vector_types::{mk_nat_literal, mk_vector_type, prove_dim_eq};
 
 /// The proof environment bundles verification state.
 ///
@@ -92,7 +92,9 @@ impl ProofEnvironment {
     /// Allocate a new proof term ID.
     pub fn alloc_term(&mut self) -> u32 {
         let id = self.term_counter;
-        self.term_counter = self.term_counter.checked_add(1)
+        self.term_counter = self
+            .term_counter
+            .checked_add(1)
             .ok_or(VerificationError::ArenaExhausted { allocated: id })
             .expect("arena overflow");
         self.stats.proofs_constructed += 1;
@@ -106,9 +108,10 @@ impl ProofEnvironment {
 
     /// Require a symbol index, or return DeclarationNotFound.
     pub fn require_symbol(&self, name: &str) -> Result<usize> {
-        self.symbol_id(name).ok_or_else(|| {
-            VerificationError::DeclarationNotFound { name: name.to_string() }
-        })
+        self.symbol_id(name)
+            .ok_or_else(|| VerificationError::DeclarationNotFound {
+                name: name.to_string(),
+            })
     }
 
     /// Check the proof cache for a previously verified proof.
@@ -218,7 +221,10 @@ mod tests {
 
     #[test]
     fn verified_op_copy() {
-        let op = VerifiedOp { value: 42u32, proof_id: 1 };
+        let op = VerifiedOp {
+            value: 42u32,
+            proof_id: 1,
+        };
         let op2 = op; // Copy
         assert_eq!(op.value, op2.value);
     }

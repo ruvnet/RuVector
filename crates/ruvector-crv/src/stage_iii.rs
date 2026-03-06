@@ -32,8 +32,8 @@ impl StageIIIEncoder {
         let dim = config.dimensions;
         // Single GNN layer: input_dim -> hidden_dim, 1 head
         // heads=1 always divides any dim, and dropout=0.0 is always valid
-        let gnn_layer = RuvectorLayer::new(dim, dim, 1, 0.0)
-            .expect("dim is always divisible by 1 head");
+        let gnn_layer =
+            RuvectorLayer::new(dim, dim, 1, 0.0).expect("dim is always divisible by 1 head");
 
         Self { dim, gnn_layer }
     }

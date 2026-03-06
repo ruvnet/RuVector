@@ -183,7 +183,7 @@ fn cosine_similarity_simd(a: &[f32], b: &[f32]) -> f32 {
 
     let len = a.len();
     let chunks = len / 4;
-    let remainder = len % 4;
+    let _remainder = len % 4;
 
     let mut dot = 0.0f32;
     let mut mag_a = 0.0f32;
@@ -227,6 +227,7 @@ fn cosine_similarity_simd(a: &[f32], b: &[f32]) -> f32 {
 }
 
 /// Standard cosine similarity (for compatibility)
+#[allow(dead_code)]
 #[inline]
 fn cosine_similarity(a: &[f32], b: &[f32]) -> f32 {
     cosine_similarity_simd(a, b)

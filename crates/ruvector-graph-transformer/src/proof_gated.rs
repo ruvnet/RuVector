@@ -15,11 +15,10 @@
 //! - [`ProofClass`]: Formal vs statistical proof classification
 
 use ruvector_verified::{
-    ProofEnvironment, ProofAttestation, VerifiedOp,
-    prove_dim_eq,
-    proof_store::create_attestation,
-    gated::{route_proof, ProofKind, TierDecision, ProofTier},
+    gated::{route_proof, ProofKind, ProofTier, TierDecision},
     pipeline::compose_chain,
+    proof_store::create_attestation,
+    prove_dim_eq, ProofAttestation, ProofEnvironment, VerifiedOp,
 };
 
 use crate::error::Result;
@@ -104,8 +103,7 @@ impl<T> ProofGate<T> {
         stages: &[(String, u32, u32)],
         f: impl FnOnce(&mut T),
     ) -> Result<ProofAttestation> {
-        let (_input_type, _output_type, proof_id) =
-            compose_chain(stages, &mut self.env)?;
+        let (_input_type, _output_type, proof_id) = compose_chain(stages, &mut self.env)?;
         f(&mut self.value);
         let attestation = create_attestation(&self.env, proof_id);
         self.attestation_chain.append(attestation.clone());
@@ -280,12 +278,10 @@ impl MutationLedger {
     /// The running `chain_hash` is recomputed over the single seal so
     /// that `verify_integrity()` remains consistent.
     pub fn compact(&mut self) -> ProofAttestation {
-        let total_steps: u32 = self.attestations
-            .iter()
-            .map(|a| a.reduction_steps)
-            .sum();
+        let total_steps: u32 = self.attestations.iter().map(|a| a.reduction_steps).sum();
 
-        let total_cache: u64 = self.attestations
+        let total_cache: u64 = self
+            .attestations
             .iter()
             .map(|a| a.cache_hit_rate_bps as u64)
             .sum();
@@ -298,12 +294,11 @@ impl MutationLedger {
         // Encode the pre-compaction chain hash and count into proof_term_hash.
         let mut proof_hash = [0u8; 32];
         proof_hash[0..8].copy_from_slice(&self.chain_hash.to_le_bytes());
-        proof_hash[8..16].copy_from_slice(
-            &(self.attestations.len() as u64).to_le_bytes(),
-        );
+        proof_hash[8..16].copy_from_slice(&(self.attestations.len() as u64).to_le_bytes());
 
         // Use the last attestation's environment hash, or zeros.
-        let env_hash = self.attestations
+        let env_hash = self
+            .attestations
             .last()
             .map(|a| a.environment_hash)
             .unwrap_or([0u8; 32]);
@@ -396,11 +391,7 @@ pub struct ProofScope {
 
 impl ProofScope {
     /// Create a new proof scope for the given partition.
-    pub fn new(
-        partition_id: u32,
-        boundary_nodes: Vec<u64>,
-        compaction_threshold: usize,
-    ) -> Self {
+    pub fn new(partition_id: u32, boundary_nodes: Vec<u64>, compaction_threshold: usize) -> Self {
         Self {
             partition_id,
             boundary_nodes,
@@ -572,10 +563,7 @@ impl EpochBoundary {
     ///
     /// Compacts the ledger, advances the epoch, and returns the
     /// boundary record.
-    pub fn seal(
-        ledger: &mut MutationLedger,
-        new_config: ProofEnvironmentConfig,
-    ) -> Self {
+    pub fn seal(ledger: &mut MutationLedger, new_config: ProofEnvironmentConfig) -> Self {
         let from_epoch = ledger.epoch();
         let to_epoch = from_epoch + 1;
         let seal_att = ledger.compact();
@@ -615,24 +603,39 @@ impl ProofRequirement {
     /// Map this requirement to a [`ProofKind`] for tier routing.
     pub fn to_proof_kind(&self) -> ProofKind {
         match self {
-            ProofRequirement::DimensionMatch { expected } => ProofKind::DimensionEquality { expected: *expected, actual: *expected },
+            ProofRequirement::DimensionMatch { expected } => ProofKind::DimensionEquality {
+                expected: *expected,
+                actual: *expected,
+            },
             ProofRequirement::TypeMatch { .. } => ProofKind::TypeApplication { depth: 1 },
-            ProofRequirement::InvariantPreserved { .. } => ProofKind::Custom { estimated_complexity: 100 },
-            ProofRequirement::CoherenceBound { .. } => ProofKind::Custom { estimated_complexity: 100 },
+            ProofRequirement::InvariantPreserved { .. } => ProofKind::Custom {
+                estimated_complexity: 100,
+            },
+            ProofRequirement::CoherenceBound { .. } => ProofKind::Custom {
+                estimated_complexity: 100,
+            },
             ProofRequirement::Composite(subs) => {
                 // Use the highest-complexity sub-requirement for routing.
-                if subs.iter().any(|r| matches!(
-                    r,
-                    ProofRequirement::InvariantPreserved { .. }
-                        | ProofRequirement::CoherenceBound { .. }
-                )) {
-                    ProofKind::Custom { estimated_complexity: 100 }
-                } else if subs.iter().any(|r| {
-                    matches!(r, ProofRequirement::TypeMatch { .. })
+                if subs.iter().any(|r| {
+                    matches!(
+                        r,
+                        ProofRequirement::InvariantPreserved { .. }
+                            | ProofRequirement::CoherenceBound { .. }
+                    )
                 }) {
+                    ProofKind::Custom {
+                        estimated_complexity: 100,
+                    }
+                } else if subs
+                    .iter()
+                    .any(|r| matches!(r, ProofRequirement::TypeMatch { .. }))
+                {
                     ProofKind::TypeApplication { depth: 1 }
                 } else {
-                    ProofKind::DimensionEquality { expected: 0, actual: 0 }
+                    ProofKind::DimensionEquality {
+                        expected: 0,
+                        actual: 0,
+                    }
                 }
             }
         }
@@ -641,9 +644,7 @@ impl ProofRequirement {
     /// Count the number of leaf requirements (non-composite).
     pub fn leaf_count(&self) -> usize {
         match self {
-            ProofRequirement::Composite(subs) => {
-                subs.iter().map(|s| s.leaf_count()).sum()
-            }
+            ProofRequirement::Composite(subs) => subs.iter().map(|s| s.leaf_count()).sum(),
             _ => 1,
         }
     }
@@ -698,8 +699,7 @@ impl ComplexityBound {
 
     /// Check whether this bound fits within the Reflex tier budget.
     pub fn fits_reflex(&self) -> bool {
-        self.complexity_class == ComplexityClass::Constant
-            && self.ops_upper_bound <= 10
+        self.complexity_class == ComplexityClass::Constant && self.ops_upper_bound <= 10
     }
 
     /// Check whether this bound fits within the Standard tier budget.
@@ -786,12 +786,7 @@ mod tests {
     #[test]
     fn test_proof_gate_routed_mutation() {
         let mut gate = ProofGate::new(100i32);
-        let result = gate.mutate_with_routed_proof(
-            ProofKind::Reflexivity,
-            5,
-            5,
-            |v| *v += 1,
-        );
+        let result = gate.mutate_with_routed_proof(ProofKind::Reflexivity, 5, 5, |v| *v += 1);
         assert!(result.is_ok());
         let (decision, _att) = result.unwrap();
         assert_eq!(decision.tier, ProofTier::Reflex);
@@ -879,8 +874,7 @@ mod tests {
         assert!(!ledger.needs_compaction());
 
         // The seal's proof_term_hash encodes the chain hash.
-        let encoded_hash =
-            u64::from_le_bytes(seal.proof_term_hash[0..8].try_into().unwrap());
+        let encoded_hash = u64::from_le_bytes(seal.proof_term_hash[0..8].try_into().unwrap());
         assert_ne!(encoded_hash, 0);
 
         // Integrity holds after compaction.
@@ -1038,10 +1032,7 @@ mod tests {
         let sp = SupersessionProof::new(7, att.clone(), 99);
         assert_eq!(sp.superseded_position, 7);
         assert_eq!(sp.soundness_proof_id, 99);
-        assert_eq!(
-            sp.replacement.content_hash(),
-            att.content_hash(),
-        );
+        assert_eq!(sp.replacement.content_hash(), att.content_hash(),);
     }
 
     // -----------------------------------------------------------------------
@@ -1051,10 +1042,16 @@ mod tests {
     #[test]
     fn test_proof_requirement_to_proof_kind() {
         let dim = ProofRequirement::DimensionMatch { expected: 128 };
-        assert!(matches!(dim.to_proof_kind(), ProofKind::DimensionEquality { .. }));
+        assert!(matches!(
+            dim.to_proof_kind(),
+            ProofKind::DimensionEquality { .. }
+        ));
 
         let ty = ProofRequirement::TypeMatch { schema_id: 1 };
-        assert!(matches!(ty.to_proof_kind(), ProofKind::TypeApplication { .. }));
+        assert!(matches!(
+            ty.to_proof_kind(),
+            ProofKind::TypeApplication { .. }
+        ));
 
         let inv = ProofRequirement::InvariantPreserved { invariant_id: 5 };
         assert!(matches!(inv.to_proof_kind(), ProofKind::Custom { .. }));
@@ -1119,23 +1116,19 @@ mod tests {
         assert!(reflex.fits_reflex());
         assert!(reflex.fits_standard());
 
-        let too_many_ops =
-            ComplexityBound::new(20, 64, ComplexityClass::Constant);
+        let too_many_ops = ComplexityBound::new(20, 64, ComplexityClass::Constant);
         assert!(!too_many_ops.fits_reflex());
 
-        let wrong_class =
-            ComplexityBound::new(5, 64, ComplexityClass::Linear);
+        let wrong_class = ComplexityBound::new(5, 64, ComplexityClass::Linear);
         assert!(!wrong_class.fits_reflex());
     }
 
     #[test]
     fn test_complexity_bound_fits_standard() {
-        let standard =
-            ComplexityBound::new(500, 4096, ComplexityClass::Logarithmic);
+        let standard = ComplexityBound::new(500, 4096, ComplexityClass::Logarithmic);
         assert!(standard.fits_standard());
 
-        let too_expensive =
-            ComplexityBound::new(501, 4096, ComplexityClass::Quadratic);
+        let too_expensive = ComplexityBound::new(501, 4096, ComplexityClass::Quadratic);
         assert!(!too_expensive.fits_standard());
     }
 

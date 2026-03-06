@@ -8,7 +8,9 @@
 use ruvector_coherence::quality_check;
 
 #[cfg(feature = "self-organizing")]
-use ruvector_verified::{ProofEnvironment, prove_dim_eq, proof_store::create_attestation, ProofAttestation};
+use ruvector_verified::{
+    proof_store::create_attestation, prove_dim_eq, ProofAttestation, ProofEnvironment,
+};
 
 #[cfg(feature = "self-organizing")]
 use crate::config::SelfOrganizingConfig;
@@ -86,10 +88,7 @@ impl MorphogeneticField {
     ///   dB/dt = D_b * laplacian(B) + A*B^2 - (f+k)*B
     ///
     /// Proof gate: all concentrations remain in [0.0, 2.0].
-    pub fn step(
-        &mut self,
-        adjacency: &[(usize, usize)],
-    ) -> Result<MorphogeneticStepResult> {
+    pub fn step(&mut self, adjacency: &[(usize, usize)]) -> Result<MorphogeneticStepResult> {
         let n = self.num_nodes;
         let dt = 1.0;
         let d_a = self.config.diffusion_rate; // diffusion_activator
@@ -136,8 +135,7 @@ impl MorphogeneticField {
         // Check coherence using ruvector-coherence
         let quality = quality_check(&new_a, &new_b, self.config.coherence_threshold as f64);
         let coherence = quality.cosine_sim.abs() as f32;
-        let topology_maintained = quality.passes_threshold
-            || quality.l2_dist < 1.0;
+        let topology_maintained = quality.passes_threshold || quality.l2_dist < 1.0;
 
         Ok(MorphogeneticStepResult {
             activator: new_a,
@@ -266,8 +264,7 @@ impl DevelopmentalProgram {
                         if growth_used >= self.max_growth_budget {
                             break;
                         }
-                        if activator[i] >= rule.activator_threshold
-                            && degrees[i] < rule.max_degree
+                        if activator[i] >= rule.activator_threshold && degrees[i] < rule.max_degree
                         {
                             // Split: create a new node connected to the original
                             let new_id = next_node_id;
@@ -283,8 +280,7 @@ impl DevelopmentalProgram {
                         if growth_used >= self.max_growth_budget {
                             break;
                         }
-                        if activator[i] >= rule.activator_threshold
-                            && degrees[i] < rule.max_degree
+                        if activator[i] >= rule.activator_threshold && degrees[i] < rule.max_degree
                         {
                             // Find closest non-neighbor by activator similarity
                             let mut best_j = None;
@@ -294,16 +290,16 @@ impl DevelopmentalProgram {
                                 if i == j {
                                     continue;
                                 }
-                                let edge_exists = existing_edges.iter().any(|&(u, v)| {
-                                    (u == i && v == j) || (u == j && v == i)
-                                });
+                                let edge_exists = existing_edges
+                                    .iter()
+                                    .any(|&(u, v)| (u == i && v == j) || (u == j && v == i));
                                 if edge_exists {
                                     continue;
                                 }
                                 // Already scheduled for addition
-                                let already_added = new_edges.iter().any(|&(u, v, _)| {
-                                    (u == i && v == j) || (u == j && v == i)
-                                });
+                                let already_added = new_edges
+                                    .iter()
+                                    .any(|&(u, v, _)| (u == i && v == j) || (u == j && v == i));
                                 if already_added {
                                     continue;
                                 }
@@ -331,9 +327,9 @@ impl DevelopmentalProgram {
                             let both_below = activator[u] < rule.activator_threshold
                                 && activator[v] < rule.activator_threshold;
                             if both_below {
-                                let already_removed = removed_edges.iter().any(|&(a, b)| {
-                                    (a == u && b == v) || (a == v && b == u)
-                                });
+                                let already_removed = removed_edges
+                                    .iter()
+                                    .any(|&(a, b)| (a == u && b == v) || (a == v && b == u));
                                 if !already_removed {
                                     removed_edges.push((u, v));
                                     growth_used += 1;
@@ -483,12 +479,8 @@ impl GraphCoarsener {
 
         // Aggregate features
         let dim = features[0].len();
-        let coarse_features = self.aggregate_features(
-            features,
-            &cluster_to_nodes,
-            num_clusters,
-            dim,
-        );
+        let coarse_features =
+            self.aggregate_features(features, &cluster_to_nodes, num_clusters, dim);
 
         // Build coarse edges (edges between different clusters)
         let mut coarse_edge_set = std::collections::HashSet::new();
@@ -531,7 +523,11 @@ impl GraphCoarsener {
         num_original_nodes: usize,
     ) -> UncoarsenResult {
         let num_clusters = coarse_features.len();
-        let dim = if coarse_features.is_empty() { 0 } else { coarse_features[0].len() };
+        let dim = if coarse_features.is_empty() {
+            0
+        } else {
+            coarse_features[0].len()
+        };
 
         // Build cluster membership lists
         let mut cluster_to_nodes: Vec<Vec<usize>> = vec![Vec::new(); num_clusters];
@@ -642,13 +638,16 @@ impl GraphCoarsener {
                 }
                 AggregationStrategy::AttentionPooling => {
                     // Compute attention weights via feature magnitudes
-                    let magnitudes: Vec<f32> = nodes.iter().map(|&node| {
-                        if node < features.len() {
-                            features[node].iter().map(|x| x * x).sum::<f32>().sqrt()
-                        } else {
-                            0.0
-                        }
-                    }).collect();
+                    let magnitudes: Vec<f32> = nodes
+                        .iter()
+                        .map(|&node| {
+                            if node < features.len() {
+                                features[node].iter().map(|x| x * x).sum::<f32>().sqrt()
+                            } else {
+                                0.0
+                            }
+                        })
+                        .collect();
                     let total_mag: f32 = magnitudes.iter().sum::<f32>().max(1e-8);
                     let weights: Vec<f32> = magnitudes.iter().map(|m| m / total_mag).collect();
 
@@ -662,15 +661,19 @@ impl GraphCoarsener {
                 }
                 AggregationStrategy::TopK(k) => {
                     // Select top-k nodes by feature magnitude
-                    let mut scored: Vec<(f32, usize)> = nodes.iter().map(|&node| {
-                        let mag = if node < features.len() {
-                            features[node].iter().map(|x| x * x).sum::<f32>().sqrt()
-                        } else {
-                            0.0
-                        };
-                        (mag, node)
-                    }).collect();
-                    scored.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
+                    let mut scored: Vec<(f32, usize)> = nodes
+                        .iter()
+                        .map(|&node| {
+                            let mag = if node < features.len() {
+                                features[node].iter().map(|x| x * x).sum::<f32>().sqrt()
+                            } else {
+                                0.0
+                            };
+                            (mag, node)
+                        })
+                        .collect();
+                    scored
+                        .sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
                     let top_k = scored.iter().take(*k).collect::<Vec<_>>();
                     let count = top_k.len().max(1) as f32;
                     for &&(_, node) in &top_k {
@@ -699,11 +702,7 @@ impl GraphCoarsener {
 ///
 /// L = D - A where D is the degree matrix and A is the adjacency matrix.
 #[cfg(feature = "self-organizing")]
-fn graph_laplacian_action(
-    x: &[f32],
-    adjacency: &[(usize, usize)],
-    n: usize,
-) -> Vec<f32> {
+fn graph_laplacian_action(x: &[f32], adjacency: &[(usize, usize)], n: usize) -> Vec<f32> {
     let mut result = vec![0.0f32; n];
     let mut degrees = vec![0usize; n];
 

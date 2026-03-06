@@ -1,101 +1,31 @@
 # exo-temporal
 
-Temporal memory coordinator with causal structure for the EXO-AI 2025 cognitive substrate.
+Temporal memory coordinator with causal structure for the EXO-AI cognitive
+substrate. Manages how memories form, persist, and decay using
+physically-inspired decoherence models.
 
-[![Crates.io](https://img.shields.io/crates/v/exo-temporal.svg)](https://crates.io/crates/exo-temporal)
-[![Documentation](https://docs.rs/exo-temporal/badge.svg)](https://docs.rs/exo-temporal)
-[![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg)](LICENSE)
+## Features
 
-## Overview
+- **Causal timeline tracking** -- maintains a directed acyclic graph of
+  events with Lamport-style logical clocks for strict causal ordering.
+- **Quantum decay memory eviction** -- models memory lifetime using T1
+  (energy relaxation) and T2 (dephasing) decoherence times, evicting
+  stale entries probabilistically.
+- **Anticipation engine** -- predicts future states by extrapolating
+  causal trajectories, enabling proactive cognition.
+- **Transfer timeline** -- records cross-domain knowledge transfers with
+  full provenance so temporal reasoning spans substrate boundaries.
 
-This crate implements a biologically-inspired temporal memory system with:
+## Quick Start
 
-- **Short-term buffer**: Volatile memory for recent patterns
-- **Long-term store**: Consolidated memory with strategic forgetting
-- **Causal graph**: Tracks antecedent relationships between patterns
-- **Memory consolidation**: Salience-based filtering (frequency, recency, causal importance, surprise)
-- **Predictive anticipation**: Pre-fetching based on sequential patterns, temporal cycles, and causal chains
+Add the dependency to your `Cargo.toml`:
 
-## Architecture
-
-```
-┌─────────────────────────────────────────────────────────┐
-│                  TemporalMemory                         │
-├─────────────────────────────────────────────────────────┤
-│ ┌─────────────┐  ┌─────────────┐  ┌─────────────┐      │
-│ │ Short-Term  │  │ Long-Term   │  │   Causal    │      │
-│ │   Buffer    │→ │    Store    │  │    Graph    │      │
-│ └─────────────┘  └─────────────┘  └─────────────┘      │
-│        ↓                ↑                 ↑             │
-│ ┌─────────────────────────────────────────────┐         │
-│ │          Consolidation Engine               │         │
-│ │  (Salience computation & filtering)         │         │
-│ └─────────────────────────────────────────────┘         │
-│        ↓                                                │
-│ ┌─────────────────────────────────────────────┐         │
-│ │       Anticipation & Prefetch               │         │
-│ └─────────────────────────────────────────────┘         │
-└─────────────────────────────────────────────────────────┘
+```toml
+[dependencies]
+exo-temporal = "0.1"
 ```
 
-## Modules
-
-- **`types`**: Core type definitions (Pattern, Query, SubstrateTime, etc.)
-- **`causal`**: Causal graph for tracking antecedent relationships
-- **`short_term`**: Volatile short-term memory buffer
-- **`long_term`**: Consolidated long-term memory store
-- **`consolidation`**: Memory consolidation with salience computation
-- **`anticipation`**: Predictive pre-fetching and query anticipation
-
-## Key Algorithms
-
-### Causal Cone Query (Pseudocode 3.1)
-
-Retrieves patterns within causal light-cone constraints:
-
-```rust
-let results = memory.causal_query(
-    &query,
-    reference_time,
-    CausalConeType::Past,
-);
-```
-
-- Filters by time range (Past, Future, or LightCone)
-- Computes causal distance via graph traversal
-- Ranks by combined similarity, temporal, and causal relevance
-
-### Memory Consolidation (Pseudocode 3.2)
-
-Transfers patterns from short-term to long-term based on salience:
-
-```rust
-let result = memory.consolidate();
-```
-
-Salience factors:
-- **Frequency**: Access count (logarithmic scaling)
-- **Recency**: Exponential decay from last access
-- **Causal importance**: Out-degree in causal graph
-- **Surprise**: Novelty compared to existing patterns
-
-### Predictive Anticipation (Pseudocode 3.3)
-
-Pre-fetches likely future queries:
-
-```rust
-memory.anticipate(&[
-    AnticipationHint::SequentialPattern { recent: vec![id1, id2] },
-    AnticipationHint::CausalChain { context: id3 },
-]);
-```
-
-Strategies:
-- **Sequential patterns**: If A then B learned sequences
-- **Temporal cycles**: Time-of-day / day-of-week patterns
-- **Causal chains**: Downstream effects in causal graph
-
-## Usage Example
+Basic usage:
 
 ```rust
 use exo_temporal::{TemporalMemory, TemporalConfig, Pattern, Metadata};
@@ -103,87 +33,40 @@ use exo_temporal::{TemporalMemory, TemporalConfig, Pattern, Metadata};
 // Create temporal memory
 let memory = TemporalMemory::new(TemporalConfig::default());
 
-// Store pattern with causal context
+// Store a pattern with causal context
 let pattern = Pattern::new(vec![1.0, 2.0, 3.0], Metadata::new());
 let id = memory.store(pattern, &[]).unwrap();
 
-// Retrieve pattern
-let retrieved = memory.get(&id).unwrap();
-
-// Causal query
-let query = Query::from_embedding(vec![1.0, 2.0, 3.0])
-    .with_origin(id)
-    .with_k(10);
-
+// Causal cone query
 let results = memory.causal_query(
     &query,
     SubstrateTime::now(),
     CausalConeType::Past,
 );
 
-// Trigger consolidation
-let consolidation_result = memory.consolidate();
-
-// Strategic forgetting
+// Trigger consolidation and strategic forgetting
+let consolidation = memory.consolidate();
 memory.forget();
-
-// Get statistics
-let stats = memory.stats();
-println!("Short-term: {} patterns", stats.short_term.size);
-println!("Long-term: {} patterns", stats.long_term.size);
-println!("Causal edges: {}", stats.causal_graph.num_edges);
 ```
 
-## Implementation Notes
+## Crate Layout
 
-### Pseudocode Alignment
+| Module           | Purpose                                  |
+|------------------|------------------------------------------|
+| `timeline`       | Core DAG and logical clock management    |
+| `decay`          | T1/T2 decoherence eviction policies      |
+| `anticipation`   | Trajectory extrapolation engine           |
+| `consolidation`  | Salience-based memory consolidation       |
+| `transfer`       | Cross-domain timeline provenance          |
 
-This implementation follows the pseudocode in `PSEUDOCODE.md`:
+## Requirements
 
-- **Section 3.1**: `causal_query` method implements causal cone filtering
-- **Section 3.2**: `consolidate` function implements salience-based consolidation
-- **Section 3.3**: `anticipate` function implements predictive pre-fetching
-
-### Concurrency
-
-- Uses `DashMap` for concurrent access to patterns and indices
-- `parking_lot::RwLock` for read-heavy workloads
-- Thread-safe throughout for multi-threaded substrate operations
-
-### Performance
-
-- **O(log n)** temporal range queries via binary search on sorted index
-- **O(k × d)** similarity search where k = results, d = embedding dimension
-- **O(n²)** worst-case for causal distance via Dijkstra's algorithm
-- **O(1)** prefetch cache lookup
-
-## Dependencies
-
-- `exo-core`: Core traits and types (to be implemented)
-- `dashmap`: Concurrent hash maps
-- `parking_lot`: Efficient synchronization primitives
-- `chrono`: Temporal handling
-- `petgraph`: Graph algorithms for causal distance
-- `serde`: Serialization support
-
-## Future Enhancements
-
-- [ ] Temporal Knowledge Graph (TKG) integration (mentioned in ARCHITECTURE.md)
-- [ ] Relativistic light cone with spatial distance
-- [ ] Advanced consolidation policies (sleep-inspired replay)
-- [ ] Distributed temporal memory via CRDT synchronization
-- [ ] GPU-accelerated similarity search
-
-## References
-
-- ARCHITECTURE.md: Section 2.5 (Temporal Memory Coordinator)
-- PSEUDOCODE.md: Section 3 (Temporal Memory Coordinator)
-- Research: Zep-inspired temporal knowledge graphs, IIT consciousness metrics
+- Rust 1.78+
+- Depends on `exo-core`
 
 ## Links
 
 - [GitHub](https://github.com/ruvnet/ruvector)
-- [Website](https://ruv.io)
 - [EXO-AI Documentation](https://github.com/ruvnet/ruvector/tree/main/examples/exo-ai-2025)
 
 ## License

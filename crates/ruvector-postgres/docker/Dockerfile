@@ -1,7 +1,7 @@
 # RuVector-Postgres Development & Testing Dockerfile
 # Multi-stage build with PostgreSQL version support (14-17)
 # Default: PostgreSQL 17 (latest with pgrx 0.12 support)
-# Note: PostgreSQL 18 requires pgrx 0.15.0+ (planned for future release)
+# v0.3.1: Fixes — Cypher self-reference, graph/RDF persistence, SONA dimension panic
 
 ARG PG_VERSION=17
 ARG RUST_VERSION=1.85
@@ -145,15 +145,18 @@ COPY crates/ruvector-postgres/sql ./sql/
 COPY crates/ruvector-postgres/benches ./benches/
 
 # Build the extension with all features including v0.3 modules
+# graph-complete includes: graph, hyperbolic, sparse
 RUN cargo pgrx package \
     --pg-config /usr/lib/postgresql/${PG_VERSION}/bin/pg_config \
-    --features pg${PG_VERSION},graph-complete,gated-transformer,analytics-complete,attention-extended,sona-learning,domain-expansion
+    --features pg${PG_VERSION},index-all,quant-all,graph-complete,gated-transformer,analytics-complete,attention-extended,sona-learning,domain-expansion
 
 # pgrx generates .control and .so but not SQL - copy our hand-written SQL files
 # In a workspace, target/ is at the workspace root /build/target/, not per-crate
-RUN cp sql/ruvector--0.3.0.sql /build/target/release/ruvector-pg${PG_VERSION}/usr/share/postgresql/${PG_VERSION}/extension/ 2>/dev/null || true && \
-    cp sql/ruvector--2.0.0.sql /build/target/release/ruvector-pg${PG_VERSION}/usr/share/postgresql/${PG_VERSION}/extension/ 2>/dev/null || true && \
-    cp sql/ruvector--2.0.0--0.3.0.sql /build/target/release/ruvector-pg${PG_VERSION}/usr/share/postgresql/${PG_VERSION}/extension/ 2>/dev/null || true
+RUN for f in sql/ruvector--*.sql; do \
+        cp "$f" /build/target/release/ruvector-pg${PG_VERSION}/usr/share/postgresql/${PG_VERSION}/extension/ 2>/dev/null || true; \
+    done && \
+    echo "SQL schemas copied:" && \
+    ls -1 /build/target/release/ruvector-pg${PG_VERSION}/usr/share/postgresql/${PG_VERSION}/extension/ruvector--*.sql 2>/dev/null
 
 # ============================================================================
 # Stage 4: Runtime (Production)
@@ -184,9 +187,9 @@ ENV PG_VERSION=${PG_VERSION}
 ENV POSTGRES_INITDB_ARGS="--data-checksums"
 
 # Labels for version tracking
-LABEL org.opencontainers.image.title="RuVector PostgreSQL Extension v0.3"
-LABEL org.opencontainers.image.description="High-performance vector database extension for PostgreSQL with 143 SQL functions, Solver, Math, TDA, Extended Attention, Sona, and Domain Expansion"
-LABEL org.opencontainers.image.version="0.3.0"
+LABEL org.opencontainers.image.title="RuVector PostgreSQL Extension v0.3.1"
+LABEL org.opencontainers.image.description="High-performance vector database extension for PostgreSQL with 270+ SQL functions, Graph/Cypher/SPARQL, GNN, hybrid search, multi-tenancy, self-healing, SONA self-learning, Solver, Math, TDA, and Domain Expansion"
+LABEL org.opencontainers.image.version="0.3.1"
 LABEL org.opencontainers.image.vendor="ruv.io"
 LABEL org.opencontainers.image.source="https://github.com/ruvnet/ruvector"
 LABEL ruvector.pg.version="${PG_VERSION}"

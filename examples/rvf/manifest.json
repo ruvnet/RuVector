@@ -1,0 +1,848 @@
+{
+  "version": "0.2.1",
+  "updated": "2026-02-28T06:56:46Z",
+  "base_url": "https://storage.googleapis.com/ruvector-examples/v0.2.1",
+  "total_size": "15.6 MB",
+  "total_size_bytes": 16367350,
+  "count": 46,
+  "examples": [
+    {
+      "name": "access_control",
+      "file": "access_control.rvf",
+      "size": 78444,
+      "size_human": "76.6 KB",
+      "sha256": "d3ba28d5a28bbe3b0167f0cbb08d4bea1fcb741ae57e5da957b3760043dabde7",
+      "description": "Access Control",
+      "category": "security",
+      "tags": [
+        "security",
+        "access"
+      ],
+      "segments": [
+        "VEC",
+        "META"
+      ],
+      "created": "2026-02-20"
+    },
+    {
+      "name": "agent_handoff_a",
+      "file": "agent_handoff_a.rvf",
+      "size": 31404,
+      "size_human": "30.7 KB",
+      "sha256": "6bea24466e08219f93198de047e532194c21b2e3ecb23f7629518ec1bae03994",
+      "description": "Agent Handoff A",
+      "category": "network",
+      "tags": [
+        "network",
+        "agent"
+      ],
+      "segments": [
+        "VEC",
+        "META"
+      ],
+      "created": "2026-02-20"
+    },
+    {
+      "name": "agent_handoff_b",
+      "file": "agent_handoff_b.rvf",
+      "size": 10764,
+      "size_human": "10.5 KB",
+      "sha256": "61b682480d2fe2dae3be9980b36b1cdcab2fec34b0bf56d8cf8d8fcac9cb56ec",
+      "description": "Agent Handoff B",
+      "category": "network",
+      "tags": [
+        "network",
+        "agent"
+      ],
+      "segments": [
+        "VEC",
+        "META"
+      ],
+      "created": "2026-02-20"
+    },
+    {
+      "name": "agent_memory",
+      "file": "agent_memory.rvf",
+      "size": 32118,
+      "size_human": "31.4 KB",
+      "sha256": "c6fccc3e6121ab6b849d1b28c78fbfeb5e1359606b36d5c44d0afa01f672961b",
+      "description": "Agent Memory",
+      "category": "ai",
+      "tags": [
+        "ai",
+        "agent"
+      ],
+      "segments": [
+        "VEC",
+        "META"
+      ],
+      "created": "2026-02-20"
+    },
+    {
+      "name": "basic_store",
+      "file": "basic_store.rvf",
+      "size": 154844,
+      "size_human": "151.2 KB",
+      "sha256": "063f6bd4178baaf65f0d9e48e858985b4358b55c49152e3f08d53968a680b2f4",
+      "description": "Basic Store",
+      "category": "core",
+      "tags": [
+        "core",
+        "basic"
+      ],
+      "segments": [
+        "VEC",
+        "META"
+      ],
+      "created": "2026-02-20"
+    },
+    {
+      "name": "browser_wasm",
+      "file": "browser_wasm.rvf",
+      "size": 13644,
+      "size_human": "13.3 KB",
+      "sha256": "16fdcc8e7d3f44ff51833c1a1ac7b70ee6320df8091a7ffa92fe5cdee8c408d1",
+      "description": "Browser Wasm",
+      "category": "compute",
+      "tags": [
+        "compute",
+        "browser"
+      ],
+      "segments": [
+        "VEC",
+        "META"
+      ],
+      "created": "2026-02-20"
+    },
+    {
+      "name": "claude_code_appliance",
+      "file": "claude_code_appliance.rvf",
+      "size": 5260093,
+      "size_human": "5.0 MB",
+      "sha256": "82ac74d626e5cfe50c7c622e8d5e2c95a01a9654781337b2734a7fedb26dff53",
+      "description": "Claude Code Appliance",
+      "category": "integration",
+      "tags": [
+        "integration",
+        "claude"
+      ],
+      "segments": [
+        "VEC",
+        "META"
+      ],
+      "created": "2026-02-20"
+    },
+    {
+      "name": "claude_code_appliance_v1",
+      "file": "claude_code_appliance_v1.rvf",
+      "size": 162,
+      "size_human": "162 B",
+      "sha256": "c78bcd5e82d8afa6d0757ac2d70cab05f67d5f5ddc5886548584dbbc42fc8382",
+      "description": "Claude Code Appliance V1",
+      "category": "integration",
+      "tags": [
+        "integration",
+        "claude"
+      ],
+      "segments": [
+        "VEC",
+        "META"
+      ],
+      "created": "2026-02-20"
+    },
+    {
+      "name": "compacted",
+      "file": "compacted.rvf",
+      "size": 78257,
+      "size_human": "76.4 KB",
+      "sha256": "59260c0798b9618c01ca4932d169f18a4e3b4b944075e3716e6a5e862584518a",
+      "description": "Compacted",
+      "category": "core",
+      "tags": [
+        "core",
+        "compacted"
+      ],
+      "segments": [
+        "VEC",
+        "META"
+      ],
+      "created": "2026-02-20"
+    },
+    {
+      "name": "dedup_detector",
+      "file": "dedup_detector.rvf",
+      "size": 156444,
+      "size_human": "152.8 KB",
+      "sha256": "e14c4e74170afaeb448f462b5a838f0ed06837632806de9d1a506156834adfcb",
+      "description": "Dedup Detector",
+      "category": "core",
+      "tags": [
+        "core",
+        "dedup"
+      ],
+      "segments": [
+        "VEC",
+        "META"
+      ],
+      "created": "2026-02-20"
+    },
+    {
+      "name": "ebpf_accelerator",
+      "file": "ebpf_accelerator.rvf",
+      "size": 156514,
+      "size_human": "152.8 KB",
+      "sha256": "533c04b0753f5a7198b8a4f5188bb000bb795fa225499794df835d0523deab07",
+      "description": "Ebpf Accelerator",
+      "category": "compute",
+      "tags": [
+        "compute",
+        "ebpf"
+      ],
+      "segments": [
+        "VEC",
+        "META"
+      ],
+      "created": "2026-02-20"
+    },
+    {
+      "name": "edge_iot",
+      "file": "edge_iot.rvf",
+      "size": 27644,
+      "size_human": "27.0 KB",
+      "sha256": "8d79abd3625fe7e662dc7660b15bb5b93e1e9f0dcc84da2c6c9a8670b8159248",
+      "description": "Edge Iot",
+      "category": "compute",
+      "tags": [
+        "compute",
+        "edge"
+      ],
+      "segments": [
+        "VEC",
+        "META"
+      ],
+      "created": "2026-02-20"
+    },
+    {
+      "name": "embedding_cache",
+      "file": "embedding_cache.rvf",
+      "size": 772444,
+      "size_human": "754.3 KB",
+      "sha256": "6cf09ad8052cb13cb4074db56a01403c889a15dbec798ec9e25a764174fe3aff",
+      "description": "Embedding Cache",
+      "category": "core",
+      "tags": [
+        "core",
+        "embedding"
+      ],
+      "segments": [
+        "VEC",
+        "META"
+      ],
+      "created": "2026-02-20"
+    },
+    {
+      "name": "experience_replay",
+      "file": "experience_replay.rvf",
+      "size": 26844,
+      "size_human": "26.2 KB",
+      "sha256": "4443d1f8aefd94e7253c797334182d55f406cbb9b9ba54b0831bd7e84df71a78",
+      "description": "Experience Replay",
+      "category": "ai",
+      "tags": [
+        "ai",
+        "experience"
+      ],
+      "segments": [
+        "VEC",
+        "META"
+      ],
+      "created": "2026-02-20"
+    },
+    {
+      "name": "filtered_search",
+      "file": "filtered_search.rvf",
+      "size": 260444,
+      "size_human": "254.3 KB",
+      "sha256": "37309666570ca04e518ef66c26b48e9034ee5855e17104177d72d9901f658f80",
+      "description": "Filtered Search",
+      "category": "core",
+      "tags": [
+        "core",
+        "filtered"
+      ],
+      "segments": [
+        "VEC",
+        "META"
+      ],
+      "created": "2026-02-20"
+    },
+    {
+      "name": "financial_signals",
+      "file": "financial_signals.rvf",
+      "size": 206844,
+      "size_human": "202.0 KB",
+      "sha256": "157d6a3df91191916486926c6a0312bd9f3cd0c8c8d4883ec33552683a075750",
+      "description": "Financial Signals",
+      "category": "industry",
+      "tags": [
+        "industry",
+        "financial"
+      ],
+      "segments": [
+        "VEC",
+        "META"
+      ],
+      "created": "2026-02-20"
+    },
+    {
+      "name": "hyperbolic_taxonomy",
+      "file": "hyperbolic_taxonomy.rvf",
+      "size": 22884,
+      "size_human": "22.3 KB",
+      "sha256": "6ac67203c2b57c00d2aea13572f3c37af23a7bf0d8603ae8987a1544ee97a193",
+      "description": "Hyperbolic Taxonomy",
+      "category": "core",
+      "tags": [
+        "core",
+        "hyperbolic"
+      ],
+      "segments": [
+        "VEC",
+        "META"
+      ],
+      "created": "2026-02-20"
+    },
+    {
+      "name": "legal_discovery",
+      "file": "legal_discovery.rvf",
+      "size": 924444,
+      "size_human": "902.8 KB",
+      "sha256": "830d353ab86f9fa8c71096dad0ca3daab5994c39a556e58fb0a5449acae7eb94",
+      "description": "Legal Discovery",
+      "category": "industry",
+      "tags": [
+        "industry",
+        "legal"
+      ],
+      "segments": [
+        "VEC",
+        "META"
+      ],
+      "created": "2026-02-20"
+    },
+    {
+      "name": "lineage_child",
+      "file": "lineage_child.rvf",
+      "size": 26444,
+      "size_human": "25.8 KB",
+      "sha256": "557b9b8dc0de3f613150418991c0ea0a7329d3cbaece865a682219f440026605",
+      "description": "Lineage Child",
+      "category": "lineage",
+      "tags": [
+        "lineage",
+        "lineage"
+      ],
+      "segments": [
+        "VEC",
+        "META"
+      ],
+      "created": "2026-02-20"
+    },
+    {
+      "name": "lineage_parent",
+      "file": "lineage_parent.rvf",
+      "size": 52444,
+      "size_human": "51.2 KB",
+      "sha256": "ce8469d66b09738e5726d45e2406f757c1f53ae9918bef4cf4afe80919667113",
+      "description": "Lineage Parent",
+      "category": "lineage",
+      "tags": [
+        "lineage",
+        "lineage"
+      ],
+      "segments": [
+        "VEC",
+        "META"
+      ],
+      "created": "2026-02-20"
+    },
+    {
+      "name": "linux_microkernel",
+      "file": "linux_microkernel.rvf",
+      "size": 14370,
+      "size_human": "14.0 KB",
+      "sha256": "b4da7e039228608335e7e798923c8ea32ee63e5901939e0b42768d8c7bb4bd4f",
+      "description": "Linux Microkernel",
+      "category": "compute",
+      "tags": [
+        "compute",
+        "linux"
+      ],
+      "segments": [
+        "VEC",
+        "META"
+      ],
+      "created": "2026-02-20"
+    },
+    {
+      "name": "mcp_in_rvf",
+      "file": "mcp_in_rvf.rvf",
+      "size": 32010,
+      "size_human": "31.3 KB",
+      "sha256": "8f9a873f5c6cee67d2854c264e431e074b4612e37719ccc32455c9b46a4ed0f0",
+      "description": "Mcp In Rvf",
+      "category": "integration",
+      "tags": [
+        "integration",
+        "mcp"
+      ],
+      "segments": [
+        "VEC",
+        "META"
+      ],
+      "created": "2026-02-20"
+    },
+    {
+      "name": "medical_imaging",
+      "file": "medical_imaging.rvf",
+      "size": 308844,
+      "size_human": "301.6 KB",
+      "sha256": "ee727e29cb8596bdb63df6554d7bc43d5348bdde1dc2aea2b20a8c3456bd6215",
+      "description": "Medical Imaging",
+      "category": "industry",
+      "tags": [
+        "industry",
+        "medical"
+      ],
+      "segments": [
+        "VEC",
+        "META"
+      ],
+      "created": "2026-02-20"
+    },
+    {
+      "name": "multimodal_fusion",
+      "file": "multimodal_fusion.rvf",
+      "size": 822844,
+      "size_human": "803.6 KB",
+      "sha256": "bf6a8111bfcd329a1d8507662d7062fd644207b9b2ef99ca45fbe3a477a6588c",
+      "description": "Multimodal Fusion",
+      "category": "core",
+      "tags": [
+        "core",
+        "multimodal"
+      ],
+      "segments": [
+        "VEC",
+        "META"
+      ],
+      "created": "2026-02-20"
+    },
+    {
+      "name": "network_sync_a",
+      "file": "network_sync_a.rvf",
+      "size": 52444,
+      "size_human": "51.2 KB",
+      "sha256": "f5c4d94d80d62ff638af1321de65c0125703638ca4c6d206d06a6a0b61c541c4",
+      "description": "Network Sync A",
+      "category": "network",
+      "tags": [
+        "network",
+        "network"
+      ],
+      "segments": [
+        "VEC",
+        "META"
+      ],
+      "created": "2026-02-20"
+    },
+    {
+      "name": "network_sync_b",
+      "file": "network_sync_b.rvf",
+      "size": 52444,
+      "size_human": "51.2 KB",
+      "sha256": "79e9d0b3b5dc1371b5eccfe505b6235e2e68e04cec793e1ab6df305c4b9cbd85",
+      "description": "Network Sync B",
+      "category": "network",
+      "tags": [
+        "network",
+        "network"
+      ],
+      "segments": [
+        "VEC",
+        "META"
+      ],
+      "created": "2026-02-20"
+    },
+    {
+      "name": "network_telemetry",
+      "file": "network_telemetry.rvf",
+      "size": 16284,
+      "size_human": "15.9 KB",
+      "sha256": "7668934d4187955ab7f1ffded48c07352eeb8c7ff5a8ffd9c3d14d9158de243d",
+      "description": "Network Telemetry",
+      "category": "network",
+      "tags": [
+        "network",
+        "network"
+      ],
+      "segments": [
+        "VEC",
+        "META"
+      ],
+      "created": "2026-02-20"
+    },
+    {
+      "name": "posix_fileops",
+      "file": "posix_fileops.rvf",
+      "size": 52444,
+      "size_human": "51.2 KB",
+      "sha256": "3375857824f0d64109cbe93d9fc41b0e1d3a1797bb192e8d7826088dfb14bd67",
+      "description": "Posix Fileops",
+      "category": "core",
+      "tags": [
+        "core",
+        "posix"
+      ],
+      "segments": [
+        "VEC",
+        "META"
+      ],
+      "created": "2026-02-20"
+    },
+    {
+      "name": "postgres_bridge",
+      "file": "postgres_bridge.rvf",
+      "size": 154844,
+      "size_human": "151.2 KB",
+      "sha256": "e84b17c1ed161884c1a1b36e6a7dabe1a829f18faa61dca282cc699c73ad19a9",
+      "description": "Postgres Bridge",
+      "category": "integration",
+      "tags": [
+        "integration",
+        "postgres"
+      ],
+      "segments": [
+        "VEC",
+        "META"
+      ],
+      "created": "2026-02-20"
+    },
+    {
+      "name": "progressive_index",
+      "file": "progressive_index.rvf",
+      "size": 2600444,
+      "size_human": "2.5 MB",
+      "sha256": "c359ec944a99f35745612680452f10390414b3e8956c1fbc5afa2f124156bc41",
+      "description": "Progressive Index",
+      "category": "core",
+      "tags": [
+        "core",
+        "progressive"
+      ],
+      "segments": [
+        "VEC",
+        "META"
+      ],
+      "created": "2026-02-20"
+    },
+    {
+      "name": "quantization",
+      "file": "quantization.rvf",
+      "size": 1544444,
+      "size_human": "1.5 MB",
+      "sha256": "0c2457efa13276c4aa858535c2b15bd4501b5b6f3bbef78e896a5975495f3b60",
+      "description": "Quantization",
+      "category": "core",
+      "tags": [
+        "core",
+        "quantization"
+      ],
+      "segments": [
+        "VEC",
+        "META"
+      ],
+      "created": "2026-02-20"
+    },
+    {
+      "name": "rag_pipeline",
+      "file": "rag_pipeline.rvf",
+      "size": 310044,
+      "size_human": "302.8 KB",
+      "sha256": "003f77aa8bf8a26be7c27f402111d1caf4a14f2862c2d5cb742e7c1d6c3f42b8",
+      "description": "Rag Pipeline",
+      "category": "core",
+      "tags": [
+        "core",
+        "rag"
+      ],
+      "segments": [
+        "VEC",
+        "META"
+      ],
+      "created": "2026-02-20"
+    },
+    {
+      "name": "reasoning_child",
+      "file": "reasoning_child.rvf",
+      "size": 8244,
+      "size_human": "8.1 KB",
+      "sha256": "de1ababf338bc7cc34316268aed5c1278a5665a86603515deb5c9f30e78eb01d",
+      "description": "Reasoning Child",
+      "category": "lineage",
+      "tags": [
+        "lineage",
+        "reasoning"
+      ],
+      "segments": [
+        "VEC",
+        "META"
+      ],
+      "created": "2026-02-20"
+    },
+    {
+      "name": "reasoning_grandchild",
+      "file": "reasoning_grandchild.rvf",
+      "size": 162,
+      "size_human": "162 B",
+      "sha256": "dd36c1b6946f3703e65606d880d26e50796baa8569ddcb4615a47dbf4fe74867",
+      "description": "Reasoning Grandchild",
+      "category": "lineage",
+      "tags": [
+        "lineage",
+        "reasoning"
+      ],
+      "segments": [
+        "VEC",
+        "META"
+      ],
+      "created": "2026-02-20"
+    },
+    {
+      "name": "reasoning_parent",
+      "file": "reasoning_parent.rvf",
+      "size": 5644,
+      "size_human": "5.5 KB",
+      "sha256": "d514e7f5a684981239d2afe3f3df6445bee7d654d796992fe1acf9afb5b4ae6e",
+      "description": "Reasoning Parent",
+      "category": "lineage",
+      "tags": [
+        "lineage",
+        "reasoning"
+      ],
+      "segments": [
+        "VEC",
+        "META"
+      ],
+      "created": "2026-02-20"
+    },
+    {
+      "name": "recommendation",
+      "file": "recommendation.rvf",
+      "size": 104444,
+      "size_human": "102.0 KB",
+      "sha256": "3de7076f4776071ad0e8068ad21ba764025fec8a41148f22e49690f3f57a3015",
+      "description": "Recommendation",
+      "category": "core",
+      "tags": [
+        "core",
+        "recommendation"
+      ],
+      "segments": [
+        "VEC",
+        "META"
+      ],
+      "created": "2026-02-20"
+    },
+    {
+      "name": "ruvbot",
+      "file": "ruvbot.rvf",
+      "size": 52044,
+      "size_human": "50.8 KB",
+      "sha256": "f054fedd3e3fa77606bed9465d06d3013803e9723c048b99fda5aa7f42468b34",
+      "description": "Ruvbot",
+      "category": "ai",
+      "tags": [
+        "ai",
+        "ruvbot"
+      ],
+      "segments": [
+        "VEC",
+        "META"
+      ],
+      "created": "2026-02-20"
+    },
+    {
+      "name": "ruvllm_inference",
+      "file": "ruvllm_inference.rvf",
+      "size": 135612,
+      "size_human": "132.4 KB",
+      "sha256": "dce0d960f6f945d8f20c81dca9805d572887801a454085153502d9b6f8dec31d",
+      "description": "Ruvllm Inference",
+      "category": "ai",
+      "tags": [
+        "ai",
+        "ruvllm"
+      ],
+      "segments": [
+        "VEC",
+        "META"
+      ],
+      "created": "2026-02-20"
+    },
+    {
+      "name": "sealed_engine",
+      "file": "sealed_engine.rvf",
+      "size": 212474,
+      "size_human": "207.5 KB",
+      "sha256": "0480b43e0f4377248fdb68469567e9dff39787ad902e4bb7680521d26ae8057b",
+      "description": "Sealed Engine",
+      "category": "security",
+      "tags": [
+        "security",
+        "sealed"
+      ],
+      "segments": [
+        "VEC",
+        "META"
+      ],
+      "created": "2026-02-20"
+    },
+    {
+      "name": "self_booting",
+      "file": "self_booting.rvf",
+      "size": 30994,
+      "size_human": "30.3 KB",
+      "sha256": "308a4f2f33c30102de745152232d4f46657fc1db7afb65d64176108576773eaf",
+      "description": "Self Booting",
+      "category": "compute",
+      "tags": [
+        "compute",
+        "self"
+      ],
+      "segments": [
+        "VEC",
+        "META"
+      ],
+      "created": "2026-02-20"
+    },
+    {
+      "name": "semantic_search",
+      "file": "semantic_search.rvf",
+      "size": 772444,
+      "size_human": "754.3 KB",
+      "sha256": "4fe45c0bc9dc3035ae51edea34c0f58a1953254b3d994804a5709700042c9cdd",
+      "description": "Semantic Search",
+      "category": "core",
+      "tags": [
+        "core",
+        "semantic"
+      ],
+      "segments": [
+        "VEC",
+        "META"
+      ],
+      "created": "2026-02-20"
+    },
+    {
+      "name": "serverless",
+      "file": "serverless.rvf",
+      "size": 520444,
+      "size_human": "508.2 KB",
+      "sha256": "3a0813c6e82f363e81a55caf7466e1aeb1b4ad12d4816e76c651cfdbeccb7b8d",
+      "description": "Serverless",
+      "category": "integration",
+      "tags": [
+        "integration",
+        "serverless"
+      ],
+      "segments": [
+        "VEC",
+        "META"
+      ],
+      "created": "2026-02-20"
+    },
+    {
+      "name": "swarm_knowledge",
+      "file": "swarm_knowledge.rvf",
+      "size": 87728,
+      "size_human": "85.7 KB",
+      "sha256": "f33fb4ec18b8aebb8ab268bd78fb47c743b1cc4970c5b92a067cf0b818095d7b",
+      "description": "Swarm Knowledge",
+      "category": "ai",
+      "tags": [
+        "ai",
+        "swarm"
+      ],
+      "segments": [
+        "VEC",
+        "META"
+      ],
+      "created": "2026-02-20"
+    },
+    {
+      "name": "tee_attestation",
+      "file": "tee_attestation.rvf",
+      "size": 103644,
+      "size_human": "101.2 KB",
+      "sha256": "2b6ebb3bfecbddd7ca31ec7a64b1813fa48194d6f1011b6ad4e6d6063ced9c0e",
+      "description": "Tee Attestation",
+      "category": "security",
+      "tags": [
+        "security",
+        "tee"
+      ],
+      "segments": [
+        "VEC",
+        "META"
+      ],
+      "created": "2026-02-20"
+    },
+    {
+      "name": "tool_cache",
+      "file": "tool_cache.rvf",
+      "size": 26444,
+      "size_human": "25.8 KB",
+      "sha256": "62fb788095d44086617367a859787135da343c548794f11914c407abdc379b42",
+      "description": "Tool Cache",
+      "category": "ai",
+      "tags": [
+        "ai",
+        "tool"
+      ],
+      "segments": [
+        "VEC",
+        "META"
+      ],
+      "created": "2026-02-20"
+    },
+    {
+      "name": "zero_knowledge",
+      "file": "zero_knowledge.rvf",
+      "size": 52444,
+      "size_human": "51.2 KB",
+      "sha256": "a062bbebfb8180700be47a35410ba9c9004a2e7674af8800eb9ac619b6850535",
+      "description": "Zero Knowledge",
+      "category": "security",
+      "tags": [
+        "security",
+        "zero"
+      ],
+      "segments": [
+        "VEC",
+        "META"
+      ],
+      "created": "2026-02-20"
+    }
+  ],
+  "categories": {
+    "core": "Basic vector storage, search, and indexing",
+    "ai": "AI agent, embedding, RAG, and chatbot examples",
+    "security": "Attestation, ZK proofs, access control, sealed engines",
+    "compute": "eBPF, WASM, self-booting, IoT, kernels",
+    "lineage": "COW chains, derivation trees, reasoning chains",
+    "industry": "Finance, medical, legal domain examples",
+    "network": "Sync, handoff, telemetry, distributed examples",
+    "integration": "MCP, PostgreSQL, serverless, Claude Code bridges"
+  }
+}

@@ -23,5 +23,6 @@ impl LearnedManifold {
     }
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SirenLayer;

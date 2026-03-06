@@ -123,7 +123,7 @@ pub mod canonical_witness;
 
 #[cfg(feature = "canonical-witness")]
 pub use canonical_witness::{
-    ArenaCactus, CanonicalPartition, CanonicalWitnessFragment, CactusNode, FixedPointWeight,
+    ArenaCactus, CactusNode, CanonicalPartition, CanonicalWitnessFragment, FixedPointWeight,
 };
 
 use crate::delta::{Delta, DeltaTag};

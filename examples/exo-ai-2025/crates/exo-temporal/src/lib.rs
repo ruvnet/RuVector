@@ -59,7 +59,9 @@ pub mod anticipation;
 pub mod causal;
 pub mod consolidation;
 pub mod long_term;
+pub mod quantum_decay;
 pub mod short_term;
+pub mod transfer_timeline;
 pub mod types;
 
 pub use anticipation::{
@@ -71,6 +73,7 @@ pub use consolidation::{
     ConsolidationResult, ConsolidationStats,
 };
 pub use long_term::{LongTermConfig, LongTermStats, LongTermStore};
+pub use quantum_decay::{PatternDecoherence, QuantumDecayPool};
 pub use short_term::{ShortTermBuffer, ShortTermConfig, ShortTermStats};
 pub use types::*;
 

@@ -53,8 +53,12 @@ fn bench_canonical_mincut_100v() {
     // --- Canonical cut extraction (100 iterations) ---
     let mut cactus = CactusGraph::build_from_graph(&graph);
     cactus.root_at_lex_smallest();
-    println!("  Cactus: {} vertices, {} edges, {} cycles",
-             cactus.n_vertices, cactus.n_edges, cactus.cycles.len());
+    println!(
+        "  Cactus: {} vertices, {} edges, {} cycles",
+        cactus.n_vertices,
+        cactus.n_edges,
+        cactus.cycles.len()
+    );
     let start = Instant::now();
     for _ in 0..n_iter {
         let result = cactus.canonical_cut();
@@ -81,14 +85,26 @@ fn bench_canonical_mincut_100v() {
     let status = if total_us < 1000.0 { "PASS" } else { "FAIL" };
 
     println!("\n=== (a) Canonical Min-Cut (100 vertices, ~300 edges) ===");
-    println!("  CactusGraph construction:  {:.1} us  (avg of {} iters)", avg_cactus_us, n_iter);
-    println!("  Canonical cut extraction:  {:.1} us  (avg of {} iters)", avg_cut_us, n_iter);
-    println!("  Total (construct + cut):   {:.1} us  [target < 1000 us] [{}]", total_us, status);
+    println!(
+        "  CactusGraph construction:  {:.1} us  (avg of {} iters)",
+        avg_cactus_us, n_iter
+    );
+    println!(
+        "  Canonical cut extraction:  {:.1} us  (avg of {} iters)",
+        avg_cut_us, n_iter
+    );
+    println!(
+        "  Total (construct + cut):   {:.1} us  [target < 1000 us] [{}]",
+        total_us, status
+    );
     println!("  Determinism (100x verify): {} us total", determinism_us);
     println!("  Min-cut value:             {:.4}", reference.value);
     println!("  Cut edges:                 {}", reference.cut_edges.len());
-    println!("  Partition sizes:           {} / {}",
-             reference.partition.0.len(), reference.partition.1.len());
+    println!(
+        "  Partition sizes:           {} / {}",
+        reference.partition.0.len(),
+        reference.partition.1.len()
+    );
 }
 
 // =========================================================================
@@ -146,14 +162,31 @@ fn bench_spectral_coherence_500v() {
     let status = if avg_full_ms < 5.0 { "PASS" } else { "FAIL" };
 
     println!("\n=== (b) Spectral Coherence Score (500 vertices, ~1500 edges) ===");
-    println!("  Full SCS recompute:        {:.2} ms  (avg of {} iters) [target < 5 ms] [{}]",
-             avg_full_ms, n_iter, status);
-    println!("  Incremental update:        {:.1} us  (avg of {} iters)", avg_incr_us, n_incr);
-    println!("  Initial composite SCS:     {:.6}", initial_score.composite);
+    println!(
+        "  Full SCS recompute:        {:.2} ms  (avg of {} iters) [target < 5 ms] [{}]",
+        avg_full_ms, n_iter, status
+    );
+    println!(
+        "  Incremental update:        {:.1} us  (avg of {} iters)",
+        avg_incr_us, n_incr
+    );
+    println!(
+        "  Initial composite SCS:     {:.6}",
+        initial_score.composite
+    );
     println!("  Fiedler:                   {:.6}", initial_score.fiedler);
-    println!("  Spectral gap:              {:.6}", initial_score.spectral_gap);
-    println!("  Effective resistance:       {:.6}", initial_score.effective_resistance);
-    println!("  Degree regularity:         {:.6}", initial_score.degree_regularity);
+    println!(
+        "  Spectral gap:              {:.6}",
+        initial_score.spectral_gap
+    );
+    println!(
+        "  Effective resistance:       {:.6}",
+        initial_score.effective_resistance
+    );
+    println!(
+        "  Degree regularity:         {:.6}",
+        initial_score.degree_regularity
+    );
 }
 
 // =========================================================================
@@ -219,14 +252,29 @@ fn bench_cognitive_container_100_ticks() {
     let status = if avg_tick_us < 200.0 { "PASS" } else { "FAIL" };
 
     println!("\n=== (c) Cognitive Container (100 ticks, 2 deltas each) ===");
-    println!("  Average tick:              {:.1} us  [target < 200 us] [{}]", avg_tick_us, status);
+    println!(
+        "  Average tick:              {:.1} us  [target < 200 us] [{}]",
+        avg_tick_us, status
+    );
     println!("  Median tick (p50):         {} us", p50);
     println!("  p99 tick:                  {} us", p99);
-    println!("  Min / Max tick:            {} / {} us", min_tick_us, max_tick_us);
-    println!("  Total (100 ticks):         {:.2} ms", outer_elapsed.as_micros() as f64 / 1000.0);
-    println!("  Chain verification:        {} us  (chain len = {})", verify_us, container.current_epoch());
-    println!("  Chain valid:               {}",
-             matches!(verification, VerificationResult::Valid { .. }));
+    println!(
+        "  Min / Max tick:            {} / {} us",
+        min_tick_us, max_tick_us
+    );
+    println!(
+        "  Total (100 ticks):         {:.2} ms",
+        outer_elapsed.as_micros() as f64 / 1000.0
+    );
+    println!(
+        "  Chain verification:        {} us  (chain len = {})",
+        verify_us,
+        container.current_epoch()
+    );
+    println!(
+        "  Chain valid:               {}",
+        matches!(verification, VerificationResult::Valid { .. })
+    );
 }
 
 // =========================================================================
@@ -314,16 +362,35 @@ fn bench_canonical_witness_64v() {
     let det_us = det_start.elapsed().as_micros();
 
     let total_us = avg_cactus_us + avg_partition_us;
-    let status = if avg_witness_us < 50.0 { "PASS" } else { "FAIL" };
+    let status = if avg_witness_us < 50.0 {
+        "PASS"
+    } else {
+        "FAIL"
+    };
 
     println!("\n=== (d) Canonical Witness Fragment (64 vertices, ~128 edges) ===");
-    println!("  ArenaCactus construction:  {:.2} us  (avg of {} iters)", avg_cactus_us, n_iter);
-    println!("  Partition extraction:      {:.2} us  (avg of {} iters)", avg_partition_us, n_iter);
-    println!("  Full witness fragment:     {:.2} us  [target < 50 us] [{}]", avg_witness_us, status);
-    println!("  Fragment size:             {} bytes", std::mem::size_of::<CanonicalWitnessFragment>());
+    println!(
+        "  ArenaCactus construction:  {:.2} us  (avg of {} iters)",
+        avg_cactus_us, n_iter
+    );
+    println!(
+        "  Partition extraction:      {:.2} us  (avg of {} iters)",
+        avg_partition_us, n_iter
+    );
+    println!(
+        "  Full witness fragment:     {:.2} us  [target < 50 us] [{}]",
+        avg_witness_us, status
+    );
+    println!(
+        "  Fragment size:             {} bytes",
+        std::mem::size_of::<CanonicalWitnessFragment>()
+    );
     println!("  Cactus nodes:              {}", cactus.n_nodes);
     println!("  Cut value:                 {}", ref_fragment.cut_value);
-    println!("  Cardinality A/B:           {} / {}", ref_fragment.cardinality_a, ref_fragment.cardinality_b);
+    println!(
+        "  Cardinality A/B:           {} / {}",
+        ref_fragment.cardinality_a, ref_fragment.cardinality_b
+    );
     println!("  Determinism (100x):        {} us", det_us);
 }
 

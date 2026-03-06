@@ -1,46 +1,30 @@
 # rvf-crypto
 
-Cryptographic primitives for RuVector Format -- SHA-3 hashing and Ed25519 signing.
+[![Crates.io](https://img.shields.io/crates/v/rvf-crypto.svg)](https://crates.io/crates/rvf-crypto)
+[![License: MIT OR Apache-2.0](https://img.shields.io/badge/License-MIT%20OR%20Apache--2.0-blue.svg)](https://opensource.org/licenses/MIT)
 
-## Overview
-
-`rvf-crypto` provides the cryptographic building blocks used by RVF for data integrity and authentication:
-
-- **SHA-3 hashing** -- content-addressable segment identifiers
-- **Ed25519 signing** -- segment-level digital signatures for provenance
-- **Key management** -- keypair generation and verification utilities
-
-## Usage
+**Tamper-proof hashing and signing for every RVF segment -- SHA-3 digests, Ed25519 signatures, and lineage witness chains.**
 
 ```toml
-[dependencies]
 rvf-crypto = "0.1"
 ```
 
-## Features
+Every operation on an RVF file gets recorded in a cryptographic witness chain. `rvf-crypto` provides the primitives that make this possible: SHA-3 (SHAKE-256) content hashing for segment identity, Ed25519 digital signatures for provenance, and lineage verification functions that ensure no record in the chain has been altered. If you are building tools that read, write, or transform `.rvf` files, this crate handles all the cryptography so you do not have to.
 
-- `std` (default) -- enable `std` support
-- `ed25519` (default) -- enable Ed25519 signing via `ed25519-dalek`
+| | rvf-crypto | Manual hashing + signing | No integrity checks |
+|---|---|---|---|
+| **Segment identity** | SHAKE-256-256 content-addressable IDs | Roll your own digest scheme | Rely on filenames |
+| **Provenance** | Ed25519 signatures on every segment | Integrate a signing library yourself | Trust the source blindly |
+| **Lineage verification** | One function call validates an entire chain | Write chain-walking logic from scratch | No verification possible |
+| **no_std / WASM** | Hashing works without std; signing is feature-gated | Varies by library | N/A |
 
-For no_std or WASM targets that only need hashing and witness chains (no signing), disable defaults:
-
-```toml
-[dependencies]
-rvf-crypto = { version = "0.1", default-features = false }
-```
-
-## Lineage Witness Functions
-
-`rvf-crypto` provides the cryptographic functions for DNA-style lineage provenance chains.
-
-### `lineage_record_to_bytes()` / `lineage_record_from_bytes()`
-
-Serialize and deserialize a `LineageRecord` to/from a fixed 128-byte array. The codec preserves all fields including the 47-byte description buffer:
+## Quick Start
 
 ```rust
-use rvf_crypto::lineage::{lineage_record_to_bytes, lineage_record_from_bytes};
-use rvf_types::{LineageRecord, DerivationType};
+use rvf_crypto::lineage::{lineage_record_to_bytes, lineage_record_from_bytes, verify_lineage_chain};
+use rvf_types::{LineageRecord, DerivationType, FileIdentity};
 
+// Serialize a lineage record to a fixed 128-byte array
 let record = LineageRecord::new(
     [1u8; 16], [2u8; 16], [3u8; 32],
     DerivationType::Filter, 5, 1_700_000_000_000_000_000,
@@ -49,44 +33,8 @@ let record = LineageRecord::new(
 let bytes = lineage_record_to_bytes(&record);
 let decoded = lineage_record_from_bytes(&bytes).unwrap();
 assert_eq!(decoded.description_str(), "filtered by category");
-```
 
-### `lineage_witness_entry()`
-
-Creates a `WitnessEntry` for a derivation event. The `action_hash` is the SHAKE-256-256 digest of the serialized 128-byte record. Uses witness type `WITNESS_DERIVATION` (`0x09`):
-
-```rust
-use rvf_crypto::lineage::lineage_witness_entry;
-
-let entry = lineage_witness_entry(&record, [0u8; 32]);
-assert_eq!(entry.witness_type, 0x09);
-```
-
-### `compute_manifest_hash()`
-
-Computes SHAKE-256-256 over a 4096-byte manifest for use as `parent_hash` in `FileIdentity`:
-
-```rust
-use rvf_crypto::lineage::compute_manifest_hash;
-
-let manifest = [0u8; 4096];
-let hash = compute_manifest_hash(&manifest);
-```
-
-### `verify_lineage_chain()`
-
-Validates a lineage chain from root to leaf. For each child entry it checks:
-
-1. `parent_id` matches the parent's `file_id`
-2. `parent_hash` matches the parent's manifest hash
-3. `lineage_depth` increments by exactly 1
-
-Returns `Err(LineageBroken)` or `Err(ParentHashMismatch)` on failure:
-
-```rust
-use rvf_crypto::lineage::verify_lineage_chain;
-use rvf_types::FileIdentity;
-
+// Verify a parent-child lineage chain
 let root = FileIdentity::new_root([1u8; 16]);
 let root_hash = [0xAAu8; 32];
 let child = FileIdentity {
@@ -98,6 +46,45 @@ let child = FileIdentity {
 verify_lineage_chain(&[(root, root_hash), (child, [0xBBu8; 32])]).unwrap();
 ```
 
+## Key Features
+
+| Feature | What It Does | Why It Matters |
+|---|---|---|
+| **SHA-3 (SHAKE-256)** | Content-addressable hashing for segment identifiers | Every segment gets a unique, collision-resistant ID |
+| **Ed25519 signing** | Segment-level digital signatures via `ed25519-dalek` | Proves who created or modified a segment |
+| **Lineage witness chains** | Cryptographic chain linking parent and child segments | Detects tampering anywhere in the derivation history |
+| **Record serialization** | Fixed 128-byte binary codec for `LineageRecord` | Compact, deterministic encoding for witness entries |
+| **Manifest hashing** | SHAKE-256-256 over 4096-byte manifests | Anchors `FileIdentity` parent references to real data |
+| **Chain verification** | `verify_lineage_chain()` validates root-to-leaf integrity | One call proves the entire history is intact |
+
+## Feature Flags
+
+| Flag | Default | What It Enables |
+|---|---|---|
+| `std` | Yes | Standard library support |
+| `ed25519` | Yes | Ed25519 signing via `ed25519-dalek` |
+
+For `no_std` or WASM targets that only need hashing and witness chains (no signing), disable defaults:
+
+```toml
+[dependencies]
+rvf-crypto = { version = "0.1", default-features = false }
+```
+
+## API Reference
+
+| Function | Description |
+|---|---|
+| `lineage_record_to_bytes(record)` | Serialize a `LineageRecord` to a fixed 128-byte array |
+| `lineage_record_from_bytes(bytes)` | Deserialize a `LineageRecord` from 128 bytes |
+| `lineage_witness_entry(record, prev_hash)` | Create a `WitnessEntry` (type `0x09`) for a derivation event |
+| `compute_manifest_hash(manifest)` | SHAKE-256-256 digest over a 4096-byte manifest |
+| `verify_lineage_chain(chain)` | Validate parent-child integrity from root to leaf |
+
 ## License
 
 MIT OR Apache-2.0
+
+---
+
+Part of [RuVector](https://github.com/ruvnet/ruvector) -- the self-learning vector database.

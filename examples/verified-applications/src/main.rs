@@ -30,7 +30,9 @@ fn main() {
     match medical_diagnostics::run_diagnostic("patient-001", &ecg, [0xABu8; 32], 256) {
         Ok(b) => println!(
             "  PASS: {} steps verified, pipeline proof #{}, verdict: {}",
-            b.steps.len(), b.pipeline_proof_id, b.verdict,
+            b.steps.len(),
+            b.pipeline_proof_id,
+            b.verdict,
         ),
         Err(e) => println!("  FAIL: {e}"),
     }
@@ -55,21 +57,33 @@ fn main() {
         max_pipeline_depth: 3,
     };
     let result = agent_contracts::enforce_contract(&contract, &vec![0.1f32; 256]);
-    println!("  agent={}, allowed={}, reason={}", result.agent_id, result.allowed, result.reason);
+    println!(
+        "  agent={}, allowed={}, reason={}",
+        result.agent_id, result.allowed, result.reason
+    );
     let bad = agent_contracts::enforce_contract(&contract, &vec![0.1f32; 64]);
-    println!("  agent={}, allowed={}, reason={}", bad.agent_id, bad.allowed, bad.reason);
+    println!(
+        "  agent={}, allowed={}, reason={}",
+        bad.agent_id, bad.allowed, bad.reason
+    );
 
     // 5. Sensor Swarm
     println!("\n========== 5. Distributed Sensor Swarm ==========");
     let good = vec![0.5f32; 64];
     let bad_sensor = vec![0.5f32; 32];
     let nodes: Vec<(&str, &[f32])> = vec![
-        ("n0", &good), ("n1", &good), ("n2", &bad_sensor), ("n3", &good),
+        ("n0", &good),
+        ("n1", &good),
+        ("n2", &bad_sensor),
+        ("n3", &good),
     ];
     let coherence = sensor_swarm::check_swarm_coherence(&nodes, 64);
     println!(
         "  coherent={}, verified={}/{}, divergent={:?}",
-        coherence.coherent, coherence.verified_nodes, coherence.total_nodes, coherence.divergent_nodes,
+        coherence.coherent,
+        coherence.verified_nodes,
+        coherence.total_nodes,
+        coherence.divergent_nodes,
     );
 
     // 6. Quantization Proof
@@ -90,8 +104,11 @@ fn main() {
         store.insert(&emb).unwrap();
     }
     let (valid, invalid) = store.audit();
-    println!("  memories={}, valid={valid}, invalid={invalid}, witness_chain={} entries",
-        store.len(), store.witness_chain().len());
+    println!(
+        "  memories={}, valid={valid}, invalid={invalid}, witness_chain={} entries",
+        store.len(),
+        store.witness_chain().len()
+    );
 
     // 8. Vector Signatures
     println!("\n========== 8. Cryptographic Vector Signatures ==========");
@@ -103,18 +120,25 @@ fn main() {
     println!(
         "  contract_match={}, sig1_hash={:#018x}, sig2_hash={:#018x}",
         vector_signatures::verify_contract_match(&sig1, &sig2),
-        sig1.combined_hash(), sig2.combined_hash(),
+        sig1.combined_hash(),
+        sig2.combined_hash(),
     );
 
     // 9. Simulation Integrity
     println!("\n========== 9. Simulation Integrity ==========");
     let tensors: Vec<Vec<f32>> = (0..10).map(|_| vec![0.5f32; 64]).collect();
     let sim = simulation_integrity::run_verified_simulation(
-        "sim-001", &tensors, 64, &["hamiltonian", "evolve", "measure"],
-    ).unwrap();
+        "sim-001",
+        &tensors,
+        64,
+        &["hamiltonian", "evolve", "measure"],
+    )
+    .unwrap();
     println!(
         "  steps={}, total_proofs={}, pipeline_proof=#{}",
-        sim.steps.len(), sim.total_proofs, sim.pipeline_proof,
+        sim.steps.len(),
+        sim.total_proofs,
+        sim.pipeline_proof,
     );
 
     // 10. Legal Forensics
@@ -123,12 +147,18 @@ fn main() {
     let fv2 = vec![0.3f32; 256];
     let vecs: Vec<&[f32]> = vec![&fv1, &fv2];
     let bundle = legal_forensics::build_forensic_bundle(
-        "CASE-2026-001", &vecs, 256, "Cosine", &["embed", "search", "classify"],
+        "CASE-2026-001",
+        &vecs,
+        256,
+        "Cosine",
+        &["embed", "search", "classify"],
     );
     println!(
         "  replay_passed={}, witnesses={}, proof_terms={}, pipeline={}",
-        bundle.replay_passed, bundle.witness_chain.len(),
-        bundle.invariants.total_proof_terms, bundle.invariants.pipeline_verified,
+        bundle.replay_passed,
+        bundle.witness_chain.len(),
+        bundle.invariants.total_proof_terms,
+        bundle.invariants.pipeline_verified,
     );
 
     println!("\n========== Summary ==========");

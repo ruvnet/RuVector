@@ -10,6 +10,9 @@ description = "WASM bindings for RuvLLM - browser-compatible LLM inference runti
 keywords = ["wasm", "llm", "inference", "browser", "webgpu"]
 categories = ["wasm", "api-bindings", "web-programming"]
 
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = false
+
 [lib]
 crate-type = ["cdylib", "rlib"]
 
@@ -18,12 +21,12 @@ crate-type = ["cdylib", "rlib"]
 wasm-bindgen = "0.2"
 wasm-bindgen-futures = "0.4"
 js-sys = "0.3"
+# Core web-sys features (always needed)
 web-sys = { version = "0.3", features = [
     "console",
     "Performance",
     "Window",
     "Navigator",
-    # Web Workers support (enabled with parallel feature)
     "Worker",
     "WorkerOptions",
     "WorkerType",
@@ -33,39 +36,6 @@ web-sys = { version = "0.3", features = [
     "MessageEvent",
     "ErrorEvent",
     "DedicatedWorkerGlobalScope",
-    # WebGPU features (enabled with webgpu feature)
-    "Gpu",
-    "GpuAdapter",
-    "GpuAdapterInfo",
-    "GpuDevice",
-    "GpuQueue",
-    "GpuBuffer",
-    "GpuBufferDescriptor",
-    "GpuShaderModule",
-    "GpuShaderModuleDescriptor",
-    "GpuBindGroup",
-    "GpuBindGroupDescriptor",
-    "GpuBindGroupEntry",
-    "GpuBindGroupLayout",
-    "GpuBindGroupLayoutDescriptor",
-    "GpuBindGroupLayoutEntry",
-    "GpuBufferBinding",
-    "GpuBufferBindingLayout",
-    "GpuBufferBindingType",
-    "GpuComputePipeline",
-    "GpuComputePipelineDescriptor",
-    "GpuPipelineLayout",
-    "GpuPipelineLayoutDescriptor",
-    "GpuProgrammableStage",
-    "GpuCommandEncoder",
-    "GpuCommandEncoderDescriptor",
-    "GpuCommandBuffer",
-    "GpuComputePassEncoder",
-    "GpuComputePassDescriptor",
-    "gpu_map_mode",
-    "GpuRequestAdapterOptions",
-    "GpuDeviceDescriptor",
-    "GpuSupportedLimits",
 ] }
 
 # Serialization
@@ -76,16 +46,27 @@ serde_json = "1.0"
 # Error handling
 console_error_panic_hook = { version = "0.1", optional = true }
 
-# Byte casting for GPU buffers
-bytemuck = { version = "1.14", features = ["derive"] }
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3"
 
 [features]
 default = ["console_error_panic_hook"]
-# WebGPU acceleration
-webgpu = []
+# WebGPU acceleration (adds GPU compute pipeline, shader compilation, buffer management)
+webgpu = ["web-sys/Gpu", "web-sys/GpuAdapter", "web-sys/GpuAdapterInfo",
+    "web-sys/GpuDevice", "web-sys/GpuQueue", "web-sys/GpuBuffer",
+    "web-sys/GpuBufferDescriptor", "web-sys/GpuShaderModule",
+    "web-sys/GpuShaderModuleDescriptor", "web-sys/GpuBindGroup",
+    "web-sys/GpuBindGroupDescriptor", "web-sys/GpuBindGroupEntry",
+    "web-sys/GpuBindGroupLayout", "web-sys/GpuBindGroupLayoutDescriptor",
+    "web-sys/GpuBindGroupLayoutEntry", "web-sys/GpuBufferBinding",
+    "web-sys/GpuBufferBindingLayout", "web-sys/GpuBufferBindingType",
+    "web-sys/GpuComputePipeline", "web-sys/GpuComputePipelineDescriptor",
+    "web-sys/GpuPipelineLayout", "web-sys/GpuPipelineLayoutDescriptor",
+    "web-sys/GpuProgrammableStage", "web-sys/GpuCommandEncoder",
+    "web-sys/GpuCommandEncoderDescriptor", "web-sys/GpuCommandBuffer",
+    "web-sys/GpuComputePassEncoder", "web-sys/GpuComputePassDescriptor",
+    "web-sys/GpuRequestAdapterOptions", "web-sys/GpuDeviceDescriptor"]
 # Enable parallel inference with Web Workers
 parallel = []
 # Enable SIMD optimizations (requires wasm-simd target feature)

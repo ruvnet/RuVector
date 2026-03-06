@@ -1,25 +1,40 @@
 # ruvector-attention
 
-Advanced attention mechanisms for vector search and geometric AI, implementing 7 mathematical theories for transformer attention.
-
 [![Crates.io](https://img.shields.io/crates/v/ruvector-attention.svg)](https://crates.io/crates/ruvector-attention)
 [![Documentation](https://docs.rs/ruvector-attention/badge.svg)](https://docs.rs/ruvector-attention)
 [![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg)](LICENSE)
 [![Tests](https://img.shields.io/badge/tests-142%20passing-brightgreen.svg)]()
 
-## Overview
+**46 attention mechanisms grounded in 7 mathematical theories -- from Flash Attention to optimal transport -- in one crate.**
 
-`ruvector-attention` provides production-ready implementations of advanced attention mechanisms based on mathematical foundations from differential geometry, information theory, and optimal transport. The library combines theoretical rigor with practical optimizations including SIMD acceleration, caching, and quantization.
+```bash
+cargo add ruvector-attention
+```
 
-## Features
+Attention is the core operation in transformers, vector search, and graph neural networks, but most libraries give you one or two flavors and call it done. `ruvector-attention` ships 46 mechanisms spanning standard dot-product, sparse (Flash, linear, local-global), geometric (hyperbolic, mixed-curvature), graph (GAT, RoPE), and mixture-of-experts -- all SIMD-accelerated with quantization support. Pick the right attention for your data shape instead of forcing everything through softmax(QK^T/sqrt(d))V.
 
-- 🚀 **High-Performance**: SIMD-accelerated with 4-way unrolled accumulators
-- 🎯 **Ergonomic API**: Fluent builder pattern and preset configurations
-- 📦 **Modular Design**: Mix and match attention mechanisms
-- 🔧 **Flexible**: Support for standard, sparse, graph, and geometric attention
-- 🧠 **7 Mathematical Theories**: Optimal Transport, Mixed Curvature, Topology, Information Geometry, Information Bottleneck, PDE/Diffusion, and Unified Diagnostics
-- 📊 **Unified Reporting**: Health monitoring and automatic attention mode selection
-- 🔢 **Quantization-Friendly**: Component-wise precision control (8-bit Euclidean, 5-bit Hyperbolic/Spherical)
+| | ruvector-attention | PyTorch `nn.MultiheadAttention` | FlashAttention (standalone) | xFormers |
+|---|---|---|---|---|
+| **Mechanism count** | 46 | 1 (scaled dot-product) | 1 (Flash) | ~5 |
+| **Geometric attention** | Hyperbolic, spherical, mixed-curvature | No | No | No |
+| **Graph attention** | Edge-featured GAT, RoPE for graphs | No | No | Limited |
+| **Optimal transport** | Sliced Wasserstein, centroid OT | No | No | No |
+| **Topology-gated** | Coherence-based mode switching | No | No | No |
+| **Quantization** | Per-component (8-bit E, 5-bit H/S) | Via separate tools | No | Limited |
+| **Language** | Rust (with WASM target) | Python/C++ | CUDA only | Python/CUDA |
+| **SIMD acceleration** | Built in (4-way unrolled) | Via backend | CUDA only | Via backend |
+
+| Feature | What It Does | Why It Matters |
+|---------|-------------|----------------|
+| **Flash Attention** | O(n) memory tiled computation | Process long sequences without running out of memory |
+| **Mixed Curvature Fusion** | Combines Euclidean, hyperbolic, and spherical spaces in one pass | Model hierarchies, clusters, and flat data simultaneously |
+| **Optimal Transport Attention** | Uses Wasserstein distance instead of dot-product similarity | Better distribution matching for retrieval and generation |
+| **Topology-Gated Switching** | Automatically picks attention mode based on local coherence | Self-adapts to data characteristics without manual tuning |
+| **Information Bottleneck** | Compresses attention via KL minimization | Keeps only the signal, discards noise |
+| **PDE/Diffusion Attention** | Runs heat equation on a similarity graph | Smooth, noise-robust attention for irregular data |
+| **Unified Diagnostics** | Health monitoring and automatic mode selection across all 7 theories | One report tells you which attention works best for your data |
+
+> Part of the [RuVector](https://github.com/ruvnet/ruvector) ecosystem -- the self-learning vector database with graph intelligence.
 
 ## Supported Attention Mechanisms
 

@@ -5,52 +5,31 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Tests](https://img.shields.io/badge/tests-177_passing-brightgreen.svg)]()
 
-**Sublinear-time sparse solvers for RuVector — O(log n) to O(sqrt(n)) algorithms that power graph analytics, spectral methods, and AI coherence.**
+**Sublinear-time sparse solvers -- O(log n) PageRank, spectral methods, and linear systems in Rust and WASM.**
 
-| | Dense Solvers (nalgebra) | ruvector-solver |
+Most numerical libraries use dense solvers that slow down dramatically as data grows. ruvector-solver provides seven specialized sparse algorithms that run in O(log n) to O(sqrt(n)) time, automatically picks the best one for your problem, and works in native Rust or in the browser via WebAssembly. It powers the graph analytics and AI coherence layers inside [RuVector](https://github.com/ruvnet/ruvector).
+
+| | Dense Solvers (e.g. nalgebra) | ruvector-solver |
 |---|---|---|
-| **Complexity** | O(n^3) | O(nnz * log n) to O(log n) |
-| **Memory** | O(n^2) dense | O(nnz) sparse CSR |
-| **SIMD** | Partial | AVX2 8-wide + fused kernels |
-| **Algorithms** | LU, QR | 7 specialized + auto router |
-| **WASM** | No | Full wasm-bindgen bindings |
-| **PageRank** | Not supported | 3 sublinear algorithms |
-
-All solvers operate on a shared CSR (Compressed Sparse Row) matrix representation and
-expose a uniform `SolverEngine` trait for seamless algorithm swapping and
-automatic routing.
-
-## Algorithms
-
-| Algorithm | Module | Complexity | Applicable to |
-|-----------|--------|------------|---------------|
-| Jacobi-preconditioned Neumann series | `neumann` | O(nnz * log(1/eps)) | Diagonally dominant Ax = b |
-| Conjugate Gradient (Hestenes-Stiefel) | `cg` | O(nnz * sqrt(kappa)) | Symmetric positive-definite Ax = b |
-| Forward Push (Andersen-Chung-Lang) | `forward_push` | O(1/epsilon) | Single-source Personalized PageRank |
-| Backward Push | `backward_push` | O(1/epsilon) | Reverse relevance / target-centric PPR |
-| Hybrid Random Walk | `random_walk` | O(sqrt(n)/epsilon) | Large-graph PPR with push initialisation |
-| TRUE (JL + sparsification + Neumann) | `true_solver` | O(nnz * log n) | Batch linear systems with shared A |
-| BMSSP Multigrid (V-cycle + Jacobi) | `bmssp` | O(n log n) | Ill-conditioned / graph Laplacian systems |
+| **Speed at scale** | O(n^3) -- slows fast | O(nnz * log n) to O(log n) -- stays fast |
+| **Memory** | Stores full n*n matrix | Only stores non-zero entries (CSR) |
+| **SIMD acceleration** | Partial | AVX2 8-wide + fused kernels |
+| **Algorithm selection** | Manual | Automatic router picks the best of 7 |
+| **PageRank** | Not available | 3 sublinear algorithms built in |
+| **Browser / WASM** | No | Full wasm-bindgen bindings |
 
 ## Quick Start
-
-Add the crate to your `Cargo.toml`:
 
 ```toml
 [dependencies]
 ruvector-solver = "0.1"
 ```
 
-Solve a diagonally dominant 3x3 system with the Neumann solver:
-
 ```rust
 use ruvector_solver::types::CsrMatrix;
 use ruvector_solver::neumann::NeumannSolver;
 
-// Build a diagonally dominant 3x3 matrix in COO format
-//     [ 2.0  -0.5   0.0]
-// A = [-0.5   2.0  -0.5]
-//     [ 0.0  -0.5   2.0]
+// Build a sparse 3x3 system and solve it
 let a = CsrMatrix::<f32>::from_coo(3, 3, vec![
     (0, 0, 2.0_f32), (0, 1, -0.5),
     (1, 0, -0.5),    (1, 1, 2.0),  (1, 2, -0.5),
@@ -64,28 +43,43 @@ let result = solver.solve(&a, &b).unwrap();
 println!("solution: {:?}", result.solution);
 println!("iterations: {}", result.iterations);
 println!("residual:   {:.2e}", result.residual_norm);
-assert!(result.residual_norm < 1e-4);
 ```
 
-Use the `SolverEngine` trait for algorithm-agnostic code:
+Or let the router pick the best algorithm automatically:
 
 ```rust
-use ruvector_solver::types::{ComputeBudget, CsrMatrix};
-use ruvector_solver::traits::SolverEngine;
-use ruvector_solver::neumann::NeumannSolver;
+use ruvector_solver::router::{SolverRouter, QueryType};
+use ruvector_solver::types::{CsrMatrix, ComputeBudget};
 
-let engine: Box<dyn SolverEngine> = Box::new(NeumannSolver::new(1e-6, 500));
-let a = CsrMatrix::<f64>::from_coo(3, 3, vec![
-    (0, 0, 2.0), (0, 1, -0.5),
-    (1, 0, -0.5), (1, 1, 2.0), (1, 2, -0.5),
-    (2, 1, -0.5), (2, 2, 2.0),
-]);
-let b = vec![1.0_f64, 0.0, 1.0];
-let budget = ComputeBudget::default();
-
-let result = engine.solve(&a, &b, &budget).unwrap();
-assert!(result.residual_norm < 1e-4);
+let router = SolverRouter::new();
+let (algo, result) = router.solve(&matrix, &rhs, &ComputeBudget::default(), QueryType::LinearSystem).unwrap();
+println!("Router selected: {:?}", algo);
 ```
+
+## Key Features
+
+| Feature | What It Does | Why It Matters |
+|---------|-------------|----------------|
+| **7 specialized algorithms** | Neumann, CG, Forward Push, Backward Push, Random Walk, TRUE, BMSSP | Each tuned for a specific problem class |
+| **Automatic routing** | SolverRouter analyzes matrix structure and picks the optimal algorithm | No need to be a numerical methods expert |
+| **Fallback chain** | If the selected algorithm fails, tries CG, then dense | Robust convergence in production |
+| **AVX2 SIMD SpMV** | 8-wide vectorized sparse matrix-vector multiply | Maximizes throughput on x86_64 |
+| **Fused residual + norm** | Computes residual and norm in one pass instead of three | 3x less memory traffic per iteration |
+| **Arena allocator** | Bump allocation for scratch buffers, O(1) reset | Zero heap allocation inside solve loops |
+| **WASM support** | Full wasm-bindgen bindings | Run solvers in the browser |
+| **ComputeBudget** | Set max time, iterations, and tolerance | Predictable resource usage |
+
+## Algorithms
+
+| Algorithm | Module | Complexity | Applicable to |
+|-----------|--------|------------|---------------|
+| Jacobi-preconditioned Neumann series | `neumann` | O(nnz * log(1/eps)) | Diagonally dominant Ax = b |
+| Conjugate Gradient (Hestenes-Stiefel) | `cg` | O(nnz * sqrt(kappa)) | Symmetric positive-definite Ax = b |
+| Forward Push (Andersen-Chung-Lang) | `forward_push` | O(1/epsilon) | Single-source Personalized PageRank |
+| Backward Push | `backward_push` | O(1/epsilon) | Reverse relevance / target-centric PPR |
+| Hybrid Random Walk | `random_walk` | O(sqrt(n)/epsilon) | Large-graph PPR with push initialisation |
+| TRUE (JL + sparsification + Neumann) | `true_solver` | O(nnz * log n) | Batch linear systems with shared A |
+| BMSSP Multigrid (V-cycle + Jacobi) | `bmssp` | O(n log n) | Ill-conditioned / graph Laplacian systems |
 
 ## Feature Flags
 
@@ -364,3 +358,7 @@ Rust **1.77** or later.
 ## License
 
 Licensed under the [MIT License](../../LICENSE).
+
+---
+
+Part of [RuVector](https://github.com/ruvnet/ruvector) -- the self-learning vector database.

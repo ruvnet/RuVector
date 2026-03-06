@@ -26,12 +26,10 @@
 mod utils;
 
 use ruvector_verified::{
-    ProofEnvironment,
-    fast_arena::FastTermArena,
     cache::ConversionCache,
+    fast_arena::FastTermArena,
     gated::{self, ProofKind, ProofTier},
-    proof_store,
-    vector_types,
+    proof_store, vector_types, ProofEnvironment,
 };
 use serde::Serialize;
 use wasm_bindgen::prelude::*;
@@ -87,8 +85,7 @@ impl JsProofEnv {
 
     /// Build a `RuVec n` type term. Returns term ID.
     pub fn mk_vector_type(&mut self, dim: u32) -> Result<u32, JsError> {
-        vector_types::mk_vector_type(&mut self.env, dim)
-            .map_err(|e| JsError::new(&e.to_string()))
+        vector_types::mk_vector_type(&mut self.env, dim).map_err(|e| JsError::new(&e.to_string()))
     }
 
     /// Build a distance metric type term. Supported: "L2", "Cosine", "Dot".
@@ -108,16 +105,13 @@ impl JsProofEnv {
     ///
     /// `flat_vectors` is a contiguous f32 array; each vector is `dim` elements.
     /// Returns the number of vectors verified.
-    pub fn verify_batch_flat(
-        &mut self,
-        dim: u32,
-        flat_vectors: &[f32],
-    ) -> Result<u32, JsError> {
+    pub fn verify_batch_flat(&mut self, dim: u32, flat_vectors: &[f32]) -> Result<u32, JsError> {
         let d = dim as usize;
         if flat_vectors.len() % d != 0 {
             return Err(JsError::new(&format!(
                 "flat_vectors length {} not divisible by dim {}",
-                flat_vectors.len(), dim
+                flat_vectors.len(),
+                dim
             )));
         }
         let slices: Vec<&[f32]> = flat_vectors.chunks_exact(d).collect();
@@ -137,9 +131,14 @@ impl JsProofEnv {
     pub fn route_proof(&self, kind: &str) -> Result<JsValue, JsError> {
         let proof_kind = match kind {
             "reflexivity" => ProofKind::Reflexivity,
-            "dimension" => ProofKind::DimensionEquality { expected: 0, actual: 0 },
+            "dimension" => ProofKind::DimensionEquality {
+                expected: 0,
+                actual: 0,
+            },
             "pipeline" => ProofKind::PipelineComposition { stages: 1 },
-            other => ProofKind::Custom { estimated_complexity: other.parse().unwrap_or(10) },
+            other => ProofKind::Custom {
+                estimated_complexity: other.parse().unwrap_or(10),
+            },
         };
         let decision = gated::route_proof(proof_kind, &self.env);
         let tier_name = match decision.tier {
@@ -152,8 +151,7 @@ impl JsProofEnv {
             reason: decision.reason.to_string(),
             estimated_steps: decision.estimated_steps,
         };
-        serde_wasm_bindgen::to_value(&result)
-            .map_err(|e| JsError::new(&e.to_string()))
+        serde_wasm_bindgen::to_value(&result).map_err(|e| JsError::new(&e.to_string()))
     }
 
     /// Create a proof attestation (82 bytes). Returns serializable object.
@@ -168,8 +166,7 @@ impl JsProofEnv {
             reduction_steps: att.reduction_steps,
             cache_hit_rate_bps: att.cache_hit_rate_bps,
         };
-        serde_wasm_bindgen::to_value(&result)
-            .map_err(|e| JsError::new(&e.to_string()))
+        serde_wasm_bindgen::to_value(&result).map_err(|e| JsError::new(&e.to_string()))
     }
 
     /// Get verification statistics.
@@ -187,8 +184,7 @@ impl JsProofEnv {
             arena_hit_rate: arena_stats.cache_hit_rate(),
             conversion_cache_hit_rate: cache_stats.hit_rate(),
         };
-        serde_wasm_bindgen::to_value(&result)
-            .map_err(|e| JsError::new(&e.to_string()))
+        serde_wasm_bindgen::to_value(&result).map_err(|e| JsError::new(&e.to_string()))
     }
 
     /// Reset the environment (clears cache, resets counters, re-registers builtins).

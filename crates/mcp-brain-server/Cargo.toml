@@ -1,0 +1,73 @@
+[package]
+name = "mcp-brain-server"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.77"
+license = "MIT"
+description = "Cloud Run backend for RuVector Shared Brain — axum REST API with Firestore + GCS"
+repository = "https://github.com/ruvnet/ruvector"
+publish = false
+
+[[bin]]
+name = "mcp-brain-server"
+path = "src/main.rs"
+
+[dependencies]
+# Web framework
+axum = { version = "0.7", features = ["json", "query"] }
+tokio = { version = "1.41", features = ["full"] }
+tower = "0.5"
+tower-http = { version = "0.6", features = ["cors", "trace", "limit", "set-header"] }
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# HTTP client (for Firestore/GCS REST APIs)
+reqwest = { version = "0.12", features = ["json", "rustls-tls"], default-features = false }
+
+# Crypto
+sha2 = "0.10"
+sha3 = "0.10"
+ed25519-dalek = { version = "2", features = ["rand_core"] }
+subtle = "2.6"
+rand = "0.8"
+
+# Utilities
+uuid = { version = "1.11", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+dashmap = "6.1"
+parking_lot = "0.12"
+thiserror = "2.0"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+base64 = "0.22"
+hex = "0.4"
+tokio-stream = "0.1"
+async-stream = "0.3"
+urlencoding = "2"
+
+# RuVector Cognitive Stack
+sona = { package = "ruvector-sona", path = "../sona", features = ["serde-support"] }
+ruvector-mincut = { path = "../ruvector-mincut" }
+ruvector-nervous-system = { path = "../ruvector-nervous-system" }
+ruvector-domain-expansion = { path = "../ruvector-domain-expansion" }
+ruvector-delta-core = { path = "../ruvector-delta-core" }
+ruvector-solver = { path = "../ruvector-solver", features = ["forward-push"] }
+
+# RuvLLM Embeddings (HashEmbedder + RlmEmbedder — pure Rust, no model download)
+ruvllm = { path = "../ruvllm", default-features = false, features = ["minimal"] }
+
+# RVF AGI Format Stack (ADR-075)
+rvf-types = { path = "../rvf/rvf-types", features = ["std"] }
+rvf-crypto = { path = "../rvf/rvf-crypto" }
+rvf-wire = { path = "../rvf/rvf-wire" }
+rvf-federation = { path = "../rvf/rvf-federation", features = ["serde"] }
+rvf-runtime = { path = "../rvf/rvf-runtime" }
+
+# Midstream Platform — Real-time streaming analysis (ADR-077)
+# Note: temporal-compare is binary-only (no lib.rs) — cannot be used as library dep
+nanosecond-scheduler = "0.1"
+temporal-attractor-studio = "0.1"
+temporal-neural-solver = "0.1"
+strange-loop = "0.3"

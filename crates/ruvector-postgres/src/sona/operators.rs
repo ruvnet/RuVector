@@ -8,7 +8,15 @@ use super::get_or_create_engine;
 /// Record a learning trajectory for a table (Micro-LoRA).
 #[pg_extern]
 pub fn ruvector_sona_learn(table_name: &str, trajectory_json: JsonB) -> JsonB {
-    let engine = get_or_create_engine(table_name);
+    // Detect dimension from the trajectory data
+    let dim = trajectory_json
+        .0
+        .get("initial")
+        .and_then(|v| v.as_array())
+        .map(|arr| arr.len() as u32)
+        .unwrap_or(super::DEFAULT_DIM);
+
+    let engine = super::get_or_create_engine_with_dim(table_name, dim);
 
     // Parse trajectory: {"initial": [f32...], "steps": [{"embedding": [f32...], "actions": [...], "reward": f32}]}
     let initial: Vec<f32> = trajectory_json
@@ -20,7 +28,7 @@ pub fn ruvector_sona_learn(table_name: &str, trajectory_json: JsonB) -> JsonB {
                 .filter_map(|x| x.as_f64().map(|f| f as f32))
                 .collect()
         })
-        .unwrap_or_else(|| vec![0.0; 256]);
+        .unwrap_or_else(|| vec![0.0; dim as usize]);
 
     let steps = trajectory_json
         .0
@@ -41,7 +49,7 @@ pub fn ruvector_sona_learn(table_name: &str, trajectory_json: JsonB) -> JsonB {
                     .filter_map(|x| x.as_f64().map(|f| f as f32))
                     .collect()
             })
-            .unwrap_or_else(|| vec![0.0; 256]);
+            .unwrap_or_else(|| vec![0.0; dim as usize]);
 
         let attention_weights: Vec<f32> = step
             .get("attention_weights")
@@ -75,19 +83,41 @@ pub fn ruvector_sona_learn(table_name: &str, trajectory_json: JsonB) -> JsonB {
 }
 
 /// Apply learned LoRA transformation to an embedding.
+/// Dynamically matches engine dimension to input size.
 #[pg_extern(immutable, parallel_safe)]
 pub fn ruvector_sona_apply(table_name: &str, embedding: Vec<f32>) -> Vec<f32> {
-    let engine = get_or_create_engine(table_name);
-
-    let mut output = vec![0.0f32; embedding.len()];
-    engine.apply_micro_lora(&embedding, &mut output);
-
-    // If output is all zeros (no learned weights yet), return the input
-    if output.iter().all(|&x| x == 0.0) {
+    if embedding.is_empty() {
         return embedding;
     }
 
-    output
+    let dim = embedding.len() as u32;
+    let engine = super::get_or_create_engine_with_dim(table_name, dim);
+
+    let mut output = vec![0.0f32; embedding.len()];
+
+    // Guard against panics from the native engine
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        engine.apply_micro_lora(&embedding, &mut output);
+    }));
+
+    match result {
+        Ok(()) => {
+            // If output is all zeros (no learned weights yet), return the input
+            if output.iter().all(|&x| x == 0.0) {
+                embedding
+            } else {
+                output
+            }
+        }
+        Err(_) => {
+            // On panic, return input unchanged rather than crashing PostgreSQL
+            pgrx::warning!(
+                "SONA apply: internal error for dim={}, returning input unchanged",
+                dim
+            );
+            embedding
+        }
+    }
 }
 
 /// Get EWC++ forgetting metrics for a table.

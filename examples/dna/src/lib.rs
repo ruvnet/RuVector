@@ -61,14 +61,14 @@ pub use ruvector_core::{
     VectorDB,
 };
 
+pub use biomarker::{BiomarkerClassification, BiomarkerProfile, BiomarkerReference, CategoryScore};
+pub use biomarker_stream::{
+    BiomarkerReading, RingBuffer, StreamConfig, StreamProcessor, StreamStats,
+};
 pub use genotyping::{
     CallConfidence, CypDiplotype, GenomeBuild, GenotypeAnalysis, GenotypeData, Snp,
 };
 pub use health::{ApoeResult, HealthVariantResult, MthfrResult, PainProfile};
-pub use biomarker::{
-    BiomarkerClassification, BiomarkerProfile, BiomarkerReference, CategoryScore,
-};
-pub use biomarker_stream::{BiomarkerReading, RingBuffer, StreamConfig, StreamProcessor, StreamStats};
 pub use kmer_pagerank::{KmerGraphRanker, SequenceRank};
 
 /// Prelude module for common imports

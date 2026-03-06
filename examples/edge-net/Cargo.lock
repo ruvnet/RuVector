@@ -621,7 +621,7 @@ dependencies = [
 
 [[package]]
 name = "ruvector-exotic-wasm"
-version = "0.1.29"
+version = "2.0.5"
 dependencies = [
  "getrandom 0.2.16",
  "getrandom 0.3.4",

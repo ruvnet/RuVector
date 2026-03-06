@@ -1,7 +1,6 @@
 use ruvector_sparse_inference::{
-    model::{GenerationConfig, GgufParser, KVCache, ModelMetadata, ModelRunner},
-    predictor::LowRankPredictor,
-    InferenceConfig, SparseModel, SparsityConfig,
+    model::{GgufParser, ModelMetadata, ModelRunner, SparseModel},
+    InferenceConfig, LowRankPredictor, SparsityConfig,
 };
 use wasm_bindgen::prelude::*;
 
@@ -17,7 +16,6 @@ pub fn init() {
 pub struct SparseInferenceEngine {
     model: SparseModel,
     config: InferenceConfig,
-    predictors: Vec<LowRankPredictor>,
 }
 
 #[wasm_bindgen]
@@ -31,13 +29,7 @@ impl SparseInferenceEngine {
         let model = GgufParser::parse(model_bytes)
             .map_err(|e| JsError::new(&format!("Failed to parse model: {}", e)))?;
 
-        let predictors = Self::init_predictors(&model, &config);
-
-        Ok(Self {
-            model,
-            config,
-            predictors,
-        })
+        Ok(Self { model, config })
     }
 
     /// Load model with streaming (for large models)
@@ -46,7 +38,6 @@ impl SparseInferenceEngine {
         url: &str,
         config_json: &str,
     ) -> Result<SparseInferenceEngine, JsError> {
-        // Fetch model in chunks
         let bytes = fetch_model_bytes(url).await?;
         Self::new(&bytes, config_json)
     }
@@ -57,21 +48,6 @@ impl SparseInferenceEngine {
         self.model
             .forward_embedding(input, &self.config)
             .map_err(|e| JsError::new(&format!("Inference failed: {}", e)))
-    }
-
-    /// Run text generation (for LLM models)
-    #[wasm_bindgen]
-    pub fn generate(&mut self, input_ids: &[u32], max_tokens: u32) -> Result<Vec<u32>, JsError> {
-        let config = GenerationConfig {
-            max_new_tokens: max_tokens as usize,
-            temperature: self.config.temperature,
-            top_k: self.config.top_k,
-            ..Default::default()
-        };
-
-        self.model
-            .generate(input_ids, &config)
-            .map_err(|e| JsError::new(&format!("Generation failed: {}", e)))
     }
 
     /// Get model metadata as JSON
@@ -87,33 +63,13 @@ impl SparseInferenceEngine {
         serde_json::to_string(&stats).unwrap_or_default()
     }
 
-    /// Update sparsity threshold
-    #[wasm_bindgen]
-    pub fn set_sparsity(&mut self, threshold: f32) {
-        self.config.sparsity.threshold = threshold;
-        for predictor in &mut self.predictors {
-            predictor.set_threshold(threshold);
-        }
-    }
-
-    /// Calibrate predictors with sample inputs
+    /// Calibrate with sample inputs
     #[wasm_bindgen]
     pub fn calibrate(&mut self, samples: &[f32], sample_dim: usize) -> Result<(), JsError> {
         let samples: Vec<Vec<f32>> = samples.chunks(sample_dim).map(|c| c.to_vec()).collect();
-
         self.model
             .calibrate(&samples)
             .map_err(|e| JsError::new(&format!("Calibration failed: {}", e)))
-    }
-
-    /// Initialize predictors for each layer
-    fn init_predictors(model: &SparseModel, config: &InferenceConfig) -> Vec<LowRankPredictor> {
-        let num_layers = model.metadata().num_layers;
-        let hidden_size = model.metadata().hidden_size;
-
-        (0..num_layers)
-            .map(|_| LowRankPredictor::new(hidden_size, config.sparsity.threshold))
-            .collect()
     }
 }
 
@@ -147,7 +103,6 @@ impl EmbeddingModel {
     pub fn encode_batch(&self, input_ids: &[u32], lengths: &[u32]) -> Result<Vec<f32>, JsError> {
         let mut results = Vec::new();
         let mut offset = 0usize;
-
         for &len in lengths {
             let len = len as usize;
             if offset + len > input_ids.len() {
@@ -162,7 +117,6 @@ impl EmbeddingModel {
             results.extend(embedding);
             offset += len;
         }
-
         Ok(results)
     }
 
@@ -170,51 +124,6 @@ impl EmbeddingModel {
     #[wasm_bindgen]
     pub fn dimension(&self) -> usize {
         self.engine.model.metadata().hidden_size
-    }
-}
-
-/// LLM model wrapper for text generation
-#[wasm_bindgen]
-pub struct LLMModel {
-    engine: SparseInferenceEngine,
-    kv_cache: KVCache,
-}
-
-#[wasm_bindgen]
-impl LLMModel {
-    #[wasm_bindgen(constructor)]
-    pub fn new(model_bytes: &[u8], config_json: &str) -> Result<LLMModel, JsError> {
-        let engine = SparseInferenceEngine::new(model_bytes, config_json)?;
-        let cache_size = engine.model.metadata().max_position_embeddings;
-        let kv_cache = KVCache::new(cache_size);
-        Ok(Self { engine, kv_cache })
-    }
-
-    /// Generate next token
-    #[wasm_bindgen]
-    pub fn next_token(&mut self, input_ids: &[u32]) -> Result<u32, JsError> {
-        self.engine
-            .model
-            .next_token(input_ids, &mut self.kv_cache)
-            .map_err(|e| JsError::new(&format!("Generation failed: {}", e)))
-    }
-
-    /// Generate multiple tokens
-    #[wasm_bindgen]
-    pub fn generate(&mut self, input_ids: &[u32], max_tokens: u32) -> Result<Vec<u32>, JsError> {
-        self.engine.generate(input_ids, max_tokens)
-    }
-
-    /// Reset KV cache (for new conversation)
-    #[wasm_bindgen]
-    pub fn reset_cache(&mut self) {
-        self.kv_cache.clear();
-    }
-
-    /// Get generation statistics
-    #[wasm_bindgen]
-    pub fn stats(&self) -> String {
-        serde_json::to_string(&self.engine.model.generation_stats()).unwrap_or_default()
     }
 }
 

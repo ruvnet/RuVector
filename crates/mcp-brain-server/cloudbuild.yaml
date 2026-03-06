@@ -1,0 +1,14 @@
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/ruvbrain:latest'
+      - '-f'
+      - 'crates/mcp-brain-server/Dockerfile'
+      - '.'
+images:
+  - 'gcr.io/$PROJECT_ID/ruvbrain:latest'
+timeout: '1800s'
+options:
+  machineType: 'E2_HIGHCPU_8'

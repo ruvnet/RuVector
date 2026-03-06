@@ -10,9 +10,8 @@
 //! coherence signal -- structural integrity across distributed nodes.
 
 use ruvector_verified::{
-    ProofEnvironment,
     proof_store::{self, ProofAttestation},
-    vector_types,
+    vector_types, ProofEnvironment,
 };
 
 /// A sensor node's contribution to the swarm.
@@ -35,11 +34,7 @@ pub struct SwarmCoherence {
 }
 
 /// Verify a single sensor node's embedding against the swarm contract.
-pub fn verify_sensor_node(
-    node_id: &str,
-    reading: &[f32],
-    expected_dim: u32,
-) -> SensorWitness {
+pub fn verify_sensor_node(node_id: &str, reading: &[f32], expected_dim: u32) -> SensorWitness {
     let mut env = ProofEnvironment::new();
     match vector_types::verified_dim_check(&mut env, expected_dim, reading) {
         Ok(op) => {
@@ -64,10 +59,7 @@ pub fn verify_sensor_node(
 }
 
 /// Run swarm-wide coherence check. All nodes must produce valid proofs.
-pub fn check_swarm_coherence(
-    nodes: &[(&str, &[f32])],
-    expected_dim: u32,
-) -> SwarmCoherence {
+pub fn check_swarm_coherence(nodes: &[(&str, &[f32])], expected_dim: u32) -> SwarmCoherence {
     let witnesses: Vec<SensorWitness> = nodes
         .iter()
         .map(|(id, data)| verify_sensor_node(id, data, expected_dim))
@@ -109,9 +101,8 @@ mod tests {
     fn drifted_node_detected() {
         let good = vec![0.5f32; 64];
         let bad = vec![0.5f32; 32]; // drifted
-        let nodes: Vec<(&str, &[f32])> = vec![
-            ("n0", &good), ("n1", &good), ("n2", &bad), ("n3", &good),
-        ];
+        let nodes: Vec<(&str, &[f32])> =
+            vec![("n0", &good), ("n1", &good), ("n2", &bad), ("n3", &good)];
         let result = check_swarm_coherence(&nodes, 64);
         assert!(!result.coherent);
         assert_eq!(result.divergent_nodes, vec!["n2"]);

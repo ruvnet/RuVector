@@ -4,30 +4,36 @@
 [![npm](https://img.shields.io/npm/v/@ruvector/rvdna.svg)](https://www.npmjs.com/package/@ruvector/rvdna)
 [![MIT License](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 
-**Analyze DNA in milliseconds.** rvDNA is a genomic analysis toolkit written in Rust that runs natively and in the browser via WebAssembly. It reads real human genes, finds mutations, translates proteins, predicts biological age, and recommends drug dosing — all in a single 12 ms pipeline.
+**Genomic analysis in 12 milliseconds -- variant calling, protein translation, drug dosing, and biological age prediction in a single pipeline.**
 
-It also introduces the **`.rvdna` file format** — a compact binary format that stores DNA sequences alongside pre-computed AI features so downstream tools can skip expensive re-encoding steps entirely.
+Most genomic tools take 30-90 minutes per analysis, require specialized hardware, and cost hundreds of dollars per run. rvDNA runs the same analyses in milliseconds on any device -- including a browser tab. It pre-computes vectors, attention matrices, and variant probabilities into a single `.rvdna` file so that every subsequent analysis is instant, private, and free.
 
 ```
 cargo add rvdna              # Rust
 npm install @ruvector/rvdna  # JavaScript / TypeScript / WASM
 ```
 
-### Why This Exists
+| | rvDNA | Traditional tools (GATK, BLAST, etc.) |
+|---|---|---|
+| **Full pipeline** | 12 ms on a laptop | 30-90 min on specialized hardware |
+| **Runs in browser** | Yes -- WASM, no server needed | No |
+| **Data privacy** | Stays on-device, never uploaded | Often requires cloud upload |
+| **Pre-computed AI features** | `.rvdna` files store vectors + tensors for instant reuse | Re-encode from scratch every time |
+| **Cost** | Free forever -- MIT licensed | Per-run or subscription pricing |
 
-Healthcare diagnostics are slow, expensive, and out of reach for most people. A single genomic analysis can take hours on specialized hardware and cost hundreds of dollars. That locks out billions of people from understanding their own DNA.
+## Key Features
 
-rvDNA uses AI to change that. By pre-computing vectors, attention matrices, and variant probabilities into a single `.rvdna` file, the expensive work happens once. After that, any device — a phone, a laptop, a browser tab — can run instant diagnostics on the pre-computed data. No cloud. No GPU. No subscription.
-
-The goal is simple: **use AI to make the world a healthier place by making genomic diagnostics instant, private, and available to everyone.**
-
-| What | How rvDNA Helps |
-|---|---|
-| **Instant results** | 12 ms full pipeline vs 30-90 min with traditional tools |
-| **Runs anywhere** | Browser (WASM), laptop, edge device — no specialized hardware |
-| **Private by default** | Data stays on-device, never sent to a server |
-| **Free and open** | MIT licensed, no API keys, no usage fees |
-| **Pre-computed AI** | `.rvdna` files carry vectors + tensors so analysis is instant |
+| Feature | What It Does | Why It Matters |
+|---|---|---|
+| **K-mer HNSW search** | Finds similar genes via vector indexing in O(log N) | 1,200-60,000x faster than BLAST sequence scans |
+| **Bayesian variant calling** | Detects SNPs and indels with Phred quality scores | Catches mutations like sickle cell (HBB rs334) automatically |
+| **Protein translation** | Full codon table with GNN contact graph prediction | Translates DNA to protein and predicts 3D structure contacts |
+| **Biological age** | Horvath epigenetic clock using 353 CpG sites | Predicts biological vs chronological age from methylation data |
+| **Drug dosing** | CYP2D6 star allele calling with CPIC guidelines | Recommends safe doses for codeine, tamoxifen, SSRIs |
+| **Polygenic risk scoring** | 20 clinically-relevant SNPs with gene-gene interactions | Composite risk across cancer, cardiovascular, neurological categories |
+| **Biomarker streaming** | Real-time anomaly detection with CUSUM changepoints | Monitors biomarker trends and flags sustained shifts |
+| **`.rvdna` format** | 2-bit packed DNA + pre-computed AI tensors in one file | 4x compression, sub-microsecond random access, skip re-encoding |
+| **WASM support** | Compiles to WebAssembly for browsers and edge devices | Privacy-preserving genomics -- data never leaves the device |
 
 ## What rvDNA Does
 
@@ -663,14 +669,17 @@ cargo run --release -p rvdna
 
 ## License
 
-MIT — see `LICENSE` in the repository root.
+MIT -- see `LICENSE` in the repository root.
 
 ## Links
 
-- [npm package](https://www.npmjs.com/package/@ruvector/rvdna) — JavaScript/TypeScript bindings
-- [crates.io](https://crates.io/crates/rvdna) — Rust crate
-- [Architecture Decision Records](adr/) — 14 ADRs documenting design choices
-- [Health Biomarker Engine (ADR-014)](adr/ADR-014-health-biomarker-analysis.md) — composite risk scoring + streaming architecture
-- [RVDNA Format Spec (ADR-013)](adr/ADR-013-rvdna-ai-native-format.md) — full binary format specification
-- [WASM Edge Genomics (ADR-008)](adr/ADR-008-wasm-edge-genomics.md) — WebAssembly deployment plan
-- [RuVector](https://github.com/ruvnet/ruvector) — the parent vector computing platform (76 crates)
+- [npm package](https://www.npmjs.com/package/@ruvector/rvdna) -- JavaScript/TypeScript bindings
+- [crates.io](https://crates.io/crates/rvdna) -- Rust crate
+- [Architecture Decision Records](adr/) -- 14 ADRs documenting design choices
+- [Health Biomarker Engine (ADR-014)](adr/ADR-014-health-biomarker-analysis.md) -- composite risk scoring + streaming architecture
+- [RVDNA Format Spec (ADR-013)](adr/ADR-013-rvdna-ai-native-format.md) -- full binary format specification
+- [WASM Edge Genomics (ADR-008)](adr/ADR-008-wasm-edge-genomics.md) -- WebAssembly deployment plan
+
+---
+
+Part of [RuVector](https://github.com/ruvnet/ruvector) -- the self-learning vector database.

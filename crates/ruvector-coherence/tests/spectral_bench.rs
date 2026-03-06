@@ -46,7 +46,10 @@ mod bench {
         let avg_incr_us = start.elapsed().as_micros() as f64 / n_iter as f64;
 
         println!("\n=== Spectral Coherence Score (500 vertices) ===");
-        println!("  Full SCS recompute:  {:.2} ms  (target: < 6 ms)", avg_full_ms);
+        println!(
+            "  Full SCS recompute:  {:.2} ms  (target: < 6 ms)",
+            avg_full_ms
+        );
         println!("  Incremental update:  {:.1} µs", avg_incr_us);
         println!("  Composite SCS:       {:.4}", initial.composite);
         println!("  Fiedler:             {:.6}", initial.fiedler);
@@ -55,6 +58,10 @@ mod bench {
 
         // 50ms target accounts for CI/container/debug-mode variability;
         // on dedicated hardware in release mode this typically runs under 6ms.
-        assert!(avg_full_ms < 50.0, "SCS exceeded 50ms target: {:.2} ms", avg_full_ms);
+        assert!(
+            avg_full_ms < 50.0,
+            "SCS exceeded 50ms target: {:.2} ms",
+            avg_full_ms
+        );
     }
 }

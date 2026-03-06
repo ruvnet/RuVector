@@ -8,9 +8,8 @@
 //! Result: intelligence that remembers with structural guarantees.
 
 use ruvector_verified::{
-    ProofEnvironment,
     proof_store::{self, ProofAttestation},
-    vector_types,
+    vector_types, ProofEnvironment,
 };
 
 /// A single memory entry with its proof chain.
@@ -91,7 +90,10 @@ impl VerifiedMemoryStore {
 
     /// Get the witness chain (all attestations in order).
     pub fn witness_chain(&self) -> Vec<Vec<u8>> {
-        self.memories.iter().map(|m| m.attestation.to_bytes()).collect()
+        self.memories
+            .iter()
+            .map(|m| m.attestation.to_bytes())
+            .collect()
     }
 }
 
