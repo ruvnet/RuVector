@@ -165,7 +165,7 @@ jobs:
         run: npm run test:coverage || echo "Coverage generation completed with warnings"
 
       - name: Upload coverage reports
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v5
         with:
           files: ${{ env.PACKAGE_PATH }}/coverage/coverage-final.json
           flags: agentic-synth

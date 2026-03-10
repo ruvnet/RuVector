@@ -559,7 +559,7 @@ jobs:
           echo "version=${VERSION}" >> $GITHUB_OUTPUT
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.release_notes.outputs.version }}
           name: RuVector ${{ steps.release_notes.outputs.version }}
