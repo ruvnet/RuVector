@@ -363,7 +363,7 @@ impl RlmRefiner {
     ///
     /// # Arguments
     ///
-    /// * `triplet_path` - Path to a JSONL file of [`TrainingTriplet`]s
+    /// * `triplet_path` - Path to a JSONL file of `TrainingTriplet`s
     ///
     /// # Returns
     ///

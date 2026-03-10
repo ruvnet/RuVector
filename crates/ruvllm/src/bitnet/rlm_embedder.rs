@@ -981,7 +981,7 @@ pub fn l2_normalize(v: &mut [f32]) {
     }
 }
 
-/// Weighted vector accumulate: dst[i] += src[i] * weight.
+/// Weighted vector accumulate: dst\[i\] += src\[i\] * weight.
 ///
 /// Used in context embedding computation. Auto-vectorizes.
 #[inline]

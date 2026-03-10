@@ -40,8 +40,11 @@
 //! println!("Loaded {} signals from {} providers", signals.len(), loader.provider_count());
 //! ```
 
+pub mod acornflow_handler;
+
 use crate::error::Result;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 // ---------------------------------------------------------------------------
@@ -105,6 +108,18 @@ pub struct QualitySignal {
 
     /// ISO 8601 timestamp of task completion
     pub completed_at: String,
+
+    /// Provider-specific structured data, keyed by namespace.
+    ///
+    /// Namespaces prevent collisions between providers. Convention:
+    /// use your provider name or organization as the namespace key
+    /// (e.g., `"my-pipeline"`, `"ci-system"`).
+    ///
+    /// RuvLLM preserves extension data through the signal pipeline.
+    /// To have ruvLLM act on extension data (extract SONA features,
+    /// generate embeddings, etc.), register a [`SignalExtensionHandler`].
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub extensions: Option<HashMap<String, serde_json::Value>>,
 }
 
 /// Granular quality factor breakdown.
@@ -214,6 +229,89 @@ pub trait IntelligenceProvider: Send + Sync {
     /// from `QualityFactors`.
     fn quality_weights(&self) -> Option<ProviderQualityWeights> {
         None
+    }
+}
+
+// ---------------------------------------------------------------------------
+// SignalExtensionHandler — plugin trait for processing extension data
+// ---------------------------------------------------------------------------
+
+/// Handler for processing provider-specific extension data on signals.
+///
+/// Consumers register handlers with [`IntelligenceLoader`] to extract
+/// features from their extension data. Handlers are called during
+/// signal ingestion, after the core signal fields have been processed.
+///
+/// This is optional — signals with unhandled extensions are still
+/// ingested normally using their core fields.
+///
+/// # Examples
+///
+/// ```rust,ignore
+/// use ruvllm::intelligence::{SignalExtensionHandler, QualitySignal};
+/// use ruvllm::error::Result;
+/// use std::collections::HashMap;
+///
+/// struct MyWorkflowHandler;
+///
+/// impl SignalExtensionHandler for MyWorkflowHandler {
+///     fn namespace(&self) -> &str { "my-workflow-engine" }
+///
+///     fn extract_trajectory_features(
+///         &self,
+///         data: &serde_json::Value,
+///         _signal: &QualitySignal,
+///     ) -> Result<HashMap<String, serde_json::Value>> {
+///         let mut features = HashMap::new();
+///         if let Some(steps) = data.get("steps").and_then(|v| v.as_array()) {
+///             features.insert("step_count".into(), serde_json::json!(steps.len()));
+///         }
+///         Ok(features)
+///     }
+/// }
+/// ```
+pub trait SignalExtensionHandler: Send + Sync {
+    /// The namespace this handler processes (must match an extension key).
+    fn namespace(&self) -> &str;
+
+    /// Extract additional SONA trajectory features from extension data.
+    ///
+    /// Returns key-value pairs that are merged into the trajectory's
+    /// metadata. Called once per signal during ingestion.
+    fn extract_trajectory_features(
+        &self,
+        extension_data: &serde_json::Value,
+        signal: &QualitySignal,
+    ) -> Result<HashMap<String, serde_json::Value>> {
+        let _ = (extension_data, signal);
+        Ok(HashMap::new())
+    }
+
+    /// Extract additional embedding features from extension data.
+    ///
+    /// Returns text fragments that are appended to the task description
+    /// before embedding generation. This allows extension data to
+    /// influence HNSW clustering without changing the embedding model.
+    fn extract_embedding_context(
+        &self,
+        extension_data: &serde_json::Value,
+        signal: &QualitySignal,
+    ) -> Result<Vec<String>> {
+        let _ = (extension_data, signal);
+        Ok(vec![])
+    }
+
+    /// Extract additional router calibration features.
+    ///
+    /// Returns key-value pairs used as features when the model router
+    /// estimates task complexity. Called during calibration updates.
+    fn extract_router_features(
+        &self,
+        extension_data: &serde_json::Value,
+        signal: &QualitySignal,
+    ) -> Result<HashMap<String, f32>> {
+        let _ = (extension_data, signal);
+        Ok(HashMap::new())
     }
 }
 
@@ -341,7 +439,7 @@ impl IntelligenceProvider for FileSignalProvider {
 /// Aggregates quality signals from multiple registered providers.
 ///
 /// The loader maintains a list of [`IntelligenceProvider`] implementations
-/// and calls them in registration order during [`load_all_signals`].
+/// and calls them in registration order during [`IntelligenceLoader::load_all_signals`].
 ///
 /// # Zero Overhead
 ///
@@ -349,6 +447,7 @@ impl IntelligenceProvider for FileSignalProvider {
 /// with no allocations beyond the empty `Vec`.
 pub struct IntelligenceLoader {
     providers: Vec<Box<dyn IntelligenceProvider>>,
+    extension_handlers: HashMap<String, Box<dyn SignalExtensionHandler>>,
 }
 
 impl IntelligenceLoader {
@@ -356,6 +455,7 @@ impl IntelligenceLoader {
     pub fn new() -> Self {
         Self {
             providers: Vec::new(),
+            extension_handlers: HashMap::new(),
         }
     }
 
@@ -374,6 +474,63 @@ impl IntelligenceLoader {
     /// Returns the names of all registered providers.
     pub fn provider_names(&self) -> Vec<&str> {
         self.providers.iter().map(|p| p.name()).collect()
+    }
+
+    /// Register a handler for processing extension data in a specific namespace.
+    ///
+    /// Only one handler per namespace is allowed. Registering a new handler
+    /// for an existing namespace replaces the previous handler.
+    pub fn register_extension_handler(&mut self, handler: Box<dyn SignalExtensionHandler>) {
+        self.extension_handlers
+            .insert(handler.namespace().to_string(), handler);
+    }
+
+    /// Returns the number of registered extension handlers.
+    pub fn extension_handler_count(&self) -> usize {
+        self.extension_handlers.len()
+    }
+
+    /// Returns the namespaces of all registered extension handlers.
+    pub fn extension_handler_namespaces(&self) -> Vec<&str> {
+        self.extension_handlers.keys().map(|k| k.as_str()).collect()
+    }
+
+    /// Process a signal's extension data through registered handlers.
+    ///
+    /// For each namespace in the signal's `extensions` that has a registered
+    /// handler, calls the handler's extraction methods. Returns a
+    /// [`SignalExtensionResults`] with all extracted features.
+    ///
+    /// Namespaces without a registered handler are silently skipped —
+    /// the extension data is preserved on the signal but not processed.
+    pub fn process_extensions(&self, signal: &QualitySignal) -> SignalExtensionResults {
+        let mut results = SignalExtensionResults::default();
+
+        let extensions = match &signal.extensions {
+            Some(ext) => ext,
+            None => return results,
+        };
+
+        for (namespace, data) in extensions {
+            let handler = match self.extension_handlers.get(namespace) {
+                Some(h) => h,
+                None => continue,
+            };
+
+            if let Ok(features) = handler.extract_trajectory_features(data, signal) {
+                results.trajectory_features.extend(features);
+            }
+
+            if let Ok(context) = handler.extract_embedding_context(data, signal) {
+                results.embedding_context.extend(context);
+            }
+
+            if let Ok(features) = handler.extract_router_features(data, signal) {
+                results.router_features.extend(features);
+            }
+        }
+
+        results
     }
 
     /// Load signals from all registered providers.
@@ -428,6 +585,17 @@ impl Default for IntelligenceLoader {
     fn default() -> Self {
         Self::new()
     }
+}
+
+/// Results from processing a signal's extension data through handlers.
+#[derive(Debug, Clone, Default)]
+pub struct SignalExtensionResults {
+    /// Additional SONA trajectory features extracted from extensions.
+    pub trajectory_features: HashMap<String, serde_json::Value>,
+    /// Additional text fragments for embedding generation.
+    pub embedding_context: Vec<String>,
+    /// Additional router calibration features.
+    pub router_features: HashMap<String, f32>,
 }
 
 /// Error from a single provider during batch loading.
@@ -506,6 +674,7 @@ mod tests {
             human_verdict: None,
             quality_factors: None,
             completed_at: "2025-02-21T00:00:00Z".to_string(),
+            extensions: None,
         }
     }
 
@@ -654,6 +823,7 @@ mod tests {
                 ..Default::default()
             }),
             completed_at: "2025-02-21T12:00:00Z".to_string(),
+            extensions: None,
         };
 
         let json = serde_json::to_string(&signal).unwrap();
@@ -663,5 +833,198 @@ mod tests {
         assert!(parsed.quality_factors.is_some());
         let factors = parsed.quality_factors.unwrap();
         assert!((factors.tests_passing.unwrap() - 1.0).abs() < f32::EPSILON);
+    }
+
+    // -- Extension tests ---------------------------------------------------
+
+    #[test]
+    fn extensions_serde_roundtrip() {
+        let mut ext = HashMap::new();
+        ext.insert(
+            "my-pipeline".to_string(),
+            serde_json::json!({
+                "steps": [{"name": "plan", "duration_ms": 2300}],
+                "total_nodes": 5
+            }),
+        );
+
+        let signal = QualitySignal {
+            id: "ext1".to_string(),
+            task_description: "Extension roundtrip".to_string(),
+            outcome: Outcome::Success,
+            quality_score: 0.9,
+            human_verdict: None,
+            quality_factors: None,
+            completed_at: "2025-02-21T00:00:00Z".to_string(),
+            extensions: Some(ext),
+        };
+
+        let json = serde_json::to_string(&signal).unwrap();
+        let parsed: QualitySignal = serde_json::from_str(&json).unwrap();
+        assert!(parsed.extensions.is_some());
+        let exts = parsed.extensions.unwrap();
+        assert!(exts.contains_key("my-pipeline"));
+        assert_eq!(exts["my-pipeline"]["total_nodes"], 5);
+    }
+
+    #[test]
+    fn extensions_backward_compatible_deserialize() {
+        // JSON without extensions field — should deserialize fine
+        let json = r#"{
+            "id": "bc1",
+            "task_description": "No extensions",
+            "outcome": "success",
+            "quality_score": 0.8,
+            "completed_at": "2025-02-21T00:00:00Z"
+        }"#;
+        let signal: QualitySignal = serde_json::from_str(json).unwrap();
+        assert!(signal.extensions.is_none());
+    }
+
+    #[test]
+    fn extensions_none_not_serialized() {
+        let signal = make_signal("skip1", 0.5);
+        let json = serde_json::to_string(&signal).unwrap();
+        assert!(!json.contains("extensions"));
+    }
+
+    /// Mock handler for testing extension processing
+    struct MockExtensionHandler;
+
+    impl SignalExtensionHandler for MockExtensionHandler {
+        fn namespace(&self) -> &str {
+            "test-ns"
+        }
+
+        fn extract_trajectory_features(
+            &self,
+            data: &serde_json::Value,
+            _signal: &QualitySignal,
+        ) -> Result<HashMap<String, serde_json::Value>> {
+            let mut features = HashMap::new();
+            if let Some(count) = data.get("step_count") {
+                features.insert("step_count".into(), count.clone());
+            }
+            Ok(features)
+        }
+
+        fn extract_embedding_context(
+            &self,
+            data: &serde_json::Value,
+            _signal: &QualitySignal,
+        ) -> Result<Vec<String>> {
+            let mut ctx = vec![];
+            if let Some(tag) = data.get("tag").and_then(|v| v.as_str()) {
+                ctx.push(tag.to_string());
+            }
+            Ok(ctx)
+        }
+
+        fn extract_router_features(
+            &self,
+            data: &serde_json::Value,
+            _signal: &QualitySignal,
+        ) -> Result<HashMap<String, f32>> {
+            let mut features = HashMap::new();
+            if let Some(c) = data.get("complexity").and_then(|v| v.as_f64()) {
+                features.insert("pipeline_complexity".into(), c as f32);
+            }
+            Ok(features)
+        }
+    }
+
+    #[test]
+    fn extension_handler_registration() {
+        let mut loader = IntelligenceLoader::new();
+        assert_eq!(loader.extension_handler_count(), 0);
+
+        loader.register_extension_handler(Box::new(MockExtensionHandler));
+        assert_eq!(loader.extension_handler_count(), 1);
+        assert!(loader.extension_handler_namespaces().contains(&"test-ns"));
+    }
+
+    #[test]
+    fn extension_handler_processes_matching_namespace() {
+        let mut loader = IntelligenceLoader::new();
+        loader.register_extension_handler(Box::new(MockExtensionHandler));
+
+        let mut ext = HashMap::new();
+        ext.insert(
+            "test-ns".to_string(),
+            serde_json::json!({
+                "step_count": 3,
+                "tag": "refactor",
+                "complexity": 0.75
+            }),
+        );
+
+        let signal = QualitySignal {
+            extensions: Some(ext),
+            ..make_signal("eh1", 0.9)
+        };
+
+        let results = loader.process_extensions(&signal);
+        assert_eq!(results.trajectory_features["step_count"], 3);
+        assert_eq!(results.embedding_context, vec!["refactor"]);
+        assert!((results.router_features["pipeline_complexity"] - 0.75).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn extension_handler_skips_unmatched_namespace() {
+        let mut loader = IntelligenceLoader::new();
+        loader.register_extension_handler(Box::new(MockExtensionHandler));
+
+        let mut ext = HashMap::new();
+        ext.insert("other-ns".to_string(), serde_json::json!({"step_count": 5}));
+
+        let signal = QualitySignal {
+            extensions: Some(ext),
+            ..make_signal("eh2", 0.8)
+        };
+
+        let results = loader.process_extensions(&signal);
+        assert!(results.trajectory_features.is_empty());
+        assert!(results.embedding_context.is_empty());
+        assert!(results.router_features.is_empty());
+    }
+
+    #[test]
+    fn extension_handler_no_extensions_returns_empty() {
+        let mut loader = IntelligenceLoader::new();
+        loader.register_extension_handler(Box::new(MockExtensionHandler));
+
+        let signal = make_signal("eh3", 0.7);
+        let results = loader.process_extensions(&signal);
+        assert!(results.trajectory_features.is_empty());
+    }
+
+    #[test]
+    fn file_provider_reads_extensions() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("ext-signals.json");
+        let mut f = std::fs::File::create(&path).unwrap();
+        write!(
+            f,
+            r#"[
+            {{
+                "id": "fe1",
+                "task_description": "With extensions",
+                "outcome": "success",
+                "quality_score": 0.85,
+                "completed_at": "2025-02-21T10:00:00Z",
+                "extensions": {{
+                    "ci-system": {{"pipeline": "main", "stage": "deploy"}}
+                }}
+            }}
+        ]"#
+        )
+        .unwrap();
+
+        let provider = FileSignalProvider::new(path);
+        let signals = provider.load_signals().unwrap();
+        assert_eq!(signals.len(), 1);
+        assert!(signals[0].extensions.is_some());
+        let exts = signals[0].extensions.as_ref().unwrap();
+        assert_eq!(exts["ci-system"]["pipeline"], "main");
     }
 }

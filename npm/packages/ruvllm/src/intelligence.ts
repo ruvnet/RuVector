@@ -53,6 +53,16 @@ export interface QualitySignal {
   qualityFactors?: QualityFactors;
   /** ISO 8601 timestamp of task completion */
   completedAt: string;
+  /**
+   * Provider-specific structured data, keyed by namespace.
+   *
+   * Namespaces prevent collisions between providers. Convention:
+   * use your provider name or organization as the namespace key.
+   *
+   * RuvLLM preserves extension data through the signal pipeline.
+   * To have ruvLLM act on extension data, register a SignalExtensionHandler.
+   */
+  extensions?: Record<string, unknown>;
 }
 
 /**
@@ -113,6 +123,57 @@ export interface IntelligenceProvider {
   loadSignals(): QualitySignal[];
   /** Optional quality weight overrides */
   qualityWeights?(): ProviderQualityWeights | undefined;
+}
+
+/**
+ * Handler for processing provider-specific extension data on signals.
+ *
+ * Register handlers with IntelligenceLoader to extract features from
+ * extension data. Handlers are called during signal processing, after
+ * core signal fields have been processed.
+ *
+ * This is optional — signals with unhandled extensions are still
+ * processed normally using their core fields.
+ */
+export interface SignalExtensionHandler {
+  /** The namespace this handler processes (must match an extension key) */
+  namespace(): string;
+
+  /**
+   * Extract additional SONA trajectory features from extension data.
+   * Returns key-value pairs merged into the trajectory's metadata.
+   */
+  extractTrajectoryFeatures?(
+    extensionData: unknown,
+    signal: QualitySignal,
+  ): Record<string, unknown>;
+
+  /**
+   * Extract additional embedding features from extension data.
+   * Returns text fragments appended to the task description before embedding.
+   */
+  extractEmbeddingContext?(
+    extensionData: unknown,
+    signal: QualitySignal,
+  ): string[];
+
+  /**
+   * Extract additional router calibration features.
+   * Returns key-value pairs used as features for complexity estimation.
+   */
+  extractRouterFeatures?(
+    extensionData: unknown,
+    signal: QualitySignal,
+  ): Record<string, number>;
+}
+
+/**
+ * Results from processing a signal's extension data through handlers.
+ */
+export interface SignalExtensionResults {
+  trajectoryFeatures: Record<string, unknown>;
+  embeddingContext: string[];
+  routerFeatures: Record<string, number>;
 }
 
 function asOptionalNumber(val: unknown): number | undefined {
@@ -197,6 +258,7 @@ export class FileSignalProvider implements IntelligenceProvider {
 
     return data.map((item: Record<string, unknown>) => {
       const qfRaw = (item.quality_factors ?? item.qualityFactors) as Record<string, unknown> | undefined;
+      const extRaw = item.extensions as Record<string, unknown> | undefined;
       return {
         id: String(item.id ?? ''),
         taskDescription: String(item.task_description ?? item.taskDescription ?? ''),
@@ -205,6 +267,7 @@ export class FileSignalProvider implements IntelligenceProvider {
         humanVerdict: validateVerdict(item.human_verdict ?? item.humanVerdict),
         qualityFactors: qfRaw ? mapQualityFactors(qfRaw) : undefined,
         completedAt: String(item.completed_at ?? item.completedAt ?? new Date().toISOString()),
+        extensions: extRaw && typeof extRaw === 'object' ? extRaw : undefined,
       };
     });
   }
@@ -234,10 +297,19 @@ export class FileSignalProvider implements IntelligenceProvider {
  */
 export class IntelligenceLoader {
   private providers: IntelligenceProvider[] = [];
+  private extensionHandlers: Map<string, SignalExtensionHandler> = new Map();
 
   /** Register an external intelligence provider */
   registerProvider(provider: IntelligenceProvider): void {
     this.providers.push(provider);
+  }
+
+  /**
+   * Register a handler for processing extension data in a specific namespace.
+   * Only one handler per namespace is allowed; re-registering replaces the previous.
+   */
+  registerExtensionHandler(handler: SignalExtensionHandler): void {
+    this.extensionHandlers.set(handler.namespace(), handler);
   }
 
   /** Returns the number of registered providers */
@@ -245,9 +317,57 @@ export class IntelligenceLoader {
     return this.providers.length;
   }
 
+  /** Returns the number of registered extension handlers */
+  get extensionHandlerCount(): number {
+    return this.extensionHandlers.size;
+  }
+
   /** Returns the names of all registered providers */
   get providerNames(): string[] {
     return this.providers.map(p => p.name());
+  }
+
+  /** Returns the namespaces of all registered extension handlers */
+  get extensionHandlerNamespaces(): string[] {
+    return Array.from(this.extensionHandlers.keys());
+  }
+
+  /**
+   * Process a signal's extension data through registered handlers.
+   *
+   * For each namespace in the signal's extensions that has a registered
+   * handler, calls the handler's extraction methods. Namespaces without
+   * a registered handler are silently skipped.
+   */
+  processExtensions(signal: QualitySignal): SignalExtensionResults {
+    const results: SignalExtensionResults = {
+      trajectoryFeatures: {},
+      embeddingContext: [],
+      routerFeatures: {},
+    };
+
+    if (!signal.extensions) return results;
+
+    for (const [namespace, data] of Object.entries(signal.extensions)) {
+      const handler = this.extensionHandlers.get(namespace);
+      if (!handler) continue;
+
+      try {
+        if (handler.extractTrajectoryFeatures) {
+          Object.assign(results.trajectoryFeatures, handler.extractTrajectoryFeatures(data, signal));
+        }
+        if (handler.extractEmbeddingContext) {
+          results.embeddingContext.push(...handler.extractEmbeddingContext(data, signal));
+        }
+        if (handler.extractRouterFeatures) {
+          Object.assign(results.routerFeatures, handler.extractRouterFeatures(data, signal));
+        }
+      } catch {
+        // Non-fatal: handler errors don't block signal processing
+      }
+    }
+
+    return results;
   }
 
   /**
