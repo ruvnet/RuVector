@@ -38,7 +38,7 @@ jobs:
     name: Validate & Test
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -86,10 +86,10 @@ jobs:
             node_file: attention.win32-x64-msvc.node
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: '20'
 
@@ -130,7 +130,7 @@ jobs:
           cp -v "$NODE_FILE" "crates/ruvector-attention-node/npm/${{ matrix.settings.platform }}/${{ matrix.settings.node_file }}"
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: native-${{ matrix.settings.platform }}
           path: crates/ruvector-attention-node/npm/${{ matrix.settings.platform }}/*.node
@@ -152,7 +152,7 @@ jobs:
             path: crates/ruvector-attention-wasm
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -172,7 +172,7 @@ jobs:
         run: wasm-pack build --target web --release
 
       - name: Upload WASM artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: wasm-${{ matrix.package.name }}
           path: ${{ matrix.package.path }}/pkg/
@@ -188,7 +188,7 @@ jobs:
     if: ${{ !inputs.dry_run && (inputs.publish_crates || github.event_name == 'push') }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -241,16 +241,16 @@ jobs:
     if: ${{ !inputs.dry_run && (inputs.publish_npm || github.event_name == 'push') }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: '20'
           registry-url: 'https://registry.npmjs.org'
 
       - name: Download all artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           path: artifacts
 
@@ -489,10 +489,10 @@ jobs:
       contents: write
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Download all artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           path: artifacts
 
