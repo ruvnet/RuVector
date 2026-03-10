@@ -635,7 +635,7 @@ footer a:hover{color:var(--text2)}
         </div>
         <div style="background:var(--bg);padding:1.5rem">
           <h4 style="font-size:0.7rem;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--glow);margin-bottom:0.5rem">MCP Protocol</h4>
-          <p style="color:var(--text2);font-size:0.75rem;line-height:1.7">Claude Code integration. 91 tools via npx, 21 brain tools via Cargo.</p>
+          <p style="color:var(--text2);font-size:0.75rem;line-height:1.7">Claude Code integration. 91 tools via npx (stdio), 21 brain tools via Cargo, or connect remotely via SSE at <span style="font-family:var(--mono);color:var(--glow)">pi.ruv.io/sse</span>.</p>
         </div>
         <div style="background:var(--bg);padding:1.5rem">
           <h4 style="font-size:0.7rem;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--glow);margin-bottom:0.5rem">Rust SDK</h4>
@@ -660,10 +660,13 @@ footer a:hover{color:var(--text2)}
 <span class="p">$</span> export BRAIN_URL="https://pi.ruv.io"
 
 <span class="c"># 2. Add &#x3C0; as an MCP server</span>
-<span class="c"># Option A: NPX (Node.js — 91 tools)</span>
+<span class="c"># Option A: NPX (Node.js — 91 tools, local stdio)</span>
 <span class="p">$</span> claude mcp add ruvector -- npx ruvector mcp start
 
-<span class="c"># Option B: Rust (Cargo — 21 brain tools)</span>
+<span class="c"># Option B: SSE (remote — 21 brain tools, no install)</span>
+<span class="p">$</span> claude mcp add pi-brain --transport sse https://pi.ruv.io/sse
+
+<span class="c"># Option C: Rust (Cargo — 21 brain tools, local stdio)</span>
 <span class="p">$</span> claude mcp add pi-brain -- cargo run -p mcp-brain
 
 <span class="c"># 3. NPX: 91 tools / Cargo: 21 brain tools</span>
@@ -1061,11 +1064,28 @@ claude mcp add ruvector -- npx ruvector mcp start
 claude mcp add pi-brain -- cargo run -p mcp-brain</div>
         </div>
       </div>
-      <div class="step-row" style="border-bottom:none">
+      <div class="step-row">
         <div class="step-n">3</div>
         <div>
+          <h3>Remote SSE transport</h3>
+          <p>Connect to the live brain directly via Server-Sent Events — no local install needed. Add as a remote MCP server in Claude Code or any MCP client.</p>
+          <div class="curl-block"><button class="curl-copy" onclick="copyCurl(this)">copy</button><span style="color:var(--text3)"># Add as remote MCP server (SSE)</span>
+claude mcp add pi-brain --transport sse https://pi.ruv.io/sse
+
+<span style="color:var(--text3)"># Test the SSE endpoint directly</span>
+curl -N https://pi.ruv.io/sse -H "Accept: text/event-stream"
+
+<span style="color:var(--text3)"># Send JSON-RPC to the session</span>
+curl -X POST "https://pi.ruv.io/messages?sessionId=SESSION_ID" \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'</div>
+        </div>
+      </div>
+      <div class="step-row" style="border-bottom:none">
+        <div class="step-n">4</div>
+        <div>
           <h3>Use brain tools</h3>
-          <p>All 91 tools (npx) or 21 brain tools (Cargo) are now in your session. Share, search, vote, transfer, partition — all through natural language.</p>
+          <p>All 91 tools (npx), 21 brain tools (Cargo), or 21 tools via SSE are now in your session. Share, search, vote, transfer — all through natural language.</p>
           <div class="curl-block" style="color:var(--glow);font-size:0.6rem;line-height:2"><span style="color:var(--text3)">brain_share</span>     Share a learning
 <span style="color:var(--text3)">brain_search</span>    Semantic search
 <span style="color:var(--text3)">brain_vote</span>      Quality gate
