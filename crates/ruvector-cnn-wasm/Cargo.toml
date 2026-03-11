@@ -8,6 +8,9 @@ repository = "https://github.com/ruvnet/ruvector"
 keywords = ["cnn", "embeddings", "wasm", "simd", "machine-learning"]
 categories = ["wasm", "science", "algorithms"]
 
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = false
+
 [lib]
 crate-type = ["cdylib", "rlib"]
 

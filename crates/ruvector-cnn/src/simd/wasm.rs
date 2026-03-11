@@ -22,10 +22,12 @@ pub fn dot_product_wasm(a: &[f32], b: &[f32]) -> f32 {
     let chunks = len / 4;
     for i in 0..chunks {
         let idx = i * 4;
-        let va = v128_load(a[idx..].as_ptr() as *const v128);
-        let vb = v128_load(b[idx..].as_ptr() as *const v128);
-        let prod = f32x4_mul(va, vb);
-        sum = f32x4_add(sum, prod);
+        unsafe {
+            let va = v128_load(a[idx..].as_ptr() as *const v128);
+            let vb = v128_load(b[idx..].as_ptr() as *const v128);
+            let prod = f32x4_mul(va, vb);
+            sum = f32x4_add(sum, prod);
+        }
     }
 
     // Horizontal sum
@@ -58,9 +60,11 @@ pub fn relu_wasm(input: &[f32], output: &mut [f32]) {
     let chunks = len / 4;
     for i in 0..chunks {
         let idx = i * 4;
-        let v = v128_load(input[idx..].as_ptr() as *const v128);
-        let result = f32x4_max(v, zero);
-        v128_store(output[idx..].as_mut_ptr() as *mut v128, result);
+        unsafe {
+            let v = v128_load(input[idx..].as_ptr() as *const v128);
+            let result = f32x4_max(v, zero);
+            v128_store(output[idx..].as_mut_ptr() as *mut v128, result);
+        }
     }
 
     // Handle remainder
@@ -82,10 +86,12 @@ pub fn relu6_wasm(input: &[f32], output: &mut [f32]) {
     let chunks = len / 4;
     for i in 0..chunks {
         let idx = i * 4;
-        let v = v128_load(input[idx..].as_ptr() as *const v128);
-        let clamped_low = f32x4_max(v, zero);
-        let clamped = f32x4_min(clamped_low, six);
-        v128_store(output[idx..].as_mut_ptr() as *mut v128, clamped);
+        unsafe {
+            let v = v128_load(input[idx..].as_ptr() as *const v128);
+            let clamped_low = f32x4_max(v, zero);
+            let clamped = f32x4_min(clamped_low, six);
+            v128_store(output[idx..].as_mut_ptr() as *mut v128, clamped);
+        }
     }
 
     // Handle remainder
@@ -136,12 +142,14 @@ pub fn batch_norm_wasm(
                 let c = cc * 4;
                 let idx = base + c;
 
-                let v = v128_load(input[idx..].as_ptr() as *const v128);
-                let scale_v = v128_load(scale[c..].as_ptr() as *const v128);
-                let shift_v = v128_load(shift[c..].as_ptr() as *const v128);
+                unsafe {
+                    let v = v128_load(input[idx..].as_ptr() as *const v128);
+                    let scale_v = v128_load(scale[c..].as_ptr() as *const v128);
+                    let shift_v = v128_load(shift[c..].as_ptr() as *const v128);
 
-                let result = f32x4_add(f32x4_mul(v, scale_v), shift_v);
-                v128_store(output[idx..].as_mut_ptr() as *mut v128, result);
+                    let result = f32x4_add(f32x4_mul(v, scale_v), shift_v);
+                    v128_store(output[idx..].as_mut_ptr() as *mut v128, result);
+                }
             }
 
             // Handle remaining channels
@@ -213,17 +221,20 @@ pub fn conv_3x3_wasm(
                                         kernel_vals[i] = kernel[k_idx];
                                     }
                                 }
-                                let kernel_v = v128_load(kernel_vals.as_ptr() as *const v128);
-
-                                let prod = f32x4_mul(input_val, kernel_v);
-                                sum = f32x4_add(sum, prod);
+                                unsafe {
+                                    let kernel_v = v128_load(kernel_vals.as_ptr() as *const v128);
+                                    let prod = f32x4_mul(input_val, kernel_v);
+                                    sum = f32x4_add(sum, prod);
+                                }
                             }
                         }
                     }
                 }
 
                 let out_base = out_spatial_idx * out_c + oc_base;
-                v128_store(output[out_base..].as_mut_ptr() as *mut v128, sum);
+                unsafe {
+                    v128_store(output[out_base..].as_mut_ptr() as *mut v128, sum);
+                }
             }
 
             // Remainder channels
@@ -292,23 +303,28 @@ pub fn depthwise_conv_3x3_wasm(
 
                             // Load 4 input values
                             let input_base = (ih * w + iw) * c + c_base;
-                            let input_v = v128_load(input[input_base..].as_ptr() as *const v128);
 
                             // Load 4 kernel weights
                             let mut kernel_vals = [0.0f32; 4];
                             for i in 0..4 {
                                 kernel_vals[i] = kernel[(c_base + i) * 9 + kh * 3 + kw];
                             }
-                            let kernel_v = v128_load(kernel_vals.as_ptr() as *const v128);
 
-                            let prod = f32x4_mul(input_v, kernel_v);
-                            sum = f32x4_add(sum, prod);
+                            unsafe {
+                                let input_v = v128_load(input[input_base..].as_ptr() as *const v128);
+                                let kernel_v = v128_load(kernel_vals.as_ptr() as *const v128);
+
+                                let prod = f32x4_mul(input_v, kernel_v);
+                                sum = f32x4_add(sum, prod);
+                            }
                         }
                     }
                 }
 
                 let out_base = (oh * out_w + ow) * c + c_base;
-                v128_store(output[out_base..].as_mut_ptr() as *mut v128, sum);
+                unsafe {
+                    v128_store(output[out_base..].as_mut_ptr() as *mut v128, sum);
+                }
             }
 
             // Remainder channels
@@ -350,7 +366,9 @@ pub fn global_avg_pool_wasm(input: &[f32], output: &mut [f32], h: usize, w: usiz
 
     // Initialize output
     for i in 0..c_chunks {
-        v128_store(output[i * 4..].as_mut_ptr() as *mut v128, f32x4_splat(0.0));
+        unsafe {
+            v128_store(output[i * 4..].as_mut_ptr() as *mut v128, f32x4_splat(0.0));
+        }
     }
     for i in (c_chunks * 4)..c {
         output[i] = 0.0;
@@ -363,10 +381,12 @@ pub fn global_avg_pool_wasm(input: &[f32], output: &mut [f32], h: usize, w: usiz
 
             for cc in 0..c_chunks {
                 let ch_base = cc * 4;
-                let input_v = v128_load(input[base + ch_base..].as_ptr() as *const v128);
-                let out_v = v128_load(output[ch_base..].as_ptr() as *const v128);
-                let sum_v = f32x4_add(out_v, input_v);
-                v128_store(output[ch_base..].as_mut_ptr() as *mut v128, sum_v);
+                unsafe {
+                    let input_v = v128_load(input[base + ch_base..].as_ptr() as *const v128);
+                    let out_v = v128_load(output[ch_base..].as_ptr() as *const v128);
+                    let sum_v = f32x4_add(out_v, input_v);
+                    v128_store(output[ch_base..].as_mut_ptr() as *mut v128, sum_v);
+                }
             }
 
             for ch in (c_chunks * 4)..c {
@@ -378,9 +398,11 @@ pub fn global_avg_pool_wasm(input: &[f32], output: &mut [f32], h: usize, w: usiz
     // Multiply by 1/spatial_size
     for cc in 0..c_chunks {
         let ch_base = cc * 4;
-        let sum_v = v128_load(output[ch_base..].as_ptr() as *const v128);
-        let avg_v = f32x4_mul(sum_v, inv_spatial_v);
-        v128_store(output[ch_base..].as_mut_ptr() as *mut v128, avg_v);
+        unsafe {
+            let sum_v = v128_load(output[ch_base..].as_ptr() as *const v128);
+            let avg_v = f32x4_mul(sum_v, inv_spatial_v);
+            v128_store(output[ch_base..].as_mut_ptr() as *mut v128, avg_v);
+        }
     }
     for ch in (c_chunks * 4)..c {
         output[ch] *= inv_spatial;
@@ -417,17 +439,19 @@ pub fn max_pool_2x2_wasm(
                 let idx10 = (ih + 1) * w * c + iw * c + ch_base;
                 let idx11 = (ih + 1) * w * c + (iw + 1) * c + ch_base;
 
-                let v00 = v128_load(input[idx00..].as_ptr() as *const v128);
-                let v01 = v128_load(input[idx01..].as_ptr() as *const v128);
-                let v10 = v128_load(input[idx10..].as_ptr() as *const v128);
-                let v11 = v128_load(input[idx11..].as_ptr() as *const v128);
+                unsafe {
+                    let v00 = v128_load(input[idx00..].as_ptr() as *const v128);
+                    let v01 = v128_load(input[idx01..].as_ptr() as *const v128);
+                    let v10 = v128_load(input[idx10..].as_ptr() as *const v128);
+                    let v11 = v128_load(input[idx11..].as_ptr() as *const v128);
 
-                let max01 = f32x4_max(v00, v01);
-                let max23 = f32x4_max(v10, v11);
-                let max_val = f32x4_max(max01, max23);
+                    let max01 = f32x4_max(v00, v01);
+                    let max23 = f32x4_max(v10, v11);
+                    let max_val = f32x4_max(max01, max23);
 
-                let out_idx = oh * out_w * c + ow * c + ch_base;
-                v128_store(output[out_idx..].as_mut_ptr() as *mut v128, max_val);
+                    let out_idx = oh * out_w * c + ow * c + ch_base;
+                    v128_store(output[out_idx..].as_mut_ptr() as *mut v128, max_val);
+                }
             }
 
             // Handle remaining channels

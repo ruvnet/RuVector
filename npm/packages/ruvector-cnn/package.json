@@ -7,10 +7,11 @@
   "types": "index.d.ts",
   "files": [
     "index.js",
-    "index.mjs",
     "index.d.ts",
     "ruvector_cnn_wasm_bg.wasm",
     "ruvector_cnn_wasm.js",
+    "ruvector_cnn_wasm.d.ts",
+    "ruvector_cnn_wasm_bg.wasm.d.ts",
     "README.md"
   ],
   "scripts": {
