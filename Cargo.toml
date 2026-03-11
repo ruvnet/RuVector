@@ -30,6 +30,8 @@ members = [
     "crates/ruvector-attention",
     "crates/ruvector-attention-wasm",
     "crates/ruvector-attention-node",
+    "crates/ruvector-cnn",
+    "crates/ruvector-cnn-wasm",
     "crates/ruvector-mincut",
     "crates/ruvector-mincut-wasm",
     "crates/ruvector-mincut-node",

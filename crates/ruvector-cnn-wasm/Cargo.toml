@@ -1,0 +1,34 @@
+[package]
+name = "ruvector-cnn-wasm"
+version = "0.1.0"
+edition = "2021"
+description = "WASM bindings for ruvector-cnn - CNN feature extraction for image embeddings"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/ruvnet/ruvector"
+keywords = ["cnn", "embeddings", "wasm", "simd", "machine-learning"]
+categories = ["wasm", "science", "algorithms"]
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+default = ["console_error_panic_hook"]
+simd = []
+
+[dependencies]
+ruvector-cnn = { path = "../ruvector-cnn", default-features = false, features = ["std"] }
+wasm-bindgen = "0.2"
+js-sys = "0.3"
+console_error_panic_hook = { version = "0.1", optional = true }
+serde = { version = "1.0", features = ["derive"] }
+serde-wasm-bindgen = "0.6"
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+getrandom = { version = "0.2", features = ["js"] }
+
+[dev-dependencies]
+wasm-bindgen-test = "0.3"
+
+[profile.release]
+opt-level = "s"
+lto = true

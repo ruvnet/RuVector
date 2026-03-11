@@ -8117,6 +8117,33 @@ dependencies = [
 ]
 
 [[package]]
+name = "ruvector-cnn"
+version = "2.0.5"
+dependencies = [
+ "criterion 0.5.1",
+ "image 0.25.9",
+ "nalgebra 0.33.2",
+ "rand 0.8.5",
+ "rand_distr 0.4.3",
+ "serde",
+ "thiserror 2.0.18",
+]
+
+[[package]]
+name = "ruvector-cnn-wasm"
+version = "0.1.0"
+dependencies = [
+ "console_error_panic_hook",
+ "getrandom 0.2.17",
+ "js-sys",
+ "ruvector-cnn",
+ "serde",
+ "serde-wasm-bindgen",
+ "wasm-bindgen",
+ "wasm-bindgen-test",
+]
+
+[[package]]
 name = "ruvector-cognitive-container"
 version = "2.0.5"
 dependencies = [

@@ -1,0 +1,47 @@
+[package]
+name = "ruvector-cnn"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+readme = "README.md"
+description = "CNN feature extraction for image embeddings with SIMD acceleration"
+keywords = ["cnn", "embeddings", "image", "simd", "mobilenet"]
+categories = ["computer-vision", "science", "wasm"]
+
+[lib]
+crate-type = ["rlib"]
+
+[features]
+default = ["std"]
+std = []
+wasm = []
+simd = []
+augmentation = ["image"]
+backbone = []  # Enable MobileNet backbone (requires API fixes)
+
+[dependencies]
+# Serialization
+serde = { workspace = true }
+
+# Error handling
+thiserror = { workspace = true }
+
+# Math (no BLAS)
+nalgebra = { workspace = true }
+
+# Random
+rand = { workspace = true }
+rand_distr = { workspace = true }
+
+# Image processing (for augmentation)
+image = { version = "0.25", default-features = false, features = ["png", "jpeg"], optional = true }
+
+[dev-dependencies]
+criterion = { workspace = true }
+
+[[bench]]
+name = "cnn_benchmarks"
+harness = false
