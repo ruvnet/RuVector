@@ -46,6 +46,10 @@ impl Default for MobileNetConfig {
 /// MobileNet-V3 Small variant
 ///
 /// Optimized for mobile deployment with ~2.5M parameters.
+///
+/// **DEPRECATED**: Use [`MobileNetV3`] with `BackboneType::MobileNetV3Small` instead.
+/// This legacy implementation has limited functionality.
+#[deprecated(since = "2.0.6", note = "Use MobileNetV3 with BackboneType::MobileNetV3Small instead")]
 #[derive(Debug, Clone)]
 pub struct MobileNetV3Small {
     config: MobileNetConfig,
@@ -59,6 +63,10 @@ pub struct MobileNetV3Small {
 /// MobileNet-V3 Large variant
 ///
 /// Higher accuracy variant with ~5.4M parameters.
+///
+/// **DEPRECATED**: Use [`MobileNetV3`] with `BackboneType::MobileNetV3Large` instead.
+/// This legacy implementation has limited functionality.
+#[deprecated(since = "2.0.6", note = "Use MobileNetV3 with BackboneType::MobileNetV3Large instead")]
 #[derive(Debug, Clone)]
 pub struct MobileNetV3Large {
     config: MobileNetConfig,
@@ -186,14 +194,15 @@ impl Backbone for MobileNetV3Small {
         );
         x = layers::hard_swish(&x);
 
-        // Process blocks (simplified - skip detailed implementation)
-        for _block in &self.blocks {
-            // Each block would process here
-            // For simplicity, we just pass through
+        // Process inverted residual blocks
+        let mut current_channels = 16;
+        for block in &self.blocks {
+            x = Self::process_inverted_residual(&x, block, current_channels);
+            current_channels = block.out_channels;
         }
 
-        // Global average pooling
-        let pooled = layers::global_avg_pool(&x, 16);
+        // Global average pooling with correct channel count
+        let pooled = layers::global_avg_pool(&x, current_channels);
 
         pooled
     }
@@ -285,7 +294,15 @@ impl Backbone for MobileNetV3Large {
         );
         x = layers::hard_swish(&x);
 
-        let pooled = layers::global_avg_pool(&x, 16);
+        // Process inverted residual blocks
+        let mut current_channels = 16;
+        for block in &self.blocks {
+            x = Self::process_inverted_residual(&x, block, current_channels);
+            current_channels = block.out_channels;
+        }
+
+        // Global average pooling with correct channel count
+        let pooled = layers::global_avg_pool(&x, current_channels);
 
         pooled
     }
@@ -296,6 +313,133 @@ impl Backbone for MobileNetV3Large {
 
     fn input_size(&self) -> usize {
         self.config.input_size
+    }
+
+    /// Process a single inverted residual block
+    fn process_inverted_residual(input: &[f32], block: &InvertedResidual, in_channels: usize) -> Vec<f32> {
+        let spatial = input.len() / in_channels;
+        let h = (spatial as f32).sqrt() as usize;
+        let w = h;
+
+        let mut x = input.to_vec();
+        let mut current_c = in_channels;
+
+        // Expansion (1x1 conv)
+        if let (Some(ref weights), Some(ref bn)) = (&block.expand_weights, &block.expand_bn) {
+            let exp_c = block.expansion * in_channels;
+            let mut expanded = vec![0.0f32; spatial * exp_c];
+            // Simple 1x1 convolution
+            for s in 0..spatial {
+                for oc in 0..exp_c {
+                    let mut sum = 0.0f32;
+                    for ic in 0..current_c {
+                        sum += x[s * current_c + ic] * weights[oc * current_c + ic];
+                    }
+                    expanded[s * exp_c + oc] = sum;
+                }
+            }
+            // Batch norm + activation
+            x = layers::batch_norm(&expanded, &bn.gamma, &bn.beta, &bn.mean, &bn.var, 1e-5);
+            x = layers::hard_swish(&x);
+            current_c = exp_c;
+        }
+
+        // Depthwise 3x3 conv
+        let dw_c = current_c;
+        let mut dw_out = vec![0.0f32; spatial * dw_c];
+        for oh in 0..h {
+            for ow in 0..w {
+                for c in 0..dw_c {
+                    let mut sum = 0.0f32;
+                    for kh in 0..3 {
+                        for kw in 0..3 {
+                            let ih = oh as isize + kh as isize - 1;
+                            let iw = ow as isize + kw as isize - 1;
+                            if ih >= 0 && ih < h as isize && iw >= 0 && iw < w as isize {
+                                let idx = (ih as usize * w + iw as usize) * dw_c + c;
+                                sum += x[idx] * block.dw_weights[c * 9 + kh * 3 + kw];
+                            }
+                        }
+                    }
+                    dw_out[(oh * w + ow) * dw_c + c] = sum;
+                }
+            }
+        }
+        x = layers::batch_norm(&dw_out, &block.dw_bn.gamma, &block.dw_bn.beta,
+                               &block.dw_bn.mean, &block.dw_bn.var, 1e-5);
+        x = layers::hard_swish(&x);
+
+        // SE block (optional)
+        if let (Some(ref reduce), Some(ref expand)) = (&block.se_reduce, &block.se_expand) {
+            let se_c = reduce.len() / dw_c;
+            // Global avg pool
+            let mut pooled = vec![0.0f32; dw_c];
+            for c in 0..dw_c {
+                let mut sum = 0.0f32;
+                for s in 0..spatial {
+                    sum += x[s * dw_c + c];
+                }
+                pooled[c] = sum / spatial as f32;
+            }
+            // FC reduce + ReLU
+            let mut squeezed = vec![0.0f32; se_c];
+            for o in 0..se_c {
+                let mut sum = 0.0f32;
+                for i in 0..dw_c {
+                    sum += pooled[i] * reduce[o * dw_c + i];
+                }
+                squeezed[o] = sum.max(0.0);
+            }
+            // FC expand + Sigmoid
+            let mut scale = vec![0.0f32; dw_c];
+            for o in 0..dw_c {
+                let mut sum = 0.0f32;
+                for i in 0..se_c {
+                    sum += squeezed[i] * expand[o * se_c + i];
+                }
+                scale[o] = 1.0 / (1.0 + (-sum).exp());
+            }
+            // Apply scale
+            for s in 0..spatial {
+                for c in 0..dw_c {
+                    x[s * dw_c + c] *= scale[c];
+                }
+            }
+        }
+
+        // Projection (1x1 conv)
+        let out_c = block.out_channels;
+        let mut projected = vec![0.0f32; spatial * out_c];
+        for s in 0..spatial {
+            for oc in 0..out_c {
+                let mut sum = 0.0f32;
+                for ic in 0..dw_c {
+                    sum += x[s * dw_c + ic] * block.project_weights[oc * dw_c + ic];
+                }
+                projected[s * out_c + oc] = sum;
+            }
+        }
+        let output = layers::batch_norm(&projected, &block.project_bn.gamma, &block.project_bn.beta,
+                                       &block.project_bn.mean, &block.project_bn.var, 1e-5);
+
+        // Residual connection
+        if block.use_residual && in_channels == out_c {
+            let mut result = output.clone();
+            for i in 0..result.len() {
+                result[i] += input[i];
+            }
+            result
+        } else {
+            output
+        }
+    }
+}
+
+// Same helper for Small variant
+impl MobileNetV3Small {
+    /// Process a single inverted residual block
+    fn process_inverted_residual(input: &[f32], block: &InvertedResidual, in_channels: usize) -> Vec<f32> {
+        MobileNetV3Large::process_inverted_residual(input, block, in_channels)
     }
 }
 

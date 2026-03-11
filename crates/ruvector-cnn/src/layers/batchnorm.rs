@@ -29,7 +29,8 @@ pub struct BatchNorm {
     running_var: Vec<f32>,
     /// Small constant for numerical stability
     epsilon: f32,
-    /// Momentum for running statistics update
+    /// Momentum for running statistics update (used in training mode)
+    #[allow(dead_code)]
     momentum: f32,
 }
 

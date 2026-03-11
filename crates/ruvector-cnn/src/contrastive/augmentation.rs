@@ -20,6 +20,7 @@
 use crate::error::{CnnError, CnnResult};
 #[cfg(feature = "augmentation")]
 use image::{DynamicImage, GenericImageView, ImageBuffer, Rgb, RgbImage};
+#[cfg(feature = "augmentation")]
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 
@@ -202,6 +203,8 @@ impl Default for ContrastiveAugmentationBuilder {
 #[derive(Debug, Clone)]
 pub struct ContrastiveAugmentation {
     config: AugmentationConfig,
+    /// Random number generator for stochastic augmentations
+    #[allow(dead_code)]
     rng: rand::rngs::StdRng,
 }
 

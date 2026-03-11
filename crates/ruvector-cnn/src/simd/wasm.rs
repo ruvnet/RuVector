@@ -164,7 +164,8 @@ pub fn batch_norm_wasm(
 // ============================================================================
 
 /// WASM SIMD 3x3 convolution (NHWC layout)
-/// Falls back to scalar for WASM due to limited SIMD support for conv patterns
+///
+/// Processes 4 output channels simultaneously using WASM SIMD128.
 #[cfg(target_arch = "wasm32")]
 #[inline]
 pub fn conv_3x3_wasm(
@@ -178,8 +179,76 @@ pub fn conv_3x3_wasm(
     stride: usize,
     padding: usize,
 ) {
-    // Use scalar implementation for now - WASM SIMD conv is complex
-    crate::simd::scalar::conv_3x3_scalar(input, kernel, output, in_h, in_w, in_c, out_c, stride, padding)
+    let out_h = (in_h + 2 * padding - 3) / stride + 1;
+    let out_w = (in_w + 2 * padding - 3) / stride + 1;
+    let out_c_chunks = out_c / 4;
+
+    for oh in 0..out_h {
+        for ow in 0..out_w {
+            let out_spatial_idx = oh * out_w + ow;
+
+            // Process 4 output channels at once
+            for oc_chunk in 0..out_c_chunks {
+                let oc_base = oc_chunk * 4;
+                let mut sum = f32x4_splat(0.0);
+
+                for kh in 0..3 {
+                    for kw in 0..3 {
+                        let ih = (oh * stride + kh) as isize - padding as isize;
+                        let iw = (ow * stride + kw) as isize - padding as isize;
+
+                        if ih >= 0 && ih < in_h as isize && iw >= 0 && iw < in_w as isize {
+                            let ih = ih as usize;
+                            let iw = iw as usize;
+
+                            for ic in 0..in_c {
+                                let input_idx = (ih * in_w + iw) * in_c + ic;
+                                let input_val = f32x4_splat(input[input_idx]);
+
+                                // Gather 4 kernel weights
+                                let mut kernel_vals = [0.0f32; 4];
+                                for i in 0..4 {
+                                    let k_idx = ((oc_base + i) * in_c + ic) * 9 + kh * 3 + kw;
+                                    if k_idx < kernel.len() {
+                                        kernel_vals[i] = kernel[k_idx];
+                                    }
+                                }
+                                let kernel_v = v128_load(kernel_vals.as_ptr() as *const v128);
+
+                                let prod = f32x4_mul(input_val, kernel_v);
+                                sum = f32x4_add(sum, prod);
+                            }
+                        }
+                    }
+                }
+
+                let out_base = out_spatial_idx * out_c + oc_base;
+                v128_store(output[out_base..].as_mut_ptr() as *mut v128, sum);
+            }
+
+            // Remainder channels
+            for oc in (out_c_chunks * 4)..out_c {
+                let mut sum = 0.0f32;
+                for kh in 0..3 {
+                    for kw in 0..3 {
+                        let ih = (oh * stride + kh) as isize - padding as isize;
+                        let iw = (ow * stride + kw) as isize - padding as isize;
+
+                        if ih >= 0 && ih < in_h as isize && iw >= 0 && iw < in_w as isize {
+                            let ih = ih as usize;
+                            let iw = iw as usize;
+                            for ic in 0..in_c {
+                                let input_idx = (ih * in_w + iw) * in_c + ic;
+                                let kernel_idx = (oc * in_c + ic) * 9 + kh * 3 + kw;
+                                sum += input[input_idx] * kernel[kernel_idx];
+                            }
+                        }
+                    }
+                }
+                output[out_spatial_idx * out_c + oc] = sum;
+            }
+        }
+    }
 }
 
 // ============================================================================
@@ -187,6 +256,8 @@ pub fn conv_3x3_wasm(
 // ============================================================================
 
 /// WASM depthwise 3x3 convolution
+///
+/// Processes 4 channels simultaneously using WASM SIMD128.
 #[cfg(target_arch = "wasm32")]
 #[inline]
 pub fn depthwise_conv_3x3_wasm(
@@ -199,8 +270,68 @@ pub fn depthwise_conv_3x3_wasm(
     stride: usize,
     padding: usize,
 ) {
-    // Use scalar implementation
-    crate::simd::scalar::depthwise_conv_3x3_scalar(input, kernel, output, h, w, c, stride, padding)
+    let out_h = (h + 2 * padding - 3) / stride + 1;
+    let out_w = (w + 2 * padding - 3) / stride + 1;
+    let c_chunks = c / 4;
+
+    for oh in 0..out_h {
+        for ow in 0..out_w {
+            // Process 4 channels at a time
+            for c_chunk in 0..c_chunks {
+                let c_base = c_chunk * 4;
+                let mut sum = f32x4_splat(0.0);
+
+                for kh in 0..3 {
+                    for kw in 0..3 {
+                        let ih = (oh * stride + kh) as isize - padding as isize;
+                        let iw = (ow * stride + kw) as isize - padding as isize;
+
+                        if ih >= 0 && ih < h as isize && iw >= 0 && iw < w as isize {
+                            let ih = ih as usize;
+                            let iw = iw as usize;
+
+                            // Load 4 input values
+                            let input_base = (ih * w + iw) * c + c_base;
+                            let input_v = v128_load(input[input_base..].as_ptr() as *const v128);
+
+                            // Load 4 kernel weights
+                            let mut kernel_vals = [0.0f32; 4];
+                            for i in 0..4 {
+                                kernel_vals[i] = kernel[(c_base + i) * 9 + kh * 3 + kw];
+                            }
+                            let kernel_v = v128_load(kernel_vals.as_ptr() as *const v128);
+
+                            let prod = f32x4_mul(input_v, kernel_v);
+                            sum = f32x4_add(sum, prod);
+                        }
+                    }
+                }
+
+                let out_base = (oh * out_w + ow) * c + c_base;
+                v128_store(output[out_base..].as_mut_ptr() as *mut v128, sum);
+            }
+
+            // Remainder channels
+            for ch in (c_chunks * 4)..c {
+                let mut sum = 0.0f32;
+                for kh in 0..3 {
+                    for kw in 0..3 {
+                        let ih = (oh * stride + kh) as isize - padding as isize;
+                        let iw = (ow * stride + kw) as isize - padding as isize;
+
+                        if ih >= 0 && ih < h as isize && iw >= 0 && iw < w as isize {
+                            let ih = ih as usize;
+                            let iw = iw as usize;
+                            let input_idx = (ih * w + iw) * c + ch;
+                            let kernel_idx = ch * 9 + kh * 3 + kw;
+                            sum += input[input_idx] * kernel[kernel_idx];
+                        }
+                    }
+                }
+                output[(oh * out_w + ow) * c + ch] = sum;
+            }
+        }
+    }
 }
 
 // ============================================================================

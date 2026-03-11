@@ -71,8 +71,9 @@ pub use embedding::{
     cosine_similarity, euclidean_distance,
 };
 
-#[cfg(all(feature = "backbone", feature = "parallel"))]
-pub use embedding::parallel::ParallelEmbedding;
+// ParallelEmbedding requires the `parallel` feature (not yet implemented)
+// #[cfg(all(feature = "backbone", feature = "parallel"))]
+// pub use embedding::parallel::ParallelEmbedding;
 
 use serde::{Deserialize, Serialize};
 
