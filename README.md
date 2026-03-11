@@ -102,6 +102,7 @@ User Query → [SONA Engine] → Model Response → User Feedback
 | 22 | [**Domain expansion**](./crates/ruvector-domain-expansion) | Cross-domain transfer learning — new tasks bootstrap from past learning automatically |
 | 23 | [**Advanced math**](./crates/ruvector-math) | Optimal transport, Sinkhorn distances, KL divergence, spectral clustering |
 | 24 | [**Coherence measurement**](./crates/ruvector-coherence) | Measure signal quality and compare attention mechanisms objectively |
+| 25 | [**CNN image embeddings**](./crates/ruvector-cnn) | MobileNet-V3 with SIMD/Winograd/INT8 — <5ms image embeddings, WASM-ready, zero deps |
 
 **Graph Transformers** ([8 verified modules](./crates/ruvector-graph-transformer))
 | # | Capability | What It Does |

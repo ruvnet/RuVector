@@ -5,10 +5,13 @@
 //! - AVX2 with FMA for Intel Haswell+ / AMD Zen+ (8 floats per iteration)
 //! - NEON for ARM64/Apple Silicon (4 floats per iteration)
 //! - WASM SIMD for WebAssembly (4 floats per iteration)
+//! - Winograd F(2,3) for 2.25x faster 3x3 convolutions
 //! - Scalar fallback for all other platforms
 
 pub mod avx2;
+pub mod quantize;
 pub mod scalar;
+pub mod winograd;
 
 #[cfg(target_arch = "aarch64")]
 pub mod neon;
@@ -19,6 +22,12 @@ pub mod wasm;
 // Re-export the dispatch functions
 pub use avx2::*;
 pub use scalar::*;
+pub use winograd::{conv_3x3_winograd, transform_filter, transform_input, transform_output, WinogradFilterCache};
+pub use quantize::{
+    QuantParams, QuantizedTensor, QuantizationType, PerChannelQuantParams,
+    quantize_simd, dequantize_simd, quantize_batch, dequantize_batch,
+    pi_constants,
+};
 
 /// SIMD-accelerated dot product with automatic architecture dispatch
 #[inline(always)]
