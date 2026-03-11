@@ -1,0 +1,1028 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RuVector CNN - Image Embeddings Demo</title>
+    <style>
+        :root {
+            --bg-primary: #0a0a0f;
+            --bg-secondary: #12121a;
+            --bg-card: #1a1a24;
+            --accent: #6366f1;
+            --accent-glow: rgba(99, 102, 241, 0.3);
+            --text-primary: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --border: #2d2d3a;
+            --success: #22c55e;
+            --warning: #f59e0b;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .gradient-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background:
+                radial-gradient(ellipse at 20% 20%, rgba(99, 102, 241, 0.15) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 80%, rgba(139, 92, 246, 0.1) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+            position: relative;
+            z-index: 1;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+
+        h1 {
+            font-size: 3rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #6366f1, #a855f7, #ec4899);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 0.5rem;
+        }
+
+        .subtitle {
+            color: var(--text-secondary);
+            font-size: 1.2rem;
+            margin-bottom: 1rem;
+        }
+
+        .badges {
+            display: flex;
+            gap: 0.5rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .badge {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            padding: 0.4rem 0.8rem;
+            border-radius: 9999px;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        .badge.highlight {
+            background: var(--accent);
+            color: white;
+            border-color: var(--accent);
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 1rem;
+            padding: 1.5rem;
+            transition: all 0.3s ease;
+        }
+
+        .card:hover {
+            border-color: var(--accent);
+            box-shadow: 0 0 30px var(--accent-glow);
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+        }
+
+        .card-icon {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, var(--accent), #a855f7);
+            border-radius: 0.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+        }
+
+        .card-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+
+        .drop-zone {
+            border: 2px dashed var(--border);
+            border-radius: 0.75rem;
+            padding: 3rem 2rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: var(--bg-secondary);
+        }
+
+        .drop-zone:hover, .drop-zone.drag-over {
+            border-color: var(--accent);
+            background: rgba(99, 102, 241, 0.1);
+        }
+
+        .drop-zone-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+
+        .drop-zone-text {
+            color: var(--text-secondary);
+            margin-bottom: 0.5rem;
+        }
+
+        .drop-zone-hint {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            opacity: 0.7;
+        }
+
+        .preview-area {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .preview-item {
+            position: relative;
+            aspect-ratio: 1;
+            border-radius: 0.5rem;
+            overflow: hidden;
+            border: 2px solid transparent;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .preview-item:hover {
+            border-color: var(--accent);
+            transform: scale(1.02);
+        }
+
+        .preview-item.selected {
+            border-color: var(--success);
+            box-shadow: 0 0 20px rgba(34, 197, 94, 0.3);
+        }
+
+        .preview-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .preview-item .remove-btn {
+            position: absolute;
+            top: 0.25rem;
+            right: 0.25rem;
+            width: 24px;
+            height: 24px;
+            background: rgba(0, 0, 0, 0.7);
+            border: none;
+            border-radius: 50%;
+            color: white;
+            cursor: pointer;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        .preview-item:hover .remove-btn {
+            opacity: 1;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, var(--accent), #8b5cf6);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px var(--accent-glow);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-secondary {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+        }
+
+        .btn-row {
+            display: flex;
+            gap: 0.75rem;
+            margin-top: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .similarity-matrix {
+            display: grid;
+            gap: 0.25rem;
+            margin-top: 1rem;
+        }
+
+        .matrix-row {
+            display: flex;
+            gap: 0.25rem;
+        }
+
+        .matrix-cell {
+            width: 60px;
+            height: 60px;
+            border-radius: 0.25rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .matrix-cell.header {
+            background: var(--bg-secondary);
+            overflow: hidden;
+        }
+
+        .matrix-cell.header img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .embedding-viz {
+            height: 120px;
+            background: var(--bg-secondary);
+            border-radius: 0.5rem;
+            margin-top: 1rem;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .embedding-bars {
+            display: flex;
+            align-items: flex-end;
+            height: 100%;
+            padding: 0.5rem;
+            gap: 1px;
+        }
+
+        .embedding-bar {
+            flex: 1;
+            background: linear-gradient(to top, var(--accent), #a855f7);
+            border-radius: 2px 2px 0 0;
+            min-width: 2px;
+            transition: height 0.3s ease;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .stat-card {
+            background: var(--bg-secondary);
+            border-radius: 0.5rem;
+            padding: 1rem;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--accent);
+        }
+
+        .stat-label {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            margin-top: 0.25rem;
+        }
+
+        .camera-container {
+            position: relative;
+            border-radius: 0.5rem;
+            overflow: hidden;
+            background: var(--bg-secondary);
+        }
+
+        #camera-video {
+            width: 100%;
+            display: block;
+            border-radius: 0.5rem;
+        }
+
+        .camera-overlay {
+            position: absolute;
+            bottom: 1rem;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .loading {
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+            color: var(--text-secondary);
+        }
+
+        .loading.active {
+            display: flex;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid var(--border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 1rem;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .console {
+            background: #0d1117;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            font-family: 'JetBrains Mono', 'Fira Code', monospace;
+            font-size: 0.85rem;
+            max-height: 200px;
+            overflow-y: auto;
+            margin-top: 1rem;
+        }
+
+        .console-line {
+            margin-bottom: 0.25rem;
+        }
+
+        .console-line.success { color: var(--success); }
+        .console-line.info { color: var(--accent); }
+        .console-line.warning { color: var(--warning); }
+
+        .sample-images {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .sample-image {
+            width: 80px;
+            height: 80px;
+            border-radius: 0.5rem;
+            overflow: hidden;
+            cursor: pointer;
+            border: 2px solid var(--border);
+            transition: all 0.3s ease;
+        }
+
+        .sample-image:hover {
+            border-color: var(--accent);
+            transform: scale(1.05);
+        }
+
+        .sample-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        footer {
+            text-align: center;
+            padding: 2rem;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        footer a {
+            color: var(--accent);
+            text-decoration: none;
+        }
+
+        footer a:hover {
+            text-decoration: underline;
+        }
+
+        @media (max-width: 768px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+
+            h1 {
+                font-size: 2rem;
+            }
+
+            .container {
+                padding: 1rem;
+            }
+        }
+
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+    <div class="gradient-bg"></div>
+
+    <div class="container">
+        <header>
+            <h1>RuVector CNN</h1>
+            <p class="subtitle">Turn images into searchable vectors — runs in your browser</p>
+            <div class="badges">
+                <span class="badge highlight">~5ms per image</span>
+                <span class="badge">512-dim embeddings</span>
+                <span class="badge">WASM SIMD</span>
+                <span class="badge">No backend needed</span>
+            </div>
+        </header>
+
+        <div id="loading-screen" class="loading active">
+            <div class="spinner"></div>
+            <span>Loading WASM module...</span>
+        </div>
+
+        <div id="main-content" class="hidden">
+            <div class="grid">
+                <!-- Upload Section -->
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-icon">📤</div>
+                        <h2 class="card-title">Upload Images</h2>
+                    </div>
+
+                    <div class="drop-zone" id="drop-zone">
+                        <div class="drop-zone-icon">🖼️</div>
+                        <p class="drop-zone-text">Drop images here or click to upload</p>
+                        <p class="drop-zone-hint">Supports JPG, PNG, WebP</p>
+                    </div>
+                    <input type="file" id="file-input" multiple accept="image/*" style="display: none;">
+
+                    <p style="margin-top: 1rem; color: var(--text-secondary); font-size: 0.9rem;">Or try sample images:</p>
+                    <div class="sample-images" id="sample-images"></div>
+
+                    <div class="preview-area" id="preview-area"></div>
+
+                    <div class="btn-row">
+                        <button class="btn" id="extract-btn" disabled>
+                            🧠 Extract Features
+                        </button>
+                        <button class="btn btn-secondary" id="clear-btn" disabled>
+                            🗑️ Clear All
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Camera Section -->
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-icon">📷</div>
+                        <h2 class="card-title">Camera Capture</h2>
+                    </div>
+
+                    <div class="camera-container">
+                        <video id="camera-video" autoplay playsinline></video>
+                        <div class="camera-overlay">
+                            <button class="btn" id="start-camera-btn">Start Camera</button>
+                            <button class="btn btn-secondary hidden" id="capture-btn">📸 Capture</button>
+                            <button class="btn btn-secondary hidden" id="stop-camera-btn">Stop</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Results Section -->
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-icon">📊</div>
+                        <h2 class="card-title">Similarity Matrix</h2>
+                    </div>
+
+                    <p style="color: var(--text-secondary); font-size: 0.9rem;">
+                        Select 2+ images to compare similarity (1.0 = identical)
+                    </p>
+
+                    <div id="similarity-matrix"></div>
+
+                    <div class="stats-grid" id="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-value" id="stat-images">0</div>
+                            <div class="stat-label">Images</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="stat-time">0ms</div>
+                            <div class="stat-label">Avg Time</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="stat-dim">512</div>
+                            <div class="stat-label">Dimensions</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Embedding Visualization -->
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-icon">📈</div>
+                        <h2 class="card-title">Embedding Visualization</h2>
+                    </div>
+
+                    <p style="color: var(--text-secondary); font-size: 0.9rem;">
+                        Click an image to see its 512-dimensional embedding vector
+                    </p>
+
+                    <div class="embedding-viz">
+                        <div class="embedding-bars" id="embedding-bars"></div>
+                    </div>
+
+                    <div class="console" id="console">
+                        <div class="console-line info">[System] Ready to process images...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <footer>
+            <p>
+                Powered by <a href="https://github.com/ruvnet/ruvector" target="_blank">RuVector</a> |
+                <a href="https://www.npmjs.com/package/@ruvector/cnn" target="_blank">npm</a> |
+                <a href="https://crates.io/crates/ruvector-cnn" target="_blank">crates.io</a>
+            </p>
+            <p style="margin-top: 0.5rem; opacity: 0.7;">
+                Built with Rust + WebAssembly • SIMD-optimized • Zero dependencies
+            </p>
+        </footer>
+    </div>
+
+    <script type="module">
+        // Import from CDN
+        const CDN_BASE = 'https://unpkg.com/@ruvector/cnn@0.1.0';
+
+        // State
+        let embedder = null;
+        let images = [];
+        let embeddings = new Map();
+        let processingTimes = [];
+
+        // DOM Elements
+        const loadingScreen = document.getElementById('loading-screen');
+        const mainContent = document.getElementById('main-content');
+        const dropZone = document.getElementById('drop-zone');
+        const fileInput = document.getElementById('file-input');
+        const previewArea = document.getElementById('preview-area');
+        const extractBtn = document.getElementById('extract-btn');
+        const clearBtn = document.getElementById('clear-btn');
+        const consoleEl = document.getElementById('console');
+        const embeddingBars = document.getElementById('embedding-bars');
+        const similarityMatrix = document.getElementById('similarity-matrix');
+        const cameraVideo = document.getElementById('camera-video');
+        const startCameraBtn = document.getElementById('start-camera-btn');
+        const captureBtn = document.getElementById('capture-btn');
+        const stopCameraBtn = document.getElementById('stop-camera-btn');
+        const sampleImagesContainer = document.getElementById('sample-images');
+
+        // Console logging
+        function log(message, type = 'info') {
+            const line = document.createElement('div');
+            line.className = `console-line ${type}`;
+            line.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            consoleEl.appendChild(line);
+            consoleEl.scrollTop = consoleEl.scrollHeight;
+        }
+
+        // Initialize WASM module
+        async function initWasm() {
+            try {
+                log('Loading WASM module from CDN...');
+
+                // Dynamic import from CDN
+                const module = await import(`${CDN_BASE}/ruvector_cnn_wasm.js`);
+
+                // Initialize the WASM
+                await module.default(`${CDN_BASE}/ruvector_cnn_wasm_bg.wasm`);
+
+                // Create embedder
+                embedder = new module.CnnEmbedder({ embeddingDim: 512, normalize: true });
+
+                log('WASM module loaded successfully!', 'success');
+                log(`Embedding dimension: ${embedder.embeddingDim}`);
+
+                loadingScreen.classList.remove('active');
+                mainContent.classList.remove('hidden');
+
+                // Store module reference for similarity calculation
+                window.wasmModule = module;
+
+            } catch (error) {
+                log(`Failed to load WASM: ${error.message}`, 'warning');
+                console.error(error);
+
+                // Fallback: Show demo with simulated embeddings
+                loadingScreen.innerHTML = `
+                    <div style="text-align: center; color: var(--text-secondary);">
+                        <p style="margin-bottom: 1rem;">⚠️ WASM loading from CDN failed</p>
+                        <p style="font-size: 0.9rem;">Running in demo mode with simulated embeddings</p>
+                        <button class="btn" onclick="startDemoMode()" style="margin-top: 1rem;">Continue in Demo Mode</button>
+                    </div>
+                `;
+            }
+        }
+
+        // Demo mode with simulated embeddings
+        window.startDemoMode = function() {
+            embedder = {
+                embeddingDim: 512,
+                extract: () => {
+                    const arr = new Float32Array(512);
+                    for (let i = 0; i < 512; i++) arr[i] = (Math.random() - 0.5) * 2;
+                    // Normalize
+                    const norm = Math.sqrt(arr.reduce((s, v) => s + v*v, 0));
+                    for (let i = 0; i < 512; i++) arr[i] /= norm;
+                    return arr;
+                },
+                cosineSimilarity: (a, b) => {
+                    let dot = 0;
+                    for (let i = 0; i < a.length; i++) dot += a[i] * b[i];
+                    return dot;
+                }
+            };
+            log('Running in demo mode (simulated embeddings)', 'warning');
+            loadingScreen.classList.add('hidden');
+            mainContent.classList.remove('hidden');
+        };
+
+        // Sample images (using placeholder images)
+        const sampleImageUrls = [
+            'https://picsum.photos/seed/cat1/224/224',
+            'https://picsum.photos/seed/dog1/224/224',
+            'https://picsum.photos/seed/car1/224/224',
+            'https://picsum.photos/seed/flower1/224/224',
+            'https://picsum.photos/seed/house1/224/224',
+            'https://picsum.photos/seed/bird1/224/224'
+        ];
+
+        // Load sample images
+        function loadSampleImages() {
+            sampleImageUrls.forEach((url, i) => {
+                const div = document.createElement('div');
+                div.className = 'sample-image';
+                div.innerHTML = `<img src="${url}" alt="Sample ${i+1}" crossorigin="anonymous">`;
+                div.onclick = () => loadImageFromUrl(url);
+                sampleImagesContainer.appendChild(div);
+            });
+        }
+
+        // Load image from URL
+        async function loadImageFromUrl(url) {
+            try {
+                const img = new Image();
+                img.crossOrigin = 'anonymous';
+
+                await new Promise((resolve, reject) => {
+                    img.onload = resolve;
+                    img.onerror = reject;
+                    img.src = url;
+                });
+
+                addImage(img, `sample-${Date.now()}`);
+                log(`Loaded sample image`, 'success');
+
+            } catch (error) {
+                log(`Failed to load sample image: ${error.message}`, 'warning');
+            }
+        }
+
+        // Add image to collection
+        function addImage(imgElement, id) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 224;
+            canvas.height = 224;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(imgElement, 0, 0, 224, 224);
+
+            const imageData = ctx.getImageData(0, 0, 224, 224);
+            const rgb = new Uint8Array(224 * 224 * 3);
+
+            for (let i = 0, j = 0; i < imageData.data.length; i += 4, j += 3) {
+                rgb[j] = imageData.data[i];
+                rgb[j + 1] = imageData.data[i + 1];
+                rgb[j + 2] = imageData.data[i + 2];
+            }
+
+            const imageObj = {
+                id,
+                dataUrl: canvas.toDataURL(),
+                rgb,
+                embedding: null
+            };
+
+            images.push(imageObj);
+            renderPreviews();
+            updateButtons();
+        }
+
+        // Render image previews
+        function renderPreviews() {
+            previewArea.innerHTML = '';
+
+            images.forEach((img, index) => {
+                const div = document.createElement('div');
+                div.className = 'preview-item';
+                if (img.embedding) div.classList.add('selected');
+
+                div.innerHTML = `
+                    <img src="${img.dataUrl}" alt="Preview ${index + 1}">
+                    <button class="remove-btn" onclick="removeImage(${index})">×</button>
+                `;
+
+                div.onclick = (e) => {
+                    if (e.target.tagName !== 'BUTTON' && img.embedding) {
+                        visualizeEmbedding(img.embedding);
+                    }
+                };
+
+                previewArea.appendChild(div);
+            });
+
+            document.getElementById('stat-images').textContent = images.length;
+        }
+
+        // Remove image
+        window.removeImage = function(index) {
+            images.splice(index, 1);
+            renderPreviews();
+            updateButtons();
+            updateSimilarityMatrix();
+        };
+
+        // Update button states
+        function updateButtons() {
+            extractBtn.disabled = images.length === 0;
+            clearBtn.disabled = images.length === 0;
+        }
+
+        // Extract features from all images
+        async function extractFeatures() {
+            if (!embedder) return;
+
+            extractBtn.disabled = true;
+            extractBtn.textContent = '⏳ Processing...';
+            processingTimes = [];
+
+            for (const img of images) {
+                const start = performance.now();
+
+                try {
+                    img.embedding = embedder.extract(img.rgb, 224, 224);
+                    const elapsed = performance.now() - start;
+                    processingTimes.push(elapsed);
+
+                    log(`Extracted ${img.embedding.length}-dim embedding in ${elapsed.toFixed(2)}ms`, 'success');
+                } catch (error) {
+                    log(`Error extracting features: ${error.message}`, 'warning');
+                }
+            }
+
+            // Update stats
+            if (processingTimes.length > 0) {
+                const avgTime = processingTimes.reduce((a, b) => a + b) / processingTimes.length;
+                document.getElementById('stat-time').textContent = `${avgTime.toFixed(1)}ms`;
+            }
+
+            renderPreviews();
+            updateSimilarityMatrix();
+
+            if (images.length > 0 && images[0].embedding) {
+                visualizeEmbedding(images[0].embedding);
+            }
+
+            extractBtn.disabled = false;
+            extractBtn.textContent = '🧠 Extract Features';
+        }
+
+        // Visualize embedding as bar chart
+        function visualizeEmbedding(embedding) {
+            embeddingBars.innerHTML = '';
+
+            // Downsample to 128 bars for visualization
+            const step = Math.floor(embedding.length / 128);
+
+            for (let i = 0; i < 128; i++) {
+                const value = embedding[i * step];
+                const height = Math.abs(value) * 100;
+                const bar = document.createElement('div');
+                bar.className = 'embedding-bar';
+                bar.style.height = `${Math.max(2, height)}%`;
+                bar.style.opacity = 0.5 + Math.abs(value) * 0.5;
+                embeddingBars.appendChild(bar);
+            }
+        }
+
+        // Update similarity matrix
+        function updateSimilarityMatrix() {
+            const validImages = images.filter(img => img.embedding);
+
+            if (validImages.length < 2) {
+                similarityMatrix.innerHTML = '<p style="color: var(--text-secondary); text-align: center; padding: 2rem;">Extract features from 2+ images to see similarity</p>';
+                return;
+            }
+
+            let html = '<div class="similarity-matrix" style="grid-template-columns: repeat(' + (validImages.length + 1) + ', 60px);">';
+
+            // Header row
+            html += '<div class="matrix-row"><div class="matrix-cell"></div>';
+            validImages.forEach(img => {
+                html += `<div class="matrix-cell header"><img src="${img.dataUrl}"></div>`;
+            });
+            html += '</div>';
+
+            // Data rows
+            validImages.forEach((img1, i) => {
+                html += `<div class="matrix-row"><div class="matrix-cell header"><img src="${img1.dataUrl}"></div>`;
+
+                validImages.forEach((img2, j) => {
+                    let similarity;
+                    if (embedder.cosineSimilarity) {
+                        similarity = embedder.cosineSimilarity(img1.embedding, img2.embedding);
+                    } else {
+                        // Fallback calculation
+                        let dot = 0;
+                        for (let k = 0; k < img1.embedding.length; k++) {
+                            dot += img1.embedding[k] * img2.embedding[k];
+                        }
+                        similarity = dot;
+                    }
+
+                    const hue = similarity * 120; // 0 = red, 120 = green
+                    const color = `hsl(${hue}, 70%, 40%)`;
+
+                    html += `<div class="matrix-cell" style="background: ${color};">${similarity.toFixed(2)}</div>`;
+                });
+
+                html += '</div>';
+            });
+
+            html += '</div>';
+            similarityMatrix.innerHTML = html;
+        }
+
+        // Camera functionality
+        let cameraStream = null;
+
+        async function startCamera() {
+            try {
+                cameraStream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: 'environment', width: 640, height: 480 }
+                });
+                cameraVideo.srcObject = cameraStream;
+
+                startCameraBtn.classList.add('hidden');
+                captureBtn.classList.remove('hidden');
+                stopCameraBtn.classList.remove('hidden');
+
+                log('Camera started', 'success');
+            } catch (error) {
+                log(`Camera error: ${error.message}`, 'warning');
+            }
+        }
+
+        function stopCamera() {
+            if (cameraStream) {
+                cameraStream.getTracks().forEach(track => track.stop());
+                cameraStream = null;
+            }
+            cameraVideo.srcObject = null;
+
+            startCameraBtn.classList.remove('hidden');
+            captureBtn.classList.add('hidden');
+            stopCameraBtn.classList.add('hidden');
+        }
+
+        function captureFrame() {
+            const canvas = document.createElement('canvas');
+            canvas.width = cameraVideo.videoWidth;
+            canvas.height = cameraVideo.videoHeight;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(cameraVideo, 0, 0);
+
+            const img = new Image();
+            img.onload = () => {
+                addImage(img, `camera-${Date.now()}`);
+                log('Captured frame from camera', 'success');
+            };
+            img.src = canvas.toDataURL();
+        }
+
+        // Drag and drop
+        dropZone.addEventListener('click', () => fileInput.click());
+
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('drag-over');
+        });
+
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('drag-over');
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('drag-over');
+            handleFiles(e.dataTransfer.files);
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            handleFiles(e.target.files);
+        });
+
+        function handleFiles(files) {
+            Array.from(files).forEach(file => {
+                if (!file.type.startsWith('image/')) return;
+
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        addImage(img, file.name);
+                        log(`Loaded: ${file.name}`, 'success');
+                    };
+                    img.src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+
+        // Button handlers
+        extractBtn.addEventListener('click', extractFeatures);
+        clearBtn.addEventListener('click', () => {
+            images = [];
+            embeddings.clear();
+            processingTimes = [];
+            renderPreviews();
+            updateButtons();
+            similarityMatrix.innerHTML = '';
+            embeddingBars.innerHTML = '';
+            document.getElementById('stat-time').textContent = '0ms';
+            log('Cleared all images', 'info');
+        });
+
+        startCameraBtn.addEventListener('click', startCamera);
+        stopCameraBtn.addEventListener('click', stopCamera);
+        captureBtn.addEventListener('click', captureFrame);
+
+        // Initialize
+        loadSampleImages();
+        initWasm();
+    </script>
+</body>
+</html>
