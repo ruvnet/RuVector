@@ -3,19 +3,34 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RuVector CNN - Image Embeddings Demo</title>
+    <title>RuVector CNN - Neural Image Understanding</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg-primary: #0a0a0f;
-            --bg-secondary: #12121a;
-            --bg-card: #1a1a24;
-            --accent: #6366f1;
-            --accent-glow: rgba(99, 102, 241, 0.3);
-            --text-primary: #f1f5f9;
-            --text-secondary: #94a3b8;
-            --border: #2d2d3a;
-            --success: #22c55e;
-            --warning: #f59e0b;
+            --background: 0 0% 3.9%;
+            --foreground: 0 0% 98%;
+            --card: 0 0% 7%;
+            --card-foreground: 0 0% 98%;
+            --popover: 0 0% 7%;
+            --popover-foreground: 0 0% 98%;
+            --primary: 262.1 83.3% 57.8%;
+            --primary-foreground: 210 20% 98%;
+            --secondary: 0 0% 14.9%;
+            --secondary-foreground: 0 0% 98%;
+            --muted: 0 0% 14.9%;
+            --muted-foreground: 0 0% 63.9%;
+            --accent: 262.1 83.3% 57.8%;
+            --accent-foreground: 210 20% 98%;
+            --destructive: 0 62.8% 30.6%;
+            --destructive-foreground: 0 0% 98%;
+            --border: 0 0% 14.9%;
+            --input: 0 0% 14.9%;
+            --ring: 262.1 83.3% 57.8%;
+            --radius: 0.75rem;
+            --success: 142 76% 36%;
+            --warning: 38 92% 50%;
         }
 
         * {
@@ -26,23 +41,31 @@
 
         body {
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: var(--bg-primary);
-            color: var(--text-primary);
+            background: hsl(var(--background));
+            color: hsl(var(--foreground));
             min-height: 100vh;
-            overflow-x: hidden;
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
         }
 
-        .gradient-bg {
+        .gradient-blur {
             position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
+            top: -50%;
+            left: -50%;
+            right: -50%;
+            bottom: -50%;
             background:
-                radial-gradient(ellipse at 20% 20%, rgba(99, 102, 241, 0.15) 0%, transparent 50%),
-                radial-gradient(ellipse at 80% 80%, rgba(139, 92, 246, 0.1) 0%, transparent 50%);
+                radial-gradient(circle at 20% 30%, hsla(262, 83%, 58%, 0.15) 0%, transparent 40%),
+                radial-gradient(circle at 80% 70%, hsla(280, 80%, 50%, 0.1) 0%, transparent 40%),
+                radial-gradient(circle at 50% 50%, hsla(220, 70%, 50%, 0.05) 0%, transparent 60%);
             pointer-events: none;
             z-index: 0;
+            animation: pulse-bg 8s ease-in-out infinite;
+        }
+
+        @keyframes pulse-bg {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
         }
 
         .container {
@@ -53,28 +76,56 @@
             z-index: 1;
         }
 
+        /* Header */
         header {
             text-align: center;
             margin-bottom: 3rem;
+            padding: 2rem 0;
         }
 
-        h1 {
-            font-size: 3rem;
-            font-weight: 800;
-            background: linear-gradient(135deg, #6366f1, #a855f7, #ec4899);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            margin-bottom: 0.5rem;
-        }
-
-        .subtitle {
-            color: var(--text-secondary);
-            font-size: 1.2rem;
+        .logo {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.75rem;
             margin-bottom: 1rem;
         }
 
-        .badges {
+        .logo-icon {
+            width: 48px;
+            height: 48px;
+            background: linear-gradient(135deg, hsl(var(--primary)), hsl(280, 80%, 50%));
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            box-shadow: 0 0 30px hsla(262, 83%, 58%, 0.4);
+        }
+
+        h1 {
+            font-size: 3.5rem;
+            font-weight: 800;
+            letter-spacing: -0.025em;
+            background: linear-gradient(135deg, #fff 0%, hsl(var(--primary)) 50%, #fff 100%);
+            background-size: 200% auto;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: shine 3s linear infinite;
+        }
+
+        @keyframes shine {
+            to { background-position: 200% center; }
+        }
+
+        .tagline {
+            color: hsl(var(--muted-foreground));
+            font-size: 1.125rem;
+            margin: 0.5rem 0 1.5rem;
+            font-weight: 500;
+        }
+
+        .badge-row {
             display: flex;
             gap: 0.5rem;
             justify-content: center;
@@ -82,119 +133,244 @@
         }
 
         .badge {
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            padding: 0.4rem 0.8rem;
+            background: hsl(var(--secondary));
+            border: 1px solid hsl(var(--border));
+            padding: 0.375rem 0.875rem;
             border-radius: 9999px;
-            font-size: 0.85rem;
-            color: var(--text-secondary);
+            font-size: 0.8rem;
+            font-weight: 500;
+            color: hsl(var(--muted-foreground));
+            transition: all 0.2s;
         }
 
-        .badge.highlight {
-            background: var(--accent);
-            color: white;
-            border-color: var(--accent);
+        .badge:hover {
+            border-color: hsl(var(--primary));
+            color: hsl(var(--foreground));
         }
 
+        .badge.primary {
+            background: hsla(262, 83%, 58%, 0.15);
+            border-color: hsl(var(--primary));
+            color: hsl(var(--primary));
+        }
+
+        /* Tabs */
+        .tabs {
+            display: flex;
+            gap: 0.25rem;
+            background: hsl(var(--secondary));
+            padding: 0.25rem;
+            border-radius: var(--radius);
+            margin-bottom: 2rem;
+            width: fit-content;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .tab {
+            padding: 0.625rem 1.25rem;
+            border-radius: calc(var(--radius) - 4px);
+            border: none;
+            background: transparent;
+            color: hsl(var(--muted-foreground));
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .tab:hover {
+            color: hsl(var(--foreground));
+        }
+
+        .tab.active {
+            background: hsl(var(--card));
+            color: hsl(var(--foreground));
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+        }
+
+        /* Tab Content */
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* Grid */
         .grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
             gap: 1.5rem;
-            margin-bottom: 2rem;
         }
 
+        /* Cards */
         .card {
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: 1rem;
-            padding: 1.5rem;
+            background: hsl(var(--card));
+            border: 1px solid hsl(var(--border));
+            border-radius: var(--radius);
+            overflow: hidden;
             transition: all 0.3s ease;
         }
 
         .card:hover {
-            border-color: var(--accent);
-            box-shadow: 0 0 30px var(--accent-glow);
+            border-color: hsla(262, 83%, 58%, 0.5);
+            box-shadow: 0 0 40px hsla(262, 83%, 58%, 0.1);
         }
 
         .card-header {
+            padding: 1.25rem 1.5rem;
+            border-bottom: 1px solid hsl(var(--border));
             display: flex;
             align-items: center;
             gap: 0.75rem;
-            margin-bottom: 1rem;
         }
 
         .card-icon {
-            width: 40px;
-            height: 40px;
-            background: linear-gradient(135deg, var(--accent), #a855f7);
-            border-radius: 0.5rem;
+            width: 36px;
+            height: 36px;
+            background: linear-gradient(135deg, hsl(var(--primary)), hsl(280, 80%, 50%));
+            border-radius: 8px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 1.2rem;
+            font-size: 1rem;
         }
 
         .card-title {
-            font-size: 1.2rem;
+            font-size: 1rem;
             font-weight: 600;
         }
 
+        .card-description {
+            font-size: 0.8rem;
+            color: hsl(var(--muted-foreground));
+        }
+
+        .card-body {
+            padding: 1.5rem;
+        }
+
+        /* Drop Zone */
         .drop-zone {
-            border: 2px dashed var(--border);
-            border-radius: 0.75rem;
+            border: 2px dashed hsl(var(--border));
+            border-radius: var(--radius);
             padding: 3rem 2rem;
             text-align: center;
             cursor: pointer;
             transition: all 0.3s ease;
-            background: var(--bg-secondary);
+            background: hsla(var(--secondary), 0.5);
         }
 
         .drop-zone:hover, .drop-zone.drag-over {
-            border-color: var(--accent);
-            background: rgba(99, 102, 241, 0.1);
+            border-color: hsl(var(--primary));
+            background: hsla(262, 83%, 58%, 0.05);
         }
 
         .drop-zone-icon {
-            font-size: 3rem;
-            margin-bottom: 1rem;
-        }
-
-        .drop-zone-text {
-            color: var(--text-secondary);
-            margin-bottom: 0.5rem;
-        }
-
-        .drop-zone-hint {
-            font-size: 0.85rem;
-            color: var(--text-secondary);
+            font-size: 2.5rem;
+            margin-bottom: 0.75rem;
             opacity: 0.7;
         }
 
-        .preview-area {
+        .drop-zone-text {
+            color: hsl(var(--foreground));
+            font-weight: 500;
+            margin-bottom: 0.25rem;
+        }
+
+        .drop-zone-hint {
+            font-size: 0.8rem;
+            color: hsl(var(--muted-foreground));
+        }
+
+        /* Buttons */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            padding: 0.625rem 1.25rem;
+            border-radius: calc(var(--radius) - 2px);
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: none;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, hsl(var(--primary)), hsl(280, 80%, 50%));
+            color: white;
+            box-shadow: 0 0 20px hsla(262, 83%, 58%, 0.3);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 0 30px hsla(262, 83%, 58%, 0.4);
+        }
+
+        .btn-secondary {
+            background: hsl(var(--secondary));
+            border: 1px solid hsl(var(--border));
+            color: hsl(var(--foreground));
+        }
+
+        .btn-secondary:hover {
+            background: hsl(var(--muted));
+            border-color: hsl(var(--muted-foreground));
+        }
+
+        .btn-ghost {
+            background: transparent;
+            color: hsl(var(--muted-foreground));
+        }
+
+        .btn-ghost:hover {
+            background: hsl(var(--secondary));
+            color: hsl(var(--foreground));
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
+        .btn-row {
+            display: flex;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+            margin-top: 1rem;
+        }
+
+        /* Preview Grid */
+        .preview-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-            gap: 1rem;
+            grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+            gap: 0.75rem;
             margin-top: 1rem;
         }
 
         .preview-item {
             position: relative;
             aspect-ratio: 1;
-            border-radius: 0.5rem;
+            border-radius: calc(var(--radius) - 2px);
             overflow: hidden;
             border: 2px solid transparent;
             cursor: pointer;
-            transition: all 0.3s ease;
+            transition: all 0.2s;
         }
 
         .preview-item:hover {
-            border-color: var(--accent);
+            border-color: hsl(var(--primary));
             transform: scale(1.02);
         }
 
         .preview-item.selected {
-            border-color: var(--success);
-            box-shadow: 0 0 20px rgba(34, 197, 94, 0.3);
+            border-color: hsl(var(--success));
+            box-shadow: 0 0 15px hsla(142, 76%, 36%, 0.3);
         }
 
         .preview-item img {
@@ -205,14 +381,15 @@
 
         .preview-item .remove-btn {
             position: absolute;
-            top: 0.25rem;
-            right: 0.25rem;
-            width: 24px;
-            height: 24px;
-            background: rgba(0, 0, 0, 0.7);
+            top: 4px;
+            right: 4px;
+            width: 20px;
+            height: 20px;
+            background: rgba(0, 0, 0, 0.8);
             border: none;
             border-radius: 50%;
             color: white;
+            font-size: 12px;
             cursor: pointer;
             opacity: 0;
             transition: opacity 0.2s;
@@ -222,83 +399,81 @@
             opacity: 1;
         }
 
-        .btn {
-            background: linear-gradient(135deg, var(--accent), #8b5cf6);
-            color: white;
-            border: none;
-            padding: 0.75rem 1.5rem;
-            border-radius: 0.5rem;
-            font-size: 1rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            display: inline-flex;
-            align-items: center;
+        /* Camera */
+        .camera-wrapper {
+            position: relative;
+            border-radius: var(--radius);
+            overflow: hidden;
+            background: hsl(var(--secondary));
+        }
+
+        #camera-video {
+            width: 100%;
+            display: block;
+            background: #000;
+        }
+
+        .camera-overlay {
+            position: absolute;
+            bottom: 1rem;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
             gap: 0.5rem;
         }
 
-        .btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 30px var(--accent-glow);
-        }
-
-        .btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-            transform: none;
-        }
-
-        .btn-secondary {
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-        }
-
-        .btn-row {
+        .camera-stats {
+            position: absolute;
+            top: 0.75rem;
+            left: 0.75rem;
             display: flex;
-            gap: 0.75rem;
-            margin-top: 1rem;
-            flex-wrap: wrap;
+            gap: 0.5rem;
         }
 
-        .similarity-matrix {
-            display: grid;
-            gap: 0.25rem;
-            margin-top: 1rem;
-        }
-
-        .matrix-row {
-            display: flex;
-            gap: 0.25rem;
-        }
-
-        .matrix-cell {
-            width: 60px;
-            height: 60px;
-            border-radius: 0.25rem;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+        .stat-badge {
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(8px);
+            padding: 0.25rem 0.625rem;
+            border-radius: 6px;
             font-size: 0.75rem;
             font-weight: 600;
-            transition: all 0.3s ease;
+            border: 1px solid rgba(255,255,255,0.1);
         }
 
-        .matrix-cell.header {
-            background: var(--bg-secondary);
-            overflow: hidden;
+        .stat-badge.fps { color: hsl(var(--success)); }
+        .stat-badge.latency { color: hsl(var(--primary)); }
+
+        /* Stats Cards */
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 0.75rem;
         }
 
-        .matrix-cell.header img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
+        .stat-card {
+            background: hsl(var(--secondary));
+            border-radius: calc(var(--radius) - 2px);
+            padding: 1rem;
+            text-align: center;
         }
 
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: hsl(var(--primary));
+        }
+
+        .stat-label {
+            font-size: 0.75rem;
+            color: hsl(var(--muted-foreground));
+            margin-top: 0.25rem;
+        }
+
+        /* Embedding Viz */
         .embedding-viz {
-            height: 120px;
-            background: var(--bg-secondary);
-            border-radius: 0.5rem;
-            margin-top: 1rem;
+            height: 100px;
+            background: hsl(var(--secondary));
+            border-radius: calc(var(--radius) - 2px);
             overflow: hidden;
             position: relative;
         }
@@ -313,373 +488,609 @@
 
         .embedding-bar {
             flex: 1;
-            background: linear-gradient(to top, var(--accent), #a855f7);
-            border-radius: 2px 2px 0 0;
             min-width: 2px;
-            transition: height 0.3s ease;
+            border-radius: 2px 2px 0 0;
+            transition: height 0.15s ease;
         }
 
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 1rem;
+        /* Similarity Matrix */
+        .matrix-container {
+            overflow-x: auto;
             margin-top: 1rem;
         }
 
-        .stat-card {
-            background: var(--bg-secondary);
-            border-radius: 0.5rem;
-            padding: 1rem;
-            text-align: center;
+        .matrix {
+            display: inline-grid;
+            gap: 3px;
         }
 
-        .stat-value {
-            font-size: 1.5rem;
-            font-weight: 700;
-            color: var(--accent);
-        }
-
-        .stat-label {
-            font-size: 0.85rem;
-            color: var(--text-secondary);
-            margin-top: 0.25rem;
-        }
-
-        .camera-container {
-            position: relative;
-            border-radius: 0.5rem;
-            overflow: hidden;
-            background: var(--bg-secondary);
-        }
-
-        #camera-video {
-            width: 100%;
-            display: block;
-            border-radius: 0.5rem;
-        }
-
-        .camera-overlay {
-            position: absolute;
-            bottom: 1rem;
-            left: 50%;
-            transform: translateX(-50%);
+        .matrix-cell {
+            width: 50px;
+            height: 50px;
+            border-radius: 4px;
             display: flex;
-            gap: 0.5rem;
-        }
-
-        .realtime-stats {
-            position: absolute;
-            top: 0.5rem;
-            left: 0.5rem;
-            display: flex;
-            gap: 0.5rem;
-        }
-
-        .realtime-stats span {
-            background: rgba(0, 0, 0, 0.7);
-            padding: 0.25rem 0.5rem;
-            border-radius: 0.25rem;
-            font-size: 0.8rem;
-            font-weight: 600;
-        }
-
-        .realtime-stats #fps-display {
-            color: var(--success);
-        }
-
-        .realtime-stats #latency-display {
-            color: var(--accent);
-        }
-
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
-        }
-
-        .realtime-active {
-            animation: pulse 1s infinite;
-        }
-
-        .loading {
-            display: none;
             align-items: center;
             justify-content: center;
-            padding: 2rem;
-            color: var(--text-secondary);
+            font-size: 0.7rem;
+            font-weight: 600;
+            transition: all 0.2s;
         }
 
-        .loading.active {
-            display: flex;
+        .matrix-cell.header {
+            background: hsl(var(--secondary));
+            overflow: hidden;
         }
 
-        .spinner {
-            width: 40px;
-            height: 40px;
-            border: 3px solid var(--border);
-            border-top-color: var(--accent);
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin-right: 1rem;
+        .matrix-cell.header img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
         }
 
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-
+        /* Console */
         .console {
             background: #0d1117;
-            border-radius: 0.5rem;
+            border: 1px solid hsl(var(--border));
+            border-radius: calc(var(--radius) - 2px);
             padding: 1rem;
-            font-family: 'JetBrains Mono', 'Fira Code', monospace;
-            font-size: 0.85rem;
-            max-height: 200px;
+            font-family: 'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
+            font-size: 0.8rem;
+            max-height: 180px;
             overflow-y: auto;
-            margin-top: 1rem;
         }
 
         .console-line {
             margin-bottom: 0.25rem;
+            line-height: 1.4;
         }
 
-        .console-line.success { color: var(--success); }
-        .console-line.info { color: var(--accent); }
-        .console-line.warning { color: var(--warning); }
+        .console-line.success { color: hsl(var(--success)); }
+        .console-line.info { color: hsl(var(--primary)); }
+        .console-line.warning { color: hsl(var(--warning)); }
 
-        .sample-images {
+        /* Use Cases */
+        .use-case-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1rem;
+        }
+
+        .use-case {
+            background: hsl(var(--secondary));
+            border: 1px solid hsl(var(--border));
+            border-radius: var(--radius);
+            padding: 1.25rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .use-case:hover {
+            border-color: hsl(var(--primary));
+            transform: translateY(-2px);
+        }
+
+        .use-case-icon {
+            font-size: 2rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .use-case-title {
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .use-case-desc {
+            font-size: 0.85rem;
+            color: hsl(var(--muted-foreground));
+        }
+
+        /* Sample Images */
+        .sample-row {
             display: flex;
             gap: 0.5rem;
             margin-top: 1rem;
             flex-wrap: wrap;
         }
 
-        .sample-image {
-            width: 80px;
-            height: 80px;
-            border-radius: 0.5rem;
+        .sample-img {
+            width: 64px;
+            height: 64px;
+            border-radius: 8px;
             overflow: hidden;
             cursor: pointer;
-            border: 2px solid var(--border);
-            transition: all 0.3s ease;
+            border: 2px solid hsl(var(--border));
+            transition: all 0.2s;
         }
 
-        .sample-image:hover {
-            border-color: var(--accent);
+        .sample-img:hover {
+            border-color: hsl(var(--primary));
             transform: scale(1.05);
         }
 
-        .sample-image img {
+        .sample-img img {
             width: 100%;
             height: 100%;
             object-fit: cover;
         }
 
+        /* Footer */
         footer {
             text-align: center;
-            padding: 2rem;
-            color: var(--text-secondary);
-            font-size: 0.9rem;
+            padding: 3rem 2rem;
+            color: hsl(var(--muted-foreground));
+            font-size: 0.875rem;
         }
 
         footer a {
-            color: var(--accent);
+            color: hsl(var(--primary));
             text-decoration: none;
+            transition: opacity 0.2s;
         }
 
         footer a:hover {
-            text-decoration: underline;
+            opacity: 0.8;
         }
 
-        @media (max-width: 768px) {
-            .grid {
-                grid-template-columns: 1fr;
-            }
+        /* Loading */
+        .loading-screen {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 4rem 2rem;
+            gap: 1.5rem;
+        }
 
-            h1 {
-                font-size: 2rem;
-            }
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid hsl(var(--border));
+            border-top-color: hsl(var(--primary));
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
 
-            .container {
-                padding: 1rem;
-            }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Realtime Panel */
+        .realtime-panel {
+            margin-top: 1rem;
+            padding: 1rem;
+            background: hsl(var(--secondary));
+            border-radius: var(--radius);
+            border: 1px solid hsl(var(--border));
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+
+        .realtime-active {
+            animation: pulse 1.5s ease-in-out infinite;
         }
 
         .hidden { display: none !important; }
+
+        @media (max-width: 768px) {
+            .grid { grid-template-columns: 1fr; }
+            h1 { font-size: 2.25rem; }
+            .container { padding: 1rem; }
+            .tabs { width: 100%; justify-content: center; }
+        }
     </style>
 </head>
 <body>
-    <div class="gradient-bg"></div>
+    <div class="gradient-blur"></div>
 
     <div class="container">
         <header>
+            <div class="logo">
+                <div class="logo-icon">🧠</div>
+            </div>
             <h1>RuVector CNN</h1>
-            <p class="subtitle">Turn images into searchable vectors — runs in your browser</p>
-            <div class="badges">
-                <span class="badge highlight">~5ms per image</span>
+            <p class="tagline">Neural image understanding in your browser — no backend required</p>
+            <div class="badge-row">
+                <span class="badge primary">~5ms inference</span>
                 <span class="badge">512-dim embeddings</span>
                 <span class="badge">WASM SIMD</span>
-                <span class="badge">No backend needed</span>
+                <span class="badge">60+ FPS real-time</span>
+                <span class="badge">17-keypoint pose</span>
             </div>
         </header>
 
-        <div id="loading-screen" class="loading active">
-            <div class="spinner"></div>
-            <span>Loading WASM module...</span>
+        <!-- Tabs -->
+        <div class="tabs">
+            <button class="tab active" data-tab="playground">Playground</button>
+            <button class="tab" data-tab="realtime">Real-time</button>
+            <button class="tab" data-tab="pose">Pose Estimation</button>
+            <button class="tab" data-tab="examples">Examples</button>
         </div>
 
+        <!-- Loading -->
+        <div id="loading-screen" class="loading-screen">
+            <div class="spinner"></div>
+            <span style="color: hsl(var(--muted-foreground));">Loading neural network...</span>
+        </div>
+
+        <!-- Main Content -->
         <div id="main-content" class="hidden">
-            <div class="grid">
-                <!-- Upload Section -->
-                <div class="card">
-                    <div class="card-header">
-                        <div class="card-icon">📤</div>
-                        <h2 class="card-title">Upload Images</h2>
-                    </div>
 
-                    <div class="drop-zone" id="drop-zone">
-                        <div class="drop-zone-icon">🖼️</div>
-                        <p class="drop-zone-text">Drop images here or click to upload</p>
-                        <p class="drop-zone-hint">Supports JPG, PNG, WebP</p>
-                    </div>
-                    <input type="file" id="file-input" multiple accept="image/*" style="display: none;">
-
-                    <p style="margin-top: 1rem; color: var(--text-secondary); font-size: 0.9rem;">Or try sample images:</p>
-                    <div class="sample-images" id="sample-images"></div>
-
-                    <div class="preview-area" id="preview-area"></div>
-
-                    <div class="btn-row">
-                        <button class="btn" id="extract-btn" disabled>
-                            🧠 Extract Features
-                        </button>
-                        <button class="btn btn-secondary" id="clear-btn" disabled>
-                            🗑️ Clear All
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Camera Section -->
-                <div class="card">
-                    <div class="card-header">
-                        <div class="card-icon">📷</div>
-                        <h2 class="card-title">Real-time CNN</h2>
-                    </div>
-
-                    <div class="camera-container">
-                        <video id="camera-video" autoplay playsinline></video>
-                        <div id="realtime-stats" class="realtime-stats hidden">
-                            <span id="fps-display">0 FPS</span>
-                            <span id="latency-display">0ms</span>
-                        </div>
-                        <div class="camera-overlay">
-                            <button class="btn" id="start-camera-btn">Start Camera</button>
-                            <button class="btn btn-secondary hidden" id="capture-btn">📸 Capture</button>
-                            <button class="btn hidden" id="realtime-btn">⚡ Real-time</button>
-                            <button class="btn btn-secondary hidden" id="stop-camera-btn">Stop</button>
-                        </div>
-                    </div>
-
-                    <div id="realtime-panel" class="hidden" style="margin-top: 1rem;">
-                        <div style="display: flex; gap: 1rem; margin-bottom: 1rem;">
-                            <div class="stat-card" style="flex: 1;">
-                                <div class="stat-value" id="rt-fps">0</div>
-                                <div class="stat-label">FPS</div>
-                            </div>
-                            <div class="stat-card" style="flex: 1;">
-                                <div class="stat-value" id="rt-latency">0ms</div>
-                                <div class="stat-label">Latency</div>
-                            </div>
-                            <div class="stat-card" style="flex: 1;">
-                                <div class="stat-value" id="rt-similarity">-</div>
-                                <div class="stat-label">Similarity</div>
+            <!-- Playground Tab -->
+            <div class="tab-content active" data-tab="playground">
+                <div class="grid">
+                    <!-- Upload Card -->
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-icon">📤</div>
+                            <div>
+                                <div class="card-title">Image Upload</div>
+                                <div class="card-description">Drop images to extract embeddings</div>
                             </div>
                         </div>
-                        <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 0.5rem;">
-                            Live embedding (updates every frame):
-                        </p>
-                        <div class="embedding-viz" style="height: 80px;">
-                            <div class="embedding-bars" id="realtime-bars"></div>
-                        </div>
-                        <div class="btn-row">
-                            <button class="btn btn-secondary" id="set-reference-btn">📌 Set as Reference</button>
-                            <button class="btn btn-secondary" id="stop-realtime-btn">⏹️ Stop Real-time</button>
-                        </div>
-                    </div>
-                </div>
+                        <div class="card-body">
+                            <div class="drop-zone" id="drop-zone">
+                                <div class="drop-zone-icon">🖼️</div>
+                                <p class="drop-zone-text">Drop images or click to upload</p>
+                                <p class="drop-zone-hint">JPG, PNG, WebP • Multiple files supported</p>
+                            </div>
+                            <input type="file" id="file-input" multiple accept="image/*" style="display: none;">
 
-                <!-- Results Section -->
-                <div class="card">
-                    <div class="card-header">
-                        <div class="card-icon">📊</div>
-                        <h2 class="card-title">Similarity Matrix</h2>
-                    </div>
+                            <p style="margin-top: 1rem; color: hsl(var(--muted-foreground)); font-size: 0.85rem;">Quick samples:</p>
+                            <div class="sample-row" id="sample-images"></div>
 
-                    <p style="color: var(--text-secondary); font-size: 0.9rem;">
-                        Select 2+ images to compare similarity (1.0 = identical)
-                    </p>
+                            <div class="preview-grid" id="preview-area"></div>
 
-                    <div id="similarity-matrix"></div>
-
-                    <div class="stats-grid" id="stats-grid">
-                        <div class="stat-card">
-                            <div class="stat-value" id="stat-images">0</div>
-                            <div class="stat-label">Images</div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-value" id="stat-time">0ms</div>
-                            <div class="stat-label">Avg Time</div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-value" id="stat-dim">512</div>
-                            <div class="stat-label">Dimensions</div>
+                            <div class="btn-row">
+                                <button class="btn btn-primary" id="extract-btn" disabled>🧠 Extract Embeddings</button>
+                                <button class="btn btn-secondary" id="clear-btn" disabled>Clear All</button>
+                            </div>
                         </div>
                     </div>
-                </div>
 
-                <!-- Embedding Visualization -->
-                <div class="card">
-                    <div class="card-header">
-                        <div class="card-icon">📈</div>
-                        <h2 class="card-title">Embedding Visualization</h2>
+                    <!-- Similarity Matrix -->
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-icon">📊</div>
+                            <div>
+                                <div class="card-title">Similarity Matrix</div>
+                                <div class="card-description">Compare image embeddings</div>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="stats-row">
+                                <div class="stat-card">
+                                    <div class="stat-value" id="stat-images">0</div>
+                                    <div class="stat-label">Images</div>
+                                </div>
+                                <div class="stat-card">
+                                    <div class="stat-value" id="stat-time">0ms</div>
+                                    <div class="stat-label">Avg Time</div>
+                                </div>
+                                <div class="stat-card">
+                                    <div class="stat-value" id="stat-dim">512</div>
+                                    <div class="stat-label">Dimensions</div>
+                                </div>
+                            </div>
+
+                            <div class="matrix-container" id="similarity-matrix">
+                                <p style="color: hsl(var(--muted-foreground)); text-align: center; padding: 2rem;">
+                                    Extract features from 2+ images to see similarity scores
+                                </p>
+                            </div>
+                        </div>
                     </div>
 
-                    <p style="color: var(--text-secondary); font-size: 0.9rem;">
-                        Click an image to see its 512-dimensional embedding vector
-                    </p>
+                    <!-- Embedding Viz -->
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-icon">📈</div>
+                            <div>
+                                <div class="card-title">Embedding Visualization</div>
+                                <div class="card-description">512-dimensional feature vector</div>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <p style="color: hsl(var(--muted-foreground)); font-size: 0.85rem; margin-bottom: 0.75rem;">
+                                Click an image to visualize its neural embedding
+                            </p>
+                            <div class="embedding-viz">
+                                <div class="embedding-bars" id="embedding-bars"></div>
+                            </div>
 
-                    <div class="embedding-viz">
-                        <div class="embedding-bars" id="embedding-bars"></div>
-                    </div>
-
-                    <div class="console" id="console">
-                        <div class="console-line info">[System] Ready to process images...</div>
+                            <div class="console" id="console">
+                                <div class="console-line info">> Ready for images...</div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
+
+            <!-- Real-time Tab -->
+            <div class="tab-content" data-tab="realtime">
+                <div class="grid">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-icon">📷</div>
+                            <div>
+                                <div class="card-title">Real-time Neural Vision</div>
+                                <div class="card-description">Live CNN processing at 60+ FPS</div>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="camera-wrapper">
+                                <video id="camera-video" autoplay playsinline></video>
+                                <div class="camera-stats hidden" id="camera-stats">
+                                    <span class="stat-badge fps" id="fps-display">0 FPS</span>
+                                    <span class="stat-badge latency" id="latency-display">0ms</span>
+                                </div>
+                                <div class="camera-overlay">
+                                    <button class="btn btn-primary" id="start-camera-btn">Start Camera</button>
+                                    <button class="btn btn-secondary hidden" id="capture-btn">📸 Capture</button>
+                                    <button class="btn btn-primary hidden" id="realtime-btn">⚡ Real-time Mode</button>
+                                    <button class="btn btn-secondary hidden" id="stop-camera-btn">Stop</button>
+                                </div>
+                            </div>
+
+                            <div class="realtime-panel hidden" id="realtime-panel">
+                                <div class="stats-row" style="margin-bottom: 1rem;">
+                                    <div class="stat-card">
+                                        <div class="stat-value" id="rt-fps">0</div>
+                                        <div class="stat-label">FPS</div>
+                                    </div>
+                                    <div class="stat-card">
+                                        <div class="stat-value" id="rt-latency">0ms</div>
+                                        <div class="stat-label">Latency</div>
+                                    </div>
+                                    <div class="stat-card">
+                                        <div class="stat-value" id="rt-similarity">—</div>
+                                        <div class="stat-label">vs Reference</div>
+                                    </div>
+                                </div>
+
+                                <p style="color: hsl(var(--muted-foreground)); font-size: 0.8rem; margin-bottom: 0.5rem;">
+                                    Live embedding (updates every frame):
+                                </p>
+                                <div class="embedding-viz" style="height: 70px;">
+                                    <div class="embedding-bars" id="realtime-bars"></div>
+                                </div>
+
+                                <div class="btn-row">
+                                    <button class="btn btn-secondary" id="set-reference-btn">📌 Set Reference</button>
+                                    <button class="btn btn-ghost" id="stop-realtime-btn">⏹️ Stop</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-icon">🎯</div>
+                            <div>
+                                <div class="card-title">How It Works</div>
+                                <div class="card-description">Real-time neural processing</div>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div style="color: hsl(var(--muted-foreground)); font-size: 0.9rem; line-height: 1.7;">
+                                <p><strong style="color: hsl(var(--foreground));">1. Capture</strong> — Each video frame is grabbed at native resolution</p>
+                                <p style="margin-top: 0.75rem;"><strong style="color: hsl(var(--foreground));">2. Preprocess</strong> — Center-cropped to 224×224, converted to RGB</p>
+                                <p style="margin-top: 0.75rem;"><strong style="color: hsl(var(--foreground));">3. Inference</strong> — MobileNet-V3 extracts 512-dim embedding in ~5ms</p>
+                                <p style="margin-top: 0.75rem;"><strong style="color: hsl(var(--foreground));">4. Compare</strong> — Cosine similarity vs reference image (0 to 1)</p>
+                            </div>
+                            <div style="margin-top: 1.5rem; padding: 1rem; background: hsl(var(--background)); border-radius: calc(var(--radius) - 2px); border: 1px solid hsl(var(--border));">
+                                <p style="font-size: 0.8rem; color: hsl(var(--muted-foreground));">
+                                    💡 <strong>Tip:</strong> Set a reference image, then move objects in front of the camera to see real-time similarity changes.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pose Estimation Tab -->
+            <div class="tab-content" data-tab="pose">
+                <div class="grid">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-icon">🏃</div>
+                            <div>
+                                <div class="card-title">Real-time Pose Estimation</div>
+                                <div class="card-description">17 keypoints • Skeleton visualization • MoveNet</div>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="camera-wrapper" style="position: relative;">
+                                <video id="pose-video" autoplay playsinline style="width: 100%; display: block; background: #000;"></video>
+                                <canvas id="pose-canvas" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;"></canvas>
+                                <div class="camera-stats hidden" id="pose-stats">
+                                    <span class="stat-badge fps" id="pose-fps-display">0 FPS</span>
+                                    <span class="stat-badge latency" id="pose-latency-display">0ms</span>
+                                </div>
+                                <div class="camera-overlay">
+                                    <button class="btn btn-primary" id="start-pose-btn">Start Pose Detection</button>
+                                    <button class="btn btn-secondary hidden" id="stop-pose-btn">Stop</button>
+                                </div>
+                            </div>
+
+                            <div class="realtime-panel hidden" id="pose-panel">
+                                <div class="stats-row" style="margin-bottom: 1rem;">
+                                    <div class="stat-card">
+                                        <div class="stat-value" id="pose-keypoints">0</div>
+                                        <div class="stat-label">Keypoints</div>
+                                    </div>
+                                    <div class="stat-card">
+                                        <div class="stat-value" id="pose-confidence">0%</div>
+                                        <div class="stat-label">Confidence</div>
+                                    </div>
+                                    <div class="stat-card">
+                                        <div class="stat-value" id="pose-similarity">—</div>
+                                        <div class="stat-label">vs Reference</div>
+                                    </div>
+                                </div>
+
+                                <div class="btn-row">
+                                    <button class="btn btn-secondary" id="set-pose-reference-btn">📌 Set Reference Pose</button>
+                                    <button class="btn btn-ghost" id="toggle-skeleton-btn">🦴 Toggle Skeleton</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-icon">🎯</div>
+                            <div>
+                                <div class="card-title">Pose Keypoints</div>
+                                <div class="card-description">17 body landmarks detected</div>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div id="keypoint-list" style="font-size: 0.85rem; color: hsl(var(--muted-foreground)); line-height: 1.8;">
+                                <p style="margin-bottom: 1rem;">Start pose detection to see keypoints</p>
+                                <div class="keypoint-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+                                    <div><span style="color: hsl(var(--primary));">●</span> Nose</div>
+                                    <div><span style="color: hsl(var(--primary));">●</span> Left Eye</div>
+                                    <div><span style="color: hsl(var(--primary));">●</span> Right Eye</div>
+                                    <div><span style="color: hsl(var(--primary));">●</span> Left Ear</div>
+                                    <div><span style="color: hsl(var(--primary));">●</span> Right Ear</div>
+                                    <div><span style="color: hsl(var(--success));">●</span> Left Shoulder</div>
+                                    <div><span style="color: hsl(var(--success));">●</span> Right Shoulder</div>
+                                    <div><span style="color: hsl(var(--success));">●</span> Left Elbow</div>
+                                    <div><span style="color: hsl(var(--success));">●</span> Right Elbow</div>
+                                    <div><span style="color: hsl(var(--success));">●</span> Left Wrist</div>
+                                    <div><span style="color: hsl(var(--success));">●</span> Right Wrist</div>
+                                    <div><span style="color: hsl(var(--warning));">●</span> Left Hip</div>
+                                    <div><span style="color: hsl(var(--warning));">●</span> Right Hip</div>
+                                    <div><span style="color: hsl(var(--warning));">●</span> Left Knee</div>
+                                    <div><span style="color: hsl(var(--warning));">●</span> Right Knee</div>
+                                    <div><span style="color: hsl(var(--warning));">●</span> Left Ankle</div>
+                                    <div><span style="color: hsl(var(--warning));">●</span> Right Ankle</div>
+                                </div>
+                            </div>
+
+                            <div style="margin-top: 1.5rem; padding: 1rem; background: hsl(var(--background)); border-radius: calc(var(--radius) - 2px); border: 1px solid hsl(var(--border));">
+                                <p style="font-size: 0.85rem; font-weight: 600; margin-bottom: 0.5rem;">Use Cases</p>
+                                <ul style="font-size: 0.8rem; color: hsl(var(--muted-foreground)); line-height: 1.6; padding-left: 1rem;">
+                                    <li>Fitness tracking & exercise form</li>
+                                    <li>Dance/movement analysis</li>
+                                    <li>Sign language recognition</li>
+                                    <li>Sports biomechanics</li>
+                                    <li>VR/AR body tracking</li>
+                                    <li>Gesture-based UI control</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-icon">📊</div>
+                            <div>
+                                <div class="card-title">Pose Embeddings</div>
+                                <div class="card-description">34-dim pose vector (x,y for 17 keypoints)</div>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <p style="color: hsl(var(--muted-foreground)); font-size: 0.85rem; margin-bottom: 0.75rem;">
+                                Live pose embedding visualization
+                            </p>
+                            <div class="embedding-viz" style="height: 80px;">
+                                <div class="embedding-bars" id="pose-embedding-bars"></div>
+                            </div>
+
+                            <div class="console" id="pose-console" style="margin-top: 1rem;">
+                                <div class="console-line info">> Pose detection ready...</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Examples Tab -->
+            <div class="tab-content" data-tab="examples">
+                <div class="use-case-grid">
+                    <div class="use-case" onclick="loadExample('visual-search')">
+                        <div class="use-case-icon">🔍</div>
+                        <div class="use-case-title">Visual Product Search</div>
+                        <div class="use-case-desc">Upload a photo to find similar products in a catalog. Perfect for e-commerce "shop the look" features.</div>
+                    </div>
+                    <div class="use-case" onclick="loadExample('face-verify')">
+                        <div class="use-case-icon">👤</div>
+                        <div class="use-case-title">Face Verification</div>
+                        <div class="use-case-desc">Compare two face images to verify if they're the same person. Client-side, privacy-preserving.</div>
+                    </div>
+                    <div class="use-case" onclick="loadExample('duplicate-detect')">
+                        <div class="use-case-icon">🔄</div>
+                        <div class="use-case-title">Duplicate Detection</div>
+                        <div class="use-case-desc">Find near-duplicate images in a collection. Useful for photo libraries and content moderation.</div>
+                    </div>
+                    <div class="use-case" onclick="loadExample('style-match')">
+                        <div class="use-case-icon">🎨</div>
+                        <div class="use-case-title">Art Style Matching</div>
+                        <div class="use-case-desc">Compare artistic styles between images. Group paintings by visual similarity.</div>
+                    </div>
+                    <div class="use-case" onclick="loadExample('quality-check')">
+                        <div class="use-case-icon">✅</div>
+                        <div class="use-case-title">Quality Control</div>
+                        <div class="use-case-desc">Compare product images to a reference. Detect defects by embedding distance.</div>
+                    </div>
+                    <div class="use-case" onclick="loadExample('scene-cluster')">
+                        <div class="use-case-icon">🗂️</div>
+                        <div class="use-case-title">Scene Clustering</div>
+                        <div class="use-case-desc">Automatically group photos by scene type: indoor, outdoor, nature, urban, etc.</div>
+                    </div>
+                    <div class="use-case" onclick="loadExample('pose-tracking')">
+                        <div class="use-case-icon">🏃</div>
+                        <div class="use-case-title">Pose Tracking</div>
+                        <div class="use-case-desc">Track body pose over time for fitness, dance analysis, or motion capture applications.</div>
+                    </div>
+                    <div class="use-case" onclick="loadExample('gesture-control')">
+                        <div class="use-case-icon">🖐️</div>
+                        <div class="use-case-title">Gesture Control</div>
+                        <div class="use-case-desc">Use pose keypoints to detect gestures and control applications hands-free.</div>
+                    </div>
+                </div>
+
+                <div id="example-output" style="margin-top: 2rem;"></div>
+            </div>
+
         </div>
 
         <footer>
             <p>
-                Powered by <a href="https://github.com/ruvnet/ruvector" target="_blank">RuVector</a> |
-                <a href="https://www.npmjs.com/package/@ruvector/cnn" target="_blank">npm</a> |
+                Built with <a href="https://github.com/ruvnet/ruvector" target="_blank">RuVector</a> •
+                <a href="https://www.npmjs.com/package/@ruvector/cnn" target="_blank">npm</a> •
                 <a href="https://crates.io/crates/ruvector-cnn" target="_blank">crates.io</a>
             </p>
-            <p style="margin-top: 0.5rem; opacity: 0.7;">
-                Built with Rust + WebAssembly • SIMD-optimized • Zero dependencies
+            <p style="margin-top: 0.5rem; opacity: 0.6;">
+                Rust + WebAssembly • SIMD Optimized • Zero Dependencies • MIT License
             </p>
         </footer>
     </div>
 
+    <!-- TensorFlow.js for Pose Estimation -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.17.0/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.0/dist/pose-detection.min.js"></script>
+
     <script type="module">
-        // Import locally (WASM files hosted alongside HTML)
         const WASM_BASE = '.';
 
         // State
         let embedder = null;
         let images = [];
-        let embeddings = new Map();
         let processingTimes = [];
+        let isRealtime = false;
+        let realtimeAnimationId = null;
+        let referenceEmbedding = null;
+        let frameCount = 0;
+        let lastFpsUpdate = 0;
+        let currentFps = 0;
+        let cameraStream = null;
 
-        // DOM Elements
+        // DOM
         const loadingScreen = document.getElementById('loading-screen');
         const mainContent = document.getElementById('main-content');
         const dropZone = document.getElementById('drop-zone');
@@ -698,83 +1109,60 @@
         const realtimeBtn = document.getElementById('realtime-btn');
         const realtimePanel = document.getElementById('realtime-panel');
         const realtimeBars = document.getElementById('realtime-bars');
-        const realtimeStats = document.getElementById('realtime-stats');
+        const cameraStats = document.getElementById('camera-stats');
         const setReferenceBtn = document.getElementById('set-reference-btn');
         const stopRealtimeBtn = document.getElementById('stop-realtime-btn');
 
-        // Real-time state
-        let isRealtime = false;
-        let realtimeAnimationId = null;
-        let referenceEmbedding = null;
-        let frameCount = 0;
-        let lastFpsUpdate = 0;
-        let currentFps = 0;
+        // Tabs
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                tab.classList.add('active');
+                document.querySelector(`.tab-content[data-tab="${tab.dataset.tab}"]`).classList.add('active');
+            });
+        });
 
-        // Console logging
         function log(message, type = 'info') {
             const line = document.createElement('div');
             line.className = `console-line ${type}`;
-            line.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            line.textContent = `> ${message}`;
             consoleEl.appendChild(line);
             consoleEl.scrollTop = consoleEl.scrollHeight;
+            if (consoleEl.children.length > 50) consoleEl.removeChild(consoleEl.firstChild);
         }
 
-        // Initialize WASM module
         async function initWasm() {
             try {
-                console.log('[RuVector] Starting WASM initialization...');
-                console.log('[RuVector] WASM_BASE:', WASM_BASE);
-                log('Loading WASM module...');
-
-                // Dynamic import (local files)
-                console.log('[RuVector] Importing JS module from:', `${WASM_BASE}/ruvector_cnn_wasm.js`);
+                console.log('[RuVector] Loading WASM...');
                 const module = await import(`${WASM_BASE}/ruvector_cnn_wasm.js`);
-                console.log('[RuVector] JS module loaded, exports:', Object.keys(module));
-
-                // Initialize the WASM (use object format to avoid deprecation warning)
-                console.log('[RuVector] Initializing WASM from:', `${WASM_BASE}/ruvector_cnn_wasm_bg.wasm`);
+                console.log('[RuVector] Module loaded:', Object.keys(module));
                 await module.default({ module_or_path: `${WASM_BASE}/ruvector_cnn_wasm_bg.wasm` });
-                console.log('[RuVector] WASM initialized successfully');
-
-                // Create embedder (WasmCnnEmbedder, not CnnEmbedder)
-                console.log('[RuVector] Creating WasmCnnEmbedder...');
                 embedder = new module.WasmCnnEmbedder();
-                console.log('[RuVector] Embedder created:', embedder);
-
-                log('WASM module loaded successfully!', 'success');
-                log(`Embedding dimension: ${embedder.embedding_dim}`);
-
-                loadingScreen.classList.remove('active');
-                mainContent.classList.remove('hidden');
-
-                // Store module reference for similarity calculation
-                window.wasmModule = module;
                 console.log('[RuVector] Ready!');
-
+                log('Neural network loaded', 'success');
+                log(`Model: MobileNet-V3 • ${embedder.embedding_dim}-dim embeddings`);
+                loadingScreen.classList.add('hidden');
+                mainContent.classList.remove('hidden');
+                window.wasmModule = module;
             } catch (error) {
-                console.error('[RuVector] WASM init failed:', error);
-                console.error('[RuVector] Error stack:', error.stack);
-                log(`Failed to load WASM: ${error.message}`, 'warning');
-
-                // Fallback: Show demo with simulated embeddings
+                console.error('[RuVector] Error:', error);
+                log(`WASM error: ${error.message}`, 'warning');
                 loadingScreen.innerHTML = `
-                    <div style="text-align: center; color: var(--text-secondary);">
-                        <p style="margin-bottom: 1rem;">⚠️ WASM loading from CDN failed</p>
-                        <p style="font-size: 0.9rem;">Running in demo mode with simulated embeddings</p>
-                        <button class="btn" onclick="startDemoMode()" style="margin-top: 1rem;">Continue in Demo Mode</button>
+                    <div style="text-align: center;">
+                        <p style="margin-bottom: 1rem; color: hsl(var(--warning));">⚠️ WASM failed to load</p>
+                        <button class="btn btn-primary" onclick="startDemoMode()">Continue in Demo Mode</button>
                     </div>
                 `;
             }
         }
 
-        // Demo mode with simulated embeddings
         window.startDemoMode = function() {
             embedder = {
                 embedding_dim: 512,
                 extract: () => {
                     const arr = new Float32Array(512);
                     for (let i = 0; i < 512; i++) arr[i] = (Math.random() - 0.5) * 2;
-                    // Normalize
                     const norm = Math.sqrt(arr.reduce((s, v) => s + v*v, 0));
                     for (let i = 0; i < 512; i++) arr[i] /= norm;
                     return arr;
@@ -785,351 +1173,233 @@
                     return dot;
                 }
             };
-            log('Running in demo mode (simulated embeddings)', 'warning');
+            log('Demo mode (simulated embeddings)', 'warning');
             loadingScreen.classList.add('hidden');
             mainContent.classList.remove('hidden');
         };
 
-        // Sample images (using placeholder images)
-        const sampleImageUrls = [
-            'https://picsum.photos/seed/cat1/224/224',
-            'https://picsum.photos/seed/dog1/224/224',
-            'https://picsum.photos/seed/car1/224/224',
-            'https://picsum.photos/seed/flower1/224/224',
-            'https://picsum.photos/seed/house1/224/224',
-            'https://picsum.photos/seed/bird1/224/224'
+        // Sample images
+        const samples = [
+            'https://picsum.photos/seed/product1/224/224',
+            'https://picsum.photos/seed/product2/224/224',
+            'https://picsum.photos/seed/nature1/224/224',
+            'https://picsum.photos/seed/face1/224/224',
+            'https://picsum.photos/seed/art1/224/224',
+            'https://picsum.photos/seed/city1/224/224'
         ];
 
-        // Load sample images
-        function loadSampleImages() {
-            sampleImageUrls.forEach((url, i) => {
-                const div = document.createElement('div');
-                div.className = 'sample-image';
-                div.innerHTML = `<img src="${url}" alt="Sample ${i+1}" crossorigin="anonymous">`;
-                div.onclick = () => loadImageFromUrl(url);
-                sampleImagesContainer.appendChild(div);
-            });
-        }
+        samples.forEach((url, i) => {
+            const div = document.createElement('div');
+            div.className = 'sample-img';
+            div.innerHTML = `<img src="${url}" alt="Sample" crossorigin="anonymous">`;
+            div.onclick = () => loadImageFromUrl(url);
+            sampleImagesContainer.appendChild(div);
+        });
 
-        // Load image from URL
         async function loadImageFromUrl(url) {
             try {
                 const img = new Image();
                 img.crossOrigin = 'anonymous';
-
                 await new Promise((resolve, reject) => {
                     img.onload = resolve;
                     img.onerror = reject;
                     img.src = url;
                 });
-
                 addImage(img, `sample-${Date.now()}`);
-                log(`Loaded sample image`, 'success');
-
+                log('Loaded sample image', 'success');
             } catch (error) {
-                log(`Failed to load sample image: ${error.message}`, 'warning');
+                log(`Failed: ${error.message}`, 'warning');
             }
         }
 
-        // Add image to collection
         function addImage(imgElement, id) {
             const canvas = document.createElement('canvas');
             canvas.width = 224;
             canvas.height = 224;
             const ctx = canvas.getContext('2d');
             ctx.drawImage(imgElement, 0, 0, 224, 224);
-
             const imageData = ctx.getImageData(0, 0, 224, 224);
             const rgb = new Uint8Array(224 * 224 * 3);
-
             for (let i = 0, j = 0; i < imageData.data.length; i += 4, j += 3) {
                 rgb[j] = imageData.data[i];
                 rgb[j + 1] = imageData.data[i + 1];
                 rgb[j + 2] = imageData.data[i + 2];
             }
-
-            const imageObj = {
-                id,
-                dataUrl: canvas.toDataURL(),
-                rgb,
-                embedding: null
-            };
-
-            images.push(imageObj);
+            images.push({ id, dataUrl: canvas.toDataURL(), rgb, embedding: null });
             renderPreviews();
             updateButtons();
         }
 
-        // Render image previews
         function renderPreviews() {
             previewArea.innerHTML = '';
-
-            images.forEach((img, index) => {
+            images.forEach((img, idx) => {
                 const div = document.createElement('div');
-                div.className = 'preview-item';
-                if (img.embedding) div.classList.add('selected');
-
-                div.innerHTML = `
-                    <img src="${img.dataUrl}" alt="Preview ${index + 1}">
-                    <button class="remove-btn" onclick="removeImage(${index})">×</button>
-                `;
-
-                div.onclick = (e) => {
-                    if (e.target.tagName !== 'BUTTON' && img.embedding) {
-                        visualizeEmbedding(img.embedding);
-                    }
-                };
-
+                div.className = 'preview-item' + (img.embedding ? ' selected' : '');
+                div.innerHTML = `<img src="${img.dataUrl}"><button class="remove-btn" onclick="event.stopPropagation();removeImage(${idx})">×</button>`;
+                div.onclick = () => img.embedding && visualizeEmbedding(img.embedding);
                 previewArea.appendChild(div);
             });
-
             document.getElementById('stat-images').textContent = images.length;
         }
 
-        // Remove image
-        window.removeImage = function(index) {
-            images.splice(index, 1);
+        window.removeImage = function(idx) {
+            images.splice(idx, 1);
             renderPreviews();
             updateButtons();
             updateSimilarityMatrix();
         };
 
-        // Update button states
         function updateButtons() {
             extractBtn.disabled = images.length === 0;
             clearBtn.disabled = images.length === 0;
         }
 
-        // Extract features from all images
         async function extractFeatures() {
             if (!embedder) return;
-
             extractBtn.disabled = true;
             extractBtn.textContent = '⏳ Processing...';
             processingTimes = [];
-
             for (const img of images) {
                 const start = performance.now();
-
                 try {
                     img.embedding = embedder.extract(img.rgb, 224, 224);
                     const elapsed = performance.now() - start;
                     processingTimes.push(elapsed);
-
-                    log(`Extracted ${img.embedding.length}-dim embedding in ${elapsed.toFixed(2)}ms`, 'success');
-                } catch (error) {
-                    log(`Error extracting features: ${error.message}`, 'warning');
+                    log(`Extracted ${img.embedding.length}-dim in ${elapsed.toFixed(1)}ms`, 'success');
+                } catch (e) {
+                    log(`Error: ${e.message}`, 'warning');
                 }
             }
-
-            // Update stats
             if (processingTimes.length > 0) {
-                const avgTime = processingTimes.reduce((a, b) => a + b) / processingTimes.length;
-                document.getElementById('stat-time').textContent = `${avgTime.toFixed(1)}ms`;
+                document.getElementById('stat-time').textContent = `${(processingTimes.reduce((a,b)=>a+b)/processingTimes.length).toFixed(1)}ms`;
             }
-
             renderPreviews();
             updateSimilarityMatrix();
-
-            if (images.length > 0 && images[0].embedding) {
-                visualizeEmbedding(images[0].embedding);
-            }
-
+            if (images[0]?.embedding) visualizeEmbedding(images[0].embedding);
             extractBtn.disabled = false;
-            extractBtn.textContent = '🧠 Extract Features';
+            extractBtn.textContent = '🧠 Extract Embeddings';
         }
 
-        // Visualize embedding as bar chart
         function visualizeEmbedding(embedding) {
             embeddingBars.innerHTML = '';
-
-            // Downsample to 128 bars for visualization
             const step = Math.floor(embedding.length / 128);
-
             for (let i = 0; i < 128; i++) {
-                const value = embedding[i * step];
-                const height = Math.abs(value) * 100;
+                const val = embedding[i * step];
                 const bar = document.createElement('div');
                 bar.className = 'embedding-bar';
-                bar.style.height = `${Math.max(2, height)}%`;
-                bar.style.opacity = 0.5 + Math.abs(value) * 0.5;
+                const hue = val > 0 ? 262 : 340;
+                bar.style.height = `${Math.max(3, Math.abs(val) * 100)}%`;
+                bar.style.background = `hsl(${hue}, 80%, 55%)`;
+                bar.style.opacity = 0.5 + Math.abs(val) * 0.5;
                 embeddingBars.appendChild(bar);
             }
         }
 
-        // Update similarity matrix
         function updateSimilarityMatrix() {
-            const validImages = images.filter(img => img.embedding);
-
-            if (validImages.length < 2) {
-                similarityMatrix.innerHTML = '<p style="color: var(--text-secondary); text-align: center; padding: 2rem;">Extract features from 2+ images to see similarity</p>';
+            const valid = images.filter(i => i.embedding);
+            if (valid.length < 2) {
+                similarityMatrix.innerHTML = '<p style="color: hsl(var(--muted-foreground)); text-align: center; padding: 2rem;">Extract features from 2+ images</p>';
                 return;
             }
-
-            let html = '<div class="similarity-matrix" style="grid-template-columns: repeat(' + (validImages.length + 1) + ', 60px);">';
-
-            // Header row
-            html += '<div class="matrix-row"><div class="matrix-cell"></div>';
-            validImages.forEach(img => {
-                html += `<div class="matrix-cell header"><img src="${img.dataUrl}"></div>`;
-            });
-            html += '</div>';
-
-            // Data rows
-            validImages.forEach((img1, i) => {
-                html += `<div class="matrix-row"><div class="matrix-cell header"><img src="${img1.dataUrl}"></div>`;
-
-                validImages.forEach((img2, j) => {
-                    let similarity;
-                    if (embedder.cosine_similarity) {
-                        similarity = embedder.cosine_similarity(img1.embedding, img2.embedding);
-                    } else {
-                        // Fallback calculation
-                        let dot = 0;
-                        for (let k = 0; k < img1.embedding.length; k++) {
-                            dot += img1.embedding[k] * img2.embedding[k];
-                        }
-                        similarity = dot;
-                    }
-
-                    const hue = similarity * 120; // 0 = red, 120 = green
-                    const color = `hsl(${hue}, 70%, 40%)`;
-
-                    html += `<div class="matrix-cell" style="background: ${color};">${similarity.toFixed(2)}</div>`;
+            let html = `<div class="matrix" style="grid-template-columns: repeat(${valid.length + 1}, 50px);">`;
+            html += '<div class="matrix-cell"></div>';
+            valid.forEach(img => html += `<div class="matrix-cell header"><img src="${img.dataUrl}"></div>`);
+            valid.forEach((img1, i) => {
+                html += `<div class="matrix-cell header"><img src="${img1.dataUrl}"></div>`;
+                valid.forEach((img2, j) => {
+                    const sim = embedder.cosine_similarity(img1.embedding, img2.embedding);
+                    const hue = sim * 120;
+                    html += `<div class="matrix-cell" style="background: hsl(${hue}, 60%, 35%);">${sim.toFixed(2)}</div>`;
                 });
-
-                html += '</div>';
             });
-
             html += '</div>';
             similarityMatrix.innerHTML = html;
         }
 
-        // Camera functionality
-        let cameraStream = null;
-
+        // Camera
         async function startCamera() {
             try {
-                cameraStream = await navigator.mediaDevices.getUserMedia({
-                    video: { facingMode: 'environment', width: 640, height: 480 }
-                });
+                cameraStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: 640, height: 480 }});
                 cameraVideo.srcObject = cameraStream;
-
                 startCameraBtn.classList.add('hidden');
                 captureBtn.classList.remove('hidden');
                 realtimeBtn.classList.remove('hidden');
                 stopCameraBtn.classList.remove('hidden');
-
                 log('Camera started', 'success');
-            } catch (error) {
-                log(`Camera error: ${error.message}`, 'warning');
+            } catch (e) {
+                log(`Camera error: ${e.message}`, 'warning');
             }
         }
 
         function stopCamera() {
             stopRealtime();
             if (cameraStream) {
-                cameraStream.getTracks().forEach(track => track.stop());
+                cameraStream.getTracks().forEach(t => t.stop());
                 cameraStream = null;
             }
             cameraVideo.srcObject = null;
-
             startCameraBtn.classList.remove('hidden');
             captureBtn.classList.add('hidden');
             realtimeBtn.classList.add('hidden');
             stopCameraBtn.classList.add('hidden');
             realtimePanel.classList.add('hidden');
-            realtimeStats.classList.add('hidden');
+            cameraStats.classList.add('hidden');
         }
 
         function captureFrame() {
             const canvas = document.createElement('canvas');
             canvas.width = cameraVideo.videoWidth;
             canvas.height = cameraVideo.videoHeight;
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(cameraVideo, 0, 0);
-
+            canvas.getContext('2d').drawImage(cameraVideo, 0, 0);
             const img = new Image();
-            img.onload = () => {
-                addImage(img, `camera-${Date.now()}`);
-                log('Captured frame from camera', 'success');
-            };
+            img.onload = () => { addImage(img, `cam-${Date.now()}`); log('Captured', 'success'); };
             img.src = canvas.toDataURL();
         }
 
-        // Real-time CNN processing
         function startRealtime() {
-            if (!embedder) {
-                log('WASM not loaded - using demo mode', 'warning');
-                return;
-            }
-
+            if (!embedder) return;
             isRealtime = true;
             frameCount = 0;
             lastFpsUpdate = performance.now();
-
             realtimeBtn.classList.add('hidden');
             captureBtn.classList.add('hidden');
             realtimePanel.classList.remove('hidden');
-            realtimeStats.classList.remove('hidden');
+            cameraStats.classList.remove('hidden');
             cameraVideo.classList.add('realtime-active');
-
             log('Real-time CNN started', 'success');
             processRealtimeFrame();
         }
 
         function stopRealtime() {
             isRealtime = false;
-            if (realtimeAnimationId) {
-                cancelAnimationFrame(realtimeAnimationId);
-                realtimeAnimationId = null;
-            }
-
+            if (realtimeAnimationId) cancelAnimationFrame(realtimeAnimationId);
             cameraVideo.classList.remove('realtime-active');
-
             if (cameraStream) {
                 realtimeBtn.classList.remove('hidden');
                 captureBtn.classList.remove('hidden');
             }
             realtimePanel.classList.add('hidden');
-            realtimeStats.classList.add('hidden');
-
-            log('Real-time CNN stopped', 'info');
+            cameraStats.classList.add('hidden');
         }
 
         function processRealtimeFrame() {
             if (!isRealtime || !cameraStream) return;
-
             const start = performance.now();
-
-            // Capture frame to canvas
             const canvas = document.createElement('canvas');
-            canvas.width = 224;
-            canvas.height = 224;
+            canvas.width = 224; canvas.height = 224;
             const ctx = canvas.getContext('2d');
-
-            // Center crop to square
-            const vw = cameraVideo.videoWidth;
-            const vh = cameraVideo.videoHeight;
+            const vw = cameraVideo.videoWidth, vh = cameraVideo.videoHeight;
             const size = Math.min(vw, vh);
-            const sx = (vw - size) / 2;
-            const sy = (vh - size) / 2;
-            ctx.drawImage(cameraVideo, sx, sy, size, size, 0, 0, 224, 224);
-
-            // Get RGB data
+            ctx.drawImage(cameraVideo, (vw-size)/2, (vh-size)/2, size, size, 0, 0, 224, 224);
             const imageData = ctx.getImageData(0, 0, 224, 224);
             const rgb = new Uint8Array(224 * 224 * 3);
             for (let i = 0, j = 0; i < imageData.data.length; i += 4, j += 3) {
                 rgb[j] = imageData.data[i];
-                rgb[j + 1] = imageData.data[i + 1];
-                rgb[j + 2] = imageData.data[i + 2];
+                rgb[j+1] = imageData.data[i+1];
+                rgb[j+2] = imageData.data[i+2];
             }
-
-            // Extract embedding
             const embedding = embedder.extract(rgb, 224, 224);
             const latency = performance.now() - start;
-
-            // Update FPS
             frameCount++;
             const now = performance.now();
             if (now - lastFpsUpdate >= 1000) {
@@ -1137,136 +1407,593 @@
                 frameCount = 0;
                 lastFpsUpdate = now;
             }
-
-            // Update UI
             document.getElementById('rt-fps').textContent = currentFps;
             document.getElementById('rt-latency').textContent = `${latency.toFixed(1)}ms`;
             document.getElementById('fps-display').textContent = `${currentFps} FPS`;
             document.getElementById('latency-display').textContent = `${latency.toFixed(1)}ms`;
-
-            // Compare to reference if set
             if (referenceEmbedding) {
-                const similarity = embedder.cosine_similarity(embedding, referenceEmbedding);
-                document.getElementById('rt-similarity').textContent = similarity.toFixed(3);
-
-                // Color code similarity
-                const simEl = document.getElementById('rt-similarity');
-                if (similarity > 0.8) {
-                    simEl.style.color = 'var(--success)';
-                } else if (similarity > 0.5) {
-                    simEl.style.color = 'var(--warning)';
-                } else {
-                    simEl.style.color = 'var(--accent)';
-                }
-            } else {
-                document.getElementById('rt-similarity').textContent = '-';
+                const sim = embedder.cosine_similarity(embedding, referenceEmbedding);
+                const el = document.getElementById('rt-similarity');
+                el.textContent = sim.toFixed(3);
+                el.style.color = sim > 0.8 ? 'hsl(var(--success))' : sim > 0.5 ? 'hsl(var(--warning))' : 'hsl(var(--primary))';
             }
-
-            // Visualize embedding
             visualizeRealtimeEmbedding(embedding);
-
-            // Schedule next frame
             realtimeAnimationId = requestAnimationFrame(processRealtimeFrame);
         }
 
         function visualizeRealtimeEmbedding(embedding) {
             realtimeBars.innerHTML = '';
-
-            // Downsample to 64 bars for real-time visualization
             const step = Math.floor(embedding.length / 64);
-
             for (let i = 0; i < 64; i++) {
-                const value = embedding[i * step];
-                const height = Math.abs(value) * 100;
+                const val = embedding[i * step];
                 const bar = document.createElement('div');
                 bar.className = 'embedding-bar';
-                bar.style.height = `${Math.max(2, height)}%`;
-                bar.style.opacity = 0.5 + Math.abs(value) * 0.5;
+                bar.style.height = `${Math.max(3, Math.abs(val) * 100)}%`;
+                bar.style.background = `linear-gradient(to top, hsl(262, 80%, 55%), hsl(280, 70%, 50%))`;
+                bar.style.opacity = 0.5 + Math.abs(val) * 0.5;
                 realtimeBars.appendChild(bar);
             }
         }
 
         function setReferenceEmbedding() {
             if (!embedder || !cameraStream) return;
-
-            // Capture current frame
             const canvas = document.createElement('canvas');
-            canvas.width = 224;
-            canvas.height = 224;
+            canvas.width = 224; canvas.height = 224;
             const ctx = canvas.getContext('2d');
-
-            const vw = cameraVideo.videoWidth;
-            const vh = cameraVideo.videoHeight;
+            const vw = cameraVideo.videoWidth, vh = cameraVideo.videoHeight;
             const size = Math.min(vw, vh);
-            const sx = (vw - size) / 2;
-            const sy = (vh - size) / 2;
-            ctx.drawImage(cameraVideo, sx, sy, size, size, 0, 0, 224, 224);
-
+            ctx.drawImage(cameraVideo, (vw-size)/2, (vh-size)/2, size, size, 0, 0, 224, 224);
             const imageData = ctx.getImageData(0, 0, 224, 224);
             const rgb = new Uint8Array(224 * 224 * 3);
             for (let i = 0, j = 0; i < imageData.data.length; i += 4, j += 3) {
-                rgb[j] = imageData.data[i];
-                rgb[j + 1] = imageData.data[i + 1];
-                rgb[j + 2] = imageData.data[i + 2];
+                rgb[j] = imageData.data[i]; rgb[j+1] = imageData.data[i+1]; rgb[j+2] = imageData.data[i+2];
             }
-
             referenceEmbedding = embedder.extract(rgb, 224, 224);
-            log('Reference embedding set - showing live similarity', 'success');
+            log('Reference set — comparing live frames', 'success');
         }
 
-        // Drag and drop
+        // Pose Estimation
+        let poseDetector = null;
+        let poseStream = null;
+        let isPoseRunning = false;
+        let poseAnimationId = null;
+        let referencePose = null;
+        let showSkeleton = true;
+        let poseFrameCount = 0;
+        let poseLastFpsUpdate = 0;
+        let poseCurrentFps = 0;
+
+        const poseVideo = document.getElementById('pose-video');
+        const poseCanvas = document.getElementById('pose-canvas');
+        const poseCtx = poseCanvas ? poseCanvas.getContext('2d') : null;
+        const startPoseBtn = document.getElementById('start-pose-btn');
+        const stopPoseBtn = document.getElementById('stop-pose-btn');
+        const posePanel = document.getElementById('pose-panel');
+        const poseStats = document.getElementById('pose-stats');
+        const poseConsole = document.getElementById('pose-console');
+        const poseEmbeddingBars = document.getElementById('pose-embedding-bars');
+        const setPoseReferenceBtn = document.getElementById('set-pose-reference-btn');
+        const toggleSkeletonBtn = document.getElementById('toggle-skeleton-btn');
+
+        const KEYPOINT_NAMES = [
+            'nose', 'left_eye', 'right_eye', 'left_ear', 'right_ear',
+            'left_shoulder', 'right_shoulder', 'left_elbow', 'right_elbow',
+            'left_wrist', 'right_wrist', 'left_hip', 'right_hip',
+            'left_knee', 'right_knee', 'left_ankle', 'right_ankle'
+        ];
+
+        const SKELETON_CONNECTIONS = [
+            ['left_ear', 'left_eye'], ['left_eye', 'nose'], ['nose', 'right_eye'], ['right_eye', 'right_ear'],
+            ['left_shoulder', 'right_shoulder'],
+            ['left_shoulder', 'left_elbow'], ['left_elbow', 'left_wrist'],
+            ['right_shoulder', 'right_elbow'], ['right_elbow', 'right_wrist'],
+            ['left_shoulder', 'left_hip'], ['right_shoulder', 'right_hip'],
+            ['left_hip', 'right_hip'],
+            ['left_hip', 'left_knee'], ['left_knee', 'left_ankle'],
+            ['right_hip', 'right_knee'], ['right_knee', 'right_ankle']
+        ];
+
+        function poseLog(message, type = 'info') {
+            if (!poseConsole) return;
+            const line = document.createElement('div');
+            line.className = `console-line ${type}`;
+            line.textContent = `> ${message}`;
+            poseConsole.appendChild(line);
+            poseConsole.scrollTop = poseConsole.scrollHeight;
+            if (poseConsole.children.length > 30) poseConsole.removeChild(poseConsole.firstChild);
+        }
+
+        async function initPoseDetector() {
+            try {
+                poseLog('Loading MoveNet model...');
+                const model = poseDetection.SupportedModels.MoveNet;
+                const detectorConfig = {
+                    modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING,
+                    enableSmoothing: true
+                };
+                poseDetector = await poseDetection.createDetector(model, detectorConfig);
+                poseLog('MoveNet loaded (SinglePose Lightning)', 'success');
+                return true;
+            } catch (error) {
+                poseLog(`Failed to load MoveNet: ${error.message}`, 'warning');
+                return false;
+            }
+        }
+
+        async function startPoseDetection() {
+            if (!poseDetector) {
+                const loaded = await initPoseDetector();
+                if (!loaded) return;
+            }
+
+            try {
+                poseStream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: 'user', width: 640, height: 480 }
+                });
+                poseVideo.srcObject = poseStream;
+                await new Promise(resolve => poseVideo.onloadedmetadata = resolve);
+
+                poseCanvas.width = poseVideo.videoWidth;
+                poseCanvas.height = poseVideo.videoHeight;
+
+                isPoseRunning = true;
+                poseFrameCount = 0;
+                poseLastFpsUpdate = performance.now();
+
+                startPoseBtn.classList.add('hidden');
+                stopPoseBtn.classList.remove('hidden');
+                posePanel.classList.remove('hidden');
+                poseStats.classList.remove('hidden');
+
+                poseLog('Pose detection started', 'success');
+                detectPoseFrame();
+            } catch (error) {
+                poseLog(`Camera error: ${error.message}`, 'warning');
+            }
+        }
+
+        function stopPoseDetection() {
+            isPoseRunning = false;
+            if (poseAnimationId) {
+                cancelAnimationFrame(poseAnimationId);
+                poseAnimationId = null;
+            }
+            if (poseStream) {
+                poseStream.getTracks().forEach(t => t.stop());
+                poseStream = null;
+            }
+            poseVideo.srcObject = null;
+            if (poseCtx) poseCtx.clearRect(0, 0, poseCanvas.width, poseCanvas.height);
+
+            startPoseBtn.classList.remove('hidden');
+            stopPoseBtn.classList.add('hidden');
+            posePanel.classList.add('hidden');
+            poseStats.classList.add('hidden');
+        }
+
+        async function detectPoseFrame() {
+            if (!isPoseRunning || !poseDetector || !poseStream) return;
+
+            const start = performance.now();
+
+            try {
+                const poses = await poseDetector.estimatePoses(poseVideo);
+                const latency = performance.now() - start;
+
+                poseFrameCount++;
+                const now = performance.now();
+                if (now - poseLastFpsUpdate >= 1000) {
+                    poseCurrentFps = Math.round(poseFrameCount * 1000 / (now - poseLastFpsUpdate));
+                    poseFrameCount = 0;
+                    poseLastFpsUpdate = now;
+                }
+
+                document.getElementById('pose-fps-display').textContent = `${poseCurrentFps} FPS`;
+                document.getElementById('pose-latency-display').textContent = `${latency.toFixed(0)}ms`;
+
+                if (poses.length > 0) {
+                    const pose = poses[0];
+                    const validKeypoints = pose.keypoints.filter(kp => kp.score > 0.3);
+
+                    document.getElementById('pose-keypoints').textContent = validKeypoints.length;
+                    const avgConfidence = validKeypoints.length > 0
+                        ? (validKeypoints.reduce((s, kp) => s + kp.score, 0) / validKeypoints.length * 100).toFixed(0)
+                        : 0;
+                    document.getElementById('pose-confidence').textContent = `${avgConfidence}%`;
+
+                    // Draw skeleton
+                    if (showSkeleton && poseCtx) {
+                        drawPose(pose);
+                    } else if (poseCtx) {
+                        poseCtx.clearRect(0, 0, poseCanvas.width, poseCanvas.height);
+                    }
+
+                    // Compute pose embedding and similarity
+                    const poseEmbedding = computePoseEmbedding(pose);
+                    visualizePoseEmbedding(poseEmbedding);
+
+                    if (referencePose) {
+                        const similarity = computePoseSimilarity(poseEmbedding, referencePose);
+                        const simEl = document.getElementById('pose-similarity');
+                        simEl.textContent = similarity.toFixed(2);
+                        simEl.style.color = similarity > 0.8 ? 'hsl(var(--success))' : similarity > 0.5 ? 'hsl(var(--warning))' : 'hsl(var(--primary))';
+                    }
+                }
+            } catch (error) {
+                console.error('Pose detection error:', error);
+            }
+
+            poseAnimationId = requestAnimationFrame(detectPoseFrame);
+        }
+
+        function drawPose(pose) {
+            if (!poseCtx) return;
+            poseCtx.clearRect(0, 0, poseCanvas.width, poseCanvas.height);
+
+            // Draw connections
+            poseCtx.strokeStyle = 'hsl(262, 83%, 58%)';
+            poseCtx.lineWidth = 3;
+            poseCtx.lineCap = 'round';
+
+            SKELETON_CONNECTIONS.forEach(([start, end]) => {
+                const startKp = pose.keypoints.find(kp => kp.name === start);
+                const endKp = pose.keypoints.find(kp => kp.name === end);
+                if (startKp && endKp && startKp.score > 0.3 && endKp.score > 0.3) {
+                    poseCtx.beginPath();
+                    poseCtx.moveTo(startKp.x, startKp.y);
+                    poseCtx.lineTo(endKp.x, endKp.y);
+                    poseCtx.stroke();
+                }
+            });
+
+            // Draw keypoints
+            pose.keypoints.forEach(kp => {
+                if (kp.score > 0.3) {
+                    const isFace = ['nose', 'left_eye', 'right_eye', 'left_ear', 'right_ear'].includes(kp.name);
+                    const isArm = ['left_shoulder', 'right_shoulder', 'left_elbow', 'right_elbow', 'left_wrist', 'right_wrist'].includes(kp.name);
+
+                    let color = 'hsl(38, 92%, 50%)'; // legs - warning color
+                    if (isFace) color = 'hsl(262, 83%, 58%)'; // primary
+                    if (isArm) color = 'hsl(142, 76%, 36%)'; // success
+
+                    poseCtx.beginPath();
+                    poseCtx.arc(kp.x, kp.y, 6, 0, 2 * Math.PI);
+                    poseCtx.fillStyle = color;
+                    poseCtx.fill();
+                    poseCtx.strokeStyle = 'white';
+                    poseCtx.lineWidth = 2;
+                    poseCtx.stroke();
+                }
+            });
+        }
+
+        function computePoseEmbedding(pose) {
+            // Create 34-dim embedding (x, y for each of 17 keypoints, normalized)
+            const embedding = new Float32Array(34);
+            const width = poseCanvas.width || 640;
+            const height = poseCanvas.height || 480;
+
+            KEYPOINT_NAMES.forEach((name, i) => {
+                const kp = pose.keypoints.find(k => k.name === name);
+                if (kp && kp.score > 0.3) {
+                    embedding[i * 2] = kp.x / width;
+                    embedding[i * 2 + 1] = kp.y / height;
+                } else {
+                    embedding[i * 2] = 0;
+                    embedding[i * 2 + 1] = 0;
+                }
+            });
+
+            return embedding;
+        }
+
+        function computePoseSimilarity(pose1, pose2) {
+            let dot = 0, norm1 = 0, norm2 = 0;
+            for (let i = 0; i < pose1.length; i++) {
+                dot += pose1[i] * pose2[i];
+                norm1 += pose1[i] * pose1[i];
+                norm2 += pose2[i] * pose2[i];
+            }
+            norm1 = Math.sqrt(norm1);
+            norm2 = Math.sqrt(norm2);
+            if (norm1 === 0 || norm2 === 0) return 0;
+            return dot / (norm1 * norm2);
+        }
+
+        function visualizePoseEmbedding(embedding) {
+            if (!poseEmbeddingBars) return;
+            poseEmbeddingBars.innerHTML = '';
+            for (let i = 0; i < embedding.length; i++) {
+                const bar = document.createElement('div');
+                bar.className = 'embedding-bar';
+                const val = embedding[i];
+                bar.style.height = `${Math.max(3, val * 100)}%`;
+                bar.style.background = i % 2 === 0
+                    ? 'linear-gradient(to top, hsl(262, 80%, 55%), hsl(280, 70%, 50%))'
+                    : 'linear-gradient(to top, hsl(142, 70%, 45%), hsl(160, 60%, 40%))';
+                bar.style.opacity = 0.5 + val * 0.5;
+                poseEmbeddingBars.appendChild(bar);
+            }
+        }
+
+        function setReferencePose() {
+            if (!poseDetector || !poseStream) return;
+            poseDetector.estimatePoses(poseVideo).then(poses => {
+                if (poses.length > 0) {
+                    referencePose = computePoseEmbedding(poses[0]);
+                    poseLog('Reference pose captured', 'success');
+                }
+            });
+        }
+
+        // Event listeners
+        if (startPoseBtn) startPoseBtn.addEventListener('click', startPoseDetection);
+        if (stopPoseBtn) stopPoseBtn.addEventListener('click', stopPoseDetection);
+        if (setPoseReferenceBtn) setPoseReferenceBtn.addEventListener('click', setReferencePose);
+        if (toggleSkeletonBtn) {
+            toggleSkeletonBtn.addEventListener('click', () => {
+                showSkeleton = !showSkeleton;
+                toggleSkeletonBtn.textContent = showSkeleton ? '🦴 Hide Skeleton' : '🦴 Show Skeleton';
+                poseLog(`Skeleton ${showSkeleton ? 'shown' : 'hidden'}`);
+            });
+        }
+
+        // Examples
+        window.loadExample = function(type) {
+            const output = document.getElementById('example-output');
+            const examples = {
+                'visual-search': {
+                    title: '🔍 Visual Product Search',
+                    code: `// Extract embedding from user's photo
+const userPhoto = embedder.extract(uploadedPixels, 224, 224);
+
+// Compare against product catalog
+const results = products
+  .map(p => ({
+    ...p,
+    similarity: embedder.cosine_similarity(userPhoto, p.embedding)
+  }))
+  .sort((a, b) => b.similarity - a.similarity)
+  .slice(0, 10);
+
+// Display top matches
+results.forEach(r => console.log(r.name, r.similarity.toFixed(3)));`
+                },
+                'face-verify': {
+                    title: '👤 Face Verification',
+                    code: `// Extract embeddings from two face images
+const face1 = embedder.extract(photo1Pixels, 224, 224);
+const face2 = embedder.extract(photo2Pixels, 224, 224);
+
+// Compare similarity
+const similarity = embedder.cosine_similarity(face1, face2);
+
+// Threshold for same person (typically 0.6-0.8)
+const isSamePerson = similarity > 0.7;
+console.log('Match:', isSamePerson, 'Score:', similarity.toFixed(3));`
+                },
+                'duplicate-detect': {
+                    title: '🔄 Duplicate Detection',
+                    code: `// Build embedding index for all images
+const index = images.map(img => ({
+  id: img.id,
+  embedding: embedder.extract(img.pixels, 224, 224)
+}));
+
+// Find duplicates (similarity > 0.95)
+const duplicates = [];
+for (let i = 0; i < index.length; i++) {
+  for (let j = i + 1; j < index.length; j++) {
+    const sim = embedder.cosine_similarity(index[i].embedding, index[j].embedding);
+    if (sim > 0.95) {
+      duplicates.push({ a: index[i].id, b: index[j].id, similarity: sim });
+    }
+  }
+}
+console.log('Found', duplicates.length, 'duplicate pairs');`
+                },
+                'style-match': {
+                    title: '🎨 Art Style Matching',
+                    code: `// Analyze art style by embedding
+const artwork = embedder.extract(artworkPixels, 224, 224);
+
+// Compare to known style references
+const styles = [
+  { name: 'Impressionist', embedding: impressionistRef },
+  { name: 'Cubist', embedding: cubistRef },
+  { name: 'Surrealist', embedding: surrealistRef }
+];
+
+const matches = styles
+  .map(s => ({ ...s, score: embedder.cosine_similarity(artwork, s.embedding) }))
+  .sort((a, b) => b.score - a.score);
+
+console.log('Style:', matches[0].name, 'Confidence:', matches[0].score.toFixed(3));`
+                },
+                'quality-check': {
+                    title: '✅ Quality Control',
+                    code: `// Reference "perfect" product image
+const referenceEmbedding = embedder.extract(referencePixels, 224, 224);
+
+// Check production items
+function checkQuality(itemPixels) {
+  const embedding = embedder.extract(itemPixels, 224, 224);
+  const similarity = embedder.cosine_similarity(embedding, referenceEmbedding);
+
+  // Flag items below threshold
+  const passed = similarity > 0.85;
+  return { passed, similarity, deviation: 1 - similarity };
+}
+
+// Inspect item
+const result = checkQuality(itemPixels);
+console.log('QC:', result.passed ? 'PASS' : 'FAIL', result.similarity.toFixed(3));`
+                },
+                'scene-cluster': {
+                    title: '🗂️ Scene Clustering',
+                    code: `// Extract embeddings for all photos
+const embeddings = photos.map(p => ({
+  id: p.id,
+  embedding: embedder.extract(p.pixels, 224, 224)
+}));
+
+// Simple k-means clustering (pseudo-code)
+function cluster(embeddings, k = 5) {
+  // Initialize centroids randomly
+  let centroids = embeddings.slice(0, k).map(e => e.embedding);
+
+  // Assign each embedding to nearest centroid
+  return embeddings.map(e => {
+    const distances = centroids.map(c =>
+      1 - embedder.cosine_similarity(e.embedding, c)
+    );
+    return { ...e, cluster: distances.indexOf(Math.min(...distances)) };
+  });
+}
+
+const clustered = cluster(embeddings, 5);
+console.log('Clustered', clustered.length, 'photos into 5 groups');`
+                },
+                'pose-tracking': {
+                    title: '🏃 Pose Tracking',
+                    code: `// Initialize MoveNet pose detector
+const detector = await poseDetection.createDetector(
+  poseDetection.SupportedModels.MoveNet,
+  { modelType: 'SinglePose.Lightning', enableSmoothing: true }
+);
+
+// Track poses over time
+const poseHistory = [];
+
+async function trackPose(videoFrame) {
+  const poses = await detector.estimatePoses(videoFrame);
+  if (poses.length > 0) {
+    const pose = poses[0];
+
+    // Extract 34-dim pose embedding (x,y for 17 keypoints)
+    const embedding = new Float32Array(34);
+    pose.keypoints.forEach((kp, i) => {
+      embedding[i * 2] = kp.x / videoWidth;
+      embedding[i * 2 + 1] = kp.y / videoHeight;
+    });
+
+    poseHistory.push({ timestamp: Date.now(), embedding, keypoints: pose.keypoints });
+
+    // Detect movement by comparing to previous frame
+    if (poseHistory.length > 1) {
+      const prev = poseHistory[poseHistory.length - 2];
+      const movement = computeMovement(prev.embedding, embedding);
+      console.log('Movement:', movement.toFixed(3));
+    }
+  }
+}
+
+function computeMovement(pose1, pose2) {
+  let sum = 0;
+  for (let i = 0; i < pose1.length; i++) {
+    sum += Math.abs(pose1[i] - pose2[i]);
+  }
+  return sum / pose1.length;
+}`
+                },
+                'gesture-control': {
+                    title: '🖐️ Gesture Control',
+                    code: `// Gesture detection using pose keypoints
+const GESTURES = {
+  'HANDS_UP': (pose) => {
+    const lWrist = getKeypoint(pose, 'left_wrist');
+    const rWrist = getKeypoint(pose, 'right_wrist');
+    const lShoulder = getKeypoint(pose, 'left_shoulder');
+    const rShoulder = getKeypoint(pose, 'right_shoulder');
+
+    // Both wrists above shoulders
+    return lWrist && rWrist && lShoulder && rShoulder &&
+           lWrist.y < lShoulder.y && rWrist.y < rShoulder.y;
+  },
+
+  'T_POSE': (pose) => {
+    const lWrist = getKeypoint(pose, 'left_wrist');
+    const rWrist = getKeypoint(pose, 'right_wrist');
+    const lShoulder = getKeypoint(pose, 'left_shoulder');
+    const rShoulder = getKeypoint(pose, 'right_shoulder');
+
+    // Arms extended horizontally (wrists at shoulder height)
+    const armSpan = Math.abs(lWrist.x - rWrist.x);
+    const yDiff = Math.abs(lWrist.y - rWrist.y);
+    return armSpan > 400 && yDiff < 50;
+  },
+
+  'SQUAT': (pose) => {
+    const lKnee = getKeypoint(pose, 'left_knee');
+    const lHip = getKeypoint(pose, 'left_hip');
+    // Knee above hip indicates squat
+    return lKnee && lHip && lKnee.y > lHip.y + 50;
+  }
+};
+
+function detectGesture(pose) {
+  for (const [name, detector] of Object.entries(GESTURES)) {
+    if (detector(pose)) {
+      return name;
+    }
+  }
+  return null;
+}
+
+// Real-time gesture detection loop
+async function gestureLoop() {
+  const poses = await detector.estimatePoses(video);
+  if (poses.length > 0) {
+    const gesture = detectGesture(poses[0]);
+    if (gesture) {
+      console.log('Detected gesture:', gesture);
+      handleGesture(gesture); // Trigger app action
+    }
+  }
+  requestAnimationFrame(gestureLoop);
+}`
+                }
+            };
+
+            const ex = examples[type];
+            output.innerHTML = `
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-icon">💻</div>
+                        <div>
+                            <div class="card-title">${ex.title}</div>
+                            <div class="card-description">Example code</div>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <pre style="background: #0d1117; border-radius: calc(var(--radius) - 2px); padding: 1rem; overflow-x: auto; font-size: 0.8rem; line-height: 1.6;"><code style="color: hsl(var(--foreground));">${ex.code}</code></pre>
+                    </div>
+                </div>
+            `;
+        };
+
+        // Events
         dropZone.addEventListener('click', () => fileInput.click());
-
-        dropZone.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            dropZone.classList.add('drag-over');
-        });
-
-        dropZone.addEventListener('dragleave', () => {
-            dropZone.classList.remove('drag-over');
-        });
-
-        dropZone.addEventListener('drop', (e) => {
-            e.preventDefault();
-            dropZone.classList.remove('drag-over');
-            handleFiles(e.dataTransfer.files);
-        });
-
-        fileInput.addEventListener('change', (e) => {
-            handleFiles(e.target.files);
-        });
+        dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+        dropZone.addEventListener('drop', e => { e.preventDefault(); dropZone.classList.remove('drag-over'); handleFiles(e.dataTransfer.files); });
+        fileInput.addEventListener('change', e => handleFiles(e.target.files));
 
         function handleFiles(files) {
             Array.from(files).forEach(file => {
                 if (!file.type.startsWith('image/')) return;
-
                 const reader = new FileReader();
-                reader.onload = (e) => {
+                reader.onload = e => {
                     const img = new Image();
-                    img.onload = () => {
-                        addImage(img, file.name);
-                        log(`Loaded: ${file.name}`, 'success');
-                    };
+                    img.onload = () => { addImage(img, file.name); log(`Loaded: ${file.name}`, 'success'); };
                     img.src = e.target.result;
                 };
                 reader.readAsDataURL(file);
             });
         }
 
-        // Button handlers
         extractBtn.addEventListener('click', extractFeatures);
-        clearBtn.addEventListener('click', () => {
-            images = [];
-            embeddings.clear();
-            processingTimes = [];
-            renderPreviews();
-            updateButtons();
-            similarityMatrix.innerHTML = '';
-            embeddingBars.innerHTML = '';
-            document.getElementById('stat-time').textContent = '0ms';
-            log('Cleared all images', 'info');
-        });
-
+        clearBtn.addEventListener('click', () => { images = []; renderPreviews(); updateButtons(); similarityMatrix.innerHTML = ''; embeddingBars.innerHTML = ''; document.getElementById('stat-time').textContent = '0ms'; log('Cleared', 'info'); });
         startCameraBtn.addEventListener('click', startCamera);
         stopCameraBtn.addEventListener('click', stopCamera);
         captureBtn.addEventListener('click', captureFrame);
@@ -1274,8 +2001,7 @@
         stopRealtimeBtn.addEventListener('click', stopRealtime);
         setReferenceBtn.addEventListener('click', setReferenceEmbedding);
 
-        // Initialize
-        loadSampleImages();
+        // Init
         initWasm();
     </script>
 </body>
