@@ -470,6 +470,7 @@ mod tests {
 
     #[test]
     fn test_pi_anti_resonance() {
+        use std::f32::consts::PI;
         let anti_res = pi_constants::anti_resonance(8);
         assert!(anti_res > 0.0);
         assert!(anti_res < 0.001);

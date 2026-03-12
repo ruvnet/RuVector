@@ -41,7 +41,12 @@ image = { version = "0.25", default-features = false, features = ["png", "jpeg"]
 
 [dev-dependencies]
 criterion = { workspace = true }
+fastrand = "2.0"
 
 [[bench]]
 name = "cnn_benchmarks"
+harness = false
+
+[[bench]]
+name = "int8_bench"
 harness = false

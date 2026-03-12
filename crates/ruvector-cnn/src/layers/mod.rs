@@ -14,11 +14,25 @@ pub mod conv;
 pub mod linear;
 pub mod pooling;
 
+// Quantized layers (ADR-091 Phase 4)
+pub mod quantized_conv2d;
+pub mod quantized_depthwise;
+pub mod quantized_linear;
+pub mod quantized_pooling;
+pub mod quantized_residual;
+
 pub use activation::{Activation, ActivationType, HardSwish, ReLU, ReLU6, Sigmoid, Swish};
 pub use batchnorm::{BatchNorm, BatchNorm2d};
 pub use conv::{Conv2d, DepthwiseSeparableConv};
 pub use linear::Linear;
 pub use pooling::{AvgPool2d, GlobalAvgPool, GlobalAvgPool2d, MaxPool2d};
+
+// Quantized layer exports
+pub use quantized_conv2d::QuantizedConv2d;
+pub use quantized_depthwise::QuantizedDepthwiseConv2d;
+pub use quantized_linear::QuantizedLinear;
+pub use quantized_pooling::{QuantizedAvgPool2d, QuantizedMaxPool2d};
+pub use quantized_residual::QuantizedResidualAdd;
 
 use crate::{CnnResult, Tensor};
 
