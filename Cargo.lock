@@ -8121,6 +8121,7 @@ name = "ruvector-cnn"
 version = "2.0.5"
 dependencies = [
  "criterion 0.5.1",
+ "fastrand",
  "image 0.25.9",
  "nalgebra 0.33.2",
  "rand 0.8.5",

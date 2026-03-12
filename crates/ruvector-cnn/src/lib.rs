@@ -40,6 +40,11 @@ mod tensor;
 // Core modules (always available)
 pub mod layers;
 pub mod simd;
+pub mod kernels;
+
+// Quantization support (INT8 optimization)
+pub mod quantize;
+pub mod int8;
 
 // Optional modules (require backbone feature due to API incompatibility)
 #[cfg(feature = "backbone")]
