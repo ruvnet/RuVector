@@ -337,6 +337,8 @@ pub struct MemoryAwareRouter {
     score_buffer: Vec<f32>,
     /// Reusable indexed buffer for sorting (P2 optimization)
     index_buffer: Vec<(ExpertId, f32)>,
+    /// P5: Pre-allocated result buffer for top-K selection (eliminates collect() allocation)
+    result_buffer: Vec<ExpertId>,
 }
 
 impl MemoryAwareRouter {
@@ -354,11 +356,14 @@ impl MemoryAwareRouter {
         config.validate()?;
 
         let num_experts = config.num_experts;
+        let top_k = config.top_k;
         Ok(Self {
             cache_resident: CacheMask::new(num_experts),
             // P2: Pre-allocate buffers to avoid allocations in hot path
             score_buffer: vec![0.0; num_experts],
             index_buffer: Vec::with_capacity(num_experts),
+            // P5: Pre-allocate result buffer for top-K selection
+            result_buffer: Vec::with_capacity(top_k),
             config,
             affinity,
             metrics: MoeMetrics::new(),
@@ -394,6 +399,8 @@ impl MemoryAwareRouter {
     /// No random sampling is used.
     #[inline]
     pub fn route(&mut self, gate_logits: &[f32]) -> (Vec<ExpertId>, Vec<PagingRequest>) {
+        // P5: Conditional metrics - avoid Instant::now() syscall in production
+        #[cfg(feature = "routing-metrics")]
         let start = Instant::now();
 
         // Validate input length (P3: early exit for invalid input)
@@ -413,16 +420,20 @@ impl MemoryAwareRouter {
         let paging_requests = self.generate_paging_requests(&selected);
 
         // Step 5: Record metrics (P3: unroll small loops)
-        let mut hits = 0usize;
-        for &id in &selected {
-            if self.cache_resident.is_set(id) {
-                hits += 1;
+        // P5: Only track metrics when feature is enabled
+        #[cfg(feature = "routing-metrics")]
+        {
+            let mut hits = 0usize;
+            for &id in &selected {
+                if self.cache_resident.is_set(id) {
+                    hits += 1;
+                }
             }
+            let misses = selected.len() - hits;
+            self.metrics.record_cache_hits(hits);
+            self.metrics.record_cache_misses(misses);
+            self.metrics.record_routing(start.elapsed());
         }
-        let misses = selected.len() - hits;
-        self.metrics.record_cache_hits(hits);
-        self.metrics.record_cache_misses(misses);
-        self.metrics.record_routing(start.elapsed());
 
         (selected, paging_requests)
     }
@@ -461,12 +472,16 @@ impl MemoryAwareRouter {
         }
     }
 
-    /// P2: Select top-K using pre-allocated index buffer
+    /// P2+P5: Select top-K using pre-allocated buffers (zero allocation in hot path)
     #[inline]
     fn select_top_k_buffered(&mut self, n: usize) -> Vec<ExpertId> {
         let k = self.config.top_k.min(n);
+
+        // P5: Clear and reuse result buffer
+        self.result_buffer.clear();
+
         if k == 0 || n == 0 {
-            return Vec::new();
+            return std::mem::take(&mut self.result_buffer);
         }
 
         // Reuse index buffer
@@ -503,16 +518,16 @@ impl MemoryAwareRouter {
             });
         }
 
-        self.index_buffer
-            .iter()
-            .take(k)
-            .map(|(id, _)| *id)
-            .collect()
+        // P5: Fill result buffer directly instead of collect()
+        self.result_buffer
+            .extend(self.index_buffer.iter().take(k).map(|(id, _)| *id));
+
+        std::mem::take(&mut self.result_buffer)
     }
 
-    /// P4: Unrolled top-2 selection (most common MoE configuration)
+    /// P4+P5: Unrolled top-2 selection with buffer reuse (most common MoE configuration)
     #[inline]
-    fn select_top_2_unrolled(&self) -> Vec<ExpertId> {
+    fn select_top_2_unrolled(&mut self) -> Vec<ExpertId> {
         let mut best = (0, f32::NEG_INFINITY);
         let mut second = (0, f32::NEG_INFINITY);
 
@@ -525,7 +540,11 @@ impl MemoryAwareRouter {
             }
         }
 
-        vec![best.0, second.0]
+        // P5: Reuse result buffer instead of vec![] allocation
+        self.result_buffer.clear();
+        self.result_buffer.push(best.0);
+        self.result_buffer.push(second.0);
+        std::mem::take(&mut self.result_buffer)
     }
 
     /// Batch routing for multiple tokens (P2 optimization)
