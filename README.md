@@ -706,6 +706,8 @@ Everything RuVector can do — organized by category. Vector search, graph queri
 | **RuvLTRA Models** | Pre-trained GGUF for routing & embeddings | <10ms inference → [HuggingFace](https://huggingface.co/ruv/ruvltra) |
 | **Streaming Tokens** | Real-time token generation | Responsive chat UX |
 | **Quantization** | Q4, Q5, Q8 model support | Run 7B models in 4GB RAM |
+| **π-Quantization (ADR-090)** | 2-bit weights via π-transform + Hadamard rotation + QAT-STE | **10 GB/s** dequantization, 16x memory reduction |
+| **MoE Memory-Aware Routing (ADR-092)** | Cache-aware expert selection with EMA affinity tracking | **70%+ cache hit rate**, <10µs routing latency |
 
 ```bash
 npm install @ruvector/ruvllm        # Node.js
@@ -754,6 +756,7 @@ cargo add ruvector-raft ruvector-cluster ruvector-replication
 | Feature | What It Does | Why It Matters |
 |---------|--------------|----------------|
 | **Tensor Compression** | f32→f16→PQ8→PQ4→Binary | 2-32x memory reduction |
+| **INT8 CNN Quantization (ADR-091)** | Quantized Conv2D/Linear/Pooling with SIMD kernels | **4x memory reduction**, 2x faster CNN inference |
 | **Differentiable Search** | Soft attention k-NN | End-to-end trainable |
 | **Semantic Router** | Route queries to optimal endpoints | Multi-model AI orchestration |
 | **Hybrid Routing** | Keyword-first + embedding fallback | **90% accuracy** for agent routing |
