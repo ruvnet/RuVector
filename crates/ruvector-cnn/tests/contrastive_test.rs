@@ -7,7 +7,7 @@
 //! - Training pipeline integration
 
 use ruvector_cnn::contrastive::{
-    AugmentationConfig, ContrastiveAugmentation, InfoNCELoss, TripletLoss, TripletDistance,
+    AugmentationConfig, ContrastiveAugmentation, InfoNCELoss, TripletDistance, TripletLoss,
 };
 
 // ============================================================================
@@ -75,7 +75,10 @@ fn test_infonce_temperature_effect() {
 
     // Both should be valid
     assert!(low_temp_loss.is_finite(), "Low temp loss should be finite");
-    assert!(high_temp_loss.is_finite(), "High temp loss should be finite");
+    assert!(
+        high_temp_loss.is_finite(),
+        "High temp loss should be finite"
+    );
 }
 
 #[test]
@@ -87,11 +90,7 @@ fn test_infonce_many_negatives() {
     for i in 0..10 {
         let angle = (i as f64) * 0.5;
         embeddings.push(vec![angle.cos(), angle.sin(), 0.0]);
-        embeddings.push(vec![
-            (angle + 0.1).cos(),
-            (angle + 0.1).sin(),
-            0.1,
-        ]);
+        embeddings.push(vec![(angle + 0.1).cos(), (angle + 0.1).sin(), 0.1]);
     }
 
     let loss = loss_fn.forward(&embeddings, 2);
@@ -128,7 +127,10 @@ fn test_infonce_detailed_results() {
 
     // Self-similarity should be 1.0
     for i in 0..4 {
-        assert!((sim_matrix[i][i] - 1.0).abs() < 1e-6, "Self-similarity should be 1.0");
+        assert!(
+            (sim_matrix[i][i] - 1.0).abs() < 1e-6,
+            "Self-similarity should be 1.0"
+        );
     }
 }
 
@@ -140,7 +142,9 @@ fn test_infonce_forward_with_pairs() {
 
     let positives = vec![vec![0.9, 0.1, 0.0], vec![0.1, 0.9, 0.0]];
 
-    let loss = loss_fn.forward_with_pairs(&anchors, &positives, None).unwrap();
+    let loss = loss_fn
+        .forward_with_pairs(&anchors, &positives, None)
+        .unwrap();
 
     assert!(loss > 0.0);
     assert!(loss.is_finite());
@@ -175,10 +179,7 @@ fn test_triplet_loss_zero_case() {
 
     let loss = loss_fn.forward(&anchor, &positive, &negative);
 
-    assert_eq!(
-        loss, 0.0,
-        "Loss should be zero when margin is satisfied"
-    );
+    assert_eq!(loss, 0.0, "Loss should be zero when margin is satisfied");
 }
 
 #[test]
@@ -222,7 +223,9 @@ fn test_triplet_loss_batch() {
     let positives = vec![vec![0.9, 0.1], vec![0.1, 0.9]];
     let negatives = vec![vec![-1.0, 0.0], vec![0.0, -1.0]];
 
-    let loss = loss_fn.forward_batch(&anchors, &positives, &negatives).unwrap();
+    let loss = loss_fn
+        .forward_batch(&anchors, &positives, &negatives)
+        .unwrap();
 
     assert!(loss >= 0.0);
     assert!(loss.is_finite());
@@ -236,7 +239,9 @@ fn test_triplet_loss_detailed() {
     let positive = vec![1.0, 0.0];
     let negative = vec![0.5, 0.0]; // Closer to anchor than positive
 
-    let result = loss_fn.forward_detailed(&anchor, &positive, &negative).unwrap();
+    let result = loss_fn
+        .forward_detailed(&anchor, &positive, &negative)
+        .unwrap();
 
     assert!(result.loss > 0.0);
     assert!(result.is_hard);
@@ -290,7 +295,10 @@ fn test_augmentation_with_seed() {
     // Same seed should produce same config values
     assert_eq!(aug1.config().crop_scale_min, aug2.config().crop_scale_min);
     assert_eq!(aug1.config().crop_scale_max, aug2.config().crop_scale_max);
-    assert_eq!(aug1.config().horizontal_flip_prob, aug2.config().horizontal_flip_prob);
+    assert_eq!(
+        aug1.config().horizontal_flip_prob,
+        aug2.config().horizontal_flip_prob
+    );
 }
 
 #[test]
@@ -346,7 +354,10 @@ fn test_infonce_with_normalized_embeddings() {
 
     let loss = loss_fn.forward(&normalized, 2);
 
-    assert!(loss.is_finite(), "Loss with normalized vectors should be finite");
+    assert!(
+        loss.is_finite(),
+        "Loss with normalized vectors should be finite"
+    );
     assert!(loss > 0.0, "Loss should be positive");
 }
 
@@ -382,10 +393,10 @@ fn test_triplet_mine_hard_triplets() {
     // Create embeddings where hard triplets exist
     // Class 0 embeddings are close to class 1 embeddings, creating hard triplets
     let embeddings = vec![
-        vec![1.0f64, 0.0],   // class 0
-        vec![0.95, 0.05],    // class 0 - close to anchor
-        vec![0.9, 0.1],      // class 1 - close to class 0
-        vec![0.85, 0.15],    // class 1 - also close
+        vec![1.0f64, 0.0], // class 0
+        vec![0.95, 0.05],  // class 0 - close to anchor
+        vec![0.9, 0.1],    // class 1 - close to class 0
+        vec![0.85, 0.15],  // class 1 - also close
     ];
     let labels = vec![0, 0, 1, 1];
 
@@ -393,8 +404,14 @@ fn test_triplet_mine_hard_triplets() {
 
     // Verify triplet structure for any hard triplets found
     for (a, p, n) in &hard_triplets {
-        assert_eq!(labels[*a], labels[*p], "anchor and positive should be same class");
-        assert_ne!(labels[*a], labels[*n], "anchor and negative should be different class");
+        assert_eq!(
+            labels[*a], labels[*p],
+            "anchor and positive should be same class"
+        );
+        assert_ne!(
+            labels[*a], labels[*n],
+            "anchor and negative should be different class"
+        );
     }
 
     // Note: depending on the margin and embeddings, hard triplets may or may not be found

@@ -3,8 +3,8 @@
 //! This module provides type-safe INT8 tensors with quantization metadata
 //! for efficient neural network inference.
 
-use crate::error::{CnnError, CnnResult};
 use super::params::QuantizationParams;
+use crate::error::{CnnError, CnnResult};
 use serde::{Deserialize, Serialize};
 
 /// Metadata for a quantized tensor.
@@ -49,13 +49,13 @@ impl QuantizationMetadata {
 
         if self.shape.is_empty() {
             return Err(CnnError::QuantizationError(
-                "shape cannot be empty".to_string()
+                "shape cannot be empty".to_string(),
             ));
         }
 
         if self.shape.iter().any(|&d| d == 0) {
             return Err(CnnError::QuantizationError(
-                "shape dimensions must be positive".to_string()
+                "shape dimensions must be positive".to_string(),
             ));
         }
 
@@ -164,11 +164,7 @@ impl QuantizedTensor<i8> {
             .map(|&val| params.quantize_value(val))
             .collect();
 
-        let metadata = QuantizationMetadata::new(
-            params.scale,
-            params.zero_point,
-            shape.to_vec(),
-        );
+        let metadata = QuantizationMetadata::new(params.scale, params.zero_point, shape.to_vec());
 
         Ok(Self { data, metadata })
     }
@@ -195,7 +191,8 @@ impl QuantizedTensor<i8> {
             qmax: 127,
         };
 
-        let fp32_data: Vec<f32> = self.data
+        let fp32_data: Vec<f32> = self
+            .data
             .iter()
             .map(|&val| params.dequantize_value(val))
             .collect();
@@ -264,7 +261,7 @@ impl QuantizedTensor<i8> {
         // INV-3: Bounds check
         if !self.check_bounds(-127, 127) {
             return Err(CnnError::QuantizationError(
-                "INV-3 violation: some values outside [-127, 127]".to_string()
+                "INV-3 violation: some values outside [-127, 127]".to_string(),
             ));
         }
 
@@ -421,8 +418,8 @@ mod tests {
     fn test_asymmetric_quantization() {
         let fp32_data = vec![0.0, 1.0, 2.0, 3.0, 4.0, 5.0];
         let shape = vec![6];
-        let params = QuantizationParams::from_minmax(0.0, 5.0, QuantizationMode::Asymmetric)
-            .unwrap();
+        let params =
+            QuantizationParams::from_minmax(0.0, 5.0, QuantizationMode::Asymmetric).unwrap();
 
         let quantized = QuantizedTensor::quantize(&fp32_data, &shape, &params).unwrap();
         assert!(quantized.validate().is_ok());
@@ -435,7 +432,10 @@ mod tests {
             assert!(
                 error < 0.6,
                 "Value mismatch at index {}: original={}, restored={}, error={}",
-                i, original, restored, error
+                i,
+                original,
+                restored,
+                error
             );
         }
     }

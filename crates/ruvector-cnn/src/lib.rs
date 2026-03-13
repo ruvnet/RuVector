@@ -38,13 +38,13 @@ mod error;
 mod tensor;
 
 // Core modules (always available)
+pub mod kernels;
 pub mod layers;
 pub mod simd;
-pub mod kernels;
 
 // Quantization support (INT8 optimization)
-pub mod quantize;
 pub mod int8;
+pub mod quantize;
 
 // Optional modules (require backbone feature due to API incompatibility)
 #[cfg(feature = "backbone")]
@@ -61,19 +61,16 @@ pub use tensor::Tensor;
 // Re-export backbone types (only when feature enabled)
 #[cfg(feature = "backbone")]
 pub use backbone::{
-    Backbone, BackboneExt, BackboneType,
-    MobileNetV3, MobileNetV3Config,
-    MobileNetV3Small, MobileNetV3Large, MobileNetConfig,
-    ConvBNActivation, InvertedResidual, SqueezeExcitation,
-    create_backbone, mobilenet_v3_small, mobilenet_v3_large,
+    create_backbone, mobilenet_v3_large, mobilenet_v3_small, Backbone, BackboneExt, BackboneType,
+    ConvBNActivation, InvertedResidual, MobileNetConfig, MobileNetV3, MobileNetV3Config,
+    MobileNetV3Large, MobileNetV3Small, SqueezeExcitation,
 };
 
 // Re-export embedding types (only when feature enabled)
 #[cfg(feature = "backbone")]
 pub use embedding::{
-    MobileNetEmbedder, EmbeddingExtractorExt,
-    EmbeddingConfig as MobileNetEmbeddingConfig,
-    cosine_similarity, euclidean_distance,
+    cosine_similarity, euclidean_distance, EmbeddingConfig as MobileNetEmbeddingConfig,
+    EmbeddingExtractorExt, MobileNetEmbedder,
 };
 
 // ParallelEmbedding requires the `parallel` feature (not yet implemented)
@@ -180,7 +177,10 @@ impl CnnEmbedder {
         if image_data.len() != expected_size {
             return Err(CnnError::InvalidInput(format!(
                 "Expected {} bytes for {}x{} RGBA image, got {}",
-                expected_size, width, height, image_data.len()
+                expected_size,
+                width,
+                height,
+                image_data.len()
             )));
         }
 
@@ -336,7 +336,8 @@ mod tests {
             embedding_dim: 8,
             normalize: true,
             quantized: false,
-        }).unwrap();
+        })
+        .unwrap();
 
         let image_data = vec![128u8; 4 * 4 * 4];
         let embedding = embedder.extract(&image_data, 4, 4).unwrap();

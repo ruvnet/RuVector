@@ -546,9 +546,6 @@ mod tests {
         let json = serde_json::to_string(&result).unwrap();
         let restored: CalibrationResult = serde_json::from_str(&json).unwrap();
 
-        assert_eq!(
-            result.scales.get("layer.0"),
-            restored.scales.get("layer.0")
-        );
+        assert_eq!(result.scales.get("layer.0"), restored.scales.get("layer.0"));
     }
 }

@@ -155,10 +155,11 @@ impl CognitiveCore {
         }
 
         // Simple heuristic: pick the most confident percept and derive an action.
-        let best = self
-            .percept_buffer
-            .iter()
-            .max_by(|a, b| a.confidence.partial_cmp(&b.confidence).unwrap_or(std::cmp::Ordering::Equal))?;
+        let best = self.percept_buffer.iter().max_by(|a, b| {
+            a.confidence
+                .partial_cmp(&b.confidence)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        })?;
 
         let action_type = if best.data.len() >= 3 {
             ActionType::Move([best.data[0], best.data[1], best.data[2]])
@@ -176,7 +177,10 @@ impl CognitiveCore {
                 },
                 confidence: best.confidence,
             },
-            reasoning: format!("Best percept from '{}' (conf={:.2})", best.source, best.confidence),
+            reasoning: format!(
+                "Best percept from '{}' (conf={:.2})",
+                best.source, best.confidence
+            ),
             utility: best.confidence,
         };
 
@@ -197,11 +201,9 @@ impl CognitiveCore {
 
         // Adjust attention threshold based on success/failure.
         if outcome.success {
-            self.config.attention_threshold =
-                (self.config.attention_threshold - 0.01).max(0.1);
+            self.config.attention_threshold = (self.config.attention_threshold - 0.01).max(0.1);
         } else {
-            self.config.attention_threshold =
-                (self.config.attention_threshold + 0.01).min(0.9);
+            self.config.attention_threshold = (self.config.attention_threshold + 0.01).min(0.9);
         }
 
         // Clear processed percepts so the next cycle starts fresh.

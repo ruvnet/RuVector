@@ -72,7 +72,12 @@ pub struct Quaternion {
 
 impl Default for Quaternion {
     fn default() -> Self {
-        Self { x: 0.0, y: 0.0, z: 0.0, w: 1.0 }
+        Self {
+            x: 0.0,
+            y: 0.0,
+            z: 0.0,
+            w: 1.0,
+        }
     }
 }
 
@@ -250,7 +255,11 @@ pub struct SceneGraph {
 
 impl SceneGraph {
     pub fn new(objects: Vec<SceneObject>, edges: Vec<SceneEdge>, timestamp: i64) -> Self {
-        Self { objects, edges, timestamp }
+        Self {
+            objects,
+            edges,
+            timestamp,
+        }
     }
 }
 
@@ -264,7 +273,11 @@ pub struct Trajectory {
 
 impl Trajectory {
     pub fn new(waypoints: Vec<[f64; 3]>, timestamps: Vec<i64>, confidence: f64) -> Self {
-        Self { waypoints, timestamps, confidence }
+        Self {
+            waypoints,
+            timestamps,
+            confidence,
+        }
     }
 
     pub fn len(&self) -> usize {
@@ -364,11 +377,7 @@ mod tests {
 
     #[test]
     fn test_trajectory() {
-        let t = Trajectory::new(
-            vec![[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]],
-            vec![100, 200],
-            0.95,
-        );
+        let t = Trajectory::new(vec![[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]], vec![100, 200], 0.95);
         assert_eq!(t.len(), 2);
         assert!(!t.is_empty());
     }

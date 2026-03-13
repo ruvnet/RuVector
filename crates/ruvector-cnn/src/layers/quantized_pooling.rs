@@ -44,7 +44,7 @@ impl QuantizedMaxPool2d {
         if input_shape.len() != 4 {
             return Err(CnnError::invalid_shape(
                 "4D input (NHWC)",
-                format!("{}D", input_shape.len())
+                format!("{}D", input_shape.len()),
             ));
         }
 
@@ -85,7 +85,12 @@ impl QuantizedMaxPool2d {
             }
         }
 
-        Ok((output, vec![batch, out_h, out_w, channels], scale, zero_point))
+        Ok((
+            output,
+            vec![batch, out_h, out_w, channels],
+            scale,
+            zero_point,
+        ))
     }
 }
 
@@ -130,7 +135,7 @@ impl QuantizedAvgPool2d {
         if input_shape.len() != 4 {
             return Err(CnnError::invalid_shape(
                 "4D input (NHWC)",
-                format!("{}D", input_shape.len())
+                format!("{}D", input_shape.len()),
             ));
         }
 
@@ -184,12 +189,15 @@ impl QuantizedAvgPool2d {
         }
 
         // Convert i16 back to u8
-        let output: Vec<u8> = output_i16.iter()
-            .map(|&v| v.clamp(0, 255) as u8)
-            .collect();
+        let output: Vec<u8> = output_i16.iter().map(|&v| v.clamp(0, 255) as u8).collect();
 
         // Output scale remains the same as input for average pooling
-        Ok((output, vec![batch, out_h, out_w, channels], input_scale, input_zero_point))
+        Ok((
+            output,
+            vec![batch, out_h, out_w, channels],
+            input_scale,
+            input_zero_point,
+        ))
     }
 }
 
@@ -202,14 +210,12 @@ mod tests {
         let pool = QuantizedMaxPool2d::new(2, 2, 0);
 
         let input = vec![
-            100, 150, 200, 255,
-            120, 180, 210, 230,
-            110, 140, 190, 240,
-            130, 160, 220, 250,
+            100, 150, 200, 255, 120, 180, 210, 230, 110, 140, 190, 240, 130, 160, 220, 250,
         ];
         let input_shape = &[1, 4, 4, 1];
 
-        let (output, output_shape, scale, _zp) = pool.forward_int8(&input, input_shape, 0.01, 0).unwrap();
+        let (output, output_shape, scale, _zp) =
+            pool.forward_int8(&input, input_shape, 0.01, 0).unwrap();
 
         assert_eq!(output_shape, vec![1, 2, 2, 1]);
         assert_eq!(scale, 0.01);
@@ -223,14 +229,12 @@ mod tests {
         let pool = QuantizedAvgPool2d::new(2, 2, 0);
 
         let input = vec![
-            100, 100, 200, 200,
-            100, 100, 200, 200,
-            100, 100, 200, 200,
-            100, 100, 200, 200,
+            100, 100, 200, 200, 100, 100, 200, 200, 100, 100, 200, 200, 100, 100, 200, 200,
         ];
         let input_shape = &[1, 4, 4, 1];
 
-        let (output, output_shape, scale, _zp) = pool.forward_int8(&input, input_shape, 0.01, 0).unwrap();
+        let (output, output_shape, scale, _zp) =
+            pool.forward_int8(&input, input_shape, 0.01, 0).unwrap();
 
         assert_eq!(output_shape, vec![1, 2, 2, 1]);
         assert_eq!(scale, 0.01);
@@ -247,7 +251,8 @@ mod tests {
         let input = vec![100u8; 1 * 4 * 4 * 1];
         let input_shape = &[1, 4, 4, 1];
 
-        let (_output, output_shape, _, _) = pool.forward_int8(&input, input_shape, 0.01, 50).unwrap();
+        let (_output, output_shape, _, _) =
+            pool.forward_int8(&input, input_shape, 0.01, 50).unwrap();
 
         assert_eq!(output_shape, vec![1, 4, 4, 1]);
     }

@@ -6,8 +6,8 @@
 //! - GR-3: Q/DQ node insertion
 //! - GR-4: Activation fusion (ReLU, HardSwish)
 
-use ruvector_cnn::quantize::graph_rewrite::*;
 use ruvector_cnn::quantize::calibration::QuantizationParams;
+use ruvector_cnn::quantize::graph_rewrite::*;
 use std::collections::HashMap;
 
 fn main() {
@@ -53,7 +53,11 @@ fn demo_batchnorm_fusion() {
     println!("Before fusion: {} nodes", graph.nodes.len());
 
     let fused = fuse_batchnorm_to_conv(&mut graph);
-    println!("After fusion: {} nodes (fused {} BatchNorm layers)", graph.nodes.len(), fused);
+    println!(
+        "After fusion: {} nodes (fused {} BatchNorm layers)",
+        graph.nodes.len(),
+        fused
+    );
 
     if let Some(conv_node) = graph.get_node(conv) {
         if let NodeParams::Conv2d { weights, bias, .. } = &conv_node.params {
@@ -150,7 +154,11 @@ fn demo_qdq_insertion() {
     println!("Graph: Input → Conv → Output");
 
     let inserted = insert_qdq_nodes(&mut graph, &quant_params);
-    println!("After Q/DQ insertion: {} nodes ({} Q/DQ nodes added)", graph.nodes.len(), inserted);
+    println!(
+        "After Q/DQ insertion: {} nodes ({} Q/DQ nodes added)",
+        graph.nodes.len(),
+        inserted
+    );
     println!("Graph: Input → Quantize → Conv → Dequantize → Output");
     println!();
 }
@@ -175,7 +183,11 @@ fn demo_activation_fusion() {
     println!("ReLU Fusion:");
     println!("  Before: {} nodes (Conv → ReLU)", graph1.nodes.len());
     let fused_relu = fuse_relu(&mut graph1);
-    println!("  After: {} nodes (Conv with fused ReLU, {} activations fused)", graph1.nodes.len(), fused_relu);
+    println!(
+        "  After: {} nodes (Conv with fused ReLU, {} activations fused)",
+        graph1.nodes.len(),
+        fused_relu
+    );
 
     let mut graph2 = ComputationGraph::new();
     let conv2 = graph2.add_node(
@@ -194,7 +206,11 @@ fn demo_activation_fusion() {
     println!("\nHardSwish Fusion:");
     println!("  Before: {} nodes (Conv → HardSwish)", graph2.nodes.len());
     let fused_hs = fuse_hardswish(&mut graph2);
-    println!("  After: {} nodes (Conv with LUT-based HardSwish, {} activations fused)", graph2.nodes.len(), fused_hs);
+    println!(
+        "  After: {} nodes (Conv with LUT-based HardSwish, {} activations fused)",
+        graph2.nodes.len(),
+        fused_hs
+    );
 
     // Generate HardSwish LUT
     let lut = generate_hardswish_lut(0.1, 0);
@@ -259,16 +275,31 @@ fn demo_complete_pipeline() {
     println!("\nApplying optimization passes:");
 
     let bn_fused = fuse_batchnorm_to_conv(&mut graph);
-    println!("  ✓ GR-1: Fused {} BatchNorm layers → {} nodes", bn_fused, graph.nodes.len());
+    println!(
+        "  ✓ GR-1: Fused {} BatchNorm layers → {} nodes",
+        bn_fused,
+        graph.nodes.len()
+    );
 
     let relu_fused = fuse_relu(&mut graph);
-    println!("  ✓ GR-4: Fused {} ReLU activations → {} nodes", relu_fused, graph.nodes.len());
+    println!(
+        "  ✓ GR-4: Fused {} ReLU activations → {} nodes",
+        relu_fused,
+        graph.nodes.len()
+    );
 
     let hs_fused = fuse_hardswish(&mut graph);
-    println!("  ✓ GR-4: Fused {} HardSwish activations → {} nodes", hs_fused, graph.nodes.len());
+    println!(
+        "  ✓ GR-4: Fused {} HardSwish activations → {} nodes",
+        hs_fused,
+        graph.nodes.len()
+    );
 
     println!("\nOptimized graph: {} nodes", graph.nodes.len());
     println!("  Input → Conv1(+BN+ReLU) → Conv2(+HardSwish) → Output");
-    println!("\nMemory savings: {} nodes eliminated", 7 - graph.nodes.len());
+    println!(
+        "\nMemory savings: {} nodes eliminated",
+        7 - graph.nodes.len()
+    );
     println!("Runtime benefit: 3 fewer ops, fused activations");
 }

@@ -31,7 +31,11 @@ mod kernel_equivalence {
             assert!(
                 diff <= tolerance,
                 "{}: Element {} differs by {}: {} vs {}",
-                context, i, diff, va, vb
+                context,
+                i,
+                diff,
+                va,
+                vb
             );
         }
     }

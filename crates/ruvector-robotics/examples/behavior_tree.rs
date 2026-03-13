@@ -5,9 +5,7 @@
 //! - Ticking the tree and observing status changes
 //! - Using the blackboard for inter-node communication
 
-use ruvector_robotics::cognitive::{
-    BehaviorNode, BehaviorStatus, BehaviorTree, DecoratorType,
-};
+use ruvector_robotics::cognitive::{BehaviorNode, BehaviorStatus, BehaviorTree, DecoratorType};
 
 fn main() {
     println!("=== Behavior Tree Demo ===\n");
@@ -76,8 +74,15 @@ fn main() {
 
     for i in 1..=4 {
         let s = t2.tick();
-        println!("  Tick {}: {:?}{}", i, s,
-            if s == BehaviorStatus::Failure { " (TIMED OUT)" } else { "" }
+        println!(
+            "  Tick {}: {:?}{}",
+            i,
+            s,
+            if s == BehaviorStatus::Failure {
+                " (TIMED OUT)"
+            } else {
+                ""
+            }
         );
     }
 

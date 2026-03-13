@@ -774,7 +774,16 @@ mod tests {
         let step = q.step_size();
 
         // Values well outside the range [-4, 3] * step
-        let weights = vec![step * 10.0, step * -10.0, step * 5.0, step * -6.0, 0.0, 0.0, 0.0, 0.0];
+        let weights = vec![
+            step * 10.0,
+            step * -10.0,
+            step * 5.0,
+            step * -6.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+        ];
 
         let packed = q.quantize(&weights);
         let reconstructed = q.dequantize(&packed);

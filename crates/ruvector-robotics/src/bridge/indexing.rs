@@ -96,10 +96,7 @@ fn euclidean_distance(a: &[f32], b: &[f32]) -> f32 {
 
 #[inline]
 fn manhattan_distance(a: &[f32], b: &[f32]) -> f32 {
-    a.iter()
-        .zip(b.iter())
-        .map(|(x, y)| (x - y).abs())
-        .sum()
+    a.iter().zip(b.iter()).map(|(x, y)| (x - y).abs()).sum()
 }
 
 /// Cosine distance in a single fused loop (dot + both norms together).
@@ -174,11 +171,7 @@ impl SpatialIndex {
     ///
     /// For the Euclidean metric, squared distances are used internally and
     /// only the final `k` results are square-rooted.
-    pub fn search_nearest(
-        &self,
-        query: &[f32],
-        k: usize,
-    ) -> Result<Vec<(usize, f32)>, IndexError> {
+    pub fn search_nearest(&self, query: &[f32], k: usize) -> Result<Vec<(usize, f32)>, IndexError> {
         let n = self.len();
         if n == 0 {
             return Err(IndexError::EmptyIndex);
@@ -220,7 +213,11 @@ impl SpatialIndex {
         let mut result: Vec<(usize, f32)> = heap
             .into_iter()
             .map(|e| {
-                let dist = if use_sq { e.distance.sqrt() } else { e.distance };
+                let dist = if use_sq {
+                    e.distance.sqrt()
+                } else {
+                    e.distance
+                };
                 (e.index, dist)
             })
             .collect();
@@ -401,7 +398,13 @@ mod tests {
         let mut idx = SpatialIndex::new(3);
         idx.insert_vectors(&[vec![1.0, 2.0, 3.0]]);
         let err = idx.search_nearest(&[0.0, 0.0], 1).unwrap_err();
-        assert_eq!(err, IndexError::DimensionMismatch { expected: 3, got: 2 });
+        assert_eq!(
+            err,
+            IndexError::DimensionMismatch {
+                expected: 3,
+                got: 2
+            }
+        );
     }
 
     #[test]
@@ -499,7 +502,10 @@ mod tests {
 
     #[test]
     fn test_index_error_display() {
-        let e = IndexError::DimensionMismatch { expected: 3, got: 5 };
+        let e = IndexError::DimensionMismatch {
+            expected: 3,
+            got: 5,
+        };
         assert!(format!("{e}").contains("3"));
         assert!(format!("{}", IndexError::EmptyIndex).contains("empty"));
     }

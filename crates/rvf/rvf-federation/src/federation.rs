@@ -95,15 +95,21 @@ impl ExportBuilder {
     }
 
     /// Build the export: PII-strip, add DP noise, assemble manifest.
-    pub fn build(mut self, dp_engine: &mut DiffPrivacyEngine) -> Result<FederatedExport, FederationError> {
+    pub fn build(
+        mut self,
+        dp_engine: &mut DiffPrivacyEngine,
+    ) -> Result<FederatedExport, FederationError> {
         // 1. Apply quality gate from policy
         self.priors.retain(|ps| {
-            ps.entries.iter().all(|e| e.observation_count >= self.policy.min_observations)
+            ps.entries
+                .iter()
+                .all(|e| e.observation_count >= self.policy.min_observations)
         });
 
         // 2. PII stripping
         let mut stripper = PiiStripper::new();
-        let field_refs: Vec<(&str, &str)> = self.string_fields
+        let field_refs: Vec<(&str, &str)> = self
+            .string_fields
             .iter()
             .map(|(n, v)| (n.as_str(), v.as_str()))
             .collect();
@@ -168,17 +174,25 @@ impl ExportBuilder {
         };
 
         // 4. Build manifest
-        let total_trajectories: u64 = self.priors.iter()
+        let total_trajectories: u64 = self
+            .priors
+            .iter()
             .flat_map(|ps| ps.entries.iter())
             .map(|e| e.observation_count)
             .sum();
 
         let avg_quality = if !self.priors.is_empty() {
-            self.priors.iter()
+            self.priors
+                .iter()
                 .flat_map(|ps| ps.entries.iter())
                 .map(|e| e.params.mean())
                 .sum::<f64>()
-                / self.priors.iter().map(|ps| ps.entries.len()).sum::<usize>().max(1) as f64
+                / self
+                    .priors
+                    .iter()
+                    .map(|ps| ps.entries.len())
+                    .sum::<usize>()
+                    .max(1) as f64
         } else {
             0.0
         };
@@ -246,7 +260,9 @@ impl ImportMerger {
 
         // Check privacy proof has valid parameters
         if export.privacy_proof.epsilon <= 0.0 {
-            return Err(FederationError::InvalidEpsilon(export.privacy_proof.epsilon));
+            return Err(FederationError::InvalidEpsilon(
+                export.privacy_proof.epsilon,
+            ));
         }
 
         // Check priors have positive parameters
@@ -283,9 +299,10 @@ impl ImportMerger {
         for remote_entry in remote {
             let dampened = remote_entry.params.dampen(dampen);
 
-            if let Some(local_entry) = local.iter_mut().find(|l| {
-                l.bucket_id == remote_entry.bucket_id && l.arm_id == remote_entry.arm_id
-            }) {
+            if let Some(local_entry) = local
+                .iter_mut()
+                .find(|l| l.bucket_id == remote_entry.bucket_id && l.arm_id == remote_entry.arm_id)
+            {
                 // Merge: sum parameters minus uniform prior
                 local_entry.params = local_entry.params.merge(&dampened);
                 local_entry.observation_count += remote_entry.observation_count;
@@ -380,7 +397,10 @@ mod tests {
 
         assert_eq!(export.weights.len(), 1);
         // Weights should be different from original (noise added)
-        assert!(export.weights[0].iter().zip(weights.iter()).any(|(a, b)| (a - b).abs() > 1e-10));
+        assert!(export.weights[0]
+            .iter()
+            .zip(weights.iter())
+            .any(|(a, b)| (a - b).abs() > 1e-10));
     }
 
     #[test]

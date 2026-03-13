@@ -441,7 +441,10 @@ impl QatTrainer {
     }
 
     /// Run calibration phase
-    pub fn calibrate(&mut self, activations: &HashMap<String, Vec<f32>>) -> Result<CalibrationResult> {
+    pub fn calibrate(
+        &mut self,
+        activations: &HashMap<String, Vec<f32>>,
+    ) -> Result<CalibrationResult> {
         self.phase = TrainingPhase::Calibration;
         self.emit(QatEvent::CalibrationStarted {
             config: CalibrationConfig::default(),
@@ -481,12 +484,16 @@ impl QatTrainer {
 
         // Compute loss components
         let (task_loss, kd_loss) = if let Some(ref teacher) = batch.teacher_output {
-            let loss = self.distillation_loss.compute(&student_logits, teacher, &labels);
+            let loss = self
+                .distillation_loss
+                .compute(&student_logits, teacher, &labels);
             let stats = self.distillation_loss.stats();
             (stats.avg_task_loss as f32, stats.avg_kd_loss as f32)
         } else {
             let vocab_size = 32000; // TODO: Get from model
-            let task_loss = self.distillation_loss.compute_task_loss(&student_logits, &labels, vocab_size);
+            let task_loss =
+                self.distillation_loss
+                    .compute_task_loss(&student_logits, &labels, vocab_size);
             (task_loss, 0.0)
         };
 
@@ -532,11 +539,7 @@ impl QatTrainer {
     }
 
     /// Run a single training epoch
-    pub fn train_epoch(
-        &mut self,
-        epoch: usize,
-        batches: &[TrainingBatch],
-    ) -> Result<EpochMetrics> {
+    pub fn train_epoch(&mut self, epoch: usize, batches: &[TrainingBatch]) -> Result<EpochMetrics> {
         self.phase = TrainingPhase::Training;
         let epoch_start = Instant::now();
         self.current_epoch_steps.clear();

@@ -25,7 +25,9 @@
 //!   graph traversal) directly appear in perception and planning kernels.
 
 use rand::Rng;
-use ruvector_domain_expansion::domain::{Domain, DomainEmbedding, DomainId, Evaluation, Solution, Task};
+use ruvector_domain_expansion::domain::{
+    Domain, DomainEmbedding, DomainId, Evaluation, Solution, Task,
+};
 use serde::{Deserialize, Serialize};
 
 const EMBEDDING_DIM: usize = 64;
@@ -120,7 +122,13 @@ impl RoboticsDomain {
     // -- task generators ---------------------------------------------------
 
     fn gen_clustering(&self, difficulty: f32, rng: &mut impl Rng) -> RoboticsTaskSpec {
-        let num_clusters = if difficulty < 0.3 { 2 } else if difficulty < 0.7 { 5 } else { 10 };
+        let num_clusters = if difficulty < 0.3 {
+            2
+        } else if difficulty < 0.7 {
+            5
+        } else {
+            10
+        };
         let pts_per_cluster = if difficulty < 0.3 { 10 } else { 20 };
         let spread = if difficulty < 0.5 { 0.5 } else { 2.0 };
 
@@ -155,15 +163,17 @@ impl RoboticsDomain {
     }
 
     fn gen_avoidance(&self, difficulty: f32, rng: &mut impl Rng) -> RoboticsTaskSpec {
-        let num_obstacles = if difficulty < 0.3 { 3 } else if difficulty < 0.7 { 8 } else { 15 };
+        let num_obstacles = if difficulty < 0.3 {
+            3
+        } else if difficulty < 0.7 {
+            8
+        } else {
+            15
+        };
         let mut obstacles = Vec::new();
         for _ in 0..num_obstacles {
             obstacles.push(TaskObstacle {
-                center: [
-                    rng.gen_range(1.0..9.0),
-                    rng.gen_range(1.0..9.0),
-                    0.0,
-                ],
+                center: [rng.gen_range(1.0..9.0), rng.gen_range(1.0..9.0), 0.0],
                 radius: rng.gen_range(0.3..1.5),
             });
         }
@@ -185,7 +195,13 @@ impl RoboticsDomain {
     }
 
     fn gen_scene_graph(&self, difficulty: f32, rng: &mut impl Rng) -> RoboticsTaskSpec {
-        let num_objects = if difficulty < 0.3 { 3 } else if difficulty < 0.7 { 8 } else { 15 };
+        let num_objects = if difficulty < 0.3 {
+            3
+        } else if difficulty < 0.7 {
+            8
+        } else {
+            15
+        };
         let mut obstacles = Vec::new();
         for _ in 0..num_objects {
             obstacles.push(TaskObstacle {
@@ -221,8 +237,8 @@ impl RoboticsDomain {
             vec!["scan", "approach", "align", "grasp", "lift", "place"]
         } else {
             vec![
-                "scan", "classify", "approach", "align", "grasp",
-                "lift", "navigate", "place", "verify", "retreat",
+                "scan", "classify", "approach", "align", "grasp", "lift", "navigate", "place",
+                "verify", "retreat",
             ]
         };
 
@@ -258,15 +274,18 @@ impl RoboticsDomain {
     }
 
     fn gen_swarm_formation(&self, difficulty: f32, _rng: &mut impl Rng) -> RoboticsTaskSpec {
-        let num_robots = if difficulty < 0.3 { 4 } else if difficulty < 0.7 { 8 } else { 16 };
+        let num_robots = if difficulty < 0.3 {
+            4
+        } else if difficulty < 0.7 {
+            8
+        } else {
+            16
+        };
         let formation = if difficulty < 0.5 { "circle" } else { "grid" };
 
         RoboticsTaskSpec {
             category: RoboticsCategory::SwarmFormation,
-            description: format!(
-                "Assign {} robots to a {} formation.",
-                num_robots, formation,
-            ),
+            description: format!("Assign {} robots to a {} formation.", num_robots, formation,),
             size: num_robots,
             world_bounds: [20.0, 20.0, 1.0],
             obstacles: Vec::new(),
@@ -297,8 +316,16 @@ impl RoboticsDomain {
         };
 
         let correctness = cluster_accuracy;
-        let efficiency = if sol.cluster_ids.len() == spec.size { 1.0 } else { 0.5 };
-        let elegance = if actual_clusters <= expected_clusters * 2 { 0.8 } else { 0.3 };
+        let efficiency = if sol.cluster_ids.len() == spec.size {
+            1.0
+        } else {
+            0.5
+        };
+        let elegance = if actual_clusters <= expected_clusters * 2 {
+            0.8
+        } else {
+            0.3
+        };
 
         if (actual_clusters as i32 - expected_clusters as i32).unsigned_abs() > 2 {
             notes.push(format!(
@@ -342,7 +369,10 @@ impl RoboticsDomain {
         }
 
         let correctness = if reaches_goal { 0.6 } else { 0.2 }
-            + (1.0 - (collisions as f32 / (sol.waypoints.len() * spec.obstacles.len()).max(1) as f32).min(1.0)) * 0.4;
+            + (1.0
+                - (collisions as f32 / (sol.waypoints.len() * spec.obstacles.len()).max(1) as f32)
+                    .min(1.0))
+                * 0.4;
         let efficiency = 1.0 - (sol.waypoints.len() as f32 / 100.0).min(1.0);
         let elegance = if collisions == 0 { 0.9 } else { 0.3 };
 
@@ -439,7 +469,11 @@ impl RoboticsDomain {
         let dep_penalty = violations as f32 / expected_skills.max(1) as f32;
 
         let correctness = (coverage.min(1.0) * (1.0 - dep_penalty.min(1.0))).max(0.0);
-        let efficiency = if sol.skill_sequence.len() <= expected_skills + 2 { 0.9 } else { 0.5 };
+        let efficiency = if sol.skill_sequence.len() <= expected_skills + 2 {
+            0.9
+        } else {
+            0.5
+        };
         let elegance = if violations == 0 { 0.9 } else { 0.3 };
 
         Evaluation {
@@ -800,7 +834,11 @@ mod tests {
         let tasks = domain.generate_tasks(20, 0.5);
         for task in &tasks {
             let ref_sol = domain.reference_solution(task);
-            assert!(ref_sol.is_some(), "Reference solution missing for {}", task.id);
+            assert!(
+                ref_sol.is_some(),
+                "Reference solution missing for {}",
+                task.id
+            );
         }
     }
 

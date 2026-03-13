@@ -85,11 +85,7 @@ impl LearningPatternStore {
 
     /// Search patterns by returning those whose IDs are in the given candidate
     /// set (from a vector similarity search), enriched with metadata.
-    pub fn enrich_results(
-        &self,
-        candidates: &[(u64, f32)],
-        k: usize,
-    ) -> Vec<PatternResult> {
+    pub fn enrich_results(&self, candidates: &[(u64, f32)], k: usize) -> Vec<PatternResult> {
         let mut results: Vec<PatternResult> = candidates
             .iter()
             .filter_map(|&(id, distance)| {
@@ -201,7 +197,9 @@ mod tests {
     #[test]
     fn store_and_retrieve() {
         let mut store = LearningPatternStore::new();
-        let id = store.store_pattern("convergent", "Use batched writes", 0.85).unwrap();
+        let id = store
+            .store_pattern("convergent", "Use batched writes", 0.85)
+            .unwrap();
 
         let p = store.get_pattern(id).unwrap();
         assert_eq!(p.pattern_type, "convergent");
@@ -212,7 +210,9 @@ mod tests {
     #[test]
     fn update_score() {
         let mut store = LearningPatternStore::new();
-        let id = store.store_pattern("lateral", "Try alternative approach", 0.5).unwrap();
+        let id = store
+            .store_pattern("lateral", "Try alternative approach", 0.5)
+            .unwrap();
 
         store.update_score(id, 0.95).unwrap();
         let p = store.get_pattern(id).unwrap();

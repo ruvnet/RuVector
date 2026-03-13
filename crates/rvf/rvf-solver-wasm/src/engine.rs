@@ -13,10 +13,10 @@ use alloc::vec::Vec;
 use serde::{Deserialize, Serialize};
 
 use crate::policy::{
-    CompiledConfig, KnowledgeCompiler, PolicyContext, PolicyKernel, SkipMode, SkipOutcome,
-    count_distractors,
+    count_distractors, CompiledConfig, KnowledgeCompiler, PolicyContext, PolicyKernel, SkipMode,
+    SkipOutcome,
 };
-use crate::types::{Constraint, Date, Puzzle, Rng64, Weekday, constraint_type_name};
+use crate::types::{constraint_type_name, Constraint, Date, Puzzle, Rng64, Weekday};
 
 // ═════════════════════════════════════════════════════════════════════
 // Solve result
@@ -52,7 +52,14 @@ impl ReasoningBank {
         Self::default()
     }
 
-    pub fn record(&mut self, puzzle_id: &str, difficulty: u8, ctypes: &[&str], steps: usize, correct: bool) {
+    pub fn record(
+        &mut self,
+        puzzle_id: &str,
+        difficulty: u8,
+        ctypes: &[&str],
+        steps: usize,
+        correct: bool,
+    ) {
         let entry = (
             String::from(puzzle_id),
             difficulty,
@@ -87,7 +94,15 @@ impl ReasoningBank {
         let refs: Vec<(String, u8, Vec<&str>, usize, bool)> = self
             .trajectories
             .iter()
-            .map(|(id, d, ct, s, c)| (id.clone(), *d, ct.iter().map(|x| x.as_str()).collect(), *s, *c))
+            .map(|(id, d, ct, s, c)| {
+                (
+                    id.clone(),
+                    *d,
+                    ct.iter().map(|x| x.as_str()).collect(),
+                    *s,
+                    *c,
+                )
+            })
             .collect();
         compiler.compile_from_trajectories(&refs);
     }
@@ -127,7 +142,11 @@ impl PuzzleGenerator {
             _ => 28,
         };
         let day = self.rng.range(1, max_day) as u32;
-        let target = Date::new(year, month, day).unwrap_or(Date { year, month: 1, day: 1 });
+        let target = Date::new(year, month, day).unwrap_or(Date {
+            year,
+            month: 1,
+            day: 1,
+        });
 
         let mut constraints = Vec::new();
         let constraint_count = (difficulty as usize / 2 + 2).min(7);
@@ -247,7 +266,10 @@ impl AdaptiveSolver {
 
     /// Solve a puzzle using the three-loop adaptive architecture.
     pub fn solve(&mut self, puzzle: &Puzzle) -> SolveResult {
-        let has_dow = puzzle.constraints.iter().any(|c| matches!(c, Constraint::DayOfWeek(_)));
+        let has_dow = puzzle
+            .constraints
+            .iter()
+            .any(|c| matches!(c, Constraint::DayOfWeek(_)));
         let range = self.estimate_range(puzzle);
         let distractors = count_distractors(puzzle);
 
@@ -271,8 +293,8 @@ impl AdaptiveSolver {
         // Fast loop: solve with constraint propagation
         let (solutions, steps) = self.solve_inner(puzzle, &skip_mode, &compiled);
 
-        let correct = !solutions.is_empty()
-            && puzzle.solutions.iter().any(|s| solutions.contains(s));
+        let correct =
+            !solutions.is_empty() && puzzle.solutions.iter().any(|s| solutions.contains(s));
         let solved = !solutions.is_empty();
 
         // Check for early commit error
@@ -292,8 +314,13 @@ impl AdaptiveSolver {
         self.policy_kernel.record_outcome(&ctx, &outcome);
 
         // Record trajectory (fast loop → slow loop feedback)
-        let ctypes: Vec<&str> = puzzle.constraints.iter().map(constraint_type_name).collect();
-        self.bank.record(&puzzle.id, puzzle.difficulty, &ctypes, steps, correct);
+        let ctypes: Vec<&str> = puzzle
+            .constraints
+            .iter()
+            .map(constraint_type_name)
+            .collect();
+        self.bank
+            .record(&puzzle.id, puzzle.difficulty, &ctypes, steps, correct);
 
         // Update compiler on success/failure
         if self.compiler_enabled {
@@ -403,22 +430,34 @@ impl AdaptiveSolver {
         for c in &puzzle.constraints {
             match c {
                 Constraint::Between(a, b) => {
-                    if *a > lo { lo = *a; }
-                    if *b < hi { hi = *b; }
+                    if *a > lo {
+                        lo = *a;
+                    }
+                    if *b < hi {
+                        hi = *b;
+                    }
                 }
                 Constraint::After(d) => {
                     let next = d.succ();
-                    if next > lo { lo = next; }
+                    if next > lo {
+                        lo = next;
+                    }
                 }
                 Constraint::Before(d) => {
                     let prev = d.pred();
-                    if prev < hi { hi = prev; }
+                    if prev < hi {
+                        hi = prev;
+                    }
                 }
                 Constraint::InYear(y) => {
                     let yr_start = Date::new(*y, 1, 1).unwrap();
                     let yr_end = Date::new(*y, 12, 31).unwrap();
-                    if yr_start > lo { lo = yr_start; }
-                    if yr_end < hi { hi = yr_end; }
+                    if yr_start > lo {
+                        lo = yr_start;
+                    }
+                    if yr_end < hi {
+                        hi = yr_end;
+                    }
                 }
                 Constraint::Exact(d) => {
                     lo = *d;
@@ -588,11 +627,7 @@ pub fn run_acceptance_mode(
         });
 
         // ── Training phase (data available for next cycle's compile) ──
-        let mut gen = PuzzleGenerator::new(
-            config.training_seed + (cycle as u64 * 10_000),
-            1,
-            10,
-        );
+        let mut gen = PuzzleGenerator::new(config.training_seed + (cycle as u64 * 10_000), 1, 10);
         let training = gen.generate_batch(config.training_per_cycle);
         let mut train_rng = Rng64::new(config.training_seed.wrapping_add(cycle as u64 * 7919));
 
@@ -612,7 +647,9 @@ pub fn run_acceptance_mode(
     let first = &cycle_metrics[0];
     let last = cycle_metrics.last().unwrap();
 
-    let accuracy_maintained = cycle_metrics.iter().all(|c| c.accuracy >= config.min_accuracy * 0.95)
+    let accuracy_maintained = cycle_metrics
+        .iter()
+        .all(|c| c.accuracy >= config.min_accuracy * 0.95)
         && last.accuracy >= config.min_accuracy;
 
     let cost_decrease = if first.cost_per_solve > 0.0 {
@@ -628,9 +665,15 @@ pub fn run_acceptance_mode(
     let zero_violations = cycle_metrics.iter().all(|c| c.violations == 0);
 
     let mut dims = 0;
-    if cost_improved { dims += 1; }
-    if robustness_improved { dims += 1; }
-    if last.accuracy >= first.accuracy { dims += 1; }
+    if cost_improved {
+        dims += 1;
+    }
+    if robustness_improved {
+        dims += 1;
+    }
+    if last.accuracy >= first.accuracy {
+        dims += 1;
+    }
 
     let passed = accuracy_maintained && zero_violations && dims >= 2;
 
@@ -731,16 +774,52 @@ fn inject_noise(puzzle: &Puzzle, rng: &mut Rng64) -> Puzzle {
 #[cfg(test)]
 mod tests {
     extern crate std;
-    use std::println;
     use super::*;
+    use std::println;
 
     #[test]
     fn test_acceptance_mode_c_parameter_sweep() {
         // Test various configs to find what passes Mode C
         let configs = [
-            ("small",  AcceptanceConfig { holdout_size: 30, training_per_cycle: 200, cycles: 5, step_budget: 500, holdout_seed: 0xDEAD_BEEF, training_seed: 42, noise_rate: 0.25, min_accuracy: 0.80 }),
-            ("medium", AcceptanceConfig { holdout_size: 50, training_per_cycle: 500, cycles: 8, step_budget: 1000, holdout_seed: 0xDEAD_BEEF, training_seed: 42, noise_rate: 0.25, min_accuracy: 0.80 }),
-            ("large",  AcceptanceConfig { holdout_size: 50, training_per_cycle: 800, cycles: 12, step_budget: 2000, holdout_seed: 0xDEAD_BEEF, training_seed: 42, noise_rate: 0.25, min_accuracy: 0.80 }),
+            (
+                "small",
+                AcceptanceConfig {
+                    holdout_size: 30,
+                    training_per_cycle: 200,
+                    cycles: 5,
+                    step_budget: 500,
+                    holdout_seed: 0xDEAD_BEEF,
+                    training_seed: 42,
+                    noise_rate: 0.25,
+                    min_accuracy: 0.80,
+                },
+            ),
+            (
+                "medium",
+                AcceptanceConfig {
+                    holdout_size: 50,
+                    training_per_cycle: 500,
+                    cycles: 8,
+                    step_budget: 1000,
+                    holdout_seed: 0xDEAD_BEEF,
+                    training_seed: 42,
+                    noise_rate: 0.25,
+                    min_accuracy: 0.80,
+                },
+            ),
+            (
+                "large",
+                AcceptanceConfig {
+                    holdout_size: 50,
+                    training_per_cycle: 800,
+                    cycles: 12,
+                    step_budget: 2000,
+                    holdout_seed: 0xDEAD_BEEF,
+                    training_seed: 42,
+                    noise_rate: 0.25,
+                    min_accuracy: 0.80,
+                },
+            ),
         ];
 
         for (label, config) in &configs {
@@ -774,9 +853,16 @@ mod tests {
             let result = run_acceptance_mode(&config, true, true);
             let last = result.cycles.last().unwrap();
             let status = if result.passed { "PASS" } else { "FAIL" };
-            println!("seed={seed:#x} {status} acc={:.3} cost_imp={} robust_imp={} dims={}",
-                last.accuracy, result.cost_improved, result.robustness_improved, result.dimensions_improved);
-            if result.passed { pass_count += 1; }
+            println!(
+                "seed={seed:#x} {status} acc={:.3} cost_imp={} robust_imp={} dims={}",
+                last.accuracy,
+                result.cost_improved,
+                result.robustness_improved,
+                result.dimensions_improved
+            );
+            if result.passed {
+                pass_count += 1;
+            }
         }
         println!("\n{pass_count}/{total} seeds passed");
     }

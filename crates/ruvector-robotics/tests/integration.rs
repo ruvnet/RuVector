@@ -8,9 +8,9 @@ use ruvector_robotics::bridge::{
 };
 use ruvector_robotics::cognitive::{
     BehaviorNode, BehaviorStatus, BehaviorTree, CognitiveConfig, CognitiveCore, CognitiveMode,
-    Demonstration, EpisodicMemory, Episode, Formation, FormationType, MemoryItem, Outcome,
-    Percept, RobotCapabilities, SkillLibrary, SwarmConfig, SwarmCoordinator, SwarmTask,
-    TrackedObject, WorkingMemory, WorldModel,
+    Demonstration, Episode, EpisodicMemory, Formation, FormationType, MemoryItem, Outcome, Percept,
+    RobotCapabilities, SkillLibrary, SwarmConfig, SwarmCoordinator, SwarmTask, TrackedObject,
+    WorkingMemory, WorldModel,
 };
 use ruvector_robotics::mcp::{RoboticsToolRegistry, ToolCategory};
 use ruvector_robotics::perception::{PerceptionConfig, PerceptionPipeline};

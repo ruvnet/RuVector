@@ -5,9 +5,7 @@
 
 use std::path::{Path, PathBuf};
 
-use rvf_runtime::options::{
-    DistanceMetric, MetadataEntry, QueryOptions, RvfOptions, SearchResult,
-};
+use rvf_runtime::options::{DistanceMetric, MetadataEntry, QueryOptions, RvfOptions, SearchResult};
 use rvf_runtime::RvfStore;
 use rvf_types::{ErrorCode, RvfError};
 
@@ -105,7 +103,10 @@ impl RvfVectorStore {
         ids: &[u64],
         metadata: Option<&[MetadataEntry]>,
     ) -> Result<u64, RvfError> {
-        let store = self.store.as_mut().ok_or(RvfError::Code(ErrorCode::InvalidManifest))?;
+        let store = self
+            .store
+            .as_mut()
+            .ok_or(RvfError::Code(ErrorCode::InvalidManifest))?;
         let result = store.ingest_batch(vectors, ids, metadata)?;
         Ok(result.accepted)
     }
@@ -119,7 +120,10 @@ impl RvfVectorStore {
         k: usize,
         ef_search: Option<u16>,
     ) -> Result<Vec<SearchResult>, RvfError> {
-        let store = self.store.as_ref().ok_or(RvfError::Code(ErrorCode::InvalidManifest))?;
+        let store = self
+            .store
+            .as_ref()
+            .ok_or(RvfError::Code(ErrorCode::InvalidManifest))?;
         let opts = QueryOptions {
             ef_search: ef_search.unwrap_or(self.config.ef_search),
             ..Default::default()
@@ -129,7 +133,10 @@ impl RvfVectorStore {
 
     /// Delete vectors by their IDs.
     pub fn delete_vectors(&mut self, ids: &[u64]) -> Result<u64, RvfError> {
-        let store = self.store.as_mut().ok_or(RvfError::Code(ErrorCode::InvalidManifest))?;
+        let store = self
+            .store
+            .as_mut()
+            .ok_or(RvfError::Code(ErrorCode::InvalidManifest))?;
         let result = store.delete(ids)?;
         Ok(result.deleted)
     }
@@ -155,7 +162,9 @@ impl RvfVectorStore {
             ef_search: self.config.ef_search,
             ..Default::default()
         };
-        let results = store.query(&zero_query, status.total_vectors as usize, &opts).ok()?;
+        let results = store
+            .query(&zero_query, status.total_vectors as usize, &opts)
+            .ok()?;
         results.into_iter().find(|r| r.id == id)
     }
 
@@ -189,7 +198,10 @@ impl RvfVectorStore {
 
     /// Run compaction to reclaim space from deleted vectors.
     pub fn compact(&mut self) -> Result<u64, RvfError> {
-        let store = self.store.as_mut().ok_or(RvfError::Code(ErrorCode::InvalidManifest))?;
+        let store = self
+            .store
+            .as_mut()
+            .ok_or(RvfError::Code(ErrorCode::InvalidManifest))?;
         let result = store.compact()?;
         Ok(result.bytes_reclaimed)
     }

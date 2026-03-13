@@ -21,12 +21,13 @@ pub mod wasm;
 
 // Re-export the dispatch functions
 pub use avx2::*;
-pub use scalar::*;
-pub use winograd::{conv_3x3_winograd, transform_filter, transform_input, transform_output, WinogradFilterCache};
 pub use quantize::{
-    QuantParams, QuantizedTensor, QuantizationType, PerChannelQuantParams,
-    quantize_simd, dequantize_simd, quantize_batch, dequantize_batch,
-    pi_constants,
+    dequantize_batch, dequantize_simd, pi_constants, quantize_batch, quantize_simd,
+    PerChannelQuantParams, QuantParams, QuantizationType, QuantizedTensor,
+};
+pub use scalar::*;
+pub use winograd::{
+    conv_3x3_winograd, transform_filter, transform_input, transform_output, WinogradFilterCache,
 };
 
 /// SIMD-accelerated dot product with automatic architecture dispatch
@@ -55,7 +56,11 @@ pub fn dot_product_simd(a: &[f32], b: &[f32]) -> f32 {
         wasm::dot_product_wasm(a, b)
     }
 
-    #[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "wasm32")))]
+    #[cfg(not(any(
+        target_arch = "x86_64",
+        target_arch = "aarch64",
+        target_arch = "wasm32"
+    )))]
     {
         scalar::dot_product_scalar(a, b)
     }
@@ -83,7 +88,11 @@ pub fn relu_simd(input: &[f32], output: &mut [f32]) {
         wasm::relu_wasm(input, output)
     }
 
-    #[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "wasm32")))]
+    #[cfg(not(any(
+        target_arch = "x86_64",
+        target_arch = "aarch64",
+        target_arch = "wasm32"
+    )))]
     {
         scalar::relu_scalar(input, output)
     }
@@ -111,7 +120,11 @@ pub fn relu6_simd(input: &[f32], output: &mut [f32]) {
         wasm::relu6_wasm(input, output)
     }
 
-    #[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "wasm32")))]
+    #[cfg(not(any(
+        target_arch = "x86_64",
+        target_arch = "aarch64",
+        target_arch = "wasm32"
+    )))]
     {
         scalar::relu6_scalar(input, output)
     }
@@ -132,7 +145,9 @@ pub fn batch_norm_simd(
     #[cfg(target_arch = "x86_64")]
     {
         if is_x86_feature_detected!("avx2") {
-            unsafe { avx2::batch_norm_avx2(input, output, gamma, beta, mean, var, epsilon, channels) }
+            unsafe {
+                avx2::batch_norm_avx2(input, output, gamma, beta, mean, var, epsilon, channels)
+            }
         } else {
             scalar::batch_norm_scalar(input, output, gamma, beta, mean, var, epsilon, channels)
         }
@@ -148,7 +163,11 @@ pub fn batch_norm_simd(
         wasm::batch_norm_wasm(input, output, gamma, beta, mean, var, epsilon, channels)
     }
 
-    #[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "wasm32")))]
+    #[cfg(not(any(
+        target_arch = "x86_64",
+        target_arch = "aarch64",
+        target_arch = "wasm32"
+    )))]
     {
         scalar::batch_norm_scalar(input, output, gamma, beta, mean, var, epsilon, channels)
     }
@@ -171,32 +190,48 @@ pub fn conv_3x3_simd(
     {
         if is_x86_feature_detected!("avx2") && is_x86_feature_detected!("fma") {
             unsafe {
-                avx2::conv_3x3_avx2_fma(input, kernel, output, in_h, in_w, in_c, out_c, stride, padding)
+                avx2::conv_3x3_avx2_fma(
+                    input, kernel, output, in_h, in_w, in_c, out_c, stride, padding,
+                )
             }
         } else if is_x86_feature_detected!("avx2") {
             unsafe {
-                avx2::conv_3x3_avx2(input, kernel, output, in_h, in_w, in_c, out_c, stride, padding)
+                avx2::conv_3x3_avx2(
+                    input, kernel, output, in_h, in_w, in_c, out_c, stride, padding,
+                )
             }
         } else {
-            scalar::conv_3x3_scalar(input, kernel, output, in_h, in_w, in_c, out_c, stride, padding)
+            scalar::conv_3x3_scalar(
+                input, kernel, output, in_h, in_w, in_c, out_c, stride, padding,
+            )
         }
     }
 
     #[cfg(target_arch = "aarch64")]
     {
         unsafe {
-            neon::conv_3x3_neon(input, kernel, output, in_h, in_w, in_c, out_c, stride, padding)
+            neon::conv_3x3_neon(
+                input, kernel, output, in_h, in_w, in_c, out_c, stride, padding,
+            )
         }
     }
 
     #[cfg(target_arch = "wasm32")]
     {
-        wasm::conv_3x3_wasm(input, kernel, output, in_h, in_w, in_c, out_c, stride, padding)
+        wasm::conv_3x3_wasm(
+            input, kernel, output, in_h, in_w, in_c, out_c, stride, padding,
+        )
     }
 
-    #[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "wasm32")))]
+    #[cfg(not(any(
+        target_arch = "x86_64",
+        target_arch = "aarch64",
+        target_arch = "wasm32"
+    )))]
     {
-        scalar::conv_3x3_scalar(input, kernel, output, in_h, in_w, in_c, out_c, stride, padding)
+        scalar::conv_3x3_scalar(
+            input, kernel, output, in_h, in_w, in_c, out_c, stride, padding,
+        )
     }
 }
 
@@ -215,7 +250,9 @@ pub fn depthwise_conv_3x3_simd(
     #[cfg(target_arch = "x86_64")]
     {
         if is_x86_feature_detected!("avx2") {
-            unsafe { avx2::depthwise_conv_3x3_avx2(input, kernel, output, h, w, c, stride, padding) }
+            unsafe {
+                avx2::depthwise_conv_3x3_avx2(input, kernel, output, h, w, c, stride, padding)
+            }
         } else {
             scalar::depthwise_conv_3x3_scalar(input, kernel, output, h, w, c, stride, padding)
         }
@@ -231,7 +268,11 @@ pub fn depthwise_conv_3x3_simd(
         wasm::depthwise_conv_3x3_wasm(input, kernel, output, h, w, c, stride, padding)
     }
 
-    #[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "wasm32")))]
+    #[cfg(not(any(
+        target_arch = "x86_64",
+        target_arch = "aarch64",
+        target_arch = "wasm32"
+    )))]
     {
         scalar::depthwise_conv_3x3_scalar(input, kernel, output, h, w, c, stride, padding)
     }
@@ -259,7 +300,11 @@ pub fn global_avg_pool_simd(input: &[f32], output: &mut [f32], h: usize, w: usiz
         wasm::global_avg_pool_wasm(input, output, h, w, c)
     }
 
-    #[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "wasm32")))]
+    #[cfg(not(any(
+        target_arch = "x86_64",
+        target_arch = "aarch64",
+        target_arch = "wasm32"
+    )))]
     {
         scalar::global_avg_pool_scalar(input, output, h, w, c)
     }
@@ -294,7 +339,11 @@ pub fn max_pool_2x2_simd(
         wasm::max_pool_2x2_wasm(input, output, h, w, c, stride)
     }
 
-    #[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "wasm32")))]
+    #[cfg(not(any(
+        target_arch = "x86_64",
+        target_arch = "aarch64",
+        target_arch = "wasm32"
+    )))]
     {
         scalar::max_pool_2x2_scalar(input, output, h, w, c, stride)
     }

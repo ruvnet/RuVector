@@ -15,7 +15,7 @@ use alloc::vec::Vec;
 use libm::{cos, log, pow, sqrt};
 use serde::{Deserialize, Serialize};
 
-use crate::types::{Constraint, Puzzle, constraint_type_name};
+use crate::types::{constraint_type_name, Constraint, Puzzle};
 
 // ═════════════════════════════════════════════════════════════════════
 // Skip / Prepass modes
@@ -113,8 +113,8 @@ impl SkipModeStats {
         if self.attempts <= 1 {
             self.cost_ema = normalized_steps;
         } else {
-            self.cost_ema = COST_EMA_ALPHA * normalized_steps
-                + (1.0 - COST_EMA_ALPHA) * self.cost_ema;
+            self.cost_ema =
+                COST_EMA_ALPHA * normalized_steps + (1.0 - COST_EMA_ALPHA) * self.cost_ema;
         }
     }
 
@@ -162,7 +162,9 @@ impl PolicyKernel {
         if !ctx.has_day_of_week {
             return SkipMode::None;
         }
-        let eff = ctx.posterior_range.saturating_sub(Self::K * ctx.distractor_count);
+        let eff = ctx
+            .posterior_range
+            .saturating_sub(Self::K * ctx.distractor_count);
         if eff >= Self::T {
             SkipMode::Weekday
         } else {
@@ -191,7 +193,9 @@ impl PolicyKernel {
         // accumulated enough training data. This ensures a meaningful baseline
         // in early cycles that training can measurably improve upon.
         {
-            let total_observations: usize = self.context_stats.values()
+            let total_observations: usize = self
+                .context_stats
+                .values()
                 .flat_map(|m| m.values())
                 .map(|s| s.attempts)
                 .sum();
@@ -224,7 +228,10 @@ impl PolicyKernel {
             })
             .collect();
         scored.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(core::cmp::Ordering::Equal));
-        scored.first().map(|(m, _)| m.clone()).unwrap_or(SkipMode::None)
+        scored
+            .first()
+            .map(|(m, _)| m.clone())
+            .unwrap_or(SkipMode::None)
     }
 
     /// Speculative dual-path check.
@@ -424,7 +431,11 @@ impl KnowledgeCompiler {
     }
 
     pub fn signature(puzzle: &Puzzle) -> String {
-        let mut parts: Vec<&str> = puzzle.constraints.iter().map(constraint_type_name).collect();
+        let mut parts: Vec<&str> = puzzle
+            .constraints
+            .iter()
+            .map(constraint_type_name)
+            .collect();
         parts.sort();
         format!("v1:{}:{}", puzzle.difficulty, parts.join(","))
     }
@@ -465,7 +476,10 @@ impl KnowledgeCompiler {
     }
 
     /// Compile knowledge from trajectories (simplified ReasoningBank integration).
-    pub fn compile_from_trajectories(&mut self, trajectories: &[(String, u8, Vec<&str>, usize, bool)]) {
+    pub fn compile_from_trajectories(
+        &mut self,
+        trajectories: &[(String, u8, Vec<&str>, usize, bool)],
+    ) {
         for (_, difficulty, ctypes, steps, correct) in trajectories {
             if !correct {
                 continue;
@@ -505,15 +519,21 @@ pub fn count_distractors(puzzle: &Puzzle) -> usize {
     for c in &puzzle.constraints {
         match c {
             Constraint::Between(_, _) => {
-                if sb { count += 1; }
+                if sb {
+                    count += 1;
+                }
                 sb = true;
             }
             Constraint::InYear(_) => {
-                if sy { count += 1; }
+                if sy {
+                    count += 1;
+                }
                 sy = true;
             }
             Constraint::DayOfWeek(_) => {
-                if sd { count += 1; }
+                if sd {
+                    count += 1;
+                }
                 sd = true;
             }
             _ => {}

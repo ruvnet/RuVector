@@ -90,18 +90,21 @@ impl Conv2dBuilder {
     /// Build the Conv2d layer
     pub fn build(self) -> CnnResult<Conv2d> {
         if self.in_channels % self.groups != 0 {
-            return Err(CnnError::InvalidParameter(
-                format!("in_channels {} must be divisible by groups {}", self.in_channels, self.groups)
-            ));
+            return Err(CnnError::InvalidParameter(format!(
+                "in_channels {} must be divisible by groups {}",
+                self.in_channels, self.groups
+            )));
         }
         if self.out_channels % self.groups != 0 {
-            return Err(CnnError::InvalidParameter(
-                format!("out_channels {} must be divisible by groups {}", self.out_channels, self.groups)
-            ));
+            return Err(CnnError::InvalidParameter(format!(
+                "out_channels {} must be divisible by groups {}",
+                self.out_channels, self.groups
+            )));
         }
 
         let in_channels_per_group = self.in_channels / self.groups;
-        let num_weights = self.out_channels * self.kernel_size * self.kernel_size * in_channels_per_group;
+        let num_weights =
+            self.out_channels * self.kernel_size * self.kernel_size * in_channels_per_group;
 
         // Xavier/Glorot initialization
         let fan_in = in_channels_per_group * self.kernel_size * self.kernel_size;
@@ -329,7 +332,10 @@ impl Layer for Conv2d {
                     self.stride,
                     self.padding,
                 );
-            } else if self.kernel_size == 3 && self.groups == self.in_channels && self.in_channels == self.out_channels {
+            } else if self.kernel_size == 3
+                && self.groups == self.in_channels
+                && self.in_channels == self.out_channels
+            {
                 // Depthwise 3x3 convolution (groups == in_channels == out_channels)
                 simd::depthwise_conv_3x3_simd(
                     input_slice,
@@ -405,18 +411,15 @@ impl Conv2d {
                                 let ih = (oh * self.stride + kh) as isize - self.padding as isize;
                                 let iw = (ow * self.stride + kw) as isize - self.padding as isize;
 
-                                if ih >= 0
-                                    && ih < in_h as isize
-                                    && iw >= 0
-                                    && iw < in_w as isize
-                                {
+                                if ih >= 0 && ih < in_h as isize && iw >= 0 && iw < in_w as isize {
                                     let ih = ih as usize;
                                     let iw = iw as usize;
 
                                     for ic_local in 0..in_channels_per_group {
                                         let ic = in_c_start + ic_local;
-                                        let input_idx =
-                                            ih * in_w * self.in_channels + iw * self.in_channels + ic;
+                                        let input_idx = ih * in_w * self.in_channels
+                                            + iw * self.in_channels
+                                            + ic;
                                         // Kernel layout: [out_c, kh, kw, in_c_per_group]
                                         let kernel_idx = oc * ks * ks * in_channels_per_group
                                             + kh * ks * in_channels_per_group
@@ -560,7 +563,8 @@ impl Layer for DepthwiseSeparableConv {
 
         for b in 0..batch {
             let input_slice = &input.data()[b * batch_in_size..(b + 1) * batch_in_size];
-            let output_slice = &mut dw_output.data_mut()[b * batch_dw_size..(b + 1) * batch_dw_size];
+            let output_slice =
+                &mut dw_output.data_mut()[b * batch_dw_size..(b + 1) * batch_dw_size];
 
             if self.kernel_size == 3 {
                 simd::depthwise_conv_3x3_simd(
@@ -636,11 +640,7 @@ impl DepthwiseSeparableConv {
                             let ih = (oh * self.stride + kh) as isize - self.padding as isize;
                             let iw = (ow * self.stride + kw) as isize - self.padding as isize;
 
-                            if ih >= 0
-                                && ih < in_h as isize
-                                && iw >= 0
-                                && iw < in_w as isize
-                            {
+                            if ih >= 0 && ih < in_h as isize && iw >= 0 && iw < in_w as isize {
                                 let ih = ih as usize;
                                 let iw = iw as usize;
 

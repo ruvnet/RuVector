@@ -250,13 +250,8 @@ mod tests {
 
     #[test]
     fn test_linear_forward_with_bias() {
-        let linear = Linear::with_weights(
-            2,
-            2,
-            vec![1.0, 0.0, 0.0, 1.0],
-            Some(vec![5.0, 10.0]),
-        )
-        .unwrap();
+        let linear =
+            Linear::with_weights(2, 2, vec![1.0, 0.0, 0.0, 1.0], Some(vec![5.0, 10.0])).unwrap();
 
         let input = vec![1.0, 2.0];
         let output = linear.forward_vec(&input).unwrap();
@@ -267,13 +262,7 @@ mod tests {
 
     #[test]
     fn test_linear_forward_batch() {
-        let linear = Linear::with_weights(
-            2,
-            2,
-            vec![1.0, 0.0, 0.0, 1.0],
-            None,
-        )
-        .unwrap();
+        let linear = Linear::with_weights(2, 2, vec![1.0, 0.0, 0.0, 1.0], None).unwrap();
 
         let input = vec![1.0, 2.0, 3.0, 4.0]; // batch of 2
         let output = linear.forward_batch(&input, 2).unwrap();

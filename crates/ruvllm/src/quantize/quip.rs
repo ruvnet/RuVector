@@ -664,8 +664,16 @@ impl QuipQuantizer {
             .zip(restored.iter())
             .map(|(a, b)| (*a as f64) * (*b as f64))
             .sum();
-        let norm_a: f64 = original.iter().map(|a| (*a as f64).powi(2)).sum::<f64>().sqrt();
-        let norm_b: f64 = restored.iter().map(|b| (*b as f64).powi(2)).sum::<f64>().sqrt();
+        let norm_a: f64 = original
+            .iter()
+            .map(|a| (*a as f64).powi(2))
+            .sum::<f64>()
+            .sqrt();
+        let norm_b: f64 = restored
+            .iter()
+            .map(|b| (*b as f64).powi(2))
+            .sum::<f64>()
+            .sqrt();
 
         self.stats.cosine_similarity = if norm_a > 0.0 && norm_b > 0.0 {
             dot / (norm_a * norm_b)

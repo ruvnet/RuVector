@@ -5,7 +5,6 @@
 /// - Building a SceneGraph from objects using SceneGraphBuilder
 /// - Inspecting computed edges (spatial relationships)
 /// - Merging two scene graphs into one
-
 use ruvector_robotics::bridge::SceneObject;
 use ruvector_robotics::perception::SceneGraphBuilder;
 
@@ -54,10 +53,24 @@ fn main() {
     let graph = builder.build(objects, 1000);
 
     println!();
-    println!("[2] Scene graph: {} objects, {} edges", graph.objects.len(), graph.edges.len());
+    println!(
+        "[2] Scene graph: {} objects, {} edges",
+        graph.objects.len(),
+        graph.edges.len()
+    );
     for edge in &graph.edges {
-        let from_label = &graph.objects.iter().find(|o| o.id == edge.from).unwrap().label;
-        let to_label = &graph.objects.iter().find(|o| o.id == edge.to).unwrap().label;
+        let from_label = &graph
+            .objects
+            .iter()
+            .find(|o| o.id == edge.from)
+            .unwrap()
+            .label;
+        let to_label = &graph
+            .objects
+            .iter()
+            .find(|o| o.id == edge.to)
+            .unwrap()
+            .label;
         println!(
             "    {} --[{}, {:.2}m]--> {}",
             from_label, edge.relation, edge.distance, to_label
@@ -83,7 +96,11 @@ fn main() {
     let graph_b = builder.build(objects_b, 2000);
 
     println!();
-    println!("[3] Second scene: {} objects, {} edges", graph_b.objects.len(), graph_b.edges.len());
+    println!(
+        "[3] Second scene: {} objects, {} edges",
+        graph_b.objects.len(),
+        graph_b.edges.len()
+    );
 
     let wide_builder = SceneGraphBuilder::new(10.0, 256);
     let merged = wide_builder.merge(&graph, &graph_b);

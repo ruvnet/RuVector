@@ -54,7 +54,10 @@ fn main() {
             // Act
             let cmd = core.act(decision);
             match &cmd.action {
-                ActionType::Move(pos) => println!("  Action: Move to [{:.1}, {:.1}, {:.1}]", pos[0], pos[1], pos[2]),
+                ActionType::Move(pos) => println!(
+                    "  Action: Move to [{:.1}, {:.1}, {:.1}]",
+                    pos[0], pos[1], pos[2]
+                ),
                 ActionType::Wait(ms) => println!("  Action: Wait {}ms", ms),
                 _ => println!("  Action: {:?}", cmd.action),
             }

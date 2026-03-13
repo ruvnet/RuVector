@@ -10,16 +10,13 @@
 //! Run with: cargo bench --package ruvector-cnn
 //! View HTML report: open target/criterion/report/index.html
 
-use criterion::{
-    black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput,
-};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 use ruvector_cnn::{
     layers::{
-        BatchNorm, Conv2d, DepthwiseSeparableConv, GlobalAvgPool, Layer, MaxPool2d,
-        ReLU, ReLU6, HardSwish, Swish,
+        BatchNorm, Conv2d, DepthwiseSeparableConv, GlobalAvgPool, HardSwish, Layer, MaxPool2d,
+        ReLU, ReLU6, Swish,
     },
-    simd,
-    Tensor,
+    simd, Tensor,
 };
 
 // ============================================================================
@@ -95,14 +92,15 @@ fn bench_simd_dot_product(c: &mut Criterion) {
         let b = vec![2.0f32; size];
 
         group.bench_with_input(BenchmarkId::new("simd", size), &size, |b_iter, _| {
-            b_iter.iter(|| {
-                black_box(simd::dot_product_simd(black_box(&a), black_box(&b)))
-            })
+            b_iter.iter(|| black_box(simd::dot_product_simd(black_box(&a), black_box(&b))))
         });
 
         group.bench_with_input(BenchmarkId::new("scalar", size), &size, |b_iter, _| {
             b_iter.iter(|| {
-                black_box(simd::scalar::dot_product_scalar(black_box(&a), black_box(&b)))
+                black_box(simd::scalar::dot_product_scalar(
+                    black_box(&a),
+                    black_box(&b),
+                ))
             })
         });
     }
@@ -112,12 +110,7 @@ fn bench_simd_dot_product(c: &mut Criterion) {
 
 fn bench_simd_batch_norm(c: &mut Criterion) {
     // (height, width, channels)
-    let configs = [
-        (8, 8, 64),
-        (28, 28, 128),
-        (56, 56, 64),
-        (112, 112, 32),
-    ];
+    let configs = [(8, 8, 64), (28, 28, 128), (56, 56, 64), (112, 112, 32)];
 
     let mut group = c.benchmark_group("simd/batch_norm");
     group.sample_size(50);
@@ -247,8 +240,8 @@ fn bench_simd_conv_3x3(c: &mut Criterion) {
 
 fn bench_simd_global_avg_pool(c: &mut Criterion) {
     let configs = [
-        (7, 7, 576),     // MobileNetV3-Small final
-        (7, 7, 960),     // MobileNetV3-Large final
+        (7, 7, 576), // MobileNetV3-Small final
+        (7, 7, 960), // MobileNetV3-Large final
         (14, 14, 256),
         (28, 28, 128),
     ];
@@ -268,13 +261,7 @@ fn bench_simd_global_avg_pool(c: &mut Criterion) {
             &(h, w, ch),
             |b, _| {
                 b.iter(|| {
-                    simd::global_avg_pool_simd(
-                        black_box(&input),
-                        black_box(&mut output),
-                        h,
-                        w,
-                        ch,
-                    );
+                    simd::global_avg_pool_simd(black_box(&input), black_box(&mut output), h, w, ch);
                 })
             },
         );
@@ -306,10 +293,10 @@ fn bench_simd_global_avg_pool(c: &mut Criterion) {
 fn bench_conv2d_layer(c: &mut Criterion) {
     // (batch, height, width, in_channels, out_channels)
     let configs = [
-        (1, 8, 8, 3, 16),      // Small
-        (1, 32, 32, 3, 32),    // Medium
-        (1, 56, 56, 16, 64),   // Large (MobileNet-style)
-        (1, 112, 112, 3, 32),  // Initial conv
+        (1, 8, 8, 3, 16),     // Small
+        (1, 32, 32, 3, 32),   // Medium
+        (1, 56, 56, 16, 64),  // Large (MobileNet-style)
+        (1, 112, 112, 3, 32), // Initial conv
     ];
 
     let mut group = c.benchmark_group("layers/conv2d_3x3");
@@ -325,11 +312,7 @@ fn bench_conv2d_layer(c: &mut Criterion) {
         group.bench_with_input(
             BenchmarkId::new("forward", format!("{}x{}x{}->{}", h, w, in_c, out_c)),
             &(n, h, w, in_c, out_c),
-            |b, _| {
-                b.iter(|| {
-                    black_box(conv.forward(black_box(&input)).unwrap())
-                })
-            },
+            |b, _| b.iter(|| black_box(conv.forward(black_box(&input)).unwrap())),
         );
     }
 
@@ -357,11 +340,7 @@ fn bench_depthwise_separable(c: &mut Criterion) {
         group.bench_with_input(
             BenchmarkId::new("forward", format!("{}x{}x{}->{}", h, w, in_c, out_c)),
             &(n, h, w, in_c, out_c),
-            |b, _| {
-                b.iter(|| {
-                    black_box(conv.forward(black_box(&input)).unwrap())
-                })
-            },
+            |b, _| b.iter(|| black_box(conv.forward(black_box(&input)).unwrap())),
         );
     }
 
@@ -389,11 +368,7 @@ fn bench_batch_norm_layer(c: &mut Criterion) {
         group.bench_with_input(
             BenchmarkId::new("forward", format!("{}x{}x{}", h, w, ch)),
             &(n, h, w, ch),
-            |b, _| {
-                b.iter(|| {
-                    black_box(bn.forward(black_box(&input)).unwrap())
-                })
-            },
+            |b, _| b.iter(|| black_box(bn.forward(black_box(&input)).unwrap())),
         );
     }
 
@@ -405,11 +380,7 @@ fn bench_batch_norm_layer(c: &mut Criterion) {
 // ============================================================================
 
 fn bench_activations(c: &mut Criterion) {
-    let configs = [
-        (1, 56, 56, 64),
-        (1, 28, 28, 128),
-        (1, 14, 14, 256),
-    ];
+    let configs = [(1, 56, 56, 64), (1, 28, 28, 128), (1, 14, 14, 256)];
 
     let mut group = c.benchmark_group("layers/activations");
     group.sample_size(50);
@@ -427,11 +398,7 @@ fn bench_activations(c: &mut Criterion) {
         group.bench_with_input(
             BenchmarkId::new("relu", &size_label),
             &(n, h, w, ch),
-            |b, _| {
-                b.iter(|| {
-                    black_box(relu.forward(black_box(&input)).unwrap())
-                })
-            },
+            |b, _| b.iter(|| black_box(relu.forward(black_box(&input)).unwrap())),
         );
 
         // ReLU6
@@ -439,11 +406,7 @@ fn bench_activations(c: &mut Criterion) {
         group.bench_with_input(
             BenchmarkId::new("relu6", &size_label),
             &(n, h, w, ch),
-            |b, _| {
-                b.iter(|| {
-                    black_box(relu6.forward(black_box(&input)).unwrap())
-                })
-            },
+            |b, _| b.iter(|| black_box(relu6.forward(black_box(&input)).unwrap())),
         );
 
         // Swish
@@ -451,11 +414,7 @@ fn bench_activations(c: &mut Criterion) {
         group.bench_with_input(
             BenchmarkId::new("swish", &size_label),
             &(n, h, w, ch),
-            |b, _| {
-                b.iter(|| {
-                    black_box(swish.forward(black_box(&input)).unwrap())
-                })
-            },
+            |b, _| b.iter(|| black_box(swish.forward(black_box(&input)).unwrap())),
         );
 
         // HardSwish
@@ -463,11 +422,7 @@ fn bench_activations(c: &mut Criterion) {
         group.bench_with_input(
             BenchmarkId::new("hard_swish", &size_label),
             &(n, h, w, ch),
-            |b, _| {
-                b.iter(|| {
-                    black_box(hard_swish.forward(black_box(&input)).unwrap())
-                })
-            },
+            |b, _| b.iter(|| black_box(hard_swish.forward(black_box(&input)).unwrap())),
         );
     }
 
@@ -483,8 +438,8 @@ fn bench_pooling(c: &mut Criterion) {
         (1, 8, 8, 64),
         (1, 28, 28, 128),
         (1, 56, 56, 64),
-        (1, 7, 7, 576),   // MobileNetV3-Small final
-        (1, 7, 7, 960),   // MobileNetV3-Large final
+        (1, 7, 7, 576), // MobileNetV3-Small final
+        (1, 7, 7, 960), // MobileNetV3-Large final
     ];
 
     let mut group = c.benchmark_group("layers/pooling");
@@ -502,11 +457,7 @@ fn bench_pooling(c: &mut Criterion) {
         group.bench_with_input(
             BenchmarkId::new("global_avg", &size_label),
             &(n, h, w, ch),
-            |b, _| {
-                b.iter(|| {
-                    black_box(gap.forward(black_box(&input)).unwrap())
-                })
-            },
+            |b, _| b.iter(|| black_box(gap.forward(black_box(&input)).unwrap())),
         );
 
         // MaxPool2d (only for sizes >= 4)
@@ -515,11 +466,7 @@ fn bench_pooling(c: &mut Criterion) {
             group.bench_with_input(
                 BenchmarkId::new("max_2x2", &size_label),
                 &(n, h, w, ch),
-                |b, _| {
-                    b.iter(|| {
-                        black_box(maxpool.forward(black_box(&input)).unwrap())
-                    })
-                },
+                |b, _| b.iter(|| black_box(maxpool.forward(black_box(&input)).unwrap())),
             );
         }
     }
@@ -609,15 +556,9 @@ fn bench_batch_scaling(c: &mut Criterion) {
 
         let input = Tensor::ones(&[batch, h, w, in_c]);
 
-        group.bench_with_input(
-            BenchmarkId::new("conv2d", batch),
-            &batch,
-            |b, _| {
-                b.iter(|| {
-                    black_box(conv.forward(black_box(&input)).unwrap())
-                })
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("conv2d", batch), &batch, |b, _| {
+            b.iter(|| black_box(conv.forward(black_box(&input)).unwrap()))
+        });
     }
 
     group.finish();
@@ -632,11 +573,7 @@ fn bench_tensor_operations(c: &mut Criterion) {
     group.sample_size(50);
 
     // Test tensor creation
-    let shapes = [
-        (1, 224, 224, 3),
-        (1, 56, 56, 64),
-        (16, 28, 28, 128),
-    ];
+    let shapes = [(1, 224, 224, 3), (1, 56, 56, 64), (16, 28, 28, 128)];
 
     for (n, h, w, c) in shapes {
         let elements = n * h * w * c;
@@ -644,36 +581,18 @@ fn bench_tensor_operations(c: &mut Criterion) {
 
         group.throughput(Throughput::Elements(elements as u64));
 
-        group.bench_with_input(
-            BenchmarkId::new("zeros", &label),
-            &(n, h, w, c),
-            |b, _| {
-                b.iter(|| {
-                    black_box(Tensor::zeros(&[n, h, w, c]))
-                })
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("zeros", &label), &(n, h, w, c), |b, _| {
+            b.iter(|| black_box(Tensor::zeros(&[n, h, w, c])))
+        });
 
-        group.bench_with_input(
-            BenchmarkId::new("ones", &label),
-            &(n, h, w, c),
-            |b, _| {
-                b.iter(|| {
-                    black_box(Tensor::ones(&[n, h, w, c]))
-                })
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("ones", &label), &(n, h, w, c), |b, _| {
+            b.iter(|| black_box(Tensor::ones(&[n, h, w, c])))
+        });
 
         let tensor = Tensor::ones(&[n, h, w, c]);
-        group.bench_with_input(
-            BenchmarkId::new("clone", &label),
-            &(n, h, w, c),
-            |b, _| {
-                b.iter(|| {
-                    black_box(tensor.clone())
-                })
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("clone", &label), &(n, h, w, c), |b, _| {
+            b.iter(|| black_box(tensor.clone()))
+        });
     }
 
     group.finish();
@@ -702,15 +621,8 @@ criterion_group!(
     bench_pooling,
 );
 
-criterion_group!(
-    block_benches,
-    bench_full_block,
-    bench_batch_scaling,
-);
+criterion_group!(block_benches, bench_full_block, bench_batch_scaling,);
 
-criterion_group!(
-    misc_benches,
-    bench_tensor_operations,
-);
+criterion_group!(misc_benches, bench_tensor_operations,);
 
 criterion_main!(simd_benches, layer_benches, block_benches, misc_benches);

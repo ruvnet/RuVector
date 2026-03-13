@@ -42,16 +42,11 @@ impl WorkingMemory {
     pub fn add(&mut self, item: MemoryItem) {
         if self.items.len() >= self.max_size {
             // Evict least important.
-            if let Some((idx, _)) = self
-                .items
-                .iter()
-                .enumerate()
-                .min_by(|(_, a), (_, b)| {
-                    a.importance
-                        .partial_cmp(&b.importance)
-                        .unwrap_or(std::cmp::Ordering::Equal)
-                })
-            {
+            if let Some((idx, _)) = self.items.iter().enumerate().min_by(|(_, a), (_, b)| {
+                a.importance
+                    .partial_cmp(&b.importance)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            }) {
                 self.items.remove(idx);
             }
         }

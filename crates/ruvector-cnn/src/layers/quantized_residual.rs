@@ -67,7 +67,7 @@ impl QuantizedResidualAdd {
         if input1.len() != input2.len() {
             return Err(CnnError::invalid_shape(
                 format!("input size {}", input1.len()),
-                format!("size {}", input2.len())
+                format!("size {}", input2.len()),
             ));
         }
 
@@ -89,7 +89,9 @@ impl QuantizedResidualAdd {
             let sum = val1 + val2;
 
             // Requantize to output
-            let output_q = (sum + self.output_zero_point as f32).round().clamp(0.0, 255.0);
+            let output_q = (sum + self.output_zero_point as f32)
+                .round()
+                .clamp(0.0, 255.0);
             output[i] = output_q as u8;
         }
 
@@ -112,7 +114,7 @@ impl QuantizedResidualAdd {
         if input1.len() != input2.len() {
             return Err(CnnError::invalid_shape(
                 format!("input size {}", input1.len()),
-                format!("size {}", input2.len())
+                format!("size {}", input2.len()),
             ));
         }
 

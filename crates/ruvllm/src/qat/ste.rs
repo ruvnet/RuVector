@@ -70,9 +70,7 @@ impl SteVariant {
             // EWGS: Gradient scaled by quantization error
             // dL/dw = dL/dq * (1 + lambda * |w - q|)
             // This gives stronger gradient signal for weights far from quantization points
-            SteVariant::Ewgs { lambda } => {
-                grad_out * (1.0 + lambda * (w - q).abs())
-            }
+            SteVariant::Ewgs { lambda } => grad_out * (1.0 + lambda * (w - q).abs()),
         }
     }
 
@@ -160,10 +158,7 @@ impl SteVariant {
 pub mod simd {
     /// NEON-accelerated backward pass (identity, no-op for Standard STE)
     #[inline]
-    pub unsafe fn backward_standard_neon(
-        grad_out: &[f32],
-        grad_w: &mut [f32],
-    ) {
+    pub unsafe fn backward_standard_neon(grad_out: &[f32], grad_w: &mut [f32]) {
         // For Standard STE, just copy
         grad_w.copy_from_slice(grad_out);
     }
@@ -244,7 +239,11 @@ pub mod simd {
 
         // Handle remainder
         while i < n {
-            grad_w[i] = if weights[i].abs() <= clip_val { grad_out[i] } else { 0.0 };
+            grad_w[i] = if weights[i].abs() <= clip_val {
+                grad_out[i]
+            } else {
+                0.0
+            };
             i += 1;
         }
     }
@@ -437,7 +436,12 @@ mod tests {
         let ste_ewgs = SteVariant::Ewgs { lambda: 0.1 };
         let expected = 0.3_f32 * (1.0_f32 + 0.1_f32 * (0.7_f32 - 0.5_f32).abs());
         let actual = ste_ewgs.backward(0.7, 0.5, 0.3);
-        assert!((actual - expected).abs() < 1e-6, "EWGS mismatch: {} vs {}", actual, expected);
+        assert!(
+            (actual - expected).abs() < 1e-6,
+            "EWGS mismatch: {} vs {}",
+            actual,
+            expected
+        );
     }
 
     #[test]
@@ -472,8 +476,14 @@ mod tests {
         for i in 0..100 {
             let diff = (grad_scalar[i] - grad_simd[i]).abs();
             let ulp = f32::EPSILON * grad_scalar[i].abs().max(1.0);
-            assert!(diff <= ulp, "SIMD mismatch at {}: {} vs {} (diff {})",
-                    i, grad_scalar[i], grad_simd[i], diff);
+            assert!(
+                diff <= ulp,
+                "SIMD mismatch at {}: {} vs {} (diff {})",
+                i,
+                grad_scalar[i],
+                grad_simd[i],
+                diff
+            );
         }
     }
 
@@ -499,9 +509,11 @@ mod tests {
 
         // Compare
         for i in 0..100 {
-            assert_eq!(grad_scalar[i], grad_simd[i],
-                       "Clipped SIMD mismatch at {}: {} vs {}",
-                       i, grad_scalar[i], grad_simd[i]);
+            assert_eq!(
+                grad_scalar[i], grad_simd[i],
+                "Clipped SIMD mismatch at {}: {} vs {}",
+                i, grad_scalar[i], grad_simd[i]
+            );
         }
     }
 }

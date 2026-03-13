@@ -311,7 +311,8 @@ pub fn depthwise_conv_3x3_wasm(
                             }
 
                             unsafe {
-                                let input_v = v128_load(input[input_base..].as_ptr() as *const v128);
+                                let input_v =
+                                    v128_load(input[input_base..].as_ptr() as *const v128);
                                 let kernel_v = v128_load(kernel_vals.as_ptr() as *const v128);
 
                                 let prod = f32x4_mul(input_v, kernel_v);
@@ -532,13 +533,7 @@ pub fn depthwise_conv_3x3_wasm(
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-pub fn global_avg_pool_wasm(
-    _input: &[f32],
-    _output: &mut [f32],
-    _h: usize,
-    _w: usize,
-    _c: usize,
-) {
+pub fn global_avg_pool_wasm(_input: &[f32], _output: &mut [f32], _h: usize, _w: usize, _c: usize) {
     unimplemented!("WASM SIMD not available on this architecture")
 }
 

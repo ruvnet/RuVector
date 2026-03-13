@@ -54,7 +54,11 @@ mod hadamard_tests {
             let signs: Vec<i8> = (0..size)
                 .map(|_| {
                     state = state.wrapping_mul(6364136223846793005).wrapping_add(1);
-                    if (state >> 63) == 0 { 1 } else { -1 }
+                    if (state >> 63) == 0 {
+                        1
+                    } else {
+                        -1
+                    }
                 })
                 .collect();
 
@@ -264,11 +268,7 @@ mod hadamard_tests {
             let ht = transpose(&h);
             let hth = matmul(&ht, &h);
 
-            assert!(
-                is_identity(&hth, EPSILON),
-                "H^T × H != I for n={}",
-                n
-            );
+            assert!(is_identity(&hth, EPSILON), "H^T × H != I for n={}", n);
         }
     }
 
@@ -292,7 +292,10 @@ mod hadamard_tests {
                 assert!(
                     (orig - rec).abs() < EPSILON,
                     "Invertibility failed at {} for n={}: orig={}, rec={}",
-                    i, n, orig, rec
+                    i,
+                    n,
+                    orig,
+                    rec
                 );
             }
         }
@@ -313,7 +316,10 @@ mod hadamard_tests {
                 assert!(
                     (orig - rec).abs() < EPSILON,
                     "Random invertibility failed at {} for n={}: orig={}, rec={}",
-                    i, n, orig, rec
+                    i,
+                    n,
+                    orig,
+                    rec
                 );
             }
         }
@@ -332,7 +338,9 @@ mod hadamard_tests {
                 assert!(
                     rec.abs() < EPSILON,
                     "Zero invertibility failed at {} for n={}: rec={}",
-                    i, n, rec
+                    i,
+                    n,
+                    rec
                 );
             }
         }
@@ -351,7 +359,10 @@ mod hadamard_tests {
                 assert!(
                     (orig - rec).abs() < EPSILON,
                     "Ones invertibility failed at {} for n={}: orig={}, rec={}",
-                    i, n, orig, rec
+                    i,
+                    n,
+                    orig,
+                    rec
                 );
             }
         }
@@ -375,7 +386,10 @@ mod hadamard_tests {
                 assert!(
                     (orig - rec).abs() < EPSILON,
                     "Sign flip invertibility failed at {} for n={}: orig={}, rec={}",
-                    i, n, orig, rec
+                    i,
+                    n,
+                    orig,
+                    rec
                 );
             }
         }
@@ -402,7 +416,8 @@ mod hadamard_tests {
             assert!(
                 mse < EPSILON * EPSILON,
                 "Seed {} failed with MSE {}",
-                seed, mse
+                seed,
+                mse
             );
         }
     }
@@ -414,11 +429,7 @@ mod hadamard_tests {
         if let Some(ref signs) = transform.sign_flips {
             // All signs should be +1 or -1
             for &sign in signs {
-                assert!(
-                    sign == 1 || sign == -1,
-                    "Invalid sign value: {}",
-                    sign
-                );
+                assert!(sign == 1 || sign == -1, "Invalid sign value: {}", sign);
             }
         }
     }
@@ -441,7 +452,9 @@ mod hadamard_tests {
             assert!(
                 (energy_x - energy_hx).abs() < EPSILON * energy_x.max(1.0),
                 "Energy not preserved for n={}: input={}, output={}",
-                n, energy_x, energy_hx
+                n,
+                energy_x,
+                energy_hx
             );
         }
     }
@@ -459,7 +472,9 @@ mod hadamard_tests {
             assert!(
                 (energy_x - energy_hx).abs() < EPSILON * energy_x.max(1.0),
                 "Energy not preserved with sign flips for n={}: input={}, output={}",
-                n, energy_x, energy_hx
+                n,
+                energy_x,
+                energy_hx
             );
         }
     }
@@ -480,7 +495,11 @@ mod hadamard_tests {
             let b = -1.3f32;
 
             // Compute H(ax + by)
-            let ax_by: Vec<f32> = x.iter().zip(y.iter()).map(|(xi, yi)| a * xi + b * yi).collect();
+            let ax_by: Vec<f32> = x
+                .iter()
+                .zip(y.iter())
+                .map(|(xi, yi)| a * xi + b * yi)
+                .collect();
             let h_ax_by = transform.forward(&ax_by);
 
             // Compute aH(x) + bH(y)
@@ -500,7 +519,11 @@ mod hadamard_tests {
                 assert!(
                     diff < linearity_epsilon * max_val,
                     "Linearity failed at {} for n={}: H(ax+by)={}, aH(x)+bH(y)={}, diff={}",
-                    i, n, left, right, diff
+                    i,
+                    n,
+                    left,
+                    right,
+                    diff
                 );
             }
         }
@@ -526,7 +549,10 @@ mod hadamard_tests {
                 assert!(
                     (h[i][j] - expected[i][j]).abs() < EPSILON,
                     "H_2[{}][{}] = {}, expected {}",
-                    i, j, h[i][j], expected[i][j]
+                    i,
+                    j,
+                    h[i][j],
+                    expected[i][j]
                 );
             }
         }
@@ -544,7 +570,10 @@ mod hadamard_tests {
                 assert!(
                     (h[i][j].abs() - expected_abs).abs() < EPSILON,
                     "H_4[{}][{}] = {}, expected +/- {}",
-                    i, j, h[i][j], expected_abs
+                    i,
+                    j,
+                    h[i][j],
+                    expected_abs
                 );
             }
         }
@@ -566,7 +595,9 @@ mod hadamard_tests {
             assert!(
                 (result[i] - h[i][0]).abs() < EPSILON,
                 "Transform of e_0 mismatch at {}: got {}, expected {}",
-                i, result[i], h[i][0]
+                i,
+                result[i],
+                h[i][0]
             );
         }
     }
@@ -613,7 +644,9 @@ mod hadamard_tests {
             assert!(
                 relative_error < EPSILON,
                 "Large value invertibility failed at {}: orig={}, rec={}",
-                i, orig, rec
+                i,
+                orig,
+                rec
             );
         }
     }
@@ -630,7 +663,9 @@ mod hadamard_tests {
             assert!(
                 (orig - rec).abs() < 1e-10,
                 "Small value invertibility failed at {}: orig={}, rec={}",
-                i, orig, rec
+                i,
+                orig,
+                rec
             );
         }
     }
@@ -648,7 +683,10 @@ mod hadamard_tests {
         transform.forward_inplace(&mut data);
 
         // Data should be modified
-        let different = data.iter().zip(original.iter()).any(|(a, b)| (a - b).abs() > EPSILON);
+        let different = data
+            .iter()
+            .zip(original.iter())
+            .any(|(a, b)| (a - b).abs() > EPSILON);
         assert!(different, "In-place transform should modify data");
     }
 
@@ -660,16 +698,25 @@ mod hadamard_tests {
         let result = transform.forward(&original);
 
         // Original should be unchanged
-        for (i, (&orig, &expected)) in original.iter().zip((0..8).map(|i| i as f32).collect::<Vec<_>>().iter()).enumerate() {
+        for (i, (&orig, &expected)) in original
+            .iter()
+            .zip((0..8).map(|i| i as f32).collect::<Vec<_>>().iter())
+            .enumerate()
+        {
             assert!(
                 (orig - expected).abs() < EPSILON,
                 "Original modified at {}: {} vs {}",
-                i, orig, expected
+                i,
+                orig,
+                expected
             );
         }
 
         // Result should be different
-        let different = result.iter().zip(original.iter()).any(|(a, b)| (a - b).abs() > EPSILON);
+        let different = result
+            .iter()
+            .zip(original.iter())
+            .any(|(a, b)| (a - b).abs() > EPSILON);
         assert!(different, "Transform result should differ from input");
     }
 
@@ -697,7 +744,8 @@ mod hadamard_tests {
         assert!(
             (max_component - min_component).abs() < EPSILON,
             "Energy should be uniformly spread: max={}, min={}",
-            max_component, min_component
+            max_component,
+            min_component
         );
     }
 
@@ -713,7 +761,13 @@ mod hadamard_tests {
         let hx2 = transform2.forward(&x);
 
         // Different seeds should produce different outputs
-        let different = hx1.iter().zip(hx2.iter()).any(|(a, b)| (a - b).abs() > EPSILON);
-        assert!(different, "Different seeds should produce different outputs");
+        let different = hx1
+            .iter()
+            .zip(hx2.iter())
+            .any(|(a, b)| (a - b).abs() > EPSILON);
+        assert!(
+            different,
+            "Different seeds should produce different outputs"
+        );
     }
 }

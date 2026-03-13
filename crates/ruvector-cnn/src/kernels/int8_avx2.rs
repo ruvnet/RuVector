@@ -150,7 +150,9 @@ pub unsafe fn conv2d_int8_avx2(
 
                                 // Load 32 input activations
                                 let input_base = (ih * in_w + iw) * in_c + ic_base;
-                                let va = _mm256_loadu_si256(input.as_ptr().add(input_base) as *const __m256i);
+                                let va = _mm256_loadu_si256(
+                                    input.as_ptr().add(input_base) as *const __m256i
+                                );
 
                                 // For each output channel in this chunk
                                 for i in 0..8 {
@@ -346,8 +348,8 @@ pub unsafe fn depthwise_conv2d_int8_avx2(
 #[cfg(target_arch = "x86_64")]
 #[target_feature(enable = "avx2")]
 pub unsafe fn matmul_int8_avx2(
-    a: &[u8],       // M x K (unsigned activations)
-    b: &[i8],       // K x N (signed weights)
+    a: &[u8],           // M x K (unsigned activations)
+    b: &[i8],           // K x N (signed weights)
     output: &mut [i32], // M x N (int32 accumulators)
     m: usize,
     k: usize,
@@ -535,7 +537,17 @@ mod tests {
             if is_x86_feature_detected!("avx2") {
                 unsafe {
                     conv2d_int8_avx2(
-                        &input, 0, &kernel, &bias, &mut output, in_h, in_w, in_c, out_c, 1, 0,
+                        &input,
+                        0,
+                        &kernel,
+                        &bias,
+                        &mut output,
+                        in_h,
+                        in_w,
+                        in_c,
+                        out_c,
+                        1,
+                        0,
                     );
 
                     // All outputs should be 10 * 9 = 90 (10 input * 9 weights)

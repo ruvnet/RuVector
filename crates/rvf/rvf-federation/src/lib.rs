@@ -7,18 +7,18 @@
 //! - **Federated aggregation**: FedAvg, FedProx, Byzantine-tolerant weighted averaging
 //! - **Segment types**: FederatedManifest, DiffPrivacyProof, RedactionLog, AggregateWeights
 
-pub mod types;
-pub mod error;
-pub mod pii_strip;
-pub mod diff_privacy;
-pub mod federation;
 pub mod aggregate;
+pub mod diff_privacy;
+pub mod error;
+pub mod federation;
+pub mod pii_strip;
 pub mod policy;
+pub mod types;
 
-pub use types::*;
-pub use error::FederationError;
-pub use pii_strip::PiiStripper;
+pub use aggregate::{AggregationStrategy, FederatedAggregator};
 pub use diff_privacy::{DiffPrivacyEngine, PrivacyAccountant};
+pub use error::FederationError;
 pub use federation::{ExportBuilder, ImportMerger};
-pub use aggregate::{FederatedAggregator, AggregationStrategy};
+pub use pii_strip::PiiStripper;
 pub use policy::FederationPolicy;
+pub use types::*;

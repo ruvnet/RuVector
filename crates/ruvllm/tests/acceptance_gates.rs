@@ -79,7 +79,11 @@ mod acceptance_gates {
             };
 
             // Cosine similarity
-            let dot: f32 = original.iter().zip(dequantized.iter()).map(|(a, b)| a * b).sum();
+            let dot: f32 = original
+                .iter()
+                .zip(dequantized.iter())
+                .map(|(a, b)| a * b)
+                .sum();
             let norm_orig: f32 = original.iter().map(|x| x * x).sum::<f32>().sqrt();
             let norm_deq: f32 = dequantized.iter().map(|x| x * x).sum::<f32>().sqrt();
             let cosine_similarity = if norm_orig > EPSILON && norm_deq > EPSILON {
@@ -195,7 +199,10 @@ mod acceptance_gates {
 
         fn dequantize_block(&self, quantized: &[i8], alpha: f32) -> Vec<f32> {
             let step = self.step_size();
-            quantized.iter().map(|&q| (q as f32) * alpha * step).collect()
+            quantized
+                .iter()
+                .map(|&q| (q as f32) * alpha * step)
+                .collect()
         }
     }
 
@@ -271,10 +278,14 @@ mod acceptance_gates {
             let metrics_piq3 = QualityMetrics::calculate(weights, &deq_piq3);
 
             // Verify PiQ3 produces valid output
-            assert!(!alpha_piq3.is_nan() && !alpha_piq3.is_infinite(),
-                "PiQ3 alpha should be finite");
-            assert!(deq_piq3.iter().all(|v| !v.is_nan()),
-                "PiQ3 output should not contain NaN");
+            assert!(
+                !alpha_piq3.is_nan() && !alpha_piq3.is_infinite(),
+                "PiQ3 alpha should be finite"
+            );
+            assert!(
+                deq_piq3.iter().all(|v| !v.is_nan()),
+                "PiQ3 output should not contain NaN"
+            );
 
             // Uniform Q3 quantization
             let (q_uniform, scale_uniform) = uniform.quantize_block(weights);
@@ -282,10 +293,14 @@ mod acceptance_gates {
             let metrics_uniform = QualityMetrics::calculate(weights, &deq_uniform);
 
             // Verify Uniform produces valid output
-            assert!(!scale_uniform.is_nan() && !scale_uniform.is_infinite(),
-                "Uniform scale should be finite");
-            assert!(deq_uniform.iter().all(|v| !v.is_nan()),
-                "Uniform output should not contain NaN");
+            assert!(
+                !scale_uniform.is_nan() && !scale_uniform.is_infinite(),
+                "Uniform scale should be finite"
+            );
+            assert!(
+                deq_uniform.iter().all(|v| !v.is_nan()),
+                "Uniform output should not contain NaN"
+            );
 
             // Verify metrics are valid (not NaN)
             assert!(!metrics_piq3.mse.is_nan(), "PiQ3 MSE should be valid");
@@ -298,12 +313,20 @@ mod acceptance_gates {
                 "Distribution {}: PiQ3 better on {}/4 metrics",
                 i, piq3_better
             );
-            eprintln!("  PiQ3:    MSE={:.6}, SNR={:.2}dB, cos={:.4}, outlier={:.2}%",
-                metrics_piq3.mse, metrics_piq3.spectral_db,
-                metrics_piq3.cosine_similarity, metrics_piq3.outlier_retention * 100.0);
-            eprintln!("  Uniform: MSE={:.6}, SNR={:.2}dB, cos={:.4}, outlier={:.2}%",
-                metrics_uniform.mse, metrics_uniform.spectral_db,
-                metrics_uniform.cosine_similarity, metrics_uniform.outlier_retention * 100.0);
+            eprintln!(
+                "  PiQ3:    MSE={:.6}, SNR={:.2}dB, cos={:.4}, outlier={:.2}%",
+                metrics_piq3.mse,
+                metrics_piq3.spectral_db,
+                metrics_piq3.cosine_similarity,
+                metrics_piq3.outlier_retention * 100.0
+            );
+            eprintln!(
+                "  Uniform: MSE={:.6}, SNR={:.2}dB, cos={:.4}, outlier={:.2}%",
+                metrics_uniform.mse,
+                metrics_uniform.spectral_db,
+                metrics_uniform.cosine_similarity,
+                metrics_uniform.outlier_retention * 100.0
+            );
 
             if piq3_better >= 2 {
                 total_piq3_wins += 1;
@@ -314,7 +337,10 @@ mod acceptance_gates {
         // G1: Verify comparison framework works
         // For reference implementations, we validate the framework functions correctly
         // rather than asserting one method is definitively better
-        eprintln!("\nG1 Summary: PiQ3 wins {}/{} distributions", total_piq3_wins, total_tests);
+        eprintln!(
+            "\nG1 Summary: PiQ3 wins {}/{} distributions",
+            total_piq3_wins, total_tests
+        );
         eprintln!("(Framework validation passed - both quantizers produce valid results)");
 
         // The comparison framework must have run successfully on all distributions
@@ -341,40 +367,88 @@ mod acceptance_gates {
         eprintln!("\nDetailed Quality Comparison (4096 normal weights):");
         eprintln!("Metric              PiQ3         Uniform      Winner");
         eprintln!("---------------------------------------------------");
-        eprintln!("MSE                 {:.6}     {:.6}     {}",
-            m_piq3.mse, m_uniform.mse,
-            if m_piq3.mse < m_uniform.mse { "PiQ3" } else { "Uniform" });
-        eprintln!("Spectral (dB)       {:.2}        {:.2}        {}",
-            m_piq3.spectral_db, m_uniform.spectral_db,
-            if m_piq3.spectral_db > m_uniform.spectral_db { "PiQ3" } else { "Uniform" });
-        eprintln!("Cosine Sim          {:.4}       {:.4}       {}",
-            m_piq3.cosine_similarity, m_uniform.cosine_similarity,
-            if m_piq3.cosine_similarity > m_uniform.cosine_similarity { "PiQ3" } else { "Uniform" });
-        eprintln!("Outlier Ret (%)     {:.1}         {:.1}         {}",
-            m_piq3.outlier_retention * 100.0, m_uniform.outlier_retention * 100.0,
-            if m_piq3.outlier_retention > m_uniform.outlier_retention { "PiQ3" } else { "Uniform" });
+        eprintln!(
+            "MSE                 {:.6}     {:.6}     {}",
+            m_piq3.mse,
+            m_uniform.mse,
+            if m_piq3.mse < m_uniform.mse {
+                "PiQ3"
+            } else {
+                "Uniform"
+            }
+        );
+        eprintln!(
+            "Spectral (dB)       {:.2}        {:.2}        {}",
+            m_piq3.spectral_db,
+            m_uniform.spectral_db,
+            if m_piq3.spectral_db > m_uniform.spectral_db {
+                "PiQ3"
+            } else {
+                "Uniform"
+            }
+        );
+        eprintln!(
+            "Cosine Sim          {:.4}       {:.4}       {}",
+            m_piq3.cosine_similarity,
+            m_uniform.cosine_similarity,
+            if m_piq3.cosine_similarity > m_uniform.cosine_similarity {
+                "PiQ3"
+            } else {
+                "Uniform"
+            }
+        );
+        eprintln!(
+            "Outlier Ret (%)     {:.1}         {:.1}         {}",
+            m_piq3.outlier_retention * 100.0,
+            m_uniform.outlier_retention * 100.0,
+            if m_piq3.outlier_retention > m_uniform.outlier_retention {
+                "PiQ3"
+            } else {
+                "Uniform"
+            }
+        );
 
         // Verify metrics are valid and comparable
         let better_count = m_piq3.count_better_than(&m_uniform);
         eprintln!("\nPiQ3 wins {}/4 metrics", better_count);
 
         // Validate all metrics are finite and reasonable
-        assert!(m_piq3.mse >= 0.0 && !m_piq3.mse.is_nan(), "PiQ3 MSE should be valid non-negative");
-        assert!(m_uniform.mse >= 0.0 && !m_uniform.mse.is_nan(), "Uniform MSE should be valid non-negative");
-        assert!(m_piq3.cosine_similarity >= -1.0 && m_piq3.cosine_similarity <= 1.0,
-            "PiQ3 cosine similarity should be in [-1, 1]");
-        assert!(m_uniform.cosine_similarity >= -1.0 && m_uniform.cosine_similarity <= 1.0,
-            "Uniform cosine similarity should be in [-1, 1]");
-        assert!(m_piq3.outlier_retention >= 0.0 && m_piq3.outlier_retention <= 1.0,
-            "PiQ3 outlier retention should be in [0, 1]");
-        assert!(m_uniform.outlier_retention >= 0.0 && m_uniform.outlier_retention <= 1.0,
-            "Uniform outlier retention should be in [0, 1]");
+        assert!(
+            m_piq3.mse >= 0.0 && !m_piq3.mse.is_nan(),
+            "PiQ3 MSE should be valid non-negative"
+        );
+        assert!(
+            m_uniform.mse >= 0.0 && !m_uniform.mse.is_nan(),
+            "Uniform MSE should be valid non-negative"
+        );
+        assert!(
+            m_piq3.cosine_similarity >= -1.0 && m_piq3.cosine_similarity <= 1.0,
+            "PiQ3 cosine similarity should be in [-1, 1]"
+        );
+        assert!(
+            m_uniform.cosine_similarity >= -1.0 && m_uniform.cosine_similarity <= 1.0,
+            "Uniform cosine similarity should be in [-1, 1]"
+        );
+        assert!(
+            m_piq3.outlier_retention >= 0.0 && m_piq3.outlier_retention <= 1.0,
+            "PiQ3 outlier retention should be in [0, 1]"
+        );
+        assert!(
+            m_uniform.outlier_retention >= 0.0 && m_uniform.outlier_retention <= 1.0,
+            "Uniform outlier retention should be in [0, 1]"
+        );
 
         // Verify both methods achieve reasonable quality (cosine similarity > 0.8)
-        assert!(m_piq3.cosine_similarity > 0.8,
-            "PiQ3 should achieve reasonable quality: cos_sim={}", m_piq3.cosine_similarity);
-        assert!(m_uniform.cosine_similarity > 0.8,
-            "Uniform should achieve reasonable quality: cos_sim={}", m_uniform.cosine_similarity);
+        assert!(
+            m_piq3.cosine_similarity > 0.8,
+            "PiQ3 should achieve reasonable quality: cos_sim={}",
+            m_piq3.cosine_similarity
+        );
+        assert!(
+            m_uniform.cosine_similarity > 0.8,
+            "Uniform should achieve reasonable quality: cos_sim={}",
+            m_uniform.cosine_similarity
+        );
     }
 
     // ============================================================================
@@ -518,7 +592,9 @@ mod acceptance_gates {
         let piq3 = PiQ3Quantizer::new();
 
         // Test with various sizes that could cause bounds issues
-        for size in [0, 1, 7, 8, 15, 16, 31, 32, 63, 64, 127, 128, 255, 256, 257, 511, 512] {
+        for size in [
+            0, 1, 7, 8, 15, 16, 31, 32, 63, 64, 127, 128, 255, 256, 257, 511, 512,
+        ] {
             let weights = generate_normal_weights(size);
 
             // Should not panic
@@ -578,9 +654,7 @@ mod acceptance_gates {
 
         // NaN handling
         let with_nan = vec![1.0, f32::NAN, 2.0, 3.0];
-        let result = std::panic::catch_unwind(|| {
-            piq3.quantize_block(&with_nan)
-        });
+        let result = std::panic::catch_unwind(|| piq3.quantize_block(&with_nan));
         // Should either succeed or fail gracefully (no crash)
         drop(result);
     }
@@ -591,9 +665,7 @@ mod acceptance_gates {
 
     /// Generate uniform random weights in [-1, 1]
     fn generate_uniform_weights(n: usize) -> Vec<f32> {
-        (0..n)
-            .map(|i| ((i as f32) * 1.234).sin())
-            .collect()
+        (0..n).map(|i| ((i as f32) * 1.234).sin()).collect()
     }
 
     /// Generate normal-ish distributed weights

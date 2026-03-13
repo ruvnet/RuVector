@@ -6,10 +6,7 @@
 //! - Weight packing for SIMD efficiency
 //! - Fused bias and requantization
 
-use crate::{
-    simd::quantize::QuantParams,
-    CnnError, CnnResult, Tensor,
-};
+use crate::{simd::quantize::QuantParams, CnnError, CnnResult, Tensor};
 
 use super::{Conv2d, Layer, TensorShape};
 
@@ -51,11 +48,7 @@ impl QuantizedConv2d {
     /// * `conv` - FP32 convolution layer to quantize
     /// * `input_scale` - Expected input activation scale
     /// * `input_zero_point` - Expected input zero point
-    pub fn from_fp32(
-        conv: &Conv2d,
-        input_scale: f32,
-        input_zero_point: i32,
-    ) -> Self {
+    pub fn from_fp32(conv: &Conv2d, input_scale: f32, input_zero_point: i32) -> Self {
         let out_c = conv.out_channels();
         let in_c = conv.in_channels();
         let ks = conv.kernel_size();
@@ -99,7 +92,8 @@ impl QuantizedConv2d {
         }
 
         // Pre-compute bias in i32 accumulator space
-        let bias_f32 = conv.bias()
+        let bias_f32 = conv
+            .bias()
             .map(|b| b.to_vec())
             .unwrap_or_else(|| vec![0.0; out_c]);
         let mut bias_q = vec![0i32; out_c];
@@ -147,7 +141,7 @@ impl QuantizedConv2d {
         if input_shape.len() != 4 {
             return Err(CnnError::invalid_shape(
                 "4D input (NHWC)",
-                format!("{}D", input_shape.len())
+                format!("{}D", input_shape.len()),
             ));
         }
 
@@ -159,7 +153,7 @@ impl QuantizedConv2d {
         if in_c != self.in_channels {
             return Err(CnnError::invalid_shape(
                 format!("{} input channels", self.in_channels),
-                format!("{} channels", in_c)
+                format!("{} channels", in_c),
             ));
         }
 
@@ -185,7 +179,10 @@ impl QuantizedConv2d {
                             input_slice,
                             input_zero_point as i32,
                             output_slice,
-                            in_h, in_w, out_h, out_w,
+                            in_h,
+                            in_w,
+                            out_h,
+                            out_w,
                         );
                     }
                 } else {
@@ -193,7 +190,10 @@ impl QuantizedConv2d {
                         input_slice,
                         input_zero_point as i32,
                         output_slice,
-                        in_h, in_w, out_h, out_w,
+                        in_h,
+                        in_w,
+                        out_h,
+                        out_w,
                     );
                 }
             }
@@ -204,7 +204,10 @@ impl QuantizedConv2d {
                     input_slice,
                     input_zero_point as i32,
                     output_slice,
-                    in_h, in_w, out_h, out_w,
+                    in_h,
+                    in_w,
+                    out_h,
+                    out_w,
                 );
             }
         }
@@ -212,10 +215,7 @@ impl QuantizedConv2d {
         // Dequantize i32 accumulator to f32
         let output_f32 = self.dequantize_output(&output_i32, input_scale);
 
-        Tensor::from_data(
-            output_f32,
-            &[batch, out_h, out_w, self.out_channels],
-        )
+        Tensor::from_data(output_f32, &[batch, out_h, out_w, self.out_channels])
     }
 
     /// Scalar INT8 convolution implementation
@@ -264,9 +264,11 @@ impl QuantizedConv2d {
 
                                 for ic in 0..self.in_channels {
                                     let input_idx = (ih * in_w + iw) * self.in_channels + ic;
-                                    let weight_idx = (oc * self.in_channels + ic) * ks * ks + kh * ks + kw;
+                                    let weight_idx =
+                                        (oc * self.in_channels + ic) * ks * ks + kh * ks + kw;
 
-                                    acc += (input[input_idx] as i32) * (self.weights_q[weight_idx] as i32);
+                                    acc += (input[input_idx] as i32)
+                                        * (self.weights_q[weight_idx] as i32);
                                 }
                             }
                         }

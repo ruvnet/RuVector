@@ -32,11 +32,8 @@ pub fn cluster_point_cloud(cloud: &PointCloud, cell_size: f64) -> Vec<Vec<Point3
     // 2. Build union-find over cells (with rank for balanced merges).
     let cells: Vec<(i64, i64, i64)> = cell_map.keys().copied().collect();
     let cell_count = cells.len();
-    let cell_idx: HashMap<(i64, i64, i64), usize> = cells
-        .iter()
-        .enumerate()
-        .map(|(i, &k)| (k, i))
-        .collect();
+    let cell_idx: HashMap<(i64, i64, i64), usize> =
+        cells.iter().enumerate().map(|(i, &k)| (k, i)).collect();
 
     let mut parent: Vec<usize> = (0..cell_count).collect();
     let mut rank: Vec<u8> = vec![0; cell_count];
@@ -124,11 +121,7 @@ mod tests {
 
     #[test]
     fn test_single_cluster() {
-        let cloud = make_cloud(&[
-            [1.0, 1.0, 0.0],
-            [1.1, 1.0, 0.0],
-            [1.0, 1.1, 0.0],
-        ]);
+        let cloud = make_cloud(&[[1.0, 1.0, 0.0], [1.1, 1.0, 0.0], [1.0, 1.1, 0.0]]);
         let clusters = cluster_point_cloud(&cloud, 0.5);
         assert_eq!(clusters.len(), 1);
         assert_eq!(clusters[0].len(), 3);
@@ -148,11 +141,7 @@ mod tests {
 
     #[test]
     fn test_negative_coordinates() {
-        let cloud = make_cloud(&[
-            [-1.0, -1.0, 0.0],
-            [-0.9, -1.0, 0.0],
-            [1.0, 1.0, 0.0],
-        ]);
+        let cloud = make_cloud(&[[-1.0, -1.0, 0.0], [-0.9, -1.0, 0.0], [1.0, 1.0, 0.0]]);
         let clusters = cluster_point_cloud(&cloud, 0.5);
         assert_eq!(clusters.len(), 2);
     }

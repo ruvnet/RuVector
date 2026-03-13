@@ -26,8 +26,8 @@
 use std::time::Instant;
 
 use super::hadamard::{
-    hadamard_batch_inverse, hadamard_batch_transform, log2_exact, next_power_of_2, pad_to_power_of_2,
-    HadamardTransform,
+    hadamard_batch_inverse, hadamard_batch_transform, log2_exact, next_power_of_2,
+    pad_to_power_of_2, HadamardTransform,
 };
 use crate::error::{Result, RuvLLMError};
 
@@ -291,7 +291,10 @@ impl IncoherenceTransform {
         let log_dim = match log2_exact(target_len) {
             Some(ld) => ld,
             None => {
-                self.emit_error("Internal error: padded length not power of 2", IncoherencePhase::Forward);
+                self.emit_error(
+                    "Internal error: padded length not power of 2",
+                    IncoherencePhase::Forward,
+                );
                 return Err(RuvLLMError::Quantization(
                     "Padded length is not a power of 2".to_string(),
                 ));
@@ -368,10 +371,7 @@ impl IncoherenceTransform {
         let log_dim = match log2_exact(current_len) {
             Some(ld) => ld,
             None => {
-                self.emit_error(
-                    "Data length is not a power of 2",
-                    IncoherencePhase::Inverse,
-                );
+                self.emit_error("Data length is not a power of 2", IncoherencePhase::Inverse);
                 return Err(RuvLLMError::Quantization(
                     "Data length must be a power of 2 for inverse transform".to_string(),
                 ));
@@ -387,7 +387,9 @@ impl IncoherenceTransform {
         // Truncate to original length if provided
         let final_len = original_len.unwrap_or_else(|| {
             let data_id = data.as_ptr() as usize;
-            self.pending_original_dims.remove(&data_id).unwrap_or(current_len)
+            self.pending_original_dims
+                .remove(&data_id)
+                .unwrap_or(current_len)
         });
 
         if final_len < current_len {
@@ -420,12 +422,7 @@ impl IncoherenceTransform {
     /// * `data` - Flat buffer containing `batch_size` vectors of `dim` elements each
     /// * `dim` - Dimension of each vector (must be power of 2)
     /// * `batch_size` - Number of vectors
-    pub fn apply_batch(
-        &mut self,
-        data: &mut [f32],
-        dim: usize,
-        batch_size: usize,
-    ) -> Result<()> {
+    pub fn apply_batch(&mut self, data: &mut [f32], dim: usize, batch_size: usize) -> Result<()> {
         if data.len() != dim * batch_size {
             return Err(RuvLLMError::Quantization(format!(
                 "Data length {} doesn't match dim {} * batch_size {}",
@@ -454,12 +451,7 @@ impl IncoherenceTransform {
     }
 
     /// Restore a batch of weight vectors after dequantization
-    pub fn restore_batch(
-        &mut self,
-        data: &mut [f32],
-        dim: usize,
-        batch_size: usize,
-    ) -> Result<()> {
+    pub fn restore_batch(&mut self, data: &mut [f32], dim: usize, batch_size: usize) -> Result<()> {
         if data.len() != dim * batch_size {
             return Err(RuvLLMError::Quantization(format!(
                 "Data length {} doesn't match dim {} * batch_size {}",
@@ -566,7 +558,11 @@ pub fn apply_incoherence(data: &mut Vec<f32>, seed: Option<u64>) -> Result<usize
 }
 
 /// Restore weights after dequantization (convenience function)
-pub fn restore_incoherence(data: &mut Vec<f32>, original_len: usize, seed: Option<u64>) -> Result<()> {
+pub fn restore_incoherence(
+    data: &mut Vec<f32>,
+    original_len: usize,
+    seed: Option<u64>,
+) -> Result<()> {
     let config = IncoherenceConfig {
         seed,
         randomized: seed.is_some(),
@@ -603,7 +599,9 @@ mod tests {
         let padded_dim = transform.apply_before_quantization(&mut data).unwrap();
         assert_eq!(padded_dim, 8);
 
-        transform.restore_after_dequantization(&mut data, Some(8)).unwrap();
+        transform
+            .restore_after_dequantization(&mut data, Some(8))
+            .unwrap();
 
         for (a, b) in data.iter().zip(original.iter()) {
             assert!((a - b).abs() < 1e-5, "Roundtrip failed: {} vs {}", a, b);
@@ -627,11 +625,18 @@ mod tests {
         assert_eq!(padded_dim, 8);
         assert_eq!(data.len(), 8);
 
-        transform.restore_after_dequantization(&mut data, Some(original_len)).unwrap();
+        transform
+            .restore_after_dequantization(&mut data, Some(original_len))
+            .unwrap();
         assert_eq!(data.len(), original_len);
 
         for (a, b) in data.iter().zip(original.iter()) {
-            assert!((a - b).abs() < 1e-5, "Padded roundtrip failed: {} vs {}", a, b);
+            assert!(
+                (a - b).abs() < 1e-5,
+                "Padded roundtrip failed: {} vs {}",
+                a,
+                b
+            );
         }
     }
 
@@ -649,11 +654,17 @@ mod tests {
 
         // Data with an outlier
         let mut data: Vec<f32> = vec![1.0, 1.0, 1.0, 100.0, 1.0, 1.0, 1.0, 1.0];
-        let max_before: f32 = data.iter().map(|x: &f32| x.abs()).fold(0.0f32, |a: f32, b: f32| a.max(b));
+        let max_before: f32 = data
+            .iter()
+            .map(|x: &f32| x.abs())
+            .fold(0.0f32, |a: f32, b: f32| a.max(b));
 
         transform.apply_before_quantization(&mut data).unwrap();
 
-        let max_after: f32 = data.iter().map(|x: &f32| x.abs()).fold(0.0f32, |a: f32, b: f32| a.max(b));
+        let max_after: f32 = data
+            .iter()
+            .map(|x: &f32| x.abs())
+            .fold(0.0f32, |a: f32, b: f32| a.max(b));
 
         // The outlier should be spread across all elements
         // Max after should be significantly smaller than 100
@@ -667,7 +678,12 @@ mod tests {
         // Check that events were emitted
         let events = transform.take_events();
         assert!(!events.is_empty());
-        if let IncoherenceEvent::IncoherenceApplied { max_before: mb, max_after: ma, .. } = &events[0] {
+        if let IncoherenceEvent::IncoherenceApplied {
+            max_before: mb,
+            max_after: ma,
+            ..
+        } = &events[0]
+        {
             assert!((*ma) < (*mb) * 0.9);
         }
     }

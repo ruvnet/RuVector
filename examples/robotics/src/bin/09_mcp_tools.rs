@@ -7,7 +7,6 @@
 /// - Looking up a specific tool and inspecting its parameters
 /// - Registering a custom tool
 /// - Generating MCP-compatible JSON schema
-
 use ruvector_robotics::mcp::{
     ParamType, RoboticsToolRegistry, ToolCategory, ToolDefinition, ToolParameter,
 };
@@ -18,7 +17,10 @@ fn main() {
 
     // -- Step 1: Create registry --
     let mut registry = RoboticsToolRegistry::new();
-    println!("[1] Tool registry created: {} built-in tools", registry.list_tools().len());
+    println!(
+        "[1] Tool registry created: {} built-in tools",
+        registry.list_tools().len()
+    );
 
     // -- Step 2: List all tools --
     println!();
@@ -29,7 +31,9 @@ fn main() {
         let tool = registry.get_tool(name).unwrap();
         println!(
             "    {:.<30} {:?} ({} params)",
-            tool.name, tool.category, tool.parameters.len()
+            tool.name,
+            tool.category,
+            tool.parameters.len()
         );
     }
 
@@ -73,14 +77,32 @@ fn main() {
         "custom_slam",
         "Run SLAM algorithm on sensor data",
         vec![
-            ToolParameter::new("point_cloud_json", "JSON-encoded point cloud", ParamType::String, true),
-            ToolParameter::new("odometry_json", "JSON-encoded odometry data", ParamType::String, false),
-            ToolParameter::new("resolution", "Map resolution in meters", ParamType::Number, false),
+            ToolParameter::new(
+                "point_cloud_json",
+                "JSON-encoded point cloud",
+                ParamType::String,
+                true,
+            ),
+            ToolParameter::new(
+                "odometry_json",
+                "JSON-encoded odometry data",
+                ParamType::String,
+                false,
+            ),
+            ToolParameter::new(
+                "resolution",
+                "Map resolution in meters",
+                ParamType::Number,
+                false,
+            ),
         ],
         ToolCategory::Perception,
     );
     registry.register_tool(custom);
-    println!("[5] Registered custom tool 'custom_slam'. Total: {} tools", registry.list_tools().len());
+    println!(
+        "[5] Registered custom tool 'custom_slam'. Total: {} tools",
+        registry.list_tools().len()
+    );
 
     // -- Step 6: Generate MCP schema --
     println!();

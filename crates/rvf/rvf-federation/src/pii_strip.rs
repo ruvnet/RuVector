@@ -4,11 +4,14 @@
 //! **Stage 2 — Redaction**: Replace PII with deterministic pseudonyms.
 //! **Stage 3 — Attestation**: Generate a `RedactionLog` segment.
 
-use std::collections::HashMap;
 use regex::Regex;
-use sha3::{Shake256, digest::{Update, ExtendableOutput, XofReader}};
+use sha3::{
+    digest::{ExtendableOutput, Update, XofReader},
+    Shake256,
+};
+use std::collections::HashMap;
 
-use crate::types::{RedactionLog, RedactionEntry};
+use crate::types::{RedactionEntry, RedactionLog};
 
 /// PII category with its detection regex and replacement template.
 struct PiiRule {
@@ -36,19 +39,26 @@ impl PiiStripper {
             PiiRule {
                 category: "path",
                 rule_id: "rule_path_unix",
-                pattern: Regex::new(r#"(?:/(?:home|Users|var|tmp|opt|etc)/[^\s,;:"'\]}>)]+)"#).unwrap(),
+                pattern: Regex::new(r#"(?:/(?:home|Users|var|tmp|opt|etc)/[^\s,;:"'\]}>)]+)"#)
+                    .unwrap(),
                 prefix: "PATH",
             },
             PiiRule {
                 category: "path",
                 rule_id: "rule_path_windows",
-                pattern: Regex::new(r#"(?i:[A-Z]:\\(?:Users|Documents|Program Files)[^\s,;:"'\]}>)]+)"#).unwrap(),
+                pattern: Regex::new(
+                    r#"(?i:[A-Z]:\\(?:Users|Documents|Program Files)[^\s,;:"'\]}>)]+)"#,
+                )
+                .unwrap(),
                 prefix: "PATH",
             },
             PiiRule {
                 category: "ip",
                 rule_id: "rule_ipv4",
-                pattern: Regex::new(r"\b(?:(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\b").unwrap(),
+                pattern: Regex::new(
+                    r"\b(?:(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\b",
+                )
+                .unwrap(),
                 prefix: "IP",
             },
             PiiRule {
@@ -110,7 +120,8 @@ impl PiiStripper {
                 category: "phone",
                 rule_id: "rule_phone_us",
                 // US phone: 555-867-5309, (555) 867-5309, +1-555-867-5309, 555.867.5309
-                pattern: Regex::new(r"\b(?:\+?1[-.\s]?)?(?:\(?\d{3}\)?[-.\s])\d{3}[-.\s]\d{4}\b").unwrap(),
+                pattern: Regex::new(r"\b(?:\+?1[-.\s]?)?(?:\(?\d{3}\)?[-.\s])\d{3}[-.\s]\d{4}\b")
+                    .unwrap(),
                 prefix: "PHONE",
             },
             PiiRule {
@@ -138,7 +149,13 @@ impl PiiStripper {
     }
 
     /// Add a custom detection rule.
-    pub fn add_rule(&mut self, category: &'static str, rule_id: &'static str, pattern: &str, prefix: &'static str) -> Result<(), regex::Error> {
+    pub fn add_rule(
+        &mut self,
+        category: &'static str,
+        rule_id: &'static str,
+        pattern: &str,
+        prefix: &'static str,
+    ) -> Result<(), regex::Error> {
         self.custom_rules.push(PiiRule {
             category,
             rule_id,
@@ -162,7 +179,8 @@ impl PiiStripper {
         let counter = self.counters.entry(prefix.to_string()).or_insert(0);
         *counter += 1;
         let pseudo = format!("<{}_{}>", prefix, counter);
-        self.pseudonym_map.insert(original.to_string(), pseudo.clone());
+        self.pseudonym_map
+            .insert(original.to_string(), pseudo.clone());
         pseudo
     }
 
@@ -183,7 +201,10 @@ impl PiiStripper {
                 let r = &self.custom_rules[i - num_builtin];
                 (&r.pattern as &Regex, r.prefix, r.category, r.rule_id)
             };
-            let matches: Vec<String> = pattern.find_iter(&result).map(|m| m.as_str().to_string()).collect();
+            let matches: Vec<String> = pattern
+                .find_iter(&result)
+                .map(|m| m.as_str().to_string())
+                .collect();
             if matches.is_empty() {
                 continue;
             }
@@ -206,7 +227,10 @@ impl PiiStripper {
     /// Strip PII from a collection of named string fields.
     ///
     /// Returns the redacted fields and a `RedactionLog` attestation.
-    pub fn strip_fields(&mut self, fields: &[(&str, &str)]) -> (Vec<(String, String)>, RedactionLog) {
+    pub fn strip_fields(
+        &mut self,
+        fields: &[(&str, &str)],
+    ) -> (Vec<(String, String)>, RedactionLog) {
         // Stage 1+2: Detect and redact
         let mut redacted_fields = Vec::new();
         let mut all_detections: HashMap<(String, String), u32> = HashMap::new();
@@ -367,7 +391,14 @@ mod tests {
     #[test]
     fn custom_rule() {
         let mut stripper = PiiStripper::new();
-        stripper.add_rule("custom_ssn", "rule_custom_ssn", r"\b\d{3}-\d{2}-\d{4}\b", "CUSTOM_SSN").unwrap();
+        stripper
+            .add_rule(
+                "custom_ssn",
+                "rule_custom_ssn",
+                r"\b\d{3}-\d{2}-\d{4}\b",
+                "CUSTOM_SSN",
+            )
+            .unwrap();
         assert!(stripper.contains_pii("ssn: 123-45-6789"));
     }
 

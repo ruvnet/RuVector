@@ -11,29 +11,29 @@ use std::arch::x86_64::*;
 #[target_feature(enable = "avx2", enable = "fma")]
 pub unsafe fn dot_product_avx2_fma(a: &[f32], b: &[f32]) -> f32 {
     debug_assert_eq!(a.len(), b.len());
-    
+
     let mut sum = _mm256_setzero_ps();
     let chunks = a.len() / 8;
-    
+
     for i in 0..chunks {
         let va = _mm256_loadu_ps(a.as_ptr().add(i * 8));
         let vb = _mm256_loadu_ps(b.as_ptr().add(i * 8));
         sum = _mm256_fmadd_ps(va, vb, sum);
     }
-    
+
     // Horizontal sum
     let sum128 = _mm_add_ps(_mm256_extractf128_ps(sum, 0), _mm256_extractf128_ps(sum, 1));
     let sum64 = _mm_add_ps(sum128, _mm_movehl_ps(sum128, sum128));
     let sum32 = _mm_add_ss(sum64, _mm_shuffle_ps(sum64, sum64, 1));
-    
+
     let mut result = 0.0f32;
     _mm_store_ss(&mut result, sum32);
-    
+
     // Handle remainder
     for i in (chunks * 8)..a.len() {
         result += a[i] * b[i];
     }
-    
+
     result
 }
 
@@ -42,30 +42,30 @@ pub unsafe fn dot_product_avx2_fma(a: &[f32], b: &[f32]) -> f32 {
 #[target_feature(enable = "avx2")]
 pub unsafe fn dot_product_avx2(a: &[f32], b: &[f32]) -> f32 {
     debug_assert_eq!(a.len(), b.len());
-    
+
     let mut sum = _mm256_setzero_ps();
     let chunks = a.len() / 8;
-    
+
     for i in 0..chunks {
         let va = _mm256_loadu_ps(a.as_ptr().add(i * 8));
         let vb = _mm256_loadu_ps(b.as_ptr().add(i * 8));
         let prod = _mm256_mul_ps(va, vb);
         sum = _mm256_add_ps(sum, prod);
     }
-    
+
     // Horizontal sum
     let sum128 = _mm_add_ps(_mm256_extractf128_ps(sum, 0), _mm256_extractf128_ps(sum, 1));
     let sum64 = _mm_add_ps(sum128, _mm_movehl_ps(sum128, sum128));
     let sum32 = _mm_add_ss(sum64, _mm_shuffle_ps(sum64, sum64, 1));
-    
+
     let mut result = 0.0f32;
     _mm_store_ss(&mut result, sum32);
-    
+
     // Handle remainder
     for i in (chunks * 8)..a.len() {
         result += a[i] * b[i];
     }
-    
+
     result
 }
 
@@ -74,23 +74,23 @@ pub unsafe fn dot_product_avx2(a: &[f32], b: &[f32]) -> f32 {
 #[target_feature(enable = "avx512f")]
 pub unsafe fn dot_product_avx512(a: &[f32], b: &[f32]) -> f32 {
     debug_assert_eq!(a.len(), b.len());
-    
+
     let mut sum = _mm512_setzero_ps();
     let chunks = a.len() / 16;
-    
+
     for i in 0..chunks {
         let va = _mm512_loadu_ps(a.as_ptr().add(i * 16));
         let vb = _mm512_loadu_ps(b.as_ptr().add(i * 16));
         sum = _mm512_fmadd_ps(va, vb, sum);
     }
-    
+
     let mut result = _mm512_reduce_add_ps(sum);
-    
+
     // Handle remainder
     for i in (chunks * 16)..a.len() {
         result += a[i] * b[i];
     }
-    
+
     result
 }
 
@@ -99,16 +99,16 @@ pub unsafe fn dot_product_avx512(a: &[f32], b: &[f32]) -> f32 {
 #[target_feature(enable = "avx2")]
 pub unsafe fn relu_avx2(input: &[f32], output: &mut [f32]) {
     debug_assert_eq!(input.len(), output.len());
-    
+
     let zero = _mm256_setzero_ps();
     let chunks = input.len() / 8;
-    
+
     for i in 0..chunks {
         let v = _mm256_loadu_ps(input.as_ptr().add(i * 8));
         let result = _mm256_max_ps(v, zero);
         _mm256_storeu_ps(output.as_mut_ptr().add(i * 8), result);
     }
-    
+
     // Handle remainder
     for i in (chunks * 8)..input.len() {
         output[i] = input[i].max(0.0);
@@ -120,17 +120,17 @@ pub unsafe fn relu_avx2(input: &[f32], output: &mut [f32]) {
 #[target_feature(enable = "avx2")]
 pub unsafe fn relu6_avx2(input: &[f32], output: &mut [f32]) {
     debug_assert_eq!(input.len(), output.len());
-    
+
     let zero = _mm256_setzero_ps();
     let six = _mm256_set1_ps(6.0);
     let chunks = input.len() / 8;
-    
+
     for i in 0..chunks {
         let v = _mm256_loadu_ps(input.as_ptr().add(i * 8));
         let result = _mm256_min_ps(_mm256_max_ps(v, zero), six);
         _mm256_storeu_ps(output.as_mut_ptr().add(i * 8), result);
     }
-    
+
     // Handle remainder
     for i in (chunks * 8)..input.len() {
         output[i] = input[i].max(0.0).min(6.0);
@@ -151,24 +151,24 @@ pub unsafe fn batch_norm_avx2(
     channels: usize,
 ) {
     debug_assert_eq!(input.len(), output.len());
-    
+
     // Pre-compute scale and shift for each channel
     let mut scale = vec![0.0f32; channels];
     let mut shift = vec![0.0f32; channels];
-    
+
     for c in 0..channels {
         let inv_std = 1.0 / (var[c] + epsilon).sqrt();
         scale[c] = gamma[c] * inv_std;
         shift[c] = beta[c] - mean[c] * scale[c];
     }
-    
+
     let spatial = input.len() / channels;
-    
+
     // Process 8 spatial positions at a time if channels == 8
     if channels == 8 {
         let scale_v = _mm256_loadu_ps(scale.as_ptr());
         let shift_v = _mm256_loadu_ps(shift.as_ptr());
-        
+
         for s in 0..spatial {
             let offset = s * channels;
             let v = _mm256_loadu_ps(input.as_ptr().add(offset));
@@ -250,10 +250,14 @@ pub unsafe fn conv_3x3_avx2_fma(
                                 let ic_base = ic_chunk_idx * 4;
 
                                 // Load 4 input values and broadcast each
-                                let input_val0 = _mm256_set1_ps(*input.get_unchecked(input_base + ic_base));
-                                let input_val1 = _mm256_set1_ps(*input.get_unchecked(input_base + ic_base + 1));
-                                let input_val2 = _mm256_set1_ps(*input.get_unchecked(input_base + ic_base + 2));
-                                let input_val3 = _mm256_set1_ps(*input.get_unchecked(input_base + ic_base + 3));
+                                let input_val0 =
+                                    _mm256_set1_ps(*input.get_unchecked(input_base + ic_base));
+                                let input_val1 =
+                                    _mm256_set1_ps(*input.get_unchecked(input_base + ic_base + 1));
+                                let input_val2 =
+                                    _mm256_set1_ps(*input.get_unchecked(input_base + ic_base + 2));
+                                let input_val3 =
+                                    _mm256_set1_ps(*input.get_unchecked(input_base + ic_base + 3));
 
                                 // Gather 8 kernel weights for each of the 4 input channels
                                 let mut kv0 = [0.0f32; 8];
@@ -263,10 +267,18 @@ pub unsafe fn conv_3x3_avx2_fma(
 
                                 for i in 0..8 {
                                     let oc_idx = oc_base + i;
-                                    kv0[i] = *kernel.get_unchecked((oc_idx * in_c + ic_base) * 9 + kernel_offset);
-                                    kv1[i] = *kernel.get_unchecked((oc_idx * in_c + ic_base + 1) * 9 + kernel_offset);
-                                    kv2[i] = *kernel.get_unchecked((oc_idx * in_c + ic_base + 2) * 9 + kernel_offset);
-                                    kv3[i] = *kernel.get_unchecked((oc_idx * in_c + ic_base + 3) * 9 + kernel_offset);
+                                    kv0[i] = *kernel.get_unchecked(
+                                        (oc_idx * in_c + ic_base) * 9 + kernel_offset,
+                                    );
+                                    kv1[i] = *kernel.get_unchecked(
+                                        (oc_idx * in_c + ic_base + 1) * 9 + kernel_offset,
+                                    );
+                                    kv2[i] = *kernel.get_unchecked(
+                                        (oc_idx * in_c + ic_base + 2) * 9 + kernel_offset,
+                                    );
+                                    kv3[i] = *kernel.get_unchecked(
+                                        (oc_idx * in_c + ic_base + 3) * 9 + kernel_offset,
+                                    );
                                 }
 
                                 let kernel_v0 = _mm256_loadu_ps(kv0.as_ptr());
@@ -283,11 +295,14 @@ pub unsafe fn conv_3x3_avx2_fma(
 
                             // Handle remainder input channels (0-3 channels)
                             for ic in ic_remainder_start..in_c {
-                                let input_val = _mm256_set1_ps(*input.get_unchecked(input_base + ic));
+                                let input_val =
+                                    _mm256_set1_ps(*input.get_unchecked(input_base + ic));
 
                                 let mut kernel_vals = [0.0f32; 8];
                                 for i in 0..8 {
-                                    kernel_vals[i] = *kernel.get_unchecked(((oc_base + i) * in_c + ic) * 9 + kernel_offset);
+                                    kernel_vals[i] = *kernel.get_unchecked(
+                                        ((oc_base + i) * in_c + ic) * 9 + kernel_offset,
+                                    );
                                 }
                                 let kernel_v = _mm256_loadu_ps(kernel_vals.as_ptr());
 
@@ -389,10 +404,14 @@ pub unsafe fn conv_3x3_avx2(
                             for ic_chunk_idx in 0..ic_chunks {
                                 let ic_base = ic_chunk_idx * 4;
 
-                                let input_val0 = _mm256_set1_ps(*input.get_unchecked(input_base + ic_base));
-                                let input_val1 = _mm256_set1_ps(*input.get_unchecked(input_base + ic_base + 1));
-                                let input_val2 = _mm256_set1_ps(*input.get_unchecked(input_base + ic_base + 2));
-                                let input_val3 = _mm256_set1_ps(*input.get_unchecked(input_base + ic_base + 3));
+                                let input_val0 =
+                                    _mm256_set1_ps(*input.get_unchecked(input_base + ic_base));
+                                let input_val1 =
+                                    _mm256_set1_ps(*input.get_unchecked(input_base + ic_base + 1));
+                                let input_val2 =
+                                    _mm256_set1_ps(*input.get_unchecked(input_base + ic_base + 2));
+                                let input_val3 =
+                                    _mm256_set1_ps(*input.get_unchecked(input_base + ic_base + 3));
 
                                 let mut kv0 = [0.0f32; 8];
                                 let mut kv1 = [0.0f32; 8];
@@ -401,10 +420,18 @@ pub unsafe fn conv_3x3_avx2(
 
                                 for i in 0..8 {
                                     let oc_idx = oc_base + i;
-                                    kv0[i] = *kernel.get_unchecked((oc_idx * in_c + ic_base) * 9 + kernel_offset);
-                                    kv1[i] = *kernel.get_unchecked((oc_idx * in_c + ic_base + 1) * 9 + kernel_offset);
-                                    kv2[i] = *kernel.get_unchecked((oc_idx * in_c + ic_base + 2) * 9 + kernel_offset);
-                                    kv3[i] = *kernel.get_unchecked((oc_idx * in_c + ic_base + 3) * 9 + kernel_offset);
+                                    kv0[i] = *kernel.get_unchecked(
+                                        (oc_idx * in_c + ic_base) * 9 + kernel_offset,
+                                    );
+                                    kv1[i] = *kernel.get_unchecked(
+                                        (oc_idx * in_c + ic_base + 1) * 9 + kernel_offset,
+                                    );
+                                    kv2[i] = *kernel.get_unchecked(
+                                        (oc_idx * in_c + ic_base + 2) * 9 + kernel_offset,
+                                    );
+                                    kv3[i] = *kernel.get_unchecked(
+                                        (oc_idx * in_c + ic_base + 3) * 9 + kernel_offset,
+                                    );
                                 }
 
                                 let kernel_v0 = _mm256_loadu_ps(kv0.as_ptr());
@@ -421,11 +448,14 @@ pub unsafe fn conv_3x3_avx2(
 
                             // Remainder input channels
                             for ic in ic_remainder_start..in_c {
-                                let input_val = _mm256_set1_ps(*input.get_unchecked(input_base + ic));
+                                let input_val =
+                                    _mm256_set1_ps(*input.get_unchecked(input_base + ic));
 
                                 let mut kernel_vals = [0.0f32; 8];
                                 for i in 0..8 {
-                                    kernel_vals[i] = *kernel.get_unchecked(((oc_base + i) * in_c + ic) * 9 + kernel_offset);
+                                    kernel_vals[i] = *kernel.get_unchecked(
+                                        ((oc_base + i) * in_c + ic) * 9 + kernel_offset,
+                                    );
                                 }
                                 let kernel_v = _mm256_loadu_ps(kernel_vals.as_ptr());
 
@@ -521,7 +551,10 @@ pub unsafe fn depthwise_conv_3x3_avx2(
                         if iw >= 0 && iw < w as isize {
                             let input_base = (ih0 * w + iw as usize) * c + c_base;
                             let input_v = _mm256_loadu_ps(input.as_ptr().add(input_base));
-                            sum_row0 = _mm256_add_ps(sum_row0, _mm256_mul_ps(input_v, kernel_cache[0][kw]));
+                            sum_row0 = _mm256_add_ps(
+                                sum_row0,
+                                _mm256_mul_ps(input_v, kernel_cache[0][kw]),
+                            );
                         }
                     }
                 }
@@ -535,7 +568,10 @@ pub unsafe fn depthwise_conv_3x3_avx2(
                         if iw >= 0 && iw < w as isize {
                             let input_base = (ih1 * w + iw as usize) * c + c_base;
                             let input_v = _mm256_loadu_ps(input.as_ptr().add(input_base));
-                            sum_row1 = _mm256_add_ps(sum_row1, _mm256_mul_ps(input_v, kernel_cache[1][kw]));
+                            sum_row1 = _mm256_add_ps(
+                                sum_row1,
+                                _mm256_mul_ps(input_v, kernel_cache[1][kw]),
+                            );
                         }
                     }
                 }
@@ -549,7 +585,10 @@ pub unsafe fn depthwise_conv_3x3_avx2(
                         if iw >= 0 && iw < w as isize {
                             let input_base = (ih2 * w + iw as usize) * c + c_base;
                             let input_v = _mm256_loadu_ps(input.as_ptr().add(input_base));
-                            sum_row2 = _mm256_add_ps(sum_row2, _mm256_mul_ps(input_v, kernel_cache[2][kw]));
+                            sum_row2 = _mm256_add_ps(
+                                sum_row2,
+                                _mm256_mul_ps(input_v, kernel_cache[2][kw]),
+                            );
                         }
                     }
                 }
@@ -589,7 +628,13 @@ pub unsafe fn depthwise_conv_3x3_avx2(
 /// Averages over H*W spatial dimensions, processing 8 channels at a time.
 #[cfg(target_arch = "x86_64")]
 #[target_feature(enable = "avx2")]
-pub unsafe fn global_avg_pool_avx2(input: &[f32], output: &mut [f32], h: usize, w: usize, c: usize) {
+pub unsafe fn global_avg_pool_avx2(
+    input: &[f32],
+    output: &mut [f32],
+    h: usize,
+    w: usize,
+    c: usize,
+) {
     let spatial = h * w;
     let c_chunks = c / 8;
     let inv_spatial = _mm256_set1_ps(1.0 / spatial as f32);
@@ -682,24 +727,87 @@ pub unsafe fn max_pool_2x2_avx2(
 
 // Non-x86_64 stubs to allow compilation
 #[cfg(not(target_arch = "x86_64"))]
-pub unsafe fn dot_product_avx2_fma(_a: &[f32], _b: &[f32]) -> f32 { 0.0 }
+pub unsafe fn dot_product_avx2_fma(_a: &[f32], _b: &[f32]) -> f32 {
+    0.0
+}
 #[cfg(not(target_arch = "x86_64"))]
-pub unsafe fn dot_product_avx2(_a: &[f32], _b: &[f32]) -> f32 { 0.0 }
+pub unsafe fn dot_product_avx2(_a: &[f32], _b: &[f32]) -> f32 {
+    0.0
+}
 #[cfg(not(target_arch = "x86_64"))]
-pub unsafe fn dot_product_avx512(_a: &[f32], _b: &[f32]) -> f32 { 0.0 }
+pub unsafe fn dot_product_avx512(_a: &[f32], _b: &[f32]) -> f32 {
+    0.0
+}
 #[cfg(not(target_arch = "x86_64"))]
 pub unsafe fn relu_avx2(_input: &[f32], _output: &mut [f32]) {}
 #[cfg(not(target_arch = "x86_64"))]
 pub unsafe fn relu6_avx2(_input: &[f32], _output: &mut [f32]) {}
 #[cfg(not(target_arch = "x86_64"))]
-pub unsafe fn batch_norm_avx2(_input: &[f32], _output: &mut [f32], _gamma: &[f32], _beta: &[f32], _mean: &[f32], _var: &[f32], _epsilon: f32, _channels: usize) {}
+pub unsafe fn batch_norm_avx2(
+    _input: &[f32],
+    _output: &mut [f32],
+    _gamma: &[f32],
+    _beta: &[f32],
+    _mean: &[f32],
+    _var: &[f32],
+    _epsilon: f32,
+    _channels: usize,
+) {
+}
 #[cfg(not(target_arch = "x86_64"))]
-pub unsafe fn conv_3x3_avx2_fma(_input: &[f32], _kernel: &[f32], _output: &mut [f32], _in_h: usize, _in_w: usize, _in_c: usize, _out_c: usize, _stride: usize, _padding: usize) {}
+pub unsafe fn conv_3x3_avx2_fma(
+    _input: &[f32],
+    _kernel: &[f32],
+    _output: &mut [f32],
+    _in_h: usize,
+    _in_w: usize,
+    _in_c: usize,
+    _out_c: usize,
+    _stride: usize,
+    _padding: usize,
+) {
+}
 #[cfg(not(target_arch = "x86_64"))]
-pub unsafe fn conv_3x3_avx2(_input: &[f32], _kernel: &[f32], _output: &mut [f32], _in_h: usize, _in_w: usize, _in_c: usize, _out_c: usize, _stride: usize, _padding: usize) {}
+pub unsafe fn conv_3x3_avx2(
+    _input: &[f32],
+    _kernel: &[f32],
+    _output: &mut [f32],
+    _in_h: usize,
+    _in_w: usize,
+    _in_c: usize,
+    _out_c: usize,
+    _stride: usize,
+    _padding: usize,
+) {
+}
 #[cfg(not(target_arch = "x86_64"))]
-pub unsafe fn depthwise_conv_3x3_avx2(_input: &[f32], _kernel: &[f32], _output: &mut [f32], _h: usize, _w: usize, _c: usize, _stride: usize, _padding: usize) {}
+pub unsafe fn depthwise_conv_3x3_avx2(
+    _input: &[f32],
+    _kernel: &[f32],
+    _output: &mut [f32],
+    _h: usize,
+    _w: usize,
+    _c: usize,
+    _stride: usize,
+    _padding: usize,
+) {
+}
 #[cfg(not(target_arch = "x86_64"))]
-pub unsafe fn global_avg_pool_avx2(_input: &[f32], _output: &mut [f32], _h: usize, _w: usize, _c: usize) {}
+pub unsafe fn global_avg_pool_avx2(
+    _input: &[f32],
+    _output: &mut [f32],
+    _h: usize,
+    _w: usize,
+    _c: usize,
+) {
+}
 #[cfg(not(target_arch = "x86_64"))]
-pub unsafe fn max_pool_2x2_avx2(_input: &[f32], _output: &mut [f32], _h: usize, _w: usize, _c: usize, _stride: usize) {}
+pub unsafe fn max_pool_2x2_avx2(
+    _input: &[f32],
+    _output: &mut [f32],
+    _h: usize,
+    _w: usize,
+    _c: usize,
+    _stride: usize,
+) {
+}

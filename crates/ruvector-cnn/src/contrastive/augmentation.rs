@@ -118,7 +118,13 @@ impl ContrastiveAugmentationBuilder {
     }
 
     /// Set the color jitter parameters.
-    pub fn color_jitter(mut self, brightness: f64, contrast: f64, saturation: f64, hue: f64) -> Self {
+    pub fn color_jitter(
+        mut self,
+        brightness: f64,
+        contrast: f64,
+        saturation: f64,
+        hue: f64,
+    ) -> Self {
         self.config.brightness = brightness;
         self.config.contrast = contrast;
         self.config.saturation = saturation;
@@ -277,10 +283,13 @@ impl ContrastiveAugmentation {
         // Try up to 10 times to find a valid crop
         for _ in 0..10 {
             // Sample scale and aspect ratio
-            let scale = self.rng.gen_range(self.config.crop_scale_min..=self.config.crop_scale_max);
-            let aspect = self.rng.gen_range(
-                self.config.aspect_ratio_min.ln()..=self.config.aspect_ratio_max.ln(),
-            ).exp();
+            let scale = self
+                .rng
+                .gen_range(self.config.crop_scale_min..=self.config.crop_scale_max);
+            let aspect = self
+                .rng
+                .gen_range(self.config.aspect_ratio_min.ln()..=self.config.aspect_ratio_max.ln())
+                .exp();
 
             // Compute crop dimensions
             let crop_area = orig_area * scale;
@@ -352,9 +361,18 @@ impl ContrastiveAugmentation {
         let mut result = image.clone();
 
         // Sample jitter factors
-        let brightness_factor = 1.0 + self.rng.gen_range(-self.config.brightness..=self.config.brightness);
-        let contrast_factor = 1.0 + self.rng.gen_range(-self.config.contrast..=self.config.contrast);
-        let saturation_factor = 1.0 + self.rng.gen_range(-self.config.saturation..=self.config.saturation);
+        let brightness_factor = 1.0
+            + self
+                .rng
+                .gen_range(-self.config.brightness..=self.config.brightness);
+        let contrast_factor = 1.0
+            + self
+                .rng
+                .gen_range(-self.config.contrast..=self.config.contrast);
+        let saturation_factor = 1.0
+            + self
+                .rng
+                .gen_range(-self.config.saturation..=self.config.saturation);
         let hue_shift = self.rng.gen_range(-self.config.hue..=self.config.hue);
 
         // Compute image mean for contrast adjustment
@@ -363,7 +381,11 @@ impl ContrastiveAugmentation {
         for y in 0..height {
             for x in 0..width {
                 let pixel = image.get_pixel(x, y);
-                let mut rgb = [pixel[0] as f64 / 255.0, pixel[1] as f64 / 255.0, pixel[2] as f64 / 255.0];
+                let mut rgb = [
+                    pixel[0] as f64 / 255.0,
+                    pixel[1] as f64 / 255.0,
+                    pixel[2] as f64 / 255.0,
+                ];
 
                 // Apply brightness
                 for c in rgb.iter_mut() {
@@ -419,14 +441,20 @@ impl ContrastiveAugmentation {
     /// Gaussian blur (simplified box blur implementation).
     #[cfg(feature = "augmentation")]
     pub fn gaussian_blur(&mut self, image: &RgbImage) -> CnnResult<RgbImage> {
-        let sigma = self.rng.gen_range(self.config.blur_sigma_range.0..=self.config.blur_sigma_range.1);
+        let sigma = self
+            .rng
+            .gen_range(self.config.blur_sigma_range.0..=self.config.blur_sigma_range.1);
 
         // Use kernel size from config, or compute from sigma
         let kernel_size = if self.config.blur_kernel_size > 0 {
             self.config.blur_kernel_size
         } else {
             let k = (sigma * 6.0).ceil() as u32;
-            if k % 2 == 0 { k + 1 } else { k }
+            if k % 2 == 0 {
+                k + 1
+            } else {
+                k
+            }
         };
 
         // Generate Gaussian kernel
@@ -475,17 +503,22 @@ impl ContrastiveAugmentation {
             for x in 0..width {
                 let mut sum = [0.0, 0.0, 0.0];
                 for (i, &k) in kernel.iter().enumerate() {
-                    let sx = (x as i32 + i as i32 - radius as i32).clamp(0, width as i32 - 1) as u32;
+                    let sx =
+                        (x as i32 + i as i32 - radius as i32).clamp(0, width as i32 - 1) as u32;
                     let pixel = image.get_pixel(sx, y);
                     sum[0] += pixel[0] as f64 * k;
                     sum[1] += pixel[1] as f64 * k;
                     sum[2] += pixel[2] as f64 * k;
                 }
-                temp.put_pixel(x, y, Rgb([
-                    sum[0].clamp(0.0, 255.0) as u8,
-                    sum[1].clamp(0.0, 255.0) as u8,
-                    sum[2].clamp(0.0, 255.0) as u8,
-                ]));
+                temp.put_pixel(
+                    x,
+                    y,
+                    Rgb([
+                        sum[0].clamp(0.0, 255.0) as u8,
+                        sum[1].clamp(0.0, 255.0) as u8,
+                        sum[2].clamp(0.0, 255.0) as u8,
+                    ]),
+                );
             }
         }
 
@@ -495,17 +528,22 @@ impl ContrastiveAugmentation {
             for x in 0..width {
                 let mut sum = [0.0, 0.0, 0.0];
                 for (i, &k) in kernel.iter().enumerate() {
-                    let sy = (y as i32 + i as i32 - radius as i32).clamp(0, height as i32 - 1) as u32;
+                    let sy =
+                        (y as i32 + i as i32 - radius as i32).clamp(0, height as i32 - 1) as u32;
                     let pixel = temp.get_pixel(x, sy);
                     sum[0] += pixel[0] as f64 * k;
                     sum[1] += pixel[1] as f64 * k;
                     sum[2] += pixel[2] as f64 * k;
                 }
-                result.put_pixel(x, y, Rgb([
-                    sum[0].clamp(0.0, 255.0) as u8,
-                    sum[1].clamp(0.0, 255.0) as u8,
-                    sum[2].clamp(0.0, 255.0) as u8,
-                ]));
+                result.put_pixel(
+                    x,
+                    y,
+                    Rgb([
+                        sum[0].clamp(0.0, 255.0) as u8,
+                        sum[1].clamp(0.0, 255.0) as u8,
+                        sum[2].clamp(0.0, 255.0) as u8,
+                    ]),
+                );
             }
         }
 
@@ -752,9 +790,27 @@ mod tests {
             let (h, s, v) = rgb_to_hsv(r, g, b);
             let (r2, g2, b2) = hsv_to_rgb(h, s, v);
 
-            assert!((r - r2).abs() < 1e-6, "R mismatch for ({}, {}, {})", r, g, b);
-            assert!((g - g2).abs() < 1e-6, "G mismatch for ({}, {}, {})", r, g, b);
-            assert!((b - b2).abs() < 1e-6, "B mismatch for ({}, {}, {})", r, g, b);
+            assert!(
+                (r - r2).abs() < 1e-6,
+                "R mismatch for ({}, {}, {})",
+                r,
+                g,
+                b
+            );
+            assert!(
+                (g - g2).abs() < 1e-6,
+                "G mismatch for ({}, {}, {})",
+                r,
+                g,
+                b
+            );
+            assert!(
+                (b - b2).abs() < 1e-6,
+                "B mismatch for ({}, {}, {})",
+                r,
+                g,
+                b
+            );
         }
     }
 

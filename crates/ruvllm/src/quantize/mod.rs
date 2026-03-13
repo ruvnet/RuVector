@@ -110,25 +110,25 @@ pub use ruvltra_quant::{
 
 // Pi-Quantization SIMD kernels
 pub use pi_quant_simd::{
+    // Utility functions
+    extract_pi3_value,
+    // Runtime dispatch (selects best kernel)
+    pi_dequantize,
+    pi_dequantize_kernel_name,
+    // Scalar reference (always available)
+    pi_dequantize_scalar,
+    pi_quantize,
+    pi_quantize_kernel_name,
+    pi_quantize_scalar,
+    pi_quantize_value,
+    pi_scale,
+    pi_scale_adaptive,
+    pi_scale_from_max,
     // Constants
     DEFAULT_K,
     PI3_BYTES_PER_GROUP,
     PI3_VALUES_PER_GROUP,
     PI_F32,
-    // Runtime dispatch (selects best kernel)
-    pi_dequantize,
-    pi_dequantize_kernel_name,
-    pi_quantize,
-    pi_quantize_kernel_name,
-    // Scalar reference (always available)
-    pi_dequantize_scalar,
-    pi_quantize_scalar,
-    // Utility functions
-    extract_pi3_value,
-    pi_quantize_value,
-    pi_scale,
-    pi_scale_adaptive,
-    pi_scale_from_max,
 };
 
 // Architecture-specific SIMD kernels (conditionally exported)
@@ -140,11 +140,7 @@ pub use pi_quant_simd::{pi_dequantize_avx2, pi_dequantize_avx512, pi_quantize_av
 
 // High-performance quantization (ADR-090 >1 GB/s target)
 pub use pi_quant::{
-    batch_quantize_3bit,
-    quantize_2bit,
-    quantize_2bit_fast,
-    quantize_3bit,
-    quantize_3bit_fast,
+    batch_quantize_3bit, quantize_2bit, quantize_2bit_fast, quantize_3bit, quantize_3bit_fast,
     quantize_kernel_name,
 };
 
@@ -157,33 +153,17 @@ pub use pi_quant::{quantize_2bit_avx2, quantize_3bit_avx2};
 
 // Hadamard transform (ADR-090 Phase 3)
 pub use hadamard::{
-    hadamard_batch_inverse,
-    hadamard_batch_transform,
-    log2_exact,
-    next_power_of_2,
-    pad_to_power_of_2,
-    HadamardTransform,
-    MAX_LOG_DIM,
-    SIMD_LANES,
+    hadamard_batch_inverse, hadamard_batch_transform, log2_exact, next_power_of_2,
+    pad_to_power_of_2, HadamardTransform, MAX_LOG_DIM, SIMD_LANES,
 };
 
 // Incoherence transform (ADR-090 Phase 3)
 pub use incoherence::{
-    apply_incoherence,
-    restore_incoherence,
-    IncoherenceConfig,
-    IncoherenceEvent,
-    IncoherencePhase,
-    IncoherenceStats,
-    IncoherenceTransform,
+    apply_incoherence, restore_incoherence, IncoherenceConfig, IncoherenceEvent, IncoherencePhase,
+    IncoherenceStats, IncoherenceTransform,
 };
 
 // QuIP 2-bit quantization (ADR-090 Phase 3)
 pub use quip::{
-    Q2QuipBlock,
-    Q2QuipSuperBlock,
-    QuipCodebook,
-    QuipConfig,
-    QuipMetadata,
-    QuipQuantizer,
+    Q2QuipBlock, Q2QuipSuperBlock, QuipCodebook, QuipConfig, QuipMetadata, QuipQuantizer,
 };

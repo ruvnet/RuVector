@@ -5,8 +5,8 @@
 
 use crate::error::CnnResult;
 use crate::layers::{
-    Activation, ActivationType, BatchNorm, Conv2d, GlobalAvgPool, Linear, TensorShape,
-    conv_output_size,
+    conv_output_size, Activation, ActivationType, BatchNorm, Conv2d, GlobalAvgPool, Linear,
+    TensorShape,
 };
 use crate::Tensor;
 
@@ -42,13 +42,26 @@ impl Layer for Conv2d {
 
         // Convert output back to NCHW
         let out_shape = output_tensor.shape();
-        let out_tensor_shape = TensorShape::new(out_shape[0], out_shape[3], out_shape[1], out_shape[2]);
+        let out_tensor_shape =
+            TensorShape::new(out_shape[0], out_shape[3], out_shape[1], out_shape[2]);
         Ok(nhwc_to_nchw(output_tensor.data(), &out_tensor_shape))
     }
 
     fn output_shape(&self, input_shape: &TensorShape) -> TensorShape {
-        let out_h = conv_output_size(input_shape.h, self.kernel_size(), self.stride(), self.padding(), 1);
-        let out_w = conv_output_size(input_shape.w, self.kernel_size(), self.stride(), self.padding(), 1);
+        let out_h = conv_output_size(
+            input_shape.h,
+            self.kernel_size(),
+            self.stride(),
+            self.padding(),
+            1,
+        );
+        let out_w = conv_output_size(
+            input_shape.w,
+            self.kernel_size(),
+            self.stride(),
+            self.padding(),
+            1,
+        );
         TensorShape::new(input_shape.n, self.out_channels(), out_h, out_w)
     }
 
@@ -140,7 +153,11 @@ impl Layer for Linear {
 
     fn num_params(&self) -> usize {
         let weight_params = self.out_features() * self.in_features();
-        let bias_params = if self.bias().is_some() { self.out_features() } else { 0 };
+        let bias_params = if self.bias().is_some() {
+            self.out_features()
+        } else {
+            0
+        };
         weight_params + bias_params
     }
 }

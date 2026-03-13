@@ -92,12 +92,11 @@ fn load_graph_from_tables(name: &str) -> Option<Arc<GraphStore>> {
                 .get_by_name::<JsonB, _>("properties")?
                 .unwrap_or(JsonB(serde_json::json!({})));
 
-            let props: HashMap<String, JsonValue> =
-                if let JsonValue::Object(map) = props_json.0 {
-                    map.into_iter().collect()
-                } else {
-                    HashMap::new()
-                };
+            let props: HashMap<String, JsonValue> = if let JsonValue::Object(map) = props_json.0 {
+                map.into_iter().collect()
+            } else {
+                HashMap::new()
+            };
 
             let mut node = Node::new(id as u64);
             node.labels = labels;
@@ -131,12 +130,11 @@ fn load_graph_from_tables(name: &str) -> Option<Arc<GraphStore>> {
                 .get_by_name::<JsonB, _>("properties")?
                 .unwrap_or(JsonB(serde_json::json!({})));
 
-            let props: HashMap<String, JsonValue> =
-                if let JsonValue::Object(map) = props_json.0 {
-                    map.into_iter().collect()
-                } else {
-                    HashMap::new()
-                };
+            let props: HashMap<String, JsonValue> = if let JsonValue::Object(map) = props_json.0 {
+                map.into_iter().collect()
+            } else {
+                HashMap::new()
+            };
 
             let mut edge = Edge::new(id as u64, source as u64, target as u64, edge_type);
             edge.properties = props;
@@ -262,7 +260,11 @@ pub fn list_graphs() -> Vec<String> {
 
     let mut names: Vec<String> = Vec::new();
     let _ = Spi::connect(|client| {
-        let tup_table = client.select("SELECT name FROM _ruvector_graphs ORDER BY name", None, None)?;
+        let tup_table = client.select(
+            "SELECT name FROM _ruvector_graphs ORDER BY name",
+            None,
+            None,
+        )?;
         for row in tup_table {
             if let Some(name) = row.get_by_name::<String, _>("name")? {
                 names.push(name);

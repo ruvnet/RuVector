@@ -50,12 +50,10 @@ pub mod rvf;
 
 // Convenience re-exports of the most commonly used types.
 pub use bridge::{
-    BridgeConfig, DistanceMetric, OccupancyGrid, Obstacle as BridgeObstacle, Point3D, PointCloud,
+    BridgeConfig, DistanceMetric, Obstacle as BridgeObstacle, OccupancyGrid, Point3D, PointCloud,
     Pose, Quaternion, RobotState, SceneEdge, SceneGraph, SceneObject, SensorFrame, SpatialIndex,
     Trajectory,
 };
 pub use cognitive::{BehaviorNode, BehaviorStatus, BehaviorTree, CognitiveCore, CognitiveState};
-pub use perception::{
-    ObstacleDetector, PerceptionConfig, PerceptionPipeline, SceneGraphBuilder,
-};
+pub use perception::{ObstacleDetector, PerceptionConfig, PerceptionPipeline, SceneGraphBuilder};
 pub use planning::{GridPath, VelocityCommand};

@@ -25,8 +25,8 @@
 
 extern crate alloc;
 
+use crate::segment::{parse_segments, SegmentInfo};
 use alloc::vec::Vec;
-use crate::segment::{SegmentInfo, parse_segments};
 
 /// WASM_SEG type discriminant (matches rvf_types::SegmentType::Wasm).
 const WASM_SEG_TYPE: u8 = 0x10;
@@ -79,13 +79,9 @@ pub enum BootstrapChain {
     /// File has no WASM_SEGs — requires external runtime for all processing.
     None,
     /// File contains only a microkernel — requires host WASM runtime.
-    HostRequired {
-        microkernel: WasmModule,
-    },
+    HostRequired { microkernel: WasmModule },
     /// File contains a combined interpreter+microkernel — single-step bootstrap.
-    SelfContained {
-        combined: WasmModule,
-    },
+    SelfContained { combined: WasmModule },
     /// File contains separate interpreter and microkernel — two-step bootstrap.
     TwoStage {
         interpreter: WasmModule,
@@ -187,14 +183,21 @@ pub fn resolve_bootstrap_chain(buf: &[u8]) -> BootstrapChain {
     wasm_modules.sort_by_key(|m| m.bootstrap_priority);
 
     // Check for combined module (single-step bootstrap)
-    if let Some(idx) = wasm_modules.iter().position(|m| m.role == WasmRole::Combined as u8) {
+    if let Some(idx) = wasm_modules
+        .iter()
+        .position(|m| m.role == WasmRole::Combined as u8)
+    {
         return BootstrapChain::SelfContained {
             combined: wasm_modules.remove(idx),
         };
     }
 
-    let interpreter_idx = wasm_modules.iter().position(|m| m.role == WasmRole::Interpreter as u8);
-    let microkernel_idx = wasm_modules.iter().position(|m| m.role == WasmRole::Microkernel as u8);
+    let interpreter_idx = wasm_modules
+        .iter()
+        .position(|m| m.role == WasmRole::Interpreter as u8);
+    let microkernel_idx = wasm_modules
+        .iter()
+        .position(|m| m.role == WasmRole::Microkernel as u8);
 
     match (interpreter_idx, microkernel_idx) {
         (Some(i_idx), Some(m_idx)) => {
@@ -230,7 +233,10 @@ pub fn resolve_bootstrap_chain(buf: &[u8]) -> BootstrapChain {
         }
         (None, Some(_)) => {
             // Only microkernel, no interpreter → host provides runtime
-            let m_idx = wasm_modules.iter().position(|m| m.role == WasmRole::Microkernel as u8).unwrap();
+            let m_idx = wasm_modules
+                .iter()
+                .position(|m| m.role == WasmRole::Microkernel as u8)
+                .unwrap();
             BootstrapChain::HostRequired {
                 microkernel: wasm_modules.remove(m_idx),
             }
@@ -273,7 +279,7 @@ mod tests {
         seg.extend_from_slice(&[0, 0]); // flags
         seg.extend_from_slice(&1u64.to_le_bytes()); // segment_id
         seg.extend_from_slice(&(payload_len as u64).to_le_bytes()); // payload_length
-        // Fill remaining header bytes to reach 64
+                                                                    // Fill remaining header bytes to reach 64
         while seg.len() < seg_header_size {
             seg.push(0);
         }
@@ -365,7 +371,11 @@ mod tests {
         assert!(chain.is_self_bootstrapping());
         assert!(matches!(chain, BootstrapChain::TwoStage { .. }));
 
-        if let BootstrapChain::TwoStage { interpreter, microkernel } = &chain {
+        if let BootstrapChain::TwoStage {
+            interpreter,
+            microkernel,
+        } = &chain
+        {
             assert_eq!(interpreter.role, WasmRole::Interpreter as u8);
             assert_eq!(microkernel.role, WasmRole::Microkernel as u8);
         }
@@ -401,7 +411,11 @@ mod tests {
         assert!(chain.is_self_bootstrapping());
 
         // The interpreter should have lower priority (comes first)
-        if let BootstrapChain::TwoStage { interpreter, microkernel } = &chain {
+        if let BootstrapChain::TwoStage {
+            interpreter,
+            microkernel,
+        } = &chain
+        {
             assert_eq!(interpreter.bootstrap_priority, 0);
             assert_eq!(microkernel.bootstrap_priority, 10);
         }

@@ -116,9 +116,14 @@ impl HadamardTransform {
                 let mut rng_state = s;
                 let signs: Vec<i8> = (0..dim)
                     .map(|_| {
-                        rng_state = rng_state.wrapping_mul(6364136223846793005)
+                        rng_state = rng_state
+                            .wrapping_mul(6364136223846793005)
                             .wrapping_add(1442695040888963407);
-                        if (rng_state >> 63) & 1 == 0 { 1 } else { -1 }
+                        if (rng_state >> 63) & 1 == 0 {
+                            1
+                        } else {
+                            -1
+                        }
                     })
                     .collect();
                 (signs, true)
@@ -732,12 +737,7 @@ mod tests {
         transform.inverse_inplace(&mut data);
 
         for (a, b) in data.iter().zip(original.iter()) {
-            assert!(
-                (a - b).abs() < 1e-5,
-                "Roundtrip failed: {} vs {}",
-                a,
-                b
-            );
+            assert!((a - b).abs() < 1e-5, "Roundtrip failed: {} vs {}", a, b);
         }
     }
 
@@ -793,11 +793,7 @@ mod tests {
 
         // After normalization by 1/sqrt(4) = 0.5
         for &v in &data {
-            assert!(
-                (v - 0.5).abs() < 1e-5,
-                "Expected 0.5, got {}",
-                v
-            );
+            assert!((v - 0.5).abs() < 1e-5, "Expected 0.5, got {}", v);
         }
     }
 

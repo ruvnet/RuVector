@@ -50,8 +50,10 @@ fn main() {
 
     for robot in &robots {
         let registered = coordinator.register_robot(robot.clone());
-        println!("Registered robot {} (speed={}, sensors={:?}): {}",
-            robot.id, robot.max_speed, robot.sensors, registered);
+        println!(
+            "Registered robot {} (speed={}, sensors={:?}): {}",
+            robot.id, robot.max_speed, robot.sensors, registered
+        );
     }
     println!("\nActive robots: {}\n", coordinator.robot_count());
 
@@ -105,7 +107,10 @@ fn main() {
         let positions = coordinator.compute_formation(&formation);
         println!("  {} formation:", name);
         for (i, pos) in positions.iter().enumerate() {
-            println!("    Robot {}: [{:.2}, {:.2}, {:.2}]", i, pos[0], pos[1], pos[2]);
+            println!(
+                "    Robot {}: [{:.2}, {:.2}, {:.2}]",
+                i, pos[0], pos[1], pos[2]
+            );
         }
     }
 
@@ -115,7 +120,11 @@ fn main() {
     println!(
         "  Proposal: '{}' -> {} (for={}, against={})",
         result.proposal,
-        if result.accepted { "ACCEPTED" } else { "REJECTED" },
+        if result.accepted {
+            "ACCEPTED"
+        } else {
+            "REJECTED"
+        },
         result.votes_for,
         result.votes_against,
     );

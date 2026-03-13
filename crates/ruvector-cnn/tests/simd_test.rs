@@ -49,7 +49,9 @@ fn test_dot_product_large_vector() {
 #[test]
 fn test_dot_product_various_sizes() {
     // Test sizes that exercise different SIMD code paths
-    for size in [1, 3, 7, 8, 9, 15, 16, 17, 31, 32, 63, 64, 100, 128, 255, 256] {
+    for size in [
+        1, 3, 7, 8, 9, 15, 16, 17, 31, 32, 63, 64, 100, 128, 255, 256,
+    ] {
         let a: Vec<f32> = (0..size).map(|i| (i as f32) * 0.1).collect();
         let b: Vec<f32> = (0..size).map(|i| ((size - i) as f32) * 0.1).collect();
 
@@ -311,7 +313,16 @@ fn test_batch_norm_identity() {
 
     let mut output = vec![0.0; input.len()];
 
-    simd::batch_norm_simd(&input, &mut output, &gamma, &beta, &mean, &var, 1e-5, channels);
+    simd::batch_norm_simd(
+        &input,
+        &mut output,
+        &gamma,
+        &beta,
+        &mean,
+        &var,
+        1e-5,
+        channels,
+    );
 
     for (i, (&inp, &out)) in input.iter().zip(output.iter()).enumerate() {
         assert!(
@@ -339,7 +350,16 @@ fn test_batch_norm_normalization() {
 
     let mut output = vec![0.0; 4];
 
-    simd::batch_norm_simd(&input, &mut output, &gamma, &beta, &mean, &var, 1e-5, channels);
+    simd::batch_norm_simd(
+        &input,
+        &mut output,
+        &gamma,
+        &beta,
+        &mean,
+        &var,
+        1e-5,
+        channels,
+    );
 
     // (5 - 5) / sqrt(1 + eps) = 0
     // (10 - 10) / sqrt(1 + eps) = 0
@@ -362,7 +382,9 @@ fn test_conv_3x3_simd_vs_scalar() {
     let padding = 1;
 
     let input: Vec<f32> = (0..in_h * in_w * in_c).map(|i| (i as f32) * 0.01).collect();
-    let kernel: Vec<f32> = (0..out_c * 3 * 3 * in_c).map(|i| (i as f32) * 0.001).collect();
+    let kernel: Vec<f32> = (0..out_c * 3 * 3 * in_c)
+        .map(|i| (i as f32) * 0.001)
+        .collect();
 
     let out_h = (in_h + 2 * padding - 3) / stride + 1;
     let out_w = (in_w + 2 * padding - 3) / stride + 1;
@@ -394,13 +416,7 @@ fn test_conv_3x3_simd_vs_scalar() {
     );
 
     for (i, (&s, &r)) in simd_output.iter().zip(scalar_output.iter()).enumerate() {
-        assert!(
-            (s - r).abs() < 0.1,
-            "Index {}: SIMD={}, Scalar={}",
-            i,
-            s,
-            r
-        );
+        assert!((s - r).abs() < 0.1, "Index {}: SIMD={}, Scalar={}", i, s, r);
     }
 }
 
@@ -438,13 +454,7 @@ fn test_depthwise_conv_3x3_simd_vs_scalar() {
     );
 
     for (i, (&s, &r)) in simd_output.iter().zip(scalar_output.iter()).enumerate() {
-        assert!(
-            (s - r).abs() < 0.1,
-            "Index {}: SIMD={}, Scalar={}",
-            i,
-            s,
-            r
-        );
+        assert!((s - r).abs() < 0.1, "Index {}: SIMD={}, Scalar={}", i, s, r);
     }
 }
 
@@ -579,7 +589,9 @@ fn test_simd_single_element() {
 fn test_simd_remainder_handling() {
     // Test sizes that don't align with SIMD width (not multiple of 8)
     for size in [3, 7, 9, 15, 17, 25, 33] {
-        let input: Vec<f32> = (0..size).map(|i| (i as f32) - (size as f32 / 2.0)).collect();
+        let input: Vec<f32> = (0..size)
+            .map(|i| (i as f32) - (size as f32 / 2.0))
+            .collect();
         let mut simd_output = vec![0.0; size];
         let mut scalar_output = vec![0.0; size];
 
@@ -702,7 +714,16 @@ fn test_dot_product_nan_propagation() {
 
 #[test]
 fn test_activation_with_special_values() {
-    let input = vec![f32::INFINITY, f32::NEG_INFINITY, f32::NAN, 0.0, 1.0, -1.0, 6.0, 100.0];
+    let input = vec![
+        f32::INFINITY,
+        f32::NEG_INFINITY,
+        f32::NAN,
+        0.0,
+        1.0,
+        -1.0,
+        6.0,
+        100.0,
+    ];
     let mut output = vec![0.0; 8];
 
     simd::relu_simd(&input, &mut output);

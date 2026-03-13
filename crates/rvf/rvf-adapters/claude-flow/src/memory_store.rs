@@ -52,7 +52,9 @@ impl RvfMemoryStore {
     /// Create a new memory store, initializing the data directory and RVF file.
     pub fn create(config: ClaudeFlowConfig) -> Result<Self, MemoryStoreError> {
         config.validate().map_err(MemoryStoreError::Config)?;
-        config.ensure_dirs().map_err(|e| MemoryStoreError::Io(e.to_string()))?;
+        config
+            .ensure_dirs()
+            .map_err(|e| MemoryStoreError::Io(e.to_string()))?;
 
         let rvf_options = RvfOptions {
             dimension: config.dimension,
@@ -60,12 +62,11 @@ impl RvfMemoryStore {
             ..Default::default()
         };
 
-        let store = RvfStore::create(&config.store_path(), rvf_options)
-            .map_err(MemoryStoreError::Rvf)?;
+        let store =
+            RvfStore::create(&config.store_path(), rvf_options).map_err(MemoryStoreError::Rvf)?;
 
         let witness = if config.enable_witness {
-            Some(WitnessChain::create(&config.witness_path())
-                .map_err(MemoryStoreError::Witness)?)
+            Some(WitnessChain::create(&config.witness_path()).map_err(MemoryStoreError::Witness)?)
         } else {
             None
         };
@@ -83,12 +84,13 @@ impl RvfMemoryStore {
     pub fn open(config: ClaudeFlowConfig) -> Result<Self, MemoryStoreError> {
         config.validate().map_err(MemoryStoreError::Config)?;
 
-        let store = RvfStore::open(&config.store_path())
-            .map_err(MemoryStoreError::Rvf)?;
+        let store = RvfStore::open(&config.store_path()).map_err(MemoryStoreError::Rvf)?;
 
         let witness = if config.enable_witness {
-            Some(WitnessChain::open_or_create(&config.witness_path())
-                .map_err(MemoryStoreError::Witness)?)
+            Some(
+                WitnessChain::open_or_create(&config.witness_path())
+                    .map_err(MemoryStoreError::Witness)?,
+            )
         } else {
             None
         };
@@ -131,7 +133,9 @@ impl RvfMemoryStore {
         // If key already exists in this namespace, soft-delete the old entry.
         let compound_key = format!("{namespace}/{key}");
         if let Some(&old_id) = self.key_index.get(&compound_key) {
-            self.store.delete(&[old_id]).map_err(MemoryStoreError::Rvf)?;
+            self.store
+                .delete(&[old_id])
+                .map_err(MemoryStoreError::Rvf)?;
         }
 
         let vector_id = self.next_id;
@@ -141,9 +145,18 @@ impl RvfMemoryStore {
         let tags_str = tags.join(",");
 
         let metadata = vec![
-            MetadataEntry { field_id: FIELD_KEY, value: MetadataValue::String(key.to_string()) },
-            MetadataEntry { field_id: FIELD_NAMESPACE, value: MetadataValue::String(namespace.to_string()) },
-            MetadataEntry { field_id: FIELD_TAGS, value: MetadataValue::String(tags_str) },
+            MetadataEntry {
+                field_id: FIELD_KEY,
+                value: MetadataValue::String(key.to_string()),
+            },
+            MetadataEntry {
+                field_id: FIELD_NAMESPACE,
+                value: MetadataValue::String(namespace.to_string()),
+            },
+            MetadataEntry {
+                field_id: FIELD_TAGS,
+                value: MetadataValue::String(tags_str),
+            },
         ];
 
         self.store
@@ -174,16 +187,17 @@ impl RvfMemoryStore {
             });
         }
 
-        let filter = namespace.map(|ns| {
-            FilterExpr::Eq(FIELD_NAMESPACE, FilterValue::String(ns.to_string()))
-        });
+        let filter = namespace
+            .map(|ns| FilterExpr::Eq(FIELD_NAMESPACE, FilterValue::String(ns.to_string())));
 
         let options = QueryOptions {
             filter,
             ..Default::default()
         };
 
-        let results = self.store.query(query_embedding, k, &options)
+        let results = self
+            .store
+            .query(query_embedding, k, &options)
             .map_err(MemoryStoreError::Rvf)?;
 
         if let Some(ref mut w) = self.witness {
@@ -198,24 +212,18 @@ impl RvfMemoryStore {
     ///
     /// Returns the vector ID if found (the entry can then be used with
     /// the underlying store for further operations).
-    pub fn retrieve_memory(
-        &self,
-        key: &str,
-        namespace: &str,
-    ) -> Option<u64> {
+    pub fn retrieve_memory(&self, key: &str, namespace: &str) -> Option<u64> {
         let compound_key = format!("{namespace}/{key}");
         self.key_index.get(&compound_key).copied()
     }
 
     /// Soft-delete a memory entry by key and namespace.
-    pub fn delete_memory(
-        &mut self,
-        key: &str,
-        namespace: &str,
-    ) -> Result<bool, MemoryStoreError> {
+    pub fn delete_memory(&mut self, key: &str, namespace: &str) -> Result<bool, MemoryStoreError> {
         let compound_key = format!("{namespace}/{key}");
         if let Some(vector_id) = self.key_index.remove(&compound_key) {
-            self.store.delete(&[vector_id]).map_err(MemoryStoreError::Rvf)?;
+            self.store
+                .delete(&[vector_id])
+                .map_err(MemoryStoreError::Rvf)?;
 
             if let Some(ref mut w) = self.witness {
                 let _ = w.record_delete(key, namespace);
@@ -305,10 +313,15 @@ mod tests {
         let config = test_config(dir.path());
 
         let mut store = RvfMemoryStore::create(config).unwrap();
-        let id = store.store_memory(
-            "key1", "value1", "default", &["tag1".into(), "tag2".into()],
-            &make_embedding(1.0),
-        ).unwrap();
+        let id = store
+            .store_memory(
+                "key1",
+                "value1",
+                "default",
+                &["tag1".into(), "tag2".into()],
+                &make_embedding(1.0),
+            )
+            .unwrap();
         assert!(id > 0);
 
         let status = store.status();
@@ -324,16 +337,26 @@ mod tests {
 
         let mut store = RvfMemoryStore::create(config).unwrap();
 
-        store.store_memory("a", "val_a", "ns1", &[], &[1.0, 0.0, 0.0, 0.0]).unwrap();
-        store.store_memory("b", "val_b", "ns1", &[], &[0.0, 1.0, 0.0, 0.0]).unwrap();
-        store.store_memory("c", "val_c", "ns2", &[], &[0.0, 0.0, 1.0, 0.0]).unwrap();
+        store
+            .store_memory("a", "val_a", "ns1", &[], &[1.0, 0.0, 0.0, 0.0])
+            .unwrap();
+        store
+            .store_memory("b", "val_b", "ns1", &[], &[0.0, 1.0, 0.0, 0.0])
+            .unwrap();
+        store
+            .store_memory("c", "val_c", "ns2", &[], &[0.0, 0.0, 1.0, 0.0])
+            .unwrap();
 
         // Search all namespaces
-        let results = store.search_memory(&[1.0, 0.0, 0.0, 0.0], 3, None, None).unwrap();
+        let results = store
+            .search_memory(&[1.0, 0.0, 0.0, 0.0], 3, None, None)
+            .unwrap();
         assert_eq!(results.len(), 3);
 
         // Search filtered by namespace
-        let results = store.search_memory(&[1.0, 0.0, 0.0, 0.0], 3, Some("ns1"), None).unwrap();
+        let results = store
+            .search_memory(&[1.0, 0.0, 0.0, 0.0], 3, Some("ns1"), None)
+            .unwrap();
         assert_eq!(results.len(), 2);
 
         store.close().unwrap();
@@ -345,7 +368,9 @@ mod tests {
         let config = test_config(dir.path());
 
         let mut store = RvfMemoryStore::create(config).unwrap();
-        let id = store.store_memory("mykey", "myval", "ns", &[], &make_embedding(2.0)).unwrap();
+        let id = store
+            .store_memory("mykey", "myval", "ns", &[], &make_embedding(2.0))
+            .unwrap();
 
         assert_eq!(store.retrieve_memory("mykey", "ns"), Some(id));
         assert_eq!(store.retrieve_memory("missing", "ns"), None);
@@ -360,7 +385,9 @@ mod tests {
         let config = test_config(dir.path());
 
         let mut store = RvfMemoryStore::create(config).unwrap();
-        store.store_memory("k", "v", "ns", &[], &make_embedding(3.0)).unwrap();
+        store
+            .store_memory("k", "v", "ns", &[], &make_embedding(3.0))
+            .unwrap();
 
         assert!(store.delete_memory("k", "ns").unwrap());
         assert!(!store.delete_memory("k", "ns").unwrap()); // already deleted
@@ -375,8 +402,12 @@ mod tests {
         let config = test_config(dir.path());
 
         let mut store = RvfMemoryStore::create(config).unwrap();
-        let id1 = store.store_memory("k", "v1", "ns", &[], &make_embedding(1.0)).unwrap();
-        let id2 = store.store_memory("k", "v2", "ns", &[], &make_embedding(2.0)).unwrap();
+        let id1 = store
+            .store_memory("k", "v1", "ns", &[], &make_embedding(1.0))
+            .unwrap();
+        let id2 = store
+            .store_memory("k", "v2", "ns", &[], &make_embedding(2.0))
+            .unwrap();
 
         // New ID should be different (old was soft-deleted)
         assert_ne!(id1, id2);
@@ -405,8 +436,12 @@ mod tests {
         let config = test_config(dir.path());
 
         let mut store = RvfMemoryStore::create(config).unwrap();
-        store.store_memory("a", "v", "ns", &[], &make_embedding(1.0)).unwrap();
-        store.search_memory(&make_embedding(1.0), 1, None, None).unwrap();
+        store
+            .store_memory("a", "v", "ns", &[], &make_embedding(1.0))
+            .unwrap();
+        store
+            .search_memory(&make_embedding(1.0), 1, None, None)
+            .unwrap();
         store.delete_memory("a", "ns").unwrap();
 
         let witness = store.witness().unwrap();
@@ -422,8 +457,12 @@ mod tests {
         let config = test_config(dir.path());
 
         let mut store = RvfMemoryStore::create(config).unwrap();
-        store.store_memory("a", "v", "ns", &[], &make_embedding(1.0)).unwrap();
-        store.store_memory("b", "v", "ns", &[], &make_embedding(2.0)).unwrap();
+        store
+            .store_memory("a", "v", "ns", &[], &make_embedding(1.0))
+            .unwrap();
+        store
+            .store_memory("b", "v", "ns", &[], &make_embedding(2.0))
+            .unwrap();
         store.delete_memory("a", "ns").unwrap();
         store.compact().unwrap();
 

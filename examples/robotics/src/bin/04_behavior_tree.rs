@@ -10,7 +10,6 @@
 ///   Root (Selector)
 ///     |-- Avoid (Sequence): [Condition("obstacle_near")] -> [Action("evade")]
 ///     |-- Patrol (Sequence): [Action("select_wp")] -> [Action("move")] -> [Action("wait")]
-
 use ruvector_robotics::cognitive::{BehaviorNode, BehaviorStatus, BehaviorTree, DecoratorType};
 
 fn main() {

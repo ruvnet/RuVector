@@ -238,7 +238,8 @@ impl QuantizedTensor {
         kernel_h: usize,
         kernel_w: usize,
     ) -> Self {
-        let per_channel = PerChannelQuantParams::symmetric_per_channel(weights, out_channels, in_channels);
+        let per_channel =
+            PerChannelQuantParams::symmetric_per_channel(weights, out_channels, in_channels);
         let kernel_size = kernel_h * kernel_w;
 
         let mut quantized = Vec::with_capacity(weights.len());
@@ -366,7 +367,8 @@ pub unsafe fn quantize_batch_avx2(input: &[f32], output: &mut [i8], params: &Qua
     // Handle remainder
     let remainder_start = chunks * 8;
     for i in remainder_start..len {
-        let scaled = input[i] / params.scale + params.zero_point as f32 + params.anti_resonance * 0.5;
+        let scaled =
+            input[i] / params.scale + params.zero_point as f32 + params.anti_resonance * 0.5;
         output[i] = scaled.round().clamp(-128.0, 127.0) as i8;
     }
 }

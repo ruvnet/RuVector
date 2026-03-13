@@ -321,7 +321,298 @@ impl ExpertCache {
         self.config.max_hot_experts
     }
 
+    /// Get list of currently hot experts.
+    ///
+    /// Returns the expert IDs currently in the hot set, in no particular order.
+    /// Useful for prefetch decisions and cache diagnostics.
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// use ruvllm::bitnet::expert_cache::{ExpertCache, ExpertCacheConfig};
+    ///
+    /// let mut cache = ExpertCache::new(8, ExpertCacheConfig::default());
+    /// cache.access(2);
+    /// cache.access(5);
+    ///
+    /// let hot = cache.hot_experts();
+    /// assert!(hot.contains(&2));
+    /// assert!(hot.contains(&5));
+    /// ```
+    pub fn hot_experts(&self) -> Vec<usize> {
+        self.hot_set.iter().map(|&(id, _)| id).collect()
+    }
+
+    /// Suggest eviction with affinity awareness.
+    ///
+    /// Combines the base eviction score (from LRU/LFU/Adaptive policy) with
+    /// affinity scores to make better eviction decisions. Experts with high
+    /// affinity are less likely to be evicted even if they have low frequency
+    /// or old access times.
+    ///
+    /// # Algorithm
+    ///
+    /// For each hot expert, compute a combined score:
+    /// ```text
+    /// eviction_score = (1 - affinity_weight) * base_score + affinity_weight * (1 - affinity)
+    /// ```
+    ///
+    /// Where:
+    /// - `base_score` is normalized LRU/LFU score (0=least likely to evict, 1=most likely)
+    /// - `affinity` is the expert's affinity score from `ExpertAffinity`
+    /// - `affinity_weight` controls the influence of affinity (0.0-1.0)
+    ///
+    /// The expert with the **highest** eviction_score is suggested for eviction.
+    ///
+    /// # Arguments
+    ///
+    /// * `affinity` - The expert affinity tracker (from `moe::ExpertAffinity`)
+    /// * `affinity_weight` - How much affinity influences eviction (0.0-1.0)
+    ///   - 0.0 = pure base policy (LRU/LFU/Adaptive)
+    ///   - 1.0 = pure affinity-based (evict lowest affinity)
+    ///   - 0.3-0.5 = recommended balance
+    ///
+    /// # Returns
+    ///
+    /// `Some(expert_id)` if the hot set is full and an expert should be evicted.
+    /// `None` if the hot set is not full.
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// use ruvllm::bitnet::expert_cache::{ExpertCache, ExpertCacheConfig};
+    /// use ruvllm::moe::{ExpertAffinity, AffinityConfig};
+    ///
+    /// let mut cache = ExpertCache::new(8, ExpertCacheConfig::default());
+    /// let mut affinity = ExpertAffinity::new(AffinityConfig::with_num_experts(8));
+    ///
+    /// // Fill the hot set
+    /// for i in 0..4 { cache.access(i); }
+    ///
+    /// // Update affinity - expert 0 has high affinity
+    /// for _ in 0..10 { affinity.update(&[0]); }
+    ///
+    /// // Should NOT suggest expert 0 despite being LRU
+    /// let victim = cache.suggest_eviction_with_affinity(&affinity, 0.5);
+    /// assert_ne!(victim, Some(0));
+    /// ```
+    pub fn suggest_eviction_with_affinity(
+        &self,
+        affinity: &crate::moe::ExpertAffinity,
+        affinity_weight: f32,
+    ) -> Option<usize> {
+        if self.hot_set.len() < self.config.max_hot_experts {
+            return None;
+        }
+
+        // Clamp weight to valid range
+        let weight = affinity_weight.clamp(0.0, 1.0);
+
+        // If weight is 0, just use base policy
+        if weight < 1e-6 {
+            return self.suggest_eviction();
+        }
+
+        // Compute base scores based on policy
+        let base_scores = self.compute_base_eviction_scores();
+
+        if base_scores.is_empty() {
+            return None;
+        }
+
+        // Find expert with highest combined eviction score
+        let mut best_victim: Option<usize> = None;
+        let mut best_score: f32 = f32::MIN;
+
+        for &(id, _) in &self.hot_set {
+            let base_score = base_scores.get(&id).copied().unwrap_or(0.5);
+            let expert_affinity = affinity.score(id);
+
+            // Combined score: higher = more likely to evict
+            // (1 - affinity) means low affinity -> high eviction likelihood
+            let combined = (1.0 - weight) * base_score + weight * (1.0 - expert_affinity);
+
+            if combined > best_score {
+                best_score = combined;
+                best_victim = Some(id);
+            }
+        }
+
+        best_victim
+    }
+
+    /// Prefetch experts based on affinity predictions.
+    ///
+    /// Selects the top experts by affinity score that are not already in the
+    /// hot set, up to the given budget, and admits them via prefetch.
+    ///
+    /// # Arguments
+    ///
+    /// * `affinity` - The expert affinity tracker
+    /// * `budget` - Maximum number of experts to prefetch
+    ///
+    /// # Returns
+    ///
+    /// Vector of expert IDs that were actually prefetched (may be fewer than
+    /// `budget` if the hot set is nearly full or all high-affinity experts
+    /// are already hot).
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// use ruvllm::bitnet::expert_cache::{ExpertCache, ExpertCacheConfig};
+    /// use ruvllm::moe::{ExpertAffinity, AffinityConfig};
+    ///
+    /// let config = ExpertCacheConfig { max_hot_experts: 4, ..Default::default() };
+    /// let mut cache = ExpertCache::new(8, config);
+    /// let mut affinity = ExpertAffinity::new(AffinityConfig::with_num_experts(8));
+    ///
+    /// // Build up affinity for experts 3 and 5
+    /// for _ in 0..5 { affinity.update(&[3, 5]); }
+    ///
+    /// // Prefetch top 2 by affinity
+    /// let prefetched = cache.prefetch_by_affinity(&affinity, 2);
+    ///
+    /// assert!(prefetched.contains(&3) || prefetched.contains(&5));
+    /// assert!(cache.is_hot(3) || cache.is_hot(5));
+    /// ```
+    pub fn prefetch_by_affinity(
+        &mut self,
+        affinity: &crate::moe::ExpertAffinity,
+        budget: usize,
+    ) -> Vec<usize> {
+        if budget == 0 {
+            return Vec::new();
+        }
+
+        // Get top experts by affinity
+        let top_experts = affinity.top_k_by_affinity(self.num_experts);
+
+        let mut prefetched = Vec::with_capacity(budget);
+
+        for expert_id in top_experts {
+            if prefetched.len() >= budget {
+                break;
+            }
+
+            // Skip if already hot
+            if self.is_hot(expert_id) {
+                continue;
+            }
+
+            // Skip if hot set is full and we can't make room
+            if self.hot_set.len() >= self.config.max_hot_experts {
+                // Try to evict using affinity-aware policy
+                if let Some(victim) = self.suggest_eviction_with_affinity(affinity, 0.5) {
+                    self.evict(victim);
+                } else {
+                    break; // Can't make room
+                }
+            }
+
+            // Admit via prefetch
+            self.prefetch_admit(expert_id);
+            prefetched.push(expert_id);
+        }
+
+        prefetched
+    }
+
     // --- Private helpers ---
+
+    /// Compute normalized base eviction scores for all hot experts.
+    ///
+    /// Returns a map of expert_id -> score where:
+    /// - 0.0 = least likely to evict
+    /// - 1.0 = most likely to evict
+    fn compute_base_eviction_scores(&self) -> HashMap<usize, f32> {
+        let mut scores = HashMap::new();
+
+        if self.hot_set.is_empty() {
+            return scores;
+        }
+
+        match self.config.eviction_policy {
+            EvictionPolicy::Lru => {
+                // LRU: older timestamp = higher eviction score
+                let timestamps: Vec<u64> = self.hot_set.iter().map(|&(_, ts)| ts).collect();
+                let min_ts = timestamps.iter().copied().min().unwrap_or(0);
+                let max_ts = timestamps.iter().copied().max().unwrap_or(1);
+                let range = (max_ts - min_ts) as f32;
+
+                for &(id, ts) in &self.hot_set {
+                    let score = if range > 0.0 {
+                        1.0 - ((ts - min_ts) as f32 / range)
+                    } else {
+                        0.5
+                    };
+                    scores.insert(id, score);
+                }
+            }
+            EvictionPolicy::Lfu => {
+                // LFU: lower frequency = higher eviction score
+                let freqs: Vec<usize> = self
+                    .hot_set
+                    .iter()
+                    .map(|&(id, _)| self.frequency.get(id).copied().unwrap_or(0))
+                    .collect();
+                let min_freq = freqs.iter().copied().min().unwrap_or(0);
+                let max_freq = freqs.iter().copied().max().unwrap_or(1);
+                let range = (max_freq - min_freq) as f32;
+
+                for &(id, _) in &self.hot_set {
+                    let freq = self.frequency.get(id).copied().unwrap_or(0);
+                    let score = if range > 0.0 {
+                        1.0 - ((freq - min_freq) as f32 / range)
+                    } else {
+                        0.5
+                    };
+                    scores.insert(id, score);
+                }
+            }
+            EvictionPolicy::Adaptive => {
+                // Adaptive: check skewness and use appropriate policy
+                let freqs: Vec<usize> = self
+                    .hot_set
+                    .iter()
+                    .map(|&(id, _)| self.frequency.get(id).copied().unwrap_or(0))
+                    .collect();
+                let max_freq = freqs.iter().copied().max().unwrap_or(0);
+                let min_freq = freqs.iter().copied().min().unwrap_or(0);
+
+                if min_freq > 0 && max_freq >= 3 * min_freq {
+                    // Skewed: use LFU scores
+                    let range = (max_freq - min_freq) as f32;
+                    for &(id, _) in &self.hot_set {
+                        let freq = self.frequency.get(id).copied().unwrap_or(0);
+                        let score = if range > 0.0 {
+                            1.0 - ((freq - min_freq) as f32 / range)
+                        } else {
+                            0.5
+                        };
+                        scores.insert(id, score);
+                    }
+                } else {
+                    // Not skewed: use LRU scores
+                    let timestamps: Vec<u64> = self.hot_set.iter().map(|&(_, ts)| ts).collect();
+                    let min_ts = timestamps.iter().copied().min().unwrap_or(0);
+                    let max_ts = timestamps.iter().copied().max().unwrap_or(1);
+                    let range = (max_ts - min_ts) as f32;
+
+                    for &(id, ts) in &self.hot_set {
+                        let score = if range > 0.0 {
+                            1.0 - ((ts - min_ts) as f32 / range)
+                        } else {
+                            0.5
+                        };
+                        scores.insert(id, score);
+                    }
+                }
+            }
+        }
+
+        scores
+    }
 
     /// LRU eviction: pick the expert with the smallest (oldest) timestamp.
     fn suggest_lru_eviction(&self) -> Option<usize> {
@@ -1060,5 +1351,226 @@ mod tests {
         cache.admit(0);
         cache.admit(1);
         assert_eq!(cache.hot_count(), 2);
+    }
+
+    // ---------------------------------------------------------------
+    // 21. hot_experts returns current hot set
+    // ---------------------------------------------------------------
+
+    #[test]
+    fn test_hot_experts_list() {
+        let mut cache = make_cache(8, 4, EvictionPolicy::Lru);
+
+        cache.access(2);
+        cache.access(5);
+        cache.access(7);
+
+        let hot = cache.hot_experts();
+
+        assert_eq!(hot.len(), 3);
+        assert!(hot.contains(&2));
+        assert!(hot.contains(&5));
+        assert!(hot.contains(&7));
+        assert!(!hot.contains(&0));
+    }
+
+    // ---------------------------------------------------------------
+    // 22. Eviction with affinity prefers low affinity experts
+    // ---------------------------------------------------------------
+
+    #[test]
+    fn test_eviction_with_affinity_prefers_low_affinity() {
+        use crate::moe::{AffinityConfig, ExpertAffinity};
+
+        let mut cache = make_cache(8, 3, EvictionPolicy::Lru);
+        // Use small activation_boost to create meaningful differences
+        let mut affinity = ExpertAffinity::new(
+            AffinityConfig::with_num_experts(8)
+                .with_decay(1.0)
+                .with_activation_boost(0.1),
+        );
+
+        // Fill cache with experts 0, 1, 2
+        cache.access(0);
+        cache.access(1);
+        cache.access(2);
+
+        // Expert 0 has high affinity (many activations): 10 * 0.1 = 1.0 (clamped)
+        for _ in 0..10 {
+            affinity.update(&[0]);
+        }
+
+        // Expert 2 has low affinity (few activations): 1 * 0.1 = 0.1
+        affinity.update(&[2]);
+
+        // Expert 1 has medium affinity: 5 * 0.1 = 0.5
+        for _ in 0..5 {
+            affinity.update(&[1]);
+        }
+
+        // With pure affinity_weight=1.0, should suggest evicting expert 2 (lowest affinity)
+        let victim = cache.suggest_eviction_with_affinity(&affinity, 1.0);
+
+        // Expert 2 should be evicted (lowest affinity=0.1)
+        assert_eq!(victim, Some(2), "Should evict lowest affinity expert");
+    }
+
+    // ---------------------------------------------------------------
+    // 23. Prefetch by affinity respects budget
+    // ---------------------------------------------------------------
+
+    #[test]
+    fn test_prefetch_by_affinity_respects_budget() {
+        use crate::moe::{AffinityConfig, ExpertAffinity};
+
+        let config = ExpertCacheConfig {
+            max_hot_experts: 6,
+            prefetch_threshold: 0.1,
+            eviction_policy: EvictionPolicy::Lru,
+        };
+        let mut cache = ExpertCache::new(8, config);
+        let mut affinity = ExpertAffinity::new(AffinityConfig::with_num_experts(8).with_decay(1.0));
+
+        // Build affinity for experts 3, 5, 7
+        for _ in 0..5 {
+            affinity.update(&[3, 5, 7]);
+        }
+
+        // Prefetch with budget of 2
+        let prefetched = cache.prefetch_by_affinity(&affinity, 2);
+
+        // Should prefetch at most 2 experts
+        assert!(prefetched.len() <= 2, "Should respect budget");
+        assert!(
+            prefetched.len() >= 1,
+            "Should prefetch at least 1 high-affinity expert"
+        );
+
+        // All prefetched should now be hot
+        for &id in &prefetched {
+            assert!(cache.is_hot(id), "Prefetched expert should be hot");
+        }
+    }
+
+    // ---------------------------------------------------------------
+    // 24. Prefetch skips already hot experts
+    // ---------------------------------------------------------------
+
+    #[test]
+    fn test_prefetch_skips_already_hot() {
+        use crate::moe::{AffinityConfig, ExpertAffinity};
+
+        let config = ExpertCacheConfig {
+            max_hot_experts: 4,
+            prefetch_threshold: 0.1,
+            eviction_policy: EvictionPolicy::Lru,
+        };
+        let mut cache = ExpertCache::new(8, config);
+        let mut affinity = ExpertAffinity::new(AffinityConfig::with_num_experts(8).with_decay(1.0));
+
+        // Make expert 3 hot via access
+        cache.access(3);
+
+        // Build highest affinity for expert 3
+        for _ in 0..10 {
+            affinity.update(&[3]);
+        }
+
+        // Build lower affinity for expert 5
+        for _ in 0..5 {
+            affinity.update(&[5]);
+        }
+
+        // Prefetch with budget of 2
+        let prefetched = cache.prefetch_by_affinity(&affinity, 2);
+
+        // Expert 3 should NOT be in prefetched (already hot)
+        assert!(
+            !prefetched.contains(&3),
+            "Should not prefetch already-hot expert"
+        );
+
+        // Expert 5 should be prefetched
+        assert!(
+            prefetched.contains(&5),
+            "Should prefetch next highest affinity expert"
+        );
+    }
+
+    // ---------------------------------------------------------------
+    // 25. Affinity weighted eviction blends scores correctly
+    // ---------------------------------------------------------------
+
+    #[test]
+    fn test_affinity_weighted_eviction() {
+        use crate::moe::{AffinityConfig, ExpertAffinity};
+
+        let mut cache = make_cache(8, 3, EvictionPolicy::Lru);
+        let mut affinity = ExpertAffinity::new(AffinityConfig::with_num_experts(8).with_decay(1.0));
+
+        // Fill cache: 0, 1, 2 in that order (LRU order: 0 is oldest)
+        cache.access(0);
+        cache.access(1);
+        cache.access(2);
+
+        // Give expert 0 very high affinity
+        for _ in 0..20 {
+            affinity.update(&[0]);
+        }
+
+        // Expert 1 and 2 have zero affinity
+
+        // With weight=0.0 (pure LRU), should evict expert 0 (oldest)
+        let victim_lru = cache.suggest_eviction_with_affinity(&affinity, 0.0);
+        assert_eq!(victim_lru, Some(0), "Weight 0 should use pure LRU");
+
+        // With weight=1.0 (pure affinity), should evict expert 1 or 2 (lowest affinity)
+        let victim_affinity = cache.suggest_eviction_with_affinity(&affinity, 1.0);
+        assert!(
+            victim_affinity == Some(1) || victim_affinity == Some(2),
+            "Weight 1.0 should evict lowest affinity"
+        );
+
+        // With weight=0.5 (balanced), expert 0's high affinity should protect it
+        let victim_balanced = cache.suggest_eviction_with_affinity(&affinity, 0.5);
+        assert_ne!(
+            victim_balanced,
+            Some(0),
+            "Balanced weight should protect high-affinity expert"
+        );
+    }
+
+    // ---------------------------------------------------------------
+    // 26. Zero affinity weight falls back to base policy
+    // ---------------------------------------------------------------
+
+    #[test]
+    fn test_zero_affinity_weight_fallback() {
+        use crate::moe::{AffinityConfig, ExpertAffinity};
+
+        let mut cache = make_cache(8, 3, EvictionPolicy::Lfu);
+        let affinity = ExpertAffinity::new(AffinityConfig::with_num_experts(8));
+
+        // Expert 0: accessed 1 time (lowest freq)
+        cache.access(0);
+
+        // Expert 1: accessed 3 times
+        cache.access(1);
+        cache.access(1);
+        cache.access(1);
+
+        // Expert 2: accessed 2 times
+        cache.access(2);
+        cache.access(2);
+
+        // With weight=0, should behave exactly like base policy (LFU)
+        let victim_base = cache.suggest_eviction();
+        let victim_zero_weight = cache.suggest_eviction_with_affinity(&affinity, 0.0);
+
+        assert_eq!(
+            victim_base, victim_zero_weight,
+            "Zero weight should match base policy"
+        );
+        assert_eq!(victim_base, Some(0), "LFU should evict lowest frequency");
     }
 }

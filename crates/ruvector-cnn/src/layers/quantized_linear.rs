@@ -52,11 +52,7 @@ impl QuantizedLinear {
                 let idx = of * in_features + if_;
                 max_abs = max_abs.max(weights[idx].abs());
             }
-            weight_scales[of] = if max_abs > 0.0 {
-                max_abs / 127.0
-            } else {
-                1.0
-            };
+            weight_scales[of] = if max_abs > 0.0 { max_abs / 127.0 } else { 1.0 };
         }
 
         // Quantize weights
@@ -71,7 +67,8 @@ impl QuantizedLinear {
         }
 
         // Pre-compute bias in i32 accumulator space
-        let bias_f32 = linear.bias()
+        let bias_f32 = linear
+            .bias()
             .map(|b| b.to_vec())
             .unwrap_or_else(|| vec![0.0; out_features]);
         let mut bias_q = vec![0i32; out_features];
@@ -112,7 +109,7 @@ impl QuantizedLinear {
         if input.len() != batch_size * self.in_features {
             return Err(CnnError::invalid_shape(
                 format!("input size {}", batch_size * self.in_features),
-                format!("size {}", input.len())
+                format!("size {}", input.len()),
             ));
         }
 

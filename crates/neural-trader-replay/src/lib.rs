@@ -84,11 +84,8 @@ pub trait MemoryStore {
 
     /// Attempts to write a segment. Returns `true` if the gate allowed
     /// admission, `false` if rejected.
-    fn maybe_write(
-        &mut self,
-        seg: ReplaySegment,
-        gate: &CoherenceDecision,
-    ) -> anyhow::Result<bool>;
+    fn maybe_write(&mut self, seg: ReplaySegment, gate: &CoherenceDecision)
+        -> anyhow::Result<bool>;
 }
 
 // ---------------------------------------------------------------------------

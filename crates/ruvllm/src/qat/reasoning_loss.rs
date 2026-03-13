@@ -339,7 +339,10 @@ impl ChainOfThoughtLoss {
         self.metrics.chains_evaluated += 1;
 
         // Average step similarity
-        let avg_sim: f64 = steps.iter().map(|s| s.cosine_similarity() as f64).sum::<f64>()
+        let avg_sim: f64 = steps
+            .iter()
+            .map(|s| s.cosine_similarity() as f64)
+            .sum::<f64>()
             / steps.len() as f64;
         let n = self.metrics.chains_evaluated as f64;
         self.metrics.avg_step_similarity =
@@ -355,8 +358,9 @@ impl ChainOfThoughtLoss {
         // Answer agreement
         if let (Some(t), Some(s)) = (teacher_answer, student_answer) {
             let agrees = t.trim() == s.trim();
-            self.metrics.answer_agreement_rate =
-                (self.metrics.answer_agreement_rate * (n - 1.0) + if agrees { 1.0 } else { 0.0 }) / n;
+            self.metrics.answer_agreement_rate = (self.metrics.answer_agreement_rate * (n - 1.0)
+                + if agrees { 1.0 } else { 0.0 })
+                / n;
         }
     }
 

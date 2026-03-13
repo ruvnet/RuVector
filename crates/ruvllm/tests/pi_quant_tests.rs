@@ -177,8 +177,10 @@ mod pi_quant_tests {
             // Byte 1: val[2](1 high) | val[3](3) | val[4](3) | val[5](1 low)
             // Byte 2: val[5](2 high) | val[6](3) | val[7](3)
             block.packed[0] = unsigned[0] | (unsigned[1] << 3) | ((unsigned[2] & 0x03) << 6);
-            block.packed[1] =
-                ((unsigned[2] >> 2) & 0x01) | (unsigned[3] << 1) | (unsigned[4] << 4) | ((unsigned[5] & 0x01) << 7);
+            block.packed[1] = ((unsigned[2] >> 2) & 0x01)
+                | (unsigned[3] << 1)
+                | (unsigned[4] << 4)
+                | ((unsigned[5] & 0x01) << 7);
             block.packed[2] = ((unsigned[5] >> 1) & 0x03) | (unsigned[6] << 2) | (unsigned[7] << 5);
 
             block
@@ -358,9 +360,7 @@ mod pi_quant_tests {
         let q = PiQuantizer::piq3();
 
         // Generate pseudo-random weights in [-1, 1]
-        let weights: Vec<f32> = (0..256)
-            .map(|i| ((i as f32) * 1.234).sin())
-            .collect();
+        let weights: Vec<f32> = (0..256).map(|i| ((i as f32) * 1.234).sin()).collect();
 
         let (quantized, alpha) = q.quantize_block(&weights);
         let dequantized = q.dequantize_block(&quantized, alpha);
@@ -410,7 +410,10 @@ mod pi_quant_tests {
                 q.clamp(-4, 3)
             })
             .collect();
-        let deq_uniform: Vec<f32> = q_uniform.iter().map(|&q| (q as f32) * uniform_step).collect();
+        let deq_uniform: Vec<f32> = q_uniform
+            .iter()
+            .map(|&q| (q as f32) * uniform_step)
+            .collect();
 
         let mse_uniform: f32 = weights
             .iter()
@@ -583,8 +586,16 @@ mod pi_quant_tests {
         let min_q = q.quantize_scalar(-100.0, alpha);
 
         // Verify values are at the extremes of the valid range
-        assert!(max_q >= 2 && max_q <= 3, "Large positive should clamp to max range, got {}", max_q);
-        assert!(min_q >= -4 && min_q <= -3, "Large negative should clamp to min range, got {}", min_q);
+        assert!(
+            max_q >= 2 && max_q <= 3,
+            "Large positive should clamp to max range, got {}",
+            max_q
+        );
+        assert!(
+            min_q >= -4 && min_q <= -3,
+            "Large negative should clamp to min range, got {}",
+            min_q
+        );
 
         // Most importantly, verify clamping works (values stay in range)
         assert!(max_q <= 3, "Max should not exceed 3");
@@ -601,8 +612,16 @@ mod pi_quant_tests {
         let min_q = q.quantize_scalar(-100.0, alpha);
 
         // Verify values are at the extremes of the valid range
-        assert!(max_q >= 0 && max_q <= 1, "Large positive should clamp to max range, got {}", max_q);
-        assert!(min_q >= -2 && min_q <= -1, "Large negative should clamp to min range, got {}", min_q);
+        assert!(
+            max_q >= 0 && max_q <= 1,
+            "Large positive should clamp to max range, got {}",
+            max_q
+        );
+        assert!(
+            min_q >= -2 && min_q <= -1,
+            "Large negative should clamp to min range, got {}",
+            min_q
+        );
 
         // Most importantly, verify clamping works (values stay in range)
         assert!(max_q <= 1, "Max should not exceed 1");
@@ -648,9 +667,7 @@ mod pi_quant_tests {
 
         // This test verifies that infinity values don't cause panics
         // and produce values within the valid range
-        let result = std::panic::catch_unwind(|| {
-            q.quantize_block(&weights)
-        });
+        let result = std::panic::catch_unwind(|| q.quantize_block(&weights));
 
         match result {
             Ok((quantized, alpha)) => {
@@ -665,11 +682,7 @@ mod pi_quant_tests {
 
                 // Alpha computation may produce infinity - that's acceptable
                 // as long as it doesn't produce NaN
-                assert!(
-                    !alpha.is_nan(),
-                    "Alpha should not be NaN: {}",
-                    alpha
-                );
+                assert!(!alpha.is_nan(), "Alpha should not be NaN: {}", alpha);
             }
             Err(_) => {
                 // Panicking on infinity is acceptable behavior
@@ -684,9 +697,7 @@ mod pi_quant_tests {
         let weights = vec![f32::NAN, 1.0, -1.0, 0.5];
 
         // Should not panic
-        let result = std::panic::catch_unwind(|| {
-            q.quantize_block(&weights)
-        });
+        let result = std::panic::catch_unwind(|| q.quantize_block(&weights));
 
         // Either succeeds with reasonable output or panics gracefully
         if let Ok((quantized, _alpha)) = result {
@@ -742,15 +753,16 @@ mod pi_quant_tests {
         // Dequantization should not produce NaN
         let dequantized = q.dequantize_block(&quantized, alpha);
         for &d in &dequantized {
-            assert!(
-                !d.is_nan(),
-                "Dequantized value should not be NaN"
-            );
+            assert!(!d.is_nan(), "Dequantized value should not be NaN");
         }
 
         // If alpha is finite, verify the large values were handled
         if alpha.is_finite() && alpha < 1e38 {
-            assert!(alpha > 1e20, "Alpha should scale with large weights: {}", alpha);
+            assert!(
+                alpha > 1e20,
+                "Alpha should scale with large weights: {}",
+                alpha
+            );
         }
     }
 
@@ -767,7 +779,10 @@ mod pi_quant_tests {
         assert!(alpha > 0.0, "Alpha must be positive for empty input");
 
         let (quantized, _) = q.quantize_block(&weights);
-        assert!(quantized.is_empty(), "Empty input should produce empty output");
+        assert!(
+            quantized.is_empty(),
+            "Empty input should produce empty output"
+        );
     }
 
     #[test]
@@ -783,7 +798,11 @@ mod pi_quant_tests {
 
         // Roundtrip error should be bounded
         let error = (weights[0] - dequantized[0]).abs();
-        assert!(error < 0.5, "Single element roundtrip error too high: {}", error);
+        assert!(
+            error < 0.5,
+            "Single element roundtrip error too high: {}",
+            error
+        );
     }
 
     #[test]
@@ -839,7 +858,11 @@ mod pi_quant_tests {
         let dequantized = q.dequantize_block(&quantized, alpha);
 
         // Compute cosine similarity
-        let dot: f32 = weights.iter().zip(dequantized.iter()).map(|(a, b)| a * b).sum();
+        let dot: f32 = weights
+            .iter()
+            .zip(dequantized.iter())
+            .map(|(a, b)| a * b)
+            .sum();
         let norm_orig: f32 = weights.iter().map(|x| x * x).sum::<f32>().sqrt();
         let norm_deq: f32 = dequantized.iter().map(|x| x * x).sum::<f32>().sqrt();
 

@@ -6,7 +6,6 @@
 ///   3. Feed percepts into CognitiveCore (perceive-think-act-learn)
 ///   4. Track objects in WorldModel
 ///   5. Report comprehensive statistics
-
 use rand::Rng;
 use ruvector_robotics::bridge::{Point3D, PointCloud, SpatialIndex};
 use ruvector_robotics::cognitive::{
@@ -41,9 +40,20 @@ fn main() {
 
     println!("[1] Modules initialized:");
     println!("    PerceptionPipeline: default config");
-    println!("    CognitiveCore:     mode={:?}, state={:?}", core.mode(), core.state());
-    println!("    WorldModel:        {}x{} grid", world.grid_size(), world.grid_size());
-    println!("    MCP registry:      {} tools", registry.list_tools().len());
+    println!(
+        "    CognitiveCore:     mode={:?}, state={:?}",
+        core.mode(),
+        core.state()
+    );
+    println!(
+        "    WorldModel:        {}x{} grid",
+        world.grid_size(),
+        world.grid_size()
+    );
+    println!(
+        "    MCP registry:      {} tools",
+        registry.list_tools().len()
+    );
     println!();
 
     // -- Static obstacle points --
@@ -55,7 +65,11 @@ fn main() {
     // Box near (7, 2)
     for dx in 0..5 {
         for dy in 0..5 {
-            obstacle_pts.push(Point3D::new(7.0 + dx as f32 * 0.1, 2.0 + dy as f32 * 0.1, 0.0));
+            obstacle_pts.push(Point3D::new(
+                7.0 + dx as f32 * 0.1,
+                2.0 + dy as f32 * 0.1,
+                0.0,
+            ));
         }
     }
 
@@ -92,7 +106,10 @@ fn main() {
         }
 
         // THINK: Feed percept to cognitive core
-        let nearest_dist = obstacles.first().map(|o| o.min_distance).unwrap_or(f64::MAX);
+        let nearest_dist = obstacles
+            .first()
+            .map(|o| o.min_distance)
+            .unwrap_or(f64::MAX);
         core.perceive(Percept {
             source: "perception_pipeline".into(),
             data: vec![robot_pos[0], robot_pos[1], nearest_dist],
@@ -104,7 +121,11 @@ fn main() {
         if let Some(decision) = core.think() {
             decisions_made += 1;
             let _cmd = core.act(decision);
-            action_label = if nearest_dist < 2.0 { "avoid" } else { "patrol" };
+            action_label = if nearest_dist < 2.0 {
+                "avoid"
+            } else {
+                "patrol"
+            };
         } else {
             action_label = "idle";
         }
@@ -164,7 +185,10 @@ fn main() {
     println!();
 
     println!("[A] Movement:");
-    println!("    Final position: ({:.2}, {:.2})", robot_pos[0], robot_pos[1]);
+    println!(
+        "    Final position: ({:.2}, {:.2})",
+        robot_pos[0], robot_pos[1]
+    );
     println!("    Total distance: {:.2}m", total_distance);
     println!(
         "    Avg speed:      {:.3}m/step",
@@ -185,7 +209,11 @@ fn main() {
 
     println!("[D] World Model:");
     println!("    Tracked objects: {}", world.object_count());
-    println!("    Grid size:       {}x{}", world.grid_size(), world.grid_size());
+    println!(
+        "    Grid size:       {}x{}",
+        world.grid_size(),
+        world.grid_size()
+    );
     println!();
 
     println!("[E] MCP tools available: {}", registry.list_tools().len());

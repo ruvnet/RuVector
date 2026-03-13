@@ -9,22 +9,20 @@
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
-use ruvector_robotics::bridge::{
-    GaussianConfig, Point3D, PointCloud, SceneObject, SpatialIndex,
-};
 use ruvector_robotics::bridge::gaussian::gaussians_from_cloud;
+use ruvector_robotics::bridge::{GaussianConfig, Point3D, PointCloud, SceneObject, SpatialIndex};
 use ruvector_robotics::cognitive::behavior_tree::{
     BehaviorNode, BehaviorStatus, BehaviorTree, DecoratorType,
 };
 use ruvector_robotics::cognitive::{
-    ActionOption, DecisionConfig, DecisionEngine, Demonstration, EpisodicMemory,
-    Episode, SkillLibrary, SwarmConfig, SwarmCoordinator, SwarmTask, RobotCapabilities,
-    TrackedObject, WorldModel,
+    ActionOption, DecisionConfig, DecisionEngine, Demonstration, Episode, EpisodicMemory,
+    RobotCapabilities, SkillLibrary, SwarmConfig, SwarmCoordinator, SwarmTask, TrackedObject,
+    WorldModel,
 };
-use ruvector_robotics::mcp::{RoboticsToolRegistry, ToolRequest};
 use ruvector_robotics::mcp::executor::ToolExecutor;
-use ruvector_robotics::perception::PerceptionPipeline;
+use ruvector_robotics::mcp::{RoboticsToolRegistry, ToolRequest};
 use ruvector_robotics::perception::sensor_fusion::{fuse_clouds, FusionConfig};
+use ruvector_robotics::perception::PerceptionPipeline;
 use ruvector_robotics::planning;
 
 // ---------------------------------------------------------------------------
@@ -59,13 +57,19 @@ fn generate_point_cloud_around(center: Point3D, n: usize, spread: f32) -> Vec<Po
 #[test]
 fn test_perception_pipeline_end_to_end() {
     let mut points = generate_point_cloud_around(Point3D::new(2.0, 3.0, 0.0), 50, 0.8);
-    points.extend(generate_point_cloud_around(Point3D::new(8.0, 7.0, 0.0), 40, 0.6));
+    points.extend(generate_point_cloud_around(
+        Point3D::new(8.0, 7.0, 0.0),
+        40,
+        0.6,
+    ));
     let cloud = PointCloud::new(points, 1_000_000);
 
     let pipe = PerceptionPipeline::with_thresholds(0.5, 2.0);
 
     // Detect obstacles using the real API
-    let obstacles = pipe.detect_obstacles(&cloud, [0.0, 0.0, 0.0], 20.0).unwrap();
+    let obstacles = pipe
+        .detect_obstacles(&cloud, [0.0, 0.0, 0.0], 20.0)
+        .unwrap();
     assert!(!obstacles.is_empty(), "Should detect at least one obstacle");
 
     // Build scene graph using the real API
@@ -76,7 +80,10 @@ fn test_perception_pipeline_end_to_end() {
     let graph = pipe.build_scene_graph(&scene_objects, 10.0).unwrap();
     assert_eq!(graph.objects.len(), scene_objects.len());
     if scene_objects.len() > 1 {
-        assert!(!graph.edges.is_empty(), "Should have edges between nearby objects");
+        assert!(
+            !graph.edges.is_empty(),
+            "Should have edges between nearby objects"
+        );
     }
 
     // Predict trajectory using the real API
@@ -93,18 +100,45 @@ fn test_cognitive_perceive_think_act() {
     let pipe = PerceptionPipeline::with_thresholds(0.5, 2.0);
 
     let mut points = generate_point_cloud_around(Point3D::new(6.0, 5.0, 0.0), 20, 0.3);
-    points.extend(generate_point_cloud_around(Point3D::new(10.0, 10.0, 0.0), 15, 0.3));
+    points.extend(generate_point_cloud_around(
+        Point3D::new(10.0, 10.0, 0.0),
+        15,
+        0.3,
+    ));
     let cloud = PointCloud::new(points, 0);
 
-    let obstacles = pipe.detect_obstacles(&cloud, [5.0, 5.0, 0.0], 20.0).unwrap();
-    let min_dist = obstacles.iter().map(|o| o.distance).fold(f64::MAX, f64::min);
+    let obstacles = pipe
+        .detect_obstacles(&cloud, [5.0, 5.0, 0.0], 20.0)
+        .unwrap();
+    let min_dist = obstacles
+        .iter()
+        .map(|o| o.distance)
+        .fold(f64::MAX, f64::min);
 
     // Use the real DecisionEngine
     let engine = DecisionEngine::new(DecisionConfig::default());
     let options = vec![
-        ActionOption { name: "proceed_fast".into(), reward: 8.0, risk: 0.9, energy_cost: 0.5, novelty: 0.0 },
-        ActionOption { name: "slow_down".into(), reward: 5.0, risk: 0.2, energy_cost: 0.3, novelty: 0.0 },
-        ActionOption { name: "stop".into(), reward: 2.0, risk: 0.0, energy_cost: 0.0, novelty: 0.0 },
+        ActionOption {
+            name: "proceed_fast".into(),
+            reward: 8.0,
+            risk: 0.9,
+            energy_cost: 0.5,
+            novelty: 0.0,
+        },
+        ActionOption {
+            name: "slow_down".into(),
+            reward: 5.0,
+            risk: 0.2,
+            energy_cost: 0.3,
+            novelty: 0.0,
+        },
+        ActionOption {
+            name: "stop".into(),
+            reward: 2.0,
+            risk: 0.0,
+            energy_cost: 0.0,
+            novelty: 0.0,
+        },
     ];
     let (best_idx, _utility) = engine.evaluate(&options).unwrap();
     assert!(!options[best_idx].name.is_empty());
@@ -229,12 +263,22 @@ fn test_skill_learning_from_demo() {
 
     let demos = vec![
         Demonstration {
-            trajectory: vec![[0.0, 0.0, 0.0], [0.5, 0.0, 0.2], [1.0, 0.0, 0.5], [1.0, 0.0, 0.0]],
+            trajectory: vec![
+                [0.0, 0.0, 0.0],
+                [0.5, 0.0, 0.2],
+                [1.0, 0.0, 0.5],
+                [1.0, 0.0, 0.0],
+            ],
             timestamps: vec![0, 100, 200, 300],
             metadata: "demo1".into(),
         },
         Demonstration {
-            trajectory: vec![[0.0, 0.1, 0.0], [0.5, 0.1, 0.25], [1.0, 0.1, 0.55], [1.0, 0.1, 0.0]],
+            trajectory: vec![
+                [0.0, 0.1, 0.0],
+                [0.5, 0.1, 0.25],
+                [1.0, 0.1, 0.55],
+                [1.0, 0.1, 0.0],
+            ],
             timestamps: vec![0, 100, 200, 300],
             metadata: "demo2".into(),
         },
@@ -272,9 +316,27 @@ fn test_decision_engine_selects_best() {
         curiosity_weight: 0.0,
     });
     let options = vec![
-        ActionOption { name: "proceed_fast".into(), reward: 8.0, risk: 0.7, energy_cost: 0.5, novelty: 0.0 },
-        ActionOption { name: "detour".into(), reward: 7.0, risk: 0.3, energy_cost: 0.3, novelty: 0.0 },
-        ActionOption { name: "stop".into(), reward: 3.0, risk: 0.0, energy_cost: 0.0, novelty: 0.0 },
+        ActionOption {
+            name: "proceed_fast".into(),
+            reward: 8.0,
+            risk: 0.7,
+            energy_cost: 0.5,
+            novelty: 0.0,
+        },
+        ActionOption {
+            name: "detour".into(),
+            reward: 7.0,
+            risk: 0.3,
+            energy_cost: 0.3,
+            novelty: 0.0,
+        },
+        ActionOption {
+            name: "stop".into(),
+            reward: 3.0,
+            risk: 0.0,
+            energy_cost: 0.0,
+            novelty: 0.0,
+        },
     ];
     let (best_idx, _) = engine.evaluate(&options).unwrap();
     // With risk_aversion=1, proceed_fast (reward=8 - risk*1=7.3) beats detour (7 - 0.3=6.7)
@@ -298,13 +360,28 @@ fn test_mcp_tool_listing() {
     assert_eq!(registry.list_tools().len(), 15);
 
     let expected = [
-        "detect_obstacles", "build_scene_graph", "predict_trajectory",
-        "focus_attention", "detect_anomalies", "spatial_search", "insert_points",
-        "store_memory", "recall_memory", "learn_skill", "execute_skill",
-        "plan_behavior", "coordinate_swarm", "update_world_model", "get_world_state",
+        "detect_obstacles",
+        "build_scene_graph",
+        "predict_trajectory",
+        "focus_attention",
+        "detect_anomalies",
+        "spatial_search",
+        "insert_points",
+        "store_memory",
+        "recall_memory",
+        "learn_skill",
+        "execute_skill",
+        "plan_behavior",
+        "coordinate_swarm",
+        "update_world_model",
+        "get_world_state",
     ];
     for name in &expected {
-        assert!(registry.get_tool(name).is_some(), "Tool '{}' should be registered", name);
+        assert!(
+            registry.get_tool(name).is_some(),
+            "Tool '{}' should be registered",
+            name
+        );
     }
 }
 
@@ -321,13 +398,21 @@ fn test_mcp_tool_execution() {
             ("velocity".into(), serde_json::json!([1.0, 0.0, 0.0])),
             ("steps".into(), serde_json::json!(5)),
             ("dt".into(), serde_json::json!(0.5)),
-        ].into(),
+        ]
+        .into(),
     };
     let resp = executor.execute(&req);
-    assert!(resp.success, "predict_trajectory should succeed: {:?}", resp.error);
+    assert!(
+        resp.success,
+        "predict_trajectory should succeed: {:?}",
+        resp.error
+    );
 
     // Unknown tool
-    let req = ToolRequest { tool_name: "nonexistent".into(), arguments: Default::default() };
+    let req = ToolRequest {
+        tool_name: "nonexistent".into(),
+        arguments: Default::default(),
+    };
     let resp = executor.execute(&req);
     assert!(!resp.success, "nonexistent tool should fail");
 }
@@ -336,11 +421,19 @@ fn test_mcp_tool_execution() {
 #[test]
 fn test_gaussian_splatting() {
     let mut points = generate_point_cloud_around(Point3D::new(2.0, 0.0, 0.0), 30, 0.5);
-    points.extend(generate_point_cloud_around(Point3D::new(8.0, 0.0, 0.0), 30, 0.5));
+    points.extend(generate_point_cloud_around(
+        Point3D::new(8.0, 0.0, 0.0),
+        30,
+        0.5,
+    ));
     let cloud = PointCloud::new(points, 1000);
 
     let gaussians = gaussians_from_cloud(&cloud, &GaussianConfig::default());
-    assert!(gaussians.len() >= 2, "Should produce at least 2 Gaussians, got {}", gaussians.len());
+    assert!(
+        gaussians.len() >= 2,
+        "Should produce at least 2 Gaussians, got {}",
+        gaussians.len()
+    );
 
     for g in &gaussians.gaussians {
         assert!(g.point_count >= 2);
@@ -366,11 +459,19 @@ fn test_astar_planning() {
     let path = planning::astar(&grid, (5, 5), (15, 5)).unwrap();
     assert_eq!(*path.cells.first().unwrap(), (5, 5));
     assert_eq!(*path.cells.last().unwrap(), (15, 5));
-    assert!(path.cost > 10.0, "Path around wall should be longer than straight line");
+    assert!(
+        path.cost > 10.0,
+        "Path around wall should be longer than straight line"
+    );
 
     // Verify no cell in path is occupied
     for &(x, y) in &path.cells {
-        assert!(grid.get(x, y).unwrap() < 0.5, "Path cell ({},{}) is occupied", x, y);
+        assert!(
+            grid.get(x, y).unwrap() < 0.5,
+            "Path cell ({},{}) is occupied",
+            x,
+            y
+        );
     }
 }
 
@@ -403,16 +504,16 @@ fn test_sensor_fusion() {
         vec![Point3D::new(1.0, 0.0, 0.0), Point3D::new(2.0, 0.0, 0.0)],
         1000,
     );
-    let c2 = PointCloud::new(
-        vec![Point3D::new(3.0, 0.0, 0.0)],
-        1010,
-    );
+    let c2 = PointCloud::new(vec![Point3D::new(3.0, 0.0, 0.0)], 1010);
     let c3_stale = PointCloud::new(
         vec![Point3D::new(99.0, 0.0, 0.0)],
         200_000, // 199ms later — too stale
     );
 
-    let config = FusionConfig { max_time_delta_us: 50_000, ..Default::default() };
+    let config = FusionConfig {
+        max_time_delta_us: 50_000,
+        ..Default::default()
+    };
     let fused = fuse_clouds(&[c1, c2, c3_stale], &config);
     assert_eq!(fused.len(), 3, "Should include c1+c2 but skip c3");
 }
@@ -440,8 +541,15 @@ fn test_full_pipeline_100_frames() {
     }
 
     let elapsed = start.elapsed();
-    assert!(total_obstacles > 0, "Should detect obstacles across 100 frames");
-    assert!(elapsed.as_secs() < 5, "100 frames should complete in < 5s, took {:?}", elapsed);
+    assert!(
+        total_obstacles > 0,
+        "Should detect obstacles across 100 frames"
+    );
+    assert!(
+        elapsed.as_secs() < 5,
+        "100 frames should complete in < 5s, took {:?}",
+        elapsed
+    );
 }
 
 /// Test 17: Concurrent spatial search from multiple threads.
@@ -482,9 +590,18 @@ fn test_concurrent_spatial_search() {
     let final_results = results.lock().unwrap();
     assert_eq!(final_results.len(), 4, "All 4 threads should complete");
     for (tid, neighbors) in final_results.iter() {
-        assert_eq!(neighbors.len(), 5, "Thread {} should return 5 neighbors", tid);
+        assert_eq!(
+            neighbors.len(),
+            5,
+            "Thread {} should return 5 neighbors",
+            tid
+        );
         for window in neighbors.windows(2) {
-            assert!(window[0].1 <= window[1].1, "Thread {} results should be distance-sorted", tid);
+            assert!(
+                window[0].1 <= window[1].1,
+                "Thread {} results should be distance-sorted",
+                tid
+            );
         }
     }
 }
@@ -503,7 +620,9 @@ fn test_edge_cases() {
     assert!(pipe.build_scene_graph(&[], -1.0).is_err());
 
     // Trajectory with zero steps
-    assert!(pipe.predict_trajectory([0.0; 3], [1.0, 0.0, 0.0], 0, 1.0).is_err());
+    assert!(pipe
+        .predict_trajectory([0.0; 3], [1.0, 0.0, 0.0], 0, 1.0)
+        .is_err());
 
     // Attention with negative radius
     assert!(pipe.focus_attention(&empty, [0.0; 3], -1.0).is_err());
@@ -516,7 +635,10 @@ fn test_edge_cases() {
     let index = SpatialIndex::new(3);
     assert!(index.search_nearest(&[0.0_f32, 0.0, 0.0], 5).is_err());
     // Radius search on empty index returns Ok(empty)
-    assert!(index.search_radius(&[0.0_f32, 0.0, 0.0], 1.0).unwrap().is_empty());
+    assert!(index
+        .search_radius(&[0.0_f32, 0.0, 0.0], 1.0)
+        .unwrap()
+        .is_empty());
 
     // Behavior tree decorator
     let node = BehaviorNode::Decorator(

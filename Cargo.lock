@@ -1185,7 +1185,7 @@ dependencies = [
  "criterion 0.5.1",
  "libm",
  "proptest",
- "ruvector-mincut 2.0.5",
+ "ruvector-mincut 2.0.6",
 ]
 
 [[package]]
@@ -5811,7 +5811,7 @@ dependencies = [
  "ruqu-algorithms",
  "ruvector-attention",
  "ruvector-cluster",
- "ruvector-core 2.0.5",
+ "ruvector-core 2.0.6",
  "ruvector-delta-core",
  "ruvector-filter",
  "ruvector-gnn",
@@ -6589,11 +6589,11 @@ dependencies = [
  "rkyv",
  "roaring",
  "ruvector-attention",
- "ruvector-core 2.0.5",
+ "ruvector-core 2.0.6",
  "ruvector-gnn",
  "ruvector-graph",
  "ruvector-hyperbolic-hnsw",
- "ruvector-mincut 2.0.5",
+ "ruvector-mincut 2.0.6",
  "ruvector-nervous-system",
  "ruvector-raft",
  "ruvector-sona 0.1.6 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -7374,7 +7374,7 @@ dependencies = [
  "ndarray 0.16.1",
  "rand 0.8.5",
  "rand_distr 0.4.3",
- "ruvector-core 2.0.5",
+ "ruvector-core 2.0.6",
  "serde",
  "serde_json",
  "thiserror 2.0.18",
@@ -7611,7 +7611,7 @@ dependencies = [
 
 [[package]]
 name = "ruqu"
-version = "2.0.5"
+version = "2.0.6"
 dependencies = [
  "blake3",
  "cognitum-gate-tilezero 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -7885,7 +7885,7 @@ dependencies = [
 
 [[package]]
 name = "ruvector-attention"
-version = "2.0.5"
+version = "2.0.6"
 dependencies = [
  "approx",
  "criterion 0.5.1",
@@ -7900,7 +7900,7 @@ dependencies = [
 
 [[package]]
 name = "ruvector-attention-node"
-version = "2.0.5"
+version = "2.0.6"
 dependencies = [
  "napi",
  "napi-build",
@@ -7932,7 +7932,7 @@ dependencies = [
 
 [[package]]
 name = "ruvector-attention-wasm"
-version = "2.0.5"
+version = "2.0.6"
 dependencies = [
  "console_error_panic_hook",
  "getrandom 0.2.17",
@@ -7947,7 +7947,7 @@ dependencies = [
 
 [[package]]
 name = "ruvector-attn-mincut"
-version = "2.0.5"
+version = "2.0.6"
 dependencies = [
  "serde",
  "serde_json",
@@ -7956,7 +7956,7 @@ dependencies = [
 
 [[package]]
 name = "ruvector-bench"
-version = "2.0.5"
+version = "2.0.6"
 dependencies = [
  "anyhow",
  "byteorder",
@@ -7977,8 +7977,8 @@ dependencies = [
  "rayon",
  "ruvector-cognitive-container",
  "ruvector-coherence",
- "ruvector-core 2.0.5",
- "ruvector-mincut 2.0.5",
+ "ruvector-core 2.0.6",
+ "ruvector-mincut 2.0.6",
  "serde",
  "serde_json",
  "statistical",
@@ -8007,7 +8007,7 @@ dependencies = [
  "rand_distr 0.4.3",
  "rayon",
  "reqwest 0.11.27",
- "ruvector-core 2.0.5",
+ "ruvector-core 2.0.6",
  "rvf-crypto",
  "rvf-types",
  "rvf-wire",
@@ -8024,7 +8024,7 @@ dependencies = [
 
 [[package]]
 name = "ruvector-cli"
-version = "2.0.5"
+version = "2.0.6"
 dependencies = [
  "anyhow",
  "assert_cmd",
@@ -8049,7 +8049,7 @@ dependencies = [
  "predicates",
  "prettytable-rs",
  "rand 0.8.5",
- "ruvector-core 2.0.5",
+ "ruvector-core 2.0.6",
  "ruvector-gnn",
  "ruvector-graph",
  "serde",
@@ -8082,7 +8082,7 @@ dependencies = [
  "rand_distr 0.4.3",
  "rayon",
  "ruvector-attention",
- "ruvector-core 2.0.5",
+ "ruvector-core 2.0.6",
  "ruvector-gnn",
  "ruvector-graph",
  "serde",
@@ -8098,7 +8098,7 @@ dependencies = [
 
 [[package]]
 name = "ruvector-cluster"
-version = "2.0.5"
+version = "2.0.6"
 dependencies = [
  "async-trait",
  "bincode 2.0.1",
@@ -8107,7 +8107,7 @@ dependencies = [
  "futures",
  "parking_lot 0.12.5",
  "rand 0.8.5",
- "ruvector-core 2.0.5",
+ "ruvector-core 2.0.6",
  "serde",
  "serde_json",
  "thiserror 2.0.18",
@@ -8118,7 +8118,7 @@ dependencies = [
 
 [[package]]
 name = "ruvector-cnn"
-version = "2.0.5"
+version = "2.0.6"
 dependencies = [
  "criterion 0.5.1",
  "fastrand",
@@ -8146,7 +8146,7 @@ dependencies = [
 
 [[package]]
 name = "ruvector-cognitive-container"
-version = "2.0.5"
+version = "2.0.6"
 dependencies = [
  "proptest",
  "serde",
@@ -8156,7 +8156,7 @@ dependencies = [
 
 [[package]]
 name = "ruvector-coherence"
-version = "2.0.5"
+version = "2.0.6"
 dependencies = [
  "serde",
  "serde_json",
@@ -8164,13 +8164,13 @@ dependencies = [
 
 [[package]]
 name = "ruvector-collections"
-version = "2.0.5"
+version = "2.0.6"
 dependencies = [
  "bincode 2.0.1",
  "chrono",
  "dashmap 6.1.0",
  "parking_lot 0.12.5",
- "ruvector-core 2.0.5",
+ "ruvector-core 2.0.6",
  "serde",
  "serde_json",
  "thiserror 2.0.18",
@@ -8231,7 +8231,7 @@ dependencies = [
 
 [[package]]
 name = "ruvector-core"
-version = "2.0.5"
+version = "2.0.6"
 dependencies = [
  "anyhow",
  "bincode 2.0.1",
@@ -8269,7 +8269,7 @@ dependencies = [
  "approx",
  "ruvector-attention",
  "ruvector-gnn",
- "ruvector-mincut 2.0.5",
+ "ruvector-mincut 2.0.6",
  "serde",
  "serde_json",
  "thiserror 1.0.69",
@@ -8277,7 +8277,7 @@ dependencies = [
 
 [[package]]
 name = "ruvector-dag"
-version = "2.0.5"
+version = "2.0.6"
 dependencies = [
  "criterion 0.5.1",
  "crossbeam",
@@ -8289,7 +8289,7 @@ dependencies = [
  "pqcrypto-kyber",
  "proptest",
  "rand 0.8.5",
- "ruvector-core 2.0.5",
+ "ruvector-core 2.0.6",
  "serde",
  "serde_json",
  "sha2",
@@ -8413,7 +8413,7 @@ dependencies = [
 
 [[package]]
 name = "ruvector-domain-expansion"
-version = "2.0.5"
+version = "2.0.6"
 dependencies = [
  "criterion 0.5.1",
  "proptest",
@@ -8456,7 +8456,7 @@ dependencies = [
 
 [[package]]
 name = "ruvector-exotic-wasm"
-version = "2.0.5"
+version = "2.0.6"
 dependencies = [
  "console_error_panic_hook",
  "getrandom 0.2.17",
@@ -8472,12 +8472,12 @@ dependencies = [
 
 [[package]]
 name = "ruvector-filter"
-version = "2.0.5"
+version = "2.0.6"
 dependencies = [
  "chrono",
  "dashmap 6.1.0",
  "ordered-float",
- "ruvector-core 2.0.5",
+ "ruvector-core 2.0.6",
  "serde",
  "serde_json",
  "thiserror 2.0.18",
@@ -8523,7 +8523,7 @@ dependencies = [
 
 [[package]]
 name = "ruvector-gnn"
-version = "2.0.5"
+version = "2.0.6"
 dependencies = [
  "anyhow",
  "criterion 0.5.1",
@@ -8539,7 +8539,7 @@ dependencies = [
  "rand 0.8.5",
  "rand_distr 0.4.3",
  "rayon",
- "ruvector-core 2.0.5",
+ "ruvector-core 2.0.6",
  "serde",
  "serde_json",
  "tempfile",
@@ -8548,7 +8548,7 @@ dependencies = [
 
 [[package]]
 name = "ruvector-gnn-node"
-version = "2.0.5"
+version = "2.0.6"
 dependencies = [
  "napi",
  "napi-build",
@@ -8559,7 +8559,7 @@ dependencies = [
 
 [[package]]
 name = "ruvector-gnn-wasm"
-version = "2.0.5"
+version = "2.0.6"
 dependencies = [
  "console_error_panic_hook",
  "getrandom 0.2.17",
@@ -8574,7 +8574,7 @@ dependencies = [
 
 [[package]]
 name = "ruvector-graph"
-version = "2.0.5"
+version = "2.0.6"
 dependencies = [
  "anyhow",
  "bincode 2.0.1",
@@ -8614,7 +8614,7 @@ dependencies = [
  "rkyv",
  "roaring",
  "ruvector-cluster",
- "ruvector-core 2.0.5",
+ "ruvector-core 2.0.6",
  "ruvector-raft",
  "ruvector-replication",
  "serde",
@@ -8635,14 +8635,14 @@ dependencies = [
 
 [[package]]
 name = "ruvector-graph-node"
-version = "2.0.5"
+version = "2.0.6"
 dependencies = [
  "anyhow",
  "futures",
  "napi",
  "napi-build",
  "napi-derive",
- "ruvector-core 2.0.5",
+ "ruvector-core 2.0.6",
  "ruvector-graph",
  "serde",
  "serde_json",
@@ -8654,14 +8654,14 @@ dependencies = [
 
 [[package]]
 name = "ruvector-graph-transformer"
-version = "2.0.5"
+version = "2.0.6"
 dependencies = [
  "proptest",
  "rand 0.8.5",
  "ruvector-attention",
  "ruvector-coherence",
  "ruvector-gnn",
- "ruvector-mincut 2.0.5",
+ "ruvector-mincut 2.0.6",
  "ruvector-solver",
  "ruvector-verified",
  "serde",
@@ -8670,7 +8670,7 @@ dependencies = [
 
 [[package]]
 name = "ruvector-graph-transformer-node"
-version = "2.0.5"
+version = "2.0.6"
 dependencies = [
  "napi",
  "napi-build",
@@ -8682,7 +8682,7 @@ dependencies = [
 
 [[package]]
 name = "ruvector-graph-transformer-wasm"
-version = "2.0.5"
+version = "2.0.6"
 dependencies = [
  "js-sys",
  "serde",
@@ -8694,7 +8694,7 @@ dependencies = [
 
 [[package]]
 name = "ruvector-graph-wasm"
-version = "2.0.5"
+version = "2.0.6"
 dependencies = [
  "anyhow",
  "console_error_panic_hook",
@@ -8703,7 +8703,7 @@ dependencies = [
  "js-sys",
  "parking_lot 0.12.5",
  "regex",
- "ruvector-core 2.0.5",
+ "ruvector-core 2.0.6",
  "ruvector-graph",
  "serde",
  "serde-wasm-bindgen",
@@ -8745,7 +8745,7 @@ dependencies = [
 
 [[package]]
 name = "ruvector-math"
-version = "2.0.5"
+version = "2.0.6"
 dependencies = [
  "approx",
  "criterion 0.5.1",
@@ -8760,7 +8760,7 @@ dependencies = [
 
 [[package]]
 name = "ruvector-math-wasm"
-version = "2.0.5"
+version = "2.0.6"
 dependencies = [
  "console_error_panic_hook",
  "getrandom 0.2.17",
@@ -8778,7 +8778,7 @@ dependencies = [
 
 [[package]]
 name = "ruvector-metrics"
-version = "2.0.5"
+version = "2.0.6"
 dependencies = [
  "chrono",
  "lazy_static",
@@ -8833,7 +8833,7 @@ dependencies = [
 
 [[package]]
 name = "ruvector-mincut"
-version = "2.0.5"
+version = "2.0.6"
 dependencies = [
  "anyhow",
  "criterion 0.5.1",
@@ -8847,7 +8847,7 @@ dependencies = [
  "rand 0.8.5",
  "rayon",
  "roaring",
- "ruvector-core 2.0.5",
+ "ruvector-core 2.0.6",
  "ruvector-graph",
  "serde",
  "serde_json",
@@ -8892,24 +8892,24 @@ dependencies = [
 
 [[package]]
 name = "ruvector-mincut-node"
-version = "2.0.5"
+version = "2.0.6"
 dependencies = [
  "napi",
  "napi-build",
  "napi-derive",
- "ruvector-mincut 2.0.5",
+ "ruvector-mincut 2.0.6",
  "serde",
  "serde_json",
 ]
 
 [[package]]
 name = "ruvector-mincut-wasm"
-version = "2.0.5"
+version = "2.0.6"
 dependencies = [
  "console_error_panic_hook",
  "getrandom 0.2.17",
  "js-sys",
- "ruvector-mincut 2.0.5",
+ "ruvector-mincut 2.0.6",
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
@@ -8919,7 +8919,7 @@ dependencies = [
 
 [[package]]
 name = "ruvector-nervous-system"
-version = "2.0.5"
+version = "2.0.6"
 dependencies = [
  "anyhow",
  "approx",
@@ -8953,14 +8953,14 @@ dependencies = [
 
 [[package]]
 name = "ruvector-node"
-version = "2.0.5"
+version = "2.0.6"
 dependencies = [
  "anyhow",
  "napi",
  "napi-build",
  "napi-derive",
  "ruvector-collections",
- "ruvector-core 2.0.5",
+ "ruvector-core 2.0.6",
  "ruvector-filter",
  "ruvector-metrics",
  "serde",
@@ -9013,7 +9013,7 @@ dependencies = [
 
 [[package]]
 name = "ruvector-profiler"
-version = "2.0.5"
+version = "2.0.6"
 dependencies = [
  "serde",
  "serde_json",
@@ -9022,7 +9022,7 @@ dependencies = [
 
 [[package]]
 name = "ruvector-raft"
-version = "2.0.5"
+version = "2.0.6"
 dependencies = [
  "bincode 2.0.1",
  "chrono",
@@ -9030,7 +9030,7 @@ dependencies = [
  "futures",
  "parking_lot 0.12.5",
  "rand 0.8.5",
- "ruvector-core 2.0.5",
+ "ruvector-core 2.0.6",
  "serde",
  "serde_json",
  "thiserror 2.0.18",
@@ -9041,7 +9041,7 @@ dependencies = [
 
 [[package]]
 name = "ruvector-replication"
-version = "2.0.5"
+version = "2.0.6"
 dependencies = [
  "bincode 2.0.1",
  "chrono",
@@ -9049,7 +9049,7 @@ dependencies = [
  "futures",
  "parking_lot 0.12.5",
  "rand 0.8.5",
- "ruvector-core 2.0.5",
+ "ruvector-core 2.0.6",
  "serde",
  "serde_json",
  "thiserror 2.0.18",
@@ -9084,7 +9084,7 @@ dependencies = [
 
 [[package]]
 name = "ruvector-router-cli"
-version = "2.0.5"
+version = "2.0.6"
 dependencies = [
  "anyhow",
  "chrono",
@@ -9099,7 +9099,7 @@ dependencies = [
 
 [[package]]
 name = "ruvector-router-core"
-version = "2.0.5"
+version = "2.0.6"
 dependencies = [
  "anyhow",
  "bincode 2.0.1",
@@ -9126,7 +9126,7 @@ dependencies = [
 
 [[package]]
 name = "ruvector-router-ffi"
-version = "2.0.5"
+version = "2.0.6"
 dependencies = [
  "anyhow",
  "chrono",
@@ -9141,7 +9141,7 @@ dependencies = [
 
 [[package]]
 name = "ruvector-router-wasm"
-version = "2.0.5"
+version = "2.0.6"
 dependencies = [
  "js-sys",
  "ruvector-router-core",
@@ -9155,7 +9155,7 @@ dependencies = [
 
 [[package]]
 name = "ruvector-scipix"
-version = "2.0.5"
+version = "2.0.6"
 dependencies = [
  "ab_glyph",
  "anyhow",
@@ -9228,12 +9228,12 @@ dependencies = [
 
 [[package]]
 name = "ruvector-server"
-version = "2.0.5"
+version = "2.0.6"
 dependencies = [
  "axum",
  "dashmap 6.1.0",
  "parking_lot 0.12.5",
- "ruvector-core 2.0.5",
+ "ruvector-core 2.0.6",
  "serde",
  "serde_json",
  "thiserror 2.0.18",
@@ -9246,13 +9246,13 @@ dependencies = [
 
 [[package]]
 name = "ruvector-snapshot"
-version = "2.0.5"
+version = "2.0.6"
 dependencies = [
  "async-trait",
  "bincode 2.0.1",
  "chrono",
  "flate2",
- "ruvector-core 2.0.5",
+ "ruvector-core 2.0.6",
  "serde",
  "serde_json",
  "sha2",
@@ -9263,7 +9263,7 @@ dependencies = [
 
 [[package]]
 name = "ruvector-solver"
-version = "2.0.5"
+version = "2.0.6"
 dependencies = [
  "approx",
  "criterion 0.5.1",
@@ -9282,7 +9282,7 @@ dependencies = [
 
 [[package]]
 name = "ruvector-solver-node"
-version = "2.0.5"
+version = "2.0.6"
 dependencies = [
  "napi",
  "napi-build",
@@ -9295,7 +9295,7 @@ dependencies = [
 
 [[package]]
 name = "ruvector-solver-wasm"
-version = "2.0.5"
+version = "2.0.6"
 dependencies = [
  "getrandom 0.2.17",
  "js-sys",
@@ -9345,7 +9345,7 @@ dependencies = [
 
 [[package]]
 name = "ruvector-sparse-inference"
-version = "2.0.5"
+version = "2.0.6"
 dependencies = [
  "anyhow",
  "byteorder",
@@ -9368,11 +9368,11 @@ dependencies = [
 
 [[package]]
 name = "ruvector-temporal-tensor"
-version = "2.0.5"
+version = "2.0.6"
 
 [[package]]
 name = "ruvector-tiny-dancer-core"
-version = "2.0.5"
+version = "2.0.6"
 dependencies = [
  "anyhow",
  "bytemuck",
@@ -9402,7 +9402,7 @@ dependencies = [
 
 [[package]]
 name = "ruvector-tiny-dancer-node"
-version = "2.0.5"
+version = "2.0.6"
 dependencies = [
  "anyhow",
  "chrono",
@@ -9419,7 +9419,7 @@ dependencies = [
 
 [[package]]
 name = "ruvector-tiny-dancer-wasm"
-version = "2.0.5"
+version = "2.0.6"
 dependencies = [
  "js-sys",
  "ruvector-tiny-dancer-core",
@@ -9440,7 +9440,7 @@ dependencies = [
  "proptest",
  "ruvector-cognitive-container",
  "ruvector-coherence",
- "ruvector-core 2.0.5",
+ "ruvector-core 2.0.6",
  "serde",
  "serde_json",
  "thiserror 2.0.18",
@@ -9462,7 +9462,7 @@ dependencies = [
 
 [[package]]
 name = "ruvector-wasm"
-version = "2.0.5"
+version = "2.0.6"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
@@ -9475,7 +9475,7 @@ dependencies = [
  "parking_lot 0.12.5",
  "rand 0.8.5",
  "ruvector-collections",
- "ruvector-core 2.0.5",
+ "ruvector-core 2.0.6",
  "ruvector-filter",
  "serde",
  "serde-wasm-bindgen",
@@ -9524,7 +9524,7 @@ dependencies = [
 
 [[package]]
 name = "ruvllm"
-version = "2.0.5"
+version = "2.0.6"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -9554,7 +9554,7 @@ dependencies = [
  "rayon",
  "regex",
  "ruvector-attention",
- "ruvector-core 2.0.5",
+ "ruvector-core 2.0.6",
  "ruvector-gnn",
  "ruvector-graph",
  "ruvector-sona 0.1.6",
@@ -9574,7 +9574,7 @@ dependencies = [
 
 [[package]]
 name = "ruvllm-cli"
-version = "2.0.5"
+version = "2.0.6"
 dependencies = [
  "anyhow",
  "assert_cmd",
@@ -9594,7 +9594,7 @@ dependencies = [
  "predicates",
  "prettytable-rs",
  "rustyline",
- "ruvllm 2.0.5",
+ "ruvllm 2.0.6",
  "serde",
  "serde_json",
  "tempfile",
@@ -9635,7 +9635,7 @@ dependencies = [
  "rand_distr 0.4.3",
  "ruvector-attention",
  "ruvector-collections",
- "ruvector-core 2.0.5",
+ "ruvector-core 2.0.6",
  "ruvector-dag",
  "ruvector-filter",
  "ruvector-gnn",
@@ -9735,7 +9735,7 @@ dependencies = [
  "js-sys",
  "once_cell",
  "parking_lot 0.12.5",
- "ruvector-core 2.0.5",
+ "ruvector-core 2.0.6",
  "rvf-runtime",
  "rvf-types",
  "serde",
@@ -10496,7 +10496,7 @@ name = "subpolynomial-time-mincut-demo"
 version = "0.1.0"
 dependencies = [
  "rand 0.8.5",
- "ruvector-mincut 2.0.5",
+ "ruvector-mincut 2.0.6",
 ]
 
 [[package]]

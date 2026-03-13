@@ -6,7 +6,6 @@
 /// - Executing the learned skill and tracking its trajectory
 /// - Improving confidence through positive/negative feedback
 /// - Using the SkillLibrary from ruvector_robotics::cognitive
-
 use ruvector_robotics::cognitive::{Demonstration, SkillLibrary};
 
 fn main() {
@@ -18,17 +17,32 @@ fn main() {
     // -- Step 1: Record demonstrations for "reach" --
     let demos = vec![
         Demonstration {
-            trajectory: vec![[0.0, 0.0, 0.0], [1.0, 0.5, 0.0], [2.0, 1.0, 0.0], [3.0, 1.5, 0.0]],
+            trajectory: vec![
+                [0.0, 0.0, 0.0],
+                [1.0, 0.5, 0.0],
+                [2.0, 1.0, 0.0],
+                [3.0, 1.5, 0.0],
+            ],
             timestamps: vec![0, 100, 200, 300],
             metadata: "expert_1".into(),
         },
         Demonstration {
-            trajectory: vec![[0.0, 0.0, 0.0], [1.2, 0.4, 0.0], [2.1, 0.9, 0.0], [3.1, 1.6, 0.0]],
+            trajectory: vec![
+                [0.0, 0.0, 0.0],
+                [1.2, 0.4, 0.0],
+                [2.1, 0.9, 0.0],
+                [3.1, 1.6, 0.0],
+            ],
             timestamps: vec![0, 110, 210, 310],
             metadata: "expert_2".into(),
         },
         Demonstration {
-            trajectory: vec![[0.0, 0.0, 0.0], [0.8, 0.6, 0.0], [1.9, 1.1, 0.0], [2.9, 1.4, 0.0]],
+            trajectory: vec![
+                [0.0, 0.0, 0.0],
+                [0.8, 0.6, 0.0],
+                [1.9, 1.1, 0.0],
+                [2.9, 1.4, 0.0],
+            ],
             timestamps: vec![0, 90, 190, 290],
             metadata: "expert_3".into(),
         },
@@ -49,7 +63,10 @@ fn main() {
     println!();
     let skill = library.learn_from_demonstration("reach", &demos);
     println!("[2] Learned skill 'reach':");
-    println!("    Trajectory length: {} waypoints", skill.trajectory.len());
+    println!(
+        "    Trajectory length: {} waypoints",
+        skill.trajectory.len()
+    );
     println!("    Initial confidence: {:.3}", skill.confidence);
     println!("    Averaged trajectory:");
     for (i, pt) in skill.trajectory.iter().enumerate() {
@@ -59,13 +76,21 @@ fn main() {
     // -- Step 3: Learn another skill with a single demo --
     println!();
     let wave_demo = Demonstration {
-        trajectory: vec![[0.0, 0.0, 1.0], [0.5, 0.0, 1.5], [0.0, 0.0, 1.0], [-0.5, 0.0, 1.5]],
+        trajectory: vec![
+            [0.0, 0.0, 1.0],
+            [0.5, 0.0, 1.5],
+            [0.0, 0.0, 1.0],
+            [-0.5, 0.0, 1.5],
+        ],
         timestamps: vec![0, 200, 400, 600],
         metadata: "single_demo".into(),
     };
     let wave_skill = library.learn_from_demonstration("wave", &[wave_demo]);
     println!("[3] Learned skill 'wave' from 1 demo:");
-    println!("    Confidence: {:.3} (lower with fewer demos)", wave_skill.confidence);
+    println!(
+        "    Confidence: {:.3} (lower with fewer demos)",
+        wave_skill.confidence
+    );
     println!("    Library now has {} skills", library.len());
 
     // -- Step 4: Execute skills --
@@ -100,14 +125,22 @@ fn main() {
         library.improve_skill("reach", 0.03);
     }
     let after_positive = library.get("reach").unwrap().confidence;
-    println!("    After 5 successes: confidence={:.4} (+{:.4})", after_positive, after_positive - before);
+    println!(
+        "    After 5 successes: confidence={:.4} (+{:.4})",
+        after_positive,
+        after_positive - before
+    );
 
     // Negative feedback (2 failures)
     for _ in 0..2 {
         library.improve_skill("reach", -0.05);
     }
     let after_negative = library.get("reach").unwrap().confidence;
-    println!("    After 2 failures:  confidence={:.4} ({:.4})", after_negative, after_negative - after_positive);
+    println!(
+        "    After 2 failures:  confidence={:.4} ({:.4})",
+        after_negative,
+        after_negative - after_positive
+    );
 
     // -- Step 6: Summary --
     println!();

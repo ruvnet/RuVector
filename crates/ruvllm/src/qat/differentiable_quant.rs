@@ -258,7 +258,10 @@ impl PiQuantDifferentiable {
     /// * `k` - Pi divisor (step = alpha * pi / k)
     pub fn new(bits: u8, k: u8) -> Self {
         assert!(matches!(bits, 2 | 3 | 4 | 5), "Bits must be 2, 3, 4, or 5");
-        assert!(matches!(k, 2 | 3 | 4 | 5), "k must be 2, 3, 4, or 5 (INV-3)");
+        assert!(
+            matches!(k, 2 | 3 | 4 | 5),
+            "k must be 2, 3, 4, or 5 (INV-3)"
+        );
 
         Self {
             bits,
@@ -314,7 +317,10 @@ impl PiQuantDifferentiable {
                     let end = start + ch_size;
                     let channel_weights = &weights[start..end];
 
-                    let max_abs = channel_weights.iter().map(|w| w.abs()).fold(0.0f32, f32::max);
+                    let max_abs = channel_weights
+                        .iter()
+                        .map(|w| w.abs())
+                        .fold(0.0f32, f32::max);
                     let step = self.step_size(0); // Use default step for calculation
                     let half = (1 << self.bits) / 2;
 
@@ -427,14 +433,16 @@ impl DifferentiableQuantizer for PiQuantDifferentiable {
 
         // Determine channel size for per-channel quantization
         let channel_size = match &self.granularity {
-            QuantGranularity::PerChannel if self.num_channels > 1 => {
-                w.len() / self.num_channels
-            }
+            QuantGranularity::PerChannel if self.num_channels > 1 => w.len() / self.num_channels,
             _ => w.len(),
         };
 
         for (i, &weight) in w.iter().enumerate() {
-            let channel = if self.num_channels > 1 { i / channel_size } else { 0 };
+            let channel = if self.num_channels > 1 {
+                i / channel_size
+            } else {
+                0
+            };
             let (q, dequant) = self.quantize_scalar(weight, channel);
             q_int.push(q);
             q_float.push(dequant);
@@ -460,7 +468,11 @@ impl DifferentiableQuantizer for PiQuantDifferentiable {
             .iter()
             .enumerate()
             .map(|(i, &q)| {
-                let channel = if self.num_channels > 1 { i / channel_size } else { 0 };
+                let channel = if self.num_channels > 1 {
+                    i / channel_size
+                } else {
+                    0
+                };
                 q as f32 * self.step_size(channel)
             })
             .collect()
@@ -616,9 +628,13 @@ mod tests {
 
             let expected = alpha * PI / (k as f32);
             let actual = q.step_size(0);
-            assert!((actual - expected).abs() < 1e-6,
-                    "INV-3 violation: step {} != alpha*pi/k {} for k={}",
-                    actual, expected, k);
+            assert!(
+                (actual - expected).abs() < 1e-6,
+                "INV-3 violation: step {} != alpha*pi/k {} for k={}",
+                actual,
+                expected,
+                k
+            );
         }
     }
 
@@ -665,9 +681,7 @@ mod tests {
     fn test_pi_quant_scale_init() {
         let mut quantizer = PiQuantDifferentiable::piq3();
 
-        let weights: Vec<f32> = (0..100)
-            .map(|i| (i as f32 - 50.0) / 10.0)
-            .collect();
+        let weights: Vec<f32> = (0..100).map(|i| (i as f32 - 50.0) / 10.0).collect();
 
         quantizer.init_scale_from_weights(&weights, None);
 
@@ -772,9 +786,18 @@ mod tests {
 
     #[test]
     fn test_num_levels() {
-        assert_eq!(UniformQuantizer::new(2, SteVariant::Standard).num_levels(), 4);
-        assert_eq!(UniformQuantizer::new(3, SteVariant::Standard).num_levels(), 8);
-        assert_eq!(UniformQuantizer::new(4, SteVariant::Standard).num_levels(), 16);
+        assert_eq!(
+            UniformQuantizer::new(2, SteVariant::Standard).num_levels(),
+            4
+        );
+        assert_eq!(
+            UniformQuantizer::new(3, SteVariant::Standard).num_levels(),
+            8
+        );
+        assert_eq!(
+            UniformQuantizer::new(4, SteVariant::Standard).num_levels(),
+            16
+        );
         assert_eq!(PiQuantDifferentiable::piq3().num_levels(), 8);
         assert_eq!(PiQuantDifferentiable::piq2().num_levels(), 4);
     }

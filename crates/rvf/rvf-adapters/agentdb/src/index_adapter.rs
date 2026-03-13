@@ -313,10 +313,7 @@ mod tests {
 
     #[test]
     fn compute_centroid_basic() {
-        let vecs = vec![
-            vec![1.0, 2.0, 3.0],
-            vec![3.0, 4.0, 5.0],
-        ];
+        let vecs = vec![vec![1.0, 2.0, 3.0], vec![3.0, 4.0, 5.0]];
         let centroid = compute_centroid(&vecs, 3);
         assert_eq!(centroid, vec![2.0, 3.0, 4.0]);
     }

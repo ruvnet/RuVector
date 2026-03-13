@@ -217,9 +217,9 @@ impl WeightIntegrity {
         original_hash.copy_from_slice(&bytes[0..32]);
         quantized_hash.copy_from_slice(&bytes[32..64]);
 
-        let mse_bytes: [u8; 4] = bytes[64..68].try_into().map_err(|_| {
-            RuvLLMError::Quantization("Invalid MSE bytes".to_string())
-        })?;
+        let mse_bytes: [u8; 4] = bytes[64..68]
+            .try_into()
+            .map_err(|_| RuvLLMError::Quantization("Invalid MSE bytes".to_string()))?;
         let max_layer_mse = f32::from_le_bytes(mse_bytes);
 
         config_hash.copy_from_slice(&bytes[68..100]);
@@ -378,7 +378,10 @@ impl QuantizationBounds {
         debug_assert!(
             clamped >= self.min_value && clamped <= self.max_value,
             "quantization overflow: q={}, range=[{}, {}), format={}",
-            value, self.min_value, self.max_value, self.format_name
+            value,
+            self.min_value,
+            self.max_value,
+            self.format_name
         );
 
         #[cfg(not(debug_assertions))]
@@ -400,7 +403,11 @@ impl QuantizationBounds {
     #[inline]
     pub fn quantize_with_bounds(&self, weight: f32, scale: f32) -> i8 {
         // INV-2: Scale must be positive
-        debug_assert!(scale > 0.0, "INV-2 violation: scale must be positive, got {}", scale);
+        debug_assert!(
+            scale > 0.0,
+            "INV-2 violation: scale must be positive, got {}",
+            scale
+        );
 
         let q = (weight / scale).round() as i32;
         let q_clamped = self.validate(q);
@@ -451,7 +458,8 @@ impl WasmSandboxConfig {
 
         if !self.linear_memory_isolation {
             return Err(RuvLLMError::Quantization(
-                "WASM sandbox security violation: linear memory isolation must be enabled".to_string(),
+                "WASM sandbox security violation: linear memory isolation must be enabled"
+                    .to_string(),
             ));
         }
 
@@ -781,12 +789,7 @@ mod tests {
 
     #[test]
     fn test_weight_integrity_serialization() {
-        let integrity = WeightIntegrity::new(
-            [1u8; 32],
-            [2u8; 32],
-            0.0005,
-            [3u8; 32],
-        );
+        let integrity = WeightIntegrity::new([1u8; 32], [2u8; 32], 0.0005, [3u8; 32]);
 
         let bytes = integrity.to_bytes();
         let restored = WeightIntegrity::from_bytes(&bytes).unwrap();
@@ -799,12 +802,7 @@ mod tests {
         let data = b"test weights";
         let hash = WeightIntegrity::sha256(data);
 
-        let integrity = WeightIntegrity::new(
-            [0u8; 32],
-            hash,
-            0.0001,
-            [0u8; 32],
-        );
+        let integrity = WeightIntegrity::new([0u8; 32], hash, 0.0001, [0u8; 32]);
 
         assert!(integrity.verify_quantized(data).is_ok());
     }
@@ -812,10 +810,8 @@ mod tests {
     #[test]
     fn test_weight_integrity_verification_failure() {
         let integrity = WeightIntegrity::new(
-            [0u8; 32],
-            [1u8; 32], // Wrong hash
-            0.0001,
-            [0u8; 32],
+            [0u8; 32], [1u8; 32], // Wrong hash
+            0.0001, [0u8; 32],
         );
 
         assert!(integrity.verify_quantized(b"test weights").is_err());
@@ -896,7 +892,9 @@ mod tests {
         let large_perturb = vec![1.1, 2.1, 3.1];
 
         assert!(InvariantValidator::validate_perturbation_bound(&original, &small_perturb).is_ok());
-        assert!(InvariantValidator::validate_perturbation_bound(&original, &large_perturb).is_err());
+        assert!(
+            InvariantValidator::validate_perturbation_bound(&original, &large_perturb).is_err()
+        );
     }
 
     #[test]
@@ -915,8 +913,12 @@ mod tests {
         let scalar_match = vec![1.0001, 2.0001, 3.0001];
         let scalar_mismatch = vec![1.1, 2.0, 3.0];
 
-        assert!(InvariantValidator::validate_simd_scalar_match(&simd, &scalar_match, 0.001).is_ok());
-        assert!(InvariantValidator::validate_simd_scalar_match(&simd, &scalar_mismatch, 0.001).is_err());
+        assert!(
+            InvariantValidator::validate_simd_scalar_match(&simd, &scalar_match, 0.001).is_ok()
+        );
+        assert!(
+            InvariantValidator::validate_simd_scalar_match(&simd, &scalar_mismatch, 0.001).is_err()
+        );
     }
 
     #[test]
@@ -924,12 +926,7 @@ mod tests {
         let weights = b"test quantized weights";
         let hash = WeightIntegrity::sha256(weights);
 
-        let integrity = WeightIntegrity::new(
-            [0u8; 32],
-            hash,
-            0.0001,
-            [0u8; 32],
-        );
+        let integrity = WeightIntegrity::new([0u8; 32], hash, 0.0001, [0u8; 32]);
 
         assert!(validate_quantized_model(weights, &integrity, None).is_ok());
     }
@@ -940,9 +937,7 @@ mod tests {
         let hash = WeightIntegrity::sha256(weights);
 
         let integrity = WeightIntegrity::new(
-            [0u8; 32],
-            hash,
-            0.01, // High MSE
+            [0u8; 32], hash, 0.01, // High MSE
             [0u8; 32],
         );
 

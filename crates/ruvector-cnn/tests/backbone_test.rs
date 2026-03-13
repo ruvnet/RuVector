@@ -11,9 +11,8 @@
 #![cfg(feature = "backbone")]
 
 use ruvector_cnn::backbone::{
-    Backbone, BackboneExt, BackboneType, create_backbone, Layer,
-    MobileNetV3, MobileNetV3Config,
-    MobileNetConfig, MobileNetV3Small, MobileNetV3Large,
+    create_backbone, Backbone, BackboneExt, BackboneType, Layer, MobileNetConfig, MobileNetV3,
+    MobileNetV3Config, MobileNetV3Large, MobileNetV3Small,
 };
 use ruvector_cnn::layers::TensorShape;
 
@@ -181,7 +180,9 @@ fn test_mobilenet_v3_forward_features() {
     let input_shape = TensorShape::new(1, 3, 224, 224);
     let input = vec![0.5; input_shape.numel()];
 
-    let output = model.forward_features(&input, &input_shape).expect("Forward failed");
+    let output = model
+        .forward_features(&input, &input_shape)
+        .expect("Forward failed");
 
     // Output should be [batch, feature_dim]
     assert_eq!(output.len(), 576);
@@ -194,7 +195,9 @@ fn test_mobilenet_v3_forward_with_classifier() {
     let input_shape = TensorShape::new(1, 3, 224, 224);
     let input = vec![0.5; input_shape.numel()];
 
-    let output = model.forward_with_shape(&input, &input_shape).expect("Forward failed");
+    let output = model
+        .forward_with_shape(&input, &input_shape)
+        .expect("Forward failed");
 
     // Output should be [batch, num_classes]
     assert_eq!(output.len(), 1000);
@@ -208,7 +211,9 @@ fn test_mobilenet_v3_forward_batch() {
     let input_shape = TensorShape::new(batch_size, 3, 224, 224);
     let input = vec![0.5; input_shape.numel()];
 
-    let output = model.forward_features(&input, &input_shape).expect("Forward failed");
+    let output = model
+        .forward_features(&input, &input_shape)
+        .expect("Forward failed");
 
     // Output should be [batch, feature_dim]
     assert_eq!(output.len(), batch_size * 576);
@@ -220,8 +225,12 @@ fn test_mobilenet_v3_forward_deterministic() {
     let input_shape = TensorShape::new(1, 3, 224, 224);
     let input = vec![0.5; input_shape.numel()];
 
-    let output1 = model.forward_features(&input, &input_shape).expect("Forward failed");
-    let output2 = model.forward_features(&input, &input_shape).expect("Forward failed");
+    let output1 = model
+        .forward_features(&input, &input_shape)
+        .expect("Forward failed");
+    let output2 = model
+        .forward_features(&input, &input_shape)
+        .expect("Forward failed");
 
     // Same input should produce same output (no randomness in inference)
     for (v1, v2) in output1.iter().zip(output2.iter()) {
@@ -235,8 +244,8 @@ fn test_mobilenet_v3_forward_deterministic() {
 
 #[test]
 fn test_create_backbone_small() {
-    let backbone = create_backbone(BackboneType::MobileNetV3Small, 1000)
-        .expect("Failed to create backbone");
+    let backbone =
+        create_backbone(BackboneType::MobileNetV3Small, 1000).expect("Failed to create backbone");
 
     assert_eq!(backbone.backbone_type(), BackboneType::MobileNetV3Small);
     assert_eq!(backbone.output_dim(), 576);
@@ -244,8 +253,8 @@ fn test_create_backbone_small() {
 
 #[test]
 fn test_create_backbone_large() {
-    let backbone = create_backbone(BackboneType::MobileNetV3Large, 1000)
-        .expect("Failed to create backbone");
+    let backbone =
+        create_backbone(BackboneType::MobileNetV3Large, 1000).expect("Failed to create backbone");
 
     assert_eq!(backbone.backbone_type(), BackboneType::MobileNetV3Large);
     assert_eq!(backbone.output_dim(), 960);
@@ -253,8 +262,8 @@ fn test_create_backbone_large() {
 
 #[test]
 fn test_create_backbone_feature_extraction() {
-    let backbone = create_backbone(BackboneType::MobileNetV3Small, 0)
-        .expect("Failed to create backbone");
+    let backbone =
+        create_backbone(BackboneType::MobileNetV3Small, 0).expect("Failed to create backbone");
 
     assert_eq!(backbone.output_dim(), 576);
 }
@@ -303,8 +312,8 @@ fn test_mobilenet_v3_last_conv() {
 
 #[test]
 fn test_feature_output_shape() {
-    let backbone = create_backbone(BackboneType::MobileNetV3Small, 0)
-        .expect("Failed to create backbone");
+    let backbone =
+        create_backbone(BackboneType::MobileNetV3Small, 0).expect("Failed to create backbone");
 
     let input_shape = TensorShape::new(1, 3, 224, 224);
     let output_shape = backbone.feature_output_shape(&input_shape);
@@ -317,8 +326,8 @@ fn test_feature_output_shape() {
 
 #[test]
 fn test_feature_output_shape_batch() {
-    let backbone = create_backbone(BackboneType::MobileNetV3Small, 0)
-        .expect("Failed to create backbone");
+    let backbone =
+        create_backbone(BackboneType::MobileNetV3Small, 0).expect("Failed to create backbone");
 
     let input_shape = TensorShape::new(4, 3, 224, 224);
     let output_shape = backbone.feature_output_shape(&input_shape);
@@ -337,7 +346,9 @@ fn test_backbone_forward_all_zeros() {
     let input_shape = TensorShape::new(1, 3, 224, 224);
     let input = vec![0.0; input_shape.numel()];
 
-    let output = model.forward_features(&input, &input_shape).expect("Forward failed");
+    let output = model
+        .forward_features(&input, &input_shape)
+        .expect("Forward failed");
 
     // Output should be valid (all finite)
     assert!(output.iter().all(|x| x.is_finite()));
@@ -349,7 +360,9 @@ fn test_backbone_forward_all_ones() {
     let input_shape = TensorShape::new(1, 3, 224, 224);
     let input = vec![1.0; input_shape.numel()];
 
-    let output = model.forward_features(&input, &input_shape).expect("Forward failed");
+    let output = model
+        .forward_features(&input, &input_shape)
+        .expect("Forward failed");
 
     assert!(output.iter().all(|x| x.is_finite()));
 }
@@ -360,7 +373,9 @@ fn test_backbone_forward_negative_values() {
     let input_shape = TensorShape::new(1, 3, 224, 224);
     let input = vec![-0.5; input_shape.numel()];
 
-    let output = model.forward_features(&input, &input_shape).expect("Forward failed");
+    let output = model
+        .forward_features(&input, &input_shape)
+        .expect("Forward failed");
 
     assert!(output.iter().all(|x| x.is_finite()));
 }

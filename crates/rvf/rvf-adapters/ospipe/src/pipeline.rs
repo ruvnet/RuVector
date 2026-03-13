@@ -135,10 +135,7 @@ impl RvfPipelineAdapter {
     ///
     /// Scans for observations with timestamps before `before_secs` and
     /// soft-deletes them. Returns the number of observations deleted.
-    pub fn expire_before(
-        &mut self,
-        before_secs: u64,
-    ) -> Result<u64, OspipeAdapterError> {
+    pub fn expire_before(&mut self, before_secs: u64) -> Result<u64, OspipeAdapterError> {
         use rvf_runtime::filter::{FilterExpr, FilterValue};
 
         let filter = FilterExpr::Lt(
@@ -185,7 +182,9 @@ mod tests {
         let mut v = Vec::with_capacity(dim);
         let mut x = seed;
         for _ in 0..dim {
-            x = x.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+            x = x
+                .wrapping_mul(6364136223846793005)
+                .wrapping_add(1442695040888963407);
             v.push(((x >> 33) as f32) / (u32::MAX as f32) - 0.5);
         }
         v

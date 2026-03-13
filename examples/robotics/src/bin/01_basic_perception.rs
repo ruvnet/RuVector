@@ -6,7 +6,6 @@
 /// - Radius search around a query point
 /// - Using the SpatialIndex for efficient lookups
 /// - Distance-based wall proximity analysis
-
 use ruvector_robotics::bridge::{Point3D, PointCloud, SpatialIndex};
 
 /// Generate a wall as a strip of points along one axis.
@@ -31,13 +30,32 @@ fn main() {
     let points_per_wall = 50;
     let mut all_points = Vec::new();
 
-    all_points.extend(generate_wall([0.0, 5.0, 0.0], [5.0, 5.0, 0.0], points_per_wall));
-    all_points.extend(generate_wall([0.0, 0.0, 0.0], [5.0, 0.0, 0.0], points_per_wall));
-    all_points.extend(generate_wall([0.0, 0.0, 0.0], [0.0, 5.0, 0.0], points_per_wall));
-    all_points.extend(generate_wall([5.0, 0.0, 0.0], [5.0, 5.0, 0.0], points_per_wall));
+    all_points.extend(generate_wall(
+        [0.0, 5.0, 0.0],
+        [5.0, 5.0, 0.0],
+        points_per_wall,
+    ));
+    all_points.extend(generate_wall(
+        [0.0, 0.0, 0.0],
+        [5.0, 0.0, 0.0],
+        points_per_wall,
+    ));
+    all_points.extend(generate_wall(
+        [0.0, 0.0, 0.0],
+        [0.0, 5.0, 0.0],
+        points_per_wall,
+    ));
+    all_points.extend(generate_wall(
+        [5.0, 0.0, 0.0],
+        [5.0, 5.0, 0.0],
+        points_per_wall,
+    ));
 
     let cloud = PointCloud::new(all_points, 1000);
-    println!("[1] Room point cloud created: {} points from 4 walls", cloud.len());
+    println!(
+        "[1] Room point cloud created: {} points from 4 walls",
+        cloud.len()
+    );
 
     // Step 2: Insert into spatial index
     let mut index = SpatialIndex::new(3);
@@ -46,7 +64,10 @@ fn main() {
 
     // Step 3: Robot position in the center of the room
     let robot_pos = Point3D::new(2.5, 2.5, 0.0);
-    println!("[3] Robot position: ({:.1}, {:.1}, {:.1})", robot_pos.x, robot_pos.y, robot_pos.z);
+    println!(
+        "[3] Robot position: ({:.1}, {:.1}, {:.1})",
+        robot_pos.x, robot_pos.y, robot_pos.z
+    );
 
     // Step 4: kNN search (SpatialIndex uses f32 queries)
     let k = 5;
@@ -71,7 +92,11 @@ fn main() {
     match index.search_radius(&query, radius) {
         Ok(results) => {
             println!();
-            println!("[5] Points within {:.1}m of robot: {}", radius, results.len());
+            println!(
+                "[5] Points within {:.1}m of robot: {}",
+                radius,
+                results.len()
+            );
         }
         Err(e) => println!("[5] Search error: {:?}", e),
     }

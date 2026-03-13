@@ -39,7 +39,9 @@ pub mod types;
 
 use alloc::vec::Vec;
 
-use engine::{AcceptanceConfig, AcceptanceResult, AdaptiveSolver, PuzzleGenerator, run_acceptance_mode};
+use engine::{
+    run_acceptance_mode, AcceptanceConfig, AcceptanceResult, AdaptiveSolver, PuzzleGenerator,
+};
 use rvf_crypto::{create_witness_chain, WitnessEntry};
 
 // ═════════════════════════════════════════════════════════════════════
@@ -291,7 +293,11 @@ pub extern "C" fn rvf_solver_acceptance(
     // Serialize policy state
     inst.policy_json = serde_json::to_vec(&inst.solver.policy_kernel).unwrap_or_default();
 
-    if mode_c.passed { 1 } else { 0 }
+    if mode_c.passed {
+        1
+    } else {
+        0
+    }
 }
 
 #[derive(serde::Serialize)]

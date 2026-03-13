@@ -69,11 +69,7 @@ impl ObstacleDetector {
     /// 4. Compute bounding box and centroid per cluster.
     /// 5. Filter by `max_detection_range` from the robot.
     /// 6. Sort results by distance (ascending).
-    pub fn detect(
-        &self,
-        cloud: &PointCloud,
-        robot_pos: &[f64; 3],
-    ) -> Vec<DetectedObstacle> {
+    pub fn detect(&self, cloud: &PointCloud, robot_pos: &[f64; 3]) -> Vec<DetectedObstacle> {
         if cloud.is_empty() {
             return Vec::new();
         }
@@ -104,10 +100,7 @@ impl ObstacleDetector {
     ///   (wall-like).
     /// * **Dynamic** -- the largest-to-smallest ratio is <= 2 (compact).
     /// * **Unknown** -- everything else.
-    pub fn classify_obstacles(
-        &self,
-        obstacles: &[DetectedObstacle],
-    ) -> Vec<ClassifiedObstacle> {
+    pub fn classify_obstacles(&self, obstacles: &[DetectedObstacle]) -> Vec<ClassifiedObstacle> {
         obstacles
             .iter()
             .map(|o| {
@@ -243,11 +236,7 @@ mod tests {
             safety_margin: 0.1,
         });
         // Cluster at ~10 units away -- should be filtered out.
-        let cloud = make_cloud(&[
-            [10.0, 0.0, 0.0],
-            [10.1, 0.0, 0.0],
-            [10.0, 0.1, 0.0],
-        ]);
+        let cloud = make_cloud(&[[10.0, 0.0, 0.0], [10.1, 0.0, 0.0], [10.0, 0.1, 0.0]]);
         let result = det.detect(&cloud, &[0.0, 0.0, 0.0]);
         assert!(result.is_empty());
     }
@@ -260,11 +249,7 @@ mod tests {
             safety_margin: 0.1,
         });
         // Only 3 points -- below minimum.
-        let cloud = make_cloud(&[
-            [1.0, 1.0, 0.0],
-            [1.1, 1.0, 0.0],
-            [1.0, 1.1, 0.0],
-        ]);
+        let cloud = make_cloud(&[[1.0, 1.0, 0.0], [1.1, 1.0, 0.0], [1.0, 1.1, 0.0]]);
         let result = det.detect(&cloud, &[0.0, 0.0, 0.0]);
         assert!(result.is_empty());
     }

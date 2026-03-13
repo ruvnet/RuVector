@@ -185,7 +185,9 @@ pub struct Puzzle {
 
 impl Puzzle {
     pub fn check_date(&self, date: Date) -> bool {
-        self.constraints.iter().all(|c| check_one(date, c, &self.references))
+        self.constraints
+            .iter()
+            .all(|c| check_one(date, c, &self.references))
     }
 }
 
@@ -196,12 +198,14 @@ fn check_one(date: Date, c: &Constraint, refs: &BTreeMap<String, Date>) -> bool 
         Constraint::Before(d) => date < *d,
         Constraint::Between(a, b) => date >= *a && date <= *b,
         Constraint::DayOfWeek(w) => date.weekday() == *w,
-        Constraint::DaysAfter(name, n) => {
-            refs.get(name).map(|r| date == r.add_days(*n)).unwrap_or(false)
-        }
-        Constraint::DaysBefore(name, n) => {
-            refs.get(name).map(|r| date == r.add_days(-*n)).unwrap_or(false)
-        }
+        Constraint::DaysAfter(name, n) => refs
+            .get(name)
+            .map(|r| date == r.add_days(*n))
+            .unwrap_or(false),
+        Constraint::DaysBefore(name, n) => refs
+            .get(name)
+            .map(|r| date == r.add_days(-*n))
+            .unwrap_or(false),
         Constraint::InMonth(m) => date.month == *m,
         Constraint::InYear(y) => date.year == *y,
         Constraint::DayOfMonth(d) => date.day == *d,

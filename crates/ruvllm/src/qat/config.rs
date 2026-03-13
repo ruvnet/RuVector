@@ -61,9 +61,7 @@ impl QuantGranularity {
             QuantGranularity::PerTensor => 2, // scale + zero_point
             QuantGranularity::PerChannel => channels * 2,
             QuantGranularity::PerToken => (n / channels) * 2,
-            QuantGranularity::PerBlock { block_size } => {
-                ((n + block_size - 1) / block_size) * 2
-            }
+            QuantGranularity::PerBlock { block_size } => ((n + block_size - 1) / block_size) * 2,
         }
     }
 }
@@ -326,8 +324,8 @@ impl QatConfig {
     /// Create config for 2-bit Pi-quantization (PiQ2)
     pub fn piq2() -> Self {
         Self {
-            use_incoherence: true, // 2-bit typically needs Hadamard
-            ..Self::pi_quant(2, 3) // step = pi/3
+            use_incoherence: true,  // 2-bit typically needs Hadamard
+            ..Self::pi_quant(2, 3)  // step = pi/3
         }
     }
 
@@ -411,7 +409,10 @@ impl QatConfig {
     pub fn validate(&self) -> Result<(), String> {
         // Validate bit width
         if !matches!(self.bits, 2 | 3 | 4 | 5 | 8) {
-            return Err(format!("Invalid bit width: {}. Must be 2, 3, 4, 5, or 8", self.bits));
+            return Err(format!(
+                "Invalid bit width: {}. Must be 2, 3, 4, 5, or 8",
+                self.bits
+            ));
         }
 
         // Validate Pi-k value (INV-3)

@@ -102,7 +102,9 @@ pub enum CnnError {
     NormalizationError(String),
 
     /// Invalid kernel configuration.
-    #[error("Invalid kernel: kernel_size={kernel_size}, but input spatial dims are ({height}, {width})")]
+    #[error(
+        "Invalid kernel: kernel_size={kernel_size}, but input spatial dims are ({height}, {width})"
+    )]
     InvalidKernel {
         /// Kernel size
         kernel_size: usize,

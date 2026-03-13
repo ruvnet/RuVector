@@ -303,11 +303,7 @@ impl LoraWeights {
     }
 
     /// Compute gradients for A and B
-    pub fn backward(
-        &self,
-        input: &[f32],
-        grad_output: &[f32],
-    ) -> (Vec<f32>, Vec<f32>, Vec<f32>) {
+    pub fn backward(&self, input: &[f32], grad_output: &[f32]) -> (Vec<f32>, Vec<f32>, Vec<f32>) {
         let batch_size = input.len() / self.d_in;
 
         // Scale gradient

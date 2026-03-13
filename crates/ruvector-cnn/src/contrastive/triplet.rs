@@ -179,7 +179,11 @@ impl TripletLoss {
         }
 
         // Check for NaN/Inf
-        for (name, vec) in [("anchor", anchor), ("positive", positive), ("negative", negative)] {
+        for (name, vec) in [
+            ("anchor", anchor),
+            ("positive", positive),
+            ("negative", negative),
+        ] {
             if vec.iter().any(|x| x.is_nan() || x.is_infinite()) {
                 return Err(CnnError::InvalidInput(format!(
                     "{} contains NaN or Inf",
@@ -420,7 +424,9 @@ mod tests {
         let positive = vec![1.0, 0.0]; // identical
         let negative = vec![-1.0, 0.0]; // opposite
 
-        let result = triplet.forward_detailed(&anchor, &positive, &negative).unwrap();
+        let result = triplet
+            .forward_detailed(&anchor, &positive, &negative)
+            .unwrap();
         assert_eq!(result.loss, 0.0);
         assert!(!result.is_hard);
     }
@@ -434,7 +440,9 @@ mod tests {
         let positive = vec![2.0, 0.0];
         let negative = vec![1.0, 0.0];
 
-        let result = triplet.forward_detailed(&anchor, &positive, &negative).unwrap();
+        let result = triplet
+            .forward_detailed(&anchor, &positive, &negative)
+            .unwrap();
         assert!(result.loss > 0.0);
         assert!(result.is_hard);
         assert!(result.violates_margin);
@@ -490,7 +498,9 @@ mod tests {
         let positives = vec![vec![0.9, 0.1], vec![0.1, 0.9]];
         let negatives = vec![vec![0.0, 1.0], vec![1.0, 0.0]];
 
-        let loss = triplet.forward_batch(&anchors, &positives, &negatives).unwrap();
+        let loss = triplet
+            .forward_batch(&anchors, &positives, &negatives)
+            .unwrap();
         assert!(loss >= 0.0);
     }
 

@@ -156,9 +156,7 @@ pub use calibration::{
 };
 
 // Distillation loss (ADR-090 Phase 2)
-pub use distillation::{
-    DistillationConfig, DistillationLoss, DistillationStats, TeacherOutput,
-};
+pub use distillation::{DistillationConfig, DistillationLoss, DistillationStats, TeacherOutput};
 
 // Reasoning loss (ADR-090 Phase 2)
 pub use reasoning_loss::{
@@ -172,9 +170,7 @@ pub use training_loop::{
 };
 
 // LoRA-QAT integration (ADR-090 Phase 2)
-pub use lora_qat::{
-    LoraGradients, LoraQatConfig, LoraQatLayer, LoraQatModel, LoraWeights,
-};
+pub use lora_qat::{LoraGradients, LoraQatConfig, LoraQatLayer, LoraQatModel, LoraWeights};
 
 // STE SIMD optimizations (platform-specific)
 #[cfg(target_arch = "aarch64")]
@@ -307,9 +303,7 @@ mod tests {
         let quantizer = create_quantizer(&config);
 
         // Sample weights
-        let weights: Vec<f32> = (0..256)
-            .map(|i| (i as f32 - 128.0) / 128.0)
-            .collect();
+        let weights: Vec<f32> = (0..256).map(|i| (i as f32 - 128.0) / 128.0).collect();
 
         // Forward pass
         let (q_int, q_dequant) = quantizer.forward(&weights);
@@ -331,9 +325,7 @@ mod tests {
 
     #[test]
     fn test_config_serialization() {
-        let config = QatConfig::piq3()
-            .with_epochs(10)
-            .with_learning_rate(5e-5);
+        let config = QatConfig::piq3().with_epochs(10).with_learning_rate(5e-5);
 
         let json = config.to_json().unwrap();
         let restored = QatConfig::from_json(&json).unwrap();

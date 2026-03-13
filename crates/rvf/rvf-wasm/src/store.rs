@@ -335,9 +335,7 @@ pub(crate) struct StoreRegistry {
 
 impl StoreRegistry {
     fn new() -> Self {
-        Self {
-            stores: Vec::new(),
-        }
+        Self { stores: Vec::new() }
     }
 
     pub(crate) fn create(&mut self, dim: u32, metric: u8) -> i32 {

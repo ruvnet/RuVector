@@ -78,7 +78,13 @@ impl std::fmt::Display for TensorShape {
 }
 
 /// Computes output size for convolution or pooling.
-pub fn conv_output_size(input: usize, kernel: usize, stride: usize, padding: usize, dilation: usize) -> usize {
+pub fn conv_output_size(
+    input: usize,
+    kernel: usize,
+    stride: usize,
+    padding: usize,
+    dilation: usize,
+) -> usize {
     let effective_kernel = dilation * (kernel - 1) + 1;
     (input + 2 * padding - effective_kernel) / stride + 1
 }

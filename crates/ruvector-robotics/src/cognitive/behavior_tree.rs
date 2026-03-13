@@ -112,9 +112,7 @@ impl BehaviorTree {
 
     /// Set the result that a named action should return.
     pub fn set_action_result(&mut self, name: &str, status: BehaviorStatus) {
-        self.context
-            .action_results
-            .insert(name.to_string(), status);
+        self.context.action_results.insert(name.to_string(), status);
     }
 
     /// Read-only access to the context.

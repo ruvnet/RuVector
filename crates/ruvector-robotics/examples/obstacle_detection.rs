@@ -6,8 +6,8 @@
 //! - Classifying obstacles as Static, Dynamic, or Unknown
 
 use ruvector_robotics::bridge::{Point3D, PointCloud};
-use ruvector_robotics::perception::{ObstacleDetector, ObstacleClass};
 use ruvector_robotics::perception::config::ObstacleConfig;
+use ruvector_robotics::perception::{ObstacleClass, ObstacleDetector};
 
 fn main() {
     println!("=== Obstacle Detection Demo ===\n");

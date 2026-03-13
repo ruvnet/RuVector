@@ -81,8 +81,8 @@ impl RvfSwarmStore {
             ..Default::default()
         };
 
-        let store = RvfStore::create(&config.store_path(), rvf_options)
-            .map_err(SwarmStoreError::Rvf)?;
+        let store =
+            RvfStore::create(&config.store_path(), rvf_options).map_err(SwarmStoreError::Rvf)?;
 
         Ok(Self {
             store,
@@ -99,8 +99,7 @@ impl RvfSwarmStore {
     pub fn open(config: AgenticFlowConfig) -> Result<Self, SwarmStoreError> {
         config.validate().map_err(SwarmStoreError::Config)?;
 
-        let store =
-            RvfStore::open(&config.store_path()).map_err(SwarmStoreError::Rvf)?;
+        let store = RvfStore::open(&config.store_path()).map_err(SwarmStoreError::Rvf)?;
 
         // Rebuild next_id from the store status so new IDs don't collide.
         let status = store.status();
@@ -138,10 +137,7 @@ impl RvfSwarmStore {
             });
         }
 
-        let compound_key = format!(
-            "{}/{}/{}",
-            self.config.agent_id, namespace, key
-        );
+        let compound_key = format!("{}/{}/{}", self.config.agent_id, namespace, key);
 
         // Soft-delete existing entry with the same compound key.
         if let Some(&old_id) = self.key_index.get(&compound_key) {
@@ -194,11 +190,7 @@ impl RvfSwarmStore {
     ///
     /// Returns up to `k` results sorted by distance (closest first),
     /// enriched with agent metadata from the in-memory index.
-    pub fn search_shared(
-        &self,
-        embedding: &[f32],
-        k: usize,
-    ) -> Vec<SharedMemoryResult> {
+    pub fn search_shared(&self, embedding: &[f32], k: usize) -> Vec<SharedMemoryResult> {
         let options = QueryOptions::default();
         let results = match self.store.query(embedding, k, &options) {
             Ok(r) => r,
@@ -238,17 +230,12 @@ impl RvfSwarmStore {
             return Ok(0);
         }
 
-        self.store
-            .delete(&existing)
-            .map_err(SwarmStoreError::Rvf)?;
+        self.store.delete(&existing).map_err(SwarmStoreError::Rvf)?;
 
         let mut removed = 0;
         for &id in &existing {
             if let Some(entry) = self.entry_index.remove(&id) {
-                let compound_key = format!(
-                    "{}/{}/{}",
-                    entry.agent_id, entry.namespace, entry.key
-                );
+                let compound_key = format!("{}/{}/{}", entry.agent_id, entry.namespace, entry.key);
                 self.key_index.remove(&compound_key);
                 removed += 1;
             }
@@ -528,8 +515,7 @@ mod tests {
     #[test]
     fn agent_id_accessor() {
         let dir = TempDir::new().unwrap();
-        let config = AgenticFlowConfig::new(dir.path(), "special-agent")
-            .with_dimension(4);
+        let config = AgenticFlowConfig::new(dir.path(), "special-agent").with_dimension(4);
 
         let store = RvfSwarmStore::create(config).unwrap();
         assert_eq!(store.agent_id(), "special-agent");

@@ -251,7 +251,10 @@ impl BetaParams {
 
     /// Uniform (uninformative) prior.
     pub fn uniform() -> Self {
-        Self { alpha: 1.0, beta: 1.0 }
+        Self {
+            alpha: 1.0,
+            beta: 1.0,
+        }
     }
 
     /// Mean of the Beta distribution.

@@ -264,56 +264,101 @@ pub unsafe fn pi_dequantize_neon(packed: &[u8], scale: f32, output: &mut [f32]) 
         let lo0 = vandq_u32(vshlq_u32(v0, shifts_lo), mask_3bit);
         let hi0 = vandq_u32(vshlq_u32(v0, shifts_hi), mask_3bit);
         vst1q_f32(o, vfmaq_f32(bias_scaled, vcvtq_f32_u32(lo0), scale_vec));
-        vst1q_f32(o.add(4), vfmaq_f32(bias_scaled, vcvtq_f32_u32(hi0), scale_vec));
+        vst1q_f32(
+            o.add(4),
+            vfmaq_f32(bias_scaled, vcvtq_f32_u32(hi0), scale_vec),
+        );
 
         // Group 1
         let v1 = vdupq_n_u32(c1);
         let lo1 = vandq_u32(vshlq_u32(v1, shifts_lo), mask_3bit);
         let hi1 = vandq_u32(vshlq_u32(v1, shifts_hi), mask_3bit);
-        vst1q_f32(o.add(8), vfmaq_f32(bias_scaled, vcvtq_f32_u32(lo1), scale_vec));
-        vst1q_f32(o.add(12), vfmaq_f32(bias_scaled, vcvtq_f32_u32(hi1), scale_vec));
+        vst1q_f32(
+            o.add(8),
+            vfmaq_f32(bias_scaled, vcvtq_f32_u32(lo1), scale_vec),
+        );
+        vst1q_f32(
+            o.add(12),
+            vfmaq_f32(bias_scaled, vcvtq_f32_u32(hi1), scale_vec),
+        );
 
         // Group 2
         let v2 = vdupq_n_u32(c2);
         let lo2 = vandq_u32(vshlq_u32(v2, shifts_lo), mask_3bit);
         let hi2 = vandq_u32(vshlq_u32(v2, shifts_hi), mask_3bit);
-        vst1q_f32(o.add(16), vfmaq_f32(bias_scaled, vcvtq_f32_u32(lo2), scale_vec));
-        vst1q_f32(o.add(20), vfmaq_f32(bias_scaled, vcvtq_f32_u32(hi2), scale_vec));
+        vst1q_f32(
+            o.add(16),
+            vfmaq_f32(bias_scaled, vcvtq_f32_u32(lo2), scale_vec),
+        );
+        vst1q_f32(
+            o.add(20),
+            vfmaq_f32(bias_scaled, vcvtq_f32_u32(hi2), scale_vec),
+        );
 
         // Group 3
         let v3 = vdupq_n_u32(c3);
         let lo3 = vandq_u32(vshlq_u32(v3, shifts_lo), mask_3bit);
         let hi3 = vandq_u32(vshlq_u32(v3, shifts_hi), mask_3bit);
-        vst1q_f32(o.add(24), vfmaq_f32(bias_scaled, vcvtq_f32_u32(lo3), scale_vec));
-        vst1q_f32(o.add(28), vfmaq_f32(bias_scaled, vcvtq_f32_u32(hi3), scale_vec));
+        vst1q_f32(
+            o.add(24),
+            vfmaq_f32(bias_scaled, vcvtq_f32_u32(lo3), scale_vec),
+        );
+        vst1q_f32(
+            o.add(28),
+            vfmaq_f32(bias_scaled, vcvtq_f32_u32(hi3), scale_vec),
+        );
 
         // Group 4
         let v4 = vdupq_n_u32(c4);
         let lo4 = vandq_u32(vshlq_u32(v4, shifts_lo), mask_3bit);
         let hi4 = vandq_u32(vshlq_u32(v4, shifts_hi), mask_3bit);
-        vst1q_f32(o.add(32), vfmaq_f32(bias_scaled, vcvtq_f32_u32(lo4), scale_vec));
-        vst1q_f32(o.add(36), vfmaq_f32(bias_scaled, vcvtq_f32_u32(hi4), scale_vec));
+        vst1q_f32(
+            o.add(32),
+            vfmaq_f32(bias_scaled, vcvtq_f32_u32(lo4), scale_vec),
+        );
+        vst1q_f32(
+            o.add(36),
+            vfmaq_f32(bias_scaled, vcvtq_f32_u32(hi4), scale_vec),
+        );
 
         // Group 5
         let v5 = vdupq_n_u32(c5);
         let lo5 = vandq_u32(vshlq_u32(v5, shifts_lo), mask_3bit);
         let hi5 = vandq_u32(vshlq_u32(v5, shifts_hi), mask_3bit);
-        vst1q_f32(o.add(40), vfmaq_f32(bias_scaled, vcvtq_f32_u32(lo5), scale_vec));
-        vst1q_f32(o.add(44), vfmaq_f32(bias_scaled, vcvtq_f32_u32(hi5), scale_vec));
+        vst1q_f32(
+            o.add(40),
+            vfmaq_f32(bias_scaled, vcvtq_f32_u32(lo5), scale_vec),
+        );
+        vst1q_f32(
+            o.add(44),
+            vfmaq_f32(bias_scaled, vcvtq_f32_u32(hi5), scale_vec),
+        );
 
         // Group 6
         let v6 = vdupq_n_u32(c6);
         let lo6 = vandq_u32(vshlq_u32(v6, shifts_lo), mask_3bit);
         let hi6 = vandq_u32(vshlq_u32(v6, shifts_hi), mask_3bit);
-        vst1q_f32(o.add(48), vfmaq_f32(bias_scaled, vcvtq_f32_u32(lo6), scale_vec));
-        vst1q_f32(o.add(52), vfmaq_f32(bias_scaled, vcvtq_f32_u32(hi6), scale_vec));
+        vst1q_f32(
+            o.add(48),
+            vfmaq_f32(bias_scaled, vcvtq_f32_u32(lo6), scale_vec),
+        );
+        vst1q_f32(
+            o.add(52),
+            vfmaq_f32(bias_scaled, vcvtq_f32_u32(hi6), scale_vec),
+        );
 
         // Group 7
         let v7 = vdupq_n_u32(c7);
         let lo7 = vandq_u32(vshlq_u32(v7, shifts_lo), mask_3bit);
         let hi7 = vandq_u32(vshlq_u32(v7, shifts_hi), mask_3bit);
-        vst1q_f32(o.add(56), vfmaq_f32(bias_scaled, vcvtq_f32_u32(lo7), scale_vec));
-        vst1q_f32(o.add(60), vfmaq_f32(bias_scaled, vcvtq_f32_u32(hi7), scale_vec));
+        vst1q_f32(
+            o.add(56),
+            vfmaq_f32(bias_scaled, vcvtq_f32_u32(lo7), scale_vec),
+        );
+        vst1q_f32(
+            o.add(60),
+            vfmaq_f32(bias_scaled, vcvtq_f32_u32(hi7), scale_vec),
+        );
 
         group += 8;
     }
@@ -352,7 +397,10 @@ unsafe fn neon_extract_and_convert(
     combined: u32,
     bias_f32: core::arch::aarch64::float32x4_t,
     scale_vec: core::arch::aarch64::float32x4_t,
-) -> (core::arch::aarch64::float32x4_t, core::arch::aarch64::float32x4_t) {
+) -> (
+    core::arch::aarch64::float32x4_t,
+    core::arch::aarch64::float32x4_t,
+) {
     use core::arch::aarch64::*;
 
     // OPTIMIZED: Use NEON operations instead of scalar extraction
@@ -480,8 +528,8 @@ pub unsafe fn pi_dequantize_avx512(packed: &[u8], scale: f32, output: &mut [f32]
 
             // Load all 16 values into AVX-512 vector
             let raw_vec = _mm512_setr_epi32(
-                v0_0, v0_1, v0_2, v0_3, v0_4, v0_5, v0_6, v0_7,
-                v1_0, v1_1, v1_2, v1_3, v1_4, v1_5, v1_6, v1_7,
+                v0_0, v0_1, v0_2, v0_3, v0_4, v0_5, v0_6, v0_7, v1_0, v1_1, v1_2, v1_3, v1_4, v1_5,
+                v1_6, v1_7,
             );
 
             // Apply bias (sign extension: raw - 4)
@@ -557,7 +605,11 @@ pub unsafe fn pi_quantize_avx512(weights: &[f32], scale: f32, output: &mut [u8])
         return;
     }
 
-    let inv_scale = if scale.abs() > 1e-10 { 1.0 / scale } else { 0.0 };
+    let inv_scale = if scale.abs() > 1e-10 {
+        1.0 / scale
+    } else {
+        0.0
+    };
 
     // Broadcast inverse scale to all 16 lanes
     let inv_scale_vec = _mm512_set1_ps(inv_scale);
@@ -569,8 +621,8 @@ pub unsafe fn pi_quantize_avx512(weights: &[f32], scale: f32, output: &mut [u8])
     let min_vec = _mm512_set1_epi32(0);
     let max_vec = _mm512_set1_epi32(7);
 
-    // Rounding mode constant (nearest)
-    let rounding = _MM_FROUND_TO_NEAREST_INT | _MM_FROUND_NO_EXC;
+    // Rounding mode constant (nearest) - must be const for AVX-512 intrinsics
+    const ROUNDING: i32 = 0x08; // _MM_FROUND_TO_NEAREST_INT | _MM_FROUND_NO_EXC
 
     // Process 2 groups (16 values) at a time
     let simd_groups = num_groups / 2;
@@ -585,7 +637,7 @@ pub unsafe fn pi_quantize_avx512(weights: &[f32], scale: f32, output: &mut [u8])
 
         // Quantize: q = round(w * inv_scale)
         let scaled_vec = _mm512_mul_ps(weights_vec, inv_scale_vec);
-        let rounded_vec = _mm512_roundscale_ps(scaled_vec, rounding as i32);
+        let rounded_vec = _mm512_roundscale_ps(scaled_vec, ROUNDING);
         let quantized_vec = _mm512_cvtps_epi32(rounded_vec);
 
         // Add bias: [−4, +3] -> [0, 7]
@@ -932,7 +984,11 @@ pub fn pi_quantize_scalar(values: &[f32], scale: f32, output: &mut [u8]) {
         "Output buffer size mismatch"
     );
 
-    let inv_scale = if scale.abs() > 1e-10 { 1.0 / scale } else { 0.0 };
+    let inv_scale = if scale.abs() > 1e-10 {
+        1.0 / scale
+    } else {
+        0.0
+    };
 
     for group in 0..num_groups {
         let val_offset = group * PI3_VALUES_PER_GROUP;
@@ -1068,11 +1124,7 @@ mod tests {
         pi_dequantize_scalar(&packed, scale, &mut output);
 
         for &v in &output {
-            assert!(
-                (v - (-4.0)).abs() < EPSILON,
-                "Expected -4.0, got {}",
-                v
-            );
+            assert!((v - (-4.0)).abs() < EPSILON, "Expected -4.0, got {}", v);
         }
     }
 
@@ -1234,9 +1286,7 @@ mod tests {
     #[test]
     fn test_quantize_dequantize_roundtrip() {
         let scale = pi_scale(4);
-        let original: Vec<f32> = (-4..=3)
-            .map(|v| (v as f32) * scale)
-            .collect();
+        let original: Vec<f32> = (-4..=3).map(|v| (v as f32) * scale).collect();
         let mut packed = vec![0u8; 3];
         let mut reconstructed = vec![0.0f32; 8];
 
@@ -1272,11 +1322,11 @@ mod tests {
         assert!((output[0] - (-4.0)).abs() < EPSILON); // -10 -> -4
         assert!((output[1] - (-4.0)).abs() < EPSILON); // -5 -> -4
         assert!((output[2] - (-4.0)).abs() < EPSILON); // -4 -> -4
-        assert!((output[3] - 0.0).abs() < EPSILON);    // 0 -> 0
-        assert!((output[4] - 3.0).abs() < EPSILON);    // 3 -> 3
-        assert!((output[5] - 3.0).abs() < EPSILON);    // 5 -> 3
-        assert!((output[6] - 3.0).abs() < EPSILON);    // 10 -> 3
-        assert!((output[7] - 3.0).abs() < EPSILON);    // 100 -> 3
+        assert!((output[3] - 0.0).abs() < EPSILON); // 0 -> 0
+        assert!((output[4] - 3.0).abs() < EPSILON); // 3 -> 3
+        assert!((output[5] - 3.0).abs() < EPSILON); // 5 -> 3
+        assert!((output[6] - 3.0).abs() < EPSILON); // 10 -> 3
+        assert!((output[7] - 3.0).abs() < EPSILON); // 100 -> 3
     }
 
     // -------------------------------------------------------------------------
@@ -1550,21 +1600,19 @@ mod tests {
 
         // Test with edge case scales
         let test_scales = [
-            1.0f32,           // Unit scale
-            0.001,            // Very small scale
-            1000.0,           // Large scale
-            -1.0,             // Negative scale
-            PI / 4.0,         // Typical pi-quantization scale
-            PI / 2.0,         // Another pi-based scale
+            1.0f32,            // Unit scale
+            0.001,             // Very small scale
+            1000.0,            // Large scale
+            -1.0,              // Negative scale
+            PI / 4.0,          // Typical pi-quantization scale
+            PI / 2.0,          // Another pi-based scale
             f32::MIN_POSITIVE, // Smallest positive normal
         ];
 
         for &scale in &test_scales {
             // Generate packed data
             let num_groups = 8;
-            let packed: Vec<u8> = (0..num_groups * 3)
-                .map(|i| (i * 31) as u8)
-                .collect();
+            let packed: Vec<u8> = (0..num_groups * 3).map(|i| (i * 31) as u8).collect();
 
             let mut scalar_output = vec![0.0f32; num_groups * 8];
             let mut avx512_output = vec![0.0f32; num_groups * 8];
@@ -1594,9 +1642,7 @@ mod tests {
         // Ensure dispatch produces same results as scalar
         // Test sizes that exercise all paths including AVX-512's 8-group batching
         for num_groups in [1, 4, 8, 16, 32, 100, 123] {
-            let packed: Vec<u8> = (0..num_groups * 3)
-                .map(|i| (i * 23) as u8)
-                .collect();
+            let packed: Vec<u8> = (0..num_groups * 3).map(|i| (i * 23) as u8).collect();
             let scale = pi_scale(4);
 
             let mut scalar_output = vec![0.0f32; num_groups * 8];
@@ -1703,11 +1749,7 @@ mod tests {
 
         // 1 * -1.0 = -1.0
         for &v in &output {
-            assert!(
-                (v - (-1.0)).abs() < EPSILON,
-                "Expected -1.0, got {}",
-                v
-            );
+            assert!((v - (-1.0)).abs() < EPSILON, "Expected -1.0, got {}", v);
         }
     }
 
@@ -1774,9 +1816,7 @@ mod tests {
         // 1000 groups = 3000 bytes = 8000 values
         // Exercises SIMD main loop + remainder handling
         let num_groups = 1000;
-        let packed: Vec<u8> = (0..num_groups * 3)
-            .map(|i| (i % 256) as u8)
-            .collect();
+        let packed: Vec<u8> = (0..num_groups * 3).map(|i| (i % 256) as u8).collect();
         let scale = pi_scale(4);
 
         let mut output = vec![0.0f32; num_groups * 8];
@@ -1784,12 +1824,7 @@ mod tests {
 
         // Verify no NaN or Inf values
         for (i, &v) in output.iter().enumerate() {
-            assert!(
-                v.is_finite(),
-                "Non-finite value at index {}: {}",
-                i,
-                v
-            );
+            assert!(v.is_finite(), "Non-finite value at index {}: {}", i, v);
             // Values should be in range [-4*scale, 3*scale]
             let min_val = -4.0 * scale;
             let max_val = 3.0 * scale;
@@ -1809,9 +1844,7 @@ mod tests {
         // Test cases with various remainder sizes after SIMD loop
         // SIMD processes 4 groups at a time, so test 1, 2, 3, 5, 6, 7 groups
         for num_groups in [1, 2, 3, 5, 6, 7, 9, 13, 17] {
-            let packed: Vec<u8> = (0..num_groups * 3)
-                .map(|i| (i * 37) as u8)
-                .collect();
+            let packed: Vec<u8> = (0..num_groups * 3).map(|i| (i * 37) as u8).collect();
             let scale = 1.0;
 
             let mut scalar_output = vec![0.0f32; num_groups * 8];

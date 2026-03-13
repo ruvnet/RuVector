@@ -18,9 +18,7 @@
 
 #![allow(unused_imports, dead_code, unused_variables)]
 
-use criterion::{
-    black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput,
-};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 use rand::prelude::*;
 use std::f32::consts::PI;
 
@@ -52,18 +50,14 @@ impl Pi3BitBlock {
             u[i] = (v + 4) as u8;
         }
 
-        self.data[0] = (u[0] & 0x07)
-            | ((u[1] & 0x07) << 3)
-            | ((u[2] & 0x07) << 6);
+        self.data[0] = (u[0] & 0x07) | ((u[1] & 0x07) << 3) | ((u[2] & 0x07) << 6);
 
         self.data[1] = ((u[2] >> 2) & 0x01)
             | ((u[3] & 0x07) << 1)
             | ((u[4] & 0x07) << 4)
             | ((u[5] & 0x07) << 7);
 
-        self.data[2] = ((u[5] >> 1) & 0x03)
-            | ((u[6] & 0x07) << 2)
-            | ((u[7] & 0x07) << 5);
+        self.data[2] = ((u[5] >> 1) & 0x03) | ((u[6] & 0x07) << 2) | ((u[7] & 0x07) << 5);
     }
 
     fn unpack(&self) -> [i8; 8] {
@@ -484,9 +478,7 @@ impl SteVariant {
                     0.0
                 }
             }
-            SteVariant::Ewgs { lambda } => {
-                grad_out * (1.0 + lambda * (w - q).abs())
-            }
+            SteVariant::Ewgs { lambda } => grad_out * (1.0 + lambda * (w - q).abs()),
         }
     }
 }
@@ -959,13 +951,17 @@ unsafe fn quantize_2bit_avx2(weights: &[f32], step: f32, output: &mut [u8]) -> u
 fn quantize_3bit_dispatch(weights: &[f32], step: f32, output: &mut [u8]) -> usize {
     #[cfg(target_arch = "aarch64")]
     {
-        unsafe { return quantize_3bit_neon(weights, step, output); }
+        unsafe {
+            return quantize_3bit_neon(weights, step, output);
+        }
     }
 
     #[cfg(target_arch = "x86_64")]
     {
         if is_x86_feature_detected!("avx2") {
-            unsafe { return quantize_3bit_avx2(weights, step, output); }
+            unsafe {
+                return quantize_3bit_avx2(weights, step, output);
+            }
         }
     }
 
@@ -975,13 +971,17 @@ fn quantize_3bit_dispatch(weights: &[f32], step: f32, output: &mut [u8]) -> usiz
 fn quantize_2bit_dispatch(weights: &[f32], step: f32, output: &mut [u8]) -> usize {
     #[cfg(target_arch = "aarch64")]
     {
-        unsafe { return quantize_2bit_neon(weights, step, output); }
+        unsafe {
+            return quantize_2bit_neon(weights, step, output);
+        }
     }
 
     #[cfg(target_arch = "x86_64")]
     {
         if is_x86_feature_detected!("avx2") {
-            unsafe { return quantize_2bit_avx2(weights, step, output); }
+            unsafe {
+                return quantize_2bit_avx2(weights, step, output);
+            }
         }
     }
 
@@ -1004,9 +1004,7 @@ fn bench_pi_quantize_3bit_fast(c: &mut Criterion) {
 
         group.throughput(Throughput::Bytes(output_bytes as u64));
         group.bench_with_input(BenchmarkId::new("size", size), &weights, |b, w| {
-            b.iter(|| {
-                quantize_3bit_fast(black_box(w), step, black_box(&mut output))
-            })
+            b.iter(|| quantize_3bit_fast(black_box(w), step, black_box(&mut output)))
         });
     }
 
@@ -1028,9 +1026,7 @@ fn bench_pi_quantize_2bit_fast(c: &mut Criterion) {
 
         group.throughput(Throughput::Bytes(num_blocks as u64));
         group.bench_with_input(BenchmarkId::new("size", size), &weights, |b, w| {
-            b.iter(|| {
-                quantize_2bit_fast(black_box(w), step, black_box(&mut output))
-            })
+            b.iter(|| quantize_2bit_fast(black_box(w), step, black_box(&mut output)))
         });
     }
 
@@ -1053,9 +1049,7 @@ fn bench_pi_quantize_3bit_simd(c: &mut Criterion) {
 
         group.throughput(Throughput::Bytes(output_bytes as u64));
         group.bench_with_input(BenchmarkId::new("size", size), &weights, |b, w| {
-            b.iter(|| {
-                quantize_3bit_dispatch(black_box(w), step, black_box(&mut output))
-            })
+            b.iter(|| quantize_3bit_dispatch(black_box(w), step, black_box(&mut output)))
         });
     }
 
@@ -1077,9 +1071,7 @@ fn bench_pi_quantize_2bit_simd(c: &mut Criterion) {
 
         group.throughput(Throughput::Bytes(num_blocks as u64));
         group.bench_with_input(BenchmarkId::new("size", size), &weights, |b, w| {
-            b.iter(|| {
-                quantize_2bit_dispatch(black_box(w), step, black_box(&mut output))
-            })
+            b.iter(|| quantize_2bit_dispatch(black_box(w), step, black_box(&mut output)))
         });
     }
 
@@ -1102,9 +1094,7 @@ fn bench_pi_quantize_3bit_neon(c: &mut Criterion) {
 
         group.throughput(Throughput::Bytes(output_bytes as u64));
         group.bench_with_input(BenchmarkId::new("weights", size), &weights, |b, w| {
-            b.iter(|| unsafe {
-                quantize_3bit_neon(black_box(w), step, black_box(&mut output))
-            })
+            b.iter(|| unsafe { quantize_3bit_neon(black_box(w), step, black_box(&mut output)) })
         });
     }
 
@@ -1126,9 +1116,7 @@ fn bench_pi_quantize_2bit_neon(c: &mut Criterion) {
 
         group.throughput(Throughput::Bytes(num_blocks as u64));
         group.bench_with_input(BenchmarkId::new("weights", size), &weights, |b, w| {
-            b.iter(|| unsafe {
-                quantize_2bit_neon(black_box(w), step, black_box(&mut output))
-            })
+            b.iter(|| unsafe { quantize_2bit_neon(black_box(w), step, black_box(&mut output)) })
         });
     }
 
@@ -1155,9 +1143,7 @@ fn bench_pi_quantize_3bit_avx2(c: &mut Criterion) {
 
         group.throughput(Throughput::Bytes(output_bytes as u64));
         group.bench_with_input(BenchmarkId::new("weights", size), &weights, |b, w| {
-            b.iter(|| unsafe {
-                quantize_3bit_avx2(black_box(w), step, black_box(&mut output))
-            })
+            b.iter(|| unsafe { quantize_3bit_avx2(black_box(w), step, black_box(&mut output)) })
         });
     }
 
@@ -1183,9 +1169,7 @@ fn bench_pi_quantize_2bit_avx2(c: &mut Criterion) {
 
         group.throughput(Throughput::Bytes(num_blocks as u64));
         group.bench_with_input(BenchmarkId::new("weights", size), &weights, |b, w| {
-            b.iter(|| unsafe {
-                quantize_2bit_avx2(black_box(w), step, black_box(&mut output))
-            })
+            b.iter(|| unsafe { quantize_2bit_avx2(black_box(w), step, black_box(&mut output)) })
         });
     }
 
@@ -1234,15 +1218,11 @@ fn bench_pi_dequantize_scalar(c: &mut Criterion) {
         let input_bytes = packed.len();
 
         group.throughput(Throughput::Bytes(input_bytes as u64));
-        group.bench_with_input(
-            BenchmarkId::new("weights", num_weights),
-            &packed,
-            |b, p| {
-                b.iter(|| {
-                    pi_dequantize_scalar(black_box(p), scale, black_box(&mut output));
-                })
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("weights", num_weights), &packed, |b, p| {
+            b.iter(|| {
+                pi_dequantize_scalar(black_box(p), scale, black_box(&mut output));
+            })
+        });
     }
 
     group.finish();
@@ -1263,15 +1243,11 @@ fn bench_pi_dequantize_neon(c: &mut Criterion) {
         let input_bytes = packed.len();
 
         group.throughput(Throughput::Bytes(input_bytes as u64));
-        group.bench_with_input(
-            BenchmarkId::new("weights", num_weights),
-            &packed,
-            |b, p| {
-                b.iter(|| unsafe {
-                    pi_dequantize_neon(black_box(p), scale, black_box(&mut output));
-                })
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("weights", num_weights), &packed, |b, p| {
+            b.iter(|| unsafe {
+                pi_dequantize_neon(black_box(p), scale, black_box(&mut output));
+            })
+        });
     }
 
     group.finish();
@@ -1296,15 +1272,11 @@ fn bench_pi_dequantize_avx2(c: &mut Criterion) {
         let input_bytes = packed.len();
 
         group.throughput(Throughput::Bytes(input_bytes as u64));
-        group.bench_with_input(
-            BenchmarkId::new("weights", num_weights),
-            &packed,
-            |b, p| {
-                b.iter(|| unsafe {
-                    pi_dequantize_avx2(black_box(p), scale, black_box(&mut output));
-                })
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("weights", num_weights), &packed, |b, p| {
+            b.iter(|| unsafe {
+                pi_dequantize_avx2(black_box(p), scale, black_box(&mut output));
+            })
+        });
     }
 
     group.finish();
@@ -1363,7 +1335,9 @@ fn bench_hadamard_layer_sizes(c: &mut Criterion) {
 
     // Common layer dimensions (rounded to power of 2)
     for &size in &[256, 4096, 8192, 16384] {
-        let data: Vec<f32> = (0..size).map(|i| (i as f32 - size as f32 / 2.0) / 100.0).collect();
+        let data: Vec<f32> = (0..size)
+            .map(|i| (i as f32 - size as f32 / 2.0) / 100.0)
+            .collect();
 
         group.throughput(Throughput::Elements(size as u64));
         group.bench_with_input(BenchmarkId::new("dim", size), &data, |b, d| {
@@ -1453,9 +1427,7 @@ fn bench_mse_computation(c: &mut Criterion) {
         group.bench_with_input(
             BenchmarkId::new("weights", size),
             &(&original, &quantized),
-            |b, (o, q)| {
-                b.iter(|| compute_mse(black_box(*o), black_box(*q)))
-            },
+            |b, (o, q)| b.iter(|| compute_mse(black_box(*o), black_box(*q))),
         );
     }
 
@@ -1475,9 +1447,7 @@ fn bench_spectral_distortion(c: &mut Criterion) {
         group.bench_with_input(
             BenchmarkId::new("weights", size),
             &(&original, &quantized),
-            |b, (o, q)| {
-                b.iter(|| compute_spectral_distortion(black_box(*o), black_box(*q)))
-            },
+            |b, (o, q)| b.iter(|| compute_spectral_distortion(black_box(*o), black_box(*q))),
         );
     }
 

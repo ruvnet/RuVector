@@ -224,7 +224,11 @@ mod simd_equivalence_tests {
             assert!(
                 ulp <= MAX_ULP_DIFFERENCE,
                 "Element {}: scalar={}, simd={}, ULP diff={} (max={})",
-                i, s, simd, ulp, MAX_ULP_DIFFERENCE
+                i,
+                s,
+                simd,
+                ulp,
+                MAX_ULP_DIFFERENCE
             );
         }
     }
@@ -282,7 +286,10 @@ mod simd_equivalence_tests {
             assert!(
                 within_ulp_tolerance(s, simd, MAX_ULP_DIFFERENCE),
                 "Large block element {}: scalar={}, simd={}, ULP={}",
-                i, s, simd, ulp_difference(s, simd)
+                i,
+                s,
+                simd,
+                ulp_difference(s, simd)
             );
         }
     }
@@ -304,7 +311,9 @@ mod simd_equivalence_tests {
             assert!(
                 s == 0.0 && simd == 0.0,
                 "Zero input should produce zero output at {}: scalar={}, simd={}",
-                i, s, simd
+                i,
+                s,
+                simd
             );
         }
     }
@@ -324,7 +333,10 @@ mod simd_equivalence_tests {
             assert!(
                 ulp <= MAX_ULP_DIFFERENCE,
                 "Max value element {}: scalar={}, simd={}, ULP={}",
-                i, s, simd, ulp
+                i,
+                s,
+                simd,
+                ulp
             );
         }
     }
@@ -344,7 +356,10 @@ mod simd_equivalence_tests {
             assert!(
                 ulp <= MAX_ULP_DIFFERENCE,
                 "Min value element {}: scalar={}, simd={}, ULP={}",
-                i, s, simd, ulp
+                i,
+                s,
+                simd,
+                ulp
             );
         }
     }
@@ -367,7 +382,10 @@ mod simd_equivalence_tests {
             assert!(
                 ulp <= MAX_ULP_DIFFERENCE,
                 "Alternating element {}: scalar={}, simd={}, ULP={}",
-                i, s, simd, ulp
+                i,
+                s,
+                simd,
+                ulp
             );
         }
     }
@@ -390,7 +408,10 @@ mod simd_equivalence_tests {
             assert!(
                 ulp <= MAX_ULP_DIFFERENCE,
                 "Small alpha element {}: scalar={}, simd={}, ULP={}",
-                i, s, simd, ulp
+                i,
+                s,
+                simd,
+                ulp
             );
         }
     }
@@ -409,7 +430,10 @@ mod simd_equivalence_tests {
             assert!(
                 ulp <= MAX_ULP_DIFFERENCE,
                 "Large alpha element {}: scalar={}, simd={}, ULP={}",
-                i, s, simd, ulp
+                i,
+                s,
+                simd,
+                ulp
             );
         }
     }
@@ -428,7 +452,10 @@ mod simd_equivalence_tests {
             assert!(
                 ulp <= MAX_ULP_DIFFERENCE,
                 "Fractional alpha element {}: scalar={}, simd={}, ULP={}",
-                i, s, simd, ulp
+                i,
+                s,
+                simd,
+                ulp
             );
         }
     }
@@ -451,7 +478,10 @@ mod simd_equivalence_tests {
             assert!(
                 ulp <= MAX_ULP_DIFFERENCE,
                 "k=2 element {}: scalar={}, simd={}, ULP={}",
-                i, s, simd, ulp
+                i,
+                s,
+                simd,
+                ulp
             );
         }
     }
@@ -470,7 +500,10 @@ mod simd_equivalence_tests {
             assert!(
                 ulp <= MAX_ULP_DIFFERENCE,
                 "k=4 element {}: scalar={}, simd={}, ULP={}",
-                i, s, simd, ulp
+                i,
+                s,
+                simd,
+                ulp
             );
         }
     }
@@ -502,7 +535,10 @@ mod simd_equivalence_tests {
             assert!(
                 ulp <= MAX_ULP_DIFFERENCE,
                 "Full pipeline element {}: scalar={}, simd={}, ULP={}",
-                i, s, simd, ulp
+                i,
+                s,
+                simd,
+                ulp
             );
         }
     }
@@ -526,7 +562,10 @@ mod simd_equivalence_tests {
             assert!(
                 ulp <= MAX_ULP_DIFFERENCE,
                 "NEON element {}: scalar={}, neon={}, ULP={}",
-                i, s, neon, ulp
+                i,
+                s,
+                neon,
+                ulp
             );
         }
     }
@@ -546,7 +585,10 @@ mod simd_equivalence_tests {
             assert!(
                 ulp <= MAX_ULP_DIFFERENCE,
                 "AVX2 element {}: scalar={}, avx2={}, ULP={}",
-                i, s, avx2, ulp
+                i,
+                s,
+                avx2,
+                ulp
             );
         }
     }
@@ -565,7 +607,10 @@ mod simd_equivalence_tests {
             assert!(
                 ulp <= MAX_ULP_DIFFERENCE,
                 "WASM element {}: scalar={}, wasm={}, ULP={}",
-                i, s, wasm, ulp
+                i,
+                s,
+                wasm,
+                ulp
             );
         }
     }
@@ -602,7 +647,12 @@ mod simd_equivalence_tests {
                 assert!(
                     ulp <= STRESS_TEST_ULP_TOLERANCE,
                     "Block {} element {}: scalar={}, simd={}, ULP={} (max allowed={})",
-                    block_idx, i, s, simd, ulp, STRESS_TEST_ULP_TOLERANCE
+                    block_idx,
+                    i,
+                    s,
+                    simd,
+                    ulp,
+                    STRESS_TEST_ULP_TOLERANCE
                 );
             }
         }
@@ -635,7 +685,11 @@ mod simd_equivalence_tests {
                 assert!(
                     ulp <= MAX_ULP_DIFFERENCE,
                     "Size {} element {}: scalar={}, simd={}, ULP={}",
-                    size, i, s, simd, ulp
+                    size,
+                    i,
+                    s,
+                    simd,
+                    ulp
                 );
             }
         }

@@ -140,8 +140,8 @@ impl RvfObservationStore {
             ..Default::default()
         };
 
-        let store = RvfStore::create(&config.store_path(), options)
-            .map_err(OspipeAdapterError::Rvf)?;
+        let store =
+            RvfStore::create(&config.store_path(), options).map_err(OspipeAdapterError::Rvf)?;
 
         Ok(Self {
             store,
@@ -152,8 +152,7 @@ impl RvfObservationStore {
 
     /// Open an existing observation store.
     pub fn open(config: ObservationStoreConfig) -> Result<Self, OspipeAdapterError> {
-        let store = RvfStore::open(&config.store_path())
-            .map_err(OspipeAdapterError::Rvf)?;
+        let store = RvfStore::open(&config.store_path()).map_err(OspipeAdapterError::Rvf)?;
 
         let status = store.status();
         let next_id = status.total_vectors + status.current_epoch as u64 + 1;
@@ -167,8 +166,8 @@ impl RvfObservationStore {
 
     /// Open an existing store in read-only mode.
     pub fn open_readonly(config: ObservationStoreConfig) -> Result<Self, OspipeAdapterError> {
-        let store = RvfStore::open_readonly(&config.store_path())
-            .map_err(OspipeAdapterError::Rvf)?;
+        let store =
+            RvfStore::open_readonly(&config.store_path()).map_err(OspipeAdapterError::Rvf)?;
 
         Ok(Self {
             store,
@@ -189,11 +188,10 @@ impl RvfObservationStore {
         self.next_id += 1;
 
         let entries = meta.to_entries();
-        let result = self.store.ingest_batch(
-            &[state_vector],
-            &[id],
-            Some(&entries),
-        ).map_err(OspipeAdapterError::Rvf)?;
+        let result = self
+            .store
+            .ingest_batch(&[state_vector], &[id], Some(&entries))
+            .map_err(OspipeAdapterError::Rvf)?;
 
         Ok((id, result))
     }
@@ -240,11 +238,18 @@ impl RvfObservationStore {
             }
         }
 
-        let result = self.store.ingest_batch(
-            vectors,
-            &ids,
-            if flat_entries.is_empty() { None } else { Some(&flat_entries) },
-        ).map_err(OspipeAdapterError::Rvf)?;
+        let result = self
+            .store
+            .ingest_batch(
+                vectors,
+                &ids,
+                if flat_entries.is_empty() {
+                    None
+                } else {
+                    Some(&flat_entries)
+                },
+            )
+            .map_err(OspipeAdapterError::Rvf)?;
 
         Ok((ids, result))
     }
@@ -315,7 +320,9 @@ impl RvfObservationStore {
         &mut self,
         filter: &FilterExpr,
     ) -> Result<rvf_runtime::DeleteResult, OspipeAdapterError> {
-        self.store.delete_by_filter(filter).map_err(OspipeAdapterError::Rvf)
+        self.store
+            .delete_by_filter(filter)
+            .map_err(OspipeAdapterError::Rvf)
     }
 
     /// Get the current store status.
@@ -366,7 +373,9 @@ mod tests {
         let mut v = Vec::with_capacity(dim);
         let mut x = seed;
         for _ in 0..dim {
-            x = x.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+            x = x
+                .wrapping_mul(6364136223846793005)
+                .wrapping_add(1442695040888963407);
             v.push(((x >> 33) as f32) / (u32::MAX as f32) - 0.5);
         }
         v

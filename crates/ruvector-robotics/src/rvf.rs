@@ -22,14 +22,10 @@
 use std::path::Path;
 
 use rvf_runtime::options::DistanceMetric;
-use rvf_runtime::{
-    IngestResult, QueryOptions, RvfOptions, RvfStore, SearchResult,
-};
+use rvf_runtime::{IngestResult, QueryOptions, RvfOptions, RvfStore, SearchResult};
 
-use crate::bridge::{
-    GaussianConfig, Obstacle, PointCloud, SceneGraph, SceneObject, Trajectory,
-};
 use crate::bridge::gaussian::{gaussians_from_cloud, GaussianSplatCloud};
+use crate::bridge::{GaussianConfig, Obstacle, PointCloud, SceneGraph, SceneObject, Trajectory};
 
 // ---------------------------------------------------------------------------
 // Errors
@@ -95,21 +91,33 @@ impl RoboticsRvf {
             ..Default::default()
         };
         let store = RvfStore::create(path.as_ref(), options)?;
-        Ok(Self { store, dimension, next_id: 1 })
+        Ok(Self {
+            store,
+            dimension,
+            next_id: 1,
+        })
     }
 
     /// Open an existing `.rvf` file for read-write access.
     pub fn open<P: AsRef<Path>>(path: P) -> Result<Self> {
         let store = RvfStore::open(path.as_ref())?;
         let dim = store.dimension();
-        Ok(Self { store, dimension: dim, next_id: 1_000_000 })
+        Ok(Self {
+            store,
+            dimension: dim,
+            next_id: 1_000_000,
+        })
     }
 
     /// Open an existing `.rvf` file for read-only queries.
     pub fn open_readonly<P: AsRef<Path>>(path: P) -> Result<Self> {
         let store = RvfStore::open_readonly(path.as_ref())?;
         let dim = store.dimension();
-        Ok(Self { store, dimension: dim, next_id: 0 })
+        Ok(Self {
+            store,
+            dimension: dim,
+            next_id: 0,
+        })
     }
 
     /// Current store status.
@@ -131,11 +139,7 @@ impl RoboticsRvf {
             return Err(RvfPackError::EmptyData("point cloud is empty"));
         }
 
-        let vectors: Vec<Vec<f32>> = cloud
-            .points
-            .iter()
-            .map(|p| vec![p.x, p.y, p.z])
-            .collect();
+        let vectors: Vec<Vec<f32>> = cloud.points.iter().map(|p| vec![p.x, p.y, p.z]).collect();
         let refs: Vec<&[f32]> = vectors.iter().map(|v| v.as_slice()).collect();
         let ids: Vec<u64> = (0..cloud.len())
             .map(|_| {
@@ -294,11 +298,7 @@ impl RoboticsRvf {
     // -- querying ---------------------------------------------------------
 
     /// Query the store for the `k` nearest vectors to `query`.
-    pub fn query_nearest(
-        &self,
-        query: &[f32],
-        k: usize,
-    ) -> Result<Vec<SearchResult>> {
+    pub fn query_nearest(&self, query: &[f32], k: usize) -> Result<Vec<SearchResult>> {
         if query.len() != self.dimension as usize {
             return Err(RvfPackError::DimensionMismatch {
                 expected: self.dimension as usize,
@@ -390,7 +390,9 @@ mod tests {
         let result = rvf.pack_scene_objects(&objects).unwrap();
         assert_eq!(result.accepted, 2);
 
-        let hits = rvf.query_nearest(&[1.0, 2.0, 0.0, 0.5, 0.5, 1.8, 1.0, 0.0, 0.0], 1).unwrap();
+        let hits = rvf
+            .query_nearest(&[1.0, 2.0, 0.0, 0.5, 0.5, 1.8, 1.0, 0.0, 0.0], 1)
+            .unwrap();
         assert_eq!(hits.len(), 1);
 
         rvf.close().unwrap();
@@ -430,7 +432,10 @@ mod tests {
             ],
             1000,
         );
-        let config = GaussianConfig { min_cluster_size: 3, ..Default::default() };
+        let config = GaussianConfig {
+            min_cluster_size: 3,
+            ..Default::default()
+        };
         let (splat_cloud, result) = rvf.pack_gaussians(&cloud, &config).unwrap();
         assert!(!splat_cloud.is_empty());
         assert!(result.accepted > 0);
@@ -444,16 +449,14 @@ mod tests {
         let path = tmp_path();
         let mut rvf = RoboticsRvf::create(&path, 6).unwrap();
 
-        let obstacles = vec![
-            Obstacle {
-                id: 0,
-                position: [2.0, 0.0, 0.0],
-                distance: 2.0,
-                radius: 0.5,
-                label: "person".into(),
-                confidence: 0.9,
-            },
-        ];
+        let obstacles = vec![Obstacle {
+            id: 0,
+            position: [2.0, 0.0, 0.0],
+            distance: 2.0,
+            radius: 0.5,
+            label: "person".into(),
+            confidence: 0.9,
+        }];
         let result = rvf.pack_obstacles(&obstacles).unwrap();
         assert_eq!(result.accepted, 1);
 

@@ -152,7 +152,9 @@ mod tests {
 
     #[test]
     fn segment_allowlist() {
-        let p = FederationPolicy::default().allow_segment(0x33).allow_segment(0x34);
+        let p = FederationPolicy::default()
+            .allow_segment(0x33)
+            .allow_segment(0x34);
         assert!(p.is_segment_allowed(0x33));
         assert!(p.is_segment_allowed(0x34));
         assert!(!p.is_segment_allowed(0x35)); // not in allowlist

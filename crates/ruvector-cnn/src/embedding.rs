@@ -407,7 +407,9 @@ mod tests {
         let batch_size = 2;
         let images = vec![0.5f32; batch_size * 3 * 224 * 224];
 
-        let embeddings = embedder.extract_batch(&images, batch_size, 224, 224).unwrap();
+        let embeddings = embedder
+            .extract_batch(&images, batch_size, 224, 224)
+            .unwrap();
 
         assert_eq!(embeddings.len(), batch_size);
         for embedding in &embeddings {
@@ -434,7 +436,9 @@ mod tests {
 
     #[test]
     fn test_without_normalization() {
-        let embedder = MobileNetEmbedder::v3_small().unwrap().without_normalization();
+        let embedder = MobileNetEmbedder::v3_small()
+            .unwrap()
+            .without_normalization();
         assert!(!embedder.is_normalized());
     }
 }

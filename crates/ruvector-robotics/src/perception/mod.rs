@@ -10,7 +10,9 @@ pub mod scene_graph;
 pub mod sensor_fusion;
 
 pub use config::{ObstacleConfig, PerceptionConfig, SceneGraphConfig};
-pub use obstacle_detector::{ClassifiedObstacle, DetectedObstacle, ObstacleClass, ObstacleDetector};
+pub use obstacle_detector::{
+    ClassifiedObstacle, DetectedObstacle, ObstacleClass, ObstacleDetector,
+};
 pub use scene_graph::PointCloudSceneGraphBuilder;
 
 use serde::{Deserialize, Serialize};
@@ -199,10 +201,8 @@ impl PerceptionPipeline {
         let obstacle_cfg = ObstacleConfig::default();
         let scene_cfg = SceneGraphConfig::default();
         let detector = ObstacleDetector::new(obstacle_cfg.clone());
-        let graph_builder = SceneGraphBuilder::new(
-            scene_cfg.edge_distance_threshold,
-            scene_cfg.max_objects,
-        );
+        let graph_builder =
+            SceneGraphBuilder::new(scene_cfg.edge_distance_threshold, scene_cfg.max_objects);
         Self {
             detector,
             graph_builder,
@@ -221,15 +221,14 @@ impl PerceptionPipeline {
     ) -> (Vec<DetectedObstacle>, SceneGraph) {
         self.frames_processed += 1;
         let obstacles = self.detector.detect(cloud, robot_pos);
-        let graph = self.graph_builder.build_from_obstacles(&obstacles, cloud.timestamp_us);
+        let graph = self
+            .graph_builder
+            .build_from_obstacles(&obstacles, cloud.timestamp_us);
         (obstacles, graph)
     }
 
     /// Classify previously detected obstacles.
-    pub fn classify(
-        &self,
-        obstacles: &[DetectedObstacle],
-    ) -> Vec<ClassifiedObstacle> {
+    pub fn classify(&self, obstacles: &[DetectedObstacle]) -> Vec<ClassifiedObstacle> {
         self.detector.classify_obstacles(obstacles)
     }
 
@@ -272,8 +271,7 @@ impl PerceptionPipeline {
                 continue;
             }
 
-            let confidence = (cluster.len() as f32 / cloud.points.len() as f32)
-                .clamp(0.1, 1.0);
+            let confidence = (cluster.len() as f32 / cloud.points.len() as f32).clamp(0.1, 1.0);
 
             obstacles.push(Obstacle {
                 id: next_id,
@@ -487,7 +485,10 @@ impl PerceptionPipeline {
     // -- private helpers ----------------------------------------------------
 
     fn bounding_sphere(points: &[Point3D]) -> ([f64; 3], f64) {
-        debug_assert!(!points.is_empty(), "bounding_sphere called with empty slice");
+        debug_assert!(
+            !points.is_empty(),
+            "bounding_sphere called with empty slice"
+        );
         let n = points.len() as f64;
         let (mut sx, mut sy, mut sz) = (0.0_f64, 0.0_f64, 0.0_f64);
         for p in points {
@@ -527,8 +528,7 @@ mod tests {
     use crate::bridge::Point3D;
 
     fn make_cloud(pts: &[[f32; 3]]) -> PointCloud {
-        let points: Vec<Point3D> =
-            pts.iter().map(|a| Point3D::new(a[0], a[1], a[2])).collect();
+        let points: Vec<Point3D> = pts.iter().map(|a| Point3D::new(a[0], a[1], a[2])).collect();
         PointCloud::new(points, 1000)
     }
 
@@ -603,11 +603,7 @@ mod tests {
     #[test]
     fn test_detect_obstacles_single_cluster() {
         let pipe = PerceptionPipeline::with_thresholds(1.0, 2.0);
-        let cloud = make_cloud(&[
-            [2.0, 0.0, 0.0],
-            [2.1, 0.0, 0.0],
-            [2.0, 0.1, 0.0],
-        ]);
+        let cloud = make_cloud(&[[2.0, 0.0, 0.0], [2.1, 0.0, 0.0], [2.0, 0.1, 0.0]]);
         let obs = pipe.detect_obstacles(&cloud, [0.0; 3], 10.0).unwrap();
         assert_eq!(obs.len(), 1);
         assert!(obs[0].distance > 1.0);
@@ -618,11 +614,7 @@ mod tests {
     #[test]
     fn test_detect_obstacles_filters_distant() {
         let pipe = PerceptionPipeline::with_thresholds(1.0, 2.0);
-        let cloud = make_cloud(&[
-            [50.0, 0.0, 0.0],
-            [50.1, 0.0, 0.0],
-            [50.0, 0.1, 0.0],
-        ]);
+        let cloud = make_cloud(&[[50.0, 0.0, 0.0], [50.1, 0.0, 0.0], [50.0, 0.1, 0.0]]);
         let obs = pipe.detect_obstacles(&cloud, [0.0; 3], 5.0).unwrap();
         assert!(obs.is_empty());
     }
@@ -692,14 +684,8 @@ mod tests {
     #[test]
     fn test_focus_attention_filters() {
         let pipe = PerceptionPipeline::with_thresholds(0.5, 2.0);
-        let cloud = make_cloud(&[
-            [0.0, 0.0, 0.0],
-            [1.0, 0.0, 0.0],
-            [10.0, 0.0, 0.0],
-        ]);
-        let focused = pipe
-            .focus_attention(&cloud, [0.0, 0.0, 0.0], 2.0)
-            .unwrap();
+        let cloud = make_cloud(&[[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [10.0, 0.0, 0.0]]);
+        let focused = pipe.focus_attention(&cloud, [0.0, 0.0, 0.0], 2.0).unwrap();
         assert_eq!(focused.len(), 2);
     }
 
@@ -716,8 +702,7 @@ mod tests {
     #[test]
     fn test_detect_anomalies_outlier() {
         let pipe = PerceptionPipeline::with_thresholds(0.5, 2.0);
-        let mut pts: Vec<[f32; 3]> =
-            (0..20).map(|i| [i as f32 * 0.1, 0.0, 0.0]).collect();
+        let mut pts: Vec<[f32; 3]> = (0..20).map(|i| [i as f32 * 0.1, 0.0, 0.0]).collect();
         pts.push([100.0, 100.0, 100.0]);
         let cloud = make_cloud(&pts);
         let anomalies = pipe.detect_anomalies(&cloud).unwrap();
@@ -728,11 +713,7 @@ mod tests {
     #[test]
     fn test_detect_anomalies_no_outliers() {
         let pipe = PerceptionPipeline::with_thresholds(0.5, 2.0);
-        let cloud = make_cloud(&[
-            [1.0, 1.0, 1.0],
-            [1.0, 1.0, 1.0],
-            [1.0, 1.0, 1.0],
-        ]);
+        let cloud = make_cloud(&[[1.0, 1.0, 1.0], [1.0, 1.0, 1.0], [1.0, 1.0, 1.0]]);
         let anomalies = pipe.detect_anomalies(&cloud).unwrap();
         assert!(anomalies.is_empty());
     }

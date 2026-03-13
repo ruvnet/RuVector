@@ -16,9 +16,9 @@
 //! - **Small**: ~2.5M params, 576 output channels, optimized for latency
 //! - **Large**: ~5.4M params, 960 output channels, optimized for accuracy
 
-use super::{Backbone, BackboneExt, BackboneType};
 use super::blocks::{ConvBNActivation, InvertedResidual as BlockInvertedResidual};
 use super::layer::Layer;
+use super::{Backbone, BackboneExt, BackboneType};
 use crate::error::CnnResult;
 use crate::layers::{self, ActivationType, GlobalAvgPool2d, Linear, TensorShape};
 
@@ -49,7 +49,10 @@ impl Default for MobileNetConfig {
 ///
 /// **DEPRECATED**: Use [`MobileNetV3`] with `BackboneType::MobileNetV3Small` instead.
 /// This legacy implementation has limited functionality.
-#[deprecated(since = "2.0.6", note = "Use MobileNetV3 with BackboneType::MobileNetV3Small instead")]
+#[deprecated(
+    since = "2.0.6",
+    note = "Use MobileNetV3 with BackboneType::MobileNetV3Small instead"
+)]
 #[derive(Debug, Clone)]
 pub struct MobileNetV3Small {
     config: MobileNetConfig,
@@ -66,7 +69,10 @@ pub struct MobileNetV3Small {
 ///
 /// **DEPRECATED**: Use [`MobileNetV3`] with `BackboneType::MobileNetV3Large` instead.
 /// This legacy implementation has limited functionality.
-#[deprecated(since = "2.0.6", note = "Use MobileNetV3 with BackboneType::MobileNetV3Large instead")]
+#[deprecated(
+    since = "2.0.6",
+    note = "Use MobileNetV3 with BackboneType::MobileNetV3Large instead"
+)]
 #[derive(Debug, Clone)]
 pub struct MobileNetV3Large {
     config: MobileNetConfig,
@@ -137,7 +143,7 @@ impl MobileNetV3Small {
     fn create_blocks(config: &MobileNetConfig) -> Vec<InvertedResidual> {
         // Simplified block configuration for MobileNet-V3 Small
         let block_configs = [
-            (16, 16, 1, false),   // in, out, expansion, se
+            (16, 16, 1, false), // in, out, expansion, se
             (16, 24, 4, false),
             (24, 24, 3, false),
             (24, 40, 3, true),
@@ -149,41 +155,53 @@ impl MobileNetV3Small {
             (96, 96, 6, true),
         ];
 
-        block_configs.iter().map(|&(in_c, out_c, exp, se)| {
-            let in_c = ((in_c as f32) * config.width_mult) as usize;
-            let out_c = ((out_c as f32) * config.width_mult) as usize;
-            let mid_c = in_c * exp;
+        block_configs
+            .iter()
+            .map(|&(in_c, out_c, exp, se)| {
+                let in_c = ((in_c as f32) * config.width_mult) as usize;
+                let out_c = ((out_c as f32) * config.width_mult) as usize;
+                let mid_c = in_c * exp;
 
-            InvertedResidual {
-                expand_weights: if exp != 1 { Some(vec![0.0; in_c * mid_c]) } else { None },
-                expand_bn: if exp != 1 { Some(BnParams::new(mid_c)) } else { None },
-                dw_weights: vec![0.0; 9 * mid_c],
-                dw_bn: BnParams::new(mid_c),
-                se_reduce: if se { Some(vec![0.0; mid_c * (mid_c / 4)]) } else { None },
-                se_expand: if se { Some(vec![0.0; (mid_c / 4) * mid_c]) } else { None },
-                project_weights: vec![0.0; mid_c * out_c],
-                project_bn: BnParams::new(out_c),
-                in_channels: in_c,
-                out_channels: out_c,
-                expansion: exp,
-                use_se: se,
-                use_residual: in_c == out_c,
-            }
-        }).collect()
+                InvertedResidual {
+                    expand_weights: if exp != 1 {
+                        Some(vec![0.0; in_c * mid_c])
+                    } else {
+                        None
+                    },
+                    expand_bn: if exp != 1 {
+                        Some(BnParams::new(mid_c))
+                    } else {
+                        None
+                    },
+                    dw_weights: vec![0.0; 9 * mid_c],
+                    dw_bn: BnParams::new(mid_c),
+                    se_reduce: if se {
+                        Some(vec![0.0; mid_c * (mid_c / 4)])
+                    } else {
+                        None
+                    },
+                    se_expand: if se {
+                        Some(vec![0.0; (mid_c / 4) * mid_c])
+                    } else {
+                        None
+                    },
+                    project_weights: vec![0.0; mid_c * out_c],
+                    project_bn: BnParams::new(out_c),
+                    in_channels: in_c,
+                    out_channels: out_c,
+                    expansion: exp,
+                    use_se: se,
+                    use_residual: in_c == out_c,
+                }
+            })
+            .collect()
     }
 }
 
 impl Backbone for MobileNetV3Small {
     fn forward(&self, input: &[f32], height: usize, width: usize) -> Vec<f32> {
         // Stem: 3x3 conv, stride 2
-        let mut x = layers::conv2d_3x3(
-            input,
-            &self.stem_weights,
-            3,
-            16,
-            height,
-            width,
-        );
+        let mut x = layers::conv2d_3x3(input, &self.stem_weights, 3, 16, height, width);
         x = layers::batch_norm(
             &x,
             &self.stem_bn.gamma,
@@ -249,41 +267,53 @@ impl MobileNetV3Large {
             (160, 160, 6, true),
         ];
 
-        block_configs.iter().map(|&(in_c, out_c, exp, se)| {
-            let in_c = ((in_c as f32) * config.width_mult) as usize;
-            let out_c = ((out_c as f32) * config.width_mult) as usize;
-            let mid_c = in_c * exp;
+        block_configs
+            .iter()
+            .map(|&(in_c, out_c, exp, se)| {
+                let in_c = ((in_c as f32) * config.width_mult) as usize;
+                let out_c = ((out_c as f32) * config.width_mult) as usize;
+                let mid_c = in_c * exp;
 
-            InvertedResidual {
-                expand_weights: if exp != 1 { Some(vec![0.0; in_c * mid_c]) } else { None },
-                expand_bn: if exp != 1 { Some(BnParams::new(mid_c)) } else { None },
-                dw_weights: vec![0.0; 9 * mid_c],
-                dw_bn: BnParams::new(mid_c),
-                se_reduce: if se { Some(vec![0.0; mid_c * (mid_c / 4)]) } else { None },
-                se_expand: if se { Some(vec![0.0; (mid_c / 4) * mid_c]) } else { None },
-                project_weights: vec![0.0; mid_c * out_c],
-                project_bn: BnParams::new(out_c),
-                in_channels: in_c,
-                out_channels: out_c,
-                expansion: exp,
-                use_se: se,
-                use_residual: in_c == out_c,
-            }
-        }).collect()
+                InvertedResidual {
+                    expand_weights: if exp != 1 {
+                        Some(vec![0.0; in_c * mid_c])
+                    } else {
+                        None
+                    },
+                    expand_bn: if exp != 1 {
+                        Some(BnParams::new(mid_c))
+                    } else {
+                        None
+                    },
+                    dw_weights: vec![0.0; 9 * mid_c],
+                    dw_bn: BnParams::new(mid_c),
+                    se_reduce: if se {
+                        Some(vec![0.0; mid_c * (mid_c / 4)])
+                    } else {
+                        None
+                    },
+                    se_expand: if se {
+                        Some(vec![0.0; (mid_c / 4) * mid_c])
+                    } else {
+                        None
+                    },
+                    project_weights: vec![0.0; mid_c * out_c],
+                    project_bn: BnParams::new(out_c),
+                    in_channels: in_c,
+                    out_channels: out_c,
+                    expansion: exp,
+                    use_se: se,
+                    use_residual: in_c == out_c,
+                }
+            })
+            .collect()
     }
 }
 
 impl Backbone for MobileNetV3Large {
     fn forward(&self, input: &[f32], height: usize, width: usize) -> Vec<f32> {
         // Same structure as Small but with more blocks
-        let mut x = layers::conv2d_3x3(
-            input,
-            &self.stem_weights,
-            3,
-            16,
-            height,
-            width,
-        );
+        let mut x = layers::conv2d_3x3(input, &self.stem_weights, 3, 16, height, width);
         x = layers::batch_norm(
             &x,
             &self.stem_bn.gamma,
@@ -316,7 +346,11 @@ impl Backbone for MobileNetV3Large {
     }
 
     /// Process a single inverted residual block
-    fn process_inverted_residual(input: &[f32], block: &InvertedResidual, in_channels: usize) -> Vec<f32> {
+    fn process_inverted_residual(
+        input: &[f32],
+        block: &InvertedResidual,
+        in_channels: usize,
+    ) -> Vec<f32> {
         let spatial = input.len() / in_channels;
         let h = (spatial as f32).sqrt() as usize;
         let w = h;
@@ -365,8 +399,14 @@ impl Backbone for MobileNetV3Large {
                 }
             }
         }
-        x = layers::batch_norm(&dw_out, &block.dw_bn.gamma, &block.dw_bn.beta,
-                               &block.dw_bn.mean, &block.dw_bn.var, 1e-5);
+        x = layers::batch_norm(
+            &dw_out,
+            &block.dw_bn.gamma,
+            &block.dw_bn.beta,
+            &block.dw_bn.mean,
+            &block.dw_bn.var,
+            1e-5,
+        );
         x = layers::hard_swish(&x);
 
         // SE block (optional)
@@ -419,8 +459,14 @@ impl Backbone for MobileNetV3Large {
                 projected[s * out_c + oc] = sum;
             }
         }
-        let output = layers::batch_norm(&projected, &block.project_bn.gamma, &block.project_bn.beta,
-                                       &block.project_bn.mean, &block.project_bn.var, 1e-5);
+        let output = layers::batch_norm(
+            &projected,
+            &block.project_bn.gamma,
+            &block.project_bn.beta,
+            &block.project_bn.mean,
+            &block.project_bn.var,
+            1e-5,
+        );
 
         // Residual connection
         if block.use_residual && in_channels == out_c {
@@ -438,7 +484,11 @@ impl Backbone for MobileNetV3Large {
 // Same helper for Small variant
 impl MobileNetV3Small {
     /// Process a single inverted residual block
-    fn process_inverted_residual(input: &[f32], block: &InvertedResidual, in_channels: usize) -> Vec<f32> {
+    fn process_inverted_residual(
+        input: &[f32],
+        block: &InvertedResidual,
+        in_channels: usize,
+    ) -> Vec<f32> {
         MobileNetV3Large::process_inverted_residual(input, block, in_channels)
     }
 }
@@ -655,11 +705,8 @@ impl MobileNetV3 {
 
         // Last conv: 1x1 to expand features
         let feature_dim = config.scale_channels(config.feature_dim);
-        let last_conv = ConvBNActivation::pointwise(
-            in_channels,
-            feature_dim,
-            ActivationType::HardSwish,
-        )?;
+        let last_conv =
+            ConvBNActivation::pointwise(in_channels, feature_dim, ActivationType::HardSwish)?;
 
         // Global average pooling
         let pool = GlobalAvgPool2d::new();
@@ -725,7 +772,11 @@ impl MobileNetV3 {
     }
 
     /// Forward pass through feature layers only.
-    fn forward_features_impl(&self, input: &[f32], input_shape: &TensorShape) -> CnnResult<Vec<f32>> {
+    fn forward_features_impl(
+        &self,
+        input: &[f32],
+        input_shape: &TensorShape,
+    ) -> CnnResult<Vec<f32>> {
         let mut x = input.to_vec();
         let mut shape = *input_shape;
 

@@ -66,11 +66,7 @@ impl PartialOrd for AStarEntry {
 /// `goal`.  Cells with occupancy >= 0.5 are treated as impassable.
 ///
 /// Diagonal moves cost √2, cardinal moves cost 1.
-pub fn astar(
-    grid: &OccupancyGrid,
-    start: Cell,
-    goal: Cell,
-) -> Result<GridPath> {
+pub fn astar(grid: &OccupancyGrid, start: Cell, goal: Cell) -> Result<GridPath> {
     if !cell_free(grid, start) {
         return Err(PlanningError::InvalidStart(start.0, start.1));
     }
@@ -78,7 +74,10 @@ pub fn astar(
         return Err(PlanningError::InvalidGoal(goal.0, goal.1));
     }
     if start == goal {
-        return Ok(GridPath { cells: vec![start], cost: 0.0 });
+        return Ok(GridPath {
+            cells: vec![start],
+            cost: 0.0,
+        });
     }
 
     let mut g_score: HashMap<Cell, f64> = HashMap::with_capacity(128);
@@ -88,7 +87,10 @@ pub fn astar(
     let mut neighbor_buf: Vec<(usize, usize, f64)> = Vec::with_capacity(8);
 
     g_score.insert(start, 0.0);
-    open.push(AStarEntry { cell: start, f: heuristic(start, goal) });
+    open.push(AStarEntry {
+        cell: start,
+        f: heuristic(start, goal),
+    });
 
     while let Some(AStarEntry { cell, .. }) = open.pop() {
         if cell == goal {
@@ -241,8 +243,8 @@ pub fn potential_field(
         let dist = (dx * dx + dy * dy + dz * dz).sqrt().max(0.01);
 
         if dist < config.obstacle_influence {
-            let strength =
-                config.repulsive_gain * (1.0 / dist - 1.0 / config.obstacle_influence) / (dist * dist);
+            let strength = config.repulsive_gain * (1.0 / dist - 1.0 / config.obstacle_influence)
+                / (dist * dist);
             fx += strength * dx / dist;
             fy += strength * dy / dist;
             fz += strength * dz / dist;
@@ -258,7 +260,11 @@ pub fn potential_field(
         fz *= s;
     }
 
-    VelocityCommand { vx: fx, vy: fy, vz: fz }
+    VelocityCommand {
+        vx: fx,
+        vy: fy,
+        vz: fz,
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -377,13 +383,11 @@ mod tests {
 
     #[test]
     fn test_potential_field_max_speed() {
-        let config = PotentialFieldConfig { max_speed: 1.0, ..Default::default() };
-        let cmd = potential_field(
-            &[0.0, 0.0, 0.0],
-            &[100.0, 100.0, 0.0],
-            &[],
-            &config,
-        );
+        let config = PotentialFieldConfig {
+            max_speed: 1.0,
+            ..Default::default()
+        };
+        let cmd = potential_field(&[0.0, 0.0, 0.0], &[100.0, 100.0, 0.0], &[], &config);
         let speed = (cmd.vx * cmd.vx + cmd.vy * cmd.vy + cmd.vz * cmd.vz).sqrt();
         assert!((speed - 1.0).abs() < 1e-9);
     }

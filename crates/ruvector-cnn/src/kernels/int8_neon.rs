@@ -168,7 +168,8 @@ pub unsafe fn conv2d_int8_neon(
                                     let total = vaddq_s32(sum_low, sum_high);
 
                                     // Horizontal sum
-                                    let sum_pair = vpadd_s32(vget_low_s32(total), vget_high_s32(total));
+                                    let sum_pair =
+                                        vpadd_s32(vget_low_s32(total), vget_high_s32(total));
                                     let sum_final = vpadd_s32(sum_pair, sum_pair);
                                     acc[i] += vget_lane_s32(sum_final, 0);
                                 }

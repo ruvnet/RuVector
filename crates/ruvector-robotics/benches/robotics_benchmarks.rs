@@ -17,11 +17,11 @@
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 use std::collections::HashMap;
 
+use ruvector_robotics::bridge::gaussian::{gaussians_from_cloud, to_viewer_json};
 use ruvector_robotics::bridge::{
     GaussianConfig, Obstacle, OccupancyGrid, Point3D, PointCloud, RobotState, SceneObject,
     SpatialIndex,
 };
-use ruvector_robotics::bridge::gaussian::{gaussians_from_cloud, to_viewer_json};
 use ruvector_robotics::cognitive::behavior_tree::{BehaviorNode, BehaviorStatus, BehaviorTree};
 use ruvector_robotics::mcp::executor::ToolExecutor;
 use ruvector_robotics::mcp::ToolRequest;
@@ -75,11 +75,8 @@ fn generate_scene_objects(n: usize) -> Vec<SceneObject> {
         .map(|i| {
             let angle = (i as f64) * 2.0 * std::f64::consts::PI / (n as f64);
             let r = 5.0 + (i as f64) * 0.1;
-            let mut obj = SceneObject::new(
-                i,
-                [r * angle.cos(), r * angle.sin(), 0.0],
-                [0.5, 0.5, 1.8],
-            );
+            let mut obj =
+                SceneObject::new(i, [r * angle.cos(), r * angle.sin(), 0.0], [0.5, 0.5, 1.8]);
             obj.label = if i % 3 == 0 {
                 "person".to_string()
             } else if i % 3 == 1 {
@@ -108,32 +105,21 @@ fn bench_point_cloud_conversion(c: &mut Criterion) {
     for size in [100, 1_000, 10_000, 100_000] {
         group.throughput(Throughput::Elements(size as u64));
 
-        group.bench_with_input(
-            BenchmarkId::new("to_flat_vectors", size),
-            &size,
-            |b, &n| {
-                let points = generate_point_cloud(n);
-                b.iter(|| {
-                    let vectors: Vec<Vec<f32>> = points.iter().map(|p| p.to_vec()).collect();
-                    black_box(vectors)
-                })
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("to_flat_vectors", size), &size, |b, &n| {
+            let points = generate_point_cloud(n);
+            b.iter(|| {
+                let vectors: Vec<Vec<f32>> = points.iter().map(|p| p.to_vec()).collect();
+                black_box(vectors)
+            })
+        });
 
-        group.bench_with_input(
-            BenchmarkId::new("to_flat_array", size),
-            &size,
-            |b, &n| {
-                let points = generate_point_cloud(n);
-                b.iter(|| {
-                    let flat: Vec<f32> = points
-                        .iter()
-                        .flat_map(|p| [p.x, p.y, p.z])
-                        .collect();
-                    black_box(flat)
-                })
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("to_flat_array", size), &size, |b, &n| {
+            let points = generate_point_cloud(n);
+            b.iter(|| {
+                let flat: Vec<f32> = points.iter().flat_map(|p| [p.x, p.y, p.z]).collect();
+                black_box(flat)
+            })
+        });
     }
 
     group.finish();
@@ -331,11 +317,9 @@ fn bench_trajectory_prediction(c: &mut Criterion) {
                         let s4: f64 = times.iter().map(|t| t * t * t * t).sum();
                         let sy: f64 = vals.iter().sum();
                         let sty: f64 = times.iter().zip(vals.iter()).map(|(t, y)| t * y).sum();
-                        let st2y: f64 =
-                            times.iter().zip(vals.iter()).map(|(t, y)| t * t * y).sum();
+                        let st2y: f64 = times.iter().zip(vals.iter()).map(|(t, y)| t * t * y).sum();
 
-                        let det = nn * (s2 * s4 - s3 * s3)
-                            - s1 * (s1 * s4 - s3 * s2)
+                        let det = nn * (s2 * s4 - s3 * s3) - s1 * (s1 * s4 - s3 * s2)
                             + s2 * (s1 * s3 - s2 * s2);
                         if det.abs() > 1e-12 {
                             coeffs[axis][0] = (sy * (s2 * s4 - s3 * s3)
@@ -461,56 +445,48 @@ fn bench_behavior_tree_tick(c: &mut Criterion) {
         let n_leaves = 1usize << depth;
         group.throughput(Throughput::Elements(n_leaves as u64));
 
-        group.bench_with_input(
-            BenchmarkId::new("sequence_tree", depth),
-            &depth,
-            |b, &d| {
-                fn build_seq(depth: usize) -> BehaviorNode {
-                    if depth == 0 {
-                        BehaviorNode::Action("leaf".into())
-                    } else {
-                        BehaviorNode::Sequence(vec![
-                            build_seq(depth - 1),
-                            BehaviorNode::Action("leaf".into()),
-                        ])
-                    }
+        group.bench_with_input(BenchmarkId::new("sequence_tree", depth), &depth, |b, &d| {
+            fn build_seq(depth: usize) -> BehaviorNode {
+                if depth == 0 {
+                    BehaviorNode::Action("leaf".into())
+                } else {
+                    BehaviorNode::Sequence(vec![
+                        build_seq(depth - 1),
+                        BehaviorNode::Action("leaf".into()),
+                    ])
                 }
-                let root = build_seq(d);
-                let mut tree = BehaviorTree::new(root);
-                tree.set_action_result("leaf", BehaviorStatus::Success);
+            }
+            let root = build_seq(d);
+            let mut tree = BehaviorTree::new(root);
+            tree.set_action_result("leaf", BehaviorStatus::Success);
 
-                b.iter(|| {
-                    let status = tree.tick();
-                    black_box(status)
-                })
-            },
-        );
+            b.iter(|| {
+                let status = tree.tick();
+                black_box(status)
+            })
+        });
 
-        group.bench_with_input(
-            BenchmarkId::new("selector_tree", depth),
-            &depth,
-            |b, &d| {
-                fn build_sel(depth: usize) -> BehaviorNode {
-                    if depth == 0 {
-                        BehaviorNode::Action("leaf".into())
-                    } else {
-                        BehaviorNode::Selector(vec![
-                            BehaviorNode::Action("fail".into()),
-                            build_sel(depth - 1),
-                        ])
-                    }
+        group.bench_with_input(BenchmarkId::new("selector_tree", depth), &depth, |b, &d| {
+            fn build_sel(depth: usize) -> BehaviorNode {
+                if depth == 0 {
+                    BehaviorNode::Action("leaf".into())
+                } else {
+                    BehaviorNode::Selector(vec![
+                        BehaviorNode::Action("fail".into()),
+                        build_sel(depth - 1),
+                    ])
                 }
-                let root = build_sel(d);
-                let mut tree = BehaviorTree::new(root);
-                tree.set_action_result("fail", BehaviorStatus::Failure);
-                tree.set_action_result("leaf", BehaviorStatus::Success);
+            }
+            let root = build_sel(d);
+            let mut tree = BehaviorTree::new(root);
+            tree.set_action_result("fail", BehaviorStatus::Failure);
+            tree.set_action_result("leaf", BehaviorStatus::Success);
 
-                b.iter(|| {
-                    let status = tree.tick();
-                    black_box(status)
-                })
-            },
-        );
+            b.iter(|| {
+                let status = tree.tick();
+                black_box(status)
+            })
+        });
     }
 
     group.finish();
@@ -615,14 +591,12 @@ fn bench_memory_recall(c: &mut Criterion) {
                 let query: Vec<f32> = (0..dim).map(|d| pseudo_random_f32(9999, d)).collect();
 
                 b.iter(|| {
-                    let q_norm: f32 =
-                        query.iter().map(|x| x * x).sum::<f32>().sqrt().max(1e-10);
+                    let q_norm: f32 = query.iter().map(|x| x * x).sum::<f32>().sqrt().max(1e-10);
                     let mut sims: Vec<(usize, f32)> = episodes
                         .iter()
                         .enumerate()
                         .map(|(i, ep)| {
-                            let dot: f32 =
-                                query.iter().zip(ep.iter()).map(|(a, b)| a * b).sum();
+                            let dot: f32 = query.iter().zip(ep.iter()).map(|(a, b)| a * b).sum();
                             let ep_norm: f32 =
                                 ep.iter().map(|x| x * x).sum::<f32>().sqrt().max(1e-10);
                             (i, dot / (q_norm * ep_norm))
@@ -647,8 +621,7 @@ fn bench_memory_recall(c: &mut Criterion) {
                             .collect()
                     })
                     .collect();
-                let query: Vec<f32> =
-                    (0..dim).map(|d| pseudo_random_f32(8888, d)).collect();
+                let query: Vec<f32> = (0..dim).map(|d| pseudo_random_f32(8888, d)).collect();
 
                 b.iter(|| {
                     let mut dists: Vec<(usize, f32)> = episodes
@@ -850,8 +823,7 @@ fn bench_swarm_task_assignment(c: &mut Criterion) {
                             for ti in 0..nt {
                                 let dx = robots[ri][0] - tasks[ti][0];
                                 let dy = robots[ri][1] - tasks[ti][1];
-                                let value =
-                                    100.0 - (dx * dx + dy * dy).sqrt() - prices[ti];
+                                let value = 100.0 - (dx * dx + dy * dy).sqrt() - prices[ti];
                                 if value > best_val {
                                     second_val = best_val;
                                     best_val = value;
@@ -1135,14 +1107,13 @@ fn bench_mcp_tool_execution(c: &mut Criterion) {
     // Benchmark predict_trajectory (lightweight)
     group.bench_function("predict_trajectory_10steps", |b| {
         let mut exec = ToolExecutor::new();
-        let args: HashMap<String, serde_json::Value> =
-            serde_json::from_value(serde_json::json!({
-                "position": [0.0, 0.0, 0.0],
-                "velocity": [1.0, 0.5, 0.0],
-                "steps": 10,
-                "dt": 0.1,
-            }))
-            .unwrap();
+        let args: HashMap<String, serde_json::Value> = serde_json::from_value(serde_json::json!({
+            "position": [0.0, 0.0, 0.0],
+            "velocity": [1.0, 0.5, 0.0],
+            "steps": 10,
+            "dt": 0.1,
+        }))
+        .unwrap();
         let req = ToolRequest {
             tool_name: "predict_trajectory".to_string(),
             arguments: args,
@@ -1201,12 +1172,11 @@ fn bench_mcp_tool_execution(c: &mut Criterion) {
         let points = generate_point_cloud(500);
         let cloud = PointCloud::new(points, 1000);
         let cloud_json = serde_json::to_string(&cloud).unwrap();
-        let args: HashMap<String, serde_json::Value> =
-            serde_json::from_value(serde_json::json!({
-                "point_cloud_json": cloud_json,
-                "robot_position": [5.0, 5.0, 0.0],
-            }))
-            .unwrap();
+        let args: HashMap<String, serde_json::Value> = serde_json::from_value(serde_json::json!({
+            "point_cloud_json": cloud_json,
+            "robot_position": [5.0, 5.0, 0.0],
+        }))
+        .unwrap();
         let req = ToolRequest {
             tool_name: "detect_obstacles".to_string(),
             arguments: args,

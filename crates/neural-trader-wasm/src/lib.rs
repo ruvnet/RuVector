@@ -45,7 +45,10 @@ fn bytes16_to_hex(b: &[u8; 16]) -> String {
 fn hex_to_bytes16_inner(s: &str) -> Result<[u8; 16], String> {
     let s = s.trim();
     // Strip optional 0x prefix for JS ergonomics.
-    let s = s.strip_prefix("0x").or_else(|| s.strip_prefix("0X")).unwrap_or(s);
+    let s = s
+        .strip_prefix("0x")
+        .or_else(|| s.strip_prefix("0X"))
+        .unwrap_or(s);
     if !s.is_ascii() || s.len() != 32 {
         return Err(
             "hex string must be exactly 32 ASCII hex chars (optional 0x prefix)".to_string(),
@@ -53,8 +56,7 @@ fn hex_to_bytes16_inner(s: &str) -> Result<[u8; 16], String> {
     }
     let mut out = [0u8; 16];
     for (i, byte) in out.iter_mut().enumerate() {
-        *byte = u8::from_str_radix(&s[i * 2..i * 2 + 2], 16)
-            .map_err(|e| e.to_string())?;
+        *byte = u8::from_str_radix(&s[i * 2..i * 2 + 2], 16).map_err(|e| e.to_string())?;
     }
     Ok(out)
 }
@@ -66,7 +68,8 @@ fn hex_to_bytes16(s: &str) -> Result<[u8; 16], JsValue> {
 /// Serialize using BigInt-aware serializer to avoid u64 precision loss.
 fn to_js<T: Serialize>(v: &T) -> Result<JsValue, JsValue> {
     let ser = serde_wasm_bindgen::Serializer::new().serialize_large_number_types_as_bigints(true);
-    v.serialize(&ser).map_err(|e| JsValue::from_str(&e.to_string()))
+    v.serialize(&ser)
+        .map_err(|e| JsValue::from_str(&e.to_string()))
 }
 
 // ---------------------------------------------------------------------------
@@ -143,8 +146,16 @@ enum_convert!(SegmentKindWasm <=> neural_trader_replay::SegmentKind {
 #[wasm_bindgen]
 #[derive(Clone, Copy, Debug)]
 pub enum NodeKindWasm {
-    Symbol = 0, Venue = 1, PriceLevel = 2, Order = 3, Trade = 4,
-    Event = 5, Participant = 6, TimeBucket = 7, Regime = 8, StrategyState = 9,
+    Symbol = 0,
+    Venue = 1,
+    PriceLevel = 2,
+    Order = 3,
+    Trade = 4,
+    Event = 5,
+    Participant = 6,
+    TimeBucket = 7,
+    Regime = 8,
+    StrategyState = 9,
 }
 enum_convert!(NodeKindWasm <=> neural_trader_core::NodeKind {
     Symbol, Venue, PriceLevel, Order, Trade, Event, Participant,
@@ -154,9 +165,18 @@ enum_convert!(NodeKindWasm <=> neural_trader_core::NodeKind {
 #[wasm_bindgen]
 #[derive(Clone, Copy, Debug)]
 pub enum EdgeKindWasm {
-    AtLevel = 0, NextTick = 1, Generated = 2, Matched = 3, ModifiedFrom = 4,
-    CanceledBy = 5, BelongsToSymbol = 6, OnVenue = 7, InWindow = 8,
-    CorrelatedWith = 9, InRegime = 10, AffectsState = 11,
+    AtLevel = 0,
+    NextTick = 1,
+    Generated = 2,
+    Matched = 3,
+    ModifiedFrom = 4,
+    CanceledBy = 5,
+    BelongsToSymbol = 6,
+    OnVenue = 7,
+    InWindow = 8,
+    CorrelatedWith = 9,
+    InRegime = 10,
+    AffectsState = 11,
 }
 enum_convert!(EdgeKindWasm <=> neural_trader_core::EdgeKind {
     AtLevel, NextTick, Generated, Matched, ModifiedFrom, CanceledBy,
@@ -774,11 +794,7 @@ impl ReservoirStoreWasm {
 
     /// Retrieve segments matching a symbol, returned as JSON array.
     #[wasm_bindgen(js_name = "retrieveBySymbol")]
-    pub fn retrieve_by_symbol(
-        &self,
-        symbol_id: u32,
-        limit: usize,
-    ) -> Result<JsValue, JsValue> {
+    pub fn retrieve_by_symbol(&self, symbol_id: u32, limit: usize) -> Result<JsValue, JsValue> {
         let query = neural_trader_replay::MemoryQuery {
             symbol_id,
             embedding: vec![],

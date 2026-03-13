@@ -67,11 +67,7 @@ impl QuantizedDepthwiseConv2d {
                     max_abs = max_abs.max(weights[idx].abs());
                 }
             }
-            weight_scales[c] = if max_abs > 0.0 {
-                max_abs / 127.0
-            } else {
-                1.0
-            };
+            weight_scales[c] = if max_abs > 0.0 { max_abs / 127.0 } else { 1.0 };
         }
 
         // Quantize weights
@@ -88,7 +84,9 @@ impl QuantizedDepthwiseConv2d {
         }
 
         // Pre-compute bias in i32 accumulator space
-        let bias_f32 = bias.map(|b| b.to_vec()).unwrap_or_else(|| vec![0.0; channels]);
+        let bias_f32 = bias
+            .map(|b| b.to_vec())
+            .unwrap_or_else(|| vec![0.0; channels]);
         let mut bias_q = vec![0i32; channels];
 
         for c in 0..channels {
@@ -129,7 +127,7 @@ impl QuantizedDepthwiseConv2d {
         if input_shape.len() != 4 {
             return Err(CnnError::invalid_shape(
                 "4D input (NHWC)",
-                format!("{}D", input_shape.len())
+                format!("{}D", input_shape.len()),
             ));
         }
 
@@ -141,7 +139,7 @@ impl QuantizedDepthwiseConv2d {
         if in_c != self.channels {
             return Err(CnnError::invalid_shape(
                 format!("{} channels", self.channels),
-                format!("{} channels", in_c)
+                format!("{} channels", in_c),
             ));
         }
 
@@ -162,17 +160,17 @@ impl QuantizedDepthwiseConv2d {
                 input_slice,
                 input_zero_point as i32,
                 output_slice,
-                in_h, in_w, out_h, out_w,
+                in_h,
+                in_w,
+                out_h,
+                out_w,
             );
         }
 
         // Dequantize to f32
         let output_f32 = self.dequantize_output(&output_i32, input_scale);
 
-        Tensor::from_data(
-            output_f32,
-            &[batch, out_h, out_w, self.channels],
-        )
+        Tensor::from_data(output_f32, &[batch, out_h, out_w, self.channels])
     }
 
     /// Scalar depthwise convolution implementation
@@ -221,7 +219,8 @@ impl QuantizedDepthwiseConv2d {
                                 let input_idx = (ih * in_w + iw) * self.channels + c;
                                 let weight_idx = c * ks * ks + kh * ks + kw;
 
-                                acc += (input[input_idx] as i32) * (self.weights_q[weight_idx] as i32);
+                                acc +=
+                                    (input[input_idx] as i32) * (self.weights_q[weight_idx] as i32);
                             }
                         }
                     }
@@ -277,15 +276,8 @@ mod tests {
         let kernel_size = 3;
         let weights = vec![0.1f32; channels * kernel_size * kernel_size];
 
-        let qconv = QuantizedDepthwiseConv2d::from_fp32(
-            channels,
-            kernel_size,
-            &weights,
-            None,
-            1,
-            1,
-            0.01,
-        );
+        let qconv =
+            QuantizedDepthwiseConv2d::from_fp32(channels, kernel_size, &weights, None, 1, 1, 0.01);
 
         let input = vec![128u8; 1 * 8 * 8 * channels];
         let input_shape = &[1, 8, 8, channels];

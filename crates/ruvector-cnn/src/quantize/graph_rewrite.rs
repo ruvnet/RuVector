@@ -329,9 +329,19 @@ pub fn insert_qdq_nodes(
                 );
 
                 // Reconnect: input → Q → node
-                graph.nodes.get_mut(&input_id).unwrap().outputs.retain(|&x| x != node_id);
+                graph
+                    .nodes
+                    .get_mut(&input_id)
+                    .unwrap()
+                    .outputs
+                    .retain(|&x| x != node_id);
                 graph.nodes.get_mut(&input_id).unwrap().outputs.push(q_id);
-                graph.nodes.get_mut(&node_id).unwrap().inputs.retain(|&x| x != input_id);
+                graph
+                    .nodes
+                    .get_mut(&node_id)
+                    .unwrap()
+                    .inputs
+                    .retain(|&x| x != input_id);
                 graph.nodes.get_mut(&node_id).unwrap().inputs.push(q_id);
                 graph.nodes.get_mut(&q_id).unwrap().inputs.push(input_id);
                 graph.nodes.get_mut(&q_id).unwrap().outputs.push(node_id);
@@ -363,9 +373,19 @@ pub fn insert_qdq_nodes(
                 );
 
                 // Reconnect: node → DQ → output
-                graph.nodes.get_mut(&node_id).unwrap().outputs.retain(|&x| x != output_id);
+                graph
+                    .nodes
+                    .get_mut(&node_id)
+                    .unwrap()
+                    .outputs
+                    .retain(|&x| x != output_id);
                 graph.nodes.get_mut(&node_id).unwrap().outputs.push(dq_id);
-                graph.nodes.get_mut(&output_id).unwrap().inputs.retain(|&x| x != node_id);
+                graph
+                    .nodes
+                    .get_mut(&output_id)
+                    .unwrap()
+                    .inputs
+                    .retain(|&x| x != node_id);
                 graph.nodes.get_mut(&output_id).unwrap().inputs.push(dq_id);
                 graph.nodes.get_mut(&dq_id).unwrap().inputs.push(node_id);
                 graph.nodes.get_mut(&dq_id).unwrap().outputs.push(output_id);
@@ -741,13 +761,16 @@ mod tests {
         let mut graph = ComputationGraph::new();
 
         let id1 = graph.add_node(NodeType::Input, NodeParams::None);
-        let id2 = graph.add_node(NodeType::Conv2d, NodeParams::Conv2d {
-            weights: vec![1.0; 4],
-            bias: None,
-            in_channels: 1,
-            out_channels: 1,
-            kernel_size: 2,
-        });
+        let id2 = graph.add_node(
+            NodeType::Conv2d,
+            NodeParams::Conv2d {
+                weights: vec![1.0; 4],
+                bias: None,
+                in_channels: 1,
+                out_channels: 1,
+                kernel_size: 2,
+            },
+        );
         let id3 = graph.add_node(NodeType::Output, NodeParams::None);
 
         graph.connect(id1, id2);

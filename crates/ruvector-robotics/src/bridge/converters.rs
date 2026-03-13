@@ -90,10 +90,7 @@ pub fn robot_state_to_vector(state: &RobotState) -> Vec<f64> {
 }
 
 /// Reconstruct a [`RobotState`] from a 9-element vector and a timestamp.
-pub fn vector_to_robot_state(
-    v: &[f64],
-    timestamp: i64,
-) -> Result<RobotState, ConversionError> {
+pub fn vector_to_robot_state(v: &[f64], timestamp: i64) -> Result<RobotState, ConversionError> {
     if v.len() != 9 {
         return Err(ConversionError::LengthMismatch {
             expected: 9,
@@ -144,9 +141,7 @@ pub fn occupancy_grid_to_vectors(grid: &OccupancyGrid) -> Vec<Vec<f32>> {
 type NodeFeatures = Vec<Vec<f64>>;
 type EdgeList = Vec<(usize, usize, f64)>;
 
-pub fn scene_graph_to_adjacency(
-    scene: &SceneGraph,
-) -> (NodeFeatures, EdgeList) {
+pub fn scene_graph_to_adjacency(scene: &SceneGraph) -> (NodeFeatures, EdgeList) {
     let nodes: Vec<Vec<f64>> = scene
         .objects
         .iter()
@@ -208,7 +203,13 @@ mod tests {
         let mut cloud = PointCloud::new(vec![Point3D::new(1.0, 2.0, 3.0)], 0);
         cloud.intensities = vec![];
         let err = point_cloud_to_vectors_with_intensity(&cloud).unwrap_err();
-        assert_eq!(err, ConversionError::LengthMismatch { expected: 1, got: 0 });
+        assert_eq!(
+            err,
+            ConversionError::LengthMismatch {
+                expected: 1,
+                got: 0
+            }
+        );
     }
 
     #[test]
@@ -231,7 +232,13 @@ mod tests {
     fn test_vectors_to_point_cloud_wrong_dim() {
         let vecs = vec![vec![1.0, 2.0]];
         let err = vectors_to_point_cloud(&vecs, 0).unwrap_err();
-        assert_eq!(err, ConversionError::LengthMismatch { expected: 3, got: 2 });
+        assert_eq!(
+            err,
+            ConversionError::LengthMismatch {
+                expected: 3,
+                got: 2
+            }
+        );
     }
 
     #[test]
@@ -269,7 +276,13 @@ mod tests {
     fn test_vector_to_robot_state_wrong_len() {
         let v = vec![1.0, 2.0, 3.0];
         let err = vector_to_robot_state(&v, 0).unwrap_err();
-        assert_eq!(err, ConversionError::LengthMismatch { expected: 9, got: 3 });
+        assert_eq!(
+            err,
+            ConversionError::LengthMismatch {
+                expected: 9,
+                got: 3
+            }
+        );
     }
 
     #[test]
@@ -383,7 +396,10 @@ mod tests {
 
     #[test]
     fn test_conversion_error_display() {
-        let e1 = ConversionError::LengthMismatch { expected: 3, got: 5 };
+        let e1 = ConversionError::LengthMismatch {
+            expected: 3,
+            got: 5,
+        };
         assert!(format!("{e1}").contains("3") && format!("{e1}").contains("5"));
         assert!(format!("{}", ConversionError::EmptyInput).contains("empty"));
     }

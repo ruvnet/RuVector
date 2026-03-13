@@ -379,7 +379,13 @@ pub unsafe fn depthwise_conv_3x3_neon(
 /// NEON global average pooling
 #[cfg(target_arch = "aarch64")]
 #[inline]
-pub unsafe fn global_avg_pool_neon(input: &[f32], output: &mut [f32], h: usize, w: usize, c: usize) {
+pub unsafe fn global_avg_pool_neon(
+    input: &[f32],
+    output: &mut [f32],
+    h: usize,
+    w: usize,
+    c: usize,
+) {
     let spatial_size = h * w;
     let inv_spatial = 1.0 / spatial_size as f32;
     let inv_spatial_v = vdupq_n_f32(inv_spatial);

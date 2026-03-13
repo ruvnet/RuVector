@@ -85,7 +85,7 @@ impl QuantizationParams {
                 // Asymmetric: Map [min_val, max_val] to [-127, 127] (255 bins)
                 // to maintain compatibility with i8 storage
                 let scale = if max_val > min_val {
-                    (max_val - min_val) / 254.0  // Use 254 to avoid clipping at edges
+                    (max_val - min_val) / 254.0 // Use 254 to avoid clipping at edges
                 } else {
                     1.0
                 };
@@ -230,8 +230,8 @@ mod tests {
 
     #[test]
     fn test_symmetric_minmax() {
-        let params = QuantizationParams::from_minmax(-10.0, 10.0, QuantizationMode::Symmetric)
-            .unwrap();
+        let params =
+            QuantizationParams::from_minmax(-10.0, 10.0, QuantizationMode::Symmetric).unwrap();
 
         assert_eq!(params.zero_point, 0);
         assert!(params.scale > 0.0);
@@ -244,8 +244,8 @@ mod tests {
 
     #[test]
     fn test_asymmetric_minmax() {
-        let params = QuantizationParams::from_minmax(0.0, 10.0, QuantizationMode::Asymmetric)
-            .unwrap();
+        let params =
+            QuantizationParams::from_minmax(0.0, 10.0, QuantizationMode::Asymmetric).unwrap();
 
         // For [0, 10] range, zero_point should map 0.0 to a quantized value
         assert!(params.scale > 0.0);
@@ -257,8 +257,8 @@ mod tests {
 
     #[test]
     fn test_quantize_dequantize_symmetric() {
-        let params = QuantizationParams::from_minmax(-10.0, 10.0, QuantizationMode::Symmetric)
-            .unwrap();
+        let params =
+            QuantizationParams::from_minmax(-10.0, 10.0, QuantizationMode::Symmetric).unwrap();
 
         let value = 5.0f32;
         let quantized = params.quantize_value(value);
@@ -270,8 +270,8 @@ mod tests {
 
     #[test]
     fn test_quantize_dequantize_asymmetric() {
-        let params = QuantizationParams::from_minmax(0.0, 10.0, QuantizationMode::Asymmetric)
-            .unwrap();
+        let params =
+            QuantizationParams::from_minmax(0.0, 10.0, QuantizationMode::Asymmetric).unwrap();
 
         let value = 5.0f32;
         let quantized = params.quantize_value(value);
@@ -282,8 +282,8 @@ mod tests {
 
     #[test]
     fn test_zero_value_quantization() {
-        let params = QuantizationParams::from_minmax(-10.0, 10.0, QuantizationMode::Symmetric)
-            .unwrap();
+        let params =
+            QuantizationParams::from_minmax(-10.0, 10.0, QuantizationMode::Symmetric).unwrap();
 
         let quantized = params.quantize_value(0.0);
         assert_eq!(quantized, 0);
@@ -294,8 +294,8 @@ mod tests {
 
     #[test]
     fn test_clipping() {
-        let params = QuantizationParams::from_minmax(-1.0, 1.0, QuantizationMode::Symmetric)
-            .unwrap();
+        let params =
+            QuantizationParams::from_minmax(-1.0, 1.0, QuantizationMode::Symmetric).unwrap();
 
         // Values outside range should be clipped
         let large = params.quantize_value(1000.0);
@@ -313,8 +313,8 @@ mod tests {
 
     #[test]
     fn test_percentile_constructor() {
-        let params = QuantizationParams::from_percentile(-9.5, 9.5, QuantizationMode::Symmetric)
-            .unwrap();
+        let params =
+            QuantizationParams::from_percentile(-9.5, 9.5, QuantizationMode::Symmetric).unwrap();
 
         assert_eq!(params.zero_point, 0);
         params.validate().unwrap();
@@ -322,8 +322,8 @@ mod tests {
 
     #[test]
     fn test_validation_negative_scale() {
-        let mut params = QuantizationParams::from_minmax(-10.0, 10.0, QuantizationMode::Symmetric)
-            .unwrap();
+        let mut params =
+            QuantizationParams::from_minmax(-10.0, 10.0, QuantizationMode::Symmetric).unwrap();
 
         params.scale = -1.0;
         assert!(params.validate().is_err());
@@ -331,8 +331,8 @@ mod tests {
 
     #[test]
     fn test_validation_zero_scale() {
-        let mut params = QuantizationParams::from_minmax(-10.0, 10.0, QuantizationMode::Symmetric)
-            .unwrap();
+        let mut params =
+            QuantizationParams::from_minmax(-10.0, 10.0, QuantizationMode::Symmetric).unwrap();
 
         params.scale = 0.0;
         assert!(params.validate().is_err());
@@ -340,8 +340,8 @@ mod tests {
 
     #[test]
     fn test_validation_invalid_qmin_qmax() {
-        let mut params = QuantizationParams::from_minmax(-10.0, 10.0, QuantizationMode::Symmetric)
-            .unwrap();
+        let mut params =
+            QuantizationParams::from_minmax(-10.0, 10.0, QuantizationMode::Symmetric).unwrap();
 
         params.qmin = 127;
         params.qmax = -127;
@@ -350,8 +350,8 @@ mod tests {
 
     #[test]
     fn test_validation_zero_point_out_of_range() {
-        let mut params = QuantizationParams::from_minmax(-10.0, 10.0, QuantizationMode::Symmetric)
-            .unwrap();
+        let mut params =
+            QuantizationParams::from_minmax(-10.0, 10.0, QuantizationMode::Symmetric).unwrap();
 
         params.zero_point = 200;
         assert!(params.validate().is_err());

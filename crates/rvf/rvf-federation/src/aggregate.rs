@@ -108,12 +108,15 @@ impl FederatedAggregator {
         }
 
         // Compute mean and std of L2 norms
-        let norms: Vec<f64> = self.contributions.iter()
+        let norms: Vec<f64> = self
+            .contributions
+            .iter()
             .map(|c| c.weights.iter().map(|w| w * w).sum::<f64>().sqrt())
             .collect();
 
         let mean_norm = norms.iter().sum::<f64>() / norms.len() as f64;
-        let variance = norms.iter().map(|n| (n - mean_norm).powi(2)).sum::<f64>() / norms.len() as f64;
+        let variance =
+            norms.iter().map(|n| (n - mean_norm).powi(2)).sum::<f64>() / norms.len() as f64;
         let std_dev = variance.sqrt();
 
         if std_dev < 1e-10 {
@@ -162,14 +165,17 @@ impl FederatedAggregator {
         let participation_count = self.contributions.len() as u32;
 
         // Compute loss stats
-        let losses: Vec<f64> = self.contributions.iter()
+        let losses: Vec<f64> = self
+            .contributions
+            .iter()
             .map(|c| {
                 // Use inverse quality as a proxy for loss
                 1.0 - c.quality_weight.clamp(0.0, 1.0)
             })
             .collect();
         let mean_loss = losses.iter().sum::<f64>() / losses.len() as f64;
-        let loss_variance = losses.iter().map(|l| (l - mean_loss).powi(2)).sum::<f64>() / losses.len() as f64;
+        let loss_variance =
+            losses.iter().map(|l| (l - mean_loss).powi(2)).sum::<f64>() / losses.len() as f64;
 
         self.contributions.clear();
 
@@ -188,7 +194,9 @@ impl FederatedAggregator {
 
     /// FedAvg: weighted average by trajectory count.
     fn fedavg(&self, dim: usize) -> (Vec<f64>, Vec<f64>) {
-        let total_trajectories: f64 = self.contributions.iter()
+        let total_trajectories: f64 = self
+            .contributions
+            .iter()
             .map(|c| c.trajectory_count as f64)
             .sum();
 
@@ -211,12 +219,19 @@ impl FederatedAggregator {
         // Confidence = inverse of variance across contributions per dimension
         for i in 0..dim {
             let mean = avg[i];
-            let var: f64 = self.contributions.iter()
+            let var: f64 = self
+                .contributions
+                .iter()
                 .map(|c| {
-                    let v = if i < c.weights.len() { c.weights[i] } else { 0.0 };
+                    let v = if i < c.weights.len() {
+                        c.weights[i]
+                    } else {
+                        0.0
+                    };
                     (v - mean).powi(2)
                 })
-                .sum::<f64>() / self.contributions.len() as f64;
+                .sum::<f64>()
+                / self.contributions.len() as f64;
             confidences[i] = 1.0 / (1.0 + var);
         }
 
@@ -255,12 +270,19 @@ impl FederatedAggregator {
 
         for i in 0..dim {
             let mean = avg[i];
-            let var: f64 = self.contributions.iter()
+            let var: f64 = self
+                .contributions
+                .iter()
                 .map(|c| {
-                    let v = if i < c.weights.len() { c.weights[i] } else { 0.0 };
+                    let v = if i < c.weights.len() {
+                        c.weights[i]
+                    } else {
+                        0.0
+                    };
                     (v - mean).powi(2)
                 })
-                .sum::<f64>() / self.contributions.len() as f64;
+                .sum::<f64>()
+                / self.contributions.len() as f64;
             confidences[i] = 1.0 / (1.0 + var);
         }
 
@@ -272,7 +294,12 @@ impl FederatedAggregator {
 mod tests {
     use super::*;
 
-    fn make_contribution(name: &str, weights: Vec<f64>, quality: f64, trajectories: u64) -> Contribution {
+    fn make_contribution(
+        name: &str,
+        weights: Vec<f64>,
+        quality: f64,
+        trajectories: u64,
+    ) -> Contribution {
         Contribution {
             contributor: name.to_string(),
             weights,
@@ -319,8 +346,9 @@ mod tests {
         agg_avg.add_contribution(make_contribution("b", vec![10.0], 1.0, 100));
         let avg_result = agg_avg.aggregate().unwrap();
 
-        let mut agg_prox = FederatedAggregator::new("test".into(), AggregationStrategy::FedProx { mu: 50 })
-            .with_min_contributions(2);
+        let mut agg_prox =
+            FederatedAggregator::new("test".into(), AggregationStrategy::FedProx { mu: 50 })
+                .with_min_contributions(2);
         agg_prox.add_contribution(make_contribution("a", vec![10.0], 1.0, 100));
         agg_prox.add_contribution(make_contribution("b", vec![10.0], 1.0, 100));
         let prox_result = agg_prox.aggregate().unwrap();

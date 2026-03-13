@@ -6,7 +6,6 @@
 /// - Predicting future states via constant-velocity extrapolation
 /// - Updating occupancy cells and checking path clearance
 /// - Removing stale objects by age threshold
-
 use ruvector_robotics::cognitive::{TrackedObject, WorldModel};
 
 fn main() {
@@ -60,9 +59,14 @@ fn main() {
     for obj in &objects {
         println!(
             "    id={} '{}': pos=({:.1},{:.1},{:.1}), vel=({:.1},{:.1},{:.1}), conf={:.2}",
-            obj.id, obj.label,
-            obj.position[0], obj.position[1], obj.position[2],
-            obj.velocity[0], obj.velocity[1], obj.velocity[2],
+            obj.id,
+            obj.label,
+            obj.position[0],
+            obj.position[1],
+            obj.position[2],
+            obj.velocity[0],
+            obj.velocity[1],
+            obj.velocity[2],
             obj.confidence
         );
     }
@@ -104,7 +108,11 @@ fn main() {
         let clear = world.is_path_clear(*from, *to);
         println!(
             "    ({:>2},{:>2}) -> ({:>2},{:>2}) [{}]: {}",
-            from[0], from[1], to[0], to[1], label,
+            from[0],
+            from[1],
+            to[0],
+            to[1],
+            label,
             if clear { "CLEAR" } else { "BLOCKED" }
         );
     }
@@ -128,16 +136,27 @@ fn main() {
     for y in 0..size {
         for x in 0..size {
             if let Some(v) = world.get_occupancy(x, y) {
-                if v >= 0.5 { occupied += 1; }
-                else { free += 1; }
+                if v >= 0.5 {
+                    occupied += 1;
+                } else {
+                    free += 1;
+                }
             }
         }
     }
     let total = size * size;
     println!("[7] Occupancy statistics:");
     println!("    Total cells: {}", total);
-    println!("    Occupied:    {} ({:.1}%)", occupied, 100.0 * occupied as f64 / total as f64);
-    println!("    Free:        {} ({:.1}%)", free, 100.0 * free as f64 / total as f64);
+    println!(
+        "    Occupied:    {} ({:.1}%)",
+        occupied,
+        100.0 * occupied as f64 / total as f64
+    );
+    println!(
+        "    Free:        {} ({:.1}%)",
+        free,
+        100.0 * free as f64 / total as f64
+    );
 
     println!();
     println!("[done] World model example complete.");

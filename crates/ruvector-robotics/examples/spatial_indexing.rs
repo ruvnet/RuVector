@@ -16,11 +16,7 @@ fn main() {
     // Shelves along the x-axis.
     for row in 0..5 {
         for col in 0..10 {
-            points.push(Point3D::new(
-                col as f32 * 2.0,
-                row as f32 * 3.0,
-                0.0,
-            ));
+            points.push(Point3D::new(col as f32 * 2.0, row as f32 * 3.0, 0.0));
         }
     }
     // A few elevated points (items on shelves).

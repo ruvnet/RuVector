@@ -52,7 +52,9 @@ mod ste_tests {
         let half_range = (levels - 1) / 2;
 
         // Quantize: q = round(x / scale)
-        let q = (x / scale).round().clamp(-(half_range as f32) - 1.0, half_range as f32) as i8;
+        let q = (x / scale)
+            .round()
+            .clamp(-(half_range as f32) - 1.0, half_range as f32) as i8;
 
         // Dequantize: x_hat = q * scale
         let x_hat = (q as f32) * scale;
@@ -61,12 +63,7 @@ mod ste_tests {
     }
 
     /// STE backward pass for input gradient
-    fn ste_backward_input(
-        grad_output: f32,
-        x: f32,
-        scale: f32,
-        variant: SteVariant,
-    ) -> f32 {
+    fn ste_backward_input(grad_output: f32, x: f32, scale: f32, variant: SteVariant) -> f32 {
         match variant {
             SteVariant::Standard => {
                 // Standard STE: pass gradient through unchanged
@@ -102,13 +99,7 @@ mod ste_tests {
     }
 
     /// STE backward pass for scale gradient (LSQ variant)
-    fn ste_backward_scale(
-        grad_output: f32,
-        x: f32,
-        scale: f32,
-        q: i8,
-        variant: SteVariant,
-    ) -> f32 {
+    fn ste_backward_scale(grad_output: f32, x: f32, scale: f32, q: i8, variant: SteVariant) -> f32 {
         match variant {
             SteVariant::LearnedStepSize => {
                 // LSQ scale gradient: grad_s = grad_output * (q - x/s) / sqrt(n_levels)
@@ -137,7 +128,8 @@ mod ste_tests {
                 assert!(
                     (grad_in - grad_out).abs() < EPSILON,
                     "Standard STE should pass gradient: grad_out={}, got grad_in={}",
-                    grad_out, grad_in
+                    grad_out,
+                    grad_in
                 );
             }
         }
@@ -154,7 +146,8 @@ mod ste_tests {
             assert!(
                 (grad_in - grad_out).abs() < EPSILON,
                 "Standard STE should ignore scale: scale={}, grad_in={}",
-                scale, grad_in
+                scale,
+                grad_in
             );
         }
     }
@@ -175,7 +168,8 @@ mod ste_tests {
             assert!(
                 (grad_in - grad_out).abs() < EPSILON,
                 "Clipped STE should pass gradient for x={}: got {}",
-                x, grad_in
+                x,
+                grad_in
             );
         }
     }
@@ -192,7 +186,8 @@ mod ste_tests {
             assert!(
                 grad_in.abs() < EPSILON,
                 "Clipped STE should zero gradient for x={}: got {}",
-                x, grad_in
+                x,
+                grad_in
             );
         }
     }
@@ -238,7 +233,8 @@ mod ste_tests {
             assert!(
                 (grad_in - grad_out).abs() < EPSILON,
                 "LSQ should pass gradient for x={}: got {}",
-                x, grad_in
+                x,
+                grad_in
             );
         }
 
@@ -248,7 +244,8 @@ mod ste_tests {
             assert!(
                 grad_in.abs() < EPSILON,
                 "LSQ should zero gradient for x={}: got {}",
-                x, grad_in
+                x,
+                grad_in
             );
         }
     }
@@ -276,7 +273,9 @@ mod ste_tests {
             assert!(
                 (grad_s - expected).abs() < 0.1,
                 "LSQ scale gradient for x={}: expected {}, got {}",
-                x, expected, grad_s
+                x,
+                expected,
+                grad_s
             );
         }
     }
@@ -364,7 +363,8 @@ mod ste_tests {
             assert!(
                 grad_in >= 0.0 && grad_in <= grad_out,
                 "EWGS gradient out of range for x={}: got {}",
-                x, grad_in
+                x,
+                grad_in
             );
         }
     }
@@ -383,7 +383,10 @@ mod ste_tests {
             assert!(
                 (grad_pos - grad_neg).abs() < EPSILON,
                 "EWGS should be symmetric: x={} -> {}, x={} -> {}",
-                abs_x, grad_pos, -abs_x, grad_neg
+                abs_x,
+                grad_pos,
+                -abs_x,
+                grad_neg
             );
         }
     }
@@ -413,7 +416,9 @@ mod ste_tests {
             assert!(
                 (grad_in - expected).abs() < EPSILON,
                 "PyTorch ref Standard STE: x={}, expected={}, got={}",
-                x, expected, grad_in
+                x,
+                expected,
+                grad_in
             );
         }
     }
@@ -424,14 +429,14 @@ mod ste_tests {
         let variant = SteVariant::Clipped;
         let test_cases = [
             // (x, scale, grad_out, expected_grad_in)
-            (0.5, 1.0, 1.0, 1.0),   // Inside range
-            (-0.5, 1.0, 1.0, 1.0),  // Inside range
-            (1.0, 1.0, 1.0, 1.0),   // At boundary
-            (-1.0, 1.0, 1.0, 1.0),  // At boundary
-            (1.5, 1.0, 1.0, 0.0),   // Outside range
-            (-1.5, 1.0, 1.0, 0.0),  // Outside range
-            (0.5, 0.5, 1.0, 1.0),   // Inside range (x/scale = 1)
-            (1.0, 0.5, 1.0, 0.0),   // Outside range (x/scale = 2)
+            (0.5, 1.0, 1.0, 1.0),  // Inside range
+            (-0.5, 1.0, 1.0, 1.0), // Inside range
+            (1.0, 1.0, 1.0, 1.0),  // At boundary
+            (-1.0, 1.0, 1.0, 1.0), // At boundary
+            (1.5, 1.0, 1.0, 0.0),  // Outside range
+            (-1.5, 1.0, 1.0, 0.0), // Outside range
+            (0.5, 0.5, 1.0, 1.0),  // Inside range (x/scale = 1)
+            (1.0, 0.5, 1.0, 0.0),  // Outside range (x/scale = 2)
         ];
 
         for (x, scale, grad_out, expected) in test_cases {
@@ -439,7 +444,10 @@ mod ste_tests {
             assert!(
                 (grad_in - expected).abs() < EPSILON,
                 "PyTorch ref Clipped STE: x={}, scale={}, expected={}, got={}",
-                x, scale, expected, grad_in
+                x,
+                scale,
+                expected,
+                grad_in
             );
         }
     }
@@ -449,10 +457,10 @@ mod ste_tests {
         // LSQ paper: gradient passes through in [-Qn, Qp] range
         let variant = SteVariant::LearnedStepSize;
         let test_cases = [
-            (0.0, 1.0, 1.0, 1.0),  // Center
-            (2.0, 1.0, 1.0, 1.0),  // Within range
-            (4.0, 1.0, 1.0, 1.0),  // At boundary
-            (5.0, 1.0, 1.0, 0.0),  // Outside range
+            (0.0, 1.0, 1.0, 1.0), // Center
+            (2.0, 1.0, 1.0, 1.0), // Within range
+            (4.0, 1.0, 1.0, 1.0), // At boundary
+            (5.0, 1.0, 1.0, 0.0), // Outside range
         ];
 
         for (x, scale, grad_out, expected) in test_cases {
@@ -460,7 +468,9 @@ mod ste_tests {
             assert!(
                 (grad_in - expected).abs() < EPSILON,
                 "PyTorch ref LSQ input: x={}, expected={}, got={}",
-                x, expected, grad_in
+                x,
+                expected,
+                grad_in
             );
         }
     }
@@ -489,7 +499,10 @@ mod ste_tests {
             assert!(
                 (grad_chain - upstream_grad * grad_1).abs() < EPSILON,
                 "{:?}: chain rule violated: {} * {} != {}",
-                variant, upstream_grad, grad_1, grad_chain
+                variant,
+                upstream_grad,
+                grad_1,
+                grad_chain
             );
         }
     }
@@ -512,7 +525,8 @@ mod ste_tests {
         assert!(
             (accumulated - expected).abs() < EPSILON,
             "Gradient accumulation: expected {}, got {}",
-            expected, accumulated
+            expected,
+            accumulated
         );
     }
 
@@ -548,7 +562,8 @@ mod ste_tests {
             assert!(
                 numerical_grad.abs() < 1.0,
                 "Numerical gradient should be near 0 away from boundaries at x={}: {}",
-                x, numerical_grad
+                x,
+                numerical_grad
             );
         }
 
@@ -585,7 +600,8 @@ mod ste_tests {
             assert!(
                 grad_in.abs() < EPSILON,
                 "{:?}: zero upstream should give zero local: got {}",
-                variant, grad_in
+                variant,
+                grad_in
             );
         }
     }
@@ -613,7 +629,8 @@ mod ste_tests {
             assert!(
                 grad_in.is_finite(),
                 "{:?}: gradient should be finite with small scale: got {}",
-                variant, grad_in
+                variant,
+                grad_in
             );
         }
     }
@@ -629,7 +646,8 @@ mod ste_tests {
             assert!(
                 grad_in.is_finite(),
                 "{:?}: gradient should be finite with large scale: got {}",
-                variant, grad_in
+                variant,
+                grad_in
             );
         }
     }
@@ -672,7 +690,8 @@ mod ste_tests {
         assert!(
             final_error <= initial_error * 1.1 || final_error < 0.5,
             "Training should reduce error: initial={}, final={}",
-            initial_error, final_error
+            initial_error,
+            final_error
         );
     }
 

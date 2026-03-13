@@ -190,7 +190,8 @@ mod tests {
         let mut bn = BatchNorm::new(2);
 
         // Set mean=[1, 2], var=[1, 4]
-        bn.set_running_stats(vec![1.0, 2.0], vec![1.0, 4.0]).unwrap();
+        bn.set_running_stats(vec![1.0, 2.0], vec![1.0, 4.0])
+            .unwrap();
 
         // Input: [[1, 2], [3, 4]] at each spatial location
         let input = Tensor::from_data(vec![1.0, 2.0, 3.0, 4.0], &[1, 2, 1, 2]).unwrap();

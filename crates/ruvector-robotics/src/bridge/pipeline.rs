@@ -185,11 +185,7 @@ impl PerceptionPipeline {
         let n = self.position_history.len();
         let prev = &self.position_history[n - 2];
         let curr = &self.position_history[n - 1];
-        let vel = [
-            curr[0] - prev[0],
-            curr[1] - prev[1],
-            curr[2] - prev[2],
-        ];
+        let vel = [curr[0] - prev[0], curr[1] - prev[1], curr[2] - prev[2]];
 
         // Predict 5 steps into the future with constant velocity.
         let steps = 5;
@@ -215,11 +211,7 @@ mod tests {
     use super::*;
     use crate::bridge::{Point3D, PointCloud, RobotState, SensorFrame};
 
-    fn make_frame(
-        points: Vec<Point3D>,
-        position: [f64; 3],
-        ts: i64,
-    ) -> SensorFrame {
+    fn make_frame(points: Vec<Point3D>, position: [f64; 3], ts: i64) -> SensorFrame {
         SensorFrame {
             cloud: Some(PointCloud::new(points, ts)),
             state: Some(RobotState {
@@ -272,11 +264,7 @@ mod tests {
             ..Default::default()
         };
         let mut pipeline = PerceptionPipeline::new(config);
-        let frame = make_frame(
-            vec![Point3D::new(10.0, 10.0, 10.0)],
-            [0.0, 0.0, 0.0],
-            1000,
-        );
+        let frame = make_frame(vec![Point3D::new(10.0, 10.0, 10.0)], [0.0, 0.0, 0.0], 1000);
         let result = pipeline.process_frame(&frame);
         assert!(result.obstacles.is_empty());
     }
@@ -335,10 +323,7 @@ mod tests {
         };
         let mut pipeline = PerceptionPipeline::new(config);
         let frame = make_frame(
-            vec![
-                Point3D::new(1.0, 0.0, 0.0),
-                Point3D::new(2.0, 0.0, 0.0),
-            ],
+            vec![Point3D::new(1.0, 0.0, 0.0), Point3D::new(2.0, 0.0, 0.0)],
             [0.0, 0.0, 0.0],
             0,
         );
@@ -368,11 +353,7 @@ mod tests {
         };
         let mut pipeline = PerceptionPipeline::new(config);
 
-        let f1 = make_frame(
-            vec![Point3D::new(1.0, 0.0, 0.0)],
-            [0.0, 0.0, 0.0],
-            0,
-        );
+        let f1 = make_frame(vec![Point3D::new(1.0, 0.0, 0.0)], [0.0, 0.0, 0.0], 0);
         pipeline.process_frame(&f1);
         assert_eq!(pipeline.index().len(), 1);
 

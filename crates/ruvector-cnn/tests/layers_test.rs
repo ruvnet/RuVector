@@ -7,9 +7,8 @@
 //! - Pooling operations
 
 use ruvector_cnn::layers::{
-    Activation, ActivationType, BatchNorm, Conv2d, DepthwiseSeparableConv,
-    GlobalAvgPool, HardSwish, Layer, MaxPool2d, AvgPool2d, ReLU, ReLU6,
-    Sigmoid, Swish, TensorShape,
+    Activation, ActivationType, AvgPool2d, BatchNorm, Conv2d, DepthwiseSeparableConv,
+    GlobalAvgPool, HardSwish, Layer, MaxPool2d, ReLU, ReLU6, Sigmoid, Swish, TensorShape,
 };
 use ruvector_cnn::{simd, Tensor};
 
@@ -160,7 +159,8 @@ fn test_batchnorm_with_running_stats() {
     let mut bn = BatchNorm::new(2);
 
     // Set mean=[1, 2], var=[1, 4]
-    bn.set_running_stats(vec![1.0, 2.0], vec![1.0, 4.0]).unwrap();
+    bn.set_running_stats(vec![1.0, 2.0], vec![1.0, 4.0])
+        .unwrap();
 
     let input = Tensor::from_data(vec![1.0, 2.0, 3.0, 4.0], &[1, 2, 1, 2]).unwrap();
     let output = bn.forward(&input).unwrap();
@@ -318,7 +318,7 @@ fn test_global_avg_pool_computes_average() {
     // Create input where channel 0 = 1, channel 1 = 2
     let mut data = vec![0.0; 2 * 2 * 2];
     for i in 0..4 {
-        data[i * 2] = 1.0;     // channel 0
+        data[i * 2] = 1.0; // channel 0
         data[i * 2 + 1] = 2.0; // channel 1
     }
     let input = Tensor::from_data(data, &[1, 2, 2, 2]).unwrap();

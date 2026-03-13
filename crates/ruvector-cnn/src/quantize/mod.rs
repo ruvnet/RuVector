@@ -21,13 +21,12 @@ pub mod calibration;
 pub mod graph_rewrite;
 
 // Phase 1 exports
-pub use params::{QuantizationParams as QuantParams, QuantizationScheme, QuantizationMode};
-pub use tensor::{QuantizedTensor, QuantizationMetadata};
+pub use params::{QuantizationMode, QuantizationParams as QuantParams, QuantizationScheme};
+pub use tensor::{QuantizationMetadata, QuantizedTensor};
 
 // Existing exports (kept for backward compatibility)
 pub use calibration::{CalibrationHistogram, QuantizationParams, Quantizer};
 pub use graph_rewrite::{
-    ComputationGraph, GraphNode, NodeParams, NodeType,
-    fuse_batchnorm_to_conv, fuse_relu, fuse_hardswish, fuse_zp_to_bias,
-    generate_hardswish_lut, insert_qdq_nodes,
+    fuse_batchnorm_to_conv, fuse_hardswish, fuse_relu, fuse_zp_to_bias, generate_hardswish_lut,
+    insert_qdq_nodes, ComputationGraph, GraphNode, NodeParams, NodeType,
 };

@@ -5,7 +5,6 @@
 /// - The perceive -> think -> act -> learn cycle
 /// - Attention threshold adaptation from feedback
 /// - Decision history and cumulative reward tracking
-
 use ruvector_robotics::cognitive::{
     ActionType, CognitiveConfig, CognitiveCore, CognitiveMode, Outcome, Percept,
 };
@@ -35,7 +34,7 @@ fn main() {
     let sensor_data: Vec<(&str, Vec<f64>, f64)> = vec![
         ("lidar", vec![2.0, 1.5, 0.0], 0.9),
         ("camera", vec![-1.0, 3.0, 0.5], 0.85),
-        ("imu", vec![0.1, 0.2], 0.3),        // below threshold -- will be dropped
+        ("imu", vec![0.1, 0.2], 0.3), // below threshold -- will be dropped
         ("lidar", vec![4.0, 0.0, 0.0], 0.95),
         ("camera", vec![0.0, 5.0, 1.0], 0.7),
         ("sonar", vec![1.0, 1.0, 0.0], 0.6),
@@ -59,13 +58,18 @@ fn main() {
         let state = core.perceive(percept);
         println!(
             "  Perceive: source='{}', conf={:.2}, buffered={} [state={:?}]",
-            source, confidence, core.percept_count(), state
+            source,
+            confidence,
+            core.percept_count(),
+            state
         );
 
         // THINK
         if let Some(decision) = core.think() {
             let action_desc = match &decision.action.action {
-                ActionType::Move(pos) => format!("Move({:.1}, {:.1}, {:.1})", pos[0], pos[1], pos[2]),
+                ActionType::Move(pos) => {
+                    format!("Move({:.1}, {:.1}, {:.1})", pos[0], pos[1], pos[2])
+                }
                 ActionType::Wait(ms) => format!("Wait({}ms)", ms),
                 _ => format!("{:?}", decision.action.action),
             };
@@ -88,7 +92,9 @@ fn main() {
             });
             println!(
                 "  Learn:    success={}, reward={:.1}, cumulative={:.4}",
-                success, reward, core.cumulative_reward()
+                success,
+                reward,
+                core.cumulative_reward()
             );
         } else {
             println!("  Think:    no percepts to reason about");
@@ -119,7 +125,10 @@ fn main() {
         timestamp: 0,
     });
     if let Some(decision) = emergency_core.think() {
-        println!("    Priority: {} (max for emergency)", decision.action.priority);
+        println!(
+            "    Priority: {} (max for emergency)",
+            decision.action.priority
+        );
         println!("    Reasoning: {}", decision.reasoning);
     }
 

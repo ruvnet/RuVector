@@ -101,8 +101,7 @@ pub extern "C" fn rvf_load_block(block_ptr: i32, count: i32, dtype: i32) -> i32 
 pub extern "C" fn rvf_distances(metric: i32, result_ptr: i32) -> i32 {
     let (dim, count, dtype) = unsafe {
         let dim = *(DATA_MEMORY.as_ptr().add(TILE_CONFIG_DIM_OFFSET) as *const u32) as usize;
-        let count =
-            *(DATA_MEMORY.as_ptr().add(TILE_CONFIG_COUNT_OFFSET) as *const u32) as usize;
+        let count = *(DATA_MEMORY.as_ptr().add(TILE_CONFIG_COUNT_OFFSET) as *const u32) as usize;
         let dtype = *(DATA_MEMORY.as_ptr().add(TILE_CONFIG_DTYPE_OFFSET) as *const u32);
         (dim, count, dtype)
     };
@@ -201,9 +200,7 @@ pub extern "C" fn rvf_load_sq_params(params_ptr: i32, dim: i32) -> i32 {
 /// Returns 0 on success.
 #[no_mangle]
 pub extern "C" fn rvf_dequant_i8(src_ptr: i32, dst_ptr: i32, count: i32) -> i32 {
-    let dim = unsafe {
-        *(DATA_MEMORY.as_ptr().add(TILE_CONFIG_DIM_OFFSET) as *const u32) as usize
-    };
+    let dim = unsafe { *(DATA_MEMORY.as_ptr().add(TILE_CONFIG_DIM_OFFSET) as *const u32) as usize };
     if dim == 0 {
         return -1;
     }
@@ -231,9 +228,7 @@ pub extern "C" fn rvf_dequant_i8(src_ptr: i32, dst_ptr: i32, count: i32) -> i32 
 /// Returns 0 on success.
 #[no_mangle]
 pub extern "C" fn rvf_load_pq_codebook(codebook_ptr: i32, m: i32, k: i32) -> i32 {
-    let dim = unsafe {
-        *(DATA_MEMORY.as_ptr().add(TILE_CONFIG_DIM_OFFSET) as *const u32) as usize
-    };
+    let dim = unsafe { *(DATA_MEMORY.as_ptr().add(TILE_CONFIG_DIM_OFFSET) as *const u32) as usize };
     let m_usize = m as usize;
     if m_usize == 0 {
         return -1;
@@ -329,9 +324,7 @@ pub extern "C" fn rvf_load_neighbors(node_id: i64, layer: i32, out_ptr: i32) -> 
 #[no_mangle]
 pub extern "C" fn rvf_greedy_step(current_id: i64, layer: i32) -> i64 {
     let _ = layer;
-    let neighbor_ptr = unsafe {
-        *(DATA_MEMORY.as_ptr().add(NEIGHBOR_CACHE_OFFSET) as *const i32)
-    };
+    let neighbor_ptr = unsafe { *(DATA_MEMORY.as_ptr().add(NEIGHBOR_CACHE_OFFSET) as *const i32) };
     if neighbor_ptr == 0 {
         return -1;
     }
@@ -562,7 +555,12 @@ pub extern "C" fn rvf_store_query(
         return 0;
     }
     match store::registry().get(handle) {
-        Some(s) => s.query(query_ptr as *const f32, k as u32, metric, out_ptr as *mut u8),
+        Some(s) => s.query(
+            query_ptr as *const f32,
+            k as u32,
+            metric,
+            out_ptr as *mut u8,
+        ),
         None => -1,
     }
 }

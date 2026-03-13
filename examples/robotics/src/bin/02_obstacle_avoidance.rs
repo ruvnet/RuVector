@@ -5,7 +5,6 @@
 /// - Detecting obstacles using the PerceptionPipeline
 /// - Classifying obstacles by geometry (Static, Dynamic, Unknown)
 /// - Computing distances and safety margins
-
 use rand::Rng;
 use ruvector_robotics::bridge::{Point3D, PointCloud};
 use ruvector_robotics::perception::{PerceptionConfig, PerceptionPipeline};

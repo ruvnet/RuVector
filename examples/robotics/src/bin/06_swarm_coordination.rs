@@ -5,7 +5,6 @@
 /// - Assigning tasks based on capability matching
 /// - Computing Line, Circle, and Grid formations
 /// - Running consensus votes among swarm members
-
 use ruvector_robotics::cognitive::{
     Formation, FormationType, RobotCapabilities, SwarmConfig, SwarmCoordinator, SwarmTask,
 };
@@ -108,7 +107,9 @@ fn main() {
         let task = tasks.iter().find(|t| t.id == assignment.task_id).unwrap();
         println!(
             "    Task {} ('{}') -> Robot {} (est. {:.1}s)",
-            assignment.task_id, task.description, assignment.robot_id,
+            assignment.task_id,
+            task.description,
+            assignment.robot_id,
             assignment.estimated_completion
         );
     }
@@ -158,7 +159,11 @@ fn main() {
             result.proposal,
             result.votes_for,
             result.votes_against,
-            if result.accepted { "ACCEPTED" } else { "REJECTED" }
+            if result.accepted {
+                "ACCEPTED"
+            } else {
+                "REJECTED"
+            }
         );
     }
 

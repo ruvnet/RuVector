@@ -93,7 +93,9 @@ fn load_store_from_tables(name: &str) -> Option<Arc<TripleStore>> {
 
         for row in tup_table {
             let subject: String = row.get_by_name::<String, _>("subject")?.unwrap_or_default();
-            let predicate: String = row.get_by_name::<String, _>("predicate")?.unwrap_or_default();
+            let predicate: String = row
+                .get_by_name::<String, _>("predicate")?
+                .unwrap_or_default();
             let object: String = row.get_by_name::<String, _>("object")?.unwrap_or_default();
             let graph_name: Option<String> = row.get_by_name::<String, _>("graph_name")?;
 
@@ -188,8 +190,11 @@ pub fn list_stores() -> Vec<String> {
 
     let mut names: Vec<String> = Vec::new();
     let _ = Spi::connect(|client| {
-        let tup_table =
-            client.select("SELECT name FROM _ruvector_rdf_stores ORDER BY name", None, None)?;
+        let tup_table = client.select(
+            "SELECT name FROM _ruvector_rdf_stores ORDER BY name",
+            None,
+            None,
+        )?;
         for row in tup_table {
             if let Some(name) = row.get_by_name::<String, _>("name")? {
                 names.push(name);

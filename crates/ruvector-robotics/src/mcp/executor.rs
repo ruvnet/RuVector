@@ -157,13 +157,13 @@ impl ToolExecutor {
             .arguments
             .get("query")
             .and_then(|v| v.as_array())
-            .map(|a| a.iter().filter_map(|v| v.as_f64().map(|f| f as f32)).collect())
+            .map(|a| {
+                a.iter()
+                    .filter_map(|v| v.as_f64().map(|f| f as f32))
+                    .collect()
+            })
             .ok_or("missing 'query'")?;
-        let k = req
-            .arguments
-            .get("k")
-            .and_then(|v| v.as_u64())
-            .unwrap_or(5) as usize;
+        let k = req.arguments.get("k").and_then(|v| v.as_u64()).unwrap_or(5) as usize;
 
         let results = self
             .index
@@ -196,10 +196,7 @@ impl Default for ToolExecutor {
 
 // -- argument parsers -------------------------------------------------------
 
-fn parse_point_cloud(
-    req: &ToolRequest,
-    key: &str,
-) -> std::result::Result<PointCloud, String> {
+fn parse_point_cloud(req: &ToolRequest, key: &str) -> std::result::Result<PointCloud, String> {
     let raw = req
         .arguments
         .get(key)
@@ -212,10 +209,7 @@ fn parse_point_cloud(
     }
 }
 
-fn parse_position(
-    req: &ToolRequest,
-    key: &str,
-) -> std::result::Result<[f64; 3], String> {
+fn parse_position(req: &ToolRequest, key: &str) -> std::result::Result<[f64; 3], String> {
     let arr = req
         .arguments
         .get(key)
@@ -253,9 +247,11 @@ mod tests {
     use std::collections::HashMap;
 
     fn make_request(tool: &str, args: serde_json::Value) -> ToolRequest {
-        let arguments: HashMap<String, serde_json::Value> =
-            serde_json::from_value(args).unwrap();
-        ToolRequest { tool_name: tool.to_string(), arguments }
+        let arguments: HashMap<String, serde_json::Value> = serde_json::from_value(args).unwrap();
+        ToolRequest {
+            tool_name: tool.to_string(),
+            arguments,
+        }
     }
 
     #[test]
@@ -270,10 +266,13 @@ mod tests {
             1000,
         );
         let cloud_json = serde_json::to_string(&cloud).unwrap();
-        let req = make_request("detect_obstacles", serde_json::json!({
-            "point_cloud_json": cloud_json,
-            "robot_position": [0.0, 0.0, 0.0],
-        }));
+        let req = make_request(
+            "detect_obstacles",
+            serde_json::json!({
+                "point_cloud_json": cloud_json,
+                "robot_position": [0.0, 0.0, 0.0],
+            }),
+        );
         let resp = exec.execute(&req);
         assert!(resp.success);
     }
@@ -281,12 +280,15 @@ mod tests {
     #[test]
     fn test_predict_trajectory() {
         let mut exec = ToolExecutor::new();
-        let req = make_request("predict_trajectory", serde_json::json!({
-            "position": [0.0, 0.0, 0.0],
-            "velocity": [1.0, 0.0, 0.0],
-            "steps": 5,
-            "dt": 0.5,
-        }));
+        let req = make_request(
+            "predict_trajectory",
+            serde_json::json!({
+                "position": [0.0, 0.0, 0.0],
+                "velocity": [1.0, 0.0, 0.0],
+                "steps": 5,
+                "dt": 0.5,
+            }),
+        );
         let resp = exec.execute(&req);
         assert!(resp.success);
         let traj = resp.result;
@@ -304,18 +306,24 @@ mod tests {
             Point3D::new(10.0, 0.0, 0.0),
         ];
         let points_json = serde_json::to_string(&points).unwrap();
-        let req = make_request("insert_points", serde_json::json!({
-            "points_json": points_json,
-        }));
+        let req = make_request(
+            "insert_points",
+            serde_json::json!({
+                "points_json": points_json,
+            }),
+        );
         let resp = exec.execute(&req);
         assert!(resp.success);
         assert_eq!(resp.result["total"], 3);
 
         // Search
-        let req = make_request("spatial_search", serde_json::json!({
-            "query": [1.0, 0.0, 0.0],
-            "k": 2,
-        }));
+        let req = make_request(
+            "spatial_search",
+            serde_json::json!({
+                "query": [1.0, 0.0, 0.0],
+                "k": 2,
+            }),
+        );
         let resp = exec.execute(&req);
         assert!(resp.success);
         let results = resp.result.as_array().unwrap();
@@ -339,10 +347,13 @@ mod tests {
             SceneObject::new(1, [2.0, 0.0, 0.0], [1.0, 1.0, 1.0]),
         ];
         let objects_json = serde_json::to_string(&objects).unwrap();
-        let req = make_request("build_scene_graph", serde_json::json!({
-            "objects_json": objects_json,
-            "max_edge_distance": 5.0,
-        }));
+        let req = make_request(
+            "build_scene_graph",
+            serde_json::json!({
+                "objects_json": objects_json,
+                "max_edge_distance": 5.0,
+            }),
+        );
         let resp = exec.execute(&req);
         assert!(resp.success);
         assert_eq!(resp.result["edges"].as_array().unwrap().len(), 1);

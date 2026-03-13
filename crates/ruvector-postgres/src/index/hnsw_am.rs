@@ -674,7 +674,8 @@ unsafe fn hnsw_search(
         pgrx::warning!(
             "HNSW search: entry_point is InvalidBlockNumber (node_count={}, dims={}). \
              Index may need REINDEX. Check: SELECT ruvector_hnsw_debug('index_name')",
-            meta.node_count, meta.dimensions
+            meta.node_count,
+            meta.dimensions
         );
         return Vec::new();
     }
@@ -2127,15 +2128,15 @@ fn ruvector_hnsw_debug(index_name: &str) -> pgrx::JsonB {
     );
 
     let index_exists: bool = Spi::connect(|client| {
-        let row = client.select(&query, None, None)?
-            .first();
+        let row = client.select(&query, None, None)?.first();
 
         let found = match row.get_datum_by_ordinal(1) {
             Ok(Some(_)) => true,
             _ => false,
         };
         Ok::<bool, pgrx::spi::SpiError>(found)
-    }).unwrap_or(false);
+    })
+    .unwrap_or(false);
     if !index_exists {
         return pgrx::JsonB(serde_json::json!({
             "error": format!("Index '{}' not found or is not an HNSW index", index_name),
@@ -2152,16 +2153,20 @@ fn ruvector_hnsw_debug(index_name: &str) -> pgrx::JsonB {
     );
 
     let (rel_size, rel_path) = Spi::connect(|client| {
-        let row = client.select(&meta_query, None, None)?
-            .first();
-        let size: Option<i64> = row.get_datum_by_ordinal(1)
-            .ok().flatten()
+        let row = client.select(&meta_query, None, None)?.first();
+        let size: Option<i64> = row
+            .get_datum_by_ordinal(1)
+            .ok()
+            .flatten()
             .and_then(|d| unsafe { i64::from_polymorphic_datum(d, false, pg_sys::INT8OID) });
-        let path: Option<String> = row.get_datum_by_ordinal(2)
-            .ok().flatten()
+        let path: Option<String> = row
+            .get_datum_by_ordinal(2)
+            .ok()
+            .flatten()
             .and_then(|d| unsafe { String::from_polymorphic_datum(d, false, pg_sys::TEXTOID) });
         Ok::<_, pgrx::spi::SpiError>((size.unwrap_or(0), path.unwrap_or_default()))
-    }).unwrap_or((0, String::new()));
+    })
+    .unwrap_or((0, String::new()));
 
     let pages = rel_size / 8192; // BLCKSZ
     let has_data = pages > 1; // More than just meta page

@@ -54,7 +54,9 @@ impl ExperienceReplayBuffer {
     /// Create a new experience replay buffer.
     pub fn create(config: SonaConfig) -> Result<Self, ExperienceStoreError> {
         config.validate().map_err(ExperienceStoreError::Config)?;
-        config.ensure_dirs().map_err(|e| ExperienceStoreError::Io(e.to_string()))?;
+        config
+            .ensure_dirs()
+            .map_err(|e| ExperienceStoreError::Io(e.to_string()))?;
 
         let rvf_options = RvfOptions {
             dimension: config.dimension,
@@ -99,7 +101,9 @@ impl ExperienceReplayBuffer {
         if self.experience_ids.len() >= self.config.replay_capacity {
             if let Some(old_id) = self.experience_ids.pop_front() {
                 self.experience_meta.pop_front();
-                self.store.delete(&[old_id]).map_err(ExperienceStoreError::Rvf)?;
+                self.store
+                    .delete(&[old_id])
+                    .map_err(ExperienceStoreError::Rvf)?;
             }
         }
 
@@ -107,11 +111,26 @@ impl ExperienceReplayBuffer {
         self.next_id += 1;
 
         let metadata = vec![
-            MetadataEntry { field_id: FIELD_STEP_ID, value: MetadataValue::U64(vector_id) },
-            MetadataEntry { field_id: FIELD_ACTION, value: MetadataValue::String(action.to_string()) },
-            MetadataEntry { field_id: FIELD_REWARD, value: MetadataValue::F64(reward) },
-            MetadataEntry { field_id: FIELD_CATEGORY, value: MetadataValue::String(String::new()) },
-            MetadataEntry { field_id: FIELD_TYPE, value: MetadataValue::String(TYPE_EXPERIENCE.to_string()) },
+            MetadataEntry {
+                field_id: FIELD_STEP_ID,
+                value: MetadataValue::U64(vector_id),
+            },
+            MetadataEntry {
+                field_id: FIELD_ACTION,
+                value: MetadataValue::String(action.to_string()),
+            },
+            MetadataEntry {
+                field_id: FIELD_REWARD,
+                value: MetadataValue::F64(reward),
+            },
+            MetadataEntry {
+                field_id: FIELD_CATEGORY,
+                value: MetadataValue::String(String::new()),
+            },
+            MetadataEntry {
+                field_id: FIELD_TYPE,
+                value: MetadataValue::String(TYPE_EXPERIENCE.to_string()),
+            },
         ];
 
         self.store
@@ -191,7 +210,8 @@ impl ExperienceReplayBuffer {
             });
         }
 
-        let results = self.store
+        let results = self
+            .store
             .query(embedding, n, &QueryOptions::default())
             .map_err(ExperienceStoreError::Rvf)?;
 
@@ -224,7 +244,9 @@ impl ExperienceReplayBuffer {
         results
             .iter()
             .map(|r| {
-                let meta = self.experience_ids.iter()
+                let meta = self
+                    .experience_ids
+                    .iter()
                     .zip(self.experience_meta.iter())
                     .find(|(&vid, _)| vid == r.id)
                     .map(|(_, m)| m);
@@ -295,9 +317,12 @@ mod tests {
         let config = test_config(dir.path());
         let mut buf = ExperienceReplayBuffer::create(config).unwrap();
 
-        buf.push(&make_embedding(1.0), "explore", 0.5, &make_embedding(1.1)).unwrap();
-        buf.push(&make_embedding(2.0), "exploit", 0.8, &make_embedding(2.1)).unwrap();
-        buf.push(&make_embedding(3.0), "explore", 0.3, &make_embedding(3.1)).unwrap();
+        buf.push(&make_embedding(1.0), "explore", 0.5, &make_embedding(1.1))
+            .unwrap();
+        buf.push(&make_embedding(2.0), "exploit", 0.8, &make_embedding(2.1))
+            .unwrap();
+        buf.push(&make_embedding(3.0), "explore", 0.3, &make_embedding(3.1))
+            .unwrap();
 
         assert_eq!(buf.len(), 3);
         assert!(!buf.is_full());
@@ -315,7 +340,13 @@ mod tests {
         let mut buf = ExperienceReplayBuffer::create(config).unwrap();
 
         for i in 0..7 {
-            buf.push(&make_embedding(i as f32 + 0.1), &format!("act{i}"), i as f64 * 0.1, &make_embedding(0.0)).unwrap();
+            buf.push(
+                &make_embedding(i as f32 + 0.1),
+                &format!("act{i}"),
+                i as f64 * 0.1,
+                &make_embedding(0.0),
+            )
+            .unwrap();
         }
 
         assert_eq!(buf.len(), 5);
@@ -335,9 +366,12 @@ mod tests {
         let config = test_config(dir.path());
         let mut buf = ExperienceReplayBuffer::create(config).unwrap();
 
-        buf.push(&[1.0, 0.0, 0.0, 0.0], "a", 0.1, &[0.0; 4]).unwrap();
-        buf.push(&[0.0, 1.0, 0.0, 0.0], "b", 0.2, &[0.0; 4]).unwrap();
-        buf.push(&[0.9, 0.1, 0.0, 0.0], "c", 0.3, &[0.0; 4]).unwrap();
+        buf.push(&[1.0, 0.0, 0.0, 0.0], "a", 0.1, &[0.0; 4])
+            .unwrap();
+        buf.push(&[0.0, 1.0, 0.0, 0.0], "b", 0.2, &[0.0; 4])
+            .unwrap();
+        buf.push(&[0.9, 0.1, 0.0, 0.0], "c", 0.3, &[0.0; 4])
+            .unwrap();
 
         let results = buf.sample_prioritized(2, &[1.0, 0.0, 0.0, 0.0]).unwrap();
         assert_eq!(results.len(), 2);
@@ -371,8 +405,10 @@ mod tests {
         let config = test_config(dir.path());
         let mut buf = ExperienceReplayBuffer::create(config).unwrap();
 
-        buf.push(&make_embedding(1.0), "a", 0.1, &make_embedding(0.0)).unwrap();
-        buf.push(&make_embedding(2.0), "b", 0.2, &make_embedding(0.0)).unwrap();
+        buf.push(&make_embedding(1.0), "a", 0.1, &make_embedding(0.0))
+            .unwrap();
+        buf.push(&make_embedding(2.0), "b", 0.2, &make_embedding(0.0))
+            .unwrap();
 
         let samples = buf.sample(10);
         assert_eq!(samples.len(), 2);

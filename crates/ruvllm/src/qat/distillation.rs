@@ -219,7 +219,8 @@ impl DistillationLoss {
             // KD loss (KL divergence)
             if pos < teacher.seq_len {
                 let teacher_probs = teacher.softmax_at(pos, self.config.temperature);
-                let student_probs = softmax_with_temperature(student_slice, self.config.temperature);
+                let student_probs =
+                    softmax_with_temperature(student_slice, self.config.temperature);
                 let kd_loss = kl_divergence(&student_probs, &teacher_probs);
                 total_kd_loss += kd_loss * self.config.temperature.powi(2);
             }
@@ -262,11 +263,7 @@ impl DistillationLoss {
     }
 
     /// Compute KD loss only
-    pub fn compute_kd_loss(
-        &self,
-        student_logits: &[f32],
-        teacher: &TeacherOutput,
-    ) -> f32 {
+    pub fn compute_kd_loss(&self, student_logits: &[f32], teacher: &TeacherOutput) -> f32 {
         let vocab_size = teacher.vocab_size;
         let seq_len = teacher.seq_len;
         let mut total_kd_loss = 0.0;
@@ -295,9 +292,11 @@ impl DistillationLoss {
         let n = self.stats.compute_count as f64;
         let alpha = 1.0 / (n + 1.0);
 
-        self.stats.avg_task_loss = (1.0 - alpha) * self.stats.avg_task_loss + alpha * task_loss as f64;
+        self.stats.avg_task_loss =
+            (1.0 - alpha) * self.stats.avg_task_loss + alpha * task_loss as f64;
         self.stats.avg_kd_loss = (1.0 - alpha) * self.stats.avg_kd_loss + alpha * kd_loss as f64;
-        self.stats.avg_total_loss = (1.0 - alpha) * self.stats.avg_total_loss + alpha * total_loss as f64;
+        self.stats.avg_total_loss =
+            (1.0 - alpha) * self.stats.avg_total_loss + alpha * total_loss as f64;
         self.stats.compute_count += 1;
     }
 
@@ -417,10 +416,7 @@ mod tests {
 
         // Student and teacher logits (vocab_size=4, seq_len=2)
         let student_logits = vec![1.0, 2.0, 3.0, 4.0, 2.0, 3.0, 4.0, 5.0];
-        let teacher = TeacherOutput::from_logits(
-            vec![1.1, 2.1, 3.1, 4.1, 2.1, 3.1, 4.1, 5.1],
-            4,
-        );
+        let teacher = TeacherOutput::from_logits(vec![1.1, 2.1, 3.1, 4.1, 2.1, 3.1, 4.1, 5.1], 4);
         let labels = vec![3, 3];
 
         let loss = loss_fn.compute(&student_logits, &teacher, &labels);

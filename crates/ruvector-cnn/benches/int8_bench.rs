@@ -4,8 +4,8 @@
 //!
 //! Run with: `cargo bench --bench int8_bench`
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId, Throughput};
-use ruvector_cnn::int8::{QuantParams, quantize_tensor, dequantize_tensor};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
+use ruvector_cnn::int8::{dequantize_tensor, quantize_tensor, QuantParams};
 
 #[cfg(target_arch = "x86_64")]
 use ruvector_cnn::int8::kernels::simd::{conv2d_int8_simd, matmul_int8_simd};
@@ -94,15 +94,7 @@ fn bench_conv2d_int8(c: &mut Criterion) {
             &(&input_fp32, &kernel_fp32),
             |b, (input, kernel)| {
                 b.iter(|| {
-                    conv2d_fp32_naive(
-                        black_box(input),
-                        black_box(kernel),
-                        h,
-                        w,
-                        c,
-                        k,
-                        stride,
-                    )
+                    conv2d_fp32_naive(black_box(input), black_box(kernel), h, w, c, k, stride)
                 })
             },
         );
@@ -116,10 +108,10 @@ fn bench_matmul_int8(c: &mut Criterion) {
 
     // Test different matrix sizes
     let sizes = vec![
-        (64, 64, 64),     // Small
-        (128, 128, 128),  // Medium
-        (256, 256, 256),  // Large
-        (512, 512, 512),  // XLarge
+        (64, 64, 64),    // Small
+        (128, 128, 128), // Medium
+        (256, 256, 256), // Large
+        (512, 512, 512), // XLarge
     ];
 
     for (m, n, k) in sizes {
@@ -146,14 +138,7 @@ fn bench_matmul_int8(c: &mut Criterion) {
             &(&a, &b, params),
             |bench, (a, b, params)| {
                 bench.iter(|| {
-                    matmul_int8_scalar(
-                        black_box(a),
-                        black_box(b),
-                        black_box(*params),
-                        m,
-                        n,
-                        k,
-                    )
+                    matmul_int8_scalar(black_box(a), black_box(b), black_box(*params), m, n, k)
                 })
             },
         );
@@ -188,17 +173,7 @@ fn bench_matmul_int8(c: &mut Criterion) {
         group.bench_with_input(
             BenchmarkId::new("fp32_baseline", &bench_name),
             &(&a_fp32, &b_fp32),
-            |bench, (a, b)| {
-                bench.iter(|| {
-                    matmul_fp32_naive(
-                        black_box(a),
-                        black_box(b),
-                        m,
-                        n,
-                        k,
-                    )
-                })
-            },
+            |bench, (a, b)| bench.iter(|| matmul_fp32_naive(black_box(a), black_box(b), m, n, k)),
         );
     }
 
@@ -233,10 +208,7 @@ fn bench_mobilenetv3_int8(c: &mut Criterion) {
             for i in 0..embedding_size {
                 let start = (i * input_size) / embedding_size;
                 let end = ((i + 1) * input_size) / embedding_size;
-                let sum: i32 = input_int8[start..end]
-                    .iter()
-                    .map(|&x| x as i32)
-                    .sum();
+                let sum: i32 = input_int8[start..end].iter().map(|&x| x as i32).sum();
                 embedding[i] = sum;
             }
             black_box(embedding)
@@ -279,9 +251,7 @@ fn bench_quantization_dequantization(c: &mut Criterion) {
         group.bench_with_input(
             BenchmarkId::new("quantize", size),
             &(&fp32, params),
-            |b, (fp32, params)| {
-                b.iter(|| quantize_tensor(black_box(fp32), black_box(params)))
-            },
+            |b, (fp32, params)| b.iter(|| quantize_tensor(black_box(fp32), black_box(params))),
         );
 
         // Benchmark dequantization
@@ -289,9 +259,7 @@ fn bench_quantization_dequantization(c: &mut Criterion) {
         group.bench_with_input(
             BenchmarkId::new("dequantize", size),
             &(&int8, params),
-            |b, (int8, params)| {
-                b.iter(|| dequantize_tensor(black_box(int8), black_box(params)))
-            },
+            |b, (int8, params)| b.iter(|| dequantize_tensor(black_box(int8), black_box(params))),
         );
 
         // Benchmark round-trip
@@ -341,7 +309,8 @@ fn bench_memory_usage(c: &mut Criterion) {
         assert!(
             reduction >= 3.0,
             "GATE-4 FAILED: Memory reduction {:.2}x < 3.0x for size {}",
-            reduction, size
+            reduction,
+            size
         );
 
         // Dummy benchmark to keep Criterion happy

@@ -293,7 +293,7 @@ mod tests {
         // Create input with known values: channel 0 = 1, channel 1 = 2
         let mut data = vec![0.0; 2 * 2 * 2];
         for i in 0..4 {
-            data[i * 2] = 1.0;     // channel 0
+            data[i * 2] = 1.0; // channel 0
             data[i * 2 + 1] = 2.0; // channel 1
         }
         let input = Tensor::from_data(data, &[1, 2, 2, 2]).unwrap();

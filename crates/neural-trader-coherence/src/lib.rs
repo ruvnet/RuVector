@@ -130,8 +130,7 @@ impl CoherenceGate for ThresholdGate {
         let cut_ok = ctx.mincut_value >= floor;
         let cusum_ok = ctx.cusum_score < self.config.cusum_threshold;
         let drift_ok = ctx.drift_score < self.config.max_drift_score;
-        let boundary_ok =
-            ctx.boundary_stable_count >= self.config.boundary_stability_windows;
+        let boundary_ok = ctx.boundary_stable_count >= self.config.boundary_stability_windows;
         // Learning requires tighter drift margin (half the max).
         let learn_drift_ok = ctx.drift_score < self.config.max_drift_score * 0.5;
 

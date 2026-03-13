@@ -5,11 +5,11 @@
 //! - SqueezeExcitation: Channel attention mechanism
 //! - InvertedResidual: The main building block with optional SE
 
+use super::layer::Layer;
 use crate::error::CnnResult;
 use crate::layers::{
     Activation, ActivationType, BatchNorm2d, Conv2d, GlobalAvgPool2d, Linear, TensorShape,
 };
-use super::layer::Layer;
 
 /// Convolution + BatchNorm + Activation block.
 ///
@@ -83,7 +83,15 @@ impl ConvBNActivation {
         activation: ActivationType,
     ) -> CnnResult<Self> {
         let padding = kernel_size / 2;
-        Self::new(channels, channels, kernel_size, stride, padding, channels, activation)
+        Self::new(
+            channels,
+            channels,
+            kernel_size,
+            stride,
+            padding,
+            channels,
+            activation,
+        )
     }
 
     /// Returns a reference to the convolution layer.
@@ -361,7 +369,10 @@ impl InvertedResidual {
         // Optional SE
         let se = if config.use_se {
             let se_channels = (config.expanded_channels / 4).max(1);
-            Some(SqueezeExcitation::new(config.expanded_channels, se_channels)?)
+            Some(SqueezeExcitation::new(
+                config.expanded_channels,
+                se_channels,
+            )?)
         } else {
             None
         };
@@ -555,8 +566,13 @@ mod tests {
     #[test]
     fn test_inverted_residual_no_expansion() {
         let block = InvertedResidual::create(
-            16, 16, 16, // in == exp == out (no expansion)
-            3, 1, false, ActivationType::ReLU,
+            16,
+            16,
+            16, // in == exp == out (no expansion)
+            3,
+            1,
+            false,
+            ActivationType::ReLU,
         )
         .unwrap();
 
@@ -567,8 +583,13 @@ mod tests {
     #[test]
     fn test_inverted_residual_with_expansion() {
         let block = InvertedResidual::create(
-            16, 64, 24, // expansion ratio 4
-            3, 1, true, ActivationType::HardSwish,
+            16,
+            64,
+            24, // expansion ratio 4
+            3,
+            1,
+            true,
+            ActivationType::HardSwish,
         )
         .unwrap();
 
@@ -580,9 +601,13 @@ mod tests {
     #[test]
     fn test_inverted_residual_output_shape() {
         let block = InvertedResidual::create(
-            16, 64, 24,
-            3, 2, // stride 2
-            true, ActivationType::HardSwish,
+            16,
+            64,
+            24,
+            3,
+            2, // stride 2
+            true,
+            ActivationType::HardSwish,
         )
         .unwrap();
 
@@ -597,12 +622,8 @@ mod tests {
 
     #[test]
     fn test_inverted_residual_params() {
-        let block = InvertedResidual::create(
-            16, 64, 24,
-            3, 1,
-            true, ActivationType::HardSwish,
-        )
-        .unwrap();
+        let block =
+            InvertedResidual::create(16, 64, 24, 3, 1, true, ActivationType::HardSwish).unwrap();
 
         // Should have params from: expand, depthwise, SE, project
         assert!(block.num_params() > 0);

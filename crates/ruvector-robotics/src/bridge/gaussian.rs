@@ -75,10 +75,7 @@ impl Default for GaussianConfig {
 
 /// Convert a [`PointCloud`] into a [`GaussianSplatCloud`] by clustering nearby
 /// points and computing per-cluster statistics.
-pub fn gaussians_from_cloud(
-    cloud: &PointCloud,
-    config: &GaussianConfig,
-) -> GaussianSplatCloud {
+pub fn gaussians_from_cloud(cloud: &PointCloud, config: &GaussianConfig) -> GaussianSplatCloud {
     if cloud.is_empty() || config.cell_size <= 0.0 {
         return GaussianSplatCloud {
             gaussians: Vec::new(),
@@ -191,10 +188,7 @@ mod tests {
 
     #[test]
     fn test_single_cluster() {
-        let cloud = make_cloud(
-            &[[1.0, 0.0, 0.0], [1.1, 0.0, 0.0], [1.0, 0.1, 0.0]],
-            1000,
-        );
+        let cloud = make_cloud(&[[1.0, 0.0, 0.0], [1.1, 0.0, 0.0], [1.0, 0.1, 0.0]], 1000);
         let gs = gaussians_from_cloud(&cloud, &GaussianConfig::default());
         assert_eq!(gs.len(), 1);
         let g = &gs.gaussians[0];
@@ -206,8 +200,10 @@ mod tests {
     fn test_two_clusters() {
         let cloud = make_cloud(
             &[
-                [0.0, 0.0, 0.0], [0.1, 0.0, 0.0],
-                [10.0, 10.0, 0.0], [10.1, 10.0, 0.0],
+                [0.0, 0.0, 0.0],
+                [0.1, 0.0, 0.0],
+                [10.0, 10.0, 0.0],
+                [10.1, 10.0, 0.0],
             ],
             2000,
         );
@@ -217,11 +213,11 @@ mod tests {
 
     #[test]
     fn test_min_cluster_size_filtering() {
-        let cloud = make_cloud(
-            &[[0.0, 0.0, 0.0], [10.0, 10.0, 0.0]],
-            0,
-        );
-        let config = GaussianConfig { min_cluster_size: 3, ..Default::default() };
+        let cloud = make_cloud(&[[0.0, 0.0, 0.0], [10.0, 10.0, 0.0]], 0);
+        let config = GaussianConfig {
+            min_cluster_size: 3,
+            ..Default::default()
+        };
         let gs = gaussians_from_cloud(&cloud, &config);
         assert!(gs.is_empty());
     }
@@ -229,10 +225,7 @@ mod tests {
     #[test]
     fn test_scale_reflects_spread() {
         // Use a larger cell size so all three points end up in one cluster.
-        let cloud = make_cloud(
-            &[[0.0, 0.0, 0.0], [0.3, 0.0, 0.0], [0.15, 0.0, 0.0]],
-            0,
-        );
+        let cloud = make_cloud(&[[0.0, 0.0, 0.0], [0.3, 0.0, 0.0], [0.15, 0.0, 0.0]], 0);
         let gs = gaussians_from_cloud(&cloud, &GaussianConfig::default());
         assert_eq!(gs.len(), 1);
         let g = &gs.gaussians[0];
@@ -265,7 +258,10 @@ mod tests {
     #[test]
     fn test_zero_cell_size() {
         let cloud = make_cloud(&[[1.0, 0.0, 0.0]], 0);
-        let config = GaussianConfig { cell_size: 0.0, ..Default::default() };
+        let config = GaussianConfig {
+            cell_size: 0.0,
+            ..Default::default()
+        };
         let gs = gaussians_from_cloud(&cloud, &config);
         assert!(gs.is_empty());
     }

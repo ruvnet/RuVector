@@ -142,7 +142,9 @@ impl InfoNCELoss {
     ) -> CnnResult<InfoNCEResult> {
         let n = embeddings.len();
         if n == 0 {
-            return Err(CnnError::InvalidInput("embeddings cannot be empty".to_string()));
+            return Err(CnnError::InvalidInput(
+                "embeddings cannot be empty".to_string(),
+            ));
         }
         if n < 2 {
             return Err(CnnError::InvalidInput(
@@ -258,7 +260,12 @@ impl InfoNCELoss {
         for i in 0..n {
             matrix[i][i] = 1.0; // Self-similarity
             for j in (i + 1)..n {
-                let sim = cosine_similarity_normalized(&embeddings[i], &embeddings[j], norms[i], norms[j]);
+                let sim = cosine_similarity_normalized(
+                    &embeddings[i],
+                    &embeddings[j],
+                    norms[i],
+                    norms[j],
+                );
                 matrix[i][j] = sim;
                 matrix[j][i] = sim;
             }
@@ -293,7 +300,9 @@ impl InfoNCELoss {
         }
 
         if anchors.is_empty() {
-            return Err(CnnError::InvalidInput("anchors cannot be empty".to_string()));
+            return Err(CnnError::InvalidInput(
+                "anchors cannot be empty".to_string(),
+            ));
         }
 
         let dim = anchors[0].len();
@@ -410,7 +419,10 @@ mod tests {
 
         let loss = loss_fn.forward(&embeddings, 2);
         // Loss should be low for identical pairs
-        assert!(loss < 5.0, "Loss should be relatively low for identical pairs");
+        assert!(
+            loss < 5.0,
+            "Loss should be relatively low for identical pairs"
+        );
     }
 
     #[test]
@@ -433,11 +445,7 @@ mod tests {
     fn test_similarity_matrix() {
         let loss_fn = InfoNCELoss::new(0.07);
 
-        let embeddings = vec![
-            vec![1.0, 0.0],
-            vec![0.0, 1.0],
-            vec![1.0, 1.0],
-        ];
+        let embeddings = vec![vec![1.0, 0.0], vec![0.0, 1.0], vec![1.0, 1.0]];
 
         let sim_matrix = loss_fn.compute_similarity_matrix(&embeddings);
 

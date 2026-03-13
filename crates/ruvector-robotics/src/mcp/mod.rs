@@ -159,7 +159,12 @@ pub struct ToolResponse {
 impl ToolResponse {
     /// Convenience constructor for a successful response.
     pub fn ok(result: serde_json::Value, latency_us: u64) -> Self {
-        Self { success: true, result, error: None, latency_us }
+        Self {
+            success: true,
+            result,
+            error: None,
+            latency_us,
+        }
     }
 
     /// Convenience constructor for a failed response.
@@ -196,14 +201,18 @@ impl Default for RoboticsToolRegistry {
 impl RoboticsToolRegistry {
     /// Create a registry pre-populated with all built-in robotics tools.
     pub fn new() -> Self {
-        let mut registry = Self { tools: HashMap::new() };
+        let mut registry = Self {
+            tools: HashMap::new(),
+        };
         registry.register_defaults();
         registry
     }
 
     /// Create an empty registry with no tools registered.
     pub fn empty() -> Self {
-        Self { tools: HashMap::new() }
+        Self {
+            tools: HashMap::new(),
+        }
     }
 
     /// Register a single tool. Overwrites any existing tool with the same name.
@@ -223,7 +232,10 @@ impl RoboticsToolRegistry {
 
     /// Return all tools belonging to the given category.
     pub fn list_by_category(&self, category: ToolCategory) -> Vec<&ToolDefinition> {
-        self.tools.values().filter(|t| t.category == category).collect()
+        self.tools
+            .values()
+            .filter(|t| t.category == category)
+            .collect()
     }
 
     /// Produce a full MCP-compatible JSON schema describing every tool.
@@ -247,13 +259,22 @@ impl RoboticsToolRegistry {
             "Detect obstacles in a point cloud relative to the robot position",
             vec![
                 ToolParameter::new(
-                    "point_cloud_json", "JSON-encoded point cloud", ParamType::String, true,
+                    "point_cloud_json",
+                    "JSON-encoded point cloud",
+                    ParamType::String,
+                    true,
                 ),
                 ToolParameter::new(
-                    "robot_position", "Robot [x,y,z] position", ParamType::Array, true,
+                    "robot_position",
+                    "Robot [x,y,z] position",
+                    ParamType::Array,
+                    true,
                 ),
                 ToolParameter::new(
-                    "max_distance", "Maximum detection distance in meters", ParamType::Number, false,
+                    "max_distance",
+                    "Maximum detection distance in meters",
+                    ParamType::Number,
+                    false,
                 ),
             ],
             ToolCategory::Perception,
@@ -264,10 +285,16 @@ impl RoboticsToolRegistry {
             "Build a scene graph from detected objects with spatial edges",
             vec![
                 ToolParameter::new(
-                    "objects_json", "JSON array of scene objects", ParamType::String, true,
+                    "objects_json",
+                    "JSON array of scene objects",
+                    ParamType::String,
+                    true,
                 ),
                 ToolParameter::new(
-                    "max_edge_distance", "Maximum edge distance in meters", ParamType::Number, false,
+                    "max_edge_distance",
+                    "Maximum edge distance in meters",
+                    ParamType::Number,
+                    false,
                 ),
             ],
             ToolCategory::Perception,
@@ -277,9 +304,24 @@ impl RoboticsToolRegistry {
             "predict_trajectory",
             "Predict future trajectory from current position and velocity",
             vec![
-                ToolParameter::new("position", "Current [x,y,z] position", ParamType::Array, true),
-                ToolParameter::new("velocity", "Current [vx,vy,vz] velocity", ParamType::Array, true),
-                ToolParameter::new("steps", "Number of prediction steps", ParamType::Integer, true),
+                ToolParameter::new(
+                    "position",
+                    "Current [x,y,z] position",
+                    ParamType::Array,
+                    true,
+                ),
+                ToolParameter::new(
+                    "velocity",
+                    "Current [vx,vy,vz] velocity",
+                    ParamType::Array,
+                    true,
+                ),
+                ToolParameter::new(
+                    "steps",
+                    "Number of prediction steps",
+                    ParamType::Integer,
+                    true,
+                ),
                 ToolParameter::new("dt", "Time step in seconds", ParamType::Number, false),
             ],
             ToolCategory::Navigation,
@@ -290,10 +332,18 @@ impl RoboticsToolRegistry {
             "Extract a region of interest from a point cloud by center and radius",
             vec![
                 ToolParameter::new(
-                    "point_cloud_json", "JSON-encoded point cloud", ParamType::String, true,
+                    "point_cloud_json",
+                    "JSON-encoded point cloud",
+                    ParamType::String,
+                    true,
                 ),
                 ToolParameter::new("center", "Focus center [x,y,z]", ParamType::Array, true),
-                ToolParameter::new("radius", "Attention radius in meters", ParamType::Number, true),
+                ToolParameter::new(
+                    "radius",
+                    "Attention radius in meters",
+                    ParamType::Number,
+                    true,
+                ),
             ],
             ToolCategory::Perception,
         ));
@@ -301,11 +351,12 @@ impl RoboticsToolRegistry {
         self.register_tool(ToolDefinition::new(
             "detect_anomalies",
             "Detect anomalous points in a point cloud using statistical analysis",
-            vec![
-                ToolParameter::new(
-                    "point_cloud_json", "JSON-encoded point cloud", ParamType::String, true,
-                ),
-            ],
+            vec![ToolParameter::new(
+                "point_cloud_json",
+                "JSON-encoded point cloud",
+                ParamType::String,
+                true,
+            )],
             ToolCategory::Perception,
         ));
 
@@ -314,7 +365,12 @@ impl RoboticsToolRegistry {
             "Search for nearest neighbours in the spatial index",
             vec![
                 ToolParameter::new("query", "Query vector [x,y,z]", ParamType::Array, true),
-                ToolParameter::new("k", "Number of neighbours to return", ParamType::Integer, true),
+                ToolParameter::new(
+                    "k",
+                    "Number of neighbours to return",
+                    ParamType::Integer,
+                    true,
+                ),
             ],
             ToolCategory::Perception,
         ));
@@ -322,11 +378,12 @@ impl RoboticsToolRegistry {
         self.register_tool(ToolDefinition::new(
             "insert_points",
             "Insert points into the spatial index for later retrieval",
-            vec![
-                ToolParameter::new(
-                    "points_json", "JSON array of [x,y,z] points", ParamType::String, true,
-                ),
-            ],
+            vec![ToolParameter::new(
+                "points_json",
+                "JSON array of [x,y,z] points",
+                ParamType::String,
+                true,
+            )],
             ToolCategory::Perception,
         ));
 
@@ -337,7 +394,10 @@ impl RoboticsToolRegistry {
                 ToolParameter::new("key", "Unique memory key", ParamType::String, true),
                 ToolParameter::new("data", "Data vector to store", ParamType::Array, true),
                 ToolParameter::new(
-                    "importance", "Importance weight 0.0-1.0", ParamType::Number, false,
+                    "importance",
+                    "Importance weight 0.0-1.0",
+                    ParamType::Number,
+                    false,
                 ),
             ],
             ToolCategory::Memory,
@@ -348,9 +408,17 @@ impl RoboticsToolRegistry {
             "Recall the k most similar memories to a query vector",
             vec![
                 ToolParameter::new(
-                    "query", "Query vector for similarity search", ParamType::Array, true,
+                    "query",
+                    "Query vector for similarity search",
+                    ParamType::Array,
+                    true,
                 ),
-                ToolParameter::new("k", "Number of memories to recall", ParamType::Integer, true),
+                ToolParameter::new(
+                    "k",
+                    "Number of memories to recall",
+                    ParamType::Integer,
+                    true,
+                ),
             ],
             ToolCategory::Memory,
         ));
@@ -373,9 +441,12 @@ impl RoboticsToolRegistry {
         self.register_tool(ToolDefinition::new(
             "execute_skill",
             "Execute a previously learned skill by name",
-            vec![
-                ToolParameter::new("name", "Name of the skill to execute", ParamType::String, true),
-            ],
+            vec![ToolParameter::new(
+                "name",
+                "Name of the skill to execute",
+                ParamType::String,
+                true,
+            )],
             ToolCategory::Cognition,
         ));
 
@@ -397,33 +468,36 @@ impl RoboticsToolRegistry {
         self.register_tool(ToolDefinition::new(
             "coordinate_swarm",
             "Coordinate a multi-robot swarm for a given task",
-            vec![
-                ToolParameter::new(
-                    "task_json", "JSON-encoded task specification", ParamType::String, true,
-                ),
-            ],
+            vec![ToolParameter::new(
+                "task_json",
+                "JSON-encoded task specification",
+                ParamType::String,
+                true,
+            )],
             ToolCategory::Swarm,
         ));
 
         self.register_tool(ToolDefinition::new(
             "update_world_model",
             "Update the internal world model with a new or changed object",
-            vec![
-                ToolParameter::new(
-                    "object_json", "JSON-encoded object to upsert", ParamType::String, true,
-                ),
-            ],
+            vec![ToolParameter::new(
+                "object_json",
+                "JSON-encoded object to upsert",
+                ParamType::String,
+                true,
+            )],
             ToolCategory::Cognition,
         ));
 
         self.register_tool(ToolDefinition::new(
             "get_world_state",
             "Retrieve the current world model state, optionally filtered by object id",
-            vec![
-                ToolParameter::new(
-                    "object_id", "Optional object id to filter", ParamType::Integer, false,
-                ),
-            ],
+            vec![ToolParameter::new(
+                "object_id",
+                "Optional object id to filter",
+                ParamType::Integer,
+                false,
+            )],
             ToolCategory::Cognition,
         ));
     }
@@ -477,7 +551,10 @@ mod tests {
         let tool = registry.get_tool("detect_obstacles").unwrap();
         assert_eq!(tool.category, ToolCategory::Perception);
         assert_eq!(tool.parameters.len(), 3);
-        assert!(tool.parameters.iter().any(|p| p.name == "point_cloud_json" && p.required));
+        assert!(tool
+            .parameters
+            .iter()
+            .any(|p| p.name == "point_cloud_json" && p.required));
 
         let tool = registry.get_tool("predict_trajectory").unwrap();
         assert_eq!(tool.category, ToolCategory::Navigation);
@@ -541,7 +618,10 @@ mod tests {
         let schema = registry.to_mcp_schema();
         let tools = schema["tools"].as_array().unwrap();
 
-        let obs = tools.iter().find(|t| t["name"] == "detect_obstacles").unwrap();
+        let obs = tools
+            .iter()
+            .find(|t| t["name"] == "detect_obstacles")
+            .unwrap();
         let required = obs["inputSchema"]["required"].as_array().unwrap();
         let req_names: Vec<&str> = required.iter().map(|v| v.as_str().unwrap()).collect();
         assert!(req_names.contains(&"point_cloud_json"));
@@ -555,7 +635,10 @@ mod tests {
         args.insert("k".to_string(), serde_json::json!(5));
         args.insert("query".to_string(), serde_json::json!([1.0, 2.0, 3.0]));
 
-        let req = ToolRequest { tool_name: "spatial_search".to_string(), arguments: args };
+        let req = ToolRequest {
+            tool_name: "spatial_search".to_string(),
+            arguments: args,
+        };
         let json = serde_json::to_string(&req).unwrap();
         let deserialized: ToolRequest = serde_json::from_str(&json).unwrap();
         assert_eq!(deserialized.tool_name, "spatial_search");
@@ -591,7 +674,12 @@ mod tests {
         let custom = ToolDefinition::new(
             "my_custom_tool",
             "A custom tool for testing",
-            vec![ToolParameter::new("input", "The input data", ParamType::String, true)],
+            vec![ToolParameter::new(
+                "input",
+                "The input data",
+                ParamType::String,
+                true,
+            )],
             ToolCategory::Cognition,
         );
         registry.register_tool(custom);

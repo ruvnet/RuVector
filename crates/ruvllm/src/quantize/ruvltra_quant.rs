@@ -104,8 +104,8 @@ impl TargetFormat {
             TargetFormat::Q8_0 => Q8_BLOCK_SIZE,
             TargetFormat::F16 => 1,
             // Pi-quant block sizes
-            TargetFormat::PiQ3 => 8,  // 8 weights per 3-byte block
-            TargetFormat::PiQ2 => 4,  // 4 weights per 1-byte block
+            TargetFormat::PiQ3 => 8, // 8 weights per 3-byte block
+            TargetFormat::PiQ2 => 4, // 4 weights per 1-byte block
         }
     }
 
@@ -1001,9 +1001,13 @@ impl RuvltraQuantizer {
             TargetFormat::PiQ3 => {
                 // Pi-constant 3-bit quantization (ADR-090)
                 // Uses pi-scaled step sizes for better precision at ultra-low bits
-                use super::pi_quant_simd::{pi_scale_adaptive, pi_quantize_scalar, PI3_VALUES_PER_GROUP, PI3_BYTES_PER_GROUP, DEFAULT_K};
+                use super::pi_quant_simd::{
+                    pi_quantize_scalar, pi_scale_adaptive, DEFAULT_K, PI3_BYTES_PER_GROUP,
+                    PI3_VALUES_PER_GROUP,
+                };
 
-                let num_groups = (padded_data.len() + PI3_VALUES_PER_GROUP - 1) / PI3_VALUES_PER_GROUP;
+                let num_groups =
+                    (padded_data.len() + PI3_VALUES_PER_GROUP - 1) / PI3_VALUES_PER_GROUP;
                 let mut bytes = Vec::with_capacity(num_groups * (PI3_BYTES_PER_GROUP + 2)); // +2 for scale as f16
 
                 for chunk in padded_data.chunks(PI3_VALUES_PER_GROUP) {
@@ -1011,7 +1015,11 @@ impl RuvltraQuantizer {
                     let max_abs = chunk.iter().map(|x| x.abs()).fold(0.0f32, f32::max);
                     // Scale = alpha * pi / k, where alpha is derived from max_abs
                     // For 3-bit signed range [-4, 3], we need max_abs / 4 as alpha
-                    let alpha = if max_abs > 1e-10 { max_abs / 4.0 } else { 1e-10 };
+                    let alpha = if max_abs > 1e-10 {
+                        max_abs / 4.0
+                    } else {
+                        1e-10
+                    };
                     let scale = pi_scale_adaptive(alpha, DEFAULT_K);
 
                     // Store scale as f16 (2 bytes)
@@ -1045,7 +1053,11 @@ impl RuvltraQuantizer {
                     // Compute adaptive scale for this block
                     let max_abs = chunk.iter().map(|x| x.abs()).fold(0.0f32, f32::max);
                     // For 2-bit signed range [-2, 1], we need max_abs / 2 as alpha
-                    let alpha = if max_abs > 1e-10 { max_abs / 2.0 } else { 1e-10 };
+                    let alpha = if max_abs > 1e-10 {
+                        max_abs / 2.0
+                    } else {
+                        1e-10
+                    };
                     let scale = pi_scale_adaptive(alpha, DEFAULT_K);
 
                     // Store scale as f16 (2 bytes)
@@ -1053,7 +1065,11 @@ impl RuvltraQuantizer {
 
                     // Quantize 4 values into 1 byte (2 bits each)
                     let mut packed_byte = 0u8;
-                    let inv_scale = if scale.abs() > 1e-10 { 1.0 / scale } else { 0.0 };
+                    let inv_scale = if scale.abs() > 1e-10 {
+                        1.0 / scale
+                    } else {
+                        0.0
+                    };
                     for (i, &val) in chunk.iter().take(4).enumerate() {
                         // 2-bit quantization: round and clamp to [-2, 1]
                         let quantized = (val * inv_scale).round() as i32;
@@ -1115,7 +1131,7 @@ impl RuvltraQuantizer {
             // Pi-quant formats: 8 values per 5 bytes (3 data + 2 scale) for PiQ3
             // 4 values per 3 bytes (1 data + 2 scale) for PiQ2
             TargetFormat::PiQ3 => {
-                use super::pi_quant_simd::{PI3_VALUES_PER_GROUP, PI3_BYTES_PER_GROUP};
+                use super::pi_quant_simd::{PI3_BYTES_PER_GROUP, PI3_VALUES_PER_GROUP};
                 let num_groups = (input_elements + PI3_VALUES_PER_GROUP - 1) / PI3_VALUES_PER_GROUP;
                 num_groups * (PI3_BYTES_PER_GROUP + 2) // +2 for f16 scale
             }

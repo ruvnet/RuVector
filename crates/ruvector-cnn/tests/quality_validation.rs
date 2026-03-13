@@ -5,7 +5,7 @@
 //! - Per-layer MSE tracking
 //! - Embedding validation on test dataset
 
-use ruvector_cnn::int8::{QuantParams, quantize_tensor, dequantize_tensor};
+use ruvector_cnn::int8::{dequantize_tensor, quantize_tensor, QuantParams};
 
 #[cfg(test)]
 mod quality_tests {
@@ -30,13 +30,15 @@ mod quality_tests {
     fn mean_squared_error(a: &[f32], b: &[f32]) -> f32 {
         assert_eq!(a.len(), b.len(), "Tensors must have same length");
 
-        let mse: f32 = a.iter()
+        let mse: f32 = a
+            .iter()
             .zip(b.iter())
             .map(|(x, y)| {
                 let diff = x - y;
                 diff * diff
             })
-            .sum::<f32>() / a.len() as f32;
+            .sum::<f32>()
+            / a.len() as f32;
 
         mse
     }
@@ -86,14 +88,15 @@ mod quality_tests {
         let mut rng = fastrand::Rng::with_seed(42);
 
         println!("\nPer-Layer MSE Analysis:");
-        println!("{:<15} {:>10} {:>15} {:>15}", "Layer", "Size", "MSE", "Cosine Sim");
+        println!(
+            "{:<15} {:>10} {:>15} {:>15}",
+            "Layer", "Size", "MSE", "Cosine Sim"
+        );
         println!("{}", "-".repeat(60));
 
         for (layer_name, size) in layer_sizes {
             // Generate random tensor
-            let fp32_tensor: Vec<f32> = (0..size)
-                .map(|_| rng.f32() * 2.0 - 1.0)
-                .collect();
+            let fp32_tensor: Vec<f32> = (0..size).map(|_| rng.f32() * 2.0 - 1.0).collect();
 
             // Quantize and dequantize
             let params = QuantParams::from_tensor(&fp32_tensor);
@@ -113,7 +116,8 @@ mod quality_tests {
             assert!(
                 similarity >= 0.99,
                 "Layer {} has low similarity: {:.6}",
-                layer_name, similarity
+                layer_name,
+                similarity
             );
         }
     }
@@ -154,7 +158,8 @@ mod quality_tests {
                             // Box-Muller transform for Gaussian
                             let u1 = rng.f32();
                             let u2 = rng.f32();
-                            ((-2.0 * u1.ln()).sqrt() * (2.0 * std::f32::consts::PI * u2).cos()) * 0.5
+                            ((-2.0 * u1.ln()).sqrt() * (2.0 * std::f32::consts::PI * u2).cos())
+                                * 0.5
                         })
                         .collect()
                 },
@@ -184,10 +189,7 @@ mod quality_tests {
             let similarity = cosine_similarity(&test_case.embedding, &dequantized);
             let mse = mean_squared_error(&test_case.embedding, &dequantized);
 
-            println!(
-                "{:<15} {:>15.6} {:>15.6e}",
-                test_case.name, similarity, mse
-            );
+            println!("{:<15} {:>15.6} {:>15.6e}", test_case.name, similarity, mse);
 
             assert!(
                 similarity >= test_case.expected_min_similarity,
@@ -243,7 +245,10 @@ mod quality_tests {
         ];
 
         println!("\nQuantization Range Edge Cases:");
-        println!("{:<20} {:>15} {:>15}", "Edge Case", "Max Error", "Cosine Sim");
+        println!(
+            "{:<20} {:>15} {:>15}",
+            "Edge Case", "Max Error", "Cosine Sim"
+        );
         println!("{}", "-".repeat(55));
 
         for edge_case in edge_cases {
@@ -251,7 +256,9 @@ mod quality_tests {
             let int8_tensor = quantize_tensor(&edge_case.values, &params);
             let dequantized = dequantize_tensor(&int8_tensor, &params);
 
-            let max_error = edge_case.values.iter()
+            let max_error = edge_case
+                .values
+                .iter()
                 .zip(dequantized.iter())
                 .map(|(a, b)| (a - b).abs())
                 .fold(0.0f32, f32::max);
@@ -269,7 +276,8 @@ mod quality_tests {
                 assert!(
                     similarity >= 0.95,
                     "Edge case '{}' has low similarity: {:.6}",
-                    edge_case.name, similarity
+                    edge_case.name,
+                    similarity
                 );
             }
         }
@@ -285,15 +293,12 @@ mod quality_tests {
 
         // Generate batch of embeddings
         let batch: Vec<Vec<f32>> = (0..batch_size)
-            .map(|_| {
-                (0..embedding_size)
-                    .map(|_| rng.f32() * 2.0 - 1.0)
-                    .collect()
-            })
+            .map(|_| (0..embedding_size).map(|_| rng.f32() * 2.0 - 1.0).collect())
             .collect();
 
         // Quantize each independently
-        let individual_results: Vec<Vec<f32>> = batch.iter()
+        let individual_results: Vec<Vec<f32>> = batch
+            .iter()
             .map(|emb| {
                 let params = QuantParams::from_tensor(emb);
                 let int8 = quantize_tensor(emb, &params);
@@ -307,7 +312,8 @@ mod quality_tests {
             assert!(
                 similarity >= 0.995,
                 "Batch item {} has low similarity: {:.6}",
-                i, similarity
+                i,
+                similarity
             );
         }
 
@@ -320,9 +326,7 @@ mod quality_tests {
 
         let size = 1024;
         let mut rng = fastrand::Rng::with_seed(999);
-        let fp32_tensor: Vec<f32> = (0..size)
-            .map(|_| rng.f32() * 2.0 - 1.0)
-            .collect();
+        let fp32_tensor: Vec<f32> = (0..size).map(|_| rng.f32() * 2.0 - 1.0).collect();
 
         // Quantize twice
         let params1 = QuantParams::from_tensor(&fp32_tensor);
@@ -332,8 +336,14 @@ mod quality_tests {
         let int8_2 = quantize_tensor(&fp32_tensor, &params2);
 
         // Parameters should be identical
-        assert_eq!(params1.scale, params2.scale, "Scale should be deterministic");
-        assert_eq!(params1.zero_point, params2.zero_point, "Zero point should be deterministic");
+        assert_eq!(
+            params1.scale, params2.scale,
+            "Scale should be deterministic"
+        );
+        assert_eq!(
+            params1.zero_point, params2.zero_point,
+            "Zero point should be deterministic"
+        );
 
         // Quantized values should be identical
         assert_eq!(int8_1, int8_2, "Quantized tensors should be identical");
@@ -349,9 +359,7 @@ mod quality_tests {
         let mut rng = fastrand::Rng::with_seed(111);
 
         // Create symmetric tensor (mirrored around zero)
-        let positive: Vec<f32> = (0..size)
-            .map(|_| rng.f32())
-            .collect();
+        let positive: Vec<f32> = (0..size).map(|_| rng.f32()).collect();
 
         let mut symmetric = positive.clone();
         symmetric.extend(positive.iter().map(|&x| -x));

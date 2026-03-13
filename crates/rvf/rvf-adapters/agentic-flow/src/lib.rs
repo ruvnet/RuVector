@@ -48,6 +48,4 @@ pub mod swarm_store;
 pub use config::{AgenticFlowConfig, ConfigError};
 pub use coordination::{ConsensusVote, StateEntry, SwarmCoordination};
 pub use learning::{LearningPatternStore, PatternResult};
-pub use swarm_store::{
-    RvfSwarmStore, SharedMemoryEntry, SharedMemoryResult, SwarmStoreError,
-};
+pub use swarm_store::{RvfSwarmStore, SharedMemoryEntry, SharedMemoryResult, SwarmStoreError};

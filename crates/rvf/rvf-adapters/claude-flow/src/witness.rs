@@ -7,8 +7,8 @@ use std::fs::{File, OpenOptions};
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 
-use rvf_crypto::witness::{WitnessEntry, create_witness_chain, verify_witness_chain};
 use rvf_crypto::shake256_256;
+use rvf_crypto::witness::{create_witness_chain, verify_witness_chain, WitnessEntry};
 
 /// Witness type constants for claude-flow actions.
 pub const WITNESS_STORE: u8 = 0x01;
@@ -40,7 +40,8 @@ impl WitnessChain {
     pub fn open(path: &Path) -> Result<Self, WitnessError> {
         let mut file = File::open(path).map_err(|e| WitnessError::Io(e.to_string()))?;
         let mut data = Vec::new();
-        file.read_to_end(&mut data).map_err(|e| WitnessError::Io(e.to_string()))?;
+        file.read_to_end(&mut data)
+            .map_err(|e| WitnessError::Io(e.to_string()))?;
 
         if data.is_empty() {
             return Ok(Self {
@@ -50,8 +51,7 @@ impl WitnessChain {
             });
         }
 
-        let entries = verify_witness_chain(&data)
-            .map_err(|_| WitnessError::ChainCorrupted)?;
+        let entries = verify_witness_chain(&data).map_err(|_| WitnessError::ChainCorrupted)?;
 
         Ok(Self {
             path: path.to_path_buf(),
@@ -109,8 +109,8 @@ impl WitnessChain {
         if self.chain_data.is_empty() {
             return Ok(0);
         }
-        let entries = verify_witness_chain(&self.chain_data)
-            .map_err(|_| WitnessError::ChainCorrupted)?;
+        let entries =
+            verify_witness_chain(&self.chain_data).map_err(|_| WitnessError::ChainCorrupted)?;
         Ok(entries.len())
     }
 
@@ -142,8 +142,7 @@ impl WitnessChain {
         let mut all_entries = if self.chain_data.is_empty() {
             Vec::new()
         } else {
-            verify_witness_chain(&self.chain_data)
-                .map_err(|_| WitnessError::ChainCorrupted)?
+            verify_witness_chain(&self.chain_data).map_err(|_| WitnessError::ChainCorrupted)?
         };
         all_entries.push(entry);
 
@@ -158,7 +157,8 @@ impl WitnessChain {
                 .truncate(true)
                 .open(&tmp_path)
                 .map_err(|e| WitnessError::Io(e.to_string()))?;
-            f.write_all(&new_chain).map_err(|e| WitnessError::Io(e.to_string()))?;
+            f.write_all(&new_chain)
+                .map_err(|e| WitnessError::Io(e.to_string()))?;
             f.sync_all().map_err(|e| WitnessError::Io(e.to_string()))?;
         }
         std::fs::rename(&tmp_path, &self.path).map_err(|e| WitnessError::Io(e.to_string()))?;

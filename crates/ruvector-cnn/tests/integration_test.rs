@@ -14,8 +14,7 @@ use ruvector_cnn::{CnnEmbedder, EmbeddingConfig, EmbeddingExtractor};
 
 #[test]
 fn test_cnn_embedder_creation() {
-    let embedder = CnnEmbedder::new(EmbeddingConfig::default())
-        .expect("Failed to create embedder");
+    let embedder = CnnEmbedder::new(EmbeddingConfig::default()).expect("Failed to create embedder");
 
     assert_eq!(embedder.embedding_dim(), 512);
     assert_eq!(embedder.input_size(), 224);
@@ -23,16 +22,14 @@ fn test_cnn_embedder_creation() {
 
 #[test]
 fn test_cnn_embedder_v3_small() {
-    let embedder = CnnEmbedder::new_v3_small()
-        .expect("Failed to create V3 Small embedder");
+    let embedder = CnnEmbedder::new_v3_small().expect("Failed to create V3 Small embedder");
 
     assert_eq!(embedder.embedding_dim(), 576);
 }
 
 #[test]
 fn test_cnn_embedder_v3_large() {
-    let embedder = CnnEmbedder::new_v3_large()
-        .expect("Failed to create V3 Large embedder");
+    let embedder = CnnEmbedder::new_v3_large().expect("Failed to create V3 Large embedder");
 
     assert_eq!(embedder.embedding_dim(), 960);
 }
@@ -63,9 +60,7 @@ fn test_image_to_embedding_pipeline() {
     let embedder = CnnEmbedder::new(config).expect("Failed to create embedder");
 
     // Create a test image (RGBA format, 64x64)
-    let image: Vec<u8> = (0..(64 * 64 * 4))
-        .map(|i| (i % 256) as u8)
-        .collect();
+    let image: Vec<u8> = (0..(64 * 64 * 4)).map(|i| (i % 256) as u8).collect();
 
     let embedding = embedder.extract(&image, 64, 64).expect("Extraction failed");
 
@@ -73,7 +68,10 @@ fn test_image_to_embedding_pipeline() {
     assert_eq!(embedding.len(), 128, "Embedding dimension mismatch");
 
     // Verify no NaN or Inf
-    assert!(embedding.iter().all(|x| x.is_finite()), "Embedding contains non-finite values");
+    assert!(
+        embedding.iter().all(|x| x.is_finite()),
+        "Embedding contains non-finite values"
+    );
 }
 
 #[test]
@@ -106,7 +104,8 @@ fn test_different_image_sizes() {
         embedding_dim: 32,
         normalize: true,
         quantized: false,
-    }).expect("Failed to create embedder");
+    })
+    .expect("Failed to create embedder");
 
     // Test with 64x64 image
     let image_64 = vec![128u8; 64 * 64 * 4];
@@ -121,15 +120,14 @@ fn test_grayscale_vs_color_images() {
         embedding_dim: 16,
         normalize: false,
         quantized: false,
-    }).expect("Failed to create embedder");
+    })
+    .expect("Failed to create embedder");
 
     // Uniform gray image (all pixels same value)
     let gray_image: Vec<u8> = vec![128; 32 * 32 * 4];
 
     // Colorful image (varying pixels)
-    let color_image: Vec<u8> = (0..(32 * 32 * 4))
-        .map(|i| ((i * 37) % 256) as u8)
-        .collect();
+    let color_image: Vec<u8> = (0..(32 * 32 * 4)).map(|i| ((i * 37) % 256) as u8).collect();
 
     let emb_gray = embedder.extract(&gray_image, 32, 32).expect("Failed");
     let emb_color = embedder.extract(&color_image, 32, 32).expect("Failed");
@@ -139,11 +137,16 @@ fn test_grayscale_vs_color_images() {
     assert_eq!(emb_color.len(), 16);
 
     // They should be different
-    let diff_count = emb_gray.iter().zip(emb_color.iter())
+    let diff_count = emb_gray
+        .iter()
+        .zip(emb_color.iter())
         .filter(|(a, b)| (*a - *b).abs() > 1e-10)
         .count();
 
-    assert!(diff_count > 0, "Different images should produce different embeddings");
+    assert!(
+        diff_count > 0,
+        "Different images should produce different embeddings"
+    );
 }
 
 // ============================================================================
@@ -157,16 +160,15 @@ fn test_similar_images_similar_embeddings() {
         embedding_dim: 32,
         normalize: true,
         quantized: false,
-    }).expect("Failed to create embedder");
+    })
+    .expect("Failed to create embedder");
 
     // Two similar images (same content, slight variation)
     let image1: Vec<u8> = vec![128; 32 * 32 * 4];
     let image2: Vec<u8> = vec![130; 32 * 32 * 4]; // Slightly brighter
 
     // Very different image
-    let image3: Vec<u8> = (0..(32 * 32 * 4))
-        .map(|i| ((i * 37) % 256) as u8)
-        .collect();
+    let image3: Vec<u8> = (0..(32 * 32 * 4)).map(|i| ((i * 37) % 256) as u8).collect();
 
     let emb1 = embedder.extract(&image1, 32, 32).expect("Failed");
     let emb2 = embedder.extract(&image2, 32, 32).expect("Failed");
@@ -193,14 +195,15 @@ fn test_embedding_extractor_trait() {
         embedding_dim: 64,
         normalize: true,
         quantized: false,
-    }).expect("Failed to create embedder");
+    })
+    .expect("Failed to create embedder");
 
     // Use trait methods
     assert_eq!(embedder.embedding_dim(), 64);
 
     let image = vec![128u8; 32 * 32 * 4];
-    let embedding = EmbeddingExtractor::extract(&embedder, &image, 32, 32)
-        .expect("Trait extraction failed");
+    let embedding =
+        EmbeddingExtractor::extract(&embedder, &image, 32, 32).expect("Trait extraction failed");
 
     assert_eq!(embedding.len(), 64);
 }
@@ -216,7 +219,8 @@ fn test_invalid_image_dimensions() {
         embedding_dim: 32,
         normalize: true,
         quantized: false,
-    }).expect("Failed to create embedder");
+    })
+    .expect("Failed to create embedder");
 
     // Image data doesn't match dimensions (too small)
     let image: Vec<u8> = vec![128; 100];
@@ -230,20 +234,20 @@ fn test_invalid_image_dimensions() {
 fn test_zero_dimension_image() {
     use std::panic;
 
-    let embedder = CnnEmbedder::new(EmbeddingConfig::default())
-        .expect("Failed to create embedder");
+    let embedder = CnnEmbedder::new(EmbeddingConfig::default()).expect("Failed to create embedder");
 
     let image: Vec<u8> = vec![];
 
     // Zero dimension should either return an error or panic
     // (currently panics due to index bounds check in SIMD code)
-    let result = panic::catch_unwind(panic::AssertUnwindSafe(|| {
-        embedder.extract(&image, 0, 0)
-    }));
+    let result = panic::catch_unwind(panic::AssertUnwindSafe(|| embedder.extract(&image, 0, 0)));
 
     // Either panicked or returned an error is acceptable for invalid input
     let failed = result.is_err() || result.map(|r| r.is_err()).unwrap_or(false);
-    assert!(failed, "Should fail with zero dimensions (either panic or error)");
+    assert!(
+        failed,
+        "Should fail with zero dimensions (either panic or error)"
+    );
 }
 
 // ============================================================================
@@ -257,7 +261,8 @@ fn test_extraction_deterministic() {
         embedding_dim: 16,
         normalize: true,
         quantized: false,
-    }).expect("Failed to create embedder");
+    })
+    .expect("Failed to create embedder");
 
     let image = vec![128u8; 32 * 32 * 4];
 
@@ -285,7 +290,8 @@ fn test_concurrent_extraction() {
             embedding_dim: 16,
             normalize: true,
             quantized: false,
-        }).expect("Failed to create embedder")
+        })
+        .expect("Failed to create embedder"),
     );
 
     let handles: Vec<_> = (0..4)
@@ -298,7 +304,8 @@ fn test_concurrent_extraction() {
         })
         .collect();
 
-    let results: Vec<_> = handles.into_iter()
+    let results: Vec<_> = handles
+        .into_iter()
         .map(|h| h.join().expect("Thread panicked"))
         .collect();
 
@@ -321,7 +328,8 @@ fn test_multiple_extractions_no_leak() {
         embedding_dim: 16,
         normalize: true,
         quantized: false,
-    }).expect("Failed to create embedder");
+    })
+    .expect("Failed to create embedder");
 
     // Process many images to check for memory leaks
     for i in 0..100 {
@@ -346,15 +354,15 @@ fn test_embedder_with_infonce() {
         embedding_dim: 8,
         normalize: true,
         quantized: false,
-    }).expect("Failed to create embedder");
+    })
+    .expect("Failed to create embedder");
 
     // Create augmented pairs (simulate SimCLR)
-    let images: Vec<Vec<u8>> = (0..4)
-        .map(|i| vec![(i * 50) as u8; 16 * 16 * 4])
-        .collect();
+    let images: Vec<Vec<u8>> = (0..4).map(|i| vec![(i * 50) as u8; 16 * 16 * 4]).collect();
 
     // Extract embeddings (convert f32 to f64 for InfoNCE)
-    let embeddings: Vec<Vec<f64>> = images.iter()
+    let embeddings: Vec<Vec<f64>> = images
+        .iter()
         .map(|img| {
             let emb = embedder.extract(img, 16, 16).expect("Failed");
             emb.into_iter().map(|x| x as f64).collect()
@@ -378,22 +386,33 @@ fn test_embedder_with_triplet() {
         embedding_dim: 8,
         normalize: true,
         quantized: false,
-    }).expect("Failed to create embedder");
+    })
+    .expect("Failed to create embedder");
 
     // Create anchor, positive, negative images
     let anchor_img = vec![128u8; 16 * 16 * 4];
-    let positive_img = vec![130u8; 16 * 16 * 4];  // Similar to anchor
-    let negative_img: Vec<u8> = (0..(16 * 16 * 4))
-        .map(|i| ((i * 37) % 256) as u8)
-        .collect();
+    let positive_img = vec![130u8; 16 * 16 * 4]; // Similar to anchor
+    let negative_img: Vec<u8> = (0..(16 * 16 * 4)).map(|i| ((i * 37) % 256) as u8).collect();
 
     // Extract embeddings (convert f32 to f64 for TripletLoss)
-    let anchor: Vec<f64> = embedder.extract(&anchor_img, 16, 16)
-        .expect("Failed").into_iter().map(|x| x as f64).collect();
-    let positive: Vec<f64> = embedder.extract(&positive_img, 16, 16)
-        .expect("Failed").into_iter().map(|x| x as f64).collect();
-    let negative: Vec<f64> = embedder.extract(&negative_img, 16, 16)
-        .expect("Failed").into_iter().map(|x| x as f64).collect();
+    let anchor: Vec<f64> = embedder
+        .extract(&anchor_img, 16, 16)
+        .expect("Failed")
+        .into_iter()
+        .map(|x| x as f64)
+        .collect();
+    let positive: Vec<f64> = embedder
+        .extract(&positive_img, 16, 16)
+        .expect("Failed")
+        .into_iter()
+        .map(|x| x as f64)
+        .collect();
+    let negative: Vec<f64> = embedder
+        .extract(&negative_img, 16, 16)
+        .expect("Failed")
+        .into_iter()
+        .map(|x| x as f64)
+        .collect();
 
     // Compute triplet loss
     let loss_fn = TripletLoss::new(0.5);
@@ -418,7 +437,11 @@ fn test_simd_functions_available() {
     let dot = simd::dot_product_simd(&a, &b);
 
     // 1*4 + 2*3 + 3*2 + 4*1 = 4 + 6 + 6 + 4 = 20
-    assert!((dot - 20.0).abs() < 1e-5, "Expected dot product to be 20.0, got {}", dot);
+    assert!(
+        (dot - 20.0).abs() < 1e-5,
+        "Expected dot product to be 20.0, got {}",
+        dot
+    );
 }
 
 #[test]
@@ -452,7 +475,7 @@ fn test_simd_relu6() {
 
 #[test]
 fn test_layers_module_available() {
-    use ruvector_cnn::layers::{conv2d_3x3, batch_norm, relu, relu6, hard_swish, global_avg_pool};
+    use ruvector_cnn::layers::{batch_norm, conv2d_3x3, global_avg_pool, hard_swish, relu, relu6};
 
     // Test standalone layer functions
     let input = vec![0.5f32; 3 * 8 * 8]; // 3 channels, 8x8

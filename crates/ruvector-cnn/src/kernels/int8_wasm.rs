@@ -143,7 +143,8 @@ pub unsafe fn conv2d_int8_wasm(
                                 let input_base = (ih * in_w + iw) * in_c + ic_base;
 
                                 // Load 16 u8 inputs and convert to i8
-                                let input_u8 = v128_load(input.as_ptr().add(input_base) as *const v128);
+                                let input_u8 =
+                                    v128_load(input.as_ptr().add(input_base) as *const v128);
                                 let offset = u8x16_splat(128);
                                 let input_shifted = u8x16_sub(input_u8, offset);
 

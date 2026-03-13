@@ -87,10 +87,8 @@ impl PointCloudSceneGraphBuilder {
         let mut objects: Vec<SceneObject> = seen_ids.into_values().collect();
         objects.sort_by(|a, b| a.id.cmp(&b.id));
 
-        let truncated: Vec<SceneObject> = objects
-            .into_iter()
-            .take(self.config.max_objects)
-            .collect();
+        let truncated: Vec<SceneObject> =
+            objects.into_iter().take(self.config.max_objects).collect();
 
         let edges = self.create_edges(&truncated);
         SceneGraph::new(truncated, edges, latest_ts)
@@ -99,7 +97,10 @@ impl PointCloudSceneGraphBuilder {
     // -- private helpers ----------------------------------------------------
 
     fn cluster_to_object(id: usize, points: &[Point3D]) -> SceneObject {
-        debug_assert!(!points.is_empty(), "cluster_to_object called with empty slice");
+        debug_assert!(
+            !points.is_empty(),
+            "cluster_to_object called with empty slice"
+        );
         let (mut min_x, mut min_y, mut min_z) = (f64::MAX, f64::MAX, f64::MAX);
         let (mut max_x, mut max_y, mut max_z) = (f64::MIN, f64::MIN, f64::MIN);
         let (mut sum_x, mut sum_y, mut sum_z) = (0.0_f64, 0.0_f64, 0.0_f64);
@@ -334,7 +335,7 @@ mod tests {
 
         let objects = vec![
             SceneObject::new(0, [0.0, 0.0, 0.0], [1.0, 1.0, 1.0]),
-            SceneObject::new(1, [5.0, 0.0, 0.0], [1.0, 1.0, 1.0]),  // ~5 < 9.9 => adjacent
+            SceneObject::new(1, [5.0, 0.0, 0.0], [1.0, 1.0, 1.0]), // ~5 < 9.9 => adjacent
             SceneObject::new(2, [15.0, 0.0, 0.0], [1.0, 1.0, 1.0]), // ~15 < 19.8 => near
             SceneObject::new(3, [25.0, 0.0, 0.0], [1.0, 1.0, 1.0]), // ~25 < 30 => far
         ];
@@ -342,10 +343,7 @@ mod tests {
         let graph = builder.build_from_objects(&objects);
 
         // Check that adjacent relation exists for objects 0 and 1.
-        let edge_0_1 = graph
-            .edges
-            .iter()
-            .find(|e| e.from == 0 && e.to == 1);
+        let edge_0_1 = graph.edges.iter().find(|e| e.from == 0 && e.to == 1);
         assert!(edge_0_1.is_some());
         assert_eq!(edge_0_1.unwrap().relation, "adjacent");
     }
@@ -359,11 +357,7 @@ mod tests {
             edge_distance_threshold: 100.0,
         });
 
-        let cloud = make_cloud(&[
-            [0.0, 0.0, 0.0],
-            [50.0, 0.0, 0.0],
-            [100.0, 0.0, 0.0],
-        ]);
+        let cloud = make_cloud(&[[0.0, 0.0, 0.0], [50.0, 0.0, 0.0], [100.0, 0.0, 0.0]]);
 
         let graph = builder.build_from_point_cloud(&cloud);
         // min_cluster_size=1, so each point is its own cluster.

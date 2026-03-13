@@ -150,7 +150,10 @@ mod tests {
     fn test_fuse_skips_stale() {
         let c1 = make_cloud(&[[1.0, 0.0, 0.0]], 0);
         let c2 = make_cloud(&[[2.0, 0.0, 0.0]], 100_000); // 100ms apart
-        let config = FusionConfig { max_time_delta_us: 50_000, ..Default::default() };
+        let config = FusionConfig {
+            max_time_delta_us: 50_000,
+            ..Default::default()
+        };
         let result = fuse_clouds(&[c1, c2], &config);
         assert_eq!(result.len(), 1); // c2 skipped
     }
@@ -159,12 +162,16 @@ mod tests {
     fn test_voxel_downsample() {
         let c1 = make_cloud(
             &[
-                [0.0, 0.0, 0.0], [0.01, 0.01, 0.01], // same voxel
-                [5.0, 5.0, 5.0], // different voxel
+                [0.0, 0.0, 0.0],
+                [0.01, 0.01, 0.01], // same voxel
+                [5.0, 5.0, 5.0],    // different voxel
             ],
             0,
         );
-        let config = FusionConfig { voxel_size: 1.0, ..Default::default() };
+        let config = FusionConfig {
+            voxel_size: 1.0,
+            ..Default::default()
+        };
         let result = fuse_clouds(&[c1], &config);
         assert_eq!(result.len(), 2);
     }
@@ -172,7 +179,10 @@ mod tests {
     #[test]
     fn test_density_weighting() {
         let c1 = make_cloud(&[[1.0, 0.0, 0.0]], 0);
-        let config = FusionConfig { density_weighting: true, ..Default::default() };
+        let config = FusionConfig {
+            density_weighting: true,
+            ..Default::default()
+        };
         let result = fuse_clouds(&[c1], &config);
         assert_eq!(result.len(), 1);
         // With 1 point, weight = 1/sqrt(1) = 1.0, so intensity unchanged.

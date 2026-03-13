@@ -10,7 +10,7 @@
 //! - GATE-6: WASM build succeeds (placeholder)
 //! - GATE-7: CI pipeline passes (placeholder)
 
-use ruvector_cnn::int8::{QuantParams, quantize_tensor, dequantize_tensor};
+use ruvector_cnn::int8::{dequantize_tensor, quantize_tensor, QuantParams};
 
 #[cfg(test)]
 mod acceptance_gates {
@@ -58,19 +58,22 @@ mod acceptance_gates {
             assert!(
                 params.scale.is_finite(),
                 "GATE-1 FAILED ({}): Scale is not finite: {}",
-                name, params.scale
+                name,
+                params.scale
             );
             assert!(
                 params.scale > 0.0,
                 "GATE-1 FAILED ({}): Scale must be positive: {}",
-                name, params.scale
+                name,
+                params.scale
             );
 
             // Validate zero_point
             assert!(
                 params.zero_point >= -128 && params.zero_point <= 127,
                 "GATE-1 FAILED ({}): Zero point {} out of range [-128, 127]",
-                name, params.zero_point
+                name,
+                params.zero_point
             );
 
             println!(
@@ -100,9 +103,7 @@ mod acceptance_gates {
 
         for (name, size) in test_cases {
             let mut rng = fastrand::Rng::with_seed(42 + size);
-            let fp32: Vec<f32> = (0..size)
-                .map(|_| rng.f32() * 2.0 - 1.0)
-                .collect();
+            let fp32: Vec<f32> = (0..size).map(|_| rng.f32() * 2.0 - 1.0).collect();
 
             let params = QuantParams::from_tensor(&fp32);
             let int8 = quantize_tensor(&fp32, &params);
@@ -267,7 +268,8 @@ mod acceptance_gates {
                         .map(|_| {
                             let u1 = rng.f32();
                             let u2 = rng.f32();
-                            ((-2.0 * u1.ln()).sqrt() * (2.0 * std::f32::consts::PI * u2).cos()) * 0.5
+                            ((-2.0 * u1.ln()).sqrt() * (2.0 * std::f32::consts::PI * u2).cos())
+                                * 0.5
                         })
                         .collect()
                 }),
@@ -278,7 +280,13 @@ mod acceptance_gates {
                 generator: Box::new(|size| {
                     let mut rng = fastrand::Rng::with_seed(789);
                     (0..size)
-                        .map(|_| if rng.f32() < 0.9 { 0.0 } else { rng.f32() * 2.0 - 1.0 })
+                        .map(|_| {
+                            if rng.f32() < 0.9 {
+                                0.0
+                            } else {
+                                rng.f32() * 2.0 - 1.0
+                            }
+                        })
                         .collect()
                 }),
                 min_similarity: 0.990,
@@ -338,15 +346,12 @@ mod acceptance_gates {
 
         let mut rng = fastrand::Rng::with_seed(42);
         let calibration_batch: Vec<Vec<f32>> = (0..batch_size)
-            .map(|_| {
-                (0..embedding_size)
-                    .map(|_| rng.f32() * 2.0 - 1.0)
-                    .collect()
-            })
+            .map(|_| (0..embedding_size).map(|_| rng.f32() * 2.0 - 1.0).collect())
             .collect();
 
         // Flatten for global calibration
-        let flattened: Vec<f32> = calibration_batch.iter()
+        let flattened: Vec<f32> = calibration_batch
+            .iter()
             .flat_map(|v| v.iter().copied())
             .collect();
 
@@ -372,17 +377,11 @@ mod acceptance_gates {
             min_similarity = min_similarity.min(similarity);
 
             if similarity < 0.99 {
-                println!(
-                    "⚠ Batch item {} has lower similarity: {:.6}",
-                    i, similarity
-                );
+                println!("⚠ Batch item {} has lower similarity: {:.6}", i, similarity);
             }
         }
 
-        println!(
-            "✓ Minimum similarity across batch: {:.6}",
-            min_similarity
-        );
+        println!("✓ Minimum similarity across batch: {:.6}", min_similarity);
 
         assert!(
             min_similarity >= 0.99,

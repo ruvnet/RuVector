@@ -10,9 +10,11 @@
 
 #![allow(clippy::new_without_default)]
 
-use wasm_bindgen::prelude::*;
-use ruvector_cnn::contrastive::{InfoNCELoss as RustInfoNCE, TripletLoss as RustTriplet, TripletDistance};
+use ruvector_cnn::contrastive::{
+    InfoNCELoss as RustInfoNCE, TripletDistance, TripletLoss as RustTriplet,
+};
 use ruvector_cnn::simd;
+use wasm_bindgen::prelude::*;
 
 /// Initialize panic hook for better error messages
 #[wasm_bindgen(start)]
@@ -94,9 +96,8 @@ impl WasmCnnEmbedder {
             let mean: f32 = channel_data.iter().sum::<f32>() / pixels_per_channel as f32;
 
             // Variance
-            let variance: f32 = channel_data.iter()
-                .map(|x| (x - mean).powi(2))
-                .sum::<f32>() / pixels_per_channel as f32;
+            let variance: f32 = channel_data.iter().map(|x| (x - mean).powi(2)).sum::<f32>()
+                / pixels_per_channel as f32;
 
             // Store in embedding
             if c * 2 < self.embedding_dim {
@@ -195,7 +196,12 @@ impl WasmInfoNCELoss {
     /// Compute loss for a batch of embedding pairs
     /// embeddings: [2N, D] flattened where (i, i+N) are positive pairs
     #[wasm_bindgen]
-    pub fn forward(&self, embeddings: &[f32], batch_size: usize, dim: usize) -> Result<f32, JsValue> {
+    pub fn forward(
+        &self,
+        embeddings: &[f32],
+        batch_size: usize,
+        dim: usize,
+    ) -> Result<f32, JsValue> {
         if embeddings.len() != 2 * batch_size * dim {
             return Err(JsValue::from_str(&format!(
                 "Expected {} elements, got {}",
@@ -269,7 +275,10 @@ impl WasmTripletLoss {
         negatives: &[f32],
         dim: usize,
     ) -> Result<f32, JsValue> {
-        if anchors.len() % dim != 0 || positives.len() != anchors.len() || negatives.len() != anchors.len() {
+        if anchors.len() % dim != 0
+            || positives.len() != anchors.len()
+            || negatives.len() != anchors.len()
+        {
             return Err(JsValue::from_str("Invalid triplet dimensions"));
         }
 
@@ -277,9 +286,18 @@ impl WasmTripletLoss {
         let mut total_loss = 0.0f64;
 
         for i in 0..batch_size {
-            let a: Vec<f64> = anchors[i * dim..(i + 1) * dim].iter().map(|&x| x as f64).collect();
-            let p: Vec<f64> = positives[i * dim..(i + 1) * dim].iter().map(|&x| x as f64).collect();
-            let n: Vec<f64> = negatives[i * dim..(i + 1) * dim].iter().map(|&x| x as f64).collect();
+            let a: Vec<f64> = anchors[i * dim..(i + 1) * dim]
+                .iter()
+                .map(|&x| x as f64)
+                .collect();
+            let p: Vec<f64> = positives[i * dim..(i + 1) * dim]
+                .iter()
+                .map(|&x| x as f64)
+                .collect();
+            let n: Vec<f64> = negatives[i * dim..(i + 1) * dim]
+                .iter()
+                .map(|&x| x as f64)
+                .collect();
             total_loss += self.inner.forward(&a, &p, &n);
         }
 
@@ -351,14 +369,28 @@ impl LayerOps {
     ) -> Vec<f32> {
         let channels = gamma.len();
         let mut output = vec![0.0f32; input.len()];
-        simd::batch_norm_simd(input, &mut output, gamma, beta, mean, var, epsilon, channels);
+        simd::batch_norm_simd(
+            input,
+            &mut output,
+            gamma,
+            beta,
+            mean,
+            var,
+            epsilon,
+            channels,
+        );
         output
     }
 
     /// Apply global average pooling
     /// Returns one value per channel
     #[wasm_bindgen]
-    pub fn global_avg_pool(input: &[f32], height: usize, width: usize, channels: usize) -> Vec<f32> {
+    pub fn global_avg_pool(
+        input: &[f32],
+        height: usize,
+        width: usize,
+        channels: usize,
+    ) -> Vec<f32> {
         let mut output = vec![0.0f32; channels];
         simd::global_avg_pool_simd(input, &mut output, height, width, channels);
         output
@@ -382,7 +414,8 @@ mod tests {
             input_size: 8,
             embedding_dim: 64,
             normalize: true,
-        })).unwrap();
+        }))
+        .unwrap();
 
         let image_data = vec![128u8; 8 * 8 * 3];
         let embedding = embedder.extract(&image_data, 8, 8).unwrap();

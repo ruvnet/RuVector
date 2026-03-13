@@ -55,15 +55,17 @@ impl TrajectoryStore {
     /// Create a new trajectory store, initializing the data directory and RVF file.
     pub fn create(config: SonaConfig) -> Result<Self, SonaStoreError> {
         config.validate().map_err(SonaStoreError::Config)?;
-        config.ensure_dirs().map_err(|e| SonaStoreError::Io(e.to_string()))?;
+        config
+            .ensure_dirs()
+            .map_err(|e| SonaStoreError::Io(e.to_string()))?;
 
         let rvf_options = RvfOptions {
             dimension: config.dimension,
             ..Default::default()
         };
 
-        let store = RvfStore::create(&config.store_path(), rvf_options)
-            .map_err(SonaStoreError::Rvf)?;
+        let store =
+            RvfStore::create(&config.store_path(), rvf_options).map_err(SonaStoreError::Rvf)?;
 
         Ok(Self {
             store,
@@ -95,11 +97,26 @@ impl TrajectoryStore {
         self.next_id += 1;
 
         let metadata = vec![
-            MetadataEntry { field_id: FIELD_STEP_ID, value: MetadataValue::U64(step_id) },
-            MetadataEntry { field_id: FIELD_ACTION, value: MetadataValue::String(action.to_string()) },
-            MetadataEntry { field_id: FIELD_REWARD, value: MetadataValue::F64(reward) },
-            MetadataEntry { field_id: FIELD_CATEGORY, value: MetadataValue::String(String::new()) },
-            MetadataEntry { field_id: FIELD_TYPE, value: MetadataValue::String(TYPE_TRAJECTORY.to_string()) },
+            MetadataEntry {
+                field_id: FIELD_STEP_ID,
+                value: MetadataValue::U64(step_id),
+            },
+            MetadataEntry {
+                field_id: FIELD_ACTION,
+                value: MetadataValue::String(action.to_string()),
+            },
+            MetadataEntry {
+                field_id: FIELD_REWARD,
+                value: MetadataValue::F64(reward),
+            },
+            MetadataEntry {
+                field_id: FIELD_CATEGORY,
+                value: MetadataValue::String(String::new()),
+            },
+            MetadataEntry {
+                field_id: FIELD_TYPE,
+                value: MetadataValue::String(TYPE_TRAJECTORY.to_string()),
+            },
         ];
 
         self.store
@@ -107,7 +124,8 @@ impl TrajectoryStore {
             .map_err(SonaStoreError::Rvf)?;
 
         self.step_ids.push_back(vector_id);
-        self.step_meta.push_back((step_id, action.to_string(), reward));
+        self.step_meta
+            .push_back((step_id, action.to_string(), reward));
 
         // Trim to trajectory window size.
         while self.step_ids.len() > self.config.trajectory_window {
@@ -152,7 +170,8 @@ impl TrajectoryStore {
             });
         }
 
-        let results = self.store
+        let results = self
+            .store
             .query(embedding, k, &QueryOptions::default())
             .map_err(SonaStoreError::Rvf)?;
 
@@ -184,7 +203,9 @@ impl TrajectoryStore {
         }
 
         if !ids_to_delete.is_empty() {
-            self.store.delete(&ids_to_delete).map_err(SonaStoreError::Rvf)?;
+            self.store
+                .delete(&ids_to_delete)
+                .map_err(SonaStoreError::Rvf)?;
         }
 
         Ok(ids_to_delete.len())
@@ -212,7 +233,9 @@ impl TrajectoryStore {
         results
             .iter()
             .map(|r| {
-                let meta = self.step_ids.iter()
+                let meta = self
+                    .step_ids
+                    .iter()
                     .zip(self.step_meta.iter())
                     .find(|(&vid, _)| vid == r.id)
                     .map(|(_, m)| m);
@@ -285,9 +308,15 @@ mod tests {
         let config = test_config(dir.path());
         let mut store = TrajectoryStore::create(config).unwrap();
 
-        store.record_step(1, &make_embedding(1.0), "explore", 0.5).unwrap();
-        store.record_step(2, &make_embedding(2.0), "exploit", 0.8).unwrap();
-        store.record_step(3, &make_embedding(3.0), "explore", 0.3).unwrap();
+        store
+            .record_step(1, &make_embedding(1.0), "explore", 0.5)
+            .unwrap();
+        store
+            .record_step(2, &make_embedding(2.0), "exploit", 0.8)
+            .unwrap();
+        store
+            .record_step(3, &make_embedding(3.0), "explore", 0.3)
+            .unwrap();
 
         let recent = store.get_recent(2);
         assert_eq!(recent.len(), 2);
@@ -304,7 +333,9 @@ mod tests {
         let config = test_config(dir.path());
         let mut store = TrajectoryStore::create(config).unwrap();
 
-        store.record_step(1, &make_embedding(1.0), "a", 0.1).unwrap();
+        store
+            .record_step(1, &make_embedding(1.0), "a", 0.1)
+            .unwrap();
 
         let recent = store.get_recent(10);
         assert_eq!(recent.len(), 1);
@@ -320,7 +351,9 @@ mod tests {
         let mut store = TrajectoryStore::create(config).unwrap();
 
         for i in 0..8 {
-            store.record_step(i, &make_embedding(i as f32 + 0.1), "act", 0.1).unwrap();
+            store
+                .record_step(i, &make_embedding(i as f32 + 0.1), "act", 0.1)
+                .unwrap();
         }
 
         assert_eq!(store.len(), 5);
@@ -339,11 +372,19 @@ mod tests {
         let config = test_config(dir.path());
         let mut store = TrajectoryStore::create(config).unwrap();
 
-        store.record_step(1, &[1.0, 0.0, 0.0, 0.0], "a", 0.1).unwrap();
-        store.record_step(2, &[0.0, 1.0, 0.0, 0.0], "b", 0.2).unwrap();
-        store.record_step(3, &[0.9, 0.1, 0.0, 0.0], "c", 0.3).unwrap();
+        store
+            .record_step(1, &[1.0, 0.0, 0.0, 0.0], "a", 0.1)
+            .unwrap();
+        store
+            .record_step(2, &[0.0, 1.0, 0.0, 0.0], "b", 0.2)
+            .unwrap();
+        store
+            .record_step(3, &[0.9, 0.1, 0.0, 0.0], "c", 0.3)
+            .unwrap();
 
-        let results = store.search_similar_states(&[1.0, 0.0, 0.0, 0.0], 2).unwrap();
+        let results = store
+            .search_similar_states(&[1.0, 0.0, 0.0, 0.0], 2)
+            .unwrap();
         assert_eq!(results.len(), 2);
         // Closest to [1,0,0,0] should be step 1 or step 3
         assert!(results[0].distance <= results[1].distance);
@@ -358,7 +399,9 @@ mod tests {
         let mut store = TrajectoryStore::create(config).unwrap();
 
         for i in 0..5 {
-            store.record_step(i, &make_embedding(i as f32 + 0.1), "act", 0.1).unwrap();
+            store
+                .record_step(i, &make_embedding(i as f32 + 0.1), "act", 0.1)
+                .unwrap();
         }
 
         let removed = store.clear_old(2).unwrap();
@@ -379,7 +422,9 @@ mod tests {
         let config = test_config(dir.path());
         let mut store = TrajectoryStore::create(config).unwrap();
 
-        store.record_step(1, &make_embedding(1.0), "a", 0.1).unwrap();
+        store
+            .record_step(1, &make_embedding(1.0), "a", 0.1)
+            .unwrap();
 
         let removed = store.clear_old(10).unwrap();
         assert_eq!(removed, 0);
@@ -399,7 +444,9 @@ mod tests {
         assert!(store.get_recent(5).is_empty());
         assert!(store.get_trajectory_window().is_empty());
 
-        let results = store.search_similar_states(&make_embedding(1.0), 5).unwrap();
+        let results = store
+            .search_similar_states(&make_embedding(1.0), 5)
+            .unwrap();
         assert!(results.is_empty());
 
         store.close().unwrap();

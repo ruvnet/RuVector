@@ -363,7 +363,11 @@ impl QuantBenchWasm {
 
         let best_compression = formats
             .iter()
-            .max_by(|a, b| a.compression_ratio.partial_cmp(&b.compression_ratio).unwrap())
+            .max_by(|a, b| {
+                a.compression_ratio
+                    .partial_cmp(&b.compression_ratio)
+                    .unwrap()
+            })
             .map(|r| r.format.clone())
             .unwrap_or_default();
 

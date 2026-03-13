@@ -1,9 +1,9 @@
 //! Integration tests for graph rewrite passes (ADR-091 Phase 3)
 
 use ruvector_cnn::quantize::{
-    CalibrationHistogram, ComputationGraph, NodeParams, NodeType, QuantizationParams,
-    fuse_batchnorm_to_conv, fuse_hardswish, fuse_relu, fuse_zp_to_bias,
-    generate_hardswish_lut, insert_qdq_nodes,
+    fuse_batchnorm_to_conv, fuse_hardswish, fuse_relu, fuse_zp_to_bias, generate_hardswish_lut,
+    insert_qdq_nodes, CalibrationHistogram, ComputationGraph, NodeParams, NodeType,
+    QuantizationParams,
 };
 use std::collections::HashMap;
 
