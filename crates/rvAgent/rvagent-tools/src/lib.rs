@@ -17,6 +17,52 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 // ---------------------------------------------------------------------------
+// Constants (ADR-096)
+// ---------------------------------------------------------------------------
+
+/// Default read offset (0-based line number).
+pub const DEFAULT_READ_OFFSET: usize = 0;
+
+/// Default read limit in lines.
+pub const DEFAULT_READ_LIMIT: usize = 2000;
+
+/// Default execute timeout in seconds.
+pub const DEFAULT_EXECUTE_TIMEOUT: u32 = 120;
+
+/// Warning for empty files.
+pub const EMPTY_CONTENT_WARNING: &str =
+    "System reminder: File exists but has empty contents";
+
+/// Image file extensions.
+pub const IMAGE_EXTENSIONS: &[&str] = &[".png", ".jpg", ".jpeg", ".gif", ".webp"];
+
+/// Check if a path is an image file.
+pub fn is_image_file(path: &str) -> bool {
+    let lower = path.to_lowercase();
+    IMAGE_EXTENSIONS.iter().any(|ext| lower.ends_with(ext))
+}
+
+/// Line number width for formatting.
+pub const LINE_NUMBER_WIDTH: usize = 6;
+
+/// Format content with line numbers (ADR-103 A7).
+pub fn format_content_with_line_numbers(content: &str, start_line: usize) -> String {
+    use std::fmt::Write;
+    let lines: Vec<&str> = content.lines().collect();
+    let total_est: usize = lines.iter().map(|l| l.len().min(2000) + 8).sum();
+    let mut out = String::with_capacity(total_est);
+    for (i, line) in lines.iter().enumerate() {
+        if i > 0 {
+            out.push('\n');
+        }
+        let truncated = &line[..line.len().min(2000)];
+        write!(out, "{:>width$}\t{}", start_line + i, truncated, width = LINE_NUMBER_WIDTH)
+            .unwrap();
+    }
+    out
+}
+
+// ---------------------------------------------------------------------------
 // Tool trait (ADR-096)
 // ---------------------------------------------------------------------------
 
@@ -121,29 +167,25 @@ impl BuiltinTool {
         }
     }
 
-    /// Invoke the builtin tool with the given args.
+    /// Invoke the builtin tool with the given args and runtime.
     pub fn invoke(&self, args: serde_json::Value, runtime: &ToolRuntime) -> ToolResult {
         match self {
-            Self::Ls => ls::invoke(args, runtime),
-            Self::ReadFile => read_file::invoke(args, runtime),
-            Self::WriteFile => write_file::invoke(args, runtime),
-            Self::EditFile => edit_file::invoke(args, runtime),
+            Self::Ls => ls::invoke_standalone(args, runtime),
+            Self::ReadFile => read_file::invoke_standalone(args, runtime),
+            Self::WriteFile => write_file::invoke_standalone(args, runtime),
+            Self::EditFile => edit_file::invoke_standalone(args, runtime),
             Self::Glob => glob_tool::invoke(args, runtime),
-            Self::Grep => grep::invoke(args, runtime),
-            Self::Execute => execute::invoke(args, runtime),
-            Self::WriteTodos => {
-                ToolResult::Text("write_todos: stub".into())
-            }
-            Self::Task => {
-                ToolResult::Text("task: stub".into())
-            }
+            Self::Grep => grep::invoke_standalone(args, runtime),
+            Self::Execute => execute::invoke_standalone(args, runtime),
+            Self::WriteTodos => ToolResult::Text("write_todos: stub".into()),
+            Self::Task => ToolResult::Text("task: stub".into()),
         }
     }
 
     /// Async invocation.
     pub async fn ainvoke(&self, args: serde_json::Value, runtime: &ToolRuntime) -> ToolResult {
         match self {
-            Self::Execute => execute::ainvoke(args, runtime).await,
+            Self::Execute => execute::ainvoke_standalone(args, runtime).await,
             _ => self.invoke(args, runtime),
         }
     }
