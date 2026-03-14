@@ -8,7 +8,6 @@ use std::collections::HashMap;
 use std::fmt;
 use std::sync::Arc;
 
-use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 use crate::messages::Message;
@@ -46,9 +45,9 @@ pub struct FileData {
     /// Encoding (typically "utf-8").
     #[serde(default = "default_encoding")]
     pub encoding: String,
-    /// Last modified timestamp.
+    /// Last modified timestamp (ISO 8601 string).
     #[serde(default)]
-    pub modified_at: Option<DateTime<Utc>>,
+    pub modified_at: Option<String>,
 }
 
 fn default_encoding() -> String {
@@ -337,7 +336,7 @@ mod tests {
         let fd = FileData {
             content: "hello".into(),
             encoding: "utf-8".into(),
-            modified_at: Some(Utc::now()),
+            modified_at: Some("2026-03-14T12:00:00Z".into()),
         };
         let json = serde_json::to_string(&fd).unwrap();
         let back: FileData = serde_json::from_str(&json).unwrap();

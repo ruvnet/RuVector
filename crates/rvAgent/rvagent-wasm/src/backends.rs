@@ -196,12 +196,12 @@ impl WasmFetchBackend {
         method: &str,
         body: Option<&str>,
     ) -> Result<JsValue, WasmBackendError> {
-        let mut opts = web_sys::RequestInit::new();
-        opts.method(method);
-        opts.mode(web_sys::RequestMode::Cors);
+        let opts = web_sys::RequestInit::new();
+        opts.set_method(method);
+        opts.set_mode(web_sys::RequestMode::Cors);
 
         if let Some(body_str) = body {
-            opts.body(Some(&JsValue::from_str(body_str)));
+            opts.set_body(&JsValue::from_str(body_str));
         }
 
         let request = web_sys::Request::new_with_str_and_init(url, &opts)

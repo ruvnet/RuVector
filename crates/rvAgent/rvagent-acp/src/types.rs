@@ -3,7 +3,6 @@
 //! Defines the wire format for prompt submission, session management,
 //! and error responses per ADR-099 and ADR-103 C6.
 
-use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 // ---------------------------------------------------------------------------
@@ -77,8 +76,8 @@ pub struct SessionInfo {
     /// Unique session identifier.
     pub id: String,
 
-    /// When the session was created.
-    pub created_at: DateTime<Utc>,
+    /// When the session was created (RFC 3339 timestamp).
+    pub created_at: String,
 
     /// Number of messages exchanged in this session.
     pub message_count: usize,
@@ -237,7 +236,7 @@ mod tests {
     fn test_session_info_serde() {
         let info = SessionInfo {
             id: "s1".into(),
-            created_at: Utc::now(),
+            created_at: "2026-03-14T00:00:00Z".into(),
             message_count: 5,
         };
         let json = serde_json::to_string(&info).unwrap();

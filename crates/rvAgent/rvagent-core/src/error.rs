@@ -1,7 +1,5 @@
 //! Error types for rvAgent core.
 
-use std::fmt;
-
 /// Top-level error enum for rvAgent operations.
 #[derive(Debug, thiserror::Error)]
 pub enum RvAgentError {

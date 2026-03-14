@@ -9,14 +9,22 @@
 //! - [`models`] — Model resolution and `ChatModel` trait
 //! - [`prompt`] — System prompt constants and builder
 //! - [`state`] — Typed agent state with Arc-based O(1) cloning
+//! - [`arena`] — Bump arena allocator for hot-path scratch allocations (ADR-103 A8)
+//! - [`metrics`] — Lock-free performance metrics collection (ADR-103 A9)
+//! - [`parallel`] — Parallel async execution utilities (ADR-103 A2)
+//! - [`string_pool`] — Thread-safe string interning for repeated strings
 
+pub mod arena;
 pub mod config;
 pub mod error;
 pub mod graph;
 pub mod messages;
+pub mod metrics;
 pub mod models;
+pub mod parallel;
 pub mod prompt;
 pub mod state;
+pub mod string_pool;
 
 // Re-export key types at crate root for convenience.
 pub use config::{BackendConfig, ResourceBudget, RvAgentConfig, SecurityPolicy};
