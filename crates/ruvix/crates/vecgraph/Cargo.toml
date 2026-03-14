@@ -1,0 +1,38 @@
+[package]
+name = "ruvix-vecgraph"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.77"
+license = "MIT OR Apache-2.0"
+authors = ["RuVector Contributors"]
+description = "Kernel-resident vector and graph stores for RuVix Cognition Kernel (ADR-087)"
+keywords = ["kernel", "vector", "graph", "hnsw", "proof-gated"]
+categories = ["data-structures", "no-std", "embedded", "os"]
+repository = "https://github.com/ruvnet/ruvector"
+readme = "README.md"
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+ruvix-types = { version = "0.1.0", path = "../types" }
+ruvix-region = { version = "0.1.0", path = "../region" }
+
+[dev-dependencies]
+proptest = "1.4"
+criterion = { version = "0.5", features = ["html_reports"] }
+
+[features]
+default = ["std"]
+std = ["ruvix-types/std", "ruvix-region/std"]
+alloc = ["ruvix-types/alloc", "ruvix-region/alloc"]
+
+# Enable statistics collection
+stats = []
+
+# Enable coherence scoring
+coherence = []
+
+[[test]]
+name = "proof_gated"
+path = "tests/proof_gated.rs"

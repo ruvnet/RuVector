@@ -1,0 +1,98 @@
+# Minimal workspace for mcp-brain-server Docker build
+[workspace]
+resolver = "2"
+members = [
+    "crates/mcp-brain-server",
+    "crates/mcp-brain",
+    "crates/sona",
+    "crates/ruvector-mincut",
+    "crates/ruvector-nervous-system",
+    "crates/ruvector-domain-expansion",
+    "crates/ruvector-delta-core",
+    "crates/ruvector-solver",
+    "crates/ruvllm",
+    "crates/ruvector-core",
+    "crates/rvf/rvf-types",
+    "crates/rvf/rvf-crypto",
+    "crates/rvf/rvf-wire",
+    "crates/rvf/rvf-federation",
+    "crates/rvf/rvf-runtime",
+]
+
+[workspace.package]
+version = "2.0.6"
+edition = "2021"
+rust-version = "1.77"
+license = "MIT"
+authors = ["Ruvector Team"]
+repository = "https://github.com/ruvnet/ruvector"
+
+[workspace.dependencies]
+# Core functionality
+redb = "2.1"
+memmap2 = "0.9"
+hnsw_rs = "0.3"
+simsimd = "5.9"
+rayon = "1.10"
+crossbeam = "0.8"
+
+# Serialization
+rkyv = "0.8"
+bincode = { version = "2.0.0-rc.3", features = ["serde"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Node.js bindings
+napi = { version = "2.16", default-features = false, features = ["napi9", "async", "tokio_rt"] }
+napi-derive = "2.16"
+
+# WASM
+wasm-bindgen = "0.2"
+wasm-bindgen-futures = "0.4"
+js-sys = "0.3"
+web-sys = { version = "0.3", features = ["Worker", "MessagePort", "console"] }
+getrandom = { version = "0.3", features = ["wasm_js"] }
+
+# Async runtime
+tokio = { version = "1.41", features = ["rt-multi-thread", "sync", "macros"] }
+futures = "0.3"
+
+# Error handling and utilities
+thiserror = "2.0"
+anyhow = "1.0"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Math and numerics
+nalgebra = { version = "0.33", default-features = false, features = ["std"] }
+ndarray = "0.16"
+rand = "0.8"
+rand_distr = "0.4"
+
+# Time and UUID
+chrono = "0.4"
+uuid = { version = "1.11", features = ["v4", "serde", "js"] }
+
+# CLI
+clap = { version = "4.5", features = ["derive", "cargo"] }
+indicatif = "0.17"
+console = "0.15"
+
+# Testing and benchmarking
+criterion = { version = "0.5", features = ["html_reports"] }
+proptest = "1.5"
+mockall = "0.13"
+
+# Performance
+dashmap = "6.1"
+parking_lot = "0.12"
+once_cell = "1.20"
+
+[profile.release]
+lto = true
+codegen-units = 1
+opt-level = 3
+
+# Patch hnsw_rs to use rand 0.8 instead of 0.9 for WASM compatibility
+[patch.crates-io]
+hnsw_rs = { path = "./patches/hnsw_rs" }

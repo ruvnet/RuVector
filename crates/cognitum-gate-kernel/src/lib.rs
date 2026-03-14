@@ -193,6 +193,12 @@ impl TileState {
     ///
     /// Returns true if the delta was successfully buffered.
     /// Returns false if the buffer is full.
+    ///
+    /// # Security Note
+    ///
+    /// The return value MUST be checked. Ignoring a `false` return
+    /// could lead to lost deltas and inconsistent state.
+    #[must_use]
     pub fn ingest_delta(&mut self, delta: &Delta) -> bool {
         if self.delta_count as usize >= MAX_DELTA_BUFFER {
             return false;
@@ -205,14 +211,68 @@ impl TileState {
         true
     }
 
-    /// Ingest a delta from raw bytes
+    /// Ingest a delta from raw bytes with bounds and alignment validation.
+    ///
+    /// This function implements CQ-001 security fix: proper validation
+    /// of raw pointer dereferences to prevent undefined behavior.
+    ///
+    /// # Arguments
+    ///
+    /// * `ptr` - Pointer to raw delta bytes
+    /// * `len` - Length of the buffer pointed to by `ptr`
+    ///
+    /// # Returns
+    ///
+    /// * `true` if the delta was successfully ingested
+    /// * `false` if validation failed or buffer is full
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure that:
+    /// - `ptr` points to valid, readable memory for at least `len` bytes
+    /// - The memory is not mutated while this function runs
+    ///
+    /// The function validates internally:
+    /// - Buffer size is sufficient for a `Delta` struct
+    /// - Pointer alignment matches `Delta` requirements
+    #[inline]
+    #[must_use]
+    pub unsafe fn ingest_delta_raw(&mut self, ptr: *const u8, len: usize) -> bool {
+        // CQ-001: Validate bounds before dereference
+        if len < size_of::<Delta>() {
+            return false;
+        }
+
+        // CQ-001: Validate alignment before dereference
+        // Delta requires 16-byte alignment due to #[repr(C, align(16))]
+        if (ptr as usize) % core::mem::align_of::<Delta>() != 0 {
+            return false;
+        }
+
+        // SAFETY: We have validated:
+        // 1. Buffer is large enough to contain a Delta
+        // 2. Pointer is properly aligned for Delta
+        // 3. Caller guarantees memory is valid and readable
+        let delta = unsafe { &*(ptr as *const Delta) };
+        self.ingest_delta(delta)
+    }
+
+    /// Ingest a delta from raw bytes (legacy, unchecked).
+    ///
+    /// **DEPRECATED**: Use `ingest_delta_raw` with length parameter instead.
+    /// This function exists only for backward compatibility.
     ///
     /// # Safety
     ///
     /// The caller must ensure that `ptr` points to a valid `Delta` structure
-    /// and that the pointer is properly aligned.
+    /// with proper size and alignment. No validation is performed.
     #[inline]
-    pub unsafe fn ingest_delta_raw(&mut self, ptr: *const u8) -> bool {
+    #[deprecated(
+        since = "0.1.2",
+        note = "Use ingest_delta_raw(ptr, len) with bounds checking"
+    )]
+    pub unsafe fn ingest_delta_raw_unchecked(&mut self, ptr: *const u8) -> bool {
+        // SAFETY: Caller guarantees all safety requirements
         let delta = unsafe { &*(ptr as *const Delta) };
         self.ingest_delta(delta)
     }
@@ -399,12 +459,19 @@ impl TileState {
 
     /// Check if tile has pending deltas
     #[inline]
+    #[must_use]
     pub fn has_pending_deltas(&self) -> bool {
         self.delta_count > 0
     }
 
     /// Check if tile is in error state
+    ///
+    /// # Security Note
+    ///
+    /// Always check error state before processing tile results.
+    /// Ignoring errors could lead to processing of corrupted data.
     #[inline]
+    #[must_use]
     pub fn is_error(&self) -> bool {
         self.status & Self::STATUS_ERROR != 0
     }
@@ -455,20 +522,25 @@ pub unsafe extern "C" fn init_tile(tile_id: u8) {
     }
 }
 
-/// Ingest a delta from raw memory
+/// Ingest a delta from raw memory with bounds checking.
 ///
 /// # Safety
 ///
-/// - `ptr` must point to a valid `Delta` structure
+/// - `ptr` must point to valid, readable memory for at least `len` bytes
 /// - The tile must be initialized
 ///
-/// Returns 1 on success, 0 if buffer is full or tile not initialized.
+/// Returns 1 on success, 0 if:
+/// - Buffer is too small (< 16 bytes)
+/// - Pointer is misaligned
+/// - Buffer is full
+/// - Tile not initialized
 #[no_mangle]
-pub unsafe extern "C" fn ingest_delta(ptr: *const u8) -> i32 {
+#[must_use]
+pub unsafe extern "C" fn ingest_delta(ptr: *const u8, len: usize) -> i32 {
     unsafe {
         match TILE_STATE.as_mut() {
             Some(tile) => {
-                if tile.ingest_delta_raw(ptr) {
+                if tile.ingest_delta_raw(ptr, len) {
                     1
                 } else {
                     0
@@ -477,6 +549,25 @@ pub unsafe extern "C" fn ingest_delta(ptr: *const u8) -> i32 {
             None => 0,
         }
     }
+}
+
+/// Ingest a delta from raw memory (legacy, assumes 16 bytes).
+///
+/// **DEPRECATED**: Use `ingest_delta(ptr, len)` with explicit length.
+///
+/// # Safety
+///
+/// - `ptr` must point to a valid `Delta` structure (exactly 16 bytes)
+/// - Pointer must be 16-byte aligned
+/// - The tile must be initialized
+///
+/// Returns 1 on success, 0 if buffer is full or tile not initialized.
+#[no_mangle]
+#[deprecated(since = "0.1.2", note = "Use ingest_delta(ptr, len) with bounds checking")]
+#[must_use]
+pub unsafe extern "C" fn ingest_delta_unchecked(ptr: *const u8) -> i32 {
+    // Use Delta size as implied length
+    unsafe { ingest_delta(ptr, core::mem::size_of::<crate::delta::Delta>()) }
 }
 
 /// Execute one tick of the kernel

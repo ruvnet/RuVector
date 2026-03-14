@@ -1,0 +1,84 @@
+[workspace]
+members = [
+    "crates/types",
+    "crates/region",
+    "crates/queue",
+    "crates/cap",
+    "crates/proof",
+    "crates/sched",
+    "crates/boot",
+    "crates/vecgraph",
+    "crates/nucleus",
+    "tests",
+    "benches",
+    "examples/cognitive_demo",
+]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.77"
+license = "MIT OR Apache-2.0"
+authors = ["RuVector Contributors"]
+repository = "https://github.com/ruvnet/ruvector"
+
+[workspace.dependencies]
+# RuVix internal crates
+ruvix-types = { version = "0.1.0", path = "crates/types" }
+ruvix-region = { version = "0.1.0", path = "crates/region" }
+ruvix-queue = { version = "0.1.0", path = "crates/queue" }
+ruvix-cap = { version = "0.1.0", path = "crates/cap" }
+ruvix-proof = { version = "0.1.0", path = "crates/proof" }
+ruvix-sched = { version = "0.1.0", path = "crates/sched" }
+ruvix-boot = { version = "0.1.0", path = "crates/boot" }
+ruvix-vecgraph = { version = "0.1.0", path = "crates/vecgraph" }
+ruvix-nucleus = { version = "0.1.0", path = "crates/nucleus" }
+
+# External - from parent workspace
+ruvector-coherence = { version = "2.0.6", path = "../ruvector-coherence" }
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Cryptography
+sha2 = { version = "0.10", default-features = false }
+
+# Testing and benchmarking
+criterion = { version = "0.5", features = ["html_reports"] }
+proptest = "1.5"
+
+# CLI
+clap = { version = "4.5", features = ["derive", "cargo"] }
+indicatif = "0.17"
+console = "0.15"
+
+# Random
+rand = "0.8"
+rand_distr = "0.4"
+
+# Statistics
+hdrhistogram = "7.5"
+tabled = "0.16"
+sysinfo = "0.31"
+instant = "0.1"
+chrono = "0.4"
+
+# Unix dependencies
+libc = "0.2"
+
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+strip = true
+panic = "abort"
+
+[profile.bench]
+inherits = "release"
+debug = true
+
+[profile.dev]
+opt-level = 0
+debug = true

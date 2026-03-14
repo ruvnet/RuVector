@@ -1,0 +1,103 @@
+[package]
+name = "ruvix-bench"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.77"
+license = "MIT OR Apache-2.0"
+authors = ["RuVector Contributors"]
+description = "Comprehensive benchmarks comparing RuVix Cognition Kernel against Linux syscalls"
+keywords = ["benchmark", "syscall", "kernel", "linux", "performance"]
+categories = ["development-tools::profiling", "os"]
+repository = "https://github.com/ruvnet/ruvector"
+readme = "README.md"
+publish = false
+
+[[bin]]
+name = "ruvix-vs-linux"
+path = "src/bin/ruvix_vs_linux.rs"
+
+[[bin]]
+name = "syscall-bench"
+path = "src/bin/syscall_bench.rs"
+
+[[bin]]
+name = "proof-overhead"
+path = "src/bin/proof_overhead.rs"
+
+[[bin]]
+name = "throughput-bench"
+path = "src/bin/throughput_bench.rs"
+
+[[bin]]
+name = "memory-bench"
+path = "src/bin/memory_bench.rs"
+
+[[bench]]
+name = "syscall_benches"
+harness = false
+
+[[bench]]
+name = "linux_comparison"
+harness = false
+
+[[bench]]
+name = "proof_tiers"
+harness = false
+
+[[bench]]
+name = "throughput"
+harness = false
+
+[dependencies]
+# RuVix kernel crates
+ruvix-nucleus = { version = "0.1.0", path = "../crates/nucleus" }
+ruvix-types = { version = "0.1.0", path = "../crates/types" }
+ruvix-cap = { version = "0.1.0", path = "../crates/cap" }
+ruvix-region = { version = "0.1.0", path = "../crates/region" }
+ruvix-queue = { version = "0.1.0", path = "../crates/queue" }
+
+# Benchmarking
+criterion = { workspace = true }
+
+# CLI
+clap = { workspace = true }
+indicatif = { workspace = true }
+console = { workspace = true }
+
+# Data generation
+rand = { workspace = true }
+rand_distr = { workspace = true }
+
+# Statistics and analysis
+hdrhistogram = "7.5"
+
+# Output formatting
+tabled = "0.16"
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+# Memory profiling
+sysinfo = "0.31"
+
+# Timing
+instant = "0.1"
+chrono = "0.4"
+
+# Linux syscall wrappers (Unix only)
+[target.'cfg(unix)'.dependencies]
+nix = { version = "0.29", features = ["mman", "process", "signal", "fs", "time"] }
+libc = "0.2"
+mio = "1.0"
+
+[features]
+default = []
+profiling = []
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+
+[profile.bench]
+inherits = "release"
+debug = true

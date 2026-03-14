@@ -173,6 +173,26 @@ pub struct PartitionResult {
     pub total_memories: usize,
 }
 
+/// Compact partition result (default for MCP to avoid SSE truncation)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PartitionResultCompact {
+    pub clusters: Vec<KnowledgeClusterCompact>,
+    pub cut_value: f64,
+    pub edge_strengths: Vec<EdgeStrengthInfo>,
+    pub total_memories: usize,
+}
+
+impl From<PartitionResult> for PartitionResultCompact {
+    fn from(r: PartitionResult) -> Self {
+        Self {
+            clusters: r.clusters.iter().map(KnowledgeClusterCompact::from).collect(),
+            cut_value: r.cut_value,
+            edge_strengths: r.edge_strengths,
+            total_memories: r.total_memories,
+        }
+    }
+}
+
 /// A knowledge cluster
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct KnowledgeCluster {
@@ -182,6 +202,41 @@ pub struct KnowledgeCluster {
     pub dominant_category: BrainCategory,
     pub size: usize,
     pub coherence: f64,
+}
+
+/// Compact knowledge cluster (omits centroid to reduce response size)
+/// Used by brain_partition to avoid SSE truncation on large 128-dim vectors
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct KnowledgeClusterCompact {
+    pub id: u32,
+    pub memory_ids: Vec<Uuid>,
+    /// L2 norm of the centroid (preserves magnitude info without 128 floats)
+    pub centroid_norm: f32,
+    /// First 3 dimensions of centroid (for basic similarity checks)
+    pub centroid_preview: [f32; 3],
+    pub dominant_category: BrainCategory,
+    pub size: usize,
+    pub coherence: f64,
+}
+
+impl From<&KnowledgeCluster> for KnowledgeClusterCompact {
+    fn from(c: &KnowledgeCluster) -> Self {
+        let norm: f32 = c.centroid.iter().map(|x| x * x).sum::<f32>().sqrt();
+        let preview = [
+            c.centroid.first().copied().unwrap_or(0.0),
+            c.centroid.get(1).copied().unwrap_or(0.0),
+            c.centroid.get(2).copied().unwrap_or(0.0),
+        ];
+        Self {
+            id: c.id,
+            memory_ids: c.memory_ids.clone(),
+            centroid_norm: norm,
+            centroid_preview: preview,
+            dominant_category: c.dominant_category.clone(),
+            size: c.size,
+            coherence: c.coherence,
+        }
+    }
 }
 
 /// Edge strength info
@@ -250,7 +305,12 @@ pub struct DriftQuery {
 pub struct PartitionQuery {
     pub domain: Option<String>,
     pub min_cluster_size: Option<usize>,
+    /// Return compact format (default: true) - omits 128-dim centroids to avoid SSE truncation
+    #[serde(default = "default_compact")]
+    pub compact: bool,
 }
+
+fn default_compact() -> bool { true }
 
 #[derive(Debug, Serialize)]
 pub struct HealthResponse {

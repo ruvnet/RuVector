@@ -2227,7 +2227,7 @@ checksum = "b39cdef0fa800fc44525c84ccb54a029961a8215f9619753635a9c0d2538d46d"
 
 [[package]]
 name = "ruvector-core"
-version = "2.0.5"
+version = "2.0.6"
 dependencies = [
  "anyhow",
  "bincode 2.0.1",
@@ -2265,7 +2265,7 @@ dependencies = [
 
 [[package]]
 name = "ruvector-domain-expansion"
-version = "2.0.5"
+version = "2.0.6"
 dependencies = [
  "rand 0.8.5",
  "serde",
@@ -2275,7 +2275,7 @@ dependencies = [
 
 [[package]]
 name = "ruvector-mincut"
-version = "2.0.5"
+version = "2.0.6"
 dependencies = [
  "anyhow",
  "crossbeam",
@@ -2295,7 +2295,7 @@ dependencies = [
 
 [[package]]
 name = "ruvector-nervous-system"
-version = "2.0.5"
+version = "2.0.6"
 dependencies = [
  "anyhow",
  "ndarray 0.16.1",
@@ -2309,7 +2309,7 @@ dependencies = [
 
 [[package]]
 name = "ruvector-solver"
-version = "2.0.5"
+version = "2.0.6"
 dependencies = [
  "dashmap",
  "getrandom 0.2.17",
@@ -2334,7 +2334,7 @@ dependencies = [
 
 [[package]]
 name = "ruvllm"
-version = "2.0.5"
+version = "2.0.6"
 dependencies = [
  "anyhow",
  "async-trait",

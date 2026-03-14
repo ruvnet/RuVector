@@ -1,0 +1,89 @@
+[package]
+name = "ruvix-demo"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.77"
+license = "MIT OR Apache-2.0"
+authors = ["RuVector Contributors"]
+description = "Comprehensive RVF package demonstrating ALL RuVix kernel features (ADR-087)"
+keywords = ["ruvix", "rvf", "kernel", "demo", "cognitive"]
+categories = ["embedded", "no-std", "os"]
+repository = "https://github.com/ruvnet/ruvector"
+readme = "README.md"
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+# RuVix subsystem crates
+ruvix-types = { version = "0.1.0", path = "../../crates/types" }
+ruvix-nucleus = { version = "0.1.0", path = "../../crates/nucleus" }
+ruvix-region = { version = "0.1.0", path = "../../crates/region" }
+ruvix-cap = { version = "0.1.0", path = "../../crates/cap" }
+ruvix-queue = { version = "0.1.0", path = "../../crates/queue" }
+ruvix-proof = { version = "0.1.0", path = "../../crates/proof" }
+ruvix-boot = { version = "0.1.0", path = "../../crates/boot" }
+ruvix-vecgraph = { version = "0.1.0", path = "../../crates/vecgraph" }
+ruvix-sched = { version = "0.1.0", path = "../../crates/sched" }
+
+# Cryptographic hashing
+sha2 = { version = "0.10", default-features = false }
+
+# Random number generation for simulation
+rand = { version = "0.8", default-features = false, features = ["std_rng"] }
+
+[dev-dependencies]
+proptest = "1.4"
+criterion = { version = "0.5", features = ["html_reports"] }
+rand = { version = "0.8", features = ["std_rng"] }
+
+[features]
+default = ["std"]
+std = [
+    "alloc",
+    "ruvix-types/std",
+    "ruvix-nucleus/std",
+    "ruvix-region/std",
+    "ruvix-cap/std",
+    "ruvix-queue/std",
+    "ruvix-proof/std",
+    "ruvix-boot/std",
+    "ruvix-vecgraph/std",
+    "ruvix-sched/std",
+]
+alloc = [
+    "ruvix-types/alloc",
+    "ruvix-region/alloc",
+    "ruvix-cap/alloc",
+    "ruvix-queue/alloc",
+]
+
+# Enable verbose logging for debugging
+verbose = []
+
+# Enable performance metrics collection
+metrics = []
+
+[[bench]]
+name = "pipeline_bench"
+harness = false
+
+[[test]]
+name = "full_pipeline"
+path = "tests/full_pipeline.rs"
+
+[[test]]
+name = "feature_coverage"
+path = "tests/feature_coverage.rs"
+
+[[example]]
+name = "cognitive_demo"
+path = "examples/cognitive_demo.rs"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+
+[profile.test]
+opt-level = 1

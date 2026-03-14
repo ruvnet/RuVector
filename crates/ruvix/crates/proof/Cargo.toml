@@ -1,0 +1,44 @@
+[package]
+name = "ruvix-proof"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.75"
+license = "MIT OR Apache-2.0"
+authors = ["RuVector Contributors"]
+description = "Proof engine with 3-tier routing for the RuVix Cognition Kernel (ADR-087)"
+keywords = ["kernel", "proof", "verification", "no_std", "capability"]
+categories = ["no-std", "embedded", "os"]
+repository = "https://github.com/ruvnet/ruvector"
+readme = "README.md"
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+ruvix-types = { version = "0.1.0", path = "../types" }
+ruvix-cap = { version = "0.1.0", path = "../cap" }
+
+[dev-dependencies]
+criterion = { version = "0.5", features = ["html_reports"] }
+proptest = "1.4"
+
+[features]
+default = ["std"]
+std = ["ruvix-types/std", "ruvix-cap/std"]
+alloc = ["ruvix-types/alloc", "ruvix-cap/alloc"]
+
+# Enable coherence verification (requires mincut algorithms)
+coherence = []
+
+# Enable metrics collection
+metrics = ["alloc"]
+
+# Enable audit logging for proof operations
+audit-log = ["alloc"]
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

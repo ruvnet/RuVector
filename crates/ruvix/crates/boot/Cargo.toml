@@ -1,0 +1,50 @@
+[package]
+name = "ruvix-boot"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.77"
+license = "MIT OR Apache-2.0"
+authors = ["RuVector Contributors"]
+description = "RVF boot loading for RuVix Cognition Kernel (ADR-087)"
+keywords = ["kernel", "boot", "rvf", "signature", "attestation"]
+categories = ["no-std", "embedded", "os"]
+repository = "https://github.com/ruvnet/ruvector"
+readme = "README.md"
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+ruvix-types = { version = "0.1.0", path = "../types" }
+ruvix-region = { version = "0.1.0", path = "../region" }
+ruvix-queue = { version = "0.1.0", path = "../queue" }
+ruvix-cap = { version = "0.1.0", path = "../cap" }
+
+# ML-DSA-65 signature verification (NIST FIPS 204)
+# Using pqcrypto for post-quantum cryptography
+sha2 = { version = "0.10", default-features = false }
+
+[dev-dependencies]
+proptest = { workspace = true }
+criterion = { workspace = true }
+
+[features]
+default = ["std"]
+std = ["ruvix-types/std", "ruvix-region/std", "ruvix-queue/std", "ruvix-cap/std", "sha2/std"]
+alloc = ["ruvix-types/alloc", "ruvix-region/alloc", "ruvix-queue/alloc", "ruvix-cap/alloc"]
+
+# Enable boot metrics collection
+metrics = ["alloc"]
+
+# Enable verbose boot logging
+verbose = []
+
+# Phase B: bare metal (no std, no libc)
+baremetal = []
+
+# Bench file commented out until implemented
+# [[bench]]
+# name = "boot_bench"
+# harness = false
+
+# Profile settings are inherited from workspace root

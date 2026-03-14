@@ -4755,6 +4755,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a69bcab0ad47271a0234d9422b131806bf3968021e5dc9328caf2d4cd58557fc"
 dependencies = [
  "libc",
+ "log",
  "wasi 0.11.1+wasi-snapshot-preview1",
  "windows-sys 0.61.2",
 ]
@@ -5220,6 +5221,18 @@ dependencies = [
  "bitflags 2.11.0",
  "cfg-if 1.0.4",
  "cfg_aliases 0.1.1",
+ "libc",
+]
+
+[[package]]
+name = "nix"
+version = "0.29.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "71e2746dc3a24dd78b3cfcb7be93368c6de9963d30f43a6a73998a9cf4b17b46"
+dependencies = [
+ "bitflags 2.11.0",
+ "cfg-if 1.0.4",
+ "cfg_aliases 0.2.1",
  "libc",
 ]
 
@@ -9487,6 +9500,158 @@ dependencies = [
  "wasm-bindgen-futures",
  "wasm-bindgen-test",
  "web-sys",
+]
+
+[[package]]
+name = "ruvix-bench"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "clap",
+ "console",
+ "criterion 0.5.1",
+ "hdrhistogram",
+ "indicatif",
+ "instant",
+ "libc",
+ "mio",
+ "nix 0.29.0",
+ "rand 0.8.5",
+ "rand_distr 0.4.3",
+ "ruvix-cap",
+ "ruvix-nucleus",
+ "ruvix-queue",
+ "ruvix-region",
+ "ruvix-types",
+ "serde",
+ "serde_json",
+ "sysinfo 0.31.4",
+ "tabled",
+]
+
+[[package]]
+name = "ruvix-boot"
+version = "0.1.0"
+dependencies = [
+ "criterion 0.5.1",
+ "proptest",
+ "ruvix-cap",
+ "ruvix-queue",
+ "ruvix-region",
+ "ruvix-types",
+ "sha2",
+]
+
+[[package]]
+name = "ruvix-cap"
+version = "0.1.0"
+dependencies = [
+ "criterion 0.5.1",
+ "proptest",
+ "ruvix-types",
+]
+
+[[package]]
+name = "ruvix-demo"
+version = "0.1.0"
+dependencies = [
+ "criterion 0.5.1",
+ "proptest",
+ "rand 0.8.5",
+ "ruvix-boot",
+ "ruvix-cap",
+ "ruvix-nucleus",
+ "ruvix-proof",
+ "ruvix-queue",
+ "ruvix-region",
+ "ruvix-sched",
+ "ruvix-types",
+ "ruvix-vecgraph",
+ "sha2",
+]
+
+[[package]]
+name = "ruvix-integration"
+version = "0.1.0"
+dependencies = [
+ "criterion 0.5.1",
+ "proptest",
+ "ruvix-cap",
+ "ruvix-queue",
+ "ruvix-region",
+ "ruvix-types",
+]
+
+[[package]]
+name = "ruvix-nucleus"
+version = "0.1.0"
+dependencies = [
+ "criterion 0.5.1",
+ "proptest",
+ "ruvix-cap",
+ "ruvix-queue",
+ "ruvix-region",
+ "ruvix-types",
+ "sha2",
+]
+
+[[package]]
+name = "ruvix-proof"
+version = "0.1.0"
+dependencies = [
+ "criterion 0.5.1",
+ "proptest",
+ "ruvix-cap",
+ "ruvix-types",
+]
+
+[[package]]
+name = "ruvix-queue"
+version = "0.1.0"
+dependencies = [
+ "criterion 0.5.1",
+ "proptest",
+ "ruvix-region",
+ "ruvix-types",
+]
+
+[[package]]
+name = "ruvix-region"
+version = "0.1.0"
+dependencies = [
+ "criterion 0.5.1",
+ "libc",
+ "proptest",
+ "ruvix-types",
+]
+
+[[package]]
+name = "ruvix-sched"
+version = "0.1.0"
+dependencies = [
+ "criterion 0.5.1",
+ "proptest",
+ "ruvector-coherence",
+ "ruvix-cap",
+ "ruvix-types",
+]
+
+[[package]]
+name = "ruvix-types"
+version = "0.1.0"
+dependencies = [
+ "criterion 0.5.1",
+ "proptest",
+]
+
+[[package]]
+name = "ruvix-vecgraph"
+version = "0.1.0"
+dependencies = [
+ "criterion 0.5.1",
+ "proptest",
+ "ruvix-region",
+ "ruvix-types",
 ]
 
 [[package]]

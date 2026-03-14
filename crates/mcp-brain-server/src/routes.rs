@@ -7,7 +7,7 @@ use crate::types::{
     ConsensusLoraWeights, CreatePageRequest, DriftQuery, DriftReport, HealthResponse,
     ListPagesResponse, ListQuery, ListResponse, ListSort, LoraLatestResponse, LoraSubmission,
     LoraSubmitResponse, PageDelta, PageDetailResponse, PageResponse, PageStatus, PageSummary,
-    PartitionQuery, PartitionResult, PublishNodeRequest, ScoredBrainMemory, SearchQuery,
+    PartitionQuery, PartitionResult, PartitionResultCompact, PublishNodeRequest, ScoredBrainMemory, SearchQuery,
     ShareRequest, ShareResponse,
     StatusResponse, SubmitDeltaRequest, TemporalResponse, TrainingCycleResult,
     TrainingPreferencesResponse,
@@ -1419,17 +1419,25 @@ async fn partition(
     State(state): State<AppState>,
     _contributor: AuthenticatedContributor,
     Query(query): Query<PartitionQuery>,
-) -> Result<Json<PartitionResult>, (StatusCode, String)> {
+) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
     let min_size = query.min_cluster_size.unwrap_or(2);
     let graph = state.graph.read();
     let (clusters, cut_value, edge_strengths) = graph.partition_full(min_size);
 
-    Ok(Json(PartitionResult {
+    let full_result = PartitionResult {
         total_memories: graph.node_count(),
         clusters,
         cut_value,
         edge_strengths,
-    }))
+    };
+
+    // Return compact format by default to avoid SSE truncation of 128-dim centroids
+    if query.compact {
+        let compact: PartitionResultCompact = full_result.into();
+        Ok(Json(serde_json::to_value(compact).unwrap()))
+    } else {
+        Ok(Json(serde_json::to_value(full_result).unwrap()))
+    }
 }
 
 async fn status(
@@ -2749,12 +2757,13 @@ fn mcp_tool_definitions() -> Vec<serde_json::Value> {
         }),
         serde_json::json!({
             "name": "brain_partition",
-            "description": "Get knowledge partitioned by mincut topology. Shows emergent knowledge clusters with coherence scores.",
+            "description": "Get knowledge partitioned by mincut topology. Shows emergent knowledge clusters with coherence scores. Returns compact format by default (omits 128-dim centroids to avoid SSE truncation).",
             "inputSchema": {
                 "type": "object",
                 "properties": {
                     "domain": { "type": "string", "description": "Domain to partition" },
-                    "min_cluster_size": { "type": "integer", "description": "Minimum memories per cluster" }
+                    "min_cluster_size": { "type": "integer", "description": "Minimum memories per cluster" },
+                    "compact": { "type": "boolean", "description": "Return compact format (default: true). Set false for full 128-dim centroids." }
                 }
             }
         }),
@@ -2979,6 +2988,9 @@ async fn handle_mcp_tool_call(
             let mut params = Vec::new();
             if let Some(d) = args.get("domain").and_then(|v| v.as_str()) { params.push(("domain", d.to_string())); }
             if let Some(s) = args.get("min_cluster_size").and_then(|v| v.as_u64()) { params.push(("min_cluster_size", s.to_string())); }
+            // Default compact=true to avoid SSE truncation; pass through if explicitly set
+            let compact = args.get("compact").and_then(|v| v.as_bool()).unwrap_or(true);
+            params.push(("compact", compact.to_string()));
             proxy_get(&client, &base, "/v1/partition", api_key, &params).await
         },
         "brain_list" => {

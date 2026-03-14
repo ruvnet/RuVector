@@ -1,0 +1,44 @@
+[package]
+name = "ruvix-sched"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.75"
+license = "MIT OR Apache-2.0"
+authors = ["RuVector Contributors"]
+description = "Coherence-aware scheduler for the RuVix Cognition Kernel (ADR-087)"
+keywords = ["kernel", "scheduler", "coherence", "no_std", "real-time"]
+categories = ["no-std", "embedded", "os"]
+repository = "https://github.com/ruvnet/ruvector"
+readme = "README.md"
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+ruvix-types = { version = "0.1.0", path = "../types" }
+ruvix-cap = { version = "0.1.0", path = "../cap" }
+
+# Optional coherence integration
+ruvector-coherence = { version = "2.0.6", path = "../../../ruvector-coherence", optional = true, features = ["spectral"] }
+
+[dev-dependencies]
+criterion = { version = "0.5", features = ["html_reports"] }
+proptest = "1.5"
+
+[features]
+default = []
+std = ["ruvix-types/std", "ruvix-cap/std"]
+alloc = ["ruvix-types/alloc", "ruvix-cap/alloc"]
+
+# Enable spectral coherence scoring integration
+coherence = ["ruvector-coherence"]
+
+# Enable metrics collection
+metrics = ["alloc"]
+
+# Enable audit logging
+audit-log = ["alloc"]
+
+[[bench]]
+name = "scheduler_bench"
+harness = false

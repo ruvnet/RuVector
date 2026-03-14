@@ -1,0 +1,44 @@
+[package]
+name = "ruvix-cap"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.75"
+license = "MIT OR Apache-2.0"
+authors = ["RuVector Contributors"]
+description = "seL4-inspired capability management for the RuVix Cognition Kernel (ADR-087)"
+keywords = ["kernel", "capability", "security", "no_std", "seL4"]
+categories = ["no-std", "embedded", "os"]
+repository = "https://github.com/ruvnet/ruvector"
+readme = "README.md"
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+ruvix-types = { version = "0.1.0", path = "../types" }
+
+[dev-dependencies]
+criterion = { version = "0.5", features = ["html_reports"] }
+proptest = "1.4"
+
+[[bench]]
+name = "cap_bench"
+harness = false
+
+[features]
+default = []
+std = ["ruvix-types/std"]
+alloc = ["ruvix-types/alloc"]
+
+# Enable capability audit logging (requires alloc)
+audit-log = ["alloc"]
+
+# Enable metrics collection
+metrics = ["alloc"]
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

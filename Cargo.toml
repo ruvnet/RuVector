@@ -104,6 +104,19 @@ members = [
     "crates/neural-trader-coherence",
     "crates/neural-trader-replay",
     "crates/neural-trader-wasm",
+    # RuVix Cognition Kernel (organized under crates/ruvix/)
+    "crates/ruvix/crates/types",
+    "crates/ruvix/crates/region",
+    "crates/ruvix/crates/queue",
+    "crates/ruvix/crates/cap",
+    "crates/ruvix/crates/proof",
+    "crates/ruvix/crates/sched",
+    "crates/ruvix/crates/boot",
+    "crates/ruvix/crates/vecgraph",
+    "crates/ruvix/crates/nucleus",
+    "crates/ruvix/tests",
+    "crates/ruvix/benches",
+    "crates/ruvix/examples/cognitive_demo",
 ]
 resolver = "2"
 

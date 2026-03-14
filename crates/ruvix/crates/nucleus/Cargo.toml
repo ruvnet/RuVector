@@ -1,0 +1,78 @@
+[package]
+name = "ruvix-nucleus"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.77"
+license = "MIT OR Apache-2.0"
+authors = ["RuVector Contributors"]
+description = "Integration crate for RuVix Cognition Kernel - syscall dispatch, deterministic replay, and full acceptance tests (ADR-087)"
+keywords = ["kernel", "syscall", "deterministic", "replay", "cognition"]
+categories = ["embedded", "no-std", "os"]
+repository = "https://github.com/ruvnet/ruvector"
+readme = "README.md"
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+# All RuVix subsystem crates
+ruvix-types = { version = "0.1.0", path = "../types" }
+ruvix-region = { version = "0.1.0", path = "../region" }
+ruvix-cap = { version = "0.1.0", path = "../cap" }
+ruvix-queue = { version = "0.1.0", path = "../queue" }
+
+# External dependencies (optional for std)
+sha2 = { version = "0.10", default-features = false, optional = true }
+
+[dev-dependencies]
+proptest = "1.4"
+criterion = { version = "0.5", features = ["html_reports"] }
+
+[features]
+default = ["std", "sha2"]
+std = [
+    "alloc",
+    "ruvix-types/std",
+    "ruvix-region/std",
+    "ruvix-cap/std",
+    "ruvix-queue/std",
+]
+alloc = [
+    "ruvix-types/alloc",
+    "ruvix-region/alloc",
+    "ruvix-cap/alloc",
+    "ruvix-queue/alloc",
+]
+
+# Enable coherence scoring
+coherence = []
+
+# Enable statistics collection
+stats = ["ruvix-region/stats"]
+
+# Enable benchmark harness
+bench = []
+
+[[bench]]
+name = "syscall_bench"
+harness = false
+
+[[test]]
+name = "acceptance"
+path = "tests/acceptance.rs"
+
+[[test]]
+name = "syscall_tests"
+path = "tests/syscall_tests.rs"
+
+[[test]]
+name = "deterministic_replay"
+path = "tests/deterministic_replay.rs"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+
+[profile.test]
+opt-level = 1
