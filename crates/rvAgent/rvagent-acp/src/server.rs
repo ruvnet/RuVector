@@ -15,7 +15,7 @@ use axum::{
     http::StatusCode,
     middleware,
     response::IntoResponse,
-    routing::{delete, get, post},
+    routing::{get, post},
     Json, Router,
 };
 use std::sync::Arc;
@@ -28,8 +28,7 @@ use crate::auth::{
     rate_limiter, request_size_limit, require_api_key, ApiKeyState, MaxBodySize, RateLimiterState,
 };
 use crate::types::{
-    CreateSessionRequest, ErrorResponse, HealthResponse, PromptRequest, PromptResponse,
-    SessionInfo,
+    CreateSessionRequest, ErrorResponse, HealthResponse, PromptRequest,
 };
 
 // ---------------------------------------------------------------------------
