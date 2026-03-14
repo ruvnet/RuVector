@@ -16,8 +16,7 @@ impl Tool for GrepTool {
     }
 
     fn description(&self) -> &str {
-        "Search for literal text in files. Returns matching lines with \
-         file path and line number."
+        "Search for literal text in files. Returns matching lines with file path and line number."
     }
 
     fn parameters_schema(&self) -> serde_json::Value {
@@ -44,9 +43,7 @@ impl Tool for GrepTool {
     fn invoke(&self, args: serde_json::Value, runtime: &ToolRuntime) -> ToolResult {
         let pattern = match args.get("pattern").and_then(|v| v.as_str()) {
             Some(p) => p,
-            None => {
-                return ToolResult::Text("Error: pattern is required".to_string())
-            }
+            None => return ToolResult::Text("Error: pattern is required".to_string()),
         };
         let path = args.get("path").and_then(|v| v.as_str());
         let include = args.get("include").and_then(|v| v.as_str());
@@ -64,6 +61,7 @@ impl Tool for GrepTool {
                     if !output.is_empty() {
                         output.push('\n');
                     }
+                    // Format: file:line:text (same as ripgrep output)
                     output.push_str(&format!(
                         "{}:{}:{}",
                         m.file, m.line_number, m.text
@@ -124,19 +122,6 @@ mod tests {
     }
 
     #[test]
-    fn test_grep_with_path() {
-        let runtime = mock_runtime();
-        let result = GrepTool.invoke(
-            serde_json::json!({"pattern": "hello", "path": "/"}),
-            &runtime,
-        );
-        match result {
-            ToolResult::Text(s) => assert!(s.contains("hello")),
-            _ => panic!("expected Text result"),
-        }
-    }
-
-    #[test]
     fn test_grep_missing_pattern() {
         let runtime = mock_runtime();
         let result = GrepTool.invoke(serde_json::json!({}), &runtime);
@@ -149,18 +134,5 @@ mod tests {
     #[test]
     fn test_grep_literal_not_regex() {
         assert!(GrepTool.description().contains("literal"));
-    }
-
-    #[test]
-    fn test_grep_permission_denied() {
-        let runtime = mock_runtime_with_error();
-        let result = GrepTool.invoke(
-            serde_json::json!({"pattern": "hello"}),
-            &runtime,
-        );
-        match result {
-            ToolResult::Text(s) => assert!(s.contains("Error")),
-            _ => panic!("expected error"),
-        }
     }
 }

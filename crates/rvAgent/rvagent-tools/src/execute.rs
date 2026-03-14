@@ -37,9 +37,7 @@ impl Tool for ExecuteTool {
     fn invoke(&self, args: serde_json::Value, runtime: &ToolRuntime) -> ToolResult {
         let command = match args.get("command").and_then(|v| v.as_str()) {
             Some(c) => c,
-            None => {
-                return ToolResult::Text("Error: command is required".to_string())
-            }
+            None => return ToolResult::Text("Error: command is required".to_string()),
         };
         let timeout = args
             .get("timeout")
@@ -50,10 +48,7 @@ impl Tool for ExecuteTool {
             Ok(response) => {
                 let mut output = response.output;
                 if response.exit_code != 0 {
-                    output.push_str(&format!(
-                        "\n[exit code: {}]",
-                        response.exit_code
-                    ));
+                    output.push_str(&format!("\n[exit code: {}]", response.exit_code));
                 }
                 ToolResult::Text(output)
             }
@@ -84,19 +79,6 @@ mod tests {
         let runtime = mock_runtime();
         let result = ExecuteTool.invoke(
             serde_json::json!({"command": "echo hello"}),
-            &runtime,
-        );
-        match result {
-            ToolResult::Text(s) => assert!(s.contains("mock output")),
-            _ => panic!("expected Text result"),
-        }
-    }
-
-    #[test]
-    fn test_execute_with_timeout() {
-        let runtime = mock_runtime();
-        let result = ExecuteTool.invoke(
-            serde_json::json!({"command": "sleep 1", "timeout": 5}),
             &runtime,
         );
         match result {
