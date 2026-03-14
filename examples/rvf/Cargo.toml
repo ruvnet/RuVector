@@ -254,5 +254,17 @@ name = "exomoon_graphcut"
 path = "examples/exomoon_graphcut.rs"
 
 [[example]]
+name = "medical_graphcut"
+path = "examples/medical_graphcut.rs"
+
+[[example]]
+name = "real_microlensing"
+path = "examples/real_microlensing.rs"
+
+[[example]]
+name = "genomic_graphcut"
+path = "examples/genomic_graphcut.rs"
+
+[[example]]
 name = "openfang"
 path = "examples/openfang.rs"
