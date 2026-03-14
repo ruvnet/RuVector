@@ -156,7 +156,15 @@ fn unary_score(w: &Window, plat: Platform) -> f64 {
     let baf_d = (w.baf - 0.5).abs();
     let ve = (w.var_count as f64 - 4.0).max(0.0)/4.0;
     let mq_p = if w.mq < 40.0 { 1.0 } else { 0.0 };
-    0.5*log2r.abs() + 1.5*baf_d + 0.3*ve + 0.4*mq_p - 0.35
+    // GC-content bias correction: higher variance in extreme GC regions
+    let gc_penalty = if w.gc < 0.30 || w.gc > 0.65 { 0.15 } else { 0.0 };
+    // Combined multi-signal score with platform-adaptive threshold
+    let base_thr = match plat {
+        Platform::Wgs => 0.30,  // lower noise → lower threshold
+        Platform::Wes => 0.40,  // higher noise in WES
+        Platform::Panel => 0.25, // very deep → confident calls
+    };
+    0.5*log2r.abs() + 1.5*baf_d + 0.3*ve + 0.4*mq_p - gc_penalty - base_thr
 }
 
 struct Edge { from: usize, to: usize, weight: f64 }
@@ -164,17 +172,24 @@ struct Edge { from: usize, to: usize, weight: f64 }
 fn build_graph(embs: &[Vec<f32>], alpha: f64, beta: f64, k: usize) -> Vec<Edge> {
     let m = embs.len();
     let mut edges = Vec::new();
+    // Genomic chain: adjacent windows share smoothing (stronger for immediate neighbors)
     for i in 0..m.saturating_sub(1) {
         edges.push(Edge { from:i, to:i+1, weight:alpha });
         edges.push(Edge { from:i+1, to:i, weight:alpha });
     }
+    // Skip-2 edges for segment-level smoothing (weaker)
+    for i in 0..m.saturating_sub(2) {
+        edges.push(Edge { from:i, to:i+2, weight:alpha*0.3 });
+        edges.push(Edge { from:i+2, to:i, weight:alpha*0.3 });
+    }
+    // kNN similarity edges from embedding space
     for i in 0..m {
         let mut sims: Vec<(usize,f64)> = (0..m)
-            .filter(|&j| (j as isize - i as isize).unsigned_abs() > 2)
+            .filter(|&j| (j as isize - i as isize).unsigned_abs() > 3)
             .map(|j| (j, cosine_sim(&embs[i], &embs[j]).max(0.0))).collect();
         sims.sort_by(|a,b| b.1.partial_cmp(&a.1).unwrap());
         for &(j, s) in sims.iter().take(k) {
-            if s > 0.1 { edges.push(Edge { from:i, to:j, weight:beta*s }); }
+            if s > 0.15 { edges.push(Edge { from:i, to:j, weight:beta*s }); }
         }
     }
     edges
