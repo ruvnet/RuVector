@@ -20,6 +20,7 @@ use crate::types::{
 
 /// An active agent session holding conversation history.
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct Session {
     pub info: SessionInfo,
     pub messages: Vec<Message>,
@@ -48,6 +49,7 @@ impl Session {
 ///
 /// Thread-safe via `Arc<RwLock<…>>` on the session map.
 pub struct AcpAgent {
+    #[allow(dead_code)]
     config: RvAgentConfig,
     sessions: Arc<RwLock<HashMap<String, Session>>>,
 }

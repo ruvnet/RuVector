@@ -37,6 +37,7 @@ use crate::types::{
 
 /// ACP server configuration.
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct AcpConfig {
     /// Listen address (default: "0.0.0.0").
     pub host: String,
@@ -81,6 +82,7 @@ pub struct AppState {
 }
 
 /// The ACP server wrapping an `AcpAgent` with HTTP routes and middleware.
+#[allow(dead_code)]
 pub struct AcpServer {
     agent: Arc<AcpAgent>,
     config: AcpConfig,
