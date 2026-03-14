@@ -19,7 +19,7 @@ ruvix-types = { version = "0.1.0", path = "../types" }
 ruvix-cap = { version = "0.1.0", path = "../cap" }
 
 # Optional coherence integration
-ruvector-coherence = { version = "2.0.6", path = "../../../ruvector-coherence", optional = true, features = ["spectral"] }
+ruvector-coherence = { version = "2.0.4", path = "../../../ruvector-coherence", optional = true, features = ["spectral"] }
 
 [dev-dependencies]
 criterion = { version = "0.5", features = ["html_reports"] }
