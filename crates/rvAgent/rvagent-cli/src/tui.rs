@@ -135,7 +135,21 @@ impl Tui {
 
     /// Force a redraw of the terminal.
     pub fn redraw(&mut self) -> Result<()> {
-        self.terminal.draw(|f| self.render(f))?;
+        let messages = &self.messages;
+        let input = &self.input;
+        let cursor = self.cursor;
+        let scroll_offset = self.scroll_offset;
+        let status = &self.status;
+        let model = &self.model;
+        let session_id = &self.session_id;
+        let token_count = self.token_count;
+
+        self.terminal.draw(|f| {
+            render_frame(
+                f, messages, input, cursor, scroll_offset, status, model,
+                session_id, token_count,
+            );
+        })?;
         Ok(())
     }
 
@@ -151,7 +165,23 @@ impl Tui {
     pub async fn next_event(&mut self) -> Result<TuiEvent> {
         loop {
             // Draw current state.
-            self.terminal.draw(|f| self.render(f))?;
+            {
+                let messages = &self.messages;
+                let input = &self.input;
+                let cursor = self.cursor;
+                let scroll_offset = self.scroll_offset;
+                let status = &self.status;
+                let model = &self.model;
+                let session_id = &self.session_id;
+                let token_count = self.token_count;
+
+                self.terminal.draw(|f| {
+                    render_frame(
+                        f, messages, input, cursor, scroll_offset, status, model,
+                        session_id, token_count,
+                    );
+                })?;
+            }
 
             // Poll for events with a 100ms timeout for responsiveness.
             if event::poll(Duration::from_millis(100))? {

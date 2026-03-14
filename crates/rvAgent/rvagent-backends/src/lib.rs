@@ -20,6 +20,7 @@
 //! - Literal grep mode to prevent ReDoS (SEC-021)
 
 pub mod protocol;
+pub mod security;
 pub mod utils;
 pub mod unicode_security;
 pub mod state;
