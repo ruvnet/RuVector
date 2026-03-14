@@ -6,7 +6,6 @@
 //! - Request body size enforcement
 
 use axum::{
-    body::Body,
     extract::{ConnectInfo, Request},
     http::{header, StatusCode},
     middleware::Next,

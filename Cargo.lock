@@ -10239,7 +10239,6 @@ dependencies = [
  "anyhow",
  "async-trait",
  "mockall",
- "rvagent-backends",
  "rvagent-core",
  "serde",
  "serde_json",

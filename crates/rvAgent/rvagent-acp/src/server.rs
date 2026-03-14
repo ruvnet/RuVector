@@ -146,6 +146,7 @@ impl AcpServer {
     }
 
     /// Access the server configuration.
+    #[allow(dead_code)]
     pub fn config(&self) -> &AcpConfig {
         &self.config
     }

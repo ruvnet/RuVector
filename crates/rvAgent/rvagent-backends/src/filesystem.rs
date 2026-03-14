@@ -10,7 +10,6 @@
 use crate::protocol::*;
 use crate::utils::format_content_with_line_numbers;
 use async_trait::async_trait;
-use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
