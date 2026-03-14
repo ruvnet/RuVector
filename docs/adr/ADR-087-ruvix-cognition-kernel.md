@@ -2,11 +2,41 @@
 
 ## Status
 
-Proposed
+**Accepted** — Phase A Implemented
 
 ## Date
 
-2026-03-08
+2026-03-08 (Proposed)
+2026-03-14 (Phase A Implemented)
+
+## Implementation Status
+
+### Phase A: Linux-Hosted Nucleus ✅ COMPLETE
+
+| Crate | Status | Tests | Description |
+|-------|--------|-------|-------------|
+| `ruvix-types` | ✅ | 63 | Core types: 6 primitives, handles, proof tokens, capabilities |
+| `ruvix-region` | ✅ | 51 | Memory regions: Immutable, AppendOnly, Slab policies |
+| `ruvix-queue` | ✅ | 47 | io_uring-style ring buffers, zero-copy IPC |
+| `ruvix-cap` | ✅ | 54 | seL4-inspired capability manager, derivation trees |
+| `ruvix-proof` | ✅ | 73 | 3-tier proof engine: Reflex <100ns, Standard <100μs, Deep <10ms |
+| `ruvix-sched` | ✅ | 39 | Coherence-aware scheduler with novelty boosting |
+| `ruvix-boot` | ✅ | 59 | 5-stage RVF boot loader with ML-DSA-65 signatures |
+| `ruvix-vecgraph` | ✅ | 55 | Kernel-resident vector/graph stores with HNSW |
+| `ruvix-nucleus` | ✅ | 319 | Unified kernel: 12 syscalls, checkpoint/replay |
+
+**Total: 760 tests passing**
+
+### Security Invariants Implemented
+
+- **SEC-001**: Boot signature failure → PANIC (no fallback)
+- **SEC-002**: Proof cache with 100ms TTL, single-use nonces, max 64 entries
+- **SEC-003**: Capability delegation depth limit (max 8)
+- **SEC-004**: TOCTOU protection for zero-copy IPC
+
+### Phase B: Bare Metal AArch64 — Pending
+
+Target: QEMU virt, Raspberry Pi 4/5
 
 ## Deciders
 
