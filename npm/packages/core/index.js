@@ -42,4 +42,11 @@ function loadNativeModule() {
   }
 }
 
-module.exports = loadNativeModule();
+const nativeModule = loadNativeModule();
+
+// Add backwards-compatible alias (VectorDB -> VectorDb)
+if (nativeModule.VectorDb && !nativeModule.VectorDB) {
+  nativeModule.VectorDB = nativeModule.VectorDb;
+}
+
+module.exports = nativeModule;
