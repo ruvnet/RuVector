@@ -257,6 +257,20 @@ impl Scheduler {
         }
     }
 
+    /// Returns an iterator over all task control blocks.
+    #[cfg(feature = "alloc")]
+    pub fn iter_tasks(&self) -> impl Iterator<Item = &TaskControlBlock> {
+        self.tasks.values()
+    }
+
+    /// Returns an iterator over all task control blocks.
+    #[cfg(not(feature = "alloc"))]
+    pub fn iter_tasks(&self) -> impl Iterator<Item = &TaskControlBlock> {
+        self.tasks[..self.task_count]
+            .iter()
+            .filter_map(|t| t.as_ref())
+    }
+
     /// Creates a new task.
     pub fn create_task(
         &mut self,

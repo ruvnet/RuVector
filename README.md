@@ -546,19 +546,38 @@ npx @ruvector/rvf-mcp-server --transport stdio # MCP server for AI agents
 | **Timer** | Deadline-driven scheduling | ✅ Implemented |
 | **Proof** | Cryptographic attestation for mutations | ✅ Implemented |
 
-**Phase A complete**: 9 crates, 760 tests, 12 syscalls, full deterministic replay.
+**Phases A-F complete**: 20+ crates, 1,200+ tests, 12 syscalls, full deterministic replay.
 
-| Crate | Purpose |
-|-------|---------|
-| [`ruvix-types`](./crates/ruvix/crates/types) | Core types: 6 primitives, no dependencies |
-| [`ruvix-cap`](./crates/ruvix/crates/cap) | seL4-inspired capability manager |
-| [`ruvix-region`](./crates/ruvix/crates/region) | Memory regions with 3 policies |
-| [`ruvix-queue`](./crates/ruvix/crates/queue) | Lock-free ring buffer IPC |
-| [`ruvix-proof`](./crates/ruvix/crates/proof) | 3-tier proof engine (<100ns, <100μs, <10ms) |
-| [`ruvix-sched`](./crates/ruvix/crates/sched) | Coherence-aware scheduler |
-| [`ruvix-boot`](./crates/ruvix/crates/boot) | 5-stage RVF boot loader |
-| [`ruvix-vecgraph`](./crates/ruvix/crates/vecgraph) | Kernel-resident vector/graph stores |
-| [`ruvix-nucleus`](./crates/ruvix/crates/nucleus) | Unified kernel entry point |
+| Phase | Components | Description |
+|-------|------------|-------------|
+| **A** | Core Kernel | 9 crates: types, cap, region, queue, proof, sched, boot, vecgraph, nucleus |
+| **B** | Bare Metal | AArch64 boot, MMU, exception vectors, HAL, physical memory allocator |
+| **C** | Multi-Core | SMP support (256 cores), ticket spinlocks, IPIs, DMA, Device Tree |
+| **D** | Raspberry Pi | BCM2711/2712 drivers, GPIO, VideoCore mailbox, config.txt parsing |
+| **E** | Network/FS | Ethernet/IPv4/UDP stack, VFS layer, FAT32, RamFS |
+| **F** | Tooling | CLI, kernel shell, QEMU swarm simulation with PBFT consensus |
+
+**Developer Tools**:
+
+| Tool | Purpose |
+|------|---------|
+| `ruvix build` | Cross-compile kernel for AArch64 targets |
+| `ruvix flash` | Flash kernel to SD card or network boot |
+| `ruvix keys` | Ed25519 key management for secure boot |
+| `ruvix dtb` | Device tree validation, comparison, decompilation |
+| `ruvix monitor` | Real-time kernel metrics dashboard |
+| `ruvix security` | Security audit and CVE scanning |
+| `rvsh` (kernel) | In-kernel debug shell with 13 commands |
+
+**Distributed Testing (QEMU Swarm)**:
+
+| Feature | Description |
+|---------|-------------|
+| Multi-node clusters | Spawn N QEMU instances as cluster nodes |
+| PBFT consensus | Byzantine fault-tolerant consensus (f < n/3) |
+| Virtual networking | Mesh, ring, star topologies |
+| Fault injection | Network partitions, node crashes, latency |
+| Console multiplexing | Aggregate output from all nodes |
 
 - **Full documentation**: [crates/ruvix/README.md](./crates/ruvix/README.md)
 - **ADR-087**: [RuVix Cognition Kernel Architecture](./docs/adr/ADR-087-ruvix-cognition-kernel.md)

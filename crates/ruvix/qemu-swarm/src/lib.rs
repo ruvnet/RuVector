@@ -95,6 +95,7 @@
 #![warn(clippy::all)]
 
 pub mod cluster;
+pub mod consensus;
 pub mod console;
 pub mod network;
 pub mod node;
@@ -105,6 +106,11 @@ mod error;
 
 pub use cluster::{QemuCluster, ClusterConfig, ClusterStatus};
 pub use config::{SwarmConfig, NodeDefaults, NetworkConfig};
+pub use consensus::{
+    PbftMessage, PbftReplica, PbftConfig, PbftStats,
+    Request, PrePrepare, Prepare, Commit, Reply, ViewChange, NewView, Checkpoint,
+    Operation, OperationResult, ReplicaState,
+};
 pub use console::{ConsoleIO, ConsoleMessage, ConsoleFilter};
 pub use error::{SwarmError, SwarmResult};
 pub use network::{VirtualNetwork, NetworkTopology, Topology, MacAddress};
@@ -143,5 +149,6 @@ pub mod prelude {
         QemuCluster, ClusterConfig, QemuNode, NodeConfig,
         SwarmOrchestrator, VirtualNetwork, ConsoleIO,
         Topology, FaultType, SwarmResult,
+        PbftReplica, PbftConfig, PbftMessage, Operation, Request,
     };
 }

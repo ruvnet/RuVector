@@ -9614,6 +9614,7 @@ dependencies = [
  "ruvix-cap",
  "ruvix-queue",
  "ruvix-region",
+ "ruvix-shell",
  "ruvix-types",
  "sha2",
 ]
@@ -9656,6 +9657,13 @@ dependencies = [
  "proptest",
  "ruvector-coherence",
  "ruvix-cap",
+ "ruvix-types",
+]
+
+[[package]]
+name = "ruvix-shell"
+version = "0.1.0"
+dependencies = [
  "ruvix-types",
 ]
 

@@ -99,56 +99,59 @@ pub struct KernelStats {
 /// The main kernel struct coordinating all subsystems.
 pub struct Kernel {
     /// Configuration.
-    config: KernelConfig,
+    pub(crate) config: KernelConfig,
 
     /// Capability manager.
-    cap_manager: CapabilityManager<1024>,
+    pub(crate) cap_manager: CapabilityManager<1024>,
 
     /// Region manager.
-    region_manager: RegionManager,
+    pub(crate) region_manager: RegionManager,
 
     /// Proof engine.
-    proof_engine: ProofEngine,
+    pub(crate) proof_engine: ProofEngine,
 
     /// Scheduler.
-    scheduler: Scheduler,
+    pub(crate) scheduler: Scheduler,
 
     /// Witness log.
-    witness_log: WitnessLog,
+    pub(crate) witness_log: WitnessLog,
 
     /// Vector stores.
     #[cfg(feature = "alloc")]
-    vector_stores: Vec<VectorStore>,
+    pub(crate) vector_stores: Vec<VectorStore>,
     #[cfg(not(feature = "alloc"))]
-    vector_stores: [Option<VectorStore>; MAX_VECTOR_STORES],
+    pub(crate) vector_stores: [Option<VectorStore>; MAX_VECTOR_STORES],
     #[cfg(not(feature = "alloc"))]
-    vector_store_count: usize,
+    pub(crate) vector_store_count: usize,
 
     /// Graph stores.
     #[cfg(feature = "alloc")]
-    graph_stores: Vec<GraphStore>,
+    pub(crate) graph_stores: Vec<GraphStore>,
     #[cfg(not(feature = "alloc"))]
-    graph_stores: [Option<GraphStore>; MAX_GRAPH_STORES],
+    pub(crate) graph_stores: [Option<GraphStore>; MAX_GRAPH_STORES],
     #[cfg(not(feature = "alloc"))]
-    graph_store_count: usize,
+    pub(crate) graph_store_count: usize,
 
     /// Next vector store ID.
-    next_vector_store_id: u32,
+    pub(crate) next_vector_store_id: u32,
 
     /// Next graph store ID.
-    next_graph_store_id: u32,
+    pub(crate) next_graph_store_id: u32,
 
     /// Next checkpoint sequence.
-    next_checkpoint_seq: u64,
+    pub(crate) next_checkpoint_seq: u64,
 
     /// Current time (nanoseconds since boot).
-    current_time_ns: u64,
+    pub(crate) current_time_ns: u64,
 
     /// Boot time (nanoseconds since epoch).
-    boot_time_ns: u64,
+    pub(crate) boot_time_ns: u64,
 
     /// Statistics.
-    stats: KernelStats,
+    pub(crate) stats: KernelStats,
+
+    /// Syscall tracing enabled.
+    pub(crate) trace_enabled: bool,
 }
 
 impl Kernel {
@@ -180,6 +183,7 @@ impl Kernel {
             boot_time_ns: 0,
             config,
             stats: KernelStats::default(),
+            trace_enabled: false,
         }
     }
 
@@ -240,6 +244,13 @@ impl Kernel {
     #[must_use]
     pub const fn scheduler(&self) -> &Scheduler {
         &self.scheduler
+    }
+
+    /// Returns a mutable reference to the scheduler.
+    #[inline]
+    #[must_use]
+    pub fn scheduler_mut(&mut self) -> &mut Scheduler {
+        &mut self.scheduler
     }
 
     // =========================================================================

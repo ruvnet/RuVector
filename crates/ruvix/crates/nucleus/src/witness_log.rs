@@ -471,7 +471,7 @@ impl WitnessLog {
     }
 
     /// Returns an iterator over all records.
-    pub fn iter(&self) -> impl Iterator<Item = &WitnessRecord> {
+    pub fn iter(&self) -> core::slice::Iter<'_, WitnessRecord> {
         #[cfg(feature = "alloc")]
         {
             self.records.iter()

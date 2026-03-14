@@ -316,6 +316,144 @@ cargo bench -p ruvix-queue
 
 ---
 
+## CLI Tools
+
+RuVix provides two command-line interfaces for development and debugging.
+
+### Host CLI (`ruvix-cli`)
+
+A development workstation tool for building, configuring, and deploying RuVix kernels.
+
+```bash
+# Install the CLI
+cargo install --path crates/cli
+
+# Or run directly
+cargo run -p ruvix-cli -- <command>
+```
+
+#### Commands
+
+| Command | Description |
+|---------|-------------|
+| `ruvix build` | Build kernel image with specified configuration |
+| `ruvix flash` | Flash kernel to SD card or network boot target |
+| `ruvix config` | Manage kernel configuration (features, memory, security) |
+| `ruvix keys` | Manage trusted boot signing keys |
+| `ruvix dtb` | Validate and analyze Device Tree Blob files |
+| `ruvix monitor` | Monitor running kernel via UART/network |
+| `ruvix security` | Security audit and CVE checks |
+
+#### Examples
+
+```bash
+# Build for Raspberry Pi 4 with secure boot
+ruvix build --target rpi4 --secure-boot --release
+
+# Generate a new signing key pair
+ruvix keys generate --algorithm ed25519 --output kernel-key
+
+# Sign a kernel image
+ruvix keys sign --key kernel-key.priv --image ruvix.bin
+
+# Validate a Device Tree
+ruvix dtb validate ./bcm2711-rpi-4-b.dtb
+
+# Flash to SD card
+ruvix flash --device /dev/disk4 --image ruvix.bin --dtb bcm2711.dtb
+
+# Security audit
+ruvix security audit --depth full
+```
+
+### Kernel Shell (`rvsh`)
+
+An in-kernel debug shell accessible over UART (or network in future). Provides runtime inspection and debugging capabilities.
+
+#### Shell Commands
+
+| Command | Description |
+|---------|-------------|
+| `help` | Show available commands |
+| `info` | Display kernel version and boot info |
+| `mem` | Memory statistics (physical, regions, slabs) |
+| `tasks` | List tasks with state and capabilities |
+| `caps` | Capability table dump |
+| `queues` | Queue status and statistics |
+| `vectors` | Vector store information |
+| `graphs` | Graph store information |
+| `proofs` | Proof verification statistics |
+| `irq` | Interrupt controller status |
+| `cpu` | Per-CPU information (SMP systems) |
+| `witness` | Witness log viewer |
+| `trace` | Enable/disable syscall tracing |
+| `perf` | Performance counters |
+| `panic` | View panic history |
+| `reboot` | Restart the kernel |
+
+#### Example Session
+
+```
+RuVix Cognition Kernel v0.1.0
+Boot: 2024-01-15 14:32:00 UTC
+CPU: Cortex-A72 x4 @ 1.5GHz
+RAM: 4096 MB
+
+rvsh> mem
+Physical Memory:
+  Total:     4096 MB
+  Free:      3847 MB (94%)
+  Kernel:      64 MB
+
+Regions:
+  Immutable:    12 (48 KB)
+  Append:        4 (16 KB)
+  Slab:          8 (256 KB)
+
+rvsh> tasks
+ID   NAME              STATE    CAPS  PRI   CPU
+0    idle              RUNNING     1  255    0
+1    init              BLOCKED     8   10    1
+2    vector-service    READY      16    5    -
+3    network-stack     BLOCKED    32   15    2
+
+rvsh> caps 2
+Task 2 (vector-service) capabilities:
+  [0] CAP_REGION_READ  -> Region 0x1000 (vectors)
+  [1] CAP_REGION_WRITE -> Region 0x1000 (vectors)
+  [2] CAP_QUEUE_SEND   -> Queue 0 (requests)
+  [3] CAP_QUEUE_RECV   -> Queue 1 (responses)
+  ...
+
+rvsh> trace on
+Syscall tracing enabled.
+
+rvsh> witness tail 5
+[14:33:01.234] VectorPut key=0x42 store=0 proof=Reflex
+[14:33:01.235] QueueSend queue=0 msg_type=VectorResult
+[14:33:01.240] TimerWait deadline=14:33:02.000
+[14:33:02.001] QueueRecv queue=1 msg_type=VectorQuery
+[14:33:02.002] VectorGet key=0x43 store=0
+```
+
+#### Enabling the Shell
+
+The shell is enabled by default in debug builds. For release builds:
+
+```toml
+# In Cargo.toml or via CLI
+[features]
+kernel-shell = []  # Enable rvsh in release builds
+```
+
+Or via `ruvix-cli`:
+
+```bash
+ruvix build --features kernel-shell --release
+```
+
+---
+
 ## no_std Support
 
 All RuVix crates support `#![no_std]` environments:
@@ -410,6 +548,10 @@ crates/ruvix/
     # Phase E: Networking/FS
     net/                      # Ethernet/IP/UDP/ICMP stack
     fs/                       # VFS, FAT32, RamFS
+
+    # CLI & Debug Tools
+    cli/                      # Host-side ruvix-cli tool
+    shell/                    # In-kernel debug shell (rvsh)
 
   aarch64-boot/               # Linker scripts, QEMU target
   qemu-swarm/                 # Multi-QEMU cluster simulation

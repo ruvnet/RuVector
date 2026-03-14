@@ -20,6 +20,8 @@ members = [
     "crates/fs",
     "crates/bcm2711",
     "crates/rpi-boot",
+    "crates/shell",
+    "crates/cli",
     "qemu-swarm",
     "tests",
     "benches",
@@ -58,6 +60,8 @@ ruvix-fs = { version = "0.1.0", path = "crates/fs" }
 ruvix-qemu-swarm = { version = "0.1.0", path = "qemu-swarm" }
 ruvix-bcm2711 = { version = "0.1.0", path = "crates/bcm2711" }
 ruvix-rpi-boot = { version = "0.1.0", path = "crates/rpi-boot" }
+ruvix-shell = { version = "0.1.0", path = "crates/shell" }
+ruvix-cli = { version = "0.1.0", path = "crates/cli" }
 
 # External - from parent workspace
 ruvector-coherence = { version = "2.0.6", path = "../ruvector-coherence" }

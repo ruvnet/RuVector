@@ -1,0 +1,18 @@
+[package]
+name = "rvf-swarm-demo"
+version = "0.1.0"
+edition = "2021"
+description = "RVF Swarm Demo - Multi-agent coordination on RuVix"
+license = "MIT OR Apache-2.0"
+publish = false
+
+[dependencies]
+ruvix-nucleus = { path = "../../../crates/nucleus" }
+ruvix-types = { path = "../../../crates/types" }
+ruvix-cap = { path = "../../../crates/cap" }
+ruvix-queue = { path = "../../../crates/queue" }
+ruvix-sched = { path = "../../../crates/sched" }
+
+[features]
+default = ["std"]
+std = []

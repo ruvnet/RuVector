@@ -124,6 +124,12 @@ pub struct VectorStoreStats {
     pub proofs_verified: u64,
     /// Total proofs rejected.
     pub proofs_rejected: u64,
+    /// Total number of entries currently in store.
+    pub entry_count: usize,
+    /// Total reads performed.
+    pub reads: u64,
+    /// Total writes performed.
+    pub writes: u64,
 }
 
 impl VectorStore {
@@ -200,6 +206,18 @@ impl VectorStore {
         self.len() >= self.config.capacity as usize
     }
 
+    /// Returns the approximate memory usage in bytes.
+    #[must_use]
+    pub fn memory_bytes(&self) -> u64 {
+        let entry_count = self.len();
+        let dims = self.config.dimensions as usize;
+
+        // Each entry: key (8) + data (dims * 4) + meta (32) + proof_hash (32)
+        let entry_size = 8 + (dims * 4) + 32 + 32;
+
+        (entry_count * entry_size) as u64
+    }
+
     /// Gets a vector by key.
     pub fn get(&mut self, key: VectorKey) -> Result<&VectorStoreEntry> {
         #[cfg(feature = "alloc")]
@@ -209,6 +227,7 @@ impl VectorStore {
                     // Update access metadata
                     entry.meta.access_count += 1;
                     self.stats.vectors_retrieved += 1;
+                    self.stats.reads += 1;
                     return Ok(entry);
                 }
             }
@@ -221,6 +240,7 @@ impl VectorStore {
                     if entry.key == key {
                         entry.meta.access_count += 1;
                         self.stats.vectors_retrieved += 1;
+                        self.stats.reads += 1;
                         // Need to return immutable reference, so re-match
                         return self.entries[i].as_ref().ok_or(KernelError::NotFound);
                     }
@@ -277,6 +297,8 @@ impl VectorStore {
         self.epoch += 1;
         self.stats.vectors_stored += 1;
         self.stats.proofs_verified += 1;
+        self.stats.writes += 1;
+        self.stats.entry_count = self.len();
 
         Ok(())
     }
@@ -327,6 +349,8 @@ impl VectorStore {
         self.epoch += 1;
         self.stats.vectors_stored += 1;
         self.stats.proofs_verified += 1;
+        self.stats.writes += 1;
+        self.stats.entry_count = self.len();
 
         Ok(())
     }

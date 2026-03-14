@@ -100,6 +100,10 @@ pub enum SwarmError {
     /// Internal error.
     #[error("Internal error: {0}")]
     Internal(String),
+
+    /// Consensus error.
+    #[error("Consensus error: {0}")]
+    Consensus(String),
 }
 
 impl SwarmError {

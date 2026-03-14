@@ -204,6 +204,20 @@ impl GraphStore {
         }
     }
 
+    /// Returns the approximate memory usage in bytes.
+    #[must_use]
+    pub fn memory_bytes(&self) -> u64 {
+        // GraphNode: id (8) + partition (4) + metadata (8) = 20 bytes
+        let node_size = 20usize;
+        // GraphEdge: from (8) + to (8) + weight_fp (4) = 20 bytes
+        let edge_size = 20usize;
+
+        let node_memory = self.node_count() * node_size;
+        let edge_memory = self.edge_count() * edge_size;
+
+        (node_memory + edge_memory) as u64
+    }
+
     /// Checks if a node exists.
     pub fn contains_node(&self, id: u64) -> bool {
         #[cfg(feature = "alloc")]

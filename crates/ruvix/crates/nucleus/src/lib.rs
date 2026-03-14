@@ -68,6 +68,9 @@ mod vector_store;
 mod graph_store;
 mod checkpoint;
 
+#[cfg(feature = "shell")]
+mod shell_backend;
+
 pub use kernel::{Kernel, KernelConfig, KernelStats};
 pub use proof_engine::{ProofEngine, ProofEngineConfig, ProofVerifyResult};
 pub use scheduler::{Scheduler, SchedulerConfig, TaskState};

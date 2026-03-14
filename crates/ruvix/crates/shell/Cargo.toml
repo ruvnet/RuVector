@@ -1,0 +1,34 @@
+[package]
+name = "ruvix-shell"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.75"
+license = "MIT OR Apache-2.0"
+authors = ["RuVector Contributors"]
+description = "In-kernel debug shell for the RuVix Cognition Kernel (ADR-087)"
+keywords = ["kernel", "debug", "shell", "no_std", "embedded"]
+categories = ["no-std", "embedded", "os", "command-line-interface"]
+repository = "https://github.com/ruvnet/ruvector"
+readme = "README.md"
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+# RuVix internal crates
+ruvix-types = { version = "0.1.0", path = "../types", default-features = false, features = ["alloc"] }
+
+[dev-dependencies]
+# No external dev dependencies for no_std crate
+
+[features]
+default = ["alloc"]
+std = ["ruvix-types/std"]
+alloc = ["ruvix-types/alloc"]
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

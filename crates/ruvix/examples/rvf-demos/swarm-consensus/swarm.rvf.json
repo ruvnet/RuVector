@@ -1,0 +1,200 @@
+{
+  "$schema": "https://ruvector.dev/schemas/rvf/1.0.json",
+  "rvf_version": "1.0.0",
+  "metadata": {
+    "name": "swarm-consensus-demo",
+    "version": "0.1.0",
+    "description": "Multi-agent swarm with Byzantine fault-tolerant consensus on RuVix",
+    "author": "RuVector Team",
+    "license": "MIT OR Apache-2.0",
+    "created": "2024-01-15T00:00:00Z",
+    "tags": ["swarm", "consensus", "multi-agent", "bft"]
+  },
+
+  "requirements": {
+    "ruvix_version": ">=0.1.0",
+    "min_memory_mb": 64,
+    "min_cores": 4,
+    "capabilities": [
+      "CAP_TASK_SPAWN",
+      "CAP_QUEUE_CREATE",
+      "CAP_VECTOR_STORE",
+      "CAP_PROOF_EMIT"
+    ]
+  },
+
+  "swarm": {
+    "name": "consensus-swarm",
+    "topology": "mesh",
+    "consensus": {
+      "algorithm": "pbft",
+      "fault_tolerance": "byzantine",
+      "quorum": "2f+1",
+      "timeout_ms": 1000
+    },
+
+    "agents": [
+      {
+        "id": "coordinator",
+        "role": "leader",
+        "count": 1,
+        "priority": 10,
+        "capabilities": ["CAP_BROADCAST", "CAP_PROPOSE"],
+        "vector_stores": ["shared-memory"],
+        "queues": {
+          "inbox": "coordinator-inbox",
+          "outbox": "broadcast"
+        }
+      },
+      {
+        "id": "validator",
+        "role": "validator",
+        "count": 3,
+        "priority": 8,
+        "capabilities": ["CAP_VOTE", "CAP_VERIFY"],
+        "vector_stores": ["shared-memory"],
+        "queues": {
+          "inbox": "validator-{index}-inbox",
+          "outbox": "coordinator-inbox"
+        }
+      },
+      {
+        "id": "worker",
+        "role": "executor",
+        "count": 4,
+        "priority": 5,
+        "capabilities": ["CAP_EXECUTE", "CAP_REPORT"],
+        "vector_stores": ["task-results"],
+        "queues": {
+          "inbox": "worker-{index}-inbox",
+          "outbox": "result-collector"
+        }
+      }
+    ],
+
+    "communication": {
+      "queues": [
+        {
+          "name": "broadcast",
+          "type": "fanout",
+          "subscribers": ["validator-*", "worker-*"]
+        },
+        {
+          "name": "coordinator-inbox",
+          "type": "mpsc",
+          "capacity": 256
+        },
+        {
+          "name": "result-collector",
+          "type": "mpsc",
+          "capacity": 1024
+        }
+      ]
+    }
+  },
+
+  "memory": {
+    "regions": [
+      {
+        "name": "shared-memory",
+        "type": "vector_store",
+        "dimensions": 128,
+        "capacity": 10000,
+        "policy": "append-only",
+        "access": "swarm-read-write"
+      },
+      {
+        "name": "task-results",
+        "type": "vector_store",
+        "dimensions": 64,
+        "capacity": 5000,
+        "policy": "append-only",
+        "access": "workers-write"
+      },
+      {
+        "name": "consensus-log",
+        "type": "witness_log",
+        "capacity": 100000,
+        "policy": "immutable"
+      }
+    ]
+  },
+
+  "proofs": {
+    "required_for": [
+      "state_mutation",
+      "consensus_vote",
+      "task_completion"
+    ],
+    "tiers": {
+      "consensus_vote": "reflex",
+      "state_mutation": "standard",
+      "task_completion": "standard"
+    }
+  },
+
+  "workflows": [
+    {
+      "name": "distributed-inference",
+      "description": "Distribute inference tasks across workers with consensus validation",
+      "steps": [
+        {
+          "step": 1,
+          "action": "coordinator.receive_task",
+          "proof_required": false
+        },
+        {
+          "step": 2,
+          "action": "coordinator.propose_distribution",
+          "proof_required": true,
+          "proof_tier": "reflex"
+        },
+        {
+          "step": 3,
+          "action": "validators.vote",
+          "quorum": "2f+1",
+          "timeout_ms": 500
+        },
+        {
+          "step": 4,
+          "action": "coordinator.commit",
+          "condition": "quorum_reached",
+          "proof_required": true
+        },
+        {
+          "step": 5,
+          "action": "workers.execute",
+          "parallel": true
+        },
+        {
+          "step": 6,
+          "action": "coordinator.aggregate_results",
+          "proof_required": true
+        }
+      ]
+    }
+  ],
+
+  "boot": {
+    "entry_point": "swarm_main",
+    "init_sequence": [
+      "init_shared_memory",
+      "spawn_coordinator",
+      "spawn_validators",
+      "spawn_workers",
+      "start_consensus_loop"
+    ],
+    "healthcheck": {
+      "interval_ms": 1000,
+      "timeout_ms": 5000,
+      "min_healthy_agents": 5
+    }
+  },
+
+  "attestation": {
+    "sign_on_boot": true,
+    "algorithm": "ed25519",
+    "include_hardware_attestation": true,
+    "witness_all_consensus": true
+  }
+}

@@ -21,6 +21,9 @@ ruvix-region = { version = "0.1.0", path = "../region" }
 ruvix-cap = { version = "0.1.0", path = "../cap" }
 ruvix-queue = { version = "0.1.0", path = "../queue" }
 
+# Shell integration (optional)
+ruvix-shell = { version = "0.1.0", path = "../shell", optional = true }
+
 # External dependencies (optional for std)
 sha2 = { version = "0.10", default-features = false, optional = true }
 
@@ -29,20 +32,25 @@ proptest = "1.4"
 criterion = { version = "0.5", features = ["html_reports"] }
 
 [features]
-default = ["std", "sha2"]
+default = ["std", "sha2", "shell"]
 std = [
     "alloc",
     "ruvix-types/std",
     "ruvix-region/std",
     "ruvix-cap/std",
     "ruvix-queue/std",
+    "ruvix-shell?/std",
 ]
 alloc = [
     "ruvix-types/alloc",
     "ruvix-region/alloc",
     "ruvix-cap/alloc",
     "ruvix-queue/alloc",
+    "ruvix-shell?/alloc",
 ]
+
+# Enable shell backend integration
+shell = ["dep:ruvix-shell"]
 
 # Enable coherence scoring
 coherence = []

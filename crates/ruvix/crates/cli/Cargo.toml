@@ -1,0 +1,75 @@
+[package]
+name = "ruvix-cli"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Host-side CLI tool for RuVix cognition kernel"
+
+[[bin]]
+name = "ruvix"
+path = "src/main.rs"
+
+[dependencies]
+# CLI framework
+clap = { workspace = true }
+
+# Serialization
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+# Error handling
+anyhow = "1.0"
+
+# Terminal colors
+colored = "2.1"
+
+# Serial port for monitor
+serialport = "4.3"
+
+# Progress indication
+indicatif = { workspace = true }
+console = { workspace = true }
+
+# Filesystem operations
+walkdir = "2.5"
+
+# Hex encoding for keys
+hex = "0.4"
+
+# Time
+chrono = { workspace = true }
+
+# Cryptographic libraries for key management
+ed25519-dalek = { version = "2.1", features = ["rand_core", "pem"] }
+rand = "0.8"
+sha2 = "0.10"
+base64 = "0.22"
+pem = "3.0"
+zeroize = "1.7"
+
+# RSA support (optional)
+rsa = { version = "0.9", features = ["pem"], optional = true }
+
+# Password-based key encryption
+argon2 = "0.5"
+aes-gcm = "0.10"
+
+# DTB parsing
+ruvix-dtb = { path = "../dtb" }
+
+# Terminal interaction
+crossterm = "0.27"
+dialoguer = "0.11"
+ctrlc = "3.4"
+
+[dev-dependencies]
+assert_cmd = "2.0"
+predicates = "3.1"
+tempfile = "3.10"
+
+[features]
+default = []
+rsa = ["dep:rsa"]
