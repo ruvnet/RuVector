@@ -58,7 +58,7 @@ argon2 = "0.5"
 aes-gcm = "0.10"
 
 # DTB parsing
-ruvix-dtb = { path = "../dtb" }
+ruvix-dtb = { version = "0.1.0", path = "../dtb" }
 
 # Terminal interaction
 crossterm = "0.27"
