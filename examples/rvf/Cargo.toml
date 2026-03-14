@@ -250,5 +250,9 @@ name = "microlensing_detection"
 path = "examples/microlensing_detection.rs"
 
 [[example]]
+name = "exomoon_graphcut"
+path = "examples/exomoon_graphcut.rs"
+
+[[example]]
 name = "openfang"
 path = "examples/openfang.rs"
