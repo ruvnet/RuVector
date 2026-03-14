@@ -9,6 +9,9 @@ members = [
     "crates/boot",
     "crates/vecgraph",
     "crates/nucleus",
+    "crates/hal",
+    "crates/aarch64",
+    "crates/drivers",
     "tests",
     "benches",
     "examples/cognitive_demo",
@@ -34,6 +37,9 @@ ruvix-sched = { version = "0.1.0", path = "crates/sched" }
 ruvix-boot = { version = "0.1.0", path = "crates/boot" }
 ruvix-vecgraph = { version = "0.1.0", path = "crates/vecgraph" }
 ruvix-nucleus = { version = "0.1.0", path = "crates/nucleus" }
+ruvix-hal = { version = "0.1.0", path = "crates/hal" }
+ruvix-aarch64 = { version = "0.1.0", path = "crates/aarch64" }
+ruvix-drivers = { version = "0.1.0", path = "crates/drivers" }
 
 # External - from parent workspace
 ruvector-coherence = { version = "2.0.6", path = "../ruvector-coherence" }

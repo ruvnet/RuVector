@@ -38,6 +38,420 @@
 
 Target: QEMU virt, Raspberry Pi 4/5
 
+---
+
+## Phase B: Bare Metal AArch64 Port
+
+### B.1 Objectives
+
+Phase B transforms the Linux-hosted nucleus into a true bare metal microkernel running natively on AArch64 hardware. Key objectives:
+
+1. **Remove all Linux/std dependencies** — Eliminate libc, pthreads, mmap, and all Linux syscalls
+2. **Native AArch64 boot** — Boot directly on QEMU virt machine and Raspberry Pi 4/5 hardware
+3. **Hardware capability enforcement** — Use MMU page tables for region protection and capability boundaries
+4. **Real interrupt handling** — GIC-400 interrupt controller integration for device drivers
+5. **Hardware timer integration** — ARM Generic Timer for scheduling and `timer_wait` syscall
+
+### B.2 New Crates
+
+| Crate | Purpose | Dependencies | Lines of Code (Est.) |
+|-------|---------|--------------|---------------------|
+| **`ruvix-hal`** | Hardware Abstraction Layer traits | `ruvix-types` | ~500 |
+| **`ruvix-aarch64`** | AArch64 boot, MMU, exceptions | `ruvix-hal`, `ruvix-types` | ~2,000 |
+| **`ruvix-drivers`** | PL011 UART, GIC-400, ARM Timer | `ruvix-hal`, `ruvix-aarch64` | ~1,500 |
+| **`ruvix-physmem`** | Physical memory allocator | `ruvix-types`, `ruvix-aarch64` | ~800 |
+
+These join the Phase A primitives table:
+
+| Crate | Status | Tests | Description |
+|-------|--------|-------|-------------|
+| `ruvix-hal` | ⏳ Phase B | TBD | HAL traits for UART, timer, interrupt controller, MMU |
+| `ruvix-aarch64` | ⏳ Phase B | TBD | Exception vectors, MMU tables, boot sequence |
+| `ruvix-drivers` | ⏳ Phase B | TBD | PL011 UART, GIC-400, ARM Timer drivers |
+| `ruvix-physmem` | ⏳ Phase B | TBD | Buddy allocator for physical page frames |
+
+### B.3 Memory Map (QEMU virt)
+
+The QEMU AArch64 virt machine provides the following memory layout:
+
+| Region | Start Address | End Address | Size | Purpose |
+|--------|--------------|-------------|------|---------|
+| **Flash** | `0x0000_0000` | `0x0800_0000` | 128 MB | Boot ROM, RVF package location |
+| **GIC Distributor** | `0x0800_0000` | `0x0801_0000` | 64 KB | GIC-400 distributor registers |
+| **GIC CPU Interface** | `0x0801_0000` | `0x0802_0000` | 64 KB | GIC-400 CPU interface registers |
+| **UART** | `0x0900_0000` | `0x0900_1000` | 4 KB | PL011 UART registers |
+| **RTC** | `0x0901_0000` | `0x0901_1000` | 4 KB | PL031 Real-Time Clock |
+| **GPIO** | `0x0903_0000` | `0x0903_1000` | 4 KB | PL061 GPIO controller |
+| **PCIe Config** | `0x4000_0000` | `0x4010_0000` | 256 MB | PCIe ECAM configuration space |
+| **RAM** | `0x4000_0000` | `0x8000_0000` | 1 GB | Main system memory (default) |
+
+**Raspberry Pi 4/5 Differences:**
+- Base RAM starts at `0x0000_0000` (not `0x4000_0000`)
+- GIC base at `0xFF84_0000` (BCM2711 interrupt controller)
+- UART0 at `0xFE20_1000` (mini UART) or UART2 at `0xFE20_1400` (PL011)
+- Device tree required for full peripheral discovery
+
+### B.4 Boot Sequence
+
+The bare metal boot sequence consists of five stages:
+
+#### Stage 1: Assembly Entry (_start)
+
+```
+_start:
+    // Executed at EL1 (kernel mode)
+    // x0 = DTB address (from bootloader)
+
+    1. Check execution level (ensure EL1)
+    2. Set up exception vector table (VBAR_EL1)
+    3. Initialize stack pointer (SP_EL1 = kernel_stack_top)
+    4. Clear BSS segment (zero-fill static data)
+    5. Save DTB address to known location
+    6. Jump to Rust entry point (kernel_entry)
+```
+
+**Registers on entry:**
+- `x0` — Device Tree Blob (DTB) address
+- `x1-x3` — Reserved (bootloader-specific)
+- `PC` — Entry point (`_start` in boot ROM or RAM)
+
+**Assembly file:** `ruvix-aarch64/src/boot.S` (~150 lines)
+
+#### Stage 2: MMU Initialization
+
+Before Rust code can execute, the kernel must set up virtual memory:
+
+```rust
+// ruvix-aarch64/src/mmu.rs
+pub unsafe fn init_mmu() {
+    // 1. Identity map kernel code/data (VA = PA)
+    //    0x4000_0000 - 0x4010_0000 (16 MB)
+    //    Read-only for code, RW for data, no user access
+
+    // 2. Map kernel heap region
+    //    VA: 0xFFFF_FF00_0000_0000 (canonical high)
+    //    PA: (allocated physical pages)
+    //    RW, no user access
+
+    // 3. Map device MMIO regions
+    //    GIC, UART, timers — uncacheable, device memory
+
+    // 4. Enable MMU (SCTLR_EL1.M = 1)
+}
+```
+
+**Page table structure:**
+- 4 KB pages, 4-level translation (TTBR0_EL1 for user, TTBR1_EL1 for kernel)
+- Kernel mappings in top canonical half (`0xFFFF_FF00_0000_0000+`)
+- Physical memory allocator initialized from DTB memory nodes
+
+#### Stage 3: Exception Vectors and GIC Initialization
+
+```rust
+// ruvix-aarch64/src/exceptions.rs
+#[repr(C, align(2048))]
+pub struct ExceptionVectorTable {
+    sync_el1_sp0:  extern "C" fn(),  // Synchronous from EL1 using SP_EL0
+    irq_el1_sp0:   extern "C" fn(),  // IRQ from EL1 using SP_EL0
+    fiq_el1_sp0:   extern "C" fn(),  // FIQ from EL1 using SP_EL0
+    serror_el1_sp0: extern "C" fn(), // SError from EL1 using SP_EL0
+    // ... (16 total vectors for all EL/SP combinations)
+}
+
+pub unsafe fn init_exceptions() {
+    let vector_table = &EXCEPTION_VECTORS as *const _ as u64;
+    asm!("msr VBAR_EL1, {}", in(reg) vector_table);
+}
+```
+
+**GIC-400 initialization:**
+```rust
+// ruvix-drivers/src/gic400.rs
+pub unsafe fn init_gic() {
+    // 1. Enable distributor (GICD_CTLR)
+    // 2. Configure interrupt priorities (GICD_IPRIORITYR)
+    // 3. Set interrupt targets (GICD_ITARGETSR) — all to CPU0
+    // 4. Enable CPU interface (GICC_CTLR)
+    // 5. Set priority mask (GICC_PMR) — allow all priorities
+    // 6. Enable specific interrupts (GICD_ISENABLER)
+    //    - UART RX interrupt (IRQ 33)
+    //    - Timer interrupt (IRQ 27 for secure physical timer)
+}
+```
+
+#### Stage 4: Kernel Entry and Capability Table Initialization
+
+```rust
+// ruvix-nucleus/src/main.rs
+#[no_mangle]
+pub extern "C" fn kernel_entry(dtb_addr: usize) -> ! {
+    // 1. Parse device tree to discover memory layout
+    let dtb = unsafe { DeviceTree::from_addr(dtb_addr) };
+    let memory_nodes = dtb.memory_nodes();
+
+    // 2. Initialize physical memory allocator
+    let mut phys_allocator = PhysicalAllocator::new(memory_nodes);
+
+    // 3. Initialize region manager (convert mmap to physical pages)
+    let region_mgr = RegionManager::new(&mut phys_allocator);
+
+    // 4. Initialize capability manager
+    let cap_mgr = CapabilityManager::new();
+
+    // 5. Create root task with all initial capabilities
+    let root_task = Task::new_root(&cap_mgr, &region_mgr);
+
+    // 6. Initialize queue manager
+    let queue_mgr = QueueManager::new(&mut phys_allocator);
+
+    // 7. Initialize proof engine
+    let proof_engine = ProofEngine::new(&cap_mgr);
+
+    // 8. Initialize vector/graph kernel objects
+    let vecgraph_mgr = VecGraphManager::new(&mut phys_allocator, &proof_engine);
+
+    // 9. Initialize scheduler
+    let scheduler = Scheduler::new();
+    scheduler.add_task(root_task);
+
+    // 10. Load boot RVF and jump to first component
+    load_boot_rvf_and_start(&cap_mgr, &region_mgr, &queue_mgr);
+
+    // 11. Enter scheduler loop (never returns)
+    scheduler.run()
+}
+```
+
+#### Stage 5: First RVF Component Load
+
+```rust
+// ruvix-boot/src/loader.rs
+pub fn load_boot_rvf_and_start(
+    cap_mgr: &CapabilityManager,
+    region_mgr: &RegionManager,
+    queue_mgr: &QueueManager,
+) {
+    // 1. Read RVF from flash at 0x0000_0000
+    let rvf_bytes = unsafe { read_flash(0x0000_0000, RVF_MAX_SIZE) };
+
+    // 2. Verify ML-DSA-65 signature (Stage 1 from Phase A)
+    let manifest = rvf::verify_and_parse(&rvf_bytes)
+        .expect("Boot RVF signature verification failed");
+
+    // 3. Create regions per memory schema
+    for region_spec in manifest.memory_schema {
+        region_mgr.create_region(region_spec.size, region_spec.policy);
+    }
+
+    // 4. Load WASM components into executable regions
+    for component in manifest.components {
+        let code_region = region_mgr.map_immutable(&component.wasm_bytes);
+        // WASM runtime initialization happens here (Wasmtime or wasm-micro-runtime)
+    }
+
+    // 5. Wire queues per manifest
+    for queue_spec in manifest.queue_wiring {
+        queue_mgr.create_queue(queue_spec.size, queue_spec.schema);
+    }
+
+    // 6. Spawn initial tasks
+    for entry_point in manifest.entry_points {
+        let task = Task::spawn(
+            entry_point.component_id,
+            entry_point.caps,
+            TaskPriority::Normal,
+            None, // no deadline
+        );
+        scheduler.add_task(task);
+    }
+
+    // 7. Emit boot attestation
+    kernel.attest_emit(
+        &AttestPayload::Boot {
+            rvf_hash: manifest.hash,
+            timestamp: timer.now(),
+        },
+        &ProofToken::trusted_boot(),
+    );
+}
+```
+
+### B.5 Security Model Enhancements
+
+#### MMU-Enforced Capability Boundaries
+
+In Phase A (Linux-hosted), region protection relied on `mprotect()`. In Phase B, the kernel directly controls page table entries:
+
+```rust
+// ruvix-region/src/region.rs (Phase B version)
+impl RegionManager {
+    pub fn map_region(&mut self, policy: RegionPolicy, size: usize) -> Result<RegionHandle> {
+        let phys_pages = self.phys_allocator.allocate_pages(pages_for(size))?;
+
+        let pte_flags = match policy {
+            RegionPolicy::Immutable => {
+                // User-accessible, read-only, cacheable
+                PTE_USER | PTE_RO | PTE_CACHEABLE
+            }
+            RegionPolicy::AppendOnly { .. } => {
+                // Kernel-only, write-append enforced via capability checks
+                PTE_KERNEL_RW | PTE_CACHEABLE
+            }
+            RegionPolicy::Slab { .. } => {
+                // Kernel-only, full RW
+                PTE_KERNEL_RW | PTE_CACHEABLE
+            }
+        };
+
+        // Map into kernel address space with appropriate permissions
+        let virt_addr = self.mmu.map_pages(phys_pages, pte_flags)?;
+
+        Ok(RegionHandle {
+            virt_addr,
+            phys_pages,
+            policy,
+            size,
+        })
+    }
+}
+```
+
+**Page table entry flags:**
+```rust
+const PTE_VALID:      u64 = 1 << 0;   // Valid entry
+const PTE_USER:       u64 = 1 << 6;   // User-accessible (EL0)
+const PTE_RO:         u64 = 1 << 7;   // Read-only (AP[2])
+const PTE_KERNEL_RW:  u64 = 0 << 6;   // Kernel-only, RW
+const PTE_CACHEABLE:  u64 = 0b11 << 2; // Normal memory, write-back
+const PTE_DEVICE:     u64 = 0b00 << 2; // Device memory, strongly-ordered
+```
+
+#### EL1/EL0 Separation for Kernel/User
+
+- **EL1 (Kernel mode):** All kernel code, syscall handlers, interrupt handlers, scheduler
+- **EL0 (User mode):** All RVF components, WASM runtime, AgentDB, RuView
+
+Syscalls trigger synchronous exceptions (SVC instruction) and transition EL0 → EL1. The exception handler validates capabilities before dispatching to syscall implementation.
+
+```rust
+// ruvix-aarch64/src/syscall.rs
+#[no_mangle]
+pub extern "C" fn svc_handler(syscall_num: u64, args: &SyscallArgs) -> SyscallResult {
+    let current_task = scheduler::current_task();
+
+    match syscall_num {
+        0 => task_spawn(current_task, args),
+        1 => cap_grant(current_task, args),
+        2 => region_map(current_task, args),
+        // ... (12 total syscalls)
+        _ => Err(KernelError::InvalidSyscall),
+    }
+}
+```
+
+#### Secure Monitor Calls for Attestation
+
+On hardware with Arm TrustZone (Raspberry Pi 4/5), the kernel can invoke Secure Monitor calls (SMC instruction) to request cryptographic operations from the Trusted Execution Environment (TEE):
+
+```rust
+// ruvix-aarch64/src/smc.rs
+pub fn secure_hash(data: &[u8]) -> [u8; 32] {
+    // SMC call to Secure World for hardware-backed SHA-256
+    let result = unsafe {
+        smc_call(SMC_HASH_SHA256, data.as_ptr(), data.len())
+    };
+    result.hash
+}
+
+pub fn secure_sign_attestation(attestation: &ProofAttestation) -> Signature {
+    // SMC call to Secure World for ML-DSA-65 signing using device key
+    unsafe {
+        smc_call(SMC_SIGN_MLDSA65, attestation as *const _, size_of::<ProofAttestation>())
+    }.signature
+}
+```
+
+**Use cases:**
+- Boot attestation signed by device-unique key (burned into eFUSE)
+- Witness log entries signed by TEE to prevent kernel compromise from tampering
+- Remote attestation for distributed RuVix mesh (Demo 5)
+
+### B.6 Build Path (Weeks 19-42)
+
+| Week | Milestone | Deliverables | Tests |
+|------|-----------|--------------|-------|
+| **19-20** | AArch64 bootstrap | `boot.S`, exception vectors, minimal UART output | QEMU boots, prints "RuVix" |
+| **21-22** | MMU setup | 4-level page tables, identity + kernel mappings | Virtual memory functional |
+| **23-24** | Physical allocator | Buddy allocator for 4KB pages from DTB | Unit tests, fuzz tests |
+| **25-26** | Region → MMU | `RegionManager` using page tables, not mmap | Phase A region tests pass |
+| **27-28** | GIC-400 driver | Interrupt enable/disable, IRQ routing | Timer IRQ delivered to kernel |
+| **29-30** | UART driver | PL011 TX/RX with interrupt support | Console I/O functional |
+| **31-32** | ARM Timer driver | Generic Timer for `timer_wait`, scheduler ticks | Deadline scheduling works |
+| **33-34** | Queue → interrupts | Device interrupts delivered as queue messages | `sensor_subscribe` functional |
+| **35-36** | WASM runtime port | Wasmtime or wasm-micro-runtime on bare metal | "Hello World" WASM executes |
+| **37-38** | Scheduler on hardware | Coherence-aware scheduler using timer IRQs | Multi-task preemption works |
+| **39-40** | RVF boot on QEMU | Full boot sequence from flash RVF | Phase A acceptance test (QEMU) |
+| **41-42** | Raspberry Pi 4 port | Device tree parsing, BCM2711 peripherals | Acceptance test (real hardware) |
+
+### B.7 Testing Strategy
+
+#### QEMU Integration Tests
+
+```bash
+# ruvix-test/qemu_integration.sh
+qemu-system-aarch64 \
+  -machine virt,gic-version=3 \
+  -cpu cortex-a72 \
+  -m 1G \
+  -kernel target/aarch64-unknown-none/release/ruvix-kernel \
+  -drive file=boot.rvf,format=raw,if=pflash \
+  -nographic \
+  -semihosting-config enable=on,target=native
+```
+
+**Test cases:**
+1. Boot sequence completes without panic
+2. MMU maps kernel and user regions correctly
+3. Timer interrupt fires at 100 Hz
+4. UART TX/RX works (loopback test)
+5. GIC delivers interrupts to correct handlers
+6. RVF signature verification passes/fails as expected
+7. Phase A acceptance test (vector mutation + replay)
+
+#### Raspberry Pi 4 Hardware Tests
+
+```bash
+# Copy kernel to SD card FAT32 partition
+cp target/aarch64-unknown-none/release/ruvix-kernel /media/boot/kernel8.img
+cp boot.rvf /media/boot/
+
+# config.txt
+arm_64bit=1
+kernel=kernel8.img
+enable_uart=1
+```
+
+**Test cases:**
+1. UART console output appears on GPIO 14/15
+2. LED blink test using GPIO driver
+3. USB keyboard input via queue subscription
+4. Network packet reception via queue (if Ethernet driver implemented)
+5. Thermal monitoring via RPi-specific sensors
+
+### B.8 Known Limitations
+
+1. **No symmetric multiprocessing (SMP)** — Phase B targets single-core. Multi-core support requires per-CPU interrupt handling and scheduler affinity (future ADR).
+
+2. **No DMA** — Device drivers use programmed I/O. DMA requires IOMMU configuration and physical address constraints (future enhancement).
+
+3. **No floating-point in kernel** — AArch64 NEON/SVE disabled in kernel mode. Vector distance computations may use integer quantized formats or userspace WASM components (decision pending).
+
+4. **Fixed memory layout** — No dynamic memory expansion. All regions declared at boot in RVF manifest.
+
+5. **No power management** — No CPU idle states, frequency scaling, or suspend/resume. Target: always-on edge devices.
+
+---
+
 ## Deciders
 
 ruv

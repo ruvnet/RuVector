@@ -9503,6 +9503,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "ruvix-aarch64"
+version = "0.1.0"
+dependencies = [
+ "ruvix-hal",
+ "ruvix-types",
+]
+
+[[package]]
 name = "ruvix-bench"
 version = "0.1.0"
 dependencies = [
@@ -9568,6 +9576,21 @@ dependencies = [
  "ruvix-types",
  "ruvix-vecgraph",
  "sha2",
+]
+
+[[package]]
+name = "ruvix-drivers"
+version = "0.1.0"
+dependencies = [
+ "ruvix-hal",
+ "ruvix-types",
+]
+
+[[package]]
+name = "ruvix-hal"
+version = "0.1.0"
+dependencies = [
+ "ruvix-types",
 ]
 
 [[package]]

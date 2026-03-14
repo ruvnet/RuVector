@@ -1,0 +1,20 @@
+[package]
+name = "ruvix-hal"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.75"
+license = "MIT OR Apache-2.0"
+description = "Hardware Abstraction Layer for RuVix Cognition Kernel (ADR-087)"
+keywords = ["kernel", "hal", "no_std", "embedded", "aarch64"]
+categories = ["no-std", "embedded", "hardware-support"]
+repository = "https://github.com/ruvnet/ruvector"
+readme = "README.md"
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+ruvix-types = { version = "0.1.0", path = "../types" }
+
+[features]
+default = []

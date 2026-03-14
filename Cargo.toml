@@ -114,6 +114,10 @@ members = [
     "crates/ruvix/crates/boot",
     "crates/ruvix/crates/vecgraph",
     "crates/ruvix/crates/nucleus",
+    # Phase B: Bare metal AArch64 support
+    "crates/ruvix/crates/hal",
+    "crates/ruvix/crates/aarch64",
+    "crates/ruvix/crates/drivers",
     "crates/ruvix/tests",
     "crates/ruvix/benches",
     "crates/ruvix/examples/cognitive_demo",
