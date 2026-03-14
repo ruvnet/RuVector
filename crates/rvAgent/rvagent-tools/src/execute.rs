@@ -1,110 +1,130 @@
-//! `execute` tool — shell command execution (ADR-096, ADR-103 C2).
+//! `execute` tool — shell command execution via backend.
 
-use crate::{ToolResult, ToolRuntime};
-use std::time::Duration;
+use crate::{Tool, ToolResult, ToolRuntime, DEFAULT_EXECUTE_TIMEOUT};
+use async_trait::async_trait;
 
-/// Default timeout in seconds.
-const DEFAULT_TIMEOUT_SECS: u64 = 120;
+/// Executes shell commands through the backend.
+pub struct ExecuteTool;
 
-/// Standalone synchronous execute invocation.
-pub fn invoke_standalone(args: serde_json::Value, runtime: &ToolRuntime) -> ToolResult {
-    let command = match args.get("command").and_then(|v| v.as_str()) {
-        Some(c) => c,
-        None => return ToolResult::Text("Error: command is required".into()),
-    };
+#[async_trait]
+impl Tool for ExecuteTool {
+    fn name(&self) -> &str {
+        "execute"
+    }
 
-    let cwd = runtime.cwd.as_deref().unwrap_or(".");
+    fn description(&self) -> &str {
+        "Execute a shell command and return its output"
+    }
 
-    let result = std::process::Command::new("sh")
-        .arg("-c")
-        .arg(command)
-        .current_dir(cwd)
-        .env_clear()
-        .env("PATH", std::env::var("PATH").unwrap_or_default())
-        .env("HOME", std::env::var("HOME").unwrap_or_default())
-        .output();
-
-    match result {
-        Ok(output) => {
-            let stdout = String::from_utf8_lossy(&output.stdout);
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            let exit_code = output.status.code().unwrap_or(-1);
-
-            let mut text = String::new();
-            if !stdout.is_empty() {
-                text.push_str(&stdout);
-            }
-            if !stderr.is_empty() {
-                if !text.is_empty() {
-                    text.push('\n');
+    fn parameters_schema(&self) -> serde_json::Value {
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "command": {
+                    "type": "string",
+                    "description": "Shell command to execute"
+                },
+                "timeout": {
+                    "type": "integer",
+                    "description": "Timeout in seconds",
+                    "default": 120
                 }
-                text.push_str("STDERR:\n");
-                text.push_str(&stderr);
-            }
-            if exit_code != 0 {
-                text.push_str(&format!("\n\nExit code: {}", exit_code));
-            }
+            },
+            "required": ["command"]
+        })
+    }
 
-            ToolResult::Text(text)
+    fn invoke(&self, args: serde_json::Value, runtime: &ToolRuntime) -> ToolResult {
+        let command = match args.get("command").and_then(|v| v.as_str()) {
+            Some(c) => c,
+            None => {
+                return ToolResult::Text("Error: command is required".to_string())
+            }
+        };
+        let timeout = args
+            .get("timeout")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(DEFAULT_EXECUTE_TIMEOUT as u64) as u32;
+
+        match runtime.backend.execute(command, timeout) {
+            Ok(response) => {
+                let mut output = response.output;
+                if response.exit_code != 0 {
+                    output.push_str(&format!(
+                        "\n[exit code: {}]",
+                        response.exit_code
+                    ));
+                }
+                ToolResult::Text(output)
+            }
+            Err(e) => ToolResult::Text(format!("Error: {}", e)),
         }
-        Err(e) => ToolResult::Text(format!("Error executing command: {}", e)),
     }
 }
 
-/// Async execute invocation using tokio (ADR-103 A3).
-pub async fn ainvoke_standalone(args: serde_json::Value, runtime: &ToolRuntime) -> ToolResult {
-    let command = match args.get("command").and_then(|v| v.as_str()) {
-        Some(c) => c.to_string(),
-        None => return ToolResult::Text("Error: command is required".into()),
-    };
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::tests_common::*;
 
-    let timeout_secs = args
-        .get("timeout")
-        .and_then(|v| v.as_u64())
-        .unwrap_or(DEFAULT_TIMEOUT_SECS);
+    #[test]
+    fn test_execute_name() {
+        assert_eq!(ExecuteTool.name(), "execute");
+    }
 
-    let cwd = runtime.cwd.as_deref().unwrap_or(".").to_string();
+    #[test]
+    fn test_execute_schema() {
+        let schema = ExecuteTool.parameters_schema();
+        let required = schema["required"].as_array().unwrap();
+        assert!(required.contains(&serde_json::json!("command")));
+    }
 
-    let result = tokio::time::timeout(
-        Duration::from_secs(timeout_secs),
-        tokio::process::Command::new("sh")
-            .arg("-c")
-            .arg(&command)
-            .current_dir(&cwd)
-            .env_clear()
-            .env("PATH", std::env::var("PATH").unwrap_or_default())
-            .env("HOME", std::env::var("HOME").unwrap_or_default())
-            .output(),
-    )
-    .await;
-
-    match result {
-        Ok(Ok(output)) => {
-            let stdout = String::from_utf8_lossy(&output.stdout);
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            let exit_code = output.status.code().unwrap_or(-1);
-
-            let mut text = String::new();
-            if !stdout.is_empty() {
-                text.push_str(&stdout);
-            }
-            if !stderr.is_empty() {
-                if !text.is_empty() {
-                    text.push('\n');
-                }
-                text.push_str("STDERR:\n");
-                text.push_str(&stderr);
-            }
-            if exit_code != 0 {
-                text.push_str(&format!("\n\nExit code: {}", exit_code));
-            }
-
-            ToolResult::Text(text)
+    #[test]
+    fn test_execute_invoke_success() {
+        let runtime = mock_runtime();
+        let result = ExecuteTool.invoke(
+            serde_json::json!({"command": "echo hello"}),
+            &runtime,
+        );
+        match result {
+            ToolResult::Text(s) => assert!(s.contains("mock output")),
+            _ => panic!("expected Text result"),
         }
-        Ok(Err(e)) => ToolResult::Text(format!("Error executing command: {}", e)),
-        Err(_) => ToolResult::Text(format!(
-            "Error: command timed out after {} seconds",
-            timeout_secs
-        )),
+    }
+
+    #[test]
+    fn test_execute_with_timeout() {
+        let runtime = mock_runtime();
+        let result = ExecuteTool.invoke(
+            serde_json::json!({"command": "sleep 1", "timeout": 5}),
+            &runtime,
+        );
+        match result {
+            ToolResult::Text(s) => assert!(s.contains("mock output")),
+            _ => panic!("expected Text result"),
+        }
+    }
+
+    #[test]
+    fn test_execute_missing_command() {
+        let runtime = mock_runtime();
+        let result = ExecuteTool.invoke(serde_json::json!({}), &runtime);
+        match result {
+            ToolResult::Text(s) => assert!(s.contains("command is required")),
+            _ => panic!("expected error"),
+        }
+    }
+
+    #[test]
+    fn test_execute_error() {
+        let runtime = mock_runtime_with_error();
+        let result = ExecuteTool.invoke(
+            serde_json::json!({"command": "fail"}),
+            &runtime,
+        );
+        match result {
+            ToolResult::Text(s) => assert!(s.contains("Error")),
+            _ => panic!("expected error"),
+        }
     }
 }
