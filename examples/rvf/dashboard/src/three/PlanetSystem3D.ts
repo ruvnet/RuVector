@@ -74,6 +74,7 @@ export class PlanetSystem3D {
   private orbitAngle = 0;
   private speedMultiplier = 1;
   private autoRotate = true;
+  private autoRotateRadius = 7;
   private defaultCamPos = new THREE.Vector3(0, 3, 6);
   private bgGroup: THREE.Group | null = null;
   private labelSprites: THREE.Sprite[] = [];
@@ -426,6 +427,7 @@ export class PlanetSystem3D {
     this.orbitAngle = 0;
 
     const camDist = orbitRadius * 1.8 + 2;
+    this.autoRotateRadius = camDist;
     this.defaultCamPos.set(camDist * 0.6, camDist * 0.45, camDist * 0.7);
     this.camera.position.copy(this.defaultCamPos);
     this.controls.target.set(0, 0, 0);
@@ -460,9 +462,17 @@ export class PlanetSystem3D {
     this.labelSprites.push(sprite);
   }
 
-  /** Remove system objects but keep background. */
+  /** Remove system objects but keep background. Disposes geometries, materials, and textures. */
   private clearSystem(): void {
     cancelAnimationFrame(this.animId);
+
+    // Dispose label sprite textures and materials
+    for (const sprite of this.labelSprites) {
+      const mat = sprite.material as THREE.SpriteMaterial;
+      mat.map?.dispose();
+      mat.dispose();
+    }
+
     const toRemove: THREE.Object3D[] = [];
     this.scene.traverse((obj) => {
       if (obj !== this.scene && obj !== this.bgGroup && obj.parent === this.scene && !(obj instanceof THREE.AmbientLight)) {
@@ -471,7 +481,28 @@ export class PlanetSystem3D {
     });
     for (const obj of toRemove) {
       this.scene.remove(obj);
+      // Dispose geometry
       if ((obj as THREE.Mesh).geometry) (obj as THREE.Mesh).geometry.dispose();
+      // Dispose material(s)
+      const mesh = obj as THREE.Mesh;
+      if (mesh.material) {
+        const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+        for (const mat of materials) {
+          if ((mat as THREE.MeshStandardMaterial).map) (mat as THREE.MeshStandardMaterial).map!.dispose();
+          mat.dispose();
+        }
+      }
+      // Dispose children (e.g. atmosphere halo on planet)
+      obj.traverse((child) => {
+        if (child !== obj) {
+          if ((child as THREE.Mesh).geometry) (child as THREE.Mesh).geometry.dispose();
+          const childMat = (child as THREE.Mesh).material;
+          if (childMat) {
+            const mats = Array.isArray(childMat) ? childMat : [childMat];
+            for (const m of mats) m.dispose();
+          }
+        }
+      });
     }
     // Re-add ambient if missing
     let hasAmbient = false;
@@ -503,12 +534,12 @@ export class PlanetSystem3D {
       this.starMesh.scale.setScalar(scale);
     }
 
-    // Auto-rotate camera (only if user hasn't grabbed controls)
+    // Auto-rotate camera using stored radius to prevent drift
     if (this.autoRotate) {
-      const camDist = this.camera.position.length();
-      this.camera.position.x = camDist * 0.7 * Math.sin(this.time * 0.1);
-      this.camera.position.z = camDist * 0.7 * Math.cos(this.time * 0.1);
-      this.camera.position.y = camDist * 0.35 + 0.5 * Math.sin(this.time * 0.07);
+      const r = this.autoRotateRadius;
+      this.camera.position.x = r * 0.7 * Math.sin(this.time * 0.1);
+      this.camera.position.z = r * 0.7 * Math.cos(this.time * 0.1);
+      this.camera.position.y = r * 0.35 + 0.5 * Math.sin(this.time * 0.07);
       this.controls.target.set(0, 0, 0);
     }
 
@@ -528,11 +559,19 @@ export class PlanetSystem3D {
     cancelAnimationFrame(this.animId);
     this.controls.dispose();
     this.clearSystem();
-    // Also clear background
+    // Also clear background — dispose geometries, materials, and textures
     if (this.bgGroup) {
       this.scene.remove(this.bgGroup);
       this.bgGroup.traverse((obj) => {
         if ((obj as THREE.Mesh).geometry) (obj as THREE.Mesh).geometry.dispose();
+        const mat = (obj as THREE.Mesh | THREE.Sprite).material;
+        if (mat) {
+          const mats = Array.isArray(mat) ? mat : [mat];
+          for (const m of mats) {
+            if ((m as THREE.SpriteMaterial).map) (m as THREE.SpriteMaterial).map!.dispose();
+            m.dispose();
+          }
+        }
       });
       this.bgGroup = null;
     }

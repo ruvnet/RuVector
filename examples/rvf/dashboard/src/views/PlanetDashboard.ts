@@ -261,9 +261,18 @@ export class PlanetDashboard {
       }
     });
 
+    const stringCols = new Set(['name', 'status', 'stellarType']);
     const sorted = [...this.candidates].sort((a, b) => {
-      const va = (a as unknown as Record<string, number>)[this.sortCol] ?? 0;
-      const vb = (b as unknown as Record<string, number>)[this.sortCol] ?? 0;
+      const ra = a as unknown as Record<string, unknown>;
+      const rb = b as unknown as Record<string, unknown>;
+      if (stringCols.has(this.sortCol)) {
+        const sa = String(ra[this.sortCol] ?? '');
+        const sb = String(rb[this.sortCol] ?? '');
+        const cmp = sa.localeCompare(sb);
+        return this.sortAsc ? cmp : -cmp;
+      }
+      const va = (ra[this.sortCol] as number) ?? 0;
+      const vb = (rb[this.sortCol] as number) ?? 0;
       return this.sortAsc ? va - vb : vb - va;
     });
 
@@ -343,10 +352,12 @@ export class PlanetDashboard {
     const { data, transits } = demoLightCurve(c);
     this.lightChart?.update(data, transits);
 
-    // Orbit
-    const semiMajor = Math.max(1, c.period / 30);
-    const ecc = 0.05 + Math.random() * 0.1;
-    const inc = 5 + Math.random() * 10;
+    // Orbit — Kepler's third law: a ~ P^(2/3) for solar-mass star (AU)
+    const semiMajor = Math.max(0.5, Math.pow(c.period / 365.25, 2.0 / 3.0));
+    // Derive deterministic eccentricity/inclination from candidate id hash
+    const idHash = c.id.split('').reduce((h, ch) => ((h << 5) - h + ch.charCodeAt(0)) | 0, 0);
+    const ecc = 0.02 + (((idHash >>> 0) % 100) / 100) * 0.15;
+    const inc = 2 + (((idHash >>> 8) % 100) / 100) * 15;
     this.orbitPreview?.setOrbit(semiMajor, ecc, inc, this.orbitDiv ?? undefined);
   }
 
@@ -361,9 +372,24 @@ export class PlanetDashboard {
       ? '<span class="score-badge score-high" style="font-size:9px">CONFIRMED</span>'
       : '<span class="score-badge score-medium" style="font-size:9px">CANDIDATE</span>';
 
+    // Sanitize text fields to prevent XSS from API data
+    const esc = (s: string | undefined | null): string => {
+      if (!s) return '';
+      const div = document.createElement('div');
+      div.textContent = s;
+      return div.innerHTML;
+    };
+    const safeName = esc(c.name);
+    const safeMethod = esc(c.discoveryMethod) || 'Unknown';
+    const safeTelescope = esc(c.telescope) || 'N/A';
+    const safeReference = esc(c.reference);
+    const safeYear = c.discoveryYear || '?';
+    const distStr = c.distance != null ? (c.distance < 10 ? c.distance.toFixed(2) : c.distance.toFixed(0)) : '?';
+    const tempColor = c.eqTemp && c.eqTemp >= 200 && c.eqTemp <= 300 ? 'var(--success)' : 'var(--warning)';
+
     this.detailCard.innerHTML = `
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-        <span style="font-size:13px;font-weight:600;color:var(--text-primary)">${c.name}</span>
+        <span style="font-size:13px;font-weight:600;color:var(--text-primary)">${safeName}</span>
         <span class="score-badge ${sClass}" style="font-size:10px">${c.score.toFixed(2)}</span>
         ${statusBadge}
         <span style="font-size:10px;color:var(--text-muted);margin-left:auto">${rClass}</span>
@@ -383,17 +409,17 @@ export class PlanetDashboard {
         </div>
         <div style="text-align:center">
           <div style="font-size:9px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.4px">Eq. Temp</div>
-          <div style="font-family:var(--font-mono);font-size:14px;color:${c.eqTemp && c.eqTemp >= 200 && c.eqTemp <= 300 ? 'var(--success)' : 'var(--warning)'};font-weight:500">${c.eqTemp ?? '?'}<span style="font-size:10px;color:var(--text-muted)"> K</span></div>
+          <div style="font-family:var(--font-mono);font-size:14px;color:${tempColor};font-weight:500">${c.eqTemp ?? '?'}<span style="font-size:10px;color:var(--text-muted)"> K</span></div>
         </div>
         <div style="text-align:center">
           <div style="font-size:9px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.4px">Distance</div>
-          <div style="font-family:var(--font-mono);font-size:14px;color:var(--text-primary);font-weight:500">${c.distance < 10 ? c.distance.toFixed(2) : c.distance.toFixed(0)}<span style="font-size:10px;color:var(--text-muted)"> ly</span></div>
+          <div style="font-family:var(--font-mono);font-size:14px;color:var(--text-primary);font-weight:500">${distStr}<span style="font-size:10px;color:var(--text-muted)"> ly</span></div>
         </div>
       </div>
       <div style="margin-top:8px;font-size:10px;color:var(--text-muted);border-top:1px solid var(--border);padding-top:6px">
-        <span style="color:var(--text-secondary)">${c.discoveryMethod || 'Unknown'}</span> &mdash;
-        ${c.telescope || 'N/A'} (${c.discoveryYear || '?'}) &mdash;
-        <span style="font-style:italic">${c.reference || ''}</span>
+        <span style="color:var(--text-secondary)">${safeMethod}</span> &mdash;
+        ${safeTelescope} (${safeYear}) &mdash;
+        <span style="font-style:italic">${safeReference}</span>
       </div>
     `;
   }

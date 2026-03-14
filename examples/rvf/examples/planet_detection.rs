@@ -45,6 +45,15 @@ fn lcg_f64(state: &mut u64) -> f64 {
 }
 
 // ---------------------------------------------------------------------------
+// Metadata field IDs for RVF store
+// ---------------------------------------------------------------------------
+
+const FIELD_INSTRUMENT: u32 = 0;
+const FIELD_KIC_NUMBER: u32 = 1;
+const FIELD_TRANSIT_DEPTH: u32 = 2;
+const FIELD_PERIOD_DAYS: u32 = 3;
+
+// ---------------------------------------------------------------------------
 // ADR-040 domain types
 // ---------------------------------------------------------------------------
 
@@ -183,13 +192,17 @@ fn matched_filter_bls(lc: &LightCurve) -> Option<Candidate> {
             continue;
         }
 
-        // Compute variance for SNR
+        // Compute variance from out-of-transit points only (standard BLS approach)
         let mut var_sum = 0.0;
-        for &f in &lc.flux {
-            let diff = f - out_mean;
-            var_sum += diff * diff;
+        for (j, &f) in lc.flux.iter().enumerate() {
+            let t = lc.time[j];
+            let phase = (t % period) / period;
+            if phase >= 0.02 {
+                let diff = f - out_mean;
+                var_sum += diff * diff;
+            }
         }
-        let std_dev = (var_sum / lc.flux.len() as f64).sqrt();
+        let std_dev = (var_sum / out_transit_count as f64).sqrt();
         let snr = if std_dev > 0.0 {
             depth / std_dev * (in_transit_count as f64).sqrt()
         } else {
@@ -246,7 +259,8 @@ fn coherence_gate(candidate: &Candidate, lc: &LightCurve) -> ScoredCandidate {
         0.0
     };
 
-    // Period stability: closeness to injected period
+    // Period stability: closeness to injected period (synthetic validation metric —
+    // in production, compare against multi-epoch period estimates instead of ground truth)
     let period_error = (candidate.detected_period - lc.injected_period).abs() / lc.injected_period;
     let period_stability = 1.0 / (1.0 + period_error * 10.0);
 
@@ -315,25 +329,26 @@ fn main() {
     for lc in &light_curves {
         let windows = segment_into_windows(lc, window_size);
         for (_epoch, _flux_window) in &windows {
+            // NOTE: Synthetic embeddings — seed-based, not derived from flux features.
+            // In a production pipeline, embeddings would be computed from window statistics.
             let vec = random_vector(dim, global_id * 17 + lc.target_id);
             all_vectors.push(vec);
             all_ids.push(global_id);
 
-            // Metadata: instrument (0), target_id (1), transit_depth (2), period_days (3)
             all_metadata.push(MetadataEntry {
-                field_id: 0,
+                field_id: FIELD_INSTRUMENT,
                 value: MetadataValue::String(lc.instrument.to_string()),
             });
             all_metadata.push(MetadataEntry {
-                field_id: 1,
+                field_id: FIELD_KIC_NUMBER,
                 value: MetadataValue::U64(lc.kic_number),
             });
             all_metadata.push(MetadataEntry {
-                field_id: 2,
+                field_id: FIELD_TRANSIT_DEPTH,
                 value: MetadataValue::U64((lc.injected_depth * 1_000_000.0) as u64),
             });
             all_metadata.push(MetadataEntry {
-                field_id: 3,
+                field_id: FIELD_PERIOD_DAYS,
                 value: MetadataValue::U64((lc.injected_period * 1000.0) as u64),
             });
 

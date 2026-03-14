@@ -842,7 +842,7 @@ queryability and reproducibility.
 ### D4: Witness chain for every derived claim
 
 Every candidate, every coherence measurement, and every boundary change is
-committed to the SHAKE-256 witness chain. This enables two-machinevisu
+committed to the SHAKE-256 witness chain. This enables two-machine
 reproducibility verification and provides a complete audit trail from raw
 data to final score.
 
