@@ -76,11 +76,18 @@ pub enum TrustVerification {
 }
 
 /// Compute SHA3-256 hash of content, returning hex string.
+///
+/// Uses a pre-allocated buffer to avoid 32 intermediate String allocations.
 pub fn compute_sha3_256(content: &[u8]) -> String {
     let mut hasher = Sha3_256::new();
     hasher.update(content);
     let result = hasher.finalize();
-    result.iter().map(|b| format!("{:02x}", b)).collect()
+    let mut hex = String::with_capacity(64);
+    for b in result.iter() {
+        use std::fmt::Write;
+        write!(hex, "{:02x}", b).unwrap();
+    }
+    hex
 }
 
 /// System prompt template for memory context.
