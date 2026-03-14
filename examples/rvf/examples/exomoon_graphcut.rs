@@ -513,10 +513,10 @@ fn build_windows(lc: &LightCurve, fit: &PSPLFit, window_half_width_tau: f64, str
         let tau_max = obs_taus.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
         let tau_range = (tau_max - tau_min).max(0.01);
 
-        for tc_frac in 0..=10 {
-            let tc = tau_min + tau_range * tc_frac as f64 / 10.0;
-            for w_i in 1..=5 {
-                let w = tau_range * w_i as f64 / 20.0;
+        for tc_frac in 0..=15 {
+            let tc = tau_min + tau_range * tc_frac as f64 / 15.0;
+            for w_i in 1..=8 {
+                let w = tau_range * w_i as f64 / 30.0;
                 let w2 = 2.0 * w * w;
 
                 // Compute optimal amplitude analytically: A = sum(r*g) / sum(g^2)

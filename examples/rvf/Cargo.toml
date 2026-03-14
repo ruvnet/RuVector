@@ -266,5 +266,9 @@ name = "genomic_graphcut"
 path = "examples/genomic_graphcut.rs"
 
 [[example]]
+name = "supply_chain_graphcut"
+path = "examples/supply_chain_graphcut.rs"
+
+[[example]]
 name = "openfang"
 path = "examples/openfang.rs"
