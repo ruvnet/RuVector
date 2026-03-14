@@ -141,7 +141,9 @@ impl McpClient {
     pub async fn connect(&mut self) -> Result<()> {
         info!(server = %self.config.name, "connecting to MCP server");
 
-        match &self.config.transport {
+        // Clone transport to avoid borrow conflict with &self and &mut self.
+        let transport = self.config.transport.clone();
+        match &transport {
             McpTransport::Stdio {
                 command,
                 args,

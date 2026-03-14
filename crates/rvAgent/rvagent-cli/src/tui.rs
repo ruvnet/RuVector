@@ -301,3 +301,104 @@ impl Tui {
         }
     }
 }
+
+// ---------------------------------------------------------------------------
+// Free render function (avoids borrow-checker issues with self + terminal)
+// ---------------------------------------------------------------------------
+
+/// Render the full TUI frame from borrowed state.
+fn render_frame(
+    frame: &mut Frame,
+    messages: &[DisplayMessage],
+    input: &str,
+    cursor: usize,
+    scroll_offset: u16,
+    status: &str,
+    model: &str,
+    session_id: &str,
+    token_count: usize,
+) {
+    let size = frame.area();
+
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Min(3),    // messages
+            Constraint::Length(1), // status bar
+            Constraint::Length(3), // input
+        ])
+        .split(size);
+
+    // -- Messages area --
+    let mut lines: Vec<Line> = Vec::new();
+    for msg in messages {
+        let role_style = match msg.role.as_str() {
+            "you" => Style::default().fg(Color::Green).add_modifier(Modifier::BOLD),
+            "assistant" => Style::default().fg(Color::Blue).add_modifier(Modifier::BOLD),
+            "system" => Style::default().fg(Color::Yellow),
+            _ => Style::default().fg(Color::Magenta),
+        };
+        lines.push(Line::from(Span::styled(
+            format!("[{}]", msg.role),
+            role_style,
+        )));
+        for line in msg.content.lines() {
+            lines.push(Line::from(Span::raw(line.to_string())));
+        }
+        for tc in &msg.tool_calls {
+            let marker = if tc.collapsed { "+" } else { "-" };
+            lines.push(Line::from(Span::styled(
+                format!("  [{marker}] tool: {}", tc.name),
+                Style::default().fg(Color::Cyan),
+            )));
+            if !tc.collapsed {
+                for line in tc.output.lines() {
+                    lines.push(Line::from(Span::styled(
+                        format!("    {}", line),
+                        Style::default().fg(Color::DarkGray),
+                    )));
+                }
+            }
+        }
+        lines.push(Line::from(""));
+    }
+
+    let paragraph = Paragraph::new(Text::from(lines))
+        .block(Block::default().borders(Borders::ALL).title(" rvAgent "))
+        .wrap(Wrap { trim: false })
+        .scroll((scroll_offset, 0));
+    frame.render_widget(paragraph, chunks[0]);
+
+    // -- Status bar --
+    let status_text = format!(
+        " {} | Model: {} | Tokens: ~{} | Session: {}",
+        status,
+        model,
+        token_count,
+        &session_id[..8.min(session_id.len())],
+    );
+    let bar = Paragraph::new(Line::from(Span::styled(
+        status_text,
+        Style::default().bg(Color::DarkGray).fg(Color::White),
+    )));
+    frame.render_widget(bar, chunks[1]);
+
+    // -- Input area --
+    let input_display = if input.is_empty() {
+        "Type a message... (/quit to exit)".to_string()
+    } else {
+        input.to_string()
+    };
+    let input_style = if input.is_empty() {
+        Style::default().fg(Color::DarkGray)
+    } else {
+        Style::default().fg(Color::White)
+    };
+    let input_widget = Paragraph::new(Line::from(Span::styled(input_display, input_style)))
+        .block(Block::default().borders(Borders::ALL).title(" Input "));
+    frame.render_widget(input_widget, chunks[2]);
+
+    let cursor_x = chunks[2].x + 1 + cursor as u16;
+    let cursor_y = chunks[2].y + 1;
+    frame.set_cursor_position((cursor_x, cursor_y));
+}
