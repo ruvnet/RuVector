@@ -5,7 +5,7 @@
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
-use crate::error::{Result, RvAgentError};
+use crate::error::Result;
 use crate::messages::Message;
 
 /// Known LLM providers.
