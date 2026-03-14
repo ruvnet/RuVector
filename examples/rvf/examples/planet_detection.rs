@@ -48,10 +48,10 @@ fn lcg_f64(state: &mut u64) -> f64 {
 // Metadata field IDs for RVF store
 // ---------------------------------------------------------------------------
 
-const FIELD_INSTRUMENT: u32 = 0;
-const FIELD_KIC_NUMBER: u32 = 1;
-const FIELD_TRANSIT_DEPTH: u32 = 2;
-const FIELD_PERIOD_DAYS: u32 = 3;
+const FIELD_INSTRUMENT: u16 = 0;
+const FIELD_KIC_NUMBER: u16 = 1;
+const FIELD_TRANSIT_DEPTH: u16 = 2;
+const FIELD_PERIOD_DAYS: u16 = 3;
 
 // ---------------------------------------------------------------------------
 // ADR-040 domain types

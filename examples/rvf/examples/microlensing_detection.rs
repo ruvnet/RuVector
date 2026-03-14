@@ -28,10 +28,10 @@ use tempfile::TempDir;
 // Metadata field IDs
 // ---------------------------------------------------------------------------
 
-const FIELD_SURVEY: u32 = 0;
-const FIELD_EVENT_ID: u32 = 1;
-const FIELD_EINSTEIN_TIME: u32 = 2;
-const FIELD_ANOMALY_TYPE: u32 = 3;
+const FIELD_SURVEY: u16 = 0;
+const FIELD_EVENT_ID: u16 = 1;
+const FIELD_EINSTEIN_TIME: u16 = 2;
+const FIELD_ANOMALY_TYPE: u16 = 3;
 
 // ---------------------------------------------------------------------------
 // LCG helpers

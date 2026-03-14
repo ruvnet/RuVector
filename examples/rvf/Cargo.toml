@@ -246,5 +246,9 @@ name = "security_hardened"
 path = "examples/security_hardened.rs"
 
 [[example]]
+name = "microlensing_detection"
+path = "examples/microlensing_detection.rs"
+
+[[example]]
 name = "openfang"
 path = "examples/openfang.rs"
