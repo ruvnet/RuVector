@@ -270,5 +270,17 @@ name = "supply_chain_graphcut"
 path = "examples/supply_chain_graphcut.rs"
 
 [[example]]
+name = "financial_fraud_graphcut"
+path = "examples/financial_fraud_graphcut.rs"
+
+[[example]]
 name = "openfang"
 path = "examples/openfang.rs"
+
+[[example]]
+name = "cyber_threat_graphcut"
+path = "examples/cyber_threat_graphcut.rs"
+
+[[example]]
+name = "climate_graphcut"
+path = "examples/climate_graphcut.rs"
