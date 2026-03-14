@@ -235,6 +235,7 @@ async fn handle_health() -> impl IntoResponse {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::types::{PromptResponse, SessionInfo};
     use axum::body::Body;
     use axum::http::{self, Request};
     use rvagent_core::config::RvAgentConfig;

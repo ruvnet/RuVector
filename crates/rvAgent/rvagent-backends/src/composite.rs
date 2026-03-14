@@ -280,12 +280,12 @@ mod tests {
     fn test_route_path_traversal_after_strip() {
         let composite = make_composite();
         let result = composite.route_path("workspace/../../../etc/passwd");
-        assert!(result.is_err());
-        match result.unwrap_err() {
-            FileOperationError::SecurityViolation(msg) => {
+        match result {
+            Err(FileOperationError::SecurityViolation(msg)) => {
                 assert!(msg.contains("traversal"));
             }
-            other => panic!("Expected SecurityViolation, got {:?}", other),
+            Err(other) => panic!("Expected SecurityViolation, got {:?}", other),
+            Ok(_) => panic!("Expected error, got Ok"),
         }
     }
 
