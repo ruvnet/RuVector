@@ -121,6 +121,15 @@ members = [
     "crates/ruvix/tests",
     "crates/ruvix/benches",
     "crates/ruvix/examples/cognitive_demo",
+    # rvAgent — AI Agent Framework (DeepAgents Rust conversion)
+    "crates/rvAgent/rvagent-core",
+    "crates/rvAgent/rvagent-backends",
+    "crates/rvAgent/rvagent-middleware",
+    "crates/rvAgent/rvagent-tools",
+    "crates/rvAgent/rvagent-subagents",
+    "crates/rvAgent/rvagent-cli",
+    "crates/rvAgent/rvagent-acp",
+    "crates/rvAgent/rvagent-wasm",
 ]
 resolver = "2"
 

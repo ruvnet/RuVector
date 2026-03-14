@@ -1,0 +1,25 @@
+[package]
+name = "rvagent-subagents"
+version = "0.1.0"
+edition = "2021"
+description = "rvAgent subagents — spec compilation, builder, orchestration, result validation"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/ruvnet/RuVector"
+
+[dependencies]
+rvagent-core = { path = "../rvagent-core" }
+rvagent-backends = { path = "../rvagent-backends" }
+rvagent-middleware = { path = "../rvagent-middleware" }
+rvagent-tools = { path = "../rvagent-tools" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true }
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+tracing = { workspace = true }
+uuid = { workspace = true }
+async-trait = "0.1"
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["test-util"] }
+mockall = { workspace = true }
