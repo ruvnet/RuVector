@@ -27,7 +27,6 @@ use ratatui::{
 use rvagent_core::messages::Message;
 
 use crate::app::TuiEvent;
-use crate::display;
 
 // ---------------------------------------------------------------------------
 // Tui state

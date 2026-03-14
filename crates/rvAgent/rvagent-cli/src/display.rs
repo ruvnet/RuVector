@@ -6,7 +6,7 @@
 //! - Tool call result formatting
 //! - Error display with suggestions
 
-use rvagent_core::messages::{AiMessage, Message, ToolCall};
+use rvagent_core::messages::{Message, ToolCall};
 
 // ---------------------------------------------------------------------------
 // Message display
