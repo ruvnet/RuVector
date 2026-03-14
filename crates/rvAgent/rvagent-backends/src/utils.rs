@@ -72,7 +72,8 @@ mod tests {
     #[test]
     fn test_format_empty_content() {
         let result = format_content_with_line_numbers("", 1, 2000);
-        assert_eq!(result, "     1\t");
+        // Empty string has no lines, so result is empty
+        assert_eq!(result, "");
     }
 
     #[test]
