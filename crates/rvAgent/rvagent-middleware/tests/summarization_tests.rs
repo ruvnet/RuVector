@@ -22,15 +22,6 @@ impl ModelHandler for MessageCountHandler {
     }
 }
 
-/// Handler that captures the system message content.
-struct SystemCaptureHandler;
-impl ModelHandler for SystemCaptureHandler {
-    fn call(&self, request: ModelRequest) -> ModelResponse {
-        let sys = request.system_message.unwrap_or_default();
-        ModelResponse::text(sys)
-    }
-}
-
 /// Generate N user messages with enough content to exceed a token threshold.
 fn generate_messages(n: usize, content_size: usize) -> Vec<Message> {
     (0..n)

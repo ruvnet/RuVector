@@ -336,12 +336,7 @@ fn test_memory_trust_verification() {
     );
 
     // 6. Test SecurityPolicy::TrustedOnly rejects unverified content
-    let mw = MemoryMiddleware::new(vec![])
-        .with_security_policy(SecurityPolicy::TrustedOnly)
-        .with_manifest(manifest.clone());
-
-    // Content matching hash → accepted
-    // (validate_content is not public, but we test via before_agent)
+    // Content matching hash -> accepted (test via before_agent)
     let mut preloaded = HashMap::new();
     preloaded.insert("AGENTS.md".into(), trusted_content.to_string());
     let mw_loaded = MemoryMiddleware::new(vec!["AGENTS.md".into()])
