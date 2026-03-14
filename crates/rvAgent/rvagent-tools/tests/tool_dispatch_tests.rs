@@ -2,10 +2,48 @@
 //! and ToolRuntime creation (ADR-103 A6, A2).
 
 use rvagent_tools::{
-    AnyTool, BuiltinTool, Tool, ToolResult, ToolRuntime,
-    execute_tool_calls_parallel, resolve_builtin,
+    AnyTool, Backend, BackendRef, BuiltinTool, ExecuteResponse, FileInfo,
+    GrepMatch, Tool, ToolCall, ToolResult, ToolRuntime, WriteResult,
+    builtin_tools, execute_tools_parallel, resolve_builtin,
 };
 use async_trait::async_trait;
+use std::sync::Arc;
+
+/// Minimal mock backend for integration tests.
+struct MockBackend;
+
+impl Backend for MockBackend {
+    fn ls_info(&self, _path: &str) -> Result<Vec<FileInfo>, String> {
+        Ok(vec![FileInfo {
+            name: "test.txt".into(),
+            file_type: "file".into(),
+            permissions: "-rw-r--r--".into(),
+            size: 11,
+        }])
+    }
+    fn read(&self, _path: &str, _offset: usize, _limit: usize) -> Result<String, String> {
+        Ok("hello\nworld".into())
+    }
+    fn write(&self, _path: &str, _content: &str) -> WriteResult {
+        WriteResult::default()
+    }
+    fn edit(&self, _path: &str, _old: &str, _new: &str, _all: bool) -> WriteResult {
+        WriteResult { occurrences: Some(1), ..Default::default() }
+    }
+    fn glob_info(&self, _pattern: &str, _path: &str) -> Result<Vec<String>, String> {
+        Ok(vec!["test.txt".into()])
+    }
+    fn grep_raw(&self, pattern: &str, _path: Option<&str>, _include: Option<&str>) -> Result<Vec<GrepMatch>, String> {
+        Ok(vec![GrepMatch { file: "test.txt".into(), line_number: 1, text: format!("line with {}", pattern) }])
+    }
+    fn execute(&self, cmd: &str, _timeout: u32) -> Result<ExecuteResponse, String> {
+        Ok(ExecuteResponse { output: format!("executed: {}", cmd), exit_code: 0 })
+    }
+}
+
+fn mock_runtime() -> ToolRuntime {
+    ToolRuntime::new(Arc::new(MockBackend) as BackendRef)
+}
 
 // ---------------------------------------------------------------------------
 // test_builtin_tool_enum_dispatch
@@ -13,39 +51,23 @@ use async_trait::async_trait;
 
 #[test]
 fn test_builtin_tool_enum_dispatch() {
-    // Each BuiltinTool variant must return the correct canonical name and
-    // produce a ToolResult without panicking.
-    let variants = vec![
-        (BuiltinTool::Ls, "ls"),
-        (BuiltinTool::ReadFile, "read_file"),
-        (BuiltinTool::WriteFile, "write_file"),
-        (BuiltinTool::EditFile, "edit_file"),
-        (BuiltinTool::Glob, "glob"),
-        (BuiltinTool::Grep, "grep"),
-        (BuiltinTool::Execute, "execute"),
-        (BuiltinTool::WriteTodos, "write_todos"),
-        (BuiltinTool::Task, "task"),
+    let variants: Vec<(&str, BuiltinTool)> = vec![
+        ("ls", resolve_builtin("ls").unwrap()),
+        ("read_file", resolve_builtin("read_file").unwrap()),
+        ("write_file", resolve_builtin("write_file").unwrap()),
+        ("edit_file", resolve_builtin("edit_file").unwrap()),
+        ("glob", resolve_builtin("glob").unwrap()),
+        ("grep", resolve_builtin("grep").unwrap()),
+        ("execute", resolve_builtin("execute").unwrap()),
+        ("write_todos", resolve_builtin("write_todos").unwrap()),
+        ("task", resolve_builtin("task").unwrap()),
     ];
 
-    for (variant, expected_name) in &variants {
-        assert_eq!(
-            variant.tool_name(),
-            *expected_name,
-            "BuiltinTool::{:?} should have name '{}'",
-            variant,
-            expected_name,
-        );
-    }
-
-    // resolve_builtin round-trips every name
-    for (variant, name) in &variants {
-        let resolved = resolve_builtin(name);
-        assert!(
-            resolved.is_some(),
-            "resolve_builtin should find '{}'",
-            name
-        );
-        assert_eq!(resolved.unwrap().tool_name(), *name);
+    for (expected_name, variant) in &variants {
+        assert_eq!(variant.name(), *expected_name);
+        // Each variant should produce a non-empty description and valid schema
+        assert!(!variant.description().is_empty());
+        assert!(variant.parameters_schema().is_object());
     }
 
     // Unknown name returns None
@@ -61,44 +83,34 @@ struct EchoTool;
 
 #[async_trait]
 impl Tool for EchoTool {
-    fn name(&self) -> &str {
-        "echo"
-    }
-    fn description(&self) -> &str {
-        "echoes input"
-    }
+    fn name(&self) -> &str { "echo" }
+    fn description(&self) -> &str { "echoes input" }
     fn parameters_schema(&self) -> serde_json::Value {
         serde_json::json!({"type": "object"})
     }
     fn invoke(&self, args: serde_json::Value, _runtime: &ToolRuntime) -> ToolResult {
-        let msg = args
-            .get("message")
-            .and_then(|v| v.as_str())
-            .unwrap_or("(empty)");
+        let msg = args.get("message").and_then(|v| v.as_str()).unwrap_or("(empty)");
         ToolResult::Text(format!("echo: {}", msg))
     }
 }
 
 #[test]
 fn test_any_tool_builtin_vs_dynamic() {
-    let runtime = ToolRuntime::new();
+    let runtime = mock_runtime();
 
     // Builtin path
-    let builtin = AnyTool::Builtin(BuiltinTool::WriteTodos);
-    assert_eq!(builtin.tool_name(), "write_todos");
-    let result = builtin.invoke(serde_json::json!({}), &runtime);
+    let builtin = AnyTool::Builtin(resolve_builtin("ls").unwrap());
+    assert_eq!(builtin.name(), "ls");
+    let result = builtin.invoke(serde_json::json!({"path": "/"}), &runtime);
     match result {
-        ToolResult::Text(s) => assert!(s.contains("stub")),
-        _ => panic!("expected Text from WriteTodos stub"),
+        ToolResult::Text(s) => assert!(s.contains("test.txt")),
+        _ => panic!("expected Text from ls"),
     }
 
     // Dynamic path
     let dynamic = AnyTool::Dynamic(Box::new(EchoTool));
-    assert_eq!(dynamic.tool_name(), "echo");
-    let result = dynamic.invoke(
-        serde_json::json!({"message": "hello"}),
-        &runtime,
-    );
+    assert_eq!(dynamic.name(), "echo");
+    let result = dynamic.invoke(serde_json::json!({"message": "hello"}), &runtime);
     match result {
         ToolResult::Text(s) => assert_eq!(s, "echo: hello"),
         _ => panic!("expected Text from EchoTool"),
@@ -111,43 +123,25 @@ fn test_any_tool_builtin_vs_dynamic() {
 
 #[tokio::test]
 async fn test_parallel_tool_execution() {
-    let dir = tempfile::tempdir().unwrap();
-    let dir_path = dir.path().to_str().unwrap().to_string();
-
-    // Create a couple of files so ls and grep have something to work with.
-    std::fs::write(dir.path().join("a.txt"), "alpha\nbeta\n").unwrap();
-    std::fs::write(dir.path().join("b.txt"), "gamma\ndelta\n").unwrap();
-
-    let runtime = ToolRuntime::new().with_cwd(&dir_path);
-
-    let tools: Vec<AnyTool> = vec![
-        AnyTool::Builtin(BuiltinTool::Ls),
-        AnyTool::Builtin(BuiltinTool::Grep),
-    ];
+    let runtime = mock_runtime();
+    let tools = builtin_tools();
 
     let calls = vec![
-        (0, serde_json::json!({"path": "."})),       // ls
-        (1, serde_json::json!({"pattern": "alpha"})), // grep
+        ToolCall { id: "c1".into(), name: "ls".into(), args: serde_json::json!({"path": "/"}) },
+        ToolCall { id: "c2".into(), name: "grep".into(), args: serde_json::json!({"pattern": "hello"}) },
     ];
 
-    let results = execute_tool_calls_parallel(&tools, calls, &runtime).await;
-
-    // Both should complete.
+    let results = execute_tools_parallel(&calls, &tools, &runtime).await;
     assert_eq!(results.len(), 2);
 
-    // Results sorted by index.
-    assert_eq!(results[0].0, 0); // ls
-    assert_eq!(results[1].0, 1); // grep
-
-    // ls should list files
-    match &results[0].1 {
-        ToolResult::Text(s) => assert!(s.contains("a.txt")),
+    // ls result
+    match &results[0] {
+        ToolResult::Text(s) => assert!(s.contains("test.txt")),
         _ => panic!("expected Text from ls"),
     }
-
-    // grep should find "alpha"
-    match &results[1].1 {
-        ToolResult::Text(s) => assert!(s.contains("alpha")),
+    // grep result
+    match &results[1] {
+        ToolResult::Text(s) => assert!(s.contains("hello")),
         _ => panic!("expected Text from grep"),
     }
 }
@@ -158,17 +152,9 @@ async fn test_parallel_tool_execution() {
 
 #[test]
 fn test_tool_runtime_creation() {
-    // Default runtime
-    let rt = ToolRuntime::new();
-    assert!(rt.cwd.is_none());
-    assert!(rt.tool_call_id.is_none());
-    assert_eq!(rt.context, serde_json::Value::Null);
-
-    // With cwd
-    let rt2 = ToolRuntime::new().with_cwd("/tmp/project");
-    assert_eq!(rt2.cwd.as_deref(), Some("/tmp/project"));
-
-    // Default trait
-    let rt3 = ToolRuntime::default();
-    assert!(rt3.cwd.is_none());
+    let runtime = mock_runtime();
+    assert!(runtime.context.is_null());
+    assert!(runtime.tool_call_id.is_none());
+    assert!(runtime.stream_writer.is_none());
+    assert!(runtime.store.is_none());
 }

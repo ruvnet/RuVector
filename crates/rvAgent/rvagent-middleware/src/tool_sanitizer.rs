@@ -4,7 +4,7 @@
 
 use async_trait::async_trait;
 
-use crate::{Message, Middleware, ModelHandler, ModelRequest, ModelResponse, Role};
+use crate::{Middleware, ModelHandler, ModelRequest, ModelResponse, Role};
 
 /// Middleware that sanitizes tool results by wrapping them in XML-like delimiters.
 ///
@@ -77,6 +77,7 @@ impl Middleware for ToolResultSanitizerMiddleware {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::Message;
 
     struct CaptureHandler;
     impl ModelHandler for CaptureHandler {

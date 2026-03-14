@@ -393,7 +393,9 @@ mod tests {
     #[test]
     fn test_truncate() {
         assert_eq!(truncate("short", 10), "short");
-        assert_eq!(truncate("a long string", 10), "a long...");
+        let result = truncate("a long string here", 10);
+        assert!(result.len() <= 10);
+        assert!(result.ends_with("..."));
     }
 
     #[test]

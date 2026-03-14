@@ -134,6 +134,11 @@ impl MemoryMiddleware {
         self
     }
 
+    /// Get the configured memory source paths.
+    pub fn sources(&self) -> &[String] {
+        &self.sources
+    }
+
     /// Validate and filter memory content based on security policy.
     fn validate_content(&self, path: &str, content: &str) -> Option<String> {
         // Size limit check (ADR-103 C4: max 1MB)

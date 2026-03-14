@@ -76,7 +76,7 @@ fn bench_system_prompt_builder(c: &mut Criterion) {
 fn bench_skill_name_validation(c: &mut Criterion) {
     c.bench_function("validate_skill_name_valid", |b| {
         b.iter(|| {
-            black_box(validate_skill_name(
+            let _ = black_box(validate_skill_name(
                 black_box("my-cool-skill-123"),
                 black_box("my-cool-skill-123"),
             ));
@@ -95,7 +95,7 @@ fn bench_skill_name_validation(c: &mut Criterion) {
     c.bench_function("validate_skill_name_max_length", |b| {
         let name = "a".repeat(64);
         b.iter(|| {
-            black_box(validate_skill_name(
+            let _ = black_box(validate_skill_name(
                 black_box(&name),
                 black_box(&name),
             ));

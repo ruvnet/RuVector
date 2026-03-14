@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use serde_json;
 
 use crate::{
-    AgentState, AgentStateUpdate, Middleware, ModelHandler, ModelRequest, ModelResponse,
+    AgentState, AgentStateUpdate, Middleware,
     RunnableConfig, Runtime, TodoItem, TodoStatus, Tool,
 };
 

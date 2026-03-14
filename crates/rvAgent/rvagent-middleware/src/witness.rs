@@ -7,7 +7,7 @@ use chrono::Utc;
 use sha3::{Digest, Sha3_256};
 use std::sync::{Arc, Mutex};
 
-use crate::{Middleware, ModelHandler, ModelRequest, ModelResponse, ToolCall};
+use crate::{Middleware, ModelHandler, ModelRequest, ModelResponse};
 
 /// A single entry in the witness chain.
 #[derive(Debug, Clone)]
@@ -140,7 +140,7 @@ impl Middleware for WitnessMiddleware {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::Message;
+    use crate::{Message, ToolCall};
 
     struct ToolCallHandler {
         tool_calls: Vec<ToolCall>,

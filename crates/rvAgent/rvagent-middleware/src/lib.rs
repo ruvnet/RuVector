@@ -20,7 +20,6 @@ use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
-use std::sync::Arc;
 
 // Re-exports
 pub use utils::{append_to_system_message, SystemPromptBuilder};
@@ -444,20 +443,7 @@ impl MiddlewarePipeline {
             return base_handler.call(request);
         }
 
-        // Build chain from inside out: last middleware wraps base handler,
-        // then each prior middleware wraps that.
-        struct ChainedHandler<'a> {
-            middleware: &'a dyn Middleware,
-            inner: &'a dyn ModelHandler,
-        }
-        impl<'a> ModelHandler for ChainedHandler<'a> {
-            fn call(&self, request: ModelRequest) -> ModelResponse {
-                self.middleware.wrap_model_call(request, self.inner)
-            }
-        }
-
-        // For simplicity, iterate from the end and chain.
-        // We need to handle lifetimes carefully — use a recursive approach.
+        // Build chain from inside out using recursive approach.
         fn chain_call<'a>(
             middlewares: &'a [Box<dyn Middleware>],
             request: ModelRequest,

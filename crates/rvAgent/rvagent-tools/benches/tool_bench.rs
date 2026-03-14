@@ -1,294 +1,295 @@
-//! Criterion benchmarks for rvagent-tools: enum dispatch vs trait object dispatch,
-//! and parallel vs sequential tool execution (ADR-103 A6, A2, A9).
+//! Benchmarks for tool dispatch latency (ADR-103 A9).
+//!
+//! Measures:
+//! - Enum dispatch overhead for each built-in tool
+//! - AnyTool dispatch (builtin vs dynamic)
+//! - Tool resolution by name
+//! - format_content_with_line_numbers
+//! - write_todos invocation
 
-use criterion::{criterion_group, criterion_main, Criterion, black_box};
+use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use rvagent_tools::*;
+use std::collections::HashMap;
+use std::sync::Arc;
 
 // ---------------------------------------------------------------------------
-// Simulated tool dispatch types (ADR-103 A6)
-//
-// The actual BuiltinTool enum and Box<dyn Tool> are defined in rvagent-tools.
-// Since the crate's source may not be fully populated yet, we inline realistic
-// simulations that match the ADR-103 A6 architecture to benchmark the dispatch
-// pattern itself.
+// Bench backend — minimal mock for benchmarking
 // ---------------------------------------------------------------------------
 
-/// Simulated built-in tool enum (ADR-103 A6: enum dispatch for hot-path tools).
-#[derive(Clone, Copy)]
-enum BuiltinTool {
-    Ls,
-    ReadFile,
-    WriteFile,
-    EditFile,
-    Glob,
-    Grep,
-    Execute,
-    WriteTodos,
-    Task,
+struct BenchBackend {
+    files: HashMap<String, String>,
 }
 
-impl BuiltinTool {
-    /// Simulate tool invocation — the interesting part is the dispatch cost.
-    #[inline(never)]
-    fn invoke(&self, input: &str) -> String {
-        match self {
-            BuiltinTool::Ls => format!("ls: {} entries", input.len()),
-            BuiltinTool::ReadFile => format!("read: {} bytes", input.len()),
-            BuiltinTool::WriteFile => format!("write: {} bytes", input.len()),
-            BuiltinTool::EditFile => format!("edit: {} chars changed", input.len()),
-            BuiltinTool::Glob => format!("glob: {} matches", input.len() % 10),
-            BuiltinTool::Grep => format!("grep: {} matches", input.len() % 5),
-            BuiltinTool::Execute => format!("exec: exit {}", input.len() % 2),
-            BuiltinTool::WriteTodos => format!("todos: {} items", input.len() % 8),
-            BuiltinTool::Task => format!("task: spawned {}", input.len() % 3),
+impl BenchBackend {
+    fn new() -> Self {
+        let mut files = HashMap::new();
+        files.insert(
+            "/bench.txt".to_string(),
+            "line1\nline2\nline3".to_string(),
+        );
+        Self { files }
+    }
+}
+
+impl Backend for BenchBackend {
+    fn ls_info(&self, _path: &str) -> Result<Vec<FileInfo>, String> {
+        Ok(vec![FileInfo {
+            name: "bench.txt".into(),
+            file_type: "file".into(),
+            permissions: "-rw-r--r--".into(),
+            size: 17,
+        }])
+    }
+
+    fn read(
+        &self,
+        path: &str,
+        _offset: usize,
+        _limit: usize,
+    ) -> Result<String, String> {
+        self.files
+            .get(path)
+            .cloned()
+            .ok_or_else(|| "not found".into())
+    }
+
+    fn write(&self, _path: &str, _content: &str) -> WriteResult {
+        WriteResult::default()
+    }
+
+    fn edit(
+        &self,
+        _path: &str,
+        _old: &str,
+        _new: &str,
+        _all: bool,
+    ) -> WriteResult {
+        WriteResult {
+            occurrences: Some(1),
+            ..Default::default()
         }
     }
-}
 
-/// Simulated trait object dispatch (the pre-ADR-103 approach).
-trait DynTool: Send + Sync {
-    fn name(&self) -> &str;
-    fn invoke(&self, input: &str) -> String;
-}
+    fn glob_info(
+        &self,
+        _pattern: &str,
+        _path: &str,
+    ) -> Result<Vec<String>, String> {
+        Ok(vec!["/bench.txt".to_string()])
+    }
 
-struct DynReadFile;
-impl DynTool for DynReadFile {
-    fn name(&self) -> &str { "read_file" }
-    #[inline(never)]
-    fn invoke(&self, input: &str) -> String {
-        format!("read: {} bytes", input.len())
+    fn grep_raw(
+        &self,
+        _pattern: &str,
+        _path: Option<&str>,
+        _include: Option<&str>,
+    ) -> Result<Vec<GrepMatch>, String> {
+        Ok(vec![GrepMatch {
+            file: "/bench.txt".into(),
+            line_number: 1,
+            text: "line1".into(),
+        }])
+    }
+
+    fn execute(
+        &self,
+        command: &str,
+        _timeout: u32,
+    ) -> Result<ExecuteResponse, String> {
+        Ok(ExecuteResponse {
+            output: format!("ok: {}", command),
+            exit_code: 0,
+        })
     }
 }
 
-struct DynGrep;
-impl DynTool for DynGrep {
-    fn name(&self) -> &str { "grep" }
-    #[inline(never)]
-    fn invoke(&self, input: &str) -> String {
-        format!("grep: {} matches", input.len() % 5)
-    }
-}
-
-struct DynGlob;
-impl DynTool for DynGlob {
-    fn name(&self) -> &str { "glob" }
-    #[inline(never)]
-    fn invoke(&self, input: &str) -> String {
-        format!("glob: {} matches", input.len() % 10)
-    }
-}
-
-struct DynLs;
-impl DynTool for DynLs {
-    fn name(&self) -> &str { "ls" }
-    #[inline(never)]
-    fn invoke(&self, input: &str) -> String {
-        format!("ls: {} entries", input.len())
-    }
-}
-
-/// Combined dispatch (ADR-103 A6): try enum first, fall back to trait object.
-enum AnyTool {
-    Builtin(BuiltinTool),
-    Dynamic(Box<dyn DynTool>),
-}
-
-impl AnyTool {
-    fn invoke(&self, input: &str) -> String {
-        match self {
-            AnyTool::Builtin(b) => b.invoke(input),
-            AnyTool::Dynamic(d) => d.invoke(input),
-        }
-    }
+fn bench_runtime() -> ToolRuntime {
+    ToolRuntime::new(Arc::new(BenchBackend::new()))
 }
 
 // ---------------------------------------------------------------------------
-// Benchmark: enum dispatch vs Box<dyn Tool> dispatch
+// Benchmarks
 // ---------------------------------------------------------------------------
 
-fn bench_tool_dispatch(c: &mut Criterion) {
-    let mut group = c.benchmark_group("tool_dispatch");
-    let input = "src/main.rs";
+fn bench_builtin_dispatch(c: &mut Criterion) {
+    let runtime = bench_runtime();
+    let tools = builtin_tools();
 
-    // Enum dispatch — direct match, no vtable
-    let builtin_tools = vec![
-        BuiltinTool::ReadFile,
-        BuiltinTool::Grep,
-        BuiltinTool::Glob,
-        BuiltinTool::Ls,
-    ];
-    group.bench_function("enum_dispatch_4_tools", |b| {
+    let mut group = c.benchmark_group("builtin_dispatch");
+
+    group.bench_function("ls", |b| {
+        let args = serde_json::json!({"path": "/"});
         b.iter(|| {
-            let mut results = Vec::with_capacity(4);
-            for tool in &builtin_tools {
-                results.push(tool.invoke(black_box(input)));
-            }
-            black_box(results);
-        })
+            black_box(tools[0].invoke(black_box(args.clone()), &runtime));
+        });
     });
 
-    // Trait object dispatch — vtable indirection
-    let dyn_tools: Vec<Box<dyn DynTool>> = vec![
-        Box::new(DynReadFile),
-        Box::new(DynGrep),
-        Box::new(DynGlob),
-        Box::new(DynLs),
-    ];
-    group.bench_function("dyn_dispatch_4_tools", |b| {
+    group.bench_function("read_file", |b| {
+        let args = serde_json::json!({"file_path": "/bench.txt"});
         b.iter(|| {
-            let mut results = Vec::with_capacity(4);
-            for tool in &dyn_tools {
-                results.push(tool.invoke(black_box(input)));
-            }
-            black_box(results);
-        })
+            black_box(tools[1].invoke(black_box(args.clone()), &runtime));
+        });
     });
 
-    // AnyTool enum wrapping builtin — should be same perf as enum_dispatch
-    let any_builtin: Vec<AnyTool> = vec![
-        AnyTool::Builtin(BuiltinTool::ReadFile),
-        AnyTool::Builtin(BuiltinTool::Grep),
-        AnyTool::Builtin(BuiltinTool::Glob),
-        AnyTool::Builtin(BuiltinTool::Ls),
-    ];
-    group.bench_function("any_tool_builtin_4_tools", |b| {
+    group.bench_function("grep", |b| {
+        let args = serde_json::json!({"pattern": "line1"});
         b.iter(|| {
-            let mut results = Vec::with_capacity(4);
-            for tool in &any_builtin {
-                results.push(tool.invoke(black_box(input)));
-            }
-            black_box(results);
-        })
+            black_box(tools[5].invoke(black_box(args.clone()), &runtime));
+        });
     });
 
-    // AnyTool wrapping dynamic — should match dyn_dispatch
-    let any_dynamic: Vec<AnyTool> = vec![
-        AnyTool::Dynamic(Box::new(DynReadFile)),
-        AnyTool::Dynamic(Box::new(DynGrep)),
-        AnyTool::Dynamic(Box::new(DynGlob)),
-        AnyTool::Dynamic(Box::new(DynLs)),
-    ];
-    group.bench_function("any_tool_dynamic_4_tools", |b| {
+    group.bench_function("glob", |b| {
+        let args = serde_json::json!({"pattern": "*.txt"});
         b.iter(|| {
-            let mut results = Vec::with_capacity(4);
-            for tool in &any_dynamic {
-                results.push(tool.invoke(black_box(input)));
-            }
-            black_box(results);
-        })
+            black_box(tools[4].invoke(black_box(args.clone()), &runtime));
+        });
     });
 
-    // Single tool dispatch — enum vs dyn (isolate per-call overhead)
-    group.bench_function("single_enum_dispatch", |b| {
-        let tool = BuiltinTool::Grep;
+    group.bench_function("execute", |b| {
+        let args = serde_json::json!({"command": "echo hi"});
         b.iter(|| {
-            let result = tool.invoke(black_box(input));
-            black_box(result);
-        })
-    });
-
-    group.bench_function("single_dyn_dispatch", |b| {
-        let tool: Box<dyn DynTool> = Box::new(DynGrep);
-        b.iter(|| {
-            let result = tool.invoke(black_box(input));
-            black_box(result);
-        })
+            black_box(tools[6].invoke(black_box(args.clone()), &runtime));
+        });
     });
 
     group.finish();
 }
 
-// ---------------------------------------------------------------------------
-// Benchmark: parallel vs sequential tool execution (ADR-103 A2)
-// ---------------------------------------------------------------------------
+fn bench_any_tool_dispatch(c: &mut Criterion) {
+    let runtime = bench_runtime();
+    let args = serde_json::json!({"path": "/"});
 
-fn bench_parallel_vs_sequential_tools(c: &mut Criterion) {
-    let mut group = c.benchmark_group("parallel_vs_sequential");
+    let builtin = AnyTool::Builtin(BuiltinTool::Ls(LsTool));
 
-    // Simulate 4 tool calls with CPU-bound work (string processing).
-    // Real I/O-bound tools would show much larger parallel speedup; here we
-    // measure the coordination overhead and baseline comparison.
+    struct DynLs;
+    #[async_trait::async_trait]
+    impl Tool for DynLs {
+        fn name(&self) -> &str {
+            "ls"
+        }
+        fn description(&self) -> &str {
+            "ls"
+        }
+        fn parameters_schema(&self) -> serde_json::Value {
+            serde_json::json!({})
+        }
+        fn invoke(
+            &self,
+            _args: serde_json::Value,
+            _runtime: &ToolRuntime,
+        ) -> ToolResult {
+            ToolResult::Text("ok".into())
+        }
+    }
 
-    let inputs: Vec<String> = (0..4)
-        .map(|i| format!("input_data_{}", "x".repeat(1000 * (i + 1))))
-        .collect();
+    let dynamic = AnyTool::Dynamic(Box::new(DynLs));
 
-    // Sequential execution
-    group.bench_function("sequential_4_tools", |b| {
-        let tools = vec![
-            BuiltinTool::ReadFile,
-            BuiltinTool::Grep,
-            BuiltinTool::Glob,
-            BuiltinTool::Ls,
-        ];
+    let mut group = c.benchmark_group("any_tool_dispatch");
+
+    group.bench_function("builtin", |b| {
         b.iter(|| {
-            let mut results = Vec::with_capacity(4);
-            for (tool, input) in tools.iter().zip(inputs.iter()) {
-                results.push(tool.invoke(black_box(input)));
-            }
-            black_box(results);
-        })
+            black_box(builtin.invoke(black_box(args.clone()), &runtime));
+        });
     });
 
-    // Parallel execution using tokio (measures spawn + join overhead)
-    let rt = tokio::runtime::Builder::new_multi_thread()
-        .worker_threads(4)
-        .build()
-        .unwrap();
-
-    group.bench_function("parallel_4_tools_tokio", |b| {
-        let tools = vec![
-            BuiltinTool::ReadFile,
-            BuiltinTool::Grep,
-            BuiltinTool::Glob,
-            BuiltinTool::Ls,
-        ];
+    group.bench_function("dynamic", |b| {
         b.iter(|| {
-            rt.block_on(async {
-                let mut set = tokio::task::JoinSet::new();
-                for (tool, input) in tools.iter().zip(inputs.iter()) {
-                    let t = *tool;
-                    let inp = input.clone();
-                    set.spawn(async move { t.invoke(black_box(&inp)) });
-                }
-                let mut results = Vec::with_capacity(4);
-                while let Some(result) = set.join_next().await {
-                    results.push(result.unwrap());
-                }
-                black_box(results);
-            })
-        })
-    });
-
-    // Sequential with 8 tools (larger batch)
-    group.bench_function("sequential_8_tools", |b| {
-        let tools = vec![
-            BuiltinTool::ReadFile,
-            BuiltinTool::Grep,
-            BuiltinTool::Glob,
-            BuiltinTool::Ls,
-            BuiltinTool::Execute,
-            BuiltinTool::WriteFile,
-            BuiltinTool::EditFile,
-            BuiltinTool::WriteTodos,
-        ];
-        let inputs_8: Vec<String> = (0..8)
-            .map(|i| format!("input_{}", "y".repeat(500 * (i + 1))))
-            .collect();
-        b.iter(|| {
-            let mut results = Vec::with_capacity(8);
-            for (tool, input) in tools.iter().zip(inputs_8.iter()) {
-                results.push(tool.invoke(black_box(input)));
-            }
-            black_box(results);
-        })
+            black_box(dynamic.invoke(black_box(args.clone()), &runtime));
+        });
     });
 
     group.finish();
+}
+
+fn bench_resolve_tool(c: &mut Criterion) {
+    let tools = builtin_tools();
+
+    let mut group = c.benchmark_group("resolve");
+
+    group.bench_function("resolve_tool_by_name", |b| {
+        b.iter(|| {
+            black_box(resolve_tool(black_box("grep"), &tools));
+        });
+    });
+
+    group.bench_function("resolve_builtin_by_name", |b| {
+        b.iter(|| {
+            black_box(resolve_builtin(black_box("grep")));
+        });
+    });
+
+    group.finish();
+}
+
+fn bench_format_line_numbers(c: &mut Criterion) {
+    let mut group = c.benchmark_group("format_line_numbers");
+
+    let content_100: String = (0..100)
+        .map(|i| format!("line {}", i))
+        .collect::<Vec<_>>()
+        .join("\n");
+    group.bench_function("100_lines", |b| {
+        b.iter(|| {
+            black_box(format_content_with_line_numbers(
+                black_box(&content_100),
+                1,
+            ));
+        });
+    });
+
+    let content_1000: String = (0..1000)
+        .map(|i| format!("line {}", i))
+        .collect::<Vec<_>>()
+        .join("\n");
+    group.bench_function("1000_lines", |b| {
+        b.iter(|| {
+            black_box(format_content_with_line_numbers(
+                black_box(&content_1000),
+                1,
+            ));
+        });
+    });
+
+    let content_10000: String = (0..10000)
+        .map(|i| format!("line {}", i))
+        .collect::<Vec<_>>()
+        .join("\n");
+    group.bench_function("10000_lines", |b| {
+        b.iter(|| {
+            black_box(format_content_with_line_numbers(
+                black_box(&content_10000),
+                1,
+            ));
+        });
+    });
+
+    group.finish();
+}
+
+fn bench_write_todos(c: &mut Criterion) {
+    let runtime = bench_runtime();
+    let tool = WriteTodosTool;
+    let args = serde_json::json!({
+        "todos": [
+            {"content": "Task 1", "status": "pending", "activeForm": "Doing 1"},
+            {"content": "Task 2", "status": "in_progress", "activeForm": "Doing 2"},
+            {"content": "Task 3", "status": "completed", "activeForm": "Done 3"},
+        ]
+    });
+
+    c.bench_function("write_todos_3_items", |b| {
+        b.iter(|| {
+            black_box(tool.invoke(black_box(args.clone()), &runtime));
+        });
+    });
 }
 
 criterion_group!(
     benches,
-    bench_tool_dispatch,
-    bench_parallel_vs_sequential_tools
+    bench_builtin_dispatch,
+    bench_any_tool_dispatch,
+    bench_resolve_tool,
+    bench_format_line_numbers,
+    bench_write_todos,
 );
 criterion_main!(benches);

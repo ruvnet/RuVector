@@ -655,7 +655,7 @@ pub(crate) mod tests_common {
             let files = self.files.lock().unwrap();
             let mut matches = Vec::new();
             let mut sorted_files: Vec<_> = files.iter().collect();
-            sorted_files.sort_by_key(|(k, _)| k.clone());
+            sorted_files.sort_by_key(|(k, _)| (*k).clone());
             for (file, content) in sorted_files {
                 for (i, line) in content.lines().enumerate() {
                     if line.contains(pattern) {
