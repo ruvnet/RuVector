@@ -7,8 +7,6 @@
 
 use std::collections::HashMap;
 use std::fs;
-use std::io::Write;
-use std::path::PathBuf;
 use tempfile::TempDir;
 
 // Re-export security module items
@@ -16,7 +14,7 @@ use rvagent_backends::security::{
     build_safe_env, count_yaml_anchors, detect_injection_patterns, sanitize_env,
     sanitize_subagent_result, strip_control_chars, validate_no_heredoc_delimiter,
     validate_path_safe, validate_stripped_path, validate_tool_call_id, validate_yaml_safe,
-    wrap_tool_output, InjectionPattern, RateTracker, SecurityError, DEFAULT_MAX_SUBAGENT_RESPONSE,
+    wrap_tool_output, RateTracker, SecurityError, DEFAULT_MAX_SUBAGENT_RESPONSE,
     HEREDOC_DELIMITER, MAX_TOOL_CALL_ID_LENGTH, MAX_YAML_ANCHORS, MAX_YAML_FRONTMATTER_SIZE,
     SAFE_ENV_ALLOWLIST, SENSITIVE_ENV_PATTERNS,
 };
@@ -25,9 +23,6 @@ use rvagent_backends::security::{
 use rvagent_backends::unicode_security::{
     detect_confusables, detect_dangerous_unicode, strip_dangerous_unicode, validate_ascii_identifier,
 };
-
-// Re-export utils
-use rvagent_backends::utils::contains_traversal;
 
 // =========================================================================
 // SEC-001: TOCTOU race condition — symlink attack protection
