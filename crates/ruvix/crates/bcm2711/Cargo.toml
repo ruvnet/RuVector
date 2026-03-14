@@ -1,0 +1,32 @@
+[package]
+name = "ruvix-bcm2711"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.75"
+license = "MIT OR Apache-2.0"
+authors = ["RuVector Contributors"]
+description = "BCM2711/BCM2712 SoC drivers for Raspberry Pi 4/5 (RuVix Phase D)"
+keywords = ["kernel", "rpi", "bcm2711", "no_std", "embedded"]
+categories = ["no-std", "embedded", "hardware-support"]
+repository = "https://github.com/ruvnet/ruvector"
+readme = "README.md"
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+ruvix-types = { version = "0.1.0", path = "../types" }
+ruvix-hal = { version = "0.1.0", path = "../hal" }
+ruvix-drivers = { version = "0.1.0", path = "../drivers" }
+
+[features]
+default = []
+# Raspberry Pi 4 (BCM2711)
+rpi4 = []
+# Raspberry Pi 5 (BCM2712)
+rpi5 = []
+
+[dev-dependencies]
+# None for now - bare metal testing
+
+# Profile settings inherited from workspace

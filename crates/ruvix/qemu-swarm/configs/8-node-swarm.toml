@@ -1,0 +1,299 @@
+# 8-Node Swarm Configuration
+# Full swarm cluster for comprehensive distributed testing
+
+[cluster]
+name = "8-node-swarm"
+node_count = 8
+topology = "mesh"  # Full mesh for optimal communication
+startup_delay_ms = 750
+
+[node.defaults]
+cpu_count = 2
+memory_mb = 512
+machine = "virt"
+cpu_model = "cortex-a72"
+# kernel = "/path/to/ruvix-kernel"
+# dtb = "/path/to/ruvix.dtb"
+enable_gdb = false
+enable_monitor = true
+
+[network]
+base_mac = "52:54:00:12:34:00"
+multicast_group = "239.0.0.1:5000"
+mtu = 1500
+# Simulate realistic network conditions
+latency_us = 1000
+packet_loss_pct = 0
+
+# Leader node (index 0) - enhanced resources
+[[node.overrides]]
+index = 0
+cpu_count = 4
+memory_mb = 1024
+extra_args = ["-d", "guest_errors"]
+
+# Backup leader (index 1) - enhanced resources
+[[node.overrides]]
+index = 1
+cpu_count = 4
+memory_mb = 1024
+
+# Network isolation groups for partition testing
+[[network.isolation_groups]]
+name = "region-a"
+nodes = [0, 1, 2, 3]
+multicast_group = "239.0.0.2:5000"
+
+[[network.isolation_groups]]
+name = "region-b"
+nodes = [4, 5, 6, 7]
+multicast_group = "239.0.0.3:5000"
+
+# Test Scenarios
+[[scenarios]]
+name = "full-cluster-consensus"
+description = "Test consensus across all 8 nodes"
+
+[[scenarios.steps]]
+action = "wait"
+duration_ms = 10000
+
+[[scenarios.steps]]
+action = "deploy"
+rvf_path = "./swarm-test.rvf"
+
+[[scenarios.steps]]
+action = "broadcast"
+message = "CONSENSUS_START"
+
+[[scenarios.steps]]
+action = "wait"
+duration_ms = 30000
+
+[[scenarios.steps]]
+action = "metrics"
+output = "./metrics-full-consensus.json"
+
+[[scenarios.assertions]]
+type = "consensus_achieved"
+expected = "true"
+
+[[scenarios]]
+name = "byzantine-fault-tolerance"
+description = "Test BFT with f=2 faulty nodes (n=8, f<n/3)"
+
+[[scenarios.steps]]
+action = "wait"
+duration_ms = 5000
+
+# Inject byzantine faults into 2 nodes
+[[scenarios.steps]]
+action = "fault"
+fault_type = "data-corruption"
+node = 6
+
+[[scenarios.steps]]
+action = "fault"
+fault_type = "data-corruption"
+node = 7
+
+[[scenarios.steps]]
+action = "wait"
+duration_ms = 30000
+
+[[scenarios.steps]]
+action = "metrics"
+output = "./metrics-bft.json"
+
+[[scenarios.assertions]]
+type = "consensus_achieved"
+expected = "true"
+
+[[scenarios.assertions]]
+type = "healthy_nodes"
+expected = "6"
+
+[[scenarios]]
+name = "cascading-failures"
+description = "Progressive node failures (crash 4 nodes one by one)"
+
+[[scenarios.steps]]
+action = "wait"
+duration_ms = 5000
+
+[[scenarios.steps]]
+action = "fault"
+fault_type = "crash"
+node = 7
+
+[[scenarios.steps]]
+action = "wait"
+duration_ms = 5000
+
+[[scenarios.steps]]
+action = "fault"
+fault_type = "crash"
+node = 6
+
+[[scenarios.steps]]
+action = "wait"
+duration_ms = 5000
+
+[[scenarios.steps]]
+action = "fault"
+fault_type = "crash"
+node = 5
+
+[[scenarios.steps]]
+action = "wait"
+duration_ms = 5000
+
+[[scenarios.steps]]
+action = "fault"
+fault_type = "crash"
+node = 4
+
+[[scenarios.steps]]
+action = "wait"
+duration_ms = 20000
+
+[[scenarios.steps]]
+action = "metrics"
+output = "./metrics-cascading.json"
+
+[[scenarios.assertions]]
+type = "healthy_nodes"
+expected = "4"
+
+[[scenarios.assertions]]
+type = "consensus_achieved"
+expected = "true"
+
+[[scenarios]]
+name = "network-partition-heal"
+description = "Partition cluster, then heal and verify recovery"
+
+[[scenarios.steps]]
+action = "wait"
+duration_ms = 10000
+
+# Create partition (region-a vs region-b)
+[[scenarios.steps]]
+action = "fault"
+fault_type = "network-partition"
+node = 4
+
+[[scenarios.steps]]
+action = "fault"
+fault_type = "network-partition"
+node = 5
+
+[[scenarios.steps]]
+action = "fault"
+fault_type = "network-partition"
+node = 6
+
+[[scenarios.steps]]
+action = "fault"
+fault_type = "network-partition"
+node = 7
+
+[[scenarios.steps]]
+action = "wait"
+duration_ms = 30000
+
+[[scenarios.steps]]
+action = "metrics"
+output = "./metrics-partitioned.json"
+
+# Note: Healing would require a "heal" action which removes faults
+# In real testing, this would verify split-brain handling
+
+[[scenarios]]
+name = "slow-network"
+description = "Test performance under high latency conditions"
+
+[[scenarios.steps]]
+action = "wait"
+duration_ms = 5000
+
+# Add 500ms latency to all nodes
+[[scenarios.steps]]
+action = "fault"
+fault_type = "network-slow"
+node = 0
+
+[[scenarios.steps]]
+action = "fault"
+fault_type = "network-slow"
+node = 1
+
+[[scenarios.steps]]
+action = "fault"
+fault_type = "network-slow"
+node = 2
+
+[[scenarios.steps]]
+action = "fault"
+fault_type = "network-slow"
+node = 3
+
+[[scenarios.steps]]
+action = "fault"
+fault_type = "network-slow"
+node = 4
+
+[[scenarios.steps]]
+action = "fault"
+fault_type = "network-slow"
+node = 5
+
+[[scenarios.steps]]
+action = "fault"
+fault_type = "network-slow"
+node = 6
+
+[[scenarios.steps]]
+action = "fault"
+fault_type = "network-slow"
+node = 7
+
+[[scenarios.steps]]
+action = "wait"
+duration_ms = 60000
+
+[[scenarios.steps]]
+action = "metrics"
+output = "./metrics-slow-network.json"
+
+[[scenarios.assertions]]
+type = "consensus_achieved"
+expected = "true"
+
+[[scenarios]]
+name = "load-balancing"
+description = "Test task distribution across cluster"
+
+[[scenarios.steps]]
+action = "wait"
+duration_ms = 5000
+
+[[scenarios.steps]]
+action = "deploy"
+rvf_path = "./load-test.rvf"
+
+[[scenarios.steps]]
+action = "broadcast"
+message = "GENERATE_LOAD:tasks=1000"
+
+[[scenarios.steps]]
+action = "wait"
+duration_ms = 60000
+
+[[scenarios.steps]]
+action = "metrics"
+output = "./metrics-load-balance.json"
+
+[[scenarios.assertions]]
+type = "load_variance"
+expected = "<0.2"  # Tasks should be evenly distributed

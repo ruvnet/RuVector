@@ -1,0 +1,52 @@
+[package]
+name = "ruvix-fs"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.77"
+license = "MIT OR Apache-2.0"
+authors = ["RuVector Contributors"]
+description = "Minimal filesystem for the RuVix Cognition Kernel (ADR-087 Phase E)"
+keywords = ["kernel", "filesystem", "vfs", "fat32", "no_std"]
+categories = ["filesystem", "no-std", "embedded", "os"]
+repository = "https://github.com/ruvnet/ruvector"
+readme = "README.md"
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+ruvix-types = { version = "0.1.0", path = "../types" }
+
+[dev-dependencies]
+proptest = "1.4"
+criterion = { version = "0.5", features = ["html_reports"] }
+
+[features]
+default = ["alloc"]
+std = ["ruvix-types/std", "alloc"]
+alloc = ["ruvix-types/alloc"]
+
+# Enable FAT32 long filename support
+lfn = []
+
+# Enable statistics collection
+stats = []
+
+# Enable write support for FAT32 (Phase 2)
+fat32-write = []
+
+[[bench]]
+name = "fs_bench"
+harness = false
+
+[[test]]
+name = "fs_test"
+path = "tests/fs_test.rs"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+
+[profile.test]
+opt-level = 1

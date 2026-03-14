@@ -1,0 +1,31 @@
+[package]
+name = "ruvix-rpi-boot"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.75"
+license = "MIT OR Apache-2.0"
+authors = ["RuVector Contributors"]
+description = "Raspberry Pi boot support for RuVix Cognition Kernel (Phase D)"
+keywords = ["kernel", "rpi", "boot", "no_std", "embedded"]
+categories = ["no-std", "embedded", "hardware-support"]
+repository = "https://github.com/ruvnet/ruvector"
+readme = "README.md"
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+ruvix-types = { version = "0.1.0", path = "../types" }
+ruvix-bcm2711 = { version = "0.1.0", path = "../bcm2711" }
+
+[features]
+default = []
+# Raspberry Pi 4 (BCM2711)
+rpi4 = ["ruvix-bcm2711/rpi4"]
+# Raspberry Pi 5 (BCM2712)
+rpi5 = ["ruvix-bcm2711/rpi5"]
+
+[dev-dependencies]
+# None for now - bare metal testing
+
+# Profile settings inherited from workspace

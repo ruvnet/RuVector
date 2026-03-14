@@ -1,0 +1,96 @@
+# 3-Node Cluster Configuration
+# Minimal distributed cluster for basic consensus testing
+
+[cluster]
+name = "3-node-cluster"
+node_count = 3
+topology = "mesh"
+startup_delay_ms = 500
+
+[node.defaults]
+cpu_count = 2
+memory_mb = 512
+machine = "virt"
+cpu_model = "cortex-a72"
+# kernel = "/path/to/ruvix-kernel"
+# dtb = "/path/to/ruvix.dtb"
+enable_gdb = false
+enable_monitor = true
+
+[network]
+base_mac = "52:54:00:12:34:00"
+multicast_group = "239.0.0.1:5000"
+mtu = 1500
+
+# Node 0 is typically the leader - give it more resources
+[[node.overrides]]
+index = 0
+cpu_count = 4
+memory_mb = 1024
+
+# Test Scenarios
+[[scenarios]]
+name = "basic-consensus"
+description = "Test basic 3-node consensus mechanism"
+
+[[scenarios.steps]]
+action = "wait"
+duration_ms = 5000
+
+[[scenarios.steps]]
+action = "deploy"
+rvf_path = "./test.rvf"
+
+[[scenarios.steps]]
+action = "wait"
+duration_ms = 10000
+
+[[scenarios.steps]]
+action = "metrics"
+output = "./metrics-basic.json"
+
+[[scenarios]]
+name = "leader-failover"
+description = "Test leader failure and re-election"
+
+[[scenarios.steps]]
+action = "wait"
+duration_ms = 5000
+
+[[scenarios.steps]]
+action = "fault"
+fault_type = "crash"
+node = 0
+
+[[scenarios.steps]]
+action = "wait"
+duration_ms = 15000
+
+[[scenarios.steps]]
+action = "metrics"
+output = "./metrics-failover.json"
+
+[[scenarios.assertions]]
+type = "healthy_nodes"
+expected = "2"
+
+[[scenarios]]
+name = "network-partition"
+description = "Test network split (2 vs 1)"
+
+[[scenarios.steps]]
+action = "wait"
+duration_ms = 5000
+
+[[scenarios.steps]]
+action = "fault"
+fault_type = "network-partition"
+node = 2
+
+[[scenarios.steps]]
+action = "wait"
+duration_ms = 20000
+
+[[scenarios.steps]]
+action = "metrics"
+output = "./metrics-partition.json"

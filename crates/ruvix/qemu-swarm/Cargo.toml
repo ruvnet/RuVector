@@ -1,0 +1,65 @@
+[package]
+name = "ruvix-qemu-swarm"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "QEMU swarm simulation for distributed RuVix cluster testing"
+keywords = ["ruvix", "qemu", "swarm", "distributed", "testing"]
+categories = ["simulation", "development-tools::testing"]
+
+[features]
+default = ["std"]
+std = ["ruvix-types/std", "ruvix-nucleus/std"]
+
+[dependencies]
+# RuVix internal
+ruvix-types.workspace = true
+ruvix-nucleus = { workspace = true, optional = true }
+
+# Async runtime
+tokio = { version = "1.36", features = ["full", "process", "net", "sync", "time", "io-util", "fs"] }
+futures = "0.3"
+
+# Serialization
+serde.workspace = true
+serde_json.workspace = true
+toml = "0.8"
+
+# CLI
+clap.workspace = true
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+
+# Utilities
+thiserror = "1.0"
+anyhow = "1.0"
+uuid = { version = "1.7", features = ["v4", "serde"] }
+bytes = "1.5"
+crossbeam-channel = "0.5"
+parking_lot = "0.12"
+
+# Random
+rand.workspace = true
+
+# Time
+chrono = { version = "0.4", features = ["serde"] }
+
+# TUI
+crossterm = "0.27"
+
+[dev-dependencies]
+tempfile = "3.10"
+proptest.workspace = true
+
+[[bin]]
+name = "qemu-swarm"
+path = "src/main.rs"
+
+[[bin]]
+name = "swarm-monitor"
+path = "src/monitor.rs"

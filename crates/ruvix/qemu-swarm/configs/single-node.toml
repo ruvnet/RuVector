@@ -1,0 +1,26 @@
+# Single Node Configuration
+# For basic testing and development
+
+[cluster]
+name = "single-node"
+node_count = 1
+topology = "mesh"  # Irrelevant for single node
+startup_delay_ms = 0
+
+[node.defaults]
+cpu_count = 4
+memory_mb = 1024
+machine = "virt"
+cpu_model = "cortex-a72"
+# kernel = "/path/to/ruvix-kernel"
+# dtb = "/path/to/ruvix.dtb"
+enable_gdb = true
+enable_monitor = true
+extra_args = ["-d", "guest_errors,unimp"]
+
+[network]
+base_mac = "52:54:00:12:34:00"
+multicast_group = "239.0.0.1:5000"
+mtu = 1500
+
+# Single node has no scenarios - use for debugging

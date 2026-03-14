@@ -1,0 +1,45 @@
+[package]
+name = "ruvix-physmem"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.77"
+license = "MIT OR Apache-2.0"
+authors = ["RuVector Contributors"]
+description = "Physical memory allocator for RuVix Cognition Kernel (ADR-087)"
+keywords = ["kernel", "memory", "allocator", "buddy", "no_std"]
+categories = ["memory-management", "no-std", "embedded", "os"]
+repository = "https://github.com/ruvnet/ruvector"
+readme = "README.md"
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+ruvix-types = { version = "0.1.0", path = "../types" }
+
+[dev-dependencies]
+proptest = "1.5"
+criterion = { version = "0.5", features = ["html_reports"] }
+
+[features]
+default = []
+std = ["ruvix-types/std"]
+alloc = ["ruvix-types/alloc"]
+
+# Enable detailed statistics collection
+stats = []
+
+# Enable debug assertions for allocation tracking
+debug-alloc = []
+
+[[bench]]
+name = "buddy_bench"
+harness = false
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+
+[profile.test]
+opt-level = 1

@@ -1,0 +1,25 @@
+[package]
+name = "ruvix-dtb"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.75"
+license = "MIT OR Apache-2.0"
+description = "Device Tree Blob parser for RuVix Cognition Kernel (ADR-087)"
+keywords = ["kernel", "dtb", "devicetree", "no_std", "embedded"]
+categories = ["no-std", "embedded", "parsing"]
+repository = "https://github.com/ruvnet/ruvector"
+readme = "README.md"
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+ruvix-types = { version = "0.1.0", path = "../types" }
+
+[dev-dependencies]
+proptest = "1.5"
+
+[features]
+default = []
+std = []
+alloc = []

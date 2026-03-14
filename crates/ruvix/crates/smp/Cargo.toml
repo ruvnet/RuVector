@@ -1,0 +1,38 @@
+[package]
+name = "ruvix-smp"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.75"
+license = "MIT OR Apache-2.0"
+authors = ["RuVector Contributors"]
+description = "Symmetric Multi-Processing support for RuVix Cognition Kernel (ADR-087 Phase C)"
+keywords = ["kernel", "smp", "no_std", "multicore", "spinlock"]
+categories = ["no-std", "embedded", "concurrency"]
+repository = "https://github.com/ruvnet/ruvector"
+readme = "README.md"
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+ruvix-types = { version = "0.1.0", path = "../types" }
+ruvix-hal = { version = "0.1.0", path = "../hal" }
+
+[dev-dependencies]
+proptest = "1.5"
+
+[features]
+default = []
+std = []
+alloc = []
+# Enable ARM64-specific inline assembly
+aarch64 = []
+# Enable test mode (uses atomics instead of inline assembly)
+test-mode = []
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

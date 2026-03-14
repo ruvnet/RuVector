@@ -229,6 +229,8 @@ RuVix exposes exactly 12 syscalls. This is a hard architectural constraint. New 
 
 ## Crate Overview
 
+### Phase A: Core Kernel (Linux-hosted)
+
 | Crate | Purpose | Tests | Description |
 |-------|---------|-------|-------------|
 | `types` | Core kernel types | 122 | no_std types for handles, capabilities, proofs, regions, queues, timers |
@@ -240,9 +242,45 @@ RuVix exposes exactly 12 syscalls. This is a hard architectural constraint. New 
 | `vecgraph` | Vector/graph stores | 69 | Kernel-resident HNSW vector store and graph store |
 | `boot` | Boot loader | 61 | RVF package mounting, signature verification, attestation |
 | `nucleus` | Kernel integration | 110 | Syscall dispatch, deterministic replay, witness log |
-| `tests` | Integration tests | 30 | ADR-087 Section 17 acceptance tests |
 
-**Total: 784+ tests**
+### Phase B: Bare Metal AArch64
+
+| Crate | Purpose | Tests | Description |
+|-------|---------|-------|-------------|
+| `hal` | Hardware Abstraction Layer | 15 | Console, InterruptController, Timer, Mmu, PowerManagement traits |
+| `aarch64` | AArch64 boot & MMU | - | Exception vectors, page tables, boot assembly |
+| `drivers` | Device drivers | - | PL011 UART, GIC-400, ARM Generic Timer |
+| `physmem` | Physical memory | 75 | Buddy allocator for page frames (4KB-2MB) |
+
+### Phase C: Multi-Core & DMA
+
+| Crate | Purpose | Tests | Description |
+|-------|---------|-------|-------------|
+| `smp` | Symmetric Multi-Processing | 41 | PerCpu data, ticket spinlocks, IPIs, 256-core support |
+| `dma` | DMA controller | 54 | Scatter-gather descriptors, cache coherence |
+| `dtb` | Device Tree parser | 41 | FDT parsing, node/property iteration |
+
+### Phase D: Raspberry Pi 4/5
+
+| Crate | Purpose | Tests | Description |
+|-------|---------|-------|-------------|
+| `bcm2711` | BCM2711/2712 SoC drivers | - | GPIO, VideoCore mailbox, mini UART, interrupt controller |
+| `rpi-boot` | RPi boot support | - | Spin table CPU wake, early UART, config.txt parsing |
+
+### Phase E: Networking & Filesystem
+
+| Crate | Purpose | Tests | Description |
+|-------|---------|-------|-------------|
+| `net` | Network stack | 87 | Ethernet/ARP/IPv4/UDP/ICMP, NetworkDevice trait |
+| `fs` | Filesystem | 98 | VFS layer, FAT32 (read-only), RamFS (read-write) |
+
+### QEMU Swarm Simulation
+
+| Component | Description |
+|-----------|-------------|
+| `qemu-swarm` | Multi-QEMU cluster orchestration for distributed testing |
+
+**Total: 1,000+ tests across all phases**
 
 ---
 
@@ -343,6 +381,7 @@ crates/ruvix/
   Cargo.toml                  # Workspace manifest
   README.md                   # This file
   crates/
+    # Phase A: Core Kernel
     types/                    # Core kernel types (no_std, zero deps)
     region/                   # Memory region management
     queue/                    # io_uring-style IPC ring buffers
@@ -352,10 +391,32 @@ crates/ruvix/
     boot/                     # RVF boot loader
     vecgraph/                 # Vector and graph stores
     nucleus/                  # Kernel integration
-  tests/                      # Integration tests (ruvix-integration)
-  benches/                    # Benchmark suite (ruvix-bench)
+
+    # Phase B: Bare Metal
+    hal/                      # Hardware Abstraction Layer traits
+    aarch64/                  # AArch64 boot, MMU, exceptions
+    drivers/                  # PL011 UART, GIC-400, Timer
+    physmem/                  # Buddy allocator for physical pages
+
+    # Phase C: Multi-Core
+    smp/                      # SMP, spinlocks, IPIs
+    dma/                      # DMA controller abstraction
+    dtb/                      # Device Tree parser
+
+    # Phase D: Raspberry Pi
+    bcm2711/                  # BCM2711/2712 SoC drivers
+    rpi-boot/                 # RPi-specific boot support
+
+    # Phase E: Networking/FS
+    net/                      # Ethernet/IP/UDP/ICMP stack
+    fs/                       # VFS, FAT32, RamFS
+
+  aarch64-boot/               # Linker scripts, QEMU target
+  qemu-swarm/                 # Multi-QEMU cluster simulation
+  tests/                      # Integration tests
+  benches/                    # Benchmark suite
   examples/
-    cognitive_demo/           # Demo application (ruvix-demo)
+    cognitive_demo/           # Demo application
 ```
 
 ---

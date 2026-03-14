@@ -12,6 +12,15 @@ members = [
     "crates/hal",
     "crates/aarch64",
     "crates/drivers",
+    "crates/smp",
+    "crates/physmem",
+    "crates/dma",
+    "crates/dtb",
+    "crates/net",
+    "crates/fs",
+    "crates/bcm2711",
+    "crates/rpi-boot",
+    "qemu-swarm",
     "tests",
     "benches",
     "examples/cognitive_demo",
@@ -40,6 +49,15 @@ ruvix-nucleus = { version = "0.1.0", path = "crates/nucleus" }
 ruvix-hal = { version = "0.1.0", path = "crates/hal" }
 ruvix-aarch64 = { version = "0.1.0", path = "crates/aarch64" }
 ruvix-drivers = { version = "0.1.0", path = "crates/drivers" }
+ruvix-smp = { version = "0.1.0", path = "crates/smp" }
+ruvix-physmem = { version = "0.1.0", path = "crates/physmem" }
+ruvix-dma = { version = "0.1.0", path = "crates/dma" }
+ruvix-dtb = { version = "0.1.0", path = "crates/dtb" }
+ruvix-net = { version = "0.1.0", path = "crates/net" }
+ruvix-fs = { version = "0.1.0", path = "crates/fs" }
+ruvix-qemu-swarm = { version = "0.1.0", path = "qemu-swarm" }
+ruvix-bcm2711 = { version = "0.1.0", path = "crates/bcm2711" }
+ruvix-rpi-boot = { version = "0.1.0", path = "crates/rpi-boot" }
 
 # External - from parent workspace
 ruvector-coherence = { version = "2.0.6", path = "../ruvector-coherence" }

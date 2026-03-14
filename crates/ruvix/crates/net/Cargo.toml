@@ -1,0 +1,27 @@
+[package]
+name = "ruvix-net"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.75"
+license = "MIT OR Apache-2.0"
+authors = ["RuVector Contributors"]
+description = "Minimal networking stack for the RuVix Cognition Kernel (ADR-087 Phase E)"
+keywords = ["kernel", "networking", "no_std", "ethernet", "tcp-ip"]
+categories = ["no-std", "embedded", "network-programming"]
+repository = "https://github.com/ruvnet/ruvector"
+readme = "README.md"
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+ruvix-types = { version = "0.1.0", path = "../types", default-features = false }
+
+[dev-dependencies]
+criterion = { version = "0.5", features = ["html_reports"] }
+proptest = "1.5"
+
+[features]
+default = []
+std = ["ruvix-types/std"]
+alloc = ["ruvix-types/alloc"]
