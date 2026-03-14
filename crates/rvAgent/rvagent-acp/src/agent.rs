@@ -160,6 +160,7 @@ impl AcpAgent {
     }
 
     /// Access the underlying agent configuration.
+    #[allow(dead_code)]
     pub fn config(&self) -> &RvAgentConfig {
         &self.config
     }

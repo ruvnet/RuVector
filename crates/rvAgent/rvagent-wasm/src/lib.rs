@@ -273,7 +273,7 @@ impl WasmAgent {
 }
 
 // ---------------------------------------------------------------------------
-// Unit tests (run with `cargo test`, no WASM runtime needed)
+// Unit tests (run with `cargo test` on native — no JsValue interactions)
 // ---------------------------------------------------------------------------
 
 #[cfg(test)]
@@ -281,114 +281,51 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_create_agent_default() {
-        let agent = WasmAgent::new("{}").unwrap();
-        assert_eq!(agent.config.model, "anthropic:claude-sonnet-4-20250514");
-        assert!(!agent.config.instructions.is_empty());
-        assert_eq!(agent.state.turn_count, 0);
-        assert!(!agent.state.stopped);
-        // System message should be injected.
-        assert_eq!(agent.state.messages.len(), 1);
-        assert_eq!(agent.state.messages[0].role, "system");
-    }
-
-    #[test]
-    fn test_create_agent_custom_config() {
-        let config = r#"{
-            "model": "openai:gpt-4o",
-            "name": "test-agent",
-            "instructions": "Be helpful.",
-            "max_turns": 10
-        }"#;
-        let agent = WasmAgent::new(config).unwrap();
-        assert_eq!(agent.config.model, "openai:gpt-4o");
-        assert_eq!(agent.config.name.as_deref(), Some("test-agent"));
-        assert_eq!(agent.config.instructions, "Be helpful.");
-        assert_eq!(agent.config.max_turns, 10);
-    }
-
-    #[test]
-    fn test_create_agent_invalid_json() {
-        let result = WasmAgent::new("{bad json}");
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn test_version() {
-        let v = WasmAgent::version();
-        assert_eq!(v, "0.1.0");
-    }
-
-    #[test]
-    fn test_reset() {
-        let mut agent = WasmAgent::new("{}").unwrap();
-        agent.state.turn_count = 5;
-        agent.state.stopped = true;
-        agent.state.messages.push(BridgeMessage::user("hello"));
-        agent.todos.push(TodoItem {
-            content: "task".into(),
-            status: TodoStatus::Pending,
-        });
-
-        agent.reset();
-        assert_eq!(agent.state.turn_count, 0);
-        assert!(!agent.state.stopped);
-        assert!(agent.todos.is_empty());
-        // Should have system message re-injected.
-        assert_eq!(agent.state.messages.len(), 1);
-        assert_eq!(agent.state.messages[0].role, "system");
-    }
-
-    #[test]
-    fn test_agent_name_and_model() {
-        let agent = WasmAgent::new(r#"{"name": "coder", "model": "test:m"}"#).unwrap();
-        assert_eq!(agent.name(), Some("coder".into()));
-        assert_eq!(agent.model(), "test:m");
-    }
-
-    #[test]
-    fn test_file_operations_via_agent() {
-        let mut agent = WasmAgent::new("{}").unwrap();
-
-        // Write a file via tool.
-        let write_req = r#"{"tool": "write_file", "path": "test.rs", "content": "fn main() {}"}"#;
-        let result = agent.execute_tool(write_req);
-        assert!(result.is_ok());
-        assert_eq!(agent.file_count(), 1);
-
-        // Read it back.
-        let read_req = r#"{"tool": "read_file", "path": "test.rs"}"#;
-        let result = agent.execute_tool(read_req);
-        assert!(result.is_ok());
-
-        // Edit the file.
-        let edit_req = r#"{
-            "tool": "edit_file",
-            "path": "test.rs",
-            "old_string": "fn main()",
-            "new_string": "fn main() -> i32"
-        }"#;
-        let result = agent.execute_tool(edit_req);
-        assert!(result.is_ok());
-
-        // Verify edit.
-        let content = agent.backend.read_file("test.rs").unwrap();
-        assert_eq!(content, "fn main() -> i32 {}");
-    }
-
-    #[test]
-    fn test_execute_tool_invalid() {
-        let mut agent = WasmAgent::new("{}").unwrap();
-        let result = agent.execute_tool("{not valid}");
-        assert!(result.is_err());
-    }
-
-    #[test]
     fn test_config_defaults() {
         let cfg = WasmAgentConfig::default();
         assert_eq!(cfg.model, "anthropic:claude-sonnet-4-20250514");
         assert!(cfg.name.is_none());
         assert_eq!(cfg.max_turns, 50);
+        assert!(!cfg.instructions.is_empty());
+    }
+
+    #[test]
+    fn test_config_deserialization() {
+        let json = r#"{
+            "model": "openai:gpt-4o",
+            "name": "test-agent",
+            "instructions": "Be helpful.",
+            "max_turns": 10
+        }"#;
+        let cfg: WasmAgentConfig = serde_json::from_str(json).unwrap();
+        assert_eq!(cfg.model, "openai:gpt-4o");
+        assert_eq!(cfg.name.as_deref(), Some("test-agent"));
+        assert_eq!(cfg.instructions, "Be helpful.");
+        assert_eq!(cfg.max_turns, 10);
+    }
+
+    #[test]
+    fn test_config_partial_json() {
+        let json = r#"{"model": "test:m"}"#;
+        let cfg: WasmAgentConfig = serde_json::from_str(json).unwrap();
+        assert_eq!(cfg.model, "test:m");
+        assert!(cfg.name.is_none());
+        assert_eq!(cfg.max_turns, 50);
+    }
+
+    #[test]
+    fn test_config_invalid_json() {
+        let result = serde_json::from_str::<WasmAgentConfig>("{bad json}");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_config_serialization_roundtrip() {
+        let cfg = WasmAgentConfig::default();
+        let json = serde_json::to_string(&cfg).unwrap();
+        let back: WasmAgentConfig = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.model, cfg.model);
+        assert_eq!(back.max_turns, cfg.max_turns);
     }
 
     #[test]
@@ -410,6 +347,86 @@ mod tests {
         assert_eq!(back.turn_count, 1);
         assert_eq!(back.messages.len(), 1);
         assert_eq!(back.messages[0].role, "user");
+    }
+
+    #[test]
+    fn test_agent_state_with_multiple_messages() {
+        let mut state = AgentState::default();
+        state.messages.push(BridgeMessage::system("you are helpful"));
+        state.messages.push(BridgeMessage::user("hello"));
+        state.messages.push(BridgeMessage::assistant("hi there"));
+        state.turn_count = 1;
+
+        let json = serde_json::to_string(&state).unwrap();
+        let back: AgentState = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.messages.len(), 3);
+        assert_eq!(back.messages[0].role, "system");
+        assert_eq!(back.messages[1].role, "user");
+        assert_eq!(back.messages[2].role, "assistant");
+    }
+
+    #[test]
+    fn test_version_string() {
+        assert_eq!(VERSION, "0.1.0");
+    }
+
+    #[test]
+    fn test_file_operations_via_backend_and_tools() {
+        // Test file operations through the backend and tools directly,
+        // without going through the WasmAgent JsValue-returning methods.
+        let mut backend = WasmStateBackend::new();
+        let mut todos = Vec::new();
+
+        {
+            let mut exec = WasmToolExecutor::new(&mut backend, &mut todos);
+            let result = exec.execute(&ToolRequest::WriteFile {
+                path: "test.rs".into(),
+                content: "fn main() {}".into(),
+            });
+            assert!(result.success);
+        }
+
+        assert_eq!(backend.file_count(), 1);
+        assert_eq!(backend.read_file("test.rs").unwrap(), "fn main() {}");
+
+        {
+            let mut exec = WasmToolExecutor::new(&mut backend, &mut todos);
+            let result = exec.execute(&ToolRequest::EditFile {
+                path: "test.rs".into(),
+                old_string: "fn main()".into(),
+                new_string: "fn main() -> i32".into(),
+            });
+            assert!(result.success);
+        }
+
+        assert_eq!(backend.read_file("test.rs").unwrap(), "fn main() -> i32 {}");
+    }
+
+    #[test]
+    fn test_todos_via_tools() {
+        let mut backend = WasmStateBackend::new();
+        let mut todos: Vec<TodoItem> = Vec::new();
+
+        {
+            let mut exec = WasmToolExecutor::new(&mut backend, &mut todos);
+            let result = exec.execute(&ToolRequest::WriteTodos {
+                todos: vec![
+                    TodoItem {
+                        content: "implement feature".into(),
+                        status: TodoStatus::Pending,
+                    },
+                    TodoItem {
+                        content: "write tests".into(),
+                        status: TodoStatus::InProgress,
+                    },
+                ],
+            });
+            assert!(result.success);
+        }
+
+        assert_eq!(todos.len(), 2);
+        assert_eq!(todos[0].content, "implement feature");
+        assert_eq!(todos[0].status, TodoStatus::Pending);
     }
 }
 

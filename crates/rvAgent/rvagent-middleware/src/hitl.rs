@@ -1,15 +1,14 @@
-//! hitl middleware stub.
-
+//! Human-in-the-loop middleware stub.
 use async_trait::async_trait;
-use crate::{Middleware, AgentState, AgentStateUpdate, Runtime, RunnableConfig, ModelRequest, ModelResponse, ModelHandler};
+use crate::Middleware;
 
-pub struct HitlMiddleware;
-
-impl HitlMiddleware {
-    pub fn new() -> Self { Self }
+pub struct HumanInTheLoopMiddleware {
+    patterns: Vec<String>,
 }
-
+impl HumanInTheLoopMiddleware {
+    pub fn new(patterns: Vec<String>) -> Self { Self { patterns } }
+}
 #[async_trait]
-impl Middleware for HitlMiddleware {
+impl Middleware for HumanInTheLoopMiddleware {
     fn name(&self) -> &str { "hitl" }
 }

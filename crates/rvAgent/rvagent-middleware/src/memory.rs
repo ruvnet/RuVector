@@ -1,14 +1,13 @@
-//! memory middleware stub.
-
+//! Memory middleware stub.
 use async_trait::async_trait;
-use crate::{Middleware, AgentState, AgentStateUpdate, Runtime, RunnableConfig, ModelRequest, ModelResponse, ModelHandler};
+use crate::Middleware;
 
-pub struct MemoryMiddleware;
-
-impl MemoryMiddleware {
-    pub fn new() -> Self { Self }
+pub struct MemoryMiddleware {
+    sources: Vec<String>,
 }
-
+impl MemoryMiddleware {
+    pub fn new(sources: Vec<String>) -> Self { Self { sources } }
+}
 #[async_trait]
 impl Middleware for MemoryMiddleware {
     fn name(&self) -> &str { "memory" }

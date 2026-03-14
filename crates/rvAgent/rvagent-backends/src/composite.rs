@@ -68,18 +68,6 @@ impl CompositeBackend {
         Ok((self.default.clone(), path.to_string()))
     }
 
-    /// Route a path and apply the given operation.
-    async fn route_and_apply<F, Fut, T>(&self, path: &str, op: F) -> Result<T, String>
-    where
-        F: FnOnce(BackendRef, String) -> Fut,
-        Fut: std::future::Future<Output = T>,
-    {
-        let (backend, stripped) = self
-            .route_path(path)
-            .map_err(|e| e.to_string())?;
-        Ok(op(backend, stripped).await)
-    }
-
     /// Re-map a path from the sub-backend's relative path back to the
     /// composite's full path.
     fn remap_path(prefix: &str, relative_path: &str) -> String {

@@ -155,6 +155,7 @@ impl ErrorResponse {
     }
 
     /// 500 Internal Server Error.
+    #[allow(dead_code)]
     pub fn internal(message: impl Into<String>) -> Self {
         Self::new("internal_error", message, 500)
     }

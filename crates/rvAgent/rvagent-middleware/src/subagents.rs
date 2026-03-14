@@ -1,15 +1,12 @@
-//! subagents middleware stub.
-
+//! SubAgent middleware stub.
 use async_trait::async_trait;
-use crate::{Middleware, AgentState, AgentStateUpdate, Runtime, RunnableConfig, ModelRequest, ModelResponse, ModelHandler};
+use crate::Middleware;
 
-pub struct SubagentsMiddleware;
-
-impl SubagentsMiddleware {
+pub struct SubAgentMiddleware;
+impl SubAgentMiddleware {
     pub fn new() -> Self { Self }
 }
-
 #[async_trait]
-impl Middleware for SubagentsMiddleware {
-    fn name(&self) -> &str { "subagents" }
+impl Middleware for SubAgentMiddleware {
+    fn name(&self) -> &str { "subagent" }
 }
