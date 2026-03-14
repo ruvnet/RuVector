@@ -30,6 +30,7 @@ import {
   createAnthropicProvider,
   createOpenRouterProvider,
   createGoogleAIProvider,
+  createNovitaProvider,
 } from './integration/providers/index.js';
 
 type BotState = BotStatus;
@@ -477,11 +478,22 @@ export class RuvBot extends EventEmitter<RuvBotEvents> {
     const { provider, apiKey, model } = config.llm;
 
     // Check for available API keys in priority order
+    const novitaKey = process.env.NOVITA_API_KEY;
     const openrouterKey = process.env.OPENROUTER_API_KEY;
     const anthropicKey = process.env.ANTHROPIC_API_KEY || apiKey;
     const googleAIKey = process.env.GOOGLE_AI_API_KEY || process.env.GEMINI_API_KEY;
 
-    if (openrouterKey) {
+    if (novitaKey) {
+      this.llmProvider = createNovitaProvider({
+        apiKey: novitaKey,
+        baseUrl: 'https://api.novita.ai/openai',
+        model: model || process.env.NOVITA_MODEL || 'deepseek/deepseek-v3.2',
+      });
+      this.logger.info(
+        { provider: 'novita', model: model || process.env.NOVITA_MODEL || 'deepseek/deepseek-v3.2' },
+        'LLM provider initialized'
+      );
+    } else if (openrouterKey) {
       // Use OpenRouter for Gemini 2.5 and other models
       this.llmProvider = createOpenRouterProvider({
         apiKey: openrouterKey,
@@ -510,7 +522,10 @@ export class RuvBot extends EventEmitter<RuvBotEvents> {
       });
       this.logger.info({ provider: 'anthropic', model }, 'LLM provider initialized');
     } else {
-      this.logger.warn({}, 'No LLM API key found. Set GOOGLE_AI_API_KEY, ANTHROPIC_API_KEY, or OPENROUTER_API_KEY');
+      this.logger.warn(
+        {},
+        'No LLM API key found. Set NOVITA_API_KEY, GOOGLE_AI_API_KEY, ANTHROPIC_API_KEY, or OPENROUTER_API_KEY'
+      );
     }
 
     // TODO: Initialize memory manager, skill registry, etc.
@@ -700,6 +715,7 @@ export class RuvBot extends EventEmitter<RuvBotEvents> {
 
 To enable AI responses, please set one of these environment variables:
 
+- \`NOVITA_API_KEY\` - Novita OpenAI-compatible endpoint (\`https://api.novita.ai/openai\`)
 - \`GOOGLE_AI_API_KEY\` - Get from [Google AI Studio](https://aistudio.google.com/app/apikey)
 - \`ANTHROPIC_API_KEY\` - Get from [Anthropic Console](https://console.anthropic.com/)
 - \`OPENROUTER_API_KEY\` - Get from [OpenRouter](https://openrouter.ai/)

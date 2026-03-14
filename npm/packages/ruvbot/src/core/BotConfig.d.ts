@@ -28,7 +28,7 @@ export declare const MemoryConfigSchema: z.ZodObject<{
     efSearch?: number | undefined;
 }>;
 export declare const LLMConfigSchema: z.ZodObject<{
-    provider: z.ZodDefault<z.ZodEnum<["anthropic", "openai", "google", "local", "ruvllm"]>>;
+    provider: z.ZodDefault<z.ZodEnum<["anthropic", "openai", "google", "novita", "local", "ruvllm"]>>;
     model: z.ZodDefault<z.ZodString>;
     apiKey: z.ZodOptional<z.ZodString>;
     baseUrl: z.ZodOptional<z.ZodString>;
@@ -36,7 +36,7 @@ export declare const LLMConfigSchema: z.ZodObject<{
     maxTokens: z.ZodDefault<z.ZodNumber>;
     streaming: z.ZodDefault<z.ZodBoolean>;
 }, "strip", z.ZodTypeAny, {
-    provider: "anthropic" | "openai" | "local" | "google" | "ruvllm";
+    provider: "anthropic" | "openai" | "google" | "novita" | "local" | "ruvllm";
     model: string;
     streaming: boolean;
     temperature: number;
@@ -216,7 +216,7 @@ export declare const BotConfigSchema: z.ZodObject<{
         efSearch?: number | undefined;
     }>>;
     llm: z.ZodDefault<z.ZodObject<{
-        provider: z.ZodDefault<z.ZodEnum<["anthropic", "openai", "google", "local", "ruvllm"]>>;
+        provider: z.ZodDefault<z.ZodEnum<["anthropic", "openai", "google", "novita", "local", "ruvllm"]>>;
         model: z.ZodDefault<z.ZodString>;
         apiKey: z.ZodOptional<z.ZodString>;
         baseUrl: z.ZodOptional<z.ZodString>;
@@ -224,7 +224,7 @@ export declare const BotConfigSchema: z.ZodObject<{
         maxTokens: z.ZodDefault<z.ZodNumber>;
         streaming: z.ZodDefault<z.ZodBoolean>;
     }, "strip", z.ZodTypeAny, {
-        provider: "anthropic" | "openai" | "local" | "google" | "ruvllm";
+        provider: "anthropic" | "openai" | "google" | "novita" | "local" | "ruvllm";
         model: string;
         streaming: boolean;
         temperature: number;
@@ -458,7 +458,7 @@ export declare const BotConfigSchema: z.ZodObject<{
         connectionString?: string | undefined;
     };
     llm: {
-        provider: "anthropic" | "openai" | "local" | "google" | "ruvllm";
+        provider: "anthropic" | "openai" | "google" | "novita" | "local" | "ruvllm";
         model: string;
         streaming: boolean;
         temperature: number;

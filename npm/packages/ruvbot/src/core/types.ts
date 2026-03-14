@@ -226,7 +226,7 @@ export interface LLMConfig {
   streaming?: boolean;
 }
 
-export type LLMProvider = 'anthropic' | 'openai' | 'google' | 'local' | 'ruvllm';
+export type LLMProvider = 'anthropic' | 'openai' | 'google' | 'novita' | 'local' | 'ruvllm';
 
 export interface LLMRequest {
   messages: LLMMessage[];

@@ -96,3 +96,10 @@ export {
   type GoogleAIConfig,
   type GoogleAIModel,
 } from './GoogleAIProvider.js';
+
+export {
+  NovitaProvider,
+  createNovitaProvider,
+  type NovitaConfig,
+  type NovitaModel,
+} from './NovitaProvider.js';

@@ -226,13 +226,15 @@ async function handleStatus(ctx: RequestContext): Promise<void> {
 
   // Check LLM configuration
   const hasAnthropicKey = !!(process.env.ANTHROPIC_API_KEY || config.llm?.apiKey);
+  const hasNovitaKey = !!process.env.NOVITA_API_KEY;
   const hasOpenRouterKey = !!process.env.OPENROUTER_API_KEY;
   const hasGoogleAIKey = !!(process.env.GOOGLE_AI_API_KEY || process.env.GEMINI_API_KEY);
-  const hasAnyKey = hasAnthropicKey || hasOpenRouterKey || hasGoogleAIKey;
+  const hasAnyKey = hasAnthropicKey || hasNovitaKey || hasOpenRouterKey || hasGoogleAIKey;
 
   // Determine active provider
   let activeProvider = 'none';
-  if (hasOpenRouterKey) activeProvider = 'openrouter';
+  if (hasNovitaKey) activeProvider = 'novita';
+  else if (hasOpenRouterKey) activeProvider = 'openrouter';
   else if (hasGoogleAIKey) activeProvider = 'google-ai';
   else if (hasAnthropicKey) activeProvider = 'anthropic';
 
@@ -247,6 +249,7 @@ async function handleStatus(ctx: RequestContext): Promise<void> {
     environment: {
       nodeEnv: NODE_ENV,
       hasAnthropicKey,
+      hasNovitaKey,
       hasOpenRouterKey,
       hasGoogleAIKey,
     },
