@@ -114,6 +114,7 @@ impl AgentState {
     }
 
     /// Return the number of messages.
+    #[inline]
     pub fn message_count(&self) -> usize {
         self.messages.len()
     }

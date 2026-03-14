@@ -1,11 +1,10 @@
 //! SubAgent orchestrator — spawn and parallel execution (ADR-097, ADR-103 A2).
 
 use crate::{
-    AgentState, CompiledSubAgent, SubAgentResult, SubAgentSpec,
-    prepare_subagent_state, extract_result_message,
+    AgentState, CompiledSubAgent, SubAgentResult,
+    prepare_subagent_state,
 };
-use std::collections::HashMap;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 /// Orchestrates subagent execution, including parallel spawning.
 pub struct SubAgentOrchestrator {
@@ -35,8 +34,8 @@ impl SubAgentOrchestrator {
         parent_state: &AgentState,
         task_description: &str,
     ) -> Option<SubAgentResult> {
-        let compiled = self.find(name)?;
-        let child_state = prepare_subagent_state(parent_state, task_description);
+        let _compiled = self.find(name)?;
+        let _child_state = prepare_subagent_state(parent_state, task_description);
 
         let start = Instant::now();
 

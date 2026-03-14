@@ -108,6 +108,7 @@ impl Message {
     }
 
     /// Get the text content of any message variant.
+    #[inline]
     pub fn content(&self) -> &str {
         match self {
             Self::System(m) => &m.content,
@@ -118,6 +119,7 @@ impl Message {
     }
 
     /// Returns true if this is an AI message with pending tool calls.
+    #[inline]
     pub fn has_tool_calls(&self) -> bool {
         matches!(self, Self::Ai(m) if !m.tool_calls.is_empty())
     }

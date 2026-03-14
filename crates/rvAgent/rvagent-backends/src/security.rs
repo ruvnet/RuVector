@@ -236,19 +236,22 @@ pub struct InjectionPattern {
 }
 
 /// Known prompt injection patterns to detect in tool results.
+///
+/// **Important:** All marker strings MUST be pre-lowercased since detection
+/// performs case-insensitive matching via `text.to_lowercase()`.
 const INJECTION_MARKERS: &[(&str, &str)] = &[
     ("<|im_start|>", "OpenAI chat ML delimiter"),
     ("<|im_end|>", "OpenAI chat ML delimiter"),
     ("<|endoftext|>", "OpenAI end-of-text token"),
     ("</tool_output>", "tool output close tag (escape attempt)"),
     ("<tool_output", "tool output open tag (injection)"),
-    ("Human:", "Anthropic role injection"),
-    ("Assistant:", "Anthropic role injection"),
-    ("[INST]", "Llama instruction delimiter"),
-    ("[/INST]", "Llama instruction delimiter"),
-    ("<<SYS>>", "Llama system delimiter"),
-    ("<</SYS>>", "Llama system delimiter"),
-    ("IGNORE PREVIOUS INSTRUCTIONS", "prompt override attempt"),
+    ("human:", "Anthropic role injection"),
+    ("assistant:", "Anthropic role injection"),
+    ("[inst]", "Llama instruction delimiter"),
+    ("[/inst]", "Llama instruction delimiter"),
+    ("<<sys>>", "Llama system delimiter"),
+    ("<</sys>>", "Llama system delimiter"),
+    ("ignore previous instructions", "prompt override attempt"),
     ("ignore all previous", "prompt override attempt"),
     ("you are now", "role reassignment attempt"),
     ("new instructions:", "instruction injection"),
@@ -262,16 +265,16 @@ pub fn detect_injection_patterns(text: &str) -> Vec<InjectionPattern> {
     let lower = text.to_lowercase();
 
     for &(marker, description) in INJECTION_MARKERS {
-        let marker_lower = marker.to_lowercase();
+        // Markers are pre-lowercased in the const — no allocation needed per call.
         let mut search_from = 0;
-        while let Some(pos) = lower[search_from..].find(&marker_lower) {
+        while let Some(pos) = lower[search_from..].find(marker) {
             let abs_pos = search_from + pos;
             results.push(InjectionPattern {
                 offset: abs_pos,
                 pattern: marker.to_string(),
                 description: description.to_string(),
             });
-            search_from = abs_pos + marker_lower.len();
+            search_from = abs_pos + marker.len();
         }
     }
 

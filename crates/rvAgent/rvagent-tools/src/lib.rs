@@ -458,6 +458,7 @@ pub const EMPTY_CONTENT_WARNING: &str =
 // ---------------------------------------------------------------------------
 
 /// Check if a file path refers to an image.
+#[inline]
 pub fn is_image_file(path: &str) -> bool {
     let lower = path.to_lowercase();
     IMAGE_EXTENSIONS.iter().any(|ext| lower.ends_with(ext))

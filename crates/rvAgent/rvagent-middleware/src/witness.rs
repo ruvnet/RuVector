@@ -73,12 +73,20 @@ impl Default for WitnessBuilder {
 }
 
 /// Compute SHA3-256 hash of tool call arguments.
+///
+/// Uses a pre-allocated buffer with `write!` to avoid 32 intermediate
+/// `String` allocations from the naive `format!("{:02x}", b)` approach.
 pub fn compute_arguments_hash(args: &serde_json::Value) -> String {
     let serialized = serde_json::to_vec(args).unwrap_or_default();
     let mut hasher = Sha3_256::new();
     hasher.update(&serialized);
     let result = hasher.finalize();
-    result.iter().map(|b| format!("{:02x}", b)).collect()
+    let mut hex = String::with_capacity(64);
+    for b in result.iter() {
+        use std::fmt::Write;
+        write!(hex, "{:02x}", b).unwrap();
+    }
+    hex
 }
 
 /// Middleware that records tool calls to a witness chain for auditability.

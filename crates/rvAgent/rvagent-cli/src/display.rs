@@ -163,6 +163,7 @@ fn format_arg_value(value: &serde_json::Value) -> String {
 // ---------------------------------------------------------------------------
 
 /// Display an error with contextual suggestions.
+#[allow(dead_code)]
 pub fn print_error(error: &anyhow::Error) {
     eprintln!();
     eprintln!("[error] {}", error);
@@ -193,6 +194,7 @@ pub fn print_error(error: &anyhow::Error) {
 /// Format a syntax-highlighted code snippet label for terminal display.
 ///
 /// Returns a label like `[rust]`, `[python]`, etc. based on the language identifier.
+#[allow(dead_code)]
 pub fn syntax_label(lang: &str) -> String {
     match lang.to_lowercase().as_str() {
         "rs" | "rust" => "[rust]".to_string(),

@@ -3,6 +3,11 @@
 //! Connects to external MCP servers, discovers their available tools,
 //! and translates MCP tool schemas into the rvAgent `Tool` trait format
 //! so they can be used seamlessly in the agent pipeline.
+//!
+//! Note: Many types and methods here are defined for the full MCP protocol
+//! but not yet wired into the CLI. They will be used once the protocol
+//! transport layer is implemented.
+#![allow(dead_code)]
 
 use std::collections::HashMap;
 
@@ -211,7 +216,7 @@ impl McpClient {
         &mut self,
         command: &str,
         args: &[String],
-        env: &HashMap<String, String>,
+        _env: &HashMap<String, String>,
     ) -> Result<()> {
         // TODO: Spawn subprocess, perform JSON-RPC initialize handshake,
         // then call tools/list to populate self.tools.
@@ -226,7 +231,7 @@ impl McpClient {
         Ok(())
     }
 
-    async fn connect_sse(&mut self, url: &str, auth: Option<&str>) -> Result<()> {
+    async fn connect_sse(&mut self, url: &str, _auth: Option<&str>) -> Result<()> {
         // TODO: Connect to SSE endpoint, perform initialize, discover tools.
         info!(url = %url, "SSE MCP transport — stub connect");
 

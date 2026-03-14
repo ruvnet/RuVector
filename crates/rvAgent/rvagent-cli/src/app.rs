@@ -51,7 +51,8 @@ pub struct App {
     session: Session,
     /// Working directory.
     cwd: PathBuf,
-    /// MCP tool registry for external tool servers.
+    /// MCP tool registry for external tool servers (wired when MCP transport is implemented).
+    #[allow(dead_code)]
     mcp_registry: McpRegistry,
 }
 
