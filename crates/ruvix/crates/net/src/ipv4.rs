@@ -287,11 +287,17 @@ impl Ipv4Header {
             return Err(NetError::PacketTooShort);
         }
 
+        // CVE-005 FIX: Validate total_length >= header_len
+        let total_length = u16::from_be_bytes([bytes[2], bytes[3]]);
+        if (total_length as usize) < header_len {
+            return Err(NetError::InvalidIpHeaderLength);
+        }
+
         let tos = bytes[1];
         let dscp = tos >> 2;
         let ecn = tos & 0x03;
 
-        let total_length = u16::from_be_bytes([bytes[2], bytes[3]]);
+        // total_length already read and validated above
         let identification = u16::from_be_bytes([bytes[4], bytes[5]]);
 
         let flags_frag = u16::from_be_bytes([bytes[6], bytes[7]]);

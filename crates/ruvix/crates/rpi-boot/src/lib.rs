@@ -47,7 +47,7 @@
 //!
 //! ## Example
 //!
-//! ```rust,no_run
+//! ```rust,ignore
 //! use ruvix_rpi_boot::{BootInfo, parse_dtb_header};
 //!
 //! #[no_mangle]

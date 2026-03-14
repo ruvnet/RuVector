@@ -257,12 +257,14 @@ mod tests {
     use super::*;
 
     #[test]
+    #[ignore = "requires AArch64 hardware (CNTFRQ_EL0)"]
     fn test_timer_new() {
         let timer = ArmGenericTimer::new();
         assert!(timer.frequency() > 0);
     }
 
     #[test]
+    #[ignore = "requires AArch64 hardware (CNTPCT_EL0)"]
     fn test_time_conversion() {
         let timer = ArmGenericTimer::new();
 
@@ -276,6 +278,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "requires AArch64 hardware (CNTPCT_EL0)"]
     fn test_deadline_conversion() {
         let timer = ArmGenericTimer::new();
 

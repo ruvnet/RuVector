@@ -93,6 +93,8 @@ pub enum DtbError {
     InvalidNodeName,
     /// Invalid string (missing null terminator)
     InvalidString,
+    /// Integer overflow in offset calculation (CVE-003 protection)
+    IntegerOverflow,
 }
 
 impl DtbError {
@@ -217,6 +219,7 @@ impl fmt::Display for DtbError {
             Self::UnexpectedEnd => write!(f, "Unexpected end of structure block"),
             Self::InvalidNodeName => write!(f, "Invalid node name (missing null terminator)"),
             Self::InvalidString => write!(f, "Invalid string (missing null terminator)"),
+            Self::IntegerOverflow => write!(f, "Integer overflow in offset calculation"),
         }
     }
 }

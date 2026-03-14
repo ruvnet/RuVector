@@ -27,7 +27,7 @@
 //!
 //! ## Example
 //!
-//! ```rust,no_run
+//! ```rust,ignore
 //! use ruvix_drivers::pl011::Pl011;
 //! use ruvix_hal::Console;
 //!

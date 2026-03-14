@@ -270,7 +270,7 @@ const fn swap64(value: u64) -> u64 {
 /// # Safety
 ///
 /// The DTB must be valid and the address must be correct.
-pub unsafe fn find_property(dtb_info: &DtbInfo, name: &str) -> Option<&[u8]> {
+pub unsafe fn find_property<'a>(dtb_info: &'a DtbInfo, name: &str) -> Option<&'a [u8]> {
     let struct_base = dtb_info.address + dtb_info.struct_offset;
     let strings_base = dtb_info.address + dtb_info.strings_offset;
 
@@ -345,7 +345,8 @@ mod tests {
 
     #[test]
     fn test_swap32() {
-        assert_eq!(swap32(0xD00DFEED), DTB_MAGIC);
+        // swap32 reverses byte order: 0xD00DFEED -> 0xEDFE0DD0
+        assert_eq!(swap32(DTB_MAGIC), 0xEDFE0DD0);
         assert_eq!(swap32(0x12345678), 0x78563412);
     }
 

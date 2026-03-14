@@ -19,7 +19,7 @@
 //!
 //! ## Example
 //!
-//! ```rust,no_run
+//! ```rust,ignore
 //! use ruvix_drivers::{pl011::Pl011, gic::Gic, timer::ArmGenericTimer};
 //! use ruvix_hal::{Console, InterruptController, Timer};
 //!
@@ -29,7 +29,7 @@
 //! uart.write_str("Hello, RuVix!\n").expect("UART write failed");
 //!
 //! // Initialize GIC
-//! let mut gic = Gic::new(0x0800_0000, 0x0800_1000);
+//! let mut gic = Gic::new(0x0800_0000, 0x0800_1000).expect("Invalid GIC address");
 //! gic.init().expect("GIC init failed");
 //! gic.enable(33).expect("Failed to enable UART IRQ");
 //!

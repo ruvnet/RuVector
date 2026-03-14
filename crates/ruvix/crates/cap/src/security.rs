@@ -3,6 +3,11 @@
 //! This module implements boot-time signature verification with the
 //! security-critical requirement that verification failures MUST panic.
 //!
+//! # Security: Feature Flag Protection
+//!
+//! The `disable-boot-verify` feature is ONLY available in debug builds.
+//! Attempting to use it in release builds will cause a compile-time error.
+//!
 //! # Security Invariant
 //!
 //! **SEC-001**: Boot signature failure MUST panic immediately with no
@@ -31,6 +36,14 @@
 //! // This will panic if verification fails
 //! verify_boot_signature_or_panic(&signature, &[], &trusted_keys, 0);
 //! ```
+
+// CVE-001 FIX: Prevent disable-boot-verify in release builds
+#[cfg(all(feature = "disable-boot-verify", not(debug_assertions)))]
+compile_error!(
+    "SECURITY ERROR [CVE-001]: The 'disable-boot-verify' feature cannot be used in release builds. \
+     This feature is only permitted in debug/test builds. Enabling this in production would \
+     allow unsigned kernels to boot, completely bypassing the security model."
+);
 
 /// Signature algorithm used for boot verification.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

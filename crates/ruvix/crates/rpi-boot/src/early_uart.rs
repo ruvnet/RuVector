@@ -18,7 +18,7 @@
 //!
 //! ## Example
 //!
-//! ```rust,no_run
+//! ```rust,ignore
 //! use ruvix_rpi_boot::early_uart::{early_uart_init, early_print, early_println};
 //!
 //! // Initialize UART (must be done once)

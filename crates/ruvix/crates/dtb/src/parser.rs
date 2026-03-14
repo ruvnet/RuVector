@@ -168,9 +168,18 @@ impl<'a> DeviceTree<'a> {
                         read_be_u32(structure, offset + 4).ok_or(DtbError::UnexpectedEnd)?;
                     offset += 8;
 
+                    // CVE-003 FIX: Check for integer overflow before array indexing
+                    let len_usize = len as usize;
+                    let value_end = offset
+                        .checked_add(len_usize)
+                        .ok_or(DtbError::IntegerOverflow)?;
+                    if value_end > structure.len() {
+                        return Err(DtbError::UnexpectedEnd);
+                    }
+
                     let prop_name = self.header.get_string(self.blob, nameoff)?;
-                    let value = &structure[offset..offset + len as usize];
-                    offset = align4(offset + len as usize);
+                    let value = &structure[offset..value_end];
+                    offset = align4(value_end);
 
                     if prop_name == name {
                         return Ok(Property::new(prop_name, value));
@@ -244,9 +253,18 @@ impl<'a> DeviceTree<'a> {
                         read_be_u32(structure, offset + 4).ok_or(DtbError::UnexpectedEnd)?;
                     offset += 8;
 
+                    // CVE-003 FIX: Check for integer overflow before array indexing
+                    let len_usize = len as usize;
+                    let value_end = offset
+                        .checked_add(len_usize)
+                        .ok_or(DtbError::IntegerOverflow)?;
+                    if value_end > structure.len() {
+                        return Err(DtbError::UnexpectedEnd);
+                    }
+
                     let prop_name = self.header.get_string(self.blob, nameoff)?;
-                    let value = &structure[offset..offset + len as usize];
-                    offset = align4(offset + len as usize);
+                    let value = &structure[offset..value_end];
+                    offset = align4(value_end);
 
                     if prop_name == name {
                         return Ok(value);
@@ -352,7 +370,11 @@ impl<'a> DeviceTree<'a> {
                 Some(FdtToken::Prop) => {
                     let len = read_be_u32(structure, offset).ok_or(DtbError::UnexpectedEnd)?;
                     offset += 8; // Skip len and nameoff
-                    offset = align4(offset + len as usize);
+                    // CVE-003 FIX: Check for integer overflow
+                    let value_end = offset
+                        .checked_add(len as usize)
+                        .ok_or(DtbError::IntegerOverflow)?;
+                    offset = align4(value_end);
                 }
                 Some(FdtToken::Nop) => {
                     continue;
