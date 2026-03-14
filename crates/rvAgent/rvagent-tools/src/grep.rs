@@ -1,67 +1,166 @@
 //! `grep` tool — literal text search (NOT regex, per ADR-103 C13).
 
-use crate::{ToolResult, ToolRuntime};
-use std::fs;
-use std::path::Path;
-use walkdir::WalkDir;
+use crate::{Tool, ToolResult, ToolRuntime};
+use async_trait::async_trait;
 
-/// Standalone grep invocation using filesystem directly.
-/// Uses literal (fixed-string) matching per ADR-103 C13.
-pub fn invoke_standalone(args: serde_json::Value, runtime: &ToolRuntime) -> ToolResult {
-    let pattern = match args.get("pattern").and_then(|v| v.as_str()) {
-        Some(p) => p,
-        None => return ToolResult::Text("Error: pattern is required".into()),
-    };
+/// Searches for literal text patterns in files.
+///
+/// Uses fixed-string/literal mode (`rg -F` equivalent) per ADR-103 C13.
+/// Regex mode is intentionally NOT supported to prevent ReDoS.
+pub struct GrepTool;
 
-    let search_path = args.get("path").and_then(|v| v.as_str()).unwrap_or(".");
-    let include = args.get("include").and_then(|v| v.as_str());
+#[async_trait]
+impl Tool for GrepTool {
+    fn name(&self) -> &str {
+        "grep"
+    }
 
-    let base = runtime.cwd.as_deref().unwrap_or(".");
-    let full_path = if Path::new(search_path).is_absolute() {
-        Path::new(search_path).to_path_buf()
-    } else {
-        Path::new(base).join(search_path)
-    };
+    fn description(&self) -> &str {
+        "Search for literal text in files. Returns matching lines with \
+         file path and line number."
+    }
 
-    let mut results: Vec<String> = Vec::new();
-
-    for entry in WalkDir::new(&full_path)
-        .follow_links(false)
-        .into_iter()
-        .filter_map(|e| e.ok())
-    {
-        if !entry.file_type().is_file() {
-            continue;
-        }
-
-        let path = entry.path();
-
-        if let Some(inc) = include {
-            let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
-            if let Ok(glob) = glob::Pattern::new(inc) {
-                if !glob.matches(name) {
-                    continue;
+    fn parameters_schema(&self) -> serde_json::Value {
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "pattern": {
+                    "type": "string",
+                    "description": "Literal text pattern to search for (NOT regex)"
+                },
+                "path": {
+                    "type": "string",
+                    "description": "Directory or file to search in"
+                },
+                "include": {
+                    "type": "string",
+                    "description": "Glob filter for files to include (e.g. '*.rs')"
                 }
-            }
-        }
+            },
+            "required": ["pattern"]
+        })
+    }
 
-        if let Ok(content) = fs::read_to_string(path) {
-            for (line_num, line) in content.lines().enumerate() {
-                if line.contains(pattern) {
-                    results.push(format!(
-                        "{}:{}:{}",
-                        path.display(),
-                        line_num + 1,
-                        line
+    fn invoke(&self, args: serde_json::Value, runtime: &ToolRuntime) -> ToolResult {
+        let pattern = match args.get("pattern").and_then(|v| v.as_str()) {
+            Some(p) => p,
+            None => {
+                return ToolResult::Text("Error: pattern is required".to_string())
+            }
+        };
+        let path = args.get("path").and_then(|v| v.as_str());
+        let include = args.get("include").and_then(|v| v.as_str());
+
+        match runtime.backend.grep_raw(pattern, path, include) {
+            Ok(matches) => {
+                if matches.is_empty() {
+                    return ToolResult::Text(format!(
+                        "No matches found for '{}'",
+                        pattern
                     ));
                 }
+                let mut output = String::with_capacity(matches.len() * 80);
+                for m in &matches {
+                    if !output.is_empty() {
+                        output.push('\n');
+                    }
+                    output.push_str(&format!(
+                        "{}:{}:{}",
+                        m.file, m.line_number, m.text
+                    ));
+                }
+                ToolResult::Text(output)
             }
+            Err(e) => ToolResult::Text(format!("Error: {}", e)),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::tests_common::*;
+
+    #[test]
+    fn test_grep_name() {
+        assert_eq!(GrepTool.name(), "grep");
+    }
+
+    #[test]
+    fn test_grep_schema() {
+        let schema = GrepTool.parameters_schema();
+        let required = schema["required"].as_array().unwrap();
+        assert!(required.contains(&serde_json::json!("pattern")));
+    }
+
+    #[test]
+    fn test_grep_invoke_success() {
+        let runtime = mock_runtime();
+        let result = GrepTool.invoke(
+            serde_json::json!({"pattern": "hello"}),
+            &runtime,
+        );
+        match result {
+            ToolResult::Text(s) => {
+                assert!(s.contains("hello"));
+                assert!(s.contains("test.txt"));
+                assert!(s.contains(":1:"));
+            }
+            _ => panic!("expected Text result"),
         }
     }
 
-    if results.is_empty() {
-        ToolResult::Text("No results found.".into())
-    } else {
-        ToolResult::Text(results.join("\n"))
+    #[test]
+    fn test_grep_no_matches() {
+        let runtime = mock_runtime();
+        let result = GrepTool.invoke(
+            serde_json::json!({"pattern": "nonexistent_xyz"}),
+            &runtime,
+        );
+        match result {
+            ToolResult::Text(s) => assert!(s.contains("No matches")),
+            _ => panic!("expected no matches text"),
+        }
+    }
+
+    #[test]
+    fn test_grep_with_path() {
+        let runtime = mock_runtime();
+        let result = GrepTool.invoke(
+            serde_json::json!({"pattern": "hello", "path": "/"}),
+            &runtime,
+        );
+        match result {
+            ToolResult::Text(s) => assert!(s.contains("hello")),
+            _ => panic!("expected Text result"),
+        }
+    }
+
+    #[test]
+    fn test_grep_missing_pattern() {
+        let runtime = mock_runtime();
+        let result = GrepTool.invoke(serde_json::json!({}), &runtime);
+        match result {
+            ToolResult::Text(s) => assert!(s.contains("pattern is required")),
+            _ => panic!("expected error"),
+        }
+    }
+
+    #[test]
+    fn test_grep_literal_not_regex() {
+        assert!(GrepTool.description().contains("literal"));
+    }
+
+    #[test]
+    fn test_grep_permission_denied() {
+        let runtime = mock_runtime_with_error();
+        let result = GrepTool.invoke(
+            serde_json::json!({"pattern": "hello"}),
+            &runtime,
+        );
+        match result {
+            ToolResult::Text(s) => assert!(s.contains("Error")),
+            _ => panic!("expected error"),
+        }
     }
 }
