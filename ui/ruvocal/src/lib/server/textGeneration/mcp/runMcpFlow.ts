@@ -341,121 +341,89 @@ export async function* runMcpFlow({
 			// Use these to work with files in the virtual filesystem
 			{
 				name: "read_file",
-				description: `Read the contents of a file from the virtual filesystem.
+				description: `Read file contents. REQUIRES path parameter.
 
-WHEN TO USE: Use this when you need to see what's inside a file, check its current contents, or verify changes.
+CALL EXACTLY LIKE THIS:
+  read_file({"path": "src/index.ts"})
+  read_file({"path": "package.json"})
 
-PARAMETERS:
-- path (required): The file path like "src/index.ts" or "config.json"
-
-RETURNS: The full text content of the file.
-
-EXAMPLE: read_file({ path: "package.json" })
-
-NOTE: Returns an error if the file doesn't exist. Use list_files first if unsure what files exist.`,
+DO NOT call with empty {}. Always include path.`,
 				inputSchema: {
 					type: "object",
 					properties: {
-						path: { type: "string", description: "File path to read (e.g., 'src/index.ts', 'README.md')" },
+						path: { type: "string", description: "REQUIRED: File path like 'src/index.ts' or 'config.json'" },
 					},
 					required: ["path"],
+					additionalProperties: false,
 				},
 			},
 			{
 				name: "write_file",
-				description: `Write content to a file in the virtual filesystem. Creates the file if it doesn't exist, or overwrites if it does.
+				description: `Write/create a file. REQUIRES path AND content parameters.
 
-WHEN TO USE: Use this to create new files or completely replace a file's contents.
+CALL EXACTLY LIKE THIS:
+  write_file({"path": "hello.txt", "content": "Hello World"})
+  write_file({"path": "src/app.ts", "content": "export const x = 1;"})
 
-PARAMETERS:
-- path (required): The file path like "src/app.ts" or "data.json"
-- content (required): The complete content to write to the file
-
-RETURNS: Confirmation message with bytes written.
-
-EXAMPLE: write_file({ path: "hello.txt", content: "Hello World!" })
-
-WARNING: This overwrites the entire file. To modify part of a file, use edit_file instead.`,
+DO NOT call with empty {} or missing content.`,
 				inputSchema: {
 					type: "object",
 					properties: {
-						path: { type: "string", description: "File path to write to (e.g., 'src/new-file.ts')" },
-						content: { type: "string", description: "Complete content to write to the file" },
+						path: { type: "string", description: "REQUIRED: File path like 'hello.txt'" },
+						content: { type: "string", description: "REQUIRED: Content to write" },
 					},
 					required: ["path", "content"],
+					additionalProperties: false,
 				},
 			},
 			{
 				name: "list_files",
-				description: `List all files currently in the virtual filesystem.
+				description: `List all files. No parameters needed.
 
-WHEN TO USE: Use this to see what files exist, before reading or editing files, or to verify file operations.
+CALL LIKE THIS:
+  list_files({})
 
-PARAMETERS: None required.
-
-RETURNS: A list of all file paths, or a message if no files exist.
-
-EXAMPLE: list_files({})
-
-TIP: Always call this first if you're unsure what files are available.`,
+Returns all file paths in the virtual filesystem.`,
 				inputSchema: {
 					type: "object",
 					properties: {},
+					additionalProperties: false,
 				},
 			},
 			{
 				name: "delete_file",
-				description: `Delete a file from the virtual filesystem.
+				description: `Delete a file. REQUIRES path parameter.
 
-WHEN TO USE: Use this to remove files you no longer need.
+CALL EXACTLY LIKE THIS:
+  delete_file({"path": "temp.txt"})
 
-PARAMETERS:
-- path (required): The file path to delete
-
-RETURNS: Confirmation that the file was deleted.
-
-EXAMPLE: delete_file({ path: "temp.txt" })
-
-NOTE: Returns an error if the file doesn't exist.`,
+DO NOT call with empty {}.`,
 				inputSchema: {
 					type: "object",
 					properties: {
-						path: { type: "string", description: "File path to delete" },
+						path: { type: "string", description: "REQUIRED: File path to delete" },
 					},
 					required: ["path"],
+					additionalProperties: false,
 				},
 			},
 			{
 				name: "edit_file",
-				description: `Edit a file by finding and replacing specific content. This is safer than write_file for modifications.
+				description: `Replace text in a file. REQUIRES path, old_content, new_content.
 
-WHEN TO USE: Use this to make targeted changes to a file without rewriting the entire thing.
+CALL EXACTLY LIKE THIS:
+  edit_file({"path": "config.json", "old_content": "v1.0", "new_content": "v2.0"})
 
-PARAMETERS:
-- path (required): The file path to edit
-- old_content (required): The EXACT text to find (must match exactly including whitespace)
-- new_content (required): The text to replace it with
-
-RETURNS: Confirmation that the edit was successful.
-
-EXAMPLE: edit_file({
-  path: "config.json",
-  old_content: '"version": "1.0.0"',
-  new_content: '"version": "1.0.1"'
-})
-
-IMPORTANT:
-- old_content must match EXACTLY what's in the file (use read_file to verify)
-- Only the first occurrence is replaced
-- If old_content is not found, the operation fails`,
+old_content must match EXACTLY. Use read_file first to see content.`,
 				inputSchema: {
 					type: "object",
 					properties: {
-						path: { type: "string", description: "File path to edit" },
-						old_content: { type: "string", description: "Exact text to find (must match exactly)" },
-						new_content: { type: "string", description: "Text to replace it with" },
+						path: { type: "string", description: "REQUIRED: File path" },
+						old_content: { type: "string", description: "REQUIRED: Exact text to find" },
+						new_content: { type: "string", description: "REQUIRED: Replacement text" },
 					},
 					required: ["path", "old_content", "new_content"],
+					additionalProperties: false,
 				},
 			},
 
@@ -463,54 +431,39 @@ IMPORTANT:
 			// Use these to find content or files
 			{
 				name: "grep",
-				description: `Search for text patterns across files using regular expressions.
+				description: `Search files for pattern. REQUIRES pattern parameter.
 
-WHEN TO USE: Use this to find where specific code, text, or patterns appear in files.
+CALL EXACTLY LIKE THIS:
+  grep({"pattern": "TODO"})
+  grep({"pattern": "function", "path": "src/index.ts"})
 
-PARAMETERS:
-- pattern (required): A regex pattern to search for (e.g., "TODO", "function.*export", "\\d{4}")
-- path (optional): Specific file to search in. If omitted, searches all files.
-
-RETURNS: Matching lines with file path and line numbers.
-
-EXAMPLES:
-- Find all TODOs: grep({ pattern: "TODO" })
-- Find exports in one file: grep({ pattern: "export", path: "src/index.ts" })
-- Find numbers: grep({ pattern: "\\d+" })
-
-TIP: The search is case-insensitive.`,
+DO NOT call with empty {}.`,
 				inputSchema: {
 					type: "object",
 					properties: {
-						pattern: { type: "string", description: "Regex pattern to search for (e.g., 'TODO', 'function', '\\\\d+')" },
-						path: { type: "string", description: "Optional: specific file to search in" },
+						pattern: { type: "string", description: "REQUIRED: Regex pattern like 'TODO' or 'export'" },
+						path: { type: "string", description: "Optional: Specific file to search" },
 					},
 					required: ["pattern"],
+					additionalProperties: false,
 				},
 			},
 			{
 				name: "glob",
-				description: `Find files matching a glob pattern.
+				description: `Find files by pattern. REQUIRES pattern parameter.
 
-WHEN TO USE: Use this to find files by name pattern (e.g., all TypeScript files, all configs).
+CALL EXACTLY LIKE THIS:
+  glob({"pattern": "*.ts"})
+  glob({"pattern": "src/*.js"})
 
-PARAMETERS:
-- pattern (required): Glob pattern using * and ? wildcards
-
-RETURNS: List of matching file paths.
-
-EXAMPLES:
-- All .ts files: glob({ pattern: "*.ts" })
-- All JSON files: glob({ pattern: "*.json" })
-- Files starting with "test": glob({ pattern: "test*" })
-
-NOTE: Uses simple wildcard matching (* = any characters, ? = single character).`,
+DO NOT call with empty {}.`,
 				inputSchema: {
 					type: "object",
 					properties: {
-						pattern: { type: "string", description: "Glob pattern (e.g., '*.ts', 'config*', 'test?.js')" },
+						pattern: { type: "string", description: "REQUIRED: Glob pattern like '*.ts' or 'config*'" },
 					},
 					required: ["pattern"],
+					additionalProperties: false,
 				},
 			},
 
@@ -518,250 +471,181 @@ NOTE: Uses simple wildcard matching (* = any characters, ? = single character).`
 			// Use these to track work items and progress
 			{
 				name: "todo_add",
-				description: `Add a task to the todo list to track your work.
+				description: `Add a task. REQUIRES task parameter.
 
-WHEN TO USE: Use this when you need to remember steps, track progress, or plan multi-step work.
+CALL EXACTLY LIKE THIS:
+  todo_add({"task": "Write unit tests"})
 
-PARAMETERS:
-- task (required): Description of the task to add
-
-RETURNS: Confirmation with the task ID (e.g., "todo-1").
-
-EXAMPLE: todo_add({ task: "Implement user authentication" })
-
-TIP: Break complex work into multiple smaller tasks for better tracking.`,
+DO NOT call with empty {}.`,
 				inputSchema: {
 					type: "object",
 					properties: {
-						task: { type: "string", description: "Task description (e.g., 'Write unit tests')" },
+						task: { type: "string", description: "REQUIRED: Task description" },
 					},
 					required: ["task"],
+					additionalProperties: false,
 				},
 			},
 			{
 				name: "todo_list",
-				description: `List all tasks in the todo list with their completion status.
+				description: `List all tasks. No parameters needed.
 
-WHEN TO USE: Use this to see all pending and completed tasks, or to get task IDs for completion.
-
-PARAMETERS: None required.
-
-RETURNS: List of all tasks showing:
-- ✓ = completed
-- ○ = pending
-- [todo-N] = task ID for use with todo_complete
-
-EXAMPLE: todo_list({})`,
+CALL LIKE THIS:
+  todo_list({})`,
 				inputSchema: {
 					type: "object",
 					properties: {},
+					additionalProperties: false,
 				},
 			},
 			{
 				name: "todo_complete",
-				description: `Mark a task as complete using its ID.
+				description: `Complete a task. REQUIRES id parameter.
 
-WHEN TO USE: Use this after finishing a task to track progress.
+CALL EXACTLY LIKE THIS:
+  todo_complete({"id": "todo-1"})
 
-PARAMETERS:
-- id (required): The task ID from todo_list (e.g., "todo-1", "todo-2")
-
-RETURNS: Confirmation that the task was completed.
-
-EXAMPLE: todo_complete({ id: "todo-1" })
-
-TIP: Use todo_list first to see task IDs.`,
+Get IDs from todo_list first. DO NOT call with empty {}.`,
 				inputSchema: {
 					type: "object",
 					properties: {
-						id: { type: "string", description: "Task ID from todo_list (e.g., 'todo-1', 'todo-2')" },
+						id: { type: "string", description: "REQUIRED: Task ID like 'todo-1'" },
 					},
 					required: ["id"],
+					additionalProperties: false,
 				},
 			},
 
 			// ========== MEMORY TOOLS (2 tools) ==========
-			// Use these to store and retrieve information across conversations
 			{
 				name: "memory_store",
-				description: `Store information in persistent semantic memory for later retrieval.
+				description: `Store data in memory. REQUIRES key AND value.
 
-WHEN TO USE: Use this to remember important information, patterns, solutions, or context that should persist.
+CALL EXACTLY LIKE THIS:
+  memory_store({"key": "auth-pattern", "value": "Use JWT"})
+  memory_store({"key": "solution", "value": "Fixed bug", "tags": ["fix"]})
 
-PARAMETERS:
-- key (required): A unique identifier for this memory (e.g., "auth-pattern", "bug-fix-123")
-- value (required): The information to store
-- tags (optional): Array of tags for categorization (helps with searching)
-
-RETURNS: Confirmation that the memory was stored.
-
-EXAMPLES:
-- Store a pattern: memory_store({ key: "error-handling", value: "Always use try/catch with specific error types" })
-- With tags: memory_store({ key: "jwt-auth", value: "Use RS256 for production", tags: ["security", "auth"] })
-
-TIP: Use descriptive keys and tags to make memories easier to find later.`,
+DO NOT call with empty {} or missing key/value.`,
 				inputSchema: {
 					type: "object",
 					properties: {
-						key: { type: "string", description: "Unique identifier (e.g., 'auth-pattern', 'solution-123')" },
-						value: { type: "string", description: "Information to store" },
-						tags: { type: "array", items: { type: "string" }, description: "Optional categorization tags" },
+						key: { type: "string", description: "REQUIRED: Unique key" },
+						value: { type: "string", description: "REQUIRED: Value to store" },
+						tags: { type: "array", items: { type: "string" }, description: "Optional tags" },
 					},
 					required: ["key", "value"],
+					additionalProperties: false,
 				},
 			},
 			{
 				name: "memory_search",
-				description: `Search stored memories by keyword. Uses semantic matching on keys, values, and tags.
+				description: `Search stored memories. REQUIRES query parameter.
 
-WHEN TO USE: Use this to recall stored information, find past solutions, or retrieve context.
+CALL EXACTLY LIKE THIS:
+  memory_search({"query": "authentication"})
 
-PARAMETERS:
-- query (required): Search terms to find in memories
-- top_k (optional): Maximum results to return (default: 5)
-
-RETURNS: Matching memories with their keys and values (truncated if long).
-
-EXAMPLES:
-- Find auth-related: memory_search({ query: "authentication" })
-- Limit results: memory_search({ query: "error", top_k: 3 })
-
-TIP: Search by key names, value content, or tags.`,
+DO NOT call with empty {}.`,
 				inputSchema: {
 					type: "object",
 					properties: {
-						query: { type: "string", description: "Search terms (e.g., 'authentication', 'error handling')" },
-						top_k: { type: "number", description: "Max results to return (default: 5)" },
+						query: { type: "string", description: "REQUIRED: Search terms" },
+						top_k: { type: "number", description: "Max results (default: 5)" },
 					},
 					required: ["query"],
+					additionalProperties: false,
 				},
 			},
 
 			// ========== WITNESS CHAIN (2 tools) ==========
-			// Use these for audit trails and compliance
 			{
 				name: "witness_log",
-				description: `Log an action to the immutable witness chain for auditing and compliance.
+				description: `Log to audit chain. REQUIRES action parameter.
 
-WHEN TO USE: Use this to create an audit trail of important actions, especially for security or compliance.
+CALL EXACTLY LIKE THIS:
+  witness_log({"action": "file_modified"})
+  witness_log({"action": "deploy", "data": {"env": "prod"}})
 
-PARAMETERS:
-- action (required): Description of the action being logged
-- data (optional): Additional structured data to include
-
-RETURNS: Confirmation with the cryptographic hash of the log entry.
-
-EXAMPLES:
-- Log file change: witness_log({ action: "file_modified", data: { path: "config.json" } })
-- Log decision: witness_log({ action: "security_decision", data: { approved: true } })
-
-NOTE: All tool calls are automatically logged. Use this for explicit important events.`,
+DO NOT call with empty {}.`,
 				inputSchema: {
 					type: "object",
 					properties: {
-						action: { type: "string", description: "Action description (e.g., 'file_created', 'config_changed')" },
-						data: { type: "object", description: "Optional additional data to log" },
+						action: { type: "string", description: "REQUIRED: Action name" },
+						data: { type: "object", description: "Optional extra data" },
 					},
 					required: ["action"],
+					additionalProperties: false,
 				},
 			},
 			{
 				name: "witness_verify",
-				description: `Verify the integrity of the witness chain to ensure no tampering.
+				description: `Verify audit chain integrity. No parameters needed.
 
-WHEN TO USE: Use this to validate the audit trail is intact, especially for compliance checks.
-
-PARAMETERS: None required.
-
-RETURNS: Chain status (VALID/INVALID) and entry count.
-
-EXAMPLE: witness_verify({})
-
-NOTE: A valid chain means all entries are correctly linked with cryptographic hashes.`,
+CALL LIKE THIS:
+  witness_verify({})`,
 				inputSchema: {
 					type: "object",
 					properties: {},
+					additionalProperties: false,
 				},
 			},
 
 			// ========== RVF GALLERY (3 tools) ==========
-			// Use these to browse and load agent templates
 			{
 				name: "gallery_list",
-				description: `List available RVF agent templates from the gallery.
+				description: `List agent templates. No parameters needed (or filter by category).
 
-WHEN TO USE: Use this to see what pre-built agent configurations are available.
-
-PARAMETERS:
-- category (optional): Filter by category
-
-CATEGORIES AVAILABLE:
-- development: Coding and development agents
-- research: Research and analysis agents
-- security: Security and audit agents
-- orchestration: Multi-agent coordination
-- learning: Self-improving agents
-- tooling: Builder and utility agents
-- compliance: Audit and compliance agents
-- basic: Simple, minimal agents
-
-EXAMPLE: gallery_list({ category: "security" })`,
+CALL LIKE THIS:
+  gallery_list({})
+  gallery_list({"category": "security"})`,
 				inputSchema: {
 					type: "object",
 					properties: {
-						category: { type: "string", description: "Filter by category (development, research, security, etc.)" },
+						category: { type: "string", description: "Optional: Filter by category" },
 					},
+					additionalProperties: false,
 				},
 			},
 			{
 				name: "gallery_load",
-				description: `Load an RVF agent template by its ID to use its capabilities.
+				description: `Load an RVF agent template. REQUIRES id parameter.
 
-WHEN TO USE: Use this to activate a specific agent template's tools and prompts.
+CALL EXACTLY LIKE THIS:
+  gallery_load({"id": "development-agent"})
 
-PARAMETERS:
-- id (required): Template ID from gallery_list
+AVAILABLE IDs (pick one):
+  "development-agent" | "research-agent" | "security-agent" | "minimal-agent"
+  "multi-agent-orchestrator" | "sona-learning-agent" | "witness-auditor"
 
-TEMPLATE IDs AVAILABLE:
-- development-agent: Full dev tools with /commit, /review, /test skills
-- research-agent: Memory-enhanced research capabilities
-- security-agent: Security scanning and auditing
-- multi-agent-orchestrator: Coordinate multiple agents
-- sona-learning-agent: Self-improving with SONA
-- agi-container-builder: Build portable AI packages
-- witness-auditor: Cryptographic audit trails
-- minimal-agent: Basic file operations only
-
-EXAMPLE: gallery_load({ id: "development-agent" })`,
+DO NOT call with empty {}. Always include id.`,
 				inputSchema: {
 					type: "object",
 					properties: {
-						id: { type: "string", description: "Template ID (e.g., 'development-agent', 'security-agent')" },
+						id: {
+							type: "string",
+							description: "REQUIRED: Template ID. Use: development-agent, research-agent, security-agent, etc.",
+							enum: ["development-agent", "research-agent", "security-agent", "multi-agent-orchestrator", "sona-learning-agent", "agi-container-builder", "witness-auditor", "minimal-agent"]
+						},
 					},
 					required: ["id"],
+					additionalProperties: false,
 				},
 			},
 			{
 				name: "gallery_search",
-				description: `Search for agent templates by name, description, or tags.
+				description: `Search gallery templates. REQUIRES query parameter.
 
-WHEN TO USE: Use this to find templates matching specific needs or capabilities.
+CALL EXACTLY LIKE THIS:
+  gallery_search({"query": "security"})
+  gallery_search({"query": "development"})
 
-PARAMETERS:
-- query (required): Search terms
-
-RETURNS: Matching templates with their IDs and descriptions.
-
-EXAMPLES:
-- Find security tools: gallery_search({ query: "security" })
-- Find learning agents: gallery_search({ query: "adaptive" })
-- Find file tools: gallery_search({ query: "files" })`,
+DO NOT call with empty {}. Always include query string.`,
 				inputSchema: {
 					type: "object",
 					properties: {
-						query: { type: "string", description: "Search terms (e.g., 'security', 'coding', 'memory')" },
+						query: { type: "string", description: "REQUIRED: Search terms like 'security', 'coding', 'memory'" },
 					},
 					required: ["query"],
+					additionalProperties: false,
 				},
 			},
 		];

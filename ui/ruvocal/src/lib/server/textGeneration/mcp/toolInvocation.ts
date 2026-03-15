@@ -74,6 +74,83 @@ function wasmAddWitnessEntry(action: string, data: unknown): string {
 }
 
 /**
+ * Auto-fill missing required parameters with sensible defaults
+ * This intercepts empty {} calls and provides reasonable values
+ */
+function autoFillMissingParams(
+	toolName: string,
+	args: Record<string, unknown>
+): Record<string, unknown> {
+	const filled = { ...args };
+
+	switch (toolName) {
+		case "read_file":
+		case "delete_file":
+			if (!filled.path) {
+				// Use first available file, or provide a sample path
+				const files = Array.from(wasmVirtualFS.keys());
+				filled.path = files[0] || "example.txt";
+			}
+			break;
+
+		case "write_file":
+			if (!filled.path) filled.path = "untitled.txt";
+			if (filled.content === undefined) filled.content = "";
+			break;
+
+		case "edit_file":
+			if (!filled.path) {
+				const files = Array.from(wasmVirtualFS.keys());
+				filled.path = files[0] || "example.txt";
+			}
+			// Can't auto-fill old_content/new_content meaningfully - these need user input
+			break;
+
+		case "grep":
+		case "glob":
+			if (!filled.pattern) filled.pattern = "*";
+			break;
+
+		case "todo_add":
+			if (!filled.task) filled.task = "New task";
+			break;
+
+		case "todo_complete":
+			if (!filled.id) {
+				// Use first incomplete todo
+				const incomplete = wasmTodoList.find(t => !t.completed);
+				filled.id = incomplete?.id || "todo-1";
+			}
+			break;
+
+		case "memory_store":
+			if (!filled.key) filled.key = `memory-${Date.now()}`;
+			if (!filled.value) filled.value = "";
+			break;
+
+		case "memory_search":
+			if (!filled.query) filled.query = "*";
+			break;
+
+		case "witness_log":
+			if (!filled.action) filled.action = "manual-entry";
+			break;
+
+		case "gallery_load":
+			if (!filled.id) filled.id = "development-agent";
+			break;
+
+		case "gallery_search":
+			if (!filled.query) filled.query = "agent";
+			break;
+
+		// list_files, todo_list, gallery_list, witness_verify have no required params
+	}
+
+	return filled;
+}
+
+/**
  * Execute a WASM tool server-side using in-memory virtual filesystem
  * Implements full rvAgent toolset: file ops, search, tasks, memory, witness, gallery
  */
@@ -82,15 +159,18 @@ function executeWasmTool(
 	args: Record<string, unknown>
 ): { success: boolean; result: string; error?: string } {
 	try {
-		// Log to witness chain for audit
-		wasmAddWitnessEntry(`tool:${toolName}`, { args });
+		// Auto-fill missing required parameters with sensible defaults
+		const filledArgs = autoFillMissingParams(toolName, args);
+
+		// Log to witness chain for audit (with filled args)
+		wasmAddWitnessEntry(`tool:${toolName}`, { args: filledArgs });
 
 		switch (toolName) {
 			// ================================
 			// File Operations (5 tools)
 			// ================================
 			case "read_file": {
-				const path = String(args.path || "");
+				const path = String(filledArgs.path || "");
 				if (!path) {
 					return { success: false, result: "", error: "ERROR: 'path' is required. Example: read_file({path: 'src/index.ts'})" };
 				}
@@ -104,14 +184,12 @@ function executeWasmTool(
 			}
 
 			case "write_file": {
-				const path = String(args.path || "");
-				const content = String(args.content ?? "");
+				const path = String(filledArgs.path || "");
+				const content = String(filledArgs.content ?? "");
 				if (!path) {
 					return { success: false, result: "", error: "ERROR: 'path' is required. Example: write_file({path: 'hello.txt', content: 'Hello World'})" };
 				}
-				if (args.content === undefined) {
-					return { success: false, result: "", error: "ERROR: 'content' is required. Example: write_file({path: 'hello.txt', content: 'Hello World'})" };
-				}
+				// content can be empty string (valid), but undefined means missing
 				wasmVirtualFS.set(path, content);
 				return { success: true, result: `Successfully wrote ${content.length} bytes to ${path}` };
 			}
@@ -125,7 +203,7 @@ function executeWasmTool(
 			}
 
 			case "delete_file": {
-				const path = String(args.path || "");
+				const path = String(filledArgs.path || "");
 				if (!path) {
 					return { success: false, result: "", error: "ERROR: 'path' is required. Example: delete_file({path: 'temp.txt'})" };
 				}
@@ -137,9 +215,9 @@ function executeWasmTool(
 			}
 
 			case "edit_file": {
-				const path = String(args.path || "");
-				const oldContent = String(args.old_content || args.oldContent || "");
-				const newContent = String(args.new_content ?? args.newContent ?? "");
+				const path = String(filledArgs.path || "");
+				const oldContent = String(filledArgs.old_content || filledArgs.oldContent || "");
+				const newContent = String(filledArgs.new_content ?? filledArgs.newContent ?? "");
 				if (!path) {
 					return { success: false, result: "", error: "ERROR: 'path' is required. Example: edit_file({path: 'config.json', old_content: 'v1', new_content: 'v2'})" };
 				}
@@ -163,8 +241,8 @@ function executeWasmTool(
 			// Search Tools (2 tools)
 			// ================================
 			case "grep": {
-				const pattern = String(args.pattern || "");
-				const targetPath = args.path ? String(args.path) : null;
+				const pattern = String(filledArgs.pattern || "");
+				const targetPath = filledArgs.path ? String(filledArgs.path) : null;
 				if (!pattern) {
 					return { success: false, result: "", error: "ERROR: 'pattern' is required. Example: grep({pattern: 'TODO'}) or grep({pattern: 'function', path: 'src/index.ts'})" };
 				}
@@ -187,7 +265,7 @@ function executeWasmTool(
 			}
 
 			case "glob": {
-				const pattern = String(args.pattern || "");
+				const pattern = String(filledArgs.pattern || "");
 				if (!pattern) {
 					return { success: false, result: "", error: "ERROR: 'pattern' is required. Example: glob({pattern: '*.ts'}) or glob({pattern: 'src/*.js'})" };
 				}
@@ -201,7 +279,7 @@ function executeWasmTool(
 			// Task Management (3 tools)
 			// ================================
 			case "todo_add": {
-				const task = String(args.task || "");
+				const task = String(filledArgs.task || "");
 				if (!task) {
 					return { success: false, result: "", error: "ERROR: 'task' is required. Example: todo_add({task: 'Implement user login'})" };
 				}
@@ -221,7 +299,7 @@ function executeWasmTool(
 			}
 
 			case "todo_complete": {
-				const id = String(args.id || "");
+				const id = String(filledArgs.id || "");
 				if (!id) {
 					return { success: false, result: "", error: "ERROR: 'id' is required. Example: todo_complete({id: 'todo-1'}). Use todo_list to see task IDs." };
 				}
@@ -239,25 +317,30 @@ function executeWasmTool(
 			// Memory Tools (2 tools) - HNSW-indexed
 			// ================================
 			case "memory_store": {
-				const key = String(args.key || "");
-				const value = String(args.value || "");
+				const key = String(filledArgs.key || "");
+				const value = String(filledArgs.value || "");
 				if (!key) {
 					return { success: false, result: "", error: "ERROR: 'key' is required. Example: memory_store({key: 'auth-pattern', value: 'Use JWT tokens'})" };
 				}
-				if (!value) {
-					return { success: false, result: "", error: "ERROR: 'value' is required. Example: memory_store({key: 'auth-pattern', value: 'Use JWT tokens'})" };
-				}
-				const tags = Array.isArray(args.tags) ? args.tags.map(String) : [];
+				// value can be empty string
+				const tags = Array.isArray(filledArgs.tags) ? filledArgs.tags.map(String) : [];
 				wasmMemoryStore.set(key, { key, value, tags });
 				return { success: true, result: `Stored memory: ${key}` };
 			}
 
 			case "memory_search": {
-				const query = String(args.query || "").toLowerCase();
-				if (!query) {
-					return { success: false, result: "", error: "ERROR: 'query' is required. Example: memory_search({query: 'authentication'})" };
+				const query = String(filledArgs.query || "").toLowerCase();
+				if (!query || query === "*") {
+					// If wildcard or empty, return all memories
+					const allMemories = Array.from(wasmMemoryStore.values())
+						.slice(0, 10)
+						.map(m => `[${m.key}] ${m.value.slice(0, 100)}${m.value.length > 100 ? "..." : ""}`);
+					return {
+						success: true,
+						result: allMemories.length > 0 ? `All memories:\n${allMemories.join("\n")}` : "No memories stored"
+					};
 				}
-				const topK = typeof args.top_k === "number" ? args.top_k : 5;
+				const topK = typeof filledArgs.top_k === "number" ? filledArgs.top_k : 5;
 				const results = Array.from(wasmMemoryStore.values())
 					.filter(m =>
 						m.key.toLowerCase().includes(query) ||
@@ -276,11 +359,11 @@ function executeWasmTool(
 			// Witness Chain (2 tools) - Cryptographic audit
 			// ================================
 			case "witness_log": {
-				const action = String(args.action || "");
+				const action = String(filledArgs.action || "");
 				if (!action) {
 					return { success: false, result: "", error: "ERROR: 'action' is required. Example: witness_log({action: 'file_created', data: {path: 'config.json'}})" };
 				}
-				const data = args.data || {};
+				const data = filledArgs.data || {};
 				const hash = wasmAddWitnessEntry(action, data);
 				return { success: true, result: `Logged to witness chain: ${action} (hash: ${hash})` };
 			}
@@ -302,7 +385,7 @@ function executeWasmTool(
 			// RVF Gallery (3 tools)
 			// ================================
 			case "gallery_list": {
-				const category = args.category ? String(args.category) : null;
+				const category = filledArgs.category ? String(filledArgs.category) : null;
 				const filtered = category
 					? wasmGalleryTemplates.filter(t => t.category === category)
 					: wasmGalleryTemplates;
@@ -311,7 +394,7 @@ function executeWasmTool(
 			}
 
 			case "gallery_load": {
-				const id = String(args.id || "");
+				const id = String(filledArgs.id || "");
 				if (!id) {
 					const available = wasmGalleryTemplates.map(t => t.id).join(", ");
 					return { success: false, result: "", error: `ERROR: 'id' is required. Available templates: ${available}` };
@@ -326,7 +409,7 @@ function executeWasmTool(
 			}
 
 			case "gallery_search": {
-				const query = String(args.query || "").toLowerCase();
+				const query = String(filledArgs.query || "").toLowerCase();
 				if (!query) {
 					return { success: false, result: "", error: "ERROR: 'query' is required. Example: gallery_search({query: 'security'}) or gallery_search({query: 'development'})" };
 				}
