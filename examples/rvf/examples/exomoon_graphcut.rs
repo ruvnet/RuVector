@@ -1111,12 +1111,37 @@ fn main() {
             k_bank, temperature, eta,
         );
 
-        // Step 4: Build graph and solve mincut
-        let edges = build_graph(&windows, alpha, beta, k_nn);
-        let labels = solve_mincut(&windows, &edges, gamma);
+        // Step 4: Build graph and solve mincut with iterative refinement
+        let max_iters = 3;
+        let mut prev_support_count = 0usize;
+        let mut labels = vec![false; windows.len()];
+        for iter in 0..max_iters {
+            let edges = build_graph(&windows, alpha, beta, k_nn);
+            labels = solve_mincut(&windows, &edges, gamma);
 
-        // Iterate: update and re-solve (1 iteration for demo)
-        // In production, iterate until support set stabilizes
+            let support_count = labels.iter().filter(|&&s| s).count();
+            println!("    Event {} iter {}: support {} windows (prev {})",
+                     event.event_id, iter + 1, support_count, prev_support_count);
+
+            if support_count == prev_support_count {
+                println!("    Support converged at iteration {}", iter + 1);
+                break;
+            }
+            prev_support_count = support_count;
+
+            // Boost lambda for support windows, decay for non-support windows
+            if iter < max_iters - 1 {
+                for (i, _win) in windows.iter_mut().enumerate() {
+                    if labels[i] {
+                        // Increase lambda for coherent support windows
+                        _win.lambda *= 1.2;
+                    } else {
+                        // Decay lambda for non-support windows
+                        _win.lambda *= 0.9;
+                    }
+                }
+            }
+        }
 
         // Step 5: Global decision
         let result = global_decision(event, &fit, &windows, &labels, mu, nu);

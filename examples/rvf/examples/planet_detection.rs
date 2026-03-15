@@ -329,8 +329,9 @@ fn main() {
     for lc in &light_curves {
         let windows = segment_into_windows(lc, window_size);
         for (_epoch, _flux_window) in &windows {
-            // NOTE: Synthetic embeddings — seed-based, not derived from flux features.
-            // In a production pipeline, embeddings would be computed from window statistics.
+            // NOTE: Synthetic embeddings — seed-based, not computed from flux features.
+            // In a production pipeline, embeddings would be derived from window statistics
+            // (mean, variance, skewness, autocorrelation) for meaningful similarity search.
             let vec = random_vector(dim, global_id * 17 + lc.target_id);
             all_vectors.push(vec);
             all_ids.push(global_id);
