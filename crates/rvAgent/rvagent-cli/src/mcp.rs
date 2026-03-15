@@ -4,16 +4,14 @@
 //! and translates MCP tool schemas into the rvAgent `Tool` trait format
 //! so they can be used seamlessly in the agent pipeline.
 //!
-//! Note: Many types and methods here are defined for the full MCP protocol
-//! but not yet wired into the CLI. They will be used once the protocol
-//! transport layer is implemented.
-#![allow(dead_code)]
+//! Supports both stdio (subprocess) and SSE (HTTP) transports.
 
 use std::collections::HashMap;
 
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
-use tracing::{info, warn};
+use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+use tracing::{debug, info, warn};
 
 // ---------------------------------------------------------------------------
 // MCP tool schema types
@@ -127,6 +125,17 @@ pub struct McpClient {
     config: McpServerConfig,
     /// Discovered tools from this server.
     tools: Vec<McpToolDef>,
+    /// Stdin handle for the stdio subprocess (if connected via stdio transport).
+    #[allow(dead_code)]
+    stdin: Option<tokio::process::ChildStdin>,
+    /// Buffered stdout reader for the stdio subprocess.
+    #[allow(dead_code)]
+    stdout: Option<BufReader<tokio::process::ChildStdout>>,
+    /// Child process handle for the stdio subprocess.
+    #[allow(dead_code)]
+    child: Option<tokio::process::Child>,
+    /// Next JSON-RPC request ID.
+    next_id: u64,
 }
 
 impl McpClient {
@@ -135,6 +144,10 @@ impl McpClient {
         Self {
             config,
             tools: Vec::new(),
+            stdin: None,
+            stdout: None,
+            child: None,
+            next_id: 1,
         }
     }
 
@@ -185,29 +198,120 @@ impl McpClient {
         &self.config.name
     }
 
-    /// Call a tool on this MCP server.
-    pub async fn call_tool(&self, call: &McpToolCall) -> Result<McpToolResult> {
+    /// Call a tool on this MCP server via JSON-RPC over the stdio transport.
+    pub async fn call_tool(&mut self, call: &McpToolCall) -> Result<McpToolResult> {
         if !self.config.connected {
             anyhow::bail!("MCP server '{}' is not connected", self.config.name);
         }
 
-        // TODO: Implement actual MCP protocol communication.
-        // For now, return a stub result.
-        warn!(
+        let stdin = self.stdin.as_mut().context(
+            "MCP server not connected via stdio — call_tool requires an active subprocess",
+        )?;
+        let stdout = self.stdout.as_mut().context(
+            "MCP server stdout not available",
+        )?;
+
+        let id = self.next_id;
+        self.next_id += 1;
+
+        let request = serde_json::json!({
+            "jsonrpc": "2.0",
+            "id": id,
+            "method": "tools/call",
+            "params": {
+                "name": call.name,
+                "arguments": call.arguments,
+            }
+        });
+
+        let mut request_line = serde_json::to_string(&request)
+            .context("failed to serialize tools/call request")?;
+        request_line.push('\n');
+
+        stdin
+            .write_all(request_line.as_bytes())
+            .await
+            .context("failed to write to MCP subprocess stdin")?;
+        stdin
+            .flush()
+            .await
+            .context("failed to flush MCP subprocess stdin")?;
+
+        let mut response_line = String::new();
+        stdout
+            .read_line(&mut response_line)
+            .await
+            .context("failed to read tools/call response from MCP subprocess")?;
+
+        let response: serde_json::Value = serde_json::from_str(response_line.trim())
+            .context("failed to parse tools/call JSON-RPC response")?;
+
+        debug!(
             server = %self.config.name,
             tool = %call.name,
-            "MCP tool call stub — not yet implemented"
+            "MCP tools/call response received"
         );
 
-        Ok(McpToolResult {
-            is_error: false,
-            content: vec![McpContent::Text {
-                text: format!(
-                    "[MCP stub] Tool '{}' called on server '{}'",
-                    call.name, self.config.name
-                ),
-            }],
-        })
+        // Parse the result from the JSON-RPC response.
+        if let Some(error) = response.get("error") {
+            let msg = error
+                .get("message")
+                .and_then(|m| m.as_str())
+                .unwrap_or("unknown error");
+            return Ok(McpToolResult {
+                is_error: true,
+                content: vec![McpContent::Text {
+                    text: format!("MCP error: {}", msg),
+                }],
+            });
+        }
+
+        let result = response
+            .get("result")
+            .cloned()
+            .unwrap_or(serde_json::Value::Null);
+
+        let is_error = result
+            .get("isError")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
+
+        let content = if let Some(content_array) = result.get("content").and_then(|c| c.as_array())
+        {
+            content_array
+                .iter()
+                .filter_map(|item| {
+                    let content_type = item.get("type")?.as_str()?;
+                    match content_type {
+                        "text" => {
+                            let text = item.get("text")?.as_str()?.to_string();
+                            Some(McpContent::Text { text })
+                        }
+                        "image" => {
+                            let data = item.get("data")?.as_str()?.to_string();
+                            let mime_type = item
+                                .get("mimeType")
+                                .and_then(|m| m.as_str())
+                                .unwrap_or("application/octet-stream")
+                                .to_string();
+                            Some(McpContent::Image { data, mime_type })
+                        }
+                        "resource" => {
+                            let uri = item.get("uri")?.as_str()?.to_string();
+                            Some(McpContent::Resource { uri })
+                        }
+                        _ => None,
+                    }
+                })
+                .collect()
+        } else {
+            // Fallback: wrap the entire result as text.
+            vec![McpContent::Text {
+                text: result.to_string(),
+            }]
+        };
+
+        Ok(McpToolResult { is_error, content })
     }
 
     // -- Private transport methods --
@@ -216,18 +320,175 @@ impl McpClient {
         &mut self,
         command: &str,
         args: &[String],
-        _env: &HashMap<String, String>,
+        env: &HashMap<String, String>,
     ) -> Result<()> {
-        // TODO: Spawn subprocess, perform JSON-RPC initialize handshake,
-        // then call tools/list to populate self.tools.
         info!(
             command = %command,
             args = ?args,
-            "stdio MCP transport — stub connect"
+            "spawning MCP subprocess via stdio transport"
         );
 
-        // Placeholder: no tools discovered until real protocol is implemented.
-        self.tools = Vec::new();
+        // Spawn the MCP server subprocess with stdin/stdout piped.
+        let mut cmd = tokio::process::Command::new(command);
+        cmd.args(args)
+            .stdin(std::process::Stdio::piped())
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::null());
+
+        for (key, value) in env {
+            cmd.env(key, value);
+        }
+
+        let mut child = cmd
+            .spawn()
+            .with_context(|| format!("failed to spawn MCP server: {} {:?}", command, args))?;
+
+        let mut stdin = child
+            .stdin
+            .take()
+            .context("failed to capture MCP subprocess stdin")?;
+        let stdout = child
+            .stdout
+            .take()
+            .context("failed to capture MCP subprocess stdout")?;
+        let mut stdout_reader = BufReader::new(stdout);
+
+        // --- JSON-RPC initialize handshake ---
+
+        // Step 1: Send initialize request.
+        let init_request = serde_json::json!({
+            "jsonrpc": "2.0",
+            "id": self.next_id,
+            "method": "initialize",
+            "params": {
+                "protocolVersion": "2024-11-05",
+                "capabilities": {},
+                "clientInfo": {
+                    "name": "rvagent",
+                    "version": "0.1.0"
+                }
+            }
+        });
+        self.next_id += 1;
+
+        let mut init_line = serde_json::to_string(&init_request)
+            .context("failed to serialize initialize request")?;
+        init_line.push('\n');
+
+        stdin
+            .write_all(init_line.as_bytes())
+            .await
+            .context("failed to write initialize request")?;
+        stdin
+            .flush()
+            .await
+            .context("failed to flush after initialize")?;
+
+        // Step 2: Read initialize response.
+        let mut response_line = String::new();
+        stdout_reader
+            .read_line(&mut response_line)
+            .await
+            .context("failed to read initialize response")?;
+
+        let init_response: serde_json::Value = serde_json::from_str(response_line.trim())
+            .context("failed to parse initialize JSON-RPC response")?;
+
+        debug!(
+            response = %init_response,
+            "MCP initialize response received"
+        );
+
+        if init_response.get("error").is_some() {
+            let msg = init_response["error"]["message"]
+                .as_str()
+                .unwrap_or("unknown error");
+            anyhow::bail!("MCP initialize failed: {}", msg);
+        }
+
+        // Step 3: Send initialized notification (no id, no response expected).
+        let initialized_notification = serde_json::json!({
+            "jsonrpc": "2.0",
+            "method": "notifications/initialized"
+        });
+        let mut notif_line = serde_json::to_string(&initialized_notification)
+            .context("failed to serialize initialized notification")?;
+        notif_line.push('\n');
+
+        stdin
+            .write_all(notif_line.as_bytes())
+            .await
+            .context("failed to write initialized notification")?;
+        stdin
+            .flush()
+            .await
+            .context("failed to flush after initialized notification")?;
+
+        // Step 4: Call tools/list to discover available tools.
+        let tools_list_request = serde_json::json!({
+            "jsonrpc": "2.0",
+            "id": self.next_id,
+            "method": "tools/list",
+            "params": {}
+        });
+        self.next_id += 1;
+
+        let mut tools_line = serde_json::to_string(&tools_list_request)
+            .context("failed to serialize tools/list request")?;
+        tools_line.push('\n');
+
+        stdin
+            .write_all(tools_line.as_bytes())
+            .await
+            .context("failed to write tools/list request")?;
+        stdin
+            .flush()
+            .await
+            .context("failed to flush after tools/list")?;
+
+        let mut tools_response_line = String::new();
+        stdout_reader
+            .read_line(&mut tools_response_line)
+            .await
+            .context("failed to read tools/list response")?;
+
+        let tools_response: serde_json::Value = serde_json::from_str(tools_response_line.trim())
+            .context("failed to parse tools/list JSON-RPC response")?;
+
+        debug!(
+            response = %tools_response,
+            "MCP tools/list response received"
+        );
+
+        // Parse tools from the response.
+        if let Some(tools_array) = tools_response
+            .get("result")
+            .and_then(|r| r.get("tools"))
+            .and_then(|t| t.as_array())
+        {
+            self.tools = tools_array
+                .iter()
+                .filter_map(|t| serde_json::from_value::<McpToolDef>(t.clone()).ok())
+                .collect();
+        } else {
+            warn!(
+                server = %self.config.name,
+                "tools/list response did not contain a tools array"
+            );
+            self.tools = Vec::new();
+        }
+
+        info!(
+            server = %self.config.name,
+            tool_count = self.tools.len(),
+            "MCP stdio handshake complete"
+        );
+
+        // Store handles for later communication.
+        self.stdin = Some(stdin);
+        self.stdout = Some(stdout_reader);
+        self.child = Some(child);
+
         Ok(())
     }
 
@@ -273,20 +534,28 @@ impl McpRegistry {
             .collect()
     }
 
-    /// Find which client owns a given tool name.
+    /// Find which client owns a given tool name (immutable).
+    #[allow(dead_code)]
     pub fn find_tool_client(&self, tool_name: &str) -> Option<&McpClient> {
         self.clients
             .iter()
             .find(|c| c.tools().iter().any(|t| t.name == tool_name))
     }
 
+    /// Find the index of the client that owns a given tool name.
+    fn find_tool_client_index(&self, tool_name: &str) -> Option<usize> {
+        self.clients
+            .iter()
+            .position(|c| c.tools().iter().any(|t| t.name == tool_name))
+    }
+
     /// Call a tool by name, routing to the appropriate MCP server.
-    pub async fn call_tool(&self, name: &str, arguments: serde_json::Value) -> Result<McpToolResult> {
-        let client = self
-            .find_tool_client(name)
+    pub async fn call_tool(&mut self, name: &str, arguments: serde_json::Value) -> Result<McpToolResult> {
+        let idx = self
+            .find_tool_client_index(name)
             .with_context(|| format!("no MCP server provides tool '{}'", name))?;
 
-        client
+        self.clients[idx]
             .call_tool(&McpToolCall {
                 name: name.to_string(),
                 arguments,

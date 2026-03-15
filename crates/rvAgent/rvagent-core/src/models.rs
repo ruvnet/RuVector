@@ -8,6 +8,24 @@ use serde::{Deserialize, Serialize};
 use crate::error::Result;
 use crate::messages::Message;
 
+/// A single chunk from a streaming response.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StreamChunk {
+    /// Incremental text content.
+    pub text: String,
+    /// Whether this is the final chunk.
+    pub is_final: bool,
+    /// Accumulated usage (available on final chunk).
+    pub usage: Option<StreamUsage>,
+}
+
+/// Token usage from a streaming response.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StreamUsage {
+    pub input_tokens: u64,
+    pub output_tokens: u64,
+}
+
 /// Known LLM providers.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -126,6 +144,17 @@ pub trait ChatModel: Send + Sync {
     async fn stream(&self, messages: &[Message]) -> Result<Vec<Message>>;
 }
 
+/// Extended trait for models that support chunk-based streaming.
+///
+/// Provides incremental `StreamChunk` delivery. Models that do not natively
+/// support streaming can fall back to `ChatModel::complete` and return a
+/// single final chunk.
+#[async_trait]
+pub trait StreamingChatModel: ChatModel {
+    /// Stream response chunks incrementally.
+    async fn stream_chunks(&self, messages: &[Message]) -> Result<Vec<StreamChunk>>;
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -185,5 +214,77 @@ mod tests {
         let back: ModelConfig = serde_json::from_str(&json).unwrap();
         assert_eq!(back.provider, cfg.provider);
         assert_eq!(back.model_id, cfg.model_id);
+    }
+
+    #[test]
+    fn test_stream_chunk_serialization() {
+        let chunk = StreamChunk {
+            text: "Hello".into(),
+            is_final: false,
+            usage: None,
+        };
+        let json = serde_json::to_string(&chunk).unwrap();
+        let back: StreamChunk = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.text, "Hello");
+        assert!(!back.is_final);
+        assert!(back.usage.is_none());
+    }
+
+    #[test]
+    fn test_stream_chunk_with_usage() {
+        let chunk = StreamChunk {
+            text: "done".into(),
+            is_final: true,
+            usage: Some(StreamUsage {
+                input_tokens: 10,
+                output_tokens: 25,
+            }),
+        };
+        let json = serde_json::to_string(&chunk).unwrap();
+        let back: StreamChunk = serde_json::from_str(&json).unwrap();
+        assert!(back.is_final);
+        let usage = back.usage.unwrap();
+        assert_eq!(usage.input_tokens, 10);
+        assert_eq!(usage.output_tokens, 25);
+    }
+
+    #[test]
+    fn test_stream_usage_serialization() {
+        let usage = StreamUsage {
+            input_tokens: 42,
+            output_tokens: 100,
+        };
+        let json = serde_json::to_string(&usage).unwrap();
+        assert!(json.contains("42"));
+        assert!(json.contains("100"));
+        let back: StreamUsage = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.input_tokens, 42);
+        assert_eq!(back.output_tokens, 100);
+    }
+
+    #[test]
+    fn test_stream_chunk_vec_serialization() {
+        let chunks = vec![
+            StreamChunk {
+                text: "Hel".into(),
+                is_final: false,
+                usage: None,
+            },
+            StreamChunk {
+                text: "lo!".into(),
+                is_final: true,
+                usage: Some(StreamUsage {
+                    input_tokens: 5,
+                    output_tokens: 2,
+                }),
+            },
+        ];
+        let json = serde_json::to_string(&chunks).unwrap();
+        let back: Vec<StreamChunk> = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.len(), 2);
+        assert_eq!(back[0].text, "Hel");
+        assert!(!back[0].is_final);
+        assert_eq!(back[1].text, "lo!");
+        assert!(back[1].is_final);
     }
 }

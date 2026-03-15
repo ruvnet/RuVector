@@ -32,7 +32,7 @@ pub use config::{BackendConfig, ResourceBudget, RvAgentConfig, SecurityPolicy};
 pub use error::{Result, RvAgentError};
 pub use graph::{AgentGraph, AgentNode, GraphConfig, ToolExecutor};
 pub use messages::{AiMessage, HumanMessage, Message, SystemMessage, ToolCall, ToolMessage};
-pub use models::{ChatModel, ModelConfig, Provider};
+pub use models::{ChatModel, ModelConfig, Provider, StreamChunk, StreamUsage, StreamingChatModel};
 pub use prompt::{SystemPromptBuilder, BASE_AGENT_PROMPT};
 pub use rvf_bridge::{
     GovernanceMode, MountTable, PolicyCheck, RvfBridgeConfig, RvfComponentId, RvfManifest,

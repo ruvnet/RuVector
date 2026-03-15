@@ -8,9 +8,9 @@ repository = "https://github.com/ruvnet/RuVector"
 
 [dependencies]
 rvagent-core = { path = "../rvagent-core" }
-# rvagent-backends = { path = "../rvagent-backends" }  # TODO: re-enable when backends crate compiles
-# rvagent-middleware = { path = "../rvagent-middleware" }  # TODO: re-enable when middleware crate modules are implemented
-# rvagent-tools = { path = "../rvagent-tools" }  # TODO: re-enable when tools crate modules are implemented
+rvagent-backends = { path = "../rvagent-backends" }
+rvagent-middleware = { path = "../rvagent-middleware" }
+rvagent-tools = { path = "../rvagent-tools" }
 serde = { workspace = true }
 serde_json = { workspace = true }
 tokio = { workspace = true, features = ["time"] }

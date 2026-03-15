@@ -120,7 +120,7 @@ impl RateLimiterState {
 
     /// Try to consume one token for the given IP. Returns `true` if allowed.
     pub fn try_acquire(&self, ip: &str) -> bool {
-        let mut buckets = self.buckets.lock().unwrap();
+        let mut buckets = self.buckets.lock().unwrap_or_else(|e| e.into_inner());
         let max_tokens = self.rate_limit as f64;
         let refill_rate = max_tokens / 60.0; // tokens per second
 

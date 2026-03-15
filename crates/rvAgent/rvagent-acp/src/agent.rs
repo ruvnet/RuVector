@@ -7,8 +7,14 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use uuid::Uuid;
 
+use async_trait::async_trait;
+
 use rvagent_core::config::RvAgentConfig;
-use rvagent_core::messages::Message;
+use rvagent_core::error::Result as CoreResult;
+use rvagent_core::graph::{AgentGraph, GraphConfig, ToolExecutor};
+use rvagent_core::messages::{Message, ToolCall};
+use rvagent_core::models::ChatModel;
+use rvagent_core::state::AgentState;
 
 use crate::types::{
     ContentBlock, CreateSessionRequest, PromptResponse, ResponseMessage, SessionInfo,
@@ -38,6 +44,60 @@ impl Session {
             messages: Vec::new(),
             cwd,
         }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Placeholder tool executor
+// ---------------------------------------------------------------------------
+
+/// Placeholder tool executor for the ACP server.
+///
+/// Returns the tool name as the result, allowing end-to-end testing of the
+/// AgentGraph pipeline without requiring real tool implementations.
+struct AcpToolExecutor;
+
+#[async_trait]
+impl ToolExecutor for AcpToolExecutor {
+    async fn execute(&self, call: &ToolCall, _state: &AgentState) -> CoreResult<String> {
+        Ok(format!("[ACP] tool '{}' executed", call.name))
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Stub chat model (no API key required)
+// ---------------------------------------------------------------------------
+
+/// A stub `ChatModel` for the ACP server that echoes user messages
+/// without calling any external API.
+///
+/// This allows the ACP server to function end-to-end for testing and
+/// local development without requiring an LLM provider API key.
+struct StubModel;
+
+#[async_trait]
+impl ChatModel for StubModel {
+    async fn complete(&self, messages: &[Message]) -> CoreResult<Message> {
+        // Find the last human message and produce an intelligent echo.
+        let user_text = messages
+            .iter()
+            .rev()
+            .find_map(|m| match m {
+                Message::Human(h) => Some(h.content.as_str()),
+                _ => None,
+            })
+            .unwrap_or("(no user message)");
+
+        let response = format!(
+            "I received your message ({} chars). Processing complete.",
+            user_text.len()
+        );
+        Ok(Message::ai(response))
+    }
+
+    async fn stream(&self, messages: &[Message]) -> CoreResult<Vec<Message>> {
+        let msg = self.complete(messages).await?;
+        Ok(vec![msg])
     }
 }
 
@@ -126,17 +186,35 @@ impl AcpAgent {
 
         let user_msg = Message::human(&user_text);
 
-        // Store user message and generate a stub response.
+        // Run the prompt through an AgentGraph with a stub model.
         //
-        // NOTE: In a full implementation this would invoke the AgentGraph
-        // pipeline with the configured model, middleware, and tools.
-        // For now we produce a deterministic echo response so the server
-        // is functional end-to-end and tests can validate the plumbing.
-        let response_text = format!(
-            "Received {} content block(s) in session {}",
-            content.len(),
-            sid
-        );
+        // In production, the model would be resolved from `self.config`
+        // and real tools/middleware would be wired in. The stub model
+        // allows the server to run without an API key.
+        let graph_config = GraphConfig {
+            max_iterations: 10,
+            parallel_tools: false,
+        };
+        let graph = AgentGraph::with_config(StubModel, AcpToolExecutor, graph_config);
+
+        let mut agent_state = AgentState::new();
+        agent_state.push_message(user_msg.clone());
+
+        let final_state = graph
+            .run(agent_state)
+            .await
+            .map_err(|e| format!("agent graph error: {}", e))?;
+
+        // Extract the last AI message as the response.
+        let response_text = final_state
+            .messages
+            .iter()
+            .rev()
+            .find_map(|m| match m {
+                Message::Ai(ai) => Some(ai.content.clone()),
+                _ => None,
+            })
+            .unwrap_or_else(|| "No response generated.".to_string());
         let ai_msg = Message::ai(&response_text);
 
         {
@@ -299,11 +377,11 @@ mod tests {
             .await
             .unwrap();
 
-        // Response should mention 2 content blocks.
+        // Response should contain a non-empty text block from the agent.
         let text = match &resp.messages[0].content[0] {
             ContentBlock::Text { text } => text.as_str(),
             _ => panic!("expected text block"),
         };
-        assert!(text.contains("2 content block(s)"));
+        assert!(!text.is_empty());
     }
 }

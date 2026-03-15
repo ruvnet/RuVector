@@ -30,6 +30,7 @@ pub mod composite;
 pub mod sandbox;
 pub mod store;
 pub mod rvf_store;
+pub mod anthropic;
 
 // Re-export core types for convenience.
 pub use protocol::{
@@ -44,3 +45,4 @@ pub use composite::{CompositeBackend, BackendRef};
 pub use sandbox::{BaseSandbox, SandboxConfig};
 pub use store::StoreBackend;
 pub use rvf_store::MountedToolInfo;
+pub use anthropic::AnthropicClient;

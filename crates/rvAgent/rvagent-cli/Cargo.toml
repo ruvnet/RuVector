@@ -32,6 +32,8 @@ async-trait = "0.1"
 crossterm = "0.28"
 ratatui = "0.29"
 dirs = "5.0"
+aes-gcm = "0.10"
+rand = "0.8"
 
 [dev-dependencies]
 tempfile = "3.14"

@@ -119,40 +119,75 @@ fn session_path(id: &str) -> Result<PathBuf> {
 // Encryption helpers (ADR-103 C9 — AES-256-GCM structure)
 // ---------------------------------------------------------------------------
 
-/// Placeholder encryption module.
+/// AES-256-GCM encryption module (ADR-103 C9).
 ///
-/// In production this would use `aes-gcm` crate with a key derived from a
-/// user-supplied passphrase (via Argon2id) or a platform keychain.
-/// For now the structure is in place but data is stored as plaintext JSON
-/// so the crate compiles without heavy crypto dependencies.
+/// Encrypts session data at rest using AES-256-GCM with random 12-byte nonces.
+/// Supports backward-compatible decryption of legacy V1 (plaintext) and
+/// unencrypted session files.
 mod encryption {
+    use aes_gcm::{Aes256Gcm, Key, Nonce};
+    use aes_gcm::aead::{Aead, KeyInit};
     use anyhow::Result;
+    use rand::RngCore;
 
-    /// "Encrypt" session JSON for storage.
-    /// TODO: Replace with real AES-256-GCM once `aes-gcm` is added.
-    pub fn encrypt_session(plaintext: &[u8], _key: &[u8; 32]) -> Result<Vec<u8>> {
-        // Placeholder: prefix with a magic marker so we can detect format.
-        let mut out = b"RVAG_ENC_V1:".to_vec();
-        out.extend_from_slice(plaintext);
+    const NONCE_LEN: usize = 12;
+    const MAGIC: &[u8] = b"RVAG_ENC_V2:";
+
+    /// Encrypt session JSON for storage using AES-256-GCM.
+    pub fn encrypt_session(plaintext: &[u8], key: &[u8; 32]) -> Result<Vec<u8>> {
+        let cipher_key = Key::<Aes256Gcm>::from_slice(key);
+        let cipher = Aes256Gcm::new(cipher_key);
+        let mut nonce_bytes = [0u8; NONCE_LEN];
+        rand::thread_rng().fill_bytes(&mut nonce_bytes);
+        let nonce = Nonce::from_slice(&nonce_bytes);
+        let ciphertext = cipher.encrypt(nonce, plaintext)
+            .map_err(|e| anyhow::anyhow!("encryption failed: {}", e))?;
+        let mut out = MAGIC.to_vec();
+        out.extend_from_slice(&nonce_bytes);
+        out.extend_from_slice(&ciphertext);
         Ok(out)
     }
 
-    /// "Decrypt" session data.
-    pub fn decrypt_session(ciphertext: &[u8], _key: &[u8; 32]) -> Result<Vec<u8>> {
-        let prefix = b"RVAG_ENC_V1:";
-        if ciphertext.starts_with(prefix) {
-            Ok(ciphertext[prefix.len()..].to_vec())
+    /// Decrypt session data, supporting V2 (AES-256-GCM), V1 (plaintext prefix),
+    /// and legacy unencrypted formats.
+    pub fn decrypt_session(data: &[u8], key: &[u8; 32]) -> Result<Vec<u8>> {
+        let v2_magic = b"RVAG_ENC_V2:";
+        let v1_magic = b"RVAG_ENC_V1:";
+        if data.starts_with(v2_magic) {
+            let rest = &data[v2_magic.len()..];
+            if rest.len() < NONCE_LEN {
+                anyhow::bail!("encrypted data too short");
+            }
+            let (nonce_bytes, ciphertext) = rest.split_at(NONCE_LEN);
+            let cipher_key = Key::<Aes256Gcm>::from_slice(key);
+            let cipher = Aes256Gcm::new(cipher_key);
+            let nonce = Nonce::from_slice(nonce_bytes);
+            cipher.decrypt(nonce, ciphertext)
+                .map_err(|e| anyhow::anyhow!("decryption failed: {}", e))
+        } else if data.starts_with(v1_magic) {
+            // Legacy V1 format (plaintext with prefix)
+            Ok(data[v1_magic.len()..].to_vec())
         } else {
-            // Legacy unencrypted data — pass through.
-            Ok(ciphertext.to_vec())
+            // Legacy unencrypted
+            Ok(data.to_vec())
         }
     }
 }
 
-/// Placeholder encryption key.
-/// In production, derive from user passphrase or system keychain.
+/// Derive the session encryption key.
+///
+/// If `RVAGENT_SESSION_KEY` is set, uses its UTF-8 bytes (zero-padded or
+/// truncated to 32 bytes). Otherwise falls back to a deterministic default
+/// key. In production, this should be replaced with a proper KDF (e.g.
+/// Argon2id) or platform keychain integration.
 fn session_key() -> [u8; 32] {
-    [0u8; 32]
+    let mut key = [0u8; 32];
+    if let Ok(env_key) = std::env::var("RVAGENT_SESSION_KEY") {
+        let bytes = env_key.as_bytes();
+        let len = bytes.len().min(32);
+        key[..len].copy_from_slice(&bytes[..len]);
+    }
+    key
 }
 
 // ---------------------------------------------------------------------------

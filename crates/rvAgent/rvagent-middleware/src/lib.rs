@@ -9,6 +9,7 @@ pub mod mcp_bridge;
 pub mod memory;
 pub mod patch_tool_calls;
 pub mod prompt_caching;
+pub mod retry;
 pub mod rvf_manifest;
 pub mod skills;
 pub mod subagents;

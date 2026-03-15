@@ -165,7 +165,13 @@ impl WitnessBuilder {
             version: 1,
             flags: WIT_HAS_TRACE,
             task_id: self.task_id,
-            policy_hash: [0u8; 8], // TODO: compute from policy config
+            policy_hash: {
+                use std::hash::{Hash, Hasher};
+                let mut hasher = std::collections::hash_map::DefaultHasher::new();
+                self.governance_mode.hash(&mut hasher);
+                let h = hasher.finish();
+                h.to_le_bytes()
+            },
             created_ns: Utc::now().timestamp_nanos_opt().unwrap_or(0) as u64,
             outcome,
             governance_mode: self.governance_mode,
