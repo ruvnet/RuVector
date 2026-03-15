@@ -1,11 +1,26 @@
 //! WitnessMiddleware — logs each tool call to a witness chain (ADR-103 B3).
+//!
 //! Records tool_name, arguments_hash (SHA3-256), timestamp.
 //! Thread-safe via `Arc<Mutex<WitnessBuilder>>`.
+//!
+//! ## ADR-106 Integration (Phase 4 — Unified Witness Format)
+//!
+//! When `rvf_witness` is enabled in [`RvfBridgeConfig`], the witness builder
+//! produces RVF wire-format witness bundles compatible with
+//! `rvf-types::witness::WitnessHeader` and `ToolCallEntry`. This enables
+//! deterministic replay and audit across both the rvAgent framework and the
+//! RuVix kernel's witness log.
 
 use async_trait::async_trait;
 use chrono::Utc;
 use sha3::{Digest, Sha3_256};
 use std::sync::{Arc, Mutex};
+use std::time::Instant;
+
+use rvagent_core::rvf_bridge::{
+    GovernanceMode, PolicyCheck, RvfToolCallEntry, RvfWitnessHeader, TaskOutcome,
+    WIT_HAS_TRACE, WITNESS_HEADER_SIZE,
+};
 
 use crate::{Middleware, ModelHandler, ModelRequest, ModelResponse};
 
@@ -20,6 +35,10 @@ pub struct WitnessEntry {
     pub timestamp: String,
     /// Sequential index in the witness chain.
     pub sequence: u64,
+    /// Wall-clock latency in milliseconds (ADR-106).
+    pub latency_ms: Option<u32>,
+    /// Policy check result (ADR-106).
+    pub policy_check: PolicyCheck,
 }
 
 /// Builder that accumulates witness entries in a thread-safe manner.
@@ -27,6 +46,18 @@ pub struct WitnessEntry {
 pub struct WitnessBuilder {
     entries: Vec<WitnessEntry>,
     next_sequence: u64,
+    /// Task ID for RVF witness header (UUID bytes).
+    task_id: [u8; 16],
+    /// Governance mode for RVF witness header.
+    governance_mode: GovernanceMode,
+    /// Total cost in microdollars accumulated across entries.
+    total_cost_microdollars: u32,
+    /// Total tokens accumulated across entries.
+    total_tokens: u32,
+    /// Whether to produce RVF wire-format bundles.
+    rvf_enabled: bool,
+    /// Start instant for latency tracking.
+    start_time: Option<Instant>,
 }
 
 impl WitnessBuilder {
@@ -34,6 +65,26 @@ impl WitnessBuilder {
         Self {
             entries: Vec::new(),
             next_sequence: 0,
+            task_id: [0u8; 16],
+            governance_mode: GovernanceMode::Approved,
+            total_cost_microdollars: 0,
+            total_tokens: 0,
+            rvf_enabled: false,
+            start_time: None,
+        }
+    }
+
+    /// Create a builder with RVF wire-format support enabled.
+    pub fn with_rvf(task_id: [u8; 16], governance_mode: GovernanceMode) -> Self {
+        Self {
+            entries: Vec::new(),
+            next_sequence: 0,
+            task_id,
+            governance_mode,
+            total_cost_microdollars: 0,
+            total_tokens: 0,
+            rvf_enabled: true,
+            start_time: Some(Instant::now()),
         }
     }
 
@@ -45,8 +96,35 @@ impl WitnessBuilder {
             arguments_hash,
             timestamp: Utc::now().to_rfc3339(),
             sequence: self.next_sequence,
+            latency_ms: None,
+            policy_check: PolicyCheck::Allowed,
         };
         self.next_sequence += 1;
+        self.entries.push(entry);
+    }
+
+    /// Add a tool call entry with RVF-compatible metadata.
+    pub fn add_rvf_tool_call(
+        &mut self,
+        tool_name: &str,
+        args: &serde_json::Value,
+        latency_ms: u32,
+        policy_check: PolicyCheck,
+        cost_microdollars: u32,
+        tokens: u32,
+    ) {
+        let arguments_hash = compute_arguments_hash(args);
+        let entry = WitnessEntry {
+            tool_name: tool_name.to_string(),
+            arguments_hash,
+            timestamp: Utc::now().to_rfc3339(),
+            sequence: self.next_sequence,
+            latency_ms: Some(latency_ms),
+            policy_check,
+        };
+        self.next_sequence += 1;
+        self.total_cost_microdollars += cost_microdollars;
+        self.total_tokens += tokens;
         self.entries.push(entry);
     }
 
@@ -64,12 +142,80 @@ impl WitnessBuilder {
     pub fn is_empty(&self) -> bool {
         self.entries.is_empty()
     }
+
+    /// Whether RVF wire-format output is enabled.
+    pub fn is_rvf_enabled(&self) -> bool {
+        self.rvf_enabled
+    }
+
+    /// Build an RVF wire-format witness header from the accumulated entries.
+    ///
+    /// Returns `None` if RVF mode is not enabled.
+    pub fn build_rvf_header(&self, outcome: TaskOutcome) -> Option<RvfWitnessHeader> {
+        if !self.rvf_enabled {
+            return None;
+        }
+
+        let total_latency_ms = self
+            .start_time
+            .map(|s| s.elapsed().as_millis() as u32)
+            .unwrap_or(0);
+
+        Some(RvfWitnessHeader {
+            version: 1,
+            flags: WIT_HAS_TRACE,
+            task_id: self.task_id,
+            policy_hash: [0u8; 8], // TODO: compute from policy config
+            created_ns: Utc::now().timestamp_nanos_opt().unwrap_or(0) as u64,
+            outcome,
+            governance_mode: self.governance_mode,
+            tool_call_count: self.entries.len() as u16,
+            total_cost_microdollars: self.total_cost_microdollars,
+            total_latency_ms,
+            total_tokens: self.total_tokens,
+            retry_count: 0,
+            section_count: 1, // trace section only
+            total_bundle_size: WITNESS_HEADER_SIZE as u32,
+        })
+    }
+
+    /// Convert entries to RVF tool call entries.
+    pub fn to_rvf_entries(&self) -> Vec<RvfToolCallEntry> {
+        self.entries
+            .iter()
+            .map(|e| {
+                let args_hash = truncate_hash_to_8(&e.arguments_hash);
+                RvfToolCallEntry {
+                    action: e.tool_name.clone(),
+                    args_hash,
+                    result_hash: [0u8; 8], // Result hash not tracked in current implementation
+                    latency_ms: e.latency_ms.unwrap_or(0),
+                    cost_microdollars: 0,
+                    tokens: 0,
+                    policy_check: e.policy_check,
+                }
+            })
+            .collect()
+    }
 }
 
 impl Default for WitnessBuilder {
     fn default() -> Self {
         Self::new()
     }
+}
+
+/// Truncate a hex hash string to 8 bytes.
+fn truncate_hash_to_8(hex: &str) -> [u8; 8] {
+    let mut result = [0u8; 8];
+    let bytes: Vec<u8> = (0..hex.len())
+        .step_by(2)
+        .take(8)
+        .filter_map(|i| u8::from_str_radix(&hex[i..i + 2], 16).ok())
+        .collect();
+    let copy_len = bytes.len().min(8);
+    result[..copy_len].copy_from_slice(&bytes[..copy_len]);
+    result
 }
 
 /// Compute SHA3-256 hash of tool call arguments.
@@ -273,5 +419,127 @@ mod tests {
         assert!(!entry.timestamp.is_empty());
         // Should be valid ISO 8601
         assert!(entry.timestamp.contains('T'));
+    }
+
+    // --- ADR-106 RVF witness tests ---
+
+    #[test]
+    fn test_rvf_builder_disabled_by_default() {
+        let builder = WitnessBuilder::new();
+        assert!(!builder.is_rvf_enabled());
+        assert!(builder.build_rvf_header(TaskOutcome::Solved).is_none());
+    }
+
+    #[test]
+    fn test_rvf_builder_enabled() {
+        let task_id = [0x42u8; 16];
+        let builder = WitnessBuilder::with_rvf(task_id, GovernanceMode::Approved);
+        assert!(builder.is_rvf_enabled());
+    }
+
+    #[test]
+    fn test_rvf_tool_call_entry() {
+        let task_id = [0x42u8; 16];
+        let mut builder = WitnessBuilder::with_rvf(task_id, GovernanceMode::Autonomous);
+        builder.add_rvf_tool_call(
+            "read_file",
+            &serde_json::json!({"path": "test.txt"}),
+            150,
+            PolicyCheck::Allowed,
+            500,
+            200,
+        );
+        builder.add_rvf_tool_call(
+            "execute",
+            &serde_json::json!({"command": "ls"}),
+            300,
+            PolicyCheck::Confirmed,
+            1000,
+            400,
+        );
+
+        assert_eq!(builder.len(), 2);
+        assert_eq!(builder.entries()[0].latency_ms, Some(150));
+        assert_eq!(builder.entries()[1].policy_check, PolicyCheck::Confirmed);
+    }
+
+    #[test]
+    fn test_rvf_header_generation() {
+        let task_id = [0x42u8; 16];
+        let mut builder = WitnessBuilder::with_rvf(task_id, GovernanceMode::Approved);
+        builder.add_rvf_tool_call(
+            "test_tool",
+            &serde_json::json!({}),
+            100,
+            PolicyCheck::Allowed,
+            500,
+            200,
+        );
+
+        let header = builder.build_rvf_header(TaskOutcome::Solved).unwrap();
+        assert_eq!(header.version, 1);
+        assert_eq!(header.task_id, task_id);
+        assert_eq!(header.outcome, TaskOutcome::Solved);
+        assert_eq!(header.governance_mode, GovernanceMode::Approved);
+        assert_eq!(header.tool_call_count, 1);
+        assert_eq!(header.total_cost_microdollars, 500);
+        assert_eq!(header.total_tokens, 200);
+        assert!(header.flags & WIT_HAS_TRACE != 0);
+    }
+
+    #[test]
+    fn test_rvf_header_wire_format() {
+        let task_id = [0x42u8; 16];
+        let mut builder = WitnessBuilder::with_rvf(task_id, GovernanceMode::Restricted);
+        builder.add_rvf_tool_call(
+            "tool",
+            &serde_json::json!({}),
+            50,
+            PolicyCheck::Allowed,
+            100,
+            50,
+        );
+
+        let header = builder.build_rvf_header(TaskOutcome::Failed).unwrap();
+        let bytes = header.to_bytes();
+        assert_eq!(bytes.len(), WITNESS_HEADER_SIZE);
+
+        // Verify magic bytes
+        let magic = u32::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]);
+        assert_eq!(magic, rvagent_core::rvf_bridge::WITNESS_MAGIC);
+
+        // Roundtrip
+        let decoded = RvfWitnessHeader::from_bytes(&bytes).unwrap();
+        assert_eq!(decoded.task_id, task_id);
+        assert_eq!(decoded.outcome, TaskOutcome::Failed);
+        assert_eq!(decoded.governance_mode, GovernanceMode::Restricted);
+    }
+
+    #[test]
+    fn test_to_rvf_entries() {
+        let task_id = [0x42u8; 16];
+        let mut builder = WitnessBuilder::with_rvf(task_id, GovernanceMode::Approved);
+        builder.add_rvf_tool_call(
+            "read_file",
+            &serde_json::json!({"path": "test.txt"}),
+            150,
+            PolicyCheck::Allowed,
+            500,
+            200,
+        );
+
+        let rvf_entries = builder.to_rvf_entries();
+        assert_eq!(rvf_entries.len(), 1);
+        assert_eq!(rvf_entries[0].action, "read_file");
+        assert_eq!(rvf_entries[0].latency_ms, 150);
+        assert_eq!(rvf_entries[0].policy_check, PolicyCheck::Allowed);
+    }
+
+    #[test]
+    fn test_truncate_hash() {
+        let hash = compute_arguments_hash(&serde_json::json!({"key": "value"}));
+        let truncated = truncate_hash_to_8(&hash);
+        // Should produce 8 non-zero bytes from a valid hash
+        assert!(truncated.iter().any(|b| *b != 0));
     }
 }

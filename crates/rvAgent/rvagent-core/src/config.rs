@@ -5,6 +5,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::prompt::BASE_AGENT_PROMPT;
+use crate::rvf_bridge::RvfBridgeConfig;
 
 // ---------------------------------------------------------------------------
 // Security policy (ADR-103 C1 — virtual_mode default true)
@@ -211,6 +212,10 @@ pub struct RvAgentConfig {
     /// Optional resource budget for cost/time/token limits.
     #[serde(default)]
     pub resource_budget: Option<ResourceBudget>,
+
+    /// RVF bridge configuration (ADR-106 integration).
+    #[serde(default)]
+    pub rvf_bridge: RvfBridgeConfig,
 }
 
 impl Default for RvAgentConfig {
@@ -224,6 +229,7 @@ impl Default for RvAgentConfig {
             backend: BackendConfig::default(),
             security_policy: SecurityPolicy::default(),
             resource_budget: None,
+            rvf_bridge: RvfBridgeConfig::default(),
         }
     }
 }

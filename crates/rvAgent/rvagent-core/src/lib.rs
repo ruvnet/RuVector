@@ -23,6 +23,7 @@ pub mod metrics;
 pub mod models;
 pub mod parallel;
 pub mod prompt;
+pub mod rvf_bridge;
 pub mod state;
 pub mod string_pool;
 
@@ -33,4 +34,9 @@ pub use graph::{AgentGraph, AgentNode, GraphConfig, ToolExecutor};
 pub use messages::{AiMessage, HumanMessage, Message, SystemMessage, ToolCall, ToolMessage};
 pub use models::{ChatModel, ModelConfig, Provider};
 pub use prompt::{SystemPromptBuilder, BASE_AGENT_PROMPT};
+pub use rvf_bridge::{
+    GovernanceMode, MountTable, PolicyCheck, RvfBridgeConfig, RvfComponentId, RvfManifest,
+    RvfManifestEntry, RvfManifestEntryType, RvfMountHandle, RvfToolCallEntry, RvfVerifyStatus,
+    RvfWitnessHeader, TaskOutcome, WitTypeId,
+};
 pub use state::{AgentState, FileData, SkillMetadata, TodoItem, TodoStatus};

@@ -29,6 +29,7 @@ pub mod local_shell;
 pub mod composite;
 pub mod sandbox;
 pub mod store;
+pub mod rvf_store;
 
 // Re-export core types for convenience.
 pub use protocol::{
@@ -42,3 +43,4 @@ pub use local_shell::{LocalShellBackend, LocalShellConfig, CommandAllowlist};
 pub use composite::{CompositeBackend, BackendRef};
 pub use sandbox::{BaseSandbox, SandboxConfig};
 pub use store::StoreBackend;
+pub use rvf_store::MountedToolInfo;
