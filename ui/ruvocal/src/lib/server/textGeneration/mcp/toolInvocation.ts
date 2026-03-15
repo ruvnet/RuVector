@@ -15,6 +15,89 @@ import { getClient } from "$lib/server/mcp/clientPool";
 import { attachFileRefsToArgs, type FileRefResolver } from "./fileRefs";
 import type { Client } from "@modelcontextprotocol/sdk/client";
 
+// Server-side virtual filesystem for WASM tool execution
+// This persists for the duration of a conversation's MCP flow
+const wasmVirtualFS = new Map<string, string>();
+
+/**
+ * Execute a WASM tool server-side using in-memory virtual filesystem
+ */
+function executeWasmTool(
+	toolName: string,
+	args: Record<string, unknown>
+): { success: boolean; result: string; error?: string } {
+	try {
+		switch (toolName) {
+			case "read_file": {
+				const path = String(args.path || "");
+				if (!path) {
+					return { success: false, result: "", error: "path is required" };
+				}
+				const content = wasmVirtualFS.get(path);
+				if (content === undefined) {
+					return { success: false, result: "", error: `File not found: ${path}` };
+				}
+				return { success: true, result: content };
+			}
+
+			case "write_file": {
+				const path = String(args.path || "");
+				const content = String(args.content || "");
+				if (!path) {
+					return { success: false, result: "", error: "path is required" };
+				}
+				wasmVirtualFS.set(path, content);
+				return { success: true, result: `Successfully wrote ${content.length} bytes to ${path}` };
+			}
+
+			case "list_files": {
+				const files = Array.from(wasmVirtualFS.keys());
+				if (files.length === 0) {
+					return { success: true, result: "No files in virtual filesystem" };
+				}
+				return { success: true, result: `Files:\n${files.map(f => `- ${f}`).join("\n")}` };
+			}
+
+			case "delete_file": {
+				const path = String(args.path || "");
+				if (!path) {
+					return { success: false, result: "", error: "path is required" };
+				}
+				if (!wasmVirtualFS.has(path)) {
+					return { success: false, result: "", error: `File not found: ${path}` };
+				}
+				wasmVirtualFS.delete(path);
+				return { success: true, result: `Deleted: ${path}` };
+			}
+
+			case "edit_file": {
+				const path = String(args.path || "");
+				const oldContent = String(args.old_content || args.oldContent || "");
+				const newContent = String(args.new_content || args.newContent || "");
+				if (!path) {
+					return { success: false, result: "", error: "path is required" };
+				}
+				const existing = wasmVirtualFS.get(path);
+				if (existing === undefined) {
+					return { success: false, result: "", error: `File not found: ${path}` };
+				}
+				if (!existing.includes(oldContent)) {
+					return { success: false, result: "", error: `old_content not found in file` };
+				}
+				const updated = existing.replace(oldContent, newContent);
+				wasmVirtualFS.set(path, updated);
+				return { success: true, result: `Successfully edited ${path}` };
+			}
+
+			default:
+				return { success: false, result: "", error: `Unknown WASM tool: ${toolName}` };
+		}
+	} catch (e) {
+		const errMsg = e instanceof Error ? e.message : String(e);
+		return { success: false, result: "", error: errMsg };
+	}
+}
+
 export type Primitive = string | number | boolean;
 
 export type ToolRun = {
@@ -228,6 +311,50 @@ export async function* executeToolCalls({
 			});
 			return;
 		}
+
+		// Handle WASM tools - execute server-side with virtual filesystem
+		if (mappingEntry.server === "__wasm__") {
+			logger.info(
+				{ tool: mappingEntry.tool, params: p.paramsClean },
+				"[mcp] executing WASM tool server-side"
+			);
+
+			const wasmResult = executeWasmTool(mappingEntry.tool, p.argsObj);
+			const outputText = wasmResult.success
+				? wasmResult.result
+				: `Error: ${wasmResult.error}`;
+			const status = wasmResult.success ? ToolResultStatus.Success : ToolResultStatus.Error;
+
+			results.push({
+				index,
+				output: outputText,
+				uuid: p.uuid,
+				paramsClean: p.paramsClean,
+				...(wasmResult.success ? {} : { error: wasmResult.error }),
+			});
+			updatesQueue.push({
+				type: MessageUpdateType.Tool,
+				subtype: wasmResult.success ? MessageToolUpdateType.Result : MessageToolUpdateType.Error,
+				uuid: p.uuid,
+				...(wasmResult.success
+					? {
+						result: {
+							status,
+							call: { name: p.call.name, parameters: p.paramsClean },
+							outputs: [{ text: outputText } as unknown as Record<string, unknown>],
+							display: true,
+						},
+					}
+					: { message: wasmResult.error || "Unknown error" }
+				),
+			});
+			logger.info(
+				{ tool: mappingEntry.tool, success: wasmResult.success, outputPreview: outputText.slice(0, 100) },
+				"[mcp] WASM tool execution completed"
+			);
+			return;
+		}
+
 		const serverCfg = serverLookup.get(mappingEntry.server);
 		if (!serverCfg) {
 			const message = `Unknown MCP server: ${mappingEntry.server}`;

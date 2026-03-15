@@ -2,7 +2,7 @@ import { config } from "$lib/server/config";
 import { MessageUpdateType, type MessageUpdate } from "$lib/types/MessageUpdate";
 import { getMcpServers } from "$lib/server/mcp/registry";
 import { isValidUrl } from "$lib/server/urlSafety";
-import { resetMcpToolsCache } from "$lib/server/mcp/tools";
+import { resetMcpToolsCache, type McpToolMapping } from "$lib/server/mcp/tools";
 import { getOpenAiToolsForMcp } from "$lib/server/mcp/tools";
 import type {
 	ChatCompletionChunk,
@@ -138,9 +138,33 @@ export async function* runMcpFlow({
 		// ignore selection merge errors and proceed with env servers
 	}
 
-	// If selection/merge yielded no servers, bail early with clearer log
-	if (servers.length === 0) {
-		logger.warn({}, "[mcp] no MCP servers selected after merge/name filter");
+	// Extract WASM tools early to check if we should continue even without HTTP servers
+	const reqMcpForWasm = (
+		locals as unknown as {
+			mcp?: {
+				wasmTools?: Array<{
+					name: string;
+					description?: string;
+					inputSchema?: Record<string, unknown>;
+					serverId: string;
+				}>;
+			};
+		}
+	)?.mcp;
+	const wasmToolsFromClient = Array.isArray(reqMcpForWasm?.wasmTools) ? reqMcpForWasm.wasmTools : [];
+	// Always have WASM tools available (default file tools are added server-side)
+	const hasWasmTools = true;
+
+	if (wasmToolsFromClient.length > 0) {
+		logger.info(
+			{ wasmToolCount: wasmToolsFromClient.length, wasmToolNames: wasmToolsFromClient.map((t) => t.name) },
+			"[mcp] WASM tools detected from client"
+		);
+	}
+
+	// If selection/merge yielded no servers, bail early UNLESS we have WASM tools
+	if (servers.length === 0 && !hasWasmTools) {
+		logger.warn({}, "[mcp] no MCP servers selected after merge/name filter and no WASM tools");
 		return "not_applicable";
 	}
 
@@ -164,8 +188,9 @@ export async function* runMcpFlow({
 			}
 		} catch {}
 	}
-	if (servers.length === 0) {
-		logger.warn({}, "[mcp] all selected MCP servers rejected by URL safety guard");
+	// Only return early if no HTTP servers AND no WASM tools
+	if (servers.length === 0 && !hasWasmTools) {
+		logger.warn({}, "[mcp] all selected MCP servers rejected by URL safety guard and no WASM tools");
 		return "not_applicable";
 	}
 
@@ -230,22 +255,25 @@ export async function* runMcpFlow({
 	}
 
 	logger.debug(
-		{ count: servers.length, servers: servers.map((s) => s.name) },
+		{ count: servers.length, servers: servers.map((s) => s.name), hasWasmTools },
 		"[mcp] servers configured"
 	);
-	if (servers.length === 0) {
+	// Only return if no HTTP servers AND no WASM tools
+	if (servers.length === 0 && !hasWasmTools) {
 		return "not_applicable";
 	}
 
 	// Gate MCP flow based on model tool support (aggregated) with user override
+	// If WASM tools exist, force tools enabled
 	try {
 		const supportsTools = Boolean((model as unknown as { supportsTools?: boolean }).supportsTools);
-		const toolsEnabled = Boolean(forceTools) || supportsTools;
+		const toolsEnabled = Boolean(forceTools) || supportsTools || hasWasmTools;
 		logger.debug(
 			{
 				model: model.id ?? model.name,
 				supportsTools,
 				forceTools: Boolean(forceTools),
+				hasWasmTools,
 				toolsEnabled,
 			},
 			"[mcp] tools gate evaluation"
@@ -284,18 +312,129 @@ export async function* runMcpFlow({
 		locals,
 	});
 
-	if (!runMcp) {
+	// If WASM tools exist, force runMcp even if router says no
+	if (!runMcp && !hasWasmTools) {
 		logger.info(
 			{ model: targetModel.id ?? targetModel.name, resolvedRoute },
-			"[mcp] runMcp=false (routing chose non-tools candidate)"
+			"[mcp] runMcp=false (routing chose non-tools candidate) and no WASM tools"
 		);
 		return "not_applicable";
+	}
+	if (!runMcp && hasWasmTools) {
+		logger.info(
+			{ model: targetModel.id ?? targetModel.name, hasWasmTools },
+			"[mcp] runMcp=false but WASM tools present, forcing MCP flow"
+		);
 	}
 
 	try {
 		const { tools: oaTools, mapping } = await getOpenAiToolsForMcp(servers, {
 			signal: abortSignal,
 		});
+
+		// Default WASM file tools - always available for in-memory file operations
+		const defaultWasmTools = [
+			{
+				name: "read_file",
+				description: "Read the contents of a file from the virtual filesystem",
+				inputSchema: {
+					type: "object",
+					properties: {
+						path: { type: "string", description: "Path to the file to read" },
+					},
+					required: ["path"],
+				},
+			},
+			{
+				name: "write_file",
+				description: "Write content to a file in the virtual filesystem. Creates the file if it doesn't exist.",
+				inputSchema: {
+					type: "object",
+					properties: {
+						path: { type: "string", description: "Path to the file to write" },
+						content: { type: "string", description: "Content to write to the file" },
+					},
+					required: ["path", "content"],
+				},
+			},
+			{
+				name: "list_files",
+				description: "List all files in the virtual filesystem",
+				inputSchema: {
+					type: "object",
+					properties: {},
+				},
+			},
+			{
+				name: "delete_file",
+				description: "Delete a file from the virtual filesystem",
+				inputSchema: {
+					type: "object",
+					properties: {
+						path: { type: "string", description: "Path to the file to delete" },
+					},
+					required: ["path"],
+				},
+			},
+			{
+				name: "edit_file",
+				description: "Edit a file by replacing old content with new content",
+				inputSchema: {
+					type: "object",
+					properties: {
+						path: { type: "string", description: "Path to the file to edit" },
+						old_content: { type: "string", description: "The content to find and replace" },
+						new_content: { type: "string", description: "The new content to replace with" },
+					},
+					required: ["path", "old_content", "new_content"],
+				},
+			},
+		];
+
+		// Combine client-provided WASM tools with default WASM tools
+		const allWasmTools = [...wasmToolsFromClient];
+		for (const dt of defaultWasmTools) {
+			if (!allWasmTools.some((wt) => wt.name === dt.name)) {
+				allWasmTools.push({
+					name: dt.name,
+					description: dt.description,
+					inputSchema: dt.inputSchema,
+					serverId: "__wasm__",
+				});
+			}
+		}
+
+		// Add WASM tools (default + client-provided)
+		const wasmToolMapping: Record<string, McpToolMapping> = {};
+		try {
+			for (const wt of allWasmTools) {
+				const fnName = wt.name.replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 64);
+				// Avoid collision with server tools
+				if (!(fnName in mapping)) {
+					oaTools.push({
+						type: "function",
+						function: {
+							name: fnName,
+							description: wt.description ?? `File tool: ${wt.name}`,
+							parameters: wt.inputSchema,
+						},
+					});
+					wasmToolMapping[fnName] = {
+						fnName,
+						server: "__wasm__",
+						tool: wt.name,
+					};
+					mapping[fnName] = wasmToolMapping[fnName];
+				}
+			}
+			logger.info(
+				{ wasmToolCount: allWasmTools.length, wasmTools: allWasmTools.map((t) => t.name) },
+				"[mcp] added WASM file tools"
+			);
+		} catch (e) {
+			logger.debug({ error: e }, "[mcp] failed to add WASM tools");
+		}
+
 		try {
 			logger.info(
 				{ toolCount: oaTools.length, toolNames: oaTools.map((t) => t.function.name) },
@@ -408,11 +547,6 @@ export async function* runMcpFlow({
 		}
 		const modelIdWithProvider =
 			provider && provider !== "auto" ? `${baseModelId}:${provider}` : baseModelId;
-
-		// DEBUG: Log the exact request we're about to make
-		console.log("\n\n=== MCP DEBUG: Model ID ===", modelIdWithProvider);
-		console.log("=== MCP DEBUG: Tool count ===", oaTools.length);
-		console.log("=== MCP DEBUG: First tool ===", JSON.stringify(oaTools[0], null, 2).slice(0, 500));
 
 		const completionBase: Omit<ChatCompletionCreateParamsStreaming, "messages"> = {
 			model: modelIdWithProvider,
@@ -550,7 +684,6 @@ export async function* runMcpFlow({
 				}
 
 				logger.info({ originalCount: messagesOpenAI.length, transformedCount: finalMessages.length }, "[mcp] Gemini: transformed tool messages");
-				console.log("=== Gemini tool message transformation applied ===");
 			}
 
 			const completionRequest: ChatCompletionCreateParamsStreaming = {
@@ -590,14 +723,6 @@ export async function* runMcpFlow({
 				chunkCount++;
 				const choice = chunk.choices?.[0];
 				const delta = choice?.delta;
-				// DEBUG: Log first few chunks to see what Gemini returns
-				if (chunkCount <= 3) {
-					console.log(`\n=== MCP DEBUG: Chunk ${chunkCount} ===`);
-					console.log("finish_reason:", choice?.finish_reason);
-					console.log("delta keys:", Object.keys(delta || {}));
-					console.log("delta.tool_calls:", JSON.stringify(delta?.tool_calls));
-					console.log("full delta:", JSON.stringify(delta).slice(0, 500));
-				}
 				if (!delta) continue;
 
 				const chunkToolCalls = delta.tool_calls ?? [];
@@ -624,10 +749,7 @@ export async function* runMcpFlow({
 				}
 				if (chunkToolCalls.length > 0) {
 					sawToolCall = true;
-					// DEBUG: Log raw tool call structure
-					console.log("=== MCP DEBUG: Raw tool_calls ===", JSON.stringify(chunkToolCalls));
 					for (const call of chunkToolCalls) {
-						console.log("=== MCP DEBUG: Single call ===", JSON.stringify(call));
 						const toolCall = call as unknown as {
 							index?: number;
 							id?: string;
@@ -754,9 +876,6 @@ export async function* runMcpFlow({
 			}
 
 			if (Object.keys(toolCallState).length > 0) {
-				// DEBUG: Log final accumulated state
-				console.log("=== MCP DEBUG: Final toolCallState ===", JSON.stringify(toolCallState));
-				// Log accumulated tool call state for debugging
 				logger.info({
 					toolCallState: Object.entries(toolCallState).map(([idx, c]) => ({
 						index: idx,

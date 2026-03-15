@@ -1,7 +1,8 @@
 /**
  * MCP Servers Store
- * Manages base (env-configured) and custom (user-added) MCP servers
+ * Manages base (env-configured), custom (user-added), and WASM (browser-local) MCP servers
  * Stores custom servers and selection state in browser localStorage
+ * WASM servers run entirely in-browser via rvagent-wasm with IndexedDB persistence
  */
 
 import { writable, derived, get } from "svelte/store";
@@ -9,6 +10,13 @@ import { base } from "$app/paths";
 import { env as publicEnv } from "$env/dynamic/public";
 import { browser } from "$app/environment";
 import type { MCPServer, ServerStatus, MCPTool } from "$lib/types/Tool";
+import {
+	initWasmMcp,
+	callMcp as callWasmMcp,
+	listGalleryTemplates,
+	loadGalleryTemplate,
+	activeTemplate,
+} from "./wasmMcp";
 
 // Namespace storage by app identity to avoid collisions across apps
 function toKeyPart(s: string | undefined): string {
@@ -25,6 +33,22 @@ const STORAGE_KEYS = {
 	SELECTED_IDS: `${KEY_PREFIX}:mcp:selected-ids`,
 	DISABLED_BASE_IDS: `${KEY_PREFIX}:mcp:disabled-base-ids`,
 } as const;
+
+// WASM MCP Server ID (constant, always available)
+export const WASM_SERVER_ID = "wasm-rvagent";
+
+// Create the WASM MCP server entry
+function createWasmServer(): MCPServer {
+	return {
+		id: WASM_SERVER_ID,
+		name: "RVAgent Local (WASM)",
+		url: "wasm://local",
+		type: "wasm",
+		status: "disconnected",
+		isLocked: false,
+		tools: [],
+	};
+}
 
 // No migration needed per request — read/write only namespaced keys
 
@@ -138,7 +162,7 @@ export const allBaseServersEnabled = derived(
 // is applied server-side when enabled via MCP_FORWARD_HF_USER_TOKEN.
 
 /**
- * Refresh base servers from API and merge with custom servers
+ * Refresh base servers from API and merge with custom servers + WASM server
  */
 export async function refreshMcpServers() {
 	try {
@@ -150,8 +174,11 @@ export async function refreshMcpServers() {
 		const baseServers: MCPServer[] = await response.json();
 		const customServers = loadCustomServers();
 
-		// Merge base and custom servers
-		const merged = [...baseServers, ...customServers];
+		// Create WASM server and add to the list
+		const wasmServer = createWasmServer();
+
+		// Merge base, custom, and WASM servers
+		const merged = [wasmServer, ...baseServers, ...customServers];
 		allMcpServers.set(merged);
 
 		// Load disabled base servers
@@ -159,9 +186,13 @@ export async function refreshMcpServers() {
 
 		// Auto-enable all base servers that aren't explicitly disabled
 		// Plus keep any custom servers that were previously selected
+		// WASM server is auto-enabled by default
 		const validIds = new Set(merged.map((s) => s.id));
 		selectedServerIds.update(($currentIds) => {
 			const newSelection = new Set<string>();
+
+			// Auto-enable WASM server
+			newSelection.add(WASM_SERVER_ID);
 
 			// Add all base servers that aren't disabled
 			for (const server of baseServers) {
@@ -180,11 +211,70 @@ export async function refreshMcpServers() {
 			return newSelection;
 		});
 		mcpServersLoaded.set(true);
+
+		// Initialize WASM MCP server in background
+		initWasmServer();
 	} catch (error) {
 		console.error("Failed to refresh MCP servers:", error);
-		// On error, just use custom servers
-		allMcpServers.set(loadCustomServers());
+		// On error, use custom servers + WASM server
+		const wasmServer = createWasmServer();
+		allMcpServers.set([wasmServer, ...loadCustomServers()]);
 		mcpServersLoaded.set(true);
+
+		// Still try to init WASM
+		initWasmServer();
+	}
+}
+
+/**
+ * Initialize the WASM MCP server
+ */
+async function initWasmServer() {
+	if (!browser) return;
+
+	updateServerStatus(WASM_SERVER_ID, "connecting");
+
+	try {
+		const success = await initWasmMcp();
+
+		if (success) {
+			// Get tools from WASM server
+			const toolsResponse = await callWasmMcp("tools/list");
+			const tools: MCPTool[] = [];
+
+			if (!toolsResponse.error && toolsResponse.result) {
+				const result = toolsResponse.result as { tools: MCPTool[] };
+				if (result.tools) {
+					tools.push(...result.tools);
+				}
+			}
+
+			// Get active template info
+			const template = get(activeTemplate);
+
+			updateServerStatus(WASM_SERVER_ID, "connected", undefined, tools);
+
+			// Update template info
+			allMcpServers.update(($servers) =>
+				$servers.map((s) =>
+					s.id === WASM_SERVER_ID
+						? {
+								...s,
+								wasmTemplateId: template.id || undefined,
+								wasmTemplateName: template.name || undefined,
+							}
+						: s
+				)
+			);
+
+			console.log(`[MCP] WASM server initialized with ${tools.length} tools`);
+		} else {
+			updateServerStatus(WASM_SERVER_ID, "error", "Failed to load WASM module");
+		}
+	} catch (error) {
+		const errorMessage = error instanceof Error ? error.message : "Unknown error";
+		updateServerStatus(WASM_SERVER_ID, "error", errorMessage);
+		console.error("[MCP] WASM server initialization failed:", error);
 	}
 }
 
@@ -314,6 +404,11 @@ export function updateServerStatus(
 export async function healthCheckServer(
 	server: MCPServer
 ): Promise<{ ready: boolean; tools?: MCPTool[]; error?: string }> {
+	// Handle WASM servers locally
+	if (server.type === "wasm") {
+		return healthCheckWasmServer();
+	}
+
 	try {
 		updateServerStatus(server.id, "connecting");
 
@@ -337,6 +432,100 @@ export async function healthCheckServer(
 		updateServerStatus(server.id, "error", errorMessage);
 		return { ready: false, error: errorMessage };
 	}
+}
+
+/**
+ * Health check for WASM MCP server (runs locally)
+ */
+async function healthCheckWasmServer(): Promise<{ ready: boolean; tools?: MCPTool[]; error?: string }> {
+	try {
+		updateServerStatus(WASM_SERVER_ID, "connecting");
+
+		const success = await initWasmMcp();
+
+		if (!success) {
+			updateServerStatus(WASM_SERVER_ID, "error", "Failed to load WASM module");
+			return { ready: false, error: "Failed to load WASM module" };
+		}
+
+		// Get tools from WASM server
+		const toolsResponse = await callWasmMcp("tools/list");
+		const tools: MCPTool[] = [];
+
+		if (!toolsResponse.error && toolsResponse.result) {
+			const result = toolsResponse.result as { tools: MCPTool[] };
+			if (result.tools) {
+				tools.push(...result.tools);
+			}
+		}
+
+		// Get active template info
+		const template = get(activeTemplate);
+
+		updateServerStatus(WASM_SERVER_ID, "connected", undefined, tools);
+
+		// Update template info
+		allMcpServers.update(($servers) =>
+			$servers.map((s) =>
+				s.id === WASM_SERVER_ID
+					? {
+							...s,
+							wasmTemplateId: template.id || undefined,
+							wasmTemplateName: template.name || undefined,
+						}
+					: s
+			)
+		);
+
+		return { ready: true, tools };
+	} catch (error) {
+		const errorMessage = error instanceof Error ? error.message : "Unknown error";
+		updateServerStatus(WASM_SERVER_ID, "error", errorMessage);
+		return { ready: false, error: errorMessage };
+	}
+}
+
+/**
+ * Load a gallery template for the WASM MCP server
+ */
+export async function loadWasmTemplate(templateId: string): Promise<boolean> {
+	try {
+		const success = await loadGalleryTemplate(templateId);
+
+		if (success) {
+			// Refresh tools after loading template
+			await healthCheckWasmServer();
+			return true;
+		}
+
+		return false;
+	} catch (error) {
+		console.error("[MCP] Failed to load WASM template:", error);
+		return false;
+	}
+}
+
+/**
+ * Get available gallery templates for WASM server
+ */
+export function getWasmGalleryTemplates() {
+	return listGalleryTemplates();
+}
+
+/**
+ * Execute a tool on the WASM MCP server
+ */
+export async function executeWasmTool(
+	name: string,
+	args: Record<string, unknown>
+): Promise<{ success: boolean; result?: unknown; error?: string }> {
+	const response = await callWasmMcp("tools/call", { name, arguments: args });
+
+	if (response.error) {
+		return { success: false, error: response.error.message };
+	}
+
+	return { success: true, result: response.result };
 }
 
 // Initialize on module load

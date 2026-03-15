@@ -17,7 +17,7 @@
 	import { fetchMessageUpdates, resolveStreamingMode } from "$lib/utils/messageUpdates";
 	import type { v4 } from "uuid";
 	import { useSettingsStore } from "$lib/stores/settings.js";
-	import { enabledServers } from "$lib/stores/mcpServers";
+	import { enabledServers, WASM_SERVER_ID } from "$lib/stores/mcpServers";
 	import { browser } from "$app/environment";
 	import {
 		addBackgroundGeneration,
@@ -217,6 +217,21 @@
 			const messageUpdatesAbortController = new AbortController();
 			const streamingMode = resolveStreamingMode($settings);
 
+			// DEBUG: Log enabled servers and WASM tools
+			const wasmServersWithTools = $enabledServers.filter((s) => s.type === "wasm" && s.tools?.length);
+			const wasmToolsList = wasmServersWithTools.flatMap((s) =>
+				(s.tools ?? []).map((t) => ({
+					name: t.name,
+					description: t.description,
+					inputSchema: t.inputSchema,
+					serverId: s.id,
+				}))
+			);
+			console.log("[DEBUG] enabledServers:", $enabledServers);
+			console.log("[DEBUG] WASM servers:", $enabledServers.filter((s) => s.type === "wasm"));
+			console.log("[DEBUG] WASM servers with tools:", wasmServersWithTools);
+			console.log("[DEBUG] WASM tools to send:", wasmToolsList);
+
 			const messageUpdatesIterator = await fetchMessageUpdates(
 				convId,
 				{
@@ -226,11 +241,15 @@
 					isRetry,
 					files: isRetry ? userMessage?.files : base64Files,
 					selectedMcpServerNames: $enabledServers.map((s) => s.name),
-					selectedMcpServers: $enabledServers.map((s) => ({
-						name: s.name,
-						url: s.url,
-						headers: s.headers,
-					})),
+					selectedMcpServers: $enabledServers
+						.filter((s) => s.type !== "wasm") // WASM servers use wasmTools instead
+						.map((s) => ({
+							name: s.name,
+							url: s.url,
+							headers: s.headers,
+						})),
+					// Include WASM tools directly (they run client-side)
+					wasmTools: wasmToolsList,
 					streamingMode,
 					autopilot: $settings.autopilotEnabled === true,
 					autopilotMaxSteps: $settings.autopilotMaxSteps ?? 10,

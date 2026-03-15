@@ -146,4 +146,58 @@ export const mcpExamples: RouterExample[] = [
 			},
 		],
 	},
+	{
+		title: "File operations",
+		prompt: "Read the contents of package.json and list all TypeScript files in src/",
+		followUps: [
+			{
+				title: "Edit file",
+				prompt: "Update the version field in package.json to 2.0.0",
+			},
+			{
+				title: "Search code",
+				prompt: "Search for all usages of 'useState' across the codebase",
+			},
+			{
+				title: "Create file",
+				prompt: "Create a new component file with TypeScript template",
+			},
+		],
+	},
+	{
+		title: "Git operations",
+		prompt: "Show the git status and recent commit history",
+		followUps: [
+			{
+				title: "View diff",
+				prompt: "Show the diff for staged changes",
+			},
+			{
+				title: "Commit changes",
+				prompt: "Create a commit with message 'feat: add new feature'",
+			},
+			{
+				title: "Branch info",
+				prompt: "List all branches and show current branch",
+			},
+		],
+	},
+	{
+		title: "Shell execution",
+		prompt: "Run npm install and show the output",
+		followUps: [
+			{
+				title: "Run tests",
+				prompt: "Execute npm test and report results",
+			},
+			{
+				title: "Build project",
+				prompt: "Run the build command and check for errors",
+			},
+			{
+				title: "Start dev server",
+				prompt: "Start the development server and show the URL",
+			},
+		],
+	},
 ];

@@ -57,7 +57,7 @@ export interface MCPServer {
 	id: string;
 	name: string;
 	url: string;
-	type: "base" | "custom";
+	type: "base" | "custom" | "wasm";
 	headers?: KeyValuePair[];
 	env?: KeyValuePair[];
 	status?: ServerStatus;
@@ -66,6 +66,9 @@ export interface MCPServer {
 	errorMessage?: string;
 	// Indicates server reports or appears to require OAuth or other auth
 	authRequired?: boolean;
+	// For WASM servers: active template info
+	wasmTemplateId?: string;
+	wasmTemplateName?: string;
 }
 
 export interface MCPServerApi {

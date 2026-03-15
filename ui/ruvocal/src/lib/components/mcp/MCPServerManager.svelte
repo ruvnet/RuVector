@@ -3,6 +3,7 @@
 	import Modal from "$lib/components/Modal.svelte";
 	import ServerCard from "./ServerCard.svelte";
 	import AddServerForm from "./AddServerForm.svelte";
+	import GalleryPanel from "$lib/components/wasm/GalleryPanel.svelte";
 	import {
 		allMcpServers,
 		selectedServerIds,
@@ -11,11 +12,14 @@
 		refreshMcpServers,
 		healthCheckServer,
 	} from "$lib/stores/mcpServers";
+	import { RVAGENT_PRESETS, buildPresetUrl } from "$lib/constants/rvagentPresets";
 	import type { KeyValuePair } from "$lib/types/Tool";
 	import IconAddLarge from "~icons/carbon/add-large";
 	import IconRefresh from "~icons/carbon/renew";
 	import LucideHammer from "~icons/lucide/hammer";
 	import IconMCP from "$lib/components/icons/IconMCP.svelte";
+	import IconRocket from "~icons/carbon/rocket";
+	import IconGrid from "~icons/carbon/grid";
 
 	const publicConfig = usePublicConfig();
 
@@ -25,12 +29,13 @@
 
 	let { onclose }: Props = $props();
 
-	type View = "list" | "add";
+	type View = "list" | "add" | "gallery";
 	let currentView = $state<View>("list");
 	let isRefreshing = $state(false);
 
 	const baseServers = $derived($allMcpServers.filter((s) => s.type === "base"));
 	const customServers = $derived($allMcpServers.filter((s) => s.type === "custom"));
+	const wasmServers = $derived($allMcpServers.filter((s) => s.type === "wasm"));
 	const enabledCount = $derived($enabledServersCount);
 
 	function handleAddServer(serverData: { name: string; url: string; headers?: KeyValuePair[] }) {
@@ -56,13 +61,15 @@
 	}
 </script>
 
-<Modal width={currentView === "list" ? "w-[800px]" : "w-[600px]"} {onclose} closeButton>
+<Modal width={currentView === "list" ? "w-[800px]" : currentView === "gallery" ? "w-[700px]" : "w-[600px]"} {onclose} closeButton>
 	<div class="p-6">
 		<!-- Header -->
 		<div class="mb-6">
 			<h2 class="mb-1 text-xl font-semibold text-gray-900 dark:text-gray-200">
 				{#if currentView === "list"}
 					MCP Servers
+				{:else if currentView === "gallery"}
+					RVF Agent Gallery
 				{:else}
 					Add MCP server
 				{/if}
@@ -70,6 +77,8 @@
 			<p class="text-sm text-gray-600 dark:text-gray-400">
 				{#if currentView === "list"}
 					Manage MCP servers to extend {publicConfig.PUBLIC_APP_NAME} with external tools.
+				{:else if currentView === "gallery"}
+					Browse and load pre-built agent templates for the WASM server.
 				{:else}
 					Add a custom MCP server to {publicConfig.PUBLIC_APP_NAME}.
 				{/if}
@@ -120,6 +129,32 @@
 				</div>
 			</div>
 			<div class="space-y-5">
+				<!-- WASM Local Servers -->
+				{#if wasmServers.length > 0}
+					<div>
+						<div class="mb-3 flex items-center justify-between">
+							<h3 class="text-sm font-medium text-gray-700 dark:text-gray-300">
+								<span class="inline-flex items-center gap-1.5">
+									<span class="inline-block size-2 rounded-full bg-purple-500"></span>
+									Local WASM Servers ({wasmServers.length})
+								</span>
+							</h3>
+							<button
+								onclick={() => (currentView = "gallery")}
+								class="flex items-center gap-1.5 rounded-lg border border-purple-200 bg-purple-50 px-2.5 py-1 text-xs font-medium text-purple-700 hover:bg-purple-100 dark:border-purple-800/50 dark:bg-purple-900/20 dark:text-purple-300 dark:hover:bg-purple-900/40"
+							>
+								<IconGrid class="size-3" />
+								Agent Gallery
+							</button>
+						</div>
+						<div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+							{#each wasmServers as server (server.id)}
+								<ServerCard {server} isSelected={$selectedServerIds.has(server.id)} />
+							{/each}
+						</div>
+					</div>
+				{/if}
+
 				<!-- Base Servers -->
 				{#if baseServers.length > 0}
 					<div>
@@ -150,13 +185,37 @@
 							<p class="mb-4 text-xs text-gray-600 dark:text-gray-400">
 								Add your own MCP servers with custom tools
 							</p>
-							<button
-								onclick={() => (currentView = "add")}
-								class="flex items-center gap-1.5 rounded-lg bg-gold-500 px-4 py-2 text-sm font-medium text-gray-900 hover:bg-gold-400"
-							>
-								<IconAddLarge class="size-4" />
-								Add Your First Server
-							</button>
+							<div class="flex flex-col gap-3">
+								<button
+									onclick={() => (currentView = "add")}
+									class="flex items-center gap-1.5 rounded-lg bg-gold-500 px-4 py-2 text-sm font-medium text-gray-900 hover:bg-gold-400"
+								>
+									<IconAddLarge class="size-4" />
+									Add Server
+								</button>
+
+								<!-- rvAgent Quick Add -->
+								<div class="text-center">
+									<p class="mb-2 text-xs text-gray-500 dark:text-gray-400">or quick add rvAgent:</p>
+									<div class="flex flex-wrap justify-center gap-1">
+										{#each RVAGENT_PRESETS.slice(0, 4) as preset}
+											<button
+												onclick={() => {
+													addCustomServer({
+														name: `rvAgent - ${preset.name}`,
+														url: buildPresetUrl(preset),
+													});
+												}}
+												class="flex items-center gap-1 rounded border border-gray-200 bg-white px-2 py-1 text-xs text-gray-700 hover:border-gold-300 hover:bg-gold-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:border-gold-600 dark:hover:bg-gold-900/20"
+												title={preset.description}
+											>
+												<span>{preset.icon}</span>
+												<span>{preset.name}</span>
+											</button>
+										{/each}
+									</div>
+								</div>
+							</div>
 						</div>
 					{:else}
 						<div class="grid grid-cols-1 gap-3 md:grid-cols-2">
@@ -165,6 +224,23 @@
 							{/each}
 						</div>
 					{/if}
+				</div>
+
+				<!-- rvAgent Quick Reference -->
+				<div class="rounded-lg border border-gold-200 bg-gold-50/50 p-4 dark:border-gold-800/30 dark:bg-gold-900/10">
+					<h4 class="mb-2 flex items-center gap-2 text-sm font-medium text-gray-900 dark:text-gray-100">
+						<IconRocket class="size-4 text-gold-600 dark:text-gold-400" />
+						rvAgent MCP Server
+					</h4>
+					<p class="mb-2 text-xs text-gray-600 dark:text-gray-400">
+						Start the rvAgent MCP server to access 46+ AI agent tools:
+					</p>
+					<div class="rounded bg-gray-900 p-2 dark:bg-gray-950">
+						<code class="text-xs text-green-400">rvagent-mcp --transport sse --port 9000 --all</code>
+					</div>
+					<p class="mt-2 text-xs text-gray-500 dark:text-gray-400">
+						Use <code class="rounded bg-gray-200 px-1 dark:bg-gray-700">--groups file,shell,memory</code> to expose specific tool groups.
+					</p>
 				</div>
 
 				<!-- Help Text -->
@@ -180,6 +256,18 @@
 			</div>
 		{:else if currentView === "add"}
 			<AddServerForm onsubmit={handleAddServer} oncancel={handleCancel} />
+		{:else if currentView === "gallery"}
+			<div class="mb-4">
+				<button
+					onclick={() => (currentView = "list")}
+					class="flex items-center gap-1 text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200"
+				>
+					← Back to servers
+				</button>
+			</div>
+			<div class="h-[500px] overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700">
+				<GalleryPanel />
+			</div>
 		{/if}
 	</div>
 </Modal>

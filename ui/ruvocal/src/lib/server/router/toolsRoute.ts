@@ -22,8 +22,13 @@ export function hasActiveToolsSelection(locals: App.Locals | undefined): boolean
 			Array.isArray(reqMcp?.selectedServers) && (reqMcp?.selectedServers?.length ?? 0) > 0;
 		const byName =
 			Array.isArray(reqMcp?.selectedServerNames) && (reqMcp?.selectedServerNames?.length ?? 0) > 0;
-		return Boolean(byConfig || byName);
-	} catch {
+		// Also check for WASM tools (run client-side in browser)
+		const wasmTools = (reqMcp as { wasmTools?: unknown[] } | undefined)?.wasmTools;
+		const byWasm = Array.isArray(wasmTools) && wasmTools.length > 0;
+
+		return Boolean(byConfig || byName || byWasm);
+	} catch (e) {
+		console.error("[hasActiveToolsSelection] Error:", e);
 		return false;
 	}
 }

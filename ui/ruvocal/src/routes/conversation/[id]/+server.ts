@@ -129,6 +129,7 @@ export async function POST({ request, locals, params, getClientAddress }) {
 		is_retry: isRetry,
 		selectedMcpServerNames,
 		selectedMcpServers,
+		wasmTools,
 		autopilot,
 		autopilotMaxSteps,
 	} = z
@@ -157,6 +158,19 @@ export async function POST({ request, locals, params, getClientAddress }) {
 					)
 				)
 				.default([]),
+			// WASM tools are provided directly by the client (run in browser)
+			wasmTools: z
+				.optional(
+					z.array(
+						z.object({
+							name: z.string(),
+							description: z.optional(z.string()),
+							inputSchema: z.optional(z.record(z.unknown())),
+							serverId: z.string(),
+						})
+					)
+				)
+				.default([]),
 			files: z.optional(
 				z.array(
 					z.object({
@@ -172,7 +186,7 @@ export async function POST({ request, locals, params, getClientAddress }) {
 
 	// Attach MCP selection to locals so the text generation pipeline can consume it
 	try {
-		(locals as unknown as Record<string, unknown>).mcp = {
+		const mcpPayload = {
 			selectedServerNames: selectedMcpServerNames,
 			selectedServers: (selectedMcpServers ?? []).map((s) => ({
 				name: s.name,
@@ -182,9 +196,18 @@ export async function POST({ request, locals, params, getClientAddress }) {
 						? Object.fromEntries(s.headers.map((h) => [h.key, h.value]))
 						: undefined,
 			})),
+			// WASM tools run client-side, include them directly
+			wasmTools: (wasmTools ?? []).map((t) => ({
+				name: t.name,
+				description: t.description,
+				inputSchema: t.inputSchema,
+				serverId: t.serverId,
+			})),
 		};
-	} catch {
+		(locals as unknown as Record<string, unknown>).mcp = mcpPayload;
+	} catch (e) {
 		// ignore attachment errors, pipeline will just use env servers
+		console.error("[mcp] Error attaching to locals:", e);
 	}
 
 	const inputFiles = await Promise.all(

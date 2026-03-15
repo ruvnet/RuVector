@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { MCPServer } from "$lib/types/Tool";
-	import { toggleServer, healthCheckServer, deleteCustomServer } from "$lib/stores/mcpServers";
+	import { toggleServer, healthCheckServer, deleteCustomServer, WASM_SERVER_ID } from "$lib/stores/mcpServers";
 	import IconCheckmark from "~icons/carbon/checkmark-filled";
 	import IconWarning from "~icons/carbon/warning-filled";
 	import IconPending from "~icons/carbon/pending-filled";
@@ -8,8 +8,12 @@
 	import IconTrash from "~icons/carbon/trash-can";
 	import LucideHammer from "~icons/lucide/hammer";
 	import IconSettings from "~icons/carbon/settings";
+	import IconCube from "~icons/carbon/cube";
 	import Switch from "$lib/components/Switch.svelte";
 	import { getMcpServerFaviconUrl } from "$lib/utils/favicon";
+
+	// Check if this is a WASM server
+	const isWasmServer = $derived(server.type === "wasm");
 
 	interface Props {
 		server: MCPServer;
@@ -132,6 +136,16 @@
 						{server.tools.length === 1 ? "tool" : "tools"}
 					</span>
 				{/if}
+			</div>
+		{/if}
+
+		<!-- WASM Template Info -->
+		{#if isWasmServer && server.wasmTemplateName}
+			<div class="mb-2 flex items-center gap-2">
+				<span class="inline-flex items-center gap-1.5 rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-700 dark:bg-purple-900/30 dark:text-purple-300">
+					<IconCube class="size-3" />
+					{server.wasmTemplateName}
+				</span>
 			</div>
 		{/if}
 
