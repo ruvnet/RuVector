@@ -22,3 +22,5 @@ pub mod midstream;
 pub mod types;
 pub mod trainer;
 pub mod verify;
+pub mod web_memory;
+pub mod web_ingest;
