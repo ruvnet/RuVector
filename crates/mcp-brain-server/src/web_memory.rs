@@ -76,6 +76,46 @@ impl CompressionTier {
     }
 }
 
+impl WebMemory {
+    /// Convert to a lightweight summary (strips embedding, full content).
+    pub fn to_summary(&self) -> WebMemorySummary {
+        WebMemorySummary {
+            id: self.base.id,
+            title: self.base.title.clone(),
+            source_url: self.source_url.clone(),
+            domain: self.domain.clone(),
+            novelty_score: self.novelty_score,
+            quality_score: self.base.quality_score.mean(),
+            crawl_timestamp: self.crawl_timestamp,
+        }
+    }
+}
+
+impl WebPageDelta {
+    /// Create a new delta between two versions of a page.
+    pub fn new(
+        page_url: String,
+        previous_memory_id: Uuid,
+        current_memory_id: Uuid,
+        embedding_drift: f32,
+        content_delta: ContentDelta,
+        time_delta: Duration,
+        boundary_crossing: bool,
+    ) -> Self {
+        Self {
+            id: Uuid::new_v4(),
+            page_url,
+            previous_memory_id,
+            current_memory_id,
+            embedding_drift,
+            content_delta,
+            time_delta,
+            boundary_crossing,
+            created_at: Utc::now(),
+        }
+    }
+}
+
 // ── Temporal Evolution ──────────────────────────────────────────────────
 
 /// Tracks how a web page changes across crawls.
@@ -445,11 +485,105 @@ mod tests {
     }
 
     #[test]
+    fn content_delta_is_significant() {
+        assert!(!ContentDelta::Unchanged.is_significant());
+        assert!(!ContentDelta::Minor { changed_tokens: 1, total_tokens: 100 }.is_significant());
+        assert!(ContentDelta::Major { summary: "test".into(), changed_tokens: 10 }.is_significant());
+        assert!(ContentDelta::Rewrite.is_significant());
+    }
+
+    #[test]
+    fn content_delta_edge_cases() {
+        // Zero total tokens → treated as 100% change (Major)
+        assert!(matches!(ContentDelta::classify(5, 0, 0.9), ContentDelta::Major { .. }));
+        // Exactly at 5% boundary (5/100) → Major (≥ 5%)
+        assert!(matches!(ContentDelta::classify(5, 100, 0.9), ContentDelta::Major { .. }));
+        // Just under 5% boundary (4/100) → Minor
+        assert!(matches!(ContentDelta::classify(4, 100, 0.9), ContentDelta::Minor { .. }));
+    }
+
+    #[test]
     fn link_edge_weight_clamped() {
         let edge = LinkEdge::new(Uuid::new_v4(), Uuid::new_v4(), None, vec![0.0; 128], LinkType::Citation, 1.5);
         assert_eq!(edge.weight, 1.0);
 
         let edge2 = LinkEdge::new(Uuid::new_v4(), Uuid::new_v4(), None, vec![0.0; 128], LinkType::Citation, -0.5);
         assert_eq!(edge2.weight, 0.0);
+
+        let edge3 = LinkEdge::new(Uuid::new_v4(), Uuid::new_v4(), None, vec![0.0; 128], LinkType::Evidence, 0.75);
+        assert!((edge3.weight - 0.75).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn web_page_delta_constructor() {
+        let prev = Uuid::new_v4();
+        let curr = Uuid::new_v4();
+        let delta = WebPageDelta::new(
+            "https://example.com".into(),
+            prev,
+            curr,
+            0.85,
+            ContentDelta::Minor { changed_tokens: 3, total_tokens: 100 },
+            Duration::hours(24),
+            false,
+        );
+        assert_eq!(delta.previous_memory_id, prev);
+        assert_eq!(delta.current_memory_id, curr);
+        assert!(!delta.boundary_crossing);
+        assert!((delta.embedding_drift - 0.85).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn compression_tier_serde_roundtrip() {
+        let tiers = [
+            CompressionTier::Full,
+            CompressionTier::DeltaCompressed,
+            CompressionTier::CentroidMerged,
+            CompressionTier::Archived,
+        ];
+        for tier in &tiers {
+            let json = serde_json::to_string(tier).unwrap();
+            let deserialized: CompressionTier = serde_json::from_str(&json).unwrap();
+            assert_eq!(*tier, deserialized);
+        }
+    }
+
+    #[test]
+    fn content_delta_serde_roundtrip() {
+        let deltas = [
+            ContentDelta::Unchanged,
+            ContentDelta::Minor { changed_tokens: 5, total_tokens: 200 },
+            ContentDelta::Major { summary: "big change".into(), changed_tokens: 50 },
+            ContentDelta::Rewrite,
+        ];
+        for delta in &deltas {
+            let json = serde_json::to_string(delta).unwrap();
+            let deserialized: ContentDelta = serde_json::from_str(&json).unwrap();
+            // Verify type tag round-trips
+            assert_eq!(json.contains("\"type\""), true);
+            assert!(matches!(
+                (&delta, &deserialized),
+                (ContentDelta::Unchanged, ContentDelta::Unchanged)
+                    | (ContentDelta::Minor { .. }, ContentDelta::Minor { .. })
+                    | (ContentDelta::Major { .. }, ContentDelta::Major { .. })
+                    | (ContentDelta::Rewrite, ContentDelta::Rewrite)
+            ));
+        }
+    }
+
+    #[test]
+    fn link_type_serde_roundtrip() {
+        let types = [
+            LinkType::Citation,
+            LinkType::Navigation,
+            LinkType::Evidence,
+            LinkType::Contradiction,
+            LinkType::Unknown,
+        ];
+        for lt in &types {
+            let json = serde_json::to_string(lt).unwrap();
+            let deserialized: LinkType = serde_json::from_str(&json).unwrap();
+            assert_eq!(*lt, deserialized);
+        }
     }
 }

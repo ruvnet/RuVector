@@ -27,3 +27,4 @@ pub mod symbolic;
 pub mod optimizer;
 pub mod web_memory;
 pub mod web_ingest;
+pub mod web_store;

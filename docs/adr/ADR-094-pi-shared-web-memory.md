@@ -1,6 +1,6 @@
 # ADR-094: π.ruv.io Shared Web Memory on RuVector
 
-**Status**: Proposed
+**Status**: Accepted (Implementing)
 **Date**: 2026-03-14
 **Authors**: ruv
 **Deciders**: ruv, RuVector Architecture Team
@@ -13,6 +13,38 @@
 |---------|------|--------|---------|
 | 0.1 | 2026-03-14 | ruv | Initial proposal — architecture, storage model, ingestion pipeline |
 | 0.2 | 2026-03-15 | RuVector Team | Added implementation phases, cost model, acceptance criteria |
+| 0.3 | 2026-03-15 | RuVector Team | Phase 1-2 implementation complete. Deep review: fixed SHA3-256 alignment, added within-batch dedup, WebMemoryStore persistence, 106 tests passing. |
+
+## Implementation Status
+
+**Branch**: `claude/review-ruvector-planet-finder-YUAhU`
+**Last Updated**: 2026-03-15
+
+### Phase Completion
+
+| Phase | Status | Files Created/Modified | Tests |
+|-------|--------|------------------------|-------|
+| Phase 1: Data Model + Types | ✅ Complete | `web_memory.rs` (WebMemory, WebPageDelta, LinkEdge, CompressionTier, 14 API types) | 10 |
+| Phase 2: Ingestion Pipeline | ✅ Complete | `web_ingest.rs` (7-phase pipeline, midstream integration) | 18 |
+| Phase 2b: Persistence | ✅ Complete | `web_store.rs` (DashMap + Firestore write-through, dedup index, domain stats) | 4 |
+| Phase 3: Graph Construction | 🔲 Planned | Extend `graph.rs` with LinkEdge integration | — |
+| Phase 4: Temporal Compression | 🔲 Planned | `web_temporal.rs`, extend `drift.rs` | — |
+| Phase 5: Query APIs | 🔲 Planned | Extend `routes.rs` with 10 web endpoints | — |
+| Phase 6: Local Preprocessing CLI | 🔲 Planned | `preprocess.rs`, CLI commands | — |
+| Phase 7: Hardening + Acceptance | 🔲 Planned | Load tests, latency validation | — |
+
+### Invariants Verified
+
+| Invariant | Status | Enforcement |
+|-----------|--------|-------------|
+| INV-2: Content hash unique per Full-tier | ✅ | SHA3-256 dedup in `ingest_batch` + within-batch dedup |
+| INV-5: Tier matches novelty deterministically | ✅ | `CompressionTier::from_novelty()` + boundary tests |
+| INV-6: LinkEdge weight ∈ [0.0, 1.0] | ✅ | `f64::clamp` in `LinkEdge::new()` |
+
+### Test Summary
+
+- **Total New Tests**: 32 (web_memory: 10, web_ingest: 18, web_store: 4)
+- **All Passing**: ✅ Yes (106 total in crate)
 
 ---
 
@@ -216,7 +248,7 @@ pub struct WebMemory {
     pub source_url: String,
     /// Domain extracted from source_url
     pub domain: String,
-    /// Content hash (SHAKE-256) for deduplication
+    /// Content hash (SHA3-256) for deduplication
     pub content_hash: String,
     /// Crawl timestamp (when the content was fetched)
     pub crawl_timestamp: DateTime<Utc>,
@@ -320,7 +352,7 @@ Phase 2: Clean
   Output: CleanedPage { url, text, links, title, meta }
 
 Phase 3: Deduplicate
-  Content hash (SHAKE-256 of normalized text)
+  Content hash (SHA3-256 of normalized text)
   Check against content_hash index in store
   If exact match → skip (or record temporal "unchanged" delta)
   If near-match (simhash within 3 bits) → flag for delta compression
@@ -486,25 +518,30 @@ The shift from document retrieval to knowledge reasoning is enabled by graph tra
 
 ## 8. Implementation Phases
 
-### Phase 1: Data Model + Types (Week 1-2)
+### Phase 1: Data Model + Types (Week 1-2) — ✅ COMPLETE
 
-**Files**: `crates/mcp-brain-server/src/web_memory.rs` (new)
+**Files**: `crates/mcp-brain-server/src/web_memory.rs`, `crates/mcp-brain-server/src/web_store.rs`
 
-- Define `WebMemory`, `WebPageDelta`, `LinkEdge`, `CompressionTier`, `ContentDelta`, `LinkType`
-- Extend `FirestoreClient` with web memory CRUD operations
-- Add web-specific categories to `BrainCategory::Custom`
-- Integration tests for type serialization round-trips
+- `WebMemory` extends `BrainMemory` with URL, domain, content hash, compression tier, novelty score
+- `WebPageDelta` with `ContentDelta` classification (Unchanged/Minor/Major/Rewrite)
+- `LinkEdge` with anchor/context embeddings, link type, weight clamped to [0,1] (INV-6)
+- `CompressionTier::from_novelty()` deterministic assignment (INV-5)
+- `WebMemoryStore` — DashMap + Firestore write-through, dedup index, domain stats
+- `WebMemory::to_summary()`, `WebPageDelta::new()` constructors
+- 14 API request/response types, 14 unit tests (serde round-trips, boundary conditions)
 
-### Phase 2: Ingestion Pipeline (Week 3-5)
+### Phase 2: Ingestion Pipeline (Week 3-5) — ✅ COMPLETE
 
-**Files**: `crates/mcp-brain-server/src/web_ingest.rs` (new)
+**Files**: `crates/mcp-brain-server/src/web_ingest.rs`
 
-- HTML cleaning (strip boilerplate, extract content)
-- Content hashing (SHAKE-256 deduplication)
-- Chunking (512 tokens, 64-token overlap)
-- Novelty scoring against existing HNSW index
-- Compression tier assignment
-- Batch ingestion endpoint (`POST /v1/web/ingest`)
+- Page validation (URL scheme, text length bounds, title)
+- SHA3-256 content hashing with whitespace/case normalization
+- Character-based chunking (2048 chars ≈ 512 tokens, 256-char overlap, UTF-8 safe)
+- Novelty scoring (1 - max cosine sim) against existing + within-batch memories
+- Within-batch deduplication (hash set prevents duplicate acceptance)
+- Midstream: `attractor_recrawl_priority()` — Lyapunov-based crawl scheduling
+- Midstream: `solver_drift_prediction()` — temporal solver drift confidence
+- 18 unit tests (validation, hashing, chunking incl. multi-byte, domain, novelty, attractor)
 
 ### Phase 3: Graph Construction (Week 5-7)
 
@@ -561,7 +598,7 @@ The shift from document retrieval to knowledge reasoning is enabled by graph tra
 | ID | Invariant | Enforcement |
 |---|---|---|
 | INV-1 | Every WebMemory has a non-empty provenance chain | `build_rvf_container` requires witness_chain |
-| INV-2 | Content hash is unique per Full-tier memory | SHAKE-256 dedup check before store |
+| INV-2 | Content hash is unique per Full-tier memory | SHA3-256 dedup check before store (+ within-batch dedup) |
 | INV-3 | Agent writes are proof-gated | ProofGate<WebMemory> wraps mutation path |
 | INV-4 | Temporal deltas reference valid parent memories | Foreign key check on previous_memory_id |
 | INV-5 | Compression tier assignment matches novelty score | Tier = f(novelty_score) is deterministic |
