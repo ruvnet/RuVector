@@ -341,89 +341,66 @@ export async function* runMcpFlow({
 			// Use these to work with files in the virtual filesystem
 			{
 				name: "read_file",
-				description: `Read file contents. REQUIRES path parameter.
-
-CALL EXACTLY LIKE THIS:
-  read_file({"path": "src/index.ts"})
-  read_file({"path": "package.json"})
-
-DO NOT call with empty {}. Always include path.`,
+				description: `read_file(path: string) → Read file contents.
+Arguments: {"path": "filename.txt"}
+Example: {"path": "src/index.ts"}`,
 				inputSchema: {
 					type: "object",
 					properties: {
-						path: { type: "string", description: "REQUIRED: File path like 'src/index.ts' or 'config.json'" },
+						path: { type: "string" },
 					},
 					required: ["path"],
-					additionalProperties: false,
 				},
 			},
 			{
 				name: "write_file",
-				description: `Write/create a file. REQUIRES path AND content parameters.
-
-CALL EXACTLY LIKE THIS:
-  write_file({"path": "hello.txt", "content": "Hello World"})
-  write_file({"path": "src/app.ts", "content": "export const x = 1;"})
-
-DO NOT call with empty {} or missing content.`,
+				description: `write_file(path: string, content: string) → Create/overwrite file.
+Arguments: {"path": "file.txt", "content": "text"}
+Example: {"path": "hello.txt", "content": "Hello World"}`,
 				inputSchema: {
 					type: "object",
 					properties: {
-						path: { type: "string", description: "REQUIRED: File path like 'hello.txt'" },
-						content: { type: "string", description: "REQUIRED: Content to write" },
+						path: { type: "string" },
+						content: { type: "string" },
 					},
 					required: ["path", "content"],
-					additionalProperties: false,
 				},
 			},
 			{
 				name: "list_files",
-				description: `List all files. No parameters needed.
-
-CALL LIKE THIS:
-  list_files({})
-
-Returns all file paths in the virtual filesystem.`,
+				description: `list_files() → List all files in virtual filesystem.
+Arguments: {}`,
 				inputSchema: {
 					type: "object",
 					properties: {},
-					additionalProperties: false,
 				},
 			},
 			{
 				name: "delete_file",
-				description: `Delete a file. REQUIRES path parameter.
-
-CALL EXACTLY LIKE THIS:
-  delete_file({"path": "temp.txt"})
-
-DO NOT call with empty {}.`,
+				description: `delete_file(path: string) → Delete a file.
+Arguments: {"path": "filename.txt"}
+Example: {"path": "temp.txt"}`,
 				inputSchema: {
 					type: "object",
 					properties: {
-						path: { type: "string", description: "REQUIRED: File path to delete" },
+						path: { type: "string" },
 					},
 					required: ["path"],
-					additionalProperties: false,
 				},
 			},
 			{
 				name: "edit_file",
-				description: `Replace text in a file. REQUIRES path, old_content, new_content.
-
-CALL EXACTLY LIKE THIS:
-  edit_file({"path": "config.json", "old_content": "v1.0", "new_content": "v2.0"})
-
-old_content must match EXACTLY. Use read_file first to see content.`,
+				description: `edit_file(path: string, old_content: string, new_content: string) → Replace text in file.
+Arguments: {"path": "file.txt", "old_content": "old", "new_content": "new"}
+Example: {"path": "config.json", "old_content": "v1", "new_content": "v2"}`,
 				inputSchema: {
 					type: "object",
 					properties: {
-						path: { type: "string", description: "REQUIRED: File path" },
-						old_content: { type: "string", description: "REQUIRED: Exact text to find" },
-						new_content: { type: "string", description: "REQUIRED: Replacement text" },
+						path: { type: "string" },
+						old_content: { type: "string" },
+						new_content: { type: "string" },
 					},
 					required: ["path", "old_content", "new_content"],
-					additionalProperties: false,
 				},
 			},
 
@@ -431,221 +408,157 @@ old_content must match EXACTLY. Use read_file first to see content.`,
 			// Use these to find content or files
 			{
 				name: "grep",
-				description: `Search files for pattern. REQUIRES pattern parameter.
-
-CALL EXACTLY LIKE THIS:
-  grep({"pattern": "TODO"})
-  grep({"pattern": "function", "path": "src/index.ts"})
-
-DO NOT call with empty {}.`,
+				description: `grep(pattern: string, path?: string) → Search files for regex pattern.
+Arguments: {"pattern": "search_term"}
+Example: {"pattern": "TODO"} or {"pattern": "function", "path": "src/app.ts"}`,
 				inputSchema: {
 					type: "object",
 					properties: {
-						pattern: { type: "string", description: "REQUIRED: Regex pattern like 'TODO' or 'export'" },
-						path: { type: "string", description: "Optional: Specific file to search" },
+						pattern: { type: "string" },
+						path: { type: "string" },
 					},
 					required: ["pattern"],
-					additionalProperties: false,
 				},
 			},
 			{
 				name: "glob",
-				description: `Find files by pattern. REQUIRES pattern parameter.
-
-CALL EXACTLY LIKE THIS:
-  glob({"pattern": "*.ts"})
-  glob({"pattern": "src/*.js"})
-
-DO NOT call with empty {}.`,
+				description: `glob(pattern: string) → Find files matching pattern.
+Arguments: {"pattern": "*.ts"}
+Example: {"pattern": "src/*.js"}`,
 				inputSchema: {
 					type: "object",
 					properties: {
-						pattern: { type: "string", description: "REQUIRED: Glob pattern like '*.ts' or 'config*'" },
+						pattern: { type: "string" },
 					},
 					required: ["pattern"],
-					additionalProperties: false,
 				},
 			},
-
-			// ========== TASK MANAGEMENT (3 tools) ==========
-			// Use these to track work items and progress
 			{
 				name: "todo_add",
-				description: `Add a task. REQUIRES task parameter.
-
-CALL EXACTLY LIKE THIS:
-  todo_add({"task": "Write unit tests"})
-
-DO NOT call with empty {}.`,
+				description: `todo_add(task: string) → Add a task to the list.
+Arguments: {"task": "description"}
+Example: {"task": "Write unit tests"}`,
 				inputSchema: {
 					type: "object",
 					properties: {
-						task: { type: "string", description: "REQUIRED: Task description" },
+						task: { type: "string" },
 					},
 					required: ["task"],
-					additionalProperties: false,
 				},
 			},
 			{
 				name: "todo_list",
-				description: `List all tasks. No parameters needed.
-
-CALL LIKE THIS:
-  todo_list({})`,
+				description: `todo_list() → List all tasks.
+Arguments: {}`,
 				inputSchema: {
 					type: "object",
 					properties: {},
-					additionalProperties: false,
 				},
 			},
 			{
 				name: "todo_complete",
-				description: `Complete a task. REQUIRES id parameter.
-
-CALL EXACTLY LIKE THIS:
-  todo_complete({"id": "todo-1"})
-
-Get IDs from todo_list first. DO NOT call with empty {}.`,
+				description: `todo_complete(id: string) → Mark task as done.
+Arguments: {"id": "todo-1"}
+Example: {"id": "todo-1"}`,
 				inputSchema: {
 					type: "object",
 					properties: {
-						id: { type: "string", description: "REQUIRED: Task ID like 'todo-1'" },
+						id: { type: "string" },
 					},
 					required: ["id"],
-					additionalProperties: false,
 				},
 			},
-
-			// ========== MEMORY TOOLS (2 tools) ==========
 			{
 				name: "memory_store",
-				description: `Store data in memory. REQUIRES key AND value.
-
-CALL EXACTLY LIKE THIS:
-  memory_store({"key": "auth-pattern", "value": "Use JWT"})
-  memory_store({"key": "solution", "value": "Fixed bug", "tags": ["fix"]})
-
-DO NOT call with empty {} or missing key/value.`,
+				description: `memory_store(key: string, value: string) → Store key-value pair.
+Arguments: {"key": "name", "value": "data"}
+Example: {"key": "auth-method", "value": "JWT tokens"}`,
 				inputSchema: {
 					type: "object",
 					properties: {
-						key: { type: "string", description: "REQUIRED: Unique key" },
-						value: { type: "string", description: "REQUIRED: Value to store" },
-						tags: { type: "array", items: { type: "string" }, description: "Optional tags" },
+						key: { type: "string" },
+						value: { type: "string" },
+						tags: { type: "array", items: { type: "string" } },
 					},
 					required: ["key", "value"],
-					additionalProperties: false,
 				},
 			},
 			{
 				name: "memory_search",
-				description: `Search stored memories. REQUIRES query parameter.
-
-CALL EXACTLY LIKE THIS:
-  memory_search({"query": "authentication"})
-
-DO NOT call with empty {}.`,
+				description: `memory_search(query: string) → Search stored memories.
+Arguments: {"query": "search_term"}
+Example: {"query": "authentication"}`,
 				inputSchema: {
 					type: "object",
 					properties: {
-						query: { type: "string", description: "REQUIRED: Search terms" },
-						top_k: { type: "number", description: "Max results (default: 5)" },
+						query: { type: "string" },
+						top_k: { type: "number" },
 					},
 					required: ["query"],
-					additionalProperties: false,
 				},
 			},
-
-			// ========== WITNESS CHAIN (2 tools) ==========
 			{
 				name: "witness_log",
-				description: `Log to audit chain. REQUIRES action parameter.
-
-CALL EXACTLY LIKE THIS:
-  witness_log({"action": "file_modified"})
-  witness_log({"action": "deploy", "data": {"env": "prod"}})
-
-DO NOT call with empty {}.`,
+				description: `witness_log(action: string) → Log to audit chain.
+Arguments: {"action": "action_name"}
+Example: {"action": "file_modified"}`,
 				inputSchema: {
 					type: "object",
 					properties: {
-						action: { type: "string", description: "REQUIRED: Action name" },
-						data: { type: "object", description: "Optional extra data" },
+						action: { type: "string" },
+						data: { type: "object" },
 					},
 					required: ["action"],
-					additionalProperties: false,
 				},
 			},
 			{
 				name: "witness_verify",
-				description: `Verify audit chain integrity. No parameters needed.
-
-CALL LIKE THIS:
-  witness_verify({})`,
+				description: `witness_verify() → Verify audit chain integrity.
+Arguments: {}`,
 				inputSchema: {
 					type: "object",
 					properties: {},
-					additionalProperties: false,
 				},
 			},
-
-			// ========== RVF GALLERY (3 tools) ==========
 			{
 				name: "gallery_list",
-				description: `List agent templates. No parameters needed (or filter by category).
-
-CALL LIKE THIS:
-  gallery_list({})
-  gallery_list({"category": "security"})`,
+				description: `gallery_list() → List all agent templates.
+Arguments: {} or {"category": "security"}`,
 				inputSchema: {
 					type: "object",
 					properties: {
-						category: { type: "string", description: "Optional: Filter by category" },
+						category: { type: "string" },
 					},
-					additionalProperties: false,
 				},
 			},
 			{
 				name: "gallery_load",
-				description: `Load an RVF agent template. REQUIRES id parameter.
-
-CALL EXACTLY LIKE THIS:
-  gallery_load({"id": "development-agent"})
-
-AVAILABLE IDs (pick one):
-  "development-agent" | "research-agent" | "security-agent" | "minimal-agent"
-  "multi-agent-orchestrator" | "sona-learning-agent" | "witness-auditor"
-
-DO NOT call with empty {}. Always include id.`,
+				description: `gallery_load(id: string) → Load an agent template.
+Arguments: {"id": "template-name"}
+IDs: development-agent, research-agent, security-agent, minimal-agent
+Example: {"id": "development-agent"}`,
 				inputSchema: {
 					type: "object",
 					properties: {
 						id: {
 							type: "string",
-							description: "REQUIRED: Template ID. Use: development-agent, research-agent, security-agent, etc.",
 							enum: ["development-agent", "research-agent", "security-agent", "multi-agent-orchestrator", "sona-learning-agent", "agi-container-builder", "witness-auditor", "minimal-agent"]
 						},
 					},
 					required: ["id"],
-					additionalProperties: false,
 				},
 			},
 			{
 				name: "gallery_search",
-				description: `Search gallery templates. REQUIRES query parameter.
-
-CALL EXACTLY LIKE THIS:
-  gallery_search({"query": "security"})
-  gallery_search({"query": "development"})
-
-DO NOT call with empty {}. Always include query string.`,
+				description: `gallery_search(query: string) → Search templates by keyword.
+Arguments: {"query": "search_term"}
+Example: {"query": "security"}`,
 				inputSchema: {
 					type: "object",
 					properties: {
-						query: { type: "string", description: "REQUIRED: Search terms like 'security', 'coding', 'memory'" },
+						query: { type: "string" },
 					},
 					required: ["query"],
-					additionalProperties: false,
 				},
 			},
 		];
