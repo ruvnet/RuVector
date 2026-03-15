@@ -361,13 +361,13 @@ export class PlanetDashboard {
     const { data, transits } = demoLightCurve(c);
     this.lightChart?.update(data, transits);
 
-    // Orbit — Kepler's third law: a ~ P^(2/3) for solar-mass star (AU)
-    const semiMajor = Math.max(0.5, Math.pow(c.period / 365.25, 2.0 / 3.0));
-    // Derive deterministic eccentricity/inclination from candidate id hash
-    const idHash = c.id.split('').reduce((h, ch) => ((h << 5) - h + ch.charCodeAt(0)) | 0, 0);
-    const ecc = 0.02 + (((idHash >>> 0) % 100) / 100) * 0.15;
-    const inc = 2 + (((idHash >>> 8) % 100) / 100) * 15;
-    this.orbitPreview?.setOrbit(semiMajor, ecc, inc, this.orbitDiv ?? undefined);
+    // Orbit — Kepler's third law: a = P^(2/3) where P is in years (AU)
+    const semiMajorAxisAU = Math.max(0.01, Math.pow(c.period / 365.25, 2 / 3));
+    // Derive deterministic orbit params from candidate name hash
+    const hash = c.name.split('').reduce((h, ch) => ((h << 5) - h + ch.charCodeAt(0)) | 0, 0);
+    const ecc = 0.01 + (Math.abs(hash % 100) / 100) * 0.15;  // 0.01-0.16
+    const inc = 2 + (Math.abs((hash >> 8) % 100) / 100) * 15;  // 2-17 degrees
+    this.orbitPreview?.setOrbit(semiMajorAxisAU, ecc, inc, this.orbitDiv ?? undefined);
   }
 
   private renderDetailCard(c: PlanetCandidate): void {

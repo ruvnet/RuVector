@@ -159,60 +159,71 @@ fn matched_filter_bls(lc: &LightCurve) -> Option<Candidate> {
     let mut best_period = 0.0;
     let mut best_depth = 0.0;
 
-    let trial_periods: Vec<f64> = (10..350).map(|p| p as f64 * 0.1).collect();
+    // Logarithmic period grid: finer resolution at short periods, coarser at long
+    let min_period = 1.0_f64;
+    let max_period = 35.0_f64;
+    let n_periods = 400;
+    let trial_periods: Vec<f64> = (0..n_periods)
+        .map(|i| min_period * (max_period / min_period).powf(i as f64 / (n_periods - 1) as f64))
+        .collect();
+
+    // Try multiple transit duration fractions (not just the injected 0.02)
+    let trial_durations = [0.01, 0.015, 0.02, 0.025, 0.035];
 
     for &period in &trial_periods {
-        // Phase-fold and look for dip
-        let mut in_transit_sum = 0.0;
-        let mut in_transit_count = 0u64;
-        let mut out_transit_sum = 0.0;
-        let mut out_transit_count = 0u64;
+        for &duration in &trial_durations {
+            // Phase-fold and look for dip
+            let mut in_transit_sum = 0.0;
+            let mut in_transit_count = 0u64;
+            let mut out_transit_sum = 0.0;
+            let mut out_transit_count = 0u64;
 
-        for (i, &f) in lc.flux.iter().enumerate() {
-            let t = lc.time[i];
-            let phase = (t % period) / period;
-            if phase < 0.02 {
-                in_transit_sum += f;
-                in_transit_count += 1;
+            for (i, &f) in lc.flux.iter().enumerate() {
+                let t = lc.time[i];
+                let phase = (t % period) / period;
+                if phase < duration {
+                    in_transit_sum += f;
+                    in_transit_count += 1;
+                } else {
+                    out_transit_sum += f;
+                    out_transit_count += 1;
+                }
+            }
+
+            if in_transit_count < 3 || out_transit_count < 10 {
+                continue;
+            }
+
+            let in_mean = in_transit_sum / in_transit_count as f64;
+            let out_mean = out_transit_sum / out_transit_count as f64;
+            let depth = out_mean - in_mean;
+
+            if depth <= 0.0 {
+                continue;
+            }
+
+            // Compute variance from out-of-transit points only (standard BLS approach)
+            let mut var_sum = 0.0;
+            for (j, &f) in lc.flux.iter().enumerate() {
+                let t = lc.time[j];
+                let phase = (t % period) / period;
+                if phase >= duration {
+                    let diff = f - out_mean;
+                    var_sum += diff * diff;
+                }
+            }
+            let std_dev = (var_sum / out_transit_count as f64).sqrt();
+            let snr = if std_dev > 0.0 {
+                depth / std_dev * (in_transit_count as f64).sqrt()
             } else {
-                out_transit_sum += f;
-                out_transit_count += 1;
+                0.0
+            };
+
+            if snr > best_snr {
+                best_snr = snr;
+                best_period = period;
+                best_depth = depth;
             }
-        }
-
-        if in_transit_count < 3 || out_transit_count < 10 {
-            continue;
-        }
-
-        let in_mean = in_transit_sum / in_transit_count as f64;
-        let out_mean = out_transit_sum / out_transit_count as f64;
-        let depth = out_mean - in_mean;
-
-        if depth <= 0.0 {
-            continue;
-        }
-
-        // Compute variance from out-of-transit points only (standard BLS approach)
-        let mut var_sum = 0.0;
-        for (j, &f) in lc.flux.iter().enumerate() {
-            let t = lc.time[j];
-            let phase = (t % period) / period;
-            if phase >= 0.02 {
-                let diff = f - out_mean;
-                var_sum += diff * diff;
-            }
-        }
-        let std_dev = (var_sum / out_transit_count as f64).sqrt();
-        let snr = if std_dev > 0.0 {
-            depth / std_dev * (in_transit_count as f64).sqrt()
-        } else {
-            0.0
-        };
-
-        if snr > best_snr {
-            best_snr = snr;
-            best_period = period;
-            best_depth = depth;
         }
     }
 
