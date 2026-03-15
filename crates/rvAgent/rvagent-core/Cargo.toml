@@ -1,0 +1,35 @@
+[package]
+name = "rvagent-core"
+version = "0.1.0"
+edition = "2021"
+description = "rvAgent core — typed agent state, config, model resolution, agent graph"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/ruvnet/RuVector"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true }
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+tracing = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }
+dashmap = { workspace = true }
+parking_lot = { workspace = true }
+async-trait = "0.1"
+smallvec = { version = "1.13", features = ["serde"] }
+
+[dev-dependencies]
+criterion = { workspace = true }
+tokio = { workspace = true, features = ["test-util"] }
+proptest = { workspace = true }
+mockall = { workspace = true }
+
+[[bench]]
+name = "state_bench"
+harness = false
+
+[[bench]]
+name = "rvf_bridge_bench"
+harness = false

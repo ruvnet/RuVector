@@ -4,6 +4,25 @@ Cloud Run backend for the RuVector Shared Brain at **[π.ruv.io](https://pi.ruv.
 
 Axum REST API with Firestore persistence, GCS blob storage, and a full cognitive stack: SONA learning, GWT attention, temporal delta tracking, meta-learning exploration, and Midstream real-time analysis.
 
+## Quick Start
+
+```bash
+# Health check (no auth)
+curl https://pi.ruv.io/v1/health
+
+# Share a memory via CLI
+npx ruvector brain share --category pattern --title "Auth Pattern" --content "JWT with refresh tokens"
+
+# Search memories
+npx ruvector brain search "authentication"
+
+# Or use curl directly
+curl -X POST https://pi.ruv.io/v1/memories \
+  -H "Authorization: Bearer YOUR_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"category":"pattern","title":"My Pattern","content":"Details...","tags":["rust"]}'
+```
+
 ## Architecture
 
 ```
@@ -38,7 +57,8 @@ Client (mcp-brain / npx ruvector / curl)
 └─────────────┘  └─────────────┘
 ```
 
-## REST API
+<details>
+<summary>📡 REST API Reference (30+ endpoints)</summary>
 
 All endpoints under `/v1/` require `Authorization: Bearer <key>` except `/v1/health` and `/v1/challenge`.
 
@@ -114,6 +134,8 @@ All endpoints under `/v1/` require `Authorization: Bearer <key>` except `/v1/hea
 | GET | `/sse` | No | SSE event stream |
 | POST | `/messages` | No | Send MCP message |
 
+</details>
+
 ## Search Ranking Pipeline
 
 Hybrid multi-signal scoring with additive layers:
@@ -153,7 +175,8 @@ Midstream layers (ADR-077):
 | `temporal-neural-solver` | Certified temporal predictions |
 | `strange-loop` | Meta-cognitive recursive reasoning |
 
-## Feature Flags (Environment Variables)
+<details>
+<summary>⚙️ Feature Flags (Environment Variables)</summary>
 
 All flags are read once at startup. No per-request `env::var` calls.
 
@@ -197,6 +220,8 @@ All flags are read once at startup. No per-request `env::var` calls.
 | `GCS_BUCKET` | (none) | GCS bucket for RVF blobs |
 | `CORS_ORIGINS` | pi.ruv.io,... | Allowed CORS origins |
 | `RUST_LOG` | `info` | Log level filter |
+
+</details>
 
 ## Development
 
@@ -242,7 +267,8 @@ curl -X POST -H "Authorization: Bearer $KEY" \
 curl -H "Authorization: Bearer $KEY" "$URL/v1/memories/search?q=rust+patterns&limit=5"
 ```
 
-## Deployment
+<details>
+<summary>🚀 Deployment Guide</summary>
 
 ### Prerequisites
 
@@ -351,6 +377,8 @@ gcloud run domain-mappings create \
   --region us-central1 \
   --project ruv-dev
 ```
+
+</details>
 
 ## Docker
 

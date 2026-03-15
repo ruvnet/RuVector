@@ -121,6 +121,16 @@ members = [
     "crates/ruvix/tests",
     "crates/ruvix/benches",
     "crates/ruvix/examples/cognitive_demo",
+    # rvAgent — AI Agent Framework (DeepAgents Rust conversion)
+    "crates/rvAgent/rvagent-core",
+    "crates/rvAgent/rvagent-backends",
+    "crates/rvAgent/rvagent-middleware",
+    "crates/rvAgent/rvagent-tools",
+    "crates/rvAgent/rvagent-subagents",
+    "crates/rvAgent/rvagent-cli",
+    "crates/rvAgent/rvagent-acp",
+    "crates/rvAgent/rvagent-mcp",
+    "crates/rvAgent/rvagent-wasm",
 ]
 resolver = "2"
 
@@ -175,7 +185,7 @@ rand = "0.8"
 rand_distr = "0.4"
 
 # Time and UUID
-chrono = "0.4"
+chrono = { version = "0.4", features = ["serde"] }
 uuid = { version = "1.11", features = ["v4", "serde", "js"] }
 
 # CLI

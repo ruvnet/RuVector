@@ -1,0 +1,60 @@
+{
+  "name": "rvAgent",
+  "version": "0.1.0",
+  "description": "RVF-integrated AI agent framework with witness chains and SONA learning",
+  "agents": {
+    "rvagent-coder": {
+      "path": "agents/rvagent-coder.md",
+      "model": "sonnet",
+      "priority": "high",
+      "capabilities": ["code_generation", "refactoring", "rvf_witness_chains"]
+    },
+    "rvagent-queen": {
+      "path": "agents/rvagent-queen.md",
+      "model": "opus",
+      "priority": "critical",
+      "capabilities": ["swarm_orchestration", "consensus_coordination"]
+    },
+    "rvagent-tester": {
+      "path": "agents/rvagent-tester.md",
+      "model": "haiku",
+      "priority": "high",
+      "capabilities": ["test_generation", "tdd_london", "coverage_analysis"]
+    },
+    "rvagent-security": {
+      "path": "agents/rvagent-security.md",
+      "model": "sonnet",
+      "priority": "critical",
+      "capabilities": ["security_audit", "aimd_threat_detection"]
+    }
+  },
+  "helpers": {
+    "hooks": "helpers/rvagent-hooks.sh"
+  },
+  "defaults": {
+    "topology": "hierarchical",
+    "max_agents": 6,
+    "strategy": "specialized",
+    "consensus": "raft",
+    "witness_enabled": true,
+    "sona_learning": true,
+    "virtual_mode": true
+  },
+  "security": {
+    "env_sanitization": true,
+    "witness_chains": true,
+    "aimd_enabled": true,
+    "pii_detection": true
+  },
+  "rvf": {
+    "container_enabled": true,
+    "cow_branching": true,
+    "segment_types": ["VEC", "WITNESS", "INDEX", "COW_MAP"]
+  },
+  "model_routing": {
+    "tier_1_agent_booster": ["var-to-const", "add-types", "remove-console"],
+    "tier_2_haiku": ["simple_task", "test_generation", "documentation"],
+    "tier_3_sonnet": ["feature_implementation", "refactoring", "security"],
+    "tier_4_opus": ["architecture", "complex_reasoning", "swarm_coordination"]
+  }
+}

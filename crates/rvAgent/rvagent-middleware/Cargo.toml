@@ -1,0 +1,35 @@
+[package]
+name = "rvagent-middleware"
+version = "0.1.0"
+edition = "2021"
+description = "rvAgent middleware — pipeline, todolist, filesystem, subagents, summarization, memory, skills, prompt caching, HITL, witness, tool sanitizer"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/ruvnet/RuVector"
+
+[dependencies]
+rvagent-core = { path = "../rvagent-core" }
+rvagent-backends = { path = "../rvagent-backends" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde_yaml = "0.9"
+tokio = { workspace = true }
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+tracing = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }
+dashmap = { workspace = true }
+parking_lot = { workspace = true }
+async-trait = "0.1"
+smallvec = { version = "1.13", features = ["serde"] }
+sha3 = "0.10"
+
+[dev-dependencies]
+criterion = { workspace = true }
+tokio = { workspace = true, features = ["test-util"] }
+tempfile = "3.14"
+mockall = { workspace = true }
+
+[[bench]]
+name = "middleware_bench"
+harness = false
