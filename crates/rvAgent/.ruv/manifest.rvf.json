@@ -1,0 +1,126 @@
+{
+  "$schema": "https://ruvector.dev/schemas/rvf-manifest-v1.json",
+  "version": "1.0.0",
+  "name": "rvAgent",
+  "description": "RVF-integrated AI agent framework with witness chains, SONA learning, and swarm orchestration",
+  "cognitive_container": {
+    "segments": [
+      {
+        "type": "VEC",
+        "purpose": "Agent embeddings and semantic routing",
+        "dimensions": 384,
+        "quantization": "int8"
+      },
+      {
+        "type": "WITNESS",
+        "purpose": "Tamper-evident operation audit trail",
+        "hash_algorithm": "SHAKE-256",
+        "chain_verification": true
+      },
+      {
+        "type": "INDEX",
+        "purpose": "HNSW index for pattern retrieval",
+        "ef_construction": 200,
+        "m": 16
+      },
+      {
+        "type": "COW_MAP",
+        "purpose": "Copy-on-write state branching for agents",
+        "gc_threshold": 1000
+      }
+    ],
+    "boot_sequence": [
+      "load_witness_chain",
+      "initialize_hnsw_index",
+      "spawn_queen_coordinator",
+      "enable_sona_learning"
+    ]
+  },
+  "agents": {
+    "queen": {
+      "file": "agents/rvagent-queen.md",
+      "model": "opus",
+      "role": "coordinator",
+      "capabilities": ["swarm_orchestration", "consensus", "resource_allocation"]
+    },
+    "coder": {
+      "file": "agents/rvagent-coder.md",
+      "model": "sonnet",
+      "role": "worker",
+      "capabilities": ["code_generation", "refactoring", "witness_attestation"]
+    },
+    "tester": {
+      "file": "agents/rvagent-tester.md",
+      "model": "haiku",
+      "role": "worker",
+      "capabilities": ["test_generation", "tdd_london", "coverage_analysis"]
+    },
+    "security": {
+      "file": "agents/rvagent-security.md",
+      "model": "sonnet",
+      "role": "auditor",
+      "capabilities": ["security_audit", "aimd_detection", "pii_scanning"]
+    }
+  },
+  "swarm": {
+    "topology": "hierarchical",
+    "max_agents": 8,
+    "consensus": "raft",
+    "anti_drift": {
+      "coordinator_checkpoints": true,
+      "witness_verification": "per_operation",
+      "max_divergence_depth": 3
+    }
+  },
+  "learning": {
+    "sona": {
+      "enabled": true,
+      "adaptation_threshold_ms": 0.05,
+      "ewc_lambda": 0.4
+    },
+    "pattern_storage": {
+      "namespace": "rvagent/patterns",
+      "retention_days": 90,
+      "min_confidence": 0.7
+    }
+  },
+  "security": {
+    "virtual_mode": true,
+    "env_sanitization": true,
+    "aimd_enabled": true,
+    "pii_detection": true,
+    "allowed_paths": ["src/**", "tests/**", "docs/**"],
+    "excluded_patterns": ["**/.env", "**/credentials*", "**/secrets*"]
+  },
+  "model_routing": {
+    "tier_1_wasm": {
+      "latency_ms": 1,
+      "cost": 0,
+      "intents": ["var-to-const", "add-types", "remove-console", "format"]
+    },
+    "tier_2_haiku": {
+      "latency_ms": 500,
+      "cost_per_1k": 0.0002,
+      "complexity_threshold": 0.3,
+      "intents": ["simple_task", "test_generation", "documentation"]
+    },
+    "tier_3_sonnet": {
+      "latency_ms": 2000,
+      "cost_per_1k": 0.003,
+      "complexity_threshold": 0.6,
+      "intents": ["feature_implementation", "refactoring", "security_audit"]
+    },
+    "tier_4_opus": {
+      "latency_ms": 5000,
+      "cost_per_1k": 0.015,
+      "complexity_threshold": 0.8,
+      "intents": ["architecture", "complex_reasoning", "swarm_coordination"]
+    }
+  },
+  "hooks": {
+    "pre_task": "helpers/rvagent-hooks.sh pre-task",
+    "post_task": "helpers/rvagent-hooks.sh post-task",
+    "spawn_swarm": "helpers/rvagent-hooks.sh spawn-swarm",
+    "security_scan": "helpers/rvagent-hooks.sh security-scan"
+  }
+}
