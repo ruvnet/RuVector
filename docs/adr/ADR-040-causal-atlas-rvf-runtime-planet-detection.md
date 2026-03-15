@@ -480,14 +480,20 @@ committed to the SHAKE-256 witness chain. This enables two-machine
 reproducibility verification and provides a complete audit trail from raw
 data to final score.
 
+## Recent Enhancements (2026-03)
+
+| Enhancement | Detail |
+|-------------|--------|
+| QAOA graph-cut solver | Quantum alternative to Edmonds-Karp via ruQu QAOA (`qaoa_graphcut.rs`) |
+| Kepler's third law | Dashboard semi-major axis uses `a = P^(2/3)` instead of linear approx |
+| Deterministic orbit params | Eccentricity/inclination derived from candidate name hash, not `Math.random()` |
+| Logarithmic BLS period grid | 400 log-spaced trial periods for uniform sensitivity across period range |
+| Multi-duration transit search | 5 trial durations (0.01-0.035) instead of single 0.02 duty cycle |
+| Iterative cut refinement | 3-iteration mincut with lambda boost/decay (exomoon F1: 0.261 to 0.308) |
+| Real OGLE/MOA manifest | 13 real microlensing events with published parameters |
+
 ## References
 
-1. [MAST — Kepler](https://archive.stsci.edu/missions-and-data/kepler)
-2. [MAST — TESS](https://archive.stsci.edu/missions-and-data/tess)
-3. [MAST Home](https://archive.stsci.edu/home)
-4. [NASA Exoplanet Archive](https://exoplanetarchive.ipac.caltech.edu/)
-5. [SDSS DR17](https://www.sdss4.org/dr17/)
-6. ADR-003: RVF Native Format Integration
-7. ADR-006: Unified Self-Learning RVF Integration
-8. ADR-007: RuVector Full Capability Integration
-9. ADR-008: Chat UI RVF Kernel Embedding
+1. [MAST — Kepler](https://archive.stsci.edu/missions-and-data/kepler) | 2. [MAST — TESS](https://archive.stsci.edu/missions-and-data/tess) | 3. [MAST Home](https://archive.stsci.edu/home)
+4. [NASA Exoplanet Archive](https://exoplanetarchive.ipac.caltech.edu/) | 5. [SDSS DR17](https://www.sdss4.org/dr17/)
+6. ADR-003 | 7. ADR-006 | 8. ADR-007 | 9. ADR-008

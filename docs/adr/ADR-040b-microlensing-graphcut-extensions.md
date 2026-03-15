@@ -103,7 +103,7 @@ All verticals share:
 1. **Domain-specific data generator** with realistic parameters from published datasets
 2. **Feature extraction** producing 32-dim embeddings for RuVector storage
 3. **Graph construction** combining domain topology (spatial/temporal/chain) with kNN similarity edges
-4. **Edmonds-Karp BFS** s-t mincut solver (identical implementation)
+4. **Edmonds-Karp BFS** s-t mincut solver (identical implementation), with optional **QAOA quantum graph-cut solver** via ruQu as a drop-in alternative (`qaoa_graphcut.rs`; see ADR-040 Recent Enhancements)
 5. **RVF integration**: witness chains, filtered metadata queries, lineage derivation
 6. **Evaluation**: comparison against threshold baseline showing graph-cut improvement
 
