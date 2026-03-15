@@ -334,19 +334,21 @@ export async function* runMcpFlow({
 
 		// ================================
 		// rvAgent WASM Tools - Full Implementation
-		// 16 tools with detailed descriptions for better LLM guidance
+		// 17 tools with detailed descriptions for better LLM guidance
 		// ================================
 		const defaultWasmTools = [
-			// ========== GUIDANCE (1 tool) ==========
-			// Call this first to understand the RVF environment
+			// ========== SYSTEM GUIDANCE (1 tool) ==========
+			// ALWAYS call this first to understand ALL available tools
 			{
-				name: "rvf_help",
-				description: `rvf_help() → Get guidance on RVF agent capabilities. Call this first when unsure.
-Arguments: {} or {"topic": "files"} or {"topic": "memory"} or {"topic": "gallery"}`,
+				name: "system_guidance",
+				description: `system_guidance() → CALL THIS FIRST. Get help on ALL available tools and how to use them.
+Arguments: {} for full guide, or {"tool": "tool_name"} for specific tool help.
+Examples: {"tool": "read_file"}, {"tool": "brain_search"}, {"tool": "gallery_load"}`,
 				inputSchema: {
 					type: "object",
 					properties: {
-						topic: { type: "string", enum: ["all", "files", "memory", "tasks", "witness", "gallery"] },
+						tool: { type: "string" },
+						category: { type: "string", enum: ["all", "files", "memory", "tasks", "search", "brain", "gallery", "witness"] },
 					},
 				},
 			},

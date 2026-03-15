@@ -201,63 +201,104 @@ function executeWasmTool(
 
 		switch (toolName) {
 			// ================================
-			// Guidance (1 tool)
+			// System Guidance (1 tool)
 			// ================================
+			case "system_guidance":
 			case "rvf_help": {
-				const topic = String(filledArgs.topic || "all").toLowerCase();
-				const helpSections: Record<string, string> = {
-					files: `FILE TOOLS:
-- read_file({"path": "file.txt"}) → Read file contents
-- write_file({"path": "file.txt", "content": "..."}) → Create/overwrite file
-- list_files({}) → List all files
-- delete_file({"path": "file.txt"}) → Delete file
-- edit_file({"path": "f.txt", "old_content": "old", "new_content": "new"}) → Edit file
-- grep({"pattern": "TODO"}) → Search file contents
-- glob({"pattern": "*.ts"}) → Find files by pattern`,
-					memory: `MEMORY TOOLS (persistent key-value store):
-- memory_store({"key": "name", "value": "data"}) → Store data
-- memory_search({"query": "search term"}) → Search stored memories`,
-					tasks: `TASK TOOLS (todo list):
-- todo_add({"task": "description"}) → Add a task
-- todo_list({}) → List all tasks
-- todo_complete({"id": "todo-1"}) → Mark task done`,
-					witness: `WITNESS CHAIN (cryptographic audit trail):
-- witness_log({"action": "event_name"}) → Log to audit chain
-- witness_verify({}) → Verify chain integrity`,
-					gallery: `GALLERY (load pre-built agent templates):
-- gallery_list({}) → List all templates
-- gallery_load({"id": "development-agent"}) → Activate a template
-- gallery_search({"query": "security"}) → Search templates
+				const requestedTool = String(filledArgs.tool || "").toLowerCase();
+				const category = String(filledArgs.category || filledArgs.topic || "all").toLowerCase();
 
-AVAILABLE TEMPLATES:
-• development-agent - Full dev environment
-• research-agent - Research & memory focused
-• security-agent - Security auditing
-• minimal-agent - Basic lightweight ops`,
+				// Comprehensive tool documentation
+				const toolDocs: Record<string, { category: string; usage: string; example: string }> = {
+					// File tools
+					read_file: { category: "files", usage: "read_file(path) → Read file contents", example: '{"path": "src/index.ts"}' },
+					write_file: { category: "files", usage: "write_file(path, content) → Create/overwrite file", example: '{"path": "hello.txt", "content": "Hello World"}' },
+					list_files: { category: "files", usage: "list_files() → List all files", example: "{}" },
+					delete_file: { category: "files", usage: "delete_file(path) → Delete a file", example: '{"path": "temp.txt"}' },
+					edit_file: { category: "files", usage: "edit_file(path, old_content, new_content) → Replace text", example: '{"path": "config.json", "old_content": "v1", "new_content": "v2"}' },
+					grep: { category: "files", usage: "grep(pattern, path?) → Search files for pattern", example: '{"pattern": "TODO"}' },
+					glob: { category: "files", usage: "glob(pattern) → Find files by pattern", example: '{"pattern": "*.ts"}' },
+
+					// Memory tools
+					memory_store: { category: "memory", usage: "memory_store(key, value) → Store data persistently", example: '{"key": "auth-method", "value": "JWT tokens"}' },
+					memory_search: { category: "memory", usage: "memory_search(query) → Search stored memories", example: '{"query": "authentication"}' },
+
+					// Task tools
+					todo_add: { category: "tasks", usage: "todo_add(task) → Add a task", example: '{"task": "Write unit tests"}' },
+					todo_list: { category: "tasks", usage: "todo_list() → List all tasks", example: "{}" },
+					todo_complete: { category: "tasks", usage: "todo_complete(id) → Mark task done", example: '{"id": "todo-1"}' },
+
+					// Witness tools
+					witness_log: { category: "witness", usage: "witness_log(action, data?) → Log to audit chain", example: '{"action": "file_modified"}' },
+					witness_verify: { category: "witness", usage: "witness_verify() → Verify chain integrity", example: "{}" },
+
+					// Gallery tools
+					gallery_list: { category: "gallery", usage: "gallery_list(category?) → List agent templates", example: "{}" },
+					gallery_load: { category: "gallery", usage: "gallery_load(id) → Activate a template", example: '{"id": "development-agent"}' },
+					gallery_search: { category: "gallery", usage: "gallery_search(query) → Search templates", example: '{"query": "security"}' },
+
+					// π Brain tools (if available)
+					brain_search: { category: "brain", usage: "brain_search(query) → Search π Brain knowledge", example: '{"query": "react hooks best practices"}' },
+					brain_share: { category: "brain", usage: "brain_share(category, title, content) → Share knowledge", example: '{"category": "pattern", "title": "Auth Pattern", "content": "Use JWT..."}' },
+					brain_get: { category: "brain", usage: "brain_get(id) → Get specific memory", example: '{"id": "uuid-here"}' },
+					brain_list: { category: "brain", usage: "brain_list(limit?, category?) → List recent memories", example: '{"limit": 10}' },
+
+					// Search tools
+					web_search: { category: "search", usage: "web_search(query) → Search the web", example: '{"query": "latest AI news 2024"}' },
+					exa_search: { category: "search", usage: "exa_search(query) → AI-powered web search", example: '{"query": "machine learning tutorials"}' },
 				};
 
 				let result: string;
-				if (topic === "all") {
-					result = `RVF AGENT ENVIRONMENT GUIDE
 
-This is a sandboxed agent runtime with virtual filesystem and persistent storage.
+				// If specific tool requested
+				if (requestedTool && toolDocs[requestedTool]) {
+					const doc = toolDocs[requestedTool];
+					result = `TOOL: ${requestedTool}
+Category: ${doc.category}
+Usage: ${doc.usage}
+Example: ${requestedTool}(${doc.example})
 
-${helpSections.files}
-
-${helpSections.memory}
-
-${helpSections.tasks}
-
-${helpSections.witness}
-
-${helpSections.gallery}
-
-TIP: To "run in RVF" means execute code/tasks using these tools in the sandbox.`;
-				} else if (helpSections[topic]) {
-					result = helpSections[topic];
-				} else {
-					result = `Unknown topic: ${topic}. Use: all, files, memory, tasks, witness, or gallery.`;
+Call this tool with the exact JSON format shown in the example.`;
 				}
+				// If category filter
+				else if (category !== "all") {
+					const filtered = Object.entries(toolDocs)
+						.filter(([, doc]) => doc.category === category)
+						.map(([name, doc]) => `• ${name}(${doc.example}) → ${doc.usage.split("→")[1]?.trim() || ""}`);
+
+					if (filtered.length > 0) {
+						result = `${category.toUpperCase()} TOOLS:\n${filtered.join("\n")}`;
+					} else {
+						result = `No tools found in category: ${category}. Available: files, memory, tasks, witness, gallery, brain, search`;
+					}
+				}
+				// Full guide
+				else {
+					const categories = ["files", "memory", "tasks", "gallery", "witness", "brain", "search"];
+					const sections = categories.map((cat) => {
+						const tools = Object.entries(toolDocs)
+							.filter(([, doc]) => doc.category === cat)
+							.map(([name, doc]) => `  • ${name}(${doc.example})`);
+						return tools.length > 0 ? `${cat.toUpperCase()}:\n${tools.join("\n")}` : null;
+					}).filter(Boolean);
+
+					result = `SYSTEM GUIDANCE - ALL AVAILABLE TOOLS
+
+${sections.join("\n\n")}
+
+TIPS:
+• Always pass required parameters - never call with empty {}
+• Use the example JSON format exactly as shown
+• For specific tool help: system_guidance({"tool": "tool_name"})
+• "Run in RVF" = use file/memory/task tools in sandbox
+
+GALLERY TEMPLATES (use gallery_load):
+• development-agent - Full dev with file ops
+• research-agent - Research & memory
+• security-agent - Security auditing
+• minimal-agent - Basic lightweight`;
+				}
+
 				return { success: true, result };
 			}
 
