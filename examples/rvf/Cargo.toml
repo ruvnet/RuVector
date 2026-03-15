@@ -294,3 +294,19 @@ path = "examples/qaoa_graphcut.rs"
 [[example]]
 name = "real_data_discovery"
 path = "examples/real_data_discovery.rs"
+
+[[example]]
+name = "climate_tipping"
+path = "examples/climate_tipping.rs"
+
+[[example]]
+name = "habitability_bias"
+path = "examples/habitability_bias.rs"
+
+[[example]]
+name = "seismic_risk"
+path = "examples/seismic_risk.rs"
+
+[[example]]
+name = "brain_training_integration"
+path = "examples/brain_training_integration.rs"
