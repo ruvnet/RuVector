@@ -11,6 +11,14 @@ use crate::{
     RunnableConfig, Runtime,
 };
 
+/// MCP tool call origin tracking.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct McpToolCallOrigin {
+    pub transport: String,
+    pub client_id: Option<String>,
+    pub request_id: Option<serde_json::Value>,
+}
+
 /// Configuration for the MCP bridge.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct McpBridgeConfig {
