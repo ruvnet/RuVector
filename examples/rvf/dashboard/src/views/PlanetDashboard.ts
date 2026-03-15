@@ -49,6 +49,15 @@ function scoreBadgeClass(score: number): string {
   return 'score-low';
 }
 
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 function radiusLabel(r: number): string {
   if (r < 0.8) return 'Sub-Earth';
   if (r <= 1.25) return 'Earth-like';
@@ -261,9 +270,18 @@ export class PlanetDashboard {
       }
     });
 
+    const stringCols = new Set(['name', 'status', 'stellarType', 'discoveryMethod', 'telescope']);
     const sorted = [...this.candidates].sort((a, b) => {
-      const va = (a as unknown as Record<string, number>)[this.sortCol] ?? 0;
-      const vb = (b as unknown as Record<string, number>)[this.sortCol] ?? 0;
+      const ra = a as unknown as Record<string, unknown>;
+      const rb = b as unknown as Record<string, unknown>;
+      if (stringCols.has(this.sortCol)) {
+        const sa = String(ra[this.sortCol] ?? '');
+        const sb = String(rb[this.sortCol] ?? '');
+        const cmp = sa.localeCompare(sb);
+        return this.sortAsc ? cmp : -cmp;
+      }
+      const va = (ra[this.sortCol] as number) ?? 0;
+      const vb = (rb[this.sortCol] as number) ?? 0;
       return this.sortAsc ? va - vb : vb - va;
     });
 
@@ -343,11 +361,13 @@ export class PlanetDashboard {
     const { data, transits } = demoLightCurve(c);
     this.lightChart?.update(data, transits);
 
-    // Orbit
-    const semiMajor = Math.max(1, c.period / 30);
-    const ecc = 0.05 + Math.random() * 0.1;
-    const inc = 5 + Math.random() * 10;
-    this.orbitPreview?.setOrbit(semiMajor, ecc, inc, this.orbitDiv ?? undefined);
+    // Orbit — Kepler's third law: a = P^(2/3) where P is in years (AU)
+    const semiMajorAxisAU = Math.max(0.01, Math.pow(c.period / 365.25, 2 / 3));
+    // Derive deterministic orbit params from candidate name hash
+    const hash = c.name.split('').reduce((h, ch) => ((h << 5) - h + ch.charCodeAt(0)) | 0, 0);
+    const ecc = 0.01 + (Math.abs(hash % 100) / 100) * 0.15;  // 0.01-0.16
+    const inc = 2 + (Math.abs((hash >> 8) % 100) / 100) * 15;  // 2-17 degrees
+    this.orbitPreview?.setOrbit(semiMajorAxisAU, ecc, inc, this.orbitDiv ?? undefined);
   }
 
   private renderDetailCard(c: PlanetCandidate): void {
@@ -361,9 +381,18 @@ export class PlanetDashboard {
       ? '<span class="score-badge score-high" style="font-size:9px">CONFIRMED</span>'
       : '<span class="score-badge score-medium" style="font-size:9px">CANDIDATE</span>';
 
+    // Sanitize text fields to prevent XSS from API data
+    const safeName = escapeHtml(c.name);
+    const safeMethod = c.discoveryMethod ? escapeHtml(c.discoveryMethod) : 'Unknown';
+    const safeTelescope = c.telescope ? escapeHtml(c.telescope) : 'N/A';
+    const safeReference = c.reference ? escapeHtml(c.reference) : '';
+    const safeYear = c.discoveryYear || '?';
+    const distStr = c.distance != null ? (c.distance < 10 ? c.distance.toFixed(2) : c.distance.toFixed(0)) : '?';
+    const tempColor = c.eqTemp && c.eqTemp >= 200 && c.eqTemp <= 300 ? 'var(--success)' : 'var(--warning)';
+
     this.detailCard.innerHTML = `
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-        <span style="font-size:13px;font-weight:600;color:var(--text-primary)">${c.name}</span>
+        <span style="font-size:13px;font-weight:600;color:var(--text-primary)">${safeName}</span>
         <span class="score-badge ${sClass}" style="font-size:10px">${c.score.toFixed(2)}</span>
         ${statusBadge}
         <span style="font-size:10px;color:var(--text-muted);margin-left:auto">${rClass}</span>
@@ -383,17 +412,17 @@ export class PlanetDashboard {
         </div>
         <div style="text-align:center">
           <div style="font-size:9px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.4px">Eq. Temp</div>
-          <div style="font-family:var(--font-mono);font-size:14px;color:${c.eqTemp && c.eqTemp >= 200 && c.eqTemp <= 300 ? 'var(--success)' : 'var(--warning)'};font-weight:500">${c.eqTemp ?? '?'}<span style="font-size:10px;color:var(--text-muted)"> K</span></div>
+          <div style="font-family:var(--font-mono);font-size:14px;color:${tempColor};font-weight:500">${c.eqTemp ?? '?'}<span style="font-size:10px;color:var(--text-muted)"> K</span></div>
         </div>
         <div style="text-align:center">
           <div style="font-size:9px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.4px">Distance</div>
-          <div style="font-family:var(--font-mono);font-size:14px;color:var(--text-primary);font-weight:500">${c.distance < 10 ? c.distance.toFixed(2) : c.distance.toFixed(0)}<span style="font-size:10px;color:var(--text-muted)"> ly</span></div>
+          <div style="font-family:var(--font-mono);font-size:14px;color:var(--text-primary);font-weight:500">${distStr}<span style="font-size:10px;color:var(--text-muted)"> ly</span></div>
         </div>
       </div>
       <div style="margin-top:8px;font-size:10px;color:var(--text-muted);border-top:1px solid var(--border);padding-top:6px">
-        <span style="color:var(--text-secondary)">${c.discoveryMethod || 'Unknown'}</span> &mdash;
-        ${c.telescope || 'N/A'} (${c.discoveryYear || '?'}) &mdash;
-        <span style="font-style:italic">${c.reference || ''}</span>
+        <span style="color:var(--text-secondary)">${safeMethod}</span> &mdash;
+        ${safeTelescope} (${safeYear}) &mdash;
+        <span style="font-style:italic">${safeReference}</span>
       </div>
     `;
   }

@@ -1,0 +1,178 @@
+[
+  {
+    "title": "TIC 241249530 b: Record eccentricity hot Jupiter on collision course with host star",
+    "content": "TIC 241249530 b exhibits the highest orbital eccentricity (e=0.9412) among all recently discovered exoplanets, with a mass of 4.98 Jupiter masses and a 165.8-day period. This extreme eccentricity indicates the planet is undergoing tidal migration toward its host star -- a rare snapshot of a hot Jupiter caught in the act of orbital circularization. At periastron, it plunges to a fraction of its semi-major axis, experiencing extreme tidal heating. This is a textbook case of high-eccentricity migration, a theorized but rarely observed pathway for hot Jupiter formation.",
+    "category": "anomaly",
+    "tags": ["space", "exoplanet", "orbital-dynamics", "hot-jupiter", "tidal-migration"],
+    "domain": "space-science",
+    "source_api": "NASA Exoplanet Archive TAP",
+    "timestamp": "2026-03-15T00:00:00Z",
+    "confidence": 0.95,
+    "data_points": 604
+  },
+  {
+    "title": "ZTF J1828+2308 b: Ultra-short period brown dwarf companion completing orbit in 2.7 hours",
+    "content": "ZTF J1828+2308 b has an orbital period of just 0.112 days (2.69 hours) with a mass of 20.0 Jupiter masses, placing it firmly in the brown dwarf regime. This is one of the shortest known orbital periods for a substellar companion. The object orbits so close to its host that it completes over 8 orbits per Earth day. At this proximity, it must be experiencing extreme irradiation and tidal forces. A companion object, ZTF J1230-2655 b (22.1 Mj, period 0.236 days), shows a similar pattern -- both discovered via ZTF transit surveys, suggesting a population of ultra-compact brown dwarf binaries being uncovered by wide-field time-domain surveys.",
+    "category": "anomaly",
+    "tags": ["space", "exoplanet", "ultra-short-period", "brown-dwarf", "compact-binary"],
+    "domain": "space-science",
+    "source_api": "NASA Exoplanet Archive TAP",
+    "timestamp": "2026-03-15T00:00:00Z",
+    "confidence": 0.92,
+    "data_points": 604
+  },
+  {
+    "title": "Barnard's Star multi-planet system: Four sub-Earth-mass worlds at 1.83 parsecs",
+    "content": "Barnard's Star, the second closest stellar system to Earth at 1.83 pc, now hosts four confirmed planets (b, c, d, e) all with masses below 0.4 Earth masses (0.2-0.4 Earth masses). Planet e has a mass of just 0.19 Earth masses -- roughly twice the mass of Mars -- making it one of the least massive exoplanets ever detected via radial velocity. This tightly-packed system of sub-Earth worlds around a nearby M dwarf demonstrates that rocky planet formation extends to remarkably low masses even in our immediate stellar neighborhood. The equilibrium temperatures range from 340K to 483K, placing some of these worlds near the inner edge of habitability considerations.",
+    "category": "pattern",
+    "tags": ["space", "exoplanet", "nearby-star", "sub-earth", "radial-velocity", "barnards-star"],
+    "domain": "space-science",
+    "source_api": "NASA Exoplanet Archive TAP",
+    "timestamp": "2026-03-15T00:00:00Z",
+    "confidence": 0.93,
+    "data_points": 604
+  },
+  {
+    "title": "TOI-6324 b: Earth-mass planet with 6.7-hour orbital period at 1216K",
+    "content": "TOI-6324 b orbits its star every 0.279 days (6.7 hours) with a mass of just 1.2 Earth masses and an equilibrium temperature of 1216K. This is among the shortest orbital periods known for an Earth-mass planet. At this temperature and proximity, the planet likely has a molten surface (lava world) and may be actively losing its atmosphere via photo-evaporation. Similarly, TOI-6255 b (1.4 Earth masses, 5.7-hour period) represents another member of this ultra-short-period rocky planet population. These objects probe the survival limit for rocky planets against tidal disruption and atmospheric stripping.",
+    "category": "anomaly",
+    "tags": ["space", "exoplanet", "ultra-short-period", "lava-world", "rocky-planet"],
+    "domain": "space-science",
+    "source_api": "NASA Exoplanet Archive TAP",
+    "timestamp": "2026-03-15T00:00:00Z",
+    "confidence": 0.90,
+    "data_points": 604
+  },
+  {
+    "title": "2026 exoplanet discovery surge dominated by microlensing and radial velocity methods",
+    "content": "In 2026, 54 unique exoplanets have already been confirmed (68 database entries across solution variants). The method distribution reveals a shift: Microlensing (22 entries, 32%) and Radial Velocity (26 entries, 38%) dominate over Transit (15 entries, 22%). This contrasts sharply with the 2024 dataset where Transit detections (291 of 604 total entries, 48%) led all methods. The microlensing surge is driven by KMT (Korea Microlensing Telescope Network) campaigns now processing 2022-2025 bulge data, revealing massive planets at kiloparsec distances (2900-7320 pc) inaccessible to other methods. This represents a shift in the mass-distance parameter space being explored.",
+    "category": "pattern",
+    "tags": ["space", "exoplanet", "discovery-method", "microlensing", "survey-statistics"],
+    "domain": "space-science",
+    "source_api": "NASA Exoplanet Archive TAP",
+    "timestamp": "2026-03-15T00:00:00Z",
+    "confidence": 0.88,
+    "data_points": 604
+  },
+  {
+    "title": "OGLE-2014-BLG-0221L b: 72 Jupiter-mass object challenges planet/star boundary",
+    "content": "OGLE-2014-BLG-0221L b has a reported mass of 72.16 Jupiter masses in one solution variant (48.62 Mj in another), placing it at or beyond the hydrogen-burning limit (~75-80 Mj). An object at 72 Mj orbiting at 6750 pc via microlensing raises fundamental classification questions: is this a very low-mass star, a brown dwarf, or an extreme planetary-mass companion? The dual solutions (48.62 and 72.16 Mj) highlight the mass degeneracy inherent in microlensing events and the difficulty of classifying objects near the deuterium/hydrogen burning boundaries.",
+    "category": "anomaly",
+    "tags": ["space", "exoplanet", "brown-dwarf-boundary", "mass-classification", "microlensing"],
+    "domain": "space-science",
+    "source_api": "NASA Exoplanet Archive TAP",
+    "timestamp": "2026-03-15T00:00:00Z",
+    "confidence": 0.82,
+    "data_points": 604
+  },
+  {
+    "title": "Asteroid 2026 EG1: Sub-lunar distance flyby at 0.83 lunar distances on March 10-15",
+    "content": "Asteroid 2026 EG1 passed Earth at just 0.83 lunar distances (318,362 km), making it the closest approach in the March 10-15 observation window. With an estimated diameter of up to 21 meters and a velocity of 9.6 km/s, it was not classified as potentially hazardous due to its small size. Two additional objects (2026 EU2 at 0.91 LD and 2026 EV2 at 0.96 LD) also passed within 1 lunar distance during the same period. Three sub-lunar-distance passes in 6 days is notable and reflects the improving detection capability of current survey programs for small near-Earth objects.",
+    "category": "anomaly",
+    "tags": ["space", "asteroid", "close-approach", "neo", "planetary-defense"],
+    "domain": "space-science",
+    "source_api": "NASA NeoWs",
+    "timestamp": "2026-03-15T00:00:00Z",
+    "confidence": 0.94,
+    "data_points": 99
+  },
+  {
+    "title": "Hazardous asteroid cluster: 8 PHAs tracked in 6-day window including kilometer-class objects",
+    "content": "Between March 10-15, 2026, NASA tracked 8 potentially hazardous asteroid (PHA) encounters, including two kilometer-class objects: 2014 MR26 (623-1393m diameter, velocity 25.0 km/s at 48.3 LD) and 866876/2015 TE323 (587-1312m, 11.1 km/s at 48.8 LD). March 11 saw the highest concentration with 4 hazardous objects tracked simultaneously. The largest object (2014 MR26) at up to 1.4 km diameter traveling at 25 km/s carries enormous kinetic energy. While all passed at safe distances (>27 LD), the simultaneous tracking of multiple large PHAs demonstrates the scale of the planetary defense monitoring challenge.",
+    "category": "pattern",
+    "tags": ["space", "asteroid", "potentially-hazardous", "planetary-defense", "kilometer-class"],
+    "domain": "space-science",
+    "source_api": "NASA NeoWs",
+    "timestamp": "2026-03-15T00:00:00Z",
+    "confidence": 0.91,
+    "data_points": 99
+  },
+  {
+    "title": "Asteroid 2019 AM13: Anomalous velocity outlier at 34.5 km/s",
+    "content": "Asteroid 2019 AM13 exhibited a relative velocity of 34.5 km/s (124,248 km/h), making it the fastest NEO in the March 10-15 tracking window -- 2.7x the mean velocity of 12.8 km/s and 70% faster than the second-fastest object. At 231m estimated diameter, it passed at 55.0 lunar distances. Such extreme velocities suggest a highly inclined or retrograde orbit, potentially indicating a dynamically excited population or a past close encounter with a planet that boosted its velocity. Objects with these velocities are particularly challenging for deflection missions due to the extreme delta-v required.",
+    "category": "anomaly",
+    "tags": ["space", "asteroid", "high-velocity", "orbital-dynamics", "neo"],
+    "domain": "space-science",
+    "source_api": "NASA NeoWs",
+    "timestamp": "2026-03-15T00:00:00Z",
+    "confidence": 0.87,
+    "data_points": 99
+  },
+  {
+    "title": "Extreme-speed CME on March 3: 1294-1301 km/s eruption with wide angular extent",
+    "content": "On 2026-03-03 at 11:01Z, a coronal mass ejection reached speeds of 1294-1301 km/s (two measurement analyses), classifying it as an occasional (type O) fast CME. With a half-angle of 29-45 degrees, it was one of the widest angular events in the period. Its longitude (-131 to -150 degrees) indicates a far-side origin, sparing Earth from a direct hit. This speed is nearly 3x the period mean of 438 km/s and would rank as a significant space weather event had it been Earth-directed. The speed is consistent with a fast halo CME that, if geoeffective, could produce G3+ geomagnetic storm conditions.",
+    "category": "anomaly",
+    "tags": ["space", "solar", "cme", "extreme-speed", "space-weather"],
+    "domain": "space-science",
+    "source_api": "NASA DONKI CME",
+    "timestamp": "2026-03-15T00:00:00Z",
+    "confidence": 0.93,
+    "data_points": 64
+  },
+  {
+    "title": "Active Region 14384: 12-day persistent activity spanning full solar disk transit",
+    "content": "Active Region 14384 demonstrated sustained eruptive activity across a 12-day span from March 1 to March 14. It produced a C4.0 flare at N10E90 (eastern limb) on March 1 and an M1.1 flare at N10W70 (western hemisphere) on March 13, tracking its full rotation across the solar disk. It generated 4 associated CMEs with speeds from 364 to 582 km/s, with an acceleration trend: the March 14 CMEs (394-582 km/s) were faster than the March 1 CME (364 km/s). The M1.1 flare on March 13 was the only M-class flare in the entire 15-day observation period. The sustained N10 latitude position across all observations confirms consistent heliographic latitude tracking of this long-lived active region.",
+    "category": "pattern",
+    "tags": ["space", "solar", "active-region", "flare", "long-duration", "solar-cycle"],
+    "domain": "space-science",
+    "source_api": "NASA DONKI FLR/CME",
+    "timestamp": "2026-03-15T00:00:00Z",
+    "confidence": 0.91,
+    "data_points": 71
+  },
+  {
+    "title": "Northern hemisphere solar activity dominance: 86% of flares from N07-N13 latitude band",
+    "content": "Six out of seven solar flares (86%) originated from the northern solar hemisphere, clustered in a narrow latitude band between N07 and N13. Only one flare (C8.9 from AR 14392 at S15E53) broke this pattern. The flare-producing active regions (14381, 14384, 14387, 14389) all emerged within this 6-degree latitude band. This strong hemispheric asymmetry is consistent with the known north-south asymmetry of Solar Cycle 25/26 activity, where magnetic flux emergence has been preferentially concentrated in the northern hemisphere. The tight latitude clustering suggests these regions may share a common subsurface magnetic flux system.",
+    "category": "pattern",
+    "tags": ["space", "solar", "hemispheric-asymmetry", "solar-cycle", "active-regions"],
+    "domain": "space-science",
+    "source_api": "NASA DONKI FLR",
+    "timestamp": "2026-03-15T00:00:00Z",
+    "confidence": 0.85,
+    "data_points": 7
+  },
+  {
+    "title": "CME burst pattern: 64 ejections in 14 days with March 7 and 13 as peak days",
+    "content": "The Sun produced 64 coronal mass ejections between March 1-14, 2026, averaging 4.6 per day. Two peak days stand out: March 7 (9 CMEs) and March 13 (8 CMEs), together accounting for 27% of all activity. Of the 64 CMEs, 20 (31%) were classified as common/fast (type C) and 2 (3%) as occasional/extreme (type O). Only one CME (March 6, 380 km/s at longitude -37) showed potential Earth impact as a glancing blow. The high CME rate with minimal geoeffective events reflects a period where most solar eruptions were directed away from the Sun-Earth line, a geometrically fortunate circumstance during an otherwise active period.",
+    "category": "pattern",
+    "tags": ["space", "solar", "cme", "activity-rate", "space-weather", "geoeffectiveness"],
+    "domain": "space-science",
+    "source_api": "NASA DONKI CME",
+    "timestamp": "2026-03-15T00:00:00Z",
+    "confidence": 0.89,
+    "data_points": 64
+  },
+  {
+    "title": "Cross-domain: Elevated solar activity coincides with dense NEO approach window",
+    "content": "The March 10-15 window saw simultaneous peaks in both solar activity (22 CMEs, 3 flares including the period's only M-class event) and near-Earth asteroid encounters (99 tracked objects, 8 potentially hazardous). On March 13 specifically, 8 CMEs were ejected, an M1.1 flare occurred, and 2 hazardous asteroids were being tracked at closest approach (including 2013 RZ73 at 27.3 LD). While these phenomena are physically independent, the temporal coincidence highlights a compounded space situational awareness challenge: mission planners and space weather forecasters must simultaneously monitor threats from both the solar direction and the interplanetary environment. For any hypothetical asteroid deflection mission launched during such a window, solar particle events could degrade spacecraft electronics and communications.",
+    "category": "pattern",
+    "tags": ["space", "cross-domain", "solar", "asteroid", "space-situational-awareness", "mission-planning"],
+    "domain": "space-science",
+    "source_api": "NASA DONKI/NeoWs",
+    "timestamp": "2026-03-15T00:00:00Z",
+    "confidence": 0.78,
+    "data_points": 170
+  },
+  {
+    "title": "Flare-CME energy decoupling: Weaker flares sometimes produce faster CMEs",
+    "content": "Analysis of the 6 flare-CME linked pairs reveals a counterintuitive inverse relationship in some cases. The C2.0 flare (March 8, weakest in the dataset) triggered a CME at 565 km/s (the fastest flare-associated CME), while the stronger C5.2 and C5.9 flares on March 1 produced slower CMEs at 421 and 396 km/s respectively. The two weakest flares (C2.0 and C2.4) also produced the most extreme speed difference between them: 565 vs 165 km/s. This decoupling between flare intensity and CME speed suggests that CME acceleration is governed more by the overlying magnetic field structure and flux rope properties than by the reconnection energy measured as X-ray flare class. The M1.1 flare on March 13 notably had no linked CME, indicating a confined eruption.",
+    "category": "pattern",
+    "tags": ["space", "solar", "flare-cme-relationship", "magnetic-reconnection", "energy-partition"],
+    "domain": "space-science",
+    "source_api": "NASA DONKI FLR/CME",
+    "timestamp": "2026-03-15T00:00:00Z",
+    "confidence": 0.83,
+    "data_points": 71
+  },
+  {
+    "title": "HD 143811 AB b: Exoplanet with 320-year orbital period detected via imaging",
+    "content": "HD 143811 AB b has an orbital period of 117,000-120,000 days (320-329 years) with a mass of 5.6-6.1 Jupiter masses. This is the longest orbital period among all recently confirmed exoplanets in the dataset. At a distance of 66-73 pc, the planet was detected via direct imaging. Its extreme orbital distance means it has completed less than 1% of a single orbit since the invention of the telescope. Such wide-orbit giant planets constrain models of planet formation at large separations, potentially favoring gravitational instability over core accretion as the formation mechanism at these distances.",
+    "category": "anomaly",
+    "tags": ["space", "exoplanet", "long-period", "direct-imaging", "planet-formation"],
+    "domain": "space-science",
+    "source_api": "NASA Exoplanet Archive TAP",
+    "timestamp": "2026-03-15T00:00:00Z",
+    "confidence": 0.86,
+    "data_points": 604
+  }
+]

@@ -3081,6 +3081,29 @@ async fn handle_mcp_tool_call(
             proxy_post(&client, &base, &format!("/v1/nodes/{id}/revoke"), api_key, &serde_json::json!({})).await
         },
 
+        // ── AGI / Training tools (ADR-075) ──────────────────────
+        "brain_train" => {
+            proxy_post(&client, &base, "/v1/train", api_key, &serde_json::json!({})).await
+        },
+        "brain_agi_status" => {
+            proxy_get(&client, &base, "/v1/status", api_key, &[]).await
+        },
+        "brain_sona_stats" => {
+            proxy_get(&client, &base, "/v1/sona/stats", api_key, &[]).await
+        },
+        "brain_temporal" => {
+            proxy_get(&client, &base, "/v1/temporal", api_key, &[]).await
+        },
+        "brain_explore" => {
+            proxy_get(&client, &base, "/v1/explore", api_key, &[]).await
+        },
+        "brain_midstream" => {
+            proxy_get(&client, &base, "/v1/midstream", api_key, &[]).await
+        },
+        "brain_flags" => {
+            proxy_get(&client, &base, "/v1/status", api_key, &[]).await
+        },
+
         _ => Err(format!("Unknown tool: {tool_name}")),
     };
 

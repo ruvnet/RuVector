@@ -24,6 +24,8 @@ rvf-server = { path = "../../crates/rvf/rvf-server" }
 tokio = { version = "1", features = ["full"] }
 serde_json = "1"
 axum = { version = "0.7", features = ["ws"] }
+ruqu-algorithms = { path = "../../crates/ruqu-algorithms" }
+ruqu-core = { path = "../../crates/ruqu-core" }
 
 [[example]]
 name = "basic_store"
@@ -246,5 +248,65 @@ name = "security_hardened"
 path = "examples/security_hardened.rs"
 
 [[example]]
+name = "microlensing_detection"
+path = "examples/microlensing_detection.rs"
+
+[[example]]
+name = "exomoon_graphcut"
+path = "examples/exomoon_graphcut.rs"
+
+[[example]]
+name = "medical_graphcut"
+path = "examples/medical_graphcut.rs"
+
+[[example]]
+name = "real_microlensing"
+path = "examples/real_microlensing.rs"
+
+[[example]]
+name = "genomic_graphcut"
+path = "examples/genomic_graphcut.rs"
+
+[[example]]
+name = "supply_chain_graphcut"
+path = "examples/supply_chain_graphcut.rs"
+
+[[example]]
+name = "financial_fraud_graphcut"
+path = "examples/financial_fraud_graphcut.rs"
+
+[[example]]
 name = "openfang"
 path = "examples/openfang.rs"
+
+[[example]]
+name = "cyber_threat_graphcut"
+path = "examples/cyber_threat_graphcut.rs"
+
+[[example]]
+name = "climate_graphcut"
+path = "examples/climate_graphcut.rs"
+
+[[example]]
+name = "qaoa_graphcut"
+path = "examples/qaoa_graphcut.rs"
+
+[[example]]
+name = "real_data_discovery"
+path = "examples/real_data_discovery.rs"
+
+[[example]]
+name = "climate_tipping"
+path = "examples/climate_tipping.rs"
+
+[[example]]
+name = "habitability_bias"
+path = "examples/habitability_bias.rs"
+
+[[example]]
+name = "seismic_risk"
+path = "examples/seismic_risk.rs"
+
+[[example]]
+name = "brain_training_integration"
+path = "examples/brain_training_integration.rs"

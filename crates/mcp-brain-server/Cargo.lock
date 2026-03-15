@@ -1381,6 +1381,7 @@ dependencies = [
  "ed25519-dalek",
  "hex",
  "nanosecond-scheduler",
+ "ndarray 0.15.6",
  "parking_lot",
  "rand 0.8.5",
  "reqwest",

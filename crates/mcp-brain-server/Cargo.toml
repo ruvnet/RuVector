@@ -71,3 +71,6 @@ nanosecond-scheduler = "0.1"
 temporal-attractor-studio = "0.1"
 temporal-neural-solver = "0.1"
 strange-loop = "0.3"
+
+# ndarray — required for temporal-neural-solver Array1 interop (ADR-094)
+ndarray = "0.15"
