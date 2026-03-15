@@ -72,6 +72,9 @@ temporal-attractor-studio = "0.1"
 temporal-neural-solver = { version = "0.1", optional = true }  # x86_64 only
 strange-loop = "0.3"
 
+# ndarray — required for temporal-neural-solver Array1 interop (ADR-094)
+ndarray = "0.15"
+
 [features]
 default = []
 x86-simd = ["temporal-neural-solver"]  # Enable on x86_64 systems
