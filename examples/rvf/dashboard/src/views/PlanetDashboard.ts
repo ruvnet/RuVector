@@ -49,6 +49,15 @@ function scoreBadgeClass(score: number): string {
   return 'score-low';
 }
 
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 function radiusLabel(r: number): string {
   if (r < 0.8) return 'Sub-Earth';
   if (r <= 1.25) return 'Earth-like';
@@ -261,7 +270,7 @@ export class PlanetDashboard {
       }
     });
 
-    const stringCols = new Set(['name', 'status', 'stellarType']);
+    const stringCols = new Set(['name', 'status', 'stellarType', 'discoveryMethod', 'telescope']);
     const sorted = [...this.candidates].sort((a, b) => {
       const ra = a as unknown as Record<string, unknown>;
       const rb = b as unknown as Record<string, unknown>;
@@ -373,16 +382,10 @@ export class PlanetDashboard {
       : '<span class="score-badge score-medium" style="font-size:9px">CANDIDATE</span>';
 
     // Sanitize text fields to prevent XSS from API data
-    const esc = (s: string | undefined | null): string => {
-      if (!s) return '';
-      const div = document.createElement('div');
-      div.textContent = s;
-      return div.innerHTML;
-    };
-    const safeName = esc(c.name);
-    const safeMethod = esc(c.discoveryMethod) || 'Unknown';
-    const safeTelescope = esc(c.telescope) || 'N/A';
-    const safeReference = esc(c.reference);
+    const safeName = escapeHtml(c.name);
+    const safeMethod = c.discoveryMethod ? escapeHtml(c.discoveryMethod) : 'Unknown';
+    const safeTelescope = c.telescope ? escapeHtml(c.telescope) : 'N/A';
+    const safeReference = c.reference ? escapeHtml(c.reference) : '';
     const safeYear = c.discoveryYear || '?';
     const distStr = c.distance != null ? (c.distance < 10 ? c.distance.toFixed(2) : c.distance.toFixed(0)) : '?';
     const tempColor = c.eqTemp && c.eqTemp >= 200 && c.eqTemp <= 300 ? 'var(--success)' : 'var(--warning)';
