@@ -207,20 +207,13 @@ fn solve_graphcut(lambda: &[f64], intensity: &[f64], gamma: f64) -> Vec<bool> {
         if p0 > 1e-12 { add_edge(&mut adj, &mut caps, s, i, p0); }
         if p1 > 1e-12 { add_edge(&mut adj, &mut caps, i, t, p1); }
     }
-    // Estimate global intensity variance for adaptive edge weights
-    let n_px = intensity.len();
-    let imean = intensity.iter().sum::<f64>() / n_px as f64;
-    let ivar = intensity.iter().map(|v| (v - imean).powi(2)).sum::<f64>() / n_px as f64;
-    let sigma_i = ivar.sqrt().max(1.0);
     for y in 0..GRID { for x in 0..GRID {
         let idx = y * GRID + x;
-        for &(dx, dy) in &[(1i32,0i32),(0,1),(-1,1),(1,1)] {
+        for &(dx, dy) in &[(1i32,0i32),(0,1)] {
             let (nx, ny) = (x as i32 + dx, y as i32 + dy);
-            if nx < 0 || nx >= GRID as i32 || ny >= GRID as i32 { continue; }
+            if nx >= GRID as i32 || ny >= GRID as i32 { continue; }
             let nidx = ny as usize * GRID + nx as usize;
-            // Adaptive Gaussian: w ~ exp(-diff² / 2σ²), weaker across strong edges
-            let diff = (intensity[idx] - intensity[nidx]).abs();
-            let w = gamma * (-diff * diff / (2.0 * sigma_i * sigma_i)).exp();
+            let w = gamma * (-(intensity[idx] - intensity[nidx]).abs() / 20.0).exp();
             if w > 1e-12 {
                 add_edge(&mut adj, &mut caps, idx, nidx, w);
                 add_edge(&mut adj, &mut caps, nidx, idx, w);
@@ -321,28 +314,29 @@ fn main() {
         let healthy = estimate_healthy(&img);
         println!("  Healthy model: mean={:.1}, std={:.1}", healthy.mean, healthy.std);
 
-        // Adaptive local thresholding: compare each voxel to its local neighborhood
+        // Two-signal lambda: global z-score + local contrast
         let lambda: Vec<f64> = (0..GRID*GRID).map(|idx| {
             let (x, y) = (idx % GRID, idx / GRID);
             let v = img.intensity[idx];
-            // Global z-score component
+            // Global z-score: how far from healthy tissue mean
             let global_z = (v - healthy.mean).abs() / healthy.std.max(1e-6);
-            // Local adaptive: compare to 7x7 neighborhood
-            let (mut lsum, mut lsum2, mut lc) = (0.0, 0.0, 0.0f64);
-            for dy in -3i32..=3 {
-                for dx in -3i32..=3 {
+            // Local contrast: gradient magnitude in 3x3 neighborhood
+            let mut grad_sum = 0.0f64;
+            let mut cnt = 0.0f64;
+            for dy in -1i32..=1 {
+                for dx in -1i32..=1 {
+                    if dx == 0 && dy == 0 { continue; }
                     let (nx, ny) = (x as i32 + dx, y as i32 + dy);
                     if nx >= 0 && ny >= 0 && nx < GRID as i32 && ny < GRID as i32 {
                         let nv = img.intensity[ny as usize * GRID + nx as usize];
-                        lsum += nv; lsum2 += nv * nv; lc += 1.0;
+                        grad_sum += (v - nv).abs();
+                        cnt += 1.0;
                     }
                 }
             }
-            let lmean = lsum / lc;
-            let lstd = ((lsum2 / lc - lmean * lmean).max(0.0)).sqrt().max(1e-6);
-            let local_z = (v - lmean).abs() / lstd;
-            // Combine global and local evidence
-            0.4 * global_z + 0.6 * local_z - 1.8
+            let local_contrast = grad_sum / cnt.max(1.0) / healthy.std.max(1e-6);
+            // Global z-score dominates; local contrast boosts edges
+            global_z + 0.3 * local_contrast - 1.5
         }).collect();
         let gc_seg = solve_graphcut(&lambda, &img.intensity, gamma);
         let gc_m = compute_metrics(&gc_seg, &img.ground_truth);

@@ -208,7 +208,7 @@ fn unary_score(ev: &Event) -> f64 {
     let transit_sig = (ev.transit_variance - 1.5).max(0.0);
     let customs_sig = (ev.customs_delay - 3.0).max(0.0) / 5.0;
     0.4 * lead_dev + 0.4 * cost_dev + 0.3 * qty_dev
-        + 1.0 * def_sig + 0.8 * rel_sig + 0.5 * transit_sig + 0.3 * customs_sig - 0.45
+        + 1.0 * def_sig + 0.8 * rel_sig + 0.5 * transit_sig + 0.3 * customs_sig - 0.40
 }
 
 struct Edge { from: usize, to: usize, weight: f64 }
