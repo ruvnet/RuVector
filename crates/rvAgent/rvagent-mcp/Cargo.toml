@@ -22,6 +22,6 @@ async-trait = "0.1"
 dashmap = { workspace = true }
 
 [dev-dependencies]
-tokio = { workspace = true, features = ["test-util"] }
+tokio = { version = "1.41", features = ["rt-multi-thread", "sync", "macros", "io-util", "io-std", "test-util"] }
 mockall = { workspace = true }
 proptest = { workspace = true }
