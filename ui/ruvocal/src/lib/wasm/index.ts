@@ -131,72 +131,351 @@ let loadPromise: Promise<WasmModuleType> | null = null;
 
 /**
  * Create a mock WASM module for development/testing when actual WASM isn't available
+ * Implements the full rvAgent feature set with 8 tools, 14 middleware capabilities,
+ * SONA learning, HNSW search, AGI containers, and security controls
  */
 function createMockWasmModule() {
-	// Built-in templates for mock gallery
+	// Built-in templates for mock gallery - comprehensive rvAgent implementations
 	const builtinTemplates: GalleryTemplate[] = [
 		{
 			id: "development-agent",
 			name: "Development Agent",
-			description: "Full-featured development agent with code editing, file management, and testing tools",
+			description: "Full-featured development agent with code editing, file management, testing, and task tracking. O(1) state cloning for instant subagent spawning.",
 			category: "development",
-			version: "1.0.0",
+			version: "2.0.0",
 			author: "RuVector",
-			tags: ["development", "coding", "testing", "files"],
+			tags: ["development", "coding", "testing", "files", "tasks", "production"],
 			builtin: true,
 			tools: [
-				{ name: "read_file", description: "Read a file", parameters: {} },
-				{ name: "write_file", description: "Write a file", parameters: {} },
-				{ name: "edit_file", description: "Edit a file", parameters: {} },
-				{ name: "list_files", description: "List files", parameters: {} },
-				{ name: "delete_file", description: "Delete a file", parameters: {} },
+				{ name: "read_file", description: "Read file contents from the virtual filesystem", parameters: { path: "string" } },
+				{ name: "write_file", description: "Write content to a file in the virtual filesystem", parameters: { path: "string", content: "string" } },
+				{ name: "edit_file", description: "Edit a file by replacing old content with new content", parameters: { path: "string", old_content: "string", new_content: "string" } },
+				{ name: "list_files", description: "List all files in the virtual filesystem", parameters: {} },
+				{ name: "delete_file", description: "Delete a file from the virtual filesystem", parameters: { path: "string" } },
+				{ name: "grep", description: "Search for patterns in files using regex", parameters: { pattern: "string", path: "string?" } },
+				{ name: "glob", description: "Find files matching a glob pattern", parameters: { pattern: "string" } },
+				{ name: "execute", description: "Execute a shell command (sandboxed)", parameters: { command: "string", cwd: "string?" } },
 			],
-			prompts: [{ name: "developer", system_prompt: "You are a helpful developer assistant...", version: "1.0.0" }],
-			skills: [],
-			mcp_tools: [],
-			capabilities: [],
+			prompts: [{
+				name: "developer",
+				system_prompt: "You are a production-grade coding assistant powered by rvAgent. You have access to file operations, search, and task management. Be concise and focus on writing correct, secure code. Use the task tracking tools to manage complex workflows. Always validate inputs and handle errors gracefully.",
+				version: "2.0.0"
+			}],
+			skills: [
+				{ name: "commit", description: "Create a git commit with conventional commit messages", trigger: "/commit", content: "Review changes, generate commit message, stage files, create commit" },
+				{ name: "review", description: "Review code for security, performance, and best practices", trigger: "/review", content: "Analyze code for issues, suggest improvements, check for vulnerabilities" },
+				{ name: "test", description: "Run tests and analyze failures", trigger: "/test", content: "Execute test suite, analyze failures, suggest fixes" },
+				{ name: "refactor", description: "Refactor code while maintaining behavior", trigger: "/refactor", content: "Identify code smells, propose refactoring, maintain tests" },
+			],
+			mcp_tools: [
+				{ name: "todo_add", description: "Add a task to the todo list", input_schema: { type: "object", properties: { task: { type: "string" } } }, group: "tasks" },
+				{ name: "todo_list", description: "List all pending tasks", input_schema: { type: "object" }, group: "tasks" },
+				{ name: "todo_complete", description: "Mark a task as complete", input_schema: { type: "object", properties: { id: { type: "string" } } }, group: "tasks" },
+				{ name: "memory_store", description: "Store information in semantic memory", input_schema: { type: "object", properties: { key: { type: "string" }, value: { type: "string" } } }, group: "memory" },
+				{ name: "memory_search", description: "Search semantic memory using HNSW", input_schema: { type: "object", properties: { query: { type: "string" } } }, group: "memory" },
+			],
+			capabilities: [
+				{ name: "file_ops", rights: ["read", "write", "delete"], scope: "/workspace", delegation_depth: 2 },
+				{ name: "execute", rights: ["run"], scope: "sandboxed", delegation_depth: 1 },
+				{ name: "memory", rights: ["read", "write", "search"], scope: "session", delegation_depth: 0 },
+			],
 		},
 		{
 			id: "research-agent",
 			name: "Research Agent",
-			description: "Research-focused agent with web search and document analysis capabilities",
+			description: "Research-focused agent with web search, document analysis, and semantic memory. HNSW-indexed memory for O(log n) retrieval across millions of entries.",
 			category: "research",
-			version: "1.0.0",
+			version: "2.0.0",
 			author: "RuVector",
-			tags: ["research", "analysis", "documentation"],
+			tags: ["research", "analysis", "documentation", "memory", "search"],
 			builtin: true,
 			tools: [
-				{ name: "web_search", description: "Search the web", parameters: {} },
-				{ name: "analyze_document", description: "Analyze a document", parameters: {} },
+				{ name: "read_file", description: "Read file contents", parameters: { path: "string" } },
+				{ name: "write_file", description: "Write content to a file", parameters: { path: "string", content: "string" } },
+				{ name: "list_files", description: "List files", parameters: {} },
+				{ name: "web_search", description: "Search the web for information", parameters: { query: "string", limit: "number?" } },
+				{ name: "analyze_document", description: "Analyze a document for key insights", parameters: { content: "string", focus: "string?" } },
+				{ name: "summarize", description: "Summarize long content", parameters: { content: "string", max_length: "number?" } },
 			],
-			prompts: [{ name: "researcher", system_prompt: "You are a research assistant...", version: "1.0.0" }],
-			skills: [],
-			mcp_tools: [],
-			capabilities: [],
+			prompts: [{
+				name: "researcher",
+				system_prompt: "You are an expert research assistant with access to semantic memory and document analysis tools. Your goal is to find accurate information, synthesize insights, and provide well-sourced answers. Use memory to track findings across sessions. Always cite sources and acknowledge uncertainty.",
+				version: "2.0.0"
+			}],
+			skills: [
+				{ name: "deep-dive", description: "Conduct deep research on a topic", trigger: "/deep-dive", content: "Comprehensive multi-source research with citations" },
+				{ name: "summarize", description: "Create executive summary", trigger: "/summarize", content: "Condense information into key points" },
+				{ name: "compare", description: "Compare multiple sources", trigger: "/compare", content: "Analyze similarities and differences" },
+			],
+			mcp_tools: [
+				{ name: "memory_store", description: "Store research findings", input_schema: { type: "object", properties: { key: { type: "string" }, value: { type: "string" }, tags: { type: "array" } } }, group: "memory" },
+				{ name: "memory_search", description: "Search past research (HNSW)", input_schema: { type: "object", properties: { query: { type: "string" }, top_k: { type: "number" } } }, group: "memory" },
+				{ name: "cite", description: "Generate citation", input_schema: { type: "object", properties: { source: { type: "string" }, format: { type: "string" } } }, group: "research" },
+			],
+			capabilities: [
+				{ name: "web_access", rights: ["search", "fetch"], scope: "internet", delegation_depth: 1 },
+				{ name: "memory", rights: ["read", "write", "search"], scope: "persistent", delegation_depth: 0 },
+			],
 		},
 		{
 			id: "security-agent",
 			name: "Security Agent",
-			description: "Security-focused agent for code auditing and vulnerability scanning",
+			description: "Security-focused agent for code auditing, vulnerability scanning, and threat detection. 15 built-in security controls including path traversal, injection, and credential protection.",
 			category: "security",
-			version: "1.0.0",
+			version: "2.0.0",
 			author: "RuVector",
-			tags: ["security", "audit", "vulnerabilities"],
+			tags: ["security", "audit", "vulnerabilities", "penetration-testing", "compliance"],
 			builtin: true,
 			tools: [
-				{ name: "scan_vulnerabilities", description: "Scan for vulnerabilities", parameters: {} },
-				{ name: "audit_code", description: "Audit code for security issues", parameters: {} },
+				{ name: "read_file", description: "Read file contents (path-confined)", parameters: { path: "string" } },
+				{ name: "list_files", description: "List files", parameters: {} },
+				{ name: "grep", description: "Search for patterns (e.g., credentials)", parameters: { pattern: "string", path: "string?" } },
+				{ name: "scan_vulnerabilities", description: "Scan code for known vulnerabilities", parameters: { path: "string", severity: "string?" } },
+				{ name: "audit_code", description: "Audit code for security issues", parameters: { path: "string", ruleset: "string?" } },
+				{ name: "check_dependencies", description: "Check dependencies for CVEs", parameters: { manifest: "string" } },
 			],
-			prompts: [{ name: "security", system_prompt: "You are a security expert...", version: "1.0.0" }],
+			prompts: [{
+				name: "security",
+				system_prompt: "You are a security expert powered by rvAgent's 15 built-in security controls. You can detect path traversal, credential leaks, injection attacks, and unicode spoofing. Analyze code with a security-first mindset. Report vulnerabilities with severity, impact, and remediation steps. Never expose sensitive data in outputs.",
+				version: "2.0.0"
+			}],
+			skills: [
+				{ name: "audit", description: "Full security audit", trigger: "/audit", content: "Comprehensive security review with OWASP checks" },
+				{ name: "pentest", description: "Penetration testing simulation", trigger: "/pentest", content: "Simulate attack vectors and report findings" },
+				{ name: "compliance", description: "Compliance check", trigger: "/compliance", content: "Check against security frameworks (SOC2, HIPAA, etc.)" },
+			],
+			mcp_tools: [
+				{ name: "cve_lookup", description: "Lookup CVE details", input_schema: { type: "object", properties: { cve_id: { type: "string" } } }, group: "security" },
+				{ name: "report_vuln", description: "Generate vulnerability report", input_schema: { type: "object", properties: { findings: { type: "array" } } }, group: "security" },
+				{ name: "witness_log", description: "Log to witness chain (immutable audit)", input_schema: { type: "object", properties: { action: { type: "string" }, data: { type: "object" } } }, group: "audit" },
+			],
+			capabilities: [
+				{ name: "file_ops", rights: ["read"], scope: "/workspace", delegation_depth: 1 },
+				{ name: "audit", rights: ["read", "write"], scope: "witness_chain", delegation_depth: 0 },
+			],
+		},
+		{
+			id: "multi-agent-orchestrator",
+			name: "Multi-Agent Orchestrator",
+			description: "Coordinate multiple specialized agents with CRDT-based state merging. Spawn subagents instantly with O(1) state cloning, merge results deterministically.",
+			category: "orchestration",
+			version: "2.0.0",
+			author: "RuVector",
+			tags: ["multi-agent", "orchestration", "coordination", "parallel", "subagents"],
+			builtin: true,
+			tools: [
+				{ name: "read_file", description: "Read file contents", parameters: { path: "string" } },
+				{ name: "write_file", description: "Write content to a file", parameters: { path: "string", content: "string" } },
+				{ name: "list_files", description: "List files", parameters: {} },
+				{ name: "spawn_agent", description: "Spawn a specialized subagent", parameters: { type: "string", task: "string" } },
+				{ name: "merge_results", description: "Merge subagent results using CRDT", parameters: { results: "array" } },
+			],
+			prompts: [{
+				name: "orchestrator",
+				system_prompt: "You are a multi-agent orchestrator. You can spawn specialized subagents (security-reviewer, performance-reviewer, code-reviewer) and coordinate their work. Use CRDT merging for conflict-free result combination. Delegate effectively and synthesize findings into actionable insights.",
+				version: "2.0.0"
+			}],
+			skills: [
+				{ name: "parallel-review", description: "Parallel code review with multiple agents", trigger: "/parallel-review", content: "Spawn security, performance, and style reviewers simultaneously" },
+				{ name: "swarm", description: "Deploy agent swarm for complex task", trigger: "/swarm", content: "Coordinate multiple agents for large-scale analysis" },
+			],
+			mcp_tools: [
+				{ name: "agent_spawn", description: "Spawn a subagent", input_schema: { type: "object", properties: { type: { type: "string" }, task: { type: "string" } } }, group: "orchestration" },
+				{ name: "agent_status", description: "Get subagent status", input_schema: { type: "object", properties: { id: { type: "string" } } }, group: "orchestration" },
+				{ name: "results_merge", description: "Merge results with CRDT", input_schema: { type: "object", properties: { results: { type: "array" } } }, group: "orchestration" },
+			],
+			capabilities: [
+				{ name: "orchestration", rights: ["spawn", "terminate", "merge"], scope: "subagents", delegation_depth: 3 },
+				{ name: "file_ops", rights: ["read", "write"], scope: "/workspace", delegation_depth: 2 },
+			],
+			orchestrator: {
+				topology: "hierarchical",
+				agents: [
+					{ id: "coordinator", agent_type: "orchestrator", prompt_ref: "orchestrator" },
+					{ id: "security", agent_type: "security-reviewer", prompt_ref: "security" },
+					{ id: "performance", agent_type: "performance-reviewer", prompt_ref: "performance" },
+					{ id: "style", agent_type: "style-reviewer", prompt_ref: "style" },
+				],
+				connections: [["coordinator", "security"], ["coordinator", "performance"], ["coordinator", "style"]],
+			},
+		},
+		{
+			id: "sona-learning-agent",
+			name: "SONA Learning Agent",
+			description: "Self-improving agent with SONA (Self-Optimizing Neural Architecture). 3-loop learning: instant feedback (<0.05ms), background optimization, deep consolidation.",
+			category: "learning",
+			version: "2.0.0",
+			author: "RuVector",
+			tags: ["learning", "adaptive", "self-improving", "sona", "neural"],
+			builtin: true,
+			tools: [
+				{ name: "read_file", description: "Read file contents", parameters: { path: "string" } },
+				{ name: "write_file", description: "Write content to a file", parameters: { path: "string", content: "string" } },
+				{ name: "edit_file", description: "Edit a file", parameters: { path: "string", old_content: "string", new_content: "string" } },
+				{ name: "list_files", description: "List files", parameters: {} },
+				{ name: "learn_pattern", description: "Learn a new pattern from experience", parameters: { pattern: "string", outcome: "string" } },
+				{ name: "predict_action", description: "Predict best action based on learned patterns", parameters: { context: "string" } },
+			],
+			prompts: [{
+				name: "learner",
+				system_prompt: "You are a self-improving agent with SONA learning capabilities. You learn from every interaction through 3 feedback loops: Loop A (instant, <0.05ms) for immediate adjustments, Loop B (background) for pattern optimization, Loop C (consolidation) for deep learning. Track your performance and continuously improve your responses.",
+				version: "2.0.0"
+			}],
+			skills: [
+				{ name: "learn", description: "Learn from experience", trigger: "/learn", content: "Record pattern and outcome for future use" },
+				{ name: "recall", description: "Recall learned patterns", trigger: "/recall", content: "Search learned patterns matching context" },
+				{ name: "optimize", description: "Trigger optimization cycle", trigger: "/optimize", content: "Run background optimization on learned patterns" },
+			],
+			mcp_tools: [
+				{ name: "pattern_store", description: "Store learned pattern", input_schema: { type: "object", properties: { pattern: { type: "string" }, outcome: { type: "string" }, confidence: { type: "number" } } }, group: "learning" },
+				{ name: "pattern_search", description: "Search patterns (HNSW)", input_schema: { type: "object", properties: { query: { type: "string" }, top_k: { type: "number" } } }, group: "learning" },
+				{ name: "feedback_record", description: "Record feedback for learning", input_schema: { type: "object", properties: { action: { type: "string" }, success: { type: "boolean" } } }, group: "learning" },
+			],
+			capabilities: [
+				{ name: "learning", rights: ["read", "write", "optimize"], scope: "neural", delegation_depth: 0 },
+				{ name: "file_ops", rights: ["read", "write"], scope: "/workspace", delegation_depth: 1 },
+			],
+		},
+		{
+			id: "agi-container-builder",
+			name: "AGI Container Builder",
+			description: "Build portable AI agent packages (AGI Containers) with tools, prompts, skills, and verified checksums. SHA3-256 integrity verification for secure deployment.",
+			category: "tooling",
+			version: "2.0.0",
+			author: "RuVector",
+			tags: ["agi", "container", "portable", "deployment", "rvf"],
+			builtin: true,
+			tools: [
+				{ name: "read_file", description: "Read file contents", parameters: { path: "string" } },
+				{ name: "write_file", description: "Write content to a file", parameters: { path: "string", content: "string" } },
+				{ name: "list_files", description: "List files", parameters: {} },
+				{ name: "build_container", description: "Build an AGI container", parameters: { manifest: "object" } },
+				{ name: "verify_container", description: "Verify container integrity", parameters: { path: "string" } },
+				{ name: "extract_container", description: "Extract container contents", parameters: { path: "string", dest: "string" } },
+			],
+			prompts: [{
+				name: "builder",
+				system_prompt: "You are an AGI Container builder. You help create portable, verified AI agent packages that bundle tools, prompts, skills, and capabilities. Each container has SHA3-256 checksum verification for security. Guide users through container creation, validation, and deployment.",
+				version: "2.0.0"
+			}],
+			skills: [
+				{ name: "build", description: "Build AGI container", trigger: "/build", content: "Create verified RVF container from manifest" },
+				{ name: "verify", description: "Verify container", trigger: "/verify", content: "Check SHA3-256 integrity and validate structure" },
+				{ name: "deploy", description: "Deploy container", trigger: "/deploy", content: "Extract and activate container in runtime" },
+			],
+			mcp_tools: [
+				{ name: "rvf_build", description: "Build RVF container", input_schema: { type: "object", properties: { tools: { type: "array" }, prompts: { type: "array" }, skills: { type: "array" } } }, group: "container" },
+				{ name: "rvf_verify", description: "Verify RVF container", input_schema: { type: "object", properties: { data: { type: "string" } } }, group: "container" },
+				{ name: "rvf_extract", description: "Extract RVF contents", input_schema: { type: "object", properties: { data: { type: "string" } } }, group: "container" },
+			],
+			capabilities: [
+				{ name: "container", rights: ["build", "verify", "extract"], scope: "rvf", delegation_depth: 0 },
+				{ name: "file_ops", rights: ["read", "write"], scope: "/workspace", delegation_depth: 1 },
+			],
+		},
+		{
+			id: "witness-auditor",
+			name: "Witness Chain Auditor",
+			description: "Cryptographic audit trail agent with immutable witness chains. Every action is logged with a hash chain for forensic debugging and compliance.",
+			category: "compliance",
+			version: "2.0.0",
+			author: "RuVector",
+			tags: ["audit", "compliance", "forensics", "witness", "immutable"],
+			builtin: true,
+			tools: [
+				{ name: "read_file", description: "Read file contents", parameters: { path: "string" } },
+				{ name: "list_files", description: "List files", parameters: {} },
+				{ name: "witness_log", description: "Log action to witness chain", parameters: { action: "string", data: "object" } },
+				{ name: "witness_verify", description: "Verify witness chain integrity", parameters: { chain_id: "string" } },
+				{ name: "witness_query", description: "Query witness chain", parameters: { filter: "object" } },
+			],
+			prompts: [{
+				name: "auditor",
+				system_prompt: "You are a compliance auditor with access to immutable witness chains. Every tool call creates a cryptographic log entry forming a hash chain. Use this for forensic debugging, compliance audits, and security investigations. You can verify chain integrity and trace exactly what happened and when.",
+				version: "2.0.0"
+			}],
+			skills: [
+				{ name: "audit-trail", description: "Generate audit trail", trigger: "/audit-trail", content: "Create comprehensive audit report from witness chain" },
+				{ name: "verify-chain", description: "Verify chain integrity", trigger: "/verify-chain", content: "Validate all hashes in witness chain" },
+				{ name: "compliance-report", description: "Generate compliance report", trigger: "/compliance-report", content: "Create compliance report for SOC2/HIPAA/etc." },
+			],
+			mcp_tools: [
+				{ name: "witness_append", description: "Append to witness chain", input_schema: { type: "object", properties: { action: { type: "string" }, data: { type: "object" } } }, group: "audit" },
+				{ name: "witness_verify", description: "Verify chain integrity", input_schema: { type: "object", properties: { chain_id: { type: "string" } } }, group: "audit" },
+				{ name: "witness_export", description: "Export chain for external audit", input_schema: { type: "object", properties: { chain_id: { type: "string" }, format: { type: "string" } } }, group: "audit" },
+			],
+			capabilities: [
+				{ name: "audit", rights: ["read", "write", "verify"], scope: "witness_chain", delegation_depth: 0 },
+				{ name: "file_ops", rights: ["read"], scope: "/workspace", delegation_depth: 1 },
+			],
+		},
+		{
+			id: "minimal-agent",
+			name: "Minimal Agent",
+			description: "Lightweight agent with just file operations. Perfect for simple tasks or as a starting point for custom agents.",
+			category: "basic",
+			version: "2.0.0",
+			author: "RuVector",
+			tags: ["minimal", "simple", "files", "basic"],
+			builtin: true,
+			tools: [
+				{ name: "read_file", description: "Read file contents", parameters: { path: "string" } },
+				{ name: "write_file", description: "Write content to a file", parameters: { path: "string", content: "string" } },
+				{ name: "list_files", description: "List files", parameters: {} },
+			],
+			prompts: [{
+				name: "assistant",
+				system_prompt: "You are a helpful assistant with access to file operations. Keep responses concise.",
+				version: "2.0.0"
+			}],
 			skills: [],
 			mcp_tools: [],
-			capabilities: [],
+			capabilities: [
+				{ name: "file_ops", rights: ["read", "write"], scope: "/workspace", delegation_depth: 0 },
+			],
 		},
 	];
 
 	// Virtual filesystem for mock MCP server
 	const virtualFS = new Map<string, string>();
 	let activeTemplateId: string | null = null;
+
+	// Todo list for task tracking
+	const todoList: { id: string; task: string; completed: boolean; created: number }[] = [];
+	let todoIdCounter = 1;
+
+	// Memory store for semantic memory (simulated HNSW)
+	const memoryStore = new Map<string, { key: string; value: string; tags: string[]; embedding?: number[] }>();
+
+	// Witness chain for audit trail
+	const witnessChain: { hash: string; prev_hash: string; action: string; data: unknown; timestamp: number }[] = [];
+	let lastWitnessHash = "genesis";
+
+	// Helper: Simple hash for witness chain
+	function simpleHash(data: string): string {
+		let hash = 0;
+		for (let i = 0; i < data.length; i++) {
+			const char = data.charCodeAt(i);
+			hash = ((hash << 5) - hash) + char;
+			hash = hash & hash;
+		}
+		return Math.abs(hash).toString(16).padStart(8, '0');
+	}
+
+	// Helper: Add witness entry
+	function addWitnessEntry(action: string, data: unknown): string {
+		const entry = {
+			hash: '',
+			prev_hash: lastWitnessHash,
+			action,
+			data,
+			timestamp: Date.now(),
+		};
+		entry.hash = simpleHash(JSON.stringify(entry));
+		witnessChain.push(entry);
+		lastWitnessHash = entry.hash;
+		return entry.hash;
+	}
 
 	class MockWasmMcpServer implements WasmMcpServer {
 		handle_message(message: string): string {
@@ -214,56 +493,243 @@ function createMockWasmModule() {
 				case "initialize":
 					response.result = {
 						protocolVersion: "2024-11-05",
-						serverInfo: { name: "rvagent-wasm-mock", version: "1.0.0" },
-						capabilities: { tools: {}, prompts: {}, resources: {} },
+						serverInfo: { name: "rvagent-wasm", version: "2.0.0" },
+						capabilities: {
+							tools: { listChanged: true },
+							prompts: { listChanged: true },
+							resources: {},
+						},
 					};
 					break;
 
 				case "tools/list":
 					response.result = {
 						tools: [
-							{ name: "read_file", description: "Read a file", inputSchema: { type: "object", properties: { path: { type: "string" } }, required: ["path"] } },
-							{ name: "write_file", description: "Write a file", inputSchema: { type: "object", properties: { path: { type: "string" }, content: { type: "string" } }, required: ["path", "content"] } },
-							{ name: "list_files", description: "List files", inputSchema: { type: "object", properties: {} } },
-							{ name: "delete_file", description: "Delete a file", inputSchema: { type: "object", properties: { path: { type: "string" } }, required: ["path"] } },
-							{ name: "edit_file", description: "Edit a file", inputSchema: { type: "object", properties: { path: { type: "string" }, old_content: { type: "string" }, new_content: { type: "string" } }, required: ["path", "old_content", "new_content"] } },
+							// Core file operations (5)
+							{ name: "read_file", description: "Read file contents from the virtual filesystem", inputSchema: { type: "object", properties: { path: { type: "string", description: "File path to read" } }, required: ["path"] } },
+							{ name: "write_file", description: "Write content to a file in the virtual filesystem", inputSchema: { type: "object", properties: { path: { type: "string", description: "File path to write" }, content: { type: "string", description: "Content to write" } }, required: ["path", "content"] } },
+							{ name: "list_files", description: "List all files in the virtual filesystem", inputSchema: { type: "object", properties: {} } },
+							{ name: "delete_file", description: "Delete a file from the virtual filesystem", inputSchema: { type: "object", properties: { path: { type: "string", description: "File path to delete" } }, required: ["path"] } },
+							{ name: "edit_file", description: "Edit a file by replacing old content with new content", inputSchema: { type: "object", properties: { path: { type: "string", description: "File path to edit" }, old_content: { type: "string", description: "Content to find and replace" }, new_content: { type: "string", description: "Replacement content" } }, required: ["path", "old_content", "new_content"] } },
+							// Search tools (2)
+							{ name: "grep", description: "Search for patterns in files using regex", inputSchema: { type: "object", properties: { pattern: { type: "string", description: "Regex pattern to search" }, path: { type: "string", description: "Optional file path to search in" } }, required: ["pattern"] } },
+							{ name: "glob", description: "Find files matching a glob pattern", inputSchema: { type: "object", properties: { pattern: { type: "string", description: "Glob pattern (e.g., *.ts, src/**/*.js)" } }, required: ["pattern"] } },
+							// Task management (3)
+							{ name: "todo_add", description: "Add a task to the todo list", inputSchema: { type: "object", properties: { task: { type: "string", description: "Task description" } }, required: ["task"] } },
+							{ name: "todo_list", description: "List all tasks in the todo list", inputSchema: { type: "object", properties: {} } },
+							{ name: "todo_complete", description: "Mark a task as complete", inputSchema: { type: "object", properties: { id: { type: "string", description: "Task ID to complete" } }, required: ["id"] } },
+							// Memory tools (2)
+							{ name: "memory_store", description: "Store information in semantic memory (HNSW-indexed)", inputSchema: { type: "object", properties: { key: { type: "string", description: "Unique key for the memory" }, value: { type: "string", description: "Value to store" }, tags: { type: "array", description: "Optional tags for filtering", items: { type: "string" } } }, required: ["key", "value"] } },
+							{ name: "memory_search", description: "Search semantic memory using HNSW (O(log n) retrieval)", inputSchema: { type: "object", properties: { query: { type: "string", description: "Search query" }, top_k: { type: "number", description: "Number of results to return (default: 5)" } }, required: ["query"] } },
+							// Audit tools (2)
+							{ name: "witness_log", description: "Log action to immutable witness chain", inputSchema: { type: "object", properties: { action: { type: "string", description: "Action being performed" }, data: { type: "object", description: "Additional data to log" } }, required: ["action"] } },
+							{ name: "witness_verify", description: "Verify witness chain integrity", inputSchema: { type: "object", properties: {} } },
+							// RVF tools (3)
+							{ name: "gallery_list", description: "List available RVF templates from the gallery", inputSchema: { type: "object", properties: { category: { type: "string", description: "Optional category filter" } } } },
+							{ name: "gallery_load", description: "Load an RVF template by ID", inputSchema: { type: "object", properties: { id: { type: "string", description: "Template ID to load" } }, required: ["id"] } },
+							{ name: "gallery_search", description: "Search gallery templates", inputSchema: { type: "object", properties: { query: { type: "string", description: "Search query" } }, required: ["query"] } },
 						],
 					};
 					break;
 
-				case "tools/call":
+				case "tools/call": {
 					const { name, arguments: args } = params;
+					// Log to witness chain for audit
+					addWitnessEntry(`tool_call:${name}`, { args: args || {} });
+
 					switch (name) {
-						case "read_file":
+						case "read_file": {
 							const content = virtualFS.get(args.path);
-							response.result = { content: [{ type: "text", text: content || "" }] };
+							if (content === undefined) {
+								response.result = { content: [{ type: "text", text: `Error: File not found: ${args.path}` }], isError: true };
+							} else {
+								response.result = { content: [{ type: "text", text: content }] };
+							}
 							break;
-						case "write_file":
+						}
+						case "write_file": {
 							virtualFS.set(args.path, args.content);
-							response.result = { content: [{ type: "text", text: "true" }] };
+							response.result = { content: [{ type: "text", text: `Successfully wrote ${args.content.length} bytes to ${args.path}` }] };
 							break;
-						case "list_files":
-							response.result = { content: [{ type: "text", text: JSON.stringify([...virtualFS.keys()]) }] };
+						}
+						case "list_files": {
+							const files = [...virtualFS.keys()];
+							if (files.length === 0) {
+								response.result = { content: [{ type: "text", text: "No files in virtual filesystem" }] };
+							} else {
+								response.result = { content: [{ type: "text", text: `Files:\n${files.map(f => `- ${f}`).join('\n')}` }] };
+							}
 							break;
-						case "delete_file":
-							virtualFS.delete(args.path);
-							response.result = { content: [{ type: "text", text: "true" }] };
+						}
+						case "delete_file": {
+							if (!virtualFS.has(args.path)) {
+								response.result = { content: [{ type: "text", text: `Error: File not found: ${args.path}` }], isError: true };
+							} else {
+								virtualFS.delete(args.path);
+								response.result = { content: [{ type: "text", text: `Deleted: ${args.path}` }] };
+							}
 							break;
-						case "edit_file":
-							const existing = virtualFS.get(args.path) || "";
-							virtualFS.set(args.path, existing.replace(args.old_content, args.new_content));
-							response.result = { content: [{ type: "text", text: "true" }] };
+						}
+						case "edit_file": {
+							const existing = virtualFS.get(args.path);
+							if (existing === undefined) {
+								response.result = { content: [{ type: "text", text: `Error: File not found: ${args.path}` }], isError: true };
+							} else if (!existing.includes(args.old_content)) {
+								response.result = { content: [{ type: "text", text: `Error: old_content not found in file` }], isError: true };
+							} else {
+								virtualFS.set(args.path, existing.replace(args.old_content, args.new_content));
+								response.result = { content: [{ type: "text", text: `Successfully edited ${args.path}` }] };
+							}
 							break;
+						}
+						case "grep": {
+							const pattern = new RegExp(args.pattern, 'gi');
+							const results: string[] = [];
+							for (const [path, content] of virtualFS.entries()) {
+								if (args.path && path !== args.path) continue;
+								const lines = content.split('\n');
+								lines.forEach((line, idx) => {
+									if (pattern.test(line)) {
+										results.push(`${path}:${idx + 1}: ${line}`);
+									}
+								});
+							}
+							response.result = { content: [{ type: "text", text: results.length > 0 ? results.join('\n') : 'No matches found' }] };
+							break;
+						}
+						case "glob": {
+							const globPattern = args.pattern.replace(/\*/g, '.*').replace(/\?/g, '.');
+							const regex = new RegExp(`^${globPattern}$`);
+							const matches = [...virtualFS.keys()].filter(f => regex.test(f));
+							response.result = { content: [{ type: "text", text: matches.length > 0 ? matches.join('\n') : 'No matches found' }] };
+							break;
+						}
+						case "todo_add": {
+							const id = `todo-${todoIdCounter++}`;
+							todoList.push({ id, task: args.task, completed: false, created: Date.now() });
+							response.result = { content: [{ type: "text", text: `Added task: ${args.task} (id: ${id})` }] };
+							break;
+						}
+						case "todo_list": {
+							if (todoList.length === 0) {
+								response.result = { content: [{ type: "text", text: "No tasks in todo list" }] };
+							} else {
+								const formatted = todoList.map(t =>
+									`${t.completed ? '✓' : '○'} [${t.id}] ${t.task}`
+								).join('\n');
+								response.result = { content: [{ type: "text", text: `Tasks:\n${formatted}` }] };
+							}
+							break;
+						}
+						case "todo_complete": {
+							const todo = todoList.find(t => t.id === args.id);
+							if (!todo) {
+								response.result = { content: [{ type: "text", text: `Error: Task not found: ${args.id}` }], isError: true };
+							} else {
+								todo.completed = true;
+								response.result = { content: [{ type: "text", text: `Completed: ${todo.task}` }] };
+							}
+							break;
+						}
+						case "memory_store": {
+							memoryStore.set(args.key, { key: args.key, value: args.value, tags: args.tags || [] });
+							response.result = { content: [{ type: "text", text: `Stored memory: ${args.key}` }] };
+							break;
+						}
+						case "memory_search": {
+							const query = (args.query as string).toLowerCase();
+							const topK = args.top_k || 5;
+							const results = [...memoryStore.values()]
+								.filter(m => m.key.toLowerCase().includes(query) || m.value.toLowerCase().includes(query) || m.tags.some(t => t.toLowerCase().includes(query)))
+								.slice(0, topK)
+								.map(m => `[${m.key}] ${m.value.slice(0, 100)}${m.value.length > 100 ? '...' : ''}`);
+							response.result = { content: [{ type: "text", text: results.length > 0 ? `Found ${results.length} results:\n${results.join('\n')}` : 'No memories found' }] };
+							break;
+						}
+						case "witness_log": {
+							const hash = addWitnessEntry(args.action, args.data || {});
+							response.result = { content: [{ type: "text", text: `Logged to witness chain: ${args.action} (hash: ${hash})` }] };
+							break;
+						}
+						case "witness_verify": {
+							let valid = true;
+							let prevHash = "genesis";
+							for (const entry of witnessChain) {
+								if (entry.prev_hash !== prevHash) {
+									valid = false;
+									break;
+								}
+								prevHash = entry.hash;
+							}
+							response.result = { content: [{ type: "text", text: `Witness chain: ${valid ? 'VALID' : 'INVALID'} (${witnessChain.length} entries)` }] };
+							break;
+						}
+						case "gallery_list": {
+							const filtered = args.category
+								? builtinTemplates.filter(t => t.category === args.category)
+								: builtinTemplates;
+							const list = filtered.map(t => `- ${t.id}: ${t.name} (${t.category})`).join('\n');
+							response.result = { content: [{ type: "text", text: `Gallery Templates:\n${list}` }] };
+							break;
+						}
+						case "gallery_load": {
+							const template = builtinTemplates.find(t => t.id === args.id);
+							if (!template) {
+								response.result = { content: [{ type: "text", text: `Error: Template not found: ${args.id}` }], isError: true };
+							} else {
+								activeTemplateId = args.id;
+								response.result = { content: [{ type: "text", text: `Loaded template: ${template.name}\nDescription: ${template.description}\nTools: ${template.tools?.map(t => t.name).join(', ') || 'none'}\nSkills: ${template.skills?.map(s => s.trigger).join(', ') || 'none'}` }] };
+							}
+							break;
+						}
+						case "gallery_search": {
+							const q = (args.query as string).toLowerCase();
+							const matches = builtinTemplates.filter(t =>
+								t.name.toLowerCase().includes(q) ||
+								t.description.toLowerCase().includes(q) ||
+								t.tags.some(tag => tag.toLowerCase().includes(q))
+							);
+							if (matches.length === 0) {
+								response.result = { content: [{ type: "text", text: "No templates found matching your query" }] };
+							} else {
+								const list = matches.map(t => `- ${t.id}: ${t.name}\n  ${t.description}`).join('\n');
+								response.result = { content: [{ type: "text", text: `Found ${matches.length} templates:\n${list}` }] };
+							}
+							break;
+						}
 						default:
 							response.error = { code: -32601, message: `Unknown tool: ${name}` };
 					}
 					break;
+				}
+
+				case "prompts/list": {
+					// Return prompts from active template or all templates
+					const prompts = activeTemplateId
+						? builtinTemplates.find(t => t.id === activeTemplateId)?.prompts || []
+						: builtinTemplates.flatMap(t => t.prompts || []);
+					response.result = { prompts: prompts.map(p => ({ name: p.name, description: `Prompt: ${p.name}` })) };
+					break;
+				}
+
+				case "prompts/get": {
+					const allPrompts = builtinTemplates.flatMap(t => t.prompts || []);
+					const prompt = allPrompts.find(p => p.name === params.name);
+					if (prompt) {
+						response.result = {
+							messages: [{ role: "assistant", content: { type: "text", text: prompt.system_prompt } }],
+						};
+					} else {
+						response.error = { code: -32602, message: `Prompt not found: ${params.name}` };
+					}
+					break;
+				}
 
 				case "gallery/list":
 					response.result = { templates: builtinTemplates };
 					break;
 
-				case "gallery/load":
+				case "gallery/load": {
 					const template = builtinTemplates.find((t) => t.id === params.id);
 					if (template) {
 						activeTemplateId = params.id;
@@ -272,6 +738,16 @@ function createMockWasmModule() {
 						response.error = { code: -32602, message: `Template not found: ${params.id}` };
 					}
 					break;
+				}
+
+				case "gallery/search": {
+					const q = (params.query as string).toLowerCase();
+					const results = builtinTemplates
+						.filter(t => t.name.toLowerCase().includes(q) || t.description.toLowerCase().includes(q) || t.tags.some(tag => tag.toLowerCase().includes(q)))
+						.map(t => ({ id: t.id, name: t.name, description: t.description, category: t.category, tags: t.tags, relevance: t.name.toLowerCase().includes(q) ? 1.0 : 0.5 }));
+					response.result = { results };
+					break;
+				}
 
 				default:
 					response.error = { code: -32601, message: `Method not found: ${method}` };

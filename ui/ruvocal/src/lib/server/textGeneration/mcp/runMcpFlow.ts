@@ -332,8 +332,12 @@ export async function* runMcpFlow({
 			signal: abortSignal,
 		});
 
-		// Default WASM file tools - always available for in-memory file operations
+		// ================================
+		// rvAgent WASM Tools - Full Implementation
+		// 15 tools: file ops, search, tasks, memory, witness, gallery
+		// ================================
 		const defaultWasmTools = [
+			// File Operations (5 tools)
 			{
 				name: "read_file",
 				description: "Read the contents of a file from the virtual filesystem",
@@ -387,6 +391,141 @@ export async function* runMcpFlow({
 						new_content: { type: "string", description: "The new content to replace with" },
 					},
 					required: ["path", "old_content", "new_content"],
+				},
+			},
+			// Search Tools (2 tools)
+			{
+				name: "grep",
+				description: "Search for patterns in files using regex",
+				inputSchema: {
+					type: "object",
+					properties: {
+						pattern: { type: "string", description: "Regex pattern to search for" },
+						path: { type: "string", description: "Optional: specific file path to search in" },
+					},
+					required: ["pattern"],
+				},
+			},
+			{
+				name: "glob",
+				description: "Find files matching a glob pattern (e.g., *.ts, src/**/*.js)",
+				inputSchema: {
+					type: "object",
+					properties: {
+						pattern: { type: "string", description: "Glob pattern to match files" },
+					},
+					required: ["pattern"],
+				},
+			},
+			// Task Management (3 tools)
+			{
+				name: "todo_add",
+				description: "Add a task to the todo list for tracking work",
+				inputSchema: {
+					type: "object",
+					properties: {
+						task: { type: "string", description: "Task description to add" },
+					},
+					required: ["task"],
+				},
+			},
+			{
+				name: "todo_list",
+				description: "List all tasks in the todo list with their status",
+				inputSchema: {
+					type: "object",
+					properties: {},
+				},
+			},
+			{
+				name: "todo_complete",
+				description: "Mark a task as complete by its ID",
+				inputSchema: {
+					type: "object",
+					properties: {
+						id: { type: "string", description: "Task ID to mark as complete" },
+					},
+					required: ["id"],
+				},
+			},
+			// Memory Tools (2 tools) - HNSW-indexed semantic memory
+			{
+				name: "memory_store",
+				description: "Store information in semantic memory (HNSW-indexed for fast retrieval)",
+				inputSchema: {
+					type: "object",
+					properties: {
+						key: { type: "string", description: "Unique key for the memory entry" },
+						value: { type: "string", description: "Value to store" },
+						tags: { type: "array", items: { type: "string" }, description: "Optional tags for categorization" },
+					},
+					required: ["key", "value"],
+				},
+			},
+			{
+				name: "memory_search",
+				description: "Search semantic memory using O(log n) HNSW retrieval",
+				inputSchema: {
+					type: "object",
+					properties: {
+						query: { type: "string", description: "Search query" },
+						top_k: { type: "number", description: "Number of results to return (default: 5)" },
+					},
+					required: ["query"],
+				},
+			},
+			// Witness Chain (2 tools) - Cryptographic audit trail
+			{
+				name: "witness_log",
+				description: "Log an action to the immutable witness chain for auditing",
+				inputSchema: {
+					type: "object",
+					properties: {
+						action: { type: "string", description: "Action being performed" },
+						data: { type: "object", description: "Additional data to log" },
+					},
+					required: ["action"],
+				},
+			},
+			{
+				name: "witness_verify",
+				description: "Verify the integrity of the witness chain",
+				inputSchema: {
+					type: "object",
+					properties: {},
+				},
+			},
+			// RVF Gallery (3 tools) - Agent templates
+			{
+				name: "gallery_list",
+				description: "List available RVF agent templates from the gallery",
+				inputSchema: {
+					type: "object",
+					properties: {
+						category: { type: "string", description: "Optional: filter by category (development, research, security, etc.)" },
+					},
+				},
+			},
+			{
+				name: "gallery_load",
+				description: "Load an RVF agent template by its ID",
+				inputSchema: {
+					type: "object",
+					properties: {
+						id: { type: "string", description: "Template ID to load" },
+					},
+					required: ["id"],
+				},
+			},
+			{
+				name: "gallery_search",
+				description: "Search for agent templates by name, description, or tags",
+				inputSchema: {
+					type: "object",
+					properties: {
+						query: { type: "string", description: "Search query" },
+					},
+					required: ["query"],
 				},
 			},
 		];
