@@ -505,6 +505,18 @@ function createMockWasmModule() {
 				case "tools/list":
 					response.result = {
 						tools: [
+							// === SYSTEM GUIDANCE (1) - CALL THIS FIRST ===
+							{
+								name: "system_guidance",
+								description: `🔮 CALL FIRST: Get help on ALL available tools. Examples: {} for full guide, {"tool": "read_file"} for specific tool, {"category": "memory"} for category.`,
+								inputSchema: {
+									type: "object",
+									properties: {
+										tool: { type: "string", description: "Get help for specific tool name" },
+										category: { type: "string", description: "Filter by: files, memory, tasks, gallery, witness, brain, search" }
+									}
+								}
+							},
 							// === FILE OPERATIONS (5) ===
 							{
 								name: "read_file",
@@ -681,6 +693,57 @@ function createMockWasmModule() {
 					addWitnessEntry(`tool_call:${name}`, { args: args || {} });
 
 					switch (name) {
+						case "system_guidance": {
+							const toolDocs: Record<string, { cat: string; desc: string; ex: string }> = {
+								system_guidance: { cat: "help", desc: "Get help on all tools", ex: "{}" },
+								read_file: { cat: "files", desc: "Read file contents", ex: '{"path": "src/index.ts"}' },
+								write_file: { cat: "files", desc: "Create/overwrite file", ex: '{"path": "hello.txt", "content": "Hi"}' },
+								list_files: { cat: "files", desc: "List all files", ex: "{}" },
+								delete_file: { cat: "files", desc: "Delete a file", ex: '{"path": "temp.txt"}' },
+								edit_file: { cat: "files", desc: "Replace text in file", ex: '{"path": "f.txt", "old_content": "a", "new_content": "b"}' },
+								grep: { cat: "files", desc: "Search file contents", ex: '{"pattern": "TODO"}' },
+								glob: { cat: "files", desc: "Find files by pattern", ex: '{"pattern": "*.ts"}' },
+								memory_store: { cat: "memory", desc: "Store data persistently", ex: '{"key": "k", "value": "v"}' },
+								memory_search: { cat: "memory", desc: "Search stored data", ex: '{"query": "auth"}' },
+								todo_add: { cat: "tasks", desc: "Add a task", ex: '{"task": "Fix bug"}' },
+								todo_list: { cat: "tasks", desc: "List all tasks", ex: "{}" },
+								todo_complete: { cat: "tasks", desc: "Complete a task", ex: '{"id": "todo-1"}' },
+								witness_log: { cat: "witness", desc: "Log to audit chain", ex: '{"action": "deploy"}' },
+								witness_verify: { cat: "witness", desc: "Verify chain integrity", ex: "{}" },
+								gallery_list: { cat: "gallery", desc: "List agent templates", ex: "{}" },
+								gallery_load: { cat: "gallery", desc: "Load a template", ex: '{"id": "development-agent"}' },
+								gallery_search: { cat: "gallery", desc: "Search templates", ex: '{"query": "security"}' },
+								brain_search: { cat: "brain", desc: "Search π Brain", ex: '{"query": "react hooks"}' },
+								brain_share: { cat: "brain", desc: "Share knowledge", ex: '{"category": "pattern", "title": "...", "content": "..."}' },
+							};
+
+							let text: string;
+							const reqTool = args?.tool?.toLowerCase();
+							const reqCat = args?.category?.toLowerCase();
+
+							if (reqTool && toolDocs[reqTool]) {
+								const d = toolDocs[reqTool];
+								text = `TOOL: ${reqTool}\nCategory: ${d.cat}\n${d.desc}\nExample: ${reqTool}(${d.ex})`;
+							} else if (reqCat && reqCat !== "all") {
+								const filtered = Object.entries(toolDocs)
+									.filter(([, d]) => d.cat === reqCat)
+									.map(([n, d]) => `• ${n}(${d.ex})`);
+								text = filtered.length > 0
+									? `${reqCat.toUpperCase()} TOOLS:\n${filtered.join("\n")}`
+									: `No tools in category: ${reqCat}`;
+							} else {
+								const cats = ["files", "memory", "tasks", "gallery", "witness", "brain"];
+								const sections = cats.map((c) => {
+									const items = Object.entries(toolDocs)
+										.filter(([, d]) => d.cat === c)
+										.map(([n, d]) => `  • ${n}(${d.ex})`);
+									return items.length > 0 ? `${c.toUpperCase()}:\n${items.join("\n")}` : null;
+								}).filter(Boolean);
+								text = `SYSTEM GUIDANCE - ALL TOOLS\n\n${sections.join("\n\n")}\n\nTIPS:\n• Always pass required parameters\n• Use exact JSON format shown\n• "Run in RVF" = use these sandbox tools`;
+							}
+							response.result = { content: [{ type: "text", text }] };
+							break;
+						}
 						case "read_file": {
 							const content = virtualFS.get(args.path);
 							if (content === undefined) {
