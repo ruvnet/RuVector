@@ -290,3 +290,7 @@ path = "examples/climate_graphcut.rs"
 [[example]]
 name = "qaoa_graphcut"
 path = "examples/qaoa_graphcut.rs"
+
+[[example]]
+name = "real_data_discovery"
+path = "examples/real_data_discovery.rs"
