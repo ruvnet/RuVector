@@ -24,6 +24,8 @@ rvf-server = { path = "../../crates/rvf/rvf-server" }
 tokio = { version = "1", features = ["full"] }
 serde_json = "1"
 axum = { version = "0.7", features = ["ws"] }
+ruqu-algorithms = { path = "../../crates/ruqu-algorithms" }
+ruqu-core = { path = "../../crates/ruqu-core" }
 
 [[example]]
 name = "basic_store"
@@ -284,3 +286,7 @@ path = "examples/cyber_threat_graphcut.rs"
 [[example]]
 name = "climate_graphcut"
 path = "examples/climate_graphcut.rs"
+
+[[example]]
+name = "qaoa_graphcut"
+path = "examples/qaoa_graphcut.rs"
