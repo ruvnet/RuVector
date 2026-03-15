@@ -207,96 +207,374 @@ function executeWasmTool(
 			case "rvf_help": {
 				const requestedTool = String(filledArgs.tool || "").toLowerCase();
 				const category = String(filledArgs.category || filledArgs.topic || "all").toLowerCase();
+				const showExamples = filledArgs.examples !== false;
 
-				// Comprehensive tool documentation
-				const toolDocs: Record<string, { category: string; usage: string; example: string }> = {
-					// File tools
-					read_file: { category: "files", usage: "read_file(path) → Read file contents", example: '{"path": "src/index.ts"}' },
-					write_file: { category: "files", usage: "write_file(path, content) → Create/overwrite file", example: '{"path": "hello.txt", "content": "Hello World"}' },
-					list_files: { category: "files", usage: "list_files() → List all files", example: "{}" },
-					delete_file: { category: "files", usage: "delete_file(path) → Delete a file", example: '{"path": "temp.txt"}' },
-					edit_file: { category: "files", usage: "edit_file(path, old_content, new_content) → Replace text", example: '{"path": "config.json", "old_content": "v1", "new_content": "v2"}' },
-					grep: { category: "files", usage: "grep(pattern, path?) → Search files for pattern", example: '{"pattern": "TODO"}' },
-					glob: { category: "files", usage: "glob(pattern) → Find files by pattern", example: '{"pattern": "*.ts"}' },
+				// Comprehensive tool documentation with practical to exotic examples
+				const toolDocs: Record<string, {
+					category: string;
+					desc: string;
+					usage: string;
+					required: string[];
+					optional: string[];
+					practical: string;
+					advanced: string;
+					exotic: string;
+				}> = {
+					// === FILE TOOLS ===
+					read_file: {
+						category: "files",
+						desc: "Read contents of any file in the virtual filesystem",
+						usage: "read_file({path})",
+						required: ["path"],
+						optional: [],
+						practical: '{"path": "config.json"} → Read a config file',
+						advanced: 'Chain: list_files → read_file each → grep for patterns',
+						exotic: 'Build a code analyzer: read all .ts files, extract exports, generate dependency graph'
+					},
+					write_file: {
+						category: "files",
+						desc: "Create new file or overwrite existing file",
+						usage: "write_file({path, content})",
+						required: ["path", "content"],
+						optional: [],
+						practical: '{"path": "hello.py", "content": "print(\'Hello\')"}',
+						advanced: 'Generate: read template → transform → write multiple files',
+						exotic: 'Self-modifying code: read self, modify, write back, reload'
+					},
+					list_files: {
+						category: "files",
+						desc: "List all files in virtual filesystem",
+						usage: "list_files({})",
+						required: [],
+						optional: [],
+						practical: '{} → See what files exist',
+						advanced: 'Discovery: list_files → categorize by extension → analyze each type',
+						exotic: 'Create file system explorer with tree visualization'
+					},
+					delete_file: {
+						category: "files",
+						desc: "Remove a file from virtual filesystem",
+						usage: "delete_file({path})",
+						required: ["path"],
+						optional: [],
+						practical: '{"path": "temp.txt"} → Clean up temporary file',
+						advanced: 'Cleanup: glob("*.tmp") → delete each match',
+						exotic: 'Garbage collector: find unused files by reference analysis, prompt for deletion'
+					},
+					edit_file: {
+						category: "files",
+						desc: "Find and replace text within a file (preserves rest of content)",
+						usage: "edit_file({path, old_content, new_content})",
+						required: ["path", "old_content", "new_content"],
+						optional: [],
+						practical: '{"path": "package.json", "old_content": "\\"1.0.0\\"", "new_content": "\\"1.0.1\\""} → Bump version',
+						advanced: 'Refactor: grep for pattern → edit_file each occurrence',
+						exotic: 'AST-aware refactoring: parse code, transform nodes, serialize back'
+					},
+					grep: {
+						category: "files",
+						desc: "Search files for regex pattern, returns matching lines with file:line format",
+						usage: "grep({pattern, path?})",
+						required: ["pattern"],
+						optional: ["path"],
+						practical: '{"pattern": "TODO"} → Find all TODOs',
+						advanced: '{"pattern": "import.*from", "path": "src/app.ts"} → Analyze imports in specific file',
+						exotic: 'Dependency mapper: grep all imports → build graph → detect cycles'
+					},
+					glob: {
+						category: "files",
+						desc: "Find files matching glob pattern (*, ?, **)",
+						usage: "glob({pattern})",
+						required: ["pattern"],
+						optional: [],
+						practical: '{"pattern": "*.ts"} → Find TypeScript files',
+						advanced: '{"pattern": "src/**/*.test.ts"} → Find all test files recursively',
+						exotic: 'Project analyzer: glob by type → count lines → generate stats report'
+					},
 
-					// Memory tools
-					memory_store: { category: "memory", usage: "memory_store(key, value) → Store data persistently", example: '{"key": "auth-method", "value": "JWT tokens"}' },
-					memory_search: { category: "memory", usage: "memory_search(query) → Search stored memories", example: '{"query": "authentication"}' },
+					// === MEMORY TOOLS ===
+					memory_store: {
+						category: "memory",
+						desc: "Persist key-value data with optional tags for semantic search",
+						usage: "memory_store({key, value, tags?})",
+						required: ["key", "value"],
+						optional: ["tags"],
+						practical: '{"key": "user-pref", "value": "dark-mode"} → Store preference',
+						advanced: '{"key": "auth-pattern-v2", "value": "JWT with refresh...", "tags": ["security", "auth", "pattern"]}',
+						exotic: 'Knowledge graph: store entities as keys, relationships as values, query via tags'
+					},
+					memory_search: {
+						category: "memory",
+						desc: "Semantic search across stored memories using HNSW indexing",
+						usage: "memory_search({query, top_k?})",
+						required: ["query"],
+						optional: ["top_k"],
+						practical: '{"query": "authentication"} → Find auth-related memories',
+						advanced: '{"query": "error handling patterns", "top_k": 10} → Get top 10 matches',
+						exotic: 'Context builder: search query → retrieve relevant memories → inject into prompt'
+					},
 
-					// Task tools
-					todo_add: { category: "tasks", usage: "todo_add(task) → Add a task", example: '{"task": "Write unit tests"}' },
-					todo_list: { category: "tasks", usage: "todo_list() → List all tasks", example: "{}" },
-					todo_complete: { category: "tasks", usage: "todo_complete(id) → Mark task done", example: '{"id": "todo-1"}' },
+					// === TASK TOOLS ===
+					todo_add: {
+						category: "tasks",
+						desc: "Add task to persistent todo list, returns task ID",
+						usage: "todo_add({task})",
+						required: ["task"],
+						optional: [],
+						practical: '{"task": "Fix login bug"} → Add a task',
+						advanced: 'Project breakdown: analyze requirements → add task for each component',
+						exotic: 'Self-managing agent: observe errors → create fix tasks → complete when resolved'
+					},
+					todo_list: {
+						category: "tasks",
+						desc: "List all tasks with status (○ pending, ✓ complete)",
+						usage: "todo_list({})",
+						required: [],
+						optional: [],
+						practical: '{} → See all tasks',
+						advanced: 'Progress tracking: list → count complete/pending → report percentage',
+						exotic: 'Sprint simulator: add tasks, estimate, track velocity, predict completion'
+					},
+					todo_complete: {
+						category: "tasks",
+						desc: "Mark task as complete by ID",
+						usage: "todo_complete({id})",
+						required: ["id"],
+						optional: [],
+						practical: '{"id": "todo-1"} → Complete first task',
+						advanced: 'Batch complete: list → filter done items → complete each',
+						exotic: 'Achievement system: complete task → check milestones → award badges'
+					},
 
-					// Witness tools
-					witness_log: { category: "witness", usage: "witness_log(action, data?) → Log to audit chain", example: '{"action": "file_modified"}' },
-					witness_verify: { category: "witness", usage: "witness_verify() → Verify chain integrity", example: "{}" },
+					// === WITNESS/AUDIT TOOLS ===
+					witness_log: {
+						category: "witness",
+						desc: "Log action to immutable cryptographic audit chain (SHA3-256 hashed)",
+						usage: "witness_log({action, data?})",
+						required: ["action"],
+						optional: ["data"],
+						practical: '{"action": "file_modified"} → Log simple action',
+						advanced: '{"action": "deploy", "data": {"env": "prod", "version": "1.2.3", "user": "admin"}}',
+						exotic: 'Compliance automation: wrap every tool call with witness_log, generate audit report'
+					},
+					witness_verify: {
+						category: "witness",
+						desc: "Verify integrity of entire witness chain (checks hash continuity)",
+						usage: "witness_verify({})",
+						required: [],
+						optional: [],
+						practical: '{} → Check chain integrity',
+						advanced: 'Periodic verification: schedule verify, alert on tampering',
+						exotic: 'Multi-agent verification: each agent verifies chain, consensus on validity'
+					},
 
-					// Gallery tools
-					gallery_list: { category: "gallery", usage: "gallery_list(category?) → List agent templates", example: "{}" },
-					gallery_load: { category: "gallery", usage: "gallery_load(id) → Activate a template", example: '{"id": "development-agent"}' },
-					gallery_search: { category: "gallery", usage: "gallery_search(query) → Search templates", example: '{"query": "security"}' },
+					// === GALLERY/TEMPLATE TOOLS ===
+					gallery_list: {
+						category: "gallery",
+						desc: "List available agent templates/personas",
+						usage: "gallery_list({category?})",
+						required: [],
+						optional: ["category"],
+						practical: '{} → See all templates',
+						advanced: '{"category": "security"} → Filter by category',
+						exotic: 'Template recommender: analyze task → match to best template → auto-load'
+					},
+					gallery_load: {
+						category: "gallery",
+						desc: "Activate an agent template to gain its capabilities/persona",
+						usage: "gallery_load({id})",
+						required: ["id"],
+						optional: [],
+						practical: '{"id": "development-agent"} → Load dev environment',
+						advanced: 'Multi-persona: load template → execute task → switch template → verify',
+						exotic: 'Agent evolution: start minimal → load progressively based on task complexity'
+					},
+					gallery_search: {
+						category: "gallery",
+						desc: "Search templates by name, description, or tags",
+						usage: "gallery_search({query})",
+						required: ["query"],
+						optional: [],
+						practical: '{"query": "security"} → Find security templates',
+						advanced: 'Smart matching: search → rank by relevance → suggest top match',
+						exotic: 'Template fusion: search multiple → combine capabilities → create hybrid'
+					},
 
-					// π Brain tools (if available)
-					brain_search: { category: "brain", usage: "brain_search(query) → Search π Brain knowledge", example: '{"query": "react hooks best practices"}' },
-					brain_share: { category: "brain", usage: "brain_share(category, title, content) → Share knowledge", example: '{"category": "pattern", "title": "Auth Pattern", "content": "Use JWT..."}' },
-					brain_get: { category: "brain", usage: "brain_get(id) → Get specific memory", example: '{"id": "uuid-here"}' },
-					brain_list: { category: "brain", usage: "brain_list(limit?, category?) → List recent memories", example: '{"limit": 10}' },
-
-					// Search tools
-					web_search: { category: "search", usage: "web_search(query) → Search the web", example: '{"query": "latest AI news 2024"}' },
-					exa_search: { category: "search", usage: "exa_search(query) → AI-powered web search", example: '{"query": "machine learning tutorials"}' },
+					// === π BRAIN TOOLS ===
+					brain_search: {
+						category: "brain",
+						desc: "Search collective π Brain knowledge base (shared across all users)",
+						usage: "brain_search({query, limit?, category?})",
+						required: ["query"],
+						optional: ["limit", "category"],
+						practical: '{"query": "react hooks best practices"}',
+						advanced: '{"query": "authentication", "category": "security", "limit": 5}',
+						exotic: 'Knowledge synthesis: multi-query → merge results → generate novel insights'
+					},
+					brain_share: {
+						category: "brain",
+						desc: "Contribute knowledge to π Brain (PII-stripped, quality-scored)",
+						usage: "brain_share({category, title, content, tags?})",
+						required: ["category", "title", "content"],
+						optional: ["tags", "code_snippet"],
+						practical: '{"category": "pattern", "title": "React Auth Hook", "content": "Use useAuth..."}',
+						advanced: 'Include code: {"category": "solution", "title": "...", "content": "...", "code_snippet": "const x = ..."}',
+						exotic: 'Knowledge distillation: analyze codebase → extract patterns → auto-share discoveries'
+					},
+					brain_list: {
+						category: "brain",
+						desc: "List recent shared knowledge",
+						usage: "brain_list({limit?, category?})",
+						required: [],
+						optional: ["limit", "category"],
+						practical: '{"limit": 10} → See recent shares',
+						advanced: '{"category": "security", "limit": 20}',
+						exotic: 'Trend analysis: list by time periods → identify emerging patterns'
+					},
+					brain_vote: {
+						category: "brain",
+						desc: "Vote on knowledge quality (affects ranking)",
+						usage: "brain_vote({id, direction})",
+						required: ["id", "direction"],
+						optional: [],
+						practical: '{"id": "uuid-here", "direction": "up"}',
+						advanced: 'Quality filter: search → test each → vote based on accuracy',
+						exotic: 'Reputation system: track vote accuracy → weight future votes'
+					},
 				};
 
 				let result: string;
 
-				// If specific tool requested
+				// Specific tool requested
 				if (requestedTool && toolDocs[requestedTool]) {
-					const doc = toolDocs[requestedTool];
-					result = `TOOL: ${requestedTool}
-Category: ${doc.category}
-Usage: ${doc.usage}
-Example: ${requestedTool}(${doc.example})
+					const d = toolDocs[requestedTool];
+					result = `═══════════════════════════════════════
+TOOL: ${requestedTool.toUpperCase()}
+═══════════════════════════════════════
+📖 ${d.desc}
 
-Call this tool with the exact JSON format shown in the example.`;
+📝 Usage: ${d.usage}
+✅ Required: ${d.required.length > 0 ? d.required.join(", ") : "none"}
+⚙️ Optional: ${d.optional.length > 0 ? d.optional.join(", ") : "none"}
+
+🔹 PRACTICAL EXAMPLE:
+   ${requestedTool}(${d.practical.split(" → ")[0]})
+   ${d.practical.includes("→") ? "→ " + d.practical.split(" → ")[1] : ""}
+
+🔸 ADVANCED PATTERN:
+   ${d.advanced}
+
+🔮 EXOTIC USE CASE:
+   ${d.exotic}`;
 				}
-				// If category filter
-				else if (category !== "all") {
-					const filtered = Object.entries(toolDocs)
-						.filter(([, doc]) => doc.category === category)
-						.map(([name, doc]) => `• ${name}(${doc.example}) → ${doc.usage.split("→")[1]?.trim() || ""}`);
-
+				// Category filter
+				else if (category !== "all" && category !== "workflows") {
+					const filtered = Object.entries(toolDocs).filter(([, d]) => d.category === category);
 					if (filtered.length > 0) {
-						result = `${category.toUpperCase()} TOOLS:\n${filtered.join("\n")}`;
+						const items = filtered.map(([name, d]) =>
+							`• ${name}\n  ${d.desc}\n  Example: ${d.practical.split(" → ")[0]}`
+						);
+						result = `═══════════════════════════════════════
+${category.toUpperCase()} TOOLS
+═══════════════════════════════════════
+${items.join("\n\n")}
+
+💡 For detailed help: system_guidance({"tool": "tool_name"})`;
 					} else {
-						result = `No tools found in category: ${category}. Available: files, memory, tasks, witness, gallery, brain, search`;
+						result = `Category "${category}" not found. Available: files, memory, tasks, witness, gallery, brain`;
 					}
+				}
+				// Workflows guide
+				else if (category === "workflows") {
+					result = `═══════════════════════════════════════
+WORKFLOW PATTERNS
+═══════════════════════════════════════
+
+🔹 CODE REVIEW WORKFLOW:
+   1. list_files({}) → see what exists
+   2. glob({"pattern": "*.ts"}) → find code files
+   3. read_file each → analyze content
+   4. grep({"pattern": "TODO|FIXME"}) → find issues
+   5. todo_add for each issue found
+   6. witness_log({"action": "review_complete"})
+
+🔸 RESEARCH & REMEMBER:
+   1. brain_search({"query": "topic"}) → find existing knowledge
+   2. memory_search({"query": "related"}) → check local memory
+   3. Execute research tasks
+   4. memory_store({"key": "finding-1", "value": "..."}) → save locally
+   5. brain_share({...}) → contribute to collective
+
+🔮 SELF-IMPROVING AGENT:
+   1. gallery_load({"id": "sona-learning-agent"})
+   2. Execute task with witness_log for each action
+   3. On error: memory_store error pattern
+   4. On success: memory_store success pattern
+   5. Future: memory_search before acting to avoid past errors
+
+🎯 SECURITY AUDIT WORKFLOW:
+   1. gallery_load({"id": "security-agent"})
+   2. glob({"pattern": "**/*.ts"}) → find all code
+   3. grep({"pattern": "eval|exec|password"}) → find risky patterns
+   4. For each finding: witness_log with severity
+   5. witness_verify({}) → ensure audit integrity
+   6. Generate report from witness chain
+
+🚀 MULTI-AGENT SIMULATION:
+   1. gallery_load({"id": "multi-agent-orchestrator"})
+   2. todo_add for each sub-task
+   3. For each: switch persona via gallery_load
+   4. Execute with that persona's approach
+   5. memory_store each agent's output
+   6. Synthesize results`;
 				}
 				// Full guide
 				else {
-					const categories = ["files", "memory", "tasks", "gallery", "witness", "brain", "search"];
-					const sections = categories.map((cat) => {
-						const tools = Object.entries(toolDocs)
-							.filter(([, doc]) => doc.category === cat)
-							.map(([name, doc]) => `  • ${name}(${doc.example})`);
-						return tools.length > 0 ? `${cat.toUpperCase()}:\n${tools.join("\n")}` : null;
-					}).filter(Boolean);
+					result = `═══════════════════════════════════════
+🔮 RVF AGENT SYSTEM GUIDANCE
+═══════════════════════════════════════
 
-					result = `SYSTEM GUIDANCE - ALL AVAILABLE TOOLS
+📁 FILES (7 tools) - Virtual filesystem
+   • read_file, write_file, list_files, delete_file
+   • edit_file, grep, glob
 
-${sections.join("\n\n")}
+🧠 MEMORY (2 tools) - Persistent semantic storage
+   • memory_store, memory_search
 
-TIPS:
-• Always pass required parameters - never call with empty {}
-• Use the example JSON format exactly as shown
-• For specific tool help: system_guidance({"tool": "tool_name"})
-• "Run in RVF" = use file/memory/task tools in sandbox
+✅ TASKS (3 tools) - Todo tracking
+   • todo_add, todo_list, todo_complete
 
-GALLERY TEMPLATES (use gallery_load):
-• development-agent - Full dev with file ops
-• research-agent - Research & memory
-• security-agent - Security auditing
-• minimal-agent - Basic lightweight`;
+🔒 WITNESS (2 tools) - Cryptographic audit trail
+   • witness_log, witness_verify
+
+🎭 GALLERY (3 tools) - Agent templates
+   • gallery_list, gallery_load, gallery_search
+   Templates: development-agent, research-agent,
+   security-agent, sona-learning-agent, minimal-agent
+
+🧬 π BRAIN (4 tools) - Collective intelligence
+   • brain_search, brain_share, brain_list, brain_vote
+
+───────────────────────────────────────
+QUICK START EXAMPLES
+───────────────────────────────────────
+Create file:     write_file({"path": "app.py", "content": "..."})
+Find code:       grep({"pattern": "function"})
+Remember:        memory_store({"key": "idea", "value": "..."})
+Search memory:   memory_search({"query": "auth"})
+Track work:      todo_add({"task": "Build feature X"})
+Load persona:    gallery_load({"id": "development-agent"})
+Search π Brain:  brain_search({"query": "best practices"})
+Audit log:       witness_log({"action": "deployed"})
+
+───────────────────────────────────────
+GET MORE HELP
+───────────────────────────────────────
+• Specific tool:   system_guidance({"tool": "grep"})
+• Category:        system_guidance({"category": "memory"})
+• Workflows:       system_guidance({"category": "workflows"})
+
+"Run in RVF" = Execute using these sandbox tools`;
 				}
 
 				return { success: true, result };
