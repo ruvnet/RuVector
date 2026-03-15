@@ -156,3 +156,9 @@ pub fn run_custom_config_example() -> Result<JsValue, JsValue> {
 
     Ok(output.into())
 }
+
+// Required for cargo test/check; this example is meant to be built with wasm-pack.
+#[cfg(not(target_arch = "wasm32"))]
+fn main() {
+    eprintln!("This example requires wasm-pack: wasm-pack build --target web");
+}

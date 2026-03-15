@@ -236,6 +236,20 @@ fn print_memory_estimates(format: TargetFormat) {
             e.total_mb *= 2.0;
             e
         },
+        TargetFormat::PiQ3 => |p, v, h, l| {
+            let mut e = estimate_memory_q4(p, v, h, l);
+            // PiQ3 is ~3.0625 bits/weight vs Q4's ~4.5, so ~68% of Q4 size
+            e.total_bytes = (e.total_bytes as f64 * 3.0625 / 4.5) as usize;
+            e.total_mb = e.total_bytes as f64 / (1024.0 * 1024.0);
+            e
+        },
+        TargetFormat::PiQ2 => |p, v, h, l| {
+            let mut e = estimate_memory_q4(p, v, h, l);
+            // PiQ2 is ~2.0625 bits/weight vs Q4's ~4.5, so ~46% of Q4 size
+            e.total_bytes = (e.total_bytes as f64 * 2.0625 / 4.5) as usize;
+            e.total_mb = e.total_bytes as f64 / (1024.0 * 1024.0);
+            e
+        },
     };
 
     // Qwen2.5-0.5B (RuvLTRA-Small)

@@ -162,6 +162,7 @@ crate-type = ["cdylib", "rlib"]
 [[example]]
 name = "simple_ocr"
 path = "examples/simple_ocr.rs"
+required-features = ["ocr"]
 
 [[example]]
 name = "batch_processing"
@@ -171,6 +172,7 @@ required-features = ["ocr"]
 [[example]]
 name = "api_server"
 path = "examples/api_server.rs"
+required-features = ["ocr"]
 
 [[example]]
 name = "streaming"
@@ -180,14 +182,17 @@ required-features = ["ocr"]
 [[example]]
 name = "custom_pipeline"
 path = "examples/custom_pipeline.rs"
+required-features = ["ocr"]
 
 [[example]]
 name = "lean_agentic"
 path = "examples/lean_agentic.rs"
+required-features = ["ocr"]
 
 [[example]]
 name = "accuracy_test"
 path = "examples/accuracy_test.rs"
+required-features = ["ocr"]
 
 # Benchmark configurations
 [[bench]]

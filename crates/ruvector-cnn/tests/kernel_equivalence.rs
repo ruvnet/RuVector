@@ -468,7 +468,7 @@ mod kernel_equivalence {
         };
 
         // Test matmul with various sizes (aligned and unaligned)
-        let sizes = vec![
+        let sizes: Vec<(usize, usize, usize)> = vec![
             (15, 15, 15), // Unaligned
             (16, 16, 16), // Aligned to 16
             (17, 17, 17), // Unaligned
@@ -478,7 +478,7 @@ mod kernel_equivalence {
         ];
 
         for (m, n, k) in sizes {
-            let mut rng = fastrand::Rng::with_seed(42 + m);
+            let mut rng = fastrand::Rng::with_seed(42 + m as u64);
             let a: Vec<i8> = (0..m * k).map(|_| rng.i8(..)).collect();
             let b: Vec<i8> = (0..k * n).map(|_| rng.i8(..)).collect();
 
