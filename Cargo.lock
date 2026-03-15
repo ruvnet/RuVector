@@ -10208,6 +10208,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "rvagent-mcp"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "chrono",
+ "dashmap 6.1.0",
+ "mockall",
+ "proptest",
+ "rvagent-core",
+ "rvagent-middleware",
+ "rvagent-tools",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
 name = "rvagent-middleware"
 version = "0.1.0"
 dependencies = [

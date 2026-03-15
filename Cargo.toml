@@ -129,6 +129,7 @@ members = [
     "crates/rvAgent/rvagent-subagents",
     "crates/rvAgent/rvagent-cli",
     "crates/rvAgent/rvagent-acp",
+    "crates/rvAgent/rvagent-mcp",
     "crates/rvAgent/rvagent-wasm",
 ]
 resolver = "2"

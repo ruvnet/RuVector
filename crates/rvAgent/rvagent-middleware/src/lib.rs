@@ -5,6 +5,7 @@
 
 pub mod filesystem;
 pub mod hitl;
+pub mod mcp_bridge;
 pub mod memory;
 pub mod patch_tool_calls;
 pub mod prompt_caching;
