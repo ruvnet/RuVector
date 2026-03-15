@@ -505,29 +505,172 @@ function createMockWasmModule() {
 				case "tools/list":
 					response.result = {
 						tools: [
-							// Core file operations (5)
-							{ name: "read_file", description: "Read file contents from the virtual filesystem", inputSchema: { type: "object", properties: { path: { type: "string", description: "File path to read" } }, required: ["path"] } },
-							{ name: "write_file", description: "Write content to a file in the virtual filesystem", inputSchema: { type: "object", properties: { path: { type: "string", description: "File path to write" }, content: { type: "string", description: "Content to write" } }, required: ["path", "content"] } },
-							{ name: "list_files", description: "List all files in the virtual filesystem", inputSchema: { type: "object", properties: {} } },
-							{ name: "delete_file", description: "Delete a file from the virtual filesystem", inputSchema: { type: "object", properties: { path: { type: "string", description: "File path to delete" } }, required: ["path"] } },
-							{ name: "edit_file", description: "Edit a file by replacing old content with new content", inputSchema: { type: "object", properties: { path: { type: "string", description: "File path to edit" }, old_content: { type: "string", description: "Content to find and replace" }, new_content: { type: "string", description: "Replacement content" } }, required: ["path", "old_content", "new_content"] } },
-							// Search tools (2)
-							{ name: "grep", description: "Search for patterns in files using regex", inputSchema: { type: "object", properties: { pattern: { type: "string", description: "Regex pattern to search" }, path: { type: "string", description: "Optional file path to search in" } }, required: ["pattern"] } },
-							{ name: "glob", description: "Find files matching a glob pattern", inputSchema: { type: "object", properties: { pattern: { type: "string", description: "Glob pattern (e.g., *.ts, src/**/*.js)" } }, required: ["pattern"] } },
-							// Task management (3)
-							{ name: "todo_add", description: "Add a task to the todo list", inputSchema: { type: "object", properties: { task: { type: "string", description: "Task description" } }, required: ["task"] } },
-							{ name: "todo_list", description: "List all tasks in the todo list", inputSchema: { type: "object", properties: {} } },
-							{ name: "todo_complete", description: "Mark a task as complete", inputSchema: { type: "object", properties: { id: { type: "string", description: "Task ID to complete" } }, required: ["id"] } },
-							// Memory tools (2)
-							{ name: "memory_store", description: "Store information in semantic memory (HNSW-indexed)", inputSchema: { type: "object", properties: { key: { type: "string", description: "Unique key for the memory" }, value: { type: "string", description: "Value to store" }, tags: { type: "array", description: "Optional tags for filtering", items: { type: "string" } } }, required: ["key", "value"] } },
-							{ name: "memory_search", description: "Search semantic memory using HNSW (O(log n) retrieval)", inputSchema: { type: "object", properties: { query: { type: "string", description: "Search query" }, top_k: { type: "number", description: "Number of results to return (default: 5)" } }, required: ["query"] } },
-							// Audit tools (2)
-							{ name: "witness_log", description: "Log action to immutable witness chain", inputSchema: { type: "object", properties: { action: { type: "string", description: "Action being performed" }, data: { type: "object", description: "Additional data to log" } }, required: ["action"] } },
-							{ name: "witness_verify", description: "Verify witness chain integrity", inputSchema: { type: "object", properties: {} } },
-							// RVF tools (3)
-							{ name: "gallery_list", description: "List available RVF templates from the gallery", inputSchema: { type: "object", properties: { category: { type: "string", description: "Optional category filter" } } } },
-							{ name: "gallery_load", description: "Load an RVF template by ID", inputSchema: { type: "object", properties: { id: { type: "string", description: "Template ID to load" } }, required: ["id"] } },
-							{ name: "gallery_search", description: "Search gallery templates", inputSchema: { type: "object", properties: { query: { type: "string", description: "Search query" } }, required: ["query"] } },
+							// === FILE OPERATIONS (5) ===
+							{
+								name: "read_file",
+								description: `Read file contents. REQUIRED: path (string). Example: {"path": "src/index.ts"}`,
+								inputSchema: {
+									type: "object",
+									properties: { path: { type: "string", description: "File path (REQUIRED) - e.g., 'src/index.ts'" } },
+									required: ["path"]
+								}
+							},
+							{
+								name: "write_file",
+								description: `Create or overwrite a file. REQUIRED: path, content. Example: {"path": "hello.txt", "content": "Hello World"}`,
+								inputSchema: {
+									type: "object",
+									properties: {
+										path: { type: "string", description: "File path (REQUIRED) - e.g., 'src/new-file.ts'" },
+										content: { type: "string", description: "Content to write (REQUIRED)" }
+									},
+									required: ["path", "content"]
+								}
+							},
+							{
+								name: "list_files",
+								description: `List all files in the virtual filesystem. No parameters needed. Returns file paths.`,
+								inputSchema: { type: "object", properties: {} }
+							},
+							{
+								name: "delete_file",
+								description: `Delete a file. REQUIRED: path. Example: {"path": "temp.txt"}`,
+								inputSchema: {
+									type: "object",
+									properties: { path: { type: "string", description: "File path to delete (REQUIRED)" } },
+									required: ["path"]
+								}
+							},
+							{
+								name: "edit_file",
+								description: `Replace text in a file. REQUIRED: path, old_content, new_content. Example: {"path": "src/index.ts", "old_content": "const x = 1", "new_content": "const x = 2"}`,
+								inputSchema: {
+									type: "object",
+									properties: {
+										path: { type: "string", description: "File path (REQUIRED)" },
+										old_content: { type: "string", description: "Text to find (REQUIRED) - must match exactly" },
+										new_content: { type: "string", description: "Replacement text (REQUIRED)" }
+									},
+									required: ["path", "old_content", "new_content"]
+								}
+							},
+							// === SEARCH TOOLS (2) ===
+							{
+								name: "grep",
+								description: `Search for regex patterns. REQUIRED: pattern. OPTIONAL: path. Example: {"pattern": "function.*export", "path": "src/utils.ts"}`,
+								inputSchema: {
+									type: "object",
+									properties: {
+										pattern: { type: "string", description: "Regex pattern (REQUIRED) - e.g., 'TODO|FIXME'" },
+										path: { type: "string", description: "Limit search to file (optional)" }
+									},
+									required: ["pattern"]
+								}
+							},
+							{
+								name: "glob",
+								description: `Find files by pattern. REQUIRED: pattern. Examples: {"pattern": "*.ts"}, {"pattern": "src/**/*.tsx"}`,
+								inputSchema: {
+									type: "object",
+									properties: { pattern: { type: "string", description: "Glob pattern (REQUIRED) - e.g., '*.ts', 'src/**/*.js'" } },
+									required: ["pattern"]
+								}
+							},
+							// === TASK MANAGEMENT (3) ===
+							{
+								name: "todo_add",
+								description: `Add a task. REQUIRED: task. Example: {"task": "Fix login bug"}`,
+								inputSchema: {
+									type: "object",
+									properties: { task: { type: "string", description: "Task description (REQUIRED)" } },
+									required: ["task"]
+								}
+							},
+							{
+								name: "todo_list",
+								description: `List all tasks with status (○ pending, ✓ complete). No parameters needed.`,
+								inputSchema: { type: "object", properties: {} }
+							},
+							{
+								name: "todo_complete",
+								description: `Mark task complete. REQUIRED: id. Example: {"id": "todo-1"}`,
+								inputSchema: {
+									type: "object",
+									properties: { id: { type: "string", description: "Task ID (REQUIRED) - e.g., 'todo-1'" } },
+									required: ["id"]
+								}
+							},
+							// === MEMORY TOOLS (2) ===
+							{
+								name: "memory_store",
+								description: `Store data in semantic memory. REQUIRED: key, value. OPTIONAL: tags. Example: {"key": "auth-pattern", "value": "JWT with refresh tokens", "tags": ["security", "patterns"]}`,
+								inputSchema: {
+									type: "object",
+									properties: {
+										key: { type: "string", description: "Unique key (REQUIRED)" },
+										value: { type: "string", description: "Value to store (REQUIRED)" },
+										tags: { type: "array", items: { type: "string" }, description: "Tags for filtering (optional)" }
+									},
+									required: ["key", "value"]
+								}
+							},
+							{
+								name: "memory_search",
+								description: `Search stored memories. REQUIRED: query. OPTIONAL: top_k. Example: {"query": "authentication", "top_k": 5}`,
+								inputSchema: {
+									type: "object",
+									properties: {
+										query: { type: "string", description: "Search query (REQUIRED)" },
+										top_k: { type: "number", description: "Max results (default: 5)" }
+									},
+									required: ["query"]
+								}
+							},
+							// === AUDIT TOOLS (2) ===
+							{
+								name: "witness_log",
+								description: `Log action to immutable audit chain. REQUIRED: action. OPTIONAL: data. Example: {"action": "file_modified", "data": {"path": "config.json"}}`,
+								inputSchema: {
+									type: "object",
+									properties: {
+										action: { type: "string", description: "Action name (REQUIRED) - e.g., 'file_created', 'deploy_started'" },
+										data: { type: "object", description: "Additional context (optional)" }
+									},
+									required: ["action"]
+								}
+							},
+							{
+								name: "witness_verify",
+								description: `Verify audit chain integrity. No parameters. Returns VALID/INVALID with entry count.`,
+								inputSchema: { type: "object", properties: {} }
+							},
+							// === RVF GALLERY (3) ===
+							{
+								name: "gallery_list",
+								description: `List agent templates. OPTIONAL: category. Examples: {"category": "development"}, {} for all templates`,
+								inputSchema: {
+									type: "object",
+									properties: { category: { type: "string", description: "Filter by category (optional) - development, research, security, etc." } }
+								}
+							},
+							{
+								name: "gallery_load",
+								description: `Load a template. REQUIRED: id. Example: {"id": "development-agent"}`,
+								inputSchema: {
+									type: "object",
+									properties: { id: { type: "string", description: "Template ID (REQUIRED) - e.g., 'development-agent', 'security-agent'" } },
+									required: ["id"]
+								}
+							},
+							{
+								name: "gallery_search",
+								description: `Search templates by name, description, or tags. REQUIRED: query. Example: {"query": "security"}`,
+								inputSchema: {
+									type: "object",
+									properties: { query: { type: "string", description: "Search query (REQUIRED)" } },
+									required: ["query"]
+								}
+							},
 						],
 					};
 					break;
