@@ -48,6 +48,32 @@ export function buildToolPreprompt(tools: OpenAiTool[], autopilot?: boolean): st
 		);
 	}
 
+	// Add RVF/rvAgent context if WASM tools are present
+	const hasWasmTools = names.some((n) =>
+		["read_file", "write_file", "gallery_load", "memory_store", "witness_log"].includes(n)
+	);
+	if (hasWasmTools) {
+		lines.push(
+			``,
+			`## RVF AGENT ENVIRONMENT`,
+			`You are running in an RVF (RuVector Format) agent sandbox with these capabilities:`,
+			`- FILES: Virtual filesystem (read_file, write_file, list_files, edit_file, delete_file, grep, glob)`,
+			`- MEMORY: Persistent key-value store with semantic search (memory_store, memory_search)`,
+			`- TASKS: Todo list for tracking work (todo_add, todo_list, todo_complete)`,
+			`- AUDIT: Cryptographic witness chain for compliance (witness_log, witness_verify)`,
+			`- GALLERY: Load pre-built agent templates (gallery_list, gallery_load, gallery_search)`,
+			``,
+			`GALLERY TEMPLATES: Use gallery_load({"id": "template-name"}) to activate agent personas:`,
+			`- development-agent: Full dev environment with file ops`,
+			`- research-agent: Research & memory-focused`,
+			`- security-agent: Security auditing`,
+			`- minimal-agent: Lightweight basic ops`,
+			``,
+			`To "run in RVF" means: use these tools to execute tasks in the sandbox environment.`,
+			``,
+		);
+	}
+
 	lines.push(
 		`TOOL PARAMETERS - CRITICAL:`,
 		`- ALWAYS provide ALL required parameters. NEVER call a tool with empty {} arguments if it requires parameters.`,

@@ -201,6 +201,67 @@ function executeWasmTool(
 
 		switch (toolName) {
 			// ================================
+			// Guidance (1 tool)
+			// ================================
+			case "rvf_help": {
+				const topic = String(filledArgs.topic || "all").toLowerCase();
+				const helpSections: Record<string, string> = {
+					files: `FILE TOOLS:
+- read_file({"path": "file.txt"}) → Read file contents
+- write_file({"path": "file.txt", "content": "..."}) → Create/overwrite file
+- list_files({}) → List all files
+- delete_file({"path": "file.txt"}) → Delete file
+- edit_file({"path": "f.txt", "old_content": "old", "new_content": "new"}) → Edit file
+- grep({"pattern": "TODO"}) → Search file contents
+- glob({"pattern": "*.ts"}) → Find files by pattern`,
+					memory: `MEMORY TOOLS (persistent key-value store):
+- memory_store({"key": "name", "value": "data"}) → Store data
+- memory_search({"query": "search term"}) → Search stored memories`,
+					tasks: `TASK TOOLS (todo list):
+- todo_add({"task": "description"}) → Add a task
+- todo_list({}) → List all tasks
+- todo_complete({"id": "todo-1"}) → Mark task done`,
+					witness: `WITNESS CHAIN (cryptographic audit trail):
+- witness_log({"action": "event_name"}) → Log to audit chain
+- witness_verify({}) → Verify chain integrity`,
+					gallery: `GALLERY (load pre-built agent templates):
+- gallery_list({}) → List all templates
+- gallery_load({"id": "development-agent"}) → Activate a template
+- gallery_search({"query": "security"}) → Search templates
+
+AVAILABLE TEMPLATES:
+• development-agent - Full dev environment
+• research-agent - Research & memory focused
+• security-agent - Security auditing
+• minimal-agent - Basic lightweight ops`,
+				};
+
+				let result: string;
+				if (topic === "all") {
+					result = `RVF AGENT ENVIRONMENT GUIDE
+
+This is a sandboxed agent runtime with virtual filesystem and persistent storage.
+
+${helpSections.files}
+
+${helpSections.memory}
+
+${helpSections.tasks}
+
+${helpSections.witness}
+
+${helpSections.gallery}
+
+TIP: To "run in RVF" means execute code/tasks using these tools in the sandbox.`;
+				} else if (helpSections[topic]) {
+					result = helpSections[topic];
+				} else {
+					result = `Unknown topic: ${topic}. Use: all, files, memory, tasks, witness, or gallery.`;
+				}
+				return { success: true, result };
+			}
+
+			// ================================
 			// File Operations (5 tools)
 			// ================================
 			case "read_file": {
