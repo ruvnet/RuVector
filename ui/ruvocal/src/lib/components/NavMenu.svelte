@@ -74,15 +74,27 @@
 		new Date().setMonth(new Date().getMonth() - 1),
 	];
 
+	// Sort conversations by updatedAt descending (newest first) within each group
+	const sortByNewest = (convs: ConvSidebar[]) =>
+		[...convs].sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
+
 	let groupedConversations = $derived({
-		today: conversations.filter(({ updatedAt }) => updatedAt.getTime() > dateRanges[0]),
-		week: conversations.filter(
-			({ updatedAt }) => updatedAt.getTime() > dateRanges[1] && updatedAt.getTime() < dateRanges[0]
+		today: sortByNewest(
+			conversations.filter(({ updatedAt }) => updatedAt.getTime() > dateRanges[0])
 		),
-		month: conversations.filter(
-			({ updatedAt }) => updatedAt.getTime() > dateRanges[2] && updatedAt.getTime() < dateRanges[1]
+		week: sortByNewest(
+			conversations.filter(
+				({ updatedAt }) => updatedAt.getTime() > dateRanges[1] && updatedAt.getTime() < dateRanges[0]
+			)
 		),
-		older: conversations.filter(({ updatedAt }) => updatedAt.getTime() < dateRanges[2]),
+		month: sortByNewest(
+			conversations.filter(
+				({ updatedAt }) => updatedAt.getTime() > dateRanges[2] && updatedAt.getTime() < dateRanges[1]
+			)
+		),
+		older: sortByNewest(
+			conversations.filter(({ updatedAt }) => updatedAt.getTime() < dateRanges[2])
+		),
 	});
 
 	const nModels: number = page.data.models.filter((el: Model) => !el.unlisted).length;
@@ -103,7 +115,10 @@
 			hasMore = false;
 		}
 
-		conversations = [...conversations, ...newConvs];
+		// Merge and sort all conversations by updatedAt (newest first)
+		const merged = [...conversations, ...newConvs];
+		merged.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
+		conversations = merged;
 	}
 
 	$effect(() => {
