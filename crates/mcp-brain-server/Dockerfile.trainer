@@ -1,0 +1,79 @@
+# Multi-stage build for brain trainer job
+# Runs daily to discover and train the π.ruv.io brain
+# Created by rUv — altruistic knowledge enrichment
+FROM rustlang/rust:nightly-bookworm AS builder
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    pkg-config \
+    libssl-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy workspace (same as main brain server build)
+COPY crates/mcp-brain-server/Cargo.workspace.toml ./Cargo.toml
+COPY Cargo.lock ./
+
+COPY crates/mcp-brain-server ./crates/mcp-brain-server
+COPY crates/mcp-brain ./crates/mcp-brain
+COPY crates/sona ./crates/sona
+COPY crates/ruvector-mincut ./crates/ruvector-mincut
+COPY crates/ruvector-nervous-system ./crates/ruvector-nervous-system
+COPY crates/ruvector-domain-expansion ./crates/ruvector-domain-expansion
+COPY crates/ruvector-delta-core ./crates/ruvector-delta-core
+COPY crates/ruvector-solver ./crates/ruvector-solver
+COPY crates/ruvllm ./crates/ruvllm
+COPY crates/ruvector-core ./crates/ruvector-core
+COPY crates/rvf ./crates/rvf
+COPY patches ./patches
+
+# Same build fixes as main Dockerfile
+RUN sed -i '/ruvector-graph\s*=/d' crates/ruvector-mincut/Cargo.toml && \
+    sed -i '/integration\s*=\s*\[/d' crates/ruvector-mincut/Cargo.toml && \
+    sed -i 's/"integration",\s*//g' crates/ruvector-mincut/Cargo.toml && \
+    sed -i '/\[\[example\]\]/,/^$/d' crates/ruvector-mincut/Cargo.toml && \
+    sed -i '/\[\[bench\]\]/,/^$/d' crates/ruvector-mincut/Cargo.toml && \
+    sed -i '/ruvector-graph\s*=/d' crates/ruvllm/Cargo.toml && \
+    sed -i '/ruvector-attention\s*=/d' crates/ruvllm/Cargo.toml && \
+    sed -i '/ruvector-gnn\s*=/d' crates/ruvllm/Cargo.toml && \
+    sed -i '/ruvector-full\s*=/d' crates/ruvllm/Cargo.toml && \
+    sed -i '/graph\s*=\s*\[/d' crates/ruvllm/Cargo.toml && \
+    sed -i '/attention\s*=\s*\[/d' crates/ruvllm/Cargo.toml && \
+    sed -i '/gnn\s*=\s*\[/d' crates/ruvllm/Cargo.toml && \
+    sed -i '/\[\[example\]\]/,/^$/d' crates/ruvllm/Cargo.toml && \
+    sed -i '/\[\[bench\]\]/,/^$/d' crates/ruvllm/Cargo.toml && \
+    sed -i '/\[\[example\]\]/,/^$/d' crates/ruvector-core/Cargo.toml && \
+    sed -i '/\[\[bench\]\]/,/^$/d' crates/ruvector-core/Cargo.toml && \
+    sed -i '/\[\[example\]\]/,/^$/d' crates/ruvector-solver/Cargo.toml && \
+    sed -i '/\[\[bench\]\]/,/^$/d' crates/ruvector-solver/Cargo.toml && \
+    sed -i '/\[\[example\]\]/,/^$/d' crates/ruvector-nervous-system/Cargo.toml && \
+    sed -i '/\[\[bench\]\]/,/^$/d' crates/ruvector-nervous-system/Cargo.toml && \
+    sed -i '/\[\[example\]\]/,/^$/d' crates/ruvector-domain-expansion/Cargo.toml && \
+    sed -i '/\[\[bench\]\]/,/^$/d' crates/ruvector-domain-expansion/Cargo.toml && \
+    sed -i '/\[\[example\]\]/,/^$/d' crates/ruvector-delta-core/Cargo.toml && \
+    sed -i '/\[\[bench\]\]/,/^$/d' crates/ruvector-delta-core/Cargo.toml && \
+    find crates/rvf -name "Cargo.toml" -exec sed -i '/\[\[example\]\]/,/^$/d' {} \; && \
+    find crates/rvf -name "Cargo.toml" -exec sed -i '/\[\[bench\]\]/,/^$/d' {} \; && \
+    find crates/sona -name "Cargo.toml" -exec sed -i '/\[\[example\]\]/,/^$/d' {} \; && \
+    find crates/sona -name "Cargo.toml" -exec sed -i '/\[\[bench\]\]/,/^$/d' {} \; && \
+    find crates/rvf -name "Cargo.toml" -exec sed -i 's/rust-version = "1.87"/rust-version = "1.85"/g' {} \; && \
+    sed -i 's/.is_multiple_of(\([^)]*\))/ % \1 == 0/g' crates/rvf/rvf-wire/src/delta.rs && \
+    find crates/rvf -name "*.rs" -exec sed -i 's/.is_multiple_of(\([^)]*\))/ % \1 == 0/g' {} \; && \
+    sed -i 's/features = \["storage", "hnsw", "parallel", "simd"\]/features = ["storage", "hnsw", "parallel"]/g' crates/ruvllm/Cargo.toml && \
+    sed -i 's/pub mod simd_intrinsics;/\/\/ pub mod simd_intrinsics;/g' crates/ruvector-core/src/lib.rs && \
+    sed -i 's/pub mod pi_quant_simd;/\/\/ pub mod pi_quant_simd;/g' crates/ruvllm/src/quantize/mod.rs
+
+RUN cargo build --release -p mcp-brain-server --bin brain-trainer
+
+FROM debian:bookworm-slim
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=builder /app/target/release/brain-trainer /usr/local/bin/brain-trainer
+
+ENV RUST_LOG=info
+ENV BRAIN_URL=https://pi.ruv.io
+
+CMD ["brain-trainer"]

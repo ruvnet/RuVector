@@ -1,0 +1,339 @@
+[
+  {
+    "title": "Reasoning LLMs Dominate arXiv AI Submissions (March 2026)",
+    "content": "Analysis of 50 recent arXiv AI/ML papers shows 'reasoning' is the dominant research theme with 13 papers (26%) focused on LLM reasoning capabilities. Papers include work on reasoning LLMs-as-judges for post-training evaluation, scientific multimodal document reasoning benchmarks (SciMDR), and strategic navigation reasoning over document collections. This represents a significant shift from pure scaling toward structured reasoning and verifiable inference.",
+    "category": "pattern",
+    "tags": [
+      "academic",
+      "ai",
+      "reasoning",
+      "llm"
+    ],
+    "domain": "academic-research",
+    "source_api": "arxiv",
+    "timestamp": "2026-03-15T00:00:00Z",
+    "confidence": 0.92,
+    "data_points": 13
+  },
+  {
+    "title": "Agentic AI Emerges as Primary Research Focus with Security Concerns",
+    "content": "11 of 50 recent arXiv AI papers (22%) address agentic AI systems -- autonomous agents that use tools, navigate environments, and plan multi-step actions. Notably, a dedicated paper on 'Security Considerations for Artificial Intelligence Agents' signals that the field is maturing past proof-of-concept into deployment-readiness. Agentic workflows are being applied to text rendering (GlyphBanana), RL environment generation, and multimodal navigation. This cluster indicates agentic AI is transitioning from research novelty to engineering discipline.",
+    "category": "pattern",
+    "tags": [
+      "academic",
+      "ai",
+      "agentic",
+      "security"
+    ],
+    "domain": "academic-research",
+    "source_api": "arxiv",
+    "timestamp": "2026-03-15T00:00:00Z",
+    "confidence": 0.9,
+    "data_points": 11
+  },
+  {
+    "title": "Multimodal Vision-Language Models Converge with Spatial Intelligence",
+    "content": "9 papers address multimodal AI, with a notable sub-trend toward spatial and 3D understanding. 'Spatial-TTT' introduces test-time training for streaming spatial intelligence from video, while 'Hoi3DGen' generates human-object interactions in 3D, and 'BehaviorVLM' tackles unified behavioral understanding. The convergence of vision-language reasoning with physical-world spatial understanding suggests AI is moving beyond 2D perception toward embodied spatial cognition.",
+    "category": "pattern",
+    "tags": [
+      "academic",
+      "ai",
+      "multimodal",
+      "spatial-intelligence"
+    ],
+    "domain": "academic-research",
+    "source_api": "arxiv",
+    "timestamp": "2026-03-15T00:00:00Z",
+    "confidence": 0.88,
+    "data_points": 9
+  },
+  {
+    "title": "Cross-Domain Bridge: AI Safety Certificates for Materials Science (Physics-CS-Materials)",
+    "content": "The paper 'Proof-Carrying Materials: Falsifiable Safety Certificates for Machine-Learned Interatomic Potentials' spans four arXiv categories (cond-mat.mtrl-sci, cs.AI, cs.LG, physics.comp-ph) -- an unusually wide cross-domain bridge. It shows that a single ML interatomic potential used as a stability filter misses 93% of DFT-stable materials (recall 0.07), then proposes formal safety certificates. This represents a novel intersection of formal verification methods from CS with computational materials science, creating accountability frameworks for ML in physical sciences.",
+    "category": "pattern",
+    "tags": [
+      "academic",
+      "ai",
+      "cross-domain",
+      "materials-science",
+      "formal-verification"
+    ],
+    "domain": "academic-research",
+    "source_api": "arxiv",
+    "timestamp": "2026-03-15T00:00:00Z",
+    "confidence": 0.95,
+    "data_points": 1
+  },
+  {
+    "title": "Cross-Domain Bridge: Chemical Reaction Networks Outperform Spiking Neural Networks",
+    "content": "A paper bridging cs.LG, cs.AI, math.ST, and stat.ML proves that chemical reaction networks without hidden layers can solve tasks requiring hidden layers in spiking neural networks. This is a rare theoretical bridge between computational chemistry and neural computation, suggesting that biological and chemical computing substrates may have inherent computational advantages over traditional neural architectures. This connects to broader trends in unconventional computing and bio-inspired AI.",
+    "category": "pattern",
+    "tags": [
+      "academic",
+      "ai",
+      "cross-domain",
+      "chemical-computing",
+      "theoretical"
+    ],
+    "domain": "academic-research",
+    "source_api": "arxiv",
+    "timestamp": "2026-03-15T00:00:00Z",
+    "confidence": 0.93,
+    "data_points": 1
+  },
+  {
+    "title": "Cross-Domain Bridge: AI Agents in Social Systems Show Paradoxical Intelligence Effects",
+    "content": "The paper 'Increasing intelligence in AI agents can worsen collective outcomes' spans cs.AI, cs.CY, cs.SI, econ.GN, and physics.soc-ph -- bridging five domains including economics and social physics. It examines how diverse AI agents from different developers competing for scarce resources can descend into 'tribal chaos' rather than coordination. This is a rare cross-domain bridge connecting AI capabilities research with economic game theory and social physics, with direct implications for AI deployment policy.",
+    "category": "pattern",
+    "tags": [
+      "academic",
+      "ai",
+      "cross-domain",
+      "game-theory",
+      "social-systems",
+      "policy"
+    ],
+    "domain": "academic-research",
+    "source_api": "arxiv",
+    "timestamp": "2026-03-15T00:00:00Z",
+    "confidence": 0.94,
+    "data_points": 1
+  },
+  {
+    "title": "Energy-Based and Feature-Matching Methods Challenge Cross-Entropy Dominance",
+    "content": "The paper 'Matching Features, Not Tokens: Energy-Based Fine-Tuning of Language Models' proposes replacing cross-entropy training with feature-matching objectives that target sequence-level statistics. This connects to the broader 'compression' cluster (6 papers on token compression, pruning, quantization) and the 'reinforcement' cluster (8 papers). Together, these suggest a methodological shift away from pure next-token prediction toward holistic sequence-level and energy-based training paradigms for LLMs.",
+    "category": "pattern",
+    "tags": [
+      "academic",
+      "ai",
+      "training-methods",
+      "energy-based"
+    ],
+    "domain": "academic-research",
+    "source_api": "arxiv",
+    "timestamp": "2026-03-15T00:00:00Z",
+    "confidence": 0.85,
+    "data_points": 15
+  },
+  {
+    "title": "Genomic Deep Learning Bridge: Multi-Label Temporal CNNs for Transcription Factor Binding",
+    "content": "An arXiv paper spanning cs.LG, cs.AI, and q-bio.GN applies multi-label temporal convolutional networks to transcription factor binding characterization. This bridges computational genomics with modern deep learning architectures, addressing cooperative TF mechanisms that traditional single-TF models miss. This represents the growing AI-genomics intersection where deep learning architectures designed for sequence processing are being adapted for biological sequence analysis.",
+    "category": "pattern",
+    "tags": [
+      "academic",
+      "ai",
+      "cross-domain",
+      "genomics",
+      "deep-learning"
+    ],
+    "domain": "academic-research",
+    "source_api": "arxiv",
+    "timestamp": "2026-03-15T00:00:00Z",
+    "confidence": 0.91,
+    "data_points": 1
+  },
+  {
+    "title": "Health Informatics Leads AI-Medicine Integration (24% of medRxiv Preprints)",
+    "content": "24 of 100 recent medRxiv preprints (24%) involve AI/ML methods, with health informatics being the dominant category. Key trends include: (1) LLMs for clinical decision support -- papers on fine-tuned LLMs for genetic test decisions in rare diseases, ambient AI draft note editing, and LLMs addressing vaccination myths; (2) NLP-driven clinical tools with measurable outcomes -- a paper demonstrates causal impact of NLP-driven clinical decision support on sepsis mortality across NHS trusts; (3) Agentic AI in oncology -- a paper describes an agentic AI system enhancing clinical detection of immunotherapy toxicities. The shift from retrospective analysis to causal impact measurement and agentic clinical tools marks a maturation of AI-medicine integration.",
+    "category": "pattern",
+    "tags": [
+      "academic",
+      "ai",
+      "medicine",
+      "health-informatics",
+      "clinical-ai"
+    ],
+    "domain": "academic-research",
+    "source_api": "medrxiv",
+    "timestamp": "2026-03-15T00:00:00Z",
+    "confidence": 0.91,
+    "data_points": 24
+  },
+  {
+    "title": "Agentic AI Enters Clinical Oncology: Immunotherapy Toxicity Detection",
+    "content": "A medRxiv preprint describes 'an agentic AI system' that enhances clinical detection of immunotherapy toxicities through a multi-phase validation study. This is notable as one of the first clinical validation studies of agentic (autonomous, tool-using) AI systems in oncology, moving beyond simple classification models to autonomous clinical reasoning agents. Combined with the arXiv trend of 11 agentic AI papers, this signals that agentic AI is simultaneously advancing in both AI research and clinical deployment.",
+    "category": "pattern",
+    "tags": [
+      "academic",
+      "ai",
+      "medicine",
+      "agentic",
+      "oncology",
+      "cross-domain"
+    ],
+    "domain": "academic-research",
+    "source_api": "medrxiv",
+    "timestamp": "2026-03-15T00:00:00Z",
+    "confidence": 0.88,
+    "data_points": 1
+  },
+  {
+    "title": "Deep Learning for Autism and Neurology: Interpretability as Key Differentiator",
+    "content": "Multiple medRxiv papers emphasize interpretable AI models: a clinical theory-driven deep learning model for interpretable autism severity prediction, interpretable neural networks for sports-related cardiac arrhythmias, and interpretable fine-tuned LLMs for genetic testing decisions. The consistent emphasis on 'interpretable' across different clinical domains suggests the field has moved past accuracy-only metrics toward clinician-trust requirements as the binding constraint for clinical AI adoption.",
+    "category": "pattern",
+    "tags": [
+      "academic",
+      "ai",
+      "medicine",
+      "interpretability",
+      "neurology"
+    ],
+    "domain": "academic-research",
+    "source_api": "medrxiv",
+    "timestamp": "2026-03-15T00:00:00Z",
+    "confidence": 0.87,
+    "data_points": 4
+  },
+  {
+    "title": "Machine Learning Penetrates Ecology and Neuroscience in bioRxiv",
+    "content": "8 of 100 recent bioRxiv preprints use genuine AI/ML methods, primarily in neuroscience (machine learning for neural population decoding, ML-based olfaction modeling) and ecology (ML for viral host prediction in bats). A notable paper applies machine learning to model both human and insect olfaction systems, screening millions of compounds to identify pleasant-smelling insect repellents -- a practical AI-biology application bridging computational chemistry with sensory neuroscience. The TCR-pMHC docking paper uses deep learning for immunological structure prediction.",
+    "category": "pattern",
+    "tags": [
+      "academic",
+      "biology",
+      "ai",
+      "neuroscience",
+      "ecology"
+    ],
+    "domain": "academic-research",
+    "source_api": "biorxiv",
+    "timestamp": "2026-03-15T00:00:00Z",
+    "confidence": 0.85,
+    "data_points": 8
+  },
+  {
+    "title": "Hydrogel Electromagnetic Biohybrid Systems: Convergence of Materials Science and Neural Engineering",
+    "content": "A bioRxiv preprint presents hydrogel electromagnetic biohybrid systems that direct neural morphogenesis across central and peripheral nervous systems. This combines FLight bioprinting, hydrogel microstructures, and electromagnetic stimulation to regulate neural development and repair. This represents a convergence of materials science, bioengineering, and neuroscience -- a cross-domain bridge where engineered materials interact directly with biological neural systems.",
+    "category": "pattern",
+    "tags": [
+      "academic",
+      "biology",
+      "bioengineering",
+      "neural-engineering",
+      "cross-domain"
+    ],
+    "domain": "academic-research",
+    "source_api": "biorxiv",
+    "timestamp": "2026-03-15T00:00:00Z",
+    "confidence": 0.86,
+    "data_points": 1
+  },
+  {
+    "title": "CRISPR and Synthetic Biology Advance Toward Industrial Applications",
+    "content": "Multiple bioRxiv preprints show CRISPR and synthetic biology advancing beyond basic research: simultaneous CRISPR-Cas9 double-strand breaks as lethal therapy models for pancreatic cancer, multi-enzyme cascades on modular protein scaffolds for PET biorecycling, and chemo-enzymatic-microbial cascades for upcycling polyethylene to biodegradable plastics. The plastic upcycling papers represent a cross-domain bridge between synthetic biology and environmental remediation, using ML-optimized enzyme engineering.",
+    "category": "pattern",
+    "tags": [
+      "academic",
+      "biology",
+      "crispr",
+      "synthetic-biology",
+      "sustainability"
+    ],
+    "domain": "academic-research",
+    "source_api": "biorxiv",
+    "timestamp": "2026-03-15T00:00:00Z",
+    "confidence": 0.88,
+    "data_points": 4
+  },
+  {
+    "title": "LLMs Bridge Neuroscience and Linguistics: Brain's Information-Making During Conversation",
+    "content": "A bioRxiv preprint titled 'Information-making processes in the speaker's brain drive human conversations forward' uses large language models as computational models of linguistic prediction to study how the brain generates surprising, information-rich messages during conversation. This represents a bidirectional bridge: LLMs serve as tools for neuroscience while neuroscience findings inform how language models should handle information density and surprise. The paper connects computational linguistics, neuroscience, and AI research.",
+    "category": "pattern",
+    "tags": [
+      "academic",
+      "biology",
+      "ai",
+      "neuroscience",
+      "linguistics",
+      "cross-domain"
+    ],
+    "domain": "academic-research",
+    "source_api": "biorxiv",
+    "timestamp": "2026-03-15T00:00:00Z",
+    "confidence": 0.9,
+    "data_points": 1
+  },
+  {
+    "title": "Quantum Error Mitigation via Pulse-Level Control Rapidly Accumulates Citations",
+    "content": "The OpenAlex paper 'Engineering Non-Linear Decay Dynamics: Pulse-Level Control and Software-Defined Qubit Rescue on Superconducting Processors' (Dec 2025) has rapidly accumulated 722 citations, indicating high-impact work on practical quantum computing. It addresses qubit decoherence through software-defined rescue protocols at the pulse level, bridging quantum physics and computer engineering. This rapid citation accumulation signals growing urgency around quantum error mitigation as quantum hardware scales.",
+    "category": "pattern",
+    "tags": [
+      "academic",
+      "quantum",
+      "high-impact",
+      "error-mitigation"
+    ],
+    "domain": "academic-research",
+    "source_api": "openalex",
+    "timestamp": "2026-03-15T00:00:00Z",
+    "confidence": 0.89,
+    "data_points": 1
+  },
+  {
+    "title": "Quantum-Theoretical Physics Bridges: Wormholes, Firewalls, and Information Conservation",
+    "content": "The OpenAlex quantum dataset shows 'Remainder Conservation and Dual-Path Structure: A Thought Experiment' (Feb 2026) rapidly reaching 846 citations. It addresses the firewall paradox, wormholes, and quantum entanglement, connecting general relativity with quantum mechanics. Combined with 'Operational Reconstruction of a Conformal Clock-Field' (91 cites), this indicates sustained high-impact work on quantum gravity and information paradoxes, suggesting theoretical physics is converging toward resolution of fundamental quantum-gravity tensions.",
+    "category": "pattern",
+    "tags": [
+      "academic",
+      "quantum",
+      "theoretical-physics",
+      "high-impact"
+    ],
+    "domain": "academic-research",
+    "source_api": "openalex",
+    "timestamp": "2026-03-15T00:00:00Z",
+    "confidence": 0.84,
+    "data_points": 3
+  },
+  {
+    "title": "Cross-Source Pattern: Agentic AI Simultaneously Emerges in CS Research and Clinical Medicine",
+    "content": "Cross-correlating arXiv and medRxiv data reveals that agentic AI is simultaneously a top research theme in core AI (11 of 50 arXiv papers, 22%) and entering clinical validation in medicine (agentic AI for immunotherapy toxicity detection in medRxiv). This parallel emergence across pure research and clinical application is unusual -- typically there is a 2-5 year lag. The co-occurrence suggests agentic AI may be the fastest AI paradigm to move from research to clinical deployment, driven by the practical need for autonomous clinical reasoning beyond simple classification.",
+    "category": "pattern",
+    "tags": [
+      "academic",
+      "ai",
+      "cross-domain",
+      "agentic",
+      "clinical-translation"
+    ],
+    "domain": "academic-research",
+    "source_api": "arxiv|medrxiv",
+    "timestamp": "2026-03-15T00:00:00Z",
+    "confidence": 0.87,
+    "data_points": 12
+  },
+  {
+    "title": "Cross-Source Pattern: Formal Verification Methods Spreading from CS to Physical Sciences",
+    "content": "Multiple data sources show formal verification and safety certificate methods spreading from computer science into physical sciences. ArXiv shows 'Proof-Carrying Materials' applying formal safety certificates to ML interatomic potentials (materials science), while 'Incremental Neural Network Verification via Learned Conflicts' advances core verification methods. MedRxiv shows causal impact analysis of AI clinical decision support (moving beyond accuracy metrics to causal validation). This convergence suggests a new paradigm where ML deployment in any scientific domain requires formal reliability guarantees.",
+    "category": "pattern",
+    "tags": [
+      "academic",
+      "ai",
+      "cross-domain",
+      "verification",
+      "safety"
+    ],
+    "domain": "academic-research",
+    "source_api": "arxiv|medrxiv|openalex",
+    "timestamp": "2026-03-15T00:00:00Z",
+    "confidence": 0.86,
+    "data_points": 4
+  },
+  {
+    "title": "Cross-Source Pattern: Bio-Inspired Computing Substrates Challenge Neural Network Paradigm",
+    "content": "Across sources, alternative computing substrates are gaining traction: arXiv shows chemical reaction networks outperforming spiking neural networks theoretically, bioRxiv shows hydrogel electromagnetic biohybrid systems directing neural morphogenesis, and the ML-olfaction bridge paper uses biological sensory systems as computational models. This multi-source pattern suggests a growing research front exploring bio-chemical computing paradigms that complement or challenge traditional neural network architectures.",
+    "category": "pattern",
+    "tags": [
+      "academic",
+      "ai",
+      "biology",
+      "cross-domain",
+      "unconventional-computing"
+    ],
+    "domain": "academic-research",
+    "source_api": "arxiv|biorxiv",
+    "timestamp": "2026-03-15T00:00:00Z",
+    "confidence": 0.82,
+    "data_points": 4
+  }
+]

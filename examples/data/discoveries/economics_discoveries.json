@@ -1,0 +1,257 @@
+[
+  {
+    "title": "Japan GDP Per Capita Collapse in USD Terms (2020-2024): -18.8%",
+    "content": "Japan is the only major economy to see a significant decline in USD-denominated GDP per capita from 2020 to 2024, falling from $40,029 to $32,487 (-18.8%). This is driven by severe yen depreciation rather than real output decline. In contrast, the US grew +33.1%, Brazil +45.7%, and India +41.3%. This represents a historic divergence: Japan's nominal dollar-economy is shrinking while its real economy grows modestly. The yen weakness is a structural regime change reflecting BOJ yield curve control and widening interest rate differentials with the Fed. Japan's per capita GDP is now below Germany's $56,104 by a wider margin than at any point in recent decades.",
+    "category": "pattern",
+    "tags": [
+      "economics",
+      "macro",
+      "divergence",
+      "currency",
+      "japan"
+    ],
+    "domain": "economics-finance",
+    "source_api": "worldbank",
+    "timestamp": "2026-03-15T00:00:00Z",
+    "confidence": 0.95,
+    "data_points": 30,
+    "raw_data": {
+      "JPN_2020": 40029,
+      "JPN_2024": 32487,
+      "USA_2020": 63516,
+      "USA_2024": 84534,
+      "DEU_2020": 47395,
+      "DEU_2024": 56104
+    }
+  },
+  {
+    "title": "China Near-Zero Inflation Regime (0.2% in 2023-2024): Deflationary Trap Signal",
+    "content": "China's inflation collapsed from 2.4% in 2020 to just 0.2% in both 2023 and 2024, while every other major economy experienced elevated inflation. The US peaked at 8.0% (2022), Germany at 6.9% (2022), Brazil at 9.3% (2022), and India sustained 5-6.7% throughout. China's near-zero inflation alongside modest GDP growth (+25.2% per capita in USD 2020-2024, lagging India's +41.3%) signals a deflationary trap reminiscent of Japan's lost decades. This represents a fundamental regime change: China has decoupled from the global inflation cycle, suggesting deep structural demand weakness, property sector deleveraging, and excess industrial capacity.",
+    "category": "anomaly",
+    "tags": [
+      "economics",
+      "macro",
+      "divergence",
+      "deflation",
+      "china"
+    ],
+    "domain": "economics-finance",
+    "source_api": "worldbank",
+    "timestamp": "2026-03-15T00:00:00Z",
+    "confidence": 0.92,
+    "data_points": 30,
+    "raw_data": {
+      "CHN_inflation": {
+        "2020": 2.4,
+        "2021": 1.0,
+        "2022": 2.0,
+        "2023": 0.2,
+        "2024": 0.2
+      },
+      "USA_inflation": {
+        "2020": 1.2,
+        "2021": 4.7,
+        "2022": 8.0,
+        "2023": 4.1,
+        "2024": 2.9
+      }
+    }
+  },
+  {
+    "title": "Germany Persistent Stagflation: 3 Consecutive Years of Negative/Near-Zero Growth with Elevated Inflation",
+    "content": "Germany shows a pronounced stagflationary pattern from 2022-2024: GDP growth was 1.8% (2022), -0.9% (2023), -0.5% (2024), while inflation remained elevated at 6.9% (2022), 5.9% (2023), 2.3% (2024). This is the longest stagflationary episode among major economies in the dataset. The growth-inflation gap (inflation minus growth) was +5.1pp in 2022, +6.8pp in 2023, and +2.8pp in 2024. Despite this, Germany's USD GDP per capita still rose 18.4% due to euro appreciation effects. This masks real economic deterioration and represents a structural regime shift in Europe's largest economy, driven by energy transition costs, deindustrialization pressures, and Chinese competition.",
+    "category": "regime_change",
+    "tags": [
+      "economics",
+      "macro",
+      "stagflation",
+      "germany",
+      "regime-change"
+    ],
+    "domain": "economics-finance",
+    "source_api": "worldbank",
+    "timestamp": "2026-03-15T00:00:00Z",
+    "confidence": 0.93,
+    "data_points": 30,
+    "raw_data": {
+      "DEU_growth": {
+        "2022": 1.8,
+        "2023": -0.9,
+        "2024": -0.5
+      },
+      "DEU_inflation": {
+        "2022": 6.9,
+        "2023": 5.9,
+        "2024": 2.3
+      }
+    }
+  },
+  {
+    "title": "India Outpacing China in GDP Per Capita Growth Rate: Convergence Regime Shift",
+    "content": "India's GDP per capita growth rate (41.3% from 2020-2024) now exceeds China's (25.2%) by a significant margin. While the absolute gap remains enormous ($2,695 vs $13,303), the growth differential marks a regime shift in the global economic convergence narrative. India sustained 5-6.7% inflation throughout the period (indicating strong domestic demand) while China's inflation collapsed to 0.2%. India's real GDP growth averaged approximately 7% annually vs China's approximately 5%, and this gap appears to be widening. Combined with demographic divergence (India's working-age population growing vs China's shrinking), this suggests a durable shift in the center of gravity of emerging market growth.",
+    "category": "pattern",
+    "tags": [
+      "economics",
+      "macro",
+      "convergence",
+      "india",
+      "china",
+      "emerging-markets"
+    ],
+    "domain": "economics-finance",
+    "source_api": "worldbank",
+    "timestamp": "2026-03-15T00:00:00Z",
+    "confidence": 0.88,
+    "data_points": 30,
+    "raw_data": {
+      "IND_gdp_pcap": {
+        "2020": 1907,
+        "2024": 2695
+      },
+      "CHN_gdp_pcap": {
+        "2020": 10627,
+        "2024": 13303
+      },
+      "IND_growth_pct": 41.3,
+      "CHN_growth_pct": 25.2
+    }
+  },
+  {
+    "title": "Bitcoin -35.6% Drawdown with 91% Annualized Volatility Spike: Bear Market Regime Confirmed",
+    "content": "Bitcoin experienced a -35.6% maximum drawdown over the 90-day period (Dec 15, 2025 to Mar 15, 2026), falling from $89,310 to a low of $62,822 before partial recovery to $71,280. The 90-day return is -20.2%. A volatility regime change was detected around week 7, when annualized volatility spiked from 50% to 91% before collapsing back to 51% in week 8. This spike-collapse pattern typically indicates a capitulation event followed by volume exhaustion. Bitcoin is currently 43.5% below its all-time high of $126,080 (Oct 2025). The combination of steep drawdown from ATH, elevated but declining volatility, and negative 90-day returns is consistent with a bear market regime rather than a correction within a bull trend.",
+    "category": "regime_change",
+    "tags": [
+      "economics",
+      "crypto",
+      "bitcoin",
+      "volatility",
+      "regime-change",
+      "bear-market"
+    ],
+    "domain": "economics-finance",
+    "source_api": "coingecko",
+    "timestamp": "2026-03-15T00:00:00Z",
+    "confidence": 0.9,
+    "data_points": 2162,
+    "raw_data": {
+      "btc_90d_return_pct": -20.2,
+      "btc_max_drawdown_pct": -35.6,
+      "btc_price_current": 71280,
+      "btc_ath": 126080,
+      "btc_from_ath_pct": -43.5,
+      "vol_spike_week7": 91,
+      "vol_avg": 48
+    }
+  },
+  {
+    "title": "Crypto Alt-Coin Devastation: Average -50.3% from ATH with BTC Dominance at 61.7%",
+    "content": "The top 20 cryptocurrency market shows severe alt-coin weakness. Non-stablecoin assets average -50.3% from their all-time highs, with Cardano (-91.5%), Bitcoin Cash (-87.7%), Dogecoin (-86.8%), and Chainlink (-82.6%) showing catastrophic declines. Meanwhile, BTC dominance within the top 20 stands at 61.7% (72.6% including ETH), indicating a classic flight-to-quality pattern within crypto markets. This divergence -- where Bitcoin holds relatively better (-43.5% from ATH) vs alt-coins averaging -50.3% -- signals risk-off sentiment and capital consolidation into perceived higher-quality assets. Solana (-69.9% from ATH) and Ethereum (-57.7%) also show significant weakness. Dogecoin exhibits an anomalously high volume-to-market-cap ratio of 5.0%, suggesting either panic selling or wash trading activity.",
+    "category": "anomaly",
+    "tags": [
+      "economics",
+      "crypto",
+      "altcoins",
+      "market-structure",
+      "risk-off"
+    ],
+    "domain": "economics-finance",
+    "source_api": "coingecko",
+    "timestamp": "2026-03-15T00:00:00Z",
+    "confidence": 0.91,
+    "data_points": 20,
+    "raw_data": {
+      "avg_ath_distance_pct": -50.3,
+      "btc_dominance_top20": 61.7,
+      "worst_performers": {
+        "Cardano": -91.5,
+        "Bitcoin Cash": -87.7,
+        "Dogecoin": -86.8,
+        "Chainlink": -82.6
+      },
+      "doge_vol_mcap_ratio": 5.0
+    }
+  },
+  {
+    "title": "US Exceptional Growth Divergence: +33.1% GDP/Cap While Inflation Normalizes Faster Than Peers",
+    "content": "The United States shows the strongest macroeconomic position among developed economies in the 2020-2024 data. GDP per capita grew 33.1% ($63,516 to $84,534), inflation peaked at 8.0% (2022) but declined rapidly to 2.9% (2024) -- faster than Germany (still 2.3% with negative growth) or Japan (2.7% with near-zero growth). Only the 2022 year shows a stagflationary signal (2.5% growth vs 8.0% inflation). By 2024, the US had achieved a rare 'soft landing' signature: GDP growth positive, inflation declining toward target, with real per capita income at an all-time high. This US outperformance vs Germany (-0.5% growth), Japan (0.1% growth), and China (0.2% inflation/demand weakness) represents the widest developed-economy growth gap since the post-2008 recovery.",
+    "category": "pattern",
+    "tags": [
+      "economics",
+      "macro",
+      "us-exceptionalism",
+      "soft-landing",
+      "divergence"
+    ],
+    "domain": "economics-finance",
+    "source_api": "worldbank",
+    "timestamp": "2026-03-15T00:00:00Z",
+    "confidence": 0.9,
+    "data_points": 30,
+    "raw_data": {
+      "USA_gdp_pcap_growth": 33.1,
+      "USA_inflation_2024": 2.9,
+      "DEU_growth_2024": -0.5,
+      "JPN_growth_2024": 0.1,
+      "USA_growth_2024": "positive (above peers)"
+    }
+  },
+  {
+    "title": "Cross-Market Signal: Crypto Bear Market Coincides with Global Growth Fragmentation",
+    "content": "A cross-market correlation emerges when overlaying macro and crypto data. The crypto market entered bear territory (BTC -43.5% from Oct 2025 ATH, alts -50.3% avg) during a period of maximum global macroeconomic fragmentation: Germany in recession, Japan's dollar-economy shrinking, China in deflationary trap, while the US maintains growth. This pattern suggests that crypto's risk-asset behavior is responding to global liquidity tightening and growth uncertainty rather than US-specific conditions. The flight to BTC dominance (61.7%) within crypto mirrors the flight to USD-denominated assets in traditional markets (US GDP per capita outperformance). Both patterns point to a global risk-off regime where capital concentrates in perceived safe havens (USD, BTC relative to alts). The 90-day BTC volatility spike-collapse (50% to 91% to 51%) occurred during a period of macro data releases confirming German recession and Chinese deflation persistence.",
+    "category": "cross_correlation",
+    "tags": [
+      "economics",
+      "macro",
+      "crypto",
+      "cross-market",
+      "correlation",
+      "regime-change"
+    ],
+    "domain": "economics-finance",
+    "source_api": "worldbank,coingecko",
+    "timestamp": "2026-03-15T00:00:00Z",
+    "confidence": 0.82,
+    "data_points": 2212,
+    "raw_data": {
+      "btc_from_ath": -43.5,
+      "alt_avg_from_ath": -50.3,
+      "deu_growth_2024": -0.5,
+      "chn_inflation_2024": 0.2,
+      "jpn_gdp_pcap_change": -18.8,
+      "usa_gdp_pcap_change": 33.1,
+      "btc_dominance": 61.7
+    }
+  },
+  {
+    "title": "Brazil Anomalous Outperformance: +45.7% GDP/Cap Growth Leads All Major Economies",
+    "content": "Brazil posted the highest GDP per capita growth rate among the six major economies tracked, at +45.7% from 2020 ($7,074) to 2024 ($10,311). This outpaces even India (+41.3%) and the United States (+33.1%), and dwarfs China (+25.2%), Germany (+18.4%), and Japan (-18.8%). However, this comes with important caveats: Brazil experienced stagflationary conditions in both 2020 (growth -3.3%, inflation 3.2%) and 2022 (growth 3.0%, inflation 9.3%). The 2024 GDP per capita ($10,311) is actually slightly below 2023 ($10,378), suggesting momentum is fading. Brazil's strong showing is partly a real exchange rate effect (BRL appreciation) combined with commodity price tailwinds. The slight 2023-to-2024 decline despite positive nominal growth may signal the beginning of a deceleration phase.",
+    "category": "anomaly",
+    "tags": [
+      "economics",
+      "macro",
+      "brazil",
+      "emerging-markets",
+      "outperformance"
+    ],
+    "domain": "economics-finance",
+    "source_api": "worldbank",
+    "timestamp": "2026-03-15T00:00:00Z",
+    "confidence": 0.85,
+    "data_points": 30,
+    "raw_data": {
+      "BRA_gdp_pcap": {
+        "2020": 7074,
+        "2023": 10378,
+        "2024": 10311
+      },
+      "BRA_inflation": {
+        "2020": 3.2,
+        "2021": 8.3,
+        "2022": 9.3,
+        "2023": 4.6,
+        "2024": 4.4
+      },
+      "BRA_growth_pct": 45.7
+    }
+  }
+]

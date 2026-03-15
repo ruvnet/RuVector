@@ -1,0 +1,181 @@
+[
+  {
+    "title": "Anomalously Low Gutenberg-Richter b-value (0.60) in Weekly Global Seismicity",
+    "content": "The Gutenberg-Richter b-value computed from 362 M2.5+ earthquakes over the past 7 days is 0.602, significantly below the global average of ~1.0. A b-value below 0.8 is typically associated with mainshock-aftershock sequences rather than background seismicity or swarm activity (b>1.1). This suggests the current weekly catalog is dominated by aftershock sequences from recent larger events. The frequency-magnitude relation shows a = 4.341. The M4-5 bin contains 115 events, which is disproportionately high relative to the M2-3 bin (119 events), confirming a non-standard magnitude distribution skewed toward moderate-magnitude events.",
+    "category": "pattern",
+    "tags": [
+      "seismic",
+      "gutenberg-richter",
+      "aftershock"
+    ],
+    "domain": "earth-science",
+    "source_api": "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_week.geojson",
+    "timestamp": "2026-03-15T00:00:00Z",
+    "confidence": 0.92,
+    "data_points": 362
+  },
+  {
+    "title": "Active Seismic Swarm Along Aleutian-Kamchatka Arc (70+ Events)",
+    "content": "Multiple overlapping earthquake clusters detected along the Aleutian-Kamchatka subduction zone. The largest cluster contains 23 events near Attu Station, Alaska (lat 52.1, lon 176.4) with magnitudes up to M5.1. A second major cluster of 14 events near Vilyuchinsk, Russia (Kamchatka Peninsula) shows higher magnitudes (up to M5.9), indicating a more energetic sequence. Additional clusters near Nikolski, Alaska (13 events) and Sand Point (7 events) suggest broad activation across ~2000 km of the plate boundary. This level of distributed activity along a single arc segment warrants monitoring for potential larger events.",
+    "category": "pattern",
+    "tags": [
+      "seismic",
+      "swarm",
+      "subduction",
+      "aleutian",
+      "kamchatka"
+    ],
+    "domain": "earth-science",
+    "source_api": "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_week.geojson",
+    "timestamp": "2026-03-15T00:00:00Z",
+    "confidence": 0.88,
+    "data_points": 79
+  },
+  {
+    "title": "Deep M6.0 Earthquake Beneath Anacapri, Italy at 381.7 km Depth",
+    "content": "A magnitude 6.0 earthquake occurred at 381.7 km depth approximately 12 km west of Anacapri, Italy. This is a highly unusual event for the Mediterranean region. Deep earthquakes (>300 km) in this area are extremely rare; the Tyrrhenian Sea deep seismicity is associated with the remnant Calabrian slab subducting beneath southern Italy. Events this deep typically indicate slab material penetrating into the transition zone. The event's classification as 'significant' by USGS confirms its anomalous nature. Deep earthquakes in this region provide constraints on the geometry and dynamics of the subducting African plate beneath Europe.",
+    "category": "anomaly",
+    "tags": [
+      "seismic",
+      "deep-earthquake",
+      "mediterranean",
+      "subduction"
+    ],
+    "domain": "earth-science",
+    "source_api": "https://earthquake.usgs.gov/fdsnws/event/1/query",
+    "timestamp": "2026-03-15T00:00:00Z",
+    "confidence": 0.95,
+    "data_points": 1
+  },
+  {
+    "title": "Fiji-Tonga Deep Earthquake Concentration: 13 Events at 300-600 km Depth",
+    "content": "The Fiji-Tonga-Kermadec subduction system produced 13 deep earthquakes (M4+, depth >300 km) in the first half of March 2026, including a significant M7.1 event at 619.8 km depth near Kota Belud, Malaysia (likely mislocated or deep Molucca Sea event) and M6.3 at 596.3 km in the Fiji region. Depths range from 344 to 618 km with magnitudes 4.4 to 6.3. This cluster represents 13 of 26 total deep events globally (50%), consistent with the Fiji-Tonga region's role as Earth's most active deep seismicity zone. The concentration of events at 500-600 km depth suggests slab material in the mantle transition zone.",
+    "category": "pattern",
+    "tags": [
+      "seismic",
+      "deep-earthquake",
+      "fiji",
+      "tonga",
+      "subduction"
+    ],
+    "domain": "earth-science",
+    "source_api": "https://earthquake.usgs.gov/fdsnws/event/1/query",
+    "timestamp": "2026-03-15T00:00:00Z",
+    "confidence": 0.9,
+    "data_points": 13
+  },
+  {
+    "title": "Unusual M4.9 Intraplate Earthquake in Red River Parish, Louisiana",
+    "content": "A M4.9 earthquake struck Red River Parish, Louisiana at 11.1 km depth, classified as a significant event by USGS. This region is within the stable North American craton, far from any plate boundary. The event was accompanied by a cluster of 6 events (M2.5-4.4) near Powhatan, Louisiana at 8-12 km depth, indicating an ongoing sequence. Intraplate seismicity in this region may relate to stress transfer from the New Madrid Seismic Zone, ancient rift structures reactivating, or potentially induced seismicity from industrial activity. This is notable because Louisiana typically has very low natural seismicity rates.",
+    "category": "anomaly",
+    "tags": [
+      "seismic",
+      "intraplate",
+      "louisiana",
+      "induced-seismicity"
+    ],
+    "domain": "earth-science",
+    "source_api": "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/significant_month.geojson",
+    "timestamp": "2026-03-15T00:00:00Z",
+    "confidence": 0.85,
+    "data_points": 7
+  },
+  {
+    "title": "Shallow Earthquake Cluster in Southeastern New Mexico (Permian Basin)",
+    "content": "A cluster of 10 earthquakes (M2.5-3.2) detected near Whites City, New Mexico at very shallow depths (4.1-7.6 km). This area coincides with the Permian Basin, one of the most active oil and gas production regions in the United States. The narrow depth range and clustering pattern are consistent with induced seismicity from wastewater injection. The mean magnitude of 2.74 with low variability suggests a relatively uniform stress field being perturbed, typical of injection-induced sequences rather than tectonic aftershock cascades.",
+    "category": "pattern",
+    "tags": [
+      "seismic",
+      "induced-seismicity",
+      "permian-basin",
+      "new-mexico"
+    ],
+    "domain": "earth-science",
+    "source_api": "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_week.geojson",
+    "timestamp": "2026-03-15T00:00:00Z",
+    "confidence": 0.82,
+    "data_points": 10
+  },
+  {
+    "title": "Global March Temperature Anomaly Reaches Record-Tying +1.31C in 2024-2025",
+    "content": "The March global land-ocean temperature anomaly (relative to 1901-2000 baseline) reached +1.31C in both 2024 and 2025, tying as the highest March values in the 176-year record. Both values represent z-scores of +3.01 relative to the full record distribution (mean=+0.072C, std=0.411C). The post-2000 warming rate is +0.2932C/decade, compared to +0.2119C/decade post-1980 and +0.0193C/decade pre-1980. This represents a 15.2x acceleration in warming rate. The 2020s decade mean of +1.157C already exceeds the full 2010s decade mean of +0.882C with only 6 years of data.",
+    "category": "trend",
+    "tags": [
+      "climate",
+      "temperature",
+      "warming",
+      "acceleration"
+    ],
+    "domain": "earth-science",
+    "source_api": "https://www.ncei.noaa.gov/access/monitoring/climate-at-a-glance/global/time-series/globe/land_ocean/1/3/1850-2026.json",
+    "timestamp": "2026-03-15T00:00:00Z",
+    "confidence": 0.97,
+    "data_points": 176
+  },
+  {
+    "title": "Post-1980 Warming Rate 11x Higher Than Pre-1980 Baseline",
+    "content": "Linear trend analysis of global March temperature anomalies reveals a clear regime shift around 1980. The pre-1980 warming rate was +0.0193C/decade. Post-1980, the rate increased to +0.2119C/decade (a 11.0x increase). Post-2000, it further accelerated to +0.2932C/decade. The decadal rate of change has been positive and increasing since the 1970s-1980s transition (+0.0223 C/year), with the 2010s-2020s transition showing the highest rate (+0.0275 C/year). Every decade since the 1970s has been warmer than the preceding one, with the magnitude of the increase growing monotonically.",
+    "category": "trend",
+    "tags": [
+      "climate",
+      "warming-rate",
+      "regime-shift",
+      "acceleration"
+    ],
+    "domain": "earth-science",
+    "source_api": "https://www.ncei.noaa.gov/access/monitoring/climate-at-a-glance/global/time-series/globe/land_ocean/1/3/1850-2026.json",
+    "timestamp": "2026-03-15T00:00:00Z",
+    "confidence": 0.95,
+    "data_points": 176
+  },
+  {
+    "title": "Regional Deep-to-Shallow Earthquake Ratios Reveal Subduction Zone Activity Variations",
+    "content": "Analysis of deep (>70 km) vs shallow (<70 km) earthquake ratios by tectonic region shows: Pacific Ring (West): 17/92 deep (18.5%); Pacific Ring (East): 45/228 deep (19.7%); Mediterranean-Himalayan: 6/21 deep (28.6%). The Western Pacific shows a notably higher deep event percentage, consistent with active subduction of older, colder, and more rigid oceanic lithosphere beneath the Philippine Sea and Mariana plates. The Mediterranean-Himalayan belt shows deep events primarily from the anomalous Calabrian slab. Total weekly events: 362, with 4.7% at depths >300 km globally.",
+    "category": "pattern",
+    "tags": [
+      "seismic",
+      "subduction",
+      "depth-analysis",
+      "tectonic"
+    ],
+    "domain": "earth-science",
+    "source_api": "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_week.geojson",
+    "timestamp": "2026-03-15T00:00:00Z",
+    "confidence": 0.85,
+    "data_points": 362
+  },
+  {
+    "title": "Active Volcanic Seismicity at Kilauea, Hawaii (M2.5-4.4, 0-30 km Depth)",
+    "content": "A cluster of 6 earthquakes (M2.5-4.4) detected near Hawaiian Ocean View on the Big Island of Hawaii, with depths ranging from surface level (-1.2 km, indicating an above-sea-level event) to 30.0 km. This depth distribution spans the volcanic edifice and underlying lithosphere, consistent with ongoing magmatic activity at Kilauea or Mauna Loa. The presence of both very shallow and moderately deep events suggests magma movement through the volcanic plumbing system. The M4.4 event is the largest in this cluster, and its occurrence alongside shallower events may indicate pressurization of the magmatic system.",
+    "category": "anomaly",
+    "tags": [
+      "seismic",
+      "volcanic",
+      "hawaii",
+      "kilauea",
+      "magmatic"
+    ],
+    "domain": "earth-science",
+    "source_api": "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_week.geojson",
+    "timestamp": "2026-03-15T00:00:00Z",
+    "confidence": 0.8,
+    "data_points": 6
+  },
+  {
+    "title": "M7.1 Deep Earthquake at 619.8 km Beneath Borneo - Rare Very Deep Major Event",
+    "content": "A M7.1 earthquake at 619.8 km depth near Kota Belud, Malaysia represents one of the deepest major earthquakes recorded in this region. Events at this depth occur within the subducting slab approaching the 660 km discontinuity that marks the boundary between the upper and lower mantle. The event received a 'green' PAGER alert due to its extreme depth attenuating surface shaking. Very deep earthquakes (>600 km) of this magnitude are globally rare, typically occurring only a few times per year. The event likely relates to the Celebes Sea or Sulu Sea plate subduction system and provides evidence of slab material reaching the base of the mantle transition zone in this region.",
+    "category": "anomaly",
+    "tags": [
+      "seismic",
+      "deep-earthquake",
+      "major-event",
+      "borneo",
+      "subduction"
+    ],
+    "domain": "earth-science",
+    "source_api": "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/significant_month.geojson",
+    "timestamp": "2026-03-15T00:00:00Z",
+    "confidence": 0.93,
+    "data_points": 1
+  }
+]
