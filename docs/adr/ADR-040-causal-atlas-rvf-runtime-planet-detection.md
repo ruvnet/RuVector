@@ -25,19 +25,10 @@ retained archetypes.
 
 ### Existing Capabilities (ADR-003 through ADR-008)
 
-| Component | Package | Relevant APIs |
-|-----------|---------|---------------|
-| **RVF segments** | `@ruvector/rvf`, `@ruvector/rvf-node` | `embedKernel`, `extractKernel`, `embedEbpf`, `segments`, `derive` |
-| **HNSW indexing** | `@ruvector/rvf-node` | `ingestBatch`, `query`, `compact`, HNSW with metadata filters |
-| **Witness chains** | `@ruvector/rvf-node`, `RvfSolver` | `verifyWitness`, SHAKE-256 witness chains, signed root hash |
-| **Graph transactions** | `NativeAccelerator` | `graphTransaction`, `graphBatchInsert`, Cypher queries |
-| **SIMD embeddings** | `@ruvector/ruvllm` | 768-dim SIMD embed, cosine/dot/L2, HNSW memory search |
-| **SONA learning** | `SonaLearningBackend` | Micro-LoRA, trajectory recording, EWC++ |
-| **Federated coordination** | `FederatedSessionManager` | Cross-agent trajectories, warm-start patterns |
-| **Contrastive training** | `ContrastiveTrainer` | InfoNCE, hard negative mining, 3-stage curriculum |
-| **Adaptive index** | `AdaptiveIndexTuner` | 5-tier compression, Matryoshka truncation, health monitoring |
-| **Kernel embedding** | `KernelBuilder` (ADR-008) | Minimal Linux boot from KERNEL_SEG + INITRD_SEG |
-| **Lazy model download** | `ChatInference` (ADR-008) | Deferred GGUF load on first inference call |
+RVF segments, HNSW indexing, SHAKE-256 witness chains, graph transactions,
+768-dim SIMD embeddings, SONA learning, federated coordination, contrastive
+training, adaptive index tuning, kernel embedding (ADR-008), and lazy model
+download (ADR-008). See ADR-003 through ADR-008 for full API details.
 
 ### What This ADR Adds
 
@@ -119,26 +110,7 @@ Following the lazy-download pattern established in ADR-008 for GGUF models:
    INDEX_SEG, a new witness root is committed, and the RVF is sealed into
    a reproducible snapshot
 
-```
-Download state machine:
-
-  [boot] ──first-inference──> [downloading-tier-1]
-           │                        │
-           │ (offline demo works)   │ (progress: 0-100%)
-           │                        │
-           ▼                        ▼
-  [tier-0-only]              [tier-1-ready]
-                                    │
-                         rvf ingest --expand
-                                    │
-                                    ▼
-                             [tier-2-ready]
-                                    │
-                         life pipeline activated
-                                    │
-                                    ▼
-                             [tier-3-ready] ──seal──> [sealed-snapshot]
-```
+**State machine**: `[boot]` -> `[tier-0-only]` (offline demo) -> `[tier-1-ready]` (first inference) -> `[tier-2-ready]` (`rvf ingest --expand`) -> `[tier-3-ready]` (life pipeline) -> `[sealed-snapshot]`.
 
 Each tier download:
 - Resumes from last byte on interruption (HTTP Range headers)
@@ -168,197 +140,50 @@ Extends the ADR-003 segment model with domain-specific segments.
 
 ### Core Entities
 
-```typescript
-interface Event {
-  id: string;
-  t_start: number;          // epoch seconds
-  t_end: number;
-  domain: 'kepler' | 'tess' | 'jwst' | 'sdss' | 'derived';
-  payload_hash: string;      // SHA-256 of raw data window
-  provenance: Provenance;
-}
-
-interface Observation {
-  id: string;
-  instrument: string;        // 'kepler-lc' | 'tess-ffi' | 'jwst-nirspec' | ...
-  target_id: string;         // e.g., KIC or TIC identifier
-  data_pointer: string;      // segment offset into VEC_SEG
-  calibration_version: string;
-  provenance: Provenance;
-}
-
-interface InteractionEdge {
-  src_event_id: string;
-  dst_event_id: string;
-  type: 'causal' | 'periodicity' | 'shape_similarity' | 'co_occurrence' | 'spatial';
-  weight: number;
-  lag: number;               // temporal lag in seconds
-  confidence: number;
-  provenance: Provenance;
-}
-
-interface Boundary {
-  boundary_id: string;
-  partition_left_set_hash: string;
-  partition_right_set_hash: string;
-  cut_weight: number;
-  cut_witness: string;       // witness chain reference
-  stability_score: number;
-}
-
-interface Candidate {
-  candidate_id: string;
-  category: 'planet' | 'life';
-  evidence_pointers: string[];   // event and edge IDs
-  score: number;
-  uncertainty: number;
-  publishable: boolean;          // based on POLICY_SEG rules
-  witness_trace: string;         // WITNESS_SEG reference for replay
-}
-
-interface Provenance {
-  source: string;            // 'mast-kepler' | 'mast-tess' | 'mast-jwst' | ...
-  download_witness: string;  // witness chain entry for the download
-  transform_chain: string[]; // ordered list of transform IDs applied
-  timestamp: string;         // ISO-8601
-}
-```
+| Entity | Key Fields | Description |
+|--------|-----------|-------------|
+| **Event** | `id`, `t_start`, `t_end`, `domain`, `payload_hash`, `provenance` | Time-windowed observation or derived result. Domain: kepler, tess, jwst, sdss, derived |
+| **Observation** | `id`, `instrument`, `target_id`, `data_pointer`, `calibration_version` | Raw instrument measurement with VEC_SEG offset |
+| **InteractionEdge** | `src_event_id`, `dst_event_id`, `type`, `weight`, `lag`, `confidence` | Typed relationship: causal, periodicity, shape_similarity, co_occurrence, spatial |
+| **Boundary** | `boundary_id`, `partition_*_hash`, `cut_weight`, `cut_witness`, `stability_score` | Graph partition boundary with witness chain reference |
+| **Candidate** | `candidate_id`, `category`, `evidence_pointers[]`, `score`, `uncertainty`, `publishable`, `witness_trace` | Planet or life candidate with POLICY_SEG-gated publishability |
+| **Provenance** | `source`, `download_witness`, `transform_chain[]`, `timestamp` | Full lineage from download through every transform |
 
 ### Domain Adapters
 
-#### Planet Transit Adapter
-
-```
-Input:  flux time series + cadence metadata (Kepler/TESS FITS)
-Output: Event nodes for windows
-        InteractionEdges for periodicity hints and shape similarity
-        Candidate nodes for dip detections
-```
-
-#### Spectrum Adapter
-
-```
-Input:  wavelength, flux, error arrays (JWST NIRSpec, etc.)
-Output: Event nodes for band windows
-        InteractionEdges for molecule feature co-occurrence
-        Disequilibrium score components
-```
-
-#### Cosmic Web Adapter (optional, Phase 2+)
-
-```
-Input:  galaxy positions and redshifts (SDSS)
-Output: Graph of spatial adjacency and filament membership
-```
+| Adapter | Input | Output |
+|---------|-------|--------|
+| **Planet Transit** | Flux time series + cadence metadata (Kepler/TESS FITS) | Event nodes, periodicity/shape InteractionEdges, dip Candidates |
+| **Spectrum** | Wavelength, flux, error arrays (JWST NIRSpec, etc.) | Band Event nodes, molecule co-occurrence edges, disequilibrium scores |
+| **Cosmic Web** (Phase 2+) | Galaxy positions and redshifts (SDSS) | Spatial adjacency graph with filament membership |
 
 ## The Four System Constructs
 
 ### 1. Compressed Causal Atlas
 
-**Definition**: A partial order of events plus minimal sufficient descriptors
-to reproduce derived edges.
+Partial order of events plus minimal sufficient descriptors to reproduce derived edges.
 
-**Construction**:
+**Construction**: (1) Window light curves at scales 2h/12h/3d/27d. (2) Extract features: flux derivatives, autocorrelation peaks, wavelet energy, matched filter response. (3) Embed via RuVector SIMD into VEC_SEG. (4) Add causal edges where window A precedes B and improves predictability (prediction gain, POLICY_SEG constrained). (5) Compress: top-k parents per node, retain boundary witnesses, delta-encode into DELTA_SEG.
 
-1. **Windowing** — Light curves into overlapping windows at multiple scales
-   - Scales: 2 hours, 12 hours, 3 days, 27 days
-
-2. **Feature extraction** — Robust features per window
-   - Flux derivative statistics
-   - Autocorrelation peaks
-   - Wavelet energy bands
-   - Transit-shaped matched filter response
-
-3. **Embedding** — RuVector SIMD embed per window, stored in VEC_SEG
-
-4. **Causal edges** — Add edge when window A precedes window B and improves
-   predictability of B (conditional mutual information proxy or prediction gain,
-   subject to POLICY_SEG constraints)
-   - Edge weight: prediction gain magnitude
-   - Provenance: exact windows, transform IDs, threshold used
-
-5. **Atlas compression**
-   - Keep only top-k causal parents per node
-   - Retain stable boundary witnesses
-   - Delta-encode updates into DELTA_SEG
-
-**Output API**:
-
-| Endpoint | Returns |
-|----------|---------|
-| `atlas.query(event_id)` | Parents, children, plus provenance |
-| `atlas.trace(candidate_id)` | Minimal causal chain for a candidate |
+**API**: `atlas.query(event_id)` returns parents/children with provenance. `atlas.trace(candidate_id)` returns minimal causal chain.
 
 ### 2. Coherence Field Index
 
-**Definition**: A field over the atlas graph that assigns coherence pressure
-and cut stability over time.
+Field over the atlas graph assigning coherence pressure and cut stability over time. Signals: cut pressure (min-cut values), partition entropy (cluster size distribution), disagreement (cross-detector rate), drift (embedding distribution shift).
 
-**Signals**:
+**Algorithm**: Maintain partition tree with dynamic min-cut on incremental changes. Each epoch: compute cut witnesses for top boundaries, emit to GRAPH_SEG, append to WITNESS_SEG. Index boundaries by descriptor: cut value, partition sizes, curvature proxy, churn.
 
-| Signal | Description |
-|--------|-------------|
-| Cut pressure | Minimum cut values over selected subgraphs |
-| Partition entropy | Distribution of cluster sizes and churn rate |
-| Disagreement | Cross-detector disagreement rate |
-| Drift | Embedding distribution shift in sliding window |
-
-**Algorithm**:
-
-1. Maintain a partition tree. Update with dynamic min-cut on incremental
-   graph changes
-2. For each update epoch:
-   - Compute cut witnesses for top boundaries
-   - Emit boundary events into GRAPH_SEG
-   - Append witness record into WITNESS_SEG
-3. Index boundaries via descriptor vector:
-   - Cut value, partition sizes, local graph curvature proxy, recent churn
-
-**Query API**:
-
-| Endpoint | Returns |
-|----------|---------|
-| `coherence.get(target_id, epoch)` | Field values for target at epoch |
-| `boundary.nearest(descriptor)` | Similar historical boundary states via INDEX_SEG |
+**API**: `coherence.get(target_id, epoch)` returns field values. `boundary.nearest(descriptor)` returns similar historical states via INDEX_SEG.
 
 ### 3. Multi-Scale Interaction Memory
 
-**Definition**: A memory that retains interactions at multiple time resolutions
-with strict budget control.
-
-**Three tiers**:
-
-| Tier | Resolution | Content |
-|------|-----------|---------|
-| **S** | Seconds to minutes | High-fidelity deltas |
-| **M** | Hours to days | Aggregated deltas |
-| **L** | Weeks to months | Boundary summaries and archetypes |
-
-**Retention rules**:
-1. Preserve events that are boundary-critical
-2. Preserve events that are candidate evidence
-3. Compress everything else via archetype clustering in INDEX_SEG
-
-**Mechanism**:
-- DELTA_SEG is append-only
-- Periodic compaction produces a new RVF root with a witness proof of
-  preservation rules applied
+Tiered retention with strict budget control: **S** (seconds-minutes, high-fidelity deltas), **M** (hours-days, aggregated), **L** (weeks-months, boundary summaries and archetypes). Retention preserves boundary-critical events and candidate evidence; compresses the rest via archetype clustering. DELTA_SEG is append-only; periodic compaction produces a new RVF root with witness proof.
 
 ### 4. Boundary Evolution Tracker
 
-**Definition**: A tracker that treats boundaries as primary objects that evolve
-over time.
+Treats boundaries as primary objects evolving over time -- the holographic design principle. Boundaries are stored and indexed as first-class objects; interior state is reconstructable from boundary witnesses and retained archetypes.
 
-**This is where the holographic flavor is implemented.** You primarily store
-and index boundaries, and treat interior state as reconstructable from boundary
-witnesses and retained archetypes.
-
-**Output API**:
-
-| Endpoint | Returns |
-|----------|---------|
-| `boundary.timeline(target_id)` | Boundary evolution over time |
-| `boundary.alerts` | Alerts when: cut pressure spikes, boundary identity flips, disagreement exceeds threshold, drift persists beyond policy |
+**API**: `boundary.timeline(target_id)` returns boundary evolution. `boundary.alerts` fires on cut pressure spikes, boundary identity flips, disagreement threshold breaches, or persistent drift.
 
 ## Planet Detection Pipeline
 
@@ -443,139 +268,9 @@ thermodynamic relaxation.
 **Output**: Life candidate list with explicit uncertainty + required follow-up
 observations list generated by POLICY_SEG rules.
 
-## Microlensing Detection Pipeline (M0-M3)
+### Microlensing & Cross-Domain Extensions
 
-Extends the transit pipeline to gravitational microlensing events for rogue
-planet and exomoon candidate detection.
-
-### Additional Data Sources
-
-| Source | Access | Reference |
-|--------|--------|-----------|
-| OGLE-IV microlensing events | Public FTP | [ogle.astrouw.edu.pl](https://ogle.astrouw.edu.pl/ogle4/ews/ews.html) |
-| MOA-II microlensing alerts | Public archive | [www.massey.ac.nz/~iabond/moa](https://www.massey.ac.nz/~iabond/moa/) |
-| Gaia astrometric catalog | ESA public | [gea.esac.esa.int](https://gea.esac.esa.int/archive/) |
-| Roman Space Telescope | Upcoming | High-cadence microlensing survey |
-
-### Stage M0: Ingest
-
-Microlensing light curve ingestion from OGLE/MOA archives.
-- Normalize photometry across surveys (MOA-II: ~15 min cadence, 0.008σ floor; OGLE-IV: ~40 min cadence, 0.005σ floor)
-- Segment into event windows around magnification peaks
-- Store as RVF Event nodes with survey-specific metadata
-
-### Stage M1: Single-Lens Detection
-
-Standard Paczynski curve fitting for point-source point-lens (PSPL) events.
-- Two-phase fit: coarse grid search + fine refinement
-- Linear regression for source flux (F_s) and blending flux (F_b)
-- Parameter estimation: Einstein crossing time (t_E), impact parameter (u_0), peak time (t_0)
-- Create Candidate nodes for events exceeding SNR threshold
-
-### Stage M2: Anomaly Detection via MRF/Mincut
-
-Residual analysis after best-fit PSPL subtraction using Markov Random Field
-optimization with graph cut inference.
-
-**Three-statistic lambda computation:**
-1. Excess chi2: window fit quality relative to global reduced chi2
-2. Runs test: temporal coherence of residual sign changes
-3. Gaussian bump fit: localized perturbation chi2 improvement
-
-**Differential normalization:** Compare each window's signal to tau-space
-neighbors, producing z-scores that are ~0 for uniform fit quality and positive
-only for localized anomalies.
-
-**Graph construction:**
-- Temporal chain: consecutive time windows (alpha weight)
-- RuVector kNN edges: embedding similarity from residual features (beta weight)
-- Edmonds-Karp BFS max-flow solver for s-t mincut
-
-### Stage M3: Coherence Gating
-
-Dynamic mincut separates competing explanations (noise vs planet vs moon vs
-binary lens) using support region analysis.
-
-| Component | Role |
-|-----------|------|
-| RuVector embeddings | Cross-survey memory; retrieve similar anomalies |
-| HNSW index | Fast similarity search across microlensing events |
-| Dynamic mincut | Separate competing explanations |
-| Witness chain | Full provenance from raw photometry to candidate |
-
-**Important constraint:** Dynamic mincut provides coherent support extraction
-but cannot replace lens modeling. The physics solver (PSPL/binary) provides
-local evidence; mincut provides spatial coherence.
-
-## Cross-Domain Graph-Cut Applications
-
-The MRF/mincut + RuVector architecture generalizes beyond astronomy to any
-domain requiring coherent anomaly detection in structured data.
-
-### Implemented Verticals
-
-| Vertical | Example | Graph Topology | Anomaly Types |
-|----------|---------|----------------|---------------|
-| **Medical Imaging** | `medical_graphcut.rs` | 4-connected spatial grid, gradient-weighted edges | Lesion segmentation (T1-MRI, T2-MRI, CT) |
-| **Genomics** | `genomic_graphcut.rs` | Linear chain + kNN similarity | CNV gains/losses, LOH, cancer drivers (TP53, BRCA1, EGFR, MYC) |
-| **Financial Fraud** | `financial_fraud_graphcut.rs` | Temporal chain + merchant edges + kNN | Card-not-present, account takeover, card clone, synthetic, refund |
-| **Supply Chain** | `supply_chain_graphcut.rs` | Tier chain + geographic + kNN | Quality defect, shortage, price anomaly, delay, counterfeit, demand shock |
-| **Cybersecurity** | `cyber_threat_graphcut.rs` | Source/destination chain + kNN | Port scan, brute force, exfiltration, C2 beacon, DDoS, lateral movement |
-| **Climate** | `climate_graphcut.rs` | Spatial adjacency + gradient + kNN | Heat wave, pollution spike, drought, ocean warming, cold snap, sensor fault |
-
-### Common Architecture
-
-All verticals share:
-1. **Domain-specific data generator** with realistic parameters from published datasets
-2. **Feature extraction** producing 32-dim embeddings for RuVector storage
-3. **Graph construction** combining domain topology (spatial/temporal/chain) with kNN similarity edges
-4. **Edmonds-Karp BFS** s-t mincut solver (identical implementation)
-5. **RVF integration**: witness chains, filtered metadata queries, lineage derivation
-6. **Evaluation**: comparison against threshold baseline showing graph-cut improvement
-
-### Additional Real Data Sources
-
-| Domain | Source | Access |
-|--------|--------|--------|
-| Genomics | TCGA (The Cancer Genome Atlas) | [portal.gdc.cancer.gov](https://portal.gdc.cancer.gov/) |
-| Genomics | ClinVar variants | [ncbi.nlm.nih.gov/clinvar](https://www.ncbi.nlm.nih.gov/clinvar/) |
-| Genomics | COSMIC (somatic mutations) | [cancer.sanger.ac.uk/cosmic](https://cancer.sanger.ac.uk/cosmic) |
-| Medical | LIDC-IDRI (lung CT) | [cancerimagingarchive.net](https://www.cancerimagingarchive.net/) |
-| Medical | BraTS (brain tumors) | [synapse.org](https://www.synapse.org/) |
-| Cybersecurity | CICIDS2017 | [unb.ca/cic](https://www.unb.ca/cic/datasets/ids-2017.html) |
-| Climate | NOAA GHCN | [ncei.noaa.gov](https://www.ncei.noaa.gov/) |
-| Climate | EPA AQI | [epa.gov/aqs](https://www.epa.gov/aqs) |
-
-## Measured Results
-
-Results from running examples with `cargo run --example <name> --release`.
-
-### Astronomy
-
-| Pipeline | Metric | Value | Notes |
-|----------|--------|-------|-------|
-| `planet_detection` | Recall@10 | 8/10 confirmed | Synthetic Kepler-like targets |
-| `exomoon_graphcut` | Precision | 0.25 | Chang-Refsdal perturbative limit |
-| `exomoon_graphcut` | Recall | 0.25 | Limited by ~2-3σ per-window SNR |
-| `exomoon_graphcut` | F1 | 0.25 | 30 events, 12 with moons |
-| `real_microlensing` | Planets rediscovered | 2/4 | OGLE-2005-BLG-390, OGLE-2016-BLG-1195 |
-| `microlensing_detection` | Events processed | 20 | Synthetic PSPL + anomalies |
-
-### Medical Imaging
-
-| Modality | Graph Cut Dice | Threshold Dice | Improvement |
-|----------|---------------|----------------|-------------|
-| T1-MRI | 0.44-0.59 | 0.32-0.46 | +27-39% |
-| T2-MRI | 0.50-0.62 | 0.38-0.48 | +29-32% |
-| CT | 0.48-0.58 | 0.35-0.44 | +32-37% |
-
-### Genomics
-
-| Platform | Sensitivity | Specificity | Drivers Found |
-|----------|-------------|-------------|---------------|
-| WGS (30x) | 0.91-0.95 | 0.66-0.97 | 4/4 (TP53, BRCA1, EGFR, MYC) |
-| WES (100x) | 0.88-0.93 | 0.70-0.95 | 4/4 |
-| Panel (500x) | 0.93-0.97 | 0.72-0.98 | 4/4 |
+> See [ADR-040b: Microlensing & Graph-Cut Extensions](ADR-040b-microlensing-graphcut-extensions.md) for M0-M3 pipeline, cross-domain applications, measured results, and Rust crate structure.
 
 ## Runtime and Portability
 
@@ -630,167 +325,9 @@ WS  /ws/live                            # real-time boundary alerts, pipeline pr
 3. No remote writes without explicit policy toggle in POLICY_SEG
 4. Downloaded data verified against MANIFEST_SEG hashes before ingestion
 
-## Three.js Visualization Dashboard
+### Dashboard Architecture
 
-The RVF embeds a Vite-bundled Three.js dashboard in `DASHBOARD_SEG`. The
-runtime HTTP server serves it at `/` (root). All visualizations are driven
-by the same API endpoints the CLI uses, so every rendered frame corresponds
-to queryable, witness-backed data.
-
-### Architecture
-
-```
-DASHBOARD_SEG (inside RVF)
-  dist/
-    index.html            # Vite SPA entry
-    assets/
-      main.[hash].js      # Three.js + D3 + app logic (tree-shaken)
-      main.[hash].css     # Tailwind/minimal styles
-      worker.js           # Web Worker for graph layout
-
-Runtime serves:
-  GET /                   -> DASHBOARD_SEG/dist/index.html
-  GET /assets/*           -> DASHBOARD_SEG/dist/assets/*
-  GET /api/*              -> JSON API (atlas, coherence, candidates, etc.)
-  WS  /ws/live            -> Live streaming of boundary alerts and pipeline progress
-```
-
-**Build pipeline**: Vite builds the dashboard at package time into a single
-tree-shaken bundle. The bundle is embedded into `DASHBOARD_SEG` during RVF
-assembly. No Node.js required at runtime — the dashboard is pure static
-assets served by the existing HTTP server.
-
-### Dashboard Views
-
-#### V1: Causal Atlas Explorer (Three.js 3D)
-
-Interactive 3D force-directed graph of the causal atlas.
-
-| Feature | Implementation |
-|---------|---------------|
-| **Node rendering** | `THREE.InstancedMesh` for events — color by domain (Kepler=blue, TESS=cyan, JWST=gold, derived=white) |
-| **Edge rendering** | `THREE.LineSegments` with opacity mapped to edge weight |
-| **Causal flow** | Animated particles along causal edges showing temporal direction |
-| **Scale selector** | Toggle between window scales (2h, 12h, 3d, 27d) — re-layouts graph |
-| **Candidate highlight** | Click candidate in sidebar to trace its causal chain in 3D, dimming unrelated nodes |
-| **Witness replay** | Step through witness chain entries, animating graph state forward/backward |
-| **LOD** | Level-of-detail: far=boundary nodes only, mid=top-k events, close=full subgraph |
-
-Data source: `GET /api/atlas/query`, `GET /api/atlas/trace`
-
-#### V2: Coherence Field Heatmap (Three.js + shader)
-
-Real-time coherence field rendered as a colored surface over the atlas graph.
-
-| Feature | Implementation |
-|---------|---------------|
-| **Field surface** | `THREE.PlaneGeometry` subdivided grid, vertex colors from coherence values |
-| **Cut pressure** | Red hotspots where cut pressure is high, cool blue where stable |
-| **Partition boundaries** | Glowing wireframe lines at partition cuts |
-| **Time scrubber** | Scrub through epochs to see coherence evolution |
-| **Drift overlay** | Toggle to show embedding drift as animated vector arrows |
-| **Alert markers** | Pulsing icons at boundary alert locations |
-
-Data source: `GET /api/coherence`, `GET /api/boundary/timeline`, `WS /ws/live`
-
-#### V3: Planet Candidate Dashboard (2D panels + 3D orbit)
-
-Split view combining data panels with 3D orbital visualization.
-
-| Panel | Content |
-|-------|---------|
-| **Ranked list** | Sortable table: candidate ID, score, uncertainty, period, SNR, publishable status |
-| **Light curve viewer** | Interactive D3 chart: raw flux, detrended flux, transit model overlay, per-window score |
-| **Phase-folded plot** | All transits folded at detected period, with confidence band |
-| **3D orbit preview** | `THREE.Line` showing inferred orbital path around host star, sized by uncertainty |
-| **Evidence trace** | Expandable tree showing witness chain from raw data to final score |
-| **Score breakdown** | Radar chart: SNR, shape consistency, period stability, coherence stability |
-
-Data source: `GET /api/candidates/planet`, `GET /api/candidates/:id/trace`
-
-#### V4: Life Candidate Dashboard (2D panels + 3D molecule)
-
-Split view for spectral disequilibrium analysis.
-
-| Panel | Content |
-|-------|---------|
-| **Ranked list** | Sortable table: candidate ID, disequilibrium score, uncertainty, molecule flags, publishable |
-| **Spectrum viewer** | Interactive D3 chart: wavelength vs flux, molecule absorption bands highlighted |
-| **Molecule presence matrix** | Heatmap of detected molecule families vs confidence |
-| **3D molecule overlay** | `THREE.Sprite` labels at absorption wavelengths in a 3D wavelength space |
-| **Reaction graph** | Force-directed graph of molecule co-occurrences vs equilibrium expectations |
-| **Confound panel** | Bar chart: stellar activity penalty, contamination risk, repeatability score |
-
-Data source: `GET /api/candidates/life`, `GET /api/candidates/:id/trace`
-
-#### V5: System Status Dashboard
-
-Operational health and download progress.
-
-| Panel | Content |
-|-------|---------|
-| **Download progress** | Per-tier progress bars with byte counts and ETA |
-| **Segment sizes** | Stacked bar chart of RVF segment utilization |
-| **Memory tiers** | S/M/L tier fill levels and compaction history |
-| **Witness chain** | Scrolling log of recent witness entries with hash preview |
-| **Pipeline status** | P0/P1/P2 and L0/L1/L2 stage indicators with event counts |
-| **Performance** | Query latency histogram, events/second throughput |
-
-Data source: `GET /api/status`, `GET /api/memory/tiers`, `WS /ws/live`
-
-### WebSocket Live Stream
-
-```typescript
-// WS /ws/live — server pushes events as they happen
-interface LiveEvent {
-  type: 'boundary_alert' | 'candidate_new' | 'candidate_update' |
-        'download_progress' | 'witness_commit' | 'pipeline_stage' |
-        'coherence_update';
-  timestamp: string;
-  data: Record<string, unknown>;
-}
-```
-
-The dashboard subscribes on connect and updates all views in real-time as
-pipelines process data and boundaries evolve.
-
-### Vite Build Configuration
-
-```typescript
-// vite.config.ts for dashboard build
-import { defineConfig } from 'vite';
-
-export default defineConfig({
-  build: {
-    outDir: 'dist/dashboard',
-    assetsDir: 'assets',
-    rollupOptions: {
-      output: {
-        manualChunks: {
-          three: ['three'],         // ~150 KB gzipped
-          d3: ['d3-scale', 'd3-axis', 'd3-shape', 'd3-selection'],
-        },
-      },
-    },
-  },
-});
-```
-
-**Bundle budget**: < 500 KB gzipped total (Three.js ~150 KB, D3 subset ~30 KB,
-app logic ~50 KB, styles ~10 KB). The dashboard adds minimal overhead to the
-RVF artifact.
-
-### Design Decision: D5 — Dashboard Embedded in RVF
-
-The Three.js dashboard is bundled at build time and embedded in `DASHBOARD_SEG`
-rather than served from an external CDN or requiring a separate install. This
-ensures:
-
-1. **Fully offline**: Works without network after boot
-2. **Version-locked**: Dashboard always matches the API version it queries
-3. **Single artifact**: One RVF file = runtime + data + visualization
-4. **Witness-aligned**: Dashboard renders exactly the data the witness chain
-   can verify
+> See [ADR-040a: Planet Detection Dashboard](ADR-040a-planet-detection-dashboard.md) for Views V1-V5, WebSocket streaming, Vite build configuration, and design decision D5.
 
 ## Package Structure
 
@@ -816,37 +353,7 @@ packages/agentdb-causal-atlas/
       ProgressiveDownloader.ts  # Tiered lazy download with resume
       DataManifest.ts           # URL + hash + size manifests
     KernelBuilder.ts            # Reuse/extend from ADR-008
-  dashboard/                    # Vite + Three.js visualization app
-    vite.config.ts              # Build config — outputs to dist/dashboard/
-    index.html                  # SPA entry point
-    src/
-      main.ts                   # App bootstrap, router, WS connection
-      api.ts                    # Typed fetch wrappers for /api/* endpoints
-      ws.ts                     # WebSocket client for /ws/live
-      views/
-        AtlasExplorer.ts        # V1: 3D causal atlas (Three.js force graph)
-        CoherenceHeatmap.ts     # V2: Coherence field surface + cut pressure
-        PlanetDashboard.ts      # V3: Planet candidates + light curves + 3D orbit
-        LifeDashboard.ts        # V4: Life candidates + spectra + molecule graph
-        StatusDashboard.ts      # V5: System health, downloads, witness log
-      three/
-        AtlasGraph.ts           # InstancedMesh nodes, LineSegments edges, particles
-        CoherenceSurface.ts     # PlaneGeometry with vertex-colored field
-        OrbitPreview.ts         # Orbital path visualization
-        CausalFlow.ts           # Animated particles along causal edges
-        LODController.ts        # Level-of-detail: boundary → top-k → full
-      charts/
-        LightCurveChart.ts      # D3 flux time series with transit overlay
-        SpectrumChart.ts        # D3 wavelength vs flux with molecule bands
-        RadarChart.ts           # Score breakdown radar
-        MoleculeMatrix.ts       # Heatmap of molecule presence vs confidence
-      components/
-        Sidebar.ts              # Candidate list, filters, search
-        TimeScrubber.ts         # Epoch scrubber for coherence replay
-        WitnessLog.ts           # Scrolling witness chain entries
-        DownloadProgress.ts     # Tier progress bars
-      styles/
-        main.css                # Minimal Tailwind or hand-rolled styles
+  dashboard/                    # See ADR-040a for full dashboard tree
   tests/
     causal-atlas.test.ts
     planet-detection.test.ts
@@ -854,28 +361,11 @@ packages/agentdb-causal-atlas/
     progressive-download.test.ts
     coherence-field.test.ts
     boundary-tracker.test.ts
-    dashboard.test.ts           # Dashboard build + API integration tests
 ```
 
 ### Rust Implementation
 
-The pipeline examples are implemented in Rust using the RVF runtime crates:
-
-| Crate | Role |
-|-------|------|
-| `rvf-types` | Core types, segment definitions, derivation types |
-| `rvf-runtime` | RvfStore, HNSW indexing, metadata filters, queries |
-| `rvf-crypto` | SHAKE-256 witness chains, verification |
-| `rvf-wire` | Wire format serialization |
-| `rvf-manifest` | Segment manifests and policies |
-| `rvf-index` | Progressive HNSW index construction |
-| `rvf-quant` | Vector quantization (PQ, SQ) |
-| `rvf-kernel` | Kernel/initrd segment embedding |
-| `rvf-launch` | Boot sequence and runtime launch |
-| `rvf-ebpf` | eBPF socket/syscall policies |
-| `rvf-server` | HTTP/WS server for dashboard and API |
-
-Examples location: `examples/rvf/examples/`
+> See [ADR-040b](ADR-040b-microlensing-graphcut-extensions.md#rust-implementation) for the full Rust crate table. Examples location: `examples/rvf/examples/`
 
 ## Implementation Phases
 
@@ -883,55 +373,45 @@ Examples location: `examples/rvf/examples/`
 
 **Scope**: Kepler and TESS only. No spectra. No life scoring.
 
-1. Implement `ProgressiveDownloader` with tier-0 curated dataset (100 Kepler targets)
-2. Implement `PlanetTransitAdapter` for FITS light curve ingestion
-3. Implement `CausalAtlas` with windowing, feature extraction, SIMD embedding
-4. Implement `PlanetDetection` pipeline (P0-P2)
-5. Implement `WITNESS_SEG` with SHAKE-256 chain
+1. `ProgressiveDownloader` with tier-0 curated dataset (100 Kepler targets)
+2. `PlanetTransitAdapter` for FITS light curve ingestion
+3. `CausalAtlas` with windowing, feature extraction, SIMD embedding
+4. `PlanetDetection` pipeline (P0-P2)
+5. `WITNESS_SEG` with SHAKE-256 chain
 6. CLI: `rvf run`, `rvf query planet list`, `rvf trace`
 7. HTTP: `/api/candidates/planet`, `/api/atlas/trace`
-8. Dashboard: Vite scaffold, V1 Atlas Explorer (Three.js 3D graph), V3 Planet
-   Dashboard (ranked list + light curve chart), V5 Status Dashboard (download
-   progress + witness log). Embedded in `DASHBOARD_SEG`, served at `/`
-9. WebSocket `/ws/live` for real-time pipeline progress
+8. Dashboard shell: V1, V3, V5 views (see ADR-040a), WebSocket `/ws/live`
 
 **Acceptance**: 1,000 Kepler targets, top-100 ranked list includes >= 80
 confirmed planets, every item replays to same score and witness root on two
-machines. Dashboard renders atlas graph and candidate list in browser.
+machines.
 
-### Phase 2: Coherence Field + Boundary Tracker + Dashboard V2 (v0.2)
+### Phase 2: Coherence Field + Boundary Tracker (v0.2)
 
-1. Implement `CoherenceField` with dynamic min-cut, partition entropy
-2. Implement `BoundaryTracker` with timeline and alerts
-3. Implement `MultiScaleMemory` with S/M/L tiers and budget control
-4. Add coherence gating to planet pipeline
+1. `CoherenceField` with dynamic min-cut, partition entropy
+2. `BoundaryTracker` with timeline and alerts
+3. `MultiScaleMemory` with S/M/L tiers and budget control
+4. Coherence gating added to planet pipeline
 5. HTTP: `/api/coherence`, `/api/boundary/*`, `/api/memory/tiers`
-6. Dashboard: V2 Coherence Heatmap (Three.js field surface + cut pressure
-   overlay + time scrubber), boundary alert markers via WebSocket
+6. Dashboard V2 Coherence Heatmap (see ADR-040a)
 
-### Phase 3: Life Candidate Pipeline + Dashboard V4 (v0.3)
+### Phase 3: Life Candidate Pipeline (v0.3)
 
-1. Implement `SpectrumAdapter` for JWST/archive spectral data
-2. Implement `LifeCandidate` pipeline (L0-L2)
-3. Implement disequilibrium scoring with reaction plausibility graph
-4. Tier-3 progressive download for spectral data
-5. CLI: `rvf query life list`
-6. HTTP: `/api/candidates/life`
-7. Dashboard: V4 Life Dashboard (spectrum viewer + molecule presence matrix
-   + reaction graph + confound panel)
+1. `SpectrumAdapter` for JWST/archive spectral data
+2. `LifeCandidate` pipeline (L0-L2) with disequilibrium scoring
+3. Tier-3 progressive download for spectral data
+4. CLI: `rvf query life list`; HTTP: `/api/candidates/life`
+5. Dashboard V4 Life Dashboard (see ADR-040a)
 
-**Acceptance**: Published spectra with known atmospheric detections vs nulls,
-AUC > 0.8, every score includes confound penalties and provenance trace.
-Dashboard renders spectrum analysis in browser.
+**Acceptance**: AUC > 0.8 on published spectra with known atmospheric
+detections vs nulls, every score includes confound penalties and provenance.
 
 ### Phase 4: Cosmic Web + Full Integration (v0.4)
 
 1. `CosmicWebAdapter` for SDSS spatial graph
 2. Cross-domain coherence (planet candidates enriched by large-scale context)
-3. Dashboard: 3D cosmic web view, cross-domain candidate linking
-4. Full offline demo with sealed RVF snapshot
-5. `rvf ingest --expand` for tier-2 bulk download
-6. Dashboard polish: LOD optimization, mobile-responsive layout, dark/light theme
+3. Full offline demo with sealed RVF snapshot
+4. `rvf ingest --expand` for tier-2 bulk download
 
 ## Evaluation Plan
 
