@@ -343,7 +343,8 @@ fn anomaly_score(f: &Flow) -> f64 {
     let high_ent = if ent > 6.5 { (ent - 6.5) * 0.5 } else { 0.0 };
     let short_burst = if dur < 2.0 && f.pkts_sent > 10 { 0.5 } else { 0.0 };
 
-    0.2 * syn_no_ack + rst_p + night + high_vol + low_pkt + high_pps + high_ent + short_burst - 0.4
+    let internal_to_internal = if f.src_subnet == f.dst_subnet && f.dst_port > 1024 { 0.3 } else { 0.0 };
+    0.3 * syn_no_ack + rst_p + night + high_vol + low_pkt + high_pps + high_ent + short_burst + internal_to_internal - 0.35
 }
 
 struct Edge { from: usize, to: usize, weight: f64 }

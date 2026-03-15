@@ -174,7 +174,7 @@ fn unary(st: &Station, s: &Stats) -> f64 {
     let cf = ((st.co2-420.0).abs()/20.0).max(0.0);
     let sz = if st.coastal {((st.sst-s.sm)/s.ss.max(1e-6)).abs()} else {0.0};
     let nz = ((st.ndvi-s.nm)/s.ns.max(1e-6)).abs();
-    0.3*tz + 0.15*hz + 0.1*pz + 0.2*af + 0.1*cf + 0.15*sz + 0.1*nz - 1.2
+    0.3*tz + 0.15*hz + 0.1*pz + 0.2*af + 0.1*cf + 0.15*sz + 0.1*nz - 0.95
 }
 
 fn cosine(a: &[f32], b: &[f32]) -> f64 {
