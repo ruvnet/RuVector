@@ -76,78 +76,108 @@ function wasmAddWitnessEntry(action: string, data: unknown): string {
 /**
  * Auto-fill missing required parameters with sensible defaults
  * This intercepts empty {} calls and provides reasonable values
+ * Returns both filled args AND a notice about what was auto-filled
  */
 function autoFillMissingParams(
 	toolName: string,
 	args: Record<string, unknown>
-): Record<string, unknown> {
+): { filled: Record<string, unknown>; autoFilledNotice: string | null } {
 	const filled = { ...args };
+	const autoFilled: string[] = [];
 
 	switch (toolName) {
 		case "read_file":
 		case "delete_file":
 			if (!filled.path) {
-				// Use first available file, or provide a sample path
 				const files = Array.from(wasmVirtualFS.keys());
 				filled.path = files[0] || "example.txt";
+				autoFilled.push(`path="${filled.path}"`);
 			}
 			break;
 
 		case "write_file":
-			if (!filled.path) filled.path = "untitled.txt";
-			if (filled.content === undefined) filled.content = "";
+			if (!filled.path) {
+				filled.path = "untitled.txt";
+				autoFilled.push(`path="${filled.path}"`);
+			}
+			if (filled.content === undefined) {
+				filled.content = "";
+				autoFilled.push(`content=""`);
+			}
 			break;
 
 		case "edit_file":
 			if (!filled.path) {
 				const files = Array.from(wasmVirtualFS.keys());
 				filled.path = files[0] || "example.txt";
+				autoFilled.push(`path="${filled.path}"`);
 			}
-			// Can't auto-fill old_content/new_content meaningfully - these need user input
 			break;
 
 		case "grep":
 		case "glob":
-			if (!filled.pattern) filled.pattern = "*";
+			if (!filled.pattern) {
+				filled.pattern = "*";
+				autoFilled.push(`pattern="*"`);
+			}
 			break;
 
 		case "todo_add":
-			if (!filled.task) filled.task = "New task";
+			if (!filled.task) {
+				filled.task = "New task";
+				autoFilled.push(`task="New task"`);
+			}
 			break;
 
 		case "todo_complete":
 			if (!filled.id) {
-				// Use first incomplete todo
 				const incomplete = wasmTodoList.find(t => !t.completed);
 				filled.id = incomplete?.id || "todo-1";
+				autoFilled.push(`id="${filled.id}"`);
 			}
 			break;
 
 		case "memory_store":
-			if (!filled.key) filled.key = `memory-${Date.now()}`;
-			if (!filled.value) filled.value = "";
+			if (!filled.key) {
+				filled.key = `memory-${Date.now()}`;
+				autoFilled.push(`key="${filled.key}"`);
+			}
 			break;
 
 		case "memory_search":
-			if (!filled.query) filled.query = "*";
+			if (!filled.query) {
+				filled.query = "*";
+				autoFilled.push(`query="*"`);
+			}
 			break;
 
 		case "witness_log":
-			if (!filled.action) filled.action = "manual-entry";
+			if (!filled.action) {
+				filled.action = "manual-entry";
+				autoFilled.push(`action="manual-entry"`);
+			}
 			break;
 
 		case "gallery_load":
-			if (!filled.id) filled.id = "development-agent";
+			if (!filled.id) {
+				filled.id = "development-agent";
+				autoFilled.push(`id="development-agent"`);
+			}
 			break;
 
 		case "gallery_search":
-			if (!filled.query) filled.query = "agent";
+			if (!filled.query) {
+				filled.query = "agent";
+				autoFilled.push(`query="agent"`);
+			}
 			break;
-
-		// list_files, todo_list, gallery_list, witness_verify have no required params
 	}
 
-	return filled;
+	const notice = autoFilled.length > 0
+		? `[AUTO-FILLED: ${autoFilled.join(", ")}. Next time pass your own values, e.g. ${toolName}({${autoFilled.map(a => a.replace('=', ': ')).join(', ')}})]`
+		: null;
+
+	return { filled, autoFilledNotice: notice };
 }
 
 /**
@@ -160,10 +190,14 @@ function executeWasmTool(
 ): { success: boolean; result: string; error?: string } {
 	try {
 		// Auto-fill missing required parameters with sensible defaults
-		const filledArgs = autoFillMissingParams(toolName, args);
+		const { filled: filledArgs, autoFilledNotice } = autoFillMissingParams(toolName, args);
 
 		// Log to witness chain for audit (with filled args)
 		wasmAddWitnessEntry(`tool:${toolName}`, { args: filledArgs });
+
+		// Helper to append notice to successful results
+		const withNotice = (result: string) =>
+			autoFilledNotice ? `${result}\n\n${autoFilledNotice}` : result;
 
 		switch (toolName) {
 			// ================================
@@ -180,7 +214,7 @@ function executeWasmTool(
 					const hint = availableFiles.length > 0 ? ` Available files: ${availableFiles.join(", ")}` : " Use list_files to see available files.";
 					return { success: false, result: "", error: `File not found: ${path}.${hint}` };
 				}
-				return { success: true, result: content };
+				return { success: true, result: withNotice(content) };
 			}
 
 			case "write_file": {
@@ -189,9 +223,8 @@ function executeWasmTool(
 				if (!path) {
 					return { success: false, result: "", error: "ERROR: 'path' is required. Example: write_file({path: 'hello.txt', content: 'Hello World'})" };
 				}
-				// content can be empty string (valid), but undefined means missing
 				wasmVirtualFS.set(path, content);
-				return { success: true, result: `Successfully wrote ${content.length} bytes to ${path}` };
+				return { success: true, result: withNotice(`Successfully wrote ${content.length} bytes to ${path}`) };
 			}
 
 			case "list_files": {
@@ -258,7 +291,7 @@ function executeWasmTool(
 							}
 						});
 					}
-					return { success: true, result: results.length > 0 ? results.join("\n") : "No matches found" };
+					return { success: true, result: withNotice(results.length > 0 ? results.join("\n") : "No matches found") };
 				} catch (e) {
 					return { success: false, result: "", error: `Invalid regex: ${pattern}` };
 				}
@@ -272,7 +305,7 @@ function executeWasmTool(
 				const globPattern = pattern.replace(/\*/g, ".*").replace(/\?/g, ".");
 				const regex = new RegExp(`^${globPattern}$`);
 				const matches = Array.from(wasmVirtualFS.keys()).filter(f => regex.test(f));
-				return { success: true, result: matches.length > 0 ? matches.join("\n") : "No matches found" };
+				return { success: true, result: withNotice(matches.length > 0 ? matches.join("\n") : "No matches found") };
 			}
 
 			// ================================
@@ -285,7 +318,7 @@ function executeWasmTool(
 				}
 				const id = `todo-${wasmTodoIdCounter++}`;
 				wasmTodoList.push({ id, task, completed: false, created: Date.now() });
-				return { success: true, result: `Added task: ${task} (id: ${id})` };
+				return { success: true, result: withNotice(`Added task: ${task} (id: ${id})`) };
 			}
 
 			case "todo_list": {
@@ -337,7 +370,7 @@ function executeWasmTool(
 						.map(m => `[${m.key}] ${m.value.slice(0, 100)}${m.value.length > 100 ? "..." : ""}`);
 					return {
 						success: true,
-						result: allMemories.length > 0 ? `All memories:\n${allMemories.join("\n")}` : "No memories stored"
+						result: withNotice(allMemories.length > 0 ? `All memories:\n${allMemories.join("\n")}` : "No memories stored")
 					};
 				}
 				const topK = typeof filledArgs.top_k === "number" ? filledArgs.top_k : 5;
@@ -351,7 +384,7 @@ function executeWasmTool(
 					.map(m => `[${m.key}] ${m.value.slice(0, 100)}${m.value.length > 100 ? "..." : ""}`);
 				return {
 					success: true,
-					result: results.length > 0 ? `Found ${results.length} results:\n${results.join("\n")}` : "No memories found"
+					result: withNotice(results.length > 0 ? `Found ${results.length} results:\n${results.join("\n")}` : "No memories found")
 				};
 			}
 
@@ -405,7 +438,7 @@ function executeWasmTool(
 					return { success: false, result: "", error: `Template not found: ${id}. Available: ${available}` };
 				}
 				wasmActiveTemplateId = id;
-				return { success: true, result: `Loaded template: ${template.name}\nDescription: ${template.description}\nCategory: ${template.category}` };
+				return { success: true, result: withNotice(`Loaded template: ${template.name}\nDescription: ${template.description}\nCategory: ${template.category}`) };
 			}
 
 			case "gallery_search": {
@@ -419,10 +452,10 @@ function executeWasmTool(
 					t.tags.some(tag => tag.toLowerCase().includes(query))
 				);
 				if (matches.length === 0) {
-					return { success: true, result: "No templates found matching your query" };
+					return { success: true, result: withNotice("No templates found matching your query") };
 				}
 				const list = matches.map(t => `- ${t.id}: ${t.name}\n  ${t.description}`).join("\n");
-				return { success: true, result: `Found ${matches.length} templates:\n${list}` };
+				return { success: true, result: withNotice(`Found ${matches.length} templates:\n${list}`) };
 			}
 
 			default:
