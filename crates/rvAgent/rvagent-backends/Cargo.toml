@@ -24,7 +24,7 @@ walkdir = "2.5"
 grep-regex = "0.1"
 grep-searcher = "0.1"
 base64 = "0.22"
-reqwest = { version = "0.12", features = ["json"] }
+reqwest = { version = "0.12", features = ["json", "native-tls"] }
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"

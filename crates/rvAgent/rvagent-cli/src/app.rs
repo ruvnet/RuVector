@@ -8,7 +8,7 @@ use std::sync::Arc;
 
 use anyhow::{Context, Result};
 use async_trait::async_trait;
-use tracing::info;
+use tracing::{info, warn};
 
 use rvagent_core::config::{
     BackendConfig, MiddlewareConfig, RvAgentConfig, SecurityPolicy,
@@ -80,6 +80,34 @@ impl ChatModel for StubModel {
     async fn stream(&self, messages: &[Message]) -> rvagent_core::error::Result<Vec<Message>> {
         let msg = self.complete(messages).await?;
         Ok(vec![msg])
+    }
+}
+
+// ---------------------------------------------------------------------------
+// CliModel — enum wrapper for supported model backends
+// ---------------------------------------------------------------------------
+
+/// Enum wrapper for supported model backends.
+/// This allows AgentGraph to work with multiple model types without trait objects.
+enum CliModel {
+    Stub(StubModel),
+    Anthropic(rvagent_backends::anthropic::AnthropicClient),
+}
+
+#[async_trait]
+impl ChatModel for CliModel {
+    async fn complete(&self, messages: &[Message]) -> rvagent_core::error::Result<Message> {
+        match self {
+            CliModel::Stub(m) => m.complete(messages).await,
+            CliModel::Anthropic(m) => m.complete(messages).await,
+        }
+    }
+
+    async fn stream(&self, messages: &[Message]) -> rvagent_core::error::Result<Vec<Message>> {
+        match self {
+            CliModel::Stub(m) => m.stream(messages).await,
+            CliModel::Anthropic(m) => m.stream(messages).await,
+        }
     }
 }
 
@@ -571,23 +599,36 @@ impl App {
         };
 
         // Use StubModel when no API key is configured.
-        // When a real HTTP client crate (e.g. rvagent-anthropic) is available,
-        // the `has_api_key` branch should instantiate the real client instead.
-        let model = if has_api_key {
-            // TODO: Replace with real AnthropicClient / OpenAI client once
-            // the provider crate is implemented. For now, use stub with a
-            // message that acknowledges the key is present but the client
-            // is not yet wired.
-            info!(
-                provider = ?model_config.provider,
-                "API key found but HTTP client not yet implemented; using stub"
-            );
-            StubModel::new(&format!(
-                "{} (API key found, HTTP client pending implementation)",
-                self.config.model
-            ))
+        // When API key is available, use the real AnthropicClient.
+        let model: CliModel = if has_api_key {
+            match &model_config.provider {
+                rvagent_core::models::Provider::Anthropic => {
+                    info!(
+                        provider = ?model_config.provider,
+                        model_id = ?model_config.model_id,
+                        "Using AnthropicClient with API key"
+                    );
+                    match rvagent_backends::anthropic::AnthropicClient::new(model_config.clone()) {
+                        Ok(client) => CliModel::Anthropic(client),
+                        Err(e) => {
+                            warn!("Failed to create AnthropicClient: {e}; falling back to stub");
+                            CliModel::Stub(StubModel::new(&format!(
+                                "{} (client error: {})",
+                                self.config.model, e
+                            )))
+                        }
+                    }
+                }
+                _ => {
+                    info!(
+                        provider = ?model_config.provider,
+                        "Provider not yet implemented; using stub"
+                    );
+                    CliModel::Stub(StubModel::new(&self.config.model))
+                }
+            }
         } else {
-            StubModel::new(&self.config.model)
+            CliModel::Stub(StubModel::new(&self.config.model))
         };
 
         let graph = AgentGraph::new(model, tool_executor);

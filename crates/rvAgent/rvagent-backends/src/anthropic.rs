@@ -259,13 +259,20 @@ impl AnthropicClient {
                 tokio::time::sleep(backoff).await;
             }
 
+            // Serialize the request body to JSON string first for better error handling
+            let body_json = serde_json::to_string(request_body).map_err(|e| {
+                RvAgentError::model(format!("failed to serialize request body: {e}"))
+            })?;
+
+            debug!(body = %body_json, "Sending Anthropic API request");
+
             let result = self
                 .http
                 .post(url)
                 .header("x-api-key", &self.api_key)
                 .header("anthropic-version", ANTHROPIC_VERSION)
                 .header("content-type", "application/json")
-                .json(request_body)
+                .body(body_json)
                 .send()
                 .await;
 
