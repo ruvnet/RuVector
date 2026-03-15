@@ -139,6 +139,11 @@ impl ErrorResponse {
         Self::new("unauthorized", message, 401)
     }
 
+    /// 403 Forbidden.
+    pub fn forbidden(message: impl Into<String>) -> Self {
+        Self::new("forbidden", message, 403)
+    }
+
     /// 404 Not Found.
     pub fn not_found(message: impl Into<String>) -> Self {
         Self::new("not_found", message, 404)

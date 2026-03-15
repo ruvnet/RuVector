@@ -23,6 +23,11 @@ const SENSITIVE_ENV_PATTERNS: &[&str] = &[
     "GCP_",
     "DATABASE_URL",
     "PRIVATE",
+    "API_KEY",
+    "AUTH",
+    "BEARER",
+    "JWT",
+    "SESSION",
 ];
 
 /// Safe environment variables that are explicitly allowed.
@@ -346,6 +351,11 @@ mod tests {
         assert!(is_sensitive_env_var("PRIVATE_KEY"));
         assert!(is_sensitive_env_var("my_password"));
         assert!(is_sensitive_env_var("credential_file"));
+        assert!(is_sensitive_env_var("OPENAI_API_KEY"));
+        assert!(is_sensitive_env_var("OAUTH_TOKEN"));
+        assert!(is_sensitive_env_var("BEARER_TOKEN"));
+        assert!(is_sensitive_env_var("JWT_SECRET"));
+        assert!(is_sensitive_env_var("SESSION_ID"));
     }
 
     #[test]

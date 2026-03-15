@@ -42,6 +42,9 @@ Client (mcp-brain / npx ruvector / curl)
 │  ├── pipeline.rs   RVF container builder    │
 │  ├── midstream.rs  Midstream platform       │
 │  ├── cognitive.rs  Cognitive engine          │
+│  ├── voice.rs      Internal voice (ADR-110)  │
+│  ├── symbolic.rs   Neural-symbolic bridge    │
+│  ├── optimizer.rs  Gemini Flash optimizer    │
 │  ├── drift.rs      Drift monitoring          │
 │  ├── reputation.rs Multi-factor reputation   │
 │  ├── aggregate.rs  Byzantine aggregation     │
@@ -126,6 +129,21 @@ All endpoints under `/v1/` require `Authorization: Bearer <key>` except `/v1/hea
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
 | GET | `/v1/midstream` | Yes | Midstream platform diagnostics |
+
+### Cognitive Layer (ADR-110)
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/v1/cognitive/status` | Yes | Cognitive layer status and metrics |
+| GET | `/v1/voice/working` | Yes | Working memory contents |
+| GET | `/v1/voice/history` | Yes | Internal thought history |
+| POST | `/v1/voice/goal` | Yes | Set current goal |
+| GET | `/v1/propositions` | Yes | List grounded propositions |
+| POST | `/v1/reason` | Yes | Symbolic inference with Horn clauses |
+| POST | `/v1/ground` | Yes | Ground a new proposition |
+| POST | `/v1/train/enhanced` | Yes | Enhanced training with propositions |
+| GET | `/v1/optimizer/status` | Yes | Gemini optimizer status |
+| POST | `/v1/optimize` | Yes | Trigger Gemini Flash optimization |
 
 ### MCP SSE Transport (ADR-066)
 
@@ -424,7 +442,7 @@ options:
 
 ```bash
 cargo test
-# 59 tests covering:
+# 76 tests covering:
 # - Cognitive stack (Hopfield, HDC, dentate separation, mincut, PPR)
 # - SONA learning (embedding, trajectory, patterns)
 # - Witness chain construction and verification
@@ -434,6 +452,9 @@ cargo test
 # - End-to-end share pipeline
 # - Meta-learning (curiosity, regret, plateau)
 # - Midstream integration (scheduler, attractor, strange-loop, solver)
+# - Internal voice (working memory, Miller's Law, attention decay)
+# - Neural-symbolic bridge (propositions, Horn clauses, inference)
+# - Gemini optimizer (rule refinement, quality assessment)
 ```
 
 ## License

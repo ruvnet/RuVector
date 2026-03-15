@@ -1,0 +1,289 @@
+@import "./highlight-js.css";
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* RuVector Theme - inspired by pi.ruv.io */
+:root {
+	--rv-bg: #020205;
+	--rv-surface: rgba(255, 255, 255, 0.02);
+	--rv-surface2: rgba(255, 255, 255, 0.035);
+	--rv-border: rgba(255, 255, 255, 0.05);
+	--rv-border-h: rgba(255, 255, 255, 0.1);
+	--rv-gold: #e8a634;
+	--rv-gold-dim: rgba(232, 166, 52, 0.12);
+	--rv-gold-soft: rgba(232, 166, 52, 0.06);
+	--rv-text: #f5f3f0;
+	--rv-text2: rgba(255, 255, 255, 0.75);
+	--rv-text3: rgba(255, 255, 255, 0.5);
+	--sans: 'Inter', system-ui, -apple-system, sans-serif;
+	--mono: ui-monospace, 'SF Mono', 'Cascadia Code', 'Fira Code', monospace;
+}
+
+html,
+body {
+	overscroll-behavior: none;
+	touch-action: pan-x pan-y;
+}
+
+/* Dark mode background - match pi.ruv.io #020205 */
+.dark body,
+.dark #app {
+	background: var(--rv-bg) !important;
+}
+
+/* Subtle radial gold glow at center (like pi.ruv.io) */
+.dark body::after {
+	content: '';
+	position: fixed;
+	top: 50%;
+	left: 50%;
+	width: 120vmax;
+	height: 120vmax;
+	z-index: 0;
+	pointer-events: none;
+	transform: translate(-50%, -50%);
+	background: radial-gradient(ellipse at center, rgba(232, 166, 52, 0.03) 0%, transparent 60%);
+}
+
+/* Pi.ruv.io animations */
+@keyframes pulse-glow {
+	0%, 100% { opacity: 0.8; filter: drop-shadow(0 0 6px var(--rv-gold)); }
+	50% { opacity: 0.5; filter: drop-shadow(0 0 2px var(--rv-gold)); }
+}
+
+@keyframes pixelIn {
+	0% { filter: blur(8px); opacity: 0; transform: scale(1.1); }
+	30% { filter: blur(4px); opacity: 0.5; }
+	60% { filter: blur(1px); opacity: 0.8; }
+	100% { filter: blur(0); opacity: 1; transform: scale(1); }
+}
+
+@keyframes charReveal {
+	from { opacity: 0; color: var(--rv-gold-dim); }
+	to { opacity: 1; color: var(--rv-gold); }
+}
+
+@keyframes float {
+	0%, 100% { transform: translateY(0); }
+	50% { transform: translateY(-4px); }
+}
+
+/* Pi.ruv.io text glow effect */
+.text-glow {
+	background: linear-gradient(135deg, var(--rv-gold), #f0d89a);
+	-webkit-background-clip: text;
+	-webkit-text-fill-color: transparent;
+	background-clip: text;
+}
+
+/* Pi.ruv.io primary button style */
+.btn-rv-fill {
+	background: var(--rv-gold);
+	color: var(--rv-bg);
+	padding: 10px 24px;
+	border-radius: 6px;
+	font-size: 0.875rem;
+	font-weight: 500;
+	cursor: pointer;
+	transition: all 0.3s;
+}
+
+.btn-rv-fill:hover {
+	box-shadow: 0 0 50px rgba(232, 166, 52, 0.2);
+	transform: translateY(-1px);
+}
+
+/* Pi.ruv.io secondary button style */
+.btn-rv-line {
+	background: transparent;
+	color: var(--rv-text3);
+	border: 1px solid var(--rv-border-h);
+	padding: 10px 24px;
+	border-radius: 6px;
+	transition: all 0.3s;
+}
+
+.btn-rv-line:hover {
+	color: var(--rv-text2);
+	border-color: var(--rv-text3);
+}
+
+/* Pi.ruv.io card hover effect */
+.card-rv {
+	transition: all 0.4s ease;
+}
+
+.card-rv:hover {
+	background: var(--rv-surface2);
+	border-color: var(--rv-border-h);
+	transform: translateY(-2px);
+}
+
+/* Animate elements on scroll/load */
+.animate-in {
+	animation: pixelIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.pulse-gold {
+	animation: pulse-glow 4s ease infinite;
+}
+
+/* Gold scrollbars in dark mode */
+.dark ::-webkit-scrollbar {
+	width: 8px;
+	height: 8px;
+}
+.dark ::-webkit-scrollbar-track {
+	background: #0a0a0f;
+}
+.dark ::-webkit-scrollbar-thumb {
+	background: rgba(232, 166, 52, 0.4);
+	border-radius: 4px;
+	border: 1px solid #0a0a0f;
+}
+.dark ::-webkit-scrollbar-thumb:hover {
+	background: rgba(232, 166, 52, 0.6);
+}
+.dark ::-webkit-scrollbar-corner {
+	background: #0a0a0f;
+}
+html.dark {
+	scrollbar-color: rgba(232, 166, 52, 0.4) #0a0a0f;
+	scrollbar-width: thin;
+}
+
+@layer components {
+	.btn {
+		@apply inline-flex flex-shrink-0 cursor-pointer select-none items-center justify-center whitespace-nowrap outline-none transition-all focus:ring disabled:cursor-default;
+	}
+
+	.active-model {
+		/* Ensure active border wins over defaults/utilities in both themes */
+		@apply !border-black dark:!border-white/60;
+	}
+
+	.file-hoverable {
+		@apply hover:bg-gray-500/10;
+	}
+
+	.base-tool {
+		@apply flex h-[1.6rem] items-center gap-[.2rem] whitespace-nowrap border border-transparent text-xs outline-none transition-all focus:outline-none active:outline-none dark:hover:text-gold-400 sm:hover:text-gold-600;
+	}
+
+	.active-tool {
+		@apply rounded-full !border-gold-300 bg-gold-100 pl-1 pr-2 text-gold-700 hover:text-gold-700 dark:!border-gold-600 dark:bg-gold-600/30 dark:text-gold-300;
+	}
+}
+
+@layer utilities {
+	/* your existing utilities */
+	.scrollbar-custom {
+		@apply scrollbar-thin scrollbar-track-transparent scrollbar-thumb-black/10 scrollbar-thumb-rounded-full scrollbar-w-1 hover:scrollbar-thumb-black/20 dark:scrollbar-thumb-white/10 dark:hover:scrollbar-thumb-white/20;
+	}
+
+	.scrollbar-custom::-webkit-scrollbar {
+		background-color: transparent;
+		width: 8px;
+		height: 8px;
+	}
+
+	.scrollbar-custom::-webkit-scrollbar-thumb {
+		background-color: rgba(0, 0, 0, 0.1);
+		border-radius: 9999px;
+	}
+
+	.dark .scrollbar-custom::-webkit-scrollbar {
+		background-color: rgba(17, 17, 17, 0.85);
+	}
+
+	.dark .scrollbar-custom::-webkit-scrollbar-thumb {
+		background-color: rgba(255, 255, 255, 0.1);
+	}
+
+	/* Rounded top/bottom caps for vertical scrollbars (Chrome/Edge/Safari) */
+	.scrollbar-custom::-webkit-scrollbar-track {
+		@apply rounded-full bg-clip-padding; /* clip bg to padding so caps look round */
+		/* space for the end caps — tweak with Tailwind spacing */
+		border-top: theme("spacing.2") solid transparent; /* 0.5rem */
+		border-bottom: theme("spacing.2") solid transparent; /* 0.5rem */
+	}
+
+	/* Rounded left/right caps for horizontal scrollbars */
+	.scrollbar-custom::-webkit-scrollbar-track:horizontal {
+		@apply rounded-full bg-clip-padding;
+		border-left: theme("spacing.2") solid transparent;
+		border-right: theme("spacing.2") solid transparent;
+		border-top-width: 0;
+		border-bottom-width: 0;
+	}
+
+	.no-scrollbar {
+		@apply [-ms-overflow-style:none] [scrollbar-width:none] [&::-ms-scrollbar]:hidden [&::-webkit-scrollbar]:hidden;
+	}
+
+	.prose table {
+		@apply block max-w-full overflow-x-auto scrollbar-thin scrollbar-track-transparent scrollbar-thumb-black/10 scrollbar-thumb-rounded-full scrollbar-w-1 hover:scrollbar-thumb-black/20 dark:scrollbar-thumb-white/10 dark:hover:scrollbar-thumb-white/20;
+	}
+
+	/* .scrollbar-custom {
+		@apply scrollbar-thin scrollbar-track-transparent scrollbar-thumb-black/10 scrollbar-thumb-rounded-full scrollbar-w-1 hover:scrollbar-thumb-black/20 dark:scrollbar-thumb-white/10 dark:hover:scrollbar-thumb-white/20;
+	} */
+	.prose hr {
+		@apply my-4;
+	}
+
+	.prose strong {
+		@apply font-medium;
+	}
+
+	.prose pre {
+		@apply border-[0.5px] bg-white text-gray-600 dark:border-gray-700 dark:!bg-gray-900 dark:bg-inherit dark:text-inherit;
+	}
+
+	.prose code:not(pre code) {
+		@apply rounded-md bg-gray-200/60 px-[0.4em] py-[0.2em] text-[85%] dark:bg-gray-700;
+	}
+
+	.prose code:not(pre code)::before,
+	.prose code:not(pre code)::after {
+		content: none;
+	}
+
+	/* Override prose-sm title sizes - 75% of original */
+	.prose-sm :where(h1):not(:where([class~="not-prose"], [class~="not-prose"] *)) {
+		font-size: 1.6em; /* 75% */
+		@apply font-semibold;
+	}
+
+	.prose-sm :where(h2):not(:where([class~="not-prose"], [class~="not-prose"] *)) {
+		font-size: 1.07em; /* 75% */
+		@apply font-semibold;
+	}
+
+	.prose-sm :where(h3):not(:where([class~="not-prose"], [class~="not-prose"] *)) {
+		font-size: 0.96em; /* 75% */
+		@apply font-semibold;
+	}
+
+	.prose-sm :where(h4):not(:where([class~="not-prose"], [class~="not-prose"] *)) {
+		font-size: 0.8em; /* 75% */
+		@apply font-semibold;
+	}
+
+	.prose-sm :where(h5):not(:where([class~="not-prose"], [class~="not-prose"] *)) {
+		font-size: 0.75em; /* 75% */
+		@apply font-semibold;
+	}
+
+	.prose-sm :where(h6):not(:where([class~="not-prose"], [class~="not-prose"] *)) {
+		font-size: 0.7em; /* 75% */
+		@apply font-semibold;
+	}
+}
+
+.katex-display {
+	overflow: auto hidden;
+}

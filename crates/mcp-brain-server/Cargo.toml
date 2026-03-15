@@ -69,5 +69,9 @@ rvf-runtime = { path = "../rvf/rvf-runtime" }
 # Note: temporal-compare is binary-only (no lib.rs) — cannot be used as library dep
 nanosecond-scheduler = "0.1"
 temporal-attractor-studio = "0.1"
-temporal-neural-solver = "0.1"
+temporal-neural-solver = { version = "0.1", optional = true }  # x86_64 only
 strange-loop = "0.3"
+
+[features]
+default = []
+x86-simd = ["temporal-neural-solver"]  # Enable on x86_64 systems

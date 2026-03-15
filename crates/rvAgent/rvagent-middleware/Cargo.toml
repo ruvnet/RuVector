@@ -6,6 +6,11 @@ description = "rvAgent middleware — pipeline, todolist, filesystem, subagents,
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/ruvnet/RuVector"
 
+[features]
+default = []
+sona = ["ruvector-sona"]
+hnsw = []
+
 [dependencies]
 rvagent-core = { path = "../rvagent-core" }
 rvagent-backends = { path = "../rvagent-backends" }
@@ -23,6 +28,10 @@ parking_lot = { workspace = true }
 async-trait = "0.1"
 smallvec = { version = "1.13", features = ["serde"] }
 sha3 = "0.10"
+crossbeam = "0.8"
+
+# Optional SONA integration (ADR-103 B5)
+ruvector-sona = { path = "../../sona", optional = true, features = ["serde-support"] }
 
 [dev-dependencies]
 criterion = { workspace = true }

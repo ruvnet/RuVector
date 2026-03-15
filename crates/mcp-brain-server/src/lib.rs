@@ -21,3 +21,6 @@ pub mod tests;
 pub mod midstream;
 pub mod types;
 pub mod verify;
+pub mod voice;
+pub mod symbolic;
+pub mod optimizer;

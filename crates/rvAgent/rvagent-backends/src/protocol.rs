@@ -22,6 +22,10 @@ pub enum FileOperationError {
     InvalidPath,
     #[error("security violation: {0}")]
     SecurityViolation(String),
+    #[error("path escapes root: {0}")]
+    PathEscapesRoot(String),
+    #[error("io error: {0}")]
+    IoError(String),
 }
 
 /// Metadata about a file or directory.

@@ -5,7 +5,7 @@ use crate::graph::cosine_similarity;
 use crate::types::{
     AddEvidenceRequest, AppState, BetaParams, BrainMemory, ChallengeResponse,
     ConsensusLoraWeights, CreatePageRequest, DriftQuery, DriftReport, HealthResponse,
-    ListPagesResponse, ListQuery, ListResponse, ListSort, LoraLatestResponse, LoraSubmission,
+    ListPagesResponse, ListQuery, ListResponse, LoraLatestResponse, LoraSubmission,
     LoraSubmitResponse, PageDelta, PageDetailResponse, PageResponse, PageStatus, PageSummary,
     PartitionQuery, PartitionResult, PartitionResultCompact, PublishNodeRequest, ScoredBrainMemory, SearchQuery,
     ShareRequest, ShareResponse,
@@ -15,13 +15,12 @@ use crate::types::{
     VoteDirection, VoteRequest, WasmNode, WasmNodeSummary,
 };
 use axum::{
-    extract::{ConnectInfo, Path, Query, State},
+    extract::{Path, Query, State},
     http::{HeaderMap, StatusCode},
     response::sse::{Event, KeepAlive, Sse},
     routing::{delete, get, post},
     Json, Router,
 };
-use std::net::SocketAddr;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use tower_http::cors::CorsLayer;
@@ -175,10 +174,20 @@ pub async fn create_router() -> (Router, AppState) {
     // ── Midstream Platform (ADR-077) ──
     let nano_scheduler = Arc::new(crate::midstream::create_scheduler());
     let attractor_results = Arc::new(parking_lot::RwLock::new(std::collections::HashMap::new()));
+    // Temporal solver: x86_64 only (uses AVX2 SIMD)
+    #[cfg(feature = "x86-simd")]
     let temporal_solver = Arc::new(parking_lot::RwLock::new(
         temporal_neural_solver::TemporalSolver::new(
             crate::embeddings::EMBED_DIM,
             64, // hidden size
+            crate::embeddings::EMBED_DIM,
+        ),
+    ));
+    #[cfg(not(feature = "x86-simd"))]
+    let temporal_solver = Arc::new(parking_lot::RwLock::new(
+        crate::types::TemporalSolverStub::new(
+            crate::embeddings::EMBED_DIM,
+            64,
             crate::embeddings::EMBED_DIM,
         ),
     ));
@@ -191,6 +200,21 @@ pub async fn create_router() -> (Router, AppState) {
         rvf_flags.midstream_attractor,
         rvf_flags.midstream_solver,
         rvf_flags.midstream_strange_loop,
+    );
+
+    // ── Neural-Symbolic + Internal Voice (ADR-110) ──
+    let internal_voice = Arc::new(parking_lot::RwLock::new(
+        crate::voice::InternalVoice::default(),
+    ));
+    let neural_symbolic = Arc::new(parking_lot::RwLock::new(
+        crate::symbolic::NeuralSymbolicBridge::default(),
+    ));
+    let optimizer = Arc::new(parking_lot::RwLock::new(
+        crate::optimizer::GeminiOptimizer::default(),
+    ));
+    tracing::info!(
+        "Cognitive layer initialized: internal_voice, neural_symbolic bridge, optimizer={}",
+        optimizer.read().is_configured()
     );
 
     let state = AppState {
@@ -220,6 +244,9 @@ pub async fn create_router() -> (Router, AppState) {
         temporal_solver,
         strange_loop,
         sessions,
+        internal_voice,
+        neural_symbolic,
+        optimizer,
     };
 
     let router = Router::new()
@@ -267,6 +294,18 @@ pub async fn create_router() -> (Router, AppState) {
         // MCP SSE transport
         .route("/sse", get(sse_handler))
         .route("/messages", post(messages_handler))
+        // ── Cognitive Layer (ADR-110) ──
+        .route("/v1/cognitive/status", get(cognitive_status))
+        .route("/v1/voice/working", get(voice_working_memory))
+        .route("/v1/voice/history", get(voice_history))
+        .route("/v1/voice/goal", post(voice_set_goal))
+        .route("/v1/propositions", get(list_propositions))
+        .route("/v1/reason", post(reason_endpoint))
+        .route("/v1/ground", post(ground_proposition))
+        .route("/v1/train/enhanced", post(train_enhanced_endpoint))
+        // ── Gemini Optimizer ──
+        .route("/v1/optimizer/status", get(optimizer_status))
+        .route("/v1/optimize", post(optimize_endpoint))
         .layer({
             // CORS origins: configurable via CORS_ORIGINS env var (comma-separated).
             // Falls back to safe defaults if unset.
@@ -324,6 +363,120 @@ pub fn run_training_cycle(state: &AppState) -> TrainingCycleResult {
         memory_count: state.store.memory_count(),
         vote_count: state.store.vote_count(),
     }
+}
+
+/// Enhanced training result (ADR-110)
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct EnhancedTrainingResult {
+    pub sona_message: String,
+    pub sona_patterns: usize,
+    pub pareto_before: usize,
+    pub pareto_after: usize,
+    pub memory_count: usize,
+    pub vote_count: u64,
+    /// Propositions extracted from clusters
+    pub propositions_extracted: usize,
+    /// Internal voice thoughts during reflection
+    pub voice_thoughts: usize,
+    /// Working memory utilization
+    pub working_memory_load: f64,
+    /// Neural-symbolic rule count
+    pub rule_count: usize,
+}
+
+/// Run enhanced training cycle with neural-symbolic feedback (ADR-110).
+/// Integrates: SONA → Neural-Symbolic Extraction → Internal Voice Reflection
+pub fn run_enhanced_training_cycle(state: &AppState) -> EnhancedTrainingResult {
+    // 1. SONA trajectory learning (existing)
+    let sona_result = state.sona.write().force_learn();
+
+    // 2. Domain evolution (existing)
+    let mut domain = state.domain_engine.write();
+    let pareto_before = domain.meta.pareto.len();
+    domain.evolve_population();
+    let pareto_after = domain.meta.pareto.len();
+    drop(domain);
+
+    // 3. Neural-symbolic rule extraction (ADR-110)
+    let all_memories = state.store.all_memories();
+    let clusters = build_memory_clusters(&all_memories);
+    let propositions_extracted = {
+        let mut ns = state.neural_symbolic.write();
+        let props = ns.extract_from_clusters(&clusters);
+        props.len()
+    };
+
+    // 4. Internal voice reflection (ADR-110)
+    let voice_thoughts = {
+        let mut voice = state.internal_voice.write();
+        let reflections = voice.reflect_on_learning(&sona_result);
+
+        // Record observation about the learning
+        if propositions_extracted > 0 {
+            voice.observe(
+                format!("extracted {} symbolic propositions", propositions_extracted),
+                uuid::Uuid::nil(),
+            );
+        }
+
+        reflections.len()
+    };
+
+    let sona_stats = state.sona.read().stats();
+    let working_memory_load = state.internal_voice.read().working_memory_utilization();
+    let rule_count = state.neural_symbolic.read().rule_count();
+
+    EnhancedTrainingResult {
+        sona_message: sona_result,
+        sona_patterns: sona_stats.patterns_stored,
+        pareto_before,
+        pareto_after,
+        memory_count: state.store.memory_count(),
+        vote_count: state.store.vote_count(),
+        propositions_extracted,
+        voice_thoughts,
+        working_memory_load,
+        rule_count,
+    }
+}
+
+/// Build clusters from memories for proposition extraction.
+fn build_memory_clusters(memories: &[BrainMemory]) -> Vec<(Vec<f32>, Vec<uuid::Uuid>, String)> {
+    use std::collections::HashMap;
+
+    // Group memories by category
+    let mut by_category: HashMap<String, Vec<&BrainMemory>> = HashMap::new();
+    for mem in memories {
+        let cat = mem.category.to_string();
+        by_category.entry(cat).or_default().push(mem);
+    }
+
+    let mut clusters = Vec::new();
+    for (category, mems) in by_category {
+        if mems.len() < 3 {
+            continue; // Skip small clusters
+        }
+
+        // Compute centroid
+        let dim = mems[0].embedding.len();
+        let mut centroid = vec![0.0f32; dim];
+        for mem in &mems {
+            for (i, &v) in mem.embedding.iter().enumerate() {
+                if i < dim {
+                    centroid[i] += v;
+                }
+            }
+        }
+        let n = mems.len() as f32;
+        for c in &mut centroid {
+            *c /= n;
+        }
+
+        let ids: Vec<uuid::Uuid> = mems.iter().map(|m| m.id).collect();
+        clusters.push((centroid, ids, category));
+    }
+
+    clusters
 }
 
 async fn health(State(state): State<AppState>) -> Json<HealthResponse> {
@@ -1795,6 +1948,330 @@ async fn train_endpoint(
 }
 
 // ──────────────────────────────────────────────────────────────────────
+// Cognitive Layer endpoints (ADR-110)
+// ──────────────────────────────────────────────────────────────────────
+
+/// GET /v1/cognitive/status — Full cognitive system status
+async fn cognitive_status(
+    State(state): State<AppState>,
+    _contributor: AuthenticatedContributor,
+) -> Json<serde_json::Value> {
+    let voice = state.internal_voice.read();
+    let ns = state.neural_symbolic.read();
+    let sona = state.sona.read().stats();
+
+    Json(serde_json::json!({
+        "neural_layer": {
+            "hopfield_patterns": "active",
+            "sona_patterns": sona.patterns_stored,
+            "sona_trajectories": sona.trajectories_buffered,
+        },
+        "internal_voice": {
+            "thought_count": voice.thought_count(),
+            "goal_depth": voice.goal_depth(),
+            "working_memory_utilization": voice.working_memory_utilization(),
+        },
+        "symbolic_layer": {
+            "propositions_count": ns.proposition_count(),
+            "rule_count": ns.rule_count(),
+            "extraction_count": ns.extraction_count(),
+            "inference_count": ns.inference_count(),
+        },
+        "version": "ADR-110",
+    }))
+}
+
+/// GET /v1/voice/working — Current working memory contents
+async fn voice_working_memory(
+    State(state): State<AppState>,
+    _contributor: AuthenticatedContributor,
+) -> Json<crate::voice::WorkingMemoryResponse> {
+    let voice = state.internal_voice.read();
+    let items: Vec<crate::voice::WorkingMemoryItemSummary> = voice
+        .working_memory_items()
+        .iter()
+        .map(|item| crate::voice::WorkingMemoryItemSummary {
+            id: item.id,
+            content: item.content.clone(),
+            activation: item.activation,
+            source: item.source.clone(),
+            last_accessed: item.last_accessed,
+        })
+        .collect();
+
+    Json(crate::voice::WorkingMemoryResponse {
+        utilization: voice.working_memory_utilization(),
+        capacity: 7, // Miller's law default
+        items,
+    })
+}
+
+/// GET /v1/voice/history — Recent thought history
+async fn voice_history(
+    State(state): State<AppState>,
+    _contributor: AuthenticatedContributor,
+    Query(query): Query<VoiceHistoryQuery>,
+) -> Json<crate::voice::VoiceHistoryResponse> {
+    let limit = query.limit.unwrap_or(20).min(100);
+    let voice = state.internal_voice.read();
+
+    let thoughts: Vec<crate::voice::VoiceToken> = voice
+        .recent_thoughts(limit)
+        .into_iter()
+        .cloned()
+        .collect();
+
+    Json(crate::voice::VoiceHistoryResponse {
+        thoughts,
+        total_count: voice.thought_count(),
+        goal_depth: voice.goal_depth(),
+    })
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct VoiceHistoryQuery {
+    limit: Option<usize>,
+}
+
+/// POST /v1/voice/goal — Set a deliberation goal
+async fn voice_set_goal(
+    State(state): State<AppState>,
+    _contributor: AuthenticatedContributor,
+    Json(req): Json<crate::voice::SetGoalRequest>,
+) -> Json<crate::voice::SetGoalResponse> {
+    let priority = req.priority.unwrap_or(1.0);
+    let goal_id = state.internal_voice.write().set_goal(req.description.clone(), priority);
+
+    Json(crate::voice::SetGoalResponse {
+        goal_id,
+        description: req.description,
+        priority,
+    })
+}
+
+/// GET /v1/propositions — List extracted propositions
+async fn list_propositions(
+    State(state): State<AppState>,
+    _contributor: AuthenticatedContributor,
+    Query(query): Query<PropositionsQuery>,
+) -> Json<crate::symbolic::PropositionsResponse> {
+    let ns = state.neural_symbolic.read();
+    let limit = query.limit.unwrap_or(50).min(200);
+
+    let propositions: Vec<crate::symbolic::GroundedProposition> = if let Some(ref pred) = query.predicate {
+        ns.propositions_by_predicate(pred)
+            .into_iter()
+            .take(limit)
+            .cloned()
+            .collect()
+    } else {
+        ns.all_propositions()
+            .into_iter()
+            .take(limit)
+            .cloned()
+            .collect()
+    };
+
+    Json(crate::symbolic::PropositionsResponse {
+        total_count: ns.proposition_count(),
+        rule_count: ns.rule_count(),
+        propositions,
+    })
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct PropositionsQuery {
+    predicate: Option<String>,
+    limit: Option<usize>,
+}
+
+/// POST /v1/reason — Run neural-symbolic inference
+async fn reason_endpoint(
+    State(state): State<AppState>,
+    _contributor: AuthenticatedContributor,
+    Json(req): Json<crate::symbolic::ReasonRequest>,
+) -> Result<Json<crate::symbolic::ReasonResponse>, (StatusCode, String)> {
+    let limit = req.limit.unwrap_or(5).min(20);
+
+    // Get embedding for query
+    let embedding = if let Some(ref emb) = req.embedding {
+        emb.clone()
+    } else {
+        // Generate embedding from query text
+        let emb_engine = state.embedding_engine.read();
+        emb_engine.embed_for_storage(&req.query)
+    };
+
+    let ns = state.neural_symbolic.read();
+    let inferences = ns.reason(&embedding, limit);
+    let relevant = ns
+        .all_propositions()
+        .into_iter()
+        .take(10)
+        .cloned()
+        .collect();
+
+    // Record reasoning in internal voice
+    drop(ns);
+    {
+        let mut voice = state.internal_voice.write();
+        if !inferences.is_empty() {
+            voice.conclude(
+                format!("found {} inferences for query", inferences.len()),
+                "reason_endpoint".to_string(),
+            );
+        } else {
+            voice.express_uncertainty(format!("no inferences found for: {}", req.query));
+        }
+    }
+
+    Ok(Json(crate::symbolic::ReasonResponse {
+        inferences,
+        relevant_propositions: relevant,
+    }))
+}
+
+/// POST /v1/ground — Ground a new proposition
+async fn ground_proposition(
+    State(state): State<AppState>,
+    _contributor: AuthenticatedContributor,
+    Json(req): Json<crate::symbolic::GroundRequest>,
+) -> Result<Json<crate::symbolic::GroundResponse>, (StatusCode, String)> {
+    check_read_only(&state)?;
+
+    let prop = state.neural_symbolic.write().ground_proposition(
+        req.predicate.clone(),
+        req.arguments,
+        req.embedding,
+        req.evidence_ids,
+    );
+
+    // Record in internal voice
+    state.internal_voice.write().observe(
+        format!("grounded proposition: {}", req.predicate),
+        prop.id,
+    );
+
+    Ok(Json(crate::symbolic::GroundResponse {
+        proposition_id: prop.id,
+        predicate: prop.predicate,
+        confidence: prop.confidence,
+    }))
+}
+
+/// POST /v1/train/enhanced — Trigger enhanced training cycle (ADR-110)
+async fn train_enhanced_endpoint(
+    State(state): State<AppState>,
+    _contributor: AuthenticatedContributor,
+) -> Result<Json<EnhancedTrainingResult>, (StatusCode, String)> {
+    check_read_only(&state)?;
+    let result = run_enhanced_training_cycle(&state);
+    tracing::info!(
+        "Enhanced training cycle: sona={}, propositions={}, voice_thoughts={}, rules={}",
+        result.sona_patterns,
+        result.propositions_extracted,
+        result.voice_thoughts,
+        result.rule_count
+    );
+    Ok(Json(result))
+}
+
+/// GET /v1/optimizer/status — Get Gemini optimizer status
+async fn optimizer_status(
+    State(state): State<AppState>,
+    _contributor: AuthenticatedContributor,
+) -> Json<crate::optimizer::OptimizerStatusResponse> {
+    let optimizer = state.optimizer.read();
+    Json(crate::optimizer::OptimizerStatusResponse {
+        stats: optimizer.stats(),
+        config: crate::optimizer::OptimizerConfig::default(), // Return default config for visibility
+    })
+}
+
+/// POST /v1/optimize — Run Gemini Flash optimization
+async fn optimize_endpoint(
+    State(state): State<AppState>,
+    _contributor: AuthenticatedContributor,
+    Json(req): Json<crate::optimizer::OptimizeRequest>,
+) -> Json<crate::optimizer::OptimizeResponse> {
+    let task = req.task.unwrap_or(crate::optimizer::OptimizationTask::RuleRefinement);
+
+    // Build optimization context from current state
+    let context = {
+        let ns = state.neural_symbolic.read();
+        let voice = state.internal_voice.read();
+        let sona = state.sona.read().stats();
+
+        let sample_props: Vec<crate::optimizer::PropositionSample> = ns
+            .all_propositions()
+            .into_iter()
+            .take(10)
+            .map(|p| crate::optimizer::PropositionSample {
+                predicate: p.predicate.clone(),
+                arguments: p.arguments.clone(),
+                confidence: p.confidence,
+                evidence_count: p.evidence.len(),
+            })
+            .collect();
+
+        crate::optimizer::OptimizationContext {
+            propositions: ns.proposition_count(),
+            rules: ns.rule_count(),
+            sona_patterns: sona.patterns_stored,
+            working_memory_load: voice.working_memory_utilization(),
+            thought_distribution: std::collections::HashMap::new(),
+            sample_propositions: sample_props,
+            memory_count: state.store.memory_count(),
+        }
+    };
+
+    // Check if optimizer is configured (before taking write lock)
+    let (is_configured, stats) = {
+        let opt = state.optimizer.read();
+        (opt.is_configured(), opt.stats())
+    };
+
+    if !is_configured {
+        return Json(crate::optimizer::OptimizeResponse {
+            result: None,
+            error: Some("Gemini API key not configured".to_string()),
+            stats,
+        });
+    }
+
+    // Create a temporary optimizer for the async call to avoid holding lock across await
+    let config = crate::optimizer::OptimizerConfig::default();
+    let mut temp_optimizer = crate::optimizer::GeminiOptimizer::new(config);
+
+    match temp_optimizer.optimize(task.clone(), context).await {
+        Ok(result) => {
+            // Record optimization in internal voice
+            state.internal_voice.write().reflect(
+                format!("Gemini optimization: {} suggestions", result.suggestions.len()),
+            );
+
+            // Update stats
+            let stats = state.optimizer.read().stats();
+
+            Json(crate::optimizer::OptimizeResponse {
+                result: Some(result),
+                error: None,
+                stats,
+            })
+        }
+        Err(e) => {
+            tracing::warn!("Optimization failed: {}", e);
+            let stats = state.optimizer.read().stats();
+            Json(crate::optimizer::OptimizeResponse {
+                result: None,
+                error: Some(e),
+                stats,
+            })
+        }
+    }
+}
+
+// ──────────────────────────────────────────────────────────────────────
 // Brainpedia endpoints (ADR-062)
 // ──────────────────────────────────────────────────────────────────────
 
@@ -1814,7 +2291,7 @@ async fn list_pages(
     let limit = query.limit.unwrap_or(20).min(100);
     let offset = query.offset.unwrap_or(0);
 
-    let (page_ids, total_count) = state.store.list_pages(limit + offset, 0);
+    let (page_ids, _total_count) = state.store.list_pages(limit + offset, 0);
     let status_filter = query.status.as_deref();
 
     let mut summaries: Vec<PageSummary> = Vec::new();
@@ -2057,6 +2534,19 @@ async fn submit_delta(
         return Err((StatusCode::FORBIDDEN, "Cannot modify archived pages".into()));
     }
 
+    // Compute witness hash if not provided
+    let witness_hash = if req.witness_hash.is_empty() {
+        // Fallback: compute witness hash from content_diff
+        let mut data = Vec::new();
+        data.extend_from_slice(b"ruvector-delta-witness:");
+        data.extend_from_slice(page_id.to_string().as_bytes());
+        data.extend_from_slice(b":");
+        data.extend_from_slice(req.content_diff.to_string().as_bytes());
+        hex::encode(rvf_crypto::shake256_256(&data))
+    } else {
+        req.witness_hash
+    };
+
     let delta = PageDelta {
         id: Uuid::new_v4(),
         page_id,
@@ -2065,7 +2555,7 @@ async fn submit_delta(
         evidence_links: req.evidence_links,
         contributor_id: contributor.pseudonym.clone(),
         quality_score: BetaParams::new(),
-        witness_hash: req.witness_hash,
+        witness_hash,
         created_at: chrono::Utc::now(),
     };
 
@@ -2832,14 +3322,31 @@ fn mcp_tool_definitions() -> Vec<serde_json::Value> {
         }),
         serde_json::json!({
             "name": "brain_page_delta",
-            "description": "Submit a delta (correction, extension, or deprecation) to a Brainpedia page. Requires evidence links.",
+            "description": "Submit a delta (correction, extension, or deprecation) to a Brainpedia page. For non-Evidence deltas, evidence_links are required but can be simplified strings (auto-converted to peer_review type).",
             "inputSchema": {
                 "type": "object",
                 "properties": {
                     "page_id": { "type": "string", "description": "Page ID (UUID)" },
                     "delta_type": { "type": "string", "enum": ["correction","extension","evidence","deprecation"], "description": "Delta type" },
-                    "content_diff": { "type": "object", "description": "Content changes" },
-                    "evidence_links": { "type": "array", "description": "Supporting evidence" }
+                    "content_diff": { "type": "object", "description": "Content changes (JSON object with field changes)" },
+                    "evidence_links": {
+                        "type": "array",
+                        "description": "Supporting evidence. Can be simple strings (URLs/descriptions) or full EvidenceLink objects with {evidence_type, description, contributor_id, verified}",
+                        "items": {
+                            "oneOf": [
+                                { "type": "string", "description": "Simple evidence description (auto-converted to peer_review)" },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "evidence_type": { "type": "object", "description": "One of: {type: 'peer_review', reviewer, direction, score} or {type: 'test_pass', test_name, repo, commit_hash}" },
+                                        "description": { "type": "string" },
+                                        "contributor_id": { "type": "string" },
+                                        "verified": { "type": "boolean" }
+                                    }
+                                }
+                            ]
+                        }
+                    }
                 },
                 "required": ["page_id", "delta_type", "content_diff"]
             }
@@ -3024,13 +3531,38 @@ async fn handle_mcp_tool_call(
 
         // ── Brainpedia (ADR-062) ─────────────────────────────
         "brain_page_create" => {
+            // Transform evidence_links: convert simple strings to EvidenceLink objects
+            let empty_arr = serde_json::json!([]);
+            let raw_evidence = args.get("evidence_links").unwrap_or(&empty_arr);
+            let evidence_links: Vec<serde_json::Value> = if let Some(arr) = raw_evidence.as_array() {
+                arr.iter().map(|e| {
+                    if e.is_string() {
+                        serde_json::json!({
+                            "evidence_type": {
+                                "type": "peer_review",
+                                "reviewer": "mcp-client",
+                                "direction": "up",
+                                "score": 0.5
+                            },
+                            "description": e.as_str().unwrap_or(""),
+                            "contributor_id": "mcp-proxy",
+                            "verified": false,
+                            "created_at": chrono::Utc::now().to_rfc3339()
+                        })
+                    } else {
+                        e.clone()
+                    }
+                }).collect()
+            } else {
+                vec![]
+            };
             let body = serde_json::json!({
                 "category": args.get("category").and_then(|v| v.as_str()).unwrap_or("pattern"),
                 "title": args.get("title"),
                 "content": args.get("content"),
                 "tags": args.get("tags").unwrap_or(&serde_json::json!([])),
                 "code_snippet": args.get("code_snippet"),
-                "evidence_links": args.get("evidence_links").unwrap_or(&serde_json::json!([])),
+                "evidence_links": evidence_links,
             });
             proxy_post(&client, &base, "/v1/pages", api_key, &body).await
         },
@@ -3040,10 +3572,37 @@ async fn handle_mcp_tool_call(
         },
         "brain_page_delta" => {
             let page_id = args.get("page_id").and_then(|v| v.as_str()).ok_or("page_id required")?;
+            // Transform evidence_links: convert simple strings to EvidenceLink objects
+            let empty_arr = serde_json::json!([]);
+            let raw_evidence = args.get("evidence_links").unwrap_or(&empty_arr);
+            let evidence_links: Vec<serde_json::Value> = if let Some(arr) = raw_evidence.as_array() {
+                arr.iter().map(|e| {
+                    if e.is_string() {
+                        // Convert simple string to peer_review EvidenceLink
+                        serde_json::json!({
+                            "evidence_type": {
+                                "type": "peer_review",
+                                "reviewer": "mcp-client",
+                                "direction": "up",
+                                "score": 0.5
+                            },
+                            "description": e.as_str().unwrap_or(""),
+                            "contributor_id": "mcp-proxy",
+                            "verified": false,
+                            "created_at": chrono::Utc::now().to_rfc3339()
+                        })
+                    } else {
+                        e.clone()
+                    }
+                }).collect()
+            } else {
+                vec![]
+            };
             let body = serde_json::json!({
                 "delta_type": args.get("delta_type"),
                 "content_diff": args.get("content_diff"),
-                "evidence_links": args.get("evidence_links").unwrap_or(&serde_json::json!([])),
+                "evidence_links": evidence_links,
+                "witness_hash": args.get("witness_hash").unwrap_or(&serde_json::json!("")),
             });
             proxy_post(&client, &base, &format!("/v1/pages/{page_id}/deltas"), api_key, &body).await
         },

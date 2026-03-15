@@ -1,20 +1,32 @@
 //! SubAgent orchestrator — spawn and parallel execution (ADR-097, ADR-103 A2).
 
 use crate::{
-    AgentState, CompiledSubAgent, SubAgentResult,
-    prepare_subagent_state,
+    AgentState, CompiledSubAgent, SubAgentResult, SubAgentResultValidator, ValidationConfig,
+    ValidationError, prepare_subagent_state,
 };
 use std::time::Instant;
 
-/// Orchestrates subagent execution, including parallel spawning.
+/// Orchestrates subagent execution, including parallel spawning and result validation.
 pub struct SubAgentOrchestrator {
     compiled: Vec<CompiledSubAgent>,
+    validator: SubAgentResultValidator,
 }
 
 impl SubAgentOrchestrator {
-    /// Create a new orchestrator from compiled subagents.
+    /// Create a new orchestrator from compiled subagents with default validation.
     pub fn new(compiled: Vec<CompiledSubAgent>) -> Self {
-        Self { compiled }
+        Self::new_with_validation(compiled, ValidationConfig::default())
+    }
+
+    /// Create a new orchestrator with custom validation configuration.
+    pub fn new_with_validation(
+        compiled: Vec<CompiledSubAgent>,
+        validation_config: ValidationConfig,
+    ) -> Self {
+        Self {
+            compiled,
+            validator: SubAgentResultValidator::new(validation_config),
+        }
     }
 
     /// Find a compiled subagent by name.
@@ -27,14 +39,18 @@ impl SubAgentOrchestrator {
         self.compiled.len()
     }
 
-    /// Spawn a single subagent (mock/stub — returns a result based on the spec).
+    /// Spawn a single subagent (mock/stub — returns a validated result).
+    ///
+    /// Returns `None` if the subagent is not found or validation fails.
     pub fn spawn_sync(
         &self,
         name: &str,
         parent_state: &AgentState,
         task_description: &str,
-    ) -> Option<SubAgentResult> {
-        let _compiled = self.find(name)?;
+    ) -> Result<SubAgentResult, SpawnError> {
+        let _compiled = self.find(name).ok_or(SpawnError::SubAgentNotFound {
+            name: name.to_string(),
+        })?;
         let _child_state = prepare_subagent_state(parent_state, task_description);
 
         let start = Instant::now();
@@ -46,27 +62,53 @@ impl SubAgentOrchestrator {
             name, task_description
         );
 
-        Some(SubAgentResult {
+        // Validate the result content (C8: SubAgent Result Validation)
+        let validated_message = self
+            .validator
+            .validate(&result_message)
+            .map_err(SpawnError::ValidationFailed)?;
+
+        // Validate tool call count
+        let tool_calls_count = 0; // Stub value
+        self.validator
+            .validate_tool_calls(tool_calls_count)
+            .map_err(SpawnError::ValidationFailed)?;
+
+        Ok(SubAgentResult {
             agent_name: name.to_string(),
-            result_message,
-            tool_calls_count: 0,
+            result_message: validated_message,
+            tool_calls_count,
             duration: start.elapsed(),
         })
     }
 }
 
+/// Errors that can occur during subagent spawning.
+#[derive(Debug, thiserror::Error)]
+pub enum SpawnError {
+    #[error("SubAgent not found: {name}")]
+    SubAgentNotFound { name: String },
+
+    #[error("Validation failed: {0}")]
+    ValidationFailed(#[from] ValidationError),
+
+    #[error("Execution failed: {reason}")]
+    ExecutionFailed { reason: String },
+}
+
 /// Spawn multiple subagents in parallel (async).
+///
+/// Returns results for successful spawns and logs errors for failures.
 pub async fn spawn_parallel(
     orchestrator: &SubAgentOrchestrator,
     tasks: Vec<(&str, &AgentState, &str)>,
-) -> Vec<SubAgentResult> {
+) -> Vec<Result<SubAgentResult, SpawnError>> {
     // In a real implementation, this would use tokio::JoinSet.
-    // For now, execute sequentially.
+    // For now, execute sequentially and collect all results (Ok or Err).
     let mut results = Vec::new();
     for (name, state, desc) in tasks {
-        if let Some(result) = orchestrator.spawn_sync(name, state, desc) {
-            results.push(result);
-        }
+        let result = orchestrator.spawn_sync(name, state, desc);
+        results.push(result);
     }
     results
 }

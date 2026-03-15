@@ -92,6 +92,7 @@ impl ChatModel for StubModel {
 enum CliModel {
     Stub(StubModel),
     Anthropic(rvagent_backends::anthropic::AnthropicClient),
+    Gemini(rvagent_backends::gemini::GeminiClient),
 }
 
 #[async_trait]
@@ -100,6 +101,7 @@ impl ChatModel for CliModel {
         match self {
             CliModel::Stub(m) => m.complete(messages).await,
             CliModel::Anthropic(m) => m.complete(messages).await,
+            CliModel::Gemini(m) => m.complete(messages).await,
         }
     }
 
@@ -107,6 +109,7 @@ impl ChatModel for CliModel {
         match self {
             CliModel::Stub(m) => m.stream(messages).await,
             CliModel::Anthropic(m) => m.stream(messages).await,
+            CliModel::Gemini(m) => m.stream(messages).await,
         }
     }
 }
@@ -612,6 +615,23 @@ impl App {
                         Ok(client) => CliModel::Anthropic(client),
                         Err(e) => {
                             warn!("Failed to create AnthropicClient: {e}; falling back to stub");
+                            CliModel::Stub(StubModel::new(&format!(
+                                "{} (client error: {})",
+                                self.config.model, e
+                            )))
+                        }
+                    }
+                }
+                rvagent_core::models::Provider::Google => {
+                    info!(
+                        provider = ?model_config.provider,
+                        model_id = ?model_config.model_id,
+                        "Using GeminiClient with API key"
+                    );
+                    match rvagent_backends::gemini::GeminiClient::new(model_config.clone()) {
+                        Ok(client) => CliModel::Gemini(client),
+                        Err(e) => {
+                            warn!("Failed to create GeminiClient: {e}; falling back to stub");
                             CliModel::Stub(StubModel::new(&format!(
                                 "{} (client error: {})",
                                 self.config.model, e

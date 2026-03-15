@@ -19,12 +19,16 @@ dashmap = { workspace = true }
 parking_lot = { workspace = true }
 async-trait = "0.1"
 smallvec = { version = "1.13", features = ["serde"] }
+aes-gcm = "0.10"
+sha3 = "0.10"
+rand = "0.8"
 
 [dev-dependencies]
 criterion = { workspace = true }
 tokio = { workspace = true, features = ["test-util"] }
 proptest = { workspace = true }
 mockall = { workspace = true }
+hex = "0.4"
 
 [[bench]]
 name = "state_bench"

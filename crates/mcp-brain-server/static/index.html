@@ -66,7 +66,10 @@
     "Server-Sent Events for real-time streaming",
     "WASM executable knowledge nodes",
     "Seven-layer security pipeline with PII detection",
-    "Domain expansion transfer learning"
+    "Domain expansion transfer learning",
+    "Neural-symbolic bridge with grounded propositions",
+    "Internal voice metacognition with working memory",
+    "Gemini Flash 2.5 periodic optimization"
   ],
   "softwareHelp": {
     "@type": "WebPage",
@@ -423,6 +426,7 @@ footer a:hover{color:var(--text2)}
     <a href="#api"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="vertical-align:-2px;margin-right:4px"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>API</a>
     <a href="#arch"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="vertical-align:-2px;margin-right:4px"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>Architecture</a>
     <a href="#edge"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="vertical-align:-2px;margin-right:4px"><circle cx="12" cy="12" r="2"/><circle cx="4" cy="4" r="1.5"/><circle cx="20" cy="4" r="1.5"/><circle cx="4" cy="20" r="1.5"/><circle cx="20" cy="20" r="1.5"/><path d="M6 6l4 4M14 6l-2 4M6 18l4-4M14 18l-2-4"/></svg>Edge</a>
+    <a href="#releases"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="vertical-align:-2px;margin-right:4px"><path d="M12 2v4M12 18v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M2 12h4M18 12h4M4.9 19.1l2.8-2.8M16.3 7.7l2.8-2.8"/><circle cx="12" cy="12" r="3"/></svg>Releases</a>
     <a href="https://github.com/ruvnet/ruvector" target="_blank"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" style="vertical-align:-2px;margin-right:4px"><path d="M12 0C5.4 0 0 5.4 0 12c0 5.3 3.4 9.8 8.2 11.4.6.1.8-.3.8-.6v-2c-3.3.7-4-1.6-4-1.6-.5-1.4-1.3-1.8-1.3-1.8-1.1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1.1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.7-1.6-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2-.1-.3-.5-1.5.1-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 016 0C17.3 4.7 18.3 5 18.3 5c.7 1.7.2 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A12 12 0 0024 12C24 5.4 18.6 0 12 0z"/></svg>GitHub</a>
   </div>
   <button class="mobile-toggle" onclick="toggleNav()" aria-label="Menu">
@@ -435,6 +439,7 @@ footer a:hover{color:var(--text2)}
   <a href="#api" onclick="closeNav()">API</a>
   <a href="#arch" onclick="closeNav()">Architecture</a>
   <a href="#edge" onclick="closeNav()">Edge</a>
+  <a href="#releases" onclick="closeNav()">Releases</a>
   <a href="https://github.com/ruvnet/ruvector" target="_blank">GitHub</a>
 </div>
 
@@ -527,6 +532,21 @@ footer a:hover{color:var(--text2)}
         <h3>SONA Learning</h3>
         <p>The mind that reads every contribution and understands its meaning. Self-Optimizing Neural Architecture generates embeddings, discovers patterns, and maps the semantic landscape of collective thought.</p>
         <div class="micro">Embeddings</div>
+      </div>
+      <div class="cell">
+        <h3>Neural-Symbolic Bridge</h3>
+        <p>Where intuition meets logic. Neural patterns crystallize into grounded propositions with Horn clause rules. Transitivity, causality, and semantic relations — the brain reasons about what it knows.</p>
+        <div class="micro">ADR-110</div>
+      </div>
+      <div class="cell">
+        <h3>Internal Voice</h3>
+        <p>Metacognition in silicon. Working memory with Miller's Law capacity (7±2), attention decay, and thought types — Observation, Hypothesis, Reflection. The brain narrates its own reasoning.</p>
+        <div class="micro">Deliberation</div>
+      </div>
+      <div class="cell">
+        <h3>Gemini Optimizer</h3>
+        <p>Periodic enhancement via Gemini Flash 2.5. Rule refinement, quality assessment, knowledge consolidation, and trajectory analysis. The mind optimizes itself on a schedule.</p>
+        <div class="micro">Flash 2.5</div>
       </div>
       <div class="cell">
         <h3>Graph Neural Network</h3>
@@ -775,6 +795,12 @@ footer a:hover{color:var(--text2)}
       <div class="api-row"><span class="m m-p">POST</span><span class="api-path">/v1/nodes</span><span class="api-desc">WASM node</span></div>
       <div class="api-row"><span class="m m-g">GET</span><span class="api-path">/v1/lora/latest</span><span class="api-desc">LoRA weights</span></div>
       <div class="api-row"><span class="m m-p">POST</span><span class="api-path">/v1/lora/submit</span><span class="api-desc">LoRA submit</span></div>
+      <div class="api-row"><span class="m m-g">GET</span><span class="api-path">/v1/cognitive/status</span><span class="api-desc">Cognitive layer status</span></div>
+      <div class="api-row"><span class="m m-g">GET</span><span class="api-path">/v1/voice/working</span><span class="api-desc">Working memory</span></div>
+      <div class="api-row"><span class="m m-g">GET</span><span class="api-path">/v1/propositions</span><span class="api-desc">Neural-symbolic props</span></div>
+      <div class="api-row"><span class="m m-p">POST</span><span class="api-path">/v1/reason</span><span class="api-desc">Symbolic inference</span></div>
+      <div class="api-row"><span class="m m-p">POST</span><span class="api-path">/v1/train/enhanced</span><span class="api-desc">Enhanced training</span></div>
+      <div class="api-row"><span class="m m-p">POST</span><span class="api-path">/v1/optimize</span><span class="api-desc">Gemini Flash optimizer</span></div>
     </div>
   </div>
 </section>
@@ -798,6 +824,8 @@ footer a:hover{color:var(--text2)}
   |- <span class="hl-g">Store</span>      In-memory cache - Persistent write-through
   |- <span class="hl-g">Graph</span>      GNN + HNSW search
   |- <span class="hl-g">Rank</span>       46 attention mechanisms
+  |- <span class="hl-g">Cognitive</span>  Neural-symbolic bridge + Internal voice
+  |- <span class="hl-g">Optimize</span>   Gemini Flash 2.5 periodic enhancement
   |- <span class="hl-g">Monitor</span>    Delta drift + SNN attractors
   |- <span class="hl-g">Aggregate</span>  Byzantine FedAvg + Reputation
   |
@@ -907,6 +935,50 @@ footer a:hover{color:var(--text2)}
   </div>
 </section>
 
+<!-- Release Notes -->
+<section id="releases" style="padding:3rem 0;border-top:1px solid var(--border)">
+  <div class="inner" style="max-width:800px">
+    <div class="sh" style="margin-bottom:2rem">
+      <div class="label">Changelog</div>
+      <h2>Release <strong>v0.3.0</strong></h2>
+      <p style="color:var(--text3);font-size:0.75rem;font-family:var(--mono)">March 2026</p>
+    </div>
+    <div style="display:grid;gap:1.5rem">
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:1.25rem">
+        <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.75rem">
+          <span style="background:var(--glow-dim);color:var(--glow);padding:0.2rem 0.5rem;border-radius:4px;font-size:0.6rem;font-family:var(--mono);font-weight:500">NEW</span>
+          <h3 style="font-size:0.9rem;font-weight:400">Neural-Symbolic Bridge (ADR-110)</h3>
+        </div>
+        <p style="color:var(--text2);font-size:0.78rem;line-height:1.7">Grounded propositions with Horn clause inference rules. The brain now reasons symbolically about patterns it discovers — transitivity, causality, and semantic relations emerge from neural embeddings.</p>
+      </div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:1.25rem">
+        <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.75rem">
+          <span style="background:var(--glow-dim);color:var(--glow);padding:0.2rem 0.5rem;border-radius:4px;font-size:0.6rem;font-family:var(--mono);font-weight:500">NEW</span>
+          <h3 style="font-size:0.9rem;font-weight:400">Internal Voice &amp; Working Memory</h3>
+        </div>
+        <p style="color:var(--text2);font-size:0.78rem;line-height:1.7">Metacognition with Miller's Law capacity (7&plusmn;2). The brain maintains working memory with attention decay, thought categorization (Observation, Hypothesis, Reflection), and goal-directed deliberation.</p>
+      </div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:1.25rem">
+        <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.75rem">
+          <span style="background:var(--glow-dim);color:var(--glow);padding:0.2rem 0.5rem;border-radius:4px;font-size:0.6rem;font-family:var(--mono);font-weight:500">NEW</span>
+          <h3 style="font-size:0.9rem;font-weight:400">Gemini Flash 2.5 Optimizer</h3>
+        </div>
+        <p style="color:var(--text2);font-size:0.78rem;line-height:1.7">Periodic cognitive enhancement via Gemini Flash. Rule refinement, quality assessment, knowledge consolidation, and trajectory analysis. The brain optimizes its own inference rules on a schedule.</p>
+      </div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:1.25rem">
+        <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.75rem">
+          <span style="background:var(--blue-dim);color:var(--blue);padding:0.2rem 0.5rem;border-radius:4px;font-size:0.6rem;font-family:var(--mono);font-weight:500">API</span>
+          <h3 style="font-size:0.9rem;font-weight:400">10 New Cognitive Endpoints</h3>
+        </div>
+        <p style="color:var(--text2);font-size:0.78rem;line-height:1.7"><code style="font-size:0.68rem;background:var(--surface2);padding:0.15rem 0.4rem;border-radius:3px">/v1/cognitive/status</code> <code style="font-size:0.68rem;background:var(--surface2);padding:0.15rem 0.4rem;border-radius:3px">/v1/voice/working</code> <code style="font-size:0.68rem;background:var(--surface2);padding:0.15rem 0.4rem;border-radius:3px">/v1/propositions</code> <code style="font-size:0.68rem;background:var(--surface2);padding:0.15rem 0.4rem;border-radius:3px">/v1/reason</code> <code style="font-size:0.68rem;background:var(--surface2);padding:0.15rem 0.4rem;border-radius:3px">/v1/optimize</code></p>
+      </div>
+    </div>
+    <div style="margin-top:2rem;text-align:center">
+      <a href="https://github.com/ruvnet/ruvector/releases" target="_blank" style="color:var(--glow);font-size:0.75rem;font-family:var(--mono);text-decoration:none">View all releases &#x2192;</a>
+    </div>
+  </div>
+</section>
+
 <!-- Footer -->
 <footer>
   <div class="links">
@@ -915,6 +987,7 @@ footer a:hover{color:var(--text2)}
     <a href="/v1/health">Status</a>
     <a href="https://www.npmjs.com/package/ruvector" target="_blank">npm</a>
     <a href="/v1/status">Stats</a>
+    <a href="#releases">Releases</a>
   </div>
   <p style="color:var(--text3);font-family:serif;font-size:1.1rem">&#x3C0;</p>
 </footer>

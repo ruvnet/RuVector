@@ -8,9 +8,22 @@
 //! - `SubAgentResultValidator`: security validation (ADR-103 C8)
 
 pub mod builder;
+pub mod crdt_merge;
 pub mod orchestrator;
 pub mod prompts;
+pub mod result_validator;
 pub mod validator;
+
+// Re-export result validator types
+pub use result_validator::{
+    SubAgentResultValidator, ValidationConfig, ValidationError, DEFAULT_MAX_RESPONSE_LENGTH,
+};
+
+// Re-export CRDT merge types
+pub use crdt_merge::{CrdtState, MergeError, VectorClock, merge_subagent_results};
+
+// Re-export orchestrator types
+pub use orchestrator::{SubAgentOrchestrator, SpawnError, spawn_parallel};
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

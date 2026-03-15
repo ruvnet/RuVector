@@ -233,6 +233,74 @@ pub async fn request_size_limit(
 #[derive(Debug, Clone, Copy)]
 pub struct MaxBodySize(pub usize);
 
+// ---------------------------------------------------------------------------
+// TLS requirement middleware
+// ---------------------------------------------------------------------------
+
+/// Extension type carrying the TLS requirement flag.
+#[derive(Debug, Clone, Copy)]
+pub struct RequireTls(pub bool);
+
+/// Axum middleware that enforces TLS for non-localhost connections.
+///
+/// Checks the `x-forwarded-proto` header and the `Host` header to determine
+/// if the connection is secure. Allows localhost connections without TLS.
+pub async fn require_tls_middleware(
+    request: Request,
+    next: Next,
+) -> Result<Response, Response> {
+    // Skip for /health endpoint.
+    if request.uri().path() == "/health" {
+        return Ok(next.run(request).await);
+    }
+
+    let require_tls = request
+        .extensions()
+        .get::<RequireTls>()
+        .map(|r| r.0)
+        .unwrap_or(false);
+
+    if !require_tls {
+        return Ok(next.run(request).await);
+    }
+
+    // Check if this is a localhost connection.
+    let is_localhost = request
+        .headers()
+        .get(header::HOST)
+        .and_then(|h| h.to_str().ok())
+        .map(|host| {
+            host.starts_with("localhost")
+                || host.starts_with("127.0.0.1")
+                || host.starts_with("[::1]")
+        })
+        .unwrap_or(false);
+
+    if is_localhost {
+        return Ok(next.run(request).await);
+    }
+
+    // Check if the connection is using HTTPS via reverse proxy.
+    let is_https = request
+        .headers()
+        .get("x-forwarded-proto")
+        .and_then(|p| p.to_str().ok())
+        .map(|proto| proto.eq_ignore_ascii_case("https"))
+        .unwrap_or(false);
+
+    if is_https {
+        Ok(next.run(request).await)
+    } else {
+        Err((
+            StatusCode::FORBIDDEN,
+            Json(ErrorResponse::forbidden(
+                "TLS is required for non-localhost connections",
+            )),
+        )
+            .into_response())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -281,5 +349,19 @@ mod tests {
         let m = MaxBodySize(1024);
         let m2 = m;
         assert_eq!(m2.0, 1024);
+    }
+
+    #[test]
+    fn test_require_tls_clone() {
+        let r = RequireTls(true);
+        let r2 = r;
+        assert_eq!(r2.0, true);
+    }
+
+    #[test]
+    fn test_error_response_forbidden() {
+        let resp = ErrorResponse::forbidden("TLS required");
+        assert_eq!(resp.status, 403);
+        assert_eq!(resp.error, "forbidden");
     }
 }

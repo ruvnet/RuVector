@@ -338,14 +338,14 @@ async fn test_parallel_spawn() {
     // Spawn single agent synchronously
     let parent = parent_state_with_secrets();
     let single = orchestrator.spawn_sync("searcher", &parent, "Find auth patterns");
-    assert!(single.is_some());
+    assert!(single.is_ok());
     let result = single.unwrap();
     assert_eq!(result.agent_name, "searcher");
     assert!(result.result_message.contains("Find auth patterns"));
     assert!(result.duration.as_nanos() > 0);
 
-    // Spawn nonexistent agent returns None
-    assert!(orchestrator.spawn_sync("missing", &parent, "task").is_none());
+    // Spawn nonexistent agent returns Err
+    assert!(orchestrator.spawn_sync("missing", &parent, "task").is_err());
 
     // Spawn multiple agents in parallel
     let tasks = vec![
@@ -358,28 +358,34 @@ async fn test_parallel_spawn() {
     assert_eq!(results.len(), 3, "All 3 parallel tasks must produce results");
 
     // Verify each result corresponds to the correct agent
-    assert_eq!(results[0].agent_name, "searcher");
-    assert_eq!(results[1].agent_name, "analyzer");
-    assert_eq!(results[2].agent_name, "writer");
+    assert_eq!(results[0].as_ref().unwrap().agent_name, "searcher");
+    assert_eq!(results[1].as_ref().unwrap().agent_name, "analyzer");
+    assert_eq!(results[2].as_ref().unwrap().agent_name, "writer");
 
     // Verify each result contains the task description
-    assert!(results[0].result_message.contains("Search for files"));
-    assert!(results[1].result_message.contains("Analyze dependencies"));
-    assert!(results[2].result_message.contains("Write documentation"));
+    assert!(results[0].as_ref().unwrap().result_message.contains("Search for files"));
+    assert!(results[1].as_ref().unwrap().result_message.contains("Analyze dependencies"));
+    assert!(results[2].as_ref().unwrap().result_message.contains("Write documentation"));
 
-    // Parallel spawn with a nonexistent agent should skip it
+    // Parallel spawn with a nonexistent agent returns error for that task
     let mixed_tasks = vec![
         ("searcher", &parent, "Valid task"),
-        ("nonexistent", &parent, "Should be skipped"),
+        ("nonexistent", &parent, "Should error"),
         ("analyzer", &parent, "Another valid task"),
     ];
 
     let mixed_results = spawn_parallel(&orchestrator, mixed_tasks).await;
     assert_eq!(
         mixed_results.len(),
-        2,
-        "Nonexistent agent must be skipped in parallel execution"
+        3,
+        "All tasks produce a result (Ok or Err)"
     );
-    assert_eq!(mixed_results[0].agent_name, "searcher");
-    assert_eq!(mixed_results[1].agent_name, "analyzer");
+    // First and third should succeed
+    assert!(mixed_results[0].is_ok(), "searcher should succeed");
+    assert_eq!(mixed_results[0].as_ref().unwrap().agent_name, "searcher");
+    // Second should error (nonexistent agent)
+    assert!(mixed_results[1].is_err(), "nonexistent agent should error");
+    // Third should succeed
+    assert!(mixed_results[2].is_ok(), "analyzer should succeed");
+    assert_eq!(mixed_results[2].as_ref().unwrap().agent_name, "analyzer");
 }

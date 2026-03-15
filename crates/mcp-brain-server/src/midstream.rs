@@ -42,15 +42,27 @@ pub fn attractor_stability_score(result: &temporal_attractor_studio::LyapunovRes
 }
 
 // ── Temporal Neural Solver (temporal-neural-solver) ────────────────────
+// Note: This crate requires x86_64 SIMD — disabled on ARM/Apple Silicon
 
 /// Score a search result using the temporal solver's prediction confidence.
 /// Returns a small additive bonus (0.0 to 0.04) based on the certificate confidence.
+#[cfg(feature = "x86-simd")]
 pub fn solver_confidence_score(certificate: &temporal_neural_solver::Certificate) -> f32 {
     if certificate.gate_pass {
         // Certificate passed solver gate — high confidence prediction
         (certificate.confidence.min(1.0) * 0.04) as f32
     } else {
         0.0
+    }
+}
+
+/// Stub for non-x86 platforms
+#[cfg(not(feature = "x86-simd"))]
+pub mod temporal_neural_solver_stub {
+    /// Stub certificate for non-x86 platforms
+    pub struct Certificate {
+        pub gate_pass: bool,
+        pub confidence: f64,
     }
 }
 

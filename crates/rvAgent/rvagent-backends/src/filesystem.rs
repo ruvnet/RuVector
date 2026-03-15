@@ -131,40 +131,93 @@ impl FilesystemBackend {
     ///
     /// This prevents TOCTOU symlink race conditions by verifying the
     /// actual opened file descriptor points within the allowed root.
+    /// Supports both read and write operations.
     #[cfg(unix)]
-    pub fn resolve_and_open(
+    fn resolve_and_open(
         &self,
         path: &str,
+        write: bool,
     ) -> Result<std::fs::File, FileOperationError> {
         use std::os::unix::fs::OpenOptionsExt;
+        use std::os::unix::io::AsRawFd;
 
         let resolved = self.resolve_path(path)?;
 
-        let file = std::fs::OpenOptions::new()
-            .read(true)
-            .custom_flags(libc::O_NOFOLLOW)
-            .open(&resolved)
-            .map_err(|e| match e.kind() {
-                std::io::ErrorKind::NotFound => FileOperationError::FileNotFound,
-                std::io::ErrorKind::PermissionDenied => FileOperationError::PermissionDenied,
-                _ => FileOperationError::InvalidPath,
-            })?;
+        let mut opts = std::fs::OpenOptions::new();
+        opts.read(true);
+        if write {
+            opts.write(true).create(true);
+        }
+        opts.custom_flags(libc::O_NOFOLLOW); // Don't follow symlinks
 
-        // Post-open verification via /proc/self/fd/N
+        let file = opts.open(&resolved).map_err(|e| match e.kind() {
+            std::io::ErrorKind::NotFound => FileOperationError::FileNotFound,
+            std::io::ErrorKind::PermissionDenied => FileOperationError::PermissionDenied,
+            _ => FileOperationError::IoError(e.to_string()),
+        })?;
+
+        // Post-open verification via /proc/self/fd/N (Linux) or F_GETPATH (macOS)
         if self.inner.virtual_mode {
-            use std::os::unix::io::AsRawFd;
-            let fd = file.as_raw_fd();
-            let fd_path = format!("/proc/self/fd/{}", fd);
-            if let Ok(real_path) = std::fs::read_link(&fd_path) {
+            #[cfg(target_os = "linux")]
+            {
+                let fd_path = format!("/proc/self/fd/{}", file.as_raw_fd());
+                let real_path = std::fs::read_link(&fd_path)
+                    .map_err(|e| FileOperationError::IoError(e.to_string()))?;
+
                 let cwd_canonical = self
                     .inner
                     .cwd
                     .canonicalize()
                     .unwrap_or_else(|_| self.inner.cwd.clone());
+
                 if !real_path.starts_with(&cwd_canonical) {
-                    return Err(FileOperationError::SecurityViolation(
-                        "opened file resolved outside sandbox root".to_string(),
-                    ));
+                    return Err(FileOperationError::PathEscapesRoot(path.to_string()));
+                }
+            }
+
+            #[cfg(target_os = "macos")]
+            {
+                use std::ffi::OsStr;
+                use std::os::unix::ffi::OsStrExt;
+
+                let mut buf = vec![0u8; libc::PATH_MAX as usize];
+                let fd = file.as_raw_fd();
+
+                unsafe {
+                    if libc::fcntl(fd, libc::F_GETPATH, buf.as_mut_ptr()) == -1 {
+                        return Err(FileOperationError::IoError("F_GETPATH failed".into()));
+                    }
+                }
+
+                let real_path = std::path::PathBuf::from(
+                    OsStr::from_bytes(&buf[..buf.iter().position(|&b| b == 0).unwrap_or(0)])
+                );
+
+                let cwd_canonical = self
+                    .inner
+                    .cwd
+                    .canonicalize()
+                    .unwrap_or_else(|_| self.inner.cwd.clone());
+
+                if !real_path.starts_with(&cwd_canonical) {
+                    return Err(FileOperationError::PathEscapesRoot(path.to_string()));
+                }
+            }
+
+            // For other Unix platforms, fall back to basic check
+            #[cfg(not(any(target_os = "linux", target_os = "macos")))]
+            {
+                // Basic canonicalization check (less robust but better than nothing)
+                if let Ok(canonical) = std::fs::canonicalize(&resolved) {
+                    let cwd_canonical = self
+                        .inner
+                        .cwd
+                        .canonicalize()
+                        .unwrap_or_else(|_| self.inner.cwd.clone());
+
+                    if !canonical.starts_with(&cwd_canonical) {
+                        return Err(FileOperationError::PathEscapesRoot(path.to_string()));
+                    }
                 }
             }
         }
@@ -179,48 +232,94 @@ impl FilesystemBackend {
         offset: usize,
         limit: usize,
     ) -> Result<String, FileOperationError> {
-        let resolved = self.resolve_path(file_path)?;
+        #[cfg(unix)]
+        {
+            // Use atomic resolve+open with TOCTOU protection
+            use std::io::Read;
 
-        let metadata = std::fs::metadata(&resolved).map_err(|e| match e.kind() {
-            std::io::ErrorKind::NotFound => FileOperationError::FileNotFound,
-            std::io::ErrorKind::PermissionDenied => FileOperationError::PermissionDenied,
-            _ => FileOperationError::InvalidPath,
-        })?;
+            let file = self.resolve_and_open(file_path, false)?;
+            let metadata = file.metadata().map_err(|e| FileOperationError::IoError(e.to_string()))?;
 
-        if metadata.is_dir() {
-            return Err(FileOperationError::IsDirectory);
+            if metadata.is_dir() {
+                return Err(FileOperationError::IsDirectory);
+            }
+
+            if metadata.len() > self.inner.max_file_size_bytes {
+                return Err(FileOperationError::SecurityViolation(format!(
+                    "file size {} exceeds limit {}",
+                    metadata.len(),
+                    self.inner.max_file_size_bytes
+                )));
+            }
+
+            let mut content = String::new();
+            let mut reader = std::io::BufReader::new(file);
+            reader.read_to_string(&mut content)
+                .map_err(|e| FileOperationError::IoError(e.to_string()))?;
+
+            let lines: Vec<&str> = content.lines().collect();
+            let total = lines.len();
+            let start = offset.min(total);
+            let end = if limit == 0 {
+                total
+            } else {
+                (start + limit).min(total)
+            };
+
+            let selected_content = lines[start..end].join("\n");
+            Ok(format_content_with_line_numbers(
+                &selected_content,
+                start + 1,
+                2000,
+            ))
         }
 
-        if metadata.len() > self.inner.max_file_size_bytes {
-            return Err(FileOperationError::SecurityViolation(format!(
-                "file size {} exceeds limit {}",
-                metadata.len(),
-                self.inner.max_file_size_bytes
-            )));
-        }
+        #[cfg(not(unix))]
+        {
+            // Fallback for non-Unix platforms
+            let resolved = self.resolve_path(file_path)?;
 
-        let content =
-            std::fs::read_to_string(&resolved).map_err(|e| match e.kind() {
+            let metadata = std::fs::metadata(&resolved).map_err(|e| match e.kind() {
                 std::io::ErrorKind::NotFound => FileOperationError::FileNotFound,
                 std::io::ErrorKind::PermissionDenied => FileOperationError::PermissionDenied,
                 _ => FileOperationError::InvalidPath,
             })?;
 
-        let lines: Vec<&str> = content.lines().collect();
-        let total = lines.len();
-        let start = offset.min(total);
-        let end = if limit == 0 {
-            total
-        } else {
-            (start + limit).min(total)
-        };
+            if metadata.is_dir() {
+                return Err(FileOperationError::IsDirectory);
+            }
 
-        let selected_content = lines[start..end].join("\n");
-        Ok(format_content_with_line_numbers(
-            &selected_content,
-            start + 1,
-            2000,
-        ))
+            if metadata.len() > self.inner.max_file_size_bytes {
+                return Err(FileOperationError::SecurityViolation(format!(
+                    "file size {} exceeds limit {}",
+                    metadata.len(),
+                    self.inner.max_file_size_bytes
+                )));
+            }
+
+            let content =
+                std::fs::read_to_string(&resolved).map_err(|e| match e.kind() {
+                    std::io::ErrorKind::NotFound => FileOperationError::FileNotFound,
+                    std::io::ErrorKind::PermissionDenied => FileOperationError::PermissionDenied,
+                    _ => FileOperationError::InvalidPath,
+                })?;
+
+            let lines: Vec<&str> = content.lines().collect();
+            let total = lines.len();
+            let start = offset.min(total);
+            let end = if limit == 0 {
+                total
+            } else {
+                (start + limit).min(total)
+            };
+
+            let selected_content = lines[start..end].join("\n");
+            Ok(format_content_with_line_numbers(
+                &selected_content,
+                start + 1,
+                2000,
+            ))
+        }
     }
 
     /// Synchronous grep using literal string matching (ADR-103 C13).
@@ -391,39 +490,102 @@ impl FilesystemBackend {
 
     /// Synchronous write_file.
     fn write_file_sync(&self, file_path: &str, content: &str) -> WriteResult {
-        let resolved = match self.resolve_path(file_path) {
-            Ok(p) => p,
-            Err(e) => {
-                return WriteResult {
+        #[cfg(unix)]
+        {
+            // Use atomic resolve+open with TOCTOU protection
+            use std::io::Write;
+
+            let resolved = match self.resolve_path(file_path) {
+                Ok(p) => p,
+                Err(e) => {
+                    return WriteResult {
+                        error: Some(e.to_string()),
+                        path: None,
+                        files_update: None,
+                    };
+                }
+            };
+
+            // Create parent directories
+            if let Some(parent) = resolved.parent() {
+                if let Err(e) = std::fs::create_dir_all(parent) {
+                    return WriteResult {
+                        error: Some(format!("failed to create directories: {}", e)),
+                        path: None,
+                        files_update: None,
+                    };
+                }
+            }
+
+            match self.resolve_and_open(file_path, true) {
+                Ok(mut file) => {
+                    // Truncate file before writing
+                    if let Err(e) = file.set_len(0) {
+                        return WriteResult {
+                            error: Some(format!("failed to truncate file: {}", e)),
+                            path: None,
+                            files_update: None,
+                        };
+                    }
+
+                    match file.write_all(content.as_bytes()) {
+                        Ok(_) => WriteResult {
+                            error: None,
+                            path: Some(file_path.to_string()),
+                            files_update: None,
+                        },
+                        Err(e) => WriteResult {
+                            error: Some(e.to_string()),
+                            path: None,
+                            files_update: None,
+                        },
+                    }
+                }
+                Err(e) => WriteResult {
                     error: Some(e.to_string()),
                     path: None,
                     files_update: None,
-                };
-            }
-        };
-
-        // Create parent directories
-        if let Some(parent) = resolved.parent() {
-            if let Err(e) = std::fs::create_dir_all(parent) {
-                return WriteResult {
-                    error: Some(format!("failed to create directories: {}", e)),
-                    path: None,
-                    files_update: None,
-                };
+                },
             }
         }
 
-        match std::fs::write(&resolved, content) {
-            Ok(_) => WriteResult {
-                error: None,
-                path: Some(file_path.to_string()),
-                files_update: None,
-            },
-            Err(e) => WriteResult {
-                error: Some(e.to_string()),
-                path: None,
-                files_update: None,
-            },
+        #[cfg(not(unix))]
+        {
+            // Fallback for non-Unix platforms
+            let resolved = match self.resolve_path(file_path) {
+                Ok(p) => p,
+                Err(e) => {
+                    return WriteResult {
+                        error: Some(e.to_string()),
+                        path: None,
+                        files_update: None,
+                    };
+                }
+            };
+
+            // Create parent directories
+            if let Some(parent) = resolved.parent() {
+                if let Err(e) = std::fs::create_dir_all(parent) {
+                    return WriteResult {
+                        error: Some(format!("failed to create directories: {}", e)),
+                        path: None,
+                        files_update: None,
+                    };
+                }
+            }
+
+            match std::fs::write(&resolved, content) {
+                Ok(_) => WriteResult {
+                    error: None,
+                    path: Some(file_path.to_string()),
+                    files_update: None,
+                },
+                Err(e) => WriteResult {
+                    error: Some(e.to_string()),
+                    path: None,
+                    files_update: None,
+                },
+            }
         }
     }
 

@@ -717,6 +717,8 @@ mod tests {
         assert_eq!(cscore, 0.0, "positive lambda should give zero score");
     }
 
+    // Note: temporal-neural-solver tests require x86_64 SIMD
+    #[cfg(feature = "x86-simd")]
     #[test]
     fn test_midstream_temporal_solver_create() {
         let solver = temporal_neural_solver::TemporalSolver::new(8, 16, 8);
@@ -724,6 +726,7 @@ mod tests {
         let _ = solver;
     }
 
+    #[cfg(feature = "x86-simd")]
     #[test]
     fn test_midstream_solver_confidence_score() {
         let cert = temporal_neural_solver::Certificate {

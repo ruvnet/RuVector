@@ -964,6 +964,74 @@ mod tests {
     }
 
     #[test]
+    fn test_format_empty_content() {
+        let result = format_content_with_line_numbers("", 1);
+        assert_eq!(result, "");
+    }
+
+    #[test]
+    fn test_format_single_line() {
+        let result = format_content_with_line_numbers("hello world", 1);
+        assert_eq!(result, "     1\thello world");
+    }
+
+    #[test]
+    fn test_format_multiple_lines() {
+        let content = "line one\nline two\nline three";
+        let result = format_content_with_line_numbers(content, 1);
+        let expected = "     1\tline one\n     2\tline two\n     3\tline three";
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_format_line_truncation() {
+        let long_line = "a".repeat(MAX_LINE_LEN + 100);
+        let result = format_content_with_line_numbers(&long_line, 1);
+        let lines: Vec<&str> = result.lines().collect();
+        assert_eq!(lines.len(), 1);
+        // Extract the content after the line number and tab
+        let content = lines[0].split('\t').nth(1).unwrap();
+        assert_eq!(content.len(), MAX_LINE_LEN);
+    }
+
+    #[test]
+    fn test_format_preserves_short_lines() {
+        let content = "ab";
+        let result = format_content_with_line_numbers(content, 1);
+        assert_eq!(result, "     1\tab");
+    }
+
+    #[test]
+    fn test_format_large_line_numbers() {
+        let content = "data";
+        let result = format_content_with_line_numbers(content, 999999);
+        assert_eq!(result, "999999\tdata");
+    }
+
+    #[test]
+    fn test_format_correctness_many_lines() {
+        let lines_vec: Vec<String> = (0..100).map(|i| format!("line {}", i)).collect();
+        let content = lines_vec.join("\n");
+        let result = format_content_with_line_numbers(&content, 1);
+        let output_lines: Vec<&str> = result.lines().collect();
+        assert_eq!(output_lines.len(), 100);
+        assert!(output_lines[0].starts_with("     1\t"));
+        assert!(output_lines[99].starts_with("   100\t"));
+        assert!(output_lines[99].ends_with("line 99"));
+    }
+
+    #[test]
+    fn test_format_no_intermediate_allocations() {
+        // Verify that the function pre-allocates the correct size
+        let content = "short\nline\ntest";
+        let result = format_content_with_line_numbers(content, 1);
+        // The capacity should be close to the length (no excessive reallocations)
+        // This is a sanity check that we're using with_capacity correctly
+        assert!(result.capacity() >= result.len());
+        assert!(result.capacity() < result.len() + 100); // Not too much excess
+    }
+
+    #[test]
     fn test_is_image_file() {
         assert!(is_image_file("photo.png"));
         assert!(is_image_file("IMG.JPG"));

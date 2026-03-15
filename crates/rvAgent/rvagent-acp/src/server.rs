@@ -25,7 +25,8 @@ use tower_http::trace::TraceLayer;
 
 use crate::agent::AcpAgent;
 use crate::auth::{
-    rate_limiter, request_size_limit, require_api_key, ApiKeyState, MaxBodySize, RateLimiterState,
+    rate_limiter, request_size_limit, require_api_key, require_tls_middleware, ApiKeyState,
+    MaxBodySize, RateLimiterState, RequireTls,
 };
 use crate::types::{
     CreateSessionRequest, ErrorResponse, HealthResponse, PromptRequest,
@@ -108,6 +109,7 @@ impl AcpServer {
         };
         let rate_limiter_state = RateLimiterState::new(self.config.rate_limit);
         let max_body = MaxBodySize(self.config.max_body_size);
+        let require_tls = RequireTls(self.config.require_tls);
 
         Router::new()
             // Routes
@@ -120,13 +122,15 @@ impl AcpServer {
             .route("/health", get(handle_health))
             // Shared state
             .with_state(state)
-            // Middleware layers (applied bottom-up: body limit first, then size check, rate limit, auth)
+            // Middleware layers (applied bottom-up: TLS first, then auth, rate limit, size check, body limit)
             .layer(middleware::from_fn(require_api_key))
             .layer(middleware::from_fn(rate_limiter))
             .layer(middleware::from_fn(request_size_limit))
+            .layer(middleware::from_fn(require_tls_middleware))
             .layer(axum::Extension(api_key_state))
             .layer(axum::Extension(rate_limiter_state))
             .layer(axum::Extension(max_body))
+            .layer(axum::Extension(require_tls))
             .layer(RequestBodyLimitLayer::new(self.config.max_body_size))
             .layer(TraceLayer::new_for_http())
             .layer(CorsLayer::permissive())
@@ -485,5 +489,96 @@ mod tests {
             .unwrap();
 
         assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+    }
+
+    #[tokio::test]
+    async fn test_tls_not_required_by_default() {
+        let agent = AcpAgent::new(RvAgentConfig::default());
+        let config = AcpConfig {
+            require_tls: false,
+            ..AcpConfig::default()
+        };
+        let server = AcpServer::new(agent, config);
+        let app = server.router();
+
+        // Non-HTTPS request should succeed when TLS is not required.
+        let resp = app
+            .oneshot(
+                Request::builder()
+                    .uri("/sessions")
+                    .header("Host", "example.com")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(resp.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn test_tls_allows_localhost() {
+        let agent = AcpAgent::new(RvAgentConfig::default());
+        let config = AcpConfig {
+            require_tls: true,
+            ..AcpConfig::default()
+        };
+        let server = AcpServer::new(agent, config);
+        let app = server.router();
+
+        // Localhost should bypass TLS requirement.
+        let resp = app
+            .oneshot(
+                Request::builder()
+                    .uri("/sessions")
+                    .header("Host", "localhost:3100")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(resp.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn test_tls_requires_https_for_remote() {
+        let agent = AcpAgent::new(RvAgentConfig::default());
+        let config = AcpConfig {
+            require_tls: true,
+            ..AcpConfig::default()
+        };
+        let server = AcpServer::new(agent, config);
+        let app = server.router();
+
+        // Non-localhost, non-HTTPS request should be forbidden.
+        let resp = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri("/sessions")
+                    .header("Host", "example.com")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(resp.status(), StatusCode::FORBIDDEN);
+
+        // Same request with x-forwarded-proto: https should succeed.
+        let resp = app
+            .oneshot(
+                Request::builder()
+                    .uri("/sessions")
+                    .header("Host", "example.com")
+                    .header("x-forwarded-proto", "https")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(resp.status(), StatusCode::OK);
     }
 }

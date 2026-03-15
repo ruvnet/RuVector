@@ -1,0 +1,13 @@
+<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+<defs>
+	<linearGradient id="rv-grad" x1="0" y1="0" x2="1" y2="1">
+		<stop offset="0%" stop-color="#e8a634" />
+		<stop offset="100%" stop-color="#f0d89a" />
+	</linearGradient>
+</defs>
+<!-- RuVector stylized "R" with vector arrow -->
+<path d="M8 6 L8 26 M8 6 L18 6 Q24 6 24 12 Q24 16 20 17 L8 17 M18 17 L26 26"
+	stroke="url(#rv-grad)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+<path d="M22 22 L26 26 L22 26"
+	stroke="#e8a634" stroke-opacity="0.6" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+</svg>

@@ -29,6 +29,10 @@ fn bench_full_pipeline(c: &mut Criterion) {
         skill_sources: Some(vec![".skills".into()]),
         interrupt_on: Some(vec!["execute".into()]),
         enable_witness: true,
+        enable_sona: false,
+        enable_hnsw: false,
+        sona_config: None,
+        hnsw_config: None,
     };
     let pipeline = build_default_pipeline(&config);
     let handler = NoOpHandler;
@@ -111,6 +115,10 @@ fn bench_pipeline_modify_request(c: &mut Criterion) {
         skill_sources: Some(vec![".skills".into()]),
         interrupt_on: None,
         enable_witness: false,
+        enable_sona: false,
+        enable_hnsw: false,
+        sona_config: None,
+        hnsw_config: None,
     };
     let pipeline = build_default_pipeline(&config);
 

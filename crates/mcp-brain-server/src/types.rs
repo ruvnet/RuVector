@@ -4,6 +4,22 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+// ── Platform-specific stubs (temporal-neural-solver is x86_64-only) ──
+
+/// Stub for TemporalSolver on non-x86 platforms (Apple Silicon, ARM)
+#[cfg(not(feature = "x86-simd"))]
+#[derive(Debug, Default)]
+pub struct TemporalSolverStub {
+    _dim: usize,
+}
+
+#[cfg(not(feature = "x86-simd"))]
+impl TemporalSolverStub {
+    pub fn new(input_dim: usize, _hidden: usize, _output: usize) -> Self {
+        Self { _dim: input_dim }
+    }
+}
+
 /// Brain memory categories
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 #[serde(rename_all = "snake_case")]
@@ -630,7 +646,10 @@ pub struct CreatePageRequest {
 pub struct SubmitDeltaRequest {
     pub delta_type: DeltaType,
     pub content_diff: serde_json::Value,
+    #[serde(default)]
     pub evidence_links: Vec<EvidenceLink>,
+    /// Witness hash for integrity. If omitted, server computes from content_diff.
+    #[serde(default)]
     pub witness_hash: String,
 }
 
@@ -1172,9 +1191,20 @@ pub struct AppState {
     /// Per-category Lyapunov exponent results from attractor analysis (Phase 9c)
     pub attractor_results: std::sync::Arc<parking_lot::RwLock<std::collections::HashMap<String, temporal_attractor_studio::LyapunovResult>>>,
     /// Temporal neural solver with certified predictions (Phase 9d)
+    /// Note: Only available on x86_64 platforms (requires SIMD)
+    #[cfg(feature = "x86-simd")]
     pub temporal_solver: std::sync::Arc<parking_lot::RwLock<temporal_neural_solver::TemporalSolver>>,
+    #[cfg(not(feature = "x86-simd"))]
+    pub temporal_solver: std::sync::Arc<parking_lot::RwLock<TemporalSolverStub>>,
     /// Meta-cognitive recursive learning with safety bounds (Phase 9e)
     pub strange_loop: std::sync::Arc<parking_lot::RwLock<strange_loop::StrangeLoop<strange_loop::ScalarReasoner, strange_loop::SimpleCritic, strange_loop::SafeReflector>>>,
     /// Active SSE sessions: session ID -> sender channel for streaming responses
     pub sessions: std::sync::Arc<dashmap::DashMap<String, tokio::sync::mpsc::Sender<String>>>,
+    // ── Neural-Symbolic + Internal Voice (ADR-110) ──
+    /// Internal voice system for self-narration and deliberation
+    pub internal_voice: std::sync::Arc<parking_lot::RwLock<crate::voice::InternalVoice>>,
+    /// Neural-symbolic bridge for grounded reasoning
+    pub neural_symbolic: std::sync::Arc<parking_lot::RwLock<crate::symbolic::NeuralSymbolicBridge>>,
+    /// Gemini Flash optimizer for periodic cognitive enhancement
+    pub optimizer: std::sync::Arc<parking_lot::RwLock<crate::optimizer::GeminiOptimizer>>,
 }

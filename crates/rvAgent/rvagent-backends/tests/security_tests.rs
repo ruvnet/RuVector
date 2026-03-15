@@ -71,6 +71,233 @@ fn test_symlink_attack_blocked() {
     );
 }
 
+/// SEC-001: Test that FilesystemBackend blocks symlink reads via resolve_and_open.
+#[cfg(unix)]
+#[tokio::test]
+async fn test_filesystem_backend_blocks_symlink_read() {
+    use rvagent_backends::filesystem::FilesystemBackend;
+    use rvagent_backends::protocol::Backend;
+
+    let dir = TempDir::new().expect("failed to create temp dir");
+    let sandbox = dir.path();
+    let backend = FilesystemBackend::new(sandbox.to_path_buf());
+
+    // Create a legitimate file
+    fs::write(sandbox.join("safe.txt"), "safe data").unwrap();
+
+    // Create a symlink to /etc/passwd
+    std::os::unix::fs::symlink("/etc/passwd", sandbox.join("evil")).unwrap();
+
+    // Reading the safe file should work
+    let result = backend.read_file("safe.txt", 0, 0).await;
+    assert!(result.is_ok(), "Reading legitimate file should succeed");
+
+    // Reading the symlink should fail (O_NOFOLLOW + post-open verification)
+    let result = backend.read_file("evil", 0, 0).await;
+    assert!(result.is_err(), "Reading symlink to outside file should fail");
+}
+
+/// SEC-001: Test that FilesystemBackend blocks symlink writes via resolve_and_open.
+#[cfg(unix)]
+#[tokio::test]
+async fn test_filesystem_backend_blocks_symlink_write() {
+    use rvagent_backends::filesystem::FilesystemBackend;
+    use rvagent_backends::protocol::Backend;
+
+    let dir = TempDir::new().expect("failed to create temp dir");
+    let sandbox = dir.path();
+    let backend = FilesystemBackend::new(sandbox.to_path_buf());
+
+    // Create a writable target outside sandbox (use temp file)
+    let outside_dir = TempDir::new().expect("failed to create outside dir");
+    let outside_file = outside_dir.path().join("target.txt");
+    fs::write(&outside_file, "original").unwrap();
+
+    // Create a symlink inside sandbox pointing to outside file
+    let symlink = sandbox.join("evil_write");
+    std::os::unix::fs::symlink(&outside_file, &symlink).unwrap();
+
+    // Attempt to write via symlink should fail
+    let result = backend.write_file("evil_write", "pwned").await;
+    assert!(result.error.is_some(), "Writing via symlink should fail");
+
+    // Verify the outside file was NOT modified
+    let content = fs::read_to_string(&outside_file).unwrap();
+    assert_eq!(content, "original", "Outside file must not be modified");
+}
+
+/// SEC-001: Test TOCTOU protection — file replaced by symlink after resolve but before open.
+///
+/// This is a timing attack where:
+/// 1. Attacker creates a regular file
+/// 2. Agent resolves the path (sees regular file)
+/// 3. Attacker atomically replaces it with a symlink
+/// 4. Agent opens the file (would follow symlink without O_NOFOLLOW)
+///
+/// O_NOFOLLOW prevents this by refusing to open symlinks at all.
+#[cfg(unix)]
+#[tokio::test]
+async fn test_toctou_symlink_race_protection() {
+    use rvagent_backends::filesystem::FilesystemBackend;
+    use rvagent_backends::protocol::Backend;
+
+    let dir = TempDir::new().expect("failed to create temp dir");
+    let sandbox = dir.path();
+    let backend = FilesystemBackend::new(sandbox.to_path_buf());
+
+    let target_path = sandbox.join("victim.txt");
+
+    // Initially create a regular file
+    fs::write(&target_path, "initial content").unwrap();
+
+    // Simulate race: replace regular file with symlink to /etc/passwd
+    fs::remove_file(&target_path).unwrap();
+    std::os::unix::fs::symlink("/etc/passwd", &target_path).unwrap();
+
+    // Now attempt to read — O_NOFOLLOW should block this
+    let result = backend.read_file("victim.txt", 0, 0).await;
+    assert!(
+        result.is_err(),
+        "Reading file replaced by symlink must fail due to O_NOFOLLOW"
+    );
+}
+
+/// SEC-001: Test post-open verification catches symlinks on Linux via /proc/self/fd.
+#[cfg(all(unix, target_os = "linux"))]
+#[tokio::test]
+async fn test_linux_proc_fd_verification() {
+    use rvagent_backends::filesystem::FilesystemBackend;
+    use rvagent_backends::protocol::Backend;
+
+    let dir = TempDir::new().expect("failed to create temp dir");
+    let sandbox = dir.path();
+    let backend = FilesystemBackend::new(sandbox.to_path_buf());
+
+    // Create a file outside the sandbox
+    let outside = TempDir::new().expect("outside dir");
+    let outside_file = outside.path().join("secret.txt");
+    fs::write(&outside_file, "secret data").unwrap();
+
+    // Create symlink inside sandbox pointing outside
+    let symlink = sandbox.join("link_to_secret");
+    std::os::unix::fs::symlink(&outside_file, &symlink).unwrap();
+
+    // The read should fail due to /proc/self/fd verification
+    let result = backend.read_file("link_to_secret", 0, 0).await;
+    assert!(
+        result.is_err(),
+        "Linux /proc/self/fd verification must detect symlink escape"
+    );
+
+    // Check the error is PathEscapesRoot
+    if let Err(e) = result {
+        assert!(
+            matches!(e, rvagent_backends::protocol::FileOperationError::PathEscapesRoot(_)),
+            "Expected PathEscapesRoot error, got {:?}",
+            e
+        );
+    }
+}
+
+/// SEC-001: Test post-open verification catches symlinks on macOS via F_GETPATH.
+#[cfg(all(unix, target_os = "macos"))]
+#[tokio::test]
+async fn test_macos_f_getpath_verification() {
+    use rvagent_backends::filesystem::FilesystemBackend;
+    use rvagent_backends::protocol::Backend;
+
+    let dir = TempDir::new().expect("failed to create temp dir");
+    let sandbox = dir.path();
+    let backend = FilesystemBackend::new(sandbox.to_path_buf());
+
+    // Create a file outside the sandbox
+    let outside = TempDir::new().expect("outside dir");
+    let outside_file = outside.path().join("secret.txt");
+    fs::write(&outside_file, "secret data").unwrap();
+
+    // Create symlink inside sandbox pointing outside
+    let symlink = sandbox.join("link_to_secret");
+    std::os::unix::fs::symlink(&outside_file, &symlink).unwrap();
+
+    // The read should fail due to F_GETPATH verification
+    let result = backend.read_file("link_to_secret", 0, 0).await;
+    assert!(
+        result.is_err(),
+        "macOS F_GETPATH verification must detect symlink escape"
+    );
+
+    // Check the error is PathEscapesRoot or IoError (symlink loop detection)
+    if let Err(e) = result {
+        assert!(
+            matches!(
+                e,
+                rvagent_backends::protocol::FileOperationError::PathEscapesRoot(_) |
+                rvagent_backends::protocol::FileOperationError::IoError(_)
+            ),
+            "Expected PathEscapesRoot or IoError (symlink loop), got {:?}",
+            e
+        );
+    }
+}
+
+/// SEC-001: Test that legitimate files within sandbox pass verification.
+#[cfg(unix)]
+#[tokio::test]
+async fn test_legitimate_file_passes_verification() {
+    use rvagent_backends::filesystem::FilesystemBackend;
+    use rvagent_backends::protocol::Backend;
+
+    let dir = TempDir::new().expect("failed to create temp dir");
+    let sandbox = dir.path();
+    let backend = FilesystemBackend::new(sandbox.to_path_buf());
+
+    // Create a legitimate file
+    fs::write(sandbox.join("data.txt"), "hello world").unwrap();
+
+    // Read should succeed
+    let result = backend.read_file("data.txt", 0, 0).await;
+    assert!(result.is_ok(), "Reading legitimate file should succeed");
+
+    let content = result.unwrap();
+    assert!(content.contains("hello world"));
+}
+
+/// SEC-001: Test that write operations also use atomic resolve+open.
+#[cfg(unix)]
+#[tokio::test]
+async fn test_write_uses_atomic_resolve_open() {
+    use rvagent_backends::filesystem::FilesystemBackend;
+    use rvagent_backends::protocol::Backend;
+
+    let dir = TempDir::new().expect("failed to create temp dir");
+    let sandbox = dir.path();
+    let backend = FilesystemBackend::new(sandbox.to_path_buf());
+
+    // Write a new file
+    let result = backend.write_file("output.txt", "test data").await;
+    assert!(result.error.is_none(), "Writing new file should succeed");
+
+    // Verify the file was created
+    let content = fs::read_to_string(sandbox.join("output.txt")).unwrap();
+    assert_eq!(content, "test data");
+
+    // Create a symlink to outside
+    let outside = TempDir::new().expect("outside");
+    let outside_file = outside.path().join("pwned.txt");
+    fs::write(&outside_file, "original").unwrap();
+
+    let evil_link = sandbox.join("evil_output");
+    std::os::unix::fs::symlink(&outside_file, &evil_link).unwrap();
+
+    // Attempt to write via symlink should fail
+    let result = backend.write_file("evil_output", "attack").await;
+    assert!(result.error.is_some(), "Writing via symlink should fail");
+
+    // Verify outside file was NOT modified
+    let outside_content = fs::read_to_string(&outside_file).unwrap();
+    assert_eq!(outside_content, "original", "Outside file must not be modified");
+}
+
 // =========================================================================
 // SEC-002: virtual_mode defaults to true
 // =========================================================================

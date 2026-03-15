@@ -116,7 +116,7 @@ fn test_subagent_spawn_and_collect() {
     let parent = parent_state_with_data();
 
     let result = orch.spawn_sync("researcher", &parent, "Research topic X");
-    assert!(result.is_some());
+    assert!(result.is_ok());
     let r = result.unwrap();
     assert_eq!(r.agent_name, "researcher");
     assert!(r.result_message.contains("Research topic X"));

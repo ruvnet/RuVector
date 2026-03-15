@@ -68,13 +68,31 @@ enum Commands {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    // Initialize tracing (respects RUST_LOG env).
-    tracing_subscriber::fmt()
-        .with_env_filter(EnvFilter::from_default_env())
-        .with_target(false)
-        .init();
+    // Load .env file if present (supports ANTHROPIC_API_KEY, etc.)
+    // Try current directory first, then project root
+    if dotenvy::dotenv().is_err() {
+        // Try loading from common locations
+        let _ = dotenvy::from_filename(".env.local");
+    }
 
     let cli = Cli::parse();
+
+    // Determine if we're running in interactive TUI mode.
+    // In TUI mode, we suppress console tracing to avoid corrupting the display.
+    let is_tui_mode = match &cli.command {
+        Some(Commands::Session { .. }) => false,
+        Some(Commands::Run { .. }) => false,
+        Some(Commands::Chat) | None => cli.prompt.is_none(),
+    };
+
+    // Initialize tracing only for non-TUI modes.
+    // TUI mode uses its own display system.
+    if !is_tui_mode {
+        tracing_subscriber::fmt()
+            .with_env_filter(EnvFilter::from_default_env())
+            .with_target(false)
+            .init();
+    }
 
     // Resolve working directory.
     let cwd = match &cli.directory {

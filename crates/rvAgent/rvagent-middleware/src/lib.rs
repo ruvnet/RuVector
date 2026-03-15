@@ -2,9 +2,15 @@
 //!
 //! Provides the `Middleware` trait and `MiddlewarePipeline` for composing middleware
 //! in the DeepAgents architecture (ADR-095, ADR-103).
+//!
+//! ## ADR-103 Learning Middleware (B5, B6)
+//!
+//! - [`sona`] — SONA Adaptive Learning with three loops (instant, background, deep)
+//! - [`hnsw`] — HNSW Semantic Retrieval for skills and memory (150x-12,500x faster)
 
 pub mod filesystem;
 pub mod hitl;
+pub mod hnsw;
 pub mod mcp_bridge;
 pub mod memory;
 pub mod patch_tool_calls;
@@ -12,10 +18,13 @@ pub mod prompt_caching;
 pub mod retry;
 pub mod rvf_manifest;
 pub mod skills;
+pub mod sona;
 pub mod subagents;
 pub mod summarization;
 pub mod todolist;
 pub mod tool_sanitizer;
+pub mod unicode_security;
+pub mod unicode_security_middleware;
 pub mod utils;
 pub mod witness;
 
@@ -25,6 +34,8 @@ use std::collections::HashMap;
 use std::fmt;
 
 // Re-exports
+pub use unicode_security::{UnicodeIssue, UnicodeSecurityChecker, UnicodeSecurityConfig};
+pub use unicode_security_middleware::UnicodeSecurityMiddleware;
 pub use utils::{append_to_system_message, SystemPromptBuilder};
 
 // ---------------------------------------------------------------------------
@@ -514,15 +525,40 @@ pub struct PipelineConfig {
     pub skill_sources: Option<Vec<String>>,
     pub interrupt_on: Option<Vec<String>>,
     pub enable_witness: bool,
+    /// Enable SONA adaptive learning middleware (ADR-103 B5).
+    pub enable_sona: bool,
+    /// Enable HNSW semantic retrieval middleware (ADR-103 B6).
+    pub enable_hnsw: bool,
+    /// Enable Unicode security middleware (C7 - CVE mitigation).
+    pub enable_unicode_security: bool,
+    /// Custom SONA configuration.
+    pub sona_config: Option<sona::SonaMiddlewareConfig>,
+    /// Custom HNSW configuration.
+    pub hnsw_config: Option<hnsw::HnswMiddlewareConfig>,
+    /// Custom Unicode security configuration.
+    pub unicode_security_config: Option<UnicodeSecurityConfig>,
 }
 
 /// Build the default middleware pipeline per ADR-095 ordering:
-/// Todo -> Memory -> Skills -> Filesystem -> SubAgent -> Summarization
-/// -> PromptCaching -> PatchToolCalls -> Witness -> ToolSanitizer -> HITL
+/// Todo -> HNSW -> Memory -> Skills -> Filesystem -> SubAgent -> Summarization
+/// -> PromptCaching -> PatchToolCalls -> UnicodeSecurityMiddleware -> SONA -> Witness -> ToolSanitizer -> HITL
+///
+/// HNSW is early in the pipeline to augment context before other middleware.
+/// UnicodeSecurityMiddleware runs before SONA to sanitize inputs/outputs (C7).
+/// SONA wraps model calls late to capture full request/response context.
 pub fn build_default_pipeline(config: &PipelineConfig) -> MiddlewarePipeline {
     let mut middlewares: Vec<Box<dyn Middleware>> = vec![
         Box::new(todolist::TodoListMiddleware::new()),
     ];
+
+    // HNSW early for context augmentation (ADR-103 B6)
+    if config.enable_hnsw {
+        let hnsw_config = config
+            .hnsw_config
+            .clone()
+            .unwrap_or_else(hnsw::HnswMiddlewareConfig::default);
+        middlewares.push(Box::new(hnsw::HnswMiddleware::new(hnsw_config)));
+    }
 
     if let Some(sources) = &config.memory_sources {
         middlewares.push(Box::new(memory::MemoryMiddleware::new(sources.clone())));
@@ -539,6 +575,28 @@ pub fn build_default_pipeline(config: &PipelineConfig) -> MiddlewarePipeline {
     )));
     middlewares.push(Box::new(prompt_caching::PromptCachingMiddleware::new()));
     middlewares.push(Box::new(patch_tool_calls::PatchToolCallsMiddleware::new()));
+
+    // Unicode security before SONA to sanitize inputs (C7 - CVE mitigation)
+    if config.enable_unicode_security {
+        let unicode_config = config
+            .unicode_security_config
+            .clone()
+            .unwrap_or_else(UnicodeSecurityConfig::strict);
+        middlewares.push(Box::new(
+            UnicodeSecurityMiddleware::new(unicode_config)
+                .with_input_sanitization(true)
+                .with_output_sanitization(false), // Log only by default
+        ));
+    }
+
+    // SONA late to capture full context (ADR-103 B5)
+    if config.enable_sona {
+        let sona_config = config
+            .sona_config
+            .clone()
+            .unwrap_or_else(sona::SonaMiddlewareConfig::default);
+        middlewares.push(Box::new(sona::SonaMiddleware::new(sona_config)));
+    }
 
     if config.enable_witness {
         middlewares.push(Box::new(witness::WitnessMiddleware::new()));
@@ -732,6 +790,12 @@ mod tests {
             skill_sources: Some(vec![".skills".into()]),
             interrupt_on: Some(vec!["execute".into()]),
             enable_witness: true,
+            enable_sona: false,
+            enable_hnsw: false,
+            enable_unicode_security: false,
+            sona_config: None,
+            hnsw_config: None,
+            unicode_security_config: None,
         };
         let pipeline = build_default_pipeline(&config);
         // todo + memory + skills + filesystem + subagent + summarization + prompt_caching

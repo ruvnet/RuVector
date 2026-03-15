@@ -112,13 +112,16 @@ tracing-subscriber = { workspace = true }
 
 [features]
 # Default includes candle for working inference out of the box
-default = ["async-runtime", "candle", "routing-metrics"]
+default = ["async-runtime", "candle", "routing-metrics", "quantize"]
 async-runtime = ["tokio", "tokio-stream"]
 
 # Minimal build without inference (for embedding/library use only)
 minimal = ["async-runtime"]
 wasm = []
 wasm-simd = []
+
+# Quantization support (requires platform-specific SIMD)
+quantize = []
 
 # P5 Optimization: Optional routing metrics collection
 # Disable for production to avoid Instant::now() syscall overhead (~0.04-0.08µs)

@@ -31,6 +31,7 @@ pub mod sandbox;
 pub mod store;
 pub mod rvf_store;
 pub mod anthropic;
+pub mod gemini;
 
 // Re-export core types for convenience.
 pub use protocol::{
@@ -42,7 +43,7 @@ pub use state::StateBackend;
 pub use filesystem::FilesystemBackend;
 pub use local_shell::{LocalShellBackend, LocalShellConfig, CommandAllowlist};
 pub use composite::{CompositeBackend, BackendRef};
-pub use sandbox::{BaseSandbox, SandboxConfig};
+pub use sandbox::{BaseSandbox, SandboxConfig, SandboxError, LocalSandbox};
 pub use store::StoreBackend;
 pub use rvf_store::MountedToolInfo;
 pub use anthropic::AnthropicClient;
