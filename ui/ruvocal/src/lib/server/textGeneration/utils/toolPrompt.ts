@@ -49,6 +49,13 @@ export function buildToolPreprompt(tools: OpenAiTool[], autopilot?: boolean): st
 	}
 
 	lines.push(
+		`TOOL PARAMETERS - CRITICAL:`,
+		`- ALWAYS provide ALL required parameters. NEVER call a tool with empty {} arguments if it requires parameters.`,
+		`- Check the tool's inputSchema for "required" fields. If a field is required, you MUST provide a value.`,
+		`- Use example values from the tool description as guidance for the correct format.`,
+		`- Common errors: calling read_file({}) instead of read_file({path: "file.txt"}). Always include the path!`,
+		`- If unsure what value to use, make a reasonable assumption based on context rather than omitting the parameter.`,
+		``,
 		`PARALLEL TOOL CALLS: When multiple tool calls are needed and they are independent of each other (i.e., one does not need the result of another), call them all at once in a single response instead of one at a time. Only chain tool calls sequentially when a later call depends on an earlier call's output.`,
 		`SEARCH: Use 3-6 precise keywords. For historical events, include the year the event occurred. For recent or current topics, use today's year (${now.getFullYear()}). When a tool accepts date-range parameters (e.g., startPublishedDate, endPublishedDate), always use today's date (${isoDate}) as the end date unless the user specifies otherwise. For multi-part questions, search each part separately.`,
 		`ANSWER: State only facts explicitly in the results. If info is missing or results conflict, say so. Never fabricate URLs or facts.`,

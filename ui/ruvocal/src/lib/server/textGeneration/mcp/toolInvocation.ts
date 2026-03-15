@@ -92,20 +92,25 @@ function executeWasmTool(
 			case "read_file": {
 				const path = String(args.path || "");
 				if (!path) {
-					return { success: false, result: "", error: "path is required" };
+					return { success: false, result: "", error: "ERROR: 'path' is required. Example: read_file({path: 'src/index.ts'})" };
 				}
 				const content = wasmVirtualFS.get(path);
 				if (content === undefined) {
-					return { success: false, result: "", error: `File not found: ${path}` };
+					const availableFiles = Array.from(wasmVirtualFS.keys()).slice(0, 5);
+					const hint = availableFiles.length > 0 ? ` Available files: ${availableFiles.join(", ")}` : " Use list_files to see available files.";
+					return { success: false, result: "", error: `File not found: ${path}.${hint}` };
 				}
 				return { success: true, result: content };
 			}
 
 			case "write_file": {
 				const path = String(args.path || "");
-				const content = String(args.content || "");
+				const content = String(args.content ?? "");
 				if (!path) {
-					return { success: false, result: "", error: "path is required" };
+					return { success: false, result: "", error: "ERROR: 'path' is required. Example: write_file({path: 'hello.txt', content: 'Hello World'})" };
+				}
+				if (args.content === undefined) {
+					return { success: false, result: "", error: "ERROR: 'content' is required. Example: write_file({path: 'hello.txt', content: 'Hello World'})" };
 				}
 				wasmVirtualFS.set(path, content);
 				return { success: true, result: `Successfully wrote ${content.length} bytes to ${path}` };
@@ -122,10 +127,10 @@ function executeWasmTool(
 			case "delete_file": {
 				const path = String(args.path || "");
 				if (!path) {
-					return { success: false, result: "", error: "path is required" };
+					return { success: false, result: "", error: "ERROR: 'path' is required. Example: delete_file({path: 'temp.txt'})" };
 				}
 				if (!wasmVirtualFS.has(path)) {
-					return { success: false, result: "", error: `File not found: ${path}` };
+					return { success: false, result: "", error: `File not found: ${path}. Use list_files to see available files.` };
 				}
 				wasmVirtualFS.delete(path);
 				return { success: true, result: `Deleted: ${path}` };
@@ -134,16 +139,20 @@ function executeWasmTool(
 			case "edit_file": {
 				const path = String(args.path || "");
 				const oldContent = String(args.old_content || args.oldContent || "");
-				const newContent = String(args.new_content || args.newContent || "");
+				const newContent = String(args.new_content ?? args.newContent ?? "");
 				if (!path) {
-					return { success: false, result: "", error: "path is required" };
+					return { success: false, result: "", error: "ERROR: 'path' is required. Example: edit_file({path: 'config.json', old_content: 'v1', new_content: 'v2'})" };
+				}
+				if (!oldContent) {
+					return { success: false, result: "", error: "ERROR: 'old_content' is required. Use read_file first to see exact content to replace." };
 				}
 				const existing = wasmVirtualFS.get(path);
 				if (existing === undefined) {
-					return { success: false, result: "", error: `File not found: ${path}` };
+					return { success: false, result: "", error: `File not found: ${path}. Use list_files to see available files.` };
 				}
 				if (!existing.includes(oldContent)) {
-					return { success: false, result: "", error: `old_content not found in file` };
+					const preview = existing.slice(0, 100) + (existing.length > 100 ? "..." : "");
+					return { success: false, result: "", error: `old_content not found in file. File contents: "${preview}"` };
 				}
 				const updated = existing.replace(oldContent, newContent);
 				wasmVirtualFS.set(path, updated);
@@ -157,7 +166,7 @@ function executeWasmTool(
 				const pattern = String(args.pattern || "");
 				const targetPath = args.path ? String(args.path) : null;
 				if (!pattern) {
-					return { success: false, result: "", error: "pattern is required" };
+					return { success: false, result: "", error: "ERROR: 'pattern' is required. Example: grep({pattern: 'TODO'}) or grep({pattern: 'function', path: 'src/index.ts'})" };
 				}
 				try {
 					const regex = new RegExp(pattern, "gi");
@@ -180,7 +189,7 @@ function executeWasmTool(
 			case "glob": {
 				const pattern = String(args.pattern || "");
 				if (!pattern) {
-					return { success: false, result: "", error: "pattern is required" };
+					return { success: false, result: "", error: "ERROR: 'pattern' is required. Example: glob({pattern: '*.ts'}) or glob({pattern: 'src/*.js'})" };
 				}
 				const globPattern = pattern.replace(/\*/g, ".*").replace(/\?/g, ".");
 				const regex = new RegExp(`^${globPattern}$`);
@@ -194,7 +203,7 @@ function executeWasmTool(
 			case "todo_add": {
 				const task = String(args.task || "");
 				if (!task) {
-					return { success: false, result: "", error: "task is required" };
+					return { success: false, result: "", error: "ERROR: 'task' is required. Example: todo_add({task: 'Implement user login'})" };
 				}
 				const id = `todo-${wasmTodoIdCounter++}`;
 				wasmTodoList.push({ id, task, completed: false, created: Date.now() });
@@ -214,11 +223,13 @@ function executeWasmTool(
 			case "todo_complete": {
 				const id = String(args.id || "");
 				if (!id) {
-					return { success: false, result: "", error: "id is required" };
+					return { success: false, result: "", error: "ERROR: 'id' is required. Example: todo_complete({id: 'todo-1'}). Use todo_list to see task IDs." };
 				}
 				const todo = wasmTodoList.find(t => t.id === id);
 				if (!todo) {
-					return { success: false, result: "", error: `Task not found: ${id}` };
+					const availableIds = wasmTodoList.map(t => t.id).slice(0, 5);
+					const hint = availableIds.length > 0 ? ` Available: ${availableIds.join(", ")}` : " Use todo_list to see tasks.";
+					return { success: false, result: "", error: `Task not found: ${id}.${hint}` };
 				}
 				todo.completed = true;
 				return { success: true, result: `Completed: ${todo.task}` };
@@ -230,8 +241,11 @@ function executeWasmTool(
 			case "memory_store": {
 				const key = String(args.key || "");
 				const value = String(args.value || "");
-				if (!key || !value) {
-					return { success: false, result: "", error: "key and value are required" };
+				if (!key) {
+					return { success: false, result: "", error: "ERROR: 'key' is required. Example: memory_store({key: 'auth-pattern', value: 'Use JWT tokens'})" };
+				}
+				if (!value) {
+					return { success: false, result: "", error: "ERROR: 'value' is required. Example: memory_store({key: 'auth-pattern', value: 'Use JWT tokens'})" };
 				}
 				const tags = Array.isArray(args.tags) ? args.tags.map(String) : [];
 				wasmMemoryStore.set(key, { key, value, tags });
@@ -241,7 +255,7 @@ function executeWasmTool(
 			case "memory_search": {
 				const query = String(args.query || "").toLowerCase();
 				if (!query) {
-					return { success: false, result: "", error: "query is required" };
+					return { success: false, result: "", error: "ERROR: 'query' is required. Example: memory_search({query: 'authentication'})" };
 				}
 				const topK = typeof args.top_k === "number" ? args.top_k : 5;
 				const results = Array.from(wasmMemoryStore.values())
@@ -264,7 +278,7 @@ function executeWasmTool(
 			case "witness_log": {
 				const action = String(args.action || "");
 				if (!action) {
-					return { success: false, result: "", error: "action is required" };
+					return { success: false, result: "", error: "ERROR: 'action' is required. Example: witness_log({action: 'file_created', data: {path: 'config.json'}})" };
 				}
 				const data = args.data || {};
 				const hash = wasmAddWitnessEntry(action, data);
@@ -299,11 +313,13 @@ function executeWasmTool(
 			case "gallery_load": {
 				const id = String(args.id || "");
 				if (!id) {
-					return { success: false, result: "", error: "id is required" };
+					const available = wasmGalleryTemplates.map(t => t.id).join(", ");
+					return { success: false, result: "", error: `ERROR: 'id' is required. Available templates: ${available}` };
 				}
 				const template = wasmGalleryTemplates.find(t => t.id === id);
 				if (!template) {
-					return { success: false, result: "", error: `Template not found: ${id}` };
+					const available = wasmGalleryTemplates.map(t => t.id).join(", ");
+					return { success: false, result: "", error: `Template not found: ${id}. Available: ${available}` };
 				}
 				wasmActiveTemplateId = id;
 				return { success: true, result: `Loaded template: ${template.name}\nDescription: ${template.description}\nCategory: ${template.category}` };
@@ -312,7 +328,7 @@ function executeWasmTool(
 			case "gallery_search": {
 				const query = String(args.query || "").toLowerCase();
 				if (!query) {
-					return { success: false, result: "", error: "query is required" };
+					return { success: false, result: "", error: "ERROR: 'query' is required. Example: gallery_search({query: 'security'}) or gallery_search({query: 'development'})" };
 				}
 				const matches = wasmGalleryTemplates.filter(t =>
 					t.name.toLowerCase().includes(query) ||
