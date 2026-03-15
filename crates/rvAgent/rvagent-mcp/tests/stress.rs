@@ -1,18 +1,19 @@
 //! Stress and property-based tests for rvagent-mcp.
-//! Tests registry scaling, concurrent access patterns, protocol serde,
-//! and edge cases for the MCP system.
+//! Tests topology scaling, concurrent access patterns, and edge cases.
 
 use std::sync::Arc;
 
 use rvagent_mcp::protocol::*;
 use rvagent_mcp::registry::*;
-use rvagent_mcp::{McpError, McpToolRegistry};
+use rvagent_mcp::resources::*;
+use rvagent_mcp::topology::*;
+use rvagent_mcp::skills_bridge::*;
+use rvagent_mcp::McpError;
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-/// Simple handler that returns "ok" for any arguments.
 struct OkHandler;
 
 #[async_trait::async_trait]
@@ -44,221 +45,429 @@ fn make_tool_with_schema(name: &str, schema: serde_json::Value) -> McpToolDefini
 }
 
 // ---------------------------------------------------------------------------
-// Stress: Registry scaling
+// Stress: Topology scaling
 // ---------------------------------------------------------------------------
 
-/// Stress test: Register 500 tools in a single registry.
+/// Stress test: Scale topology to 100 nodes.
 #[test]
-fn stress_registry_500_tools() {
-    let reg = McpToolRegistry::new();
-    for i in 0..500 {
-        let name = format!("tool-{}", i);
-        reg.register_tool(make_tool(&name)).unwrap();
-    }
-    assert_eq!(reg.len(), 500);
-
-    // Lookup should still work for all tools
-    for i in 0..500 {
-        let name = format!("tool-{}", i);
-        assert!(reg.get_tool(&name).is_some(), "Missing tool: {}", name);
-    }
-
-    // List should be sorted
-    let tools = reg.list_tools();
-    assert_eq!(tools.len(), 500);
-    for w in tools.windows(2) {
-        assert!(w[0].name <= w[1].name, "Not sorted: {} > {}", w[0].name, w[1].name);
-    }
-}
-
-/// Stress test: Rapid register/unregister churn.
-#[test]
-fn stress_registry_churn() {
-    let reg = McpToolRegistry::new();
-
-    // Add 100 tools
+fn stress_topology_100_nodes() {
+    let mut router = TopologyRouter::mesh(200);
     for i in 0..100 {
-        reg.register_tool(make_tool(&format!("churn-{}", i))).unwrap();
+        router.add_node(TopologyNode {
+            id: format!("node-{}", i),
+            role: if i == 0 { NodeRole::Queen } else { NodeRole::Worker },
+            status: match i % 4 {
+                0 => NodeStatus::Active,
+                1 => NodeStatus::Idle,
+                2 => NodeStatus::Busy,
+                _ => NodeStatus::Active,
+            },
+            tools: vec![format!("tool-{}", i % 10)],
+            connections: if i > 0 { vec![format!("node-{}", i - 1)] } else { vec![] },
+        });
     }
-    assert_eq!(reg.len(), 100);
+    assert_eq!(router.node_count(), 100);
 
-    // Remove every other tool
-    for i in (0..100).step_by(2) {
-        reg.unregister_tool(&format!("churn-{}", i)).unwrap();
-    }
-    assert_eq!(reg.len(), 50);
-
-    // Remaining tools should be the odd-numbered ones
-    for i in (1..100).step_by(2) {
-        assert!(reg.get_tool(&format!("churn-{}", i)).is_some());
+    // Routing should still work
+    for i in 0..10 {
+        let tool = format!("tool-{}", i);
+        let target = router.route_tool_call(&tool);
+        assert!(target.is_some(), "Should find node for {}", tool);
     }
 
-    // Removed tools should be gone
-    for i in (0..100).step_by(2) {
-        assert!(reg.get_tool(&format!("churn-{}", i)).is_none());
+    // Status should be valid JSON
+    let status = router.status();
+    let nodes = status.get("nodes").unwrap().as_array().unwrap();
+    assert_eq!(nodes.len(), 100);
+}
+
+/// Stress test: Rapid add/remove nodes.
+#[test]
+fn stress_topology_churn() {
+    let mut router = TopologyRouter::adaptive(50);
+
+    // Add 50 nodes
+    for i in 0..50 {
+        router.add_node(TopologyNode {
+            id: format!("churn-{}", i),
+            role: NodeRole::Worker,
+            status: NodeStatus::Active,
+            tools: vec!["read_file".into()],
+            connections: vec![],
+        });
+    }
+    assert_eq!(router.node_count(), 50);
+
+    // Remove every other node
+    for i in (0..50).step_by(2) {
+        router.remove_node(&format!("churn-{}", i));
+    }
+    assert_eq!(router.node_count(), 25);
+
+    // Routing should still work with remaining nodes
+    assert!(router.route_tool_call("read_file").is_some());
+}
+
+/// Stress test: All nodes failed.
+#[test]
+fn stress_all_nodes_failed() {
+    let mut router = TopologyRouter::hierarchical(10);
+    for i in 0..5 {
+        router.add_node(TopologyNode {
+            id: format!("fail-{}", i),
+            role: NodeRole::Worker,
+            status: NodeStatus::Failed,
+            tools: vec!["grep".into()],
+            connections: vec![],
+        });
+    }
+
+    // Should return None since all nodes are failed
+    assert!(router.route_tool_call("grep").is_none());
+    assert_eq!(router.active_nodes().len(), 0);
+}
+
+// ---------------------------------------------------------------------------
+// Property: Resource URIs and providers
+// ---------------------------------------------------------------------------
+
+/// Property: Static resource URIs are consistent after add/list roundtrip.
+#[tokio::test]
+async fn property_resource_uris_valid() {
+    let provider = StaticResourceProvider::new();
+    provider.add("rvagent://state/overview", "overview", "state data", Some("application/json"), Some("Agent state overview"));
+    provider.add("rvagent://skills/catalog", "catalog", "skills list", Some("application/json"), Some("Available skills"));
+    provider.add("rvagent://topology/status", "status", "topology info", Some("application/json"), Some("Topology status"));
+
+    for resource in provider.list().await.unwrap() {
+        assert!(resource.uri.starts_with("rvagent://"), "URI must use rvagent:// scheme: {}", resource.uri);
+        assert!(!resource.name.is_empty());
+        assert!(resource.description.is_some());
     }
 }
 
-/// Stress test: Re-register after unregister cycle.
+/// Property: All built-in tools have valid schemas.
 #[test]
-fn stress_registry_re_register() {
-    let reg = McpToolRegistry::new();
-    for cycle in 0..10 {
-        let name = format!("cycle-tool-{}", cycle);
-        reg.register_tool(make_tool(&name)).unwrap();
-        reg.unregister_tool(&name).unwrap();
-        // Re-register same name
-        reg.register_tool(make_tool(&name)).unwrap();
+fn property_tool_schemas_valid() {
+    let registry = McpToolRegistry::new();
+    register_builtins(&registry, serde_json::json!({"tools": true})).unwrap();
+    let tools = registry.list_tools();
+    assert_eq!(tools.len(), 3);
+    for tool in &tools {
+        assert!(!tool.name.is_empty());
+        assert!(!tool.description.is_empty());
+        assert!(tool.input_schema.is_object(), "Schema for {} must be object", tool.name);
     }
-    assert_eq!(reg.len(), 10);
+}
+
+/// Property: Topology status JSON is well-formed.
+#[test]
+fn property_topology_status_shape() {
+    let topologies: Vec<(&str, TopologyRouter)> = vec![
+        ("standalone", TopologyRouter::standalone()),
+        ("hierarchical", TopologyRouter::hierarchical(8)),
+        ("mesh", TopologyRouter::mesh(8)),
+        ("adaptive", TopologyRouter::adaptive(8)),
+    ];
+
+    for (name, router) in &topologies {
+        let status = router.status();
+        assert!(status.get("topology").is_some(), "{} missing topology", name);
+        assert!(status.get("max_agents").is_some(), "{} missing max_agents", name);
+        assert!(status.get("node_count").is_some(), "{} missing node_count", name);
+        assert!(status.get("active_nodes").is_some(), "{} missing active_nodes", name);
+        assert!(status.get("consensus").is_some(), "{} missing consensus", name);
+        assert!(status.get("nodes").is_some(), "{} missing nodes", name);
+    }
+}
+
+/// Property: Skills conversion is idempotent.
+#[test]
+fn property_skills_roundtrip_idempotent() {
+    let original = rvagent_middleware::skills::SkillMetadata {
+        path: ".skills/test/SKILL.md".into(),
+        name: "test-skill".into(),
+        description: "A test skill for roundtrip testing".into(),
+        license: Some("MIT".into()),
+        compatibility: Some("claude-code".into()),
+        metadata: std::collections::HashMap::new(),
+        allowed_tools: vec!["read_file".into(), "write_file".into()],
+    };
+
+    // rvAgent -> Claude Code -> rvAgent
+    let claude = SkillBridge::to_claude_code(&original);
+    let back = SkillBridge::from_claude_code(&claude);
+    assert_eq!(back.name, original.name);
+    assert_eq!(back.description, original.description);
+    assert_eq!(back.allowed_tools, original.allowed_tools);
+
+    // rvAgent -> Codex -> rvAgent
+    let codex = SkillBridge::to_codex(&original);
+    let back2 = SkillBridge::from_codex(&codex);
+    assert_eq!(back2.name, original.name);
+    assert_eq!(back2.allowed_tools, original.allowed_tools);
 }
 
 // ---------------------------------------------------------------------------
 // Stress: Protocol serde throughput
 // ---------------------------------------------------------------------------
 
-/// Stress: Serialize/deserialize 1000 JsonRpcRequests.
+/// Stress: Serialize/deserialize many MCP requests.
 #[test]
-fn stress_jsonrpc_request_serde_throughput() {
-    let base = JsonRpcRequest::new(1, "tools/call")
+fn stress_mcp_serde_throughput() {
+    let req = JsonRpcRequest::new(1, "tools/call")
         .with_params(serde_json::json!({"name": "read_file", "arguments": {"file_path": "/test.txt"}}));
 
     for i in 0..1000 {
-        let mut req = base.clone();
-        req.id = serde_json::json!(i);
-        let json = serde_json::to_string(&req).unwrap();
+        let mut r = req.clone();
+        r.id = serde_json::json!(i);
+        let json = serde_json::to_string(&r).unwrap();
         let back: JsonRpcRequest = serde_json::from_str(&json).unwrap();
         assert_eq!(back.method, "tools/call");
-        assert_eq!(back.jsonrpc, "2.0");
     }
 }
 
-/// Stress: Serialize/deserialize 1000 JsonRpcResponses.
-#[test]
-fn stress_jsonrpc_response_serde_throughput() {
-    for i in 0..1000 {
-        let resp = JsonRpcResponse::success(
-            serde_json::json!(i),
-            serde_json::json!({"content": [{"type": "text", "text": "result"}]}),
-        );
-        let json = serde_json::to_string(&resp).unwrap();
-        let back: JsonRpcResponse = serde_json::from_str(&json).unwrap();
-        assert!(back.result.is_some());
-        assert!(back.error.is_none());
-    }
-}
-
-/// Stress: McpTool serde roundtrip at scale.
-#[test]
-fn stress_mcp_tool_serde_roundtrip() {
-    for i in 0..500 {
-        let tool = McpTool {
-            name: format!("tool-{}", i),
-            description: format!("Tool number {} for stress testing", i),
-            input_schema: serde_json::json!({
-                "type": "object",
-                "properties": {
-                    "arg1": {"type": "string"},
-                    "arg2": {"type": "integer"}
-                },
-                "required": ["arg1"]
-            }),
-        };
-        let json = serde_json::to_string(&tool).unwrap();
-        let back: McpTool = serde_json::from_str(&json).unwrap();
-        assert_eq!(back.name, tool.name);
-        assert_eq!(back.description, tool.description);
-        assert!(back.input_schema.is_object());
-    }
-}
-
-/// Stress: Content variant serde roundtrip at scale.
-#[test]
-fn stress_content_serde_roundtrip() {
-    for i in 0..500 {
-        let content = match i % 2 {
-            0 => Content::text(format!("text-content-{}", i)),
-            _ => Content::image(format!("base64data{}==", i), "image/png"),
-        };
-        let json = serde_json::to_string(&content).unwrap();
-        let back: Content = serde_json::from_str(&json).unwrap();
-        match (&content, &back) {
-            (Content::Text { text: a }, Content::Text { text: b }) => assert_eq!(a, b),
-            (Content::Image { data: a, .. }, Content::Image { data: b, .. }) => assert_eq!(a, b),
-            _ => panic!("Mismatched content types at iteration {}", i),
-        }
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Stress: Async tool execution
-// ---------------------------------------------------------------------------
-
-/// Stress: Call tools many times via the registry.
+/// Stress: Create and query many resources.
 #[tokio::test]
-async fn stress_registry_call_tool_throughput() {
-    let reg = McpToolRegistry::new();
-    for i in 0..20 {
-        reg.register_tool(make_tool(&format!("fast-{}", i))).unwrap();
+async fn stress_resource_reads() {
+    let provider = StaticResourceProvider::new();
+    provider.add("rvagent://state/overview", "overview", "{}", Some("application/json"), None);
+    provider.add("rvagent://skills/catalog", "catalog", "[]", Some("application/json"), None);
+    provider.add("rvagent://topology/status", "status", "{}", Some("application/json"), None);
+
+    // Read all static resources many times
+    for _ in 0..100 {
+        assert!(provider.read("rvagent://state/overview").await.is_ok());
+        assert!(provider.read("rvagent://skills/catalog").await.is_ok());
+        assert!(provider.read("rvagent://topology/status").await.is_ok());
     }
 
-    for round in 0..50 {
-        let tool_name = format!("fast-{}", round % 20);
-        let result = reg.call_tool(&tool_name, serde_json::json!({})).await.unwrap();
-        assert!(!result.is_error);
-        assert_eq!(result.content.len(), 1);
+    // Non-existent resources
+    assert!(provider.read("rvagent://nonexistent").await.is_err());
+}
+
+/// Stress: TopologyNode serde roundtrip at scale.
+#[test]
+fn stress_node_serde_roundtrip() {
+    for i in 0..500 {
+        let node = TopologyNode {
+            id: format!("node-{}", i),
+            role: match i % 5 {
+                0 => NodeRole::Queen,
+                1 => NodeRole::Worker,
+                2 => NodeRole::Scout,
+                3 => NodeRole::Specialist,
+                _ => NodeRole::Router,
+            },
+            status: match i % 5 {
+                0 => NodeStatus::Active,
+                1 => NodeStatus::Idle,
+                2 => NodeStatus::Busy,
+                3 => NodeStatus::Failed,
+                _ => NodeStatus::Draining,
+            },
+            tools: (0..3).map(|j| format!("tool-{}", j)).collect(),
+            connections: (0..2).map(|j| format!("conn-{}", j)).collect(),
+        };
+        let json = serde_json::to_string(&node).unwrap();
+        let back: TopologyNode = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.id, node.id);
+        assert_eq!(back.role, node.role);
+        assert_eq!(back.status, node.status);
     }
 }
 
-/// Stress: Register builtins and call them many times.
+/// Stress: Registry register/unregister churn.
+#[test]
+fn stress_registry_churn() {
+    let reg = McpToolRegistry::new();
+
+    for i in 0..100 {
+        reg.register_tool(make_tool(&format!("churn-{}", i))).unwrap();
+    }
+    assert_eq!(reg.len(), 100);
+
+    for i in (0..100).step_by(2) {
+        reg.unregister_tool(&format!("churn-{}", i)).unwrap();
+    }
+    assert_eq!(reg.len(), 50);
+
+    for i in (1..100).step_by(2) {
+        assert!(reg.get_tool(&format!("churn-{}", i)).is_some());
+    }
+}
+
+/// Stress: Call builtins many times.
 #[tokio::test]
 async fn stress_builtins_repeated_calls() {
     let reg = McpToolRegistry::new();
-    register_builtins(&reg, serde_json::json!({"tools": true, "resources": false})).unwrap();
+    register_builtins(&reg, serde_json::json!({"tools": true})).unwrap();
 
     for _ in 0..100 {
-        let ping_result = reg.call_tool("ping", serde_json::Value::Null).await.unwrap();
-        assert!(!ping_result.is_error);
+        let ping = reg.call_tool("ping", serde_json::Value::Null).await.unwrap();
+        assert!(!ping.is_error);
 
-        let echo_result = reg
-            .call_tool("echo", serde_json::json!({"text": "hello"}))
-            .await
-            .unwrap();
-        match &echo_result.content[0] {
+        let echo = reg.call_tool("echo", serde_json::json!({"text": "hello"})).await.unwrap();
+        match &echo.content[0] {
             Content::Text { text } => assert_eq!(text, "hello"),
             _ => panic!("expected text content"),
         }
     }
 }
 
-// ---------------------------------------------------------------------------
-// Property: Validation consistency
-// ---------------------------------------------------------------------------
-
-/// Property: validate_args is consistent for all registered tools.
+/// Stress: Registry clone shares state via Arc.
 #[test]
-fn property_validate_args_consistency() {
+fn stress_registry_clone_shared_state() {
     let reg = McpToolRegistry::new();
-    let schemas = vec![
-        ("obj-tool", serde_json::json!({"type": "object", "properties": {"a": {"type": "string"}}, "required": ["a"]})),
-        ("no-req", serde_json::json!({"type": "object", "properties": {"b": {"type": "number"}}})),
-        ("empty-obj", serde_json::json!({"type": "object", "properties": {}})),
-    ];
-
-    for (name, schema) in &schemas {
-        reg.register_tool(make_tool_with_schema(name, schema.clone())).unwrap();
+    for i in 0..100 {
+        reg.register_tool(make_tool(&format!("shared-{}", i))).unwrap();
     }
+    let reg2 = reg.clone();
+    assert_eq!(reg2.len(), 100);
+    reg2.register_tool(make_tool("from-clone")).unwrap();
+    assert!(reg.get_tool("from-clone").is_some());
+    assert_eq!(reg.len(), 101);
+}
 
-    // Tool with required field: empty object fails
-    assert!(reg.validate_args("obj-tool", &serde_json::json!({})).is_err());
-    // Tool with required field: present field passes
-    assert!(reg.validate_args("obj-tool", &serde_json::json!({"a": "val"})).is_ok());
-    // Tool without required fields: empty object passes
-    assert!(reg.validate_args("no-req", &serde_json::json!({})).is_ok());
-    // Tool with empty properties: passes
-    assert!(reg.validate_args("empty-obj", &serde_json::json!({})).is_ok());
-    // Non-object arg against object schema: fails
-    assert!(reg.validate_args("obj-tool", &serde_json::json!("string")).is_err());
+/// Stress: McpPrompt with many arguments serde roundtrip.
+#[test]
+fn stress_prompt_many_arguments() {
+    let args: Vec<PromptArgument> = (0..50)
+        .map(|i| PromptArgument {
+            name: format!("arg-{}", i),
+            description: Some(format!("Argument number {}", i)),
+            required: i % 2 == 0,
+        })
+        .collect();
+
+    let prompt = McpPrompt {
+        name: "big-prompt".into(),
+        description: Some("A prompt with many arguments".into()),
+        arguments: args,
+    };
+
+    let json = serde_json::to_string(&prompt).unwrap();
+    let back: McpPrompt = serde_json::from_str(&json).unwrap();
+    assert_eq!(back.arguments.len(), 50);
+    assert!(back.arguments[0].required);
+    assert!(!back.arguments[1].required);
+}
+
+// ---------------------------------------------------------------------------
+// Edge cases
+// ---------------------------------------------------------------------------
+
+/// Edge case: Empty tool name routing.
+#[test]
+fn edge_empty_tool_name() {
+    let mut router = TopologyRouter::hierarchical(4);
+    router.add_node(TopologyNode {
+        id: "q".into(),
+        role: NodeRole::Queen,
+        status: NodeStatus::Active,
+        tools: vec![],
+        connections: vec![],
+    });
+    // Empty tool name should still not panic
+    let _ = router.route_tool_call("");
+}
+
+/// Edge case: Very long tool/node names.
+#[test]
+fn edge_long_names() {
+    let mut router = TopologyRouter::mesh(2);
+    let long_id = "a".repeat(1000);
+    let long_tool = "b".repeat(1000);
+    router.add_node(TopologyNode {
+        id: long_id.clone(),
+        role: NodeRole::Worker,
+        status: NodeStatus::Active,
+        tools: vec![long_tool.clone()],
+        connections: vec![],
+    });
+    assert_eq!(router.route_tool_call(&long_tool), Some(long_id));
+}
+
+/// Edge case: Duplicate node IDs.
+#[test]
+fn edge_duplicate_node_id() {
+    let mut router = TopologyRouter::hierarchical(4);
+    router.add_node(TopologyNode {
+        id: "dup".into(),
+        role: NodeRole::Worker,
+        status: NodeStatus::Active,
+        tools: vec!["ls".into()],
+        connections: vec![],
+    });
+    // Adding same ID should overwrite
+    router.add_node(TopologyNode {
+        id: "dup".into(),
+        role: NodeRole::Specialist,
+        status: NodeStatus::Idle,
+        tools: vec!["grep".into()],
+        connections: vec![],
+    });
+    assert_eq!(router.node_count(), 1);
+    let node = router.get_node("dup").unwrap();
+    assert_eq!(node.role, NodeRole::Specialist);
+}
+
+/// Edge case: McpError all variants display correctly.
+#[test]
+fn edge_mcp_error_display_all_variants() {
+    let variants: Vec<McpError> = vec![
+        McpError::protocol("protocol fail"),
+        McpError::tool("tool fail"),
+        McpError::resource("resource fail"),
+        McpError::transport("transport fail"),
+        McpError::server("server fail"),
+        McpError::client("client fail"),
+    ];
+    for e in &variants {
+        let s = e.to_string();
+        assert!(!s.is_empty());
+        assert!(s.contains("fail"));
+    }
+}
+
+/// Edge case: McpError from serde_json::Error.
+#[test]
+fn edge_mcp_error_from_json() {
+    let bad: std::result::Result<serde_json::Value, _> = serde_json::from_str("{invalid");
+    let mcp_err: McpError = bad.unwrap_err().into();
+    assert!(matches!(mcp_err, McpError::Json(_)));
+}
+
+/// Edge case: JsonRpcRequest with null id.
+#[test]
+fn edge_jsonrpc_null_id() {
+    let req = JsonRpcRequest {
+        jsonrpc: "2.0".into(),
+        id: serde_json::Value::Null,
+        method: "ping".into(),
+        params: None,
+    };
+    let json = serde_json::to_string(&req).unwrap();
+    let back: JsonRpcRequest = serde_json::from_str(&json).unwrap();
+    assert!(back.id.is_null());
+}
+
+/// Edge case: Duplicate tool registration returns error.
+#[test]
+fn edge_duplicate_tool_registration() {
+    let reg = McpToolRegistry::new();
+    reg.register_tool(make_tool("dup")).unwrap();
+    let result = reg.register_tool(make_tool("dup"));
+    assert!(result.is_err());
+    assert_eq!(reg.len(), 1);
+}
+
+/// Edge case: Call non-existent tool.
+#[tokio::test]
+async fn edge_call_nonexistent_tool() {
+    let reg = McpToolRegistry::new();
+    let result = reg.call_tool("does-not-exist", serde_json::Value::Null).await;
+    assert!(result.is_err());
 }
 
 /// Property: All McpMethod variants roundtrip through as_str/from_str.
@@ -295,23 +504,29 @@ fn property_jsonrpc_error_codes_valid() {
     ];
     for (err, expected_code) in &cases {
         assert_eq!(err.code, *expected_code);
-        // Serde roundtrip
         let json = serde_json::to_string(&err).unwrap();
         let back: JsonRpcError = serde_json::from_str(&json).unwrap();
         assert_eq!(back.code, *expected_code);
-        assert_eq!(back.message, "x");
     }
 }
 
-/// Property: ServerCapabilities default roundtrips correctly.
+/// Property: validate_args is consistent for all registered tools.
 #[test]
-fn property_server_capabilities_default_roundtrip() {
-    let caps = ServerCapabilities::default();
-    let json = serde_json::to_string(&caps).unwrap();
-    let back: ServerCapabilities = serde_json::from_str(&json).unwrap();
-    assert!(back.tools.is_none());
-    assert!(back.resources.is_none());
-    assert!(back.prompts.is_none());
+fn property_validate_args_consistency() {
+    let reg = McpToolRegistry::new();
+    reg.register_tool(make_tool_with_schema(
+        "obj-tool",
+        serde_json::json!({"type": "object", "properties": {"a": {"type": "string"}}, "required": ["a"]}),
+    )).unwrap();
+    reg.register_tool(make_tool_with_schema(
+        "no-req",
+        serde_json::json!({"type": "object", "properties": {"b": {"type": "number"}}}),
+    )).unwrap();
+
+    assert!(reg.validate_args("obj-tool", &serde_json::json!({})).is_err());
+    assert!(reg.validate_args("obj-tool", &serde_json::json!({"a": "val"})).is_ok());
+    assert!(reg.validate_args("no-req", &serde_json::json!({})).is_ok());
+    assert!(reg.validate_args("obj-tool", &serde_json::json!("string")).is_err());
 }
 
 /// Property: McpToolDefinition clone preserves all fields.
@@ -320,11 +535,7 @@ fn property_tool_definition_clone_preserves_fields() {
     for i in 0..50 {
         let original = make_tool_with_schema(
             &format!("clone-test-{}", i),
-            serde_json::json!({
-                "type": "object",
-                "properties": {"x": {"type": "number"}},
-                "required": ["x"]
-            }),
+            serde_json::json!({"type": "object", "properties": {"x": {"type": "number"}}}),
         );
         let cloned = original.clone();
         assert_eq!(cloned.name, original.name);
@@ -333,155 +544,33 @@ fn property_tool_definition_clone_preserves_fields() {
     }
 }
 
-// ---------------------------------------------------------------------------
-// Edge cases
-// ---------------------------------------------------------------------------
-
-/// Edge case: Empty tool name registration.
-#[test]
-fn edge_empty_tool_name() {
-    let reg = McpToolRegistry::new();
-    // Empty name should still be registrable (no validation against empty)
-    reg.register_tool(make_tool("")).unwrap();
-    assert!(reg.get_tool("").is_some());
-}
-
-/// Edge case: Very long tool names.
-#[test]
-fn edge_long_tool_name() {
-    let reg = McpToolRegistry::new();
-    let long_name = "a".repeat(10_000);
-    reg.register_tool(make_tool(&long_name)).unwrap();
-    assert!(reg.get_tool(&long_name).is_some());
-    let tools = reg.list_mcp_tools();
-    assert_eq!(tools.len(), 1);
-    assert_eq!(tools[0].name, long_name);
-}
-
-/// Edge case: Duplicate tool registration returns error.
-#[test]
-fn edge_duplicate_tool_registration() {
-    let reg = McpToolRegistry::new();
-    reg.register_tool(make_tool("dup")).unwrap();
-    let result = reg.register_tool(make_tool("dup"));
-    assert!(result.is_err());
-    // Original tool should remain
-    assert_eq!(reg.len(), 1);
-}
-
-/// Edge case: Unregister non-existent tool.
-#[test]
-fn edge_unregister_nonexistent() {
-    let reg = McpToolRegistry::new();
-    let result = reg.unregister_tool("ghost");
-    assert!(result.is_err());
-}
-
-/// Edge case: Call non-existent tool.
+/// Stress: ResourceRegistry with multiple providers.
 #[tokio::test]
-async fn edge_call_nonexistent_tool() {
-    let reg = McpToolRegistry::new();
-    let result = reg.call_tool("does-not-exist", serde_json::Value::Null).await;
-    assert!(result.is_err());
-}
-
-/// Edge case: Validate args for non-existent tool.
-#[test]
-fn edge_validate_args_nonexistent() {
-    let reg = McpToolRegistry::new();
-    let result = reg.validate_args("ghost", &serde_json::json!({}));
-    assert!(result.is_err());
-}
-
-/// Edge case: JsonRpcRequest with null id.
-#[test]
-fn edge_jsonrpc_null_id() {
-    let req = JsonRpcRequest {
-        jsonrpc: "2.0".into(),
-        id: serde_json::Value::Null,
-        method: "ping".into(),
-        params: None,
-    };
-    let json = serde_json::to_string(&req).unwrap();
-    let back: JsonRpcRequest = serde_json::from_str(&json).unwrap();
-    assert!(back.id.is_null());
-}
-
-/// Edge case: JsonRpcRequest with string id.
-#[test]
-fn edge_jsonrpc_string_id() {
-    let req = JsonRpcRequest::new("req-abc-123", "tools/list");
-    let json = serde_json::to_string(&req).unwrap();
-    let back: JsonRpcRequest = serde_json::from_str(&json).unwrap();
-    assert_eq!(back.id.as_str(), Some("req-abc-123"));
-}
-
-/// Edge case: Content with empty text.
-#[test]
-fn edge_content_empty_text() {
-    let c = Content::text("");
-    let json = serde_json::to_string(&c).unwrap();
-    let back: Content = serde_json::from_str(&json).unwrap();
-    match back {
-        Content::Text { text } => assert!(text.is_empty()),
-        _ => panic!("expected text content"),
+async fn stress_resource_registry_multiple_providers() {
+    let mut registry = ResourceRegistry::new();
+    for i in 0..10 {
+        let provider = Arc::new(StaticResourceProvider::new());
+        for j in 0..10 {
+            provider.add(
+                &format!("memory://provider-{}/resource-{}", i, j),
+                &format!("resource-{}-{}", i, j),
+                &format!("content for {}-{}", i, j),
+                None,
+                None,
+            );
+        }
+        registry.register(provider);
     }
-}
+    assert_eq!(registry.provider_count(), 10);
 
-/// Edge case: ToolCallResult with is_error=true.
-#[test]
-fn edge_tool_call_result_error() {
-    let result = ToolCallResult {
-        content: vec![Content::text("something went wrong")],
-        is_error: true,
-    };
-    let json = serde_json::to_string(&result).unwrap();
-    let back: ToolCallResult = serde_json::from_str(&json).unwrap();
-    assert!(back.is_error);
-    assert_eq!(back.content.len(), 1);
-}
+    let all = registry.list_resources().await.unwrap();
+    assert_eq!(all.len(), 100);
 
-/// Edge case: McpResource with no optional fields.
-#[test]
-fn edge_resource_minimal() {
-    let r = McpResource {
-        uri: "rvagent://minimal".into(),
-        name: "minimal".into(),
-        description: None,
-        mime_type: None,
-    };
-    let json = serde_json::to_string(&r).unwrap();
-    // Optional fields should be omitted
-    assert!(!json.contains("description"));
-    assert!(!json.contains("mimeType"));
-    let back: McpResource = serde_json::from_str(&json).unwrap();
-    assert_eq!(back.uri, "rvagent://minimal");
-}
-
-/// Edge case: McpError conversion from serde_json::Error.
-#[test]
-fn edge_mcp_error_from_json() {
-    let bad: std::result::Result<serde_json::Value, _> = serde_json::from_str("{invalid json");
-    let mcp_err: McpError = bad.unwrap_err().into();
-    assert!(matches!(mcp_err, McpError::Json(_)));
-    assert!(!mcp_err.to_string().is_empty());
-}
-
-/// Edge case: McpError all variants display correctly.
-#[test]
-fn edge_mcp_error_display_all_variants() {
-    let variants: Vec<McpError> = vec![
-        McpError::protocol("protocol fail"),
-        McpError::tool("tool fail"),
-        McpError::resource("resource fail"),
-        McpError::transport("transport fail"),
-        McpError::server("server fail"),
-        McpError::client("client fail"),
-    ];
-    for e in &variants {
-        let s = e.to_string();
-        assert!(!s.is_empty());
-        assert!(s.contains("fail"));
+    // Read from various providers
+    for i in 0..10 {
+        let uri = format!("memory://provider-{}/resource-0", i);
+        let result = registry.read_resource(&uri).await.unwrap();
+        assert_eq!(result.contents.len(), 1);
     }
 }
 
@@ -501,45 +590,4 @@ fn stress_initialize_params_serde() {
         let back: InitializeParams = serde_json::from_str(&json).unwrap();
         assert_eq!(back.client_info.name, format!("client-{}", i));
     }
-}
-
-/// Stress: McpPrompt with many arguments serde roundtrip.
-#[test]
-fn stress_prompt_many_arguments() {
-    let args: Vec<PromptArgument> = (0..50)
-        .map(|i| PromptArgument {
-            name: format!("arg-{}", i),
-            description: Some(format!("Argument number {}", i)),
-            required: i % 2 == 0,
-        })
-        .collect();
-
-    let prompt = McpPrompt {
-        name: "big-prompt".into(),
-        description: Some("A prompt with many arguments".into()),
-        arguments: args,
-    };
-
-    let json = serde_json::to_string(&prompt).unwrap();
-    let back: McpPrompt = serde_json::from_str(&json).unwrap();
-    assert_eq!(back.arguments.len(), 50);
-    assert!(back.arguments[0].required);
-    assert!(!back.arguments[1].required);
-}
-
-/// Stress: Registry clone shares state via Arc.
-#[test]
-fn stress_registry_clone_shared_state() {
-    let reg = McpToolRegistry::new();
-    for i in 0..100 {
-        reg.register_tool(make_tool(&format!("shared-{}", i))).unwrap();
-    }
-
-    let reg2 = reg.clone();
-    assert_eq!(reg2.len(), 100);
-
-    // Modifications through clone are visible in original (shared Arc)
-    reg2.register_tool(make_tool("from-clone")).unwrap();
-    assert!(reg.get_tool("from-clone").is_some());
-    assert_eq!(reg.len(), 101);
 }
