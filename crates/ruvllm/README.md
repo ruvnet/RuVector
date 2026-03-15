@@ -202,7 +202,8 @@ npm install @ruvector/ruvllm
 | RuvLTRA-Small | 494M | 896 | 24 | 32K | GQA 7:1, SONA hooks |
 | RuvLTRA-Medium | 3.0B | 2560 | 42 | 256K | Flash Attention 2, Speculative Decode |
 
-## Performance (M4 Pro 14-core)
+<details>
+<summary>📊 Performance Benchmarks (M4 Pro 14-core)</summary>
 
 ### Inference Benchmarks
 
@@ -235,7 +236,10 @@ npm install @ruvector/ruvllm
 | RMS Norm (4096) | 2.1μs | 0.8μs |
 | RoPE (4096, 128) | 4.3μs | 1.6μs |
 
-## Apple Neural Engine (ANE) Integration
+</details>
+
+<details>
+<summary>🍎 Apple Neural Engine (ANE) Integration</summary>
 
 RuvLLM v2.0 includes full ANE support via Core ML:
 
@@ -266,6 +270,8 @@ let pipeline = HybridPipeline::new(HybridConfig {
 | GELU/SiLU | ANE | Dedicated activation units |
 | LayerNorm/RMSNorm | ANE | Good for small dimensions |
 | Embedding | GPU | Sparse operations |
+
+</details>
 
 ## MicroLoRA Real-Time Adaptation
 
@@ -440,7 +446,8 @@ let tensors = loader.load_tensors("model.gguf")?;
 backend.load_tensors(tensors)?;
 ```
 
-## mistral-rs Backend (Production Serving)
+<details>
+<summary>🚀 mistral-rs Backend (Production Serving)</summary>
 
 RuvLLM v2.3 includes integration with [mistral-rs](https://github.com/EricLBuehler/mistral.rs) for production-scale LLM serving with advanced memory management.
 
@@ -524,6 +531,8 @@ ruvllm = { version = "2.3", features = ["mistral-rs-cuda"] }
 
 See [ADR-008: mistral-rs Integration](../../docs/adr/ADR-008-mistral-rs-integration.md) for detailed architecture decisions.
 
+</details>
+
 ## Configuration
 
 ### Environment Variables
@@ -602,7 +611,8 @@ let url = uploader.upload(
 println!("Uploaded to: {}", url);
 ```
 
-## Task-Specific LoRA Adapters (v2.3)
+<details>
+<summary>🎯 Task-Specific LoRA Adapters (v2.3)</summary>
 
 Pre-trained adapters optimized for Claude Flow agent types:
 
@@ -643,7 +653,10 @@ manager.swap()?; // Zero-downtime switch
 | **DARE** | Drop And REscale | Sparse merging |
 | **TaskArithmetic** | Add/subtract vectors | Task composition |
 
-## Evaluation Harness (v2.3)
+</details>
+
+<details>
+<summary>🧪 Evaluation Harness (v2.3)</summary>
 
 RuvLLM includes a comprehensive evaluation harness for benchmarking model quality:
 
@@ -738,6 +751,8 @@ let harness = RealEvaluationHarness::with_config(
     },
 )?;
 ```
+
+</details>
 
 ## Examples
 
