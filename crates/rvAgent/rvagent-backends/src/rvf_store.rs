@@ -143,21 +143,19 @@ impl<B: Backend + 'static> Backend for RvfStoreBackend<B> {
                         })
                         .collect();
                 }
-                // List entries for a specific package
-                for entry in table.list() {
-                    if entry.package_name == pkg_name {
-                        return entry
-                            .manifest
-                            .entries
-                            .iter()
-                            .map(|e| FileInfo {
-                                path: format!("rvf://{}/{}", pkg_name, e.name),
-                                is_dir: false,
-                                size: 0,
-                                modified_at: None,
-                            })
-                            .collect();
-                    }
+                // O(1) lookup by name via index
+                if let Some(entry) = table.get_by_name(pkg_name) {
+                    return entry
+                        .manifest
+                        .entries
+                        .iter()
+                        .map(|e| FileInfo {
+                            path: format!("rvf://{}/{}", pkg_name, e.name),
+                            is_dir: false,
+                            size: 0,
+                            modified_at: None,
+                        })
+                        .collect();
                 }
                 return vec![];
             }
@@ -185,31 +183,28 @@ impl<B: Backend + 'static> Backend for RvfStoreBackend<B> {
         if Self::is_rvf_path(file_path) {
             let table = self.mount_table.lock().unwrap();
             if let Some((pkg_name, internal_path)) = Self::parse_rvf_path(file_path) {
-                for entry in table.list() {
-                    if entry.package_name == pkg_name {
-                        if internal_path.is_empty() {
-                            // Return manifest overview
-                            let json = serde_json::to_string_pretty(&entry.manifest)
-                                .unwrap_or_else(|_| "Error serializing manifest".into());
-                            return Ok(json);
-                        }
-                        // Look up the entry in the manifest
-                        if let Some(manifest_entry) = entry
-                            .manifest
-                            .entries
-                            .iter()
-                            .find(|e| e.name == internal_path)
-                        {
-                            return Ok(format!(
-                                "RVF entry: {} (type: {:?}, version: {})\n{}",
-                                manifest_entry.name,
-                                manifest_entry.entry_type,
-                                manifest_entry.version,
-                                manifest_entry.description
-                            ));
-                        }
-                        return Err(FileOperationError::FileNotFound);
+                // O(1) lookup by name via index
+                if let Some(entry) = table.get_by_name(pkg_name) {
+                    if internal_path.is_empty() {
+                        let json = serde_json::to_string_pretty(&entry.manifest)
+                            .unwrap_or_else(|_| "Error serializing manifest".into());
+                        return Ok(json);
                     }
+                    if let Some(manifest_entry) = entry
+                        .manifest
+                        .entries
+                        .iter()
+                        .find(|e| e.name == internal_path)
+                    {
+                        return Ok(format!(
+                            "RVF entry: {} (type: {:?}, version: {})\n{}",
+                            manifest_entry.name,
+                            manifest_entry.entry_type,
+                            manifest_entry.version,
+                            manifest_entry.description
+                        ));
+                    }
+                    return Err(FileOperationError::FileNotFound);
                 }
                 return Err(FileOperationError::FileNotFound);
             }

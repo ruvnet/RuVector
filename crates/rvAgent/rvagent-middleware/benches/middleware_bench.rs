@@ -5,13 +5,15 @@
 //! - SystemPromptBuilder vs naive concatenation
 //! - Skill name validation
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 
 use rvagent_middleware::{
     build_default_pipeline, Message, ModelHandler, ModelRequest, ModelResponse,
     PipelineConfig, SystemPromptBuilder,
 };
 use rvagent_middleware::skills::validate_skill_name;
+use rvagent_middleware::witness::{compute_arguments_hash, WitnessBuilder};
+use rvagent_core::rvf_bridge::{GovernanceMode, PolicyCheck, TaskOutcome};
 
 /// A no-op handler that returns immediately.
 struct NoOpHandler;
@@ -134,6 +136,106 @@ fn bench_pipeline_collect_tools(c: &mut Criterion) {
     });
 }
 
+// ---------------------------------------------------------------------------
+// Benchmark: Witness / RVF hash computation and builder (ADR-106)
+// ---------------------------------------------------------------------------
+
+fn bench_witness_hash(c: &mut Criterion) {
+    let mut group = c.benchmark_group("witness_hash");
+
+    // Small args
+    let small_args = serde_json::json!({"path": "test.txt"});
+    group.bench_function("compute_hash_small_args", |b| {
+        b.iter(|| {
+            let hash = compute_arguments_hash(black_box(&small_args));
+            black_box(hash);
+        })
+    });
+
+    // Large args (typical tool call with nested objects)
+    let large_args = serde_json::json!({
+        "path": "/home/user/project/src/handlers/authentication/middleware.rs",
+        "content": "a".repeat(10_000),
+        "metadata": {
+            "encoding": "utf-8",
+            "permissions": "0644",
+            "checksum": "abc123def456",
+            "tags": ["source", "auth", "middleware"],
+        }
+    });
+    group.bench_function("compute_hash_large_args", |b| {
+        b.iter(|| {
+            let hash = compute_arguments_hash(black_box(&large_args));
+            black_box(hash);
+        })
+    });
+
+    group.finish();
+}
+
+fn bench_witness_builder(c: &mut Criterion) {
+    let mut group = c.benchmark_group("witness_builder");
+
+    let args = serde_json::json!({"path": "test.txt"});
+
+    // Build chain of N entries
+    for count in [10, 50, 200] {
+        group.bench_with_input(
+            BenchmarkId::new("add_entries", count),
+            &count,
+            |b, &count| {
+                b.iter(|| {
+                    let mut builder = WitnessBuilder::new();
+                    for _ in 0..count {
+                        builder.add_tool_call_entry("read_file", black_box(&args));
+                    }
+                    black_box(builder);
+                })
+            },
+        );
+    }
+
+    // RVF-mode builder with header generation
+    for count in [10, 50, 200] {
+        group.bench_with_input(
+            BenchmarkId::new("rvf_add_entries_and_build_header", count),
+            &count,
+            |b, &count| {
+                b.iter(|| {
+                    let mut builder =
+                        WitnessBuilder::with_rvf([0x42; 16], GovernanceMode::Approved);
+                    for i in 0..count {
+                        builder.add_rvf_tool_call(
+                            "read_file",
+                            black_box(&args),
+                            100 + i as u32,
+                            PolicyCheck::Allowed,
+                            50,
+                            200,
+                        );
+                    }
+                    let header = builder.build_rvf_header(TaskOutcome::Solved);
+                    black_box(header);
+                })
+            },
+        );
+    }
+
+    // to_rvf_entries conversion
+    let mut builder = WitnessBuilder::with_rvf([0x42; 16], GovernanceMode::Approved);
+    for _ in 0..50 {
+        builder.add_rvf_tool_call("tool", &args, 100, PolicyCheck::Allowed, 50, 200);
+    }
+    group.bench_function("to_rvf_entries_50", |b| {
+        b.iter(|| {
+            let entries = black_box(&builder).to_rvf_entries();
+            black_box(entries);
+        })
+    });
+
+    group.finish();
+}
+
 criterion_group!(
     benches,
     bench_full_pipeline,
@@ -141,5 +243,7 @@ criterion_group!(
     bench_skill_name_validation,
     bench_pipeline_modify_request,
     bench_pipeline_collect_tools,
+    bench_witness_hash,
+    bench_witness_builder,
 );
 criterion_main!(benches);

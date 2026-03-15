@@ -205,34 +205,54 @@ impl Default for WitnessBuilder {
     }
 }
 
-/// Truncate a hex hash string to 8 bytes.
+/// Truncate a hex hash string to 8 bytes — zero-allocation version.
+///
+/// Decodes up to 16 hex characters (8 bytes) directly into the output
+/// array without intermediate `Vec` allocation.
+#[inline]
 fn truncate_hash_to_8(hex: &str) -> [u8; 8] {
     let mut result = [0u8; 8];
-    let bytes: Vec<u8> = (0..hex.len())
-        .step_by(2)
-        .take(8)
-        .filter_map(|i| u8::from_str_radix(&hex[i..i + 2], 16).ok())
-        .collect();
-    let copy_len = bytes.len().min(8);
-    result[..copy_len].copy_from_slice(&bytes[..copy_len]);
+    let hex_bytes = hex.as_bytes();
+    let pairs = (hex_bytes.len() / 2).min(8);
+    for i in 0..pairs {
+        let hi = hex_nibble(hex_bytes[i * 2]);
+        let lo = hex_nibble(hex_bytes[i * 2 + 1]);
+        result[i] = (hi << 4) | lo;
+    }
     result
 }
 
+/// Convert a single ASCII hex character to its 4-bit value.
+#[inline(always)]
+const fn hex_nibble(b: u8) -> u8 {
+    match b {
+        b'0'..=b'9' => b - b'0',
+        b'a'..=b'f' => b - b'a' + 10,
+        b'A'..=b'F' => b - b'A' + 10,
+        _ => 0,
+    }
+}
+
+/// Hex encoding lookup table — avoids per-byte `write!` formatting overhead.
+const HEX_LUT: &[u8; 16] = b"0123456789abcdef";
+
 /// Compute SHA3-256 hash of tool call arguments.
 ///
-/// Uses a pre-allocated buffer with `write!` to avoid 32 intermediate
-/// `String` allocations from the naive `format!("{:02x}", b)` approach.
+/// Uses a lookup-table hex encoder to avoid 32 `write!` calls per hash
+/// (each of which invokes the formatting machinery).
 pub fn compute_arguments_hash(args: &serde_json::Value) -> String {
     let serialized = serde_json::to_vec(args).unwrap_or_default();
     let mut hasher = Sha3_256::new();
     hasher.update(&serialized);
     let result = hasher.finalize();
-    let mut hex = String::with_capacity(64);
-    for b in result.iter() {
-        use std::fmt::Write;
-        write!(hex, "{:02x}", b).unwrap();
+    // Fast hex encode via LUT — no formatting overhead
+    let mut hex = Vec::with_capacity(64);
+    for &b in result.iter() {
+        hex.push(HEX_LUT[(b >> 4) as usize]);
+        hex.push(HEX_LUT[(b & 0x0f) as usize]);
     }
-    hex
+    // SAFETY: HEX_LUT only contains ASCII bytes
+    unsafe { String::from_utf8_unchecked(hex) }
 }
 
 /// Middleware that records tool calls to a witness chain for auditability.

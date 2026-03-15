@@ -29,3 +29,7 @@ mockall = { workspace = true }
 [[bench]]
 name = "state_bench"
 harness = false
+
+[[bench]]
+name = "rvf_bridge_bench"
+harness = false

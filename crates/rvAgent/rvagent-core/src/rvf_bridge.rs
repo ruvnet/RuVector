@@ -558,9 +558,18 @@ pub struct MountTableEntry {
 }
 
 /// The agent's mount table — tracks all mounted RVF packages.
+///
+/// Uses a `HashMap` index by package name for O(1) lookups by name,
+/// and a `HashMap` by handle ID for O(1) lookups by handle.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct MountTable {
     entries: Vec<MountTableEntry>,
+    /// Index: handle.id → position in `entries` vec.
+    #[serde(skip)]
+    handle_index: std::collections::HashMap<u32, usize>,
+    /// Index: package_name → position in `entries` vec.
+    #[serde(skip)]
+    name_index: std::collections::HashMap<String, usize>,
     next_id: u32,
     generation: u32,
 }
@@ -569,6 +578,16 @@ impl MountTable {
     /// Create a new empty mount table.
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Rebuild indices after deserialization.
+    fn rebuild_indices(&mut self) {
+        self.handle_index.clear();
+        self.name_index.clear();
+        for (i, entry) in self.entries.iter().enumerate() {
+            self.handle_index.insert(entry.handle.id, i);
+            self.name_index.insert(entry.package_name.clone(), i);
+        }
     }
 
     /// Mount an RVF package and return its handle.
@@ -580,9 +599,10 @@ impl MountTable {
         self.next_id += 1;
         self.generation += 1;
         let handle = RvfMountHandle::new(self.next_id, self.generation);
+        let pkg_name = manifest.name.clone();
         let entry = MountTableEntry {
             handle,
-            package_name: manifest.name.clone(),
+            package_name: pkg_name.clone(),
             package_version: manifest.package_version.clone(),
             verify_status,
             manifest,
@@ -591,7 +611,10 @@ impl MountTable {
                 .unwrap_or_default()
                 .as_millis() as u64,
         };
+        let idx = self.entries.len();
         self.entries.push(entry);
+        self.handle_index.insert(handle.id, idx);
+        self.name_index.insert(pkg_name, idx);
         handle
     }
 
@@ -599,12 +622,28 @@ impl MountTable {
     pub fn unmount(&mut self, handle: RvfMountHandle) -> bool {
         let len = self.entries.len();
         self.entries.retain(|e| e.handle != handle);
-        self.entries.len() < len
+        if self.entries.len() < len {
+            // Rebuild indices after removal (compact operation)
+            self.rebuild_indices();
+            true
+        } else {
+            false
+        }
     }
 
-    /// Look up a mounted package.
+    /// Look up a mounted package by handle (O(1) via index).
     pub fn get(&self, handle: RvfMountHandle) -> Option<&MountTableEntry> {
-        self.entries.iter().find(|e| e.handle == handle)
+        self.handle_index
+            .get(&handle.id)
+            .and_then(|&idx| self.entries.get(idx))
+            .filter(|e| e.handle == handle) // Generation check
+    }
+
+    /// Look up a mounted package by name (O(1) via index).
+    pub fn get_by_name(&self, name: &str) -> Option<&MountTableEntry> {
+        self.name_index
+            .get(name)
+            .and_then(|&idx| self.entries.get(idx))
     }
 
     /// List all mounted packages.
@@ -613,14 +652,18 @@ impl MountTable {
     }
 
     /// Collect all tools from all mounted packages.
+    ///
+    /// Avoids the intermediate `Vec` allocation from `manifest.tools()`
+    /// by directly filtering entries inline.
     pub fn all_tools(&self) -> Vec<(&RvfMountHandle, &RvfManifestEntry)> {
         self.entries
             .iter()
             .flat_map(|entry| {
                 entry
                     .manifest
-                    .tools()
-                    .into_iter()
+                    .entries
+                    .iter()
+                    .filter(|e| e.entry_type == RvfManifestEntryType::Tool)
                     .map(move |tool| (&entry.handle, tool))
             })
             .collect()
