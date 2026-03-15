@@ -12,6 +12,7 @@ set -euo pipefail
 
 DISCOVERIES_DIR="${1:-/home/user/RuVector/examples/data/discoveries}"
 BRAIN_API="https://pi.ruv.io"
+BRAIN_API_KEY="${BRAIN_API_KEY:-ruvector-discovery-trainer-benevolent}"
 RATE_LIMIT_SECONDS=1
 
 # Counters
@@ -106,6 +107,7 @@ post_memory() {
         --max-time 15 \
         -X POST "${BRAIN_API}/v1/memories" \
         -H "Content-Type: application/json" \
+        -H "Authorization: Bearer ${BRAIN_API_KEY}" \
         -H "X-Challenge-Nonce: ${nonce}" \
         -d "$payload" 2>/dev/null) || {
         log_fail "curl error posting memory: ${title}"

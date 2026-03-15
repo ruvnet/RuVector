@@ -20,4 +20,5 @@ pub mod store;
 pub mod tests;
 pub mod midstream;
 pub mod types;
+pub mod trainer;
 pub mod verify;
