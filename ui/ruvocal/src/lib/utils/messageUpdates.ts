@@ -23,8 +23,16 @@ type MessageUpdateRequestOptions = {
 	selectedMcpServerNames?: string[];
 	// Optional: pass selected MCP server configs (for custom client-defined servers)
 	selectedMcpServers?: Array<{ name: string; url: string; headers?: KeyValuePair[] }>;
+	// Optional: pass WASM tools directly (they run client-side)
+	wasmTools?: Array<{
+		name: string;
+		description?: string;
+		inputSchema?: unknown;
+		serverId: string;
+	}>;
 	streamingMode?: StreamingMode;
 	autopilot?: boolean;
+	autopilotMaxSteps?: number;
 };
 
 type ChunkDetector = (buffer: string) => string | null;
