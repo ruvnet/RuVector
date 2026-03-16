@@ -1,0 +1,121 @@
+# Cloud Scheduler jobs for brain optimization and data pipeline
+# Deploy: gcloud scheduler jobs create http <job-name> --config=scheduler-jobs.yaml
+
+jobs:
+  # Training cycle - every 5 minutes when active
+  - name: brain-train-cycle
+    schedule: "*/5 * * * *"
+    time_zone: "UTC"
+    description: "Trigger SONA training cycle and domain evolution"
+    http_target:
+      uri: "https://pi.ruv.io/v1/pipeline/optimize"
+      http_method: POST
+      body: |
+        {"actions": ["train"]}
+      headers:
+        Content-Type: "application/json"
+        Authorization: "Bearer ruvector-swarm"
+      oidc_token:
+        service_account_email: "ruvbrain-scheduler@ruv-dev.iam.gserviceaccount.com"
+    retry_config:
+      retry_count: 3
+      min_backoff_duration: "5s"
+      max_backoff_duration: "60s"
+
+  # Drift monitoring - every 15 minutes
+  - name: brain-drift-monitor
+    schedule: "*/15 * * * *"
+    time_zone: "UTC"
+    description: "Check embedding drift across knowledge domains"
+    http_target:
+      uri: "https://pi.ruv.io/v1/pipeline/optimize"
+      http_method: POST
+      body: |
+        {"actions": ["drift_check"]}
+      headers:
+        Content-Type: "application/json"
+        Authorization: "Bearer ruvector-swarm"
+      oidc_token:
+        service_account_email: "ruvbrain-scheduler@ruv-dev.iam.gserviceaccount.com"
+    retry_config:
+      retry_count: 2
+
+  # Cross-domain transfer - every 30 minutes
+  - name: brain-domain-transfer
+    schedule: "*/30 * * * *"
+    time_zone: "UTC"
+    description: "Cross-pollinate knowledge between growing domains"
+    http_target:
+      uri: "https://pi.ruv.io/v1/pipeline/optimize"
+      http_method: POST
+      body: |
+        {"actions": ["transfer_all"]}
+      headers:
+        Content-Type: "application/json"
+        Authorization: "Bearer ruvector-swarm"
+      oidc_token:
+        service_account_email: "ruvbrain-scheduler@ruv-dev.iam.gserviceaccount.com"
+
+  # Graph rebalancing - every hour
+  - name: brain-graph-rebalance
+    schedule: "0 * * * *"
+    time_zone: "UTC"
+    description: "Rebuild CSR matrix and MinCut for optimal graph queries"
+    http_target:
+      uri: "https://pi.ruv.io/v1/pipeline/optimize"
+      http_method: POST
+      body: |
+        {"actions": ["rebuild_graph"]}
+      headers:
+        Content-Type: "application/json"
+        Authorization: "Bearer ruvector-swarm"
+      oidc_token:
+        service_account_email: "ruvbrain-scheduler@ruv-dev.iam.gserviceaccount.com"
+
+  # Attractor analysis - every 20 minutes
+  - name: brain-attractor-analysis
+    schedule: "*/20 * * * *"
+    time_zone: "UTC"
+    description: "Lyapunov exponent analysis per knowledge category"
+    http_target:
+      uri: "https://pi.ruv.io/v1/pipeline/optimize"
+      http_method: POST
+      body: |
+        {"actions": ["attractor_analysis"]}
+      headers:
+        Content-Type: "application/json"
+        Authorization: "Bearer ruvector-swarm"
+      oidc_token:
+        service_account_email: "ruvbrain-scheduler@ruv-dev.iam.gserviceaccount.com"
+
+  # Full optimization sweep - daily at 3 AM UTC
+  - name: brain-full-optimize
+    schedule: "0 3 * * *"
+    time_zone: "UTC"
+    description: "Complete optimization: train + drift + transfer + graph + cleanup + attractor"
+    http_target:
+      uri: "https://pi.ruv.io/v1/pipeline/optimize"
+      http_method: POST
+      body: |
+        {"actions": ["train", "drift_check", "transfer_all", "rebuild_graph", "cleanup", "attractor_analysis"]}
+      headers:
+        Content-Type: "application/json"
+        Authorization: "Bearer ruvector-swarm"
+      oidc_token:
+        service_account_email: "ruvbrain-scheduler@ruv-dev.iam.gserviceaccount.com"
+
+  # Memory cleanup - daily at 4 AM UTC
+  - name: brain-memory-cleanup
+    schedule: "0 4 * * *"
+    time_zone: "UTC"
+    description: "Prune low-quality memories and rebuild indices"
+    http_target:
+      uri: "https://pi.ruv.io/v1/pipeline/optimize"
+      http_method: POST
+      body: |
+        {"actions": ["cleanup"]}
+      headers:
+        Content-Type: "application/json"
+        Authorization: "Bearer ruvector-swarm"
+      oidc_token:
+        service_account_email: "ruvbrain-scheduler@ruv-dev.iam.gserviceaccount.com"
