@@ -15,6 +15,7 @@ serde_json = { workspace = true }
 wasm-bindgen = { workspace = true }
 wasm-bindgen-futures = { workspace = true }
 js-sys = { workspace = true }
+sha3 = "0.10"
 web-sys = { version = "0.3", features = [
     "Worker",
     "MessagePort",
@@ -30,3 +31,9 @@ thiserror = { workspace = true }
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3"
+
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = false
+
+[package.metadata.wasm-pack.profile.dev]
+wasm-opt = false

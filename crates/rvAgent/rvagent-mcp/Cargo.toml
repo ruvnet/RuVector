@@ -6,22 +6,35 @@ description = "rvAgent MCP — Model Context Protocol tools, resources, and tran
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/ruvnet/RuVector"
 
+[[bin]]
+name = "rvagent-mcp"
+path = "src/main.rs"
+
 [dependencies]
 rvagent-core = { path = "../rvagent-core" }
 rvagent-tools = { path = "../rvagent-tools" }
 rvagent-middleware = { path = "../rvagent-middleware" }
 serde = { workspace = true }
 serde_json = { workspace = true }
-tokio = { version = "1.41", features = ["rt-multi-thread", "sync", "macros", "io-util", "io-std"] }
+tokio = { version = "1.41", features = ["rt-multi-thread", "sync", "macros", "io-util", "io-std", "signal"] }
 thiserror = { workspace = true }
 anyhow = { workspace = true }
 tracing = { workspace = true }
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 uuid = { workspace = true }
 chrono = { workspace = true }
 async-trait = "0.1"
 dashmap = { workspace = true }
+# CLI
+clap = { version = "4.4", features = ["derive"] }
+# SSE transport
+axum = { version = "0.7", features = ["tokio"] }
+tower-http = { version = "0.5", features = ["cors"] }
+tokio-stream = "0.1"
+futures = "0.3"
 
 [dev-dependencies]
 tokio = { version = "1.41", features = ["rt-multi-thread", "sync", "macros", "io-util", "io-std", "test-util"] }
 mockall = { workspace = true }
 proptest = { workspace = true }
+reqwest = { version = "0.11", features = ["json"] }

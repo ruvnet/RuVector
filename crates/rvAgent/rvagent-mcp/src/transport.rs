@@ -1,10 +1,11 @@
 //! Transport abstraction for MCP message exchange.
 //!
 //! Defines the [`Transport`] trait for sending and receiving JSON-RPC messages,
-//! with concrete implementations for stdio and in-memory (testing) transports.
+//! with concrete implementations for stdio, SSE, and in-memory (testing) transports.
 
 use async_trait::async_trait;
-use tokio::sync::mpsc;
+use std::sync::Arc;
+use tokio::sync::{broadcast, mpsc, Mutex};
 
 use crate::protocol::{JsonRpcRequest, JsonRpcResponse};
 use crate::{McpError, Result};
@@ -232,6 +233,151 @@ impl Transport for MemoryTransport {
 }
 
 // ---------------------------------------------------------------------------
+// SseTransport
+// ---------------------------------------------------------------------------
+
+/// SSE (Server-Sent Events) transport configuration.
+#[derive(Debug, Clone)]
+pub struct SseConfig {
+    /// Port to listen on.
+    pub port: u16,
+    /// Host to bind to.
+    pub host: String,
+    /// Enable CORS.
+    pub enable_cors: bool,
+    /// Heartbeat interval in seconds.
+    pub heartbeat_interval_secs: u64,
+}
+
+impl Default for SseConfig {
+    fn default() -> Self {
+        Self {
+            port: 9000,
+            host: "127.0.0.1".into(),
+            enable_cors: true,
+            heartbeat_interval_secs: 30,
+        }
+    }
+}
+
+/// SSE transport for HTTP-based MCP communication.
+///
+/// Clients connect via GET /sse for event stream and POST /message for requests.
+pub struct SseTransport {
+    config: SseConfig,
+    /// Broadcast channel for sending responses to SSE clients.
+    response_tx: broadcast::Sender<JsonRpcResponse>,
+    /// Channel for receiving requests from POST /message.
+    request_rx: Arc<Mutex<mpsc::Receiver<JsonRpcRequest>>>,
+    /// Sender for incoming requests (used by HTTP handler).
+    request_tx: mpsc::Sender<JsonRpcRequest>,
+    /// Shutdown signal.
+    shutdown_tx: Option<broadcast::Sender<()>>,
+}
+
+impl SseTransport {
+    /// Create a new SSE transport.
+    pub fn new(config: SseConfig) -> Self {
+        let (response_tx, _) = broadcast::channel(256);
+        let (request_tx, request_rx) = mpsc::channel(256);
+        let (shutdown_tx, _) = broadcast::channel(1);
+        Self {
+            config,
+            response_tx,
+            request_rx: Arc::new(Mutex::new(request_rx)),
+            request_tx,
+            shutdown_tx: Some(shutdown_tx),
+        }
+    }
+
+    /// Get the response broadcast sender (for SSE event stream).
+    pub fn response_sender(&self) -> broadcast::Sender<JsonRpcResponse> {
+        self.response_tx.clone()
+    }
+
+    /// Get the request sender (for POST /message handler).
+    pub fn request_sender(&self) -> mpsc::Sender<JsonRpcRequest> {
+        self.request_tx.clone()
+    }
+
+    /// Get the configuration.
+    pub fn config(&self) -> &SseConfig {
+        &self.config
+    }
+
+    /// Get the shutdown sender.
+    pub fn shutdown_sender(&self) -> Option<broadcast::Sender<()>> {
+        self.shutdown_tx.clone()
+    }
+}
+
+#[async_trait]
+impl Transport for SseTransport {
+    async fn send_response(&self, response: JsonRpcResponse) -> Result<()> {
+        self.response_tx
+            .send(response)
+            .map_err(|_| McpError::transport("no SSE subscribers"))?;
+        Ok(())
+    }
+
+    async fn send_request(&self, _request: JsonRpcRequest) -> Result<()> {
+        // SSE transport is server-side only; clients send requests via POST
+        Err(McpError::transport("SSE transport does not send requests"))
+    }
+
+    async fn receive_request(&self) -> Result<Option<JsonRpcRequest>> {
+        let mut rx = self.request_rx.lock().await;
+        Ok(rx.recv().await)
+    }
+
+    async fn receive_response(&self) -> Result<Option<JsonRpcResponse>> {
+        // SSE transport is server-side only
+        Err(McpError::transport("SSE transport does not receive responses"))
+    }
+
+    async fn close(&self) -> Result<()> {
+        if let Some(ref shutdown_tx) = self.shutdown_tx {
+            let _ = shutdown_tx.send(());
+        }
+        Ok(())
+    }
+}
+
+// ---------------------------------------------------------------------------
+// TransportType enum
+// ---------------------------------------------------------------------------
+
+/// Transport type for CLI selection.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TransportType {
+    /// stdio transport (NDJSON over stdin/stdout).
+    Stdio,
+    /// SSE transport (HTTP Server-Sent Events).
+    Sse,
+}
+
+impl std::str::FromStr for TransportType {
+    type Err = String;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "stdio" | "std" => Ok(Self::Stdio),
+            "sse" | "http" | "web" => Ok(Self::Sse),
+            _ => Err(format!("unknown transport: {}", s)),
+        }
+    }
+}
+
+impl std::fmt::Display for TransportType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Stdio => write!(f, "stdio"),
+            Self::Sse => write!(f, "sse"),
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 
@@ -347,5 +493,86 @@ mod tests {
     async fn test_stdio_transport_close() {
         let transport = StdioTransport::new(TransportConfig::default());
         assert!(transport.close().await.is_ok());
+    }
+
+    #[test]
+    fn test_sse_config_default() {
+        let config = SseConfig::default();
+        assert_eq!(config.port, 9000);
+        assert_eq!(config.host, "127.0.0.1");
+        assert!(config.enable_cors);
+        assert_eq!(config.heartbeat_interval_secs, 30);
+    }
+
+    #[tokio::test]
+    async fn test_sse_transport_creation() {
+        let transport = SseTransport::new(SseConfig::default());
+        assert_eq!(transport.config().port, 9000);
+    }
+
+    #[tokio::test]
+    async fn test_sse_transport_send_response() {
+        let transport = SseTransport::new(SseConfig::default());
+        let mut rx = transport.response_sender().subscribe();
+
+        let resp = JsonRpcResponse::success(
+            serde_json::json!(1),
+            serde_json::json!({"status": "ok"}),
+        );
+        transport.send_response(resp.clone()).await.unwrap();
+
+        let received = rx.recv().await.unwrap();
+        assert_eq!(received.id, serde_json::json!(1));
+    }
+
+    #[tokio::test]
+    async fn test_sse_transport_receive_request() {
+        let transport = SseTransport::new(SseConfig::default());
+        let req_tx = transport.request_sender();
+
+        let req = JsonRpcRequest::new(42, "ping");
+        req_tx.send(req).await.unwrap();
+
+        let received = transport.receive_request().await.unwrap().unwrap();
+        assert_eq!(received.method, "ping");
+        assert_eq!(received.id, serde_json::json!(42));
+    }
+
+    #[tokio::test]
+    async fn test_sse_transport_send_request_fails() {
+        let transport = SseTransport::new(SseConfig::default());
+        let req = JsonRpcRequest::new(1, "ping");
+        assert!(transport.send_request(req).await.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_sse_transport_receive_response_fails() {
+        let transport = SseTransport::new(SseConfig::default());
+        assert!(transport.receive_response().await.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_sse_transport_close() {
+        let transport = SseTransport::new(SseConfig::default());
+        assert!(transport.close().await.is_ok());
+    }
+
+    #[test]
+    fn test_transport_type_from_str() {
+        assert_eq!("stdio".parse::<TransportType>().unwrap(), TransportType::Stdio);
+        assert_eq!("sse".parse::<TransportType>().unwrap(), TransportType::Sse);
+        assert_eq!("http".parse::<TransportType>().unwrap(), TransportType::Sse);
+        assert_eq!("web".parse::<TransportType>().unwrap(), TransportType::Sse);
+    }
+
+    #[test]
+    fn test_transport_type_from_str_invalid() {
+        assert!("invalid".parse::<TransportType>().is_err());
+    }
+
+    #[test]
+    fn test_transport_type_display() {
+        assert_eq!(format!("{}", TransportType::Stdio), "stdio");
+        assert_eq!(format!("{}", TransportType::Sse), "sse");
     }
 }

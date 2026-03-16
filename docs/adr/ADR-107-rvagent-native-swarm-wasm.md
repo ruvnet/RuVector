@@ -227,11 +227,200 @@ crates/rvAgent/rvagent-wasm/
   Cargo.toml
   src/
     lib.rs              # wasm-bindgen entry point
-    swarm.rs            # Swarm coordinator bindings
-    memory.rs           # Memory system bindings
-    routing.rs          # Task routing bindings
-    types.rs            # JS-compatible type definitions
+    backends.rs         # In-memory virtual filesystem
+    bridge.rs           # JS ↔ Rust message bridge
+    mcp.rs              # MCP server bindings (JSON-RPC 2.0)
+    rvf.rs              # RVF container builder/parser
+    tools.rs            # Tool execution system
   pkg/                  # Generated WASM package
+```
+
+#### 2.2 RVF Container Support (rvf.rs)
+
+The `rvf.rs` module provides WASM bindings for building and parsing RVF (RuVector Format) cognitive containers. RVF containers package tools, prompts, skills, orchestrator configs, MCP tools, and Ruvix capabilities into a single verifiable binary format.
+
+**AGI Segment Tags:**
+
+| Tag | Hex | Description |
+|-----|-----|-------------|
+| `TOOL_REGISTRY` | `0x0105` | Tool definitions with parameters |
+| `AGENT_PROMPTS` | `0x0106` | System prompts for agents |
+| `SKILL_LIBRARY` | `0x0109` | Skill definitions with triggers |
+| `ORCHESTRATOR` | `0x0108` | Multi-agent topology config |
+| `MIDDLEWARE_CONFIG` | `0x010A` | Middleware settings |
+| `MCP_TOOLS` | `0x010B` | MCP tool entries (new) |
+| `CAPABILITY_SET` | `0x010C` | Ruvix capability definitions (new) |
+
+**RVF Container Binary Format:**
+
+```
+┌─────────────────────────────────────────────────────┐
+│ Magic: "RVF\x01" (4 bytes)                          │
+├─────────────────────────────────────────────────────┤
+│ Segment Count: u32 LE (4 bytes)                     │
+├─────────────────────────────────────────────────────┤
+│ Segment 1: type(1) + tag(2) + len(4) + data(len)    │
+├─────────────────────────────────────────────────────┤
+│ Segment 2: ...                                       │
+├─────────────────────────────────────────────────────┤
+│ ...                                                  │
+├─────────────────────────────────────────────────────┤
+│ SHA3-256 Checksum (32 bytes)                        │
+└─────────────────────────────────────────────────────┘
+```
+
+**JavaScript Usage:**
+
+```javascript
+import { WasmRvfBuilder } from '@ruvector/rvagent/wasm';
+
+// Build an RVF container
+const builder = new WasmRvfBuilder();
+
+// Add tools
+builder.addTool(JSON.stringify({
+  name: "web_search",
+  description: "Search the web",
+  parameters: { query: "string" },
+  returns: "results"
+}));
+
+// Add MCP tools
+builder.addMcpTools(JSON.stringify([{
+  name: "read_file",
+  description: "Read a file",
+  input_schema: { path: { type: "string" } },
+  group: "file"
+}]));
+
+// Add Ruvix capabilities
+builder.addCapabilities(JSON.stringify([{
+  name: "file_read",
+  rights: ["read"],
+  scope: "sandbox",
+  delegation_depth: 2
+}]));
+
+// Add agent prompts
+builder.addPrompt(JSON.stringify({
+  name: "coder",
+  system_prompt: "You are a coding assistant",
+  version: "1.0.0"
+}));
+
+// Build container (returns Uint8Array)
+const container = builder.build();
+
+// Parse existing container
+const parsed = WasmRvfBuilder.parse(container);
+console.log(parsed.tools);        // Tool definitions
+console.log(parsed.mcp_tools);    // MCP tool entries
+console.log(parsed.capabilities); // Ruvix capabilities
+console.log(parsed.prompts);      // Agent prompts
+console.log(parsed.skills);       // Skill definitions
+console.log(parsed.orchestrator); // Orchestrator config
+
+// Validate container integrity
+const isValid = WasmRvfBuilder.validate(container);
+```
+
+#### 2.3 MCP Server Support (mcp.rs)
+
+The `mcp.rs` module implements an MCP (Model Context Protocol) server that runs entirely in WASM. It uses JSON-RPC 2.0 over a virtual transport.
+
+**Available Tools:**
+
+| Tool | Description |
+|------|-------------|
+| `read_file` | Read file from virtual filesystem |
+| `write_file` | Write file to virtual filesystem |
+| `edit_file` | Edit file with string replacement |
+| `list_files` | List files in virtual filesystem |
+| `write_todos` | Manage todo list |
+
+**JavaScript Usage:**
+
+```javascript
+import { WasmMcpServer } from '@ruvector/rvagent/wasm';
+
+const mcp = new WasmMcpServer();
+
+// Initialize (returns server info)
+const initResponse = await mcp.handle_message(JSON.stringify({
+  jsonrpc: "2.0",
+  id: 1,
+  method: "initialize",
+  params: { protocolVersion: "2024-11-05" }
+}));
+
+// List available tools
+const toolsResponse = await mcp.handle_message(JSON.stringify({
+  jsonrpc: "2.0",
+  id: 2,
+  method: "tools/list"
+}));
+
+// Execute a tool
+const execResponse = await mcp.handle_message(JSON.stringify({
+  jsonrpc: "2.0",
+  id: 3,
+  method: "tools/call",
+  params: {
+    name: "write_file",
+    arguments: { path: "test.txt", content: "Hello WASM" }
+  }
+}));
+```
+
+#### 2.4 Ruvix Capability Integration
+
+Ruvix capabilities provide a fine-grained security model for AI agents, based on object-capability theory. Each capability defines:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `name` | String | Capability identifier |
+| `rights` | Vec<String> | Allowed operations (read, write, execute, etc.) |
+| `scope` | String | Scope boundary (sandbox, local, network) |
+| `delegation_depth` | u8 | Max delegation hops (0 = no delegation) |
+
+**Capability-Based Tool Access:**
+
+```rust
+// In rvf.rs
+pub struct CapabilityDef {
+    pub name: String,
+    pub rights: Vec<String>,
+    pub scope: String,
+    pub delegation_depth: u8,
+}
+```
+
+**Integration with MCP Tools:**
+
+```javascript
+// RVF container with capabilities
+const builder = new WasmRvfBuilder();
+
+// Define capability
+builder.addCapabilities(JSON.stringify([{
+  name: "file_read",
+  rights: ["read"],
+  scope: "sandbox",
+  delegation_depth: 0  // No delegation
+}, {
+  name: "file_write",
+  rights: ["write", "create"],
+  scope: "sandbox",
+  delegation_depth: 1  // Can delegate once
+}]));
+
+// MCP tools reference capabilities
+builder.addMcpTools(JSON.stringify([{
+  name: "read_file",
+  description: "Read file (requires file_read capability)",
+  input_schema: { path: { type: "string" } },
+  group: "file"
+}]));
 ```
 
 #### 2.2 WASM Bindings

@@ -2,8 +2,9 @@
 
 | Field       | Value                                           |
 |-------------|------------------------------------------------|
-| **Status**  | Proposed                                        |
+| **Status**  | In Progress                                     |
 | **Date**    | 2026-03-15                                      |
+| **Updated** | 2026-03-15                                      |
 | **Authors** | ruvnet                                          |
 | **Series**  | ADR-093 (DeepAgents), ADR-104 (MCP Skills), ADR-108 (ruvbot) |
 | **Related** | ADR-106 (RuViX Kernel), ADR-105 (MCP Implementation) |
@@ -568,37 +569,57 @@ Ruvocal uses rvAgent's SubAgentResultValidator (ADR-103 C8) for all responses:
 
 ## Implementation Phases
 
-### Phase 1: Fork & Setup (Week 1)
+### Phase 1: Fork & Setup (Week 1) ✅ COMPLETE
 
-- [ ] Fork ruvocal to `ui/ruvocal/`
-- [ ] Remove HuggingFace-specific code
-- [ ] Update dependencies
-- [ ] Configure rvAgent MCP connection
-- [ ] Basic chat flow working
+- [x] Fork ruvocal to `ui/ruvocal/`
+- [x] Remove HuggingFace-specific code
+- [x] Update dependencies
+- [x] Configure MCP connection (via π.ruv.io brain server)
+- [x] Basic chat flow working
 
-### Phase 2: Integration (Week 2)
+### Phase 2: Integration (Week 2) 🔄 IN PROGRESS
 
-- [ ] Implement `rvagent-kernel.js`
-- [ ] Connect APIClient to rvAgent tools
-- [ ] Add witness chain visualization
-- [ ] Tool category organization
-- [ ] Error handling + recovery
+- [x] MCP bridge to π brain server (alternative to direct rvAgent)
+- [x] Connect APIClient to π Brain tools (91 MCP tools available)
+- [ ] Add witness chain visualization (NOT STARTED)
+- [x] Tool category organization (mcpExamples updated)
+- [x] Error handling + recovery (evidence_links transform, witness_hash fallback)
 
-### Phase 3: Polish (Week 3)
+### Phase 3: Polish (Week 3) 🔄 IN PROGRESS
 
-- [ ] Rebranding (logos, colors, text)
-- [ ] Dark/light theme refinement
-- [ ] Mobile responsiveness testing
-- [ ] Accessibility audit
-- [ ] Performance optimization
+- [x] Rebranding (logos, colors, text) - Gold #e8a634, Dark #020205
+- [x] Dark mode default (app.html, switchTheme.ts)
+- [x] Foundation-inspired animated background (FoundationBackground.svelte)
+- [x] Thinking block collapse (THINK_BLOCK_REGEX added)
+- [ ] Mobile responsiveness testing (NOT STARTED)
+- [ ] Accessibility audit (NOT STARTED)
+- [ ] Performance optimization (NOT STARTED)
 
-### Phase 4: Production (Week 4)
+### Phase 4: Production (Week 4) ⏳ PENDING
 
 - [ ] Docker images
-- [ ] Cloud Run deployment
+- [ ] Cloud Run deployment (π.ruv.io deployed, UI needs separate deploy)
 - [ ] CI/CD pipeline
 - [ ] Documentation
 - [ ] User guide
+
+---
+
+## Current Implementation Status
+
+| Component | Status | Location | Notes |
+|-----------|--------|----------|-------|
+| RuVocal UI Fork | ✅ Complete | `ui/ruvocal/` | SvelteKit 2 + Svelte 5 |
+| MCP Bridge | ✅ Working | π.ruv.io | 91 tools via brain server |
+| Dark Mode | ✅ Complete | `app.html`, `switchTheme.ts` | Default theme |
+| Foundation Background | ✅ Complete | `FoundationBackground.svelte` | Canvas particle animation |
+| Thinking Collapse | ✅ Complete | `ChatMessage.svelte` | THINK_BLOCK_REGEX |
+| Gold Color Scheme | ✅ Complete | Tailwind config | #e8a634 primary |
+| Query Suggestions | ✅ Complete | `mcpExamples.ts` | π Brain focused |
+| brain_page_delta | ✅ Fixed | `routes.rs` | evidence_links transform |
+| Witness Chain UI | ❌ Missing | - | Not implemented |
+| Direct rvAgent MCP | ❌ Missing | - | Uses π brain instead |
+| rvAgent Kernel | ❌ Missing | - | Planned for Phase 2 |
 
 ---
 

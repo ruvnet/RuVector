@@ -13,6 +13,7 @@
 //! - [`skills_bridge`] — Skills format bridge (Claude Code, Codex)
 
 pub mod client;
+pub mod groups;
 pub mod middleware;
 pub mod protocol;
 pub mod registry;
@@ -34,7 +35,8 @@ pub use server::{McpServer, McpServerConfig};
 pub use topology::{
     ConsensusType, NodeRole, NodeStatus, TopologyConfig, TopologyNode, TopologyRouter, TopologyType,
 };
-pub use transport::{MemoryTransport, Transport};
+pub use transport::{MemoryTransport, SseConfig, SseTransport, StdioTransport, Transport, TransportConfig, TransportType};
+pub use groups::{ToolFilter, ToolGroup};
 
 /// Error types for the MCP crate.
 #[derive(Debug, thiserror::Error)]

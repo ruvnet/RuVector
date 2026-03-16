@@ -10343,10 +10343,14 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
+ "axum 0.7.9",
  "chrono",
+ "clap",
  "dashmap 6.1.0",
+ "futures",
  "mockall",
  "proptest",
+ "reqwest 0.11.27",
  "rvagent-core",
  "rvagent-middleware",
  "rvagent-tools",
@@ -10354,7 +10358,10 @@ dependencies = [
  "serde_json",
  "thiserror 2.0.18",
  "tokio",
+ "tokio-stream",
+ "tower-http 0.5.2",
  "tracing",
+ "tracing-subscriber",
  "uuid",
 ]
 
@@ -10433,6 +10440,7 @@ dependencies = [
  "js-sys",
  "serde",
  "serde_json",
+ "sha3",
  "thiserror 2.0.18",
  "wasm-bindgen",
  "wasm-bindgen-futures",

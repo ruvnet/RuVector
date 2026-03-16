@@ -1479,3 +1479,270 @@ fn test_server_config_serde_roundtrip() {
     assert_eq!(back.version, "2.0.0");
     assert_eq!(back.max_concurrent, 16);
 }
+
+// =========================================================================
+// 10. Tool Groups Integration Tests
+// =========================================================================
+
+use rvagent_mcp::groups::{ToolFilter, ToolGroup};
+use rvagent_mcp::transport::{SseConfig, SseTransport, TransportType};
+
+#[test]
+fn test_tool_group_file_contains_expected_tools() {
+    let tools = ToolGroup::File.tools();
+    assert!(tools.contains(&"read_file"));
+    assert!(tools.contains(&"write_file"));
+    assert!(tools.contains(&"edit_file"));
+    assert!(tools.contains(&"ls"));
+    assert!(tools.contains(&"glob"));
+    assert!(tools.contains(&"grep"));
+}
+
+#[test]
+fn test_tool_group_shell_contains_expected_tools() {
+    let tools = ToolGroup::Shell.tools();
+    assert!(tools.contains(&"execute"));
+    assert!(tools.contains(&"bash"));
+}
+
+#[test]
+fn test_tool_group_memory_contains_expected_tools() {
+    let tools = ToolGroup::Memory.tools();
+    assert!(tools.contains(&"semantic_search"));
+    assert!(tools.contains(&"store_memory"));
+    assert!(tools.contains(&"retrieve_memory"));
+}
+
+#[test]
+fn test_tool_group_agent_contains_expected_tools() {
+    let tools = ToolGroup::Agent.tools();
+    assert!(tools.contains(&"spawn_agent"));
+    assert!(tools.contains(&"agent_status"));
+    assert!(tools.contains(&"orchestrate"));
+}
+
+#[test]
+fn test_tool_group_git_contains_expected_tools() {
+    let tools = ToolGroup::Git.tools();
+    assert!(tools.contains(&"git_status"));
+    assert!(tools.contains(&"git_commit"));
+    assert!(tools.contains(&"git_diff"));
+}
+
+#[test]
+fn test_tool_group_brain_contains_expected_tools() {
+    let tools = ToolGroup::Brain.tools();
+    assert!(tools.contains(&"brain_search"));
+    assert!(tools.contains(&"brain_share"));
+    assert!(tools.contains(&"brain_vote"));
+}
+
+#[test]
+fn test_tool_group_all_groups() {
+    let all = ToolGroup::all();
+    assert!(all.len() >= 9);
+    assert!(all.contains(&ToolGroup::File));
+    assert!(all.contains(&ToolGroup::Shell));
+    assert!(all.contains(&ToolGroup::Memory));
+    assert!(all.contains(&ToolGroup::Agent));
+    assert!(all.contains(&ToolGroup::Git));
+    assert!(all.contains(&ToolGroup::Web));
+    assert!(all.contains(&ToolGroup::Brain));
+    assert!(all.contains(&ToolGroup::Task));
+    assert!(all.contains(&ToolGroup::Core));
+}
+
+#[test]
+fn test_tool_group_all_tools() {
+    let tools = ToolGroup::all_tools();
+    assert!(tools.len() > 30); // Should have many tools across all groups
+    assert!(tools.contains(&"ping"));
+    assert!(tools.contains(&"read_file"));
+    assert!(tools.contains(&"brain_search"));
+}
+
+#[test]
+fn test_tool_filter_all() {
+    let filter = ToolFilter::all();
+    assert!(filter.allows_all());
+    assert!(filter.is_allowed("any_tool"));
+    assert!(filter.is_allowed("read_file"));
+    assert!(filter.is_allowed("nonexistent"));
+}
+
+#[test]
+fn test_tool_filter_from_groups() {
+    let filter = ToolFilter::from_groups(&[ToolGroup::File, ToolGroup::Shell]);
+    assert!(!filter.allows_all());
+    assert!(filter.is_allowed("read_file"));
+    assert!(filter.is_allowed("execute"));
+    assert!(!filter.is_allowed("brain_search"));
+}
+
+#[test]
+fn test_tool_filter_from_group_names() {
+    let filter = ToolFilter::from_group_names(&[
+        "file".to_string(),
+        "memory".to_string(),
+    ]).unwrap();
+    assert!(filter.is_allowed("read_file"));
+    assert!(filter.is_allowed("semantic_search"));
+    assert!(!filter.is_allowed("execute"));
+}
+
+#[test]
+fn test_tool_filter_from_group_names_invalid() {
+    let result = ToolFilter::from_group_names(&["invalid_group".to_string()]);
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_tool_filter_default() {
+    let filter = ToolFilter::default();
+    // Default should allow core + file groups
+    assert!(filter.is_allowed("ping")); // core
+    assert!(filter.is_allowed("read_file")); // file
+    assert!(!filter.is_allowed("execute")); // shell not in default
+}
+
+#[test]
+fn test_tool_filter_count() {
+    let filter = ToolFilter::from_groups(&[ToolGroup::Core]);
+    assert!(filter.count() >= 3); // ping, echo, version, health
+
+    let all = ToolFilter::all();
+    assert_eq!(all.count(), 0); // 0 means all
+}
+
+#[test]
+fn test_tool_group_from_str_aliases() {
+    // Test various aliases
+    assert_eq!("file".parse::<ToolGroup>().unwrap(), ToolGroup::File);
+    assert_eq!("files".parse::<ToolGroup>().unwrap(), ToolGroup::File);
+    assert_eq!("fs".parse::<ToolGroup>().unwrap(), ToolGroup::File);
+
+    assert_eq!("shell".parse::<ToolGroup>().unwrap(), ToolGroup::Shell);
+    assert_eq!("sh".parse::<ToolGroup>().unwrap(), ToolGroup::Shell);
+    assert_eq!("exec".parse::<ToolGroup>().unwrap(), ToolGroup::Shell);
+
+    assert_eq!("memory".parse::<ToolGroup>().unwrap(), ToolGroup::Memory);
+    assert_eq!("mem".parse::<ToolGroup>().unwrap(), ToolGroup::Memory);
+    assert_eq!("vector".parse::<ToolGroup>().unwrap(), ToolGroup::Memory);
+
+    assert_eq!("brain".parse::<ToolGroup>().unwrap(), ToolGroup::Brain);
+    assert_eq!("pi".parse::<ToolGroup>().unwrap(), ToolGroup::Brain);
+    assert_eq!("π".parse::<ToolGroup>().unwrap(), ToolGroup::Brain);
+}
+
+#[test]
+fn test_tool_group_display() {
+    assert_eq!(format!("{}", ToolGroup::File), "file");
+    assert_eq!(format!("{}", ToolGroup::Shell), "shell");
+    assert_eq!(format!("{}", ToolGroup::Brain), "brain");
+    assert_eq!(format!("{}", ToolGroup::Core), "core");
+}
+
+// =========================================================================
+// 11. SSE Transport Integration Tests
+// =========================================================================
+
+#[test]
+fn test_sse_config_default() {
+    let config = SseConfig::default();
+    assert_eq!(config.port, 9000);
+    assert_eq!(config.host, "127.0.0.1");
+    assert!(config.enable_cors);
+    assert_eq!(config.heartbeat_interval_secs, 30);
+}
+
+#[tokio::test]
+async fn test_sse_transport_creation() {
+    let transport = SseTransport::new(SseConfig::default());
+    assert_eq!(transport.config().port, 9000);
+}
+
+#[tokio::test]
+async fn test_sse_transport_response_broadcast() {
+    let transport = SseTransport::new(SseConfig::default());
+    let mut rx = transport.response_sender().subscribe();
+
+    let resp = JsonRpcResponse::success(
+        serde_json::json!(42),
+        serde_json::json!({"status": "test"}),
+    );
+    transport.send_response(resp).await.unwrap();
+
+    let received = rx.recv().await.unwrap();
+    assert_eq!(received.id, serde_json::json!(42));
+}
+
+#[tokio::test]
+async fn test_sse_transport_request_channel() {
+    let transport = SseTransport::new(SseConfig::default());
+    let req_tx = transport.request_sender();
+
+    let req = JsonRpcRequest::new(100, "test/method");
+    req_tx.send(req).await.unwrap();
+
+    let received = transport.receive_request().await.unwrap().unwrap();
+    assert_eq!(received.method, "test/method");
+    assert_eq!(received.id, serde_json::json!(100));
+}
+
+#[tokio::test]
+async fn test_sse_transport_close() {
+    let transport = SseTransport::new(SseConfig::default());
+    assert!(transport.close().await.is_ok());
+}
+
+#[tokio::test]
+async fn test_sse_transport_send_request_not_supported() {
+    let transport = SseTransport::new(SseConfig::default());
+    let req = JsonRpcRequest::new(1, "test");
+    let result = transport.send_request(req).await;
+    assert!(result.is_err());
+}
+
+#[tokio::test]
+async fn test_sse_transport_receive_response_not_supported() {
+    let transport = SseTransport::new(SseConfig::default());
+    let result = transport.receive_response().await;
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_transport_type_from_str() {
+    assert_eq!("stdio".parse::<TransportType>().unwrap(), TransportType::Stdio);
+    assert_eq!("std".parse::<TransportType>().unwrap(), TransportType::Stdio);
+    assert_eq!("sse".parse::<TransportType>().unwrap(), TransportType::Sse);
+    assert_eq!("http".parse::<TransportType>().unwrap(), TransportType::Sse);
+    assert_eq!("web".parse::<TransportType>().unwrap(), TransportType::Sse);
+}
+
+#[test]
+fn test_transport_type_from_str_invalid() {
+    assert!("invalid".parse::<TransportType>().is_err());
+}
+
+#[test]
+fn test_transport_type_display() {
+    assert_eq!(format!("{}", TransportType::Stdio), "stdio");
+    assert_eq!(format!("{}", TransportType::Sse), "sse");
+}
+
+#[tokio::test]
+async fn test_sse_transport_multiple_subscribers() {
+    let transport = SseTransport::new(SseConfig::default());
+    let mut rx1 = transport.response_sender().subscribe();
+    let mut rx2 = transport.response_sender().subscribe();
+
+    let resp = JsonRpcResponse::success(
+        serde_json::json!(1),
+        serde_json::json!({"multi": true}),
+    );
+    transport.send_response(resp).await.unwrap();
+
+    let r1 = rx1.recv().await.unwrap();
+    let r2 = rx2.recv().await.unwrap();
+    assert_eq!(r1.id, r2.id);
+}

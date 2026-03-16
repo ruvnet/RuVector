@@ -4,9 +4,15 @@
 //! in the browser or Node.js. It uses an in-memory virtual filesystem
 //! (`WasmStateBackend`) and delegates model calls to JavaScript via
 //! `JsModelProvider`.
+//!
+//! Also provides `WasmMcpServer` for running an MCP server in the browser,
+//! enabling MCP client integration without a separate server process.
 
 pub mod backends;
 pub mod bridge;
+pub mod gallery;
+pub mod mcp;
+pub mod rvf;
 pub mod tools;
 
 use serde::{Deserialize, Serialize};

@@ -39,7 +39,25 @@ impl WasmStateBackend {
 
     /// Write a file to the virtual filesystem. Creates or overwrites.
     pub fn write_file(&mut self, path: &str, content: &str) -> Result<(), WasmBackendError> {
-        let normalized = normalize_path(path);
+        // Security: Check content size
+        if content.len() > MAX_FILE_SIZE {
+            return Err(WasmBackendError::LimitExceeded(format!(
+                "File size {} exceeds maximum {}",
+                content.len(),
+                MAX_FILE_SIZE
+            )));
+        }
+
+        // Security: Check file count limit
+        if !self.files.contains_key(path) && self.files.len() >= MAX_FILES {
+            return Err(WasmBackendError::LimitExceeded(format!(
+                "File count {} exceeds maximum {}",
+                self.files.len(),
+                MAX_FILES
+            )));
+        }
+
+        let normalized = normalize_path(path)?;
         self.files.insert(normalized, content.to_string());
         Ok(())
     }
@@ -266,6 +284,14 @@ pub enum WasmBackendError {
     /// Fetch API error.
     #[error("fetch error: {0}")]
     FetchError(String),
+
+    /// Security violation.
+    #[error("security error: {0}")]
+    SecurityError(String),
+
+    /// Resource limit exceeded.
+    #[error("limit exceeded: {0}")]
+    LimitExceeded(String),
 }
 
 impl From<WasmBackendError> for JsValue {
@@ -275,17 +301,54 @@ impl From<WasmBackendError> for JsValue {
 }
 
 // ---------------------------------------------------------------------------
+// Security Constants
+// ---------------------------------------------------------------------------
+
+/// Maximum path length (256 characters)
+pub const MAX_PATH_LENGTH: usize = 256;
+
+/// Maximum file content size (1 MB per file)
+pub const MAX_FILE_SIZE: usize = 1024 * 1024;
+
+/// Maximum number of files in the virtual filesystem
+pub const MAX_FILES: usize = 10000;
+
+// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
 /// Normalize a virtual file path (remove leading `./`, collapse double slashes).
-fn normalize_path(path: &str) -> String {
+/// Returns error for path traversal attempts.
+fn normalize_path(path: &str) -> Result<String, WasmBackendError> {
+    // Security: Check path length
+    if path.len() > MAX_PATH_LENGTH {
+        return Err(WasmBackendError::SecurityError(format!(
+            "Path length {} exceeds maximum {}",
+            path.len(),
+            MAX_PATH_LENGTH
+        )));
+    }
+
+    // Security: Reject path traversal attempts
+    if path.contains("..") {
+        return Err(WasmBackendError::SecurityError(
+            "Path traversal (..) is not allowed".to_string(),
+        ));
+    }
+
+    // Security: Reject absolute paths that could escape sandbox
+    if path.starts_with('/') && path.contains("etc") {
+        return Err(WasmBackendError::SecurityError(
+            "Suspicious path pattern detected".to_string(),
+        ));
+    }
+
     let p = path.trim_start_matches("./");
     let p = p.replace("//", "/");
     if p.is_empty() {
-        "/".to_string()
+        Ok("/".to_string())
     } else {
-        p
+        Ok(p)
     }
 }
 
@@ -363,9 +426,28 @@ mod tests {
 
     #[test]
     fn test_normalize_path() {
-        assert_eq!(normalize_path("./src/main.rs"), "src/main.rs");
-        assert_eq!(normalize_path("a//b.txt"), "a/b.txt");
-        assert_eq!(normalize_path(""), "/");
+        assert_eq!(normalize_path("./src/main.rs").unwrap(), "src/main.rs");
+        assert_eq!(normalize_path("a//b.txt").unwrap(), "a/b.txt");
+        assert_eq!(normalize_path("").unwrap(), "/");
+    }
+
+    #[test]
+    fn test_normalize_path_security() {
+        // Path traversal should be rejected
+        assert!(normalize_path("../etc/passwd").is_err());
+        assert!(normalize_path("foo/../bar").is_err());
+
+        // Long paths should be rejected
+        let long_path = "a".repeat(300);
+        assert!(normalize_path(&long_path).is_err());
+    }
+
+    #[test]
+    fn test_write_file_size_limit() {
+        let mut backend = WasmStateBackend::new();
+        let huge_content = "x".repeat(MAX_FILE_SIZE + 1);
+        let result = backend.write_file("huge.txt", &huge_content);
+        assert!(matches!(result, Err(WasmBackendError::LimitExceeded(_))));
     }
 
     #[test]

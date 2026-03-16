@@ -1,7 +1,8 @@
 # ADR-110: Neural-Symbolic Integration with Internal Voice
 
-**Status**: Accepted
+**Status**: In Progress
 **Date**: 2026-03-15
+**Updated**: 2026-03-15
 **Authors**: RuVector Team
 **Deciders**: ruv
 **Supersedes**: N/A
@@ -358,19 +359,49 @@ GET  /v1/voice/history    # Recent thought history
 GET  /v1/cognitive/status # Full cognitive system status
 ```
 
-## 4. Implementation Plan
+## 4. Implementation Status
 
-| Phase | Component | Effort | Priority |
-|-------|-----------|--------|----------|
-| 1 | Working Memory module | 4 hrs | High |
-| 2 | Internal Voice core | 6 hrs | High |
-| 3 | Neural-Symbolic Bridge | 8 hrs | High |
-| 4 | Training loop integration | 4 hrs | Medium |
-| 5 | API endpoints | 4 hrs | Medium |
-| 6 | SSE streaming for voice | 2 hrs | Low |
-| 7 | Deliberation planner | 6 hrs | Low |
+**Last Updated:** 2026-03-15
 
-**Total: ~34 hours**
+| Component | Status | Location | Notes |
+|-----------|--------|----------|-------|
+| **voice.rs** | ✅ Implemented | `crates/mcp-brain-server/src/voice.rs` | ThoughtType, ThoughtSource, VoiceToken |
+| **symbolic.rs** | ✅ Implemented | `crates/mcp-brain-server/src/symbolic.rs` | GroundedProposition, NeuralSymbolicBridge |
+| **optimizer.rs** | ✅ Implemented | `crates/mcp-brain-server/src/optimizer.rs` | Training optimization |
+| Working Memory | 🔄 Partial | `voice.rs` | VecDeque-based, needs attention |
+| Internal Voice API | ❌ Missing | - | SSE endpoints not exposed |
+| Symbolic Reasoning API | ❌ Missing | - | REST endpoints not exposed |
+| Training Loop Integration | ❌ Missing | - | Not wired to nightly learner |
+
+### Implementation Progress
+
+| Phase | Component | Effort | Priority | Status |
+|-------|-----------|--------|----------|--------|
+| 1 | Working Memory module | 4 hrs | High | ✅ DONE (basic) |
+| 2 | Internal Voice core | 6 hrs | High | ✅ DONE |
+| 3 | Neural-Symbolic Bridge | 8 hrs | High | ✅ DONE |
+| 4 | Training loop integration | 4 hrs | Medium | ❌ TODO |
+| 5 | API endpoints | 4 hrs | Medium | ❌ TODO |
+| 6 | SSE streaming for voice | 2 hrs | Low | ❌ TODO |
+| 7 | Deliberation planner | 6 hrs | Low | ❌ TODO |
+
+**Completed: ~18 hours | Remaining: ~16 hours**
+
+### Files Implemented
+
+```
+crates/mcp-brain-server/src/
+├── voice.rs        # ThoughtType, ThoughtSource, VoiceToken, InternalVoice
+├── symbolic.rs     # GroundedProposition, NeuralSymbolicBridge, DatalogRule
+└── optimizer.rs    # TrainingOptimizer, BatchScheduler
+```
+
+### Next Steps
+
+1. **Expose API endpoints** for `/v1/voice/*` and `/v1/reason`
+2. **Wire to cognitive.rs** for Strange Loop integration
+3. **Add SSE streaming** for real-time voice output
+4. **Integrate with RuVocal UI** for visualization
 
 ## 5. Integration with Existing Systems
 
