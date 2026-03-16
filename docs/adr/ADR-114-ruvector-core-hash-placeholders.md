@@ -92,33 +92,86 @@ const AGENTICDB_EMBEDDING_WARNING: () = ();
 
 ### 3. Supported Production Alternatives
 
-Three production paths are documented and supported:
+Five production paths are documented and supported:
 
-| Provider | Feature Flag | Use Case |
-|----------|--------------|----------|
-| `ApiEmbedding` | `api-embeddings` | External APIs (OpenAI, Cohere, Voyage) |
-| `CandleEmbedding` | `real-embeddings` | Local transformer models (stub) |
-| Custom `EmbeddingProvider` | N/A | User-implemented ONNX, custom models |
+| Provider | Location | Use Case | Recommended |
+|----------|----------|----------|-------------|
+| **`OnnxEmbedding`** | `ruvector-core` (feature: `onnx-embeddings`) | Direct ONNX Runtime embeddings (all-MiniLM-L6-v2) | ✅ **PRIMARY** |
+| **RuvLLM ONNX** | `ruvllm` crate / `@ruvector/ruvllm` | Real semantic embeddings with SONA learning | ✅ Yes |
+| `RuvectorIntegration` | `ruvllm::ruvector_integration` | Full HNSW + SONA learning stack | ✅ Yes |
+| `ApiEmbedding` | `ruvector-core` (feature: `api-embeddings`) | External APIs (OpenAI, Cohere, Voyage) | ✅ Yes |
+| Custom `EmbeddingProvider` | N/A | User-implemented models | Yes |
 
-### 4. CandleEmbedding Stub Behavior
+### 4. RuvLLM as Primary Replacement (RECOMMENDED)
+
+**RuvLLM provides real semantic embeddings** via ONNX runtime — this is the recommended replacement for `HashEmbedding`:
+
+**Locations**:
+- TypeScript: `npm/packages/ruvector/src/core/onnx-embedder.ts`
+- Rust: `crates/ruvllm/src/ruvector_integration.rs`
+
+**Capabilities**:
+- **Model**: `all-MiniLM-L6-v2` (384-dimensional transformer embeddings)
+- **Type**: Real semantic embeddings via ONNX WASM runtime
+- **NOT hash-based** — actual transformer model inference
+- Batch processing with parallel workers (3.8x speedup)
+- Optional SIMD acceleration
+- Model auto-download from HuggingFace on first use
+
+**TypeScript/JavaScript** (npm):
+```typescript
+import { OnnxEmbedder } from 'ruvector';
+
+const embedder = new OnnxEmbedder({ modelId: 'all-MiniLM-L6-v2' });
+await embedder.initialize();
+
+const result = await embedder.embed("hello world");
+// result.embedding: number[] (384-dimensional REAL semantic embedding)
+// "dog" and "cat" WILL be similar (semantic understanding)
+```
+
+**Rust** (via ruvllm crate):
+```rust
+use ruvllm::ruvector_integration::{RuvectorIntegration, IntegrationConfig};
+
+let config = IntegrationConfig::default(); // 384-dim embeddings
+let integration = RuvectorIntegration::new(config)?;
+
+// Full stack: HNSW indexing + SONA learning + semantic search
+let decision = integration.route_with_intelligence("implement auth", &embedding)?;
+integration.learn_from_outcome(&task, decision.agent, true)?;
+```
+
+**Why RuvLLM over ApiEmbedding**:
+
+| Aspect | RuvLLM ONNX | ApiEmbedding |
+|--------|-------------|--------------|
+| Latency | 5-50ms (local) | 50-200ms (network) |
+| Cost | Free | $0.02-0.13/1M tokens |
+| Privacy | Data stays local | Data sent to API |
+| Offline | ✅ Works offline | ❌ Requires internet |
+| SONA Learning | ✅ Integrated | ❌ Separate setup |
+| Batch Processing | ✅ Parallel workers | ❌ Sequential API calls |
+
+### 5. CandleEmbedding Stub Behavior
 
 The `CandleEmbedding::from_pretrained()` method intentionally returns an error:
 
 ```rust
 Err(RuvectorError::ModelLoadError(format!(
     "Candle embedding support is a stub. Please:\n\
-     1. Use ApiEmbedding for production (recommended)\n\
-     2. Or implement CandleEmbedding for model: {}\n\
-     3. See docs for ONNX Runtime integration examples",
+     1. Use RuvLLM ONNX embeddings (recommended)\n\
+     2. Or use ApiEmbedding for external APIs\n\
+     3. See docs for ruvllm integration examples",
     model_id
 )))
 ```
 
 This ensures users cannot accidentally use a non-functional embedding provider.
 
-### 5. ApiEmbedding as Recommended Default
+### 6. ApiEmbedding as Fallback
 
-For production deployments, `ApiEmbedding` is the recommended path:
+For deployments where RuvLLM is not available, `ApiEmbedding` provides external API access:
 - **OpenAI**: `text-embedding-3-small` (1536 dims), `text-embedding-3-large` (3072 dims)
 - **Cohere**: `embed-english-v3.0` (1024 dims)
 - **Voyage**: `voyage-2` (1024 dims), `voyage-large-2` (1536 dims)
@@ -144,8 +197,10 @@ For production deployments, `ApiEmbedding` is the recommended path:
 | Approach | Latency | Cost | Quality | Complexity |
 |----------|---------|------|---------|------------|
 | HashEmbedding | <1ms | Free | Poor (non-semantic) | None |
+| **`OnnxEmbedding`** | **5-50ms** | **Free** | **High** | **Model download (~90MB)** |
+| RuvLLM ONNX | 5-50ms | Free | High | Model download (~90MB) |
+| RuvectorIntegration | 5-50ms | Free | High + Learning | SONA setup |
 | ApiEmbedding | 50-200ms | $0.02-0.13/1M tokens | High | API key management |
-| ONNX Runtime | 5-50ms | Free | High | Model bundling |
 | Candle (future) | 10-100ms | Free | High | Heavy dependencies |
 
 ## Implementation Checklist
@@ -156,14 +211,71 @@ For production deployments, `ApiEmbedding` is the recommended path:
 - [x] `ApiEmbedding` with OpenAI, Cohere, Voyage support
 - [x] Compile-time deprecation warning
 - [x] Documentation in lib.rs and embeddings.rs
+- [x] **RuvLLM ONNX embeddings** (`OnnxEmbedder` in npm, `RuvectorIntegration` in Rust)
+- [x] **SONA learning integration** via `ruvllm::ruvector_integration`
+- [x] **Parallel batch processing** with worker threads
+- [x] **`OnnxEmbedding` in ruvector-core** (feature: `onnx-embeddings`) — Direct ONNX Runtime integration using ort 2.0
 
 ### Pending (Future PRs)
-- [ ] ONNX Runtime integration example in `/examples/onnx-embeddings`
 - [ ] Full Candle implementation (replace stub)
 - [ ] Benchmark suite comparing provider performance
-- [ ] Caching layer for API-based embeddings
 
 ## Usage Examples
+
+### Production (RuvLLM - RECOMMENDED)
+
+**TypeScript/JavaScript:**
+```typescript
+import { OnnxEmbedder } from 'ruvector';
+
+// Initialize once (downloads model on first use)
+const embedder = new OnnxEmbedder({
+  modelId: 'all-MiniLM-L6-v2',
+  enableParallel: true,  // 3.8x speedup for batches
+});
+await embedder.initialize();
+
+// Single embedding
+const result = await embedder.embed("hello world");
+console.log(result.embedding.length); // 384
+
+// Batch embedding (parallel)
+const batch = await embedder.embedBatch(["dog", "cat", "puppy"]);
+// "dog" and "puppy" WILL be similar (semantic!)
+```
+
+**Rust:**
+```rust
+use ruvllm::ruvector_integration::{RuvectorIntegration, IntegrationConfig};
+
+let integration = RuvectorIntegration::new(IntegrationConfig::default())?;
+
+// Intelligent routing with SONA learning
+let decision = integration.route_with_intelligence("implement auth", &embedding)?;
+
+// Learn from outcome (improves future routing)
+integration.learn_from_outcome(&task, decision.agent, true)?;
+```
+
+### ruvector-core OnnxEmbedding (Native Rust)
+
+**Direct ONNX Runtime integration** (requires feature: `onnx-embeddings`):
+```rust
+use ruvector_core::embeddings::{EmbeddingProvider, OnnxEmbedding};
+
+// Downloads and caches model from HuggingFace on first use (~90MB)
+let provider = OnnxEmbedding::from_pretrained("sentence-transformers/all-MiniLM-L6-v2")?;
+
+// Real semantic embeddings
+let embedding = provider.embed("hello world")?;
+assert_eq!(embedding.len(), 384);
+
+// "dog" and "cat" WILL be similar (semantic understanding!)
+let dog = provider.embed("dog")?;
+let cat = provider.embed("cat")?;
+let sim: f32 = dog.iter().zip(&cat).map(|(a, b)| a * b).sum();
+println!("dog-cat similarity: {}", sim); // ~0.8
+```
 
 ### Testing/Prototyping (Placeholder)
 ```rust
@@ -174,27 +286,12 @@ let embedding = provider.embed("hello world")?; // Fast but NOT semantic
 assert_eq!(provider.name(), "HashEmbedding (placeholder)");
 ```
 
-### Production (API-Based)
+### Fallback (API-Based)
 ```rust
 use ruvector_core::embeddings::{EmbeddingProvider, ApiEmbedding};
 
 let provider = ApiEmbedding::openai("sk-...", "text-embedding-3-small");
 let embedding = provider.embed("hello world")?; // Real semantic embeddings
-```
-
-### Production (Custom ONNX)
-```rust
-use ruvector_core::embeddings::EmbeddingProvider;
-
-struct OnnxEmbedding { /* ... */ }
-
-impl EmbeddingProvider for OnnxEmbedding {
-    fn embed(&self, text: &str) -> ruvector_core::Result<Vec<f32>> {
-        // Implement ONNX inference
-    }
-    fn dimensions(&self) -> usize { 384 }
-    fn name(&self) -> &str { "OnnxEmbedding (all-MiniLM-L6-v2)" }
-}
 ```
 
 ## Security Considerations
