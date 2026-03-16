@@ -321,7 +321,7 @@ mod tests {
 
         let ptr = {
             let scoped = ScopedBuffer::new(&pool, 1000);
-            scoped.buffer.buffer.contents()
+            scoped.buffer().buffer.contents()
         };
 
         // Buffer should be back in pool
