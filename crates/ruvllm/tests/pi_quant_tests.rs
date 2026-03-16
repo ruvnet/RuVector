@@ -1,3 +1,6 @@
+#![allow(clippy::manual_range_contains)]
+#![allow(clippy::needless_range_loop)]
+
 //! Pi-Quantization Unit Tests for ADR-090
 //!
 //! Comprehensive tests for the PiQuantizer implementation including:
