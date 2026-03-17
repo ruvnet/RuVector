@@ -28,4 +28,4 @@ getrandom = { version = "0.2", features = ["js"] }
 default = []
 
 [package.metadata.wasm-pack.profile.release]
-wasm-opt = ["-O4"]
+wasm-opt = false

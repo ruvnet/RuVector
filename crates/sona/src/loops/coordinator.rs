@@ -97,17 +97,17 @@ impl LoopCoordinator {
         if self.background.should_run() {
             let trajectories = self.instant.drain_trajectories();
             if !trajectories.is_empty() {
-                return Some(self.background.run_cycle(trajectories));
+                return Some(self.background.run_cycle(trajectories, false));
             }
         }
 
         None
     }
 
-    /// Force background cycle
+    /// Force background cycle (bypasses minimum trajectory check)
     pub fn force_background(&self) -> BackgroundResult {
         let trajectories = self.instant.drain_trajectories();
-        self.background.run_cycle(trajectories)
+        self.background.run_cycle(trajectories, true)
     }
 
     /// Flush instant loop updates

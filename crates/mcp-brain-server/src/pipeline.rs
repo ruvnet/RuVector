@@ -703,22 +703,77 @@ impl CommonCrawlAdapter {
     /// Uses CDX cache (ADR-115) to avoid redundant API calls - 24h TTL.
     ///
     /// NOTE: CDX API at index.commoncrawl.org has connectivity issues from Cloud Run.
-    /// Falls back to sample records for demonstration purposes.
+    /// Falls back to Internet Archive's Wayback CDX API which is accessible.
     pub async fn query_cdx(&self, query: &CdxQuery) -> Result<Vec<CdxRecord>, String> {
         let crawl = match &query.crawl_index {
             Some(c) => c.clone(),
             None => self.latest_crawl.read().await.clone(),
         };
 
-        // Try live CDX API first, fall back to samples if it fails
+        // Try live Common Crawl CDX API first
         let live_result = self.query_cdx_live(&query, &crawl).await;
         if live_result.is_ok() {
             return live_result;
         }
 
-        // Fall back to sample records for demonstration
-        tracing::warn!("CDX API unavailable, using sample records for demonstration");
-        self.get_sample_cdx_records(&query.url_pattern, query.limit)
+        // Fall back to Internet Archive's Wayback CDX (works from Cloud Run)
+        tracing::warn!("Common Crawl CDX unavailable, falling back to Wayback CDX");
+        self.query_wayback_cdx(&query.url_pattern, query.limit).await
+    }
+
+    /// Query Internet Archive's Wayback CDX API (fallback when Common Crawl CDX is unreachable).
+    /// Returns synthetic CdxRecords with filename set to "wayback:{timestamp}" for special handling.
+    async fn query_wayback_cdx(&self, url_pattern: &str, limit: usize) -> Result<Vec<CdxRecord>, String> {
+        // IA Wayback CDX API
+        let url = format!(
+            "https://web.archive.org/cdx/search/cdx?url={}&output=json&limit={}",
+            urlencoding::encode(url_pattern),
+            limit + 1 // +1 for header row
+        );
+
+        let resp = self.http.get(&url)
+            .header("Accept", "application/json")
+            .send().await
+            .map_err(|e| format!("Wayback CDX failed: {e}"))?;
+
+        if !resp.status().is_success() {
+            return Err(format!("Wayback CDX returned status {}", resp.status()));
+        }
+
+        let body = resp.text().await.map_err(|e| format!("Wayback body read failed: {e}"))?;
+
+        // Parse IA CDX JSON array format: [[headers...], [values...], ...]
+        let rows: Vec<Vec<String>> = serde_json::from_str(&body)
+            .map_err(|e| format!("Wayback CDX parse failed: {e}"))?;
+
+        // Skip header row, convert to CdxRecord
+        let records: Vec<CdxRecord> = rows.iter().skip(1).take(limit).filter_map(|row| {
+            if row.len() >= 7 {
+                // IA CDX columns: urlkey, timestamp, original, mimetype, statuscode, digest, length
+                Some(CdxRecord {
+                    url: row.get(2).cloned().unwrap_or_default(),
+                    timestamp: row.get(1).cloned().unwrap_or_default(),
+                    mime: row.get(3).cloned().unwrap_or_default(),
+                    status: row.get(4).cloned().unwrap_or_default(),
+                    filename: format!("wayback:{}", row.get(1).cloned().unwrap_or_default()), // Special marker
+                    offset: 0,
+                    length: row.get(6).and_then(|s| s.parse().ok()).unwrap_or(0),
+                })
+            } else {
+                None
+            }
+        }).collect();
+
+        if records.is_empty() {
+            return Err("No Wayback results found".into());
+        }
+
+        // Mark URLs as seen
+        for r in &records {
+            self.seen_urls.insert(r.url.clone(), ());
+        }
+
+        Ok(records)
     }
 
     /// Get sample CDX records for demonstration when live API is unavailable.
@@ -878,25 +933,57 @@ impl CommonCrawlAdapter {
         Ok(records)
     }
 
-    /// Fetch a single page from Common Crawl via WARC range-GET.
+    /// Fetch a single page from Common Crawl via WARC range-GET or Wayback Machine.
     pub async fn fetch_page(&self, record: &CdxRecord) -> Result<CrawlPage, String> {
-        if record.filename.is_empty() || record.length == 0 {
-            return Err("Invalid CDX record: missing filename or length".into());
+        if record.filename.is_empty() {
+            return Err("Invalid CDX record: missing filename".into());
         }
-        let warc_url = format!("{}/{}", self.data_base, record.filename);
-        let range = format!("bytes={}-{}", record.offset, record.offset + record.length - 1);
 
         self.stats.pages_fetched.fetch_add(1, Ordering::Relaxed);
-        let resp = self.http.get(&warc_url)
-            .header("Range", &range)
-            .send().await.map_err(|e| format!("WARC fetch failed for {}: {e}", record.url))?;
-        if !resp.status().is_success() && resp.status().as_u16() != 206 {
-            return Err(format!("WARC returned status {}", resp.status()));
-        }
-        let warc_bytes = resp.bytes().await.map_err(|e| format!("WARC body read failed: {e}"))?;
 
-        // Extract text from WARC record
-        let (title, content) = self.extract_from_warc(&warc_bytes)?;
+        // Check if this is a Wayback Machine record (filename = "wayback:{timestamp}")
+        let (title, content) = if record.filename.starts_with("wayback:") {
+            // Fetch from Internet Archive Wayback Machine
+            let timestamp = &record.filename[8..]; // Extract timestamp after "wayback:"
+            // Use id_ modifier for raw content without Wayback toolbar
+            let wayback_url = format!(
+                "https://web.archive.org/web/{}id_/{}",
+                timestamp, record.url
+            );
+            tracing::info!("Fetching from Wayback: {}", wayback_url);
+
+            let resp = self.http.get(&wayback_url)
+                .send().await
+                .map_err(|e| format!("Wayback fetch failed for {}: {e}", record.url))?;
+
+            if !resp.status().is_success() {
+                return Err(format!("Wayback returned status {}", resp.status()));
+            }
+
+            let html_bytes = resp.bytes().await
+                .map_err(|e| format!("Wayback body read failed: {e}"))?;
+
+            // Extract directly from HTML (no WARC envelope)
+            self.extract_from_html(&html_bytes)?
+        } else {
+            // Standard Common Crawl WARC fetch
+            if record.length == 0 {
+                return Err("Invalid CDX record: missing length".into());
+            }
+            let warc_url = format!("{}/{}", self.data_base, record.filename);
+            let range = format!("bytes={}-{}", record.offset, record.offset + record.length - 1);
+
+            let resp = self.http.get(&warc_url)
+                .header("Range", &range)
+                .send().await.map_err(|e| format!("WARC fetch failed for {}: {e}", record.url))?;
+            if !resp.status().is_success() && resp.status().as_u16() != 206 {
+                return Err(format!("WARC returned status {}", resp.status()));
+            }
+            let warc_bytes = resp.bytes().await.map_err(|e| format!("WARC body read failed: {e}"))?;
+
+            // Extract text from WARC record
+            self.extract_from_warc(&warc_bytes)?
+        };
         let content_hash = DataInjector::content_hash(&title, &content);
 
         // Check for duplicate content
@@ -917,6 +1004,12 @@ impl CommonCrawlAdapter {
         })
     }
 
+    /// Extract title and text content from raw HTML bytes (Wayback Machine).
+    fn extract_from_html(&self, html_bytes: &[u8]) -> Result<(String, String), String> {
+        let html = String::from_utf8_lossy(html_bytes);
+        self.extract_text_from_html(&html)
+    }
+
     /// Extract title and text content from WARC record bytes.
     fn extract_from_warc(&self, warc_bytes: &[u8]) -> Result<(String, String), String> {
         let warc_str = String::from_utf8_lossy(warc_bytes);
@@ -927,6 +1020,11 @@ impl CommonCrawlAdapter {
             .unwrap_or(0);
         let html = &warc_str[body_start..];
 
+        self.extract_text_from_html(html)
+    }
+
+    /// Shared text extraction logic for both WARC and raw HTML.
+    fn extract_text_from_html(&self, html: &str) -> Result<(String, String), String> {
         // Extract title
         let title = extract_tag(html, "title").unwrap_or_default();
 

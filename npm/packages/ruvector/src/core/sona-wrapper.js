@@ -227,8 +227,32 @@ class SonaEngine {
      * @returns Statistics object
      */
     getStats() {
-        const statsJson = this._native.getStats();
-        return JSON.parse(statsJson);
+        const statsStr = this._native.getStats();
+        // Try JSON first (ideal format)
+        try {
+            return JSON.parse(statsStr);
+        } catch {
+            // Fall back to parsing Rust debug format: "StructName { field: value, ... }"
+            // e.g., "CoordinatorStats { trajectories_buffered: 0, ... }"
+            const match = statsStr.match(/\{([^}]+)\}/);
+            if (match) {
+                const obj = {};
+                const pairs = match[1].split(',').map(s => s.trim());
+                for (const pair of pairs) {
+                    const [key, val] = pair.split(':').map(s => s.trim());
+                    if (key && val !== undefined) {
+                        // Parse value: bool, number, or string
+                        if (val === 'true') obj[key] = true;
+                        else if (val === 'false') obj[key] = false;
+                        else if (!isNaN(parseFloat(val))) obj[key] = parseFloat(val);
+                        else obj[key] = val;
+                    }
+                }
+                return obj;
+            }
+            // Return raw string if all parsing fails
+            return { raw: statsStr };
+        }
     }
     /**
      * Enable or disable the engine

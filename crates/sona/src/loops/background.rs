@@ -105,9 +105,19 @@ impl BackgroundLoop {
     }
 
     /// Run background learning cycle
-    pub fn run_cycle(&self, trajectories: Vec<QueryTrajectory>) -> BackgroundResult {
-        if trajectories.len() < self.config.min_trajectories {
-            return BackgroundResult::skipped("insufficient trajectories");
+    ///
+    /// If `force` is true, bypasses the minimum trajectory check (for forceLearn API)
+    pub fn run_cycle(&self, trajectories: Vec<QueryTrajectory>, force: bool) -> BackgroundResult {
+        if !force && trajectories.len() < self.config.min_trajectories {
+            return BackgroundResult::skipped(&format!(
+                "insufficient trajectories ({} < {} minimum, use forceLearn to bypass)",
+                trajectories.len(),
+                self.config.min_trajectories
+            ));
+        }
+
+        if trajectories.is_empty() {
+            return BackgroundResult::skipped("no trajectories to process");
         }
 
         let start = Instant::now();

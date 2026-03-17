@@ -428,7 +428,7 @@ class Intelligence {
 const server = new Server(
   {
     name: 'ruvector',
-    version: '0.2.12',
+    version: '0.2.13',
   },
   {
     capabilities: {
@@ -3054,9 +3054,15 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case 'workers_create': {
-        const name = args.name;
-        const preset = args.preset || 'quick-scan';
-        const triggers = args.triggers;
+        const name = sanitizeShellArg(args.name);
+        const preset = sanitizeShellArg(args.preset || 'quick-scan');
+        const triggers = args.triggers ? sanitizeShellArg(args.triggers) : null;
+        if (!name) {
+          return { content: [{ type: 'text', text: JSON.stringify({
+            success: false,
+            error: 'Invalid worker name'
+          }, null, 2) }] };
+        }
         try {
           let cmd = `npx agentic-flow@alpha workers create "${name}" --preset ${preset}`;
           if (triggers) cmd += ` --triggers "${triggers}"`;
@@ -4132,7 +4138,7 @@ async function main() {
           transport: 'sse',
           sessions: sessions.size,
           tools: 91,
-          version: '0.2.12'
+          version: '0.2.13'
         }));
 
       } else {
