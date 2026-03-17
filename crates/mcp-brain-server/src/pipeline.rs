@@ -540,8 +540,10 @@ impl Default for CdxQuery {
             url_pattern: String::new(),
             crawl_index: None,
             limit: 100,
-            mime_filter: Some("text/html".into()),
-            status_filter: Some("200".into()),
+            // Note: Filters disabled for POC to reduce latency - CDX responses are
+            // filtered client-side instead. Re-enable for production.
+            mime_filter: None,
+            status_filter: None,
         }
     }
 }
@@ -607,16 +609,18 @@ impl CommonCrawlAdapter {
     pub fn new() -> Self {
         Self {
             http: reqwest::Client::builder()
-                .timeout(std::time::Duration::from_secs(60))
+                .timeout(std::time::Duration::from_secs(120)) // Increased for CDX latency
+                .connect_timeout(std::time::Duration::from_secs(30))
+                .pool_idle_timeout(std::time::Duration::from_secs(90))
                 .user_agent("RuVector-Brain/1.0 (pi.ruv.io; +https://github.com/ruvnet/ruvector)")
                 .build()
-                .unwrap_or_default(),
+                .expect("Failed to build reqwest client"),
             seen_urls: dashmap::DashMap::new(),
             seen_hashes: dashmap::DashMap::new(),
             cdx_cache: dashmap::DashMap::new(),
             cdx_base: "https://index.commoncrawl.org".into(),
             data_base: "https://data.commoncrawl.org".into(),
-            latest_crawl: RwLock::new("CC-MAIN-2026-13".into()),
+            latest_crawl: RwLock::new("CC-MAIN-2026-08".into()), // Updated to latest available
             stats: CommonCrawlStats::default(),
         }
     }
