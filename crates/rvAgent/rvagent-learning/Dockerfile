@@ -1,7 +1,7 @@
 # rvagent-learning Cloud Run Dockerfile
 # Daily Learning Loop with GOAP reasoning
 
-FROM rust:1.77-bookworm AS builder
+FROM rust:1.85-bookworm AS builder
 
 WORKDIR /app
 
@@ -11,13 +11,14 @@ RUN apt-get update && apt-get install -y \
     libssl-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy workspace files
-COPY Cargo.toml Cargo.lock ./
-COPY crates/rvAgent/rvagent-learning ./crates/rvAgent/rvagent-learning
+# Copy the learning crate source (includes prompts at src/prompts)
+COPY crates/rvAgent/rvagent-learning/src ./crates/rvAgent/rvagent-learning/src
 
-# Create dummy workspace members to satisfy Cargo
-RUN mkdir -p crates/ruvector-core/src && echo "pub fn dummy() {}" > crates/ruvector-core/src/lib.rs
-RUN echo '[package]\nname = "ruvector-core"\nversion = "0.1.0"\nedition = "2021"' > crates/ruvector-core/Cargo.toml
+# Use standalone Cargo.toml that doesn't use workspace inheritance
+COPY crates/rvAgent/rvagent-learning/Cargo.docker.toml ./crates/rvAgent/rvagent-learning/Cargo.toml
+
+# Use minimal workspace
+COPY crates/rvAgent/rvagent-learning/docker-workspace.toml ./Cargo.toml
 
 # Build release binary
 RUN cargo build --release -p rvagent-learning --bin daily_cycle

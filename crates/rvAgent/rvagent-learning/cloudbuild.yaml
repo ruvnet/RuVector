@@ -47,8 +47,8 @@ steps:
       - '300'
       - '--set-env-vars'
       - 'RUST_LOG=info,PI_RUVIO_URL=https://pi.ruv.io'
-      - '--set-secrets'
-      - 'GOOGLE_API_KEY=gemini-api-key:latest'
+      # Note: Add GOOGLE_API_KEY secret later via:
+      # gcloud run services update rvagent-learning --set-secrets GOOGLE_API_KEY=gemini-api-key:latest
 
 images:
   - 'gcr.io/$PROJECT_ID/rvagent-learning:$COMMIT_SHA'
