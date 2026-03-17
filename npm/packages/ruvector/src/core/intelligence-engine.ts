@@ -536,7 +536,8 @@ export class IntelligenceEngine {
   async route(task: string, file?: string): Promise<AgentRoute> {
     const ext = file ? this.getExtension(file) : '';
     const state = this.getState(task, ext);
-    const taskEmbed = this.embed(task + ' ' + (file || ''));
+    // Use async ONNX embeddings for semantic routing (critical fix)
+    const taskEmbed = await this.embedAsync(task + ' ' + (file || ''));
 
     // Apply SONA micro-LoRA transformation if available
     let adaptedEmbed = taskEmbed;

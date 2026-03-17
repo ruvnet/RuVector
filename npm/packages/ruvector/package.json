@@ -1,6 +1,6 @@
 {
   "name": "ruvector",
-  "version": "0.2.13",
+  "version": "0.2.14",
   "description": "High-performance vector database for Node.js with automatic native/WASM fallback",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -70,12 +70,14 @@
     "@ruvector/sona": "^0.1.4",
     "chalk": "^4.1.2",
     "commander": "^11.1.0",
+    "glob": "^10.3.10",
     "ora": "^5.4.1"
   },
   "optionalDependencies": {
     "@ruvector/rvf": "^0.1.0"
   },
   "devDependencies": {
+    "@types/glob": "^8.1.0",
     "@types/node": "^20.10.5",
     "typescript": "^5.3.3"
   },

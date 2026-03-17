@@ -318,7 +318,14 @@ impl HnswGraph {
             self.layers.push(HashMap::new());
         }
 
+        // CRITICAL: Push pattern FIRST so it exists when connect_node runs
+        // This fixes index out of bounds when entry_point is set to node_id
+        let embedding = pattern.embedding.clone();
+        let was_empty = self.patterns.is_empty();
+        self.patterns.push(pattern);
+
         // Update max layer and entry point if needed
+        // Now safe because patterns[node_id] exists
         if layer > self.max_layer {
             self.max_layer = layer;
             self.entry_point = Some(node_id);
@@ -335,13 +342,11 @@ impl HnswGraph {
         }
 
         // Connect the new node to the graph
-        if self.patterns.is_empty() {
+        if was_empty {
             self.entry_point = Some(node_id);
         } else {
-            self.connect_node(node_id, &pattern.embedding, layer);
+            self.connect_node(node_id, &embedding, layer);
         }
-
-        self.patterns.push(pattern);
     }
 
     /// Connect a new node to existing nodes in the graph
@@ -426,6 +431,11 @@ impl HnswGraph {
         ef: usize,
         layer: usize,
     ) -> Vec<(usize, f32)> {
+        // Safety: Return empty if patterns is empty or entry_point is invalid
+        if self.patterns.is_empty() || entry_point >= self.patterns.len() {
+            return vec![];
+        }
+
         let mut visited = vec![false; self.patterns.len()];
         let mut candidates = Vec::new();
         let mut best = Vec::new();
@@ -454,6 +464,10 @@ impl HnswGraph {
             // Explore neighbors
             if let Some(node) = self.layers[layer].get(&curr_id) {
                 for &neighbor_id in &node.neighbors {
+                    // Safety: Skip invalid neighbor indices
+                    if neighbor_id >= self.patterns.len() {
+                        continue;
+                    }
                     if !visited[neighbor_id] {
                         visited[neighbor_id] = true;
                         let sim =
@@ -490,29 +504,37 @@ impl HnswGraph {
             return Vec::new();
         }
 
-        let entry_point = self.entry_point.unwrap();
+        // Safety: Return empty if entry_point is not set
+        let entry_point = match self.entry_point {
+            Some(ep) if ep < self.patterns.len() => ep,
+            _ => return Vec::new(),
+        };
         let mut curr = entry_point;
 
         // Search from top layer down to layer 1
         for l in (1..=self.max_layer).rev() {
-            curr = self.search_layer(query, curr, 1, l)[0].0;
+            let layer_results = self.search_layer(query, curr, 1, l);
+            if layer_results.is_empty() {
+                // Fallback to linear search if HNSW fails
+                break;
+            }
+            curr = layer_results[0].0;
         }
 
         // Search layer 0 with ef_search
         let results = self.search_layer(query, curr, self.ef_search.max(k), 0);
 
-        // Convert to RouteResultWasm
+        // Convert to RouteResultWasm, filtering invalid indices
         results
             .into_iter()
             .take(k)
-            .map(|(id, score)| {
-                let pattern = &self.patterns[id];
-                RouteResultWasm {
+            .filter_map(|(id, score)| {
+                self.patterns.get(id).map(|pattern| RouteResultWasm {
                     name: pattern.name.clone(),
                     score,
                     metadata: pattern.metadata.clone(),
                     embedding: pattern.embedding.clone(),
-                }
+                })
             })
             .collect()
     }

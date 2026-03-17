@@ -47,6 +47,11 @@
             "type": "command",
             "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/auto-memory-hook.mjs\" import",
             "timeout": 8000
+          },
+          {
+            "type": "command",
+            "command": "[ -f ~/.zshrc ] && source ~/.zshrc 2>/dev/null; ruvector brain sync pull 2>/dev/null || true",
+            "timeout": 10000
           }
         ]
       }
@@ -69,6 +74,11 @@
             "type": "command",
             "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/auto-memory-hook.mjs\" sync",
             "timeout": 10000
+          },
+          {
+            "type": "command",
+            "command": "[ -f ~/.zshrc ] && source ~/.zshrc 2>/dev/null; ruvector brain share \"RuVector Session $(date +%Y-%m-%d)\" --category solution --content \"Session ended.\" 2>/dev/null || true",
+            "timeout": 8000
           }
         ]
       }
@@ -267,6 +277,13 @@
       "scanOnEdit": true,
       "cveCheck": true,
       "threatModel": true
+    },
+    "piBrain": {
+      "enabled": true,
+      "endpoint": "https://π.ruv.io",
+      "syncOnStart": true,
+      "shareOnTaskComplete": true,
+      "shareCategories": ["solution", "pattern", "architecture", "debug"]
     }
   }
 }
