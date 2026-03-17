@@ -1,0 +1,62 @@
+[package]
+name = "rvagent-learning"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.77"
+license = "MIT OR Apache-2.0"
+authors = ["ruvnet"]
+repository = "https://github.com/ruvnet/ruvector"
+description = "Daily learning and optimization loop with GOAP reasoning for rvAgent"
+keywords = ["ai", "learning", "goap", "rvagent", "ruvector"]
+categories = ["science", "algorithms"]
+
+[dependencies]
+# Core dependencies
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+tracing = { workspace = true }
+
+# Async runtime
+tokio = { workspace = true, features = ["full"] }
+async-trait = "0.1"
+futures = "0.3"
+
+# Time and scheduling
+chrono = { workspace = true, features = ["serde"] }
+cron = "0.12"
+
+# UUID for discovery IDs
+uuid = { workspace = true, features = ["v4", "serde"] }
+
+# HTTP client for API calls
+reqwest = { version = "0.12", features = ["json", "rustls-tls"], default-features = false }
+
+# Google Cloud integration (via gcloud CLI)
+
+# File watching for continuous mode
+notify = { version = "6.1", optional = true }
+
+# HNSW for pattern similarity
+# micro-hnsw = { version = "0.1", optional = true }
+
+# Internal dependencies (optional for now)
+# rvagent-core = { path = "../rvagent-core", optional = true }
+# ruvector-sona = { path = "../../sona", optional = true }
+
+[dev-dependencies]
+tokio-test = "0.4"
+tempfile = "3.13"
+wiremock = "0.6"
+
+[features]
+default = ["scheduler"]
+scheduler = ["dep:notify"]
+full = ["scheduler"]
+
+[lib]
+crate-type = ["rlib"]
+
+[lints.clippy]
+manual_range_contains = "allow"
