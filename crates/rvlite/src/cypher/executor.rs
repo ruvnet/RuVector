@@ -92,6 +92,75 @@ impl ExecutionResult {
     pub fn add_row(&mut self, row: HashMap<String, ContextValue>) {
         self.rows.push(row);
     }
+
+    /// Convert to a simplified JSON-friendly format where ContextValue enums
+    /// are flattened to plain serde_json::Value for proper WASM serialization.
+    pub fn to_json_rows(&self) -> Vec<HashMap<String, serde_json::Value>> {
+        self.rows
+            .iter()
+            .map(|row| {
+                row.iter()
+                    .map(|(k, v)| (k.clone(), v.to_json_value()))
+                    .collect()
+            })
+            .collect()
+    }
+}
+
+impl ContextValue {
+    /// Convert to a plain serde_json::Value, stripping the enum wrapper.
+    pub fn to_json_value(&self) -> serde_json::Value {
+        match self {
+            ContextValue::Value(v) => value_to_json(v),
+            ContextValue::Node(n) => {
+                let mut map = serde_json::Map::new();
+                map.insert("_id".to_string(), serde_json::json!(n.id));
+                map.insert("_labels".to_string(), serde_json::json!(n.labels));
+                for (k, v) in &n.properties {
+                    map.insert(k.clone(), value_to_json(v));
+                }
+                serde_json::Value::Object(map)
+            }
+            ContextValue::Edge(e) => {
+                let mut map = serde_json::Map::new();
+                map.insert("_type".to_string(), serde_json::Value::String(e.edge_type.clone()));
+                map.insert("_from".to_string(), serde_json::json!(e.from));
+                map.insert("_to".to_string(), serde_json::json!(e.to));
+                for (k, v) in &e.properties {
+                    map.insert(k.clone(), value_to_json(v));
+                }
+                serde_json::Value::Object(map)
+            }
+            ContextValue::List(items) => {
+                serde_json::Value::Array(items.iter().map(|i| i.to_json_value()).collect())
+            }
+            ContextValue::Map(m) => {
+                let obj: serde_json::Map<String, serde_json::Value> = m
+                    .iter()
+                    .map(|(k, v)| (k.clone(), v.to_json_value()))
+                    .collect();
+                serde_json::Value::Object(obj)
+            }
+        }
+    }
+}
+
+fn value_to_json(v: &Value) -> serde_json::Value {
+    match v {
+        Value::String(s) => serde_json::Value::String(s.clone()),
+        Value::Integer(i) => serde_json::json!(*i),
+        Value::Float(f) => serde_json::json!(*f),
+        Value::Boolean(b) => serde_json::Value::Bool(*b),
+        Value::Null => serde_json::Value::Null,
+        Value::List(items) => serde_json::Value::Array(items.iter().map(value_to_json).collect()),
+        Value::Map(m) => {
+            let obj: serde_json::Map<String, serde_json::Value> = m
+                .iter()
+                .map(|(k, v)| (k.clone(), value_to_json(v)))
+                .collect();
+            serde_json::Value::Object(obj)
+        }
+    }
 }
 
 /// Cypher query executor
@@ -106,11 +175,12 @@ impl<'a> Executor<'a> {
 
     /// Execute a parsed Cypher query
     pub fn execute(&mut self, query: &Query) -> Result<ExecutionResult, ExecutionError> {
-        let mut context = ExecutionContext::new();
+        // Track multiple row contexts for MATCH results
+        let mut contexts: Vec<ExecutionContext> = vec![ExecutionContext::new()];
         let mut result = None;
 
         for statement in &query.statements {
-            result = Some(self.execute_statement(statement, &mut context)?);
+            result = Some(self.execute_statement(statement, &mut contexts)?);
         }
 
         result.ok_or_else(|| ExecutionError::ExecutionError("No statements to execute".to_string()))
@@ -119,14 +189,32 @@ impl<'a> Executor<'a> {
     fn execute_statement(
         &mut self,
         statement: &Statement,
-        context: &mut ExecutionContext,
+        contexts: &mut Vec<ExecutionContext>,
     ) -> Result<ExecutionResult, ExecutionError> {
         match statement {
-            Statement::Create(clause) => self.execute_create(clause, context),
-            Statement::Match(clause) => self.execute_match(clause, context),
-            Statement::Return(clause) => self.execute_return(clause, context),
-            Statement::Set(clause) => self.execute_set(clause, context),
-            Statement::Delete(clause) => self.execute_delete(clause, context),
+            Statement::Create(clause) => {
+                // CREATE uses the first context for variable bindings
+                let ctx = contexts.first_mut().ok_or_else(|| {
+                    ExecutionError::ExecutionError("No execution context".to_string())
+                })?;
+                self.execute_create(clause, ctx)
+            }
+            Statement::Match(clause) => self.execute_match(clause, contexts),
+            Statement::Return(clause) => self.execute_return(clause, contexts),
+            Statement::Set(clause) => {
+                // SET applies to each context row
+                for ctx in contexts.iter() {
+                    self.execute_set(clause, ctx)?;
+                }
+                Ok(ExecutionResult::new(vec![]))
+            }
+            Statement::Delete(clause) => {
+                // DELETE applies to each context row
+                for ctx in contexts.iter() {
+                    self.execute_delete(clause, ctx)?;
+                }
+                Ok(ExecutionResult::new(vec![]))
+            }
             _ => Err(ExecutionError::UnsupportedOperation(format!(
                 "Statement {:?} not yet implemented",
                 statement
@@ -250,7 +338,7 @@ impl<'a> Executor<'a> {
     fn execute_match(
         &mut self,
         clause: &MatchClause,
-        context: &mut ExecutionContext,
+        contexts: &mut Vec<ExecutionContext>,
     ) -> Result<ExecutionResult, ExecutionError> {
         let mut matches = Vec::new();
 
@@ -267,12 +355,8 @@ impl<'a> Executor<'a> {
             });
         }
 
-        // Merge matches into context
-        for match_ctx in matches {
-            for (var, val) in match_ctx.variables {
-                context.bind(var, val);
-            }
-        }
+        // Replace contexts with matched rows (one context per match)
+        *contexts = matches;
 
         Ok(ExecutionResult::new(vec![]))
     }
@@ -417,30 +501,56 @@ impl<'a> Executor<'a> {
     fn execute_return(
         &self,
         clause: &ReturnClause,
-        context: &ExecutionContext,
+        contexts: &Vec<ExecutionContext>,
     ) -> Result<ExecutionResult, ExecutionError> {
-        let mut columns = Vec::new();
-        let mut row = HashMap::new();
+        // Build column names from expressions
+        let columns: Vec<String> = clause
+            .items
+            .iter()
+            .map(|item| {
+                item.alias
+                    .clone()
+                    .unwrap_or_else(|| Self::expression_to_column_name(&item.expression))
+            })
+            .collect();
 
-        for item in &clause.items {
-            let col_name = item
-                .alias
-                .clone()
-                .unwrap_or_else(|| match &item.expression {
-                    Expression::Variable(var) => var.clone(),
-                    _ => "?column?".to_string(),
-                });
+        let mut result = ExecutionResult::new(columns.clone());
 
-            columns.push(col_name.clone());
+        // Produce one row per context
+        for context in contexts {
+            let mut row = HashMap::new();
 
-            let value = self.evaluate_expression_ctx(&item.expression, context)?;
-            row.insert(col_name, value);
+            for (item, col_name) in clause.items.iter().zip(columns.iter()) {
+                let value = self.evaluate_expression_ctx(&item.expression, context)?;
+                row.insert(col_name.clone(), value);
+            }
+
+            result.add_row(row);
         }
 
-        let mut result = ExecutionResult::new(columns);
-        result.add_row(row);
-
         Ok(result)
+    }
+
+    /// Derive a human-readable column name from an expression (e.g., "n.name")
+    fn expression_to_column_name(expr: &Expression) -> String {
+        match expr {
+            Expression::Variable(var) => var.clone(),
+            Expression::Property { object, property } => {
+                let obj_name = Self::expression_to_column_name(object);
+                format!("{}.{}", obj_name, property)
+            }
+            Expression::FunctionCall { name, args } => {
+                let arg_names: Vec<String> =
+                    args.iter().map(Self::expression_to_column_name).collect();
+                format!("{}({})", name, arg_names.join(", "))
+            }
+            Expression::Integer(n) => n.to_string(),
+            Expression::Float(f) => f.to_string(),
+            Expression::String(s) => format!("'{}'", s),
+            Expression::Boolean(b) => b.to_string(),
+            Expression::Null => "NULL".to_string(),
+            _ => "?column?".to_string(),
+        }
     }
 
     fn execute_set(

@@ -59,9 +59,15 @@ impl CypherEngine {
             .execute(&ast)
             .map_err(|e| JsValue::from_str(&format!("Execution error: {}", e)))?;
 
-        // Convert to JS value
-        serde_wasm_bindgen::to_value(&result)
-            .map_err(|e| JsValue::from_str(&format!("Serialization error: {}", e)))
+        // Convert to JS value using flattened JSON rows to avoid enum wrapper issues
+        let json_result = serde_json::json!({
+            "columns": result.columns,
+            "rows": result.to_json_rows()
+        });
+        let json_str = serde_json::to_string(&json_result)
+            .map_err(|e| JsValue::from_str(&format!("Serialization error: {}", e)))?;
+        js_sys::JSON::parse(&json_str)
+            .map_err(|e| JsValue::from_str(&format!("JSON parse error: {:?}", e)))
     }
 
     /// Get graph statistics

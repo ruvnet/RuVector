@@ -243,3 +243,136 @@ fn test_expression_evaluation() {
     assert_eq!(node.get_property("age").unwrap().as_i64(), Some(30));
     assert_eq!(node.get_property("active").unwrap().as_bool(), Some(true));
 }
+
+#[test]
+fn test_match_return_multiple_rows() {
+    let mut graph = PropertyGraph::new();
+
+    // Create three Person nodes
+    let create =
+        "CREATE (a:Person {name: 'Alice', age: 30}), (b:Person {name: 'Bob', age: 25}), (c:Person {name: 'Charlie', age: 35})";
+    let ast = parse_cypher(create).expect("Failed to parse CREATE");
+    let mut executor = Executor::new(&mut graph);
+    executor.execute(&ast).expect("Failed to execute CREATE");
+
+    assert_eq!(graph.stats().node_count, 3);
+
+    // MATCH all persons and RETURN their properties
+    let match_query = "MATCH (n:Person) RETURN n.name, n.age";
+    let ast = parse_cypher(match_query).expect("Failed to parse MATCH RETURN");
+    let mut executor = Executor::new(&mut graph);
+    let result = executor.execute(&ast).expect("MATCH RETURN failed");
+
+    // Should have 3 rows (one per Person node)
+    assert_eq!(
+        result.rows.len(),
+        3,
+        "Expected 3 rows but got {}. Rows: {:?}",
+        result.rows.len(),
+        result.rows
+    );
+
+    // Column names should be "n.name" and "n.age" (not "?column?")
+    assert_eq!(result.columns.len(), 2);
+    assert!(
+        result.columns.contains(&"n.name".to_string()),
+        "Expected column 'n.name', got {:?}",
+        result.columns
+    );
+    assert!(
+        result.columns.contains(&"n.age".to_string()),
+        "Expected column 'n.age', got {:?}",
+        result.columns
+    );
+
+    // Collect all names from the result rows
+    let mut names: Vec<String> = result
+        .rows
+        .iter()
+        .filter_map(|row| {
+            row.get("n.name").and_then(|v| {
+                if let ContextValue::Value(Value::String(s)) = v {
+                    Some(s.clone())
+                } else {
+                    None
+                }
+            })
+        })
+        .collect();
+    names.sort();
+
+    assert_eq!(names, vec!["Alice", "Bob", "Charlie"]);
+}
+
+#[test]
+fn test_match_where_return_multiple_rows() {
+    let mut graph = PropertyGraph::new();
+
+    // Create nodes with varying ages
+    let create =
+        "CREATE (a:Person {name: 'Alice', age: 30}), (b:Person {name: 'Bob', age: 17}), (c:Person {name: 'Charlie', age: 25})";
+    let ast = parse_cypher(create).expect("Failed to parse CREATE");
+    let mut executor = Executor::new(&mut graph);
+    executor.execute(&ast).expect("Failed to execute CREATE");
+
+    // MATCH with WHERE filter
+    let match_query = "MATCH (n:Person) WHERE n.age > 18 RETURN n.name";
+    let ast = parse_cypher(match_query).expect("Failed to parse MATCH WHERE RETURN");
+    let mut executor = Executor::new(&mut graph);
+    let result = executor.execute(&ast).expect("MATCH WHERE RETURN failed");
+
+    // Bob (age 17) should be filtered out
+    assert_eq!(
+        result.rows.len(),
+        2,
+        "Expected 2 rows (adults only) but got {}",
+        result.rows.len()
+    );
+
+    let mut names: Vec<String> = result
+        .rows
+        .iter()
+        .filter_map(|row| {
+            row.get("n.name").and_then(|v| {
+                if let ContextValue::Value(Value::String(s)) = v {
+                    Some(s.clone())
+                } else {
+                    None
+                }
+            })
+        })
+        .collect();
+    names.sort();
+
+    assert_eq!(names, vec!["Alice", "Charlie"]);
+}
+
+#[test]
+fn test_match_return_variable_node() {
+    let mut graph = PropertyGraph::new();
+
+    // Create two nodes
+    let create = "CREATE (a:Person {name: 'Alice'}), (b:Person {name: 'Bob'})";
+    let ast = parse_cypher(create).expect("Failed to parse CREATE");
+    let mut executor = Executor::new(&mut graph);
+    executor.execute(&ast).expect("Failed to execute CREATE");
+
+    // RETURN the whole node variable
+    let match_query = "MATCH (n:Person) RETURN n";
+    let ast = parse_cypher(match_query).expect("Failed to parse MATCH RETURN n");
+    let mut executor = Executor::new(&mut graph);
+    let result = executor.execute(&ast).expect("MATCH RETURN n failed");
+
+    assert_eq!(result.rows.len(), 2, "Expected 2 rows for RETURN n");
+    assert_eq!(result.columns, vec!["n".to_string()]);
+
+    // Each row should contain a Node
+    for row in &result.rows {
+        let val = row.get("n").expect("Missing 'n' column");
+        assert!(
+            matches!(val, ContextValue::Node(_)),
+            "Expected Node but got {:?}",
+            val
+        );
+    }
+}
