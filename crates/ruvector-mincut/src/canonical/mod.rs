@@ -34,10 +34,10 @@ mod tests;
 
 use crate::algorithm::{self, MinCutConfig};
 use crate::graph::{DynamicGraph, VertexId, Weight};
+use crate::time_compat::PortableTimestamp;
 
 use std::collections::{BTreeSet, HashMap, HashSet, VecDeque};
 use std::hash::{Hash, Hasher};
-use std::time::{SystemTime, UNIX_EPOCH};
 
 // ---------------------------------------------------------------------------
 // FixedWeight -- deterministic 32.32 fixed-point weight
@@ -1178,10 +1178,9 @@ impl CanonicalMinCut for CanonicalMinCutImpl {
 
     fn witness_receipt(&self) -> WitnessReceipt {
         let result = self.canonical_cut();
-        let ts = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .map(|d| d.as_nanos() as u64)
-            .unwrap_or(0);
+        // Use portable timestamp - on native this is real nanoseconds,
+        // on WASM this is a monotonic counter (sufficient for ordering)
+        let ts = PortableTimestamp::now().as_secs() * 1_000_000_000;
 
         WitnessReceipt {
             epoch: self.epoch,

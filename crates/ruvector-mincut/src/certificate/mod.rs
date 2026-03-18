@@ -8,8 +8,8 @@
 
 use crate::graph::{EdgeId, VertexId};
 use crate::instance::WitnessHandle;
+use crate::time_compat::PortableTimestamp;
 use serde::{Deserialize, Serialize};
-use std::time::SystemTime;
 
 pub mod audit;
 
@@ -38,33 +38,10 @@ pub struct CutCertificate {
     pub localkcut_responses: Vec<LocalKCutResponse>,
     /// Index of the best witness (smallest boundary)
     pub best_witness_idx: Option<usize>,
-    /// Timestamp when certificate was created
-    #[serde(with = "system_time_serde")]
-    pub timestamp: SystemTime,
+    /// Timestamp when certificate was created (seconds since UNIX epoch)
+    pub timestamp: u64,
     /// Certificate version for compatibility
     pub version: u32,
-}
-
-/// Serde serialization for SystemTime
-mod system_time_serde {
-    use serde::{Deserialize, Deserializer, Serialize, Serializer};
-    use std::time::{SystemTime, UNIX_EPOCH};
-
-    pub fn serialize<S>(time: &SystemTime, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        let duration = time.duration_since(UNIX_EPOCH).unwrap_or_default();
-        duration.as_secs().serialize(serializer)
-    }
-
-    pub fn deserialize<'de, D>(deserializer: D) -> Result<SystemTime, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let secs = u64::deserialize(deserializer)?;
-        Ok(UNIX_EPOCH + std::time::Duration::from_secs(secs))
-    }
 }
 
 /// A response from the LocalKCut oracle
@@ -183,7 +160,7 @@ impl CutCertificate {
             witness_summaries: Vec::new(),
             localkcut_responses: Vec::new(),
             best_witness_idx: None,
-            timestamp: SystemTime::now(),
+            timestamp: PortableTimestamp::now().as_secs(),
             version: CERTIFICATE_VERSION,
         }
     }

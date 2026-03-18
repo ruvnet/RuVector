@@ -19,10 +19,10 @@ use crate::error::{MinCutError, Result};
 use crate::euler::EulerTourTree;
 use crate::graph::{DynamicGraph, Edge, EdgeId, VertexId, Weight};
 use crate::linkcut::LinkCutTree;
+use crate::time_compat::PortableInstant;
 use crate::tree::HierarchicalDecomposition;
 use parking_lot::RwLock;
 use std::sync::Arc;
-use std::time::Instant;
 
 /// Configuration for the minimum cut algorithm
 #[derive(Debug, Clone)]
@@ -190,7 +190,7 @@ impl DynamicMinCut {
 
     /// Insert an edge
     pub fn insert_edge(&mut self, u: VertexId, v: VertexId, weight: Weight) -> Result<f64> {
-        let start_time = Instant::now();
+        let start_time = PortableInstant::now();
 
         // Add edge to graph (use write lock)
         {
@@ -242,7 +242,7 @@ impl DynamicMinCut {
 
     /// Delete an edge
     pub fn delete_edge(&mut self, u: VertexId, v: VertexId) -> Result<f64> {
-        let start_time = Instant::now();
+        let start_time = PortableInstant::now();
 
         // Remove from graph first (use write lock)
         {
@@ -279,7 +279,7 @@ impl DynamicMinCut {
 
     /// Get the current minimum cut value (O(1))
     pub fn min_cut_value(&self) -> f64 {
-        let start_time = Instant::now();
+        let start_time = PortableInstant::now();
 
         let value = self.current_min_cut;
 

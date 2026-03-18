@@ -4,10 +4,10 @@
 
 use super::{CertLocalKCutQuery, LocalKCutResponse, LocalKCutResultSummary, UpdateTrigger};
 use crate::instance::WitnessHandle;
+use crate::time_compat::PortableTimestamp;
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
 use std::sync::{Arc, RwLock};
-use std::time::{SystemTime, UNIX_EPOCH};
 
 /// Audit log entry
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -25,10 +25,7 @@ pub struct AuditEntry {
 impl AuditEntry {
     /// Create a new audit entry
     pub fn new(id: u64, entry_type: AuditEntryType, data: AuditData) -> Self {
-        let timestamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_secs();
+        let timestamp = PortableTimestamp::now().as_secs();
 
         Self {
             id,

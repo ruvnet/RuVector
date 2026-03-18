@@ -218,6 +218,7 @@ pub mod jtree;
 
 // Internal modules
 mod core;
+pub mod time_compat;
 
 // Optional feature-gated modules
 #[cfg(feature = "monitoring")]

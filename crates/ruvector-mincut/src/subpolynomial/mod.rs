@@ -40,12 +40,12 @@
 //! ```
 
 use std::collections::{HashMap, HashSet, VecDeque};
-use std::time::Instant;
 
 use crate::cluster::hierarchy::{
     Expander, HierarchyCluster, HierarchyConfig, Precluster, ThreeLevelHierarchy,
 };
 use crate::error::{MinCutError, Result};
+use crate::time_compat::PortableInstant;
 use crate::expander::{ExpanderComponent, ExpanderDecomposition};
 use crate::fragmentation::{Fragmentation, FragmentationConfig, TrimResult};
 use crate::graph::{DynamicGraph, EdgeId, VertexId, Weight};
@@ -255,7 +255,7 @@ impl SubpolynomialMinCut {
 
     /// Insert an edge
     pub fn insert_edge(&mut self, u: VertexId, v: VertexId, weight: Weight) -> Result<f64> {
-        let start = Instant::now();
+        let start = PortableInstant::now();
 
         let key = Self::edge_key(u, v);
         if self.edges.contains(&key) {
@@ -294,7 +294,7 @@ impl SubpolynomialMinCut {
 
     /// Delete an edge
     pub fn delete_edge(&mut self, u: VertexId, v: VertexId) -> Result<f64> {
-        let start = Instant::now();
+        let start = PortableInstant::now();
 
         let key = Self::edge_key(u, v);
         if !self.edges.remove(&key) {

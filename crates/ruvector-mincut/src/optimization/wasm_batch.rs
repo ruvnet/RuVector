@@ -9,6 +9,7 @@
 //! Target: 10x reduction in FFI overhead
 
 use crate::graph::VertexId;
+use crate::time_compat::PortableInstant;
 use std::collections::HashMap;
 
 /// Configuration for WASM batch operations
@@ -240,14 +241,14 @@ impl WasmBatchOps {
 
     /// Execute all pending operations
     pub fn execute_batch(&mut self) -> Vec<BatchResult> {
-        let _start = std::time::Instant::now();
+        let _start = PortableInstant::now();
 
         // Drain pending operations to avoid borrow conflict
         let pending_ops: Vec<_> = self.pending.drain(..).collect();
         let mut results = Vec::with_capacity(pending_ops.len());
 
         for op in pending_ops {
-            let op_start = std::time::Instant::now();
+            let op_start = PortableInstant::now();
             let result = self.execute_operation(op);
             let elapsed = op_start.elapsed().as_micros() as u64;
 
