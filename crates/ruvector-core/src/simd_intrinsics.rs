@@ -878,13 +878,15 @@ pub fn cosine_similarity_avx2(a: &[f32], b: &[f32]) -> f32 {
 }
 
 /// SIMD-optimized Manhattan distance
-/// Uses AVX-512 on x86_64, NEON on ARM64/Apple Silicon, scalar on other platforms
+/// Uses AVX-512 > AVX2 on x86_64, NEON on ARM64/Apple Silicon, scalar on other platforms
 #[inline(always)]
 pub fn manhattan_distance_simd(a: &[f32], b: &[f32]) -> f32 {
     #[cfg(target_arch = "x86_64")]
     {
         if is_x86_feature_detected!("avx512f") {
             unsafe { manhattan_distance_avx512_impl(a, b) }
+        } else if is_x86_feature_detected!("avx2") {
+            unsafe { manhattan_distance_avx2_impl(a, b) }
         } else {
             manhattan_distance_scalar(a, b)
         }
@@ -945,6 +947,63 @@ unsafe fn cosine_similarity_avx2_impl(a: &[f32], b: &[f32]) -> f32 {
     }
 
     dot_sum / (norm_a_sum.sqrt() * norm_b_sum.sqrt())
+}
+
+/// AVX2 Manhattan distance — processes 8 floats per iteration with absolute difference
+#[cfg(target_arch = "x86_64")]
+#[target_feature(enable = "avx2")]
+unsafe fn manhattan_distance_avx2_impl(a: &[f32], b: &[f32]) -> f32 {
+    assert_eq!(a.len(), b.len(), "Input arrays must have the same length");
+
+    let len = a.len();
+    // Use sign-bit mask for absolute value: clear the sign bit
+    let sign_mask = _mm256_set1_ps(f32::from_bits(0x7FFF_FFFF));
+    let mut sum0 = _mm256_setzero_ps();
+    let mut sum1 = _mm256_setzero_ps();
+
+    // Process 16 floats at a time (2 x 8) for better ILP
+    let chunks = len / 16;
+    for i in 0..chunks {
+        let idx = i * 16;
+
+        let va0 = _mm256_loadu_ps(a.as_ptr().add(idx));
+        let vb0 = _mm256_loadu_ps(b.as_ptr().add(idx));
+        let diff0 = _mm256_sub_ps(va0, vb0);
+        let abs0 = _mm256_and_ps(diff0, sign_mask);
+        sum0 = _mm256_add_ps(sum0, abs0);
+
+        let va1 = _mm256_loadu_ps(a.as_ptr().add(idx + 8));
+        let vb1 = _mm256_loadu_ps(b.as_ptr().add(idx + 8));
+        let diff1 = _mm256_sub_ps(va1, vb1);
+        let abs1 = _mm256_and_ps(diff1, sign_mask);
+        sum1 = _mm256_add_ps(sum1, abs1);
+    }
+
+    let mut sum = _mm256_add_ps(sum0, sum1);
+
+    // Process remaining 8-float chunks
+    let remaining_start = chunks * 16;
+    let remaining_chunks = (len - remaining_start) / 8;
+    for i in 0..remaining_chunks {
+        let idx = remaining_start + i * 8;
+        let va = _mm256_loadu_ps(a.as_ptr().add(idx));
+        let vb = _mm256_loadu_ps(b.as_ptr().add(idx));
+        let diff = _mm256_sub_ps(va, vb);
+        let abs_diff = _mm256_and_ps(diff, sign_mask);
+        sum = _mm256_add_ps(sum, abs_diff);
+    }
+
+    // Horizontal sum
+    let sum_arr: [f32; 8] = std::mem::transmute(sum);
+    let mut total = sum_arr.iter().sum::<f32>();
+
+    // Handle remaining elements
+    let scalar_start = remaining_start + remaining_chunks * 8;
+    for i in scalar_start..len {
+        total += (a[i] - b[i]).abs();
+    }
+
+    total
 }
 
 // Scalar fallback implementations

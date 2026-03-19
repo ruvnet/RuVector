@@ -56,8 +56,9 @@ impl SparseGraph {
 
     /// Create an empty graph pre-allocated for `n` vertices.
     pub fn with_capacity(n: usize) -> Self {
+        // Pre-size each adjacency map for typical sparse-graph density (~4 neighbors avg).
         Self {
-            adj: (0..n).map(|_| HashMap::new()).collect(),
+            adj: (0..n).map(|_| HashMap::with_capacity(4)).collect(),
             num_edges: 0,
             total_weight: 0.0,
         }
@@ -118,6 +119,10 @@ impl SparseGraph {
     }
 
     /// Weighted degree of vertex `u` (sum of incident edge weights).
+    ///
+    /// Note: This iterates incident edges each call. For hot-path usage,
+    /// consider caching the result externally.
+    #[inline]
     pub fn weighted_degree(&self, u: usize) -> f64 {
         self.adj
             .get(u)
@@ -134,11 +139,13 @@ impl SparseGraph {
     }
 
     /// Weight of the edge `(u, v)`, or `None` if it does not exist.
+    #[inline]
     pub fn edge_weight(&self, u: usize, v: usize) -> Option<f64> {
         self.adj.get(u).and_then(|m| m.get(&v).copied())
     }
 
     /// Check whether edge `(u, v)` exists.
+    #[inline]
     pub fn has_edge(&self, u: usize, v: usize) -> bool {
         self.adj
             .get(u)

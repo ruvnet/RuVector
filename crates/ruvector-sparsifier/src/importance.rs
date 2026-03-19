@@ -165,10 +165,24 @@ impl ImportanceScorer for LocalImportanceScorer {
     }
 
     fn score_all(&self, graph: &SparseGraph) -> Vec<EdgeImportance> {
-        graph
-            .edges()
-            .map(|(u, v, w)| self.score(graph, u, v, w))
-            .collect()
+        // Collect edges first, then parallel-score them for large graphs.
+        let edges: Vec<(usize, usize, f64)> = graph.edges().collect();
+
+        if edges.len() > 100 {
+            use rayon::prelude::*;
+            edges
+                .par_iter()
+                .map(|&(u, v, w)| {
+                    let r_eff = self.estimator.estimate(graph, u, v);
+                    EdgeImportance::new(u, v, w, r_eff)
+                })
+                .collect()
+        } else {
+            edges
+                .iter()
+                .map(|&(u, v, w)| self.score(graph, u, v, w))
+                .collect()
+        }
     }
 }
 

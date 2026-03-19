@@ -58,6 +58,8 @@ pub struct AdaptiveGeoSpar {
     backbone_edge_set: HashSet<(usize, usize)>,
     /// Thread-safe snapshot for readers (updated after rebuilds).
     snapshot: RwLock<SparseGraph>,
+    /// Cached total importance (avoids O(m) re-computation per insert).
+    cached_total_importance: f64,
 }
 
 impl std::fmt::Debug for AdaptiveGeoSpar {
@@ -92,6 +94,7 @@ impl AdaptiveGeoSpar {
             stats: SparsifierStats::default(),
             backbone_edge_set: HashSet::new(),
             snapshot: RwLock::new(SparseGraph::new()),
+            cached_total_importance: 0.0,
         }
     }
 
@@ -156,9 +159,9 @@ impl AdaptiveGeoSpar {
             // Score and probabilistically add to sparsifier.
             let importance = self.scorer.score(&self.g_full, u, v, weight);
             let budget = self.edge_budget();
-            let total_imp: f64 = self.g_full.edges().map(|(eu, ev, ew)| {
-                self.scorer.importance_score(&self.g_full, eu, ev, ew)
-            }).sum::<f64>().max(importance.score);
+            // Incrementally update cached total importance instead of O(m) recompute.
+            self.cached_total_importance += importance.score;
+            let total_imp = self.cached_total_importance.max(importance.score);
 
             if let Some((su, sv, sw)) = self.sampler.sample_single_edge(
                 &importance,
@@ -306,6 +309,8 @@ impl AdaptiveGeoSpar {
         debug!("Full sparsifier rebuild");
 
         let scores = self.scorer.score_all(&self.g_full);
+        // Refresh cached total importance from fresh scores.
+        self.cached_total_importance = scores.iter().map(|s| s.score).sum();
         let budget = self.edge_budget();
         self.g_spec = self
             .sampler

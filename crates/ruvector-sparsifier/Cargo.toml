@@ -21,6 +21,7 @@ tracing = { workspace = true }
 rand = { workspace = true }
 parking_lot = { workspace = true }
 dashmap = { workspace = true }
+rayon = { workspace = true }
 ordered-float = "4.2"
 
 [dev-dependencies]
