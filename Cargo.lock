@@ -9785,6 +9785,39 @@ dependencies = [
 ]
 
 [[package]]
+name = "ruvector-sparsifier"
+version = "2.0.6"
+dependencies = [
+ "approx",
+ "criterion 0.5.1",
+ "dashmap 6.1.0",
+ "ordered-float",
+ "parking_lot 0.12.5",
+ "proptest",
+ "rand 0.8.5",
+ "rayon",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "tracing",
+]
+
+[[package]]
+name = "ruvector-sparsifier-wasm"
+version = "2.0.6"
+dependencies = [
+ "console_error_panic_hook",
+ "getrandom 0.2.17",
+ "js-sys",
+ "ruvector-sparsifier",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+]
+
+[[package]]
 name = "ruvector-temporal-tensor"
 version = "2.0.6"
 

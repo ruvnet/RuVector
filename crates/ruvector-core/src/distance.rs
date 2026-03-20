@@ -33,12 +33,23 @@ pub fn euclidean_distance(a: &[f32], b: &[f32]) -> f32 {
     }
     #[cfg(any(not(feature = "simd"), target_arch = "wasm32"))]
     {
-        // Pure Rust fallback for WASM
-        a.iter()
-            .zip(b.iter())
-            .map(|(x, y)| (x - y) * (x - y))
-            .sum::<f32>()
-            .sqrt()
+        // Unrolled scalar fallback for WASM — 4x unroll for ILP
+        let len = a.len();
+        let chunks = len / 4;
+        let mut sum = 0.0f32;
+        for i in 0..chunks {
+            let idx = i * 4;
+            let d0 = a[idx] - b[idx];
+            let d1 = a[idx + 1] - b[idx + 1];
+            let d2 = a[idx + 2] - b[idx + 2];
+            let d3 = a[idx + 3] - b[idx + 3];
+            sum += d0 * d0 + d1 * d1 + d2 * d2 + d3 * d3;
+        }
+        for i in (chunks * 4)..len {
+            let d = a[i] - b[i];
+            sum += d * d;
+        }
+        sum.sqrt()
     }
 }
 
@@ -51,12 +62,16 @@ pub fn cosine_distance(a: &[f32], b: &[f32]) -> f32 {
     }
     #[cfg(any(not(feature = "simd"), target_arch = "wasm32"))]
     {
-        // Pure Rust fallback for WASM
-        let dot: f32 = a.iter().zip(b.iter()).map(|(x, y)| x * y).sum();
-        let norm_a: f32 = a.iter().map(|x| x * x).sum::<f32>().sqrt();
-        let norm_b: f32 = b.iter().map(|x| x * x).sum::<f32>().sqrt();
-        if norm_a > 1e-8 && norm_b > 1e-8 {
-            1.0 - (dot / (norm_a * norm_b))
+        // Single-pass cosine fallback for WASM — avoids 3x iteration overhead
+        let (mut dot, mut norm_a_sq, mut norm_b_sq) = (0.0f32, 0.0f32, 0.0f32);
+        for (&ai, &bi) in a.iter().zip(b.iter()) {
+            dot += ai * bi;
+            norm_a_sq += ai * ai;
+            norm_b_sq += bi * bi;
+        }
+        let denom = norm_a_sq.sqrt() * norm_b_sq.sqrt();
+        if denom > 1e-8 {
+            1.0 - (dot / denom)
         } else {
             1.0
         }
@@ -79,10 +94,10 @@ pub fn dot_product_distance(a: &[f32], b: &[f32]) -> f32 {
     }
 }
 
-/// Manhattan (L1) distance
+/// Manhattan (L1) distance — delegates to SIMD when available
 #[inline]
 pub fn manhattan_distance(a: &[f32], b: &[f32]) -> f32 {
-    a.iter().zip(b.iter()).map(|(x, y)| (x - y).abs()).sum()
+    crate::simd_intrinsics::manhattan_distance_simd(a, b)
 }
 
 /// Batch distance calculation optimized with Rayon (native) or sequential (WASM)

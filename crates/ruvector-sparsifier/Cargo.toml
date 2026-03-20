@@ -1,0 +1,43 @@
+[package]
+name = "ruvector-sparsifier"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+readme = "README.md"
+description = "Dynamic spectral graph sparsification: always-on compressed world model for real-time graph analytics"
+keywords = ["graph", "spectral-sparsification", "dynamic-graph", "laplacian", "effective-resistance"]
+categories = ["algorithms", "data-structures", "science", "mathematics"]
+homepage = "https://ruv.io"
+documentation = "https://docs.rs/ruvector-sparsifier"
+
+[dependencies]
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+rand = { workspace = true }
+parking_lot = { workspace = true }
+dashmap = { workspace = true }
+rayon = { workspace = true }
+ordered-float = "4.2"
+
+[dev-dependencies]
+criterion = { workspace = true }
+proptest = { workspace = true }
+approx = "0.5"
+
+[features]
+default = ["static-sparsify", "dynamic"]
+static-sparsify = []
+dynamic = []
+simd = []
+wasm = []
+full = ["static-sparsify", "dynamic", "simd", "audit"]
+audit = []
+
+[[bench]]
+name = "sparsifier_bench"
+harness = false

@@ -133,6 +133,9 @@ members = [
     "crates/rvAgent/rvagent-wasm",
     # ETL pipeline example
     "examples/train-discoveries",
+    # Spectral graph sparsification
+    "crates/ruvector-sparsifier",
+    "crates/ruvector-sparsifier-wasm",
 ]
 resolver = "2"
 
