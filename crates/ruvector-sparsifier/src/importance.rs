@@ -123,18 +123,10 @@ impl EffectiveResistanceEstimator {
 /// For each edge `(u, v, w)`, the score is `w * R_eff_estimate(u, v)`.
 /// High-importance edges (bridges, cut edges) get high scores and are
 /// more likely to be kept in the sparsifier.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct LocalImportanceScorer {
     /// The underlying resistance estimator.
     pub estimator: EffectiveResistanceEstimator,
-}
-
-impl Default for LocalImportanceScorer {
-    fn default() -> Self {
-        Self {
-            estimator: EffectiveResistanceEstimator::default(),
-        }
-    }
 }
 
 impl LocalImportanceScorer {

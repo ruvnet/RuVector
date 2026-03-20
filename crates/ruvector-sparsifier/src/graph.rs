@@ -149,7 +149,7 @@ impl SparseGraph {
     pub fn has_edge(&self, u: usize, v: usize) -> bool {
         self.adj
             .get(u)
-            .map_or(false, |m| m.contains_key(&v))
+            .is_some_and(|m| m.contains_key(&v))
     }
 
     /// Iterate over all edges yielding `(u, v, weight)` with `u < v`.

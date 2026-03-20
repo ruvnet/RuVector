@@ -91,8 +91,9 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 pub const NAME: &str = env!("CARGO_PKG_NAME");
 
 /// Prelude for convenient imports.
+///
+/// Re-exports of the most commonly used types and traits.
 pub mod prelude {
-    //! Re-exports of the most commonly used types and traits.
     pub use crate::{
         AdaptiveGeoSpar, AuditResult, Backbone, BackboneStrategy, EdgeImportance,
         EffectiveResistanceEstimator, ImportanceScorer, LocalImportanceScorer, SparseGraph,
