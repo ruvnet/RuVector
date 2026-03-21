@@ -179,6 +179,9 @@ class Intelligence {
     this.data = this.load();
     this.engine = null;
 
+    // Load dedicated learning state file (may be newer than intelligence.json)
+    this.loadLearningState();
+
     // Initialize full engine if available
     if (engineAvailable && IntelligenceEngine) {
       try {
@@ -253,6 +256,66 @@ class Intelligence {
     }
 
     fs.writeFileSync(this.intelPath, JSON.stringify(this.data, null, 2));
+  }
+
+  /**
+   * Get path for dedicated learning state file
+   */
+  getLearningStatePath() {
+    return path.join(path.dirname(this.intelPath), 'learning-state.json');
+  }
+
+  /**
+   * Save learning engine state to dedicated file (atomic write)
+   * Reads from this.learning (instance property set by handlers)
+   */
+  saveLearningState() {
+    const learningData = this.learning;
+    if (!learningData) return;
+
+    // Also persist to this.data so intelligence.json includes it
+    this.data.learning = learningData;
+
+    const statePath = this.getLearningStatePath();
+    const tmpPath = statePath + '.tmp';
+    const dir = path.dirname(statePath);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+
+    try {
+      fs.writeFileSync(tmpPath, JSON.stringify(learningData, null, 2));
+      fs.renameSync(tmpPath, statePath);
+    } catch (e) {
+      // Clean up tmp file on failure
+      try { fs.unlinkSync(tmpPath); } catch {}
+    }
+  }
+
+  /**
+   * Load learning engine state from dedicated file on startup
+   * Populates this.learning (instance property) for handlers
+   */
+  loadLearningState() {
+    const statePath = this.getLearningStatePath();
+    try {
+      if (fs.existsSync(statePath)) {
+        const data = JSON.parse(fs.readFileSync(statePath, 'utf-8'));
+        // Use file data if this.learning is missing or file is newer
+        const currentSavedAt = (this.learning && this.learning.metadata) ? this.learning.metadata.savedAt : '';
+        const fileSavedAt = (data.metadata) ? data.metadata.savedAt : '';
+        if (!this.learning || fileSavedAt > currentSavedAt) {
+          this.learning = data;
+          this.data.learning = data;
+        }
+        return true;
+      }
+    } catch {}
+
+    // Fallback: if intelligence.json had learning data, use it
+    if (this.data.learning && !this.learning) {
+      this.learning = this.data.learning;
+    }
+
+    return false;
   }
 
   stats() {
@@ -2554,6 +2617,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           engine.configure(args.task, config);
           intel.learning = engine.export();
           intel.save();
+          intel.saveLearningState();
         }
 
         const tasks = ['agent-routing', 'error-avoidance', 'confidence-scoring', 'trajectory-learning', 'context-ranking', 'memory-recall'];
@@ -2602,6 +2666,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         const delta = engine.update(args.task, experience);
         intel.learning = engine.export();
         intel.save();
+        intel.saveLearningState();
 
         return { content: [{ type: 'text', text: JSON.stringify({
           success: true,
@@ -2646,6 +2711,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
         intel.learning = engine.export();
         intel.save();
+        intel.saveLearningState();
 
         return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
       }
@@ -2769,8 +2835,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         const engine = new LearningEngine();
 
         // Import existing learning data
-        if (intel.data.learning) {
-          engine.import(intel.data.learning);
+        if (intel.learning) {
+          engine.import(intel.learning);
         }
 
         const results = [];
@@ -2792,8 +2858,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         }
 
         // Save
-        intel.data.learning = engine.export();
+        intel.learning = engine.export();
         intel.save();
+        intel.saveLearningState();
 
         const stats = engine.getStatsSummary();
         return { content: [{ type: 'text', text: JSON.stringify({
@@ -2814,7 +2881,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         const lastState = args.lastState || { patterns: 0, memories: 0, trajectories: 0, updates: 0 };
 
         const stats = intel.data.stats || {};
-        const learning = intel.data.learning?.stats || {};
+        const learning = (intel.learning || intel.data.learning || {}).stats || {};
 
         // Calculate current state
         let totalUpdates = 0;

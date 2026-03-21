@@ -580,7 +580,7 @@ export class LearningEngine {
 
     // Running average reward
     this.rewardHistory.push(reward);
-    if (this.rewardHistory.length > 1000) {
+    if (this.rewardHistory.length > 500) {
       this.rewardHistory.shift();
     }
     stats.avgReward = this.rewardHistory.reduce((a, b) => a + b, 0) / this.rewardHistory.length;
@@ -639,10 +639,13 @@ export class LearningEngine {
     qTables: Record<string, Record<string, number>>;
     qTables2: Record<string, Record<string, number>>;
     criticValues: Record<string, number>;
+    eligibilityTraces: Record<string, Record<string, number>>;
+    actorWeights: Record<string, number[]>;
     trajectories: LearningTrajectory[];
     stats: Record<string, AlgorithmStats>;
     configs: Record<string, LearningConfig>;
     rewardHistory: number[];
+    metadata: { version: number; savedAt: string };
   } {
     const qTables: Record<string, Record<string, number>> = {};
     for (const [state, actions] of this.qTables) {
@@ -655,6 +658,17 @@ export class LearningEngine {
     }
 
     const criticValues = Object.fromEntries(this.criticValues);
+
+    const eligibilityTraces: Record<string, Record<string, number>> = {};
+    for (const [state, traces] of this.eligibilityTraces) {
+      eligibilityTraces[state] = Object.fromEntries(traces);
+    }
+
+    const actorWeights: Record<string, number[]> = {};
+    for (const [key, weights] of this.actorWeights) {
+      actorWeights[key] = weights;
+    }
+
     const stats: Record<string, AlgorithmStats> = {};
     for (const [alg, s] of this.stats) {
       stats[alg] = s;
@@ -669,17 +683,20 @@ export class LearningEngine {
       qTables,
       qTables2,
       criticValues,
+      eligibilityTraces,
+      actorWeights,
       trajectories: this.trajectories.slice(-100), // Keep last 100 trajectories
       stats,
       configs,
-      rewardHistory: this.rewardHistory.slice(-1000),
+      rewardHistory: this.rewardHistory.slice(-500), // Cap at 500 entries
+      metadata: { version: 1, savedAt: new Date().toISOString() },
     };
   }
 
   /**
    * Import state from persistence
    */
-  import(data: ReturnType<LearningEngine['export']>): void {
+  import(data: Partial<ReturnType<LearningEngine['export']>>): void {
     // Q-tables
     this.qTables.clear();
     for (const [state, actions] of Object.entries(data.qTables || {})) {
@@ -693,6 +710,18 @@ export class LearningEngine {
 
     // Critic values
     this.criticValues = new Map(Object.entries(data.criticValues || {}));
+
+    // Eligibility traces
+    this.eligibilityTraces.clear();
+    for (const [state, traces] of Object.entries(data.eligibilityTraces || {})) {
+      this.eligibilityTraces.set(state, new Map(Object.entries(traces)));
+    }
+
+    // Actor weights
+    this.actorWeights.clear();
+    for (const [key, weights] of Object.entries(data.actorWeights || {})) {
+      this.actorWeights.set(key, weights);
+    }
 
     // Trajectories
     this.trajectories = data.trajectories || [];
