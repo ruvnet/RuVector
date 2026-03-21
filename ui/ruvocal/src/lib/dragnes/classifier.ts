@@ -48,7 +48,9 @@ export class DermClassifier {
 
 		try {
 			// Dynamic import of the WASM CNN package
-			const cnnModule = await import("@ruvector/cnn" as string);
+			// Use variable to prevent Vite from pre-bundling this optional dependency
+			const moduleName = "@ruvector/cnn";
+			const cnnModule = await import(/* @vite-ignore */ moduleName);
 			if (cnnModule && typeof cnnModule.init === "function") {
 				await cnnModule.init();
 				this.wasmModule = cnnModule;
