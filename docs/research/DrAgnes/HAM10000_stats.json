@@ -1,0 +1,265 @@
+{
+  "dataset": {
+    "totalImages": 10015,
+    "totalLesions": 7229,
+    "source": "Tschandl P, Rosendahl C, Kittler H. The HAM10000 dataset. Sci Data 5, 180161 (2018)",
+    "doi": "10.1038/sdata.2018.161"
+  },
+  "classCounts": {
+    "nv": 6705,
+    "mel": 1113,
+    "bkl": 1099,
+    "bcc": 514,
+    "akiec": 327,
+    "vasc": 142,
+    "df": 115
+  },
+  "classLabels": {
+    "akiec": "Actinic Keratosis / Intraepithelial Carcinoma",
+    "bcc": "Basal Cell Carcinoma",
+    "bkl": "Benign Keratosis-like Lesion",
+    "df": "Dermatofibroma",
+    "mel": "Melanoma",
+    "nv": "Melanocytic Nevus",
+    "vasc": "Vascular Lesion"
+  },
+  "ageStats": {
+    "akiec": {
+      "mean": 65.2,
+      "median": 67,
+      "std": 12.8,
+      "q1": 57,
+      "q3": 75,
+      "min": 30,
+      "max": 90
+    },
+    "bcc": {
+      "mean": 62.8,
+      "median": 65,
+      "std": 14.1,
+      "q1": 53,
+      "q3": 73,
+      "min": 25,
+      "max": 90
+    },
+    "bkl": {
+      "mean": 58.4,
+      "median": 60,
+      "std": 15.3,
+      "q1": 48,
+      "q3": 70,
+      "min": 15,
+      "max": 90
+    },
+    "df": {
+      "mean": 38.5,
+      "median": 35,
+      "std": 14.2,
+      "q1": 28,
+      "q3": 47,
+      "min": 15,
+      "max": 75
+    },
+    "mel": {
+      "mean": 56.3,
+      "median": 57,
+      "std": 16.8,
+      "q1": 45,
+      "q3": 70,
+      "min": 10,
+      "max": 90
+    },
+    "nv": {
+      "mean": 42.1,
+      "median": 40,
+      "std": 16.4,
+      "q1": 30,
+      "q3": 52,
+      "min": 5,
+      "max": 85
+    },
+    "vasc": {
+      "mean": 47.8,
+      "median": 45,
+      "std": 20.1,
+      "q1": 35,
+      "q3": 62,
+      "min": 5,
+      "max": 85
+    }
+  },
+  "sexDist": {
+    "akiec": {
+      "male": 0.58,
+      "female": 0.38,
+      "unknown": 0.04
+    },
+    "bcc": {
+      "male": 0.62,
+      "female": 0.35,
+      "unknown": 0.03
+    },
+    "bkl": {
+      "male": 0.52,
+      "female": 0.44,
+      "unknown": 0.04
+    },
+    "df": {
+      "male": 0.32,
+      "female": 0.63,
+      "unknown": 0.05
+    },
+    "mel": {
+      "male": 0.58,
+      "female": 0.38,
+      "unknown": 0.04
+    },
+    "nv": {
+      "male": 0.48,
+      "female": 0.48,
+      "unknown": 0.04
+    },
+    "vasc": {
+      "male": 0.42,
+      "female": 0.52,
+      "unknown": 0.06
+    }
+  },
+  "localizationDist": {
+    "akiec": {
+      "scalp": 0.08,
+      "face": 0.22,
+      "ear": 0.05,
+      "neck": 0.06,
+      "trunk": 0.18,
+      "back": 0.12,
+      "upper extremity": 0.14,
+      "lower extremity": 0.08,
+      "hand": 0.04,
+      "foot": 0.02,
+      "genital": 0.01
+    },
+    "bcc": {
+      "scalp": 0.06,
+      "face": 0.3,
+      "ear": 0.04,
+      "neck": 0.08,
+      "trunk": 0.22,
+      "back": 0.14,
+      "upper extremity": 0.08,
+      "lower extremity": 0.04,
+      "hand": 0.02,
+      "foot": 0.01,
+      "genital": 0.01
+    },
+    "bkl": {
+      "scalp": 0.04,
+      "face": 0.12,
+      "ear": 0.02,
+      "neck": 0.05,
+      "trunk": 0.28,
+      "back": 0.2,
+      "upper extremity": 0.12,
+      "lower extremity": 0.1,
+      "hand": 0.04,
+      "foot": 0.02,
+      "genital": 0.01
+    },
+    "df": {
+      "scalp": 0.01,
+      "face": 0.03,
+      "ear": 0.01,
+      "neck": 0.02,
+      "trunk": 0.15,
+      "back": 0.08,
+      "upper extremity": 0.18,
+      "lower extremity": 0.45,
+      "hand": 0.04,
+      "foot": 0.02,
+      "genital": 0.01
+    },
+    "mel": {
+      "scalp": 0.04,
+      "face": 0.08,
+      "ear": 0.02,
+      "neck": 0.04,
+      "trunk": 0.28,
+      "back": 0.22,
+      "upper extremity": 0.12,
+      "lower extremity": 0.14,
+      "hand": 0.03,
+      "foot": 0.02,
+      "genital": 0.01
+    },
+    "nv": {
+      "scalp": 0.02,
+      "face": 0.06,
+      "ear": 0.01,
+      "neck": 0.04,
+      "trunk": 0.32,
+      "back": 0.24,
+      "upper extremity": 0.12,
+      "lower extremity": 0.12,
+      "hand": 0.04,
+      "foot": 0.02,
+      "genital": 0.01
+    },
+    "vasc": {
+      "scalp": 0.05,
+      "face": 0.15,
+      "ear": 0.03,
+      "neck": 0.05,
+      "trunk": 0.2,
+      "back": 0.1,
+      "upper extremity": 0.15,
+      "lower extremity": 0.18,
+      "hand": 0.05,
+      "foot": 0.03,
+      "genital": 0.01
+    }
+  },
+  "dxTypeDist": {
+    "akiec": {
+      "histo": 0.82,
+      "follow_up": 0.05,
+      "consensus": 0.1,
+      "confocal": 0.03
+    },
+    "bcc": {
+      "histo": 0.85,
+      "follow_up": 0.03,
+      "consensus": 0.08,
+      "confocal": 0.04
+    },
+    "bkl": {
+      "histo": 0.53,
+      "follow_up": 0.15,
+      "consensus": 0.27,
+      "confocal": 0.05
+    },
+    "df": {
+      "histo": 0.35,
+      "follow_up": 0.2,
+      "consensus": 0.4,
+      "confocal": 0.05
+    },
+    "mel": {
+      "histo": 0.89,
+      "follow_up": 0.02,
+      "consensus": 0.06,
+      "confocal": 0.03
+    },
+    "nv": {
+      "histo": 0.15,
+      "follow_up": 0.52,
+      "consensus": 0.28,
+      "confocal": 0.05
+    },
+    "vasc": {
+      "histo": 0.25,
+      "follow_up": 0.1,
+      "consensus": 0.55,
+      "confocal": 0.1
+    }
+  }
+}
