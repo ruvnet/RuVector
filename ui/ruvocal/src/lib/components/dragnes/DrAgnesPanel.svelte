@@ -27,7 +27,13 @@
 
 	// Capture state
 	let capturedImageData: ImageData | null = $state(null);
+	let capturedBodyLocation: string = $state("unknown");
 	let analyzing: boolean = $state(false);
+
+	// Demographics for HAM10000-calibrated adjustment
+	let patientAge: number | undefined = $state(undefined);
+	let patientSex: "male" | "female" | undefined = $state(undefined);
+	let demographicsEnabled: boolean = $state(true);
 
 	// Results state
 	let classificationResult: ClassificationResult | null = $state(null);
@@ -69,6 +75,7 @@
 
 	function handleCapture(event: { imageData: ImageData; bodyLocation: string; deviceModel: string }) {
 		capturedImageData = event.imageData;
+		capturedBodyLocation = event.bodyLocation;
 	}
 
 	async function analyzeImage() {
@@ -76,8 +83,12 @@
 		analyzing = true;
 
 		try {
-			// Classify the captured image
-			classificationResult = await classifier.classify(capturedImageData);
+			// Classify with demographic adjustment (HAM10000-calibrated)
+			const demographics = demographicsEnabled
+				? { age: patientAge, sex: patientSex, localization: capturedBodyLocation }
+				: undefined;
+			const rawResult = await classifier.classifyWithDemographics(capturedImageData, demographics);
+			classificationResult = rawResult;
 
 			// Generate Grad-CAM heatmap
 			try {
@@ -149,6 +160,50 @@
 		{#if activeTab === "capture"}
 			<DermCapture oncapture={handleCapture} />
 
+			<!-- Demographics for HAM10000 Bayesian adjustment -->
+			<div class="mt-4 rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
+				<div class="mb-3 flex items-center justify-between">
+					<h3 class="text-sm font-semibold text-gray-500 dark:text-gray-400">Patient Demographics</h3>
+					<label class="flex items-center gap-1.5">
+						<span class="text-xs text-gray-400">HAM10000 adjust</span>
+						<input
+							type="checkbox"
+							bind:checked={demographicsEnabled}
+							class="h-4 w-4 rounded border-gray-300 text-blue-600"
+						/>
+					</label>
+				</div>
+				{#if demographicsEnabled}
+					<div class="grid grid-cols-2 gap-3">
+						<div>
+							<label class="mb-1 block text-xs text-gray-500">Age</label>
+							<input
+								type="number"
+								min="0"
+								max="120"
+								placeholder="e.g. 55"
+								bind:value={patientAge}
+								class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200"
+							/>
+						</div>
+						<div>
+							<label class="mb-1 block text-xs text-gray-500">Sex</label>
+							<select
+								bind:value={patientSex}
+								class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200"
+							>
+								<option value={undefined}>Not specified</option>
+								<option value="male">Male</option>
+								<option value="female">Female</option>
+							</select>
+						</div>
+					</div>
+					<p class="mt-2 text-xs text-gray-400">
+						Adjusts classification using HAM10000 clinical data (age/sex/location risk multipliers)
+					</p>
+				{/if}
+			</div>
+
 			{#if capturedImageData}
 				<div class="mt-4 flex justify-center">
 					<button
@@ -169,6 +224,37 @@
 		{:else if activeTab === "results"}
 			{#if classificationResult}
 				<div class="flex flex-col gap-6">
+					<!-- Clinical Recommendation Banner -->
+					{#if classificationResult.clinicalRecommendation}
+						{@const rec = classificationResult.clinicalRecommendation}
+						<div class="rounded-xl border-2 p-4 {
+							rec.recommendation === 'urgent_referral' ? 'border-red-500 bg-red-50 dark:bg-red-950' :
+							rec.recommendation === 'biopsy' ? 'border-orange-500 bg-orange-50 dark:bg-orange-950' :
+							rec.recommendation === 'monitor' ? 'border-yellow-500 bg-yellow-50 dark:bg-yellow-950' :
+							'border-green-500 bg-green-50 dark:bg-green-950'
+						}">
+							<div class="flex items-center gap-2 text-sm font-bold {
+								rec.recommendation === 'urgent_referral' ? 'text-red-700 dark:text-red-400' :
+								rec.recommendation === 'biopsy' ? 'text-orange-700 dark:text-orange-400' :
+								rec.recommendation === 'monitor' ? 'text-yellow-700 dark:text-yellow-400' :
+								'text-green-700 dark:text-green-400'
+							}">
+								{rec.recommendation === 'urgent_referral' ? 'Urgent Referral Recommended' :
+								 rec.recommendation === 'biopsy' ? 'Biopsy Advised' :
+								 rec.recommendation === 'monitor' ? 'Monitor — Follow Up' :
+								 'Low Risk — Reassurance'}
+							</div>
+							<p class="mt-1 text-xs text-gray-600 dark:text-gray-300">{rec.reasoning}</p>
+							<div class="mt-2 flex gap-4 text-xs text-gray-500">
+								<span>Melanoma P: {(rec.melanomaProbability * 100).toFixed(1)}%</span>
+								<span>Malignant P: {(rec.malignantProbability * 100).toFixed(1)}%</span>
+							</div>
+							{#if classificationResult.demographicAdjusted}
+								<p class="mt-1 text-xs italic text-gray-400">Adjusted with HAM10000 demographics</p>
+							{/if}
+						</div>
+					{/if}
+
 					<ClassificationResultView
 						result={classificationResult}
 						abcde={abcdeScores ?? undefined}
