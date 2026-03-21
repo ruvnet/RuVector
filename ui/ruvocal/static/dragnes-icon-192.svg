@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="192" height="192" viewBox="0 0 192 192">
+  <rect width="192" height="192" rx="32" fill="#0f172a"/>
+  <circle cx="96" cy="80" r="40" fill="none" stroke="#7c3aed" stroke-width="4"/>
+  <circle cx="96" cy="80" r="20" fill="none" stroke="#a78bfa" stroke-width="2" stroke-dasharray="4 3"/>
+  <circle cx="96" cy="80" r="6" fill="#7c3aed"/>
+  <line x1="124" y1="108" x2="148" y2="132" stroke="#7c3aed" stroke-width="4" stroke-linecap="round"/>
+  <text x="96" y="164" text-anchor="middle" font-family="system-ui, sans-serif" font-size="22" font-weight="700" fill="#e2e8f0">DrAgnes</text>
+</svg>

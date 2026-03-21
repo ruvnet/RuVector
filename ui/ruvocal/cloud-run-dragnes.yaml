@@ -1,0 +1,61 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: dragnes
+  labels:
+    app: dragnes
+    component: dermatology-intelligence
+  annotations:
+    run.googleapis.com/launch-stage: GA
+    run.googleapis.com/ingress: all
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/minScale: "1"
+        autoscaling.knative.dev/maxScale: "10"
+        run.googleapis.com/cpu-throttling: "false"
+        run.googleapis.com/startup-cpu-boost: "true"
+    spec:
+      containerConcurrency: 80
+      timeoutSeconds: 300
+      serviceAccountName: dragnes-sa@ruv-dev.iam.gserviceaccount.com
+      containers:
+        - image: gcr.io/ruv-dev/dragnes:latest
+          ports:
+            - containerPort: 3000
+          resources:
+            limits:
+              cpu: "2"
+              memory: 2Gi
+          env:
+            - name: NODE_ENV
+              value: production
+            - name: OPENAI_BASE_URL
+              value: https://openrouter.ai/api/v1
+            - name: OPENAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: OPENROUTER_API_KEY
+                  key: latest
+            - name: MCP_SERVERS
+              value: '[{"name":"pi-brain","url":"https://pi.ruv.io/sse"}]'
+            - name: DRAGNES_ENABLED
+              value: "true"
+            - name: DRAGNES_BRAIN_URL
+              value: https://pi.ruv.io
+            - name: DRAGNES_MODEL_VERSION
+              value: 0.1.0
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            failureThreshold: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            periodSeconds: 30
+            failureThreshold: 3
