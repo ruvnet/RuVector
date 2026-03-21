@@ -4,7 +4,17 @@ import { config } from "$lib/server/config";
 
 function isConnectionClosedError(err: unknown): boolean {
 	const message = err instanceof Error ? err.message : String(err);
-	return message.includes("-32000") || message.toLowerCase().includes("connection closed");
+	const lower = message.toLowerCase();
+	return (
+		message.includes("-32000") ||
+		lower.includes("connection closed") ||
+		lower.includes("404") ||
+		lower.includes("not found") ||
+		lower.includes("session") ||
+		lower.includes("fetch failed") ||
+		lower.includes("econnreset") ||
+		lower.includes("econnrefused")
+	);
 }
 
 export interface McpServerConfig {

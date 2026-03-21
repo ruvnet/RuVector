@@ -16,7 +16,19 @@ function keyOf(server: McpServerConfig) {
 export async function getClient(server: McpServerConfig, signal?: AbortSignal): Promise<Client> {
 	const key = keyOf(server);
 	const existing = pool.get(key);
-	if (existing) return existing;
+	if (existing) {
+		// Verify the cached client is still alive by checking transport state
+		try {
+			// If the transport is closed/errored, evict and reconnect
+			if ((existing as unknown as { _transport?: { readyState?: number } })._transport?.readyState === 2) {
+				pool.delete(key);
+			} else {
+				return existing;
+			}
+		} catch {
+			return existing;
+		}
+	}
 
 	let firstError: unknown;
 	const client = new Client({ name: "chat-ui-mcp", version: "0.1.0" });
