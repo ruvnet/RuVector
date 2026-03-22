@@ -88,3 +88,38 @@ Modified `crates/mcp-brain-server/src/optimizer.rs`:
 - Adds latency (~1-2s per grounded call vs ~0.5s ungrounded)
 - Requires internet connectivity for optimizer (acceptable — runs on Cloud Run)
 - Google Search results may change over time (mitigated by logging at generation time)
+
+## Deployment Status (2026-03-22)
+
+### Verified Working
+- Gemini 2.5 Flash: responding, generating rule refinement suggestions
+- Google Search grounding: `google_search` tool included in API calls
+- Optimizer: configured=true, model_id=gemini-2.5-flash
+- Deploy script: fixed to preserve all env vars (`--update-env-vars`)
+
+### System State After Full Deployment
+
+| Metric | Value |
+|--------|-------|
+| Memories | 1,808 |
+| Graph | 611,401 edges |
+| Sparsifier | 42.4x (14,383 sparse) |
+| Propositions | 10 (`is_type_of`) — relational types pending first optimizer cycle |
+| Rules | 4 Horn clauses |
+| Pareto front | 16 solutions |
+| Gemini optimizer | Deployed, grounding enabled |
+| Midstream attractor | Activated (7 categories detected) |
+| Knowledge velocity | 1.0 (from zero — system warming up) |
+| SONA trajectories | 1 (accumulating) |
+
+### Optimization Opportunities Identified
+
+1. **Graph rebuild timeout**: 611K edges takes >90s — exceeds Cloud Run's `/v1/pipeline/optimize` timeout. The hourly `brain-graph` scheduler handles this but the endpoint needs increased timeout or async pattern.
+
+2. **In-memory state loss on deploy**: GWT salience, SONA trajectories, temporal deltas all reset to zero on every Cloud Run revision deploy. These rebuild through organic use but cold starts lose accumulated learning. Potential fix: persist cognitive state to Firestore alongside memories.
+
+3. **SONA needs trajectories**: 0 patterns because trajectories only accumulate from user interactions (search queries, memory contributions). The scheduled `/v1/train` call learns from accumulated trajectories but can't create them. Need a trajectory injection path from crawl/inject pipeline.
+
+4. **Scheduler jobs created but not yet auto-fired**: All 15 jobs show "never" for lastAttemptTime because they were created during this session. They will fire at their scheduled times. Manually triggered all critical jobs to prime the system.
+
+5. **WET daily job re-processes same segments**: The `wet-import-n202608` Cloud Run Job has 50 segments baked in. Daily re-execution re-downloads and re-processes the same segments. Need segment rotation or cursor tracking to process new segments each day.
