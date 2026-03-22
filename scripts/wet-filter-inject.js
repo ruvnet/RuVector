@@ -20,8 +20,51 @@ const MAX_CONTENT_LENGTH = 8000;
 const stats = { total: 0, filtered: 0, injected: 0, errors: 0, batched: 0 };
 let batch = [];
 
+// Default domain list: 60+ medical + CS domains
+const DEFAULT_DOMAINS = [
+  // Medical - Major Publishers & Journals
+  'pubmed.ncbi.nlm.nih.gov', 'ncbi.nlm.nih.gov', 'who.int',
+  'nature.com', 'nejm.org', 'bmj.com', 'thelancet.com',
+  'jamanetwork.com', 'annals.org', 'sciencedirect.com',
+  // Medical - Clinical Resources
+  'mayoclinic.org', 'clevelandclinic.org', 'medlineplus.gov',
+  'cdc.gov', 'nih.gov', 'webmd.com', 'healthline.com',
+  'medscape.com', 'uptodate.com',
+  // Medical - Oncology & Dermatology
+  'cancer.org', 'aad.org', 'dermnetnz.org', 'melanoma.org',
+  'asco.org', 'esmo.org', 'nccn.org', 'cancer.net',
+  'mskcc.org', 'mdanderson.org', 'dana-farber.org',
+  'dermcoll.edu.au', 'bad.org.uk', 'euroderm.org',
+  'jaad.org', 'jidonline.org',
+  // Medical - Publishers & Open Access
+  'wiley.com', 'onlinelibrary.wiley.com', 'springer.com',
+  'karger.com', 'thieme.com', 'mdpi.com', 'frontiersin.org',
+  'plos.org', 'biomedcentral.com', 'cell.com', 'elsevier.com',
+  // Medical - Regulatory & Evidence
+  'clinicaltrials.gov', 'fda.gov', 'ema.europa.eu',
+  'nice.org.uk', 'cochrane.org',
+  'hopkinsmedicine.org', 'stanfordmedicine.org',
+  // CS - Conferences & Journals
+  'arxiv.org', 'acm.org', 'dl.acm.org', 'ieee.org',
+  'ieeexplore.ieee.org', 'proceedings.neurips.cc',
+  'aclanthology.org', 'jmlr.org', 'aaai.org', 'ijcai.org',
+  'usenix.org', 'vldb.org', 'sigmod.org', 'icml.cc',
+  'cvpr.thecvf.com', 'eccv.ecva.net', 'iccv.thecvf.com',
+  'openreview.net', 'paperswithcode.com',
+  // CS - Frameworks & Tools
+  'huggingface.co', 'pytorch.org', 'tensorflow.org',
+  'wandb.ai', 'mlflow.org', 'ray.io',
+  'dmlc.cs.washington.edu',
+  // CS - Research Labs & Universities
+  'cs.stanford.edu', 'cs.berkeley.edu', 'cs.cmu.edu',
+  'cs.mit.edu', 'deepmind.google', 'ai.meta.com',
+  'research.google', 'microsoft.com/research',
+  'blog.openai.com', 'anthropic.com',
+];
+
 function matchesDomain(url) {
-  return DOMAINS.some(d => url.includes(d));
+  const allDomains = DOMAINS.length > 0 ? DOMAINS : DEFAULT_DOMAINS;
+  return allDomains.some(d => url.includes(d));
 }
 
 function extractTitle(content) {
@@ -38,12 +81,36 @@ function generateTags(url, content) {
   if (url.includes('pubmed') || url.includes('ncbi')) tags.push('pubmed', 'medical');
   else if (url.includes('arxiv')) tags.push('arxiv', 'research');
   else if (url.includes('who.int')) tags.push('who', 'global-health');
-  else if (url.includes('cancer.org')) tags.push('cancer', 'oncology');
-  else if (url.includes('dermnetnz') || url.includes('aad.org')) tags.push('dermatology');
+  else if (url.includes('cancer.org') || url.includes('cancer.net') || url.includes('nccn.org')) tags.push('cancer', 'oncology');
+  else if (url.includes('asco.org') || url.includes('esmo.org')) tags.push('oncology', 'clinical');
+  else if (url.includes('mskcc.org') || url.includes('mdanderson.org') || url.includes('dana-farber.org')) tags.push('oncology', 'research');
+  else if (url.includes('dermnetnz') || url.includes('aad.org') || url.includes('jaad.org')) tags.push('dermatology');
+  else if (url.includes('dermcoll') || url.includes('bad.org.uk') || url.includes('euroderm')) tags.push('dermatology');
+  else if (url.includes('jidonline')) tags.push('dermatology', 'research');
   else if (url.includes('melanoma')) tags.push('melanoma', 'skin-cancer');
-  else if (url.includes('acm.org') || url.includes('ieee')) tags.push('computer-science');
+  else if (url.includes('clinicaltrials.gov')) tags.push('clinical-trials', 'medical');
+  else if (url.includes('fda.gov') || url.includes('ema.europa.eu')) tags.push('regulatory', 'medical');
+  else if (url.includes('nice.org.uk') || url.includes('cochrane.org')) tags.push('evidence-based', 'medical');
+  else if (url.includes('hopkinsmedicine') || url.includes('stanfordmedicine')) tags.push('medical', 'academic');
+  else if (url.includes('webmd') || url.includes('healthline') || url.includes('medscape')) tags.push('medical', 'clinical');
+  else if (url.includes('uptodate.com')) tags.push('medical', 'clinical-decision');
+  else if (url.includes('acm.org') || url.includes('ieee') || url.includes('dl.acm.org')) tags.push('computer-science');
+  else if (url.includes('neurips') || url.includes('icml') || url.includes('aaai.org')) tags.push('ml', 'conference');
+  else if (url.includes('cvpr') || url.includes('eccv') || url.includes('iccv')) tags.push('computer-vision', 'conference');
+  else if (url.includes('aclanthology')) tags.push('nlp', 'conference');
+  else if (url.includes('usenix') || url.includes('vldb') || url.includes('sigmod')) tags.push('systems', 'conference');
+  else if (url.includes('huggingface') || url.includes('pytorch') || url.includes('tensorflow')) tags.push('ml', 'framework');
+  else if (url.includes('deepmind') || url.includes('ai.meta') || url.includes('research.google')) tags.push('ml', 'research-lab');
+  else if (url.includes('openai') || url.includes('anthropic')) tags.push('ml', 'research-lab');
+  else if (url.includes('cs.stanford') || url.includes('cs.berkeley') || url.includes('cs.cmu') || url.includes('cs.mit')) tags.push('computer-science', 'academic');
+  else if (url.includes('openreview') || url.includes('paperswithcode')) tags.push('ml', 'research');
   else if (url.includes('github') || url.includes('stackoverflow')) tags.push('programming');
   else if (url.includes('nature.com') || url.includes('nejm') || url.includes('lancet')) tags.push('journal', 'research');
+  else if (url.includes('jamanetwork') || url.includes('annals.org') || url.includes('bmj.com')) tags.push('journal', 'medical');
+  else if (url.includes('frontiersin') || url.includes('plos.org') || url.includes('biomedcentral')) tags.push('open-access', 'research');
+  else if (url.includes('cell.com') || url.includes('elsevier') || url.includes('springer') || url.includes('wiley')) tags.push('journal', 'publisher');
+  else if (url.includes('mdpi.com') || url.includes('karger') || url.includes('thieme')) tags.push('journal', 'publisher');
+  else if (url.includes('jmlr.org') || url.includes('ijcai.org')) tags.push('ml', 'journal');
 
   const lower = content.toLowerCase();
   if (lower.includes('melanoma')) tags.push('melanoma');
