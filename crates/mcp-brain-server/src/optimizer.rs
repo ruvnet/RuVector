@@ -292,7 +292,11 @@ impl GeminiOptimizer {
         )
     }
 
-    /// Call Gemini API
+    /// Call Gemini API with Google Search grounding.
+    ///
+    /// When `GEMINI_GROUNDING=true` (default), enables Google Search grounding
+    /// so Gemini verifies its outputs against live web sources. Grounding metadata
+    /// (source URLs, confidence) is logged for auditability.
     async fn call_gemini(&self, api_key: &str, prompt: &str) -> Result<String, String> {
         let url = format!(
             "{}/{}:generateContent?key={}",
@@ -301,7 +305,10 @@ impl GeminiOptimizer {
             api_key
         );
 
-        let body = serde_json::json!({
+        let grounding_enabled = std::env::var("GEMINI_GROUNDING")
+            .unwrap_or_else(|_| "true".to_string()) == "true";
+
+        let mut body = serde_json::json!({
             "contents": [{
                 "role": "user",
                 "parts": [{"text": prompt}]
@@ -311,6 +318,13 @@ impl GeminiOptimizer {
                 "temperature": self.config.temperature
             }
         });
+
+        // Add Google Search grounding tool
+        if grounding_enabled {
+            body["tools"] = serde_json::json!([{
+                "google_search": {}
+            }]);
+        }
 
         let response = self.http
             .post(&url)
@@ -328,6 +342,32 @@ impl GeminiOptimizer {
 
         let json: serde_json::Value = response.json().await
             .map_err(|e| format!("JSON parse error: {}", e))?;
+
+        // Log grounding metadata if present (source URLs, support scores)
+        if let Some(candidate) = json.get("candidates").and_then(|c| c.get(0)) {
+            if let Some(grounding) = candidate.get("groundingMetadata") {
+                let sources = grounding.get("groundingChunks")
+                    .and_then(|c| c.as_array())
+                    .map(|a| a.len())
+                    .unwrap_or(0);
+                let support = grounding.get("groundingSupports")
+                    .and_then(|s| s.as_array())
+                    .map(|a| a.len())
+                    .unwrap_or(0);
+                let query = grounding.get("webSearchQueries")
+                    .and_then(|q| q.as_array())
+                    .and_then(|a| a.first())
+                    .and_then(|q| q.as_str())
+                    .unwrap_or("none");
+                tracing::info!(
+                    sources = sources,
+                    supports = support,
+                    query = query,
+                    "[optimizer] Grounding: {} sources, {} supports, query='{}'",
+                    sources, support, query
+                );
+            }
+        }
 
         // Extract text from response
         json.get("candidates")
