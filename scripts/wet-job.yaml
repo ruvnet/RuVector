@@ -1,0 +1,43 @@
+apiVersion: run.googleapis.com/v1
+kind: Job
+metadata:
+  name: wet-processor
+  labels:
+    app: ruvector-brain
+    component: wet-import
+spec:
+  template:
+    spec:
+      template:
+        spec:
+          containers:
+            - image: node:20-alpine
+              command: ["/bin/sh", "-c"]
+              args:
+                - |
+                  apk add --no-cache curl bash &&
+                  curl -sL "https://data.commoncrawl.org/$WET_PATH" |
+                  gunzip |
+                  node /app/wet-filter-inject.js \
+                    --brain-url "$BRAIN_URL" \
+                    --auth "Authorization: Bearer $BRAIN_API_KEY" \
+                    --batch-size 10 \
+                    --domains "$DOMAINS" \
+                    --crawl-index "$CRAWL_INDEX"
+              env:
+                - name: BRAIN_URL
+                  value: "https://pi.ruv.io"
+                - name: BRAIN_API_KEY
+                  value: "ruvector-crawl-2026"
+                - name: DOMAINS
+                  value: "pubmed.ncbi.nlm.nih.gov,ncbi.nlm.nih.gov,who.int,cancer.org,aad.org,dermnetnz.org,melanoma.org,arxiv.org,acm.org,ieee.org,nature.com,nejm.org,bmj.com"
+                - name: CRAWL_INDEX
+                  value: "CC-MAIN-2026-08"
+              resources:
+                limits:
+                  cpu: "1"
+                  memory: 1Gi
+          timeoutSeconds: 3600
+          maxRetries: 1
+  parallelism: 10
+  taskCount: 100
