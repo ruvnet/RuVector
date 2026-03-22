@@ -60,6 +60,25 @@ const DEFAULT_DOMAINS = [
   'cs.mit.edu', 'deepmind.google', 'ai.meta.com',
   'research.google', 'microsoft.com/research',
   'blog.openai.com', 'anthropic.com',
+  // Physics - High Energy & Particle
+  'cern.ch', 'home.cern', 'inspirehep.net',
+  'hep.ph', 'hep.th', 'physics.aps.org',
+  'journals.aps.org', 'physicstoday.org',
+  // Physics - Astronomy & Cosmology
+  'adsabs.harvard.edu', 'nasa.gov', 'esa.int',
+  'noirlab.edu', 'stsci.edu', 'caltech.edu',
+  'ligo.org', 'jwst.nasa.gov',
+  // Physics - Condensed Matter & Materials
+  'materialsproject.org', 'nist.gov',
+  'iop.org', 'iopscience.iop.org',
+  // Physics - Quantum
+  'quantum-journal.org', 'quantum.country',
+  'qiskit.org', 'pennylane.ai',
+  // Physics - General & Interdisciplinary
+  'physicsworld.com', 'quantamagazine.org',
+  'simonsfoundation.org', 'perimeterinstitute.ca',
+  'kitp.ucsb.edu', 'slac.stanford.edu',
+  'fermilab.gov', 'bnl.gov', 'ornl.gov',
 ];
 
 function matchesDomain(url) {
@@ -111,11 +130,33 @@ function generateTags(url, content) {
   else if (url.includes('cell.com') || url.includes('elsevier') || url.includes('springer') || url.includes('wiley')) tags.push('journal', 'publisher');
   else if (url.includes('mdpi.com') || url.includes('karger') || url.includes('thieme')) tags.push('journal', 'publisher');
   else if (url.includes('jmlr.org') || url.includes('ijcai.org')) tags.push('ml', 'journal');
+  // Physics
+  else if (url.includes('cern.ch') || url.includes('home.cern')) tags.push('physics', 'cern', 'particle');
+  else if (url.includes('inspirehep')) tags.push('physics', 'hep');
+  else if (url.includes('physics.aps.org') || url.includes('journals.aps.org')) tags.push('physics', 'journal');
+  else if (url.includes('adsabs') || url.includes('nasa.gov') || url.includes('stsci.edu')) tags.push('physics', 'astronomy');
+  else if (url.includes('esa.int') || url.includes('jwst') || url.includes('ligo.org')) tags.push('physics', 'space');
+  else if (url.includes('materialsproject') || url.includes('nist.gov')) tags.push('physics', 'materials');
+  else if (url.includes('iop.org') || url.includes('iopscience')) tags.push('physics', 'journal');
+  else if (url.includes('quantum-journal') || url.includes('qiskit') || url.includes('pennylane')) tags.push('physics', 'quantum');
+  else if (url.includes('quantamagazine') || url.includes('physicsworld')) tags.push('physics', 'popular');
+  else if (url.includes('fermilab') || url.includes('slac.stanford') || url.includes('bnl.gov')) tags.push('physics', 'national-lab');
+  else if (url.includes('perimeterinstitute') || url.includes('kitp.ucsb') || url.includes('simonsfoundation')) tags.push('physics', 'institute');
 
   const lower = content.toLowerCase();
   if (lower.includes('melanoma')) tags.push('melanoma');
   if (lower.includes('machine learning') || lower.includes('deep learning')) tags.push('ml');
   if (lower.includes('cancer')) tags.push('cancer');
+  // Physics keywords
+  if (lower.includes('dark matter') || lower.includes('dark energy')) tags.push('cosmology');
+  if (lower.includes('quantum') && !tags.includes('quantum')) tags.push('quantum');
+  if (lower.includes('higgs') || lower.includes('boson')) tags.push('particle-physics');
+  if (lower.includes('gravitational wave') || lower.includes('ligo')) tags.push('gravitational-waves');
+  if (lower.includes('black hole')) tags.push('black-holes');
+  if (lower.includes('superconductor') || lower.includes('condensed matter')) tags.push('condensed-matter');
+  if (lower.includes('fusion') && lower.includes('energy')) tags.push('fusion-energy');
+  if (lower.includes('neutrino')) tags.push('neutrino');
+  if (lower.includes('string theory') || lower.includes('supersymmetry')) tags.push('theoretical');
 
   return [...new Set(tags)].slice(0, 10);
 }
