@@ -1,6 +1,6 @@
 # ADR-115: Common Crawl Integration with Semantic Compression
 
-**Status**: POC Validated
+**Status**: POC Validated, Phase 1 Ready
 **Date**: 2026-03-17
 **Authors**: RuVector Team
 **Deciders**: ruv
@@ -620,7 +620,259 @@ Response:
 
 ---
 
-## 15. Decision Summary
+## 15. Cost-Effective Implementation Strategy
+
+### 15.1 Three-Phase Budget Model
+
+Starting from a minimal viable crawl and scaling up only after validating cost/value at each tier.
+
+| Phase | Scope | Monthly Cost | Memories/Month | Trigger to Next Phase |
+|-------|-------|-------------|----------------|----------------------|
+| **Phase 1: Medical Domain** | PubMed, dermatology, clinical guidelines via CDX queries | $11-28 | 5K-15K | Recall >= 0.90 on domain, cost stable for 30 days |
+| **Phase 2: Academic + News** | + arXiv, Wikipedia, tech blogs | $73-108 | 50K-100K | Phase 1 metrics sustained, budget approved |
+| **Phase 3: Broad Web** | + WET segment processing | $158-308 | 500K-1M | Phase 2 metrics sustained, graph sharding ready |
+
+**Phase 1 Cost Breakdown**:
+
+| Item | Monthly Cost | Notes |
+|------|-------------|-------|
+| Cloud Run (crawl job, 30min/day) | $3-8 | Scale-to-zero, bursty |
+| Firestore (5K-15K writes) | $2-5 | Document + subcollection ops |
+| Cloud Scheduler (2 jobs) | $0.10 | Medical + derm crawl triggers |
+| GCS (compressed embeddings) | $0.50 | PiQ3-compressed, <1 GB |
+| CDX cache (SQLite on disk) | $0 | Local to Cloud Run instance |
+| RlmEmbedder (CPU, 128-dim) | $0 | Runs in-process, no external API |
+| Egress (internal only) | $0-5 | Minimal cross-region traffic |
+| Monitoring + alerting | $0.50 | Cloud Monitoring free tier |
+| Buffer (20%) | $5-10 | Headroom for spikes |
+| **Total** | **$11-28** | |
+
+### 15.2 Cost Guardrails
+
+Hard limits enforced at the application layer to prevent runaway spending.
+
+```rust
+pub struct CostGuardrails {
+    /// Maximum pages fetched from Common Crawl CDX per day
+    pub max_pages_per_day: u32,           // 1000
+    /// Maximum new memories created per day (after dedup + novelty filter)
+    pub max_new_memories_per_day: u32,    // 500
+    /// Edge count threshold that triggers aggressive sparsification
+    pub max_graph_edges: u64,             // 500_000
+    /// Hard cap on Firestore write operations per day
+    pub max_firestore_writes_per_day: u32, // 10_000
+    /// USD threshold that triggers budget alert via Cloud Monitoring
+    pub budget_alert_threshold_usd: f64,  // 50.0
+    /// Novelty threshold: skip ingestion if cosine similarity > (1 - threshold)
+    /// i.e., skip if cosine > 0.95 when threshold = 0.05
+    pub novelty_threshold: f32,           // 0.05
+}
+
+impl CostGuardrails {
+    pub fn phase1() -> Self {
+        Self {
+            max_pages_per_day: 500,
+            max_new_memories_per_day: 200,
+            max_graph_edges: 500_000,
+            max_firestore_writes_per_day: 5_000,
+            budget_alert_threshold_usd: 30.0,
+            novelty_threshold: 0.05,
+        }
+    }
+
+    pub fn phase2() -> Self {
+        Self {
+            max_pages_per_day: 5_000,
+            max_new_memories_per_day: 2_000,
+            max_graph_edges: 2_000_000,
+            max_firestore_writes_per_day: 50_000,
+            budget_alert_threshold_usd: 120.0,
+            novelty_threshold: 0.05,
+        }
+    }
+
+    pub fn should_skip(&self, cosine_similarity: f32) -> bool {
+        cosine_similarity > (1.0 - self.novelty_threshold)
+    }
+}
+```
+
+### 15.3 Sparsifier-Aware Graph Management
+
+The graph must stay manageable for MinCut and partition queries. The sparsifier (ADR-116) is the primary tool for this.
+
+| Edge Count | Action | Sparsifier Epsilon |
+|-----------|--------|-------------------|
+| < 100K | Normal operation, partition on full graph | N/A |
+| 100K - 500K | Partition on sparsified graph only | 0.3 (default) |
+| 500K - 2M | Increase sparsification aggressiveness | 0.5 |
+| > 2M | Enable graph sharding by domain cluster | 0.7 + shard |
+
+**Current state**: 340K edges -> 12K sparse (27x compression). Partition should run on the 12K sparsified edges, not the full 340K.
+
+**Rules**:
+1. All partition/MinCut queries MUST use `sparsifier_edges`, never `graph_edges`
+2. Cache partition results with 1-hour TTL (see 15.4)
+3. When `edge_count > max_graph_edges`, increase epsilon and re-sparsify
+4. Emergency: if edges > 2M despite aggressive sparsification, shard the graph by top-level domain cluster and run partition per-shard
+
+### 15.4 Partition Timeout Fix
+
+The `/v1/partition` endpoint currently times out because MinCut runs on the full 340K-edge graph, exceeding Cloud Run's 300-second timeout.
+
+**Root cause**: MinCut complexity is O(V * E * log(V)). At 340K edges this exceeds 300s on Cloud Run.
+
+**Fix**: Three-layer defense:
+
+```rust
+/// Cached partition result served from Firestore/memory
+pub struct CachedPartition {
+    /// The computed cluster assignments
+    pub clusters: Vec<Cluster>,
+    /// When this partition was computed
+    pub computed_at: DateTime<Utc>,
+    /// Cache TTL in seconds (default: 3600 = 1 hour)
+    pub ttl_seconds: u64,
+    /// Whether this was computed on the sparsified graph
+    pub used_sparsified: bool,
+    /// Number of edges used in computation
+    pub edge_count: u64,
+    /// Sparsifier epsilon used
+    pub epsilon: f32,
+}
+
+impl CachedPartition {
+    pub fn is_valid(&self) -> bool {
+        let elapsed = Utc::now() - self.computed_at;
+        elapsed.num_seconds() < self.ttl_seconds as i64
+    }
+}
+```
+
+**Strategy**:
+1. **Serve cached**: `/v1/partition` returns `CachedPartition` if valid (< 1 hour old)
+2. **Background recompute**: Cloud Scheduler triggers recompute every hour via `/v1/partition/recompute`
+3. **Use sparsified graph**: Recompute runs on sparsifier edges (12K), not full graph (340K)
+4. **Timeout budget**: With 12K edges, MinCut completes in ~5-15 seconds (well within 300s)
+
+```yaml
+# Partition recompute - hourly
+- name: brain-partition-recompute
+  schedule: "0 * * * *"
+  target: POST /v1/partition/recompute
+  body: {"use_sparsified": true, "timeout_seconds": 120}
+```
+
+### 15.5 Cloud Scheduler Jobs for Crawl
+
+```yaml
+# Phase 1 crawl jobs
+
+# Medical domain - daily 2AM UTC
+- name: brain-crawl-medical
+  schedule: "0 2 * * *"
+  target: POST /v1/pipeline/crawl/ingest
+  body:
+    domains:
+      - "pubmed.ncbi.nlm.nih.gov"
+      - "aad.org"
+      - "jaad.org"
+      - "nejm.org"
+      - "lancet.com"
+      - "bmj.com"
+    limit: 500
+    options:
+      skip_duplicates: true
+      compute_novelty: true
+      novelty_threshold: 0.05
+      guardrails: "phase1"
+
+# Dermatology-specific - daily 3AM UTC
+- name: brain-crawl-derm
+  schedule: "0 3 * * *"
+  target: POST /v1/pipeline/crawl/ingest
+  body:
+    domains:
+      - "dermnetnz.org"
+      - "skincancer.org"
+      - "dermoscopy-ids.org"
+      - "melanoma.org"
+      - "bad.org.uk"
+    limit: 200
+    options:
+      skip_duplicates: true
+      compute_novelty: true
+      novelty_threshold: 0.05
+      guardrails: "phase1"
+
+# Partition recompute - hourly
+- name: brain-partition-recompute
+  schedule: "0 * * * *"
+  target: POST /v1/partition/recompute
+  body:
+    use_sparsified: true
+    timeout_seconds: 120
+
+# Cost report - weekly Sunday 6AM UTC
+- name: brain-cost-report
+  schedule: "0 6 * * 0"
+  target: POST /v1/pipeline/cost/report
+  body:
+    share_to_brain: true
+```
+
+### 15.6 Anti-Patterns (What NOT to Do)
+
+| Anti-Pattern | Why It Fails | Estimated Cost Impact |
+|-------------|-------------|----------------------|
+| Download full WET segments in Phase 1 | Each segment is 100+ MB compressed; thousands per crawl | $1,000+/mo bandwidth + storage |
+| Use external embedding APIs (OpenAI, Cohere) | Millions of embeddings at $0.0001-0.001 each | $500+/mo for Phase 2+ |
+| Skip novelty filtering | Graph explodes with near-duplicate memories | Firestore + compute costs spiral |
+| Run MinCut on full graph | O(V*E*log V) exceeds Cloud Run timeout at 340K+ edges | Timeout errors, failed partitions |
+| Store raw HTML in Firestore | Average page is 50-100KB; Firestore charges per byte | $500+/mo at 50K pages |
+| Use GPU for RlmEmbedder | 128-dim HashEmbedder is CPU-efficient by design | $200+/mo for unnecessary GPU |
+| Skip sparsification before partition | Full graph partition is O(100x) slower than sparsified | Timeouts, wasted compute |
+
+### 15.7 Cost Monitoring
+
+**New endpoint**: `POST /v1/pipeline/cost`
+
+```json
+{
+  "period": "current_month",
+  "estimated_monthly_usd": 18.50,
+  "breakdown": {
+    "cloud_run_compute": 5.20,
+    "firestore_ops": 3.10,
+    "gcs_storage": 0.45,
+    "scheduler": 0.10,
+    "egress": 2.15,
+    "other": 0.50
+  },
+  "guardrails": {
+    "pages_today": 342,
+    "pages_limit": 500,
+    "memories_today": 187,
+    "memories_limit": 200,
+    "graph_edges": 352000,
+    "edge_limit": 500000
+  },
+  "alerts": [],
+  "phase": "phase1"
+}
+```
+
+**Alerting rules**:
+- Daily spend exceeds $2/day -> Cloud Monitoring alert to team Slack
+- Weekly spend exceeds $15/week -> email alert + auto-reduce `max_pages_per_day` by 50%
+- Monthly projection exceeds `budget_alert_threshold_usd` -> pause crawl jobs, alert owner
+- Graph edges exceed 80% of `max_graph_edges` -> trigger aggressive sparsification
+
+**Audit trail**: Weekly cost report is shared as a brain memory (via `brain-cost-report` scheduler job) for historical tracking and team visibility.
+
+---
+
+## 16. Decision Summary
 
 **Decision**: Implement Common Crawl integration as a phased compressed web memory service.
 
