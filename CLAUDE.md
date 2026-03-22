@@ -182,6 +182,62 @@ npx @claude-flow/cli@latest doctor --fix
 - CLI tools handle coordination via Bash: swarm init, memory, hooks, routing
 - NEVER use CLI tools as a substitute for Task tool agents
 
+## pi.ruv.io Brain Integration
+
+The shared brain at `pi.ruv.io` stores collective knowledge (1,500+ memories, 350K+ graph edges). Use it during development.
+
+### When to Use the Brain
+- **Before implementing**: Search for existing patterns — `brain_search("authentication pattern")`
+- **After implementing**: Share learnings — `brain_share({ category: "solution", title: "...", content: "..." })`
+- **When debugging**: Check if similar issues were solved — `brain_search("WASM panic fix")`
+
+### Brain MCP Tools (via pi-brain SSE)
+```
+brain_status  — check health (memories, edges, clusters)
+brain_search  — semantic search across shared knowledge
+brain_share   — contribute a learning (auto PII-stripped + witness chain)
+brain_list    — list recent memories by category
+brain_drift   — check knowledge drift
+brain_partition — get MinCut clusters (use compact=true, can be slow)
+```
+
+### Key Brain Rules
+- NEVER share raw API keys, credentials, or PHI to the brain
+- ALWAYS use category: `architecture | pattern | solution | convention | security | performance | tooling | debug`
+- ALWAYS include relevant tags (max 10, max 30 chars each)
+- Brain has differential privacy (ε=1.0) — embeddings are noised
+- If MCP tools return 404, the SSE session is stale — restart dev server
+
+### Brain REST API (when MCP is unavailable)
+```bash
+# Status (no auth)
+curl https://pi.ruv.io/v1/status
+
+# Search (needs auth header)
+curl -H "Authorization: Bearer $KEY" "https://pi.ruv.io/v1/memories/search?q=query&limit=5"
+
+# List
+curl -H "Authorization: Bearer $KEY" "https://pi.ruv.io/v1/memories/list?limit=10"
+```
+
+### Google Cloud Deployment
+- Service: `ruvbrain` in `us-central1` (session affinity enabled)
+- Secrets: `gcloud secrets versions access latest --secret=SECRET_NAME`
+- Available secrets: `ANTHROPIC_API_KEY`, `GOOGLE_AI_API_KEY`, `huggingface-token`, `OPENROUTER_API_KEY`
+- 7 Cloud Scheduler optimization jobs running (train, drift, transfer, graph, attractor, cleanup, full)
+
+## Project Structure Quick Reference
+
+| Directory | Contents |
+|-----------|----------|
+| `crates/` | Rust crates (ruvector-cnn, mcp-brain-server, sparsifier, mincut, solver, etc.) |
+| `npm/packages/` | NPM packages (@ruvector/cnn, rvf, pi-brain, etc.) |
+| `ui/ruvocal/` | RuVocal chat UI (SvelteKit) — do NOT add app-specific code here |
+| `examples/` | Standalone example apps (e.g., `examples/dragnes/`) |
+| `docs/adr/` | Architecture Decision Records (ADR-001 through ADR-118) |
+| `docs/research/` | Research documents (per-project subdirectories) |
+| `scripts/` | Utility and deployment scripts |
+
 ## Support
 
 - Documentation: https://github.com/ruvnet/claude-flow
