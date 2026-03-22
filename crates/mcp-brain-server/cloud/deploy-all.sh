@@ -22,7 +22,13 @@ gcloud builds submit \
   --project="$PROJECT_ID" .
 
 # Step 2: Deploy to Cloud Run
+# IMPORTANT: Use --update-env-vars (NOT --set-env-vars) to preserve existing env vars
+# like FIRESTORE_URL, GEMINI_API_KEY, and feature flags that were set manually.
 echo "--- Step 2: Deploying to Cloud Run ---"
+
+# Fetch secrets from Google Secrets Manager
+GEMINI_KEY=$(gcloud secrets versions access latest --secret=GOOGLE_AI_API_KEY --project="$PROJECT_ID" 2>/dev/null || echo "")
+
 gcloud run deploy ruvbrain \
   --image="gcr.io/${PROJECT_ID}/ruvbrain:latest" \
   --region="$REGION" \
@@ -34,7 +40,31 @@ gcloud run deploy ruvbrain \
   --max-instances=10 \
   --timeout=300 \
   --concurrency=80 \
-  --set-env-vars="RUST_LOG=info,GWT_ENABLED=true,TEMPORAL_ENABLED=true,META_LEARNING_ENABLED=true,SONA_ENABLED=true" \
+  --session-affinity \
+  --update-env-vars="\
+RUST_LOG=info,\
+FIRESTORE_URL=https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents,\
+GEMINI_API_KEY=${GEMINI_KEY},\
+GEMINI_MODEL=gemini-2.5-flash,\
+GEMINI_GROUNDING=true,\
+GWT_ENABLED=true,\
+TEMPORAL_ENABLED=true,\
+META_LEARNING_ENABLED=true,\
+SONA_ENABLED=true,\
+MIDSTREAM_ATTRACTOR=true,\
+MIDSTREAM_SOLVER=true,\
+MIDSTREAM_STRANGE_LOOP=true,\
+MIDSTREAM_SCHEDULER=true,\
+COGNITIVE_HOPFIELD=true,\
+COGNITIVE_HDC=true,\
+COGNITIVE_DENTATE=true,\
+SPARSIFIER_ENABLED=true,\
+GRAPH_AUTO_REBUILD=true,\
+QUANTIZATION_ENABLED=true,\
+LORA_FEDERATION=true,\
+DOMAIN_EXPANSION=true,\
+RVF_PII_STRIP=true,\
+RVF_DP_ENABLED=true" \
   --allow-unauthenticated
 
 # Step 3: Setup Pub/Sub
