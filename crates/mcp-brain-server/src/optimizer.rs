@@ -42,7 +42,7 @@ impl Default for OptimizerConfig {
     fn default() -> Self {
         Self {
             api_base: "https://generativelanguage.googleapis.com/v1beta/models".to_string(),
-            model_id: "gemini-2.5-flash-preview-05-20".to_string(),
+            model_id: std::env::var("GEMINI_MODEL").unwrap_or_else(|_| "gemini-2.5-flash".to_string()),
             max_tokens: 2048,
             temperature: 0.3,
             interval_secs: 3600, // 1 hour
