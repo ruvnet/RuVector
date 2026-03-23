@@ -333,7 +333,24 @@ export class SonaEngine {
    */
   getStats(): SonaStats {
     const statsJson = this._native.getStats();
-    return JSON.parse(statsJson);
+    const raw = JSON.parse(statsJson);
+    // Map snake_case Rust fields to camelCase TypeScript (fixes #273)
+    return {
+      trajectoriesRecorded: raw.trajectories_recorded ?? raw.trajectoriesRecorded ?? (raw.trajectories_buffered ?? 0) + (raw.trajectories_dropped ?? 0),
+      patternsLearned: raw.patterns_learned ?? raw.patternsLearned ?? raw.patterns_stored ?? 0,
+      microLoraUpdates: raw.micro_lora_updates ?? raw.microLoraUpdates ?? 0,
+      baseLoraUpdates: raw.base_lora_updates ?? raw.baseLoraUpdates ?? 0,
+      ewcConsolidations: raw.ewc_tasks ?? raw.ewcConsolidations ?? 0,
+      avgLearningTimeMs: raw.avg_learning_time_ms ?? raw.avgLearningTimeMs ?? 0,
+    };
+  }
+
+  /**
+   * Save engine state to JSON string for persistence across restarts (fixes #274)
+   * @returns State JSON that can be stored to disk/database
+   */
+  saveState(): string {
+    return this._native.saveState();
   }
 
   /**

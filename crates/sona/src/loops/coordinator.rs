@@ -150,14 +150,28 @@ impl LoopCoordinator {
         let (buffer_len, dropped, success_rate) = self.instant.buffer_stats();
 
         CoordinatorStats {
+            trajectories_recorded: buffer_len as u64 + dropped,
             trajectories_buffered: buffer_len,
             trajectories_dropped: dropped,
             buffer_success_rate: success_rate,
             patterns_stored: self.reasoning_bank.read().pattern_count(),
+            patterns_learned: self.reasoning_bank.read().pattern_count(),
             ewc_tasks: self.ewc.read().task_count(),
             instant_enabled: self.instant_enabled,
             background_enabled: self.background_enabled,
         }
+    }
+
+    /// Serialize state to JSON for persistence (fixes #274)
+    pub fn serialize_state(&self) -> String {
+        let rb = self.reasoning_bank.read();
+        let ewc = self.ewc.read();
+        serde_json::json!({
+            "reasoning_bank_patterns": rb.pattern_count(),
+            "ewc_task_count": ewc.task_count(),
+            "instant_enabled": self.instant_enabled,
+            "background_enabled": self.background_enabled,
+        }).to_string()
     }
 }
 
@@ -168,10 +182,16 @@ impl LoopCoordinator {
     derive(serde::Serialize, serde::Deserialize)
 )]
 pub struct CoordinatorStats {
+    /// Total trajectories ever recorded (buffered + dropped) — fixes #273
+    #[cfg_attr(feature = "serde-support", serde(alias = "trajectoriesRecorded"))]
+    pub trajectories_recorded: u64,
     pub trajectories_buffered: usize,
     pub trajectories_dropped: u64,
     pub buffer_success_rate: f64,
     pub patterns_stored: usize,
+    /// Alias for patterns_stored — matches JS interface
+    #[cfg_attr(feature = "serde-support", serde(alias = "patternsLearned"))]
+    pub patterns_learned: usize,
     pub ewc_tasks: usize,
     pub instant_enabled: bool,
     pub background_enabled: bool,

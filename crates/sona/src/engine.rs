@@ -133,6 +133,11 @@ impl SonaEngine {
         self.coordinator.stats()
     }
 
+    /// Get coordinator reference for state serialization (fixes #274)
+    pub fn coordinator(&self) -> &LoopCoordinator {
+        &self.coordinator
+    }
+
     /// Enable/disable engine
     pub fn set_enabled(&mut self, enabled: bool) {
         self.enabled = enabled;

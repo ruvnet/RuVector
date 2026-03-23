@@ -137,6 +137,13 @@ impl SonaEngine {
         })
     }
 
+    /// Serialize engine state to JSON for persistence (fixes #274)
+    /// @returns State JSON string that can be passed to loadState()
+    #[napi]
+    pub fn save_state(&self) -> String {
+        self.inner.coordinator().serialize_state()
+    }
+
     /// Enable or disable the engine
     /// @param enabled - Whether to enable the engine
     #[napi]
