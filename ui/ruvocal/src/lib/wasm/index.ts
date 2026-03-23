@@ -695,26 +695,37 @@ function createMockWasmModule() {
 					switch (name) {
 						case "system_guidance": {
 							const toolDocs: Record<string, { cat: string; desc: string; ex: string }> = {
-								system_guidance: { cat: "help", desc: "Get help on all tools", ex: "{}" },
-								read_file: { cat: "files", desc: "Read file contents", ex: '{"path": "src/index.ts"}' },
-								write_file: { cat: "files", desc: "Create/overwrite file", ex: '{"path": "hello.txt", "content": "Hi"}' },
-								list_files: { cat: "files", desc: "List all files", ex: "{}" },
-								delete_file: { cat: "files", desc: "Delete a file", ex: '{"path": "temp.txt"}' },
-								edit_file: { cat: "files", desc: "Replace text in file", ex: '{"path": "f.txt", "old_content": "a", "new_content": "b"}' },
-								grep: { cat: "files", desc: "Search file contents", ex: '{"pattern": "TODO"}' },
-								glob: { cat: "files", desc: "Find files by pattern", ex: '{"pattern": "*.ts"}' },
-								memory_store: { cat: "memory", desc: "Store data persistently", ex: '{"key": "k", "value": "v"}' },
-								memory_search: { cat: "memory", desc: "Search stored data", ex: '{"query": "auth"}' },
-								todo_add: { cat: "tasks", desc: "Add a task", ex: '{"task": "Fix bug"}' },
-								todo_list: { cat: "tasks", desc: "List all tasks", ex: "{}" },
-								todo_complete: { cat: "tasks", desc: "Complete a task", ex: '{"id": "todo-1"}' },
-								witness_log: { cat: "witness", desc: "Log to audit chain", ex: '{"action": "deploy"}' },
-								witness_verify: { cat: "witness", desc: "Verify chain integrity", ex: "{}" },
-								gallery_list: { cat: "gallery", desc: "List agent templates", ex: "{}" },
-								gallery_load: { cat: "gallery", desc: "Load a template", ex: '{"id": "development-agent"}' },
-								gallery_search: { cat: "gallery", desc: "Search templates", ex: '{"query": "security"}' },
-								brain_search: { cat: "brain", desc: "Search π Brain", ex: '{"query": "react hooks"}' },
-								brain_share: { cat: "brain", desc: "Share knowledge", ex: '{"category": "pattern", "title": "...", "content": "..."}' },
+								// --- Help ---
+								system_guidance: { cat: "help", desc: "Get help on all available tools, a specific tool, or a category", ex: '{}  or  {"tool": "brain_search"}  or  {"category": "brain"}' },
+								// --- Files (local virtual filesystem in browser) ---
+								read_file: { cat: "files", desc: "Read a file from the virtual filesystem. REQUIRED: path", ex: '{"path": "src/index.ts"}' },
+								write_file: { cat: "files", desc: "Create or overwrite a file. REQUIRED: path, content", ex: '{"path": "hello.txt", "content": "Hello World"}' },
+								list_files: { cat: "files", desc: "List all files stored in the virtual filesystem", ex: "{}" },
+								delete_file: { cat: "files", desc: "Delete a file. REQUIRED: path", ex: '{"path": "temp.txt"}' },
+								edit_file: { cat: "files", desc: "Find-and-replace text in a file. REQUIRED: path, old_content, new_content", ex: '{"path": "app.ts", "old_content": "const x = 1", "new_content": "const x = 2"}' },
+								grep: { cat: "files", desc: "Search file contents with regex. REQUIRED: pattern. OPTIONAL: path (limit to one file)", ex: '{"pattern": "TODO|FIXME"}' },
+								glob: { cat: "files", desc: "Find files by glob pattern. REQUIRED: pattern", ex: '{"pattern": "src/**/*.tsx"}' },
+								// --- Memory (persistent key-value with semantic search) ---
+								memory_store: { cat: "memory", desc: "Store a value in persistent memory with optional tags. REQUIRED: key, value. OPTIONAL: tags[]", ex: '{"key": "auth-pattern", "value": "JWT with refresh tokens", "tags": ["security"]}' },
+								memory_search: { cat: "memory", desc: "Semantic search across stored memories. REQUIRED: query. OPTIONAL: top_k (default 5)", ex: '{"query": "authentication", "top_k": 3}' },
+								// --- Tasks ---
+								todo_add: { cat: "tasks", desc: "Add a new task. REQUIRED: task (description string)", ex: '{"task": "Fix login redirect bug"}' },
+								todo_list: { cat: "tasks", desc: "List all tasks with status indicators", ex: "{}" },
+								todo_complete: { cat: "tasks", desc: "Mark a task as complete. REQUIRED: id", ex: '{"id": "todo-1"}' },
+								// --- Witness Chain (immutable audit log) ---
+								witness_log: { cat: "witness", desc: "Log an action to the immutable witness chain. REQUIRED: action. OPTIONAL: data", ex: '{"action": "file_modified", "data": {"path": "config.json"}}' },
+								witness_verify: { cat: "witness", desc: "Verify the integrity of the entire witness chain. Returns VALID/INVALID", ex: "{}" },
+								// --- Gallery (agent templates) ---
+								gallery_list: { cat: "gallery", desc: "List available agent templates. OPTIONAL: category", ex: '{"category": "development"}' },
+								gallery_load: { cat: "gallery", desc: "Load and activate an agent template. REQUIRED: id", ex: '{"id": "development-agent"}' },
+								gallery_search: { cat: "gallery", desc: "Search templates by keyword. REQUIRED: query", ex: '{"query": "security"}' },
+								// --- Brain (shared collective intelligence at pi.ruv.io, via pi-brain MCP) ---
+								brain_status: { cat: "brain", desc: "Check brain health: memory count, graph edges, clusters, embedding engine, drift status", ex: "{}" },
+								brain_search: { cat: "brain", desc: "Semantic search across 2,000+ shared memories. REQUIRED: query. OPTIONAL: limit, min_quality", ex: '{"query": "authentication patterns", "limit": 5}' },
+								brain_list: { cat: "brain", desc: "List recent memories. OPTIONAL: limit, category, min_quality", ex: '{"limit": 10, "category": "pattern"}' },
+								brain_share: { cat: "brain", desc: "Share a learning with the collective. REQUIRED: category, title, content. OPTIONAL: tags[]. Categories: architecture|pattern|solution|convention|security|performance|tooling|debug", ex: '{"category": "pattern", "title": "React auth hook", "content": "useAuth() with refresh token rotation", "tags": ["react", "auth"]}' },
+								brain_drift: { cat: "brain", desc: "Check knowledge drift across categories. Shows how knowledge is evolving over time", ex: "{}" },
+								brain_partition: { cat: "brain", desc: "Get MinCut knowledge clusters. Shows emergent topic groupings with coherence scores. Use compact=true (default) to avoid large responses", ex: '{"compact": true}' },
 							};
 
 							let text: string;
@@ -723,23 +734,32 @@ function createMockWasmModule() {
 
 							if (reqTool && toolDocs[reqTool]) {
 								const d = toolDocs[reqTool];
-								text = `TOOL: ${reqTool}\nCategory: ${d.cat}\n${d.desc}\nExample: ${reqTool}(${d.ex})`;
+								text = `TOOL: ${reqTool}\nCategory: ${d.cat}\nDescription: ${d.desc}\nExample: ${reqTool}(${d.ex})`;
 							} else if (reqCat && reqCat !== "all") {
 								const filtered = Object.entries(toolDocs)
 									.filter(([, d]) => d.cat === reqCat)
-									.map(([n, d]) => `• ${n}(${d.ex})`);
+									.map(([n, d]) => `  ${n} — ${d.desc}\n    Example: ${n}(${d.ex})`);
 								text = filtered.length > 0
-									? `${reqCat.toUpperCase()} TOOLS:\n${filtered.join("\n")}`
-									: `No tools in category: ${reqCat}`;
+									? `${reqCat.toUpperCase()} TOOLS:\n\n${filtered.join("\n\n")}`
+									: `No tools in category: ${reqCat}. Available categories: help, files, memory, tasks, witness, gallery, brain`;
 							} else {
-								const cats = ["files", "memory", "tasks", "gallery", "witness", "brain"];
+								const cats = ["brain", "files", "memory", "tasks", "gallery", "witness", "help"];
 								const sections = cats.map((c) => {
 									const items = Object.entries(toolDocs)
 										.filter(([, d]) => d.cat === c)
-										.map(([n, d]) => `  • ${n}(${d.ex})`);
-									return items.length > 0 ? `${c.toUpperCase()}:\n${items.join("\n")}` : null;
+										.map(([n, d]) => `  ${n} — ${d.desc}\n    Ex: ${n}(${d.ex})`);
+									return items.length > 0 ? `${c.toUpperCase()} (${items.length}):\n${items.join("\n")}` : null;
 								}).filter(Boolean);
-								text = `SYSTEM GUIDANCE - ALL TOOLS\n\n${sections.join("\n\n")}\n\nTIPS:\n• Always pass required parameters\n• Use exact JSON format shown\n• "Run in RVF" = use these sandbox tools`;
+								text = `SYSTEM GUIDANCE — AVAILABLE TOOLS\n\n` +
+									`You have two MCP servers:\n` +
+									`  1. RVAgent Local (WASM) — files, memory, tasks, witness, gallery (runs in browser)\n` +
+									`  2. pi-brain (pi.ruv.io/sse) — shared collective intelligence with 2,000+ memories\n\n` +
+									`${sections.join("\n\n")}\n\n` +
+									`TIPS:\n` +
+									`• Brain tools (brain_*) connect to pi.ruv.io shared knowledge — search before implementing\n` +
+									`• Local tools (files, memory, tasks) operate in this browser sandbox\n` +
+									`• Always pass REQUIRED parameters in JSON format\n` +
+									`• Use witness_log to create audit trails for important actions`;
 							}
 							response.result = { content: [{ type: "text", text }] };
 							break;

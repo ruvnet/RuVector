@@ -1,5 +1,7 @@
 # Cloud Build ignores — keep context under 50 MiB
 target/
+crates/mcp-brain-server/target/
+crates/rvf/target/
 node_modules/
 .git/
 examples/
@@ -8,7 +10,9 @@ docs/
 scripts/
 bindings/
 npm/
+ui/
 test_models/
+tests/
 *.wasm
 *.so
 *.o
@@ -22,3 +26,4 @@ test_models/
 *.db
 .claude/
 package-lock.json
+.svelte-kit/

@@ -4284,7 +4284,7 @@ fn mcp_tool_definitions() -> Vec<serde_json::Value> {
 /// Handle MCP tool call by proxying to the REST API via HTTP loopback.
 /// This reuses the exact same tested REST handlers — no type mismatch risk.
 async fn handle_mcp_tool_call(
-    _state: &AppState,
+    state: &AppState,
     tool_name: &str,
     args: &serde_json::Value,
 ) -> Result<serde_json::Value, String> {
@@ -4337,13 +4337,18 @@ async fn handle_mcp_tool_call(
             proxy_get(&client, &base, "/v1/drift", api_key, &params).await
         },
         "brain_partition" => {
-            let mut params = Vec::new();
-            if let Some(d) = args.get("domain").and_then(|v| v.as_str()) { params.push(("domain", d.to_string())); }
-            if let Some(s) = args.get("min_cluster_size").and_then(|v| v.as_u64()) { params.push(("min_cluster_size", s.to_string())); }
-            // Default compact=true to avoid SSE truncation; pass through if explicitly set
-            let compact = args.get("compact").and_then(|v| v.as_bool()).unwrap_or(true);
-            params.push(("compact", compact.to_string()));
-            proxy_get(&client, &base, "/v1/partition", api_key, &params).await
+            // MinCut partition is expensive (943K+ edges) and times out via MCP SSE.
+            // Return a quick acknowledgment with graph stats instead.
+            let graph = state.graph.read();
+            let node_count = graph.node_count();
+            let edge_count = graph.edge_count();
+            drop(graph);
+            Ok(serde_json::json!({
+                "status": "available",
+                "graph_nodes": node_count,
+                "graph_edges": edge_count,
+                "note": "MinCut partition is too heavy for MCP (943K+ edges). Use the REST API directly: GET https://pi.ruv.io/v1/partition?compact=true"
+            }))
         },
         "brain_list" => {
             let mut params = Vec::new();
