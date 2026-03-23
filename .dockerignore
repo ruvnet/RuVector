@@ -1,0 +1,17 @@
+.git/
+target/
+**/target/
+node_modules/
+ui/
+examples/
+npm/
+docs/
+scripts/
+benchmarks/
+bindings/
+test_models/
+*.wasm
+*.node
+*.so
+.svelte-kit/
+.claude/
