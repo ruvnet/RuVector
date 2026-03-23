@@ -144,6 +144,20 @@ impl SonaEngine {
         self.inner.coordinator().serialize_state()
     }
 
+    /// Restore engine state from JSON (fixes #274)
+    /// @param state_json - JSON string from saveState()
+    /// @returns Number of patterns restored
+    #[napi]
+    pub fn load_state(&self, state_json: String) -> u32 {
+        match self.inner.coordinator().load_state(&state_json) {
+            Ok(count) => count as u32,
+            Err(e) => {
+                eprintln!("SONA load_state error: {}", e);
+                0
+            }
+        }
+    }
+
     /// Enable or disable the engine
     /// @param enabled - Whether to enable the engine
     #[napi]

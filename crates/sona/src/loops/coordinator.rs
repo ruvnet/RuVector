@@ -162,16 +162,40 @@ impl LoopCoordinator {
         }
     }
 
-    /// Serialize state to JSON for persistence (fixes #274)
+    /// Serialize full state to JSON for persistence (fixes #274)
     pub fn serialize_state(&self) -> String {
         let rb = self.reasoning_bank.read();
+        let patterns = rb.get_all_patterns();
         let ewc = self.ewc.read();
         serde_json::json!({
-            "reasoning_bank_patterns": rb.pattern_count(),
+            "version": 1,
+            "patterns": patterns,
             "ewc_task_count": ewc.task_count(),
             "instant_enabled": self.instant_enabled,
             "background_enabled": self.background_enabled,
         }).to_string()
+    }
+
+    /// Restore state from JSON (fixes #274)
+    /// Call after construction to restore learned patterns from a previous session.
+    pub fn load_state(&self, json: &str) -> Result<usize, String> {
+        let state: serde_json::Value = serde_json::from_str(json)
+            .map_err(|e| format!("Invalid state JSON: {}", e))?;
+
+        let mut loaded = 0;
+
+        // Restore patterns into reasoning bank
+        if let Some(patterns) = state.get("patterns").and_then(|p| p.as_array()) {
+            let mut rb = self.reasoning_bank.write();
+            for p in patterns {
+                if let Ok(pattern) = serde_json::from_value::<crate::LearnedPattern>(p.clone()) {
+                    rb.insert_pattern(pattern);
+                    loaded += 1;
+                }
+            }
+        }
+
+        Ok(loaded)
     }
 }
 

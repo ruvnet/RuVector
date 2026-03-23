@@ -354,6 +354,15 @@ export class SonaEngine {
   }
 
   /**
+   * Restore engine state from JSON saved by saveState() (fixes #274)
+   * @param stateJson - JSON string from a previous saveState() call
+   * @returns Number of patterns restored
+   */
+  loadState(stateJson: string): number {
+    return this._native.loadState(stateJson);
+  }
+
+  /**
    * Enable or disable the engine
    * @param enabled Whether to enable
    */

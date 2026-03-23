@@ -406,6 +406,16 @@ impl ReasoningBank {
         self.patterns.values().cloned().collect()
     }
 
+    /// Insert a pattern directly (for state restoration, fixes #274)
+    pub fn insert_pattern(&mut self, pattern: LearnedPattern) {
+        let id = pattern.id;
+        if id >= self.next_pattern_id {
+            self.next_pattern_id = id + 1;
+        }
+        self.pattern_index.push((pattern.centroid.clone(), id));
+        self.patterns.insert(id, pattern);
+    }
+
     /// Consolidate similar patterns
     pub fn consolidate(&mut self, similarity_threshold: f32) {
         let pattern_ids: Vec<u64> = self.patterns.keys().copied().collect();
