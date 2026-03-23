@@ -1419,6 +1419,7 @@ dependencies = [
  "ruvector-nervous-system",
  "ruvector-solver",
  "ruvector-sona",
+ "ruvector-sparsifier",
  "ruvllm",
  "rvf-crypto",
  "rvf-federation",
@@ -2336,6 +2337,21 @@ dependencies = [
  "rand 0.8.5",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "ruvector-sparsifier"
+version = "2.0.6"
+dependencies = [
+ "dashmap",
+ "ordered-float",
+ "parking_lot",
+ "rand 0.8.5",
+ "rayon",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "tracing",
 ]
 
 [[package]]

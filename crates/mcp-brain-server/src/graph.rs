@@ -6,6 +6,10 @@
 
 use crate::types::*;
 use ruvector_mincut::{DynamicMinCut, MinCutBuilder};
+use ruvector_mincut::canonical::source_anchored::{
+    self as canonical_sa, SourceAnchoredConfig,
+};
+use ruvector_mincut::graph::DynamicGraph;
 use ruvector_solver::forward_push::ForwardPushSolver;
 use ruvector_solver::types::CsrMatrix;
 use ruvector_sparsifier::{AdaptiveGeoSpar, SparseGraph, SparsifierConfig};
@@ -470,6 +474,77 @@ impl KnowledgeGraph {
             }
         }
         strengths
+    }
+
+    /// Partition using source-anchored canonical min-cut (ADR-117).
+    ///
+    /// Returns deterministic clusters with a stable `cut_hash` suitable for
+    /// RVF witnesses. Falls back to standard partition if canonical cut
+    /// cannot be computed (disconnected graph, < 3 nodes, etc.).
+    pub fn partition_canonical_full(
+        &self,
+        min_cluster_size: usize,
+    ) -> (Vec<KnowledgeCluster>, f64, Vec<EdgeStrengthInfo>, Option<String>, Option<u64>) {
+        if self.nodes.len() < 3 {
+            let (clusters, cut_val, strengths) = self.partition_full(min_cluster_size);
+            return (clusters, cut_val, strengths, None, None);
+        }
+
+        // Build a DynamicGraph snapshot for canonical computation
+        let graph = DynamicGraph::new();
+        for edge in &self.edges {
+            if let (Some(&u), Some(&v)) = (
+                self.node_index.get(&edge.source),
+                self.node_index.get(&edge.target),
+            ) {
+                let _ = graph.insert_edge(u as u64, v as u64, edge.weight);
+            }
+        }
+
+        let config = SourceAnchoredConfig::default();
+        match canonical_sa::canonical_mincut(&graph, &config) {
+            Some(cut) => {
+                let cut_value = cut.lambda.to_f64();
+                let cut_hash_hex = hex::encode(cut.cut_hash);
+                let first_sep = cut.first_separable_vertex;
+
+                // Build clusters from the canonical cut's source side
+                let source_side: std::collections::HashSet<u64> =
+                    cut.side_vertices.iter().copied().collect();
+
+                let side_a: Vec<Uuid> = self.node_ids.iter().enumerate()
+                    .filter(|(i, _)| source_side.contains(&(*i as u64)))
+                    .map(|(_, id)| *id)
+                    .collect();
+                let side_b: Vec<Uuid> = self.node_ids.iter().enumerate()
+                    .filter(|(i, _)| !source_side.contains(&(*i as u64)))
+                    .map(|(_, id)| *id)
+                    .collect();
+
+                let mut clusters = Vec::new();
+                let mut cluster_id = 0u32;
+
+                for side in [&side_a, &side_b] {
+                    if side.len() >= min_cluster_size {
+                        clusters.push(self.build_cluster(cluster_id, side));
+                        cluster_id += 1;
+                    }
+                }
+
+                if clusters.is_empty() {
+                    let (cl, cv, st) = self.partition_full(min_cluster_size);
+                    return (cl, cv, st, Some(cut_hash_hex), Some(first_sep));
+                }
+
+                let strengths = self.compute_edge_strengths(&clusters);
+                (clusters, cut_value, strengths, Some(cut_hash_hex), Some(first_sep))
+            }
+            None => {
+                // Canonical cut not available (disconnected graph, etc.)
+                let (clusters, cut_val, strengths) = self.partition_full(min_cluster_size);
+                (clusters, cut_val, strengths, None, None)
+            }
+        }
     }
 
     /// Rebuild the DynamicMinCut from all current edges

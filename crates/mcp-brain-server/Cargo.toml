@@ -50,7 +50,7 @@ urlencoding = "2"
 
 # RuVector Cognitive Stack
 sona = { package = "ruvector-sona", path = "../sona", features = ["serde-support"] }
-ruvector-mincut = { path = "../ruvector-mincut" }
+ruvector-mincut = { path = "../ruvector-mincut", features = ["canonical"] }
 ruvector-nervous-system = { path = "../ruvector-nervous-system" }
 ruvector-domain-expansion = { path = "../ruvector-domain-expansion" }
 ruvector-delta-core = { path = "../ruvector-delta-core" }

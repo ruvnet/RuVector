@@ -1606,13 +1606,29 @@ async fn partition(
 ) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
     let min_size = query.min_cluster_size.unwrap_or(2);
     let graph = state.graph.read();
-    let (clusters, cut_value, edge_strengths) = graph.partition_full(min_size);
 
-    let full_result = PartitionResult {
-        total_memories: graph.node_count(),
-        clusters,
-        cut_value,
-        edge_strengths,
+    let full_result = if query.canonical {
+        // ADR-117: source-anchored canonical min-cut with stable hash
+        let (clusters, cut_value, edge_strengths, cut_hash, first_sep) =
+            graph.partition_canonical_full(min_size);
+        PartitionResult {
+            total_memories: graph.node_count(),
+            clusters,
+            cut_value,
+            edge_strengths,
+            cut_hash,
+            first_separable_vertex: first_sep,
+        }
+    } else {
+        let (clusters, cut_value, edge_strengths) = graph.partition_full(min_size);
+        PartitionResult {
+            total_memories: graph.node_count(),
+            clusters,
+            cut_value,
+            edge_strengths,
+            cut_hash: None,
+            first_separable_vertex: None,
+        }
     };
 
     // Return compact format by default to avoid SSE truncation of 128-dim centroids

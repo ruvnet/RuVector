@@ -188,6 +188,12 @@ pub struct PartitionResult {
     pub cut_value: f64,
     pub edge_strengths: Vec<EdgeStrengthInfo>,
     pub total_memories: usize,
+    /// Canonical cut hash (ADR-117). Present when canonical=true.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cut_hash: Option<String>,
+    /// First separable vertex index in the canonical ordering.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub first_separable_vertex: Option<u64>,
 }
 
 /// Compact partition result (default for MCP to avoid SSE truncation)
@@ -197,6 +203,12 @@ pub struct PartitionResultCompact {
     pub cut_value: f64,
     pub edge_strengths: Vec<EdgeStrengthInfo>,
     pub total_memories: usize,
+    /// Canonical cut hash (ADR-117). Present when canonical=true.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cut_hash: Option<String>,
+    /// First separable vertex index in the canonical ordering.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub first_separable_vertex: Option<u64>,
 }
 
 impl From<PartitionResult> for PartitionResultCompact {
@@ -206,6 +218,8 @@ impl From<PartitionResult> for PartitionResultCompact {
             cut_value: r.cut_value,
             edge_strengths: r.edge_strengths,
             total_memories: r.total_memories,
+            cut_hash: r.cut_hash,
+            first_separable_vertex: r.first_separable_vertex,
         }
     }
 }
@@ -325,6 +339,10 @@ pub struct PartitionQuery {
     /// Return compact format (default: true) - omits 128-dim centroids to avoid SSE truncation
     #[serde(default = "default_compact")]
     pub compact: bool,
+    /// Use source-anchored canonical min-cut (ADR-117) for deterministic,
+    /// hashable partition results suitable for RVF witnesses.
+    #[serde(default)]
+    pub canonical: bool,
 }
 
 fn default_compact() -> bool { true }
