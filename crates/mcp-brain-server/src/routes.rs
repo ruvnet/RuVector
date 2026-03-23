@@ -266,6 +266,7 @@ pub async fn create_router() -> (Router, AppState) {
         feeds,
         web_store,
         crawl_adapter,
+        cached_partition: Arc::new(parking_lot::RwLock::new(None)),
     };
 
     let router = Router::new()
@@ -459,6 +460,23 @@ pub fn run_enhanced_training_cycle(state: &AppState) -> EnhancedTrainingResult {
                 *g /= n;
             }
             drift.record("global", &global);
+        }
+    }
+
+    // 3c. Cache MinCut partition result (avoids recomputing on every /v1/partition request)
+    {
+        let graph = state.graph.read();
+        if graph.node_count() > 0 {
+            let (clusters, cut_value, edge_strengths) = graph.partition_full(2);
+            let result = crate::types::PartitionResult {
+                total_memories: graph.node_count(),
+                clusters,
+                cut_value,
+                edge_strengths,
+                cut_hash: None,
+                first_separable_vertex: None,
+            };
+            *state.cached_partition.write() = Some(result);
         }
     }
 
@@ -1643,6 +1661,19 @@ async fn partition(
     Query(query): Query<PartitionQuery>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
     let min_size = query.min_cluster_size.unwrap_or(2);
+
+    // Try the cache first (non-canonical, default min_size, no force)
+    if !query.force && !query.canonical && min_size == 2 {
+        if let Some(cached) = state.cached_partition.read().as_ref() {
+            if query.compact {
+                let compact: PartitionResultCompact = cached.clone().into();
+                return Ok(Json(serde_json::to_value(compact).unwrap()));
+            } else {
+                return Ok(Json(serde_json::to_value(cached).unwrap()));
+            }
+        }
+    }
+
     let graph = state.graph.read();
 
     let full_result = if query.canonical {
@@ -4353,18 +4384,22 @@ async fn handle_mcp_tool_call(
             proxy_get(&client, &base, "/v1/drift", api_key, &params).await
         },
         "brain_partition" => {
-            // MinCut partition is expensive (943K+ edges) and times out via MCP SSE.
-            // Return a quick acknowledgment with graph stats instead.
-            let graph = state.graph.read();
-            let node_count = graph.node_count();
-            let edge_count = graph.edge_count();
-            drop(graph);
-            Ok(serde_json::json!({
-                "status": "available",
-                "graph_nodes": node_count,
-                "graph_edges": edge_count,
-                "note": "MinCut partition is too heavy for MCP (943K+ edges). Use the REST API directly: GET https://pi.ruv.io/v1/partition?compact=true"
-            }))
+            // Return cached partition if available (populated by training cycles).
+            if let Some(cached) = state.cached_partition.read().as_ref() {
+                let compact: PartitionResultCompact = cached.clone().into();
+                Ok(serde_json::to_value(compact).unwrap_or_else(|_| serde_json::json!({"error": "serialization failed"})))
+            } else {
+                let graph = state.graph.read();
+                let node_count = graph.node_count();
+                let edge_count = graph.edge_count();
+                drop(graph);
+                Ok(serde_json::json!({
+                    "status": "no_cache",
+                    "graph_nodes": node_count,
+                    "graph_edges": edge_count,
+                    "note": "No cached partition yet. Run a training cycle or use REST API: GET https://pi.ruv.io/v1/partition?compact=true&force=true"
+                }))
+            }
         },
         "brain_list" => {
             let mut params = Vec::new();

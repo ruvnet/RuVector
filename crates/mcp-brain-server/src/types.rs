@@ -343,6 +343,9 @@ pub struct PartitionQuery {
     /// hashable partition results suitable for RVF witnesses.
     #[serde(default)]
     pub canonical: bool,
+    /// Force fresh computation, bypassing the cache
+    #[serde(default)]
+    pub force: bool,
 }
 
 fn default_compact() -> bool { true }
@@ -1240,6 +1243,8 @@ pub struct AppState {
     pub web_store: std::sync::Arc<crate::web_store::WebMemoryStore>,
     /// Common Crawl adapter for CDX queries and WARC fetching
     pub crawl_adapter: std::sync::Arc<crate::pipeline::CommonCrawlAdapter>,
+    /// Cached partition result from last training cycle (avoids recomputing 969K-edge MinCut on every request)
+    pub cached_partition: std::sync::Arc<parking_lot::RwLock<Option<PartitionResult>>>,
 }
 
 // ──────────────────────────────────────────────────────────────────────
