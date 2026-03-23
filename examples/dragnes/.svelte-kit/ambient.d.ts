@@ -50,6 +50,7 @@ declare module '$env/static/private' {
 	export const NVS_ROOT: string;
 	export const GIT_EDITOR: string;
 	export const RVM_PATH: string;
+	export const BRAIN_URL: string;
 	export const FEATURE_SPARK_POST_COMMIT_CREATE_ITERATION: string;
 	export const HOSTNAME: string;
 	export const GIT_ASKPASS: string;
@@ -156,6 +157,7 @@ declare module '$env/static/private' {
 	export const npm_config_globalconfig: string;
 	export const npm_config_init_module: string;
 	export const JAVA_HOME: string;
+	export const BRAIN_API_KEY: string;
 	export const NVS_USE_XZ: string;
 	export const PWD: string;
 	export const INTERNAL_VSCS_TARGET_URL: string;
@@ -278,6 +280,7 @@ declare module '$env/dynamic/private' {
 		NVS_ROOT: string;
 		GIT_EDITOR: string;
 		RVM_PATH: string;
+		BRAIN_URL: string;
 		FEATURE_SPARK_POST_COMMIT_CREATE_ITERATION: string;
 		HOSTNAME: string;
 		GIT_ASKPASS: string;
@@ -384,6 +387,7 @@ declare module '$env/dynamic/private' {
 		npm_config_globalconfig: string;
 		npm_config_init_module: string;
 		JAVA_HOME: string;
+		BRAIN_API_KEY: string;
 		NVS_USE_XZ: string;
 		PWD: string;
 		INTERNAL_VSCS_TARGET_URL: string;

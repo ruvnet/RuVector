@@ -463,10 +463,12 @@ pub fn run_enhanced_training_cycle(state: &AppState) -> EnhancedTrainingResult {
         }
     }
 
-    // 3c. Cache MinCut partition result (avoids recomputing on every /v1/partition request)
+    // 3c. Cache partition result (avoids recomputing on every /v1/partition request)
+    // Only compute exact MinCut for small graphs; large graphs skip to avoid timeout
     {
         let graph = state.graph.read();
-        if graph.node_count() > 0 {
+        let edge_count = graph.edge_count();
+        if graph.node_count() > 0 && edge_count <= 100_000 {
             let (clusters, cut_value, edge_strengths) = graph.partition_full(2);
             let result = crate::types::PartitionResult {
                 total_memories: graph.node_count(),
@@ -478,6 +480,8 @@ pub fn run_enhanced_training_cycle(state: &AppState) -> EnhancedTrainingResult {
             };
             *state.cached_partition.write() = Some(result);
         }
+        // For large graphs, partition cache is populated by the scheduled
+        // rebuild_graph job which runs asynchronously without timeout pressure
     }
 
     // 4. Internal voice reflection (ADR-110)
