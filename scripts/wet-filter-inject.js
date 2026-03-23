@@ -222,8 +222,13 @@ function generateTags(url, content) {
   return [...new Set(tags)].slice(0, 10);
 }
 
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
 async function flushBatch() {
   if (batch.length === 0) return;
+
+  // Rate limit: 1 batch per second to avoid saturating the brain
+  await sleep(1000);
 
   const items = batch.splice(0);
   try {

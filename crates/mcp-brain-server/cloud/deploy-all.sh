@@ -34,10 +34,10 @@ gcloud run deploy ruvbrain \
   --region="$REGION" \
   --project="$PROJECT_ID" \
   --platform=managed \
-  --memory=2Gi \
-  --cpu=2 \
+  --memory=4Gi \
+  --cpu=4 \
   --min-instances=1 \
-  --max-instances=10 \
+  --max-instances=20 \
   --timeout=300 \
   --concurrency=80 \
   --session-affinity \
