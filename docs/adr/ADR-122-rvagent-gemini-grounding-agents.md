@@ -9,7 +9,7 @@
 
 The pi.ruv.io brain has accumulated 1,809 memories with 612K graph edges and a working Gemini optimizer with Google Search grounding (ADR-121). However, the symbolic reasoning layer is underutilized:
 
-- All 11 propositions are `is_type_of` -- no relational predicates
+- All 11 propositions are `is_type_of` -- no relational predicatesdsp
 - 4 Horn clause rules exist for transitivity of `causes`, `solves`, `relates_to`, `similar_to` but cannot fire
 - SONA has 0 learned patterns (insufficient trajectory data)
 - No mechanism to verify whether stored knowledge is factually current
