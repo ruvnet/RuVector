@@ -1,6 +1,6 @@
 # ADR-122: rvAgent Autonomous Gemini Grounding Agents
 
-**Status**: Proposed
+**Status**: Approved with Revisions
 **Date**: 2026-03-23
 **Author**: Claude (ruvnet)
 **Related**: ADR-121 (Gemini Grounding), ADR-112 (rvAgent MCP), ADR-110 (Neural-Symbolic), ADR-115 (Common Crawl)
@@ -41,16 +41,57 @@ Each agent:
 1. Reads from the brain via its REST API
 2. Sends sanitized content to Gemini with `tools: [{"google_search": {}}]`
 3. Parses grounding metadata (source URLs, support scores)
-4. Writes back to the brain via `POST /v1/memories` and `POST /v1/ground`
-5. Logs structured metrics for observability
+4. Writes to a **candidate layer** (NOT the canonical graph directly)
+5. Candidates promoted only after passing promotion gates
+6. Logs structured provenance for every mutation
+
+### Write Safety: Candidate vs Canonical Graph
+
+All machine-generated relations and discoveries are first written to a candidate graph with full provenance, grounding metadata, and replayable mutation logs. Promotion into the canonical graph requires policy evaluation:
+
+| Promotion Gate | Threshold |
+|---------------|-----------|
+| Source count minimum | ≥ 2 grounding sources |
+| Source diversity | ≥ 2 distinct domains |
+| Recency window | Sources from last 12 months |
+| Contradiction scan | No conflicts with existing canonical propositions |
+| Predicate allowlist | Only `causes`, `treats`, `depends_on`, `part_of`, `measured_by` |
+| Confidence threshold | ≥ 0.7 for `causes`/`depends_on`, ≥ 0.8 for `treats` |
+
+### Truth Maintenance State Machine
+
+Every proposition follows this lifecycle:
+
+```
+unverified → grounded_supported → promoted (canonical)
+          → grounded_conflicted → deprecated
+          → stale (source aged out)
+          → candidate_only (never promoted)
+```
+
+Drift trigger formula:
+```
+drift_score = recency_decay + contradiction_weight + source_disagreement + novelty_gap
+```
+Phase 4 triggers only when `drift_score > threshold`, not on a timer.
 
 ### Key Design Choices
 
 **1. Standalone scripts, not library code**
 Agents live in `scripts/rvagent-grounding/` as plain Node.js, not integrated into `npm/packages/ruvector/`. This keeps the rvagent library clean and makes Cloud Run Job deployment straightforward.
 
-**2. PHI sanitization before Gemini**
-All memory content passes through a PHI detector that strips names, dates, MRNs, and identifiers before being included in any Gemini prompt. Only factual claims in generic form are sent externally.
+**2. Allowlist-based PHI sanitization (not regex-only)**
+Instead of stripping bad text from raw content, agents send a normalized record:
+```json
+{
+  "memory_id": "m123",
+  "claim": "X is associated with Y under condition Z",
+  "domain": "biomedical",
+  "created_at_bucket": "2026-Q1",
+  "evidence_type": "article_claim"
+}
+```
+Pipeline: entity detector → pattern detector → allowlist serializer → audit log with redaction hash → periodic canary tests with seeded PHI strings.
 
 **3. Verification-first pipeline**
 Phase 2 only generates relations for Phase 1-verified memories. This prevents the Horn clause engine from chaining inferences based on potentially incorrect facts.
@@ -64,8 +105,8 @@ Each agent defines preconditions, effects, and costs following Goal-Oriented Act
 | Action | Precondition | Effect | Cost (tokens) |
 |--------|-------------|--------|---------------|
 | verify_memory | memory.unverified | memory.grounding_status set | ~500 |
-| generate_relation | both memories verified | new proposition | ~800 |
-| discover_bridge | relations exist, 2+ domains | cross-domain memory | ~1,200 |
+| generate_relation | both memories verified, predicate in allowlist | new candidate proposition | ~800 |
+| discover_bridge | relations exist, 2+ domains, bridge concept identified | cross-domain candidate | ~1,200 |
 | research_drift | drift velocity > 2.0 | new findings, SONA trajectory | ~1,500 |
 
 ## Consequences
@@ -127,23 +168,63 @@ scripts/rvagent-grounding/
 
 ## Cost Estimate
 
-| Item | Monthly |
-|------|---------|
-| Gemini 2.5 Flash tokens | $4.05 |
-| Cloud Run Jobs compute | $0.14 |
-| Cloud Scheduler | $0.00 (free tier) |
-| **Total** | **~$4.19** |
+`monthly_cost = input_tokens × input_rate + output_tokens × output_rate + grounded_requests × grounding_rate + Cloud Run`
 
-Budget cap: $50/month (12x headroom).
+| Scenario | Tokens | Grounded Requests | Compute | Total |
+|----------|--------|-------------------|---------|-------|
+| **Base** (10 memories/cycle) | $2.00 | $1.50 | $0.14 | **$3.64** |
+| **Expected** (20 memories/cycle) | $4.00 | $3.00 | $0.28 | **$7.28** |
+| **Worst credible** (50 memories/cycle) | $10.00 | $7.50 | $0.70 | **$18.20** |
+
+Key metric: **cost per promoted proposition** — target ≤ $0.02.
+
+Budget cap: $50/month. Track: tokens per successful mutation, grounded requests per accepted proposition.
 
 ## Acceptance Criteria
 
-1. Phase 1: 80%+ of memories with quality >= 3 have grounding status after 1 week
-2. Phase 2: >= 50 relational propositions after 2 weeks; Horn clause engine returns inferences
-3. Phase 3: >= 10 cross-domain discoveries after 3 weeks
+### Volume
+1. Phase 1: 80%+ of quality ≥ 3 memories have grounding status after 7 days
+2. Phase 2: ≥ 50 candidate relational propositions after 2 weeks
+3. Phase 3: ≥ 10 cross-domain discoveries after 3 weeks
 4. Phase 4: SONA patterns > 0 after 4 weeks
-5. Monthly Gemini cost under $50
-6. No PHI in any Gemini API call (verified by audit log review)
+
+### Precision
+5. **Grounding precision**: 100-item human audit — ≥ 90% of `grounded_supported` correctly labeled
+6. **Relation precision**: 50-item audit — ≥ 80% of promoted relations judged useful and correct
+7. **Inference utility**: Horn clause produces ≥ 20 non-trivial inferences with < 10% human-judged error
+
+### Safety
+8. **Write safety**: Zero direct writes to canonical graph without promotion gate
+9. **Privacy**: Zero PHI findings in outbound audit sample
+10. **Economics**: Cost per promoted proposition ≤ $0.02
+
+### Provenance
+11. Every promoted proposition replayable from: raw source → prompt version → grounding evidence → policy decision → mutation log
+
+## Provenance Schema
+
+Every grounded mutation stores:
+
+```typescript
+interface GroundedMutation {
+  mutation_id: string;          // UUID
+  source_memory_ids: string[];  // Input memories
+  source_urls: string[];        // Grounding chunk URLs
+  retrieval_timestamp: string;  // When grounding sources were fetched
+  claim_text: string;           // Sanitized claim sent to Gemini
+  support_snippets: string[];   // Grounding support text segments
+  model_id: string;             // e.g., "gemini-2.5-flash"
+  prompt_template_version: string;
+  confidence: number;
+  mutation_decision: 'promote' | 'candidate_only' | 'reject';
+  prior_state: string | null;   // Previous proposition if updating
+  new_state: string;            // New proposition
+  promotion_gates_passed: string[]; // Which gates cleared
+  promotion_gates_failed: string[]; // Which gates blocked (if candidate_only)
+}
+```
+
+**Acceptance test**: if you can replay any promoted proposition from raw source, prompt version, grounding evidence, policy decision, and final mutation log, the architecture is strong enough to trust.
 
 ## References
 
