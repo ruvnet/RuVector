@@ -4,6 +4,9 @@ FROM rustlang/rust:nightly-bookworm AS builder
 
 WORKDIR /app
 
+# Pin to a known-good nightly (2026-03-20) to avoid nalgebra ICE on newer nightlies
+RUN rustup default nightly-2026-03-20
+
 # Install build dependencies (native-tls requires OpenSSL)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     pkg-config \
