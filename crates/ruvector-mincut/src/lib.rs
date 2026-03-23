@@ -391,6 +391,12 @@ pub use canonical::{
     CanonicalMinCutImpl, FixedWeight, WitnessReceipt,
 };
 
+#[cfg(feature = "canonical")]
+pub use canonical::source_anchored::{
+    canonical_mincut, make_receipt, receipts_agree, CanonicalMinCutResult as SourceAnchoredResult,
+    SourceAnchoredConfig, SourceAnchoredCut, SourceAnchoredMinCut, SourceAnchoredReceipt,
+};
+
 #[cfg(feature = "monitoring")]
 pub use monitoring::{
     EventType, MinCutEvent, MinCutMonitor, MonitorBuilder, MonitorConfig, MonitorMetrics, Threshold,
@@ -510,7 +516,8 @@ pub mod prelude {
     #[cfg(feature = "canonical")]
     pub use crate::{
         CactusCycle, CactusEdge, CactusGraph, CactusVertex, CanonicalCutResult, CanonicalMinCut,
-        CanonicalMinCutImpl, FixedWeight, WitnessReceipt,
+        CanonicalMinCutImpl, FixedWeight, SourceAnchoredConfig, SourceAnchoredCut,
+        SourceAnchoredMinCut, SourceAnchoredReceipt, WitnessReceipt,
     };
 
     #[cfg(feature = "jtree")]

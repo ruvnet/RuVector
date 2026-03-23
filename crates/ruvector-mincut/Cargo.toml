@@ -87,6 +87,11 @@ harness = false
 name = "optimization_bench"
 harness = false
 
+[[bench]]
+name = "canonical_bench"
+harness = false
+required-features = ["canonical"]
+
 [[example]]
 name = "temporal_attractors"
 path = "../../examples/mincut/temporal_attractors/src/main.rs"

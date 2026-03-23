@@ -2,229 +2,390 @@
 
 **Status**: Accepted
 **Date**: 2026-03-23
-**Author**: Claude (ruvnet)
+**Authors**: rUv / Claude
 **Crates**: `ruvector-mincut` (canonical module), `rvf-types`
-**References**: Yotam Kenneth-Mordoch, "Faster Pseudo-Deterministic Minimum Cut" (arXiv, 2026)
+**Depends on**: existing `ruvector-mincut`, `canonical` feature, RVF witness layout, current Stoer-Wagner and cactus enumeration support
+**References**: Yotam Kenneth-Mordoch, "Faster Pseudo-Deterministic Minimum Cut", arXiv:2602.14550, 2026; Aryan Agarwala and Nithin Varma, "Pseudodeterministic Algorithms for Minimum Cut Problems", arXiv:2512.23468, 2025.
 
 ## Context
 
-The existing `ruvector-mincut` canonical module (`src/canonical/mod.rs`) uses a cactus representation with lexicographic root selection and leftmost branch traversal to produce reproducible minimum cuts. This approach works well but has two limitations:
+RuVector already treats minimum cut as a first-class coherence signal across vector memory, graph reasoning, witness generation, and compute gating. Today the stack has two useful but distinct capabilities:
 
-1. **Tie-breaking is structural (cactus-based), not source-anchored.** The cactus encodes *all* minimum cuts and then picks among them by sorting partitions lexicographically. This is correct but does not match the stronger uniqueness guarantee from recent theoretical work: given a fixed source vertex and vertex ordering, there is a *unique* canonical minimum cut defined by lexicographic tie-breaking on `(λ, first_separable_vertex, |S|, π(S))`.
+1. **Exact global min-cut computation** for value and partitioning.
+2. **Cactus-based enumeration** for cases where all or many minimum cuts matter.
 
-2. **No dynamic maintenance.** The current implementation rebuilds the cactus from scratch on every query. The 2026 paper gives a fully-dynamic pseudo-deterministic maintainer for unweighted graphs with polylogarithmic update and Õ(n) query time, enabling canonical cuts to be maintained across insertions and deletions without full recomputation.
+What is still missing is a single **canonical minimum cut** that is stable across runs, replayable in witness logs, and suitable for proof-gated mutation and deterministic control. The current cactus-based canonicalization chooses among enumerated cuts by partition sort. That is useful for enumeration workflows but it does not define a source-anchored, lexicographically unique canonical cut with a graph-theoretic tie-break.
 
-3. **No integration with RVF witness chains.** The `CanonicalCutResult` struct returns `canonical_key: [u8; 32]` but this hash is not structurally compatible with RVF witness headers (`rvf-types/src/witness.rs`), making cut receipts ad-hoc rather than first-class audit artifacts.
-
-### What changed in the literature
-
-The Kenneth-Mordoch 2026 paper introduces:
-
-- A pseudo-deterministic algorithm for weighted graphs running in O(m log² n) time — matching the best randomized bounds.
-- The first fully-dynamic pseudo-deterministic maintainer for unweighted graphs with polylogarithmic updates and Õ(n) queries.
-- A lexicographic tie-breaking mechanism: fix a source vertex v₀ and a total order on vertices. Among all minimum cuts, choose the one where:
-  1. The first separable vertex (smallest in the ordering that participates in any minimum cut) anchors the cut.
-  2. Among cuts involving that vertex, choose the one with fewest vertices on the source side.
-  3. Among ties, minimize a priority sum π(S) over the source side.
-
-This yields a *unique* canonical minimum cut that any correct randomized algorithm will agree on with high probability.
+Recent work by Yotam Kenneth-Mordoch introduces a natural pseudo-deterministic tie-breaking rule for minimum cut, yielding a unique canonical minimum cut under a fixed source and vertex ordering while preserving the best known randomized weighted running time in the fast path. This directly matches RuVector's needs for auditability, replay, and structural identity.
 
 ## Decision
 
-Extend the `ruvector-mincut` canonical module with a source-anchored pseudo-deterministic canonical min-cut algorithm, integrated with RVF witness hashing. Ship in three tiers.
+Add a new source-anchored canonical minimum cut API under `ruvector-mincut/src/canonical/` gated behind the existing `canonical` feature flag.
 
-### Tier 1: Exact Canonical Engine (Ship Now)
-
-Add a new `CanonicalMinCut` struct and `canonical_mincut()` function alongside the existing cactus-based implementation.
-
-#### Algorithm
+The canonical cut is defined by the lexicographic tuple:
 
 ```
-CANONICAL_MINCUT(G, source=0, order, priority):
-    λ* = GLOBAL_MINCUT_VALUE(G)          // existing Stoer-Wagner
-
-    for v in order excluding source:
-        (value, S) = MIN_ST_CUT(G, source, v)
-        if value ≠ λ*:
-            continue
-
-        side = NORMALIZE_SIDE(G, S, source, v)
-
-        return CanonicalMinCut {
-            lambda: λ*,
-            source_vertex: source,
-            first_separable_vertex: v,
-            side_vertices: sorted(side),
-            side_size: |side|,
-            priority_sum: Σ priority[u] for u in side,
-            cut_hash: SHA-256(λ* ‖ source ‖ v ‖ priority_sum ‖ side_vertices),
-        }
-
-    return None  // disconnected or trivial
+(λ, first_separable_vertex, |S|, π(S))
 ```
 
-#### Complexity
+Where:
 
-- T_global + O(n · T_st) where T_st is the cost of an exact max-flow / min s-t cut.
-- Not optimal, but exact and auditable.
+- **λ** is the global minimum cut value
+- **first_separable_vertex** is the first vertex in the fixed global ordering that can be separated from the designated source by some minimum cut
+- **|S|** is the cardinality of the source side
+- **π(S)** is a secondary priority sum over vertices on the source side, used for contracted graphs, sparsifiers, and dynamic maintenance
 
-#### Minimum-cardinality side selection
+The side S is always oriented to contain the designated source vertex.
 
-To ensure the source side S has minimum cardinality among all minimum s-t cuts with the same value, use **capacity perturbation**:
+This new source-anchored canonical API is additive. The existing `CactusGraph::canonical_cut()` remains unchanged for cut enumeration and partition browsing use cases.
 
-```
-C'(e) = C(e) · M + w_vertex
-```
+### Why this decision
 
-where M > Σ P(v). A single max-flow on transformed capacities simultaneously minimizes:
-1. Primary cut weight.
-2. Source-side priority sum (secondary).
+This gives RuVector a canonical cut that is:
 
-This avoids needing residual graph condensation or brute-force enumeration.
+- Unique under fixed source and vertex ordering
+- Stable across runs
+- Hashable into receipts and witnesses
+- Compatible with dynamic sparsifiers and contracted node priorities
+- Stronger than cactus tie-breaking for replay and governance
 
-#### Output struct
+This is the right fit for:
+
+- RVF witness chains
+- Mincut-gated transformer control
+- Coherence-based rollback
+- Swarm shard boundary agreement
+- Structural delta tracking
+
+### Scope
+
+This ADR introduces:
+
+- A canonical source-anchored min-cut definition
+- A ship-now exact implementation
+- A fast-path architecture target
+- A dynamic maintenance architecture target
+- RVF serialization and hashing guidance
+
+This ADR does **not** remove or alter cactus enumeration semantics.
+
+## API
+
+### New public types
 
 ```rust
-pub struct CanonicalMinCut {
-    pub lambda: u64,                       // cut weight (fixed-point)
-    pub source_vertex: u32,                // designated source
-    pub first_separable_vertex: u32,       // uniqueness anchor
-    pub side_vertices: Vec<u32>,           // sorted canonical side
+pub struct SourceAnchoredCut {
+    pub lambda: FixedWeight,          // cut value (32.32 fixed-point)
+    pub source_vertex: VertexId,
+    pub first_separable_vertex: VertexId,
+    pub side_vertices: Vec<VertexId>, // sorted, source side only
     pub side_size: usize,
-    pub priority_sum: u64,                 // contracted mass / vertex priority
-    pub cut_edges: Vec<(u32, u32)>,        // optional witness edges
-    pub cut_hash: [u8; 32],               // SHA-256 for RVF receipts
+    pub priority_sum: u64,
+    pub cut_edges: Vec<(VertexId, VertexId)>,
+    pub cut_hash: [u8; 32],          // SHA-256
+}
+
+pub struct SourceAnchoredConfig {
+    pub source: Option<VertexId>,
+    pub vertex_order: Option<Vec<VertexId>>,
+    pub vertex_priorities: Option<Vec<(VertexId, u64)>>,
 }
 ```
 
-#### RVF integration
+### New public entry points
 
-The `cut_hash` field uses the same SHA-256 from `rvf-types/src/sha256.rs` (pure `no_std` FIPS 180-4). Hash inputs are serialized in little-endian, matching existing RVF witness conventions:
+```rust
+pub fn canonical_mincut(
+    graph: &DynamicGraph,
+    config: &SourceAnchoredConfig,
+) -> Option<SourceAnchoredCut>;
+```
+
+### Stateful wrapper
+
+```rust
+pub struct SourceAnchoredMinCut { /* ... */ }
+
+impl SourceAnchoredMinCut {
+    pub fn with_edges(edges: Vec<(VertexId, VertexId, Weight)>,
+                      config: SourceAnchoredConfig) -> Result<Self>;
+    pub fn canonical_cut(&mut self) -> Option<SourceAnchoredCut>;
+    pub fn receipt(&mut self) -> Option<SourceAnchoredReceipt>;
+    pub fn insert_edge(&mut self, u: VertexId, v: VertexId, w: Weight) -> Result<f64>;
+    pub fn delete_edge(&mut self, u: VertexId, v: VertexId) -> Result<f64>;
+}
+```
+
+### WASM FFI
+
+```c
+int32_t canonical_init(uint32_t num_vertices);
+int32_t canonical_add_edge(uint64_t u, uint64_t v, uint64_t weight_fixed);
+int32_t canonical_compute(uint64_t source);
+const CanonicalMinCutResult* canonical_get_result(void);
+int32_t canonical_get_hash(uint8_t* out_buf);
+int32_t canonical_get_side(uint64_t* out_buf, uint32_t buf_len);
+int32_t canonical_get_cut_edges(uint64_t* out_buf, uint32_t buf_len);
+void canonical_free(void);
+int32_t canonical_hashes_equal(const uint8_t* a, const uint8_t* b);
+```
+
+## Algorithm
+
+### Tier 1: Ship now
+
+Use the exact engine built from existing components.
+
+**Inputs:**
+- Connected undirected weighted graph
+- Designated source vertex
+- Stable global vertex ordering
+- Integer vertex priorities, default all ones
+
+**Steps:**
+
+**Step 1: compute the global min-cut value.**
+Use the existing exact Stoer-Wagner engine:
 
 ```
-SHA-256(lambda_le8 ‖ source_le4 ‖ first_v_le4 ‖ priority_sum_le8 ‖ side_vertices_le4...)
+λ* = global_mincut_value(G)
 ```
 
-This hash can be embedded directly in `WitnessHeader.policy_hash` (truncated to 8 bytes) or stored as a full 32-byte cut witness in a `WIT_HAS_TRACE` TLV section.
+**Step 2: find the first separable vertex.**
+Scan vertices in the fixed ordering, skipping the source.
 
-### Tier 2: Fast Path (Near-Optimal)
+For each vertex v:
+- Compute an exact minimum s,t cut between source and v
+- If the cut value equals λ*, then v is the `first_separable_vertex`
+- Stop at the first such vertex
 
-Swap the inner loop with:
+**Step 3: choose the canonical side.**
+Among all minimum s,t cuts for source and `first_separable_vertex`, choose the source side minimizing:
 
-- **Tree packing** for O(m log² n) global min-cut computation.
-- **2-respecting cut search** over packed trees.
-- **Lex-aware tie-breaking** integrated into the tree search, avoiding redundant s-t cut calls.
+```
+(|S|, π(S))
+```
 
-This matches the paper's O(m log² n) randomized weighted min-cut bound.
+**Implementation mechanism:**
+- Use capacity perturbation so primary cut value dominates, while secondary cost minimizes cardinality and then priority
+- **Vertex side penalties require vertex splitting or equivalent source-side accounting** — perturbation on edge capacities alone does not correctly penalize side membership
+- Orient the chosen side to always contain source
+- Sort `side_vertices` before materialization
 
-#### Prerequisites
+**Practical perturbation rule:**
 
-- `ruvector-mincut` already has tree operations (`src/tree/`) and sparsification (`src/sparsify/`).
-- Requires adding a tree packing module and 2-respecting cut enumeration.
+Transform capacities so every cut minimizes:
+1. Original cut value
+2. Side cardinality
+3. Priority sum
 
-### Tier 3: Dynamic Path
+```
+C'(e) = M · C(e) + Δ(e)
+```
 
-Maintain the canonical cut across graph mutations using:
+Where M is chosen so no possible sum of secondary costs can outweigh a unit difference in primary cut value.
 
-- **NMC / weak-NMC style sparsifiers** (building on `src/sparsify/`).
-- **Contracted mass as vertex priority** — each sparsified node carries the count of original vertices it represents.
-- **Trivial cut comparison** — compare the canonical cut from the sparsifier with the minimum-degree vertex's trivial cut.
-- **Stable vertex ordering** — use persistent global IDs from `ruvector-core`.
+Safe bound:
 
-#### Query path
+```
+M > n + Σ π(v) for all v ∈ V
+```
 
-1. Materialize current sparsifier.
-2. Assign each sparsified node: priority = contracted vertex count, lex number = minimum original vertex ID inside contraction.
-3. Run `canonical_mincut()` on the sparsifier.
-4. Compare with trivial cut of minimum-degree vertex.
-5. Return lexicographically smaller result.
+For vertex side penalties, use vertex splitting or equivalent side accounting so the cut cost reflects membership on the source side.
 
-#### Use cases
+**Tier 1 complexity:**
 
-- RVF witness chains with delta cut tracking.
-- kHz coherence loops in `ruvector-mincut` coherence gate (ADR-001).
-- Live graph memory pruning in `mcp-brain-server`.
-- Shard boundary agreement in distributed swarms.
+```
+T_SW + O(n · T_st)
+```
 
-## Relationship to Existing Canonical Module
+Not the asymptotically best algorithm, but exact, auditable, and easy to test.
 
-The existing cactus-based `CactusGraph::canonical_cut()` remains available and is not deprecated. It serves a different purpose:
+**Why Tier 1 first:** Immediate production value for witness determinism, replay, test stability, deterministic gating, and regression baselines for later fast and dynamic engines.
+
+### Tier 2: Fast path
+
+Target the Kenneth-Mordoch fast path:
+- Tree packing
+- 2-respecting cut search
+- Canonical tie-breaking during candidate selection
+
+Target running time: `O(m log² n)` for weighted graphs, matching the best randomized global min-cut bounds while returning the canonical cut.
+
+**Tier 2 implementation goal:** Swap out the repeated exact s,t scans with a specialized canonical search pipeline while preserving the same output struct and hash semantics. This keeps public API stable, witness format stable, and correctness baseline stable.
+
+### Tier 3: Dynamic maintenance
+
+Maintain the canonical cut under insertions and deletions using non-trivial minimum cut sparsifiers and contracted mass priorities.
+
+**Core idea:** Maintain dynamic graph, trivial cut candidate from minimum degree, NMC sparsifier, contracted vertex masses as priorities, and stable inherited vertex order.
+
+At query time:
+1. Materialize or query the maintained sparsifier
+2. Run canonical source-anchored min-cut on the sparsifier
+3. Compare against the trivial minimum-degree cut candidate
+4. Lift the result back to original vertices
+5. Emit the canonical cut and hash
+
+**Why this matters in RuVector:** Streaming coherence on live graph updates, shard boundary stability in swarms, kHz control loops in Cognitum, incremental structural deltas for RVF.
+
+## RVF Integration
+
+`cut_hash` is a SHA-256 digest over canonical fields using the existing pure `no_std` implementation in `rvf-types`.
+
+### Canonical hash input
+
+Hash the ordered tuple:
+
+```
+version ‖ lambda ‖ source_vertex ‖ first_separable_vertex ‖
+side_size ‖ priority_sum ‖ sorted_side_vertices
+```
+
+**Encoding rules:**
+- All integers little-endian
+- Source side only
+- Vertices sorted ascending by stable global ID
+- Include a version tag to allow future format upgrades
+
+**Storage options:**
+1. Embed directly into `WitnessHeader.policy_hash` (truncated to 8 bytes)
+2. Store as a full 32-byte witness payload in a TLV witness section
+3. Optionally store both when policy and structural identity need to be bound together
+
+**Recommended witness label:**
+
+```
+WITNESS_KIND_CANONICAL_MINCUT = 0x43 // 'C' for Canonical
+```
+
+This should be bound into receipts whenever a mutation, routing decision, attention gate, or rollback depends on structural coherence.
+
+## Coexistence with Cactus Canonicalization
+
+The current `CactusGraph::canonical_cut()` remains.
 
 | Property | Cactus-based (existing) | Source-anchored (new) |
 |----------|------------------------|----------------------|
-| Uniqueness anchor | Lex-smallest original vertex in cactus root | Fixed source + vertex ordering |
-| Tie-breaking | Partition lexicographic order | (λ, first_separable_vertex, \|S\|, π(S)) |
-| Dynamic support | None (rebuild from scratch) | Tier 3 via sparsifier |
-| RVF witness hash | `canonical_key` (ad-hoc) | `cut_hash` (SHA-256, RVF-compatible) |
-| Scope | All minimum cuts via cactus enumeration | Single canonical cut via s-t probing |
-| Paper basis | Classical cactus / Dinitz-Karzanov-Lomonosov | Kenneth-Mordoch 2026 |
+| **Use case** | Enumerate all minimum cuts | Single canonical cut for hashing/replay |
+| **Uniqueness anchor** | Lex-smallest original vertex in cactus root | Fixed source + vertex ordering |
+| **Tie-breaking** | Partition lexicographic order | `(λ, first_separable_vertex, \|S\|, π(S))` |
+| **Dynamic support** | None (rebuild from scratch) | Tier 3 via sparsifier |
+| **RVF witness hash** | `canonical_key` (ad-hoc SipHash) | `cut_hash` (SHA-256, RVF-compatible) |
+| **Paper basis** | Classical cactus / Dinitz-Karzanov-Lomonosov | Kenneth-Mordoch 2026 |
 
-Users choose based on their needs:
-- **Cactus**: when you need to enumerate all minimum cuts or inspect the cactus structure.
-- **Source-anchored**: when you need a single reproducible cut with a stable hash for receipts, witnesses, and regression benchmarks.
+**Doc note:** `CactusGraph::canonical_cut()` returns a canonical representative for enumeration workflows. `canonical_mincut()` returns a source-anchored canonical cut suitable for hashing, replay, and deterministic control.
+
+## Invariants
+
+The implementation must guarantee:
+
+1. `lambda` equals the true global minimum cut value
+2. `side_vertices` always contains `source_vertex`
+3. `first_separable_vertex` is the earliest vertex in the fixed order separable by a minimum cut
+4. Among all such cuts, `side_vertices` minimizes `(|S|, π(S))`
+5. `cut_hash` is stable across runs given identical graph, source, ordering, and priorities
+6. All behavior is integer-exact, with no floating-point dependence
 
 ## Failure Modes and Mitigations
 
 | Failure | Impact | Mitigation |
 |---------|--------|------------|
-| Unstable vertex IDs | Canonicality breaks across runs | Use persistent global IDs; include ordering version in witness |
-| Floating-point weights | Non-deterministic comparison | Quantize to `FixedWeight` (32.32 fixed-point, already in crate) before canonical computation |
-| Implicit side orientation | Hash mismatch for same cut | Always orient side to contain designated source vertex |
-| Randomized max-flow internals | Replay breaks | Fixed seed in receipt mode; or deterministic backend for audit |
+| Unstable vertex ordering | Canonicality breaks across runs | Require stable global IDs; include ordering version in hash preimage |
+| Randomized subroutines | Replay breaks | Provide audit_mode with fixed seed or exact deterministic fallback to Tier 1 |
+| Capacity overflow in perturbation | Incorrect cut selection | Use checked `u128` during transformed capacity construction; reject or rescale if exceeded |
+| Complement ambiguity | Hash mismatch for same cut | Always orient to side containing `source_vertex` |
+| Contracted graph ambiguity | Inconsistent canonical cut in dynamic mode | Use inherited minimum original vertex ID as stable representative; contracted mass as π |
 
-## Acceptance Criteria
+## Implementation Plan
 
-### Invariance test
+### Phase 1 (complete)
 
+Source-anchored API and exact Tier 1 engine.
+
+**Files:**
+- `ruvector-mincut/src/canonical/source_anchored/mod.rs` — core algorithm
+- `ruvector-mincut/src/canonical/source_anchored/tests.rs` — 33 tests
+- `ruvector-mincut/src/wasm/canonical.rs` — WASM FFI with 7 tests
+- `ruvector-mincut/benches/canonical_bench.rs` — criterion benchmarks
+
+### Phase 2
+
+Wire RVF integration.
+
+**Files:**
+- `rvf-types/src/witness/canonical_mincut.rs`
+- `rvf-types/src/hash/mincut.rs`
+
+**Tests:**
+- `no_std` hash parity
+- TLV round-trip
+- Witness binding compatibility
+
+### Phase 3
+
+Add fast-path engine behind an internal strategy enum.
+
+```rust
+pub enum CanonicalEngineKind {
+    ExactTier1,
+    FastTier2,
+    DynamicTier3,
+}
 ```
-For 1000 random seeds:
-    canonical_mincut(G) must return:
-    - same lambda
-    - same first_separable_vertex
-    - same sorted side_vertices
-    - same cut_hash
-```
 
-### Adversarial cases
+### Phase 4
 
-- Cycles (all cuts equal).
-- Complete graphs with uniform weights.
-- Ladder graphs with many equal minimum cuts.
-- Cactus-style graphs with exponentially many minimum cuts.
-- RMAT and LDBC SNB graphs for regression benchmarks.
+Add dynamic maintenance on top of sparsifier infrastructure.
 
-### Benchmark target
+## Acceptance Tests
 
-Run the same graph 1,000 times → `cut_hash` is invariant across all runs.
+### Determinism
 
-## File Layout
+Run the same graph 1,000 times. Expected: same `lambda`, same `first_separable_vertex`, same `side_vertices`, same `priority_sum`, same `cut_hash`. **Implemented:** `test_hash_stability_1000_iterations`, `test_determinism_100_runs`.
 
-```
-crates/ruvector-mincut/
-├── src/
-│   ├── canonical/
-│   │   ├── mod.rs              # existing cactus-based canonical cut
-│   │   ├── source_anchored.rs  # NEW: source-anchored pseudo-deterministic cut
-│   │   └── tests.rs            # extended with new test cases
-│   └── ...
-```
+### Correctness
+
+For small graphs where cactus enumeration is feasible: enumerate all minimum cuts, filter to those separating source from `first_separable_vertex`, confirm chosen cut minimizes `(|S|, π(S))`.
+
+### RVF stability
+
+Serialize and deserialize witness payloads across platforms and confirm identical hash bytes.
+
+### Dynamic regression
+
+Under insertion and deletion traces, canonical cut changes only when graph structure changes, not due to engine nondeterminism.
+
+### SHA-256 NIST vectors
+
+Verify against FIPS 180-4 test vectors for empty string and "abc". **Implemented:** `test_sha256_empty`, `test_sha256_abc`.
+
+### Security
+
+- Source always appears on source side (`test_source_always_on_source_side`)
+- Different graphs produce different hashes (`test_different_graphs_different_hashes`)
+- Constant-time hash comparison in WASM FFI (`canonical_hashes_equal`)
+- Null pointer rejection in all FFI functions (`test_wasm_null_safety`)
+- Graph size limits enforced (`test_wasm_init_too_large`)
 
 ## Consequences
 
 ### Positive
 
-- **Reproducible cut receipts**: Same graph + same ordering → same `cut_hash`, usable as RVF witness evidence.
-- **Theoretical grounding**: Algorithm directly implements the 2026 paper's uniqueness guarantee.
-- **Incremental path**: Tier 1 ships immediately using existing Stoer-Wagner; Tier 2/3 can be swapped in without API changes.
-- **Composable with sparsifier**: ADR-116's spectral sparsifier can feed the dynamic Tier 3 path directly.
+- Deterministic structural identity
+- Stronger witness semantics
+- Stable mincut-based control
+- Clean path from software to dynamic and hardware loops
+- Additive change with no breakage to cactus users
 
 ### Negative
 
-- Tier 1 is O(n · T_st), which is slower than cactus-based enumeration for small graphs with many equal cuts.
-- Adds a second canonical cut API surface alongside the existing cactus-based one.
+- Tier 1 can be expensive on large graphs (`O(n · T_st)`)
+- Capacity perturbation with vertex splitting adds implementation complexity
+- Two notions of canonical cut now coexist and must be documented clearly
 
 ### Neutral
 
-- No changes to `ruvector-mincut` public API — new functionality is additive.
-- `FixedWeight` and existing graph types are reused without modification.
-- Feature-gated behind `canonical` feature flag (already exists).
+- Public API surface grows modestly
+- Existing cactus code remains fully valid
+- Feature-gated behind existing `canonical` flag

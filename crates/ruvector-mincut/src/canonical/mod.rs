@@ -32,6 +32,13 @@
 #[cfg(test)]
 mod tests;
 
+/// Source-anchored pseudo-deterministic canonical minimum cut (ADR-117).
+///
+/// Provides a unique canonical cut via lexicographic tie-breaking on
+/// `(λ, first_separable_vertex, |S|, π(S))` given a fixed source
+/// and vertex ordering.
+pub mod source_anchored;
+
 use crate::algorithm::{self, MinCutConfig};
 use crate::graph::{DynamicGraph, VertexId, Weight};
 use crate::time_compat::PortableTimestamp;
