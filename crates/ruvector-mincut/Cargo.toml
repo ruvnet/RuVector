@@ -52,7 +52,7 @@ wasm = []  # WASM compatibility mode
 agentic = []  # 256-core parallel agentic chip backend
 jtree = []  # j-Tree hierarchical decomposition (ADR-002)
 tiered = ["jtree", "exact"]  # Two-tier coordinator (j-tree + exact)
-canonical = []  # Pseudo-deterministic canonical min-cut via cactus representation
+canonical = []  # Pseudo-deterministic canonical min-cut: source_anchored (Tier 1), tree_packing (Tier 2), dynamic (Tier 3)
 all-cut-queries = ["jtree"]  # Sparsest cut, multiway, multicut queries
 
 [lib]

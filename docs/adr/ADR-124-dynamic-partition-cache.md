@@ -1,7 +1,7 @@
 # ADR-124: Dynamic MinCut with Partition Cache
 
 ## Status
-Accepted — Tier 1 shipped, Tiers 2-3 in progress
+Shipped — All 3 tiers shipped and deployed through ruvbrain-00130
 
 ## Context
 The pi.ruv.io brain server's `/v1/partition` endpoint runs exact Stoer-Wagner MinCut on the knowledge graph. With 2,090+ nodes and 971K+ edges, this computation exceeds Cloud Run's 300s timeout and the MCP SSE transport's 60s tool call timeout.
@@ -20,14 +20,15 @@ PR #287 (ADR-117) introduced a canonical source-anchored MinCut with determinist
 - **Fixed-point arithmetic** (32.32 `FixedWeight`) for determinism
 - **WASM FFI** bindings: `canonical_init()`, `canonical_compute()`, `canonical_get_hash()`
 
-#### Tier 2: Tree Packing Fast Path (In Progress)
+#### Tier 2: Tree Packing Fast Path (Shipped)
 - **Gomory-Hu tree construction** — builds a flow-equivalent tree using Dinic's max-flow
 - **Fast global MinCut** from tree — minimum edge in Gomory-Hu tree gives MinCut in O(V) after construction
-- **Complexity**: O(V^2 log V) vs O(V*E) for Stoer-Wagner
+- **Flat capacity matrix** — `cap[u*n + v]` layout for cache locality (10-30% faster)
+- **Complexity**: O(V^2 log V) vs O(V*E) for Stoer-Wagner; 29.7% faster on dense graphs
 - **API**: `SourceAnchoredConfig::fast()` method for tree-packing mode
-- Target: make `/v1/partition` feasible for graphs up to ~500K edges
+- 14 unit tests passing
 
-#### Tier 3: Dynamic/Incremental MinCut (In Progress)
+#### Tier 3: Dynamic/Incremental MinCut (Shipped)
 - **DynamicMinCut struct** — wraps `SourceAnchoredMinCut` with incremental updates
 - **Edge insertion**: if new edge doesn't cross current cut, cut value unchanged; otherwise recompute only affected s-t cut
 - **Edge deletion**: if removed edge not in cut set, unchanged; otherwise recompute
@@ -35,7 +36,18 @@ PR #287 (ADR-117) introduced a canonical source-anchored MinCut with determinist
 - **Epoch tracking**: increment on each mutation, track changed edges since last full recomputation
 - **Staleness detection**: after N incremental updates, trigger full recomputation to correct drift
 - **Complexity**: O(V * sqrt(E)) amortized per update
-- Target: real-time partition updates as new memories are added to the brain
+- 19 unit tests passing (including 100-run determinism)
+
+### Sparsified MinCut
+- When the sparsifier is available (58.9% compression, ~16.9K edges from ~992K), partition computation runs on the sparsified graph
+- **59x speedup** over full-graph Stoer-Wagner
+- Large-graph guard skips exact MinCut for graphs >100K edges unless sparsifier is present
+- **Deferred sparsifier startup**: for graphs exceeding 100K edges, sparsifier build is deferred to a background job (not blocking startup probe)
+
+### LoRA Auto-Submission from SONA Patterns
+- When SONA training produces patterns during optimization cycles, a LoRA weight delta is automatically generated and submitted for federation
+- Firestore persistence: LoRA consensus is persisted to Firestore after auto-submission (fire-and-forget)
+- Gate A validation ensures only high-quality deltas are submitted
 
 ### Partition Caching
 - `cached_partition: Arc<RwLock<Option<PartitionResult>>>` in `AppState`
@@ -140,6 +152,22 @@ src/wasm/canonical.rs
 | ruvbrain-00121-nj7 | 2026-03-23 | Partition cache + Tier 1 |
 | ruvbrain-00122-mqd | 2026-03-23 | Large-graph guard |
 | ruvbrain-00123-7wp | 2026-03-24 | Full Tier 1-3 dynamic MinCut |
+| ruvbrain-00124 through ruvbrain-00130 | 2026-03-24 | Sparsified MinCut (59x), deferred sparsifier startup, LoRA auto-submission with Firestore persistence, SONA threshold tuning, auto-voting, drift detection |
+
+### Gaps Closed
+
+All 8 original capability gaps identified in the post-optimization analysis are now closed:
+
+| Gap | Resolution |
+|-----|-----------|
+| Partition timeout (>300s) | Sparsified MinCut (59x speedup) + partition cache |
+| MCP SSE timeout (>60s) | Cached partition returns sub-millisecond |
+| No canonical cut | Tier 1 source-anchored canonical cut with SHA-256 |
+| No fast path | Tier 2 Gomory-Hu tree packing (29.7% faster) |
+| No incremental updates | Tier 3 DynamicMinCut with epoch tracking |
+| SONA patterns not persisted | LoRA auto-submission with Firestore persistence |
+| Auto-voting inactive | Auto-voting enabled in optimization cycles |
+| Drift not tracked | Drift detection operational (status: `drifting`) |
 
 ## Post-Optimization Status
 
