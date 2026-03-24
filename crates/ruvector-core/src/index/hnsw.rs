@@ -1,6 +1,8 @@
 //! HNSW (Hierarchical Navigable Small World) index implementation
 
-use crate::distance::distance;
+use crate::distance::{
+    cosine_distance, distance, dot_product_distance, euclidean_distance, manhattan_distance,
+};
 use crate::error::{Result, RuvectorError};
 use crate::index::VectorIndex;
 use crate::types::{DistanceMetric, HnswConfig, SearchResult, VectorId};
@@ -22,8 +24,18 @@ impl DistanceFn {
 }
 
 impl Distance<f32> for DistanceFn {
+    #[inline(always)]
     fn eval(&self, a: &[f32], b: &[f32]) -> f32 {
-        distance(a, b, self.metric).unwrap_or(f32::MAX)
+        // Hot path: called hundreds of times per HNSW search query.
+        // Skip the dimension check and Result unwrap from distance() — dimensions
+        // are validated at insert time, so a.len() == b.len() is guaranteed here.
+        // This eliminates a branch + Result construction per distance call.
+        match self.metric {
+            DistanceMetric::Euclidean => euclidean_distance(a, b),
+            DistanceMetric::Cosine => cosine_distance(a, b),
+            DistanceMetric::DotProduct => dot_product_distance(a, b),
+            DistanceMetric::Manhattan => manhattan_distance(a, b),
+        }
     }
 }
 

@@ -1,5 +1,7 @@
 //! SIMD-optimized distance metrics
-//! Uses SimSIMD when available (native), falls back to pure Rust for WASM
+//! Uses native Rust SIMD intrinsics (NEON/AVX2/AVX-512) when the `simd` feature
+//! is enabled, allowing the compiler to inline distance calls into the HNSW search
+//! hot loop. Falls back to pure Rust scalar code for WASM.
 
 use crate::error::{Result, RuvectorError};
 use crate::types::DistanceMetric;
@@ -23,13 +25,18 @@ pub fn distance(a: &[f32], b: &[f32], metric: DistanceMetric) -> Result<f32> {
 }
 
 /// Euclidean (L2) distance
+///
+/// Uses native Rust SIMD intrinsics (NEON on aarch64, AVX2/AVX-512 on x86_64)
+/// which can be fully inlined by the compiler, unlike the previous SimSIMD FFI
+/// path that crossed the C boundary on every call.
 #[inline]
 pub fn euclidean_distance(a: &[f32], b: &[f32]) -> f32 {
     #[cfg(all(feature = "simd", not(target_arch = "wasm32")))]
     {
-        (simsimd::SpatialSimilarity::sqeuclidean(a, b)
-            .expect("SimSIMD euclidean failed")
-            .sqrt()) as f32
+        // Native Rust SIMD — inlineable, no FFI overhead.
+        // simd_intrinsics::euclidean_distance_simd returns sqrt(sum_of_squares),
+        // matching the previous SimSIMD sqeuclidean().sqrt() semantics.
+        crate::simd_intrinsics::euclidean_distance_simd(a, b)
     }
     #[cfg(any(not(feature = "simd"), target_arch = "wasm32"))]
     {
@@ -54,11 +61,24 @@ pub fn euclidean_distance(a: &[f32], b: &[f32]) -> f32 {
 }
 
 /// Cosine distance (1 - cosine_similarity)
+///
+/// Uses native Rust SIMD intrinsics for the similarity calculation, then
+/// converts to distance. The NEON/AVX intrinsics compute similarity in a
+/// single pass (dot product + both norms simultaneously).
 #[inline]
 pub fn cosine_distance(a: &[f32], b: &[f32]) -> f32 {
     #[cfg(all(feature = "simd", not(target_arch = "wasm32")))]
     {
-        simsimd::SpatialSimilarity::cosine(a, b).expect("SimSIMD cosine failed") as f32
+        // cosine_similarity_simd returns similarity (dot / (norm_a * norm_b)).
+        // We need distance = 1.0 - similarity.
+        // Guard against zero-norm vectors (simd_intrinsics doesn't check this).
+        let similarity = crate::simd_intrinsics::cosine_similarity_simd(a, b);
+        if similarity.is_finite() {
+            1.0 - similarity
+        } else {
+            // Zero-norm vector: treat as maximally distant
+            1.0
+        }
     }
     #[cfg(any(not(feature = "simd"), target_arch = "wasm32"))]
     {
@@ -83,8 +103,8 @@ pub fn cosine_distance(a: &[f32], b: &[f32]) -> f32 {
 pub fn dot_product_distance(a: &[f32], b: &[f32]) -> f32 {
     #[cfg(all(feature = "simd", not(target_arch = "wasm32")))]
     {
-        let dot = simsimd::SpatialSimilarity::dot(a, b).expect("SimSIMD dot product failed");
-        (-dot) as f32
+        // dot_product_simd returns the raw dot product; negate for distance.
+        -crate::simd_intrinsics::dot_product_simd(a, b)
     }
     #[cfg(any(not(feature = "simd"), target_arch = "wasm32"))]
     {
