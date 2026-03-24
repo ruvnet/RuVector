@@ -4515,7 +4515,7 @@ async fn messages_handler(
     StatusCode::ACCEPTED
 }
 
-/// All 21 MCP tool definitions (10 core + brain_sync + 6 Brainpedia + 5 WASM)
+/// All 40 MCP tool definitions (10 core + brain_sync + 6 Brainpedia + 5 WASM + 18 advanced)
 fn mcp_tool_definitions() -> Vec<serde_json::Value> {
     vec![
         // ── Core Brain (10) ──────────────────────────────────
@@ -4781,6 +4781,166 @@ fn mcp_tool_definitions() -> Vec<serde_json::Value> {
                 "required": ["id"]
             }
         }),
+        // ── Cognitive & Symbolic (Group 1) ────────────────────
+        serde_json::json!({
+            "name": "brain_cognitive_status",
+            "description": "Get full cognitive system status: proposition store size, reasoning engine stats, grounding counts, and symbolic inference health.",
+            "inputSchema": { "type": "object", "properties": {} }
+        }),
+        serde_json::json!({
+            "name": "brain_propositions",
+            "description": "List extracted propositions from the neural-symbolic reasoning engine.",
+            "inputSchema": { "type": "object", "properties": {} }
+        }),
+        serde_json::json!({
+            "name": "brain_reason",
+            "description": "Run neural-symbolic inference. Finds propositions related to the query and performs forward-chaining reasoning.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "query": { "type": "string", "description": "Reasoning query" },
+                    "limit": { "type": "integer", "description": "Max results (default 10)" }
+                },
+                "required": ["query"]
+            }
+        }),
+        serde_json::json!({
+            "name": "brain_ground",
+            "description": "Ground a new proposition in the symbolic store. Creates a subject-predicate-object triple with a confidence score.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "predicate": { "type": "string", "description": "Predicate (e.g. 'uses', 'depends_on')" },
+                    "subject": { "type": "string", "description": "Subject entity" },
+                    "object": { "type": "string", "description": "Object entity" },
+                    "confidence": { "type": "number", "description": "Confidence score 0-1 (default 0.5)" }
+                },
+                "required": ["predicate", "subject", "object"]
+            }
+        }),
+        // ── Consciousness Model (Group 2) ─────────────────────
+        serde_json::json!({
+            "name": "brain_voice_working",
+            "description": "Get the current working memory contents from the inner-voice consciousness model.",
+            "inputSchema": { "type": "object", "properties": {} }
+        }),
+        serde_json::json!({
+            "name": "brain_voice_history",
+            "description": "Get recent thought history from the inner-voice consciousness model.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "limit": { "type": "integer", "description": "Max history entries (default 20)" }
+                }
+            }
+        }),
+        serde_json::json!({
+            "name": "brain_voice_goal",
+            "description": "Set a deliberation goal for the inner-voice consciousness model.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "goal": { "type": "string", "description": "Goal description" },
+                    "priority": { "type": "number", "description": "Priority 0-1 (default 0.5)" }
+                },
+                "required": ["goal"]
+            }
+        }),
+        // ── Federated Learning (Group 3) ──────────────────────
+        serde_json::json!({
+            "name": "brain_lora_latest",
+            "description": "Get the latest consensus MicroLoRA weights from federated aggregation.",
+            "inputSchema": { "type": "object", "properties": {} }
+        }),
+        serde_json::json!({
+            "name": "brain_lora_submit",
+            "description": "Submit session LoRA weight deltas for federated aggregation.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "down_proj": { "type": "array", "items": { "type": "number" }, "description": "Down-projection weights (rank x hidden_dim)" },
+                    "up_proj": { "type": "array", "items": { "type": "number" }, "description": "Up-projection weights (hidden_dim x rank)" },
+                    "rank": { "type": "integer", "description": "LoRA rank" },
+                    "hidden_dim": { "type": "integer", "description": "Hidden dimension" },
+                    "evidence_count": { "type": "integer", "description": "Number of evidence samples used" }
+                },
+                "required": ["down_proj", "up_proj", "rank", "hidden_dim", "evidence_count"]
+            }
+        }),
+        // ── Training & Optimization (Group 4) ─────────────────
+        serde_json::json!({
+            "name": "brain_train",
+            "description": "Trigger a basic training cycle: re-embeds memories, rebuilds HNSW index, updates graph topology, and computes mincut partitions.",
+            "inputSchema": { "type": "object", "properties": {} }
+        }),
+        serde_json::json!({
+            "name": "brain_train_enhanced",
+            "description": "Trigger an enhanced AGI training cycle (ADR-110): includes self-reflection, inference, adaptive SONA, and full optimization pipeline.",
+            "inputSchema": { "type": "object", "properties": {} }
+        }),
+        serde_json::json!({
+            "name": "brain_optimizer_status",
+            "description": "Get the Gemini optimizer status: scheduled jobs, last run times, optimization metrics.",
+            "inputSchema": { "type": "object", "properties": {} }
+        }),
+        // ── Temporal & SONA (Group 5) ─────────────────────────
+        serde_json::json!({
+            "name": "brain_temporal",
+            "description": "Get temporal analysis: memory creation trends, activity windows, and time-series patterns.",
+            "inputSchema": { "type": "object", "properties": {} }
+        }),
+        serde_json::json!({
+            "name": "brain_sona_stats",
+            "description": "Get SONA (Self-Optimizing Neural Architecture) statistics: adaptation rate, trajectory diversity, reward history.",
+            "inputSchema": { "type": "object", "properties": {} }
+        }),
+        serde_json::json!({
+            "name": "brain_midstream",
+            "description": "Get midstream inference state: current processing queue, active embeddings, and pipeline position.",
+            "inputSchema": { "type": "object", "properties": {} }
+        }),
+        // ── Pipeline (Group 6) ────────────────────────────────
+        serde_json::json!({
+            "name": "brain_inject",
+            "description": "Inject a single item into the brain ingestion pipeline. Content is PII-stripped, embedded, and stored.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "content": { "type": "string", "description": "Content to inject" },
+                    "category": { "type": "string", "description": "Knowledge category" },
+                    "source": { "type": "string", "description": "Source identifier" }
+                },
+                "required": ["content"]
+            }
+        }),
+        serde_json::json!({
+            "name": "brain_inject_batch",
+            "description": "Inject up to 100 items into the brain pipeline in a single batch.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "messages": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "content": { "type": "string", "description": "Content to inject" },
+                                "category": { "type": "string", "description": "Knowledge category" },
+                                "source": { "type": "string", "description": "Source identifier" }
+                            },
+                            "required": ["content"]
+                        },
+                        "description": "Array of messages to inject (max 100)"
+                    }
+                },
+                "required": ["messages"]
+            }
+        }),
+        serde_json::json!({
+            "name": "brain_pipeline_metrics",
+            "description": "Get pipeline health and throughput metrics: items processed, queue depth, error rates, latency percentiles.",
+            "inputSchema": { "type": "object", "properties": {} }
+        }),
     ]
 }
 
@@ -5001,6 +5161,12 @@ async fn handle_mcp_tool_call(
         "brain_train" => {
             proxy_post(&client, &base, "/v1/train", api_key, &serde_json::json!({})).await
         },
+        "brain_train_enhanced" => {
+            proxy_post(&client, &base, "/v1/train/enhanced", api_key, &serde_json::json!({})).await
+        },
+        "brain_optimizer_status" => {
+            proxy_get(&client, &base, "/v1/optimizer/status", api_key, &[]).await
+        },
         "brain_agi_status" => {
             proxy_get(&client, &base, "/v1/status", api_key, &[]).await
         },
@@ -5018,6 +5184,81 @@ async fn handle_mcp_tool_call(
         },
         "brain_flags" => {
             proxy_get(&client, &base, "/v1/status", api_key, &[]).await
+        },
+
+        // ── Cognitive & Symbolic ─────────────────────────────
+        "brain_cognitive_status" => {
+            proxy_get(&client, &base, "/v1/cognitive/status", api_key, &[]).await
+        },
+        "brain_propositions" => {
+            proxy_get(&client, &base, "/v1/propositions", api_key, &[]).await
+        },
+        "brain_reason" => {
+            let body = serde_json::json!({
+                "query": args.get("query"),
+                "limit": args.get("limit"),
+            });
+            proxy_post(&client, &base, "/v1/reason", api_key, &body).await
+        },
+        "brain_ground" => {
+            let body = serde_json::json!({
+                "predicate": args.get("predicate"),
+                "subject": args.get("subject"),
+                "object": args.get("object"),
+                "confidence": args.get("confidence").and_then(|v| v.as_f64()).unwrap_or(0.5),
+            });
+            proxy_post(&client, &base, "/v1/ground", api_key, &body).await
+        },
+
+        // ── Consciousness Model ──────────────────────────────
+        "brain_voice_working" => {
+            proxy_get(&client, &base, "/v1/voice/working", api_key, &[]).await
+        },
+        "brain_voice_history" => {
+            let mut params = Vec::new();
+            if let Some(l) = args.get("limit").and_then(|v| v.as_u64()) { params.push(("limit", l.to_string())); }
+            proxy_get(&client, &base, "/v1/voice/history", api_key, &params).await
+        },
+        "brain_voice_goal" => {
+            let body = serde_json::json!({
+                "goal": args.get("goal"),
+                "priority": args.get("priority").and_then(|v| v.as_f64()).unwrap_or(0.5),
+            });
+            proxy_post(&client, &base, "/v1/voice/goal", api_key, &body).await
+        },
+
+        // ── Federated Learning ───────────────────────────────
+        "brain_lora_latest" => {
+            proxy_get(&client, &base, "/v1/lora/latest", api_key, &[]).await
+        },
+        "brain_lora_submit" => {
+            let body = serde_json::json!({
+                "down_proj": args.get("down_proj"),
+                "up_proj": args.get("up_proj"),
+                "rank": args.get("rank"),
+                "hidden_dim": args.get("hidden_dim"),
+                "evidence_count": args.get("evidence_count"),
+            });
+            proxy_post(&client, &base, "/v1/lora/submit", api_key, &body).await
+        },
+
+        // ── Pipeline ─────────────────────────────────────────
+        "brain_inject" => {
+            let body = serde_json::json!({
+                "content": args.get("content"),
+                "category": args.get("category"),
+                "source": args.get("source"),
+            });
+            proxy_post(&client, &base, "/v1/pipeline/inject", api_key, &body).await
+        },
+        "brain_inject_batch" => {
+            let body = serde_json::json!({
+                "messages": args.get("messages").unwrap_or(&serde_json::json!([])),
+            });
+            proxy_post(&client, &base, "/v1/pipeline/inject/batch", api_key, &body).await
+        },
+        "brain_pipeline_metrics" => {
+            proxy_get(&client, &base, "/v1/pipeline/metrics", api_key, &[]).await
         },
 
         _ => Err(format!("Unknown tool: {tool_name}")),
