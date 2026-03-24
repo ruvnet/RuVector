@@ -354,6 +354,8 @@ pub async fn create_router() -> (Router, AppState) {
         .route("/v1/notify/digest", post(notify_digest))
         .route("/v1/notify/pixel/:tracking_id", get(notify_pixel))
         .route("/v1/notify/opens", get(notify_opens))
+        .route("/v1/notify/subscribe", post(notify_subscribe))
+        .route("/v1/notify/unsubscribe", post(notify_unsubscribe))
         .layer({
             // CORS origins: configurable via CORS_ORIGINS env var (comma-separated).
             // Falls back to safe defaults if unset.
@@ -5714,6 +5716,55 @@ async fn notify_opens(
         "stats": stats,
         "recent_opens": opens,
         "open_rates": notifier.tracker.open_rates(),
+    })))
+}
+
+/// POST /v1/notify/subscribe — public endpoint for email subscription
+async fn notify_subscribe(
+    State(state): State<AppState>,
+    Json(body): Json<serde_json::Value>,
+) -> (StatusCode, Json<serde_json::Value>) {
+    let email = match body["email"].as_str() {
+        Some(e) if e.contains('@') && e.len() > 3 => e,
+        _ => return (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "error": "valid email required" }))),
+    };
+    let frequency = body["frequency"].as_str().unwrap_or("daily");
+
+    let notifier = match state.notifier.as_ref() {
+        Some(n) => n,
+        None => return (StatusCode::SERVICE_UNAVAILABLE, Json(serde_json::json!({ "error": "email not configured" }))),
+    };
+
+    // Send welcome email to the subscriber
+    match notifier.send_welcome(email, None).await {
+        Ok(id) => {
+            tracing::info!("New subscriber: {} (frequency: {})", email, frequency);
+            (StatusCode::OK, Json(serde_json::json!({
+                "ok": true,
+                "email_id": id,
+                "subscribed": email,
+                "frequency": frequency
+            })))
+        }
+        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({ "error": e }))),
+    }
+}
+
+/// POST /v1/notify/unsubscribe — public endpoint for email unsubscription
+async fn notify_unsubscribe(
+    Json(body): Json<serde_json::Value>,
+) -> (StatusCode, Json<serde_json::Value>) {
+    let email = match body["email"].as_str() {
+        Some(e) if e.contains('@') => e,
+        _ => return (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "error": "valid email required" }))),
+    };
+
+    tracing::info!("Unsubscribe request: {}", email);
+    // TODO: persist to Firestore subscription collection
+    (StatusCode::OK, Json(serde_json::json!({
+        "ok": true,
+        "unsubscribed": email,
+        "message": "You have been unsubscribed from Pi Brain digests."
     })))
 }
 

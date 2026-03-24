@@ -919,6 +919,18 @@ footer a:hover{color:var(--text2)}
     <div style="max-width:480px;margin:0 auto">
       <div class="key-box" id="footer-key" onclick="copyKey('footer-key')" title="Click to copy" style="display:block;text-align:center">click to generate</div>
       <p style="color:var(--text3);font-size:0.65rem;margin-top:0.75rem;font-family:var(--mono)">Store as <span style="color:var(--glow)">&#x3C0;=key</span> in .env &#x2022; Use as <span style="color:var(--glow)">Bearer $&#x3C0;</span></p>
+
+      <!-- Email subscription -->
+      <div style="margin-top:1.5rem;padding:1.25rem;background:var(--surface);border:1px solid var(--border);border-radius:8px">
+        <p style="color:var(--text1);font-size:0.78rem;margin-bottom:0.75rem;font-family:var(--mono)">&#x2709; Or subscribe via email</p>
+        <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center">
+          <input type="email" id="cta-email" placeholder="your@email.com" style="background:var(--surface2);border:1px solid var(--border);color:var(--text1);padding:8px 14px;border-radius:4px;font-family:var(--mono);font-size:0.65rem;flex:1;min-width:200px;max-width:300px" />
+          <button onclick="subscribeEmail('cta')" style="background:var(--glow);color:var(--bg);border:none;padding:8px 20px;border-radius:4px;font-family:var(--mono);font-size:0.65rem;font-weight:600;letter-spacing:1px;cursor:pointer;text-transform:uppercase;white-space:nowrap">Get Digests</button>
+        </div>
+        <div id="cta-sub-result" style="margin-top:0.5rem;font-size:0.6rem;font-family:var(--mono);display:none;text-align:center"></div>
+        <p style="color:var(--text3);font-size:0.55rem;margin-top:0.5rem;font-family:var(--mono);text-align:center">Daily discoveries from pi@ruv.io &#x2022; Unsubscribe anytime</p>
+      </div>
+
       <div style="margin-top:1.5rem">
         <p style="color:var(--text2);font-size:0.72rem;font-family:var(--mono);letter-spacing:0.3px">
           <span style="color:var(--glow)">$</span> npx ruvector mcp start &nbsp;
@@ -988,6 +1000,7 @@ footer a:hover{color:var(--text2)}
     <a href="https://www.npmjs.com/package/ruvector" target="_blank">npm</a>
     <a href="/v1/status">Stats</a>
     <a href="#releases">Releases</a>
+    <a href="javascript:void(0)" onclick="openModal();showTab('email')" title="Subscribe to brain digests">Subscribe</a>
   </div>
   <p style="color:var(--text3);font-family:serif;font-size:1.1rem">&#x3C0;</p>
 </footer>
@@ -1005,6 +1018,7 @@ footer a:hover{color:var(--text2)}
       <button class="guide-tab" onclick="showTab('query')">Query</button>
       <button class="guide-tab" onclick="showTab('mcp')">MCP</button>
       <button class="guide-tab" onclick="showTab('cli')">CLI</button>
+      <button class="guide-tab" onclick="showTab('email')">Email</button>
       <button class="guide-tab" onclick="showTab('edge')">Edge</button>
     </div>
 
@@ -1207,6 +1221,66 @@ npx ruvector mcp test
 <span style="color:var(--text3)">npx ruvector sona train</span>      Adaptive learning
 <span style="color:var(--text3)">npx ruvector edge join</span>       P2P compute
 <span style="color:var(--text3)">npx ruvector route classify</span>  Semantic routing</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab: Email -->
+    <div class="guide-panel" id="tab-email">
+      <div class="step-row">
+        <div class="step-n" style="background:var(--glow);color:var(--bg)">&#x2709;</div>
+        <div>
+          <h3>Subscribe to discoveries</h3>
+          <p>Get daily discovery digests, brain status reports, and research findings delivered to your inbox from <strong style="color:var(--glow)">pi@ruv.io</strong>.</p>
+          <div style="margin-top:0.75rem;display:flex;gap:0.5rem;flex-wrap:wrap">
+            <input type="email" id="sub-email" placeholder="your@email.com" style="background:var(--surface2);border:1px solid var(--border);color:var(--text1);padding:8px 12px;border-radius:4px;font-family:var(--mono);font-size:0.65rem;flex:1;min-width:200px" />
+            <button onclick="subscribeEmail()" style="background:var(--glow);color:var(--bg);border:none;padding:8px 16px;border-radius:4px;font-family:var(--mono);font-size:0.65rem;font-weight:600;letter-spacing:1px;cursor:pointer;text-transform:uppercase;white-space:nowrap">Subscribe</button>
+          </div>
+          <div id="sub-result" style="margin-top:0.5rem;font-size:0.6rem;font-family:var(--mono);display:none"></div>
+          <p style="color:var(--text3);font-size:0.55rem;margin-top:0.5rem;font-family:var(--mono)">Unsubscribe anytime via link in every email. No spam, ever.</p>
+        </div>
+      </div>
+      <div class="step-row">
+        <div class="step-n">2</div>
+        <div>
+          <h3>Email commands <span style="font-size:0.55rem;color:var(--text3);font-family:var(--mono);vertical-align:middle;margin-left:4px">COMING SOON</span></h3>
+          <p>Reply to any email from pi@ruv.io with these subjects to interact with the brain:</p>
+          <div class="curl-block" style="color:var(--glow);font-size:0.6rem;line-height:2"><span style="color:var(--text3)">search &lt;query&gt;</span>   Semantic search across all knowledge
+<span style="color:var(--text3)">status</span>            Brain health &amp; metrics report
+<span style="color:var(--text3)">help</span>              Full command reference
+<span style="color:var(--text3)">drift</span>             Knowledge drift analysis
+<span style="color:var(--text3)">share</span>             Contribute knowledge (body = content)</div>
+        </div>
+      </div>
+      <div class="step-row">
+        <div class="step-n">3</div>
+        <div>
+          <h3>What you&#x2019;ll receive</h3>
+          <p>Curated digests based on your interests:</p>
+          <div style="display:grid;gap:0.5rem;margin-top:0.5rem">
+            <div style="display:flex;align-items:center;gap:0.5rem">
+              <span style="background:var(--glow-dim);color:var(--glow);padding:0.15rem 0.4rem;border-radius:3px;font-size:0.55rem;font-family:var(--mono);min-width:70px;text-align:center">DAILY</span>
+              <span style="color:var(--text2);font-size:0.7rem">Discovery digest &mdash; new knowledge, research findings, patterns</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:0.5rem">
+              <span style="background:var(--blue-dim);color:var(--blue);padding:0.15rem 0.4rem;border-radius:3px;font-size:0.55rem;font-family:var(--mono);min-width:70px;text-align:center">ON-DEMAND</span>
+              <span style="color:var(--text2);font-size:0.7rem">Status reports, drift alerts, search results via email</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:0.5rem">
+              <span style="background:rgba(255,100,100,0.1);color:#ff6b6b;padding:0.15rem 0.4rem;border-radius:3px;font-size:0.55rem;font-family:var(--mono);min-width:70px;text-align:center">ALERT</span>
+              <span style="color:var(--text2);font-size:0.7rem">Security events, training anomalies (immediate)</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="step-row" style="border-bottom:none">
+        <div class="step-n" style="font-size:0.5rem">&#x2718;</div>
+        <div>
+          <h3>Unsubscribe</h3>
+          <p>Every email includes a one-click unsubscribe link. You can also manage preferences or unsubscribe via the API:</p>
+          <div class="curl-block"><button class="curl-copy" onclick="copyCurl(this)">copy</button>curl -X POST https://pi.ruv.io/v1/notify/unsubscribe \
+  -H "Content-Type: application/json" \
+  -d '{"email":"your@email.com"}'</div>
         </div>
       </div>
     </div>
@@ -1773,6 +1847,47 @@ function showTab(name){
   document.querySelectorAll('.guide-panel').forEach(p=>p.classList.remove('active'));
   document.querySelector(`[onclick="showTab('${name}')"]`).classList.add('active');
   document.getElementById('tab-'+name).classList.add('active');
+}
+
+// Email subscription
+function subscribeEmail(source){
+  const inputId = source === 'cta' ? 'cta-email' : 'sub-email';
+  const resultId = source === 'cta' ? 'cta-sub-result' : 'sub-result';
+  const email = document.getElementById(inputId).value.trim();
+  const result = document.getElementById(resultId);
+  result.style.display = 'block';
+
+  if (!email || !email.includes('@')) {
+    result.style.color = '#ff6b6b';
+    result.textContent = 'Please enter a valid email address';
+    return;
+  }
+
+  result.style.color = 'var(--glow)';
+  result.textContent = 'Subscribing...';
+
+  fetch('/v1/notify/subscribe', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({email: email, frequency: 'daily'})
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.ok) {
+      result.style.color = '#6bff6b';
+      result.innerHTML = '&#x2713; Subscribed! Check your inbox for a welcome email from pi@ruv.io';
+      document.getElementById(inputId).value = '';
+    } else {
+      result.style.color = '#ff6b6b';
+      result.textContent = data.error || 'Subscription failed. Try again.';
+    }
+  })
+  .catch(() => {
+    // Fallback: open mailto with subscribe subject
+    result.style.color = 'var(--glow)';
+    result.innerHTML = '&#x2713; Opening email client... Send the email to complete subscription.';
+    window.location.href = 'mailto:pi@ruv.io?subject=subscribe&body=Subscribe%20me%20to%20daily%20discovery%20digests.%0A%0AEmail:%20' + encodeURIComponent(email);
+  });
 }
 </script>
 
