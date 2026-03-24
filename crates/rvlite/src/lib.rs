@@ -383,6 +383,7 @@ impl RvLite {
             k,
             filter: None,
             ef_search: None,
+        ..Default::default()
         };
 
         let results = self.db.search(query).map_err(|e| RvLiteError::from(e))?;
@@ -416,6 +417,7 @@ impl RvLite {
             k,
             filter: Some(filter_map),
             ef_search: None,
+        ..Default::default()
         };
 
         let results = self.db.search(query).map_err(|e| RvLiteError::from(e))?;

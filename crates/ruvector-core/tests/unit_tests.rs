@@ -466,6 +466,7 @@ mod vector_db_tests {
             k: 10,
             filter: None,
             ef_search: None,
+        ..Default::default()
         })?;
 
         assert_eq!(results.len(), 0);
@@ -511,6 +512,7 @@ mod vector_db_tests {
             k: 10,
             filter: Some(filter),
             ef_search: None,
+        ..Default::default()
         })?;
 
         assert_eq!(results.len(), 1);

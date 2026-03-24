@@ -52,6 +52,7 @@ fn test_complete_insert_search_workflow() {
             k: 10,
             filter: None,
             ef_search: Some(100),
+        ..Default::default()
         })
         .unwrap();
 
@@ -101,6 +102,7 @@ fn test_batch_operations_10k_vectors() {
                 k: 10,
                 filter: None,
                 ef_search: None,
+            ..Default::default()
             })
             .unwrap();
 
@@ -201,6 +203,7 @@ fn test_mixed_operations_workflow() {
             k: 20,
             filter: None,
             ef_search: None,
+        ..Default::default()
         })
         .unwrap();
 
@@ -248,6 +251,7 @@ fn test_all_distance_metrics() {
                 k: 5,
                 filter: None,
                 ef_search: None,
+            ..Default::default()
             })
             .unwrap();
 
@@ -321,6 +325,7 @@ fn test_hnsw_different_configurations() {
                 k: 10,
                 filter: None,
                 ef_search: Some(config.ef_search),
+                ..Default::default()
             })
             .unwrap();
 
@@ -367,6 +372,7 @@ fn test_complex_metadata_filtering() {
             k: 100,
             filter: Some(filter1),
             ef_search: None,
+        ..Default::default()
         })
         .unwrap();
 
@@ -386,6 +392,7 @@ fn test_complex_metadata_filtering() {
             k: 100,
             filter: Some(filter2),
             ef_search: None,
+        ..Default::default()
         })
         .unwrap();
 
@@ -445,6 +452,7 @@ fn test_search_with_wrong_dimension() {
         k: 10,
         filter: None,
         ef_search: None,
+    ..Default::default()
     });
 
     // Depending on implementation, this might error or return empty results

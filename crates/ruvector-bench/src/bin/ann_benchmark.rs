@@ -317,6 +317,7 @@ fn run_benchmark(
             k: args.k,
             filter: None,
             ef_search: Some(ef_search),
+            ..Default::default()
         })?;
         latency_stats.record(query_start.elapsed())?;
 

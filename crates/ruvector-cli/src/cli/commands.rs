@@ -121,6 +121,7 @@ pub fn search_vectors(
             k,
             filter: None,
             ef_search: None,
+        ..Default::default()
         })
         .context("Failed to search")?;
 
@@ -192,6 +193,7 @@ pub fn run_benchmark(db_path: &str, config: &Config, num_queries: usize) -> Resu
             k: 10,
             filter: None,
             ef_search: None,
+        ..Default::default()
         });
     }
 
@@ -203,6 +205,7 @@ pub fn run_benchmark(db_path: &str, config: &Config, num_queries: usize) -> Resu
             k: 10,
             filter: None,
             ef_search: None,
+        ..Default::default()
         })
         .context("Search failed")?;
     }

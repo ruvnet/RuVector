@@ -335,6 +335,7 @@ impl VectorDB {
             k,
             filter: metadata_filter,
             ef_search: None,
+        ..Default::default()
         };
 
         let db = self.db.lock();

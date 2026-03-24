@@ -194,6 +194,7 @@ fn profile_search(args: &Args) -> Result<()> {
             k: 10,
             filter: None,
             ef_search: None,
+        ..Default::default()
         })?;
         pb.inc(1);
     }
@@ -263,6 +264,7 @@ fn profile_mixed_workload(args: &Args) -> Result<()> {
                 k: 10,
                 filter: None,
                 ef_search: None,
+            ..Default::default()
             })?;
             read_count += 1;
         }

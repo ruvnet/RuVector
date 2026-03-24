@@ -147,6 +147,7 @@ fn bench_search(c: &mut Criterion) {
                     k,
                     filter: None,
                     ef_search: None,
+                ..Default::default()
                 };
                 let results = black_box(db.search(search_query));
                 query_idx += 1;

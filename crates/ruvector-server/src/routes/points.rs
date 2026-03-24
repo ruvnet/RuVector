@@ -93,6 +93,7 @@ async fn search_points(
         k: req.k,
         filter: req.filter,
         ef_search: None,
+    ..Default::default()
     };
 
     let mut results = db.search(query).map_err(Error::Core)?;

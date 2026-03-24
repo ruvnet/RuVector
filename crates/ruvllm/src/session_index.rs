@@ -204,6 +204,7 @@ impl SessionIndex {
             k: limit,
             filter: None,
             ef_search: None,
+        ..Default::default()
         };
 
         let results = self

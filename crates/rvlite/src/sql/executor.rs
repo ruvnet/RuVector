@@ -291,6 +291,7 @@ impl SqlEngine {
                     k,
                     filter,
                     ef_search: None,
+                ..Default::default()
                 };
 
                 let results = db.search(query).map_err(|e| RvLiteError {
@@ -352,6 +353,7 @@ impl SqlEngine {
             k,
             filter,
             ef_search: None,
+        ..Default::default()
         };
 
         let results = db.search(query).map_err(|e| RvLiteError {

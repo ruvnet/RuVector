@@ -106,6 +106,7 @@ fn bench_ruvector_optimized(args: &Args) -> Result<BenchmarkResult> {
             k: 10,
             filter: None,
             ef_search: None,
+        ..Default::default()
         })?;
         latency_stats.record(query_start.elapsed())?;
         pb.inc(1);
@@ -153,6 +154,7 @@ fn bench_ruvector_no_quant(args: &Args) -> Result<BenchmarkResult> {
             k: 10,
             filter: None,
             ef_search: None,
+        ..Default::default()
         })?;
         latency_stats.record(query_start.elapsed())?;
         pb.inc(1);
@@ -202,6 +204,7 @@ fn simulate_python_baseline(args: &Args) -> Result<BenchmarkResult> {
             k: 10,
             filter: None,
             ef_search: None,
+        ..Default::default()
         })?;
         let rust_latency = query_start.elapsed();
 
@@ -260,6 +263,7 @@ fn simulate_brute_force(args: &Args) -> Result<BenchmarkResult> {
             k: 10,
             filter: None,
             ef_search: None,
+        ..Default::default()
         })?;
         let hnsw_latency = query_start.elapsed();
 

@@ -327,6 +327,7 @@ impl AgenticDB {
                 filter
             }),
             ef_search: None,
+        ..Default::default()
         })?;
 
         // Retrieve full episodes
@@ -417,6 +418,7 @@ impl AgenticDB {
                 filter
             }),
             ef_search: None,
+        ..Default::default()
         })?;
 
         let mut skills = Vec::new();
@@ -539,6 +541,7 @@ impl AgenticDB {
                 filter
             }),
             ef_search: None,
+        ..Default::default()
         })?;
 
         let mut utility_results = Vec::new();
@@ -885,6 +888,7 @@ impl<'a> PolicyMemoryStore<'a> {
                 filter
             }),
             ef_search: None,
+        ..Default::default()
         })?;
 
         let mut entries = Vec::new();
@@ -1041,6 +1045,7 @@ impl<'a> SessionStateIndex<'a> {
                 filter
             }),
             ef_search: None,
+        ..Default::default()
         })?;
 
         let mut turns = Vec::new();
@@ -1238,6 +1243,7 @@ impl<'a> WitnessLog<'a> {
                 filter
             }),
             ef_search: None,
+        ..Default::default()
         })?;
 
         let mut entries = Vec::new();

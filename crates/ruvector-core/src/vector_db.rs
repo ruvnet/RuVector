@@ -168,15 +168,35 @@ impl VectorDB {
     }
 
     /// Search for similar vectors
+    ///
+    /// By default, results are enriched with vector data and metadata from storage
+    /// only when a metadata filter is present (since the filter needs metadata to
+    /// evaluate). This avoids expensive REDB read transactions when only IDs and
+    /// scores are needed.
+    ///
+    /// Use `query.enrich = Some(true)` to always enrich, or `Some(false)` to never
+    /// enrich. See [`SearchQuery::enrich`] for details.
     pub fn search(&self, query: SearchQuery) -> Result<Vec<SearchResult>> {
         let index = self.index.read();
         let mut results = index.search(&query.vector, query.k)?;
 
-        // Enrich results with full data if needed
-        for result in &mut results {
-            if let Ok(Some(entry)) = self.storage.get(&result.id) {
-                result.vector = Some(entry.vector);
-                result.metadata = entry.metadata;
+        // Determine whether to enrich results with vector data and metadata
+        // from storage. Each enrichment requires a REDB read transaction per result.
+        //
+        // - enrich=Some(true):  always enrich
+        // - enrich=Some(false): never enrich (metadata filters won't work)
+        // - enrich=None (default): auto — enrich only when filter is present
+        let should_enrich = match query.enrich {
+            Some(explicit) => explicit,
+            None => query.filter.is_some(),
+        };
+
+        if should_enrich {
+            for result in &mut results {
+                if let Ok(Some(entry)) = self.storage.get(&result.id) {
+                    result.vector = Some(entry.vector);
+                    result.metadata = entry.metadata;
+                }
             }
         }
 
@@ -289,6 +309,7 @@ mod tests {
             k: 2,
             filter: None,
             ef_search: None,
+        ..Default::default()
         })?;
 
         assert!(results.len() >= 1);
@@ -343,6 +364,7 @@ mod tests {
                 k: 3,
                 filter: None,
                 ef_search: None,
+            ..Default::default()
             })?;
             assert_eq!(results.len(), 3, "Should find all 3 vectors before restart");
         }
@@ -371,6 +393,7 @@ mod tests {
                 k: 3,
                 filter: None,
                 ef_search: None,
+            ..Default::default()
             })?;
 
             assert_eq!(

@@ -171,6 +171,7 @@ fn bench_reflexion_episodes(args: &Args) -> Result<BenchmarkResult> {
             k: 10,
             filter: None,
             ef_search: None,
+        ..Default::default()
         })?;
         latency_stats.record(query_start.elapsed())?;
         pb.inc(1);
@@ -274,6 +275,7 @@ fn bench_skill_library(args: &Args) -> Result<BenchmarkResult> {
             k: 5,
             filter: None,
             ef_search: None,
+        ..Default::default()
         })?;
         latency_stats.record(query_start.elapsed())?;
         pb.inc(1);
@@ -378,6 +380,7 @@ fn bench_causal_graph(args: &Args) -> Result<BenchmarkResult> {
             k: 20,
             filter: None,
             ef_search: None,
+        ..Default::default()
         })?;
         latency_stats.record(query_start.elapsed())?;
         pb.inc(1);
@@ -465,6 +468,7 @@ fn bench_learning_session(args: &Args) -> Result<BenchmarkResult> {
                 k: 10,
                 filter: None,
                 ef_search: None,
+            ..Default::default()
             })?;
             latency_stats.record(query_start.elapsed())?;
             read_count += 1;

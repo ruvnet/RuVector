@@ -550,6 +550,7 @@ impl PatternStore {
                 k: limit,
                 filter: None,
                 ef_search: Some(self.config.ef_search),
+                ..Default::default()
             };
             let index = self.index.read();
             index

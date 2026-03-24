@@ -70,6 +70,7 @@ fn test_million_vector_insertion() {
                 k: 10,
                 filter: None,
                 ef_search: Some(50),
+            ..Default::default()
             })
             .unwrap();
         let duration = start.elapsed();
@@ -143,6 +144,7 @@ fn test_concurrent_queries() {
                         k: 10,
                         filter: None,
                         ef_search: None,
+                    ..Default::default()
                     })
                     .unwrap();
 
@@ -224,6 +226,7 @@ fn test_concurrent_inserts_and_queries() {
                         k: 5,
                         filter: None,
                         ef_search: None,
+                    ..Default::default()
                     })
                     .unwrap();
 
@@ -337,6 +340,7 @@ fn test_memory_pressure_large_vectors() {
                 k: 10,
                 filter: None,
                 ef_search: None,
+            ..Default::default()
             })
             .unwrap();
 
@@ -371,6 +375,7 @@ fn test_invalid_operations_dont_crash() {
         k: 0,
         filter: None,
         ef_search: None,
+    ..Default::default()
     });
     // Should either return empty or error gracefully
     let _ = result;
@@ -431,6 +436,7 @@ fn test_repeated_operations() {
             k: 10,
             filter: None,
             ef_search: None,
+        ..Default::default()
         });
     }
 }
@@ -466,6 +472,7 @@ fn test_extreme_k_values() {
             k: 1000,
             filter: None,
             ef_search: None,
+        ..Default::default()
         })
         .unwrap();
 
@@ -479,6 +486,7 @@ fn test_extreme_k_values() {
             k: 1,
             filter: None,
             ef_search: None,
+        ..Default::default()
         })
         .unwrap();
 

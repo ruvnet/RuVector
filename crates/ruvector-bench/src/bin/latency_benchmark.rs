@@ -121,6 +121,7 @@ fn bench_single_threaded(args: &Args) -> Result<BenchmarkResult> {
             k: 10,
             filter: None,
             ef_search: None,
+        ..Default::default()
         })?;
         latency_stats.record(query_start.elapsed())?;
         pb.inc(1);
@@ -177,6 +178,7 @@ fn bench_multi_threaded(args: &Args, num_threads: usize) -> Result<BenchmarkResu
                 k: 10,
                 filter: None,
                 ef_search: None,
+            ..Default::default()
             })
             .ok();
             query_start.elapsed().as_secs_f64() * 1000.0
@@ -236,6 +238,7 @@ fn bench_ef_search_latency(args: &Args) -> Result<Vec<BenchmarkResult>> {
                 k: 10,
                 filter: None,
                 ef_search: Some(ef_search),
+                ..Default::default()
             })?;
             latency_stats.record(query_start.elapsed())?;
             pb.inc(1);
@@ -295,6 +298,7 @@ fn bench_quantization_latency(args: &Args) -> Result<Vec<BenchmarkResult>> {
                 k: 10,
                 filter: None,
                 ef_search: None,
+            ..Default::default()
             })?;
             latency_stats.record(query_start.elapsed())?;
             pb.inc(1);

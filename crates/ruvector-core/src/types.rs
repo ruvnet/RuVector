@@ -31,7 +31,7 @@ pub struct VectorEntry {
 }
 
 /// Search query parameters
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct SearchQuery {
     /// Query vector
     pub vector: Vec<f32>,
@@ -41,6 +41,18 @@ pub struct SearchQuery {
     pub filter: Option<HashMap<String, serde_json::Value>>,
     /// Optional ef_search parameter for HNSW (overrides default)
     pub ef_search: Option<usize>,
+    /// Controls whether search results are enriched with vector data and metadata
+    /// from storage. This requires a REDB read transaction per result.
+    ///
+    /// - `None` (default): Auto — enrich only when a metadata filter is present,
+    ///   since the filter requires metadata to evaluate. When no filter is set,
+    ///   skip enrichment for faster searches (IDs + scores only).
+    /// - `Some(true)`: Always enrich — results will include vector data and metadata
+    ///   regardless of whether a filter is present.
+    /// - `Some(false)`: Never enrich — results will only contain IDs and scores.
+    ///   Note: metadata filters will NOT work when enrichment is disabled.
+    #[serde(default)]
+    pub enrich: Option<bool>,
 }
 
 /// Search result with similarity score

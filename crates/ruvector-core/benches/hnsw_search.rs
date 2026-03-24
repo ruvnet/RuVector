@@ -43,6 +43,7 @@ fn bench_hnsw_search(c: &mut Criterion) {
                     k: black_box(k),
                     filter: None,
                     ef_search: None,
+                ..Default::default()
                 })
                 .unwrap()
             });

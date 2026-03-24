@@ -94,11 +94,16 @@ fn run_benchmark(num_vectors: usize, dimensions: usize, num_queries: usize, k: u
     for query in &queries {
         let gt: HashSet<String> = brute_force_topk(&data, query, k).into_iter().collect();
 
+        // enrich: Some(false) skips the REDB storage lookup per result.
+        // The benchmark only needs IDs + scores for recall calculation —
+        // fetching full vectors and metadata would measure REDB I/O, not
+        // HNSW search performance.
         let search = SearchQuery {
             vector: query.clone(),
             k,
             filter: None,
             ef_search: Some(200),
+            enrich: Some(false),
         };
 
         let t0 = Instant::now();

@@ -212,6 +212,7 @@ fn test_concurrent_search_and_insert() {
                         k: 5,
                         filter: None,
                         ef_search: None,
+                    ..Default::default()
                     })
                     .unwrap();
 

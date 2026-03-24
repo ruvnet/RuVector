@@ -145,6 +145,7 @@ fn bench_parallel_searches(c: &mut Criterion) {
                         k: 10,
                         filter: None,
                         ef_search: None,
+                    ..Default::default()
                     })
                     .unwrap();
             }

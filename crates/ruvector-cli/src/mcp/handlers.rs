@@ -505,6 +505,7 @@ impl McpHandler {
             k: params.k,
             filter: params.filter.and_then(|f| serde_json::from_value(f).ok()),
             ef_search: None,
+        ..Default::default()
         })?;
 
         serde_json::to_string_pretty(&results).context("Failed to serialize results")

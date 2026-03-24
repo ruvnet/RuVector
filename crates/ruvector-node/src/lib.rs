@@ -183,6 +183,7 @@ impl JsSearchQuery {
             k: self.k as usize,
             filter,
             ef_search: self.ef_search.map(|v| v as usize),
+            ..Default::default()
         })
     }
 }
