@@ -218,6 +218,164 @@ pub extern "C" fn canonical_free() {
     state.last_cut = None;
 }
 
+// ---------------------------------------------------------------------------
+// Dynamic MinCut WASM bindings (Tier 3)
+// ---------------------------------------------------------------------------
+
+use crate::canonical::dynamic::{DynamicMinCut, DynamicMinCutConfig, EdgeMutation};
+
+/// Global state for WASM dynamic canonical cut operations.
+struct DynamicWasmState {
+    engine: Option<DynamicMinCut>,
+    last_result: CanonicalMinCutResult,
+}
+
+static DYNAMIC_STATE: Mutex<DynamicWasmState> = Mutex::new(DynamicWasmState {
+    engine: None,
+    last_result: CanonicalMinCutResult {
+        lambda_raw: 0,
+        source_vertex: 0,
+        first_separable_vertex: 0,
+        side_size: 0,
+        priority_sum: 0,
+        cut_edge_count: 0,
+        cut_hash: [0u8; 32],
+    },
+});
+
+/// Initialize a new dynamic canonical min-cut engine.
+///
+/// `staleness_threshold`: number of incremental updates before forcing
+/// a full recomputation. Pass 0 to disable.
+///
+/// Returns 0 on success.
+#[no_mangle]
+pub extern "C" fn dynamic_init(staleness_threshold: u64) -> i32 {
+    let config = DynamicMinCutConfig {
+        canonical_config: SourceAnchoredConfig::default(),
+        staleness_threshold,
+    };
+    let engine = DynamicMinCut::with_config(config);
+
+    let mut state = DYNAMIC_STATE.lock().unwrap();
+    state.engine = Some(engine);
+    0
+}
+
+/// Add an edge to the dynamic engine.
+///
+/// Returns 0 on success, -1 if not initialized, -2 on error.
+#[no_mangle]
+pub extern "C" fn dynamic_add_edge(u: u64, v: u64, weight_fixed: u64) -> i32 {
+    let mut state = DYNAMIC_STATE.lock().unwrap();
+    let engine = match state.engine.as_mut() {
+        Some(e) => e,
+        None => return -1,
+    };
+
+    let weight = (weight_fixed as f64) / (1u64 << 32) as f64;
+    match engine.add_edge(u, v, weight) {
+        Ok(_) => 0,
+        Err(_) => -2,
+    }
+}
+
+/// Remove an edge from the dynamic engine.
+///
+/// Returns 0 on success, -1 if not initialized, -2 on error.
+#[no_mangle]
+pub extern "C" fn dynamic_remove_edge(u: u64, v: u64) -> i32 {
+    let mut state = DYNAMIC_STATE.lock().unwrap();
+    let engine = match state.engine.as_mut() {
+        Some(e) => e,
+        None => return -1,
+    };
+
+    match engine.remove_edge(u, v) {
+        Ok(_) => 0,
+        Err(_) => -2,
+    }
+}
+
+/// Compute the canonical cut on the dynamic engine.
+///
+/// Returns 0 on success, -1 if not initialized, -2 if cut not found.
+#[no_mangle]
+pub extern "C" fn dynamic_compute() -> i32 {
+    let mut state = DYNAMIC_STATE.lock().unwrap();
+    let engine = match state.engine.as_mut() {
+        Some(e) => e,
+        None => return -1,
+    };
+
+    match engine.canonical_cut() {
+        Some(cut) => {
+            state.last_result = CanonicalMinCutResult::from(&cut);
+            0
+        }
+        None => -2,
+    }
+}
+
+/// Get the current epoch of the dynamic engine.
+///
+/// Returns the epoch, or u64::MAX if not initialized.
+#[no_mangle]
+pub extern "C" fn dynamic_epoch() -> u64 {
+    let state = DYNAMIC_STATE.lock().unwrap();
+    match state.engine.as_ref() {
+        Some(e) => e.epoch(),
+        None => u64::MAX,
+    }
+}
+
+/// Check if the dynamic engine's cached cut is stale.
+///
+/// Returns 1 if stale, 0 if not, -1 if not initialized.
+#[no_mangle]
+pub extern "C" fn dynamic_is_stale() -> i32 {
+    let state = DYNAMIC_STATE.lock().unwrap();
+    match state.engine.as_ref() {
+        Some(e) => if e.is_stale() { 1 } else { 0 },
+        None => -1,
+    }
+}
+
+/// Force a full recomputation on the dynamic engine.
+///
+/// Returns 0 on success, -1 if not initialized.
+#[no_mangle]
+pub extern "C" fn dynamic_force_recompute() -> i32 {
+    let mut state = DYNAMIC_STATE.lock().unwrap();
+    let engine = match state.engine.as_mut() {
+        Some(e) => e,
+        None => return -1,
+    };
+
+    engine.force_recompute();
+    0
+}
+
+/// Get the result of the last dynamic computation.
+///
+/// Returns a pointer to the `CanonicalMinCutResult` struct, or null.
+#[no_mangle]
+pub extern "C" fn dynamic_get_result() -> *const CanonicalMinCutResult {
+    let state = DYNAMIC_STATE.lock().unwrap();
+    if state.engine.is_some() && state.last_result.lambda_raw > 0 {
+        &state.last_result as *const CanonicalMinCutResult
+    } else {
+        std::ptr::null()
+    }
+}
+
+/// Free the dynamic engine.
+#[no_mangle]
+pub extern "C" fn dynamic_free() {
+    let mut state = DYNAMIC_STATE.lock().unwrap();
+    state.engine = None;
+}
+
 /// Verify that two cut hashes are equal using constant-time comparison.
 ///
 /// Returns 1 if equal, 0 if not equal, -1 if either pointer is null.
@@ -341,5 +499,86 @@ mod tests {
 
         let rc = unsafe { canonical_hashes_equal(std::ptr::null(), std::ptr::null()) };
         assert_eq!(rc, -1);
+    }
+
+    // -------------------------------------------------------------------
+    // Dynamic WASM tests
+    // -------------------------------------------------------------------
+
+    #[test]
+    fn test_dynamic_wasm_init_and_compute() {
+        assert_eq!(dynamic_init(100), 0);
+
+        // Add edges to build a triangle
+        assert_eq!(dynamic_add_edge(0, 1, 1u64 << 32), 0);
+        assert_eq!(dynamic_add_edge(1, 2, 1u64 << 32), 0);
+        assert_eq!(dynamic_add_edge(2, 0, 1u64 << 32), 0);
+
+        let rc = dynamic_compute();
+        assert_eq!(rc, 0);
+
+        assert_eq!(dynamic_epoch(), 3); // 3 edge additions
+
+        dynamic_free();
+    }
+
+    #[test]
+    fn test_dynamic_wasm_add_remove() {
+        assert_eq!(dynamic_init(50), 0);
+
+        assert_eq!(dynamic_add_edge(0, 1, 1u64 << 32), 0);
+        assert_eq!(dynamic_add_edge(1, 2, 1u64 << 32), 0);
+        assert_eq!(dynamic_add_edge(2, 0, 1u64 << 32), 0);
+
+        assert_eq!(dynamic_compute(), 0);
+
+        // Add another edge
+        assert_eq!(dynamic_add_edge(0, 3, 1u64 << 32), 0);
+        assert_eq!(dynamic_add_edge(3, 1, 1u64 << 32), 0);
+
+        // Remove an edge
+        assert_eq!(dynamic_remove_edge(0, 3), 0);
+
+        assert_eq!(dynamic_epoch(), 6);
+
+        dynamic_free();
+    }
+
+    #[test]
+    fn test_dynamic_wasm_stale_check() {
+        assert_eq!(dynamic_init(100), 0);
+
+        assert_eq!(dynamic_add_edge(0, 1, 1u64 << 32), 0);
+        assert_eq!(dynamic_add_edge(1, 2, 1u64 << 32), 0);
+
+        // Before compute, should be stale
+        assert_eq!(dynamic_is_stale(), 1);
+
+        dynamic_free();
+    }
+
+    #[test]
+    fn test_dynamic_wasm_not_initialized() {
+        dynamic_free();
+        assert_eq!(dynamic_add_edge(0, 1, 1u64 << 32), -1);
+        assert_eq!(dynamic_remove_edge(0, 1), -1);
+        assert_eq!(dynamic_compute(), -1);
+        assert_eq!(dynamic_is_stale(), -1);
+        assert_eq!(dynamic_force_recompute(), -1);
+        assert_eq!(dynamic_epoch(), u64::MAX);
+        assert!(dynamic_get_result().is_null());
+    }
+
+    #[test]
+    fn test_dynamic_wasm_force_recompute() {
+        assert_eq!(dynamic_init(100), 0);
+
+        assert_eq!(dynamic_add_edge(0, 1, 1u64 << 32), 0);
+        assert_eq!(dynamic_add_edge(1, 2, 1u64 << 32), 0);
+        assert_eq!(dynamic_add_edge(2, 0, 1u64 << 32), 0);
+
+        assert_eq!(dynamic_force_recompute(), 0);
+
+        dynamic_free();
     }
 }

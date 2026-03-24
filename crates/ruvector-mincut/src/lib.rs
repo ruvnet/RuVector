@@ -397,6 +397,17 @@ pub use canonical::source_anchored::{
     SourceAnchoredConfig, SourceAnchoredCut, SourceAnchoredMinCut, SourceAnchoredReceipt,
 };
 
+#[cfg(feature = "canonical")]
+pub use canonical::tree_packing::{
+    canonical_mincut_fast, GomoryHuEdge, GomoryHuTree, TreeMinCutResult,
+};
+
+#[cfg(feature = "canonical")]
+pub use canonical::dynamic::{
+    DynamicMinCut as DynamicCanonicalMinCut, DynamicMinCutConfig as DynamicCanonicalConfig,
+    EdgeMutation,
+};
+
 #[cfg(feature = "monitoring")]
 pub use monitoring::{
     EventType, MinCutEvent, MinCutMonitor, MonitorBuilder, MonitorConfig, MonitorMetrics, Threshold,
@@ -516,8 +527,9 @@ pub mod prelude {
     #[cfg(feature = "canonical")]
     pub use crate::{
         CactusCycle, CactusEdge, CactusGraph, CactusVertex, CanonicalCutResult, CanonicalMinCut,
-        CanonicalMinCutImpl, FixedWeight, SourceAnchoredConfig, SourceAnchoredCut,
-        SourceAnchoredMinCut, SourceAnchoredReceipt, WitnessReceipt,
+        CanonicalMinCutImpl, DynamicCanonicalConfig, DynamicCanonicalMinCut, EdgeMutation,
+        FixedWeight, GomoryHuTree, SourceAnchoredConfig, SourceAnchoredCut,
+        SourceAnchoredMinCut, SourceAnchoredReceipt, TreeMinCutResult, WitnessReceipt,
     };
 
     #[cfg(feature = "jtree")]

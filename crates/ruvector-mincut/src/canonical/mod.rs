@@ -39,6 +39,18 @@ mod tests;
 /// and vertex ordering.
 pub mod source_anchored;
 
+/// Tier 2: Gomory-Hu tree packing fast path for canonical minimum cut.
+///
+/// Builds a flow-equivalent tree in O(V * T_maxflow) and reads the global
+/// min-cut from the minimum tree edge in O(V).
+pub mod tree_packing;
+
+/// Tier 3: Dynamic/incremental canonical minimum cut maintenance.
+///
+/// Wraps the source-anchored engine with incremental update logic that
+/// avoids full recomputation when edge mutations do not affect the cut.
+pub mod dynamic;
+
 use crate::algorithm::{self, MinCutConfig};
 use crate::graph::{DynamicGraph, VertexId, Weight};
 use crate::time_compat::PortableTimestamp;
