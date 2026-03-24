@@ -1001,9 +1001,39 @@ impl<'b, T: Clone + Send + Sync, D: Distance<T> + Send + Sync> Hnsw<'b, T, D> {
                 c_pid,
                 neighbours_c_l.len()
             );
-            for e in neighbours_c_l {
-                // HERE WE sEE THAT neighbours should be stored as PointIdWithOrder !!
-                // CAVEAT what if several point_id with same distance to ref point?
+            let nb_len = neighbours_c_l.len();
+            for idx in 0..nb_len {
+                let e = &neighbours_c_l[idx];
+                // Prefetch the NEXT neighbor's vector data into L1 cache.
+                // The distance computation at line dist_f.eval() reads the full vector
+                // (~512 bytes for 128d f32), which likely causes an L2/L3 cache miss.
+                // By prefetching the next neighbor's data while we process the current one,
+                // we overlap the memory fetch with computation.
+                if idx + 1 < nb_len {
+                    let next_v = neighbours_c_l[idx + 1].point_ref.data.get_v();
+                    if !next_v.is_empty() {
+                        let ptr = next_v.as_ptr() as *const u8;
+                        // Prefetch first cache line (64 bytes = 16 floats)
+                        #[cfg(target_arch = "aarch64")]
+                        unsafe {
+                            core::arch::asm!(
+                                "prfm pldl1keep, [{ptr}]",
+                                ptr = in(reg) ptr,
+                                options(nostack, preserves_flags)
+                            );
+                        }
+                        #[cfg(target_arch = "x86_64")]
+                        {
+                            #[cfg(target_feature = "sse")]
+                            unsafe {
+                                std::arch::x86_64::_mm_prefetch(
+                                    ptr as *const i8,
+                                    std::arch::x86_64::_MM_HINT_T0,
+                                );
+                            }
+                        }
+                    }
+                }
                 if !visited_point_id.contains_key(&e.point_ref.p_id) {
                     visited_point_id.insert(e.point_ref.p_id, Arc::clone(&e.point_ref));
                     trace!("             visited insertion {:?}", e.point_ref.p_id);
