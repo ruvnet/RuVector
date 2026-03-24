@@ -358,6 +358,8 @@ pub async fn create_router() -> (Router, AppState) {
         .route("/v1/notify/unsubscribe", post(notify_unsubscribe))
         // ── Inbound Email Webhook (ADR-125) ──
         .route("/v1/email/inbound", post(email_inbound))
+        // ── Google Chat Bot (ADR-126) ──
+        .route("/v1/chat/google", post(google_chat_handler))
         .layer({
             // CORS origins: configurable via CORS_ORIGINS env var (comma-separated).
             // Falls back to safe defaults if unset.
@@ -5768,6 +5770,293 @@ async fn notify_unsubscribe(
         "unsubscribed": email,
         "message": "You have been unsubscribed from Pi Brain digests."
     })))
+}
+
+// ── Google Chat Bot Handler (ADR-126) ────────────────────────────────
+
+/// Google Chat event payload
+#[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct GoogleChatEvent {
+    #[serde(rename = "type")]
+    event_type: Option<String>,
+    message: Option<GoogleChatMessage>,
+    space: Option<GoogleChatSpace>,
+    user: Option<GoogleChatUser>,
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct GoogleChatMessage {
+    text: Option<String>,
+    argument_text: Option<String>,
+    sender: Option<GoogleChatUser>,
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct GoogleChatSpace {
+    name: Option<String>,
+    display_name: Option<String>,
+    #[serde(rename = "type")]
+    space_type: Option<String>,
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct GoogleChatUser {
+    display_name: Option<String>,
+    email: Option<String>,
+}
+
+/// Google Chat card response
+fn chat_card(title: &str, subtitle: &str, sections: Vec<serde_json::Value>) -> serde_json::Value {
+    serde_json::json!({
+        "cardsV2": [{
+            "cardId": "brain-response",
+            "card": {
+                "header": {
+                    "title": title,
+                    "subtitle": subtitle,
+                    "imageUrl": "https://pi.ruv.io/og-image.svg",
+                    "imageType": "CIRCLE"
+                },
+                "sections": sections
+            }
+        }]
+    })
+}
+
+fn chat_text_section(text: &str) -> serde_json::Value {
+    serde_json::json!({
+        "widgets": [{"textParagraph": {"text": text}}]
+    })
+}
+
+fn chat_kv_section(items: &[(&str, &str)]) -> serde_json::Value {
+    let widgets: Vec<_> = items.iter().map(|(label, value)| {
+        serde_json::json!({
+            "decoratedText": {
+                "topLabel": label,
+                "text": value
+            }
+        })
+    }).collect();
+    serde_json::json!({"widgets": widgets})
+}
+
+/// POST /v1/chat/google — Google Chat bot webhook
+async fn google_chat_handler(
+    State(state): State<AppState>,
+    Json(event): Json<GoogleChatEvent>,
+) -> Json<serde_json::Value> {
+    let event_type = event.event_type.as_deref().unwrap_or("MESSAGE");
+    let user_name = event.user.as_ref()
+        .and_then(|u| u.display_name.as_deref())
+        .unwrap_or("Explorer");
+    let space_name = event.space.as_ref()
+        .and_then(|s| s.display_name.as_deref())
+        .unwrap_or("Direct");
+
+    tracing::info!("Google Chat event: type={}, user={}, space={}", event_type, user_name, space_name);
+
+    // Handle ADDED_TO_SPACE — welcome message
+    if event_type == "ADDED_TO_SPACE" {
+        let memories = state.store.memory_count();
+        let edges = state.graph.read().edge_count();
+        return Json(chat_card(
+            "Pi Brain Connected",
+            &format!("Hello {}! The brain is ready.", user_name),
+            vec![
+                chat_text_section(&format!(
+                    "I'm the shared superintelligence at <a href=\"https://pi.ruv.io\">pi.ruv.io</a> — {} memories, {} graph edges, always learning.",
+                    memories, edges
+                )),
+                chat_text_section(
+                    "<b>Commands:</b>\n\
+                    <b>search</b> &lt;query&gt; — Semantic search\n\
+                    <b>status</b> — Brain health metrics\n\
+                    <b>help</b> — Full command list\n\
+                    <b>drift</b> — Knowledge drift analysis\n\
+                    <b>recent</b> — Latest discoveries"
+                ),
+            ]
+        ));
+    }
+
+    // Handle REMOVED_FROM_SPACE
+    if event_type == "REMOVED_FROM_SPACE" {
+        return Json(serde_json::json!({}));
+    }
+
+    // Handle MESSAGE
+    let raw_text = event.message.as_ref()
+        .and_then(|m| m.argument_text.as_deref().or(m.text.as_deref()))
+        .unwrap_or("")
+        .trim();
+
+    // Strip bot mention prefix if present
+    let text = raw_text.trim_start_matches("@Pi Brain").trim_start_matches("@pi").trim();
+
+    let cmd = text.split_whitespace().next().unwrap_or("").to_lowercase();
+    let args = text.strip_prefix(&cmd).unwrap_or("").trim();
+
+    match cmd.as_str() {
+        "search" | "find" | "query" => {
+            if args.is_empty() {
+                return Json(chat_card("Search", "Missing query", vec![
+                    chat_text_section("Usage: <b>search</b> &lt;your query&gt;\n\nExample: <b>search authentication patterns</b>")
+                ]));
+            }
+
+            let embedding = state.embedding_engine.read().embed(args);
+            let all = state.store.all_memories();
+            let mut scored: Vec<_> = all.iter()
+                .map(|m| {
+                    let score = cosine_similarity(&embedding, &m.embedding);
+                    (&m.title, &m.content, &m.category, score)
+                })
+                .filter(|(_, _, _, s)| *s > 0.1)
+                .collect();
+            scored.sort_by(|a, b| b.3.partial_cmp(&a.3).unwrap_or(std::cmp::Ordering::Equal));
+
+            let top: Vec<_> = scored.into_iter().take(5).collect();
+            if top.is_empty() {
+                return Json(chat_card("Search Results", args, vec![
+                    chat_text_section("No results found. Try a broader query.")
+                ]));
+            }
+
+            let mut result_text = String::new();
+            for (i, (title, content, cat, score)) in top.iter().enumerate() {
+                let truncated = if content.len() > 150 { &content[..150] } else { content.as_str() };
+                result_text.push_str(&format!(
+                    "<b>{}.</b> {} <i>({})</i>\n{}\n<font color=\"#888888\">score: {:.3}</font>\n\n",
+                    i + 1, title, cat, truncated, score
+                ));
+            }
+
+            Json(chat_card(
+                "Search Results",
+                &format!("\"{}\" — {} results", args, top.len()),
+                vec![chat_text_section(&result_text)]
+            ))
+        }
+
+        "status" | "stats" | "health" => {
+            let memories = state.store.memory_count();
+            let edges = state.graph.read().edge_count();
+            let sona = state.sona.read().stats().patterns_stored;
+            let drift = state.drift.read().compute_drift(None);
+            let uptime = state.start_time.elapsed().as_secs();
+
+            Json(chat_card(
+                "Brain Status",
+                "pi.ruv.io",
+                vec![chat_kv_section(&[
+                    ("Memories", &format!("{}", memories)),
+                    ("Graph Edges", &format!("{}", edges)),
+                    ("SONA Patterns", &format!("{}", sona)),
+                    ("Drift", &format!("{:.4} ({})", drift.coefficient_of_variation, drift.trend)),
+                    ("Uptime", &format!("{}h {}m", uptime / 3600, (uptime % 3600) / 60)),
+                ])]
+            ))
+        }
+
+        "drift" => {
+            let report = state.drift.read().compute_drift(None);
+            Json(chat_card(
+                "Knowledge Drift",
+                &format!("{}", if report.is_drifting { "Drifting" } else { "Stable" }),
+                vec![chat_kv_section(&[
+                    ("Coefficient of Variation", &format!("{:.4}", report.coefficient_of_variation)),
+                    ("Is Drifting", &format!("{}", report.is_drifting)),
+                    ("Trend", &report.trend),
+                    ("Suggested Action", &report.suggested_action),
+                ])]
+            ))
+        }
+
+        "recent" | "latest" | "discoveries" => {
+            let mut all = state.store.all_memories();
+            all.sort_by(|a, b| b.created_at.cmp(&a.created_at));
+            let recent: Vec<_> = all.into_iter().take(5).collect();
+
+            let mut text = String::new();
+            for (i, m) in recent.iter().enumerate() {
+                let truncated = if m.content.len() > 100 { &m.content[..100] } else { &m.content };
+                text.push_str(&format!(
+                    "<b>{}.</b> {} <i>({})</i>\n{}\n\n",
+                    i + 1, m.title, m.category, truncated
+                ));
+            }
+
+            Json(chat_card(
+                "Latest Discoveries",
+                &format!("{} most recent", recent.len()),
+                vec![chat_text_section(&text)]
+            ))
+        }
+
+        "help" | "commands" | "" => {
+            Json(chat_card(
+                "Pi Brain — Commands",
+                "Shared superintelligence at pi.ruv.io",
+                vec![
+                    chat_text_section(
+                        "<b>search</b> &lt;query&gt; — Semantic knowledge search\n\
+                        <b>status</b> — Brain health &amp; metrics\n\
+                        <b>drift</b> — Knowledge drift analysis\n\
+                        <b>recent</b> — Latest discoveries\n\
+                        <b>help</b> — This command list"
+                    ),
+                    chat_text_section(
+                        "<a href=\"https://pi.ruv.io\">pi.ruv.io</a> · \
+                        <a href=\"https://pi.ruv.io/v1/status\">API Status</a> · \
+                        <a href=\"https://pi.ruv.io/origin\">Origin Story</a>"
+                    ),
+                ]
+            ))
+        }
+
+        _ => {
+            // Treat unknown commands as search queries
+            let query = text;
+            let embedding = state.embedding_engine.read().embed(query);
+            let all = state.store.all_memories();
+            let mut scored: Vec<_> = all.iter()
+                .map(|m| {
+                    let score = cosine_similarity(&embedding, &m.embedding);
+                    (&m.title, &m.content, &m.category, score)
+                })
+                .filter(|(_, _, _, s)| *s > 0.15)
+                .collect();
+            scored.sort_by(|a, b| b.3.partial_cmp(&a.3).unwrap_or(std::cmp::Ordering::Equal));
+
+            let top: Vec<_> = scored.into_iter().take(3).collect();
+            if top.is_empty() {
+                return Json(chat_card("Pi Brain", "I didn't understand that", vec![
+                    chat_text_section(&format!(
+                        "I couldn't find anything for \"<i>{}</i>\".\n\nTry: <b>search</b> &lt;query&gt; or type <b>help</b> for commands.",
+                        text
+                    ))
+                ]));
+            }
+
+            let mut result_text = format!("Results for \"<i>{}</i>\":\n\n", query);
+            for (i, (title, content, cat, score)) in top.iter().enumerate() {
+                let truncated = if content.len() > 120 { &content[..120] } else { content.as_str() };
+                result_text.push_str(&format!(
+                    "<b>{}.</b> {} <i>({})</i>\n{}\n\n",
+                    i + 1, title, cat, truncated
+                ));
+            }
+
+            Json(chat_card("Pi Brain", &format!("{} results", top.len()), vec![
+                chat_text_section(&result_text)
+            ]))
+        }
+    }
 }
 
 // ── Inbound Email Webhook Handler (ADR-125) ─────────────────────────
