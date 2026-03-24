@@ -476,6 +476,13 @@ impl<'a> Executor<'a> {
                 .clone()
                 .unwrap_or_else(|| match &item.expression {
                     Expression::Variable(var) => var.clone(),
+                    Expression::Property { object, property } => {
+                        if let Expression::Variable(var) = &**object {
+                            format!("{}.{}", var, property)
+                        } else {
+                            "?column?".to_string()
+                        }
+                    }
                     _ => "?column?".to_string(),
                 });
             columns.push(col_name);
