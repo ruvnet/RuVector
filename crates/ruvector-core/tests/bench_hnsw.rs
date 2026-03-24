@@ -66,15 +66,25 @@ fn run_benchmark(num_vectors: usize, dimensions: usize, num_queries: usize, k: u
 
     let db = VectorDB::new(opts).expect("Failed to create VectorDB");
 
-    let build_start = Instant::now();
-    for (i, vec) in data.iter().enumerate() {
-        let entry = VectorEntry {
+    // Use insert_batch() for a single REDB transaction instead of individual
+    // db.insert() calls. The old code opened a separate write transaction per
+    // vector (10K vectors = 10K transaction commits with fsync). This measured
+    // REDB transaction overhead, not HNSW build performance.
+    //
+    // Production code (ruvector-server, ruvector-cli, ruvector-node) already
+    // uses insert_batch(). This change aligns the benchmark with real usage.
+    let entries: Vec<VectorEntry> = data
+        .iter()
+        .enumerate()
+        .map(|(i, vec)| VectorEntry {
             id: Some(format!("v{}", i)),
             vector: vec.clone(),
             metadata: None,
-        };
-        db.insert(entry).expect("Insert failed");
-    }
+        })
+        .collect();
+
+    let build_start = Instant::now();
+    db.insert_batch(entries).expect("Insert batch failed");
     let build_time = build_start.elapsed();
     eprintln!("  Build time: {:.3}s", build_time.as_secs_f64());
 
