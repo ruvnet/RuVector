@@ -580,12 +580,14 @@ impl ComputeAMM {
         if seconds == 0 {
             return 0;
         }
+        // Use the quote function to get the rUv needed for the desired compute
+        // We approximate by checking what rUv input yields the desired compute output
         let reserve_ruv = *self.reserve_ruv.read().unwrap();
         let reserve_compute = *self.reserve_compute.read().unwrap();
         let k = *self.k_invariant.read().unwrap();
 
         if seconds as u128 >= reserve_compute as u128 {
-            return u64::MAX;
+            return u64::MAX; // Not enough compute in pool
         }
 
         // From constant product: new_compute = reserve_compute - seconds
@@ -603,7 +605,8 @@ impl ComputeAMM {
         if fee_rate >= 1.0 {
             return u64::MAX;
         }
-        (ruv_before_fee as f64 / (1.0 - fee_rate)).ceil() as u64
+        let actual_in = (ruv_before_fee as f64 / (1.0 - fee_rate)).ceil() as u64;
+        actual_in
     }
 
     /// Get price history from swap events.
@@ -616,6 +619,7 @@ impl ComputeAMM {
             .rev()
             .take(last_n)
             .map(|event| {
+                // Calculate effective price from the swap
                 let price = if event.amount_out > 0 {
                     match event.input_type {
                         SwapType::RuvForCompute => event.amount_in as f64 / event.amount_out as f64,
@@ -756,6 +760,7 @@ mod tests {
         // Cost for small amount should be reasonable (close to 1:1 at balanced pool)
         let cost = amm.estimate_compute_cost(1000);
         assert!(cost > 0);
+        // At 1:1 ratio with 0.3% fee, ~1003 rUv for 1000 compute seconds
         assert!(cost > 1000);
         assert!(cost < 1100);
 
@@ -777,7 +782,7 @@ mod tests {
         let _ = amm.swap_ruv_for_compute(10_000, "test");
         let history = amm.get_price_history(10);
         assert_eq!(history.len(), 1);
-        assert!(history[0].1 > 0.0);
+        assert!(history[0].1 > 0.0); // Price should be positive
     }
 
     #[test]
@@ -786,6 +791,6 @@ mod tests {
         let status = amm.get_readable_status();
         assert!(status.contains("rUv per compute-second"));
         assert!(status.contains("Fee:"));
-        assert!(status.contains("Low demand"));
+        assert!(status.contains("Low demand")); // At 0% utilization
     }
 }

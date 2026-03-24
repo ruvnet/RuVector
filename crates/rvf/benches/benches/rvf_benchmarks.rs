@@ -62,7 +62,7 @@ fn make_random_bytes(size: usize, seed: u64) -> Vec<u8> {
 
 fn wire_benchmarks(c: &mut Criterion) {
     use rvf_types::{SegmentFlags, SegmentType};
-    use rvf_wire::hash::{compute_crc32c, compute_xxh3_128};
+    use rvf_wire::hash::{compute_shake256_128, compute_xxh3_128};
     use rvf_wire::varint::{decode_varint, encode_varint, MAX_VARINT_LEN};
     use rvf_wire::vec_seg_codec::{write_vec_block, VecBlock};
     use rvf_wire::{find_latest_manifest, read_segment, write_segment};
@@ -106,10 +106,10 @@ fn wire_benchmarks(c: &mut Criterion) {
         })
     });
 
-    // -- crc32c_compute: CRC32C of 1MB payload --
-    group.bench_function("crc32c_1mb", |b| {
+    // -- shake256_128: SHAKE-256 truncated to 128 bits of 1MB payload --
+    group.bench_function("shake256_128_1mb", |b| {
         b.iter(|| {
-            black_box(compute_crc32c(black_box(&one_mb)));
+            black_box(compute_shake256_128(black_box(&one_mb)));
         })
     });
 

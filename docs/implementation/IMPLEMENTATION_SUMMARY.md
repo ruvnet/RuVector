@@ -690,13 +690,11 @@ npm run report -- --test-id "worldcup-2026-final" --format pdf
 ## Support & Resources
 
 ### Documentation
-- [Architecture Overview](./docs/cloud-architecture/architecture-overview.md)
-- [Scaling Strategy](./docs/cloud-architecture/scaling-strategy.md)
-- [Infrastructure Design](./docs/cloud-architecture/infrastructure-design.md)
-- [Deployment Guide](./docs/cloud-architecture/DEPLOYMENT_GUIDE.md)
-- [Performance Optimization](./docs/cloud-architecture/PERFORMANCE_OPTIMIZATION_GUIDE.md)
-- [Load Test Scenarios](./benchmarks/LOAD_TEST_SCENARIOS.md)
-- [Operations Runbook](./src/burst-scaling/RUNBOOK.md)
+- [Architecture Overview](../cloud-architecture/architecture-overview.md)
+- [Scaling Strategy](../cloud-architecture/scaling-strategy.md)
+- [Infrastructure Design](../cloud-architecture/infrastructure-design.md)
+- [Deployment Guide](../cloud-architecture/DEPLOYMENT_GUIDE.md)
+- [Performance Optimization](../cloud-architecture/PERFORMANCE_OPTIMIZATION_GUIDE.md)
 
 ### Code Locations
 - **Architecture Docs**: `/home/user/ruvector/docs/cloud-architecture/`

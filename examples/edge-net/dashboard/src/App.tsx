@@ -12,6 +12,9 @@ import { CreditsPanel } from './components/dashboard/CreditsPanel';
 import { ConsolePanel } from './components/dashboard/ConsolePanel';
 import { IdentityPanel } from './components/identity/IdentityPanel';
 import { DocumentationPanel } from './components/docs/DocumentationPanel';
+import { BrainStatus } from './components/brain/BrainStatus';
+import { EconomicsOverview } from './components/economics/EconomicsOverview';
+import { RewardsGuide } from './components/rewards/RewardsGuide';
 import { CrystalLoader } from './components/common/CrystalLoader';
 import { ConsentWidget } from './components/common/ConsentWidget';
 import { useNetworkStore } from './stores/networkStore';
@@ -80,7 +83,28 @@ function App() {
               transition={{ delay: 0.3 }}
             >
               <h3 className="text-sm font-medium text-zinc-400 mb-3">Quick Actions</h3>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                <button
+                  className="p-4 rounded-lg bg-pink-500/10 border border-pink-500/30 hover:bg-pink-500/20 transition-colors text-left"
+                  onClick={() => setActiveTab('brain')}
+                >
+                  <p className="font-medium text-white">Brain Status</p>
+                  <p className="text-xs text-zinc-400 mt-1">Knowledge network</p>
+                </button>
+                <button
+                  className="p-4 rounded-lg bg-emerald-500/10 border border-emerald-500/30 hover:bg-emerald-500/20 transition-colors text-left"
+                  onClick={() => setActiveTab('economics')}
+                >
+                  <p className="font-medium text-white">Economics</p>
+                  <p className="text-xs text-zinc-400 mt-1">rUv supply & tiers</p>
+                </button>
+                <button
+                  className="p-4 rounded-lg bg-amber-500/10 border border-amber-500/30 hover:bg-amber-500/20 transition-colors text-left"
+                  onClick={() => setActiveTab('rewards')}
+                >
+                  <p className="font-medium text-white">Earn rUv</p>
+                  <p className="text-xs text-zinc-400 mt-1">How to earn guide</p>
+                </button>
                 <button
                   className="p-4 rounded-lg bg-sky-500/10 border border-sky-500/30 hover:bg-sky-500/20 transition-colors text-left"
                   onClick={() => setActiveTab('wasm')}
@@ -96,14 +120,7 @@ function App() {
                   <p className="text-xs text-zinc-400 mt-1">Execute tools</p>
                 </button>
                 <button
-                  className="p-4 rounded-lg bg-emerald-500/10 border border-emerald-500/30 hover:bg-emerald-500/20 transition-colors text-left"
-                  onClick={() => setActiveTab('cdn')}
-                >
-                  <p className="font-medium text-white">CDN Scripts</p>
-                  <p className="text-xs text-zinc-400 mt-1">Load libraries</p>
-                </button>
-                <button
-                  className="p-4 rounded-lg bg-amber-500/10 border border-amber-500/30 hover:bg-amber-500/20 transition-colors text-left"
+                  className="p-4 rounded-lg bg-cyan-500/10 border border-cyan-500/30 hover:bg-cyan-500/20 transition-colors text-left"
                   onClick={() => setActiveTab('identity')}
                 >
                   <p className="font-medium text-white">Identity</p>
@@ -112,6 +129,60 @@ function App() {
               </div>
             </motion.div>
           </div>
+        </div>
+      ),
+      brain: (
+        <div className="space-y-6">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+          >
+            <h1 className="text-2xl md:text-3xl font-bold mb-2">
+              <span className="bg-gradient-to-r from-pink-400 via-violet-400 to-sky-400 bg-clip-text text-transparent">
+                Brain Integration
+              </span>
+            </h1>
+            <p className="text-zinc-400">
+              Monitor brain connectivity, knowledge operations, and halving epoch status
+            </p>
+          </motion.div>
+          <BrainStatus />
+        </div>
+      ),
+      economics: (
+        <div className="space-y-6">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+          >
+            <h1 className="text-2xl md:text-3xl font-bold mb-2">
+              <span className="bg-gradient-to-r from-emerald-400 via-sky-400 to-violet-400 bg-clip-text text-transparent">
+                Economics Overview
+              </span>
+            </h1>
+            <p className="text-zinc-400">
+              rUv supply, reputation tiers, contribution multipliers, and network economics
+            </p>
+          </motion.div>
+          <EconomicsOverview />
+        </div>
+      ),
+      rewards: (
+        <div className="space-y-6">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+          >
+            <h1 className="text-2xl md:text-3xl font-bold mb-2">
+              <span className="bg-gradient-to-r from-amber-400 via-emerald-400 to-sky-400 bg-clip-text text-transparent">
+                Rewards Guide
+              </span>
+            </h1>
+            <p className="text-zinc-400">
+              Learn how to earn rUv, understand tier benefits, and maximize your rewards
+            </p>
+          </motion.div>
+          <RewardsGuide />
         </div>
       ),
       network: (

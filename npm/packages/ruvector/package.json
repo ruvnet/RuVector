@@ -1,6 +1,6 @@
 {
   "name": "ruvector",
-  "version": "0.2.18",
+  "version": "0.2.0",
   "description": "High-performance vector database for Node.js with automatic native/WASM fallback",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -8,7 +8,7 @@
     "ruvector": "./bin/cli.js"
   },
   "scripts": {
-    "build": "tsc && cp -r src/core/onnx dist/core/",
+    "build": "tsc && cp src/core/onnx/pkg/package.json dist/core/onnx/pkg/",
     "prepublishOnly": "npm run build",
     "test": "node test/integration.js && node test/cli-commands.js"
   },
@@ -70,28 +70,14 @@
     "@ruvector/sona": "^0.1.4",
     "chalk": "^4.1.2",
     "commander": "^11.1.0",
-    "glob": "^10.3.10",
     "ora": "^5.4.1"
   },
   "optionalDependencies": {
     "@ruvector/rvf": "^0.1.0"
   },
   "devDependencies": {
-    "@types/glob": "^8.1.0",
     "@types/node": "^20.10.5",
     "typescript": "^5.3.3"
-  },
-  "peerDependencies": {
-    "@ruvector/ruvllm": ">=2.0.0",
-    "@ruvector/router": ">=0.1.0"
-  },
-  "peerDependenciesMeta": {
-    "@ruvector/ruvllm": {
-      "optional": true
-    },
-    "@ruvector/router": {
-      "optional": true
-    }
   },
   "files": [
     "bin/",
@@ -99,6 +85,16 @@
     "README.md",
     "LICENSE"
   ],
+  "peerDependencies": {
+    "@ruvector/pi-brain": ">=0.1.0",
+    "@ruvector/ruvllm": ">=2.0.0",
+    "@ruvector/router": ">=0.1.0"
+  },
+  "peerDependenciesMeta": {
+    "@ruvector/pi-brain": { "optional": true },
+    "@ruvector/ruvllm": { "optional": true },
+    "@ruvector/router": { "optional": true }
+  },
   "engines": {
     "node": ">=18.0.0"
   }

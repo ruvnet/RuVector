@@ -2260,7 +2260,7 @@ fn test_gradient_computation() {
 //!
 //! ## Architecture
 //!
-//! See [architecture documentation](../docs/latent-space/implementation-plans/02-architecture.md)
+//! See the architecture documentation in docs/research/latent-space/implementation-plans/
 //! for complete system design.
 ```
 
@@ -2358,5 +2358,5 @@ Create comprehensive examples in `examples/`:
 ---
 
 **Document Status**: ✅ Complete
-**Next Phase**: [03-refinement.md](./03-refinement.md) (TDD Implementation)
+**Next Phase**: [03-pseudocode.md](./03-pseudocode.md) (Pseudocode & TDD)
 **Review**: Architecture review scheduled for implementation phase

@@ -919,4 +919,4 @@ OPTIONAL can be expensive. Use only when necessary.
 - [W3C SPARQL 1.1 Query Language](https://www.w3.org/TR/sparql11-query/)
 - [W3C SPARQL 1.1 Update](https://www.w3.org/TR/sparql11-update/)
 - [Apache Jena Tutorials](https://jena.apache.org/tutorials/sparql.html)
-- [RuVector PostgreSQL Extension](../../crates/ruvector-postgres/README.md)
+- [RuVector PostgreSQL Extension](../../../crates/ruvector-postgres/README.md)

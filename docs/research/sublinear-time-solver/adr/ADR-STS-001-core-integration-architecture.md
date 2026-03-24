@@ -1019,12 +1019,12 @@ Full solver crate (ruvector-solver) delivered with 8 algorithms (Neumann, CG, Fo
 
 | ADR | Title | Relevance |
 |-----|-------|-----------|
-| [ADR-001](../../adr/ADR-001-ruvector-core-architecture.md) | Core Architecture | Layered architecture pattern |
-| [ADR-003](../../adr/ADR-003-simd-optimization-strategy.md) | SIMD Strategy | SIMD dispatch pattern for sparse matvec |
-| [ADR-005](../../adr/ADR-005-wasm-runtime-integration.md) | WASM Integration | WASM security and deployment model |
-| [ADR-006](../../adr/ADR-006-memory-management.md) | Memory Management | Memory pool compatibility |
-| [ADR-014](../../adr/ADR-014-coherence-engine.md) | Coherence Engine | Primary integration target |
-| [ADR-CE-012](../../adr/coherence-engine/ADR-CE-012-gate-refusal-witness.md) | Gate Refusal Witness | Convergence witness integration |
+| [ADR-001](../../../adr/ADR-001-ruvector-core-architecture.md) | Core Architecture | Layered architecture pattern |
+| [ADR-003](../../../adr/ADR-003-simd-optimization-strategy.md) | SIMD Strategy | SIMD dispatch pattern for sparse matvec |
+| [ADR-005](../../../adr/ADR-005-wasm-runtime-integration.md) | WASM Integration | WASM security and deployment model |
+| [ADR-006](../../../adr/ADR-006-memory-management.md) | Memory Management | Memory pool compatibility |
+| [ADR-014](../../../adr/ADR-014-coherence-engine.md) | Coherence Engine | Primary integration target |
+| [ADR-CE-012](../../../adr/coherence-engine/ADR-CE-012-gate-refusal-witness.md) | Gate Refusal Witness | Convergence witness integration |
 
 ### External References
 

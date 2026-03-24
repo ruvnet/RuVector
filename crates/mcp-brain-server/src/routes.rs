@@ -118,8 +118,13 @@ pub async fn create_router() -> (Router, AppState) {
             g.add_memory(mem);
         }
         tracing::info!("Graph rebuilt: {} nodes, {} edges", g.node_count(), g.edge_count());
-        // ADR-116: Build spectral sparsifier for analytics
-        g.rebuild_sparsifier();
+        // ADR-116: Sparsifier build deferred to background — too slow for startup probe
+        // on large graphs (1M+ edges). Scheduled rebuild_graph job will build it.
+        if g.edge_count() <= 100_000 {
+            g.rebuild_sparsifier();
+        } else {
+            tracing::info!("Skipping sparsifier on startup ({} edges > 100K) — deferred to background job", g.edge_count());
+        }
     }
 
     // Hydrate vote tracker from persisted quality scores (prevent re-voting)

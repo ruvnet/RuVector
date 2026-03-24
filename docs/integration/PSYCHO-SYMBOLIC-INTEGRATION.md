@@ -255,17 +255,14 @@ const plan = await system.reasoner.plan({
 - **Pooling**: Reusable allocation pools
 - **Lazy**: On-demand module initialization
 
-## 📚 Documentation
+## Documentation
 
-- **Integration Guide**: [INTEGRATION-GUIDE.md](../packages/psycho-symbolic-integration/docs/INTEGRATION-GUIDE.md)
-- **API Reference**: [README.md](../packages/psycho-symbolic-integration/docs/README.md)
-- **Examples**: [examples/](../packages/psycho-symbolic-integration/examples/)
+- **Integration Summary**: [INTEGRATION-SUMMARY.md](./INTEGRATION-SUMMARY.md)
+- **Quick Start**: [PSYCHO-SYNTH-QUICK-START.md](./PSYCHO-SYNTH-QUICK-START.md)
 
-## 🔗 Links
+## Links
 
 - **Psycho-Symbolic Reasoner**: [npm](https://www.npmjs.com/package/psycho-symbolic-reasoner)
-- **Integration Package**: [psycho-symbolic-integration](../packages/psycho-symbolic-integration)
-- **Agentic-Synth**: [@ruvector/agentic-synth](../packages/agentic-synth)
 - **Ruvector**: [Main repo](https://github.com/ruvnet/ruvector)
 
 ## 🎉 Getting Started

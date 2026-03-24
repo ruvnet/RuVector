@@ -347,7 +347,7 @@ docker run -d \
   -e DB_HOST=10.1.2.3 \
   -e DB_NAME=ruvector \
   -e DB_USER=ruvector_app \
-  -e DB_PASSWORD=secret \
+  -e DB_PASSWORD="${DB_PASSWORD}" \
   edoburu/pgbouncer
 ```
 

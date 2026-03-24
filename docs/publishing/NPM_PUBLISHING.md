@@ -279,10 +279,10 @@ Error: dlopen failed: cannot open shared object file
 
 ## 🔗 Related Documentation
 
-- [Build Process](./BUILD_PROCESS.md) - Multi-platform build details
+- [Publishing Guide](./PUBLISHING-GUIDE.md) - Complete publishing guide
 - [Publishing Complete](./PUBLISHING_COMPLETE.md) - Rust crates on crates.io
-- [Phase 2 Complete](./PHASE2_MULTIPLATFORM_COMPLETE.md) - Multi-platform architecture
-- [Phase 3 WASM Status](./PHASE3_WASM_STATUS.md) - WebAssembly implementation
+- [Publishing Checklist](./PUBLISHING_CHECKLIST.md) - Publishing checklist
+- [Package Validation Report](./PACKAGE-VALIDATION-REPORT.md) - Validation report
 
 ## ✅ Verification Commands
 

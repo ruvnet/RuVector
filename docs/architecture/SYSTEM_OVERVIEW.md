@@ -386,8 +386,7 @@ pub trait Quantizer: Send + Sync {
 
 ## Related Documentation
 
-- [Storage Layer](STORAGE_LAYER.md) - Detailed storage architecture
-- [Index Structures](INDEX_STRUCTURES.md) - HNSW and flat indexes
-- [Quantization](QUANTIZATION.md) - Compression techniques
+- [HNSW Index](../hnsw/HNSW_INDEX.md) - HNSW index documentation
+- [HNSW Implementation Summary](../hnsw/HNSW_IMPLEMENTATION_SUMMARY.md) - Implementation details
 - [Performance](../optimization/PERFORMANCE_TUNING_GUIDE.md) - Optimization guide
 - [API Reference](../api/) - Complete API documentation

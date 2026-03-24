@@ -254,6 +254,18 @@ Users control what they share via a `FederationPolicy`:
 - **CCPA Section 1798.105**: Deletion requests honored via pseudonym revocation
 - **NIST SP 800-188**: De-identification via differential privacy with formal epsilon guarantees
 
+## 11. Shared Development Brain
+
+The Shared Brain (`mcp-brain` + `mcp-brain-server`) is the practical deployment of this federation architecture. It provides:
+
+- **MCP Interface**: 10 tools for sharing, searching, voting, transferring, and monitoring knowledge
+- **Cloud Run Backend**: axum REST API at `brain.ruv.io` with Firestore + GCS persistence
+- **RVF-Native**: Every shared memory is a full cognitive container with witness chains, signatures, and diff privacy proofs
+- **Federation Bridge**: Brain memories with quality_score > 0.8 and observations >= 10 are automatically promoted to federated exports via FederatedManifest (0x33)
+- **Zero-Trust**: Seven security layers protect against untrusted public users (see ADR-059)
+
+See [ADR-059](ADR-059-shared-brain-google-cloud.md) for full deployment specification.
+
 ## References
 
 - McMahan et al., "Communication-Efficient Learning of Deep Networks from Decentralized Data" (FedAvg)

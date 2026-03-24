@@ -272,7 +272,5 @@ for vertex in graph.vertices() {
 
 ## See Also
 
-- [`DynamicMinCut`](./dynamic-mincut.md) - Full dynamic minimum cut algorithm
-- [`ForestPacking`](./forest-packing.md) - Witness guarantees
-- [`ExpanderDecomposition`](./expander.md) - Graph decomposition
-- [`HierarchicalDecomposition`](./hierarchical.md) - Tree structure
+- [LocalKCut Implementation Summary](./localkcut-implementation-summary.md) - Implementation details
+- [LocalKCut Paper Implementation](./localkcut-paper-implementation.md) - Paper-based implementation

@@ -255,9 +255,9 @@ impl Gemma2Config {
 
 | Feature | ADR | Status | Timeline |
 |---------|-----|--------|----------|
-| **JSON Schema Validation** | [ADR-009](../adr/ADR-009-JSON-SCHEMA-VALIDATION.md) | ADR Created | Q1 2026 |
-| **Function Calling / Tool Use** | [ADR-010](../adr/ADR-010-FUNCTION-CALLING.md) | ADR Created | Q1 2026 |
-| **Guided Generation (Grammar)** | [ADR-011](../adr/ADR-011-GUIDED-GENERATION.md) | ADR Created | Q2 2026 |
+| **JSON Schema Validation** | [ADR-009](../adr/ADR-009-structured-output.md) | ADR Created | Q1 2026 |
+| **Function Calling / Tool Use** | [ADR-010](../adr/ADR-010-function-calling.md) | ADR Created | Q1 2026 |
+| **Guided Generation (Grammar)** | [ADR-011](../adr/ADR-011-prefix-caching.md) | ADR Created | Q2 2026 |
 
 **LoRA Implementation Quality** (Production-Ready):
 ```rust
@@ -836,9 +836,9 @@ The crate is **NOT far** from being a **best-in-class edge inference engine**. F
 
 | Feature | ADR | Priority | Status | Timeline |
 |---------|-----|----------|--------|----------|
-| **JSON Schema Validation** | [ADR-009](../adr/ADR-009-JSON-SCHEMA-VALIDATION.md) | P0 | Design Complete | 4-6 weeks |
-| **Function Calling / Tool Use** | [ADR-010](../adr/ADR-010-FUNCTION-CALLING.md) | P0 | Design Complete | 3-4 weeks |
-| **Guided Generation (Grammar)** | [ADR-011](../adr/ADR-011-GUIDED-GENERATION.md) | P0 | Design Complete | 6-8 weeks |
+| **JSON Schema Validation** | [ADR-009](../adr/ADR-009-structured-output.md) | P0 | Design Complete | 4-6 weeks |
+| **Function Calling / Tool Use** | [ADR-010](../adr/ADR-010-function-calling.md) | P0 | Design Complete | 3-4 weeks |
+| **Guided Generation (Grammar)** | [ADR-011](../adr/ADR-011-prefix-caching.md) | P0 | Design Complete | 6-8 weeks |
 | **LangChain v0.1 Integration** | - | P1 | Planning | 2-3 weeks |
 | **OpenAI API Compatibility** | - | P2 | Planning | 2-3 weeks |
 

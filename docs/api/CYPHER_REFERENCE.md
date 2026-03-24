@@ -227,7 +227,7 @@ RETURN nodes(p), relationships(p), length(p)
 
 ## See Also
 
-- [Getting Started Guide](../guide/GETTING_STARTED.md)
+- [Getting Started Guide](../guides/GETTING_STARTED.md)
 - [Node.js API](./NODEJS_API.md)
 - [Rust API](./RUST_API.md)
-- [GNN Architecture](../gnn-layer-implementation.md)
+- [GNN Layer Implementation](../gnn/gnn-layer-implementation.md)

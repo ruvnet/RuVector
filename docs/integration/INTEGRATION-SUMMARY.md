@@ -211,8 +211,8 @@ const plan = await system.planDataGeneration(
    ```
 
 2. **Read the Guides**:
-   - [Integration Guide](../packages/psycho-symbolic-integration/docs/INTEGRATION-GUIDE.md)
-   - [API Reference](../packages/psycho-symbolic-integration/docs/README.md)
+   - [Psycho-Symbolic Integration](./PSYCHO-SYMBOLIC-INTEGRATION.md)
+   - [Psycho-Synth Quick Start](./PSYCHO-SYNTH-QUICK-START.md)
 
 3. **Build Your Integration**:
    ```typescript

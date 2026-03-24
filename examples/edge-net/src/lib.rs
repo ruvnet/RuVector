@@ -56,6 +56,7 @@ pub mod swarm;
 pub mod capabilities;
 pub mod compute;
 pub mod ai;
+pub mod brain;
 pub mod economics;
 
 use identity::WasmNodeIdentity;
@@ -69,6 +70,7 @@ use adversarial::AdversarialSimulator;
 use evolution::{EconomicEngine, EvolutionEngine, NetworkTopology, OptimizationEngine};
 use tribute::{FoundingRegistry, ContributionStream};
 pub use capabilities::WasmCapabilities;
+use brain::BrainBridge;
 
 /// Initialize panic hook for better error messages in console
 #[wasm_bindgen(start)]
@@ -109,6 +111,8 @@ pub struct EdgeNetNode {
     coherence: CoherenceEngine,
     /// Exotic AI capabilities (Time Crystal, NAO, MicroLoRA, HDC, etc.)
     capabilities: WasmCapabilities,
+    /// Brain integration bridge for shared intelligence
+    brain: BrainBridge,
 }
 
 #[wasm_bindgen]
@@ -196,6 +200,7 @@ impl EdgeNetNode {
             learning: NetworkLearning::new(),
             coherence: CoherenceEngine::new(),
             capabilities: WasmCapabilities::new(&node_id),
+            brain: BrainBridge::new("ws://localhost:8080/relay", &node_id),
         })
     }
 
@@ -647,6 +652,54 @@ impl EdgeNetNode {
     #[wasm_bindgen(js_name = stepCapabilities)]
     pub fn step_capabilities(&mut self, dt: f32) {
         self.capabilities.step(dt);
+    }
+
+    // ========================================================================
+    // Brain Integration Methods
+    // ========================================================================
+
+    /// Search shared brain knowledge
+    ///
+    /// Returns a JSON request string for the JS host to send via relay WebSocket.
+    #[wasm_bindgen(js_name = brainSearch)]
+    pub fn brain_search(&mut self, query: &str, limit: usize) -> String {
+        self.brain.brain_search(query, limit)
+    }
+
+    /// Share knowledge with the brain
+    ///
+    /// Returns a JSON request string for the JS host to send via relay WebSocket.
+    #[wasm_bindgen(js_name = brainShare)]
+    pub fn brain_share(
+        &mut self,
+        title: &str,
+        content: &str,
+        category: &str,
+        tags_json: &str,
+    ) -> String {
+        self.brain.brain_share(title, content, category, tags_json)
+    }
+
+    /// Vote on brain knowledge quality
+    ///
+    /// Returns a JSON request string for the JS host to send via relay WebSocket.
+    #[wasm_bindgen(js_name = brainVote)]
+    pub fn brain_vote(&mut self, memory_id: &str, direction: &str) -> String {
+        self.brain.brain_vote(memory_id, direction)
+    }
+
+    /// Get brain system status
+    ///
+    /// Returns a JSON request string for the JS host to send via relay WebSocket.
+    #[wasm_bindgen(js_name = brainStatus)]
+    pub fn brain_status(&mut self) -> String {
+        self.brain.brain_status()
+    }
+
+    /// Get total rUv earned from brain operations
+    #[wasm_bindgen(js_name = getBrainRuv)]
+    pub fn get_brain_ruv(&self) -> f64 {
+        self.brain.get_brain_ruv()
     }
 }
 

@@ -13,6 +13,9 @@ import {
   Activity,
   KeyRound,
   BookOpen,
+  Brain,
+  TrendingUp,
+  Gift,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
 
@@ -33,6 +36,9 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { id: 'overview', label: 'Overview', icon: <LayoutDashboard size={18} /> },
+  { id: 'brain', label: 'Brain', icon: <Brain size={18} /> },
+  { id: 'economics', label: 'Economics', icon: <TrendingUp size={18} /> },
+  { id: 'rewards', label: 'Rewards', icon: <Gift size={18} /> },
   { id: 'identity', label: 'Identity', icon: <KeyRound size={18} /> },
   { id: 'network', label: 'Network', icon: <Network size={18} /> },
   { id: 'wasm', label: 'WASM Modules', icon: <Cpu size={18} /> },

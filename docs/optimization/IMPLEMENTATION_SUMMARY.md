@@ -454,7 +454,7 @@ cd profiling
 - [Performance Tuning Guide](./PERFORMANCE_TUNING_GUIDE.md)
 - [Build Optimization Guide](./BUILD_OPTIMIZATION.md)
 - [Optimization Results](./OPTIMIZATION_RESULTS.md)
-- [Profiling README](../../profiling/README.md)
+- [Benchmarking Guide](../benchmarks/BENCHMARKING_GUIDE.md)
 
 ### External Resources
 - [Rust Performance Book](https://nnethercote.github.io/perf-book/)

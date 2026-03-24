@@ -9,52 +9,6 @@ const chalk = _chalk.default || _chalk;
 const fs = require('fs');
 const path = require('path');
 
-// Load .env from current directory (if exists)
-try {
-  const envPath = path.join(process.cwd(), '.env');
-  if (fs.existsSync(envPath)) {
-    const envContent = fs.readFileSync(envPath, 'utf8');
-    for (const line of envContent.split('\n')) {
-      const trimmed = line.trim();
-      if (!trimmed || trimmed.startsWith('#')) continue;
-      const eqIdx = trimmed.indexOf('=');
-      if (eqIdx > 0) {
-        const key = trimmed.slice(0, eqIdx).trim();
-        let value = trimmed.slice(eqIdx + 1).trim();
-        // Strip surrounding quotes
-        if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
-          value = value.slice(1, -1);
-        }
-        // Don't override existing env vars
-        if (!process.env[key]) {
-          process.env[key] = value;
-        }
-      }
-    }
-  }
-} catch {}
-
-// Load global config from ~/.ruvector/config.json (if exists)
-try {
-  const os = require('os');
-  const configPath = path.join(os.homedir(), '.ruvector', 'config.json');
-  if (fs.existsSync(configPath)) {
-    const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-    // Map config keys to env vars (don't override existing)
-    const configMap = {
-      brain_url: 'BRAIN_URL',
-      pi_key: 'PI',
-      edge_genesis_url: 'EDGE_GENESIS_URL',
-      edge_relay_url: 'EDGE_RELAY_URL',
-    };
-    for (const [configKey, envKey] of Object.entries(configMap)) {
-      if (config[configKey] && !process.env[envKey]) {
-        process.env[envKey] = config[configKey];
-      }
-    }
-  }
-} catch {}
-
 // Lazy load ora (spinner) - only needed for commands with progress indicators
 let _oraModule = null;
 function ora(text) {
@@ -92,7 +46,8 @@ function requireRuvector() {
 }
 
 // Lazy load GNN (optional - loaded on first use, not at startup)
-let _gnnModule = undefined;
+// Saves ~6ms startup time by deferring require('@ruvector/gnn')
+let _gnnModule = undefined; // undefined = not yet attempted, null = failed, object = loaded
 let RuvectorLayer, TensorCompress, differentiableSearch, getCompressionLevel, hierarchicalForward;
 let gnnAvailable = false;
 
@@ -108,88 +63,16 @@ function loadGnn() {
     _gnnModule = gnn;
     gnnAvailable = true;
     return gnn;
-  } catch {
+  } catch (e) {
     _gnnModule = null;
     gnnAvailable = false;
     return null;
   }
 }
 
-// ── Proxy-aware fetch wrapper ───────────────────────────────────────────────
-// Detects HTTP_PROXY / HTTPS_PROXY / ALL_PROXY env vars and routes traffic
-// through the proxy when configured.  Falls back to native fetch() when no
-// proxy is set or the target matches NO_PROXY.
-let _proxyDispatcherSet = false;
-
-function getProxyUrl(targetUrl) {
-  const NO_PROXY = process.env.NO_PROXY || process.env.no_proxy || '';
-  if (NO_PROXY === '*') return null;
-  if (NO_PROXY) {
-    try {
-      const host = new URL(targetUrl).hostname.toLowerCase();
-      const patterns = NO_PROXY.split(',').map(p => p.trim().toLowerCase());
-      for (const p of patterns) {
-        if (!p) continue;
-        if (host === p || host.endsWith(p.startsWith('.') ? p : '.' + p)) return null;
-      }
-    } catch {}
-  }
-  return process.env.HTTPS_PROXY || process.env.https_proxy
-      || process.env.HTTP_PROXY  || process.env.http_proxy
-      || process.env.ALL_PROXY   || process.env.all_proxy
-      || null;
-}
-
-async function proxyFetch(url, opts) {
-  const target = typeof url === 'string' ? url : url.toString();
-  const proxy = getProxyUrl(target);
-  if (!proxy) return fetch(url, opts);
-
-  // Try undici ProxyAgent (bundled in Node 18+)
-  if (!_proxyDispatcherSet) {
-    try {
-      const undici = require('undici');
-      if (undici.ProxyAgent && undici.setGlobalDispatcher) {
-        undici.setGlobalDispatcher(new undici.ProxyAgent(proxy));
-        _proxyDispatcherSet = true;
-      }
-    } catch {}
-  }
-  if (_proxyDispatcherSet) return fetch(url, opts);
-
-  // Fallback: shell out to curl (which natively respects proxy env vars)
-  const { execFileSync } = require('child_process');
-  const args = ['-sS', '-L', '--max-time', '30', '-w', '\n%{http_code}'];
-  if (opts && opts.method) { args.push('-X', opts.method); }
-  if (opts && opts.headers) {
-    for (const [k, v] of Object.entries(opts.headers)) {
-      args.push('-H', `${k}: ${v}`);
-    }
-  }
-  if (opts && opts.body) { args.push('-d', typeof opts.body === 'string' ? opts.body : JSON.stringify(opts.body)); }
-  args.push(target);
-  try {
-    const stdout = execFileSync('curl', args, { encoding: 'utf8', timeout: 35000 });
-    const lines = stdout.trimEnd().split('\n');
-    const statusCode = parseInt(lines.pop(), 10) || 200;
-    const body = lines.join('\n').trim();
-    const ok = statusCode >= 200 && statusCode < 300;
-    return {
-      ok,
-      status: statusCode,
-      statusText: ok ? 'OK' : `HTTP ${statusCode}`,
-      text: async () => body,
-      json: async () => body ? JSON.parse(body) : {},
-      headers: new Map(),
-    };
-  } catch (e) {
-    const msg = e.stderr ? e.stderr.toString().trim() : e.message;
-    throw new Error(`Proxy curl failed: ${msg}`);
-  }
-}
-
 // Lazy load Attention (optional - loaded on first use, not at startup)
-let _attentionModule = undefined;
+// Saves ~5ms startup time by deferring require('@ruvector/attention')
+let _attentionModule = undefined; // undefined = not yet attempted
 let DotProductAttention, MultiHeadAttention, HyperbolicAttention, FlashAttention, LinearAttention, MoEAttention;
 let GraphRoPeAttention, EdgeFeaturedAttention, DualSpaceAttention, LocalGlobalAttention;
 let benchmarkAttention, computeAttentionAsync, batchAttentionCompute, parallelAttentionCompute;
@@ -201,31 +84,36 @@ function loadAttention() {
   if (_attentionModule !== undefined) return _attentionModule;
   try {
     const attention = require('@ruvector/attention');
+    // Core mechanisms
     DotProductAttention = attention.DotProductAttention;
     MultiHeadAttention = attention.MultiHeadAttention;
     HyperbolicAttention = attention.HyperbolicAttention;
     FlashAttention = attention.FlashAttention;
     LinearAttention = attention.LinearAttention;
     MoEAttention = attention.MoEAttention;
+    // Graph attention
     GraphRoPeAttention = attention.GraphRoPeAttention;
     EdgeFeaturedAttention = attention.EdgeFeaturedAttention;
     DualSpaceAttention = attention.DualSpaceAttention;
     LocalGlobalAttention = attention.LocalGlobalAttention;
+    // Utilities
     benchmarkAttention = attention.benchmarkAttention;
     computeAttentionAsync = attention.computeAttentionAsync;
     batchAttentionCompute = attention.batchAttentionCompute;
     parallelAttentionCompute = attention.parallelAttentionCompute;
+    // Hyperbolic math
     expMap = attention.expMap;
     logMap = attention.logMap;
     mobiusAddition = attention.mobiusAddition;
     poincareDistance = attention.poincareDistance;
     projectToPoincareBall = attention.projectToPoincareBall;
-    attentionInfo = attention.attentionInfo;
-    attentionVersion = attention.attentionVersion;
+    // Meta
+    attentionInfo = attention.info;
+    attentionVersion = attention.version;
     _attentionModule = attention;
     attentionAvailable = true;
     return attention;
-  } catch {
+  } catch (e) {
     _attentionModule = null;
     attentionAvailable = false;
     return null;
@@ -496,13 +384,16 @@ program
   .command('info')
   .description('Show ruvector information')
   .action(() => {
+    // Trigger lazy load of optional modules for availability check
+    loadGnn();
+    loadAttention();
+
     console.log(chalk.cyan('\nruvector Information'));
     console.log(chalk.white(`  CLI Version: ${chalk.yellow(packageJson.version)}`));
 
     // Try to load ruvector for implementation info
     if (loadRuvector()) {
-      const versionInfo = typeof getVersion === 'function' ? getVersion() : null;
-      const version = versionInfo && versionInfo.version ? versionInfo.version : 'unknown';
+      const version = typeof getVersion === 'function' ? getVersion() : 'unknown';
       const impl = typeof getImplementationType === 'function' ? getImplementationType() : 'native';
       console.log(chalk.white(`  Core Version: ${chalk.yellow(version)}`));
       console.log(chalk.white(`  Implementation: ${chalk.yellow(impl)}`));
@@ -510,7 +401,6 @@ program
       console.log(chalk.white(`  Core: ${chalk.gray('Not loaded (install @ruvector/core)')}`));
     }
 
-    loadGnn();
     console.log(chalk.white(`  GNN Module: ${gnnAvailable ? chalk.green('Available') : chalk.gray('Not installed')}`));
     console.log(chalk.white(`  Node Version: ${chalk.yellow(process.version)}`));
     console.log(chalk.white(`  Platform: ${chalk.yellow(process.platform)}`));
@@ -534,8 +424,10 @@ program
   .action(async (packages, options) => {
     const { execSync } = require('child_process');
 
-    // Available optional packages - all ruvector npm packages
+    // Trigger lazy load to check availability
     loadGnn();
+
+    // Available optional packages - all ruvector npm packages
     const availablePackages = {
       // Core packages
       core: {
@@ -822,7 +714,7 @@ program
 // GNN Commands
 // =============================================================================
 
-// Helper to check GNN availability
+// Helper to check GNN availability (triggers lazy load)
 function requireGnn() {
   loadGnn();
   if (!gnnAvailable) {
@@ -1050,7 +942,7 @@ gnnCmd
 // Attention Commands
 // =============================================================================
 
-// Helper to require attention module
+// Helper to require attention module (triggers lazy load)
 function requireAttention() {
   loadAttention();
   if (!attentionAvailable) {
@@ -1483,6 +1375,10 @@ program
   .action(async (options) => {
     const { execSync } = require('child_process');
 
+    // Trigger lazy load of optional modules for availability check
+    loadGnn();
+    loadAttention();
+
     console.log(chalk.cyan('\n═══════════════════════════════════════════════════════════════'));
     console.log(chalk.cyan('                    RuVector Doctor'));
     console.log(chalk.cyan('═══════════════════════════════════════════════════════════════\n'));
@@ -1569,7 +1465,6 @@ program
     }
 
     // Check @ruvector/gnn
-    loadGnn();
     if (gnnAvailable) {
       console.log(chalk.green(`  ✓ @ruvector/gnn installed`));
     } else {
@@ -1577,7 +1472,6 @@ program
     }
 
     // Check @ruvector/attention
-    loadAttention();
     if (attentionAvailable) {
       console.log(chalk.green(`  ✓ @ruvector/attention installed`));
     } else {
@@ -3551,28 +3445,14 @@ hooksCmd.command('init')
   }
 
   // MCP server configuration (unless --minimal or --no-mcp)
-  // Note: We only use enabledMcpjsonServers (not mcpServers) to avoid
-  // Claude Code regenerating .mcp.json and stripping user-added fields
-  // like autoStart. See: https://github.com/ruvnet/RuVector/issues/250
   if (!opts.minimal && opts.mcp !== false) {
-    // Only reference servers via enabledMcpjsonServers — never write mcpServers: {}
-    // which can trigger Claude Code to regenerate .mcp.json
-    const mcpJsonPath = path.join(process.cwd(), '.mcp.json');
-    let mcpJson = {};
-    if (fs.existsSync(mcpJsonPath)) {
-      try { mcpJson = JSON.parse(fs.readFileSync(mcpJsonPath, 'utf-8')); } catch {}
-    }
-    // Only add to enabledMcpjsonServers if the server is defined in .mcp.json
-    if (mcpJson.mcpServers?.['claude-flow'] || mcpJson.mcpServers?.['ruvector']) {
-      const serverName = mcpJson.mcpServers['ruvector'] ? 'ruvector' : 'claude-flow';
-      if (!settings.enabledMcpjsonServers?.includes(serverName)) {
-        settings.enabledMcpjsonServers = settings.enabledMcpjsonServers || [];
-        settings.enabledMcpjsonServers.push(serverName);
+    settings.mcpServers = settings.mcpServers || {};
+    // Only add if not already configured
+    if (!settings.mcpServers['claude-flow'] && !settings.enabledMcpjsonServers?.includes('claude-flow')) {
+      settings.enabledMcpjsonServers = settings.enabledMcpjsonServers || [];
+      if (!settings.enabledMcpjsonServers.includes('claude-flow')) {
+        settings.enabledMcpjsonServers.push('claude-flow');
       }
-    }
-    // Remove stale mcpServers: {} that could trigger .mcp.json regeneration
-    if (settings.mcpServers && Object.keys(settings.mcpServers).length === 0) {
-      delete settings.mcpServers;
     }
     console.log(chalk.blue('  ✓ MCP servers configured'));
   }
@@ -4193,7 +4073,7 @@ hooksCmd.command('suggest-context').description('Suggest relevant context').acti
   console.log(`RuVector Intelligence: ${stats.total_patterns} learned patterns, ${stats.total_errors} error fixes available. Use 'ruvector hooks route' for agent suggestions.`);
 });
 
-hooksCmd.command('remember').description('Store in memory').option('-t, --type <type>', 'Memory type', 'general').option('--silent', 'Suppress output').option('--semantic', 'Use ONNX semantic embeddings (slower, better quality)').argument('<content...>', 'Content').action(async (content, opts) => {
+hooksCmd.command('remember').description('Store in memory').requiredOption('-t, --type <type>', 'Memory type').option('--silent', 'Suppress output').option('--semantic', 'Use ONNX semantic embeddings (slower, better quality)').argument('<content...>', 'Content').action(async (content, opts) => {
   const intel = new Intelligence();
   let id;
   if (opts.semantic) {
@@ -5783,16 +5663,6 @@ hooksCmd.command('doctor')
         };
         Object.values(settings.hooks || {}).forEach(checkCommands);
 
-        // Remove empty mcpServers that can cause .mcp.json overwrites (#250)
-        if (settings.mcpServers && Object.keys(settings.mcpServers).length === 0) {
-          if (opts.fix) {
-            delete settings.mcpServers;
-            fixes.push('Removed empty mcpServers to prevent .mcp.json overwrites');
-          } else {
-            issues.push({ severity: 'warning', message: 'Empty mcpServers in settings.json can cause .mcp.json overwrites', fix: 'Will remove empty mcpServers' });
-          }
-        }
-
         // Save fixes
         if (opts.fix && fixes.length > 0) {
           fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
@@ -7297,356 +7167,165 @@ rvfCmd.command('export <path>')
     } catch (e) { console.error(chalk.red(e.message)); process.exit(1); }
   });
 
-// RVF example catalog - manifest-based with local cache + SHA-256 verification
-const BUILTIN_RVF_CATALOG = [
-  // Minimal fallback if GCS and cache are both unavailable
-  { name: 'basic_store', size_human: '152 KB', description: '1,000 vectors, dim 128, cosine metric', category: 'core' },
-  { name: 'semantic_search', size_human: '755 KB', description: 'Semantic search with HNSW index', category: 'core' },
-  { name: 'rag_pipeline', size_human: '303 KB', description: 'RAG pipeline with embeddings', category: 'core' },
-  { name: 'agent_memory', size_human: '32 KB', description: 'AI agent episodic memory', category: 'ai' },
-  { name: 'swarm_knowledge', size_human: '86 KB', description: 'Multi-agent shared knowledge base', category: 'ai' },
-  { name: 'self_booting', size_human: '31 KB', description: 'Self-booting with KERNEL_SEG', category: 'compute' },
-  { name: 'ebpf_accelerator', size_human: '153 KB', description: 'eBPF distance accelerator', category: 'compute' },
-  { name: 'tee_attestation', size_human: '102 KB', description: 'TEE attestation with witnesses', category: 'security' },
-  { name: 'claude_code_appliance', size_human: '17 KB', description: 'Claude Code cognitive appliance', category: 'integration' },
-  { name: 'lineage_parent', size_human: '52 KB', description: 'COW parent file', category: 'lineage' },
-  { name: 'financial_signals', size_human: '202 KB', description: 'Financial signal vectors', category: 'industry' },
-  { name: 'mcp_in_rvf', size_human: '32 KB', description: 'MCP server embedded in RVF', category: 'integration' },
+// RVF example download/list commands
+const RVF_EXAMPLES = [
+  { name: 'basic_store', size: '152 KB', desc: '1,000 vectors, dim 128, cosine metric' },
+  { name: 'semantic_search', size: '755 KB', desc: 'Semantic search with HNSW index' },
+  { name: 'rag_pipeline', size: '303 KB', desc: 'RAG pipeline with embeddings' },
+  { name: 'embedding_cache', size: '755 KB', desc: 'Cached embedding store' },
+  { name: 'quantization', size: '1.5 MB', desc: 'PQ-compressed vectors' },
+  { name: 'progressive_index', size: '2.5 MB', desc: 'Large-scale progressive HNSW index' },
+  { name: 'filtered_search', size: '255 KB', desc: 'Metadata-filtered vector search' },
+  { name: 'recommendation', size: '102 KB', desc: 'Recommendation engine vectors' },
+  { name: 'agent_memory', size: '32 KB', desc: 'AI agent episodic memory' },
+  { name: 'swarm_knowledge', size: '86 KB', desc: 'Multi-agent shared knowledge base' },
+  { name: 'experience_replay', size: '27 KB', desc: 'RL experience replay buffer' },
+  { name: 'tool_cache', size: '26 KB', desc: 'MCP tool call cache' },
+  { name: 'mcp_in_rvf', size: '32 KB', desc: 'MCP server embedded in RVF' },
+  { name: 'ruvbot', size: '51 KB', desc: 'Chatbot knowledge store' },
+  { name: 'claude_code_appliance', size: '17 KB', desc: 'Claude Code cognitive appliance' },
+  { name: 'lineage_parent', size: '52 KB', desc: 'COW parent file' },
+  { name: 'lineage_child', size: '26 KB', desc: 'COW child (derived) file' },
+  { name: 'self_booting', size: '31 KB', desc: 'Self-booting with KERNEL_SEG' },
+  { name: 'linux_microkernel', size: '15 KB', desc: 'Embedded Linux microkernel' },
+  { name: 'ebpf_accelerator', size: '153 KB', desc: 'eBPF distance accelerator' },
+  { name: 'browser_wasm', size: '14 KB', desc: 'Browser WASM module embedded' },
+  { name: 'tee_attestation', size: '102 KB', desc: 'TEE attestation with witnesses' },
+  { name: 'zero_knowledge', size: '52 KB', desc: 'ZK-proof witness chain' },
+  { name: 'sealed_engine', size: '208 KB', desc: 'Sealed inference engine' },
+  { name: 'access_control', size: '77 KB', desc: 'Permission-gated vectors' },
+  { name: 'financial_signals', size: '202 KB', desc: 'Financial signal vectors' },
+  { name: 'medical_imaging', size: '302 KB', desc: 'Medical imaging embeddings' },
+  { name: 'legal_discovery', size: '903 KB', desc: 'Legal document discovery' },
+  { name: 'multimodal_fusion', size: '804 KB', desc: 'Multi-modal embedding fusion' },
+  { name: 'hyperbolic_taxonomy', size: '23 KB', desc: 'Hyperbolic space taxonomy' },
+  { name: 'network_telemetry', size: '16 KB', desc: 'Network telemetry vectors' },
+  { name: 'postgres_bridge', size: '152 KB', desc: 'PostgreSQL bridge vectors' },
+  { name: 'ruvllm_inference', size: '133 KB', desc: 'RuvLLM inference cache' },
+  { name: 'serverless', size: '509 KB', desc: 'Serverless deployment bundle' },
+  { name: 'edge_iot', size: '27 KB', desc: 'Edge/IoT lightweight store' },
+  { name: 'dedup_detector', size: '153 KB', desc: 'Deduplication detector' },
+  { name: 'compacted', size: '77 KB', desc: 'Post-compaction example' },
+  { name: 'posix_fileops', size: '52 KB', desc: 'POSIX file operations test' },
+  { name: 'network_sync_a', size: '52 KB', desc: 'Network sync peer A' },
+  { name: 'network_sync_b', size: '52 KB', desc: 'Network sync peer B' },
+  { name: 'agent_handoff_a', size: '31 KB', desc: 'Agent handoff source' },
+  { name: 'agent_handoff_b', size: '11 KB', desc: 'Agent handoff target' },
+  { name: 'reasoning_parent', size: '5.6 KB', desc: 'Reasoning chain parent' },
+  { name: 'reasoning_child', size: '8.1 KB', desc: 'Reasoning chain child' },
+  { name: 'reasoning_grandchild', size: '162 B', desc: 'Minimal derived file' },
 ];
 
-const GCS_MANIFEST_URL = 'https://storage.googleapis.com/ruvector-examples/manifest.json';
-const GITHUB_RAW_BASE = 'https://raw.githubusercontent.com/ruvnet/ruvector/main/examples/rvf/output';
-
-function getRvfCacheDir() {
-  const os = require('os');
-  return path.join(os.homedir(), '.ruvector', 'examples');
-}
-
-async function getRvfManifest(opts = {}) {
-  const cacheDir = getRvfCacheDir();
-  const manifestPath = path.join(cacheDir, 'manifest.json');
-
-  // Check cache (1 hour TTL)
-  if (!opts.refresh && fs.existsSync(manifestPath)) {
-    try {
-      const stat = fs.statSync(manifestPath);
-      const age = Date.now() - stat.mtimeMs;
-      if (age < 3600000) {
-        return JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
-      }
-    } catch {}
-  }
-
-  if (opts.offline) {
-    // Offline mode - use cache even if stale
-    if (fs.existsSync(manifestPath)) {
-      return JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
-    }
-    return { examples: BUILTIN_RVF_CATALOG, base_url: GITHUB_RAW_BASE, version: 'builtin', offline: true };
-  }
-
-  // Try GCS
-  try {
-    const resp = await proxyFetch(GCS_MANIFEST_URL, { signal: AbortSignal.timeout(15000) });
-    if (resp.ok) {
-      const manifest = await resp.json();
-      fs.mkdirSync(cacheDir, { recursive: true });
-      fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
-      return manifest;
-    }
-  } catch {}
-
-  // Fallback: stale cache
-  if (fs.existsSync(manifestPath)) {
-    try {
-      const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
-      manifest._stale = true;
-      return manifest;
-    } catch {}
-  }
-
-  // Final fallback: builtin catalog with GitHub URLs
-  return { examples: BUILTIN_RVF_CATALOG, base_url: GITHUB_RAW_BASE, version: 'builtin' };
-}
-
-function verifyRvfFile(filePath, expectedSha256) {
-  if (!expectedSha256) return { verified: false, reason: 'No checksum available' };
-  const crypto = require('crypto');
-  const hash = crypto.createHash('sha256');
-  const data = fs.readFileSync(filePath);
-  hash.update(data);
-  const actual = hash.digest('hex');
-  return { verified: actual === expectedSha256, actual, expected: expectedSha256 };
-}
+const RVF_BASE_URL = 'https://raw.githubusercontent.com/ruvnet/ruvector/main/examples/rvf/output';
 
 rvfCmd.command('examples')
-  .description('List available example .rvf files from the catalog')
-  .option('--category <cat>', 'Filter by category (core, ai, security, compute, lineage, industry, network, integration)')
-  .option('--refresh', 'Force refresh manifest from server')
-  .option('--offline', 'Use only cached data')
+  .description('List available example .rvf files')
   .option('--json', 'Output as JSON')
-  .action(async (opts) => {
-    const manifest = await getRvfManifest({ refresh: opts.refresh, offline: opts.offline });
-    let examples = manifest.examples || [];
-
-    if (opts.category) {
-      examples = examples.filter(e => e.category === opts.category);
-    }
-
+  .action((opts) => {
     if (opts.json) {
-      console.log(JSON.stringify({ version: manifest.version, count: examples.length, examples }, null, 2));
+      console.log(JSON.stringify(RVF_EXAMPLES, null, 2));
       return;
     }
-
-    console.log(chalk.bold.cyan(`\nRVF Example Files (${examples.length} of ${(manifest.examples || []).length} total)\n`));
-    if (manifest._stale) console.log(chalk.yellow('  (Using stale cached manifest)\n'));
-    if (manifest.version === 'builtin') console.log(chalk.yellow('  (Using built-in catalog -- run without --offline for full list)\n'));
-    console.log(chalk.dim(`  Download: npx ruvector rvf download <name>`));
-    console.log(chalk.dim(`  Filter:   npx ruvector rvf examples --category ai\n`));
-
-    // Group by category
-    const grouped = {};
-    for (const ex of examples) {
-      const cat = ex.category || 'other';
-      if (!grouped[cat]) grouped[cat] = [];
-      grouped[cat].push(ex);
+    console.log(chalk.bold.cyan('\nAvailable RVF Example Files (45 total)\n'));
+    console.log(chalk.dim(`Download: npx ruvector rvf download <name>\n`));
+    const maxName = Math.max(...RVF_EXAMPLES.map(e => e.name.length));
+    const maxSize = Math.max(...RVF_EXAMPLES.map(e => e.size.length));
+    for (const ex of RVF_EXAMPLES) {
+      const name = chalk.green(ex.name.padEnd(maxName));
+      const size = chalk.yellow(ex.size.padStart(maxSize));
+      console.log(`  ${name}  ${size}  ${chalk.dim(ex.desc)}`);
     }
-
-    for (const [cat, items] of Object.entries(grouped).sort()) {
-      const catDesc = manifest.categories ? manifest.categories[cat] || '' : '';
-      console.log(chalk.bold.yellow(`  ${cat} ${catDesc ? chalk.dim(`-- ${catDesc}`) : ''}`));
-      for (const ex of items) {
-        const name = chalk.green(ex.name.padEnd(28));
-        const size = chalk.yellow((ex.size_human || '').padStart(8));
-        console.log(`    ${name} ${size}  ${chalk.dim(ex.description || '')}`);
-      }
-      console.log();
-    }
-
-    if (manifest.categories && !opts.category) {
-      console.log(chalk.dim(`  Categories: ${Object.keys(manifest.categories).join(', ')}\n`));
-    }
+    console.log(chalk.dim(`\nFull catalog: https://github.com/ruvnet/ruvector/tree/main/examples/rvf/output\n`));
   });
 
 rvfCmd.command('download [names...]')
-  .description('Download example .rvf files with integrity verification')
-  .option('-a, --all', 'Download all examples')
-  .option('-c, --category <cat>', 'Download all examples in a category')
+  .description('Download example .rvf files from GitHub')
+  .option('-a, --all', 'Download all 45 examples (~11 MB)')
   .option('-o, --output <dir>', 'Output directory', '.')
-  .option('--verify', 'Re-verify cached files')
-  .option('--no-cache', 'Skip cache, always download fresh')
-  .option('--offline', 'Use only cached files')
-  .option('--refresh', 'Refresh manifest before download')
   .action(async (names, opts) => {
-    const manifest = await getRvfManifest({ refresh: opts.refresh, offline: opts.offline });
-    const examples = manifest.examples || [];
-    const baseUrl = manifest.base_url || GITHUB_RAW_BASE;
+    const https = require('https');
+    const ALLOWED_REDIRECT_HOSTS = ['raw.githubusercontent.com', 'objects.githubusercontent.com', 'github.com'];
+    const sanitizeFileName = (name) => {
+      // Strip path separators and parent directory references
+      const base = path.basename(name);
+      // Only allow alphanumeric, underscores, hyphens, dots
+      if (!/^[\w\-.]+$/.test(base)) throw new Error(`Invalid filename: ${base}`);
+      return base;
+    };
+    const downloadFile = (url, dest) => new Promise((resolve, reject) => {
+      const file = fs.createWriteStream(dest);
+      https.get(url, (res) => {
+        if (res.statusCode === 302 || res.statusCode === 301) {
+          const redirectUrl = res.headers.location;
+          try {
+            const redirectHost = new URL(redirectUrl).hostname;
+            if (!ALLOWED_REDIRECT_HOSTS.includes(redirectHost)) {
+              file.close();
+              reject(new Error(`Redirect to untrusted host: ${redirectHost}`));
+              return;
+            }
+          } catch { file.close(); reject(new Error('Invalid redirect URL')); return; }
+          https.get(redirectUrl, (res2) => { res2.pipe(file); file.on('finish', () => { file.close(); resolve(); }); }).on('error', reject);
+          return;
+        }
+        if (res.statusCode !== 200) { file.close(); fs.unlinkSync(dest); reject(new Error(`HTTP ${res.statusCode}`)); return; }
+        res.pipe(file);
+        file.on('finish', () => { file.close(); resolve(); });
+      }).on('error', reject);
+    });
 
     let toDownload = [];
     if (opts.all) {
-      toDownload = examples;
-    } else if (opts.category) {
-      toDownload = examples.filter(e => e.category === opts.category);
-      if (!toDownload.length) {
-        console.error(chalk.red(`No examples in category '${opts.category}'`));
-        process.exit(1);
-      }
+      toDownload = RVF_EXAMPLES.map(e => e.name);
     } else if (names && names.length > 0) {
-      for (const name of names) {
-        const cleanName = name.replace(/\.rvf$/, '');
-        const found = examples.find(e => e.name === cleanName);
-        if (found) {
-          toDownload.push(found);
-        } else {
-          console.error(chalk.red(`Unknown example: ${cleanName}. Run 'npx ruvector rvf examples' to list.`));
-        }
-      }
-      if (!toDownload.length) process.exit(1);
+      toDownload = names;
     } else {
-      console.error(chalk.red('Specify example names, --all, or --category. Run `npx ruvector rvf examples` to list.'));
+      console.error(chalk.red('Specify example names or use --all. Run `npx ruvector rvf examples` to list.'));
       process.exit(1);
     }
 
     const outDir = path.resolve(opts.output);
     if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });
-    const cacheDir = getRvfCacheDir();
-    fs.mkdirSync(cacheDir, { recursive: true });
 
     console.log(chalk.bold.cyan(`\nDownloading ${toDownload.length} .rvf file(s) to ${outDir}\n`));
-
-    const https = require('https');
-    const crypto = require('crypto');
-    const ALLOWED_REDIRECT_HOSTS = ['raw.githubusercontent.com', 'objects.githubusercontent.com', 'github.com', 'storage.googleapis.com'];
-
-    const downloadFile = (url, dest) => new Promise((resolve, reject) => {
-      const doGet = (getUrl) => {
-        const mod = getUrl.startsWith('https') ? https : require('http');
-        mod.get(getUrl, (res) => {
-          if (res.statusCode === 301 || res.statusCode === 302) {
-            const loc = res.headers.location;
-            try {
-              const host = new URL(loc).hostname;
-              if (!ALLOWED_REDIRECT_HOSTS.includes(host)) {
-                reject(new Error(`Redirect to untrusted host: ${host}`));
-                return;
-              }
-            } catch { reject(new Error('Invalid redirect URL')); return; }
-            doGet(loc);
-            return;
-          }
-          if (res.statusCode !== 200) {
-            reject(new Error(`HTTP ${res.statusCode}`));
-            return;
-          }
-          const file = fs.createWriteStream(dest);
-          res.pipe(file);
-          file.on('finish', () => { file.close(); resolve(); });
-          file.on('error', reject);
-        }).on('error', reject);
-      };
-      doGet(url);
-    });
-
-    let ok = 0, cached = 0, fail = 0, verified = 0;
-
-    for (const ex of toDownload) {
-      const fileName = `${ex.name}.rvf`;
-      // Sanitize filename
-      if (!/^[\w\-.]+$/.test(fileName)) {
-        console.log(`  ${chalk.red('SKIP')} ${fileName} (invalid filename)`);
+    let ok = 0, fail = 0;
+    for (const name of toDownload) {
+      const rawName = name.endsWith('.rvf') ? name : `${name}.rvf`;
+      let fileName;
+      try { fileName = sanitizeFileName(rawName); } catch (e) {
+        console.log(chalk.red(`SKIPPED: ${e.message}`));
         fail++;
         continue;
       }
-
-      const destPath = path.join(outDir, fileName);
-      const cachePath = path.join(cacheDir, fileName);
-
-      // Path containment check
-      if (!path.resolve(destPath).startsWith(path.resolve(outDir))) {
-        console.log(`  ${chalk.red('SKIP')} ${fileName} (path traversal)`);
-        fail++;
-        continue;
-      }
-
-      // Check cache first
-      if (opts.cache !== false && fs.existsSync(cachePath) && !opts.verify) {
-        // Verify if checksum available
-        if (ex.sha256) {
-          const check = verifyRvfFile(cachePath, ex.sha256);
-          if (check.verified) {
-            // Copy from cache
-            if (path.resolve(destPath) !== path.resolve(cachePath)) {
-              fs.copyFileSync(cachePath, destPath);
-            }
-            console.log(`  ${chalk.green('CACHED')} ${chalk.cyan(fileName)} ${chalk.dim(ex.size_human || '')}`);
-            cached++;
-            continue;
-          } else {
-            // Cache corrupted, re-download
-            console.log(`  ${chalk.yellow('STALE')} ${fileName} -- re-downloading`);
-          }
-        } else {
-          // Copy from cache (no checksum to verify)
-          if (path.resolve(destPath) !== path.resolve(cachePath)) {
-            fs.copyFileSync(cachePath, destPath);
-          }
-          console.log(`  ${chalk.green('CACHED')} ${chalk.cyan(fileName)} ${chalk.dim(ex.size_human || '')}`);
-          cached++;
+      // Validate against known examples when not using --all
+      if (!opts.all) {
+        const baseName = fileName.replace(/\.rvf$/, '');
+        if (!RVF_EXAMPLES.some(e => e.name === baseName)) {
+          console.log(chalk.red(`SKIPPED: Unknown example '${baseName}'. Run 'npx ruvector rvf examples' to list.`));
+          fail++;
           continue;
         }
       }
-
-      if (opts.offline) {
-        console.log(`  ${chalk.yellow('SKIP')} ${fileName} (offline mode, not cached)`);
+      const url = `${RVF_BASE_URL}/${encodeURIComponent(fileName)}`;
+      const dest = path.join(outDir, fileName);
+      // Path containment check
+      if (!path.resolve(dest).startsWith(path.resolve(outDir) + path.sep) && path.resolve(dest) !== path.resolve(outDir)) {
+        console.log(chalk.red(`SKIPPED: Path traversal detected for '${fileName}'`));
         fail++;
         continue;
       }
-
-      // Download
-      const url = `${baseUrl}/${encodeURIComponent(fileName)}`;
       try {
-        await downloadFile(url, cachePath);
-
-        // SHA-256 verify
-        if (ex.sha256) {
-          const check = verifyRvfFile(cachePath, ex.sha256);
-          if (check.verified) {
-            verified++;
-            console.log(`  ${chalk.green('OK')} ${chalk.cyan(fileName)} ${chalk.dim(ex.size_human || '')} ${chalk.green('SHA-256 verified')}`);
-          } else {
-            console.log(`  ${chalk.red('FAIL')} ${fileName} -- SHA-256 mismatch! Expected ${ex.sha256.slice(0, 12)}... got ${check.actual.slice(0, 12)}...`);
-            fs.unlinkSync(cachePath);
-            fail++;
-            continue;
-          }
-        } else {
-          console.log(`  ${chalk.green('OK')} ${chalk.cyan(fileName)} ${chalk.dim(ex.size_human || '')} ${chalk.yellow('(no checksum)')}`);
-        }
-
-        // Copy to output dir if different from cache
-        if (path.resolve(destPath) !== path.resolve(cachePath)) {
-          fs.copyFileSync(cachePath, destPath);
-        }
+        process.stdout.write(chalk.dim(`  ${fileName} ... `));
+        await downloadFile(url, dest);
+        const stat = fs.statSync(dest);
+        console.log(chalk.green(`OK (${(stat.size / 1024).toFixed(0)} KB)`));
         ok++;
       } catch (e) {
-        console.log(`  ${chalk.red('FAIL')} ${fileName}: ${e.message}`);
+        console.log(chalk.red(`FAILED: ${e.message}`));
         fail++;
       }
     }
-
-    console.log(chalk.bold(`\n  Downloaded: ${ok}, Cached: ${cached}, Failed: ${fail}${verified ? `, Verified: ${verified}` : ''}\n`));
-  });
-
-// RVF cache management
-rvfCmd.command('cache <action>')
-  .description('Manage local .rvf example cache (status, clear)')
-  .action((action) => {
-    const cacheDir = getRvfCacheDir();
-
-    switch (action) {
-      case 'status': {
-        if (!fs.existsSync(cacheDir)) {
-          console.log(chalk.dim('\n  No cache directory found.\n'));
-          return;
-        }
-        const files = fs.readdirSync(cacheDir).filter(f => f.endsWith('.rvf'));
-        const manifestExists = fs.existsSync(path.join(cacheDir, 'manifest.json'));
-        let totalSize = 0;
-        for (const f of files) {
-          totalSize += fs.statSync(path.join(cacheDir, f)).size;
-        }
-        console.log(chalk.bold.cyan('\nRVF Cache Status\n'));
-        console.log(`  ${chalk.bold('Location:')}  ${cacheDir}`);
-        console.log(`  ${chalk.bold('Files:')}     ${files.length} .rvf files`);
-        console.log(`  ${chalk.bold('Size:')}      ${(totalSize / (1024 * 1024)).toFixed(1)} MB`);
-        console.log(`  ${chalk.bold('Manifest:')} ${manifestExists ? chalk.green('cached') : chalk.dim('not cached')}`);
-        if (manifestExists) {
-          const stat = fs.statSync(path.join(cacheDir, 'manifest.json'));
-          const age = Date.now() - stat.mtimeMs;
-          const fresh = age < 3600000;
-          console.log(`  ${chalk.bold('Age:')}       ${Math.floor(age / 60000)} min ${fresh ? chalk.green('(fresh)') : chalk.yellow('(stale)')}`);
-        }
-        console.log();
-        break;
-      }
-      case 'clear': {
-        if (!fs.existsSync(cacheDir)) {
-          console.log(chalk.dim('\n  No cache to clear.\n'));
-          return;
-        }
-        const files = fs.readdirSync(cacheDir);
-        let cleared = 0;
-        for (const f of files) {
-          fs.unlinkSync(path.join(cacheDir, f));
-          cleared++;
-        }
-        console.log(chalk.green(`\n  Cleared ${cleared} cached files from ${cacheDir}\n`));
-        break;
-      }
-      default:
-        console.error(chalk.red(`Unknown cache action: ${action}. Use: status, clear`));
-        process.exit(1);
-    }
+    console.log(chalk.bold(`\nDone: ${ok} downloaded, ${fail} failed\n`));
   });
 
 // MCP Server command
@@ -7654,15 +7333,8 @@ const mcpCmd = program.command('mcp').description('MCP (Model Context Protocol) 
 
 mcpCmd.command('start')
   .description('Start the RuVector MCP server')
-  .option('-t, --transport <type>', 'Transport type: stdio or sse', 'stdio')
-  .option('-p, --port <number>', 'Port for SSE transport', '8080')
-  .option('--host <host>', 'Host to bind for SSE', '0.0.0.0')
-  .action((opts) => {
-    if (opts.transport === 'sse') {
-      process.env.MCP_TRANSPORT = 'sse';
-      process.env.MCP_PORT = opts.port;
-      process.env.MCP_HOST = opts.host;
-    }
+  .action(() => {
+    // Execute the mcp-server.js directly
     const mcpServerPath = path.join(__dirname, 'mcp-server.js');
     if (!fs.existsSync(mcpServerPath)) {
       console.error(chalk.red('Error: MCP server not found at'), mcpServerPath);
@@ -7707,6 +7379,29 @@ mcpCmd.command('info')
     console.log(chalk.dim('  rvlite_cypher    - Execute Cypher graph query'));
     console.log(chalk.dim('  rvlite_sparql    - Execute SPARQL RDF query'));
 
+    console.log(chalk.bold('\nBrain Tools (Shared Intelligence):'));
+    console.log(chalk.dim('  brain_search     - Semantic search shared knowledge'));
+    console.log(chalk.dim('  brain_share      - Share knowledge with brain'));
+    console.log(chalk.dim('  brain_get        - Get memory by ID'));
+    console.log(chalk.dim('  brain_vote       - Vote on quality'));
+    console.log(chalk.dim('  brain_list       - List memories'));
+    console.log(chalk.dim('  brain_delete     - Delete own contribution'));
+    console.log(chalk.dim('  brain_status     - System health'));
+    console.log(chalk.dim('  brain_drift      - Check knowledge drift'));
+    console.log(chalk.dim('  brain_partition   - MinCut knowledge topology'));
+    console.log(chalk.dim('  brain_transfer   - Domain transfer'));
+    console.log(chalk.dim('  brain_sync       - LoRA weight sync'));
+
+    console.log(chalk.bold('\nEdge Tools (Distributed Compute):'));
+    console.log(chalk.dim('  edge_status      - Network status'));
+    console.log(chalk.dim('  edge_join        - Join as compute node'));
+    console.log(chalk.dim('  edge_balance     - Check rUv balance'));
+    console.log(chalk.dim('  edge_tasks       - Available compute tasks'));
+
+    console.log(chalk.bold('\nIdentity Tools:'));
+    console.log(chalk.dim('  identity_generate - Generate new pi key'));
+    console.log(chalk.dim('  identity_show    - Show current identity'));
+
     console.log(chalk.bold('\n📦 Resources:'));
     console.log(chalk.dim('  ruvector://intelligence/stats     - Current statistics'));
     console.log(chalk.dim('  ruvector://intelligence/patterns  - Learned patterns'));
@@ -7728,159 +7423,155 @@ mcpCmd.command('info')
     console.log();
   });
 
-// ============================================================================
-// MCP tools subcommand
-// ============================================================================
-
 mcpCmd.command('tools')
-  .description('List all MCP tools organized by group')
-  .option('--group <name>', 'Filter by group (hooks, workers, rvf, rvlite, brain, edge, identity)')
-  .option('--json', 'Output as JSON')
+  .description('List all MCP tools with descriptions (JSON output)')
+  .option('--group <group>', 'Filter by group (hooks, workers, rvf, rvlite, brain, edge, identity)')
+  .option('--json', 'JSON output')
   .action((opts) => {
-    const toolGroups = {
+    const tools = {
       'hooks-core': [
-        { name: 'hooks_stats', args: '(none)', desc: 'Get intelligence statistics' },
-        { name: 'hooks_route', args: 'task, file?', desc: 'Route task to best agent' },
-        { name: 'hooks_remember', args: 'content, type?', desc: 'Store context in vector memory' },
-        { name: 'hooks_recall', args: 'query, limit?', desc: 'Search vector memory' },
-        { name: 'hooks_init', args: 'project_path?, force?', desc: 'Initialize hooks in project' },
-        { name: 'hooks_pretrain', args: 'scan_path?, patterns?', desc: 'Pretrain from repository' },
-        { name: 'hooks_build_agents', args: 'project_path?', desc: 'Generate agent configs' },
-        { name: 'hooks_verify', args: '(none)', desc: 'Verify hooks configuration' },
-        { name: 'hooks_doctor', args: 'fix?', desc: 'Diagnose setup issues' },
-        { name: 'hooks_export', args: 'format?', desc: 'Export intelligence data' },
+        { name: 'hooks_stats', desc: 'Intelligence statistics' },
+        { name: 'hooks_route', desc: 'Route task to best agent' },
+        { name: 'hooks_remember', desc: 'Store in vector memory' },
+        { name: 'hooks_recall', desc: 'Search vector memory' },
+        { name: 'hooks_init', desc: 'Initialize hooks in project' },
+        { name: 'hooks_pretrain', desc: 'Pretrain from repository' },
+        { name: 'hooks_build_agents', desc: 'Generate agent configs' },
+        { name: 'hooks_verify', desc: 'Verify hooks config' },
+        { name: 'hooks_doctor', desc: 'Diagnose setup issues' },
+        { name: 'hooks_export', desc: 'Export intelligence data' },
+        { name: 'hooks_capabilities', desc: 'Get engine capabilities' },
+        { name: 'hooks_import', desc: 'Import intelligence data' },
+        { name: 'hooks_swarm_recommend', desc: 'Recommend agent for task' },
+        { name: 'hooks_suggest_context', desc: 'Suggest relevant context' },
       ],
       'hooks-trajectory': [
-        { name: 'hooks_trajectory_start', args: 'task, context?', desc: 'Start learning trajectory' },
-        { name: 'hooks_trajectory_step', args: 'trajectory_id, action, result', desc: 'Record trajectory step' },
-        { name: 'hooks_trajectory_end', args: 'trajectory_id, outcome, score?', desc: 'End trajectory with outcome' },
+        { name: 'hooks_trajectory_begin', desc: 'Begin execution trajectory' },
+        { name: 'hooks_trajectory_step', desc: 'Add trajectory step' },
+        { name: 'hooks_trajectory_end', desc: 'End trajectory with score' },
       ],
       'hooks-coedit': [
-        { name: 'hooks_pre_edit', args: 'file, changes', desc: 'Pre-edit analysis' },
-        { name: 'hooks_post_edit', args: 'file, changes, result', desc: 'Post-edit learning' },
-        { name: 'hooks_pre_command', args: 'command, args?', desc: 'Pre-command analysis' },
-        { name: 'hooks_post_command', args: 'command, exit_code, output?', desc: 'Post-command learning' },
-        { name: 'hooks_pre_task', args: 'task, context?', desc: 'Pre-task routing' },
-        { name: 'hooks_post_task', args: 'task, result, duration?', desc: 'Post-task learning' },
+        { name: 'hooks_coedit_record', desc: 'Record co-edit pattern' },
+        { name: 'hooks_coedit_suggest', desc: 'Suggest related files' },
       ],
       'hooks-errors': [
-        { name: 'hooks_error_learn', args: 'error, context?', desc: 'Learn from errors' },
-        { name: 'hooks_error_patterns', args: 'limit?', desc: 'Get learned error patterns' },
-        { name: 'hooks_error_suggest', args: 'error', desc: 'Suggest fix for error' },
+        { name: 'hooks_error_record', desc: 'Record error and fix' },
+        { name: 'hooks_error_suggest', desc: 'Suggest fixes for error' },
+        { name: 'hooks_force_learn', desc: 'Force learning cycle' },
       ],
       'hooks-analysis': [
-        { name: 'hooks_complexity', args: 'file', desc: 'Analyze code complexity' },
-        { name: 'hooks_dependencies', args: 'file', desc: 'Analyze dependencies' },
-        { name: 'hooks_security_scan', args: 'file', desc: 'Security vulnerability scan' },
-        { name: 'hooks_test_coverage', args: 'file', desc: 'Estimate test coverage' },
-        { name: 'hooks_dead_code', args: 'file', desc: 'Detect dead code' },
-        { name: 'hooks_duplicate_code', args: 'file', desc: 'Find duplicate code' },
+        { name: 'hooks_ast_analyze', desc: 'Parse AST, extract symbols' },
+        { name: 'hooks_ast_complexity', desc: 'Cyclomatic complexity' },
+        { name: 'hooks_diff_analyze', desc: 'Semantic diff analysis' },
+        { name: 'hooks_diff_classify', desc: 'Classify change type' },
+        { name: 'hooks_diff_similar', desc: 'Find similar past commits' },
+        { name: 'hooks_coverage_route', desc: 'Coverage-aware routing' },
+        { name: 'hooks_coverage_suggest', desc: 'Suggest tests for files' },
+        { name: 'hooks_graph_mincut', desc: 'MinCut code boundaries' },
+        { name: 'hooks_graph_cluster', desc: 'Code community detection' },
+        { name: 'hooks_security_scan', desc: 'Security vulnerability scan' },
+        { name: 'hooks_rag_context', desc: 'RAG-enhanced context' },
+        { name: 'hooks_git_churn', desc: 'Git churn hot spots' },
+        { name: 'hooks_route_enhanced', desc: 'Enhanced routing w/ signals' },
+        { name: 'hooks_attention_info', desc: 'Attention mechanisms info' },
+        { name: 'hooks_gnn_info', desc: 'GNN capabilities info' },
       ],
       'hooks-learning': [
-        { name: 'hooks_pattern_store', args: 'pattern, category, confidence?', desc: 'Store a learned pattern' },
-        { name: 'hooks_pattern_search', args: 'query, category?, limit?', desc: 'Search patterns' },
-        { name: 'hooks_attention', args: 'query, context', desc: 'Attention-weighted relevance' },
+        { name: 'hooks_learning_config', desc: 'Configure learning algorithms (9 algos)' },
+        { name: 'hooks_learning_stats', desc: 'Learning performance metrics' },
+        { name: 'hooks_learning_update', desc: 'Record learning experience' },
+        { name: 'hooks_learn', desc: 'Combined learn + recommend' },
+        { name: 'hooks_algorithms_list', desc: 'List all algorithms' },
+        { name: 'hooks_batch_learn', desc: 'Batch learning experiences' },
       ],
       'hooks-compress': [
-        { name: 'hooks_compress_context', args: 'content, max_tokens?', desc: 'Compress context' },
-        { name: 'hooks_compress_code', args: 'code, language?', desc: 'Compress code representation' },
-        { name: 'hooks_compress_diff', args: 'diff', desc: 'Compress diff' },
+        { name: 'hooks_compress', desc: 'Compress pattern storage (10x savings)' },
+        { name: 'hooks_compress_stats', desc: 'Compression statistics' },
+        { name: 'hooks_compress_store', desc: 'Store compressed embedding' },
+        { name: 'hooks_compress_get', desc: 'Retrieve compressed embedding' },
       ],
       'hooks-events': [
-        { name: 'hooks_session_start', args: '(none)', desc: 'Signal session start' },
-        { name: 'hooks_session_end', args: 'summary?', desc: 'Signal session end' },
-        { name: 'hooks_notify', args: 'message, level?', desc: 'Send notification' },
-        { name: 'hooks_transfer', args: 'target, data', desc: 'Transfer context' },
-      ],
-      'hooks-model': [
-        { name: 'hooks_model_route', args: 'task, complexity?', desc: 'Route to optimal model tier' },
-        { name: 'hooks_model_outcome', args: 'model, task, success, tokens?', desc: 'Record model outcome' },
-        { name: 'hooks_model_stats', args: '(none)', desc: 'Get model routing stats' },
+        { name: 'hooks_subscribe_snapshot', desc: 'Event state snapshot' },
+        { name: 'hooks_watch_status', desc: 'File watch status' },
       ],
       'workers': [
-        { name: 'workers_list', args: '(none)', desc: 'List available workers' },
-        { name: 'workers_status', args: 'worker_id?', desc: 'Get worker status' },
-        { name: 'workers_dispatch', args: 'worker, task, args?', desc: 'Dispatch task to worker' },
-        { name: 'workers_cancel', args: 'job_id', desc: 'Cancel running job' },
-        { name: 'workers_detect', args: 'file', desc: 'Auto-detect applicable workers' },
-        { name: 'workers_complexity', args: 'file', desc: 'Worker: complexity analysis' },
-        { name: 'workers_dependencies', args: 'file', desc: 'Worker: dependency analysis' },
-        { name: 'workers_security', args: 'file', desc: 'Worker: security scan' },
-        { name: 'workers_coverage', args: 'file', desc: 'Worker: test coverage' },
-        { name: 'workers_dead_code', args: 'file', desc: 'Worker: dead code detection' },
-        { name: 'workers_duplicates', args: 'file', desc: 'Worker: duplicate detection' },
-        { name: 'workers_performance', args: 'file', desc: 'Worker: performance analysis' },
+        { name: 'workers_dispatch', desc: 'Dispatch background worker' },
+        { name: 'workers_status', desc: 'Worker status' },
+        { name: 'workers_results', desc: 'Worker results' },
+        { name: 'workers_triggers', desc: 'List worker triggers' },
+        { name: 'workers_stats', desc: 'Worker statistics' },
+        { name: 'workers_presets', desc: 'Available presets' },
+        { name: 'workers_phases', desc: 'Worker phases' },
+        { name: 'workers_create', desc: 'Create custom worker' },
+        { name: 'workers_run', desc: 'Run worker' },
+        { name: 'workers_custom', desc: 'Custom worker' },
+        { name: 'workers_init_config', desc: 'Init config file' },
+        { name: 'workers_load_config', desc: 'Load config' },
       ],
       'rvf': [
-        { name: 'rvf_create', args: 'path, dimension?, metric?', desc: 'Create new .rvf vector store' },
-        { name: 'rvf_open', args: 'path', desc: 'Open existing .rvf store' },
-        { name: 'rvf_ingest', args: 'path, vectors, ids?, metadata?', desc: 'Insert vectors' },
-        { name: 'rvf_query', args: 'path, vector, k?, filter?', desc: 'Query nearest neighbors' },
-        { name: 'rvf_delete', args: 'path, ids', desc: 'Delete vectors by ID' },
-        { name: 'rvf_status', args: 'path', desc: 'Get store status' },
-        { name: 'rvf_compact', args: 'path', desc: 'Compact store' },
-        { name: 'rvf_derive', args: 'parent_path, child_path', desc: 'COW-branch to child store' },
-        { name: 'rvf_segments', args: 'path', desc: 'List file segments' },
-        { name: 'rvf_examples', args: '(none)', desc: 'List example .rvf files' },
+        { name: 'rvf_create', desc: 'Create .rvf vector store' },
+        { name: 'rvf_open', desc: 'Open existing store' },
+        { name: 'rvf_ingest', desc: 'Insert vectors' },
+        { name: 'rvf_query', desc: 'Query nearest neighbors' },
+        { name: 'rvf_delete', desc: 'Delete vectors by ID' },
+        { name: 'rvf_status', desc: 'Store status' },
+        { name: 'rvf_compact', desc: 'Compact store' },
+        { name: 'rvf_derive', desc: 'COW-branch child store' },
+        { name: 'rvf_segments', desc: 'List file segments' },
+        { name: 'rvf_examples', desc: 'Example .rvf files' },
       ],
       'rvlite': [
-        { name: 'rvlite_sql', args: 'query, db_path?', desc: 'Execute SQL query' },
-        { name: 'rvlite_cypher', args: 'query, db_path?', desc: 'Execute Cypher graph query' },
-        { name: 'rvlite_sparql', args: 'query, db_path?', desc: 'Execute SPARQL RDF query' },
+        { name: 'rvlite_sql', desc: 'SQL query over vector DB' },
+        { name: 'rvlite_cypher', desc: 'Cypher graph query' },
+        { name: 'rvlite_sparql', desc: 'SPARQL RDF query' },
       ],
       'brain': [
-        { name: 'brain_search', args: 'query, category?, limit?', desc: 'Semantic search shared brain' },
-        { name: 'brain_share', args: 'title, content, category, tags?, code_snippet?', desc: 'Share knowledge' },
-        { name: 'brain_get', args: 'id', desc: 'Retrieve memory by ID' },
-        { name: 'brain_vote', args: 'id, direction', desc: 'Quality vote (up/down)' },
-        { name: 'brain_list', args: 'category?, limit?', desc: 'List recent memories' },
-        { name: 'brain_delete', args: 'id', desc: 'Delete own contribution' },
-        { name: 'brain_status', args: '(none)', desc: 'System health' },
-        { name: 'brain_drift', args: 'domain?', desc: 'Check knowledge drift' },
-        { name: 'brain_partition', args: 'domain?, min_cluster_size?', desc: 'Knowledge topology' },
-        { name: 'brain_transfer', args: 'source_domain, target_domain', desc: 'Cross-domain transfer' },
-        { name: 'brain_sync', args: 'direction?', desc: 'LoRA weight sync' },
+        { name: 'brain_search', desc: 'Semantic search shared knowledge' },
+        { name: 'brain_share', desc: 'Share knowledge' },
+        { name: 'brain_get', desc: 'Get memory by ID' },
+        { name: 'brain_vote', desc: 'Vote on quality' },
+        { name: 'brain_list', desc: 'List memories' },
+        { name: 'brain_delete', desc: 'Delete own contribution' },
+        { name: 'brain_status', desc: 'System health' },
+        { name: 'brain_drift', desc: 'Knowledge drift check' },
+        { name: 'brain_partition', desc: 'MinCut knowledge topology' },
+        { name: 'brain_transfer', desc: 'Domain transfer' },
+        { name: 'brain_sync', desc: 'LoRA weight sync' },
       ],
       'edge': [
-        { name: 'edge_status', args: '(none)', desc: 'Network status' },
-        { name: 'edge_join', args: 'contribution?', desc: 'Join compute network' },
-        { name: 'edge_balance', args: '(none)', desc: 'Check rUv balance' },
-        { name: 'edge_tasks', args: 'limit?', desc: 'List compute tasks' },
+        { name: 'edge_status', desc: 'Network status' },
+        { name: 'edge_join', desc: 'Join as compute node' },
+        { name: 'edge_balance', desc: 'Check rUv balance' },
+        { name: 'edge_tasks', desc: 'Available compute tasks' },
       ],
       'identity': [
-        { name: 'identity_generate', args: '(none)', desc: 'Generate new pi key' },
-        { name: 'identity_show', args: '(none)', desc: 'Show current identity' },
+        { name: 'identity_generate', desc: 'Generate new pi key' },
+        { name: 'identity_show', desc: 'Show current identity' },
       ],
     };
 
-    if (opts.json) {
-      const output = {};
-      Object.entries(toolGroups).forEach(([group, tools]) => {
-        if (!opts.group || group === opts.group || group.startsWith(opts.group)) {
-          output[group] = tools;
-        }
-      });
-      console.log(JSON.stringify(output, null, 2));
+    // Filter by group if specified
+    let groups = Object.entries(tools);
+    if (opts.group) {
+      groups = groups.filter(([g]) => g === opts.group || g.startsWith(opts.group));
+    }
+
+    if (opts.json || !process.stdout.isTTY) {
+      const flat = groups.flatMap(([group, items]) => items.map(t => ({ ...t, group })));
+      console.log(JSON.stringify(flat, null, 2));
       return;
     }
 
-    console.log(chalk.bold.cyan('\nRuVector MCP Tools\n'));
     let total = 0;
-    Object.entries(toolGroups).forEach(([group, tools]) => {
-      if (opts.group && group !== opts.group && !group.startsWith(opts.group)) return;
-      console.log(chalk.bold.yellow(`  ${group} (${tools.length}):`));
-      tools.forEach(t => {
-        console.log(`    ${chalk.green(t.name.padEnd(28))} ${chalk.dim(t.args.padEnd(40))} ${t.desc}`);
+    groups.forEach(([group, items]) => {
+      console.log(chalk.bold.cyan(`\n${group} (${items.length} tools)`));
+      items.forEach(t => {
+        console.log(`  ${chalk.bold(t.name.padEnd(28))} ${chalk.dim(t.desc)}`);
       });
-      console.log();
-      total += tools.length;
+      total += items.length;
     });
-    console.log(chalk.bold(`Total: ${total} MCP tools\n`));
+    console.log(chalk.bold(`\nTotal: ${total} MCP tools\n`));
   });
-
-// ============================================================================
-// MCP test subcommand
-// ============================================================================
 
 mcpCmd.command('test')
   .description('Test MCP server setup and tool registration')
@@ -7888,6 +7579,7 @@ mcpCmd.command('test')
     console.log(chalk.bold.cyan('\nMCP Server Test Results'));
     console.log(chalk.dim('-'.repeat(40)));
 
+    // Test 1: server file exists
     const mcpServerPath = path.join(__dirname, 'mcp-server.js');
     if (fs.existsSync(mcpServerPath)) {
       console.log(`  ${chalk.green('PASS')} mcp-server.js exists`);
@@ -7896,6 +7588,7 @@ mcpCmd.command('test')
       process.exit(1);
     }
 
+    // Test 2: syntax check
     try {
       const { execSync } = require('child_process');
       execSync(`node -c ${mcpServerPath}`, { stdio: 'pipe' });
@@ -7905,6 +7598,7 @@ mcpCmd.command('test')
       process.exit(1);
     }
 
+    // Test 3: MCP SDK available
     try {
       require('@modelcontextprotocol/sdk/server/index.js');
       console.log(`  ${chalk.green('PASS')} @modelcontextprotocol/sdk installed`);
@@ -7913,10 +7607,13 @@ mcpCmd.command('test')
       process.exit(1);
     }
 
+    // Test 4: count tools by parsing TOOLS array entries (each has inputSchema)
     try {
       const src = fs.readFileSync(mcpServerPath, 'utf8');
+      // Extract the TOOLS array section (from 'const TOOLS = [' to the matching '];')
       const toolsStart = src.indexOf('const TOOLS = [');
       const toolsSection = toolsStart >= 0 ? src.slice(toolsStart) : src;
+      // Match tool names that are followed by inputSchema (real MCP tools only)
       const toolDefs = toolsSection.match(/name:\s*'([a-z][a-z0-9_]*)'\s*,\s*\n\s*description:/g) || [];
       const toolNames = toolDefs.map(m => m.match(/name:\s*'([a-z][a-z0-9_]*)'/)[1]);
       const groups = {};
@@ -7933,6 +7630,7 @@ mcpCmd.command('test')
       console.log(`  ${chalk.yellow('WARN')} Could not parse tool count: ${e.message}`);
     }
 
+    // Test 5: version check
     try {
       const src = fs.readFileSync(mcpServerPath, 'utf8');
       const verMatch = src.match(/version:\s*'([^']+)'/);
@@ -7948,1103 +7646,1285 @@ mcpCmd.command('test')
   });
 
 // ============================================================================
-// Brain Commands — Shared intelligence via pi.ruv.io REST API (direct fetch)
+// Brain Commands — Shared intelligence via @ruvector/pi-brain (lazy-loaded)
 // ============================================================================
 
-function getBrainConfig(opts) {
-  return {
-    url: opts.url || process.env.BRAIN_URL || 'https://pi.ruv.io',
-    key: opts.key || process.env.PI
-  };
-}
-
-function brainHeaders(config) {
-  const h = { 'Content-Type': 'application/json' };
-  if (config.key) h['Authorization'] = `Bearer ${config.key}`;
-  return h;
-}
-
-async function brainFetch(config, endpoint, opts = {}) {
-  const url = new URL(endpoint, config.url);
-  if (opts.params) {
-    for (const [k, v] of Object.entries(opts.params)) {
-      if (v !== undefined && v !== null) url.searchParams.set(k, String(v));
-    }
-  }
-  const fetchOpts = { headers: brainHeaders(config), signal: AbortSignal.timeout(30000) };
-  if (opts.method) fetchOpts.method = opts.method;
-  if (opts.body) { fetchOpts.method = opts.method || 'POST'; fetchOpts.body = JSON.stringify(opts.body); }
-  const resp = await proxyFetch(url.toString(), fetchOpts);
-  if (!resp.ok) {
-    const errText = await resp.text().catch(() => resp.statusText);
-    throw new Error(`${resp.status} ${errText}`);
-  }
-  if (resp.status === 204 || resp.headers.get('content-length') === '0') return {};
-  return resp.json();
-}
-
-const brainCmd = program.command('brain').description('Shared intelligence — search, share, and manage collective knowledge');
-
-brainCmd.command('search <query>')
-  .description('Semantic search across shared brain knowledge')
-  .option('-c, --category <cat>', 'Filter by category')
-  .option('-l, --limit <n>', 'Max results', '10')
-  .option('--url <url>', 'Brain server URL')
-  .option('--key <key>', 'Pi key')
-  .option('--json', 'Output as JSON')
-  .option('--verbose', 'Show detailed scoring and metadata per result')
-  .action(async (query, opts) => {
-    const config = getBrainConfig(opts);
-    try {
-      const results = await brainFetch(config, '/v1/memories/search', { params: { q: query, category: opts.category, limit: opts.limit } });
-      if (opts.json || !process.stdout.isTTY) { console.log(JSON.stringify(results, null, 2)); return; }
-      console.log(chalk.bold.cyan(`\nBrain Search: "${query}"\n`));
-      if (!results.length) { console.log(chalk.dim('  No results found.\n')); return; }
-      results.forEach((r, i) => {
-        console.log(`  ${chalk.yellow(i + 1 + '.')} ${chalk.bold(r.title || r.id)}`);
-        if (r.category) console.log(`     ${chalk.dim('Category:')} ${r.category}`);
-        if (r.score) console.log(`     ${chalk.dim('Score:')} ${r.score.toFixed(3)}`);
-        if (opts.verbose) {
-          if (r.quality_score !== undefined) console.log(`     ${chalk.dim('Quality:')} ${typeof r.quality_score === 'number' ? r.quality_score.toFixed(3) : r.quality_score}`);
-          if (r.votes_up !== undefined || r.votes_down !== undefined) console.log(`     ${chalk.dim('Votes:')} ${r.votes_up || 0}↑ ${r.votes_down || 0}↓`);
-          if (r.witness_hash) console.log(`     ${chalk.dim('Witness:')} ${r.witness_hash.slice(0, 12)}...`);
-          if (r.contributor_id) console.log(`     ${chalk.dim('Contributor:')} ${r.contributor_id}`);
-          if (r.created_at) console.log(`     ${chalk.dim('Created:')} ${r.created_at}`);
-          if (r.tags && r.tags.length) console.log(`     ${chalk.dim('Tags:')} ${r.tags.join(', ')}`);
-        }
-        console.log();
-      });
-    } catch (e) { console.error(chalk.red(`Error: ${e.message}`)); process.exit(1); }
-  });
-
-brainCmd.command('share <title>')
-  .description('Share knowledge with the collective brain')
-  .requiredOption('-c, --category <cat>', 'Category (pattern, solution, architecture, convention, security, performance, tooling)')
-  .option('-t, --tags <tags>', 'Comma-separated tags')
-  .option('--content <text>', 'Content body')
-  .option('--code <snippet>', 'Code snippet')
-  .option('--url <url>', 'Brain server URL')
-  .option('--key <key>', 'Pi key')
-  .option('--json', 'Output as JSON')
-  .action(async (title, opts) => {
-    const config = getBrainConfig(opts);
-    try {
-      const result = await brainFetch(config, '/v1/memories', { body: { title, content: opts.content || title, category: opts.category, tags: opts.tags ? opts.tags.split(',').map(t => t.trim()) : [], code_snippet: opts.code } });
-      if (opts.json || !process.stdout.isTTY) { console.log(JSON.stringify(result, null, 2)); return; }
-      console.log(chalk.green(`Shared: ${result.id || 'OK'}`));
-    } catch (e) { console.error(chalk.red(`Error: ${e.message}`)); process.exit(1); }
-  });
-
-brainCmd.command('get <id>')
-  .description('Retrieve a specific memory by ID')
-  .option('--url <url>', 'Brain server URL')
-  .option('--key <key>', 'Pi key')
-  .option('--json', 'Output as JSON')
-  .action(async (id, opts) => {
-    const config = getBrainConfig(opts);
-    try {
-      const result = await brainFetch(config, `/v1/memories/${id}`);
-      if (opts.json || !process.stdout.isTTY) { console.log(JSON.stringify(result, null, 2)); return; }
-      console.log(chalk.bold.cyan(`\nMemory: ${id}\n`));
-      if (result.title) console.log(`  ${chalk.bold('Title:')} ${result.title}`);
-      if (result.content) console.log(`  ${chalk.bold('Content:')} ${result.content}`);
-      if (result.category) console.log(`  ${chalk.bold('Category:')} ${result.category}`);
-      console.log();
-    } catch (e) { console.error(chalk.red(`Error: ${e.message}`)); process.exit(1); }
-  });
-
-brainCmd.command('vote <id> <direction>')
-  .description('Quality vote on a memory (up or down)')
-  .option('--url <url>', 'Brain server URL')
-  .option('--key <key>', 'Pi key')
-  .option('--json', 'Output as JSON')
-  .action(async (id, direction, opts) => {
-    const config = getBrainConfig(opts);
-    try {
-      const result = await brainFetch(config, `/v1/memories/${id}/vote`, { body: { direction } });
-      if (opts.json || !process.stdout.isTTY) { console.log(JSON.stringify(result, null, 2)); return; }
-      console.log(chalk.green(`Voted ${direction} on ${id}`));
-    } catch (e) { console.error(chalk.red(`Error: ${e.message}`)); process.exit(1); }
-  });
-
-brainCmd.command('list')
-  .description('List recent shared memories')
-  .option('-c, --category <cat>', 'Filter by category')
-  .option('-l, --limit <n>', 'Max results', '20')
-  .option('--url <url>', 'Brain server URL')
-  .option('--key <key>', 'Pi key')
-  .option('--json', 'Output as JSON')
-  .option('--offset <n>', 'Skip first N results (pagination)', '0')
-  .option('--sort <field>', 'Sort by: updated_at, quality, votes', 'updated_at')
-  .option('--tags <tags>', 'Filter by tags (comma-separated)')
-  .action(async (opts) => {
-    const config = getBrainConfig(opts);
-    try {
-      const data = await brainFetch(config, '/v1/memories/list', { params: { category: opts.category, limit: opts.limit, offset: opts.offset, sort: opts.sort, tags: opts.tags } });
-      if (opts.json || !process.stdout.isTTY) { console.log(JSON.stringify(data, null, 2)); return; }
-      console.log(chalk.bold.cyan('\nShared Brain Memories\n'));
-      const memories = Array.isArray(data) ? data : data.memories || [];
-      if (data.total_count !== undefined) {
-        console.log(chalk.dim(`  Showing ${memories.length} of ${data.total_count} (offset ${data.offset || 0})\n`));
-      }
-      if (!memories.length) { console.log(chalk.dim('  No memories found.\n')); return; }
-      memories.forEach((r, i) => {
-        console.log(`  ${chalk.yellow(i + 1 + '.')} ${chalk.bold(r.title || r.id)} ${chalk.dim(`[${r.category || 'unknown'}]`)}`);
-      });
-      console.log();
-    } catch (e) { console.error(chalk.red(`Error: ${e.message}`)); process.exit(1); }
-  });
-
-brainCmd.command('delete <id>')
-  .description('Delete your own contribution')
-  .option('--url <url>', 'Brain server URL')
-  .option('--key <key>', 'Pi key')
-  .option('--json', 'Output as JSON')
-  .action(async (id, opts) => {
-    const config = getBrainConfig(opts);
-    try {
-      const result = await brainFetch(config, `/v1/memories/${id}`, { method: 'DELETE' });
-      if (opts.json || !process.stdout.isTTY) { console.log(JSON.stringify({ deleted: true, id }, null, 2)); return; }
-      console.log(chalk.green(`Deleted: ${id}`));
-    } catch (e) { console.error(chalk.red(`Error: ${e.message}`)); process.exit(1); }
-  });
-
-brainCmd.command('status')
-  .description('Show shared brain system health')
-  .option('--url <url>', 'Brain server URL')
-  .option('--key <key>', 'Pi key')
-  .option('--json', 'Output as JSON')
-  .action(async (opts) => {
-    const config = getBrainConfig(opts);
-    try {
-      const status = await brainFetch(config, '/v1/status');
-      if (opts.json || !process.stdout.isTTY) { console.log(JSON.stringify(status, null, 2)); return; }
-      console.log(chalk.bold.cyan('\nBrain Status\n'));
-      Object.entries(status).forEach(([k, v]) => {
-        console.log(`  ${chalk.bold(k + ':')} ${v}`);
-      });
-      // AGI subsystem fields
-      if (status.sona_patterns !== undefined) {
-        console.log(chalk.bold('\n  AGI Subsystems'));
-        if (status.sona_patterns !== undefined) console.log(`  ${chalk.dim('SONA Patterns:')} ${status.sona_patterns}  ${chalk.dim('Trajectories:')} ${status.sona_trajectories || 0}`);
-        if (status.gwt_workspace_load !== undefined) console.log(`  ${chalk.dim('GWT Load:')} ${status.gwt_workspace_load}  ${chalk.dim('Avg Salience:')} ${status.gwt_avg_salience || 0}`);
-        if (status.knowledge_velocity !== undefined) console.log(`  ${chalk.dim('Temporal Velocity:')} ${status.knowledge_velocity}/hr  ${chalk.dim('Deltas:')} ${status.temporal_deltas || 0}`);
-        if (status.meta_avg_regret !== undefined) console.log(`  ${chalk.dim('Meta Regret:')} ${status.meta_avg_regret}  ${chalk.dim('Plateau:')} ${status.meta_plateau_status || 'unknown'}`);
-      }
-      if (status.midstream_scheduler_ticks !== undefined) {
-        console.log(chalk.bold('\n  Midstream'));
-        console.log(`  ${chalk.dim('Scheduler Ticks:')} ${status.midstream_scheduler_ticks}`);
-        console.log(`  ${chalk.dim('Attractor Categories:')} ${status.midstream_attractor_categories || 0}`);
-        console.log(`  ${chalk.dim('Strange-Loop:')} v${status.midstream_strange_loop_version || '?'}`);
-      }
-      console.log();
-    } catch (e) { console.error(chalk.red(`Error: ${e.message}`)); process.exit(1); }
-  });
-
-brainCmd.command('drift')
-  .description('Check if shared knowledge has drifted')
-  .option('-d, --domain <domain>', 'Domain to check')
-  .option('--url <url>', 'Brain server URL')
-  .option('--key <key>', 'Pi key')
-  .option('--json', 'Output as JSON')
-  .action(async (opts) => {
-    const config = getBrainConfig(opts);
-    try {
-      const report = await brainFetch(config, '/v1/drift', { params: { domain: opts.domain } });
-      if (opts.json || !process.stdout.isTTY) { console.log(JSON.stringify(report, null, 2)); return; }
-      console.log(chalk.bold.cyan('\nDrift Report\n'));
-      console.log(`  ${chalk.bold('Drifting:')} ${report.is_drifting ? chalk.red('Yes') : chalk.green('No')}`);
-      if (report.cv) console.log(`  ${chalk.bold('CV:')} ${report.cv}`);
-      console.log();
-    } catch (e) { console.error(chalk.red(`Error: ${e.message}`)); process.exit(1); }
-  });
-
-brainCmd.command('partition')
-  .description('Get knowledge partitioned by mincut topology')
-  .option('-d, --domain <domain>', 'Domain to partition')
-  .option('--min-size <n>', 'Minimum cluster size', '3')
-  .option('--url <url>', 'Brain server URL')
-  .option('--key <key>', 'Pi key')
-  .option('--json', 'Output as JSON')
-  .action(async (opts) => {
-    const config = getBrainConfig(opts);
-    try {
-      const result = await brainFetch(config, '/v1/partition', { params: { domain: opts.domain, min_cluster_size: opts.minSize } });
-      if (opts.json || !process.stdout.isTTY) { console.log(JSON.stringify(result, null, 2)); return; }
-      console.log(chalk.bold.cyan('\nKnowledge Partitions\n'));
-      if (result.clusters) {
-        result.clusters.forEach((c, i) => {
-          console.log(`  ${chalk.yellow('Cluster ' + (i + 1) + ':')} ${c.size || 'unknown'} entries`);
-        });
-      }
-      console.log();
-    } catch (e) { console.error(chalk.red(`Error: ${e.message}`)); process.exit(1); }
-  });
-
-brainCmd.command('transfer <source> <target>')
-  .description('Apply learned priors from one domain to another')
-  .option('--url <url>', 'Brain server URL')
-  .option('--key <key>', 'Pi key')
-  .option('--json', 'Output as JSON')
-  .action(async (source, target, opts) => {
-    const config = getBrainConfig(opts);
-    try {
-      const result = await brainFetch(config, '/v1/transfer', { body: { source_domain: source, target_domain: target } });
-      if (opts.json || !process.stdout.isTTY) { console.log(JSON.stringify(result, null, 2)); return; }
-      console.log(chalk.green(`Transfer ${source} -> ${target}: ${result.status || 'OK'}`));
-    } catch (e) { console.error(chalk.red(`Error: ${e.message}`)); process.exit(1); }
-  });
-
-brainCmd.command('train')
-  .description('Trigger a training cycle (SONA pattern learning + domain evolution)')
-  .option('--url <url>', 'Brain server URL')
-  .option('--key <key>', 'Pi key')
-  .option('--json', 'Output as JSON')
-  .action(async (opts) => {
-    const config = getBrainConfig(opts);
-    try {
-      const result = await brainFetch(config, '/v1/train', { method: 'POST', body: {} });
-      if (opts.json || !process.stdout.isTTY) { console.log(JSON.stringify(result, null, 2)); return; }
-      console.log(chalk.bold.cyan('\nTraining Cycle Complete\n'));
-      console.log(`  ${chalk.bold('SONA:')} ${result.sona_message}`);
-      console.log(`  ${chalk.bold('Patterns:')} ${result.sona_patterns}`);
-      console.log(`  ${chalk.bold('Pareto:')} ${result.pareto_before} → ${result.pareto_after}`);
-      console.log(`  ${chalk.bold('Memories:')} ${result.memory_count}`);
-      console.log(`  ${chalk.bold('Votes:')} ${result.vote_count}`);
-    } catch (e) { console.error(chalk.red(`Error: ${e.message}`)); process.exit(1); }
-  });
-
-brainCmd.command('sync [direction]')
-  .description('Synchronize LoRA weights (pull, push, or both)')
-  .option('--url <url>', 'Brain server URL')
-  .option('--key <key>', 'Pi key')
-  .option('--json', 'Output as JSON')
-  .action(async (direction, opts) => {
-    const config = getBrainConfig(opts);
-    try {
-      const result = await brainFetch(config, '/v1/lora/latest', { params: { direction: direction || 'both' } });
-      if (opts.json || !process.stdout.isTTY) { console.log(JSON.stringify(result, null, 2)); return; }
-      console.log(chalk.green(`Sync ${direction || 'both'}: ${result.status || 'OK'}`));
-    } catch (e) { console.error(chalk.red(`Error: ${e.message}`)); process.exit(1); }
-  });
-
-brainCmd.command('page <action> [args...]')
-  .description('Brainpedia page management (list, get, create, update, delete)')
-  .option('--url <url>', 'Brain server URL')
-  .option('--key <key>', 'Pi key')
-  .option('--json', 'Output as JSON')
-  .action(async (action, args, opts) => {
-    const config = getBrainConfig(opts);
-    try {
-      let result;
-      switch (action) {
-        case 'list':
-          result = await brainFetch(config, '/v1/pages', { params: { limit: 20 } }).catch(() => ({ pages: [], message: 'Brainpedia endpoint not available' }));
-          break;
-        case 'get':
-          if (!args[0]) { console.error(chalk.red('Usage: brain page get <slug>')); process.exit(1); }
-          result = await brainFetch(config, `/v1/pages/${args[0]}`);
-          break;
-        case 'create':
-          if (!args[0]) { console.error(chalk.red('Usage: brain page create <title> [--content <text>]')); process.exit(1); }
-          result = await brainFetch(config, '/v1/pages', { body: { title: args[0], content: opts.content || '' } });
-          break;
-        case 'update':
-          if (!args[0]) { console.error(chalk.red('Usage: brain page update <slug> [--content <text>]')); process.exit(1); }
-          result = await brainFetch(config, `/v1/pages/${args[0]}/deltas`, { body: { content: opts.content || '' } });
-          break;
-        case 'delete':
-          if (!args[0]) { console.error(chalk.red('Usage: brain page delete <slug>')); process.exit(1); }
-          result = await brainFetch(config, `/v1/pages/${args[0]}`, { method: 'DELETE' }).catch(() => ({ error: 'Delete not available' }));
-          break;
-        default:
-          console.error(chalk.red(`Unknown page action: ${action}. Use: list, get, create, update, delete`));
-          process.exit(1);
-      }
-      if (opts.json || !process.stdout.isTTY) { console.log(JSON.stringify(result, null, 2)); return; }
-      if (result.pages) {
-        console.log(chalk.bold.cyan('\nBrainpedia Pages\n'));
-        if (result.total_count !== undefined) console.log(chalk.dim(`  ${result.total_count} total pages\n`));
-        result.pages.forEach((p, i) => {
-          const score = p.quality_score !== undefined ? chalk.dim(` (${(p.quality_score * 100).toFixed(0)}%)`) : '';
-          const status = p.status ? chalk.dim(` [${p.status}]`) : '';
-          console.log(`  ${chalk.yellow(i + 1 + '.')} ${chalk.bold(p.title || p.slug || p.id)}${status}${score}`);
-          if (p.category) console.log(`     ${chalk.dim(p.category)}`);
-        });
-      } else if (result.memory && result.memory.title) {
-        // Unwrap .memory wrapper from page detail response
-        const page = result.memory;
-        console.log(chalk.bold.cyan(`\n${page.title}\n`));
-        if (result.status) console.log(`  ${chalk.bold('Status:')} ${result.status}`);
-        if (page.category) console.log(`  ${chalk.bold('Category:')} ${page.category}`);
-        if (page.quality_score !== undefined) console.log(`  ${chalk.bold('Quality:')} ${(page.quality_score * 100).toFixed(0)}%`);
-        if (result.delta_count !== undefined) console.log(`  ${chalk.bold('Deltas:')} ${result.delta_count}`);
-        if (result.evidence_count !== undefined) console.log(`  ${chalk.bold('Evidence:')} ${result.evidence_count}`);
-        if (page.tags && page.tags.length) console.log(`  ${chalk.bold('Tags:')} ${page.tags.join(', ')}`);
-        if (page.content) { console.log(); console.log(page.content); }
-      } else if (result.title) {
-        console.log(chalk.bold.cyan(`\n${result.title}\n`));
-        if (result.content) console.log(result.content);
-      } else {
-        console.log(JSON.stringify(result, null, 2));
-      }
-      console.log();
-    } catch (e) { console.error(chalk.red(`Error: ${e.message}`)); process.exit(1); }
-  });
-
-brainCmd.command('node <action> [args...]')
-  .description('WASM compute node management (publish, list, status)')
-  .option('--url <url>', 'Brain server URL')
-  .option('--key <key>', 'Pi key')
-  .option('--json', 'Output as JSON')
-  .action(async (action, args, opts) => {
-    const config = getBrainConfig(opts);
-    try {
-      let result;
-      switch (action) {
-        case 'publish':
-          if (!args[0]) { console.error(chalk.red('Usage: brain node publish <wasm-file>')); process.exit(1); }
-          const wasmPath = path.resolve(args[0]);
-          if (!fs.existsSync(wasmPath)) { console.error(chalk.red(`File not found: ${wasmPath}`)); process.exit(1); }
-          const wasmBytes = fs.readFileSync(wasmPath);
-          result = await brainFetch(config, '/v1/nodes', { body: { name: path.basename(wasmPath, '.wasm'), wasm_base64: wasmBytes.toString('base64') } });
-          break;
-        case 'list':
-          result = await brainFetch(config, '/v1/nodes', { params: { limit: 20 } }).catch(() => ({ nodes: [], message: 'WASM node listing not available' }));
-          break;
-        case 'status':
-          if (!args[0]) { console.error(chalk.red('Usage: brain node status <node-id>')); process.exit(1); }
-          result = await brainFetch(config, `/v1/nodes/${args[0]}`);
-          break;
-        default:
-          console.error(chalk.red(`Unknown node action: ${action}. Use: publish, list, status`));
-          process.exit(1);
-      }
-      if (opts.json || !process.stdout.isTTY) { console.log(JSON.stringify(result, null, 2)); return; }
-      if (result.nodes) {
-        console.log(chalk.bold.cyan('\nWASM Compute Nodes\n'));
-        result.nodes.forEach((n, i) => console.log(`  ${chalk.yellow(i + 1 + '.')} ${chalk.bold(n.name || n.id)} ${chalk.dim(n.status || '')}`));
-      } else if (result.id) {
-        console.log(chalk.green(`Published node: ${result.id}`));
-      } else {
-        console.log(JSON.stringify(result, null, 2));
-      }
-      console.log();
-    } catch (e) { console.error(chalk.red(`Error: ${e.message}`)); process.exit(1); }
-  });
-
-// ── Brain AGI Subcommands ── AGI subsystem diagnostics ──────────────────
-const agiCmd = brainCmd.command('agi').description('AGI subsystem diagnostics — SONA, GWT, temporal, meta-learning, midstream');
-
-async function fetchBrainEndpoint(config, endpoint) {
-  const url = (config.url || 'https://pi.ruv.io') + endpoint;
-  const headers = {};
-  if (config.key) headers['Authorization'] = `Bearer ${config.key}`;
-  const resp = await proxyFetch(url, { headers, signal: AbortSignal.timeout(30000) });
-  if (!resp.ok) throw new Error(`${resp.status} ${resp.statusText}`);
-  if (resp.status === 204 || resp.headers.get('content-length') === '0') return {};
-  return resp.json();
-}
-
-agiCmd.command('status')
-  .description('Combined AGI + midstream diagnostics from π.ruv.io')
-  .option('--url <url>', 'Brain server URL')
-  .option('--key <key>', 'Pi key')
-  .option('--json', 'Output as JSON')
-  .action(async (opts) => {
-    const config = getBrainConfig(opts);
-    try {
-      const status = await fetchBrainEndpoint(config, '/v1/status');
-      if (opts.json || !process.stdout.isTTY) { console.log(JSON.stringify(status, null, 2)); return; }
-      console.log(chalk.bold.cyan('\n  π.ruv.io AGI Diagnostics\n'));
-      console.log(chalk.bold('  SONA'));
-      console.log(`    Patterns: ${status.sona_patterns || 0}  Trajectories: ${status.sona_trajectories || 0}`);
-      console.log(`    Background ticks: ${status.sona_background_ticks || 0}`);
-      console.log(chalk.bold('\n  GWT Attention'));
-      console.log(`    Workspace load: ${status.gwt_workspace_load || 0}`);
-      console.log(`    Avg salience: ${status.gwt_avg_salience || 0}`);
-      console.log(chalk.bold('\n  Temporal'));
-      console.log(`    Total deltas: ${status.temporal_deltas || 0}`);
-      console.log(`    Velocity: ${status.knowledge_velocity || 0}/hr`);
-      console.log(`    Trend: ${status.temporal_trend || 'unknown'}`);
-      console.log(chalk.bold('\n  Meta-Learning'));
-      console.log(`    Avg regret: ${status.meta_avg_regret || 0}`);
-      console.log(`    Plateau: ${status.meta_plateau_status || 'unknown'}`);
-      console.log(chalk.bold('\n  Midstream'));
-      console.log(`    Scheduler ticks: ${status.midstream_scheduler_ticks || 0}`);
-      console.log(`    Attractor categories: ${status.midstream_attractor_categories || 0}`);
-      console.log(`    Strange-loop: v${status.midstream_strange_loop_version || '?'}`);
-      console.log();
-    } catch (e) { console.error(chalk.red(`Error: ${e.message}`)); process.exit(1); }
-  });
-
-agiCmd.command('sona')
-  .description('SONA learning engine — patterns, trajectories, background ticks')
-  .option('--url <url>', 'Brain server URL')
-  .option('--key <key>', 'Pi key')
-  .option('--json', 'Output as JSON')
-  .action(async (opts) => {
-    const config = getBrainConfig(opts);
-    try {
-      const data = await fetchBrainEndpoint(config, '/v1/sona/stats');
-      if (opts.json || !process.stdout.isTTY) { console.log(JSON.stringify(data, null, 2)); return; }
-      console.log(chalk.bold.cyan('\n  SONA Learning Engine\n'));
-      Object.entries(data).forEach(([k, v]) => console.log(`  ${chalk.bold(k + ':')} ${v}`));
-      console.log();
-    } catch (e) { console.error(chalk.red(`Error: ${e.message}`)); process.exit(1); }
-  });
-
-agiCmd.command('temporal')
-  .description('Temporal delta tracking — velocity, trend, total deltas')
-  .option('--url <url>', 'Brain server URL')
-  .option('--key <key>', 'Pi key')
-  .option('--json', 'Output as JSON')
-  .action(async (opts) => {
-    const config = getBrainConfig(opts);
-    try {
-      const data = await fetchBrainEndpoint(config, '/v1/temporal');
-      if (opts.json || !process.stdout.isTTY) { console.log(JSON.stringify(data, null, 2)); return; }
-      console.log(chalk.bold.cyan('\n  Temporal Delta Tracking\n'));
-      Object.entries(data).forEach(([k, v]) => console.log(`  ${chalk.bold(k + ':')} ${v}`));
-      console.log();
-    } catch (e) { console.error(chalk.red(`Error: ${e.message}`)); process.exit(1); }
-  });
-
-agiCmd.command('explore')
-  .description('Meta-learning exploration — curiosity, regret, plateau, Pareto')
-  .option('--url <url>', 'Brain server URL')
-  .option('--key <key>', 'Pi key')
-  .option('--json', 'Output as JSON')
-  .action(async (opts) => {
-    const config = getBrainConfig(opts);
-    try {
-      const data = await fetchBrainEndpoint(config, '/v1/explore');
-      if (opts.json || !process.stdout.isTTY) { console.log(JSON.stringify(data, null, 2)); return; }
-      console.log(chalk.bold.cyan('\n  Meta-Learning Exploration\n'));
-      Object.entries(data).forEach(([k, v]) => console.log(`  ${chalk.bold(k + ':')} ${v}`));
-      console.log();
-    } catch (e) { console.error(chalk.red(`Error: ${e.message}`)); process.exit(1); }
-  });
-
-agiCmd.command('midstream')
-  .description('Midstream platform — scheduler, attractor, solver, strange-loop')
-  .option('--url <url>', 'Brain server URL')
-  .option('--key <key>', 'Pi key')
-  .option('--json', 'Output as JSON')
-  .action(async (opts) => {
-    const config = getBrainConfig(opts);
-    try {
-      const data = await fetchBrainEndpoint(config, '/v1/midstream');
-      if (opts.json || !process.stdout.isTTY) { console.log(JSON.stringify(data, null, 2)); return; }
-      console.log(chalk.bold.cyan('\n  Midstream Platform\n'));
-      Object.entries(data).forEach(([k, v]) => {
-        if (typeof v === 'object' && v !== null) {
-          console.log(`  ${chalk.bold(k + ':')}`);
-          Object.entries(v).forEach(([sk, sv]) => console.log(`    ${chalk.dim(sk + ':')} ${sv}`));
-        } else {
-          console.log(`  ${chalk.bold(k + ':')} ${v}`);
-        }
-      });
-      console.log();
-    } catch (e) { console.error(chalk.red(`Error: ${e.message}`)); process.exit(1); }
-  });
-
-agiCmd.command('flags')
-  .description('Show feature flag state from backend')
-  .option('--url <url>', 'Brain server URL')
-  .option('--key <key>', 'Pi key')
-  .option('--json', 'Output as JSON')
-  .action(async (opts) => {
-    const config = getBrainConfig(opts);
-    try {
-      const status = await fetchBrainEndpoint(config, '/v1/status');
-      const flags = {};
-      for (const [k, v] of Object.entries(status)) {
-        if (typeof v === 'boolean' || k.startsWith('rvf_') || k.endsWith('_enabled')) {
-          flags[k] = v;
-        }
-      }
-      if (opts.json || !process.stdout.isTTY) { console.log(JSON.stringify(flags, null, 2)); return; }
-      console.log(chalk.bold.cyan('\n  Feature Flags\n'));
-      Object.entries(flags).forEach(([k, v]) => {
-        const icon = v ? chalk.green('●') : chalk.red('○');
-        console.log(`  ${icon} ${chalk.bold(k)}: ${v}`);
-      });
-      console.log();
-    } catch (e) { console.error(chalk.red(`Error: ${e.message}`)); process.exit(1); }
-  });
-
-// ============================================================================
-// Midstream Commands — Real-time streaming analysis platform
-// ============================================================================
-
-const midstreamCmd = program.command('midstream').description('Real-time streaming analysis — attractor, scheduler, benchmark');
-
-midstreamCmd.command('status')
-  .description('Midstream platform overview')
-  .option('--url <url>', 'Brain server URL')
-  .option('--key <key>', 'Pi key')
-  .option('--json', 'Output as JSON')
-  .action(async (opts) => {
-    const config = getBrainConfig(opts);
-    try {
-      const data = await fetchBrainEndpoint(config, '/v1/midstream');
-      if (opts.json || !process.stdout.isTTY) { console.log(JSON.stringify(data, null, 2)); return; }
-      console.log(chalk.bold.cyan('\n  Midstream Platform Status\n'));
-      Object.entries(data).forEach(([k, v]) => {
-        if (typeof v === 'object' && v !== null) {
-          console.log(`  ${chalk.bold(k + ':')}`);
-          Object.entries(v).forEach(([sk, sv]) => console.log(`    ${chalk.dim(sk + ':')} ${sv}`));
-        } else {
-          console.log(`  ${chalk.bold(k + ':')} ${v}`);
-        }
-      });
-      console.log();
-    } catch (e) { console.error(chalk.red(`Error: ${e.message}`)); process.exit(1); }
-  });
-
-midstreamCmd.command('attractor [category]')
-  .description('Lyapunov attractor analysis per category')
-  .option('--url <url>', 'Brain server URL')
-  .option('--key <key>', 'Pi key')
-  .option('--json', 'Output as JSON')
-  .action(async (category, opts) => {
-    const config = getBrainConfig(opts);
-    try {
-      const data = await fetchBrainEndpoint(config, '/v1/midstream');
-      const attractors = data.attractor_categories || data.attractors || {};
-      if (category) {
-        const entry = typeof attractors === 'object' ? attractors[category] : null;
-        if (opts.json || !process.stdout.isTTY) { console.log(JSON.stringify(entry || { error: 'Category not found' }, null, 2)); return; }
-        if (!entry) { console.log(chalk.yellow(`  No attractor data for category: ${category}`)); return; }
-        console.log(chalk.bold.cyan(`\n  Attractor: ${category}\n`));
-        Object.entries(entry).forEach(([k, v]) => console.log(`  ${chalk.bold(k + ':')} ${v}`));
-      } else {
-        if (opts.json || !process.stdout.isTTY) { console.log(JSON.stringify(attractors, null, 2)); return; }
-        console.log(chalk.bold.cyan('\n  Attractor Categories\n'));
-        if (typeof attractors === 'object' && Object.keys(attractors).length > 0) {
-          Object.entries(attractors).forEach(([cat, info]) => {
-            console.log(`  ${chalk.yellow(cat + ':')} ${typeof info === 'object' ? JSON.stringify(info) : info}`);
-          });
-        } else {
-          console.log(chalk.dim(`  ${typeof attractors === 'number' ? attractors + ' categories tracked' : 'No attractor data available'}`));
-        }
-      }
-      console.log();
-    } catch (e) { console.error(chalk.red(`Error: ${e.message}`)); process.exit(1); }
-  });
-
-midstreamCmd.command('scheduler')
-  .description('Nanosecond scheduler performance metrics')
-  .option('--url <url>', 'Brain server URL')
-  .option('--key <key>', 'Pi key')
-  .option('--json', 'Output as JSON')
-  .action(async (opts) => {
-    const config = getBrainConfig(opts);
-    try {
-      const data = await fetchBrainEndpoint(config, '/v1/midstream');
-      const sched = data.scheduler || { ticks: data.scheduler_ticks || 0 };
-      if (opts.json || !process.stdout.isTTY) { console.log(JSON.stringify(sched, null, 2)); return; }
-      console.log(chalk.bold.cyan('\n  Nanosecond Scheduler\n'));
-      if (typeof sched === 'object') {
-        Object.entries(sched).forEach(([k, v]) => console.log(`  ${chalk.bold(k + ':')} ${v}`));
-      } else {
-        console.log(`  ${chalk.bold('Ticks:')} ${sched}`);
-      }
-      console.log();
-    } catch (e) { console.error(chalk.red(`Error: ${e.message}`)); process.exit(1); }
-  });
-
-midstreamCmd.command('benchmark')
-  .description('Run latency benchmark against brain backend')
-  .option('--url <url>', 'Brain server URL')
-  .option('--key <key>', 'Pi key')
-  .option('-n, --concurrent <n>', 'Concurrent search requests', '20')
-  .option('--json', 'Output as JSON')
-  .action(async (opts) => {
-    const config = getBrainConfig(opts);
-    const baseUrl = config.url || 'https://pi.ruv.io';
-    const headers = {};
-    if (config.key) headers['Authorization'] = `Bearer ${config.key}`;
-    const concurrentN = Math.min(parseInt(opts.concurrent) || 20, 100);
-
-    async function timeRequest(url, label) {
-      const start = performance.now();
-      const resp = await proxyFetch(url, { headers, signal: AbortSignal.timeout(30000) });
-      const elapsed = performance.now() - start;
-      return { label, status: resp.status, elapsed };
-    }
-
-    function percentile(sorted, p) {
-      const idx = Math.ceil(sorted.length * p / 100) - 1;
-      return sorted[Math.max(0, idx)];
-    }
-
-    try {
-      if (!opts.json && process.stdout.isTTY) console.log(chalk.bold.cyan('\n  Midstream Benchmark\n'));
-
-      // Sequential tests (3 each)
-      const endpoints = [
-        { path: '/v1/health', label: 'health' },
-        { path: '/v1/status', label: 'status' },
-        { path: '/v1/memories/search?q=test&limit=3', label: 'search' },
-        { path: '/v1/midstream', label: 'midstream' },
-      ];
-
-      const sequential = {};
-      for (const ep of endpoints) {
-        const times = [];
-        for (let i = 0; i < 3; i++) {
-          const r = await timeRequest(baseUrl + ep.path, ep.label);
-          times.push(r.elapsed);
-        }
-        sequential[ep.label] = { avg: times.reduce((a, b) => a + b, 0) / times.length, min: Math.min(...times), max: Math.max(...times) };
-      }
-
-      // Concurrent search test
-      const concurrentTimes = [];
-      const promises = [];
-      for (let i = 0; i < concurrentN; i++) {
-        promises.push(timeRequest(baseUrl + '/v1/memories/search?q=test&limit=3', 'concurrent'));
-      }
-      const results = await Promise.all(promises);
-      const sorted = results.map(r => r.elapsed).sort((a, b) => a - b);
-      const p50 = percentile(sorted, 50);
-      const p90 = percentile(sorted, 90);
-      const p99 = percentile(sorted, 99);
-
-      const benchResult = { sequential, concurrent: { count: concurrentN, p50, p90, p99 } };
-
-      if (opts.json || !process.stdout.isTTY) { console.log(JSON.stringify(benchResult, null, 2)); return; }
-
-      console.log(chalk.bold('  Sequential (3 rounds each):'));
-      for (const [label, data] of Object.entries(sequential)) {
-        console.log(`    ${chalk.yellow(label.padEnd(12))} avg: ${data.avg.toFixed(1)}ms  min: ${data.min.toFixed(1)}ms  max: ${data.max.toFixed(1)}ms`);
-      }
-      console.log(chalk.bold(`\n  Concurrent (${concurrentN}x search):`));
-      console.log(`    p50: ${p50.toFixed(1)}ms  p90: ${p90.toFixed(1)}ms  p99: ${p99.toFixed(1)}ms`);
-      console.log();
-    } catch (e) { console.error(chalk.red(`Error: ${e.message}`)); process.exit(1); }
-  });
-
-// ============================================================================
-// Edge Commands — Distributed compute via @ruvector/edge-net
-// ============================================================================
-
-const edgeCmd = program.command('edge').description('Distributed P2P compute network — status, join, balance, tasks');
-
-const EDGE_GENESIS = 'https://edge-net-genesis-875130704813.us-central1.run.app';
-
-edgeCmd.command('status')
-  .description('Show edge compute network status')
-  .option('--json', 'Output as JSON')
-  .action(async (opts) => {
-    try {
-      const resp = await proxyFetch(`${EDGE_GENESIS}/status`, { signal: AbortSignal.timeout(30000) });
-      const data = await resp.json();
-      if (opts.json || !process.stdout.isTTY) { console.log(JSON.stringify(data, null, 2)); return; }
-      console.log(chalk.bold.cyan('\nEdge Network Status\n'));
-      Object.entries(data).forEach(([k, v]) => console.log(`  ${chalk.bold(k + ':')} ${v}`));
-      console.log();
-    } catch (e) { console.error(chalk.red(`Error: ${e.message}`)); }
-  });
-
-edgeCmd.command('join')
-  .description('Join the edge compute network as a compute node')
-  .option('--contribution <level>', 'Contribution level 0.0-1.0', '0.3')
-  .action(async (opts) => {
-    const piKey = process.env.PI;
-    if (!piKey) { console.error(chalk.red('Set PI environment variable first. Run: npx ruvector identity generate')); process.exit(1); }
-    try {
-      const resp = await proxyFetch(`${EDGE_GENESIS}/join`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${piKey}` },
-        body: JSON.stringify({ contribution: parseFloat(opts.contribution), pi_key: piKey }),
-        signal: AbortSignal.timeout(30000)
-      });
-      const data = await resp.json();
-      console.log(chalk.green(`Joined edge network: ${data.node_id || 'OK'}`));
-    } catch (e) { console.error(chalk.red(`Error: ${e.message}`)); }
-  });
-
-edgeCmd.command('balance')
-  .description('Check rUv credit balance')
-  .option('--json', 'Output as JSON')
-  .action(async (opts) => {
-    const piKey = process.env.PI;
-    if (!piKey) { console.error(chalk.red('Set PI environment variable first.')); process.exit(1); }
-    try {
-      const pseudonym = require('crypto').createHash('shake256', { outputLength: 16 }).update(piKey).digest('hex');
-      const resp = await proxyFetch(`${EDGE_GENESIS}/balance/${pseudonym}`, { headers: { 'Authorization': `Bearer ${piKey}` }, signal: AbortSignal.timeout(30000) });
-      if (!resp.ok) { console.error(chalk.red(`Edge network returned ${resp.status} ${resp.statusText}`)); process.exit(1); }
-      const data = await resp.json();
-      if (opts.json || !process.stdout.isTTY) { console.log(JSON.stringify(data, null, 2)); return; }
-      console.log(chalk.bold.cyan('\nrUv Balance\n'));
-      console.log(`  ${chalk.bold('Balance:')} ${data.balance || 0} rUv`);
-      console.log();
-    } catch (e) { console.error(chalk.red(`Error: ${e.message}`)); }
-  });
-
-edgeCmd.command('tasks')
-  .description('List available distributed compute tasks')
-  .option('-l, --limit <n>', 'Max tasks', '20')
-  .option('--json', 'Output as JSON')
-  .action(async (opts) => {
-    try {
-      const resp = await proxyFetch(`${EDGE_GENESIS}/tasks?limit=${opts.limit}`, { signal: AbortSignal.timeout(30000) });
-      const data = await resp.json();
-      if (opts.json || !process.stdout.isTTY) { console.log(JSON.stringify(data, null, 2)); return; }
-      console.log(chalk.bold.cyan('\nEdge Compute Tasks\n'));
-      const tasks = Array.isArray(data) ? data : data.tasks || [];
-      if (!tasks.length) { console.log(chalk.dim('  No tasks available.\n')); return; }
-      tasks.forEach((t, i) => console.log(`  ${chalk.yellow(i + 1 + '.')} ${t.name || t.id} ${chalk.dim(`[${t.status || 'pending'}]`)}`));
-      console.log();
-    } catch (e) { console.error(chalk.red(`Error: ${e.message}`)); }
-  });
-
-edgeCmd.command('dashboard')
-  .description('Open edge-net dashboard in browser')
-  .action(() => {
-    const url = 'https://edge-net-dashboard-875130704813.us-central1.run.app';
-    console.log(chalk.cyan(`Dashboard: ${url}`));
-    try {
-      const { execSync } = require('child_process');
-      const cmd = process.platform === 'darwin' ? 'open' : process.platform === 'win32' ? 'start' : 'xdg-open';
-      execSync(`${cmd} ${url}`, { stdio: 'ignore' });
-    } catch { console.log(chalk.dim('  Open the URL above in your browser.')); }
-  });
-
-// ============================================================================
-// Identity Commands — Pi key management
-// ============================================================================
-
-const identityCmd = program.command('identity').description('Pi key identity management — generate, show, export, import');
-
-identityCmd.command('generate')
-  .description('Generate a new pi key')
-  .action(() => {
-    const crypto = require('crypto');
-    const key = crypto.randomBytes(32).toString('hex');
-    const hash = crypto.createHash('shake256', { outputLength: 16 });
-    hash.update(key);
-    const pseudonym = hash.digest('hex');
-    console.log(chalk.bold.cyan('\nNew Pi Identity Generated\n'));
-    console.log(`  ${chalk.bold('Pi Key:')}     ${chalk.yellow(key)}`);
-    console.log(`  ${chalk.bold('Pseudonym:')}  ${chalk.green(pseudonym)}`);
-    console.log();
-    console.log(chalk.dim('  Store securely. Set PI env var to use:'));
-    console.log(chalk.cyan(`  export PI=${key}\n`));
-  });
-
-identityCmd.command('show')
-  .description('Show current pi key pseudonym and derived identities')
-  .option('--json', 'Output as JSON')
-  .action((opts) => {
-    const piKey = process.env.PI;
-    if (!piKey) {
-      console.error(chalk.red('No PI environment variable set.'));
-      console.error(chalk.yellow('  Run: npx ruvector identity generate'));
-      process.exit(1);
-    }
-    const crypto = require('crypto');
-    const hash = crypto.createHash('shake256', { outputLength: 16 });
-    hash.update(piKey);
-    const pseudonym = hash.digest('hex');
-    const mcpToken = crypto.createHmac('sha256', piKey).update('mcp').digest('hex').slice(0, 32);
-    const edgeKeyBuf = crypto.createHash('sha512').update(piKey).update('edge-net').digest().slice(0, 32);
-    const edgeKey = edgeKeyBuf.toString('hex');
-    if (opts.json || !process.stdout.isTTY) {
-      console.log(JSON.stringify({ pseudonym, mcp_token: mcpToken, edge_key: edgeKey, key_prefix: piKey.slice(0, 8) + '...' }, null, 2));
-      return;
-    }
-    console.log(chalk.bold.cyan('\nPi Identity\n'));
-    console.log(`  ${chalk.bold('Key:')}        ${piKey.slice(0, 8)}...${piKey.slice(-8)}`);
-    console.log(`  ${chalk.bold('Pseudonym:')}  ${chalk.green(pseudonym)}`);
-    console.log(`  ${chalk.bold('MCP Token:')} ${chalk.dim(mcpToken)}`);
-    console.log(`  ${chalk.bold('Edge Key:')}  ${chalk.dim(edgeKey)}`);
-    console.log();
-  });
-
-identityCmd.command('export <file>')
-  .description('Export pi key to encrypted file')
-  .action((file) => {
-    const piKey = process.env.PI;
-    if (!piKey) { console.error(chalk.red('No PI environment variable set.')); process.exit(1); }
-    const crypto = require('crypto');
-    const passphrase = crypto.randomBytes(16).toString('hex');
-    const key = crypto.scryptSync(passphrase, 'ruvector-pi', 32);
-    const iv = crypto.randomBytes(16);
-    const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
-    let encrypted = cipher.update(piKey, 'utf8', 'hex');
-    encrypted += cipher.final('hex');
-    const tag = cipher.getAuthTag();
-    const data = { iv: iv.toString('hex'), tag: tag.toString('hex'), data: encrypted };
-    fs.writeFileSync(file, JSON.stringify(data));
-    console.log(chalk.green(`Exported to ${file}`));
-    console.log(chalk.bold(`Passphrase: ${chalk.yellow(passphrase)}`));
-    console.log(chalk.dim('  Store passphrase separately from the export file.\n'));
-  });
-
-identityCmd.command('import <file>')
-  .description('Import pi key from encrypted backup')
-  .requiredOption('-p, --passphrase <pass>', 'Decryption passphrase')
-  .action((file, opts) => {
-    try {
-      const crypto = require('crypto');
-      const raw = JSON.parse(fs.readFileSync(file, 'utf8'));
-      const key = crypto.scryptSync(opts.passphrase, 'ruvector-pi', 32);
-      const decipher = crypto.createDecipheriv('aes-256-gcm', key, Buffer.from(raw.iv, 'hex'));
-      decipher.setAuthTag(Buffer.from(raw.tag, 'hex'));
-      let decrypted = decipher.update(raw.data, 'hex', 'utf8');
-      decrypted += decipher.final('utf8');
-      console.log(chalk.green('Key imported successfully.'));
-      console.log(chalk.cyan(`  export PI=${decrypted}\n`));
-    } catch (e) { console.error(chalk.red(`Error: ${e.message}`)); process.exit(1); }
-  });
-
-// ============================================================================
-// LLM Commands — Text embeddings via @ruvector/ruvllm (lazy-loaded)
-// ============================================================================
-
-const llmCmd = program.command('llm').description('LLM embeddings and inference via @ruvector/ruvllm');
-
-function requireRuvllm() {
-  try { return require('@ruvector/ruvllm'); } catch {
-    console.error(chalk.red('LLM commands require @ruvector/ruvllm'));
-    console.error(chalk.yellow('  npm install @ruvector/ruvllm'));
+// Lazy load pi-brain (optional peer dependency)
+async function requirePiBrain() {
+  try {
+    return await import('@ruvector/pi-brain');
+  } catch {
+    console.error(chalk.red('Brain commands require @ruvector/pi-brain'));
+    console.error(chalk.yellow('  npm install @ruvector/pi-brain'));
     process.exit(1);
   }
 }
 
-llmCmd.command('embed <text>')
-  .description('Generate text embeddings')
-  .option('-m, --model <model>', 'Model name')
-  .option('--json', 'Output as JSON')
-  .action((text, opts) => {
-    const ruvllm = requireRuvllm();
+// Determine output mode: JSON when --json flag or piped
+function isJsonOutput(opts) {
+  return opts.json || !process.stdout.isTTY;
+}
+
+// Create a PiBrainClient from command options
+async function makeBrainClient(opts) {
+  const { PiBrainClient } = await requirePiBrain();
+  return new PiBrainClient({
+    url: opts.url || process.env.BRAIN_URL || 'https://pi.ruv.io',
+    apiKey: process.env.PI || 'anonymous',
+  });
+}
+
+const brainCmd = program
+  .command('brain')
+  .description('Shared intelligence — search, share, and manage collective knowledge')
+  .option('--url <url>', 'Brain server URL', process.env.BRAIN_URL || 'https://pi.ruv.io')
+  .option('--json', 'Force JSON output');
+
+brainCmd
+  .command('search <query>')
+  .description('Semantic search across collective knowledge')
+  .option('-l, --limit <n>', 'Max results', '10')
+  .option('-c, --category <category>', 'Filter by category')
+  .action(async (query, cmdOpts) => {
+    const opts = brainCmd.opts();
+    const spinner = ora('Searching brain...').start();
     try {
-      const embedding = ruvllm.embed ? ruvllm.embed(text, opts.model) : ruvllm.generateEmbedding(text);
-      if (opts.json || !process.stdout.isTTY) { console.log(JSON.stringify({ embedding, dimension: embedding.length })); return; }
-      console.log(chalk.bold.cyan('\nEmbedding Generated\n'));
-      console.log(`  ${chalk.bold('Dimension:')} ${embedding.length}`);
-      console.log(`  ${chalk.bold('Preview:')} [${embedding.slice(0, 5).map(v => v.toFixed(4)).join(', ')}...]`);
-      console.log();
-    } catch (e) { console.error(chalk.red(`Error: ${e.message}`)); process.exit(1); }
+      const client = await makeBrainClient(opts);
+      const result = await client.search({
+        query,
+        category: cmdOpts.category || undefined,
+        limit: parseInt(cmdOpts.limit),
+      });
+      const items = Array.isArray(result) ? result : (result.memories || result.results || []);
+      spinner.succeed(chalk.green(`Found ${items.length} result(s)`));
+      if (isJsonOutput(opts)) {
+        console.log(JSON.stringify(result, null, 2));
+      } else {
+        items.forEach((item, i) => {
+          console.log(chalk.cyan(`\n  ${i + 1}. ${item.title || item.id || 'Untitled'}`));
+          if (item.category) console.log(chalk.gray(`     Category: ${item.category}`));
+          if (item.quality_score != null) console.log(chalk.gray(`     Quality:  ${item.quality_score}`));
+          if (item.content) console.log(chalk.dim(`     ${item.content.substring(0, 120)}${item.content.length > 120 ? '...' : ''}`));
+        });
+      }
+    } catch (error) {
+      spinner.fail(chalk.red('Search failed'));
+      console.error(chalk.red(error.message));
+      process.exit(1);
+    }
+  });
+
+brainCmd
+  .command('share <title>')
+  .description('Share knowledge with the collective brain')
+  .requiredOption('-c, --category <category>', 'Category (architecture, pattern, solution, etc.)')
+  .option('-t, --tags <tags>', 'Comma-separated tags')
+  .option('--content <content>', 'Content body (reads from stdin if omitted)')
+  .action(async (title, cmdOpts) => {
+    const opts = brainCmd.opts();
+    const spinner = ora('Sharing knowledge...').start();
+    try {
+      const client = await makeBrainClient(opts);
+      let content = cmdOpts.content;
+      if (!content && !process.stdin.isTTY) {
+        const chunks = [];
+        for await (const chunk of process.stdin) chunks.push(chunk);
+        content = Buffer.concat(chunks).toString('utf8').trim();
+      }
+      if (!content) {
+        spinner.fail(chalk.red('No content provided. Use --content or pipe via stdin.'));
+        process.exit(1);
+      }
+      const tags = cmdOpts.tags ? cmdOpts.tags.split(',').map(t => t.trim()) : [];
+      const result = await client.share({ title, category: cmdOpts.category, content, tags });
+      spinner.succeed(chalk.green('Knowledge shared'));
+      if (isJsonOutput(opts)) {
+        console.log(JSON.stringify(result, null, 2));
+      } else {
+        console.log(chalk.cyan(`  ID:       ${result.id || 'N/A'}`));
+        console.log(chalk.gray(`  Title:    ${title}`));
+        console.log(chalk.gray(`  Category: ${cmdOpts.category}`));
+        if (tags.length) console.log(chalk.gray(`  Tags:     ${tags.join(', ')}`));
+      }
+    } catch (error) {
+      spinner.fail(chalk.red('Failed to share knowledge'));
+      console.error(chalk.red(error.message));
+      process.exit(1);
+    }
+  });
+
+brainCmd
+  .command('get <id>')
+  .description('Retrieve a memory by ID with full provenance')
+  .action(async (id) => {
+    const opts = brainCmd.opts();
+    const spinner = ora('Fetching memory...').start();
+    try {
+      const client = await makeBrainClient(opts);
+      const result = await client.get(id);
+      spinner.succeed(chalk.green('Memory retrieved'));
+      if (isJsonOutput(opts)) {
+        console.log(JSON.stringify(result, null, 2));
+      } else {
+        console.log(chalk.cyan(`  Title:      ${result.title || 'N/A'}`));
+        console.log(chalk.gray(`  ID:         ${result.id || id}`));
+        console.log(chalk.gray(`  Category:   ${result.category || 'N/A'}`));
+        console.log(chalk.gray(`  Quality:    ${result.quality_score != null ? result.quality_score : 'N/A'}`));
+        console.log(chalk.gray(`  Created:    ${result.created_at || 'N/A'}`));
+        if (result.tags && result.tags.length) console.log(chalk.gray(`  Tags:       ${result.tags.join(', ')}`));
+        if (result.content) {
+          console.log(chalk.white('\n  Content:'));
+          console.log(chalk.dim(`  ${result.content}`));
+        }
+      }
+    } catch (error) {
+      spinner.fail(chalk.red('Failed to retrieve memory'));
+      console.error(chalk.red(error.message));
+      process.exit(1);
+    }
+  });
+
+brainCmd
+  .command('vote <id> <direction>')
+  .description('Vote on a memory (up or down)')
+  .action(async (id, direction) => {
+    const opts = brainCmd.opts();
+    if (!['up', 'down'].includes(direction)) {
+      console.error(chalk.red('Direction must be "up" or "down"'));
+      process.exit(1);
+    }
+    const spinner = ora(`Voting ${direction} on ${id}...`).start();
+    try {
+      const client = await makeBrainClient(opts);
+      const result = await client.vote(id, direction);
+      spinner.succeed(chalk.green(`Voted ${direction} on memory ${id}`));
+      if (isJsonOutput(opts)) {
+        console.log(JSON.stringify(result, null, 2));
+      }
+    } catch (error) {
+      spinner.fail(chalk.red('Vote failed'));
+      console.error(chalk.red(error.message));
+      process.exit(1);
+    }
+  });
+
+brainCmd
+  .command('list')
+  .description('List memories from the collective brain')
+  .option('-c, --category <category>', 'Filter by category')
+  .option('-l, --limit <n>', 'Max results', '20')
+  .action(async (cmdOpts) => {
+    const opts = brainCmd.opts();
+    const spinner = ora('Listing memories...').start();
+    try {
+      const client = await makeBrainClient(opts);
+      const result = await client.list(
+        cmdOpts.category || undefined,
+        parseInt(cmdOpts.limit),
+      );
+      const items = Array.isArray(result) ? result : (result.memories || result.results || []);
+      spinner.succeed(chalk.green(`${items.length} memor${items.length === 1 ? 'y' : 'ies'} found`));
+      if (isJsonOutput(opts)) {
+        console.log(JSON.stringify(result, null, 2));
+      } else {
+        items.forEach((item, i) => {
+          console.log(chalk.cyan(`  ${i + 1}. ${item.title || item.id || 'Untitled'}`) +
+            (item.category ? chalk.gray(` [${item.category}]`) : '') +
+            (item.quality_score != null ? chalk.yellow(` (q: ${item.quality_score})`) : ''));
+        });
+      }
+    } catch (error) {
+      spinner.fail(chalk.red('Failed to list memories'));
+      console.error(chalk.red(error.message));
+      process.exit(1);
+    }
+  });
+
+brainCmd
+  .command('delete <id>')
+  .description('Delete a memory you contributed')
+  .action(async (id) => {
+    const opts = brainCmd.opts();
+    const spinner = ora(`Deleting memory ${id}...`).start();
+    try {
+      const client = await makeBrainClient(opts);
+      const result = await client.delete(id);
+      spinner.succeed(chalk.green(`Memory ${id} deleted`));
+      if (isJsonOutput(opts)) {
+        console.log(JSON.stringify(result, null, 2));
+      }
+    } catch (error) {
+      spinner.fail(chalk.red('Failed to delete memory'));
+      console.error(chalk.red(error.message));
+      process.exit(1);
+    }
+  });
+
+brainCmd
+  .command('status')
+  .description('Show brain system health and statistics')
+  .action(async () => {
+    const opts = brainCmd.opts();
+    const spinner = ora('Fetching brain status...').start();
+    try {
+      const client = await makeBrainClient(opts);
+      const result = await client.status();
+      spinner.succeed(chalk.green('Brain status'));
+      if (isJsonOutput(opts)) {
+        console.log(JSON.stringify(result, null, 2));
+      } else {
+        const s = result;
+        console.log(chalk.cyan(`  Memories:     ${s.total_memories != null ? s.total_memories : 'N/A'}`));
+        console.log(chalk.cyan(`  Contributors: ${s.total_contributors != null ? s.total_contributors : 'N/A'}`));
+        console.log(chalk.cyan(`  Quality:      ${s.avg_quality != null ? s.avg_quality : 'N/A'}`));
+        console.log(chalk.cyan(`  Drift:        ${s.drift_status || s.drift || 'N/A'}`));
+        if (s.uptime) console.log(chalk.gray(`  Uptime:       ${s.uptime}`));
+      }
+    } catch (error) {
+      spinner.fail(chalk.red('Failed to get brain status'));
+      console.error(chalk.red(error.message));
+      process.exit(1);
+    }
+  });
+
+brainCmd
+  .command('drift [domain]')
+  .description('Check knowledge drift for a domain')
+  .action(async (domain) => {
+    const opts = brainCmd.opts();
+    const spinner = ora('Checking drift...').start();
+    try {
+      const client = await makeBrainClient(opts);
+      const result = await client.drift(domain || undefined);
+      spinner.succeed(chalk.green('Drift analysis complete'));
+      if (isJsonOutput(opts)) {
+        console.log(JSON.stringify(result, null, 2));
+      } else {
+        if (domain) console.log(chalk.gray(`  Domain: ${domain}`));
+        console.log(chalk.gray(`  Drift:  ${result.drift_score != null ? result.drift_score : JSON.stringify(result)}`));
+        if (result.status) console.log(chalk.gray(`  Status: ${result.status}`));
+      }
+    } catch (error) {
+      spinner.fail(chalk.red('Drift check failed'));
+      console.error(chalk.red(error.message));
+      process.exit(1);
+    }
+  });
+
+brainCmd
+  .command('partition [domain]')
+  .description('View knowledge topology / partitioning')
+  .action(async (domain) => {
+    const opts = brainCmd.opts();
+    const spinner = ora('Fetching partition info...').start();
+    try {
+      const client = await makeBrainClient(opts);
+      const result = await client.partition(domain || undefined);
+      spinner.succeed(chalk.green('Partition data retrieved'));
+      if (isJsonOutput(opts)) {
+        console.log(JSON.stringify(result, null, 2));
+      } else {
+        if (domain) console.log(chalk.gray(`  Domain: ${domain}`));
+        console.log(chalk.dim(`  ${JSON.stringify(result, null, 2)}`));
+      }
+    } catch (error) {
+      spinner.fail(chalk.red('Partition query failed'));
+      console.error(chalk.red(error.message));
+      process.exit(1);
+    }
+  });
+
+brainCmd
+  .command('transfer <source> <target>')
+  .description('Transfer knowledge between domains')
+  .action(async (source, target) => {
+    const opts = brainCmd.opts();
+    const spinner = ora(`Transferring knowledge: ${source} -> ${target}...`).start();
+    try {
+      const client = await makeBrainClient(opts);
+      const result = await client.transfer(source, target);
+      spinner.succeed(chalk.green('Transfer complete'));
+      if (isJsonOutput(opts)) {
+        console.log(JSON.stringify(result, null, 2));
+      } else {
+        console.log(chalk.gray(`  Source: ${source}`));
+        console.log(chalk.gray(`  Target: ${target}`));
+        if (result.transferred != null) console.log(chalk.gray(`  Transferred: ${result.transferred} items`));
+      }
+    } catch (error) {
+      spinner.fail(chalk.red('Transfer failed'));
+      console.error(chalk.red(error.message));
+      process.exit(1);
+    }
+  });
+
+brainCmd
+  .command('sync [direction]')
+  .description('Sync LoRA weights (pull, push, or both)')
+  .action(async (direction) => {
+    const opts = brainCmd.opts();
+    const dir = direction || 'both';
+    if (!['pull', 'push', 'both'].includes(dir)) {
+      console.error(chalk.red('Direction must be "pull", "push", or "both"'));
+      process.exit(1);
+    }
+    const spinner = ora(`Syncing LoRA weights (${dir})...`).start();
+    try {
+      await requirePiBrain();
+      const url = opts.url || process.env.BRAIN_URL || 'https://pi.ruv.io';
+      const apiKey = process.env.PI || 'anonymous';
+      const headers = { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' };
+      const res = await fetch(`${url}/v1/lora/sync`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ direction: dir }),
+      });
+      if (!res.ok) throw new Error(`Sync failed (${res.status})`);
+      const result = await res.json();
+      spinner.succeed(chalk.green(`LoRA sync complete (${dir})`));
+      if (isJsonOutput(opts)) {
+        console.log(JSON.stringify(result, null, 2));
+      } else {
+        console.log(chalk.gray(`  Direction: ${dir}`));
+        console.log(chalk.dim(`  ${JSON.stringify(result)}`));
+      }
+    } catch (error) {
+      spinner.fail(chalk.red('LoRA sync failed'));
+      console.error(chalk.red(error.message));
+      process.exit(1);
+    }
+  });
+
+brainCmd
+  .command('page <action> [id]')
+  .description('Brainpedia page management (list, get, create, update)')
+  .option('--title <title>', 'Page title (for create/update)')
+  .option('--content <content>', 'Page content (for create/update)')
+  .option('-l, --limit <n>', 'Max results for list', '20')
+  .action(async (action, id, cmdOpts) => {
+    const opts = brainCmd.opts();
+    const validActions = ['list', 'get', 'create', 'update'];
+    if (!validActions.includes(action)) {
+      console.error(chalk.red(`Action must be one of: ${validActions.join(', ')}`));
+      process.exit(1);
+    }
+    if (['get', 'update'].includes(action) && !id) {
+      console.error(chalk.red(`Page ID required for "${action}"`));
+      process.exit(1);
+    }
+    const spinner = ora(`Brainpedia: ${action}...`).start();
+    try {
+      const url = opts.url || process.env.BRAIN_URL || 'https://pi.ruv.io';
+      const apiKey = process.env.PI || 'anonymous';
+      const headers = { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' };
+      let result;
+      switch (action) {
+        case 'list': {
+          const params = new URLSearchParams();
+          params.set('limit', cmdOpts.limit);
+          const res = await fetch(`${url}/v1/pages?${params}`, { headers });
+          if (!res.ok) throw new Error(`List failed (${res.status})`);
+          result = await res.json();
+          break;
+        }
+        case 'get': {
+          const res = await fetch(`${url}/v1/pages/${id}`, { headers });
+          if (!res.ok) throw new Error(`Get failed (${res.status})`);
+          result = await res.json();
+          break;
+        }
+        case 'create': {
+          if (!cmdOpts.title || !cmdOpts.content) {
+            spinner.fail(chalk.red('--title and --content are required for create'));
+            process.exit(1);
+          }
+          const res = await fetch(`${url}/v1/pages`, {
+            method: 'POST', headers,
+            body: JSON.stringify({ title: cmdOpts.title, content: cmdOpts.content }),
+          });
+          if (!res.ok) throw new Error(`Create failed (${res.status})`);
+          result = await res.json();
+          break;
+        }
+        case 'update': {
+          const body = {};
+          if (cmdOpts.title) body.title = cmdOpts.title;
+          if (cmdOpts.content) body.content = cmdOpts.content;
+          const res = await fetch(`${url}/v1/pages/${id}`, {
+            method: 'PUT', headers,
+            body: JSON.stringify(body),
+          });
+          if (!res.ok) throw new Error(`Update failed (${res.status})`);
+          result = await res.json();
+          break;
+        }
+      }
+      spinner.succeed(chalk.green(`Brainpedia ${action} complete`));
+      if (isJsonOutput(opts)) {
+        console.log(JSON.stringify(result, null, 2));
+      } else {
+        if (action === 'list') {
+          const pages = Array.isArray(result) ? result : (result.pages || []);
+          pages.forEach((p, i) => {
+            console.log(chalk.cyan(`  ${i + 1}. ${p.title || p.id || 'Untitled'}`));
+          });
+        } else {
+          console.log(chalk.dim(`  ${JSON.stringify(result, null, 2)}`));
+        }
+      }
+    } catch (error) {
+      spinner.fail(chalk.red(`Brainpedia ${action} failed`));
+      console.error(chalk.red(error.message));
+      process.exit(1);
+    }
+  });
+
+// ============================================================================
+// Edge commands — distributed compute network
+// ============================================================================
+
+const EDGE_GENESIS_URL = 'https://edge-net-genesis-875130704813.us-central1.run.app';
+const EDGE_DASHBOARD_URL = 'https://edge-net-dashboard-875130704813.us-central1.run.app';
+
+const edgeCmd = program
+  .command('edge')
+  .description('Distributed edge compute network — status, tasks, and rUv balance')
+  .option('--json', 'Force JSON output');
+
+edgeCmd
+  .command('status')
+  .description('Query edge network status from genesis node')
+  .action(async () => {
+    const opts = edgeCmd.opts();
+    const spinner = ora('Querying edge network...').start();
+    try {
+      const res = await fetch(`${EDGE_GENESIS_URL}/status`);
+      if (!res.ok) throw new Error(`Genesis returned ${res.status}`);
+      const result = await res.json();
+      spinner.succeed(chalk.green('Edge network status'));
+      if (isJsonOutput(opts)) {
+        console.log(JSON.stringify(result, null, 2));
+      } else {
+        console.log(chalk.cyan(`  Nodes:       ${result.total_nodes != null ? result.total_nodes : 'N/A'}`));
+        console.log(chalk.cyan(`  Active:      ${result.active_nodes != null ? result.active_nodes : 'N/A'}`));
+        console.log(chalk.cyan(`  rUv Supply:  ${result.ruv_supply != null ? result.ruv_supply : 'N/A'}`));
+        console.log(chalk.cyan(`  Phase:       ${result.phase || result.sunset_phase || 'N/A'}`));
+        if (result.uptime) console.log(chalk.gray(`  Uptime:      ${result.uptime}`));
+      }
+    } catch (error) {
+      spinner.fail(chalk.red('Failed to reach edge network'));
+      console.error(chalk.red(error.message));
+      process.exit(1);
+    }
+  });
+
+edgeCmd
+  .command('join')
+  .description('Join the edge compute network as a node')
+  .action(async () => {
+    console.log(chalk.bold.cyan('\n  Edge-Net: Join as Compute Node\n'));
+    console.log(chalk.white('  The edge compute network currently runs in-browser via WASM + Web Workers.'));
+    console.log(chalk.white('  To join as a compute node, open the dashboard in your browser:\n'));
+    console.log(chalk.yellow(`    ${EDGE_DASHBOARD_URL}\n`));
+    console.log(chalk.gray('  Node.js headless join is planned for a future release.'));
+    console.log(chalk.gray('  Set PI=<your-key> to use your identity when joining.\n'));
+  });
+
+edgeCmd
+  .command('balance [nodeId]')
+  .description('Check rUv balance for a node')
+  .action(async (nodeId) => {
+    const opts = edgeCmd.opts();
+    const id = nodeId || process.env.PI || 'anonymous';
+    const spinner = ora('Fetching rUv balance...').start();
+    try {
+      const res = await fetch(`${EDGE_GENESIS_URL}/balance/${encodeURIComponent(id)}`);
+      if (!res.ok) throw new Error(`Balance query failed (${res.status})`);
+      const result = await res.json();
+      spinner.succeed(chalk.green('rUv balance'));
+      if (isJsonOutput(opts)) {
+        console.log(JSON.stringify(result, null, 2));
+      } else {
+        console.log(chalk.cyan(`  Node:    ${id}`));
+        console.log(chalk.cyan(`  Balance: ${result.balance != null ? result.balance : JSON.stringify(result)} rUv`));
+      }
+    } catch (error) {
+      spinner.fail(chalk.red('Failed to fetch balance'));
+      console.error(chalk.red(error.message));
+      process.exit(1);
+    }
+  });
+
+edgeCmd
+  .command('tasks')
+  .description('List available distributed compute tasks')
+  .action(async () => {
+    const opts = edgeCmd.opts();
+    const spinner = ora('Fetching compute tasks...').start();
+    try {
+      const res = await fetch(`${EDGE_GENESIS_URL}/tasks`);
+      if (!res.ok) throw new Error(`Tasks query failed (${res.status})`);
+      const result = await res.json();
+      const tasks = Array.isArray(result) ? result : (result.tasks || []);
+      spinner.succeed(chalk.green(`${tasks.length} task(s) available`));
+      if (isJsonOutput(opts)) {
+        console.log(JSON.stringify(result, null, 2));
+      } else {
+        if (tasks.length === 0) {
+          console.log(chalk.gray('  No compute tasks currently available.'));
+        } else {
+          tasks.forEach((task, i) => {
+            console.log(chalk.cyan(`  ${i + 1}. ${task.name || task.id || 'Task'}`) +
+              (task.reward ? chalk.yellow(` (${task.reward} rUv)`) : '') +
+              (task.status ? chalk.gray(` [${task.status}]`) : ''));
+          });
+        }
+      }
+    } catch (error) {
+      spinner.fail(chalk.red('Failed to fetch tasks'));
+      console.error(chalk.red(error.message));
+      process.exit(1);
+    }
+  });
+
+edgeCmd
+  .command('dashboard')
+  .description('Open the edge-net dashboard in your default browser')
+  .action(async () => {
+    console.log(chalk.cyan(`\n  Opening edge-net dashboard: ${EDGE_DASHBOARD_URL}\n`));
+    try {
+      const { execSync } = require('child_process');
+      const platform = process.platform;
+      if (platform === 'darwin') {
+        execSync(`open "${EDGE_DASHBOARD_URL}"`);
+      } else if (platform === 'win32') {
+        execSync(`start "" "${EDGE_DASHBOARD_URL}"`);
+      } else {
+        execSync(`xdg-open "${EDGE_DASHBOARD_URL}" 2>/dev/null || echo "Open manually: ${EDGE_DASHBOARD_URL}"`);
+      }
+    } catch {
+      console.log(chalk.yellow(`  Could not open browser. Visit manually:`));
+      console.log(chalk.white(`  ${EDGE_DASHBOARD_URL}\n`));
+    }
+  });
+
+// ============================================================================
+// Identity commands — manage your pi key
+// ============================================================================
+
+const identityCmd = program
+  .command('identity')
+  .description('Manage your pi identity key for brain, edge, and MCP')
+  .option('--json', 'Force JSON output');
+
+identityCmd
+  .command('generate')
+  .description('Generate a new pi identity key (64 hex chars)')
+  .option('--save', 'Save the key to ~/.ruvector/pi-key')
+  .action(async (cmdOpts) => {
+    const opts = identityCmd.opts();
+    const crypto = require('crypto');
+    const key = crypto.randomBytes(32).toString('hex');
+    let pseudonym;
+    try {
+      const hash = crypto.createHash('shake256', { outputLength: 16 });
+      hash.update(key);
+      pseudonym = hash.digest('hex');
+    } catch {
+      pseudonym = crypto.createHash('sha256').update(key).digest('hex').substring(0, 32);
+    }
+    if (isJsonOutput(opts)) {
+      console.log(JSON.stringify({ key, pseudonym }, null, 2));
+    } else {
+      console.log(chalk.bold.cyan('\n  New Pi Identity Generated\n'));
+      console.log(chalk.white(`  Key:       ${key}`));
+      console.log(chalk.gray(`  Pseudonym: ${pseudonym}`));
+      console.log(chalk.yellow('\n  Save this key! Set it as PI environment variable:'));
+      console.log(chalk.dim(`    export PI=${key}\n`));
+    }
+    if (cmdOpts.save) {
+      const keyDir = path.join(require('os').homedir(), '.ruvector');
+      const keyPath = path.join(keyDir, 'pi-key');
+      if (!fs.existsSync(keyDir)) fs.mkdirSync(keyDir, { recursive: true, mode: 0o700 });
+      fs.writeFileSync(keyPath, key, { mode: 0o600 });
+      console.log(chalk.green(`  Key saved to ${keyPath}`));
+    }
+  });
+
+identityCmd
+  .command('show')
+  .description('Show current identity pseudonym derived from your pi key')
+  .action(async () => {
+    const opts = identityCmd.opts();
+    const crypto = require('crypto');
+    let key = process.env.PI;
+    if (!key) {
+      const keyPath = path.join(require('os').homedir(), '.ruvector', 'pi-key');
+      if (fs.existsSync(keyPath)) {
+        key = fs.readFileSync(keyPath, 'utf8').trim();
+      }
+    }
+    if (!key) {
+      console.error(chalk.red('No pi key found. Set PI env var or run: ruvector identity generate --save'));
+      process.exit(1);
+    }
+    let pseudonym;
+    try {
+      const hash = crypto.createHash('shake256', { outputLength: 16 });
+      hash.update(key);
+      pseudonym = hash.digest('hex');
+    } catch {
+      pseudonym = crypto.createHash('sha256').update(key).digest('hex').substring(0, 32);
+    }
+    if (isJsonOutput(opts)) {
+      console.log(JSON.stringify({
+        pseudonym,
+        key_preview: key.substring(0, 8) + '...' + key.substring(key.length - 8),
+        source: process.env.PI ? 'PI env var' : '~/.ruvector/pi-key',
+      }, null, 2));
+    } else {
+      console.log(chalk.bold.cyan('\n  Pi Identity\n'));
+      console.log(chalk.white(`  Pseudonym: ${pseudonym}`));
+      console.log(chalk.gray(`  Key:       ${key.substring(0, 8)}...${key.substring(key.length - 8)}`));
+      console.log(chalk.gray(`  Source:    ${process.env.PI ? 'PI env var' : '~/.ruvector/pi-key'}\n`));
+    }
+  });
+
+identityCmd
+  .command('export')
+  .description('Export your pi key encrypted with a passphrase')
+  .option('-o, --output <file>', 'Output file', 'pi-key.enc')
+  .action(async (cmdOpts) => {
+    const opts = identityCmd.opts();
+    const crypto = require('crypto');
+    let key = process.env.PI;
+    if (!key) {
+      const keyPath = path.join(require('os').homedir(), '.ruvector', 'pi-key');
+      if (fs.existsSync(keyPath)) {
+        key = fs.readFileSync(keyPath, 'utf8').trim();
+      }
+    }
+    if (!key) {
+      console.error(chalk.red('No pi key found. Set PI env var or run: ruvector identity generate --save'));
+      process.exit(1);
+    }
+    let passphrase = process.env.PI_PASSPHRASE;
+    if (!passphrase) {
+      passphrase = crypto.randomBytes(16).toString('hex');
+      console.log(chalk.yellow(`\n  Generated passphrase (save this!): ${passphrase}`));
+    }
+    const salt = crypto.randomBytes(16);
+    const derivedKey = crypto.pbkdf2Sync(passphrase, salt, 100000, 32, 'sha256');
+    const iv = crypto.randomBytes(12);
+    const cipher = crypto.createCipheriv('aes-256-gcm', derivedKey, iv);
+    let encrypted = cipher.update(key, 'utf8', 'hex');
+    encrypted += cipher.final('hex');
+    const authTag = cipher.getAuthTag().toString('hex');
+    const payload = JSON.stringify({
+      version: 1,
+      algorithm: 'aes-256-gcm',
+      salt: salt.toString('hex'),
+      iv: iv.toString('hex'),
+      authTag,
+      data: encrypted,
+    });
+    const outFile = path.resolve(cmdOpts.output);
+    fs.writeFileSync(outFile, payload, { mode: 0o600 });
+    if (isJsonOutput(opts)) {
+      console.log(JSON.stringify({ file: outFile, algorithm: 'aes-256-gcm' }, null, 2));
+    } else {
+      console.log(chalk.green(`\n  Key exported to: ${outFile}`));
+      console.log(chalk.gray('  Encrypted with AES-256-GCM + PBKDF2'));
+      console.log(chalk.yellow('  Keep your passphrase safe -- it cannot be recovered.\n'));
+    }
+  });
+
+identityCmd
+  .command('import <file>')
+  .description('Import a pi key from an encrypted backup')
+  .option('--save', 'Save the imported key to ~/.ruvector/pi-key')
+  .action(async (file, cmdOpts) => {
+    const opts = identityCmd.opts();
+    const crypto = require('crypto');
+    const filePath = path.resolve(file);
+    if (!fs.existsSync(filePath)) {
+      console.error(chalk.red(`File not found: ${filePath}`));
+      process.exit(1);
+    }
+    const payload = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+    if (payload.version !== 1 || payload.algorithm !== 'aes-256-gcm') {
+      console.error(chalk.red('Unsupported key file format'));
+      process.exit(1);
+    }
+    const passphrase = process.env.PI_PASSPHRASE;
+    if (!passphrase) {
+      console.error(chalk.red('Set PI_PASSPHRASE env var to decrypt the key'));
+      process.exit(1);
+    }
+    try {
+      const salt = Buffer.from(payload.salt, 'hex');
+      const iv = Buffer.from(payload.iv, 'hex');
+      const authTag = Buffer.from(payload.authTag, 'hex');
+      const derivedKey = crypto.pbkdf2Sync(passphrase, salt, 100000, 32, 'sha256');
+      const decipher = crypto.createDecipheriv('aes-256-gcm', derivedKey, iv);
+      decipher.setAuthTag(authTag);
+      let decrypted = decipher.update(payload.data, 'hex', 'utf8');
+      decrypted += decipher.final('utf8');
+      if (!/^[0-9a-f]{64}$/i.test(decrypted)) {
+        throw new Error('Decrypted value is not a valid pi key');
+      }
+      if (isJsonOutput(opts)) {
+        console.log(JSON.stringify({
+          key: decrypted,
+          source: filePath,
+          saved: !!cmdOpts.save,
+        }, null, 2));
+      } else {
+        console.log(chalk.green('\n  Key imported successfully'));
+        console.log(chalk.white(`  Key: ${decrypted.substring(0, 8)}...${decrypted.substring(decrypted.length - 8)}`));
+      }
+      if (cmdOpts.save) {
+        const keyDir = path.join(require('os').homedir(), '.ruvector');
+        const keyPath = path.join(keyDir, 'pi-key');
+        if (!fs.existsSync(keyDir)) fs.mkdirSync(keyDir, { recursive: true, mode: 0o700 });
+        fs.writeFileSync(keyPath, decrypted, { mode: 0o600 });
+        console.log(chalk.green(`  Key saved to ${keyPath}`));
+      }
+      if (!isJsonOutput(opts)) {
+        console.log(chalk.yellow('\n  Set as environment variable:'));
+        console.log(chalk.dim(`    export PI=${decrypted}\n`));
+      }
+    } catch (error) {
+      console.error(chalk.red('Failed to decrypt key -- wrong passphrase?'));
+      console.error(chalk.red(error.message));
+      process.exit(1);
+    }
+  });
+
+// =============================================================================
+// LLM Commands - LLM orchestration (lazy: @ruvector/ruvllm)
+// =============================================================================
+
+const llmCmd = program.command('llm').description('LLM orchestration with SONA adaptive learning');
+
+llmCmd.command('embed')
+  .description('Generate text embeddings via RuvLLM')
+  .argument('<text>', 'Text to embed')
+  .option('-m, --model <model>', 'Model name', 'minilm')
+  .option('--json', 'JSON output')
+  .action(async (text, opts) => {
+    let ruvllm;
+    try {
+      ruvllm = require('@ruvector/ruvllm');
+    } catch (e) {
+      console.error(chalk.red('LLM commands require @ruvector/ruvllm'));
+      console.error(chalk.yellow('  npm install @ruvector/ruvllm'));
+      console.error(chalk.dim('  or: npx ruvector install ruvllm'));
+      console.error(chalk.dim('\n  Tip: use "ruvector embed text <text>" for built-in ONNX embeddings'));
+      process.exit(1);
+    }
+    const spinner = ora('Generating embedding...').start();
+    try {
+      const { performance } = require('perf_hooks');
+      const start = performance.now();
+      const llm = new ruvllm.RuvLLM({ embeddingDim: 384 });
+      const embedding = llm.embed(text);
+      const elapsed = performance.now() - start;
+      spinner.stop();
+      if (opts.json) {
+        console.log(JSON.stringify({ text, model: opts.model, dimension: embedding.length, embedding: Array.from(embedding), timeMs: +elapsed.toFixed(2) }, null, 2));
+        return;
+      }
+      console.log(chalk.bold.cyan('\n  RuvLLM Embedding\n'));
+      console.log(chalk.dim(`  Text: "${text.length > 60 ? text.slice(0, 60) + '...' : text}"`));
+      console.log(chalk.dim(`  Model: ${opts.model}`));
+      console.log(chalk.dim(`  Dimension: ${embedding.length}`));
+      console.log(chalk.dim(`  Time: ${elapsed.toFixed(1)}ms`));
+      console.log(chalk.dim(`  First 5 values: [${Array.from(embedding).slice(0, 5).map(v => v.toFixed(4)).join(', ')}...]`));
+      console.log('');
+    } catch (err) {
+      spinner.fail('Embedding generation failed');
+      console.error(chalk.red(`  ${err.message}`));
+      process.exit(1);
+    }
   });
 
 llmCmd.command('models')
   .description('List available LLM models')
-  .action(() => {
-    const ruvllm = requireRuvllm();
+  .option('--json', 'JSON output')
+  .action(async (opts) => {
+    let ruvllm;
     try {
-      if (typeof ruvllm.listModels === 'function') {
-        const models = ruvllm.listModels();
-        models.forEach(m => console.log(`  ${chalk.green(m.name || m)} ${chalk.dim(m.description || '')}`));
-      } else {
-        console.log(chalk.dim('  Model listing requires @ruvector/ruvllm >=2.1.0'));
-        console.log(chalk.dim('  Available: MiniLM-L6 (default embedding model)'));
+      ruvllm = require('@ruvector/ruvllm');
+    } catch (e) {
+      console.error(chalk.red('LLM commands require @ruvector/ruvllm'));
+      console.error(chalk.yellow('  npm install @ruvector/ruvllm'));
+      console.error(chalk.dim('  or: npx ruvector install ruvllm'));
+      process.exit(1);
+    }
+    const models = typeof ruvllm.listModels === 'function' ? ruvllm.listModels() :
+      (ruvllm.RUVLTRA_MODELS ? Object.values(ruvllm.RUVLTRA_MODELS) : []);
+    if (opts.json) {
+      console.log(JSON.stringify(models, null, 2));
+      return;
+    }
+    console.log(chalk.bold.cyan('\n  RuvLLM Available Models\n'));
+    if (!models || models.length === 0) {
+      console.log(chalk.yellow('  No models registered in the registry.'));
+      console.log(chalk.dim('  Upgrade @ruvector/ruvllm for model registry support:'));
+      console.log(chalk.dim('    npm install @ruvector/ruvllm@latest\n'));
+    } else {
+      for (const m of models) {
+        console.log(chalk.white(`  ${chalk.bold(m.id)}`));
+        console.log(chalk.dim(`    ${m.name} - ${m.size} (${m.quantization})`));
+        console.log(chalk.dim(`    Use case: ${m.useCase}`));
+        console.log(chalk.dim(`    Context: ${m.contextLength} tokens`));
+        console.log('');
       }
-    } catch (e) { console.error(chalk.red(`Error: ${e.message}`)); }
+    }
+    console.log(chalk.dim(`  Total: ${models ? models.length : 0} models\n`));
   });
 
 llmCmd.command('benchmark')
   .description('Benchmark LLM inference performance')
   .option('-n, --iterations <n>', 'Number of iterations', '100')
-  .action((opts) => {
-    const ruvllm = requireRuvllm();
-    const n = parseInt(opts.iterations);
-    const text = 'The quick brown fox jumps over the lazy dog';
-    const times = [];
-    for (let i = 0; i < n; i++) {
-      const start = performance.now();
-      ruvllm.embed ? ruvllm.embed(text) : ruvllm.generateEmbedding(text);
-      times.push(performance.now() - start);
+  .option('--json', 'JSON output')
+  .action(async (opts) => {
+    let ruvllm;
+    try {
+      ruvllm = require('@ruvector/ruvllm');
+    } catch (e) {
+      console.error(chalk.red('LLM commands require @ruvector/ruvllm'));
+      console.error(chalk.yellow('  npm install @ruvector/ruvllm'));
+      console.error(chalk.dim('  or: npx ruvector install ruvllm'));
+      process.exit(1);
     }
-    times.sort((a, b) => a - b);
-    console.log(chalk.bold.cyan('\nLLM Benchmark\n'));
-    console.log(`  ${chalk.bold('Iterations:')} ${n}`);
-    console.log(`  ${chalk.bold('P50:')} ${times[Math.floor(n * 0.5)].toFixed(2)}ms`);
-    console.log(`  ${chalk.bold('P95:')} ${times[Math.floor(n * 0.95)].toFixed(2)}ms`);
-    console.log(`  ${chalk.bold('P99:')} ${times[Math.floor(n * 0.99)].toFixed(2)}ms`);
-    console.log(`  ${chalk.bold('Mean:')} ${(times.reduce((a, b) => a + b, 0) / n).toFixed(2)}ms`);
-    console.log();
+    const iterations = parseInt(opts.iterations, 10) || 100;
+    const spinner = ora(`Running ${iterations} embedding iterations...`).start();
+    try {
+      const { performance } = require('perf_hooks');
+      const llm = new ruvllm.RuvLLM({ embeddingDim: 384 });
+      const testText = 'The quick brown fox jumps over the lazy dog';
+      for (let i = 0; i < 5; i++) llm.embed(testText);
+      const times = [];
+      const start = performance.now();
+      for (let i = 0; i < iterations; i++) {
+        const t0 = performance.now();
+        llm.embed(testText);
+        times.push(performance.now() - t0);
+      }
+      const totalMs = performance.now() - start;
+      times.sort((a, b) => a - b);
+      const avgMs = totalMs / iterations;
+      const p50 = times[Math.floor(iterations * 0.5)];
+      const p95 = times[Math.floor(iterations * 0.95)];
+      const p99 = times[Math.floor(iterations * 0.99)];
+      const opsPerSec = (iterations / totalMs) * 1000;
+      spinner.stop();
+      if (opts.json) {
+        console.log(JSON.stringify({ iterations, totalMs: +totalMs.toFixed(2), avgMs: +avgMs.toFixed(3), p50: +p50.toFixed(3), p95: +p95.toFixed(3), p99: +p99.toFixed(3), opsPerSec: +opsPerSec.toFixed(1) }, null, 2));
+        return;
+      }
+      console.log(chalk.bold.cyan('\n  RuvLLM Benchmark Results\n'));
+      console.log(chalk.white(`  Iterations:  ${iterations}`));
+      console.log(chalk.white(`  Total time:  ${totalMs.toFixed(1)}ms`));
+      console.log(chalk.white(`  Avg latency: ${avgMs.toFixed(3)}ms`));
+      console.log(chalk.white(`  P50:         ${p50.toFixed(3)}ms`));
+      console.log(chalk.white(`  P95:         ${p95.toFixed(3)}ms`));
+      console.log(chalk.white(`  P99:         ${p99.toFixed(3)}ms`));
+      console.log(chalk.green(`  Throughput:  ${opsPerSec.toFixed(1)} ops/sec`));
+      console.log('');
+    } catch (err) {
+      spinner.fail('Benchmark failed');
+      console.error(chalk.red(`  ${err.message}`));
+      process.exit(1);
+    }
   });
 
 llmCmd.command('info')
-  .description('Show RuvLLM module information')
-  .action(() => {
-    const ruvllm = requireRuvllm();
-    console.log(chalk.bold.cyan('\nRuvLLM Info\n'));
-    console.log(`  ${chalk.bold('Version:')} ${typeof ruvllm.version === 'function' ? ruvllm.version() : ruvllm.version || 'unknown'}`);
-    console.log(`  ${chalk.bold('SIMD:')} ${ruvllm.simdEnabled ? 'enabled' : 'not detected'}`);
-    console.log();
+  .description('Show LLM module information')
+  .option('--json', 'JSON output')
+  .action(async (opts) => {
+    let ruvllm;
+    try {
+      ruvllm = require('@ruvector/ruvllm');
+    } catch (e) {
+      console.error(chalk.red('LLM commands require @ruvector/ruvllm'));
+      console.error(chalk.yellow('  npm install @ruvector/ruvllm'));
+      console.error(chalk.dim('  or: npx ruvector install ruvllm'));
+      process.exit(1);
+    }
+    const version = typeof ruvllm.version === 'function' ? ruvllm.version() : (ruvllm.version || 'unknown');
+    const hasSIMD = ruvllm.hasSimdSupport ? ruvllm.hasSimdSupport() : false;
+    const models = ruvllm.listModels ? ruvllm.listModels() : [];
+    const info = {
+      package: '@ruvector/ruvllm',
+      version,
+      simd: hasSIMD,
+      availableModels: models.length,
+      features: ['SONA adaptive learning', 'HNSW memory', 'FastGRNN routing', 'SIMD inference', 'LoRA adapters', 'Session management', 'Federated learning']
+    };
+    if (opts.json) {
+      console.log(JSON.stringify(info, null, 2));
+      return;
+    }
+    console.log(chalk.bold.cyan('\n  RuvLLM Module Information\n'));
+    console.log(chalk.white(`  Package:  ${info.package}`));
+    console.log(chalk.white(`  Version:  ${info.version}`));
+    console.log(chalk.white(`  SIMD:     ${hasSIMD ? chalk.green('Available') : chalk.yellow('Not available')}`));
+    console.log(chalk.white(`  Models:   ${info.availableModels} registered`));
+    console.log(chalk.white('\n  Features:'));
+    for (const f of info.features) {
+      console.log(chalk.dim(`    - ${f}`));
+    }
+    console.log('');
   });
 
-// ============================================================================
-// SONA Commands — Self-Optimizing Neural Architecture (lazy-loaded)
-// ============================================================================
+// =============================================================================
+// SONA Commands - Self-Optimizing Neural Architecture (bundled dep)
+// =============================================================================
 
-const sonaCmd = program.command('sona').description('SONA adaptive learning — status, patterns, train, export');
-
-function loadSona() {
-  try { return require('@ruvector/sona'); } catch {
-    console.error(chalk.red('SONA commands require @ruvector/sona'));
-    console.error(chalk.yellow('  npm install @ruvector/sona'));
-    process.exit(1);
-  }
-}
-
-const SONA_DEFAULT_DIM = 128;
-function createSonaEngine(sona) {
-  if (sona.SonaEngine) return new sona.SonaEngine(SONA_DEFAULT_DIM);
-  if (sona.SonaCoordinator) return new sona.SonaCoordinator(SONA_DEFAULT_DIM);
-  throw new Error('No SONA engine class found');
-}
-function parseSonaResult(val) {
-  if (typeof val === 'string') { try { return JSON.parse(val); } catch { return val; } }
-  return val;
-}
+const sonaCmd = program.command('sona').description('SONA Self-Optimizing Neural Architecture');
 
 sonaCmd.command('status')
-  .description('Show SONA learning engine status')
-  .option('--json', 'Output as JSON')
-  .action((opts) => {
-    const sona = loadSona();
+  .description('Show SONA learning status')
+  .option('--json', 'JSON output')
+  .action(async (opts) => {
     try {
-      const engine = createSonaEngine(sona);
-      const status = engine.getStatus ? parseSonaResult(engine.getStatus()) : { enabled: engine.isEnabled ? engine.isEnabled() : true, ...parseSonaResult(engine.getStats ? engine.getStats() : {}) };
-      if (opts.json || !process.stdout.isTTY) { console.log(JSON.stringify(status, null, 2)); return; }
-      console.log(chalk.bold.cyan('\nSONA Status\n'));
-      Object.entries(status).forEach(([k, v]) => console.log(`  ${chalk.bold(k + ':')} ${v}`));
-      console.log();
-    } catch (e) { console.error(chalk.red(`Error: ${e.message}`)); }
+      const { SonaEngine } = require('@ruvector/sona');
+      const engine = new SonaEngine();
+      const stats = engine.stats();
+      if (opts.json) { console.log(JSON.stringify(stats, null, 2)); return; }
+      console.log(chalk.bold.cyan('\n  SONA Learning Status\n'));
+      console.log(chalk.white(`  Trajectories:  ${stats.trajectoryCount || stats.trajectory_count || 0}`));
+      console.log(chalk.white(`  Patterns:      ${stats.patternCount || stats.pattern_count || 0}`));
+      console.log(chalk.white(`  Energy:        ${typeof stats.energy === 'number' ? stats.energy.toFixed(4) : stats.energy || 'N/A'}`));
+      console.log(chalk.white(`  State:         ${stats.state || 'initialized'}`));
+      console.log('');
+    } catch (e) {
+      try {
+        const { SonaCoordinator } = require('@ruvector/ruvllm');
+        const sona = new SonaCoordinator();
+        const stats = sona.stats();
+        if (opts.json) { console.log(JSON.stringify(stats, null, 2)); return; }
+        console.log(chalk.bold.cyan('\n  SONA Learning Status (JS fallback)\n'));
+        console.log(chalk.white(`  Signals received:       ${stats.signalsReceived}`));
+        console.log(chalk.white(`  Trajectories buffered:  ${stats.trajectoriesBuffered}`));
+        console.log(chalk.white(`  Total patterns:         ${stats.patterns.totalPatterns}`));
+        console.log(chalk.white(`  Avg success rate:       ${(stats.patterns.avgSuccessRate * 100).toFixed(1)}%`));
+        console.log(chalk.white(`  EWC tasks learned:      ${stats.ewc.tasksLearned}`));
+        console.log('');
+      } catch (e2) {
+        console.error(chalk.red('SONA native binding not available for this platform.'));
+        console.error(chalk.yellow('  Install @ruvector/ruvllm for JS fallback: npm install @ruvector/ruvllm'));
+        console.error(chalk.dim(`  Native error: ${e.message}`));
+        process.exit(1);
+      }
+    }
   });
 
-sonaCmd.command('patterns <query>')
+sonaCmd.command('patterns')
   .description('Search learned patterns')
-  .option('-t, --threshold <n>', 'Similarity threshold', '0.5')
-  .option('--json', 'Output as JSON')
-  .action((query, opts) => {
-    const sona = loadSona();
+  .argument('<query>', 'Search query')
+  .option('-k, --top-k <n>', 'Number of results', '5')
+  .option('--json', 'JSON output')
+  .action(async (query, opts) => {
+    const topK = parseInt(opts.topK, 10) || 5;
     try {
-      const engine = createSonaEngine(sona);
-      const patterns = engine.findPatterns ? engine.findPatterns(query, { threshold: parseFloat(opts.threshold) }) : [];
-      if (opts.json || !process.stdout.isTTY) { console.log(JSON.stringify(patterns, null, 2)); return; }
-      console.log(chalk.bold.cyan('\nLearned Patterns\n'));
-      if (!patterns.length) { console.log(chalk.dim('  No patterns found.\n')); return; }
-      patterns.forEach((p, i) => console.log(`  ${chalk.yellow(i + 1 + '.')} ${p.name || p.pattern || JSON.stringify(p).slice(0, 80)}`));
-      console.log();
-    } catch (e) { console.error(chalk.red(`Error: ${e.message}`)); }
+      const { SonaEngine } = require('@ruvector/sona');
+      const engine = new SonaEngine();
+      const results = engine.searchPatterns ? engine.searchPatterns(query, topK) : [];
+      if (opts.json) { console.log(JSON.stringify(results, null, 2)); return; }
+      console.log(chalk.bold.cyan(`\n  SONA Pattern Search: "${query}"\n`));
+      if (!results || results.length === 0) {
+        console.log(chalk.yellow('  No patterns found. Record some training data first.'));
+      } else {
+        for (let i = 0; i < results.length; i++) {
+          const r = results[i];
+          console.log(chalk.white(`  ${i + 1}. ${chalk.bold(r.type || r.id || 'pattern')}`));
+          console.log(chalk.dim(`     Score: ${typeof r.score === 'number' ? r.score.toFixed(4) : r.score || 'N/A'}`));
+          if (r.metadata) console.log(chalk.dim(`     Metadata: ${JSON.stringify(r.metadata)}`));
+          console.log('');
+        }
+      }
+    } catch (e) {
+      try {
+        const { SonaCoordinator } = require('@ruvector/ruvllm');
+        const sona = new SonaCoordinator();
+        const bank = sona.getReasoningBank();
+        const embedding = new Float64Array(64);
+        for (let i = 0; i < query.length && i < 64; i++) embedding[i] = query.charCodeAt(i) / 255;
+        const results = bank.findSimilar(Array.from(embedding), topK);
+        if (opts.json) { console.log(JSON.stringify(results, null, 2)); return; }
+        console.log(chalk.bold.cyan(`\n  SONA Pattern Search (JS): "${query}"\n`));
+        if (!results || results.length === 0) {
+          console.log(chalk.yellow('  No patterns found. Record some training data first.'));
+        } else {
+          for (let i = 0; i < results.length; i++) {
+            const r = results[i];
+            console.log(chalk.white(`  ${i + 1}. ${chalk.bold(r.type || r.id)}`));
+            console.log(chalk.dim(`     Success rate: ${(r.successRate * 100).toFixed(1)}%`));
+            console.log('');
+          }
+        }
+      } catch (e2) {
+        console.error(chalk.red('SONA not available.'));
+        console.error(chalk.dim(`  Native error: ${e.message}`));
+        process.exit(1);
+      }
+    }
   });
 
-sonaCmd.command('train <data>')
+sonaCmd.command('train')
   .description('Record a training trajectory')
-  .option('--outcome <outcome>', 'Outcome (success/failure)', 'success')
-  .action((data, opts) => {
-    const sona = loadSona();
+  .argument('<data>', 'Training data JSON file or JSON string')
+  .option('--json', 'JSON output')
+  .action(async (data, opts) => {
+    let trajectoryData;
     try {
-      const engine = createSonaEngine(sona);
-      if (engine.recordTrajectory) { engine.recordTrajectory(data, opts.outcome); }
-      else if (engine.train) { engine.train(data); }
-      console.log(chalk.green('Training trajectory recorded.'));
-    } catch (e) { console.error(chalk.red(`Error: ${e.message}`)); }
+      if (fs.existsSync(data)) { trajectoryData = JSON.parse(fs.readFileSync(data, 'utf8')); }
+      else { trajectoryData = JSON.parse(data); }
+    } catch (e) {
+      console.error(chalk.red('Invalid training data. Provide a JSON file path or JSON string.'));
+      console.error(chalk.dim(`  Error: ${e.message}`));
+      console.error(chalk.dim('\n  Example: ruvector sona train \'{"steps":[{"type":"query","input":"test","output":"result","confidence":0.9}],"outcome":"success"}\''));
+      process.exit(1);
+    }
+    const spinner = ora('Recording trajectory...').start();
+    try {
+      const { SonaEngine } = require('@ruvector/sona');
+      const engine = new SonaEngine();
+      const result = engine.recordTrajectory ? engine.recordTrajectory(JSON.stringify(trajectoryData)) : { recorded: true };
+      spinner.succeed('Trajectory recorded');
+      if (opts.json) { console.log(JSON.stringify(result, null, 2)); return; }
+      console.log(chalk.dim(`  Steps: ${trajectoryData.steps ? trajectoryData.steps.length : 'N/A'}`));
+      console.log(chalk.dim(`  Outcome: ${trajectoryData.outcome || 'N/A'}`));
+      console.log('');
+    } catch (e) {
+      try {
+        const { SonaCoordinator, TrajectoryBuilder } = require('@ruvector/ruvllm');
+        const sona = new SonaCoordinator();
+        const builder = new TrajectoryBuilder();
+        if (trajectoryData.steps && Array.isArray(trajectoryData.steps)) {
+          for (const step of trajectoryData.steps) { builder.startStep(step.type || 'query', step.input || ''); builder.endStep(step.output || '', step.confidence || 0.5); }
+        }
+        const trajectory = builder.complete(trajectoryData.outcome || 'success');
+        sona.recordTrajectory(trajectory);
+        spinner.succeed('Trajectory recorded (JS fallback)');
+        if (opts.json) { console.log(JSON.stringify({ id: trajectory.id, steps: trajectory.steps.length, outcome: trajectory.outcome }, null, 2)); return; }
+        console.log(chalk.dim(`  ID: ${trajectory.id}`));
+        console.log(chalk.dim(`  Steps: ${trajectory.steps.length}`));
+        console.log(chalk.dim(`  Outcome: ${trajectory.outcome}`));
+        console.log('');
+      } catch (e2) { spinner.fail('Failed to record trajectory'); console.error(chalk.red(`  ${e.message}`)); process.exit(1); }
+    }
   });
 
 sonaCmd.command('export')
-  .description('Export SONA learned weights to JSON')
-  .option('-o, --output <file>', 'Output file', 'sona-weights.json')
-  .action((opts) => {
-    const sona = loadSona();
+  .description('Export SONA learned weights')
+  .option('-o, --output <path>', 'Output file', 'sona-export.json')
+  .option('--json', 'JSON output')
+  .action(async (opts) => {
+    const spinner = ora('Exporting SONA state...').start();
     try {
-      const engine = createSonaEngine(sona);
-      const weights = parseSonaResult(engine.exportWeights ? engine.exportWeights() : engine.getStats ? engine.getStats() : {});
-      fs.writeFileSync(opts.output, JSON.stringify(weights, null, 2));
-      console.log(chalk.green(`Exported to ${opts.output}`));
-    } catch (e) { console.error(chalk.red(`Error: ${e.message}`)); }
+      const { SonaEngine } = require('@ruvector/sona');
+      const engine = new SonaEngine();
+      const exported = engine.export ? engine.export() : JSON.stringify(engine.stats());
+      const outputData = typeof exported === 'string' ? exported : JSON.stringify(exported, null, 2);
+      if (opts.json) { spinner.stop(); console.log(outputData); return; }
+      fs.writeFileSync(opts.output, outputData);
+      spinner.succeed(`Exported to ${opts.output}`);
+      console.log(chalk.dim(`  Size: ${Buffer.byteLength(outputData)} bytes`));
+      console.log('');
+    } catch (e) {
+      try {
+        const { SonaCoordinator } = require('@ruvector/ruvllm');
+        const sona = new SonaCoordinator();
+        const exportData = JSON.stringify({ stats: sona.stats(), reasoningBank: sona.getReasoningBank().stats(), exportedAt: new Date().toISOString() }, null, 2);
+        if (opts.json) { spinner.stop(); console.log(exportData); return; }
+        fs.writeFileSync(opts.output, exportData);
+        spinner.succeed(`Exported to ${opts.output} (JS fallback)`);
+        console.log(chalk.dim(`  Size: ${Buffer.byteLength(exportData)} bytes`));
+        console.log('');
+      } catch (e2) { spinner.fail('Export failed'); console.error(chalk.red(`  ${e.message}`)); process.exit(1); }
+    }
   });
 
 sonaCmd.command('stats')
-  .description('Show detailed SONA learning statistics')
-  .option('--json', 'Output as JSON')
-  .action((opts) => {
-    const sona = loadSona();
+  .description('Show detailed learning statistics')
+  .option('--json', 'JSON output')
+  .action(async (opts) => {
     try {
-      const engine = createSonaEngine(sona);
-      const stats = parseSonaResult(engine.getStats ? engine.getStats() : engine.stats ? engine.stats() : {});
-      if (opts.json || !process.stdout.isTTY) { console.log(JSON.stringify(stats, null, 2)); return; }
-      console.log(chalk.bold.cyan('\nSONA Statistics\n'));
-      Object.entries(stats).forEach(([k, v]) => console.log(`  ${chalk.bold(k + ':')} ${v}`));
-      console.log();
-    } catch (e) { console.error(chalk.red(`Error: ${e.message}`)); }
+      const { SonaEngine } = require('@ruvector/sona');
+      const engine = new SonaEngine();
+      const stats = engine.stats();
+      if (opts.json) { console.log(JSON.stringify(stats, null, 2)); return; }
+      console.log(chalk.bold.cyan('\n  SONA Detailed Statistics\n'));
+      for (const [key, value] of Object.entries(stats)) {
+        const label = key.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ').trim();
+        const displayLabel = label.charAt(0).toUpperCase() + label.slice(1);
+        if (typeof value === 'object' && value !== null) {
+          console.log(chalk.white(`  ${displayLabel}:`));
+          for (const [k, v] of Object.entries(value)) console.log(chalk.dim(`    ${k}: ${typeof v === 'number' ? v.toFixed(4) : v}`));
+        } else { console.log(chalk.white(`  ${displayLabel}: ${typeof value === 'number' ? value.toFixed(4) : value}`)); }
+      }
+      console.log('');
+    } catch (e) {
+      try {
+        const { SonaCoordinator } = require('@ruvector/ruvllm');
+        const stats = new SonaCoordinator().stats();
+        if (opts.json) { console.log(JSON.stringify(stats, null, 2)); return; }
+        console.log(chalk.bold.cyan('\n  SONA Detailed Statistics (JS)\n'));
+        console.log(chalk.white(`  Signals received:       ${stats.signalsReceived}`));
+        console.log(chalk.white(`  Trajectories buffered:  ${stats.trajectoriesBuffered}`));
+        console.log(chalk.white('\n  Reasoning Bank:'));
+        console.log(chalk.dim(`    Total patterns:    ${stats.patterns.totalPatterns}`));
+        console.log(chalk.dim(`    Avg success rate:  ${(stats.patterns.avgSuccessRate * 100).toFixed(1)}%`));
+        if (stats.patterns.byType) { for (const [type, count] of Object.entries(stats.patterns.byType)) console.log(chalk.dim(`    ${type}: ${count}`)); }
+        console.log(chalk.white('\n  EWC++ (Memory Protection):'));
+        console.log(chalk.dim(`    Tasks learned:     ${stats.ewc.tasksLearned}`));
+        console.log(chalk.dim(`    Lambda:            ${stats.ewc.lambda}`));
+        console.log(chalk.dim(`    Forgetting rate:   ${(stats.ewc.estimatedForgettingRate * 100).toFixed(2)}%`));
+        console.log('');
+      } catch (e2) { console.error(chalk.red('SONA not available.')); console.error(chalk.dim(`  Native error: ${e.message}`)); process.exit(1); }
+    }
   });
 
 sonaCmd.command('info')
-  .description('Show SONA module availability')
-  .action(() => {
-    const sona = loadSona();
-    console.log(chalk.bold.cyan('\nSONA Info\n'));
-    console.log(`  ${chalk.bold('Version:')} ${typeof sona.version === 'function' ? sona.version() : sona.version || 'unknown'}`);
-    console.log(`  ${chalk.bold('Engine:')} ${sona.SonaEngine ? 'Native' : 'JS Fallback'}`);
-    console.log();
+  .description('Show SONA module information')
+  .option('--json', 'JSON output')
+  .action(async (opts) => {
+    let nativeAvailable = false, nativeVersion = 'N/A';
+    try { const sona = require('@ruvector/sona'); nativeAvailable = !!sona.SonaEngine; nativeVersion = sona.version || '0.1.4'; } catch (e) { /* not available */ }
+    let jsAvailable = false, jsVersion = 'N/A';
+    try { const ruvllm = require('@ruvector/ruvllm'); jsAvailable = !!ruvllm.SonaCoordinator; jsVersion = typeof ruvllm.version === 'function' ? ruvllm.version() : (ruvllm.version || 'unknown'); } catch (e) { /* not available */ }
+    const info = { package: '@ruvector/sona', nativeBinding: nativeAvailable, nativeVersion, jsFallback: jsAvailable, jsFallbackVersion: jsVersion, features: ['LoRA adaptive weights', 'EWC++ memory protection', 'ReasoningBank pattern storage', 'Trajectory tracking', 'Continual learning', 'Sub-millisecond overhead'] };
+    if (opts.json) { console.log(JSON.stringify(info, null, 2)); return; }
+    console.log(chalk.bold.cyan('\n  SONA Module Information\n'));
+    console.log(chalk.white(`  Package:         ${info.package}`));
+    console.log(chalk.white(`  Native binding:  ${nativeAvailable ? chalk.green('Available') + chalk.dim(` (v${nativeVersion})`) : chalk.yellow('Not available')}`));
+    console.log(chalk.white(`  JS fallback:     ${jsAvailable ? chalk.green('Available') + chalk.dim(` (ruvllm v${jsVersion})`) : chalk.yellow('Not available')}`));
+    console.log(chalk.white('\n  Features:'));
+    for (const f of info.features) console.log(chalk.dim(`    - ${f}`));
+    console.log('');
   });
 
-// ============================================================================
-// Route Commands — Semantic routing via @ruvector/router (lazy-loaded)
-// ============================================================================
+// =============================================================================
+// Route Commands - Semantic routing (lazy: @ruvector/router)
+// =============================================================================
 
-const routeCmd = program.command('route').description('Semantic routing — classify inputs to routes via HNSW + SIMD');
+const routeCmd = program.command('route').description('Semantic routing for AI agents');
 
-function requireRouter() {
-  try { return require('@ruvector/router'); } catch {
-    console.error(chalk.red('Route commands require @ruvector/router'));
-    console.error(chalk.yellow('  npm install @ruvector/router'));
-    process.exit(1);
-  }
-}
-
-routeCmd.command('classify <input>')
-  .description('Classify input to a semantic route')
-  .option('--json', 'Output as JSON')
-  .action((input, opts) => {
-    const router = requireRouter();
+routeCmd.command('classify')
+  .description('Classify input to a route')
+  .argument('<input>', 'Input text to classify')
+  .option('-r, --routes <json>', 'Routes definition JSON file')
+  .option('-k, --top-k <n>', 'Number of results', '3')
+  .option('--json', 'JSON output')
+  .action(async (input, opts) => {
+    let router;
+    try { router = require('@ruvector/router'); } catch (e) {
+      console.error(chalk.red('Route commands require @ruvector/router'));
+      console.error(chalk.yellow('  npm install @ruvector/router'));
+      console.error(chalk.dim('  or: npx ruvector install router'));
+      process.exit(1);
+    }
+    const topK = parseInt(opts.topK, 10) || 3;
+    const spinner = ora('Classifying input...').start();
     try {
-      const result = router.classify ? router.classify(input) : { route: 'default', confidence: 1.0 };
-      if (opts.json || !process.stdout.isTTY) { console.log(JSON.stringify(result)); return; }
-      console.log(chalk.bold.cyan('\nRoute Classification\n'));
-      console.log(`  ${chalk.bold('Input:')} ${input}`);
-      console.log(`  ${chalk.bold('Route:')} ${chalk.green(result.route)}`);
-      console.log(`  ${chalk.bold('Confidence:')} ${result.confidence}`);
-      console.log();
-    } catch (e) { console.error(chalk.red(`Error: ${e.message}`)); }
+      let routesDef = null;
+      if (opts.routes) {
+        if (!fs.existsSync(opts.routes)) { spinner.fail(`Routes file not found: ${opts.routes}`); process.exit(1); }
+        routesDef = JSON.parse(fs.readFileSync(opts.routes, 'utf8'));
+      }
+      const sr = new router.SemanticRouter({ dimension: routesDef ? (routesDef.dimension || 384) : 384 });
+      if (routesDef && routesDef.intents) { for (const intent of routesDef.intents) sr.addIntent(intent); }
+      const embedding = new Float32Array(sr._dimension || 384);
+      for (let i = 0; i < input.length && i < embedding.length; i++) embedding[i] = input.charCodeAt(i) / 255;
+      let norm = 0;
+      for (let i = 0; i < embedding.length; i++) norm += embedding[i] * embedding[i];
+      norm = Math.sqrt(norm) || 1;
+      for (let i = 0; i < embedding.length; i++) embedding[i] /= norm;
+      const results = sr.routeWithEmbedding(embedding, topK);
+      spinner.stop();
+      if (opts.json) { console.log(JSON.stringify({ input, results }, null, 2)); return; }
+      console.log(chalk.bold.cyan(`\n  Route Classification: "${input.length > 50 ? input.slice(0, 50) + '...' : input}"\n`));
+      if (!results || results.length === 0) {
+        console.log(chalk.yellow('  No matching routes found.'));
+        if (!routesDef) { console.log(chalk.dim('  Provide a routes file with -r/--routes to define intents.')); console.log(chalk.dim('  Example: ruvector route classify "hello" -r routes.json')); }
+      } else {
+        for (let i = 0; i < results.length; i++) {
+          const r = results[i];
+          console.log(chalk.white(`  ${i + 1}. ${chalk.bold(r.intent)}`));
+          console.log(chalk.dim(`     Score: ${r.score.toFixed(4)}`));
+          if (r.metadata && Object.keys(r.metadata).length > 0) console.log(chalk.dim(`     Metadata: ${JSON.stringify(r.metadata)}`));
+        }
+      }
+      console.log('');
+    } catch (err) { spinner.fail('Classification failed'); console.error(chalk.red(`  ${err.message}`)); process.exit(1); }
   });
 
 routeCmd.command('benchmark')
   .description('Benchmark routing throughput')
   .option('-n, --iterations <n>', 'Number of iterations', '1000')
-  .action((opts) => {
-    const router = requireRouter();
-    const n = parseInt(opts.iterations);
-    const input = 'test input for routing benchmark';
-    const start = performance.now();
-    for (let i = 0; i < n; i++) {
-      router.classify ? router.classify(input) : null;
+  .option('--json', 'JSON output')
+  .action(async (opts) => {
+    let router;
+    try { router = require('@ruvector/router'); } catch (e) {
+      console.error(chalk.red('Route commands require @ruvector/router'));
+      console.error(chalk.yellow('  npm install @ruvector/router'));
+      console.error(chalk.dim('  or: npx ruvector install router'));
+      process.exit(1);
     }
-    const elapsed = performance.now() - start;
-    console.log(chalk.bold.cyan('\nRoute Benchmark\n'));
-    console.log(`  ${chalk.bold('Iterations:')} ${n}`);
-    console.log(`  ${chalk.bold('Total:')} ${elapsed.toFixed(2)}ms`);
-    console.log(`  ${chalk.bold('Per-route:')} ${(elapsed / n).toFixed(3)}ms`);
-    console.log(`  ${chalk.bold('Throughput:')} ${Math.floor(n / (elapsed / 1000))}/sec`);
-    console.log();
+    const iterations = parseInt(opts.iterations, 10) || 1000;
+    const spinner = ora(`Benchmarking ${iterations} route classifications...`).start();
+    try {
+      const { performance } = require('perf_hooks');
+      const dim = 128;
+      const sr = new router.SemanticRouter({ dimension: dim, threshold: 0.3 });
+      const intentNames = ['greeting', 'farewell', 'question', 'command', 'feedback'];
+      for (const name of intentNames) { const emb = new Float32Array(dim); for (let i = 0; i < dim; i++) emb[i] = Math.random() - 0.5; sr.addIntent({ name, utterances: [`example ${name}`], embedding: emb }); }
+      const warmupEmb = new Float32Array(dim); for (let i = 0; i < dim; i++) warmupEmb[i] = Math.random() - 0.5;
+      for (let i = 0; i < 50; i++) sr.routeWithEmbedding(warmupEmb, 3);
+      const times = [], start = performance.now();
+      for (let i = 0; i < iterations; i++) { const emb = new Float32Array(dim); for (let j = 0; j < dim; j++) emb[j] = Math.random() - 0.5; const t0 = performance.now(); sr.routeWithEmbedding(emb, 3); times.push(performance.now() - t0); }
+      const totalMs = performance.now() - start;
+      times.sort((a, b) => a - b);
+      const avgMs = totalMs / iterations, p50 = times[Math.floor(iterations * 0.5)], p95 = times[Math.floor(iterations * 0.95)], p99 = times[Math.floor(iterations * 0.99)], opsPerSec = (iterations / totalMs) * 1000;
+      spinner.stop();
+      if (opts.json) { console.log(JSON.stringify({ iterations, dimension: dim, intents: intentNames.length, totalMs: +totalMs.toFixed(2), avgMs: +avgMs.toFixed(3), p50: +p50.toFixed(3), p95: +p95.toFixed(3), p99: +p99.toFixed(3), opsPerSec: +opsPerSec.toFixed(1) }, null, 2)); return; }
+      console.log(chalk.bold.cyan('\n  Router Benchmark Results\n'));
+      console.log(chalk.white(`  Iterations:  ${iterations}`));
+      console.log(chalk.white(`  Dimension:   ${dim}`));
+      console.log(chalk.white(`  Intents:     ${intentNames.length}`));
+      console.log(chalk.white(`  Total time:  ${totalMs.toFixed(1)}ms`));
+      console.log(chalk.white(`  Avg latency: ${avgMs.toFixed(3)}ms`));
+      console.log(chalk.white(`  P50:         ${p50.toFixed(3)}ms`));
+      console.log(chalk.white(`  P95:         ${p95.toFixed(3)}ms`));
+      console.log(chalk.white(`  P99:         ${p99.toFixed(3)}ms`));
+      console.log(chalk.green(`  Throughput:  ${opsPerSec.toFixed(1)} ops/sec`));
+      console.log('');
+    } catch (err) { spinner.fail('Benchmark failed'); console.error(chalk.red(`  ${err.message}`)); process.exit(1); }
   });
 
 routeCmd.command('info')
   .description('Show router module information')
-  .action(() => {
-    const router = requireRouter();
-    console.log(chalk.bold.cyan('\nRouter Info\n'));
-    console.log(`  ${chalk.bold('Version:')} ${typeof router.version === 'function' ? router.version() : router.version || 'unknown'}`);
-    console.log();
+  .option('--json', 'JSON output')
+  .action(async (opts) => {
+    let routerAvailable = false, routerVersion = 'N/A', metrics = {};
+    try { const router = require('@ruvector/router'); routerAvailable = true; routerVersion = router.version || '0.1.28'; const sr = new router.SemanticRouter({ dimension: 16 }); metrics = { distanceMetrics: Object.keys(router.DistanceMetric || {}), hasSemanticRouter: true }; } catch (e) { /* Not available */ }
+    const info = { package: '@ruvector/router', available: routerAvailable, version: routerVersion, backend: 'Rust NAPI (HNSW + SIMD)', features: ['Semantic intent matching', 'HNSW indexing', 'SIMD-accelerated search', 'Multiple distance metrics', 'Save/load state', 'Async embedding support'], ...metrics };
+    if (opts.json) { console.log(JSON.stringify(info, null, 2)); return; }
+    console.log(chalk.bold.cyan('\n  Semantic Router Information\n'));
+    console.log(chalk.white(`  Package:   ${info.package}`));
+    console.log(chalk.white(`  Status:    ${routerAvailable ? chalk.green('Available') + chalk.dim(` (v${routerVersion})`) : chalk.yellow('Not installed')}`));
+    console.log(chalk.white(`  Backend:   ${info.backend}`));
+    if (info.distanceMetrics) console.log(chalk.white(`  Metrics:   ${info.distanceMetrics.join(', ')}`));
+    console.log(chalk.white('\n  Features:'));
+    for (const f of info.features) console.log(chalk.dim(`    - ${f}`));
+    if (!routerAvailable) console.log(chalk.yellow('\n  Install: npm install @ruvector/router'));
+    console.log('');
   });
 
 program.parse();
+

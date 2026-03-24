@@ -62,6 +62,8 @@ members = [
     "crates/cognitum-gate-kernel",
     "crates/cognitum-gate-tilezero",
     "crates/mcp-gate",
+    "crates/mcp-brain",
+    "crates/mcp-brain-server",
     "crates/ruQu",
     "crates/ruvllm",
     "crates/ruvllm-cli",

@@ -1,0 +1,23 @@
+[package]
+name = "ruvector-mincut-brain-node"
+version = "0.1.0"
+edition = "2021"
+description = "Minimal WASM binary for pi.ruv.io brain node: canonical min-cut with V1 ABI stubs"
+license = "MIT"
+publish = false
+
+[workspace]
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+ruvector-mincut = { version = "2.0", path = "../ruvector-mincut", default-features = false, features = ["wasm", "canonical"] }
+getrandom = { version = "0.2", features = ["js"] }
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+strip = true
+panic = "abort"

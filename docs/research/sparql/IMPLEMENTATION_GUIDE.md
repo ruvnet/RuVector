@@ -775,7 +775,7 @@ docs/research/sparql/
 ## References
 
 - [SPARQL Specification Document](./SPARQL_SPECIFICATION.md)
-- [RuVector PostgreSQL Extension](../../crates/ruvector-postgres/README.md)
+- [RuVector PostgreSQL Extension](../../../crates/ruvector-postgres/README.md)
 - [W3C SPARQL 1.1 Test Suite](https://www.w3.org/2009/sparql/docs/tests/)
 - [Apache Jena Documentation](https://jena.apache.org/documentation/query/)
 - [Oxigraph Implementation](https://github.com/oxigraph/oxigraph)

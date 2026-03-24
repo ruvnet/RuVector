@@ -405,7 +405,7 @@ FINALLY:
 
 - **Full Analysis**: [plaid-performance-analysis.md](plaid-performance-analysis.md)
 - **Optimization Guide**: [plaid-optimization-guide.md](plaid-optimization-guide.md)
-- **Benchmarks**: [../benches/plaid_performance.rs](../benches/plaid_performance.rs)
+- **Benchmarking Guide**: [BENCHMARKING_GUIDE.md](./BENCHMARKING_GUIDE.md)
 
 ---
 

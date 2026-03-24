@@ -401,7 +401,7 @@ valgrind --tool=cachegrind cargo bench hnsw_search
 
 ### GitHub Actions
 
-``yaml
+```yaml
 - name: Run benchmarks
   run: |
     cargo bench --bench distance_metrics -- --save-baseline main

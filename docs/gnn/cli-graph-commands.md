@@ -300,7 +300,7 @@ All graph commands support these global options (inherited from main CLI):
 
 ## See Also
 
-- [Main CLI Documentation](./cli-usage.md)
-- [Vector Database Commands](./cli-vector-commands.md)
-- [Configuration Guide](./configuration.md)
-- [RuVector Neo4j Documentation](./neo4j-integration.md)
+- [Graph Integration Summary](./GRAPH_INTEGRATION_SUMMARY.md)
+- [CLI Graph Implementation Summary](./cli-graph-implementation-summary.md)
+- [Cypher Parser Implementation](./cypher-parser-implementation.md)
+- [GNN Layer Implementation](./gnn-layer-implementation.md)

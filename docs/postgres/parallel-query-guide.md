@@ -452,9 +452,9 @@ reserve_pool_size = 16  -- 4 workers * 4 queries
 ## References
 
 - [PostgreSQL Parallel Query Documentation](https://www.postgresql.org/docs/current/parallel-query.html)
-- [RuVector Architecture](./architecture.md)
-- [HNSW Index Guide](./hnsw-index.md)
-- [Performance Tuning](./performance-tuning.md)
+- [System Architecture](../architecture/SYSTEM_OVERVIEW.md)
+- [HNSW Index](../hnsw/HNSW_INDEX.md)
+- [Performance Tuning](../optimization/PERFORMANCE_TUNING_GUIDE.md)
 
 ## Summary
 

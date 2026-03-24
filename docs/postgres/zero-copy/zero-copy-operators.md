@@ -280,6 +280,6 @@ SELECT '[0,0,0]'::ruvector <=> '[0,0,0]'::ruvector;
 
 ## See Also
 
-- [SIMD Distance Functions](../crates/ruvector-postgres/src/distance/simd.rs)
-- [RuVector Type Definition](../crates/ruvector-postgres/src/types/vector.rs)
-- [Index Implementations](../crates/ruvector-postgres/src/index/)
+- [Zero-Copy Implementation](./ZERO_COPY_IMPLEMENTATION.md)
+- [Zero-Copy Operators Summary](./ZERO_COPY_OPERATORS_SUMMARY.md)
+- [Operator Quick Reference](../operator-quick-reference.md)

@@ -252,7 +252,7 @@ strip = true
 
 - [Performance Tuning Guide](./PERFORMANCE_TUNING_GUIDE.md)
 - [Build Optimization Guide](./BUILD_OPTIMIZATION.md)
-- [Profiling README](../../profiling/README.md)
+- [Benchmarking Guide](../benchmarks/BENCHMARKING_GUIDE.md)
 
 ---
 

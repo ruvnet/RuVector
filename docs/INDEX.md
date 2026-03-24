@@ -234,8 +234,8 @@ docs/
 
 ## Documentation Statistics
 
-- **Total directories**: 20+
-- **Total documentation files**: 170+ markdown files
+- **Total directories**: 60+
+- **Total documentation files**: 460+ markdown files
 - **User guides**: 12+ comprehensive guides
 - **API references**: 3 platform APIs
 - **Code examples**: 10+ working examples

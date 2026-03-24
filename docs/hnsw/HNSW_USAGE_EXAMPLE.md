@@ -336,7 +336,7 @@ db_pool = psycopg2.pool.ThreadedConnectionPool(
     host="localhost",
     database="vector_search",
     user="postgres",
-    password="password"
+    password=os.environ["DB_PASSWORD"]
 )
 
 def search_similar(query_vector, k=10):

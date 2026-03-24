@@ -254,6 +254,7 @@ impl Clone for WasmMcpServer {
             ledger: self.ledger.clone(),
             coherence: self.coherence.clone(),
             learning: None,
+            brain: self.brain.clone(),
             config: self.config.clone(),
             request_counter: self.request_counter.clone(),
             rate_limit: self.rate_limit.clone(), // Share rate limit state

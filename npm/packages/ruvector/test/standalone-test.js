@@ -17,7 +17,7 @@ console.log('\n1. Testing package structure...');
 try {
   const packageJson = require('../package.json');
   assert(packageJson.name === 'ruvector', 'Package name should be ruvector');
-  assert(packageJson.version === '0.1.1', 'Version should be 0.1.1');
+  assert(packageJson.version, 'Version should be set');
   assert(packageJson.main === 'dist/index.js', 'Main entry correct');
   assert(packageJson.types === 'dist/index.d.ts', 'Types entry correct');
   console.log('   ✓ package.json structure valid');

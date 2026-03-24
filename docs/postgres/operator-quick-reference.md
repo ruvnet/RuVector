@@ -162,8 +162,8 @@ Expected output:
  5.19615 | -32.000 | 0.025368 | 9.00
 ```
 
-## 📚 Further Reading
+## Further Reading
 
-- [Complete Documentation](./zero-copy-operators.md)
-- [SIMD Implementation](../crates/ruvector-postgres/src/distance/simd.rs)
-- [Benchmarks](../benchmarks/distance_bench.md)
+- [Zero-Copy Operators](./zero-copy/zero-copy-operators.md)
+- [Zero-Copy Implementation](./zero-copy/ZERO_COPY_IMPLEMENTATION.md)
+- [Benchmarking Guide](../benchmarks/BENCHMARKING_GUIDE.md)

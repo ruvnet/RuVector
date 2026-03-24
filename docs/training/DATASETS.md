@@ -26,7 +26,7 @@ cargo run --example generate_claude_dataset --release
 
 **Documentation**:
 - [Quick Start Guide](QUICKSTART.md)
-- [Format Specification](../claude_dataset_format.md)
+- [Format Specification](./claude_dataset_format.md)
 - [Implementation Summary](SUMMARY.md)
 
 ## Dataset Comparison
@@ -294,13 +294,13 @@ augmentation: AugmentationConfig {
 
 ### Documentation
 - [Quick Start Guide](QUICKSTART.md) - Get started in 5 minutes
-- [Format Specification](../claude_dataset_format.md) - Detailed format docs
+- [Format Specification](./claude_dataset_format.md) - Detailed format docs
 - [Implementation Summary](SUMMARY.md) - Technical deep-dive
 - [Module README](../../crates/ruvllm/src/training/README.md) - API reference
 
 ### Examples
 - [Dataset Generator](../../crates/ruvllm/examples/generate_claude_dataset.rs)
-- [Fine-Tuning Pipeline](../../crates/ruvllm/examples/finetune_routing.rs) (coming soon)
+- Fine-Tuning Pipeline (planned)
 
 ### Code
 - [claude_dataset.rs](../../crates/ruvllm/src/training/claude_dataset.rs) - Core implementation

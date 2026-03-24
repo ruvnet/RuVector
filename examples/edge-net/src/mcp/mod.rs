@@ -47,6 +47,7 @@ use crate::identity::WasmNodeIdentity;
 use crate::credits::WasmCreditLedger;
 use crate::rac::CoherenceEngine;
 use crate::learning::NetworkLearning;
+use crate::brain::BrainBridge;
 
 /// Security constants
 const MAX_PAYLOAD_SIZE: usize = 1_048_576; // 1MB max payload
@@ -68,6 +69,8 @@ pub struct WasmMcpServer {
     coherence: Arc<RwLock<CoherenceEngine>>,
     /// Learning engine for patterns
     learning: Option<NetworkLearning>,
+    /// Brain integration bridge
+    brain: Arc<RwLock<BrainBridge>>,
     /// Server configuration
     config: McpServerConfig,
     /// Request counter for IDs
@@ -122,9 +125,13 @@ impl WasmMcpServer {
 
         Ok(Self {
             identity: None,
-            ledger: Arc::new(RwLock::new(WasmCreditLedger::new(node_id).map_err(|e| e)?)),
+            ledger: Arc::new(RwLock::new(WasmCreditLedger::new(node_id.clone()).map_err(|e| e)?)),
             coherence: Arc::new(RwLock::new(CoherenceEngine::new())),
             learning: None,
+            brain: Arc::new(RwLock::new(BrainBridge::new(
+                "ws://localhost:8080/relay",
+                &node_id,
+            ))),
             config: McpServerConfig::default(),
             request_counter: Arc::new(RwLock::new(0)),
             rate_limit: Arc::new(RwLock::new((0, 0))),
@@ -327,6 +334,12 @@ impl WasmMcpServer {
             // Network tools
             "network_peers" => self.tool_network_peers(id),
             "network_stats" => self.tool_network_stats(id),
+
+            // Brain tools
+            "brain_search" => self.tool_brain_search(id, arguments),
+            "brain_share" => self.tool_brain_share(id, arguments),
+            "brain_vote" => self.tool_brain_vote(id, arguments),
+            "brain_status" => self.tool_brain_status(id),
 
             _ => McpResponse::error(
                 id,
@@ -686,6 +699,62 @@ impl WasmMcpServer {
             McpTool {
                 name: "network_stats".to_string(),
                 description: "Get network statistics".to_string(),
+                input_schema: json!({
+                    "type": "object",
+                    "properties": {}
+                }),
+            },
+
+            // Brain tools
+            McpTool {
+                name: "brain_search".to_string(),
+                description: "Search shared brain knowledge across the network".to_string(),
+                input_schema: json!({
+                    "type": "object",
+                    "properties": {
+                        "query": { "type": "string", "description": "Search query" },
+                        "limit": { "type": "integer", "default": 10, "description": "Maximum results" }
+                    },
+                    "required": ["query"]
+                }),
+            },
+            McpTool {
+                name: "brain_share".to_string(),
+                description: "Share a knowledge pattern with the brain".to_string(),
+                input_schema: json!({
+                    "type": "object",
+                    "properties": {
+                        "title": { "type": "string", "description": "Knowledge title" },
+                        "content": { "type": "string", "description": "Knowledge content" },
+                        "category": { "type": "string", "description": "Category (e.g., pattern, optimization, security)" },
+                        "tags": {
+                            "type": "array",
+                            "items": { "type": "string" },
+                            "description": "Tags for categorization"
+                        }
+                    },
+                    "required": ["title", "content", "category"]
+                }),
+            },
+            McpTool {
+                name: "brain_vote".to_string(),
+                description: "Vote on brain knowledge quality".to_string(),
+                input_schema: json!({
+                    "type": "object",
+                    "properties": {
+                        "memory_id": { "type": "string", "description": "ID of the memory to vote on" },
+                        "direction": {
+                            "type": "string",
+                            "enum": ["up", "down"],
+                            "description": "Vote direction"
+                        }
+                    },
+                    "required": ["memory_id", "direction"]
+                }),
+            },
+            McpTool {
+                name: "brain_status".to_string(),
+                description: "Get brain system status and statistics".to_string(),
                 input_schema: json!({
                     "type": "object",
                     "properties": {}
@@ -1156,6 +1225,129 @@ impl WasmMcpServer {
         }))
     }
 
+    // ========================================================================
+    // Brain Tool Implementations
+    // ========================================================================
+
+    fn tool_brain_search(&self, id: Option<Value>, args: Value) -> McpResponse {
+        let query = args.get("query")
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
+
+        if query.is_empty() {
+            return McpResponse::error(
+                id,
+                McpError::new(ErrorCodes::INVALID_PARAMS, "Query is required"),
+            );
+        }
+
+        let limit = args.get("limit")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(10) as usize;
+
+        let limit = limit.min(MAX_VECTOR_K);
+
+        let mut brain = self.brain.write();
+        let request_json = brain.brain_search(query, limit);
+
+        McpResponse::success(id, json!({
+            "content": [{
+                "type": "text",
+                "text": format!("Brain search request prepared for: '{}'", query)
+            }],
+            "request": request_json,
+            "ruv_reward": 0.5
+        }))
+    }
+
+    fn tool_brain_share(&self, id: Option<Value>, args: Value) -> McpResponse {
+        let title = args.get("title")
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
+        let content = args.get("content")
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
+        let category = args.get("category")
+            .and_then(|v| v.as_str())
+            .unwrap_or("general");
+
+        if title.is_empty() || content.is_empty() {
+            return McpResponse::error(
+                id,
+                McpError::new(ErrorCodes::INVALID_PARAMS, "Title and content are required"),
+            );
+        }
+
+        let tags: Vec<String> = args.get("tags")
+            .and_then(|v| v.as_array())
+            .map(|arr| arr.iter().filter_map(|v| v.as_str().map(String::from)).collect())
+            .unwrap_or_default();
+        let tags_json = serde_json::to_string(&tags).unwrap_or_else(|_| "[]".to_string());
+
+        let mut brain = self.brain.write();
+        let request_json = brain.brain_share(title, content, category, &tags_json);
+
+        McpResponse::success(id, json!({
+            "content": [{
+                "type": "text",
+                "text": format!("Brain share request prepared: '{}'", title)
+            }],
+            "request": request_json,
+            "ruv_reward": 5.0
+        }))
+    }
+
+    fn tool_brain_vote(&self, id: Option<Value>, args: Value) -> McpResponse {
+        let memory_id = args.get("memory_id")
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
+        let direction = args.get("direction")
+            .and_then(|v| v.as_str())
+            .unwrap_or("up");
+
+        if memory_id.is_empty() {
+            return McpResponse::error(
+                id,
+                McpError::new(ErrorCodes::INVALID_PARAMS, "memory_id is required"),
+            );
+        }
+
+        let mut brain = self.brain.write();
+        let request_json = brain.brain_vote(memory_id, direction);
+
+        McpResponse::success(id, json!({
+            "content": [{
+                "type": "text",
+                "text": format!("Brain vote request prepared: {} on {}", direction, memory_id)
+            }],
+            "request": request_json,
+            "ruv_reward": 0.2
+        }))
+    }
+
+    fn tool_brain_status(&self, id: Option<Value>) -> McpResponse {
+        let mut brain = self.brain.write();
+        let request_json = brain.brain_status();
+        let stats = brain.get_stats();
+
+        McpResponse::success(id, json!({
+            "content": [{
+                "type": "text",
+                "text": format!(
+                    "Brain Bridge Status:\n- rUv Earned: {}\n- Operations: {}\n- Reputation: {:.2}",
+                    brain.get_brain_ruv(),
+                    brain.get_brain_ops_count(),
+                    brain.get_brain_reputation()
+                )
+            }],
+            "request": request_json,
+            "localStats": stats,
+            "ruv_earned": brain.get_brain_ruv(),
+            "operations_count": brain.get_brain_ops_count(),
+            "brain_reputation": brain.get_brain_reputation()
+        }))
+    }
+
     /// Get server info
     #[wasm_bindgen(js_name = getServerInfo)]
     pub fn get_server_info(&self) -> JsValue {
@@ -1165,7 +1357,9 @@ impl WasmMcpServer {
             "protocolVersion": self.config.version,
             "toolCount": self.get_available_tools().len(),
             "hasIdentity": self.identity.is_some(),
-            "hasLearning": self.learning.is_some()
+            "hasLearning": self.learning.is_some(),
+            "hasBrain": true,
+            "brainRuv": self.brain.read().get_brain_ruv()
         });
 
         JsValue::from_str(&info.to_string())

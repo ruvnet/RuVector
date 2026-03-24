@@ -19,6 +19,8 @@ std = ["rvf-types/std"]
 rvf-types = { version = "0.2.0", path = "../rvf-types" }
 xxhash-rust = { version = "0.8", features = ["xxh3"] }
 crc32c = "0.6"
+sha3 = "0.10"
+subtle = "2.6"
 
 [dev-dependencies]
 tempfile = "3"

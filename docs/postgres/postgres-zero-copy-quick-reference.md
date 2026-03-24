@@ -364,8 +364,7 @@ docs/
 
 - **Full Documentation**: [postgres-zero-copy-memory.md](./postgres-zero-copy-memory.md)
 - **Implementation Summary**: [postgres-memory-implementation-summary.md](./postgres-memory-implementation-summary.md)
-- **Code Examples**: [postgres-zero-copy-examples.rs](./postgres-zero-copy-examples.rs)
-- **Source Code**: [../crates/ruvector-postgres/src/types/](../crates/ruvector-postgres/src/types/)
+- **Code Examples**: [Zero-Copy Examples](./zero-copy/examples.rs)
 
 ## Version Info
 

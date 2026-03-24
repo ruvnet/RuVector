@@ -45,7 +45,9 @@ ruvector/
 │   ├── benchmarks/         # Performance benchmarks
 │   ├── cloud-architecture/ # Cloud deployment
 │   ├── code-reviews/       # Code reviews
+│   ├── dag/                # DAG implementation
 │   ├── development/        # Contributing guides
+│   ├── examples/           # SQL examples & code
 │   ├── gnn/                # GNN documentation
 │   ├── guides/             # User guides
 │   ├── hnsw/               # HNSW documentation
@@ -54,12 +56,15 @@ ruvector/
 │   ├── integration/        # Integration guides
 │   ├── nervous-system/     # Nervous system arch
 │   ├── optimization/       # Performance tuning
+│   ├── plans/              # Implementation plans
 │   ├── postgres/           # PostgreSQL extension
 │   ├── project-phases/     # Historical phases
 │   ├── publishing/         # NPM publishing
 │   ├── research/           # Research documentation
 │   ├── ruvllm/             # RuVLLM docs
 │   ├── security/           # Security audits
+│   ├── sparse-inference/   # Sparse inference docs
+│   ├── sql/                # SQL examples
 │   ├── testing/            # Testing docs
 │   └── training/           # Training & LoRA
 │
@@ -157,7 +162,7 @@ Comprehensive benchmarking suite for performance testing
 
 ## File Counts
 
-- **Documentation**: 170+ markdown files (organized in 25+ directories)
+- **Documentation**: 460+ markdown files (organized in 60+ directories)
 - **Rust Crates**: 15+ crates
 - **NPM Packages**: 5 packages
 - **Root Files**: 8 essential files only
@@ -189,4 +194,4 @@ Only essential files in root:
 
 **Last Updated**: 2026-01-21
 **Status**: ✅ Clean and Organized
-**Total Documentation**: 170+ files properly categorized
+**Total Documentation**: 460+ files properly categorized

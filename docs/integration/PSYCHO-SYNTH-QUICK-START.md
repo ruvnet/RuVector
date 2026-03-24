@@ -395,9 +395,8 @@ console.log(`Quality score: ${result.psychoMetrics.qualityScore}%`);
 
 ## 📖 Additional Documentation
 
-- [Integration Guide](../psycho-symbolic-integration/docs/INTEGRATION-GUIDE.md) - Comprehensive integration patterns
-- [API Reference](../psycho-symbolic-integration/docs/README.md) - Full API documentation
-- [Main Documentation](../../docs/PSYCHO-SYMBOLIC-INTEGRATION.md) - Architecture overview
+- [Psycho-Symbolic Integration](./PSYCHO-SYMBOLIC-INTEGRATION.md) - Architecture overview
+- [Integration Summary](./INTEGRATION-SUMMARY.md) - Integration patterns overview
 
 ## 🤝 Contributing Your Own Examples
 
