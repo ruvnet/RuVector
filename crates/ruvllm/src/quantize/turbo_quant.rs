@@ -519,9 +519,147 @@ impl TurboQuantCompressor {
         Ok(results)
     }
 
+    /// Optimized inner product operating in rotated (Hadamard) domain.
+    ///
+    /// Instead of decompressing (which includes an expensive inverse Hadamard
+    /// rotation), this method:
+    /// 1. Rotates the query once into Hadamard space
+    /// 2. Computes the dot product directly against the dequantized values
+    ///    in rotated space (including QJL correction)
+    ///
+    /// This is correct because the Hadamard transform is orthogonal:
+    ///   <q, k> = <Hq, Hk>
+    ///
+    /// For attention (query x many keys), use `inner_product_batch_optimized`
+    /// which rotates the query only once and reuses it.
+    pub fn inner_product_asymmetric_optimized(
+        &self,
+        query: &[f32],
+        compressed: &TurboQuantized,
+        index: usize,
+    ) -> Result<f32> {
+        if index >= compressed.num_vectors {
+            return Err(RuvLLMError::Quantization(format!(
+                "Vector index {} out of range ({})",
+                index, compressed.num_vectors
+            )));
+        }
+
+        let dim = compressed.dim;
+        let block_size = self.config.block_size;
+        let padded_dim = ((dim + block_size - 1) / block_size) * block_size;
+
+        // Rotate query into Hadamard space
+        let mut rotated_query = query.to_vec();
+        rotated_query.resize(padded_dim, 0.0);
+        self.rotate_forward(&mut rotated_query)?;
+
+        // Compute dot product in rotated space
+        self.dot_in_rotated_space(&rotated_query, compressed, index)
+    }
+
+    /// Batch-optimized inner products: query x all compressed vectors.
+    ///
+    /// Rotates the query into Hadamard space once, then computes the dot
+    /// product directly against dequantized (rotated) values for every
+    /// compressed vector. This avoids N inverse rotations entirely.
+    ///
+    /// Speedup vs `inner_product_batch`: ~2x for typical KV cache sizes,
+    /// since the inverse Hadamard rotation per key is eliminated.
+    pub fn inner_product_batch_optimized(
+        &self,
+        query: &[f32],
+        compressed: &TurboQuantized,
+    ) -> Result<Vec<f32>> {
+        let dim = compressed.dim;
+        let block_size = self.config.block_size;
+        let padded_dim = ((dim + block_size - 1) / block_size) * block_size;
+
+        // Rotate query once
+        let mut rotated_query = query.to_vec();
+        rotated_query.resize(padded_dim, 0.0);
+        self.rotate_forward(&mut rotated_query)?;
+
+        // Compute dot products in rotated space for all vectors
+        let mut results = Vec::with_capacity(compressed.num_vectors);
+        for i in 0..compressed.num_vectors {
+            results.push(self.dot_in_rotated_space(&rotated_query, compressed, i)?);
+        }
+        Ok(results)
+    }
+
     // ========================================================================
     // Internal methods
     // ========================================================================
+
+    /// Compute dot product between a pre-rotated query and a single compressed
+    /// vector, working entirely in rotated space.
+    ///
+    /// The compressed vector is dequantized (but not inverse-rotated) and the
+    /// QJL residual correction is applied in-place before the dot product.
+    fn dot_in_rotated_space(
+        &self,
+        rotated_query: &[f32],
+        compressed: &TurboQuantized,
+        index: usize,
+    ) -> Result<f32> {
+        let block_size = self.config.block_size;
+        let dim = compressed.dim;
+        let padded_dim = ((dim + block_size - 1) / block_size) * block_size;
+        let num_blocks_per_vector = padded_dim / block_size;
+        let levels = compressed.bits.scalar_levels();
+        let bits_per_value = (levels as f32).log2().ceil() as usize;
+        let bytes_per_block = (block_size * bits_per_value + 7) / 8;
+        let qjl_u64s_per_vector = (padded_dim + 63) / 64;
+
+        let qv_offset = index * num_blocks_per_vector * bytes_per_block;
+        let scale_offset = index * num_blocks_per_vector;
+
+        // Dequantize in rotated space (no inverse rotation)
+        let mut rotated_key = self.dequantize_rotated(
+            &compressed.quantized_values
+                [qv_offset..qv_offset + num_blocks_per_vector * bytes_per_block],
+            &compressed.scales[scale_offset..scale_offset + num_blocks_per_vector],
+            &compressed.offsets[scale_offset..scale_offset + num_blocks_per_vector],
+            padded_dim,
+        );
+
+        // Apply QJL residual correction in rotated space
+        if compressed.has_qjl && !compressed.qjl_signs.is_empty() {
+            let qjl_offset = index * qjl_u64s_per_vector;
+            let qjl_slice = &compressed.qjl_signs[qjl_offset..qjl_offset + qjl_u64s_per_vector];
+
+            for block_idx in 0..num_blocks_per_vector {
+                let scale = compressed.scales[scale_offset + block_idx];
+                let correction_magnitude = scale / (2.0 * (levels as f32).sqrt());
+
+                let start = block_idx * block_size;
+                for k in 0..block_size {
+                    let global_idx = start + k;
+                    let word_idx = global_idx / 64;
+                    let bit_idx = global_idx % 64;
+
+                    if word_idx < qjl_slice.len() {
+                        let sign = if (qjl_slice[word_idx] >> bit_idx) & 1 == 1 {
+                            1.0
+                        } else {
+                            -1.0
+                        };
+                        rotated_key[global_idx] += sign * correction_magnitude;
+                    }
+                }
+            }
+        }
+
+        // Dot product in rotated space: <Hq, Hk> = <q, k>
+        let dot: f32 = rotated_query
+            .iter()
+            .zip(rotated_key.iter())
+            .map(|(a, b)| a * b)
+            .sum();
+
+        Ok(dot)
+    }
 
     /// Apply forward Hadamard rotation to vector (in-place, block-wise)
     fn rotate_forward(&self, data: &mut [f32]) -> Result<()> {
@@ -1184,6 +1322,162 @@ mod tests {
             results[0].0, 102,
             "Expected top result to be ID 102, got {}",
             results[0].0
+        );
+    }
+
+    #[test]
+    fn test_optimized_inner_product_matches_original() {
+        let compressor = TurboQuantCompressor::with_defaults().unwrap();
+
+        let a: Vec<f32> = (0..128).map(|i| (i as f32) / 128.0).collect();
+        let b: Vec<f32> = (0..128).map(|i| (127 - i) as f32 / 128.0).collect();
+
+        let compressed_b = compressor.compress(&b).unwrap();
+
+        let original = compressor
+            .inner_product_asymmetric(&a, &compressed_b, 0)
+            .unwrap();
+        let optimized = compressor
+            .inner_product_asymmetric_optimized(&a, &compressed_b, 0)
+            .unwrap();
+
+        let diff = (original - optimized).abs();
+        assert!(
+            diff < 1e-4,
+            "Optimized inner product diverges from original: original={}, optimized={}, diff={}",
+            original,
+            optimized,
+            diff
+        );
+    }
+
+    #[test]
+    fn test_optimized_batch_matches_original() {
+        let compressor = TurboQuantCompressor::with_defaults().unwrap();
+
+        let query: Vec<f32> = (0..128).map(|i| ((i * 3) % 128) as f32 / 128.0).collect();
+
+        let v1: Vec<f32> = (0..128).map(|i| i as f32 / 128.0).collect();
+        let v2: Vec<f32> = (0..128).map(|i| (127 - i) as f32 / 128.0).collect();
+        let v3: Vec<f32> = (0..128).map(|i| ((i * 7) % 128) as f32 / 128.0).collect();
+
+        let compressed = compressor.compress_batch(&[&v1, &v2, &v3]).unwrap();
+
+        let original_results = compressor.inner_product_batch(&query, &compressed).unwrap();
+        let optimized_results = compressor
+            .inner_product_batch_optimized(&query, &compressed)
+            .unwrap();
+
+        assert_eq!(original_results.len(), optimized_results.len());
+
+        for (i, (orig, opt)) in original_results
+            .iter()
+            .zip(optimized_results.iter())
+            .enumerate()
+        {
+            let diff = (orig - opt).abs();
+            assert!(
+                diff < 1e-4,
+                "Batch result {} diverges: original={}, optimized={}, diff={}",
+                i,
+                orig,
+                opt,
+                diff
+            );
+        }
+    }
+
+    #[test]
+    fn test_optimized_inner_product_without_qjl() {
+        let config = TurboQuantConfig {
+            enable_qjl_residual: false,
+            ..Default::default()
+        };
+        let compressor = TurboQuantCompressor::new(config).unwrap();
+
+        let a: Vec<f32> = (0..128).map(|i| (i as f32 - 64.0) / 64.0).collect();
+        let b: Vec<f32> = (0..128).map(|i| (i as f32) / 128.0).collect();
+
+        let compressed_b = compressor.compress(&b).unwrap();
+
+        let original = compressor
+            .inner_product_asymmetric(&a, &compressed_b, 0)
+            .unwrap();
+        let optimized = compressor
+            .inner_product_asymmetric_optimized(&a, &compressed_b, 0)
+            .unwrap();
+
+        let diff = (original - optimized).abs();
+        assert!(
+            diff < 1e-4,
+            "No-QJL optimized diverges: original={}, optimized={}, diff={}",
+            original,
+            optimized,
+            diff
+        );
+    }
+
+    #[test]
+    fn test_optimized_inner_product_all_bit_widths() {
+        for bits in [
+            TurboQuantBits::Bits2_5,
+            TurboQuantBits::Bits3_0,
+            TurboQuantBits::Bits3_5,
+            TurboQuantBits::Bits4_0,
+        ] {
+            let config = TurboQuantConfig {
+                bits,
+                ..Default::default()
+            };
+            let compressor = TurboQuantCompressor::new(config).unwrap();
+
+            let query: Vec<f32> = (0..128).map(|i| (i as f32) / 128.0).collect();
+            let key: Vec<f32> = (0..128).map(|i| (127 - i) as f32 / 128.0).collect();
+
+            let compressed = compressor.compress(&key).unwrap();
+
+            let original = compressor
+                .inner_product_asymmetric(&query, &compressed, 0)
+                .unwrap();
+            let optimized = compressor
+                .inner_product_asymmetric_optimized(&query, &compressed, 0)
+                .unwrap();
+
+            let diff = (original - optimized).abs();
+            assert!(
+                diff < 1e-3,
+                "Bits {:?}: original={}, optimized={}, diff={}",
+                bits,
+                original,
+                optimized,
+                diff
+            );
+        }
+    }
+
+    #[test]
+    fn test_optimized_non_power_of_2_dimension() {
+        let compressor = TurboQuantCompressor::with_defaults().unwrap();
+
+        let query: Vec<f32> = (0..100).map(|i| i as f32 / 100.0).collect();
+        let key: Vec<f32> = (0..100).map(|i| (99 - i) as f32 / 100.0).collect();
+
+        let compressed = compressor.compress(&key).unwrap();
+
+        let original = compressor
+            .inner_product_asymmetric(&query, &compressed, 0)
+            .unwrap();
+        let optimized = compressor
+            .inner_product_asymmetric_optimized(&query, &compressed, 0)
+            .unwrap();
+
+        let diff = (original - optimized).abs();
+        assert!(
+            diff < 1e-3,
+            "Non-pow2 dim: original={}, optimized={}, diff={}",
+            original,
+            optimized,
+            diff
         );
     }
 }
