@@ -347,6 +347,8 @@ pub enum CacheTier {
     Warm,
     /// Quantized store for older tokens
     Cold,
+    /// TurboQuant compressed store (~3.5 bits, geometry-preserving)
+    TurboQuant,
 }
 
 /// Quantization configuration for cache
@@ -374,6 +376,16 @@ pub enum CacheQuantization {
         tail_precision: Precision,
         /// Store precision
         store_precision: Precision,
+    },
+    /// TurboQuant: FP16 tail + TurboQuant ~3.5-bit cold store
+    /// Achieves ~6× memory reduction with geometry-preserving compression
+    TurboQuantHybrid {
+        /// Number of tokens in high-precision tail
+        tail_length: usize,
+        /// Tail precision (typically FP16)
+        tail_precision: Precision,
+        /// TurboQuant bit-width for cold store (default 3.5)
+        turbo_bits: f32,
     },
 }
 
@@ -1346,6 +1358,233 @@ pub struct PooledKvCacheStats {
     pub total_bytes: usize,
     /// Underlying pool statistics
     pub pool_stats: crate::memory_pool::BufferPoolStats,
+}
+
+// ============================================================================
+// TurboQuant-Enhanced KV Cache
+// ============================================================================
+
+/// Three-tier KV cache with TurboQuant compression for the cold tier.
+///
+/// Architecture:
+/// - **Hot tier** (FP16): Recent tokens for high-quality attention
+/// - **Cold tier** (TurboQuant ~3.5-bit): Older tokens with geometry-preserving compression
+///
+/// This achieves ~6× memory reduction on the cold tier while preserving
+/// inner product geometry for attention computation. Based on TurboQuant (ICLR 2026).
+///
+/// ## Example
+///
+/// ```rust,ignore
+/// use ruvllm::kv_cache::{TurboQuantKvCache, TurboQuantKvCacheConfig};
+///
+/// let config = TurboQuantKvCacheConfig::default();
+/// let cache = TurboQuantKvCache::new(config).unwrap();
+///
+/// // Append tokens - automatically migrates to TurboQuant tier
+/// cache.append(&keys, &values).unwrap();
+/// ```
+#[cfg(feature = "quantize")]
+pub struct TurboQuantKvCache {
+    /// Configuration
+    config: TurboQuantKvCacheConfig,
+    /// High-precision tail (recent tokens)
+    tail: RwLock<VecDeque<KvPair>>,
+    /// TurboQuant compressed cold store
+    turbo_tier: RwLock<crate::quantize::turbo_quant::TurboQuantCacheTier>,
+    /// Total tokens tracked
+    total_tokens: AtomicUsize,
+}
+
+/// Configuration for TurboQuant-enhanced KV cache
+#[cfg(feature = "quantize")]
+#[derive(Debug, Clone)]
+pub struct TurboQuantKvCacheConfig {
+    /// Tokens to keep in FP16 tail
+    pub tail_length: usize,
+    /// Maximum total tokens
+    pub max_tokens: usize,
+    /// Number of KV heads
+    pub num_kv_heads: usize,
+    /// Head dimension
+    pub head_dim: usize,
+    /// Migration batch size
+    pub migration_batch: usize,
+    /// TurboQuant bit-width configuration
+    pub turbo_config: crate::quantize::turbo_quant::TurboQuantConfig,
+}
+
+#[cfg(feature = "quantize")]
+impl Default for TurboQuantKvCacheConfig {
+    fn default() -> Self {
+        Self {
+            tail_length: 256,
+            max_tokens: 8192,
+            num_kv_heads: 8,
+            head_dim: 128,
+            migration_batch: 64,
+            turbo_config: crate::quantize::turbo_quant::TurboQuantConfig::default(),
+        }
+    }
+}
+
+#[cfg(feature = "quantize")]
+impl TurboQuantKvCache {
+    /// Create a new TurboQuant-enhanced KV cache
+    pub fn new(config: TurboQuantKvCacheConfig) -> Result<Self> {
+        let turbo_tier =
+            crate::quantize::turbo_quant::TurboQuantCacheTier::new(config.turbo_config.clone())?;
+
+        Ok(Self {
+            config,
+            tail: RwLock::new(VecDeque::new()),
+            turbo_tier: RwLock::new(turbo_tier),
+            total_tokens: AtomicUsize::new(0),
+        })
+    }
+
+    /// Append new KV pairs, auto-migrating old tokens to TurboQuant tier
+    pub fn append(&self, keys: &[f32], values: &[f32]) -> Result<()> {
+        let stride = self.config.num_kv_heads * self.config.head_dim;
+        let num_tokens = keys.len() / stride;
+
+        if keys.len() != values.len() {
+            return Err(RuvLLMError::KvCache(
+                "Key and value lengths must match".to_string(),
+            ));
+        }
+
+        let current_tokens = self.total_tokens.load(Ordering::SeqCst);
+
+        // Add to tail
+        let mut tail = self.tail.write();
+        for i in 0..num_tokens {
+            let offset = i * stride;
+            tail.push_back(KvPair {
+                keys: keys[offset..offset + stride].to_vec(),
+                values: values[offset..offset + stride].to_vec(),
+                position: current_tokens + i,
+            });
+        }
+
+        // Migrate excess to TurboQuant tier
+        while tail.len() > self.config.tail_length {
+            let batch_size = self
+                .config
+                .migration_batch
+                .min(tail.len() - self.config.tail_length);
+
+            let to_migrate: Vec<_> = (0..batch_size).filter_map(|_| tail.pop_front()).collect();
+
+            let mut turbo = self.turbo_tier.write();
+            for pair in to_migrate {
+                turbo.push(&pair.keys, &pair.values, pair.position)?;
+            }
+        }
+
+        self.total_tokens.fetch_add(num_tokens, Ordering::SeqCst);
+
+        // Enforce max tokens
+        self.enforce_max_tokens()?;
+
+        Ok(())
+    }
+
+    /// Enforce maximum token limit
+    fn enforce_max_tokens(&self) -> Result<()> {
+        let total = self.total_tokens.load(Ordering::SeqCst);
+        if total <= self.config.max_tokens {
+            return Ok(());
+        }
+
+        let to_evict = total - self.config.max_tokens;
+        let mut turbo = self.turbo_tier.write();
+
+        let turbo_evict = to_evict.min(turbo.len());
+        turbo.evict_oldest(turbo_evict);
+        self.total_tokens.fetch_sub(turbo_evict, Ordering::SeqCst);
+
+        let remaining = to_evict - turbo_evict;
+        if remaining > 0 {
+            let mut tail = self.tail.write();
+            let tail_evict = remaining.min(tail.len());
+            for _ in 0..tail_evict {
+                tail.pop_front();
+            }
+            self.total_tokens.fetch_sub(tail_evict, Ordering::SeqCst);
+        }
+
+        Ok(())
+    }
+
+    /// Get all KV pairs for attention (decompresses TurboQuant tier)
+    pub fn get_all_kv(&self) -> Result<(Vec<f32>, Vec<f32>)> {
+        let stride = self.config.num_kv_heads * self.config.head_dim;
+        let total = self.total_tokens.load(Ordering::SeqCst);
+
+        let mut all_keys = Vec::with_capacity(total * stride);
+        let mut all_values = Vec::with_capacity(total * stride);
+
+        // Decompress from TurboQuant tier
+        let turbo = self.turbo_tier.read();
+        let (turbo_keys, turbo_values) = turbo.get_all_kv()?;
+        all_keys.extend(turbo_keys);
+        all_values.extend(turbo_values);
+        drop(turbo);
+
+        // Get from tail (full precision)
+        let tail = self.tail.read();
+        for pair in tail.iter() {
+            all_keys.extend_from_slice(&pair.keys);
+            all_values.extend_from_slice(&pair.values);
+        }
+
+        Ok((all_keys, all_values))
+    }
+
+    /// Get statistics
+    pub fn stats(&self) -> TurboQuantKvCacheStats {
+        let tail = self.tail.read();
+        let turbo = self.turbo_tier.read();
+        let stride = self.config.num_kv_heads * self.config.head_dim;
+
+        let tail_bytes = tail.len() * stride * 4 * 2; // FP32 keys + values
+        let turbo_stats = turbo.stats();
+
+        TurboQuantKvCacheStats {
+            total_tokens: self.total_tokens.load(Ordering::SeqCst),
+            tail_tokens: tail.len(),
+            turbo_tokens: turbo.len(),
+            tail_bytes,
+            turbo_bytes: turbo_stats.compressed_bytes,
+            turbo_original_bytes: turbo_stats.original_bytes,
+            turbo_compression_ratio: turbo_stats.compression_ratio,
+            turbo_bits_per_value: turbo_stats.bits_per_value,
+        }
+    }
+
+    /// Clear all tiers
+    pub fn clear(&self) {
+        let mut tail = self.tail.write();
+        let mut turbo = self.turbo_tier.write();
+        tail.clear();
+        turbo.clear();
+        self.total_tokens.store(0, Ordering::SeqCst);
+    }
+}
+
+/// Statistics for TurboQuant KV cache
+#[cfg(feature = "quantize")]
+#[derive(Debug, Clone)]
+pub struct TurboQuantKvCacheStats {
+    pub total_tokens: usize,
+    pub tail_tokens: usize,
+    pub turbo_tokens: usize,
+    pub tail_bytes: usize,
+    pub turbo_bytes: usize,
+    pub turbo_original_bytes: usize,
+    pub turbo_compression_ratio: f32,
+    pub turbo_bits_per_value: f32,
 }
 
 #[cfg(test)]

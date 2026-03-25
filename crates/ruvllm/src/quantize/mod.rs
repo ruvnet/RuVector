@@ -80,6 +80,7 @@ pub mod pi_quant_simd;
 pub mod quip;
 mod ruvltra_quant;
 pub mod security;
+pub mod turbo_quant;
 
 pub use ruvltra_quant::{
     dequantize_for_ane,
@@ -166,4 +167,10 @@ pub use incoherence::{
 // QuIP 2-bit quantization (ADR-090 Phase 3)
 pub use quip::{
     Q2QuipBlock, Q2QuipSuperBlock, QuipCodebook, QuipConfig, QuipMetadata, QuipQuantizer,
+};
+
+// TurboQuant data-oblivious compression (ICLR 2026)
+pub use turbo_quant::{
+    TurboQuantBits, TurboQuantCacheTier, TurboQuantCompressor, TurboQuantConfig,
+    TurboQuantEmbeddingStore, TurboQuantKvPair, TurboQuantStats, TurboQuantized,
 };

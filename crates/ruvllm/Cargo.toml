@@ -233,6 +233,11 @@ harness = false
 name = "moe_bench"
 harness = false
 
+[[bench]]
+name = "turbo_quant_bench"
+harness = false
+required-features = ["quantize"]
+
 # Test configurations
 [[test]]
 name = "real_model_test"
