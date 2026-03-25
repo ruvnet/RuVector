@@ -1,6 +1,6 @@
 {
   "name": "@ruvector/ruvllm",
-  "version": "2.5.2",
+  "version": "2.5.3",
   "description": "Self-learning LLM orchestration with SONA adaptive learning, HNSW memory, FastGRNN routing, and SIMD inference",
   "main": "dist/cjs/index.js",
   "module": "dist/esm/index.js",

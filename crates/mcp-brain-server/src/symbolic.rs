@@ -423,8 +423,10 @@ impl NeuralSymbolicBridge {
                 let sim = cosine_similarity(c1, c2);
                 let cross_domain = cat1 != cat2;
 
-                // Skip weak signals
-                if sim < 0.3 {
+                // Skip weak signals — raised from 0.3 to 0.45 to eliminate
+                // the flood of "weak co-occurrence" noise in gist publications.
+                // At 0.3, nearly every category pair generates a proposition.
+                if sim < 0.45 {
                     continue;
                 }
 
@@ -448,7 +450,7 @@ impl NeuralSymbolicBridge {
 
                 let conf = sim * self.cluster_confidence(ids1.len().min(ids2.len()));
 
-                if cross_domain && sim > 0.7 {
+                if cross_domain && sim > 0.75 {
                     // Strong cross-domain co-occurrence — candidate influence, NOT proven causal
                     let prop = GroundedProposition::new(
                         "may_influence".to_string(),
@@ -461,7 +463,7 @@ impl NeuralSymbolicBridge {
                         extracted.push(prop.clone());
                         self.store_proposition(prop);
                     }
-                } else if cross_domain && sim > 0.5 {
+                } else if cross_domain && sim > 0.55 {
                     // Moderate cross-domain signal — association
                     let prop = GroundedProposition::new(
                         "associated_with".to_string(),

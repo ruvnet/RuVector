@@ -1,6 +1,6 @@
 {
   "name": "@ruvector/sona",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Self-Optimizing Neural Architecture (SONA) - Runtime-adaptive learning with LoRA, EWC++, and ReasoningBank for LLM routers and AI systems. Sub-millisecond learning overhead, WASM and Node.js support.",
   "main": "index.js",
   "types": "index.d.ts",
