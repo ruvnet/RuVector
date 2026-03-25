@@ -15,20 +15,26 @@ use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 
 // ── Novelty thresholds ──
-// Tuned for current brain state (~2600 memories, 10 categories, 11 inference rules).
-// These will publish roughly once per day when data is flowing, less when static.
-/// Minimum new inferences: forward-chained claims not in any single memory
-const MIN_NEW_INFERENCES: usize = 2;
-/// Minimum evidence observations
-const MIN_EVIDENCE: usize = 100;
-/// Minimum strange loop quality score
-const MIN_STRANGE_LOOP_SCORE: f32 = 0.008;
+// VERY aggressive: only publish when something genuinely new is discovered.
+// With ~3100 memories and 2.8M edges, the bar must be HIGH to avoid noise.
+// Target: ~1 gist per WEEK, only for real innovations.
+/// Minimum new inferences: must derive many non-trivial forward-chained claims
+const MIN_NEW_INFERENCES: usize = 10;
+/// Minimum evidence observations — need substantial data
+const MIN_EVIDENCE: usize = 1000;
+/// Minimum strange loop quality score — high bar for self-aware reasoning
+const MIN_STRANGE_LOOP_SCORE: f32 = 0.1;
 /// Minimum propositions extracted in this cycle
-const MIN_PROPOSITIONS: usize = 5;
-/// Minimum SONA patterns — 0 means SONA isn't required (it needs trajectory data)
-const MIN_SONA_PATTERNS: usize = 0;
-/// Minimum Pareto front growth — evolution must have found new solutions
-const MIN_PARETO_GROWTH: usize = 1;
+const MIN_PROPOSITIONS: usize = 20;
+/// Minimum SONA patterns — require at least some SONA learning
+const MIN_SONA_PATTERNS: usize = 1;
+/// Minimum Pareto front growth — evolution must find multiple new solutions
+const MIN_PARETO_GROWTH: usize = 3;
+/// Minimum confidence for ANY inference to be included in a discovery
+const MIN_INFERENCE_CONFIDENCE: f64 = 0.70;
+/// Minimum number of UNIQUE categories across strong propositions
+/// (prevents "debug-architecture-geopolitics" recycling)
+const MIN_UNIQUE_CATEGORIES: usize = 4;
 
 /// A discovery worthy of publishing.
 ///
@@ -74,14 +80,94 @@ pub struct Discovery {
 }
 
 impl Discovery {
+    /// Filter out weak/generic inferences, keeping only substantive ones.
+    /// Returns the strong inferences that survive the quality gate.
+    pub fn strong_inferences(&self) -> Vec<&str> {
+        // Known boring patterns that should never be published
+        let boring_patterns = [
+            "shows weak co-occurrence",
+            "may be associated with",
+            "co-occurs with",
+            "is_type_of",
+            "similar_to",
+        ];
+
+        self.inferences.iter()
+            .filter(|inf| {
+                let lower = inf.to_lowercase();
+
+                // Reject ALL known boring patterns
+                for pattern in &boring_patterns {
+                    if lower.contains(pattern) { return false; }
+                }
+
+                // Reject inferences with generic cluster IDs
+                if lower.starts_with("cluster_") { return false; }
+
+                // Reject short/generic inferences
+                if inf.len() < 50 { return false; }
+
+                // Require HIGH confidence (parse from explanation string)
+                if let Some(pct_start) = lower.find("confidence: ") {
+                    let rest = &lower[pct_start + 12..];
+                    if let Some(pct_end) = rest.find('%') {
+                        if let Ok(pct) = rest[..pct_end].parse::<f64>() {
+                            return pct >= MIN_INFERENCE_CONFIDENCE * 100.0;
+                        }
+                    }
+                }
+
+                // Must not contain "weak" anywhere
+                !lower.contains("weak")
+            })
+            .map(|s| s.as_str())
+            .collect()
+    }
+
+    /// Filter propositions to only high-confidence, non-generic ones.
+    pub fn strong_propositions(&self) -> Vec<&(String, String, String, f64)> {
+        self.propositions.iter()
+            .filter(|(subj, pred, _obj, conf)| {
+                // Skip generic cluster labels
+                if subj.starts_with("cluster_") { return false; }
+                // Skip ALL co_occurs_with — these are never interesting
+                if pred == "co_occurs_with" { return false; }
+                // Skip similar_to within same domain — too obvious
+                if pred == "similar_to" { return false; }
+                // Only keep high-confidence cross-domain findings
+                *conf >= MIN_INFERENCE_CONFIDENCE
+            })
+            .collect()
+    }
+
+    /// Count unique categories across strong propositions.
+    fn category_diversity(&self) -> usize {
+        let mut cats = std::collections::HashSet::new();
+        for (subj, _, obj, conf) in &self.propositions {
+            if *conf >= MIN_INFERENCE_CONFIDENCE && !subj.starts_with("cluster_") {
+                cats.insert(subj.as_str());
+                cats.insert(obj.as_str());
+            }
+        }
+        cats.len()
+    }
+
     /// Check if this discovery meets the novelty bar for publishing.
+    /// This is intentionally VERY strict — we want ~1 gist per week.
     pub fn is_publishable(&self) -> bool {
+        let strong = self.strong_inferences();
+        let strong_props = self.strong_propositions();
+        let diversity = self.category_diversity();
+
         self.new_inferences >= MIN_NEW_INFERENCES
             && self.evidence_count >= MIN_EVIDENCE
             && self.strange_loop_score >= MIN_STRANGE_LOOP_SCORE
             && self.propositions_extracted >= MIN_PROPOSITIONS
+            && self.sona_patterns >= MIN_SONA_PATTERNS
             && self.pareto_growth >= MIN_PARETO_GROWTH
-            && !self.inferences.is_empty()
+            && strong.len() >= 3      // Must have at least 3 non-trivial inferences
+            && strong_props.len() >= 5 // Must have at least 5 substantive propositions
+            && diversity >= MIN_UNIQUE_CATEGORIES // Must span multiple domains
     }
 
     /// Explain why a discovery was or wasn't published.
@@ -142,14 +228,14 @@ impl GistPublisher {
         Some(Self {
             token,
             last_publish: Mutex::new(None),
-            min_interval: Duration::from_secs(14400), // 4 hour minimum between gists
+            min_interval: Duration::from_secs(259200), // 3 day minimum between gists
             published_count: Mutex::new(0),
             published_titles: Mutex::new(Vec::new()),
         })
     }
 
-    /// Check if we can publish (rate limit + dedup)
-    pub fn can_publish(&self, title: &str) -> bool {
+    /// Check if we can publish (rate limit + content dedup)
+    pub fn can_publish(&self, discovery: &Discovery) -> bool {
         // Rate limit
         let last = self.last_publish.lock();
         if let Some(t) = *last {
@@ -157,9 +243,11 @@ impl GistPublisher {
                 return false;
             }
         }
-        // Dedup: don't publish same title twice
+        // Content dedup: don't publish if core category + dominant inference already published
         let titles = self.published_titles.lock();
-        !titles.iter().any(|t| t == title)
+        let key = format!("{}:{}", discovery.category,
+            discovery.strong_inferences().first().unwrap_or(&""));
+        !titles.iter().any(|t| t == &key || t == &discovery.title)
     }
 
     pub fn published_count(&self) -> u64 {
@@ -178,8 +266,17 @@ impl GistPublisher {
             );
             return Ok(None);
         }
-        if !self.can_publish(&discovery.title) {
-            tracing::debug!("Gist publish rate limited or duplicate title");
+        if !self.can_publish(discovery) {
+            tracing::debug!("Gist publish rate limited or duplicate content");
+            return Ok(None);
+        }
+
+        // Only include strong inferences and propositions in the gist
+        let strong_inferences = discovery.strong_inferences();
+        let strong_propositions = discovery.strong_propositions();
+
+        if strong_inferences.len() < 2 {
+            tracing::debug!("Discovery has {} strong inferences (need 2+), skipping", strong_inferences.len());
             return Ok(None);
         }
 
@@ -188,15 +285,16 @@ impl GistPublisher {
             discovery.timestamp.format("%Y%m%d-%H%M%S")
         );
 
-        // Use Gemini to rewrite the raw discovery into a polished article
+        // Use Gemini with Google Grounding to do deep research on the discovery
+        // topics, then produce a substantive article with real-world context
         let raw_content = format_academic_gist(discovery);
-        let content = match rewrite_with_gemini(discovery, &raw_content).await {
+        let content = match research_and_write_with_gemini(discovery, &strong_inferences, &strong_propositions).await {
             Ok(polished) => {
-                tracing::info!("Gemini rewrote discovery ({} → {} chars)", raw_content.len(), polished.len());
+                tracing::info!("Gemini deep research produced {} chars", polished.len());
                 polished
             }
             Err(e) => {
-                tracing::warn!("Gemini rewrite failed ({}), using raw content", e);
+                tracing::warn!("Gemini deep research failed ({}), using raw content", e);
                 raw_content
             }
         };
@@ -240,9 +338,14 @@ impl GistPublisher {
 
         *self.last_publish.lock() = Some(Instant::now());
         *self.published_count.lock() += 1;
-        self.published_titles
-            .lock()
-            .push(discovery.title.clone());
+        {
+            let mut titles = self.published_titles.lock();
+            titles.push(discovery.title.clone());
+            // Also store the content dedup key
+            let key = format!("{}:{}", discovery.category,
+                discovery.strong_inferences().first().unwrap_or(&""));
+            titles.push(key);
+        }
 
         tracing::info!(
             "Published discovery gist: {} -> {} (novelty: {})",
@@ -378,103 +481,130 @@ curl -H "Authorization: Bearer KEY" "https://pi.ruv.io/v1/cognitive/status"
     )
 }
 
-/// Use Gemini to rewrite a raw discovery into a polished, human-readable article.
-/// Falls back to raw content if Gemini is unavailable.
-async fn rewrite_with_gemini(discovery: &Discovery, raw_content: &str) -> Result<String, String> {
+/// Use Gemini with Google Grounding to conduct deep research on discovery topics,
+/// then produce a substantive article with real-world context, recent papers,
+/// and specific domain knowledge — not just cluster co-occurrence summaries.
+async fn research_and_write_with_gemini(
+    discovery: &Discovery,
+    strong_inferences: &[&str],
+    strong_propositions: &[&(String, String, String, f64)],
+) -> Result<String, String> {
     let api_key = std::env::var("GEMINI_API_KEY")
         .map_err(|_| "GEMINI_API_KEY not set".to_string())?;
     let model = std::env::var("GEMINI_MODEL")
         .unwrap_or_else(|_| "gemini-2.5-flash".to_string());
 
-    // Build a concise summary of what was discovered for the prompt
-    let inferences_summary = discovery.inferences.iter()
-        .take(5)
+    // Build summaries from STRONG signals only (filtered out weak co-occurrences)
+    let inferences_summary = strong_inferences.iter()
+        .take(8)
         .map(|i| format!("- {}", i))
         .collect::<Vec<_>>()
         .join("\n");
 
-    let propositions_summary = discovery.propositions.iter()
+    let propositions_summary = strong_propositions.iter()
         .take(10)
-        .map(|(s, p, o, c)| format!("- {} {} {} (confidence: {:.2})", s, p, o, c))
+        .map(|(s, p, o, c)| format!("- {} {} {} (confidence: {:.0}%)", s, p, o, c * 100.0))
         .collect::<Vec<_>>()
         .join("\n");
 
     let findings_summary = discovery.findings.iter()
+        .filter(|f| !f.to_lowercase().contains("weak co-occurrence"))
         .take(5)
         .map(|f| format!("- {}", f))
         .collect::<Vec<_>>()
         .join("\n");
 
+    // Extract the key domain topics for grounding research
+    let topics: Vec<&str> = strong_propositions.iter()
+        .flat_map(|(s, _p, o, _c)| vec![s.as_str(), o.as_str()])
+        .filter(|t| !t.starts_with("cluster_") && !t.is_empty())
+        .collect::<std::collections::HashSet<_>>()
+        .into_iter()
+        .take(5)
+        .collect();
+
     let prompt = format!(
-r#"You are the editorial voice of the π Brain — an autonomous AI knowledge system at pi.ruv.io.
+r#"You are a research scientist at the π Brain autonomous AI knowledge system (pi.ruv.io).
 
-Rewrite the following raw discovery data into a polished academic-style GitHub Gist article. The article must be:
+The π Brain has identified the following substantive cross-domain connections. Your job is to:
 
-1. **Accessible**: Start with a plain-language introduction that anyone can understand — what was discovered and why it matters
-2. **Technical**: Include the formal symbolic reasoning chain, propositions, and inference rules
-3. **Verifiable**: Include the witness chain hashes and API links for independent verification
-4. **Honest**: If the confidence is low or the finding is speculative, say so clearly
+1. **Use Google Search grounding** to find REAL recent papers, news, or data that validate or contextualize these connections
+2. Write a deep research article that connects the brain's autonomous findings to real-world knowledge
+3. Provide genuinely novel analysis — not just "X co-occurs with Y"
 
-Structure:
-- Title (compelling, specific — not generic)
-- Plain-language summary (2-3 sentences, no jargon)
-- Key discoveries (what was actually found, in human terms)
-- Technical details (propositions, inference chains, confidence scores)
-- Verification (witness hashes, API endpoints)
-- Citation block
+## Brain's Filtered Findings (only high-confidence signals)
 
-Raw data:
-
-**Inferences derived:**
+**Strong inferences (>60% confidence):**
 {inferences}
 
-**Propositions extracted:**
+**Strong propositions:**
 {propositions}
 
-**Cross-domain findings:**
+**Cross-domain insights:**
 {findings}
 
-**Self-reflection:**
-{reflection}
+**Domain topics to research:** {topics}
 
-**Stats:** {evidence} observations, {n_inferences} inferences, {n_props} propositions, strange loop score {sl:.4}, {sona} SONA patterns
+## Research Instructions
 
-**Witness hashes:** {witnesses}
+Use Google Search to find:
+- Recent academic papers (2024-2026) related to these domain intersections
+- Real-world events or data that support or contradict these findings
+- Novel connections that the brain may have missed
+- Quantitative data points (statistics, benchmarks, metrics)
 
-**Witness memory IDs:** {memory_ids}
+## Article Structure
 
-CRITICAL rules for honest scientific communication:
-- Use the ACTUAL content from the findings and inferences above — don't invent facts
-- NEVER use the word "causes" or "causal" unless confidence >= 80% AND temporal evidence exists
-- For confidence < 50%: use "shows weak co-occurrence with", "may be loosely associated with"
-- For confidence 50-65%: use "is associated with", "co-occurs with"
-- For confidence 65-80%: use "may influence", "appears to be linked to"
-- For confidence >= 80%: use "strongly associated with", "likely influences"
-- Frame findings as HYPOTHESES, not conclusions. Use "suggests", "indicates", "appears"
-- Be explicit about limitations: low vote coverage, small evidence sets, no temporal validation
-- The article is from the π Brain's perspective ("we identified", "our analysis suggests")
-- Include a "Limitations" section that honestly states what this does NOT prove
-- Include links to https://pi.ruv.io for verification
-- End with a proper BibTeX citation block
-- Keep it under 2000 words
-- Output ONLY the markdown article, no preamble
+Write the article as:
+
+### Title
+A specific, compelling title about the actual discovery — NOT generic like "Preliminary Co-occurrence of X with Y"
+
+### Summary
+2-3 sentences explaining what was found and why it matters to a general audience
+
+### Deep Analysis
+For each significant finding:
+- What the brain detected (the raw signal)
+- What Google Search reveals about this connection in the real world
+- Why this matters (practical implications)
+- Confidence assessment with honest limitations
+
+### Real-World Context
+Cite specific recent papers, events, or datasets that ground these findings. Include URLs where possible.
+
+### Methodology
+Brief explanation of how the π Brain works: embedding-based clustering, cosine similarity, symbolic forward-chaining, and confidence-gated language
+
+### Limitations
+Be brutally honest about what this does NOT prove
+
+### Verification
+- Dashboard: https://pi.ruv.io
+- API: https://pi.ruv.io/v1/status
+- Propositions: https://pi.ruv.io/v1/propositions
+- Witness hashes: {witnesses}
+
+**Stats:** {evidence} observations, {n_inferences} strong inferences, {n_props} propositions
+
+## Rules
+- NEVER pad with generic text. Every paragraph must contain specific, verifiable claims.
+- If grounding search returns nothing relevant, say so — don't fabricate.
+- Use real paper titles, author names, publication venues. If unsure, say "reportedly" or "according to search results".
+- NO "weak co-occurrence" language — that's been filtered out. Focus on the strong signals.
+- Keep under 2500 words. Quality over quantity.
+- Output ONLY the markdown article.
 
 Write the article now:"#,
-        inferences = inferences_summary,
-        propositions = propositions_summary,
-        findings = findings_summary,
-        reflection = discovery.self_reflection,
+        inferences = if inferences_summary.is_empty() { "No strong inferences survived filtering.".to_string() } else { inferences_summary },
+        propositions = if propositions_summary.is_empty() { "No strong propositions survived filtering.".to_string() } else { propositions_summary },
+        findings = if findings_summary.is_empty() { "No non-trivial findings.".to_string() } else { findings_summary },
+        topics = topics.join(", "),
         evidence = discovery.evidence_count,
-        n_inferences = discovery.new_inferences,
-        n_props = discovery.propositions_extracted,
-        sl = discovery.strange_loop_score,
-        sona = discovery.sona_patterns,
-        witnesses = discovery.witness_hashes.iter().take(5)
+        n_inferences = strong_inferences.len(),
+        n_props = strong_propositions.len(),
+        witnesses = discovery.witness_hashes.iter().take(3)
             .map(|h| format!("`{}`", h))
-            .collect::<Vec<_>>()
-            .join(", "),
-        memory_ids = discovery.witness_memory_ids.iter().take(5)
-            .map(|id| format!("`{}`", &id[..id.len().min(8)]))
             .collect::<Vec<_>>()
             .join(", "),
     );
@@ -487,14 +617,134 @@ Write the article now:"#,
     let grounding = std::env::var("GEMINI_GROUNDING")
         .unwrap_or_else(|_| "true".to_string()) == "true";
 
+    let client = reqwest::Client::new();
+
+    // ── Pass 1: Grounded research on the topics ──
+    // Ask Gemini to research the domain topics using Google Search, returning
+    // structured findings we can feed back to the brain.
+    let research_prompt = format!(
+        "Research these topics using Google Search and return a structured summary \
+         of the most relevant recent findings (2024-2026):\n\
+         Topics: {topics}\n\
+         Context: An autonomous AI knowledge system detected associations between these domains.\n\n\
+         For each topic, provide:\n\
+         1. Most relevant recent paper or article (title, authors, date, URL if available)\n\
+         2. Key quantitative finding or statistic\n\
+         3. How it relates to the other topics\n\n\
+         Be concise. Return ONLY factual findings, no filler. Max 800 words.",
+        topics = topics.join(", ")
+    );
+
+    let pass1_result = call_gemini(&client, &url, &research_prompt, grounding, 4096, 0.2).await;
+    let grounded_research = match pass1_result {
+        Ok(text) => {
+            tracing::info!("Pass 1 (grounded research): {} chars", text.len());
+            text
+        }
+        Err(e) => {
+            tracing::warn!("Pass 1 grounding failed: {}", e);
+            String::new()
+        }
+    };
+
+    // ── Pass 2: Brain-guided search via pi.ruv.io ──
+    // Search the brain's memory for additional context related to the grounded findings.
+    let brain_context = if !topics.is_empty() {
+        let brain_url = std::env::var("BRAIN_URL")
+            .unwrap_or_else(|_| "https://pi.ruv.io".to_string());
+        let brain_key = std::env::var("BRAIN_SYSTEM_KEY")
+            .or_else(|_| std::env::var("brain-api-key"))
+            .unwrap_or_default();
+
+        let mut brain_memories = Vec::new();
+        for topic in &topics {
+            let search_url = format!(
+                "{}/v1/memories/search?q={}&limit=3",
+                brain_url, topic.replace(' ', "%20")
+            );
+            if let Ok(resp) = client.get(&search_url)
+                .header("Authorization", format!("Bearer {}", brain_key))
+                .send().await
+            {
+                if let Ok(json) = resp.json::<serde_json::Value>().await {
+                    if let Some(results) = json.get("results").and_then(|r| r.as_array()) {
+                        for mem in results.iter().take(2) {
+                            if let (Some(title), Some(content)) = (
+                                mem.get("title").and_then(|t| t.as_str()),
+                                mem.get("content").and_then(|c| c.as_str()),
+                            ) {
+                                brain_memories.push(format!(
+                                    "- **{}**: {}", title, &content[..content.len().min(200)]
+                                ));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        if brain_memories.is_empty() {
+            String::new()
+        } else {
+            format!("\n## Brain Memory Context\n\n{}", brain_memories.join("\n"))
+        }
+    } else {
+        String::new()
+    };
+
+    // ── Pass 3: Final synthesis — combine brain signals + grounded research ──
+    let synthesis_prompt = format!(
+        "{original_prompt}\n\n\
+         ## Additional Context from Research\n\n\
+         ### Google Search Grounded Findings\n\n\
+         {grounded}\n\n\
+         ### π Brain Memory Search Results\n\n\
+         {brain}\n\n\
+         IMPORTANT: Synthesize ALL of the above — the brain's autonomous findings, \
+         the grounded research, and the brain memory context — into a single cohesive \
+         article. The grounded research provides real-world validation; the brain \
+         memories provide internal context. Together they should produce genuinely \
+         novel analysis that neither source could produce alone.\n\n\
+         Write the final article now:",
+        original_prompt = prompt,
+        grounded = if grounded_research.is_empty() { "No grounded findings available.".to_string() } else { grounded_research },
+        brain = if brain_context.is_empty() { "No additional brain memories found.".to_string() } else { brain_context },
+    );
+
+    let final_text = call_gemini(&client, &url, &synthesis_prompt, grounding, 8192, 0.3).await?;
+
+    // Append verification footer
+    let footer = format!(
+        "\n\n---\n\n\
+         *This article was autonomously generated by the [π Brain](https://pi.ruv.io) \
+         using a 3-pass research loop: (1) Google-grounded topic research, \
+         (2) brain memory search for internal context, (3) Gemini synthesis. \
+         Based on {} observations. No human authored or curated the findings.*\n\n\
+         **Live Dashboard:** [π.ruv.io](https://pi.ruv.io) · \
+         **API:** [/v1/status](https://pi.ruv.io/v1/status) · \
+         **Verify:** [/v1/propositions](https://pi.ruv.io/v1/propositions)\n",
+        discovery.evidence_count
+    );
+
+    Ok(format!("{}{}", final_text.trim(), footer))
+}
+
+/// Call Gemini API with optional grounding.
+async fn call_gemini(
+    client: &reqwest::Client,
+    url: &str,
+    prompt: &str,
+    grounding: bool,
+    max_tokens: u32,
+    temperature: f32,
+) -> Result<String, String> {
     let mut body = serde_json::json!({
         "contents": [{
             "role": "user",
             "parts": [{"text": prompt}]
         }],
         "generationConfig": {
-            "maxOutputTokens": 8192,
-            "temperature": 0.3
+            "maxOutputTokens": max_tokens,
+            "temperature": temperature
         }
     });
 
@@ -502,9 +752,8 @@ Write the article now:"#,
         body["tools"] = serde_json::json!([{"google_search": {}}]);
     }
 
-    let client = reqwest::Client::new();
     let resp = client
-        .post(&url)
+        .post(url)
         .header("content-type", "application/json")
         .json(&body)
         .send()
@@ -520,29 +769,13 @@ Write the article now:"#,
     let json: serde_json::Value = resp.json().await
         .map_err(|e| format!("Gemini parse error: {}", e))?;
 
-    // Extract text from Gemini response
-    let text = json
-        .get("candidates")
+    json.get("candidates")
         .and_then(|c| c.get(0))
         .and_then(|c| c.get("content"))
         .and_then(|c| c.get("parts"))
         .and_then(|p| p.get(0))
         .and_then(|p| p.get("text"))
         .and_then(|t| t.as_str())
-        .ok_or("No text in Gemini response".to_string())?;
-
-    // Append verification footer that Gemini might omit
-    let footer = format!(
-        "\n\n---\n\n\
-         *This article was autonomously generated by the [π Brain](https://pi.ruv.io) \
-         cognitive system and editorially refined by Gemini. The underlying data, \
-         propositions, and inference chains are machine-derived from {} observations. \
-         No human authored or curated the findings.*\n\n\
-         **Live Dashboard:** [π.ruv.io](https://pi.ruv.io) · \
-         **API:** [/v1/status](https://pi.ruv.io/v1/status) · \
-         **Verify:** [/v1/propositions](https://pi.ruv.io/v1/propositions)\n",
-        discovery.evidence_count
-    );
-
-    Ok(format!("{}{}", text.trim(), footer))
+        .map(|s| s.to_string())
+        .ok_or("No text in Gemini response".to_string())
 }

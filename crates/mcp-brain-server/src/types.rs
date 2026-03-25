@@ -21,10 +21,15 @@ impl TemporalSolverStub {
     }
 }
 
-/// Brain memory categories
+/// Brain memory categories — expanded from 8 to 35 for richer cross-domain discovery.
+///
+/// Categories span from practical engineering to exotic frontier research.
+/// The `Custom(String)` variant accepts any string for future extensibility.
+/// serde uses snake_case: `neural_architecture`, `self_learning`, etc.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 #[serde(rename_all = "snake_case")]
 pub enum BrainCategory {
+    // ── Core Engineering ──
     Architecture,
     Pattern,
     Solution,
@@ -33,6 +38,67 @@ pub enum BrainCategory {
     Performance,
     Tooling,
     Debug,
+
+    // ── Research & Discovery ──
+    /// State-of-the-art findings from recent papers (2024-2026)
+    Sota,
+    /// First-of-its-kind discoveries — novel connections, methods, or insights
+    Discovery,
+    /// Validated hypotheses with evidence chains
+    Hypothesis,
+    /// Cross-domain connections between unrelated fields
+    CrossDomain,
+
+    // ── AI & ML ──
+    /// Neural architecture innovations (transformers, SSMs, MoE, etc.)
+    NeuralArchitecture,
+    /// Quantization, compression, pruning techniques
+    Compression,
+    /// Self-learning, online learning, continual learning
+    SelfLearning,
+    /// Reinforcement learning, RLHF, reward modeling
+    ReinforcementLearning,
+    /// Graph neural networks, knowledge graphs, spectral methods
+    GraphIntelligence,
+
+    // ── Systems & Infrastructure ──
+    /// Distributed systems, consensus, replication
+    DistributedSystems,
+    /// Edge computing, on-device inference, WASM
+    EdgeComputing,
+    /// Hardware-software co-design, FPGA, NPU, ANE
+    HardwareAcceleration,
+
+    // ── Frontier & Exotic ──
+    /// Quantum computing, quantum-classical hybrid algorithms
+    Quantum,
+    /// Neuromorphic computing, spiking neural networks
+    Neuromorphic,
+    /// Biological computing, DNA storage, molecular computing
+    BioComputing,
+    /// AGI research, cognitive architectures, consciousness
+    CognitiveScience,
+    /// Information theory, complexity theory, formal verification
+    FormalMethods,
+
+    // ── Applied Domains ──
+    /// Geopolitics, economics, social dynamics
+    Geopolitics,
+    /// Climate, energy, sustainability
+    Climate,
+    /// Genomics, drug discovery, medical AI
+    Biomedical,
+    /// Space, astronomy, astrophysics
+    Space,
+    /// Finance, trading, risk modeling
+    Finance,
+
+    // ── Meta ──
+    /// Knowledge about knowledge — epistemology, meta-learning
+    MetaCognition,
+    /// Benchmark results, comparative analyses
+    Benchmark,
+
     Custom(String),
 }
 
@@ -47,6 +113,30 @@ impl std::fmt::Display for BrainCategory {
             Self::Performance => write!(f, "performance"),
             Self::Tooling => write!(f, "tooling"),
             Self::Debug => write!(f, "debug"),
+            Self::Sota => write!(f, "sota"),
+            Self::Discovery => write!(f, "discovery"),
+            Self::Hypothesis => write!(f, "hypothesis"),
+            Self::CrossDomain => write!(f, "cross_domain"),
+            Self::NeuralArchitecture => write!(f, "neural_architecture"),
+            Self::Compression => write!(f, "compression"),
+            Self::SelfLearning => write!(f, "self_learning"),
+            Self::ReinforcementLearning => write!(f, "reinforcement_learning"),
+            Self::GraphIntelligence => write!(f, "graph_intelligence"),
+            Self::DistributedSystems => write!(f, "distributed_systems"),
+            Self::EdgeComputing => write!(f, "edge_computing"),
+            Self::HardwareAcceleration => write!(f, "hardware_acceleration"),
+            Self::Quantum => write!(f, "quantum"),
+            Self::Neuromorphic => write!(f, "neuromorphic"),
+            Self::BioComputing => write!(f, "bio_computing"),
+            Self::CognitiveScience => write!(f, "cognitive_science"),
+            Self::FormalMethods => write!(f, "formal_methods"),
+            Self::Geopolitics => write!(f, "geopolitics"),
+            Self::Climate => write!(f, "climate"),
+            Self::Biomedical => write!(f, "biomedical"),
+            Self::Space => write!(f, "space"),
+            Self::Finance => write!(f, "finance"),
+            Self::MetaCognition => write!(f, "meta_cognition"),
+            Self::Benchmark => write!(f, "benchmark"),
             Self::Custom(s) => write!(f, "{s}"),
         }
     }

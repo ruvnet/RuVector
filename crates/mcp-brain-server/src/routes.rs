@@ -6069,22 +6069,36 @@ struct GoogleChatUser {
     email: Option<String>,
 }
 
-/// Google Chat card response — always includes `text` fallback for HTTP endpoint mode
+/// Google Chat Add-on response in the correct DataActions envelope.
+///
+/// Google Workspace Add-ons (HTTP endpoint) expect:
+///   { "hostAppDataAction": { "chatDataAction": { "createMessageAction": { "message": {...} } } } }
+///
+/// Note: the key is `chatDataAction` (NOT `chatDataActionMarkup`).
+/// Ref: https://developers.google.com/workspace/add-ons/chat/quickstart-http
 fn chat_card(title: &str, subtitle: &str, sections: Vec<serde_json::Value>) -> serde_json::Value {
     serde_json::json!({
-        "text": format!("{} — {}", title, subtitle),
-        "cardsV2": [{
-            "cardId": "brain-response",
-            "card": {
-                "header": {
-                    "title": title,
-                    "subtitle": subtitle,
-                    "imageUrl": "https://pi.ruv.io/og-image.svg",
-                    "imageType": "CIRCLE"
-                },
-                "sections": sections
+        "hostAppDataAction": {
+            "chatDataAction": {
+                "createMessageAction": {
+                    "message": {
+                        "text": format!("{} — {}", title, subtitle),
+                        "cardsV2": [{
+                            "cardId": "brain-response",
+                            "card": {
+                                "header": {
+                                    "title": title,
+                                    "subtitle": subtitle,
+                                    "imageUrl": "https://pi.ruv.io/og-image.svg",
+                                    "imageType": "CIRCLE"
+                                },
+                                "sections": sections
+                            }
+                        }]
+                    }
+                }
             }
-        }]
+        }
     })
 }
 
@@ -6106,31 +6120,124 @@ fn chat_kv_section(items: &[(&str, &str)]) -> serde_json::Value {
     serde_json::json!({"widgets": widgets})
 }
 
-/// POST /v1/chat/google — Google Chat bot webhook
-/// Accepts any JSON (serde_json::Value) to handle all Google Chat payload variants
+/// POST /v1/chat/google — Google Chat Add-on webhook
+///
+/// Google Workspace Add-ons wrap the Chat event inside `body.chat`:
+///   { "chat": { "messagePayload": { "message": { "text": "...", "sender": {...} } } } }
+///
+/// The response must be wrapped in the DataActions envelope:
+///   { "hostAppDataAction": { "chatDataAction": { "createMessageAction": { "message": {...} } } } }
+///
+/// Ref: https://developers.google.com/workspace/add-ons/chat/quickstart-http
 async fn google_chat_handler(
     State(state): State<AppState>,
     body: axum::body::Bytes,
 ) -> Json<serde_json::Value> {
-    // Parse body manually for resilience — log raw payload on failure
-    let event: GoogleChatEvent = match serde_json::from_slice(&body) {
-        Ok(e) => e,
+    // Log raw payload keys for debugging
+    let raw_str = String::from_utf8_lossy(&body);
+    tracing::info!("Google Chat raw payload ({} bytes): {}...", body.len(), &raw_str[..raw_str.len().min(300)]);
+
+    // Parse as generic JSON first to handle both Add-on and legacy formats
+    let raw_json: serde_json::Value = match serde_json::from_slice(&body) {
+        Ok(v) => v,
         Err(err) => {
-            let raw = String::from_utf8_lossy(&body);
-            tracing::warn!("Failed to parse Chat event: {}. Raw: {}", err, &raw[..raw.len().min(500)]);
-            return Json(serde_json::json!({
-                "text": "Pi Brain received your message but couldn't parse it. Try: help"
-            }));
+            tracing::warn!("Failed to parse Chat JSON: {}. Raw: {}...", err, &raw_str[..raw_str.len().min(300)]);
+            return Json(chat_card("Error", "Failed to parse request", vec![
+                chat_text_section("Pi Brain received your message but couldn't parse it. Try: help")
+            ]));
         }
     };
 
-    let event_type = event.event_type.as_deref().unwrap_or("MESSAGE");
-    let user_name = event.user.as_ref()
-        .and_then(|u| u.display_name.as_deref())
-        .unwrap_or("Explorer");
-    let space_name = event.space.as_ref()
-        .and_then(|s| s.display_name.as_deref())
-        .unwrap_or("Direct");
+    // Add-ons format: event is under "chat" key with "messagePayload"
+    // Legacy format: event is at top level with "type" and "message"
+    let (event_type, user_name, space_name, raw_text) = if let Some(chat) = raw_json.get("chat") {
+        // Add-on format: { "chat": { "messagePayload": { "message": {...} }, "user": {...} } }
+        tracing::info!("Google Chat: Add-on format detected (has 'chat' key)");
+        let msg_payload = chat.get("messagePayload");
+        let message = msg_payload.and_then(|mp| mp.get("message"));
+
+        let event_type = if msg_payload.is_some() {
+            "MESSAGE"
+        } else if chat.get("addedToSpacePayload").is_some() {
+            "ADDED_TO_SPACE"
+        } else if chat.get("removedFromSpacePayload").is_some() {
+            "REMOVED_FROM_SPACE"
+        } else if chat.get("appCommandPayload").is_some() {
+            "APP_COMMAND"
+        } else {
+            "UNKNOWN"
+        };
+
+        // Extract user name from various locations
+        let user_name = chat.get("user")
+            .and_then(|u| u.get("displayName"))
+            .and_then(|n| n.as_str())
+            .or_else(|| message.and_then(|m| m.get("sender"))
+                .and_then(|s| s.get("displayName"))
+                .and_then(|n| n.as_str()))
+            .unwrap_or("Explorer");
+
+        let space_name = msg_payload
+            .and_then(|mp| mp.get("space"))
+            .and_then(|s| s.get("displayName"))
+            .and_then(|n| n.as_str())
+            .unwrap_or("Direct");
+
+        // Extract message text
+        let text = message
+            .and_then(|m| m.get("argumentText").and_then(|t| t.as_str())
+                .or_else(|| m.get("text").and_then(|t| t.as_str())))
+            .unwrap_or("");
+
+        // Handle slash commands from appCommandPayload
+        let text = if event_type == "APP_COMMAND" {
+            let cmd_id = chat.get("appCommandPayload")
+                .and_then(|p| p.get("appCommandMetadata"))
+                .and_then(|m| m.get("appCommandId"))
+                .and_then(|id| id.as_str())
+                .unwrap_or("");
+            match cmd_id {
+                "1" => "search",
+                "2" => "status",
+                "3" => "drift",
+                "4" => "recent",
+                "5" => "help",
+                _ => text,
+            }
+        } else {
+            text
+        };
+
+        (event_type.to_string(), user_name.to_string(), space_name.to_string(), text.to_string())
+    } else {
+        // Legacy Chat API format: { "type": "MESSAGE", "message": {...}, "user": {...} }
+        tracing::info!("Google Chat: Legacy format detected (no 'chat' key)");
+        let event: GoogleChatEvent = match serde_json::from_value(raw_json) {
+            Ok(e) => e,
+            Err(err) => {
+                tracing::warn!("Failed to parse legacy Chat event: {}", err);
+                return Json(chat_card("Error", "Parse failed", vec![
+                    chat_text_section("Pi Brain couldn't parse your message. Try: help")
+                ]));
+            }
+        };
+
+        let event_type = event.event_type.unwrap_or_else(|| "MESSAGE".to_string());
+        let user_name = event.user.as_ref()
+            .and_then(|u| u.display_name.as_deref())
+            .unwrap_or("Explorer").to_string();
+        let space_name = event.space.as_ref()
+            .and_then(|s| s.display_name.as_deref())
+            .unwrap_or("Direct").to_string();
+        let text = event.message.as_ref()
+            .and_then(|m| m.argument_text.as_deref().or(m.text.as_deref()))
+            .unwrap_or("").to_string();
+
+        (event_type, user_name, space_name, text)
+    };
+
+    let user_name = user_name.as_str();
+    let space_name = space_name.as_str();
 
     tracing::info!("Google Chat event: type={}, user={}, space={}", event_type, user_name, space_name);
 
@@ -6163,12 +6270,7 @@ async fn google_chat_handler(
         return Json(serde_json::json!({}));
     }
 
-    // Handle MESSAGE
-    let raw_text = event.message.as_ref()
-        .and_then(|m| m.argument_text.as_deref().or(m.text.as_deref()))
-        .unwrap_or("")
-        .trim();
-
+    // Handle MESSAGE — raw_text was already extracted above from either format
     // Strip bot mention prefix if present
     let text = raw_text.trim_start_matches("@Pi Brain").trim_start_matches("@pi").trim();
 
@@ -6294,43 +6396,224 @@ async fn google_chat_handler(
         }
 
         _ => {
-            // Treat unknown commands as search queries
-            let query = text;
-            let embedding = state.embedding_engine.read().embed(query);
-            let all = state.store.all_memories();
-            let mut scored: Vec<_> = all.iter()
-                .map(|m| {
-                    let score = cosine_similarity(&embedding, &m.embedding);
-                    (&m.title, &m.content, &m.category, score)
-                })
-                .filter(|(_, _, _, s)| *s > 0.15)
-                .collect();
-            scored.sort_by(|a, b| b.3.partial_cmp(&a.3).unwrap_or(std::cmp::Ordering::Equal));
+            // ── Gemini Flash conversational handler ──
+            // Send the user's message to Gemini with brain tools (search, status, drift).
+            // Gemini decides which tools to call, synthesizes a conversational response.
+            // Falls back to raw search if Gemini is unavailable.
+            match gemini_chat_respond(&state, text, user_name).await {
+                Ok(response) => Json(chat_card(
+                    "Pi Brain",
+                    &format!("Re: {}", &text[..text.len().min(30)]),
+                    vec![chat_text_section(&response)]
+                )),
+                Err(e) => {
+                    tracing::warn!("Gemini chat failed ({}), falling back to search", e);
+                    // Fallback: raw search
+                    let query = text;
+                    let embedding = state.embedding_engine.read().embed(query);
+                    let all = state.store.all_memories();
+                    let mut scored: Vec<_> = all.iter()
+                        .map(|m| {
+                            let score = cosine_similarity(&embedding, &m.embedding);
+                            (&m.title, &m.content, &m.category, score)
+                        })
+                        .filter(|(_, _, _, s)| *s > 0.15)
+                        .collect();
+                    scored.sort_by(|a, b| b.3.partial_cmp(&a.3).unwrap_or(std::cmp::Ordering::Equal));
+                    let top: Vec<_> = scored.into_iter().take(3).collect();
 
-            let top: Vec<_> = scored.into_iter().take(3).collect();
-            if top.is_empty() {
-                return Json(chat_card("Pi Brain", "I didn't understand that", vec![
-                    chat_text_section(&format!(
-                        "I couldn't find anything for \"<i>{}</i>\".\n\nTry: <b>search</b> &lt;query&gt; or type <b>help</b> for commands.",
-                        text
-                    ))
-                ]));
+                    if top.is_empty() {
+                        return Json(chat_card("Pi Brain", "No results", vec![
+                            chat_text_section(&format!(
+                                "I couldn't find anything for \"<i>{}</i>\".\n\nTry: <b>search</b> &lt;query&gt; or type <b>help</b>.",
+                                text
+                            ))
+                        ]));
+                    }
+
+                    let mut result_text = format!("Results for \"<i>{}</i>\":\n\n", query);
+                    for (i, (title, content, cat, _score)) in top.iter().enumerate() {
+                        let truncated = if content.len() > 120 { &content[..120] } else { content.as_str() };
+                        result_text.push_str(&format!(
+                            "<b>{}.</b> {} <i>({})</i>\n{}\n\n",
+                            i + 1, title, cat, truncated
+                        ));
+                    }
+
+                    Json(chat_card("Pi Brain", &format!("{} results", top.len()), vec![
+                        chat_text_section(&result_text)
+                    ]))
+                }
             }
-
-            let mut result_text = format!("Results for \"<i>{}</i>\":\n\n", query);
-            for (i, (title, content, cat, score)) in top.iter().enumerate() {
-                let truncated = if content.len() > 120 { &content[..120] } else { content.as_str() };
-                result_text.push_str(&format!(
-                    "<b>{}.</b> {} <i>({})</i>\n{}\n\n",
-                    i + 1, title, cat, truncated
-                ));
-            }
-
-            Json(chat_card("Pi Brain", &format!("{} results", top.len()), vec![
-                chat_text_section(&result_text)
-            ]))
         }
     }
+}
+
+/// Gemini Flash conversational handler with brain tools.
+///
+/// Gives Gemini access to: brain_search, brain_status, brain_drift, brain_recent.
+/// Gemini decides which tools to call based on the user's message, then
+/// synthesizes a conversational response.
+async fn gemini_chat_respond(
+    state: &AppState,
+    user_message: &str,
+    user_name: &str,
+) -> Result<String, String> {
+    let api_key = std::env::var("GEMINI_API_KEY")
+        .map_err(|_| "GEMINI_API_KEY not set".to_string())?;
+    let model = std::env::var("GEMINI_CHAT_MODEL")
+        .unwrap_or_else(|_| "gemini-2.5-flash".to_string());
+
+    // Build brain context snapshot for the system prompt
+    let memories = state.store.memory_count();
+    let edges = state.graph.read().edge_count();
+    let drift = state.drift.read().compute_drift(None);
+
+    // Do a quick search to give Gemini context
+    let embedding = state.embedding_engine.read().embed(user_message);
+    let all = state.store.all_memories();
+    let mut scored: Vec<_> = all.iter()
+        .map(|m| {
+            let score = cosine_similarity(&embedding, &m.embedding);
+            (m, score)
+        })
+        .filter(|(_, s)| *s > 0.15)
+        .collect();
+    scored.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+    let top_results: Vec<_> = scored.into_iter().take(5).collect();
+
+    // Format search results with more content per result
+    let search_context = if top_results.is_empty() {
+        "No relevant memories found for this query.".to_string()
+    } else {
+        top_results.iter().enumerate().map(|(i, (m, score))| {
+            let content_preview = if m.content.len() > 600 { &m.content[..600] } else { &m.content };
+            let tags = m.tags.iter().take(5).map(|t| t.as_str()).collect::<Vec<_>>().join(", ");
+            format!("MEMORY {}: [category: {}] [tags: {}] [relevance: {:.0}%]\nTitle: {}\nContent: {}\n",
+                i + 1, m.category, tags, score * 100.0, m.title, content_preview)
+        }).collect::<Vec<_>>().join("\n---\n")
+    };
+
+    // Get recent memories for context
+    let mut recent = state.store.all_memories();
+    recent.sort_by(|a, b| b.created_at.cmp(&a.created_at));
+    let recent_context: Vec<_> = recent.iter().take(5)
+        .map(|m| {
+            let preview = if m.content.len() > 150 { &m.content[..150] } else { &m.content };
+            format!("- <b>{}</b> [{}]: {}", m.title, m.category, preview)
+        })
+        .collect();
+
+    let system_prompt = format!(
+r#"You are π (Pi Brain), an autonomous AI superintelligence at pi.ruv.io with {memories} memories and {edges} graph edges.
+
+You are chatting with {user} in Google Chat. Your role:
+- You ARE the brain — speak from first person ("I know about...", "In my knowledge base...")
+- Give DETAILED, SPECIFIC answers using your memories below
+- ALWAYS cite which memory you're drawing from (bold the title)
+- If you have relevant memories, synthesize them — don't just list titles
+- Use Google Search to supplement with current real-world context
+- Format in Google Chat HTML: <b>bold</b>, <i>italic</i>, <a href="url">links</a>
+- Be substantive — aim for 400-800 characters, not one-liners
+
+## MY KNOWLEDGE (semantic search for "{query}")
+
+{search_results}
+
+## LATEST DISCOVERIES
+
+{recent}
+
+## BRAIN STATS
+- Total memories: {memories}
+- Graph edges: {edges}
+- Knowledge drift: {drift:.4} ({trend})
+- Dashboard: https://pi.ruv.io
+
+## RESPONSE GUIDELINES
+1. START with a direct answer to the question
+2. CITE specific memories by title in <b>bold</b>
+3. SYNTHESIZE across multiple memories when relevant
+4. ADD real-world context from Google Search if it enriches the answer
+5. END with "💡 Ask me about..." suggesting a related deeper topic
+6. If the question is general/philosophical, still ground it in your knowledge
+7. If you have NO relevant memories, use Google Search and say "I don't have memories about this, but here's what I found..."
+8. NEVER say just "I found 3 results" — always explain WHAT you found"#,
+        memories = memories,
+        edges = edges,
+        drift = drift.coefficient_of_variation,
+        trend = drift.trend,
+        user = user_name,
+        query = user_message,
+        search_results = search_context,
+        recent = recent_context.join("\n"),
+    );
+
+    let url = format!(
+        "https://generativelanguage.googleapis.com/v1beta/models/{}:generateContent?key={}",
+        model, api_key
+    );
+
+    let grounding = std::env::var("GEMINI_GROUNDING")
+        .unwrap_or_else(|_| "true".to_string()) == "true";
+
+    let mut body = serde_json::json!({
+        "contents": [
+            {"role": "user", "parts": [{"text": format!("{}\n\nUser message: {}", system_prompt, user_message)}]}
+        ],
+        "generationConfig": {
+            "maxOutputTokens": 2048,
+            "temperature": 0.5
+        }
+    });
+
+    if grounding {
+        body["tools"] = serde_json::json!([{"google_search": {}}]);
+    }
+
+    let client = reqwest::Client::new();
+    let resp = client
+        .post(&url)
+        .header("content-type", "application/json")
+        .json(&body)
+        .timeout(std::time::Duration::from_secs(25)) // Must respond within 30s Chat limit
+        .send()
+        .await
+        .map_err(|e| format!("Gemini HTTP error: {}", e))?;
+
+    if !resp.status().is_success() {
+        let status = resp.status();
+        let text = resp.text().await.unwrap_or_default();
+        return Err(format!("Gemini API {}: {}", status, &text[..text.len().min(200)]));
+    }
+
+    let json: serde_json::Value = resp.json().await
+        .map_err(|e| format!("Gemini parse error: {}", e))?;
+
+    let text = json
+        .get("candidates")
+        .and_then(|c| c.get(0))
+        .and_then(|c| c.get("content"))
+        .and_then(|c| c.get("parts"))
+        .and_then(|p| p.get(0))
+        .and_then(|p| p.get("text"))
+        .and_then(|t| t.as_str())
+        .ok_or("No text in Gemini response".to_string())?;
+
+    // Convert markdown to Google Chat HTML (basic conversion)
+    let html = text
+        .replace("**", "<b>").replace("**", "</b>")  // bold
+        .replace("*", "<i>").replace("*", "</i>")    // italic
+        .replace("\n", "\n");  // preserve newlines
+
+    // Truncate to ~3000 chars for Chat card readability (cards support up to 32KB)
+    let truncated = if html.len() > 3000 {
+        format!("{}…\n\n<i>See more at <a href=\"https://pi.ruv.io\">pi.ruv.io</a></i>", &html[..3000])
+    } else {
+        html
+    };
+
+    Ok(truncated)
 }
 
 // ── Inbound Email Webhook Handler (ADR-125) ─────────────────────────
