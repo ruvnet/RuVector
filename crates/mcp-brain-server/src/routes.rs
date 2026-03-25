@@ -6120,43 +6120,124 @@ fn chat_kv_section(items: &[(&str, &str)]) -> serde_json::Value {
     serde_json::json!({"widgets": widgets})
 }
 
-/// POST /v1/chat/google — Google Chat bot webhook
-/// Accepts any JSON (serde_json::Value) to handle all Google Chat payload variants
+/// POST /v1/chat/google — Google Chat Add-on webhook
+///
+/// Google Workspace Add-ons wrap the Chat event inside `body.chat`:
+///   { "chat": { "messagePayload": { "message": { "text": "...", "sender": {...} } } } }
+///
+/// The response must be wrapped in the DataActions envelope:
+///   { "hostAppDataAction": { "chatDataAction": { "createMessageAction": { "message": {...} } } } }
+///
+/// Ref: https://developers.google.com/workspace/add-ons/chat/quickstart-http
 async fn google_chat_handler(
     State(state): State<AppState>,
     body: axum::body::Bytes,
 ) -> Json<serde_json::Value> {
-    // Log raw payload for debugging (truncated)
-    let raw_preview = String::from_utf8_lossy(&body[..body.len().min(500)]);
-    tracing::info!("Google Chat raw payload ({} bytes): {}", body.len(), raw_preview);
+    // Log raw payload keys for debugging
+    let raw_str = String::from_utf8_lossy(&body);
+    tracing::info!("Google Chat raw payload ({} bytes): {}...", body.len(), &raw_str[..raw_str.len().min(300)]);
 
-    // Parse body manually for resilience — log raw payload on failure
-    let event: GoogleChatEvent = match serde_json::from_slice(&body) {
-        Ok(e) => e,
+    // Parse as generic JSON first to handle both Add-on and legacy formats
+    let raw_json: serde_json::Value = match serde_json::from_slice(&body) {
+        Ok(v) => v,
         Err(err) => {
-            let raw = String::from_utf8_lossy(&body);
-            tracing::warn!("Failed to parse Chat event: {}. Raw: {}", err, &raw[..raw.len().min(500)]);
-            return Json(serde_json::json!({
-                "hostAppDataAction": {
-                    "chatDataAction": {
-                        "createMessageAction": {
-                            "message": {
-                                "text": "Pi Brain received your message but couldn't parse it. Try: help"
-                            }
-                        }
-                    }
-                }
-            }));
+            tracing::warn!("Failed to parse Chat JSON: {}. Raw: {}...", err, &raw_str[..raw_str.len().min(300)]);
+            return Json(chat_card("Error", "Failed to parse request", vec![
+                chat_text_section("Pi Brain received your message but couldn't parse it. Try: help")
+            ]));
         }
     };
 
-    let event_type = event.event_type.as_deref().unwrap_or("MESSAGE");
-    let user_name = event.user.as_ref()
-        .and_then(|u| u.display_name.as_deref())
-        .unwrap_or("Explorer");
-    let space_name = event.space.as_ref()
-        .and_then(|s| s.display_name.as_deref())
-        .unwrap_or("Direct");
+    // Add-ons format: event is under "chat" key with "messagePayload"
+    // Legacy format: event is at top level with "type" and "message"
+    let (event_type, user_name, space_name, raw_text) = if let Some(chat) = raw_json.get("chat") {
+        // Add-on format: { "chat": { "messagePayload": { "message": {...} }, "user": {...} } }
+        tracing::info!("Google Chat: Add-on format detected (has 'chat' key)");
+        let msg_payload = chat.get("messagePayload");
+        let message = msg_payload.and_then(|mp| mp.get("message"));
+
+        let event_type = if msg_payload.is_some() {
+            "MESSAGE"
+        } else if chat.get("addedToSpacePayload").is_some() {
+            "ADDED_TO_SPACE"
+        } else if chat.get("removedFromSpacePayload").is_some() {
+            "REMOVED_FROM_SPACE"
+        } else if chat.get("appCommandPayload").is_some() {
+            "APP_COMMAND"
+        } else {
+            "UNKNOWN"
+        };
+
+        // Extract user name from various locations
+        let user_name = chat.get("user")
+            .and_then(|u| u.get("displayName"))
+            .and_then(|n| n.as_str())
+            .or_else(|| message.and_then(|m| m.get("sender"))
+                .and_then(|s| s.get("displayName"))
+                .and_then(|n| n.as_str()))
+            .unwrap_or("Explorer");
+
+        let space_name = msg_payload
+            .and_then(|mp| mp.get("space"))
+            .and_then(|s| s.get("displayName"))
+            .and_then(|n| n.as_str())
+            .unwrap_or("Direct");
+
+        // Extract message text
+        let text = message
+            .and_then(|m| m.get("argumentText").and_then(|t| t.as_str())
+                .or_else(|| m.get("text").and_then(|t| t.as_str())))
+            .unwrap_or("");
+
+        // Handle slash commands from appCommandPayload
+        let text = if event_type == "APP_COMMAND" {
+            let cmd_id = chat.get("appCommandPayload")
+                .and_then(|p| p.get("appCommandMetadata"))
+                .and_then(|m| m.get("appCommandId"))
+                .and_then(|id| id.as_str())
+                .unwrap_or("");
+            match cmd_id {
+                "1" => "search",
+                "2" => "status",
+                "3" => "drift",
+                "4" => "recent",
+                "5" => "help",
+                _ => text,
+            }
+        } else {
+            text
+        };
+
+        (event_type.to_string(), user_name.to_string(), space_name.to_string(), text.to_string())
+    } else {
+        // Legacy Chat API format: { "type": "MESSAGE", "message": {...}, "user": {...} }
+        tracing::info!("Google Chat: Legacy format detected (no 'chat' key)");
+        let event: GoogleChatEvent = match serde_json::from_value(raw_json) {
+            Ok(e) => e,
+            Err(err) => {
+                tracing::warn!("Failed to parse legacy Chat event: {}", err);
+                return Json(chat_card("Error", "Parse failed", vec![
+                    chat_text_section("Pi Brain couldn't parse your message. Try: help")
+                ]));
+            }
+        };
+
+        let event_type = event.event_type.unwrap_or_else(|| "MESSAGE".to_string());
+        let user_name = event.user.as_ref()
+            .and_then(|u| u.display_name.as_deref())
+            .unwrap_or("Explorer").to_string();
+        let space_name = event.space.as_ref()
+            .and_then(|s| s.display_name.as_deref())
+            .unwrap_or("Direct").to_string();
+        let text = event.message.as_ref()
+            .and_then(|m| m.argument_text.as_deref().or(m.text.as_deref()))
+            .unwrap_or("").to_string();
+
+        (event_type, user_name, space_name, text)
+    };
+
+    let user_name = user_name.as_str();
+    let space_name = space_name.as_str();
 
     tracing::info!("Google Chat event: type={}, user={}, space={}", event_type, user_name, space_name);
 
@@ -6189,12 +6270,7 @@ async fn google_chat_handler(
         return Json(serde_json::json!({}));
     }
 
-    // Handle MESSAGE
-    let raw_text = event.message.as_ref()
-        .and_then(|m| m.argument_text.as_deref().or(m.text.as_deref()))
-        .unwrap_or("")
-        .trim();
-
+    // Handle MESSAGE — raw_text was already extracted above from either format
     // Strip bot mention prefix if present
     let text = raw_text.trim_start_matches("@Pi Brain").trim_start_matches("@pi").trim();
 
