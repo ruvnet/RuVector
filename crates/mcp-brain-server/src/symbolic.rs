@@ -423,10 +423,9 @@ impl NeuralSymbolicBridge {
                 let sim = cosine_similarity(c1, c2);
                 let cross_domain = cat1 != cat2;
 
-                // Skip weak signals — raised from 0.3 to 0.45 to eliminate
-                // the flood of "weak co-occurrence" noise in gist publications.
-                // At 0.3, nearly every category pair generates a proposition.
-                if sim < 0.45 {
+                // Skip weak signals — raised to 0.55 to eliminate noise.
+                // Only extract propositions for genuinely similar cross-domain clusters.
+                if sim < 0.55 {
                     continue;
                 }
 

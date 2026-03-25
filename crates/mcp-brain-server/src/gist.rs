@@ -15,23 +15,26 @@ use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 
 // ── Novelty thresholds ──
-// Tuned aggressively: only publish genuinely novel, high-confidence findings.
-// Previous thresholds (2/100/0.008) allowed floods of "weak co-occurrence" noise.
-// These gates should yield ~1 gist per day at most when substantive new data arrives.
-/// Minimum new inferences: must derive non-trivial forward-chained claims
-const MIN_NEW_INFERENCES: usize = 5;
-/// Minimum evidence observations — need enough data for statistical significance
-const MIN_EVIDENCE: usize = 500;
-/// Minimum strange loop quality score — higher = more self-aware reasoning
-const MIN_STRANGE_LOOP_SCORE: f32 = 0.05;
+// VERY aggressive: only publish when something genuinely new is discovered.
+// With ~3100 memories and 2.8M edges, the bar must be HIGH to avoid noise.
+// Target: ~1 gist per WEEK, only for real innovations.
+/// Minimum new inferences: must derive many non-trivial forward-chained claims
+const MIN_NEW_INFERENCES: usize = 10;
+/// Minimum evidence observations — need substantial data
+const MIN_EVIDENCE: usize = 1000;
+/// Minimum strange loop quality score — high bar for self-aware reasoning
+const MIN_STRANGE_LOOP_SCORE: f32 = 0.1;
 /// Minimum propositions extracted in this cycle
-const MIN_PROPOSITIONS: usize = 10;
-/// Minimum SONA patterns — 0 means SONA isn't required (it needs trajectory data)
-const MIN_SONA_PATTERNS: usize = 0;
-/// Minimum Pareto front growth — evolution must have found new solutions
-const MIN_PARETO_GROWTH: usize = 2;
+const MIN_PROPOSITIONS: usize = 20;
+/// Minimum SONA patterns — require at least some SONA learning
+const MIN_SONA_PATTERNS: usize = 1;
+/// Minimum Pareto front growth — evolution must find multiple new solutions
+const MIN_PARETO_GROWTH: usize = 3;
 /// Minimum confidence for ANY inference to be included in a discovery
-const MIN_INFERENCE_CONFIDENCE: f64 = 0.60;
+const MIN_INFERENCE_CONFIDENCE: f64 = 0.70;
+/// Minimum number of UNIQUE categories across strong propositions
+/// (prevents "debug-architecture-geopolitics" recycling)
+const MIN_UNIQUE_CATEGORIES: usize = 4;
 
 /// A discovery worthy of publishing.
 ///
@@ -80,18 +83,31 @@ impl Discovery {
     /// Filter out weak/generic inferences, keeping only substantive ones.
     /// Returns the strong inferences that survive the quality gate.
     pub fn strong_inferences(&self) -> Vec<&str> {
+        // Known boring patterns that should never be published
+        let boring_patterns = [
+            "shows weak co-occurrence",
+            "may be associated with",
+            "co-occurs with",
+            "is_type_of",
+            "similar_to",
+        ];
+
         self.inferences.iter()
             .filter(|inf| {
-                // Reject generic "weak co-occurrence" noise
                 let lower = inf.to_lowercase();
-                if lower.contains("shows weak co-occurrence") {
-                    return false;
+
+                // Reject ALL known boring patterns
+                for pattern in &boring_patterns {
+                    if lower.contains(pattern) { return false; }
                 }
-                // Reject inferences with generic cluster IDs as subjects
-                if lower.starts_with("cluster_") {
-                    return false;
-                }
-                // Require minimum confidence (parse from explanation string)
+
+                // Reject inferences with generic cluster IDs
+                if lower.starts_with("cluster_") { return false; }
+
+                // Reject short/generic inferences
+                if inf.len() < 50 { return false; }
+
+                // Require HIGH confidence (parse from explanation string)
                 if let Some(pct_start) = lower.find("confidence: ") {
                     let rest = &lower[pct_start + 12..];
                     if let Some(pct_end) = rest.find('%') {
@@ -100,38 +116,58 @@ impl Discovery {
                         }
                     }
                 }
-                // If we can't parse confidence, keep it only if it has substance
-                !lower.contains("weak") && inf.len() > 30
+
+                // Must not contain "weak" anywhere
+                !lower.contains("weak")
             })
             .map(|s| s.as_str())
             .collect()
     }
 
-    /// Filter propositions to only those with confidence >= threshold.
+    /// Filter propositions to only high-confidence, non-generic ones.
     pub fn strong_propositions(&self) -> Vec<&(String, String, String, f64)> {
         self.propositions.iter()
             .filter(|(subj, pred, _obj, conf)| {
                 // Skip generic cluster labels
                 if subj.starts_with("cluster_") { return false; }
-                // Skip "co_occurs_with" at low confidence
-                if pred == "co_occurs_with" && *conf < 0.55 { return false; }
+                // Skip ALL co_occurs_with — these are never interesting
+                if pred == "co_occurs_with" { return false; }
+                // Skip similar_to within same domain — too obvious
+                if pred == "similar_to" { return false; }
+                // Only keep high-confidence cross-domain findings
                 *conf >= MIN_INFERENCE_CONFIDENCE
             })
             .collect()
     }
 
+    /// Count unique categories across strong propositions.
+    fn category_diversity(&self) -> usize {
+        let mut cats = std::collections::HashSet::new();
+        for (subj, _, obj, conf) in &self.propositions {
+            if *conf >= MIN_INFERENCE_CONFIDENCE && !subj.starts_with("cluster_") {
+                cats.insert(subj.as_str());
+                cats.insert(obj.as_str());
+            }
+        }
+        cats.len()
+    }
+
     /// Check if this discovery meets the novelty bar for publishing.
+    /// This is intentionally VERY strict — we want ~1 gist per week.
     pub fn is_publishable(&self) -> bool {
         let strong = self.strong_inferences();
         let strong_props = self.strong_propositions();
+        let diversity = self.category_diversity();
 
         self.new_inferences >= MIN_NEW_INFERENCES
             && self.evidence_count >= MIN_EVIDENCE
             && self.strange_loop_score >= MIN_STRANGE_LOOP_SCORE
             && self.propositions_extracted >= MIN_PROPOSITIONS
+            && self.sona_patterns >= MIN_SONA_PATTERNS
             && self.pareto_growth >= MIN_PARETO_GROWTH
-            && strong.len() >= 2  // Must have at least 2 non-trivial inferences
-            && strong_props.len() >= 3  // Must have at least 3 substantive propositions
+            && strong.len() >= 3      // Must have at least 3 non-trivial inferences
+            && strong_props.len() >= 5 // Must have at least 5 substantive propositions
+            && diversity >= MIN_UNIQUE_CATEGORIES // Must span multiple domains
     }
 
     /// Explain why a discovery was or wasn't published.
@@ -192,7 +228,7 @@ impl GistPublisher {
         Some(Self {
             token,
             last_publish: Mutex::new(None),
-            min_interval: Duration::from_secs(86400), // 24 hour minimum between gists
+            min_interval: Duration::from_secs(259200), // 3 day minimum between gists
             published_count: Mutex::new(0),
             published_titles: Mutex::new(Vec::new()),
         })
