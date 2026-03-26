@@ -49,6 +49,7 @@
 pub mod compress;
 pub mod error;
 pub mod ewc;
+pub mod graphmae;
 pub mod layer;
 pub mod query;
 pub mod replay;
@@ -67,6 +68,10 @@ pub mod cold_tier;
 pub use compress::{CompressedTensor, CompressionLevel, TensorCompress};
 pub use error::{GnnError, Result};
 pub use ewc::ElasticWeightConsolidation;
+pub use graphmae::{
+    sce_loss, mse_loss, FeatureMasking, GATEncoder, GraphData, GraphMAE, GraphMAEConfig,
+    GraphMAEDecoder, LossFn, MaskResult,
+};
 pub use layer::RuvectorLayer;
 pub use query::{QueryMode, QueryResult, RuvectorQuery, SubGraph};
 pub use replay::{DistributionStats, ReplayBuffer, ReplayEntry};
