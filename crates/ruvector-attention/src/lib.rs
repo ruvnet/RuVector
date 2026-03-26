@@ -68,6 +68,7 @@ pub mod unified_report;
 pub mod sheaf;
 
 // Re-export main types
+pub use attention::{MLACache, MLAConfig, MLALayer, MemoryComparison};
 pub use attention::{MultiHeadAttention, ScaledDotProductAttention};
 pub use config::{AttentionConfig, GraphAttentionConfig, SparseAttentionConfig};
 pub use error::{AttentionError, AttentionResult};

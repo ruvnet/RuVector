@@ -76,8 +76,9 @@ pub mod advanced;
 // Re-exports
 pub use advanced_features::{
     ConformalConfig, ConformalPredictor, EnhancedPQ, FilterExpression, FilterStrategy,
-    FilteredSearch, HybridConfig, HybridSearch, MMRConfig, MMRSearch, PQConfig, PredictionSet,
-    BM25,
+    FilteredSearch, FusionConfig, FusionStrategy, HybridConfig, HybridSearch, MMRConfig,
+    MMRSearch, PQConfig, PredictionSet, ScoredDoc, SparseIndex, SparseVector, BM25,
+    fuse_rankings,
 };
 
 #[cfg(feature = "storage")]
