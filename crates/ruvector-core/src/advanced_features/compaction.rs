@@ -109,7 +109,7 @@ impl MemTable {
             self.entries.get(&id).map(|e| SearchResult { id: e.id.clone(), score: s,
                 vector: e.vector.clone(), metadata: e.metadata.clone() })
         }).collect();
-        r.sort_by(|a, b| a.score.partial_cmp(&b.score).unwrap()); r
+        r.sort_by(|a, b| a.score.partial_cmp(&b.score).unwrap_or(std::cmp::Ordering::Equal)); r
     }
 
     /// Flush to an immutable segment, clearing the memtable.
@@ -151,7 +151,7 @@ impl Segment {
             let e = &self.entries[i];
             SearchResult { id: e.id.clone(), score: s, vector: e.vector.clone(), metadata: e.metadata.clone() }
         }).collect();
-        r.sort_by(|a, b| a.score.partial_cmp(&b.score).unwrap()); r
+        r.sort_by(|a, b| a.score.partial_cmp(&b.score).unwrap_or(std::cmp::Ordering::Equal)); r
     }
 
     /// K-way merge deduplicating by id (highest seq wins). Drops tombstones.
@@ -243,7 +243,7 @@ impl LSMIndex {
                 }
             }
         }
-        all.sort_by(|a, b| a.score.partial_cmp(&b.score).unwrap());
+        all.sort_by(|a, b| a.score.partial_cmp(&b.score).unwrap_or(std::cmp::Ordering::Equal));
         all.truncate(top_k); all
     }
 

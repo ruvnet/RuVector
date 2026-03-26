@@ -158,7 +158,12 @@ pub fn quantize_asymmetric(tensor: &[f32], num_heads: usize, bits: u8) -> Quanti
 /// Symmetric quantization (simpler, useful for comparison).
 ///
 /// `value = scale * quantized` with zero-point fixed at the midpoint.
+///
+/// # Panics
+///
+/// Panics if `bits` is less than 2 or greater than 8.
 pub fn quantize_symmetric(tensor: &[f32], bits: u8) -> (Vec<u8>, f32) {
+    assert!(bits >= 2 && bits <= 8, "quantize_symmetric: bits must be in [2, 8], got {}", bits);
     let qmax = ((1u32 << (bits - 1)) - 1) as f32;
     let abs_max = tensor.iter().copied().map(f32::abs).fold(0.0_f32, f32::max);
     let scale = if abs_max < f32::EPSILON { 1.0 } else { abs_max / qmax };

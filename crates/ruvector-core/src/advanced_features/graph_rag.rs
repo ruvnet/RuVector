@@ -266,7 +266,7 @@ impl CommunityDetection {
                         }
                     }
                     if let Some((&best_label, _)) =
-                        votes.iter().max_by(|a, b| a.1.partial_cmp(b.1).unwrap())
+                        votes.iter().max_by(|a, b| a.1.partial_cmp(b.1).unwrap_or(std::cmp::Ordering::Equal))
                     {
                         let current = labels[id];
                         if best_label != current {
