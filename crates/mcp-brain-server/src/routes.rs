@@ -6683,17 +6683,12 @@ async fn reclassify_memories(
     let prompt = format!(
 r#"You are categorizing memories for the π Brain knowledge system.
 
-Available categories (pick the MOST SPECIFIC one that fits):
+Available categories (output EXACTLY one of these values — no prefixes, no groups):
 
-RESEARCH: sota, discovery, hypothesis, cross_domain
-AI/ML: neural_architecture, compression, self_learning, reinforcement_learning, graph_intelligence
-SYSTEMS: distributed_systems, edge_computing, hardware_acceleration, architecture
-FRONTIER: quantum, neuromorphic, bio_computing, cognitive_science, formal_methods
-APPLIED: geopolitics, climate, biomedical, space, finance
-ENGINEERING: security, performance, pattern, solution, convention, tooling, debug
-META: meta_cognition, benchmark
+sota, discovery, hypothesis, cross_domain, neural_architecture, compression, self_learning, reinforcement_learning, graph_intelligence, distributed_systems, edge_computing, hardware_acceleration, architecture, quantum, neuromorphic, bio_computing, cognitive_science, formal_methods, geopolitics, climate, biomedical, space, finance, security, performance, pattern, solution, convention, tooling, debug, meta_cognition, benchmark
 
 Rules:
+- Output ONLY the category value (e.g. "biomedical" not "applied: biomedical")
 - Choose the MOST SPECIFIC category, not generic ones like "solution" or "pattern"
 - If about a paper or SOTA result → sota
 - If about a novel method → discovery
