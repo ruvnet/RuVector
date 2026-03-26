@@ -93,6 +93,42 @@ pub enum BrainCategory {
     /// Finance, trading, risk modeling
     Finance,
 
+    // ── Robotics & Embodied AI ──
+    /// Robotics, manipulation, locomotion, sensor fusion
+    Robotics,
+    /// Autonomous vehicles, drones, navigation
+    Autonomous,
+
+    // ── Data & Knowledge ──
+    /// Natural language processing, LLMs, text generation
+    NaturalLanguage,
+    /// Computer vision, image recognition, video understanding
+    ComputerVision,
+    /// Knowledge graphs, ontologies, semantic web
+    KnowledgeRepresentation,
+    /// Data pipelines, ETL, streaming, real-time processing
+    DataEngineering,
+
+    // ── Cryptography & Privacy ──
+    /// Cryptography, zero-knowledge proofs, homomorphic encryption
+    Cryptography,
+    /// Privacy, differential privacy, federated learning
+    Privacy,
+
+    // ── Mathematics & Physics ──
+    /// Mathematics, optimization, numerical methods
+    Mathematics,
+    /// Physics, simulation, computational science
+    Physics,
+
+    // ── Human & Social ──
+    /// Education, pedagogy, learning science
+    Education,
+    /// Ethics, AI safety, alignment
+    AiSafety,
+    /// Open source, community, collaboration
+    OpenSource,
+
     // ── Meta ──
     /// Knowledge about knowledge — epistemology, meta-learning
     MetaCognition,
@@ -135,6 +171,19 @@ impl std::fmt::Display for BrainCategory {
             Self::Biomedical => write!(f, "biomedical"),
             Self::Space => write!(f, "space"),
             Self::Finance => write!(f, "finance"),
+            Self::Robotics => write!(f, "robotics"),
+            Self::Autonomous => write!(f, "autonomous"),
+            Self::NaturalLanguage => write!(f, "natural_language"),
+            Self::ComputerVision => write!(f, "computer_vision"),
+            Self::KnowledgeRepresentation => write!(f, "knowledge_representation"),
+            Self::DataEngineering => write!(f, "data_engineering"),
+            Self::Cryptography => write!(f, "cryptography"),
+            Self::Privacy => write!(f, "privacy"),
+            Self::Mathematics => write!(f, "mathematics"),
+            Self::Physics => write!(f, "physics"),
+            Self::Education => write!(f, "education"),
+            Self::AiSafety => write!(f, "ai_safety"),
+            Self::OpenSource => write!(f, "open_source"),
             Self::MetaCognition => write!(f, "meta_cognition"),
             Self::Benchmark => write!(f, "benchmark"),
             Self::Custom(s) => write!(f, "{s}"),

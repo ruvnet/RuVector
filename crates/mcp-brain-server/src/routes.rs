@@ -6685,7 +6685,7 @@ r#"You are categorizing memories for the π Brain knowledge system.
 
 Available categories (output EXACTLY one of these values — no prefixes, no groups):
 
-sota, discovery, hypothesis, cross_domain, neural_architecture, compression, self_learning, reinforcement_learning, graph_intelligence, distributed_systems, edge_computing, hardware_acceleration, architecture, quantum, neuromorphic, bio_computing, cognitive_science, formal_methods, geopolitics, climate, biomedical, space, finance, security, performance, pattern, solution, convention, tooling, debug, meta_cognition, benchmark
+sota, discovery, hypothesis, cross_domain, neural_architecture, compression, self_learning, reinforcement_learning, graph_intelligence, distributed_systems, edge_computing, hardware_acceleration, architecture, quantum, neuromorphic, bio_computing, cognitive_science, formal_methods, geopolitics, climate, biomedical, space, finance, security, performance, robotics, autonomous, natural_language, computer_vision, knowledge_representation, data_engineering, cryptography, privacy, mathematics, physics, education, ai_safety, open_source, meta_cognition, benchmark, pattern, solution, convention, tooling, debug
 
 Rules:
 - Output ONLY the category value (e.g. "biomedical" not "applied: biomedical")
