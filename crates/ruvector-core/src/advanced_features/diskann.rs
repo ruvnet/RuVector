@@ -1,29 +1,20 @@
 //! DiskANN / Vamana SSD-Backed Approximate Nearest Neighbor Index
 //!
 //! Implements the Vamana graph index from the DiskANN paper (Subramanya et al., 2019).
-//! The core idea is a navigable graph where each node connects to R neighbors chosen
-//! via **alpha-RNG pruning**—a relaxed variant of the Relative Neighborhood Graph that
-//! balances proximity and angular diversity.
+//! Each node connects to R neighbors chosen via **alpha-RNG pruning** -- a relaxed
+//! Relative Neighborhood Graph balancing proximity and angular diversity.
 //!
-//! # Why DiskANN achieves 95%+ recall at sub-10ms latency
+//! # Why DiskANN achieves 95%+ recall at sub-10ms
 //!
-//! 1. **Vamana graph structure**: The alpha parameter (typically 1.2) controls how
-//!    aggressively long-range edges are retained. Values > 1.0 keep shortcuts that
-//!    let greedy search traverse the graph in O(log n) hops.
-//! 2. **SSD-friendly layout**: Each node's vector + neighbor list is packed into
-//!    aligned disk pages, so a single read fetches everything needed to evaluate
-//!    and expand a node.
-//! 3. **Beam search with page cache**: Hot pages stay in an LRU cache, reducing
-//!    SSD reads to only cold nodes. Typical workloads see 80-95% cache hit rates.
-//! 4. **Filtered search during traversal**: Predicates are evaluated as the graph
-//!    is explored, pruning ineligible branches early instead of post-filtering.
+//! - **Vamana graph**: alpha > 1.0 retains long-range shortcuts for O(log n) hops.
+//! - **SSD layout**: node vector + neighbors packed in aligned pages; one read per hop.
+//! - **Page cache**: LRU cache keeps hot pages in memory (80-95% hit rates typical).
+//! - **Filtered traversal**: predicates evaluated during search, not post-filter.
 //!
 //! # Alpha-RNG Pruning
 //!
-//! Given a candidate neighbor set for node p, the robust prune procedure greedily
-//! selects neighbors: a candidate c is kept only if for every already-selected
-//! neighbor n, `dist(p, c) <= alpha * dist(n, c)`. This ensures angular diversity—
-//! neighbors are spread around p rather than clustered in one direction.
+//! A candidate c is kept only if for every already-selected neighbor n,
+//! `dist(p, c) <= alpha * dist(n, c)`, ensuring angular diversity.
 
 use crate::error::{Result, RuvectorError};
 use serde::{Deserialize, Serialize};
@@ -33,28 +24,21 @@ use std::cmp::Reverse;
 /// Configuration for the Vamana graph index.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VamanaConfig {
-    /// Maximum out-degree per node (R in the paper). Typical values: 32-64.
+    /// Maximum out-degree per node (R). Typical: 32-64.
     pub max_degree: usize,
-    /// Search list size (L). Larger values improve recall at the cost of latency.
+    /// Search list size (L). Larger = better recall, slower search.
     pub search_list_size: usize,
-    /// Pruning parameter. Values > 1.0 retain long-range edges for faster traversal.
-    /// Typical value: 1.2.
+    /// Pruning parameter (>= 1.0). Typical: 1.2.
     pub alpha: f32,
-    /// Number of threads for parallel graph construction (unused in this impl).
+    /// Thread count for build (reserved for future parallel builds).
     pub num_build_threads: usize,
-    /// Page size for SSD-aligned layout in bytes. Default: 4096.
+    /// Page size for SSD-aligned layout in bytes.
     pub ssd_page_size: usize,
 }
 
 impl Default for VamanaConfig {
     fn default() -> Self {
-        Self {
-            max_degree: 32,
-            search_list_size: 64,
-            alpha: 1.2,
-            num_build_threads: 1,
-            ssd_page_size: 4096,
-        }
+        Self { max_degree: 32, search_list_size: 64, alpha: 1.2, num_build_threads: 1, ssd_page_size: 4096 }
     }
 }
 
@@ -62,19 +46,13 @@ impl VamanaConfig {
     /// Validate configuration parameters.
     pub fn validate(&self) -> Result<()> {
         if self.max_degree == 0 {
-            return Err(RuvectorError::InvalidParameter(
-                "max_degree must be > 0".into(),
-            ));
+            return Err(RuvectorError::InvalidParameter("max_degree must be > 0".into()));
         }
         if self.search_list_size < 1 {
-            return Err(RuvectorError::InvalidParameter(
-                "search_list_size must be >= 1".into(),
-            ));
+            return Err(RuvectorError::InvalidParameter("search_list_size must be >= 1".into()));
         }
         if self.alpha < 1.0 {
-            return Err(RuvectorError::InvalidParameter(
-                "alpha must be >= 1.0".into(),
-            ));
+            return Err(RuvectorError::InvalidParameter("alpha must be >= 1.0".into()));
         }
         Ok(())
     }
@@ -83,274 +61,172 @@ impl VamanaConfig {
 /// In-memory Vamana graph for building and searching.
 #[derive(Debug, Clone)]
 pub struct VamanaGraph {
-    /// Adjacency lists: `neighbors[i]` holds the neighbor IDs of node i.
+    /// Adjacency lists per node.
     pub neighbors: Vec<Vec<u32>>,
-    /// All vectors, row-major: `vectors[i]` is the embedding for node i.
+    /// Vectors, row-major.
     pub vectors: Vec<Vec<f32>>,
-    /// Index of the medoid (entry point).
+    /// Medoid (entry point) index.
     pub medoid: u32,
-    /// Build configuration.
+    /// Build config.
     pub config: VamanaConfig,
 }
 
 impl VamanaGraph {
-    /// Build a Vamana graph over the given vectors.
-    ///
-    /// The algorithm:
-    /// 1. Find the geometric medoid as the entry point.
-    /// 2. Initialize each node with random neighbors.
-    /// 3. For each node, run greedy search to find its natural neighbors,
-    ///    then apply robust pruning to select up to R diverse neighbors.
+    /// Build a Vamana graph: find medoid, init neighbors, then refine via greedy search + robust prune.
     pub fn build(vectors: Vec<Vec<f32>>, config: VamanaConfig) -> Result<Self> {
         config.validate()?;
         let n = vectors.len();
         if n == 0 {
-            return Ok(Self {
-                neighbors: vec![],
-                vectors: vec![],
-                medoid: 0,
-                config,
-            });
+            return Ok(Self { neighbors: vec![], vectors: vec![], medoid: 0, config });
         }
         let dim = vectors[0].len();
-        for v in vectors.iter() {
+        for v in &vectors {
             if v.len() != dim {
-                return Err(RuvectorError::DimensionMismatch {
-                    expected: dim,
-                    actual: v.len(),
-                });
+                return Err(RuvectorError::DimensionMismatch { expected: dim, actual: v.len() });
             }
         }
-
         let medoid = MedoidFinder::find_medoid(&vectors);
-        let mut graph = Self {
-            neighbors: vec![vec![]; n],
-            vectors,
-            medoid,
-            config,
-        };
-
-        // Initialize with simple sequential neighbors (will be refined).
+        let mut graph = Self { neighbors: vec![vec![]; n], vectors, medoid, config };
+        // Initialize with sequential neighbors.
         for i in 0..n {
-            let mut init_neighbors = Vec::new();
+            let mut nb = Vec::new();
             for j in 0..n.min(graph.config.max_degree + 1) {
-                if j as u32 != i as u32 {
-                    init_neighbors.push(j as u32);
-                }
-                if init_neighbors.len() >= graph.config.max_degree {
-                    break;
-                }
+                if j != i { nb.push(j as u32); }
+                if nb.len() >= graph.config.max_degree { break; }
             }
-            graph.neighbors[i] = init_neighbors;
+            graph.neighbors[i] = nb;
         }
-
-        // Iterative refinement: for each node, search and prune.
+        // Refine: search, prune, add reverse edges.
         for i in 0..n {
             let query = graph.vectors[i].clone();
-            let (candidates, _) =
-                graph.greedy_search_internal(&query, graph.config.search_list_size);
-            let mut candidate_set: Vec<u32> = candidates
-                .into_iter()
-                .filter(|&c| c != i as u32)
-                .collect();
-            // Merge existing neighbors into candidates.
+            let (cands, _) = graph.greedy_search_internal(&query, graph.config.search_list_size);
+            let mut cset: Vec<u32> = cands.into_iter().filter(|&c| c != i as u32).collect();
             for &nb in &graph.neighbors[i] {
-                if !candidate_set.contains(&nb) {
-                    candidate_set.push(nb);
-                }
+                if !cset.contains(&nb) { cset.push(nb); }
             }
-            let pruned =
-                graph.robust_prune(i as u32, &candidate_set);
+            let pruned = graph.robust_prune(i as u32, &cset);
             graph.neighbors[i] = pruned.clone();
-
-            // Add reverse edges and prune if needed.
             for &nb in &pruned {
-                let nb_idx = nb as usize;
-                if !graph.neighbors[nb_idx].contains(&(i as u32)) {
-                    graph.neighbors[nb_idx].push(i as u32);
-                    if graph.neighbors[nb_idx].len() > graph.config.max_degree {
-                        let nb_neighbors = graph.neighbors[nb_idx].clone();
-                        graph.neighbors[nb_idx] =
-                            graph.robust_prune(nb, &nb_neighbors);
+                let ni = nb as usize;
+                if !graph.neighbors[ni].contains(&(i as u32)) {
+                    graph.neighbors[ni].push(i as u32);
+                    if graph.neighbors[ni].len() > graph.config.max_degree {
+                        let nbs = graph.neighbors[ni].clone();
+                        graph.neighbors[ni] = graph.robust_prune(nb, &nbs);
                     }
                 }
             }
         }
-
         Ok(graph)
     }
 
-    /// Greedy beam search from the medoid.
-    ///
-    /// Returns `(visited_in_order, distances)` for the `top_k` closest nodes.
+    /// Greedy beam search returning top_k (node_id, distance) pairs.
     pub fn search(&self, query: &[f32], top_k: usize) -> Vec<(u32, f32)> {
-        if self.vectors.is_empty() {
-            return vec![];
-        }
+        if self.vectors.is_empty() { return vec![]; }
         let beam = self.config.search_list_size.max(top_k);
-        let (candidates, dists) = self.greedy_search_internal(query, beam);
-        candidates
-            .into_iter()
-            .zip(dists)
-            .take(top_k)
-            .collect()
+        let (ids, dists) = self.greedy_search_internal(query, beam);
+        ids.into_iter().zip(dists).take(top_k).collect()
     }
 
-    /// Internal greedy search returning sorted candidates and distances.
     fn greedy_search_internal(&self, query: &[f32], list_size: usize) -> (Vec<u32>, Vec<f32>) {
         let mut visited = HashSet::new();
-        // Min-heap of (distance, node_id) for the search frontier.
         let mut frontier: BinaryHeap<Reverse<OrdF32Pair>> = BinaryHeap::new();
-        // Best results seen so far.
         let mut results: Vec<(f32, u32)> = Vec::new();
-
         let start = self.medoid;
-        let d = l2_distance(&self.vectors[start as usize], query);
+        let d = l2_sq(&self.vectors[start as usize], query);
         frontier.push(Reverse(OrdF32Pair(d, start)));
         visited.insert(start);
         results.push((d, start));
-
         while let Some(Reverse(OrdF32Pair(_, node))) = frontier.pop() {
             for &nb in &self.neighbors[node as usize] {
                 if visited.insert(nb) {
-                    let dist = l2_distance(&self.vectors[nb as usize], query);
+                    let dist = l2_sq(&self.vectors[nb as usize], query);
                     results.push((dist, nb));
                     frontier.push(Reverse(OrdF32Pair(dist, nb)));
                 }
             }
-            // Keep results bounded.
             if results.len() > list_size * 2 {
                 results.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
                 results.truncate(list_size);
             }
         }
-
         results.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
         results.truncate(list_size);
-        let ids: Vec<u32> = results.iter().map(|r| r.1).collect();
-        let dists: Vec<f32> = results.iter().map(|r| r.0).collect();
-        (ids, dists)
+        (results.iter().map(|r| r.1).collect(), results.iter().map(|r| r.0).collect())
     }
 
-    /// Robust pruning (alpha-RNG rule).
-    ///
-    /// From a candidate set, greedily picks neighbors for `node_id` such that
-    /// each selected candidate c satisfies: for every already-selected neighbor n,
-    /// `dist(node, c) <= alpha * dist(n, c)`. This promotes angular diversity.
+    /// Robust prune: greedily select diverse neighbors via the alpha-RNG rule.
     fn robust_prune(&self, node_id: u32, candidates: &[u32]) -> Vec<u32> {
-        let node_vec = &self.vectors[node_id as usize];
-        let mut scored: Vec<(f32, u32)> = candidates
-            .iter()
+        let nv = &self.vectors[node_id as usize];
+        let mut scored: Vec<(f32, u32)> = candidates.iter()
             .filter(|&&c| c != node_id)
-            .map(|&c| (l2_distance(node_vec, &self.vectors[c as usize]), c))
+            .map(|&c| (l2_sq(nv, &self.vectors[c as usize]), c))
             .collect();
         scored.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
-
-        let mut selected: Vec<u32> = Vec::new();
-        for (dist_to_node, cand) in scored {
-            if selected.len() >= self.config.max_degree {
-                break;
-            }
-            let cand_vec = &self.vectors[cand as usize];
-            let keep = selected.iter().all(|&s| {
-                let dist_s_c = l2_distance(&self.vectors[s as usize], cand_vec);
-                dist_to_node <= self.config.alpha * dist_s_c
-            });
-            if keep {
-                selected.push(cand);
+        let mut sel: Vec<u32> = Vec::new();
+        for (d2n, cand) in scored {
+            if sel.len() >= self.config.max_degree { break; }
+            let cv = &self.vectors[cand as usize];
+            if sel.iter().all(|&s| d2n <= self.config.alpha * l2_sq(&self.vectors[s as usize], cv)) {
+                sel.push(cand);
             }
         }
-        selected
+        sel
     }
 }
 
-/// A node stored in the SSD-backed disk layout.
+/// A node stored in SSD-backed layout: id + neighbors + vector in one page.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DiskNode {
-    /// Node identifier.
     pub node_id: u32,
-    /// Neighbor list.
     pub neighbors: Vec<u32>,
-    /// The node's vector.
     pub vector: Vec<f32>,
 }
 
 /// IO statistics for disk-based search.
 #[derive(Debug, Clone, Default)]
 pub struct IOStats {
-    /// Number of page-aligned reads performed.
     pub pages_read: usize,
-    /// Total bytes read from disk.
     pub bytes_read: usize,
-    /// Number of reads served from the page cache.
     pub cache_hits: usize,
 }
 
-/// Simulated SSD-backed disk index. Stores nodes in page-aligned slots and
-/// provides beam search with IO accounting.
+/// Simulated SSD-backed index with page-aligned reads and LRU cache.
 #[derive(Debug)]
 pub struct DiskIndex {
-    /// All nodes, indexed by node_id.
     nodes: Vec<DiskNode>,
-    /// Page size in bytes.
     page_size: usize,
-    /// Medoid entry point.
     medoid: u32,
-    /// LRU page cache.
     cache: PageCache,
 }
 
 impl DiskIndex {
-    /// Create a DiskIndex from a built VamanaGraph.
+    /// Create from a built VamanaGraph.
     pub fn from_graph(graph: &VamanaGraph, cache_size_pages: usize) -> Self {
-        let nodes: Vec<DiskNode> = (0..graph.vectors.len())
-            .map(|i| DiskNode {
-                node_id: i as u32,
-                neighbors: graph.neighbors[i].clone(),
-                vector: graph.vectors[i].clone(),
-            })
-            .collect();
-        Self {
-            nodes,
-            page_size: graph.config.ssd_page_size,
-            medoid: graph.medoid,
-            cache: PageCache::new(cache_size_pages),
-        }
+        let nodes = (0..graph.vectors.len()).map(|i| DiskNode {
+            node_id: i as u32, neighbors: graph.neighbors[i].clone(), vector: graph.vectors[i].clone(),
+        }).collect();
+        Self { nodes, page_size: graph.config.ssd_page_size, medoid: graph.medoid, cache: PageCache::new(cache_size_pages) }
     }
 
-    /// Beam search on the disk index, tracking IO statistics.
-    ///
-    /// Each node access simulates a page-aligned SSD read unless the page is
-    /// cached.
-    pub fn search_disk(
-        &mut self,
-        query: &[f32],
-        top_k: usize,
-        beam_width: usize,
-    ) -> (Vec<(u32, f32)>, IOStats) {
+    /// Beam search with IO accounting.
+    pub fn search_disk(&mut self, query: &[f32], top_k: usize, beam_width: usize) -> (Vec<(u32, f32)>, IOStats) {
         let mut stats = IOStats::default();
-        if self.nodes.is_empty() {
-            return (vec![], stats);
-        }
-
+        if self.nodes.is_empty() { return (vec![], stats); }
         let mut visited = HashSet::new();
         let mut frontier: BinaryHeap<Reverse<OrdF32Pair>> = BinaryHeap::new();
         let mut results: Vec<(f32, u32)> = Vec::new();
-
         let start = self.medoid;
-        let node = self.read_node(start, &mut stats);
-        let d = l2_distance(&node.vector, query);
+        let d = l2_sq(&self.read_node(start, &mut stats).vector.clone(), query);
         frontier.push(Reverse(OrdF32Pair(d, start)));
         visited.insert(start);
         results.push((d, start));
-
-        while let Some(Reverse(OrdF32Pair(_, current))) = frontier.pop() {
-            let node = self.read_node(current, &mut stats);
-            let nb_list = node.neighbors.clone();
-            for nb in nb_list {
+        while let Some(Reverse(OrdF32Pair(_, cur))) = frontier.pop() {
+            let nbs = self.read_node(cur, &mut stats).neighbors.clone();
+            for nb in nbs {
                 if visited.insert(nb) {
-                    let nb_node = self.read_node(nb, &mut stats);
-                    let dist = l2_distance(&nb_node.vector, query);
+                    let v = self.read_node(nb, &mut stats).vector.clone();
+                    let dist = l2_sq(&v, query);
                     results.push((dist, nb));
                     frontier.push(Reverse(OrdF32Pair(dist, nb)));
                 }
@@ -360,206 +236,119 @@ impl DiskIndex {
                 results.truncate(beam_width);
             }
         }
-
         results.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
         results.truncate(top_k);
-        let output = results.iter().map(|r| (r.1, r.0)).collect();
-        (output, stats)
+        (results.iter().map(|r| (r.1, r.0)).collect(), stats)
     }
 
-    /// Simulate reading a node from disk, using the page cache.
     fn read_node(&mut self, node_id: u32, stats: &mut IOStats) -> &DiskNode {
-        let page_id = node_id as usize; // One node per page (simplified).
-        if self.cache.get(page_id) {
-            stats.cache_hits += 1;
-        } else {
-            stats.pages_read += 1;
-            stats.bytes_read += self.page_size;
-            self.cache.insert(page_id);
-        }
+        let page_id = node_id as usize;
+        if self.cache.get(page_id) { stats.cache_hits += 1; }
+        else { stats.pages_read += 1; stats.bytes_read += self.page_size; self.cache.insert(page_id); }
         &self.nodes[node_id as usize]
     }
 
-    /// Search with a filter predicate applied during graph traversal.
-    ///
-    /// Unlike post-filtering, this evaluates the predicate as nodes are visited,
-    /// so ineligible nodes still expand the search frontier but are excluded
-    /// from results. This preserves graph connectivity while filtering.
-    pub fn search_with_filter<F>(
-        &mut self,
-        query: &[f32],
-        filter_fn: F,
-        top_k: usize,
-    ) -> Vec<(u32, f32)>
-    where
-        F: Fn(u32) -> bool,
-    {
-        if self.nodes.is_empty() {
-            return vec![];
-        }
+    /// Filtered search: predicates evaluated during traversal (not post-filter).
+    /// Ineligible nodes still expand the frontier to preserve graph connectivity.
+    pub fn search_with_filter<F>(&mut self, query: &[f32], filter_fn: F, top_k: usize) -> Vec<(u32, f32)>
+    where F: Fn(u32) -> bool {
+        if self.nodes.is_empty() { return vec![]; }
         let mut visited = HashSet::new();
         let mut frontier: BinaryHeap<Reverse<OrdF32Pair>> = BinaryHeap::new();
         let mut results: Vec<(f32, u32)> = Vec::new();
-        let mut dummy_stats = IOStats::default();
-
+        let mut io = IOStats::default();
         let start = self.medoid;
-        let node = self.read_node(start, &mut dummy_stats);
-        let d = l2_distance(&node.vector, query);
+        let d = l2_sq(&self.read_node(start, &mut io).vector.clone(), query);
         frontier.push(Reverse(OrdF32Pair(d, start)));
         visited.insert(start);
-        if filter_fn(start) {
-            results.push((d, start));
-        }
-
-        while let Some(Reverse(OrdF32Pair(_, current))) = frontier.pop() {
-            let node = self.read_node(current, &mut dummy_stats);
-            let nb_list = node.neighbors.clone();
-            for nb in nb_list {
+        if filter_fn(start) { results.push((d, start)); }
+        while let Some(Reverse(OrdF32Pair(_, cur))) = frontier.pop() {
+            let nbs = self.read_node(cur, &mut io).neighbors.clone();
+            for nb in nbs {
                 if visited.insert(nb) {
-                    let nb_node = self.read_node(nb, &mut dummy_stats);
-                    let dist = l2_distance(&nb_node.vector, query);
-                    // Always expand the frontier (preserves connectivity).
+                    let v = self.read_node(nb, &mut io).vector.clone();
+                    let dist = l2_sq(&v, query);
                     frontier.push(Reverse(OrdF32Pair(dist, nb)));
-                    // Only add to results if filter passes.
-                    if filter_fn(nb) {
-                        results.push((dist, nb));
-                    }
+                    if filter_fn(nb) { results.push((dist, nb)); }
                 }
             }
         }
-
         results.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
         results.truncate(top_k);
         results.iter().map(|r| (r.1, r.0)).collect()
     }
 }
 
-/// LRU page cache for the disk index.
-///
-/// Uses a simple ordered map to track access recency. Pages are evicted in
-/// least-recently-used order when the cache exceeds its capacity.
+/// LRU page cache tracking access recency via a clock counter.
 #[derive(Debug)]
 pub struct PageCache {
-    /// Maximum number of pages to cache.
     capacity: usize,
-    /// Access order counter.
     clock: u64,
-    /// page_id -> last access time.
     entries: HashMap<usize, u64>,
-    /// Total hits and accesses for hit rate tracking.
     total_hits: u64,
     total_accesses: u64,
 }
 
 impl PageCache {
-    /// Create a new page cache with the given capacity.
     pub fn new(capacity: usize) -> Self {
-        Self {
-            capacity,
-            clock: 0,
-            entries: HashMap::new(),
-            total_hits: 0,
-            total_accesses: 0,
-        }
+        Self { capacity, clock: 0, entries: HashMap::new(), total_hits: 0, total_accesses: 0 }
     }
 
-    /// Check if a page is cached, updating recency on hit.
+    /// Returns true on cache hit, updating recency.
     pub fn get(&mut self, page_id: usize) -> bool {
         self.total_accesses += 1;
         self.clock += 1;
         if let Some(ts) = self.entries.get_mut(&page_id) {
-            *ts = self.clock;
-            self.total_hits += 1;
-            true
-        } else {
-            false
-        }
+            *ts = self.clock; self.total_hits += 1; true
+        } else { false }
     }
 
-    /// Insert a page, evicting the LRU entry if at capacity.
+    /// Insert a page, evicting LRU if at capacity.
     pub fn insert(&mut self, page_id: usize) {
-        if self.capacity == 0 {
-            return;
-        }
+        if self.capacity == 0 { return; }
         if self.entries.len() >= self.capacity {
-            // Evict LRU.
-            let lru = self
-                .entries
-                .iter()
-                .min_by_key(|&(_, ts)| *ts)
-                .map(|(&k, _)| k);
-            if let Some(k) = lru {
-                self.entries.remove(&k);
-            }
+            let lru = self.entries.iter().min_by_key(|&(_, ts)| *ts).map(|(&k, _)| k);
+            if let Some(k) = lru { self.entries.remove(&k); }
         }
         self.clock += 1;
         self.entries.insert(page_id, self.clock);
     }
 
-    /// Return the cache hit rate as a fraction in [0.0, 1.0].
+    /// Cache hit rate in [0.0, 1.0].
     pub fn cache_hit_rate(&self) -> f64 {
-        if self.total_accesses == 0 {
-            0.0
-        } else {
-            self.total_hits as f64 / self.total_accesses as f64
-        }
+        if self.total_accesses == 0 { 0.0 } else { self.total_hits as f64 / self.total_accesses as f64 }
     }
 }
 
-/// Utility to find the geometric medoid of a dataset.
+/// Finds the geometric medoid (point minimising sum of distances to all others).
 pub struct MedoidFinder;
 
 impl MedoidFinder {
-    /// Find the medoid—the point with the minimum sum of distances to all others.
-    ///
-    /// This is the natural entry point for the Vamana graph because it
-    /// minimises the expected number of hops to any target.
     pub fn find_medoid(vectors: &[Vec<f32>]) -> u32 {
-        if vectors.is_empty() {
-            return 0;
-        }
-        let n = vectors.len();
-        let mut best_idx = 0u32;
-        let mut best_sum = f32::MAX;
-        for i in 0..n {
-            let sum: f32 = (0..n)
-                .map(|j| l2_distance(&vectors[i], &vectors[j]))
-                .sum();
-            if sum < best_sum {
-                best_sum = sum;
-                best_idx = i as u32;
-            }
+        if vectors.is_empty() { return 0; }
+        let (mut best_idx, mut best_sum) = (0u32, f32::MAX);
+        for i in 0..vectors.len() {
+            let sum: f32 = (0..vectors.len()).map(|j| l2_sq(&vectors[i], &vectors[j])).sum();
+            if sum < best_sum { best_sum = sum; best_idx = i as u32; }
         }
         best_idx
     }
 }
 
-/// L2 (Euclidean) squared distance between two vectors.
-fn l2_distance(a: &[f32], b: &[f32]) -> f32 {
-    a.iter()
-        .zip(b.iter())
-        .map(|(x, y)| (x - y) * (x - y))
-        .sum()
+/// L2 squared distance.
+fn l2_sq(a: &[f32], b: &[f32]) -> f32 {
+    a.iter().zip(b).map(|(x, y)| (x - y) * (x - y)).sum()
 }
 
-/// Helper for ordering f32 values in BinaryHeap.
 #[derive(Debug, Clone, PartialEq)]
 struct OrdF32Pair(f32, u32);
-
 impl Eq for OrdF32Pair {}
-
 impl PartialOrd for OrdF32Pair {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(other))
-    }
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> { Some(self.cmp(other)) }
 }
-
 impl Ord for OrdF32Pair {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.0
-            .partial_cmp(&other.0)
-            .unwrap_or(std::cmp::Ordering::Equal)
-            .then(self.1.cmp(&other.1))
+        self.0.partial_cmp(&other.0).unwrap_or(std::cmp::Ordering::Equal).then(self.1.cmp(&other.1))
     }
 }
 
@@ -567,167 +356,122 @@ impl Ord for OrdF32Pair {
 mod tests {
     use super::*;
 
-    fn make_vectors(n: usize, dim: usize) -> Vec<Vec<f32>> {
-        (0..n)
-            .map(|i| (0..dim).map(|d| (i * dim + d) as f32).collect())
-            .collect()
+    fn make_vecs(n: usize, dim: usize) -> Vec<Vec<f32>> {
+        (0..n).map(|i| (0..dim).map(|d| (i * dim + d) as f32).collect()).collect()
+    }
+    fn default_cfg(r: usize, l: usize) -> VamanaConfig {
+        VamanaConfig { max_degree: r, search_list_size: l, ..Default::default() }
     }
 
     #[test]
-    fn test_build_graph_basic() {
-        let vecs = make_vectors(10, 4);
-        let cfg = VamanaConfig { max_degree: 4, search_list_size: 8, ..Default::default() };
-        let graph = VamanaGraph::build(vecs.clone(), cfg).unwrap();
-        assert_eq!(graph.vectors.len(), 10);
-        assert_eq!(graph.neighbors.len(), 10);
-        for nb in &graph.neighbors {
-            assert!(nb.len() <= 4);
-        }
+    fn build_graph_basic() {
+        let g = VamanaGraph::build(make_vecs(10, 4), default_cfg(4, 8)).unwrap();
+        assert_eq!(g.vectors.len(), 10);
+        for nb in &g.neighbors { assert!(nb.len() <= 4); }
     }
 
     #[test]
-    fn test_search_accuracy() {
-        let mut vecs = make_vectors(20, 4);
-        // Insert a known nearest neighbor at index 20.
-        let query = vec![0.0, 0.0, 0.0, 0.0];
-        vecs.push(vec![0.1, 0.1, 0.1, 0.1]); // very close to query
-        let cfg = VamanaConfig { max_degree: 8, search_list_size: 30, ..Default::default() };
-        let graph = VamanaGraph::build(vecs, cfg).unwrap();
-        let results = graph.search(&query, 3);
-        assert!(!results.is_empty());
-        // The closest vector (index 20 = [0.1,0.1,0.1,0.1]) should be in top results.
-        assert!(results.iter().any(|&(id, _)| id == 20));
+    fn search_accuracy() {
+        let mut v = make_vecs(20, 4);
+        v.push(vec![0.1, 0.1, 0.1, 0.1]);
+        let g = VamanaGraph::build(v, default_cfg(8, 30)).unwrap();
+        let r = g.search(&[0.0; 4], 3);
+        assert!(r.iter().any(|&(id, _)| id == 20));
     }
 
     #[test]
-    fn test_robust_pruning_limits_degree() {
-        let vecs = make_vectors(50, 4);
-        let cfg = VamanaConfig { max_degree: 5, search_list_size: 16, ..Default::default() };
-        let graph = VamanaGraph::build(vecs, cfg).unwrap();
-        for nb in &graph.neighbors {
-            assert!(nb.len() <= 5, "degree {} exceeds max 5", nb.len());
-        }
+    fn robust_pruning_limits_degree() {
+        let g = VamanaGraph::build(make_vecs(50, 4), default_cfg(5, 16)).unwrap();
+        for nb in &g.neighbors { assert!(nb.len() <= 5); }
     }
 
     #[test]
-    fn test_disk_layout_roundtrip() {
-        let vecs = make_vectors(10, 4);
-        let cfg = VamanaConfig::default();
-        let graph = VamanaGraph::build(vecs.clone(), cfg).unwrap();
-        let disk = DiskIndex::from_graph(&graph, 16);
+    fn disk_layout_roundtrip() {
+        let v = make_vecs(10, 4);
+        let g = VamanaGraph::build(v.clone(), VamanaConfig::default()).unwrap();
+        let d = DiskIndex::from_graph(&g, 16);
         for i in 0..10 {
-            assert_eq!(disk.nodes[i].node_id, i as u32);
-            assert_eq!(disk.nodes[i].vector, vecs[i]);
-            assert_eq!(disk.nodes[i].neighbors, graph.neighbors[i]);
+            assert_eq!(d.nodes[i].node_id, i as u32);
+            assert_eq!(d.nodes[i].vector, v[i]);
+            assert_eq!(d.nodes[i].neighbors, g.neighbors[i]);
         }
     }
 
     #[test]
-    fn test_page_cache_hits_and_misses() {
-        let mut cache = PageCache::new(2);
-        assert!(!cache.get(0)); // miss
-        cache.insert(0);
-        assert!(cache.get(0)); // hit
-        cache.insert(1);
-        cache.insert(2); // evicts page 0 (LRU)
-        assert!(!cache.get(0)); // miss after eviction
-        assert!(cache.get(1)); // still cached
+    fn page_cache_hits_and_misses() {
+        let mut c = PageCache::new(2);
+        assert!(!c.get(0));
+        c.insert(0);
+        assert!(c.get(0));
+        c.insert(1);
+        c.insert(2); // evicts 0
+        assert!(!c.get(0));
+        assert!(c.get(1));
     }
 
     #[test]
-    fn test_cache_hit_rate() {
-        let mut cache = PageCache::new(4);
-        cache.insert(0);
-        cache.insert(1);
-        assert!(cache.get(0)); // hit
-        assert!(cache.get(1)); // hit
-        assert!(!cache.get(2)); // miss
-        // 2 hits out of 3 accesses
-        let rate = cache.cache_hit_rate();
-        assert!((rate - 2.0 / 3.0).abs() < 1e-6);
+    fn cache_hit_rate() {
+        let mut c = PageCache::new(4);
+        c.insert(0); c.insert(1);
+        assert!(c.get(0)); assert!(c.get(1)); assert!(!c.get(2));
+        assert!((c.cache_hit_rate() - 2.0 / 3.0).abs() < 1e-6);
     }
 
     #[test]
-    fn test_filtered_search() {
-        let mut vecs = make_vectors(15, 4);
-        vecs.push(vec![0.1, 0.1, 0.1, 0.1]);
-        let cfg = VamanaConfig { max_degree: 8, search_list_size: 20, ..Default::default() };
-        let graph = VamanaGraph::build(vecs, cfg).unwrap();
-        let mut disk = DiskIndex::from_graph(&graph, 32);
-        // Filter: only even node IDs.
-        let results = disk.search_with_filter(&[0.0, 0.0, 0.0, 0.0], |id| id % 2 == 0, 5);
-        for &(id, _) in &results {
-            assert_eq!(id % 2, 0, "filtered result {} is odd", id);
-        }
+    fn filtered_search() {
+        let mut v = make_vecs(15, 4);
+        v.push(vec![0.1; 4]);
+        let g = VamanaGraph::build(v, default_cfg(8, 20)).unwrap();
+        let mut d = DiskIndex::from_graph(&g, 32);
+        let r = d.search_with_filter(&[0.0; 4], |id| id % 2 == 0, 5);
+        for &(id, _) in &r { assert_eq!(id % 2, 0); }
     }
 
     #[test]
-    fn test_medoid_selection() {
-        let vecs = vec![
-            vec![0.0, 0.0],
-            vec![1.0, 0.0],
-            vec![0.0, 1.0],
-            vec![0.5, 0.5], // closest to center
-        ];
-        let medoid = MedoidFinder::find_medoid(&vecs);
-        assert_eq!(medoid, 3, "medoid should be the most central point");
+    fn medoid_selection() {
+        let v = vec![vec![0.0, 0.0], vec![1.0, 0.0], vec![0.0, 1.0], vec![0.5, 0.5]];
+        assert_eq!(MedoidFinder::find_medoid(&v), 3);
     }
 
     #[test]
-    fn test_empty_dataset() {
-        let cfg = VamanaConfig::default();
-        let graph = VamanaGraph::build(vec![], cfg).unwrap();
-        assert!(graph.vectors.is_empty());
-        assert!(graph.neighbors.is_empty());
-        let results = graph.search(&[1.0, 2.0], 5);
-        assert!(results.is_empty());
+    fn empty_dataset() {
+        let g = VamanaGraph::build(vec![], VamanaConfig::default()).unwrap();
+        assert!(g.vectors.is_empty());
+        assert!(g.search(&[1.0, 2.0], 5).is_empty());
     }
 
     #[test]
-    fn test_single_vector() {
-        let vecs = vec![vec![1.0, 2.0, 3.0]];
-        let cfg = VamanaConfig::default();
-        let graph = VamanaGraph::build(vecs, cfg).unwrap();
-        assert_eq!(graph.vectors.len(), 1);
-        assert!(graph.neighbors[0].is_empty());
-        let results = graph.search(&[1.0, 2.0, 3.0], 1);
-        assert_eq!(results.len(), 1);
-        assert_eq!(results[0].0, 0);
+    fn single_vector() {
+        let g = VamanaGraph::build(vec![vec![1.0, 2.0, 3.0]], VamanaConfig::default()).unwrap();
+        assert!(g.neighbors[0].is_empty());
+        let r = g.search(&[1.0, 2.0, 3.0], 1);
+        assert_eq!(r.len(), 1);
+        assert_eq!(r[0].0, 0);
     }
 
     #[test]
-    fn test_io_stats_tracking() {
-        let vecs = make_vectors(10, 4);
-        let cfg = VamanaConfig { max_degree: 4, search_list_size: 10, ..Default::default() };
-        let graph = VamanaGraph::build(vecs, cfg).unwrap();
-        let mut disk = DiskIndex::from_graph(&graph, 2); // tiny cache
-        let (_, stats) = disk.search_disk(&[0.0, 0.0, 0.0, 0.0], 3, 10);
-        assert!(stats.pages_read > 0, "should have read pages from disk");
-        assert_eq!(stats.bytes_read, stats.pages_read * 4096);
+    fn io_stats_tracking() {
+        let g = VamanaGraph::build(make_vecs(10, 4), default_cfg(4, 10)).unwrap();
+        let mut d = DiskIndex::from_graph(&g, 2);
+        let (_, s) = d.search_disk(&[0.0; 4], 3, 10);
+        assert!(s.pages_read > 0);
+        assert_eq!(s.bytes_read, s.pages_read * 4096);
     }
 
     #[test]
-    fn test_disk_search_returns_results() {
-        let vecs = make_vectors(20, 4);
-        let cfg = VamanaConfig { max_degree: 8, search_list_size: 20, ..Default::default() };
-        let graph = VamanaGraph::build(vecs, cfg).unwrap();
-        let mut disk = DiskIndex::from_graph(&graph, 32);
-        let (results, stats) = disk.search_disk(&[0.0; 4], 5, 20);
-        assert_eq!(results.len(), 5);
-        // Results should be sorted by distance.
-        for w in results.windows(2) {
-            assert!(w[0].1 <= w[1].1, "results not sorted by distance");
-        }
-        assert!(stats.pages_read + stats.cache_hits > 0);
+    fn disk_search_sorted_results() {
+        let g = VamanaGraph::build(make_vecs(20, 4), default_cfg(8, 20)).unwrap();
+        let mut d = DiskIndex::from_graph(&g, 32);
+        let (r, s) = d.search_disk(&[0.0; 4], 5, 20);
+        assert_eq!(r.len(), 5);
+        for w in r.windows(2) { assert!(w[0].1 <= w[1].1); }
+        assert!(s.pages_read + s.cache_hits > 0);
     }
 
     #[test]
-    fn test_config_validation() {
-        let bad = VamanaConfig { max_degree: 0, ..Default::default() };
-        assert!(bad.validate().is_err());
-        let bad_alpha = VamanaConfig { alpha: 0.5, ..Default::default() };
-        assert!(bad_alpha.validate().is_err());
-        let good = VamanaConfig::default();
-        assert!(good.validate().is_ok());
+    fn config_validation() {
+        assert!(VamanaConfig { max_degree: 0, ..Default::default() }.validate().is_err());
+        assert!(VamanaConfig { alpha: 0.5, ..Default::default() }.validate().is_err());
+        assert!(VamanaConfig::default().validate().is_ok());
     }
 }

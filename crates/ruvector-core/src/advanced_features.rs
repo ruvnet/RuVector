@@ -10,6 +10,7 @@
 //! - Matryoshka Representation Learning (adaptive-dimension search)
 //! - Optimized Product Quantization (OPQ) with learned rotation matrix
 
+pub mod compaction;
 pub mod conformal_prediction;
 pub mod diskann;
 pub mod filtered_search;
@@ -43,4 +44,7 @@ pub use sparse_vector::{
 };
 pub use diskann::{
     DiskIndex, DiskNode, IOStats, MedoidFinder, PageCache, VamanaConfig, VamanaGraph,
+};
+pub use compaction::{
+    BloomFilter, CompactionConfig, LSMIndex, LSMStats, MemTable, Segment,
 };
