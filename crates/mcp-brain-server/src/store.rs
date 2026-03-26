@@ -930,6 +930,21 @@ impl FirestoreClient {
         }
     }
 
+    /// Update a memory's category and persist to Firestore.
+    pub async fn update_category(&self, id: &Uuid, category: BrainCategory) -> bool {
+        if let Some(mut entry) = self.memories.get_mut(id) {
+            entry.category = category;
+            entry.updated_at = chrono::Utc::now();
+            // Persist to Firestore
+            if let Ok(body) = serde_json::to_value(entry.value()) {
+                self.firestore_put("brain_memories", &id.to_string(), &body).await;
+            }
+            true
+        } else {
+            false
+        }
+    }
+
     /// Get the reputation score for a contributor, if known
     pub fn get_contributor_reputation(&self, pseudonym: &str) -> Option<ReputationScore> {
         self.contributors.get(pseudonym).map(|c| c.reputation.clone())

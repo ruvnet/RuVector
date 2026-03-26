@@ -363,6 +363,8 @@ pub async fn create_router() -> (Router, AppState) {
         // ── Gist Publisher ──
         .route("/v1/gist/preview", post(gist_preview))
         .route("/v1/gist/publish", post(gist_publish))
+        // ── Category Reclassification ──
+        .route("/v1/reclassify", post(reclassify_memories))
         // ── Google Chat Bot (ADR-126) ──
         .route("/v1/chat/google", post(google_chat_handler))
         .layer({
@@ -6614,6 +6616,202 @@ You are chatting with {user} in Google Chat. Your role:
     };
 
     Ok(truncated)
+}
+
+// ── Memory Reclassification Handler ──────────────────────────────────
+
+#[derive(Debug, serde::Deserialize)]
+struct ReclassifyRequest {
+    /// Max memories to reclassify per call (default 50, max 200)
+    #[serde(default = "default_reclassify_batch")]
+    batch_size: usize,
+    /// Only reclassify memories currently in these categories
+    #[serde(default)]
+    from_categories: Vec<String>,
+}
+
+fn default_reclassify_batch() -> usize { 50 }
+
+/// POST /v1/reclassify — Use Gemini to reclassify memories into the expanded 35 categories.
+///
+/// Processes a batch of memories that are currently in generic categories
+/// (solution, pattern, debug, etc.) and assigns more specific categories
+/// based on their title, content, and tags.
+async fn reclassify_memories(
+    State(state): State<AppState>,
+    Json(req): Json<ReclassifyRequest>,
+) -> Json<serde_json::Value> {
+    let api_key = match std::env::var("GEMINI_API_KEY") {
+        Ok(k) => k,
+        Err(_) => return Json(serde_json::json!({"error": "GEMINI_API_KEY not set"})),
+    };
+    let model = std::env::var("GEMINI_CHAT_MODEL")
+        .unwrap_or_else(|_| "gemini-2.5-flash".to_string());
+
+    let batch_size = req.batch_size.min(200);
+
+    // Get memories in generic categories that need reclassification
+    let generic_cats: Vec<&str> = if req.from_categories.is_empty() {
+        vec!["solution", "pattern", "debug", "tooling", "convention"]
+    } else {
+        req.from_categories.iter().map(|s| s.as_str()).collect()
+    };
+
+    let all = state.store.all_memories();
+    let candidates: Vec<_> = all.iter()
+        .filter(|m| generic_cats.contains(&m.category.to_string().as_str()))
+        .take(batch_size)
+        .collect();
+
+    if candidates.is_empty() {
+        return Json(serde_json::json!({
+            "reclassified": 0,
+            "message": "No memories found in generic categories to reclassify"
+        }));
+    }
+
+    tracing::info!("Reclassifying {} memories via Gemini", candidates.len());
+
+    // Build a batch prompt for Gemini
+    let memory_descriptions: Vec<String> = candidates.iter().enumerate().map(|(i, m)| {
+        let content_preview = if m.content.len() > 200 { &m.content[..200] } else { &m.content };
+        let tags = m.tags.iter().take(5).map(|t| t.as_str()).collect::<Vec<_>>().join(", ");
+        format!("{}. [id: {}] [current: {}] [tags: {}]\n   Title: {}\n   Content: {}",
+            i + 1, m.id, m.category, tags, m.title, content_preview)
+    }).collect();
+
+    let prompt = format!(
+r#"You are categorizing memories for the π Brain knowledge system.
+
+Available categories (pick the MOST SPECIFIC one that fits):
+
+RESEARCH: sota, discovery, hypothesis, cross_domain
+AI/ML: neural_architecture, compression, self_learning, reinforcement_learning, graph_intelligence
+SYSTEMS: distributed_systems, edge_computing, hardware_acceleration, architecture
+FRONTIER: quantum, neuromorphic, bio_computing, cognitive_science, formal_methods
+APPLIED: geopolitics, climate, biomedical, space, finance
+ENGINEERING: security, performance, pattern, solution, convention, tooling, debug
+META: meta_cognition, benchmark
+
+Rules:
+- Choose the MOST SPECIFIC category, not generic ones like "solution" or "pattern"
+- If about a paper or SOTA result → sota
+- If about a novel method → discovery
+- If about neural nets/transformers/LLMs → neural_architecture
+- If about quantization/compression → compression
+- If about SONA/online learning → self_learning
+- If about graphs/GNN/mincut → graph_intelligence
+- If about WASM/edge/mobile → edge_computing
+- If about security/crypto → security
+- Only use "solution"/"pattern" if nothing more specific fits
+
+For each memory, output ONLY: id|new_category
+One per line, no other text.
+
+Memories to classify:
+
+{memories}"#,
+        memories = memory_descriptions.join("\n\n")
+    );
+
+    let url = format!(
+        "https://generativelanguage.googleapis.com/v1beta/models/{}:generateContent?key={}",
+        model, api_key
+    );
+
+    let body = serde_json::json!({
+        "contents": [{"role": "user", "parts": [{"text": prompt}]}],
+        "generationConfig": {"maxOutputTokens": 4096, "temperature": 0.1}
+    });
+
+    let client = reqwest::Client::new();
+    let resp = match client.post(&url)
+        .header("content-type", "application/json")
+        .json(&body)
+        .timeout(std::time::Duration::from_secs(60))
+        .send().await
+    {
+        Ok(r) => r,
+        Err(e) => return Json(serde_json::json!({"error": format!("Gemini request failed: {}", e)})),
+    };
+
+    if !resp.status().is_success() {
+        let status = resp.status();
+        return Json(serde_json::json!({"error": format!("Gemini API {}", status)}));
+    }
+
+    let json: serde_json::Value = match resp.json().await {
+        Ok(j) => j,
+        Err(e) => return Json(serde_json::json!({"error": format!("Gemini parse error: {}", e)})),
+    };
+
+    let text = json.get("candidates")
+        .and_then(|c| c.get(0))
+        .and_then(|c| c.get("content"))
+        .and_then(|c| c.get("parts"))
+        .and_then(|p| p.get(0))
+        .and_then(|p| p.get("text"))
+        .and_then(|t| t.as_str())
+        .unwrap_or("");
+
+    // Parse Gemini response: "uuid|category" per line
+    let mut reclassified = 0u32;
+    let mut unchanged = 0u32;
+    let mut errors = Vec::new();
+    let mut changes = Vec::new();
+
+    for line in text.lines() {
+        let line = line.trim();
+        if line.is_empty() || !line.contains('|') { continue; }
+
+        let parts: Vec<&str> = line.splitn(2, '|').collect();
+        if parts.len() != 2 { continue; }
+
+        let id_str = parts[0].trim();
+        let new_cat_str = parts[1].trim().to_lowercase();
+
+        let id = match Uuid::parse_str(id_str) {
+            Ok(id) => id,
+            Err(_) => { errors.push(format!("Bad UUID: {}", id_str)); continue; }
+        };
+
+        // Parse category string into BrainCategory
+        let new_cat: crate::types::BrainCategory = match serde_json::from_value(
+            serde_json::Value::String(new_cat_str.clone())
+        ) {
+            Ok(c) => c,
+            Err(_) => crate::types::BrainCategory::Custom(new_cat_str.clone()),
+        };
+
+        // Check if it actually changed
+        if let Some(mem) = state.store.all_memories().iter().find(|m| m.id == id) {
+            if mem.category.to_string() == new_cat.to_string() {
+                unchanged += 1;
+                continue;
+            }
+        }
+
+        if state.store.update_category(&id, new_cat.clone()).await {
+            changes.push(serde_json::json!({
+                "id": id.to_string(),
+                "new_category": new_cat.to_string(),
+            }));
+            reclassified += 1;
+        } else {
+            errors.push(format!("Memory not found: {}", id));
+        }
+    }
+
+    tracing::info!("Reclassification complete: {} changed, {} unchanged, {} errors",
+        reclassified, unchanged, errors.len());
+
+    Json(serde_json::json!({
+        "reclassified": reclassified,
+        "unchanged": unchanged,
+        "errors": errors.len(),
+        "error_details": errors,
+        "changes": changes,
+    }))
 }
 
 // ── Inbound Email Webhook Handler (ADR-125) ─────────────────────────
