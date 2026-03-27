@@ -144,13 +144,11 @@ program
     try {
       const dimension = parseInt(options.dimension);
       const db = new VectorDB({
-        dimension,
+        dimensions: dimension,
         metric: options.metric,
-        path: dbPath,
-        autoPersist: true
+        storagePath: dbPath,
       });
 
-      db.save(dbPath);
       spinner.succeed(chalk.green(`Database created: ${dbPath}`));
       console.log(chalk.gray(`  Dimension: ${dimension}`));
       console.log(chalk.gray(`  Metric: ${options.metric}`));
@@ -322,7 +320,7 @@ program
     let spinner = ora('Creating database...').start();
 
     try {
-      const db = new VectorDB({ dimension, metric: 'cosine' });
+      const db = new VectorDB({ dimensions: dimension, metric: 'cosine' });
       spinner.succeed();
 
       // Insert benchmark
@@ -366,10 +364,9 @@ program
       console.log(chalk.gray(`  Avg Latency: ${chalk.yellow(avgLatency)}ms`));
 
       // Stats
-      const stats = db.stats();
       console.log(chalk.cyan('\nFinal Stats:'));
-      console.log(chalk.white(`  Vector Count: ${chalk.yellow(stats.count)}`));
-      console.log(chalk.white(`  Dimension: ${chalk.yellow(stats.dimension)}`));
+      console.log(chalk.white(`  Vector Count: ${chalk.yellow(numVectors)}`));
+      console.log(chalk.white(`  Dimension: ${chalk.yellow(dimension)}`));
       console.log(chalk.white(`  Implementation: ${chalk.yellow(getImplementationType())}`));
 
     } catch (error) {
@@ -2537,7 +2534,7 @@ program
       const spinner = ora('Creating demo database...').start();
 
       try {
-        const db = new VectorDB({ dimension: 4, metric: 'cosine' });
+        const db = new VectorDB({ dimensions: 4, metric: 'cosine' });
 
         spinner.text = 'Inserting vectors...';
         db.insert('vec1', [1.0, 0.0, 0.0, 0.0], { label: 'x-axis' });

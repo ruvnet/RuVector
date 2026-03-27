@@ -45,6 +45,7 @@ User Query → [SONA Engine] → Model Response → User Feedback
 | [Hybrid search](./crates/ruvector-core) | 🔍 Sparse vectors + dense vectors with RRF fusion — 20-49% better retrieval | Keyword OR vector, not both |
 | [Graph RAG](./crates/ruvector-core) | 📊 Knowledge graph + community detection for multi-hop queries — 30-60% improvement | Naive chunk-based RAG |
 | [DiskANN](./crates/ruvector-core) | 💾 Billion-scale SSD-backed ANN with <10ms latency via Vamana graph | Memory-only indexes |
+| [TurboQuant](./crates/ruvllm) | ⚡ 2-4 bit KV-cache quantization — 6-8x memory savings with <0.5% quality loss | No quantization or 8-bit only |
 | [ColBERT multi-vector](./crates/ruvector-core) | 🎯 Per-token late interaction retrieval (MaxSim) for fine-grained matching | Single-vector only |
 | [Matryoshka embeddings](./crates/ruvector-core) | 🪆 Adaptive-dimension search — coarse-to-fine funnel for speed with minimal recall loss | Fixed dimensions only |
 | **Graph & Relationships** | | |
@@ -97,6 +98,7 @@ User Query → [SONA Engine] → Model Response → User Feedback
 | 8f | [**OPQ**](./crates/ruvector-core) | Optimized Product Quantization with learned rotation — 10-30% error reduction vs standard PQ |
 | 8g | [**LSM compaction**](./crates/ruvector-core) | Log-Structured Merge-tree for write-heavy vector workloads with bloom filters |
 | 8h | [**GraphMAE**](./crates/ruvector-gnn) | Graph Masked Autoencoder — self-supervised node representation learning with GAT encoder |
+| 8i | [**TurboQuant**](./crates/ruvllm) | 2-4 bit asymmetric KV-cache quantization — 6-8x memory reduction, <0.5% perplexity loss, H2O/PyramidKV eviction |
 
 **Distributed Systems**
 | # | Capability | What It Does |
