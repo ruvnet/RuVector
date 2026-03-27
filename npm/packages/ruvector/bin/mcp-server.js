@@ -3068,18 +3068,39 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       // ── rvlite Query Tool Handlers ──────────────────────────────────────
+      // Helper for ESM-only rvlite (v0.2.x exports ESM only)
+      async function getRvliteEngine() {
+        const rvlite = await import('rvlite/wasm');
+        // Load WASM binary synchronously for Node.js
+        const { readFileSync } = await import('fs');
+        const { createRequire } = await import('module');
+        const require = createRequire(import.meta.url || __filename);
+        let wasmPath;
+        try {
+          wasmPath = require.resolve('rvlite/dist/wasm/rvlite_bg.wasm');
+        } catch {
+          // Fallback: try common locations
+          const path = await import('path');
+          const wasmDir = path.join(require.resolve('rvlite'), '..', 'dist', 'wasm', 'rvlite_bg.wasm');
+          wasmPath = wasmDir;
+        }
+        const wasmBuffer = readFileSync(wasmPath);
+        rvlite.initSync(wasmBuffer);
+        return rvlite;
+      }
+
+      // Cache the engine to avoid re-initializing on every call
+      let rvliteEngineCache = null;
+      async function getRvliteEngineCached() {
+        if (!rvliteEngineCache) {
+          rvliteEngineCache = await getRvliteEngine();
+        }
+        return rvliteEngineCache;
+      }
+
       case 'rvlite_sql': {
         try {
-          let rvlite;
-          try {
-            rvlite = require('rvlite');
-          } catch (_e) {
-            return { content: [{ type: 'text', text: JSON.stringify({
-              success: false,
-              error: 'rvlite package not installed',
-              hint: 'Install with: npm install rvlite'
-            }, null, 2) }] };
-          }
+          const rvlite = await getRvliteEngineCached();
           const safeQuery = sanitizeShellArg(args.query);
           const dbOpts = args.db_path ? { path: validateRvfPath(args.db_path) } : {};
           const db = new rvlite.Database(dbOpts);
@@ -3091,25 +3112,18 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             row_count: Array.isArray(results) ? results.length : 0
           }, null, 2) }] };
         } catch (e) {
+          const isEsmError = e.message && (e.message.includes('ESM') || e.message.includes('import') || e.message.includes('require'));
           return { content: [{ type: 'text', text: JSON.stringify({
             success: false,
-            error: e.message
+            error: e.message,
+            hint: isEsmError ? 'rvlite v0.2.x is ESM-only. Use Node.js with --experimental-vm-modules or ES module context.' : 'Install with: npm install rvlite'
           }, null, 2) }], isError: true };
         }
       }
 
       case 'rvlite_cypher': {
         try {
-          let rvlite;
-          try {
-            rvlite = require('rvlite');
-          } catch (_e) {
-            return { content: [{ type: 'text', text: JSON.stringify({
-              success: false,
-              error: 'rvlite package not installed',
-              hint: 'Install with: npm install rvlite'
-            }, null, 2) }] };
-          }
+          const rvlite = await getRvliteEngineCached();
           const safeQuery = sanitizeShellArg(args.query);
           const dbOpts = args.db_path ? { path: validateRvfPath(args.db_path) } : {};
           const db = new rvlite.Database(dbOpts);
@@ -3121,25 +3135,18 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             row_count: Array.isArray(results) ? results.length : 0
           }, null, 2) }] };
         } catch (e) {
+          const isEsmError = e.message && (e.message.includes('ESM') || e.message.includes('import') || e.message.includes('require'));
           return { content: [{ type: 'text', text: JSON.stringify({
             success: false,
-            error: e.message
+            error: e.message,
+            hint: isEsmError ? 'rvlite v0.2.x is ESM-only. Use Node.js with --experimental-vm-modules or ES module context.' : 'Install with: npm install rvlite'
           }, null, 2) }], isError: true };
         }
       }
 
       case 'rvlite_sparql': {
         try {
-          let rvlite;
-          try {
-            rvlite = require('rvlite');
-          } catch (_e) {
-            return { content: [{ type: 'text', text: JSON.stringify({
-              success: false,
-              error: 'rvlite package not installed',
-              hint: 'Install with: npm install rvlite'
-            }, null, 2) }] };
-          }
+          const rvlite = await getRvliteEngineCached();
           const safeQuery = sanitizeShellArg(args.query);
           const dbOpts = args.db_path ? { path: validateRvfPath(args.db_path) } : {};
           const db = new rvlite.Database(dbOpts);
@@ -3151,9 +3158,11 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             row_count: Array.isArray(results) ? results.length : 0
           }, null, 2) }] };
         } catch (e) {
+          const isEsmError = e.message && (e.message.includes('ESM') || e.message.includes('import') || e.message.includes('require'));
           return { content: [{ type: 'text', text: JSON.stringify({
             success: false,
-            error: e.message
+            error: e.message,
+            hint: isEsmError ? 'rvlite v0.2.x is ESM-only. Use Node.js with --experimental-vm-modules or ES module context.' : 'Install with: npm install rvlite'
           }, null, 2) }], isError: true };
         }
       }
