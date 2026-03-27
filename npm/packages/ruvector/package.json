@@ -1,7 +1,7 @@
 {
   "name": "ruvector",
-  "version": "0.2.0",
-  "description": "High-performance vector database for Node.js with automatic native/WASM fallback",
+  "version": "0.2.19",
+  "description": "Self-learning vector database for Node.js — hybrid search, Graph RAG, FlashAttention-3, DiskANN, 50+ attention mechanisms",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
@@ -46,6 +46,12 @@
     "shared-intelligence",
     "mcp",
     "edge-computing",
+    "graph-rag",
+    "diskann",
+    "hybrid-search",
+    "colbert",
+    "turboquant",
+    "mamba",
     "pi-brain",
     "identity",
     "pi-key",
