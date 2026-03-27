@@ -127,7 +127,7 @@ export class SwarmManager extends EventEmitter {
   private async spawnInitialAgents(): Promise<void> {
     console.log('[SwarmManager] Spawning initial agents...');
 
-    const spawnPromises: Promise<void>[] = [];
+    const spawnPromises: Promise<string>[] = [];
 
     for (const region of this.config.regions) {
       for (let i = 0; i < this.config.minAgentsPerRegion; i++) {

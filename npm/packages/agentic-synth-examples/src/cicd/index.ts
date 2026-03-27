@@ -238,15 +238,16 @@ export class CICDDataGenerator extends EventEmitter {
 
       const pipelines: PipelineExecution[] = await Promise.all(
         result.data.map(async (event, index) => {
+          const pipelineNames = this.config.pipelineNames ?? ['default-pipeline'];
           const pipelineName = options.pipelineName ||
-            this.config.pipelineNames[index % this.config.pipelineNames.length];
+            pipelineNames[index % pipelineNames.length];
 
           const startTime = new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000);
           const duration = Math.floor(Math.random() * 600000) + 60000; // 1-10 minutes
           const endTime = new Date(startTime.getTime() + duration);
 
           // Determine status based on failure rate
-          const hasFailed = Math.random() < this.config.failureRate;
+          const hasFailed = Math.random() < (this.config.failureRate ?? 0.1);
           const status: PipelineStatus = hasFailed ? 'failed' : 'success';
 
           // Generate stages
@@ -295,7 +296,7 @@ export class CICDDataGenerator extends EventEmitter {
     this.emit('tests:generating', { pipelineId });
 
     const totalTests = Math.floor(Math.random() * 500) + 100;
-    const passRate = 1 - this.config.failureRate;
+    const passRate = 1 - (this.config.failureRate ?? 0.1);
     const passed = Math.floor(totalTests * passRate);
     const failed = Math.floor((totalTests - passed) * 0.8);
     const skipped = totalTests - passed - failed;
@@ -336,7 +337,7 @@ export class CICDDataGenerator extends EventEmitter {
     const duration = Math.floor(Math.random() * 180000) + 30000; // 30s - 3min
     const endTime = new Date(startTime.getTime() + duration);
 
-    const isSuccess = Math.random() > this.config.failureRate;
+    const isSuccess = Math.random() > (this.config.failureRate ?? 0.1);
 
     const deployment: DeploymentRecord = {
       id: this.generateId('deploy'),
@@ -415,7 +416,7 @@ export class CICDDataGenerator extends EventEmitter {
         source: 'pipeline-monitor',
         title: ['High CPU usage', 'Memory leak detected', 'Build timeout', 'Test failures'][Math.floor(Math.random() * 4)],
         message: 'Alert details and context',
-        environment: this.config.environments[Math.floor(Math.random() * this.config.environments.length)],
+        environment: (this.config.environments ?? ['production'])[Math.floor(Math.random() * (this.config.environments ?? ['production']).length)],
         resolved,
         resolvedAt: resolved ? new Date(timestamp.getTime() + Math.random() * 3600000) : undefined
       };

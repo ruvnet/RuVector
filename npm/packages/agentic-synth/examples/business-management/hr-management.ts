@@ -58,7 +58,7 @@ const employeeProfileSchema = {
   reportingStructure: { type: 'object', required: true, properties: {
     managerId: { type: 'string' },
     managerName: { type: 'string' },
-    dotted LineManagerId: { type: 'string' },
+    dottedLineManagerId: { type: 'string' },
     dottedLineManagerName: { type: 'string' },
     seniorManagerId: { type: 'string' },
     seniorManagerName: { type: 'string' }

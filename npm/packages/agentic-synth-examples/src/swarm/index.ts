@@ -178,7 +178,7 @@ export class SwarmCoordinator extends EventEmitter {
 
     const roles: AgentRole[] = ['generator', 'validator', 'optimizer', 'coordinator', 'learner'];
 
-    for (let i = 0; i < this.config.agentCount; i++) {
+    for (let i = 0; i < (this.config.agentCount ?? 5); i++) {
       const agent: Agent = {
         id: this.generateId('agent'),
         role: roles[i % roles.length],
@@ -280,7 +280,7 @@ export class SwarmCoordinator extends EventEmitter {
 
       this.emit('coordination:complete', {
         taskId: task.id,
-        duration: task.endTime.getTime() - task.startTime.getTime(),
+        duration: task.endTime!.getTime() - task.startTime!.getTime(),
         resultCount: result.data.length
       });
 
@@ -516,8 +516,9 @@ export class SwarmCoordinator extends EventEmitter {
       });
 
       // Trim short-term memory
-      if (agent.memory.shortTerm.length > this.config.memorySize) {
-        agent.memory.shortTerm = agent.memory.shortTerm.slice(-this.config.memorySize);
+      const memorySize = this.config.memorySize ?? 100;
+      if (agent.memory.shortTerm.length > memorySize) {
+        agent.memory.shortTerm = agent.memory.shortTerm.slice(-memorySize);
       }
     });
 

@@ -129,6 +129,29 @@ interface ComparisonReport {
   };
 }
 
+// API Response types
+interface OpenAIResponse {
+  usage?: {
+    prompt_tokens: number;
+    completion_tokens: number;
+  };
+  choices: {
+    message: {
+      content: string;
+    };
+  }[];
+}
+
+interface AnthropicResponse {
+  usage?: {
+    input_tokens: number;
+    output_tokens: number;
+  };
+  content: {
+    text: string;
+  }[];
+}
+
 // ============================================================================
 // Language Model Implementations
 // ============================================================================
@@ -168,7 +191,7 @@ class OpenAILM {
       throw new Error(`OpenAI API error: ${response.status} ${error}`);
     }
 
-    const data = await response.json();
+    const data = await response.json() as OpenAIResponse;
     this.inputTokens += data.usage?.prompt_tokens || 0;
     this.outputTokens += data.usage?.completion_tokens || 0;
 
@@ -221,7 +244,7 @@ class AnthropicLM {
       throw new Error(`Anthropic API error: ${response.status} ${error}`);
     }
 
-    const data = await response.json();
+    const data = await response.json() as AnthropicResponse;
     this.inputTokens += data.usage?.input_tokens || 0;
     this.outputTokens += data.usage?.output_tokens || 0;
 
@@ -281,7 +304,7 @@ class DataQualityModule extends PredictModule {
           { name: 'errors', type: 'string', description: 'Any validation errors' }
         ]
       },
-      promptTemplate: ({ data, schema }) => `
+      promptTemplate: ({ data, schema }: { data: string; schema: string }) => `
 Validate this synthetic data against the schema and provide quality metrics.
 
 Data: ${data}
@@ -475,7 +498,7 @@ export class MultiModelBenchmark {
     const trainset = this.generateTrainingSet(schema, 20);
 
     const optimizer = new BootstrapFewShot(
-      (input, output, expected) => {
+      (input: unknown, output: unknown, expected: unknown) => {
         if (!expected) return 0;
         return this.calculateQualityScore(output, expected);
       },
@@ -501,7 +524,7 @@ export class MultiModelBenchmark {
     const trainset = this.generateTrainingSet(schema, 20);
 
     const optimizer = new MIPROv2(
-      (input, output, expected) => {
+      (input: unknown, output: unknown, expected: unknown) => {
         if (!expected) return 0;
         return this.calculateQualityScore(output, expected);
       },
@@ -536,7 +559,7 @@ export class MultiModelBenchmark {
         totalScore += score;
         count++;
       } catch (error) {
-        console.error(`    ⚠ Evaluation error: ${error.message}`);
+        console.error(`    ⚠ Evaluation error: ${error instanceof Error ? error.message : String(error)}`);
       }
     }
 
@@ -567,7 +590,7 @@ export class MultiModelBenchmark {
         const latency = performance.now() - start;
         latencies.push(latency);
       } catch (error) {
-        console.error(`    ⚠ Performance test error: ${error.message}`);
+        console.error(`    ⚠ Performance test error: ${error instanceof Error ? error.message : String(error)}`);
       }
     }
 
@@ -948,7 +971,9 @@ async function main() {
 
   } catch (error) {
     console.error('\n❌ Benchmark failed:', error);
-    console.error(error.stack);
+    if (error instanceof Error) {
+      console.error(error.stack);
+    }
     process.exit(1);
   }
 }

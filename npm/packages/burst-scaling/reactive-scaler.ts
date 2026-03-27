@@ -63,7 +63,7 @@ export class ReactiveScaler {
   private readonly historySize = 60; // Keep 60 samples (5 minutes at 5s intervals)
 
   constructor(
-    private readonly regions: string[] = ['us-central1', 'europe-west1', 'asia-east1'],
+    private readonly _regions: string[] = ['us-central1', 'europe-west1', 'asia-east1'],
     private readonly notifyHook: (message: string) => Promise<void> = async (msg) => {
       await execAsync(`npx claude-flow@alpha hooks notify --message "${msg.replace(/"/g, '\\"')}"`);
     }
@@ -89,6 +89,13 @@ export class ReactiveScaler {
       scaleInStep: 2, // Remove 2 instances at a time
       rapidScaleOutThreshold: 0.90 // Rapid scale at 90% utilization
     };
+  }
+
+  /**
+   * Get configured regions
+   */
+  getRegions(): string[] {
+    return this._regions;
   }
 
   /**
