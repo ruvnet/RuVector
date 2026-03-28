@@ -182,6 +182,10 @@ pub enum PhiAlgorithm {
     Stochastic,
     /// Hierarchical approximation for large systems.
     Hierarchical,
+    /// GeoMIP: hypercube BFS with automorphism pruning.
+    GeoMIP,
+    /// Quantum-inspired collapse search.
+    Collapse,
 }
 
 impl std::fmt::Display for PhiAlgorithm {
@@ -192,6 +196,8 @@ impl std::fmt::Display for PhiAlgorithm {
             Self::Spectral => write!(f, "spectral"),
             Self::Stochastic => write!(f, "stochastic"),
             Self::Hierarchical => write!(f, "hierarchical"),
+            Self::GeoMIP => write!(f, "geomip"),
+            Self::Collapse => write!(f, "collapse"),
         }
     }
 }

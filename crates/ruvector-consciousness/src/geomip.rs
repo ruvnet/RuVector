@@ -309,14 +309,14 @@ impl PhiEngine for GeoMipPhiEngine {
             mip: best_partition,
             partitions_evaluated: evaluated,
             total_partitions,
-            algorithm: PhiAlgorithm::Exact,
+            algorithm: PhiAlgorithm::GeoMIP,
             elapsed: start.elapsed(),
             convergence,
         })
     }
 
     fn algorithm(&self) -> PhiAlgorithm {
-        PhiAlgorithm::Exact
+        PhiAlgorithm::GeoMIP
     }
 
     fn estimate_cost(&self, n: usize) -> u64 {

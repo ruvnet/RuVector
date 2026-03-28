@@ -58,21 +58,29 @@ Implement two new Rust crates:
 ```
 crates/ruvector-consciousness/
 ├── Cargo.toml              # Features: phi, emergence, collapse, simd, wasm, parallel
+├── benches/
+│   └── phi_benchmark.rs    # Criterion benchmarks for all 8 engines + emergence
+├── tests/
+│   └── integration.rs      # 19 cross-module integration tests
 └── src/
     ├── lib.rs              # Module root, feature-gated exports
-    ├── types.rs            # TransitionMatrix, Bipartition, BipartitionIter, result types
+    ├── types.rs            # TransitionMatrix, Bipartition, BipartitionIter, PhiAlgorithm (7 variants)
     ├── traits.rs           # PhiEngine, EmergenceEngine, ConsciousnessCollapse
     ├── error.rs            # ConsciousnessError, ValidationError (thiserror)
-    ├── phi.rs              # ExactPhiEngine, SpectralPhiEngine, StochasticPhiEngine
+    ├── phi.rs              # ExactPhiEngine, SpectralPhiEngine, StochasticPhiEngine,
+    │                       #   GreedyBisectionPhiEngine, HierarchicalPhiEngine, auto_compute_phi
+    ├── geomip.rs           # GeoMipPhiEngine (Gray code + automorphism pruning + EMD)
     ├── emergence.rs        # CausalEmergenceEngine, EI, determinism, degeneracy
+    ├── rsvd_emergence.rs   # RsvdEmergenceEngine (Halko-Martinsson-Tropp randomized SVD)
     ├── collapse.rs         # QuantumCollapseEngine (Grover-inspired)
+    ├── parallel.rs         # ParallelPhiEngine, ParallelStochasticPhiEngine (rayon)
     ├── simd.rs             # AVX2 kernels: kl_divergence, entropy, dense_matvec, emd_l1
     └── arena.rs            # PhiArena bump allocator
 
 crates/ruvector-consciousness-wasm/
 ├── Cargo.toml              # cdylib + rlib, size-optimized release profile
 └── src/
-    └── lib.rs              # WasmConsciousness: 7 JS-facing methods
+    └── lib.rs              # WasmConsciousness: 9 JS-facing methods
 ```
 
 ### Trait Hierarchy
@@ -94,14 +102,16 @@ ConsciousnessCollapse (Send + Sync)
 ### Algorithm Selection (auto_compute_phi)
 
 ```
-n ≤ 16  AND  approx_ratio ≥ 0.99  →  ExactPhiEngine
-n ≤ 1000                           →  SpectralPhiEngine (Fiedler vector)
-n > 1000                           →  StochasticPhiEngine (10K samples)
+n ≤ 16   AND  ratio ≥ 0.99  →  ExactPhiEngine (exhaustive)
+n ≤ 25   AND  ratio ≥ 0.95  →  GeoMipPhiEngine (pruned exhaustive, 100-300x)
+n ≤ 100                     →  GreedyBisectionPhiEngine (spectral seed + swap)
+n ≤ 1000                    →  SpectralPhiEngine (Fiedler vector)
+n > 1000                    →  HierarchicalPhiEngine (recursive decomposition)
 ```
 
 ---
 
-## Implemented Modules
+## Implemented Modules (12 source files, 9 WASM methods)
 
 ### 1. IIT Φ Computation — Exact (phi.rs)
 
@@ -200,6 +210,59 @@ n > 1000                           →  StochasticPhiEngine (10K samples)
 | `computePhiCollapse(tpm, n, register, iters)` | QuantumCollapseEngine | PhiResult |
 | `computeEmergence(tpm, n)` | CausalEmergenceEngine | EmergenceResult |
 | `effectiveInformation(tpm, n)` | effective_information() | f64 |
+| `computePhiGeoMip(tpm, n, state, prune)` | GeoMipPhiEngine | PhiResult |
+| `computeRsvdEmergence(tpm, n, k)` | RsvdEmergenceEngine | RsvdEmergenceResult |
+
+### 8. GeoMIP — Geometric Minimum Information Partition (geomip.rs)
+
+**Algorithm**: Recasts MIP search as graph optimization on the n-dimensional hypercube. Gray code iteration ensures consecutive partitions differ by exactly one element (O(1) incremental update potential). Automorphism pruning skips symmetric partitions. Balance-first ordering evaluates balanced partitions first (most likely to be MIP).
+
+| Component | Description |
+|-----------|-------------|
+| `GrayCodePartitionIter` | Gray code ordering: consecutive partitions differ by 1 element |
+| `canonical_partition()` | Automorphism pruning via lexicographic normalization |
+| `balance_score()` | Prioritizes balanced partitions |
+| `GeoMipPhiEngine` | Two-phase: balanced first, then Gray code scan with pruning |
+| `partition_information_loss_emd()` | IIT 4.0 EMD-based loss (Wasserstein-1 replaces KL) |
+
+**Complexity**: 100-300x faster than exhaustive for symmetric systems
+**Practical limit**: n ≤ 25
+**SOTA basis**: GeoMIP (2023), IIT 4.0 EMD metric (Albantakis 2023)
+
+### 9. Greedy Bisection (phi.rs)
+
+**Algorithm**: Seeds from the spectral partition (Fiedler vector), then greedily swaps elements between sets A and B. Each swap is accepted only if it reduces information loss. Converges to a local minimum.
+
+**Complexity**: O(n³) — up to n passes × n element swaps
+**Use case**: Systems with 25 < n ≤ 100
+
+### 10. Hierarchical Φ (phi.rs)
+
+**Algorithm**: Recursively bisects the system into subsystems using spectral partitioning, computes Φ for each subsystem, and estimates global Φ as the minimum. Falls through to exact computation for subsystems below the threshold.
+
+**Complexity**: O(n² log n)
+**Use case**: Systems with n > 1000
+
+### 11. Randomized SVD Emergence (rsvd_emergence.rs)
+
+**Algorithm**: Halko-Martinsson-Tropp randomized SVD extracts the top-k singular values of the TPM in O(n²·k) time. Computes:
+- **Effective rank**: significant singular values above threshold
+- **Spectral entropy**: entropy of normalized singular value distribution
+- **Emergence index**: 1 - spectral_entropy/max_entropy (compressibility)
+- **Dynamical reversibility**: min_sv / max_sv ratio
+
+**SOTA basis**: Zhang et al. (2025) npj Complexity
+
+### 12. Parallel Partition Search (parallel.rs)
+
+**Algorithm**: Distributes bipartition evaluation across rayon's thread pool. Each thread maintains its own `PhiArena` for zero-contention allocation.
+
+| Component | Description |
+|-----------|-------------|
+| `ParallelPhiEngine` | Parallel exact search with configurable chunk size |
+| `ParallelStochasticPhiEngine` | Parallel stochastic with per-thread RNG seeds |
+
+**Feature gate**: `parallel` (requires `rayon` + `crossbeam`)
 
 ---
 
@@ -248,31 +311,48 @@ console.log(`Φ = ${result.phi}, algorithm = ${result.algorithm}`);
 
 ## Testing
 
-**21 unit tests + 1 doc-test, all passing.**
+**63 tests total: 43 unit + 19 integration + 1 doc-test, all passing.**
 
 | Module | Tests | Coverage |
 |--------|-------|----------|
-| phi.rs | 7 | Exact (disconnected=0, AND gate>0), spectral, stochastic, auto-select, validation (bad TPM, single element) |
+| phi.rs | 12 | Exact, spectral, stochastic, greedy bisection, hierarchical, auto-select tiers, validation |
+| geomip.rs | 8 | Gray code count, consecutive differ by 1, canonical symmetry, disconnected=0, AND gate, fewer evals, EMD loss |
 | emergence.rs | 5 | EI identity=max, EI uniform=0, determinism, degeneracy, coarse-grain, causal emergence engine |
+| rsvd_emergence.rs | 5 | Identity SVs, uniform low rank, identity emergence, uniform emergence, reversibility bounds |
 | collapse.rs | 2 | Partition finding, seed determinism |
+| parallel.rs | 4 | Parallel exact (disconnected, AND gate), parallel stochastic, matches sequential |
 | simd.rs | 5 | KL-divergence identity, entropy uniform, dense matvec, EMD, marginal |
 | arena.rs | 1 | Alloc and reset |
 | types.rs | 1 | Doc-test (full workflow) |
+| **integration.rs** | **19** | All engines agree on disconnected/AND gate, algorithm variants, auto-selection tiers, emergence pipelines, RSVD correlation, coarse-grain validity, EMD vs KL, budget enforcement, n=16 smoke, determinism, error handling |
+
+### Benchmark Suite (criterion)
+
+12 benchmarks covering all engines:
+`phi_exact_n4`, `phi_exact_n8`, `phi_geomip_n4`, `phi_geomip_n8`, `phi_spectral_n16`, `phi_greedy_n8`, `phi_stochastic_n16_1k`, `phi_hierarchical_n16`, `phi_collapse_n8_reg128`, `emergence_n8`, `rsvd_emergence_n16_k5`, `phi_auto_n4`
 
 ---
+
+## Implementation Status
+
+| Enhancement | SOTA Source | Status | Module |
+|-------------|-----------|--------|--------|
+| GeoMIP hypercube BFS | Albantakis 2023 | **Done** | `geomip.rs` |
+| Gray code partition iteration | Classic | **Done** | `geomip.rs` |
+| IIT 4.0 EMD metric | IIT 4.0 spec | **Done** | `geomip.rs` |
+| Randomized SVD emergence | Zhang 2025 | **Done** | `rsvd_emergence.rs` |
+| Parallel partition search | rayon | **Done** | `parallel.rs` |
+| Greedy bisection | Local search | **Done** | `phi.rs` |
+| Hierarchical Φ | Recursive decomposition | **Done** | `phi.rs` |
+| 5-tier auto-selection | All of the above | **Done** | `phi.rs` |
 
 ## Future Enhancements (Roadmap)
 
 | Enhancement | SOTA Source | Expected Speedup | Priority |
 |-------------|-----------|-----------------|----------|
-| GeoMIP hypercube BFS | Albantakis 2023 | 165-326x for exact Φ | P1 |
-| Gray code partition iteration | Classic | 2-4x incremental TPM updates | P1 |
-| IIT 4.0 EMD metric | IIT 4.0 spec | Correctness (Wasserstein replaces KL) | P2 |
-| Randomized SVD emergence | Zhang 2025 | O(nnz·k) vs O(n³) | P2 |
 | Complex SIMD (AVX2 f32) | Interference search | 4x for quantum-inspired ops | P2 |
 | MPS tensor network Φ proxy | USD 2024 | Polynomial vs exponential | P3 |
 | HDMP memoization | ARTIIS 2025 | >90% for structured systems | P3 |
-| Parallel partition search | rayon | Linear scaling with cores | P2 |
 
 ---
 

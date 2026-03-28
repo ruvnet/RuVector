@@ -147,7 +147,7 @@ impl ConsciousnessCollapse for QuantumCollapseEngine {
             mip: partitions[best_idx].clone(),
             partitions_evaluated: reg_size as u64,
             total_partitions,
-            algorithm: PhiAlgorithm::Stochastic,
+            algorithm: PhiAlgorithm::Collapse,
             elapsed: start.elapsed(),
             convergence: vec![losses[best_idx]],
         })

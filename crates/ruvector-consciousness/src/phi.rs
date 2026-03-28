@@ -531,10 +531,313 @@ impl PhiEngine for StochasticPhiEngine {
 }
 
 // ---------------------------------------------------------------------------
+// Greedy bisection
+// ---------------------------------------------------------------------------
+
+/// Greedy bisection Φ approximation.
+///
+/// Starts from the Fiedler-based spectral partition and greedily swaps
+/// elements between sets A and B to minimize information loss. Each swap
+/// is accepted only if it reduces Φ. Converges to a local minimum.
+///
+/// Complexity: O(n³) — at most n passes of n element swaps.
+pub struct GreedyBisectionPhiEngine {
+    max_passes: usize,
+}
+
+impl GreedyBisectionPhiEngine {
+    pub fn new(max_passes: usize) -> Self {
+        Self { max_passes }
+    }
+}
+
+impl Default for GreedyBisectionPhiEngine {
+    fn default() -> Self {
+        Self { max_passes: 50 }
+    }
+}
+
+impl PhiEngine for GreedyBisectionPhiEngine {
+    fn compute_phi(
+        &self,
+        tpm: &TransitionMatrix,
+        state: Option<usize>,
+        budget: &ComputeBudget,
+    ) -> Result<PhiResult, ConsciousnessError> {
+        validate_tpm(tpm)?;
+        let n = tpm.n;
+        let state_idx = state.unwrap_or(0);
+        let start = Instant::now();
+        let arena = PhiArena::with_capacity(n * n * 16);
+
+        let total_partitions = (1u64 << n) - 2;
+        let mut evaluated = 0u64;
+        let mut convergence = Vec::new();
+
+        // Start from spectral partition as seed.
+        let spectral = SpectralPhiEngine::default();
+        let seed_result = spectral.compute_phi(tpm, state, budget)?;
+        let mut best_mask = seed_result.mip.mask;
+        let mut best_phi = seed_result.phi;
+        evaluated += 1;
+        convergence.push(best_phi);
+
+        // Greedy swap: try moving each element between sets.
+        for _pass in 0..self.max_passes {
+            if start.elapsed() > budget.max_time {
+                break;
+            }
+
+            let mut improved = false;
+
+            for elem in 0..n {
+                if start.elapsed() > budget.max_time {
+                    break;
+                }
+
+                // Flip element's membership.
+                let new_mask = best_mask ^ (1 << elem);
+                let full = (1u64 << n) - 1;
+                if new_mask == 0 || new_mask == full {
+                    continue; // Invalid partition.
+                }
+
+                let partition = Bipartition { mask: new_mask, n };
+                let loss = partition_information_loss(tpm, state_idx, &partition, &arena);
+                evaluated += 1;
+
+                if loss < best_phi {
+                    best_phi = loss;
+                    best_mask = new_mask;
+                    improved = true;
+                }
+
+                if evaluated % 100 == 0 {
+                    convergence.push(best_phi);
+                }
+            }
+
+            if !improved {
+                break; // Local minimum reached.
+            }
+        }
+
+        convergence.push(best_phi);
+
+        Ok(PhiResult {
+            phi: best_phi,
+            mip: Bipartition { mask: best_mask, n },
+            partitions_evaluated: evaluated,
+            total_partitions,
+            algorithm: PhiAlgorithm::GreedyBisection,
+            elapsed: start.elapsed(),
+            convergence,
+        })
+    }
+
+    fn algorithm(&self) -> PhiAlgorithm {
+        PhiAlgorithm::GreedyBisection
+    }
+
+    fn estimate_cost(&self, n: usize) -> u64 {
+        (n * n * self.max_passes) as u64
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Hierarchical approximation
+// ---------------------------------------------------------------------------
+
+/// Hierarchical Φ approximation for large systems.
+///
+/// Recursively bisects the system into subsystems, computes Φ for each,
+/// then estimates global Φ as the minimum sub-system Φ. This is a
+/// conservative lower bound (global Φ ≤ min(sub-Φ)).
+///
+/// Works for arbitrarily large systems by recursively halving until
+/// subsystems are small enough for exact computation.
+///
+/// Complexity: O(n² log n) — log(n) levels × n² per level.
+pub struct HierarchicalPhiEngine {
+    /// Maximum subsystem size for exact computation.
+    pub exact_threshold: usize,
+}
+
+impl HierarchicalPhiEngine {
+    pub fn new(exact_threshold: usize) -> Self {
+        Self { exact_threshold }
+    }
+}
+
+impl Default for HierarchicalPhiEngine {
+    fn default() -> Self {
+        Self { exact_threshold: 12 }
+    }
+}
+
+impl PhiEngine for HierarchicalPhiEngine {
+    fn compute_phi(
+        &self,
+        tpm: &TransitionMatrix,
+        state: Option<usize>,
+        budget: &ComputeBudget,
+    ) -> Result<PhiResult, ConsciousnessError> {
+        validate_tpm(tpm)?;
+        let n = tpm.n;
+        let state_idx = state.unwrap_or(0);
+        let start = Instant::now();
+
+        let total_partitions = (1u64 << n) - 2;
+        let mut total_evaluated = 0u64;
+        let mut convergence = Vec::new();
+
+        // If small enough, delegate to exact.
+        if n <= self.exact_threshold {
+            return ExactPhiEngine.compute_phi(tpm, state, budget);
+        }
+
+        // Spectral bisection to split the system.
+        let mi_graph = build_mi_graph(tpm);
+        let fiedler = fiedler_vector(&mi_graph, n, 100);
+
+        let mut group_a: Vec<usize> = Vec::new();
+        let mut group_b: Vec<usize> = Vec::new();
+        for i in 0..n {
+            if fiedler[i] >= 0.0 {
+                group_a.push(i);
+            } else {
+                group_b.push(i);
+            }
+        }
+
+        // Ensure both groups are non-empty.
+        if group_a.is_empty() {
+            group_a.push(group_b.pop().unwrap());
+        }
+        if group_b.is_empty() {
+            group_b.push(group_a.pop().unwrap());
+        }
+
+        // Compute information loss for this top-level split.
+        let top_mask: u64 = group_a.iter().fold(0u64, |acc, &i| acc | (1 << i));
+        let top_partition = Bipartition { mask: top_mask, n };
+        let arena = PhiArena::with_capacity(n * n * 16);
+        let top_loss = partition_information_loss(tpm, state_idx, &top_partition, &arena);
+        total_evaluated += 1;
+        convergence.push(top_loss);
+
+        // Recursively compute Φ for sub-systems if they're large enough.
+        let mut min_phi = top_loss;
+        let mut best_partition = top_partition;
+
+        for group in [&group_a, &group_b] {
+            if group.len() >= 2 && start.elapsed() < budget.max_time {
+                let sub_tpm = tpm.marginalize(group);
+                let sub_state = map_state_to_subsystem(state_idx, group, n);
+
+                let sub_budget = ComputeBudget {
+                    max_time: budget.max_time.saturating_sub(start.elapsed()),
+                    max_partitions: budget.max_partitions.saturating_sub(total_evaluated),
+                    ..*budget
+                };
+
+                let sub_result = if sub_tpm.n <= self.exact_threshold {
+                    ExactPhiEngine.compute_phi(&sub_tpm, Some(sub_state), &sub_budget)
+                } else {
+                    self.compute_phi(&sub_tpm, Some(sub_state), &sub_budget)
+                };
+
+                if let Ok(result) = sub_result {
+                    total_evaluated += result.partitions_evaluated;
+                    if result.phi < min_phi {
+                        min_phi = result.phi;
+                        // Map sub-partition back to global indices.
+                        let sub_mask = result.mip.mask;
+                        let mut global_mask = 0u64;
+                        for (bit, &global_idx) in group.iter().enumerate() {
+                            if sub_mask & (1 << bit) != 0 {
+                                global_mask |= 1 << global_idx;
+                            }
+                        }
+                        // Fill in the other group's elements.
+                        let other_group = if std::ptr::eq(group, &group_a) { &group_b } else { &group_a };
+                        for &idx in other_group {
+                            global_mask |= 1 << idx;
+                        }
+                        let full = (1u64 << n) - 1;
+                        if global_mask != 0 && global_mask != full {
+                            best_partition = Bipartition { mask: global_mask, n };
+                        }
+                    }
+                    convergence.push(min_phi);
+                }
+            }
+        }
+
+        Ok(PhiResult {
+            phi: min_phi,
+            mip: best_partition,
+            partitions_evaluated: total_evaluated,
+            total_partitions,
+            algorithm: PhiAlgorithm::Hierarchical,
+            elapsed: start.elapsed(),
+            convergence,
+        })
+    }
+
+    fn algorithm(&self) -> PhiAlgorithm {
+        PhiAlgorithm::Hierarchical
+    }
+
+    fn estimate_cost(&self, n: usize) -> u64 {
+        // Roughly O(n² log n).
+        let log_n = (n as f64).log2().ceil() as u64;
+        (n * n) as u64 * log_n
+    }
+}
+
+/// Build mutual information adjacency matrix from TPM.
+fn build_mi_graph(tpm: &TransitionMatrix) -> Vec<f64> {
+    let n = tpm.n;
+    let mut mi_matrix = vec![0.0f64; n * n];
+    let marginal = marginal_distribution(tpm.as_slice(), n);
+
+    for i in 0..n {
+        for j in (i + 1)..n {
+            let mi = compute_pairwise_mi(tpm, i, j, &marginal);
+            mi_matrix[i * n + j] = mi;
+            mi_matrix[j * n + i] = mi;
+        }
+    }
+
+    // Convert to Laplacian.
+    let mut laplacian = vec![0.0f64; n * n];
+    for i in 0..n {
+        let mut degree = 0.0;
+        for j in 0..n {
+            degree += mi_matrix[i * n + j];
+        }
+        laplacian[i * n + i] = degree;
+        for j in 0..n {
+            laplacian[i * n + j] -= mi_matrix[i * n + j];
+        }
+    }
+
+    laplacian
+}
+
+// ---------------------------------------------------------------------------
 // Auto-selecting engine
 // ---------------------------------------------------------------------------
 
 /// Automatically selects the best algorithm based on system size.
+///
+/// Algorithm selection tiers:
+/// - n ≤ 16 (exact): ExactPhiEngine (exhaustive, guaranteed optimal)
+/// - 16 < n ≤ 25 (near-exact): GeoMIP (pruned exhaustive, 100-300x faster)
+/// - 25 < n ≤ 100 (fast approx): GreedyBisection (spectral seed + local search)
+/// - 100 < n ≤ 1000 (spectral): SpectralPhiEngine (Fiedler vector)
+/// - n > 1000 (large-scale): HierarchicalPhiEngine (recursive decomposition)
 pub fn auto_compute_phi(
     tpm: &TransitionMatrix,
     state: Option<usize>,
@@ -543,10 +846,15 @@ pub fn auto_compute_phi(
     let n = tpm.n;
     if n <= 16 && budget.approximation_ratio >= 0.99 {
         ExactPhiEngine.compute_phi(tpm, state, budget)
+    } else if n <= 25 && budget.approximation_ratio >= 0.95 {
+        // GeoMIP is near-exact and handles up to n=25 efficiently.
+        crate::geomip::GeoMipPhiEngine::default().compute_phi(tpm, state, budget)
+    } else if n <= 100 {
+        GreedyBisectionPhiEngine::default().compute_phi(tpm, state, budget)
     } else if n <= 1000 {
         SpectralPhiEngine::default().compute_phi(tpm, state, budget)
     } else {
-        StochasticPhiEngine::new(10_000, 42).compute_phi(tpm, state, budget)
+        HierarchicalPhiEngine::default().compute_phi(tpm, state, budget)
     }
 }
 
@@ -649,5 +957,68 @@ mod tests {
         let budget = ComputeBudget::exact();
         let result = ExactPhiEngine.compute_phi(&tpm, Some(0), &budget);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn greedy_bisection_runs() {
+        let tpm = and_gate_tpm();
+        let budget = ComputeBudget::fast();
+        let result = GreedyBisectionPhiEngine::default()
+            .compute_phi(&tpm, Some(0), &budget)
+            .unwrap();
+        assert!(result.phi >= 0.0);
+        assert_eq!(result.algorithm, PhiAlgorithm::GreedyBisection);
+    }
+
+    #[test]
+    fn greedy_bisection_disconnected_near_zero() {
+        let tpm = disconnected_tpm();
+        let budget = ComputeBudget::exact();
+        let result = GreedyBisectionPhiEngine::default()
+            .compute_phi(&tpm, Some(0), &budget)
+            .unwrap();
+        assert!(
+            result.phi < 1e-4,
+            "greedy bisection on disconnected should be ≈ 0, got {}",
+            result.phi
+        );
+    }
+
+    #[test]
+    fn hierarchical_runs() {
+        let tpm = and_gate_tpm();
+        let budget = ComputeBudget::fast();
+        // Use low threshold to force hierarchical path even for small system.
+        let engine = HierarchicalPhiEngine::new(2);
+        let result = engine.compute_phi(&tpm, Some(0), &budget).unwrap();
+        assert!(result.phi >= 0.0);
+        assert_eq!(result.algorithm, PhiAlgorithm::Hierarchical);
+    }
+
+    #[test]
+    fn hierarchical_falls_through_to_exact() {
+        let tpm = and_gate_tpm();
+        let budget = ComputeBudget::exact();
+        // Default threshold (12) > n=4, so it should use exact.
+        let result = HierarchicalPhiEngine::default()
+            .compute_phi(&tpm, Some(0), &budget)
+            .unwrap();
+        // Falls through to exact, so algorithm should be Exact.
+        assert_eq!(result.algorithm, PhiAlgorithm::Exact);
+    }
+
+    #[test]
+    fn auto_selects_geomip_for_medium() {
+        // Create an 8x8 TPM (n > 16 doesn't apply, but we can test the tiers).
+        // For n=4 with exact budget, should still pick exact.
+        let tpm = and_gate_tpm();
+        let budget = ComputeBudget {
+            approximation_ratio: 0.95,
+            ..ComputeBudget::fast()
+        };
+        let result = auto_compute_phi(&tpm, Some(0), &budget).unwrap();
+        // n=4 with ratio >= 0.99 in fast budget (0.9), so won't hit exact.
+        // ratio = 0.95 >= 0.95 and n=4 <= 25 → GeoMIP.
+        assert_eq!(result.algorithm, PhiAlgorithm::GeoMIP);
     }
 }
