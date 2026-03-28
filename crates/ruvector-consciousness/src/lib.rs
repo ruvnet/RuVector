@@ -73,3 +73,22 @@ pub mod coherence_phi;
 
 #[cfg(feature = "witness")]
 pub mod witness_phi;
+
+// IIT 4.0 / SOTA modules
+#[cfg(feature = "phi")]
+pub mod iit4;
+
+#[cfg(feature = "phi")]
+pub mod ces;
+
+#[cfg(feature = "phi")]
+pub mod phi_id;
+
+#[cfg(feature = "phi")]
+pub mod pid;
+
+#[cfg(feature = "phi")]
+pub mod streaming;
+
+#[cfg(feature = "phi")]
+pub mod bounds;

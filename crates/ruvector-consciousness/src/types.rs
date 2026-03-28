@@ -240,6 +240,159 @@ pub struct EmergenceResult {
     pub elapsed: Duration,
 }
 
+// ---------------------------------------------------------------------------
+// IIT 4.0 types
+// ---------------------------------------------------------------------------
+
+/// A mechanism is a subset of system elements that has causal power.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Mechanism {
+    /// Bitmask of mechanism elements.
+    pub elements: u64,
+    /// Total number of system elements.
+    pub n: usize,
+}
+
+impl Mechanism {
+    pub fn new(elements: u64, n: usize) -> Self {
+        Self { elements, n }
+    }
+
+    /// Number of elements in the mechanism.
+    pub fn size(&self) -> usize {
+        self.elements.count_ones() as usize
+    }
+
+    /// Indices of mechanism elements.
+    pub fn indices(&self) -> Vec<usize> {
+        (0..self.n).filter(|&i| self.elements & (1 << i) != 0).collect()
+    }
+}
+
+/// A purview is the set of elements a mechanism has causal power over.
+pub type Purview = Mechanism;
+
+/// A distinction (concept in IIT 3.0) specifies how a mechanism
+/// constrains its cause and effect purviews.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Distinction {
+    /// The mechanism (subset of elements).
+    pub mechanism: Mechanism,
+    /// Cause repertoire: distribution over past states.
+    pub cause_repertoire: Vec<f64>,
+    /// Effect repertoire: distribution over future states.
+    pub effect_repertoire: Vec<f64>,
+    /// Cause purview (the elements the mechanism has causal power over in the past).
+    pub cause_purview: Purview,
+    /// Effect purview (elements causally constrained in the future).
+    pub effect_purview: Purview,
+    /// φ_cause: intrinsic information of the cause.
+    pub phi_cause: f64,
+    /// φ_effect: intrinsic information of the effect.
+    pub phi_effect: f64,
+    /// φ = min(φ_cause, φ_effect): the distinction's integrated information.
+    pub phi: f64,
+}
+
+/// A relation specifies how multiple distinctions overlap in cause-effect space.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Relation {
+    /// Indices into the CES distinctions vec.
+    pub distinction_indices: Vec<usize>,
+    /// Relation φ (irreducibility of the overlap).
+    pub phi: f64,
+    /// Order of the relation (number of distinctions involved).
+    pub order: usize,
+}
+
+/// The Cause-Effect Structure (CES): the full quale / experience.
+///
+/// In IIT 4.0, the CES is the set of all distinctions and relations
+/// specified by a system in a state — the "shape" of experience.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CauseEffectStructure {
+    /// System size (number of elements).
+    pub n: usize,
+    /// Current state of the system.
+    pub state: usize,
+    /// All distinctions (mechanisms with non-zero φ).
+    pub distinctions: Vec<Distinction>,
+    /// Relations between distinctions.
+    pub relations: Vec<Relation>,
+    /// System-level Φ (big phi — irreducibility of the whole CES).
+    pub big_phi: f64,
+    /// Sum of all distinction φ values (structure integrated information).
+    pub sum_phi: f64,
+    /// Computation time.
+    pub elapsed: Duration,
+}
+
+/// Result of Integrated Information Decomposition (ΦID).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PhiIdResult {
+    /// Redundant information: shared across all sources.
+    pub redundancy: f64,
+    /// Unique information per source.
+    pub unique: Vec<f64>,
+    /// Synergistic information: only available from the whole.
+    pub synergy: f64,
+    /// Total mutual information.
+    pub total_mi: f64,
+    /// Transfer entropy (directional information flow).
+    pub transfer_entropy: f64,
+    /// Computation time.
+    pub elapsed: Duration,
+}
+
+/// Result of Partial Information Decomposition (PID).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PidResult {
+    /// Redundant information (shared by all sources about the target).
+    pub redundancy: f64,
+    /// Unique information per source about the target.
+    pub unique: Vec<f64>,
+    /// Synergistic information (only available from all sources jointly).
+    pub synergy: f64,
+    /// Total mutual information I(sources; target).
+    pub total_mi: f64,
+    /// Number of sources.
+    pub num_sources: usize,
+    /// Computation time.
+    pub elapsed: Duration,
+}
+
+/// Result of streaming (online) Φ computation.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StreamingPhiResult {
+    /// Current Φ estimate.
+    pub phi: f64,
+    /// Number of time steps processed.
+    pub time_steps: usize,
+    /// Exponentially weighted moving average of Φ.
+    pub phi_ewma: f64,
+    /// Variance of Φ estimates.
+    pub phi_variance: f64,
+    /// Change-point detected in Φ trajectory.
+    pub change_detected: bool,
+    /// History of Φ estimates (most recent window).
+    pub history: Vec<f64>,
+}
+
+/// Approximation bound for Φ estimation.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PhiBound {
+    /// Lower bound on Φ.
+    pub lower: f64,
+    /// Upper bound on Φ.
+    pub upper: f64,
+    /// Confidence level (e.g., 0.95 for 95% confidence).
+    pub confidence: f64,
+    /// Number of samples used.
+    pub samples: u64,
+    /// Bound source (which method produced this bound).
+    pub method: String,
+}
+
 /// Compute budget for consciousness computations.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ComputeBudget {
