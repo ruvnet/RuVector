@@ -100,6 +100,14 @@ User Query → [SONA Engine] → Model Response → User Feedback
 | 8h | [**GraphMAE**](./crates/ruvector-gnn) | Graph Masked Autoencoder — self-supervised node representation learning with GAT encoder |
 | 8i | [**TurboQuant**](./crates/ruvllm) | 2-4 bit asymmetric KV-cache quantization — 6-8x memory reduction, <0.5% perplexity loss, H2O/PyramidKV eviction |
 
+**Continuous Training & Optimization** *(ADR-129)*
+| # | Capability | What It Does |
+|---|------------|--------------|
+| 8j | [**Nightly training**](./scripts/training/) | Automated nightly LoRA fine-tuning from brain learnings — models improve every day |
+| 8k | [**Release gates**](./scripts/training/release_gate.py) | 7 automated quality checks (code quality, routing accuracy, perplexity, speed, contamination) — prevents shipping regressions |
+| 8l | [**TurboQuant profiling**](./crates/ruvllm/src/quantize/turboquant_profile.rs) | Per-layer KV-cache bit-width optimization with `.turboquant.json` sidecar configs |
+| 8m | [**Training corpus**](./data/training/) | 230+ records from brain memories (pi.ruv.io) + architecture decisions + Claude routing examples |
+
 **Distributed Systems**
 | # | Capability | What It Does |
 |---|------------|--------------|
