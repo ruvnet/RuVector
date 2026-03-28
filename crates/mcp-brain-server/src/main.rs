@@ -116,6 +116,24 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     });
 
+    // ── Background sparsifier build for large graphs ──
+    // Deferred from startup to avoid blocking the health probe.
+    let spar_state = state.clone();
+    tokio::spawn(async move {
+        tokio::time::sleep(std::time::Duration::from_secs(15)).await;
+        let edge_count = spar_state.graph.read().edge_count();
+        if edge_count > 100_000 && spar_state.graph.read().sparsifier_stats().is_none() {
+            tracing::info!("Background sparsifier build starting ({edge_count} edges)");
+            spar_state.graph.write().rebuild_sparsifier();
+            let stats = spar_state.graph.read().sparsifier_stats();
+            if let Some(s) = stats {
+                tracing::info!("Sparsifier built: {} edges, {:.1}x compression", s.sparsified_edges, s.compression_ratio);
+            } else {
+                tracing::warn!("Sparsifier build returned no stats");
+            }
+        }
+    });
+
     let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{port}")).await?;
     tracing::info!("mcp-brain-server listening on port {port}");
     tracing::info!("Endpoints: brain.ruv.io | π.ruv.io");

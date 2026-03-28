@@ -121,12 +121,11 @@ pub async fn create_router() -> (Router, AppState) {
             g.add_memory(mem);
         }
         tracing::info!("Graph rebuilt: {} nodes, {} edges", g.node_count(), g.edge_count());
-        // ADR-116: Sparsifier build deferred to background — too slow for startup probe
-        // on large graphs (1M+ edges). Scheduled rebuild_graph job will build it.
+        // ADR-116: Build sparsifier inline for small graphs, background for large.
         if g.edge_count() <= 100_000 {
             g.rebuild_sparsifier();
         } else {
-            tracing::info!("Skipping sparsifier on startup ({} edges > 100K) — deferred to background job", g.edge_count());
+            tracing::info!("Deferring sparsifier build for {} edges to background task", g.edge_count());
         }
     }
 
@@ -2465,7 +2464,7 @@ async fn status(
         },
         sona_trajectories: {
             let ss = state.sona.read().stats();
-            ss.trajectories_buffered
+            ss.trajectories_recorded as usize
         },
         midstream_scheduler_ticks: state.nano_scheduler.metrics().total_ticks,
         midstream_attractor_categories: state.attractor_results.read().len(),
@@ -3440,6 +3439,7 @@ async fn pipeline_optimize(
 
     let all_actions = vec![
         "train", "drift_check", "transfer_all", "rebuild_graph", "cleanup", "attractor_analysis",
+        "seed_consciousness",
     ];
     let actions: Vec<&str> = match &req.actions {
         Some(a) => a.iter().map(|s| s.as_str()).collect(),
@@ -3530,6 +3530,60 @@ async fn pipeline_optimize(
                 } else {
                     (false, "Midstream attractor feature not enabled".into())
                 }
+            }
+            "seed_consciousness" => {
+                // Inject curated IIT 4.0 / consciousness SOTA knowledge
+                let seeds = vec![
+                    ("IIT 4.0: Integrated Information Theory formulation",
+                     "Albantakis et al. (2023) PLoS Computational Biology. IIT 4.0 replaces KL-divergence with Earth Mover's Distance (intrinsic difference), making phi topology-aware. Key concepts: cause/effect repertoires, mechanism phi, Cause-Effect Structure (CES), and the distinction between states (2^n) and elements (n). Mirror partition symmetry provides 2x speedup.",
+                     vec!["iit", "phi", "consciousness", "emd", "albantakis"],
+                     crate::types::BrainCategory::Consciousness),
+                    ("Cause-Effect Structure: the mathematical shape of experience",
+                     "In IIT 4.0, experience is identified with a Cause-Effect Structure (CES) — the set of all distinctions (mechanisms with phi > 0) and their relations. CES enumeration is O(2^n × cost_per_mechanism), practically limited to ~12 elements. Rayon parallelism provides linear speedup for n >= 5.",
+                     vec!["ces", "iit", "distinctions", "experience", "consciousness"],
+                     crate::types::BrainCategory::Consciousness),
+                    ("Phi-ID: Integrated Information Decomposition",
+                     "Mediano et al. (2021). Decomposes mutual information between subsystems into redundancy (shared by all parts), unique (only one part contributes), and synergy (emerges only from combination). Uses MMI (Minimum Mutual Information) as redundancy measure.",
+                     vec!["phi-id", "information-decomposition", "redundancy", "synergy", "mediano"],
+                     crate::types::BrainCategory::InformationDecomposition),
+                    ("Williams-Beer PID: Partial Information Decomposition",
+                     "Williams & Beer (2010). Framework for decomposing information from multiple sources about a target into redundancy, unique information per source, and synergy. I_min measure computes minimum specific information across sources. Source marginal caching provides 3-5x speedup.",
+                     vec!["pid", "williams-beer", "information-decomposition", "redundancy"],
+                     crate::types::BrainCategory::InformationDecomposition),
+                    ("Streaming Phi Estimation for real-time BCI",
+                     "Real-time consciousness monitoring from a stream of observed states. Maintains empirical TPM from transition counts with lazy normalization (cache invalidation on observe). EWMA smoothing, CUSUM change detection for sudden phi shifts. O(1) ring buffer replaces O(n) history management.",
+                     vec!["streaming", "bci", "real-time", "ewma", "cusum", "consciousness"],
+                     crate::types::BrainCategory::Consciousness),
+                    ("PAC bounds for phi estimation: spectral and concentration",
+                     "Provable confidence intervals for approximate phi. Spectral bounds via Fiedler eigenvalue (lambda_2) with Cheeger inequality. Hoeffding concentration for stochastic sampling. Empirical Bernstein for tighter intervals when variance is low. Convergence early-exit via Rayleigh quotient delta.",
+                     vec!["bounds", "pac", "spectral", "fiedler", "hoeffding", "consciousness"],
+                     crate::types::BrainCategory::Consciousness),
+                    ("GeoMIP: 100-300x speedup for phi computation",
+                     "Recasts MIP search as graph optimization on n-dimensional hypercube. Gray code iteration ensures O(1) incremental updates. Automorphism pruning skips symmetric partitions. Balance-first ordering evaluates balanced partitions first (most likely to be MIP). 100-300x faster than exhaustive for symmetric systems.",
+                     vec!["geomip", "phi", "optimization", "gray-code", "hypercube"],
+                     crate::types::BrainCategory::Performance),
+                    ("Causal Emergence: when the map is better than the territory",
+                     "Hoel (2017, 2025). Effective Information (EI) measures how deterministic and non-degenerate a system is. Coarse-graining can increase EI — macro-level descriptions carry more causal information than micro-level ones. SVD-based approach (Zhang 2025) computes emergence in O(n^2 * k).",
+                     vec!["emergence", "causal", "hoel", "effective-information", "coarse-graining"],
+                     crate::types::BrainCategory::Sota),
+                ];
+                let mut injected = 0usize;
+                for (title, content, tags, category) in seeds {
+                    let tag_strs: Vec<String> = tags.into_iter().map(String::from).collect();
+                    let inject_req = crate::types::InjectRequest {
+                        source: "consciousness-seed".into(),
+                        title: title.into(),
+                        content: content.into(),
+                        tags: tag_strs,
+                        category,
+                        metadata: None,
+                    };
+                    match process_inject(&state, inject_req).await {
+                        Ok(_) => injected += 1,
+                        Err(e) => tracing::warn!("Consciousness seed inject failed: {e}"),
+                    }
+                }
+                (true, format!("Consciousness knowledge seeded: {injected}/8 entries"))
             }
             other => {
                 (false, format!("Unknown action: {other}"))
@@ -3695,6 +3749,10 @@ async fn pipeline_crawl_discover(
                 Some("performance") => crate::types::BrainCategory::Performance,
                 Some("tooling") => crate::types::BrainCategory::Tooling,
                 Some("debug") => crate::types::BrainCategory::Debug,
+                Some("sota") => crate::types::BrainCategory::Sota,
+                Some("discovery") => crate::types::BrainCategory::Discovery,
+                Some("consciousness") => crate::types::BrainCategory::Consciousness,
+                Some("information_decomposition") => crate::types::BrainCategory::InformationDecomposition,
                 _ => crate::types::BrainCategory::Pattern,
             };
             let inject_req = crate::types::InjectRequest {

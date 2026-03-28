@@ -5,6 +5,7 @@ members = [
     "crates/mcp-brain-server",
     "crates/mcp-brain",
     "crates/sona",
+    "crates/ruvector-consciousness",
     "crates/ruvector-mincut",
     "crates/ruvector-nervous-system",
     "crates/ruvector-domain-expansion",

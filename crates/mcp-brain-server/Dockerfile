@@ -28,6 +28,7 @@ COPY crates/ruvector-domain-expansion ./crates/ruvector-domain-expansion
 COPY crates/ruvector-delta-core ./crates/ruvector-delta-core
 COPY crates/ruvector-solver ./crates/ruvector-solver
 COPY crates/ruvector-sparsifier ./crates/ruvector-sparsifier
+COPY crates/ruvector-consciousness ./crates/ruvector-consciousness
 COPY crates/ruvllm ./crates/ruvllm
 COPY crates/ruvector-core ./crates/ruvector-core
 COPY crates/rvf ./crates/rvf
@@ -62,6 +63,13 @@ RUN sed -i '/ruvector-graph\s*=/d' crates/ruvector-mincut/Cargo.toml && \
     sed -i '/\[\[bench\]\]/,/^$/d' crates/ruvector-delta-core/Cargo.toml && \
     sed -i '/\[\[example\]\]/,/^$/d' crates/ruvector-sparsifier/Cargo.toml && \
     sed -i '/\[\[bench\]\]/,/^$/d' crates/ruvector-sparsifier/Cargo.toml && \
+    sed -i '/\[\[bench\]\]/,/^$/d' crates/ruvector-consciousness/Cargo.toml && \
+    sed -i '/ruvector-coherence\s*=/d' crates/ruvector-consciousness/Cargo.toml && \
+    sed -i '/ruvector-cognitive-container\s*=/d' crates/ruvector-consciousness/Cargo.toml && \
+    sed -i '/ruvector-math\s*=/d' crates/ruvector-consciousness/Cargo.toml && \
+    sed -i 's/"coherence-accel",\s*//g' crates/ruvector-consciousness/Cargo.toml && \
+    sed -i 's/"witness",\s*//g' crates/ruvector-consciousness/Cargo.toml && \
+    sed -i 's/"math-accel",\s*//g' crates/ruvector-consciousness/Cargo.toml && \
     find crates/rvf -name "Cargo.toml" -exec sed -i '/\[\[example\]\]/,/^$/d' {} \; && \
     find crates/rvf -name "Cargo.toml" -exec sed -i '/\[\[bench\]\]/,/^$/d' {} \; && \
     find crates/sona -name "Cargo.toml" -exec sed -i '/\[\[example\]\]/,/^$/d' {} \; && \
