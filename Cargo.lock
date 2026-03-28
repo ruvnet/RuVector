@@ -4978,6 +4978,7 @@ dependencies = [
  "parking_lot 0.12.5",
  "rand 0.8.5",
  "reqwest 0.12.28",
+ "ruvector-consciousness",
  "ruvector-delta-core",
  "ruvector-domain-expansion",
  "ruvector-mincut 2.1.0",

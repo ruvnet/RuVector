@@ -37,6 +37,7 @@ fn num_elements_from_states(n: usize) -> usize {
 ///
 /// IIT 4.0 specifically chose EMD because it respects the metric structure
 /// of the state space (unlike KL which is topology-blind).
+#[inline]
 pub fn intrinsic_difference(p: &[f64], q: &[f64]) -> f64 {
     assert_eq!(p.len(), q.len());
     // EMD for 1D discrete distributions = cumulative L1 difference.
@@ -54,6 +55,7 @@ pub fn intrinsic_difference(p: &[f64], q: &[f64]) -> f64 {
 ///
 /// In IIT 4.0: φ_s = d(repertoire, max_entropy_repertoire)
 /// where d is intrinsic_difference.
+#[inline]
 pub fn selectivity(repertoire: &[f64]) -> f64 {
     let n = repertoire.len();
     if n == 0 {
@@ -77,7 +79,7 @@ pub fn selectivity(repertoire: &[f64]) -> f64 {
 /// P(past_purview | mechanism=s) ∝ TPM[past, mechanism_cols] evaluated at s.
 pub fn cause_repertoire(
     tpm: &TransitionMatrix,
-    mechanism: &Mechanism,
+    _mechanism: &Mechanism,
     purview: &Purview,
     state: usize,
 ) -> Vec<f64> {
@@ -85,26 +87,23 @@ pub fn cause_repertoire(
     let purview_indices = purview.indices();
     let purview_size = 1usize << purview_indices.len();
 
-    // For each purview state, compute the likelihood that it caused
-    // the mechanism to be in its current state.
+    // Single-pass: accumulate into purview buckets and count per bucket.
     let mut repertoire = vec![0.0f64; purview_size];
+    let mut counts = vec![0u32; purview_size];
 
-    // For each past purview state, sum contributions from all global states
-    // consistent with that purview state, weighted by the TPM transition
-    // probability to the current state.
-    for purview_state in 0..purview_size {
-        let mut prob = 0.0f64;
-        let mut count = 0u32;
-        // Iterate over all global states consistent with this purview state.
-        for global_past in 0..n {
-            if extract_substate(global_past, &purview_indices) == purview_state {
-                // P(current_state | global_past)
-                prob += tpm.get(global_past, state);
-                count += 1;
-            }
+    for global_past in 0..n {
+        let ps = extract_substate(global_past, &purview_indices);
+        if ps < purview_size {
+            repertoire[ps] += tpm.get(global_past, state);
+            counts[ps] += 1;
         }
-        // Average over consistent global states (uniform prior).
-        repertoire[purview_state] = if count > 0 { prob / count as f64 } else { 0.0 };
+    }
+
+    // Average over consistent global states (uniform prior).
+    for i in 0..purview_size {
+        if counts[i] > 0 {
+            repertoire[i] /= counts[i] as f64;
+        }
     }
 
     // Normalize to probability distribution.
@@ -115,7 +114,6 @@ pub fn cause_repertoire(
             *r *= inv;
         }
     } else {
-        // Uniform if no information.
         let uniform = 1.0 / purview_size as f64;
         repertoire.fill(uniform);
     }

@@ -33,6 +33,30 @@ export interface Memory {
   created_at: string;
 }
 
+export interface ConsciousnessComputeOptions {
+  /** Transition probability matrix (flattened n×n row-major) */
+  tpm: number[];
+  /** Number of states (must be power of 2) */
+  n: number;
+  /** Current state index */
+  state: number;
+  /** Algorithm: iit4_phi, ces, phi_id, pid, bounds, auto (default: auto) */
+  algorithm?: string;
+  /** Min φ for CES distinctions (default: 1e-6) */
+  phi_threshold?: number;
+  /** Bitmask for ΦID/PID source partition */
+  partition_mask?: number;
+}
+
+export interface ConsciousnessComputeResult {
+  algorithm: string;
+  phi: number;
+  num_elements: number;
+  num_states: number;
+  elapsed_us: number;
+  details: Record<string, unknown>;
+}
+
 export class PiBrainClient {
   private baseUrl: string;
   private apiKey: string;
@@ -129,5 +153,15 @@ export class PiBrainClient {
 
   async status(): Promise<unknown> {
     return this.request('GET', '/v1/status');
+  }
+
+  async consciousnessCompute(
+    opts: ConsciousnessComputeOptions,
+  ): Promise<ConsciousnessComputeResult> {
+    return this.request('POST', '/v1/consciousness/compute', opts) as Promise<ConsciousnessComputeResult>;
+  }
+
+  async consciousnessStatus(): Promise<unknown> {
+    return this.request('GET', '/v1/consciousness/status');
   }
 }

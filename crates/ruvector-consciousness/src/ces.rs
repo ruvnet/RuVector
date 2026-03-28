@@ -29,6 +29,8 @@ use std::time::Instant;
 /// Enumerates all non-empty subsets of elements as candidate mechanisms,
 /// computes φ for each, and collects those with φ > threshold.
 /// Then computes relations between surviving distinctions.
+///
+/// With the `parallel` feature, mechanisms are evaluated in parallel via rayon.
 pub fn compute_ces(
     tpm: &TransitionMatrix,
     state: usize,
@@ -46,24 +48,29 @@ pub fn compute_ces(
     }
 
     let start = Instant::now();
-    let mut distinctions: Vec<Distinction> = Vec::new();
-
-    // Enumerate all non-empty subsets of elements as mechanisms.
     let full = (1u64 << num_elements) - 1;
-    for mech_mask in 1..=full {
-        if start.elapsed() > budget.max_time {
-            break;
-        }
 
-        let mechanism = Mechanism::new(mech_mask, num_elements);
-        let dist = mechanism_phi(tpm, &mechanism, state);
+    // Parallel mechanism enumeration when rayon is available and system is large enough.
+    #[cfg(feature = "parallel")]
+    let distinctions: Vec<Distinction> = if num_elements >= 5 {
+        use rayon::prelude::*;
+        (1..=full)
+            .into_par_iter()
+            .map(|mech_mask| {
+                let mechanism = Mechanism::new(mech_mask, num_elements);
+                mechanism_phi(tpm, &mechanism, state)
+            })
+            .filter(|d| d.phi > phi_threshold)
+            .collect()
+    } else {
+        ces_sequential(tpm, state, num_elements, full, phi_threshold, &budget, &start)
+    };
 
-        if dist.phi > phi_threshold {
-            distinctions.push(dist);
-        }
-    }
+    #[cfg(not(feature = "parallel"))]
+    let distinctions = ces_sequential(tpm, state, num_elements, full, phi_threshold, &budget, &start);
 
     // Sort by φ descending.
+    let mut distinctions = distinctions;
     distinctions.sort_by(|a, b| b.phi.partial_cmp(&a.phi).unwrap_or(std::cmp::Ordering::Equal));
 
     // Compute relations between distinctions.
@@ -73,7 +80,6 @@ pub fn compute_ces(
     let sum_phi: f64 = distinctions.iter().map(|d| d.phi).sum();
 
     // System-level Φ: irreducibility of the whole CES.
-    // Approximate as minimum φ across all system bipartitions.
     let big_phi = compute_big_phi(tpm, state, &distinctions, budget);
 
     Ok(CauseEffectStructure {
@@ -85,6 +91,30 @@ pub fn compute_ces(
         sum_phi,
         elapsed: start.elapsed(),
     })
+}
+
+/// Sequential mechanism enumeration with time budget.
+fn ces_sequential(
+    tpm: &TransitionMatrix,
+    state: usize,
+    num_elements: usize,
+    full: u64,
+    phi_threshold: f64,
+    budget: &ComputeBudget,
+    start: &Instant,
+) -> Vec<Distinction> {
+    let mut distinctions = Vec::new();
+    for mech_mask in 1..=full {
+        if start.elapsed() > budget.max_time {
+            break;
+        }
+        let mechanism = Mechanism::new(mech_mask, num_elements);
+        let dist = mechanism_phi(tpm, &mechanism, state);
+        if dist.phi > phi_threshold {
+            distinctions.push(dist);
+        }
+    }
+    distinctions
 }
 
 /// Compute relations between distinctions.

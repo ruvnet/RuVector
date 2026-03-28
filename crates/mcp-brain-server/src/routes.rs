@@ -12,7 +12,9 @@ use crate::types::{
     PartitionQuery, PartitionResult, PartitionResultCompact, PipelineMetricsResponse,
     PubSubPushMessage, PublishNodeRequest, ScoredBrainMemory, SearchQuery,
     ShareRequest, ShareResponse,
-    StatusResponse, SubmitDeltaRequest, TemporalResponse, TrainingCycleResult,
+    StatusResponse, SubmitDeltaRequest, TemporalResponse,
+    ConsciousnessComputeRequest, ConsciousnessComputeResponse,
+    TrainingCycleResult,
     TrainingPreferencesResponse,
     TrainingQuery, TransferRequest, TransferResponse, VerifyRequest, VerifyResponse,
     VoteDirection, VoteRequest, WasmNode, WasmNodeSummary,
@@ -374,6 +376,9 @@ pub async fn create_router() -> (Router, AppState) {
         .route("/internal/queue/drain", get(internal_queue_drain))
         .route("/internal/session/create", post(internal_session_create))
         .route("/internal/session/:id", delete(internal_session_delete))
+        // ── Consciousness / IIT 4.0 ──
+        .route("/v1/consciousness/compute", post(consciousness_compute))
+        .route("/v1/consciousness/status", get(consciousness_status))
         .layer({
             // CORS origins: configurable via CORS_ORIGINS env var (comma-separated).
             // Falls back to safe defaults if unset.
@@ -2467,6 +2472,11 @@ async fn status(
         midstream_strange_loop_version: strange_loop::VERSION.to_string(),
         sparsifier_compression: graph.sparsifier_stats().map(|s| s.compression_ratio).unwrap_or(0.0),
         sparsifier_edges: graph.sparsifier_stats().map(|s| s.sparsified_edges).unwrap_or(0),
+        consciousness_algorithms: vec![
+            "iit4_phi".into(), "ces".into(), "phi_id".into(),
+            "pid".into(), "streaming".into(), "bounds".into(), "auto".into(),
+        ],
+        consciousness_max_elements: 12,
     };
 
     // Cache the computed response for 5 seconds
@@ -5083,6 +5093,28 @@ fn mcp_tool_definitions() -> Vec<serde_json::Value> {
                 "required": ["predicate", "subject", "object"]
             }
         }),
+        // ── Consciousness Computation (IIT 4.0) ──────────────
+        serde_json::json!({
+            "name": "brain_consciousness_compute",
+            "description": "Compute IIT 4.0 consciousness metrics (Φ, CES, ΦID, PID, bounds) for a transition system. Supports algorithms: iit4_phi, ces, phi_id, pid, bounds, auto.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "tpm": { "type": "array", "items": { "type": "number" }, "description": "Transition probability matrix (flattened n×n row-major)" },
+                    "n": { "type": "integer", "description": "Number of states (power of 2)" },
+                    "state": { "type": "integer", "description": "Current state index" },
+                    "algorithm": { "type": "string", "description": "Algorithm: iit4_phi, ces, phi_id, pid, bounds, auto (default: auto)" },
+                    "phi_threshold": { "type": "number", "description": "Min φ for CES distinctions (default: 1e-6)" },
+                    "partition_mask": { "type": "integer", "description": "Bitmask for ΦID/PID partition (optional)" }
+                },
+                "required": ["tpm", "n", "state"]
+            }
+        }),
+        serde_json::json!({
+            "name": "brain_consciousness_status",
+            "description": "Get consciousness subsystem capabilities: available algorithms, max system size, IIT 4.0 features.",
+            "inputSchema": { "type": "object", "properties": {} }
+        }),
         // ── Consciousness Model (Group 2) ─────────────────────
         serde_json::json!({
             "name": "brain_voice_working",
@@ -5451,6 +5483,13 @@ async fn handle_mcp_tool_call(
             proxy_get(&client, &base, "/v1/status", api_key, &[]).await
         },
 
+        // ── Consciousness / IIT 4.0 ───────────────────────────
+        "brain_consciousness_compute" => {
+            proxy_post(&client, &base, "/v1/consciousness/compute", api_key, &args).await
+        },
+        "brain_consciousness_status" => {
+            proxy_get(&client, &base, "/v1/consciousness/status", api_key, &[]).await
+        },
         // ── Cognitive & Symbolic ─────────────────────────────
         "brain_cognitive_status" => {
             proxy_get(&client, &base, "/v1/cognitive/status", api_key, &[]).await
@@ -6966,4 +7005,194 @@ async fn internal_session_delete(
     state.sessions.remove(&id);
     tracing::info!("internal/session/delete: removed session {}", id);
     StatusCode::OK
+}
+
+// ── Consciousness / IIT 4.0 endpoints ────────────────────────────────────
+
+/// GET /v1/consciousness/status — consciousness subsystem capabilities
+async fn consciousness_status() -> Json<serde_json::Value> {
+    Json(serde_json::json!({
+        "available": true,
+        "version": "4.0",
+        "framework": "IIT 4.0 (Albantakis et al. 2023)",
+        "algorithms": [
+            { "name": "iit4_phi", "description": "IIT 4.0 mechanism-level φ with intrinsic information (EMD)" },
+            { "name": "ces", "description": "Full Cause-Effect Structure: distinctions, relations, big Φ" },
+            { "name": "phi_id", "description": "Integrated Information Decomposition (ΦID): redundancy, synergy, unique" },
+            { "name": "pid", "description": "Partial Information Decomposition (Williams-Beer I_min)" },
+            { "name": "streaming", "description": "Online streaming Φ with EWMA, CUSUM change-point detection" },
+            { "name": "bounds", "description": "PAC-style bounds: spectral-Cheeger, Hoeffding, empirical Bernstein" },
+            { "name": "auto", "description": "Auto-select algorithm based on system size and budget" },
+        ],
+        "max_elements": 12,
+        "max_states_exact": 4096,
+        "features": [
+            "intrinsic_difference_emd",
+            "cause_effect_repertoires",
+            "mechanism_partition_search",
+            "relation_computation",
+            "streaming_change_point",
+            "confidence_intervals",
+        ],
+    }))
+}
+
+/// POST /v1/consciousness/compute — run consciousness computation
+async fn consciousness_compute(
+    Json(req): Json<ConsciousnessComputeRequest>,
+) -> Result<Json<ConsciousnessComputeResponse>, (StatusCode, Json<serde_json::Value>)> {
+    use ruvector_consciousness::types::{TransitionMatrix, ComputeBudget};
+
+    // Validate input
+    if req.n < 2 || !req.n.is_power_of_two() {
+        return Err((StatusCode::BAD_REQUEST, Json(serde_json::json!({
+            "error": "n must be a power of 2 and >= 2"
+        }))));
+    }
+    if req.tpm.len() != req.n * req.n {
+        return Err((StatusCode::BAD_REQUEST, Json(serde_json::json!({
+            "error": format!("tpm must have {} elements (n×n), got {}", req.n * req.n, req.tpm.len())
+        }))));
+    }
+    let num_elements = req.n.trailing_zeros() as usize;
+    if num_elements > 12 {
+        return Err((StatusCode::BAD_REQUEST, Json(serde_json::json!({
+            "error": format!("system too large: {} elements (max 12)", num_elements)
+        }))));
+    }
+    if req.state >= req.n {
+        return Err((StatusCode::BAD_REQUEST, Json(serde_json::json!({
+            "error": format!("state {} out of range [0, {})", req.state, req.n)
+        }))));
+    }
+
+    let tpm = TransitionMatrix::new(req.n, req.tpm.clone());
+    let start = std::time::Instant::now();
+
+    let algo = if req.algorithm == "auto" {
+        if num_elements <= 4 { "ces" } else { "iit4_phi" }
+    } else {
+        &req.algorithm
+    };
+
+    let (phi, details) = match algo {
+        "iit4_phi" => {
+            use ruvector_consciousness::iit4::mechanism_phi;
+            use ruvector_consciousness::types::Mechanism;
+            // Compute φ for the full system mechanism
+            let full_mech = Mechanism::new((1u64 << num_elements) - 1, num_elements);
+            let dist = mechanism_phi(&tpm, &full_mech, req.state);
+            (dist.phi, serde_json::json!({
+                "phi_cause": dist.phi_cause,
+                "phi_effect": dist.phi_effect,
+                "mechanism_elements": num_elements,
+            }))
+        }
+        "ces" => {
+            use ruvector_consciousness::ces::{compute_ces, ces_complexity};
+            let budget = ComputeBudget::exact();
+            match compute_ces(&tpm, req.state, req.phi_threshold, &budget) {
+                Ok(ces) => {
+                    let (nd, nr, sp) = ces_complexity(&ces);
+                    (ces.big_phi, serde_json::json!({
+                        "big_phi": ces.big_phi,
+                        "sum_phi": ces.sum_phi,
+                        "num_distinctions": nd,
+                        "num_relations": nr,
+                        "sum_relation_phi": sp,
+                        "distinctions": ces.distinctions.iter().map(|d| serde_json::json!({
+                            "mechanism": format!("{:b}", d.mechanism.elements),
+                            "phi": d.phi,
+                            "phi_cause": d.phi_cause,
+                            "phi_effect": d.phi_effect,
+                        })).collect::<Vec<_>>(),
+                    }))
+                }
+                Err(e) => return Err((StatusCode::BAD_REQUEST, Json(serde_json::json!({
+                    "error": format!("{e}")
+                })))),
+            }
+        }
+        "phi_id" => {
+            use ruvector_consciousness::phi_id::compute_phi_id;
+            let mask = req.partition_mask.unwrap_or(
+                (1u64 << (num_elements / 2)) - 1  // default: split in half
+            );
+            match compute_phi_id(&tpm, mask) {
+                Ok(result) => (result.total_mi, serde_json::json!({
+                    "total_mi": result.total_mi,
+                    "redundancy": result.redundancy,
+                    "unique": result.unique,
+                    "synergy": result.synergy,
+                    "transfer_entropy": result.transfer_entropy,
+                })),
+                Err(e) => return Err((StatusCode::BAD_REQUEST, Json(serde_json::json!({
+                    "error": format!("{e}")
+                })))),
+            }
+        }
+        "pid" => {
+            use ruvector_consciousness::pid::compute_pid;
+            // Convert partition_mask to sources/target arrays.
+            let mask = req.partition_mask.unwrap_or(
+                (1u64 << (num_elements / 2)) - 1
+            );
+            let mut source_a: Vec<usize> = Vec::new();
+            let mut source_b: Vec<usize> = Vec::new();
+            for i in 0..req.n {
+                if mask & (1 << i) != 0 {
+                    source_a.push(i);
+                } else {
+                    source_b.push(i);
+                }
+            }
+            let sources = vec![source_a, source_b.clone()];
+            match compute_pid(&tpm, &sources, &source_b) {
+                Ok(result) => (result.redundancy, serde_json::json!({
+                    "redundancy": result.redundancy,
+                    "unique": result.unique,
+                    "synergy": result.synergy,
+                    "total_mi": result.total_mi,
+                    "num_sources": result.num_sources,
+                })),
+                Err(e) => return Err((StatusCode::BAD_REQUEST, Json(serde_json::json!({
+                    "error": format!("{e}")
+                })))),
+            }
+        }
+        "bounds" => {
+            use ruvector_consciousness::bounds::spectral_bounds;
+            match spectral_bounds(&tpm) {
+                Ok(bound) => (
+                    (bound.lower + bound.upper) / 2.0,
+                    serde_json::json!({
+                        "lower_bound": bound.lower,
+                        "upper_bound": bound.upper,
+                        "confidence": bound.confidence,
+                        "samples": bound.samples,
+                        "method": bound.method,
+                    }),
+                ),
+                Err(e) => return Err((StatusCode::BAD_REQUEST, Json(serde_json::json!({
+                    "error": format!("{e}")
+                })))),
+            }
+        }
+        _ => {
+            return Err((StatusCode::BAD_REQUEST, Json(serde_json::json!({
+                "error": format!("unknown algorithm: {}. Use: iit4_phi, ces, phi_id, pid, bounds, auto", algo)
+            }))));
+        }
+    };
+
+    let elapsed = start.elapsed();
+
+    Ok(Json(ConsciousnessComputeResponse {
+        algorithm: algo.to_string(),
+        phi,
+        num_elements,
+        num_states: req.n,
+        elapsed_us: elapsed.as_micros() as u64,
+        details,
+    }))
 }

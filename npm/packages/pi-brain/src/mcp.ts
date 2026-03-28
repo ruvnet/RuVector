@@ -141,6 +141,45 @@ const TOOLS = [
       properties: {},
     },
   },
+  {
+    name: 'brain_consciousness_compute',
+    description:
+      'Compute IIT 4.0 consciousness metrics (Φ, CES, ΦID, PID, bounds) for a transition system',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        tpm: {
+          type: 'array',
+          items: { type: 'number' },
+          description: 'Transition probability matrix (flattened n×n row-major)',
+        },
+        n: { type: 'number', description: 'Number of states (power of 2)' },
+        state: { type: 'number', description: 'Current state index' },
+        algorithm: {
+          type: 'string',
+          description: 'Algorithm: iit4_phi, ces, phi_id, pid, bounds, auto',
+        },
+        phi_threshold: {
+          type: 'number',
+          description: 'Min φ for CES distinctions (default: 1e-6)',
+        },
+        partition_mask: {
+          type: 'number',
+          description: 'Bitmask for ΦID/PID source partition',
+        },
+      },
+      required: ['tpm', 'n', 'state'],
+    },
+  },
+  {
+    name: 'brain_consciousness_status',
+    description:
+      'Get consciousness subsystem capabilities: algorithms, max system size, IIT 4.0 features',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {},
+    },
+  },
 ];
 
 async function handleToolCall(
@@ -185,6 +224,17 @@ async function handleToolCall(
       return client.partition(args.domain as string | undefined);
     case 'brain_status':
       return client.status();
+    case 'brain_consciousness_compute':
+      return client.consciousnessCompute({
+        tpm: args.tpm as number[],
+        n: args.n as number,
+        state: args.state as number,
+        algorithm: args.algorithm as string | undefined,
+        phi_threshold: args.phi_threshold as number | undefined,
+        partition_mask: args.partition_mask as number | undefined,
+      });
+    case 'brain_consciousness_status':
+      return client.consciousnessStatus();
     default:
       throw new Error(`Unknown tool: ${name}`);
   }
