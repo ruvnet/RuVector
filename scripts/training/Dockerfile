@@ -27,8 +27,11 @@ RUN pip install --no-cache-dir \
     protobuf \
     safetensors
 
-# Install llama-cpp-python with CUDA support (prebuilt wheel)
-RUN CMAKE_ARGS="-DGGML_CUDA=on" pip install --no-cache-dir llama-cpp-python>=0.2.80
+# Install llama-cpp-python prebuilt CUDA wheel (no compilation)
+RUN pip install --no-cache-dir llama-cpp-python>=0.2.80 \
+    --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cu124 \
+    || pip install --no-cache-dir llama-cpp-python>=0.2.80 \
+    || echo "WARN: llama-cpp-python install failed, using transformers-only mode"
 
 # Install llama.cpp tools via pip (no source build needed)
 RUN pip install --no-cache-dir gguf
