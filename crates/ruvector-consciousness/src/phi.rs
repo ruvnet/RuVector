@@ -33,7 +33,7 @@ use std::time::Instant;
 // Validation
 // ---------------------------------------------------------------------------
 
-fn validate_tpm(tpm: &TransitionMatrix) -> Result<(), ConsciousnessError> {
+pub(crate) fn validate_tpm(tpm: &TransitionMatrix) -> Result<(), ConsciousnessError> {
     if tpm.n < 2 {
         return Err(ValidationError::EmptySystem.into());
     }

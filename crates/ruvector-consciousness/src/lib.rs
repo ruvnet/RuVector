@@ -44,8 +44,17 @@ pub mod types;
 #[cfg(feature = "phi")]
 pub mod phi;
 
+#[cfg(feature = "phi")]
+pub mod geomip;
+
 #[cfg(feature = "emergence")]
 pub mod emergence;
 
+#[cfg(feature = "emergence")]
+pub mod rsvd_emergence;
+
 #[cfg(feature = "collapse")]
 pub mod collapse;
+
+#[cfg(feature = "parallel")]
+pub mod parallel;

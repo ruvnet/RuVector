@@ -17,7 +17,9 @@ use wasm_bindgen::prelude::*;
 
 use ruvector_consciousness::emergence::{CausalEmergenceEngine, effective_information};
 use ruvector_consciousness::phi::{auto_compute_phi, ExactPhiEngine, SpectralPhiEngine, StochasticPhiEngine};
+use ruvector_consciousness::geomip::GeoMipPhiEngine;
 use ruvector_consciousness::collapse::QuantumCollapseEngine;
+use ruvector_consciousness::rsvd_emergence::RsvdEmergenceEngine;
 use ruvector_consciousness::traits::{PhiEngine, EmergenceEngine, ConsciousnessCollapse};
 use ruvector_consciousness::types::{ComputeBudget, TransitionMatrix};
 
@@ -56,6 +58,16 @@ struct JsEmergenceResult {
     determinism: f64,
     degeneracy: f64,
     coarse_graining: Vec<usize>,
+    elapsed_ms: f64,
+}
+
+#[derive(Serialize)]
+struct JsRsvdEmergenceResult {
+    singular_values: Vec<f64>,
+    effective_rank: usize,
+    spectral_entropy: f64,
+    emergence_index: f64,
+    reversibility: f64,
     elapsed_ms: f64,
 }
 
@@ -220,6 +232,56 @@ impl WasmConsciousness {
             determinism: result.determinism,
             degeneracy: result.degeneracy,
             coarse_graining: result.coarse_graining,
+            elapsed_ms: result.elapsed.as_secs_f64() * 1000.0,
+        };
+
+        serde_wasm_bindgen::to_value(&js_result).map_err(|e| JsError::new(&e.to_string()))
+    }
+
+    /// Compute Φ using GeoMIP (hypercube BFS + automorphism pruning).
+    ///
+    /// 100-300x faster than exact for systems up to n=25.
+    #[wasm_bindgen(js_name = "computePhiGeoMip")]
+    pub fn compute_phi_geomip(
+        &self,
+        tpm_data: &[f64],
+        n: usize,
+        state: usize,
+        prune: bool,
+    ) -> Result<JsValue, JsError> {
+        let tpm = TransitionMatrix::new(n, tpm_data.to_vec());
+        let budget = self.make_budget(1.0);
+        let engine = GeoMipPhiEngine::new(prune, 0);
+        let result = engine
+            .compute_phi(&tpm, Some(state), &budget)
+            .map_err(|e| JsError::new(&e.to_string()))?;
+        self.phi_to_js(&result)
+    }
+
+    /// Compute SVD-based causal emergence metrics.
+    ///
+    /// Returns singular values, effective rank, spectral entropy,
+    /// emergence index, and dynamical reversibility.
+    #[wasm_bindgen(js_name = "computeRsvdEmergence")]
+    pub fn compute_rsvd_emergence(
+        &self,
+        tpm_data: &[f64],
+        n: usize,
+        k: usize,
+    ) -> Result<JsValue, JsError> {
+        let tpm = TransitionMatrix::new(n, tpm_data.to_vec());
+        let budget = self.make_budget(1.0);
+        let engine = RsvdEmergenceEngine::new(k, 5, 42);
+        let result = engine
+            .compute(&tpm, &budget)
+            .map_err(|e| JsError::new(&e.to_string()))?;
+
+        let js_result = JsRsvdEmergenceResult {
+            singular_values: result.singular_values,
+            effective_rank: result.effective_rank,
+            spectral_entropy: result.spectral_entropy,
+            emergence_index: result.emergence_index,
+            reversibility: result.reversibility,
             elapsed_ms: result.elapsed.as_secs_f64() * 1000.0,
         };
 
