@@ -16,9 +16,9 @@ Accepted — Phase 1 (calibration) deployed and executing. Governance and releas
 | **Cloud Run Jobs** | **3 deployed** | `ruvltra-calibration`, `ruvltra-nightly-train`, `ruvltra-benchmark` (all L4 GPU) |
 | **Cloud Schedulers** | **2 enabled** | Nightly 03:00 UTC, Weekly benchmark Mon 06:00 UTC |
 | **Phase 1: Calibration** | **Complete** | All 4 models calibrated on L4 GPU. TQ profiles + benchmarks uploaded to HuggingFace. Results: 75.4 tok/s (small), 62.6 tok/s (medium), 67.1 tok/s (claude-code) |
-| **Phase 2: SFT** | **Ready** | Training corpus exported (230 records, 530K tokens), scripts ready |
-| **Phase 3: Benchmarks** | **Partial** | Release gate automation implemented and tested; inference benchmarks running |
-| **Phase 4: Publishing** | **Partial** | TurboQuant sidecar configs uploaded to all 4 HF models |
+| **Phase 2: SFT** | **Executing** | LoRA SFT running on L4 GPU (rank-16, 2 epochs, lr=2e-5). Corpus: 230 records, 530K tokens |
+| **Phase 3: Benchmarks** | **Executing** | Release gate automation tested. L4 GPU benchmark job running. Calibration benchmarks complete for all 4 models |
+| **Phase 4: Publishing** | **Complete** | TurboQuant sidecar configs + benchmark results uploaded to all 4 HF models. Model card READMEs updated with benchmark tables |
 | **Tooling** | **ruvllm-native** | Uses RuvltraQuantizer + TurboQuantProfile (Rust), gguf + llama-cpp-python (Python). No llama.cpp source compilation. |
 
 ## Context
