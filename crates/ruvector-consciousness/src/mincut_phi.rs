@@ -10,7 +10,7 @@
 use crate::arena::PhiArena;
 use crate::error::ConsciousnessError;
 use crate::phi::partition_information_loss_pub;
-use crate::simd::marginal_distribution;
+use crate::simd::build_mi_edges;
 use crate::traits::PhiEngine;
 use crate::types::{Bipartition, ComputeBudget, PhiAlgorithm, PhiResult, TransitionMatrix};
 
@@ -57,21 +57,12 @@ impl PhiEngine for MinCutPhiEngine {
         let start = Instant::now();
         let arena = PhiArena::with_capacity(n * n * 16);
 
-        // Build MI-weighted graph as edge list.
-        let marginal = marginal_distribution(tpm.as_slice(), n);
-        let mut edges: Vec<(u64, u64, f64)> = Vec::new();
-
-        for i in 0..n {
-            for j in (i + 1)..n {
-                let mi = pairwise_mi_local(tpm, i, j, &marginal);
-                if mi > 1e-10 {
-                    // MinCut minimizes total cut weight → low MI edges are cheap to cut.
-                    // We want MIP = partition that loses least info.
-                    // Invert: cut weight = MI (cutting high-MI edges is costly).
-                    edges.push((i as u64, j as u64, mi));
-                }
-            }
-        }
+        // Build MI-weighted edge list using shared computation.
+        let (mi_edges, _marginal) = build_mi_edges(tpm.as_slice(), n, 1e-10);
+        let edges: Vec<(u64, u64, f64)> = mi_edges
+            .into_iter()
+            .map(|(i, j, mi)| (i as u64, j as u64, mi))
+            .collect();
 
         let total_partitions = (1u64 << n) - 2;
         let mut min_phi = f64::MAX;
@@ -160,19 +151,6 @@ impl PhiEngine for MinCutPhiEngine {
         // MinCut: ~O(n² log n) + candidates × n²
         (n * n) as u64 * (n as f64).log2() as u64 + self.max_candidates as u64 * (n * n) as u64
     }
-}
-
-fn pairwise_mi_local(tpm: &TransitionMatrix, i: usize, j: usize, marginal: &[f64]) -> f64 {
-    let n = tpm.n;
-    let pi = marginal[i].max(1e-15);
-    let pj = marginal[j].max(1e-15);
-    let mut pij = 0.0;
-    for state in 0..n {
-        pij += tpm.get(state, i) * tpm.get(state, j);
-    }
-    pij /= n as f64;
-    pij = pij.max(1e-15);
-    (pij * (pij / (pi * pj)).ln()).max(0.0)
 }
 
 #[cfg(test)]

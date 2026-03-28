@@ -9,7 +9,7 @@
 use crate::arena::PhiArena;
 use crate::error::ConsciousnessError;
 use crate::phi::partition_information_loss_pub;
-use crate::simd::marginal_distribution;
+use crate::simd::build_mi_edges;
 use crate::traits::PhiEngine;
 use crate::types::{Bipartition, ComputeBudget, PhiAlgorithm, PhiResult, TransitionMatrix};
 
@@ -26,18 +26,13 @@ use std::time::Instant;
 /// reducing O(n²) to O(nnz) where nnz << n².
 pub fn build_sparse_mi_graph(tpm: &TransitionMatrix, threshold: f64) -> (CsrMatrix<f64>, usize) {
     let n = tpm.n;
-    let marginal = marginal_distribution(tpm.as_slice(), n);
+    let (edges, _marginal) = build_mi_edges(tpm.as_slice(), n, threshold);
 
-    let mut entries: Vec<(usize, usize, f64)> = Vec::new();
-
-    for i in 0..n {
-        for j in (i + 1)..n {
-            let mi = pairwise_mi(tpm, i, j, &marginal);
-            if mi > threshold {
-                entries.push((i, j, mi));
-                entries.push((j, i, mi));
-            }
-        }
+    // Symmetrize for CSR.
+    let mut entries: Vec<(usize, usize, f64)> = Vec::with_capacity(edges.len() * 2);
+    for (i, j, mi) in edges {
+        entries.push((i, j, mi));
+        entries.push((j, i, mi));
     }
 
     let csr = CsrMatrix::<f64>::from_coo(n, n, entries);
@@ -89,14 +84,16 @@ pub fn sparse_fiedler_vector(
     let mut w = vec![0.0f64; n];
     let mut lv = vec![0.0f64; n];
 
+    let mut prev_eigenvalue = 0.0f64;
     for _ in 0..max_iter {
         // w = (μI - L) * v  =  μv - Lv
-        laplacian.spmv(&v.iter().map(|x| *x).collect::<Vec<_>>(), &mut lv);
+        // Reuse v directly — spmv takes &[T], Vec<T> derefs to &[T].
+        laplacian.spmv(&v, &mut lv);
         for i in 0..n {
             w[i] = mu * v[i] - lv[i];
         }
 
-        // Deflate.
+        // Deflate: remove component along constant vector.
         let mean: f64 = w.iter().sum::<f64>() * inv_n;
         for wi in &mut w {
             *wi -= mean;
@@ -106,7 +103,25 @@ pub fn sparse_fiedler_vector(
         if norm < 1e-15 {
             break;
         }
+
+        // Convergence check: Rayleigh quotient stability.
+        let eigenvalue = {
+            laplacian.spmv(&w, &mut lv);
+            let mut numer = 0.0f64;
+            let mut denom = 0.0f64;
+            for i in 0..n {
+                numer += w[i] * lv[i];
+                denom += w[i] * w[i];
+            }
+            if denom > 1e-30 { numer / denom } else { 0.0 }
+        };
+
         v.copy_from_slice(&w);
+
+        if (eigenvalue - prev_eigenvalue).abs() < 1e-10 {
+            break; // Converged early — skip remaining iterations.
+        }
+        prev_eigenvalue = eigenvalue;
     }
 
     v
@@ -134,19 +149,6 @@ fn estimate_largest_eigenvalue_sparse(laplacian: &CsrMatrix<f64>, n: usize) -> f
         }
     }
     max_deg
-}
-
-fn pairwise_mi(tpm: &TransitionMatrix, i: usize, j: usize, marginal: &[f64]) -> f64 {
-    let n = tpm.n;
-    let pi = marginal[i].max(1e-15);
-    let pj = marginal[j].max(1e-15);
-    let mut pij = 0.0;
-    for state in 0..n {
-        pij += tpm.get(state, i) * tpm.get(state, j);
-    }
-    pij /= n as f64;
-    pij = pij.max(1e-15);
-    (pij * (pij / (pi * pj)).ln()).max(0.0)
 }
 
 // ---------------------------------------------------------------------------

@@ -10,7 +10,7 @@
 use crate::arena::PhiArena;
 use crate::error::ConsciousnessError;
 use crate::phi::partition_information_loss_pub;
-use crate::simd::marginal_distribution;
+use crate::simd::build_mi_matrix;
 use crate::traits::PhiEngine;
 use crate::types::{Bipartition, ComputeBudget, PhiAlgorithm, PhiResult, TransitionMatrix};
 
@@ -64,16 +64,8 @@ impl PhiEngine for ChebyshevPhiEngine {
         let state_idx = state.unwrap_or(0);
         let start = Instant::now();
 
-        // Build MI adjacency as dense matrix for ScaledLaplacian.
-        let marginal = marginal_distribution(tpm.as_slice(), n);
-        let mut adj = vec![0.0f64; n * n];
-        for i in 0..n {
-            for j in (i + 1)..n {
-                let mi = pairwise_mi_cheb(tpm, i, j, &marginal);
-                adj[i * n + j] = mi;
-                adj[j * n + i] = mi;
-            }
-        }
+        // Build MI adjacency using shared optimized MI computation.
+        let adj = build_mi_matrix(tpm.as_slice(), n);
 
         // Build scaled Laplacian (normalizes eigenvalues to [-1, 1]).
         let scaled_lap = ScaledLaplacian::from_adjacency(&adj, n);
@@ -139,6 +131,9 @@ impl PhiEngine for ChebyshevPhiEngine {
 ///
 /// y = Σ_k c_k T_k(L̃) x
 /// where T_k is the k-th Chebyshev polynomial of the first kind.
+///
+/// Optimized: fused recurrence + accumulation loops, reuse buffers to
+/// avoid allocation per recurrence step (was allocating K vectors).
 fn apply_chebyshev_filter(
     lap: &ScaledLaplacian,
     signal: &[f64],
@@ -153,12 +148,11 @@ fn apply_chebyshev_filter(
     }
 
     // T_0(L̃) x = x
-    let t0 = signal.to_vec();
-
-    // Output accumulator: y = c_0 * T_0(L̃) x
+    // Output accumulator: y = c_0 * x
     let mut result = vec![0.0f64; n];
+    let c0 = coeffs[0];
     for i in 0..n {
-        result[i] = coeffs[0] * t0[i];
+        result[i] = c0 * signal[i];
     }
 
     if k_max == 1 {
@@ -166,48 +160,38 @@ fn apply_chebyshev_filter(
     }
 
     // T_1(L̃) x = L̃ x
-    let t1 = lap.apply(&t0);
+    let t1 = lap.apply(signal);
+    let c1 = coeffs[1];
     for i in 0..n {
-        result[i] += coeffs[1] * t1[i];
+        result[i] += c1 * t1[i];
     }
 
     if k_max == 2 {
         return result;
     }
 
-    // Three-term recurrence: T_{k+1}(x) = 2x T_k(x) - T_{k-1}(x)
-    let mut prev = t0;
+    // Three-term recurrence with buffer reuse (2 buffers instead of K).
+    // T_{k+1}(x) = 2 L̃ T_k(x) - T_{k-1}(x)
+    let mut prev = signal.to_vec();
     let mut curr = t1;
+    let mut next_buf = vec![0.0f64; n]; // Reused across iterations.
 
     for k in 2..k_max {
         let next_lap = lap.apply(&curr);
-        let mut next = vec![0.0f64; n];
+        // Fused: compute next + accumulate result in one pass.
+        let ck = coeffs[k];
         for i in 0..n {
-            next[i] = 2.0 * next_lap[i] - prev[i];
+            let next_i = 2.0 * next_lap[i] - prev[i];
+            result[i] += ck * next_i;
+            next_buf[i] = next_i;
         }
 
-        for i in 0..n {
-            result[i] += coeffs[k] * next[i];
-        }
-
-        prev = curr;
-        curr = next;
+        // Rotate buffers: prev ← curr, curr ← next_buf (swap to avoid copy).
+        std::mem::swap(&mut prev, &mut curr);
+        std::mem::swap(&mut curr, &mut next_buf);
     }
 
     result
-}
-
-fn pairwise_mi_cheb(tpm: &TransitionMatrix, i: usize, j: usize, marginal: &[f64]) -> f64 {
-    let n = tpm.n;
-    let pi = marginal[i].max(1e-15);
-    let pj = marginal[j].max(1e-15);
-    let mut pij = 0.0;
-    for state in 0..n {
-        pij += tpm.get(state, i) * tpm.get(state, j);
-    }
-    pij /= n as f64;
-    pij = pij.max(1e-15);
-    (pij * (pij / (pi * pj)).ln()).max(0.0)
 }
 
 #[cfg(test)]

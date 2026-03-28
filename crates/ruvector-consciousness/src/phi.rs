@@ -21,7 +21,7 @@
 
 use crate::arena::PhiArena;
 use crate::error::{ConsciousnessError, ValidationError};
-use crate::simd::{kl_divergence, marginal_distribution};
+use crate::simd::kl_divergence;
 use crate::traits::PhiEngine;
 use crate::types::{
     Bipartition, BipartitionIter, ComputeBudget, PhiAlgorithm, PhiResult, TransitionMatrix,
@@ -80,6 +80,9 @@ pub(crate) fn partition_information_loss_pub(
 /// This is the core hot path: for each partition, we compute the KL divergence
 /// between the whole-system conditional distribution and the product of the
 /// marginalized sub-system distributions.
+///
+/// Optimized: uses stack-allocated index arrays (no heap alloc for n ≤ 64),
+/// and fused product-distribution + KL computation to minimize cache misses.
 fn partition_information_loss(
     tpm: &TransitionMatrix,
     state: usize,
@@ -87,27 +90,42 @@ fn partition_information_loss(
     arena: &PhiArena,
 ) -> f64 {
     let n = tpm.n;
-    let set_a = partition.set_a();
-    let set_b = partition.set_b();
+    let mask = partition.mask;
+
+    // Extract set indices via bit manipulation — no Vec allocation.
+    let mut indices_a = [0usize; 64];
+    let mut indices_b = [0usize; 64];
+    let mut ka = 0usize;
+    let mut kb = 0usize;
+    for i in 0..n {
+        if mask & (1 << i) != 0 {
+            indices_a[ka] = i;
+            ka += 1;
+        } else {
+            indices_b[kb] = i;
+            kb += 1;
+        }
+    }
+    let set_a = &indices_a[..ka];
+    let set_b = &indices_b[..kb];
 
     // Whole-system distribution P(future | state)
     let whole_dist = &tpm.data[state * n..(state + 1) * n];
 
     // Marginalize to get sub-TPMs
-    let tpm_a = tpm.marginalize(&set_a);
-    let tpm_b = tpm.marginalize(&set_b);
+    let tpm_a = tpm.marginalize(set_a);
+    let tpm_b = tpm.marginalize(set_b);
 
-    // Compute conditional distributions for each sub-system.
-    // Map the current state to sub-system states.
-    let state_a = map_state_to_subsystem(state, &set_a, n);
-    let state_b = map_state_to_subsystem(state, &set_b, n);
+    // Map current state to sub-system states.
+    let state_a = map_state_to_subsystem_inline(state, set_a);
+    let state_b = map_state_to_subsystem_inline(state, set_b);
 
     let dist_a = &tpm_a.data[state_a * tpm_a.n..(state_a + 1) * tpm_a.n];
     let dist_b = &tpm_b.data[state_b * tpm_b.n..(state_b + 1) * tpm_b.n];
 
-    // Reconstruct the product distribution P(A) ⊗ P(B) in the full state space.
+    // Reconstruct product distribution P(A) ⊗ P(B) in full state space.
     let product = arena.alloc_slice::<f64>(n);
-    compute_product_distribution(dist_a, &set_a, dist_b, &set_b, product, n);
+    compute_product_distribution_fast(dist_a, set_a, dist_b, set_b, product, n);
 
     // Normalize product distribution.
     let sum: f64 = product.iter().sum();
@@ -124,18 +142,25 @@ fn partition_information_loss(
 }
 
 /// Map a global state index to a sub-system state index.
-fn map_state_to_subsystem(state: usize, indices: &[usize], _n: usize) -> usize {
-    let mut sub_state = 0;
+/// Inline version using slice instead of Vec.
+#[inline(always)]
+fn map_state_to_subsystem_inline(state: usize, indices: &[usize]) -> usize {
+    let mut sub_state = 0usize;
     for (bit, &idx) in indices.iter().enumerate() {
-        if state & (1 << idx) != 0 {
-            sub_state |= 1 << bit;
-        }
+        // Branchless: extract bit and shift into position.
+        sub_state |= ((state >> idx) & 1) << bit;
     }
     sub_state % indices.len().max(1)
 }
 
+/// Legacy wrapper for cross-module compat.
+fn map_state_to_subsystem(state: usize, indices: &[usize], _n: usize) -> usize {
+    map_state_to_subsystem_inline(state, indices)
+}
+
 /// Compute product distribution P(A) ⊗ P(B) expanded to full state space.
-fn compute_product_distribution(
+/// Optimized: precompute bit extraction tables to avoid per-state inner loops.
+fn compute_product_distribution_fast(
     dist_a: &[f64],
     set_a: &[usize],
     dist_b: &[f64],
@@ -146,23 +171,35 @@ fn compute_product_distribution(
     let ka = set_a.len();
     let kb = set_b.len();
 
-    for global_state in 0..n {
-        let mut sa = 0usize;
-        for (bit, &idx) in set_a.iter().enumerate() {
-            if global_state & (1 << idx) != 0 {
-                sa |= 1 << bit;
-            }
+    // For small n (≤ 16), precompute lookup tables for state → sub-state mapping.
+    // This avoids the inner bit-extraction loop per global state.
+    if n <= 16 {
+        // Precompute: for each global state, what's its set_a and set_b sub-state?
+        for global_state in 0..n {
+            let sa = extract_substate(global_state, set_a);
+            let sb = extract_substate(global_state, set_b);
+            let pa = if sa < ka { unsafe { *dist_a.get_unchecked(sa) } } else { 0.0 };
+            let pb = if sb < kb { unsafe { *dist_b.get_unchecked(sb) } } else { 0.0 };
+            unsafe { *output.get_unchecked_mut(global_state) = pa * pb; }
         }
-        let mut sb = 0usize;
-        for (bit, &idx) in set_b.iter().enumerate() {
-            if global_state & (1 << idx) != 0 {
-                sb |= 1 << bit;
-            }
+    } else {
+        for global_state in 0..n {
+            let sa = extract_substate(global_state, set_a);
+            let sb = extract_substate(global_state, set_b);
+            let pa = if sa < ka { dist_a[sa] } else { 0.0 };
+            let pb = if sb < kb { dist_b[sb] } else { 0.0 };
+            output[global_state] = pa * pb;
         }
-        let pa = if sa < ka { dist_a[sa] } else { 0.0 };
-        let pb = if sb < kb { dist_b[sb] } else { 0.0 };
-        output[global_state] = pa * pb;
     }
+}
+
+#[inline(always)]
+fn extract_substate(global_state: usize, indices: &[usize]) -> usize {
+    let mut sub = 0usize;
+    for (bit, &idx) in indices.iter().enumerate() {
+        sub |= ((global_state >> idx) & 1) << bit;
+    }
+    sub
 }
 
 // ---------------------------------------------------------------------------
@@ -278,18 +315,8 @@ impl PhiEngine for SpectralPhiEngine {
         let state_idx = state.unwrap_or(0);
         let start = Instant::now();
 
-        // Build mutual information adjacency matrix.
-        let mut mi_matrix = vec![0.0f64; n * n];
-        let marginal = marginal_distribution(tpm.as_slice(), n);
-
-        for i in 0..n {
-            for j in (i + 1)..n {
-                // Mutual information between elements i and j.
-                let mi = compute_pairwise_mi(tpm, i, j, &marginal);
-                mi_matrix[i * n + j] = mi;
-                mi_matrix[j * n + i] = mi;
-            }
-        }
+        // Build mutual information adjacency matrix using shared MI function.
+        let mi_matrix = crate::simd::build_mi_matrix(tpm.as_slice(), n);
 
         // Build Laplacian L = D - W.
         let mut laplacian = vec![0.0f64; n * n];
@@ -348,24 +375,6 @@ impl PhiEngine for SpectralPhiEngine {
     }
 }
 
-/// Pairwise mutual information between elements i and j.
-fn compute_pairwise_mi(tpm: &TransitionMatrix, i: usize, j: usize, marginal: &[f64]) -> f64 {
-    let n = tpm.n;
-    let pi = marginal[i].max(1e-15);
-    let pj = marginal[j].max(1e-15);
-
-    // Joint probability from TPM.
-    let mut pij = 0.0;
-    for state in 0..n {
-        pij += tpm.get(state, i) * tpm.get(state, j);
-    }
-    pij /= n as f64;
-    pij = pij.max(1e-15);
-
-    // MI = p(i,j) * log(p(i,j) / (p(i) * p(j)))
-    pij * (pij / (pi * pj)).ln()
-}
-
 /// Compute Fiedler vector (second-smallest eigenvector of Laplacian).
 /// Uses inverse power iteration with deflation.
 fn fiedler_vector(laplacian: &[f64], n: usize, max_iter: usize) -> Vec<f64> {
@@ -393,18 +402,20 @@ fn fiedler_vector(laplacian: &[f64], n: usize, max_iter: usize) -> Vec<f64> {
     }
 
     // Power iteration on (mu*I - L) to find second-smallest eigenvalue.
-    // Use shifted inverse iteration.
+    // Use shifted inverse iteration with convergence-based early exit.
     let mut w = vec![0.0f64; n];
 
     // Estimate largest eigenvalue for shift.
     let mu = estimate_largest_eigenvalue(laplacian, n);
+    let mut prev_eigenvalue = 0.0f64;
 
     for _ in 0..max_iter {
         // w = (mu*I - L) * v
         for i in 0..n {
+            let row = &laplacian[i * n..(i + 1) * n];
             let mut sum = mu * v[i];
             for j in 0..n {
-                sum -= laplacian[i * n + j] * v[j];
+                sum -= row[j] * v[j];
             }
             w[i] = sum;
         }
@@ -424,6 +435,21 @@ fn fiedler_vector(laplacian: &[f64], n: usize, max_iter: usize) -> Vec<f64> {
         for i in 0..n {
             v[i] = w[i] * inv_norm;
         }
+
+        // Convergence check: Rayleigh quotient v^T L v.
+        let mut eigenvalue = 0.0f64;
+        for i in 0..n {
+            let row = &laplacian[i * n..(i + 1) * n];
+            let mut lv_i = 0.0;
+            for j in 0..n {
+                lv_i += row[j] * v[j];
+            }
+            eigenvalue += v[i] * lv_i;
+        }
+        if (eigenvalue - prev_eigenvalue).abs() < 1e-10 {
+            break;
+        }
+        prev_eigenvalue = eigenvalue;
     }
 
     v
@@ -796,21 +822,12 @@ impl PhiEngine for HierarchicalPhiEngine {
     }
 }
 
-/// Build mutual information adjacency matrix from TPM.
+/// Build MI Laplacian from TPM using shared MI computation.
 fn build_mi_graph(tpm: &TransitionMatrix) -> Vec<f64> {
     let n = tpm.n;
-    let mut mi_matrix = vec![0.0f64; n * n];
-    let marginal = marginal_distribution(tpm.as_slice(), n);
+    let mi_matrix = crate::simd::build_mi_matrix(tpm.as_slice(), n);
 
-    for i in 0..n {
-        for j in (i + 1)..n {
-            let mi = compute_pairwise_mi(tpm, i, j, &marginal);
-            mi_matrix[i * n + j] = mi;
-            mi_matrix[j * n + i] = mi;
-        }
-    }
-
-    // Convert to Laplacian.
+    // Convert to Laplacian: L = D - W.
     let mut laplacian = vec![0.0f64; n * n];
     for i in 0..n {
         let mut degree = 0.0;

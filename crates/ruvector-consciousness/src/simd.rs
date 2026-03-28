@@ -176,6 +176,60 @@ pub fn marginal_distribution(tpm: &[f64], n: usize) -> Vec<f64> {
     marginal
 }
 
+// ---------------------------------------------------------------------------
+// Shared pairwise MI computation (used by all spectral engines)
+// ---------------------------------------------------------------------------
+
+/// Pairwise mutual information between elements i and j given marginals.
+///
+/// MI(i,j) = p(i,j) · ln(p(i,j) / (p(i)·p(j)))
+/// where p(i,j) = (1/n) Σ_s TPM[s,i]·TPM[s,j].
+#[inline]
+pub fn pairwise_mi(tpm: &[f64], n: usize, i: usize, j: usize, marginal: &[f64]) -> f64 {
+    let pi = marginal[i].max(1e-15);
+    let pj = marginal[j].max(1e-15);
+    let mut pij = 0.0;
+    for state in 0..n {
+        // Column-major access: tpm[state][i] and tpm[state][j]
+        unsafe {
+            pij += *tpm.get_unchecked(state * n + i) * *tpm.get_unchecked(state * n + j);
+        }
+    }
+    pij /= n as f64;
+    pij = pij.max(1e-15);
+    (pij * (pij / (pi * pj)).ln()).max(0.0)
+}
+
+/// Build full pairwise MI matrix (symmetric, zero diagonal).
+/// Returns flat n×n row-major matrix.
+pub fn build_mi_matrix(tpm: &[f64], n: usize) -> Vec<f64> {
+    let marginal = marginal_distribution(tpm, n);
+    let mut mi = vec![0.0f64; n * n];
+    for i in 0..n {
+        for j in (i + 1)..n {
+            let val = pairwise_mi(tpm, n, i, j, &marginal);
+            mi[i * n + j] = val;
+            mi[j * n + i] = val;
+        }
+    }
+    mi
+}
+
+/// Build MI edge list (i, j, weight) with threshold pruning.
+pub fn build_mi_edges(tpm: &[f64], n: usize, threshold: f64) -> (Vec<(usize, usize, f64)>, Vec<f64>) {
+    let marginal = marginal_distribution(tpm, n);
+    let mut edges = Vec::new();
+    for i in 0..n {
+        for j in (i + 1)..n {
+            let mi = pairwise_mi(tpm, n, i, j, &marginal);
+            if mi > threshold {
+                edges.push((i, j, mi));
+            }
+        }
+    }
+    (edges, marginal)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

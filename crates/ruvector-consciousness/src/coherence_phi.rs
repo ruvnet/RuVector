@@ -8,7 +8,7 @@
 //! Requires feature: `coherence-accel`
 
 use crate::error::ConsciousnessError;
-use crate::simd::marginal_distribution;
+use crate::simd::build_mi_edges;
 use crate::types::TransitionMatrix;
 
 use ruvector_coherence::{CsrMatrixView, SpectralConfig, SpectralTracker};
@@ -26,17 +26,8 @@ pub fn spectral_phi_bound(tpm: &TransitionMatrix) -> Result<PhiSpectralBound, Co
         return Err(crate::error::ValidationError::EmptySystem.into());
     }
 
-    // Build MI edges.
-    let marginal = marginal_distribution(tpm.as_slice(), n);
-    let mut edges: Vec<(usize, usize, f64)> = Vec::new();
-    for i in 0..n {
-        for j in (i + 1)..n {
-            let mi = pairwise_mi_coh(tpm, i, j, &marginal);
-            if mi > 1e-10 {
-                edges.push((i, j, mi));
-            }
-        }
-    }
+    // Build MI edges using shared computation.
+    let (edges, _marginal) = build_mi_edges(tpm.as_slice(), n, 1e-10);
 
     // Build Laplacian via coherence crate.
     let lap = CsrMatrixView::build_laplacian(n, &edges);
@@ -85,19 +76,6 @@ pub struct PhiSpectralBound {
 pub fn is_highly_integrated(tpm: &TransitionMatrix, threshold: f64) -> Result<bool, ConsciousnessError> {
     let bound = spectral_phi_bound(tpm)?;
     Ok(bound.spectral_gap > threshold)
-}
-
-fn pairwise_mi_coh(tpm: &TransitionMatrix, i: usize, j: usize, marginal: &[f64]) -> f64 {
-    let n = tpm.n;
-    let pi = marginal[i].max(1e-15);
-    let pj = marginal[j].max(1e-15);
-    let mut pij = 0.0;
-    for state in 0..n {
-        pij += tpm.get(state, i) * tpm.get(state, j);
-    }
-    pij /= n as f64;
-    pij = pij.max(1e-15);
-    (pij * (pij / (pi * pj)).ln()).max(0.0)
 }
 
 #[cfg(test)]
