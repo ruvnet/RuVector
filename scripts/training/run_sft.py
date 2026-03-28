@@ -96,6 +96,16 @@ def format_dataset(records: list[dict]):
                 messages[-1]["content"] += f"\n\n{rec['input']}"
             messages.append({"role": "assistant", "content": rec["output"]})
             formatted.append({"messages": messages})
+        elif "text" in rec and len(rec["text"]) > 100:
+            # Raw text format (brain memories, ADRs) — convert to completion format
+            text = rec["text"]
+            title = rec.get("title", text[:60].split("\n")[0])
+            messages = [
+                {"role": "system", "content": "You are a knowledgeable software architect and Rust developer."},
+                {"role": "user", "content": f"Explain: {title}"},
+                {"role": "assistant", "content": text},
+            ]
+            formatted.append({"messages": messages})
         else:
             log.warning("Skipping record with unknown format: %s", list(rec.keys()))
 
