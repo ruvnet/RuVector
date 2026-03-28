@@ -20,7 +20,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Core ML dependencies (single layer for cache efficiency)
 RUN pip install \
-    torch==2.3.1 --index-url https://download.pytorch.org/whl/cu124 \
+    torch==2.5.1 --index-url https://download.pytorch.org/whl/cu124 \
     && pip install \
     transformers>=4.44.0 \
     peft>=0.12.0 \
