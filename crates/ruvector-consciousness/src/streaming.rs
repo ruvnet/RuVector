@@ -27,6 +27,8 @@ pub struct StreamingPhiEstimator {
     n: usize,
     /// Transition count matrix (row i, col j = count of i→j transitions).
     counts: Vec<f64>,
+    /// Cached normalized TPM (invalidated on each observe).
+    cached_tpm: Option<TransitionMatrix>,
     /// Exponential forgetting factor (0 < λ ≤ 1). 1.0 = no forgetting.
     forgetting_factor: f64,
     /// Minimum observations before computing Φ.
@@ -44,6 +46,7 @@ pub struct StreamingPhiEstimator {
     phi_mean: f64,
     /// History of recent Φ values (ring buffer).
     history: Vec<f64>,
+    history_idx: usize,
     max_history: usize,
     /// Change-point detection: CUSUM parameters.
     cusum_pos: f64,
@@ -57,6 +60,7 @@ impl StreamingPhiEstimator {
         Self {
             n,
             counts: vec![0.0; n * n],
+            cached_tpm: None,
             forgetting_factor: 0.99,
             min_observations: n * 2,
             total_transitions: 0,
@@ -65,7 +69,8 @@ impl StreamingPhiEstimator {
             phi_ewma: 0.0,
             phi_m2: 0.0,
             phi_mean: 0.0,
-            history: Vec::new(),
+            history: Vec::with_capacity(1000),
+            history_idx: 0,
             max_history: 1000,
             cusum_pos: 0.0,
             cusum_neg: 0.0,
@@ -113,9 +118,10 @@ impl StreamingPhiEstimator {
                     *c *= self.forgetting_factor;
                 }
             }
-            // Increment transition count.
+            // Increment transition count and invalidate cached TPM.
             self.counts[prev * self.n + state] += 1.0;
             self.total_transitions += 1;
+            self.cached_tpm = None;
         }
         self.prev_state = Some(state);
 
@@ -124,8 +130,11 @@ impl StreamingPhiEstimator {
             return None;
         }
 
-        // Build empirical TPM from counts.
-        let tpm = self.build_tpm();
+        // Build empirical TPM from counts (lazy: only when cache invalidated).
+        if self.cached_tpm.is_none() {
+            self.cached_tpm = Some(self.build_tpm_inner());
+        }
+        let tpm = self.cached_tpm.as_ref().unwrap().clone();
 
         // Compute Φ.
         let phi_result = engine.compute_phi(&tpm, Some(state), budget).ok()?;
@@ -155,11 +164,14 @@ impl StreamingPhiEstimator {
         // Change-point detection (CUSUM).
         let change_detected = self.update_cusum(phi);
 
-        // Update history.
-        if self.history.len() >= self.max_history {
-            self.history.remove(0);
+        // Update history (ring buffer).
+        if self.history.len() < self.max_history {
+            self.history.push(phi);
+            self.history_idx = self.history.len();
+        } else {
+            self.history[self.history_idx % self.max_history] = phi;
+            self.history_idx += 1;
         }
-        self.history.push(phi);
 
         Some(StreamingPhiResult {
             phi,
@@ -172,7 +184,7 @@ impl StreamingPhiEstimator {
     }
 
     /// Build a normalized TPM from transition counts.
-    fn build_tpm(&self) -> TransitionMatrix {
+    fn build_tpm_inner(&self) -> TransitionMatrix {
         let n = self.n;
         let mut data = vec![0.0f64; n * n];
 
@@ -225,12 +237,14 @@ impl StreamingPhiEstimator {
     /// Reset all state.
     pub fn reset(&mut self) {
         self.counts.fill(0.0);
+        self.cached_tpm = None;
         self.total_transitions = 0;
         self.prev_state = None;
         self.phi_ewma = 0.0;
         self.phi_m2 = 0.0;
         self.phi_mean = 0.0;
         self.history.clear();
+        self.history_idx = 0;
         self.cusum_pos = 0.0;
         self.cusum_neg = 0.0;
     }

@@ -92,6 +92,7 @@ fn estimate_fiedler(laplacian: &[f64], n: usize, max_iter: usize) -> f64 {
 
     let mu = gershgorin_max(laplacian, n);
     let mut w = vec![0.0f64; n];
+    let mut prev_rayleigh = f64::MAX;
 
     for _ in 0..max_iter {
         for i in 0..n {
@@ -110,18 +111,17 @@ fn estimate_fiedler(laplacian: &[f64], n: usize, max_iter: usize) -> f64 {
             break;
         }
         v.copy_from_slice(&w);
+
+        // Early exit: check Rayleigh quotient convergence.
+        let rq = rayleigh_quotient(laplacian, &v, n);
+        if (rq - prev_rayleigh).abs() < 1e-10 {
+            return rq.max(0.0);
+        }
+        prev_rayleigh = rq;
     }
 
     // Rayleigh quotient: λ₂ ≈ v^T L v / v^T v
-    let mut vtlv = 0.0f64;
-    for i in 0..n {
-        let mut lv_i = 0.0;
-        for j in 0..n {
-            lv_i += laplacian[i * n + j] * v[j];
-        }
-        vtlv += v[i] * lv_i;
-    }
-    vtlv.max(0.0)
+    rayleigh_quotient(laplacian, &v, n).max(0.0)
 }
 
 // ---------------------------------------------------------------------------
@@ -245,6 +245,18 @@ pub fn compute_phi_with_bounds<E: PhiEngine>(
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+fn rayleigh_quotient(laplacian: &[f64], v: &[f64], n: usize) -> f64 {
+    let mut vtlv = 0.0f64;
+    for i in 0..n {
+        let mut lv_i = 0.0;
+        for j in 0..n {
+            lv_i += laplacian[i * n + j] * v[j];
+        }
+        vtlv += v[i] * lv_i;
+    }
+    vtlv
+}
 
 fn normalize(v: &mut [f64]) -> f64 {
     let norm: f64 = v.iter().map(|x| x * x).sum::<f64>().sqrt();

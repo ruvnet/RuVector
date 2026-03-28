@@ -99,6 +99,12 @@ fn williams_beer_imin(
     let target_marginal = compute_target_marginal(tpm, n, target);
     let target_size = target_marginal.len();
 
+    // Pre-compute source marginals once (avoids recomputation per target state).
+    let source_marginals: Vec<Vec<f64>> = sources
+        .iter()
+        .map(|s| compute_source_marginal(tpm, n, s))
+        .collect();
+
     let mut imin = 0.0f64;
 
     for t_state in 0..target_size {
@@ -107,10 +113,11 @@ fn williams_beer_imin(
             continue;
         }
 
-        // For each source, compute specific information about this target state.
         let mut min_spec = f64::MAX;
-        for source in sources {
-            let spec = specific_information(tpm, n, source, target, t_state, &target_marginal);
+        for (source, source_marginal) in sources.iter().zip(source_marginals.iter()) {
+            let spec = specific_information_cached(
+                tpm, n, source, target, t_state, &target_marginal, source_marginal,
+            );
             min_spec = min_spec.min(spec);
         }
 
@@ -120,6 +127,57 @@ fn williams_beer_imin(
     }
 
     imin.max(0.0)
+}
+
+/// Specific information with pre-computed source marginal (avoids reallocation).
+fn specific_information_cached(
+    tpm: &TransitionMatrix,
+    n: usize,
+    source: &[usize],
+    target: &[usize],
+    target_state: usize,
+    target_marginal: &[f64],
+    source_marginal: &[f64],
+) -> f64 {
+    let source_size = source_marginal.len();
+    let p_t = target_marginal[target_state];
+
+    if p_t < 1e-15 {
+        return 0.0;
+    }
+
+    let mut p_s_given_t = vec![0.0f64; source_size];
+    let inv_n = 1.0 / n as f64;
+    for global_state in 0..n {
+        let s_state = extract_substate(global_state, source);
+        if s_state < source_size {
+            let mut p_target_given_global = 0.0;
+            for future in 0..n {
+                if extract_substate(future, target) == target_state {
+                    p_target_given_global += tpm.get(global_state, future);
+                }
+            }
+            p_s_given_t[s_state] += inv_n * p_target_given_global;
+        }
+    }
+
+    let sum: f64 = p_s_given_t.iter().sum();
+    if sum > 1e-15 {
+        let inv = 1.0 / sum;
+        for p in &mut p_s_given_t {
+            *p *= inv;
+        }
+    }
+
+    let mut dkl = 0.0f64;
+    for i in 0..source_size {
+        let p = p_s_given_t[i];
+        let q = source_marginal[i];
+        if p > 1e-15 && q > 1e-15 {
+            dkl += p * (p / q).ln();
+        }
+    }
+    dkl.max(0.0)
 }
 
 /// Specific information: I_spec(S; t) = D_KL(P(S|T=t) || P(S))

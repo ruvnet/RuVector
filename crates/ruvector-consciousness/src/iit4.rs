@@ -55,15 +55,25 @@ pub fn intrinsic_difference(p: &[f64], q: &[f64]) -> f64 {
 ///
 /// In IIT 4.0: φ_s = d(repertoire, max_entropy_repertoire)
 /// where d is intrinsic_difference.
+/// Selectivity: how much a mechanism constrains its purview beyond
+/// the unconstrained (maximum entropy) repertoire.
+///
+/// Optimized: computes EMD against uniform inline without allocation.
 #[inline]
 pub fn selectivity(repertoire: &[f64]) -> f64 {
     let n = repertoire.len();
     if n == 0 {
         return 0.0;
     }
+    // EMD against uniform = cumulative L1 of (p[i] - 1/n).
     let uniform = 1.0 / n as f64;
-    let uniform_dist: Vec<f64> = vec![uniform; n];
-    intrinsic_difference(repertoire, &uniform_dist)
+    let mut cumsum = 0.0f64;
+    let mut dist = 0.0f64;
+    for i in 0..n {
+        cumsum += repertoire[i] - uniform;
+        dist += cumsum.abs();
+    }
+    dist
 }
 
 // ---------------------------------------------------------------------------
@@ -265,17 +275,16 @@ fn min_partition_phi_cause(
     let mech_size = mechanism.size();
 
     if mech_size <= 1 {
-        // Single-element mechanism: φ = selectivity (no partition possible).
         return selectivity(intact_repertoire);
     }
 
-    // Try all bipartitions of the mechanism.
     let mech_indices = mechanism.indices();
-    let full_mech = (1u64 << mech_size) - 1;
+    // Skip mirror partitions: mask and (full ^ mask) are equivalent.
+    // Only iterate 1..(1 << (mech_size - 1)) instead of 1..full_mech.
+    let half = 1u64 << (mech_size - 1);
     let mut min_loss = f64::MAX;
 
-    for part_mask in 1..full_mech {
-        // Partition mechanism into two parts.
+    for part_mask in 1..half {
         let mut part_a_elems = 0u64;
         let mut part_b_elems = 0u64;
         for (bit, &idx) in mech_indices.iter().enumerate() {
@@ -289,14 +298,10 @@ fn min_partition_phi_cause(
         let mech_a = Mechanism::new(part_a_elems, num_elements);
         let mech_b = Mechanism::new(part_b_elems, num_elements);
 
-        // Compute partitioned repertoires.
         let rep_a = cause_repertoire(tpm, &mech_a, purview, state);
         let rep_b = cause_repertoire(tpm, &mech_b, purview, state);
-
-        // Product of partitioned repertoires.
         let product = product_distribution(&rep_a, &rep_b);
 
-        // Information loss due to partition.
         let loss = intrinsic_difference(intact_repertoire, &product);
         min_loss = min_loss.min(loss);
     }
@@ -320,10 +325,11 @@ fn min_partition_phi_effect(
     }
 
     let mech_indices = mechanism.indices();
-    let full_mech = (1u64 << mech_size) - 1;
+    // Skip mirror partitions (same as cause side).
+    let half = 1u64 << (mech_size - 1);
     let mut min_loss = f64::MAX;
 
-    for part_mask in 1..full_mech {
+    for part_mask in 1..half {
         let mut part_a_elems = 0u64;
         let mut part_b_elems = 0u64;
         for (bit, &idx) in mech_indices.iter().enumerate() {
@@ -349,20 +355,42 @@ fn min_partition_phi_effect(
 }
 
 /// Product of two distributions (element-wise multiply + normalize).
+///
+/// Uses stack buffer for purview sizes ≤ 64, avoiding heap allocation
+/// in the tight partition-search loop.
+#[inline]
 fn product_distribution(a: &[f64], b: &[f64]) -> Vec<f64> {
     let n = a.len().min(b.len());
-    let mut prod = vec![0.0f64; n];
-    for i in 0..n {
-        prod[i] = a[i] * b[i];
-    }
-    let sum: f64 = prod.iter().sum();
-    if sum > 1e-15 {
-        let inv = 1.0 / sum;
-        for p in &mut prod {
-            *p *= inv;
+    if n <= 64 {
+        let mut buf = [0.0f64; 64];
+        let prod = &mut buf[..n];
+        let mut sum = 0.0f64;
+        for i in 0..n {
+            prod[i] = a[i] * b[i];
+            sum += prod[i];
         }
+        if sum > 1e-15 {
+            let inv = 1.0 / sum;
+            for p in prod.iter_mut() {
+                *p *= inv;
+            }
+        }
+        prod.to_vec()
+    } else {
+        let mut prod = vec![0.0f64; n];
+        let mut sum = 0.0f64;
+        for i in 0..n {
+            prod[i] = a[i] * b[i];
+            sum += prod[i];
+        }
+        if sum > 1e-15 {
+            let inv = 1.0 / sum;
+            for p in &mut prod {
+                *p *= inv;
+            }
+        }
+        prod
     }
-    prod
 }
 
 /// Extract substate bits from a global state for given indices.
