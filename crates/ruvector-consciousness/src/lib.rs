@@ -58,3 +58,18 @@ pub mod collapse;
 
 #[cfg(feature = "parallel")]
 pub mod parallel;
+
+#[cfg(feature = "solver-accel")]
+pub mod sparse_accel;
+
+#[cfg(feature = "mincut-accel")]
+pub mod mincut_phi;
+
+#[cfg(feature = "math-accel")]
+pub mod chebyshev_phi;
+
+#[cfg(feature = "coherence-accel")]
+pub mod coherence_phi;
+
+#[cfg(feature = "witness")]
+pub mod witness_phi;

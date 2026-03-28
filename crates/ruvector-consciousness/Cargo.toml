@@ -18,7 +18,15 @@ collapse = []
 simd = []
 wasm = []
 parallel = ["rayon", "crossbeam"]
-full = ["parallel", "phi", "emergence", "collapse", "simd"]
+solver-accel = ["ruvector-solver"]
+sparsifier-accel = ["ruvector-sparsifier"]
+mincut-accel = ["ruvector-mincut"]
+math-accel = ["ruvector-math"]
+coherence-accel = ["ruvector-coherence"]
+witness = ["ruvector-cognitive-container"]
+full = ["parallel", "phi", "emergence", "collapse", "simd",
+        "solver-accel", "sparsifier-accel", "mincut-accel",
+        "math-accel", "coherence-accel", "witness"]
 
 [dependencies]
 serde = { workspace = true, features = ["derive"] }
@@ -27,6 +35,12 @@ tracing = { workspace = true }
 rand = { workspace = true }
 rayon = { workspace = true, optional = true }
 crossbeam = { workspace = true, optional = true }
+ruvector-solver = { version = "2.1.0", path = "../ruvector-solver", optional = true, default-features = false, features = ["cg"] }
+ruvector-sparsifier = { version = "2.1.0", path = "../ruvector-sparsifier", optional = true }
+ruvector-mincut = { version = "2.1.0", path = "../ruvector-mincut", optional = true, default-features = false }
+ruvector-math = { version = "2.1.0", path = "../ruvector-math", optional = true }
+ruvector-coherence = { version = "2.1.0", path = "../ruvector-coherence", optional = true, features = ["spectral"] }
+ruvector-cognitive-container = { version = "2.1.0", path = "../ruvector-cognitive-container", optional = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 getrandom = { version = "0.2", features = ["js"] }
