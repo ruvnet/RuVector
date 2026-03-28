@@ -138,6 +138,9 @@ members = [
     # Spectral graph sparsification
     "crates/ruvector-sparsifier",
     "crates/ruvector-sparsifier-wasm",
+    # Consciousness metrics (IIT Φ, causal emergence)
+    "crates/ruvector-consciousness",
+    "crates/ruvector-consciousness-wasm",
 ]
 resolver = "2"
 

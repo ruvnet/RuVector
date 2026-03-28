@@ -1,0 +1,33 @@
+[package]
+name = "ruvector-consciousness-wasm"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "WASM bindings for ruvector-consciousness: IIT Φ, causal emergence, quantum collapse"
+keywords = ["consciousness", "wasm", "iit", "phi"]
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+ruvector-consciousness = { version = "2.1.0", path = "../ruvector-consciousness", default-features = false, features = ["wasm", "phi", "emergence", "collapse"] }
+wasm-bindgen = "0.2"
+serde-wasm-bindgen = "0.6"
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+js-sys = "0.3"
+getrandom = { version = "0.2", features = ["js"] }
+
+[dev-dependencies]
+wasm-bindgen-test = "0.3"
+
+[profile.release]
+opt-level = "s"
+lto = true
+panic = "abort"
+
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = false

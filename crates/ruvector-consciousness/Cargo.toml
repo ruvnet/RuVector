@@ -1,0 +1,41 @@
+[package]
+name = "ruvector-consciousness"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "SOTA consciousness metrics: IIT Φ computation, causal emergence, effective information with SIMD acceleration and sublinear approximations"
+keywords = ["consciousness", "iit", "phi", "emergence", "sublinear"]
+categories = ["mathematics", "science", "algorithms"]
+
+[features]
+default = ["phi", "emergence", "collapse"]
+phi = []
+emergence = []
+collapse = []
+simd = []
+wasm = []
+parallel = ["rayon", "crossbeam"]
+full = ["parallel", "phi", "emergence", "collapse", "simd"]
+
+[dependencies]
+serde = { workspace = true, features = ["derive"] }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+rand = { workspace = true }
+rayon = { workspace = true, optional = true }
+crossbeam = { workspace = true, optional = true }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+getrandom = { version = "0.2", features = ["js"] }
+
+[dev-dependencies]
+criterion = { workspace = true }
+proptest = { workspace = true }
+approx = "0.5"
+
+[[bench]]
+name = "phi_benchmark"
+harness = false
