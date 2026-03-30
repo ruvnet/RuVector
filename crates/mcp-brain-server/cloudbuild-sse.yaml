@@ -1,0 +1,14 @@
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/ruvbrain-sse:latest'
+      - '-f'
+      - 'crates/mcp-brain-server/Dockerfile.sse'
+      - '.'
+images:
+  - 'gcr.io/$PROJECT_ID/ruvbrain-sse:latest'
+timeout: '3600s'
+options:
+  machineType: 'E2_HIGHCPU_32'

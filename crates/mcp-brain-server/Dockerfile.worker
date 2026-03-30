@@ -1,0 +1,88 @@
+# Multi-stage build for ruvbrain-worker (Cloud Run Jobs)
+# Stage 1: Build the Rust binary
+FROM rustlang/rust:nightly-bookworm AS builder
+
+WORKDIR /app
+
+# Pin to a known-good nightly (2026-03-20) to avoid nalgebra ICE on newer nightlies
+RUN rustup default nightly-2026-03-20
+
+# Install build dependencies (native-tls requires OpenSSL)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    pkg-config \
+    libssl-dev \
+    openssl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy minimal workspace file (only includes required crates)
+COPY crates/mcp-brain-server/Cargo.workspace.toml ./Cargo.toml
+COPY Cargo.lock ./
+
+# Copy the crates needed for mcp-brain-server
+COPY crates/mcp-brain-server ./crates/mcp-brain-server
+COPY crates/mcp-brain ./crates/mcp-brain
+COPY crates/sona ./crates/sona
+COPY crates/ruvector-mincut ./crates/ruvector-mincut
+COPY crates/ruvector-nervous-system ./crates/ruvector-nervous-system
+COPY crates/ruvector-domain-expansion ./crates/ruvector-domain-expansion
+COPY crates/ruvector-delta-core ./crates/ruvector-delta-core
+COPY crates/ruvector-solver ./crates/ruvector-solver
+COPY crates/ruvector-sparsifier ./crates/ruvector-sparsifier
+COPY crates/ruvllm ./crates/ruvllm
+COPY crates/ruvector-core ./crates/ruvector-core
+COPY crates/rvf ./crates/rvf
+
+# Copy patches for hnsw_rs
+COPY patches ./patches
+
+# Remove optional ruvector-* path dependencies and examples that we don't have
+RUN sed -i '/ruvector-graph\s*=/d' crates/ruvector-mincut/Cargo.toml && \
+    sed -i '/integration\s*=\s*\[/d' crates/ruvector-mincut/Cargo.toml && \
+    sed -i 's/"integration",\s*//g' crates/ruvector-mincut/Cargo.toml && \
+    sed -i '/\[\[example\]\]/,/^$/d' crates/ruvector-mincut/Cargo.toml && \
+    sed -i '/\[\[bench\]\]/,/^$/d' crates/ruvector-mincut/Cargo.toml && \
+    sed -i '/ruvector-graph\s*=/d' crates/ruvllm/Cargo.toml && \
+    sed -i '/ruvector-attention\s*=/d' crates/ruvllm/Cargo.toml && \
+    sed -i '/ruvector-gnn\s*=/d' crates/ruvllm/Cargo.toml && \
+    sed -i '/ruvector-full\s*=/d' crates/ruvllm/Cargo.toml && \
+    sed -i '/graph\s*=\s*\[/d' crates/ruvllm/Cargo.toml && \
+    sed -i '/attention\s*=\s*\[/d' crates/ruvllm/Cargo.toml && \
+    sed -i '/gnn\s*=\s*\[/d' crates/ruvllm/Cargo.toml && \
+    sed -i '/\[\[example\]\]/,/^$/d' crates/ruvllm/Cargo.toml && \
+    sed -i '/\[\[bench\]\]/,/^$/d' crates/ruvllm/Cargo.toml && \
+    sed -i '/\[\[example\]\]/,/^$/d' crates/ruvector-core/Cargo.toml && \
+    sed -i '/\[\[bench\]\]/,/^$/d' crates/ruvector-core/Cargo.toml && \
+    sed -i '/\[\[example\]\]/,/^$/d' crates/ruvector-solver/Cargo.toml && \
+    sed -i '/\[\[bench\]\]/,/^$/d' crates/ruvector-solver/Cargo.toml && \
+    sed -i '/\[\[example\]\]/,/^$/d' crates/ruvector-nervous-system/Cargo.toml && \
+    sed -i '/\[\[bench\]\]/,/^$/d' crates/ruvector-nervous-system/Cargo.toml && \
+    sed -i '/\[\[example\]\]/,/^$/d' crates/ruvector-domain-expansion/Cargo.toml && \
+    sed -i '/\[\[bench\]\]/,/^$/d' crates/ruvector-domain-expansion/Cargo.toml && \
+    sed -i '/\[\[example\]\]/,/^$/d' crates/ruvector-delta-core/Cargo.toml && \
+    sed -i '/\[\[bench\]\]/,/^$/d' crates/ruvector-delta-core/Cargo.toml && \
+    sed -i '/\[\[example\]\]/,/^$/d' crates/ruvector-sparsifier/Cargo.toml && \
+    sed -i '/\[\[bench\]\]/,/^$/d' crates/ruvector-sparsifier/Cargo.toml && \
+    find crates/rvf -name "Cargo.toml" -exec sed -i '/\[\[example\]\]/,/^$/d' {} \; && \
+    find crates/rvf -name "Cargo.toml" -exec sed -i '/\[\[bench\]\]/,/^$/d' {} \; && \
+    find crates/rvf -name "Cargo.toml" -exec sed -i 's/rust-version = "1.87"/rust-version = "1.85"/g' {} \; && \
+    sed -i 's/.is_multiple_of(\([^)]*\))/ % \1 == 0/g' crates/rvf/rvf-wire/src/delta.rs && \
+    find crates/rvf -name "*.rs" -exec sed -i 's/.is_multiple_of(\([^)]*\))/ % \1 == 0/g' {} \; && \
+    sed -i 's/features = \["storage", "hnsw", "parallel", "simd"\]/features = ["storage", "hnsw", "parallel"]/g' crates/ruvllm/Cargo.toml && \
+    sed -i 's/pub mod simd_intrinsics;/\/\/ pub mod simd_intrinsics;/g' crates/ruvector-core/src/lib.rs && \
+    sed -i 's/crate::simd_intrinsics::manhattan_distance_simd(a, b)/a.iter().zip(b.iter()).map(|(x, y)| (x - y).abs()).sum()/g' crates/ruvector-core/src/distance.rs
+
+# Build only ruvbrain-worker in release mode
+RUN cargo build --release -p mcp-brain-server --bin ruvbrain-worker
+
+# Stage 2: Minimal runtime image
+FROM debian:bookworm-slim
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    libssl3 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy binary from builder
+COPY --from=builder /app/target/release/ruvbrain-worker /usr/local/bin/ruvbrain-worker
+
+CMD ["ruvbrain-worker"]
