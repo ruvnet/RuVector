@@ -314,10 +314,19 @@ impl FirestoreClient {
         let mut all_docs = Vec::new();
         let mut page_token: Option<String> = None;
         let mut consecutive_errors: usize = 0;
+        // Track whether we're using offset-based fallback (after stale page token)
+        let mut use_offset_fallback = false;
 
         loop {
             let mut url = format!("{base}/{collection}?pageSize=300");
-            if let Some(ref token) = page_token {
+            if use_offset_fallback {
+                // Stale page token fallback: use offset to skip already-loaded docs
+                url.push_str(&format!("&offset={}", all_docs.len()));
+                tracing::info!(
+                    "Firestore LIST {collection}: using offset fallback at {} docs",
+                    all_docs.len()
+                );
+            } else if let Some(ref token) = page_token {
                 url.push_str(&format!("&pageToken={}", urlencoding::encode(token)));
             }
 
@@ -329,6 +338,7 @@ impl FirestoreClient {
             let resp = match result {
                 Ok(resp) if resp.status().is_success() => {
                     consecutive_errors = 0;
+                    use_offset_fallback = false; // back on happy path
                     resp
                 }
                 Ok(resp) if resp.status().as_u16() == 401 => {
@@ -367,11 +377,24 @@ impl FirestoreClient {
                     }
                 }
                 Ok(resp) => {
+                    let status = resp.status().as_u16();
                     consecutive_errors += 1;
                     tracing::warn!(
                         "Firestore LIST {collection} returned {} (error {}/{})",
-                        resp.status(), consecutive_errors, Self::MAX_PAGE_ERRORS
+                        status, consecutive_errors, Self::MAX_PAGE_ERRORS
                     );
+                    // 400 Bad Request with a page token means the token is stale
+                    // (e.g. after OOM restart). Switch to offset-based pagination.
+                    if status == 400 && page_token.is_some() && !use_offset_fallback {
+                        tracing::warn!(
+                            "Firestore LIST {collection}: stale page token at {} docs, switching to offset fallback",
+                            all_docs.len()
+                        );
+                        page_token = None;
+                        use_offset_fallback = true;
+                        consecutive_errors = 0; // reset — this is a recovery, not repeated failure
+                        continue;
+                    }
                     if consecutive_errors >= Self::MAX_PAGE_ERRORS { break; }
                     continue;
                 }
@@ -418,8 +441,18 @@ impl FirestoreClient {
 
             // Check for next page
             match body.get("nextPageToken").and_then(|t| t.as_str()) {
-                Some(token) => page_token = Some(token.to_string()),
-                None => break,
+                Some(token) if !use_offset_fallback => {
+                    page_token = Some(token.to_string());
+                }
+                _ if use_offset_fallback => {
+                    // In offset mode, check if we got any docs this page
+                    // (no docs = we've exhausted the collection)
+                    if body.get("documents").and_then(|d| d.as_array()).map_or(true, |d| d.is_empty()) {
+                        break;
+                    }
+                    // Otherwise continue with incremented offset (all_docs.len() grows each iteration)
+                }
+                _ => break,
             }
         }
 

@@ -276,6 +276,9 @@ pub async fn create_router() -> (Router, AppState) {
         notifier: crate::notify::ResendNotifier::from_env(),
         cached_status: Arc::new(parking_lot::RwLock::new(None)),
         gist_publisher: crate::gist::GistPublisher::from_env().map(Arc::new),
+        optimize_semaphore: Arc::new(tokio::sync::Semaphore::new(1)),
+        last_optimize_completed: Arc::new(parking_lot::RwLock::new(None)),
+        sse_connections: Arc::new(std::sync::atomic::AtomicUsize::new(0)),
     };
 
     let router = Router::new()
@@ -287,6 +290,7 @@ pub async fn create_router() -> (Router, AppState) {
         .route("/.well-known/agent-guide.md", get(agent_guide))
         .route("/origin", get(origin_page))
         .route("/v1/health", get(health))
+        .route("/v1/ready", get(ready))
         .route("/v1/challenge", get(issue_challenge))
         .route("/v1/memories", post(share_memory))
         .route("/v1/memories/search", get(search_memories))
@@ -1138,6 +1142,16 @@ async fn health(State(state): State<AppState>) -> Json<HealthResponse> {
         persistence_mode: persistence_mode.to_string(),
     })
 }
+
+/// GET /v1/ready — lightweight readiness probe (ADR-130).
+/// Returns 200 immediately. No computation, no state access.
+async fn ready() -> StatusCode {
+    StatusCode::OK
+}
+
+/// Maximum concurrent SSE connections per instance (ADR-130 Phase 1).
+/// Prevents reconnect storms from exhausting Cloud Run concurrency slots.
+const MAX_SSE_CONNECTIONS: usize = 50;
 
 /// Issue a challenge nonce for replay protection.
 /// Clients must include this nonce in write requests.
@@ -3378,12 +3392,36 @@ async fn pipeline_metrics_handler(
 }
 
 /// POST /v1/pipeline/optimize — trigger optimization actions
+///
+/// Rate-limited: max 1 concurrent, 30s cooldown between runs.
+/// Prevents scheduler thundering herd from saturating the instance.
 async fn pipeline_optimize(
     State(state): State<AppState>,
     _contributor: AuthenticatedContributor,
     Json(req): Json<OptimizeRequest>,
 ) -> Result<Json<OptimizeResponse>, (StatusCode, String)> {
     check_read_only(&state)?;
+
+    // Enforce 30-second cooldown between optimize runs
+    {
+        let last = state.last_optimize_completed.read();
+        if let Some(ts) = *last {
+            if ts.elapsed() < std::time::Duration::from_secs(30) {
+                let wait = 30 - ts.elapsed().as_secs();
+                return Err((
+                    StatusCode::TOO_MANY_REQUESTS,
+                    format!("Pipeline optimize cooldown: retry in {wait}s"),
+                ));
+            }
+        }
+    }
+
+    // Only 1 concurrent optimize — reject others immediately
+    let _permit = state.optimize_semaphore.try_acquire()
+        .map_err(|_| (
+            StatusCode::TOO_MANY_REQUESTS,
+            "Pipeline optimize already in progress".to_string(),
+        ))?;
 
     let all_actions = vec![
         "train", "drift_check", "transfer_all", "rebuild_graph", "cleanup", "attractor_analysis",
@@ -3492,6 +3530,7 @@ async fn pipeline_optimize(
     }
 
     state.pipeline_metrics.optimization_cycles.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    *state.last_optimize_completed.write() = Some(std::time::Instant::now());
 
     Ok(Json(OptimizeResponse {
         results,
@@ -4566,19 +4605,32 @@ async fn origin_page() -> (
 /// SSE handler — client connects here, receives event stream
 async fn sse_handler(
     State(state): State<AppState>,
-) -> Sse<impl tokio_stream::Stream<Item = Result<Event, std::convert::Infallible>>> {
+) -> Result<Sse<impl tokio_stream::Stream<Item = Result<Event, std::convert::Infallible>>>, (StatusCode, String)> {
+    // ADR-130 Phase 1: reject new SSE connections when at capacity
+    let current = state.sse_connections.load(Ordering::Relaxed);
+    if current >= MAX_SSE_CONNECTIONS {
+        tracing::warn!("SSE connection limit reached ({}/{}), rejecting", current, MAX_SSE_CONNECTIONS);
+        return Err((
+            StatusCode::TOO_MANY_REQUESTS,
+            format!("SSE connection limit reached ({MAX_SSE_CONNECTIONS}). Retry-After: 10"),
+        ));
+    }
+    state.sse_connections.fetch_add(1, Ordering::Relaxed);
+
     let session_id = Uuid::new_v4().to_string();
     let (tx, rx) = tokio::sync::mpsc::channel::<String>(64);
 
     // Store sender for this session
     state.sessions.insert(session_id.clone(), tx);
 
-    tracing::info!("SSE session started: {}", session_id);
+    tracing::info!("SSE session started: {} (active: {})", session_id,
+        state.sse_connections.load(Ordering::Relaxed));
 
     // Build SSE stream: first event is the endpoint, then stream messages
     let initial_event = format!("/messages?sessionId={session_id}");
     let session_id_cleanup = session_id.clone();
     let sessions_cleanup = state.sessions.clone();
+    let sse_counter = state.sse_connections.clone();
 
     let stream = async_stream::stream! {
         // Send endpoint event first
@@ -4590,9 +4642,13 @@ async fn sse_handler(
             yield Ok(Event::default().event("message").data(msg));
         }
 
+        // Decrement connection counter on disconnect
+        sse_counter.fetch_sub(1, Ordering::Relaxed);
+
         // Clean up session on disconnect — grace period lets clients reconnect
         // without losing the session (e.g. MCP SDK's EventSource polyfill)
-        tracing::info!("SSE stream closed for session: {}, starting 30s grace period", session_id_cleanup);
+        tracing::info!("SSE stream closed for session: {}, starting 30s grace period (active: {})",
+            session_id_cleanup, sse_counter.load(Ordering::Relaxed));
         tokio::spawn({
             let sessions = sessions_cleanup.clone();
             let sid = session_id_cleanup.clone();
@@ -4609,7 +4665,7 @@ async fn sse_handler(
         });
     };
 
-    Sse::new(stream).keep_alive(KeepAlive::default())
+    Ok(Sse::new(stream).keep_alive(KeepAlive::default()))
 }
 
 /// Query params for /messages endpoint

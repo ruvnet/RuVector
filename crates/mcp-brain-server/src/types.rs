@@ -1341,6 +1341,12 @@ pub struct AppState {
     pub cached_status: std::sync::Arc<parking_lot::RwLock<Option<(std::time::Instant, StatusResponse)>>>,
     /// GitHub Gist publisher for autonomous discoveries — None if GITHUB_GIST_PAT not set
     pub gist_publisher: Option<std::sync::Arc<crate::gist::GistPublisher>>,
+    /// Semaphore to limit concurrent pipeline/optimize requests (prevents scheduler thundering herd)
+    pub optimize_semaphore: std::sync::Arc<tokio::sync::Semaphore>,
+    /// Timestamp of last completed pipeline/optimize run (for cooldown enforcement)
+    pub last_optimize_completed: std::sync::Arc<parking_lot::RwLock<Option<std::time::Instant>>>,
+    /// Active SSE connection count (ADR-130 Phase 1 — prevents SSE reconnect storms)
+    pub sse_connections: std::sync::Arc<std::sync::atomic::AtomicUsize>,
 }
 
 // ──────────────────────────────────────────────────────────────────────
