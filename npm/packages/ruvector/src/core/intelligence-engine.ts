@@ -490,14 +490,18 @@ export class IntelligenceEngine {
           k: topK,
         });
 
-        return results.map((r: any) => {
-          const entry = this.memories.get(r.id);
-          if (entry) {
-            entry.accessed++;
-            entry.score = 1 - r.score; // Convert distance to similarity
-          }
-          return entry;
-        }).filter((e: any): e is MemoryEntry => e !== null);
+        // Only return if HNSW has results; otherwise fall through to brute-force
+        // This handles the case where import() populates memories but not HNSW
+        if (results.length > 0) {
+          return results.map((r: any) => {
+            const entry = this.memories.get(r.id);
+            if (entry) {
+              entry.accessed++;
+              entry.score = 1 - r.score; // Convert distance to similarity
+            }
+            return entry;
+          }).filter((e: any): e is MemoryEntry => e !== null);
+        }
       } catch {
         // Fall through to brute force
       }
@@ -1065,6 +1069,8 @@ export class IntelligenceEngine {
 
   /**
    * Import data from persistence
+   * Note: This is a sync import that only restores in-memory state.
+   * For HNSW index rebuild, use importAsync() or call rebuildHnswIndex() after.
    */
   import(data: Record<string, any>, merge: boolean = false): void {
     if (!merge) {
@@ -1138,6 +1144,46 @@ export class IntelligenceEngine {
       for (const [trigger, config] of Object.entries(data.workerTriggerMappings)) {
         const typedConfig = config as { priority: string; agents: string[] };
         this.workerTriggerMappings.set(trigger, typedConfig);
+      }
+    }
+  }
+
+  /**
+   * Import data and rebuild HNSW index (async version)
+   * Use this when you need recall() to work immediately after import.
+   */
+  async importAsync(data: Record<string, any>, merge: boolean = false): Promise<void> {
+    // First do the sync import
+    this.import(data, merge);
+
+    // Then rebuild HNSW index from imported memories
+    await this.rebuildHnswIndex();
+  }
+
+  /**
+   * Rebuild HNSW index from current memories
+   * Call this after import() if you need recall() to work before the next remember().
+   */
+  async rebuildHnswIndex(): Promise<void> {
+    if (!this.vectorDb) return;
+
+    // Re-insert all memories into HNSW
+    // Note: If import() was called with merge=false, the engine was likely newly created
+    // and HNSW is empty. If merge=true, duplicates may exist but HNSW should handle upserts.
+    for (const [id, mem] of this.memories) {
+      if (mem.embedding?.length) {
+        try {
+          await this.vectorDb.insert({
+            id,
+            vector: new Float32Array(mem.embedding),
+            metadata: JSON.stringify({
+              content: mem.content?.slice(0, 100),
+              type: mem.type,
+            }),
+          });
+        } catch {
+          // Continue on individual insert errors
+        }
       }
     }
   }
