@@ -369,6 +369,11 @@ pub async fn create_router() -> (Router, AppState) {
         .route("/v1/gist/publish", post(gist_publish))
         // ── Google Chat Bot (ADR-126) ──
         .route("/v1/chat/google", post(google_chat_handler))
+        // ── Internal Queue (ADR-130) ──
+        .route("/internal/queue/push", post(internal_queue_push))
+        .route("/internal/queue/drain", get(internal_queue_drain))
+        .route("/internal/session/create", post(internal_session_create))
+        .route("/internal/session/:id", delete(internal_session_delete))
         .layer({
             // CORS origins: configurable via CORS_ORIGINS env var (comma-separated).
             // Falls back to safe defaults if unset.
@@ -6860,4 +6865,105 @@ fn verify_system_key(
             Json(serde_json::json!({ "error": "invalid system key" })),
         ))
     }
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// Internal Queue Endpoints (ADR-130)
+//
+// These are service-to-service endpoints used by the SSE proxy to
+// communicate with the API server. No authentication required.
+// ══════════════════════════════════════════════════════════════════════
+
+/// Request body for POST /internal/queue/push
+#[derive(serde::Deserialize)]
+struct InternalQueuePushRequest {
+    session_id: String,
+    message: String,
+}
+
+/// Request body for POST /internal/session/create
+#[derive(serde::Deserialize)]
+struct InternalSessionCreateRequest {
+    session_id: String,
+}
+
+/// Query params for GET /internal/queue/drain
+#[derive(serde::Deserialize)]
+struct InternalQueueDrainQuery {
+    #[serde(rename = "sessionId")]
+    session_id: String,
+}
+
+/// POST /internal/queue/push — SSE proxy forwards JSON-RPC requests here.
+///
+/// Looks up the session in `state.sessions` DashMap and sends the message
+/// to the session's mpsc channel. Returns 200 on success, 404 if session
+/// not found, 500 if the channel send fails.
+async fn internal_queue_push(
+    State(state): State<AppState>,
+    Json(body): Json<InternalQueuePushRequest>,
+) -> StatusCode {
+    let sender = match state.sessions.get(&body.session_id) {
+        Some(s) => s.clone(),
+        None => {
+            tracing::debug!("internal/queue/push: session not found: {}", body.session_id);
+            return StatusCode::NOT_FOUND;
+        }
+    };
+
+    match sender.send(body.message).await {
+        Ok(()) => StatusCode::OK,
+        Err(e) => {
+            tracing::warn!("internal/queue/push: channel send failed for {}: {e}", body.session_id);
+            // Channel closed — remove stale session
+            state.sessions.remove(&body.session_id);
+            StatusCode::INTERNAL_SERVER_ERROR
+        }
+    }
+}
+
+/// GET /internal/queue/drain?sessionId=X — SSE proxy polls for responses.
+///
+/// Returns a JSON array of pending messages for the session. Currently a
+/// placeholder that returns an empty array; actual responses flow through
+/// the existing SSE stream. This endpoint exists to support future
+/// midstream queue functionality.
+async fn internal_queue_drain(
+    State(_state): State<AppState>,
+    Query(query): Query<InternalQueueDrainQuery>,
+) -> Json<Vec<String>> {
+    tracing::trace!("internal/queue/drain: polled for session {}", query.session_id);
+    // Placeholder: responses flow through the SSE stream, not this endpoint.
+    // Future midstream queue implementation will buffer and return pending
+    // messages here for the SSE proxy to forward.
+    Json(vec![])
+}
+
+/// POST /internal/session/create — SSE proxy registers a new session.
+///
+/// Creates a new mpsc channel and stores the sender in `state.sessions`.
+/// Returns 200 with the session_id echoed back.
+async fn internal_session_create(
+    State(state): State<AppState>,
+    Json(body): Json<InternalSessionCreateRequest>,
+) -> (StatusCode, Json<serde_json::Value>) {
+    let (tx, _rx) = tokio::sync::mpsc::channel::<String>(64);
+    state.sessions.insert(body.session_id.clone(), tx);
+    tracing::info!("internal/session/create: created session {}", body.session_id);
+    (
+        StatusCode::OK,
+        Json(serde_json::json!({ "session_id": body.session_id, "status": "created" })),
+    )
+}
+
+/// DELETE /internal/session/:id — SSE proxy cleans up on disconnect.
+///
+/// Removes the session from `state.sessions` and returns 200.
+async fn internal_session_delete(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+) -> StatusCode {
+    state.sessions.remove(&id);
+    tracing::info!("internal/session/delete: removed session {}", id);
+    StatusCode::OK
 }

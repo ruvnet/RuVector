@@ -12,6 +12,14 @@ publish = false
 name = "mcp-brain-server"
 path = "src/main.rs"
 
+[[bin]]
+name = "ruvbrain-sse"
+path = "src/bin/ruvbrain_sse.rs"
+
+[[bin]]
+name = "ruvbrain-worker"
+path = "src/bin/ruvbrain_worker.rs"
+
 [dependencies]
 # Web framework
 axum = { version = "0.7", features = ["json", "query"] }
