@@ -1,4 +1,4 @@
-# ADR-129: Consciousness Metrics Crate — IIT 4.0 Φ, CES, ΦID, PID, Streaming, Bounds
+# ADR-131: Consciousness Metrics Crate — IIT 4.0 Φ, CES, ΦID, PID, Streaming, Bounds
 
 **Status**: Accepted (Updated)
 **Date**: 2026-03-28 (Updated: 2026-03-28)
