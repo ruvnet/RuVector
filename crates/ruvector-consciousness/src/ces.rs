@@ -67,7 +67,7 @@ pub fn compute_ces(
     };
 
     #[cfg(not(feature = "parallel"))]
-    let distinctions = ces_sequential(tpm, state, num_elements, full, phi_threshold, &budget, &start);
+    let distinctions = ces_sequential(tpm, state, num_elements, full, phi_threshold, budget, &start);
 
     // Sort by φ descending.
     let mut distinctions = distinctions;

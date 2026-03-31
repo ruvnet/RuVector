@@ -14,7 +14,6 @@ use crate::simd::build_mi_matrix;
 use crate::traits::PhiEngine;
 use crate::types::{ComputeBudget, PhiBound, TransitionMatrix};
 
-use std::time::Instant;
 
 // ---------------------------------------------------------------------------
 // Spectral bounds

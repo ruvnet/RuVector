@@ -11,11 +11,9 @@
 //! - Change-point detection in Φ trajectory
 //! - EWMA smoothing for noise reduction
 
-use crate::error::ConsciousnessError;
 use crate::traits::PhiEngine;
-use crate::types::{ComputeBudget, PhiResult, StreamingPhiResult, TransitionMatrix};
+use crate::types::{ComputeBudget, StreamingPhiResult, TransitionMatrix};
 
-use std::time::Instant;
 
 // ---------------------------------------------------------------------------
 // Streaming Φ estimator

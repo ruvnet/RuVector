@@ -47,7 +47,7 @@ impl GrayCodePartitionIter {
     /// Fixes element 0 in set A to avoid duplicate partitions
     /// (A,B) and (B,A), halving the search space.
     pub fn new(n: usize) -> Self {
-        assert!(n >= 2 && n <= 63);
+        assert!((2..=63).contains(&n));
         Self {
             current: 0,
             counter: 1, // skip 0 (would put everything in set B)
@@ -206,13 +206,12 @@ impl PhiEngine for GeoMipPhiEngine {
         let half = n / 2;
         for mask in 1..((1u64 << n) - 1) {
             let popcount = mask.count_ones() as usize;
-            if popcount == half || popcount == half + 1 {
-                if !self.prune_automorphisms
-                    || canonical_partition(mask, n) == mask
+            if (popcount == half || popcount == half + 1)
+                && (!self.prune_automorphisms
+                    || canonical_partition(mask, n) == mask)
                 {
                     balanced_partitions.push(Bipartition { mask, n });
                 }
-            }
         }
 
         // Sort by balance score (most balanced first).

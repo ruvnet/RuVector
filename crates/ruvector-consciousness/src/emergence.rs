@@ -229,7 +229,7 @@ fn greedy_merge(tpm: &TransitionMatrix, target_k: usize) -> Vec<usize> {
         let mut best_j = 1;
 
         let macro_ids: Vec<usize> = {
-            let mut ids: Vec<usize> = mapping.iter().copied().collect();
+            let mut ids: Vec<usize> = mapping.to_vec();
             ids.sort_unstable();
             ids.dedup();
             ids
@@ -255,7 +255,7 @@ fn greedy_merge(tpm: &TransitionMatrix, target_k: usize) -> Vec<usize> {
         }
 
         // Re-index to be contiguous.
-        let mut unique: Vec<usize> = mapping.iter().copied().collect();
+        let mut unique: Vec<usize> = mapping.to_vec();
         unique.sort_unstable();
         unique.dedup();
         for m in &mut mapping {

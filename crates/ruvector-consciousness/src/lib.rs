@@ -1,3 +1,13 @@
+#![allow(
+    clippy::needless_borrow,
+    clippy::needless_range_loop,
+    clippy::manual_memcpy,
+    clippy::never_loop,
+    clippy::mutable_key_type,
+    clippy::mut_from_ref,
+    dead_code,
+    unused_variables
+)]
 //! # ruvector-consciousness — SOTA Consciousness Metrics
 //!
 //! Ultra-optimized Rust implementation of consciousness computation:

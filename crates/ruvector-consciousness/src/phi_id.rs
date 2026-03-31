@@ -14,7 +14,7 @@
 //! high redundancy, even if both have the same Φ.
 
 use crate::error::ConsciousnessError;
-use crate::simd::{kl_divergence, marginal_distribution};
+use crate::simd::marginal_distribution;
 use crate::types::{PhiIdResult, TransitionMatrix};
 
 use std::time::Instant;

@@ -10,7 +10,6 @@
 //! that are defined from the system's own perspective, not relative
 //! to an external observer.
 
-use crate::error::ConsciousnessError;
 use crate::types::{Distinction, Mechanism, Purview, TransitionMatrix};
 
 // ---------------------------------------------------------------------------
