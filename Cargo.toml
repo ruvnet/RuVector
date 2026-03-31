@@ -143,6 +143,10 @@ members = [
     "crates/ruvector-consciousness-wasm",
     "examples/cmb-consciousness",
     "examples/gw-consciousness",
+    "examples/ecosystem-consciousness",
+    "examples/quantum-consciousness",
+    "examples/gene-consciousness",
+    "examples/climate-consciousness",
 ]
 resolver = "2"
 

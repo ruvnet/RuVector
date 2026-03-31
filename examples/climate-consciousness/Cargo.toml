@@ -1,0 +1,16 @@
+[package]
+name = "climate-consciousness"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "Climate teleconnection consciousness analysis using IIT Phi"
+publish = false
+
+[[bin]]
+name = "climate-consciousness"
+path = "src/main.rs"
+
+[dependencies]
+ruvector-consciousness = { path = "../../crates/ruvector-consciousness", default-features = false, features = ["phi", "emergence", "collapse"] }
+rand = "0.8"
+rand_chacha = "0.3"
