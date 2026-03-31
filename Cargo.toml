@@ -141,6 +141,7 @@ members = [
     # Consciousness metrics (IIT Φ, causal emergence)
     "crates/ruvector-consciousness",
     "crates/ruvector-consciousness-wasm",
+    "examples/cmb-consciousness",
 ]
 resolver = "2"
 
