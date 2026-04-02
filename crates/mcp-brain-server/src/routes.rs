@@ -280,6 +280,7 @@ pub async fn create_router() -> (Router, AppState) {
         optimize_semaphore: Arc::new(tokio::sync::Semaphore::new(1)),
         last_optimize_completed: Arc::new(parking_lot::RwLock::new(None)),
         sse_connections: Arc::new(std::sync::atomic::AtomicUsize::new(0)),
+        response_queues: Arc::new(dashmap::DashMap::new()),
     };
 
     let router = Router::new()
@@ -1160,7 +1161,16 @@ async fn ready() -> StatusCode {
 
 /// Maximum concurrent SSE connections per instance (ADR-130 Phase 1).
 /// Prevents reconnect storms from exhausting Cloud Run concurrency slots.
-const MAX_SSE_CONNECTIONS: usize = 50;
+/// Set SSE_DISABLED=1 env var to reject all SSE on this instance (use proxy).
+fn max_sse_connections() -> usize {
+    if std::env::var("SSE_DISABLED").unwrap_or_default() == "1" {
+        return 0;
+    }
+    std::env::var("MAX_SSE")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(5)
+}
 
 /// Issue a challenge nonce for replay protection.
 /// Clients must include this nonce in write requests.
@@ -4672,7 +4682,7 @@ async fn origin_page() -> (
 //   2. Client POSTs JSON-RPC to /messages?sessionId=<id>
 //   3. Server responds through the SSE stream
 //
-// Usage: claude mcp add π --url https://pi.ruv.io/sse
+// Usage: claude mcp add π --url https://mcp.pi.ruv.io
 // ══════════════════════════════════════════════════════════════════════
 
 /// SSE handler — client connects here, receives event stream
@@ -4680,12 +4690,13 @@ async fn sse_handler(
     State(state): State<AppState>,
 ) -> Result<Sse<impl tokio_stream::Stream<Item = Result<Event, std::convert::Infallible>>>, (StatusCode, String)> {
     // ADR-130 Phase 1: reject new SSE connections when at capacity
+    let max_sse = max_sse_connections();
     let current = state.sse_connections.load(Ordering::Relaxed);
-    if current >= MAX_SSE_CONNECTIONS {
-        tracing::warn!("SSE connection limit reached ({}/{}), rejecting", current, MAX_SSE_CONNECTIONS);
+    if current >= max_sse {
+        tracing::warn!("SSE connection limit reached ({}/{}), rejecting", current, max_sse);
         return Err((
             StatusCode::TOO_MANY_REQUESTS,
-            format!("SSE connection limit reached ({MAX_SSE_CONNECTIONS}). Retry-After: 10"),
+            format!("SSE connection limit reached ({max_sse}). Use ruvbrain-sse proxy. Retry-After: 30"),
         ));
     }
     state.sse_connections.fetch_add(1, Ordering::Relaxed);
@@ -7021,31 +7032,55 @@ async fn internal_queue_push(
 
 /// GET /internal/queue/drain?sessionId=X — SSE proxy polls for responses.
 ///
-/// Returns a JSON array of pending messages for the session. Currently a
-/// placeholder that returns an empty array; actual responses flow through
-/// the existing SSE stream. This endpoint exists to support future
-/// midstream queue functionality.
+/// Returns a JSON array of pending messages for the session, draining
+/// the buffer. Messages are placed here by the background task spawned
+/// in `internal_session_create`.
 async fn internal_queue_drain(
-    State(_state): State<AppState>,
+    State(state): State<AppState>,
     Query(query): Query<InternalQueueDrainQuery>,
 ) -> Json<Vec<String>> {
-    tracing::trace!("internal/queue/drain: polled for session {}", query.session_id);
-    // Placeholder: responses flow through the SSE stream, not this endpoint.
-    // Future midstream queue implementation will buffer and return pending
-    // messages here for the SSE proxy to forward.
-    Json(vec![])
+    // Swap the buffer with an empty vec to drain atomically
+    let messages = state
+        .response_queues
+        .get_mut(&query.session_id)
+        .map(|mut entry| std::mem::take(entry.value_mut()))
+        .unwrap_or_default();
+    if !messages.is_empty() {
+        tracing::debug!(
+            "internal/queue/drain: returning {} messages for session {}",
+            messages.len(),
+            query.session_id
+        );
+    }
+    Json(messages)
 }
 
 /// POST /internal/session/create — SSE proxy registers a new session.
 ///
-/// Creates a new mpsc channel and stores the sender in `state.sessions`.
-/// Returns 200 with the session_id echoed back.
+/// Creates a new mpsc channel and spawns a background task that drains
+/// the receiver into `response_queues` so `/internal/queue/drain` can
+/// return buffered responses. Returns 200 with the session_id echoed back.
 async fn internal_session_create(
     State(state): State<AppState>,
     Json(body): Json<InternalSessionCreateRequest>,
 ) -> (StatusCode, Json<serde_json::Value>) {
-    let (tx, _rx) = tokio::sync::mpsc::channel::<String>(64);
+    let (tx, mut rx) = tokio::sync::mpsc::channel::<String>(64);
     state.sessions.insert(body.session_id.clone(), tx);
+    state.response_queues.insert(body.session_id.clone(), Vec::new());
+
+    // Spawn a task that moves messages from the mpsc receiver into the
+    // response_queues DashMap so the drain endpoint can return them.
+    let queues = state.response_queues.clone();
+    let sid = body.session_id.clone();
+    tokio::spawn(async move {
+        while let Some(msg) = rx.recv().await {
+            queues.entry(sid.clone()).or_default().push(msg);
+        }
+        // Channel closed — clean up after a grace period
+        tokio::time::sleep(std::time::Duration::from_secs(30)).await;
+        queues.remove(&sid);
+    });
+
     tracing::info!("internal/session/create: created session {}", body.session_id);
     (
         StatusCode::OK,
@@ -7055,12 +7090,13 @@ async fn internal_session_create(
 
 /// DELETE /internal/session/:id — SSE proxy cleans up on disconnect.
 ///
-/// Removes the session from `state.sessions` and returns 200.
+/// Removes the session and its response queue, then returns 200.
 async fn internal_session_delete(
     State(state): State<AppState>,
     Path(id): Path<String>,
 ) -> StatusCode {
     state.sessions.remove(&id);
+    state.response_queues.remove(&id);
     tracing::info!("internal/session/delete: removed session {}", id);
     StatusCode::OK
 }

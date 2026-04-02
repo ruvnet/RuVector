@@ -1,6 +1,6 @@
 # ADR-066: SSE MCP Transport
 
-**Status**: Accepted, Deployed
+**Status**: Accepted, Deployed — **Updated 2026-04-02: SSE moved to dedicated subdomain `mcp.pi.ruv.io` (see ADR-130)**
 **Date**: 2026-02-28
 **Authors**: RuVector Team
 **Deciders**: ruv
@@ -13,7 +13,7 @@ The Shared Brain's primary MCP interface is stdio-based: the `mcp-brain` crate r
 
 MCP over Server-Sent Events (SSE) solves this. The client opens a long-lived `GET /sse` connection to receive server-pushed events, and sends tool calls via `POST /messages?sessionId=<uuid>`. This is a standard MCP transport that Claude Code supports natively via `claude mcp add <name> --url <sse-url>`.
 
-The SSE transport is hosted on the same `mcp-brain-server` binary that serves the REST API (ADR-064), at `pi.ruv.io/sse`. No additional infrastructure is required.
+The SSE transport was originally hosted on the same `mcp-brain-server` binary at `pi.ruv.io/sse`. After repeated outages from SSE reconnect storms exhausting Cloud Run concurrency (ADR-130), SSE was decoupled to a dedicated proxy service at **`mcp.pi.ruv.io`** (`ruvbrain-sse` Cloud Run service).
 
 ## 2. Decision
 
@@ -24,7 +24,7 @@ Implement MCP SSE transport as two routes (`/sse` and `/messages`) on the existi
 ### 3.1 Protocol Flow
 
 ```
-Client                                Server (pi.ruv.io)
+Client                                Server (mcp.pi.ruv.io)
   |                                       |
   |  GET /sse                             |
   |-------------------------------------->|
@@ -179,7 +179,7 @@ async fn messages_handler(
 Claude Code clients connect with:
 
 ```bash
-claude mcp add pi --url https://pi.ruv.io/sse
+claude mcp add pi --url https://mcp.pi.ruv.io
 ```
 
 This registers the SSE endpoint. Claude Code opens the SSE connection, reads the `endpoint` event, and sends all subsequent MCP requests to the `/messages` URL with the provided session ID.
@@ -206,16 +206,16 @@ Allowed methods: GET, POST, DELETE, OPTIONS. Allowed headers: Authorization, Con
 
 ### Positive
 
-- **Zero additional infrastructure**: SSE runs on the same binary and port as the REST API
+- **Dedicated SSE subdomain**: `mcp.pi.ruv.io` isolates SSE traffic from the REST API, preventing reconnect storms from causing outages (ADR-130)
 - **Native Claude Code support**: `claude mcp add --url` is the standard way to connect remote MCP servers
-- **Full tool parity**: All 22 tools available via both stdio (local `mcp-brain`) and SSE (remote `pi.ruv.io`)
+- **Full tool parity**: All 22+ tools available via both stdio (local `mcp-brain`) and SSE (remote `mcp.pi.ruv.io`)
 - **Reused middleware**: Rate limiting, CORS, authentication, and verification apply uniformly via the loopback proxy
 
 ### Negative
 
 - **Single-direction streaming**: SSE is server-to-client only. The client must POST to a separate endpoint. WebSocket would allow bidirectional messaging but is not part of the MCP spec.
 - **Session memory**: Each active SSE connection holds a channel and a `DashMap` entry. Under high concurrent connections this grows linearly. The 64-message buffer per session bounds memory per connection.
-- **Cloud Run timeout**: Cloud Run has a maximum request timeout (default 5 minutes, configurable up to 60 minutes). Long-lived SSE connections that exceed this timeout are terminated. KeepAlive prevents idle disconnects, but the maximum lifetime is bounded by Cloud Run's configuration.
+- **Cloud Run timeout**: Cloud Run has a maximum request timeout (configurable up to 60 minutes). The SSE proxy (`ruvbrain-sse`) is configured with a 3600s timeout to support long-lived connections. KeepAlive prevents idle disconnects.
 
 ### Neutral
 

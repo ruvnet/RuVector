@@ -1,0 +1,214 @@
+---
+type: source-extraction
+module: mcp-client
+binary: claude-code
+version: 2.0.62
+extraction-method: strings+pattern-match
+confidence: high
+---
+
+# MCP Client Implementation
+
+## Config Sources
+
+```javascript
+// MCP server configurations loaded from:
+// 1. .mcp.json in project directory
+// 2. localSettings
+// 3. policySettings
+// 4. MCPB (MCP Bundles - downloadable packages)
+// 5. Dynamic config at runtime
+
+// Config normalization:
+function normalizeServerName(name) {
+  return UG(name);  // Minified normalizer
+}
+```
+
+## Tool Name Format
+
+```javascript
+// MCP tools are namespaced: "mcp__<serverName>__<toolName>"
+// Example: "mcp__claude-flow__memory_store"
+
+// Parsing:
+function parseMcpToolName(fullName) {
+  // "mcp__" prefix check
+  // Split on "__" to extract server and tool
+  return { serverName, toolName };
+}
+
+// Reverse:
+function buildMcpToolName(serverName, toolName) {
+  return `mcp__${normalizeServerName(serverName)}__${toolName}`;
+}
+
+// IDE tools have special prefix: "mcp__ide__"
+// Known: "mcp__ide__executeCode", "mcp__ide__getDiagnostics"
+```
+
+## Transport Types
+
+### stdio Transport
+```javascript
+// Spawns child process, communicates via stdin/stdout
+// Message format: 4-byte length prefix (LE uint32) + JSON payload
+async callTool(name, args) {
+  let message = { method: "tools/call", params: { name, arguments: args } };
+  let payload = JSON.stringify(message);
+  let header = Buffer.allocUnsafe(4);
+  header.writeUInt32LE(payload.length, 0);
+  let packet = Buffer.concat([header, Buffer.from(payload)]);
+  process.stdin.write(packet);
+}
+```
+
+### SSE Transport
+```javascript
+// HTTP Server-Sent Events connection
+// Endpoint started on localhost with random port
+// Secret-based authentication
+class McpSseTransport {
+  port;
+  secret;
+  isClosed = false;
+
+  constructor(serverName) {
+    // Start HTTP server
+    // Handle /sse endpoint for event stream
+    // Handle /message endpoint for tool calls
+  }
+
+  async sendMessage(message) {
+    // POST to /message with JSON payload
+  }
+
+  async close() {
+    if (this.isClosed) return;
+    this.isClosed = true;
+    this.onclose?.();
+  }
+}
+```
+
+### WebSocket Transport
+```javascript
+// WebSocket connection
+// Events: mcp_websocket_connect_fail, mcp_websocket_message_fail
+// Error states: mcp_websocket_send_not_opened, mcp_websocket_start_not_opened
+```
+
+## MCP Protocol Messages
+
+```javascript
+// Initialize handshake:
+// Client → Server: { method: "initialize", params: { capabilities, clientInfo } }
+// Server → Client: { result: { capabilities, serverInfo } }
+
+// Tool discovery:
+// Client → Server: { method: "tools/list" }
+// Server → Client: { result: { tools: [...] } }
+
+// Tool execution:
+// Client → Server: { method: "tools/call", params: { name, arguments } }
+// Server → Client: { result: { content: [...] } }
+
+// Resource discovery:
+// Client → Server: { method: "resources/list" }
+// Server → Client: { result: { resources: [...] } }
+
+// Resource read:
+// Client → Server: { method: "resources/read", params: { uri } }
+// Server → Client: { result: { contents: [...] } }
+```
+
+## MCPB (MCP Bundles)
+
+```javascript
+// MCPB files are packaged MCP servers
+// Download: LI5(url, targetPath, progressCallback)
+// Content hash: NI5(bytes) for integrity verification
+// Extraction: extract to ~/.claude/ directory
+
+async function loadMcpBundle(name, config, progressCallback) {
+  // 1. Download MCPB file
+  // 2. Verify hash
+  // 3. Extract to local path
+  // 4. Return { mcpConfig, extractedPath }
+}
+
+// State file management:
+// Read: readMcpStateFile(path) → { configs, normalizedNames, resources }
+// Write: persisted to ~/.claude/ state files
+```
+
+## MCP Server Management (from /mcp command)
+
+```javascript
+// Telemetry events:
+// "mcp_message" - message sent/received
+// "mcp_resource" - resource accessed
+// "mcp_tool_result" - tool execution result
+// "mcp_tool_use" - tool invocation
+// "mcp_status" - server status change
+
+// Server restart:
+// "Restarting MCP server process"
+// "Establishing connection to MCP server"
+
+// Error handling:
+// Timeout: k91() reads MCP_TIMEOUT env var (default from process.env)
+// Connection failure: logged and retried
+```
+
+## Tool Registration
+
+```javascript
+// MCP tools registered with enhanced metadata:
+async registerMcpTools(client, tools, getPermissionContext) {
+  return tools.map(tool => ({
+    ...tool,
+    description: await tool.prompt({
+      getToolPermissionContext: async () => permCtx,
+      tools: allTools,
+      agents: []
+    }),
+    inputSchema: normalizeSchema(tool.inputSchema),
+    outputSchema: tool.outputSchema
+  }));
+}
+```
+
+## Headers Helper
+
+```javascript
+// MCP servers can specify a headersHelper script
+// Executed to get authentication headers dynamically
+async function getHeaders(serverName, config) {
+  if (!config.headersHelper) return {};
+  let result = await exec(config.headersHelper, [], { shell: true, timeout: 10000 });
+  if (result.code !== 0 || !result.stdout) {
+    throw Error(`headersHelper for MCP server '${serverName}' did not return valid value`);
+  }
+  return JSON.parse(result.stdout.trim());
+}
+```
+
+## OAuth/OIDC Support
+
+```javascript
+// MCP specification requires S256 code challenge method
+// OIDC discovery at authorization endpoint
+async function discoverOidcProvider(endpoint) {
+  // Check for S256 code_challenge_methods_supported
+  // If not supported: throw "Incompatible OIDC provider"
+}
+
+// OAuth flow for MCP authentication:
+async function startOAuthFlow({metadata, clientInformation, redirectUrl, scope, state, resource}) {
+  // 1. Check authorization_endpoint
+  // 2. Verify response_types includes "code"
+  // 3. Build authorization URL
+  // 4. Return redirect URL
+}
+```

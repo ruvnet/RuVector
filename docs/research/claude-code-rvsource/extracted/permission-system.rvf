@@ -1,0 +1,165 @@
+---
+type: source-extraction
+module: permission-system
+binary: claude-code
+version: 2.0.62
+extraction-method: strings+pattern-match
+confidence: high
+---
+
+# Permission System
+
+## Permission Mode Enum (ET)
+
+```javascript
+const ET = ["acceptEdits", "bypassPermissions", "default", "dontAsk", "plan"];
+```
+
+## Permission Context (from xC() and Ll())
+
+```javascript
+// toolPermissionContext structure:
+{
+  mode: "default" | "acceptEdits" | "bypassPermissions" | "dontAsk" | "plan",
+  alwaysAllowRules: {
+    command: string[]  // ["Bash(npm run:*)", "Bash(git:*) Edit", ...]
+  }
+  // Additional deny rules for paths, domains
+}
+```
+
+## Rule Format Examples (from string literals)
+
+```
+"Bash"                                  → Allow all bash commands
+"Bash - allows all commands"            → Description string
+"Bash(npm install express)"             → Exact command match
+"Bash(npm run:*)"                       → Wildcard: any npm run subcommand
+"Bash(npm:*)"                           → Wildcard: any npm command
+"Bash(git:*)"                           → Wildcard: any git command
+"Bash(git commit:*)"                    → Wildcard: git commit with any args
+"Bash(git:*) Edit"                      → Combined: git + file editing
+"Bash,Edit,Read"                        → Multiple tools
+"Bash(gh issue view:*),Bash(gh search:*),Bash(gh issue list:*),..."
+                                        → GitHub CLI permissions
+"WebFetch(domain:example.com)"          → Exact domain
+"WebFetch(domain:*.google.com)"         → Wildcard domain
+"WebSearch(claude ai)"                  → Specific search query
+```
+
+## Path Permission Check (tD function)
+
+```javascript
+// tD(path, toolPermissionContext, action, defaultResult)
+// action: "read" | "write" | "edit" | "deny"
+// Returns: "allow" | "deny" | "ask"
+
+// File read permissions:
+// - Bash output files from current session: always allowed for reading
+// - Files matching sandbox rules: checked against read/write lists
+// - Project directory files: generally allowed
+// - Outside project: requires permission
+
+// File write permissions:
+// - Checked against denyWrite list
+// - Glob patterns limited on Linux ("Glob patterns in sandbox permission rules are not fully supported on Linux")
+```
+
+## Sandbox Configuration
+
+```javascript
+// From IQ() settings:
+sandbox: {
+  enabled: boolean,
+  autoAllowBashIfSandboxed: boolean,    // Auto-allow bash when sandbox is on
+  allowUnsandboxedCommands: boolean,     // Allow dangerouslyDisableSandbox
+  excludedCommands: string[],            // Commands that bypass sandbox
+  ignoreViolations: boolean,             // Don't report sandbox violations
+  enableWeakerNestedSandbox: boolean,    // For Docker environments
+  ripgrep: RipgrepConfig                 // Ripgrep-specific sandbox config
+}
+```
+
+## macOS Sandbox (seatbelt)
+
+```javascript
+// Uses sandbox-exec -p <profile> to run commands
+// Profile includes:
+// - Essential permissions based on Chrome sandbox policy
+// - Process permissions: (allow process-exec)
+// - Network access control
+// - File system access control based on permission rules
+```
+
+## Linux Sandbox (SOCKS bridge)
+
+```javascript
+// Uses a SOCKS proxy bridge process for network isolation
+// Bridge socket: checked via existsSync()
+// Error: "The bridge process may have died. Try reinitializing the sandbox."
+```
+
+## Sandbox Violation Tracking
+
+```javascript
+// Violations are tracked and can be appended to tool context:
+function appendSandboxViolations(command) {
+  let violations = getViolationsForCommand(command);
+  if (violations.length === 0) return original;
+  let result = original;
+  result += "\n<sandbox_violations>\n";
+  for (let v of violations) result += v.line + "\n";
+  result += "</sandbox_violations>";
+  return result;
+}
+```
+
+## Permission Decisions for Agent Types
+
+```javascript
+// Agent definitions can specify permissionMode:
+// - Built-in agents like the plan mode agent use "dontAsk"
+// - Custom agents can use any mode from ET
+// - "inherit" model option inherits parent's permission mode
+
+// Plan mode agent:
+{
+  tools: [ED, pI, w7, nK, nS],  // Limited tool set
+  source: "built-in",
+  model: "haiku",
+  permissionMode: "dontAsk"
+}
+```
+
+## Feature Flag Integration
+
+```javascript
+// Permission behavior is gated by feature flags:
+// - Statsig: "default-permission-mode-config"
+// - GrowthBook: various experiment flags
+// - bypassPermissions can be disabled: "bypassPermissions mode is disabled by Statsig gate"
+// - autoAllowBashIfSandboxed behavior controlled by flags
+```
+
+## Settings Sources (precedence)
+
+```javascript
+// Permission settings loaded from multiple sources:
+// 1. localSettings (user's ~/.claude/settings.json)
+// 2. policySettings (enterprise policy)
+// 3. Project .claude/settings.json
+// 4. Environment variables
+// 5. CLI flags
+
+// Key check:
+function hasSandboxConfig(sources) {
+  for (let source of sources) {
+    let settings = getSettings(source);
+    if (settings?.sandbox?.enabled !== undefined ||
+        settings?.sandbox?.autoAllowBashIfSandboxed !== undefined ||
+        settings?.sandbox?.allowUnsandboxedCommands !== undefined)
+      return true;
+  }
+  return false;
+}
+```

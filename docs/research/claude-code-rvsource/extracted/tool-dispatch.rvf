@@ -1,0 +1,209 @@
+---
+type: source-extraction
+module: tool-dispatch
+binary: claude-code
+version: 2.0.62
+extraction-method: strings+pattern-match
+confidence: high
+---
+
+# Tool Dispatch System
+
+## Tool Registry (XF0 class)
+
+```javascript
+class XF0 {  // ToolRegistry
+  toolDefinitions;   // Tool[]
+  canUseTool;        // PermissionChecker
+  tools = [];        // Tool[] (active subset)
+  toolUseContext;     // ToolUseContext
+  hasErrored = false;
+  progressAvailableResolve;
+
+  constructor(tools, canUseTool, context) {
+    this.toolDefinitions = tools;
+    this.canUseTool = canUseTool;
+    this.toolUseContext = context;
+  }
+}
+```
+
+## Tool Interface (reconstructed from implementations)
+
+```typescript
+interface Tool {
+  name: string;
+  type: string;
+  userFacingName(): string;
+  isEnabled(): boolean;
+  inputSchema: ZodSchema;
+  outputSchema?: ZodSchema;
+  prompt?(context: {getToolPermissionContext, tools, agents}): Promise<string>;
+  validateInput(input, context: ToolContext): Promise<{result: boolean; message?: string; meta?: any}>;
+  call(input, context: ToolContext, canUseTool, message): Promise<ToolResult>;
+  getPath?(input): string;
+  renderToolUseMessage?(input, context): ReactElement;
+  renderToolResultMessage?(result, context): ReactElement;
+  renderToolUseErrorMessage?(error, context): ReactElement;
+  mapToolResultToToolResultBlockParam(result, toolUseId): ToolResultBlock;
+}
+```
+
+## ToolContext (reconstructed from call sites)
+
+```typescript
+interface ToolContext {
+  abortController: AbortController;
+  options: {
+    commands: Command[];
+    tools: Tool[];
+    mainLoopModel: string;
+    maxThinkingTokens: number;
+    mcpClients: McpClient[];
+    mcpResources: Record<string, Resource[]>;
+    isNonInteractiveSession: boolean;
+    hasAppendSystemPrompt: boolean;
+    debug: boolean;
+    verbose: boolean;
+    agentDefinitions: { activeAgents: AgentDef[]; allAgents: AgentDef[] };
+    theme: Theme;
+    maxBudgetUsd?: number;
+    sdkBetas?: string[];
+    ideInstallationStatus?: any;
+    dynamicMcpConfig?: any;
+  };
+  getAppState(): Promise<AppState>;
+  setAppState(updater): void;
+  messages: Message[];
+  setMessages(updater): void;
+  readFileState: LRUCache;  // new eS({max: 1000})
+  setInProgressToolUseIDs(updater): void;
+  setResponseLength(updater): void;
+  updateFileHistoryState(updater): void;
+  agentId: string;
+  onChangeAPIKey?: Function;
+  openMessageSelector?: Function;
+  addNotification?: Function;
+  setToolJSX?: Function;
+  setStreamMode?: Function;
+  setSpinnerMessage?: Function;
+  setSpinnerColor?: Function;
+  resume?: string;
+}
+```
+
+## Built-in Tool Definitions (from string literals and code patterns)
+
+### BashTool
+```javascript
+{
+  name: "Bash",
+  // Validates: command string, timeout, description, run_in_background, dangerouslyDisableSandbox
+  // Execution: child_process with sandbox wrapping
+  // Sandbox: macOS seatbelt or Linux SOCKS bridge
+  // Special handling for: sandbox violations tracking, command path extraction
+}
+```
+
+### FileReadTool (I6)
+```javascript
+{
+  name: "Read",  // userFacingName
+  // validateInput: checks path permissions via tD(), file existence
+  // call: reads file with offset/limit, returns content with line numbers
+  // Special: compact mode returns {type: "compact_file_reference", filename}
+  // LRU cache for read state: new eS({max: 1000})
+}
+```
+
+### FileEditTool
+```javascript
+{
+  name: "Edit",  // userFacingName
+  // validateInput: checks path permissions for "edit" action
+  // Validates: old_string !== new_string, file_path is absolute
+  // call: string replacement with optional replace_all
+}
+```
+
+### FileWriteTool
+```javascript
+{
+  name: "Write",  // userFacingName
+  // validateInput: checks path permissions for "write" action
+  // Rejects glob patterns in path
+  // call: writes content to file
+}
+```
+
+### Agent Tool (sub-agent spawner)
+```javascript
+{
+  name: "Agent",
+  // Creates sub-agent with own s$() loop
+  // Parameters: description, prompt, subagent_type, model, resume, run_in_background
+  // Models: "sonnet" | "opus" | "haiku" | "inherit"
+  // Permission modes: defined per agent or inherited
+  // Spawns via mVA() async generator
+}
+```
+
+## MCP Tool Dispatch
+
+```javascript
+// MCP tool name format: "mcp__<serverName>__<toolName>"
+// Parsing:
+function parseMcpToolName(fullName) {
+  let prefix = `mcp__${normalizeServerName(serverName)}__`;
+  let toolName = fullName.replace(prefix, "");
+  return { serverName, toolName };
+}
+
+// MCP tool execution flow:
+// 1. Parse tool name to extract server and tool
+// 2. Find MCP client for server
+// 3. Send tools/call JSON-RPC message
+// 4. Await response with timeout (k91() / MCP_TIMEOUT env)
+// 5. Return result as tool_result content block
+```
+
+## Tool Result Mapping
+
+```javascript
+// Each tool maps its result to the API format:
+mapToolResultToToolResultBlockParam(result, toolUseId) {
+  return {
+    tool_use_id: toolUseId,
+    type: "tool_result",
+    content: result,  // string or content block array
+    is_error: false
+  };
+}
+
+// Error results:
+{
+  tool_use_id: id,
+  type: "tool_result",
+  content: `Error: Tool '${name}' not found`,
+  is_error: true
+}
+```
+
+## Slash Commands (not tools, but command handlers)
+
+```javascript
+// 40+ slash commands with format:
+{
+  name: "command-name",
+  description: "What it does",
+  // handler returns:
+  {
+    data: { success: boolean, commandName: string },
+    newMessages: Message[],
+    contextModifier(toolUseContext) {
+      // Can modify: alwaysAllowRules, mainLoopModel, maxThinkingTokens
+      return modifiedContext;
+    }
+  }
+}
+```

@@ -1399,6 +1399,9 @@ pub struct AppState {
     pub last_optimize_completed: std::sync::Arc<parking_lot::RwLock<Option<std::time::Instant>>>,
     /// Active SSE connection count (ADR-130 Phase 1 — prevents SSE reconnect storms)
     pub sse_connections: std::sync::Arc<std::sync::atomic::AtomicUsize>,
+    /// Response queues for SSE proxy drain polling (ADR-130 Phase 2).
+    /// Maps sessionId → buffered JSON-RPC responses awaiting drain.
+    pub response_queues: std::sync::Arc<dashmap::DashMap<String, Vec<String>>>,
 }
 
 // ──────────────────────────────────────────────────────────────────────

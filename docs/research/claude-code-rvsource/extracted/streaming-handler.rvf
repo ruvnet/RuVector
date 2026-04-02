@@ -1,0 +1,242 @@
+---
+type: source-extraction
+module: streaming-handler
+binary: claude-code
+version: 2.0.62
+extraction-method: strings+pattern-match
+confidence: high
+---
+
+# Streaming Handler
+
+## SSE Event Processing
+
+Two parallel implementations exist in the codebase (SDK and internal client).
+Both follow the same pattern.
+
+### Stream Event Router (from content_block_delta handler)
+
+```javascript
+// Internal stream processor (NL class):
+class StreamProcessor {
+  _emit(eventName, event, accumulator) { /* ... */ }
+
+  processEvent(event, accumulator) {
+    this._emit("streamEvent", event, accumulator);
+
+    switch (event.type) {
+      case "message_start":
+        // Initialize response: accumulator = { content: [], usage: {} }
+        break;
+
+      case "content_block_start":
+        // Add new block to accumulator
+        accumulator.content.push(event.content_block);
+        // Block types: "text", "tool_use", "thinking", "server_tool_use", "mcp_tool_use"
+        break;
+
+      case "content_block_delta":
+        let block = accumulator.content.at(event.index);
+        switch (event.delta.type) {
+          case "text_delta":
+            if (block.type === "text") {
+              block.text += event.delta.text;
+            }
+            break;
+          case "input_json_delta":
+            // Tool use JSON accumulation
+            if (block.type === "tool_use") {
+              block.input_json = (block.input_json || "") + event.delta.partial_json;
+            }
+            break;
+          case "thinking_delta":
+            if (block.type === "thinking") {
+              block.thinking += event.delta.thinking;
+            }
+            break;
+        }
+        break;
+
+      case "content_block_stop":
+        // Finalize block (parse JSON for tool_use, etc.)
+        break;
+
+      case "message_delta":
+        // Update usage and stop_reason
+        if (event.usage) {
+          accumulator.usage = { ...accumulator.usage, ...event.usage };
+        }
+        if (event.usage?.cache_read_input_tokens != null) {
+          accumulator.usage.cache_read_input_tokens = event.usage.cache_read_input_tokens;
+        }
+        if (event.usage?.server_tool_use != null) {
+          accumulator.usage.server_tool_use = event.usage.server_tool_use;
+        }
+        break;
+
+      case "message_stop":
+        // Response complete
+        break;
+    }
+
+    return accumulator;
+  }
+}
+```
+
+### SSE Line Parser
+
+```javascript
+// Parses SSE text/event-stream format
+// Only processes events with specific types:
+function* parseSSEStream(lines) {
+  for (let line of lines) {
+    if (line.event === "message_start" ||
+        line.event === "message_delta" ||
+        line.event === "message_stop" ||
+        line.event === "content_block_start" ||
+        line.event === "content_block_delta" ||
+        line.event === "content_block_stop") {
+      try {
+        yield JSON.parse(line.data);
+      } catch (error) {
+        throw error;  // Parsing failure is fatal
+      }
+    }
+  }
+}
+```
+
+## Stream Mode State Management
+
+```javascript
+// UI stream mode tracked for rendering:
+// setStreamMode: (mode) => void
+// Modes:
+//   "requesting"  - waiting for API response
+//   "responding"   - receiving text content
+//   "tool-input"   - receiving tool use JSON
+
+// Transitions:
+// on content_block_delta with text_delta:
+//   mode = "responding"
+// on content_block_start with tool_use:
+//   mode = "tool-input"
+// on message_stop:
+//   mode = "requesting"
+
+// UI rendering hook:
+function handleStreamEvent(event, setStreamMode) {
+  if (event.type === "content_block_delta") {
+    switch (event.delta.type) {
+      case "text_delta":
+        setStreamMode("responding");
+        break;
+      case "input_json_delta":
+        setStreamMode("tool-input");
+        break;
+    }
+  }
+}
+```
+
+## Response Length Tracking
+
+```javascript
+// setResponseLength tracks cumulative response size
+// Used for UI progress indicators
+
+// In agent loop consumer (iBA):
+function handleEvent(event, addMessage, updateLength, setStreamMode, clearSpinner) {
+  if (event.type === "stream_event" &&
+      event.event.type === "content_block_delta" &&
+      event.event.delta.type === "text_delta") {
+    updateLength(event.event.delta.text.length);
+  }
+}
+```
+
+## Token Usage Tracking
+
+```javascript
+// Per-model usage accumulator (FQ global state):
+// FQ.modelUsage[modelId] = {
+//   inputTokens, outputTokens,
+//   cacheReadInputTokens, cacheCreationInputTokens,
+//   webSearchRequests, costUSD, contextWindow
+// }
+
+function trackUsage(cost, model, usage) {
+  let entry = FQ.modelUsage[model] || {
+    inputTokens: 0, outputTokens: 0,
+    cacheReadInputTokens: 0, cacheCreationInputTokens: 0,
+    webSearchRequests: 0, costUSD: 0, contextWindow: 0
+  };
+  entry.inputTokens += usage.input_tokens ?? 0;
+  entry.outputTokens += usage.output_tokens ?? 0;
+  entry.cacheReadInputTokens += usage.cache_read_input_tokens ?? 0;
+  entry.cacheCreationInputTokens += usage.cache_creation_input_tokens ?? 0;
+  entry.webSearchRequests += usage.server_tool_use?.web_search_requests ?? 0;
+  entry.costUSD += cost;
+  entry.contextWindow = getContextWindow(model);
+  FQ.modelUsage[model] = entry;
+}
+
+// Cost calculation:
+function calculateCost(usage, pricing) {
+  return (usage.input_tokens / 1e6 * pricing.inputTokens) +
+         (usage.output_tokens / 1e6 * pricing.outputTokens) +
+         ((usage.cache_read_input_tokens ?? 0) / 1e6 * pricing.promptCacheReadTokens) +
+         ((usage.cache_creation_input_tokens ?? 0) / 1e6 * pricing.promptCacheWriteTokens) +
+         ((usage.server_tool_use?.web_search_requests ?? 0) * pricing.webSearchRequests);
+}
+```
+
+## Tool Use JSON Accumulation
+
+```javascript
+// Tool use input arrives as incremental JSON chunks via input_json_delta
+// The handler accumulates partial JSON:
+
+let toolUseId = null;
+let jsonBuffer = "";
+
+for await (let event of stream) {
+  if (event.type === "content_block_start" && event.content_block.type === "tool_use") {
+    toolUseId = event.content_block.id;
+    jsonBuffer = "";
+  }
+
+  if (toolUseId && event.type === "content_block_delta") {
+    let delta = event.delta;
+    if (delta?.type === "input_json_delta" && delta.partial_json) {
+      jsonBuffer += delta.partial_json;
+    }
+  }
+
+  if (event.type === "content_block_stop" && toolUseId) {
+    let toolInput = JSON.parse(jsonBuffer);
+    // Process complete tool call
+    toolUseId = null;
+    jsonBuffer = "";
+  }
+}
+```
+
+## Error Handling
+
+```javascript
+// API errors during streaming:
+// - tengu_streaming_error: content_block_delta for unknown index
+// - Retry logic for transient failures
+// - Fallback to non-streaming mode (didFallBackToNonStreaming telemetry)
+
+// Stop reasons:
+const STOP_REASONS = {
+  END_TURN: "end_turn",
+  GUARDRAIL_INTERVENED: "guardrail_intervened",
+  MAX_TOKENS: "max_tokens",
+  STOP_SEQUENCE: "stop_sequence",
+  TOOL_USE: "tool_use"
+};
+```

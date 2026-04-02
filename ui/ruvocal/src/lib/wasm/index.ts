@@ -753,7 +753,7 @@ function createMockWasmModule() {
 								text = `SYSTEM GUIDANCE — AVAILABLE TOOLS\n\n` +
 									`You have two MCP servers:\n` +
 									`  1. RVAgent Local (WASM) — files, memory, tasks, witness, gallery (runs in browser)\n` +
-									`  2. pi-brain (pi.ruv.io/sse) — shared collective intelligence with 2,000+ memories\n\n` +
+									`  2. pi-brain (mcp.pi.ruv.io) — shared collective intelligence with 2,000+ memories\n\n` +
 									`${sections.join("\n\n")}\n\n` +
 									`TIPS:\n` +
 									`• Brain tools (brain_*) connect to pi.ruv.io shared knowledge — search before implementing\n` +

@@ -3,7 +3,7 @@ import { config } from "$lib/server/config";
 
 // Built-in MCP servers always available (users can toggle them off)
 const BUILTIN_SERVERS: Array<{ name: string; url: string }> = [
-	{ name: "pi-brain", url: "https://pi.ruv.io/sse" },
+	{ name: "pi-brain", url: "https://mcp.pi.ruv.io" },
 ];
 
 export async function GET() {

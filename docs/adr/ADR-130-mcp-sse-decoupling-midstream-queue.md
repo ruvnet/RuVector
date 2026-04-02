@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed
+**Deployed** (2026-04-02) — Phases 1-3 complete. SSE decoupled to `mcp.pi.ruv.io` (`ruvbrain-sse` Cloud Run service). Sparsifier skip for >5M edge graphs. Response queue drain implemented.
 
 ## Date
 
@@ -200,13 +200,21 @@ Implement `MidstreamQueue` as a module in `crates/mcp-brain-server/src/midstream
 3. Max 200 concurrent sessions
 4. Internal drain endpoint for future SSE service
 
-### Phase 3: Service Split (week 2)
+### Phase 3: Service Split — **DEPLOYED 2026-04-02**
 
-1. Create `ruvbrain-sse` Dockerfile (thin, no graph/embeddings — just SSE + HTTP proxy)
-2. Create `ruvbrain-worker` binary (scheduler jobs, shares store/graph crates)
-3. Deploy both alongside existing `ruvbrain-api`
-4. Update Cloud Scheduler to target worker jobs instead of API
-5. Update DNS/domain mapping
+1. ~~Create `ruvbrain-sse` Dockerfile~~ **Done** — `Dockerfile.sse`, thin proxy binary
+2. ~~Create `ruvbrain-worker` binary~~ Deferred (scheduler jobs stay on API for now)
+3. ~~Deploy both alongside existing `ruvbrain-api`~~ **Done** — `ruvbrain-sse` Cloud Run service
+4. ~~Update Cloud Scheduler~~ Deferred
+5. ~~Update DNS/domain mapping~~ **Done** — `mcp.pi.ruv.io` CNAME via Cloudflare → `ghs.googlehosted.com`
+
+**Deployment details:**
+- SSE proxy: `ruvbrain-sse` Cloud Run service, concurrency=200, timeout=3600s, 1 min-instance
+- Domain: `mcp.pi.ruv.io` (Cloudflare CNAME, Google-managed SSL cert)
+- Root `/` and `/sse` both serve SSE (root is canonical)
+- Main server SSE limited to 5 connections via `MAX_SSE` env var
+- Sparsifier skip for >5M edge graphs prevents CPU starvation on startup
+- All code references updated from `pi.ruv.io/sse` → `mcp.pi.ruv.io`
 
 ### Phase 4: Worker Migration (week 3)
 
@@ -246,7 +254,7 @@ async fn sse_handler(State(state): State<AppState>) -> Result<Sse<...>, (StatusC
 
 2. **Cloud Run WebSocket support**: Cloud Run supports WebSockets but with the same concurrency model. Doesn't solve the slot exhaustion problem.
 
-3. **Separate domain for SSE** (`sse.pi.ruv.io`): Routes SSE to a different Cloud Run service but still shares the same codebase/binary. Partial solution — helps with concurrency isolation but doesn't decouple the business logic.
+3. **Separate domain for SSE** (`mcp.pi.ruv.io`): **Adopted.** Routes SSE to `ruvbrain-sse` Cloud Run service via Cloudflare CNAME → `ghs.googlehosted.com`. The SSE proxy is a thin binary with no business logic — it forwards JSON-RPC to the API and polls `/internal/queue/drain` for responses.
 
 4. **Cloud Run min-instances scaling**: Set `min-instances=3` to absorb SSE load across more instances. Increases cost 3x without solving the architectural issue. Band-aid.
 

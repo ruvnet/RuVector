@@ -118,13 +118,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // ── Background sparsifier build for large graphs ──
     // Deferred from startup to avoid blocking the health probe.
+    // For very large graphs (>5M edges), skip the sparsifier entirely — it
+    // holds a write lock that blocks all readers and pegs the CPU, causing
+    // Cloud Run to 504 every request while it runs.
     let spar_state = state.clone();
     tokio::spawn(async move {
-        tokio::time::sleep(std::time::Duration::from_secs(15)).await;
+        tokio::time::sleep(std::time::Duration::from_secs(60)).await;
         let edge_count = spar_state.graph.read().edge_count();
-        if edge_count > 100_000 && spar_state.graph.read().sparsifier_stats().is_none() {
+        if edge_count > 5_000_000 {
+            tracing::info!("Skipping sparsifier build: graph too large ({edge_count} edges, >5M threshold)");
+        } else if edge_count > 100_000 && spar_state.graph.read().sparsifier_stats().is_none() {
             tracing::info!("Background sparsifier build starting ({edge_count} edges)");
-            spar_state.graph.write().rebuild_sparsifier();
+            // Run in spawn_blocking to avoid starving the tokio runtime
+            let graph = spar_state.graph.clone();
+            tokio::task::spawn_blocking(move || {
+                graph.write().rebuild_sparsifier();
+            }).await.ok();
             let stats = spar_state.graph.read().sparsifier_stats();
             if let Some(s) = stats {
                 tracing::info!("Sparsifier built: {} edges, {:.1}x compression", s.sparsified_edges, s.compression_ratio);

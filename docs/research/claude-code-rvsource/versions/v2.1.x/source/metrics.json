@@ -1,0 +1,50 @@
+{
+  "version": "2.0.0",
+  "sizeBytes": 13162543,
+  "lines": 16967,
+  "functions": 19906,
+  "asyncFunctions": 1903,
+  "arrowFunctions": 25893,
+  "classes": 1632,
+  "extends": 852,
+  "sourceFile": "cli.js",
+  "extractedAt": "2026-04-02T23:29:03.816Z",
+  "modules": {
+    "tool-dispatch": {
+      "fragments": 57,
+      "sizeBytes": 281582
+    },
+    "permission-system": {
+      "fragments": 615,
+      "sizeBytes": 1407756
+    },
+    "agent-loop": {
+      "fragments": 101,
+      "sizeBytes": 200371
+    },
+    "streaming-handler": {
+      "fragments": 24,
+      "sizeBytes": 53447
+    },
+    "context-manager": {
+      "fragments": 35,
+      "sizeBytes": 69207
+    },
+    "mcp-client": {
+      "fragments": 48,
+      "sizeBytes": 102315
+    },
+    "telemetry": {
+      "fragments": 861,
+      "sizeBytes": 26734
+    },
+    "commands": {
+      "fragments": 93,
+      "sizeBytes": 8176
+    },
+    "class-hierarchy": {
+      "fragments": 1467,
+      "sizeBytes": 23004
+    }
+  }
+}

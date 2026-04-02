@@ -1,0 +1,225 @@
+---
+type: source-extraction
+module: context-manager
+binary: claude-code
+version: 2.0.62
+extraction-method: strings+pattern-match
+confidence: high
+---
+
+# Context Window Management
+
+## Token Counting (qh2 function)
+
+```javascript
+async function qh2(messages, mainLoopModel, getPermissionContext, tools, agentDefinitions, terminalWidth) {
+  let model = resolveModel({permissionMode: (await getPermissionContext()).mode, mainLoopModel});
+  let contextWindow = getContextWindow(model);  // Bd(model)
+
+  // Count tokens from multiple sources in parallel:
+  let [
+    messageTokens,
+    {claudeMdTokens, memoryFileDetails},
+    systemPromptTokens,
+    {mcpToolTokens, mcpToolDetails},
+    {agentTokens, agentDetails},
+    {slashCommandTokens, commandInfo},
+    totalBaseTokens
+  ] = await Promise.all([
+    countMessageTokens(messages, model),          // ra5
+    countClaudeMdTokens(),                        // oa5
+    countSystemPromptTokens(messages, getPermissionContext, agentDefinitions, model),  // ta5
+    countMcpToolTokens(messages, getPermissionContext, agentDefinitions, model),       // pjA
+    countAgentTokens(agentDefinitions),           // Qs5
+    countSlashCommandTokens(messages, getPermissionContext, agentDefinitions),         // As5
+    countBaseTokens(query)                        // Bs5
+  ]);
+
+  // Return breakdown for /context command display
+  return {
+    totalTokens,
+    contextWindow,
+    items: [
+      { name: "messages", tokens: messageTokens },
+      { name: "claudeMd", tokens: claudeMdTokens },
+      { name: "mcpTools", tokens: mcpToolTokens },
+      // ...
+    ]
+  };
+}
+```
+
+## Auto-Compact Configuration
+
+```javascript
+// Compact trigger configuration sent to API:
+{
+  type: "clear_tool_uses_20250919",  // API feature name
+  trigger: {
+    type: "input_tokens",
+    value: API_TARGET_INPUT_TOKENS    // from env or default (qzB)
+  },
+  clear_at_least: {
+    type: "input_tokens",
+    value: targetValue
+  }
+}
+
+// Environment override:
+// API_TARGET_INPUT_TOKENS env var controls the threshold
+```
+
+## Compaction Algorithm
+
+```javascript
+// Triggered when: input_tokens > threshold
+// Telemetry event: "tengu_compact"
+
+async function* compact(messages, toolUseContext, ...) {
+  // 1. Set stream mode to "requesting"
+  toolUseContext.setStreamMode?.("requesting");
+
+  // 2. Call API with compaction prompt
+  let response = await callAPI({
+    messages: messages,
+    querySource: "compact",
+    // Separate system prompt for compaction
+  });
+
+  // 3. Validate response
+  let summary = extractTextContent(response);  // Sn()
+  if (!summary) throw Error("Failed to generate conversation summary");
+  if (summary.startsWith(ERROR_PREFIX)) throw Error(summary);  // VV constant
+  if (summary.startsWith(SYSTEM_PREFIX)) throw Error("prompt_too_long");  // GIA constant
+
+  // 4. Refresh file state
+  refreshReadFileState(toolUseContext.readFileState);  // c12()
+
+  // 5. Run post-compact hooks
+  let hookResults = await runHooks("compact");  // z$("compact")
+
+  // 6. Restore tracked files
+  let fileAttachments = await Promise.all(
+    trackedFiles.map(async (file) => {
+      let content = await readFileForCompact(file.filename, {
+        fileReadingLimits: { maxTokens: FILE_TOKEN_LIMIT }  // iE5
+      });
+      return content ? createAttachment(content) : null;
+    })
+  );
+
+  // 7. Track metrics
+  let postCompactTokenCount = countTokens(summary);
+  trackEvent("tengu_compact", {
+    preCompactTokenCount,
+    postCompactTokenCount,
+    compactionInputTokens: usage?.input_tokens,
+    compactionOutputTokens: usage?.output_tokens,
+    compactionCacheReadTokens: usage?.cache_read_input_tokens ?? 0,
+    compactionCacheCreationTokens: usage?.cache_creation_input_tokens ?? 0,
+  });
+
+  // 8. Return compacted state
+  return {
+    boundaryMarker,
+    summaryMessages: [summary],
+    attachments: fileAttachments,
+    hookResults,
+    userDisplayMessage,
+    preCompactTokenCount,
+    postCompactTokenCount,
+    compactionUsage: usage
+  };
+}
+```
+
+## Micro-Compaction
+
+```javascript
+// Removes stale tool_use blocks without full re-summarization
+// Tracked as: "tengu_microcompact"
+
+function microCompact(messages, toolUseContext) {
+  let compactedTools = new Set();
+  let totalUncompactedTokens = 0;
+  let tokensSaved = 0;
+
+  for (let msg of messages) {
+    if (isStaleToolUse(msg)) {
+      compactedTools.add(msg.id);
+      tokensSaved += countTokens(msg);
+    }
+  }
+
+  if (compactedTools.size > 0) {
+    trackEvent("tengu_microcompact", {
+      toolsCompacted: compactedTools.size,
+      totalUncompactedTokens,
+      tokensAfterCompaction: totalUncompactedTokens - tokensSaved,
+      tokensSaved,
+      triggerType: "auto"
+    });
+  }
+
+  return filteredMessages;
+}
+```
+
+## File Read State Cache
+
+```javascript
+// LRU cache for file read state
+// Used during compaction to track which files are in context
+let readFileState = new LRUCache({ max: 1000 });  // new eS({max: 1000})
+
+// After compaction, stale entries are cleaned:
+function refreshReadFileState(readFileState) {
+  // Remove entries for files no longer referenced
+  // Re-read files that are still tracked
+}
+```
+
+## Compact Boundary Marker
+
+```javascript
+// System message marking compaction point in history:
+{
+  type: "system",
+  content: "Conversation compacted",
+  level: "info",
+  subtype: "compact_boundary",
+  uuid: generateUUID(),
+  timestamp: new Date().toISOString(),
+  isMeta: true  // synthetic message
+}
+```
+
+## Context Window Sizes (from Bd function)
+
+```javascript
+// getContextWindow(model) returns max context tokens
+// Known model context windows:
+// - sonnet: standard context
+// - sonnet[1m]: 1M token context
+// - opus: standard context
+// - haiku: standard context
+// Exact values derived from model configuration
+```
+
+## Thinking Token Budget
+
+```javascript
+// Thinking tokens controlled by:
+const ULTRATHINK = 31999;  // Maximum thinking tokens for ultrathink mode
+const NONE = 0;
+
+// Regex to detect ultrathink request:
+const ultrathinkPattern = /\bultrathink\b/gi;
+
+// Function to determine thinking budget:
+function getThinkingTokens(mode, userTokens, input, enabled) {
+  if (!enabled) return 0;
+  if (ultrathinkPattern.test(input)) return ULTRATHINK;
+  return userTokens ?? getDefaultForModel(mode);
+}
+```

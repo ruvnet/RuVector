@@ -1,0 +1,3141 @@
+{
+  "format": "rvf-binary",
+  "version": "1.0",
+  "fileId": "689f54de1ca78a28ea7d0a38ceda5068",
+  "dimensions": 128,
+  "metric": "cosine",
+  "totalVectors": 482,
+  "totalSegments": 28,
+  "fileSizeBytes": 257450,
+  "epoch": 9,
+  "segments": [
+    {
+      "id": 1,
+      "type": "manifest",
+      "offset": 0,
+      "payloadLength": 98
+    },
+    {
+      "id": 2,
+      "type": "vec",
+      "offset": 162,
+      "payloadLength": 53566
+    },
+    {
+      "id": 3,
+      "type": "witness",
+      "offset": 53792,
+      "payloadLength": 69
+    },
+    {
+      "id": 4,
+      "type": "manifest",
+      "offset": 53925,
+      "payloadLength": 173
+    },
+    {
+      "id": 5,
+      "type": "vec",
+      "offset": 54162,
+      "payloadLength": 526
+    },
+    {
+      "id": 6,
+      "type": "witness",
+      "offset": 54752,
+      "payloadLength": 67
+    },
+    {
+      "id": 7,
+      "type": "manifest",
+      "offset": 54883,
+      "payloadLength": 248
+    },
+    {
+      "id": 8,
+      "type": "vec",
+      "offset": 55195,
+      "payloadLength": 526
+    },
+    {
+      "id": 9,
+      "type": "witness",
+      "offset": 55785,
+      "payloadLength": 67
+    },
+    {
+      "id": 10,
+      "type": "manifest",
+      "offset": 55916,
+      "payloadLength": 323
+    },
+    {
+      "id": 11,
+      "type": "vec",
+      "offset": 56303,
+      "payloadLength": 4686
+    },
+    {
+      "id": 12,
+      "type": "witness",
+      "offset": 61053,
+      "payloadLength": 67
+    },
+    {
+      "id": 13,
+      "type": "manifest",
+      "offset": 61184,
+      "payloadLength": 398
+    },
+    {
+      "id": 14,
+      "type": "vec",
+      "offset": 61646,
+      "payloadLength": 8846
+    },
+    {
+      "id": 15,
+      "type": "witness",
+      "offset": 70556,
+      "payloadLength": 68
+    },
+    {
+      "id": 16,
+      "type": "manifest",
+      "offset": 70688,
+      "payloadLength": 473
+    },
+    {
+      "id": 17,
+      "type": "vec",
+      "offset": 71225,
+      "payloadLength": 156526
+    },
+    {
+      "id": 18,
+      "type": "witness",
+      "offset": 227815,
+      "payloadLength": 69
+    },
+    {
+      "id": 19,
+      "type": "manifest",
+      "offset": 227948,
+      "payloadLength": 548
+    },
+    {
+      "id": 20,
+      "type": "vec",
+      "offset": 228560,
+      "payloadLength": 4686
+    },
+    {
+      "id": 21,
+      "type": "witness",
+      "offset": 233310,
+      "payloadLength": 67
+    },
+    {
+      "id": 22,
+      "type": "manifest",
+      "offset": 233441,
+      "payloadLength": 623
+    },
+    {
+      "id": 23,
+      "type": "vec",
+      "offset": 234128,
+      "payloadLength": 526
+    },
+    {
+      "id": 24,
+      "type": "witness",
+      "offset": 234718,
+      "payloadLength": 67
+    },
+    {
+      "id": 25,
+      "type": "manifest",
+      "offset": 234849,
+      "payloadLength": 698
+    },
+    {
+      "id": 26,
+      "type": "vec",
+      "offset": 235611,
+      "payloadLength": 20806
+    },
+    {
+      "id": 27,
+      "type": "witness",
+      "offset": 256481,
+      "payloadLength": 68
+    },
+    {
+      "id": 28,
+      "type": "manifest",
+      "offset": 256613,
+      "payloadLength": 773
+    }
+  ],
+  "source": {
+    "package": "@anthropic-ai/claude-code",
+    "version": "1.0.128",
+    "extractedAt": "2026-04-02T23:28:44.993Z",
+    "metrics": {
+      "bundleSizeBytes": 9360004,
+      "classes": 1390,
+      "functions": 16593,
+      "asyncFunctions": 623,
+      "arrowFunctions": 19160
+    }
+  },
+  "modules": [
+    {
+      "name": "permission-system",
+      "fragments": 198,
+      "sizeBytes": 473765
+    },
+    {
+      "name": "tool-dispatch",
+      "fragments": 24,
+      "sizeBytes": 159793
+    },
+    {
+      "name": "agent-loop",
+      "fragments": 44,
+      "sizeBytes": 91903
+    },
+    {
+      "name": "streaming-handler",
+      "fragments": 9,
+      "sizeBytes": 17514
+    },
+    {
+      "name": "mcp-client",
+      "fragments": 17,
+      "sizeBytes": 30858
+    },
+    {
+      "name": "context-manager",
+      "fragments": 9,
+      "sizeBytes": 17916
+    },
+    {
+      "name": "telemetry",
+      "fragments": 319,
+      "sizeBytes": 10122
+    },
+    {
+      "name": "commands",
+      "fragments": 32,
+      "sizeBytes": 2406
+    },
+    {
+      "name": "class-hierarchy",
+      "fragments": 810,
+      "sizeBytes": 12627
+    }
+  ],
+  "idMap": {
+    "1": {
+      "module": "agent-loop",
+      "fragmentIndex": 0,
+      "sizeBytes": 1454,
+      "hash": "6b88bd1a348867c1"
+    },
+    "2": {
+      "module": "agent-loop",
+      "fragmentIndex": 1,
+      "sizeBytes": 7263,
+      "hash": "0cbcabebc9969ebd"
+    },
+    "3": {
+      "module": "agent-loop",
+      "fragmentIndex": 2,
+      "sizeBytes": 2052,
+      "hash": "435e3be78b65a043"
+    },
+    "4": {
+      "module": "agent-loop",
+      "fragmentIndex": 3,
+      "sizeBytes": 1363,
+      "hash": "578b4f74ed46887a"
+    },
+    "5": {
+      "module": "agent-loop",
+      "fragmentIndex": 4,
+      "sizeBytes": 2001,
+      "hash": "3f966f79c23d180b"
+    },
+    "6": {
+      "module": "agent-loop",
+      "fragmentIndex": 5,
+      "sizeBytes": 1436,
+      "hash": "67e398bf48971b58"
+    },
+    "7": {
+      "module": "agent-loop",
+      "fragmentIndex": 6,
+      "sizeBytes": 1995,
+      "hash": "4797a8ff78dfcc4f"
+    },
+    "8": {
+      "module": "agent-loop",
+      "fragmentIndex": 7,
+      "sizeBytes": 2030,
+      "hash": "cf305ef3aaaad721"
+    },
+    "9": {
+      "module": "agent-loop",
+      "fragmentIndex": 8,
+      "sizeBytes": 468,
+      "hash": "9a734e09feb04d6f"
+    },
+    "10": {
+      "module": "agent-loop",
+      "fragmentIndex": 9,
+      "sizeBytes": 278,
+      "hash": "7be7a72eb890d6df"
+    },
+    "11": {
+      "module": "agent-loop",
+      "fragmentIndex": 10,
+      "sizeBytes": 196,
+      "hash": "a229ac08e100efd7"
+    },
+    "12": {
+      "module": "agent-loop",
+      "fragmentIndex": 11,
+      "sizeBytes": 80,
+      "hash": "49576f040c8233bb"
+    },
+    "13": {
+      "module": "agent-loop",
+      "fragmentIndex": 12,
+      "sizeBytes": 52,
+      "hash": "9ea4b2dbf043dbf5"
+    },
+    "14": {
+      "module": "agent-loop",
+      "fragmentIndex": 13,
+      "sizeBytes": 87,
+      "hash": "264e228fa51ddd79"
+    },
+    "15": {
+      "module": "agent-loop",
+      "fragmentIndex": 14,
+      "sizeBytes": 217,
+      "hash": "9b34e38cca171297"
+    },
+    "16": {
+      "module": "agent-loop",
+      "fragmentIndex": 15,
+      "sizeBytes": 181,
+      "hash": "69f8ecc28b73ceff"
+    },
+    "17": {
+      "module": "agent-loop",
+      "fragmentIndex": 16,
+      "sizeBytes": 12,
+      "hash": "2a7a63a915d8bfbd"
+    },
+    "18": {
+      "module": "agent-loop",
+      "fragmentIndex": 17,
+      "sizeBytes": 1413,
+      "hash": "ccdf5e298ca48ec6"
+    },
+    "19": {
+      "module": "agent-loop",
+      "fragmentIndex": 18,
+      "sizeBytes": 410,
+      "hash": "88c584ef6649dd2a"
+    },
+    "20": {
+      "module": "agent-loop",
+      "fragmentIndex": 19,
+      "sizeBytes": 106,
+      "hash": "b7de0aa66574a816"
+    },
+    "21": {
+      "module": "agent-loop",
+      "fragmentIndex": 20,
+      "sizeBytes": 148,
+      "hash": "81992dc0205364eb"
+    },
+    "22": {
+      "module": "agent-loop",
+      "fragmentIndex": 21,
+      "sizeBytes": 234,
+      "hash": "696299af9fb2d642"
+    },
+    "23": {
+      "module": "agent-loop",
+      "fragmentIndex": 22,
+      "sizeBytes": 14,
+      "hash": "7fdd142070fba650"
+    },
+    "24": {
+      "module": "agent-loop",
+      "fragmentIndex": 23,
+      "sizeBytes": 114,
+      "hash": "d05e413aed952878"
+    },
+    "25": {
+      "module": "agent-loop",
+      "fragmentIndex": 24,
+      "sizeBytes": 1102,
+      "hash": "8e10faa91d217660"
+    },
+    "26": {
+      "module": "agent-loop",
+      "fragmentIndex": 25,
+      "sizeBytes": 244,
+      "hash": "5904c896f4bf6284"
+    },
+    "27": {
+      "module": "agent-loop",
+      "fragmentIndex": 26,
+      "sizeBytes": 497,
+      "hash": "21da65080c3f41e7"
+    },
+    "28": {
+      "module": "agent-loop",
+      "fragmentIndex": 27,
+      "sizeBytes": 84,
+      "hash": "2a6d313f63ee353d"
+    },
+    "29": {
+      "module": "agent-loop",
+      "fragmentIndex": 28,
+      "sizeBytes": 103,
+      "hash": "3de89e32fce2d437"
+    },
+    "30": {
+      "module": "agent-loop",
+      "fragmentIndex": 29,
+      "sizeBytes": 84,
+      "hash": "df53817461bccfcb"
+    },
+    "31": {
+      "module": "agent-loop",
+      "fragmentIndex": 30,
+      "sizeBytes": 2026,
+      "hash": "a2a8d0da4539d0ce"
+    },
+    "32": {
+      "module": "agent-loop",
+      "fragmentIndex": 31,
+      "sizeBytes": 1956,
+      "hash": "55980a3c8bf13d4b"
+    },
+    "33": {
+      "module": "agent-loop",
+      "fragmentIndex": 32,
+      "sizeBytes": 1568,
+      "hash": "c252e6a2df7f376f"
+    },
+    "34": {
+      "module": "agent-loop",
+      "fragmentIndex": 33,
+      "sizeBytes": 1912,
+      "hash": "81ac961e676a6185"
+    },
+    "35": {
+      "module": "agent-loop",
+      "fragmentIndex": 34,
+      "sizeBytes": 2025,
+      "hash": "60ced58bfb751c43"
+    },
+    "36": {
+      "module": "agent-loop",
+      "fragmentIndex": 35,
+      "sizeBytes": 984,
+      "hash": "0e9ecf6fb4634b62"
+    },
+    "37": {
+      "module": "agent-loop",
+      "fragmentIndex": 36,
+      "sizeBytes": 228,
+      "hash": "7f9e5748f643f3d4"
+    },
+    "38": {
+      "module": "agent-loop",
+      "fragmentIndex": 37,
+      "sizeBytes": 64,
+      "hash": "4372332c0e1c123d"
+    },
+    "39": {
+      "module": "agent-loop",
+      "fragmentIndex": 38,
+      "sizeBytes": 552,
+      "hash": "3fe68442d1041acd"
+    },
+    "40": {
+      "module": "agent-loop",
+      "fragmentIndex": 39,
+      "sizeBytes": 1951,
+      "hash": "f49c46cec542c4c8"
+    },
+    "41": {
+      "module": "agent-loop",
+      "fragmentIndex": 40,
+      "sizeBytes": 891,
+      "hash": "f1dd8fd546992a11"
+    },
+    "42": {
+      "module": "agent-loop",
+      "fragmentIndex": 41,
+      "sizeBytes": 1884,
+      "hash": "34de89d04c284b13"
+    },
+    "43": {
+      "module": "agent-loop",
+      "fragmentIndex": 42,
+      "sizeBytes": 1972,
+      "hash": "2522ab4db7e851b4"
+    },
+    "44": {
+      "module": "agent-loop",
+      "fragmentIndex": 43,
+      "sizeBytes": 1959,
+      "hash": "1e91a89576f0205d"
+    },
+    "45": {
+      "module": "agent-loop",
+      "fragmentIndex": 44,
+      "sizeBytes": 2000,
+      "hash": "990e589c959b14d6"
+    },
+    "46": {
+      "module": "agent-loop",
+      "fragmentIndex": 45,
+      "sizeBytes": 1515,
+      "hash": "9ca5aeb90297837d"
+    },
+    "47": {
+      "module": "agent-loop",
+      "fragmentIndex": 46,
+      "sizeBytes": 1928,
+      "hash": "2f7196c1062a7092"
+    },
+    "48": {
+      "module": "agent-loop",
+      "fragmentIndex": 47,
+      "sizeBytes": 620,
+      "hash": "8ab35a5cdc68260c"
+    },
+    "49": {
+      "module": "agent-loop",
+      "fragmentIndex": 48,
+      "sizeBytes": 737,
+      "hash": "61de29c7aac7cc97"
+    },
+    "50": {
+      "module": "agent-loop",
+      "fragmentIndex": 49,
+      "sizeBytes": 1224,
+      "hash": "1ea211a43a611fb7"
+    },
+    "51": {
+      "module": "agent-loop",
+      "fragmentIndex": 50,
+      "sizeBytes": 1889,
+      "hash": "4486aae25f408a1b"
+    },
+    "52": {
+      "module": "agent-loop",
+      "fragmentIndex": 51,
+      "sizeBytes": 1800,
+      "hash": "a13b8b14c2edd67f"
+    },
+    "53": {
+      "module": "agent-loop",
+      "fragmentIndex": 52,
+      "sizeBytes": 265,
+      "hash": "807e909025a46f72"
+    },
+    "54": {
+      "module": "agent-loop",
+      "fragmentIndex": 53,
+      "sizeBytes": 212,
+      "hash": "1e54b38da584bcea"
+    },
+    "55": {
+      "module": "agent-loop",
+      "fragmentIndex": 54,
+      "sizeBytes": 550,
+      "hash": "1a1ee30d8afbb803"
+    },
+    "56": {
+      "module": "agent-loop",
+      "fragmentIndex": 55,
+      "sizeBytes": 99,
+      "hash": "f463d189017a8d6e"
+    },
+    "57": {
+      "module": "agent-loop",
+      "fragmentIndex": 56,
+      "sizeBytes": 177,
+      "hash": "4cb371606d457986"
+    },
+    "58": {
+      "module": "agent-loop",
+      "fragmentIndex": 57,
+      "sizeBytes": 321,
+      "hash": "ab1bc3ba4bab3dbd"
+    },
+    "59": {
+      "module": "agent-loop",
+      "fragmentIndex": 58,
+      "sizeBytes": 129,
+      "hash": "d876a80e1b427bc5"
+    },
+    "60": {
+      "module": "agent-loop",
+      "fragmentIndex": 59,
+      "sizeBytes": 71,
+      "hash": "17cdb42db0150480"
+    },
+    "61": {
+      "module": "agent-loop",
+      "fragmentIndex": 60,
+      "sizeBytes": 434,
+      "hash": "2a5711aeefb3264e"
+    },
+    "62": {
+      "module": "agent-loop",
+      "fragmentIndex": 61,
+      "sizeBytes": 24,
+      "hash": "1ab1901f74d943da"
+    },
+    "63": {
+      "module": "agent-loop",
+      "fragmentIndex": 62,
+      "sizeBytes": 166,
+      "hash": "532cd74f679a8921"
+    },
+    "64": {
+      "module": "agent-loop",
+      "fragmentIndex": 63,
+      "sizeBytes": 162,
+      "hash": "ac7e3e69cddf6a8c"
+    },
+    "65": {
+      "module": "agent-loop",
+      "fragmentIndex": 64,
+      "sizeBytes": 154,
+      "hash": "410ccc2f15afe735"
+    },
+    "66": {
+      "module": "agent-loop",
+      "fragmentIndex": 65,
+      "sizeBytes": 245,
+      "hash": "18151419df608cfc"
+    },
+    "67": {
+      "module": "agent-loop",
+      "fragmentIndex": 66,
+      "sizeBytes": 311,
+      "hash": "329eefc739cfb66f"
+    },
+    "68": {
+      "module": "agent-loop",
+      "fragmentIndex": 67,
+      "sizeBytes": 299,
+      "hash": "c750050ed9948947"
+    },
+    "69": {
+      "module": "agent-loop",
+      "fragmentIndex": 68,
+      "sizeBytes": 219,
+      "hash": "b22808c5f6c603f8"
+    },
+    "70": {
+      "module": "agent-loop",
+      "fragmentIndex": 69,
+      "sizeBytes": 110,
+      "hash": "bbaafaf5e65c70d9"
+    },
+    "71": {
+      "module": "agent-loop",
+      "fragmentIndex": 70,
+      "sizeBytes": 338,
+      "hash": "48db71429ec75f1b"
+    },
+    "72": {
+      "module": "agent-loop",
+      "fragmentIndex": 71,
+      "sizeBytes": 157,
+      "hash": "1aee1e91136f3c52"
+    },
+    "73": {
+      "module": "agent-loop",
+      "fragmentIndex": 72,
+      "sizeBytes": 101,
+      "hash": "022bf260af320128"
+    },
+    "74": {
+      "module": "agent-loop",
+      "fragmentIndex": 73,
+      "sizeBytes": 96,
+      "hash": "ec3c317ad6e53e25"
+    },
+    "75": {
+      "module": "agent-loop",
+      "fragmentIndex": 74,
+      "sizeBytes": 1091,
+      "hash": "2eafcfebe138e80a"
+    },
+    "76": {
+      "module": "agent-loop",
+      "fragmentIndex": 75,
+      "sizeBytes": 2038,
+      "hash": "341ead25758c8418"
+    },
+    "77": {
+      "module": "agent-loop",
+      "fragmentIndex": 76,
+      "sizeBytes": 624,
+      "hash": "a366bbe79a01dbfe"
+    },
+    "78": {
+      "module": "agent-loop",
+      "fragmentIndex": 77,
+      "sizeBytes": 1380,
+      "hash": "b6e06f25ea1fc288"
+    },
+    "79": {
+      "module": "agent-loop",
+      "fragmentIndex": 78,
+      "sizeBytes": 248,
+      "hash": "6729d8169ec47604"
+    },
+    "80": {
+      "module": "agent-loop",
+      "fragmentIndex": 79,
+      "sizeBytes": 312,
+      "hash": "9434c9ca95d2a91d"
+    },
+    "81": {
+      "module": "agent-loop",
+      "fragmentIndex": 80,
+      "sizeBytes": 62,
+      "hash": "cc164f3bfdc0e213"
+    },
+    "82": {
+      "module": "agent-loop",
+      "fragmentIndex": 81,
+      "sizeBytes": 436,
+      "hash": "81753133b95d2801"
+    },
+    "83": {
+      "module": "agent-loop",
+      "fragmentIndex": 82,
+      "sizeBytes": 209,
+      "hash": "ee49796d30ba391d"
+    },
+    "84": {
+      "module": "agent-loop",
+      "fragmentIndex": 83,
+      "sizeBytes": 503,
+      "hash": "4d406d23f686741a"
+    },
+    "85": {
+      "module": "agent-loop",
+      "fragmentIndex": 84,
+      "sizeBytes": 237,
+      "hash": "c6ff50238288c445"
+    },
+    "86": {
+      "module": "agent-loop",
+      "fragmentIndex": 85,
+      "sizeBytes": 315,
+      "hash": "fe9543f252490a16"
+    },
+    "87": {
+      "module": "agent-loop",
+      "fragmentIndex": 86,
+      "sizeBytes": 1413,
+      "hash": "60f07da7a3d24f55"
+    },
+    "88": {
+      "module": "agent-loop",
+      "fragmentIndex": 87,
+      "sizeBytes": 624,
+      "hash": "20c3c73822440ce4"
+    },
+    "89": {
+      "module": "agent-loop",
+      "fragmentIndex": 88,
+      "sizeBytes": 439,
+      "hash": "121d8ee5d4961486"
+    },
+    "90": {
+      "module": "agent-loop",
+      "fragmentIndex": 89,
+      "sizeBytes": 198,
+      "hash": "ebc295f4cf4daed6"
+    },
+    "91": {
+      "module": "agent-loop",
+      "fragmentIndex": 90,
+      "sizeBytes": 2026,
+      "hash": "97697df991173de3"
+    },
+    "92": {
+      "module": "agent-loop",
+      "fragmentIndex": 91,
+      "sizeBytes": 1786,
+      "hash": "54ae579e5eccf85b"
+    },
+    "93": {
+      "module": "agent-loop",
+      "fragmentIndex": 92,
+      "sizeBytes": 1869,
+      "hash": "2842927d7e134ded"
+    },
+    "94": {
+      "module": "agent-loop",
+      "fragmentIndex": 93,
+      "sizeBytes": 2227,
+      "hash": "adb30c6ec35f18b0"
+    },
+    "95": {
+      "module": "agent-loop",
+      "fragmentIndex": 94,
+      "sizeBytes": 1649,
+      "hash": "c9984aad2e559bae"
+    },
+    "96": {
+      "module": "agent-loop",
+      "fragmentIndex": 95,
+      "sizeBytes": 1996,
+      "hash": "e176257046495037"
+    },
+    "97": {
+      "module": "agent-loop",
+      "fragmentIndex": 96,
+      "sizeBytes": 2051,
+      "hash": "59195b2a4a92e05d"
+    },
+    "98": {
+      "module": "agent-loop",
+      "fragmentIndex": 97,
+      "sizeBytes": 1990,
+      "hash": "8a2f7e61d8b5aaa0"
+    },
+    "99": {
+      "module": "agent-loop",
+      "fragmentIndex": 98,
+      "sizeBytes": 1937,
+      "hash": "59ba19ff21f9032f"
+    },
+    "100": {
+      "module": "agent-loop",
+      "fragmentIndex": 99,
+      "sizeBytes": 280,
+      "hash": "39af4801a8f2c76d"
+    },
+    "101": {
+      "module": "agent-loop",
+      "fragmentIndex": 100,
+      "sizeBytes": 449,
+      "hash": "a8359ce7679c2543"
+    },
+    "102": {
+      "module": "agent-loop",
+      "fragmentIndex": 101,
+      "sizeBytes": 47,
+      "hash": "61fb91250bc28cd5"
+    },
+    "103": {
+      "module": "agent-loop",
+      "fragmentIndex": 102,
+      "sizeBytes": 1220,
+      "hash": "e1881b73760e9aea"
+    },
+    "104": {
+      "module": "class-hierarchy",
+      "fragmentIndex": 0,
+      "sizeBytes": 12627,
+      "hash": "55aa8c42b249d439"
+    },
+    "105": {
+      "module": "commands",
+      "fragmentIndex": 0,
+      "sizeBytes": 2406,
+      "hash": "d07a313ec7bfdf0d"
+    },
+    "106": {
+      "module": "context-manager",
+      "fragmentIndex": 0,
+      "sizeBytes": 2020,
+      "hash": "8fbb1a6a4b41c48b"
+    },
+    "107": {
+      "module": "context-manager",
+      "fragmentIndex": 1,
+      "sizeBytes": 2037,
+      "hash": "7f6a46a43e50924b"
+    },
+    "108": {
+      "module": "context-manager",
+      "fragmentIndex": 2,
+      "sizeBytes": 1764,
+      "hash": "96557a1b9190c280"
+    },
+    "109": {
+      "module": "context-manager",
+      "fragmentIndex": 3,
+      "sizeBytes": 1837,
+      "hash": "ac86f05d99ef3416"
+    },
+    "110": {
+      "module": "context-manager",
+      "fragmentIndex": 4,
+      "sizeBytes": 1908,
+      "hash": "a32aff22a25a4a89"
+    },
+    "111": {
+      "module": "context-manager",
+      "fragmentIndex": 5,
+      "sizeBytes": 1989,
+      "hash": "2e5ee3c65ca3a4cf"
+    },
+    "112": {
+      "module": "context-manager",
+      "fragmentIndex": 6,
+      "sizeBytes": 1304,
+      "hash": "e32be5ed8f8972c3"
+    },
+    "113": {
+      "module": "context-manager",
+      "fragmentIndex": 7,
+      "sizeBytes": 3386,
+      "hash": "f42efd41053da261"
+    },
+    "114": {
+      "module": "context-manager",
+      "fragmentIndex": 8,
+      "sizeBytes": 1655,
+      "hash": "507d6b17d7016a24"
+    },
+    "115": {
+      "module": "mcp-client",
+      "fragmentIndex": 0,
+      "sizeBytes": 1988,
+      "hash": "2a20752e64f87878"
+    },
+    "116": {
+      "module": "mcp-client",
+      "fragmentIndex": 1,
+      "sizeBytes": 1897,
+      "hash": "d2993991fb382d17"
+    },
+    "117": {
+      "module": "mcp-client",
+      "fragmentIndex": 2,
+      "sizeBytes": 1906,
+      "hash": "3741497a1dc6bfa6"
+    },
+    "118": {
+      "module": "mcp-client",
+      "fragmentIndex": 3,
+      "sizeBytes": 2001,
+      "hash": "bac16d24618d815d"
+    },
+    "119": {
+      "module": "mcp-client",
+      "fragmentIndex": 4,
+      "sizeBytes": 1987,
+      "hash": "6c09ac5fabc3ecac"
+    },
+    "120": {
+      "module": "mcp-client",
+      "fragmentIndex": 5,
+      "sizeBytes": 1952,
+      "hash": "4186df2248241e86"
+    },
+    "121": {
+      "module": "mcp-client",
+      "fragmentIndex": 6,
+      "sizeBytes": 1957,
+      "hash": "766f3341e0286d7d"
+    },
+    "122": {
+      "module": "mcp-client",
+      "fragmentIndex": 7,
+      "sizeBytes": 2005,
+      "hash": "1f00231edc58fab5"
+    },
+    "123": {
+      "module": "mcp-client",
+      "fragmentIndex": 8,
+      "sizeBytes": 1969,
+      "hash": "446961910b79ac57"
+    },
+    "124": {
+      "module": "mcp-client",
+      "fragmentIndex": 9,
+      "sizeBytes": 1527,
+      "hash": "c8c518720432ba92"
+    },
+    "125": {
+      "module": "mcp-client",
+      "fragmentIndex": 10,
+      "sizeBytes": 1767,
+      "hash": "2150dd7dd1c2d599"
+    },
+    "126": {
+      "module": "mcp-client",
+      "fragmentIndex": 11,
+      "sizeBytes": 1611,
+      "hash": "6d341340174ecb6e"
+    },
+    "127": {
+      "module": "mcp-client",
+      "fragmentIndex": 12,
+      "sizeBytes": 2026,
+      "hash": "bdba10db3f33e060"
+    },
+    "128": {
+      "module": "mcp-client",
+      "fragmentIndex": 13,
+      "sizeBytes": 1423,
+      "hash": "e9be038f51d9d04a"
+    },
+    "129": {
+      "module": "mcp-client",
+      "fragmentIndex": 14,
+      "sizeBytes": 1892,
+      "hash": "16210dec84249258"
+    },
+    "130": {
+      "module": "mcp-client",
+      "fragmentIndex": 15,
+      "sizeBytes": 1673,
+      "hash": "146987da7738294d"
+    },
+    "131": {
+      "module": "mcp-client",
+      "fragmentIndex": 16,
+      "sizeBytes": 1245,
+      "hash": "13a7249abbd38ed7"
+    },
+    "132": {
+      "module": "permission-system",
+      "fragmentIndex": 0,
+      "sizeBytes": 2038,
+      "hash": "1996af0da34dc846"
+    },
+    "133": {
+      "module": "permission-system",
+      "fragmentIndex": 1,
+      "sizeBytes": 1959,
+      "hash": "e3bced97a04a5060"
+    },
+    "134": {
+      "module": "permission-system",
+      "fragmentIndex": 2,
+      "sizeBytes": 1933,
+      "hash": "d1ed88715c9f7c3b"
+    },
+    "135": {
+      "module": "permission-system",
+      "fragmentIndex": 3,
+      "sizeBytes": 2034,
+      "hash": "760e422b7c34565b"
+    },
+    "136": {
+      "module": "permission-system",
+      "fragmentIndex": 4,
+      "sizeBytes": 2009,
+      "hash": "da9f830e46207b69"
+    },
+    "137": {
+      "module": "permission-system",
+      "fragmentIndex": 5,
+      "sizeBytes": 50548,
+      "hash": "255e2cf647934fe4"
+    },
+    "138": {
+      "module": "permission-system",
+      "fragmentIndex": 6,
+      "sizeBytes": 11190,
+      "hash": "889c9fd27b8a51c1"
+    },
+    "139": {
+      "module": "permission-system",
+      "fragmentIndex": 7,
+      "sizeBytes": 891,
+      "hash": "f0a07d55964aba5c"
+    },
+    "140": {
+      "module": "permission-system",
+      "fragmentIndex": 8,
+      "sizeBytes": 3500,
+      "hash": "ecdf3ce0e3a0a9fd"
+    },
+    "141": {
+      "module": "permission-system",
+      "fragmentIndex": 9,
+      "sizeBytes": 2041,
+      "hash": "2e26ec5d55dd61c9"
+    },
+    "142": {
+      "module": "permission-system",
+      "fragmentIndex": 10,
+      "sizeBytes": 2012,
+      "hash": "f483ba9b2b0d3d95"
+    },
+    "143": {
+      "module": "permission-system",
+      "fragmentIndex": 11,
+      "sizeBytes": 1857,
+      "hash": "629b2de94db8511d"
+    },
+    "144": {
+      "module": "permission-system",
+      "fragmentIndex": 12,
+      "sizeBytes": 26,
+      "hash": "961e9de1a2ff7387"
+    },
+    "145": {
+      "module": "permission-system",
+      "fragmentIndex": 13,
+      "sizeBytes": 1999,
+      "hash": "6d6323316f3d1cd0"
+    },
+    "146": {
+      "module": "permission-system",
+      "fragmentIndex": 14,
+      "sizeBytes": 2019,
+      "hash": "84ff536a05440e71"
+    },
+    "147": {
+      "module": "permission-system",
+      "fragmentIndex": 15,
+      "sizeBytes": 12449,
+      "hash": "b22acc859c5f7b0c"
+    },
+    "148": {
+      "module": "permission-system",
+      "fragmentIndex": 16,
+      "sizeBytes": 2042,
+      "hash": "9f3f897fbf9417ff"
+    },
+    "149": {
+      "module": "permission-system",
+      "fragmentIndex": 17,
+      "sizeBytes": 1998,
+      "hash": "3d677cf759e80eba"
+    },
+    "150": {
+      "module": "permission-system",
+      "fragmentIndex": 18,
+      "sizeBytes": 215,
+      "hash": "b3623273c2d32510"
+    },
+    "151": {
+      "module": "permission-system",
+      "fragmentIndex": 19,
+      "sizeBytes": 1785,
+      "hash": "b2cf32454c36ef31"
+    },
+    "152": {
+      "module": "permission-system",
+      "fragmentIndex": 20,
+      "sizeBytes": 2032,
+      "hash": "cd4343b050be4a39"
+    },
+    "153": {
+      "module": "permission-system",
+      "fragmentIndex": 21,
+      "sizeBytes": 1939,
+      "hash": "e0e266faa137fac9"
+    },
+    "154": {
+      "module": "permission-system",
+      "fragmentIndex": 22,
+      "sizeBytes": 1952,
+      "hash": "85c31baf5d56fc6e"
+    },
+    "155": {
+      "module": "permission-system",
+      "fragmentIndex": 23,
+      "sizeBytes": 2050,
+      "hash": "4b995ae735e17063"
+    },
+    "156": {
+      "module": "permission-system",
+      "fragmentIndex": 24,
+      "sizeBytes": 2045,
+      "hash": "84b83261404cae56"
+    },
+    "157": {
+      "module": "permission-system",
+      "fragmentIndex": 25,
+      "sizeBytes": 1866,
+      "hash": "3ed233c2907b252f"
+    },
+    "158": {
+      "module": "permission-system",
+      "fragmentIndex": 26,
+      "sizeBytes": 2025,
+      "hash": "c8bdc4ebc2ab47a8"
+    },
+    "159": {
+      "module": "permission-system",
+      "fragmentIndex": 27,
+      "sizeBytes": 2026,
+      "hash": "3bb7ebee035a1c63"
+    },
+    "160": {
+      "module": "permission-system",
+      "fragmentIndex": 28,
+      "sizeBytes": 1621,
+      "hash": "25c73a0f7206af43"
+    },
+    "161": {
+      "module": "permission-system",
+      "fragmentIndex": 29,
+      "sizeBytes": 2009,
+      "hash": "982d8c2a46920133"
+    },
+    "162": {
+      "module": "permission-system",
+      "fragmentIndex": 30,
+      "sizeBytes": 1052,
+      "hash": "90fadf8e90f4a756"
+    },
+    "163": {
+      "module": "permission-system",
+      "fragmentIndex": 31,
+      "sizeBytes": 2021,
+      "hash": "ee2d1b3778ae210e"
+    },
+    "164": {
+      "module": "permission-system",
+      "fragmentIndex": 32,
+      "sizeBytes": 1999,
+      "hash": "8298c57535384ec5"
+    },
+    "165": {
+      "module": "permission-system",
+      "fragmentIndex": 33,
+      "sizeBytes": 1878,
+      "hash": "4a46ff88017646fd"
+    },
+    "166": {
+      "module": "permission-system",
+      "fragmentIndex": 34,
+      "sizeBytes": 2034,
+      "hash": "a63212812ce870e3"
+    },
+    "167": {
+      "module": "permission-system",
+      "fragmentIndex": 35,
+      "sizeBytes": 2035,
+      "hash": "9eafb7a1301ffa6f"
+    },
+    "168": {
+      "module": "permission-system",
+      "fragmentIndex": 36,
+      "sizeBytes": 1314,
+      "hash": "1572994bea29ccdf"
+    },
+    "169": {
+      "module": "permission-system",
+      "fragmentIndex": 37,
+      "sizeBytes": 364,
+      "hash": "0284702d9e0c83e2"
+    },
+    "170": {
+      "module": "permission-system",
+      "fragmentIndex": 38,
+      "sizeBytes": 172,
+      "hash": "eac7747a7d19dc02"
+    },
+    "171": {
+      "module": "permission-system",
+      "fragmentIndex": 39,
+      "sizeBytes": 642,
+      "hash": "73007b610aa22d59"
+    },
+    "172": {
+      "module": "permission-system",
+      "fragmentIndex": 40,
+      "sizeBytes": 214,
+      "hash": "162c9a06b7d40cc9"
+    },
+    "173": {
+      "module": "permission-system",
+      "fragmentIndex": 41,
+      "sizeBytes": 735,
+      "hash": "865826089ffc96d7"
+    },
+    "174": {
+      "module": "permission-system",
+      "fragmentIndex": 42,
+      "sizeBytes": 1955,
+      "hash": "73dc55a348851339"
+    },
+    "175": {
+      "module": "permission-system",
+      "fragmentIndex": 43,
+      "sizeBytes": 2015,
+      "hash": "162b05ed9a5062c3"
+    },
+    "176": {
+      "module": "permission-system",
+      "fragmentIndex": 44,
+      "sizeBytes": 1786,
+      "hash": "ae7408c50d324a37"
+    },
+    "177": {
+      "module": "permission-system",
+      "fragmentIndex": 45,
+      "sizeBytes": 1858,
+      "hash": "d972278b85176fa8"
+    },
+    "178": {
+      "module": "permission-system",
+      "fragmentIndex": 46,
+      "sizeBytes": 1967,
+      "hash": "f4f9bee8f2a99381"
+    },
+    "179": {
+      "module": "permission-system",
+      "fragmentIndex": 47,
+      "sizeBytes": 2016,
+      "hash": "a11dcef784c2ffee"
+    },
+    "180": {
+      "module": "permission-system",
+      "fragmentIndex": 48,
+      "sizeBytes": 1981,
+      "hash": "dbf1d9b1ea2a2ca7"
+    },
+    "181": {
+      "module": "permission-system",
+      "fragmentIndex": 49,
+      "sizeBytes": 1592,
+      "hash": "80cebc9e7e3bfb95"
+    },
+    "182": {
+      "module": "permission-system",
+      "fragmentIndex": 50,
+      "sizeBytes": 2039,
+      "hash": "86b1658f03a7cfd9"
+    },
+    "183": {
+      "module": "permission-system",
+      "fragmentIndex": 51,
+      "sizeBytes": 1994,
+      "hash": "4640d8033070cdd5"
+    },
+    "184": {
+      "module": "permission-system",
+      "fragmentIndex": 52,
+      "sizeBytes": 1919,
+      "hash": "88ad5be4cc0d43f1"
+    },
+    "185": {
+      "module": "permission-system",
+      "fragmentIndex": 53,
+      "sizeBytes": 2018,
+      "hash": "7157799591db16bc"
+    },
+    "186": {
+      "module": "permission-system",
+      "fragmentIndex": 54,
+      "sizeBytes": 2322,
+      "hash": "6685963e2bd53e04"
+    },
+    "187": {
+      "module": "permission-system",
+      "fragmentIndex": 55,
+      "sizeBytes": 1990,
+      "hash": "52bf191ccf99e953"
+    },
+    "188": {
+      "module": "permission-system",
+      "fragmentIndex": 56,
+      "sizeBytes": 1966,
+      "hash": "cccf8fa9ef246a72"
+    },
+    "189": {
+      "module": "permission-system",
+      "fragmentIndex": 57,
+      "sizeBytes": 2030,
+      "hash": "1a747f706d64ea48"
+    },
+    "190": {
+      "module": "permission-system",
+      "fragmentIndex": 58,
+      "sizeBytes": 2035,
+      "hash": "21c9110439866674"
+    },
+    "191": {
+      "module": "permission-system",
+      "fragmentIndex": 59,
+      "sizeBytes": 2012,
+      "hash": "4fa7929c51727caa"
+    },
+    "192": {
+      "module": "permission-system",
+      "fragmentIndex": 60,
+      "sizeBytes": 2020,
+      "hash": "8e703e4866777d74"
+    },
+    "193": {
+      "module": "permission-system",
+      "fragmentIndex": 61,
+      "sizeBytes": 1981,
+      "hash": "cad03a5328119a51"
+    },
+    "194": {
+      "module": "permission-system",
+      "fragmentIndex": 62,
+      "sizeBytes": 2020,
+      "hash": "bbaacdae9067805b"
+    },
+    "195": {
+      "module": "permission-system",
+      "fragmentIndex": 63,
+      "sizeBytes": 1993,
+      "hash": "352f3a88fe44d410"
+    },
+    "196": {
+      "module": "permission-system",
+      "fragmentIndex": 64,
+      "sizeBytes": 1947,
+      "hash": "f2543999bf3a6561"
+    },
+    "197": {
+      "module": "permission-system",
+      "fragmentIndex": 65,
+      "sizeBytes": 1997,
+      "hash": "9b343b1986bb0e4b"
+    },
+    "198": {
+      "module": "permission-system",
+      "fragmentIndex": 66,
+      "sizeBytes": 2034,
+      "hash": "2191b774ba140c9d"
+    },
+    "199": {
+      "module": "permission-system",
+      "fragmentIndex": 67,
+      "sizeBytes": 1800,
+      "hash": "ba0106145510821f"
+    },
+    "200": {
+      "module": "permission-system",
+      "fragmentIndex": 68,
+      "sizeBytes": 1825,
+      "hash": "eac62c587bdd59d9"
+    },
+    "201": {
+      "module": "permission-system",
+      "fragmentIndex": 69,
+      "sizeBytes": 1969,
+      "hash": "ef67b4e489de030d"
+    },
+    "202": {
+      "module": "permission-system",
+      "fragmentIndex": 70,
+      "sizeBytes": 1640,
+      "hash": "6f4f7bae08704228"
+    },
+    "203": {
+      "module": "permission-system",
+      "fragmentIndex": 71,
+      "sizeBytes": 2034,
+      "hash": "99be01b2c6d748f6"
+    },
+    "204": {
+      "module": "permission-system",
+      "fragmentIndex": 72,
+      "sizeBytes": 2041,
+      "hash": "2b1d414ac8940082"
+    },
+    "205": {
+      "module": "permission-system",
+      "fragmentIndex": 73,
+      "sizeBytes": 2030,
+      "hash": "b7486d4831115919"
+    },
+    "206": {
+      "module": "permission-system",
+      "fragmentIndex": 74,
+      "sizeBytes": 1901,
+      "hash": "fbff0f38a771f989"
+    },
+    "207": {
+      "module": "permission-system",
+      "fragmentIndex": 75,
+      "sizeBytes": 1978,
+      "hash": "3704963be7855d1c"
+    },
+    "208": {
+      "module": "permission-system",
+      "fragmentIndex": 76,
+      "sizeBytes": 3106,
+      "hash": "139591105af2b2ba"
+    },
+    "209": {
+      "module": "permission-system",
+      "fragmentIndex": 77,
+      "sizeBytes": 326,
+      "hash": "c666be9b8f725ffc"
+    },
+    "210": {
+      "module": "permission-system",
+      "fragmentIndex": 78,
+      "sizeBytes": 287,
+      "hash": "a2492443221acf0f"
+    },
+    "211": {
+      "module": "permission-system",
+      "fragmentIndex": 79,
+      "sizeBytes": 2026,
+      "hash": "2287ffe1f2fb5358"
+    },
+    "212": {
+      "module": "permission-system",
+      "fragmentIndex": 80,
+      "sizeBytes": 1999,
+      "hash": "9022c70cd1a200bc"
+    },
+    "213": {
+      "module": "permission-system",
+      "fragmentIndex": 81,
+      "sizeBytes": 2000,
+      "hash": "5edbe39bcb80a328"
+    },
+    "214": {
+      "module": "permission-system",
+      "fragmentIndex": 82,
+      "sizeBytes": 2030,
+      "hash": "1076bcc9fc007d70"
+    },
+    "215": {
+      "module": "permission-system",
+      "fragmentIndex": 83,
+      "sizeBytes": 1532,
+      "hash": "24ade020a7e7f874"
+    },
+    "216": {
+      "module": "permission-system",
+      "fragmentIndex": 84,
+      "sizeBytes": 188,
+      "hash": "ff2602666e57e3b5"
+    },
+    "217": {
+      "module": "permission-system",
+      "fragmentIndex": 85,
+      "sizeBytes": 1772,
+      "hash": "d71651e4ec6214c4"
+    },
+    "218": {
+      "module": "permission-system",
+      "fragmentIndex": 86,
+      "sizeBytes": 789,
+      "hash": "d90f419f93d17a21"
+    },
+    "219": {
+      "module": "permission-system",
+      "fragmentIndex": 87,
+      "sizeBytes": 40,
+      "hash": "e546c091dd1fe1a1"
+    },
+    "220": {
+      "module": "permission-system",
+      "fragmentIndex": 88,
+      "sizeBytes": 1091,
+      "hash": "4e9471c2474bfa69"
+    },
+    "221": {
+      "module": "permission-system",
+      "fragmentIndex": 89,
+      "sizeBytes": 1587,
+      "hash": "4028a8543328ec2e"
+    },
+    "222": {
+      "module": "permission-system",
+      "fragmentIndex": 90,
+      "sizeBytes": 135,
+      "hash": "adb179d0ac94cd6f"
+    },
+    "223": {
+      "module": "permission-system",
+      "fragmentIndex": 91,
+      "sizeBytes": 300,
+      "hash": "d5000cc1fc21f5de"
+    },
+    "224": {
+      "module": "permission-system",
+      "fragmentIndex": 92,
+      "sizeBytes": 2048,
+      "hash": "ef7ef0d95963654e"
+    },
+    "225": {
+      "module": "permission-system",
+      "fragmentIndex": 93,
+      "sizeBytes": 1802,
+      "hash": "62783092743c6003"
+    },
+    "226": {
+      "module": "permission-system",
+      "fragmentIndex": 94,
+      "sizeBytes": 1934,
+      "hash": "9d64f949dda69ac6"
+    },
+    "227": {
+      "module": "permission-system",
+      "fragmentIndex": 95,
+      "sizeBytes": 1922,
+      "hash": "5fe3ec97f90c69dd"
+    },
+    "228": {
+      "module": "permission-system",
+      "fragmentIndex": 96,
+      "sizeBytes": 2027,
+      "hash": "b68806ee7c4f16aa"
+    },
+    "229": {
+      "module": "permission-system",
+      "fragmentIndex": 97,
+      "sizeBytes": 385,
+      "hash": "d8d8abf2be6f12bc"
+    },
+    "230": {
+      "module": "permission-system",
+      "fragmentIndex": 98,
+      "sizeBytes": 4224,
+      "hash": "26c36dd0cb3cd097"
+    },
+    "231": {
+      "module": "permission-system",
+      "fragmentIndex": 99,
+      "sizeBytes": 2199,
+      "hash": "526c2c840c327bb0"
+    },
+    "232": {
+      "module": "permission-system",
+      "fragmentIndex": 100,
+      "sizeBytes": 1814,
+      "hash": "5fee49fa9fa014bd"
+    },
+    "233": {
+      "module": "permission-system",
+      "fragmentIndex": 101,
+      "sizeBytes": 1384,
+      "hash": "a9935c0cb1d6c304"
+    },
+    "234": {
+      "module": "permission-system",
+      "fragmentIndex": 102,
+      "sizeBytes": 1308,
+      "hash": "0d2704958affb62a"
+    },
+    "235": {
+      "module": "permission-system",
+      "fragmentIndex": 103,
+      "sizeBytes": 142,
+      "hash": "ec81d0c42f2149eb"
+    },
+    "236": {
+      "module": "permission-system",
+      "fragmentIndex": 104,
+      "sizeBytes": 179,
+      "hash": "9067de7863df7ecf"
+    },
+    "237": {
+      "module": "permission-system",
+      "fragmentIndex": 105,
+      "sizeBytes": 793,
+      "hash": "fbd2763f873fa3be"
+    },
+    "238": {
+      "module": "permission-system",
+      "fragmentIndex": 106,
+      "sizeBytes": 174,
+      "hash": "0acee4145d088deb"
+    },
+    "239": {
+      "module": "permission-system",
+      "fragmentIndex": 107,
+      "sizeBytes": 1129,
+      "hash": "c5831e766d9dc266"
+    },
+    "240": {
+      "module": "permission-system",
+      "fragmentIndex": 108,
+      "sizeBytes": 56,
+      "hash": "4d2ed509eb9f4e7b"
+    },
+    "241": {
+      "module": "permission-system",
+      "fragmentIndex": 109,
+      "sizeBytes": 94,
+      "hash": "c8388e6b93d51dae"
+    },
+    "242": {
+      "module": "permission-system",
+      "fragmentIndex": 110,
+      "sizeBytes": 24,
+      "hash": "159ef21f69e27bdc"
+    },
+    "243": {
+      "module": "permission-system",
+      "fragmentIndex": 111,
+      "sizeBytes": 229,
+      "hash": "3b01ce2ecfe82f7c"
+    },
+    "244": {
+      "module": "permission-system",
+      "fragmentIndex": 112,
+      "sizeBytes": 16,
+      "hash": "14b51d1baabe63d7"
+    },
+    "245": {
+      "module": "permission-system",
+      "fragmentIndex": 113,
+      "sizeBytes": 255,
+      "hash": "de016070ff554ea4"
+    },
+    "246": {
+      "module": "permission-system",
+      "fragmentIndex": 114,
+      "sizeBytes": 19,
+      "hash": "4b4f5ad9e70fae61"
+    },
+    "247": {
+      "module": "permission-system",
+      "fragmentIndex": 115,
+      "sizeBytes": 317,
+      "hash": "831a70fdc3fb54ba"
+    },
+    "248": {
+      "module": "permission-system",
+      "fragmentIndex": 116,
+      "sizeBytes": 12,
+      "hash": "a4ff72c5e89e03f9"
+    },
+    "249": {
+      "module": "permission-system",
+      "fragmentIndex": 117,
+      "sizeBytes": 417,
+      "hash": "cb124616b0daa61c"
+    },
+    "250": {
+      "module": "permission-system",
+      "fragmentIndex": 118,
+      "sizeBytes": 104,
+      "hash": "47389ec2a58265ff"
+    },
+    "251": {
+      "module": "permission-system",
+      "fragmentIndex": 119,
+      "sizeBytes": 108,
+      "hash": "f3911ba799d74dca"
+    },
+    "252": {
+      "module": "permission-system",
+      "fragmentIndex": 120,
+      "sizeBytes": 121,
+      "hash": "4a54729d2e28e366"
+    },
+    "253": {
+      "module": "permission-system",
+      "fragmentIndex": 121,
+      "sizeBytes": 213,
+      "hash": "d61a096b571cac52"
+    },
+    "254": {
+      "module": "permission-system",
+      "fragmentIndex": 122,
+      "sizeBytes": 552,
+      "hash": "8908b0ea9cd78507"
+    },
+    "255": {
+      "module": "permission-system",
+      "fragmentIndex": 123,
+      "sizeBytes": 188,
+      "hash": "814375bb916cad70"
+    },
+    "256": {
+      "module": "permission-system",
+      "fragmentIndex": 124,
+      "sizeBytes": 142,
+      "hash": "5d3ec7f82af9a8a9"
+    },
+    "257": {
+      "module": "permission-system",
+      "fragmentIndex": 125,
+      "sizeBytes": 427,
+      "hash": "7a25228d6711c548"
+    },
+    "258": {
+      "module": "permission-system",
+      "fragmentIndex": 126,
+      "sizeBytes": 1463,
+      "hash": "1e2727da10113488"
+    },
+    "259": {
+      "module": "permission-system",
+      "fragmentIndex": 127,
+      "sizeBytes": 24,
+      "hash": "5191e4b614f0acb3"
+    },
+    "260": {
+      "module": "permission-system",
+      "fragmentIndex": 128,
+      "sizeBytes": 179,
+      "hash": "9067de7863df7ecf"
+    },
+    "261": {
+      "module": "permission-system",
+      "fragmentIndex": 129,
+      "sizeBytes": 793,
+      "hash": "fbd2763f873fa3be"
+    },
+    "262": {
+      "module": "permission-system",
+      "fragmentIndex": 130,
+      "sizeBytes": 330,
+      "hash": "06e10d0d42960c0d"
+    },
+    "263": {
+      "module": "permission-system",
+      "fragmentIndex": 131,
+      "sizeBytes": 248,
+      "hash": "f3a0165e3e99dec3"
+    },
+    "264": {
+      "module": "permission-system",
+      "fragmentIndex": 132,
+      "sizeBytes": 354,
+      "hash": "0e2848fa8af18e23"
+    },
+    "265": {
+      "module": "permission-system",
+      "fragmentIndex": 133,
+      "sizeBytes": 31,
+      "hash": "03ed2093f7c3d08f"
+    },
+    "266": {
+      "module": "permission-system",
+      "fragmentIndex": 134,
+      "sizeBytes": 213,
+      "hash": "d61a096b571cac52"
+    },
+    "267": {
+      "module": "permission-system",
+      "fragmentIndex": 135,
+      "sizeBytes": 552,
+      "hash": "8908b0ea9cd78507"
+    },
+    "268": {
+      "module": "permission-system",
+      "fragmentIndex": 136,
+      "sizeBytes": 314,
+      "hash": "ff585abddfaed9f6"
+    },
+    "269": {
+      "module": "permission-system",
+      "fragmentIndex": 137,
+      "sizeBytes": 395,
+      "hash": "dd28e98745e7ef31"
+    },
+    "270": {
+      "module": "permission-system",
+      "fragmentIndex": 138,
+      "sizeBytes": 480,
+      "hash": "0fc4b30e37793e5c"
+    },
+    "271": {
+      "module": "permission-system",
+      "fragmentIndex": 139,
+      "sizeBytes": 1573,
+      "hash": "3f9c2d782f8e18fe"
+    },
+    "272": {
+      "module": "permission-system",
+      "fragmentIndex": 140,
+      "sizeBytes": 1802,
+      "hash": "91afccbe52ad0c3d"
+    },
+    "273": {
+      "module": "permission-system",
+      "fragmentIndex": 141,
+      "sizeBytes": 674,
+      "hash": "ab69a0ef46330036"
+    },
+    "274": {
+      "module": "permission-system",
+      "fragmentIndex": 142,
+      "sizeBytes": 1372,
+      "hash": "8830fbdf8ad0d903"
+    },
+    "275": {
+      "module": "permission-system",
+      "fragmentIndex": 143,
+      "sizeBytes": 876,
+      "hash": "1623f150405fedcc"
+    },
+    "276": {
+      "module": "permission-system",
+      "fragmentIndex": 144,
+      "sizeBytes": 1060,
+      "hash": "0d4e87bb951d2cdf"
+    },
+    "277": {
+      "module": "permission-system",
+      "fragmentIndex": 145,
+      "sizeBytes": 2051,
+      "hash": "1fe977b95214a914"
+    },
+    "278": {
+      "module": "permission-system",
+      "fragmentIndex": 146,
+      "sizeBytes": 1816,
+      "hash": "1d4120b07d009262"
+    },
+    "279": {
+      "module": "permission-system",
+      "fragmentIndex": 147,
+      "sizeBytes": 2039,
+      "hash": "a88c1760e1b29b88"
+    },
+    "280": {
+      "module": "permission-system",
+      "fragmentIndex": 148,
+      "sizeBytes": 1932,
+      "hash": "bfc9f01330c5397c"
+    },
+    "281": {
+      "module": "permission-system",
+      "fragmentIndex": 149,
+      "sizeBytes": 1681,
+      "hash": "4ab22be3e80e1006"
+    },
+    "282": {
+      "module": "permission-system",
+      "fragmentIndex": 150,
+      "sizeBytes": 2020,
+      "hash": "aecbdd3cf24e4e7c"
+    },
+    "283": {
+      "module": "permission-system",
+      "fragmentIndex": 151,
+      "sizeBytes": 1855,
+      "hash": "3385969ceac475ac"
+    },
+    "284": {
+      "module": "permission-system",
+      "fragmentIndex": 152,
+      "sizeBytes": 1986,
+      "hash": "2e3208603878fd87"
+    },
+    "285": {
+      "module": "permission-system",
+      "fragmentIndex": 153,
+      "sizeBytes": 1945,
+      "hash": "5ce4ce1dda138d0c"
+    },
+    "286": {
+      "module": "permission-system",
+      "fragmentIndex": 154,
+      "sizeBytes": 257,
+      "hash": "01b5ab2bdc68eadf"
+    },
+    "287": {
+      "module": "permission-system",
+      "fragmentIndex": 155,
+      "sizeBytes": 102,
+      "hash": "be2d5e41efd4d7b8"
+    },
+    "288": {
+      "module": "permission-system",
+      "fragmentIndex": 156,
+      "sizeBytes": 11,
+      "hash": "05aeb39c5edd73ed"
+    },
+    "289": {
+      "module": "permission-system",
+      "fragmentIndex": 157,
+      "sizeBytes": 29,
+      "hash": "d8e4ac1276205555"
+    },
+    "290": {
+      "module": "permission-system",
+      "fragmentIndex": 158,
+      "sizeBytes": 15,
+      "hash": "3ac91c0a6283e4db"
+    },
+    "291": {
+      "module": "permission-system",
+      "fragmentIndex": 159,
+      "sizeBytes": 54,
+      "hash": "8e9c09b931e9e8a3"
+    },
+    "292": {
+      "module": "permission-system",
+      "fragmentIndex": 160,
+      "sizeBytes": 55,
+      "hash": "8dca0143323d5ba2"
+    },
+    "293": {
+      "module": "permission-system",
+      "fragmentIndex": 161,
+      "sizeBytes": 13,
+      "hash": "32b0abd087d5bf19"
+    },
+    "294": {
+      "module": "permission-system",
+      "fragmentIndex": 162,
+      "sizeBytes": 52,
+      "hash": "cbc14d7bb212cfbd"
+    },
+    "295": {
+      "module": "permission-system",
+      "fragmentIndex": 163,
+      "sizeBytes": 73,
+      "hash": "639eed9464a8c7c2"
+    },
+    "296": {
+      "module": "permission-system",
+      "fragmentIndex": 164,
+      "sizeBytes": 290,
+      "hash": "52001ac04af930fa"
+    },
+    "297": {
+      "module": "permission-system",
+      "fragmentIndex": 165,
+      "sizeBytes": 598,
+      "hash": "19627cb3196c56ba"
+    },
+    "298": {
+      "module": "permission-system",
+      "fragmentIndex": 166,
+      "sizeBytes": 31,
+      "hash": "aae118af1e640553"
+    },
+    "299": {
+      "module": "permission-system",
+      "fragmentIndex": 167,
+      "sizeBytes": 280,
+      "hash": "68f42b03764f459c"
+    },
+    "300": {
+      "module": "permission-system",
+      "fragmentIndex": 168,
+      "sizeBytes": 187,
+      "hash": "01e3983df97ce36e"
+    },
+    "301": {
+      "module": "permission-system",
+      "fragmentIndex": 169,
+      "sizeBytes": 231,
+      "hash": "3a2f6e61eb3678f0"
+    },
+    "302": {
+      "module": "permission-system",
+      "fragmentIndex": 170,
+      "sizeBytes": 258,
+      "hash": "768b69d02a15b8fd"
+    },
+    "303": {
+      "module": "permission-system",
+      "fragmentIndex": 171,
+      "sizeBytes": 137,
+      "hash": "d08312eee76fb6cd"
+    },
+    "304": {
+      "module": "permission-system",
+      "fragmentIndex": 172,
+      "sizeBytes": 119,
+      "hash": "318158cd15423378"
+    },
+    "305": {
+      "module": "permission-system",
+      "fragmentIndex": 173,
+      "sizeBytes": 21,
+      "hash": "74dec6943807edd6"
+    },
+    "306": {
+      "module": "permission-system",
+      "fragmentIndex": 174,
+      "sizeBytes": 300,
+      "hash": "3e98b26b1a2c674b"
+    },
+    "307": {
+      "module": "permission-system",
+      "fragmentIndex": 175,
+      "sizeBytes": 246,
+      "hash": "7343651d40714dc0"
+    },
+    "308": {
+      "module": "permission-system",
+      "fragmentIndex": 176,
+      "sizeBytes": 259,
+      "hash": "385b09d751c5e9a0"
+    },
+    "309": {
+      "module": "permission-system",
+      "fragmentIndex": 177,
+      "sizeBytes": 23,
+      "hash": "32336fbe3ed49439"
+    },
+    "310": {
+      "module": "permission-system",
+      "fragmentIndex": 178,
+      "sizeBytes": 212,
+      "hash": "a926a6c7226a9dd1"
+    },
+    "311": {
+      "module": "permission-system",
+      "fragmentIndex": 179,
+      "sizeBytes": 12,
+      "hash": "652744a2ab28954b"
+    },
+    "312": {
+      "module": "permission-system",
+      "fragmentIndex": 180,
+      "sizeBytes": 28,
+      "hash": "474d32df91dc4a98"
+    },
+    "313": {
+      "module": "permission-system",
+      "fragmentIndex": 181,
+      "sizeBytes": 462,
+      "hash": "1cfb45f3c8200420"
+    },
+    "314": {
+      "module": "permission-system",
+      "fragmentIndex": 182,
+      "sizeBytes": 278,
+      "hash": "8a5865039370265b"
+    },
+    "315": {
+      "module": "permission-system",
+      "fragmentIndex": 183,
+      "sizeBytes": 268,
+      "hash": "69246d945946c0e6"
+    },
+    "316": {
+      "module": "permission-system",
+      "fragmentIndex": 184,
+      "sizeBytes": 231,
+      "hash": "f8ffac04357f41b2"
+    },
+    "317": {
+      "module": "permission-system",
+      "fragmentIndex": 185,
+      "sizeBytes": 25,
+      "hash": "af0ecce139335967"
+    },
+    "318": {
+      "module": "permission-system",
+      "fragmentIndex": 186,
+      "sizeBytes": 4950,
+      "hash": "ba8f92473b5be4f9"
+    },
+    "319": {
+      "module": "permission-system",
+      "fragmentIndex": 187,
+      "sizeBytes": 15,
+      "hash": "e89d91ea5308242a"
+    },
+    "320": {
+      "module": "permission-system",
+      "fragmentIndex": 188,
+      "sizeBytes": 44,
+      "hash": "62d30a7370874800"
+    },
+    "321": {
+      "module": "permission-system",
+      "fragmentIndex": 189,
+      "sizeBytes": 587,
+      "hash": "23f4f130b1033524"
+    },
+    "322": {
+      "module": "permission-system",
+      "fragmentIndex": 190,
+      "sizeBytes": 427,
+      "hash": "d5f93729e1f27196"
+    },
+    "323": {
+      "module": "permission-system",
+      "fragmentIndex": 191,
+      "sizeBytes": 1662,
+      "hash": "c28faecf8a4bc47f"
+    },
+    "324": {
+      "module": "permission-system",
+      "fragmentIndex": 192,
+      "sizeBytes": 2700,
+      "hash": "a71bd1b16fe87429"
+    },
+    "325": {
+      "module": "permission-system",
+      "fragmentIndex": 193,
+      "sizeBytes": 3552,
+      "hash": "3bd9ac696e623143"
+    },
+    "326": {
+      "module": "permission-system",
+      "fragmentIndex": 194,
+      "sizeBytes": 107,
+      "hash": "607e60bb6d63a432"
+    },
+    "327": {
+      "module": "permission-system",
+      "fragmentIndex": 195,
+      "sizeBytes": 1263,
+      "hash": "3b5e5b86a45f781f"
+    },
+    "328": {
+      "module": "permission-system",
+      "fragmentIndex": 196,
+      "sizeBytes": 648,
+      "hash": "0ab2e2bc757ef7f0"
+    },
+    "329": {
+      "module": "permission-system",
+      "fragmentIndex": 197,
+      "sizeBytes": 1882,
+      "hash": "95294f6a9e4edb62"
+    },
+    "330": {
+      "module": "permission-system",
+      "fragmentIndex": 198,
+      "sizeBytes": 1903,
+      "hash": "289506aa2c445520"
+    },
+    "331": {
+      "module": "permission-system",
+      "fragmentIndex": 199,
+      "sizeBytes": 2049,
+      "hash": "1f4d23f62cfe8973"
+    },
+    "332": {
+      "module": "permission-system",
+      "fragmentIndex": 200,
+      "sizeBytes": 1700,
+      "hash": "49f41f2b60e3a902"
+    },
+    "333": {
+      "module": "permission-system",
+      "fragmentIndex": 201,
+      "sizeBytes": 2010,
+      "hash": "10cb0dc6f243fd95"
+    },
+    "334": {
+      "module": "permission-system",
+      "fragmentIndex": 202,
+      "sizeBytes": 1953,
+      "hash": "947d628c613703ba"
+    },
+    "335": {
+      "module": "permission-system",
+      "fragmentIndex": 203,
+      "sizeBytes": 1770,
+      "hash": "7f0c811bd99fa005"
+    },
+    "336": {
+      "module": "permission-system",
+      "fragmentIndex": 204,
+      "sizeBytes": 2036,
+      "hash": "3b4d7f607055f393"
+    },
+    "337": {
+      "module": "permission-system",
+      "fragmentIndex": 205,
+      "sizeBytes": 1790,
+      "hash": "117fd84eef919e81"
+    },
+    "338": {
+      "module": "permission-system",
+      "fragmentIndex": 206,
+      "sizeBytes": 2037,
+      "hash": "a621b45dc61c43cd"
+    },
+    "339": {
+      "module": "permission-system",
+      "fragmentIndex": 207,
+      "sizeBytes": 1970,
+      "hash": "7666b624206b0bb2"
+    },
+    "340": {
+      "module": "permission-system",
+      "fragmentIndex": 208,
+      "sizeBytes": 1616,
+      "hash": "c536e85816eff17c"
+    },
+    "341": {
+      "module": "permission-system",
+      "fragmentIndex": 209,
+      "sizeBytes": 1848,
+      "hash": "2f68149c89db1e3c"
+    },
+    "342": {
+      "module": "permission-system",
+      "fragmentIndex": 210,
+      "sizeBytes": 1194,
+      "hash": "8912b7ebfd8fb187"
+    },
+    "343": {
+      "module": "permission-system",
+      "fragmentIndex": 211,
+      "sizeBytes": 2039,
+      "hash": "0ec5b9a003671f58"
+    },
+    "344": {
+      "module": "permission-system",
+      "fragmentIndex": 212,
+      "sizeBytes": 1912,
+      "hash": "ff4abe59ed7653d5"
+    },
+    "345": {
+      "module": "permission-system",
+      "fragmentIndex": 213,
+      "sizeBytes": 2041,
+      "hash": "092fe171ca4b0d1f"
+    },
+    "346": {
+      "module": "permission-system",
+      "fragmentIndex": 214,
+      "sizeBytes": 1752,
+      "hash": "79b9017235091842"
+    },
+    "347": {
+      "module": "permission-system",
+      "fragmentIndex": 215,
+      "sizeBytes": 1198,
+      "hash": "ed843c2d4d2994a3"
+    },
+    "348": {
+      "module": "permission-system",
+      "fragmentIndex": 216,
+      "sizeBytes": 1974,
+      "hash": "5cf9414d128dfc8d"
+    },
+    "349": {
+      "module": "permission-system",
+      "fragmentIndex": 217,
+      "sizeBytes": 2014,
+      "hash": "d8bef9813905dfbf"
+    },
+    "350": {
+      "module": "permission-system",
+      "fragmentIndex": 218,
+      "sizeBytes": 1801,
+      "hash": "c9d0faa006599fb3"
+    },
+    "351": {
+      "module": "permission-system",
+      "fragmentIndex": 219,
+      "sizeBytes": 1803,
+      "hash": "f65285a5f99559d9"
+    },
+    "352": {
+      "module": "permission-system",
+      "fragmentIndex": 220,
+      "sizeBytes": 1763,
+      "hash": "41b0c933db76ae8a"
+    },
+    "353": {
+      "module": "permission-system",
+      "fragmentIndex": 221,
+      "sizeBytes": 1812,
+      "hash": "48f47a8e90da6d54"
+    },
+    "354": {
+      "module": "permission-system",
+      "fragmentIndex": 222,
+      "sizeBytes": 2019,
+      "hash": "462c4cff5281fbd4"
+    },
+    "355": {
+      "module": "permission-system",
+      "fragmentIndex": 223,
+      "sizeBytes": 442,
+      "hash": "cebf0590fdd7dc04"
+    },
+    "356": {
+      "module": "permission-system",
+      "fragmentIndex": 224,
+      "sizeBytes": 83,
+      "hash": "16bd837d329cabed"
+    },
+    "357": {
+      "module": "permission-system",
+      "fragmentIndex": 225,
+      "sizeBytes": 726,
+      "hash": "55e080d537baad0a"
+    },
+    "358": {
+      "module": "permission-system",
+      "fragmentIndex": 226,
+      "sizeBytes": 438,
+      "hash": "43e9cb4caad947fc"
+    },
+    "359": {
+      "module": "permission-system",
+      "fragmentIndex": 227,
+      "sizeBytes": 2043,
+      "hash": "0d4ee7b09feda3be"
+    },
+    "360": {
+      "module": "permission-system",
+      "fragmentIndex": 228,
+      "sizeBytes": 1989,
+      "hash": "361a6cb413c391b7"
+    },
+    "361": {
+      "module": "permission-system",
+      "fragmentIndex": 229,
+      "sizeBytes": 2038,
+      "hash": "88dbc6fa4e49e35a"
+    },
+    "362": {
+      "module": "permission-system",
+      "fragmentIndex": 230,
+      "sizeBytes": 1498,
+      "hash": "71cfdcb343e2c4e9"
+    },
+    "363": {
+      "module": "permission-system",
+      "fragmentIndex": 231,
+      "sizeBytes": 1913,
+      "hash": "f62ff4356c9fd947"
+    },
+    "364": {
+      "module": "permission-system",
+      "fragmentIndex": 232,
+      "sizeBytes": 1760,
+      "hash": "d23ab6da8921c28b"
+    },
+    "365": {
+      "module": "permission-system",
+      "fragmentIndex": 233,
+      "sizeBytes": 218,
+      "hash": "d7da4ae5c446a02a"
+    },
+    "366": {
+      "module": "permission-system",
+      "fragmentIndex": 234,
+      "sizeBytes": 1912,
+      "hash": "8a4163906bcc2670"
+    },
+    "367": {
+      "module": "permission-system",
+      "fragmentIndex": 235,
+      "sizeBytes": 1979,
+      "hash": "a9fa2c9ff8918055"
+    },
+    "368": {
+      "module": "permission-system",
+      "fragmentIndex": 236,
+      "sizeBytes": 2035,
+      "hash": "e47715ce381bb4d2"
+    },
+    "369": {
+      "module": "permission-system",
+      "fragmentIndex": 237,
+      "sizeBytes": 1243,
+      "hash": "47567de67736e426"
+    },
+    "370": {
+      "module": "permission-system",
+      "fragmentIndex": 238,
+      "sizeBytes": 580,
+      "hash": "a6cc9503dfd3fbba"
+    },
+    "371": {
+      "module": "permission-system",
+      "fragmentIndex": 239,
+      "sizeBytes": 2026,
+      "hash": "72b1cb30b0f553ea"
+    },
+    "372": {
+      "module": "permission-system",
+      "fragmentIndex": 240,
+      "sizeBytes": 2370,
+      "hash": "0e1c596bb42ddf3b"
+    },
+    "373": {
+      "module": "permission-system",
+      "fragmentIndex": 241,
+      "sizeBytes": 1459,
+      "hash": "14bf5f6f306ed051"
+    },
+    "374": {
+      "module": "permission-system",
+      "fragmentIndex": 242,
+      "sizeBytes": 1769,
+      "hash": "a23f42790f9d4401"
+    },
+    "375": {
+      "module": "permission-system",
+      "fragmentIndex": 243,
+      "sizeBytes": 2034,
+      "hash": "203343584667062f"
+    },
+    "376": {
+      "module": "permission-system",
+      "fragmentIndex": 244,
+      "sizeBytes": 2047,
+      "hash": "e7ad643d5e9c5d92"
+    },
+    "377": {
+      "module": "permission-system",
+      "fragmentIndex": 245,
+      "sizeBytes": 1903,
+      "hash": "70142e40c987afc7"
+    },
+    "378": {
+      "module": "permission-system",
+      "fragmentIndex": 246,
+      "sizeBytes": 1992,
+      "hash": "5378cd9bc7119f20"
+    },
+    "379": {
+      "module": "permission-system",
+      "fragmentIndex": 247,
+      "sizeBytes": 1390,
+      "hash": "e251daaa84e1b1f0"
+    },
+    "380": {
+      "module": "permission-system",
+      "fragmentIndex": 248,
+      "sizeBytes": 1672,
+      "hash": "663b9c0935cd87db"
+    },
+    "381": {
+      "module": "permission-system",
+      "fragmentIndex": 249,
+      "sizeBytes": 1967,
+      "hash": "911c7380962bfa19"
+    },
+    "382": {
+      "module": "permission-system",
+      "fragmentIndex": 250,
+      "sizeBytes": 1593,
+      "hash": "41f87ee8f93af3ab"
+    },
+    "383": {
+      "module": "permission-system",
+      "fragmentIndex": 251,
+      "sizeBytes": 1950,
+      "hash": "ddc3c57fdb9e593c"
+    },
+    "384": {
+      "module": "permission-system",
+      "fragmentIndex": 252,
+      "sizeBytes": 2028,
+      "hash": "8ad627ededb37051"
+    },
+    "385": {
+      "module": "permission-system",
+      "fragmentIndex": 253,
+      "sizeBytes": 722,
+      "hash": "1eddfcd9e4a98efc"
+    },
+    "386": {
+      "module": "permission-system",
+      "fragmentIndex": 254,
+      "sizeBytes": 54,
+      "hash": "57b5cb925b2574dc"
+    },
+    "387": {
+      "module": "permission-system",
+      "fragmentIndex": 255,
+      "sizeBytes": 68,
+      "hash": "d4bce79c9c43b874"
+    },
+    "388": {
+      "module": "permission-system",
+      "fragmentIndex": 256,
+      "sizeBytes": 26,
+      "hash": "1a363bccfcaa5245"
+    },
+    "389": {
+      "module": "permission-system",
+      "fragmentIndex": 257,
+      "sizeBytes": 1054,
+      "hash": "cb46f2b87900beee"
+    },
+    "390": {
+      "module": "permission-system",
+      "fragmentIndex": 258,
+      "sizeBytes": 46,
+      "hash": "72f1648189774be5"
+    },
+    "391": {
+      "module": "permission-system",
+      "fragmentIndex": 259,
+      "sizeBytes": 1864,
+      "hash": "12801fadbf42a84a"
+    },
+    "392": {
+      "module": "permission-system",
+      "fragmentIndex": 260,
+      "sizeBytes": 2025,
+      "hash": "526cbc131119d614"
+    },
+    "393": {
+      "module": "permission-system",
+      "fragmentIndex": 261,
+      "sizeBytes": 751,
+      "hash": "8c2112935dc7227c"
+    },
+    "394": {
+      "module": "permission-system",
+      "fragmentIndex": 262,
+      "sizeBytes": 80,
+      "hash": "d5e3edbcb7fd8ada"
+    },
+    "395": {
+      "module": "permission-system",
+      "fragmentIndex": 263,
+      "sizeBytes": 965,
+      "hash": "cf3d4adf86ae92f7"
+    },
+    "396": {
+      "module": "permission-system",
+      "fragmentIndex": 264,
+      "sizeBytes": 1745,
+      "hash": "636394fd126fef50"
+    },
+    "397": {
+      "module": "permission-system",
+      "fragmentIndex": 265,
+      "sizeBytes": 1896,
+      "hash": "870dd9ee7a075409"
+    },
+    "398": {
+      "module": "permission-system",
+      "fragmentIndex": 266,
+      "sizeBytes": 1352,
+      "hash": "f454f646acf206d2"
+    },
+    "399": {
+      "module": "permission-system",
+      "fragmentIndex": 267,
+      "sizeBytes": 2027,
+      "hash": "b2b071ca0dc34f5e"
+    },
+    "400": {
+      "module": "permission-system",
+      "fragmentIndex": 268,
+      "sizeBytes": 2037,
+      "hash": "dff99ee6060c7a6f"
+    },
+    "401": {
+      "module": "permission-system",
+      "fragmentIndex": 269,
+      "sizeBytes": 1974,
+      "hash": "9b5335db04ef2435"
+    },
+    "402": {
+      "module": "permission-system",
+      "fragmentIndex": 270,
+      "sizeBytes": 1971,
+      "hash": "a8a7a266317a1d77"
+    },
+    "403": {
+      "module": "permission-system",
+      "fragmentIndex": 271,
+      "sizeBytes": 715,
+      "hash": "235c4f8a07120673"
+    },
+    "404": {
+      "module": "permission-system",
+      "fragmentIndex": 272,
+      "sizeBytes": 1274,
+      "hash": "168ced0c3cce912d"
+    },
+    "405": {
+      "module": "permission-system",
+      "fragmentIndex": 273,
+      "sizeBytes": 2017,
+      "hash": "d900c062a7e18303"
+    },
+    "406": {
+      "module": "permission-system",
+      "fragmentIndex": 274,
+      "sizeBytes": 1893,
+      "hash": "f215d05a3e958040"
+    },
+    "407": {
+      "module": "permission-system",
+      "fragmentIndex": 275,
+      "sizeBytes": 1760,
+      "hash": "2e5b48b6a314a9ef"
+    },
+    "408": {
+      "module": "permission-system",
+      "fragmentIndex": 276,
+      "sizeBytes": 128,
+      "hash": "f09df45314e3f1ea"
+    },
+    "409": {
+      "module": "permission-system",
+      "fragmentIndex": 277,
+      "sizeBytes": 577,
+      "hash": "5068d2ad334bf173"
+    },
+    "410": {
+      "module": "permission-system",
+      "fragmentIndex": 278,
+      "sizeBytes": 1334,
+      "hash": "f25930134a7cfdf1"
+    },
+    "411": {
+      "module": "permission-system",
+      "fragmentIndex": 279,
+      "sizeBytes": 2006,
+      "hash": "ff395c45aeffd257"
+    },
+    "412": {
+      "module": "permission-system",
+      "fragmentIndex": 280,
+      "sizeBytes": 2022,
+      "hash": "e344ec47351affcb"
+    },
+    "413": {
+      "module": "permission-system",
+      "fragmentIndex": 281,
+      "sizeBytes": 2036,
+      "hash": "a7b4964587ca340f"
+    },
+    "414": {
+      "module": "permission-system",
+      "fragmentIndex": 282,
+      "sizeBytes": 1943,
+      "hash": "9bf09ff709181623"
+    },
+    "415": {
+      "module": "permission-system",
+      "fragmentIndex": 283,
+      "sizeBytes": 2012,
+      "hash": "7b96e536f559797e"
+    },
+    "416": {
+      "module": "permission-system",
+      "fragmentIndex": 284,
+      "sizeBytes": 1909,
+      "hash": "b3c853455a551077"
+    },
+    "417": {
+      "module": "permission-system",
+      "fragmentIndex": 285,
+      "sizeBytes": 1910,
+      "hash": "0d84203225827995"
+    },
+    "418": {
+      "module": "permission-system",
+      "fragmentIndex": 286,
+      "sizeBytes": 1881,
+      "hash": "63d594620865ebe5"
+    },
+    "419": {
+      "module": "permission-system",
+      "fragmentIndex": 287,
+      "sizeBytes": 1975,
+      "hash": "eaccf6c257654cee"
+    },
+    "420": {
+      "module": "permission-system",
+      "fragmentIndex": 288,
+      "sizeBytes": 2046,
+      "hash": "7e45d6a79b6c8594"
+    },
+    "421": {
+      "module": "permission-system",
+      "fragmentIndex": 289,
+      "sizeBytes": 1770,
+      "hash": "f5f7d0e58cdd41f7"
+    },
+    "422": {
+      "module": "permission-system",
+      "fragmentIndex": 290,
+      "sizeBytes": 1984,
+      "hash": "e41fcf3ca98ba802"
+    },
+    "423": {
+      "module": "permission-system",
+      "fragmentIndex": 291,
+      "sizeBytes": 2036,
+      "hash": "2ab7966d9446cf62"
+    },
+    "424": {
+      "module": "permission-system",
+      "fragmentIndex": 292,
+      "sizeBytes": 1998,
+      "hash": "092c96b486e1d4eb"
+    },
+    "425": {
+      "module": "permission-system",
+      "fragmentIndex": 293,
+      "sizeBytes": 1930,
+      "hash": "99b6e79d771ec4f7"
+    },
+    "426": {
+      "module": "permission-system",
+      "fragmentIndex": 294,
+      "sizeBytes": 1940,
+      "hash": "b43c511fb2615ede"
+    },
+    "427": {
+      "module": "permission-system",
+      "fragmentIndex": 295,
+      "sizeBytes": 1949,
+      "hash": "960bcedad8f3b210"
+    },
+    "428": {
+      "module": "permission-system",
+      "fragmentIndex": 296,
+      "sizeBytes": 1209,
+      "hash": "b5bb4f3d73e15dcc"
+    },
+    "429": {
+      "module": "permission-system",
+      "fragmentIndex": 297,
+      "sizeBytes": 4820,
+      "hash": "a076a0ec5645ce4d"
+    },
+    "430": {
+      "module": "permission-system",
+      "fragmentIndex": 298,
+      "sizeBytes": 2020,
+      "hash": "4a927efa63a82f3b"
+    },
+    "431": {
+      "module": "permission-system",
+      "fragmentIndex": 299,
+      "sizeBytes": 2020,
+      "hash": "52d947a327cc6987"
+    },
+    "432": {
+      "module": "permission-system",
+      "fragmentIndex": 300,
+      "sizeBytes": 1981,
+      "hash": "aec2fd140f5ecf30"
+    },
+    "433": {
+      "module": "streaming-handler",
+      "fragmentIndex": 0,
+      "sizeBytes": 2018,
+      "hash": "5a2cf90e8598e221"
+    },
+    "434": {
+      "module": "streaming-handler",
+      "fragmentIndex": 1,
+      "sizeBytes": 2039,
+      "hash": "4aa05c09f78e87fe"
+    },
+    "435": {
+      "module": "streaming-handler",
+      "fragmentIndex": 2,
+      "sizeBytes": 1992,
+      "hash": "0139e0f12a70a486"
+    },
+    "436": {
+      "module": "streaming-handler",
+      "fragmentIndex": 3,
+      "sizeBytes": 1999,
+      "hash": "2d28ebdd45ae5c03"
+    },
+    "437": {
+      "module": "streaming-handler",
+      "fragmentIndex": 4,
+      "sizeBytes": 1891,
+      "hash": "22867abfff5e7a8d"
+    },
+    "438": {
+      "module": "streaming-handler",
+      "fragmentIndex": 5,
+      "sizeBytes": 1781,
+      "hash": "0820b0271f0bc066"
+    },
+    "439": {
+      "module": "streaming-handler",
+      "fragmentIndex": 6,
+      "sizeBytes": 1806,
+      "hash": "4470f9a82ac749f8"
+    },
+    "440": {
+      "module": "streaming-handler",
+      "fragmentIndex": 7,
+      "sizeBytes": 2022,
+      "hash": "a28fb1ddb4f75af1"
+    },
+    "441": {
+      "module": "streaming-handler",
+      "fragmentIndex": 8,
+      "sizeBytes": 1950,
+      "hash": "a6664c5aac093c19"
+    },
+    "442": {
+      "module": "telemetry",
+      "fragmentIndex": 0,
+      "sizeBytes": 10122,
+      "hash": "79efa7ea9a8724b4"
+    },
+    "443": {
+      "module": "tool-dispatch",
+      "fragmentIndex": 0,
+      "sizeBytes": 111603,
+      "hash": "922bee91cb638bd4"
+    },
+    "444": {
+      "module": "tool-dispatch",
+      "fragmentIndex": 1,
+      "sizeBytes": 4181,
+      "hash": "64fe66ecdf71cd02"
+    },
+    "445": {
+      "module": "tool-dispatch",
+      "fragmentIndex": 2,
+      "sizeBytes": 61,
+      "hash": "9c6c8a479a987d37"
+    },
+    "446": {
+      "module": "tool-dispatch",
+      "fragmentIndex": 3,
+      "sizeBytes": 884,
+      "hash": "9c323621e07524fe"
+    },
+    "447": {
+      "module": "tool-dispatch",
+      "fragmentIndex": 4,
+      "sizeBytes": 62,
+      "hash": "69cb0ca706091d02"
+    },
+    "448": {
+      "module": "tool-dispatch",
+      "fragmentIndex": 5,
+      "sizeBytes": 952,
+      "hash": "dc8694c83ffd3e71"
+    },
+    "449": {
+      "module": "tool-dispatch",
+      "fragmentIndex": 6,
+      "sizeBytes": 810,
+      "hash": "397f7f22e7422c29"
+    },
+    "450": {
+      "module": "tool-dispatch",
+      "fragmentIndex": 7,
+      "sizeBytes": 56,
+      "hash": "e2e5e7244fe9c0a8"
+    },
+    "451": {
+      "module": "tool-dispatch",
+      "fragmentIndex": 8,
+      "sizeBytes": 874,
+      "hash": "d6760fa45f2f837a"
+    },
+    "452": {
+      "module": "tool-dispatch",
+      "fragmentIndex": 9,
+      "sizeBytes": 871,
+      "hash": "7ac14577af6eb0c0"
+    },
+    "453": {
+      "module": "tool-dispatch",
+      "fragmentIndex": 10,
+      "sizeBytes": 2016,
+      "hash": "4ce269a9304c9506"
+    },
+    "454": {
+      "module": "tool-dispatch",
+      "fragmentIndex": 11,
+      "sizeBytes": 2866,
+      "hash": "13133a9c1366627a"
+    },
+    "455": {
+      "module": "tool-dispatch",
+      "fragmentIndex": 12,
+      "sizeBytes": 1956,
+      "hash": "8cfab94d50e13ac6"
+    },
+    "456": {
+      "module": "tool-dispatch",
+      "fragmentIndex": 13,
+      "sizeBytes": 2028,
+      "hash": "62ee45edb4d85184"
+    },
+    "457": {
+      "module": "tool-dispatch",
+      "fragmentIndex": 14,
+      "sizeBytes": 1819,
+      "hash": "ab0edbecc270abf9"
+    },
+    "458": {
+      "module": "tool-dispatch",
+      "fragmentIndex": 15,
+      "sizeBytes": 1553,
+      "hash": "261bf0ab76c2a3dc"
+    },
+    "459": {
+      "module": "tool-dispatch",
+      "fragmentIndex": 16,
+      "sizeBytes": 60,
+      "hash": "13284e5573c9ef59"
+    },
+    "460": {
+      "module": "tool-dispatch",
+      "fragmentIndex": 17,
+      "sizeBytes": 1821,
+      "hash": "2e9d8f1099370aa3"
+    },
+    "461": {
+      "module": "tool-dispatch",
+      "fragmentIndex": 18,
+      "sizeBytes": 1923,
+      "hash": "2cdcff1b021f48d0"
+    },
+    "462": {
+      "module": "tool-dispatch",
+      "fragmentIndex": 19,
+      "sizeBytes": 1579,
+      "hash": "17794912a75798cc"
+    },
+    "463": {
+      "module": "tool-dispatch",
+      "fragmentIndex": 20,
+      "sizeBytes": 90,
+      "hash": "31fff83b8d30d417"
+    },
+    "464": {
+      "module": "tool-dispatch",
+      "fragmentIndex": 21,
+      "sizeBytes": 366,
+      "hash": "b0c0b727861975ce"
+    },
+    "465": {
+      "module": "tool-dispatch",
+      "fragmentIndex": 22,
+      "sizeBytes": 544,
+      "hash": "66c039252c0623ce"
+    },
+    "466": {
+      "module": "tool-dispatch",
+      "fragmentIndex": 23,
+      "sizeBytes": 599,
+      "hash": "0eef83cd2238d0cb"
+    },
+    "467": {
+      "module": "tool-dispatch",
+      "fragmentIndex": 24,
+      "sizeBytes": 49,
+      "hash": "0bc50af9956990bd"
+    },
+    "468": {
+      "module": "tool-dispatch",
+      "fragmentIndex": 25,
+      "sizeBytes": 121,
+      "hash": "f86fe45902ed3871"
+    },
+    "469": {
+      "module": "tool-dispatch",
+      "fragmentIndex": 26,
+      "sizeBytes": 217,
+      "hash": "d5e0dd6a5e251775"
+    },
+    "470": {
+      "module": "tool-dispatch",
+      "fragmentIndex": 27,
+      "sizeBytes": 415,
+      "hash": "4b06a626427a83ea"
+    },
+    "471": {
+      "module": "tool-dispatch",
+      "fragmentIndex": 28,
+      "sizeBytes": 1104,
+      "hash": "106f8698901a17e4"
+    },
+    "472": {
+      "module": "tool-dispatch",
+      "fragmentIndex": 29,
+      "sizeBytes": 53,
+      "hash": "d36960bea9310fdb"
+    },
+    "473": {
+      "module": "tool-dispatch",
+      "fragmentIndex": 30,
+      "sizeBytes": 23,
+      "hash": "3901385ff15917f3"
+    },
+    "474": {
+      "module": "tool-dispatch",
+      "fragmentIndex": 31,
+      "sizeBytes": 730,
+      "hash": "7104395cde4e5813"
+    },
+    "475": {
+      "module": "tool-dispatch",
+      "fragmentIndex": 32,
+      "sizeBytes": 1950,
+      "hash": "ce170e7282d84d05"
+    },
+    "476": {
+      "module": "tool-dispatch",
+      "fragmentIndex": 33,
+      "sizeBytes": 1992,
+      "hash": "e90e3c74872f42bf"
+    },
+    "477": {
+      "module": "tool-dispatch",
+      "fragmentIndex": 34,
+      "sizeBytes": 1992,
+      "hash": "f4e0f5e7cb1daedb"
+    },
+    "478": {
+      "module": "tool-dispatch",
+      "fragmentIndex": 35,
+      "sizeBytes": 1894,
+      "hash": "b4538656b334167d"
+    },
+    "479": {
+      "module": "tool-dispatch",
+      "fragmentIndex": 36,
+      "sizeBytes": 1786,
+      "hash": "dd158245767f782a"
+    },
+    "480": {
+      "module": "tool-dispatch",
+      "fragmentIndex": 37,
+      "sizeBytes": 2037,
+      "hash": "7f9de57615b80573"
+    },
+    "481": {
+      "module": "tool-dispatch",
+      "fragmentIndex": 38,
+      "sizeBytes": 3788,
+      "hash": "4d5c8e0318d84ddb"
+    },
+    "482": {
+      "module": "tool-dispatch",
+      "fragmentIndex": 39,
+      "sizeBytes": 1984,
+      "hash": "c77a17822122f288"
+    }
+  },
+  "meta": {
+    "version": "1.0.128",
+    "series": "1.0",
+    "package": "@anthropic-ai/claude-code",
+    "corpus": "claude-code-rvsource"
+  },
+  "createdAt": "2026-04-02T23:28:45.276Z"
+}
