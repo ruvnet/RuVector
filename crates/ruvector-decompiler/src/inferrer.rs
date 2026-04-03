@@ -1,11 +1,8 @@
-//! Name inference with confidence scoring and training data.
+//! Name inference with confidence scoring, training data, and folder naming.
 //!
-//! Infers human-readable names for minified declarations based on:
-//! 1. Neural model inference (optional, highest accuracy)
-//! 2. Training corpus patterns (domain-specific, highest priority)
-//! 3. Known string-to-purpose mappings
-//! 4. Property correlation
-//! 5. Structural heuristics
+//! Strategies: neural model, training corpus, string patterns, property
+//! correlation, structural heuristics. Also provides graph-based folder
+//! name inference for hierarchical module trees.
 
 use crate::training::TrainingCorpus;
 use crate::types::{Declaration, InferredName, Module};
@@ -111,14 +108,7 @@ pub fn infer_names_with_corpus(
     inferred
 }
 
-/// Attempt to infer a name for a single declaration.
-///
-/// Evaluates all strategies and picks the highest-confidence result:
-/// 1. Training corpus (domain-specific patterns)
-/// 2. Hardcoded string literal patterns (HIGH confidence)
-/// 3. Property access correlation (MEDIUM confidence)
-/// 4. Multiple string literal heuristic (MEDIUM confidence)
-/// 5. Structural heuristics (LOW confidence)
+/// Infer a name for a single declaration using all strategies.
 pub(crate) fn infer_declaration_name(
     decl: &Declaration,
     corpus: &TrainingCorpus,
@@ -250,6 +240,87 @@ fn sanitize_name(raw: &str, max_len: usize) -> String {
         .filter(|c| c.is_alphanumeric() || *c == '_')
         .take(max_len)
         .collect()
+}
+
+/// Infer a folder name for a group of modules from their graph context.
+/// Uses TF-IDF-like scoring: strings frequent in this group but rare
+/// globally get the highest score. Names emerge from graph structure.
+pub fn infer_folder_name(modules: &[Module], all_modules: &[Module]) -> String {
+    if modules.is_empty() {
+        return "root".to_string();
+    }
+    let group_freq = collect_string_freq(modules);
+    if group_freq.is_empty() {
+        return infer_from_module_names(modules);
+    }
+    let global_freq = collect_string_freq(all_modules);
+
+    // Score by discriminativeness: high in group, rare globally.
+    let mut scored: Vec<(&str, f64)> = group_freq
+        .iter()
+        .map(|(&s, &gf)| {
+            let global = *global_freq.get(s).unwrap_or(&0) as f64;
+            let local = gf as f64;
+            (s, (local / (global + 1.0)) * (local + 1.0).ln())
+        })
+        .collect();
+    scored.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+
+    scored.first().map_or_else(
+        || infer_from_module_names(modules),
+        |(best, _)| sanitize_folder_name(best),
+    )
+}
+
+/// Collect meaningful string frequencies across modules.
+fn collect_string_freq<'a>(modules: &'a [Module]) -> std::collections::HashMap<&'a str, usize> {
+    let mut freq = std::collections::HashMap::new();
+    for module in modules {
+        for decl in &module.declarations {
+            for s in decl.string_literals.iter().chain(decl.property_accesses.iter()) {
+                let s = s.as_str();
+                if is_meaningful_string(s) {
+                    *freq.entry(s).or_insert(0) += 1;
+                }
+            }
+        }
+    }
+    freq
+}
+
+/// Check if a string is meaningful enough to use for naming.
+fn is_meaningful_string(s: &str) -> bool {
+    let len = s.len();
+    if len < 2 || len > 50 { return false; }
+    if s.chars().all(|c| c.is_ascii_digit()) { return false; }
+    if s.contains("://") || s.starts_with('/') || s.starts_with('.') { return false; }
+    if s.contains('\n') || s.contains('\t') { return false; }
+    s.chars().any(|c| c.is_alphabetic())
+}
+
+/// Infer a folder name from module name common prefix.
+fn infer_from_module_names(modules: &[Module]) -> String {
+    if modules.len() == 1 {
+        return sanitize_folder_name(&modules[0].name);
+    }
+    let names: Vec<&str> = modules.iter().map(|m| m.name.as_str()).collect();
+    if let Some(first) = names.first() {
+        let prefix_len = names.iter().skip(1).fold(first.len(), |acc, name| {
+            first.chars().zip(name.chars()).take(acc)
+                .take_while(|(a, b)| a == b).count()
+        });
+        if prefix_len >= 2 { return sanitize_folder_name(&first[..prefix_len]); }
+    }
+    format!("group_{}", modules.len())
+}
+
+/// Sanitize a string into a valid folder name.
+fn sanitize_folder_name(raw: &str) -> String {
+    let cleaned: String = raw.chars()
+        .map(|c| if c.is_alphanumeric() || c == '_' || c == '-' { c.to_ascii_lowercase() } else { '_' })
+        .collect();
+    let trimmed = cleaned.trim_matches('_');
+    if trimmed.is_empty() { "module".to_string() } else { trimmed.to_string() }
 }
 
 /// Feedback from a ground-truth comparison for self-learning.

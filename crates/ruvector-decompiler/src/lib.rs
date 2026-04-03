@@ -37,13 +37,14 @@ pub mod partitioner;
 pub mod sourcemap;
 pub mod training;
 pub mod transformer;
+pub mod tree;
 pub mod types;
 pub mod witness;
 
 pub use error::{DecompilerError, Result};
 pub use types::{
     DecompileConfig, DecompileResult, Declaration, InferredName, Module,
-    WitnessChainData,
+    ModuleTree, WitnessChainData,
 };
 
 /// Decompile a minified JavaScript bundle.
@@ -90,7 +91,14 @@ pub fn decompile(source: &str, config: &DecompileConfig) -> Result<DecompileResu
         config.min_confidence,
     );
 
-    // Phase 4b: Generate source maps.
+    // Phase 4b: Build hierarchical module tree from graph structure.
+    let module_tree = if config.hierarchical_output.unwrap_or(true) {
+        Some(tree::build_module_tree(&ref_graph, &modules, config))
+    } else {
+        None
+    };
+
+    // Phase 4c: Generate source maps.
     let source_maps = if config.generate_source_maps {
         modules
             .iter()
@@ -121,6 +129,7 @@ pub fn decompile(source: &str, config: &DecompileConfig) -> Result<DecompileResu
 
     Ok(DecompileResult {
         modules,
+        module_tree,
         inferred_names: filtered_names,
         source_maps,
         witness: witness_data,

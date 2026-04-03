@@ -98,11 +98,33 @@ impl Confidence {
     }
 }
 
+/// A node in the decompiled folder tree.
+///
+/// The tree structure emerges from Louvain community hierarchy:
+/// - Level 0 (leaves): individual declarations assigned to modules
+/// - Level 1 (folders): modules grouped by first Louvain pass
+/// - Level 2+ (subfolders): recursive aggregation of large communities
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ModuleTree {
+    /// Folder name (inferred from graph context, not hardcoded).
+    pub name: String,
+    /// Full path like "tools/mcp".
+    pub path: String,
+    /// Leaf modules in this folder.
+    pub modules: Vec<Module>,
+    /// Subfolders.
+    pub children: Vec<ModuleTree>,
+    /// Depth in the tree (0 = root).
+    pub depth: usize,
+}
+
 /// The full result of a decompilation run.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DecompileResult {
     /// Reconstructed modules.
     pub modules: Vec<Module>,
+    /// Hierarchical module tree (graph-derived folder structure).
+    pub module_tree: Option<ModuleTree>,
     /// All inferred name mappings.
     pub inferred_names: Vec<InferredName>,
     /// Source maps (one JSON string per module).
@@ -152,6 +174,12 @@ pub struct DecompileConfig {
     /// When set and the `neural` feature is enabled, the decompiler will
     /// attempt neural name inference before falling back to pattern-based.
     pub model_path: Option<PathBuf>,
+    /// Generate hierarchical folder structure from graph (default: true).
+    pub hierarchical_output: Option<bool>,
+    /// Maximum folder depth (default: 3).
+    pub max_depth: Option<usize>,
+    /// Minimum modules per folder to create subfolder (default: 3).
+    pub min_folder_size: Option<usize>,
 }
 
 impl Default for DecompileConfig {
@@ -163,6 +191,9 @@ impl Default for DecompileConfig {
             generate_witness: true,
             output_filename: "bundle.js".to_string(),
             model_path: None,
+            hierarchical_output: Some(true),
+            max_depth: Some(3),
+            min_folder_size: Some(3),
         }
     }
 }

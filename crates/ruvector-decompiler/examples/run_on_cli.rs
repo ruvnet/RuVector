@@ -4,7 +4,7 @@
 
 use std::time::Instant;
 
-use ruvector_decompiler::{decompile, DecompileConfig};
+use ruvector_decompiler::{decompile, DecompileConfig, ModuleTree};
 
 fn main() {
     let path = std::env::args()
@@ -95,6 +95,9 @@ fn main() {
         generate_witness: true,
         output_filename: path.clone(),
         model_path: None,
+        hierarchical_output: Some(true),
+        max_depth: Some(3),
+        min_folder_size: Some(3),
     };
     let result = decompile(&source, &config).unwrap();
     let t_full = t_full_start.elapsed();
@@ -154,6 +157,12 @@ fn main() {
         );
     }
 
+    // Print hierarchical module tree.
+    if let Some(ref tree) = result.module_tree {
+        eprintln!("\n=== Module Tree (graph-derived) ===");
+        print_tree(tree, "");
+    }
+
     // Print top-10 highest confidence names.
     let mut sorted_names = result.inferred_names.clone();
     sorted_names.sort_by(|a, b| b.confidence.partial_cmp(&a.confidence).unwrap());
@@ -192,4 +201,66 @@ fn main() {
         "  Total estimate: {:.2} MB",
         (decl_mem + module_mem) as f64 / 1_048_576.0
     );
+
+    // Write tree output if --output-dir is provided.
+    if let Some(out_dir) = std::env::args().nth(2) {
+        if let Some(ref tree) = result.module_tree {
+            let base = std::path::Path::new(&out_dir);
+            eprintln!("\nWriting tree output to: {}", out_dir);
+            write_tree_output(tree, base, &source);
+            eprintln!("Done.");
+        }
+    }
+}
+
+/// Print the module tree to stderr with indentation.
+fn print_tree(tree: &ModuleTree, indent: &str) {
+    let module_count = tree.modules.len();
+    let child_count = tree.children.len();
+    if module_count > 0 {
+        eprintln!(
+            "{}{}/  ({} modules)",
+            indent, tree.name, module_count
+        );
+        for m in &tree.modules {
+            eprintln!(
+                "{}  {} ({} decls)",
+                indent, m.name, m.declarations.len()
+            );
+        }
+    } else {
+        eprintln!(
+            "{}{}/  ({} subfolders)",
+            indent, tree.name, child_count
+        );
+    }
+    for child in &tree.children {
+        print_tree(child, &format!("{}  ", indent));
+    }
+}
+
+/// Write tree structure to disk as a folder hierarchy.
+fn write_tree_output(tree: &ModuleTree, base_dir: &std::path::Path, source: &str) {
+    let dir = base_dir.join(&tree.path);
+    std::fs::create_dir_all(&dir).ok();
+
+    // Write leaf modules in this folder.
+    for module in &tree.modules {
+        let filename = format!("{}.js", module.name);
+        let content = if module.source.is_empty() {
+            // Fall back to extracting from source by byte range.
+            let (start, end) = module.byte_range;
+            let end = end.min(source.len());
+            let start = start.min(end);
+            &source[start..end]
+        } else {
+            &module.source
+        };
+        std::fs::write(dir.join(filename), content).ok();
+    }
+
+    // Recurse into children.
+    for child in &tree.children {
+        write_tree_output(child, base_dir, source);
+    }
 }

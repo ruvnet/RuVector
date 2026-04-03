@@ -145,6 +145,9 @@ fn test_full_pipeline_end_to_end() {
         generate_witness: true,
         output_filename: "test_output.js".to_string(),
         model_path: None,
+        hierarchical_output: Some(true),
+        max_depth: Some(3),
+        min_folder_size: Some(3),
     };
 
     let result = decompile(SAMPLE_BUNDLE, &config).unwrap();
