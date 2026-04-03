@@ -25,12 +25,34 @@
 
 ---
 
+## 🧠 What is ruDevolution?
+
+**ruDevolution** is a next-generation JavaScript decompiler built in pure Rust. It takes minified, obfuscated, or bundled JavaScript — the kind produced by esbuild, webpack, Terser, or any bundler — and reconstructs readable source code with original module boundaries, meaningful variable names, and full cryptographic provenance.
+
+Unlike traditional decompilers that only reformat whitespace, ruDevolution uses **graph algorithms** (MinCut partitioning) to detect where modules originally split apart, **AI inference** (neural + 210 pattern rules) to predict what variables were originally called, and **Merkle witness chains** to mathematically prove that every line of output faithfully derives from the input. It learns from corrections, improves across runs, and can be trained on GPU for domain-specific accuracy.
+
+**Put simply**: paste in unreadable code, get back organized, named, verified source — with a confidence score on every recovered name and a cryptographic proof that nothing was fabricated.
+
+---
+
+## 📦 Install
+
+```bash
+# npm (CLI + MCP tools)
+npm install -g ruvector
+
+# Rust (full pipeline with graph partitioning)
+cargo install ruvector-decompiler
+
+# Or just use npx (no install needed)
+npx ruvector decompile <package>
+```
+
+---
+
 ## ⚡ Quick Start — Decompile Claude Code in 30 Seconds
 
 ```bash
-# Install
-npm install -g ruvector    # or use npx
-
 # Decompile Claude Code CLI (the tool you're using right now)
 npx ruvector decompile @anthropic-ai/claude-code --output ./claude-code-decompiled
 
@@ -93,35 +115,6 @@ The decompiler reveals the internal architecture of any npm package. For Claude 
 - ❌ Does not violate terms of service (analyzing code you've installed is not prohibited)
 
 The **witness chain** provides cryptographic proof that every byte of output derives from the input — nothing fabricated, nothing added from external sources.
-
----
-
-## 🧠 What is ruDevolution?
-
-**ruDevolution** is a next-generation JavaScript decompiler built in pure Rust. It takes minified, obfuscated, or bundled JavaScript — the kind produced by esbuild, webpack, Terser, or any bundler — and reconstructs readable source code with original module boundaries, meaningful variable names, and full cryptographic provenance.
-
-Unlike traditional decompilers that only reformat whitespace, ruDevolution uses **graph algorithms** (MinCut partitioning) to detect where modules originally split apart, **AI inference** (neural + 210 pattern rules) to predict what variables were originally called, and **Merkle witness chains** to mathematically prove that every line of output faithfully derives from the input. It learns from corrections, improves across runs, and can be trained on GPU for domain-specific accuracy.
-
-**Put simply**: paste in unreadable code, get back organized, named, verified source — with a confidence score on every recovered name.
-
-```
-📦 Input (minified)                    📖 Output (reconstructed)
-─────────────────────                  ──────────────────────────
-var a=function(b){                     // Module: http-router (92% confidence)
-return b.c("d")};                      var createRoute = function(request) {
-var e=class extends f{                     return request.method("GET");
-constructor(){this.g="h"}}             };
-                                       
-                                       // Module: base-component (88% confidence)
-                                       var Component = class extends BaseElement {
-                                           constructor() {
-                                               this.tagName = "div";
-                                           }
-                                       }
-                                       
-                                       ✅ Witness chain: a3f2c8...→ 7b1e9d...
-                                       📋 Source map: output.js.map (V3)
-```
 
 ---
 
