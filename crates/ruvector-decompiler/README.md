@@ -1,9 +1,9 @@
 <p align="center">
-  <strong>ruDevolution</strong>
+  <strong>ruDevolution</strong> — <em>AI-Powered JavaScript Decompiler</em>
 </p>
 
 <p align="center">
-  <em>The first decompiler that understands code, proves its work, and learns from every run.</em>
+  <em>The first decompiler that understands code semantically, recovers original names with AI,<br/>proves every transformation with cryptographic witness chains, and gets smarter with every run.</em>
 </p>
 
 <p align="center">
@@ -25,9 +25,11 @@
 
 ## 🧠 What is ruDevolution?
 
-**ruDevolution** turns scrambled, minified JavaScript back into readable, organized source code — then *proves* every step with cryptographic witness chains.
+**ruDevolution** is a next-generation JavaScript decompiler built in pure Rust. It takes minified, obfuscated, or bundled JavaScript — the kind produced by esbuild, webpack, Terser, or any bundler — and reconstructs readable source code with original module boundaries, meaningful variable names, and full cryptographic provenance.
 
-Most decompilers just reformat code. ruDevolution **understands** it:
+Unlike traditional decompilers that only reformat whitespace, ruDevolution uses **graph algorithms** (MinCut partitioning) to detect where modules originally split apart, **AI inference** (neural + 210 pattern rules) to predict what variables were originally called, and **Merkle witness chains** to mathematically prove that every line of output faithfully derives from the input. It learns from corrections, improves across runs, and can be trained on GPU for domain-specific accuracy.
+
+**Put simply**: paste in unreadable code, get back organized, named, verified source — with a confidence score on every recovered name.
 
 ```
 📦 Input (minified)                    📖 Output (reconstructed)
