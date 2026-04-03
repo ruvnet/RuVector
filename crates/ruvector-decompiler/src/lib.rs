@@ -30,6 +30,8 @@ pub mod beautifier;
 pub mod error;
 pub mod graph;
 pub mod inferrer;
+#[cfg(feature = "neural")]
+pub mod neural;
 pub mod parser;
 pub mod partitioner;
 pub mod sourcemap;

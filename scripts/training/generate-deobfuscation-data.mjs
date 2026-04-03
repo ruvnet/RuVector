@@ -18,6 +18,7 @@ import { readFileSync, writeFileSync, readdirSync, statSync } from "fs";
 import { join, resolve, extname } from "path";
 import { execSync } from "child_process";
 import { parseArgs } from "util";
+import { COMMON_NAMES, CONTEXT_MAP, PROPERTY_MAP } from "./data/identifier-dictionaries.mjs";
 
 // ---------------------------------------------------------------------------
 // CLI
@@ -130,144 +131,82 @@ function extractGroundTruthFixtures() {
  * This simulates what real minifiers produce.
  */
 function generateSyntheticPairs() {
-  const COMMON_NAMES = {
-    function: [
-      "createElement", "appendChild", "removeChild", "setAttribute",
-      "addEventListener", "removeEventListener", "querySelector", "querySelectorAll",
-      "getElementById", "getElementsByClassName", "preventDefault", "stopPropagation",
-      "dispatch", "subscribe", "unsubscribe", "connect", "disconnect",
-      "initialize", "configure", "validate", "serialize", "deserialize",
-      "transform", "normalize", "sanitize", "encode", "decode",
-      "encrypt", "decrypt", "compress", "decompress",
-      "fetchData", "postData", "getData", "setData", "deleteData",
-      "handleClick", "handleSubmit", "handleChange", "handleError",
-      "createRouter", "createStore", "createContext", "createRef",
-      "useEffect", "useState", "useCallback", "useMemo", "useReducer",
-      "parseJSON", "stringifyJSON", "parseURL", "formatDate",
-      "sortArray", "filterItems", "mapValues", "reduceTotal",
-      "debounce", "throttle", "memoize", "curry",
-      "deepClone", "deepMerge", "deepEqual", "shallowEqual",
-      "getToken", "setToken", "clearToken", "refreshToken",
-      "openModal", "closeModal", "toggleMenu", "scrollToTop",
-      "sendRequest", "cancelRequest", "retryRequest",
-      "renderComponent", "mountComponent", "unmountComponent",
-      "logMessage", "logError", "logWarning", "logInfo",
-      "readFile", "writeFile", "deleteFile", "listFiles",
-      "startServer", "stopServer", "restartServer",
-      "connectDatabase", "queryDatabase", "closeConnection",
-      "hashPassword", "verifyPassword", "generateSalt",
-      "createSession", "destroySession", "getSession",
-      "emitEvent", "onEvent", "offEvent", "broadcastEvent",
-      "parseTemplate", "renderTemplate", "compileTemplate",
-      "formatCurrency", "formatNumber", "formatPercentage",
-      "calculateTotal", "calculateTax", "calculateDiscount",
-      "validateEmail", "validatePhone", "validatePassword",
-      "uploadFile", "downloadFile", "processFile",
-    ],
-    class: [
-      "Component", "Controller", "Service", "Factory", "Repository",
-      "Manager", "Handler", "Builder", "Parser", "Formatter",
-      "Validator", "Serializer", "Transformer", "Adapter", "Wrapper",
-      "EventEmitter", "Observable", "Iterator", "Generator",
-      "HttpClient", "WebSocketClient", "DatabaseClient",
-      "UserService", "AuthService", "DataService", "CacheService",
-      "Router", "Middleware", "Pipeline", "Queue", "Stack",
-      "Logger", "Monitor", "Tracker", "Analyzer",
-      "Config", "Settings", "Options", "Preferences",
-      "Request", "Response", "Context", "Session",
-      "Model", "View", "Presenter", "ViewModel",
-      "Store", "State", "Reducer", "Action",
-      "Plugin", "Extension", "Module", "Package",
-    ],
-    var: [
-      "config", "options", "settings", "preferences", "defaults",
-      "state", "props", "context", "params", "args",
-      "result", "output", "response", "data", "payload",
-      "error", "message", "status", "code", "type",
-      "name", "label", "title", "description", "content",
-      "items", "list", "array", "collection", "set",
-      "map", "table", "index", "cache", "buffer",
-      "count", "total", "sum", "average", "max", "min",
-      "width", "height", "size", "length", "offset",
-      "timeout", "interval", "delay", "duration",
-      "callback", "handler", "listener", "observer",
-      "template", "pattern", "schema", "format",
-      "prefix", "suffix", "separator", "delimiter",
-      "source", "target", "origin", "destination",
-      "parent", "child", "root", "node", "element",
-      "key", "value", "pair", "entry", "record",
-      "token", "secret", "hash", "salt", "nonce",
-      "baseUrl", "endpoint", "apiKey", "apiVersion",
-      "currentUser", "currentPage", "currentIndex",
-      "isLoading", "isValid", "isActive", "isVisible",
-      "hasError", "hasChanges", "hasPermission",
-    ],
-  };
+  // Dictionaries imported from ./data/identifier-dictionaries.mjs
 
-  // Context strings commonly found near specific identifier types.
-  const CONTEXT_MAP = {
-    createElement: ["div", "span", "button", "input", "innerHTML"],
-    addEventListener: ["click", "submit", "change", "keydown", "DOMContentLoaded"],
-    fetchData: ["GET", "POST", "Content-Type", "application/json", "Authorization"],
-    createRouter: ["GET", "POST", "route", "middleware", "path"],
-    useState: ["setState", "initialState", "render", "component"],
-    parseJSON: ["JSON", "parse", "stringify", "object", "string"],
-    connectDatabase: ["connection", "host", "port", "database", "query"],
-    hashPassword: ["bcrypt", "salt", "rounds", "hash", "verify"],
-    validateEmail: ["email", "regex", "pattern", "valid", "invalid"],
-    HttpClient: ["fetch", "XMLHttpRequest", "headers", "method", "body"],
-    Router: ["route", "path", "handler", "middleware", "GET"],
-    EventEmitter: ["emit", "on", "off", "once", "listeners"],
-    Logger: ["log", "error", "warn", "info", "debug"],
-    Store: ["state", "dispatch", "subscribe", "getState", "reducer"],
-  };
-
-  // Property access patterns.
-  const PROPERTY_MAP = {
-    createElement: ["tagName", "className", "id", "style"],
-    fetchData: ["method", "headers", "body", "status"],
-    createRouter: ["method", "path", "handler", "params"],
-    Router: ["routes", "middleware", "use", "get", "post"],
-    Component: ["props", "state", "render", "componentDidMount"],
-    Store: ["state", "dispatch", "subscribe", "getState"],
-    Logger: ["level", "message", "timestamp", "format"],
-    config: ["host", "port", "database", "username"],
-  };
-
-  // Minifier name generators.
+  // Minifier name generators -- expanded with more strategies.
   const minifierStyles = [
-    (i) => String.fromCharCode(97 + (i % 26)),                         // a, b, c...
-    (i) => String.fromCharCode(97 + (i % 26)) + "$",                   // a$, b$...
-    (i) => "_" + String.fromCharCode(97 + (i % 26)),                   // _a, _b...
-    (i) => "_0x" + (0x1a2b + i).toString(16),                          // _0x1a2b...
-    (i) => String.fromCharCode(97 + (i % 26)) + (i % 10).toString(),   // a0, b1...
-    (i) => "__" + String.fromCharCode(97 + (i % 26)),                  // __a, __b...
-    (i) => "$" + String.fromCharCode(97 + (i % 26)),                   // $a, $b...
-    (i) => String.fromCharCode(65 + (i % 26)),                         // A, B, C...
+    // Single letter: a, b, c ... z
+    (i) => String.fromCharCode(97 + (i % 26)),
+    // With dollar suffix: a$, b$...
+    (i) => String.fromCharCode(97 + (i % 26)) + "$",
+    // Underscore prefix: _a, _b...
+    (i) => "_" + String.fromCharCode(97 + (i % 26)),
+    // Hex obfuscation: _0x1a2b...
+    (i) => "_0x" + (0x1a2b + i).toString(16),
+    // Letter + digit: a0, b1...
+    (i) => String.fromCharCode(97 + (i % 26)) + (i % 10).toString(),
+    // Double underscore: __a, __b...
+    (i) => "__" + String.fromCharCode(97 + (i % 26)),
+    // Dollar prefix: $a, $b...
+    (i) => "$" + String.fromCharCode(97 + (i % 26)),
+    // Uppercase single: A, B, C...
+    (i) => String.fromCharCode(65 + (i % 26)),
+    // Double letter: aa, ab, ac...
+    (i) => String.fromCharCode(97 + (i % 26)) + String.fromCharCode(97 + ((i + 1) % 26)),
+    // Mixed case: aA, bB, cC...
+    (i) => String.fromCharCode(97 + (i % 26)) + String.fromCharCode(65 + (i % 26)),
+    // Dollar + digit: $0, $1...
+    (i) => "$" + (i % 100).toString(),
+    // Underscore + digit: _0, _1...
+    (i) => "_" + (i % 100).toString(),
+    // Two letters + digit: aa1, ab2...
+    (i) => String.fromCharCode(97 + (i % 26)) + String.fromCharCode(97 + ((i * 7) % 26)) + (i % 10),
+    // Webpack style: __WEBPACK_MODULE_a__
+    (i) => "__W" + String.fromCharCode(97 + (i % 26)) + "__",
+    // Terser numbered: t0, t1, t2...
+    (i) => "t" + i,
+    // esbuild style: e$a, e$b...
+    (i) => "e$" + String.fromCharCode(97 + (i % 26)),
+  ];
+
+  // Context variation templates for richer training signal.
+  const CONTEXT_TEMPLATES = [
+    (ctx) => ctx,  // original
+    (ctx) => ctx.length > 2 ? [...ctx.slice(1), ctx[0]] : ctx,  // rotated
+    (ctx) => ctx.slice(0, 3),  // truncated
+    (ctx) => [...ctx, "prototype", "constructor"],  // with prototype hints
+    (ctx) => [...ctx, "undefined", "null", "true", "false"],  // with literals
   ];
 
   let syntheticCount = 0;
+  let globalIdx = 0;
 
   for (const [kind, names] of Object.entries(COMMON_NAMES)) {
     for (let i = 0; i < names.length; i++) {
       const original = names[i];
-      // Generate multiple minified variants per original name.
-      const numVariants = Math.min(3, minifierStyles.length);
+      const baseCtx = CONTEXT_MAP[original] || generateGenericContext(original);
+      const baseProps = PROPERTY_MAP[original] || generateGenericProperties(kind);
+
+      // Generate 8 minified variants per original name using a global
+      // counter so names from different kinds do not collide.
+      const numVariants = 8;
       for (let v = 0; v < numVariants; v++) {
-        const styleIdx = (i + v) % minifierStyles.length;
-        const minified = minifierStyles[styleIdx](i);
-        const ctx = CONTEXT_MAP[original] || [];
-        const props = PROPERTY_MAP[original] || [];
+        const styleIdx = (globalIdx + v) % minifierStyles.length;
+        const minified = minifierStyles[styleIdx](globalIdx);
+
+        const ctxVariant = CONTEXT_TEMPLATES[v % CONTEXT_TEMPLATES.length];
+        const ctx = ctxVariant(baseCtx.length > 0 ? baseCtx : ["unknown"]);
 
         pairs.push({
           minified,
           original,
-          context_strings: ctx.length > 0 ? ctx : generateGenericContext(original),
-          properties: props.length > 0 ? props : generateGenericProperties(kind),
+          context_strings: ctx,
+          properties: baseProps,
           kind,
         });
         syntheticCount++;
       }
+      globalIdx++;
     }
   }
 
@@ -320,8 +259,8 @@ function generateCrossVersionPairs() {
     const existing = pairs.find((p) => p.original === original);
     if (!existing) continue;
 
-    // Simulate 2-3 additional "versions" with different minified names.
-    const versions = 2 + Math.floor(Math.random() * 2);
+    // Simulate 3-5 additional "versions" with different minified names.
+    const versions = 3 + Math.floor(Math.random() * 3);
     for (let v = 0; v < versions; v++) {
       const minified = generateRandomMinifiedName();
       if (pairs.some((p) => p.minified === minified && p.original === original)) continue;
@@ -344,18 +283,22 @@ function generateCrossVersionPairs() {
  * Generate a random minified-style variable name.
  */
 function generateRandomMinifiedName() {
+  const letter = () => String.fromCharCode(97 + Math.floor(Math.random() * 26));
+  const LETTER = () => String.fromCharCode(65 + Math.floor(Math.random() * 26));
+  const digit = () => Math.floor(Math.random() * 10).toString();
   const styles = [
-    () => {
-      const c = String.fromCharCode(97 + Math.floor(Math.random() * 26));
-      return c + Math.floor(Math.random() * 100);
-    },
-    () => "_0x" + Math.floor(Math.random() * 0xffff).toString(16),
-    () => {
-      const a = String.fromCharCode(97 + Math.floor(Math.random() * 26));
-      const b = String.fromCharCode(97 + Math.floor(Math.random() * 26));
-      return a + b;
-    },
-    () => "$" + String.fromCharCode(97 + Math.floor(Math.random() * 26)),
+    () => letter() + Math.floor(Math.random() * 100),       // a42
+    () => "_0x" + Math.floor(Math.random() * 0xffff).toString(16), // _0x3f1a
+    () => letter() + letter(),                                // ab
+    () => "$" + letter(),                                     // $a
+    () => "_" + letter(),                                     // _a
+    () => letter() + LETTER(),                                // aB
+    () => letter() + letter() + digit(),                      // ab3
+    () => "__" + letter() + letter(),                          // __ab
+    () => "$" + digit() + digit(),                            // $42
+    () => letter() + "$" + digit(),                           // a$3
+    () => "_" + digit() + letter(),                           // _3a
+    () => "t" + Math.floor(Math.random() * 1000),             // t523
   ];
   return styles[Math.floor(Math.random() * styles.length)]();
 }
