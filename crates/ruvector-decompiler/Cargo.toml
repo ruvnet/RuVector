@@ -17,9 +17,18 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 regex = "1"
 thiserror = { workspace = true }
+once_cell = "1"
 
 [dev-dependencies]
-# None needed beyond built-in test harness
+criterion = { version = "0.5", features = ["html_reports"] }
+
+[[bench]]
+name = "bench_parser"
+harness = false
+
+[[bench]]
+name = "bench_pipeline"
+harness = false
 
 [lib]
 crate-type = ["rlib"]

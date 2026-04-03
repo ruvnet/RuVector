@@ -112,7 +112,7 @@ pub struct DecompileResult {
 /// Serializable witness chain data.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WitnessChainData {
-    /// Hex-encoded SHAKE-256 hash of the original bundle.
+    /// Hex-encoded SHA3-256 hash of the original bundle.
     pub source_hash: String,
     /// Per-module witness entries.
     pub module_witnesses: Vec<ModuleWitnessData>,
@@ -127,9 +127,9 @@ pub struct ModuleWitnessData {
     pub module_name: String,
     /// Byte range in the original bundle.
     pub byte_range: (usize, usize),
-    /// Hex-encoded SHAKE-256 hash of the module content.
+    /// Hex-encoded SHA3-256 hash of the module content.
     pub content_hash: String,
-    /// Hex-encoded SHAKE-256 hash of the inferred names.
+    /// Hex-encoded SHA3-256 hash of the inferred names.
     pub inferred_names_hash: String,
 }
 

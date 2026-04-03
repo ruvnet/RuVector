@@ -9,7 +9,7 @@ use crate::types::{InferredName, Module, ModuleWitnessData, WitnessChainData};
 
 /// A witness chain linking the original bundle to extracted modules.
 pub struct WitnessChain {
-    /// SHAKE-256 hash of the original bundle.
+    /// SHA3-256 hash of the original bundle.
     pub source_hash: [u8; 32],
     /// Per-module witness entries.
     pub module_witnesses: Vec<ModuleWitness>,
@@ -160,7 +160,13 @@ pub fn verify_witness_chain(chain: &WitnessChain) -> bool {
 
 /// Hex-encode a byte array.
 fn hex_encode(bytes: &[u8]) -> String {
-    bytes.iter().map(|b| format!("{b:02x}")).collect()
+    const HEX_CHARS: &[u8; 16] = b"0123456789abcdef";
+    let mut s = String::with_capacity(bytes.len() * 2);
+    for &b in bytes {
+        s.push(HEX_CHARS[(b >> 4) as usize] as char);
+        s.push(HEX_CHARS[(b & 0x0f) as usize] as char);
+    }
+    s
 }
 
 #[cfg(test)]

@@ -9,7 +9,7 @@
 //! 2. **Graph**: Build a weighted reference graph of cross-declaration links.
 //! 3. **Partition**: Use MinCut to detect natural module boundaries.
 //! 4. **Infer**: Score and assign human-readable names to minified identifiers.
-//! 5. **Witness**: Generate a SHAKE-256 Merkle chain for cryptographic provenance.
+//! 5. **Witness**: Generate a SHA3-256 Merkle chain for cryptographic provenance.
 //!
 //! ## Quick Start
 //!
@@ -101,10 +101,11 @@ pub fn decompile(source: &str, config: &DecompileConfig) -> Result<DecompileResu
     // Phase 5: Witness chain.
     let witness_data = if config.generate_witness {
         let chain = witness::build_witness_chain(source, &modules, &filtered_names);
-        assert!(
-            witness::verify_witness_chain(&chain),
-            "witness chain failed self-verification"
-        );
+        if !witness::verify_witness_chain(&chain) {
+            return Err(DecompilerError::WitnessError(
+                "witness chain failed self-verification".to_string(),
+            ));
+        }
         witness::witness_to_data(&chain)
     } else {
         WitnessChainData {

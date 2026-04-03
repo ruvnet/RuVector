@@ -121,10 +121,19 @@ fn indent_braces(code: &str) -> String {
     let mut depth: usize = 0;
     let mut in_string = false;
     let mut string_char = '"';
+    let mut prev_was_escape = false;
 
     for ch in code.chars() {
         if in_string {
             result.push(ch);
+            if prev_was_escape {
+                prev_was_escape = false;
+                continue;
+            }
+            if ch == '\\' {
+                prev_was_escape = true;
+                continue;
+            }
             if ch == string_char {
                 in_string = false;
             }

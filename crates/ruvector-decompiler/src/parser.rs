@@ -3,10 +3,47 @@
 //! Extracts top-level declarations, string literals, property accesses,
 //! and cross-references from minified JS without a full AST.
 
+use std::collections::HashSet;
+
+use once_cell::sync::Lazy;
 use regex::Regex;
 
 use crate::error::{DecompilerError, Result};
 use crate::types::{DeclKind, Declaration};
+
+// Cached compiled regexes -- compiled once, reused across all calls.
+static VAR_RE: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(r"(?:^|[;}\s])(var|let|const)\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*=")
+        .expect("valid regex")
+});
+
+static FN_RE: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(r"(?:^|[;}\s])function\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*\(")
+        .expect("valid regex")
+});
+
+static CLASS_RE: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(r"(?:^|[;}\s])class\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*[{\(]")
+        .expect("valid regex")
+});
+
+static EXPORT_RE: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(r"(?:^|[;}\s])export\s+(?:default\s+)?(?:function|class|const|let|var)\s+([a-zA-Z_$][a-zA-Z0-9_$]*)")
+        .expect("valid regex")
+});
+
+static STRING_RE: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(r#""([^"\\]*(?:\\.[^"\\]*)*)"|'([^'\\]*(?:\\.[^'\\]*)*)'"#)
+        .expect("valid regex")
+});
+
+static PROP_RE: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(r"\.([a-zA-Z_$][a-zA-Z0-9_$]*)").expect("valid regex")
+});
+
+static IDENT_RE: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(r"\b([a-zA-Z_$][a-zA-Z0-9_$]*)\b").expect("valid regex")
+});
 
 /// Parse a minified JavaScript bundle and extract declarations.
 pub fn parse_bundle(source: &str) -> Result<Vec<Declaration>> {
@@ -28,29 +65,11 @@ pub fn parse_bundle(source: &str) -> Result<Vec<Declaration>> {
 fn extract_declarations(source: &str) -> Vec<Declaration> {
     let mut declarations = Vec::new();
 
-    // Pattern: var/let/const NAME = ...
-    let var_re = Regex::new(
-        r"(?:^|[;}\s])(var|let|const)\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*=",
-    )
-    .expect("valid regex");
-
-    // Pattern: function NAME(...)
-    let fn_re = Regex::new(
-        r"(?:^|[;}\s])function\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*\(",
-    )
-    .expect("valid regex");
-
-    // Pattern: class NAME
-    let class_re = Regex::new(
-        r"(?:^|[;}\s])class\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*[{\(]",
-    )
-    .expect("valid regex");
-
-    // Collect all known declaration names first (for cross-reference detection).
-    let mut all_names: Vec<String> = Vec::new();
+    // Use HashSet for O(1) name lookups during cross-reference detection.
+    let mut all_names: HashSet<String> = HashSet::new();
 
     // --- var/let/const ---
-    for cap in var_re.captures_iter(source) {
+    for cap in VAR_RE.captures_iter(source) {
         let kind = match &cap[1] {
             "var" => DeclKind::Var,
             "let" => DeclKind::Let,
@@ -61,7 +80,7 @@ fn extract_declarations(source: &str) -> Vec<Declaration> {
         let match_start = cap.get(0).map_or(0, |m| m.start());
         let body_end = find_declaration_end(source, match_start);
 
-        all_names.push(name.clone());
+        all_names.insert(name.clone());
         declarations.push(Declaration {
             name,
             kind,
@@ -73,12 +92,12 @@ fn extract_declarations(source: &str) -> Vec<Declaration> {
     }
 
     // --- function ---
-    for cap in fn_re.captures_iter(source) {
+    for cap in FN_RE.captures_iter(source) {
         let name = cap[1].to_string();
         let match_start = cap.get(0).map_or(0, |m| m.start());
         let body_end = find_declaration_end(source, match_start);
 
-        all_names.push(name.clone());
+        all_names.insert(name.clone());
         declarations.push(Declaration {
             name,
             kind: DeclKind::Function,
@@ -90,12 +109,12 @@ fn extract_declarations(source: &str) -> Vec<Declaration> {
     }
 
     // --- class ---
-    for cap in class_re.captures_iter(source) {
+    for cap in CLASS_RE.captures_iter(source) {
         let name = cap[1].to_string();
         let match_start = cap.get(0).map_or(0, |m| m.start());
         let body_end = find_declaration_end(source, match_start);
 
-        all_names.push(name.clone());
+        all_names.insert(name.clone());
         declarations.push(Declaration {
             name,
             kind: DeclKind::Class,
@@ -106,20 +125,35 @@ fn extract_declarations(source: &str) -> Vec<Declaration> {
         });
     }
 
-    // Second pass: extract metadata for each declaration.
-    let string_re = Regex::new(r#""([^"\\]*(?:\\.[^"\\]*)*)"|'([^'\\]*(?:\\.[^'\\]*)*)'"#)
-        .expect("valid regex");
-    let prop_re = Regex::new(r"\.([a-zA-Z_$][a-zA-Z0-9_$]*)").expect("valid regex");
-    let ident_re =
-        Regex::new(r"\b([a-zA-Z_$][a-zA-Z0-9_$]*)\b").expect("valid regex");
+    // --- export declarations (ES modules) ---
+    for cap in EXPORT_RE.captures_iter(source) {
+        let name = cap[1].to_string();
+        // Skip if already captured by var/fn/class regex.
+        if all_names.contains(&name) {
+            continue;
+        }
+        let match_start = cap.get(0).map_or(0, |m| m.start());
+        let body_end = find_declaration_end(source, match_start);
 
+        all_names.insert(name.clone());
+        declarations.push(Declaration {
+            name,
+            kind: DeclKind::Const, // Treat exports as const by default.
+            byte_range: (match_start, body_end),
+            string_literals: Vec::new(),
+            property_accesses: Vec::new(),
+            references: Vec::new(),
+        });
+    }
+
+    // Second pass: extract metadata for each declaration.
     for decl in &mut declarations {
         let (start, end) = decl.byte_range;
         let end = end.min(source.len());
         let body = &source[start..end];
 
         // Extract string literals.
-        for cap in string_re.captures_iter(body) {
+        for cap in STRING_RE.captures_iter(body) {
             let s = cap
                 .get(1)
                 .or_else(|| cap.get(2))
@@ -130,20 +164,22 @@ fn extract_declarations(source: &str) -> Vec<Declaration> {
             }
         }
 
-        // Extract property accesses.
-        for cap in prop_re.captures_iter(body) {
+        // Extract property accesses (use HashSet for dedup).
+        let mut seen_props: HashSet<String> = HashSet::new();
+        for cap in PROP_RE.captures_iter(body) {
             let prop = cap[1].to_string();
-            if !decl.property_accesses.contains(&prop) {
+            if seen_props.insert(prop.clone()) {
                 decl.property_accesses.push(prop);
             }
         }
 
-        // Extract cross-references to other declarations.
-        for cap in ident_re.captures_iter(body) {
+        // Extract cross-references to other declarations (use HashSet for dedup).
+        let mut seen_refs: HashSet<String> = HashSet::new();
+        for cap in IDENT_RE.captures_iter(body) {
             let ident = &cap[1];
             if ident != decl.name
-                && all_names.contains(&ident.to_string())
-                && !decl.references.contains(&ident.to_string())
+                && all_names.contains(ident)
+                && seen_refs.insert(ident.to_string())
             {
                 decl.references.push(ident.to_string());
             }

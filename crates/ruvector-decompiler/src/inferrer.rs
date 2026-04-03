@@ -72,8 +72,8 @@ static PROPERTY_PATTERNS: &[(&str, &str)] = &[
     ("path", "path_handler"),
     ("url", "url_handler"),
     ("method", "method_handler"),
-    ("children", "parent_node"),
-    ("parent", "child_node"),
+    ("children", "container_node"),
+    ("parent", "nested_node"),
     ("props", "props_handler"),
 ];
 
