@@ -79,7 +79,17 @@ Phase 8 (Validate):  878/878 parse (100%) — auto-fixed
 Output: source/ (878 .js files) + witness.json + metrics.json
 ```
 
-Discovered: 498 env vars, 25+ tools, 6 permission modes, and unreleased features (dream mode, remote sessions, plugin marketplace, Plan V2 multi-agent). [Full details →](https://github.com/ruvnet/rudevolution/releases/tag/v0.1.0-claude-code-v2.0.62)
+### 📥 Pre-Built Releases
+
+Every major Claude Code version, decompiled and downloadable:
+
+| Version | Bundle | Declarations | Key Discoveries | Download |
+|---------|--------|:------------:|-----------------|:--------:|
+| **v2.1.91** | 13.2 MB | 34,759 | 🤖 Agent Teams, 🌙 Auto Dream Mode, 🔮 opus-4-6/sonnet-4-6 models, 🔐 Amber codenames, 🧰 Advisor Tool, 📡 MCP Streamable HTTP | [**Latest →**](https://github.com/ruvnet/rudevolution/releases/tag/v0.1.0-claude-code-v2.1.91) |
+| v2.0.62 | 11.0 MB | 27,477 | 498 env vars, Plan V2, plugin marketplace, remote sessions | [Download](https://github.com/ruvnet/rudevolution/releases/tag/v0.1.0-claude-code-v2.0.62) |
+| v2.0.77 | 10.5 MB | 20,395 | Skills, 39 slash commands, custom agents, multi-provider auth | [Download](https://github.com/ruvnet/rudevolution/releases/tag/v0.1.0-claude-code-v2.0.77) |
+| v1.0.128 | 8.9 MB | 16,593 | Agent tool, WebFetch, hooks system, context compaction | [Download](https://github.com/ruvnet/rudevolution/releases/tag/v0.1.0-claude-code-v1.0.128) |
+| v0.2.126 | 6.9 MB | 13,869 | Core architecture, tools, MCP client, permissions | [Download](https://github.com/ruvnet/rudevolution/releases/tag/v0.1.0-claude-code-v0.2.126) |
 
 ### 🏃 It Runs. It's Modifiable.
 
