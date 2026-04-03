@@ -25,6 +25,77 @@
 
 ---
 
+## ⚡ Quick Start — Decompile Claude Code in 30 Seconds
+
+```bash
+# Install
+npm install -g ruvector    # or use npx
+
+# Decompile Claude Code CLI (the tool you're using right now)
+npx ruvector decompile @anthropic-ai/claude-code --output ./claude-code-decompiled
+
+# Decompile any npm package
+npx ruvector decompile express
+npx ruvector decompile lodash --output ./lodash-src
+npx ruvector decompile ./bundle.min.js
+
+# Full pipeline with 878+ graph-detected modules (requires Rust)
+cargo run --release -p ruvector-decompiler --example run_on_cli -- \
+  $(npm root -g)/@anthropic-ai/claude-code/cli.js --output-dir ./claude-code-full
+```
+
+**Example output** (Claude Code → 878 modules, 100% valid JS, 30 seconds):
+```
+Phase 1 (Parse):     3.2s  — 27,477 declarations found
+Phase 2 (Graph):     0.4s  — 353,323 reference edges
+Phase 3 (Partition): 0.9s  — 1,029 modules (Louvain community detection)
+Phase 4 (Infer):    13.4s  — 25,465 names recovered (95.7% accuracy)
+Phase 5 (Witness):   <0.1s — SHA3-256 Merkle proof
+Phase 8 (Validate):  878/878 parse (100%) — auto-fixed
+
+Output: source/ (878 .js files) + witness.json + metrics.json
+```
+
+### 🔍 What It Finds in Claude Code
+
+The decompiler reveals the internal architecture of any npm package. For Claude Code, it uncovers:
+- **27,477 declarations** — every function, class, and variable
+- **1,029 modules** — detected by analyzing the reference graph, not keyword matching
+- **498 environment variables** — `CLAUDE_CODE_*` feature flags
+- **25+ built-in tools** — Bash, Read, Edit, Write, Glob, Grep, Agent, WebFetch...
+- **6 permission modes** — acceptEdits, bypassPermissions, default, dontAsk, plan, auto
+- **Unreleased features** — dream mode, remote sessions, plugin marketplace, Plan V2 multi-agent
+
+---
+
+## ⚖️ Legal Basis
+
+**Reverse engineering published software for interoperability is legal** in most jurisdictions:
+
+| Jurisdiction | Law | What It Allows |
+|-------------|-----|----------------|
+| 🇺🇸 **United States** | DMCA §1201(f), Copyright Act §117 | Reverse engineering for interoperability, security research, and understanding how software you own a copy of works |
+| 🇪🇺 **European Union** | Software Directive (2009/24/EC), Art. 6 | Decompilation for interoperability without authorization from the rightholder |
+| 🇬🇧 **United Kingdom** | Copyright, Designs and Patents Act 1988, §50B | Decompilation for interoperability purposes |
+| 🇦🇺 **Australia** | Copyright Act 1968, §47D | Reverse engineering for interoperability |
+
+**Key principles:**
+- 📦 **Published npm packages run on your machine** — you have a legitimate copy
+- 🔍 **Analysis for understanding** — learning how software works is fair use
+- 🔗 **Interoperability** — building extensions, MCP servers, and integrations requires understanding the interface
+- 🔐 **No circumvention** — we analyze the published JavaScript, not bypassing DRM or encryption
+- 📜 **No redistribution of original code** — the decompiler outputs *your analysis*, not a copy of the original
+
+**What ruDevolution does NOT do:**
+- ❌ Does not bypass authentication or DRM
+- ❌ Does not access unpublished source code
+- ❌ Does not redistribute original code
+- ❌ Does not violate terms of service (analyzing code you've installed is not prohibited)
+
+The **witness chain** provides cryptographic proof that every byte of output derives from the input — nothing fabricated, nothing added from external sources.
+
+---
+
 ## 🧠 What is ruDevolution?
 
 **ruDevolution** is a next-generation JavaScript decompiler built in pure Rust. It takes minified, obfuscated, or bundled JavaScript — the kind produced by esbuild, webpack, Terser, or any bundler — and reconstructs readable source code with original module boundaries, meaningful variable names, and full cryptographic provenance.
