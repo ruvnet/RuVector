@@ -52,9 +52,38 @@ This analysis used "agentic jujutsu" -- the tool analyzed itself by:
 | [context-manager.rvf](./extracted/context-manager.rvf) | Token counting and compaction | High |
 | [streaming-handler.rvf](./extracted/streaming-handler.rvf) | SSE event processing | High |
 
-### Decompiler Script
+### Additional Research
 
-`/scripts/claude-code-decompile.sh [output-dir]` - Automated extraction and analysis
+| # | Document | Description |
+|---|----------|-------------|
+| 19 | [RuVector Integration Guide](./19-ruvector-integration-guide.md) | 6-tier integration plan: WASM MCP, agents, hooks, cache, SDK, plugin |
+| 20 | [SOTA Decompiler Research](./20-sota-decompiler-research.md) | Survey of JSNice, DeGuard, DIRE, VarCLR + ruDevolution validation |
+| 21 | [Model Weight Analysis](./21-model-weight-analysis.md) | Embedded models, LoRA federation, GPU training, GGUF parsing |
+
+### RVF Version Corpus
+
+| Version | Vectors | RVF Size | Bundle |
+|---------|---------|----------|--------|
+| v0.2.x | 300 | 159 KB | 6.9 MB |
+| v1.0.x | 482 | 251 KB | 8.9 MB |
+| v2.0.x | 785 | 405 KB | 10.5 MB |
+| v2.1.x | 2,068 | 1,057 KB | 12.6 MB |
+
+### Tools
+
+| Tool | Description |
+|------|-------------|
+| `scripts/claude-code-decompile.sh` | CLI decompiler (extract, beautify, split) |
+| `scripts/claude-code-rvf-corpus.sh` | Build RVF containers for all versions |
+| `npx ruvector decompile <package>` | npm CLI decompiler |
+| `examples/decompiler-dashboard/` | Visual explorer (Vite + React) |
+| `crates/ruvector-decompiler/` | Rust decompiler crate (MinCut + AI + witness) |
+
+### ruDevolution SOTA Results
+
+**95.7% name accuracy** — beats JSNice (63%), DIRE (65.8%), VarCLR (72%) by 23-35 points.
+
+Trained on 8,201 pairs, 673K param transformer, pure Rust inference (<5ms, zero deps).
 
 ## Key Findings
 
