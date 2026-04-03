@@ -53,61 +53,33 @@ npx ruvector decompile <package>
 ## ⚡ Quick Start
 
 ```bash
-# AI CLI tools (closed source, minified bundles)
-npx ruvector decompile @anthropic-ai/claude-code       # Claude Code CLI
-npx ruvector decompile @google-cloud/vertexai           # Google Vertex AI SDK
-npx ruvector decompile @aws-sdk/client-bedrock-runtime  # AWS Bedrock
-npx ruvector decompile openai                           # OpenAI SDK
-npx ruvector decompile @azure/openai                    # Azure OpenAI
-npx ruvector decompile @mistralai/mistralai             # Mistral AI
-npx ruvector decompile replicate                        # Replicate
-npx ruvector decompile @huggingface/inference           # HuggingFace
-
-# Cloud provider CLIs
-npx ruvector decompile @google-cloud/functions-framework
-npx ruvector decompile @aws-sdk/client-lambda
-npx ruvector decompile @azure/functions
-npx ruvector decompile firebase-tools
-npx ruvector decompile vercel
-npx ruvector decompile netlify-cli
-npx ruvector decompile wrangler                         # Cloudflare Workers
-
-# Developer tools
-npx ruvector decompile @modelcontextprotocol/sdk        # MCP SDK
-npx ruvector decompile @copilot-extensions/preview-sdk  # GitHub Copilot
-npx ruvector decompile @cursor/cursor                   # Cursor AI
-npx ruvector decompile vscode                           # VS Code extensions
-
-# Any local file or URL
-npx ruvector decompile ./dist/bundle.min.js
-npx ruvector decompile https://unpkg.com/react
-
-# Full pipeline with 878+ graph-detected modules (requires Rust)
-cargo run --release -p ruvector-decompiler --example run_on_cli -- \
-  $(npm root -g)/@anthropic-ai/claude-code/cli.js --output-dir ./claude-code-full
+npx ruvector decompile @anthropic-ai/claude-code
 ```
 
-**Example output** (Claude Code → 878 modules, 100% valid JS, 30 seconds):
+That's it. One command → 878 modules, 100% valid JavaScript, cryptographic witness chain.
+
+📥 **[Download pre-built Claude Code decompilation →](https://github.com/ruvnet/rudevolution/releases/tag/v0.1.0-claude-code-v2.0.62)**
+
+```bash
+# Or decompile anything
+npx ruvector decompile <package-name>       # any npm package
+npx ruvector decompile ./bundle.min.js      # local file
+npx ruvector decompile https://unpkg.com/x  # URL
+```
+
+### Claude Code Example Output
+
 ```
 Phase 1 (Parse):     3.2s  — 27,477 declarations found
 Phase 2 (Graph):     0.4s  — 353,323 reference edges
 Phase 3 (Partition): 0.9s  — 1,029 modules (Louvain community detection)
 Phase 4 (Infer):    13.4s  — 25,465 names recovered (95.7% accuracy)
-Phase 5 (Witness):   <0.1s — SHA3-256 Merkle proof
 Phase 8 (Validate):  878/878 parse (100%) — auto-fixed
 
 Output: source/ (878 .js files) + witness.json + metrics.json
 ```
 
-### 🔍 What It Finds in Claude Code
-
-The decompiler reveals the internal architecture of any npm package. For Claude Code, it uncovers:
-- **27,477 declarations** — every function, class, and variable
-- **1,029 modules** — detected by analyzing the reference graph, not keyword matching
-- **498 environment variables** — `CLAUDE_CODE_*` feature flags
-- **25+ built-in tools** — Bash, Read, Edit, Write, Glob, Grep, Agent, WebFetch...
-- **6 permission modes** — acceptEdits, bypassPermissions, default, dontAsk, plan, auto
-- **Unreleased features** — dream mode, remote sessions, plugin marketplace, Plan V2 multi-agent
+Discovered: 498 env vars, 25+ tools, 6 permission modes, and unreleased features (dream mode, remote sessions, plugin marketplace, Plan V2 multi-agent). [Full details →](https://github.com/ruvnet/rudevolution/releases/tag/v0.1.0-claude-code-v2.0.62)
 
 ---
 
@@ -218,6 +190,47 @@ cd examples/decompiler-dashboard
 npm install && npm run dev
 # Open http://localhost:5173 — browse versions, decompile packages, view RVF containers
 ```
+
+### What You Can Decompile
+
+Works on any npm package — including closed-source AI and cloud CLIs:
+
+<details>
+<summary><strong>📋 Supported packages (click to expand)</strong></summary>
+
+**AI Provider SDKs**
+```bash
+npx ruvector decompile @anthropic-ai/claude-code
+npx ruvector decompile openai
+npx ruvector decompile @google-cloud/vertexai
+npx ruvector decompile @aws-sdk/client-bedrock-runtime
+npx ruvector decompile @azure/openai
+npx ruvector decompile @mistralai/mistralai
+npx ruvector decompile replicate
+npx ruvector decompile @huggingface/inference
+```
+
+**Cloud Provider CLIs**
+```bash
+npx ruvector decompile firebase-tools
+npx ruvector decompile vercel
+npx ruvector decompile netlify-cli
+npx ruvector decompile wrangler
+npx ruvector decompile @google-cloud/functions-framework
+npx ruvector decompile @aws-sdk/client-lambda
+npx ruvector decompile @azure/functions
+```
+
+**Developer Tools**
+```bash
+npx ruvector decompile @modelcontextprotocol/sdk
+npx ruvector decompile @copilot-extensions/preview-sdk
+npx ruvector decompile typescript
+npx ruvector decompile esbuild
+npx ruvector decompile webpack
+```
+
+</details>
 
 ---
 
