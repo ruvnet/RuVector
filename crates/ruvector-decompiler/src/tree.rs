@@ -83,8 +83,11 @@ fn build_tree_recursive(
     min_folder_size: usize,
     parent_path: &str,
 ) -> ModuleTree {
-    // Base case: too few modules or max depth reached.
-    if indices.len() <= min_folder_size || depth >= max_depth {
+    // Base case: max depth reached, or folder is small enough to be a leaf.
+    // At depth 0: only leaf if <=min_folder_size modules
+    // At depth 1+: leaf if <=20 modules (enough granularity)
+    let leaf_threshold = if depth == 0 { min_folder_size } else { 20.min(min_folder_size * 5) };
+    if indices.len() <= leaf_threshold || depth >= max_depth {
         return make_leaf(all_modules, indices, depth, parent_path);
     }
 
@@ -170,8 +173,11 @@ fn agglomerative_cluster(
 
     let mut clusters: Vec<Vec<usize>> = indices.iter().map(|&i| vec![i]).collect();
 
+    // Target: 5-15 top-level folders for large codebases, 3-5 for small
+    let target_clusters = if n > 500 { 10 } else if n > 100 { 7 } else if n > 20 { 5 } else { 3 };
+
     loop {
-        if clusters.len() <= 2 {
+        if clusters.len() <= target_clusters {
             break;
         }
 
@@ -181,7 +187,9 @@ fn agglomerative_cluster(
         for i in 0..clusters.len() {
             for j in (i + 1)..clusters.len() {
                 let w = cluster_edge_weight(&clusters[i], &clusters[j], inter_module);
-                let normalized = w / ((clusters[i].len() + clusters[j].len()) as f64);
+                // Normalize by geometric mean of sizes (prevents giant clusters from absorbing everything)
+                let size_factor = ((clusters[i].len() * clusters[j].len()) as f64).sqrt().max(1.0);
+                let normalized = w / size_factor;
                 if normalized > best_weight {
                     best_weight = normalized;
                     best_pair = (i, j);
@@ -189,8 +197,38 @@ fn agglomerative_cluster(
             }
         }
 
-        if best_weight <= 0.0 || clusters.len() <= 3 {
+        // Stop if no connections remain
+        if best_weight <= 0.0 {
             break;
+        }
+
+        // Don't merge if result would be too large (max 20% of total)
+        let max_cluster = (n / 5).max(min_size * 3);
+        if clusters[best_pair.0].len() + clusters[best_pair.1].len() > max_cluster {
+            // Try next best pair that doesn't exceed max
+            let mut found = false;
+            for i in 0..clusters.len() {
+                for j in (i+1)..clusters.len() {
+                    if clusters[i].len() + clusters[j].len() <= max_cluster {
+                        let w = cluster_edge_weight(&clusters[i], &clusters[j], inter_module);
+                        if w > 0.0 {
+                            let merged = {
+                                let mut m = clusters[i].clone();
+                                m.extend_from_slice(&clusters[j]);
+                                m
+                            };
+                            clusters.remove(j);
+                            clusters.remove(i);
+                            clusters.push(merged);
+                            found = true;
+                            break;
+                        }
+                    }
+                }
+                if found { break; }
+            }
+            if !found { break; }
+            continue;
         }
 
         let (i, j) = best_pair;
